@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
 import 'package:zkteco_flutter_client/l10n/app_tr.dart';
 
+import '../theme/sbox_tokens.dart';
 /// Loại thao tác chấm công (thêm / sửa / xóa) — dùng cho gợi ý và mẫu ghi chú.
 enum AttendanceCorrectionReasonKind { add, edit, delete }
 
@@ -115,7 +116,7 @@ class _AttendanceCorrectionReasonFieldState
         ),
         const SizedBox(height: 6),
         Text(tr('Chọn gợi ý hoặc chỉnh sửa nội dung bên dưới'),
-          style: TextStyle(fontSize: 12, color: Colors.grey.shade600),
+          style: TextStyle(fontSize: 12, color: SboxColors.slate600),
         ),
         const SizedBox(height: 8),
         Wrap(

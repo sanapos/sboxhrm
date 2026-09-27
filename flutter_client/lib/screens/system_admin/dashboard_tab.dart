@@ -10,6 +10,7 @@ import 'system_admin_helpers.dart';
 import 'package:zkteco_flutter_client/l10n/app_tr.dart';
 import 'package:zkteco_flutter_client/l10n/app_ui_locale.dart';
 
+import '../../theme/sbox_tokens.dart';
 class DashboardTab extends StatefulWidget {
   final bool agentMode;
   final VoidCallback? onLoaded;
@@ -294,10 +295,10 @@ class DashboardTabState extends State<DashboardTab> {
     if (_dashboard == null) {
       return Center(
           child: Column(mainAxisSize: MainAxisSize.min, children: [
-        Icon(Icons.shield, size: 80, color: Colors.grey[300]),
+        Icon(Icons.shield, size: 80, color: SboxColors.slate300),
         const SizedBox(height: 16),
         Text(tr('Không thể tải dữ liệu dashboard'),
-            style: TextStyle(color: Colors.grey[500])),
+            style: TextStyle(color: SboxColors.slate500)),
         const SizedBox(height: 12),
         FilledButton.icon(
             onPressed: loadData,
@@ -319,11 +320,11 @@ class DashboardTabState extends State<DashboardTab> {
                 Padding(
                   padding: const EdgeInsets.only(bottom: 12),
                   child: Row(children: [
-                    Icon(Icons.touch_app, size: 16, color: Colors.grey[400]),
+                    Icon(Icons.touch_app, size: 16, color: SboxColors.slate400),
                     const SizedBox(width: 6),
                     Text(tr('Nhấn vào thẻ số liệu để xem chi tiết'),
                         style: TextStyle(
-                            color: Colors.grey[500],
+                            color: SboxColors.slate500,
                             fontSize: 12,
                             fontStyle: FontStyle.italic)),
                     const Spacer(),
@@ -438,7 +439,7 @@ class DashboardTabState extends State<DashboardTab> {
                 style: TextStyle(
                     fontWeight: FontWeight.w600,
                     fontSize: 14,
-                    color: Colors.grey[700])),
+                    color: SboxColors.slate700)),
           ]),
           const SizedBox(height: 10),
           if (mobile)
@@ -472,16 +473,16 @@ class DashboardTabState extends State<DashboardTab> {
                             fontSize: 12,
                             color: _selectedPeriod == 'custom'
                                 ? Colors.white
-                                : Colors.grey[700],
+                                : SboxColors.slate700,
                           ),
                         ),
                         backgroundColor: _selectedPeriod == 'custom'
                             ? AdminHelpers.primary
-                            : Colors.grey[100],
+                            : SboxColors.slate100,
                         side: BorderSide(
                           color: _selectedPeriod == 'custom'
                               ? AdminHelpers.primary
-                              : Colors.grey.shade300,
+                              : SboxColors.slate300,
                         ),
                         onPressed: _pickCustomRange,
                       )
@@ -507,7 +508,7 @@ class DashboardTabState extends State<DashboardTab> {
     return SizedBox(
       width: double.infinity,
       child: Material(
-        color: selected ? AdminHelpers.primary : Colors.grey[100],
+        color: selected ? AdminHelpers.primary : SboxColors.slate100,
         borderRadius: BorderRadius.circular(10),
         child: InkWell(
           borderRadius: BorderRadius.circular(10),
@@ -518,7 +519,7 @@ class DashboardTabState extends State<DashboardTab> {
             decoration: BoxDecoration(
               borderRadius: BorderRadius.circular(10),
               border: Border.all(
-                color: selected ? AdminHelpers.primary : Colors.grey.shade300,
+                color: selected ? AdminHelpers.primary : SboxColors.slate300,
               ),
             ),
             child: Row(
@@ -536,7 +537,7 @@ class DashboardTabState extends State<DashboardTab> {
                       fontSize: 13,
                       fontWeight:
                           selected ? FontWeight.w600 : FontWeight.w500,
-                      color: selected ? Colors.white : Colors.grey[800],
+                      color: selected ? Colors.white : SboxColors.slate800,
                     ),
                   ),
                 ),
@@ -555,12 +556,12 @@ class DashboardTabState extends State<DashboardTab> {
     final selected = _selectedPeriod == period;
     return ChoiceChip(
       label: Text(tr(label), style: TextStyle(fontSize: 12,
-          color: selected ? Colors.white : Colors.grey[700])),
+          color: selected ? Colors.white : SboxColors.slate700)),
       selected: selected,
       selectedColor: AdminHelpers.primary,
-      backgroundColor: Colors.grey[100],
+      backgroundColor: SboxColors.slate100,
       side: BorderSide(
-          color: selected ? AdminHelpers.primary : Colors.grey.shade300),
+          color: selected ? AdminHelpers.primary : SboxColors.slate300),
       onSelected: (_) => _setPeriod(period),
       visualDensity: VisualDensity.compact,
     );
@@ -608,8 +609,8 @@ class DashboardTabState extends State<DashboardTab> {
               child: Text(tr('POS — bán hàng & vận hành'),
                   style: TextStyle(
                       fontWeight: FontWeight.bold,
-                      fontSize: 15,
-                      color: Colors.grey[800])),
+                      fontSize: 16,
+                      color: SboxColors.slate800)),
             ),
             Container(
               padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
@@ -627,7 +628,7 @@ class DashboardTabState extends State<DashboardTab> {
           const SizedBox(height: 6),
           Text(
             tr('Chọn cửa hàng để xem tổng quan POS của cửa hàng đó. Thẻ Thiết bị phía trên là máy chấm công ZKTeco.'),
-            style: TextStyle(fontSize: 12, color: Colors.grey[600]),
+            style: TextStyle(fontSize: 12, color: SboxColors.slate600),
           ),
           const SizedBox(height: 10),
           _buildPosStorePicker(),
@@ -655,7 +656,7 @@ class DashboardTabState extends State<DashboardTab> {
           const SizedBox(height: 14),
           Text(tr('Vận hành realtime'),
               style: TextStyle(
-                  fontWeight: FontWeight.w700, color: Colors.grey[800])),
+                  fontWeight: FontWeight.w700, color: SboxColors.slate800)),
           const SizedBox(height: 10),
           Wrap(spacing: 10, runSpacing: 10, children: [
             _buildPosKpi(
@@ -729,7 +730,7 @@ class DashboardTabState extends State<DashboardTab> {
             const SizedBox(height: 16),
             Text(tr('Từng cửa hàng'),
                 style: TextStyle(
-                    fontWeight: FontWeight.w700, color: Colors.grey[800])),
+                    fontWeight: FontWeight.w700, color: SboxColors.slate800)),
             const SizedBox(height: 8),
             Wrap(
               spacing: 10,
@@ -809,20 +810,20 @@ class DashboardTabState extends State<DashboardTab> {
         color: selected
             ? AdminHelpers.primary.withValues(alpha: 0.06)
             : Colors.white,
-        borderRadius: BorderRadius.circular(12),
+        borderRadius: BorderRadius.circular(14),
         child: InkWell(
-          borderRadius: BorderRadius.circular(12),
+          borderRadius: BorderRadius.circular(14),
           onTap: () => _selectPosStore(selected ? null : id),
           child: Container(
             padding: const EdgeInsets.all(12),
             decoration: BoxDecoration(
-              borderRadius: BorderRadius.circular(12),
+              borderRadius: BorderRadius.circular(14),
               border: Border.all(
                 color: selected
                     ? AdminHelpers.primary
                     : (failed > 0 || oos > 0 || badPrinter > 0)
                         ? AdminHelpers.danger.withValues(alpha: 0.45)
-                        : Colors.grey.shade300,
+                        : SboxColors.slate300,
               ),
             ),
             child: Column(
@@ -831,7 +832,7 @@ class DashboardTabState extends State<DashboardTab> {
                 Text('${s['storeName'] ?? s['StoreName'] ?? ''}',
                     style: const TextStyle(fontWeight: FontWeight.w700)),
                 Text('${s['storeCode'] ?? s['StoreCode'] ?? ''}',
-                    style: TextStyle(fontSize: 11, color: Colors.grey[600])),
+                    style: TextStyle(fontSize: 11, color: SboxColors.slate600)),
                 const SizedBox(height: 8),
                 Text(
                   tr('Hôm nay ${_vnd(s['todayRevenue'] ?? s['TodayRevenue'])} · ${s['todayOrders'] ?? s['TodayOrders'] ?? 0} đơn'),
@@ -844,7 +845,7 @@ class DashboardTabState extends State<DashboardTab> {
                 const SizedBox(height: 4),
                 Text(
                   tr('Agent ${s['printAgentsOnline'] ?? 0}/${s['printAgentsTotal'] ?? 0} · in lỗi $failed · hết hàng $oos · bàn mở ${s['openDraftOrders'] ?? 0}'),
-                  style: TextStyle(fontSize: 11, color: Colors.grey[700]),
+                  style: TextStyle(fontSize: 11, color: SboxColors.slate700),
                 ),
               ],
             ),
@@ -867,7 +868,7 @@ class DashboardTabState extends State<DashboardTab> {
       child: Container(
         padding: const EdgeInsets.all(12),
         decoration: BoxDecoration(
-          borderRadius: BorderRadius.circular(12),
+          borderRadius: BorderRadius.circular(14),
           border: Border.all(color: color.withValues(alpha: 0.28)),
           color: color.withValues(alpha: 0.05),
         ),
@@ -882,11 +883,11 @@ class DashboardTabState extends State<DashboardTab> {
                     maxLines: 1,
                     overflow: TextOverflow.ellipsis,
                     style: TextStyle(
-                        fontSize: 15,
+                        fontSize: 16,
                         fontWeight: FontWeight.bold,
                         color: color)),
                 Text(tr(label),
-                    style: TextStyle(fontSize: 11, color: Colors.grey[600])),
+                    style: TextStyle(fontSize: 11, color: SboxColors.slate600)),
               ],
             ),
           ),
@@ -909,8 +910,8 @@ class DashboardTabState extends State<DashboardTab> {
             Text(tr('Thống kê theo khoảng thời gian'),
                 style: TextStyle(
                     fontWeight: FontWeight.bold,
-                    fontSize: 15,
-                    color: Colors.grey[800])),
+                    fontSize: 16,
+                    color: SboxColors.slate800)),
             const Spacer(),
             Container(
               padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
@@ -990,15 +991,15 @@ class DashboardTabState extends State<DashboardTab> {
       width: mobile ? double.infinity : 200,
       child: Material(
         color: Colors.white,
-        borderRadius: BorderRadius.circular(12),
+        borderRadius: BorderRadius.circular(14),
         child: InkWell(
           onTap: onTap,
-          borderRadius: BorderRadius.circular(12),
+          borderRadius: BorderRadius.circular(14),
           hoverColor: color.withValues(alpha: 0.04),
           child: Container(
             padding: const EdgeInsets.all(14),
             decoration: BoxDecoration(
-              borderRadius: BorderRadius.circular(12),
+              borderRadius: BorderRadius.circular(14),
               border: Border.all(color: color.withValues(alpha: 0.3)),
               color: color.withValues(alpha: 0.04),
             ),
@@ -1007,7 +1008,7 @@ class DashboardTabState extends State<DashboardTab> {
                 padding: const EdgeInsets.all(8),
                 decoration: BoxDecoration(
                     color: color.withValues(alpha: 0.15),
-                    borderRadius: BorderRadius.circular(8)),
+                    borderRadius: BorderRadius.circular(10)),
                 child: Icon(icon, color: color, size: 20),
               ),
               const SizedBox(width: 12),
@@ -1022,7 +1023,7 @@ class DashboardTabState extends State<DashboardTab> {
                               color: color)),
                       Text(tr(label),
                           style: TextStyle(
-                              color: Colors.grey[600], fontSize: 12)),
+                              color: SboxColors.slate600, fontSize: 12)),
                     ]),
               ),
             ]),
@@ -1143,15 +1144,15 @@ class DashboardTabState extends State<DashboardTab> {
                               color: color)),
                       Text(tr(label),
                           style:
-                              TextStyle(color: Colors.grey[600], fontSize: 12)),
+                              TextStyle(color: SboxColors.slate600, fontSize: 12)),
                       if (sub != null)
                         Text(tr(sub),
                             style: TextStyle(
-                                color: Colors.grey[500], fontSize: 11)),
+                                color: SboxColors.slate500, fontSize: 11)),
                     ]),
               ),
               Icon(Icons.arrow_forward_ios,
-                  size: 14, color: Colors.grey[400]),
+                  size: 14, color: SboxColors.slate400),
             ]),
           ),
         ),
@@ -1175,7 +1176,7 @@ class DashboardTabState extends State<DashboardTab> {
                 style: TextStyle(
                     fontWeight: FontWeight.bold,
                     fontSize: 16,
-                    color: Colors.grey[800])),
+                    color: SboxColors.slate800)),
             const Spacer(),
             Container(
               padding:
@@ -1223,7 +1224,7 @@ class DashboardTabState extends State<DashboardTab> {
                     Expanded(
                         child: Text(tr(c['name'] ?? ''),
                             style: TextStyle(
-                                color: Colors.grey[700], fontSize: 13))),
+                                color: SboxColors.slate700, fontSize: 13))),
                     Text(
                         tr(() {
                           final v = c['value'];
@@ -1253,7 +1254,7 @@ class DashboardTabState extends State<DashboardTab> {
                       : Colors.orange),
               const SizedBox(width: 8),
               Text(tr('${tr('Trạng thái: ')}${_health?['status'] ?? 'N/A'}'),
-                  style: TextStyle(color: Colors.grey[700])),
+                  style: TextStyle(color: SboxColors.slate700)),
             ]),
         ],
       ),
@@ -1283,7 +1284,7 @@ class DashboardTabState extends State<DashboardTab> {
                 style: TextStyle(
                     fontWeight: FontWeight.bold,
                     fontSize: 16,
-                    color: Colors.grey[800])),
+                    color: SboxColors.slate800)),
           ]),
           const SizedBox(height: 16),
           // Progress bar for online/offline ratio
@@ -1295,7 +1296,7 @@ class DashboardTabState extends State<DashboardTab> {
                 children: [
                   Text(tr('Online: $onlineDevices / $totalDevices'),
                       style: TextStyle(
-                          fontSize: 13, color: Colors.grey[700])),
+                          fontSize: 13, color: SboxColors.slate700)),
                   Text(tr('${(onlineRatio * 100).toStringAsFixed(0)}%'),
                       style: const TextStyle(
                           fontSize: 13,
@@ -1309,7 +1310,7 @@ class DashboardTabState extends State<DashboardTab> {
                 child: LinearProgressIndicator(
                   value: onlineRatio,
                   minHeight: 10,
-                  backgroundColor: Colors.grey.shade200,
+                  backgroundColor: SboxColors.slate200,
                   valueColor: const AlwaysStoppedAnimation<Color>(
                       AdminHelpers.success),
                 ),
@@ -1318,7 +1319,7 @@ class DashboardTabState extends State<DashboardTab> {
               Row(children: [
                 _legendDot(AdminHelpers.success, 'Online ($onlineDevices)'),
                 const SizedBox(width: 16),
-                _legendDot(Colors.grey, 'Offline ($offlineDevices)'),
+                _legendDot(SboxColors.slate500, 'Offline ($offlineDevices)'),
               ]),
             ],
           ),
@@ -1368,10 +1369,10 @@ class DashboardTabState extends State<DashboardTab> {
                   style: TextStyle(
                       fontWeight: FontWeight.bold,
                       fontSize: 16,
-                      color: Colors.grey[800])),
+                      color: SboxColors.slate800)),
             ),
             Text(tr('Cảnh báo ≥ ${threshold.toStringAsFixed(0)}%'),
-                style: TextStyle(fontSize: 11, color: Colors.grey[600])),
+                style: TextStyle(fontSize: 11, color: SboxColors.slate600)),
           ]),
           if (anyAlert) ...[
             const SizedBox(height: 10),
@@ -1380,7 +1381,7 @@ class DashboardTabState extends State<DashboardTab> {
               padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
               decoration: BoxDecoration(
                 color: AdminHelpers.warning.withValues(alpha: 0.12),
-                borderRadius: BorderRadius.circular(8),
+                borderRadius: BorderRadius.circular(10),
                 border: Border.all(
                     color: AdminHelpers.warning.withValues(alpha: 0.4)),
               ),
@@ -1458,7 +1459,7 @@ class DashboardTabState extends State<DashboardTab> {
       {String? subtitle}) {
     final pct = ((value ?? 0) / 100).clamp(0.0, 1.0);
     final color = value == null || value < 0
-        ? Colors.grey
+        ? SboxColors.slate500
         : (alert
             ? AdminHelpers.danger
             : (value >= 55 ? AdminHelpers.warning : AdminHelpers.success));
@@ -1475,11 +1476,11 @@ class DashboardTabState extends State<DashboardTab> {
               style: TextStyle(
                   fontSize: 13,
                   fontWeight: FontWeight.w600,
-                  color: Colors.grey[800])),
+                  color: SboxColors.slate800)),
           if (subtitle != null) ...[
             const SizedBox(width: 8),
             Text(tr(subtitle),
-                style: TextStyle(fontSize: 11, color: Colors.grey[500])),
+                style: TextStyle(fontSize: 11, color: SboxColors.slate500)),
           ],
           const Spacer(),
           Text(tr(text),
@@ -1492,7 +1493,7 @@ class DashboardTabState extends State<DashboardTab> {
           child: LinearProgressIndicator(
             value: value == null || value < 0 ? 0 : pct,
             minHeight: 10,
-            backgroundColor: Colors.grey.shade200,
+            backgroundColor: SboxColors.slate200,
             valueColor: AlwaysStoppedAnimation<Color>(color),
           ),
         ),
@@ -1507,7 +1508,7 @@ class DashboardTabState extends State<DashboardTab> {
         child: Center(
           child: Text(
             tr('Đang thu thập dữ liệu theo thời gian (mỗi 1 phút)…'),
-            style: TextStyle(fontSize: 12, color: Colors.grey[500]),
+            style: TextStyle(fontSize: 12, color: SboxColors.slate500),
             textAlign: TextAlign.center,
           ),
         ),
@@ -1643,7 +1644,7 @@ class DashboardTabState extends State<DashboardTab> {
         const SizedBox(height: 6),
         Text(
           tr('Trục thời gian: giờ Việt Nam (UTC+7)'),
-          style: TextStyle(fontSize: 11, color: Colors.grey[500]),
+          style: TextStyle(fontSize: 11, color: SboxColors.slate500),
         ),
       ],
     );
@@ -1708,7 +1709,7 @@ class DashboardTabState extends State<DashboardTab> {
           decoration: BoxDecoration(
               color: color, borderRadius: BorderRadius.circular(3))),
       const SizedBox(width: 6),
-      Text(tr(label), style: TextStyle(fontSize: 12, color: Colors.grey[600])),
+      Text(tr(label), style: TextStyle(fontSize: 12, color: SboxColors.slate600)),
     ]);
   }
 
@@ -1736,7 +1737,7 @@ class DashboardTabState extends State<DashboardTab> {
                 style: TextStyle(
                     fontWeight: FontWeight.bold,
                     fontSize: 16,
-                    color: Colors.grey[800])),
+                    color: SboxColors.slate800)),
             const Spacer(),
             TextButton.icon(
               onPressed: widget.onNavigateToStores,
@@ -1751,7 +1752,7 @@ class DashboardTabState extends State<DashboardTab> {
                 'Hoạt động', activeStores is int ? activeStores : 0,
                 AdminHelpers.success),
             if (inactiveStores > 0)
-              AdminHelpers.countBadge('Tạm tắt', inactiveStores, Colors.grey),
+              AdminHelpers.countBadge('Tạm tắt', inactiveStores, SboxColors.slate500),
             if (lockedStores != null && (lockedStores as num) > 0)
               AdminHelpers.countBadge(
                   'Bị khóa', lockedStores is int ? lockedStores : 0,
@@ -1765,7 +1766,7 @@ class DashboardTabState extends State<DashboardTab> {
                 style: TextStyle(
                     fontWeight: FontWeight.w600,
                     fontSize: 13,
-                    color: Colors.grey[700])),
+                    color: SboxColors.slate700)),
             const SizedBox(height: 10),
             ...storeStats.take(5).map((s) {
               final store = s is Map ? s : {};
@@ -1776,8 +1777,8 @@ class DashboardTabState extends State<DashboardTab> {
                 padding: const EdgeInsets.all(10),
                 decoration: BoxDecoration(
                   color: AdminHelpers.surfaceBg,
-                  borderRadius: BorderRadius.circular(8),
-                  border: Border.all(color: Colors.grey.shade200),
+                  borderRadius: BorderRadius.circular(10),
+                  border: Border.all(color: SboxColors.slate200),
                 ),
                 child: InkWell(
                   onTap: widget.onNavigateToStores,
@@ -1789,7 +1790,7 @@ class DashboardTabState extends State<DashboardTab> {
                         shape: BoxShape.circle,
                         color: isActive
                             ? AdminHelpers.success
-                            : Colors.grey,
+                            : SboxColors.slate500,
                       ),
                     ),
                     const SizedBox(width: 10),
@@ -1819,9 +1820,9 @@ class DashboardTabState extends State<DashboardTab> {
 
   Widget _miniStat(IconData icon, String value) {
     return Row(mainAxisSize: MainAxisSize.min, children: [
-      Icon(icon, size: 12, color: Colors.grey[500]),
+      Icon(icon, size: 12, color: SboxColors.slate500),
       const SizedBox(width: 3),
-      Text(tr(value), style: TextStyle(fontSize: 11, color: Colors.grey[600])),
+      Text(tr(value), style: TextStyle(fontSize: 11, color: SboxColors.slate600)),
     ]);
   }
 
@@ -1843,8 +1844,8 @@ class DashboardTabState extends State<DashboardTab> {
             Text(tr('Thông báo hoạt động'),
                 style: TextStyle(
                     fontWeight: FontWeight.bold,
-                    fontSize: 15,
-                    color: Colors.grey[800])),
+                    fontSize: 16,
+                    color: SboxColors.slate800)),
             const Spacer(),
             Container(
               padding:
@@ -1893,7 +1894,7 @@ class DashboardTabState extends State<DashboardTab> {
                     padding: const EdgeInsets.all(6),
                     decoration: BoxDecoration(
                         color: color.withValues(alpha: 0.12),
-                        borderRadius: BorderRadius.circular(8)),
+                        borderRadius: BorderRadius.circular(10)),
                     child: Icon(icon, color: color, size: 16),
                   ),
                   const SizedBox(width: 10),
@@ -1913,7 +1914,7 @@ class DashboardTabState extends State<DashboardTab> {
                             child: Text(tr('Cửa hàng: $storeName'),
                                 style: TextStyle(
                                     fontSize: 11,
-                                    color: Colors.grey[500])),
+                                    color: SboxColors.slate500)),
                           ),
                       ],
                     ),
@@ -1922,7 +1923,7 @@ class DashboardTabState extends State<DashboardTab> {
                     Text(tr(timeStr),
                         style: TextStyle(
                             fontSize: 11,
-                            color: Colors.grey[500])),
+                            color: SboxColors.slate500)),
                 ],
               ),
             );
@@ -1966,8 +1967,8 @@ class DashboardTabState extends State<DashboardTab> {
                   tr('Tra soát credit'),
                   style: TextStyle(
                     fontWeight: FontWeight.bold,
-                    fontSize: 15,
-                    color: Colors.grey[800],
+                    fontSize: 16,
+                    color: SboxColors.slate800,
                   ),
                 ),
               ),
@@ -2025,7 +2026,7 @@ class DashboardTabState extends State<DashboardTab> {
               return Container(
                 padding: const EdgeInsets.symmetric(vertical: 10),
                 decoration: const BoxDecoration(
-                  border: Border(bottom: BorderSide(color: Color(0xFFE4E4E7))),
+                  border: Border(bottom: BorderSide(color: SboxColors.slate200)),
                 ),
                 child: Row(
                   children: [
@@ -2067,7 +2068,7 @@ class DashboardTabState extends State<DashboardTab> {
                     ),
                     Expanded(
                       flex: 2,
-                      child: Text(paidAt, style: TextStyle(fontSize: 12, color: Colors.grey[600])),
+                      child: Text(paidAt, style: TextStyle(fontSize: 12, color: SboxColors.slate600)),
                     ),
                   ],
                 ),
@@ -2088,7 +2089,7 @@ class DashboardTabState extends State<DashboardTab> {
         padding: const EdgeInsets.all(8),
         decoration: BoxDecoration(
             color: AdminHelpers.primary.withValues(alpha: 0.1),
-            borderRadius: BorderRadius.circular(8)),
+            borderRadius: BorderRadius.circular(10)),
         child: const Icon(Icons.fingerprint,
             color: AdminHelpers.primary, size: 20),
       ),
@@ -2101,7 +2102,7 @@ class DashboardTabState extends State<DashboardTab> {
               style: TextStyle(fontSize: 16)),
           Text(tr('Tổng: $total lượt'),
               style:
-                  TextStyle(fontSize: 12, color: Colors.grey[600])),
+                  TextStyle(fontSize: 12, color: SboxColors.slate600)),
         ],
       )),
     ]);
@@ -2112,7 +2113,7 @@ class DashboardTabState extends State<DashboardTab> {
           height: height ?? 100,
           child: Center(
             child: Text(tr('Chưa có dữ liệu chấm công hôm nay'),
-                style: TextStyle(color: Colors.grey[500])),
+                style: TextStyle(color: SboxColors.slate500)),
           ),
         );
       }
@@ -2135,7 +2136,7 @@ class DashboardTabState extends State<DashboardTab> {
               decoration: BoxDecoration(
                 color: AdminHelpers.surfaceBg,
                 borderRadius: BorderRadius.circular(10),
-                border: Border.all(color: Colors.grey.shade200),
+                border: Border.all(color: SboxColors.slate200),
               ),
               child: Row(children: [
                 Container(
@@ -2159,7 +2160,7 @@ class DashboardTabState extends State<DashboardTab> {
                   decoration: BoxDecoration(
                       color: AdminHelpers.primary
                           .withValues(alpha: 0.1),
-                      borderRadius: BorderRadius.circular(8)),
+                      borderRadius: BorderRadius.circular(10)),
                   child: Text(tr('$count lượt'),
                       style: const TextStyle(
                           color: AdminHelpers.primary,
@@ -2208,7 +2209,7 @@ class DashboardTabState extends State<DashboardTab> {
       showDialog(
         context: context,
         builder: (ctx) => ScrollableAlertDialog(
-          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
           title: titleRow,
           content: SizedBox(
             width: 500,

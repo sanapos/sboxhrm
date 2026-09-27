@@ -15,6 +15,7 @@ import 'landing_guide_screen.dart';
 import '../widgets/landing_youtube_player.dart';
 import 'package:zkteco_flutter_client/l10n/app_tr.dart';
 
+import '../theme/sbox_tokens.dart';
 /// Landing/Marketing page for SBOX HRM.
 /// Nội dung (tiêu đề, mô tả, liên hệ...) load từ /api/publicsettings để
 /// SuperAdmin có thể chỉnh sửa trong tab "Trang Landing".
@@ -85,8 +86,8 @@ class _LandingScreenState extends State<LandingScreen> {
   bool _scrollSectionHandled = false;
 
   // Brand colors – Blue theme matching LoginScreen
-  static const Color kBlue = Color(0xFF0C56D0);
-  static const Color kDark = Color(0xFF111827);
+  static const Color kBlue = SboxColors.brand600;
+  static const Color kDark = SboxColors.slate900;
 
   @override
   void initState() {
@@ -401,7 +402,7 @@ class _LandingScreenState extends State<LandingScreen> {
                         overflow: TextOverflow.ellipsis,
                         style: const TextStyle(
                             color: kBlue,
-                            fontWeight: FontWeight.w900,
+                            fontWeight: FontWeight.w700,
                             fontSize: 16,
                             letterSpacing: 0.2),
                       ),
@@ -446,7 +447,7 @@ class _LandingScreenState extends State<LandingScreen> {
                               foregroundColor: kBlue,
                               side: const BorderSide(color: kBlue, width: 1.5),
                               shape: RoundedRectangleBorder(
-                                  borderRadius: BorderRadius.circular(8)),
+                                  borderRadius: BorderRadius.circular(10)),
                               padding: const EdgeInsets.symmetric(
                                   horizontal: 16, vertical: 10),
                             ),
@@ -462,7 +463,7 @@ class _LandingScreenState extends State<LandingScreen> {
                               backgroundColor: kBlue,
                               foregroundColor: Colors.white,
                               shape: RoundedRectangleBorder(
-                                  borderRadius: BorderRadius.circular(8)),
+                                  borderRadius: BorderRadius.circular(10)),
                               padding: const EdgeInsets.symmetric(
                                   horizontal: 20, vertical: 10),
                             ),
@@ -597,9 +598,9 @@ class _MobileMenuOverlay extends StatelessWidget {
   final VoidCallback onLogin;
   final VoidCallback onRegister;
 
-  static const Color _kBlue = Color(0xFF0C56D0);
-  static const Color _kDark = Color(0xFF111827);
-  static const Color _kGrey = Color(0xFF6B7280);
+  static const Color _kBlue = SboxColors.brand600;
+  static const Color _kDark = SboxColors.slate900;
+  static const Color _kGrey = SboxColors.slate500;
 
   @override
   Widget build(BuildContext context) {
@@ -641,7 +642,7 @@ class _MobileMenuOverlay extends StatelessWidget {
                               side: const BorderSide(color: _kBlue),
                               padding: const EdgeInsets.symmetric(vertical: 14),
                               shape: RoundedRectangleBorder(
-                                  borderRadius: BorderRadius.circular(8)),
+                                  borderRadius: BorderRadius.circular(10)),
                             ),
                             child: Text(tr('Đăng nhập'),
                                 style: TextStyle(fontWeight: FontWeight.bold)),
@@ -656,7 +657,7 @@ class _MobileMenuOverlay extends StatelessWidget {
                               foregroundColor: Colors.white,
                               padding: const EdgeInsets.symmetric(vertical: 14),
                               shape: RoundedRectangleBorder(
-                                  borderRadius: BorderRadius.circular(8)),
+                                  borderRadius: BorderRadius.circular(10)),
                             ),
                             child: Text(tr('Đăng ký'),
                                 style: TextStyle(fontWeight: FontWeight.bold)),
@@ -710,7 +711,7 @@ class _NavLink extends StatelessWidget {
       onPressed: onTap,
       child: Text(tr(label),
           style: TextStyle(
-              color: dark ? const Color(0xFF374151) : Colors.white,
+              color: dark ? SboxColors.slate700 : Colors.white,
               fontWeight: FontWeight.w500)),
     );
   }
@@ -757,7 +758,7 @@ class _HeroSection extends StatelessWidget {
                   gradient: LinearGradient(
                     begin: Alignment.topLeft,
                     end: Alignment.bottomRight,
-                    colors: [Color(0xFFDAE2FF), Color(0xFF0C56D0)],
+                    colors: [Color(0xFFDAE2FF), SboxColors.brand600],
                   ),
                 ),
               ),
@@ -771,8 +772,8 @@ class _HeroSection extends StatelessWidget {
                   begin: Alignment.bottomLeft,
                   end: Alignment.topRight,
                   colors: [
-                    const Color(0xFF0C56D0).withValues(alpha: 0.85),
-                    const Color(0xFF0C56D0).withValues(alpha: 0.40),
+                    SboxColors.brand600.withValues(alpha: 0.85),
+                    SboxColors.brand600.withValues(alpha: 0.40),
                     Colors.transparent,
                   ],
                   stops: const [0.0, 0.5, 1.0],
@@ -809,7 +810,7 @@ class _HeroSection extends StatelessWidget {
           style: const TextStyle(
               color: Colors.white,
               fontSize: 30,
-              fontWeight: FontWeight.w900,
+              fontWeight: FontWeight.w700,
               height: 1.2,
               letterSpacing: -0.5),
         ),
@@ -818,7 +819,7 @@ class _HeroSection extends StatelessWidget {
           tr(heroSubtext),
           textAlign: TextAlign.center,
           style: TextStyle(
-              color: Colors.white.withValues(alpha: 0.88), fontSize: 15, height: 1.6),
+              color: Colors.white.withValues(alpha: 0.88), fontSize: 16, height: 1.6),
         ),
         const SizedBox(height: 32),
         _buttons(true),
@@ -844,7 +845,7 @@ class _HeroSection extends StatelessWidget {
                 style: const TextStyle(
                     color: Colors.white,
                     fontSize: 42,
-                    fontWeight: FontWeight.w900,
+                    fontWeight: FontWeight.w700,
                     height: 1.2,
                     letterSpacing: -1),
               ),
@@ -853,7 +854,7 @@ class _HeroSection extends StatelessWidget {
                 tr(heroSubtext),
                 style: TextStyle(
                     color: Colors.white.withValues(alpha: 0.88),
-                    fontSize: 17,
+                    fontSize: 18,
                     height: 1.6),
               ),
               const SizedBox(height: 40),
@@ -880,7 +881,7 @@ class _HeroSection extends StatelessWidget {
       child: Row(
         mainAxisSize: MainAxisSize.min,
         children: [
-          Icon(Icons.verified_rounded, color: Color(0xFF93C5FD), size: 15),
+          Icon(Icons.verified_rounded, color: SboxColors.brand200, size: 15),
           SizedBox(width: 6),
           Text(tr('Phần mềm HRM hàng đầu Việt Nam'),
               style: TextStyle(
@@ -905,7 +906,7 @@ class _HeroSection extends StatelessWidget {
               style: TextStyle(fontWeight: FontWeight.bold, fontSize: 14)),
           style: ElevatedButton.styleFrom(
             backgroundColor: Colors.white,
-            foregroundColor: const Color(0xFF0C56D0),
+            foregroundColor: SboxColors.brand600,
             padding: const EdgeInsets.symmetric(horizontal: 22, vertical: 15),
             shape:
                 RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
@@ -951,7 +952,7 @@ class _HeroSection extends StatelessWidget {
               style: const TextStyle(
                   color: Colors.white,
                   fontSize: 22,
-                  fontWeight: FontWeight.w900)),
+                  fontWeight: FontWeight.w700)),
           Text(tr(label),
               style: TextStyle(
                   color: Colors.white.withValues(alpha: 0.7), fontSize: 12)),
@@ -1049,7 +1050,7 @@ class _HeroSection extends StatelessWidget {
                 borderRadius: BorderRadius.circular(10)),
             child: Row(children: [
               Icon(Icons.trending_up_rounded,
-                  color: Color(0xFF93C5FD), size: 20),
+                  color: SboxColors.brand200, size: 20),
               SizedBox(width: 12),
               Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
                 Text(tr('Hiệu quả công việc'),
@@ -1057,8 +1058,8 @@ class _HeroSection extends StatelessWidget {
                 Text(tr('TĂNG 100%'),
                     style: TextStyle(
                         color: Colors.white,
-                        fontWeight: FontWeight.w800,
-                        fontSize: 15)),
+                        fontWeight: FontWeight.w700,
+                        fontSize: 16)),
               ]),
             ]),
           ),
@@ -1159,7 +1160,7 @@ class _FeaturesSection extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Container(
-      color: const Color(0xFFF9FAFB),
+      color: SboxColors.slate50,
       padding:
           EdgeInsets.symmetric(horizontal: isMobile ? 24 : 80, vertical: 80),
       child: Column(
@@ -1181,10 +1182,10 @@ class _FeaturesSection extends StatelessWidget {
     // If admin has set dynamic features via API, show those (text-only cards)
     if (dynamicFeatures != null && dynamicFeatures!.isNotEmpty) {
       final colors = [
-        const Color(0xFF0C56D0),
-        const Color(0xFF1565C0),
-        const Color(0xFF1976D2),
-        const Color(0xFF1E88E5),
+        SboxColors.brand600,
+        SboxColors.brand600,
+        SboxColors.brand600,
+        SboxColors.brand500,
         const Color(0xFF00897B),
         const Color(0xFF6A1B9A)
       ];
@@ -1217,8 +1218,8 @@ class _FeaturesSection extends StatelessWidget {
             padding: const EdgeInsets.all(20),
             decoration: BoxDecoration(
               color: Colors.white,
-              borderRadius: BorderRadius.circular(12),
-              border: Border.all(color: const Color(0xFFE5E7EB)),
+              borderRadius: BorderRadius.circular(14),
+              border: Border.all(color: SboxColors.slate200),
               boxShadow: [
                 BoxShadow(
                     color: Colors.black.withValues(alpha: 0.03),
@@ -1246,11 +1247,11 @@ class _FeaturesSection extends StatelessWidget {
                           style: const TextStyle(
                               fontWeight: FontWeight.w700,
                               fontSize: 14,
-                              color: Color(0xFF111827))),
+                              color: SboxColors.slate900)),
                       const SizedBox(height: 4),
                       Text(tr(f.desc),
                           style: const TextStyle(
-                              color: Color(0xFF6B7280),
+                              color: SboxColors.slate500,
                               fontSize: 12,
                               height: 1.5)),
                     ],
@@ -1280,8 +1281,8 @@ class _FeaturesSection extends StatelessWidget {
           padding: const EdgeInsets.all(20),
           decoration: BoxDecoration(
             color: Colors.white,
-            borderRadius: BorderRadius.circular(12),
-            border: Border.all(color: const Color(0xFFE5E7EB)),
+            borderRadius: BorderRadius.circular(14),
+            border: Border.all(color: SboxColors.slate200),
             boxShadow: [
               BoxShadow(
                   color: Colors.black.withValues(alpha: 0.03),
@@ -1309,11 +1310,11 @@ class _FeaturesSection extends StatelessWidget {
                         style: const TextStyle(
                             fontWeight: FontWeight.w700,
                             fontSize: 14,
-                            color: Color(0xFF111827))),
+                            color: SboxColors.slate900)),
                     const SizedBox(height: 4),
                     Text(tr(f.$4),
                         style: const TextStyle(
-                            color: Color(0xFF6B7280),
+                            color: SboxColors.slate500,
                             fontSize: 12,
                             height: 1.5)),
                   ],
@@ -1367,7 +1368,7 @@ class _PricingSection extends StatelessWidget {
           isMobile ? _buildMobileCards(context) : _buildDesktopCards(context),
           const SizedBox(height: 24),
           Text(tr('* Giá chưa bao gồm VAT. Liên hệ để được tư vấn gói phù hợp.'),
-              style: TextStyle(color: Colors.grey.shade500, fontSize: 12)),
+              style: TextStyle(color: SboxColors.slate500, fontSize: 12)),
         ],
       ),
     );
@@ -1551,9 +1552,9 @@ class _PricingCard extends StatelessWidget {
     return Container(
       decoration: BoxDecoration(
         color: plan.highlight ? color : Colors.white,
-        borderRadius: BorderRadius.circular(16),
+        borderRadius: BorderRadius.circular(14),
         border: Border.all(
-            color: plan.highlight ? color : const Color(0xFFE5E7EB),
+            color: plan.highlight ? color : SboxColors.slate200,
             width: plan.highlight ? 0 : 1),
         boxShadow: plan.highlight
             ? [
@@ -1581,11 +1582,11 @@ class _PricingCard extends StatelessWidget {
                 Row(children: [
                   Text(tr(plan.name),
                       style: TextStyle(
-                          fontWeight: FontWeight.w800,
+                          fontWeight: FontWeight.w700,
                           fontSize: 16,
                           color: plan.highlight
                               ? Colors.white
-                              : const Color(0xFF111827))),
+                              : SboxColors.slate900)),
                   if (plan.tag.isNotEmpty) ...[
                     const Spacer(),
                     Container(
@@ -1611,7 +1612,7 @@ class _PricingCard extends StatelessWidget {
                         fontSize: 12,
                         color: plan.highlight
                             ? Colors.white70
-                            : const Color(0xFF6B7280))),
+                            : SboxColors.slate500)),
                 const SizedBox(height: 16),
                 RichText(
                     text: TextSpan(children: [
@@ -1619,17 +1620,17 @@ class _PricingCard extends StatelessWidget {
                       text: tr(plan.price),
                       style: TextStyle(
                           fontSize: 28,
-                          fontWeight: FontWeight.w900,
+                          fontWeight: FontWeight.w700,
                           color: plan.highlight
                               ? Colors.white
-                              : const Color(0xFF111827))),
+                              : SboxColors.slate900)),
                   TextSpan(
                       text: tr(' ${plan.unit}'),
                       style: TextStyle(
                           fontSize: 13,
                           color: plan.highlight
                               ? Colors.white70
-                              : const Color(0xFF6B7280))),
+                              : SboxColors.slate500)),
                 ])),
               ],
             ),
@@ -1639,7 +1640,7 @@ class _PricingCard extends StatelessWidget {
               height: 1,
               color: plan.highlight
                   ? Colors.white.withValues(alpha: 0.2)
-                  : const Color(0xFFE5E7EB)),
+                  : SboxColors.slate200),
           // Features
           Padding(
             padding: const EdgeInsets.all(20),
@@ -1658,7 +1659,7 @@ class _PricingCard extends StatelessWidget {
                                     fontSize: 13,
                                     color: plan.highlight
                                         ? Colors.white.withValues(alpha: 0.9)
-                                        : const Color(0xFF374151)))),
+                                        : SboxColors.slate700))),
                       ]),
                     )),
                 const SizedBox(height: 8),
@@ -1746,7 +1747,7 @@ class _VideoSection extends StatelessWidget {
                     title: videoIntroTitle,
                     subtitle: videoIntroSubtitle,
                     icon: Icons.play_circle_filled_rounded,
-                    color: const Color(0xFF0C56D0),
+                    color: SboxColors.brand600,
                     badge: videoIntroBadge,
                     url: videoIntroUrl,
                     duration: videoIntroDuration,
@@ -1756,7 +1757,7 @@ class _VideoSection extends StatelessWidget {
                     title: videoGuideTitle,
                     subtitle: videoGuideSubtitle,
                     icon: Icons.school_rounded,
-                    color: const Color(0xFF1565C0),
+                    color: SboxColors.brand600,
                     badge: videoGuideBadge,
                     url: videoGuideUrl,
                     duration: videoGuideDuration,
@@ -1770,7 +1771,7 @@ class _VideoSection extends StatelessWidget {
                         title: videoIntroTitle,
                         subtitle: videoIntroSubtitle,
                         icon: Icons.play_circle_filled_rounded,
-                        color: const Color(0xFF0C56D0),
+                        color: SboxColors.brand600,
                         badge: videoIntroBadge,
                         url: videoIntroUrl,
                         duration: videoIntroDuration,
@@ -1782,7 +1783,7 @@ class _VideoSection extends StatelessWidget {
                         title: videoGuideTitle,
                         subtitle: videoGuideSubtitle,
                         icon: Icons.school_rounded,
-                        color: const Color(0xFF1565C0),
+                        color: SboxColors.brand600,
                         badge: videoGuideBadge,
                         url: videoGuideUrl,
                         duration: videoGuideDuration,
@@ -1833,7 +1834,7 @@ class _VideoCardState extends State<_VideoCard> {
     if (!mounted) return;
     await showDialog(
       context: context,
-      barrierColor: Colors.black87,
+      barrierColor: SboxColors.text,
       builder: (_) => _LandingVideoPlayerDialog(
         videoId: videoId,
         title: widget.title,
@@ -1860,7 +1861,7 @@ class _VideoCardState extends State<_VideoCard> {
         child: AnimatedContainer(
           duration: const Duration(milliseconds: 180),
           decoration: BoxDecoration(
-            borderRadius: BorderRadius.circular(16),
+            borderRadius: BorderRadius.circular(14),
             boxShadow: [
               BoxShadow(
                 color: _hovered
@@ -1872,7 +1873,7 @@ class _VideoCardState extends State<_VideoCard> {
             ],
           ),
           child: ClipRRect(
-            borderRadius: BorderRadius.circular(16),
+            borderRadius: BorderRadius.circular(14),
             child: AspectRatio(
               aspectRatio: 16 / 9,
               child: Stack(
@@ -1968,8 +1969,8 @@ class _VideoCardState extends State<_VideoCard> {
                               child: Text(
                                 tr(widget.title),
                                 style: const TextStyle(
-                                    fontWeight: FontWeight.w800,
-                                    fontSize: 15,
+                                    fontWeight: FontWeight.w700,
+                                    fontSize: 16,
                                     color: Colors.white),
                               ),
                             ),
@@ -1991,7 +1992,7 @@ class _VideoCardState extends State<_VideoCard> {
                                 horizontal: 12, vertical: 6),
                             decoration: BoxDecoration(
                               color: widget.color,
-                              borderRadius: BorderRadius.circular(7),
+                              borderRadius: BorderRadius.circular(6),
                             ),
                             child:
                                 Row(mainAxisSize: MainAxisSize.min, children: [
@@ -2080,13 +2081,13 @@ class _LandingVideoPlayerDialog extends StatelessWidget {
                           style: const TextStyle(
                               color: Colors.white,
                               fontSize: 18,
-                              fontWeight: FontWeight.w800),
+                              fontWeight: FontWeight.w700),
                         ),
                         const SizedBox(height: 4),
                         Text(
                           tr(subtitle),
                           style: const TextStyle(
-                              color: Color(0xFFCBD5E1),
+                              color: SboxColors.slate300,
                               fontSize: 13,
                               height: 1.5),
                         ),
@@ -2102,7 +2103,7 @@ class _LandingVideoPlayerDialog extends StatelessWidget {
               ),
               const SizedBox(height: 14),
               ClipRRect(
-                borderRadius: BorderRadius.circular(16),
+                borderRadius: BorderRadius.circular(14),
                 child: AspectRatio(
                   aspectRatio: 16 / 9,
                   child: LandingYoutubePlayer(videoId: videoId, autoplay: true),
@@ -2116,7 +2117,7 @@ class _LandingVideoPlayerDialog extends StatelessWidget {
                   FilledButton.icon(
                     onPressed: () async => onOpenYoutube(),
                     style: ElevatedButton.styleFrom(
-                      backgroundColor: const Color(0xFFDC2626),
+                      backgroundColor: SboxColors.danger,
                       foregroundColor: Colors.white,
                       padding: const EdgeInsets.symmetric(
                           horizontal: 16, vertical: 12),
@@ -2128,7 +2129,7 @@ class _LandingVideoPlayerDialog extends StatelessWidget {
                     onPressed: () => Navigator.of(context).pop(),
                     style: OutlinedButton.styleFrom(
                       foregroundColor: Colors.white,
-                      side: const BorderSide(color: Color(0xFF475569)),
+                      side: const BorderSide(color: SboxColors.slate600),
                       padding: const EdgeInsets.symmetric(
                           horizontal: 16, vertical: 12),
                     ),
@@ -2139,7 +2140,7 @@ class _LandingVideoPlayerDialog extends StatelessWidget {
               ),
               const SizedBox(height: 10),
               Text(tr('Bạn có thể dùng nút fullscreen ngay trong trình phát để phóng to toàn màn hình.'),
-                style: TextStyle(color: Color(0xFF94A3B8), fontSize: 12),
+                style: TextStyle(color: SboxColors.slate400, fontSize: 12),
               ),
             ],
           ),
@@ -2176,7 +2177,7 @@ class _ContactSection extends StatelessWidget {
         gradient: LinearGradient(
           begin: Alignment.topLeft,
           end: Alignment.bottomRight,
-          colors: [Color(0xFF0A3880), Color(0xFF0C56D0), Color(0xFF1976D2)],
+          colors: [Color(0xFF0A3880), SboxColors.brand600, SboxColors.brand600],
         ),
       ),
       padding:
@@ -2221,13 +2222,13 @@ class _ContactSection extends StatelessWidget {
             style: TextStyle(
                 color: Colors.white,
                 fontSize: 28,
-                fontWeight: FontWeight.w900,
+                fontWeight: FontWeight.w700,
                 height: 1.2)),
         const SizedBox(height: 16),
         Text(tr('Đội ngũ tư vấn sẵn sàng hỗ trợ bạn chọn gói phù hợp, cài đặt thiết bị và đào tạo sử dụng — tất cả trong vòng 24 giờ làm việc.'),
             style: TextStyle(
                 color: Colors.white.withValues(alpha: 0.85),
-                fontSize: 15,
+                fontSize: 16,
                 height: 1.6)),
         const SizedBox(height: 28),
         // Quick action buttons
@@ -2273,7 +2274,7 @@ class _ContactSection extends StatelessWidget {
           style: const TextStyle(fontWeight: FontWeight.w600, fontSize: 13)),
       style: ElevatedButton.styleFrom(
         backgroundColor: Colors.white,
-        foregroundColor: const Color(0xFF0C56D0),
+        foregroundColor: SboxColors.brand600,
         padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 12),
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
         elevation: 0,
@@ -2288,7 +2289,7 @@ class _ContactSection extends StatelessWidget {
         padding: const EdgeInsets.all(8),
         decoration: BoxDecoration(
             color: Colors.white.withValues(alpha: 0.15),
-            borderRadius: BorderRadius.circular(8)),
+            borderRadius: BorderRadius.circular(10)),
         child: Icon(icon, color: Colors.white, size: 18),
       ),
       const SizedBox(width: 14),
@@ -2311,7 +2312,7 @@ class _ContactSection extends StatelessWidget {
     if (onTap != null) {
       return InkWell(
         onTap: onTap,
-        borderRadius: BorderRadius.circular(8),
+        borderRadius: BorderRadius.circular(10),
         child: Padding(
             padding: const EdgeInsets.symmetric(vertical: 4), child: row),
       );
@@ -2447,18 +2448,18 @@ class _RegisterFormState extends State<_RegisterForm> {
           decoration: const BoxDecoration(
               color: Color(0xFFEBF2FF), shape: BoxShape.circle),
           child: const Icon(Icons.check_circle_rounded,
-              color: Color(0xFF0C56D0), size: 48),
+              color: SboxColors.brand600, size: 48),
         ),
         const SizedBox(height: 20),
         Text(tr('Yêu cầu đã được gửi!'),
             style: TextStyle(
-                fontWeight: FontWeight.w800,
+                fontWeight: FontWeight.w700,
                 fontSize: 20,
-                color: Color(0xFF111827))),
+                color: SboxColors.slate900)),
         const SizedBox(height: 8),
         Text(tr('Yêu cầu đã được lưu vào hệ thống. Zalo hoặc email hỗ trợ sẽ được mở để tư vấn viên hỗ trợ bạn ngay.'),
             textAlign: TextAlign.center,
-            style: TextStyle(color: Color(0xFF6B7280), height: 1.5)),
+            style: TextStyle(color: SboxColors.slate500, height: 1.5)),
       ],
     );
   }
@@ -2472,12 +2473,12 @@ class _RegisterFormState extends State<_RegisterForm> {
         children: [
           Text(tr('Đăng ký tư vấn miễn phí'),
               style: TextStyle(
-                  fontWeight: FontWeight.w800,
+                  fontWeight: FontWeight.w700,
                   fontSize: 18,
-                  color: Color(0xFF111827))),
+                  color: SboxColors.slate900)),
           const SizedBox(height: 4),
           Text(tr('Điền thông tin bên dưới — Zalo tư vấn viên sẽ được mở tự động'),
-              style: TextStyle(color: Color(0xFF6B7280), fontSize: 13)),
+              style: TextStyle(color: SboxColors.slate500, fontSize: 13)),
           const SizedBox(height: 20),
           _field(_nameCtrl, 'Họ và tên', Icons.person_outline,
               validator: (v) => v!.isEmpty ? 'Vui lòng nhập tên' : null),
@@ -2499,12 +2500,12 @@ class _RegisterFormState extends State<_RegisterForm> {
               prefixIcon: const Icon(Icons.inventory_2_outlined, size: 18),
               border: OutlineInputBorder(
                   borderRadius: BorderRadius.circular(10),
-                  borderSide: const BorderSide(color: Color(0xFFE5E7EB))),
+                  borderSide: const BorderSide(color: SboxColors.slate200)),
               enabledBorder: OutlineInputBorder(
                   borderRadius: BorderRadius.circular(10),
-                  borderSide: const BorderSide(color: Color(0xFFE5E7EB))),
+                  borderSide: const BorderSide(color: SboxColors.slate200)),
               filled: true,
-              fillColor: const Color(0xFFF9FAFB),
+              fillColor: SboxColors.slate50,
               contentPadding:
                   const EdgeInsets.symmetric(vertical: 12, horizontal: 12),
             ),
@@ -2519,7 +2520,7 @@ class _RegisterFormState extends State<_RegisterForm> {
             child: FilledButton(
               onPressed: _isSubmitting ? null : _submit,
               style: ElevatedButton.styleFrom(
-                backgroundColor: const Color(0xFF0C56D0),
+                backgroundColor: SboxColors.brand600,
                 foregroundColor: Colors.white,
                 padding: const EdgeInsets.symmetric(vertical: 16),
                 shape: RoundedRectangleBorder(
@@ -2534,7 +2535,7 @@ class _RegisterFormState extends State<_RegisterForm> {
                           strokeWidth: 2, color: Colors.white))
                   : Text(tr('Nhắn Zalo tư vấn ngay'),
                       style:
-                          TextStyle(fontWeight: FontWeight.bold, fontSize: 15)),
+                          TextStyle(fontWeight: FontWeight.bold, fontSize: 16)),
             ),
           ),
         ],
@@ -2553,12 +2554,12 @@ class _RegisterFormState extends State<_RegisterForm> {
         prefixIcon: Icon(icon, size: 18),
         border: OutlineInputBorder(
             borderRadius: BorderRadius.circular(10),
-            borderSide: const BorderSide(color: Color(0xFFE5E7EB))),
+            borderSide: const BorderSide(color: SboxColors.slate200)),
         enabledBorder: OutlineInputBorder(
             borderRadius: BorderRadius.circular(10),
-            borderSide: const BorderSide(color: Color(0xFFE5E7EB))),
+            borderSide: const BorderSide(color: SboxColors.slate200)),
         filled: true,
-        fillColor: const Color(0xFFF9FAFB),
+        fillColor: SboxColors.slate50,
         contentPadding:
             const EdgeInsets.symmetric(vertical: 12, horizontal: 12),
       ),
@@ -2594,28 +2595,28 @@ class _Footer extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Container(
-      color: const Color(0xFF111827),
+      color: SboxColors.slate900,
       padding:
           EdgeInsets.symmetric(horizontal: isMobile ? 24 : 80, vertical: 48),
       child: Column(
         children: [
           isMobile ? _buildMobile() : _buildDesktop(),
           const SizedBox(height: 32),
-          const Divider(color: Color(0xFF374151)),
+          const Divider(color: SboxColors.slate700),
           const SizedBox(height: 20),
           Row(
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
               Text(tr('© 2024–2026 SBOX HRM - SBOX POS. Bảo lưu mọi quyền.'),
-                  style: TextStyle(color: Colors.grey.shade600, fontSize: 12)),
+                  style: TextStyle(color: SboxColors.slate600, fontSize: 12)),
               Row(children: [
                 Text(tr('Privacy'),
                     style:
-                        TextStyle(color: Colors.grey.shade600, fontSize: 12)),
+                        TextStyle(color: SboxColors.slate600, fontSize: 12)),
                 const SizedBox(width: 16),
                 Text(tr('Terms'),
                     style:
-                        TextStyle(color: Colors.grey.shade600, fontSize: 12)),
+                        TextStyle(color: SboxColors.slate600, fontSize: 12)),
               ]),
             ],
           ),
@@ -2681,7 +2682,7 @@ class _Footer extends StatelessWidget {
             tr(SboxBrand.productLine),
             style: const TextStyle(
                 color: Colors.white,
-                fontWeight: FontWeight.w900,
+                fontWeight: FontWeight.w700,
                 fontSize: 16,
                 letterSpacing: 0.2),
           ),
@@ -2690,7 +2691,7 @@ class _Footer extends StatelessWidget {
       const SizedBox(height: 12),
       Text(tr(SboxBrand.slogan),
           style: TextStyle(
-              color: Colors.grey.shade500, fontSize: 13, height: 1.6)),
+              color: SboxColors.slate500, fontSize: 13, height: 1.6)),
     ]);
   }
 
@@ -2711,11 +2712,11 @@ class _Footer extends StatelessWidget {
                       onTap: item.onTap,
                       child: Text(tr(item.label),
                           style: TextStyle(
-                              color: Colors.grey.shade400, fontSize: 13)),
+                              color: SboxColors.slate400, fontSize: 13)),
                     )
                   : Text(tr(item.label),
                       style:
-                          TextStyle(color: Colors.grey.shade500, fontSize: 13)),
+                          TextStyle(color: SboxColors.slate500, fontSize: 13)),
             )),
       ],
     );
@@ -2738,7 +2739,7 @@ class _SectionBadge extends StatelessWidget {
       ),
       child: Text(tr(label),
           style: TextStyle(
-              color: dark ? Colors.white70 : const Color(0xFF0C56D0),
+              color: dark ? Colors.white70 : SboxColors.brand600,
               fontSize: 12,
               fontWeight: FontWeight.w700,
               letterSpacing: 0.5)),
@@ -2757,8 +2758,8 @@ class _SectionTitle extends StatelessWidget {
         textAlign: TextAlign.center,
         style: TextStyle(
             fontSize: 28,
-            fontWeight: FontWeight.w900,
-            color: dark ? Colors.white : const Color(0xFF111827),
+            fontWeight: FontWeight.w700,
+            color: dark ? Colors.white : SboxColors.slate900,
             height: 1.2));
   }
 }
@@ -2773,8 +2774,8 @@ class _SectionSubtext extends StatelessWidget {
     return Text(tr(text),
         textAlign: TextAlign.center,
         style: TextStyle(
-            color: dark ? Colors.white54 : const Color(0xFF6B7280),
-            fontSize: 15,
+            color: dark ? Colors.white54 : SboxColors.slate500,
+            fontSize: 16,
             height: 1.5));
   }
 }
@@ -2871,8 +2872,8 @@ class _DevicesSection extends StatelessWidget {
             icon: const Icon(Icons.support_agent_rounded, size: 18),
             label: Text(tr('Tư vấn chọn thiết bị phù hợp')),
             style: OutlinedButton.styleFrom(
-              foregroundColor: const Color(0xFF0C56D0),
-              side: const BorderSide(color: Color(0xFF0C56D0)),
+              foregroundColor: SboxColors.brand600,
+              side: const BorderSide(color: SboxColors.brand600),
               padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 14),
               shape: RoundedRectangleBorder(
                   borderRadius: BorderRadius.circular(10)),
@@ -2975,7 +2976,7 @@ class _ProductCardState extends State<_ProductCard> {
   void _showDetail(BuildContext context) {
     showDialog(
       context: context,
-      barrierColor: Colors.black54,
+      barrierColor: SboxColors.textSecondary,
       builder: (_) => _ProductDetailDialog(product: widget.product),
     );
   }
@@ -2993,7 +2994,7 @@ class _ProductCardState extends State<_ProductCard> {
           duration: const Duration(milliseconds: 180),
           decoration: BoxDecoration(
             color: Colors.white,
-            borderRadius: BorderRadius.circular(16),
+            borderRadius: BorderRadius.circular(14),
             boxShadow: [
               BoxShadow(
                 color: _hovered
@@ -3004,7 +3005,7 @@ class _ProductCardState extends State<_ProductCard> {
               ),
             ],
             border: Border.all(
-              color: _hovered ? const Color(0xFF0C56D0) : Colors.transparent,
+              color: _hovered ? SboxColors.brand600 : Colors.transparent,
               width: 1.5,
             ),
           ),
@@ -3039,7 +3040,7 @@ class _ProductCardState extends State<_ProductCard> {
                       ),
                       child: Text(tr(p.brand),
                           style: const TextStyle(
-                              color: Color(0xFF0C56D0),
+                              color: SboxColors.brand600,
                               fontSize: 10,
                               fontWeight: FontWeight.w700,
                               letterSpacing: 0.5)),
@@ -3047,13 +3048,13 @@ class _ProductCardState extends State<_ProductCard> {
                     const SizedBox(height: 6),
                     Text(tr(p.name),
                         style: const TextStyle(
-                            fontWeight: FontWeight.w800,
+                            fontWeight: FontWeight.w700,
                             fontSize: 13,
-                            color: Color(0xFF111827))),
+                            color: SboxColors.slate900)),
                     const SizedBox(height: 2),
                     Text(tr(p.sub),
                         style: const TextStyle(
-                            fontSize: 11, color: Color(0xFF6B7280))),
+                            fontSize: 11, color: SboxColors.slate500)),
                     const SizedBox(height: 8),
                     // Price row
                     Row(
@@ -3062,21 +3063,21 @@ class _ProductCardState extends State<_ProductCard> {
                         Text(tr(p.price),
                             style: const TextStyle(
                                 fontSize: 14,
-                                fontWeight: FontWeight.w900,
-                                color: Color(0xFF0C56D0))),
+                                fontWeight: FontWeight.w700,
+                                color: SboxColors.brand600)),
                         if (p.badge.isNotEmpty) ...[
                           const SizedBox(width: 6),
                           Container(
                             padding: const EdgeInsets.symmetric(
                                 horizontal: 5, vertical: 2),
                             decoration: BoxDecoration(
-                                color: const Color(0xFFDCFCE7),
+                                color: SboxColors.successSoft,
                                 borderRadius: BorderRadius.circular(4)),
                             child: Text(tr(p.badge),
                                 style: const TextStyle(
                                     fontSize: 9,
                                     fontWeight: FontWeight.bold,
-                                    color: Color(0xFF16A34A))),
+                                    color: SboxColors.success)),
                           ),
                         ],
                       ],
@@ -3086,12 +3087,12 @@ class _ProductCardState extends State<_ProductCard> {
                           style: const TextStyle(
                               fontSize: 11,
                               decoration: TextDecoration.lineThrough,
-                              color: Color(0xFF9CA3AF))),
+                              color: SboxColors.slate400)),
                     const SizedBox(height: 6),
                     Text(tr(p.specs),
                         style: const TextStyle(
                             fontSize: 10,
-                            color: Color(0xFF6B7280),
+                            color: SboxColors.slate500,
                             height: 1.4)),
                     const SizedBox(height: 10),
                     Row(
@@ -3102,14 +3103,14 @@ class _ProductCardState extends State<_ProductCard> {
                                 fontSize: 11,
                                 fontWeight: FontWeight.w600,
                                 color: _hovered
-                                    ? const Color(0xFF0C56D0)
-                                    : const Color(0xFF6B7280))),
+                                    ? SboxColors.brand600
+                                    : SboxColors.slate500)),
                         const SizedBox(width: 2),
                         Icon(Icons.arrow_forward_rounded,
                             size: 12,
                             color: _hovered
-                                ? const Color(0xFF0C56D0)
-                                : const Color(0xFF9CA3AF)),
+                                ? SboxColors.brand600
+                                : SboxColors.slate400),
                       ],
                     ),
                   ],
@@ -3202,7 +3203,7 @@ class _ProductDetailDialogState extends State<_ProductDetailDialog> {
                           borderRadius: BorderRadius.circular(6)),
                       child: Text(tr(p.brand),
                           style: const TextStyle(
-                              color: Color(0xFF0C56D0),
+                              color: SboxColors.brand600,
                               fontSize: 11,
                               fontWeight: FontWeight.w700,
                               letterSpacing: 0.5)),
@@ -3210,13 +3211,13 @@ class _ProductDetailDialogState extends State<_ProductDetailDialog> {
                     const SizedBox(height: 10),
                     Text(tr(p.name),
                         style: const TextStyle(
-                            fontWeight: FontWeight.w900,
+                            fontWeight: FontWeight.w700,
                             fontSize: 20,
-                            color: Color(0xFF111827))),
+                            color: SboxColors.slate900)),
                     const SizedBox(height: 4),
                     Text(tr(p.sub),
                         style: const TextStyle(
-                            fontSize: 14, color: Color(0xFF6B7280))),
+                            fontSize: 14, color: SboxColors.slate500)),
                     const SizedBox(height: 16),
                     Row(
                       crossAxisAlignment: CrossAxisAlignment.center,
@@ -3224,21 +3225,21 @@ class _ProductDetailDialogState extends State<_ProductDetailDialog> {
                         Text(tr(p.price),
                             style: const TextStyle(
                                 fontSize: 22,
-                                fontWeight: FontWeight.w900,
-                                color: Color(0xFF0C56D0))),
+                                fontWeight: FontWeight.w700,
+                                color: SboxColors.brand600)),
                         if (p.badge.isNotEmpty) ...[
                           const SizedBox(width: 8),
                           Container(
                             padding: const EdgeInsets.symmetric(
                                 horizontal: 8, vertical: 3),
                             decoration: BoxDecoration(
-                                color: const Color(0xFFDCFCE7),
+                                color: SboxColors.successSoft,
                                 borderRadius: BorderRadius.circular(6)),
                             child: Text(tr(p.badge),
                                 style: const TextStyle(
                                     fontSize: 11,
                                     fontWeight: FontWeight.bold,
-                                    color: Color(0xFF16A34A))),
+                                    color: SboxColors.success)),
                           ),
                         ],
                       ],
@@ -3249,7 +3250,7 @@ class _ProductDetailDialogState extends State<_ProductDetailDialog> {
                           style: const TextStyle(
                               fontSize: 13,
                               decoration: TextDecoration.lineThrough,
-                              color: Color(0xFF9CA3AF))),
+                              color: SboxColors.slate400)),
                     ],
                     const SizedBox(height: 16),
                     // Specs section: rich if available, else plain text summary
@@ -3258,7 +3259,7 @@ class _ProductDetailDialogState extends State<_ProductDetailDialog> {
                           style: TextStyle(
                               fontSize: 12,
                               fontWeight: FontWeight.w600,
-                              color: Color(0xFF6B7280))),
+                              color: SboxColors.slate500)),
                       const SizedBox(height: 8),
                       Container(
                         constraints: const BoxConstraints(maxHeight: 320),
@@ -3272,7 +3273,7 @@ class _ProductDetailDialogState extends State<_ProductDetailDialog> {
                             tr(_specsDetailText),
                             style: const TextStyle(
                                 fontSize: 13,
-                                color: Color(0xFF374151),
+                                color: SboxColors.slate700,
                                 height: 1.6),
                           ),
                         ),
@@ -3282,7 +3283,7 @@ class _ProductDetailDialogState extends State<_ProductDetailDialog> {
                           style: TextStyle(
                               fontSize: 12,
                               fontWeight: FontWeight.w600,
-                              color: Color(0xFF6B7280))),
+                              color: SboxColors.slate500)),
                       const SizedBox(height: 8),
                       Container(
                         constraints: const BoxConstraints(maxHeight: 320),
@@ -3313,13 +3314,13 @@ class _ProductDetailDialogState extends State<_ProductDetailDialog> {
                           crossAxisAlignment: CrossAxisAlignment.start,
                           children: [
                             const Icon(Icons.memory_rounded,
-                                size: 16, color: Color(0xFF0C56D0)),
+                                size: 16, color: SboxColors.brand600),
                             const SizedBox(width: 8),
                             Expanded(
                                 child: Text(tr(p.specs),
                                     style: const TextStyle(
                                         fontSize: 13,
-                                        color: Color(0xFF374151),
+                                        color: SboxColors.slate700,
                                         height: 1.5))),
                           ],
                         ),
@@ -3332,8 +3333,8 @@ class _ProductDetailDialogState extends State<_ProductDetailDialog> {
                           child: OutlinedButton(
                             onPressed: () => Navigator.of(context).pop(),
                             style: OutlinedButton.styleFrom(
-                              foregroundColor: const Color(0xFF6B7280),
-                              side: const BorderSide(color: Color(0xFFD1D5DB)),
+                              foregroundColor: SboxColors.slate500,
+                              side: const BorderSide(color: SboxColors.slate300),
                               padding: const EdgeInsets.symmetric(vertical: 14),
                               shape: RoundedRectangleBorder(
                                   borderRadius: BorderRadius.circular(10)),
@@ -3354,7 +3355,7 @@ class _ProductDetailDialogState extends State<_ProductDetailDialog> {
                                 }
                               },
                               style: ElevatedButton.styleFrom(
-                                backgroundColor: const Color(0xFF0C56D0),
+                                backgroundColor: SboxColors.brand600,
                                 foregroundColor: Colors.white,
                                 padding:
                                     const EdgeInsets.symmetric(vertical: 14),
@@ -3430,7 +3431,7 @@ class _DownloadSection extends StatelessWidget {
         gradient: LinearGradient(
           begin: Alignment.topLeft,
           end: Alignment.bottomRight,
-          colors: [Color(0xFF0A3880), Color(0xFF0C56D0)],
+          colors: [Color(0xFF0A3880), SboxColors.brand600],
         ),
       ),
       padding:
@@ -3445,7 +3446,7 @@ class _DownloadSection extends StatelessWidget {
             textAlign: TextAlign.center,
             style: TextStyle(
                 color: Colors.white.withValues(alpha: 0.85),
-                fontSize: 15,
+                fontSize: 16,
                 height: 1.6),
           ),
           const SizedBox(height: 44),
@@ -3534,7 +3535,7 @@ class _DownloadBadgeState extends State<_DownloadBadge> {
             color: _hovered
                 ? Colors.white.withValues(alpha: 0.18)
                 : Colors.white.withValues(alpha: 0.10),
-            borderRadius: BorderRadius.circular(16),
+            borderRadius: BorderRadius.circular(14),
             border: Border.all(color: Colors.white.withValues(alpha: 0.30), width: 1),
           ),
           child: Column(
@@ -3545,7 +3546,7 @@ class _DownloadBadgeState extends State<_DownloadBadge> {
                   textAlign: TextAlign.center,
                   style: const TextStyle(
                       color: Colors.white,
-                      fontWeight: FontWeight.w800,
+                      fontWeight: FontWeight.w700,
                       fontSize: 13)),
               const SizedBox(height: 4),
               Text(tr(d.desc),

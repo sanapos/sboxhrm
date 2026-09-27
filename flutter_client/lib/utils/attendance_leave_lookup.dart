@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
 import 'package:zkteco_flutter_client/l10n/app_tr.dart';
 
+import '../theme/sbox_tokens.dart';
 /// Loại hiển thị ô không có chấm công (phân tích chéo).
 enum AbsenceCellKind {
   holiday,
@@ -174,7 +175,7 @@ class AttendanceLeaveLookup {
             style: TextStyle(
               fontSize: 10,
               fontWeight: FontWeight.w600,
-              color: Color(0xFF8B5CF6),
+              color: SboxColors.violet,
             ),
           ),
         );
@@ -194,7 +195,7 @@ class AttendanceLeaveLookup {
             style: TextStyle(
               fontSize: 10,
               fontWeight: FontWeight.w600,
-              color: Color(0xFFD97706),
+              color: SboxColors.warning,
             ),
           ),
         );
@@ -204,7 +205,7 @@ class AttendanceLeaveLookup {
             style: TextStyle(
               fontSize: 10,
               fontWeight: FontWeight.w600,
-              color: Color(0xFFEF4444),
+              color: SboxColors.danger,
             ),
           ),
         );

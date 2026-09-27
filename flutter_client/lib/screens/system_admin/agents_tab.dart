@@ -10,6 +10,7 @@ import 'system_admin_helpers.dart';
 import '../../utils/web_route_parser.dart';
 import 'package:zkteco_flutter_client/l10n/app_tr.dart';
 
+import '../../theme/sbox_tokens.dart';
 class AgentsTab extends StatefulWidget {
   const AgentsTab({super.key});
 
@@ -181,7 +182,7 @@ class AgentsTabState extends State<AgentsTab> {
       decoration: BoxDecoration(
           color: Colors.white,
           borderRadius: BorderRadius.circular(10),
-          border: Border.all(color: Colors.grey.shade300)),
+          border: Border.all(color: SboxColors.slate300)),
       child: DropdownButtonHideUnderline(
         child: DropdownButton<bool?>(
           isExpanded: fullWidth,
@@ -227,8 +228,8 @@ class AgentsTabState extends State<AgentsTab> {
                   child: Container(
                     decoration: BoxDecoration(
                       color: Colors.white,
-                      borderRadius: BorderRadius.circular(12),
-                      border: Border.all(color: const Color(0xFFE4E4E7)),
+                      borderRadius: BorderRadius.circular(14),
+                      border: Border.all(color: SboxColors.slate200),
                       boxShadow: [BoxShadow(color: Colors.black.withValues(alpha: 0.05), blurRadius: 6, offset: const Offset(0, 2))],
                     ),
                     child: _buildAgentDeckItem(paginatedItems[i]),
@@ -246,12 +247,12 @@ class AgentsTabState extends State<AgentsTab> {
             padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
             decoration: BoxDecoration(
               color: Colors.white,
-              border: Border(top: BorderSide(color: Colors.grey.shade200)),
+              border: Border(top: BorderSide(color: SboxColors.slate200)),
             ),
             child: Row(
               mainAxisAlignment: MainAxisAlignment.spaceBetween,
               children: [
-                Text(tr('Hiển thị ${startIndex + 1}-$endIndex / $totalCount'), style: TextStyle(fontSize: 12, color: Colors.grey[600])),
+                Text(tr('Hiển thị ${startIndex + 1}-$endIndex / $totalCount'), style: TextStyle(fontSize: 12, color: SboxColors.slate600)),
                 Row(children: [
                   IconButton(icon: const Icon(Icons.chevron_left, size: 20), onPressed: page > 1 ? () => setState(() => _currentPage--) : null, visualDensity: VisualDensity.compact),
                   Text(tr('$page / $totalPages'), style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w500)),
@@ -291,7 +292,7 @@ class AgentsTabState extends State<AgentsTab> {
             child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
               Text(tr(name), style: const TextStyle(fontWeight: FontWeight.w600, fontSize: 14), maxLines: 1, overflow: TextOverflow.ellipsis),
               const SizedBox(height: 2),
-              Text(tr([code, email].where((s) => s.isNotEmpty).join(' \u00b7 ')), style: const TextStyle(color: Color(0xFF71717A), fontSize: 12), maxLines: 1, overflow: TextOverflow.ellipsis),
+              Text(tr([code, email].where((s) => s.isNotEmpty).join(' \u00b7 ')), style: const TextStyle(color: SboxColors.slate500, fontSize: 12), maxLines: 1, overflow: TextOverflow.ellipsis),
               Text(tr('${tr('ĐK: ')}${AdminHelpers.agentTotalStores(agent)} · '
                 'Kích hoạt: ${AdminHelpers.agentActivatedStores(agent)} · '
                 'D.thử: ${AdminHelpers.agentTrialStores(agent)} · '
@@ -301,14 +302,14 @@ class AgentsTabState extends State<AgentsTab> {
                   fontSize: 11,
                   color: AdminHelpers.agentRenewalBalance(agent) <= 0
                       ? AdminHelpers.warning
-                      : const Color(0xFF7C3AED),
+                      : SboxColors.violet,
                 ),
               ),
             ]),
           ),
           Container(
             padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
-            decoration: BoxDecoration(color: isActive ? Colors.green.withValues(alpha: 0.1) : Colors.red.withValues(alpha: 0.1), borderRadius: BorderRadius.circular(8)),
+            decoration: BoxDecoration(color: isActive ? Colors.green.withValues(alpha: 0.1) : Colors.red.withValues(alpha: 0.1), borderRadius: BorderRadius.circular(10)),
             child: Text(tr(isActive ? 'H\u0110' : 'T\u1eaft'), style: TextStyle(fontSize: 10, fontWeight: FontWeight.w600, color: isActive ? Colors.green : Colors.red)),
           ),
         ]),
@@ -344,7 +345,7 @@ class AgentsTabState extends State<AgentsTab> {
         AdminActionSheetItem(
           icon: Icons.calendar_month,
           label: 'Cấp quỹ gia hạn',
-          color: const Color(0xFF7C3AED),
+          color: SboxColors.violet,
           onTap: () => _showAdjustRenewalBalanceDialog(agent),
         ),
         AdminActionSheetItem(
@@ -376,7 +377,7 @@ class AgentsTabState extends State<AgentsTab> {
     return Container(
       margin: const EdgeInsets.only(bottom: 10),
       decoration: AdminHelpers.cardDecoration(
-        borderColor: isActive ? AdminHelpers.warning : Colors.grey,
+        borderColor: isActive ? AdminHelpers.warning : SboxColors.slate500,
       ),
       child: ListTile(
         contentPadding:
@@ -397,26 +398,26 @@ class AgentsTabState extends State<AgentsTab> {
               if (agent['email'] != null)
                 Text(tr(agent['email']),
                     style:
-                        TextStyle(fontSize: 12, color: Colors.grey[600])),
+                        TextStyle(fontSize: 12, color: SboxColors.slate600)),
               if (agent['phone'] != null)
                 Text(tr('${tr('SĐT Zalo: ')}${agent['phone']}'),
                     style:
-                        TextStyle(fontSize: 12, color: Colors.grey[500])),
+                        TextStyle(fontSize: 12, color: SboxColors.slate500)),
               if (agent['address'] != null &&
                   agent['address'].toString().isNotEmpty)
                 Text(tr('${tr('Địa chỉ: ')}${agent['address']}'),
                     style:
-                        TextStyle(fontSize: 12, color: Colors.grey[500])),
+                        TextStyle(fontSize: 12, color: SboxColors.slate500)),
               if (agent['code'] != null)
                 Text(tr('${tr('Mã: ')}${agent['code']}'),
                     style:
-                        TextStyle(fontSize: 12, color: Colors.grey[500])),
+                        TextStyle(fontSize: 12, color: SboxColors.slate500)),
               const SizedBox(height: 4),
               _buildAgentStatChips(agent),
             ]),
         trailing: context.systemAdminCanEdit
             ? PopupMenuButton<String>(
-          icon: Icon(Icons.more_vert, color: Colors.grey[400]),
+          icon: Icon(Icons.more_vert, color: SboxColors.slate400),
           itemBuilder: (_) => [
             PopupMenuItem(
                 value: 'referral',
@@ -428,7 +429,7 @@ class AgentsTabState extends State<AgentsTab> {
             PopupMenuItem(
                 value: 'renewal',
                 child: Row(children: [
-                  Icon(Icons.calendar_month, size: 16, color: Color(0xFF7C3AED)),
+                  Icon(Icons.calendar_month, size: 16, color: SboxColors.violet),
                   SizedBox(width: 8),
                   Text(tr('Cấp quỹ gia hạn'))
                 ])),
@@ -467,7 +468,7 @@ class AgentsTabState extends State<AgentsTab> {
           },
         )
             : IconButton(
-                icon: Icon(Icons.visibility_outlined, color: Colors.grey[400]),
+                icon: Icon(Icons.visibility_outlined, color: SboxColors.slate400),
                 onPressed: () => _showEditAgentDialog(agent, readOnly: true),
               ),
       ),
@@ -479,9 +480,9 @@ class AgentsTabState extends State<AgentsTab> {
       width: double.infinity,
       padding: const EdgeInsets.all(12),
       decoration: BoxDecoration(
-        color: Colors.grey.shade50,
-        borderRadius: BorderRadius.circular(8),
-        border: Border.all(color: Colors.grey.shade200),
+        color: SboxColors.slate50,
+        borderRadius: BorderRadius.circular(10),
+        border: Border.all(color: SboxColors.slate200),
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -492,19 +493,19 @@ class AgentsTabState extends State<AgentsTab> {
           Text(tr('${tr('Cửa hàng đăng ký: ')}${AdminHelpers.agentTotalStores(agent)} · '
             'Đã kích hoạt: ${AdminHelpers.agentActivatedStores(agent)} · '
             'Dùng thử: ${AdminHelpers.agentTrialStores(agent)}'),
-            style: TextStyle(fontSize: 12, color: Colors.grey[700]),
+            style: TextStyle(fontSize: 12, color: SboxColors.slate700),
           ),
           if (AdminHelpers.agentLockedStores(agent) > 0) ...[
             const SizedBox(height: 4),
             Text(tr('Khóa: ${AdminHelpers.agentLockedStores(agent)} cửa hàng'),
-              style: TextStyle(fontSize: 12, color: Colors.grey[700]),
+              style: TextStyle(fontSize: 12, color: SboxColors.slate700),
             ),
           ],
           const SizedBox(height: 4),
           Text(tr('${tr('License key: còn ')}${AdminHelpers.agentAvailableKeys(agent)} · '
             'đã dùng ${AdminHelpers.agentUsedKeys(agent)} · '
             'tổng ${AdminHelpers.agentTotalKeys(agent)}'),
-            style: TextStyle(fontSize: 12, color: Colors.grey[700]),
+            style: TextStyle(fontSize: 12, color: SboxColors.slate700),
           ),
         ],
       ),
@@ -528,7 +529,7 @@ class AgentsTabState extends State<AgentsTab> {
       children: [
         AdminHelpers.statusChip(
           isActive ? 'Hoạt động' : 'Tắt',
-          isActive ? AdminHelpers.success : Colors.grey,
+          isActive ? AdminHelpers.success : SboxColors.slate500,
         ),
         AdminHelpers.statusChip(
           'ĐK: $registered',
@@ -540,7 +541,7 @@ class AgentsTabState extends State<AgentsTab> {
         ),
         AdminHelpers.statusChip(
           'D.thử: $trial',
-          const Color(0xFF7C3AED),
+          SboxColors.violet,
         ),
         if (lockedStores > 0)
           AdminHelpers.statusChip(
@@ -555,7 +556,7 @@ class AgentsTabState extends State<AgentsTab> {
         AdminHelpers.statusChip(
           'Quỹ GH: ${renewalBalance}d',
           renewalBalance > 0
-              ? const Color(0xFF7C3AED)
+              ? SboxColors.violet
               : AdminHelpers.warning,
         ),
       ],
@@ -626,8 +627,8 @@ class AgentsTabState extends State<AgentsTab> {
             Container(
               padding: const EdgeInsets.all(12),
               decoration: BoxDecoration(
-                  color: Colors.grey[100],
-                  borderRadius: BorderRadius.circular(8)),
+                  color: SboxColors.slate100,
+                  borderRadius: BorderRadius.circular(10)),
               child: SelectableText(tr(newToken.toString()),
                   style: const TextStyle(
                       fontFamily: 'monospace',
@@ -799,7 +800,7 @@ class AgentsTabState extends State<AgentsTab> {
               ),
               const SizedBox(height: 6),
               Text(tr('Khách đăng ký qua link này, cửa hàng sẽ tự gán cho đại lý.'),
-                style: TextStyle(fontSize: 12, color: Color(0xFF71717A)),
+                style: TextStyle(fontSize: 12, color: SboxColors.slate500),
               ),
               const SizedBox(height: 8),
               _linkBox(storeLink),
@@ -811,7 +812,7 @@ class AgentsTabState extends State<AgentsTab> {
               ),
               const SizedBox(height: 6),
               Text(tr('Gửi cho đại lý để họ tự tạo tài khoản đăng nhập cổng đại lý.'),
-                style: TextStyle(fontSize: 12, color: Color(0xFF71717A)),
+                style: TextStyle(fontSize: 12, color: SboxColors.slate500),
               ),
               const SizedBox(height: 8),
               _linkBox(agentAccountLink),
@@ -851,8 +852,8 @@ class AgentsTabState extends State<AgentsTab> {
       width: double.infinity,
       padding: const EdgeInsets.all(12),
       decoration: BoxDecoration(
-        color: Colors.grey[100],
-        borderRadius: BorderRadius.circular(8),
+        color: SboxColors.slate100,
+        borderRadius: BorderRadius.circular(10),
       ),
       child: SelectableText(tr(link),
           style: const TextStyle(fontFamily: 'monospace', fontSize: 12)),
@@ -875,8 +876,8 @@ class AgentsTabState extends State<AgentsTab> {
             Container(
               padding: const EdgeInsets.all(12),
               decoration: BoxDecoration(
-                color: Colors.grey[100],
-                borderRadius: BorderRadius.circular(8),
+                color: SboxColors.slate100,
+                borderRadius: BorderRadius.circular(10),
               ),
               child: SelectableText(tr(link),
                   style: const TextStyle(fontFamily: 'monospace')),
@@ -922,8 +923,8 @@ class AgentsTabState extends State<AgentsTab> {
             Container(
               padding: const EdgeInsets.all(12),
               decoration: BoxDecoration(
-                color: Colors.grey[100],
-                borderRadius: BorderRadius.circular(8),
+                color: SboxColors.slate100,
+                borderRadius: BorderRadius.circular(10),
               ),
               child: SelectableText(tr(link),
                   style: const TextStyle(fontFamily: 'monospace')),
@@ -971,7 +972,7 @@ class AgentsTabState extends State<AgentsTab> {
               children: [
                 Text(tr('Hiện còn: $current ngày'),
                     style: const TextStyle(
-                        fontWeight: FontWeight.w600, fontSize: 15)),
+                        fontWeight: FontWeight.w600, fontSize: 16)),
                 const SizedBox(height: 12),
                 SegmentedButton<bool>(
                   segments: [
@@ -1036,7 +1037,7 @@ class AgentsTabState extends State<AgentsTab> {
                       }
                     },
               style: ElevatedButton.styleFrom(
-                  backgroundColor: const Color(0xFF7C3AED)),
+                  backgroundColor: SboxColors.violet),
               child: saving
                   ? const SizedBox(
                       width: 16,
@@ -1093,13 +1094,13 @@ class AgentsTabState extends State<AgentsTab> {
               width: double.infinity,
               padding: const EdgeInsets.all(12),
               decoration: BoxDecoration(
-                color: const Color(0xFF7C3AED).withValues(alpha: 0.08),
-                borderRadius: BorderRadius.circular(8),
+                color: SboxColors.violet.withValues(alpha: 0.08),
+                borderRadius: BorderRadius.circular(10),
               ),
               child: Row(
                 children: [
                   const Icon(Icons.calendar_month,
-                      color: Color(0xFF7C3AED), size: 20),
+                      color: SboxColors.violet, size: 20),
                   const SizedBox(width: 10),
                   Expanded(
                     child: Text(tr('${tr('Quỹ gia hạn còn: ')}${agent['renewalDayBalance'] ?? 0} ngày'),

@@ -16,6 +16,7 @@ import '../widgets/hrm_page_chrome.dart';
 import '../widgets/page_top_actions.dart';
 import 'package:zkteco_flutter_client/l10n/app_tr.dart';
 
+import '../theme/sbox_tokens.dart';
 const _cRowH = 54.0;
 const _cHdrH = 44.0;
 const _cStickyW = 168.0;
@@ -337,13 +338,13 @@ class _CashReportScreenState extends State<CashReportScreen> {
 
   Color _typeColor(CashTransactionType type) =>
       type == CashTransactionType.income
-          ? const Color(0xFF16A34A)
-          : const Color(0xFFDC2626);
+          ? SboxColors.success
+          : SboxColors.danger;
 
   Color _statusColor(Map<String, dynamic> row) {
-    if (cashReportRowIsCancelled(row)) return const Color(0xFF9CA3AF);
-    if (cashReportRowIsPending(row)) return const Color(0xFFF59E0B);
-    return const Color(0xFF16A34A);
+    if (cashReportRowIsCancelled(row)) return SboxColors.slate400;
+    if (cashReportRowIsPending(row)) return SboxColors.warning;
+    return SboxColors.success;
   }
 
   @override
@@ -450,7 +451,7 @@ class _CashReportScreenState extends State<CashReportScreen> {
               childrenPadding: const EdgeInsets.fromLTRB(4, 0, 4, 8),
               title: Row(
                 children: [
-                  const Icon(Icons.tune, size: 18, color: Color(0xFF6B7280)),
+                  const Icon(Icons.tune, size: 18, color: SboxColors.slate500),
                   const SizedBox(width: 6),
                   Text(tr('Bộ lọc'),
                       style: TextStyle(
@@ -474,7 +475,7 @@ class _CashReportScreenState extends State<CashReportScreen> {
                   const Spacer(),
                   Text(tr('${_filtered.length}/${_items.length}'),
                       style: TextStyle(
-                          fontSize: 11, color: Colors.grey.shade600)),
+                          fontSize: 11, color: SboxColors.slate600)),
                 ],
               ),
               children: [
@@ -590,16 +591,16 @@ class _CashReportScreenState extends State<CashReportScreen> {
           isDense: true,
           contentPadding:
               const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
-          border: OutlineInputBorder(borderRadius: BorderRadius.circular(8)),
+          border: OutlineInputBorder(borderRadius: BorderRadius.circular(10)),
         ),
         child: DropdownButtonHideUnderline(
           child: DropdownButton<T>(
             value: value,
             isExpanded: true,
             isDense: true,
-            style: const TextStyle(fontSize: 12, color: Color(0xFF111827)),
+            style: const TextStyle(fontSize: 12, color: SboxColors.slate900),
             icon: const Icon(Icons.keyboard_arrow_down,
-                size: 18, color: Color(0xFF9CA3AF)),
+                size: 18, color: SboxColors.slate400),
             items: items,
             onChanged: onChanged,
           ),
@@ -676,8 +677,8 @@ class _CashReportScreenState extends State<CashReportScreen> {
         return Container(
           height: 40,
           decoration: BoxDecoration(
-            border: Border.all(color: const Color(0xFFD1D5DB)),
-            borderRadius: BorderRadius.circular(8),
+            border: Border.all(color: SboxColors.slate300),
+            borderRadius: BorderRadius.circular(10),
           ),
           child: TextField(
             controller: fieldCtrl,
@@ -686,9 +687,9 @@ class _CashReportScreenState extends State<CashReportScreen> {
             decoration: InputDecoration(
               hintText: tr(hint),
               hintStyle:
-                  const TextStyle(fontSize: 12, color: Color(0xFF9CA3AF)),
+                  const TextStyle(fontSize: 12, color: SboxColors.slate400),
               prefixIcon: const Icon(Icons.person_search_outlined,
-                  size: 18, color: Color(0xFF9CA3AF)),
+                  size: 18, color: SboxColors.slate400),
               suffixIcon: _empSearch.isNotEmpty
                   ? IconButton(
                       icon: const Icon(Icons.clear, size: 16),
@@ -711,7 +712,7 @@ class _CashReportScreenState extends State<CashReportScreen> {
           alignment: Alignment.topLeft,
           child: Material(
             elevation: 6,
-            borderRadius: BorderRadius.circular(8),
+            borderRadius: BorderRadius.circular(10),
             child: ConstrainedBox(
               constraints: const BoxConstraints(maxHeight: 200),
               child: ListView(
@@ -725,13 +726,13 @@ class _CashReportScreenState extends State<CashReportScreen> {
                                 horizontal: 16, vertical: 10),
                             child: Row(children: [
                               const Icon(Icons.person_outline,
-                                  size: 16, color: Color(0xFF6B7280)),
+                                  size: 16, color: SboxColors.slate500),
                               const SizedBox(width: 8),
                               Flexible(
                                   child: Text(tr(option),
                                       style: const TextStyle(
                                           fontSize: 13,
-                                          color: Color(0xFF111827)))),
+                                          color: SboxColors.slate900))),
                             ]),
                           ),
                         ))
@@ -818,11 +819,11 @@ class _CashReportScreenState extends State<CashReportScreen> {
                     style: const TextStyle(
                         fontSize: 13,
                         fontWeight: FontWeight.w700,
-                        color: Color(0xFF111827))),
+                        color: SboxColors.slate900)),
                 const Spacer(),
                 Text(tr('${_filtered.length}/${_items.length} dòng'),
                     style:
-                        TextStyle(fontSize: 11, color: Colors.grey.shade600)),
+                        TextStyle(fontSize: 11, color: SboxColors.slate600)),
               ],
             ),
           ),
@@ -896,11 +897,11 @@ class _CashReportScreenState extends State<CashReportScreen> {
         mainAxisSize: MainAxisSize.min,
         children: [
           Icon(Icons.inbox_outlined,
-              size: 56, color: Colors.grey.shade300),
+              size: 56, color: SboxColors.slate300),
           const SizedBox(height: 12),
           Text(
             tr(hasFilter ? 'Không có phiếu phù hợp bộ lọc' : 'Không có dữ liệu'),
-            style: TextStyle(color: Colors.grey.shade600, fontSize: 14),
+            style: TextStyle(color: SboxColors.slate600, fontSize: 14),
             textAlign: TextAlign.center,
           ),
           if (hasFilter) ...[
@@ -924,7 +925,7 @@ class _CashReportScreenState extends State<CashReportScreen> {
 
     const hdrBg = Color(0xFFE0F2FE);
     const evenBg = Colors.white;
-    const oddBg = Color(0xFFF9FAFB);
+    const oddBg = SboxColors.slate50;
 
     Widget hCell(String t, double w) => Container(
           width: w,
@@ -936,7 +937,7 @@ class _CashReportScreenState extends State<CashReportScreen> {
               style: const TextStyle(
                   fontWeight: FontWeight.w700,
                   fontSize: 12,
-                  color: Color(0xFF374151))),
+                  color: SboxColors.slate700)),
         );
 
     Widget dCell(String t, double w, int i,
@@ -949,7 +950,7 @@ class _CashReportScreenState extends State<CashReportScreen> {
           padding: const EdgeInsets.symmetric(horizontal: 12),
           child: Text(tr(t),
               style: TextStyle(
-                  fontSize: 12, color: textColor ?? const Color(0xFF374151)),
+                  fontSize: 12, color: textColor ?? SboxColors.slate700),
               overflow: ellipsis ? TextOverflow.ellipsis : null),
         );
 
@@ -983,7 +984,7 @@ class _CashReportScreenState extends State<CashReportScreen> {
                           style: TextStyle(
                               fontWeight: FontWeight.w700,
                               fontSize: 12,
-                              color: Color(0xFF374151))),
+                              color: SboxColors.slate700)),
                     ),
                     ...List.generate(rows.length, (i) {
                       final t = rows[i];
@@ -1002,9 +1003,9 @@ class _CashReportScreenState extends State<CashReportScreen> {
                             children: [
                               Text(tr(catName),
                                   style: const TextStyle(
-                                      fontSize: 12.5,
+                                      fontSize: 13,
                                       fontWeight: FontWeight.w600,
-                                      color: Color(0xFF111827)),
+                                      color: SboxColors.slate900),
                                   overflow: TextOverflow.ellipsis),
                               const SizedBox(height: 2),
                               HrmBrandChip(

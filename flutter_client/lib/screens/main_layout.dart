@@ -129,6 +129,7 @@ import '../services/system_notification_service.dart';
 import '../services/app_permission_service.dart';
 
 import '../theme/sbox_tokens.dart';
+import '../widgets/sbox/sbox_command_palette.dart';
 export '../utils/navigation_notifier.dart';
 
 /// Global notifiers for screen refresh
@@ -352,7 +353,40 @@ class _MainLayoutState extends State<MainLayout> with WidgetsBindingObserver {
   StreamSubscription? _deviceStatusSubscription;
   StreamSubscription? _communicationSubscription;
   bool _isConnectingSignalR = false;
-  bool _topSearchExpanded = false;
+  bool _paletteOpen = false;
+
+  /// Ctrl+K (⌘K trên Mac): mở ô tìm nhanh chức năng ở mọi màn.
+  bool _onGlobalKey(KeyEvent e) {
+    if (e is! KeyDownEvent || e.logicalKey != LogicalKeyboardKey.keyK) return false;
+    final k = HardwareKeyboard.instance;
+    if (!(k.isControlPressed || k.isMetaPressed)) return false;
+    if (!mounted || _paletteOpen) return true;
+    _openCommandPalette();
+    return true;
+  }
+
+  Future<void> _openCommandPalette() async {
+    if (_paletteOpen) return;
+    final l = AppLocalizations.of(context);
+    final items = <SboxCommandItem>[
+      for (final i in _visibleNavIndices())
+        if (_navItems[i].label.isNotEmpty)
+          SboxCommandItem(
+            label: _navItems[i].localizedLabel(l),
+            icon: _navItems[i].icon,
+            group: _navItems[i].localizedGroup(l),
+            subtitle: _navItems[i].subtitle,
+            keywords: [_navItems[i].label, _navItems[i].moduleCode ?? ''],
+            onSelect: () => _tryNavigateToIndex(i),
+          ),
+    ];
+    _paletteOpen = true;
+    try {
+      await SboxCommandPalette.show(context, items, hint: 'Tìm chức năng… (vd: nhập hàng, bảng lương)');
+    } finally {
+      _paletteOpen = false;
+    }
+  }
 
   // Popup queue: show one popup at a time to prevent overlap
   final List<Widget Function(VoidCallback onDismiss)> _popupQueue = [];
@@ -388,6 +422,7 @@ class _MainLayoutState extends State<MainLayout> with WidgetsBindingObserver {
     super.initState();
     NavigationNotifier.mainLayoutReady.value = true;
     WidgetsBinding.instance.addObserver(this);
+    HardwareKeyboard.instance.addHandler(_onGlobalKey);
     _systemNotification.initialize();
     _loadNotificationCount();
     _connectSignalR();
@@ -846,6 +881,7 @@ class _MainLayoutState extends State<MainLayout> with WidgetsBindingObserver {
 
   @override
   void dispose() {
+    HardwareKeyboard.instance.removeHandler(_onGlobalKey);
     MobileBottomNavPrefs.revision.removeListener(_onMobileNavPrefsChanged);
     MobileQuickActionsPrefs.revision.removeListener(_onMobileNavPrefsChanged);
     NavigationNotifier.mainLayoutReady.value = false;
@@ -1476,7 +1512,7 @@ class _MainLayoutState extends State<MainLayout> with WidgetsBindingObserver {
       label: 'Tổng hợp chấm công',
       subtitle: 'Tổng hợp công',
       screen: const AttendanceSummaryScreen(),
-      group: 'Báo cáo',
+      group: 'Báo cáo nhân sự',
       themeColor: HrmPageChrome.primaryNavy,
       moduleCode: 'AttendanceSummary',
     ),
@@ -1486,7 +1522,7 @@ class _MainLayoutState extends State<MainLayout> with WidgetsBindingObserver {
       label: 'Tổng hợp chấm công theo ca',
       subtitle: 'Công theo ca',
       screen: const AttendanceByShiftScreen(),
-      group: 'Báo cáo',
+      group: 'Báo cáo nhân sự',
       themeColor: HrmPageChrome.primaryNavy,
       moduleCode: 'AttendanceByShift',
     ),
@@ -1496,7 +1532,7 @@ class _MainLayoutState extends State<MainLayout> with WidgetsBindingObserver {
       label: 'Đi trễ / Về sớm',
       subtitle: 'Trễ / sớm',
       screen: const LateEarlyReportScreen(),
-      group: 'Báo cáo',
+      group: 'Báo cáo nhân sự',
       themeColor: HrmPageChrome.primaryNavy,
       moduleCode: 'LateEarlyReport',
     ),
@@ -1506,7 +1542,7 @@ class _MainLayoutState extends State<MainLayout> with WidgetsBindingObserver {
       label: 'Báo cáo đi đường',
       subtitle: 'Giờ đi đường',
       screen: const TravelHoursReportScreen(),
-      group: 'Báo cáo',
+      group: 'Báo cáo nhân sự',
       themeColor: HrmPageChrome.primaryNavy,
       moduleCode: 'TravelHoursReport',
     ),
@@ -1538,7 +1574,7 @@ class _MainLayoutState extends State<MainLayout> with WidgetsBindingObserver {
       label: 'Phiếu lương',
       subtitle: 'Phiếu lương',
       screen: const PayslipScreen(),
-      group: 'Báo cáo',
+      group: 'Báo cáo nhân sự',
       themeColor: HrmPageChrome.primaryNavy,
       moduleCode: 'Payslip',
     ),
@@ -1548,7 +1584,7 @@ class _MainLayoutState extends State<MainLayout> with WidgetsBindingObserver {
       label: 'Tổng hợp lương',
       subtitle: 'Bảng lương',
       screen: const PayrollScreen(),
-      group: 'Báo cáo',
+      group: 'Báo cáo nhân sự',
       themeColor: HrmPageChrome.primaryNavy,
       moduleCode: 'Payroll',
     ),
@@ -1912,7 +1948,7 @@ class _MainLayoutState extends State<MainLayout> with WidgetsBindingObserver {
       label: 'Báo cáo POS',
       subtitle: '14 báo cáo',
       screen: const PosReportsHubScreen(),
-      group: 'Báo cáo',
+      group: 'Báo cáo kinh doanh',
       showInSidebar: true,
       themeColor: HrmPageChrome.primaryNavy,
       moduleCode: 'PosSalesReport',
@@ -1923,7 +1959,7 @@ class _MainLayoutState extends State<MainLayout> with WidgetsBindingObserver {
       label: 'Báo cáo hủy / trả',
       subtitle: 'Hủy / trả',
       screen: const PosCancelReturnHistoryScreen(),
-      group: 'Báo cáo',
+      group: 'Báo cáo kinh doanh',
       showInSidebar: true,
       themeColor: HrmPageChrome.primaryNavy,
       moduleCode: 'PosSaleReturns',
@@ -1934,7 +1970,7 @@ class _MainLayoutState extends State<MainLayout> with WidgetsBindingObserver {
       label: 'Công nợ khách hàng',
       subtitle: 'Công nợ',
       screen: const PosCustomerDebtReportScreen(),
-      group: 'Báo cáo',
+      group: 'Báo cáo kinh doanh',
       showInSidebar: false,
       themeColor: HrmPageChrome.primaryNavy,
       moduleCode: 'PosSalesReport',
@@ -1945,7 +1981,7 @@ class _MainLayoutState extends State<MainLayout> with WidgetsBindingObserver {
       label: 'Báo cáo chấm công',
       subtitle: 'Vắng / trễ',
       screen: const AttendanceReportScreen(),
-      group: 'Báo cáo',
+      group: 'Báo cáo nhân sự',
       themeColor: HrmPageChrome.primaryNavy,
       moduleCode: 'AttendanceReport',
     ),
@@ -1955,7 +1991,7 @@ class _MainLayoutState extends State<MainLayout> with WidgetsBindingObserver {
       label: 'Báo cáo phạt',
       subtitle: 'Phiếu phạt',
       screen: const PenaltyReportScreen(),
-      group: 'Báo cáo',
+      group: 'Báo cáo nhân sự',
       themeColor: HrmPageChrome.primaryNavy,
       moduleCode: 'PenaltyReport',
     ),
@@ -1965,7 +2001,7 @@ class _MainLayoutState extends State<MainLayout> with WidgetsBindingObserver {
       label: 'Báo cáo thu chi',
       subtitle: 'Thu chi',
       screen: const CashReportScreen(),
-      group: 'Báo cáo',
+      group: 'Báo cáo kinh doanh',
       themeColor: HrmPageChrome.primaryNavy,
       moduleCode: 'CashReport',
     ),
@@ -1975,7 +2011,7 @@ class _MainLayoutState extends State<MainLayout> with WidgetsBindingObserver {
       label: 'Báo cáo ứng lương',
       subtitle: 'Ứng lương',
       screen: const AdvanceReportScreen(),
-      group: 'Báo cáo',
+      group: 'Báo cáo nhân sự',
       themeColor: HrmPageChrome.primaryNavy,
       moduleCode: 'AdvanceReport',
     ),
@@ -1985,7 +2021,7 @@ class _MainLayoutState extends State<MainLayout> with WidgetsBindingObserver {
       label: 'Báo cáo công tác phí',
       subtitle: 'Công tác',
       screen: const BusinessTripReportScreen(),
-      group: 'Báo cáo',
+      group: 'Báo cáo nhân sự',
       themeColor: HrmPageChrome.primaryNavy,
       moduleCode: 'BusinessTripReport',
     ),
@@ -1995,7 +2031,7 @@ class _MainLayoutState extends State<MainLayout> with WidgetsBindingObserver {
       label: 'Báo cáo nghỉ phép',
       subtitle: 'Nghỉ phép',
       screen: const LeaveReportScreen(),
-      group: 'Báo cáo',
+      group: 'Báo cáo nhân sự',
       themeColor: HrmPageChrome.primaryNavy,
       moduleCode: 'LeaveReport',
     ),
@@ -2005,7 +2041,7 @@ class _MainLayoutState extends State<MainLayout> with WidgetsBindingObserver {
       label: 'Báo cáo tài sản',
       subtitle: 'Tài sản',
       screen: const AssetReportScreen(),
-      group: 'Báo cáo',
+      group: 'Báo cáo kinh doanh',
       themeColor: HrmPageChrome.primaryNavy,
       moduleCode: 'AssetReport',
     ),
@@ -2016,7 +2052,7 @@ class _MainLayoutState extends State<MainLayout> with WidgetsBindingObserver {
       label: 'Quản lý tài liệu tải xuống',
       subtitle: 'File máy này',
       screen: const DownloadedDocumentsScreen(),
-      group: 'Báo cáo',
+      group: 'Báo cáo kinh doanh',
       showInSidebar: true,
       themeColor: HrmPageChrome.primaryNavy,
     ),
@@ -2111,7 +2147,7 @@ class _MainLayoutState extends State<MainLayout> with WidgetsBindingObserver {
       label: 'Báo cáo phân tích',
       subtitle: 'Chuyên cần, phép, KPI, điều hành',
       screen: const AnalyticsReportsScreen(),
-      group: 'Báo cáo',
+      group: 'Báo cáo nhân sự',
       themeColor: HrmPageChrome.primaryNavy,
       moduleCode: 'AttendanceReport',
     ),
@@ -3095,7 +3131,8 @@ class _MainLayoutState extends State<MainLayout> with WidgetsBindingObserver {
       'Tài chính',
       'Quản lý Vận hành',
       'POS',
-      'Báo cáo',
+      'Báo cáo kinh doanh',
+      'Báo cáo nhân sự',
       'Đại lý',
       'Cài đặt'
     ];
@@ -3468,47 +3505,39 @@ class _MainLayoutState extends State<MainLayout> with WidgetsBindingObserver {
             ),
           ),
           const SizedBox(width: 8),
-          // Search thu gọn → bấm icon mới mở field (tránh che action).
-          if (_topSearchExpanded)
-            SizedBox(
-              width: 200,
-              height: 40,
-              child: TextField(
-                autofocus: true,
-                onTapOutside: (_) =>
-                    setState(() => _topSearchExpanded = false),
-                decoration: InputDecoration(
-                  hintText: tr(AppLocalizations.of(context).search),
-                  hintStyle: const TextStyle(color: SboxColors.slate400),
-                  prefixIcon:
-                      const Icon(Icons.search, color: SboxColors.slate400, size: 20),
-                  suffixIcon: IconButton(
-                    icon: const Icon(Icons.close, size: 18),
-                    onPressed: () =>
-                        setState(() => _topSearchExpanded = false),
-                  ),
-                  filled: true,
-                  fillColor: Theme.of(context).scaffoldBackgroundColor,
-                  contentPadding: const EdgeInsets.symmetric(vertical: 0),
-                  border: OutlineInputBorder(
-                    borderRadius: BorderRadius.circular(10),
-                    borderSide:
-                        BorderSide(color: Theme.of(context).dividerColor),
-                  ),
-                  enabledBorder: OutlineInputBorder(
-                    borderRadius: BorderRadius.circular(10),
-                    borderSide:
-                        BorderSide(color: Theme.of(context).dividerColor),
-                  ),
+          // Tìm nhanh chức năng (Ctrl+K).
+          Tooltip(
+            message: tr('Tìm chức năng (Ctrl+K)'),
+            child: InkWell(
+              onTap: _openCommandPalette,
+              borderRadius: SboxRadius.mdAll,
+              child: Container(
+                height: 36,
+                padding: const EdgeInsets.symmetric(horizontal: 10),
+                decoration: BoxDecoration(
+                  color: SboxColors.slate50,
+                  borderRadius: SboxRadius.mdAll,
+                  border: Border.all(color: SboxColors.border),
                 ),
+                child: Row(mainAxisSize: MainAxisSize.min, children: [
+                  const Icon(Icons.search_rounded, size: 18, color: SboxColors.slate500),
+                  const SizedBox(width: 6),
+                  Text(tr('Tìm chức năng'), style: SboxType.smallStyle(SboxColors.textMuted)),
+                  const SizedBox(width: 10),
+                  Container(
+                    padding: const EdgeInsets.symmetric(horizontal: 5, vertical: 1),
+                    decoration: BoxDecoration(
+                      color: SboxColors.white,
+                      borderRadius: SboxRadius.smAll,
+                      border: Border.all(color: SboxColors.border),
+                    ),
+                    child: Text('Ctrl K', style: SboxType.captionStyle()),
+                  ),
+                ]),
               ),
-            )
-          else
-            IconButton(
-              icon: const Icon(Icons.search),
-              tooltip: tr(AppLocalizations.of(context).search),
-              onPressed: () => setState(() => _topSearchExpanded = true),
             ),
+          ),
+          const SizedBox(width: 4),
           IconButton(
             icon: const Icon(Icons.auto_awesome, color: SboxColors.violet),
             onPressed: () => showAiAssistant(context),
@@ -3645,7 +3674,8 @@ class _MainLayoutState extends State<MainLayout> with WidgetsBindingObserver {
       'Tài chính',
       'Quản lý Vận hành',
       'POS',
-      'Báo cáo',
+      'Báo cáo kinh doanh',
+      'Báo cáo nhân sự',
       'Đại lý',
       'Cài đặt'
     ];
@@ -3960,6 +3990,8 @@ class NavItem {
     'Quản lý Vận hành': (l) => l.groupOperations,
     'POS': (l) => l.groupPos,
     'Báo cáo': (l) => l.groupReports,
+    'Báo cáo kinh doanh': (l) => tr('Báo cáo kinh doanh'),
+    'Báo cáo nhân sự': (l) => tr('Báo cáo nhân sự'),
     'Đại lý': (l) => l.groupAgent,
     'Cài đặt': (l) => l.groupSettings,
   };
@@ -3991,7 +4023,8 @@ class _HomeMenuScreen extends StatefulWidget {
     'Tài chính',
     'Quản lý Vận hành',
     'POS',
-    'Báo cáo',
+    'Báo cáo kinh doanh',
+    'Báo cáo nhân sự',
     'Cài đặt',
   ];
 
@@ -4001,7 +4034,8 @@ class _HomeMenuScreen extends StatefulWidget {
     'Tài chính': Icons.account_balance,
     'Quản lý Vận hành': Icons.business_center,
     'POS': Icons.point_of_sale,
-    'Báo cáo': Icons.assessment,
+    'Báo cáo kinh doanh': Icons.insights_rounded,
+    'Báo cáo nhân sự': Icons.assessment,
     'Cài đặt': Icons.settings,
   };
 
@@ -4011,7 +4045,8 @@ class _HomeMenuScreen extends StatefulWidget {
     'Tài chính': HrmPageChrome.primaryNavy,
     'Quản lý Vận hành': HrmPageChrome.primaryNavy,
     'POS': HrmPageChrome.primaryNavy,
-    'Báo cáo': HrmPageChrome.primaryNavy,
+    'Báo cáo kinh doanh': HrmPageChrome.primaryNavy,
+    'Báo cáo nhân sự': HrmPageChrome.primaryNavy,
     'Cài đặt': HrmPageChrome.primaryNavy,
   };
 
@@ -4021,7 +4056,8 @@ class _HomeMenuScreen extends StatefulWidget {
     'Tài chính': 'Lương, thưởng, ứng',
     'Quản lý Vận hành': 'KPI, truyền thông',
     'POS': 'Bán hàng, kho',
-    'Báo cáo': 'Phân tích số liệu',
+    'Báo cáo kinh doanh': 'Doanh thu, hủy trả, thu chi',
+    'Báo cáo nhân sự': 'Chấm công, lương, nghỉ phép',
     'Cài đặt': 'Cấu hình hệ thống',
   };
 

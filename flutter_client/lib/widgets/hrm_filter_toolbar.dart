@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import 'hrm_page_chrome.dart';
 import '../l10n/app_tr.dart';
 
+import '../theme/sbox_tokens.dart';
 /// Toolbar tìm kiếm + nút thao tác trên mobile (không để trống + không ẩn sau filter).
 class HrmMobileSearchRow extends StatelessWidget {
   final Widget searchField;
@@ -96,11 +97,11 @@ class HrmSearchField extends StatelessWidget {
         contentPadding: const EdgeInsets.symmetric(vertical: 10),
         border: OutlineInputBorder(
           borderRadius: BorderRadius.circular(10),
-          borderSide: const BorderSide(color: Color(0xFFE4E4E7)),
+          borderSide: const BorderSide(color: SboxColors.slate200),
         ),
         enabledBorder: OutlineInputBorder(
           borderRadius: BorderRadius.circular(10),
-          borderSide: const BorderSide(color: Color(0xFFE4E4E7)),
+          borderSide: const BorderSide(color: SboxColors.slate200),
         ),
       ),
     );

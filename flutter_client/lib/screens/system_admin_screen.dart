@@ -41,6 +41,7 @@ import 'system_admin/pos_sample_catalog_tab.dart';
 import 'system_admin/notification_credits_tab.dart';
 import 'package:zkteco_flutter_client/l10n/app_tr.dart';
 
+import '../theme/sbox_tokens.dart';
 class SystemAdminScreen extends StatefulWidget {
   final bool agentMode;
 
@@ -609,7 +610,7 @@ class _SystemAdminScreenState extends State<SystemAdminScreen>
     final health = _dashboardKey.currentState?.healthData;
 
     return Material(
-      color: const Color(0xFF0F172A),
+      color: SboxColors.slate900,
       child: SafeArea(
         bottom: false,
         child: Padding(
@@ -629,7 +630,7 @@ class _SystemAdminScreenState extends State<SystemAdminScreen>
                       tr(_visibleTabLabels[idx]),
                       style: const TextStyle(
                         color: Colors.white,
-                        fontSize: 17,
+                        fontSize: 18,
                         fontWeight: FontWeight.bold,
                       ),
                       maxLines: 1,
@@ -685,7 +686,7 @@ class _SystemAdminScreenState extends State<SystemAdminScreen>
       padding: const EdgeInsets.fromLTRB(24, 20, 24, 0),
       decoration: const BoxDecoration(
         gradient:
-            LinearGradient(colors: [Color(0xFF0F172A), Color(0xFF334155)]),
+            LinearGradient(colors: [SboxColors.slate900, SboxColors.slate700]),
       ),
       child: Column(
         children: [
@@ -695,7 +696,7 @@ class _SystemAdminScreenState extends State<SystemAdminScreen>
                 padding: const EdgeInsets.all(10),
                 decoration: BoxDecoration(
                     color: Colors.white.withValues(alpha: 0.15),
-                    borderRadius: BorderRadius.circular(12)),
+                    borderRadius: BorderRadius.circular(14)),
                 child: const Icon(Icons.shield, color: Colors.white, size: 24),
               ),
               const SizedBox(width: 16),

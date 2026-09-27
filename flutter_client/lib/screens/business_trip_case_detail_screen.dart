@@ -15,6 +15,7 @@ import '../widgets/loading_widget.dart';
 import '../widgets/notification_overlay.dart';
 import 'package:zkteco_flutter_client/l10n/app_tr.dart';
 
+import '../theme/sbox_tokens.dart';
 export '../utils/business_trip_status.dart';
 
 const _theme = PosTheme.kiotBlue;
@@ -690,11 +691,11 @@ class _BusinessTripCaseDetailScreenState
                   Text(tr(label),
                       style: TextStyle(
                           fontSize: 12,
-                          color: Colors.grey[600],
+                          color: SboxColors.slate600,
                           fontWeight: FontWeight.w600)),
                   const SizedBox(height: 2),
                   Text(tr(value.isEmpty ? '—' : value),
-                      style: const TextStyle(fontSize: 15, height: 1.35)),
+                      style: const TextStyle(fontSize: 16, height: 1.35)),
                 ],
               ),
             );
@@ -733,12 +734,12 @@ class _BusinessTripCaseDetailScreenState
                 Text(tr('Đính kèm (${atts.length})'),
                     style: TextStyle(
                         fontSize: 12,
-                        color: Colors.grey[600],
+                        color: SboxColors.slate600,
                         fontWeight: FontWeight.w600)),
                 const SizedBox(height: 6),
                 if (atts.isEmpty)
                   Text(tr('Chưa có file đính kèm'),
-                      style: TextStyle(color: Colors.grey[600]))
+                      style: TextStyle(color: SboxColors.slate600))
                 else
                   ...atts.asMap().entries.map((entry) {
                     final a = entry.value;
@@ -760,7 +761,7 @@ class _BusinessTripCaseDetailScreenState
                       elevation: 0,
                       shape: RoundedRectangleBorder(
                         borderRadius: BorderRadius.circular(10),
-                        side: const BorderSide(color: Color(0xFFE2E8F0)),
+                        side: const BorderSide(color: SboxColors.slate200),
                       ),
                       child: ListTile(
                         leading: isImg && url.isNotEmpty
@@ -1041,7 +1042,7 @@ class _BusinessTripCaseDetailScreenState
                     Text(tr('Hạn mục'),
                         style: TextStyle(
                             fontWeight: FontWeight.w600,
-                            color: Colors.grey[700])),
+                            color: SboxColors.slate700)),
                     const SizedBox(height: 8),
                     Wrap(
                       spacing: 8,
@@ -1103,7 +1104,7 @@ class _BusinessTripCaseDetailScreenState
                     Text(tr('Chứng từ'),
                         style: TextStyle(
                             fontWeight: FontWeight.w600,
-                            color: Colors.grey[700])),
+                            color: SboxColors.slate700)),
                     const SizedBox(height: 8),
                     Wrap(
                       spacing: 8,
@@ -1153,7 +1154,7 @@ class _BusinessTripCaseDetailScreenState
                             fit: BoxFit.cover,
                             errorWidget: (_, __, ___) => Container(
                               height: 80,
-                              color: const Color(0xFFF3F4F6),
+                              color: SboxColors.slate100,
                               alignment: Alignment.center,
                               child: Text(tr('Không xem trước được ảnh')),
                             ),
@@ -1327,7 +1328,7 @@ class _BusinessTripCaseDetailScreenState
         : null;
 
     return Scaffold(
-      backgroundColor: const Color(0xFFF3F4F6),
+      backgroundColor: SboxColors.slate100,
       appBar: AppBar(
         title: Text(tr(c['caseCode']?.toString() ?? 'Công tác')),
         actions: [
@@ -1446,13 +1447,13 @@ class _BusinessTripCaseDetailScreenState
             ),
             const SizedBox(height: 8),
             Text(tr('Đã ứng: ${_currency.format(_advanceAmount)}'),
-                style: const TextStyle(fontSize: 15)),
+                style: const TextStyle(fontSize: 16)),
             if (advance != null) ...[
               Text(tr('${tr('Trạng thái: ')}${advanceStatusLabel(advance['status'])}')),
               Text(tr('${tr('Đã chi: ')}${advance['isPaid'] == true ? 'Có' : 'Chưa'}')),
             ] else if (_status == 0)
               Text(tr('Chưa có phiếu ứng. Có thể tạo ứng trước, hoặc bỏ qua và hoạch toán trực tiếp.'),
-                style: TextStyle(color: Colors.grey[700], height: 1.35),
+                style: TextStyle(color: SboxColors.slate700, height: 1.35),
               ),
           ],
         ),
@@ -1489,7 +1490,7 @@ class _BusinessTripCaseDetailScreenState
             const SizedBox(height: 8),
             if (_canEditSettlement) ...[
               Text(tr('Chọn loại chi phí → nhập số tiền & phân loại hóa đơn/giấy tờ'),
-                style: TextStyle(color: Colors.grey[700], fontSize: 13),
+                style: TextStyle(color: SboxColors.slate700, fontSize: 13),
               ),
               const SizedBox(height: 10),
               if (_categories.isEmpty)
@@ -1517,9 +1518,9 @@ class _BusinessTripCaseDetailScreenState
                     final needInv = cat['requiresInvoice'] == true;
                     return Material(
                       color: Colors.white,
-                      borderRadius: BorderRadius.circular(12),
+                      borderRadius: BorderRadius.circular(14),
                       child: InkWell(
-                        borderRadius: BorderRadius.circular(12),
+                        borderRadius: BorderRadius.circular(14),
                         onTap: () {
                           final draft = _DraftExpenseLine(
                             categoryId: cat['id']?.toString(),
@@ -1534,8 +1535,8 @@ class _BusinessTripCaseDetailScreenState
                           padding: const EdgeInsets.symmetric(
                               horizontal: 10, vertical: 8),
                           decoration: BoxDecoration(
-                            borderRadius: BorderRadius.circular(12),
-                            border: Border.all(color: const Color(0xFFE2E8F0)),
+                            borderRadius: BorderRadius.circular(14),
+                            border: Border.all(color: SboxColors.slate200),
                           ),
                           child: Row(
                             children: [
@@ -1584,9 +1585,9 @@ class _BusinessTripCaseDetailScreenState
                 width: double.infinity,
                 padding: const EdgeInsets.all(16),
                 decoration: BoxDecoration(
-                  color: const Color(0xFFF9FAFB),
-                  borderRadius: BorderRadius.circular(12),
-                  border: Border.all(color: const Color(0xFFE5E7EB)),
+                  color: SboxColors.slate50,
+                  borderRadius: BorderRadius.circular(14),
+                  border: Border.all(color: SboxColors.slate200),
                 ),
                 child: Text(
                   tr(_case?['settlement'] == null &&
@@ -1595,7 +1596,7 @@ class _BusinessTripCaseDetailScreenState
                       : _canEditSettlement
                           ? 'Chưa có khoản chi.\nThêm tiền ăn, tiền xe, nhà nghỉ, vé máy bay… giống nhập hàng.'
                           : 'Chưa có dòng hoạch toán.'),
-                  style: TextStyle(color: Colors.grey[700], height: 1.4),
+                  style: TextStyle(color: SboxColors.slate700, height: 1.4),
                 ),
               )
             else
@@ -1645,11 +1646,11 @@ class _BusinessTripCaseDetailScreenState
                         Text(
                           tr(_currency.format(l.amount)),
                           style: const TextStyle(
-                              fontWeight: FontWeight.w700, fontSize: 15),
+                              fontWeight: FontWeight.w700, fontSize: 16),
                         ),
                         const SizedBox(width: 4),
                         Icon(Icons.chevron_right,
-                            color: Colors.grey[500], size: 20),
+                            color: SboxColors.slate500, size: 20),
                       ],
                     ),
                     onTap: () => _showLineDetail(l, i),
@@ -1663,13 +1664,13 @@ class _BusinessTripCaseDetailScreenState
               _balance >= 0 ? 'Thiếu (chi bù)' : 'Dư (ghi nợ ứng)',
               _balance.abs(),
               color: _balance >= 0
-                  ? const Color(0xFFDC2626)
-                  : const Color(0xFF16A34A),
+                  ? SboxColors.danger
+                  : SboxColors.success,
             ),
             if (settlement != null) ...[
               const SizedBox(height: 8),
               Text(tr('${tr('Trạng thái HT: ')}${advanceStatusLabel(settlement['status'])}'),
-                style: TextStyle(color: Colors.grey[700]),
+                style: TextStyle(color: SboxColors.slate700),
               ),
               if ((settlement['rejectionReason']?.toString() ?? '')
                   .trim()
@@ -1679,7 +1680,7 @@ class _BusinessTripCaseDetailScreenState
                   width: double.infinity,
                   padding: const EdgeInsets.all(12),
                   decoration: BoxDecoration(
-                    color: const Color(0xFFFFF7ED),
+                    color: SboxColors.warningSoft,
                     borderRadius: BorderRadius.circular(10),
                     border: Border.all(color: const Color(0xFFFDBA74)),
                   ),
@@ -1708,7 +1709,7 @@ class _BusinessTripCaseDetailScreenState
                         const SizedBox(height: 8),
                         Text(tr('Hãy sửa khoản chi / đính kèm rồi bấm Gửi hoạch toán lại.'),
                           style: TextStyle(
-                              fontSize: 12, color: Colors.grey[700]),
+                              fontSize: 12, color: SboxColors.slate700),
                         ),
                       ],
                     ],
@@ -1743,7 +1744,7 @@ class _BusinessTripCaseDetailScreenState
               maxLines: 1,
               overflow: TextOverflow.ellipsis,
               style: TextStyle(
-                fontWeight: bold ? FontWeight.w800 : FontWeight.w600,
+                fontWeight: bold ? FontWeight.w700 : FontWeight.w600,
                 color: color,
                 fontSize: bold ? 16 : 14,
                 fontFeatures: const [FontFeature.tabularFigures()],
@@ -1867,7 +1868,7 @@ class _BusinessTripCaseDetailScreenState
               const SizedBox(height: 8),
               Text(tr('Đang chờ thu hoàn dư ứng ${_currency.format((_balance).abs())}'),
                 style: const TextStyle(
-                    color: Color(0xFF16A34A), fontWeight: FontWeight.w600),
+                    color: SboxColors.success, fontWeight: FontWeight.w600),
               ),
               if (settlement['extraCashTransactionId'] != null) ...[
                 const SizedBox(height: 8),
@@ -1884,7 +1885,7 @@ class _BusinessTripCaseDetailScreenState
                 settlement['surplusAdvanceRequestId'] != null) ...[
               const SizedBox(height: 8),
               Text(tr('Đã ghi nợ ứng lương ${_currency.format((_balance).abs())} — sẽ trừ kỳ lương'),
-                style: TextStyle(color: Colors.grey[700], height: 1.35),
+                style: TextStyle(color: SboxColors.slate700, height: 1.35),
               ),
             ],
           ],
@@ -1915,14 +1916,14 @@ class _BusinessTripCaseDetailScreenState
                     style: TextStyle(
                       fontSize: 12,
                       fontWeight: FontWeight.w600,
-                      color: Colors.grey[700],
+                      color: SboxColors.slate700,
                     ),
                   ),
                   const Spacer(),
                   Text(
                     tr(_currency.format(_linesTotal)),
                     style: const TextStyle(
-                      fontWeight: FontWeight.w800,
+                      fontWeight: FontWeight.w700,
                       fontSize: 18,
                       letterSpacing: -0.2,
                     ),
@@ -1940,8 +1941,8 @@ class _BusinessTripCaseDetailScreenState
                     fontSize: 12,
                     fontWeight: FontWeight.w600,
                     color: _balance >= 0
-                        ? const Color(0xFFDC2626)
-                        : const Color(0xFF16A34A),
+                        ? SboxColors.danger
+                        : SboxColors.success,
                   ),
                 ),
               ),

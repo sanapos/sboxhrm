@@ -10,6 +10,7 @@ import '../widgets/pos/pos_theme.dart';
 import '../utils/staffing_quota_utils.dart';
 import 'package:zkteco_flutter_client/l10n/app_tr.dart';
 
+import '../theme/sbox_tokens.dart';
 /// Thiết lập định mức nhân sự tối thiểu/tối đa theo ca, phòng ban, từng thứ T2–CN.
 class StaffingQuotaSettingsScreen extends StatefulWidget {
   const StaffingQuotaSettingsScreen({super.key});
@@ -92,7 +93,7 @@ class _StaffingQuotaSettingsScreenState
           TextButton(onPressed: () => Navigator.pop(ctx, false), child: Text(tr('Hủy'))),
           FilledButton(
             onPressed: () => Navigator.pop(ctx, true),
-            style: FilledButton.styleFrom(backgroundColor: const Color(0xFFEF4444)),
+            style: FilledButton.styleFrom(backgroundColor: SboxColors.danger),
             child: Text(tr('Xóa')),
           ),
         ],
@@ -129,10 +130,10 @@ class _StaffingQuotaSettingsScreenState
       builder: (ctx) => StatefulBuilder(
         builder: (ctx, setDlg) => AlertDialog(
           backgroundColor: Colors.white,
-          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
           title: Row(
             children: [
-              const Icon(Icons.groups, color: Color(0xFF7C3AED)),
+              const Icon(Icons.groups, color: SboxColors.violet),
               const SizedBox(width: 8),
               Expanded(
                 child: Text(
@@ -149,7 +150,7 @@ class _StaffingQuotaSettingsScreenState
                 crossAxisAlignment: CrossAxisAlignment.stretch,
                 children: [
                   Text(tr('Cấu hình số nhân viên tối thiểu / tối đa cho từng thứ trong tuần.'),
-                    style: TextStyle(fontSize: 12, color: Color(0xFF71717A)),
+                    style: TextStyle(fontSize: 12, color: SboxColors.slate500),
                   ),
                   const SizedBox(height: 12),
                   DropdownButtonFormField<String>(
@@ -214,7 +215,7 @@ class _StaffingQuotaSettingsScreenState
                   const SizedBox(height: 6),
                   Container(
                     decoration: BoxDecoration(
-                      border: Border.all(color: const Color(0xFFE4E4E7)),
+                      border: Border.all(color: SboxColors.slate200),
                       borderRadius: BorderRadius.circular(10),
                     ),
                     child: Column(
@@ -223,7 +224,7 @@ class _StaffingQuotaSettingsScreenState
                           padding: const EdgeInsets.symmetric(
                               horizontal: 10, vertical: 8),
                           decoration: BoxDecoration(
-                            color: const Color(0xFFF4F4F5),
+                            color: SboxColors.slate100,
                             borderRadius: const BorderRadius.vertical(
                                 top: Radius.circular(10)),
                           ),
@@ -325,7 +326,7 @@ class _StaffingQuotaSettingsScreenState
                   : const Icon(Icons.save, size: 16),
               label: Text(tr('Lưu')),
               style: FilledButton.styleFrom(
-                backgroundColor: const Color(0xFF7C3AED),
+                backgroundColor: SboxColors.violet,
                 foregroundColor: Colors.white,
               ),
             ),
@@ -338,14 +339,14 @@ class _StaffingQuotaSettingsScreenState
   static const _hdr = TextStyle(
     fontSize: 11,
     fontWeight: FontWeight.w700,
-    color: Color(0xFF71717A),
+    color: SboxColors.slate500,
   );
 
   InputDecoration _fieldDeco(String label, {String? helper}) => InputDecoration(
         labelText: tr(label),
         helperText: trN(helper),
         isDense: true,
-        border: OutlineInputBorder(borderRadius: BorderRadius.circular(8)),
+        border: OutlineInputBorder(borderRadius: BorderRadius.circular(10)),
       );
 
   InputDecoration _cellDeco() => InputDecoration(
@@ -426,7 +427,7 @@ class _StaffingQuotaSettingsScreenState
                         icon: const Icon(Icons.add, size: 18),
                         label: Text(tr('Thêm định mức')),
                         style: FilledButton.styleFrom(
-                          backgroundColor: const Color(0xFF7C3AED),
+                          backgroundColor: SboxColors.violet,
                         ),
                       ),
               ),
@@ -438,7 +439,7 @@ class _StaffingQuotaSettingsScreenState
                   child: Center(
                     child: Text(tr('Chưa có định mức. Thêm cấu hình để cảnh báo thiếu / thừa nhân sự trên lịch làm việc.'),
                       textAlign: TextAlign.center,
-                      style: TextStyle(color: Color(0xFF71717A)),
+                      style: TextStyle(color: SboxColors.slate500),
                     ),
                   ),
                 ),
@@ -466,7 +467,7 @@ class _StaffingQuotaSettingsScreenState
       subtitle: dept != null && dept.isNotEmpty ? dept : 'Tất cả PB',
       meta: _weekdaySummary(q),
       icon: Icons.groups,
-      iconColor: const Color(0xFF7C3AED),
+      iconColor: SboxColors.violet,
       menuItems: _canEdit
           ? [
               PopupMenuItem(value: 'edit', child: Text(tr('Sửa'))),
@@ -501,7 +502,7 @@ class _StaffingQuotaSettingsScreenState
             const SizedBox(height: 4),
             Text(
               tr(_weekdaySummary(q)),
-              style: const TextStyle(fontSize: 10, color: Color(0xFF71717A)),
+              style: const TextStyle(fontSize: 10, color: SboxColors.slate500),
             ),
           ],
         ),

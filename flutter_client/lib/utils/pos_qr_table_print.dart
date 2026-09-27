@@ -397,7 +397,7 @@ Future<PosQrLabelPrinterChoice?> pickPosQrLabelPrinter(
             padding: const EdgeInsets.fromLTRB(16, 4, 16, 8),
             child: Text(
               tr('Chọn máy in tem 60×40'),
-              style: const TextStyle(fontWeight: FontWeight.w800, fontSize: 16),
+              style: const TextStyle(fontWeight: FontWeight.w700, fontSize: 16),
             ),
           ),
           for (final p in printers)

@@ -4,6 +4,7 @@ import '../services/api_service.dart';
 import 'admin_login_screen.dart';
 import 'package:zkteco_flutter_client/l10n/app_tr.dart';
 
+import '../theme/sbox_tokens.dart';
 class AgentRegisterScreen extends StatefulWidget {
   const AgentRegisterScreen({super.key, required this.token});
 
@@ -113,7 +114,7 @@ class _AgentRegisterScreenState extends State<AgentRegisterScreen> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: const Color(0xFFF1F5F9),
+      backgroundColor: SboxColors.slate100,
       body: Center(
         child: SingleChildScrollView(
           padding: const EdgeInsets.all(24),
@@ -122,8 +123,8 @@ class _AgentRegisterScreenState extends State<AgentRegisterScreen> {
             child: Card(
               elevation: 0,
               shape: RoundedRectangleBorder(
-                borderRadius: BorderRadius.circular(16),
-                side: const BorderSide(color: Color(0xFFE2E8F0)),
+                borderRadius: BorderRadius.circular(14),
+                side: const BorderSide(color: SboxColors.slate200),
               ),
               child: Padding(
                 padding: const EdgeInsets.all(28),
@@ -157,7 +158,7 @@ class _AgentRegisterScreenState extends State<AgentRegisterScreen> {
                                 Row(
                                   children: [
                                     Icon(Icons.support_agent,
-                                        color: Color(0xFF0F172A), size: 28),
+                                        color: SboxColors.slate900, size: 28),
                                     SizedBox(width: 10),
                                     Expanded(
                                       child: Text(tr('Đăng ký tài khoản đại lý'),
@@ -175,13 +176,13 @@ class _AgentRegisterScreenState extends State<AgentRegisterScreen> {
                                   style: const TextStyle(
                                     fontSize: 16,
                                     fontWeight: FontWeight.w600,
-                                    color: Color(0xFF334155),
+                                    color: SboxColors.slate700,
                                   ),
                                 ),
                                 if (_agentInfo?['agentCode'] != null)
                                   Text(tr('${tr('Mã: ')}${_agentInfo!['agentCode']}'),
                                     style: const TextStyle(
-                                        color: Color(0xFF64748B)),
+                                        color: SboxColors.slate500),
                                   ),
                                 const SizedBox(height: 20),
                                 TextFormField(
@@ -264,7 +265,7 @@ class _AgentRegisterScreenState extends State<AgentRegisterScreen> {
                                 FilledButton(
                                   onPressed: _submitting ? null : _submit,
                                   style: FilledButton.styleFrom(
-                                    backgroundColor: const Color(0xFF0F172A),
+                                    backgroundColor: SboxColors.slate900,
                                     padding: const EdgeInsets.symmetric(
                                         vertical: 14),
                                   ),

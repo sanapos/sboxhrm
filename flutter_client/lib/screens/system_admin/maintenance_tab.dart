@@ -5,6 +5,7 @@ import '../../services/api_service.dart';
 import 'system_admin_helpers.dart';
 import 'package:zkteco_flutter_client/l10n/app_tr.dart';
 
+import '../../theme/sbox_tokens.dart';
 /// SuperAdmin – tab "Bảo trì hệ thống" (Phase 2).
 class MaintenanceTab extends StatefulWidget {
   const MaintenanceTab({super.key});
@@ -91,7 +92,7 @@ class MaintenanceTabState extends State<MaintenanceTab> {
         ? AdminHelpers.danger
         : isActive
             ? AdminHelpers.warning
-            : Colors.grey;
+            : SboxColors.slate500;
 
     return Card(
       margin: EdgeInsets.zero,
@@ -111,7 +112,7 @@ class MaintenanceTabState extends State<MaintenanceTab> {
                   children: [
                     Text(tr(w['title']?.toString() ?? ''),
                         style: const TextStyle(
-                            fontWeight: FontWeight.bold, fontSize: 15)),
+                            fontWeight: FontWeight.bold, fontSize: 16)),
                     const SizedBox(height: 2),
                     Wrap(spacing: 6, runSpacing: 4, children: [
                       AdminHelpers.statusChip(
@@ -144,16 +145,16 @@ class MaintenanceTabState extends State<MaintenanceTab> {
                 maxLines: 3, overflow: TextOverflow.ellipsis),
             const SizedBox(height: 8),
             Row(children: [
-              Icon(Icons.schedule, size: 14, color: Colors.grey[600]),
+              Icon(Icons.schedule, size: 14, color: SboxColors.slate600),
               const SizedBox(width: 4),
               Text(
                   tr('${start != null ? _df.format(start) : "?"} → ${end != null ? _df.format(end) : "?"}'),
                   style:
-                      TextStyle(fontSize: 12, color: Colors.grey[700])),
+                      TextStyle(fontSize: 12, color: SboxColors.slate700)),
               const Spacer(),
               if ((w['notifyBeforeMinutes'] as List?)?.isNotEmpty == true)
                 Text(tr('${tr('Nhắc trước: ')}${(w['notifyBeforeMinutes'] as List).join(", ")} phút'),
-                    style: TextStyle(fontSize: 11, color: Colors.grey[500])),
+                    style: TextStyle(fontSize: 11, color: SboxColors.slate500)),
             ]),
           ],
         ),

@@ -5,6 +5,7 @@ import '../pos/pos_theme.dart';
 import '../safe_layout_widgets.dart';
 import '../../l10n/app_tr.dart';
 
+import '../../theme/sbox_tokens.dart';
 /// Giao diện màn con Thiết lập HRM (kiểu KiotViet / trang chủ hub).
 class HrmSettingsMobileKit {
   HrmSettingsMobileKit._();
@@ -117,7 +118,7 @@ class HrmSettingsSection extends StatelessWidget {
                 child: Text(
                   tr(title),
                   style: const TextStyle(
-                    fontSize: 15,
+                    fontSize: 16,
                     fontWeight: FontWeight.bold,
                     color: PosTheme.textPrimary,
                   ),
@@ -200,7 +201,7 @@ class HrmSettingsFilterChips extends StatelessWidget {
               child: Material(
                 color: Colors.transparent,
                 child: InkWell(
-                  borderRadius: BorderRadius.circular(12),
+                  borderRadius: BorderRadius.circular(14),
                   onTap: () => onSelected(opt.value),
                   child: Container(
                     padding:
@@ -209,7 +210,7 @@ class HrmSettingsFilterChips extends StatelessWidget {
                       color: selected == opt.value
                           ? PosTheme.kiotBlue
                           : Colors.white,
-                      borderRadius: BorderRadius.circular(12),
+                      borderRadius: BorderRadius.circular(14),
                       border: Border.all(
                         color: selected == opt.value
                             ? PosTheme.kiotBlue
@@ -237,14 +238,14 @@ class HrmSettingsFilterChips extends StatelessWidget {
               child: Material(
                 color: Colors.transparent,
                 child: InkWell(
-                  borderRadius: BorderRadius.circular(12),
+                  borderRadius: BorderRadius.circular(14),
                   onTap: onClear,
                   child: Container(
                     padding:
                         const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
                     decoration: BoxDecoration(
                       color: Colors.white,
-                      borderRadius: BorderRadius.circular(12),
+                      borderRadius: BorderRadius.circular(14),
                       border: Border.all(color: border),
                     ),
                     child: Row(
@@ -380,7 +381,7 @@ class HrmSettingsEntityTile extends StatelessWidget {
                   height: list ? 40 : 36,
                   decoration: BoxDecoration(
                     color: ic.withValues(alpha: 0.12),
-                    borderRadius: BorderRadius.circular(8),
+                    borderRadius: BorderRadius.circular(10),
                   ),
                   child: Icon(icon, size: list ? 20 : 18, color: ic),
                 ),
@@ -433,7 +434,7 @@ class HrmSettingsEntityTile extends StatelessWidget {
                   padding:
                       const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
                   decoration: BoxDecoration(
-                    color: (badgeColor ?? const Color(0xFF16A34A))
+                    color: (badgeColor ?? SboxColors.success)
                         .withValues(alpha: 0.12),
                     borderRadius: BorderRadius.circular(4),
                   ),
@@ -442,7 +443,7 @@ class HrmSettingsEntityTile extends StatelessWidget {
                     style: TextStyle(
                       fontSize: 9,
                       fontWeight: FontWeight.w600,
-                      color: badgeColor ?? const Color(0xFF16A34A),
+                      color: badgeColor ?? SboxColors.success,
                     ),
                   ),
                 ),

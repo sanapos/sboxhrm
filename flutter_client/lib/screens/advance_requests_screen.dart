@@ -29,6 +29,7 @@ import '../widgets/page_top_actions.dart';
 import 'package:zkteco_flutter_client/l10n/app_tr.dart';
 import 'package:zkteco_flutter_client/l10n/app_ui_locale.dart';
 
+import '../theme/sbox_tokens.dart';
 class AdvanceRequestsScreen extends StatefulWidget {
   final String? highlightId;
   const AdvanceRequestsScreen({super.key, this.highlightId});
@@ -521,8 +522,8 @@ class _AdvanceRequestsScreenState extends State<AdvanceRequestsScreen> {
                 Container(
                   padding: const EdgeInsets.all(12),
                   decoration: BoxDecoration(
-                    color: Colors.blue.shade50,
-                    borderRadius: BorderRadius.circular(8),
+                    color: SboxColors.brand50,
+                    borderRadius: BorderRadius.circular(10),
                   ),
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
@@ -530,7 +531,7 @@ class _AdvanceRequestsScreenState extends State<AdvanceRequestsScreen> {
                       Row(
                         children: [
                           const Icon(Icons.person,
-                              size: 18, color: Colors.blue),
+                              size: 18, color: SboxColors.brand500),
                           const SizedBox(width: 8),
                           Expanded(
                               child: Text(tr(request.employeeName),
@@ -542,7 +543,7 @@ class _AdvanceRequestsScreenState extends State<AdvanceRequestsScreen> {
                         const SizedBox(height: 4),
                         Text(tr('${_l10n.employeeCode}: ${request.employeeCode}'),
                             style: TextStyle(
-                                fontSize: 12, color: Colors.grey[600])),
+                                fontSize: 12, color: SboxColors.slate600)),
                       ],
                       const SizedBox(height: 8),
                       Text(
@@ -550,7 +551,7 @@ class _AdvanceRequestsScreenState extends State<AdvanceRequestsScreen> {
                         style: const TextStyle(
                             fontWeight: FontWeight.bold,
                             fontSize: 20,
-                            color: Colors.blue),
+                            color: SboxColors.brand500),
                       ),
                       if (request.isPartiallyApproved)
                         Padding(
@@ -578,7 +579,7 @@ class _AdvanceRequestsScreenState extends State<AdvanceRequestsScreen> {
                             child: Row(
                               children: [
                                 Icon(_getPaymentMethodIcon(m),
-                                    size: 18, color: Colors.grey[700]),
+                                    size: 18, color: SboxColors.slate700),
                                 const SizedBox(width: 8),
                                 Text(tr(m.label)),
                               ],
@@ -592,7 +593,7 @@ class _AdvanceRequestsScreenState extends State<AdvanceRequestsScreen> {
                   padding: const EdgeInsets.all(8),
                   decoration: BoxDecoration(
                     color: Colors.amber.shade50,
-                    borderRadius: BorderRadius.circular(8),
+                    borderRadius: BorderRadius.circular(10),
                     border: Border.all(color: Colors.amber.shade200),
                   ),
                   child: Row(
@@ -827,7 +828,7 @@ class _AdvanceRequestsScreenState extends State<AdvanceRequestsScreen> {
           dotIcon = Icons.cancel;
           break;
         case ApprovalStatus.cancelled:
-          dotColor = Colors.grey;
+          dotColor = SboxColors.slate500;
           dotIcon = Icons.block;
           break;
         default:
@@ -853,18 +854,18 @@ class _AdvanceRequestsScreenState extends State<AdvanceRequestsScreen> {
                 record.assignedUserName!.isNotEmpty)
               Text(tr('Phân công: ${record.assignedUserName}'),
                   style:
-                      TextStyle(fontSize: 12, color: Colors.grey.shade600)),
+                      TextStyle(fontSize: 12, color: SboxColors.slate600)),
             if (record.actualUserName != null &&
                 record.actualUserName!.isNotEmpty &&
                 record.status != ApprovalStatus.pending)
               Text(tr('Thực hiện: ${record.actualUserName}'),
                   style:
-                      TextStyle(fontSize: 12, color: Colors.grey.shade600)),
+                      TextStyle(fontSize: 12, color: SboxColors.slate600)),
             if (record.actionDate != null)
               Text(
                   tr(DateFormat('dd/MM/yyyy HH:mm').format(record.actionDate!)),
                   style:
-                      TextStyle(fontSize: 11, color: Colors.grey.shade500)),
+                      TextStyle(fontSize: 11, color: SboxColors.slate500)),
             if (record.note != null && record.note!.isNotEmpty)
               Padding(
                 padding: const EdgeInsets.only(top: 2),
@@ -872,7 +873,7 @@ class _AdvanceRequestsScreenState extends State<AdvanceRequestsScreen> {
                     style: TextStyle(
                         fontSize: 12,
                         fontStyle: FontStyle.italic,
-                        color: Colors.grey.shade700)),
+                        color: SboxColors.slate700)),
               ),
           ],
         ),
@@ -944,12 +945,12 @@ class _AdvanceRequestsScreenState extends State<AdvanceRequestsScreen> {
                     padding: const EdgeInsets.symmetric(
                         horizontal: 12, vertical: 12),
                     decoration: BoxDecoration(
-                      color: Colors.blue.shade50,
-                      borderRadius: BorderRadius.circular(8),
-                      border: Border.all(color: Colors.blue.shade200),
+                      color: SboxColors.brand50,
+                      borderRadius: BorderRadius.circular(10),
+                      border: Border.all(color: SboxColors.brand200),
                     ),
                     child: Row(children: [
-                      Icon(Icons.person, size: 18, color: Colors.blue.shade700),
+                      Icon(Icons.person, size: 18, color: SboxColors.brand700),
                       const SizedBox(width: 8),
                       Expanded(
                           child: selectedEmployee != null
@@ -961,14 +962,14 @@ class _AdvanceRequestsScreenState extends State<AdvanceRequestsScreen> {
                                           style: TextStyle(
                                               fontSize: 14,
                                               fontWeight: FontWeight.w600,
-                                              color: Colors.blue.shade800)),
+                                              color: SboxColors.brand800)),
                                       if (selectedEmployee!
                                           .employeeCode.isNotEmpty)
                                         Text(
                                             tr('${selectedEmployee!.employeeCode}${selectedEmployee!.department != null ? ' • ${selectedEmployee!.department}' : ''}'),
                                             style: TextStyle(
                                                 fontSize: 12,
-                                                color: Colors.blue.shade600)),
+                                                color: SboxColors.brand600)),
                                     ])
                               : Text(tr('Chưa tìm thấy hồ sơ nhân viên'),
                                   style: TextStyle(
@@ -1023,7 +1024,7 @@ class _AdvanceRequestsScreenState extends State<AdvanceRequestsScreen> {
                         alignment: Alignment.topLeft,
                         child: Material(
                           elevation: 4,
-                          borderRadius: BorderRadius.circular(8),
+                          borderRadius: BorderRadius.circular(10),
                           child: ConstrainedBox(
                             constraints: BoxConstraints(
                                 maxHeight: 250,
@@ -1040,7 +1041,7 @@ class _AdvanceRequestsScreenState extends State<AdvanceRequestsScreen> {
                                   dense: true,
                                   leading: CircleAvatar(
                                     radius: 16,
-                                    backgroundColor: Colors.blue.shade100,
+                                    backgroundColor: SboxColors.brand100,
                                     child: Icon(
                                       employee.gender?.toLowerCase() ==
                                                   'female' ||
@@ -1049,7 +1050,7 @@ class _AdvanceRequestsScreenState extends State<AdvanceRequestsScreen> {
                                           ? Icons.woman_rounded
                                           : Icons.man_rounded,
                                       size: 18,
-                                      color: Colors.blue.shade700,
+                                      color: SboxColors.brand700,
                                     ),
                                   ),
                                   title: Text(
@@ -1058,7 +1059,7 @@ class _AdvanceRequestsScreenState extends State<AdvanceRequestsScreen> {
                                   subtitle: Text(
                                     tr('${employee.employeeCode}${employee.department != null ? ' • ${employee.department}' : ''}'),
                                     style: TextStyle(
-                                        fontSize: 12, color: Colors.grey[600]),
+                                        fontSize: 12, color: SboxColors.slate600),
                                   ),
                                   onTap: () => onSelected(employee),
                                 );
@@ -1076,7 +1077,7 @@ class _AdvanceRequestsScreenState extends State<AdvanceRequestsScreen> {
                           horizontal: 12, vertical: 8),
                       decoration: BoxDecoration(
                         color: Colors.green.shade50,
-                        borderRadius: BorderRadius.circular(8),
+                        borderRadius: BorderRadius.circular(10),
                         border: Border.all(color: Colors.green.shade200),
                       ),
                       child: Row(
@@ -1256,9 +1257,9 @@ class _AdvanceRequestsScreenState extends State<AdvanceRequestsScreen> {
       case AdvanceRequestStatus.approved:
         return HrmPageChrome.primaryNavy;
       case AdvanceRequestStatus.rejected:
-        return const Color(0xFFEF4444);
+        return SboxColors.danger;
       case AdvanceRequestStatus.cancelled:
-        return const Color(0xFFDC2626);
+        return SboxColors.danger;
     }
   }
 
@@ -1401,7 +1402,7 @@ class _AdvanceRequestsScreenState extends State<AdvanceRequestsScreen> {
         Icon(_getStatusIcon(request), color: statusColor, size: 22),
         const SizedBox(width: 10),
         Expanded(
-            child: Text(tr('Chi tiết ứng lương'), style: TextStyle(fontSize: 17))),
+            child: Text(tr('Chi tiết ứng lương'), style: TextStyle(fontSize: 18))),
         HrmBrandChip(label: statusLabel, icon: _getStatusIcon(request)),
       ],
     );
@@ -1413,7 +1414,7 @@ class _AdvanceRequestsScreenState extends State<AdvanceRequestsScreen> {
         _detailRow(Icons.badge, _l10n.employeeCode, request.employeeCode),
         _detailRow(Icons.attach_money, _l10n.amount,
             _currencyFormat.format(request.amount),
-            valueColor: Colors.blue),
+            valueColor: SboxColors.brand500),
         if (request.isPartiallyApproved)
           _detailRow(Icons.check_circle, 'Số tiền đã duyệt',
               _currencyFormat.format(request.approvedAmount!),
@@ -1468,13 +1469,13 @@ class _AdvanceRequestsScreenState extends State<AdvanceRequestsScreen> {
                     ? request.currentApprovalStep / request.totalApprovalLevels
                     : 0,
                 minHeight: 6,
-                backgroundColor: Colors.grey.shade200,
+                backgroundColor: SboxColors.slate200,
                 valueColor: AlwaysStoppedAnimation<Color>(
                   request.status == AdvanceRequestStatus.approved
                       ? Colors.green
                       : request.status == AdvanceRequestStatus.rejected
                           ? Colors.red
-                          : Colors.blue,
+                          : SboxColors.brand500,
                 ),
               ),
             ),
@@ -1656,12 +1657,12 @@ class _AdvanceRequestsScreenState extends State<AdvanceRequestsScreen> {
       child: Row(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Icon(icon, size: 16, color: Colors.grey[500]),
+          Icon(icon, size: 16, color: SboxColors.slate500),
           const SizedBox(width: 10),
           SizedBox(
               width: 100,
               child: Text(tr(label),
-                  style: TextStyle(fontSize: 13, color: Colors.grey[600]))),
+                  style: TextStyle(fontSize: 13, color: SboxColors.slate600))),
           Expanded(
               child: Text(tr(value),
                   style: TextStyle(
@@ -1703,7 +1704,7 @@ class _AdvanceRequestsScreenState extends State<AdvanceRequestsScreen> {
                   prefixIcon: const Icon(Icons.search, size: 20),
                   isDense: true,
                   border: OutlineInputBorder(
-                      borderRadius: BorderRadius.circular(8)),
+                      borderRadius: BorderRadius.circular(10)),
                   contentPadding:
                       const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
                 ),
@@ -1716,8 +1717,8 @@ class _AdvanceRequestsScreenState extends State<AdvanceRequestsScreen> {
               dense: true,
               leading: CircleAvatar(
                 radius: 14,
-                backgroundColor: Colors.grey.shade200,
-                child: const Icon(Icons.people, size: 16, color: Colors.grey),
+                backgroundColor: SboxColors.slate200,
+                child: const Icon(Icons.people, size: 16, color: SboxColors.slate500),
               ),
               title: Text(tr('Tất cả nhân viên'),
                   style: TextStyle(fontSize: 13, fontStyle: FontStyle.italic)),
@@ -1734,7 +1735,7 @@ class _AdvanceRequestsScreenState extends State<AdvanceRequestsScreen> {
             final employeeList = filtered.isEmpty
                 ? Center(
                     child: Text(tr('Không tìm thấy nhân viên'),
-                        style: TextStyle(color: Colors.grey)))
+                        style: TextStyle(color: SboxColors.slate500)))
                 : ListView.builder(
                     itemCount: filtered.length,
                     itemBuilder: (context, index) {
@@ -1743,29 +1744,29 @@ class _AdvanceRequestsScreenState extends State<AdvanceRequestsScreen> {
                       return ListTile(
                         dense: true,
                         selected: isSelected,
-                        selectedTileColor: Colors.blue.shade50,
+                        selectedTileColor: SboxColors.brand50,
                         leading: CircleAvatar(
                           radius: 14,
                           backgroundColor: isSelected
-                              ? Colors.blue.shade200
-                              : Colors.blue.shade100,
+                              ? SboxColors.brand200
+                              : SboxColors.brand100,
                           child: Icon(
                             emp.gender?.toLowerCase() == 'female' ||
                                     emp.gender?.toLowerCase() == 'nữ'
                                 ? Icons.woman_rounded
                                 : Icons.man_rounded,
                             size: 16,
-                            color: Colors.blue.shade700,
+                            color: SboxColors.brand700,
                           ),
                         ),
                         title: Text(tr('${emp.lastName} ${emp.firstName}'),
                             style: const TextStyle(fontSize: 13)),
                         subtitle: Text(tr(emp.employeeCode),
                             style: TextStyle(
-                                fontSize: 11, color: Colors.grey[600])),
+                                fontSize: 11, color: SboxColors.slate600)),
                         trailing: isSelected
                             ? Icon(Icons.check,
-                                size: 18, color: Colors.blue.shade700)
+                                size: 18, color: SboxColors.brand700)
                             : null,
                         onTap: () {
                           setState(() {
@@ -2041,19 +2042,19 @@ class _AdvanceRequestsScreenState extends State<AdvanceRequestsScreen> {
       child: TextField(
         decoration: InputDecoration(
           hintText: tr('Tìm tên/mã nhân viên...'),
-          hintStyle: TextStyle(fontSize: 13, color: Colors.grey[400]),
-          prefixIcon: Icon(Icons.search, size: 18, color: Colors.grey[400]),
+          hintStyle: TextStyle(fontSize: 13, color: SboxColors.slate400),
+          prefixIcon: Icon(Icons.search, size: 18, color: SboxColors.slate400),
           isDense: true,
           filled: true,
-          fillColor: const Color(0xFFFAFAFA),
+          fillColor: SboxColors.slate50,
           contentPadding:
               const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
           border: OutlineInputBorder(
               borderRadius: BorderRadius.circular(10),
-              borderSide: const BorderSide(color: Color(0xFFE4E4E7))),
+              borderSide: const BorderSide(color: SboxColors.slate200)),
           enabledBorder: OutlineInputBorder(
               borderRadius: BorderRadius.circular(10),
-              borderSide: const BorderSide(color: Color(0xFFE4E4E7))),
+              borderSide: const BorderSide(color: SboxColors.slate200)),
           focusedBorder: OutlineInputBorder(
               borderRadius: BorderRadius.circular(10),
               borderSide: BorderSide(
@@ -2173,16 +2174,16 @@ class _AdvanceRequestsScreenState extends State<AdvanceRequestsScreen> {
       height: 36,
       padding: const EdgeInsets.symmetric(horizontal: 10),
       decoration: BoxDecoration(
-        color: const Color(0xFFFAFAFA),
+        color: SboxColors.slate50,
         borderRadius: BorderRadius.circular(10),
-        border: Border.all(color: const Color(0xFFE4E4E7)),
+        border: Border.all(color: SboxColors.slate200),
       ),
       child: DropdownButtonHideUnderline(
         child: DropdownButton<T>(
           value: value,
           isExpanded: true,
           icon: Icon(Icons.keyboard_arrow_down,
-              size: 18, color: Colors.grey[500]),
+              size: 18, color: SboxColors.slate500),
           style: TextStyle(
               fontSize: 13,
               color: Theme.of(context).textTheme.bodyMedium?.color),
@@ -2249,9 +2250,9 @@ class _AdvanceRequestsScreenState extends State<AdvanceRequestsScreen> {
         height: 36,
         padding: const EdgeInsets.symmetric(horizontal: 12),
         decoration: BoxDecoration(
-          color: const Color(0xFFFAFAFA),
+          color: SboxColors.slate50,
           borderRadius: BorderRadius.circular(10),
-          border: Border.all(color: const Color(0xFFE4E4E7)),
+          border: Border.all(color: SboxColors.slate200),
         ),
         child: Row(
           mainAxisSize: MainAxisSize.min,
@@ -2264,7 +2265,7 @@ class _AdvanceRequestsScreenState extends State<AdvanceRequestsScreen> {
               style: const TextStyle(fontSize: 13),
             ),
             const SizedBox(width: 4),
-            Icon(Icons.edit, size: 12, color: Colors.grey[500]),
+            Icon(Icons.edit, size: 12, color: SboxColors.slate500),
           ],
         ),
       ),
@@ -2280,9 +2281,9 @@ class _AdvanceRequestsScreenState extends State<AdvanceRequestsScreen> {
         constraints: const BoxConstraints(maxWidth: 200),
         padding: const EdgeInsets.symmetric(horizontal: 12),
         decoration: BoxDecoration(
-          color: const Color(0xFFFAFAFA),
+          color: SboxColors.slate50,
           borderRadius: BorderRadius.circular(10),
-          border: Border.all(color: const Color(0xFFE4E4E7)),
+          border: Border.all(color: SboxColors.slate200),
         ),
         child: Row(
           mainAxisSize: MainAxisSize.min,
@@ -2297,7 +2298,7 @@ class _AdvanceRequestsScreenState extends State<AdvanceRequestsScreen> {
                     : 'Tất cả nhân viên'),
                 style: TextStyle(
                     fontSize: 13,
-                    color: _selectedEmployee != null ? null : Colors.grey[600]),
+                    color: _selectedEmployee != null ? null : SboxColors.slate600),
                 overflow: TextOverflow.ellipsis,
               ),
             ),
@@ -2305,11 +2306,11 @@ class _AdvanceRequestsScreenState extends State<AdvanceRequestsScreen> {
               const SizedBox(width: 4),
               InkWell(
                 onTap: () => setState(() => _selectedEmployee = null),
-                child: Icon(Icons.close, size: 14, color: Colors.grey[500]),
+                child: Icon(Icons.close, size: 14, color: SboxColors.slate500),
               ),
             ] else
               Icon(Icons.keyboard_arrow_down,
-                  size: 16, color: Colors.grey[500]),
+                  size: 16, color: SboxColors.slate500),
           ],
         ),
       ),
@@ -2323,8 +2324,8 @@ class _AdvanceRequestsScreenState extends State<AdvanceRequestsScreen> {
           child: Container(
             decoration: BoxDecoration(
               color: Colors.white,
-              borderRadius: BorderRadius.circular(12),
-              border: Border.all(color: const Color(0xFFE4E4E7)),
+              borderRadius: BorderRadius.circular(14),
+              border: Border.all(color: SboxColors.slate200),
               boxShadow: [
                 BoxShadow(
                     color: Colors.black.withValues(alpha: 0.05),
@@ -2333,7 +2334,7 @@ class _AdvanceRequestsScreenState extends State<AdvanceRequestsScreen> {
               ],
             ),
             child: InkWell(
-              borderRadius: BorderRadius.circular(12),
+              borderRadius: BorderRadius.circular(14),
               onTap: () => _showDetailDialog(r),
               child: Padding(
                 padding: const EdgeInsets.all(14),
@@ -2373,7 +2374,7 @@ class _AdvanceRequestsScreenState extends State<AdvanceRequestsScreen> {
                                     'T${r.forMonth}/${r.forYear}'
                                 ].join(' · ')),
                                 style: const TextStyle(
-                                    color: Color(0xFF71717A), fontSize: 12),
+                                    color: SboxColors.slate500, fontSize: 12),
                               ),
                             ],
                           ),
@@ -2408,7 +2409,7 @@ class _AdvanceRequestsScreenState extends State<AdvanceRequestsScreen> {
                         Text(
                           tr(DateFormat('dd/MM/yyyy').format(r.requestDate)),
                           style: const TextStyle(
-                              fontSize: 12, color: Color(0xFF71717A)),
+                              fontSize: 12, color: SboxColors.slate500),
                         ),
                       ],
                     ),
@@ -2416,7 +2417,7 @@ class _AdvanceRequestsScreenState extends State<AdvanceRequestsScreen> {
                       const SizedBox(height: 6),
                       Text(tr(r.reason!),
                           style:
-                              TextStyle(fontSize: 12, color: Colors.grey[600]),
+                              TextStyle(fontSize: 12, color: SboxColors.slate600),
                           maxLines: 2,
                           overflow: TextOverflow.ellipsis),
                     ],
@@ -2444,7 +2445,7 @@ class _AdvanceRequestsScreenState extends State<AdvanceRequestsScreen> {
                                   const SizedBox(width: 6),
                                   _miniBtn(
                                       Icons.close,
-                                      const Color(0xFFEF4444),
+                                      SboxColors.danger,
                                       _l10n.reject,
                                       () => _showRejectDialog(r)),
                                 ],
@@ -2476,7 +2477,7 @@ class _AdvanceRequestsScreenState extends State<AdvanceRequestsScreen> {
                                         _isManagerOrAbove ||
                                         p.canApprove('AdvanceRequests'))) ...[
                                   const SizedBox(width: 6),
-                                  _miniBtn(Icons.delete_outline, Colors.grey,
+                                  _miniBtn(Icons.delete_outline, SboxColors.slate500,
                                       _l10n.delete, () => _deleteRequest(r)),
                                 ],
                               ],
@@ -2536,7 +2537,7 @@ class _AdvanceRequestsScreenState extends State<AdvanceRequestsScreen> {
                 sortColumnIndex: _getSortColumnIndex(),
                 sortAscending: _sortAscending,
                 headingRowColor:
-                    WidgetStateProperty.all(const Color(0xFFFAFAFA)),
+                    WidgetStateProperty.all(SboxColors.slate50),
                 dataRowColor: WidgetStateProperty.resolveWith<Color?>((states) {
                   if (states.contains(WidgetState.hovered)) {
                     return Theme.of(context)
@@ -2577,7 +2578,7 @@ class _AdvanceRequestsScreenState extends State<AdvanceRequestsScreen> {
                     cells: [
                       DataCell(Text(tr('${idx + 1}'),
                           style: const TextStyle(
-                              fontSize: 12, color: Colors.grey))),
+                              fontSize: 12, color: SboxColors.slate500))),
                       DataCell(Text(tr(r.employeeCode),
                           style: const TextStyle(
                               fontSize: 12,
@@ -2611,7 +2612,7 @@ class _AdvanceRequestsScreenState extends State<AdvanceRequestsScreen> {
                                 padding: const EdgeInsets.symmetric(
                                     horizontal: 6, vertical: 2),
                                 decoration: BoxDecoration(
-                                    color: const Color(0xFFF1F5F9),
+                                    color: SboxColors.slate100,
                                     borderRadius: BorderRadius.circular(6)),
                                 child: Text(tr('T${r.forMonth}/${r.forYear}'),
                                     style: const TextStyle(
@@ -2620,14 +2621,14 @@ class _AdvanceRequestsScreenState extends State<AdvanceRequestsScreen> {
                               )
                             : Text(tr('-'),
                                 style: TextStyle(
-                                    fontSize: 12, color: Colors.grey)),
+                                    fontSize: 12, color: SboxColors.slate500)),
                       ),
                       DataCell(
                         ConstrainedBox(
                           constraints: const BoxConstraints(maxWidth: 150),
                           child: Text(tr(r.reason ?? '-'),
                               style: TextStyle(
-                                  fontSize: 12, color: Colors.grey[600]),
+                                  fontSize: 12, color: SboxColors.slate600),
                               overflow: TextOverflow.ellipsis),
                         ),
                       ),
@@ -2642,7 +2643,7 @@ class _AdvanceRequestsScreenState extends State<AdvanceRequestsScreen> {
                           style: const TextStyle(fontSize: 12))),
                       DataCell(Text(tr(r.approvedByName ?? '-'),
                           style: TextStyle(
-                              fontSize: 12, color: Colors.grey[600]))),
+                              fontSize: 12, color: SboxColors.slate600))),
                       DataCell(_buildRowActions(r)),
                     ],
                   );
@@ -2666,7 +2667,7 @@ class _AdvanceRequestsScreenState extends State<AdvanceRequestsScreen> {
           _miniBtn(Icons.check, HrmPageChrome.primaryNavy, _l10n.approveLabel,
               () => _approveRequest(r, true)),
           const SizedBox(width: 4),
-          _miniBtn(Icons.close, const Color(0xFFEF4444), _l10n.reject,
+          _miniBtn(Icons.close, SboxColors.danger, _l10n.reject,
               () => _showRejectDialog(r)),
         ],
         if (r.status == AdvanceRequestStatus.pending &&
@@ -2690,7 +2691,7 @@ class _AdvanceRequestsScreenState extends State<AdvanceRequestsScreen> {
                 _isManagerOrAbove ||
                 p.canApprove('AdvanceRequests'))) ...[
           const SizedBox(width: 4),
-          _miniBtn(Icons.delete_outline, Colors.grey, _l10n.delete,
+          _miniBtn(Icons.delete_outline, SboxColors.slate500, _l10n.delete,
               () => _deleteRequest(r)),
         ],
       ],
@@ -2732,7 +2733,7 @@ class _AdvanceRequestsScreenState extends State<AdvanceRequestsScreen> {
         color: Colors.white,
         borderRadius: BorderRadius.only(
             bottomLeft: Radius.circular(12), bottomRight: Radius.circular(12)),
-        border: Border(top: BorderSide(color: Color(0xFFE4E4E7))),
+        border: Border(top: BorderSide(color: SboxColors.slate200)),
       ),
       child: isMobile
           ? Column(
@@ -2743,7 +2744,7 @@ class _AdvanceRequestsScreenState extends State<AdvanceRequestsScreen> {
                     Text(tr('Hiển thị ${startIndex + 1}-$endIndex / $totalItems'),
                       style: TextStyle(
                           fontSize: 12,
-                          color: Colors.grey[600],
+                          color: SboxColors.slate600,
                           fontWeight: FontWeight.w500),
                     ),
                     Row(
@@ -2751,22 +2752,22 @@ class _AdvanceRequestsScreenState extends State<AdvanceRequestsScreen> {
                       children: [
                         Text(tr('Hiển thị:'),
                             style: TextStyle(
-                                fontSize: 12, color: Colors.grey[500])),
+                                fontSize: 12, color: SboxColors.slate500)),
                         const SizedBox(width: 8),
                         Container(
                           height: 34,
                           padding: const EdgeInsets.symmetric(horizontal: 12),
                           decoration: BoxDecoration(
-                            color: const Color(0xFFFAFAFA),
-                            border: Border.all(color: const Color(0xFFE4E4E7)),
-                            borderRadius: BorderRadius.circular(8),
+                            color: SboxColors.slate50,
+                            border: Border.all(color: SboxColors.slate200),
+                            borderRadius: BorderRadius.circular(10),
                           ),
                           child: DropdownButtonHideUnderline(
                             child: DropdownButton<int>(
                               value: _itemsPerPage,
                               isDense: true,
                               style: TextStyle(
-                                  fontSize: 13, color: Colors.grey[800]),
+                                  fontSize: 13, color: SboxColors.slate800),
                               items: _pageSizeOptions
                                   .map((s) => DropdownMenuItem(
                                       value: s, child: Text(tr('$s'))))
@@ -2800,7 +2801,7 @@ class _AdvanceRequestsScreenState extends State<AdvanceRequestsScreen> {
                           horizontal: 16, vertical: 6),
                       decoration: BoxDecoration(
                         color: Theme.of(context).primaryColor,
-                        borderRadius: BorderRadius.circular(8),
+                        borderRadius: BorderRadius.circular(10),
                       ),
                       child: Text(tr('$_currentPage / $totalPages'),
                           style: const TextStyle(
@@ -2825,29 +2826,29 @@ class _AdvanceRequestsScreenState extends State<AdvanceRequestsScreen> {
                 Text(tr('Hiển thị ${startIndex + 1}-$endIndex / $totalItems'),
                   style: TextStyle(
                       fontSize: 13,
-                      color: Colors.grey[600],
+                      color: SboxColors.slate600,
                       fontWeight: FontWeight.w500),
                 ),
                 Row(
                   children: [
                     Text(tr('Hiển thị:'),
                         style:
-                            TextStyle(fontSize: 12, color: Colors.grey[500])),
+                            TextStyle(fontSize: 12, color: SboxColors.slate500)),
                     const SizedBox(width: 8),
                     Container(
                       height: 34,
                       padding: const EdgeInsets.symmetric(horizontal: 12),
                       decoration: BoxDecoration(
-                        color: const Color(0xFFFAFAFA),
-                        border: Border.all(color: const Color(0xFFE4E4E7)),
-                        borderRadius: BorderRadius.circular(8),
+                        color: SboxColors.slate50,
+                        border: Border.all(color: SboxColors.slate200),
+                        borderRadius: BorderRadius.circular(10),
                       ),
                       child: DropdownButtonHideUnderline(
                         child: DropdownButton<int>(
                           value: _itemsPerPage,
                           isDense: true,
                           style:
-                              TextStyle(fontSize: 13, color: Colors.grey[800]),
+                              TextStyle(fontSize: 13, color: SboxColors.slate800),
                           items: _pageSizeOptions
                               .map((s) =>
                                   DropdownMenuItem(value: s, child: Text(tr('$s'))))
@@ -2877,7 +2878,7 @@ class _AdvanceRequestsScreenState extends State<AdvanceRequestsScreen> {
                           horizontal: 16, vertical: 6),
                       decoration: BoxDecoration(
                         color: Theme.of(context).primaryColor,
-                        borderRadius: BorderRadius.circular(8),
+                        borderRadius: BorderRadius.circular(10),
                       ),
                       child: Text(tr('$_currentPage / $totalPages'),
                           style: const TextStyle(
@@ -2901,17 +2902,17 @@ class _AdvanceRequestsScreenState extends State<AdvanceRequestsScreen> {
 
   Widget _buildPageNavBtn(IconData icon, bool enabled, VoidCallback onPressed) {
     return Material(
-      color: enabled ? const Color(0xFFF1F5F9) : Colors.transparent,
-      borderRadius: BorderRadius.circular(8),
+      color: enabled ? SboxColors.slate100 : Colors.transparent,
+      borderRadius: BorderRadius.circular(10),
       child: InkWell(
         onTap: enabled ? onPressed : null,
-        borderRadius: BorderRadius.circular(8),
+        borderRadius: BorderRadius.circular(10),
         child: Container(
           padding: const EdgeInsets.all(6),
           child: Icon(icon,
               size: 20,
               color:
-                  enabled ? Theme.of(context).primaryColor : Colors.grey[400]),
+                  enabled ? Theme.of(context).primaryColor : SboxColors.slate400),
         ),
       ),
     );
@@ -2927,7 +2928,7 @@ class _ColHeader extends StatelessWidget {
     return Text(
       tr(text),
       style: const TextStyle(
-          fontWeight: FontWeight.w600, fontSize: 12, color: Color(0xFF71717A)),
+          fontWeight: FontWeight.w600, fontSize: 12, color: SboxColors.slate500),
     );
   }
 }

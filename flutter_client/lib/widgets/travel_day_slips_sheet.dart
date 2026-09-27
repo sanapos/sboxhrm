@@ -10,6 +10,7 @@ import 'mobile_attendance_record_detail_sheet.dart';
 import 'notification_overlay.dart';
 import 'package:zkteco_flutter_client/l10n/app_tr.dart';
 
+import '../theme/sbox_tokens.dart';
 const _theme = HrmPageChrome.primaryNavy;
 
 class _TravelSlip {
@@ -459,15 +460,15 @@ class _TravelDaySlipsBodyState extends State<_TravelDaySlipsBody> {
             Text(
               tr('Đi đường · ${widget.employeeName}'),
               style: const TextStyle(
-                fontSize: 17,
-                fontWeight: FontWeight.w800,
-                color: Color(0xFF18181B),
+                fontSize: 18,
+                fontWeight: FontWeight.w700,
+                color: SboxColors.slate900,
               ),
             ),
             const SizedBox(height: 4),
             Text(
               tr(_dateFmt.format(widget.day)),
-              style: const TextStyle(fontSize: 13, color: Color(0xFF71717A)),
+              style: const TextStyle(fontSize: 13, color: SboxColors.slate500),
             ),
             const SizedBox(height: 12),
             if (widget.canEdit)
@@ -498,10 +499,10 @@ class _TravelDaySlipsBodyState extends State<_TravelDaySlipsBody> {
                 child: Column(
                   children: [
                     Icon(Icons.directions_car_outlined,
-                        size: 40, color: Colors.grey.shade400),
+                        size: 40, color: SboxColors.slate400),
                     const SizedBox(height: 10),
                     Text(tr('Chưa có phiếu đi đường trong ngày này'),
-                        style: TextStyle(color: Colors.grey.shade600)),
+                        style: TextStyle(color: SboxColors.slate600)),
                   ],
                 ),
               )
@@ -517,8 +518,8 @@ class _TravelDaySlipsBodyState extends State<_TravelDaySlipsBody> {
                   itemBuilder: (context, i) {
                     final s = _slips[i];
                     return Material(
-                      color: const Color(0xFFF8FAFC),
-                      borderRadius: BorderRadius.circular(12),
+                      color: SboxColors.slate50,
+                      borderRadius: BorderRadius.circular(14),
                       child: Padding(
                         padding: const EdgeInsets.fromLTRB(12, 10, 4, 10),
                         child: Row(
@@ -527,7 +528,7 @@ class _TravelDaySlipsBodyState extends State<_TravelDaySlipsBody> {
                               radius: 18,
                               backgroundColor: (s.isComplete
                                       ? _theme
-                                      : const Color(0xFFD97706))
+                                      : SboxColors.warning)
                                   .withValues(alpha: 0.12),
                               child: Icon(
                                 s.isComplete
@@ -536,7 +537,7 @@ class _TravelDaySlipsBodyState extends State<_TravelDaySlipsBody> {
                                 size: 18,
                                 color: s.isComplete
                                     ? _theme
-                                    : const Color(0xFFD97706),
+                                    : SboxColors.warning,
                               ),
                             ),
                             const SizedBox(width: 10),
@@ -557,8 +558,8 @@ class _TravelDaySlipsBodyState extends State<_TravelDaySlipsBody> {
                                     style: TextStyle(
                                       fontSize: 12,
                                       color: s.isComplete
-                                          ? const Color(0xFF15803D)
-                                          : const Color(0xFFD97706),
+                                          ? SboxColors.payHover
+                                          : SboxColors.warning,
                                     ),
                                   ),
                                 ],

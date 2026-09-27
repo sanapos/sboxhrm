@@ -5,6 +5,7 @@ import 'full_screen_dialog.dart';
 import 'package:zkteco_flutter_client/l10n/app_tr.dart';
 
 import './pos/pos_theme.dart';
+import '../theme/sbox_tokens.dart';
 /// Một dòng nhân viên trong picker (tên + mã tách dòng, có tìm kiếm).
 class EmployeePickerItem {
   final String id;
@@ -320,7 +321,7 @@ class EmployeePickerFormField extends StatelessWidget {
                 onChanged(picked);
               }
             },
-      borderRadius: BorderRadius.circular(8),
+      borderRadius: BorderRadius.circular(10),
       child: InputDecorator(
         decoration: InputDecoration(
           labelText: tr(labelText),
@@ -337,7 +338,7 @@ class EmployeePickerFormField extends StatelessWidget {
         child: sel == null
             ? Text(
                 tr(hintText ?? 'Bấm để tìm và chọn...'),
-                style: TextStyle(color: Colors.grey.shade600, fontSize: 14),
+                style: TextStyle(color: SboxColors.slate600, fontSize: 14),
               )
             : Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
@@ -348,8 +349,8 @@ class EmployeePickerFormField extends StatelessWidget {
                     overflow: TextOverflow.ellipsis,
                     style: const TextStyle(
                       fontWeight: FontWeight.w600,
-                      fontSize: 15,
-                      color: Color(0xFF0F172A),
+                      fontSize: 16,
+                      color: SboxColors.slate900,
                     ),
                   ),
                   if (sel.code.isNotEmpty) ...[
@@ -358,7 +359,7 @@ class EmployeePickerFormField extends StatelessWidget {
                       '${sel.department != null && sel.department!.isNotEmpty ? ' · ${sel.department}' : ''}'),
                       maxLines: 1,
                       overflow: TextOverflow.ellipsis,
-                      style: const TextStyle(fontSize: 13, color: Color(0xFF71717A)),
+                      style: const TextStyle(fontSize: 13, color: SboxColors.slate500),
                     ),
                   ],
                 ],
@@ -419,7 +420,7 @@ class _EmployeePickerSheetState extends State<_EmployeePickerSheet> {
                 width: 40,
                 height: 4,
                 decoration: BoxDecoration(
-                  color: const Color(0xFFE4E4E7),
+                  color: SboxColors.slate200,
                   borderRadius: BorderRadius.circular(2),
                 ),
               ),
@@ -435,9 +436,9 @@ class _EmployeePickerSheetState extends State<_EmployeePickerSheet> {
                         Text(
                           tr(widget.title),
                           style: const TextStyle(
-                            fontSize: 17,
+                            fontSize: 18,
                             fontWeight: FontWeight.w700,
-                            color: Color(0xFF0F172A),
+                            color: SboxColors.slate900,
                           ),
                         ),
                         if (widget.subtitle != null &&
@@ -446,7 +447,7 @@ class _EmployeePickerSheetState extends State<_EmployeePickerSheet> {
                             tr(widget.subtitle!),
                             style: TextStyle(
                               fontSize: 12,
-                              color: Colors.grey.shade600,
+                              color: SboxColors.slate600,
                             ),
                             maxLines: 2,
                             overflow: TextOverflow.ellipsis,
@@ -483,14 +484,14 @@ class _EmployeePickerSheetState extends State<_EmployeePickerSheet> {
             child: Align(
               alignment: Alignment.centerLeft,
               child: Text(tr('${filtered.length} nhân viên'),
-                style: TextStyle(fontSize: 12, color: Colors.grey.shade600),
+                style: TextStyle(fontSize: 12, color: SboxColors.slate600),
               ),
             ),
           ),
           if (widget.allowClear)
             ListTile(
               dense: true,
-              leading: const Icon(Icons.clear, color: Color(0xFF71717A)),
+              leading: const Icon(Icons.clear, color: SboxColors.slate500),
               title: Text(tr('Không chọn')),
               onTap: () => Navigator.pop(context),
             ),
@@ -498,7 +499,7 @@ class _EmployeePickerSheetState extends State<_EmployeePickerSheet> {
             child: filtered.isEmpty
                 ? Center(
                     child: Text(tr('Không tìm thấy nhân viên'),
-                      style: TextStyle(color: Colors.grey.shade500),
+                      style: TextStyle(color: SboxColors.slate500),
                     ),
                   )
                 : ListView.separated(
@@ -509,7 +510,7 @@ class _EmployeePickerSheetState extends State<_EmployeePickerSheet> {
                       final emp = filtered[i];
                       final isSel = _selectedId == emp.id;
                       return Material(
-                        color: isSel ? const Color(0xFFEFF6FF) : Colors.white,
+                        color: isSel ? SboxColors.brand50 : Colors.white,
                         child: InkWell(
                           onTap: () => setState(() => _selectedId = emp.id),
                           onDoubleTap: () =>
@@ -521,14 +522,14 @@ class _EmployeePickerSheetState extends State<_EmployeePickerSheet> {
                               children: [
                                 CircleAvatar(
                                   radius: 20,
-                                  backgroundColor: const Color(0xFFE4E4E7),
+                                  backgroundColor: SboxColors.slate200,
                                   child: Text(
                                     tr(emp.name.isNotEmpty
                                         ? emp.name[0].toUpperCase()
                                         : '?'),
                                     style: const TextStyle(
                                       fontWeight: FontWeight.w600,
-                                      color: Color(0xFF52525B),
+                                      color: SboxColors.slate600,
                                     ),
                                   ),
                                 ),
@@ -543,9 +544,9 @@ class _EmployeePickerSheetState extends State<_EmployeePickerSheet> {
                                         maxLines: 2,
                                         overflow: TextOverflow.ellipsis,
                                         style: const TextStyle(
-                                          fontSize: 15,
+                                          fontSize: 16,
                                           fontWeight: FontWeight.w600,
-                                          color: Color(0xFF0F172A),
+                                          color: SboxColors.slate900,
                                           height: 1.25,
                                         ),
                                       ),
@@ -562,7 +563,7 @@ class _EmployeePickerSheetState extends State<_EmployeePickerSheet> {
                                         overflow: TextOverflow.ellipsis,
                                         style: const TextStyle(
                                           fontSize: 13,
-                                          color: Color(0xFF71717A),
+                                          color: SboxColors.slate500,
                                         ),
                                       ),
                                     ],
@@ -574,7 +575,7 @@ class _EmployeePickerSheetState extends State<_EmployeePickerSheet> {
                                       : Icons.circle_outlined,
                                   color: isSel
                                       ? PosTheme.kiotBlue
-                                      : const Color(0xFFD4D4D8),
+                                      : SboxColors.slate300,
                                   size: 22,
                                 ),
                               ],

@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import '../services/api_service.dart';
 import 'package:zkteco_flutter_client/l10n/app_tr.dart';
 
+import '../theme/sbox_tokens.dart';
 class ResetPasswordScreen extends StatefulWidget {
   final String email;
   final String token;
@@ -117,7 +118,7 @@ class _ResetPasswordScreenState extends State<ResetPasswordScreen> {
                     const SizedBox(height: 8),
                     Text(tr('Nhập mật khẩu mới cho tài khoản ${widget.email}'),
                       style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                            color: Colors.grey,
+                            color: SboxColors.slate500,
                           ),
                       textAlign: TextAlign.center,
                     ),
@@ -130,7 +131,7 @@ class _ResetPasswordScreenState extends State<ResetPasswordScreen> {
                         margin: const EdgeInsets.only(bottom: 16),
                         decoration: BoxDecoration(
                           color: Colors.red.withValues(alpha: 0.1),
-                          borderRadius: BorderRadius.circular(8),
+                          borderRadius: BorderRadius.circular(10),
                           border: Border.all(color: Colors.red.withValues(alpha: 0.3)),
                         ),
                         child: Row(
@@ -154,7 +155,7 @@ class _ResetPasswordScreenState extends State<ResetPasswordScreen> {
                         margin: const EdgeInsets.only(bottom: 16),
                         decoration: BoxDecoration(
                           color: Colors.green.withValues(alpha: 0.1),
-                          borderRadius: BorderRadius.circular(8),
+                          borderRadius: BorderRadius.circular(10),
                           border: Border.all(color: Colors.green.withValues(alpha: 0.3)),
                         ),
                         child: Row(
@@ -183,7 +184,7 @@ class _ResetPasswordScreenState extends State<ResetPasswordScreen> {
                           onPressed: () => setState(() => _obscureNewPassword = !_obscureNewPassword),
                         ),
                         border: OutlineInputBorder(
-                          borderRadius: BorderRadius.circular(12),
+                          borderRadius: BorderRadius.circular(14),
                         ),
                       ),
                       validator: (value) {
@@ -210,7 +211,7 @@ class _ResetPasswordScreenState extends State<ResetPasswordScreen> {
                           onPressed: () => setState(() => _obscureConfirmPassword = !_obscureConfirmPassword),
                         ),
                         border: OutlineInputBorder(
-                          borderRadius: BorderRadius.circular(12),
+                          borderRadius: BorderRadius.circular(14),
                         ),
                       ),
                       validator: (value) {

@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import '../l10n/app_tr.dart';
 import 'pos/pos_theme.dart';
 
+import '../theme/sbox_tokens.dart';
 /// Thanh «Tổng quan & bộ lọc» — bấm để ẩn/hiện. [subtitle] hiện khi đang thu.
 class HrmCollapsibleOverview extends StatelessWidget {
   const HrmCollapsibleOverview({
@@ -30,10 +31,10 @@ class HrmCollapsibleOverview extends StatelessWidget {
       children: [
         Material(
           color: accent.withValues(alpha: 0.08),
-          borderRadius: BorderRadius.circular(8),
+          borderRadius: BorderRadius.circular(10),
           child: InkWell(
             onTap: onToggle,
-            borderRadius: BorderRadius.circular(8),
+            borderRadius: BorderRadius.circular(10),
             child: Padding(
               padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
               child: Row(
@@ -61,7 +62,7 @@ class HrmCollapsibleOverview extends StatelessWidget {
                             overflow: TextOverflow.ellipsis,
                             style: const TextStyle(
                               fontSize: 11,
-                              color: Color(0xFF71717A),
+                              color: SboxColors.slate500,
                             ),
                           ),
                       ],

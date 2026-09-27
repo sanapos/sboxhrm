@@ -4,6 +4,7 @@ import 'package:zkteco_flutter_client/widgets/app_responsive_dialog.dart';
 import 'hrm_page_chrome.dart';
 import 'package:zkteco_flutter_client/l10n/app_tr.dart';
 
+import '../theme/sbox_tokens.dart';
 /// Dialog quy trình đổi ca — gọi từ menu Thao tác, không chiếm chỗ trên trang.
 void showShiftSwapFlowHelpDialog(BuildContext context) {
   showDialog<void>(
@@ -44,14 +45,14 @@ class ShiftSwapFlowHelpBanner extends StatelessWidget {
       color: Colors.transparent,
       child: InkWell(
         onTap: onTapDetail,
-        borderRadius: BorderRadius.circular(12),
+        borderRadius: BorderRadius.circular(14),
         child: Container(
           width: double.infinity,
           padding: EdgeInsets.all(compact ? 10 : 14),
           decoration: BoxDecoration(
-            color: const Color(0xFFEFF6FF),
-            borderRadius: BorderRadius.circular(12),
-            border: Border.all(color: const Color(0xFFBFDBFE)),
+            color: SboxColors.brand50,
+            borderRadius: BorderRadius.circular(14),
+            border: Border.all(color: SboxColors.brand100),
           ),
           child: Row(
             crossAxisAlignment: CrossAxisAlignment.start,
@@ -81,7 +82,7 @@ class ShiftSwapFlowHelpBanner extends StatelessWidget {
                       style: TextStyle(
                         fontSize: compact ? 11 : 12,
                         height: 1.35,
-                        color: const Color(0xFF475569),
+                        color: SboxColors.slate600,
                       ),
                     ),
                   ],
@@ -142,12 +143,12 @@ Color shiftSwapStatusColor(dynamic status) {
   switch (s) {
     case '2':
     case 'Approved':
-      return const Color(0xFF16A34A);
+      return SboxColors.success;
     case '3':
     case '4':
     case 'RejectedByTarget':
     case 'RejectedByManager':
-      return const Color(0xFFEF4444);
+      return SboxColors.danger;
     case '1':
     case 'TargetAccepted':
       return HrmPageChrome.chipSoft;
@@ -185,7 +186,7 @@ void showShiftSwapDetailSheet(BuildContext context, Map<String, dynamic> swap) {
                 width: 40,
                 height: 4,
                 decoration: BoxDecoration(
-                  color: Colors.grey[300],
+                  color: SboxColors.slate300,
                   borderRadius: BorderRadius.circular(2),
                 ),
               ),
@@ -198,14 +199,14 @@ void showShiftSwapDetailSheet(BuildContext context, Map<String, dynamic> swap) {
                 Expanded(
                   child: Text(tr('Chi tiết yêu cầu đổi ca'),
                       style:
-                          TextStyle(fontSize: 17, fontWeight: FontWeight.w700)),
+                          TextStyle(fontSize: 18, fontWeight: FontWeight.w700)),
                 ),
                 Container(
                   padding:
                       const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
                   decoration: BoxDecoration(
                     color: shiftSwapStatusColor(status).withValues(alpha: 0.12),
-                    borderRadius: BorderRadius.circular(8),
+                    borderRadius: BorderRadius.circular(10),
                   ),
                   child: Text(tr(shiftSwapStatusText(status)),
                       style: TextStyle(
@@ -227,12 +228,12 @@ void showShiftSwapDetailSheet(BuildContext context, Map<String, dynamic> swap) {
               _detailRow('Lý do', swap['reason'].toString()),
             if ((swap['rejectionReason'] ?? '').toString().isNotEmpty)
               _detailRow('Lý do từ chối', swap['rejectionReason'].toString(),
-                  valueColor: const Color(0xFFEF4444)),
+                  valueColor: SboxColors.danger),
             if ((swap['note'] ?? '').toString().isNotEmpty)
               _detailRow('Ghi chú QL', swap['note'].toString()),
             const SizedBox(height: 8),
             Text(tr('${tr('Tạo lúc: ')}${formatSwapDate(swap['createdAt'])}'),
-              style: const TextStyle(fontSize: 11, color: Color(0xFF94A3B8)),
+              style: const TextStyle(fontSize: 11, color: SboxColors.slate400),
             ),
           ],
         ),
@@ -251,13 +252,13 @@ Widget _detailRow(String label, String value, {Color? valueColor}) {
             style: const TextStyle(
                 fontSize: 11,
                 fontWeight: FontWeight.w600,
-                color: Color(0xFF94A3B8))),
+                color: SboxColors.slate400)),
         const SizedBox(height: 2),
         Text(tr(value),
             style: TextStyle(
                 fontSize: 14,
                 fontWeight: FontWeight.w600,
-                color: valueColor ?? const Color(0xFF1E293B))),
+                color: valueColor ?? SboxColors.slate800)),
       ],
     ),
   );

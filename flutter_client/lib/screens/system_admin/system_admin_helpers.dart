@@ -7,6 +7,7 @@ import '../../widgets/notification_overlay.dart';
 import '../../widgets/hrm_page_chrome.dart';
 import 'package:zkteco_flutter_client/l10n/app_tr.dart';
 
+import '../../theme/sbox_tokens.dart';
 /// Quyền thao tác trên màn Quản trị hệ thống (module `SystemAdmin`).
 extension SystemAdminPermissionContext on BuildContext {
   bool get isAgentPortalMode =>
@@ -58,13 +59,13 @@ class AdminHelpers {
 
   static const Color primary = HrmPageChrome.primaryNavy;
   static const Color primaryDark = HrmPageChrome.primaryNavy;
-  static const Color success = Color(0xFF059669);
-  static const Color danger = Color(0xFFDC2626);
+  static const Color success = SboxColors.success;
+  static const Color danger = SboxColors.danger;
   static const Color warning = Color(0xFFEA580C);
   static const Color info = Color(0xFF0891B2);
   static const Color bgLight = Color(0xFFF0F4F8);
   static const Color cardBg = Colors.white;
-  static const Color surfaceBg = Color(0xFFF8FAFC);
+  static const Color surfaceBg = SboxColors.slate50;
 
   // ===== Enum parsers (backend uses JsonStringEnumConverter ⇒ may return enum name or int) =====
 
@@ -132,9 +133,9 @@ class AdminHelpers {
   static Widget emptyState(IconData icon, String msg) {
     return Center(
       child: Column(mainAxisSize: MainAxisSize.min, children: [
-        Icon(icon, size: 80, color: Colors.grey[300]),
+        Icon(icon, size: 80, color: SboxColors.slate300),
         const SizedBox(height: 16),
-        Text(tr(msg), style: TextStyle(color: Colors.grey[500], fontSize: 16)),
+        Text(tr(msg), style: TextStyle(color: SboxColors.slate500, fontSize: 16)),
       ]),
     );
   }
@@ -144,7 +145,7 @@ class AdminHelpers {
       padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
       decoration: BoxDecoration(
           color: color.withValues(alpha: 0.1),
-          borderRadius: BorderRadius.circular(8)),
+          borderRadius: BorderRadius.circular(10)),
       child: Text(tr(label),
           style: TextStyle(
               color: color, fontSize: 11, fontWeight: FontWeight.w600)),
@@ -155,11 +156,11 @@ class AdminHelpers {
     return Padding(
       padding: const EdgeInsets.only(bottom: 4),
       child: Row(children: [
-        Icon(icon, size: 14, color: Colors.grey[500]),
+        Icon(icon, size: 14, color: SboxColors.slate500),
         const SizedBox(width: 8),
         Expanded(
             child: Text(tr(text),
-                style: TextStyle(fontSize: 12, color: Colors.grey[700]))),
+                style: TextStyle(fontSize: 12, color: SboxColors.slate700))),
       ]),
     );
   }
@@ -485,7 +486,7 @@ class AdminHelpers {
       decoration: BoxDecoration(
         color: Colors.white,
         borderRadius: BorderRadius.circular(10),
-        border: Border.all(color: Colors.grey.shade300),
+        border: Border.all(color: SboxColors.slate300),
       ),
       child: TextField(
         controller: controller,
@@ -493,12 +494,12 @@ class AdminHelpers {
         style: const TextStyle(fontSize: 13),
         decoration: InputDecoration(
           hintText: tr(hint),
-          hintStyle: TextStyle(color: Colors.grey[400], fontSize: 13),
+          hintStyle: TextStyle(color: SboxColors.slate400, fontSize: 13),
           prefixIcon:
-              Icon(Icons.search, size: 18, color: Colors.grey[400]),
+              Icon(Icons.search, size: 18, color: SboxColors.slate400),
           suffixIcon: controller.text.isNotEmpty
               ? IconButton(
-                  icon: Icon(Icons.clear, size: 16, color: Colors.grey[400]),
+                  icon: Icon(Icons.clear, size: 16, color: SboxColors.slate400),
                   onPressed: () {
                     controller.clear();
                     onClear?.call();

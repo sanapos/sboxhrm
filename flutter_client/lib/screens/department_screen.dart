@@ -17,6 +17,7 @@ import '../widgets/page_top_actions.dart';
 import '../widgets/notification_overlay.dart';
 import 'package:zkteco_flutter_client/l10n/app_tr.dart';
 
+import '../theme/sbox_tokens.dart';
 class DepartmentScreen extends StatefulWidget {
   const DepartmentScreen({super.key});
 
@@ -255,7 +256,7 @@ class _DepartmentScreenState extends State<DepartmentScreen>
             Container(
               decoration: const BoxDecoration(
                 color: Colors.white,
-                border: Border(bottom: BorderSide(color: Color(0xFFE4E4E7))),
+                border: Border(bottom: BorderSide(color: SboxColors.slate200)),
               ),
               child: TabBar(
                 controller: _tabController,
@@ -318,7 +319,7 @@ class _DepartmentScreenState extends State<DepartmentScreen>
       padding: const EdgeInsets.all(16),
       decoration: const BoxDecoration(
         color: Colors.white,
-        border: Border(bottom: BorderSide(color: Color(0xFFE4E4E7))),
+        border: Border(bottom: BorderSide(color: SboxColors.slate200)),
       ),
       child: HrmCollapsibleOverview(
         expanded: _showOverviewPanel,
@@ -335,7 +336,7 @@ class _DepartmentScreenState extends State<DepartmentScreen>
                     hintText: tr(_l10n.searchDept),
                     prefixIcon: const Icon(Icons.search),
                     border: OutlineInputBorder(
-                      borderRadius: BorderRadius.circular(8),
+                      borderRadius: BorderRadius.circular(10),
                     ),
                     contentPadding: const EdgeInsets.symmetric(
                         horizontal: 12, vertical: 12),
@@ -372,7 +373,7 @@ class _DepartmentScreenState extends State<DepartmentScreen>
                     hintText: tr(_l10n.searchDept),
                     prefixIcon: const Icon(Icons.search),
                     border: OutlineInputBorder(
-                      borderRadius: BorderRadius.circular(8),
+                      borderRadius: BorderRadius.circular(10),
                     ),
                     contentPadding: const EdgeInsets.symmetric(
                         horizontal: 12, vertical: 8),
@@ -417,12 +418,12 @@ class _DepartmentScreenState extends State<DepartmentScreen>
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
             Icon(Icons.business_center_outlined,
-                size: 64, color: Colors.grey[400]),
+                size: 64, color: SboxColors.slate400),
             const SizedBox(height: 16),
             Text(
               tr(_l10n.noDept),
               style: Theme.of(context).textTheme.titleMedium?.copyWith(
-                    color: Colors.grey[600],
+                    color: SboxColors.slate600,
                   ),
             ),
             const SizedBox(height: 8),
@@ -449,8 +450,8 @@ class _DepartmentScreenState extends State<DepartmentScreen>
                   child: Container(
                     decoration: BoxDecoration(
                       color: Colors.white,
-                      borderRadius: BorderRadius.circular(12),
-                      border: Border.all(color: const Color(0xFFE4E4E7)),
+                      borderRadius: BorderRadius.circular(14),
+                      border: Border.all(color: SboxColors.slate200),
                       boxShadow: [
                         BoxShadow(
                           color: Colors.black.withValues(alpha: 0.05),
@@ -480,7 +481,7 @@ class _DepartmentScreenState extends State<DepartmentScreen>
   Widget _buildDeptDeckItem(Department dept) {
     final levelColors = [
       HrmPageChrome.primaryNavy,
-      const Color(0xFF2E7D32),
+      SboxColors.successText,
       const Color(0xFFEF6C00),
       const Color(0xFF6A1B9A),
       const Color(0xFF00838F),
@@ -497,7 +498,7 @@ class _DepartmentScreenState extends State<DepartmentScreen>
             width: 36, height: 36,
             decoration: BoxDecoration(
               color: levelColor.withValues(alpha: 0.1),
-              borderRadius: BorderRadius.circular(8),
+              borderRadius: BorderRadius.circular(10),
             ),
             child: Icon(
               dept.level == 0 ? Icons.corporate_fare : dept.level == 1 ? Icons.business : Icons.folder_outlined,
@@ -517,7 +518,7 @@ class _DepartmentScreenState extends State<DepartmentScreen>
                 Expanded(child: Text(tr(dept.name), style: const TextStyle(fontWeight: FontWeight.w600, fontSize: 14), maxLines: 1, overflow: TextOverflow.ellipsis)),
                 if (!dept.isActive) Container(
                   padding: const EdgeInsets.symmetric(horizontal: 5, vertical: 1),
-                  decoration: BoxDecoration(color: Colors.grey[300], borderRadius: BorderRadius.circular(4)),
+                  decoration: BoxDecoration(color: SboxColors.slate300, borderRadius: BorderRadius.circular(4)),
                   child: Text(tr('Ngừng'), style: TextStyle(fontSize: 9)),
                 ),
               ]),
@@ -527,12 +528,12 @@ class _DepartmentScreenState extends State<DepartmentScreen>
                   dept.managerName ?? _l10n.noManager,
                   '${dept.directEmployeeCount ?? 0} NV',
                 ].join(' · ')),
-                style: const TextStyle(color: Color(0xFF71717A), fontSize: 12),
+                style: const TextStyle(color: SboxColors.slate500, fontSize: 12),
                 maxLines: 1, overflow: TextOverflow.ellipsis,
               ),
             ]),
           ),
-          const Icon(Icons.chevron_right, size: 18, color: Color(0xFFA1A1AA)),
+          const Icon(Icons.chevron_right, size: 18, color: SboxColors.slate400),
         ]),
       ),
     );
@@ -541,7 +542,7 @@ class _DepartmentScreenState extends State<DepartmentScreen>
   Widget _buildHierarchicalCard(Department dept) {
     final levelColors = [
       HrmPageChrome.primaryNavy,
-      const Color(0xFF2E7D32), // Green 800
+      SboxColors.successText, // Green 800
       const Color(0xFFEF6C00), // Orange 800
       const Color(0xFF6A1B9A), // Purple 800
       const Color(0xFF00838F), // Cyan 800
@@ -572,7 +573,7 @@ class _DepartmentScreenState extends State<DepartmentScreen>
               margin: const EdgeInsets.only(bottom: 4),
               elevation: 0,
               shape: RoundedRectangleBorder(
-                borderRadius: BorderRadius.circular(12),
+                borderRadius: BorderRadius.circular(14),
                 side: BorderSide(
                   color: levelColor.withValues(alpha: dept.level == 0 ? 0.4 : 0.2),
                   width: dept.level == 0 ? 1.5 : 1,
@@ -582,7 +583,7 @@ class _DepartmentScreenState extends State<DepartmentScreen>
                 onTap: () => _showDepartmentDetails(
                     _departments.firstWhere((d) => d.id == dept.id,
                         orElse: () => dept)),
-                borderRadius: BorderRadius.circular(12),
+                borderRadius: BorderRadius.circular(14),
                 child: Padding(
                   padding: const EdgeInsets.symmetric(
                       horizontal: 12, vertical: 10),
@@ -593,7 +594,7 @@ class _DepartmentScreenState extends State<DepartmentScreen>
                         padding: const EdgeInsets.all(8),
                         decoration: BoxDecoration(
                           color: levelColor.withValues(alpha: 0.1),
-                          borderRadius: BorderRadius.circular(8),
+                          borderRadius: BorderRadius.circular(10),
                         ),
                         child: Icon(
                           dept.level == 0
@@ -646,7 +647,7 @@ class _DepartmentScreenState extends State<DepartmentScreen>
                                     padding: const EdgeInsets.symmetric(
                                         horizontal: 5, vertical: 1),
                                     decoration: BoxDecoration(
-                                      color: Colors.grey[300],
+                                      color: SboxColors.slate300,
                                       borderRadius: BorderRadius.circular(4),
                                     ),
                                     child: Text(tr('Ngừng'),
@@ -659,13 +660,13 @@ class _DepartmentScreenState extends State<DepartmentScreen>
                             Row(
                               children: [
                                 Icon(Icons.person_outline,
-                                    size: 13, color: Colors.grey[500]),
+                                    size: 13, color: SboxColors.slate500),
                                 const SizedBox(width: 3),
                                 Flexible(
                                   child: Text(
                                     tr(dept.managerName ?? _l10n.noManager),
                                     style: TextStyle(
-                                      color: Colors.grey[600],
+                                      color: SboxColors.slate600,
                                       fontSize: 12,
                                     ),
                                     overflow: TextOverflow.ellipsis,
@@ -681,14 +682,14 @@ class _DepartmentScreenState extends State<DepartmentScreen>
                         padding: const EdgeInsets.symmetric(
                             horizontal: 8, vertical: 4),
                         decoration: BoxDecoration(
-                          color: Colors.grey[100],
-                          borderRadius: BorderRadius.circular(16),
+                          color: SboxColors.slate100,
+                          borderRadius: BorderRadius.circular(14),
                         ),
                         child: Row(
                           mainAxisSize: MainAxisSize.min,
                           children: [
                             Icon(Icons.people_outline,
-                                size: 14, color: Colors.grey[600]),
+                                size: 14, color: SboxColors.slate600),
                             const SizedBox(width: 4),
                             Text(
                               tr('${dept.directEmployeeCount ?? 0}'),
@@ -702,7 +703,7 @@ class _DepartmentScreenState extends State<DepartmentScreen>
                               Text(
                                 tr('/${dept.totalEmployeeCount ?? 0}'),
                                 style: TextStyle(
-                                    color: Colors.grey[500], fontSize: 11),
+                                    color: SboxColors.slate500, fontSize: 11),
                               ),
                           ],
                         ),
@@ -714,7 +715,7 @@ class _DepartmentScreenState extends State<DepartmentScreen>
                               .canDelete('Department'))
                         PopupMenuButton<String>(
                           icon: Icon(Icons.more_vert,
-                              size: 20, color: Colors.grey[400]),
+                              size: 20, color: SboxColors.slate400),
                           padding: EdgeInsets.zero,
                           onSelected: (value) {
                             switch (value) {
@@ -820,10 +821,10 @@ class _DepartmentScreenState extends State<DepartmentScreen>
             ),
             const SizedBox(height: 20),
             Text(tr('Chưa có cấu trúc phòng ban'),
-              style: Theme.of(context).textTheme.titleMedium?.copyWith(color: Colors.grey[600], fontWeight: FontWeight.w600),
+              style: Theme.of(context).textTheme.titleMedium?.copyWith(color: SboxColors.slate600, fontWeight: FontWeight.w600),
             ),
             const SizedBox(height: 8),
-            Text(tr('Thêm phòng ban để tạo sơ đồ tổ chức'), style: TextStyle(color: Colors.grey[400], fontSize: 13)),
+            Text(tr('Thêm phòng ban để tạo sơ đồ tổ chức'), style: TextStyle(color: SboxColors.slate400, fontSize: 13)),
             if (_canCreateDepartment(context)) ...[
               const SizedBox(height: 16),
               FilledButton.icon(
@@ -874,7 +875,7 @@ class _DepartmentScreenState extends State<DepartmentScreen>
           child: Container(
             decoration: BoxDecoration(
               color: Colors.white,
-              borderRadius: BorderRadius.circular(12),
+              borderRadius: BorderRadius.circular(14),
               boxShadow: [BoxShadow(color: Colors.black.withValues(alpha: 0.08), blurRadius: 12, offset: const Offset(0, 4))],
             ),
             child: Column(
@@ -885,13 +886,13 @@ class _DepartmentScreenState extends State<DepartmentScreen>
                   final c = _transformationController.value.clone()..scale(1.25, 1.25, 1.25);
                   _transformationController.value = c;
                 }),
-                Container(height: 1, width: 28, color: Colors.grey[200]),
+                Container(height: 1, width: 28, color: SboxColors.slate200),
                 _zoomButton(Icons.remove, () {
                   // ignore: deprecated_member_use
                   final c = _transformationController.value.clone()..scale(0.8, 0.8, 0.8);
                   _transformationController.value = c;
                 }),
-                Container(height: 1, width: 28, color: Colors.grey[200]),
+                Container(height: 1, width: 28, color: SboxColors.slate200),
                 _zoomButton(Icons.fit_screen_outlined, () {
                   _fitOrgChartToCenter();
                 }),
@@ -917,7 +918,7 @@ class _DepartmentScreenState extends State<DepartmentScreen>
           begin: Alignment.topLeft,
           end: Alignment.bottomRight,
         ),
-        borderRadius: BorderRadius.circular(16),
+        borderRadius: BorderRadius.circular(14),
         boxShadow: [
           BoxShadow(color: const Color(0xFF153058).withValues(alpha: 0.25), blurRadius: 20, offset: const Offset(0, 8)),
         ],
@@ -935,7 +936,7 @@ class _DepartmentScreenState extends State<DepartmentScreen>
           ),
           const SizedBox(height: 10),
           Text(tr(_l10n.company.toUpperCase()),
-            style: const TextStyle(color: Colors.white, fontWeight: FontWeight.w800, fontSize: 17, letterSpacing: 1.5),
+            style: const TextStyle(color: Colors.white, fontWeight: FontWeight.w700, fontSize: 18, letterSpacing: 1.5),
           ),
           const SizedBox(height: 12),
           Row(
@@ -972,10 +973,10 @@ class _DepartmentScreenState extends State<DepartmentScreen>
   Widget _zoomButton(IconData icon, VoidCallback onTap) {
     return InkWell(
       onTap: onTap,
-      borderRadius: BorderRadius.circular(8),
+      borderRadius: BorderRadius.circular(10),
       child: Padding(
         padding: const EdgeInsets.all(10),
-        child: Icon(icon, size: 18, color: Colors.grey[700]),
+        child: Icon(icon, size: 18, color: SboxColors.slate700),
       ),
     );
   }
@@ -1030,7 +1031,7 @@ class _DepartmentScreenState extends State<DepartmentScreen>
         width: 240,
         decoration: BoxDecoration(
           color: Colors.white,
-          borderRadius: BorderRadius.circular(16),
+          borderRadius: BorderRadius.circular(14),
           border: Border.all(color: color.withValues(alpha: 0.35), width: 1.5),
           boxShadow: [
             BoxShadow(color: color.withValues(alpha: 0.08), blurRadius: 12, offset: const Offset(0, 4)),
@@ -1069,7 +1070,7 @@ class _DepartmentScreenState extends State<DepartmentScreen>
                         ),
                         const SizedBox(width: 4),
                         Text(tr(node.code ?? ''),
-                          style: TextStyle(color: color, fontWeight: FontWeight.w800, fontSize: 11, letterSpacing: 0.5),
+                          style: TextStyle(color: color, fontWeight: FontWeight.w700, fontSize: 11, letterSpacing: 0.5),
                         ),
                       ],
                     ),
@@ -1078,7 +1079,7 @@ class _DepartmentScreenState extends State<DepartmentScreen>
                   if (!node.isActive)
                     Container(
                       padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
-                      decoration: BoxDecoration(color: Colors.grey[400], borderRadius: BorderRadius.circular(4)),
+                      decoration: BoxDecoration(color: SboxColors.slate400, borderRadius: BorderRadius.circular(4)),
                       child: Text(tr('Ngừng'), style: TextStyle(color: Colors.white, fontSize: 9, fontWeight: FontWeight.w600)),
                     ),
                   if (node.children.isNotEmpty)
@@ -1103,7 +1104,7 @@ class _DepartmentScreenState extends State<DepartmentScreen>
                 children: [
                   // Department name
                   Text(tr(node.name),
-                    style: const TextStyle(fontWeight: FontWeight.w700, fontSize: 14, color: Color(0xFF18181B)),
+                    style: const TextStyle(fontWeight: FontWeight.w700, fontSize: 14, color: SboxColors.slate900),
                     textAlign: TextAlign.center,
                     maxLines: 2,
                     overflow: TextOverflow.ellipsis,
@@ -1116,9 +1117,9 @@ class _DepartmentScreenState extends State<DepartmentScreen>
                       width: double.infinity,
                       padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
                       decoration: BoxDecoration(
-                        color: const Color(0xFFFAFAFA),
+                        color: SboxColors.slate50,
                         borderRadius: BorderRadius.circular(10),
-                        border: Border.all(color: const Color(0xFFE4E4E7)),
+                        border: Border.all(color: SboxColors.slate200),
                       ),
                       child: Row(
                         children: [
@@ -1127,7 +1128,7 @@ class _DepartmentScreenState extends State<DepartmentScreen>
                             height: 28,
                             decoration: BoxDecoration(
                               gradient: LinearGradient(colors: [color, color.withValues(alpha: 0.7)]),
-                              borderRadius: BorderRadius.circular(8),
+                              borderRadius: BorderRadius.circular(10),
                             ),
                             alignment: Alignment.center,
                             child: Text(
@@ -1141,11 +1142,11 @@ class _DepartmentScreenState extends State<DepartmentScreen>
                               crossAxisAlignment: CrossAxisAlignment.start,
                               children: [
                                 Text(tr(node.managerName!),
-                                  style: const TextStyle(fontWeight: FontWeight.w600, fontSize: 12, color: Color(0xFF334155)),
+                                  style: const TextStyle(fontWeight: FontWeight.w600, fontSize: 12, color: SboxColors.slate700),
                                   overflow: TextOverflow.ellipsis,
                                 ),
                                 Text(tr(_l10n.manager),
-                                  style: TextStyle(fontSize: 10, color: Colors.grey[500]),
+                                  style: TextStyle(fontSize: 10, color: SboxColors.slate500),
                                 ),
                               ],
                             ),
@@ -1198,7 +1199,7 @@ class _DepartmentScreenState extends State<DepartmentScreen>
                                     height: 28,
                                     decoration: BoxDecoration(
                                       color: color.withValues(alpha: 0.15),
-                                      borderRadius: BorderRadius.circular(8),
+                                      borderRadius: BorderRadius.circular(10),
                                       border: Border.all(color: Colors.white, width: 2),
                                     ),
                                     alignment: Alignment.center,
@@ -1216,31 +1217,31 @@ class _DepartmentScreenState extends State<DepartmentScreen>
                       Container(
                         padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
                         decoration: BoxDecoration(
-                          color: (node.directEmployeeCount ?? 0) > 0 ? color.withValues(alpha: 0.08) : Colors.grey[100],
+                          color: (node.directEmployeeCount ?? 0) > 0 ? color.withValues(alpha: 0.08) : SboxColors.slate100,
                           borderRadius: BorderRadius.circular(20),
                           border: Border.all(
-                            color: (node.directEmployeeCount ?? 0) > 0 ? color.withValues(alpha: 0.2) : Colors.grey[300]!,
+                            color: (node.directEmployeeCount ?? 0) > 0 ? color.withValues(alpha: 0.2) : SboxColors.slate300,
                           ),
                         ),
                         child: Row(
                           mainAxisSize: MainAxisSize.min,
                           children: [
                             Icon(Icons.people_outline, size: 13,
-                              color: (node.directEmployeeCount ?? 0) > 0 ? color : Colors.grey[500]),
+                              color: (node.directEmployeeCount ?? 0) > 0 ? color : SboxColors.slate500),
                             const SizedBox(width: 4),
                             Text(
                               tr('${node.directEmployeeCount ?? 0}'),
                               style: TextStyle(
                                 fontWeight: FontWeight.w700,
                                 fontSize: 12,
-                                color: (node.directEmployeeCount ?? 0) > 0 ? color : Colors.grey[600],
+                                color: (node.directEmployeeCount ?? 0) > 0 ? color : SboxColors.slate600,
                               ),
                             ),
                             if (node.totalEmployeeCount != node.directEmployeeCount)
                               Text(tr(' (${node.totalEmployeeCount ?? 0})'),
                                 style: TextStyle(fontSize: 10, color: color.withValues(alpha: 0.5)),
                               ),
-                            Text(tr(' NV'), style: TextStyle(fontSize: 10, color: Colors.grey[500])),
+                            Text(tr(' NV'), style: TextStyle(fontSize: 10, color: SboxColors.slate500)),
                           ],
                         ),
                       ),
@@ -1280,7 +1281,7 @@ class _DepartmentScreenState extends State<DepartmentScreen>
     showDialog(
       context: context,
       builder: (ctx) => Dialog(
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
         child: ConstrainedBox(
           constraints: const BoxConstraints(maxWidth: 480, maxHeight: 520),
           child: Column(
@@ -1290,12 +1291,12 @@ class _DepartmentScreenState extends State<DepartmentScreen>
               Container(
                 padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 16),
                 decoration: BoxDecoration(
-                  color: Colors.blue[50],
+                  color: SboxColors.brand50,
                   borderRadius: const BorderRadius.vertical(top: Radius.circular(16)),
                 ),
                 child: Row(
                   children: [
-                    Icon(Icons.people, color: Colors.blue[700], size: 22),
+                    Icon(Icons.people, color: SboxColors.brand700, size: 22),
                     const SizedBox(width: 10),
                     Expanded(
                       child: Column(
@@ -1305,8 +1306,8 @@ class _DepartmentScreenState extends State<DepartmentScreen>
                             tr(node.name),
                             style: TextStyle(
                               fontWeight: FontWeight.bold,
-                              fontSize: 15,
-                              color: Colors.blue[800],
+                              fontSize: 16,
+                              color: SboxColors.brand800,
                             ),
                           ),
                           const SizedBox(height: 2),
@@ -1316,7 +1317,7 @@ class _DepartmentScreenState extends State<DepartmentScreen>
                                 : '${deptEmployees.length} nhân viên'),
                             style: TextStyle(
                               fontSize: 12,
-                              color: Colors.blue[600],
+                              color: SboxColors.brand600,
                             ),
                           ),
                         ],
@@ -1339,11 +1340,11 @@ class _DepartmentScreenState extends State<DepartmentScreen>
                           mainAxisSize: MainAxisSize.min,
                           children: [
                             Icon(Icons.person_off_outlined,
-                                size: 48, color: Colors.grey[400]),
+                                size: 48, color: SboxColors.slate400),
                             const SizedBox(height: 12),
                             Text(
                               tr(_l10n.noEmployeesInDept),
-                              style: TextStyle(color: Colors.grey[600]),
+                              style: TextStyle(color: SboxColors.slate600),
                               textAlign: TextAlign.center,
                             ),
                           ],
@@ -1354,7 +1355,7 @@ class _DepartmentScreenState extends State<DepartmentScreen>
                         padding: const EdgeInsets.symmetric(vertical: 8),
                         itemCount: deptEmployees.length,
                         separatorBuilder: (_, __) =>
-                            Divider(height: 24, indent: 56, color: Colors.grey[200]),
+                            Divider(height: 24, indent: 56, color: SboxColors.slate200),
                         itemBuilder: (_, i) {
                           final emp = deptEmployees[i];
                           final fullName =
@@ -1369,7 +1370,7 @@ class _DepartmentScreenState extends State<DepartmentScreen>
                           return ListTile(
                             leading: CircleAvatar(
                               radius: 20,
-                              backgroundColor: Colors.blue[100],
+                              backgroundColor: SboxColors.brand100,
                               backgroundImage:
                                   photo != null && photo.isNotEmpty
                                       ? _apiService.storeImageProvider(photo)
@@ -1381,7 +1382,7 @@ class _DepartmentScreenState extends State<DepartmentScreen>
                                           ? fullName[0].toUpperCase()
                                           : '?'),
                                       style: TextStyle(
-                                        color: Colors.blue[700],
+                                        color: SboxColors.brand700,
                                         fontWeight: FontWeight.bold,
                                       ),
                                     )
@@ -1421,14 +1422,14 @@ class _DepartmentScreenState extends State<DepartmentScreen>
                                   Row(
                                     children: [
                                       Icon(Icons.account_tree_outlined,
-                                          size: 12, color: Colors.blue[600]),
+                                          size: 12, color: SboxColors.brand600),
                                       const SizedBox(width: 4),
                                       Flexible(
                                         child: Text(
                                           tr(empDeptName),
                                           style: TextStyle(
                                             fontSize: 11,
-                                            color: Colors.blue[700],
+                                            color: SboxColors.brand700,
                                           ),
                                         ),
                                       ),
@@ -1438,12 +1439,12 @@ class _DepartmentScreenState extends State<DepartmentScreen>
                                   Row(
                                     children: [
                                       Icon(Icons.badge_outlined,
-                                          size: 12, color: Colors.grey[500]),
+                                          size: 12, color: SboxColors.slate500),
                                       const SizedBox(width: 4),
                                       Text(tr('Mã NV: $empCode'),
                                         style: TextStyle(
                                           fontSize: 11,
-                                          color: Colors.grey[500],
+                                          color: SboxColors.slate500,
                                         ),
                                       ),
                                     ],
@@ -1475,7 +1476,7 @@ class _DepartmentScreenState extends State<DepartmentScreen>
       padding: const EdgeInsets.symmetric(vertical: 12, horizontal: 16),
       decoration: BoxDecoration(
         color: Theme.of(context).cardColor,
-        border: Border(top: BorderSide(color: Colors.grey[300]!)),
+        border: Border(top: BorderSide(color: SboxColors.slate300)),
       ),
       child: Wrap(
         alignment: WrapAlignment.center,
@@ -1486,21 +1487,21 @@ class _DepartmentScreenState extends State<DepartmentScreen>
           Row(
             mainAxisSize: MainAxisSize.min,
             children: [
-              Text(tr('Hiển thị:'), style: TextStyle(fontSize: 12, color: Colors.grey[500])),
+              Text(tr('Hiển thị:'), style: TextStyle(fontSize: 12, color: SboxColors.slate500)),
               const SizedBox(width: 8),
               Container(
                 height: 34,
                 padding: const EdgeInsets.symmetric(horizontal: 12),
                 decoration: BoxDecoration(
-                  color: const Color(0xFFFAFAFA),
-                  border: Border.all(color: const Color(0xFFE4E4E7)),
-                  borderRadius: BorderRadius.circular(8),
+                  color: SboxColors.slate50,
+                  border: Border.all(color: SboxColors.slate200),
+                  borderRadius: BorderRadius.circular(10),
                 ),
                 child: DropdownButtonHideUnderline(
                   child: DropdownButton<int>(
                     value: _pageSize,
                     isDense: true,
-                    style: TextStyle(fontSize: 13, color: Colors.grey[800]),
+                    style: TextStyle(fontSize: 13, color: SboxColors.slate800),
                     items: _pageSizeOptions.map((s) => DropdownMenuItem(value: s, child: Text(tr('$s')))).toList(),
                     onChanged: (v) {
                       if (v != null) {
@@ -1535,7 +1536,7 @@ class _DepartmentScreenState extends State<DepartmentScreen>
             padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
             decoration: BoxDecoration(
               color: Theme.of(context).primaryColor.withValues(alpha: 0.1),
-              borderRadius: BorderRadius.circular(8),
+              borderRadius: BorderRadius.circular(10),
             ),
             child: Text(tr('Hiển thị $start-$end / $_totalCount'),
               style: TextStyle(
@@ -1587,7 +1588,7 @@ class _DepartmentScreenState extends State<DepartmentScreen>
     showDialog(
       context: context,
       builder: (context) => Dialog(
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
         child: ConstrainedBox(
           constraints: const BoxConstraints(maxWidth: 560, maxHeight: 680),
           child: Column(
@@ -1611,7 +1612,7 @@ class _DepartmentScreenState extends State<DepartmentScreen>
                       padding: const EdgeInsets.all(10),
                       decoration: BoxDecoration(
                         color: Colors.white.withValues(alpha: 0.18),
-                        borderRadius: BorderRadius.circular(12),
+                        borderRadius: BorderRadius.circular(14),
                       ),
                       child: Icon(
                         dept.level == 0 ? Icons.corporate_fare : dept.level == 1 ? Icons.business : Icons.folder_outlined,
@@ -1625,7 +1626,7 @@ class _DepartmentScreenState extends State<DepartmentScreen>
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
                           Text(tr(dept.name),
-                            style: const TextStyle(color: Colors.white, fontWeight: FontWeight.w700, fontSize: 17),
+                            style: const TextStyle(color: Colors.white, fontWeight: FontWeight.w700, fontSize: 18),
                             maxLines: 2,
                             overflow: TextOverflow.ellipsis,
                           ),
@@ -1664,7 +1665,7 @@ class _DepartmentScreenState extends State<DepartmentScreen>
                           Container(
                             padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
                             decoration: BoxDecoration(
-                              color: dept.isActive ? const Color(0xFFDCFCE7) : Colors.grey[200],
+                              color: dept.isActive ? SboxColors.successSoft : SboxColors.slate200,
                               borderRadius: BorderRadius.circular(20),
                             ),
                             child: Row(
@@ -1673,7 +1674,7 @@ class _DepartmentScreenState extends State<DepartmentScreen>
                                 Icon(
                                   dept.isActive ? Icons.check_circle : Icons.cancel,
                                   size: 14,
-                                  color: dept.isActive ? const Color(0xFF16A34A) : Colors.grey[600],
+                                  color: dept.isActive ? SboxColors.success : SboxColors.slate600,
                                 ),
                                 const SizedBox(width: 4),
                                 Text(
@@ -1681,7 +1682,7 @@ class _DepartmentScreenState extends State<DepartmentScreen>
                                   style: TextStyle(
                                     fontSize: 12,
                                     fontWeight: FontWeight.w600,
-                                    color: dept.isActive ? const Color(0xFF16A34A) : Colors.grey[600],
+                                    color: dept.isActive ? SboxColors.success : SboxColors.slate600,
                                   ),
                                 ),
                               ],
@@ -1702,11 +1703,11 @@ class _DepartmentScreenState extends State<DepartmentScreen>
                           Container(
                             padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
                             decoration: BoxDecoration(
-                              color: Colors.blue.withValues(alpha: 0.08),
+                              color: SboxColors.brand500.withValues(alpha: 0.08),
                               borderRadius: BorderRadius.circular(20),
                             ),
                             child: Text(tr('Thứ tự: ${dept.sortOrder}'),
-                              style: TextStyle(fontSize: 12, fontWeight: FontWeight.w600, color: Colors.blue[700]),
+                              style: TextStyle(fontSize: 12, fontWeight: FontWeight.w600, color: SboxColors.brand700),
                             ),
                           ),
                         ],
@@ -1734,9 +1735,9 @@ class _DepartmentScreenState extends State<DepartmentScreen>
                             return Container(
                               padding: const EdgeInsets.all(10),
                               decoration: BoxDecoration(
-                                color: const Color(0xFFFAFAFA),
+                                color: SboxColors.slate50,
                                 borderRadius: BorderRadius.circular(10),
-                                border: Border.all(color: const Color(0xFFE4E4E7)),
+                                border: Border.all(color: SboxColors.slate200),
                               ),
                               child: Row(
                                 children: [
@@ -1761,7 +1762,7 @@ class _DepartmentScreenState extends State<DepartmentScreen>
                                         Text(tr(dept.managerName!), style: const TextStyle(fontWeight: FontWeight.w600, fontSize: 14)),
                                         Text(
                                           tr(managerPosition.isNotEmpty ? managerPosition : 'Quản lý phòng ban'),
-                                          style: TextStyle(fontSize: 12, color: Colors.grey[500]),
+                                          style: TextStyle(fontSize: 12, color: SboxColors.slate500),
                                         ),
                                       ],
                                     ),
@@ -1825,7 +1826,7 @@ class _DepartmentScreenState extends State<DepartmentScreen>
                                     padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 7),
                                     decoration: BoxDecoration(
                                       color: isManager ? color.withValues(alpha: 0.04) : Colors.transparent,
-                                      borderRadius: BorderRadius.circular(8),
+                                      borderRadius: BorderRadius.circular(10),
                                       border: isManager ? Border.all(color: color.withValues(alpha: 0.15)) : null,
                                     ),
                                     child: Row(
@@ -1835,7 +1836,7 @@ class _DepartmentScreenState extends State<DepartmentScreen>
                                           height: 28,
                                           decoration: BoxDecoration(
                                             color: color.withValues(alpha: 0.12),
-                                            borderRadius: BorderRadius.circular(7),
+                                            borderRadius: BorderRadius.circular(6),
                                           ),
                                           alignment: Alignment.center,
                                           child: Text(
@@ -1850,7 +1851,7 @@ class _DepartmentScreenState extends State<DepartmentScreen>
                                             children: [
                                               Text(tr(fullName), style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w500)),
                                               if (position.isNotEmpty)
-                                                Text(tr(position), style: TextStyle(fontSize: 11, color: Colors.grey[500])),
+                                                Text(tr(position), style: TextStyle(fontSize: 11, color: SboxColors.slate500)),
                                             ],
                                           ),
                                         ),
@@ -1884,7 +1885,7 @@ class _DepartmentScreenState extends State<DepartmentScreen>
                               padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
                               decoration: BoxDecoration(
                                 color: color.withValues(alpha: 0.06),
-                                borderRadius: BorderRadius.circular(8),
+                                borderRadius: BorderRadius.circular(10),
                                 border: Border.all(color: color.withValues(alpha: 0.15)),
                               ),
                               child: Text(tr(pos), style: TextStyle(fontSize: 12, fontWeight: FontWeight.w500, color: color)),
@@ -1900,23 +1901,23 @@ class _DepartmentScreenState extends State<DepartmentScreen>
                         width: double.infinity,
                         padding: const EdgeInsets.all(10),
                         decoration: BoxDecoration(
-                          color: Colors.grey[50],
-                          borderRadius: BorderRadius.circular(8),
-                          border: Border.all(color: Colors.grey[200]!),
+                          color: SboxColors.slate50,
+                          borderRadius: BorderRadius.circular(10),
+                          border: Border.all(color: SboxColors.slate200),
                         ),
                         child: Row(
                           children: [
-                            Icon(Icons.schedule, size: 14, color: Colors.grey[400]),
+                            Icon(Icons.schedule, size: 14, color: SboxColors.slate400),
                             const SizedBox(width: 6),
                             Text(tr('${tr('Tạo: ')}${DateFormat('dd/MM/yyyy HH:mm').format(dept.createdAt ?? DateTime.now())}'),
-                              style: TextStyle(fontSize: 11, color: Colors.grey[500]),
+                              style: TextStyle(fontSize: 11, color: SboxColors.slate500),
                             ),
                             if (dept.updatedAt != null) ...[
                               const SizedBox(width: 16),
-                              Icon(Icons.update, size: 14, color: Colors.grey[400]),
+                              Icon(Icons.update, size: 14, color: SboxColors.slate400),
                               const SizedBox(width: 4),
                               Text(tr('${tr('Cập nhật: ')}${DateFormat('dd/MM/yyyy HH:mm').format(dept.updatedAt!)}'),
-                                style: TextStyle(fontSize: 11, color: Colors.grey[500]),
+                                style: TextStyle(fontSize: 11, color: SboxColors.slate500),
                               ),
                             ],
                           ],
@@ -1931,7 +1932,7 @@ class _DepartmentScreenState extends State<DepartmentScreen>
               Container(
                 padding: const EdgeInsets.fromLTRB(20, 12, 20, 16),
                 decoration: BoxDecoration(
-                  border: Border(top: BorderSide(color: Colors.grey[200]!)),
+                  border: Border(top: BorderSide(color: SboxColors.slate200)),
                 ),
                 child: Row(
                   mainAxisAlignment: MainAxisAlignment.end,
@@ -1952,7 +1953,7 @@ class _DepartmentScreenState extends State<DepartmentScreen>
                         style: ElevatedButton.styleFrom(
                           backgroundColor: color,
                           foregroundColor: Colors.white,
-                          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+                          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
                         ),
                       ),
                     ],
@@ -1972,9 +1973,9 @@ class _DepartmentScreenState extends State<DepartmentScreen>
       children: [
         Row(
           children: [
-            Icon(icon, size: 16, color: Colors.grey[600]),
+            Icon(icon, size: 16, color: SboxColors.slate600),
             const SizedBox(width: 6),
-            Text(tr(title), style: TextStyle(fontWeight: FontWeight.w700, fontSize: 13, color: Colors.grey[700])),
+            Text(tr(title), style: TextStyle(fontWeight: FontWeight.w700, fontSize: 13, color: SboxColors.slate700)),
           ],
         ),
         const SizedBox(height: 8),
@@ -1989,11 +1990,11 @@ class _DepartmentScreenState extends State<DepartmentScreen>
       child: Row(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Icon(icon, size: 16, color: Colors.grey[400]),
+          Icon(icon, size: 16, color: SboxColors.slate400),
           const SizedBox(width: 8),
           SizedBox(
             width: 100,
-            child: Text(tr(label), style: TextStyle(fontSize: 12, color: Colors.grey[500])),
+            child: Text(tr(label), style: TextStyle(fontSize: 12, color: SboxColors.slate500)),
           ),
           Expanded(
             child: Text(tr(value), style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w500)),
@@ -2015,8 +2016,8 @@ class _DepartmentScreenState extends State<DepartmentScreen>
         children: [
           Icon(icon, size: 18, color: color),
           const SizedBox(height: 4),
-          Text(tr(value), style: TextStyle(fontSize: 16, fontWeight: FontWeight.w800, color: color)),
-          Text(tr(label), style: TextStyle(fontSize: 11, color: Colors.grey[500]), overflow: TextOverflow.ellipsis),
+          Text(tr(value), style: TextStyle(fontSize: 16, fontWeight: FontWeight.w700, color: color)),
+          Text(tr(label), style: TextStyle(fontSize: 11, color: SboxColors.slate500), overflow: TextOverflow.ellipsis),
         ],
       ),
     );
@@ -2117,7 +2118,7 @@ class _DepartmentScreenState extends State<DepartmentScreen>
                       items: [
                         DropdownMenuItem(
                           value: null,
-                          child: Text(tr('Chưa phân công'), style: TextStyle(color: Colors.grey)),
+                          child: Text(tr('Chưa phân công'), style: TextStyle(color: SboxColors.slate500)),
                         ),
                         ..._employees.map((emp) {
                           final empId = emp['id']?.toString() ?? '';
@@ -2141,7 +2142,7 @@ class _DepartmentScreenState extends State<DepartmentScreen>
                                     padding: const EdgeInsets.only(left: 6),
                                     child: Text(
                                       tr(position),
-                                      style: TextStyle(fontSize: 11, color: Colors.grey[500]),
+                                      style: TextStyle(fontSize: 11, color: SboxColors.slate500),
                                     ),
                                   ),
                               ],

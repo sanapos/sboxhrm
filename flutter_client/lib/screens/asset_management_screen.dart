@@ -25,6 +25,7 @@ import '../widgets/hrm_page_chrome.dart';
 import '../widgets/page_top_actions.dart';
 import 'package:zkteco_flutter_client/l10n/app_tr.dart';
 
+import '../theme/sbox_tokens.dart';
 class AssetManagementScreen extends StatefulWidget {
   const AssetManagementScreen({super.key});
 
@@ -294,16 +295,16 @@ class _AssetManagementScreenState extends State<AssetManagementScreen> {
         ? 'Bạn có chắc muốn xóa "${inventory.name}"? Dữ liệu sẽ bị mất vĩnh viễn.'
         : 'Bạn có chắc muốn hủy "${inventory.name}"?';
     final confirmText = isDelete ? 'Xóa' : 'Hủy kiểm kê';
-    final confirmColor = isDelete ? const Color(0xFFEF4444) : const Color(0xFFF59E0B);
+    final confirmColor = isDelete ? SboxColors.danger : SboxColors.warning;
 
     final ok = await showDialog<bool>(
       context: context,
       builder: (ctx) => ScrollableAlertDialog(
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
         title: Text(tr(title), style: const TextStyle(fontSize: 16, fontWeight: FontWeight.w700)),
         content: Text(tr(message)),
         actions: [
-          TextButton(onPressed: () => Navigator.pop(ctx, false), child: Text(tr('Đóng'), style: TextStyle(color: Color(0xFF71717A)))),
+          TextButton(onPressed: () => Navigator.pop(ctx, false), child: Text(tr('Đóng'), style: TextStyle(color: SboxColors.slate500))),
           FilledButton(
             onPressed: () => Navigator.pop(ctx, true),
             style: ElevatedButton.styleFrom(backgroundColor: confirmColor, foregroundColor: Colors.white),
@@ -479,7 +480,7 @@ class _AssetManagementScreenState extends State<AssetManagementScreen> {
     return Container(
       decoration: const BoxDecoration(
         color: Colors.white,
-        border: Border(bottom: BorderSide(color: Color(0xFFE4E4E7))),
+        border: Border(bottom: BorderSide(color: SboxColors.slate200)),
       ),
       child: Row(
         children: tabs.asMap().entries.map((entry) {
@@ -502,14 +503,14 @@ class _AssetManagementScreenState extends State<AssetManagementScreen> {
                 child: Row(
                   mainAxisAlignment: MainAxisAlignment.center,
                   children: [
-                    Icon(tab.$1, size: isMobile ? 16 : 18, color: isActive ? HrmPageChrome.primaryNavy : const Color(0xFF71717A)),
+                    Icon(tab.$1, size: isMobile ? 16 : 18, color: isActive ? HrmPageChrome.primaryNavy : SboxColors.slate500),
                     const SizedBox(width: 6),
                     Text(
                       tr(tab.$2),
                       style: TextStyle(
                         fontSize: isMobile ? 12 : 14,
                         fontWeight: isActive ? FontWeight.w700 : FontWeight.w500,
-                        color: isActive ? HrmPageChrome.primaryNavy : const Color(0xFF71717A),
+                        color: isActive ? HrmPageChrome.primaryNavy : SboxColors.slate500,
                       ),
                     ),
                   ],
@@ -573,7 +574,7 @@ class _AssetManagementScreenState extends State<AssetManagementScreen> {
                 tapTargetSize: MaterialTapTargetSize.shrinkWrap,
               ),
               child: Text(tr('Xóa lọc'),
-                  style: const TextStyle(fontSize: 12, color: Color(0xFFEF4444))),
+                  style: const TextStyle(fontSize: 12, color: SboxColors.danger)),
             )
           : null,
       child: Column(
@@ -615,7 +616,7 @@ class _AssetManagementScreenState extends State<AssetManagementScreen> {
     final totalIssues = _inventories.fold<int>(0, (s, i) => s + i.issueCount);
 
     return Container(
-      color: const Color(0xFFF8FAFC),
+      color: SboxColors.slate50,
       child: Column(
         children: [
           // Header
@@ -623,7 +624,7 @@ class _AssetManagementScreenState extends State<AssetManagementScreen> {
             padding: const EdgeInsets.fromLTRB(16, 14, 16, 14),
             decoration: const BoxDecoration(
               color: Colors.white,
-              border: Border(bottom: BorderSide(color: Color(0xFFE4E4E7))),
+              border: Border(bottom: BorderSide(color: SboxColors.slate200)),
             ),
             child: Row(
               children: [
@@ -631,7 +632,7 @@ class _AssetManagementScreenState extends State<AssetManagementScreen> {
                   padding: const EdgeInsets.all(8),
                   decoration: BoxDecoration(
                     color: HrmPageChrome.primaryNavy.withValues(alpha: 0.08),
-                    borderRadius: BorderRadius.circular(8),
+                    borderRadius: BorderRadius.circular(10),
                   ),
                   child: const Icon(Icons.fact_check_outlined, size: 20, color: HrmPageChrome.primaryNavy),
                 ),
@@ -640,9 +641,9 @@ class _AssetManagementScreenState extends State<AssetManagementScreen> {
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      Text(tr('Kiểm kê hàng hóa'), style: TextStyle(fontSize: 15, fontWeight: FontWeight.w700, color: Color(0xFF18181B))),
+                      Text(tr('Kiểm kê hàng hóa'), style: TextStyle(fontSize: 16, fontWeight: FontWeight.w700, color: SboxColors.slate900)),
                       if (totalInventories > 0)
-                        Text(tr('$totalInventories đợt · $totalChecked/$totalAssets đã kiểm'), style: const TextStyle(fontSize: 11, color: Color(0xFF71717A))),
+                        Text(tr('$totalInventories đợt · $totalChecked/$totalAssets đã kiểm'), style: const TextStyle(fontSize: 11, color: SboxColors.slate500)),
                     ],
                   ),
                 ),
@@ -653,7 +654,7 @@ class _AssetManagementScreenState extends State<AssetManagementScreen> {
                   style: ElevatedButton.styleFrom(
                     backgroundColor: HrmPageChrome.primaryNavy, foregroundColor: Colors.white,
                     padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
-                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
                     elevation: 0,
                   ),
                 ),
@@ -673,32 +674,32 @@ class _AssetManagementScreenState extends State<AssetManagementScreen> {
                         if (totalInventories > 0) ...[
                           Row(
                             children: [
-                              _inventoryStatChip(Icons.hourglass_top, '${inProgress.length}', 'Đang thực hiện', const Color(0xFF3B82F6)),
+                              _inventoryStatChip(Icons.hourglass_top, '${inProgress.length}', 'Đang thực hiện', SboxColors.brand500),
                               const SizedBox(width: 8),
-                              _inventoryStatChip(Icons.check_circle, '${completed.length}', 'Hoàn thành', const Color(0xFF059669)),
+                              _inventoryStatChip(Icons.check_circle, '${completed.length}', 'Hoàn thành', SboxColors.success),
                               const SizedBox(width: 8),
-                              _inventoryStatChip(Icons.warning_amber, '$totalIssues', 'Vấn đề', const Color(0xFFF59E0B)),
+                              _inventoryStatChip(Icons.warning_amber, '$totalIssues', 'Vấn đề', SboxColors.warning),
                             ],
                           ),
                           const SizedBox(height: 16),
                         ],
                         // In progress section
                         if (inProgress.isNotEmpty) ...[
-                          _inventorySectionHeader('Đang thực hiện', Icons.hourglass_top, const Color(0xFF3B82F6), inProgress.length),
+                          _inventorySectionHeader('Đang thực hiện', Icons.hourglass_top, SboxColors.brand500, inProgress.length),
                           const SizedBox(height: 8),
                           ...inProgress.map((inv) => _buildInventoryItem(inv)),
                           const SizedBox(height: 16),
                         ],
                         // Completed section
                         if (completed.isNotEmpty) ...[
-                          _inventorySectionHeader('Hoàn thành', Icons.check_circle, const Color(0xFF059669), completed.length),
+                          _inventorySectionHeader('Hoàn thành', Icons.check_circle, SboxColors.success, completed.length),
                           const SizedBox(height: 8),
                           ...completed.map((inv) => _buildInventoryItem(inv)),
                           const SizedBox(height: 16),
                         ],
                         // Cancelled section
                         if (cancelled.isNotEmpty) ...[
-                          _inventorySectionHeader('Đã hủy', Icons.cancel, const Color(0xFFEF4444), cancelled.length),
+                          _inventorySectionHeader('Đã hủy', Icons.cancel, SboxColors.danger, cancelled.length),
                           const SizedBox(height: 8),
                           ...cancelled.map((inv) => _buildInventoryItem(inv)),
                         ],
@@ -725,7 +726,7 @@ class _AssetManagementScreenState extends State<AssetManagementScreen> {
           children: [
             Icon(icon, size: 18, color: color),
             const SizedBox(height: 4),
-            Text(tr(value), style: TextStyle(fontSize: 18, fontWeight: FontWeight.w800, color: color)),
+            Text(tr(value), style: TextStyle(fontSize: 18, fontWeight: FontWeight.w700, color: color)),
             Text(tr(label), style: TextStyle(fontSize: 9, color: color.withValues(alpha: 0.7), fontWeight: FontWeight.w500)),
           ],
         ),
@@ -755,7 +756,7 @@ class _AssetManagementScreenState extends State<AssetManagementScreen> {
     final summary = _stockSummary;
 
     return Container(
-      color: const Color(0xFFF8FAFC),
+      color: SboxColors.slate50,
       child: Column(
         children: [
           // Summary cards
@@ -767,9 +768,9 @@ class _AssetManagementScreenState extends State<AssetManagementScreen> {
                 runSpacing: 12,
                 children: [
                   _stockSummaryCard('Tổng SP', '${summary.totalProducts}', Icons.inventory_2, HrmPageChrome.primaryNavy),
-                  _stockSummaryCard('Tổng tồn kho', '${summary.totalStockQuantity}', Icons.warehouse, const Color(0xFF059669)),
-                  _stockSummaryCard('Đã nhập', '+${summary.totalStockIn}', Icons.arrow_downward, const Color(0xFF2563EB)),
-                  _stockSummaryCard('Đã xuất', '-${summary.totalStockOut}', Icons.arrow_upward, const Color(0xFFEF4444)),
+                  _stockSummaryCard('Tổng tồn kho', '${summary.totalStockQuantity}', Icons.warehouse, SboxColors.success),
+                  _stockSummaryCard('Đã nhập', '+${summary.totalStockIn}', Icons.arrow_downward, SboxColors.brand600),
+                  _stockSummaryCard('Đã xuất', '-${summary.totalStockOut}', Icons.arrow_upward, SboxColors.danger),
                 ],
               ),
             ),
@@ -784,7 +785,7 @@ class _AssetManagementScreenState extends State<AssetManagementScreen> {
                     icon: const Icon(Icons.add_box, size: 20),
                     label: Text(tr('Nhập kho')),
                     style: ElevatedButton.styleFrom(
-                      backgroundColor: const Color(0xFF059669), foregroundColor: Colors.white,
+                      backgroundColor: SboxColors.success, foregroundColor: Colors.white,
                       padding: const EdgeInsets.symmetric(vertical: 14),
                       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
                     ),
@@ -797,7 +798,7 @@ class _AssetManagementScreenState extends State<AssetManagementScreen> {
                     icon: const Icon(Icons.outbox, size: 20),
                     label: Text(tr('Xuất kho')),
                     style: ElevatedButton.styleFrom(
-                      backgroundColor: const Color(0xFFEF4444), foregroundColor: Colors.white,
+                      backgroundColor: SboxColors.danger, foregroundColor: Colors.white,
                       padding: const EdgeInsets.symmetric(vertical: 14),
                       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
                     ),
@@ -813,7 +814,7 @@ class _AssetManagementScreenState extends State<AssetManagementScreen> {
               margin: const EdgeInsets.symmetric(horizontal: 16),
               padding: const EdgeInsets.all(12),
               decoration: BoxDecoration(
-                color: const Color(0xFFFEF3C7),
+                color: SboxColors.warningSoft,
                 borderRadius: BorderRadius.circular(10),
                 border: Border.all(color: const Color(0xFFFCD34D)),
               ),
@@ -822,9 +823,9 @@ class _AssetManagementScreenState extends State<AssetManagementScreen> {
                 children: [
                   Row(
                     children: [
-                      Icon(Icons.warning_amber, size: 18, color: Color(0xFFD97706)),
+                      Icon(Icons.warning_amber, size: 18, color: SboxColors.warning),
                       SizedBox(width: 6),
-                      Text(tr('Sản phẩm sắp hết'), style: TextStyle(fontSize: 13, fontWeight: FontWeight.w600, color: Color(0xFFD97706))),
+                      Text(tr('Sản phẩm sắp hết'), style: TextStyle(fontSize: 13, fontWeight: FontWeight.w600, color: SboxColors.warning)),
                     ],
                   ),
                   const SizedBox(height: 8),
@@ -835,8 +836,8 @@ class _AssetManagementScreenState extends State<AssetManagementScreen> {
                         Expanded(child: Text(tr(item.assetName ?? item.assetCode ?? "SP"), style: const TextStyle(fontSize: 12), overflow: TextOverflow.ellipsis)),
                         Container(
                           padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
-                          decoration: BoxDecoration(color: const Color(0xFFFEE2E2), borderRadius: BorderRadius.circular(4)),
-                          child: Text(tr('Còn ${item.quantity} ${item.unit ?? ""}'), style: const TextStyle(fontSize: 11, fontWeight: FontWeight.w600, color: Color(0xFFEF4444))),
+                          decoration: BoxDecoration(color: SboxColors.dangerSoft, borderRadius: BorderRadius.circular(4)),
+                          child: Text(tr('Còn ${item.quantity} ${item.unit ?? ""}'), style: const TextStyle(fontSize: 11, fontWeight: FontWeight.w600, color: SboxColors.danger)),
                         ),
                       ],
                     ),
@@ -852,25 +853,25 @@ class _AssetManagementScreenState extends State<AssetManagementScreen> {
               margin: const EdgeInsets.symmetric(horizontal: 16),
               decoration: BoxDecoration(
                 color: Colors.white,
-                borderRadius: BorderRadius.circular(12),
-                border: Border.all(color: const Color(0xFFE4E4E7)),
+                borderRadius: BorderRadius.circular(14),
+                border: Border.all(color: SboxColors.slate200),
               ),
               child: Column(
                 children: [
                   Container(
                     padding: const EdgeInsets.all(12),
-                    decoration: const BoxDecoration(border: Border(bottom: BorderSide(color: Color(0xFFE4E4E7)))),
+                    decoration: const BoxDecoration(border: Border(bottom: BorderSide(color: SboxColors.slate200))),
                     child: Row(
                       children: [
-                        Expanded(flex: 3, child: Text(tr('Sản phẩm'), style: TextStyle(fontSize: 12, fontWeight: FontWeight.w600, color: Color(0xFF64748B)))),
-                        Expanded(flex: 1, child: Text(tr('Tồn'), style: TextStyle(fontSize: 12, fontWeight: FontWeight.w600, color: Color(0xFF64748B)), textAlign: TextAlign.center)),
-                        Expanded(flex: 1, child: Text(tr('ĐVT'), style: TextStyle(fontSize: 12, fontWeight: FontWeight.w600, color: Color(0xFF64748B)), textAlign: TextAlign.center)),
+                        Expanded(flex: 3, child: Text(tr('Sản phẩm'), style: TextStyle(fontSize: 12, fontWeight: FontWeight.w600, color: SboxColors.slate500))),
+                        Expanded(flex: 1, child: Text(tr('Tồn'), style: TextStyle(fontSize: 12, fontWeight: FontWeight.w600, color: SboxColors.slate500), textAlign: TextAlign.center)),
+                        Expanded(flex: 1, child: Text(tr('ĐVT'), style: TextStyle(fontSize: 12, fontWeight: FontWeight.w600, color: SboxColors.slate500), textAlign: TextAlign.center)),
                       ],
                     ),
                   ),
                   Expanded(
                     child: _assets.isEmpty
-                        ? Center(child: Text(tr('Chưa có sản phẩm'), style: TextStyle(color: Color(0xFFA1A1AA))))
+                        ? Center(child: Text(tr('Chưa có sản phẩm'), style: TextStyle(color: SboxColors.slate400)))
                         : ListView.builder(
                             padding: EdgeInsets.zero,
                             itemCount: _assets.length,
@@ -880,7 +881,7 @@ class _AssetManagementScreenState extends State<AssetManagementScreen> {
                                 onTap: () => _showStockDetailDialog(asset),
                                 child: Container(
                                   padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
-                                  decoration: const BoxDecoration(border: Border(bottom: BorderSide(color: Color(0xFFF1F5F9)))),
+                                  decoration: const BoxDecoration(border: Border(bottom: BorderSide(color: SboxColors.slate100))),
                                   child: Row(
                                     children: [
                                       Expanded(
@@ -889,7 +890,7 @@ class _AssetManagementScreenState extends State<AssetManagementScreen> {
                                           crossAxisAlignment: CrossAxisAlignment.start,
                                           children: [
                                             Text(tr(asset.name), style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w600), maxLines: 1, overflow: TextOverflow.ellipsis),
-                                            Text(tr(asset.assetCode), style: const TextStyle(fontSize: 11, color: Color(0xFF71717A))),
+                                            Text(tr(asset.assetCode), style: const TextStyle(fontSize: 11, color: SboxColors.slate500)),
                                           ],
                                         ),
                                       ),
@@ -898,14 +899,14 @@ class _AssetManagementScreenState extends State<AssetManagementScreen> {
                                         child: Container(
                                           padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
                                           decoration: BoxDecoration(
-                                            color: asset.quantity <= 5 ? const Color(0xFFFEE2E2) : const Color(0xFFDCFCE7),
+                                            color: asset.quantity <= 5 ? SboxColors.dangerSoft : SboxColors.successSoft,
                                             borderRadius: BorderRadius.circular(6),
                                           ),
                                           child: Text(
                                             tr('${asset.quantity}'),
                                             style: TextStyle(
                                               fontSize: 13, fontWeight: FontWeight.bold,
-                                              color: asset.quantity <= 5 ? const Color(0xFFEF4444) : const Color(0xFF059669),
+                                              color: asset.quantity <= 5 ? SboxColors.danger : SboxColors.success,
                                             ),
                                             textAlign: TextAlign.center,
                                           ),
@@ -913,7 +914,7 @@ class _AssetManagementScreenState extends State<AssetManagementScreen> {
                                       ),
                                       Expanded(
                                         flex: 1,
-                                        child: Text(tr(asset.unit), style: const TextStyle(fontSize: 12, color: Color(0xFF64748B)), textAlign: TextAlign.center),
+                                        child: Text(tr(asset.unit), style: const TextStyle(fontSize: 12, color: SboxColors.slate500), textAlign: TextAlign.center),
                                       ),
                                     ],
                                   ),
@@ -940,14 +941,14 @@ class _AssetManagementScreenState extends State<AssetManagementScreen> {
       padding: const EdgeInsets.all(14),
       decoration: BoxDecoration(
         color: Colors.white,
-        borderRadius: BorderRadius.circular(12),
+        borderRadius: BorderRadius.circular(14),
         border: Border.all(color: color.withValues(alpha: 0.2)),
       ),
       child: Row(
         children: [
           Container(
             padding: const EdgeInsets.all(8),
-            decoration: BoxDecoration(color: color.withValues(alpha: 0.1), borderRadius: BorderRadius.circular(8)),
+            decoration: BoxDecoration(color: color.withValues(alpha: 0.1), borderRadius: BorderRadius.circular(10)),
             child: Icon(icon, size: 20, color: color),
           ),
           const SizedBox(width: 10),
@@ -956,7 +957,7 @@ class _AssetManagementScreenState extends State<AssetManagementScreen> {
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 Text(tr(value), style: TextStyle(fontSize: 18, fontWeight: FontWeight.w700, color: color)),
-                Text(tr(label), style: const TextStyle(fontSize: 11, color: Color(0xFF71717A))),
+                Text(tr(label), style: const TextStyle(fontSize: 11, color: SboxColors.slate500)),
               ],
             ),
           ),
@@ -980,7 +981,7 @@ class _AssetManagementScreenState extends State<AssetManagementScreen> {
           return ScrollableAlertDialog(
             title: Row(
               children: [
-                Icon(isStockIn ? Icons.add_box : Icons.outbox, color: isStockIn ? const Color(0xFF059669) : const Color(0xFFEF4444)),
+                Icon(isStockIn ? Icons.add_box : Icons.outbox, color: isStockIn ? SboxColors.success : SboxColors.danger),
                 const SizedBox(width: 8),
                 Text(tr(isStockIn ? 'Nhập kho' : 'Xuất kho')),
               ],
@@ -996,7 +997,7 @@ class _AssetManagementScreenState extends State<AssetManagementScreen> {
                       initialValue: selectedAssetId,
                       decoration: InputDecoration(
                         labelText: tr('Sản phẩm *'),
-                        border: OutlineInputBorder(borderRadius: BorderRadius.circular(8)),
+                        border: OutlineInputBorder(borderRadius: BorderRadius.circular(10)),
                         isDense: true,
                       ),
                       items: _assets.map((a) => DropdownMenuItem(
@@ -1012,7 +1013,7 @@ class _AssetManagementScreenState extends State<AssetManagementScreen> {
                       keyboardType: TextInputType.number,
                       decoration: InputDecoration(
                         labelText: tr('Số lượng *'),
-                        border: OutlineInputBorder(borderRadius: BorderRadius.circular(8)),
+                        border: OutlineInputBorder(borderRadius: BorderRadius.circular(10)),
                         isDense: true,
                       ),
                     ),
@@ -1023,7 +1024,7 @@ class _AssetManagementScreenState extends State<AssetManagementScreen> {
                       decoration: InputDecoration(
                         labelText: tr('Lý do *'),
                         hintText: tr(isStockIn ? 'VD: Nhập hàng mới, bổ sung...' : 'VD: Bán hàng, hỏng, mất...'),
-                        border: OutlineInputBorder(borderRadius: BorderRadius.circular(8)),
+                        border: OutlineInputBorder(borderRadius: BorderRadius.circular(10)),
                         isDense: true,
                       ),
                     ),
@@ -1034,7 +1035,7 @@ class _AssetManagementScreenState extends State<AssetManagementScreen> {
                       decoration: InputDecoration(
                         labelText: tr('Mã phiếu (tuỳ chọn)'),
                         hintText: tr('VD: PN-001, PX-002...'),
-                        border: OutlineInputBorder(borderRadius: BorderRadius.circular(8)),
+                        border: OutlineInputBorder(borderRadius: BorderRadius.circular(10)),
                         isDense: true,
                       ),
                     ),
@@ -1045,7 +1046,7 @@ class _AssetManagementScreenState extends State<AssetManagementScreen> {
                       maxLines: 2,
                       decoration: InputDecoration(
                         labelText: tr('Ghi chú'),
-                        border: OutlineInputBorder(borderRadius: BorderRadius.circular(8)),
+                        border: OutlineInputBorder(borderRadius: BorderRadius.circular(10)),
                         isDense: true,
                       ),
                     ),
@@ -1054,7 +1055,7 @@ class _AssetManagementScreenState extends State<AssetManagementScreen> {
               ),
             ),
             actions: [
-              TextButton(onPressed: () => Navigator.pop(context), child: Text(tr('Hủy'), style: TextStyle(color: Color(0xFF71717A)))),
+              TextButton(onPressed: () => Navigator.pop(context), child: Text(tr('Hủy'), style: TextStyle(color: SboxColors.slate500))),
               FilledButton(
                 onPressed: isSubmitting ? null : () async {
                   if (selectedAssetId == null || qtyCtrl.text.isEmpty || reasonCtrl.text.isEmpty) {
@@ -1082,7 +1083,7 @@ class _AssetManagementScreenState extends State<AssetManagementScreen> {
                   }
                 },
                 style: ElevatedButton.styleFrom(
-                  backgroundColor: isStockIn ? const Color(0xFF059669) : const Color(0xFFEF4444),
+                  backgroundColor: isStockIn ? SboxColors.success : SboxColors.danger,
                   foregroundColor: Colors.white,
                 ),
                 child: isSubmitting
@@ -1131,8 +1132,8 @@ class _AssetManagementScreenState extends State<AssetManagementScreen> {
                         Navigator.pop(context);
                         _showStockDialog(isStockIn: true);
                       },
-                      icon: const Icon(Icons.add_box, size: 18, color: Color(0xFF059669)),
-                      label: Text(tr('Nhập'), style: TextStyle(color: Color(0xFF059669))),
+                      icon: const Icon(Icons.add_box, size: 18, color: SboxColors.success),
+                      label: Text(tr('Nhập'), style: TextStyle(color: SboxColors.success)),
                     ),
                   ),
                   const SizedBox(width: 8),
@@ -1142,8 +1143,8 @@ class _AssetManagementScreenState extends State<AssetManagementScreen> {
                         Navigator.pop(context);
                         _showStockDialog(isStockIn: false);
                       },
-                      icon: const Icon(Icons.outbox, size: 18, color: Color(0xFFEF4444)),
-                      label: Text(tr('Xuất'), style: TextStyle(color: Color(0xFFEF4444))),
+                      icon: const Icon(Icons.outbox, size: 18, color: SboxColors.danger),
+                      label: Text(tr('Xuất'), style: TextStyle(color: SboxColors.danger)),
                     ),
                   ),
                 ],
@@ -1161,7 +1162,7 @@ class _AssetManagementScreenState extends State<AssetManagementScreen> {
       padding: const EdgeInsets.symmetric(vertical: 4),
       child: Row(
         children: [
-          SizedBox(width: 100, child: Text(tr(label), style: const TextStyle(fontSize: 13, color: Color(0xFF71717A)))),
+          SizedBox(width: 100, child: Text(tr(label), style: const TextStyle(fontSize: 13, color: SboxColors.slate500))),
           Expanded(child: Text(tr(value), style: const TextStyle(fontSize: 14, fontWeight: FontWeight.w600), textAlign: TextAlign.right)),
         ],
       ),
@@ -1171,7 +1172,7 @@ class _AssetManagementScreenState extends State<AssetManagementScreen> {
   // ==================== HISTORY TAB ====================
   Widget _buildHistoryTab() {
     return Container(
-      color: const Color(0xFFF8FAFC),
+      color: SboxColors.slate50,
       child: Column(
         children: [
           Padding(
@@ -1227,7 +1228,7 @@ class _AssetManagementScreenState extends State<AssetManagementScreen> {
                       final tx = _stockTransactions[index];
                       final isIn = tx.isStockIn;
                       final isAdj = tx.isAdjustment;
-                      final color = isIn ? const Color(0xFF059669) : isAdj ? const Color(0xFFF59E0B) : const Color(0xFFEF4444);
+                      final color = isIn ? SboxColors.success : isAdj ? SboxColors.warning : SboxColors.danger;
                       final icon = isIn ? Icons.arrow_downward : isAdj ? Icons.sync : Icons.arrow_upward;
                       final typeLabel = isIn ? 'Nhập kho' : isAdj ? 'Điều chỉnh' : 'Xuất kho';
                       final sign = isIn ? '+' : isAdj ? (tx.quantity >= 0 ? '+' : '') : '-';
@@ -1238,13 +1239,13 @@ class _AssetManagementScreenState extends State<AssetManagementScreen> {
                         decoration: BoxDecoration(
                           color: Colors.white,
                           borderRadius: BorderRadius.circular(10),
-                          border: Border.all(color: const Color(0xFFF1F5F9)),
+                          border: Border.all(color: SboxColors.slate100),
                         ),
                         child: Row(
                           children: [
                             Container(
                               padding: const EdgeInsets.all(8),
-                              decoration: BoxDecoration(color: color.withValues(alpha: 0.1), borderRadius: BorderRadius.circular(8)),
+                              decoration: BoxDecoration(color: color.withValues(alpha: 0.1), borderRadius: BorderRadius.circular(10)),
                               child: Icon(icon, size: 20, color: color),
                             ),
                             const SizedBox(width: 12),
@@ -1271,20 +1272,20 @@ class _AssetManagementScreenState extends State<AssetManagementScreen> {
                                         child: Text(tr(typeLabel), style: TextStyle(fontSize: 10, fontWeight: FontWeight.w600, color: color)),
                                       ),
                                       const SizedBox(width: 6),
-                                      Text(tr('Tồn: ${tx.balanceAfter}'), style: const TextStyle(fontSize: 11, color: Color(0xFF64748B))),
+                                      Text(tr('Tồn: ${tx.balanceAfter}'), style: const TextStyle(fontSize: 11, color: SboxColors.slate500)),
                                       const Spacer(),
-                                      Text(tr(DateFormat('dd/MM HH:mm').format(tx.transactionDate)), style: const TextStyle(fontSize: 11, color: Color(0xFFA1A1AA))),
+                                      Text(tr(DateFormat('dd/MM HH:mm').format(tx.transactionDate)), style: const TextStyle(fontSize: 11, color: SboxColors.slate400)),
                                     ],
                                   ),
                                   if (tx.reason != null && tx.reason!.isNotEmpty)
                                     Padding(
                                       padding: const EdgeInsets.only(top: 4),
-                                      child: Text(tr(tx.reason!), style: const TextStyle(fontSize: 11, color: Color(0xFF71717A)), maxLines: 1, overflow: TextOverflow.ellipsis),
+                                      child: Text(tr(tx.reason!), style: const TextStyle(fontSize: 11, color: SboxColors.slate500), maxLines: 1, overflow: TextOverflow.ellipsis),
                                     ),
                                   if (tx.performedByName != null)
                                     Padding(
                                       padding: const EdgeInsets.only(top: 2),
-                                      child: Text(tr('Bởi: ${tx.performedByName}'), style: const TextStyle(fontSize: 10, color: Color(0xFFA1A1AA))),
+                                      child: Text(tr('Bởi: ${tx.performedByName}'), style: const TextStyle(fontSize: 10, color: SboxColors.slate400)),
                                     ),
                                 ],
                               ),
@@ -1372,8 +1373,8 @@ class _AssetManagementScreenState extends State<AssetManagementScreen> {
       style: const TextStyle(fontSize: 14),
       decoration: InputDecoration(
         hintText: tr('Tìm kiếm tài sản...'),
-        hintStyle: const TextStyle(color: Color(0xFFA1A1AA), fontSize: 13),
-        prefixIcon: const Icon(Icons.search, size: 20, color: Color(0xFFA1A1AA)),
+        hintStyle: const TextStyle(color: SboxColors.slate400, fontSize: 13),
+        prefixIcon: const Icon(Icons.search, size: 20, color: SboxColors.slate400),
         suffixIcon: _searchQuery != null
             ? IconButton(
                 icon: const Icon(Icons.close, size: 18),
@@ -1387,10 +1388,10 @@ class _AssetManagementScreenState extends State<AssetManagementScreen> {
         fillColor: Colors.white,
         border: OutlineInputBorder(
             borderRadius: BorderRadius.circular(10),
-            borderSide: const BorderSide(color: Color(0xFFE4E4E7))),
+            borderSide: const BorderSide(color: SboxColors.slate200)),
         enabledBorder: OutlineInputBorder(
             borderRadius: BorderRadius.circular(10),
-            borderSide: const BorderSide(color: Color(0xFFE4E4E7))),
+            borderSide: const BorderSide(color: SboxColors.slate200)),
         focusedBorder: OutlineInputBorder(
             borderRadius: BorderRadius.circular(10),
             borderSide:
@@ -1408,7 +1409,7 @@ class _AssetManagementScreenState extends State<AssetManagementScreen> {
         padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
         decoration: BoxDecoration(
           color: HrmPageChrome.primaryNavy.withValues(alpha: 0.1),
-          borderRadius: BorderRadius.circular(8),
+          borderRadius: BorderRadius.circular(10),
         ),
         child: Row(
           mainAxisSize: MainAxisSize.min,
@@ -1500,13 +1501,13 @@ class _AssetManagementScreenState extends State<AssetManagementScreen> {
       padding: const EdgeInsets.symmetric(horizontal: 12),
       decoration: BoxDecoration(
         color: Colors.white,
-        borderRadius: BorderRadius.circular(8),
-        border: Border.all(color: value != null ? HrmPageChrome.primaryNavy : const Color(0xFFE4E4E7)),
+        borderRadius: BorderRadius.circular(10),
+        border: Border.all(color: value != null ? HrmPageChrome.primaryNavy : SboxColors.slate200),
       ),
       child: DropdownButtonHideUnderline(
         child: DropdownButton<T>(
           value: value,
-          hint: Text(tr(label), style: const TextStyle(fontSize: 13, color: Color(0xFFA1A1AA))),
+          hint: Text(tr(label), style: const TextStyle(fontSize: 13, color: SboxColors.slate400)),
           items: [
             DropdownMenuItem<T>(value: null, child: Text(tr('Tất cả $label'), style: const TextStyle(fontSize: 13))),
             ...items,
@@ -1537,11 +1538,11 @@ class _AssetManagementScreenState extends State<AssetManagementScreen> {
       margin: const EdgeInsets.fromLTRB(24, 0, 24, 0),
       decoration: BoxDecoration(
         color: Colors.white,
-        borderRadius: BorderRadius.circular(12),
-        border: Border.all(color: const Color(0xFFE4E4E7)),
+        borderRadius: BorderRadius.circular(14),
+        border: Border.all(color: SboxColors.slate200),
       ),
       child: ClipRRect(
-        borderRadius: BorderRadius.circular(12),
+        borderRadius: BorderRadius.circular(14),
         child: AppTableScroll(
           child: _buildDataTable(),
         ),
@@ -1573,7 +1574,7 @@ class _AssetManagementScreenState extends State<AssetManagementScreen> {
                       Expanded(
                         child: Text(
                           tr(asset.name),
-                          style: const TextStyle(fontSize: 15, fontWeight: FontWeight.w600, color: Color(0xFF18181B)),
+                          style: const TextStyle(fontSize: 16, fontWeight: FontWeight.w600, color: SboxColors.slate900),
                           maxLines: 2,
                           overflow: TextOverflow.ellipsis,
                         ),
@@ -1585,7 +1586,7 @@ class _AssetManagementScreenState extends State<AssetManagementScreen> {
                   // Row 2: Code + Status
                   Row(
                     children: [
-                      Icon(Icons.qr_code_2, size: 14, color: Colors.grey[500]),
+                      Icon(Icons.qr_code_2, size: 14, color: SboxColors.slate500),
                       const SizedBox(width: 4),
                       Text(
                         tr(asset.assetCode),
@@ -1600,8 +1601,8 @@ class _AssetManagementScreenState extends State<AssetManagementScreen> {
                   Container(
                     padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
                     decoration: BoxDecoration(
-                      color: const Color(0xFFF8FAFC),
-                      borderRadius: BorderRadius.circular(8),
+                      color: SboxColors.slate50,
+                      borderRadius: BorderRadius.circular(10),
                     ),
                     child: Row(
                       children: [
@@ -1610,12 +1611,12 @@ class _AssetManagementScreenState extends State<AssetManagementScreen> {
                         _mobileInfoChip(Icons.payments_outlined, _currencyFormat.format(asset.purchasePrice)),
                         if (asset.currentAssigneeName != null) ...[
                           const Spacer(),
-                          Icon(Icons.person_outline, size: 13, color: Colors.grey[500]),
+                          Icon(Icons.person_outline, size: 13, color: SboxColors.slate500),
                           const SizedBox(width: 3),
                           Flexible(
                             child: Text(
                               tr(asset.currentAssigneeName!),
-                              style: TextStyle(fontSize: 11, color: Colors.grey[600]),
+                              style: TextStyle(fontSize: 11, color: SboxColors.slate600),
                               overflow: TextOverflow.ellipsis,
                             ),
                           ),
@@ -1639,11 +1640,11 @@ class _AssetManagementScreenState extends State<AssetManagementScreen> {
                           ),
                           if (asset.brand != null) ...[
                             const SizedBox(width: 6),
-                            Text(tr(asset.brand!), style: TextStyle(fontSize: 11, color: Colors.grey[600])),
+                            Text(tr(asset.brand!), style: TextStyle(fontSize: 11, color: SboxColors.slate600)),
                           ],
                           if (asset.model != null) ...[
                             const SizedBox(width: 4),
-                            Text(tr('· ${asset.model}'), style: TextStyle(fontSize: 11, color: Colors.grey[500])),
+                            Text(tr('· ${asset.model}'), style: TextStyle(fontSize: 11, color: SboxColors.slate500)),
                           ],
                         ],
                       ),
@@ -1661,18 +1662,18 @@ class _AssetManagementScreenState extends State<AssetManagementScreen> {
     return Row(
       mainAxisSize: MainAxisSize.min,
       children: [
-        Icon(icon, size: 13, color: Colors.grey[600]),
+        Icon(icon, size: 13, color: SboxColors.slate600),
         const SizedBox(width: 4),
-        Text(tr(text), style: TextStyle(fontSize: 12, fontWeight: FontWeight.w500, color: Colors.grey[800])),
+        Text(tr(text), style: TextStyle(fontSize: 12, fontWeight: FontWeight.w500, color: SboxColors.slate800)),
       ],
     );
   }
 
   Widget _buildDataTable() {
     return DataTable(
-      headingRowColor: WidgetStateProperty.all(const Color(0xFFFAFAFA)),
-      headingTextStyle: const TextStyle(fontSize: 12, fontWeight: FontWeight.bold, color: Color(0xFF71717A)),
-      dataTextStyle: const TextStyle(fontSize: 13, color: Color(0xFF18181B)),
+      headingRowColor: WidgetStateProperty.all(SboxColors.slate50),
+      headingTextStyle: const TextStyle(fontSize: 12, fontWeight: FontWeight.bold, color: SboxColors.slate500),
+      dataTextStyle: const TextStyle(fontSize: 13, color: SboxColors.slate900),
       columnSpacing: 16,
       horizontalMargin: 16,
       showCheckboxColumn: true,
@@ -1721,7 +1722,7 @@ class _AssetManagementScreenState extends State<AssetManagementScreen> {
               children: [
                 Text(tr(asset.name), style: const TextStyle(fontWeight: FontWeight.w500), overflow: TextOverflow.ellipsis),
                 if (asset.serialNumber != null)
-                  Text(tr('S/N: ${asset.serialNumber}'), style: const TextStyle(fontSize: 11, color: Color(0xFFA1A1AA))),
+                  Text(tr('S/N: ${asset.serialNumber}'), style: const TextStyle(fontSize: 11, color: SboxColors.slate400)),
               ],
             ),
           ),
@@ -1748,7 +1749,7 @@ class _AssetManagementScreenState extends State<AssetManagementScreen> {
                     Flexible(child: Text(tr(asset.currentAssigneeName!), overflow: TextOverflow.ellipsis, style: const TextStyle(fontSize: 12))),
                   ],
                 )
-              : Text(tr('—'), style: TextStyle(color: Color(0xFFCBD5E1))),
+              : Text(tr('—'), style: TextStyle(color: SboxColors.slate300)),
         )),
         // Price
         DataCell(Center(child: Text(tr(_currencyFormat.format(asset.purchasePrice)), style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w500)))),
@@ -1778,14 +1779,14 @@ class _AssetManagementScreenState extends State<AssetManagementScreen> {
               margin: const EdgeInsets.only(right: 4),
               padding: const EdgeInsets.all(2),
               decoration: BoxDecoration(
-                color: const Color(0xFFFEF3C7),
+                color: SboxColors.warningSoft,
                 borderRadius: BorderRadius.circular(4),
               ),
-              child: const Icon(Icons.warning_amber, size: 14, color: Color(0xFFF59E0B)),
+              child: const Icon(Icons.warning_amber, size: 14, color: SboxColors.warning),
             ),
           ),
         PopupMenuButton<String>(
-          icon: const Icon(Icons.more_horiz, size: 20, color: Color(0xFFA1A1AA)),
+          icon: const Icon(Icons.more_horiz, size: 20, color: SboxColors.slate400),
           padding: EdgeInsets.zero,
           constraints: const BoxConstraints(),
           shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
@@ -1811,7 +1812,7 @@ class _AssetManagementScreenState extends State<AssetManagementScreen> {
   }
 
   PopupMenuItem<String> _buildPopupItem(String value, IconData icon, String label, {bool isDestructive = false}) {
-    final color = isDestructive ? const Color(0xFFEF4444) : const Color(0xFF52525B);
+    final color = isDestructive ? SboxColors.danger : SboxColors.slate600;
     return PopupMenuItem(
       value: value,
       height: 40,
@@ -1842,26 +1843,26 @@ class _AssetManagementScreenState extends State<AssetManagementScreen> {
         runSpacing: 8,
         children: [
           Text(tr('Hiển thị $start-$end / $_totalAssets'),
-            style: const TextStyle(fontSize: 12, color: Color(0xFFA1A1AA)),
+            style: const TextStyle(fontSize: 12, color: SboxColors.slate400),
           ),
           Row(
             mainAxisSize: MainAxisSize.min,
             children: [
-              Text(tr('Hiển thị:'), style: TextStyle(fontSize: 12, color: Colors.grey[500])),
+              Text(tr('Hiển thị:'), style: TextStyle(fontSize: 12, color: SboxColors.slate500)),
               const SizedBox(width: 8),
               Container(
                 height: 34,
                 padding: const EdgeInsets.symmetric(horizontal: 12),
                 decoration: BoxDecoration(
-                  color: const Color(0xFFFAFAFA),
-                  border: Border.all(color: const Color(0xFFE4E4E7)),
-                  borderRadius: BorderRadius.circular(8),
+                  color: SboxColors.slate50,
+                  border: Border.all(color: SboxColors.slate200),
+                  borderRadius: BorderRadius.circular(10),
                 ),
                 child: DropdownButtonHideUnderline(
                   child: DropdownButton<int>(
                     value: _pageSize,
                     isDense: true,
-                    style: TextStyle(fontSize: 13, color: Colors.grey[800]),
+                    style: TextStyle(fontSize: 13, color: SboxColors.slate800),
                     items: _pageSizeOptions.map((s) => DropdownMenuItem(value: s, child: Text(tr('$s')))).toList(),
                     onChanged: (v) {
                       if (v != null) {
@@ -1897,7 +1898,7 @@ class _AssetManagementScreenState extends State<AssetManagementScreen> {
 
   Widget _buildPageButton(IconData icon, bool enabled, VoidCallback onTap) {
     return Material(
-      color: enabled ? Colors.white : const Color(0xFFF1F5F9),
+      color: enabled ? Colors.white : SboxColors.slate100,
       borderRadius: BorderRadius.circular(6),
       child: InkWell(
         onTap: enabled ? onTap : null,
@@ -1906,9 +1907,9 @@ class _AssetManagementScreenState extends State<AssetManagementScreen> {
           padding: const EdgeInsets.all(6),
           decoration: BoxDecoration(
             borderRadius: BorderRadius.circular(6),
-            border: Border.all(color: const Color(0xFFE4E4E7)),
+            border: Border.all(color: SboxColors.slate200),
           ),
-          child: Icon(icon, size: 18, color: enabled ? const Color(0xFF52525B) : const Color(0xFFCBD5E1)),
+          child: Icon(icon, size: 18, color: enabled ? SboxColors.slate600 : SboxColors.slate300),
         ),
       ),
     );
@@ -1920,14 +1921,14 @@ class _AssetManagementScreenState extends State<AssetManagementScreen> {
       width: Responsive.isMobile(context) ? double.infinity : 380,
       decoration: const BoxDecoration(
         color: Colors.white,
-        border: Border(left: BorderSide(color: Color(0xFFE4E4E7))),
+        border: Border(left: BorderSide(color: SboxColors.slate200)),
       ),
       child: Column(
         children: [
           _buildPanelHeader('Lịch sử chuyển giao', Icons.swap_horiz, () => setState(() => _showTransfers = false)),
           Expanded(
             child: _transfers.isEmpty
-                ? Center(child: Text(tr('Chưa có dữ liệu'), style: TextStyle(color: Color(0xFFA1A1AA))))
+                ? Center(child: Text(tr('Chưa có dữ liệu'), style: TextStyle(color: SboxColors.slate400)))
                 : ListView.builder(
                     padding: const EdgeInsets.all(12),
                     itemCount: _transfers.length,
@@ -1944,7 +1945,7 @@ class _AssetManagementScreenState extends State<AssetManagementScreen> {
       width: Responsive.isMobile(context) ? double.infinity : 350,
       decoration: const BoxDecoration(
         color: Colors.white,
-        border: Border(left: BorderSide(color: Color(0xFFE4E4E7))),
+        border: Border(left: BorderSide(color: SboxColors.slate200)),
       ),
       child: Column(
         children: [
@@ -1957,7 +1958,7 @@ class _AssetManagementScreenState extends State<AssetManagementScreen> {
           ),
           Expanded(
             child: _categories.isEmpty
-                ? Center(child: Text(tr('Chưa có danh mục'), style: TextStyle(color: Color(0xFFA1A1AA))))
+                ? Center(child: Text(tr('Chưa có danh mục'), style: TextStyle(color: SboxColors.slate400)))
                 : ListView.builder(
                     padding: const EdgeInsets.all(12),
                     itemCount: _categories.length,
@@ -1974,7 +1975,7 @@ class _AssetManagementScreenState extends State<AssetManagementScreen> {
       width: Responsive.isMobile(context) ? double.infinity : 380,
       decoration: const BoxDecoration(
         color: Colors.white,
-        border: Border(left: BorderSide(color: Color(0xFFE4E4E7))),
+        border: Border(left: BorderSide(color: SboxColors.slate200)),
       ),
       child: Column(
         children: [
@@ -1987,7 +1988,7 @@ class _AssetManagementScreenState extends State<AssetManagementScreen> {
           ),
           Expanded(
             child: _inventories.isEmpty
-                ? Center(child: Text(tr('Chưa có đợt kiểm kê'), style: TextStyle(color: Color(0xFFA1A1AA))))
+                ? Center(child: Text(tr('Chưa có đợt kiểm kê'), style: TextStyle(color: SboxColors.slate400)))
                 : ListView.builder(
                     padding: const EdgeInsets.all(12),
                     itemCount: _inventories.length,
@@ -2003,16 +2004,16 @@ class _AssetManagementScreenState extends State<AssetManagementScreen> {
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
       decoration: const BoxDecoration(
-        border: Border(bottom: BorderSide(color: Color(0xFFE4E4E7))),
+        border: Border(bottom: BorderSide(color: SboxColors.slate200)),
       ),
       child: Row(
         children: [
           Icon(icon, size: 20, color: HrmPageChrome.primaryNavy),
           const SizedBox(width: 8),
-          Text(tr(title), style: const TextStyle(fontSize: 15, fontWeight: FontWeight.w600, color: Color(0xFF18181B))),
+          Text(tr(title), style: const TextStyle(fontSize: 16, fontWeight: FontWeight.w600, color: SboxColors.slate900)),
           const Spacer(),
           if (action != null) action,
-          IconButton(icon: const Icon(Icons.close, size: 18), onPressed: onClose, color: const Color(0xFFA1A1AA)),
+          IconButton(icon: const Icon(Icons.close, size: 18), onPressed: onClose, color: SboxColors.slate400),
         ],
       ),
     );
@@ -2025,7 +2026,7 @@ class _AssetManagementScreenState extends State<AssetManagementScreen> {
       padding: const EdgeInsets.all(12),
       decoration: BoxDecoration(
         borderRadius: BorderRadius.circular(10),
-        border: Border.all(color: const Color(0xFFF1F5F9)),
+        border: Border.all(color: SboxColors.slate100),
         color: const Color(0xFFFAFBFC),
       ),
       child: Column(
@@ -2063,7 +2064,7 @@ class _AssetManagementScreenState extends State<AssetManagementScreen> {
             children: [
               Text(tr(getTransferTypeLabel(transfer.transferType)), style: TextStyle(fontSize: 11, color: color, fontWeight: FontWeight.w500)),
               const Spacer(),
-              Text(tr(DateFormat('dd/MM/yyyy').format(transfer.transferDate)), style: const TextStyle(fontSize: 11, color: Color(0xFFA1A1AA))),
+              Text(tr(DateFormat('dd/MM/yyyy').format(transfer.transferDate)), style: const TextStyle(fontSize: 11, color: SboxColors.slate400)),
             ],
           ),
           if (transfer.fromUserName != null || transfer.toUserName != null)
@@ -2071,10 +2072,10 @@ class _AssetManagementScreenState extends State<AssetManagementScreen> {
               padding: const EdgeInsets.only(top: 4),
               child: Row(
                 children: [
-                  if (transfer.fromUserName != null) Text(tr(transfer.fromUserName!), style: const TextStyle(fontSize: 11, color: Color(0xFF71717A))),
+                  if (transfer.fromUserName != null) Text(tr(transfer.fromUserName!), style: const TextStyle(fontSize: 11, color: SboxColors.slate500)),
                   if (transfer.fromUserName != null && transfer.toUserName != null)
-                    const Padding(padding: EdgeInsets.symmetric(horizontal: 4), child: Icon(Icons.arrow_forward, size: 12, color: Color(0xFFCBD5E1))),
-                  if (transfer.toUserName != null) Text(tr(transfer.toUserName!), style: const TextStyle(fontSize: 11, color: Color(0xFF71717A))),
+                    const Padding(padding: EdgeInsets.symmetric(horizontal: 4), child: Icon(Icons.arrow_forward, size: 12, color: SboxColors.slate300)),
+                  if (transfer.toUserName != null) Text(tr(transfer.toUserName!), style: const TextStyle(fontSize: 11, color: SboxColors.slate500)),
                 ],
               ),
             ),
@@ -2090,9 +2091,9 @@ class _AssetManagementScreenState extends State<AssetManagementScreen> {
           margin: EdgeInsets.only(left: level * 16.0, bottom: 6),
           padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
           decoration: BoxDecoration(
-            borderRadius: BorderRadius.circular(8),
+            borderRadius: BorderRadius.circular(10),
             color: const Color(0xFFFAFBFC),
-            border: Border.all(color: const Color(0xFFF1F5F9)),
+            border: Border.all(color: SboxColors.slate100),
           ),
           child: Row(
             children: [
@@ -2103,21 +2104,21 @@ class _AssetManagementScreenState extends State<AssetManagementScreen> {
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     Text(tr(category.name), style: const TextStyle(fontWeight: FontWeight.w500, fontSize: 13)),
-                    Text(tr('${category.categoryCode} • ${category.assetCount} TS'), style: const TextStyle(fontSize: 11, color: Color(0xFFA1A1AA))),
+                    Text(tr('${category.categoryCode} • ${category.assetCount} TS'), style: const TextStyle(fontSize: 11, color: SboxColors.slate400)),
                   ],
                 ),
               ),
               if (!category.isActive)
                 Container(
                   padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
-                  decoration: BoxDecoration(color: const Color(0xFFF1F5F9), borderRadius: BorderRadius.circular(4)),
-                  child: Text(tr('Ẩn'), style: TextStyle(fontSize: 10, color: Color(0xFFA1A1AA))),
+                  decoration: BoxDecoration(color: SboxColors.slate100, borderRadius: BorderRadius.circular(4)),
+                  child: Text(tr('Ẩn'), style: TextStyle(fontSize: 10, color: SboxColors.slate400)),
                 ),
               PopupMenuButton<String>(
-                icon: const Icon(Icons.more_vert, size: 16, color: Color(0xFFA1A1AA)),
+                icon: const Icon(Icons.more_vert, size: 16, color: SboxColors.slate400),
                 padding: EdgeInsets.zero,
                 constraints: const BoxConstraints(),
-                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
                 itemBuilder: (context) => [
                   if (Provider.of<PermissionProvider>(context, listen: false).canEdit('Asset'))
                   _buildPopupItem('edit', Icons.edit_outlined, 'Sửa'),
@@ -2141,7 +2142,7 @@ class _AssetManagementScreenState extends State<AssetManagementScreen> {
   Widget _buildInventoryItem(AssetInventory inventory) {
     final isInProgress = inventory.isInProgress;
     final isCompleted = inventory.isCompleted;
-    final statusColor = isInProgress ? const Color(0xFF3B82F6) : isCompleted ? const Color(0xFF059669) : const Color(0xFFEF4444);
+    final statusColor = isInProgress ? SboxColors.brand500 : isCompleted ? SboxColors.success : SboxColors.danger;
     final statusIcon = isInProgress ? Icons.hourglass_top : isCompleted ? Icons.check_circle : Icons.cancel;
     final statusLabel = inventory.statusName.isNotEmpty ? inventory.statusName : (isInProgress ? 'Đang thực hiện' : isCompleted ? 'Hoàn thành' : 'Đã hủy');
     final progress = inventory.progressPercent / 100;
@@ -2149,12 +2150,12 @@ class _AssetManagementScreenState extends State<AssetManagementScreen> {
 
     return InkWell(
       onTap: () => _showInventoryDetailDialog(inventory),
-      borderRadius: BorderRadius.circular(12),
+      borderRadius: BorderRadius.circular(14),
       child: Container(
         margin: const EdgeInsets.only(bottom: 10),
         decoration: BoxDecoration(
           color: Colors.white,
-          borderRadius: BorderRadius.circular(12),
+          borderRadius: BorderRadius.circular(14),
           border: Border.all(color: statusColor.withValues(alpha: 0.15)),
           boxShadow: [BoxShadow(color: Colors.black.withValues(alpha: 0.04), blurRadius: 8, offset: const Offset(0, 2))],
         ),
@@ -2181,7 +2182,7 @@ class _AssetManagementScreenState extends State<AssetManagementScreen> {
                         padding: const EdgeInsets.all(8),
                         decoration: BoxDecoration(
                           color: statusColor.withValues(alpha: 0.08),
-                          borderRadius: BorderRadius.circular(8),
+                          borderRadius: BorderRadius.circular(10),
                         ),
                         child: Icon(statusIcon, size: 18, color: statusColor),
                       ),
@@ -2190,33 +2191,33 @@ class _AssetManagementScreenState extends State<AssetManagementScreen> {
                         child: Column(
                           crossAxisAlignment: CrossAxisAlignment.start,
                           children: [
-                            Text(tr(inventory.name), style: const TextStyle(fontWeight: FontWeight.w700, fontSize: 14, color: Color(0xFF18181B)), maxLines: 1, overflow: TextOverflow.ellipsis),
+                            Text(tr(inventory.name), style: const TextStyle(fontWeight: FontWeight.w700, fontSize: 14, color: SboxColors.slate900), maxLines: 1, overflow: TextOverflow.ellipsis),
                             const SizedBox(height: 2),
                             Row(
                               children: [
-                                Icon(Icons.tag, size: 11, color: Colors.grey.shade400),
+                                Icon(Icons.tag, size: 11, color: SboxColors.slate400),
                                 const SizedBox(width: 3),
-                                Text(tr(inventory.inventoryCode), style: TextStyle(fontSize: 11, color: Colors.grey.shade500, fontWeight: FontWeight.w500)),
+                                Text(tr(inventory.inventoryCode), style: TextStyle(fontSize: 11, color: SboxColors.slate500, fontWeight: FontWeight.w500)),
                                 const SizedBox(width: 10),
-                                Icon(Icons.calendar_today_outlined, size: 11, color: Colors.grey.shade400),
+                                Icon(Icons.calendar_today_outlined, size: 11, color: SboxColors.slate400),
                                 const SizedBox(width: 3),
-                                Text(tr(dateStr), style: TextStyle(fontSize: 11, color: Colors.grey.shade500)),
+                                Text(tr(dateStr), style: TextStyle(fontSize: 11, color: SboxColors.slate500)),
                               ],
                             ),
                           ],
                         ),
                       ),
                       PopupMenuButton<String>(
-                        icon: Icon(Icons.more_vert, size: 18, color: Colors.grey.shade400),
+                        icon: Icon(Icons.more_vert, size: 18, color: SboxColors.slate400),
                         padding: EdgeInsets.zero,
                         constraints: const BoxConstraints(),
                         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
                         itemBuilder: (context) => [
-                          PopupMenuItem(value: 'detail', child: Row(children: [Icon(Icons.open_in_new, size: 16, color: Color(0xFF3B82F6)), SizedBox(width: 8), Text(tr('Xem chi tiết'))])),
+                          PopupMenuItem(value: 'detail', child: Row(children: [Icon(Icons.open_in_new, size: 16, color: SboxColors.brand500), SizedBox(width: 8), Text(tr('Xem chi tiết'))])),
                           if (isInProgress)
-                            PopupMenuItem(value: 'cancel', child: Row(children: [Icon(Icons.block, size: 16, color: Color(0xFFF59E0B)), SizedBox(width: 8), Text(tr('Hủy kiểm kê'), style: TextStyle(color: Color(0xFFF59E0B)))])),
+                            PopupMenuItem(value: 'cancel', child: Row(children: [Icon(Icons.block, size: 16, color: SboxColors.warning), SizedBox(width: 8), Text(tr('Hủy kiểm kê'), style: TextStyle(color: SboxColors.warning))])),
                           const PopupMenuDivider(),
-                          PopupMenuItem(value: 'delete', child: Row(children: [Icon(Icons.delete_outline, size: 16, color: Color(0xFFEF4444)), SizedBox(width: 8), Text(tr('Xóa'), style: TextStyle(color: Color(0xFFEF4444)))])),
+                          PopupMenuItem(value: 'delete', child: Row(children: [Icon(Icons.delete_outline, size: 16, color: SboxColors.danger), SizedBox(width: 8), Text(tr('Xóa'), style: TextStyle(color: SboxColors.danger))])),
                         ],
                         onSelected: (value) => _handleInventoryAction(inventory, value),
                       ),
@@ -2231,14 +2232,14 @@ class _AssetManagementScreenState extends State<AssetManagementScreen> {
                           borderRadius: BorderRadius.circular(4),
                           child: LinearProgressIndicator(
                             value: progress,
-                            backgroundColor: const Color(0xFFE4E4E7),
+                            backgroundColor: SboxColors.slate200,
                             valueColor: AlwaysStoppedAnimation(statusColor),
                             minHeight: 6,
                           ),
                         ),
                       ),
                       const SizedBox(width: 10),
-                      Text(tr('${inventory.progressPercent.toStringAsFixed(0)}%'), style: TextStyle(fontSize: 12, fontWeight: FontWeight.w800, color: statusColor)),
+                      Text(tr('${inventory.progressPercent.toStringAsFixed(0)}%'), style: TextStyle(fontSize: 12, fontWeight: FontWeight.w700, color: statusColor)),
                     ],
                   ),
                   const SizedBox(height: 10),
@@ -2253,13 +2254,13 @@ class _AssetManagementScreenState extends State<AssetManagementScreen> {
                       const SizedBox(width: 8),
                       Container(
                         padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-                        decoration: BoxDecoration(color: const Color(0xFFF4F4F5), borderRadius: BorderRadius.circular(6)),
+                        decoration: BoxDecoration(color: SboxColors.slate100, borderRadius: BorderRadius.circular(6)),
                         child: Row(
                           mainAxisSize: MainAxisSize.min,
                           children: [
-                            const Icon(Icons.check, size: 12, color: Color(0xFF64748B)),
+                            const Icon(Icons.check, size: 12, color: SboxColors.slate500),
                             const SizedBox(width: 3),
-                            Text(tr('${inventory.checkedCount}/${inventory.totalAssets}'), style: const TextStyle(fontSize: 11, fontWeight: FontWeight.w600, color: Color(0xFF64748B))),
+                            Text(tr('${inventory.checkedCount}/${inventory.totalAssets}'), style: const TextStyle(fontSize: 11, fontWeight: FontWeight.w600, color: SboxColors.slate500)),
                           ],
                         ),
                       ),
@@ -2267,13 +2268,13 @@ class _AssetManagementScreenState extends State<AssetManagementScreen> {
                         const SizedBox(width: 8),
                         Container(
                           padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-                          decoration: BoxDecoration(color: const Color(0xFFFEF3C7), borderRadius: BorderRadius.circular(6)),
+                          decoration: BoxDecoration(color: SboxColors.warningSoft, borderRadius: BorderRadius.circular(6)),
                           child: Row(
                             mainAxisSize: MainAxisSize.min,
                             children: [
-                              const Icon(Icons.warning_amber, size: 12, color: Color(0xFFF59E0B)),
+                              const Icon(Icons.warning_amber, size: 12, color: SboxColors.warning),
                               const SizedBox(width: 3),
-                              Text(tr('${inventory.issueCount}'), style: const TextStyle(fontSize: 11, fontWeight: FontWeight.w600, color: Color(0xFFF59E0B))),
+                              Text(tr('${inventory.issueCount}'), style: const TextStyle(fontSize: 11, fontWeight: FontWeight.w600, color: SboxColors.warning)),
                             ],
                           ),
                         ),
@@ -2310,9 +2311,9 @@ class _AssetManagementScreenState extends State<AssetManagementScreen> {
   Color _getStatusColor(AssetStatus status) {
     switch (status) {
       case AssetStatus.active: return HrmPageChrome.primaryNavy;
-      case AssetStatus.inMaintenance: return const Color(0xFFF59E0B);
-      case AssetStatus.broken: return const Color(0xFFEF4444);
-      case AssetStatus.disposed: return const Color(0xFFA1A1AA);
+      case AssetStatus.inMaintenance: return SboxColors.warning;
+      case AssetStatus.broken: return SboxColors.danger;
+      case AssetStatus.disposed: return SboxColors.slate400;
       case AssetStatus.lost: return HrmPageChrome.primaryNavy;
       case AssetStatus.inStock: return HrmPageChrome.primaryNavy;
     }
@@ -2321,10 +2322,10 @@ class _AssetManagementScreenState extends State<AssetManagementScreen> {
   Color _getTransferTypeColor(AssetTransferType type) {
     switch (type) {
       case AssetTransferType.assignment: return HrmPageChrome.primaryNavy;
-      case AssetTransferType.transfer: return const Color(0xFFF59E0B);
+      case AssetTransferType.transfer: return SboxColors.warning;
       case AssetTransferType.returnAsset: return HrmPageChrome.primaryNavy;
       case AssetTransferType.maintenance: return HrmPageChrome.primaryNavy;
-      case AssetTransferType.disposal: return const Color(0xFFEF4444);
+      case AssetTransferType.disposal: return SboxColors.danger;
     }
   }
 
@@ -2406,7 +2407,7 @@ class _AssetManagementScreenState extends State<AssetManagementScreen> {
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
                         // Basic info
-                        Text(tr('Thông tin cơ bản'), style: TextStyle(fontWeight: FontWeight.w600, fontSize: 14, color: Color(0xFF52525B))),
+                        Text(tr('Thông tin cơ bản'), style: TextStyle(fontWeight: FontWeight.w600, fontSize: 14, color: SboxColors.slate600)),
                         const SizedBox(height: 12),
                         Row(children: [
                           Expanded(child: qrField('Mã tài sản *', codeCtrl)),
@@ -2420,7 +2421,7 @@ class _AssetManagementScreenState extends State<AssetManagementScreen> {
                         const SizedBox(height: 20),
 
                         // Classification
-                        Text(tr('Phân loại'), style: TextStyle(fontWeight: FontWeight.w600, fontSize: 14, color: Color(0xFF52525B))),
+                        Text(tr('Phân loại'), style: TextStyle(fontWeight: FontWeight.w600, fontSize: 14, color: SboxColors.slate600)),
                         const SizedBox(height: 12),
                         Row(children: [
                           Expanded(child: _dialogField('Model', modelCtrl)),
@@ -2460,7 +2461,7 @@ class _AssetManagementScreenState extends State<AssetManagementScreen> {
                         const SizedBox(height: 20),
 
                         // Financial
-                        Text(tr('Tài chính & Mua sắm'), style: TextStyle(fontWeight: FontWeight.w600, fontSize: 14, color: Color(0xFF52525B))),
+                        Text(tr('Tài chính & Mua sắm'), style: TextStyle(fontWeight: FontWeight.w600, fontSize: 14, color: SboxColors.slate600)),
                         const SizedBox(height: 12),
                         Row(children: [
                           Expanded(flex: 2, child: _dialogField('Giá mua *', priceCtrl, inputType: TextInputType.number, suffix: 'VND')),
@@ -2492,7 +2493,7 @@ class _AssetManagementScreenState extends State<AssetManagementScreen> {
                                 decoration: _dialogDecoration('Ngày mua'),
                                 child: Text(
                                   tr(purchaseDate != null ? DateFormat('dd/MM/yyyy').format(purchaseDate!) : 'Chọn ngày'),
-                                  style: TextStyle(color: purchaseDate != null ? const Color(0xFF18181B) : const Color(0xFFA1A1AA)),
+                                  style: TextStyle(color: purchaseDate != null ? SboxColors.slate900 : SboxColors.slate400),
                                 ),
                               ),
                             ),
@@ -2507,7 +2508,7 @@ class _AssetManagementScreenState extends State<AssetManagementScreen> {
                         const SizedBox(height: 20),
 
                         // Images
-                        Text(tr('Hình ảnh sản phẩm'), style: TextStyle(fontWeight: FontWeight.w600, fontSize: 14, color: Color(0xFF52525B))),
+                        Text(tr('Hình ảnh sản phẩm'), style: TextStyle(fontWeight: FontWeight.w600, fontSize: 14, color: SboxColors.slate600)),
                         const SizedBox(height: 8),
                         Wrap(
                           spacing: 8, runSpacing: 8,
@@ -2515,14 +2516,14 @@ class _AssetManagementScreenState extends State<AssetManagementScreen> {
                             ...pickedImages.asMap().entries.map((entry) => Stack(
                               children: [
                                 ClipRRect(
-                                  borderRadius: BorderRadius.circular(8),
+                                  borderRadius: BorderRadius.circular(10),
                                   child: Image.memory(entry.value.bytes, width: 80, height: 80, fit: BoxFit.cover),
                                 ),
                                 Positioned(top: 2, right: 2, child: GestureDetector(
                                   onTap: () => setDialogState(() => pickedImages.removeAt(entry.key)),
                                   child: Container(
                                     padding: const EdgeInsets.all(2),
-                                    decoration: const BoxDecoration(color: Colors.black54, shape: BoxShape.circle),
+                                    decoration: const BoxDecoration(color: SboxColors.textSecondary, shape: BoxShape.circle),
                                     child: const Icon(Icons.close, size: 14, color: Colors.white),
                                   ),
                                 )),
@@ -2549,14 +2550,14 @@ class _AssetManagementScreenState extends State<AssetManagementScreen> {
                               child: Container(
                                 width: 80, height: 80,
                                 decoration: BoxDecoration(
-                                  borderRadius: BorderRadius.circular(8),
-                                  border: Border.all(color: const Color(0xFFD4D4D8), style: BorderStyle.solid),
-                                  color: const Color(0xFFF4F4F5),
+                                  borderRadius: BorderRadius.circular(10),
+                                  border: Border.all(color: SboxColors.slate300, style: BorderStyle.solid),
+                                  color: SboxColors.slate100,
                                 ),
                                 child: Column(mainAxisAlignment: MainAxisAlignment.center, children: [
-                                  Icon(Icons.add_photo_alternate, color: Color(0xFF71717A), size: 24),
+                                  Icon(Icons.add_photo_alternate, color: SboxColors.slate500, size: 24),
                                   SizedBox(height: 4),
-                                  Text(tr('Thêm ảnh'), style: TextStyle(fontSize: 10, color: Color(0xFF71717A))),
+                                  Text(tr('Thêm ảnh'), style: TextStyle(fontSize: 10, color: SboxColors.slate500)),
                                 ]),
                               ),
                             ),
@@ -2572,7 +2573,7 @@ class _AssetManagementScreenState extends State<AssetManagementScreen> {
                     children: [
                       TextButton(
                         onPressed: () => Navigator.pop(context),
-                        child: Text(tr('Hủy'), style: TextStyle(color: Color(0xFF71717A))),
+                        child: Text(tr('Hủy'), style: TextStyle(color: SboxColors.slate500)),
                       ),
                       const SizedBox(width: 12),
                       FilledButton(
@@ -2591,7 +2592,7 @@ class _AssetManagementScreenState extends State<AssetManagementScreen> {
                           backgroundColor: HrmPageChrome.primaryNavy,
                           foregroundColor: Colors.white,
                           padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 12),
-                          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+                          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
                         ),
                         child: Text(tr(isEdit ? 'Cập nhật' : 'Thêm mới')),
                       ),
@@ -2616,7 +2617,7 @@ class _AssetManagementScreenState extends State<AssetManagementScreen> {
             );
           }
           return Dialog(
-            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
             child: Container(
               width: MediaQuery.of(context).size.width * 0.6,
               constraints: const BoxConstraints(maxWidth: 800, maxHeight: 700),
@@ -2626,7 +2627,7 @@ class _AssetManagementScreenState extends State<AssetManagementScreen> {
                   Container(
                     padding: const EdgeInsets.all(20),
                     decoration: const BoxDecoration(
-                      border: Border(bottom: BorderSide(color: Color(0xFFE4E4E7))),
+                      border: Border(bottom: BorderSide(color: SboxColors.slate200)),
                     ),
                     child: Row(
                       children: [
@@ -2641,7 +2642,7 @@ class _AssetManagementScreenState extends State<AssetManagementScreen> {
                   Flexible(child: formContent),
                   Container(
                     decoration: const BoxDecoration(
-                      border: Border(top: BorderSide(color: Color(0xFFE4E4E7))),
+                      border: Border(top: BorderSide(color: SboxColors.slate200)),
                     ),
                     child: actionButtons,
                   ),
@@ -2790,7 +2791,7 @@ class _AssetManagementScreenState extends State<AssetManagementScreen> {
                             _detailRow(
                               'Hết hạn',
                               DateFormat('dd/MM/yyyy').format(asset.warrantyExpiry!),
-                              valueColor: asset.isWarrantyExpired ? const Color(0xFFEF4444) : asset.warrantyExpiringSoon ? const Color(0xFFF59E0B) : null,
+                              valueColor: asset.isWarrantyExpired ? SboxColors.danger : asset.warrantyExpiringSoon ? SboxColors.warning : null,
                             ),
                         ]),
                       ],
@@ -2806,7 +2807,7 @@ class _AssetManagementScreenState extends State<AssetManagementScreen> {
                         _detailSection('Ghi chú', [
                           Padding(
                             padding: const EdgeInsets.symmetric(vertical: 4),
-                            child: Text(tr(asset.notes!), style: const TextStyle(color: Color(0xFF52525B), fontSize: 13)),
+                            child: Text(tr(asset.notes!), style: const TextStyle(color: SboxColors.slate600, fontSize: 13)),
                           ),
                         ]),
                       ],
@@ -2827,7 +2828,7 @@ class _AssetManagementScreenState extends State<AssetManagementScreen> {
                           final history = data['data'] as List? ?? [];
                           if (history.isEmpty) {
                             return _detailSection('Lịch sử kiểm kê', [
-                              Padding(padding: EdgeInsets.all(8), child: Text(tr('Chưa có lần kiểm kê nào'), style: TextStyle(color: Color(0xFFA1A1AA), fontSize: 13))),
+                              Padding(padding: EdgeInsets.all(8), child: Text(tr('Chưa có lần kiểm kê nào'), style: TextStyle(color: SboxColors.slate400, fontSize: 13))),
                             ]);
                           }
                           return _detailSection('Lịch sử kiểm kê (${history.length})', history.map<Widget>((h) {
@@ -2837,7 +2838,7 @@ class _AssetManagementScreenState extends State<AssetManagementScreen> {
                             final actual = h['actualQuantity'] ?? expected;
                             final diff = h['diff'] ?? (actual - expected);
                             final isChecked = h['isChecked'] ?? false;
-                            final statusColor = invStatus == 1 ? const Color(0xFF22C55E) : invStatus == 2 ? const Color(0xFFEF4444) : const Color(0xFFF59E0B);
+                            final statusColor = invStatus == 1 ? SboxColors.success : invStatus == 2 ? SboxColors.danger : SboxColors.warning;
                             final statusLabel = h['inventoryStatusName'] ?? (invStatus == 1 ? 'Hoàn thành' : invStatus == 2 ? 'Đã hủy' : 'Đang kiểm');
                             return InkWell(
                               onTap: () {
@@ -2858,7 +2859,7 @@ class _AssetManagementScreenState extends State<AssetManagementScreen> {
                               child: Container(
                                 margin: const EdgeInsets.only(bottom: 8),
                                 padding: const EdgeInsets.all(10),
-                                decoration: BoxDecoration(color: Colors.white, borderRadius: BorderRadius.circular(8), border: Border.all(color: const Color(0xFFE4E4E7))),
+                                decoration: BoxDecoration(color: Colors.white, borderRadius: BorderRadius.circular(10), border: Border.all(color: SboxColors.slate200)),
                                 child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
                                   Row(children: [
                                     Expanded(child: Text(tr(h['inventoryName'] ?? ''), style: const TextStyle(fontWeight: FontWeight.w600, fontSize: 13))),
@@ -2870,28 +2871,28 @@ class _AssetManagementScreenState extends State<AssetManagementScreen> {
                                   ]),
                                   const SizedBox(height: 4),
                                   Row(children: [
-                                    Text(tr(date), style: const TextStyle(fontSize: 11, color: Color(0xFF71717A))),
+                                    Text(tr(date), style: const TextStyle(fontSize: 11, color: SboxColors.slate500)),
                                     if (!isChecked) ...[
                                       const Spacer(),
                                       Container(
                                         padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 1),
-                                        decoration: BoxDecoration(color: const Color(0xFFF59E0B).withValues(alpha: 0.1), borderRadius: BorderRadius.circular(4)),
-                                        child: Text(tr('Chưa kiểm'), style: TextStyle(fontSize: 10, color: Color(0xFFF59E0B), fontWeight: FontWeight.w600)),
+                                        decoration: BoxDecoration(color: SboxColors.warning.withValues(alpha: 0.1), borderRadius: BorderRadius.circular(4)),
+                                        child: Text(tr('Chưa kiểm'), style: TextStyle(fontSize: 10, color: SboxColors.warning, fontWeight: FontWeight.w600)),
                                       ),
                                     ],
                                     if (isChecked) ...[
                                       const Spacer(),
-                                      Text(tr('TK: $expected'), style: const TextStyle(fontSize: 11, color: Color(0xFF64748B))),
+                                      Text(tr('TK: $expected'), style: const TextStyle(fontSize: 11, color: SboxColors.slate500)),
                                       const SizedBox(width: 8),
                                       Text(tr('TT: $actual'), style: const TextStyle(fontSize: 11, fontWeight: FontWeight.w600)),
                                       const SizedBox(width: 8),
                                       Text(tr('CL: ${diff > 0 ? "+$diff" : "$diff"}'),
-                                        style: TextStyle(fontSize: 11, fontWeight: FontWeight.w600, color: diff < 0 ? const Color(0xFFEF4444) : diff > 0 ? const Color(0xFF22C55E) : const Color(0xFF71717A))),
+                                        style: TextStyle(fontSize: 11, fontWeight: FontWeight.w600, color: diff < 0 ? SboxColors.danger : diff > 0 ? SboxColors.success : SboxColors.slate500)),
                                     ],
                                   ]),
                                   if (h['hasIssue'] == true && h['issueDescription'] != null && h['issueDescription'].toString().isNotEmpty) ...[
                                     const SizedBox(height: 4),
-                                    Text(tr('${tr('Vấn đề: ')}${h['issueDescription']}'), style: const TextStyle(fontSize: 11, color: Color(0xFFEF4444))),
+                                    Text(tr('${tr('Vấn đề: ')}${h['issueDescription']}'), style: const TextStyle(fontSize: 11, color: SboxColors.danger)),
                                   ],
                                 ]),
                               ),
@@ -2910,7 +2911,7 @@ class _AssetManagementScreenState extends State<AssetManagementScreen> {
                       onPressed: () { Navigator.pop(context); _showAssetDialog(asset: asset); },
                       icon: const Icon(Icons.edit, size: 16),
                       label: Text(tr('Sửa')),
-                      style: OutlinedButton.styleFrom(foregroundColor: const Color(0xFF52525B)),
+                      style: OutlinedButton.styleFrom(foregroundColor: SboxColors.slate600),
                     ),
                     const Spacer(),
                     if (asset.currentAssigneeId == null)
@@ -2931,7 +2932,7 @@ class _AssetManagementScreenState extends State<AssetManagementScreen> {
                         onPressed: () { Navigator.pop(context); _showReturnDialog(asset); },
                         icon: const Icon(Icons.keyboard_return, size: 16),
                         label: Text(tr('Thu hồi')),
-                        style: ElevatedButton.styleFrom(backgroundColor: const Color(0xFFF59E0B), foregroundColor: Colors.white),
+                        style: ElevatedButton.styleFrom(backgroundColor: SboxColors.warning, foregroundColor: Colors.white),
                       ),
                     ],
                   ],
@@ -2955,7 +2956,7 @@ class _AssetManagementScreenState extends State<AssetManagementScreen> {
           );
         }
         return Dialog(
-          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
           child: Container(
             width: math.min(600, MediaQuery.of(context).size.width - 32).toDouble(),
             constraints: const BoxConstraints(maxHeight: 700),
@@ -2965,7 +2966,7 @@ class _AssetManagementScreenState extends State<AssetManagementScreen> {
                 Container(
                   padding: const EdgeInsets.all(20),
                   decoration: const BoxDecoration(
-                    border: Border(bottom: BorderSide(color: Color(0xFFE4E4E7))),
+                    border: Border(bottom: BorderSide(color: SboxColors.slate200)),
                   ),
                   child: Row(
                     children: [
@@ -2988,7 +2989,7 @@ class _AssetManagementScreenState extends State<AssetManagementScreen> {
                               _buildStatusBadge(asset.status),
                             ]),
                             const SizedBox(height: 4),
-                            Text(tr(asset.name), style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold, color: Color(0xFF18181B))),
+                            Text(tr(asset.name), style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold, color: SboxColors.slate900)),
                           ],
                         ),
                       ),
@@ -2998,7 +2999,7 @@ class _AssetManagementScreenState extends State<AssetManagementScreen> {
                 ),
                 Flexible(child: bodyContent),
                 Container(
-                  decoration: const BoxDecoration(border: Border(top: BorderSide(color: Color(0xFFE4E4E7)))),
+                  decoration: const BoxDecoration(border: Border(top: BorderSide(color: SboxColors.slate200))),
                   child: actionButtons,
                 ),
               ],
@@ -3013,12 +3014,12 @@ class _AssetManagementScreenState extends State<AssetManagementScreen> {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        Text(tr(title), style: const TextStyle(fontWeight: FontWeight.w600, fontSize: 14, color: Color(0xFF52525B))),
+        Text(tr(title), style: const TextStyle(fontWeight: FontWeight.w600, fontSize: 14, color: SboxColors.slate600)),
         const SizedBox(height: 8),
         Container(
           padding: const EdgeInsets.all(12),
           decoration: BoxDecoration(
-            color: const Color(0xFFFAFAFA),
+            color: SboxColors.slate50,
             borderRadius: BorderRadius.circular(10),
           ),
           child: Column(children: children),
@@ -3032,8 +3033,8 @@ class _AssetManagementScreenState extends State<AssetManagementScreen> {
       padding: const EdgeInsets.symmetric(vertical: 5),
       child: Row(
         children: [
-          SizedBox(width: 140, child: Text(tr(label), style: const TextStyle(color: Color(0xFFA1A1AA), fontSize: 13))),
-          Expanded(child: Text(tr(value), style: TextStyle(fontWeight: FontWeight.w500, fontSize: 13, color: valueColor ?? const Color(0xFF18181B)))),
+          SizedBox(width: 140, child: Text(tr(label), style: const TextStyle(color: SboxColors.slate400, fontSize: 13))),
+          Expanded(child: Text(tr(value), style: TextStyle(fontWeight: FontWeight.w500, fontSize: 13, color: valueColor ?? SboxColors.slate900))),
         ],
       ),
     );
@@ -3092,11 +3093,11 @@ class _AssetManagementScreenState extends State<AssetManagementScreen> {
           child: Row(
                 mainAxisAlignment: MainAxisAlignment.end,
                 children: [
-                  TextButton(onPressed: () => Navigator.pop(context), child: Text(tr('Hủy'), style: TextStyle(color: Color(0xFF71717A)))),
+                  TextButton(onPressed: () => Navigator.pop(context), child: Text(tr('Hủy'), style: TextStyle(color: SboxColors.slate500))),
                   const SizedBox(width: 12),
                   FilledButton(
                     onPressed: onSave,
-                    style: ElevatedButton.styleFrom(backgroundColor: HrmPageChrome.primaryNavy, foregroundColor: Colors.white, shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8))),
+                    style: ElevatedButton.styleFrom(backgroundColor: HrmPageChrome.primaryNavy, foregroundColor: Colors.white, shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10))),
                     child: Text(tr(isEdit ? 'Cập nhật' : 'Thêm')),
                   ),
                 ],
@@ -3120,7 +3121,7 @@ class _AssetManagementScreenState extends State<AssetManagementScreen> {
           );
         }
         return Dialog(
-          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
           child: SizedBox(
             width: math.min(420, MediaQuery.of(context).size.width - 32).toDouble(),
             child: Column(
@@ -3225,7 +3226,7 @@ class _AssetManagementScreenState extends State<AssetManagementScreen> {
                         },
                         child: InputDecorator(
                           decoration: _dialogDecoration('Ngày kết thúc'),
-                          child: Text(tr(endDate != null ? DateFormat('dd/MM/yyyy').format(endDate!) : 'Chọn ngày'), style: TextStyle(color: endDate != null ? const Color(0xFF18181B) : const Color(0xFFA1A1AA))),
+                          child: Text(tr(endDate != null ? DateFormat('dd/MM/yyyy').format(endDate!) : 'Chọn ngày'), style: TextStyle(color: endDate != null ? SboxColors.slate900 : SboxColors.slate400)),
                         ),
                       ),
                     ),
@@ -3259,7 +3260,7 @@ class _AssetManagementScreenState extends State<AssetManagementScreen> {
                           suffixIcon: searchText.isNotEmpty ? IconButton(icon: const Icon(Icons.clear, size: 18), onPressed: () { searchCtrl.clear(); setDialogState(() => searchText = ''); }) : null,
                           isDense: true,
                           contentPadding: const EdgeInsets.symmetric(vertical: 10),
-                          border: OutlineInputBorder(borderRadius: BorderRadius.circular(8)),
+                          border: OutlineInputBorder(borderRadius: BorderRadius.circular(10)),
                         ),
                         onChanged: (v) => setDialogState(() => searchText = v),
                       ),
@@ -3286,7 +3287,7 @@ class _AssetManagementScreenState extends State<AssetManagementScreen> {
                           const Spacer(),
                           Container(
                             padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
-                            decoration: BoxDecoration(color: HrmPageChrome.primaryNavy.withValues(alpha: 0.08), borderRadius: BorderRadius.circular(12)),
+                            decoration: BoxDecoration(color: HrmPageChrome.primaryNavy.withValues(alpha: 0.08), borderRadius: BorderRadius.circular(14)),
                             child: Text(tr('Đã chọn: $selectedCount'), style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w600, color: HrmPageChrome.primaryNavy)),
                           ),
                         ],
@@ -3300,7 +3301,7 @@ class _AssetManagementScreenState extends State<AssetManagementScreen> {
                 else
                   Expanded(
                     child: displayAssets.isEmpty
-                        ? Center(child: Text(tr('Không tìm thấy hàng hóa'), style: TextStyle(color: Color(0xFFA1A1AA))))
+                        ? Center(child: Text(tr('Không tìm thấy hàng hóa'), style: TextStyle(color: SboxColors.slate400)))
                         : ListView.builder(
                             padding: const EdgeInsets.symmetric(horizontal: 12),
                             itemCount: displayAssets.length,
@@ -3320,12 +3321,12 @@ class _AssetManagementScreenState extends State<AssetManagementScreen> {
                               return Container(
                                 margin: const EdgeInsets.only(bottom: 6),
                                 decoration: BoxDecoration(
-                                  color: isSelected ? const Color(0xFFEFF6FF) : Colors.white,
+                                  color: isSelected ? SboxColors.brand50 : Colors.white,
                                   borderRadius: BorderRadius.circular(10),
                                   border: Border.all(
                                     color: isSelected
-                                        ? (diff != null && diff < 0 ? const Color(0xFFFCA5A5) : const Color(0xFF93C5FD))
-                                        : const Color(0xFFE4E4E7),
+                                        ? (diff != null && diff < 0 ? const Color(0xFFFCA5A5) : SboxColors.brand200)
+                                        : SboxColors.slate200,
                                   ),
                                 ),
                                 child: Column(
@@ -3346,7 +3347,7 @@ class _AssetManagementScreenState extends State<AssetManagementScreen> {
                                                 itemQuantities[asset.id] = asset.quantity;
                                               }
                                             }),
-                                            child: Icon(isSelected ? Icons.check_box : Icons.check_box_outline_blank, size: 20, color: isSelected ? HrmPageChrome.primaryNavy : const Color(0xFFA1A1AA)),
+                                            child: Icon(isSelected ? Icons.check_box : Icons.check_box_outline_blank, size: 20, color: isSelected ? HrmPageChrome.primaryNavy : SboxColors.slate400),
                                           ),
                                           const SizedBox(width: 10),
                                           Expanded(
@@ -3354,14 +3355,14 @@ class _AssetManagementScreenState extends State<AssetManagementScreen> {
                                               crossAxisAlignment: CrossAxisAlignment.start,
                                               children: [
                                                 Text(tr(asset.name), style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w600), maxLines: 1, overflow: TextOverflow.ellipsis),
-                                                Text(tr('Mã: ${asset.assetCode}'), style: const TextStyle(fontSize: 11, color: Color(0xFF71717A))),
+                                                Text(tr('Mã: ${asset.assetCode}'), style: const TextStyle(fontSize: 11, color: SboxColors.slate500)),
                                               ],
                                             ),
                                           ),
                                           Container(
                                             padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
-                                            decoration: BoxDecoration(color: const Color(0xFFF4F4F5), borderRadius: BorderRadius.circular(6)),
-                                            child: Text(tr('Tồn: $stockQty'), style: const TextStyle(fontSize: 11, fontWeight: FontWeight.w600, color: Color(0xFF64748B))),
+                                            decoration: BoxDecoration(color: SboxColors.slate100, borderRadius: BorderRadius.circular(6)),
+                                            child: Text(tr('Tồn: $stockQty'), style: const TextStyle(fontSize: 11, fontWeight: FontWeight.w600, color: SboxColors.slate500)),
                                           ),
                                         ],
                                       ),
@@ -3383,8 +3384,8 @@ class _AssetManagementScreenState extends State<AssetManagementScreen> {
                                                   labelStyle: const TextStyle(fontSize: 11),
                                                   isDense: true,
                                                   contentPadding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
-                                                  border: OutlineInputBorder(borderRadius: BorderRadius.circular(8)),
-                                                  focusedBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(8), borderSide: const BorderSide(color: HrmPageChrome.primaryNavy)),
+                                                  border: OutlineInputBorder(borderRadius: BorderRadius.circular(10)),
+                                                  focusedBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(10), borderSide: const BorderSide(color: HrmPageChrome.primaryNavy)),
                                                 ),
                                                 style: const TextStyle(fontSize: 14, fontWeight: FontWeight.bold),
                                                 onChanged: (v) {
@@ -3404,7 +3405,7 @@ class _AssetManagementScreenState extends State<AssetManagementScreen> {
                                               Container(
                                                 padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
                                                 decoration: BoxDecoration(
-                                                  color: diff < 0 ? const Color(0xFFFEE2E2) : diff > 0 ? const Color(0xFFFEF3C7) : const Color(0xFFDCFCE7),
+                                                  color: diff < 0 ? SboxColors.dangerSoft : diff > 0 ? SboxColors.warningSoft : SboxColors.successSoft,
                                                   borderRadius: BorderRadius.circular(6),
                                                 ),
                                                 child: Row(
@@ -3413,7 +3414,7 @@ class _AssetManagementScreenState extends State<AssetManagementScreen> {
                                                     Icon(
                                                       diff < 0 ? Icons.trending_down : diff > 0 ? Icons.trending_up : Icons.check_circle,
                                                       size: 14,
-                                                      color: diff < 0 ? const Color(0xFFEF4444) : diff > 0 ? const Color(0xFFF59E0B) : const Color(0xFF059669),
+                                                      color: diff < 0 ? SboxColors.danger : diff > 0 ? SboxColors.warning : SboxColors.success,
                                                     ),
                                                     const SizedBox(width: 4),
                                                     Text(
@@ -3421,7 +3422,7 @@ class _AssetManagementScreenState extends State<AssetManagementScreen> {
                                                       style: TextStyle(
                                                         fontSize: 11,
                                                         fontWeight: FontWeight.w600,
-                                                        color: diff < 0 ? const Color(0xFFEF4444) : diff > 0 ? const Color(0xFFF59E0B) : const Color(0xFF059669),
+                                                        color: diff < 0 ? SboxColors.danger : diff > 0 ? SboxColors.warning : SboxColors.success,
                                                       ),
                                                     ),
                                                   ],
@@ -3436,7 +3437,7 @@ class _AssetManagementScreenState extends State<AssetManagementScreen> {
                                                 padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 3),
                                                 decoration: BoxDecoration(
                                                   color: (itemNotes[asset.id]?.isNotEmpty == true || itemImages[asset.id] != null)
-                                                      ? const Color(0xFFDCFCE7) : const Color(0xFFF4F4F5),
+                                                      ? SboxColors.successSoft : SboxColors.slate100,
                                                   borderRadius: BorderRadius.circular(6),
                                                 ),
                                                 child: Row(
@@ -3445,9 +3446,9 @@ class _AssetManagementScreenState extends State<AssetManagementScreen> {
                                                     Icon(
                                                       itemImages[asset.id] != null ? Icons.image : Icons.note_add,
                                                       size: 14,
-                                                      color: const Color(0xFF64748B),
+                                                      color: SboxColors.slate500,
                                                     ),
-                                                    Icon(isExpanded ? Icons.expand_less : Icons.expand_more, size: 16, color: const Color(0xFF64748B)),
+                                                    Icon(isExpanded ? Icons.expand_less : Icons.expand_more, size: 16, color: SboxColors.slate500),
                                                   ],
                                                 ),
                                               ),
@@ -3467,10 +3468,10 @@ class _AssetManagementScreenState extends State<AssetManagementScreen> {
                                             TextField(
                                               decoration: InputDecoration(
                                                 hintText: tr('Ghi chú cho sản phẩm này...'),
-                                                hintStyle: const TextStyle(fontSize: 12, color: Color(0xFFA1A1AA)),
+                                                hintStyle: const TextStyle(fontSize: 12, color: SboxColors.slate400),
                                                 isDense: true,
                                                 contentPadding: const EdgeInsets.all(10),
-                                                border: OutlineInputBorder(borderRadius: BorderRadius.circular(8)),
+                                                border: OutlineInputBorder(borderRadius: BorderRadius.circular(10)),
                                               ),
                                               style: const TextStyle(fontSize: 12),
                                               maxLines: 2,
@@ -3497,7 +3498,7 @@ class _AssetManagementScreenState extends State<AssetManagementScreen> {
                                                           }),
                                                           child: Container(
                                                             padding: const EdgeInsets.all(2),
-                                                            decoration: const BoxDecoration(color: Color(0xFFEF4444), shape: BoxShape.circle),
+                                                            decoration: const BoxDecoration(color: SboxColors.danger, shape: BoxShape.circle),
                                                             child: const Icon(Icons.close, size: 12, color: Colors.white),
                                                           ),
                                                         ),
@@ -3554,7 +3555,7 @@ class _AssetManagementScreenState extends State<AssetManagementScreen> {
           Widget buildActions() {
             return Container(
               padding: const EdgeInsets.all(16),
-              decoration: const BoxDecoration(border: Border(top: BorderSide(color: Color(0xFFE4E4E7)))),
+              decoration: const BoxDecoration(border: Border(top: BorderSide(color: SboxColors.slate200))),
               child: Row(
                 children: [
                   if (step > 0)
@@ -3562,10 +3563,10 @@ class _AssetManagementScreenState extends State<AssetManagementScreen> {
                       onPressed: () => setDialogState(() => step = 0),
                       icon: const Icon(Icons.arrow_back, size: 18),
                       label: Text(tr('Quay lại')),
-                      style: TextButton.styleFrom(foregroundColor: const Color(0xFF71717A)),
+                      style: TextButton.styleFrom(foregroundColor: SboxColors.slate500),
                     ),
                   const Spacer(),
-                  TextButton(onPressed: () => Navigator.pop(context), child: Text(tr('Hủy'), style: TextStyle(color: Color(0xFF71717A)))),
+                  TextButton(onPressed: () => Navigator.pop(context), child: Text(tr('Hủy'), style: TextStyle(color: SboxColors.slate500))),
                   const SizedBox(width: 12),
                   if (step == 0)
                     FilledButton.icon(
@@ -3579,7 +3580,7 @@ class _AssetManagementScreenState extends State<AssetManagementScreen> {
                       },
                       icon: const Icon(Icons.arrow_forward, size: 18),
                       label: Text(tr('Chọn hàng hóa')),
-                      style: ElevatedButton.styleFrom(backgroundColor: HrmPageChrome.primaryNavy, foregroundColor: Colors.white, shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8))),
+                      style: ElevatedButton.styleFrom(backgroundColor: HrmPageChrome.primaryNavy, foregroundColor: Colors.white, shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10))),
                     ),
                   if (step == 1)
                     FilledButton.icon(
@@ -3637,7 +3638,7 @@ class _AssetManagementScreenState extends State<AssetManagementScreen> {
                       },
                       icon: isCreating ? const SizedBox(width: 18, height: 18, child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white)) : const Icon(Icons.check, size: 18),
                       label: Text(tr('Tạo ($selectedCount)')),
-                      style: ElevatedButton.styleFrom(backgroundColor: HrmPageChrome.primaryNavy, foregroundColor: Colors.white, shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8))),
+                      style: ElevatedButton.styleFrom(backgroundColor: HrmPageChrome.primaryNavy, foregroundColor: Colors.white, shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10))),
                     ),
                 ],
               ),
@@ -3647,11 +3648,11 @@ class _AssetManagementScreenState extends State<AssetManagementScreen> {
           Widget buildStepIndicator() {
             return Container(
               padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 12),
-              decoration: const BoxDecoration(border: Border(bottom: BorderSide(color: Color(0xFFE4E4E7)))),
+              decoration: const BoxDecoration(border: Border(bottom: BorderSide(color: SboxColors.slate200))),
               child: Row(
                 children: [
                   _stepDot(0, step, 'Thông tin'),
-                  Expanded(child: Container(height: 1, color: step >= 1 ? HrmPageChrome.primaryNavy : const Color(0xFFE4E4E7))),
+                  Expanded(child: Container(height: 1, color: step >= 1 ? HrmPageChrome.primaryNavy : SboxColors.slate200)),
                   _stepDot(1, step, 'Chọn hàng hóa'),
                 ],
               ),
@@ -3681,7 +3682,7 @@ class _AssetManagementScreenState extends State<AssetManagementScreen> {
             );
           }
           return Dialog(
-            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
             child: SizedBox(
               width: math.min(520, MediaQuery.of(context).size.width - 32).toDouble(),
               height: step == 0 ? null : MediaQuery.of(context).size.height * 0.85,
@@ -3727,12 +3728,12 @@ class _AssetManagementScreenState extends State<AssetManagementScreen> {
           decoration: BoxDecoration(
             color: isActive ? HrmPageChrome.primaryNavy : Colors.white,
             shape: BoxShape.circle,
-            border: Border.all(color: isActive ? HrmPageChrome.primaryNavy : const Color(0xFFD4D4D8), width: 2),
+            border: Border.all(color: isActive ? HrmPageChrome.primaryNavy : SboxColors.slate300, width: 2),
           ),
-          child: Center(child: Text(tr('${index + 1}'), style: TextStyle(fontSize: 11, fontWeight: FontWeight.w700, color: isActive ? Colors.white : const Color(0xFFA1A1AA)))),
+          child: Center(child: Text(tr('${index + 1}'), style: TextStyle(fontSize: 11, fontWeight: FontWeight.w700, color: isActive ? Colors.white : SboxColors.slate400))),
         ),
         const SizedBox(width: 6),
-        Text(tr(label), style: TextStyle(fontSize: 12, fontWeight: isActive ? FontWeight.w600 : FontWeight.normal, color: isActive ? HrmPageChrome.primaryNavy : const Color(0xFFA1A1AA))),
+        Text(tr(label), style: TextStyle(fontSize: 12, fontWeight: isActive ? FontWeight.w600 : FontWeight.normal, color: isActive ? HrmPageChrome.primaryNavy : SboxColors.slate400)),
       ],
     );
   }
@@ -3756,7 +3757,7 @@ class _AssetManagementScreenState extends State<AssetManagementScreen> {
                   Text(tr('Cấp phát tài sản'), style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
                   const SizedBox(height: 8),
                 ],
-                Text(tr('Tài sản: ${asset.name}'), style: const TextStyle(color: Color(0xFF71717A))),
+                Text(tr('Tài sản: ${asset.name}'), style: const TextStyle(color: SboxColors.slate500)),
                 const SizedBox(height: 20),
                 _dialogDropdown<String?>('Cấp cho *', selectedUserId,
                   _employees.map((e) => DropdownMenuItem(value: e.id, child: Text(tr(e.fullName)))).toList(),
@@ -3774,7 +3775,7 @@ class _AssetManagementScreenState extends State<AssetManagementScreen> {
             child: Row(
                   mainAxisAlignment: MainAxisAlignment.end,
                   children: [
-                    TextButton(onPressed: () => Navigator.pop(context), child: Text(tr('Hủy'), style: TextStyle(color: Color(0xFF71717A)))),
+                    TextButton(onPressed: () => Navigator.pop(context), child: Text(tr('Hủy'), style: TextStyle(color: SboxColors.slate500))),
                     const SizedBox(width: 12),
                     FilledButton(
                       onPressed: () async {
@@ -3793,7 +3794,7 @@ class _AssetManagementScreenState extends State<AssetManagementScreen> {
                           NotificationOverlayManager().showError(title: 'Lỗi', message: result['message'] ?? 'Có lỗi xảy ra');
                         }
                       },
-                      style: ElevatedButton.styleFrom(backgroundColor: HrmPageChrome.primaryNavy, foregroundColor: Colors.white, shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8))),
+                      style: ElevatedButton.styleFrom(backgroundColor: HrmPageChrome.primaryNavy, foregroundColor: Colors.white, shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10))),
                       child: Text(tr('Cấp phát')),
                     ),
                   ],
@@ -3817,7 +3818,7 @@ class _AssetManagementScreenState extends State<AssetManagementScreen> {
             );
           }
           return Dialog(
-            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
             child: SizedBox(
               width: math.min(450, MediaQuery.of(context).size.width - 32).toDouble(),
               child: Column(
@@ -3856,8 +3857,8 @@ class _AssetManagementScreenState extends State<AssetManagementScreen> {
                   Text(tr('Chuyển giao tài sản'), style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
                   const SizedBox(height: 8),
                 ],
-                Text(tr('Tài sản: ${asset.name}'), style: const TextStyle(color: Color(0xFF71717A))),
-                Text(tr('Đang sử dụng: ${asset.currentAssigneeName}'), style: const TextStyle(color: Color(0xFFA1A1AA), fontSize: 13)),
+                Text(tr('Tài sản: ${asset.name}'), style: const TextStyle(color: SboxColors.slate500)),
+                Text(tr('Đang sử dụng: ${asset.currentAssigneeName}'), style: const TextStyle(color: SboxColors.slate400, fontSize: 13)),
                 const SizedBox(height: 20),
                 _dialogDropdown<String?>('Chuyển cho *', selectedUserId,
                   _employees.where((e) => e.id != asset.currentAssigneeId).map((e) => DropdownMenuItem(value: e.id, child: Text(tr(e.fullName)))).toList(),
@@ -3875,7 +3876,7 @@ class _AssetManagementScreenState extends State<AssetManagementScreen> {
             child: Row(
                   mainAxisAlignment: MainAxisAlignment.end,
                   children: [
-                    TextButton(onPressed: () => Navigator.pop(context), child: Text(tr('Hủy'), style: TextStyle(color: Color(0xFF71717A)))),
+                    TextButton(onPressed: () => Navigator.pop(context), child: Text(tr('Hủy'), style: TextStyle(color: SboxColors.slate500))),
                     const SizedBox(width: 12),
                     FilledButton(
                       onPressed: () async {
@@ -3894,7 +3895,7 @@ class _AssetManagementScreenState extends State<AssetManagementScreen> {
                           NotificationOverlayManager().showError(title: 'Lỗi', message: result['message'] ?? 'Có lỗi xảy ra');
                         }
                       },
-                      style: ElevatedButton.styleFrom(backgroundColor: const Color(0xFFF59E0B), foregroundColor: Colors.white, shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8))),
+                      style: ElevatedButton.styleFrom(backgroundColor: SboxColors.warning, foregroundColor: Colors.white, shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10))),
                       child: Text(tr('Chuyển giao')),
                     ),
                   ],
@@ -3918,7 +3919,7 @@ class _AssetManagementScreenState extends State<AssetManagementScreen> {
             );
           }
           return Dialog(
-            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
             child: SizedBox(
               width: math.min(450, MediaQuery.of(context).size.width - 32).toDouble(),
               child: Column(
@@ -3957,8 +3958,8 @@ class _AssetManagementScreenState extends State<AssetManagementScreen> {
                   Text(tr('Thu hồi tài sản'), style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
                   const SizedBox(height: 8),
                 ],
-                Text(tr('Tài sản: ${asset.name}'), style: const TextStyle(color: Color(0xFF71717A))),
-                Text(tr('Thu hồi từ: ${asset.currentAssigneeName}'), style: const TextStyle(color: Color(0xFFA1A1AA), fontSize: 13)),
+                Text(tr('Tài sản: ${asset.name}'), style: const TextStyle(color: SboxColors.slate500)),
+                Text(tr('Thu hồi từ: ${asset.currentAssigneeName}'), style: const TextStyle(color: SboxColors.slate400, fontSize: 13)),
                 const SizedBox(height: 20),
                 _dialogDropdown<InventoryCondition>('Tình trạng khi thu hồi', condition,
                   InventoryCondition.values.map((c) => DropdownMenuItem(value: c, child: Text(tr(getConditionLabel(c))))).toList(),
@@ -3976,7 +3977,7 @@ class _AssetManagementScreenState extends State<AssetManagementScreen> {
             child: Row(
                   mainAxisAlignment: MainAxisAlignment.end,
                   children: [
-                    TextButton(onPressed: () => Navigator.pop(context), child: Text(tr('Hủy'), style: TextStyle(color: Color(0xFF71717A)))),
+                    TextButton(onPressed: () => Navigator.pop(context), child: Text(tr('Hủy'), style: TextStyle(color: SboxColors.slate500))),
                     const SizedBox(width: 12),
                     FilledButton(
                       onPressed: () async {
@@ -3991,7 +3992,7 @@ class _AssetManagementScreenState extends State<AssetManagementScreen> {
                           NotificationOverlayManager().showError(title: 'Lỗi', message: result['message'] ?? 'Có lỗi xảy ra');
                         }
                       },
-                      style: ElevatedButton.styleFrom(backgroundColor: const Color(0xFFF59E0B), foregroundColor: Colors.white, shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8))),
+                      style: ElevatedButton.styleFrom(backgroundColor: SboxColors.warning, foregroundColor: Colors.white, shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10))),
                       child: Text(tr('Thu hồi')),
                     ),
                   ],
@@ -4015,7 +4016,7 @@ class _AssetManagementScreenState extends State<AssetManagementScreen> {
             );
           }
           return Dialog(
-            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
             child: SizedBox(
               width: math.min(450, MediaQuery.of(context).size.width - 32).toDouble(),
               child: Column(
@@ -4059,14 +4060,14 @@ class _AssetManagementScreenState extends State<AssetManagementScreen> {
     final confirmed = await showDialog<bool>(
       context: context,
       builder: (context) => ScrollableAlertDialog(
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
         title: Text(tr('Xác nhận xóa')),
         content: Text(tr('Bạn có chắc muốn xóa tài sản "${asset.name}"?')),
         actions: [
-          TextButton(onPressed: () => Navigator.pop(context, false), child: Text(tr('Hủy'), style: TextStyle(color: Color(0xFF71717A)))),
+          TextButton(onPressed: () => Navigator.pop(context, false), child: Text(tr('Hủy'), style: TextStyle(color: SboxColors.slate500))),
           FilledButton(
             onPressed: () => Navigator.pop(context, true),
-            style: ElevatedButton.styleFrom(backgroundColor: const Color(0xFFEF4444), foregroundColor: Colors.white),
+            style: ElevatedButton.styleFrom(backgroundColor: SboxColors.danger, foregroundColor: Colors.white),
             child: Text(tr('Xóa')),
           ),
         ],
@@ -4088,14 +4089,14 @@ class _AssetManagementScreenState extends State<AssetManagementScreen> {
     final confirmed = await showDialog<bool>(
       context: context,
       builder: (context) => ScrollableAlertDialog(
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
         title: Text(tr('Xác nhận xóa')),
         content: Text(tr('Bạn có chắc muốn xóa danh mục "${category.name}"?')),
         actions: [
-          TextButton(onPressed: () => Navigator.pop(context, false), child: Text(tr('Hủy'), style: TextStyle(color: Color(0xFF71717A)))),
+          TextButton(onPressed: () => Navigator.pop(context, false), child: Text(tr('Hủy'), style: TextStyle(color: SboxColors.slate500))),
           FilledButton(
             onPressed: () => Navigator.pop(context, true),
-            style: ElevatedButton.styleFrom(backgroundColor: const Color(0xFFEF4444), foregroundColor: Colors.white),
+            style: ElevatedButton.styleFrom(backgroundColor: SboxColors.danger, foregroundColor: Colors.white),
             child: Text(tr('Xóa')),
           ),
         ],
@@ -4117,11 +4118,11 @@ class _AssetManagementScreenState extends State<AssetManagementScreen> {
     final confirmed = await showDialog<bool>(
       context: context,
       builder: (context) => ScrollableAlertDialog(
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
         title: Text(tr('Xác nhận nhận tài sản')),
         content: Text(tr('${tr('Bạn xác nhận đã nhận tài sản "')}${transfer.assetName ?? 'Tài sản'}"?')),
         actions: [
-          TextButton(onPressed: () => Navigator.pop(context, false), child: Text(tr('Hủy'), style: TextStyle(color: Color(0xFF71717A)))),
+          TextButton(onPressed: () => Navigator.pop(context, false), child: Text(tr('Hủy'), style: TextStyle(color: SboxColors.slate500))),
           FilledButton(
             onPressed: () => Navigator.pop(context, true),
             style: FilledButton.styleFrom(backgroundColor: HrmPageChrome.primaryNavy),
@@ -4150,15 +4151,15 @@ class _AssetManagementScreenState extends State<AssetManagementScreen> {
       maxLines: maxLines,
       keyboardType: inputType,
       inputFormatters: isMoney ? [ThousandSeparatorFormatter()] : null,
-      style: const TextStyle(fontSize: 14, color: Color(0xFF18181B)),
+      style: const TextStyle(fontSize: 14, color: SboxColors.slate900),
       decoration: InputDecoration(
         labelText: tr(label),
-        labelStyle: const TextStyle(fontSize: 13, color: Color(0xFFA1A1AA)),
+        labelStyle: const TextStyle(fontSize: 13, color: SboxColors.slate400),
         suffixText: trN(suffix),
         filled: true,
-        fillColor: const Color(0xFFFAFAFA),
-        border: OutlineInputBorder(borderRadius: BorderRadius.circular(10), borderSide: const BorderSide(color: Color(0xFFE4E4E7))),
-        enabledBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(10), borderSide: const BorderSide(color: Color(0xFFE4E4E7))),
+        fillColor: SboxColors.slate50,
+        border: OutlineInputBorder(borderRadius: BorderRadius.circular(10), borderSide: const BorderSide(color: SboxColors.slate200)),
+        enabledBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(10), borderSide: const BorderSide(color: SboxColors.slate200)),
         focusedBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(10), borderSide: const BorderSide(color: HrmPageChrome.primaryNavy, width: 2)),
         contentPadding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
       ),
@@ -4168,11 +4169,11 @@ class _AssetManagementScreenState extends State<AssetManagementScreen> {
   InputDecoration _dialogDecoration(String label) {
     return InputDecoration(
       labelText: tr(label),
-      labelStyle: const TextStyle(fontSize: 13, color: Color(0xFFA1A1AA)),
+      labelStyle: const TextStyle(fontSize: 13, color: SboxColors.slate400),
       filled: true,
-      fillColor: const Color(0xFFFAFAFA),
-      border: OutlineInputBorder(borderRadius: BorderRadius.circular(10), borderSide: const BorderSide(color: Color(0xFFE4E4E7))),
-      enabledBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(10), borderSide: const BorderSide(color: Color(0xFFE4E4E7))),
+      fillColor: SboxColors.slate50,
+      border: OutlineInputBorder(borderRadius: BorderRadius.circular(10), borderSide: const BorderSide(color: SboxColors.slate200)),
+      enabledBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(10), borderSide: const BorderSide(color: SboxColors.slate200)),
       focusedBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(10), borderSide: const BorderSide(color: HrmPageChrome.primaryNavy, width: 2)),
       contentPadding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
     );
@@ -4184,7 +4185,7 @@ class _AssetManagementScreenState extends State<AssetManagementScreen> {
       decoration: _dialogDecoration(label),
       items: items,
       onChanged: onChanged,
-      style: const TextStyle(fontSize: 14, color: Color(0xFF18181B)),
+      style: const TextStyle(fontSize: 14, color: SboxColors.slate900),
     );
   }
 }
@@ -4242,7 +4243,7 @@ class _AssetQrScanDialogState extends State<_AssetQrScanDialog> {
   Widget build(BuildContext context) {
     final isMobile = MediaQuery.of(context).size.width < 600;
     return Dialog(
-      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
       child: SizedBox(
         width: isMobile ? double.infinity : 420,
         height: _showManualInput ? 280 : 480,
@@ -4314,9 +4315,9 @@ class _AssetQrScanDialogState extends State<_AssetQrScanDialog> {
                                   child: Column(
                                     mainAxisSize: MainAxisSize.min,
                                     children: [
-                                      const Icon(Icons.camera_alt, size: 48, color: Color(0xFFA1A1AA)),
+                                      const Icon(Icons.camera_alt, size: 48, color: SboxColors.slate400),
                                       const SizedBox(height: 8),
-                                      Text(tr(error.errorDetails?.message ?? 'Không thể truy cập camera'), style: const TextStyle(color: Color(0xFFA1A1AA))),
+                                      Text(tr(error.errorDetails?.message ?? 'Không thể truy cập camera'), style: const TextStyle(color: SboxColors.slate400)),
                                     ],
                                   ),
                                 );
@@ -4337,9 +4338,9 @@ class _AssetQrScanDialogState extends State<_AssetQrScanDialog> {
                             child: Column(
                               mainAxisSize: MainAxisSize.min,
                               children: [
-                                const Icon(Icons.camera_alt, size: 48, color: Color(0xFFA1A1AA)),
+                                const Icon(Icons.camera_alt, size: 48, color: SboxColors.slate400),
                                 const SizedBox(height: 8),
-                                Text(tr(_cameraError ?? 'Camera không khả dụng'), style: const TextStyle(color: Color(0xFFA1A1AA))),
+                                Text(tr(_cameraError ?? 'Camera không khả dụng'), style: const TextStyle(color: SboxColors.slate400)),
                               ],
                             ),
                           ),
@@ -4348,10 +4349,10 @@ class _AssetQrScanDialogState extends State<_AssetQrScanDialog> {
                             child: Container(
                               width: 220, height: 220,
                               decoration: BoxDecoration(
-                                border: Border.all(color: _hasScanned ? const Color(0xFF059669) : Colors.white.withValues(alpha: 0.6), width: 2),
-                                borderRadius: BorderRadius.circular(16),
+                                border: Border.all(color: _hasScanned ? SboxColors.success : Colors.white.withValues(alpha: 0.6), width: 2),
+                                borderRadius: BorderRadius.circular(14),
                               ),
-                              child: _hasScanned ? const Center(child: Icon(Icons.check_circle, color: Color(0xFF059669), size: 48)) : null,
+                              child: _hasScanned ? const Center(child: Icon(Icons.check_circle, color: SboxColors.success, size: 48)) : null,
                             ),
                           ),
                         if (_cameraError == null && _scannerController != null && !_hasScanned)
@@ -4364,7 +4365,7 @@ class _AssetQrScanDialogState extends State<_AssetQrScanDialog> {
                                 IconButton(
                                   onPressed: () { _scannerController!.toggleTorch(); setState(() => _torchOn = !_torchOn); },
                                   icon: Icon(_torchOn ? Icons.flash_on : Icons.flash_off, color: Colors.white),
-                                  style: IconButton.styleFrom(backgroundColor: Colors.black38),
+                                  style: IconButton.styleFrom(backgroundColor: SboxColors.textMuted),
                                 ),
                               ],
                             ),
@@ -4375,7 +4376,7 @@ class _AssetQrScanDialogState extends State<_AssetQrScanDialog> {
             // Bottom bar
             Container(
               padding: const EdgeInsets.all(12),
-              decoration: const BoxDecoration(border: Border(top: BorderSide(color: Color(0xFFE4E4E7)))),
+              decoration: const BoxDecoration(border: Border(top: BorderSide(color: SboxColors.slate200))),
               child: Row(
                 mainAxisAlignment: MainAxisAlignment.center,
                 children: [
@@ -4469,7 +4470,7 @@ class _InventoryDetailDialogState extends State<_InventoryDetailDialog> {
         final assetName = data?['assetName'] ?? code;
         ScaffoldMessenger.of(context).showSnackBar(SnackBar(
           content: Text(tr('✓ Đã quét: $assetName - Hãy nhập số lượng thực tế')),
-          backgroundColor: const Color(0xFF059669),
+          backgroundColor: SboxColors.success,
           duration: const Duration(seconds: 2),
         ));
         await _refreshInventory();
@@ -4486,7 +4487,7 @@ class _InventoryDetailDialogState extends State<_InventoryDetailDialog> {
         if (mounted) {
           ScaffoldMessenger.of(context).showSnackBar(SnackBar(
             content: Text(tr(result['message'] ?? 'Không tìm thấy tài sản')),
-            backgroundColor: const Color(0xFFEF4444),
+            backgroundColor: SboxColors.danger,
           ));
         }
       }
@@ -4521,11 +4522,11 @@ class _InventoryDetailDialogState extends State<_InventoryDetailDialog> {
       builder: (ctx) => StatefulBuilder(
         builder: (ctx, setDialogState) {
           final diff = hasEnteredQty ? actualQty - item.expectedQuantity : null;
-          final diffColor = diff == null ? const Color(0xFF94A3B8) : diff < 0 ? const Color(0xFFEF4444) : diff > 0 ? const Color(0xFFF59E0B) : const Color(0xFF059669);
+          final diffColor = diff == null ? SboxColors.slate400 : diff < 0 ? SboxColors.danger : diff > 0 ? SboxColors.warning : SboxColors.success;
           final diffText = diff == null ? 'Chưa nhập' : diff < 0 ? 'Hao hụt: ${diff.abs()}' : diff > 0 ? 'Thừa: +$diff' : 'Khớp';
 
           return ScrollableAlertDialog(
-            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
             titlePadding: EdgeInsets.zero,
             title: Container(
               padding: const EdgeInsets.all(16),
@@ -4536,7 +4537,7 @@ class _InventoryDetailDialogState extends State<_InventoryDetailDialog> {
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  Text(tr(item.assetName ?? item.assetCode ?? ''), style: const TextStyle(fontSize: 15, fontWeight: FontWeight.w700, color: Colors.white)),
+                  Text(tr(item.assetName ?? item.assetCode ?? ''), style: const TextStyle(fontSize: 16, fontWeight: FontWeight.w700, color: Colors.white)),
                   if (item.assetCode != null) Text(tr(item.assetCode!), style: const TextStyle(fontSize: 12, color: Colors.white70)),
                   const SizedBox(height: 8),
                   Container(
@@ -4567,9 +4568,9 @@ class _InventoryDetailDialogState extends State<_InventoryDetailDialog> {
                   Container(
                     padding: const EdgeInsets.all(12),
                     decoration: BoxDecoration(
-                      color: const Color(0xFFF8FAFC),
-                      borderRadius: BorderRadius.circular(8),
-                      border: Border.all(color: const Color(0xFFE2E8F0)),
+                      color: SboxColors.slate50,
+                      borderRadius: BorderRadius.circular(10),
+                      border: Border.all(color: SboxColors.slate200),
                     ),
                     child: Row(
                       children: [
@@ -4580,7 +4581,7 @@ class _InventoryDetailDialogState extends State<_InventoryDetailDialog> {
                             onPressed: () { if (actualQty > 0) { actualQty--; hasEnteredQty = true; qtyCtrl.text = actualQty.toString(); setDialogState(() {}); } },
                             icon: const Icon(Icons.remove_circle_outline, size: 22),
                             padding: EdgeInsets.zero,
-                            color: const Color(0xFF64748B),
+                            color: SboxColors.slate500,
                           ),
                         ),
                         SizedBox(
@@ -4613,7 +4614,7 @@ class _InventoryDetailDialogState extends State<_InventoryDetailDialog> {
                             onPressed: () { actualQty++; hasEnteredQty = true; qtyCtrl.text = actualQty.toString(); setDialogState(() {}); },
                             icon: const Icon(Icons.add_circle_outline, size: 22),
                             padding: EdgeInsets.zero,
-                            color: const Color(0xFF64748B),
+                            color: SboxColors.slate500,
                           ),
                         ),
                       ],
@@ -4662,12 +4663,12 @@ class _InventoryDetailDialogState extends State<_InventoryDetailDialog> {
                     Stack(
                       children: [
                         ClipRRect(
-                          borderRadius: BorderRadius.circular(8),
+                          borderRadius: BorderRadius.circular(10),
                           child: Image.memory(imageBytes!, height: 120, width: double.infinity, fit: BoxFit.cover),
                         ),
                         Positioned(top: 4, right: 4, child: GestureDetector(
                           onTap: () => setDialogState(() { imageBytes = null; imageName = null; }),
-                          child: Container(padding: const EdgeInsets.all(4), decoration: const BoxDecoration(color: Colors.black54, shape: BoxShape.circle), child: const Icon(Icons.close, size: 16, color: Colors.white)),
+                          child: Container(padding: const EdgeInsets.all(4), decoration: const BoxDecoration(color: SboxColors.textSecondary, shape: BoxShape.circle), child: const Icon(Icons.close, size: 16, color: Colors.white)),
                         )),
                       ],
                     ),
@@ -4699,7 +4700,7 @@ class _InventoryDetailDialogState extends State<_InventoryDetailDialog> {
               ),
             ),
             actions: [
-              TextButton(onPressed: () => Navigator.pop(ctx, false), child: Text(tr('Hủy'), style: TextStyle(color: Color(0xFF71717A)))),
+              TextButton(onPressed: () => Navigator.pop(ctx, false), child: Text(tr('Hủy'), style: TextStyle(color: SboxColors.slate500))),
               FilledButton(
                 onPressed: !hasEnteredQty ? null : () => Navigator.pop(ctx, true),
                 style: FilledButton.styleFrom(backgroundColor: HrmPageChrome.primaryNavy),
@@ -4739,7 +4740,7 @@ class _InventoryDetailDialogState extends State<_InventoryDetailDialog> {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(SnackBar(
           content: Text(tr(result['message'] ?? 'Lỗi')),
-          backgroundColor: const Color(0xFFEF4444),
+          backgroundColor: SboxColors.danger,
         ));
       }
     }
@@ -4751,7 +4752,7 @@ class _InventoryDetailDialogState extends State<_InventoryDetailDialog> {
       final ok = await showDialog<bool>(
         context: context,
         builder: (ctx) => ScrollableAlertDialog(
-          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
           title: Text(tr('Hoàn thành kiểm kê?')),
           content: Text(tr('Còn $unchecked hàng hóa chưa kiểm. Bạn có chắc muốn hoàn thành?')),
           actions: [
@@ -4780,7 +4781,7 @@ class _InventoryDetailDialogState extends State<_InventoryDetailDialog> {
           });
           ScaffoldMessenger.of(context).showSnackBar(SnackBar(
             content: Text(tr('✓ Đã hoàn thành kiểm kê - Xem báo cáo bên dưới')),
-            backgroundColor: Color(0xFF059669),
+            backgroundColor: SboxColors.success,
             duration: Duration(seconds: 3),
           ));
         }
@@ -4789,7 +4790,7 @@ class _InventoryDetailDialogState extends State<_InventoryDetailDialog> {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(SnackBar(
           content: Text(tr(result['message'] ?? 'Lỗi hoàn thành kiểm kê')),
-          backgroundColor: const Color(0xFFEF4444),
+          backgroundColor: SboxColors.danger,
         ));
       }
     }
@@ -4838,7 +4839,7 @@ class _InventoryDetailDialogState extends State<_InventoryDetailDialog> {
   Widget _buildSummaryCard() {
     final s = _computeSummary();
     final diff = s['totalDiff'] as int;
-    final diffColor = diff < 0 ? const Color(0xFFEF4444) : diff > 0 ? const Color(0xFFF59E0B) : const Color(0xFF059669);
+    final diffColor = diff < 0 ? SboxColors.danger : diff > 0 ? SboxColors.warning : SboxColors.success;
     final diffLabel = diff < 0 ? 'Hao hụt' : diff > 0 ? 'Thừa' : 'Khớp';
 
     return Container(
@@ -4850,7 +4851,7 @@ class _InventoryDetailDialogState extends State<_InventoryDetailDialog> {
           begin: Alignment.topLeft, end: Alignment.bottomRight,
         ),
         borderRadius: BorderRadius.circular(10),
-        border: Border.all(color: const Color(0xFFE2E8F0)),
+        border: Border.all(color: SboxColors.slate200),
       ),
       child: Column(
         children: [
@@ -4860,16 +4861,16 @@ class _InventoryDetailDialogState extends State<_InventoryDetailDialog> {
               const SizedBox(width: 6),
               Text(tr('Báo cáo kiểm kê'), style: TextStyle(fontSize: 13, fontWeight: FontWeight.w700, color: HrmPageChrome.primaryNavy)),
               const Spacer(),
-              Text(tr('${s['checkedCount']}/${_inventory.totalAssets} đã kiểm'), style: const TextStyle(fontSize: 11, color: Color(0xFF64748B))),
+              Text(tr('${s['checkedCount']}/${_inventory.totalAssets} đã kiểm'), style: const TextStyle(fontSize: 11, color: SboxColors.slate500)),
             ],
           ),
           const SizedBox(height: 10),
           // Main summary row
           Row(
             children: [
-              Expanded(child: _summaryBox('Tồn kho', '${s['totalExpected']}', const Color(0xFF3B82F6))),
+              Expanded(child: _summaryBox('Tồn kho', '${s['totalExpected']}', SboxColors.brand500)),
               const SizedBox(width: 8),
-              Expanded(child: _summaryBox('Thực tế', '${s['totalActual']}', const Color(0xFF8B5CF6))),
+              Expanded(child: _summaryBox('Thực tế', '${s['totalActual']}', SboxColors.violet)),
               const SizedBox(width: 8),
               Expanded(child: _summaryBox(diffLabel, '${diff.abs()}', diffColor)),
             ],
@@ -4878,14 +4879,14 @@ class _InventoryDetailDialogState extends State<_InventoryDetailDialog> {
           // Detail counts row
           Row(
             children: [
-              _countChip(Icons.check_circle, '${s['matchItems']} khớp', const Color(0xFF059669)),
+              _countChip(Icons.check_circle, '${s['matchItems']} khớp', SboxColors.success),
               const SizedBox(width: 6),
-              _countChip(Icons.trending_down, '${s['lossItems']} hao hụt', const Color(0xFFEF4444)),
+              _countChip(Icons.trending_down, '${s['lossItems']} hao hụt', SboxColors.danger),
               const SizedBox(width: 6),
-              _countChip(Icons.trending_up, '${s['surplusItems']} thừa', const Color(0xFFF59E0B)),
+              _countChip(Icons.trending_up, '${s['surplusItems']} thừa', SboxColors.warning),
               if ((s['issueItems'] as int) > 0) ...[
                 const SizedBox(width: 6),
-                _countChip(Icons.warning_amber, '${s['issueItems']} vấn đề', const Color(0xFFEF4444)),
+                _countChip(Icons.warning_amber, '${s['issueItems']} vấn đề', SboxColors.danger),
               ],
             ],
           ),
@@ -4899,11 +4900,11 @@ class _InventoryDetailDialogState extends State<_InventoryDetailDialog> {
       padding: const EdgeInsets.symmetric(vertical: 8, horizontal: 6),
       decoration: BoxDecoration(
         color: color.withValues(alpha: 0.08),
-        borderRadius: BorderRadius.circular(8),
+        borderRadius: BorderRadius.circular(10),
       ),
       child: Column(
         children: [
-          Text(tr(value), style: TextStyle(fontSize: 18, fontWeight: FontWeight.w800, color: color)),
+          Text(tr(value), style: TextStyle(fontSize: 18, fontWeight: FontWeight.w700, color: color)),
           const SizedBox(height: 2),
           Text(tr(label), style: TextStyle(fontSize: 10, color: color.withValues(alpha: 0.8), fontWeight: FontWeight.w500)),
         ],
@@ -4936,7 +4937,7 @@ class _InventoryDetailDialogState extends State<_InventoryDetailDialog> {
     final checkedItems = items.where((i) => i.isChecked).toList();
     final uncheckedItems = items.where((i) => !i.isChecked).toList();
     final progress = _inventory.totalAssets > 0 ? _inventory.checkedCount / _inventory.totalAssets : 0.0;
-    final statusColor = _inventory.isInProgress ? const Color(0xFF3B82F6) : _inventory.isCompleted ? const Color(0xFF059669) : const Color(0xFFEF4444);
+    final statusColor = _inventory.isInProgress ? SboxColors.brand500 : _inventory.isCompleted ? SboxColors.success : SboxColors.danger;
 
     // For report view, sort by shrinkage (most loss first)
     final reportItems = List<AssetInventoryItem>.from(checkedItems)
@@ -5026,7 +5027,7 @@ class _InventoryDetailDialogState extends State<_InventoryDetailDialog> {
                                   strokeWidth: 4,
                                 ),
                                 Center(
-                                  child: Text(tr('${_inventory.progressPercent.toStringAsFixed(0)}%'), style: const TextStyle(color: Colors.white, fontSize: 12, fontWeight: FontWeight.w800)),
+                                  child: Text(tr('${_inventory.progressPercent.toStringAsFixed(0)}%'), style: const TextStyle(color: Colors.white, fontSize: 12, fontWeight: FontWeight.w700)),
                                 ),
                               ],
                             ),
@@ -5071,9 +5072,9 @@ class _InventoryDetailDialogState extends State<_InventoryDetailDialog> {
                         icon: const Icon(Icons.qr_code_scanner, size: 18),
                         label: Text(tr('Quét mã'), style: TextStyle(fontSize: 13)),
                         style: ElevatedButton.styleFrom(
-                          backgroundColor: const Color(0xFF059669), foregroundColor: Colors.white,
+                          backgroundColor: SboxColors.success, foregroundColor: Colors.white,
                           padding: const EdgeInsets.symmetric(vertical: 10),
-                          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+                          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
                           elevation: 0,
                         ),
                       ),
@@ -5083,7 +5084,7 @@ class _InventoryDetailDialogState extends State<_InventoryDetailDialog> {
                       icon: _showReport ? Icons.list_alt : Icons.assessment_outlined,
                       tooltip: tr(_showReport ? 'Danh sách' : 'Báo cáo'),
                       onTap: () => setState(() => _showReport = !_showReport),
-                      color: const Color(0xFF3B82F6),
+                      color: SboxColors.brand500,
                     ),
                     const SizedBox(width: 6),
                     FilledButton.icon(
@@ -5094,7 +5095,7 @@ class _InventoryDetailDialogState extends State<_InventoryDetailDialog> {
                         foregroundColor: Colors.white,
                         backgroundColor: HrmPageChrome.primaryNavy,
                         padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
-                        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+                        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
                         elevation: 0,
                       ),
                     ),
@@ -5106,7 +5107,7 @@ class _InventoryDetailDialogState extends State<_InventoryDetailDialog> {
               Container(
                 padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
                 decoration: BoxDecoration(
-                  color: _inventory.isCompleted ? const Color(0xFFF0FDF4) : const Color(0xFFFEF2F2),
+                  color: _inventory.isCompleted ? SboxColors.successSoft : SboxColors.dangerSoft,
                   border: Border(bottom: BorderSide(color: _inventory.isCompleted ? const Color(0xFFBBF7D0) : const Color(0xFFFECACA))),
                 ),
                 child: Row(
@@ -5126,7 +5127,7 @@ class _InventoryDetailDialogState extends State<_InventoryDetailDialog> {
                       icon: _showReport ? Icons.list_alt : Icons.assessment_outlined,
                       tooltip: tr(_showReport ? 'Danh sách' : 'Báo cáo'),
                       onTap: () => setState(() => _showReport = !_showReport),
-                      color: const Color(0xFF3B82F6),
+                      color: SboxColors.brand500,
                     ),
                   ],
                 ),
@@ -5138,9 +5139,9 @@ class _InventoryDetailDialogState extends State<_InventoryDetailDialog> {
             Expanded(
               child: items.isEmpty
                   ? Center(child: Column(mainAxisSize: MainAxisSize.min, children: [
-                      Icon(Icons.inventory_2_outlined, size: 48, color: Color(0xFFD4D4D8)),
+                      Icon(Icons.inventory_2_outlined, size: 48, color: SboxColors.slate300),
                       SizedBox(height: 8),
-                      Text(tr('Chưa có hàng hóa nào'), style: TextStyle(color: Color(0xFFA1A1AA), fontSize: 14)),
+                      Text(tr('Chưa có hàng hóa nào'), style: TextStyle(color: SboxColors.slate400, fontSize: 14)),
                     ]))
                   : _showReport
                     ? _buildReportView(reportItems)
@@ -5148,13 +5149,13 @@ class _InventoryDetailDialogState extends State<_InventoryDetailDialog> {
                         padding: const EdgeInsets.all(12),
                         children: [
                           if (uncheckedItems.isNotEmpty) ...[
-                            _sectionLabel('Chưa kiểm', uncheckedItems.length, const Color(0xFFF59E0B), Icons.radio_button_unchecked),
+                            _sectionLabel('Chưa kiểm', uncheckedItems.length, SboxColors.warning, Icons.radio_button_unchecked),
                             const SizedBox(height: 6),
                             ...uncheckedItems.map((item) => _buildInventoryItemCard(item, checked: false)),
                             const SizedBox(height: 16),
                           ],
                           if (checkedItems.isNotEmpty) ...[
-                            _sectionLabel('Đã kiểm', checkedItems.length, const Color(0xFF059669), Icons.check_circle),
+                            _sectionLabel('Đã kiểm', checkedItems.length, SboxColors.success, Icons.check_circle),
                             const SizedBox(height: 6),
                             ...checkedItems.map((item) => _buildInventoryItemCard(item, checked: true)),
                           ],
@@ -5170,7 +5171,7 @@ class _InventoryDetailDialogState extends State<_InventoryDetailDialog> {
   Widget _headerStat(String label, String value, Color color) {
     return Column(
       children: [
-        Text(tr(value), style: TextStyle(fontSize: 18, fontWeight: FontWeight.w800, color: color)),
+        Text(tr(value), style: TextStyle(fontSize: 18, fontWeight: FontWeight.w700, color: color)),
         Text(tr(label), style: TextStyle(fontSize: 9, color: color.withValues(alpha: 0.7), fontWeight: FontWeight.w500)),
       ],
     );
@@ -5181,12 +5182,12 @@ class _InventoryDetailDialogState extends State<_InventoryDetailDialog> {
       message: tooltip,
       child: InkWell(
         onTap: onTap,
-        borderRadius: BorderRadius.circular(8),
+        borderRadius: BorderRadius.circular(10),
         child: Container(
           padding: const EdgeInsets.all(10),
           decoration: BoxDecoration(
             color: color.withValues(alpha: 0.08),
-            borderRadius: BorderRadius.circular(8),
+            borderRadius: BorderRadius.circular(10),
           ),
           child: Icon(icon, size: 18, color: color),
         ),
@@ -5212,7 +5213,7 @@ class _InventoryDetailDialogState extends State<_InventoryDetailDialog> {
 
   Widget _buildReportView(List<AssetInventoryItem> reportItems) {
     if (reportItems.isEmpty) {
-      return Center(child: Text(tr('Chưa có hàng hóa nào được kiểm'), style: TextStyle(color: Color(0xFFA1A1AA))));
+      return Center(child: Text(tr('Chưa có hàng hóa nào được kiểm'), style: TextStyle(color: SboxColors.slate400)));
     }
 
     return ListView.builder(
@@ -5230,13 +5231,13 @@ class _InventoryDetailDialogState extends State<_InventoryDetailDialog> {
             ),
             child: Row(
               children: [
-                Expanded(flex: 3, child: Text(tr('Hàng hóa'), style: TextStyle(fontSize: 11, fontWeight: FontWeight.w700, color: Color(0xFF64748B)))),
+                Expanded(flex: 3, child: Text(tr('Hàng hóa'), style: TextStyle(fontSize: 11, fontWeight: FontWeight.w700, color: SboxColors.slate500))),
                 SizedBox(width: 4),
-                SizedBox(width: 45, child: Text(tr('Tồn kho'), style: TextStyle(fontSize: 10, fontWeight: FontWeight.w700, color: Color(0xFF64748B)), textAlign: TextAlign.center)),
+                SizedBox(width: 45, child: Text(tr('Tồn kho'), style: TextStyle(fontSize: 10, fontWeight: FontWeight.w700, color: SboxColors.slate500), textAlign: TextAlign.center)),
                 SizedBox(width: 4),
-                SizedBox(width: 45, child: Text(tr('Thực tế'), style: TextStyle(fontSize: 10, fontWeight: FontWeight.w700, color: Color(0xFF64748B)), textAlign: TextAlign.center)),
+                SizedBox(width: 45, child: Text(tr('Thực tế'), style: TextStyle(fontSize: 10, fontWeight: FontWeight.w700, color: SboxColors.slate500), textAlign: TextAlign.center)),
                 SizedBox(width: 4),
-                SizedBox(width: 55, child: Text(tr('Chênh lệch'), style: TextStyle(fontSize: 10, fontWeight: FontWeight.w700, color: Color(0xFF64748B)), textAlign: TextAlign.center)),
+                SizedBox(width: 55, child: Text(tr('Chênh lệch'), style: TextStyle(fontSize: 10, fontWeight: FontWeight.w700, color: SboxColors.slate500), textAlign: TextAlign.center)),
               ],
             ),
           );
@@ -5245,7 +5246,7 @@ class _InventoryDetailDialogState extends State<_InventoryDetailDialog> {
         final item = reportItems[index - 1];
         final actual = item.actualQuantity ?? 0;
         final diff = actual - item.expectedQuantity;
-        final diffColor = diff < 0 ? const Color(0xFFEF4444) : diff > 0 ? const Color(0xFFF59E0B) : const Color(0xFF059669);
+        final diffColor = diff < 0 ? SboxColors.danger : diff > 0 ? SboxColors.warning : SboxColors.success;
         final diffText = diff < 0 ? '$diff' : diff > 0 ? '+$diff' : '0';
 
         String? imageUrl;
@@ -5258,7 +5259,7 @@ class _InventoryDetailDialogState extends State<_InventoryDetailDialog> {
           margin: const EdgeInsets.only(bottom: 3),
           padding: const EdgeInsets.symmetric(vertical: 8, horizontal: 10),
           decoration: BoxDecoration(
-            color: diff < 0 ? const Color(0xFFFEF2F2) : diff > 0 ? const Color(0xFFFFFBEB) : const Color(0xFFF0FDF4),
+            color: diff < 0 ? SboxColors.dangerSoft : diff > 0 ? SboxColors.warningSoft : SboxColors.successSoft,
             borderRadius: BorderRadius.circular(6),
             border: Border.all(color: diff < 0 ? const Color(0xFFFECACA) : diff > 0 ? const Color(0xFFFED7AA) : const Color(0xFFBBF7D0), width: 0.5),
           ),
@@ -5270,12 +5271,12 @@ class _InventoryDetailDialogState extends State<_InventoryDetailDialog> {
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     Text(tr(item.assetName ?? ''), style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w600), maxLines: 1, overflow: TextOverflow.ellipsis),
-                    if (item.assetCode != null) Text(tr(item.assetCode!), style: const TextStyle(fontSize: 10, color: Color(0xFF94A3B8))),
+                    if (item.assetCode != null) Text(tr(item.assetCode!), style: const TextStyle(fontSize: 10, color: SboxColors.slate400)),
                     if (item.hasIssue)
                       Row(children: [
-                        const Icon(Icons.warning_amber, size: 10, color: Color(0xFFEF4444)),
+                        const Icon(Icons.warning_amber, size: 10, color: SboxColors.danger),
                         const SizedBox(width: 2),
-                        Expanded(child: Text(tr(item.issueDescription ?? 'Vấn đề'), style: const TextStyle(fontSize: 10, color: Color(0xFFEF4444)), maxLines: 1, overflow: TextOverflow.ellipsis)),
+                        Expanded(child: Text(tr(item.issueDescription ?? 'Vấn đề'), style: const TextStyle(fontSize: 10, color: SboxColors.danger), maxLines: 1, overflow: TextOverflow.ellipsis)),
                       ]),
                     if (imageUrl != null)
                       Padding(
@@ -5288,9 +5289,9 @@ class _InventoryDetailDialogState extends State<_InventoryDetailDialog> {
                             ]),
                           )),
                           child: Row(children: [
-                            Icon(Icons.image, size: 10, color: Color(0xFF3B82F6)),
+                            Icon(Icons.image, size: 10, color: SboxColors.brand500),
                             SizedBox(width: 2),
-                            Text(tr('Xem ảnh'), style: TextStyle(fontSize: 10, color: Color(0xFF3B82F6), decoration: TextDecoration.underline)),
+                            Text(tr('Xem ảnh'), style: TextStyle(fontSize: 10, color: SboxColors.brand500, decoration: TextDecoration.underline)),
                           ]),
                         ),
                       ),
@@ -5306,7 +5307,7 @@ class _InventoryDetailDialogState extends State<_InventoryDetailDialog> {
                 width: 55,
                 padding: const EdgeInsets.symmetric(vertical: 3),
                 decoration: BoxDecoration(color: diffColor.withValues(alpha: 0.12), borderRadius: BorderRadius.circular(4)),
-                child: Text(tr(diffText), style: TextStyle(fontSize: 12, fontWeight: FontWeight.w800, color: diffColor), textAlign: TextAlign.center),
+                child: Text(tr(diffText), style: TextStyle(fontSize: 12, fontWeight: FontWeight.w700, color: diffColor), textAlign: TextAlign.center),
               ),
             ],
           ),
@@ -5329,25 +5330,25 @@ class _InventoryDetailDialogState extends State<_InventoryDetailDialog> {
 
     final actual = item.actualQuantity ?? 0;
     final diff = checked ? actual - item.expectedQuantity : 0;
-    final diffColor = diff < 0 ? const Color(0xFFEF4444) : diff > 0 ? const Color(0xFFF59E0B) : const Color(0xFF059669);
+    final diffColor = diff < 0 ? SboxColors.danger : diff > 0 ? SboxColors.warning : SboxColors.success;
 
     return Container(
       margin: const EdgeInsets.only(bottom: 6),
       padding: const EdgeInsets.all(10),
       decoration: BoxDecoration(
         color: checked
-            ? (diff < 0 ? const Color(0xFFFEF2F2) : diff > 0 ? const Color(0xFFFFFBEB) : const Color(0xFFF0FDF4))
+            ? (diff < 0 ? SboxColors.dangerSoft : diff > 0 ? SboxColors.warningSoft : SboxColors.successSoft)
             : Colors.white,
-        borderRadius: BorderRadius.circular(8),
+        borderRadius: BorderRadius.circular(10),
         border: Border.all(color: checked
             ? (diff < 0 ? const Color(0xFFFECACA) : diff > 0 ? const Color(0xFFFED7AA) : const Color(0xFFBBF7D0))
-            : const Color(0xFFE4E4E7)),
+            : SboxColors.slate200),
       ),
       child: Row(
         children: [
           Icon(
             checked ? Icons.check_circle : Icons.radio_button_unchecked,
-            color: checked ? diffColor : const Color(0xFFA1A1AA),
+            color: checked ? diffColor : SboxColors.slate400,
             size: 20,
           ),
           const SizedBox(width: 10),
@@ -5357,23 +5358,23 @@ class _InventoryDetailDialogState extends State<_InventoryDetailDialog> {
               children: [
                 Text(tr(item.assetName ?? 'Hàng hóa'), style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w600)),
                 if (item.assetCode != null)
-                  Text(tr(item.assetCode!), style: const TextStyle(fontSize: 11, color: Color(0xFF71717A))),
+                  Text(tr(item.assetCode!), style: const TextStyle(fontSize: 11, color: SboxColors.slate500)),
                 if (!checked)
-                  Text(tr('Tồn kho: ${item.expectedQuantity}'), style: const TextStyle(fontSize: 11, color: Color(0xFF64748B))),
+                  Text(tr('Tồn kho: ${item.expectedQuantity}'), style: const TextStyle(fontSize: 11, color: SboxColors.slate500)),
                 if (checked) ...[
                   const SizedBox(height: 4),
                   Row(
                     children: [
                       Container(
                         padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
-                        decoration: BoxDecoration(color: const Color(0xFF3B82F6).withValues(alpha: 0.1), borderRadius: BorderRadius.circular(4)),
-                        child: Text(tr('TK: ${item.expectedQuantity}'), style: const TextStyle(fontSize: 11, fontWeight: FontWeight.w600, color: Color(0xFF3B82F6))),
+                        decoration: BoxDecoration(color: SboxColors.brand500.withValues(alpha: 0.1), borderRadius: BorderRadius.circular(4)),
+                        child: Text(tr('TK: ${item.expectedQuantity}'), style: const TextStyle(fontSize: 11, fontWeight: FontWeight.w600, color: SboxColors.brand500)),
                       ),
                       const SizedBox(width: 6),
                       Container(
                         padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
-                        decoration: BoxDecoration(color: const Color(0xFF8B5CF6).withValues(alpha: 0.1), borderRadius: BorderRadius.circular(4)),
-                        child: Text(tr('TT: $actual'), style: const TextStyle(fontSize: 11, fontWeight: FontWeight.w600, color: Color(0xFF8B5CF6))),
+                        decoration: BoxDecoration(color: SboxColors.violet.withValues(alpha: 0.1), borderRadius: BorderRadius.circular(4)),
+                        child: Text(tr('TT: $actual'), style: const TextStyle(fontSize: 11, fontWeight: FontWeight.w600, color: SboxColors.violet)),
                       ),
                       const SizedBox(width: 6),
                       Container(
@@ -5397,16 +5398,16 @@ class _InventoryDetailDialogState extends State<_InventoryDetailDialog> {
                     padding: const EdgeInsets.only(top: 3),
                     child: Row(
                       children: [
-                        const Icon(Icons.warning_amber, size: 12, color: Color(0xFFEF4444)),
+                        const Icon(Icons.warning_amber, size: 12, color: SboxColors.danger),
                         const SizedBox(width: 4),
-                        Expanded(child: Text(tr(item.issueDescription ?? 'Có vấn đề'), style: const TextStyle(fontSize: 11, color: Color(0xFFEF4444)))),
+                        Expanded(child: Text(tr(item.issueDescription ?? 'Có vấn đề'), style: const TextStyle(fontSize: 11, color: SboxColors.danger))),
                       ],
                     ),
                   ),
                 if (displayNotes != null)
                   Padding(
                     padding: const EdgeInsets.only(top: 2),
-                    child: Text(tr(displayNotes), style: const TextStyle(fontSize: 11, color: Color(0xFF94A3B8)), maxLines: 1, overflow: TextOverflow.ellipsis),
+                    child: Text(tr(displayNotes), style: const TextStyle(fontSize: 11, color: SboxColors.slate400), maxLines: 1, overflow: TextOverflow.ellipsis),
                   ),
                 if (imageUrl != null)
                   Padding(
@@ -5429,8 +5430,8 @@ class _InventoryDetailDialogState extends State<_InventoryDetailDialog> {
                           errorWidget: (_, __, ___) => Container(
                             height: 60,
                             width: 80,
-                            color: const Color(0xFFF4F4F5),
-                            child: const Icon(Icons.broken_image, size: 20, color: Color(0xFFA1A1AA)),
+                            color: SboxColors.slate100,
+                            child: const Icon(Icons.broken_image, size: 20, color: SboxColors.slate400),
                           ),
                         ),
                       ),
@@ -5450,7 +5451,7 @@ class _InventoryDetailDialogState extends State<_InventoryDetailDialog> {
           if (checked && _inventory.isInProgress)
             IconButton(
               onPressed: () => _checkItemManually(item),
-              icon: const Icon(Icons.edit, size: 16, color: Color(0xFF94A3B8)),
+              icon: const Icon(Icons.edit, size: 16, color: SboxColors.slate400),
               tooltip: tr('Sửa'),
               padding: EdgeInsets.zero,
               constraints: const BoxConstraints(),

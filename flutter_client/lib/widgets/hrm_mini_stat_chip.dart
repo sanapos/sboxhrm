@@ -138,7 +138,7 @@ class HrmBrandChip extends StatelessWidget {
       padding: EdgeInsets.symmetric(horizontal: padH, vertical: padV),
       decoration: BoxDecoration(
         color: Colors.white,
-        borderRadius: BorderRadius.circular(12),
+        borderRadius: BorderRadius.circular(14),
         border: Border.all(color: border, width: selected ? 1.5 : 1),
       ),
       child: Row(

@@ -7,6 +7,7 @@ import 'notification_overlay.dart';
 import 'package:zkteco_flutter_client/l10n/app_tr.dart';
 
 import './pos/pos_theme.dart';
+import '../theme/sbox_tokens.dart';
 class CameraFaceCaptureResult {
   final List<String> base64Images;
   CameraFaceCaptureResult({required this.base64Images});
@@ -246,7 +247,7 @@ class _CameraFaceCaptureState extends State<CameraFaceCapture> {
       height: 80,
       margin: const EdgeInsets.symmetric(horizontal: 6),
       decoration: BoxDecoration(
-        borderRadius: BorderRadius.circular(12),
+        borderRadius: BorderRadius.circular(14),
         border: Border.all(color: PosTheme.kiotBlue, width: 2),
       ),
       child: ClipRRect(
@@ -263,7 +264,7 @@ class _CameraFaceCaptureState extends State<CameraFaceCapture> {
                 child: Container(
                   padding: const EdgeInsets.all(2),
                   decoration: const BoxDecoration(
-                    color: Color(0xFFEF4444),
+                    color: SboxColors.danger,
                     shape: BoxShape.circle,
                   ),
                   child: const Icon(Icons.close, color: Colors.white, size: 14),
@@ -302,7 +303,7 @@ class _CameraFaceCaptureState extends State<CameraFaceCapture> {
                     : isCurrent
                         ? Colors.white
                         : Colors.white.withValues(alpha: 0.3),
-                borderRadius: BorderRadius.circular(5),
+                borderRadius: BorderRadius.circular(6),
               ),
             );
           }),
@@ -331,7 +332,7 @@ class _CameraFaceCaptureState extends State<CameraFaceCapture> {
                         child: CircularProgressIndicator(strokeWidth: 2),
                       ),
                     )
-                  : const Icon(Icons.camera, color: Color(0xFF18181B), size: 32),
+                  : const Icon(Icons.camera, color: SboxColors.slate900, size: 32),
             ),
           ),
         ),
@@ -358,7 +359,7 @@ class _CameraFaceCaptureState extends State<CameraFaceCapture> {
               padding: const EdgeInsets.symmetric(vertical: 16),
               side: BorderSide(color: Colors.white.withValues(alpha: 0.3)),
               shape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(12)),
+                  borderRadius: BorderRadius.circular(14)),
             ),
           ),
         ),
@@ -374,7 +375,7 @@ class _CameraFaceCaptureState extends State<CameraFaceCapture> {
               foregroundColor: Colors.white,
               padding: const EdgeInsets.symmetric(vertical: 16),
               shape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(12)),
+                  borderRadius: BorderRadius.circular(14)),
             ),
           ),
         ),

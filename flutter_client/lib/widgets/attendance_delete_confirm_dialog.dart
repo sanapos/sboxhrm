@@ -5,6 +5,7 @@ import 'app_responsive_dialog.dart';
 import 'attendance_correction_reason_field.dart';
 import 'package:zkteco_flutter_client/l10n/app_tr.dart';
 
+import '../theme/sbox_tokens.dart';
 /// Dialog xóa chấm công — mobile full-screen, nút Hủy/Xóa cố định dưới (không bị che).
 Future<String?> showAttendanceDeleteConfirmDialog({
   required BuildContext context,
@@ -24,7 +25,7 @@ Future<String?> showAttendanceDeleteConfirmDialog({
       context: context,
       title: 'Xác nhận xóa',
       icon: Icons.delete_forever,
-      iconColor: const Color(0xFFEF4444),
+      iconColor: SboxColors.danger,
       maxWidth: 480,
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -109,7 +110,7 @@ class _DeleteDialogActions extends StatelessWidget {
             icon: const Icon(Icons.delete, size: 20),
             label: Text(tr('Xóa')),
             style: FilledButton.styleFrom(
-              backgroundColor: const Color(0xFFEF4444),
+              backgroundColor: SboxColors.danger,
               foregroundColor: Colors.white,
             ),
           ),

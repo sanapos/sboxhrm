@@ -7,6 +7,7 @@ import '../../widgets/notification_overlay.dart';
 import 'system_admin_helpers.dart';
 import 'package:zkteco_flutter_client/l10n/app_tr.dart';
 
+import '../../theme/sbox_tokens.dart';
 class AgentProfileTab extends StatefulWidget {
   final ValueChanged<Map<String, dynamic>>? onProfileLoaded;
 
@@ -248,7 +249,7 @@ class AgentProfileTabState extends State<AgentProfileTab> {
         child: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
-            Icon(Icons.support_agent, size: 64, color: Colors.grey[300]),
+            Icon(Icons.support_agent, size: 64, color: SboxColors.slate300),
             const SizedBox(height: 12),
             Text(tr('Không tải được hồ sơ đại lý')),
             const SizedBox(height: 12),
@@ -326,7 +327,7 @@ class AgentProfileTabState extends State<AgentProfileTab> {
           _sectionTitle('Link giới thiệu cửa hàng'),
           const SizedBox(height: 8),
           Text(tr('Gửi link này cho khách hàng đăng ký cửa hàng dưới mã đại lý của bạn.'),
-            style: TextStyle(fontSize: 13, color: Colors.grey[600]),
+            style: TextStyle(fontSize: 13, color: SboxColors.slate600),
           ),
           const SizedBox(height: 10),
           if (referralLink.isNotEmpty) _linkBox(referralLink),
@@ -371,7 +372,7 @@ class AgentProfileTabState extends State<AgentProfileTab> {
                 ),
                 const SizedBox(height: 4),
                 Text(tr('${tr('Mã đại lý: ')}${p['code'] ?? '—'}'),
-                  style: TextStyle(color: Colors.grey[600], fontSize: 13),
+                  style: TextStyle(color: SboxColors.slate600, fontSize: 13),
                 ),
               ],
             ),
@@ -414,7 +415,7 @@ class AgentProfileTabState extends State<AgentProfileTab> {
       decoration: BoxDecoration(
         color: Colors.white,
         borderRadius: BorderRadius.circular(10),
-        border: Border.all(color: Colors.grey.shade200),
+        border: Border.all(color: SboxColors.slate200),
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -422,7 +423,7 @@ class AgentProfileTabState extends State<AgentProfileTab> {
           Text(tr(value),
               style: const TextStyle(
                   fontWeight: FontWeight.bold, fontSize: 16)),
-          Text(tr(label), style: TextStyle(fontSize: 11, color: Colors.grey[600])),
+          Text(tr(label), style: TextStyle(fontSize: 11, color: SboxColors.slate600)),
         ],
       ),
     );
@@ -431,7 +432,7 @@ class AgentProfileTabState extends State<AgentProfileTab> {
   Widget _sectionTitle(String title) {
     return Text(
       tr(title),
-      style: const TextStyle(fontSize: 15, fontWeight: FontWeight.bold),
+      style: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
     );
   }
 
@@ -442,7 +443,7 @@ class AgentProfileTabState extends State<AgentProfileTab> {
       decoration: BoxDecoration(
         color: Colors.white,
         borderRadius: BorderRadius.circular(10),
-        border: Border.all(color: Colors.grey.shade200),
+        border: Border.all(color: SboxColors.slate200),
       ),
       child: Row(
         children: [
@@ -453,7 +454,7 @@ class AgentProfileTabState extends State<AgentProfileTab> {
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 Text(tr(label),
-                    style: TextStyle(fontSize: 11, color: Colors.grey[500])),
+                    style: TextStyle(fontSize: 11, color: SboxColors.slate500)),
                 const SizedBox(height: 2),
                 Text(tr(value), style: const TextStyle(fontSize: 14)),
               ],
@@ -471,7 +472,7 @@ class AgentProfileTabState extends State<AgentProfileTab> {
       decoration: BoxDecoration(
         color: AdminHelpers.surfaceBg,
         borderRadius: BorderRadius.circular(10),
-        border: Border.all(color: Colors.grey.shade300),
+        border: Border.all(color: SboxColors.slate300),
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,

@@ -11,6 +11,7 @@ import '../widgets/hrm_fab_clearance.dart';
 import '../utils/responsive_helper.dart';
 import 'package:zkteco_flutter_client/l10n/app_tr.dart';
 
+import '../theme/sbox_tokens.dart';
 class HrDocumentsScreen extends StatefulWidget {
   final String? highlightId;
   const HrDocumentsScreen({super.key, this.highlightId});
@@ -104,11 +105,11 @@ class _HrDocumentsScreenState extends State<HrDocumentsScreen>
       case 'id_card':
         return const Color(0xFFEA580C);
       case 'insurance':
-        return const Color(0xFF059669);
+        return SboxColors.success;
       case 'license':
         return HrmPageChrome.primaryNavy;
       default:
-        return const Color(0xFF6B7280);
+        return SboxColors.slate500;
     }
   }
 
@@ -191,7 +192,7 @@ class _HrDocumentsScreenState extends State<HrDocumentsScreen>
         indicatorColor: HrmPageChrome.primaryNavy,
         indicatorWeight: 3,
         labelColor: HrmPageChrome.primaryNavy,
-        unselectedLabelColor: Colors.grey[600],
+        unselectedLabelColor: SboxColors.slate600,
         tabs: [
           Tab(text: tr('Tất cả (${_documents.length})')),
           Tab(text: tr('Sắp hết hạn (${_expiringDocs.length})')),
@@ -204,10 +205,10 @@ class _HrDocumentsScreenState extends State<HrDocumentsScreen>
     if (docs.isEmpty) {
       return Center(
         child: Column(mainAxisSize: MainAxisSize.min, children: [
-          Icon(Icons.folder_open, size: 80, color: Colors.grey[300]),
+          Icon(Icons.folder_open, size: 80, color: SboxColors.slate300),
           const SizedBox(height: 16),
           Text(tr('Chưa có tài liệu'),
-              style: TextStyle(color: Colors.grey[500], fontSize: 16)),
+              style: TextStyle(color: SboxColors.slate500, fontSize: 16)),
         ]),
       );
     }
@@ -230,8 +231,8 @@ class _HrDocumentsScreenState extends State<HrDocumentsScreen>
               child: Container(
                 decoration: BoxDecoration(
                   color: Colors.white,
-                  borderRadius: BorderRadius.circular(12),
-                  border: Border.all(color: const Color(0xFFE4E4E7)),
+                  borderRadius: BorderRadius.circular(14),
+                  border: Border.all(color: SboxColors.slate200),
                   boxShadow: [
                     BoxShadow(
                       color: Colors.black.withValues(alpha: 0.05),
@@ -250,13 +251,13 @@ class _HrDocumentsScreenState extends State<HrDocumentsScreen>
             padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
             decoration: BoxDecoration(
               color: Colors.white,
-              border: Border(top: BorderSide(color: Colors.grey.shade200)),
+              border: Border(top: BorderSide(color: SboxColors.slate200)),
             ),
             child: Row(
               mainAxisAlignment: MainAxisAlignment.spaceBetween,
               children: [
                 Text(tr('Hiển thị ${startIndex + 1}-$endIndex / $totalCount'),
-                  style: TextStyle(fontSize: 12, color: Colors.grey[600]),
+                  style: TextStyle(fontSize: 12, color: SboxColors.slate600),
                 ),
                 Row(
                   children: [
@@ -293,7 +294,7 @@ class _HrDocumentsScreenState extends State<HrDocumentsScreen>
           Icon(Icons.verified, size: 80, color: Colors.green[200]),
           const SizedBox(height: 16),
           Text(tr('Không có tài liệu sắp hết hạn'),
-              style: TextStyle(color: Colors.grey[500], fontSize: 16)),
+              style: TextStyle(color: SboxColors.slate500, fontSize: 16)),
         ]),
       );
     }
@@ -318,8 +319,8 @@ class _HrDocumentsScreenState extends State<HrDocumentsScreen>
                 child: Container(
                   decoration: BoxDecoration(
                     color: Colors.white,
-                    borderRadius: BorderRadius.circular(12),
-                    border: Border.all(color: const Color(0xFFE4E4E7)),
+                    borderRadius: BorderRadius.circular(14),
+                    border: Border.all(color: SboxColors.slate200),
                     boxShadow: [
                       BoxShadow(
                         color: Colors.black.withValues(alpha: 0.05),
@@ -339,13 +340,13 @@ class _HrDocumentsScreenState extends State<HrDocumentsScreen>
             padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
             decoration: BoxDecoration(
               color: Colors.white,
-              border: Border(top: BorderSide(color: Colors.grey.shade200)),
+              border: Border(top: BorderSide(color: SboxColors.slate200)),
             ),
             child: Row(
               mainAxisAlignment: MainAxisAlignment.spaceBetween,
               children: [
                 Text(tr('Hiển thị ${startIndex + 1}-$endIndex / $totalCount'),
-                  style: TextStyle(fontSize: 12, color: Colors.grey[600]),
+                  style: TextStyle(fontSize: 12, color: SboxColors.slate600),
                 ),
                 Row(
                   children: [
@@ -391,7 +392,7 @@ class _HrDocumentsScreenState extends State<HrDocumentsScreen>
               height: 36,
               decoration: BoxDecoration(
                   color: color.withValues(alpha: 0.1),
-                  borderRadius: BorderRadius.circular(8)),
+                  borderRadius: BorderRadius.circular(10)),
               child: Icon(_getDocTypeIcon(type), color: color, size: 18),
             ),
             const SizedBox(width: 12),
@@ -418,8 +419,8 @@ class _HrDocumentsScreenState extends State<HrDocumentsScreen>
                     style: TextStyle(
                         fontSize: 12,
                         color: showWarning
-                            ? const Color(0xFFD97706)
-                            : Colors.grey[500]),
+                            ? SboxColors.warning
+                            : SboxColors.slate500),
                     maxLines: 1,
                     overflow: TextOverflow.ellipsis,
                   ),
@@ -428,13 +429,13 @@ class _HrDocumentsScreenState extends State<HrDocumentsScreen>
             ),
             if (showWarning)
               const Icon(Icons.warning_amber,
-                  size: 16, color: Color(0xFFD97706)),
+                  size: 16, color: SboxColors.warning),
             if (Provider.of<PermissionProvider>(context, listen: false)
                     .canEdit('HrDocument') ||
                 Provider.of<PermissionProvider>(context, listen: false)
                     .canDelete('HrDocument'))
               PopupMenuButton<String>(
-                icon: Icon(Icons.more_vert, color: Colors.grey[400], size: 18),
+                icon: Icon(Icons.more_vert, color: SboxColors.slate400, size: 18),
                 itemBuilder: (_) => [
                   if (Provider.of<PermissionProvider>(context, listen: false)
                       .canEdit('HrDocument'))

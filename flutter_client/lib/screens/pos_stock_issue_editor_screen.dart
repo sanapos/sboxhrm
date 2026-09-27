@@ -23,7 +23,8 @@ import '../widgets/pos_barcode_scanner.dart';
 import '../screens/main_layout.dart' show ScreenRefreshNotifier;
 import 'package:zkteco_flutter_client/l10n/app_tr.dart';
 
-const _blue = Color(0xFF2563EB);
+import '../theme/sbox_tokens.dart';
+const _blue = SboxColors.brand600;
 
 class _IssueLine {
   final String lineId;
@@ -713,7 +714,7 @@ class _PosStockIssueEditorScreenState extends State<PosStockIssueEditorScreen> {
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
         Container(
-          color: const Color(0xFFF8FAFC),
+          color: SboxColors.slate50,
           child: IntrinsicHeight(
             child: Row(
               children: [
@@ -734,13 +735,13 @@ class _PosStockIssueEditorScreenState extends State<PosStockIssueEditorScreen> {
           child: _lines.isEmpty
               ? Center(
                   child: Text(tr('Chưa có hàng trong phiếu'),
-                    style: TextStyle(color: Colors.grey.shade600),
+                    style: TextStyle(color: SboxColors.slate600),
                   ),
                 )
               : ListView.separated(
                   itemCount: _lines.length,
                   separatorBuilder: (_, __) =>
-                      Divider(height: 1, color: Colors.grey.shade200),
+                      Divider(height: 1, color: SboxColors.slate200),
                   itemBuilder: (_, i) {
                     final l = _lines[i];
                     return IntrinsicHeight(
@@ -790,10 +791,10 @@ class _PosStockIssueEditorScreenState extends State<PosStockIssueEditorScreen> {
           child: Column(
             mainAxisSize: MainAxisSize.min,
             children: [
-              Icon(Icons.inventory_2_outlined, size: 48, color: Colors.grey.shade400),
+              Icon(Icons.inventory_2_outlined, size: 48, color: SboxColors.slate400),
               const SizedBox(height: 12),
               Text(tr('Chưa có hàng trong phiếu'),
-                  style: TextStyle(color: Colors.grey.shade600)),
+                  style: TextStyle(color: SboxColors.slate600)),
             ],
           ),
         ),
@@ -847,7 +848,7 @@ class _PosStockIssueEditorScreenState extends State<PosStockIssueEditorScreen> {
             Expanded(
               child: Text(tr('Chi tiết phiếu ${_config.title}'),
                   style: const TextStyle(
-                      fontSize: 15, fontWeight: FontWeight.w600)),
+                      fontSize: 16, fontWeight: FontWeight.w600)),
             ),
           IconButton(
             tooltip: tr('Quét mã vạch'),

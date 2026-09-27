@@ -24,6 +24,12 @@ abstract final class SboxColors {
   static const brand900 = Color(0xFF084B67);
 
   static const primary = brand600;
+
+  /// Dạng MaterialColor (cho API cần đủ tông shade50..shade900).
+  static const brandSwatch = MaterialColor(0xFF158DC0, <int, Color>{
+    50: brand50, 100: brand100, 200: brand200, 300: brand300, 400: brand400,
+    500: brand500, 600: brand600, 700: brand700, 800: brand800, 900: brand900,
+  });
   static const primaryHover = brand700;
   static const primarySoft = brand50;
 

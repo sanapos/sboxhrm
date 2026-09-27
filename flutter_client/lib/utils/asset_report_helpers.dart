@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'api_datetime.dart';
 
+import '../theme/sbox_tokens.dart';
 double assetReportMoney(dynamic v) {
   if (v is double) return v;
   if (v is num) return v.toDouble();
@@ -18,16 +19,16 @@ String assetReportFormatDate(dynamic v) {
 Color assetReportStatusColor(String? statusName) {
   final s = statusName?.toLowerCase() ?? '';
   if (s.contains('hỏng') || s.contains('hong')) {
-    return const Color(0xFFDC2626);
+    return SboxColors.danger;
   }
   if (s.contains('bảo trì') || s.contains('bao tri')) {
-    return const Color(0xFFF59E0B);
+    return SboxColors.warning;
   }
   if (s.contains('kho')) return const Color(0xFF0284C7);
   if (s.contains('đang dùng') || s.contains('dang dung')) {
-    return const Color(0xFF16A34A);
+    return SboxColors.success;
   }
-  return const Color(0xFF6B7280);
+  return SboxColors.slate500;
 }
 
 /// Nhãn ngắn cho chip chọn mục báo cáo (mobile).

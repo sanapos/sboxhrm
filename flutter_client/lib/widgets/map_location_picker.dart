@@ -7,6 +7,7 @@ import 'notification_overlay.dart';
 import 'package:zkteco_flutter_client/l10n/app_tr.dart';
 
 import './pos/pos_theme.dart';
+import '../theme/sbox_tokens.dart';
 /// A dialog widget that lets the user pick a location on an OpenStreetMap.
 /// Returns the selected [LatLng] or null if cancelled.
 class MapLocationPicker extends StatefulWidget {
@@ -170,8 +171,8 @@ class _MapLocationPickerState extends State<MapLocationPicker> {
                     point: _selectedLocation,
                     radius: _gpsAccuracyMeters!,
                     useRadiusInMeter: true,
-                    color: const Color(0xFF3B82F6).withValues(alpha: 0.08),
-                    borderColor: const Color(0xFF3B82F6).withValues(alpha: 0.4),
+                    color: SboxColors.brand500.withValues(alpha: 0.08),
+                    borderColor: SboxColors.brand500.withValues(alpha: 0.4),
                     borderStrokeWidth: 1.5,
                   ),
                 ],
@@ -185,7 +186,7 @@ class _MapLocationPickerState extends State<MapLocationPicker> {
                   height: 40,
                   child: const Icon(
                     Icons.location_on,
-                    color: Color(0xFFDC2626),
+                    color: SboxColors.danger,
                     size: 40,
                   ),
                 ),
@@ -222,7 +223,7 @@ class _MapLocationPickerState extends State<MapLocationPicker> {
                     height: 36,
                     decoration: BoxDecoration(
                       color: Colors.white,
-                      borderRadius: BorderRadius.circular(8),
+                      borderRadius: BorderRadius.circular(10),
                       boxShadow: [
                         BoxShadow(
                           color: Colors.black.withValues(alpha: 0.15),
@@ -248,7 +249,7 @@ class _MapLocationPickerState extends State<MapLocationPicker> {
             padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
             decoration: BoxDecoration(
               color: Colors.white.withValues(alpha: 0.9),
-              borderRadius: BorderRadius.circular(8),
+              borderRadius: BorderRadius.circular(10),
               boxShadow: [
                 BoxShadow(
                   color: Colors.black.withValues(alpha: 0.1),
@@ -258,7 +259,7 @@ class _MapLocationPickerState extends State<MapLocationPicker> {
             ),
             child: Text(
               tr('${_selectedLocation.latitude.toStringAsFixed(6)}, ${_selectedLocation.longitude.toStringAsFixed(6)}'),
-              style: const TextStyle(fontSize: 11, fontWeight: FontWeight.w500, color: Color(0xFF18181B)),
+              style: const TextStyle(fontSize: 11, fontWeight: FontWeight.w500, color: SboxColors.slate900),
             ),
           ),
         ),
@@ -321,7 +322,7 @@ class _MapLocationPickerState extends State<MapLocationPicker> {
                       children: [
                         TextButton(
                           onPressed: () => Navigator.pop(context, null),
-                          child: Text(tr('Hủy'), style: TextStyle(color: Color(0xFF71717A))),
+                          child: Text(tr('Hủy'), style: TextStyle(color: SboxColors.slate500)),
                         ),
                         const SizedBox(width: 12),
                         ElevatedButton.icon(
@@ -343,7 +344,7 @@ class _MapLocationPickerState extends State<MapLocationPicker> {
 
     return ScrollableAlertDialog(
       backgroundColor: Colors.white,
-      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
       title: Row(
         children: [
           Icon(
@@ -353,11 +354,11 @@ class _MapLocationPickerState extends State<MapLocationPicker> {
           const SizedBox(width: 12),
           Text(
             tr(widget.title ?? (widget.readOnly ? 'Xem vị trí' : 'Chọn vị trí trên bản đồ')),
-            style: const TextStyle(color: Color(0xFF18181B), fontSize: 18),
+            style: const TextStyle(color: SboxColors.slate900, fontSize: 18),
           ),
           const Spacer(),
           IconButton(
-            icon: const Icon(Icons.close, color: Colors.grey),
+            icon: const Icon(Icons.close, color: SboxColors.slate500),
             onPressed: () => Navigator.pop(context, null),
           ),
         ],
@@ -366,7 +367,7 @@ class _MapLocationPickerState extends State<MapLocationPicker> {
         width: 600,
         height: 450,
         child: ClipRRect(
-          borderRadius: BorderRadius.circular(12),
+          borderRadius: BorderRadius.circular(14),
           child: mapWidget,
         ),
       ),
@@ -380,7 +381,7 @@ class _MapLocationPickerState extends State<MapLocationPicker> {
           : [
               TextButton(
                 onPressed: () => Navigator.pop(context, null),
-                child: Text(tr('Hủy'), style: TextStyle(color: Color(0xFF71717A))),
+                child: Text(tr('Hủy'), style: TextStyle(color: SboxColors.slate500)),
               ),
               ElevatedButton.icon(
                 onPressed: () => Navigator.pop(context, _selectedLocation),
@@ -389,7 +390,7 @@ class _MapLocationPickerState extends State<MapLocationPicker> {
                 style: ElevatedButton.styleFrom(
                   backgroundColor: PosTheme.kiotBlue,
                   foregroundColor: Colors.white,
-                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
                 ),
               ),
             ],
@@ -399,15 +400,15 @@ class _MapLocationPickerState extends State<MapLocationPicker> {
   Widget _buildZoomButton(IconData icon, VoidCallback onPressed) {
     return Material(
       color: Colors.white,
-      borderRadius: BorderRadius.circular(8),
+      borderRadius: BorderRadius.circular(10),
       elevation: 2,
       child: InkWell(
         onTap: onPressed,
-        borderRadius: BorderRadius.circular(8),
+        borderRadius: BorderRadius.circular(10),
         child: SizedBox(
           width: 36,
           height: 36,
-          child: Icon(icon, size: 20, color: const Color(0xFF18181B)),
+          child: Icon(icon, size: 20, color: SboxColors.slate900),
         ),
       ),
     );

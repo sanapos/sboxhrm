@@ -7,6 +7,7 @@ import '../notification_overlay.dart';
 import 'pos_theme.dart';
 import 'package:zkteco_flutter_client/l10n/app_tr.dart';
 
+import '../../theme/sbox_tokens.dart';
 /// Sheet kéo thả thứ tự nhóm hàng + sản phẩm (giống sắp nhóm bàn).
 Future<bool> showPosCatalogSortSheet({
   required BuildContext context,
@@ -320,7 +321,7 @@ class _PosCatalogSortSheetState extends State<_PosCatalogSortSheet>
                           style: const TextStyle(fontSize: 11)),
                       trailing: p.isFavorite
                           ? const Icon(Icons.star,
-                              size: 18, color: Color(0xFFF59E0B))
+                              size: 18, color: SboxColors.warning)
                           : null,
                     );
                   },

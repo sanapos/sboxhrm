@@ -20,6 +20,7 @@ import '../utils/web_marketing_gate_stub.dart'
     if (dart.library.html) '../utils/web_marketing_gate_web.dart' as web_home;
 import 'package:zkteco_flutter_client/l10n/app_tr.dart';
 
+import '../theme/sbox_tokens.dart';
 class LoginScreen extends StatefulWidget {
   const LoginScreen({super.key});
 
@@ -59,7 +60,7 @@ class _LoginScreenState extends State<LoginScreen>
 
   bool get _isPos => SboxAppVariant.posBranding;
   Color get _brand =>
-      _isPos ? const Color(0xFF2E7D32) : const Color(0xFF0C56D0);
+      _isPos ? SboxColors.successText : SboxColors.brand600;
   Color get _brandDim =>
       _isPos ? const Color(0xFF1B5E20) : const Color(0xFF004ABA);
   Timer? _agentLookupDebounce;
@@ -80,10 +81,10 @@ class _LoginScreenState extends State<LoginScreen>
           labelStyle: TextStyle(
             fontSize: 12,
             fontWeight: FontWeight.w700,
-            color: selected ? Colors.white : const Color(0xFF374151),
+            color: selected ? Colors.white : SboxColors.slate700,
           ),
           selectedColor: _brand,
-          backgroundColor: const Color(0xFFF3F4F6),
+          backgroundColor: SboxColors.slate100,
           side: BorderSide.none,
         ),
       );
@@ -415,7 +416,7 @@ class _LoginScreenState extends State<LoginScreen>
                     end: Alignment.bottomRight,
                     colors: [
                       const Color(0xFFDAE2FF),
-                      const Color(0xFF0C56D0).withValues(alpha: 0.3),
+                      SboxColors.brand600.withValues(alpha: 0.3),
                     ],
                   ),
                 ),
@@ -423,7 +424,7 @@ class _LoginScreenState extends State<LoginScreen>
                   child: Icon(
                     Icons.face_retouching_natural,
                     size: 180,
-                    color: const Color(0xFF0C56D0).withValues(alpha: 0.2),
+                    color: SboxColors.brand600.withValues(alpha: 0.2),
                   ),
                 ),
               );
@@ -437,8 +438,8 @@ class _LoginScreenState extends State<LoginScreen>
                   begin: Alignment.bottomLeft,
                   end: Alignment.topRight,
                   colors: [
-                    const Color(0xFF0C56D0).withValues(alpha: 0.60),
-                    const Color(0xFF0C56D0).withValues(alpha: 0.20),
+                    SboxColors.brand600.withValues(alpha: 0.60),
+                    SboxColors.brand600.withValues(alpha: 0.20),
                     Colors.transparent,
                   ],
                   stops: const [0.0, 0.5, 1.0],
@@ -479,7 +480,7 @@ class _LoginScreenState extends State<LoginScreen>
                   style: TextStyle(
                     color: Colors.white,
                     fontSize: 38,
-                    fontWeight: FontWeight.w800,
+                    fontWeight: FontWeight.w700,
                     height: 1.2,
                     letterSpacing: -1,
                   ),
@@ -489,7 +490,7 @@ class _LoginScreenState extends State<LoginScreen>
                 Text(tr(SboxBrand.slogan),
                   style: TextStyle(
                     color: Colors.white.withValues(alpha: 0.8),
-                    fontSize: 15,
+                    fontSize: 16,
                     height: 1.55,
                   ),
                 ),
@@ -500,7 +501,7 @@ class _LoginScreenState extends State<LoginScreen>
                   constraints: const BoxConstraints(maxWidth: 280),
                   decoration: BoxDecoration(
                     color: Colors.white.withValues(alpha: 0.7),
-                    borderRadius: BorderRadius.circular(16),
+                    borderRadius: BorderRadius.circular(14),
                     border:
                         Border.all(color: Colors.white.withValues(alpha: 0.2)),
                     boxShadow: [
@@ -518,11 +519,11 @@ class _LoginScreenState extends State<LoginScreen>
                         width: 40,
                         height: 40,
                         decoration: BoxDecoration(
-                          color: const Color(0xFF0C56D0).withValues(alpha: 0.1),
+                          color: SboxColors.brand600.withValues(alpha: 0.1),
                           shape: BoxShape.circle,
                         ),
                         child: const Icon(Icons.trending_up_rounded,
-                            color: Color(0xFF0C56D0), size: 20),
+                            color: SboxColors.brand600, size: 20),
                       ),
                       const SizedBox(width: 16),
                       Flexible(
@@ -531,7 +532,7 @@ class _LoginScreenState extends State<LoginScreen>
                           children: [
                             Text(tr('HIỆU QUẢ CÔNG VIỆC'),
                               style: TextStyle(
-                                  color: Color(0xFF586064),
+                                  color: SboxColors.slate600,
                                   fontSize: 11,
                                   fontWeight: FontWeight.w700,
                                   letterSpacing: 1.2),
@@ -540,9 +541,9 @@ class _LoginScreenState extends State<LoginScreen>
                             SizedBox(height: 2),
                             Text(tr('TĂNG 100%'),
                               style: TextStyle(
-                                  color: Color(0xFF0C56D0),
+                                  color: SboxColors.brand600,
                                   fontSize: 18,
-                                  fontWeight: FontWeight.w800),
+                                  fontWeight: FontWeight.w700),
                             ),
                           ],
                         ),
@@ -605,10 +606,10 @@ class _LoginScreenState extends State<LoginScreen>
                               ? Icons.arrow_back_rounded
                               : Icons.open_in_browser_rounded,
                           size: 16,
-                          color: Color(0xFF6B7280)),
+                          color: SboxColors.slate500),
                       label: Text(tr('Trang chủ')),
                       style: TextButton.styleFrom(
-                        foregroundColor: const Color(0xFF6B7280),
+                        foregroundColor: SboxColors.slate500,
                         padding: const EdgeInsets.symmetric(
                             horizontal: 4, vertical: 4),
                         textStyle: const TextStyle(fontSize: 13),
@@ -648,7 +649,7 @@ class _LoginScreenState extends State<LoginScreen>
                         : Alignment.centerLeft,
                     child: Text(tr(SboxAppVariant.loginSubtitle),
                       style: TextStyle(
-                          color: Color(0xFF586064), fontSize: 14, height: 1.5),
+                          color: SboxColors.slate600, fontSize: 14, height: 1.5),
                     ),
                   ),
                   const SizedBox(height: 20),
@@ -781,7 +782,7 @@ class _LoginScreenState extends State<LoginScreen>
                               const SizedBox(width: 10),
                               Text(tr('Ghi nhớ đăng nhập'),
                                   style: TextStyle(
-                                      color: Color(0xFF586064), fontSize: 14)),
+                                      color: SboxColors.slate600, fontSize: 14)),
                             ],
                           ),
                         ),
@@ -817,7 +818,7 @@ class _LoginScreenState extends State<LoginScreen>
                                 shadowColor: Colors.transparent,
                                 foregroundColor: Colors.white,
                                 shape: RoundedRectangleBorder(
-                                    borderRadius: BorderRadius.circular(12)),
+                                    borderRadius: BorderRadius.circular(14)),
                               ),
                               child: _isLoading
                                   ? const SizedBox(
@@ -833,7 +834,7 @@ class _LoginScreenState extends State<LoginScreen>
                                       children: [
                                         Text(tr('Đăng nhập'),
                                             style: TextStyle(
-                                                fontSize: 15,
+                                                fontSize: 16,
                                                 fontWeight: FontWeight.w600)),
                                         SizedBox(width: 8),
                                         Icon(Icons.arrow_forward, size: 18),
@@ -856,7 +857,7 @@ class _LoginScreenState extends State<LoginScreen>
                         children: [
                           Text(tr('Chưa có tài khoản?'),
                               style: const TextStyle(
-                                  color: Color(0xFF6B7280), fontSize: 14)),
+                                  color: SboxColors.slate500, fontSize: 14)),
                           TextButton(
                             onPressed: () =>
                                 Navigator.of(context).pushNamed('/register'),
@@ -936,13 +937,13 @@ class _LoginScreenState extends State<LoginScreen>
   Widget _buildLoginFooter({required bool isDesktop}) {
     final copyright = SboxAppVariant.copyright;
     final copyrightStyle = TextStyle(
-      color: Colors.grey.shade400,
+      color: SboxColors.slate400,
       fontSize: 11,
       fontWeight: FontWeight.w500,
       letterSpacing: 0.3,
     );
     final versionStyle = TextStyle(
-      color: Colors.grey.shade500,
+      color: SboxColors.slate500,
       fontSize: 11,
       fontWeight: FontWeight.w600,
       letterSpacing: 0.2,
@@ -1038,7 +1039,7 @@ class _LoginScreenState extends State<LoginScreen>
         child: Text(
           tr(text),
           style: TextStyle(
-            color: Colors.grey.shade500,
+            color: SboxColors.slate500,
             fontSize: 11,
             fontWeight: FontWeight.w600,
             letterSpacing: 0.3,
@@ -1121,7 +1122,7 @@ class _LoginScreenState extends State<LoginScreen>
       style: const TextStyle(
         fontSize: 12,
         fontWeight: FontWeight.w600,
-        color: Color(0xFF586064),
+        color: SboxColors.slate600,
         letterSpacing: 1,
       ),
     );
@@ -1137,12 +1138,12 @@ class _LoginScreenState extends State<LoginScreen>
             color: const Color(0xFFEEF0F2),
             borderRadius: BorderRadius.circular(14),
           ),
-          child: Icon(icon, color: const Color(0xFF586064), size: 24),
+          child: Icon(icon, color: SboxColors.slate600, size: 24),
         ),
         const SizedBox(height: 6),
         Text(tr(label),
             style: const TextStyle(
-                color: Color(0xFF586064),
+                color: SboxColors.slate600,
                 fontSize: 11,
                 fontWeight: FontWeight.w600,
                 letterSpacing: 0.8)),
@@ -1155,8 +1156,8 @@ class _LoginScreenState extends State<LoginScreen>
     return Container(
       padding: const EdgeInsets.all(14),
       decoration: BoxDecoration(
-        color: const Color(0xFFFEF2F2),
-        borderRadius: BorderRadius.circular(12),
+        color: SboxColors.dangerSoft,
+        borderRadius: BorderRadius.circular(14),
         border: Border.all(color: const Color(0xFFFECACA)),
       ),
       child: Column(
@@ -1166,12 +1167,12 @@ class _LoginScreenState extends State<LoginScreen>
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               const Icon(Icons.error_outline_rounded,
-                  color: Color(0xFFDC2626), size: 20),
+                  color: SboxColors.danger, size: 20),
               const SizedBox(width: 12),
               Expanded(
                 child: Text(tr(message),
                     style: const TextStyle(
-                        color: Color(0xFFDC2626), fontSize: 13, height: 1.4)),
+                        color: SboxColors.danger, fontSize: 13, height: 1.4)),
               ),
             ],
           ),
@@ -1247,7 +1248,7 @@ class _LoginScreenState extends State<LoginScreen>
       keyboardType: keyboardType,
       obscureText: obscure,
       style:
-          const TextStyle(color: Color(0xFF2B3437), fontSize: 15, height: 1.5),
+          const TextStyle(color: Color(0xFF2B3437), fontSize: 16, height: 1.5),
       validator: validator,
       decoration: InputDecoration(
         hintText: tr(hint),
@@ -1260,28 +1261,28 @@ class _LoginScreenState extends State<LoginScreen>
         contentPadding:
             const EdgeInsets.symmetric(horizontal: 16, vertical: 16),
         border: OutlineInputBorder(
-          borderRadius: BorderRadius.circular(16),
+          borderRadius: BorderRadius.circular(14),
           borderSide: BorderSide(
               color: const Color(0xFFABB3B7).withValues(alpha: 0.15)),
         ),
         enabledBorder: OutlineInputBorder(
-          borderRadius: BorderRadius.circular(16),
+          borderRadius: BorderRadius.circular(14),
           borderSide: BorderSide(
               color: const Color(0xFFABB3B7).withValues(alpha: 0.15)),
         ),
         focusedBorder: OutlineInputBorder(
-          borderRadius: BorderRadius.circular(16),
+          borderRadius: BorderRadius.circular(14),
           borderSide: BorderSide(color: _brand, width: 2),
         ),
         errorBorder: OutlineInputBorder(
-          borderRadius: BorderRadius.circular(16),
+          borderRadius: BorderRadius.circular(14),
           borderSide: const BorderSide(color: Color(0xFFF87171)),
         ),
         focusedErrorBorder: OutlineInputBorder(
-          borderRadius: BorderRadius.circular(16),
+          borderRadius: BorderRadius.circular(14),
           borderSide: const BorderSide(color: Color(0xFFF87171), width: 2),
         ),
-        errorStyle: const TextStyle(color: Color(0xFFEF4444)),
+        errorStyle: const TextStyle(color: SboxColors.danger),
       ),
     );
   }

@@ -6,6 +6,7 @@ import 'package:http/http.dart' as http;
 
 import '../services/api_service.dart';
 
+import '../theme/sbox_tokens.dart';
 /// Ảnh lưu trên server (stores/uploads qua /api/upload/serve) hoặc data:image base64.
 class AuthCachedImage extends StatefulWidget {
   const AuthCachedImage({
@@ -142,7 +143,7 @@ class _AuthCachedImageState extends State<AuthCachedImage> {
 
     if (_failed) {
       return widget.errorWidget?.call(context, path, null) ??
-          const Icon(Icons.broken_image, color: Color(0xFF71717A));
+          const Icon(Icons.broken_image, color: SboxColors.slate500);
     }
 
     if (_bytes == null) {
@@ -163,7 +164,7 @@ class _AuthCachedImageState extends State<AuthCachedImage> {
       height: widget.height,
       errorBuilder: (_, __, ___) =>
           widget.errorWidget?.call(context, path, null) ??
-          const Icon(Icons.broken_image, color: Color(0xFF71717A)),
+          const Icon(Icons.broken_image, color: SboxColors.slate500),
     );
   }
 }

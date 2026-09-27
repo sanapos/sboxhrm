@@ -53,7 +53,7 @@ Widget posSaleOrderStatusChip(String status, {String? returnStatus}) {
           padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
           decoration: BoxDecoration(
             color: Colors.orange.shade50,
-            borderRadius: BorderRadius.circular(12),
+            borderRadius: BorderRadius.circular(14),
           ),
           child: Text(
             tr(returnLabel),

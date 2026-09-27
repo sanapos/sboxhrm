@@ -33,6 +33,7 @@ import 'settings_hub_screen.dart';
 import 'shift_coverage_screen.dart';
 import 'package:zkteco_flutter_client/l10n/app_tr.dart';
 
+import '../theme/sbox_tokens.dart';
 class WorkScheduleScreen extends StatefulWidget {
   const WorkScheduleScreen({super.key});
 
@@ -117,9 +118,9 @@ class _WorkScheduleScreenState extends State<WorkScheduleScreen>
   }
 
   static const List<Color> _kShiftPalette = [
-    Color(0xFF2563EB),
+    SboxColors.brand600,
     Color(0xFF0D9488),
-    Color(0xFF7C3AED),
+    SboxColors.violet,
     Color(0xFFEA580C),
     Color(0xFFDB2777),
     Color(0xFF0284C7),
@@ -260,7 +261,7 @@ class _WorkScheduleScreenState extends State<WorkScheduleScreen>
   }
 
   Color _colorForShift(Shift? shift) {
-    if (shift == null || shift.id.isEmpty) return const Color(0xFF71717A);
+    if (shift == null || shift.id.isEmpty) return SboxColors.slate500;
     var idx = _allShifts.indexWhere((s) => s.id == shift.id);
     if (idx < 0) idx = _shifts.indexWhere((s) => s.id == shift.id);
     if (idx < 0) idx = shift.id.hashCode;
@@ -718,13 +719,13 @@ class _WorkScheduleScreenState extends State<WorkScheduleScreen>
       margin: const EdgeInsets.symmetric(horizontal: 16),
       decoration: BoxDecoration(
         color: Colors.white,
-        borderRadius: BorderRadius.circular(12),
-        border: Border.all(color: const Color(0xFFE4E4E7)),
+        borderRadius: BorderRadius.circular(14),
+        border: Border.all(color: SboxColors.slate200),
       ),
       child: TabBar(
         controller: _tabController,
         labelColor: HrmPageChrome.primaryNavy,
-        unselectedLabelColor: const Color(0xFF71717A),
+        unselectedLabelColor: SboxColors.slate500,
         indicatorColor: HrmPageChrome.primaryNavy,
         indicatorWeight: 3,
         isScrollable: Responsive.isMobile(context),
@@ -816,12 +817,12 @@ class _WorkScheduleScreenState extends State<WorkScheduleScreen>
           RepaintBoundary(
             key: _scheduleTableKey,
             child: Container(
-              color: const Color(0xFFFAFAFA),
+              color: SboxColors.slate50,
               child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     _buildExportHeader(
-                        'ĐĂNG KÝ CHỜ DUYỆT', const Color(0xFFD97706)),
+                        'ĐĂNG KÝ CHỜ DUYỆT', SboxColors.warning),
                     _buildPendingGrid(),
                     _buildShiftColorLegend(showStatus: true),
                   ]),
@@ -841,7 +842,7 @@ class _WorkScheduleScreenState extends State<WorkScheduleScreen>
           RepaintBoundary(
             key: _approvedTableKey,
             child: Container(
-              color: const Color(0xFFFAFAFA),
+              color: SboxColors.slate50,
               child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
@@ -870,8 +871,8 @@ class _WorkScheduleScreenState extends State<WorkScheduleScreen>
               icon: const Icon(Icons.table_chart_outlined, size: 14),
               label: Text(tr('Excel'), style: TextStyle(fontSize: 11)),
               style: OutlinedButton.styleFrom(
-                foregroundColor: const Color(0xFF22C55E),
-                side: const BorderSide(color: Color(0xFF22C55E)),
+                foregroundColor: SboxColors.success,
+                side: const BorderSide(color: SboxColors.success),
                 padding:
                     const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
                 minimumSize: Size.zero,
@@ -925,47 +926,47 @@ class _WorkScheduleScreenState extends State<WorkScheduleScreen>
           padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
           decoration: BoxDecoration(
             color: Colors.white,
-            borderRadius: BorderRadius.circular(12),
-            border: Border.all(color: const Color(0xFFE4E4E7)),
+            borderRadius: BorderRadius.circular(14),
+            border: Border.all(color: SboxColors.slate200),
           ),
           child: Row(
             children: [
               InkWell(
                 onTap: _previousWeek,
-                borderRadius: BorderRadius.circular(8),
+                borderRadius: BorderRadius.circular(10),
                 child: Container(
                   padding: const EdgeInsets.all(6),
                   decoration: BoxDecoration(
-                      color: const Color(0xFFF1F5F9),
-                      borderRadius: BorderRadius.circular(8)),
+                      color: SboxColors.slate100,
+                      borderRadius: BorderRadius.circular(10)),
                   child: const Icon(Icons.chevron_left,
-                      size: 20, color: Color(0xFF71717A)),
+                      size: 20, color: SboxColors.slate500),
                 ),
               ),
               const SizedBox(width: 8),
               InkWell(
                 onTap: _goToThisWeek,
-                borderRadius: BorderRadius.circular(8),
+                borderRadius: BorderRadius.circular(10),
                 child: Container(
                   padding:
                       const EdgeInsets.symmetric(horizontal: 8, vertical: 6),
                   decoration: BoxDecoration(
                       color: HrmPageChrome.primaryNavy,
-                      borderRadius: BorderRadius.circular(8)),
+                      borderRadius: BorderRadius.circular(10)),
                   child: const Icon(Icons.today, size: 18, color: Colors.white),
                 ),
               ),
               const SizedBox(width: 8),
               InkWell(
                 onTap: _nextWeek,
-                borderRadius: BorderRadius.circular(8),
+                borderRadius: BorderRadius.circular(10),
                 child: Container(
                   padding: const EdgeInsets.all(6),
                   decoration: BoxDecoration(
-                      color: const Color(0xFFF1F5F9),
-                      borderRadius: BorderRadius.circular(8)),
+                      color: SboxColors.slate100,
+                      borderRadius: BorderRadius.circular(10)),
                   child: const Icon(Icons.chevron_right,
-                      size: 20, color: Color(0xFF71717A)),
+                      size: 20, color: SboxColors.slate500),
                 ),
               ),
               const SizedBox(width: 12),
@@ -974,12 +975,12 @@ class _WorkScheduleScreenState extends State<WorkScheduleScreen>
                   padding:
                       const EdgeInsets.symmetric(horizontal: 10, vertical: 7),
                   decoration: BoxDecoration(
-                      color: const Color(0xFFEFF6FF),
-                      borderRadius: BorderRadius.circular(8)),
+                      color: SboxColors.brand50,
+                      borderRadius: BorderRadius.circular(10)),
                   child: Text(
                     tr('T$weekNumber (${dateFormat.format(_selectedWeekStart)}-${dateFormat.format(weekEnd)})'),
                     style: const TextStyle(
-                        color: Color(0xFF18181B),
+                        color: SboxColors.slate900,
                         fontWeight: FontWeight.w600,
                         fontSize: 13),
                     overflow: TextOverflow.ellipsis,
@@ -1000,8 +1001,8 @@ class _WorkScheduleScreenState extends State<WorkScheduleScreen>
                 Container(
                   decoration: BoxDecoration(
                     color: Colors.white,
-                    borderRadius: BorderRadius.circular(12),
-                    border: Border.all(color: const Color(0xFFE4E4E7)),
+                    borderRadius: BorderRadius.circular(14),
+                    border: Border.all(color: SboxColors.slate200),
                     boxShadow: [
                       BoxShadow(
                           color: Colors.black.withValues(alpha: 0.04),
@@ -1029,7 +1030,7 @@ class _WorkScheduleScreenState extends State<WorkScheduleScreen>
                               decoration: const BoxDecoration(
                                   border: Border(
                                       right: BorderSide(
-                                          color: Color(0xFFE4E4E7)))),
+                                          color: SboxColors.slate200))),
                               child: Text(tr('Ca / Ngày'),
                                   style: TextStyle(
                                       fontSize: 11,
@@ -1056,7 +1057,7 @@ class _WorkScheduleScreenState extends State<WorkScheduleScreen>
                                     border: di < 6
                                         ? const Border(
                                             right: BorderSide(
-                                                color: Color(0xFFE4E4E7)))
+                                                color: SboxColors.slate200))
                                         : null,
                                   ),
                                   child: Column(
@@ -1068,15 +1069,15 @@ class _WorkScheduleScreenState extends State<WorkScheduleScreen>
                                             color: isToday
                                                 ? HrmPageChrome.primaryNavy
                                                 : (isSun
-                                                    ? const Color(0xFFEF4444)
-                                                    : const Color(0xFF71717A)),
+                                                    ? SboxColors.danger
+                                                    : SboxColors.slate500),
                                           )),
                                       Text(tr('${day.day}/${day.month}'),
                                           style: TextStyle(
                                             fontSize: 10,
                                             color: isToday
                                                 ? HrmPageChrome.primaryNavy
-                                                : const Color(0xFF71717A),
+                                                : SboxColors.slate500,
                                           )),
                                     ],
                                   ),
@@ -1092,7 +1093,7 @@ class _WorkScheduleScreenState extends State<WorkScheduleScreen>
                             padding: const EdgeInsets.all(24),
                             child: Text(tr(_employeeShiftEmptyMessage()),
                                 style: const TextStyle(
-                                    color: Color(0xFF71717A))))
+                                    color: SboxColors.slate500)))
                       else
                         ..._shifts.asMap().entries.map((entry) {
                           final si = entry.key;
@@ -1104,7 +1105,7 @@ class _WorkScheduleScreenState extends State<WorkScheduleScreen>
                                   ? null
                                   : const Border(
                                       bottom:
-                                          BorderSide(color: Color(0xFFE4E4E7))),
+                                          BorderSide(color: SboxColors.slate200)),
                             ),
                             child: Row(
                               children: [
@@ -1116,7 +1117,7 @@ class _WorkScheduleScreenState extends State<WorkScheduleScreen>
                                   decoration: const BoxDecoration(
                                       border: Border(
                                           right: BorderSide(
-                                              color: Color(0xFFE4E4E7)))),
+                                              color: SboxColors.slate200))),
                                   child: Column(
                                     children: [
                                       Text(tr(shift.name),
@@ -1131,7 +1132,7 @@ class _WorkScheduleScreenState extends State<WorkScheduleScreen>
                                           tr('${_formatTime(shift.startTime)}-${_formatTime(shift.endTime)}'),
                                           style: const TextStyle(
                                               fontSize: 9,
-                                              color: Color(0xFF71717A)),
+                                              color: SboxColors.slate500),
                                           textAlign: TextAlign.center),
                                     ],
                                   ),
@@ -1162,7 +1163,7 @@ class _WorkScheduleScreenState extends State<WorkScheduleScreen>
                   decoration: BoxDecoration(
                     color: Colors.white,
                     borderRadius: BorderRadius.circular(10),
-                    border: Border.all(color: const Color(0xFFE4E4E7)),
+                    border: Border.all(color: SboxColors.slate200),
                   ),
                   child: Wrap(
                     spacing: 12,
@@ -1170,9 +1171,9 @@ class _WorkScheduleScreenState extends State<WorkScheduleScreen>
                     children: [
                       ..._shifts.map(
                           (s) => _buildLegendDot(_colorForShift(s), s.name)),
-                      _buildLegendDot(const Color(0xFFD97706), 'Chờ duyệt'),
-                      _buildLegendDot(const Color(0xFFEF4444), 'Từ chối'),
-                      _buildLegendDot(const Color(0xFF94A3B8), 'Đăng ký mới'),
+                      _buildLegendDot(SboxColors.warning, 'Chờ duyệt'),
+                      _buildLegendDot(SboxColors.danger, 'Từ chối'),
+                      _buildLegendDot(SboxColors.slate400, 'Đăng ký mới'),
                     ],
                   ),
                 ),
@@ -1219,7 +1220,7 @@ class _WorkScheduleScreenState extends State<WorkScheduleScreen>
       decoration: BoxDecoration(
         color: Colors.white,
         borderRadius: BorderRadius.circular(10),
-        border: Border.all(color: const Color(0xFFE4E4E7)),
+        border: Border.all(color: SboxColors.slate200),
       ),
       child: Wrap(
         spacing: 12,
@@ -1227,13 +1228,13 @@ class _WorkScheduleScreenState extends State<WorkScheduleScreen>
         children: [
           ..._shifts.map((s) => _buildLegendDot(_colorForShift(s), s.name)),
           if (showStatus) ...[
-            _buildLegendDot(const Color(0xFFD97706), 'Chờ duyệt'),
-            _buildLegendDot(const Color(0xFF94A3B8), 'Chưa gửi'),
-            _buildLegendDot(const Color(0xFFEF4444), 'Từ chối'),
+            _buildLegendDot(SboxColors.warning, 'Chờ duyệt'),
+            _buildLegendDot(SboxColors.slate400, 'Chưa gửi'),
+            _buildLegendDot(SboxColors.danger, 'Từ chối'),
           ],
           if (showQuota) ...[
-            _buildLegendDot(const Color(0xFF3B82F6), 'Thiếu nhân sự'),
-            _buildLegendDot(const Color(0xFFD97706), 'Gần/vượt định mức'),
+            _buildLegendDot(SboxColors.brand500, 'Thiếu nhân sự'),
+            _buildLegendDot(SboxColors.warning, 'Gần/vượt định mức'),
           ],
         ],
       ),
@@ -1302,20 +1303,20 @@ class _WorkScheduleScreenState extends State<WorkScheduleScreen>
     } else if (reg != null &&
         reg.status == ScheduleRegistrationStatus.pending) {
       bgColor = shiftColor.withValues(alpha: 0.08);
-      borderColor = const Color(0xFFD97706);
-      icon = const Icon(Icons.hourglass_empty, size: 16, color: Color(0xFFD97706));
+      borderColor = SboxColors.warning;
+      icon = const Icon(Icons.hourglass_empty, size: 16, color: SboxColors.warning);
     } else if (reg != null &&
         reg.status == ScheduleRegistrationStatus.rejected) {
-      bgColor = const Color(0xFFFEE2E2);
-      borderColor = const Color(0xFFEF4444);
-      icon = const Icon(Icons.close, size: 16, color: Color(0xFFEF4444));
+      bgColor = SboxColors.dangerSoft;
+      borderColor = SboxColors.danger;
+      icon = const Icon(Icons.close, size: 16, color: SboxColors.danger);
     } else if (hasPendingLocal) {
       bgColor = shiftColor.withValues(alpha: 0.06);
-      borderColor = const Color(0xFF94A3B8);
+      borderColor = SboxColors.slate400;
       icon = Icon(Icons.add_circle, size: 18, color: shiftColor);
     } else {
-      bgColor = isToday ? const Color(0xFFF1F5F9) : Colors.white;
-      borderColor = const Color(0xFFE4E4E7);
+      bgColor = isToday ? SboxColors.slate100 : Colors.white;
+      borderColor = SboxColors.slate200;
       icon = null;
     }
 
@@ -1334,7 +1335,7 @@ class _WorkScheduleScreenState extends State<WorkScheduleScreen>
           borderRadius: BorderRadius.circular(4),
         ),
         child: Center(
-            child: icon ?? Icon(Icons.add, size: 14, color: Colors.grey[300])),
+            child: icon ?? Icon(Icons.add, size: 14, color: SboxColors.slate300)),
       ),
     );
   }
@@ -1399,7 +1400,7 @@ class _WorkScheduleScreenState extends State<WorkScheduleScreen>
                 width: 40,
                 height: 4,
                 decoration: BoxDecoration(
-                    color: Colors.grey[300],
+                    color: SboxColors.slate300,
                     borderRadius: BorderRadius.circular(2))),
             const SizedBox(height: 12),
             Row(children: [
@@ -1409,12 +1410,12 @@ class _WorkScheduleScreenState extends State<WorkScheduleScreen>
               Expanded(
                   child: Text(tr('${shift.name} - ${day.day}/${day.month}'),
                       style: const TextStyle(
-                          fontWeight: FontWeight.w700, fontSize: 15))),
+                          fontWeight: FontWeight.w700, fontSize: 16))),
               Container(
                 padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
                 decoration: BoxDecoration(
                     color: HrmPageChrome.chipBg,
-                    borderRadius: BorderRadius.circular(8)),
+                    borderRadius: BorderRadius.circular(10)),
                 child: Text(tr('Chờ duyệt'),
                     style: TextStyle(
                         fontSize: 11,
@@ -1425,7 +1426,7 @@ class _WorkScheduleScreenState extends State<WorkScheduleScreen>
             if (_canCancelRegistration) ...[
               const SizedBox(height: 16),
               _actionTile(Icons.delete_outline, 'Xóa đăng ký',
-                  'Hủy đăng ký ca này', const Color(0xFFEF4444), () {
+                  'Hủy đăng ký ca này', SboxColors.danger, () {
                 Navigator.pop(ctx);
                 _deleteMyRegistration(reg, shift, day);
               }),
@@ -1451,26 +1452,26 @@ class _WorkScheduleScreenState extends State<WorkScheduleScreen>
                 width: 40,
                 height: 4,
                 decoration: BoxDecoration(
-                    color: Colors.grey[300],
+                    color: SboxColors.slate300,
                     borderRadius: BorderRadius.circular(2))),
             const SizedBox(height: 12),
             Row(children: [
-              const Icon(Icons.cancel, color: Color(0xFFEF4444), size: 20),
+              const Icon(Icons.cancel, color: SboxColors.danger, size: 20),
               const SizedBox(width: 8),
               Expanded(
                   child: Text(tr('${shift.name} - ${day.day}/${day.month}'),
                       style: const TextStyle(
-                          fontWeight: FontWeight.w700, fontSize: 15))),
+                          fontWeight: FontWeight.w700, fontSize: 16))),
               Container(
                 padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
                 decoration: BoxDecoration(
-                    color: const Color(0xFFFEE2E2),
-                    borderRadius: BorderRadius.circular(8)),
+                    color: SboxColors.dangerSoft,
+                    borderRadius: BorderRadius.circular(10)),
                 child: Text(tr('Từ chối'),
                     style: TextStyle(
                         fontSize: 11,
                         fontWeight: FontWeight.w600,
-                        color: Color(0xFFEF4444))),
+                        color: SboxColors.danger)),
               ),
             ]),
             if (reg.rejectionReason != null &&
@@ -1480,17 +1481,17 @@ class _WorkScheduleScreenState extends State<WorkScheduleScreen>
                 width: double.infinity,
                 padding: const EdgeInsets.all(10),
                 decoration: BoxDecoration(
-                    color: const Color(0xFFFEF2F2),
-                    borderRadius: BorderRadius.circular(8)),
+                    color: SboxColors.dangerSoft,
+                    borderRadius: BorderRadius.circular(10)),
                 child: Text(tr('Lý do: ${reg.rejectionReason}'),
                     style: const TextStyle(
-                        fontSize: 12, color: Color(0xFFEF4444))),
+                        fontSize: 12, color: SboxColors.danger)),
               ),
             ],
             if (_canCancelRegistration) ...[
               const SizedBox(height: 16),
               _actionTile(Icons.delete_outline, 'Xóa đăng ký',
-                  'Xóa đăng ký bị từ chối', const Color(0xFFEF4444), () {
+                  'Xóa đăng ký bị từ chối', SboxColors.danger, () {
                 Navigator.pop(ctx);
                 _deleteMyRegistration(reg, shift, day);
               }),
@@ -1518,7 +1519,7 @@ class _WorkScheduleScreenState extends State<WorkScheduleScreen>
                 width: 40,
                 height: 4,
                 decoration: BoxDecoration(
-                    color: Colors.grey[300],
+                    color: SboxColors.slate300,
                     borderRadius: BorderRadius.circular(2))),
             const SizedBox(height: 12),
             Row(children: [
@@ -1531,14 +1532,14 @@ class _WorkScheduleScreenState extends State<WorkScheduleScreen>
               Expanded(
                   child: Text(tr('${shift.name} - ${day.day}/${day.month}'),
                       style: const TextStyle(
-                          fontWeight: FontWeight.w700, fontSize: 15))),
+                          fontWeight: FontWeight.w700, fontSize: 16))),
               Container(
                 padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
                 decoration: BoxDecoration(
                   color: isScheduled
                       ? HrmPageChrome.primaryNavy.withValues(alpha: 0.1)
-                      : const Color(0xFFD1FAE5),
-                  borderRadius: BorderRadius.circular(8),
+                      : SboxColors.successSoft,
+                  borderRadius: BorderRadius.circular(10),
                 ),
                 child: Text(tr(isScheduled ? 'Đã xếp lịch' : 'Đã duyệt'),
                     style: TextStyle(
@@ -1555,7 +1556,7 @@ class _WorkScheduleScreenState extends State<WorkScheduleScreen>
               Text(
                   tr('${_formatTime(shift.startTime)} - ${_formatTime(shift.endTime)}'),
                   style:
-                      const TextStyle(fontSize: 12, color: Color(0xFF71717A))),
+                      const TextStyle(fontSize: 12, color: SboxColors.slate500)),
             ]),
             const SizedBox(height: 16),
             _actionTile(
@@ -1592,7 +1593,7 @@ class _WorkScheduleScreenState extends State<WorkScheduleScreen>
           style: TextStyle(
               fontWeight: FontWeight.w600, fontSize: 14, color: color)),
       subtitle: Text(tr(subtitle),
-          style: const TextStyle(fontSize: 11, color: Color(0xFF71717A))),
+          style: const TextStyle(fontSize: 11, color: SboxColors.slate500)),
       trailing: Icon(Icons.chevron_right, color: color.withValues(alpha: 0.5)),
       onTap: onTap,
       contentPadding: const EdgeInsets.symmetric(horizontal: 8),
@@ -1609,7 +1610,7 @@ class _WorkScheduleScreenState extends State<WorkScheduleScreen>
       builder: (ctx) => ScrollableAlertDialog(
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
         title: Row(children: [
-          Icon(Icons.delete_outline, color: Color(0xFFEF4444)),
+          Icon(Icons.delete_outline, color: SboxColors.danger),
           SizedBox(width: 8),
           Text(tr('Xác nhận xóa')),
         ]),
@@ -1622,7 +1623,7 @@ class _WorkScheduleScreenState extends State<WorkScheduleScreen>
           FilledButton(
             onPressed: () => Navigator.pop(ctx, true),
             style: FilledButton.styleFrom(
-                backgroundColor: const Color(0xFFEF4444)),
+                backgroundColor: SboxColors.danger),
             child: Text(tr('Xóa')),
           ),
         ],
@@ -1666,7 +1667,7 @@ class _WorkScheduleScreenState extends State<WorkScheduleScreen>
       builder: (ctx) => StatefulBuilder(builder: (ctx, setDialogState) {
         return ScrollableAlertDialog(
           shape:
-              RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+              RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
           title: Row(children: [
             Icon(Icons.swap_horiz, color: HrmPageChrome.primaryNavy),
             SizedBox(width: 8),
@@ -1685,14 +1686,14 @@ class _WorkScheduleScreenState extends State<WorkScheduleScreen>
                   width: double.infinity,
                   padding: const EdgeInsets.all(10),
                   decoration: BoxDecoration(
-                      color: const Color(0xFFEFF6FF),
+                      color: SboxColors.brand50,
                       borderRadius: BorderRadius.circular(10)),
                   child: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
                         Text(tr('Ca hiện tại:'),
                             style: TextStyle(
-                                fontSize: 11, color: Color(0xFF71717A))),
+                                fontSize: 11, color: SboxColors.slate500)),
                         const SizedBox(height: 4),
                         Text(
                             tr('${shift.name} (${_formatTime(shift.startTime)}-${_formatTime(shift.endTime)})'),
@@ -1700,7 +1701,7 @@ class _WorkScheduleScreenState extends State<WorkScheduleScreen>
                                 fontWeight: FontWeight.w600, fontSize: 13)),
                         Text(tr('Ngày ${day.day}/${day.month}/${day.year}'),
                             style: const TextStyle(
-                                fontSize: 12, color: Color(0xFF71717A))),
+                                fontSize: 12, color: SboxColors.slate500)),
                       ]),
                 ),
                 const SizedBox(height: 14),
@@ -1837,7 +1838,7 @@ class _WorkScheduleScreenState extends State<WorkScheduleScreen>
       builder: (ctx) => StatefulBuilder(builder: (ctx, setDialogState) {
         return ScrollableAlertDialog(
           shape:
-              RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+              RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
           title: Row(children: [
             Icon(Icons.event_busy, color: HrmPageChrome.chip),
             SizedBox(width: 8),
@@ -1860,7 +1861,7 @@ class _WorkScheduleScreenState extends State<WorkScheduleScreen>
                       children: [
                         Text(tr('Nghỉ phép cho:'),
                             style: TextStyle(
-                                fontSize: 11, color: Color(0xFF71717A))),
+                                fontSize: 11, color: SboxColors.slate500)),
                         const SizedBox(height: 4),
                         Text(
                             tr('${shift.name} (${_formatTime(shift.startTime)}-${_formatTime(shift.endTime)})'),
@@ -1868,7 +1869,7 @@ class _WorkScheduleScreenState extends State<WorkScheduleScreen>
                                 fontWeight: FontWeight.w600, fontSize: 13)),
                         Text(tr('Ngày ${day.day}/${day.month}/${day.year}'),
                             style: const TextStyle(
-                                fontSize: 12, color: Color(0xFF71717A))),
+                                fontSize: 12, color: SboxColors.slate500)),
                       ]),
                 ),
                 const SizedBox(height: 14),
@@ -1979,8 +1980,8 @@ class _WorkScheduleScreenState extends State<WorkScheduleScreen>
       padding: const EdgeInsets.all(12),
       decoration: BoxDecoration(
         color: Colors.white,
-        borderRadius: BorderRadius.circular(12),
-        border: Border.all(color: const Color(0xFFE4E4E7)),
+        borderRadius: BorderRadius.circular(14),
+        border: Border.all(color: SboxColors.slate200),
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -1989,7 +1990,7 @@ class _WorkScheduleScreenState extends State<WorkScheduleScreen>
               style: const TextStyle(
                   fontWeight: FontWeight.w700,
                   fontSize: 13,
-                  color: Color(0xFF18181B))),
+                  color: SboxColors.slate900)),
           const Divider(height: 12),
           ...weekRegs.map((reg) {
             final shift = _shiftById(reg.shiftId);
@@ -2003,12 +2004,12 @@ class _WorkScheduleScreenState extends State<WorkScheduleScreen>
                 statusIcon = Icons.check_circle;
                 break;
               case ScheduleRegistrationStatus.rejected:
-                statusColor = const Color(0xFFEF4444);
+                statusColor = SboxColors.danger;
                 statusText = 'Từ chối';
                 statusIcon = Icons.cancel;
                 break;
               default:
-                statusColor = const Color(0xFFD97706);
+                statusColor = SboxColors.warning;
                 statusText = 'Chờ duyệt';
                 statusIcon = Icons.hourglass_empty;
             }
@@ -2022,7 +2023,7 @@ class _WorkScheduleScreenState extends State<WorkScheduleScreen>
                     child: Text(
                       tr('${DateFormat('E dd/MM', 'vi').format(reg.date)} - ${shift?.name ?? (reg.isDayOff ? 'Nghỉ' : 'Ca')}'),
                       style: const TextStyle(
-                          fontSize: 12, color: Color(0xFF18181B)),
+                          fontSize: 12, color: SboxColors.slate900),
                     ),
                   ),
                   // Action buttons based on status
@@ -2035,10 +2036,10 @@ class _WorkScheduleScreenState extends State<WorkScheduleScreen>
                       child: Container(
                         padding: const EdgeInsets.all(4),
                         decoration: BoxDecoration(
-                            color: const Color(0xFFFEE2E2),
+                            color: SboxColors.dangerSoft,
                             borderRadius: BorderRadius.circular(6)),
                         child: const Icon(Icons.delete_outline,
-                            size: 14, color: Color(0xFFEF4444)),
+                            size: 14, color: SboxColors.danger),
                       ),
                     ),
                     const SizedBox(width: 4),
@@ -2052,10 +2053,10 @@ class _WorkScheduleScreenState extends State<WorkScheduleScreen>
                       child: Container(
                         padding: const EdgeInsets.all(4),
                         decoration: BoxDecoration(
-                            color: const Color(0xFFFEE2E2),
+                            color: SboxColors.dangerSoft,
                             borderRadius: BorderRadius.circular(6)),
                         child: const Icon(Icons.delete_outline,
-                            size: 14, color: Color(0xFFEF4444)),
+                            size: 14, color: SboxColors.danger),
                       ),
                     ),
                     const SizedBox(width: 4),
@@ -2095,7 +2096,7 @@ class _WorkScheduleScreenState extends State<WorkScheduleScreen>
                         const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
                     decoration: BoxDecoration(
                         color: statusColor.withValues(alpha: 0.1),
-                        borderRadius: BorderRadius.circular(8)),
+                        borderRadius: BorderRadius.circular(10)),
                     child: Text(tr(statusText),
                         style: TextStyle(
                             fontSize: 10,
@@ -2125,8 +2126,8 @@ class _WorkScheduleScreenState extends State<WorkScheduleScreen>
           icon: const Icon(Icons.chevron_left, size: 18),
           label: isMobile ? const SizedBox.shrink() : Text(tr(_l10n.prevWeek)),
           style: OutlinedButton.styleFrom(
-            foregroundColor: const Color(0xFF71717A),
-            side: const BorderSide(color: Color(0xFFE4E4E7)),
+            foregroundColor: SboxColors.slate500,
+            side: const BorderSide(color: SboxColors.slate200),
             padding: EdgeInsets.symmetric(
                 horizontal: isMobile ? 8 : 12, vertical: 8),
             minimumSize: Size.zero,
@@ -2151,8 +2152,8 @@ class _WorkScheduleScreenState extends State<WorkScheduleScreen>
           icon: isMobile ? const SizedBox.shrink() : Text(tr(_l10n.nextWeek)),
           label: const Icon(Icons.chevron_right, size: 18),
           style: OutlinedButton.styleFrom(
-            foregroundColor: const Color(0xFF71717A),
-            side: const BorderSide(color: Color(0xFFE4E4E7)),
+            foregroundColor: SboxColors.slate500,
+            side: const BorderSide(color: SboxColors.slate200),
             padding: EdgeInsets.symmetric(
                 horizontal: isMobile ? 8 : 12, vertical: 8),
             minimumSize: Size.zero,
@@ -2163,15 +2164,15 @@ class _WorkScheduleScreenState extends State<WorkScheduleScreen>
           child: Container(
             padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 7),
             decoration: BoxDecoration(
-              color: const Color(0xFFEFF6FF),
-              borderRadius: BorderRadius.circular(8),
+              color: SboxColors.brand50,
+              borderRadius: BorderRadius.circular(10),
             ),
             child: Text(
               tr(isMobile
                   ? 'T$weekNumber (${dateFormat.format(_selectedWeekStart)}-${dateFormat.format(weekEnd)})'
                   : 'Tuần $weekNumber (${dateFormat.format(_selectedWeekStart)} - ${dateFormat.format(weekEnd)})'),
               style: const TextStyle(
-                  color: Color(0xFF18181B),
+                  color: SboxColors.slate900,
                   fontWeight: FontWeight.w600,
                   fontSize: 12),
               overflow: TextOverflow.ellipsis,
@@ -2189,19 +2190,19 @@ class _WorkScheduleScreenState extends State<WorkScheduleScreen>
               contentPadding:
                   const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
               border: OutlineInputBorder(
-                  borderRadius: BorderRadius.circular(8),
-                  borderSide: const BorderSide(color: Color(0xFFE4E4E7))),
+                  borderRadius: BorderRadius.circular(10),
+                  borderSide: const BorderSide(color: SboxColors.slate200)),
               enabledBorder: OutlineInputBorder(
-                  borderRadius: BorderRadius.circular(8),
-                  borderSide: const BorderSide(color: Color(0xFFE4E4E7))),
+                  borderRadius: BorderRadius.circular(10),
+                  borderSide: const BorderSide(color: SboxColors.slate200)),
               filled: true,
-              fillColor: const Color(0xFFFAFAFA),
+              fillColor: SboxColors.slate50,
               prefixIcon: const Icon(Icons.account_tree_outlined,
-                  size: 16, color: Color(0xFF71717A)),
+                  size: 16, color: SboxColors.slate500),
               isDense: true,
             ),
             hint: Text(tr('Chi nhánh'), style: TextStyle(fontSize: 13)),
-            style: const TextStyle(color: Color(0xFF18181B), fontSize: 13),
+            style: const TextStyle(color: SboxColors.slate900, fontSize: 13),
             items: [
               DropdownMenuItem<String?>(
                   value: null,
@@ -2231,19 +2232,19 @@ class _WorkScheduleScreenState extends State<WorkScheduleScreen>
       decoration: InputDecoration(
         contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
         border: OutlineInputBorder(
-            borderRadius: BorderRadius.circular(8),
-            borderSide: const BorderSide(color: Color(0xFFE4E4E7))),
+            borderRadius: BorderRadius.circular(10),
+            borderSide: const BorderSide(color: SboxColors.slate200)),
         enabledBorder: OutlineInputBorder(
-            borderRadius: BorderRadius.circular(8),
-            borderSide: const BorderSide(color: Color(0xFFE4E4E7))),
+            borderRadius: BorderRadius.circular(10),
+            borderSide: const BorderSide(color: SboxColors.slate200)),
         filled: true,
-        fillColor: const Color(0xFFFAFAFA),
+        fillColor: SboxColors.slate50,
         prefixIcon:
-            const Icon(Icons.business, size: 16, color: Color(0xFF71717A)),
+            const Icon(Icons.business, size: 16, color: SboxColors.slate500),
         isDense: true,
       ),
       hint: Text(tr(_l10n.department), style: const TextStyle(fontSize: 13)),
-      style: const TextStyle(color: Color(0xFF18181B), fontSize: 13),
+      style: const TextStyle(color: SboxColors.slate900, fontSize: 13),
       items: [
         DropdownMenuItem<String>(
             value: null, child: Text(tr(_l10n.allDepartments))),
@@ -2268,19 +2269,19 @@ class _WorkScheduleScreenState extends State<WorkScheduleScreen>
       decoration: InputDecoration(
         contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
         border: OutlineInputBorder(
-            borderRadius: BorderRadius.circular(8),
-            borderSide: const BorderSide(color: Color(0xFFE4E4E7))),
+            borderRadius: BorderRadius.circular(10),
+            borderSide: const BorderSide(color: SboxColors.slate200)),
         enabledBorder: OutlineInputBorder(
-            borderRadius: BorderRadius.circular(8),
-            borderSide: const BorderSide(color: Color(0xFFE4E4E7))),
+            borderRadius: BorderRadius.circular(10),
+            borderSide: const BorderSide(color: SboxColors.slate200)),
         filled: true,
-        fillColor: const Color(0xFFFAFAFA),
+        fillColor: SboxColors.slate50,
         prefixIcon:
-            const Icon(Icons.person_search, size: 16, color: Color(0xFF71717A)),
+            const Icon(Icons.person_search, size: 16, color: SboxColors.slate500),
         isDense: true,
       ),
       hint: Text(tr(_l10n.employee), style: const TextStyle(fontSize: 13)),
-      style: const TextStyle(color: Color(0xFF18181B), fontSize: 13),
+      style: const TextStyle(color: SboxColors.slate900, fontSize: 13),
       items: [
         DropdownMenuItem<String>(value: null, child: Text(tr(_l10n.allEmployees))),
         ..._filteredEmployees.map((e) => DropdownMenuItem<String>(
@@ -2300,8 +2301,8 @@ class _WorkScheduleScreenState extends State<WorkScheduleScreen>
       padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
       decoration: BoxDecoration(
         color: Colors.white,
-        borderRadius: BorderRadius.circular(12),
-        border: Border.all(color: const Color(0xFFE4E4E7)),
+        borderRadius: BorderRadius.circular(14),
+        border: Border.all(color: SboxColors.slate200),
       ),
       child: isMobile
           ? Column(
@@ -2363,12 +2364,12 @@ class _WorkScheduleScreenState extends State<WorkScheduleScreen>
     ];
     final helpBtn = InkWell(
       onTap: _showScheduleGuide,
-      borderRadius: BorderRadius.circular(8),
+      borderRadius: BorderRadius.circular(10),
       child: Container(
         padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
         decoration: BoxDecoration(
-          color: const Color(0xFFFFF7ED),
-          borderRadius: BorderRadius.circular(8),
+          color: SboxColors.warningSoft,
+          borderRadius: BorderRadius.circular(10),
           border:
               Border.all(color: const Color(0xFFFB923C).withValues(alpha: 0.3)),
         ),
@@ -2391,8 +2392,8 @@ class _WorkScheduleScreenState extends State<WorkScheduleScreen>
       padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
       decoration: BoxDecoration(
         color: Colors.white,
-        borderRadius: BorderRadius.circular(12),
-        border: Border.all(color: const Color(0xFFE4E4E7)),
+        borderRadius: BorderRadius.circular(14),
+        border: Border.all(color: SboxColors.slate200),
       ),
       child: isMobile
           ? SingleChildScrollView(
@@ -2413,7 +2414,7 @@ class _WorkScheduleScreenState extends State<WorkScheduleScreen>
                 const SizedBox(width: 8),
                 Text(tr(_l10n.copySchedule),
                     style: const TextStyle(
-                        color: Color(0xFF18181B),
+                        color: SboxColors.slate900,
                         fontWeight: FontWeight.w600,
                         fontSize: 13)),
                 const SizedBox(width: 12),
@@ -2452,8 +2453,8 @@ class _WorkScheduleScreenState extends State<WorkScheduleScreen>
       padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
       decoration: BoxDecoration(
         color: Colors.white,
-        borderRadius: BorderRadius.circular(12),
-        border: Border.all(color: const Color(0xFFE4E4E7)),
+        borderRadius: BorderRadius.circular(14),
+        border: Border.all(color: SboxColors.slate200),
       ),
       child: isMobile
           ? SingleChildScrollView(
@@ -2474,7 +2475,7 @@ class _WorkScheduleScreenState extends State<WorkScheduleScreen>
                 const SizedBox(width: 8),
                 Text(tr('Quản lý'),
                     style: TextStyle(
-                        color: Color(0xFF18181B),
+                        color: SboxColors.slate900,
                         fontWeight: FontWeight.w600,
                         fontSize: 13)),
                 const SizedBox(width: 12),
@@ -2492,12 +2493,12 @@ class _WorkScheduleScreenState extends State<WorkScheduleScreen>
   }) {
     return InkWell(
       onTap: onTap,
-      borderRadius: BorderRadius.circular(8),
+      borderRadius: BorderRadius.circular(10),
       child: Container(
         padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
         decoration: BoxDecoration(
           color: color.withValues(alpha: 0.08),
-          borderRadius: BorderRadius.circular(8),
+          borderRadius: BorderRadius.circular(10),
           border: Border.all(color: color.withValues(alpha: 0.3)),
         ),
         child: Row(
@@ -2530,14 +2531,14 @@ class _WorkScheduleScreenState extends State<WorkScheduleScreen>
           return ScrollableAlertDialog(
             backgroundColor: Colors.white,
             shape:
-                RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+                RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
             title: Row(
               children: [
                 Icon(Icons.today, color: HrmPageChrome.primaryNavy),
                 SizedBox(width: 8),
                 Text(tr('Sao chép lịch ngày'),
                     style: TextStyle(
-                        color: Color(0xFF18181B), fontWeight: FontWeight.bold)),
+                        color: SboxColors.slate900, fontWeight: FontWeight.bold)),
               ],
             ),
             content: SizedBox(
@@ -2549,12 +2550,12 @@ class _WorkScheduleScreenState extends State<WorkScheduleScreen>
                   children: [
                     Text(tr('Sao chép lịch từ một ngày sang các ngày khác.'),
                         style:
-                            TextStyle(color: Color(0xFF71717A), fontSize: 13)),
+                            TextStyle(color: SboxColors.slate500, fontSize: 13)),
                     const SizedBox(height: 16),
                     // Source date picker
                     Text(tr(_l10n.sourceDate),
                         style: const TextStyle(
-                            color: Color(0xFF18181B),
+                            color: SboxColors.slate900,
                             fontWeight: FontWeight.w600)),
                     const SizedBox(height: 8),
                     InkWell(
@@ -2575,19 +2576,19 @@ class _WorkScheduleScreenState extends State<WorkScheduleScreen>
                         padding: const EdgeInsets.symmetric(
                             horizontal: 12, vertical: 10),
                         decoration: BoxDecoration(
-                          border: Border.all(color: const Color(0xFFE4E4E7)),
-                          borderRadius: BorderRadius.circular(8),
+                          border: Border.all(color: SboxColors.slate200),
+                          borderRadius: BorderRadius.circular(10),
                         ),
                         child: Row(
                           children: [
                             const Icon(Icons.calendar_today,
-                                size: 16, color: Color(0xFF71717A)),
+                                size: 16, color: SboxColors.slate500),
                             const SizedBox(width: 8),
                             Text(
                                 tr(DateFormat('dd/MM/yyyy (EEEE)', 'vi')
                                     .format(sourceDate)),
                                 style:
-                                    const TextStyle(color: Color(0xFF18181B))),
+                                    const TextStyle(color: SboxColors.slate900)),
                           ],
                         ),
                       ),
@@ -2598,7 +2599,7 @@ class _WorkScheduleScreenState extends State<WorkScheduleScreen>
                       children: [
                         Text(tr(_l10n.targetDate),
                             style: const TextStyle(
-                                color: Color(0xFF18181B),
+                                color: SboxColors.slate900,
                                 fontWeight: FontWeight.w600)),
                         const Spacer(),
                         if (targetDates.isNotEmpty)
@@ -2607,7 +2608,7 @@ class _WorkScheduleScreenState extends State<WorkScheduleScreen>
                                 setDialogState(() => targetDates.clear()),
                             child: Text(tr('Xóa tất cả (${targetDates.length})'),
                                 style: const TextStyle(
-                                    color: Color(0xFFEF4444), fontSize: 12)),
+                                    color: SboxColors.danger, fontSize: 12)),
                           ),
                       ],
                     ),
@@ -2624,12 +2625,12 @@ class _WorkScheduleScreenState extends State<WorkScheduleScreen>
                         runSpacing: 6,
                         children: (List.of(targetDates)..sort())
                             .map((d) => Chip(
-                                  backgroundColor: const Color(0xFFEFF6FF),
+                                  backgroundColor: SboxColors.brand50,
                                   label: Text(
                                       tr(DateFormat('dd/MM (EEE)', 'vi').format(d)),
                                       style: const TextStyle(
                                           fontSize: 11,
-                                          color: Color(0xFF18181B))),
+                                          color: SboxColors.slate900)),
                                   deleteIcon: const Icon(Icons.close, size: 14),
                                   onDeleted: () => setDialogState(
                                       () => targetDates.remove(d)),
@@ -2669,7 +2670,7 @@ class _WorkScheduleScreenState extends State<WorkScheduleScreen>
               TextButton(
                 onPressed: () => Navigator.pop(context),
                 child: Text(tr(_l10n.cancel),
-                    style: const TextStyle(color: Color(0xFF71717A))),
+                    style: const TextStyle(color: SboxColors.slate500)),
               ),
               FilledButton.icon(
                 onPressed: targetDates.isEmpty ||
@@ -2740,7 +2741,7 @@ class _WorkScheduleScreenState extends State<WorkScheduleScreen>
                 decoration: BoxDecoration(
                   color: isSelected
                       ? HrmPageChrome.primaryNavy
-                      : (isToday ? const Color(0xFFEFF6FF) : null),
+                      : (isToday ? SboxColors.brand50 : null),
                   borderRadius: BorderRadius.circular(6),
                   border: isToday && !isSelected
                       ? Border.all(color: HrmPageChrome.primaryNavy, width: 1)
@@ -2753,8 +2754,8 @@ class _WorkScheduleScreenState extends State<WorkScheduleScreen>
                     color: isSelected
                         ? Colors.white
                         : (col == 6
-                            ? const Color(0xFFEF4444)
-                            : const Color(0xFF18181B)),
+                            ? SboxColors.danger
+                            : SboxColors.slate900),
                     fontWeight: isSelected || isToday
                         ? FontWeight.bold
                         : FontWeight.normal,
@@ -2773,9 +2774,9 @@ class _WorkScheduleScreenState extends State<WorkScheduleScreen>
     return Container(
       padding: const EdgeInsets.all(8),
       decoration: BoxDecoration(
-        color: const Color(0xFFFAFAFA),
+        color: SboxColors.slate50,
         borderRadius: BorderRadius.circular(10),
-        border: Border.all(color: const Color(0xFFE4E4E7)),
+        border: Border.all(color: SboxColors.slate200),
       ),
       child: Column(
         children: [
@@ -2792,7 +2793,7 @@ class _WorkScheduleScreenState extends State<WorkScheduleScreen>
               ),
               Text(tr('Tháng ${calendarMonth.month}/${calendarMonth.year}'),
                 style: const TextStyle(
-                    color: Color(0xFF18181B),
+                    color: SboxColors.slate900,
                     fontWeight: FontWeight.bold,
                     fontSize: 14),
               ),
@@ -2814,8 +2815,8 @@ class _WorkScheduleScreenState extends State<WorkScheduleScreen>
                           child: Text(tr(d),
                               style: TextStyle(
                                   color: d == 'CN'
-                                      ? const Color(0xFFEF4444)
-                                      : const Color(0xFF71717A),
+                                      ? SboxColors.danger
+                                      : SboxColors.slate500,
                                   fontSize: 11,
                                   fontWeight: FontWeight.w600))),
                     ))
@@ -2843,7 +2844,7 @@ class _WorkScheduleScreenState extends State<WorkScheduleScreen>
       children: [
         SwitchListTile(
           title: Text(tr(_l10n.applyToAll),
-              style: const TextStyle(color: Color(0xFF18181B), fontSize: 13)),
+              style: const TextStyle(color: SboxColors.slate900, fontSize: 13)),
           value: applyToAll,
           onChanged: onToggleAll,
           activeThumbColor: activeColor,
@@ -2854,7 +2855,7 @@ class _WorkScheduleScreenState extends State<WorkScheduleScreen>
             children: [
               Text(tr('Chọn nhân viên:'),
                   style: TextStyle(
-                      color: Color(0xFF18181B),
+                      color: SboxColors.slate900,
                       fontWeight: FontWeight.w600,
                       fontSize: 13)),
               const Spacer(),
@@ -2867,15 +2868,15 @@ class _WorkScheduleScreenState extends State<WorkScheduleScreen>
                 onPressed: onDeselectAllEmployees,
                 child: Text(tr(_l10n.deselectAll),
                     style: const TextStyle(
-                        fontSize: 11, color: Color(0xFFEF4444))),
+                        fontSize: 11, color: SboxColors.danger)),
               ),
             ],
           ),
           Container(
             constraints: const BoxConstraints(maxHeight: 180),
             decoration: BoxDecoration(
-              border: Border.all(color: const Color(0xFFE4E4E7)),
-              borderRadius: BorderRadius.circular(8),
+              border: Border.all(color: SboxColors.slate200),
+              borderRadius: BorderRadius.circular(10),
             ),
             child: ListView.builder(
               shrinkWrap: true,
@@ -3026,14 +3027,14 @@ class _WorkScheduleScreenState extends State<WorkScheduleScreen>
           return ScrollableAlertDialog(
             backgroundColor: Colors.white,
             shape:
-                RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+                RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
             title: Row(
               children: [
                 Icon(Icons.date_range, color: HrmPageChrome.primaryNavy),
                 SizedBox(width: 8),
                 Text(tr('Sao chép lịch tuần'),
                     style: TextStyle(
-                        color: Color(0xFF18181B), fontWeight: FontWeight.bold)),
+                        color: SboxColors.slate900, fontWeight: FontWeight.bold)),
               ],
             ),
             content: SizedBox(
@@ -3045,12 +3046,12 @@ class _WorkScheduleScreenState extends State<WorkScheduleScreen>
                   children: [
                     Text(tr('Sao chép toàn bộ lịch của một tuần sang các tuần tiếp theo.'),
                         style:
-                            TextStyle(color: Color(0xFF71717A), fontSize: 13)),
+                            TextStyle(color: SboxColors.slate500, fontSize: 13)),
                     const SizedBox(height: 16),
                     // Source week
                     Text(tr('Tuần nguồn:'),
                         style: TextStyle(
-                            color: Color(0xFF18181B),
+                            color: SboxColors.slate900,
                             fontWeight: FontWeight.w600)),
                     const SizedBox(height: 8),
                     InkWell(
@@ -3075,11 +3076,11 @@ class _WorkScheduleScreenState extends State<WorkScheduleScreen>
                         padding: const EdgeInsets.symmetric(
                             horizontal: 12, vertical: 10),
                         decoration: BoxDecoration(
-                          color: const Color(0xFFEFF6FF),
+                          color: SboxColors.brand50,
                           border: Border.all(
                               color: HrmPageChrome.primaryNavy
                                   .withValues(alpha: 0.3)),
-                          borderRadius: BorderRadius.circular(8),
+                          borderRadius: BorderRadius.circular(10),
                         ),
                         child: Row(
                           children: [
@@ -3088,7 +3089,7 @@ class _WorkScheduleScreenState extends State<WorkScheduleScreen>
                             const SizedBox(width: 8),
                             Text(tr('${tr('Tuần ')}${_getWeekNumber(sourceWeekStart)}: ${DateFormat('dd/MM').format(sourceWeekStart)} - ${DateFormat('dd/MM/yyyy').format(sourceWeekEnd)}'),
                               style: const TextStyle(
-                                  color: Color(0xFF18181B),
+                                  color: SboxColors.slate900,
                                   fontWeight: FontWeight.w500),
                             ),
                           ],
@@ -3099,7 +3100,7 @@ class _WorkScheduleScreenState extends State<WorkScheduleScreen>
                     // Target week
                     Text(tr('Tuần đích bắt đầu từ:'),
                         style: TextStyle(
-                            color: Color(0xFF18181B),
+                            color: SboxColors.slate900,
                             fontWeight: FontWeight.w600)),
                     const SizedBox(height: 8),
                     InkWell(
@@ -3121,16 +3122,16 @@ class _WorkScheduleScreenState extends State<WorkScheduleScreen>
                         padding: const EdgeInsets.symmetric(
                             horizontal: 12, vertical: 10),
                         decoration: BoxDecoration(
-                          border: Border.all(color: const Color(0xFFE4E4E7)),
-                          borderRadius: BorderRadius.circular(8),
+                          border: Border.all(color: SboxColors.slate200),
+                          borderRadius: BorderRadius.circular(10),
                         ),
                         child: Row(
                           children: [
                             const Icon(Icons.calendar_today,
-                                size: 16, color: Color(0xFF71717A)),
+                                size: 16, color: SboxColors.slate500),
                             const SizedBox(width: 8),
                             Text(tr('${tr('Tuần ')}${_getWeekNumber(targetWeekStart)}: ${DateFormat('dd/MM').format(targetWeekStart)} - ${DateFormat('dd/MM/yyyy').format(targetWeekStart.add(const Duration(days: 6)))}'),
-                              style: const TextStyle(color: Color(0xFF18181B)),
+                              style: const TextStyle(color: SboxColors.slate900),
                             ),
                           ],
                         ),
@@ -3140,7 +3141,7 @@ class _WorkScheduleScreenState extends State<WorkScheduleScreen>
                     // Number of weeks
                     Text(tr('Số tuần sao chép:'),
                         style: TextStyle(
-                            color: Color(0xFF18181B),
+                            color: SboxColors.slate900,
                             fontWeight: FontWeight.w600)),
                     const SizedBox(height: 8),
                     Row(
@@ -3156,12 +3157,12 @@ class _WorkScheduleScreenState extends State<WorkScheduleScreen>
                           padding: const EdgeInsets.symmetric(
                               horizontal: 16, vertical: 6),
                           decoration: BoxDecoration(
-                            color: const Color(0xFFEFF6FF),
-                            borderRadius: BorderRadius.circular(8),
+                            color: SboxColors.brand50,
+                            borderRadius: BorderRadius.circular(10),
                           ),
                           child: Text(tr('$numberOfWeeks tuần'),
                               style: const TextStyle(
-                                  color: Color(0xFF18181B),
+                                  color: SboxColors.slate900,
                                   fontWeight: FontWeight.bold,
                                   fontSize: 14)),
                         ),
@@ -3179,15 +3180,15 @@ class _WorkScheduleScreenState extends State<WorkScheduleScreen>
                     Container(
                       padding: const EdgeInsets.all(10),
                       decoration: BoxDecoration(
-                        color: const Color(0xFFFAFAFA),
-                        borderRadius: BorderRadius.circular(8),
+                        color: SboxColors.slate50,
+                        borderRadius: BorderRadius.circular(10),
                       ),
                       child: Column(
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
                           Text(tr('Sẽ sao chép đến:'),
                               style: TextStyle(
-                                  color: Color(0xFF71717A), fontSize: 11)),
+                                  color: SboxColors.slate500, fontSize: 11)),
                           const SizedBox(height: 4),
                           Wrap(
                             spacing: 6,
@@ -3196,7 +3197,7 @@ class _WorkScheduleScreenState extends State<WorkScheduleScreen>
                               final wStart =
                                   targetWeekStart.add(Duration(days: 7 * i));
                               return Chip(
-                                backgroundColor: const Color(0xFFEFF6FF),
+                                backgroundColor: SboxColors.brand50,
                                 label: Text(tr('${tr('Tuần ')}${_getWeekNumber(wStart)}: ${DateFormat('dd/MM').format(wStart)}'),
                                     style: const TextStyle(
                                         fontSize: 10,
@@ -3242,7 +3243,7 @@ class _WorkScheduleScreenState extends State<WorkScheduleScreen>
               TextButton(
                 onPressed: () => Navigator.pop(context),
                 child: Text(tr(_l10n.cancel),
-                    style: const TextStyle(color: Color(0xFF71717A))),
+                    style: const TextStyle(color: SboxColors.slate500)),
               ),
               FilledButton.icon(
                 onPressed: (!applyToAllEmployees && selectedEmployeeIds.isEmpty)
@@ -3397,14 +3398,14 @@ class _WorkScheduleScreenState extends State<WorkScheduleScreen>
           return ScrollableAlertDialog(
             backgroundColor: Colors.white,
             shape:
-                RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+                RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
             title: Row(
               children: [
                 Icon(Icons.calendar_month, color: HrmPageChrome.primaryNavy),
                 SizedBox(width: 8),
                 Text(tr('Sao chép lịch tháng'),
                     style: TextStyle(
-                        color: Color(0xFF18181B), fontWeight: FontWeight.bold)),
+                        color: SboxColors.slate900, fontWeight: FontWeight.bold)),
               ],
             ),
             content: SizedBox(
@@ -3416,7 +3417,7 @@ class _WorkScheduleScreenState extends State<WorkScheduleScreen>
                   children: [
                     Text(tr('Sao chép lịch theo từng tuần trong tháng nguồn sang tháng đích.'),
                         style:
-                            TextStyle(color: Color(0xFF71717A), fontSize: 13)),
+                            TextStyle(color: SboxColors.slate500, fontSize: 13)),
                     const SizedBox(height: 16),
                     // Source month/year
                     Row(
@@ -3427,7 +3428,7 @@ class _WorkScheduleScreenState extends State<WorkScheduleScreen>
                             children: [
                               Text(tr('Tháng nguồn:'),
                                   style: TextStyle(
-                                      color: Color(0xFF18181B),
+                                      color: SboxColors.slate900,
                                       fontWeight: FontWeight.w600)),
                               const SizedBox(height: 8),
                               Row(
@@ -3441,7 +3442,7 @@ class _WorkScheduleScreenState extends State<WorkScheduleScreen>
                                                 horizontal: 12, vertical: 8),
                                         border: OutlineInputBorder(
                                             borderRadius:
-                                                BorderRadius.circular(8)),
+                                                BorderRadius.circular(10)),
                                         isDense: true,
                                       ),
                                       items: List.generate(
@@ -3464,7 +3465,7 @@ class _WorkScheduleScreenState extends State<WorkScheduleScreen>
                                                 horizontal: 12, vertical: 8),
                                         border: OutlineInputBorder(
                                             borderRadius:
-                                                BorderRadius.circular(8)),
+                                                BorderRadius.circular(10)),
                                         isDense: true,
                                       ),
                                       items: List.generate(
@@ -3494,7 +3495,7 @@ class _WorkScheduleScreenState extends State<WorkScheduleScreen>
                             children: [
                               Text(tr('Tháng đích:'),
                                   style: TextStyle(
-                                      color: Color(0xFF18181B),
+                                      color: SboxColors.slate900,
                                       fontWeight: FontWeight.w600)),
                               const SizedBox(height: 8),
                               Row(
@@ -3508,7 +3509,7 @@ class _WorkScheduleScreenState extends State<WorkScheduleScreen>
                                                 horizontal: 12, vertical: 8),
                                         border: OutlineInputBorder(
                                             borderRadius:
-                                                BorderRadius.circular(8)),
+                                                BorderRadius.circular(10)),
                                         isDense: true,
                                       ),
                                       items: List.generate(
@@ -3531,7 +3532,7 @@ class _WorkScheduleScreenState extends State<WorkScheduleScreen>
                                                 horizontal: 12, vertical: 8),
                                         border: OutlineInputBorder(
                                             borderRadius:
-                                                BorderRadius.circular(8)),
+                                                BorderRadius.circular(10)),
                                         isDense: true,
                                       ),
                                       items: List.generate(
@@ -3584,7 +3585,7 @@ class _WorkScheduleScreenState extends State<WorkScheduleScreen>
               TextButton(
                 onPressed: () => Navigator.pop(context),
                 child: Text(tr(_l10n.cancel),
-                    style: const TextStyle(color: Color(0xFF71717A))),
+                    style: const TextStyle(color: SboxColors.slate500)),
               ),
               FilledButton.icon(
                 onPressed: (!applyToAllEmployees && selectedEmployeeIds.isEmpty)
@@ -3731,14 +3732,14 @@ class _WorkScheduleScreenState extends State<WorkScheduleScreen>
       context: context,
       builder: (context) => ScrollableAlertDialog(
         backgroundColor: Colors.white,
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
         title: Row(
           children: [
             Icon(Icons.menu_book, color: Color(0xFFFB923C)),
             SizedBox(width: 8),
             Text(tr('Hướng dẫn đăng ký lịch làm việc'),
                 style: TextStyle(
-                    color: Color(0xFF18181B),
+                    color: SboxColors.slate900,
                     fontWeight: FontWeight.bold,
                     fontSize: 18)),
           ],
@@ -3812,7 +3813,7 @@ class _WorkScheduleScreenState extends State<WorkScheduleScreen>
                 _buildGuideSection(
                   '6. Duyệt đăng ký (cho quản lý)',
                   Icons.fact_check,
-                  const Color(0xFFEF4444),
+                  SboxColors.danger,
                   [
                     'Tab "Duyệt theo nhân viên": Xem và duyệt theo từng nhân viên.',
                     'Tab "Duyệt theo ca": Xem và duyệt theo từng ca làm việc.',
@@ -3846,7 +3847,7 @@ class _WorkScheduleScreenState extends State<WorkScheduleScreen>
             const SizedBox(width: 8),
             Text(tr(title),
                 style: TextStyle(
-                    color: color, fontWeight: FontWeight.bold, fontSize: 15)),
+                    color: color, fontWeight: FontWeight.bold, fontSize: 16)),
           ],
         ),
         const SizedBox(height: 8),
@@ -3855,11 +3856,11 @@ class _WorkScheduleScreenState extends State<WorkScheduleScreen>
               child: Row(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  Text(tr('• '), style: TextStyle(color: Color(0xFF71717A))),
+                  Text(tr('• '), style: TextStyle(color: SboxColors.slate500)),
                   Expanded(
                       child: Text(tr(step),
                           style: const TextStyle(
-                              color: Color(0xFF52525B),
+                              color: SboxColors.slate600,
                               fontSize: 13,
                               height: 1.4))),
                 ],
@@ -3912,8 +3913,8 @@ class _WorkScheduleScreenState extends State<WorkScheduleScreen>
       margin: const EdgeInsets.symmetric(horizontal: 12),
       decoration: BoxDecoration(
         color: Colors.white,
-        borderRadius: BorderRadius.circular(12),
-        border: Border.all(color: const Color(0xFFE4E4E7)),
+        borderRadius: BorderRadius.circular(14),
+        border: Border.all(color: SboxColors.slate200),
         boxShadow: [
           BoxShadow(
               color: Colors.black.withValues(alpha: 0.04),
@@ -3939,7 +3940,7 @@ class _WorkScheduleScreenState extends State<WorkScheduleScreen>
                       const EdgeInsets.symmetric(vertical: 8, horizontal: 6),
                   decoration: const BoxDecoration(
                       border:
-                          Border(right: BorderSide(color: Color(0xFFE4E4E7)))),
+                          Border(right: BorderSide(color: SboxColors.slate200))),
                   child: Text(tr('Nhân viên'),
                       style: TextStyle(
                           fontSize: 11,
@@ -3964,7 +3965,7 @@ class _WorkScheduleScreenState extends State<WorkScheduleScreen>
                               : null,
                           border: di < 6
                               ? const Border(
-                                  right: BorderSide(color: Color(0xFFE4E4E7)))
+                                  right: BorderSide(color: SboxColors.slate200))
                               : null,
                         ),
                         child: Column(
@@ -3976,14 +3977,14 @@ class _WorkScheduleScreenState extends State<WorkScheduleScreen>
                                     color: isToday
                                         ? const Color(0xFFA16207)
                                         : (isSun
-                                            ? const Color(0xFFEF4444)
-                                            : const Color(0xFF71717A)))),
+                                            ? SboxColors.danger
+                                            : SboxColors.slate500))),
                             Text(tr('${day.day}/${day.month}'),
                                 style: TextStyle(
                                     fontSize: 10,
                                     color: isToday
                                         ? const Color(0xFFA16207)
-                                        : const Color(0xFF71717A))),
+                                        : SboxColors.slate500)),
                           ],
                         ),
                       ),
@@ -3999,7 +4000,7 @@ class _WorkScheduleScreenState extends State<WorkScheduleScreen>
                 padding: EdgeInsets.all(24),
                 child: Center(
                     child: Text(tr('Không còn đăng ký chờ duyệt'),
-                        style: TextStyle(color: Color(0xFF71717A)))))
+                        style: TextStyle(color: SboxColors.slate500))))
           else
             ...activeEmps.asMap().entries.map((entry) {
               final emp = entry.value;
@@ -4009,7 +4010,7 @@ class _WorkScheduleScreenState extends State<WorkScheduleScreen>
                     border: isLast
                         ? null
                         : const Border(
-                            bottom: BorderSide(color: Color(0xFFE4E4E7)))),
+                            bottom: BorderSide(color: SboxColors.slate200))),
                 child: Row(
                   children: [
                     Container(
@@ -4018,7 +4019,7 @@ class _WorkScheduleScreenState extends State<WorkScheduleScreen>
                           vertical: 6, horizontal: 6),
                       decoration: const BoxDecoration(
                           border: Border(
-                              right: BorderSide(color: Color(0xFFE4E4E7)))),
+                              right: BorderSide(color: SboxColors.slate200))),
                       child: Column(
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
@@ -4026,12 +4027,12 @@ class _WorkScheduleScreenState extends State<WorkScheduleScreen>
                               style: const TextStyle(
                                   fontSize: 11,
                                   fontWeight: FontWeight.w600,
-                                  color: Color(0xFF18181B)),
+                                  color: SboxColors.slate900),
                               maxLines: 1,
                               overflow: TextOverflow.ellipsis),
                           Text(tr(emp.employeeCode),
                               style: const TextStyle(
-                                  fontSize: 9, color: Color(0xFF71717A))),
+                                  fontSize: 9, color: SboxColors.slate500)),
                         ],
                       ),
                     ),
@@ -4074,7 +4075,7 @@ class _WorkScheduleScreenState extends State<WorkScheduleScreen>
               color: isToday ? const Color(0xFFF5F5F4) : Colors.white,
               borderRadius: BorderRadius.circular(4)),
           child:
-              Center(child: Icon(Icons.add, size: 12, color: Colors.grey[300])),
+              Center(child: Icon(Icons.add, size: 12, color: SboxColors.slate300)),
         ),
       );
     }
@@ -4084,30 +4085,30 @@ class _WorkScheduleScreenState extends State<WorkScheduleScreen>
       final shift = _shiftById(r.shiftId);
       chips.add(_miniShiftChip(
           r.isDayOff ? 'Nghỉ' : (shift?.name ?? 'Ca'),
-          r.isDayOff ? const Color(0xFF71717A) : _colorForShift(shift),
+          r.isDayOff ? SboxColors.slate500 : _colorForShift(shift),
           icon: Icons.hourglass_empty));
     }
     for (final p in localPending) {
       final shift = _shiftById(p['shiftId']?.toString());
       chips.add(_miniShiftChip(
           p['isDayOff'] == true ? 'Nghỉ' : (shift?.name ?? 'Ca'),
-          const Color(0xFF94A3B8),
+          SboxColors.slate400,
           icon: Icons.schedule_send));
     }
     for (final r in rejectedRegs) {
       final shift = _shiftById(r.shiftId);
       chips.add(_miniShiftChip(
           r.isDayOff ? 'Nghỉ' : (shift?.name ?? 'Ca'),
-          const Color(0xFFEF4444),
+          SboxColors.danger,
           icon: Icons.cancel));
     }
 
     final hasRejectOnly =
         pendingRegs.isEmpty && localPending.isEmpty && rejectedRegs.isNotEmpty;
     final borderColor =
-        hasRejectOnly ? const Color(0xFFEF4444) : const Color(0xFFD97706);
+        hasRejectOnly ? SboxColors.danger : SboxColors.warning;
     final bgColor =
-        hasRejectOnly ? const Color(0xFFFEE2E2) : const Color(0xFFFFFBEB);
+        hasRejectOnly ? SboxColors.dangerSoft : SboxColors.warningSoft;
 
     return GestureDetector(
       onTap: canEdit ? () => _showRegisterDialog(emp, day) : null,
@@ -4137,8 +4138,8 @@ class _WorkScheduleScreenState extends State<WorkScheduleScreen>
       margin: const EdgeInsets.symmetric(horizontal: 12),
       decoration: BoxDecoration(
         color: Colors.white,
-        borderRadius: BorderRadius.circular(12),
-        border: Border.all(color: const Color(0xFFE4E4E7)),
+        borderRadius: BorderRadius.circular(14),
+        border: Border.all(color: SboxColors.slate200),
         boxShadow: [
           BoxShadow(
               color: Colors.black.withValues(alpha: 0.04),
@@ -4160,13 +4161,13 @@ class _WorkScheduleScreenState extends State<WorkScheduleScreen>
               children: [
                 InkWell(
                   onTap: () => setState(() => _pendingFocusedDay = null),
-                  borderRadius: BorderRadius.circular(8),
+                  borderRadius: BorderRadius.circular(10),
                   child: Container(
                     padding: const EdgeInsets.all(4),
                     decoration: BoxDecoration(
                         color: Colors.white,
-                        borderRadius: BorderRadius.circular(8),
-                        border: Border.all(color: const Color(0xFFE4E4E7))),
+                        borderRadius: BorderRadius.circular(10),
+                        border: Border.all(color: SboxColors.slate200)),
                     child: const Icon(Icons.arrow_back,
                         size: 18, color: Color(0xFFA16207)),
                   ),
@@ -4208,7 +4209,7 @@ class _WorkScheduleScreenState extends State<WorkScheduleScreen>
                     suffix = ' (chờ)';
                     break;
                   case ScheduleRegistrationStatus.rejected:
-                    c = const Color(0xFFEF4444);
+                    c = SboxColors.danger;
                     ic = Icons.cancel;
                     suffix = ' (từ chối)';
                     break;
@@ -4224,19 +4225,19 @@ class _WorkScheduleScreenState extends State<WorkScheduleScreen>
               }
               for (final p in localPending) {
                 if (p['isDayOff'] == true) {
-                  chips.add(_empChip('Nghỉ (chưa gửi)', const Color(0xFF94A3B8),
+                  chips.add(_empChip('Nghỉ (chưa gửi)', SboxColors.slate400,
                       Icons.schedule_send));
                 } else {
                   final shift = _shiftById(p['shiftId']?.toString());
                   chips.add(_empChip('${shift?.name ?? 'Ca'} (chưa gửi)',
-                      const Color(0xFF94A3B8), Icons.schedule_send));
+                      SboxColors.slate400, Icons.schedule_send));
                 }
               }
 
               rows.add(Container(
                 decoration: const BoxDecoration(
                     border:
-                        Border(bottom: BorderSide(color: Color(0xFFE4E4E7)))),
+                        Border(bottom: BorderSide(color: SboxColors.slate200))),
                 padding:
                     const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
                 child: Row(
@@ -4251,10 +4252,10 @@ class _WorkScheduleScreenState extends State<WorkScheduleScreen>
                                 style: const TextStyle(
                                     fontSize: 12,
                                     fontWeight: FontWeight.w600,
-                                    color: Color(0xFF18181B))),
+                                    color: SboxColors.slate900)),
                             Text(tr(emp.employeeCode),
                                 style: const TextStyle(
-                                    fontSize: 10, color: Color(0xFF71717A))),
+                                    fontSize: 10, color: SboxColors.slate500)),
                           ],
                         )),
                     const SizedBox(width: 8),
@@ -4285,7 +4286,7 @@ class _WorkScheduleScreenState extends State<WorkScheduleScreen>
                     padding: EdgeInsets.all(24),
                     child: Center(
                         child: Text(tr('Không có đăng ký'),
-                            style: TextStyle(color: Color(0xFF71717A)))))
+                            style: TextStyle(color: SboxColors.slate500))))
               ];
             }
             return rows;
@@ -4327,8 +4328,8 @@ class _WorkScheduleScreenState extends State<WorkScheduleScreen>
       margin: const EdgeInsets.symmetric(horizontal: 12),
       decoration: BoxDecoration(
         color: Colors.white,
-        borderRadius: BorderRadius.circular(12),
-        border: Border.all(color: const Color(0xFFE4E4E7)),
+        borderRadius: BorderRadius.circular(14),
+        border: Border.all(color: SboxColors.slate200),
         boxShadow: [
           BoxShadow(
               color: Colors.black.withValues(alpha: 0.04),
@@ -4354,7 +4355,7 @@ class _WorkScheduleScreenState extends State<WorkScheduleScreen>
                       const EdgeInsets.symmetric(vertical: 8, horizontal: 6),
                   decoration: const BoxDecoration(
                       border:
-                          Border(right: BorderSide(color: Color(0xFFE4E4E7)))),
+                          Border(right: BorderSide(color: SboxColors.slate200))),
                   child: Text(tr('Nhân viên'),
                       style: TextStyle(
                           fontSize: 11,
@@ -4379,7 +4380,7 @@ class _WorkScheduleScreenState extends State<WorkScheduleScreen>
                               : null,
                           border: di < 6
                               ? const Border(
-                                  right: BorderSide(color: Color(0xFFE4E4E7)))
+                                  right: BorderSide(color: SboxColors.slate200))
                               : null,
                         ),
                         child: Column(
@@ -4391,14 +4392,14 @@ class _WorkScheduleScreenState extends State<WorkScheduleScreen>
                                     color: isToday
                                         ? HrmPageChrome.primaryNavy
                                         : (isSun
-                                            ? const Color(0xFFEF4444)
-                                            : const Color(0xFF71717A)))),
+                                            ? SboxColors.danger
+                                            : SboxColors.slate500))),
                             Text(tr('${day.day}/${day.month}'),
                                 style: TextStyle(
                                     fontSize: 10,
                                     color: isToday
                                         ? HrmPageChrome.primaryNavy
-                                        : const Color(0xFF71717A))),
+                                        : SboxColors.slate500)),
                           ],
                         ),
                       ),
@@ -4414,7 +4415,7 @@ class _WorkScheduleScreenState extends State<WorkScheduleScreen>
                 padding: EdgeInsets.all(24),
                 child: Center(
                     child: Text(tr('Chưa có lịch đã duyệt'),
-                        style: TextStyle(color: Color(0xFF71717A)))))
+                        style: TextStyle(color: SboxColors.slate500))))
           else
             ...activeEmps.asMap().entries.map((entry) {
               final emp = entry.value;
@@ -4424,7 +4425,7 @@ class _WorkScheduleScreenState extends State<WorkScheduleScreen>
                     border: isLast
                         ? null
                         : const Border(
-                            bottom: BorderSide(color: Color(0xFFE4E4E7)))),
+                            bottom: BorderSide(color: SboxColors.slate200))),
                 child: Row(
                   children: [
                     Container(
@@ -4433,7 +4434,7 @@ class _WorkScheduleScreenState extends State<WorkScheduleScreen>
                           vertical: 6, horizontal: 6),
                       decoration: const BoxDecoration(
                           border: Border(
-                              right: BorderSide(color: Color(0xFFE4E4E7)))),
+                              right: BorderSide(color: SboxColors.slate200))),
                       child: Column(
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
@@ -4441,12 +4442,12 @@ class _WorkScheduleScreenState extends State<WorkScheduleScreen>
                               style: const TextStyle(
                                   fontSize: 11,
                                   fontWeight: FontWeight.w600,
-                                  color: Color(0xFF18181B)),
+                                  color: SboxColors.slate900),
                               maxLines: 1,
                               overflow: TextOverflow.ellipsis),
                           Text(tr(emp.department ?? emp.employeeCode),
                               style: const TextStyle(
-                                  fontSize: 9, color: Color(0xFF71717A))),
+                                  fontSize: 9, color: SboxColors.slate500)),
                         ],
                       ),
                     ),
@@ -4481,7 +4482,7 @@ class _WorkScheduleScreenState extends State<WorkScheduleScreen>
       if (s.isDayOff) {
         marks.add((
           name: 'Nghỉ',
-          color: const Color(0xFF71717A),
+          color: SboxColors.slate500,
           dayOff: true,
         ));
       } else {
@@ -4497,7 +4498,7 @@ class _WorkScheduleScreenState extends State<WorkScheduleScreen>
       if (r.isDayOff) {
         marks.add((
           name: r.note ?? 'Nghỉ',
-          color: const Color(0xFF71717A),
+          color: SboxColors.slate500,
           dayOff: true,
         ));
       } else {
@@ -4532,7 +4533,7 @@ class _WorkScheduleScreenState extends State<WorkScheduleScreen>
               const SizedBox(height: 4),
               Text(tr(DateFormat('EEEE dd/MM/yyyy', 'vi').format(day)),
                   style: const TextStyle(
-                      fontSize: 13, color: Color(0xFF71717A))),
+                      fontSize: 13, color: SboxColors.slate500)),
               const SizedBox(height: 12),
               Wrap(
                 spacing: 8,
@@ -4562,7 +4563,7 @@ class _WorkScheduleScreenState extends State<WorkScheduleScreen>
             borderRadius: BorderRadius.circular(4)),
         child: Center(
             child: Text(tr('—'),
-                style: TextStyle(color: Colors.grey[300], fontSize: 14))),
+                style: TextStyle(color: SboxColors.slate300, fontSize: 14))),
       );
     }
 
@@ -4602,7 +4603,7 @@ class _WorkScheduleScreenState extends State<WorkScheduleScreen>
                           Text(tr('$workCount'),
                               style: TextStyle(
                                   fontSize: 10,
-                                  fontWeight: FontWeight.w800,
+                                  fontWeight: FontWeight.w700,
                                   color: accent)),
                         ],
                       ],
@@ -4633,8 +4634,8 @@ class _WorkScheduleScreenState extends State<WorkScheduleScreen>
       margin: const EdgeInsets.symmetric(horizontal: 12),
       decoration: BoxDecoration(
         color: Colors.white,
-        borderRadius: BorderRadius.circular(12),
-        border: Border.all(color: const Color(0xFFE4E4E7)),
+        borderRadius: BorderRadius.circular(14),
+        border: Border.all(color: SboxColors.slate200),
         boxShadow: [
           BoxShadow(
               color: Colors.black.withValues(alpha: 0.04),
@@ -4656,13 +4657,13 @@ class _WorkScheduleScreenState extends State<WorkScheduleScreen>
               children: [
                 InkWell(
                   onTap: () => setState(() => _approvedFocusedDay = null),
-                  borderRadius: BorderRadius.circular(8),
+                  borderRadius: BorderRadius.circular(10),
                   child: Container(
                     padding: const EdgeInsets.all(4),
                     decoration: BoxDecoration(
                         color: Colors.white,
-                        borderRadius: BorderRadius.circular(8),
-                        border: Border.all(color: const Color(0xFFE4E4E7))),
+                        borderRadius: BorderRadius.circular(10),
+                        border: Border.all(color: SboxColors.slate200)),
                     child: const Icon(Icons.arrow_back,
                         size: 18, color: HrmPageChrome.primaryNavy),
                   ),
@@ -4682,7 +4683,7 @@ class _WorkScheduleScreenState extends State<WorkScheduleScreen>
             Padding(
                 padding: EdgeInsets.all(24),
                 child: Text(tr('Chưa có ca'),
-                    style: TextStyle(color: Color(0xFF71717A))))
+                    style: TextStyle(color: SboxColors.slate500)))
           else
             ..._shifts.asMap().entries.map((entry) {
               final si = entry.key;
@@ -4727,7 +4728,7 @@ class _WorkScheduleScreenState extends State<WorkScheduleScreen>
                     border: isLast
                         ? null
                         : const Border(
-                            bottom: BorderSide(color: Color(0xFFE4E4E7)))),
+                            bottom: BorderSide(color: SboxColors.slate200))),
                 child: Padding(
                   padding:
                       const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
@@ -4753,7 +4754,7 @@ class _WorkScheduleScreenState extends State<WorkScheduleScreen>
                           Text(
                               tr('${_formatTime(shift.startTime)} - ${_formatTime(shift.endTime)}'),
                               style: const TextStyle(
-                                  fontSize: 11, color: Color(0xFF71717A))),
+                                  fontSize: 11, color: SboxColors.slate500)),
                           const Spacer(),
                           Text(
                               tr('${names.where((n) => n['isDayOff'] != true).length} NV'),
@@ -4767,7 +4768,7 @@ class _WorkScheduleScreenState extends State<WorkScheduleScreen>
                       if (names.isEmpty)
                         Text(tr('Chưa có nhân viên'),
                             style: TextStyle(
-                                fontSize: 11, color: Colors.grey[400]))
+                                fontSize: 11, color: SboxColors.slate400))
                       else
                         Wrap(
                           spacing: 4,
@@ -4806,7 +4807,7 @@ class _WorkScheduleScreenState extends State<WorkScheduleScreen>
             padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
             decoration: BoxDecoration(
               color: primary.withValues(alpha: 0.08),
-              borderRadius: BorderRadius.circular(8),
+              borderRadius: BorderRadius.circular(10),
             ),
             child: Row(
               mainAxisSize: MainAxisSize.min,
@@ -4885,8 +4886,8 @@ class _WorkScheduleScreenState extends State<WorkScheduleScreen>
       margin: const EdgeInsets.symmetric(horizontal: 16),
       decoration: BoxDecoration(
         color: Colors.white,
-        borderRadius: BorderRadius.circular(12),
-        border: Border.all(color: const Color(0xFFE4E4E7)),
+        borderRadius: BorderRadius.circular(14),
+        border: Border.all(color: SboxColors.slate200),
         boxShadow: [
           BoxShadow(
             color: Colors.black.withValues(alpha: 0.04),
@@ -4919,19 +4920,19 @@ class _WorkScheduleScreenState extends State<WorkScheduleScreen>
                 constraints: BoxConstraints(minWidth: constraints.maxWidth),
                 child: DataTable(
                   headingRowColor:
-                      WidgetStateProperty.all(const Color(0xFFF1F5F9)),
+                      WidgetStateProperty.all(SboxColors.slate100),
                   dataRowColor: WidgetStateProperty.all(Colors.white),
                   dataRowMinHeight: 56,
                   dataRowMaxHeight: 64,
                   border:
-                      TableBorder.all(color: const Color(0xFFE4E4E7), width: 1),
+                      TableBorder.all(color: SboxColors.slate200, width: 1),
                   columns: [
                     DataColumn(
                       label: Expanded(
                           child: Text(tr('NHÂN VIÊN'),
                               textAlign: TextAlign.center,
                               style: TextStyle(
-                                  color: Color(0xFF18181B),
+                                  color: SboxColors.slate900,
                                   fontWeight: FontWeight.bold))),
                     ),
                     ...List.generate(7, (i) {
@@ -4948,7 +4949,7 @@ class _WorkScheduleScreenState extends State<WorkScheduleScreen>
                               style: TextStyle(
                                 color: isToday
                                     ? HrmPageChrome.primaryNavy
-                                    : const Color(0xFF18181B),
+                                    : SboxColors.slate900,
                                 fontWeight: FontWeight.bold,
                                 fontSize: 12,
                               ),
@@ -4958,7 +4959,7 @@ class _WorkScheduleScreenState extends State<WorkScheduleScreen>
                               style: TextStyle(
                                 color: isToday
                                     ? HrmPageChrome.primaryNavy
-                                    : const Color(0xFF71717A),
+                                    : SboxColors.slate500,
                                 fontSize: 11,
                               ),
                             ),
@@ -4971,7 +4972,7 @@ class _WorkScheduleScreenState extends State<WorkScheduleScreen>
                           child: Text(tr('TỔNG CA'),
                               textAlign: TextAlign.center,
                               style: TextStyle(
-                                  color: Color(0xFF18181B),
+                                  color: SboxColors.slate900,
                                   fontWeight: FontWeight.bold))),
                     ),
                   ],
@@ -4981,7 +4982,7 @@ class _WorkScheduleScreenState extends State<WorkScheduleScreen>
                             DataCell(
                               Center(
                                 child: Text(tr('Chưa có nhân viên'),
-                                    style: TextStyle(color: Colors.grey[400])),
+                                    style: TextStyle(color: SboxColors.slate400)),
                               ),
                             ),
                             ...List.generate(
@@ -5002,22 +5003,22 @@ class _WorkScheduleScreenState extends State<WorkScheduleScreen>
                     children: [
                       Text(tr('Hiển thị:'),
                           style:
-                              TextStyle(fontSize: 12, color: Colors.grey[500])),
+                              TextStyle(fontSize: 12, color: SboxColors.slate500)),
                       const SizedBox(width: 8),
                       Container(
                         height: 34,
                         padding: const EdgeInsets.symmetric(horizontal: 12),
                         decoration: BoxDecoration(
-                          color: const Color(0xFFFAFAFA),
-                          border: Border.all(color: const Color(0xFFE4E4E7)),
-                          borderRadius: BorderRadius.circular(8),
+                          color: SboxColors.slate50,
+                          border: Border.all(color: SboxColors.slate200),
+                          borderRadius: BorderRadius.circular(10),
                         ),
                         child: DropdownButtonHideUnderline(
                           child: DropdownButton<int>(
                             value: _schedulePageSize,
                             isDense: true,
                             style: TextStyle(
-                                fontSize: 13, color: Colors.grey[800]),
+                                fontSize: 13, color: SboxColors.slate800),
                             items: _pageSizeOptions
                                 .map((s) => DropdownMenuItem(
                                     value: s, child: Text(tr('$s'))))
@@ -5159,8 +5160,8 @@ class _WorkScheduleScreenState extends State<WorkScheduleScreen>
       margin: const EdgeInsets.symmetric(horizontal: 12),
       decoration: BoxDecoration(
         color: Colors.white,
-        borderRadius: BorderRadius.circular(12),
-        border: Border.all(color: const Color(0xFFE4E4E7)),
+        borderRadius: BorderRadius.circular(14),
+        border: Border.all(color: SboxColors.slate200),
         boxShadow: [
           BoxShadow(
               color: Colors.black.withValues(alpha: 0.04),
@@ -5186,7 +5187,7 @@ class _WorkScheduleScreenState extends State<WorkScheduleScreen>
                       const EdgeInsets.symmetric(vertical: 8, horizontal: 4),
                   decoration: const BoxDecoration(
                       border:
-                          Border(right: BorderSide(color: Color(0xFFE4E4E7)))),
+                          Border(right: BorderSide(color: SboxColors.slate200))),
                   child: Text(tr('Ca / Ngày'),
                       style: TextStyle(
                           fontSize: 10,
@@ -5211,7 +5212,7 @@ class _WorkScheduleScreenState extends State<WorkScheduleScreen>
                               : null,
                           border: di < 6
                               ? const Border(
-                                  right: BorderSide(color: Color(0xFFE4E4E7)))
+                                  right: BorderSide(color: SboxColors.slate200))
                               : null,
                         ),
                         child: Column(
@@ -5223,15 +5224,15 @@ class _WorkScheduleScreenState extends State<WorkScheduleScreen>
                                   color: isToday
                                       ? HrmPageChrome.chipLight
                                       : (isSun
-                                          ? const Color(0xFFEF4444)
-                                          : const Color(0xFF71717A)),
+                                          ? SboxColors.danger
+                                          : SboxColors.slate500),
                                 )),
                             Text(tr('${day.day}/${day.month}'),
                                 style: TextStyle(
                                   fontSize: 10,
                                   color: isToday
                                       ? HrmPageChrome.chipLight
-                                      : const Color(0xFF71717A),
+                                      : SboxColors.slate500,
                                 )),
                           ],
                         ),
@@ -5247,7 +5248,7 @@ class _WorkScheduleScreenState extends State<WorkScheduleScreen>
             Padding(
                 padding: EdgeInsets.all(24),
                 child: Text(tr('Chưa có ca làm việc'),
-                    style: TextStyle(color: Color(0xFF71717A))))
+                    style: TextStyle(color: SboxColors.slate500)))
           else
             ..._shifts.asMap().entries.map((entry) {
               final si = entry.key;
@@ -5258,7 +5259,7 @@ class _WorkScheduleScreenState extends State<WorkScheduleScreen>
                   border: isLast
                       ? null
                       : const Border(
-                          bottom: BorderSide(color: Color(0xFFE4E4E7))),
+                          bottom: BorderSide(color: SboxColors.slate200)),
                 ),
                 child: Row(
                   children: [
@@ -5269,7 +5270,7 @@ class _WorkScheduleScreenState extends State<WorkScheduleScreen>
                           vertical: 8, horizontal: 4),
                       decoration: const BoxDecoration(
                           border: Border(
-                              right: BorderSide(color: Color(0xFFE4E4E7)))),
+                              right: BorderSide(color: SboxColors.slate200))),
                       child: Column(
                         children: [
                           Text(tr(shift.name),
@@ -5283,7 +5284,7 @@ class _WorkScheduleScreenState extends State<WorkScheduleScreen>
                           Text(
                               tr('${_formatTime(shift.startTime)}-${_formatTime(shift.endTime)}'),
                               style: const TextStyle(
-                                  fontSize: 9, color: Color(0xFF71717A)),
+                                  fontSize: 9, color: SboxColors.slate500),
                               textAlign: TextAlign.center),
                         ],
                       ),
@@ -5314,8 +5315,8 @@ class _WorkScheduleScreenState extends State<WorkScheduleScreen>
       margin: const EdgeInsets.symmetric(horizontal: 12),
       decoration: BoxDecoration(
         color: Colors.white,
-        borderRadius: BorderRadius.circular(12),
-        border: Border.all(color: const Color(0xFFE4E4E7)),
+        borderRadius: BorderRadius.circular(14),
+        border: Border.all(color: SboxColors.slate200),
         boxShadow: [
           BoxShadow(
               color: Colors.black.withValues(alpha: 0.04),
@@ -5338,13 +5339,13 @@ class _WorkScheduleScreenState extends State<WorkScheduleScreen>
               children: [
                 InkWell(
                   onTap: () => setState(() => _focusedDayIndex = null),
-                  borderRadius: BorderRadius.circular(8),
+                  borderRadius: BorderRadius.circular(10),
                   child: Container(
                     padding: const EdgeInsets.all(4),
                     decoration: BoxDecoration(
                         color: Colors.white,
-                        borderRadius: BorderRadius.circular(8),
-                        border: Border.all(color: const Color(0xFFE4E4E7))),
+                        borderRadius: BorderRadius.circular(10),
+                        border: Border.all(color: SboxColors.slate200)),
                     child: const Icon(Icons.arrow_back,
                         size: 18, color: HrmPageChrome.chipLight),
                   ),
@@ -5365,7 +5366,7 @@ class _WorkScheduleScreenState extends State<WorkScheduleScreen>
             Padding(
                 padding: EdgeInsets.all(24),
                 child: Text(tr('Chưa có ca'),
-                    style: TextStyle(color: Color(0xFF71717A))))
+                    style: TextStyle(color: SboxColors.slate500)))
           else
             ..._shifts.asMap().entries.map((entry) {
               final si = entry.key;
@@ -5384,7 +5385,7 @@ class _WorkScheduleScreenState extends State<WorkScheduleScreen>
                     border: isLast
                         ? null
                         : const Border(
-                            bottom: BorderSide(color: Color(0xFFE4E4E7)))),
+                            bottom: BorderSide(color: SboxColors.slate200))),
                 child: Padding(
                   padding:
                       const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
@@ -5411,7 +5412,7 @@ class _WorkScheduleScreenState extends State<WorkScheduleScreen>
                           Text(
                               tr('${_formatTime(shift.startTime)} - ${_formatTime(shift.endTime)}'),
                               style: const TextStyle(
-                                  fontSize: 11, color: Color(0xFF71717A))),
+                                  fontSize: 11, color: SboxColors.slate500)),
                           const Spacer(),
                           Text(
                               tr('${schedules.length + uniqueRegs.length + pendingLocal.length} NV'),
@@ -5448,7 +5449,7 @@ class _WorkScheduleScreenState extends State<WorkScheduleScreen>
                           child: Text(tr('Chưa có nhân viên'),
                               style: TextStyle(
                                   fontSize: 12,
-                                  color: Colors.grey[400],
+                                  color: SboxColors.slate400,
                                   fontStyle: FontStyle.italic)),
                         )
                       else
@@ -5479,7 +5480,7 @@ class _WorkScheduleScreenState extends State<WorkScheduleScreen>
                                   ic = Icons.check_circle;
                                   break;
                                 case ScheduleRegistrationStatus.rejected:
-                                  c = const Color(0xFFEF4444);
+                                  c = SboxColors.danger;
                                   ic = Icons.cancel;
                                   break;
                                 default:
@@ -5572,13 +5573,13 @@ class _WorkScheduleScreenState extends State<WorkScheduleScreen>
 
     if (totalCount == 0) {
       bgColor = belowWarning
-          ? const Color(0xFFEFF6FF)
-          : (isToday ? const Color(0xFFF1F5F9) : Colors.white);
+          ? SboxColors.brand50
+          : (isToday ? SboxColors.slate100 : Colors.white);
       borderColor =
-          belowWarning ? const Color(0xFF3B82F6) : const Color(0xFFE4E4E7);
+          belowWarning ? SboxColors.brand500 : SboxColors.slate200;
       content = belowWarning
-          ? const Icon(Icons.warning_amber, size: 14, color: Color(0xFF3B82F6))
-          : Icon(Icons.add, size: 14, color: Colors.grey[300]);
+          ? const Icon(Icons.warning_amber, size: 14, color: SboxColors.brand500)
+          : Icon(Icons.add, size: 14, color: SboxColors.slate300);
     } else {
       bgColor = shiftColor.withValues(alpha: 0.12);
       borderColor = shiftColor;
@@ -5586,7 +5587,7 @@ class _WorkScheduleScreenState extends State<WorkScheduleScreen>
           confirmedCount == 0 &&
           approvedCount == 0) {
         bgColor = shiftColor.withValues(alpha: 0.06);
-        borderColor = const Color(0xFFD97706);
+        borderColor = SboxColors.warning;
       }
 
       content = Column(
@@ -5600,21 +5601,21 @@ class _WorkScheduleScreenState extends State<WorkScheduleScreen>
                 const Padding(
                     padding: EdgeInsets.only(right: 2),
                     child: Icon(Icons.arrow_downward,
-                        size: 10, color: Color(0xFF3B82F6))),
+                        size: 10, color: SboxColors.brand500)),
               if (aboveMax || nearMax)
                 const Padding(
                     padding: EdgeInsets.only(right: 2),
                     child: Icon(Icons.arrow_upward,
-                        size: 10, color: Color(0xFFD97706))),
+                        size: 10, color: SboxColors.warning)),
               Text(tr('$totalCount'),
                   style: TextStyle(
-                      fontWeight: FontWeight.w800,
-                      fontSize: 15,
+                      fontWeight: FontWeight.w700,
+                      fontSize: 16,
                       color: shiftColor)),
               if (quota != null && maxForDay > 0)
                 Text(tr('/$maxForDay'),
                     style:
-                        const TextStyle(fontSize: 9, color: Color(0xFF71717A))),
+                        const TextStyle(fontSize: 9, color: SboxColors.slate500)),
             ],
           ),
           const SizedBox(height: 2),
@@ -5622,8 +5623,8 @@ class _WorkScheduleScreenState extends State<WorkScheduleScreen>
             mainAxisAlignment: MainAxisAlignment.center,
             children: [
               if (confirmedCount + approvedCount > 0) _statusDot(shiftColor),
-              if (pendingCount > 0) _statusDot(const Color(0xFFD97706)),
-              if (localCount > 0) _statusDot(const Color(0xFF94A3B8)),
+              if (pendingCount > 0) _statusDot(SboxColors.warning),
+              if (localCount > 0) _statusDot(SboxColors.slate400),
             ],
           ),
         ],
@@ -5671,16 +5672,16 @@ class _WorkScheduleScreenState extends State<WorkScheduleScreen>
       context: context,
       builder: (ctx) => ScrollableAlertDialog(
         backgroundColor: Colors.white,
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
         title: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
           Text(tr(shift.name),
               style: const TextStyle(
                   fontWeight: FontWeight.bold,
                   fontSize: 16,
-                  color: Color(0xFF18181B))),
+                  color: SboxColors.slate900)),
           Text(
               tr('${DateFormat('EEEE dd/MM/yyyy', 'vi').format(day)} • ${_formatTime(shift.startTime)}-${_formatTime(shift.endTime)}'),
-              style: const TextStyle(fontSize: 12, color: Color(0xFF71717A))),
+              style: const TextStyle(fontSize: 12, color: SboxColors.slate500)),
         ]),
         content: SizedBox(
           width: 300,
@@ -5723,7 +5724,7 @@ class _WorkScheduleScreenState extends State<WorkScheduleScreen>
                         label = 'Duyệt';
                         break;
                       case ScheduleRegistrationStatus.rejected:
-                        c = const Color(0xFFEF4444);
+                        c = SboxColors.danger;
                         ic = Icons.cancel;
                         label = 'Từ chối';
                         break;
@@ -5755,7 +5756,7 @@ class _WorkScheduleScreenState extends State<WorkScheduleScreen>
                     submittedRegs.isEmpty &&
                     pendingLocal.isEmpty)
                   Text(tr('Chưa có nhân viên nào'),
-                      style: TextStyle(color: Color(0xFF71717A), fontSize: 13)),
+                      style: TextStyle(color: SboxColors.slate500, fontSize: 13)),
               ],
             ),
           ),
@@ -5829,7 +5830,7 @@ class _WorkScheduleScreenState extends State<WorkScheduleScreen>
           return ScrollableAlertDialog(
             backgroundColor: Colors.white,
             shape:
-                RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+                RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
             title:
                 Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
               Row(children: [
@@ -5837,7 +5838,7 @@ class _WorkScheduleScreenState extends State<WorkScheduleScreen>
                   padding: const EdgeInsets.all(6),
                   decoration: BoxDecoration(
                       color: HrmPageChrome.chipLight.withValues(alpha: 0.1),
-                      borderRadius: BorderRadius.circular(8)),
+                      borderRadius: BorderRadius.circular(10)),
                   child: const Icon(Icons.person_add,
                       color: HrmPageChrome.chipLight, size: 18),
                 ),
@@ -5845,7 +5846,7 @@ class _WorkScheduleScreenState extends State<WorkScheduleScreen>
                 Expanded(
                     child: Text(tr('Thêm NV vào ${shift.name}'),
                         style: const TextStyle(
-                            color: Color(0xFF18181B),
+                            color: SboxColors.slate900,
                             fontWeight: FontWeight.bold,
                             fontSize: 16))),
               ]),
@@ -5853,7 +5854,7 @@ class _WorkScheduleScreenState extends State<WorkScheduleScreen>
               Text(
                   tr('${DateFormat('EEEE dd/MM/yyyy', 'vi').format(day)}  •  ${_formatTime(shift.startTime)} - ${_formatTime(shift.endTime)}'),
                   style:
-                      const TextStyle(fontSize: 13, color: Color(0xFF71717A))),
+                      const TextStyle(fontSize: 13, color: SboxColors.slate500)),
             ]),
             content: SizedBox(
               width: Responsive.dialogWidth(context),
@@ -5907,7 +5908,7 @@ class _WorkScheduleScreenState extends State<WorkScheduleScreen>
                           horizontal: 10, vertical: 4),
                       decoration: BoxDecoration(
                           color: HrmPageChrome.chipLight.withValues(alpha: 0.1),
-                          borderRadius: BorderRadius.circular(12)),
+                          borderRadius: BorderRadius.circular(14)),
                       child: Text(tr('Đã chọn: ${selectedIds.length}'),
                           style: const TextStyle(
                               fontSize: 12,
@@ -5929,13 +5930,13 @@ class _WorkScheduleScreenState extends State<WorkScheduleScreen>
                             return ListTile(
                               leading: isAssigned
                                   ? CircleAvatar(
-                                      backgroundColor: Colors.grey[200],
+                                      backgroundColor: SboxColors.slate200,
                                       child: Text(
                                         tr(emp.firstName.isNotEmpty
                                             ? emp.firstName[0].toUpperCase()
                                             : '?'),
                                         style: const TextStyle(
-                                            color: Colors.grey,
+                                            color: SboxColors.slate500,
                                             fontWeight: FontWeight.bold),
                                       ),
                                     )
@@ -5945,12 +5946,12 @@ class _WorkScheduleScreenState extends State<WorkScheduleScreen>
                                           : Icons.check_box_outline_blank,
                                       color: isSelected
                                           ? HrmPageChrome.chipLight
-                                          : Colors.grey[400],
+                                          : SboxColors.slate400,
                                     ),
                               title: Text(tr(emp.fullName),
                                   style: TextStyle(
                                     color: isAssigned
-                                        ? Colors.grey
+                                        ? SboxColors.slate500
                                         : isSelected
                                             ? HrmPageChrome.chipLight
                                             : null,
@@ -5961,19 +5962,19 @@ class _WorkScheduleScreenState extends State<WorkScheduleScreen>
                                   )),
                               subtitle: Text(tr(emp.employeeCode),
                                   style: TextStyle(
-                                      fontSize: 11, color: Colors.grey[500])),
+                                      fontSize: 11, color: SboxColors.slate500)),
                               trailing: isAssigned
                                   ? Container(
                                       padding: const EdgeInsets.symmetric(
                                           horizontal: 8, vertical: 4),
                                       decoration: BoxDecoration(
-                                          color: const Color(0xFFE5E7EB),
+                                          color: SboxColors.slate200,
                                           borderRadius:
-                                              BorderRadius.circular(12)),
+                                              BorderRadius.circular(14)),
                                       child: Text(tr('Đã phân'),
                                           style: TextStyle(
                                               fontSize: 11,
-                                              color: Color(0xFF71717A))),
+                                              color: SboxColors.slate500)),
                                     )
                                   : isSelected
                                       ? const Icon(Icons.check_circle,
@@ -6003,7 +6004,7 @@ class _WorkScheduleScreenState extends State<WorkScheduleScreen>
                     Navigator.pop(ctx);
                   },
                   child: Text(tr('Đóng'),
-                      style: TextStyle(color: Color(0xFF71717A)))),
+                      style: TextStyle(color: SboxColors.slate500))),
               FilledButton.icon(
                 onPressed: selectedIds.isEmpty
                     ? null
@@ -6019,7 +6020,7 @@ class _WorkScheduleScreenState extends State<WorkScheduleScreen>
                 label: Text(tr('${tr('Thêm ')}${selectedIds.isEmpty ? '' : '(${selectedIds.length})'}')),
                 style: FilledButton.styleFrom(
                   backgroundColor: HrmPageChrome.chipLight,
-                  disabledBackgroundColor: Colors.grey[300],
+                  disabledBackgroundColor: SboxColors.slate300,
                 ),
               ),
             ],
@@ -6045,7 +6046,7 @@ class _WorkScheduleScreenState extends State<WorkScheduleScreen>
             padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 4),
             decoration: BoxDecoration(
               color: const Color(0xFFFFF3CD),
-              borderRadius: BorderRadius.circular(8),
+              borderRadius: BorderRadius.circular(10),
               border: Border.all(color: const Color(0xFFFFC107), width: 2),
             ),
             child: Column(
@@ -6114,7 +6115,7 @@ class _WorkScheduleScreenState extends State<WorkScheduleScreen>
           padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 4),
           decoration: BoxDecoration(
             color: const Color(0xFFFFF3CD),
-            borderRadius: BorderRadius.circular(8),
+            borderRadius: BorderRadius.circular(10),
             border: Border.all(color: const Color(0xFFFFC107), width: 2),
           ),
           child: Column(
@@ -6158,7 +6159,7 @@ class _WorkScheduleScreenState extends State<WorkScheduleScreen>
               gradient: const LinearGradient(
                 colors: [HrmPageChrome.primaryNavy, HrmPageChrome.chip],
               ),
-              borderRadius: BorderRadius.circular(8),
+              borderRadius: BorderRadius.circular(10),
             ),
             child: Column(
               mainAxisAlignment: MainAxisAlignment.center,
@@ -6246,7 +6247,7 @@ class _WorkScheduleScreenState extends State<WorkScheduleScreen>
               gradient: const LinearGradient(
                 colors: [HrmPageChrome.primaryNavy, HrmPageChrome.primaryNavy],
               ),
-              borderRadius: BorderRadius.circular(8),
+              borderRadius: BorderRadius.circular(10),
             ),
             child: Column(
               mainAxisAlignment: MainAxisAlignment.center,
@@ -6271,17 +6272,17 @@ class _WorkScheduleScreenState extends State<WorkScheduleScreen>
 
         switch (firstReg.status) {
           case ScheduleRegistrationStatus.pending:
-            bgColor = const Color(0xFFFEF3C7);
+            bgColor = SboxColors.warningSoft;
             borderColor = HrmPageChrome.chipLight;
             statusText = 'Chờ duyệt';
             break;
           case ScheduleRegistrationStatus.rejected:
-            bgColor = const Color(0xFFFEE2E2);
-            borderColor = const Color(0xFFEF4444);
+            bgColor = SboxColors.dangerSoft;
+            borderColor = SboxColors.danger;
             statusText = 'Từ chối';
             break;
           default:
-            bgColor = const Color(0xFFD1FAE5);
+            bgColor = SboxColors.successSoft;
             borderColor = HrmPageChrome.primaryNavy;
             statusText = 'Đã duyệt';
         }
@@ -6337,7 +6338,7 @@ class _WorkScheduleScreenState extends State<WorkScheduleScreen>
             padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 4),
             decoration: BoxDecoration(
               color: bgColor,
-              borderRadius: BorderRadius.circular(8),
+              borderRadius: BorderRadius.circular(10),
               border: Border.all(color: borderColor, width: 2),
             ),
             child: Column(
@@ -6371,19 +6372,19 @@ class _WorkScheduleScreenState extends State<WorkScheduleScreen>
         width: 100,
         padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 4),
         decoration: BoxDecoration(
-          color: const Color(0xFFFAFAFA),
-          borderRadius: BorderRadius.circular(8),
+          color: SboxColors.slate50,
+          borderRadius: BorderRadius.circular(10),
           border: Border.all(
-              color: const Color(0xFFE4E4E7), style: BorderStyle.solid),
+              color: SboxColors.slate200, style: BorderStyle.solid),
         ),
         child: Column(
           mainAxisAlignment: MainAxisAlignment.center,
           mainAxisSize: MainAxisSize.min,
           children: [
-            Icon(Icons.add_circle_outline, color: Colors.grey[400], size: 18),
+            Icon(Icons.add_circle_outline, color: SboxColors.slate400, size: 18),
             const SizedBox(height: 2),
             Text(tr('Đăng ký'),
-              style: TextStyle(color: Colors.grey[400], fontSize: 9),
+              style: TextStyle(color: SboxColors.slate400, fontSize: 9),
               textAlign: TextAlign.center,
             ),
           ],
@@ -6411,22 +6412,22 @@ class _WorkScheduleScreenState extends State<WorkScheduleScreen>
         builder: (context, setDialogState) => ScrollableAlertDialog(
           backgroundColor: Colors.white,
           shape:
-              RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+              RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
           title: Text(tr('Đăng ký ca - ${employee.lastName} ${employee.firstName}'),
             style: const TextStyle(
-                color: Color(0xFF18181B), fontWeight: FontWeight.bold),
+                color: SboxColors.slate900, fontWeight: FontWeight.bold),
           ),
           content: Column(
             mainAxisSize: MainAxisSize.min,
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               Text(tr('${tr('Ngày: ')}${DateFormat('EEEE, dd/MM/yyyy', 'vi').format(day)}'),
-                style: const TextStyle(color: Color(0xFF71717A)),
+                style: const TextStyle(color: SboxColors.slate500),
               ),
               const SizedBox(height: 16),
               SwitchListTile(
                 title: Text(tr('Nghỉ phép'),
-                    style: TextStyle(color: Color(0xFF18181B))),
+                    style: TextStyle(color: SboxColors.slate900)),
                 value: isDayOff,
                 onChanged: (value) => setDialogState(() {
                   isDayOff = value;
@@ -6437,7 +6438,7 @@ class _WorkScheduleScreenState extends State<WorkScheduleScreen>
               if (isDayOff) ...[
                 const SizedBox(height: 8),
                 Text(tr('Loại nghỉ phép:'),
-                    style: TextStyle(color: Color(0xFF18181B))),
+                    style: TextStyle(color: SboxColors.slate900)),
                 const SizedBox(height: 8),
                 ...[
                   'Nghỉ phép năm',
@@ -6445,7 +6446,7 @@ class _WorkScheduleScreenState extends State<WorkScheduleScreen>
                   'Nghỉ phép không lương'
                 ].map((type) => RadioListTile<String>(
                       title: Text(tr(type),
-                          style: const TextStyle(color: Color(0xFF18181B))),
+                          style: const TextStyle(color: SboxColors.slate900)),
                       value: type,
                       // ignore: deprecated_member_use
                       groupValue: leaveType,
@@ -6459,14 +6460,14 @@ class _WorkScheduleScreenState extends State<WorkScheduleScreen>
               if (!isDayOff) ...[
                 const SizedBox(height: 16),
                 Text(tr('Chọn ca làm việc:'),
-                    style: TextStyle(color: Color(0xFF18181B))),
+                    style: TextStyle(color: SboxColors.slate900)),
                 const SizedBox(height: 8),
                 ..._shifts.map((shift) => CheckboxListTile(
                       title: Text(tr(shift.name),
-                          style: const TextStyle(color: Color(0xFF18181B))),
+                          style: const TextStyle(color: SboxColors.slate900)),
                       subtitle: Text(
                         tr('${_formatTime(shift.startTime)} - ${_formatTime(shift.endTime)}'),
-                        style: const TextStyle(color: Color(0xFF71717A)),
+                        style: const TextStyle(color: SboxColors.slate500),
                       ),
                       value: selectedShiftIds.contains(shift.id),
                       onChanged: (value) => setDialogState(() {
@@ -6486,7 +6487,7 @@ class _WorkScheduleScreenState extends State<WorkScheduleScreen>
             TextButton(
               onPressed: () => Navigator.pop(context),
               child:
-                  Text(tr('Hủy'), style: TextStyle(color: Color(0xFF71717A))),
+                  Text(tr('Hủy'), style: TextStyle(color: SboxColors.slate500)),
             ),
             FilledButton(
               onPressed: () {
@@ -6577,7 +6578,7 @@ class _WorkScheduleScreenState extends State<WorkScheduleScreen>
         gradient: const LinearGradient(
           colors: [Color(0xFFFFF3CD), Color(0xFFFFF9E6)],
         ),
-        borderRadius: BorderRadius.circular(12),
+        borderRadius: BorderRadius.circular(14),
         border: const Border(
           left: BorderSide(color: Color(0xFFFFC107), width: 4),
         ),
@@ -6718,8 +6719,8 @@ class _WorkScheduleScreenState extends State<WorkScheduleScreen>
       padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(
         color: Colors.white,
-        borderRadius: BorderRadius.circular(12),
-        border: Border.all(color: const Color(0xFFE4E4E7)),
+        borderRadius: BorderRadius.circular(14),
+        border: Border.all(color: SboxColors.slate200),
         boxShadow: [
           BoxShadow(
             color: Colors.black.withValues(alpha: 0.04),
@@ -6737,9 +6738,9 @@ class _WorkScheduleScreenState extends State<WorkScheduleScreen>
               const SizedBox(width: 8),
               Text(tr('Danh sách yêu cầu đã gửi (${weekRegs.length})'),
                 style: const TextStyle(
-                  color: Color(0xFF18181B),
+                  color: SboxColors.slate900,
                   fontWeight: FontWeight.bold,
-                  fontSize: 15,
+                  fontSize: 16,
                 ),
               ),
               const Spacer(),
@@ -6762,7 +6763,7 @@ class _WorkScheduleScreenState extends State<WorkScheduleScreen>
               const SizedBox(width: 8),
               _buildStatusBadge(
                   'Từ chối',
-                  const Color(0xFFEF4444),
+                  SboxColors.danger,
                   weekRegs
                       .where((r) =>
                           r.status == ScheduleRegistrationStatus.rejected)
@@ -6797,7 +6798,7 @@ class _WorkScheduleScreenState extends State<WorkScheduleScreen>
                 statusText = 'Đã duyệt';
                 break;
               case ScheduleRegistrationStatus.rejected:
-                statusColor = const Color(0xFFEF4444);
+                statusColor = SboxColors.danger;
                 statusIcon = Icons.cancel;
                 statusText = 'Từ chối';
                 break;
@@ -6812,7 +6813,7 @@ class _WorkScheduleScreenState extends State<WorkScheduleScreen>
               padding: const EdgeInsets.all(12),
               decoration: BoxDecoration(
                 color: statusColor.withValues(alpha: 0.05),
-                borderRadius: BorderRadius.circular(8),
+                borderRadius: BorderRadius.circular(10),
                 border: Border.all(color: statusColor.withValues(alpha: 0.3)),
               ),
               child: Row(
@@ -6828,7 +6829,7 @@ class _WorkScheduleScreenState extends State<WorkScheduleScreen>
                           style: const TextStyle(
                               fontWeight: FontWeight.w600,
                               fontSize: 13,
-                              color: Color(0xFF18181B)),
+                              color: SboxColors.slate900),
                         ),
                         const SizedBox(height: 2),
                         Text(
@@ -6838,7 +6839,7 @@ class _WorkScheduleScreenState extends State<WorkScheduleScreen>
                                   : 'Nghỉ phép')
                               : (shift?.name ?? 'Ca')),
                           style: const TextStyle(
-                              color: Color(0xFF71717A), fontSize: 12),
+                              color: SboxColors.slate500, fontSize: 12),
                         ),
                         if (reg.status == ScheduleRegistrationStatus.rejected &&
                             reg.rejectionReason != null &&
@@ -6846,7 +6847,7 @@ class _WorkScheduleScreenState extends State<WorkScheduleScreen>
                           const SizedBox(height: 2),
                           Text(tr('Lý do: ${reg.rejectionReason}'),
                             style: const TextStyle(
-                                color: Color(0xFFEF4444),
+                                color: SboxColors.danger,
                                 fontSize: 11,
                                 fontStyle: FontStyle.italic),
                           ),
@@ -6860,7 +6861,7 @@ class _WorkScheduleScreenState extends State<WorkScheduleScreen>
                           .canDelete('WorkSchedule')) ...[
                     IconButton(
                       icon: const Icon(Icons.delete_outline,
-                          color: Color(0xFFEF4444), size: 20),
+                          color: SboxColors.danger, size: 20),
                       tooltip: tr('Xóa đăng ký'),
                       onPressed: () => _deleteRegistration(reg.id),
                     ),
@@ -6871,7 +6872,7 @@ class _WorkScheduleScreenState extends State<WorkScheduleScreen>
                         const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
                     decoration: BoxDecoration(
                       color: statusColor.withValues(alpha: 0.1),
-                      borderRadius: BorderRadius.circular(12),
+                      borderRadius: BorderRadius.circular(14),
                     ),
                     child: Text(
                       tr(statusText),
@@ -6896,7 +6897,7 @@ class _WorkScheduleScreenState extends State<WorkScheduleScreen>
       padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
       decoration: BoxDecoration(
         color: color.withValues(alpha: 0.1),
-        borderRadius: BorderRadius.circular(12),
+        borderRadius: BorderRadius.circular(14),
       ),
       child: Text(
         tr('$label: $count'),
@@ -6931,8 +6932,8 @@ class _WorkScheduleScreenState extends State<WorkScheduleScreen>
       margin: const EdgeInsets.symmetric(horizontal: 16),
       decoration: BoxDecoration(
         color: Colors.white,
-        borderRadius: BorderRadius.circular(12),
-        border: Border.all(color: const Color(0xFFE4E4E7)),
+        borderRadius: BorderRadius.circular(14),
+        border: Border.all(color: SboxColors.slate200),
         boxShadow: [
           BoxShadow(
               color: Colors.black.withValues(alpha: 0.04),
@@ -6968,7 +6969,7 @@ class _WorkScheduleScreenState extends State<WorkScheduleScreen>
                   dataRowMinHeight: 56,
                   dataRowMaxHeight: 140,
                   border:
-                      TableBorder.all(color: const Color(0xFFE4E4E7), width: 1),
+                      TableBorder.all(color: SboxColors.slate200, width: 1),
                   columns: [
                     DataColumn(
                       label: Expanded(
@@ -6992,7 +6993,7 @@ class _WorkScheduleScreenState extends State<WorkScheduleScreen>
                                 style: TextStyle(
                                   color: isToday
                                       ? HrmPageChrome.primaryNavy
-                                      : const Color(0xFF18181B),
+                                      : SboxColors.slate900,
                                   fontWeight: FontWeight.bold,
                                   fontSize: 12,
                                 )),
@@ -7000,7 +7001,7 @@ class _WorkScheduleScreenState extends State<WorkScheduleScreen>
                                 style: TextStyle(
                                   color: isToday
                                       ? HrmPageChrome.primaryNavy
-                                      : const Color(0xFF71717A),
+                                      : SboxColors.slate500,
                                   fontSize: 11,
                                 )),
                           ],
@@ -7023,7 +7024,7 @@ class _WorkScheduleScreenState extends State<WorkScheduleScreen>
                             DataCell(Center(
                                 child: Text(tr('Chưa có nhân viên'),
                                     style:
-                                        TextStyle(color: Colors.grey[400])))),
+                                        TextStyle(color: SboxColors.slate400)))),
                             ...List.generate(
                                 8, (_) => const DataCell(Text(''))),
                           ]),
@@ -7042,22 +7043,22 @@ class _WorkScheduleScreenState extends State<WorkScheduleScreen>
                     children: [
                       Text(tr('Hiển thị:'),
                           style:
-                              TextStyle(fontSize: 12, color: Colors.grey[500])),
+                              TextStyle(fontSize: 12, color: SboxColors.slate500)),
                       const SizedBox(width: 8),
                       Container(
                         height: 34,
                         padding: const EdgeInsets.symmetric(horizontal: 12),
                         decoration: BoxDecoration(
-                          color: const Color(0xFFFAFAFA),
-                          border: Border.all(color: const Color(0xFFE4E4E7)),
-                          borderRadius: BorderRadius.circular(8),
+                          color: SboxColors.slate50,
+                          border: Border.all(color: SboxColors.slate200),
+                          borderRadius: BorderRadius.circular(10),
                         ),
                         child: DropdownButtonHideUnderline(
                           child: DropdownButton<int>(
                             value: _schedulePageSize,
                             isDense: true,
                             style: TextStyle(
-                                fontSize: 13, color: Colors.grey[800]),
+                                fontSize: 13, color: SboxColors.slate800),
                             items: _pageSizeOptions
                                 .map((s) => DropdownMenuItem(
                                     value: s, child: Text(tr('$s'))))
@@ -7155,7 +7156,7 @@ class _WorkScheduleScreenState extends State<WorkScheduleScreen>
       padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
       decoration: BoxDecoration(
         color: color.withValues(alpha: 0.08),
-        borderRadius: BorderRadius.circular(8),
+        borderRadius: BorderRadius.circular(10),
         border: Border.all(color: color.withValues(alpha: 0.2)),
       ),
       child: Row(
@@ -7191,8 +7192,8 @@ class _WorkScheduleScreenState extends State<WorkScheduleScreen>
       padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(
         color: Colors.white,
-        borderRadius: BorderRadius.circular(12),
-        border: Border.all(color: const Color(0xFFE4E4E7)),
+        borderRadius: BorderRadius.circular(14),
+        border: Border.all(color: SboxColors.slate200),
         boxShadow: [
           BoxShadow(
             color: Colors.black.withValues(alpha: 0.04),
@@ -7206,7 +7207,7 @@ class _WorkScheduleScreenState extends State<WorkScheduleScreen>
         children: [
           Text(tr('Chú thích:'),
             style: TextStyle(
-                color: Color(0xFF18181B),
+                color: SboxColors.slate900,
                 fontWeight: FontWeight.bold,
                 fontSize: 16),
           ),
@@ -7215,7 +7216,7 @@ class _WorkScheduleScreenState extends State<WorkScheduleScreen>
           if (_shifts.isNotEmpty) ...[
             Text(tr('Danh sách ca làm việc:'),
                 style: TextStyle(
-                    color: Color(0xFF71717A),
+                    color: SboxColors.slate500,
                     fontWeight: FontWeight.w600,
                     fontSize: 13)),
             const SizedBox(height: 8),
@@ -7227,8 +7228,8 @@ class _WorkScheduleScreenState extends State<WorkScheduleScreen>
                   padding:
                       const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
                   decoration: BoxDecoration(
-                    color: const Color(0xFFEFF6FF),
-                    borderRadius: BorderRadius.circular(8),
+                    color: SboxColors.brand50,
+                    borderRadius: BorderRadius.circular(10),
                     border: Border.all(
                         color: HrmPageChrome.primaryNavy.withValues(alpha: 0.3)),
                   ),
@@ -7245,14 +7246,14 @@ class _WorkScheduleScreenState extends State<WorkScheduleScreen>
                       const SizedBox(width: 8),
                       Text(tr(shift.name),
                           style: const TextStyle(
-                              color: Color(0xFF18181B),
+                              color: SboxColors.slate900,
                               fontWeight: FontWeight.w600,
                               fontSize: 13)),
                       const SizedBox(width: 8),
                       Text(
                           tr('${_formatTime(shift.startTime)} - ${_formatTime(shift.endTime)}'),
                           style: const TextStyle(
-                              color: Color(0xFF71717A), fontSize: 12)),
+                              color: SboxColors.slate500, fontSize: 12)),
                     ],
                   ),
                 );
@@ -7263,7 +7264,7 @@ class _WorkScheduleScreenState extends State<WorkScheduleScreen>
           // Status legend
           Text(tr('Trạng thái:'),
               style: TextStyle(
-                  color: Color(0xFF71717A),
+                  color: SboxColors.slate500,
                   fontWeight: FontWeight.w600,
                   fontSize: 13)),
           const SizedBox(height: 8),
@@ -7287,23 +7288,23 @@ class _WorkScheduleScreenState extends State<WorkScheduleScreen>
                 'Chờ gửi (chưa gửi)',
               ),
               _buildLegendItemWithBorder(
-                const Color(0xFFFEF3C7),
+                SboxColors.warningSoft,
                 HrmPageChrome.chipLight,
                 'Chờ duyệt (đã gửi)',
               ),
               _buildLegendItemWithBorder(
-                const Color(0xFFDCFCE7),
+                SboxColors.successSoft,
                 HrmPageChrome.primaryNavy,
                 'Đã duyệt',
               ),
               _buildLegendItemWithBorder(
-                const Color(0xFFFEE2E2),
-                const Color(0xFFEF4444),
+                SboxColors.dangerSoft,
+                SboxColors.danger,
                 'Bị từ chối',
               ),
               _buildLegendItemWithBorder(
-                const Color(0xFFFAFAFA),
-                const Color(0xFFE4E4E7),
+                SboxColors.slate50,
+                SboxColors.slate200,
                 'Chưa đăng ký (Click để đăng ký)',
                 isDashed: true,
               ),
@@ -7328,7 +7329,7 @@ class _WorkScheduleScreenState extends State<WorkScheduleScreen>
         ),
         const SizedBox(width: 8),
         Text(tr(label),
-            style: const TextStyle(color: Color(0xFF18181B), fontSize: 14)),
+            style: const TextStyle(color: SboxColors.slate900, fontSize: 14)),
       ],
     );
   }
@@ -7350,7 +7351,7 @@ class _WorkScheduleScreenState extends State<WorkScheduleScreen>
         ),
         const SizedBox(width: 8),
         Text(tr(label),
-            style: const TextStyle(color: Color(0xFF18181B), fontSize: 14)),
+            style: const TextStyle(color: SboxColors.slate900, fontSize: 14)),
       ],
     );
   }
@@ -8006,7 +8007,7 @@ class _WorkScheduleScreenState extends State<WorkScheduleScreen>
             Container(
               padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 1),
               decoration: BoxDecoration(
-                  color: primary, borderRadius: BorderRadius.circular(9)),
+                  color: primary, borderRadius: BorderRadius.circular(10)),
               child: Text(tr('${entry.value.length}'),
                   style: const TextStyle(
                       color: Colors.white,
@@ -8035,12 +8036,12 @@ class _WorkScheduleScreenState extends State<WorkScheduleScreen>
               children: [
                 Text(tr(employee.fullName.toUpperCase()),
                     style: const TextStyle(
-                        color: Color(0xFF18181B),
+                        color: SboxColors.slate900,
                         fontWeight: FontWeight.w600,
                         fontSize: 13)),
                 Text(tr(employee.phone ?? employee.employeeCode),
                     style: const TextStyle(
-                        color: Color(0xFF71717A), fontSize: 11)),
+                        color: SboxColors.slate500, fontSize: 11)),
               ],
             ),
           ),
@@ -8070,7 +8071,7 @@ class _WorkScheduleScreenState extends State<WorkScheduleScreen>
             child: Text(tr('$totalShifts'),
                 style: TextStyle(
                     color:
-                        totalShifts > 0 ? HrmPageChrome.primaryNavy : Colors.grey,
+                        totalShifts > 0 ? HrmPageChrome.primaryNavy : SboxColors.slate500,
                     fontWeight: FontWeight.bold,
                     fontSize: 16)),
           )),
@@ -8086,7 +8087,7 @@ class _WorkScheduleScreenState extends State<WorkScheduleScreen>
         padding: const EdgeInsets.all(24),
         child: Center(
             child: Text(tr('Chưa có nhân viên'),
-                style: TextStyle(color: Colors.grey[400]))),
+                style: TextStyle(color: SboxColors.slate400))),
       );
     }
     if (BranchFilterHelper.showBranchFilter(_branches)) {
@@ -8135,7 +8136,7 @@ class _WorkScheduleScreenState extends State<WorkScheduleScreen>
                   schedules.isEmpty)
               .length;
           String shiftLabel = '—';
-          Color shiftColor = const Color(0xFF71717A);
+          Color shiftColor = SboxColors.slate500;
           Color bgColor = Colors.transparent;
           if (pendingRegs.isNotEmpty) {
             if (pendingRegs.first['isDayOff'] == true) {
@@ -8164,7 +8165,7 @@ class _WorkScheduleScreenState extends State<WorkScheduleScreen>
             if (dayOff != null) {
               shiftLabel = dayOff.note ?? 'Nghỉ phép';
               shiftColor = HrmPageChrome.chip;
-              bgColor = const Color(0xFFD1FAE5);
+              bgColor = SboxColors.successSoft;
             } else {
               final names = schedules.map((s) {
                 final shift = s.shiftId != null
@@ -8189,11 +8190,11 @@ class _WorkScheduleScreenState extends State<WorkScheduleScreen>
             if (first.status == ScheduleRegistrationStatus.pending) {
               shiftLabel = 'Chờ duyệt';
               shiftColor = HrmPageChrome.chipLight;
-              bgColor = const Color(0xFFFEF3C7);
+              bgColor = SboxColors.warningSoft;
             } else if (first.status == ScheduleRegistrationStatus.rejected) {
               shiftLabel = 'Từ chối';
-              shiftColor = const Color(0xFFEF4444);
-              bgColor = const Color(0xFFFEE2E2);
+              shiftColor = SboxColors.danger;
+              bgColor = SboxColors.dangerSoft;
             } else {
               final shift = first.shiftId != null
                   ? _shifts.firstWhere((s) => s.id == first.shiftId,
@@ -8208,7 +8209,7 @@ class _WorkScheduleScreenState extends State<WorkScheduleScreen>
                   : null;
               shiftLabel = shift?.name ?? 'Đã duyệt';
               shiftColor = HrmPageChrome.primaryNavy;
-              bgColor = const Color(0xFFD1FAE5);
+              bgColor = SboxColors.successSoft;
             }
           }
           dayWidgets.add(
@@ -8222,7 +8223,7 @@ class _WorkScheduleScreenState extends State<WorkScheduleScreen>
                       width: 56,
                       child: Text(tr('${dayNames[di]} ${dateFormat.format(day)}'),
                           style: const TextStyle(
-                              fontSize: 11, color: Color(0xFF71717A))),
+                              fontSize: 11, color: SboxColors.slate500)),
                     ),
                     const SizedBox(width: 6),
                     Expanded(
@@ -8252,8 +8253,8 @@ class _WorkScheduleScreenState extends State<WorkScheduleScreen>
           child: Container(
             decoration: BoxDecoration(
               color: Colors.white,
-              borderRadius: BorderRadius.circular(12),
-              border: Border.all(color: const Color(0xFFE4E4E7)),
+              borderRadius: BorderRadius.circular(14),
+              border: Border.all(color: SboxColors.slate200),
               boxShadow: [
                 BoxShadow(
                     color: Colors.black.withValues(alpha: 0.05),
@@ -8276,10 +8277,10 @@ class _WorkScheduleScreenState extends State<WorkScheduleScreen>
                                   style: const TextStyle(
                                       fontWeight: FontWeight.w700,
                                       fontSize: 13,
-                                      color: Color(0xFF18181B))),
+                                      color: SboxColors.slate900)),
                               Text(tr(employee.phone ?? employee.employeeCode),
                                   style: const TextStyle(
-                                      fontSize: 11, color: Color(0xFF71717A))),
+                                      fontSize: 11, color: SboxColors.slate500)),
                             ]),
                       ),
                       Container(
@@ -8288,8 +8289,8 @@ class _WorkScheduleScreenState extends State<WorkScheduleScreen>
                         decoration: BoxDecoration(
                           color: totalShifts > 0
                               ? HrmPageChrome.primaryNavy.withValues(alpha: 0.1)
-                              : Colors.grey.withValues(alpha: 0.1),
-                          borderRadius: BorderRadius.circular(12),
+                              : SboxColors.slate500.withValues(alpha: 0.1),
+                          borderRadius: BorderRadius.circular(14),
                         ),
                         child: Text(tr('$totalShifts ca'),
                             style: TextStyle(
@@ -8297,7 +8298,7 @@ class _WorkScheduleScreenState extends State<WorkScheduleScreen>
                                 fontWeight: FontWeight.bold,
                                 color: totalShifts > 0
                                     ? HrmPageChrome.primaryNavy
-                                    : Colors.grey)),
+                                    : SboxColors.slate500)),
                       ),
                     ],
                   ),
@@ -8320,7 +8321,7 @@ class _WorkScheduleScreenState extends State<WorkScheduleScreen>
         padding: const EdgeInsets.all(24),
         child: Center(
             child:
-                Text(tr('Chưa có ca'), style: TextStyle(color: Colors.grey[400]))),
+                Text(tr('Chưa có ca'), style: TextStyle(color: SboxColors.slate400))),
       );
     }
     return ListView.builder(
@@ -8400,14 +8401,14 @@ class _WorkScheduleScreenState extends State<WorkScheduleScreen>
                       width: 56,
                       child: Text(tr('${dayNames[di]} ${dateFormat.format(day)}'),
                           style: const TextStyle(
-                              fontSize: 11, color: Color(0xFF71717A))),
+                              fontSize: 11, color: SboxColors.slate500)),
                     ),
                     const SizedBox(width: 6),
                     Expanded(
                       child: empNames.isEmpty
                           ? Text(tr('—'),
                               style: TextStyle(
-                                  fontSize: 12, color: Colors.grey[300]))
+                                  fontSize: 12, color: SboxColors.slate300))
                           : Wrap(spacing: 4, runSpacing: 2, children: empNames),
                     ),
                   ],
@@ -8421,8 +8422,8 @@ class _WorkScheduleScreenState extends State<WorkScheduleScreen>
           child: Container(
             decoration: BoxDecoration(
               color: Colors.white,
-              borderRadius: BorderRadius.circular(12),
-              border: Border.all(color: const Color(0xFFE4E4E7)),
+              borderRadius: BorderRadius.circular(14),
+              border: Border.all(color: SboxColors.slate200),
               boxShadow: [
                 BoxShadow(
                     color: Colors.black.withValues(alpha: 0.05),
@@ -8449,7 +8450,7 @@ class _WorkScheduleScreenState extends State<WorkScheduleScreen>
                               Text(
                                   tr('${_formatTime(shift.startTime)} - ${_formatTime(shift.endTime)}'),
                                   style: const TextStyle(
-                                      fontSize: 11, color: Color(0xFF71717A))),
+                                      fontSize: 11, color: SboxColors.slate500)),
                             ]),
                       ),
                       Container(
@@ -8458,8 +8459,8 @@ class _WorkScheduleScreenState extends State<WorkScheduleScreen>
                         decoration: BoxDecoration(
                           color: totalEmployees > 0
                               ? HrmPageChrome.chipLight.withValues(alpha: 0.1)
-                              : Colors.grey.withValues(alpha: 0.1),
-                          borderRadius: BorderRadius.circular(12),
+                              : SboxColors.slate500.withValues(alpha: 0.1),
+                          borderRadius: BorderRadius.circular(14),
                         ),
                         child: Text(tr('$totalEmployees NV'),
                             style: TextStyle(
@@ -8467,7 +8468,7 @@ class _WorkScheduleScreenState extends State<WorkScheduleScreen>
                                 fontWeight: FontWeight.bold,
                                 color: totalEmployees > 0
                                     ? HrmPageChrome.chipLight
-                                    : Colors.grey)),
+                                    : SboxColors.slate500)),
                       ),
                     ],
                   ),
@@ -8504,7 +8505,7 @@ class _WorkScheduleScreenState extends State<WorkScheduleScreen>
             Container(
               padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 1),
               decoration: BoxDecoration(
-                  color: primary, borderRadius: BorderRadius.circular(9)),
+                  color: primary, borderRadius: BorderRadius.circular(10)),
               child: Text(tr('${entry.value.length}'),
                   style: const TextStyle(
                       color: Colors.white,
@@ -8532,12 +8533,12 @@ class _WorkScheduleScreenState extends State<WorkScheduleScreen>
             children: [
               Text(tr(employee.fullName.toUpperCase()),
                   style: const TextStyle(
-                      color: Color(0xFF18181B),
+                      color: SboxColors.slate900,
                       fontWeight: FontWeight.w600,
                       fontSize: 13)),
               Text(tr(employee.department ?? employee.employeeCode),
                   style:
-                      const TextStyle(color: Color(0xFF71717A), fontSize: 11)),
+                      const TextStyle(color: SboxColors.slate500, fontSize: 11)),
             ],
           )),
           ...List.generate(7, (dayIndex) {
@@ -8551,7 +8552,7 @@ class _WorkScheduleScreenState extends State<WorkScheduleScreen>
             for (final ws in confirmedSchedules) {
               if (ws.isDayOff) {
                 allApproved.add(_buildApprovedChip(
-                    'Nghỉ', const Color(0xFF71717A), Icons.nightlight_round));
+                    'Nghỉ', SboxColors.slate500, Icons.nightlight_round));
               } else {
                 final shift = _shifts.firstWhere((s) => s.id == ws.shiftId,
                     orElse: () => Shift(
@@ -8578,7 +8579,7 @@ class _WorkScheduleScreenState extends State<WorkScheduleScreen>
                     s.employeeUserId != r.employeeUserId))) {
               if (reg.isDayOff) {
                 allApproved.add(_buildApprovedChip(reg.note ?? 'Nghỉ',
-                    const Color(0xFF71717A), Icons.nightlight_round));
+                    SboxColors.slate500, Icons.nightlight_round));
               } else {
                 final shift = reg.shiftId != null
                     ? _shifts.firstWhere((s) => s.id == reg.shiftId,
@@ -8609,7 +8610,7 @@ class _WorkScheduleScreenState extends State<WorkScheduleScreen>
                   ? Center(
                       child: Text(tr('—'),
                           style:
-                              TextStyle(color: Colors.grey[300], fontSize: 16)))
+                              TextStyle(color: SboxColors.slate300, fontSize: 16)))
                   : Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       mainAxisAlignment: MainAxisAlignment.center,
@@ -8622,7 +8623,7 @@ class _WorkScheduleScreenState extends State<WorkScheduleScreen>
                   style: TextStyle(
                       color: totalApproved > 0
                           ? HrmPageChrome.primaryNavy
-                          : Colors.grey,
+                          : SboxColors.slate500,
                       fontWeight: FontWeight.bold,
                       fontSize: 16)))),
         ],
@@ -8637,7 +8638,7 @@ class _WorkScheduleScreenState extends State<WorkScheduleScreen>
         padding: const EdgeInsets.all(24),
         child: Center(
             child: Text(tr('Chưa có nhân viên'),
-                style: TextStyle(color: Colors.grey[400]))),
+                style: TextStyle(color: SboxColors.slate400))),
       );
     }
     if (BranchFilterHelper.showBranchFilter(_branches)) {
@@ -8677,7 +8678,7 @@ class _WorkScheduleScreenState extends State<WorkScheduleScreen>
               .where((r) => r.status == ScheduleRegistrationStatus.approved)
               .toList();
           String shiftLabel = '—';
-          Color shiftColor = const Color(0xFF71717A);
+          Color shiftColor = SboxColors.slate500;
           Color bgColor = Colors.transparent;
           final items = <String>[];
           for (final ws in confirmedSchedules) {
@@ -8725,7 +8726,7 @@ class _WorkScheduleScreenState extends State<WorkScheduleScreen>
                 items.any((i) => i == 'Nghỉ' || i.contains('Nghỉ'));
             if (hasLeave && items.length == 1) {
               shiftColor = HrmPageChrome.chip;
-              bgColor = const Color(0xFFD1FAE5);
+              bgColor = SboxColors.successSoft;
             } else {
               shiftColor = HrmPageChrome.primaryNavy;
               bgColor = HrmPageChrome.primaryNavy.withValues(alpha: 0.08);
@@ -8740,7 +8741,7 @@ class _WorkScheduleScreenState extends State<WorkScheduleScreen>
                     width: 56,
                     child: Text(tr('${dayNames[di]} ${dateFormat.format(day)}'),
                         style: const TextStyle(
-                            fontSize: 11, color: Color(0xFF71717A))),
+                            fontSize: 11, color: SboxColors.slate500)),
                   ),
                   const SizedBox(width: 6),
                   Expanded(
@@ -8769,8 +8770,8 @@ class _WorkScheduleScreenState extends State<WorkScheduleScreen>
           child: Container(
             decoration: BoxDecoration(
               color: Colors.white,
-              borderRadius: BorderRadius.circular(12),
-              border: Border.all(color: const Color(0xFFE4E4E7)),
+              borderRadius: BorderRadius.circular(14),
+              border: Border.all(color: SboxColors.slate200),
               boxShadow: [
                 BoxShadow(
                     color: Colors.black.withValues(alpha: 0.05),
@@ -8793,10 +8794,10 @@ class _WorkScheduleScreenState extends State<WorkScheduleScreen>
                                   style: const TextStyle(
                                       fontWeight: FontWeight.w700,
                                       fontSize: 13,
-                                      color: Color(0xFF18181B))),
+                                      color: SboxColors.slate900)),
                               Text(tr(employee.department ?? employee.employeeCode),
                                   style: const TextStyle(
-                                      fontSize: 11, color: Color(0xFF71717A))),
+                                      fontSize: 11, color: SboxColors.slate500)),
                             ]),
                       ),
                       Container(
@@ -8805,8 +8806,8 @@ class _WorkScheduleScreenState extends State<WorkScheduleScreen>
                         decoration: BoxDecoration(
                           color: totalApproved > 0
                               ? HrmPageChrome.primaryNavy.withValues(alpha: 0.1)
-                              : Colors.grey.withValues(alpha: 0.1),
-                          borderRadius: BorderRadius.circular(12),
+                              : SboxColors.slate500.withValues(alpha: 0.1),
+                          borderRadius: BorderRadius.circular(14),
                         ),
                         child: Text(tr('$totalApproved ca'),
                             style: TextStyle(
@@ -8814,7 +8815,7 @@ class _WorkScheduleScreenState extends State<WorkScheduleScreen>
                                 fontWeight: FontWeight.bold,
                                 color: totalApproved > 0
                                     ? HrmPageChrome.primaryNavy
-                                    : Colors.grey)),
+                                    : SboxColors.slate500)),
                       ),
                     ],
                   ),
@@ -8833,21 +8834,21 @@ class _WorkScheduleScreenState extends State<WorkScheduleScreen>
     final confirmed = await showDialog<bool>(
       context: context,
       builder: (context) => ScrollableAlertDialog(
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
         title: Text(tr('Xác nhận xóa'),
             style: TextStyle(
-                color: Color(0xFF18181B), fontWeight: FontWeight.bold)),
+                color: SboxColors.slate900, fontWeight: FontWeight.bold)),
         content: Text(tr('Bạn có chắc chắn muốn xóa đăng ký này?')),
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(context, false),
             child:
-                Text(tr('Hủy'), style: TextStyle(color: Color(0xFF71717A))),
+                Text(tr('Hủy'), style: TextStyle(color: SboxColors.slate500)),
           ),
           FilledButton(
             onPressed: () => Navigator.pop(context, true),
             style: ElevatedButton.styleFrom(
-                backgroundColor: const Color(0xFFEF4444)),
+                backgroundColor: SboxColors.danger),
             child: Text(tr('Xóa')),
           ),
         ],
@@ -8896,7 +8897,7 @@ class _WorkScheduleScreenState extends State<WorkScheduleScreen>
         builder: (ctx, setDialogState) => ScrollableAlertDialog(
           backgroundColor: Colors.white,
           shape:
-              RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+              RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
           title: Row(children: [
             Icon(Icons.notifications_active, color: HrmPageChrome.chipDark),
             SizedBox(width: 8),
@@ -8913,7 +8914,7 @@ class _WorkScheduleScreenState extends State<WorkScheduleScreen>
               children: [
                 Text(tr('${tr('Gửi thông báo đến nhân viên chưa đăng ký lịch làm việc cho tuần ')}${DateFormat('dd/MM').format(fromDate)} - ${DateFormat('dd/MM/yyyy').format(toDate)}.'),
                     style: const TextStyle(
-                        fontSize: 13, color: Color(0xFF71717A))),
+                        fontSize: 13, color: SboxColors.slate500)),
                 const SizedBox(height: 16),
                 Text(tr('Phòng ban:'),
                     style:
@@ -8926,7 +8927,7 @@ class _WorkScheduleScreenState extends State<WorkScheduleScreen>
                     contentPadding: const EdgeInsets.symmetric(
                         horizontal: 12, vertical: 10),
                     border: OutlineInputBorder(
-                        borderRadius: BorderRadius.circular(8)),
+                        borderRadius: BorderRadius.circular(10)),
                   ),
                   items: [
                     DropdownMenuItem<String?>(
@@ -9003,7 +9004,7 @@ class _WorkScheduleScreenState extends State<WorkScheduleScreen>
         builder: (ctx, setDialogState) => ScrollableAlertDialog(
           backgroundColor: Colors.white,
           shape:
-              RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+              RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
           title: Row(children: [
             Icon(Icons.group_add, color: HrmPageChrome.chip),
             SizedBox(width: 8),
@@ -9020,7 +9021,7 @@ class _WorkScheduleScreenState extends State<WorkScheduleScreen>
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
                   Text(tr('Gửi thông báo yêu cầu nhân viên đăng ký bổ sung cho ca làm cụ thể.'),
-                      style: TextStyle(fontSize: 13, color: Color(0xFF71717A))),
+                      style: TextStyle(fontSize: 13, color: SboxColors.slate500)),
                   const SizedBox(height: 16),
                   Text(tr('Ca làm việc:'),
                       style:
@@ -9033,7 +9034,7 @@ class _WorkScheduleScreenState extends State<WorkScheduleScreen>
                       contentPadding: const EdgeInsets.symmetric(
                           horizontal: 12, vertical: 10),
                       border: OutlineInputBorder(
-                          borderRadius: BorderRadius.circular(8)),
+                          borderRadius: BorderRadius.circular(10)),
                     ),
                     items: _shifts
                         .map((s) => DropdownMenuItem<Shift>(
@@ -9067,12 +9068,12 @@ class _WorkScheduleScreenState extends State<WorkScheduleScreen>
                       padding: const EdgeInsets.symmetric(
                           horizontal: 12, vertical: 10),
                       decoration: BoxDecoration(
-                        border: Border.all(color: const Color(0xFFE4E4E7)),
-                        borderRadius: BorderRadius.circular(8),
+                        border: Border.all(color: SboxColors.slate200),
+                        borderRadius: BorderRadius.circular(10),
                       ),
                       child: Row(children: [
                         const Icon(Icons.calendar_today,
-                            size: 16, color: Color(0xFF71717A)),
+                            size: 16, color: SboxColors.slate500),
                         const SizedBox(width: 8),
                         Text(
                             tr(DateFormat('EEEE dd/MM/yyyy', 'vi')
@@ -9093,7 +9094,7 @@ class _WorkScheduleScreenState extends State<WorkScheduleScreen>
                       contentPadding: const EdgeInsets.symmetric(
                           horizontal: 12, vertical: 10),
                       border: OutlineInputBorder(
-                          borderRadius: BorderRadius.circular(8)),
+                          borderRadius: BorderRadius.circular(10)),
                     ),
                     items: [
                       DropdownMenuItem<String?>(
@@ -9117,9 +9118,9 @@ class _WorkScheduleScreenState extends State<WorkScheduleScreen>
                       isDense: true,
                       hintText: tr('Để trống sẽ dùng tin nhắn mặc định'),
                       hintStyle: const TextStyle(
-                          fontSize: 12, color: Color(0xFFA1A1AA)),
+                          fontSize: 12, color: SboxColors.slate400),
                       border: OutlineInputBorder(
-                          borderRadius: BorderRadius.circular(8)),
+                          borderRadius: BorderRadius.circular(10)),
                     ),
                   ),
                 ],

@@ -23,7 +23,7 @@ abstract final class PosTheme {
   static const Color textSecondary = SboxColors.textMuted;
 
   static const Color goodsColor = SboxColors.brand600;
-  static const Color serviceColor = Color(0xFF7C3AED);
+  static const Color serviceColor = SboxColors.violet;
   static const Color comboColor = Color(0xFFEA580C);
   static const Color materialColor = Color(0xFF0F766E);
   static const Color toppingColor = Color(0xFFDB2777);
@@ -48,8 +48,8 @@ abstract final class PosTheme {
       FilledButton.styleFrom(
         backgroundColor: payGreen,
         foregroundColor: Colors.white,
-        disabledBackgroundColor: Colors.grey.shade300,
-        disabledForegroundColor: Colors.grey.shade600,
+        disabledBackgroundColor: SboxColors.slate300,
+        disabledForegroundColor: SboxColors.slate600,
         minimumSize: Size(0, height),
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(radius)),
       );

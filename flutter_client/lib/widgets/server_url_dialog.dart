@@ -6,6 +6,7 @@ import '../providers/auth_provider.dart';
 import '../services/api_service.dart';
 import 'notification_overlay.dart';
 
+import '../theme/sbox_tokens.dart';
 /// Đổi máy chủ API và kiểm tra kết nối trước khi lưu.
 Future<void> showServerUrlDialog(BuildContext context) async {
   final controller = TextEditingController(text: ApiService.baseUrl);
@@ -34,7 +35,7 @@ Future<void> showServerUrlDialog(BuildContext context) async {
               const SizedBox(height: 8),
               Text(
                 tr('App sẽ gọi thử máy chủ trước khi lưu.'),
-                style: const TextStyle(fontSize: 12, color: Color(0xFF6B7280)),
+                style: const TextStyle(fontSize: 12, color: SboxColors.slate500),
               ),
             ],
           ),

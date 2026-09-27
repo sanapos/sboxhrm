@@ -40,6 +40,7 @@ import 'employee_career_tab.dart';
 import 'package:zkteco_flutter_client/l10n/app_tr.dart';
 
 import '../theme/sbox_tokens.dart';
+import '../widgets/sbox/sbox_table.dart';
 class EmployeesScreen extends StatefulWidget {
   final String? highlightId;
   const EmployeesScreen({super.key, this.highlightId});
@@ -1914,108 +1915,16 @@ class _EmployeesScreenState extends State<EmployeesScreen> {
     int endIndex,
     int totalPages,
   ) {
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-      decoration: BoxDecoration(
-        color: Colors.white,
-        border: Border(top: BorderSide(color: SboxColors.slate200)),
-      ),
-      child: Wrap(
-        alignment: WrapAlignment.spaceBetween,
-        crossAxisAlignment: WrapCrossAlignment.center,
-        spacing: 12,
-        runSpacing: 8,
-        children: [
-          Text(
-            tr(totalCount > 0
-                ? 'Hiển thị ${startIndex + 1}-$endIndex / $totalCount'
-                : 'Không có dữ liệu'),
-            style: TextStyle(fontSize: 12, color: SboxColors.slate600),
-          ),
-          Row(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              Text(tr('Hiển thị:'),
-                  style: TextStyle(fontSize: 12, color: SboxColors.slate500)),
-              const SizedBox(width: 8),
-              Container(
-                height: 34,
-                padding: const EdgeInsets.symmetric(horizontal: 12),
-                decoration: BoxDecoration(
-                  color: SboxColors.slate50,
-                  border: Border.all(color: SboxColors.slate200),
-                  borderRadius: BorderRadius.circular(10),
-                ),
-                child: DropdownButtonHideUnderline(
-                  child: DropdownButton<int>(
-                    value: _pageSize,
-                    isDense: true,
-                    style: TextStyle(fontSize: 13, color: SboxColors.slate800),
-                    items: _pageSizeOptions
-                        .map((s) =>
-                            DropdownMenuItem(value: s, child: Text(tr('$s'))))
-                        .toList(),
-                    onChanged: (v) {
-                      if (v != null) {
-                        setState(() {
-                          _pageSize = v;
-                          _currentPage = 1;
-                        });
-                      }
-                    },
-                  ),
-                ),
-              ),
-            ],
-          ),
-          Row(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              IconButton(
-                icon: const Icon(Icons.first_page, size: 20),
-                onPressed: _currentPage > 1
-                    ? () => setState(() => _currentPage = 1)
-                    : null,
-                visualDensity: VisualDensity.compact,
-              ),
-              IconButton(
-                icon: const Icon(Icons.chevron_left, size: 20),
-                onPressed: _currentPage > 1
-                    ? () => setState(() => _currentPage--)
-                    : null,
-                visualDensity: VisualDensity.compact,
-              ),
-              Container(
-                padding:
-                    const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
-                decoration: BoxDecoration(
-                  color: Theme.of(context).primaryColor,
-                  borderRadius: BorderRadius.circular(10),
-                ),
-                child: Text(tr('$_currentPage / $totalPages'),
-                    style: const TextStyle(
-                        fontSize: 12,
-                        fontWeight: FontWeight.w600,
-                        color: Colors.white)),
-              ),
-              IconButton(
-                icon: const Icon(Icons.chevron_right, size: 20),
-                onPressed: _currentPage < totalPages
-                    ? () => setState(() => _currentPage++)
-                    : null,
-                visualDensity: VisualDensity.compact,
-              ),
-              IconButton(
-                icon: const Icon(Icons.last_page, size: 20),
-                onPressed: _currentPage < totalPages
-                    ? () => setState(() => _currentPage = totalPages)
-                    : null,
-                visualDensity: VisualDensity.compact,
-              ),
-            ],
-          ),
-        ],
-      ),
+    return SboxPager(
+      page: _currentPage,
+      pageSize: _pageSize,
+      total: totalCount,
+      pageSizes: _pageSizeOptions,
+      onPage: (p) => setState(() => _currentPage = p),
+      onPageSize: (v) => setState(() {
+        _pageSize = v;
+        _currentPage = 1;
+      }),
     );
   }
 

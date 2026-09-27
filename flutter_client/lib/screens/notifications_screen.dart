@@ -21,6 +21,7 @@ import 'main_layout.dart' show ScreenRefreshNotifier;
 import 'package:zkteco_flutter_client/l10n/app_tr.dart';
 import '../widgets/hrm_page_chrome.dart';
 
+import '../theme/sbox_tokens.dart';
 class NotificationsScreen extends StatefulWidget {
   final bool adminPortalMode;
   final bool agentMode;
@@ -474,21 +475,21 @@ class _NotificationsScreenState extends State<NotificationsScreen> {
         n.relatedEntityType == 'DeviceStatus') {
       final t = n.title.toLowerCase();
       if (t.contains('ngắt') || t.contains('mất') || t.contains('offline')) {
-        return const Color(0xFFEF4444);
+        return SboxColors.danger;
       }
-      return const Color(0xFF22C55E);
+      return SboxColors.success;
     }
     if (n.relatedEntityType == 'Attendance' ||
         n.relatedEntityType == 'NewAttendance') {
-      return const Color(0xFF3B82F6);
+      return SboxColors.brand500;
     }
     switch (n.type) {
       case NotificationType.warning:
         return HrmPageChrome.chipLight;
       case NotificationType.error:
-        return const Color(0xFFEF4444);
+        return SboxColors.danger;
       case NotificationType.success:
-        return const Color(0xFF22C55E);
+        return SboxColors.success;
       default:
         return HrmPageChrome.chipMid;
     }
@@ -526,7 +527,7 @@ class _NotificationsScreenState extends State<NotificationsScreen> {
     if (_hasMore) flatItems.add(null);
 
     final content = Container(
-      color: const Color(0xFFF4F4F5),
+      color: SboxColors.slate100,
       child: HrmResponsiveListLayout(
         headerSections: [_buildFilterBar()],
         desktopBody: _buildNotificationsBody(filtered, flatItems),
@@ -537,7 +538,7 @@ class _NotificationsScreenState extends State<NotificationsScreen> {
     if (!widget.adminPortalMode) return content;
 
     return Scaffold(
-      backgroundColor: const Color(0xFFF4F4F5),
+      backgroundColor: SboxColors.slate100,
       appBar: AppBar(
         title: Text(tr('Thông báo')),
         centerTitle: false,
@@ -668,24 +669,24 @@ class _NotificationsScreenState extends State<NotificationsScreen> {
               _chip('Chưa đọc', _readFilter == true, () {
                 setState(() => _readFilter = true);
                 _loadData();
-              }, count: _unreadCount, activeColor: const Color(0xFFEF4444)),
+              }, count: _unreadCount, activeColor: SboxColors.danger),
               const SizedBox(width: 6),
               _chip('Đã đọc', _readFilter == false, () {
                 setState(() => _readFilter = false);
                 _loadData();
-              }, activeColor: const Color(0xFF22C55E)),
+              }, activeColor: SboxColors.success),
               Container(
                   width: 1,
                   height: 20,
                   margin: const EdgeInsets.symmetric(horizontal: 8),
-                  color: Colors.grey.shade300),
+                  color: SboxColors.slate300),
               _iconChip(
                   Icons.fingerprint,
                   'Chấm công',
                   _entityFilter == 'attendance',
                   () => setState(() => _entityFilter =
                       _entityFilter == 'attendance' ? null : 'attendance'),
-                  activeColor: const Color(0xFF3B82F6)),
+                  activeColor: SboxColors.brand500),
               const SizedBox(width: 6),
               _iconChip(
                   Icons.router,
@@ -693,7 +694,7 @@ class _NotificationsScreenState extends State<NotificationsScreen> {
                   _entityFilter == 'device',
                   () => setState(() => _entityFilter =
                       _entityFilter == 'device' ? null : 'device'),
-                  activeColor: const Color(0xFF22C55E)),
+                  activeColor: SboxColors.success),
               const SizedBox(width: 6),
               _iconChip(
                   Icons.more_horiz,
@@ -725,7 +726,7 @@ class _NotificationsScreenState extends State<NotificationsScreen> {
                     width: 1,
                     height: 20,
                     margin: const EdgeInsets.symmetric(horizontal: 8),
-                    color: Colors.grey.shade300),
+                    color: SboxColors.slate300),
                 if (_unreadCount > 0)
                   _actionIcon(
                       Icons.done_all, 'Đánh dấu đã đọc', _markAllAsRead),
@@ -738,7 +739,7 @@ class _NotificationsScreenState extends State<NotificationsScreen> {
               ],
             ]),
           ),
-          Container(height: 1, color: Colors.grey.shade200),
+          Container(height: 1, color: SboxColors.slate200),
         ],
       ),
     ),
@@ -754,10 +755,10 @@ class _NotificationsScreenState extends State<NotificationsScreen> {
         child: Container(
           padding: const EdgeInsets.all(6),
           decoration: BoxDecoration(
-            color: Colors.grey.shade100,
-            borderRadius: BorderRadius.circular(8),
+            color: SboxColors.slate100,
+            borderRadius: BorderRadius.circular(10),
           ),
-          child: Icon(icon, size: 18, color: color ?? Colors.grey.shade600),
+          child: Icon(icon, size: 18, color: color ?? SboxColors.slate600),
         ),
       ),
     );
@@ -771,18 +772,18 @@ class _NotificationsScreenState extends State<NotificationsScreen> {
       child: Container(
         padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 6),
         decoration: BoxDecoration(
-          color: active ? color.withValues(alpha: 0.12) : Colors.grey.shade100,
+          color: active ? color.withValues(alpha: 0.12) : SboxColors.slate100,
           borderRadius: BorderRadius.circular(20),
           border: Border.all(
               color:
-                  active ? color.withValues(alpha: 0.4) : Colors.grey.shade300),
+                  active ? color.withValues(alpha: 0.4) : SboxColors.slate300),
         ),
         child: Row(mainAxisSize: MainAxisSize.min, children: [
           Text(tr(label),
               style: TextStyle(
                   fontSize: 13,
                   fontWeight: active ? FontWeight.w600 : FontWeight.w400,
-                  color: active ? color : Colors.grey.shade600)),
+                  color: active ? color : SboxColors.slate600)),
           if (count != null && count > 0) ...[
             const SizedBox(width: 6),
             Container(
@@ -809,20 +810,20 @@ class _NotificationsScreenState extends State<NotificationsScreen> {
       child: Container(
         padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
         decoration: BoxDecoration(
-          color: active ? color.withValues(alpha: 0.12) : Colors.grey.shade50,
-          borderRadius: BorderRadius.circular(16),
+          color: active ? color.withValues(alpha: 0.12) : SboxColors.slate50,
+          borderRadius: BorderRadius.circular(14),
           border: Border.all(
               color:
-                  active ? color.withValues(alpha: 0.4) : Colors.grey.shade200),
+                  active ? color.withValues(alpha: 0.4) : SboxColors.slate200),
         ),
         child: Row(mainAxisSize: MainAxisSize.min, children: [
-          Icon(icon, size: 15, color: active ? color : Colors.grey.shade500),
+          Icon(icon, size: 15, color: active ? color : SboxColors.slate500),
           const SizedBox(width: 5),
           Text(tr(label),
               style: TextStyle(
                   fontSize: 12,
                   fontWeight: active ? FontWeight.w600 : FontWeight.w400,
-                  color: active ? color : Colors.grey.shade600)),
+                  color: active ? color : SboxColors.slate600)),
         ]),
       ),
     );
@@ -834,7 +835,7 @@ class _NotificationsScreenState extends State<NotificationsScreen> {
     final style = TextStyle(
       fontSize: 13,
       height: 1.4,
-      color: n.isRead ? Colors.grey.shade500 : Colors.grey.shade700,
+      color: n.isRead ? SboxColors.slate500 : SboxColors.slate700,
     );
     return _ExpandableText(text: tr(n.effectiveMessage), style: style);
   }
@@ -847,7 +848,7 @@ class _NotificationsScreenState extends State<NotificationsScreen> {
         style: TextStyle(
             fontSize: 13,
             fontWeight: FontWeight.w700,
-            color: Colors.grey.shade600,
+            color: SboxColors.slate600,
             letterSpacing: 0.3),
       ),
     );
@@ -866,20 +867,20 @@ class _NotificationsScreenState extends State<NotificationsScreen> {
 
     final card = Material(
       color: n.isRead ? Colors.white : color.withValues(alpha: 0.06),
-      borderRadius: BorderRadius.circular(12),
+      borderRadius: BorderRadius.circular(14),
       clipBehavior: Clip.antiAlias,
       child: InkWell(
-        borderRadius: BorderRadius.circular(12),
+        borderRadius: BorderRadius.circular(14),
         onTap: () async {
           if (!n.isRead) await _markAsRead(n.id);
           _navigateToRelated(n);
         },
         child: Container(
           decoration: BoxDecoration(
-            borderRadius: BorderRadius.circular(12),
+            borderRadius: BorderRadius.circular(14),
             border: Border.all(
               color: n.isRead
-                  ? Colors.grey.shade200
+                  ? SboxColors.slate200
                   : color.withValues(alpha: 0.25),
             ),
           ),
@@ -892,12 +893,12 @@ class _NotificationsScreenState extends State<NotificationsScreen> {
                 height: 40,
                 decoration: BoxDecoration(
                   color: n.isRead
-                      ? Colors.grey.shade100
+                      ? SboxColors.slate100
                       : color.withValues(alpha: 0.14),
                   borderRadius: BorderRadius.circular(10),
                 ),
                 child: Icon(icon,
-                    color: n.isRead ? Colors.grey.shade400 : color, size: 20),
+                    color: n.isRead ? SboxColors.slate400 : color, size: 20),
               ),
               const SizedBox(width: 10),
               Expanded(
@@ -927,7 +928,7 @@ class _NotificationsScreenState extends State<NotificationsScreen> {
                                     fontSize: 11,
                                     fontWeight: FontWeight.w600,
                                     color: n.isRead
-                                        ? Colors.grey.shade400
+                                        ? SboxColors.slate400
                                         : color,
                                   ),
                                 ),
@@ -939,8 +940,8 @@ class _NotificationsScreenState extends State<NotificationsScreen> {
                                     n.isRead ? FontWeight.w500 : FontWeight.w700,
                                 fontSize: 14,
                                 color: n.isRead
-                                    ? Colors.grey.shade600
-                                    : Colors.grey.shade900,
+                                    ? SboxColors.slate600
+                                    : SboxColors.slate900,
                               ),
                               maxLines: 2,
                               overflow: TextOverflow.ellipsis,
@@ -950,7 +951,7 @@ class _NotificationsScreenState extends State<NotificationsScreen> {
                       ),
                       if (hasNav)
                         Icon(Icons.chevron_right,
-                            size: 18, color: Colors.grey.shade400),
+                            size: 18, color: SboxColors.slate400),
                       if (canDelete)
                         IconButton(
                           tooltip: tr('Xóa'),
@@ -974,7 +975,7 @@ class _NotificationsScreenState extends State<NotificationsScreen> {
                     Text(
                       tr(timeago.format(n.createdAt, locale: 'vi')),
                       style:
-                          TextStyle(fontSize: 11, color: Colors.grey.shade400),
+                          TextStyle(fontSize: 11, color: SboxColors.slate400),
                     ),
                   ],
                 ),
@@ -996,7 +997,7 @@ class _NotificationsScreenState extends State<NotificationsScreen> {
                 padding: const EdgeInsets.only(right: 20),
                 decoration: BoxDecoration(
                     color: Colors.red.shade400,
-                    borderRadius: BorderRadius.circular(12)),
+                    borderRadius: BorderRadius.circular(14)),
                 child: const Icon(Icons.delete_outline, color: Colors.white),
               ),
               confirmDismiss: (_) => _deleteNotification(n.id),
@@ -1057,7 +1058,7 @@ class _ExpandableTextState extends State<_ExpandableText> {
                     style: TextStyle(
                       fontSize: 12,
                       fontWeight: FontWeight.w600,
-                      color: Colors.blue.shade500,
+                      color: SboxColors.brand500,
                     ),
                   ),
                 ),

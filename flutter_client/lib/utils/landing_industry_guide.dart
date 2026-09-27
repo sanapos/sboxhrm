@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 
 import 'landing_usage_guide.dart';
 
+import '../theme/sbox_tokens.dart';
 /// Hướng dẫn chi tiết theo ngành hàng (tab «Ngành hàng» trên trang Hướng dẫn).
 /// Mỗi ngành: chọn ngành → khai báo hàng / dịch vụ → quy trình bán → tình huống hay gặp.
 const landingIndustrySteps = <LandingUsageGuideStep>[
@@ -24,7 +25,7 @@ const landingIndustrySteps = <LandingUsageGuideStep>[
     ],
     tip:
         'Đổi ngành xong hãy đóng và mở lại màn Bán hàng. Không thấy sơ đồ bàn / tính giờ → kiểm tra lại ngành và các công tắc trong Ngành hàng & chế độ bán.',
-    accent: Color(0xFF1565C0),
+    accent: SboxColors.brand600,
   ),
   LandingUsageGuideStep(
     id: 'ind_retail',
@@ -44,7 +45,7 @@ const landingIndustrySteps = <LandingUsageGuideStep>[
     ],
     tip:
         'Nhập hàng NCC (Nhà cung cấp → Nhập hàng) trước khi bán để giá vốn và lợi nhuận đúng.',
-    accent: Color(0xFF2E7D32),
+    accent: SboxColors.successText,
   ),
   LandingUsageGuideStep(
     id: 'ind_restaurant',

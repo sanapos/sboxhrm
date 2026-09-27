@@ -8,7 +8,8 @@ import '../services/api_service.dart';
 import '../utils/file_saver.dart';
 import '../widgets/notification_overlay.dart';
 
-const _blue = Color(0xFF2563EB);
+import '../theme/sbox_tokens.dart';
+const _blue = SboxColors.brand600;
 
 /// Lịch sử thao tác của cửa hàng (30 ngày): ai thêm / sửa / xóa gì, lúc nào, ở chức năng nào.
 class ActivityLogScreen extends StatefulWidget {
@@ -274,9 +275,9 @@ class _ActivityLogScreenState extends State<ActivityLogScreen> {
             const SizedBox(width: 8),
             Expanded(
               child: Text(tr('Lịch sử thao tác'),
-                  style: const TextStyle(fontSize: 18, fontWeight: FontWeight.w800, color: Color(0xFF0F172A))),
+                  style: const TextStyle(fontSize: 18, fontWeight: FontWeight.w700, color: SboxColors.slate900)),
             ),
-            Text(tr('Lưu 30 ngày gần nhất'), style: const TextStyle(fontSize: 12, color: Color(0xFF94A3B8))),
+            Text(tr('Lưu 30 ngày gần nhất'), style: const TextStyle(fontSize: 12, color: SboxColors.slate400)),
             const SizedBox(width: 8),
             IconButton(tooltip: tr('Tải lại'), onPressed: _loading ? null : _reload, icon: const Icon(Icons.refresh)),
             IconButton(
@@ -331,27 +332,27 @@ class _ActivityLogScreenState extends State<ActivityLogScreen> {
         prefixIcon: Icon(icon, size: 20),
         isDense: true,
         filled: true,
-        fillColor: const Color(0xFFF8FAFC),
-        border: OutlineInputBorder(borderRadius: BorderRadius.circular(10), borderSide: const BorderSide(color: Color(0xFFE2E8F0))),
-        enabledBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(10), borderSide: const BorderSide(color: Color(0xFFE2E8F0))),
+        fillColor: SboxColors.slate50,
+        border: OutlineInputBorder(borderRadius: BorderRadius.circular(10), borderSide: const BorderSide(color: SboxColors.slate200)),
+        enabledBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(10), borderSide: const BorderSide(color: SboxColors.slate200)),
       );
 
   Widget _buildSummary() => Padding(
         padding: const EdgeInsets.fromLTRB(16, 10, 16, 4),
         child: Wrap(spacing: 8, runSpacing: 6, children: [
-          _stat('Tổng', _total, const Color(0xFF334155)),
-          _stat('Thêm', _creates, const Color(0xFF16A34A)),
-          _stat('Sửa', _updates, const Color(0xFFD97706)),
-          _stat('Xóa', _deletes, const Color(0xFFDC2626)),
+          _stat('Tổng', _total, SboxColors.slate700),
+          _stat('Thêm', _creates, SboxColors.success),
+          _stat('Sửa', _updates, SboxColors.warning),
+          _stat('Xóa', _deletes, SboxColors.danger),
         ]),
       );
 
   Widget _stat(String label, int n, Color c) => Container(
         padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
-        decoration: BoxDecoration(color: Colors.white, borderRadius: BorderRadius.circular(20), border: Border.all(color: const Color(0xFFE2E8F0))),
+        decoration: BoxDecoration(color: Colors.white, borderRadius: BorderRadius.circular(20), border: Border.all(color: SboxColors.slate200)),
         child: Text.rich(TextSpan(children: [
-          TextSpan(text: '${tr(label)} ', style: const TextStyle(color: Color(0xFF64748B), fontSize: 12.5)),
-          TextSpan(text: '$n', style: TextStyle(color: c, fontWeight: FontWeight.w800, fontSize: 13)),
+          TextSpan(text: '${tr(label)} ', style: const TextStyle(color: SboxColors.slate500, fontSize: 13)),
+          TextSpan(text: '$n', style: TextStyle(color: c, fontWeight: FontWeight.w700, fontSize: 13)),
         ])),
       );
 
@@ -363,9 +364,9 @@ class _ActivityLogScreenState extends State<ActivityLogScreen> {
     if (_items.isEmpty) {
       return Center(
         child: Column(mainAxisSize: MainAxisSize.min, children: [
-          const Icon(Icons.history_toggle_off, size: 48, color: Color(0xFFCBD5E1)),
+          const Icon(Icons.history_toggle_off, size: 48, color: SboxColors.slate300),
           const SizedBox(height: 8),
-          Text(tr('Không có thao tác nào trong khoảng đã chọn'), style: const TextStyle(color: Color(0xFF64748B))),
+          Text(tr('Không có thao tác nào trong khoảng đã chọn'), style: const TextStyle(color: SboxColors.slate500)),
         ]),
       );
     }
@@ -379,7 +380,7 @@ class _ActivityLogScreenState extends State<ActivityLogScreen> {
         lastDay = day;
         children.add(Padding(
           padding: const EdgeInsets.fromLTRB(4, 14, 4, 6),
-          child: Text(_dayTitle(t), style: const TextStyle(fontWeight: FontWeight.w800, color: Color(0xFF475569))),
+          child: Text(_dayTitle(t), style: const TextStyle(fontWeight: FontWeight.w700, color: SboxColors.slate600)),
         ));
       }
       children.add(_row(it, t));
@@ -417,7 +418,7 @@ class _ActivityLogScreenState extends State<ActivityLogScreen> {
     return Card(
       elevation: 0,
       margin: const EdgeInsets.only(bottom: 6),
-      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10), side: const BorderSide(color: Color(0xFFE2E8F0))),
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10), side: const BorderSide(color: SboxColors.slate200)),
       child: InkWell(
         borderRadius: BorderRadius.circular(10),
         onTap: () => _showDetail(it),
@@ -427,7 +428,7 @@ class _ActivityLogScreenState extends State<ActivityLogScreen> {
             SizedBox(
               width: 64,
               child: Text(t == null ? '' : _hm.format(t),
-                  style: const TextStyle(fontFeatures: [FontFeature.tabularFigures()], color: Color(0xFF64748B), fontSize: 12.5)),
+                  style: const TextStyle(fontFeatures: [FontFeature.tabularFigures()], color: SboxColors.slate500, fontSize: 13)),
             ),
             Container(
               width: 30,
@@ -440,9 +441,9 @@ class _ActivityLogScreenState extends State<ActivityLogScreen> {
               child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
                 Text.rich(
                   TextSpan(children: [
-                    TextSpan(text: name, style: const TextStyle(fontWeight: FontWeight.w700, color: Color(0xFF0F172A))),
+                    TextSpan(text: name, style: const TextStyle(fontWeight: FontWeight.w700, color: SboxColors.slate900)),
                     TextSpan(text: ' ${tr(label).toLowerCase()} ', style: TextStyle(color: color, fontWeight: FontWeight.w700)),
-                    TextSpan(text: '${it['entityName'] ?? ''}', style: const TextStyle(color: Color(0xFF1E293B))),
+                    TextSpan(text: '${it['entityName'] ?? ''}', style: const TextStyle(color: SboxColors.slate800)),
                   ]),
                   maxLines: 2,
                   overflow: TextOverflow.ellipsis,
@@ -456,11 +457,11 @@ class _ActivityLogScreenState extends State<ActivityLogScreen> {
                   ].join(' · '),
                   maxLines: 1,
                   overflow: TextOverflow.ellipsis,
-                  style: const TextStyle(fontSize: 12, color: Color(0xFF94A3B8)),
+                  style: const TextStyle(fontSize: 12, color: SboxColors.slate400),
                 ),
               ]),
             ),
-            const Icon(Icons.chevron_right, color: Color(0xFFCBD5E1)),
+            const Icon(Icons.chevron_right, color: SboxColors.slate300),
           ]),
         ),
       ),
@@ -468,9 +469,9 @@ class _ActivityLogScreenState extends State<ActivityLogScreen> {
   }
 
   (String, Color, IconData) _actionStyle(String a) => switch (a) {
-        'Create' => ('Thêm', const Color(0xFF16A34A), Icons.add),
-        'Delete' => ('Xóa', const Color(0xFFDC2626), Icons.delete_outline),
-        _ => ('Sửa', const Color(0xFFD97706), Icons.edit_outlined),
+        'Create' => ('Thêm', SboxColors.success, Icons.add),
+        'Delete' => ('Xóa', SboxColors.danger, Icons.delete_outline),
+        _ => ('Sửa', SboxColors.warning, Icons.edit_outlined),
       };
 
   Future<void> _showDetail(Map<String, dynamic> it) async {
@@ -492,8 +493,8 @@ class _ActivityLogScreenState extends State<ActivityLogScreen> {
         title: Row(children: [
           Container(
             padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
-            decoration: BoxDecoration(color: color.withOpacity(.12), borderRadius: BorderRadius.circular(12)),
-            child: Text(tr(label), style: TextStyle(color: color, fontWeight: FontWeight.w800, fontSize: 13)),
+            decoration: BoxDecoration(color: color.withOpacity(.12), borderRadius: BorderRadius.circular(14)),
+            child: Text(tr(label), style: TextStyle(color: color, fontWeight: FontWeight.w700, fontSize: 13)),
           ),
           const SizedBox(width: 8),
           Expanded(child: Text('${it['entityName'] ?? ''}', style: const TextStyle(fontSize: 16), maxLines: 2)),
@@ -520,7 +521,7 @@ class _ActivityLogScreenState extends State<ActivityLogScreen> {
   Widget _kv(String k, String v) => Padding(
         padding: const EdgeInsets.symmetric(vertical: 2),
         child: Row(crossAxisAlignment: CrossAxisAlignment.start, children: [
-          SizedBox(width: 120, child: Text(k, style: const TextStyle(color: Color(0xFF64748B), fontSize: 13))),
+          SizedBox(width: 120, child: Text(k, style: const TextStyle(color: SboxColors.slate500, fontSize: 13))),
           Expanded(child: Text(v, style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w600))),
         ]),
       );
@@ -531,13 +532,13 @@ class _ActivityLogScreenState extends State<ActivityLogScreen> {
     return Container(
       width: double.infinity,
       margin: const EdgeInsets.only(bottom: 10),
-      decoration: BoxDecoration(borderRadius: BorderRadius.circular(8), border: Border.all(color: const Color(0xFFE2E8F0))),
+      decoration: BoxDecoration(borderRadius: BorderRadius.circular(10), border: Border.all(color: SboxColors.slate200)),
       child: Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
         Container(
           padding: const EdgeInsets.fromLTRB(10, 8, 10, 8),
-          color: const Color(0xFFF8FAFC),
+          color: SboxColors.slate50,
           child: Text.rich(TextSpan(children: [
-            TextSpan(text: '${tr(label)} ', style: TextStyle(color: color, fontWeight: FontWeight.w800)),
+            TextSpan(text: '${tr(label)} ', style: TextStyle(color: color, fontWeight: FontWeight.w700)),
             TextSpan(text: '${c['typeName'] ?? c['type']}', style: const TextStyle(fontWeight: FontWeight.w700)),
             if ((c['label'] ?? '').toString().isNotEmpty) TextSpan(text: ' «${c['label']}»'),
           ])),
@@ -545,20 +546,20 @@ class _ActivityLogScreenState extends State<ActivityLogScreen> {
         if (fields.isNotEmpty)
           Table(
             columnWidths: const {0: FlexColumnWidth(1.1), 1: FlexColumnWidth(1.4), 2: FlexColumnWidth(1.4)},
-            border: const TableBorder(horizontalInside: BorderSide(color: Color(0xFFF1F5F9))),
+            border: const TableBorder(horizontalInside: BorderSide(color: SboxColors.slate100)),
             children: [
               TableRow(children: [
                 for (final h in [c['op'] == 'Create' ? 'Trường' : 'Trường', 'Trước', 'Sau'])
                   Padding(
                     padding: const EdgeInsets.fromLTRB(10, 6, 10, 6),
-                    child: Text(tr(h), style: const TextStyle(fontSize: 12, color: Color(0xFF64748B), fontWeight: FontWeight.w700)),
+                    child: Text(tr(h), style: const TextStyle(fontSize: 12, color: SboxColors.slate500, fontWeight: FontWeight.w700)),
                   ),
               ]),
               for (final f in fields)
                 TableRow(children: [
                   _cell(activityFieldLabel('${f['field']}'), bold: true),
-                  _cell(f['old'] == null ? '—' : '${f['old']}', color: const Color(0xFFB91C1C)),
-                  _cell(f['new'] == null ? '—' : '${f['new']}', color: const Color(0xFF15803D)),
+                  _cell(f['old'] == null ? '—' : '${f['old']}', color: SboxColors.dangerText),
+                  _cell(f['new'] == null ? '—' : '${f['new']}', color: SboxColors.payHover),
                 ]),
             ],
           ),

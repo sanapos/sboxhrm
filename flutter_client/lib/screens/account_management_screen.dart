@@ -17,6 +17,7 @@ import '../widgets/notification_overlay.dart';
 import '../widgets/employee_search_picker.dart';
 import '../utils/permission_role_options.dart';
 import 'package:zkteco_flutter_client/l10n/app_tr.dart';
+import '../theme/sbox_tokens.dart';
 class AccountManagementScreen extends StatefulWidget {
   const AccountManagementScreen({super.key});
 
@@ -253,11 +254,11 @@ class _AccountManagementScreenState extends State<AccountManagementScreen> {
                           padding: const EdgeInsets.all(8),
                           decoration: BoxDecoration(
                             color:
-                                const Color(0xFF71717A).withValues(alpha: 0.1),
-                            borderRadius: BorderRadius.circular(8),
+                                SboxColors.slate500.withValues(alpha: 0.1),
+                            borderRadius: BorderRadius.circular(10),
                           ),
                           child: const Icon(Icons.group,
-                              color: Color(0xFF71717A), size: 20),
+                              color: SboxColors.slate500, size: 20),
                         ),
                         const SizedBox(width: 12),
                         Expanded(
@@ -273,7 +274,7 @@ class _AccountManagementScreenState extends State<AccountManagementScreen> {
                               ),
                               Text(tr('Quản lý tài khoản người dùng hệ thống'),
                                 style: TextStyle(
-                                    color: Color(0xFF71717A), fontSize: 13),
+                                    color: SboxColors.slate500, fontSize: 13),
                               ),
                             ],
                           ),
@@ -356,7 +357,7 @@ class _AccountManagementScreenState extends State<AccountManagementScreen> {
                       padding: const EdgeInsets.all(16),
                       decoration: BoxDecoration(
                         color: Colors.white,
-                        borderRadius: BorderRadius.circular(12),
+                        borderRadius: BorderRadius.circular(14),
                         boxShadow: [
                           BoxShadow(
                             color: Colors.black.withValues(alpha: 0.05),
@@ -376,29 +377,29 @@ class _AccountManagementScreenState extends State<AccountManagementScreen> {
                             height: 44,
                             child: TextField(
                               style: const TextStyle(
-                                  color: Color(0xFF18181B), fontSize: 14),
+                                  color: SboxColors.slate900, fontSize: 14),
                               decoration: InputDecoration(
                                 hintText: tr('Tìm theo tên hoặc username...'),
                                 hintStyle: const TextStyle(
-                                    color: Color(0xFFA1A1AA), fontSize: 14),
+                                    color: SboxColors.slate400, fontSize: 14),
                                 prefixIcon: const Icon(Icons.search,
-                                    color: Color(0xFFA1A1AA), size: 20),
+                                    color: SboxColors.slate400, size: 20),
                                 contentPadding: const EdgeInsets.symmetric(
                                     horizontal: 16, vertical: 10),
                                 filled: true,
-                                fillColor: const Color(0xFFFAFAFA),
+                                fillColor: SboxColors.slate50,
                                 border: OutlineInputBorder(
-                                  borderRadius: BorderRadius.circular(8),
+                                  borderRadius: BorderRadius.circular(10),
                                   borderSide: const BorderSide(
-                                      color: Color(0xFFE4E4E7)),
+                                      color: SboxColors.slate200),
                                 ),
                                 enabledBorder: OutlineInputBorder(
-                                  borderRadius: BorderRadius.circular(8),
+                                  borderRadius: BorderRadius.circular(10),
                                   borderSide: const BorderSide(
-                                      color: Color(0xFFE4E4E7)),
+                                      color: SboxColors.slate200),
                                 ),
                                 focusedBorder: OutlineInputBorder(
-                                  borderRadius: BorderRadius.circular(8),
+                                  borderRadius: BorderRadius.circular(10),
                                   borderSide: const BorderSide(
                                       color: HrmPageChrome.primaryNavy),
                                 ),
@@ -416,24 +417,24 @@ class _AccountManagementScreenState extends State<AccountManagementScreen> {
                               dropdownColor: Colors.white,
                               isExpanded: true,
                               style: const TextStyle(
-                                  color: Color(0xFF18181B), fontSize: 14),
+                                  color: SboxColors.slate900, fontSize: 14),
                               decoration: InputDecoration(
                                 prefixIcon: const Icon(Icons.person_outline,
-                                    color: Color(0xFF71717A), size: 18),
+                                    color: SboxColors.slate500, size: 18),
                                 contentPadding: const EdgeInsets.symmetric(
                                     horizontal: 12, vertical: 10),
                                 border: OutlineInputBorder(
-                                  borderRadius: BorderRadius.circular(8),
+                                  borderRadius: BorderRadius.circular(10),
                                   borderSide: const BorderSide(
-                                      color: Color(0xFFE4E4E7)),
+                                      color: SboxColors.slate200),
                                 ),
                                 enabledBorder: OutlineInputBorder(
-                                  borderRadius: BorderRadius.circular(8),
+                                  borderRadius: BorderRadius.circular(10),
                                   borderSide: const BorderSide(
-                                      color: Color(0xFFE4E4E7)),
+                                      color: SboxColors.slate200),
                                 ),
                                 focusedBorder: OutlineInputBorder(
-                                  borderRadius: BorderRadius.circular(8),
+                                  borderRadius: BorderRadius.circular(10),
                                   borderSide: const BorderSide(
                                       color: HrmPageChrome.primaryNavy),
                                 ),
@@ -462,24 +463,24 @@ class _AccountManagementScreenState extends State<AccountManagementScreen> {
                               dropdownColor: Colors.white,
                               isExpanded: true,
                               style: const TextStyle(
-                                  color: Color(0xFF18181B), fontSize: 14),
+                                  color: SboxColors.slate900, fontSize: 14),
                               decoration: InputDecoration(
                                 prefixIcon: const Icon(Icons.toggle_on_outlined,
-                                    color: Color(0xFF71717A), size: 18),
+                                    color: SboxColors.slate500, size: 18),
                                 contentPadding: const EdgeInsets.symmetric(
                                     horizontal: 12, vertical: 10),
                                 border: OutlineInputBorder(
-                                  borderRadius: BorderRadius.circular(8),
+                                  borderRadius: BorderRadius.circular(10),
                                   borderSide: const BorderSide(
-                                      color: Color(0xFFE4E4E7)),
+                                      color: SboxColors.slate200),
                                 ),
                                 enabledBorder: OutlineInputBorder(
-                                  borderRadius: BorderRadius.circular(8),
+                                  borderRadius: BorderRadius.circular(10),
                                   borderSide: const BorderSide(
-                                      color: Color(0xFFE4E4E7)),
+                                      color: SboxColors.slate200),
                                 ),
                                 focusedBorder: OutlineInputBorder(
-                                  borderRadius: BorderRadius.circular(8),
+                                  borderRadius: BorderRadius.circular(10),
                                   borderSide: const BorderSide(
                                       color: HrmPageChrome.primaryNavy),
                                 ),
@@ -510,26 +511,26 @@ class _AccountManagementScreenState extends State<AccountManagementScreen> {
                               dropdownColor: Colors.white,
                               isExpanded: true,
                               style: const TextStyle(
-                                  color: Color(0xFF18181B), fontSize: 14),
+                                  color: SboxColors.slate900, fontSize: 14),
                               decoration: InputDecoration(
                                 prefixIcon: const Icon(
                                     Icons.badge_outlined,
-                                    color: Color(0xFF71717A),
+                                    color: SboxColors.slate500,
                                     size: 18),
                                 contentPadding: const EdgeInsets.symmetric(
                                     horizontal: 12, vertical: 10),
                                 border: OutlineInputBorder(
-                                  borderRadius: BorderRadius.circular(8),
+                                  borderRadius: BorderRadius.circular(10),
                                   borderSide: const BorderSide(
-                                      color: Color(0xFFE4E4E7)),
+                                      color: SboxColors.slate200),
                                 ),
                                 enabledBorder: OutlineInputBorder(
-                                  borderRadius: BorderRadius.circular(8),
+                                  borderRadius: BorderRadius.circular(10),
                                   borderSide: const BorderSide(
-                                      color: Color(0xFFE4E4E7)),
+                                      color: SboxColors.slate200),
                                 ),
                                 focusedBorder: OutlineInputBorder(
-                                  borderRadius: BorderRadius.circular(8),
+                                  borderRadius: BorderRadius.circular(10),
                                   borderSide: const BorderSide(
                                       color: HrmPageChrome.primaryNavy),
                                 ),
@@ -554,12 +555,12 @@ class _AccountManagementScreenState extends State<AccountManagementScreen> {
                             icon: const Icon(Icons.filter_alt_off, size: 18),
                             label: Text(tr('Xóa lọc')),
                             style: OutlinedButton.styleFrom(
-                              foregroundColor: const Color(0xFF71717A),
-                              side: const BorderSide(color: Color(0xFFE4E4E7)),
+                              foregroundColor: SboxColors.slate500,
+                              side: const BorderSide(color: SboxColors.slate200),
                               padding: const EdgeInsets.symmetric(
                                   horizontal: 16, vertical: 12),
                               shape: RoundedRectangleBorder(
-                                  borderRadius: BorderRadius.circular(8)),
+                                  borderRadius: BorderRadius.circular(10)),
                             ),
                           ),
                         ],
@@ -585,7 +586,7 @@ class _AccountManagementScreenState extends State<AccountManagementScreen> {
                           : Container(
                               decoration: BoxDecoration(
                                 color: Colors.white,
-                                borderRadius: BorderRadius.circular(12),
+                                borderRadius: BorderRadius.circular(14),
                                 boxShadow: [
                                   BoxShadow(
                                     color: Colors.black.withValues(alpha: 0.05),
@@ -595,19 +596,19 @@ class _AccountManagementScreenState extends State<AccountManagementScreen> {
                                 ],
                               ),
                               child: ClipRRect(
-                                borderRadius: BorderRadius.circular(12),
+                                borderRadius: BorderRadius.circular(14),
                                 child: SingleChildScrollView(
                                   scrollDirection: Axis.horizontal,
                                   child: DataTable(
                                     showCheckboxColumn: false,
                                     headingRowColor: WidgetStateProperty.all(
-                                        const Color(0xFFF4F4F5)),
+                                        SboxColors.slate100),
                                     dataRowMinHeight: 52,
                                     dataRowMaxHeight: 56,
                                     columnSpacing: 24,
                                     horizontalMargin: 16,
                                     headingTextStyle: const TextStyle(
-                                      color: Color(0xFF71717A),
+                                      color: SboxColors.slate500,
                                       fontSize: 12,
                                       fontWeight: FontWeight.w600,
                                     ),
@@ -684,7 +685,7 @@ class _AccountManagementScreenState extends State<AccountManagementScreen> {
       },
       cells: [
         DataCell(Text(tr('${index + 1}'),
-            style: const TextStyle(color: Color(0xFF71717A), fontSize: 13))),
+            style: const TextStyle(color: SboxColors.slate500, fontSize: 13))),
         DataCell(Row(
           mainAxisSize: MainAxisSize.min,
           children: [
@@ -693,7 +694,7 @@ class _AccountManagementScreenState extends State<AccountManagementScreen> {
               height: 32,
               decoration: BoxDecoration(
                 color: (roleInfo['color'] as Color).withValues(alpha: 0.15),
-                borderRadius: BorderRadius.circular(8),
+                borderRadius: BorderRadius.circular(10),
               ),
               child: Center(
                   child: Text(tr(initials),
@@ -709,27 +710,27 @@ class _AccountManagementScreenState extends State<AccountManagementScreen> {
               children: [
                 Text(tr(fullName),
                     style: const TextStyle(
-                        color: Color(0xFF18181B),
+                        color: SboxColors.slate900,
                         fontSize: 13,
                         fontWeight: FontWeight.w600)),
                 Text(tr('@${account['userName'] ?? ''}'),
                     style: const TextStyle(
-                        color: Color(0xFFA1A1AA), fontSize: 11)),
+                        color: SboxColors.slate400, fontSize: 11)),
                 _buildHrIssueBadge(account, fontSize: 10),
               ],
             ),
           ],
         )),
         DataCell(Text(tr(account['email'] ?? ''),
-            style: const TextStyle(color: Color(0xFF71717A), fontSize: 13))),
+            style: const TextStyle(color: SboxColors.slate500, fontSize: 13))),
         DataCell(Text(tr(account['phoneNumber'] ?? ''),
-            style: const TextStyle(color: Color(0xFF71717A), fontSize: 13))),
+            style: const TextStyle(color: SboxColors.slate500, fontSize: 13))),
         DataCell(HrmBrandChip(label: roleInfo['label'] as String)),
         DataCell(HrmBrandChip(
             label: isActive ? 'Hoạt động' : 'Ngừng hoạt động')),
         DataCell(Text(
           tr(lastLogin != null ? _formatDate(lastLogin) : '—'),
-          style: const TextStyle(color: Color(0xFFA1A1AA), fontSize: 12),
+          style: const TextStyle(color: SboxColors.slate400, fontSize: 12),
         )),
         DataCell(Row(
           mainAxisSize: MainAxisSize.min,
@@ -749,7 +750,7 @@ class _AccountManagementScreenState extends State<AccountManagementScreen> {
               IconButton(
                 onPressed: () => _showAccountDialog(account: account),
                 icon: const Icon(Icons.edit_outlined, size: 18),
-                color: const Color(0xFF71717A),
+                color: SboxColors.slate500,
                 tooltip: tr('Sửa'),
                 padding: EdgeInsets.zero,
                 constraints: const BoxConstraints(minWidth: 32, minHeight: 32),
@@ -765,7 +766,7 @@ class _AccountManagementScreenState extends State<AccountManagementScreen> {
                 ),
                 color: isActive
                     ? HrmPageChrome.chipLight
-                    : const Color(0xFF22C55E),
+                    : SboxColors.success,
                 tooltip: tr(isActive ? 'Vô hiệu hóa' : 'Kích hoạt lại'),
                 padding: EdgeInsets.zero,
                 constraints: const BoxConstraints(minWidth: 32, minHeight: 32),
@@ -774,7 +775,7 @@ class _AccountManagementScreenState extends State<AccountManagementScreen> {
               IconButton(
                 onPressed: () => _deleteAccount(account),
                 icon: const Icon(Icons.delete_outline, size: 18),
-                color: const Color(0xFFEF4444),
+                color: SboxColors.danger,
                 tooltip: tr('Xóa'),
                 padding: EdgeInsets.zero,
                 constraints: const BoxConstraints(minWidth: 32, minHeight: 32),
@@ -804,13 +805,13 @@ class _AccountManagementScreenState extends State<AccountManagementScreen> {
         child: Material(
           color: Colors.transparent,
           child: InkWell(
-            borderRadius: BorderRadius.circular(12),
+            borderRadius: BorderRadius.circular(14),
             onTap: onTap,
             child: Container(
               padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
               decoration: BoxDecoration(
                 color: selected ? HrmPageChrome.chip : Colors.white,
-                borderRadius: BorderRadius.circular(12),
+                borderRadius: BorderRadius.circular(14),
                 border: Border.all(
                     color: selected ? HrmPageChrome.chip : border),
               ),
@@ -833,7 +834,7 @@ class _AccountManagementScreenState extends State<AccountManagementScreen> {
           margin: const EdgeInsets.only(right: 8, left: 2),
           width: 1,
           height: 18,
-          color: const Color(0xFFE4E4E7),
+          color: SboxColors.slate200,
         );
 
     return SingleChildScrollView(
@@ -881,7 +882,7 @@ class _AccountManagementScreenState extends State<AccountManagementScreen> {
       'Director' || 'DepartmentHead' || 'Waiter' => HrmPageChrome.chipMid,
       'Manager' || 'Accountant' || 'Employee' => HrmPageChrome.primaryNavy,
       'Cashier' => HrmPageChrome.chip,
-      _ => const Color(0xFF71717A),
+      _ => SboxColors.slate500,
     };
     var label = PermissionRoleOptions.displayNameOf(role);
     for (final r in _permissionRoles) {
@@ -922,26 +923,26 @@ class _AccountManagementScreenState extends State<AccountManagementScreen> {
 
   Widget _buildAccountSearchField() {
     return TextField(
-      style: const TextStyle(color: Color(0xFF18181B), fontSize: 14),
+      style: const TextStyle(color: SboxColors.slate900, fontSize: 14),
       decoration: InputDecoration(
         hintText: tr('Tìm theo tên hoặc username...'),
-        hintStyle: const TextStyle(color: Color(0xFFA1A1AA), fontSize: 14),
+        hintStyle: const TextStyle(color: SboxColors.slate400, fontSize: 14),
         prefixIcon:
-            const Icon(Icons.search, color: Color(0xFFA1A1AA), size: 20),
+            const Icon(Icons.search, color: SboxColors.slate400, size: 20),
         contentPadding:
             const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
         filled: true,
-        fillColor: const Color(0xFFFAFAFA),
+        fillColor: SboxColors.slate50,
         border: OutlineInputBorder(
-          borderRadius: BorderRadius.circular(8),
-          borderSide: const BorderSide(color: Color(0xFFE4E4E7)),
+          borderRadius: BorderRadius.circular(10),
+          borderSide: const BorderSide(color: SboxColors.slate200),
         ),
         enabledBorder: OutlineInputBorder(
-          borderRadius: BorderRadius.circular(8),
-          borderSide: const BorderSide(color: Color(0xFFE4E4E7)),
+          borderRadius: BorderRadius.circular(10),
+          borderSide: const BorderSide(color: SboxColors.slate200),
         ),
         focusedBorder: OutlineInputBorder(
-          borderRadius: BorderRadius.circular(8),
+          borderRadius: BorderRadius.circular(10),
           borderSide: const BorderSide(color: HrmPageChrome.primaryNavy),
         ),
       ),
@@ -1083,7 +1084,7 @@ class _AccountManagementScreenState extends State<AccountManagementScreen> {
                 width: 40,
                 height: 4,
                 decoration: BoxDecoration(
-                    color: const Color(0xFFE4E4E7),
+                    color: SboxColors.slate200,
                     borderRadius: BorderRadius.circular(2)),
               ),
               const SizedBox(height: 20),
@@ -1093,7 +1094,7 @@ class _AccountManagementScreenState extends State<AccountManagementScreen> {
                 height: 56,
                 decoration: BoxDecoration(
                   color: (roleInfo['color'] as Color).withValues(alpha: 0.15),
-                  borderRadius: BorderRadius.circular(16),
+                  borderRadius: BorderRadius.circular(14),
                 ),
                 child: Center(
                     child: Text(tr(initials),
@@ -1105,12 +1106,12 @@ class _AccountManagementScreenState extends State<AccountManagementScreen> {
               const SizedBox(height: 12),
               Text(tr(fullName),
                   style: const TextStyle(
-                      color: Color(0xFF18181B),
+                      color: SboxColors.slate900,
                       fontSize: 18,
                       fontWeight: FontWeight.bold)),
               Text(tr('@${account['userName'] ?? ''}'),
                   style:
-                      const TextStyle(color: Color(0xFFA1A1AA), fontSize: 13)),
+                      const TextStyle(color: SboxColors.slate400, fontSize: 13)),
               const SizedBox(height: 12),
               Row(
                 mainAxisAlignment: MainAxisAlignment.center,
@@ -1135,16 +1136,16 @@ class _AccountManagementScreenState extends State<AccountManagementScreen> {
                         const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
                     decoration: BoxDecoration(
                       color: isActive
-                          ? const Color(0xFF22C55E).withValues(alpha: 0.1)
-                          : const Color(0xFFEF4444).withValues(alpha: 0.1),
+                          ? SboxColors.success.withValues(alpha: 0.1)
+                          : SboxColors.danger.withValues(alpha: 0.1),
                       borderRadius: BorderRadius.circular(6),
                     ),
                     child: Text(
                       tr(isActive ? 'Hoạt động' : 'Ngừng hoạt động'),
                       style: TextStyle(
                           color: isActive
-                              ? const Color(0xFF22C55E)
-                              : const Color(0xFFEF4444),
+                              ? SboxColors.success
+                              : SboxColors.danger,
                           fontSize: 12,
                           fontWeight: FontWeight.w500),
                     ),
@@ -1171,7 +1172,7 @@ class _AccountManagementScreenState extends State<AccountManagementScreen> {
                 ],
               ),
               const SizedBox(height: 20),
-              const Divider(color: Color(0xFFE4E4E7)),
+              const Divider(color: SboxColors.slate200),
               const SizedBox(height: 8),
               // Detail rows
               _buildDetailRow(
@@ -1185,7 +1186,7 @@ class _AccountManagementScreenState extends State<AccountManagementScreen> {
                 alignment: Alignment.centerLeft,
                 child: Text(tr('Khu vực làm việc (sơ đồ bàn)'),
                     style: const TextStyle(
-                        color: Color(0xFF18181B),
+                        color: SboxColors.slate900,
                         fontSize: 14,
                         fontWeight: FontWeight.w700)),
               ),
@@ -1198,7 +1199,7 @@ class _AccountManagementScreenState extends State<AccountManagementScreen> {
                       : (selectedAreaIds.isEmpty
                           ? 'Chưa chọn = xem tất cả khu vực'
                           : 'Chỉ hiện bàn thuộc ${selectedAreaIds.length} khu đã chọn')),
-                  style: TextStyle(color: Colors.grey[500], fontSize: 11),
+                  style: TextStyle(color: SboxColors.slate500, fontSize: 11),
                 ),
               ),
               const SizedBox(height: 8),
@@ -1246,7 +1247,7 @@ class _AccountManagementScreenState extends State<AccountManagementScreen> {
                 ),
               ),
               const SizedBox(height: 16),
-              const Divider(color: Color(0xFFE4E4E7)),
+              const Divider(color: SboxColors.slate200),
               const SizedBox(height: 16),
               // Action buttons
               Row(
@@ -1281,8 +1282,8 @@ class _AccountManagementScreenState extends State<AccountManagementScreen> {
                         icon: const Icon(Icons.edit_outlined, size: 18),
                         label: Text(tr('Sửa')),
                         style: OutlinedButton.styleFrom(
-                          foregroundColor: const Color(0xFF71717A),
-                          side: const BorderSide(color: Color(0xFFE4E4E7)),
+                          foregroundColor: SboxColors.slate500,
+                          side: const BorderSide(color: SboxColors.slate200),
                           padding: const EdgeInsets.symmetric(vertical: 12),
                           shape: RoundedRectangleBorder(
                               borderRadius: BorderRadius.circular(10)),
@@ -1312,11 +1313,11 @@ class _AccountManagementScreenState extends State<AccountManagementScreen> {
                     style: OutlinedButton.styleFrom(
                       foregroundColor: isActive
                           ? HrmPageChrome.chipLight
-                          : const Color(0xFF22C55E),
+                          : SboxColors.success,
                       side: BorderSide(
                         color: isActive
                             ? HrmPageChrome.chipLight
-                            : const Color(0xFF22C55E),
+                            : SboxColors.success,
                       ),
                       padding: const EdgeInsets.symmetric(vertical: 12),
                       shape: RoundedRectangleBorder(
@@ -1338,8 +1339,8 @@ class _AccountManagementScreenState extends State<AccountManagementScreen> {
                     icon: const Icon(Icons.delete_outline, size: 18),
                     label: Text(tr('Xóa')),
                     style: OutlinedButton.styleFrom(
-                      foregroundColor: const Color(0xFFEF4444),
-                      side: const BorderSide(color: Color(0xFFEF4444)),
+                      foregroundColor: SboxColors.danger,
+                      side: const BorderSide(color: SboxColors.danger),
                       padding: const EdgeInsets.symmetric(vertical: 12),
                       shape: RoundedRectangleBorder(
                           borderRadius: BorderRadius.circular(10)),
@@ -1360,17 +1361,17 @@ class _AccountManagementScreenState extends State<AccountManagementScreen> {
       padding: const EdgeInsets.symmetric(vertical: 8),
       child: Row(
         children: [
-          Icon(icon, size: 18, color: const Color(0xFF71717A)),
+          Icon(icon, size: 18, color: SboxColors.slate500),
           const SizedBox(width: 12),
           SizedBox(
             width: 100,
             child: Text(tr(label),
-                style: const TextStyle(color: Color(0xFF71717A), fontSize: 13)),
+                style: const TextStyle(color: SboxColors.slate500, fontSize: 13)),
           ),
           Expanded(
             child: Text(tr(value),
                 style: const TextStyle(
-                    color: Color(0xFF18181B),
+                    color: SboxColors.slate900,
                     fontSize: 13,
                     fontWeight: FontWeight.w500)),
           ),
@@ -1450,33 +1451,33 @@ class _AccountManagementScreenState extends State<AccountManagementScreen> {
                         children: [
                           Text(tr('Đổi mật khẩu'),
                               style: TextStyle(
-                                  color: Color(0xFF18181B),
+                                  color: SboxColors.slate900,
                                   fontSize: 18,
                                   fontWeight: FontWeight.bold)),
                           Text(tr(fullName),
                               style: const TextStyle(
-                                  color: Color(0xFF71717A), fontSize: 13)),
+                                  color: SboxColors.slate500, fontSize: 13)),
                         ],
                       ),
                     ),
                     IconButton(
                       onPressed: () => Navigator.pop(context),
-                      icon: const Icon(Icons.close, color: Color(0xFF71717A)),
+                      icon: const Icon(Icons.close, color: SboxColors.slate500),
                     ),
                   ],
                 ),
                 const SizedBox(height: 20),
               ],
               Text(tr('Mật khẩu mới'),
-                  style: TextStyle(color: Color(0xFF71717A), fontSize: 13)),
+                  style: TextStyle(color: SboxColors.slate500, fontSize: 13)),
               const SizedBox(height: 6),
               TextField(
                 controller: newPasswordController,
                 obscureText: !showNewPassword,
-                style: const TextStyle(color: Color(0xFF18181B), fontSize: 14),
+                style: const TextStyle(color: SboxColors.slate900, fontSize: 14),
                 decoration: InputDecoration(
                   hintText: tr('Nhập mật khẩu mới (tối thiểu 6 ký tự)'),
-                  hintStyle: const TextStyle(color: Color(0xFFA1A1AA)),
+                  hintStyle: const TextStyle(color: SboxColors.slate400),
                   contentPadding:
                       const EdgeInsets.symmetric(horizontal: 12, vertical: 12),
                   suffixIcon: IconButton(
@@ -1484,33 +1485,33 @@ class _AccountManagementScreenState extends State<AccountManagementScreen> {
                         showNewPassword
                             ? Icons.visibility_off
                             : Icons.visibility,
-                        color: const Color(0xFFA1A1AA),
+                        color: SboxColors.slate400,
                         size: 20),
                     onPressed: () => setDialogState(
                         () => showNewPassword = !showNewPassword),
                   ),
                   border: OutlineInputBorder(
-                      borderRadius: BorderRadius.circular(8),
-                      borderSide: const BorderSide(color: Color(0xFFE4E4E7))),
+                      borderRadius: BorderRadius.circular(10),
+                      borderSide: const BorderSide(color: SboxColors.slate200)),
                   enabledBorder: OutlineInputBorder(
-                      borderRadius: BorderRadius.circular(8),
-                      borderSide: const BorderSide(color: Color(0xFFE4E4E7))),
+                      borderRadius: BorderRadius.circular(10),
+                      borderSide: const BorderSide(color: SboxColors.slate200)),
                   focusedBorder: OutlineInputBorder(
-                      borderRadius: BorderRadius.circular(8),
+                      borderRadius: BorderRadius.circular(10),
                       borderSide: const BorderSide(color: HrmPageChrome.primaryNavy)),
                 ),
               ),
               const SizedBox(height: 16),
               Text(tr('Xác nhận mật khẩu'),
-                  style: TextStyle(color: Color(0xFF71717A), fontSize: 13)),
+                  style: TextStyle(color: SboxColors.slate500, fontSize: 13)),
               const SizedBox(height: 6),
               TextField(
                 controller: confirmPasswordController,
                 obscureText: !showConfirmPassword,
-                style: const TextStyle(color: Color(0xFF18181B), fontSize: 14),
+                style: const TextStyle(color: SboxColors.slate900, fontSize: 14),
                 decoration: InputDecoration(
                   hintText: tr('Nhập lại mật khẩu mới'),
-                  hintStyle: const TextStyle(color: Color(0xFFA1A1AA)),
+                  hintStyle: const TextStyle(color: SboxColors.slate400),
                   contentPadding:
                       const EdgeInsets.symmetric(horizontal: 12, vertical: 12),
                   suffixIcon: IconButton(
@@ -1518,32 +1519,32 @@ class _AccountManagementScreenState extends State<AccountManagementScreen> {
                         showConfirmPassword
                             ? Icons.visibility_off
                             : Icons.visibility,
-                        color: const Color(0xFFA1A1AA),
+                        color: SboxColors.slate400,
                         size: 20),
                     onPressed: () => setDialogState(
                         () => showConfirmPassword = !showConfirmPassword),
                   ),
                   border: OutlineInputBorder(
-                      borderRadius: BorderRadius.circular(8),
-                      borderSide: const BorderSide(color: Color(0xFFE4E4E7))),
+                      borderRadius: BorderRadius.circular(10),
+                      borderSide: const BorderSide(color: SboxColors.slate200)),
                   enabledBorder: OutlineInputBorder(
-                      borderRadius: BorderRadius.circular(8),
-                      borderSide: const BorderSide(color: Color(0xFFE4E4E7))),
+                      borderRadius: BorderRadius.circular(10),
+                      borderSide: const BorderSide(color: SboxColors.slate200)),
                   focusedBorder: OutlineInputBorder(
-                      borderRadius: BorderRadius.circular(8),
+                      borderRadius: BorderRadius.circular(10),
                       borderSide: const BorderSide(color: HrmPageChrome.primaryNavy)),
                 ),
               ),
               if (!isMobile) ...[
                 const SizedBox(height: 20),
-                const Divider(color: Color(0xFFE4E4E7)),
+                const Divider(color: SboxColors.slate200),
                 const SizedBox(height: 12),
                 Row(
                   children: [
                     TextButton(
                       onPressed: () => Navigator.pop(context),
                       child: Text(tr('Hủy'),
-                          style: TextStyle(color: Color(0xFF71717A))),
+                          style: TextStyle(color: SboxColors.slate500)),
                     ),
                     const Spacer(),
                     FilledButton.icon(
@@ -1571,7 +1572,7 @@ class _AccountManagementScreenState extends State<AccountManagementScreen> {
                   backgroundColor: Colors.white,
                   elevation: 0,
                   leading: IconButton(
-                    icon: const Icon(Icons.close, color: Color(0xFF18181B)),
+                    icon: const Icon(Icons.close, color: SboxColors.slate900),
                     onPressed: () => Navigator.pop(context),
                   ),
                   title: Column(
@@ -1579,12 +1580,12 @@ class _AccountManagementScreenState extends State<AccountManagementScreen> {
                     children: [
                       Text(tr('Đổi mật khẩu'),
                           style: TextStyle(
-                              color: Color(0xFF18181B),
+                              color: SboxColors.slate900,
                               fontSize: 16,
                               fontWeight: FontWeight.bold)),
                       Text(tr(fullName),
                           style: const TextStyle(
-                              color: Color(0xFF71717A), fontSize: 12)),
+                              color: SboxColors.slate500, fontSize: 12)),
                     ],
                   ),
                   actions: [
@@ -1610,7 +1611,7 @@ class _AccountManagementScreenState extends State<AccountManagementScreen> {
             insetPadding:
                 const EdgeInsets.symmetric(horizontal: 40, vertical: 24),
             shape:
-                RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+                RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
             child: Container(
               width: math
                   .min(420, MediaQuery.of(context).size.width - 32)
@@ -1808,7 +1809,7 @@ class _AccountManagementScreenState extends State<AccountManagementScreen> {
             children: [
               Text(tr('Khu vực làm việc (sơ đồ bàn)'),
                   style: const TextStyle(
-                      color: Color(0xFF18181B),
+                      color: SboxColors.slate900,
                       fontSize: 14,
                       fontWeight: FontWeight.w700)),
               const SizedBox(height: 4),
@@ -1818,7 +1819,7 @@ class _AccountManagementScreenState extends State<AccountManagementScreen> {
                     : (selectedAreaIds.isEmpty
                         ? 'Chưa chọn = xem tất cả khu vực'
                         : 'Sơ đồ chỉ hiện bàn thuộc ${selectedAreaIds.length} khu đã chọn')),
-                style: TextStyle(color: Colors.grey[500], fontSize: 11),
+                style: TextStyle(color: SboxColors.slate500, fontSize: 11),
               ),
               const SizedBox(height: 8),
               Wrap(
@@ -1856,7 +1857,7 @@ class _AccountManagementScreenState extends State<AccountManagementScreen> {
                     ? 'Cập nhật mật khẩu nhân viên'
                     : 'Mật khẩu đăng nhập'),
                 style: const TextStyle(
-                    color: Color(0xFF18181B),
+                    color: SboxColors.slate900,
                     fontSize: 14,
                     fontWeight: FontWeight.w700),
               ),
@@ -1865,7 +1866,7 @@ class _AccountManagementScreenState extends State<AccountManagementScreen> {
                 tr(isEditing
                     ? 'Để trống nếu giữ mật khẩu cũ'
                     : 'Bắt buộc khi tạo tài khoản mới'),
-                style: TextStyle(color: Colors.grey[500], fontSize: 11),
+                style: TextStyle(color: SboxColors.slate500, fontSize: 11),
               ),
               const SizedBox(height: 8),
               ..._buildFieldPair(
@@ -1878,10 +1879,10 @@ class _AccountManagementScreenState extends State<AccountManagementScreen> {
                         Text(
                             tr(isEditing ? 'Mật khẩu mới' : 'Mật khẩu'),
                             style: const TextStyle(
-                                color: Color(0xFF71717A), fontSize: 13)),
+                                color: SboxColors.slate500, fontSize: 13)),
                         if (!isEditing)
                           const Text(' *',
-                              style: TextStyle(color: Color(0xFFEF4444))),
+                              style: TextStyle(color: SboxColors.danger)),
                       ],
                     ),
                     const SizedBox(height: 6),
@@ -1889,12 +1890,12 @@ class _AccountManagementScreenState extends State<AccountManagementScreen> {
                       controller: passwordController,
                       obscureText: !showPassword,
                       style: const TextStyle(
-                          color: Color(0xFF18181B), fontSize: 14),
+                          color: SboxColors.slate900, fontSize: 14),
                       decoration: InputDecoration(
                         hintText: tr(isEditing
                             ? 'Để trống nếu giữ nguyên'
                             : 'Tối thiểu 6 ký tự'),
-                        hintStyle: const TextStyle(color: Color(0xFFA1A1AA)),
+                        hintStyle: const TextStyle(color: SboxColors.slate400),
                         contentPadding: const EdgeInsets.symmetric(
                             horizontal: 12, vertical: 12),
                         suffixIcon: IconButton(
@@ -1902,23 +1903,23 @@ class _AccountManagementScreenState extends State<AccountManagementScreen> {
                               showPassword
                                   ? Icons.visibility_off
                                   : Icons.visibility,
-                              color: const Color(0xFFA1A1AA),
+                              color: SboxColors.slate400,
                               size: 20),
                           onPressed: () => setDialogState(
                               () => showPassword = !showPassword),
                         ),
                         border: OutlineInputBorder(
-                          borderRadius: BorderRadius.circular(8),
+                          borderRadius: BorderRadius.circular(10),
                           borderSide:
-                              const BorderSide(color: Color(0xFFE4E4E7)),
+                              const BorderSide(color: SboxColors.slate200),
                         ),
                         enabledBorder: OutlineInputBorder(
-                          borderRadius: BorderRadius.circular(8),
+                          borderRadius: BorderRadius.circular(10),
                           borderSide:
-                              const BorderSide(color: Color(0xFFE4E4E7)),
+                              const BorderSide(color: SboxColors.slate200),
                         ),
                         focusedBorder: OutlineInputBorder(
-                          borderRadius: BorderRadius.circular(8),
+                          borderRadius: BorderRadius.circular(10),
                           borderSide: const BorderSide(
                               color: HrmPageChrome.primaryNavy),
                         ),
@@ -1933,10 +1934,10 @@ class _AccountManagementScreenState extends State<AccountManagementScreen> {
                       children: [
                         Text(tr('Xác nhận mật khẩu'),
                             style: const TextStyle(
-                                color: Color(0xFF71717A), fontSize: 13)),
+                                color: SboxColors.slate500, fontSize: 13)),
                         if (!isEditing)
                           const Text(' *',
-                              style: TextStyle(color: Color(0xFFEF4444))),
+                              style: TextStyle(color: SboxColors.danger)),
                       ],
                     ),
                     const SizedBox(height: 6),
@@ -1944,10 +1945,10 @@ class _AccountManagementScreenState extends State<AccountManagementScreen> {
                       controller: confirmPasswordController,
                       obscureText: !showConfirmPassword,
                       style: const TextStyle(
-                          color: Color(0xFF18181B), fontSize: 14),
+                          color: SboxColors.slate900, fontSize: 14),
                       decoration: InputDecoration(
                         hintText: tr('Nhập lại mật khẩu'),
-                        hintStyle: const TextStyle(color: Color(0xFFA1A1AA)),
+                        hintStyle: const TextStyle(color: SboxColors.slate400),
                         contentPadding: const EdgeInsets.symmetric(
                             horizontal: 12, vertical: 12),
                         suffixIcon: IconButton(
@@ -1955,23 +1956,23 @@ class _AccountManagementScreenState extends State<AccountManagementScreen> {
                               showConfirmPassword
                                   ? Icons.visibility_off
                                   : Icons.visibility,
-                              color: const Color(0xFFA1A1AA),
+                              color: SboxColors.slate400,
                               size: 20),
                           onPressed: () => setDialogState(() =>
                               showConfirmPassword = !showConfirmPassword),
                         ),
                         border: OutlineInputBorder(
-                          borderRadius: BorderRadius.circular(8),
+                          borderRadius: BorderRadius.circular(10),
                           borderSide:
-                              const BorderSide(color: Color(0xFFE4E4E7)),
+                              const BorderSide(color: SboxColors.slate200),
                         ),
                         enabledBorder: OutlineInputBorder(
-                          borderRadius: BorderRadius.circular(8),
+                          borderRadius: BorderRadius.circular(10),
                           borderSide:
-                              const BorderSide(color: Color(0xFFE4E4E7)),
+                              const BorderSide(color: SboxColors.slate200),
                         ),
                         focusedBorder: OutlineInputBorder(
-                          borderRadius: BorderRadius.circular(8),
+                          borderRadius: BorderRadius.circular(10),
                           borderSide: const BorderSide(
                               color: HrmPageChrome.primaryNavy),
                         ),
@@ -1991,33 +1992,33 @@ class _AccountManagementScreenState extends State<AccountManagementScreen> {
                       children: [
                         Text(tr(isEditing ? 'Tên đăng nhập' : 'Tên đăng nhập'),
                             style: const TextStyle(
-                                color: Color(0xFF71717A), fontSize: 13)),
+                                color: SboxColors.slate500, fontSize: 13)),
                       ],
                     ),
                     const SizedBox(height: 6),
                     TextField(
                       controller: employeeIdController,
                       style: const TextStyle(
-                          color: Color(0xFF18181B), fontSize: 14),
+                          color: SboxColors.slate900, fontSize: 14),
                       decoration: InputDecoration(
                         hintText: tr(isEditing
                             ? 'username'
                             : 'Để trống = lấy từ email'),
-                        hintStyle: const TextStyle(color: Color(0xFFA1A1AA)),
+                        hintStyle: const TextStyle(color: SboxColors.slate400),
                         contentPadding: const EdgeInsets.symmetric(
                             horizontal: 12, vertical: 12),
                         border: OutlineInputBorder(
-                          borderRadius: BorderRadius.circular(8),
+                          borderRadius: BorderRadius.circular(10),
                           borderSide:
-                              const BorderSide(color: Color(0xFFE4E4E7)),
+                              const BorderSide(color: SboxColors.slate200),
                         ),
                         enabledBorder: OutlineInputBorder(
-                          borderRadius: BorderRadius.circular(8),
+                          borderRadius: BorderRadius.circular(10),
                           borderSide:
-                              const BorderSide(color: Color(0xFFE4E4E7)),
+                              const BorderSide(color: SboxColors.slate200),
                         ),
                         focusedBorder: OutlineInputBorder(
-                          borderRadius: BorderRadius.circular(8),
+                          borderRadius: BorderRadius.circular(10),
                           borderSide:
                               const BorderSide(color: HrmPageChrome.primaryNavy),
                         ),
@@ -2032,32 +2033,32 @@ class _AccountManagementScreenState extends State<AccountManagementScreen> {
                       children: [
                         Text(tr('Tên nhân viên'),
                             style: TextStyle(
-                                color: Color(0xFF71717A), fontSize: 13)),
-                        Text(tr(' *'), style: TextStyle(color: Color(0xFFEF4444))),
+                                color: SboxColors.slate500, fontSize: 13)),
+                        Text(tr(' *'), style: TextStyle(color: SboxColors.danger)),
                       ],
                     ),
                     const SizedBox(height: 6),
                     TextField(
                       controller: fullNameController,
                       style: const TextStyle(
-                          color: Color(0xFF18181B), fontSize: 14),
+                          color: SboxColors.slate900, fontSize: 14),
                       decoration: InputDecoration(
                         hintText: tr('Nguyễn Văn A'),
-                        hintStyle: const TextStyle(color: Color(0xFFA1A1AA)),
+                        hintStyle: const TextStyle(color: SboxColors.slate400),
                         contentPadding: const EdgeInsets.symmetric(
                             horizontal: 12, vertical: 12),
                         border: OutlineInputBorder(
-                          borderRadius: BorderRadius.circular(8),
+                          borderRadius: BorderRadius.circular(10),
                           borderSide:
-                              const BorderSide(color: Color(0xFFE4E4E7)),
+                              const BorderSide(color: SboxColors.slate200),
                         ),
                         enabledBorder: OutlineInputBorder(
-                          borderRadius: BorderRadius.circular(8),
+                          borderRadius: BorderRadius.circular(10),
                           borderSide:
-                              const BorderSide(color: Color(0xFFE4E4E7)),
+                              const BorderSide(color: SboxColors.slate200),
                         ),
                         focusedBorder: OutlineInputBorder(
-                          borderRadius: BorderRadius.circular(8),
+                          borderRadius: BorderRadius.circular(10),
                           borderSide:
                               const BorderSide(color: HrmPageChrome.primaryNavy),
                         ),
@@ -2071,7 +2072,7 @@ class _AccountManagementScreenState extends State<AccountManagementScreen> {
                 tr(isEditing
                     ? 'Tên đăng nhập của tài khoản'
                     : 'Nhập tên đăng nhập — hoặc để trống để lấy phần trước @ email'),
-                style: TextStyle(color: Colors.grey[500], fontSize: 11),
+                style: TextStyle(color: SboxColors.slate500, fontSize: 11),
               ),
               const SizedBox(height: 16),
 
@@ -2085,33 +2086,33 @@ class _AccountManagementScreenState extends State<AccountManagementScreen> {
                       children: [
                         Text(tr('Email'),
                             style: TextStyle(
-                                color: Color(0xFF71717A), fontSize: 13)),
-                        Text(tr(' *'), style: TextStyle(color: Color(0xFFEF4444))),
+                                color: SboxColors.slate500, fontSize: 13)),
+                        Text(tr(' *'), style: TextStyle(color: SboxColors.danger)),
                       ],
                     ),
                     const SizedBox(height: 6),
                     TextField(
                       controller: emailController,
                       style: const TextStyle(
-                          color: Color(0xFF18181B), fontSize: 14),
+                          color: SboxColors.slate900, fontSize: 14),
                       keyboardType: TextInputType.emailAddress,
                       decoration: InputDecoration(
                         hintText: tr('email@example.com'),
-                        hintStyle: const TextStyle(color: Color(0xFFA1A1AA)),
+                        hintStyle: const TextStyle(color: SboxColors.slate400),
                         contentPadding: const EdgeInsets.symmetric(
                             horizontal: 12, vertical: 12),
                         border: OutlineInputBorder(
-                          borderRadius: BorderRadius.circular(8),
+                          borderRadius: BorderRadius.circular(10),
                           borderSide:
-                              const BorderSide(color: Color(0xFFE4E4E7)),
+                              const BorderSide(color: SboxColors.slate200),
                         ),
                         enabledBorder: OutlineInputBorder(
-                          borderRadius: BorderRadius.circular(8),
+                          borderRadius: BorderRadius.circular(10),
                           borderSide:
-                              const BorderSide(color: Color(0xFFE4E4E7)),
+                              const BorderSide(color: SboxColors.slate200),
                         ),
                         focusedBorder: OutlineInputBorder(
-                          borderRadius: BorderRadius.circular(8),
+                          borderRadius: BorderRadius.circular(10),
                           borderSide:
                               const BorderSide(color: HrmPageChrome.primaryNavy),
                         ),
@@ -2126,33 +2127,33 @@ class _AccountManagementScreenState extends State<AccountManagementScreen> {
                       children: [
                         Text(tr('Số điện thoại'),
                             style: TextStyle(
-                                color: Color(0xFF71717A), fontSize: 13)),
-                        Text(tr(' *'), style: TextStyle(color: Color(0xFFEF4444))),
+                                color: SboxColors.slate500, fontSize: 13)),
+                        Text(tr(' *'), style: TextStyle(color: SboxColors.danger)),
                       ],
                     ),
                     const SizedBox(height: 6),
                     TextField(
                       controller: phoneController,
                       style: const TextStyle(
-                          color: Color(0xFF18181B), fontSize: 14),
+                          color: SboxColors.slate900, fontSize: 14),
                       keyboardType: TextInputType.phone,
                       decoration: InputDecoration(
                         hintText: tr('0987654321'),
-                        hintStyle: const TextStyle(color: Color(0xFFA1A1AA)),
+                        hintStyle: const TextStyle(color: SboxColors.slate400),
                         contentPadding: const EdgeInsets.symmetric(
                             horizontal: 12, vertical: 12),
                         border: OutlineInputBorder(
-                          borderRadius: BorderRadius.circular(8),
+                          borderRadius: BorderRadius.circular(10),
                           borderSide:
-                              const BorderSide(color: Color(0xFFE4E4E7)),
+                              const BorderSide(color: SboxColors.slate200),
                         ),
                         enabledBorder: OutlineInputBorder(
-                          borderRadius: BorderRadius.circular(8),
+                          borderRadius: BorderRadius.circular(10),
                           borderSide:
-                              const BorderSide(color: Color(0xFFE4E4E7)),
+                              const BorderSide(color: SboxColors.slate200),
                         ),
                         focusedBorder: OutlineInputBorder(
-                          borderRadius: BorderRadius.circular(8),
+                          borderRadius: BorderRadius.circular(10),
                           borderSide:
                               const BorderSide(color: HrmPageChrome.primaryNavy),
                         ),
@@ -2171,8 +2172,8 @@ class _AccountManagementScreenState extends State<AccountManagementScreen> {
                     children: [
                       Text(tr('Quyền hạn'),
                           style: TextStyle(
-                              color: Color(0xFF71717A), fontSize: 13)),
-                      Text(tr(' *'), style: TextStyle(color: Color(0xFFEF4444))),
+                              color: SboxColors.slate500, fontSize: 13)),
+                      Text(tr(' *'), style: TextStyle(color: SboxColors.danger)),
                     ],
                   ),
                   const SizedBox(height: 6),
@@ -2180,22 +2181,22 @@ class _AccountManagementScreenState extends State<AccountManagementScreen> {
                     initialValue: selectedRole,
                     dropdownColor: Colors.white,
                     style:
-                        const TextStyle(color: Color(0xFF18181B), fontSize: 14),
+                        const TextStyle(color: SboxColors.slate900, fontSize: 14),
                     decoration: InputDecoration(
                       prefixIcon: const Icon(Icons.security,
-                          color: Color(0xFF71717A), size: 18),
+                          color: SboxColors.slate500, size: 18),
                       contentPadding: const EdgeInsets.symmetric(
                           horizontal: 12, vertical: 12),
                       border: OutlineInputBorder(
-                        borderRadius: BorderRadius.circular(8),
-                        borderSide: const BorderSide(color: Color(0xFFE4E4E7)),
+                        borderRadius: BorderRadius.circular(10),
+                        borderSide: const BorderSide(color: SboxColors.slate200),
                       ),
                       enabledBorder: OutlineInputBorder(
-                        borderRadius: BorderRadius.circular(8),
-                        borderSide: const BorderSide(color: Color(0xFFE4E4E7)),
+                        borderRadius: BorderRadius.circular(10),
+                        borderSide: const BorderSide(color: SboxColors.slate200),
                       ),
                       focusedBorder: OutlineInputBorder(
-                        borderRadius: BorderRadius.circular(8),
+                        borderRadius: BorderRadius.circular(10),
                         borderSide: const BorderSide(color: HrmPageChrome.primaryNavy),
                       ),
                     ),
@@ -2226,7 +2227,7 @@ class _AccountManagementScreenState extends State<AccountManagementScreen> {
                   ),
                   const SizedBox(height: 4),
                   Text(tr('Chọn quyền hạn phù hợp với vai trò của nhân viên'),
-                    style: TextStyle(color: Colors.grey[500], fontSize: 11),
+                    style: TextStyle(color: SboxColors.slate500, fontSize: 11),
                   ),
                 ],
               ),
@@ -2243,13 +2244,13 @@ class _AccountManagementScreenState extends State<AccountManagementScreen> {
                   backgroundColor: Colors.white,
                   elevation: 0,
                   leading: IconButton(
-                    icon: const Icon(Icons.close, color: Color(0xFF18181B)),
+                    icon: const Icon(Icons.close, color: SboxColors.slate900),
                     onPressed: () => Navigator.pop(context),
                   ),
                   title: Text(
                     tr(isEditing ? 'Sửa tài khoản' : 'Đăng ký tài khoản'),
                     style: const TextStyle(
-                        color: Color(0xFF18181B),
+                        color: SboxColors.slate900,
                         fontSize: 16,
                         fontWeight: FontWeight.bold),
                   ),
@@ -2276,7 +2277,7 @@ class _AccountManagementScreenState extends State<AccountManagementScreen> {
             insetPadding:
                 const EdgeInsets.symmetric(horizontal: 40, vertical: 24),
             shape:
-                RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+                RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
             child: Container(
               width: math
                   .min(500, MediaQuery.of(context).size.width - 32)
@@ -2295,7 +2296,7 @@ class _AccountManagementScreenState extends State<AccountManagementScreen> {
                           child: Text(
                             tr(isEditing ? 'Sửa tài khoản' : 'Đăng ký tài khoản'),
                             style: const TextStyle(
-                                color: Color(0xFF18181B),
+                                color: SboxColors.slate900,
                                 fontSize: 18,
                                 fontWeight: FontWeight.bold),
                           ),
@@ -2303,20 +2304,20 @@ class _AccountManagementScreenState extends State<AccountManagementScreen> {
                         IconButton(
                           onPressed: () => Navigator.pop(context),
                           icon:
-                              const Icon(Icons.close, color: Color(0xFF71717A)),
+                              const Icon(Icons.close, color: SboxColors.slate500),
                         ),
                       ],
                     ),
                     const SizedBox(height: 24),
                     formFields,
-                    const Divider(color: Color(0xFFE4E4E7)),
+                    const Divider(color: SboxColors.slate200),
                     const SizedBox(height: 16),
                     Row(
                       children: [
                         TextButton(
                           onPressed: () => Navigator.pop(context),
                           child: Text(tr('Hủy'),
-                              style: TextStyle(color: Color(0xFF71717A))),
+                              style: TextStyle(color: SboxColors.slate500)),
                         ),
                         const Spacer(),
                         Expanded(
@@ -2358,20 +2359,20 @@ class _AccountManagementScreenState extends State<AccountManagementScreen> {
       context: context,
       builder: (context) => ScrollableAlertDialog(
         backgroundColor: Colors.white,
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
         title: Text(tr('Xác nhận xóa'),
             style: TextStyle(
-                color: Color(0xFF18181B), fontWeight: FontWeight.bold)),
+                color: SboxColors.slate900, fontWeight: FontWeight.bold)),
         content: Text(tr('${tr('Bạn có chắc muốn xóa tài khoản "')}${account['fullName']}"?\n\n'
           'Hệ thống sẽ gỡ liên kết đăng nhập; dữ liệu chấm công/lương gắn hồ sơ nhân sự vẫn được giữ. '
           'Nếu vẫn lỗi ràng buộc, dùng Vô hiệu hóa để giải phóng slot gói.'),
-          style: const TextStyle(color: Color(0xFF71717A)),
+          style: const TextStyle(color: SboxColors.slate500),
         ),
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(context),
             child:
-                Text(tr('Hủy'), style: TextStyle(color: Color(0xFF71717A))),
+                Text(tr('Hủy'), style: TextStyle(color: SboxColors.slate500)),
           ),
           FilledButton(
             onPressed: () async {
@@ -2400,7 +2401,7 @@ class _AccountManagementScreenState extends State<AccountManagementScreen> {
               }
             },
             style: FilledButton.styleFrom(
-                backgroundColor: const Color(0xFFEF4444)),
+                backgroundColor: SboxColors.danger),
             child: Text(tr('Xóa')),
           ),
         ],
@@ -2435,30 +2436,30 @@ class _AccountManagementScreenState extends State<AccountManagementScreen> {
       context: context,
       builder: (context) => ScrollableAlertDialog(
         backgroundColor: Colors.white,
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
         title: Text(
           tr(isActive ? 'Vô hiệu hóa tài khoản' : 'Kích hoạt lại tài khoản'),
           style: const TextStyle(
-              color: Color(0xFF18181B), fontWeight: FontWeight.bold),
+              color: SboxColors.slate900, fontWeight: FontWeight.bold),
         ),
         content: Text(
           tr(isActive
               ? 'Vô hiệu hóa "$name"? Tài khoản không đăng nhập được và giải phóng 1 slot gói dịch vụ. Có thể kích hoạt lại sau.'
               : 'Kích hoạt lại "$name"? Tài khoản sẽ chiếm lại 1 slot gói dịch vụ.'),
-          style: const TextStyle(color: Color(0xFF71717A)),
+          style: const TextStyle(color: SboxColors.slate500),
         ),
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(context, false),
             child:
-                Text(tr('Hủy'), style: TextStyle(color: Color(0xFF71717A))),
+                Text(tr('Hủy'), style: TextStyle(color: SboxColors.slate500)),
           ),
           FilledButton(
             onPressed: () => Navigator.pop(context, true),
             style: FilledButton.styleFrom(
               backgroundColor: isActive
                   ? HrmPageChrome.chipLight
-                  : const Color(0xFF22C55E),
+                  : SboxColors.success,
             ),
             child: Text(tr(isActive ? 'Vô hiệu hóa' : 'Kích hoạt')),
           ),
@@ -2622,7 +2623,7 @@ class _AccountManagementScreenState extends State<AccountManagementScreen> {
               child: filtered.isEmpty
                   ? Center(
                       child: Text(tr('Không tìm thấy nhân viên'),
-                          style: TextStyle(color: Color(0xFF71717A))),
+                          style: TextStyle(color: SboxColors.slate500)),
                     )
                   : ListView.builder(
                       itemCount: filtered.length,
@@ -2681,7 +2682,7 @@ class _AccountManagementScreenState extends State<AccountManagementScreen> {
                 tr('Chọn nhiều nhân viên, dùng chung 1 mật khẩu và 1 quyền. '
                 'Mỗi người chỉ cần có email hoặc SĐT trong hồ sơ HR để đăng nhập '
                 '(báo lỗi nếu thiếu cả hai). Nhân viên có thể đổi mật khẩu sau khi đăng nhập.'),
-                style: TextStyle(color: Colors.grey[600], fontSize: 12),
+                style: TextStyle(color: SboxColors.slate600, fontSize: 12),
               ),
               const SizedBox(height: 12),
               TextField(
@@ -2692,7 +2693,7 @@ class _AccountManagementScreenState extends State<AccountManagementScreen> {
                   prefixIcon: const Icon(Icons.search, size: 20),
                   isDense: true,
                   border: OutlineInputBorder(
-                      borderRadius: BorderRadius.circular(8)),
+                      borderRadius: BorderRadius.circular(10)),
                 ),
               ),
               const SizedBox(height: 8),
@@ -2731,7 +2732,7 @@ class _AccountManagementScreenState extends State<AccountManagementScreen> {
                 decoration: InputDecoration(
                   labelText: tr('Quyền hạn chung'),
                   border: OutlineInputBorder(
-                      borderRadius: BorderRadius.circular(8)),
+                      borderRadius: BorderRadius.circular(10)),
                 ),
                 items: roles
                     .map((r) => DropdownMenuItem<String>(
@@ -2750,7 +2751,7 @@ class _AccountManagementScreenState extends State<AccountManagementScreen> {
                 decoration: InputDecoration(
                   labelText: tr('Mật khẩu chung *'),
                   border: OutlineInputBorder(
-                      borderRadius: BorderRadius.circular(8)),
+                      borderRadius: BorderRadius.circular(10)),
                   suffixIcon: IconButton(
                     icon: Icon(showPassword
                         ? Icons.visibility_off
@@ -2767,7 +2768,7 @@ class _AccountManagementScreenState extends State<AccountManagementScreen> {
                 decoration: InputDecoration(
                   labelText: tr('Nhập lại mật khẩu *'),
                   border: OutlineInputBorder(
-                      borderRadius: BorderRadius.circular(8)),
+                      borderRadius: BorderRadius.circular(10)),
                   suffixIcon: IconButton(
                     icon: Icon(showConfirmPassword
                         ? Icons.visibility_off

@@ -15,6 +15,7 @@ import '../utils/image_source_picker.dart';
 import '../widgets/hrm_page_chrome.dart';
 import 'package:zkteco_flutter_client/l10n/app_tr.dart';
 
+import '../theme/sbox_tokens.dart';
 /// Màn hình quản lý nội dung (Nội quy / Đào tạo)
 class ContentManagementScreen extends StatefulWidget {
   final int contentType;
@@ -140,12 +141,12 @@ class _ContentManagementScreenState extends State<ContentManagementScreen>
   Widget build(BuildContext context) {
     final isMobile = MediaQuery.of(context).size.width < 600;
     return Scaffold(
-      backgroundColor: const Color(0xFFFAFAFA),
+      backgroundColor: SboxColors.slate50,
       appBar: AppBar(
         backgroundColor: Colors.white,
         elevation: 0,
         leading: IconButton(
-          icon: const Icon(Icons.arrow_back, color: Color(0xFF18181B)),
+          icon: const Icon(Icons.arrow_back, color: SboxColors.slate900),
           onPressed: () => Navigator.pop(context),
         ),
         title: Row(children: [
@@ -153,7 +154,7 @@ class _ContentManagementScreenState extends State<ContentManagementScreen>
             padding: const EdgeInsets.all(6),
             decoration: BoxDecoration(
               color: widget.themeColor.withValues(alpha: 0.1),
-              borderRadius: BorderRadius.circular(8),
+              borderRadius: BorderRadius.circular(10),
             ),
             child:
                 Icon(widget.themeIcon, size: 18, color: widget.themeColor),
@@ -161,9 +162,9 @@ class _ContentManagementScreenState extends State<ContentManagementScreen>
           const SizedBox(width: 10),
           Text(tr(widget.screenTitle),
               style: const TextStyle(
-                  color: Color(0xFF18181B),
+                  color: SboxColors.slate900,
                   fontWeight: FontWeight.bold,
-                  fontSize: 17)),
+                  fontSize: 18)),
         ]),
         actions: [
           if (_perm.canCreate('Communication'))
@@ -175,7 +176,7 @@ class _ContentManagementScreenState extends State<ContentManagementScreen>
                 foregroundColor: Colors.white,
                 backgroundColor: widget.themeColor,
                 shape: RoundedRectangleBorder(
-                    borderRadius: BorderRadius.circular(8)),
+                    borderRadius: BorderRadius.circular(10)),
                 padding: EdgeInsets.symmetric(
                     horizontal: isMobile ? 10 : 16, vertical: 8),
               ),
@@ -185,7 +186,7 @@ class _ContentManagementScreenState extends State<ContentManagementScreen>
         bottom: TabBar(
           controller: _tabController,
           labelColor: widget.themeColor,
-          unselectedLabelColor: const Color(0xFFA1A1AA),
+          unselectedLabelColor: SboxColors.slate400,
           indicatorColor: widget.themeColor,
           tabs: [
             Tab(
@@ -225,13 +226,13 @@ class _ContentManagementScreenState extends State<ContentManagementScreen>
               decoration: InputDecoration(
                 hintText: tr('Tìm kiếm bài viết...'),
                 hintStyle:
-                    const TextStyle(fontSize: 13, color: Color(0xFFA1A1AA)),
+                    const TextStyle(fontSize: 13, color: SboxColors.slate400),
                 prefixIcon: const Icon(Icons.search,
-                    size: 18, color: Color(0xFFA1A1AA)),
+                    size: 18, color: SboxColors.slate400),
                 filled: true,
-                fillColor: const Color(0xFFF1F5F9),
+                fillColor: SboxColors.slate100,
                 border: OutlineInputBorder(
-                    borderRadius: BorderRadius.circular(8),
+                    borderRadius: BorderRadius.circular(10),
                     borderSide: BorderSide.none),
                 contentPadding:
                     const EdgeInsets.symmetric(vertical: 0, horizontal: 12),
@@ -246,8 +247,8 @@ class _ContentManagementScreenState extends State<ContentManagementScreen>
               height: 34,
               padding: const EdgeInsets.symmetric(horizontal: 10),
               decoration: BoxDecoration(
-                border: Border.all(color: const Color(0xFFE4E4E7)),
-                borderRadius: BorderRadius.circular(8),
+                border: Border.all(color: SboxColors.slate200),
+                borderRadius: BorderRadius.circular(10),
               ),
               child: DropdownButtonHideUnderline(
                 child: DropdownButton<String?>(
@@ -255,7 +256,7 @@ class _ContentManagementScreenState extends State<ContentManagementScreen>
                   hint: Text(tr('Tất cả thư mục'),
                       style: TextStyle(fontSize: 12)),
                   style: const TextStyle(
-                      fontSize: 12, color: Color(0xFF334155)),
+                      fontSize: 12, color: SboxColors.slate700),
                   items: [
                     DropdownMenuItem(
                         value: null, child: Text(tr('Tất cả thư mục'))),
@@ -281,11 +282,11 @@ class _ContentManagementScreenState extends State<ContentManagementScreen>
               HrmPageChrome.primaryNavy),
           const SizedBox(width: 12),
           _stat('Nháp', _articles.where((a) => _parseStatus(a['status']) == 0).length,
-              const Color(0xFFF59E0B)),
+              SboxColors.warning),
           const Spacer(),
           Text(tr('${filtered.length} kết quả'),
               style:
-                  const TextStyle(color: Color(0xFFA1A1AA), fontSize: 12)),
+                  const TextStyle(color: SboxColors.slate400, fontSize: 12)),
         ]),
       ),
       const Divider(height: 24),
@@ -302,8 +303,8 @@ class _ContentManagementScreenState extends State<ContentManagementScreen>
                     child: Container(
                       decoration: BoxDecoration(
                         color: Colors.white,
-                        borderRadius: BorderRadius.circular(12),
-                        border: Border.all(color: const Color(0xFFE4E4E7)),
+                        borderRadius: BorderRadius.circular(14),
+                        border: Border.all(color: SboxColors.slate200),
                         boxShadow: [
                           BoxShadow(
                             color: Colors.black.withValues(alpha: 0.05),
@@ -327,13 +328,13 @@ class _ContentManagementScreenState extends State<ContentManagementScreen>
       label: Text(tr(label),
           style: TextStyle(
               fontSize: 12,
-              color: on ? Colors.white : const Color(0xFF71717A))),
+              color: on ? Colors.white : SboxColors.slate500)),
       selected: on,
       onSelected: (_) => setState(() => _selectedStatusFilter = status),
       backgroundColor: Colors.white,
       selectedColor: widget.themeColor,
       side: BorderSide(
-          color: on ? widget.themeColor : const Color(0xFFE4E4E7)),
+          color: on ? widget.themeColor : SboxColors.slate200),
       padding: const EdgeInsets.symmetric(horizontal: 4),
       visualDensity: VisualDensity.compact,
     );
@@ -343,7 +344,7 @@ class _ContentManagementScreenState extends State<ContentManagementScreen>
         padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
         decoration: BoxDecoration(
             color: c.withValues(alpha: 0.08),
-            borderRadius: BorderRadius.circular(8)),
+            borderRadius: BorderRadius.circular(10)),
         child: Row(mainAxisSize: MainAxisSize.min, children: [
           Text(tr('$n'),
               style: TextStyle(
@@ -370,7 +371,7 @@ class _ContentManagementScreenState extends State<ContentManagementScreen>
         child: Row(children: [
           Container(
             width: 36, height: 36,
-            decoration: BoxDecoration(color: widget.themeColor.withValues(alpha: 0.08), borderRadius: BorderRadius.circular(8)),
+            decoration: BoxDecoration(color: widget.themeColor.withValues(alpha: 0.08), borderRadius: BorderRadius.circular(10)),
             child: Icon(widget.themeIcon, color: widget.themeColor.withValues(alpha: 0.4), size: 18),
           ),
           const SizedBox(width: 12),
@@ -387,7 +388,7 @@ class _ContentManagementScreenState extends State<ContentManagementScreen>
                   '$views lượt xem',
                   if (created != null) '${created.day}/${created.month}/${created.year}',
                 ].join(' · ')),
-                style: const TextStyle(color: Color(0xFF71717A), fontSize: 12),
+                style: const TextStyle(color: SboxColors.slate500, fontSize: 12),
                 maxLines: 1, overflow: TextOverflow.ellipsis,
               ),
             ]),
@@ -398,7 +399,7 @@ class _ContentManagementScreenState extends State<ContentManagementScreen>
               padding: EdgeInsets.zero,
               iconSize: 18,
               icon: const Icon(Icons.more_vert,
-                  size: 18, color: Color(0xFFA1A1AA)),
+                  size: 18, color: SboxColors.slate400),
               onSelected: (v) {
                 if (v == 'edit') _openEditor(article: a);
                 if (v == 'publish') _publishArticle(a);
@@ -425,8 +426,8 @@ class _ContentManagementScreenState extends State<ContentManagementScreen>
     final c = pub
         ? HrmPageChrome.primaryNavy
         : draft
-            ? const Color(0xFFF59E0B)
-            : const Color(0xFF71717A);
+            ? SboxColors.warning
+            : SboxColors.slate500;
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
       decoration: BoxDecoration(
@@ -443,7 +444,7 @@ class _ContentManagementScreenState extends State<ContentManagementScreen>
               size: 56, color: widget.themeColor.withValues(alpha: 0.2)),
           const SizedBox(height: 16),
           Text(tr('Chưa có bài viết nào'),
-              style: TextStyle(color: Color(0xFFA1A1AA), fontSize: 14)),
+              style: TextStyle(color: SboxColors.slate400, fontSize: 14)),
           const SizedBox(height: 8),
           if (_perm.canCreate('Communication'))
             TextButton.icon(
@@ -484,10 +485,10 @@ class _ContentManagementScreenState extends State<ContentManagementScreen>
         child: _categories.isEmpty
             ? Center(
                 child: Column(mainAxisSize: MainAxisSize.min, children: [
-                Icon(Icons.folder_off, size: 48, color: Colors.grey[300]),
+                Icon(Icons.folder_off, size: 48, color: SboxColors.slate300),
                 const SizedBox(height: 12),
                 Text(tr('Chưa có thư mục'),
-                    style: TextStyle(color: Color(0xFFA1A1AA))),
+                    style: TextStyle(color: SboxColors.slate400)),
                 const SizedBox(height: 8),
                 if (_perm.canCreate('Communication'))
                   TextButton.icon(
@@ -506,8 +507,8 @@ class _ContentManagementScreenState extends State<ContentManagementScreen>
                     child: Container(
                       decoration: BoxDecoration(
                         color: Colors.white,
-                        borderRadius: BorderRadius.circular(12),
-                        border: Border.all(color: const Color(0xFFE4E4E7)),
+                        borderRadius: BorderRadius.circular(14),
+                        border: Border.all(color: SboxColors.slate200),
                         boxShadow: [
                           BoxShadow(
                             color: Colors.black.withValues(alpha: 0.05),
@@ -541,7 +542,7 @@ class _ContentManagementScreenState extends State<ContentManagementScreen>
         child: Row(children: [
           Container(
             width: 36, height: 36,
-            decoration: BoxDecoration(color: color.withValues(alpha: 0.12), borderRadius: BorderRadius.circular(8)),
+            decoration: BoxDecoration(color: color.withValues(alpha: 0.12), borderRadius: BorderRadius.circular(10)),
             child: Icon(Icons.folder, color: color, size: 18),
           ),
           const SizedBox(width: 12),
@@ -550,20 +551,20 @@ class _ContentManagementScreenState extends State<ContentManagementScreen>
               Text(tr(name), style: const TextStyle(fontWeight: FontWeight.w600, fontSize: 14), maxLines: 1, overflow: TextOverflow.ellipsis),
               if (desc.isNotEmpty) ...[
                 const SizedBox(height: 2),
-                Text(tr(desc), style: const TextStyle(color: Color(0xFF71717A), fontSize: 12), maxLines: 1, overflow: TextOverflow.ellipsis),
+                Text(tr(desc), style: const TextStyle(color: SboxColors.slate500, fontSize: 12), maxLines: 1, overflow: TextOverflow.ellipsis),
               ],
             ]),
           ),
           Container(
             padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
-            decoration: BoxDecoration(color: const Color(0xFFF4F4F5), borderRadius: BorderRadius.circular(10)),
-            child: Text(tr('$count'), style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w500, color: Color(0xFF71717A))),
+            decoration: BoxDecoration(color: SboxColors.slate100, borderRadius: BorderRadius.circular(10)),
+            child: Text(tr('$count'), style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w500, color: SboxColors.slate500)),
           ),
           const SizedBox(width: 4),
           if (_perm.canEdit('Communication'))
-            IconButton(icon: const Icon(Icons.edit, size: 16, color: Color(0xFFA1A1AA)), onPressed: () => _showCategoryDialog(category: c), padding: EdgeInsets.zero, constraints: const BoxConstraints(minWidth: 28, minHeight: 28)),
+            IconButton(icon: const Icon(Icons.edit, size: 16, color: SboxColors.slate400), onPressed: () => _showCategoryDialog(category: c), padding: EdgeInsets.zero, constraints: const BoxConstraints(minWidth: 28, minHeight: 28)),
           if (_perm.canDelete('Communication'))
-            IconButton(icon: const Icon(Icons.delete, size: 16, color: Color(0xFFA1A1AA)), onPressed: () => _deleteCategory(c), padding: EdgeInsets.zero, constraints: const BoxConstraints(minWidth: 28, minHeight: 28)),
+            IconButton(icon: const Icon(Icons.delete, size: 16, color: SboxColors.slate400), onPressed: () => _deleteCategory(c), padding: EdgeInsets.zero, constraints: const BoxConstraints(minWidth: 28, minHeight: 28)),
         ]),
       ),
     );
@@ -583,7 +584,7 @@ class _ContentManagementScreenState extends State<ContentManagementScreen>
       builder: (ctx) => ScrollableAlertDialog(
         backgroundColor: Colors.white,
         shape:
-            RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+            RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
         title: Text(tr(isEdit ? 'Sửa thư mục' : 'Tạo thư mục mới'),
             style: const TextStyle(
                 fontSize: 16, fontWeight: FontWeight.bold)),
@@ -596,7 +597,7 @@ class _ContentManagementScreenState extends State<ContentManagementScreen>
               decoration: InputDecoration(
                 labelText: tr('Tên thư mục *'),
                 filled: true,
-                fillColor: const Color(0xFFFAFAFA),
+                fillColor: SboxColors.slate50,
                 border: OutlineInputBorder(
                     borderRadius: BorderRadius.circular(10),
                     borderSide: BorderSide.none),
@@ -609,7 +610,7 @@ class _ContentManagementScreenState extends State<ContentManagementScreen>
               decoration: InputDecoration(
                 labelText: tr('Mô tả'),
                 filled: true,
-                fillColor: const Color(0xFFFAFAFA),
+                fillColor: SboxColors.slate50,
                 border: OutlineInputBorder(
                     borderRadius: BorderRadius.circular(10),
                     borderSide: BorderSide.none),
@@ -621,7 +622,7 @@ class _ContentManagementScreenState extends State<ContentManagementScreen>
           TextButton(
             onPressed: () => Navigator.pop(ctx),
             child: Text(tr('Hủy'),
-                style: TextStyle(color: Color(0xFF71717A))),
+                style: TextStyle(color: SboxColors.slate500)),
           ),
           FilledButton(
             onPressed: () async {
@@ -663,7 +664,7 @@ class _ContentManagementScreenState extends State<ContentManagementScreen>
               backgroundColor: widget.themeColor,
               foregroundColor: Colors.white,
               shape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(8)),
+                  borderRadius: BorderRadius.circular(10)),
             ),
             child: Text(tr(isEdit ? 'Cập nhật' : 'Tạo')),
           ),
@@ -909,13 +910,13 @@ class _ArticleEditorPageState extends State<_ArticleEditorPage> {
         backgroundColor: Colors.white,
         elevation: 0,
         leading: IconButton(
-          icon: const Icon(Icons.close, color: Color(0xFF71717A)),
+          icon: const Icon(Icons.close, color: SboxColors.slate500),
           onPressed: () => Navigator.pop(context),
         ),
         title: Text(
           tr(_isEditing ? 'Chỉnh sửa bài viết' : 'Soạn bài viết mới'),
           style: const TextStyle(
-              color: Color(0xFF18181B),
+              color: SboxColors.slate900,
               fontSize: 16,
               fontWeight: FontWeight.bold),
         ),
@@ -925,7 +926,7 @@ class _ArticleEditorPageState extends State<_ArticleEditorPage> {
             icon: Icon(Icons.auto_awesome,
                 color: _showAiPanel
                     ? HrmPageChrome.primaryNavy
-                    : const Color(0xFFA1A1AA)),
+                    : SboxColors.slate400),
             tooltip: tr('AI Gemini'),
             onPressed: () =>
                 setState(() => _showAiPanel = !_showAiPanel),
@@ -933,7 +934,7 @@ class _ArticleEditorPageState extends State<_ArticleEditorPage> {
           TextButton(
             onPressed: _isSaving ? null : () => _save(publish: false),
             child: Text(tr('Lưu nháp'),
-                style: TextStyle(color: Color(0xFF71717A))),
+                style: TextStyle(color: SboxColors.slate500)),
           ),
           const SizedBox(width: 4),
           Padding(
@@ -944,7 +945,7 @@ class _ArticleEditorPageState extends State<_ArticleEditorPage> {
                 backgroundColor: widget.themeColor,
                 foregroundColor: Colors.white,
                 shape: RoundedRectangleBorder(
-                    borderRadius: BorderRadius.circular(8)),
+                    borderRadius: BorderRadius.circular(10)),
                 padding: const EdgeInsets.symmetric(
                     horizontal: 16, vertical: 8),
               ),
@@ -1005,7 +1006,7 @@ class _ArticleEditorPageState extends State<_ArticleEditorPage> {
             ),
           ),
         ),
-        const Divider(height: 24, color: Color(0xFFE4E4E7)),
+        const Divider(height: 24, color: SboxColors.slate200),
 
         // === Main editor body ===
         Expanded(
@@ -1024,12 +1025,12 @@ class _ArticleEditorPageState extends State<_ArticleEditorPage> {
                         style: const TextStyle(
                             fontSize: 22,
                             fontWeight: FontWeight.bold,
-                            color: Color(0xFF18181B)),
+                            color: SboxColors.slate900),
                         maxLines: 2,
                         decoration: InputDecoration(
                           hintText: tr('Nhập tiêu đề bài viết...'),
                           hintStyle: TextStyle(
-                              color: Color(0xFFCBD5E1), fontSize: 22),
+                              color: SboxColors.slate300, fontSize: 22),
                           border: InputBorder.none,
                           contentPadding: EdgeInsets.all(16),
                         ),
@@ -1045,14 +1046,14 @@ class _ArticleEditorPageState extends State<_ArticleEditorPage> {
                         decoration: InputDecoration(
                           hintText: tr('Tóm tắt ngắn gọn...'),
                           hintStyle: TextStyle(
-                              color: Color(0xFFCBD5E1), fontSize: 14),
+                              color: SboxColors.slate300, fontSize: 14),
                           border: InputBorder.none,
                           contentPadding: EdgeInsets.symmetric(
                               horizontal: 16, vertical: 12),
                           prefixIcon: Padding(
                             padding: EdgeInsets.only(left: 12, right: 8),
                             child: Icon(Icons.short_text,
-                                size: 18, color: Color(0xFFA1A1AA)),
+                                size: 18, color: SboxColors.slate400),
                           ),
                           prefixIconConstraints:
                               BoxConstraints(minHeight: 20),
@@ -1080,9 +1081,9 @@ class _ArticleEditorPageState extends State<_ArticleEditorPage> {
                             customStyles: quill.DefaultStyles(
                               paragraph: quill.DefaultTextBlockStyle(
                                 TextStyle(
-                                    fontSize: 15,
+                                    fontSize: 16,
                                     height: 1.6,
-                                    color: Color(0xFF334155)),
+                                    color: SboxColors.slate700),
                                 quill.HorizontalSpacing(0, 0),
                                 quill.VerticalSpacing(6, 6),
                                 quill.VerticalSpacing(0, 0),
@@ -1092,7 +1093,7 @@ class _ArticleEditorPageState extends State<_ArticleEditorPage> {
                                 TextStyle(
                                     fontSize: 28,
                                     fontWeight: FontWeight.bold,
-                                    color: Color(0xFF0F172A)),
+                                    color: SboxColors.slate900),
                                 quill.HorizontalSpacing(0, 0),
                                 quill.VerticalSpacing(12, 6),
                                 quill.VerticalSpacing(0, 0),
@@ -1102,7 +1103,7 @@ class _ArticleEditorPageState extends State<_ArticleEditorPage> {
                                 TextStyle(
                                     fontSize: 22,
                                     fontWeight: FontWeight.bold,
-                                    color: Color(0xFF18181B)),
+                                    color: SboxColors.slate900),
                                 quill.HorizontalSpacing(0, 0),
                                 quill.VerticalSpacing(10, 4),
                                 quill.VerticalSpacing(0, 0),
@@ -1112,7 +1113,7 @@ class _ArticleEditorPageState extends State<_ArticleEditorPage> {
                                 TextStyle(
                                     fontSize: 18,
                                     fontWeight: FontWeight.w600,
-                                    color: Color(0xFF334155)),
+                                    color: SboxColors.slate700),
                                 quill.HorizontalSpacing(0, 0),
                                 quill.VerticalSpacing(8, 4),
                                 quill.VerticalSpacing(0, 0),
@@ -1145,8 +1146,8 @@ class _ArticleEditorPageState extends State<_ArticleEditorPage> {
   Widget _card({required Widget child}) => Container(
         decoration: BoxDecoration(
           color: Colors.white,
-          borderRadius: BorderRadius.circular(12),
-          border: Border.all(color: const Color(0xFFF1F5F9)),
+          borderRadius: BorderRadius.circular(14),
+          border: Border.all(color: SboxColors.slate100),
           boxShadow: [
             BoxShadow(
                 color: Colors.black.withValues(alpha: 0.02),
@@ -1168,7 +1169,7 @@ class _ArticleEditorPageState extends State<_ArticleEditorPage> {
             HrmPageChrome.primaryNavy.withValues(alpha: 0.05),
           ]),
           border: const Border(
-              bottom: BorderSide(color: Color(0xFFE4E4E7))),
+              bottom: BorderSide(color: SboxColors.slate200)),
         ),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.stretch,
@@ -1178,7 +1179,7 @@ class _ArticleEditorPageState extends State<_ArticleEditorPage> {
                 padding: const EdgeInsets.all(6),
                 decoration: BoxDecoration(
                   color: HrmPageChrome.primaryNavy.withValues(alpha: 0.12),
-                  borderRadius: BorderRadius.circular(8),
+                  borderRadius: BorderRadius.circular(10),
                 ),
                 child: const Icon(Icons.auto_awesome,
                     size: 16, color: HrmPageChrome.primaryNavy),
@@ -1189,7 +1190,7 @@ class _ArticleEditorPageState extends State<_ArticleEditorPage> {
                     style: TextStyle(
                         fontWeight: FontWeight.bold,
                         fontSize: 13,
-                        color: Color(0xFF18181B))),
+                        color: SboxColors.slate900)),
               ),
               if (_isAiGenerated)
                 Container(
@@ -1223,7 +1224,7 @@ class _ArticleEditorPageState extends State<_ArticleEditorPage> {
                       decoration: InputDecoration(
                         hintText: tr(_aiHint()),
                         hintStyle: const TextStyle(
-                            color: Color(0xFFCBD5E1), fontSize: 13),
+                            color: SboxColors.slate300, fontSize: 13),
                         filled: true,
                         fillColor: Colors.white,
                         border: OutlineInputBorder(
@@ -1286,10 +1287,10 @@ class _ArticleEditorPageState extends State<_ArticleEditorPage> {
                         label: Text(tr(p),
                             style: const TextStyle(
                                 fontSize: 11,
-                                color: Color(0xFF71717A))),
+                                color: SboxColors.slate500)),
                         backgroundColor: Colors.white,
                         side: const BorderSide(
-                            color: Color(0xFFE4E4E7)),
+                            color: SboxColors.slate200),
                         padding: EdgeInsets.zero,
                         visualDensity: VisualDensity.compact,
                         onPressed: () => _aiPromptCtrl.text = p,
@@ -1337,7 +1338,7 @@ class _ArticleEditorPageState extends State<_ArticleEditorPage> {
                         const SizedBox(height: 8),
                         Text(
                           tr(_aiStreamedText),
-                          style: const TextStyle(fontSize: 12, color: Color(0xFF52525B), height: 1.5),
+                          style: const TextStyle(fontSize: 12, color: SboxColors.slate600, height: 1.5),
                         ),
                       ],
                     ],
@@ -1473,7 +1474,7 @@ class _ArticleEditorPageState extends State<_ArticleEditorPage> {
             style: TextStyle(
                 fontWeight: FontWeight.w600,
                 fontSize: 13,
-                color: Color(0xFF52525B))),
+                color: SboxColors.slate600)),
         const SizedBox(height: 8),
         Row(children: [
           InkWell(
@@ -1483,9 +1484,9 @@ class _ArticleEditorPageState extends State<_ArticleEditorPage> {
               width: 140,
               height: 90,
               decoration: BoxDecoration(
-                color: const Color(0xFFF1F5F9),
+                color: SboxColors.slate100,
                 borderRadius: BorderRadius.circular(10),
-                border: Border.all(color: const Color(0xFFE4E4E7)),
+                border: Border.all(color: SboxColors.slate200),
                 image: _thumbnailUrl != null &&
                         _thumbnailUrl!.isNotEmpty
                     ? DecorationImage(
@@ -1499,12 +1500,12 @@ class _ArticleEditorPageState extends State<_ArticleEditorPage> {
                       mainAxisAlignment: MainAxisAlignment.center,
                       children: [
                         Icon(Icons.add_photo_alternate,
-                            size: 28, color: Color(0xFFA1A1AA)),
+                            size: 28, color: SboxColors.slate400),
                         SizedBox(height: 4),
                         Text(tr('Chọn ảnh'),
                             style: TextStyle(
                                 fontSize: 11,
-                                color: Color(0xFFA1A1AA))),
+                                color: SboxColors.slate400)),
                       ])
                   : null,
             ),
@@ -1512,7 +1513,7 @@ class _ArticleEditorPageState extends State<_ArticleEditorPage> {
           if (_thumbnailUrl != null && _thumbnailUrl!.isNotEmpty)
             IconButton(
               icon: const Icon(Icons.close,
-                  size: 16, color: Color(0xFFEF4444)),
+                  size: 16, color: SboxColors.danger),
               onPressed: () => setState(() => _thumbnailUrl = null),
             ),
         ]),
@@ -1535,13 +1536,13 @@ class _ArticleEditorPageState extends State<_ArticleEditorPage> {
                   style: TextStyle(
                       fontWeight: FontWeight.w600,
                       fontSize: 13,
-                      color: Color(0xFF52525B))),
+                      color: SboxColors.slate600)),
               const SizedBox(height: 6),
               Container(
                 padding:
                     const EdgeInsets.symmetric(horizontal: 12),
                 decoration: BoxDecoration(
-                  color: const Color(0xFFFAFAFA),
+                  color: SboxColors.slate50,
                   borderRadius: BorderRadius.circular(10),
                 ),
                 child: DropdownButtonHideUnderline(
@@ -1573,16 +1574,16 @@ class _ArticleEditorPageState extends State<_ArticleEditorPage> {
                 style: TextStyle(
                     fontWeight: FontWeight.w600,
                     fontSize: 13,
-                    color: Color(0xFF52525B))),
+                    color: SboxColors.slate600)),
             const SizedBox(height: 6),
             TextField(
               controller: _tagsCtrl,
               decoration: InputDecoration(
                 hintText: tr('nội quy, giờ làm, trang phục (phân cách dấu phẩy)'),
                 hintStyle: const TextStyle(
-                    fontSize: 12, color: Color(0xFFCBD5E1)),
+                    fontSize: 12, color: SboxColors.slate300),
                 filled: true,
-                fillColor: const Color(0xFFFAFAFA),
+                fillColor: SboxColors.slate50,
                 border: OutlineInputBorder(
                     borderRadius: BorderRadius.circular(10),
                     borderSide: BorderSide.none),
@@ -1602,8 +1603,8 @@ class _ArticleEditorPageState extends State<_ArticleEditorPage> {
       padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(
         color: Colors.white,
-        borderRadius: BorderRadius.circular(12),
-        border: Border.all(color: const Color(0xFFF1F5F9)),
+        borderRadius: BorderRadius.circular(14),
+        border: Border.all(color: SboxColors.slate100),
         boxShadow: [
           BoxShadow(
               color: Colors.black.withValues(alpha: 0.02),

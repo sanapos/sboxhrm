@@ -10,6 +10,7 @@ import 'ai_config_card.dart';
 import 'system_admin_helpers.dart';
 import 'package:zkteco_flutter_client/l10n/app_tr.dart';
 
+import '../../theme/sbox_tokens.dart';
 class SettingsTab extends StatefulWidget {
   const SettingsTab({super.key});
 
@@ -149,7 +150,7 @@ class SettingsTabState extends State<SettingsTab> {
                     decoration: BoxDecoration(
                         color: Colors.white,
                         borderRadius: BorderRadius.circular(10),
-                        border: Border.all(color: Colors.grey.shade300)),
+                        border: Border.all(color: SboxColors.slate300)),
                     child: DropdownButtonHideUnderline(
                       child: DropdownButton<String?>(
                         value: _groupFilter,
@@ -208,7 +209,7 @@ class SettingsTabState extends State<SettingsTab> {
               decoration: BoxDecoration(
                   color: Colors.white,
                   borderRadius: BorderRadius.circular(10),
-                  border: Border.all(color: Colors.grey.shade300)),
+                  border: Border.all(color: SboxColors.slate300)),
               child: DropdownButtonHideUnderline(
                 child: DropdownButton<String?>(
                   value: _groupFilter,
@@ -291,7 +292,7 @@ class SettingsTabState extends State<SettingsTab> {
         title: Text(tr(group),
             style: const TextStyle(fontWeight: FontWeight.w600)),
         subtitle: Text(tr('${settings.length} cấu hình'),
-            style: TextStyle(fontSize: 12, color: Colors.grey[600])),
+            style: TextStyle(fontSize: 12, color: SboxColors.slate600)),
         children: settings.map(_buildSettingRow).toList(),
       ),
     );
@@ -309,7 +310,7 @@ class SettingsTabState extends State<SettingsTab> {
       decoration: BoxDecoration(
         color: AdminHelpers.surfaceBg,
         borderRadius: BorderRadius.circular(10),
-        border: Border.all(color: Colors.grey.shade200),
+        border: Border.all(color: SboxColors.slate200),
       ),
       child: Row(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -328,13 +329,13 @@ class SettingsTabState extends State<SettingsTab> {
                     const SizedBox(width: 6),
                     AdminHelpers.statusChip(
                         isPublic ? 'Public' : 'Private',
-                        isPublic ? AdminHelpers.success : Colors.grey),
+                        isPublic ? AdminHelpers.success : SboxColors.slate500),
                   ]),
                   if (description != null && description.isNotEmpty) ...[
                     const SizedBox(height: 4),
                     Text(tr(description),
                         style: TextStyle(
-                            fontSize: 12, color: Colors.grey[600])),
+                            fontSize: 12, color: SboxColors.slate600)),
                   ],
                   const SizedBox(height: 8),
                   Text(
@@ -342,8 +343,8 @@ class SettingsTabState extends State<SettingsTab> {
                     style: TextStyle(
                         fontSize: 12,
                         color: value.isEmpty
-                            ? Colors.grey[500]
-                            : Colors.grey[800]),
+                            ? SboxColors.slate500
+                            : SboxColors.slate800),
                     maxLines: 3,
                     overflow: TextOverflow.ellipsis,
                   ),
@@ -353,7 +354,7 @@ class SettingsTabState extends State<SettingsTab> {
                         ? 'Cập nhật: ${AdminHelpers.formatDateTime(setting['lastModified'])}'
                         : 'Chưa cập nhật'),
                     style:
-                        TextStyle(fontSize: 11, color: Colors.grey[500]),
+                        TextStyle(fontSize: 11, color: SboxColors.slate500),
                   ),
                 ]),
           ),

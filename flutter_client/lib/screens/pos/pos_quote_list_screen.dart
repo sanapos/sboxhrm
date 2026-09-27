@@ -19,6 +19,7 @@ import 'pos_quote_care_board_screen.dart';
 import 'pos_quote_composer_screen.dart';
 import 'pos_quote_editor_screen.dart';
 
+import '../../theme/sbox_tokens.dart';
 class PosQuoteListScreen extends StatefulWidget {
   const PosQuoteListScreen({super.key, this.initialTab = 0});
 
@@ -545,7 +546,7 @@ class _PosQuoteListScreenState extends State<PosQuoteListScreen> {
                     icon: Icon(
                       Icons.badge_outlined,
                       color: _employeeId == null
-                          ? Colors.grey.shade700
+                          ? SboxColors.slate700
                           : PosTheme.kiotBlue,
                     ),
                     onSelected: (v) {
@@ -732,7 +733,7 @@ class _PosQuoteListScreenState extends State<PosQuoteListScreen> {
           TextSpan(
             text: q.quoteNo,
             style: TextStyle(
-              fontWeight: FontWeight.w800,
+              fontWeight: FontWeight.w700,
               color: PosQuote.statusColor(q.status),
             ),
           ),
@@ -740,14 +741,14 @@ class _PosQuoteListScreenState extends State<PosQuoteListScreen> {
             text: rest.isEmpty ? '' : ' · $rest',
             style: const TextStyle(
               fontWeight: FontWeight.w700,
-              color: Color(0xFF111827),
+              color: SboxColors.slate900,
             ),
           ),
           if (_shownScore(q) != null)
             TextSpan(
               text: '  ·  TN ${_shownScore(q)}/10',
               style: TextStyle(
-                fontWeight: FontWeight.w800,
+                fontWeight: FontWeight.w700,
                 color: PosQuoteActivity.scoreColor(_shownScore(q)!),
               ),
             ),
@@ -807,7 +808,7 @@ class _PosQuoteListScreenState extends State<PosQuoteListScreen> {
           final q = rows[i];
           return Material(
             color: Colors.white,
-            borderRadius: BorderRadius.circular(8),
+            borderRadius: BorderRadius.circular(10),
             child: ListTile(
               title: _coloredQuoteNo(
                 q,
@@ -884,7 +885,7 @@ class _PosQuoteListScreenState extends State<PosQuoteListScreen> {
     final until = q.validUntil;
     return Material(
       color: Colors.white,
-      borderRadius: BorderRadius.circular(8),
+      borderRadius: BorderRadius.circular(10),
       child: ListTile(
         title: _coloredQuoteNo(
           q,
@@ -894,7 +895,7 @@ class _PosQuoteListScreenState extends State<PosQuoteListScreen> {
         ),
         subtitle: Text.rich(
           TextSpan(
-            style: TextStyle(color: Colors.grey.shade800, fontSize: 13),
+            style: TextStyle(color: SboxColors.slate800, fontSize: 13),
             children: [
               TextSpan(
                 text: PosQuote.statusLabel(q.status),

@@ -13,6 +13,7 @@ import '../widgets/hrm_collapsible_overview.dart';
 import '../widgets/hrm_page_chrome.dart';
 import 'package:zkteco_flutter_client/l10n/app_tr.dart';
 
+import '../theme/sbox_tokens.dart';
 Map<String, dynamic>? _findActiveFieldCheckin(List<dynamic>? checkins) {
   if (checkins == null) return null;
   for (final v in checkins) {
@@ -182,7 +183,7 @@ class _FieldCheckInScreenState extends State<FieldCheckInScreen> {
                   height: 4,
                   margin: const EdgeInsets.only(bottom: 12),
                   decoration: BoxDecoration(
-                    color: Colors.grey[300],
+                    color: SboxColors.slate300,
                     borderRadius: BorderRadius.circular(2),
                   ),
                 ),
@@ -361,7 +362,7 @@ class _FieldCheckInScreenState extends State<FieldCheckInScreen> {
                 maxLines: 1,
                 overflow: TextOverflow.ellipsis,
                 textAlign: TextAlign.center,
-                style: TextStyle(fontSize: 10, color: Colors.grey.shade700),
+                style: TextStyle(fontSize: 10, color: SboxColors.slate700),
               ),
             ],
           ),
@@ -377,7 +378,7 @@ class _FieldCheckInScreenState extends State<FieldCheckInScreen> {
           const SizedBox(width: 6),
           statChip('Trực tuyến', '$_onlineCount', const Color(0xFF38A169)),
           const SizedBox(width: 6),
-          statChip('Ngoại tuyến', '$_offlineCount', Colors.grey.shade600),
+          statChip('Ngoại tuyến', '$_offlineCount', SboxColors.slate600),
           const SizedBox(width: 6),
           statChip('Trên bản đồ', '$_onMapCount', const Color(0xFF2B6CB0)),
         ],
@@ -414,11 +415,11 @@ class _FieldCheckInScreenState extends State<FieldCheckInScreen> {
                   const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
               border: OutlineInputBorder(
                 borderRadius: BorderRadius.circular(10),
-                borderSide: BorderSide(color: Colors.grey.shade300),
+                borderSide: BorderSide(color: SboxColors.slate300),
               ),
               enabledBorder: OutlineInputBorder(
                 borderRadius: BorderRadius.circular(10),
-                borderSide: BorderSide(color: Colors.grey.shade300),
+                borderSide: BorderSide(color: SboxColors.slate300),
               ),
             ),
           ),
@@ -465,10 +466,10 @@ class _FieldCheckInScreenState extends State<FieldCheckInScreen> {
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
       decoration: BoxDecoration(
-        color: online ? HrmPageChrome.chipBg : Colors.grey.shade100,
+        color: online ? HrmPageChrome.chipBg : SboxColors.slate100,
         borderRadius: BorderRadius.circular(10),
         border: Border.all(
-          color: online ? HrmPageChrome.chip : Colors.grey.shade400,
+          color: online ? HrmPageChrome.chip : SboxColors.slate400,
         ),
       ),
       child: Row(
@@ -478,7 +479,7 @@ class _FieldCheckInScreenState extends State<FieldCheckInScreen> {
             width: 7,
             height: 7,
             decoration: BoxDecoration(
-              color: online ? HrmPageChrome.chip : Colors.grey.shade500,
+              color: online ? HrmPageChrome.chip : SboxColors.slate500,
               shape: BoxShape.circle,
             ),
           ),
@@ -488,7 +489,7 @@ class _FieldCheckInScreenState extends State<FieldCheckInScreen> {
             style: TextStyle(
               fontSize: 10,
               fontWeight: FontWeight.w600,
-              color: online ? HrmPageChrome.chipDark : Colors.grey.shade700,
+              color: online ? HrmPageChrome.chipDark : SboxColors.slate700,
             ),
           ),
         ],
@@ -515,7 +516,7 @@ class _FieldCheckInScreenState extends State<FieldCheckInScreen> {
             style: TextStyle(
               fontSize: 12,
               fontWeight: FontWeight.bold,
-              color: Colors.grey.shade800,
+              color: SboxColors.slate800,
             ),
           ),
         ],
@@ -879,7 +880,7 @@ class _FieldCheckInScreenState extends State<FieldCheckInScreen> {
     final baseColor = isSelected
         ? _routeColorFor(empKey, deptIdx)
         : _deptColor(deptIdx);
-    final color = online ? baseColor : Colors.grey.shade600;
+    final color = online ? baseColor : SboxColors.slate600;
     final name = emp['employeeName']?.toString() ?? '?';
     final duration = online
         ? _locationDurationLabel(emp)
@@ -907,7 +908,7 @@ class _FieldCheckInScreenState extends State<FieldCheckInScreen> {
             ),
             decoration: BoxDecoration(
               color: color,
-              borderRadius: BorderRadius.circular(8),
+              borderRadius: BorderRadius.circular(10),
               border: online
                   ? Border.all(color: const Color(0xFF38A169), width: 1.5)
                   : null,
@@ -1052,11 +1053,11 @@ class _FieldCheckInScreenState extends State<FieldCheckInScreen> {
               fontSize: 11,
               color: online
                   ? Colors.green.shade700
-                  : (hasLocation ? Colors.grey.shade700 : Colors.grey)),
+                  : (hasLocation ? SboxColors.slate700 : SboxColors.slate500)),
         ),
         trailing: isSelected
             ? Icon(Icons.route, color: color, size: 18)
-            : Icon(Icons.chevron_right, color: Colors.grey[400], size: 18),
+            : Icon(Icons.chevron_right, color: SboxColors.slate400, size: 18),
         selected: isSelected,
         selectedTileColor: color.withValues(alpha: 0.08),
         onTap: () => _toggleEmployee(emp),
@@ -1124,7 +1125,7 @@ class _FieldCheckInScreenState extends State<FieldCheckInScreen> {
                     if (dept.isNotEmpty)
                       Text(tr(dept),
                           style: TextStyle(
-                              fontSize: 11, color: Colors.grey[600])),
+                              fontSize: 11, color: SboxColors.slate600)),
                     const SizedBox(height: 4),
                     Row(
                       children: [
@@ -1133,7 +1134,7 @@ class _FieldCheckInScreenState extends State<FieldCheckInScreen> {
                           size: 13,
                           color: online
                               ? Colors.green
-                              : (hasLocation ? Colors.grey : Colors.grey),
+                              : (hasLocation ? SboxColors.slate500 : SboxColors.slate500),
                         ),
                         const SizedBox(width: 4),
                         Expanded(
@@ -1144,7 +1145,7 @@ class _FieldCheckInScreenState extends State<FieldCheckInScreen> {
                               fontWeight: FontWeight.w500,
                               color: online
                                   ? Colors.green.shade700
-                                  : Colors.grey[600],
+                                  : SboxColors.slate600,
                             ),
                           ),
                         ),
@@ -1154,7 +1155,7 @@ class _FieldCheckInScreenState extends State<FieldCheckInScreen> {
                       const SizedBox(height: 2),
                       Text(tr('${tr('Nguồn: ')}${_sourceLabel(emp['locationSource']?.toString())}'),
                         style: TextStyle(
-                            fontSize: 10, color: Colors.grey[500]),
+                            fontSize: 10, color: SboxColors.slate500),
                       ),
                     ],
                     if (isSelected && journeys.isNotEmpty) ...[
@@ -1172,7 +1173,7 @@ class _FieldCheckInScreenState extends State<FieldCheckInScreen> {
               ),
               Icon(
                 isSelected ? Icons.route : Icons.chevron_right,
-                color: isSelected ? color : Colors.grey[400],
+                color: isSelected ? color : SboxColors.slate400,
               ),
             ],
           ),
@@ -1186,10 +1187,10 @@ class _FieldCheckInScreenState extends State<FieldCheckInScreen> {
       padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
       decoration: BoxDecoration(
         color: Colors.white.withValues(alpha: 0.92),
-        borderRadius: BorderRadius.circular(8),
+        borderRadius: BorderRadius.circular(10),
       ),
       child: Text(tr('Tổng ${_employees.length} • Trực tuyến $_onlineCount • Ngoại tuyến $_offlineCount • $_onMapCount trên bản đồ'),
-        style: TextStyle(fontSize: 10, color: Colors.grey[700]),
+        style: TextStyle(fontSize: 10, color: SboxColors.slate700),
       ),
     );
   }
@@ -1203,10 +1204,10 @@ class _FieldCheckInScreenState extends State<FieldCheckInScreen> {
     return Material(
       color: Colors.white.withValues(alpha: 0.94),
       elevation: 2,
-      borderRadius: BorderRadius.circular(8),
+      borderRadius: BorderRadius.circular(10),
       child: InkWell(
         onTap: onPressed,
-        borderRadius: BorderRadius.circular(8),
+        borderRadius: BorderRadius.circular(10),
         child: Tooltip(
           message: tooltip,
           child: Padding(
@@ -1247,7 +1248,7 @@ class _FieldCheckInScreenState extends State<FieldCheckInScreen> {
               width: 10,
               height: 10,
               decoration: BoxDecoration(
-                color: online ? const Color(0xFF38A169) : Colors.grey,
+                color: online ? const Color(0xFF38A169) : SboxColors.slate500,
                 shape: BoxShape.circle,
               ),
             ),
@@ -1270,7 +1271,7 @@ class _FieldCheckInScreenState extends State<FieldCheckInScreen> {
                     tr(_locationDurationLabel(emp)),
                     maxLines: 1,
                     overflow: TextOverflow.ellipsis,
-                    style: TextStyle(fontSize: 11, color: Colors.grey[600]),
+                    style: TextStyle(fontSize: 11, color: SboxColors.slate600),
                   ),
                 ],
               ),
@@ -1309,7 +1310,7 @@ class _FieldCheckInScreenState extends State<FieldCheckInScreen> {
             width: 40,
             height: 4,
             decoration: BoxDecoration(
-              color: Colors.grey[300],
+              color: SboxColors.slate300,
               borderRadius: BorderRadius.circular(2),
             ),
           ),
@@ -1330,7 +1331,7 @@ class _FieldCheckInScreenState extends State<FieldCheckInScreen> {
                       Text(tr('Trực tuyến ${_filteredOnline.length} • Ngoại tuyến ${_filteredOffline.length} • ${_lastRefreshLabel()}'),
                         style: TextStyle(
                           fontSize: 11,
-                          color: Colors.grey.shade600,
+                          color: SboxColors.slate600,
                         ),
                       ),
                     ],
@@ -1343,7 +1344,7 @@ class _FieldCheckInScreenState extends State<FieldCheckInScreen> {
                       const BoxConstraints(minWidth: 36, minHeight: 36),
                   icon: Icon(
                     Icons.keyboard_arrow_down,
-                    color: Colors.grey[600],
+                    color: SboxColors.slate600,
                   ),
                   tooltip: tr('Đóng danh sách'),
                   onPressed: _collapseEmployeeList,
@@ -1366,7 +1367,7 @@ class _FieldCheckInScreenState extends State<FieldCheckInScreen> {
               padding: const EdgeInsets.all(16),
               child: Text(tr('Chưa có nhân viên được bật chấm ngoài CT.\nNV bật chấm ngoài CT sẽ tự gửi vị trí khi mở app (trực tuyến ≤10 phút).'),
                 textAlign: TextAlign.center,
-                style: TextStyle(color: Colors.grey[500], fontSize: 13),
+                style: TextStyle(color: SboxColors.slate500, fontSize: 13),
               ),
             ),
           ),
@@ -1382,7 +1383,7 @@ class _FieldCheckInScreenState extends State<FieldCheckInScreen> {
               padding: const EdgeInsets.all(16),
               child: Text(tr('Không có nhân viên phù hợp bộ lọc.'),
                 textAlign: TextAlign.center,
-                style: TextStyle(color: Colors.grey[500], fontSize: 13),
+                style: TextStyle(color: SboxColors.slate500, fontSize: 13),
               ),
             ),
           ),
@@ -1418,7 +1419,7 @@ class _FieldCheckInScreenState extends State<FieldCheckInScreen> {
         SliverToBoxAdapter(
           child: _sectionHeader(
             'Ngoại tuyến (${_filteredOffline.length})',
-            Colors.grey.shade500,
+            SboxColors.slate500,
           ),
         ),
       );
@@ -1615,13 +1616,13 @@ class _FieldCheckInScreenState extends State<FieldCheckInScreen> {
               Expanded(
                 child: InkWell(
                   onTap: _pickDateRange,
-                  borderRadius: BorderRadius.circular(8),
+                  borderRadius: BorderRadius.circular(10),
                   child: Container(
                     padding: const EdgeInsets.symmetric(
                         horizontal: 12, vertical: 10),
                     decoration: BoxDecoration(
-                      border: Border.all(color: Colors.grey.shade300),
-                      borderRadius: BorderRadius.circular(8),
+                      border: Border.all(color: SboxColors.slate300),
+                      borderRadius: BorderRadius.circular(10),
                     ),
                     child: Row(
                       children: [
@@ -1714,7 +1715,7 @@ class _FieldCheckInScreenState extends State<FieldCheckInScreen> {
                     Text(
                       tr(_featureTitle),
                       style: const TextStyle(
-                          fontWeight: FontWeight.bold, fontSize: 17),
+                          fontWeight: FontWeight.bold, fontSize: 18),
                     ),
                     Text(
                       tr(_silentRefreshing
@@ -1746,13 +1747,13 @@ class _FieldCheckInScreenState extends State<FieldCheckInScreen> {
                     mainAxisSize: MainAxisSize.min,
                     children: [
                       Icon(Icons.map_outlined,
-                          size: 64, color: Colors.grey[300]),
+                          size: 64, color: SboxColors.slate300),
                       const SizedBox(height: 16),
                       Text(tr('Bản đồ nhân sự dành cho quản lý'),
                         textAlign: TextAlign.center,
                         style: TextStyle(
-                          fontSize: 15,
-                          color: Colors.grey[600],
+                          fontSize: 16,
+                          color: SboxColors.slate600,
                         ),
                       ),
                     ],

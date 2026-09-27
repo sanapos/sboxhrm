@@ -8,6 +8,7 @@ import '../widgets/loading_widget.dart';
 import '../widgets/notification_overlay.dart';
 import 'package:zkteco_flutter_client/l10n/app_tr.dart';
 
+import '../theme/sbox_tokens.dart';
 const _theme = PosTheme.kiotBlue;
 
 /// Quản lý loại chi phí công tác (thêm / sửa tên / xóa).
@@ -201,7 +202,7 @@ class _BusinessTripCategoriesScreenState
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: const Color(0xFFF8FAFC),
+      backgroundColor: SboxColors.slate50,
       appBar: AppBar(
         title: Text(tr('Loại chi phí công tác')),
         backgroundColor: _theme,
@@ -239,7 +240,7 @@ class _BusinessTripCategoriesScreenState
                     elevation: 0,
                     color: _theme.withValues(alpha: 0.06),
                     shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(12),
+                      borderRadius: BorderRadius.circular(14),
                       side: BorderSide(color: _theme.withValues(alpha: 0.2)),
                     ),
                     child: Padding(
@@ -264,8 +265,8 @@ class _BusinessTripCategoriesScreenState
                         elevation: 0,
                         margin: const EdgeInsets.only(bottom: 8),
                         shape: RoundedRectangleBorder(
-                          borderRadius: BorderRadius.circular(12),
-                          side: const BorderSide(color: Color(0xFFE2E8F0)),
+                          borderRadius: BorderRadius.circular(14),
+                          side: const BorderSide(color: SboxColors.slate200),
                         ),
                         child: ListTile(
                           leading: CircleAvatar(

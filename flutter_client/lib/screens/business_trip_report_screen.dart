@@ -12,6 +12,7 @@ import '../widgets/page_top_actions.dart';
 import '../widgets/reports/hrm_report_widgets.dart';
 import 'package:zkteco_flutter_client/l10n/app_tr.dart';
 
+import '../theme/sbox_tokens.dart';
 const _theme = HrmPageChrome.primaryNavy;
 
 class BusinessTripReportScreen extends StatefulWidget {
@@ -222,12 +223,12 @@ class _BusinessTripReportScreenState extends State<BusinessTripReportScreen> {
           label: 'Tổng chi phí',
           value: '${reportMoneyFmt.format(totalSet)}đ',
           icon: Icons.receipt_long,
-          color: const Color(0xFF16A34A)),
+          color: SboxColors.success),
       ReportKpiItem(
           label: 'Chênh lệch',
           value: '${reportMoneyFmt.format(totalBal)}đ',
           icon: Icons.balance_outlined,
-          color: totalBal >= 0 ? Colors.orange : const Color(0xFFDC2626)),
+          color: totalBal >= 0 ? Colors.orange : SboxColors.danger),
     ];
   }
 
@@ -571,7 +572,7 @@ class _BusinessTripReportScreenState extends State<BusinessTripReportScreen> {
                         ' · Không HĐ: ${reportMoneyFmt.format(_summaryWithoutInvoice)}đ'
                         '${_expenseLineCount > 0 ? ' · $_expenseLineCount dòng chi' : ''}'),
                         style: const TextStyle(
-                            fontSize: 12, color: Color(0xFF6B7280)),
+                            fontSize: 12, color: SboxColors.slate500),
                       ),
                     ),
                   if (_teamView)
@@ -641,16 +642,16 @@ class _BusinessTripReportScreenState extends State<BusinessTripReportScreen> {
       height: 40,
       padding: const EdgeInsets.symmetric(horizontal: 8),
       decoration: BoxDecoration(
-        border: Border.all(color: const Color(0xFFD1D5DB)),
-        borderRadius: BorderRadius.circular(8),
+        border: Border.all(color: SboxColors.slate300),
+        borderRadius: BorderRadius.circular(10),
       ),
       child: DropdownButtonHideUnderline(
         child: DropdownButton<int?>(
           value: _statusFilter,
           isExpanded: true,
           hint: Text(tr('Trạng thái'),
-              style: TextStyle(fontSize: 12, color: Color(0xFF6B7280))),
-          style: const TextStyle(fontSize: 12, color: Color(0xFF111827)),
+              style: TextStyle(fontSize: 12, color: SboxColors.slate500)),
+          style: const TextStyle(fontSize: 12, color: SboxColors.slate900),
           items: [
             DropdownMenuItem(value: null, child: Text(tr('Tất cả'))),
             for (int i = 0; i <= 9; i++)
@@ -735,13 +736,13 @@ class _BusinessTripReportScreenState extends State<BusinessTripReportScreen> {
           elevation: 0,
           color: selected ? const Color(0xFFEFF8FF) : Colors.white,
           shape: RoundedRectangleBorder(
-            borderRadius: BorderRadius.circular(12),
+            borderRadius: BorderRadius.circular(14),
             side: BorderSide(
-              color: selected ? _theme : const Color(0xFFE4E4E7),
+              color: selected ? _theme : SboxColors.slate200,
             ),
           ),
           child: InkWell(
-            borderRadius: BorderRadius.circular(12),
+            borderRadius: BorderRadius.circular(14),
             onTap: () => setState(() {
               _selectedCategoryKey =
                   selected ? null : key;
@@ -766,7 +767,7 @@ class _BusinessTripReportScreenState extends State<BusinessTripReportScreen> {
                       Text(tr('${reportMoneyFmt.format(total)}đ'),
                         style: const TextStyle(
                           fontWeight: FontWeight.w700,
-                          color: Color(0xFF16A34A),
+                          color: SboxColors.success,
                           fontSize: 14,
                         ),
                       ),
@@ -777,7 +778,7 @@ class _BusinessTripReportScreenState extends State<BusinessTripReportScreen> {
                     tr('$lines dòng · $cases HS · $pct%'
                     '${withInv > 0 ? ' · HĐ ${reportMoneyFmt.format(withInv)}đ' : ''}'),
                     style: const TextStyle(
-                        fontSize: 12, color: Color(0xFF6B7280)),
+                        fontSize: 12, color: SboxColors.slate500),
                   ),
                   const SizedBox(height: 8),
                   ClipRRect(
@@ -785,7 +786,7 @@ class _BusinessTripReportScreenState extends State<BusinessTripReportScreen> {
                     child: LinearProgressIndicator(
                       value: (pct / 100).clamp(0.0, 1.0),
                       minHeight: 6,
-                      backgroundColor: const Color(0xFFE5E7EB),
+                      backgroundColor: SboxColors.slate200,
                       color: _theme,
                     ),
                   ),

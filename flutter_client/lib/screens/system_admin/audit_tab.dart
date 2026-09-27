@@ -4,6 +4,7 @@ import 'system_admin_helpers.dart';
 import '../../utils/responsive_helper.dart';
 import 'package:zkteco_flutter_client/l10n/app_tr.dart';
 
+import '../../theme/sbox_tokens.dart';
 class AuditTab extends StatefulWidget {
   const AuditTab({super.key});
 
@@ -124,8 +125,8 @@ class AuditTabState extends State<AuditTab> {
                       child: Container(
                         decoration: BoxDecoration(
                           color: Colors.white,
-                          borderRadius: BorderRadius.circular(12),
-                          border: Border.all(color: const Color(0xFFE4E4E7)),
+                          borderRadius: BorderRadius.circular(14),
+                          border: Border.all(color: SboxColors.slate200),
                           boxShadow: [BoxShadow(color: Colors.black.withValues(alpha: 0.05), blurRadius: 6, offset: const Offset(0, 2))],
                         ),
                         child: _buildAuditDeckItem(_filteredLogs[i]),
@@ -166,7 +167,7 @@ class AuditTabState extends State<AuditTab> {
                 decoration: BoxDecoration(
                     color: Colors.white,
                     borderRadius: BorderRadius.circular(10),
-                    border: Border.all(color: Colors.grey.shade300)),
+                    border: Border.all(color: SboxColors.slate300)),
                 child: DropdownButtonHideUnderline(
                   child: DropdownButton<String?>(
                     value: _actionFilter,
@@ -205,7 +206,7 @@ class AuditTabState extends State<AuditTab> {
                   'update' => AdminHelpers.info,
                   'delete' => AdminHelpers.danger,
                   'login' => AdminHelpers.primaryDark,
-                  _ => Colors.grey,
+                  _ => SboxColors.slate500,
                 };
                 return Padding(
                   padding: const EdgeInsets.only(right: 8),
@@ -224,7 +225,7 @@ class AuditTabState extends State<AuditTab> {
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 10),
       decoration: BoxDecoration(
-        border: Border(top: BorderSide(color: Colors.grey.shade200)),
+        border: Border(top: BorderSide(color: SboxColors.slate200)),
       ),
       child: Wrap(
         alignment: WrapAlignment.center,
@@ -281,7 +282,7 @@ class AuditTabState extends State<AuditTab> {
           ),
           if (!isMobile) const SizedBox(width: 16),
           Text(tr('Hiển thị ${(_currentPage - 1) * _pageSize + 1}-${(_currentPage * _pageSize).clamp(0, _totalCount)} / $_totalCount'),
-            style: TextStyle(fontSize: 12, color: Colors.grey[600]),
+            style: TextStyle(fontSize: 12, color: SboxColors.slate600),
           ),
         ],
       ),
@@ -295,7 +296,7 @@ class AuditTabState extends State<AuditTab> {
       'update' => AdminHelpers.info,
       'delete' => AdminHelpers.danger,
       'login' => AdminHelpers.primaryDark,
-      _ => Colors.grey,
+      _ => SboxColors.slate500,
     };
 
     return Padding(
@@ -303,7 +304,7 @@ class AuditTabState extends State<AuditTab> {
       child: Row(children: [
         Container(
           width: 36, height: 36,
-          decoration: BoxDecoration(color: actionColor.withValues(alpha: 0.1), borderRadius: BorderRadius.circular(8)),
+          decoration: BoxDecoration(color: actionColor.withValues(alpha: 0.1), borderRadius: BorderRadius.circular(10)),
           child: Icon(
             action.toString().toLowerCase() == 'create' ? Icons.add
                 : action.toString().toLowerCase() == 'delete' ? Icons.delete
@@ -318,11 +319,11 @@ class AuditTabState extends State<AuditTab> {
             Text(tr(log['description'] ?? log['entityType'] ?? 'N/A'), style: const TextStyle(fontWeight: FontWeight.w600, fontSize: 14), maxLines: 1, overflow: TextOverflow.ellipsis),
             const SizedBox(height: 2),
             Text(tr([action.toString(), log['userName'] ?? log['userEmail'] ?? ''].where((s) => s.isNotEmpty).join(' \u00b7 ')),
-              style: const TextStyle(color: Color(0xFF71717A), fontSize: 12), maxLines: 1, overflow: TextOverflow.ellipsis),
+              style: const TextStyle(color: SboxColors.slate500, fontSize: 12), maxLines: 1, overflow: TextOverflow.ellipsis),
           ]),
         ),
         Text(tr(AdminHelpers.formatDate(log['createdAt'] ?? log['timestamp'])),
-          style: const TextStyle(fontSize: 11, color: Color(0xFF71717A))),
+          style: const TextStyle(fontSize: 11, color: SboxColors.slate500)),
       ]),
     );
   }
@@ -334,7 +335,7 @@ class AuditTabState extends State<AuditTab> {
       'update' => AdminHelpers.info,
       'delete' => AdminHelpers.danger,
       'login' => AdminHelpers.primaryDark,
-      _ => Colors.grey,
+      _ => SboxColors.slate500,
     };
 
     return Container(
@@ -379,7 +380,7 @@ class AuditTabState extends State<AuditTab> {
                         tr(log['userName'] ?? log['userEmail'] ?? ''),
                         style: TextStyle(
                             fontSize: 11,
-                            color: Colors.grey[600])),
+                            color: SboxColors.slate600)),
                   ],
                 ]),
               ]),
@@ -388,7 +389,7 @@ class AuditTabState extends State<AuditTab> {
             tr(AdminHelpers.formatDate(
                 log['createdAt'] ?? log['timestamp'])),
             style:
-                TextStyle(fontSize: 11, color: Colors.grey[500])),
+                TextStyle(fontSize: 11, color: SboxColors.slate500)),
       ]),
     );
   }

@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 
+import '../theme/sbox_tokens.dart';
 class PosEInvoiceSettings {
   final bool enabled;
   final String provider;
@@ -159,16 +160,16 @@ bool posEInvoiceCanSync(String? status) {
 Color posEInvoiceStatusColor(String? status) {
   switch ((status ?? 'None').trim()) {
     case 'Issued':
-      return const Color(0xFF166534);
+      return SboxColors.successText;
     case 'Pending':
     case 'Draft':
-      return const Color(0xFFB45309);
+      return SboxColors.warningText;
     case 'Failed':
-      return const Color(0xFFB91C1C);
+      return SboxColors.dangerText;
     case 'Cancelled':
-      return const Color(0xFF6B7280);
+      return SboxColors.slate500;
     default:
-      return const Color(0xFF475569);
+      return SboxColors.slate600;
   }
 }
 

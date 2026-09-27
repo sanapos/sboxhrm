@@ -12,6 +12,7 @@ import '../widgets/hrm_page_chrome.dart';
 import '../widgets/pos/pos_theme.dart';
 import '../widgets/notification_overlay.dart';
 import 'package:zkteco_flutter_client/l10n/app_tr.dart';
+import '../theme/sbox_tokens.dart';
 class InsuranceSettingsScreen extends StatefulWidget {
   const InsuranceSettingsScreen({super.key});
 
@@ -204,7 +205,7 @@ class _InsuranceSettingsScreenState extends State<InsuranceSettingsScreen> {
         ),
         style: FilledButton.styleFrom(
           backgroundColor: HrmPageChrome.primaryNavy,
-          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
         ),
       ),
     );
@@ -279,11 +280,11 @@ class _InsuranceSettingsScreenState extends State<InsuranceSettingsScreen> {
                           padding: const EdgeInsets.all(8),
                           decoration: BoxDecoration(
                             color:
-                                const Color(0xFF71717A).withValues(alpha: 0.1),
-                            borderRadius: BorderRadius.circular(8),
+                                SboxColors.slate500.withValues(alpha: 0.1),
+                            borderRadius: BorderRadius.circular(10),
                           ),
                           child: const Icon(Icons.settings,
-                              color: Color(0xFF71717A), size: 20),
+                              color: SboxColors.slate500, size: 20),
                         ),
                         const SizedBox(width: 12),
                         Expanded(
@@ -301,7 +302,7 @@ class _InsuranceSettingsScreenState extends State<InsuranceSettingsScreen> {
                                 maxLines: 2,
                                 overflow: TextOverflow.ellipsis,
                                 style: TextStyle(
-                                    color: Color(0xFF71717A), fontSize: 13),
+                                    color: SboxColors.slate500, fontSize: 13),
                               ),
                             ],
                           ),
@@ -449,7 +450,7 @@ class _InsuranceSettingsScreenState extends State<InsuranceSettingsScreen> {
               automaticallyImplyLeading: false,
               title: Text(tr('Bảo hiểm xã hội'),
                 style: TextStyle(
-                  color: Color(0xFF18181B),
+                  color: SboxColors.slate900,
                   fontWeight: FontWeight.bold,
                   fontSize: 18,
                 ),
@@ -468,7 +469,7 @@ class _InsuranceSettingsScreenState extends State<InsuranceSettingsScreen> {
     return Container(
       decoration: BoxDecoration(
         color: Colors.white,
-        borderRadius: BorderRadius.circular(16),
+        borderRadius: BorderRadius.circular(14),
         boxShadow: [
           BoxShadow(
             color: Colors.black.withValues(alpha: 0.05),
@@ -503,13 +504,13 @@ class _InsuranceSettingsScreenState extends State<InsuranceSettingsScreen> {
                     children: [
                       Text(tr('Lương cơ sở & Tối thiểu vùng'),
                         style: TextStyle(
-                          color: Color(0xFF18181B),
-                          fontSize: 15,
+                          color: SboxColors.slate900,
+                          fontSize: 16,
                           fontWeight: FontWeight.bold,
                         ),
                       ),
                       Text(tr('Mức lương làm căn cứ tính bảo hiểm'),
-                        style: TextStyle(color: Colors.grey[500], fontSize: 12),
+                        style: TextStyle(color: SboxColors.slate500, fontSize: 12),
                       ),
                     ],
                   ),
@@ -573,7 +574,7 @@ class _InsuranceSettingsScreenState extends State<InsuranceSettingsScreen> {
                       Row(
                         children: [
                           const Icon(Icons.map,
-                              color: Color(0xFF71717A), size: 20),
+                              color: SboxColors.slate500, size: 20),
                           const SizedBox(width: 12),
                           Expanded(
                             child: Column(
@@ -581,13 +582,13 @@ class _InsuranceSettingsScreenState extends State<InsuranceSettingsScreen> {
                               children: [
                                 Text(tr('Công ty thuộc vùng'),
                                     style: const TextStyle(
-                                        color: Color(0xFF18181B),
+                                        color: SboxColors.slate900,
                                         fontWeight: FontWeight.w500,
                                         fontSize: 14)),
                                 Text(
                                     tr('Vùng lương tối thiểu áp dụng cho công ty'),
                                     style: TextStyle(
-                                        color: Colors.grey[500], fontSize: 11)),
+                                        color: SboxColors.slate500, fontSize: 11)),
                               ],
                             ),
                           ),
@@ -598,16 +599,16 @@ class _InsuranceSettingsScreenState extends State<InsuranceSettingsScreen> {
                         height: 40,
                         padding: const EdgeInsets.symmetric(horizontal: 12),
                         decoration: BoxDecoration(
-                          color: const Color(0xFFFAFAFA),
-                          borderRadius: BorderRadius.circular(8),
-                          border: Border.all(color: const Color(0xFFE4E4E7)),
+                          color: SboxColors.slate50,
+                          borderRadius: BorderRadius.circular(10),
+                          border: Border.all(color: SboxColors.slate200),
                         ),
                         child: DropdownButtonHideUnderline(
                           child: DropdownButton<int>(
                             isExpanded: true,
                             value: _companyRegion,
                             style: const TextStyle(
-                                color: Color(0xFF18181B),
+                                color: SboxColors.slate900,
                                 fontSize: 14,
                                 fontWeight: FontWeight.w600),
                             items: [
@@ -633,14 +634,14 @@ class _InsuranceSettingsScreenState extends State<InsuranceSettingsScreen> {
                 else
                 Row(
                   children: [
-                    const Icon(Icons.map, color: Color(0xFF71717A), size: 20),
+                    const Icon(Icons.map, color: SboxColors.slate500, size: 20),
                     const SizedBox(width: 12),
                     Expanded(
                       child: Column(
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
-                          Text(tr('Công ty thuộc vùng'), style: TextStyle(color: Color(0xFF18181B), fontWeight: FontWeight.w500, fontSize: 14)),
-                          Text(tr('Vùng lương tối thiểu áp dụng cho công ty'), style: TextStyle(color: Colors.grey[500], fontSize: 11)),
+                          Text(tr('Công ty thuộc vùng'), style: TextStyle(color: SboxColors.slate900, fontWeight: FontWeight.w500, fontSize: 14)),
+                          Text(tr('Vùng lương tối thiểu áp dụng cho công ty'), style: TextStyle(color: SboxColors.slate500, fontSize: 11)),
                         ],
                       ),
                     ),
@@ -649,14 +650,14 @@ class _InsuranceSettingsScreenState extends State<InsuranceSettingsScreen> {
                       height: 40,
                       padding: const EdgeInsets.symmetric(horizontal: 12),
                       decoration: BoxDecoration(
-                        color: const Color(0xFFFAFAFA),
-                        borderRadius: BorderRadius.circular(8),
-                        border: Border.all(color: const Color(0xFFE4E4E7)),
+                        color: SboxColors.slate50,
+                        borderRadius: BorderRadius.circular(10),
+                        border: Border.all(color: SboxColors.slate200),
                       ),
                       child: DropdownButtonHideUnderline(
                         child: DropdownButton<int>(
                           value: _companyRegion,
-                          style: const TextStyle(color: Color(0xFF18181B), fontSize: 14, fontWeight: FontWeight.w600),
+                          style: const TextStyle(color: SboxColors.slate900, fontSize: 14, fontWeight: FontWeight.w600),
                           items: [
                             DropdownMenuItem(value: 1, child: Text(tr('Vùng I'))),
                             DropdownMenuItem(value: 2, child: Text(tr('Vùng II'))),
@@ -693,27 +694,27 @@ class _InsuranceSettingsScreenState extends State<InsuranceSettingsScreen> {
         controller: controller,
         textAlign: TextAlign.right,
         style: const TextStyle(
-            color: Color(0xFF18181B),
+            color: SboxColors.slate900,
             fontSize: 14,
             fontWeight: FontWeight.w600),
         keyboardType: TextInputType.number,
         inputFormatters: [ThousandSeparatorFormatter()],
         decoration: InputDecoration(
           suffixText: tr('đ'),
-          suffixStyle: const TextStyle(color: Color(0xFF71717A), fontSize: 12),
+          suffixStyle: const TextStyle(color: SboxColors.slate500, fontSize: 12),
           contentPadding:
               const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
           enabledBorder: OutlineInputBorder(
-            borderRadius: BorderRadius.circular(8),
-            borderSide: const BorderSide(color: Color(0xFFE4E4E7)),
+            borderRadius: BorderRadius.circular(10),
+            borderSide: const BorderSide(color: SboxColors.slate200),
           ),
           focusedBorder: OutlineInputBorder(
-            borderRadius: BorderRadius.circular(8),
+            borderRadius: BorderRadius.circular(10),
             borderSide:
                 const BorderSide(color: HrmPageChrome.primaryNavy, width: 2),
           ),
           filled: true,
-          fillColor: const Color(0xFFFAFAFA),
+          fillColor: SboxColors.slate50,
         ),
         onChanged: (_) => setState(() {}),
       ),
@@ -722,7 +723,7 @@ class _InsuranceSettingsScreenState extends State<InsuranceSettingsScreen> {
     final labelBlock = Row(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        Icon(icon, color: const Color(0xFF71717A), size: 20),
+        Icon(icon, color: SboxColors.slate500, size: 20),
         const SizedBox(width: 12),
         Expanded(
           child: Column(
@@ -730,11 +731,11 @@ class _InsuranceSettingsScreenState extends State<InsuranceSettingsScreen> {
             children: [
               Text(tr(label),
                   style: const TextStyle(
-                      color: Color(0xFF18181B),
+                      color: SboxColors.slate900,
                       fontWeight: FontWeight.w500,
                       fontSize: 14)),
               Text(tr(description),
-                  style: TextStyle(color: Colors.grey[500], fontSize: 11)),
+                  style: TextStyle(color: SboxColors.slate500, fontSize: 11)),
             ],
           ),
         ),
@@ -754,7 +755,7 @@ class _InsuranceSettingsScreenState extends State<InsuranceSettingsScreen> {
 
     return Row(
       children: [
-        Icon(icon, color: const Color(0xFF71717A), size: 20),
+        Icon(icon, color: SboxColors.slate500, size: 20),
         const SizedBox(width: 12),
         Expanded(
           child: Column(
@@ -762,11 +763,11 @@ class _InsuranceSettingsScreenState extends State<InsuranceSettingsScreen> {
             children: [
               Text(tr(label),
                   style: const TextStyle(
-                      color: Color(0xFF18181B),
+                      color: SboxColors.slate900,
                       fontWeight: FontWeight.w500,
                       fontSize: 14)),
               Text(tr(description),
-                  style: TextStyle(color: Colors.grey[500], fontSize: 11)),
+                  style: TextStyle(color: SboxColors.slate500, fontSize: 11)),
             ],
           ),
         ),
@@ -784,7 +785,7 @@ class _InsuranceSettingsScreenState extends State<InsuranceSettingsScreen> {
     return Container(
       decoration: BoxDecoration(
         color: Colors.white,
-        borderRadius: BorderRadius.circular(16),
+        borderRadius: BorderRadius.circular(14),
         boxShadow: [
           BoxShadow(
             color: Colors.black.withValues(alpha: 0.05),
@@ -819,13 +820,13 @@ class _InsuranceSettingsScreenState extends State<InsuranceSettingsScreen> {
                     children: [
                       Text(tr('Bảo hiểm Xã hội (BHXH)'),
                         style: TextStyle(
-                          color: Color(0xFF18181B),
-                          fontSize: 15,
+                          color: SboxColors.slate900,
+                          fontSize: 16,
                           fontWeight: FontWeight.bold,
                         ),
                       ),
                       Text(tr('Tỷ lệ đóng BHXH người lao động và doanh nghiệp'),
-                        style: TextStyle(color: Colors.grey[500], fontSize: 12),
+                        style: TextStyle(color: SboxColors.slate500, fontSize: 12),
                       ),
                     ],
                   ),
@@ -868,7 +869,7 @@ class _InsuranceSettingsScreenState extends State<InsuranceSettingsScreen> {
     return Container(
       decoration: BoxDecoration(
         color: Colors.white,
-        borderRadius: BorderRadius.circular(16),
+        borderRadius: BorderRadius.circular(14),
         boxShadow: [
           BoxShadow(
             color: Colors.black.withValues(alpha: 0.05),
@@ -890,7 +891,7 @@ class _InsuranceSettingsScreenState extends State<InsuranceSettingsScreen> {
                   height: Responsive.isMobile(context) ? 44 : 45,
                   decoration: BoxDecoration(
                     gradient: const LinearGradient(
-                      colors: [Color(0xFFEF4444), Color(0xFFF87171)],
+                      colors: [SboxColors.danger, Color(0xFFF87171)],
                     ),
                     borderRadius: BorderRadius.circular(10),
                   ),
@@ -905,13 +906,13 @@ class _InsuranceSettingsScreenState extends State<InsuranceSettingsScreen> {
                     children: [
                       Text(tr('Bảo hiểm Y tế (BHYT)'),
                         style: TextStyle(
-                          color: Color(0xFF18181B),
-                          fontSize: 15,
+                          color: SboxColors.slate900,
+                          fontSize: 16,
                           fontWeight: FontWeight.bold,
                         ),
                       ),
                       Text(tr('Tỷ lệ đóng BHYT người lao động và doanh nghiệp'),
-                        style: TextStyle(color: Colors.grey[500], fontSize: 12),
+                        style: TextStyle(color: SboxColors.slate500, fontSize: 12),
                       ),
                     ],
                   ),
@@ -955,7 +956,7 @@ class _InsuranceSettingsScreenState extends State<InsuranceSettingsScreen> {
     return Container(
       decoration: BoxDecoration(
         color: Colors.white,
-        borderRadius: BorderRadius.circular(16),
+        borderRadius: BorderRadius.circular(14),
         boxShadow: [
           BoxShadow(
             color: Colors.black.withValues(alpha: 0.05),
@@ -990,13 +991,13 @@ class _InsuranceSettingsScreenState extends State<InsuranceSettingsScreen> {
                     children: [
                       Text(tr('Bảo hiểm Thất nghiệp (BHTN)'),
                         style: TextStyle(
-                          color: Color(0xFF18181B),
-                          fontSize: 15,
+                          color: SboxColors.slate900,
+                          fontSize: 16,
                           fontWeight: FontWeight.bold,
                         ),
                       ),
                       Text(tr('Tỷ lệ đóng BHTN người lao động và doanh nghiệp'),
-                        style: TextStyle(color: Colors.grey[500], fontSize: 12),
+                        style: TextStyle(color: SboxColors.slate500, fontSize: 12),
                       ),
                     ],
                   ),
@@ -1040,7 +1041,7 @@ class _InsuranceSettingsScreenState extends State<InsuranceSettingsScreen> {
     return Container(
       decoration: BoxDecoration(
         color: Colors.white,
-        borderRadius: BorderRadius.circular(16),
+        borderRadius: BorderRadius.circular(14),
         boxShadow: [
           BoxShadow(
             color: Colors.black.withValues(alpha: 0.05),
@@ -1062,7 +1063,7 @@ class _InsuranceSettingsScreenState extends State<InsuranceSettingsScreen> {
                   height: Responsive.isMobile(context) ? 44 : 45,
                   decoration: BoxDecoration(
                     gradient: const LinearGradient(
-                      colors: [Color(0xFFF59E0B), Color(0xFFFBBF24)],
+                      colors: [SboxColors.warning, Color(0xFFFBBF24)],
                     ),
                     borderRadius: BorderRadius.circular(10),
                   ),
@@ -1077,13 +1078,13 @@ class _InsuranceSettingsScreenState extends State<InsuranceSettingsScreen> {
                     children: [
                       Text(tr('Phi Công đoàn'),
                         style: TextStyle(
-                          color: Color(0xFF18181B),
-                          fontSize: 15,
+                          color: SboxColors.slate900,
+                          fontSize: 16,
                           fontWeight: FontWeight.bold,
                         ),
                       ),
                       Text(tr('Phí công đoàn người lao động và kinh phí công đoàn'),
-                        style: TextStyle(color: Colors.grey[500], fontSize: 12),
+                        style: TextStyle(color: SboxColors.slate500, fontSize: 12),
                       ),
                     ],
                   ),
@@ -1131,26 +1132,26 @@ class _InsuranceSettingsScreenState extends State<InsuranceSettingsScreen> {
         controller: controller,
         textAlign: TextAlign.right,
         style: const TextStyle(
-            color: Color(0xFF18181B),
+            color: SboxColors.slate900,
             fontSize: 14,
             fontWeight: FontWeight.w600),
         keyboardType: const TextInputType.numberWithOptions(decimal: true),
         decoration: InputDecoration(
           suffixText: tr('%'),
-          suffixStyle: const TextStyle(color: Color(0xFF71717A), fontSize: 12),
+          suffixStyle: const TextStyle(color: SboxColors.slate500, fontSize: 12),
           contentPadding:
               const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
           enabledBorder: OutlineInputBorder(
-            borderRadius: BorderRadius.circular(8),
-            borderSide: const BorderSide(color: Color(0xFFE4E4E7)),
+            borderRadius: BorderRadius.circular(10),
+            borderSide: const BorderSide(color: SboxColors.slate200),
           ),
           focusedBorder: OutlineInputBorder(
-            borderRadius: BorderRadius.circular(8),
+            borderRadius: BorderRadius.circular(10),
             borderSide:
                 const BorderSide(color: HrmPageChrome.primaryNavy, width: 2),
           ),
           filled: true,
-          fillColor: const Color(0xFFFAFAFA),
+          fillColor: SboxColors.slate50,
         ),
         onChanged: (_) => setState(() {}),
       ),
@@ -1162,16 +1163,16 @@ class _InsuranceSettingsScreenState extends State<InsuranceSettingsScreen> {
         children: [
           Text(tr(label),
               style: const TextStyle(
-                  color: Color(0xFF18181B),
+                  color: SboxColors.slate900,
                   fontWeight: FontWeight.w500,
                   fontSize: 14)),
           Text(tr(description),
-              style: TextStyle(color: Colors.grey[500], fontSize: 11)),
+              style: TextStyle(color: SboxColors.slate500, fontSize: 11)),
           const SizedBox(height: 8),
           Row(
             children: [
               Text(tr('Tỷ lệ'),
-                  style: TextStyle(color: Colors.grey[600], fontSize: 13)),
+                  style: TextStyle(color: SboxColors.slate600, fontSize: 13)),
               const Spacer(),
               rateField,
             ],
@@ -1188,11 +1189,11 @@ class _InsuranceSettingsScreenState extends State<InsuranceSettingsScreen> {
             children: [
               Text(tr(label),
                   style: const TextStyle(
-                      color: Color(0xFF18181B),
+                      color: SboxColors.slate900,
                       fontWeight: FontWeight.w500,
                       fontSize: 14)),
               Text(tr(description),
-                  style: TextStyle(color: Colors.grey[500], fontSize: 11)),
+                  style: TextStyle(color: SboxColors.slate500, fontSize: 11)),
             ],
           ),
         ),
@@ -1216,7 +1217,7 @@ class _InsuranceSettingsScreenState extends State<InsuranceSettingsScreen> {
           Text(
             tr(label),
             style: const TextStyle(
-              color: Color(0xFF18181B),
+              color: SboxColors.slate900,
               fontSize: 14,
               fontWeight: FontWeight.w500,
             ),
@@ -1257,7 +1258,7 @@ class _InsuranceSettingsScreenState extends State<InsuranceSettingsScreen> {
     return Container(
       decoration: BoxDecoration(
         color: Colors.white,
-        borderRadius: BorderRadius.circular(16),
+        borderRadius: BorderRadius.circular(14),
         boxShadow: [
           BoxShadow(
             color: Colors.black.withValues(alpha: 0.05),
@@ -1292,13 +1293,13 @@ class _InsuranceSettingsScreenState extends State<InsuranceSettingsScreen> {
                     children: [
                       Text(tr('Tổng kết tỷ lệ đóng'),
                         style: TextStyle(
-                          color: Color(0xFF18181B),
-                          fontSize: 15,
+                          color: SboxColors.slate900,
+                          fontSize: 16,
                           fontWeight: FontWeight.bold,
                         ),
                       ),
                       Text(tr('Tổng hợp các khoản đóng bảo hiểm'),
-                        style: TextStyle(color: Colors.grey[500], fontSize: 12),
+                        style: TextStyle(color: SboxColors.slate500, fontSize: 12),
                       ),
                     ],
                   ),
@@ -1312,8 +1313,8 @@ class _InsuranceSettingsScreenState extends State<InsuranceSettingsScreen> {
             padding: const EdgeInsets.fromLTRB(20, 0, 20, 20),
             child: Container(
               decoration: BoxDecoration(
-                borderRadius: BorderRadius.circular(12),
-                border: Border.all(color: const Color(0xFFE4E4E7)),
+                borderRadius: BorderRadius.circular(14),
+                border: Border.all(color: SboxColors.slate200),
               ),
               child: Column(
                 children: [
@@ -1345,7 +1346,7 @@ class _InsuranceSettingsScreenState extends State<InsuranceSettingsScreen> {
                   Container(
                     padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
                     decoration: const BoxDecoration(
-                      color: Color(0xFFF1F5F9),
+                      color: SboxColors.slate100,
                       borderRadius: BorderRadius.only(
                         bottomLeft: Radius.circular(11),
                         bottomRight: Radius.circular(11),
@@ -1353,7 +1354,7 @@ class _InsuranceSettingsScreenState extends State<InsuranceSettingsScreen> {
                     ),
                     child: Row(
                       children: [
-                        Expanded(flex: 3, child: Text(tr('TỔNG CỘNG'), style: TextStyle(color: Color(0xFF18181B), fontWeight: FontWeight.bold, fontSize: 13))),
+                        Expanded(flex: 3, child: Text(tr('TỔNG CỘNG'), style: TextStyle(color: SboxColors.slate900, fontWeight: FontWeight.bold, fontSize: 13))),
                         Expanded(flex: 2, child: Text(tr('${_formatRate(totalEmp)}%'), textAlign: TextAlign.center, style: const TextStyle(color: HrmPageChrome.primaryNavy, fontWeight: FontWeight.bold, fontSize: 13))),
                         Expanded(flex: 2, child: Text(tr('${_formatRate(totalEmr)}%'), textAlign: TextAlign.center, style: const TextStyle(color: HrmPageChrome.primaryNavy, fontWeight: FontWeight.bold, fontSize: 13))),
                         Expanded(flex: 2, child: Text(tr('${_formatRate(totalEmp + totalEmr)}%'), textAlign: TextAlign.center, style: const TextStyle(color: HrmPageChrome.primaryNavy, fontWeight: FontWeight.bold, fontSize: 13))),
@@ -1372,13 +1373,13 @@ class _InsuranceSettingsScreenState extends State<InsuranceSettingsScreen> {
   Widget _buildSummaryRow(String label, double empRate, double emrRate, bool isAlt) {
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
-      color: isAlt ? const Color(0xFFFAFAFA) : Colors.white,
+      color: isAlt ? SboxColors.slate50 : Colors.white,
       child: Row(
         children: [
-          Expanded(flex: 3, child: Text(tr(label), style: const TextStyle(color: Color(0xFF71717A), fontSize: 13))),
-          Expanded(flex: 2, child: Text(tr('${_formatRate(empRate)}%'), textAlign: TextAlign.center, style: const TextStyle(color: Color(0xFF18181B), fontSize: 13))),
-          Expanded(flex: 2, child: Text(tr('${_formatRate(emrRate)}%'), textAlign: TextAlign.center, style: const TextStyle(color: Color(0xFF18181B), fontSize: 13))),
-          Expanded(flex: 2, child: Text(tr('${_formatRate(empRate + emrRate)}%'), textAlign: TextAlign.center, style: const TextStyle(color: Color(0xFF18181B), fontSize: 13))),
+          Expanded(flex: 3, child: Text(tr(label), style: const TextStyle(color: SboxColors.slate500, fontSize: 13))),
+          Expanded(flex: 2, child: Text(tr('${_formatRate(empRate)}%'), textAlign: TextAlign.center, style: const TextStyle(color: SboxColors.slate900, fontSize: 13))),
+          Expanded(flex: 2, child: Text(tr('${_formatRate(emrRate)}%'), textAlign: TextAlign.center, style: const TextStyle(color: SboxColors.slate900, fontSize: 13))),
+          Expanded(flex: 2, child: Text(tr('${_formatRate(empRate + emrRate)}%'), textAlign: TextAlign.center, style: const TextStyle(color: SboxColors.slate900, fontSize: 13))),
         ],
       ),
     );

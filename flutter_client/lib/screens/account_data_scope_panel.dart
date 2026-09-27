@@ -7,6 +7,7 @@ import '../widgets/loading_widget.dart';
 import '../widgets/notification_overlay.dart';
 import 'package:zkteco_flutter_client/l10n/app_tr.dart';
 
+import '../theme/sbox_tokens.dart';
 /// Gán chi nhánh / phòng ban tài khoản được xem dữ liệu (HRM Phân quyền).
 class AccountDataScopePanel extends StatefulWidget {
   const AccountDataScopePanel({super.key});
@@ -250,7 +251,7 @@ class _AccountDataScopePanelState extends State<AccountDataScopePanel> {
           child: DecoratedBox(
             decoration: const BoxDecoration(
               color: Colors.white,
-              border: Border(right: BorderSide(color: Color(0xFFE4E4E7))),
+              border: Border(right: BorderSide(color: SboxColors.slate200)),
             ),
             child: Column(
               children: [
@@ -261,7 +262,7 @@ class _AccountDataScopePanelState extends State<AccountDataScopePanel> {
                     children: [
                       Text(tr('Tài khoản'),
                           style: const TextStyle(
-                              fontWeight: FontWeight.w700, fontSize: 15)),
+                              fontWeight: FontWeight.w700, fontSize: 16)),
                       const SizedBox(height: 8),
                       TextField(
                         style: const TextStyle(fontSize: 13),
@@ -297,7 +298,7 @@ class _AccountDataScopePanelState extends State<AccountDataScopePanel> {
                         subtitle: Text(
                           tr(_accountRole(a)),
                           style: const TextStyle(
-                              fontSize: 11, color: Color(0xFF71717A)),
+                              fontSize: 11, color: SboxColors.slate500),
                         ),
                         onTap: id == null ? null : () => _selectUser(id),
                       );
@@ -349,10 +350,10 @@ class _AccountDataScopePanelState extends State<AccountDataScopePanel> {
     return Container(
       width: double.infinity,
       padding: const EdgeInsets.fromLTRB(16, 10, 16, 10),
-      color: const Color(0xFFF8FAFC),
+      color: SboxColors.slate50,
       child: Text(
         tr('Chọn tài khoản rồi gán chi nhánh / phòng ban được xem dữ liệu chấm công, nhân sự, báo cáo. Trưởng chi nhánh / trưởng phòng vẫn xem đơn vị mình quản lý.'),
-        style: const TextStyle(fontSize: 12, color: Color(0xFF52525B)),
+        style: const TextStyle(fontSize: 12, color: SboxColors.slate600),
       ),
     );
   }
@@ -361,7 +362,7 @@ class _AccountDataScopePanelState extends State<AccountDataScopePanel> {
     if (_selectedUserId == null) {
       return Center(
         child: Text(tr('Chọn tài khoản để thiết lập phạm vi dữ liệu'),
-            style: const TextStyle(color: Color(0xFF71717A))),
+            style: const TextStyle(color: SboxColors.slate500)),
       );
     }
     if (_loadingScope) return const LoadingWidget();
@@ -374,12 +375,12 @@ class _AccountDataScopePanelState extends State<AccountDataScopePanel> {
             margin: const EdgeInsets.fromLTRB(16, 12, 16, 0),
             padding: const EdgeInsets.all(10),
             decoration: BoxDecoration(
-              color: const Color(0xFFFEF3C7),
-              borderRadius: BorderRadius.circular(8),
+              color: SboxColors.warningSoft,
+              borderRadius: BorderRadius.circular(10),
             ),
             child: Text(
               tr('Tài khoản ${_roleLabel ?? 'Admin'} luôn xem toàn bộ dữ liệu cửa hàng. Phần gán dưới đây không giới hạn quyền này.'),
-              style: const TextStyle(fontSize: 12, color: Color(0xFF92400E)),
+              style: const TextStyle(fontSize: 12, color: SboxColors.warningText),
             ),
           ),
         Expanded(
@@ -464,8 +465,8 @@ class _AccountDataScopePanelState extends State<AccountDataScopePanel> {
     return Container(
       decoration: BoxDecoration(
         color: Colors.white,
-        borderRadius: BorderRadius.circular(12),
-        border: Border.all(color: const Color(0xFFE4E4E7)),
+        borderRadius: BorderRadius.circular(14),
+        border: Border.all(color: SboxColors.slate200),
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
@@ -481,7 +482,7 @@ class _AccountDataScopePanelState extends State<AccountDataScopePanel> {
                         style: const TextStyle(
                             fontWeight: FontWeight.w700, fontSize: 14))),
                 Text(tr('Tất cả'),
-                    style: const TextStyle(fontSize: 12, color: Color(0xFF52525B))),
+                    style: const TextStyle(fontSize: 12, color: SboxColors.slate600)),
                 Switch(
                   value: allValue,
                   onChanged: onAllChanged,
@@ -505,7 +506,7 @@ class _AccountDataScopePanelState extends State<AccountDataScopePanel> {
             Padding(
               padding: const EdgeInsets.all(16),
               child: Text(tr('Chưa có $title'),
-                  style: const TextStyle(color: Color(0xFF71717A))),
+                  style: const TextStyle(color: SboxColors.slate500)),
             )
           else
             ...items.map((item) {
@@ -529,7 +530,7 @@ class _AccountDataScopePanelState extends State<AccountDataScopePanel> {
                             horizontal: 6, vertical: 2),
                         decoration: BoxDecoration(
                           color: const Color(0xFFEEF2FF),
-                          borderRadius: BorderRadius.circular(8),
+                          borderRadius: BorderRadius.circular(10),
                         ),
                         child: Text(tr('Trưởng'),
                             style: const TextStyle(

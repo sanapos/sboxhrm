@@ -7,6 +7,7 @@ import '../../utils/pos_print_template_renderer.dart';
 import '../../utils/pos_sell_store_settings.dart';
 import 'package:zkteco_flutter_client/l10n/app_tr.dart';
 
+import '../../theme/sbox_tokens.dart';
 /// Xem trước mẫu in V2 — cỡ chữ / tên cửa hàng khớp bill in nhiệt.
 Widget buildPosPrintTemplatePreview(
   PosPrintTemplateV2 template, {
@@ -157,26 +158,26 @@ class _PosPrintTemplatePreviewLiveState
                 style: TextStyle(
                   fontSize: 13,
                   fontWeight: FontWeight.w700,
-                  color: Colors.grey.shade800,
+                  color: SboxColors.slate800,
                 ),
               ),
               const SizedBox(height: 2),
               Text(
                 tr(metrics.sizeHint),
                 textAlign: TextAlign.center,
-                style: TextStyle(fontSize: 11, color: Colors.grey.shade600),
+                style: TextStyle(fontSize: 11, color: SboxColors.slate600),
               ),
               if (template.documentType == PosPrintDocumentTypes.kitchenLabel)
                 Text(
                   tr('1 sản phẩm / 1 tem'),
                   textAlign: TextAlign.center,
-                  style: TextStyle(fontSize: 11, fontWeight: FontWeight.w600, color: Colors.grey.shade700),
+                  style: TextStyle(fontSize: 11, fontWeight: FontWeight.w600, color: SboxColors.slate700),
                 ),
               if (fit < 0.99) ...[
                 const SizedBox(height: 2),
                 Text(
                   tr('Thu nhỏ ${(fit * 100).round()}% để vừa màn hình'),
-                  style: TextStyle(fontSize: 10, color: Colors.grey.shade500),
+                  style: TextStyle(fontSize: 10, color: SboxColors.slate500),
                 ),
               ],
               const SizedBox(height: 8),
@@ -200,11 +201,11 @@ class _PosPrintTemplatePreviewLiveState
                       decoration: BoxDecoration(
                         color: Colors.white,
                         border: Border.all(
-                          color: Colors.black87,
+                          color: SboxColors.text,
                           width: metrics.isLabel ? 1.5 : 2,
                         ),
                         borderRadius: metrics.isLabel
-                            ? BorderRadius.circular(5)
+                            ? BorderRadius.circular(6)
                             : BorderRadius.zero,
                         boxShadow: const [
                           BoxShadow(
@@ -348,7 +349,7 @@ class _DashPainter extends CustomPainter {
   @override
   void paint(Canvas canvas, Size size) {
     final paint = Paint()
-      ..color = const Color(0xFF9CA3AF)
+      ..color = SboxColors.slate400
       ..strokeWidth = 1;
     const dash = 4.0;
     const gap = 3.0;
@@ -378,8 +379,8 @@ class _MmRuler extends StatelessWidget {
         : '← ${widthMm.toInt()} mm →';
     return Row(
       children: [
-        Container(width: 1, height: 10, color: Colors.black54),
-        Expanded(child: Container(height: 1, color: Colors.black54)),
+        Container(width: 1, height: 10, color: SboxColors.textSecondary),
+        Expanded(child: Container(height: 1, color: SboxColors.textSecondary)),
         Padding(
           padding: const EdgeInsets.symmetric(horizontal: 6),
           child: Text(
@@ -387,12 +388,12 @@ class _MmRuler extends StatelessWidget {
             style: const TextStyle(
               fontSize: 11,
               fontWeight: FontWeight.w700,
-              color: Colors.black87,
+              color: SboxColors.text,
             ),
           ),
         ),
-        Expanded(child: Container(height: 1, color: Colors.black54)),
-        Container(width: 1, height: 10, color: Colors.black54),
+        Expanded(child: Container(height: 1, color: SboxColors.textSecondary)),
+        Container(width: 1, height: 10, color: SboxColors.textSecondary),
       ],
     );
   }
@@ -476,7 +477,7 @@ class _PreviewStep extends StatelessWidget {
       child = DecoratedBox(
         decoration: BoxDecoration(
           color: const Color(0xFFFFF3BF),
-          border: Border.all(color: const Color(0xFFF59E0B), width: 1.2),
+          border: Border.all(color: SboxColors.warning, width: 1.2),
           borderRadius: BorderRadius.circular(3),
         ),
         child: child,
@@ -510,7 +511,7 @@ class _PreviewLine extends StatelessWidget {
         child: Container(
           width: double.infinity,
           height: 1.5,
-          color: Colors.black87,
+          color: SboxColors.text,
         ),
       );
     }
@@ -674,10 +675,10 @@ class _PreviewQr extends StatelessWidget {
             height: size,
             margin: const EdgeInsets.symmetric(vertical: 6),
             decoration: BoxDecoration(
-              border: Border.all(color: Colors.grey.shade400),
-              color: Colors.grey.shade100,
+              border: Border.all(color: SboxColors.slate400),
+              color: SboxColors.slate100,
             ),
-            child: const Icon(Icons.qr_code_2, size: 48, color: Colors.black54),
+            child: const Icon(Icons.qr_code_2, size: 48, color: SboxColors.textSecondary),
           ),
           if (qr.caption.trim().isNotEmpty)
             Text(tr(qr.caption.trim()), textAlign: TextAlign.center, style: captionStyle),
@@ -715,8 +716,8 @@ class _PreviewBarcode extends StatelessWidget {
             width: double.infinity,
             alignment: Alignment.center,
             decoration: BoxDecoration(
-              border: Border.all(color: Colors.grey.shade400),
-              color: Colors.grey.shade50,
+              border: Border.all(color: SboxColors.slate400),
+              color: SboxColors.slate50,
             ),
             child: Text(
               tr('|||| ${barcode.data} ||||'),

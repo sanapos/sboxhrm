@@ -9,6 +9,7 @@ import '../../widgets/notification_overlay.dart';
 import '../../widgets/pos/pos_theme.dart';
 import 'package:zkteco_flutter_client/l10n/app_tr.dart';
 
+import '../../theme/sbox_tokens.dart';
 /// Quản lý nhóm topping dùng chung (gắn vào nhiều hàng hóa).
 class PosToppingGroupsScreen extends StatefulWidget {
   const PosToppingGroupsScreen({super.key});
@@ -358,7 +359,7 @@ class _PosToppingGroupsScreenState extends State<PosToppingGroupsScreen> {
                               tr('Tạo nhóm (vd Topping trà sữa) gồm các SP + giá,\n'
                               'rồi gắn nhóm vào từng hàng hóa.'),
                               textAlign: TextAlign.center,
-                              style: TextStyle(color: Colors.grey.shade600),
+                              style: TextStyle(color: SboxColors.slate600),
                             ),
                           ],
                         ),

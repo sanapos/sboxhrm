@@ -28,6 +28,7 @@ import '../widgets/hrm_pushed_screen_shell.dart';
 import 'mobile_attendance_approval_screen.dart';
 import 'package:zkteco_flutter_client/l10n/app_tr.dart';
 
+import '../theme/sbox_tokens.dart';
 class AttendanceApprovalScreen extends StatefulWidget {
   final String? highlightId;
   /// Mặc định -1 (tất cả). Từ Tổng quan truyền 0 = chỉ chờ duyệt.
@@ -363,7 +364,7 @@ class _AttendanceApprovalScreenState extends State<AttendanceApprovalScreen>
                 Text(
                   tr('Chọn "Duyệt và phạt" nếu nhân viên quên chấm công và bạn '
                   'muốn tạo thêm phiếu phạt theo mức phạt trong Thiết lập phạt.'),
-                  style: TextStyle(fontSize: 12, color: Colors.grey.shade600),
+                  style: TextStyle(fontSize: 12, color: SboxColors.slate600),
                 ),
               ],
             ],
@@ -696,11 +697,11 @@ class _AttendanceApprovalScreenState extends State<AttendanceApprovalScreen>
       case 0:
         return Colors.green;
       case 1:
-        return Colors.blue;
+        return SboxColors.brand500;
       case 2:
         return Colors.red;
       default:
-        return Colors.grey;
+        return SboxColors.slate500;
     }
   }
 
@@ -726,7 +727,7 @@ class _AttendanceApprovalScreenState extends State<AttendanceApprovalScreen>
       case 2:
         return Colors.red;
       default:
-        return Colors.grey;
+        return SboxColors.slate500;
     }
   }
 
@@ -801,11 +802,11 @@ class _AttendanceApprovalScreenState extends State<AttendanceApprovalScreen>
       case 2:
         return Colors.red;
       case 3:
-        return Colors.grey;
+        return SboxColors.slate500;
       case 4:
-        return Colors.grey;
+        return SboxColors.slate500;
       default:
-        return Colors.grey;
+        return SboxColors.slate500;
     }
   }
 
@@ -870,7 +871,7 @@ class _AttendanceApprovalScreenState extends State<AttendanceApprovalScreen>
                     child: RichText(
                       text: TextSpan(
                         style: const TextStyle(
-                            fontSize: 11, color: Colors.black87),
+                            fontSize: 11, color: SboxColors.text),
                         children: [
                           TextSpan(
                             text: tr(record['stepName'] ??
@@ -891,11 +892,11 @@ class _AttendanceApprovalScreenState extends State<AttendanceApprovalScreen>
                               record['note'].toString().isNotEmpty) ...[
                             TextSpan(
                                 text: tr(' - '),
-                                style: TextStyle(color: Colors.grey[500])),
+                                style: TextStyle(color: SboxColors.slate500)),
                             TextSpan(
                                 text: tr(record['note']),
                                 style: TextStyle(
-                                    color: Colors.grey[600],
+                                    color: SboxColors.slate600,
                                     fontStyle: FontStyle.italic)),
                           ],
                         ],
@@ -905,7 +906,7 @@ class _AttendanceApprovalScreenState extends State<AttendanceApprovalScreen>
                   if (record['actionDate'] != null)
                     Text(
                       tr(_formatDateTime(record['actionDate'])),
-                      style: TextStyle(fontSize: 10, color: Colors.grey[500]),
+                      style: TextStyle(fontSize: 10, color: SboxColors.slate500),
                     ),
                 ],
               ),
@@ -919,11 +920,11 @@ class _AttendanceApprovalScreenState extends State<AttendanceApprovalScreen>
               value: statusInt == 2
                   ? 1.0
                   : (totalLevels > 0 ? currentStep / totalLevels : 0),
-              backgroundColor: Colors.grey[200],
+              backgroundColor: SboxColors.slate200,
               valueColor: AlwaysStoppedAnimation<Color>(
                 statusInt == 2
                     ? Colors.red
-                    : (currentStep >= totalLevels ? Colors.green : Colors.blue),
+                    : (currentStep >= totalLevels ? Colors.green : SboxColors.brand500),
               ),
               minHeight: 6,
             ),
@@ -960,7 +961,7 @@ class _AttendanceApprovalScreenState extends State<AttendanceApprovalScreen>
                   width: 40,
                   height: 4,
                   decoration: BoxDecoration(
-                      color: Colors.grey[300],
+                      color: SboxColors.slate300,
                       borderRadius: BorderRadius.circular(2)),
                 ),
               ),
@@ -983,7 +984,7 @@ class _AttendanceApprovalScreenState extends State<AttendanceApprovalScreen>
                                 fontSize: 16, fontWeight: FontWeight.bold)),
                         Text(tr(req['employeeCode'] ?? ''),
                             style: TextStyle(
-                                fontSize: 13, color: Colors.grey[600])),
+                                fontSize: 13, color: SboxColors.slate600)),
                       ],
                     ),
                   ),
@@ -993,7 +994,7 @@ class _AttendanceApprovalScreenState extends State<AttendanceApprovalScreen>
                     decoration: BoxDecoration(
                       color:
                           _getStatusColor(req['status']).withValues(alpha: 0.1),
-                      borderRadius: BorderRadius.circular(12),
+                      borderRadius: BorderRadius.circular(14),
                     ),
                     child: Text(tr(_getStatusLabel(req['status'])),
                         style: TextStyle(
@@ -1083,7 +1084,7 @@ class _AttendanceApprovalScreenState extends State<AttendanceApprovalScreen>
           SizedBox(
             width: 120,
             child: Text(tr(label),
-                style: TextStyle(fontSize: 13, color: Colors.grey[600])),
+                style: TextStyle(fontSize: 13, color: SboxColors.slate600)),
           ),
           Expanded(child: Text(tr(value), style: const TextStyle(fontSize: 13))),
         ],
@@ -1094,7 +1095,7 @@ class _AttendanceApprovalScreenState extends State<AttendanceApprovalScreen>
   Widget _buildApprovalTimeline(List records, int requestStatus) {
     if (records.isEmpty) {
       return Text(tr('Chưa có dữ liệu duyệt'),
-          style: TextStyle(fontSize: 12, color: Colors.grey));
+          style: TextStyle(fontSize: 12, color: SboxColors.slate500));
     }
 
     return Column(
@@ -1140,7 +1141,7 @@ class _AttendanceApprovalScreenState extends State<AttendanceApprovalScreen>
                         horizontal: 6, vertical: 1),
                     decoration: BoxDecoration(
                       color: color.withValues(alpha: 0.1),
-                      borderRadius: BorderRadius.circular(8),
+                      borderRadius: BorderRadius.circular(10),
                     ),
                     child: Text(
                       tr(_getApprovalStatusLabel(stepStatusInt)),
@@ -1157,7 +1158,7 @@ class _AttendanceApprovalScreenState extends State<AttendanceApprovalScreen>
                 tr(stepStatusInt == 0
                     ? 'Người duyệt: ${record['assignedUserName'] ?? 'Chưa xác định'}'
                     : 'Người duyệt: ${record['actualUserName'] ?? record['assignedUserName'] ?? '--'}'),
-                style: TextStyle(fontSize: 12, color: Colors.grey[700]),
+                style: TextStyle(fontSize: 12, color: SboxColors.slate700),
               ),
               if (record['note'] != null &&
                   record['note'].toString().isNotEmpty)
@@ -1167,7 +1168,7 @@ class _AttendanceApprovalScreenState extends State<AttendanceApprovalScreen>
                     tr('Ghi chú: ${record['note']}'),
                     style: TextStyle(
                         fontSize: 11,
-                        color: Colors.grey[600],
+                        color: SboxColors.slate600,
                         fontStyle: FontStyle.italic),
                   ),
                 ),
@@ -1176,7 +1177,7 @@ class _AttendanceApprovalScreenState extends State<AttendanceApprovalScreen>
                   padding: const EdgeInsets.only(top: 2),
                   child: Text(
                     tr(_formatDateTime(record['actionDate'])),
-                    style: TextStyle(fontSize: 11, color: Colors.grey[500]),
+                    style: TextStyle(fontSize: 11, color: SboxColors.slate500),
                   ),
                 ),
             ],
@@ -1193,7 +1194,7 @@ class _AttendanceApprovalScreenState extends State<AttendanceApprovalScreen>
 
     if (totalLevels <= 1) {
       return Text(tr(statusInt == 0 ? 'Đơn cấp' : '--'),
-          style: TextStyle(fontSize: 11, color: Colors.grey[500]));
+          style: TextStyle(fontSize: 11, color: SboxColors.slate500));
     }
 
     return Row(
@@ -1204,13 +1205,13 @@ class _AttendanceApprovalScreenState extends State<AttendanceApprovalScreen>
           if (statusInt == 2) {
             dotColor = i < currentStep
                 ? Colors.green
-                : (i == currentStep ? Colors.red : Colors.grey[300]!);
+                : (i == currentStep ? Colors.red : SboxColors.slate300);
           } else {
             dotColor = i < currentStep
                 ? Colors.green
                 : (i == currentStep && statusInt == 0
                     ? Colors.orange
-                    : Colors.grey[300]!);
+                    : SboxColors.slate300);
           }
           return Container(
             width: 12,
@@ -1229,7 +1230,7 @@ class _AttendanceApprovalScreenState extends State<AttendanceApprovalScreen>
           );
         }),
         const SizedBox(width: 4),
-        Icon(Icons.info_outline, size: 12, color: Colors.blue[300]),
+        Icon(Icons.info_outline, size: 12, color: SboxColors.brand300),
       ],
     );
   }
@@ -1257,7 +1258,7 @@ class _AttendanceApprovalScreenState extends State<AttendanceApprovalScreen>
               controller: topTab,
               labelPadding: const EdgeInsets.symmetric(horizontal: 8),
               labelColor: Theme.of(context).primaryColor,
-              unselectedLabelColor: Colors.grey[600],
+              unselectedLabelColor: SboxColors.slate600,
               indicatorColor: Theme.of(context).primaryColor,
               labelStyle: vietnameseTextStyle(const TextStyle(
                 fontWeight: FontWeight.w600,
@@ -1409,7 +1410,7 @@ class _AttendanceApprovalScreenState extends State<AttendanceApprovalScreen>
 
   Widget _buildStatusTabs() {
     final tabs = [
-      {'label': 'Tất cả', 'value': -1, 'color': Colors.grey},
+      {'label': 'Tất cả', 'value': -1, 'color': SboxColors.slate500},
       {'label': 'Chờ duyệt', 'value': 0, 'color': Colors.orange},
       {'label': 'Đã duyệt', 'value': 1, 'color': Colors.green},
       {'label': 'Từ chối', 'value': 2, 'color': Colors.red},
@@ -1417,8 +1418,8 @@ class _AttendanceApprovalScreenState extends State<AttendanceApprovalScreen>
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 4),
       decoration: BoxDecoration(
-        color: Colors.grey[100],
-        borderRadius: BorderRadius.circular(8),
+        color: SboxColors.slate100,
+        borderRadius: BorderRadius.circular(10),
       ),
       child: Row(
         children: tabs.map((tab) {
@@ -1449,7 +1450,7 @@ class _AttendanceApprovalScreenState extends State<AttendanceApprovalScreen>
                       fontSize: 13,
                       fontWeight:
                           isSelected ? FontWeight.bold : FontWeight.normal,
-                      color: isSelected ? color : Colors.grey[600],
+                      color: isSelected ? color : SboxColors.slate600,
                     )),
                   ),
                 ),
@@ -1488,8 +1489,8 @@ class _AttendanceApprovalScreenState extends State<AttendanceApprovalScreen>
       padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
       decoration: BoxDecoration(
         color: Colors.white,
-        borderRadius: BorderRadius.circular(12),
-        border: Border.all(color: const Color(0xFFEEEEF0)),
+        borderRadius: BorderRadius.circular(14),
+        border: Border.all(color: SboxColors.divider),
         boxShadow: const [
           BoxShadow(
             color: Color(0x0A000000),
@@ -1536,7 +1537,7 @@ class _AttendanceApprovalScreenState extends State<AttendanceApprovalScreen>
               child: Container(
                 padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
                 decoration: BoxDecoration(
-                  border: Border.all(color: Colors.grey[300]!),
+                  border: Border.all(color: SboxColors.slate300),
                   borderRadius: BorderRadius.circular(4),
                 ),
                 child: Text(
@@ -1567,7 +1568,7 @@ class _AttendanceApprovalScreenState extends State<AttendanceApprovalScreen>
           ),
           Text(tr('$_totalCount yêu cầu'),
             style: vietnameseTextStyle(
-              TextStyle(fontSize: 12, color: Colors.grey[600]),
+              TextStyle(fontSize: 12, color: SboxColors.slate600),
             ),
           ),
             ],
@@ -1583,13 +1584,13 @@ class _AttendanceApprovalScreenState extends State<AttendanceApprovalScreen>
       constraints: const BoxConstraints(minWidth: 160, maxWidth: 240),
       padding: const EdgeInsets.symmetric(horizontal: 10),
       decoration: BoxDecoration(
-        color: const Color(0xFFF8FAFC),
+        color: SboxColors.slate50,
         borderRadius: BorderRadius.circular(4),
-        border: Border.all(color: const Color(0xFFE4E4E7)),
+        border: Border.all(color: SboxColors.slate200),
       ),
       child: Row(mainAxisSize: MainAxisSize.min, children: [
         const Icon(Icons.account_tree_outlined,
-            size: 15, color: Color(0xFF6B7280)),
+            size: 15, color: SboxColors.slate500),
         const SizedBox(width: 6),
         Expanded(
           child: DropdownButtonHideUnderline(
@@ -1597,9 +1598,9 @@ class _AttendanceApprovalScreenState extends State<AttendanceApprovalScreen>
               value: _selectedBranchId,
               isExpanded: true,
               isDense: true,
-              style: const TextStyle(fontSize: 12, color: Color(0xFF111827)),
+              style: const TextStyle(fontSize: 12, color: SboxColors.slate900),
               icon: const Icon(Icons.keyboard_arrow_down,
-                  size: 16, color: Color(0xFF9CA3AF)),
+                  size: 16, color: SboxColors.slate400),
               items: [
                 DropdownMenuItem<String?>(
                     value: null,
@@ -1620,7 +1621,7 @@ class _AttendanceApprovalScreenState extends State<AttendanceApprovalScreen>
             onTap: () => setState(() => _selectedBranchId = null),
             child: const Padding(
                 padding: EdgeInsets.all(3),
-                child: Icon(Icons.close, size: 13, color: Color(0xFF9CA3AF))),
+                child: Icon(Icons.close, size: 13, color: SboxColors.slate400)),
           ),
       ]),
     );
@@ -1641,7 +1642,7 @@ class _AttendanceApprovalScreenState extends State<AttendanceApprovalScreen>
           border: Border.all(
             color: selectedCount > 0
                 ? Theme.of(context).primaryColor
-                : Colors.grey[400]!,
+                : SboxColors.slate400,
           ),
         ),
         child: Row(
@@ -1651,7 +1652,7 @@ class _AttendanceApprovalScreenState extends State<AttendanceApprovalScreen>
                 size: 16,
                 color: selectedCount > 0
                     ? Theme.of(context).primaryColor
-                    : Colors.grey[600]),
+                    : SboxColors.slate600),
             const SizedBox(width: 6),
             Flexible(
               child: Text(
@@ -1662,7 +1663,7 @@ class _AttendanceApprovalScreenState extends State<AttendanceApprovalScreen>
                   fontSize: 12,
                   color: selectedCount > 0
                       ? Theme.of(context).primaryColor
-                      : Colors.grey[700],
+                      : SboxColors.slate700,
                   fontWeight:
                       selectedCount > 0 ? FontWeight.w600 : FontWeight.normal,
                 ),
@@ -1670,7 +1671,7 @@ class _AttendanceApprovalScreenState extends State<AttendanceApprovalScreen>
               ),
             ),
             const SizedBox(width: 4),
-            Icon(Icons.arrow_drop_down, size: 18, color: Colors.grey[600]),
+            Icon(Icons.arrow_drop_down, size: 18, color: SboxColors.slate600),
           ],
         ),
       ),
@@ -1722,7 +1723,7 @@ class _AttendanceApprovalScreenState extends State<AttendanceApprovalScreen>
                       contentPadding: const EdgeInsets.symmetric(
                           horizontal: 10, vertical: 10),
                       border: OutlineInputBorder(
-                          borderRadius: BorderRadius.circular(8)),
+                          borderRadius: BorderRadius.circular(10)),
                     ),
                     onChanged: (v) => setDialogState(() => searchQuery = v),
                   ),
@@ -1747,7 +1748,7 @@ class _AttendanceApprovalScreenState extends State<AttendanceApprovalScreen>
                               Text(tr(name), style: const TextStyle(fontSize: 13)),
                           subtitle: Text(tr(code),
                               style: TextStyle(
-                                  fontSize: 11, color: Colors.grey[600])),
+                                  fontSize: 11, color: SboxColors.slate600)),
                           onChanged: (val) {
                             setDialogState(() {
                               if (val == true) {
@@ -1803,7 +1804,7 @@ class _AttendanceApprovalScreenState extends State<AttendanceApprovalScreen>
           border: OutlineInputBorder(borderRadius: BorderRadius.circular(4)),
         ),
         style: vietnameseTextStyle(
-          const TextStyle(fontSize: 13, color: Colors.black87),
+          const TextStyle(fontSize: 13, color: SboxColors.text),
         ),
       ),
     );
@@ -1828,8 +1829,8 @@ class _AttendanceApprovalScreenState extends State<AttendanceApprovalScreen>
         return Card(
           elevation: 0,
           shape: RoundedRectangleBorder(
-            borderRadius: BorderRadius.circular(8),
-            side: BorderSide(color: Colors.grey[300]!),
+            borderRadius: BorderRadius.circular(10),
+            side: BorderSide(color: SboxColors.slate300),
           ),
           child: Scrollbar(
             child: SingleChildScrollView(
@@ -1853,7 +1854,7 @@ class _AttendanceApprovalScreenState extends State<AttendanceApprovalScreen>
                                 ? 11
                                 : null,
                     sortAscending: _sortAscending,
-                    headingRowColor: WidgetStateProperty.all(Colors.grey[50]),
+                    headingRowColor: WidgetStateProperty.all(SboxColors.slate50),
                     columns: [
                       DataColumn(
                           label: Expanded(
@@ -1974,7 +1975,7 @@ class _AttendanceApprovalScreenState extends State<AttendanceApprovalScreen>
                                         fontWeight: FontWeight.w500))),
                                 Text(tr(req['employeeCode'] ?? ''),
                                     style: TextStyle(
-                                        fontSize: 11, color: Colors.grey[600])),
+                                        fontSize: 11, color: SboxColors.slate600)),
                               ],
                             ),
                           )),
@@ -2004,7 +2005,7 @@ class _AttendanceApprovalScreenState extends State<AttendanceApprovalScreen>
                               decoration: BoxDecoration(
                                 color: _getStatusColor(status)
                                     .withValues(alpha: 0.1),
-                                borderRadius: BorderRadius.circular(12),
+                                borderRadius: BorderRadius.circular(14),
                               ),
                               child: Text(
                                 tr(_getStatusLabel(status)),
@@ -2089,8 +2090,8 @@ class _AttendanceApprovalScreenState extends State<AttendanceApprovalScreen>
     return Container(
       decoration: BoxDecoration(
         color: Colors.white,
-        borderRadius: BorderRadius.circular(12),
-        border: Border.all(color: const Color(0xFFE4E4E7)),
+        borderRadius: BorderRadius.circular(14),
+        border: Border.all(color: SboxColors.slate200),
         boxShadow: [
           BoxShadow(
               color: Colors.black.withValues(alpha: 0.05),
@@ -2099,7 +2100,7 @@ class _AttendanceApprovalScreenState extends State<AttendanceApprovalScreen>
         ],
       ),
       child: InkWell(
-        borderRadius: BorderRadius.circular(12),
+        borderRadius: BorderRadius.circular(14),
         onTap: () => _showRequestDetail(req),
         child: Padding(
           padding: EdgeInsets.fromLTRB(14, 10, 14, canApprove ? 12 : 10),
@@ -2130,7 +2131,7 @@ class _AttendanceApprovalScreenState extends State<AttendanceApprovalScreen>
                             '${_formatDate(req['oldDate'])} → ${_formatDate(req['newDate'])}',
                           ].where((s) => s.isNotEmpty).join(' • ')),
                           style: const TextStyle(
-                              color: Color(0xFF71717A), fontSize: 12),
+                              color: SboxColors.slate500, fontSize: 12),
                           maxLines: 1,
                           overflow: TextOverflow.ellipsis,
                         ),
@@ -2142,7 +2143,7 @@ class _AttendanceApprovalScreenState extends State<AttendanceApprovalScreen>
                   decoration: BoxDecoration(
                       color: _getStatusColor(req['status'])
                           .withValues(alpha: 0.1),
-                      borderRadius: BorderRadius.circular(8)),
+                      borderRadius: BorderRadius.circular(10)),
                   child: Text(tr(_getStatusLabel(req['status'])),
                       style: TextStyle(
                           fontSize: 10,
@@ -2307,11 +2308,11 @@ class _AttendanceApprovalScreenState extends State<AttendanceApprovalScreen>
         Container(
           padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
           decoration: BoxDecoration(
-            border: Border.all(color: Colors.grey[300]!),
+            border: Border.all(color: SboxColors.slate300),
             borderRadius: BorderRadius.circular(4),
           ),
           child: Text(tr('$_currentPage / $totalPages'),
-              style: TextStyle(fontSize: 12, color: Colors.grey[800])),
+              style: TextStyle(fontSize: 12, color: SboxColors.slate800)),
         ),
         IconButton(
           onPressed: _currentPage < totalPages
@@ -2343,13 +2344,13 @@ class _AttendanceApprovalScreenState extends State<AttendanceApprovalScreen>
       children: [
         Text(tr('Hiển thị $start-$end / $_totalCount'),
           style: vietnameseTextStyle(
-            TextStyle(fontSize: 12, color: Colors.grey[700]),
+            TextStyle(fontSize: 12, color: SboxColors.slate700),
           ),
         ),
         const SizedBox(width: 8),
         Text(tr('Số dòng:'),
           style: vietnameseTextStyle(
-            TextStyle(fontSize: 12, color: Colors.grey[600]),
+            TextStyle(fontSize: 12, color: SboxColors.slate600),
           ),
         ),
         const SizedBox(width: 4),
@@ -2357,7 +2358,7 @@ class _AttendanceApprovalScreenState extends State<AttendanceApprovalScreen>
           height: 30,
           padding: const EdgeInsets.symmetric(horizontal: 6),
           decoration: BoxDecoration(
-            border: Border.all(color: Colors.grey[300]!),
+            border: Border.all(color: SboxColors.slate300),
             borderRadius: BorderRadius.circular(4),
           ),
           child: DropdownButton<int>(
@@ -2365,7 +2366,7 @@ class _AttendanceApprovalScreenState extends State<AttendanceApprovalScreen>
             underline: const SizedBox(),
             isDense: true,
             style: vietnameseTextStyle(
-              const TextStyle(fontSize: 12, color: Colors.black87),
+              const TextStyle(fontSize: 12, color: SboxColors.text),
             ),
             items: _pageSizeOptions
                 .map((s) => DropdownMenuItem(value: s, child: Text(tr('$s'))))

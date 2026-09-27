@@ -13,6 +13,7 @@ import 'package:zkteco_flutter_client/l10n/app_tr.dart';
 import 'package:zkteco_flutter_client/l10n/app_ui_locale.dart';
 
 import './pos/pos_theme.dart';
+import '../theme/sbox_tokens.dart';
 /// Chi tiết bản ghi chấm công mobile — vị trí GPS, ảnh mặt, duyệt (tuỳ chọn).
 Future<void> showMobileAttendanceRecordDetailSheet(
   BuildContext context, {
@@ -251,7 +252,7 @@ class _MobileAttendanceRecordDetailBodyState
           FilledButton(
             onPressed: () => Navigator.pop(ctx, true),
             style: FilledButton.styleFrom(
-              backgroundColor: const Color(0xFFEF4444),
+              backgroundColor: SboxColors.danger,
             ),
             child: Text(tr('Xóa')),
           ),
@@ -296,7 +297,7 @@ class _MobileAttendanceRecordDetailBodyState
         ? (record.punchType == 2
             ? const Color(0xFF0EA5E9)
             : const Color(0xFF14B8A6))
-        : (isCheckIn ? PosTheme.kiotBlue : const Color(0xFFEF4444));
+        : (isCheckIn ? PosTheme.kiotBlue : SboxColors.danger);
     final timeFmt = DateFormat('HH:mm:ss');
     final dateFmt = DateFormat('dd/MM/yyyy');
     return Container(
@@ -311,7 +312,7 @@ class _MobileAttendanceRecordDetailBodyState
             width: 40,
             height: 4,
             decoration: BoxDecoration(
-              color: const Color(0xFFE4E4E7),
+              color: SboxColors.slate200,
               borderRadius: BorderRadius.circular(2),
             ),
           ),
@@ -327,7 +328,7 @@ class _MobileAttendanceRecordDetailBodyState
                           horizontal: 10, vertical: 6),
                       decoration: BoxDecoration(
                         color: punchColor.withValues(alpha: 0.1),
-                        borderRadius: BorderRadius.circular(8),
+                        borderRadius: BorderRadius.circular(10),
                       ),
                       child: Text(
                         tr(record.punchTypeLabel),
@@ -344,7 +345,7 @@ class _MobileAttendanceRecordDetailBodyState
                       style: const TextStyle(
                         fontSize: 12,
                         fontWeight: FontWeight.w600,
-                        color: Color(0xFF71717A),
+                        color: SboxColors.slate500,
                       ),
                     ),
                   ],
@@ -355,14 +356,14 @@ class _MobileAttendanceRecordDetailBodyState
                   style: const TextStyle(
                     fontSize: 18,
                     fontWeight: FontWeight.bold,
-                    color: Color(0xFF18181B),
+                    color: SboxColors.slate900,
                   ),
                 ),
                 const SizedBox(height: 4),
                 Text(
                   tr('${timeFmt.format(record.punchTime)} · ${dateFmt.format(record.punchTime)}'),
                   style: const TextStyle(
-                      fontSize: 13, color: Color(0xFF71717A)),
+                      fontSize: 13, color: SboxColors.slate500),
                 ),
                 if (_isPending) ...[
                   const SizedBox(height: 16),
@@ -372,7 +373,7 @@ class _MobileAttendanceRecordDetailBodyState
                       style: TextStyle(
                         fontSize: 14,
                         fontWeight: FontWeight.w600,
-                        color: Color(0xFF18181B),
+                        color: SboxColors.slate900,
                       ),
                     ),
                   ),
@@ -442,7 +443,7 @@ class _MobileAttendanceRecordDetailBodyState
                   style: const TextStyle(
                     fontSize: 14,
                     fontWeight: FontWeight.w600,
-                    color: Color(0xFF18181B),
+                    color: SboxColors.slate900,
                   ),
                 ),
                 const SizedBox(height: 8),
@@ -456,7 +457,7 @@ class _MobileAttendanceRecordDetailBodyState
                   Text(
                     tr('${record.latitude!.toStringAsFixed(6)}, ${record.longitude!.toStringAsFixed(6)}'),
                     style: const TextStyle(
-                        fontSize: 12, color: Color(0xFF71717A)),
+                        fontSize: 12, color: SboxColors.slate500),
                   ),
                   const SizedBox(height: 8),
                   SizedBox(
@@ -477,19 +478,19 @@ class _MobileAttendanceRecordDetailBodyState
                     width: double.infinity,
                     padding: const EdgeInsets.all(14),
                     decoration: BoxDecoration(
-                      color: const Color(0xFFFEF3C7),
+                      color: SboxColors.warningSoft,
                       borderRadius: BorderRadius.circular(10),
                       border: Border.all(color: const Color(0xFFFDE68A)),
                     ),
                     child: Row(
                       children: [
                         Icon(Icons.location_off,
-                            color: Color(0xFFF59E0B), size: 22),
+                            color: SboxColors.warning, size: 22),
                         SizedBox(width: 10),
                         Expanded(
                           child: Text(tr('Bản ghi không có tọa độ GPS hợp lệ (có thể do tắt định vị khi chấm).'),
                             style: TextStyle(
-                                fontSize: 12, color: Color(0xFF92400E)),
+                                fontSize: 12, color: SboxColors.warningText),
                           ),
                         ),
                       ],
@@ -532,8 +533,8 @@ class _MobileAttendanceRecordDetailBodyState
                           icon: const Icon(Icons.delete_outline, size: 18),
                           label: Text(tr('Xóa')),
                           style: OutlinedButton.styleFrom(
-                            foregroundColor: const Color(0xFFEF4444),
-                            side: const BorderSide(color: Color(0xFFEF4444)),
+                            foregroundColor: SboxColors.danger,
+                            side: const BorderSide(color: SboxColors.danger),
                             padding: const EdgeInsets.symmetric(vertical: 12),
                           ),
                         ),
@@ -559,8 +560,8 @@ class _MobileAttendanceRecordDetailBodyState
                           icon: const Icon(Icons.close, size: 18),
                           label: Text(tr('Từ chối')),
                           style: OutlinedButton.styleFrom(
-                            foregroundColor: const Color(0xFFEF4444),
-                            side: const BorderSide(color: Color(0xFFEF4444)),
+                            foregroundColor: SboxColors.danger,
+                            side: const BorderSide(color: SboxColors.danger),
                             padding: const EdgeInsets.symmetric(vertical: 12),
                           ),
                         ),
@@ -610,12 +611,12 @@ class _DetailRow extends StatelessWidget {
       child: Row(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Icon(icon, size: 18, color: const Color(0xFF71717A)),
+          Icon(icon, size: 18, color: SboxColors.slate500),
           const SizedBox(width: 10),
           Expanded(
             flex: 2,
             child: Text(tr(label),
-                style: const TextStyle(fontSize: 13, color: Color(0xFF71717A))),
+                style: const TextStyle(fontSize: 13, color: SboxColors.slate500)),
           ),
           Expanded(
             flex: 3,
@@ -625,7 +626,7 @@ class _DetailRow extends StatelessWidget {
               style: const TextStyle(
                 fontSize: 13,
                 fontWeight: FontWeight.w600,
-                color: Color(0xFF18181B),
+                color: SboxColors.slate900,
               ),
             ),
           ),

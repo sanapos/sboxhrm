@@ -15,6 +15,7 @@ import 'business_trip_case_detail_screen.dart';
 import 'business_trip_categories_screen.dart';
 import 'package:zkteco_flutter_client/l10n/app_tr.dart';
 
+import '../theme/sbox_tokens.dart';
 const _theme = HrmPageChrome.primaryNavy;
 
 List<Map<String, dynamic>> _parseCaseItems(dynamic data) {
@@ -330,8 +331,8 @@ class _BusinessTripExpenseScreenState extends State<BusinessTripExpenseScreen> {
           padding: const EdgeInsets.fromLTRB(12, 10, 12, 12),
           decoration: BoxDecoration(
             color: Colors.white,
-            borderRadius: BorderRadius.circular(12),
-            border: Border.all(color: const Color(0xFFEEEEF0)),
+            borderRadius: BorderRadius.circular(14),
+            border: Border.all(color: SboxColors.divider),
           ),
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.stretch,
@@ -436,7 +437,7 @@ class _BusinessTripExpenseScreenState extends State<BusinessTripExpenseScreen> {
                 Text(
                   tr('Chưa có danh mục. Bấm Quản lý để khởi tạo mẫu.'),
                   style: TextStyle(
-                      fontSize: 12, color: Colors.grey[700], height: 1.35),
+                      fontSize: 12, color: SboxColors.slate700, height: 1.35),
                 )
               else
                 Wrap(
@@ -569,14 +570,14 @@ class _BusinessTripExpenseScreenState extends State<BusinessTripExpenseScreen> {
                               return Card(
                                 elevation: 0,
                                 color: isCancelled
-                                    ? const Color(0xFFFEF2F2)
+                                    ? SboxColors.dangerSoft
                                     : null,
                                 shape: RoundedRectangleBorder(
-                                  borderRadius: BorderRadius.circular(12),
+                                  borderRadius: BorderRadius.circular(14),
                                   side: BorderSide(
                                     color: isCancelled
                                         ? const Color(0xFFFECACA)
-                                        : const Color(0xFFE2E8F0),
+                                        : SboxColors.slate200,
                                   ),
                                 ),
                                 child: ListTile(
@@ -594,7 +595,7 @@ class _BusinessTripExpenseScreenState extends State<BusinessTripExpenseScreen> {
                                           ? TextDecoration.lineThrough
                                           : null,
                                       color: isCancelled
-                                          ? const Color(0xFF991B1B)
+                                          ? SboxColors.dangerText
                                           : null,
                                     ),
                                   ),
@@ -739,13 +740,13 @@ class _BusinessTripCreateScreenState extends State<_BusinessTripCreateScreen> {
       prefixIcon: icon != null ? Icon(icon, color: _theme) : null,
       filled: true,
       fillColor: Colors.white,
-      border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
+      border: OutlineInputBorder(borderRadius: BorderRadius.circular(14)),
       enabledBorder: OutlineInputBorder(
-        borderRadius: BorderRadius.circular(12),
-        borderSide: const BorderSide(color: Color(0xFFE2E8F0)),
+        borderRadius: BorderRadius.circular(14),
+        borderSide: const BorderSide(color: SboxColors.slate200),
       ),
       focusedBorder: OutlineInputBorder(
-        borderRadius: BorderRadius.circular(12),
+        borderRadius: BorderRadius.circular(14),
         borderSide: const BorderSide(color: _theme, width: 1.5),
       ),
     );
@@ -754,7 +755,7 @@ class _BusinessTripCreateScreenState extends State<_BusinessTripCreateScreen> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: const Color(0xFFF8FAFC),
+      backgroundColor: SboxColors.slate50,
       appBar: AppBar(
         title: Text(tr('Hồ sơ công tác mới')),
         backgroundColor: _theme,
@@ -813,10 +814,10 @@ class _BusinessTripCreateScreenState extends State<_BusinessTripCreateScreen> {
                       child: OutlinedButton.icon(
                         style: OutlinedButton.styleFrom(
                           padding: const EdgeInsets.symmetric(vertical: 16),
-                          side: const BorderSide(color: Color(0xFFE2E8F0)),
+                          side: const BorderSide(color: SboxColors.slate200),
                           backgroundColor: Colors.white,
                           shape: RoundedRectangleBorder(
-                            borderRadius: BorderRadius.circular(12),
+                            borderRadius: BorderRadius.circular(14),
                           ),
                         ),
                         onPressed: () => _pickDate(true),
@@ -833,10 +834,10 @@ class _BusinessTripCreateScreenState extends State<_BusinessTripCreateScreen> {
                       child: OutlinedButton.icon(
                         style: OutlinedButton.styleFrom(
                           padding: const EdgeInsets.symmetric(vertical: 16),
-                          side: const BorderSide(color: Color(0xFFE2E8F0)),
+                          side: const BorderSide(color: SboxColors.slate200),
                           backgroundColor: Colors.white,
                           shape: RoundedRectangleBorder(
-                            borderRadius: BorderRadius.circular(12),
+                            borderRadius: BorderRadius.circular(14),
                           ),
                         ),
                         onPressed: () => _pickDate(false),
@@ -865,7 +866,7 @@ class _BusinessTripCreateScreenState extends State<_BusinessTripCreateScreen> {
               padding: const EdgeInsets.fromLTRB(16, 10, 16, 12),
               decoration: const BoxDecoration(
                 color: Colors.white,
-                border: Border(top: BorderSide(color: Color(0xFFE2E8F0))),
+                border: Border(top: BorderSide(color: SboxColors.slate200)),
               ),
               child: Row(
                 children: [

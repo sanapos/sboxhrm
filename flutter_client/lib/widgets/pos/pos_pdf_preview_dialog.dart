@@ -38,7 +38,7 @@ Future<void> showPosPdfPreviewDialog(
                       child: Text(
                         tr(title),
                         style: const TextStyle(
-                          fontSize: 15,
+                          fontSize: 16,
                           fontWeight: FontWeight.w600,
                         ),
                       ),

@@ -5,6 +5,7 @@ import '../services/api_service.dart';
 import '../utils/report_screen_helpers.dart';
 import '../widgets/hrm_page_chrome.dart';
 
+import '../theme/sbox_tokens.dart';
 /// Độ phủ ca theo định mức nhân sự: mỗi ngày × ca × phòng ban → số người đã xếp
 /// so với tối thiểu / tối đa (Thiếu / Cảnh báo / Đạt / Vượt).
 class ShiftCoverageScreen extends StatefulWidget {
@@ -18,7 +19,7 @@ Color _statusColor(String s) => switch (s) {
       'Thiếu' => const Color(0xFFC62828),
       'Cảnh báo' => const Color(0xFFEF6C00),
       'Vượt' => const Color(0xFF7B1FA2),
-      _ => const Color(0xFF2E7D32),
+      _ => SboxColors.successText,
     };
 
 class _ShiftCoverageScreenState extends State<ShiftCoverageScreen> {
@@ -209,7 +210,7 @@ class _ShiftCoverageScreenState extends State<ShiftCoverageScreen> {
       margin: const EdgeInsets.only(bottom: 6),
       elevation: 0,
       shape: RoundedRectangleBorder(
-        borderRadius: BorderRadius.circular(8),
+        borderRadius: BorderRadius.circular(10),
         side: BorderSide(color: color.withValues(alpha: 0.35)),
       ),
       child: ListTile(

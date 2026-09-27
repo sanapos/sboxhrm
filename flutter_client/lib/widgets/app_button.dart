@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import '../l10n/app_tr.dart';
 
 import './pos/pos_theme.dart';
+import '../theme/sbox_tokens.dart';
 /// Semantic button variants for consistent UI
 enum AppButtonVariant { primary, danger, success, warning, cancel, outlined }
 
@@ -104,10 +105,10 @@ class AppButton extends StatelessWidget {
 
   // -- Color palette --
   static const _primaryColor = PosTheme.kiotBlue;
-  static const _dangerColor = Color(0xFFEF4444);
-  static const _successColor = Color(0xFF16A34A);
-  static const _warningColor = Color(0xFFF59E0B);
-  static const _cancelTextColor = Color(0xFF71717A);
+  static const _dangerColor = SboxColors.danger;
+  static const _successColor = SboxColors.success;
+  static const _warningColor = SboxColors.warning;
+  static const _cancelTextColor = SboxColors.slate500;
 
   Color get _bgColor {
     switch (variant) {
@@ -375,7 +376,7 @@ class AppActionIcon extends StatelessWidget {
     this.tooltip = 'Xóa',
     this.size = 20,
   })  : icon = Icons.delete_outline,
-        color = const Color(0xFFEF4444);
+        color = SboxColors.danger;
 
   const AppActionIcon.view({
     super.key,
@@ -391,7 +392,7 @@ class AppActionIcon extends StatelessWidget {
     this.tooltip = 'Duyệt',
     this.size = 20,
   })  : icon = Icons.check_circle_outline,
-        color = const Color(0xFF16A34A);
+        color = SboxColors.success;
 
   const AppActionIcon.reject({
     super.key,
@@ -399,7 +400,7 @@ class AppActionIcon extends StatelessWidget {
     this.tooltip = 'Từ chối',
     this.size = 20,
   })  : icon = Icons.cancel_outlined,
-        color = const Color(0xFFEF4444);
+        color = SboxColors.danger;
 
   @override
   Widget build(BuildContext context) {

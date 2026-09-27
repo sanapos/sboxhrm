@@ -11,6 +11,7 @@ import 'system_admin_helpers.dart';
 import '../../widgets/hrm_page_chrome.dart';
 import 'package:zkteco_flutter_client/l10n/app_tr.dart';
 
+import '../../theme/sbox_tokens.dart';
 class StoresTab extends StatefulWidget {
   final bool agentMode;
 
@@ -270,7 +271,7 @@ class StoresTabState extends State<StoresTab> {
       if (notUsingCount > 0) ...[
         const SizedBox(width: 8),
         AdminHelpers.countBadge(
-            'Không SD', notUsingCount, Colors.grey.shade600),
+            'Không SD', notUsingCount, SboxColors.slate600),
       ],
       if (expiringCount > 0) ...[
         const SizedBox(width: 8),
@@ -283,7 +284,7 @@ class StoresTabState extends State<StoresTab> {
       ],
       if (inactiveCount > 0) ...[
         const SizedBox(width: 8),
-        AdminHelpers.countBadge('Tạm tắt', inactiveCount, Colors.grey),
+        AdminHelpers.countBadge('Tạm tắt', inactiveCount, SboxColors.slate500),
       ],
       if (lockedCount > 0) ...[
         const SizedBox(width: 8),
@@ -444,7 +445,7 @@ class StoresTabState extends State<StoresTab> {
       decoration: BoxDecoration(
           color: Colors.white,
           borderRadius: BorderRadius.circular(10),
-          border: Border.all(color: Colors.grey.shade300)),
+          border: Border.all(color: SboxColors.slate300)),
       child: DropdownButtonHideUnderline(
         child: DropdownButton<T>(
           isExpanded: mobile,
@@ -483,8 +484,8 @@ class StoresTabState extends State<StoresTab> {
                   child: Container(
                     decoration: BoxDecoration(
                       color: Colors.white,
-                      borderRadius: BorderRadius.circular(12),
-                      border: Border.all(color: const Color(0xFFE4E4E7)),
+                      borderRadius: BorderRadius.circular(14),
+                      border: Border.all(color: SboxColors.slate200),
                       boxShadow: [BoxShadow(color: Colors.black.withValues(alpha: 0.05), blurRadius: 6, offset: const Offset(0, 2))],
                     ),
                     child: _buildStoreDeckItem(paginatedItems[i]),
@@ -502,12 +503,12 @@ class StoresTabState extends State<StoresTab> {
             padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
             decoration: BoxDecoration(
               color: Colors.white,
-              border: Border(top: BorderSide(color: Colors.grey.shade200)),
+              border: Border(top: BorderSide(color: SboxColors.slate200)),
             ),
             child: Row(
               mainAxisAlignment: MainAxisAlignment.spaceBetween,
               children: [
-                Text(tr('Hiển thị ${startIndex + 1}-$endIndex / $totalCount'), style: TextStyle(fontSize: 12, color: Colors.grey[600])),
+                Text(tr('Hiển thị ${startIndex + 1}-$endIndex / $totalCount'), style: TextStyle(fontSize: 12, color: SboxColors.slate600)),
                 Row(children: [
                   IconButton(icon: const Icon(Icons.chevron_left, size: 20), onPressed: page > 1 ? () => setState(() => _currentPage--) : null, visualDensity: VisualDensity.compact),
                   Text(tr('$page / $totalPages'), style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w500)),
@@ -547,7 +548,7 @@ class StoresTabState extends State<StoresTab> {
         child: Row(children: [
           Container(
             width: 36, height: 36,
-            decoration: BoxDecoration(color: HrmPageChrome.primaryNavy.withValues(alpha: 0.1), borderRadius: BorderRadius.circular(8)),
+            decoration: BoxDecoration(color: HrmPageChrome.primaryNavy.withValues(alpha: 0.1), borderRadius: BorderRadius.circular(10)),
             child: const Icon(Icons.store, color: HrmPageChrome.primaryNavy, size: 18),
           ),
           const SizedBox(width: 12),
@@ -556,11 +557,11 @@ class StoresTabState extends State<StoresTab> {
               Text(tr(name), style: const TextStyle(fontWeight: FontWeight.w600, fontSize: 14), maxLines: 1, overflow: TextOverflow.ellipsis),
               const SizedBox(height: 2),
               Text(tr([if (phone.isNotEmpty) phone, AdminHelpers.licenseTypeLabel(licenseType)].join(' \u00b7 ')),
-                style: const TextStyle(color: Color(0xFF71717A), fontSize: 12), maxLines: 1, overflow: TextOverflow.ellipsis),
+                style: const TextStyle(color: SboxColors.slate500, fontSize: 12), maxLines: 1, overflow: TextOverflow.ellipsis),
               Text(
                 tr(hasAgent ? 'Đại lý: $agentName' : 'Đại lý: Chưa gán'),
                 style: TextStyle(
-                  color: hasAgent ? HrmPageChrome.chipMid : const Color(0xFFA1A1AA),
+                  color: hasAgent ? HrmPageChrome.chipMid : SboxColors.slate400,
                   fontSize: 11,
                 ),
                 maxLines: 1,
@@ -579,18 +580,18 @@ class StoresTabState extends State<StoresTab> {
                   color: (store['renewalCount'] as int? ?? 0) >=
                           AdminHelpers.maxStoreRenewals
                       ? AdminHelpers.warning
-                      : const Color(0xFF71717A),
+                      : SboxColors.slate500,
                 ),
               ),
             ]),
           ),
           Container(
             padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
-            decoration: BoxDecoration(color: isLocked ? Colors.red.withValues(alpha: 0.1) : isActive ? Colors.green.withValues(alpha: 0.1) : Colors.grey.withValues(alpha: 0.1), borderRadius: BorderRadius.circular(8)),
-            child: Text(tr(isLocked ? 'Kh\u00f3a' : isActive ? 'H\u0110' : 'T\u1eaft'), style: TextStyle(fontSize: 10, fontWeight: FontWeight.w600, color: isLocked ? Colors.red : isActive ? Colors.green : Colors.grey)),
+            decoration: BoxDecoration(color: isLocked ? Colors.red.withValues(alpha: 0.1) : isActive ? Colors.green.withValues(alpha: 0.1) : SboxColors.slate500.withValues(alpha: 0.1), borderRadius: BorderRadius.circular(10)),
+            child: Text(tr(isLocked ? 'Kh\u00f3a' : isActive ? 'H\u0110' : 'T\u1eaft'), style: TextStyle(fontSize: 10, fontWeight: FontWeight.w600, color: isLocked ? Colors.red : isActive ? Colors.green : SboxColors.slate500)),
           ),
           const SizedBox(width: 4),
-          const Icon(Icons.chevron_right, size: 18, color: Color(0xFFA1A1AA)),
+          const Icon(Icons.chevron_right, size: 18, color: SboxColors.slate400),
         ]),
       ),
     );
@@ -608,7 +609,7 @@ class StoresTabState extends State<StoresTab> {
             ? AdminHelpers.danger
             : isActive
                 ? AdminHelpers.primary
-                : Colors.grey,
+                : SboxColors.slate500,
       ),
       child: ExpansionTile(
         tilePadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 4),
@@ -623,7 +624,7 @@ class StoresTabState extends State<StoresTab> {
             Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
           if (store['phone'] != null)
             Text(tr(store['phone']),
-                style: TextStyle(fontSize: 12, color: Colors.grey[600])),
+                style: TextStyle(fontSize: 12, color: SboxColors.slate600)),
           const SizedBox(height: 4),
           Wrap(spacing: 6, runSpacing: 4, children: [
             AdminHelpers.statusChip(
@@ -636,7 +637,7 @@ class StoresTabState extends State<StoresTab> {
                     ? AdminHelpers.danger
                     : isActive
                         ? AdminHelpers.success
-                        : Colors.grey),
+                        : SboxColors.slate500),
             if (store['licenseType'] != null)
               AdminHelpers.statusChip(
                   AdminHelpers.licenseTypeChipLabel(
@@ -657,7 +658,7 @@ class StoresTabState extends State<StoresTab> {
               final Color chipColor;
               final String label;
               if (days == null) {
-                chipColor = Colors.grey;
+                chipColor = SboxColors.slate500;
                 label = 'Chưa có GD';
               } else if (days == 0) {
                 chipColor = AdminHelpers.success;
@@ -1441,7 +1442,7 @@ class StoresTabState extends State<StoresTab> {
               width: 140,
               child: Text(tr(label),
                   style: TextStyle(
-                      fontSize: 13, color: Colors.grey[600]))),
+                      fontSize: 13, color: SboxColors.slate600))),
           Expanded(
               child: Text(tr(value),
                   style: const TextStyle(
@@ -1509,7 +1510,7 @@ class StoresTabState extends State<StoresTab> {
                 padding: const EdgeInsets.all(12),
                 decoration: BoxDecoration(
                   color: AdminHelpers.warning.withValues(alpha: 0.1),
-                  borderRadius: BorderRadius.circular(8),
+                  borderRadius: BorderRadius.circular(10),
                   border: Border.all(
                       color: AdminHelpers.warning.withValues(alpha: 0.3)),
                 ),
@@ -1650,7 +1651,7 @@ class StoresTabState extends State<StoresTab> {
                 padding: const EdgeInsets.all(12),
                 decoration: BoxDecoration(
                   color: AdminHelpers.danger.withValues(alpha: 0.1),
-                  borderRadius: BorderRadius.circular(8),
+                  borderRadius: BorderRadius.circular(10),
                   border: Border.all(
                       color: AdminHelpers.danger.withValues(alpha: 0.3)),
                 ),
@@ -1847,7 +1848,7 @@ class StoresTabState extends State<StoresTab> {
             const SizedBox(width: 8),
             Expanded(
                 child: Text(tr('Gia hạn — $name'),
-                    style: const TextStyle(fontSize: 17))),
+                    style: const TextStyle(fontSize: 18))),
           ]),
           content: SizedBox(
             width: MediaQuery.of(context).size.width < 600
@@ -1863,7 +1864,7 @@ class StoresTabState extends State<StoresTab> {
                     margin: const EdgeInsets.only(bottom: 10),
                     decoration: BoxDecoration(
                       color: HrmPageChrome.chipMid.withValues(alpha: 0.08),
-                      borderRadius: BorderRadius.circular(8),
+                      borderRadius: BorderRadius.circular(10),
                     ),
                     child: Row(children: [
                       const Icon(Icons.account_balance_wallet_outlined,
@@ -1910,7 +1911,7 @@ class StoresTabState extends State<StoresTab> {
                       labelStyle: TextStyle(
                         color: selected
                             ? HrmPageChrome.chipMid
-                            : Colors.black87,
+                            : SboxColors.text,
                         fontWeight:
                             selected ? FontWeight.w600 : FontWeight.normal,
                       ),
@@ -2045,7 +2046,7 @@ class StoresTabState extends State<StoresTab> {
                 if (store['servicePackageName'] != null) ...
                   [const SizedBox(height: 4),
                   Text(tr('${tr('Gói hiện tại: ')}${store['servicePackageName']}'),
-                      style: const TextStyle(color: Colors.grey, fontSize: 13))],
+                      style: const TextStyle(color: SboxColors.slate500, fontSize: 13))],
                 const SizedBox(height: 12),
                 Wrap(
                   spacing: 6,
@@ -2081,7 +2082,7 @@ class StoresTabState extends State<StoresTab> {
                       : (visibility == false
                           ? 'Gói nội bộ, không hiện trên form đăng ký.'
                           : 'Mọi gói đang bật. Gói đã tắt chỉ giữ nếu cửa hàng đang dùng.')),
-                  style: TextStyle(fontSize: 11, color: Colors.grey.shade700),
+                  style: TextStyle(fontSize: 11, color: SboxColors.slate700),
                 ),
                 const SizedBox(height: 12),
                 DropdownButtonFormField<String>(
@@ -2089,7 +2090,7 @@ class StoresTabState extends State<StoresTab> {
                   isExpanded: true,
                   decoration: InputDecoration(
                     labelText: tr('Chọn gói dịch vụ'),
-                    border: OutlineInputBorder(borderRadius: BorderRadius.circular(8)),
+                    border: OutlineInputBorder(borderRadius: BorderRadius.circular(10)),
                     contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 12),
                   ),
                   items: visible.map((p) {
@@ -2112,7 +2113,7 @@ class StoresTabState extends State<StoresTab> {
                           Text(tr(pname), style: const TextStyle(fontWeight: FontWeight.w600)),
                           Text(
                             tr('$tag · Users: $maxU | Máy CC: $maxD | ${dur ?? '?'} ngày'),
-                            style: const TextStyle(fontSize: 11, color: Colors.grey),
+                            style: const TextStyle(fontSize: 11, color: SboxColors.slate500),
                           ),
                         ],
                       ),
@@ -2228,7 +2229,7 @@ class StoresTabState extends State<StoresTab> {
             const SizedBox(width: 8),
             Expanded(
                 child: Text(tr('Kích hoạt Key — $name'),
-                    style: const TextStyle(fontSize: 17))),
+                    style: const TextStyle(fontSize: 18))),
           ]),
           content: SizedBox(
             width: MediaQuery.of(context).size.width < 600 ? MediaQuery.of(context).size.width - 32 : 500,
@@ -2242,7 +2243,7 @@ class StoresTabState extends State<StoresTab> {
                     margin: const EdgeInsets.only(bottom: 12),
                     decoration: BoxDecoration(
                       color: AdminHelpers.info.withValues(alpha: 0.08),
-                      borderRadius: BorderRadius.circular(8),
+                      borderRadius: BorderRadius.circular(10),
                     ),
                     child: Row(children: [
                       const Icon(Icons.info_outline,
@@ -2342,14 +2343,14 @@ class StoresTabState extends State<StoresTab> {
                           padding: EdgeInsets.symmetric(horizontal: 8),
                           child: Text(tr('hoặc nhập key'),
                               style: TextStyle(
-                                  fontSize: 12, color: Color(0xFF71717A))),
+                                  fontSize: 12, color: SboxColors.slate500)),
                         ),
                         Expanded(child: Divider()),
                       ]),
                     ),
                   ] else ...[
                     Text(tr('Không có key sẵn trong kho — nhập key thủ công.'),
-                      style: TextStyle(fontSize: 13, color: Colors.grey[600]),
+                      style: TextStyle(fontSize: 13, color: SboxColors.slate600),
                     ),
                     const SizedBox(height: 8),
                   ],
@@ -2435,7 +2436,7 @@ class StoresTabState extends State<StoresTab> {
                       padding: const EdgeInsets.all(12),
                       decoration: BoxDecoration(
                         color: AdminHelpers.success.withValues(alpha: 0.08),
-                        borderRadius: BorderRadius.circular(8),
+                        borderRadius: BorderRadius.circular(10),
                         border: Border.all(color: AdminHelpers.success.withValues(alpha: 0.3)),
                       ),
                       child: Column(
@@ -2454,7 +2455,7 @@ class StoresTabState extends State<StoresTab> {
                           ],
                           const Divider(),
                           Text(tr('${tr('Tổng cộng: ')}${previewData!['grandTotalDays']} ngày'),
-                              style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 15)),
+                              style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 16)),
                           if (previewData!['newExpiryDate'] != null)
                             Text(tr('${tr('Hạn mới: ')}${_fmtDate(previewData!['newExpiryDate'])}'),
                                 style: const TextStyle(fontSize: 13)),
@@ -2597,13 +2598,13 @@ class _StoreUsersDialogState extends State<_StoreUsersDialog> {
         const SizedBox(width: 8),
         Expanded(
           child: Text(tr('Tài khoản — ${widget.storeName}'),
-              style: const TextStyle(fontSize: 17)),
+              style: const TextStyle(fontSize: 18)),
         ),
         Container(
           padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
           decoration: BoxDecoration(
             color: AdminHelpers.primary.withValues(alpha: 0.1),
-            borderRadius: BorderRadius.circular(12),
+            borderRadius: BorderRadius.circular(14),
           ),
           child: Text(tr('${_users.length} tài khoản'),
               style: const TextStyle(
@@ -2675,12 +2676,12 @@ class _StoreUsersDialogState extends State<_StoreUsersDialog> {
                     const SizedBox(height: 2),
                     Row(
                       children: [
-                        Icon(Icons.email, size: 12, color: Colors.grey[500]),
+                        Icon(Icons.email, size: 12, color: SboxColors.slate500),
                         const SizedBox(width: 4),
                         Expanded(
                           child: Text(tr(email),
                               style: TextStyle(
-                                  fontSize: 12, color: Colors.grey[600])),
+                                  fontSize: 12, color: SboxColors.slate600)),
                         ),
                         // Copy email
                         InkWell(
@@ -2689,14 +2690,14 @@ class _StoreUsersDialogState extends State<_StoreUsersDialog> {
                             AdminHelpers.showSuccess(context, 'Đã copy email');
                           },
                           child: Icon(Icons.copy,
-                              size: 14, color: Colors.grey[400]),
+                              size: 14, color: SboxColors.slate400),
                         ),
                       ],
                     ),
                     if (lastLogin != null)
                       Text(tr('Đăng nhập cuối: ${AdminHelpers.formatDateTime(lastLogin)}'),
                           style:
-                              TextStyle(fontSize: 11, color: Colors.grey[500])),
+                              TextStyle(fontSize: 11, color: SboxColors.slate500)),
                   ],
                 ),
               ),
@@ -2712,14 +2713,14 @@ class _StoreUsersDialogState extends State<_StoreUsersDialog> {
                   padding:
                       const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
                   decoration: BoxDecoration(
-                    color: Colors.grey[50],
-                    borderRadius: BorderRadius.circular(8),
-                    border: Border.all(color: Colors.grey.shade200),
+                    color: SboxColors.slate50,
+                    borderRadius: BorderRadius.circular(10),
+                    border: Border.all(color: SboxColors.slate200),
                   ),
                   child: Row(
                     children: [
                       Icon(Icons.vpn_key,
-                          size: 14, color: Colors.grey[500]),
+                          size: 14, color: SboxColors.slate500),
                       const SizedBox(width: 6),
                       Expanded(
                         child: visiblePassword != null
@@ -2733,10 +2734,10 @@ class _StoreUsersDialogState extends State<_StoreUsersDialog> {
                                 : Text(tr('••••••••'),
                                     style: TextStyle(
                                         fontSize: 13,
-                                        color: Colors.grey[500])))
+                                        color: SboxColors.slate500)))
                             : Text(tr('Chưa lưu (đặt lại MK để xem)'),
                                 style: TextStyle(
-                                    fontSize: 12, color: Colors.grey[500])),
+                                    fontSize: 12, color: SboxColors.slate500)),
                       ),
                       if (visiblePassword != null) ...[
                         InkWell(
@@ -2751,7 +2752,7 @@ class _StoreUsersDialogState extends State<_StoreUsersDialog> {
                                   ? Icons.visibility_off
                                   : Icons.visibility,
                               size: 14,
-                              color: Colors.grey[600],
+                              color: SboxColors.slate600,
                             ),
                           ),
                         ),
@@ -2801,7 +2802,7 @@ class _StoreUsersDialogState extends State<_StoreUsersDialog> {
       case 'manager':
         return AdminHelpers.info;
       default:
-        return Colors.grey;
+        return SboxColors.slate500;
     }
   }
 

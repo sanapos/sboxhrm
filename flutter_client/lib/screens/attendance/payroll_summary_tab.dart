@@ -44,6 +44,7 @@ import 'package:zkteco_flutter_client/l10n/app_tr.dart';
 import 'package:zkteco_flutter_client/l10n/app_ui_locale.dart';
 
 import '../../theme/sbox_tokens.dart';
+import '../../widgets/sbox/sbox_table.dart';
 // ═══════════════════════════════════════════════════════════════
 //  PayrollColumn – định nghĩa 1 cột bảng lương
 // ═══════════════════════════════════════════════════════════════
@@ -4779,264 +4780,23 @@ class PayrollSummaryTabState extends State<PayrollSummaryTab> {
     int totalPages, {
     VoidCallback? onOpenFullscreen,
   }) {
-    final isMobile = Responsive.isMobile(context);
-    if (isMobile) {
-      return Container(
-        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
-        decoration: BoxDecoration(
-          color: Colors.white,
-          borderRadius: BorderRadius.circular(14),
-          boxShadow: [
-            BoxShadow(
-                color: Colors.black.withValues(alpha: 0.04),
-                blurRadius: 8,
-                offset: const Offset(0, 2))
-          ],
-        ),
-        child: Row(
-          mainAxisAlignment: MainAxisAlignment.spaceBetween,
-          children: [
-            Text(tr('$totalRows dòng'),
-                style: const TextStyle(
-                    fontSize: 12,
-                    color: HrmPageChrome.primaryNavy,
-                    fontWeight: FontWeight.w600)),
-            Row(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                _buildPageNavBtn(
-                    Icons.chevron_left,
-                    _currentPage > 1,
-                    () => setState(() {
-                          _currentPage--;
-                        })),
-                Padding(
-                  padding: const EdgeInsets.symmetric(horizontal: 8),
-                  child: Text(tr('$_currentPage / $totalPages'),
-                      style: const TextStyle(
-                          fontSize: 12, fontWeight: FontWeight.w600)),
-                ),
-                _buildPageNavBtn(
-                    Icons.chevron_right,
-                    _currentPage < totalPages,
-                    () => setState(() {
-                          _currentPage++;
-                        })),
-              ],
-            ),
-          ],
-        ),
-      );
-    }
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
-      decoration: BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.circular(14),
-        boxShadow: [
-          BoxShadow(
-              color: Colors.black.withValues(alpha: 0.04),
-              blurRadius: 8,
-              offset: const Offset(0, 2)),
-        ],
-      ),
-      child: Row(
-        children: [
-          Container(
-            padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
-            decoration: BoxDecoration(
-              color: HrmPageChrome.primaryNavy.withValues(alpha: 0.1),
-              borderRadius: BorderRadius.circular(20),
-            ),
-            child: Text(tr('$totalRows dòng'),
-                style: const TextStyle(
-                    fontSize: 12,
-                    color: HrmPageChrome.primaryNavy,
-                    fontWeight: FontWeight.w600)),
+    return SboxPager(
+      page: _currentPage,
+      pageSize: _rowsPerPage,
+      total: totalRows,
+      onPage: (p) => setState(() => _currentPage = p),
+      onPageSize: (v) => setState(() {
+        _rowsPerPage = v;
+        _currentPage = 1;
+      }),
+      extra: [
+        if (onOpenFullscreen != null)
+          TextButton.icon(
+            onPressed: onOpenFullscreen,
+            icon: const Icon(Icons.fullscreen_rounded, size: 18),
+            label: Text(tr('Toàn màn hình')),
           ),
-          const SizedBox(width: 16),
-          Text(tr('Hiển thị'),
-              style: TextStyle(fontSize: 12, color: SboxColors.slate600)),
-          const SizedBox(width: 6),
-          PopupMenuButton<int>(
-            onSelected: (v) => setState(() {
-              _rowsPerPage = v;
-              _currentPage = 1;
-              _cachedPayrollData = null;
-            }),
-            offset: const Offset(0, -200),
-            itemBuilder: (_) => [10, 20, 50, 100]
-                .map((n) => PopupMenuItem(
-                      value: n,
-                      height: 36,
-                      child: Text(tr('$n'),
-                          style: TextStyle(
-                            fontSize: 12,
-                            fontWeight: n == _rowsPerPage
-                                ? FontWeight.bold
-                                : FontWeight.normal,
-                            color: n == _rowsPerPage
-                                ? SboxColors.brand500
-                                : SboxColors.text,
-                          )),
-                    ))
-                .toList(),
-            child: Container(
-              padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
-              decoration: BoxDecoration(
-                border: Border.all(color: SboxColors.slate300),
-                borderRadius: BorderRadius.circular(6),
-              ),
-              child: Row(
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  Text(tr('$_rowsPerPage'),
-                      style:
-                          const TextStyle(fontSize: 12, color: SboxColors.text)),
-                  const SizedBox(width: 4),
-                  Icon(Icons.arrow_drop_down,
-                      size: 16, color: SboxColors.slate600),
-                ],
-              ),
-            ),
-          ),
-          Text(tr(' / trang'),
-              style: TextStyle(fontSize: 12, color: SboxColors.slate600)),
-          if (onOpenFullscreen != null) ...[
-            const SizedBox(width: 8),
-            Tooltip(
-              message: tr('Xem toàn màn hình'),
-              child: Material(
-                color: SboxColors.brand50,
-                borderRadius: BorderRadius.circular(10),
-                child: InkWell(
-                  onTap: onOpenFullscreen,
-                  borderRadius: BorderRadius.circular(10),
-                  child: Padding(
-                    padding: EdgeInsets.symmetric(horizontal: 10, vertical: 6),
-                    child: Row(
-                      mainAxisSize: MainAxisSize.min,
-                      children: [
-                        Icon(Icons.fullscreen,
-                            size: 18, color: SboxColors.brand600),
-                        SizedBox(width: 6),
-                        Text(tr('Toàn màn hình'),
-                          style: TextStyle(
-                            fontSize: 12,
-                            fontWeight: FontWeight.w600,
-                            color: SboxColors.brand600,
-                          ),
-                        ),
-                      ],
-                    ),
-                  ),
-                ),
-              ),
-            ),
-          ],
-          const Spacer(),
-          _buildPageNavBtn(
-              Icons.first_page,
-              _currentPage > 1,
-              () => setState(() {
-                    _currentPage = 1;
-                  })),
-          const SizedBox(width: 4),
-          _buildPageNavBtn(
-              Icons.chevron_left,
-              _currentPage > 1,
-              () => setState(() {
-                    _currentPage--;
-                  })),
-          const SizedBox(width: 4),
-          ..._buildPageNumbers(totalPages),
-          const SizedBox(width: 4),
-          _buildPageNavBtn(
-              Icons.chevron_right,
-              _currentPage < totalPages,
-              () => setState(() {
-                    _currentPage++;
-                  })),
-          const SizedBox(width: 4),
-          _buildPageNavBtn(
-              Icons.last_page,
-              _currentPage < totalPages,
-              () => setState(() {
-                    _currentPage = totalPages;
-                  })),
-        ],
-      ),
-    );
-  }
-
-  List<Widget> _buildPageNumbers(int totalPages) {
-    final pages = <int>[];
-    if (totalPages <= 7) {
-      pages.addAll(List.generate(totalPages, (i) => i + 1));
-    } else {
-      pages.add(1);
-      int start = (_currentPage - 1).clamp(2, totalPages - 4);
-      int end = (_currentPage + 1).clamp(4, totalPages - 1);
-      if (start > 2) pages.add(-1); // ellipsis
-      for (int i = start; i <= end; i++) {
-        pages.add(i);
-      }
-      if (end < totalPages - 1) pages.add(-1); // ellipsis
-      pages.add(totalPages);
-    }
-    return pages.map((p) {
-      if (p == -1) {
-        return Padding(
-          padding: const EdgeInsets.symmetric(horizontal: 2),
-          child: Text(tr('...'),
-              style: TextStyle(fontSize: 12, color: SboxColors.slate400)),
-        );
-      }
-      final isActive = p == _currentPage;
-      return Padding(
-        padding: const EdgeInsets.symmetric(horizontal: 1),
-        child: Material(
-          color: isActive ? Theme.of(context).primaryColor : Colors.transparent,
-          borderRadius: BorderRadius.circular(10),
-          child: InkWell(
-            onTap: isActive
-                ? null
-                : () => setState(() {
-                      _currentPage = p;
-                    }),
-            borderRadius: BorderRadius.circular(10),
-            child: Container(
-              constraints: const BoxConstraints(minWidth: 32, minHeight: 32),
-              alignment: Alignment.center,
-              child: Text(tr('$p'),
-                  style: TextStyle(
-                    fontSize: 13,
-                    fontWeight: isActive ? FontWeight.w600 : FontWeight.normal,
-                    color: isActive ? Colors.white : SboxColors.slate700,
-                  )),
-            ),
-          ),
-        ),
-      );
-    }).toList();
-  }
-
-  Widget _buildPageNavBtn(IconData icon, bool enabled, VoidCallback onTap) {
-    return Material(
-      color: enabled ? SboxColors.slate100 : Colors.transparent,
-      borderRadius: BorderRadius.circular(10),
-      child: InkWell(
-        onTap: enabled ? onTap : null,
-        borderRadius: BorderRadius.circular(10),
-        child: Container(
-          width: 32,
-          height: 32,
-          alignment: Alignment.center,
-          child: Icon(icon,
-              size: 18,
-              color: enabled ? SboxColors.slate700 : SboxColors.slate300),
-        ),
-      ),
+      ],
     );
   }
 

@@ -315,7 +315,7 @@ class PosQrOrderVoiceAlert {
                   Text(tr('Giọng đọc'),
                     style: TextStyle(
                       color: Colors.white,
-                      fontWeight: FontWeight.w900,
+                      fontWeight: FontWeight.w700,
                       fontSize: 18,
                     ),
                   ),

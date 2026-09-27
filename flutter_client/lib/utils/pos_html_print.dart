@@ -8,7 +8,8 @@ import '../widgets/pos/pos_html_preview_stub.dart'
     if (dart.library.js_interop) '../widgets/pos/pos_html_preview_web.dart';
 import 'pos_print_template_defaults.dart';
 
-const _blue = Color(0xFF2563EB);
+import '../theme/sbox_tokens.dart';
+const _blue = SboxColors.brand600;
 
 bool _pdfBytesOk(Uint8List? bytes) {
   if (bytes == null || bytes.length < 5) return false;
@@ -157,8 +158,8 @@ Future<void> showPosHtmlPrintDialog(
                 padding: const EdgeInsets.fromLTRB(16, 0, 16, 16),
                 child: DecoratedBox(
                   decoration: BoxDecoration(
-                    border: Border.all(color: Colors.grey.shade300),
-                    color: Colors.grey.shade100,
+                    border: Border.all(color: SboxColors.slate300),
+                    color: SboxColors.slate100,
                   ),
                   child: buildPosHtmlPreview(htmlDocument, a4Paper: a4Paper),
                 ),

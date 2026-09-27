@@ -47,6 +47,7 @@ import '../widgets/device_sync_progress_overlay.dart';
 import 'package:url_launcher/url_launcher.dart';
 import 'package:zkteco_flutter_client/l10n/app_tr.dart';
 
+import '../theme/sbox_tokens.dart';
 class AttendanceScreen extends StatefulWidget {
   const AttendanceScreen({super.key});
 
@@ -927,8 +928,8 @@ class _AttendanceScreenState extends State<AttendanceScreen> {
                   },
                   tileColor: Theme.of(context).cardColor,
                   shape: RoundedRectangleBorder(
-                    borderRadius: BorderRadius.circular(8),
-                    side: BorderSide(color: Colors.grey[600]!),
+                    borderRadius: BorderRadius.circular(10),
+                    side: BorderSide(color: SboxColors.slate600),
                   ),
                 ),
                 const SizedBox(height: 8),
@@ -949,8 +950,8 @@ class _AttendanceScreenState extends State<AttendanceScreen> {
                   },
                   tileColor: Theme.of(context).cardColor,
                   shape: RoundedRectangleBorder(
-                    borderRadius: BorderRadius.circular(8),
-                    side: BorderSide(color: Colors.grey[600]!),
+                    borderRadius: BorderRadius.circular(10),
+                    side: BorderSide(color: SboxColors.slate600),
                   ),
                 ),
                 const SizedBox(height: 16),
@@ -972,7 +973,7 @@ class _AttendanceScreenState extends State<AttendanceScreen> {
                   padding: const EdgeInsets.all(8),
                   decoration: BoxDecoration(
                     color: Colors.orange.withValues(alpha: 0.1),
-                    borderRadius: BorderRadius.circular(8),
+                    borderRadius: BorderRadius.circular(10),
                   ),
                   child: Row(
                     children: [
@@ -1051,7 +1052,7 @@ class _AttendanceScreenState extends State<AttendanceScreen> {
         builder: (context) => ScrollableAlertDialog(
           title: Row(
             children: [
-              Icon(Icons.upload_file, color: Colors.blue[400]),
+              Icon(Icons.upload_file, color: SboxColors.brand400),
               const SizedBox(width: 8),
               Text(tr('Import chấm công')),
             ],
@@ -1078,7 +1079,7 @@ class _AttendanceScreenState extends State<AttendanceScreen> {
                 padding: const EdgeInsets.all(12),
                 decoration: BoxDecoration(
                   color: Colors.orange.withValues(alpha: 0.08),
-                  borderRadius: BorderRadius.circular(8),
+                  borderRadius: BorderRadius.circular(10),
                   border: Border.all(color: Colors.orange.withValues(alpha: 0.35)),
                 ),
                 child: Column(
@@ -1104,7 +1105,7 @@ class _AttendanceScreenState extends State<AttendanceScreen> {
                 padding: const EdgeInsets.all(12),
                 decoration: BoxDecoration(
                   color: Colors.green.withValues(alpha: 0.08),
-                  borderRadius: BorderRadius.circular(8),
+                  borderRadius: BorderRadius.circular(10),
                   border: Border.all(color: Colors.green.withValues(alpha: 0.35)),
                 ),
                 child: Column(
@@ -1123,12 +1124,12 @@ class _AttendanceScreenState extends State<AttendanceScreen> {
               Container(
                 padding: const EdgeInsets.all(8),
                 decoration: BoxDecoration(
-                  color: Colors.blue.withValues(alpha: 0.1),
-                  borderRadius: BorderRadius.circular(8),
+                  color: SboxColors.brand500.withValues(alpha: 0.1),
+                  borderRadius: BorderRadius.circular(10),
                 ),
                 child: Row(
                   children: [
-                    Icon(Icons.info_outline, color: Colors.blue[700], size: 18),
+                    Icon(Icons.info_outline, color: SboxColors.brand700, size: 18),
                     const SizedBox(width: 8),
                     Expanded(
                       child: Text(
@@ -1839,18 +1840,18 @@ class _AttendanceScreenState extends State<AttendanceScreen> {
         ? Colors.green.withValues(alpha: 0.12)
         : Colors.greenAccent.withValues(alpha: 0.2);
     final disconnectedBg = forLightBackground
-        ? const Color(0xFFF4F4F5)
+        ? SboxColors.slate100
         : Colors.white.withValues(alpha: 0.15);
     final connectedBorder = forLightBackground
         ? Colors.green.withValues(alpha: 0.4)
         : Colors.greenAccent.withValues(alpha: 0.6);
     final disconnectedBorder = forLightBackground
-        ? const Color(0xFFE4E4E7)
+        ? SboxColors.slate200
         : Colors.white.withValues(alpha: 0.3);
     final labelColor = forLightBackground
         ? (_isRealtimeConnected
-            ? const Color(0xFF16A34A)
-            : const Color(0xFF71717A))
+            ? SboxColors.success
+            : SboxColors.slate500)
         : (_isRealtimeConnected ? Colors.greenAccent : Colors.white70);
 
     return Container(
@@ -1872,10 +1873,10 @@ class _AttendanceScreenState extends State<AttendanceScreen> {
               shape: BoxShape.circle,
               color: _isRealtimeConnected
                   ? (forLightBackground
-                      ? const Color(0xFF16A34A)
+                      ? SboxColors.success
                       : Colors.greenAccent)
                   : (forLightBackground
-                      ? const Color(0xFF9CA3AF)
+                      ? SboxColors.slate400
                       : Colors.white54),
               boxShadow: _isRealtimeConnected
                   ? [
@@ -1960,10 +1961,10 @@ class _AttendanceScreenState extends State<AttendanceScreen> {
                   const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
               border: OutlineInputBorder(
                   borderRadius: BorderRadius.circular(10),
-                  borderSide: const BorderSide(color: Color(0xFFE4E4E7))),
+                  borderSide: const BorderSide(color: SboxColors.slate200)),
               enabledBorder: OutlineInputBorder(
                   borderRadius: BorderRadius.circular(10),
-                  borderSide: const BorderSide(color: Color(0xFFE4E4E7))),
+                  borderSide: const BorderSide(color: SboxColors.slate200)),
               focusedBorder: OutlineInputBorder(
                   borderRadius: BorderRadius.circular(10),
                   borderSide:
@@ -2060,7 +2061,7 @@ class _AttendanceScreenState extends State<AttendanceScreen> {
       _buildStatCard(
           'Thẻ từ', '$card', Icons.credit_card, HrmPageChrome.chipLight),
       _buildStatCard(
-          'Thủ công', '$manual', Icons.edit_note, const Color(0xFFEF4444)),
+          'Thủ công', '$manual', Icons.edit_note, SboxColors.danger),
     ];
 
     if (Responsive.isMobile(context)) {
@@ -2105,13 +2106,13 @@ class _AttendanceScreenState extends State<AttendanceScreen> {
           borderRadius: BorderRadius.only(
               bottomLeft: Radius.circular(12),
               bottomRight: Radius.circular(12)),
-          border: Border(top: BorderSide(color: Color(0xFFE4E4E7))),
+          border: Border(top: BorderSide(color: SboxColors.slate200)),
         ),
         child: Row(
           mainAxisAlignment: MainAxisAlignment.spaceBetween,
           children: [
             Text(tr('${startIndex + 1}-$endIndex / $totalItems'),
-                style: TextStyle(fontSize: 12, color: Colors.grey[600])),
+                style: TextStyle(fontSize: 12, color: SboxColors.slate600)),
             Row(
               children: [
                 _buildPageNavBtn(Icons.chevron_left, _currentPage > 1,
@@ -2121,7 +2122,7 @@ class _AttendanceScreenState extends State<AttendanceScreen> {
                       const EdgeInsets.symmetric(horizontal: 12, vertical: 5),
                   decoration: BoxDecoration(
                       color: Theme.of(context).primaryColor,
-                      borderRadius: BorderRadius.circular(8)),
+                      borderRadius: BorderRadius.circular(10)),
                   child: Text(tr('$_currentPage/$totalPages'),
                       style: const TextStyle(
                           fontSize: 12,
@@ -2145,7 +2146,7 @@ class _AttendanceScreenState extends State<AttendanceScreen> {
           bottomLeft: Radius.circular(12),
           bottomRight: Radius.circular(12),
         ),
-        border: Border(top: BorderSide(color: Color(0xFFE4E4E7))),
+        border: Border(top: BorderSide(color: SboxColors.slate200)),
       ),
       child: Row(
         mainAxisAlignment: MainAxisAlignment.spaceBetween,
@@ -2154,7 +2155,7 @@ class _AttendanceScreenState extends State<AttendanceScreen> {
           Text(tr('Hiển thị ${startIndex + 1}-$endIndex / $totalItems'),
             style: TextStyle(
                 fontSize: 13,
-                color: Colors.grey[600],
+                color: SboxColors.slate600,
                 fontWeight: FontWeight.w500),
           ),
 
@@ -2162,21 +2163,21 @@ class _AttendanceScreenState extends State<AttendanceScreen> {
           Row(
             children: [
               Text(tr('Hiển thị:'),
-                  style: TextStyle(fontSize: 12, color: Colors.grey[500])),
+                  style: TextStyle(fontSize: 12, color: SboxColors.slate500)),
               const SizedBox(width: 8),
               Container(
                 height: 34,
                 padding: const EdgeInsets.symmetric(horizontal: 12),
                 decoration: BoxDecoration(
-                  color: const Color(0xFFFAFAFA),
-                  border: Border.all(color: const Color(0xFFE4E4E7)),
-                  borderRadius: BorderRadius.circular(8),
+                  color: SboxColors.slate50,
+                  border: Border.all(color: SboxColors.slate200),
+                  borderRadius: BorderRadius.circular(10),
                 ),
                 child: DropdownButtonHideUnderline(
                   child: DropdownButton<int>(
                     value: _itemsPerPage,
                     isDense: true,
-                    style: TextStyle(fontSize: 13, color: Colors.grey[800]),
+                    style: TextStyle(fontSize: 13, color: SboxColors.slate800),
                     items: _pageSizeOptions
                         .map((size) => DropdownMenuItem(
                               value: size,
@@ -2210,7 +2211,7 @@ class _AttendanceScreenState extends State<AttendanceScreen> {
                     const EdgeInsets.symmetric(horizontal: 16, vertical: 6),
                 decoration: BoxDecoration(
                   color: Theme.of(context).primaryColor,
-                  borderRadius: BorderRadius.circular(8),
+                  borderRadius: BorderRadius.circular(10),
                 ),
                 child: Text(
                   tr('$_currentPage / $totalPages'),
@@ -2234,17 +2235,17 @@ class _AttendanceScreenState extends State<AttendanceScreen> {
 
   Widget _buildPageNavBtn(IconData icon, bool enabled, VoidCallback onPressed) {
     return Material(
-      color: enabled ? const Color(0xFFF1F5F9) : Colors.transparent,
-      borderRadius: BorderRadius.circular(8),
+      color: enabled ? SboxColors.slate100 : Colors.transparent,
+      borderRadius: BorderRadius.circular(10),
       child: InkWell(
         onTap: enabled ? onPressed : null,
-        borderRadius: BorderRadius.circular(8),
+        borderRadius: BorderRadius.circular(10),
         child: Container(
           padding: const EdgeInsets.all(6),
           child: Icon(icon,
               size: 20,
               color:
-                  enabled ? Theme.of(context).primaryColor : Colors.grey[400]),
+                  enabled ? Theme.of(context).primaryColor : SboxColors.slate400),
         ),
       ),
     );
@@ -2415,7 +2416,7 @@ class _AttendanceScreenState extends State<AttendanceScreen> {
         padding: const EdgeInsets.all(7),
         decoration: BoxDecoration(
           color: Colors.white.withValues(alpha: 0.15),
-          borderRadius: BorderRadius.circular(8),
+          borderRadius: BorderRadius.circular(10),
         ),
         child: Icon(icon, size: 18, color: Colors.white),
       ),
@@ -2530,7 +2531,7 @@ class _AttendanceScreenState extends State<AttendanceScreen> {
             ),
             ...options.map(
               (o) => ListTile(
-                title: Text(tr(o.label), style: const TextStyle(fontSize: 15)),
+                title: Text(tr(o.label), style: const TextStyle(fontSize: 16)),
                 onTap: () {
                   Navigator.pop(ctx);
                   o.onPick();
@@ -2588,21 +2589,21 @@ class _AttendanceScreenState extends State<AttendanceScreen> {
   }) {
     final accent = Theme.of(context).primaryColor;
     return Material(
-      color: active ? accent.withValues(alpha: 0.08) : const Color(0xFFFAFAFA),
-      borderRadius: BorderRadius.circular(12),
+      color: active ? accent.withValues(alpha: 0.08) : SboxColors.slate50,
+      borderRadius: BorderRadius.circular(14),
       child: InkWell(
         onTap: onTap,
-        borderRadius: BorderRadius.circular(12),
+        borderRadius: BorderRadius.circular(14),
         child: Container(
           width: double.infinity,
           constraints: const BoxConstraints(minHeight: 58),
           padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 10),
           decoration: BoxDecoration(
-            borderRadius: BorderRadius.circular(12),
+            borderRadius: BorderRadius.circular(14),
             border: Border.all(
               color: active
                   ? accent.withValues(alpha: 0.45)
-                  : const Color(0xFFE4E4E7),
+                  : SboxColors.slate200,
               width: active ? 1.5 : 1,
             ),
           ),
@@ -2613,19 +2614,19 @@ class _AttendanceScreenState extends State<AttendanceScreen> {
               Row(
                 children: [
                   Icon(icon, size: 15,
-                      color: active ? accent : Colors.grey[500]),
+                      color: active ? accent : SboxColors.slate500),
                   const SizedBox(width: 5),
                   Expanded(
                     child: Text(tr(title),
                         style: TextStyle(
                             fontSize: 11,
                             fontWeight: FontWeight.w600,
-                            color: Colors.grey[600]),
+                            color: SboxColors.slate600),
                         maxLines: 1),
                   ),
                   if (onTap != null)
                     Icon(Icons.expand_more,
-                        size: 16, color: Colors.grey[500]),
+                        size: 16, color: SboxColors.slate500),
                 ],
               ),
               const SizedBox(height: 6),
@@ -2635,7 +2636,7 @@ class _AttendanceScreenState extends State<AttendanceScreen> {
                   fontSize: 13,
                   fontWeight: FontWeight.w700,
                   height: 1.35,
-                  color: active ? accent : const Color(0xFF18181B),
+                  color: active ? accent : SboxColors.slate900,
                 ),
                 maxLines: 2,
                 softWrap: true,
@@ -2901,7 +2902,7 @@ class _AttendanceScreenState extends State<AttendanceScreen> {
                     child: DataTable(
                       showCheckboxColumn: false,
                       headingRowColor: WidgetStateProperty.all(
-                        const Color(0xFFFAFAFA),
+                        SboxColors.slate50,
                       ),
                       dataRowColor: WidgetStateProperty.resolveWith<Color?>(
                         (states) {
@@ -2929,7 +2930,7 @@ class _AttendanceScreenState extends State<AttendanceScreen> {
                                     style: TextStyle(
                                         fontWeight: FontWeight.w600,
                                         fontSize: 12,
-                                        color: Color(0xFF71717A))))),
+                                        color: SboxColors.slate500)))),
                         DataColumn(
                             label: Expanded(
                                 child: Text(tr('Ngày'),
@@ -2937,7 +2938,7 @@ class _AttendanceScreenState extends State<AttendanceScreen> {
                                     style: TextStyle(
                                         fontWeight: FontWeight.w600,
                                         fontSize: 12,
-                                        color: Color(0xFF71717A)))),
+                                        color: SboxColors.slate500))),
                             onSort: (_, asc) => _onSort('time', asc)),
                         DataColumn(
                             label: Expanded(
@@ -2946,7 +2947,7 @@ class _AttendanceScreenState extends State<AttendanceScreen> {
                                     style: TextStyle(
                                         fontWeight: FontWeight.w600,
                                         fontSize: 12,
-                                        color: Color(0xFF71717A))))),
+                                        color: SboxColors.slate500)))),
                         DataColumn(
                             label: Expanded(
                                 child: Text(tr('Thứ'),
@@ -2954,7 +2955,7 @@ class _AttendanceScreenState extends State<AttendanceScreen> {
                                     style: TextStyle(
                                         fontWeight: FontWeight.w600,
                                         fontSize: 12,
-                                        color: Color(0xFF71717A))))),
+                                        color: SboxColors.slate500)))),
                         DataColumn(
                             label: Expanded(
                                 child: Text(tr('UID'),
@@ -2962,7 +2963,7 @@ class _AttendanceScreenState extends State<AttendanceScreen> {
                                     style: TextStyle(
                                         fontWeight: FontWeight.w600,
                                         fontSize: 12,
-                                        color: Color(0xFF71717A))))),
+                                        color: SboxColors.slate500)))),
                         DataColumn(
                             label: Expanded(
                                 child: Text(tr('Mã nhân viên'),
@@ -2970,7 +2971,7 @@ class _AttendanceScreenState extends State<AttendanceScreen> {
                                     style: TextStyle(
                                         fontWeight: FontWeight.w600,
                                         fontSize: 12,
-                                        color: Color(0xFF71717A))))),
+                                        color: SboxColors.slate500)))),
                         DataColumn(
                             label: Expanded(
                                 child: Text(tr('Tên nhân viên'),
@@ -2978,7 +2979,7 @@ class _AttendanceScreenState extends State<AttendanceScreen> {
                                     style: TextStyle(
                                         fontWeight: FontWeight.w600,
                                         fontSize: 12,
-                                        color: Color(0xFF71717A)))),
+                                        color: SboxColors.slate500))),
                             onSort: (_, asc) => _onSort('name', asc)),
                         DataColumn(
                             label: Expanded(
@@ -2987,7 +2988,7 @@ class _AttendanceScreenState extends State<AttendanceScreen> {
                                     style: TextStyle(
                                         fontWeight: FontWeight.w600,
                                         fontSize: 12,
-                                        color: Color(0xFF71717A))))),
+                                        color: SboxColors.slate500)))),
                         DataColumn(
                             label: Expanded(
                                 child: Text(tr('Quyền hạn'),
@@ -2995,7 +2996,7 @@ class _AttendanceScreenState extends State<AttendanceScreen> {
                                     style: TextStyle(
                                         fontWeight: FontWeight.w600,
                                         fontSize: 12,
-                                        color: Color(0xFF71717A))))),
+                                        color: SboxColors.slate500)))),
                         DataColumn(
                             label: Expanded(
                                 child: Text(tr('Thiết bị'),
@@ -3003,7 +3004,7 @@ class _AttendanceScreenState extends State<AttendanceScreen> {
                                     style: TextStyle(
                                         fontWeight: FontWeight.w600,
                                         fontSize: 12,
-                                        color: Color(0xFF71717A))))),
+                                        color: SboxColors.slate500)))),
                         DataColumn(
                             label: Expanded(
                                 child: Text(tr('Kiểu xác thực'),
@@ -3011,7 +3012,7 @@ class _AttendanceScreenState extends State<AttendanceScreen> {
                                     style: TextStyle(
                                         fontWeight: FontWeight.w600,
                                         fontSize: 12,
-                                        color: Color(0xFF71717A))))),
+                                        color: SboxColors.slate500)))),
                         DataColumn(
                             label: Expanded(
                                 child: Text(tr('Ghi chú'),
@@ -3019,7 +3020,7 @@ class _AttendanceScreenState extends State<AttendanceScreen> {
                                     style: TextStyle(
                                         fontWeight: FontWeight.w600,
                                         fontSize: 12,
-                                        color: Color(0xFF71717A))))),
+                                        color: SboxColors.slate500)))),
                       ],
                       rows: displayedAttendances.asMap().entries.map((entry) {
                         final index = startIndex + entry.key;
@@ -3041,7 +3042,7 @@ class _AttendanceScreenState extends State<AttendanceScreen> {
                                 tr('${index + 1}'),
                                 style: const TextStyle(
                                     fontWeight: FontWeight.w500,
-                                    color: Colors.grey,
+                                    color: SboxColors.slate500,
                                     fontSize: 12),
                               ),
                             )),
@@ -3087,7 +3088,7 @@ class _AttendanceScreenState extends State<AttendanceScreen> {
                                 tr(att.enrollNumber ?? '-'),
                                 style: const TextStyle(
                                     fontWeight: FontWeight.w600,
-                                    color: Colors.blue,
+                                    color: SboxColors.brand500,
                                     fontSize: 12),
                               ),
                             )),
@@ -3125,7 +3126,7 @@ class _AttendanceScreenState extends State<AttendanceScreen> {
                                 mainAxisSize: MainAxisSize.min,
                                 children: [
                                   const Icon(Icons.router,
-                                      size: 12, color: Colors.grey),
+                                      size: 12, color: SboxColors.slate500),
                                   const SizedBox(width: 3),
                                   Text(tr(att.deviceName ?? '-'),
                                       style: const TextStyle(fontSize: 12)),
@@ -3210,7 +3211,7 @@ class _AttendanceScreenState extends State<AttendanceScreen> {
               padding: const EdgeInsets.all(8),
               decoration: BoxDecoration(
                 color: Colors.orange.withValues(alpha: 0.1),
-                borderRadius: BorderRadius.circular(8),
+                borderRadius: BorderRadius.circular(10),
               ),
               child: const Icon(Icons.assignment, color: Colors.orange),
             ),
@@ -3408,7 +3409,7 @@ class _AttendanceScreenState extends State<AttendanceScreen> {
                     const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
                 decoration: BoxDecoration(
                   color: dayColor.withValues(alpha: 0.12),
-                  borderRadius: BorderRadius.circular(8),
+                  borderRadius: BorderRadius.circular(10),
                 ),
                 child: Row(
                   mainAxisSize: MainAxisSize.min,
@@ -3428,14 +3429,14 @@ class _AttendanceScreenState extends State<AttendanceScreen> {
                 padding:
                     const EdgeInsets.symmetric(horizontal: 7, vertical: 3),
                 decoration: BoxDecoration(
-                  color: Colors.grey.shade100,
+                  color: SboxColors.slate100,
                   borderRadius: BorderRadius.circular(10),
                 ),
                 child: Text(tr('${entries.length}'),
                     style: TextStyle(
                         fontSize: 11,
                         fontWeight: FontWeight.w600,
-                        color: Colors.grey.shade600)),
+                        color: SboxColors.slate600)),
               ),
               const Spacer(),
             ],
@@ -3453,7 +3454,7 @@ class _AttendanceScreenState extends State<AttendanceScreen> {
               decoration: BoxDecoration(
                 color: Colors.white,
                 borderRadius: BorderRadius.circular(10),
-                border: Border.all(color: const Color(0xFFE4E4E7)),
+                border: Border.all(color: SboxColors.slate200),
                 boxShadow: [
                   BoxShadow(
                     color: Colors.black.withValues(alpha: 0.03),
@@ -3513,16 +3514,16 @@ class _AttendanceScreenState extends State<AttendanceScreen> {
             const SizedBox(width: 4),
             Text(tr(_getVerifyTypeName(att.verifyType)),
                 style: const TextStyle(
-                    fontSize: 12, color: Color(0xFF71717A))),
+                    fontSize: 12, color: SboxColors.slate500)),
             if (att.deviceName != null && att.deviceName!.isNotEmpty) ...[
               const SizedBox(width: 8),
-              const Icon(Icons.router, size: 12, color: Color(0xFFA1A1AA)),
+              const Icon(Icons.router, size: 12, color: SboxColors.slate400),
               const SizedBox(width: 3),
               Expanded(
                 child: Text(
                   tr(att.deviceName!),
                   style: const TextStyle(
-                      fontSize: 12, color: Color(0xFF71717A)),
+                      fontSize: 12, color: SboxColors.slate500),
                   maxLines: 1,
                   overflow: TextOverflow.ellipsis,
                 ),
@@ -3542,11 +3543,11 @@ class _AttendanceScreenState extends State<AttendanceScreen> {
     switch (verifyType) {
       case 0:
         icon = Icons.password;
-        color = Colors.grey;
+        color = SboxColors.slate500;
         break;
       case 1:
         icon = Icons.fingerprint;
-        color = Colors.blue;
+        color = SboxColors.brand500;
         break;
       case 2:
         icon = Icons.credit_card;
@@ -3563,7 +3564,7 @@ class _AttendanceScreenState extends State<AttendanceScreen> {
         break;
       default:
         icon = Icons.help;
-        color = Colors.grey;
+        color = SboxColors.slate500;
     }
     return Icon(icon, size: 16, color: color);
   }
@@ -3603,7 +3604,7 @@ class _AttendanceScreenState extends State<AttendanceScreen> {
           padding: const EdgeInsets.all(8),
           decoration: BoxDecoration(
             color: Theme.of(context).primaryColor.withValues(alpha: 0.1),
-            borderRadius: BorderRadius.circular(8),
+            borderRadius: BorderRadius.circular(10),
           ),
           child: Icon(
             Icons.access_time,
@@ -3620,7 +3621,7 @@ class _AttendanceScreenState extends State<AttendanceScreen> {
               ),
               Text(
                 tr('STT: ${index + 1}'),
-                style: TextStyle(fontSize: 12, color: Colors.grey[600]),
+                style: TextStyle(fontSize: 12, color: SboxColors.slate600),
               ),
             ],
           ),
@@ -3636,7 +3637,7 @@ class _AttendanceScreenState extends State<AttendanceScreen> {
           padding: const EdgeInsets.all(16),
           decoration: BoxDecoration(
             color: Theme.of(context).primaryColor.withValues(alpha: 0.05),
-            borderRadius: BorderRadius.circular(12),
+            borderRadius: BorderRadius.circular(14),
             border: Border.all(
               color: Theme.of(context).primaryColor.withValues(alpha: 0.2),
             ),
@@ -3654,11 +3655,11 @@ class _AttendanceScreenState extends State<AttendanceScreen> {
                             fontSize: 16, fontWeight: FontWeight.bold)),
                     Text(tr(dayOfWeek),
                         style:
-                            TextStyle(color: Colors.grey[600], fontSize: 12)),
+                            TextStyle(color: SboxColors.slate600, fontSize: 12)),
                   ],
                 ),
               ),
-              Container(width: 1, height: 60, color: Colors.grey[300]),
+              Container(width: 1, height: 60, color: SboxColors.slate300),
               Expanded(
                 child: Column(
                   children: [
@@ -3714,7 +3715,7 @@ class _AttendanceScreenState extends State<AttendanceScreen> {
             padding: const EdgeInsets.all(12),
             decoration: BoxDecoration(
               color: Colors.orange.withValues(alpha: 0.08),
-              borderRadius: BorderRadius.circular(8),
+              borderRadius: BorderRadius.circular(10),
               border: Border.all(color: Colors.orange.withValues(alpha: 0.3)),
             ),
             child: Row(
@@ -3821,7 +3822,7 @@ class _AttendanceScreenState extends State<AttendanceScreen> {
           insetPadding:
               const EdgeInsets.symmetric(horizontal: 24, vertical: 24),
           shape:
-              RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+              RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
           child: ConstrainedBox(
             constraints: BoxConstraints(
               maxWidth: 800,
@@ -3890,7 +3891,7 @@ class _AttendanceScreenState extends State<AttendanceScreen> {
         style: TextStyle(
           fontSize: 14,
           fontWeight: FontWeight.w600,
-          color: Color(0xFF18181B),
+          color: SboxColors.slate900,
         ),
       ));
       widgets.add(const SizedBox(height: 8));
@@ -3902,7 +3903,7 @@ class _AttendanceScreenState extends State<AttendanceScreen> {
       widgets.add(const SizedBox(height: 8));
       widgets.add(Text(
         tr('${att.latitude!.toStringAsFixed(6)}, ${att.longitude!.toStringAsFixed(6)}'),
-        style: TextStyle(fontSize: 12, color: Colors.grey[600]),
+        style: TextStyle(fontSize: 12, color: SboxColors.slate600),
       ));
       widgets.add(const SizedBox(height: 8));
       widgets.add(SizedBox(
@@ -3921,7 +3922,7 @@ class _AttendanceScreenState extends State<AttendanceScreen> {
         style: TextStyle(
           fontSize: 14,
           fontWeight: FontWeight.w600,
-          color: Color(0xFF18181B),
+          color: SboxColors.slate900,
         ),
       ));
       widgets.add(const SizedBox(height: 8));
@@ -3945,15 +3946,15 @@ class _AttendanceScreenState extends State<AttendanceScreen> {
         width: double.infinity,
         padding: const EdgeInsets.all(12),
         decoration: BoxDecoration(
-          color: const Color(0xFFEFF6FF),
-          borderRadius: BorderRadius.circular(8),
-          border: Border.all(color: const Color(0xFFBFDBFE)),
+          color: SboxColors.brand50,
+          borderRadius: BorderRadius.circular(10),
+          border: Border.all(color: SboxColors.brand100),
         ),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             Text(tr('Vị trí GPS nằm trong bản ghi chấm công mobile.'),
-              style: TextStyle(fontSize: 12, color: Color(0xFF1E40AF)),
+              style: TextStyle(fontSize: 12, color: SboxColors.brand800),
             ),
             const SizedBox(height: 8),
             TextButton.icon(
@@ -4034,14 +4035,14 @@ class _AttendanceScreenState extends State<AttendanceScreen> {
       child: Row(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Icon(icon, size: 18, color: Colors.grey[600]),
+          Icon(icon, size: 18, color: SboxColors.slate600),
           const SizedBox(width: 12),
           SizedBox(
             width: 120,
             child: Text(
               tr(label),
               style: TextStyle(
-                color: Colors.grey[600],
+                color: SboxColors.slate600,
                 fontSize: 13,
               ),
             ),
@@ -4087,7 +4088,7 @@ class _AttendanceScreenState extends State<AttendanceScreen> {
               padding: const EdgeInsets.all(12),
               decoration: BoxDecoration(
                 color: Colors.red.withValues(alpha: 0.1),
-                borderRadius: BorderRadius.circular(8),
+                borderRadius: BorderRadius.circular(10),
               ),
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
@@ -4162,7 +4163,7 @@ class _AttendanceScreenState extends State<AttendanceScreen> {
         builder: (context, setDialogState) => ScrollableAlertDialog(
           title: Row(
             children: [
-              Icon(Icons.edit, color: Colors.blue),
+              Icon(Icons.edit, color: SboxColors.brand500),
               SizedBox(width: 8),
               Text(tr('Sửa chấm công')),
             ],
@@ -4178,12 +4179,12 @@ class _AttendanceScreenState extends State<AttendanceScreen> {
                 Container(
                   padding: const EdgeInsets.all(12),
                   decoration: BoxDecoration(
-                    color: Colors.grey.withValues(alpha: 0.1),
-                    borderRadius: BorderRadius.circular(8),
+                    color: SboxColors.slate500.withValues(alpha: 0.1),
+                    borderRadius: BorderRadius.circular(10),
                   ),
                   child: Row(
                     children: [
-                      const Icon(Icons.person, color: Colors.grey),
+                      const Icon(Icons.person, color: SboxColors.slate500),
                       const SizedBox(width: 12),
                       Expanded(
                         child: Column(
@@ -4196,7 +4197,7 @@ class _AttendanceScreenState extends State<AttendanceScreen> {
                             ),
                             Text(tr('UID: ${att.enrollNumber ?? "-"} • Mã NV: ${att.employeeId ?? "-"}'),
                               style: TextStyle(
-                                  fontSize: 12, color: Colors.grey[600]),
+                                  fontSize: 12, color: SboxColors.slate600),
                             ),
                           ],
                         ),
@@ -4213,7 +4214,7 @@ class _AttendanceScreenState extends State<AttendanceScreen> {
                     labelText: tr('Ngày'),
                     prefixIcon: const Icon(Icons.calendar_today),
                     border: OutlineInputBorder(
-                      borderRadius: BorderRadius.circular(8),
+                      borderRadius: BorderRadius.circular(10),
                     ),
                   ),
                   readOnly: true,
@@ -4239,7 +4240,7 @@ class _AttendanceScreenState extends State<AttendanceScreen> {
                     labelText: tr('Giờ'),
                     prefixIcon: const Icon(Icons.access_time),
                     border: OutlineInputBorder(
-                      borderRadius: BorderRadius.circular(8),
+                      borderRadius: BorderRadius.circular(10),
                     ),
                   ),
                   readOnly: true,
@@ -4260,15 +4261,15 @@ class _AttendanceScreenState extends State<AttendanceScreen> {
                 Container(
                   padding: const EdgeInsets.all(12),
                   decoration: BoxDecoration(
-                    color: Colors.blue.withValues(alpha: 0.1),
-                    borderRadius: BorderRadius.circular(8),
+                    color: SboxColors.brand500.withValues(alpha: 0.1),
+                    borderRadius: BorderRadius.circular(10),
                     border:
-                        Border.all(color: Colors.blue.withValues(alpha: 0.3)),
+                        Border.all(color: SboxColors.brand500.withValues(alpha: 0.3)),
                   ),
                   child: Row(
                     children: [
                       Icon(Icons.info_outline,
-                          color: Colors.blue[700], size: 20),
+                          color: SboxColors.brand700, size: 20),
                       const SizedBox(width: 12),
                       Expanded(
                         child: Column(
@@ -4277,14 +4278,14 @@ class _AttendanceScreenState extends State<AttendanceScreen> {
                             Text(tr('Loại chấm công: ${att.attendanceState == 0 ? "Chấm vào" : "Chấm ra"}'),
                               style: TextStyle(
                                 fontWeight: FontWeight.bold,
-                                color: Colors.blue[700],
+                                color: SboxColors.brand700,
                               ),
                             ),
                             const SizedBox(height: 4),
                             Text(tr('Tự động xác định dựa trên thứ tự chấm công trong ngày (lẻ = Vào, chẵn = Ra)'),
                               style: TextStyle(
                                 fontSize: 11,
-                                color: Colors.blue[600],
+                                color: SboxColors.brand600,
                               ),
                             ),
                           ],
@@ -4370,10 +4371,10 @@ class _AttendanceScreenState extends State<AttendanceScreen> {
       decoration: BoxDecoration(
         color: isAdmin
             ? Colors.orange.withValues(alpha: 0.1)
-            : Colors.grey.withValues(alpha: 0.1),
-        borderRadius: BorderRadius.circular(12),
+            : SboxColors.slate500.withValues(alpha: 0.1),
+        borderRadius: BorderRadius.circular(14),
         border: Border.all(
-          color: isAdmin ? Colors.orange : Colors.grey,
+          color: isAdmin ? Colors.orange : SboxColors.slate500,
           width: 1,
         ),
       ),
@@ -4383,7 +4384,7 @@ class _AttendanceScreenState extends State<AttendanceScreen> {
           Icon(
             isAdmin ? Icons.admin_panel_settings : Icons.person,
             size: 14,
-            color: isAdmin ? Colors.orange : Colors.grey,
+            color: isAdmin ? Colors.orange : SboxColors.slate500,
           ),
           const SizedBox(width: 4),
           Text(
@@ -4391,7 +4392,7 @@ class _AttendanceScreenState extends State<AttendanceScreen> {
                 ? Attendance.privilegeLabel(14)
                 : Attendance.privilegeLabel(0)),
             style: TextStyle(
-              color: isAdmin ? Colors.orange : Colors.grey,
+              color: isAdmin ? Colors.orange : SboxColors.slate500,
               fontWeight: FontWeight.w600,
               fontSize: 12,
             ),
@@ -4425,11 +4426,11 @@ class _AttendanceScreenState extends State<AttendanceScreen> {
   Color _getDayColor(int weekday) {
     switch (weekday) {
       case DateTime.saturday:
-        return Colors.blue;
+        return SboxColors.brand500;
       case DateTime.sunday:
         return Colors.red;
       default:
-        return const Color(0xFF71717A);
+        return SboxColors.slate500;
     }
   }
 
@@ -4448,7 +4449,7 @@ class _AttendanceScreenState extends State<AttendanceScreen> {
         text = 'Ra';
         break;
       case 2:
-        color = Colors.blue;
+        color = SboxColors.brand500;
         text = 'Nghỉ ra';
         break;
       case 3:
@@ -4464,7 +4465,7 @@ class _AttendanceScreenState extends State<AttendanceScreen> {
         text = 'OT ra';
         break;
       default:
-        color = Colors.grey;
+        color = SboxColors.slate500;
         text = 'Khác';
     }
 
@@ -4472,7 +4473,7 @@ class _AttendanceScreenState extends State<AttendanceScreen> {
       padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
       decoration: BoxDecoration(
         color: color.withValues(alpha: 0.2),
-        borderRadius: BorderRadius.circular(12),
+        borderRadius: BorderRadius.circular(14),
       ),
       child: Text(
         tr(text),
@@ -4488,7 +4489,7 @@ class _AttendanceScreenState extends State<AttendanceScreen> {
   Widget _buildVerifyTypeBadge(int verifyType) {
     IconData icon;
     String text;
-    Color color = Colors.grey;
+    Color color = SboxColors.slate500;
 
     switch (verifyType) {
       case 0:
@@ -4498,7 +4499,7 @@ class _AttendanceScreenState extends State<AttendanceScreen> {
       case 1:
         icon = Icons.fingerprint;
         text = 'Vân tay';
-        color = Colors.blue;
+        color = SboxColors.brand500;
         break;
       case 2:
         icon = Icons.credit_card;
@@ -4547,7 +4548,7 @@ class _AttendanceScreenState extends State<AttendanceScreen> {
             colorScheme: ColorScheme.dark(
               primary: Theme.of(context).primaryColor,
               onPrimary: Colors.white,
-              surface: const Color(0xFF18181B),
+              surface: SboxColors.slate900,
               onSurface: Colors.white,
             ),
           ),
@@ -4658,7 +4659,7 @@ class _AttendanceNotificationWidgetState
           opacity: _fadeAnimation,
           child: Material(
             elevation: 8,
-            borderRadius: BorderRadius.circular(12),
+            borderRadius: BorderRadius.circular(14),
             child: Container(
               width: 320,
               padding: const EdgeInsets.all(16),
@@ -4666,7 +4667,7 @@ class _AttendanceNotificationWidgetState
                 color: widget.isCheckIn
                     ? Colors.green.shade50
                     : Colors.orange.shade50,
-                borderRadius: BorderRadius.circular(12),
+                borderRadius: BorderRadius.circular(14),
                 border: Border.all(
                   color: widget.isCheckIn ? Colors.green : Colors.orange,
                   width: 2,
@@ -4683,7 +4684,7 @@ class _AttendanceNotificationWidgetState
                         decoration: BoxDecoration(
                           color:
                               widget.isCheckIn ? Colors.green : Colors.orange,
-                          borderRadius: BorderRadius.circular(8),
+                          borderRadius: BorderRadius.circular(10),
                         ),
                         child: Icon(
                           widget.isCheckIn ? Icons.login : Icons.logout,
@@ -4709,7 +4710,7 @@ class _AttendanceNotificationWidgetState
                               tr(widget.timeStr),
                               style: TextStyle(
                                 fontSize: 12,
-                                color: Colors.grey.shade600,
+                                color: SboxColors.slate600,
                               ),
                             ),
                           ],
@@ -4726,14 +4727,14 @@ class _AttendanceNotificationWidgetState
                   const SizedBox(height: 12),
                   Row(
                     children: [
-                      const Icon(Icons.person, size: 16, color: Colors.grey),
+                      const Icon(Icons.person, size: 16, color: SboxColors.slate500),
                       const SizedBox(width: 8),
                       Expanded(
                         child: Text(
                           tr(widget.userName),
                           style: const TextStyle(
                             fontWeight: FontWeight.w600,
-                            fontSize: 15,
+                            fontSize: 16,
                           ),
                           overflow: TextOverflow.ellipsis,
                         ),
@@ -4743,19 +4744,19 @@ class _AttendanceNotificationWidgetState
                   const SizedBox(height: 6),
                   Row(
                     children: [
-                      Icon(Icons.router, size: 14, color: Colors.grey.shade600),
+                      Icon(Icons.router, size: 14, color: SboxColors.slate600),
                       const SizedBox(width: 8),
                       Text(
                         tr(widget.deviceName),
                         style: const TextStyle(
-                            fontSize: 12, color: Color(0xFF71717A)),
+                            fontSize: 12, color: SboxColors.slate500),
                       ),
                       const Spacer(),
                       Container(
                         padding: const EdgeInsets.symmetric(
                             horizontal: 8, vertical: 2),
                         decoration: BoxDecoration(
-                          color: Colors.grey.shade200,
+                          color: SboxColors.slate200,
                           borderRadius: BorderRadius.circular(10),
                         ),
                         child: Text(

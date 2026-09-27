@@ -7,6 +7,7 @@ import 'attendance_load_utils.dart';
 import 'leave_salary_shifts.dart';
 import 'paid_leave_schedule_utils.dart';
 
+import '../theme/sbox_tokens.dart';
 /// Giá trị `Benefit.attendanceMode` cho "Chấm 2 lần bất kỳ trong ngày":
 /// chỉ cần ≥2 lần chấm trong ngày (bất kỳ giờ nào) → 1 công, không xét ca,
 /// không tính đi trễ / về sớm / tăng ca. Dùng chung Dart (calculator) và
@@ -1675,7 +1676,7 @@ List<DailyShiftRecord> _computeFullDayRecordsForEmployee({
         workHours = 0;
       } else {
         status = 'Thiếu chấm';
-        statusColor = Colors.grey;
+        statusColor = SboxColors.slate500;
       }
     } else if (isHoliday) {
       status = 'Tăng ca ngày lễ';
@@ -1907,7 +1908,7 @@ List<DailyShiftRecord> computeDailyShiftRecords({
         var overtimeMinutes = 0;
         if (!credited) {
           status = 'Thiếu chấm';
-          statusColor = Colors.grey;
+          statusColor = SboxColors.slate500;
         } else if (isHoliday) {
           status = 'Tăng ca ngày lễ';
           statusColor = Colors.deepOrange;
@@ -2326,7 +2327,7 @@ List<DailyShiftRecord> computeDailyShiftRecords({
       Color statusColor;
       if (hasMissingPunch && totalWorkCount == 0 && !(restDayHoursOnly && baseWorkHours > 0)) {
         status = 'Thiếu chấm';
-        statusColor = Colors.grey;
+        statusColor = SboxColors.slate500;
       } else if (isHoliday && totalWorkCount > 0) {
         status = 'Tăng ca ngày lễ';
         statusColor = Colors.deepOrange;
@@ -2361,7 +2362,7 @@ List<DailyShiftRecord> computeDailyShiftRecords({
         statusColor = Colors.green;
       } else {
         status = 'Thiếu chấm';
-        statusColor = Colors.grey;
+        statusColor = SboxColors.slate500;
       }
       if (hasMissingPunch && totalWorkCount > 0) {
         if (missingOutShiftNames.isNotEmpty) {

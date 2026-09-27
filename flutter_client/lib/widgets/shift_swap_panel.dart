@@ -10,6 +10,7 @@ import 'hrm_page_chrome.dart';
 import 'shift_swap_ui.dart';
 import 'package:zkteco_flutter_client/l10n/app_tr.dart';
 
+import '../theme/sbox_tokens.dart';
 enum _SwapListMode { all, respond, approve }
 
 /// Panel đổi ca — dùng trong màn riêng hoặc tab Duyệt lịch làm việc.
@@ -104,7 +105,7 @@ class ShiftSwapPanelState extends State<ShiftSwapPanel>
         TabBar(
           controller: _tabs,
           labelColor: HrmPageChrome.primaryNavy,
-          unselectedLabelColor: const Color(0xFF71717A),
+          unselectedLabelColor: SboxColors.slate500,
           indicatorColor: HrmPageChrome.primaryNavy,
           isScrollable: true,
           tabAlignment: TabAlignment.start,
@@ -139,7 +140,7 @@ class ShiftSwapPanelState extends State<ShiftSwapPanel>
         child: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
-            Icon(Icons.swap_horiz, size: 56, color: Colors.grey[300]),
+            Icon(Icons.swap_horiz, size: 56, color: SboxColors.slate300),
             const SizedBox(height: 12),
             Text(
               tr(mode == _SwapListMode.respond
@@ -147,11 +148,11 @@ class ShiftSwapPanelState extends State<ShiftSwapPanel>
                   : mode == _SwapListMode.approve
                       ? 'Không có yêu cầu chờ quản lý duyệt'
                       : 'Chưa có yêu cầu đổi ca'),
-              style: TextStyle(color: Colors.grey[600]),
+              style: TextStyle(color: SboxColors.slate600),
             ),
             const SizedBox(height: 8),
             Text(tr('Mở menu góc phải → Yêu cầu đổi ca'),
-              style: TextStyle(fontSize: 12, color: Colors.grey[500]),
+              style: TextStyle(fontSize: 12, color: SboxColors.slate500),
             ),
           ],
         ),
@@ -172,9 +173,9 @@ class ShiftSwapPanelState extends State<ShiftSwapPanel>
     final status = swap['status'];
     return Card(
       margin: const EdgeInsets.only(bottom: 10),
-      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
       child: InkWell(
-        borderRadius: BorderRadius.circular(12),
+        borderRadius: BorderRadius.circular(14),
         onTap: () => showShiftSwapDetailSheet(context, swap),
         child: Padding(
           padding: const EdgeInsets.all(12),
@@ -209,11 +210,11 @@ class ShiftSwapPanelState extends State<ShiftSwapPanel>
               Text(
                 tr('${swap['requesterShiftName'] ?? ''} ${formatSwapDate(swap['requesterDate'])}'
                 '  →  ${swap['targetShiftName'] ?? ''} ${formatSwapDate(swap['targetDate'])}'),
-                style: const TextStyle(fontSize: 12, color: Color(0xFF64748B)),
+                style: const TextStyle(fontSize: 12, color: SboxColors.slate500),
               ),
               const SizedBox(height: 4),
               Text(tr('Bấm để xem chi tiết'),
-                  style: TextStyle(fontSize: 10, color: Color(0xFF94A3B8))),
+                  style: TextStyle(fontSize: 10, color: SboxColors.slate400)),
               if (mode != _SwapListMode.all) ...[
                 const SizedBox(height: 10),
                 Row(
@@ -225,7 +226,7 @@ class ShiftSwapPanelState extends State<ShiftSwapPanel>
                         icon: const Icon(Icons.close, size: 16),
                         label: Text(tr('Từ chối')),
                         style: TextButton.styleFrom(
-                            foregroundColor: const Color(0xFFEF4444)),
+                            foregroundColor: SboxColors.danger),
                       ),
                       const SizedBox(width: 8),
                       FilledButton.icon(
@@ -242,7 +243,7 @@ class ShiftSwapPanelState extends State<ShiftSwapPanel>
                         icon: const Icon(Icons.close, size: 16),
                         label: Text(tr('Từ chối')),
                         style: TextButton.styleFrom(
-                            foregroundColor: const Color(0xFFEF4444)),
+                            foregroundColor: SboxColors.danger),
                       ),
                       const SizedBox(width: 8),
                       FilledButton.icon(
@@ -250,7 +251,7 @@ class ShiftSwapPanelState extends State<ShiftSwapPanel>
                         icon: const Icon(Icons.verified, size: 16),
                         label: Text(tr('Duyệt')),
                         style: FilledButton.styleFrom(
-                            backgroundColor: const Color(0xFF16A34A)),
+                            backgroundColor: SboxColors.success),
                       ),
                     ],
                   ],
@@ -344,7 +345,7 @@ class ShiftSwapPanelState extends State<ShiftSwapPanel>
                       padding: const EdgeInsets.only(bottom: 12),
                       child: Text(
                         tr('Không có đồng nghiệp để đổi ca. Kiểm tra nhân viên đang làm đã gắn tài khoản.'),
-                        style: const TextStyle(fontSize: 12, color: Color(0xFFB45309)),
+                        style: const TextStyle(fontSize: 12, color: SboxColors.warningText),
                       ),
                     ),
                   DropdownButtonFormField<String>(

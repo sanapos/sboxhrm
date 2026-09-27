@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import '../utils/responsive_helper.dart';
 import '../l10n/app_tr.dart';
 
+import '../theme/sbox_tokens.dart';
 class StatCard extends StatefulWidget {
   final String title;
   final String value;
@@ -53,7 +54,7 @@ class _StatCardState extends State<StatCard> {
         decoration: BoxDecoration(
           color: Colors.white,
           borderRadius: BorderRadius.circular(14),
-          border: Border.all(color: _isHovered ? effectiveIconColor.withValues(alpha: 0.25) : const Color(0xFFEEEEF0)),
+          border: Border.all(color: _isHovered ? effectiveIconColor.withValues(alpha: 0.25) : SboxColors.divider),
           boxShadow: [
             BoxShadow(
               color: _isHovered ? effectiveIconColor.withValues(alpha: 0.12) : const Color(0x08000000),
@@ -129,7 +130,7 @@ class _StatCardState extends State<StatCard> {
                   Text(
                     tr(widget.title),
                     style: TextStyle(
-                      color: Colors.grey[400],
+                      color: SboxColors.slate400,
                       fontSize: isMobile ? 12 : 14,
                     ),
                     maxLines: 1,
@@ -148,7 +149,7 @@ class _StatCardState extends State<StatCard> {
                     Text(
                       tr(widget.subtitle!),
                       style: TextStyle(
-                        color: Colors.grey[500],
+                        color: SboxColors.slate500,
                         fontSize: 12,
                       ),
                     ),
@@ -185,7 +186,7 @@ class MiniStatCard extends StatelessWidget {
       padding: const EdgeInsets.all(12),
       decoration: BoxDecoration(
         color: effectiveColor.withValues(alpha: 0.1),
-        borderRadius: BorderRadius.circular(12),
+        borderRadius: BorderRadius.circular(14),
         border: Border.all(
           color: effectiveColor.withValues(alpha: 0.3),
           width: 1,
@@ -211,7 +212,7 @@ class MiniStatCard extends StatelessWidget {
               Text(
                 tr(label),
                 style: TextStyle(
-                  color: Colors.grey[400],
+                  color: SboxColors.slate400,
                   fontSize: 11,
                 ),
               ),

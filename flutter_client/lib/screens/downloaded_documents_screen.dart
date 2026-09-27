@@ -18,6 +18,7 @@ import '../widgets/app_scroll_safe.dart';
 import '../widgets/hrm_mini_stat_chip.dart';
 import 'package:zkteco_flutter_client/l10n/app_tr.dart';
 
+import '../theme/sbox_tokens.dart';
 const _theme = HrmPageChrome.primaryNavy;
 
 class DownloadedDocumentsScreen extends StatefulWidget {
@@ -205,9 +206,9 @@ class _DownloadedDocumentsScreenState extends State<DownloadedDocumentsScreen> {
   }
 
   Color _iconColor(DownloadedDocument doc) {
-    if (doc.isImage) return const Color(0xFF2563EB);
-    if (doc.isExcel) return const Color(0xFF059669);
-    return Colors.grey;
+    if (doc.isImage) return SboxColors.brand600;
+    if (doc.isExcel) return SboxColors.success;
+    return SboxColors.slate500;
   }
 
   @override
@@ -246,7 +247,7 @@ class _DownloadedDocumentsScreenState extends State<DownloadedDocumentsScreen> {
                                         : 'Chưa có tệp tải xuống.\nXuất Excel/ảnh từ báo cáo sẽ hiện tại đây.'),
                                     textAlign: TextAlign.center,
                                     style: const TextStyle(
-                                        color: Color(0xFF71717A)),
+                                        color: SboxColors.slate500),
                                   ),
                                 ),
                               ),
@@ -321,8 +322,8 @@ class _DownloadedDocumentsScreenState extends State<DownloadedDocumentsScreen> {
       padding: const EdgeInsets.all(10),
       decoration: BoxDecoration(
         color: Colors.white,
-        borderRadius: BorderRadius.circular(12),
-        border: Border.all(color: const Color(0xFFE4E4E7)),
+        borderRadius: BorderRadius.circular(14),
+        border: Border.all(color: SboxColors.slate200),
       ),
       child: Column(
         children: [
@@ -381,7 +382,7 @@ class _DownloadedDocumentsScreenState extends State<DownloadedDocumentsScreen> {
   Widget _filterChip(String title, String value, IconData icon, bool active,
       VoidCallback onTap) {
     return Material(
-      color: active ? _theme.withValues(alpha: 0.08) : const Color(0xFFFAFAFA),
+      color: active ? _theme.withValues(alpha: 0.08) : SboxColors.slate50,
       borderRadius: BorderRadius.circular(10),
       child: InkWell(
         onTap: onTap,
@@ -392,7 +393,7 @@ class _DownloadedDocumentsScreenState extends State<DownloadedDocumentsScreen> {
           decoration: BoxDecoration(
             borderRadius: BorderRadius.circular(10),
             border: Border.all(
-              color: active ? _theme.withValues(alpha: 0.4) : const Color(0xFFE4E4E7),
+              color: active ? _theme.withValues(alpha: 0.4) : SboxColors.slate200,
             ),
           ),
           child: Column(
@@ -401,10 +402,10 @@ class _DownloadedDocumentsScreenState extends State<DownloadedDocumentsScreen> {
             children: [
               Row(
                 children: [
-                  Icon(icon, size: 14, color: active ? _theme : Colors.grey),
+                  Icon(icon, size: 14, color: active ? _theme : SboxColors.slate500),
                   const SizedBox(width: 4),
                   Text(tr(title),
-                      style: const TextStyle(fontSize: 10, color: Color(0xFF71717A))),
+                      style: const TextStyle(fontSize: 10, color: SboxColors.slate500)),
                 ],
               ),
               const SizedBox(height: 4),
@@ -416,7 +417,7 @@ class _DownloadedDocumentsScreenState extends State<DownloadedDocumentsScreen> {
                 style: TextStyle(
                   fontSize: 12,
                   fontWeight: FontWeight.w700,
-                  color: active ? _theme : const Color(0xFF18181B),
+                  color: active ? _theme : SboxColors.slate900,
                 ),
               ),
             ],
@@ -567,12 +568,12 @@ class _DownloadedDocumentsScreenState extends State<DownloadedDocumentsScreen> {
       margin: const EdgeInsets.only(bottom: 10),
       elevation: 0,
       shape: RoundedRectangleBorder(
-        borderRadius: BorderRadius.circular(12),
-        side: const BorderSide(color: Color(0xFFE4E4E7)),
+        borderRadius: BorderRadius.circular(14),
+        side: const BorderSide(color: SboxColors.slate200),
       ),
       child: InkWell(
         onTap: () => _open(doc),
-        borderRadius: BorderRadius.circular(12),
+        borderRadius: BorderRadius.circular(14),
         child: Padding(
           padding: const EdgeInsets.all(12),
           child: Row(
@@ -606,7 +607,7 @@ class _DownloadedDocumentsScreenState extends State<DownloadedDocumentsScreen> {
                       tr('${doc.category} · ${_fmt.format(doc.downloadedAt)} · ${_formatSize(doc.sizeBytes)}'),
                       style: const TextStyle(
                         fontSize: 12,
-                        color: Color(0xFF71717A),
+                        color: SboxColors.slate500,
                       ),
                     ),
                   ],

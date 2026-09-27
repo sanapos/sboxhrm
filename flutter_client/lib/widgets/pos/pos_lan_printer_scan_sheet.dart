@@ -110,7 +110,7 @@ class _LanScanSheetState extends State<_LanScanSheet> {
                     child: Text(
                       tr('Quét máy in LAN'),
                       style: const TextStyle(
-                        fontSize: 17,
+                        fontSize: 18,
                         fontWeight: FontWeight.w700,
                       ),
                     ),
@@ -136,7 +136,7 @@ class _LanScanSheetState extends State<_LanScanSheet> {
                 tr(
                   'Tìm Zywell / Xprinter / HPRT (cổng 9100) trên mạng nội bộ.',
                 ),
-                style: TextStyle(fontSize: 12.5, color: PosTheme.textSecondary),
+                style: TextStyle(fontSize: 13, color: PosTheme.textSecondary),
               ),
             ),
             if (_running) ...[

@@ -9,6 +9,7 @@ import '../../services/api_service.dart';
 import '../../utils/tingee_supported_banks.dart';
 import '../../widgets/notification_overlay.dart';
 
+import '../../theme/sbox_tokens.dart';
 /// SuperAdmin — tạo merchant/shop Tingee cho cửa hàng và gắn STK.
 class TingeeStoreSetupCard extends StatefulWidget {
   const TingeeStoreSetupCard({super.key, required this.stores});
@@ -172,7 +173,7 @@ class _TingeeStoreSetupCardState extends State<TingeeStoreSetupCard> {
             const SizedBox(height: 4),
             Text(
               tr('SBOX gọi API Tingee giúp SuperAdmin — không cần vào portal bấm Tạo mới.'),
-              style: const TextStyle(fontSize: 12, color: Colors.grey),
+              style: const TextStyle(fontSize: 12, color: SboxColors.slate500),
             ),
             const SizedBox(height: 12),
             DropdownButtonFormField<String>(
@@ -247,7 +248,7 @@ class _TingeeStoreSetupCardState extends State<TingeeStoreSetupCard> {
             const SizedBox(height: 4),
             Text(
               tr('Tingee hỗ trợ ${_banks.length} ngân hàng cho từng cửa hàng.'),
-              style: const TextStyle(fontSize: 12, color: Colors.grey),
+              style: const TextStyle(fontSize: 12, color: SboxColors.slate500),
             ),
             const SizedBox(height: 8),
             DropdownButtonFormField<String>(

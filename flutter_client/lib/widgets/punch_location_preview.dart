@@ -4,6 +4,7 @@ import 'package:latlong2/latlong.dart';
 import 'package:zkteco_flutter_client/l10n/app_tr.dart';
 
 import './pos/pos_theme.dart';
+import '../theme/sbox_tokens.dart';
 /// Bản đồ xem trước vị trí chấm công (mobile / chấm công thô).
 class PunchLocationPreview extends StatefulWidget {
   const PunchLocationPreview({
@@ -69,9 +70,9 @@ class _PunchLocationPreviewState extends State<PunchLocationPreview> {
       color: Colors.transparent,
       child: InkWell(
         onTap: widget.onTap,
-        borderRadius: BorderRadius.circular(12),
+        borderRadius: BorderRadius.circular(14),
         child: ClipRRect(
-          borderRadius: BorderRadius.circular(12),
+          borderRadius: BorderRadius.circular(14),
           child: SizedBox(
             height: widget.height,
             child: Stack(
@@ -99,7 +100,7 @@ class _PunchLocationPreviewState extends State<PunchLocationPreview> {
                           height: 36,
                           child: const Icon(
                             Icons.location_on,
-                            color: Color(0xFFDC2626),
+                            color: SboxColors.danger,
                             size: 36,
                           ),
                         ),

@@ -9,6 +9,7 @@ import '../widgets/hrm_collapsible_overview.dart';
 import '../widgets/hrm_responsive_list_layout.dart';
 import 'package:zkteco_flutter_client/l10n/app_tr.dart';
 
+import '../theme/sbox_tokens.dart';
 class MobileAttendanceHistoryScreen extends StatefulWidget {
   const MobileAttendanceHistoryScreen({super.key});
 
@@ -107,23 +108,23 @@ class _MobileAttendanceHistoryScreenState
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: const Color(0xFFFAFAFA),
+      backgroundColor: SboxColors.slate50,
       appBar: AppBar(
         backgroundColor: Colors.white,
         elevation: 0,
         leading: IconButton(
-          icon: const Icon(Icons.arrow_back, color: Color(0xFF18181B)),
+          icon: const Icon(Icons.arrow_back, color: SboxColors.slate900),
           onPressed: () => Navigator.pop(context),
         ),
         title: Text(tr('Lịch sử chấm công'),
           style: TextStyle(
-            color: Color(0xFF18181B),
+            color: SboxColors.slate900,
             fontWeight: FontWeight.bold,
           ),
         ),
         actions: [
           IconButton(
-            icon: const Icon(Icons.filter_list, color: Color(0xFF71717A)),
+            icon: const Icon(Icons.filter_list, color: SboxColors.slate500),
             onPressed: _showFilterBottomSheet,
           ),
         ],
@@ -181,14 +182,14 @@ class _MobileAttendanceHistoryScreenState
         children: [
           IconButton(
             onPressed: () => _changeMonth(-1),
-            icon: const Icon(Icons.chevron_left, color: Color(0xFF71717A)),
+            icon: const Icon(Icons.chevron_left, color: SboxColors.slate500),
           ),
           GestureDetector(
             onTap: () => _showMonthPicker(),
             child: Container(
               padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 10),
               decoration: BoxDecoration(
-                color: const Color(0xFFF1F5F9),
+                color: SboxColors.slate100,
                 borderRadius: BorderRadius.circular(10),
               ),
               child: Text(
@@ -196,14 +197,14 @@ class _MobileAttendanceHistoryScreenState
                 style: const TextStyle(
                   fontSize: 16,
                   fontWeight: FontWeight.bold,
-                  color: Color(0xFF18181B),
+                  color: SboxColors.slate900,
                 ),
               ),
             ),
           ),
           IconButton(
             onPressed: () => _changeMonth(1),
-            icon: const Icon(Icons.chevron_right, color: Color(0xFF71717A)),
+            icon: const Icon(Icons.chevron_right, color: SboxColors.slate500),
           ),
         ],
       ),
@@ -253,7 +254,7 @@ class _MobileAttendanceHistoryScreenState
                     : isToday
                         ? HrmPageChrome.primaryNavy.withValues(alpha: 0.1)
                         : Colors.transparent,
-                borderRadius: BorderRadius.circular(12),
+                borderRadius: BorderRadius.circular(14),
                 border: isToday && !isSelected
                     ? Border.all(color: HrmPageChrome.primaryNavy, width: 2)
                     : null,
@@ -268,8 +269,8 @@ class _MobileAttendanceHistoryScreenState
                       color: isSelected
                           ? Colors.white.withValues(alpha: 0.8)
                           : isWeekend
-                              ? const Color(0xFFEF4444)
-                              : const Color(0xFF71717A),
+                              ? SboxColors.danger
+                              : SboxColors.slate500,
                     ),
                   ),
                   const SizedBox(height: 4),
@@ -281,8 +282,8 @@ class _MobileAttendanceHistoryScreenState
                       color: isSelected
                           ? Colors.white
                           : isWeekend
-                              ? const Color(0xFFEF4444)
-                              : const Color(0xFF18181B),
+                              ? SboxColors.danger
+                              : SboxColors.slate900,
                     ),
                   ),
                   const SizedBox(height: 4),
@@ -317,7 +318,7 @@ class _MobileAttendanceHistoryScreenState
       padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(
         color: Colors.white,
-        borderRadius: BorderRadius.circular(16),
+        borderRadius: BorderRadius.circular(14),
         boxShadow: [
           BoxShadow(
             color: Colors.black.withValues(alpha: 0.04),
@@ -346,14 +347,14 @@ class _MobileAttendanceHistoryScreenState
             icon: Icons.logout,
             value: '$checkOuts',
             label: 'Ra',
-            color: const Color(0xFFEF4444),
+            color: SboxColors.danger,
           ),
           _buildSummaryDivider(),
           _buildSummaryItem(
             icon: Icons.pending,
             value: '$pendingCount',
             label: 'Chờ duyệt',
-            color: const Color(0xFFF59E0B),
+            color: SboxColors.warning,
           ),
         ],
       ),
@@ -376,14 +377,14 @@ class _MobileAttendanceHistoryScreenState
             style: const TextStyle(
               fontSize: 18,
               fontWeight: FontWeight.bold,
-              color: Color(0xFF18181B),
+              color: SboxColors.slate900,
             ),
           ),
           Text(
             tr(label),
             style: const TextStyle(
               fontSize: 11,
-              color: Color(0xFF71717A),
+              color: SboxColors.slate500,
             ),
           ),
         ],
@@ -395,7 +396,7 @@ class _MobileAttendanceHistoryScreenState
     return Container(
       width: 1,
       height: 40,
-      color: const Color(0xFFE4E4E7),
+      color: SboxColors.slate200,
     );
   }
 
@@ -408,10 +409,10 @@ class _MobileAttendanceHistoryScreenState
             child: Column(
               mainAxisAlignment: MainAxisAlignment.center,
               children: [
-                Icon(Icons.event_busy, size: 64, color: Colors.grey.shade300),
+                Icon(Icons.event_busy, size: 64, color: SboxColors.slate300),
                 const SizedBox(height: 16),
                 Text(tr('Không có dữ liệu chấm công'),
-                  style: TextStyle(color: Color(0xFF71717A)),
+                  style: TextStyle(color: SboxColors.slate500),
                 ),
               ],
             ),
@@ -473,10 +474,10 @@ class _MobileAttendanceHistoryScreenState
         child: Column(
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
-            Icon(Icons.event_busy, size: 64, color: Colors.grey.shade300),
+            Icon(Icons.event_busy, size: 64, color: SboxColors.slate300),
             const SizedBox(height: 16),
             Text(tr('Không có dữ liệu chấm công'),
-              style: TextStyle(color: Color(0xFF71717A)),
+              style: TextStyle(color: SboxColors.slate500),
             ),
           ],
         ),
@@ -491,13 +492,13 @@ class _MobileAttendanceHistoryScreenState
       padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
       decoration: BoxDecoration(
         color: Colors.white,
-        border: Border(top: BorderSide(color: Colors.grey.shade200)),
+        border: Border(top: BorderSide(color: SboxColors.slate200)),
       ),
       child: Row(
         mainAxisAlignment: MainAxisAlignment.spaceBetween,
         children: [
           Text(tr('Hiển thị ${startIndex + 1}-$endIndex / $totalCount ngày'),
-              style: TextStyle(fontSize: 12, color: Colors.grey[600])),
+              style: TextStyle(fontSize: 12, color: SboxColors.slate600)),
           Row(children: [
             IconButton(
                 icon: const Icon(Icons.chevron_left, size: 20),
@@ -528,8 +529,8 @@ class _MobileAttendanceHistoryScreenState
       margin: const EdgeInsets.only(bottom: 12),
       decoration: BoxDecoration(
         color: Colors.white,
-        borderRadius: BorderRadius.circular(12),
-        border: Border.all(color: const Color(0xFFE4E4E7)),
+        borderRadius: BorderRadius.circular(14),
+        border: Border.all(color: SboxColors.slate200),
       ),
       clipBehavior: Clip.antiAlias,
       child: Column(
@@ -537,7 +538,7 @@ class _MobileAttendanceHistoryScreenState
           Container(
             padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
             decoration: const BoxDecoration(
-              color: Color(0xFFFAFAFA),
+              color: SboxColors.slate50,
             ),
             child: Row(
               children: [
@@ -545,7 +546,7 @@ class _MobileAttendanceHistoryScreenState
                   padding: const EdgeInsets.all(8),
                   decoration: BoxDecoration(
                     color: HrmPageChrome.primaryNavy.withValues(alpha: 0.1),
-                    borderRadius: BorderRadius.circular(8),
+                    borderRadius: BorderRadius.circular(10),
                   ),
                   child: const Icon(
                     Icons.calendar_today,
@@ -561,14 +562,14 @@ class _MobileAttendanceHistoryScreenState
                       tr(weekdays[date.weekday - 1]),
                       style: const TextStyle(
                         fontWeight: FontWeight.bold,
-                        color: Color(0xFF18181B),
+                        color: SboxColors.slate900,
                       ),
                     ),
                     Text(
                       tr(dateKey),
                       style: const TextStyle(
                         fontSize: 12,
-                        color: Color(0xFF71717A),
+                        color: SboxColors.slate500,
                       ),
                     ),
                   ],
@@ -579,7 +580,7 @@ class _MobileAttendanceHistoryScreenState
                     padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
                     decoration: BoxDecoration(
                       color: HrmPageChrome.primaryNavy.withValues(alpha: 0.1),
-                      borderRadius: BorderRadius.circular(8),
+                      borderRadius: BorderRadius.circular(10),
                     ),
                     child: Text(
                       tr(_calculateWorkHours(records)),
@@ -616,7 +617,7 @@ class _MobileAttendanceHistoryScreenState
     final isCheckIn = record.punchType == 0;
     final statusColor = record.status == 'auto_approved' || record.status == 'approved'
         ? HrmPageChrome.primaryNavy
-        : const Color(0xFFF59E0B);
+        : SboxColors.warning;
     final statusLabel = record.status == 'auto_approved'
         ? 'Tự động'
         : record.status == 'approved'
@@ -628,7 +629,7 @@ class _MobileAttendanceHistoryScreenState
       child: Container(
         padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
         decoration: const BoxDecoration(
-          border: Border(top: BorderSide(color: Color(0xFFE4E4E7))),
+          border: Border(top: BorderSide(color: SboxColors.slate200)),
         ),
         child: Row(
           children: [
@@ -645,12 +646,12 @@ class _MobileAttendanceHistoryScreenState
                 children: [
                   Text(
                     tr('${record.punchTime.hour.toString().padLeft(2, '0')}:${record.punchTime.minute.toString().padLeft(2, '0')} · ${record.punchTypeLabel}'),
-                    style: const TextStyle(fontSize: 14, fontWeight: FontWeight.w600, color: Color(0xFF18181B)),
+                    style: const TextStyle(fontSize: 14, fontWeight: FontWeight.w600, color: SboxColors.slate900),
                   ),
                   const SizedBox(height: 2),
                   Text(
                     tr('${record.formattedDistanceFromLocation} · ${record.faceMatchScore?.toInt() ?? 0}%'),
-                    style: const TextStyle(fontSize: 12, color: Color(0xFF71717A)),
+                    style: const TextStyle(fontSize: 12, color: SboxColors.slate500),
                   ),
                 ],
               ),
@@ -664,7 +665,7 @@ class _MobileAttendanceHistoryScreenState
               child: Text(tr(statusLabel), style: TextStyle(fontSize: 11, fontWeight: FontWeight.w600, color: statusColor)),
             ),
             const SizedBox(width: 4),
-            const Icon(Icons.chevron_right, size: 18, color: Color(0xFF71717A)),
+            const Icon(Icons.chevron_right, size: 18, color: SboxColors.slate500),
           ],
         ),
       ),
@@ -684,13 +685,13 @@ class _MobileAttendanceHistoryScreenState
       padding: const EdgeInsets.symmetric(vertical: 8),
       child: Row(
         children: [
-          Icon(icon, size: 20, color: const Color(0xFF71717A)),
+          Icon(icon, size: 20, color: SboxColors.slate500),
           const SizedBox(width: 12),
           Expanded(
             flex: 2,
             child: Text(
               tr(label),
-              style: const TextStyle(color: Color(0xFF71717A)),
+              style: const TextStyle(color: SboxColors.slate500),
             ),
           ),
           Expanded(
@@ -699,7 +700,7 @@ class _MobileAttendanceHistoryScreenState
               tr(value),
               style: const TextStyle(
                 fontWeight: FontWeight.w500,
-                color: Color(0xFF18181B),
+                color: SboxColors.slate900,
               ),
               textAlign: TextAlign.right,
             ),
@@ -723,7 +724,7 @@ class _MobileAttendanceHistoryScreenState
               primary: HrmPageChrome.primaryNavy,
               onPrimary: Colors.white,
               surface: Colors.white,
-              onSurface: Color(0xFF18181B),
+              onSurface: SboxColors.slate900,
             ),
           ),
           child: child!,
@@ -762,7 +763,7 @@ class _MobileAttendanceHistoryScreenState
                 width: 40,
                 height: 4,
                 decoration: BoxDecoration(
-                  color: Colors.grey.shade300,
+                  color: SboxColors.slate300,
                   borderRadius: BorderRadius.circular(2),
                 ),
               ),
@@ -772,7 +773,7 @@ class _MobileAttendanceHistoryScreenState
               style: TextStyle(
                 fontSize: 18,
                 fontWeight: FontWeight.bold,
-                color: Color(0xFF18181B),
+                color: SboxColors.slate900,
               ),
             ),
             const SizedBox(height: 16),
@@ -828,7 +829,7 @@ class _MobileAttendanceHistoryScreenState
       selectedColor: HrmPageChrome.primaryNavy.withValues(alpha: 0.1),
       checkmarkColor: HrmPageChrome.primaryNavy,
       labelStyle: TextStyle(
-        color: isSelected ? HrmPageChrome.primaryNavy : const Color(0xFF71717A),
+        color: isSelected ? HrmPageChrome.primaryNavy : SboxColors.slate500,
       ),
     );
   }

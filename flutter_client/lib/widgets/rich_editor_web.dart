@@ -14,6 +14,7 @@ import 'package:file_picker/file_picker.dart';
 import 'package:zkteco_flutter_client/l10n/app_tr.dart';
 
 import './pos/pos_theme.dart';
+import '../theme/sbox_tokens.dart';
 // ══════════════════════════════════════════════════════════
 // Controller
 // ══════════════════════════════════════════════════════════
@@ -282,8 +283,8 @@ class _RichEditorState extends State<RichEditor> {
   Widget build(BuildContext context) {
     return Container(
       decoration: BoxDecoration(
-        borderRadius: BorderRadius.circular(12),
-        border: Border.all(color: const Color(0xFFCBD5E1)),
+        borderRadius: BorderRadius.circular(14),
+        border: Border.all(color: SboxColors.slate300),
         boxShadow: [
           BoxShadow(
             color: Colors.black.withValues(alpha: 0.04),
@@ -331,13 +332,13 @@ class _RichEditorState extends State<RichEditor> {
         fontFamily: 'Consolas, "Fira Code", monospace',
         fontSize: 13,
         height: 1.6,
-        color: Color(0xFF334155),
+        color: SboxColors.slate700,
       ),
       decoration: InputDecoration(
         border: InputBorder.none,
         contentPadding: EdgeInsets.all(20),
         hintText: tr('<!-- Nhập mã HTML tại đây -->'),
-        hintStyle: TextStyle(color: Color(0xFFA1A1AA)),
+        hintStyle: TextStyle(color: SboxColors.slate400),
       ),
       onChanged: (value) => widget.onChanged?.call(value),
     );
@@ -349,12 +350,12 @@ class _RichEditorState extends State<RichEditor> {
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 6),
       decoration: const BoxDecoration(
-        color: Color(0xFFFAFAFA),
+        color: SboxColors.slate50,
         borderRadius: BorderRadius.only(
           topLeft: Radius.circular(12),
           topRight: Radius.circular(12),
         ),
-        border: Border(bottom: BorderSide(color: Color(0xFFE4E4E7))),
+        border: Border(bottom: BorderSide(color: SboxColors.slate200)),
       ),
       child: Wrap(
         spacing: 1,
@@ -449,7 +450,7 @@ class _RichEditorState extends State<RichEditor> {
         child: InkWell(
           onTap: onTap,
           borderRadius: BorderRadius.circular(6),
-          hoverColor: const Color(0xFFE4E4E7),
+          hoverColor: SboxColors.slate200,
           child: Container(
             width: 32,
             height: 32,
@@ -462,7 +463,7 @@ class _RichEditorState extends State<RichEditor> {
                 size: 18,
                 color: isActive
                     ? PosTheme.kiotBlue
-                    : const Color(0xFF52525B)),
+                    : SboxColors.slate600),
           ),
         ),
       ),
@@ -474,7 +475,7 @@ class _RichEditorState extends State<RichEditor> {
       width: 1,
       height: 24,
       margin: const EdgeInsets.symmetric(horizontal: 4),
-      color: const Color(0xFFE4E4E7),
+      color: SboxColors.slate200,
     );
   }
 
@@ -492,9 +493,9 @@ class _RichEditorState extends State<RichEditor> {
         child: const Row(
           mainAxisSize: MainAxisSize.min,
           children: [
-            Icon(Icons.title, size: 18, color: Color(0xFF52525B)),
+            Icon(Icons.title, size: 18, color: SboxColors.slate600),
             SizedBox(width: 2),
-            Icon(Icons.arrow_drop_down, size: 16, color: Color(0xFF52525B)),
+            Icon(Icons.arrow_drop_down, size: 16, color: SboxColors.slate600),
           ],
         ),
       ),
@@ -532,9 +533,9 @@ class _RichEditorState extends State<RichEditor> {
         child: const Row(
           mainAxisSize: MainAxisSize.min,
           children: [
-            Icon(Icons.format_size, size: 18, color: Color(0xFF52525B)),
+            Icon(Icons.format_size, size: 18, color: SboxColors.slate600),
             SizedBox(width: 2),
-            Icon(Icons.arrow_drop_down, size: 16, color: Color(0xFF52525B)),
+            Icon(Icons.arrow_drop_down, size: 16, color: SboxColors.slate600),
           ],
         ),
       ),
@@ -577,7 +578,7 @@ class _RichEditorState extends State<RichEditor> {
         width: 32,
         height: 32,
         alignment: Alignment.center,
-        child: Icon(icon, size: 18, color: const Color(0xFF52525B)),
+        child: Icon(icon, size: 18, color: SboxColors.slate600),
       ),
       itemBuilder: (_) => [
         PopupMenuItem(
@@ -601,7 +602,7 @@ class _RichEditorState extends State<RichEditor> {
                             color: _hexToColor(color),
                             borderRadius: BorderRadius.circular(6),
                             border:
-                                Border.all(color: const Color(0xFFE4E4E7)),
+                                Border.all(color: SboxColors.slate200),
                             boxShadow: [
                               BoxShadow(
                                 color: Colors.black.withValues(alpha: 0.08),
@@ -639,7 +640,7 @@ class _RichEditorState extends State<RichEditor> {
     showDialog(
       context: context,
       builder: (ctx) => ScrollableAlertDialog(
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
         title: Row(
           children: [
             Icon(Icons.link, color: PosTheme.kiotBlue, size: 22),
@@ -720,7 +721,7 @@ class _RichEditorState extends State<RichEditor> {
       context: context,
       builder: (ctx) => StatefulBuilder(
         builder: (ctx, setDlgState) => ScrollableAlertDialog(
-          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
           title: Row(
             children: [
               Icon(Icons.image, color: PosTheme.kiotBlue, size: 22),
@@ -739,7 +740,7 @@ class _RichEditorState extends State<RichEditor> {
                   if (widget.onImageUpload != null)
                   Container(
                     decoration: BoxDecoration(
-                      color: const Color(0xFFF1F5F9),
+                      color: SboxColors.slate100,
                       borderRadius: BorderRadius.circular(10),
                     ),
                     padding: const EdgeInsets.all(4),
@@ -752,7 +753,7 @@ class _RichEditorState extends State<RichEditor> {
                               padding: const EdgeInsets.symmetric(vertical: 10),
                               decoration: BoxDecoration(
                                 color: tabIndex == 0 ? Colors.white : Colors.transparent,
-                                borderRadius: BorderRadius.circular(8),
+                                borderRadius: BorderRadius.circular(10),
                                 boxShadow: tabIndex == 0 ? [
                                   BoxShadow(color: Colors.black.withValues(alpha: 0.06), blurRadius: 4)
                                 ] : null,
@@ -761,12 +762,12 @@ class _RichEditorState extends State<RichEditor> {
                                 mainAxisAlignment: MainAxisAlignment.center,
                                 children: [
                                   Icon(Icons.upload_file, size: 18,
-                                      color: tabIndex == 0 ? PosTheme.kiotBlue : const Color(0xFFA1A1AA)),
+                                      color: tabIndex == 0 ? PosTheme.kiotBlue : SboxColors.slate400),
                                   const SizedBox(width: 6),
                                   Text(tr('Upload ảnh'),
                                       style: TextStyle(
                                         fontWeight: tabIndex == 0 ? FontWeight.w600 : FontWeight.normal,
-                                        color: tabIndex == 0 ? PosTheme.kiotBlue : const Color(0xFFA1A1AA),
+                                        color: tabIndex == 0 ? PosTheme.kiotBlue : SboxColors.slate400,
                                       )),
                                 ],
                               ),
@@ -780,7 +781,7 @@ class _RichEditorState extends State<RichEditor> {
                               padding: const EdgeInsets.symmetric(vertical: 10),
                               decoration: BoxDecoration(
                                 color: tabIndex == 1 ? Colors.white : Colors.transparent,
-                                borderRadius: BorderRadius.circular(8),
+                                borderRadius: BorderRadius.circular(10),
                                 boxShadow: tabIndex == 1 ? [
                                   BoxShadow(color: Colors.black.withValues(alpha: 0.06), blurRadius: 4)
                                 ] : null,
@@ -789,12 +790,12 @@ class _RichEditorState extends State<RichEditor> {
                                 mainAxisAlignment: MainAxisAlignment.center,
                                 children: [
                                   Icon(Icons.link, size: 18,
-                                      color: tabIndex == 1 ? PosTheme.kiotBlue : const Color(0xFFA1A1AA)),
+                                      color: tabIndex == 1 ? PosTheme.kiotBlue : SboxColors.slate400),
                                   const SizedBox(width: 6),
                                   Text(tr('URL ảnh'),
                                       style: TextStyle(
                                         fontWeight: tabIndex == 1 ? FontWeight.w600 : FontWeight.normal,
-                                        color: tabIndex == 1 ? PosTheme.kiotBlue : const Color(0xFFA1A1AA),
+                                        color: tabIndex == 1 ? PosTheme.kiotBlue : SboxColors.slate400,
                                       )),
                                 ],
                               ),
@@ -819,8 +820,8 @@ class _RichEditorState extends State<RichEditor> {
                         fit: BoxFit.cover,
                         placeholder: (_, __) => const Center(child: SizedBox(width: 24, height: 24, child: CircularProgressIndicator(strokeWidth: 2))),
                         errorWidget: (_, __, ___) => Container(
-                          height: 150, color: Colors.grey[200],
-                          child: const Center(child: Icon(Icons.broken_image, color: Colors.grey)),
+                          height: 150, color: SboxColors.slate200,
+                          child: const Center(child: Icon(Icons.broken_image, color: SboxColors.slate500)),
                         ),
                       ),
                     ),
@@ -870,9 +871,9 @@ class _RichEditorState extends State<RichEditor> {
                         height: 150,
                         width: double.infinity,
                         decoration: BoxDecoration(
-                          border: Border.all(color: const Color(0xFFCBD5E1), width: 2, style: BorderStyle.solid),
-                          borderRadius: BorderRadius.circular(12),
-                          color: const Color(0xFFFAFAFA),
+                          border: Border.all(color: SboxColors.slate300, width: 2, style: BorderStyle.solid),
+                          borderRadius: BorderRadius.circular(14),
+                          color: SboxColors.slate50,
                         ),
                         child: isUploading
                             ? Center(child: Column(
@@ -880,19 +881,19 @@ class _RichEditorState extends State<RichEditor> {
                                 children: [
                                   CircularProgressIndicator(strokeWidth: 3),
                                   SizedBox(height: 12),
-                                  Text(tr('Đang upload...'), style: TextStyle(color: Color(0xFF71717A))),
+                                  Text(tr('Đang upload...'), style: TextStyle(color: SboxColors.slate500)),
                                 ],
                               ))
                             : Column(
                                 mainAxisAlignment: MainAxisAlignment.center,
                                 children: [
-                                  Icon(Icons.cloud_upload_outlined, size: 40, color: Color(0xFFA1A1AA)),
+                                  Icon(Icons.cloud_upload_outlined, size: 40, color: SboxColors.slate400),
                                   SizedBox(height: 8),
                                   Text(tr('Nhấn để chọn ảnh từ thiết bị'),
-                                      style: TextStyle(color: Color(0xFF71717A), fontWeight: FontWeight.w500)),
+                                      style: TextStyle(color: SboxColors.slate500, fontWeight: FontWeight.w500)),
                                   SizedBox(height: 4),
                                   Text(tr('Hỗ trợ: JPG, PNG, GIF, WebP (tối đa 10MB)'),
-                                      style: TextStyle(color: Color(0xFFA1A1AA), fontSize: 12)),
+                                      style: TextStyle(color: SboxColors.slate400, fontSize: 12)),
                                 ],
                               ),
                       ),
@@ -1103,7 +1104,7 @@ class _RichEditorState extends State<RichEditor> {
           }
 
           return ScrollableAlertDialog(
-            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
             title: Row(
               children: [
                 const Icon(Icons.image, color: PosTheme.kiotBlue, size: 22),
@@ -1131,7 +1132,7 @@ class _RichEditorState extends State<RichEditor> {
                   children: [
                     // Preview
                     ClipRRect(
-                    borderRadius: BorderRadius.circular(8),
+                    borderRadius: BorderRadius.circular(10),
                     child: AuthCachedImage(
                       imagePath: img.src ?? '',
                       apiService: ApiService(),
@@ -1141,9 +1142,9 @@ class _RichEditorState extends State<RichEditor> {
                       placeholder: (_, __) => const Center(child: SizedBox(width: 24, height: 24, child: CircularProgressIndicator(strokeWidth: 2))),
                       errorWidget: (_, __, ___) => Container(
                         height: 160,
-                        color: Colors.grey[200],
+                        color: SboxColors.slate200,
                         child: const Center(
-                          child: Icon(Icons.broken_image, color: Colors.grey, size: 40),
+                          child: Icon(Icons.broken_image, color: SboxColors.slate500, size: 40),
                         ),
                       ),
                     ),
@@ -1275,20 +1276,20 @@ class _RichEditorState extends State<RichEditor> {
         padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
         decoration: BoxDecoration(
           color: selected ? const Color(0xFFE8F0FE) : Colors.transparent,
-          borderRadius: BorderRadius.circular(8),
+          borderRadius: BorderRadius.circular(10),
           border: Border.all(
-              color: selected ? PosTheme.kiotBlue : const Color(0xFFCBD5E1)),
+              color: selected ? PosTheme.kiotBlue : SboxColors.slate300),
         ),
         child: Row(
           mainAxisSize: MainAxisSize.min,
           children: [
             Icon(icon, size: 16,
-                color: selected ? PosTheme.kiotBlue : const Color(0xFF71717A)),
+                color: selected ? PosTheme.kiotBlue : SboxColors.slate500),
             const SizedBox(width: 4),
             Text(tr(label),
                 style: TextStyle(
                   fontSize: 12,
-                  color: selected ? PosTheme.kiotBlue : const Color(0xFF71717A),
+                  color: selected ? PosTheme.kiotBlue : SboxColors.slate500,
                   fontWeight: selected ? FontWeight.w600 : FontWeight.normal,
                 )),
           ],
@@ -1329,7 +1330,7 @@ class _RichEditorState extends State<RichEditor> {
     showDialog(
       context: context,
       builder: (ctx) => ScrollableAlertDialog(
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
         title: Row(
           children: [
             const Icon(Icons.table_chart, color: PosTheme.kiotBlue, size: 22),
@@ -1352,7 +1353,7 @@ class _RichEditorState extends State<RichEditor> {
               Align(
                 alignment: Alignment.centerLeft,
                 child: Text(tr('Thêm hàng'),
-                    style: TextStyle(fontWeight: FontWeight.w600, fontSize: 13, color: Color(0xFF52525B))),
+                    style: TextStyle(fontWeight: FontWeight.w600, fontSize: 13, color: SboxColors.slate600)),
               ),
               const SizedBox(height: 8),
               Row(
@@ -1372,7 +1373,7 @@ class _RichEditorState extends State<RichEditor> {
               Align(
                 alignment: Alignment.centerLeft,
                 child: Text(tr('Thêm cột'),
-                    style: TextStyle(fontWeight: FontWeight.w600, fontSize: 13, color: Color(0xFF52525B))),
+                    style: TextStyle(fontWeight: FontWeight.w600, fontSize: 13, color: SboxColors.slate600)),
               ),
               const SizedBox(height: 8),
               Row(
@@ -1394,7 +1395,7 @@ class _RichEditorState extends State<RichEditor> {
               Align(
                 alignment: Alignment.centerLeft,
                 child: Text(tr('Xóa'),
-                    style: TextStyle(fontWeight: FontWeight.w600, fontSize: 13, color: Color(0xFFEF4444))),
+                    style: TextStyle(fontWeight: FontWeight.w600, fontSize: 13, color: SboxColors.danger)),
               ),
               const SizedBox(height: 8),
               Row(
@@ -1402,18 +1403,18 @@ class _RichEditorState extends State<RichEditor> {
                   Expanded(child: _tableActionButton(Icons.table_rows_outlined, 'Xóa hàng', () {
                     _tableDeleteRow(cell, table);
                     Navigator.pop(ctx);
-                  }, color: const Color(0xFFEF4444))),
+                  }, color: SboxColors.danger)),
                   const SizedBox(width: 8),
                   Expanded(child: _tableActionButton(Icons.view_column_outlined, 'Xóa cột', () {
                     _tableDeleteColumn(cell, table);
                     Navigator.pop(ctx);
-                  }, color: const Color(0xFFEF4444))),
+                  }, color: SboxColors.danger)),
                   const SizedBox(width: 8),
                   Expanded(child: _tableActionButton(Icons.delete_forever_outlined, 'Xóa bảng', () {
                     table.remove();
                     widget.onChanged?.call(widget.controller.html);
                     Navigator.pop(ctx);
-                  }, color: const Color(0xFFEF4444))),
+                  }, color: SboxColors.danger)),
                 ],
               ),
               const SizedBox(height: 14),
@@ -1422,7 +1423,7 @@ class _RichEditorState extends State<RichEditor> {
               Align(
                 alignment: Alignment.centerLeft,
                 child: Text(tr('Kiểu bảng'),
-                    style: TextStyle(fontWeight: FontWeight.w600, fontSize: 13, color: Color(0xFF52525B))),
+                    style: TextStyle(fontWeight: FontWeight.w600, fontSize: 13, color: SboxColors.slate600)),
               ),
               const SizedBox(height: 8),
               Row(
@@ -1446,7 +1447,7 @@ class _RichEditorState extends State<RichEditor> {
   }
 
   Widget _tableActionButton(IconData icon, String label, VoidCallback onTap, {Color? color}) {
-    final c = color ?? const Color(0xFF52525B);
+    final c = color ?? SboxColors.slate600;
     return Material(
       color: Colors.transparent,
       child: InkWell(
@@ -1455,7 +1456,7 @@ class _RichEditorState extends State<RichEditor> {
         child: Container(
           padding: const EdgeInsets.symmetric(vertical: 12, horizontal: 8),
           decoration: BoxDecoration(
-            border: Border.all(color: color != null ? color.withValues(alpha: 0.3) : const Color(0xFFE4E4E7)),
+            border: Border.all(color: color != null ? color.withValues(alpha: 0.3) : SboxColors.slate200),
             borderRadius: BorderRadius.circular(10),
           ),
           child: Column(
@@ -1620,7 +1621,7 @@ class _RichEditorState extends State<RichEditor> {
       context: context,
       builder: (ctx) => StatefulBuilder(
         builder: (ctx, setDlgState) => ScrollableAlertDialog(
-          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
           title: Row(
             children: [
               Icon(Icons.play_circle_fill, color: Color(0xFFFF0000), size: 22),
@@ -1668,15 +1669,15 @@ class _RichEditorState extends State<RichEditor> {
                       placeholder: (_, __) => const Center(child: SizedBox(width: 24, height: 24, child: CircularProgressIndicator(strokeWidth: 2))),
                       errorWidget: (_, __, ___) => Container(
                         height: 180,
-                        color: Colors.grey[200],
+                        color: SboxColors.slate200,
                         child: Center(
                           child: Column(
                             mainAxisSize: MainAxisSize.min,
                             children: [
-                              Icon(Icons.videocam_off, color: Colors.grey, size: 40),
+                              Icon(Icons.videocam_off, color: SboxColors.slate500, size: 40),
                               SizedBox(height: 8),
                               Text(tr('Không tải được thumbnail'),
-                                  style: TextStyle(color: Colors.grey)),
+                                  style: TextStyle(color: SboxColors.slate500)),
                             ],
                           ),
                         ),
@@ -1689,7 +1690,7 @@ class _RichEditorState extends State<RichEditor> {
                       const Icon(Icons.check_circle, color: Colors.green, size: 16),
                       const SizedBox(width: 6),
                       Text(tr('Video ID: $previewId'),
-                          style: const TextStyle(color: Color(0xFF71717A), fontSize: 12)),
+                          style: const TextStyle(color: SboxColors.slate500, fontSize: 12)),
                     ],
                   ),
                   const SizedBox(height: 14),
@@ -1697,16 +1698,16 @@ class _RichEditorState extends State<RichEditor> {
                   Container(
                     padding: const EdgeInsets.all(12),
                     decoration: BoxDecoration(
-                      color: const Color(0xFFFEF2F2),
-                      borderRadius: BorderRadius.circular(8),
+                      color: SboxColors.dangerSoft,
+                      borderRadius: BorderRadius.circular(10),
                     ),
                     child: Row(
                       children: [
-                        Icon(Icons.warning_amber_rounded, color: Color(0xFFEF4444), size: 18),
+                        Icon(Icons.warning_amber_rounded, color: SboxColors.danger, size: 18),
                         SizedBox(width: 8),
                         Expanded(
                           child: Text(tr('Không nhận dạng được URL YouTube. Vui lòng kiểm tra lại.'),
-                              style: TextStyle(color: Color(0xFFEF4444), fontSize: 13)),
+                              style: TextStyle(color: SboxColors.danger, fontSize: 13)),
                         ),
                       ],
                     ),
@@ -1780,7 +1781,7 @@ class _RichEditorState extends State<RichEditor> {
       builder: (ctx) => StatefulBuilder(
         builder: (ctx, setDlgState) => ScrollableAlertDialog(
           shape:
-              RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+              RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
           title: Row(
             children: [
               Icon(Icons.table_chart, color: PosTheme.kiotBlue, size: 22),
@@ -1806,7 +1807,7 @@ class _RichEditorState extends State<RichEditor> {
                         contentPadding: const EdgeInsets.symmetric(
                             horizontal: 10, vertical: 8),
                         border: OutlineInputBorder(
-                            borderRadius: BorderRadius.circular(8)),
+                            borderRadius: BorderRadius.circular(10)),
                       ),
                       items: List.generate(
                           10,
@@ -1828,7 +1829,7 @@ class _RichEditorState extends State<RichEditor> {
                         contentPadding: const EdgeInsets.symmetric(
                             horizontal: 10, vertical: 8),
                         border: OutlineInputBorder(
-                            borderRadius: BorderRadius.circular(8)),
+                            borderRadius: BorderRadius.circular(10)),
                       ),
                       items: List.generate(
                           10,
@@ -1899,7 +1900,7 @@ class _RichEditorState extends State<RichEditor> {
       builder: (ctx) => StatefulBuilder(
         builder: (ctx, setDlgState) => ScrollableAlertDialog(
           shape:
-              RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+              RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
           title: Row(
             children: [
               Icon(Icons.smart_button, color: PosTheme.kiotBlue, size: 22),

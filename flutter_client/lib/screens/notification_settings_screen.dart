@@ -8,6 +8,7 @@ import '../widgets/hrm_page_chrome.dart';
 import '../widgets/pos/pos_theme.dart';
 import 'package:zkteco_flutter_client/l10n/app_tr.dart';
 
+import '../theme/sbox_tokens.dart';
 class NotificationSettingsScreen extends StatefulWidget {
   const NotificationSettingsScreen({super.key});
 
@@ -33,9 +34,9 @@ class _NotificationSettingsScreenState
   List<_PreferenceItem> get _workPrefs =>
       _preferences.where((p) => !_attendanceCodes.contains(p.categoryCode)).toList();
 
-  static const _bgColor = Color(0xFFFAFAFA);
-  static const _textDark = Color(0xFF0F172A);
-  static const _textMuted = Color(0xFF71717A);
+  static const _bgColor = SboxColors.slate50;
+  static const _textDark = SboxColors.slate900;
+  static const _textMuted = SboxColors.slate500;
 
   @override
   void initState() {
@@ -146,12 +147,12 @@ class _NotificationSettingsScreenState
       'overtime': Color(0xFFF97316),
       'payroll': HrmPageChrome.primaryNavy,
       'task': HrmPageChrome.primaryNavy,
-      'approval': Color(0xFFEF4444),
+      'approval': SboxColors.danger,
       'device': HrmPageChrome.primaryNavy,
       'hr': Color(0xFFEC4899),
-      'system': Color(0xFF71717A),
-      'kpi': Color(0xFF059669),
-      'internal_comm': Color(0xFF8B5CF6),
+      'system': SboxColors.slate500,
+      'kpi': SboxColors.success,
+      'internal_comm': SboxColors.violet,
     };
     return colorMap[code] ?? HrmPageChrome.primaryNavy;
   }
@@ -224,9 +225,9 @@ class _NotificationSettingsScreenState
     return Container(
       decoration: BoxDecoration(
         color: Colors.white,
-        borderRadius: BorderRadius.circular(16),
+        borderRadius: BorderRadius.circular(14),
         border: Border.all(
-          color: isEnabled ? color.withValues(alpha: 0.3) : const Color(0xFFE4E4E7),
+          color: isEnabled ? color.withValues(alpha: 0.3) : SboxColors.slate200,
         ),
         boxShadow: [
           BoxShadow(
@@ -251,8 +252,8 @@ class _NotificationSettingsScreenState
                   width: 44,
                   height: 44,
                   decoration: BoxDecoration(
-                    color: isEnabled ? color.withValues(alpha: 0.12) : const Color(0xFFE4E4E7),
-                    borderRadius: BorderRadius.circular(12),
+                    color: isEnabled ? color.withValues(alpha: 0.12) : SboxColors.slate200,
+                    borderRadius: BorderRadius.circular(14),
                   ),
                   child: Icon(icon, size: 24, color: isEnabled ? color : _textMuted),
                 ),
@@ -287,7 +288,7 @@ class _NotificationSettingsScreenState
           ),
           // Sub-categories
           if (isEnabled && children.isNotEmpty) ...[
-            const Divider(height: 1, color: Color(0xFFE4E4E7)),
+            const Divider(height: 1, color: SboxColors.slate200),
             Padding(
               padding: const EdgeInsets.symmetric(vertical: 4),
               child: Column(
@@ -310,8 +311,8 @@ class _NotificationSettingsScreenState
             width: 32,
             height: 32,
             decoration: BoxDecoration(
-              color: item.isEnabled ? color.withValues(alpha: 0.1) : const Color(0xFFF1F5F9),
-              borderRadius: BorderRadius.circular(8),
+              color: item.isEnabled ? color.withValues(alpha: 0.1) : SboxColors.slate100,
+              borderRadius: BorderRadius.circular(10),
             ),
             child: Icon(
               _getIconData(item.icon),
@@ -353,7 +354,7 @@ class _NotificationSettingsScreenState
             padding: const EdgeInsets.all(12),
             decoration: BoxDecoration(
               color: PosTheme.kiotBlueLight,
-              borderRadius: BorderRadius.circular(12),
+              borderRadius: BorderRadius.circular(14),
             ),
             child: const Icon(Icons.notifications_active,
                 color: PosTheme.kiotBlue, size: 26),
@@ -406,9 +407,9 @@ class _NotificationSettingsScreenState
           foregroundColor: Colors.white,
           padding: const EdgeInsets.symmetric(vertical: 14),
           shape:
-              RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+              RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
           textStyle:
-              const TextStyle(fontSize: 15, fontWeight: FontWeight.w600),
+              const TextStyle(fontSize: 16, fontWeight: FontWeight.w600),
         ),
       ),
     );

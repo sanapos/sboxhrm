@@ -4,6 +4,7 @@ import 'dart:math' as math;
 import 'package:zkteco_flutter_client/l10n/app_tr.dart';
 
 import './pos/pos_theme.dart';
+import '../theme/sbox_tokens.dart';
 /// Widget for Face ID capture with animated overlay
 class FaceIdCaptureWidget extends StatefulWidget {
   final VoidCallback? onCapture;
@@ -197,8 +198,8 @@ class _FaceIdCaptureWidgetState extends State<FaceIdCaptureWidget>
       height: 280,
       margin: const EdgeInsets.all(16),
       decoration: BoxDecoration(
-        color: const Color(0xFF18181B),
-        borderRadius: BorderRadius.circular(16),
+        color: SboxColors.slate900,
+        borderRadius: BorderRadius.circular(14),
       ),
       child: Stack(
         children: [
@@ -295,7 +296,7 @@ class _FaceIdCaptureWidgetState extends State<FaceIdCaptureWidget>
                 padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
                 decoration: BoxDecoration(
                   color: const Color(0xFF0F2340),
-                  borderRadius: BorderRadius.circular(12),
+                  borderRadius: BorderRadius.circular(14),
                 ),
                 child: Row(
                   mainAxisAlignment: MainAxisAlignment.center,
@@ -370,7 +371,7 @@ class _FaceIdCaptureWidgetState extends State<FaceIdCaptureWidget>
                   ? PosTheme.kiotBlue
                   : _isCapturing
                       ? PosTheme.kiotBlue
-                      : const Color(0xFF18181B),
+                      : SboxColors.slate900,
             ),
           ),
           if (_matchScore != null) ...[
@@ -402,7 +403,7 @@ class _FaceIdCaptureWidgetState extends State<FaceIdCaptureWidget>
                   decoration: BoxDecoration(
                     color: index < _livenessStep
                         ? PosTheme.kiotBlue
-                        : const Color(0xFFE4E4E7),
+                        : SboxColors.slate200,
                     shape: BoxShape.circle,
                   ),
                 ),
@@ -432,7 +433,7 @@ class _FaceIdCaptureWidgetState extends State<FaceIdCaptureWidget>
             foregroundColor: Colors.white,
             padding: const EdgeInsets.symmetric(vertical: 16),
             shape: RoundedRectangleBorder(
-              borderRadius: BorderRadius.circular(12),
+              borderRadius: BorderRadius.circular(14),
             ),
             elevation: 0,
           ),
@@ -545,7 +546,7 @@ class FaceIdCaptureDialog extends StatelessWidget {
                       color: Colors.white.withValues(alpha: 0.9),
                       shape: BoxShape.circle,
                     ),
-                    child: const Icon(Icons.close, color: Color(0xFF71717A)),
+                    child: const Icon(Icons.close, color: SboxColors.slate500),
                   ),
                 ),
               ],

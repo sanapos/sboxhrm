@@ -20,6 +20,7 @@ import '../widgets/pos/pos_theme.dart';
 import '../widgets/reports/hrm_report_widgets.dart';
 import 'package:zkteco_flutter_client/l10n/app_tr.dart';
 
+import '../theme/sbox_tokens.dart';
 /// Màu chủ đạo kiểu KiotViet (xanh dương #0070F4 + xanh lá #00B63E).
 const _theme = PosTheme.kiotBlue;
 
@@ -788,7 +789,7 @@ class _AttendanceReportScreenState extends State<AttendanceReportScreen> {
           label: 'V vắng',
           value: unpaid.toString(),
           icon: Icons.person_off_outlined,
-          color: const Color(0xFFD32F2F)),
+          color: SboxColors.danger),
       ReportKpiItem(
           label: 'Phép',
           value: leave.toString(),
@@ -1014,7 +1015,7 @@ class _AttendanceReportScreenState extends State<AttendanceReportScreen> {
                         const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
                     decoration: BoxDecoration(
                       color: Colors.white,
-                      borderRadius: BorderRadius.circular(12),
+                      borderRadius: BorderRadius.circular(14),
                       border: Border.all(
                         color: HrmPageChrome.chip.withValues(alpha: 0.45),
                       ),
@@ -1027,7 +1028,7 @@ class _AttendanceReportScreenState extends State<AttendanceReportScreen> {
                           style: TextStyle(
                             color: it.fg,
                             fontSize: it.code.length > 2 ? 10 : 11,
-                            fontWeight: FontWeight.w800,
+                            fontWeight: FontWeight.w700,
                             height: 1.1,
                           ),
                         ),
@@ -1221,7 +1222,7 @@ class _AttendanceReportScreenState extends State<AttendanceReportScreen> {
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             Container(
-              color: const Color(0xFFF8FAFC),
+              color: SboxColors.slate50,
               child: Row(
                 children: [
                   SizedBox(
@@ -1258,7 +1259,7 @@ class _AttendanceReportScreenState extends State<AttendanceReportScreen> {
                               size: 14,
                               color: _empSortColumn == 0
                                   ? const Color(0xFF0070F4)
-                                  : Colors.grey.shade400,
+                                  : SboxColors.slate400,
                             ),
                           ],
                         ),
@@ -1280,10 +1281,10 @@ class _AttendanceReportScreenState extends State<AttendanceReportScreen> {
                                 fontWeight: FontWeight.w700,
                                 fontSize: 12,
                                 color: isSun
-                                    ? const Color(0xFFDC2626)
+                                    ? SboxColors.danger
                                     : isSat
                                         ? const Color(0xFFEA580C)
-                                        : const Color(0xFF334155),
+                                        : SboxColors.slate700,
                               ),
                             ),
                             Text(
@@ -1291,8 +1292,8 @@ class _AttendanceReportScreenState extends State<AttendanceReportScreen> {
                               style: TextStyle(
                                 fontSize: 9,
                                 color: isSun
-                                    ? const Color(0xFFDC2626)
-                                    : Colors.grey.shade500,
+                                    ? SboxColors.danger
+                                    : SboxColors.slate500,
                               ),
                             ),
                           ],
@@ -1314,7 +1315,7 @@ class _AttendanceReportScreenState extends State<AttendanceReportScreen> {
               final zebra = i.isOdd;
 
               return Container(
-                color: zebra ? const Color(0xFFFAFAFA) : Colors.white,
+                color: zebra ? SboxColors.slate50 : Colors.white,
                 child: Row(
                   crossAxisAlignment: CrossAxisAlignment.center,
                   children: [
@@ -1337,7 +1338,7 @@ class _AttendanceReportScreenState extends State<AttendanceReportScreen> {
                               Text(tr(code),
                                   style: TextStyle(
                                       fontSize: 10,
-                                      color: Colors.grey.shade600)),
+                                      color: SboxColors.slate600)),
                           ],
                         ),
                       ),
@@ -1414,12 +1415,12 @@ class _AttendanceReportScreenState extends State<AttendanceReportScreen> {
         label = 'L';
         break;
       case 'future':
-        fg = const Color(0xFFA1A1AA);
+        fg = SboxColors.slate400;
         label = '·';
         bordered = false;
         break;
       default:
-        fg = Colors.grey;
+        fg = SboxColors.slate500;
         label = '';
         bordered = false;
     }

@@ -304,7 +304,7 @@ class PosLabelRenderer {
         pad,
         y,
         contentW,
-        fontSize: 15,
+        fontSize: 16,
         bold: true,
         maxLines: 1,
         center: true,

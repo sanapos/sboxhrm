@@ -10,6 +10,7 @@ import '../../widgets/notification_overlay.dart';
 import '../../widgets/pos/pos_theme.dart';
 import 'package:zkteco_flutter_client/l10n/app_tr.dart';
 
+import '../../theme/sbox_tokens.dart';
 /// Cấu hình tích điểm / đổi điểm theo cửa hàng.
 class PosLoyaltySettingsScreen extends StatefulWidget {
   const PosLoyaltySettingsScreen({super.key});
@@ -166,7 +167,7 @@ class _PosLoyaltySettingsScreenState extends State<PosLoyaltySettingsScreen> {
       children: [
         Text(
           tr('Mỗi cửa hàng tự chọn tỷ lệ. Server dùng đúng số này lúc thanh toán — thu ngân không thể đổi tay.'),
-          style: TextStyle(fontSize: 13, color: Colors.grey.shade700),
+          style: TextStyle(fontSize: 13, color: SboxColors.slate700),
         ),
         const SizedBox(height: 8),
         SwitchListTile(
@@ -191,7 +192,7 @@ class _PosLoyaltySettingsScreenState extends State<PosLoyaltySettingsScreen> {
           decoration: InputDecoration(
             hintText: '10000',
             suffixText: tr('đ / 1 điểm'),
-            border: OutlineInputBorder(borderRadius: BorderRadius.circular(8)),
+            border: OutlineInputBorder(borderRadius: BorderRadius.circular(10)),
             isDense: true,
           ),
           onChanged: (_) => setState(() {}),
@@ -199,7 +200,7 @@ class _PosLoyaltySettingsScreenState extends State<PosLoyaltySettingsScreen> {
         const SizedBox(height: 4),
         Text(
           tr('0 = không tích điểm. Mặc định 10.000đ → 1 điểm.'),
-          style: TextStyle(fontSize: 12, color: Colors.grey.shade600),
+          style: TextStyle(fontSize: 12, color: SboxColors.slate600),
         ),
         const SizedBox(height: 16),
         Text(tr('1 điểm đổi được bao nhiêu đồng'),
@@ -213,7 +214,7 @@ class _PosLoyaltySettingsScreenState extends State<PosLoyaltySettingsScreen> {
           decoration: InputDecoration(
             hintText: '100',
             suffixText: tr('đ'),
-            border: OutlineInputBorder(borderRadius: BorderRadius.circular(8)),
+            border: OutlineInputBorder(borderRadius: BorderRadius.circular(10)),
             isDense: true,
           ),
           onChanged: (_) => setState(() {}),
@@ -221,7 +222,7 @@ class _PosLoyaltySettingsScreenState extends State<PosLoyaltySettingsScreen> {
         const SizedBox(height: 4),
         Text(
           tr('0 = không cho đổi điểm. Mặc định 1 điểm = 100đ.'),
-          style: TextStyle(fontSize: 12, color: Colors.grey.shade600),
+          style: TextStyle(fontSize: 12, color: SboxColors.slate600),
         ),
         const SizedBox(height: 16),
         Text(
@@ -240,8 +241,8 @@ class _PosLoyaltySettingsScreenState extends State<PosLoyaltySettingsScreen> {
         ),
         const SizedBox(height: 8),
         Material(
-          color: Colors.blue.shade50,
-          borderRadius: BorderRadius.circular(8),
+          color: SboxColors.brand50,
+          borderRadius: BorderRadius.circular(10),
           child: Padding(
             padding: const EdgeInsets.all(12),
             child: Text(
@@ -250,7 +251,7 @@ class _PosLoyaltySettingsScreenState extends State<PosLoyaltySettingsScreen> {
                   : tr(
                       'Ví dụ đơn ${_money.format(sample)}đ: tích ${earnPts.toStringAsFixed(0)} điểm'
                       '${rates.canRedeem && earnPts > 0 ? ' · đổi lại giảm ${_money.format(redeemDong)}đ (~${pctBack.toStringAsFixed(1)}%)' : ''}.'),
-              style: TextStyle(fontSize: 13, color: Colors.blue.shade900),
+              style: TextStyle(fontSize: 13, color: SboxColors.brand900),
             ),
           ),
         ),

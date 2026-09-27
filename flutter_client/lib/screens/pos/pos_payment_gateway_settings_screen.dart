@@ -17,6 +17,7 @@ import '../../widgets/pos/pos_theme.dart';
 import '../../widgets/pos/tingee_bank_attach_panel.dart';
 import 'package:zkteco_flutter_client/l10n/app_tr.dart';
 
+import '../../theme/sbox_tokens.dart';
 /// Hub cổng CK: VietQR (tài khoản NH) và Tingee (token + VA).
 class PosPaymentGatewaySettingsScreen extends StatefulWidget {
   const PosPaymentGatewaySettingsScreen({super.key});
@@ -408,7 +409,7 @@ class _PosPaymentGatewaySettingsScreenState
                       child: Center(child: CircularProgressIndicator()),
                     ),
                     errorWidget: (_, __, ___) => const Icon(Icons.qr_code_2,
-                        size: 80, color: Colors.grey),
+                        size: 80, color: SboxColors.slate500),
                   ),
                   const SizedBox(height: 12),
                   Text(tr('Số tiền: ${amountPaid.toStringAsFixed(0)} đ')),
@@ -455,7 +456,7 @@ class _PosPaymentGatewaySettingsScreenState
               children: [
                 _noteCard(
                   icon: Icons.info_outline,
-                  color: Colors.blue,
+                  color: SboxColors.brandSwatch,
                   title: 'Cách hoạt động',
                   body:
                       '1. Tài khoản ngân hàng cửa hàng: tiền về STK này.\n'
@@ -465,22 +466,22 @@ class _PosPaymentGatewaySettingsScreenState
                 const SizedBox(height: 16),
                 Text(tr('1. Tài khoản ngân hàng cửa hàng'),
                     style: const TextStyle(
-                        fontWeight: FontWeight.w800, fontSize: 15)),
+                        fontWeight: FontWeight.w700, fontSize: 16)),
                 const SizedBox(height: 4),
                 Text(
                   tr('STK thật nhận tiền. Dùng khi bấm VietQR (không tự báo có tiền).'),
-                  style: TextStyle(fontSize: 12, color: Colors.grey.shade700),
+                  style: TextStyle(fontSize: 12, color: SboxColors.slate700),
                 ),
                 const SizedBox(height: 8),
                 _bankCard(),
                 const SizedBox(height: 20),
                 Text(tr('2. Tự báo có tiền (Tingee)'),
                     style: const TextStyle(
-                        fontWeight: FontWeight.w800, fontSize: 15)),
+                        fontWeight: FontWeight.w700, fontSize: 16)),
                 const SizedBox(height: 4),
                 Text(
                   tr('Bật để màn bán hiện QR VA. Khách CK đúng số VA → đơn tự xong, QR tự tắt.'),
-                  style: TextStyle(fontSize: 12, color: Colors.grey.shade700),
+                  style: TextStyle(fontSize: 12, color: SboxColors.slate700),
                 ),
                 const SizedBox(height: 8),
                 _tingeeCard(),
@@ -512,7 +513,7 @@ class _PosPaymentGatewaySettingsScreenState
                 children: [
                   Text(tr(title),
                       style: TextStyle(
-                          fontWeight: FontWeight.w800,
+                          fontWeight: FontWeight.w700,
                           color: color.shade900)),
                   const SizedBox(height: 4),
                   Text(tr(body),
@@ -536,7 +537,7 @@ class _PosPaymentGatewaySettingsScreenState
       margin: EdgeInsets.zero,
       shape: RoundedRectangleBorder(
         borderRadius: BorderRadius.circular(10),
-        side: BorderSide(color: Colors.grey.shade300),
+        side: BorderSide(color: SboxColors.slate300),
       ),
       child: Padding(
         padding: const EdgeInsets.fromLTRB(12, 8, 12, 12),
@@ -553,7 +554,7 @@ class _PosPaymentGatewaySettingsScreenState
       margin: EdgeInsets.zero,
       shape: RoundedRectangleBorder(
         borderRadius: BorderRadius.circular(10),
-        side: BorderSide(color: Colors.grey.shade300),
+        side: BorderSide(color: SboxColors.slate300),
       ),
       child: Padding(
         padding: const EdgeInsets.fromLTRB(12, 4, 12, 12),
@@ -610,7 +611,7 @@ class _PosPaymentGatewaySettingsScreenState
               const SizedBox(height: 4),
               Text(
                 tr('Điền STK cửa hàng rồi bấm Gắn STK. Mở app ngân hàng duyệt. QR bán hàng sẽ dùng số VA Tingee trả về (vd. TGE…VCB), không phải STK thật.'),
-                style: TextStyle(fontSize: 12, color: Colors.grey.shade700),
+                style: TextStyle(fontSize: 12, color: SboxColors.slate700),
               ),
               const SizedBox(height: 8),
               TingeeBankAttachPanel(
@@ -714,7 +715,7 @@ class _PosPaymentGatewaySettingsScreenState
       children: [
         if (_shopBankAccounts.isEmpty)
           Text(tr('Chưa có tài khoản. Thêm STK Vietcombank / ngân hàng của cửa hàng.'),
-              style: TextStyle(fontSize: 12, color: Colors.grey.shade600))
+              style: TextStyle(fontSize: 12, color: SboxColors.slate600))
         else
           DropdownButtonFormField<String?>(
             value: _shopBankAccounts.any((a) => a.id == _vietQrBankId)

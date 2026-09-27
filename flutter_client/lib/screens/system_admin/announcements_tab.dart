@@ -5,6 +5,7 @@ import '../../services/api_service.dart';
 import 'system_admin_helpers.dart';
 import 'package:zkteco_flutter_client/l10n/app_tr.dart';
 
+import '../../theme/sbox_tokens.dart';
 /// SuperAdmin – tab "Thông báo / Broadcast" (Phase 1).
 class AnnouncementsTab extends StatefulWidget {
   const AnnouncementsTab({super.key});
@@ -184,7 +185,7 @@ class AnnouncementsTabState extends State<AnnouncementsTab> {
                   children: [
                     Text(tr(a['title']?.toString() ?? ''),
                         style: const TextStyle(
-                            fontWeight: FontWeight.bold, fontSize: 15)),
+                            fontWeight: FontWeight.bold, fontSize: 16)),
                     const SizedBox(height: 2),
                     Wrap(spacing: 6, runSpacing: 4, children: [
                       AdminHelpers.statusChip(_kindLabels[kind] ?? '?', color),
@@ -234,24 +235,24 @@ class AnnouncementsTabState extends State<AnnouncementsTab> {
                 maxLines: 3, overflow: TextOverflow.ellipsis),
             const SizedBox(height: 8),
             Row(children: [
-              Icon(Icons.people, size: 14, color: Colors.grey[600]),
+              Icon(Icons.people, size: 14, color: SboxColors.slate600),
               const SizedBox(width: 4),
               Text(tr('${a['recipientCount'] ?? 0} người nhận'),
-                  style: TextStyle(fontSize: 12, color: Colors.grey[700])),
+                  style: TextStyle(fontSize: 12, color: SboxColors.slate700)),
               const SizedBox(width: 12),
               const Icon(Icons.check_circle, size: 14, color: AdminHelpers.success),
               const SizedBox(width: 4),
               Text(tr('${a['deliveredCount'] ?? 0} đã gửi'),
-                  style: TextStyle(fontSize: 12, color: Colors.grey[700])),
+                  style: TextStyle(fontSize: 12, color: SboxColors.slate700)),
               const SizedBox(width: 12),
-              Icon(Icons.visibility, size: 14, color: Colors.grey[600]),
+              Icon(Icons.visibility, size: 14, color: SboxColors.slate600),
               const SizedBox(width: 4),
               Text(tr('${a['seenCount'] ?? 0} xem'),
-                  style: TextStyle(fontSize: 12, color: Colors.grey[700])),
+                  style: TextStyle(fontSize: 12, color: SboxColors.slate700)),
               const Spacer(),
               if (a['createdAt'] != null)
                 Text(tr(_df.format(DateTime.parse(a['createdAt']).toLocal())),
-                    style: TextStyle(fontSize: 11, color: Colors.grey[500])),
+                    style: TextStyle(fontSize: 11, color: SboxColors.slate500)),
             ]),
           ],
         ),
@@ -675,7 +676,7 @@ class _CreateAnnouncementDialogState extends State<_CreateAnnouncementDialog> {
                 padding: const EdgeInsets.all(8),
                 decoration: BoxDecoration(
                   color: AdminHelpers.info.withValues(alpha: 0.1),
-                  borderRadius: BorderRadius.circular(8),
+                  borderRadius: BorderRadius.circular(10),
                 ),
                 child: Row(children: [
                   const Icon(Icons.people, size: 18),

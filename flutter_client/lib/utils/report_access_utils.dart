@@ -8,6 +8,7 @@ import 'salary_profile_load_utils.dart';
 import '../l10n/app_tr.dart';
 
 import '../widgets/pos/pos_theme.dart';
+import '../theme/sbox_tokens.dart';
 /// Admin/manager xem nhiều NV; nhân viên chỉ xem dữ liệu cá nhân.
 bool isTeamReportView({required String? role}) => !isEmployeeUserRole(role);
 
@@ -262,23 +263,23 @@ Color penaltyStatusColor(dynamic raw) {
   if (raw is int) {
     switch (raw) {
       case 0:
-        return const Color(0xFFF59E0B);
+        return SboxColors.warning;
       case 1:
       case 3:
-        return const Color(0xFF2563EB);
+        return SboxColors.brand600;
       case 2:
-        return Colors.grey;
+        return SboxColors.slate500;
       default:
         break;
     }
   }
   final key = raw?.toString().toLowerCase().trim() ?? '';
-  if (key == 'pending' || key == '0') return const Color(0xFFF59E0B);
+  if (key == 'pending' || key == '0') return SboxColors.warning;
   if (key == 'approved' || key == 'autoapproved' || key == '1' || key == '3') {
-    return const Color(0xFF2563EB);
+    return SboxColors.brand600;
   }
   if (key == 'cancelled' || key == 'canceled' || key == '2') {
-    return Colors.grey;
+    return SboxColors.slate500;
   }
   return PosTheme.kiotBlue;
 }
@@ -313,19 +314,19 @@ Widget reportLoadErrorBanner(String? message) {
     margin: const EdgeInsets.fromLTRB(12, 8, 12, 0),
     padding: const EdgeInsets.all(12),
     decoration: BoxDecoration(
-      color: const Color(0xFFFEF2F2),
-      borderRadius: BorderRadius.circular(8),
+      color: SboxColors.dangerSoft,
+      borderRadius: BorderRadius.circular(10),
       border: Border.all(color: const Color(0xFFFECACA)),
     ),
     child: Row(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        const Icon(Icons.error_outline, size: 18, color: Color(0xFFDC2626)),
+        const Icon(Icons.error_outline, size: 18, color: SboxColors.danger),
         const SizedBox(width: 8),
         Expanded(
           child: Text(
             tr(message),
-            style: const TextStyle(fontSize: 13, color: Color(0xFF991B1B)),
+            style: const TextStyle(fontSize: 13, color: SboxColors.dangerText),
           ),
         ),
       ],

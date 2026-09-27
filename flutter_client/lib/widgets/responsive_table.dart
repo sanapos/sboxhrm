@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import '../utils/responsive_helper.dart';
 import 'package:zkteco_flutter_client/l10n/app_tr.dart';
 
+import '../theme/sbox_tokens.dart';
 /// A column definition for ResponsiveTable
 class ResponsiveColumn {
   final String label;
@@ -71,9 +72,9 @@ class ResponsiveTable extends StatelessWidget {
               child: Column(
                 mainAxisAlignment: MainAxisAlignment.center,
                 children: [
-                  const Icon(Icons.inbox_outlined, size: 48, color: Color(0xFFA1A1AA)),
+                  const Icon(Icons.inbox_outlined, size: 48, color: SboxColors.slate400),
                   const SizedBox(height: 12),
-                  Text(tr(emptyMessage), style: const TextStyle(color: Color(0xFFA1A1AA))),
+                  Text(tr(emptyMessage), style: const TextStyle(color: SboxColors.slate400)),
                 ],
               ),
             ),
@@ -108,7 +109,7 @@ class ResponsiveTable extends StatelessWidget {
       elevation: 0,
       shape: RoundedRectangleBorder(
         borderRadius: BorderRadius.circular(10),
-        side: BorderSide(color: Colors.grey.shade200),
+        side: BorderSide(color: SboxColors.slate200),
       ),
       child: InkWell(
         borderRadius: BorderRadius.circular(10),
@@ -128,12 +129,12 @@ class ResponsiveTable extends StatelessWidget {
                             tr('${row[primaryCol.fieldKey] ?? ''}'),
                             style: const TextStyle(
                               fontWeight: FontWeight.w600,
-                              fontSize: 15,
+                              fontSize: 16,
                             ),
                           ),
                   ),
                   if (onRowTap != null)
-                    const Icon(Icons.chevron_right, color: Color(0xFFA1A1AA), size: 20),
+                    const Icon(Icons.chevron_right, color: SboxColors.slate400, size: 20),
                 ],
               ),
               if (cardCols.isNotEmpty) ...[
@@ -154,7 +155,7 @@ class ResponsiveTable extends StatelessWidget {
                             tr(col.label),
                             style: const TextStyle(
                               fontSize: 11,
-                              color: Color(0xFFA1A1AA),
+                              color: SboxColors.slate400,
                               fontWeight: FontWeight.w500,
                             ),
                           ),
@@ -184,7 +185,7 @@ class ResponsiveTable extends StatelessWidget {
       child: SingleChildScrollView(
         scrollDirection: Axis.horizontal,
         child: DataTable(
-          headingRowColor: WidgetStateProperty.all(const Color(0xFFF4F4F5)),
+          headingRowColor: WidgetStateProperty.all(SboxColors.slate100),
           dataRowMinHeight: 44,
           dataRowMaxHeight: 56,
           headingRowHeight: 44,
@@ -197,7 +198,7 @@ class ResponsiveTable extends StatelessWidget {
                       style: const TextStyle(
                         fontWeight: FontWeight.w600,
                         fontSize: 13,
-                        color: Color(0xFF52525B),
+                        color: SboxColors.slate600,
                       ),
                     ),
                   ))
@@ -259,7 +260,7 @@ class MobileFilterBar extends StatelessWidget {
               prefixIcon: const Icon(Icons.search, size: 20),
               isDense: true,
               contentPadding: const EdgeInsets.symmetric(vertical: 10),
-              border: OutlineInputBorder(borderRadius: BorderRadius.circular(8)),
+              border: OutlineInputBorder(borderRadius: BorderRadius.circular(10)),
             ),
           ),
           if (filters.isNotEmpty) ...[

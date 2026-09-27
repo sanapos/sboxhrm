@@ -12,6 +12,7 @@ import '../widgets/notification_overlay.dart';
 import '../widgets/employee_search_picker.dart';
 import 'package:zkteco_flutter_client/l10n/app_tr.dart';
 
+import '../theme/sbox_tokens.dart';
 /// Tab đăng ký suất ăn (NV) + tổng hợp đăng ký (quản lý) + chấm QR.
 class MealRegistrationTab extends StatefulWidget {
   final List<MealSession> sessions;
@@ -238,7 +239,7 @@ class _MealRegistrationTabState extends State<MealRegistrationTab> {
     return Column(
       children: [
         Material(
-          color: const Color(0xFFEFF6FF),
+          color: SboxColors.brand50,
           child: Padding(
             padding: const EdgeInsets.all(12),
             child: Row(
@@ -354,7 +355,7 @@ class _MealRegistrationTabState extends State<MealRegistrationTab> {
               DataCell(Text(tr('${dayLabels[i]}\n${DateFormat('dd/MM').format(day)}'),
                   style: TextStyle(
                       fontSize: 11,
-                      color: isPast ? Colors.grey : null))),
+                      color: isPast ? SboxColors.slate500 : null))),
               ...widget.sessions.map((s) {
                 final key = _cellKey(day, s.id);
                 final on = _cellRegistered[key] == true;
@@ -435,7 +436,7 @@ class _MealRegistrationTabState extends State<MealRegistrationTab> {
         const SizedBox(height: 8),
         if (_managerRegs.isEmpty)
           Text(tr('Chưa có đăng ký trong ngày'),
-              style: TextStyle(color: Colors.grey))
+              style: TextStyle(color: SboxColors.slate500))
         else
           ..._managerRegs.map((r) {
             final sid = r['mealSessionId']?.toString() ?? '';
@@ -555,7 +556,7 @@ class _MealQrCheckInSheetState extends State<_MealQrCheckInSheet> {
               SizedBox(
                 height: 220,
                 child: ClipRRect(
-                  borderRadius: BorderRadius.circular(12),
+                  borderRadius: BorderRadius.circular(14),
                   child: MobileScanner(
                     controller: _scanner,
                     onDetect: (capture) {

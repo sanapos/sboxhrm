@@ -9,6 +9,7 @@ import '../widgets/notification_overlay.dart';
 import '../utils/shift_records_calculator.dart';
 import 'package:zkteco_flutter_client/l10n/app_tr.dart';
 
+import '../theme/sbox_tokens.dart';
 /// Màn hình Thiết lập hệ thống
 /// - Giờ kết thúc ngày (day_end_time): mặc định 00:00:00
 /// - Số ngày công chuẩn (standard_work_days): mặc định 26
@@ -425,13 +426,13 @@ class _SystemSettingsScreenState extends State<SystemSettingsScreen> {
             children: [
               InkWell(
                 onTap: _pickTime,
-                borderRadius: BorderRadius.circular(12),
+                borderRadius: BorderRadius.circular(14),
                 child: Container(
                   padding:
                       const EdgeInsets.symmetric(horizontal: 24, vertical: 14),
                   decoration: BoxDecoration(
                     color: HrmPageChrome.primaryNavy.withValues(alpha: 0.05),
-                    borderRadius: BorderRadius.circular(12),
+                    borderRadius: BorderRadius.circular(14),
                     border: Border.all(
                         color: HrmPageChrome.primaryNavy.withValues(alpha: 0.2)),
                   ),
@@ -446,7 +447,7 @@ class _SystemSettingsScreenState extends State<SystemSettingsScreen> {
                         style: const TextStyle(
                           fontSize: 28,
                           fontWeight: FontWeight.bold,
-                          color: Color(0xFF18181B),
+                          color: SboxColors.slate900,
                           fontFamily: 'monospace',
                           letterSpacing: 2,
                         ),
@@ -472,7 +473,7 @@ class _SystemSettingsScreenState extends State<SystemSettingsScreen> {
           // Quick presets
           Text(tr('Chọn nhanh:'),
               style: TextStyle(
-                  color: Color(0xFF52525B),
+                  color: SboxColors.slate600,
                   fontWeight: FontWeight.w600,
                   fontSize: 12)),
           const SizedBox(height: 6),
@@ -535,7 +536,7 @@ class _SystemSettingsScreenState extends State<SystemSettingsScreen> {
               suffixText: tr('giờ'),
               helperText: tr('Dưới mức này (VD 0.5h) → 0 công. Mặc định 1 giờ. Áp dụng cả khi bật thập phân.'),
               border: OutlineInputBorder(
-                borderRadius: BorderRadius.circular(8),
+                borderRadius: BorderRadius.circular(10),
               ),
               contentPadding:
                   const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
@@ -569,7 +570,7 @@ class _SystemSettingsScreenState extends State<SystemSettingsScreen> {
                     style: const TextStyle(
                       fontWeight: FontWeight.w600,
                       fontSize: 13,
-                      color: Color(0xFF52525B),
+                      color: SboxColors.slate600,
                     ),
                   ),
                   const SizedBox(height: 8),
@@ -587,7 +588,7 @@ class _SystemSettingsScreenState extends State<SystemSettingsScreen> {
                           ? '≥ % giờ chuẩn NV → đủ 1 công; dưới đó (≥ min nửa công) → 0.5'
                           : 'Không dùng khi bật thập phân'),
                       border: OutlineInputBorder(
-                        borderRadius: BorderRadius.circular(8),
+                        borderRadius: BorderRadius.circular(10),
                       ),
                       contentPadding: const EdgeInsets.symmetric(
                           horizontal: 14, vertical: 12),
@@ -645,7 +646,7 @@ class _SystemSettingsScreenState extends State<SystemSettingsScreen> {
           : null,
       selectedColor: HrmPageChrome.chip.withValues(alpha: 0.15),
       labelStyle: TextStyle(
-        color: selected ? HrmPageChrome.chip : const Color(0xFF52525B),
+        color: selected ? HrmPageChrome.chip : SboxColors.slate600,
         fontWeight: selected ? FontWeight.w600 : FontWeight.normal,
         fontSize: 12,
       ),
@@ -667,7 +668,7 @@ class _SystemSettingsScreenState extends State<SystemSettingsScreen> {
           : null,
       selectedColor: HrmPageChrome.primaryNavy.withValues(alpha: 0.15),
       labelStyle: TextStyle(
-        color: selected ? HrmPageChrome.primaryNavy : const Color(0xFF52525B),
+        color: selected ? HrmPageChrome.primaryNavy : SboxColors.slate600,
         fontWeight: selected ? FontWeight.w600 : FontWeight.normal,
         fontSize: 12,
       ),
@@ -688,7 +689,7 @@ class _SystemSettingsScreenState extends State<SystemSettingsScreen> {
         children: [
           Text(tr('Số cấp phê duyệt:'),
             style: TextStyle(
-              color: Color(0xFF52525B),
+              color: SboxColors.slate600,
               fontWeight: FontWeight.w600,
               fontSize: 13,
             ),
@@ -744,18 +745,18 @@ class _SystemSettingsScreenState extends State<SystemSettingsScreen> {
       padding: const EdgeInsets.only(bottom: 6),
       child: InkWell(
         onTap: () => setState(() => _approvalLevels = value),
-        borderRadius: BorderRadius.circular(8),
+        borderRadius: BorderRadius.circular(10),
         child: Container(
           padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
           decoration: BoxDecoration(
             color: isSelected
                 ? HrmPageChrome.primaryNavy.withValues(alpha: 0.08)
                 : Colors.transparent,
-            borderRadius: BorderRadius.circular(8),
+            borderRadius: BorderRadius.circular(10),
             border: Border.all(
               color: isSelected
                   ? HrmPageChrome.primaryNavy.withValues(alpha: 0.4)
-                  : Colors.grey.shade200,
+                  : SboxColors.slate200,
             ),
           ),
           child: Row(
@@ -766,14 +767,14 @@ class _SystemSettingsScreenState extends State<SystemSettingsScreen> {
                     : Icons.radio_button_unchecked,
                 size: 20,
                 color:
-                    isSelected ? HrmPageChrome.primaryNavy : Colors.grey.shade400,
+                    isSelected ? HrmPageChrome.primaryNavy : SboxColors.slate400,
               ),
               const SizedBox(width: 10),
               Icon(icon,
                   size: 18,
                   color: isSelected
                       ? HrmPageChrome.primaryNavy
-                      : Colors.grey.shade500),
+                      : SboxColors.slate500),
               const SizedBox(width: 8),
               Expanded(
                 child: Column(
@@ -785,13 +786,13 @@ class _SystemSettingsScreenState extends State<SystemSettingsScreen> {
                         fontWeight:
                             isSelected ? FontWeight.w600 : FontWeight.normal,
                         fontSize: 13,
-                        color: const Color(0xFF18181B),
+                        color: SboxColors.slate900,
                       ),
                     ),
                     Text(
                       tr(desc),
                       style:
-                          TextStyle(fontSize: 11, color: Colors.grey.shade500),
+                          TextStyle(fontSize: 11, color: SboxColors.slate500),
                     ),
                   ],
                 ),
@@ -817,8 +818,8 @@ class _SystemSettingsScreenState extends State<SystemSettingsScreen> {
     return Container(
       decoration: BoxDecoration(
         color: Colors.white,
-        borderRadius: BorderRadius.circular(16),
-        border: Border.all(color: const Color(0xFFE4E4E7)),
+        borderRadius: BorderRadius.circular(14),
+        border: Border.all(color: SboxColors.slate200),
         boxShadow: [
           BoxShadow(
             color: Colors.black.withValues(alpha: 0.04),
@@ -834,9 +835,9 @@ class _SystemSettingsScreenState extends State<SystemSettingsScreen> {
           Container(
             padding: const EdgeInsets.all(18),
             decoration: const BoxDecoration(
-              color: Color(0xFFFAFAFA),
+              color: SboxColors.slate50,
               borderRadius: BorderRadius.vertical(top: Radius.circular(16)),
-              border: Border(bottom: BorderSide(color: Color(0xFFE4E4E7))),
+              border: Border(bottom: BorderSide(color: SboxColors.slate200)),
             ),
             child: Row(
               children: [
@@ -855,13 +856,13 @@ class _SystemSettingsScreenState extends State<SystemSettingsScreen> {
                     children: [
                       Text(tr(title),
                           style: const TextStyle(
-                              color: Color(0xFF18181B),
+                              color: SboxColors.slate900,
                               fontWeight: FontWeight.bold,
-                              fontSize: 15)),
+                              fontSize: 16)),
                       const SizedBox(height: 2),
                       Text(tr(subtitle),
                           style: const TextStyle(
-                              color: Color(0xFF71717A), fontSize: 12)),
+                              color: SboxColors.slate500, fontSize: 12)),
                     ],
                   ),
                 ),
@@ -882,8 +883,8 @@ class _SystemSettingsScreenState extends State<SystemSettingsScreen> {
     return Container(
       padding: const EdgeInsets.all(12),
       decoration: BoxDecoration(
-        color: const Color(0xFFFEF3C7),
-        borderRadius: BorderRadius.circular(8),
+        color: SboxColors.warningSoft,
+        borderRadius: BorderRadius.circular(10),
         border:
             Border.all(color: const Color(0xFFFCD34D).withValues(alpha: 0.5)),
       ),
@@ -913,9 +914,9 @@ class _SystemSettingsScreenState extends State<SystemSettingsScreen> {
           : null,
       backgroundColor: isSelected
           ? HrmPageChrome.primaryNavy.withValues(alpha: 0.1)
-          : Colors.grey.shade100,
+          : SboxColors.slate100,
       labelStyle: TextStyle(
-        color: isSelected ? HrmPageChrome.primaryNavy : const Color(0xFF52525B),
+        color: isSelected ? HrmPageChrome.primaryNavy : SboxColors.slate600,
         fontWeight: isSelected ? FontWeight.w600 : FontWeight.normal,
         fontFamily: 'monospace',
         fontSize: 12,
@@ -923,7 +924,7 @@ class _SystemSettingsScreenState extends State<SystemSettingsScreen> {
       side: BorderSide(
         color: isSelected
             ? HrmPageChrome.primaryNavy.withValues(alpha: 0.3)
-            : Colors.grey.shade300,
+            : SboxColors.slate300,
       ),
       onPressed: () {
         setState(() {
@@ -952,8 +953,8 @@ class _SystemSettingsScreenState extends State<SystemSettingsScreen> {
             padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
             margin: const EdgeInsets.only(bottom: 14),
             decoration: BoxDecoration(
-              color: const Color(0xFFFFF7ED),
-              borderRadius: BorderRadius.circular(8),
+              color: SboxColors.warningSoft,
+              borderRadius: BorderRadius.circular(10),
               border: Border.all(color: const Color(0xFFFED7AA)),
             ),
             child: Row(
@@ -979,7 +980,7 @@ class _SystemSettingsScreenState extends State<SystemSettingsScreen> {
               child: InkWell(
                 onTap: () =>
                     setState(() => _roundingRule = opt['value'] as String),
-                borderRadius: BorderRadius.circular(8),
+                borderRadius: BorderRadius.circular(10),
                 child: Container(
                   padding:
                       const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
@@ -987,11 +988,11 @@ class _SystemSettingsScreenState extends State<SystemSettingsScreen> {
                     color: isSelected
                         ? HrmPageChrome.chipMid.withValues(alpha: 0.08)
                         : Colors.transparent,
-                    borderRadius: BorderRadius.circular(8),
+                    borderRadius: BorderRadius.circular(10),
                     border: Border.all(
                       color: isSelected
                           ? HrmPageChrome.chipMid.withValues(alpha: 0.4)
-                          : Colors.grey.shade200,
+                          : SboxColors.slate200,
                     ),
                   ),
                   child: Row(
@@ -1003,7 +1004,7 @@ class _SystemSettingsScreenState extends State<SystemSettingsScreen> {
                         size: 20,
                         color: isSelected
                             ? HrmPageChrome.chipMid
-                            : Colors.grey.shade400,
+                            : SboxColors.slate400,
                       ),
                       const SizedBox(width: 10),
                       Expanded(
@@ -1017,13 +1018,13 @@ class _SystemSettingsScreenState extends State<SystemSettingsScreen> {
                                     ? FontWeight.w600
                                     : FontWeight.normal,
                                 fontSize: 13,
-                                color: const Color(0xFF18181B),
+                                color: SboxColors.slate900,
                               ),
                             ),
                             Text(
                               tr(opt['desc'] as String),
                               style: TextStyle(
-                                  fontSize: 11, color: Colors.grey.shade500),
+                                  fontSize: 11, color: SboxColors.slate500),
                             ),
                           ],
                         ),
@@ -1085,12 +1086,12 @@ class _SystemSettingsScreenState extends State<SystemSettingsScreen> {
                       style: TextStyle(
                           fontWeight: FontWeight.w600,
                           fontSize: 13,
-                          color: Color(0xFF18181B)),
+                          color: SboxColors.slate900),
                     ),
                     const SizedBox(height: 2),
                     Text(tr('Nhân viên có thể yêu cầu bổ sung chấm công'),
                       style:
-                          TextStyle(fontSize: 11, color: Colors.grey.shade500),
+                          TextStyle(fontSize: 11, color: SboxColors.slate500),
                     ),
                   ],
                 ),
@@ -1108,11 +1109,11 @@ class _SystemSettingsScreenState extends State<SystemSettingsScreen> {
             style: TextStyle(
                 fontWeight: FontWeight.w600,
                 fontSize: 13,
-                color: Color(0xFF18181B)),
+                color: SboxColors.slate900),
           ),
           const SizedBox(height: 4),
           Text(tr('Chấm công sẽ được chốt vào ngày này mỗi tháng'),
-            style: TextStyle(fontSize: 11, color: Colors.grey.shade500),
+            style: TextStyle(fontSize: 11, color: SboxColors.slate500),
           ),
           const SizedBox(height: 10),
           Row(
@@ -1122,7 +1123,7 @@ class _SystemSettingsScreenState extends State<SystemSettingsScreen> {
                     const EdgeInsets.symmetric(horizontal: 20, vertical: 14),
                 decoration: BoxDecoration(
                   color: HrmPageChrome.chipDark.withValues(alpha: 0.05),
-                  borderRadius: BorderRadius.circular(12),
+                  borderRadius: BorderRadius.circular(14),
                   border: Border.all(
                       color: HrmPageChrome.chipDark.withValues(alpha: 0.2)),
                 ),
@@ -1130,7 +1131,7 @@ class _SystemSettingsScreenState extends State<SystemSettingsScreen> {
                   style: const TextStyle(
                     fontSize: 20,
                     fontWeight: FontWeight.bold,
-                    color: Color(0xFF18181B),
+                    color: SboxColors.slate900,
                   ),
                 ),
               ),
@@ -1166,11 +1167,11 @@ class _SystemSettingsScreenState extends State<SystemSettingsScreen> {
                       label: Text(tr('Ngày $d')),
                       backgroundColor: _payrollCutoffDay == d
                           ? HrmPageChrome.chipDark.withValues(alpha: 0.1)
-                          : Colors.grey.shade100,
+                          : SboxColors.slate100,
                       labelStyle: TextStyle(
                         color: _payrollCutoffDay == d
                             ? HrmPageChrome.chipDark
-                            : const Color(0xFF52525B),
+                            : SboxColors.slate600,
                         fontWeight: _payrollCutoffDay == d
                             ? FontWeight.w600
                             : FontWeight.normal,
@@ -1179,7 +1180,7 @@ class _SystemSettingsScreenState extends State<SystemSettingsScreen> {
                       side: BorderSide(
                         color: _payrollCutoffDay == d
                             ? HrmPageChrome.chipDark.withValues(alpha: 0.3)
-                            : Colors.grey.shade300,
+                            : SboxColors.slate300,
                       ),
                       onPressed: () => setState(() => _payrollCutoffDay = d),
                     ))
@@ -1211,7 +1212,7 @@ class _SystemSettingsScreenState extends State<SystemSettingsScreen> {
         children: [
           Text(tr('Số cấp phê duyệt:'),
             style: TextStyle(
-              color: Color(0xFF52525B),
+              color: SboxColors.slate600,
               fontWeight: FontWeight.w600,
               fontSize: 13,
             ),
@@ -1224,7 +1225,7 @@ class _SystemSettingsScreenState extends State<SystemSettingsScreen> {
               padding: const EdgeInsets.only(bottom: 6),
               child: InkWell(
                 onTap: () => setState(() => _leaveApprovalLevels = value),
-                borderRadius: BorderRadius.circular(8),
+                borderRadius: BorderRadius.circular(10),
                 child: Container(
                   padding:
                       const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
@@ -1232,11 +1233,11 @@ class _SystemSettingsScreenState extends State<SystemSettingsScreen> {
                     color: isSelected
                         ? HrmPageChrome.chip.withValues(alpha: 0.08)
                         : Colors.transparent,
-                    borderRadius: BorderRadius.circular(8),
+                    borderRadius: BorderRadius.circular(10),
                     border: Border.all(
                       color: isSelected
                           ? HrmPageChrome.chip.withValues(alpha: 0.4)
-                          : Colors.grey.shade200,
+                          : SboxColors.slate200,
                     ),
                   ),
                   child: Row(
@@ -1248,14 +1249,14 @@ class _SystemSettingsScreenState extends State<SystemSettingsScreen> {
                         size: 20,
                         color: isSelected
                             ? HrmPageChrome.chip
-                            : Colors.grey.shade400,
+                            : SboxColors.slate400,
                       ),
                       const SizedBox(width: 10),
                       Icon(opt['icon'] as IconData,
                           size: 18,
                           color: isSelected
                               ? HrmPageChrome.chip
-                              : Colors.grey.shade500),
+                              : SboxColors.slate500),
                       const SizedBox(width: 8),
                       Expanded(
                         child: Column(
@@ -1268,13 +1269,13 @@ class _SystemSettingsScreenState extends State<SystemSettingsScreen> {
                                     ? FontWeight.w600
                                     : FontWeight.normal,
                                 fontSize: 13,
-                                color: const Color(0xFF18181B),
+                                color: SboxColors.slate900,
                               ),
                             ),
                             Text(
                               tr(opt['desc'] as String),
                               style: TextStyle(
-                                  fontSize: 11, color: Colors.grey.shade500),
+                                  fontSize: 11, color: SboxColors.slate500),
                             ),
                           ],
                         ),

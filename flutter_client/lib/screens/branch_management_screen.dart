@@ -13,6 +13,7 @@ import '../widgets/hrm_page_chrome.dart';
 import '../widgets/notification_overlay.dart';
 import 'package:zkteco_flutter_client/l10n/app_tr.dart';
 
+import '../theme/sbox_tokens.dart';
 /// Màn hình Quản lý Chi nhánh
 class BranchManagementScreen extends StatefulWidget {
   const BranchManagementScreen({super.key});
@@ -149,7 +150,7 @@ class _BranchManagementScreenState extends State<BranchManagementScreen>
             ? null
             : Text(tr('Quản lý Chi nhánh'),
                 style: TextStyle(
-                    color: Color(0xFF18181B), fontWeight: FontWeight.bold),
+                    color: SboxColors.slate900, fontWeight: FontWeight.bold),
                 overflow: TextOverflow.ellipsis,
                 maxLines: 1),
         bottom: TabBar(
@@ -213,9 +214,9 @@ class _BranchManagementScreenState extends State<BranchManagementScreen>
                           child: Container(
                             decoration: BoxDecoration(
                               color: Colors.white,
-                              borderRadius: BorderRadius.circular(12),
+                              borderRadius: BorderRadius.circular(14),
                               border:
-                                  Border.all(color: const Color(0xFFE4E4E7)),
+                                  Border.all(color: SboxColors.slate200),
                               boxShadow: [
                                 BoxShadow(
                                   color: Colors.black.withValues(alpha: 0.05),
@@ -256,14 +257,14 @@ class _BranchManagementScreenState extends State<BranchManagementScreen>
                               ?.copyWith(fontWeight: FontWeight.bold)),
                       Text(tr('${_branches.length} chi nhánh'),
                           style: theme.textTheme.bodySmall
-                              ?.copyWith(color: Colors.grey)),
+                              ?.copyWith(color: SboxColors.slate500)),
                     ],
                   ),
                 ),
               ] else
                 Text(tr('${_branches.length} chi nhánh'),
                     style: theme.textTheme.bodyMedium
-                        ?.copyWith(color: Colors.grey)),
+                        ?.copyWith(color: SboxColors.slate500)),
               const Spacer(),
               if (_perm.canCreate('Branch'))
                 HrmSettingsMobileKit.active(context)
@@ -293,7 +294,7 @@ class _BranchManagementScreenState extends State<BranchManagementScreen>
                         hintText: tr('Tìm kiếm chi nhánh...'),
                         prefixIcon: const Icon(Icons.search, size: 20),
                         border: OutlineInputBorder(
-                            borderRadius: BorderRadius.circular(8)),
+                            borderRadius: BorderRadius.circular(10)),
                         contentPadding:
                             const EdgeInsets.symmetric(horizontal: 12),
                         isDense: true,
@@ -335,7 +336,7 @@ class _BranchManagementScreenState extends State<BranchManagementScreen>
     final isActive = branch.isActive;
     final color = branch.isHeadquarter
         ? Colors.amber.shade700
-        : (isActive ? Colors.blue : Colors.grey);
+        : (isActive ? SboxColors.brand500 : SboxColors.slate500);
 
     return InkWell(
       onTap: () => _showBranchDetail(branch),
@@ -348,7 +349,7 @@ class _BranchManagementScreenState extends State<BranchManagementScreen>
               height: 36,
               decoration: BoxDecoration(
                   color: color.withValues(alpha: 0.1),
-                  borderRadius: BorderRadius.circular(8)),
+                  borderRadius: BorderRadius.circular(10)),
               child: Icon(branch.isHeadquarter ? Icons.domain : Icons.business,
                   color: color, size: 18),
             ),
@@ -370,7 +371,7 @@ class _BranchManagementScreenState extends State<BranchManagementScreen>
                       '${branch.employeeCount} NV',
                       if (branch.fullAddress.isNotEmpty) branch.fullAddress,
                     ].join(' · ')),
-                    style: TextStyle(fontSize: 12, color: Colors.grey[500]),
+                    style: TextStyle(fontSize: 12, color: SboxColors.slate500),
                     maxLines: 1,
                     overflow: TextOverflow.ellipsis,
                   ),
@@ -426,7 +427,7 @@ class _BranchManagementScreenState extends State<BranchManagementScreen>
               )
             else
               const Icon(Icons.chevron_right,
-                  size: 18, color: Color(0xFF71717A)),
+                  size: 18, color: SboxColors.slate500),
           ],
         ),
       ),
@@ -437,7 +438,7 @@ class _BranchManagementScreenState extends State<BranchManagementScreen>
     final isActive = branch.isActive;
     final color = branch.isHeadquarter
         ? Colors.amber.shade700
-        : (isActive ? Colors.blue : Colors.grey);
+        : (isActive ? SboxColors.brand500 : SboxColors.slate500);
 
     return HrmSettingsEntityTile(
       title: branch.name,
@@ -487,7 +488,7 @@ class _BranchManagementScreenState extends State<BranchManagementScreen>
         padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
         decoration: BoxDecoration(
           color: Colors.amber.shade50,
-          borderRadius: BorderRadius.circular(8),
+          borderRadius: BorderRadius.circular(10),
           border: Border.all(color: Colors.amber.shade300),
         ),
         child: Row(
@@ -508,7 +509,7 @@ class _BranchManagementScreenState extends State<BranchManagementScreen>
       padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
       decoration: BoxDecoration(
         color: isActive ? Colors.green.shade50 : Colors.red.shade50,
-        borderRadius: BorderRadius.circular(8),
+        borderRadius: BorderRadius.circular(10),
         border: Border.all(
             color: isActive ? Colors.green.shade300 : Colors.red.shade300),
       ),
@@ -592,7 +593,7 @@ class _BranchManagementScreenState extends State<BranchManagementScreen>
     final hasChildren = node.children.isNotEmpty;
     final color = node.isHeadquarter
         ? Colors.amber.shade700
-        : (node.isActive ? Colors.blue : Colors.grey);
+        : (node.isActive ? SboxColors.brand500 : SboxColors.slate500);
 
     return Padding(
       padding: EdgeInsets.only(left: depth * 24.0),
@@ -603,13 +604,13 @@ class _BranchManagementScreenState extends State<BranchManagementScreen>
             margin: const EdgeInsets.only(bottom: 8),
             elevation: depth == 0 ? 3 : 1,
             shape: RoundedRectangleBorder(
-              borderRadius: BorderRadius.circular(12),
+              borderRadius: BorderRadius.circular(14),
               side: BorderSide(
                   color: color.withValues(alpha: 0.4),
                   width: depth == 0 ? 2 : 1),
             ),
             child: InkWell(
-              borderRadius: BorderRadius.circular(12),
+              borderRadius: BorderRadius.circular(14),
               onTap: hasChildren
                   ? () => setState(() => node.isExpanded = !node.isExpanded)
                   : null,
@@ -660,7 +661,7 @@ class _BranchManagementScreenState extends State<BranchManagementScreen>
                               Text(tr(node.code),
                                   style: TextStyle(
                                       fontSize: 11,
-                                      color: Colors.grey.shade600,
+                                      color: SboxColors.slate600,
                                       fontWeight: FontWeight.w600)),
                             ],
                           ),
@@ -671,7 +672,7 @@ class _BranchManagementScreenState extends State<BranchManagementScreen>
                                   .where((e) => e != null && e.isNotEmpty)
                                   .join(', ')),
                               style: TextStyle(
-                                  fontSize: 12, color: Colors.grey.shade600),
+                                  fontSize: 12, color: SboxColors.slate600),
                               maxLines: 1,
                               overflow: TextOverflow.ellipsis,
                             ),
@@ -703,20 +704,20 @@ class _BranchManagementScreenState extends State<BranchManagementScreen>
                       padding: const EdgeInsets.symmetric(
                           horizontal: 8, vertical: 4),
                       decoration: BoxDecoration(
-                        color: Colors.blue.shade50,
-                        borderRadius: BorderRadius.circular(8),
+                        color: SboxColors.brand50,
+                        borderRadius: BorderRadius.circular(10),
                       ),
                       child: Row(
                         mainAxisSize: MainAxisSize.min,
                         children: [
                           Icon(Icons.people,
-                              size: 14, color: Colors.blue.shade700),
+                              size: 14, color: SboxColors.brand700),
                           const SizedBox(width: 4),
                           Text(tr('${node.employeeCount}'),
                               style: TextStyle(
                                   fontSize: 12,
                                   fontWeight: FontWeight.w600,
-                                  color: Colors.blue.shade700)),
+                                  color: SboxColors.brand700)),
                         ],
                       ),
                     ),
@@ -785,9 +786,9 @@ class _BranchManagementScreenState extends State<BranchManagementScreen>
                   ('Đang hoạt động', '${s.activeBranches}', Icons.check_circle,
                       HrmPageChrome.primaryNavy),
                   ('Ngừng hoạt động', '${s.inactiveBranches}', Icons.block,
-                      const Color(0xFFEF4444)),
+                      SboxColors.danger),
                   ('Trụ sở chính', '${s.headquarterCount}', Icons.domain,
-                      const Color(0xFFF59E0B)),
+                      SboxColors.warning),
                   ('Tổng nhân viên', '${s.totalEmployees}', Icons.people,
                       HrmPageChrome.primaryNavy),
                 ];
@@ -829,7 +830,7 @@ class _BranchManagementScreenState extends State<BranchManagementScreen>
               const SizedBox(height: 12),
               Card(
                 shape: RoundedRectangleBorder(
-                    borderRadius: BorderRadius.circular(12)),
+                    borderRadius: BorderRadius.circular(14)),
                 child: Padding(
                   padding: const EdgeInsets.all(16),
                   child: Column(
@@ -861,7 +862,7 @@ class _BranchManagementScreenState extends State<BranchManagementScreen>
     return Column(
       children: [
         ClipRRect(
-          borderRadius: BorderRadius.circular(8),
+          borderRadius: BorderRadius.circular(10),
           child: SizedBox(
             height: 24,
             child: Row(
@@ -930,7 +931,7 @@ class _BranchManagementScreenState extends State<BranchManagementScreen>
       padding: const EdgeInsets.symmetric(vertical: 8),
       child: Row(
         children: [
-          Icon(icon, size: 20, color: Colors.grey.shade600),
+          Icon(icon, size: 20, color: SboxColors.slate600),
           const SizedBox(width: 12),
           Text(tr(label), style: const TextStyle(fontSize: 14)),
           const Spacer(),
@@ -973,15 +974,15 @@ class _BranchManagementScreenState extends State<BranchManagementScreen>
                     width: 48,
                     height: 48,
                     decoration: BoxDecoration(
-                      color: (branch.isHeadquarter ? Colors.amber : Colors.blue)
+                      color: (branch.isHeadquarter ? Colors.amber : SboxColors.brand500)
                           .withValues(alpha: 0.1),
-                      borderRadius: BorderRadius.circular(12),
+                      borderRadius: BorderRadius.circular(14),
                     ),
                     child: Icon(
                       branch.isHeadquarter ? Icons.domain : Icons.business,
                       color: branch.isHeadquarter
                           ? Colors.amber.shade700
-                          : Colors.blue,
+                          : SboxColors.brand500,
                     ),
                   ),
                   const SizedBox(width: 12),
@@ -993,7 +994,7 @@ class _BranchManagementScreenState extends State<BranchManagementScreen>
                             style: theme.textTheme.titleLarge
                                 ?.copyWith(fontWeight: FontWeight.bold)),
                         Text(tr(branch.code),
-                            style: TextStyle(color: Colors.grey.shade600)),
+                            style: TextStyle(color: SboxColors.slate600)),
                       ],
                     ),
                   ),
@@ -1088,7 +1089,7 @@ class _BranchManagementScreenState extends State<BranchManagementScreen>
         }
         return Dialog(
           shape:
-              RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+              RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
           child: ConstrainedBox(
             constraints: const BoxConstraints(maxWidth: 520),
             child: SingleChildScrollView(
@@ -1107,9 +1108,9 @@ class _BranchManagementScreenState extends State<BranchManagementScreen>
                           decoration: BoxDecoration(
                             color: (branch.isHeadquarter
                                     ? Colors.amber
-                                    : Colors.blue)
+                                    : SboxColors.brand500)
                                 .withValues(alpha: 0.1),
-                            borderRadius: BorderRadius.circular(12),
+                            borderRadius: BorderRadius.circular(14),
                           ),
                           child: Icon(
                             branch.isHeadquarter
@@ -1117,7 +1118,7 @@ class _BranchManagementScreenState extends State<BranchManagementScreen>
                                 : Icons.business,
                             color: branch.isHeadquarter
                                 ? Colors.amber.shade700
-                                : Colors.blue,
+                                : SboxColors.brand500,
                           ),
                         ),
                         const SizedBox(width: 12),
@@ -1130,7 +1131,7 @@ class _BranchManagementScreenState extends State<BranchManagementScreen>
                                       ?.copyWith(fontWeight: FontWeight.bold)),
                               Text(tr(branch.code),
                                   style:
-                                      TextStyle(color: Colors.grey.shade600)),
+                                      TextStyle(color: SboxColors.slate600)),
                             ],
                           ),
                         ),
@@ -1219,12 +1220,12 @@ class _BranchManagementScreenState extends State<BranchManagementScreen>
       child: Row(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Icon(icon, size: 18, color: Colors.grey.shade600),
+          Icon(icon, size: 18, color: SboxColors.slate600),
           const SizedBox(width: 8),
           SizedBox(
               width: 100,
               child: Text(tr(label),
-                  style: TextStyle(fontSize: 13, color: Colors.grey.shade600))),
+                  style: TextStyle(fontSize: 13, color: SboxColors.slate600))),
           Expanded(
               child: Text(tr(value),
                   style: const TextStyle(
@@ -1354,7 +1355,7 @@ class _BranchManagementScreenState extends State<BranchManagementScreen>
                   Text(tr('Địa chỉ'),
                       style: TextStyle(
                           fontWeight: FontWeight.bold,
-                          color: Colors.grey.shade700)),
+                          color: SboxColors.slate700)),
                   const SizedBox(height: 8),
                   TextFormField(
                     controller: addressCtrl,
@@ -1386,7 +1387,7 @@ class _BranchManagementScreenState extends State<BranchManagementScreen>
                   Text(tr('Cấu hình'),
                       style: TextStyle(
                           fontWeight: FontWeight.bold,
-                          color: Colors.grey.shade700)),
+                          color: SboxColors.slate700)),
                   const SizedBox(height: 8),
                   // Parent branch
                   DropdownButtonFormField<String>(
@@ -1603,7 +1604,7 @@ class _BranchManagementScreenState extends State<BranchManagementScreen>
           }
           return Dialog(
             shape:
-                RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+                RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
             child: ConstrainedBox(
               constraints: const BoxConstraints(maxWidth: 600, maxHeight: 700),
               child: Column(
@@ -1613,14 +1614,14 @@ class _BranchManagementScreenState extends State<BranchManagementScreen>
                   Container(
                     padding: const EdgeInsets.all(16),
                     decoration: BoxDecoration(
-                      color: Colors.blue.shade50,
+                      color: SboxColors.brand50,
                       borderRadius:
                           const BorderRadius.vertical(top: Radius.circular(16)),
                     ),
                     child: Row(
                       children: [
                         Icon(isEdit ? Icons.edit : Icons.add_business,
-                            color: Colors.blue),
+                            color: SboxColors.brand500),
                         const SizedBox(width: 12),
                         Text(
                           tr(isEdit ? 'Sửa chi nhánh' : 'Thêm chi nhánh mới'),
@@ -1641,7 +1642,7 @@ class _BranchManagementScreenState extends State<BranchManagementScreen>
                     padding: const EdgeInsets.all(16),
                     decoration: BoxDecoration(
                       border:
-                          Border(top: BorderSide(color: Colors.grey.shade200)),
+                          Border(top: BorderSide(color: SboxColors.slate200)),
                     ),
                     child: Row(
                       mainAxisAlignment: MainAxisAlignment.end,
@@ -1672,7 +1673,7 @@ class _BranchManagementScreenState extends State<BranchManagementScreen>
     return InputDecoration(
       labelText: tr(label),
       prefixIcon: Icon(icon, size: 20),
-      border: OutlineInputBorder(borderRadius: BorderRadius.circular(8)),
+      border: OutlineInputBorder(borderRadius: BorderRadius.circular(10)),
       contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 12),
       isDense: true,
     );
@@ -1703,7 +1704,7 @@ class _BranchManagementScreenState extends State<BranchManagementScreen>
     showDialog(
       context: context,
       builder: (ctx) => ScrollableAlertDialog(
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
         title: Row(
           children: [
             Icon(Icons.warning_amber, color: Colors.red.shade400),
@@ -1747,16 +1748,16 @@ class _BranchManagementScreenState extends State<BranchManagementScreen>
       child: Column(
         mainAxisAlignment: MainAxisAlignment.center,
         children: [
-          Icon(Icons.business_outlined, size: 64, color: Colors.grey.shade400),
+          Icon(Icons.business_outlined, size: 64, color: SboxColors.slate400),
           const SizedBox(height: 16),
           Text(tr(title),
               style: TextStyle(
                   fontSize: 16,
                   fontWeight: FontWeight.bold,
-                  color: Colors.grey.shade600)),
+                  color: SboxColors.slate600)),
           const SizedBox(height: 8),
           Text(tr(subtitle),
-              style: TextStyle(fontSize: 13, color: Colors.grey.shade500),
+              style: TextStyle(fontSize: 13, color: SboxColors.slate500),
               textAlign: TextAlign.center),
           if (_perm.canCreate('Branch')) ...[
             const SizedBox(height: 16),

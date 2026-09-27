@@ -23,10 +23,11 @@ import '../widgets/page_top_actions.dart';
 import '../widgets/reports/hrm_report_widgets.dart';
 import 'package:zkteco_flutter_client/l10n/app_tr.dart';
 
+import '../theme/sbox_tokens.dart';
 /// Brand blue shades — cùng tông, đậm/nhạt khác để phân biệt trễ / sớm.
 const _theme = HrmPageChrome.primaryNavy; // #0056B3
 const _lateColor = Color(0xFF00408A); // đậm hơn — đi trễ
-const _earlyColor = Color(0xFF3B8CFF); // nhạt hơn — về sớm
+const _earlyColor = SboxColors.brand400; // nhạt hơn — về sớm
 
 /// Báo cáo tổng hợp đi trễ / về sớm — cùng thuật toán [computeDailyShiftPairs]
 /// với màn Tổng hợp chấm công theo ca.
@@ -441,9 +442,9 @@ class _LateEarlyReportScreenState extends State<LateEarlyReportScreen> {
 
   Color _penaltyLabelColor(DailyShiftLateEntry e) {
     final label = _penaltyLabel(e);
-    if (label == 'Đã phạt') return const Color(0xFF047857);
-    if (label == 'Một phần') return const Color(0xFFB45309);
-    return const Color(0xFF6B7280);
+    if (label == 'Đã phạt') return SboxColors.successText;
+    if (label == 'Một phần') return SboxColors.warningText;
+    return SboxColors.slate500;
   }
 
   bool _isAutoDescription(String? desc) {
@@ -599,7 +600,7 @@ class _LateEarlyReportScreenState extends State<LateEarlyReportScreen> {
       context: context,
       builder: (ctx) => ScrollableAlertDialog(
         backgroundColor: Colors.white,
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
         title: Text(tr('Tạo phiếu phạt'),
             style: const TextStyle(fontWeight: FontWeight.bold)),
         content: Column(
@@ -621,7 +622,7 @@ class _LateEarlyReportScreenState extends State<LateEarlyReportScreen> {
                     helperText: tr(hints[i]),
                     helperMaxLines: 2,
                     border: OutlineInputBorder(
-                        borderRadius: BorderRadius.circular(8)),
+                        borderRadius: BorderRadius.circular(10)),
                   ),
                 ),
               ),
@@ -632,7 +633,7 @@ class _LateEarlyReportScreenState extends State<LateEarlyReportScreen> {
                 labelText: tr('Giải trình / ghi chú'),
                 hintText: tr('Lý do đi trễ / về sớm (nếu có)'),
                 border: OutlineInputBorder(
-                    borderRadius: BorderRadius.circular(8)),
+                    borderRadius: BorderRadius.circular(10)),
               ),
               maxLines: 3,
             ),
@@ -642,7 +643,7 @@ class _LateEarlyReportScreenState extends State<LateEarlyReportScreen> {
           TextButton(
             onPressed: () => Navigator.pop(ctx, false),
             child: Text(tr('Hủy'),
-                style: const TextStyle(color: Color(0xFF71717A))),
+                style: const TextStyle(color: SboxColors.slate500)),
           ),
           FilledButton(
             onPressed: () => Navigator.pop(ctx, true),
@@ -710,7 +711,7 @@ class _LateEarlyReportScreenState extends State<LateEarlyReportScreen> {
       context: context,
       builder: (ctx) => ScrollableAlertDialog(
         backgroundColor: Colors.white,
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
         title: Text(tr('Hủy phiếu phạt'),
             style: const TextStyle(fontWeight: FontWeight.bold)),
         content: Column(
@@ -727,7 +728,7 @@ class _LateEarlyReportScreenState extends State<LateEarlyReportScreen> {
               decoration: InputDecoration(
                 labelText: tr('Giải trình / lý do hủy'),
                 border: OutlineInputBorder(
-                    borderRadius: BorderRadius.circular(8)),
+                    borderRadius: BorderRadius.circular(10)),
               ),
               maxLines: 3,
             ),
@@ -737,7 +738,7 @@ class _LateEarlyReportScreenState extends State<LateEarlyReportScreen> {
           TextButton(
             onPressed: () => Navigator.pop(ctx, false),
             child: Text(tr('Không'),
-                style: const TextStyle(color: Color(0xFF71717A))),
+                style: const TextStyle(color: SboxColors.slate500)),
           ),
           FilledButton(
             onPressed: () => Navigator.pop(ctx, true),
@@ -780,7 +781,7 @@ class _LateEarlyReportScreenState extends State<LateEarlyReportScreen> {
       context: context,
       builder: (ctx) => ScrollableAlertDialog(
         backgroundColor: Colors.white,
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
         title: Text(tr('Giải trình'),
             style: const TextStyle(fontWeight: FontWeight.bold)),
         content: TextField(
@@ -790,7 +791,7 @@ class _LateEarlyReportScreenState extends State<LateEarlyReportScreen> {
             labelText: tr('Giải trình của nhân sự'),
             hintText: tr('Lý do đi trễ / về sớm'),
             border:
-                OutlineInputBorder(borderRadius: BorderRadius.circular(8)),
+                OutlineInputBorder(borderRadius: BorderRadius.circular(10)),
           ),
           maxLines: 4,
         ),
@@ -967,7 +968,7 @@ class _LateEarlyReportScreenState extends State<LateEarlyReportScreen> {
           label: 'NV tái phạm',
           value: '$repeatEmp',
           icon: Icons.replay,
-          color: const Color(0xFFB45309),
+          color: SboxColors.warningText,
         ),
     ];
   }
@@ -1004,7 +1005,7 @@ class _LateEarlyReportScreenState extends State<LateEarlyReportScreen> {
         width: double.infinity,
         padding: const EdgeInsets.fromLTRB(12, 10, 12, 10),
         decoration: BoxDecoration(
-          color: const Color(0xFFFFFBEB),
+          color: SboxColors.warningSoft,
           borderRadius: BorderRadius.circular(10),
           border: Border.all(color: const Color(0xFFFDE68A)),
         ),
@@ -1012,7 +1013,7 @@ class _LateEarlyReportScreenState extends State<LateEarlyReportScreen> {
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             const Icon(Icons.analytics_outlined,
-                size: 18, color: Color(0xFFB45309)),
+                size: 18, color: SboxColors.warningText),
             const SizedBox(width: 8),
             Expanded(
               child: Text(
@@ -1020,7 +1021,7 @@ class _LateEarlyReportScreenState extends State<LateEarlyReportScreen> {
                 style: vietnameseTextStyle(const TextStyle(
                   fontSize: 12,
                   height: 1.35,
-                  color: Color(0xFF92400E),
+                  color: SboxColors.warningText,
                 )),
               ),
             ),
@@ -1216,7 +1217,7 @@ class _LateEarlyReportScreenState extends State<LateEarlyReportScreen> {
                                 Text(tr('Tối thiểu'),
                                     style: vietnameseTextStyle(TextStyle(
                                         fontSize: 12,
-                                        color: Colors.grey.shade700))),
+                                        color: SboxColors.slate700))),
                                 const SizedBox(width: 8),
                                 SizedBox(
                                   width: 88,
@@ -1252,7 +1253,7 @@ class _LateEarlyReportScreenState extends State<LateEarlyReportScreen> {
                                   tr('Theo ca · ân hạn đã trừ'),
                                   style: vietnameseTextStyle(TextStyle(
                                       fontSize: 11,
-                                      color: Colors.grey.shade600)),
+                                      color: SboxColors.slate600)),
                                 ),
                               ],
                             ),
@@ -1402,14 +1403,14 @@ class _LateEarlyReportScreenState extends State<LateEarlyReportScreen> {
             style: vietnameseTextStyle(TextStyle(
               fontSize: 12,
               fontWeight: selected ? FontWeight.w700 : FontWeight.w500,
-              color: selected ? _theme : const Color(0xFF374151),
+              color: selected ? _theme : SboxColors.slate700,
             ))),
         selected: selected,
         onSelected: (_) => onTap(),
         selectedColor: _theme.withValues(alpha: 0.12),
         checkmarkColor: _theme,
         side: BorderSide(
-          color: selected ? _theme : const Color(0xFFD1D5DB),
+          color: selected ? _theme : SboxColors.slate300,
         ),
         visualDensity: VisualDensity.compact,
         materialTapTargetSize: MaterialTapTargetSize.shrinkWrap,
@@ -1516,8 +1517,8 @@ class _LateEarlyReportScreenState extends State<LateEarlyReportScreen> {
       margin: const EdgeInsets.fromLTRB(12, 0, 12, 12),
       decoration: BoxDecoration(
         color: Colors.white,
-        borderRadius: BorderRadius.circular(12),
-        border: Border.all(color: const Color(0xFFE4E4E7)),
+        borderRadius: BorderRadius.circular(14),
+        border: Border.all(color: SboxColors.slate200),
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
@@ -1593,8 +1594,8 @@ class _LateEarlyReportScreenState extends State<LateEarlyReportScreen> {
                       '$n/$total',
                       style: TextStyle(
                         color: isRepeat
-                            ? const Color(0xFFB45309)
-                            : const Color(0xFF6B7280),
+                            ? SboxColors.warningText
+                            : SboxColors.slate500,
                         fontWeight:
                             isRepeat ? FontWeight.w700 : FontWeight.w500,
                       ),
@@ -1619,8 +1620,8 @@ class _LateEarlyReportScreenState extends State<LateEarlyReportScreen> {
                           style: vietnameseTextStyle(TextStyle(
                             fontSize: 12,
                             color: explain.isEmpty
-                                ? const Color(0xFF9CA3AF)
-                                : const Color(0xFF374151),
+                                ? SboxColors.slate400
+                                : SboxColors.slate700,
                             fontStyle: explain.isEmpty
                                 ? FontStyle.italic
                                 : FontStyle.normal,
@@ -1717,7 +1718,7 @@ class _LateEarlyReportScreenState extends State<LateEarlyReportScreen> {
               ? '$lateEarly · Tái phạm'
               : lateEarly,
           statusColor: n >= 2
-              ? const Color(0xFFB45309)
+              ? SboxColors.warningText
               : (r.lateMinutes > 0 ? _lateColor : _earlyColor),
           icon: r.lateMinutes > 0 ? Icons.timer_off : Icons.logout,
         ),
@@ -1771,8 +1772,8 @@ class _LateEarlyReportScreenState extends State<LateEarlyReportScreen> {
         margin: const EdgeInsets.fromLTRB(12, 0, 12, 12),
         decoration: BoxDecoration(
           color: Colors.white,
-          borderRadius: BorderRadius.circular(12),
-          border: Border.all(color: const Color(0xFFE4E4E7)),
+          borderRadius: BorderRadius.circular(14),
+          border: Border.all(color: SboxColors.slate200),
         ),
         child: SingleChildScrollView(
           scrollDirection: Axis.horizontal,
@@ -1810,7 +1811,7 @@ class _LateEarlyReportScreenState extends State<LateEarlyReportScreen> {
                 DataCell(Text(
                   repeats > 0 ? '$repeats' : '—',
                   style: TextStyle(
-                    color: repeats > 0 ? const Color(0xFFB45309) : null,
+                    color: repeats > 0 ? SboxColors.warningText : null,
                     fontWeight:
                         repeats > 0 ? FontWeight.w700 : FontWeight.normal,
                   ),
@@ -1846,7 +1847,7 @@ class _LateEarlyReportScreenState extends State<LateEarlyReportScreen> {
               secondaryValue: e.earlyMinutes > 0
                   ? 'Sớm ${e.earlyMinutes}p (${e.earlyCount} lần)'
                   : 'Không về sớm',
-              accentColor: repeats > 0 ? const Color(0xFFB45309) : _theme,
+              accentColor: repeats > 0 ? SboxColors.warningText : _theme,
               onTap: () => setState(() {
                 _viewTab = 0;
                 _empSearch = e.name;

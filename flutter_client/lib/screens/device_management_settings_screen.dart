@@ -17,6 +17,7 @@ import '../widgets/notification_overlay.dart';
 import '../widgets/device_sync_progress_overlay.dart';
 import '../widgets/pos/pos_theme.dart';
 import 'package:zkteco_flutter_client/l10n/app_tr.dart';
+import '../theme/sbox_tokens.dart';
 class DeviceManagementSettingsScreen extends StatefulWidget {
   const DeviceManagementSettingsScreen({super.key});
 
@@ -186,7 +187,7 @@ class _DeviceManagementSettingsScreenState extends State<DeviceManagementSetting
     final confirmed = await showDialog<bool>(
       context: context,
       builder: (ctx) => ScrollableAlertDialog(
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
         title: Text(tr(isDangerous ? '⚠️ Cảnh báo nguy hiểm' : 'Xác nhận')),
         content: Text(tr(isDangerous
             ? 'CẢNH BÁO: Thao tác "$label" sẽ XÓA VĨNH VIỄN dữ liệu trên thiết bị "${device['deviceName']}"!\n\nHành động này KHÔNG THỂ hoàn tác. Bạn có chắc chắn?'
@@ -195,7 +196,7 @@ class _DeviceManagementSettingsScreenState extends State<DeviceManagementSetting
           TextButton(onPressed: () => Navigator.pop(ctx, false), child: Text(tr('Hủy'))),
           FilledButton(
             onPressed: () => Navigator.pop(ctx, true),
-            style: isDangerous ? FilledButton.styleFrom(backgroundColor: const Color(0xFFEF4444)) : null,
+            style: isDangerous ? FilledButton.styleFrom(backgroundColor: SboxColors.danger) : null,
             child: Text(tr(isDangerous ? 'Xác nhận XÓA' : 'Xác nhận')),
           ),
         ],
@@ -420,7 +421,7 @@ class _DeviceManagementSettingsScreenState extends State<DeviceManagementSetting
         }
 
         return ScrollableAlertDialog(
-          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
           title: Row(
             children: [
               Icon(Icons.edit, color: HrmPageChrome.primaryNavy),
@@ -661,7 +662,7 @@ class _DeviceManagementSettingsScreenState extends State<DeviceManagementSetting
                         )
                       else
                         IconButton(
-                          icon: const Icon(Icons.search, color: Color(0xFF586064)),
+                          icon: const Icon(Icons.search, color: SboxColors.slate600),
                           tooltip: tr('Kiểm tra Serial'),
                           onPressed: checkSerial,
                         ),
@@ -679,14 +680,14 @@ class _DeviceManagementSettingsScreenState extends State<DeviceManagementSetting
                   width: double.infinity,
                   padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
                   decoration: BoxDecoration(
-                    color: const Color(0xFF059669).withValues(alpha: 0.08),
-                    borderRadius: BorderRadius.circular(8),
+                    color: SboxColors.success.withValues(alpha: 0.08),
+                    borderRadius: BorderRadius.circular(10),
                   ),
                   child: Row(
                     children: [
-                      const Icon(Icons.check_circle, color: Color(0xFF059669), size: 18),
+                      const Icon(Icons.check_circle, color: SboxColors.success, size: 18),
                       const SizedBox(width: 8),
-                      Expanded(child: Text(tr(serialSuccess!), style: const TextStyle(color: Color(0xFF059669), fontSize: 13, fontWeight: FontWeight.w500))),
+                      Expanded(child: Text(tr(serialSuccess!), style: const TextStyle(color: SboxColors.success, fontSize: 13, fontWeight: FontWeight.w500))),
                     ],
                   ),
                 ),
@@ -743,7 +744,7 @@ class _DeviceManagementSettingsScreenState extends State<DeviceManagementSetting
           }
 
           return ScrollableAlertDialog(
-            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
             title: Row(
               children: [
                 Icon(Icons.add_circle, color: HrmPageChrome.primaryNavy),
@@ -781,7 +782,7 @@ class _DeviceManagementSettingsScreenState extends State<DeviceManagementSetting
     final confirmed = await showDialog<bool>(
       context: context,
       builder: (ctx) => ScrollableAlertDialog(
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
         title: Text(tr('Xóa thiết bị')),
         content: Text(tr('${tr('Bạn có chắc muốn xóa "')}${device['deviceName']}"?\nHành động này không thể hoàn tác.')),
         actions: [
@@ -919,7 +920,7 @@ class _DeviceManagementSettingsScreenState extends State<DeviceManagementSetting
             padding: const EdgeInsets.all(12),
             decoration: BoxDecoration(
               color: PosTheme.kiotBlueLight,
-              borderRadius: BorderRadius.circular(12),
+              borderRadius: BorderRadius.circular(14),
             ),
             child: const Icon(Icons.router, color: PosTheme.kiotBlue, size: 28),
           ),
@@ -977,14 +978,14 @@ class _DeviceManagementSettingsScreenState extends State<DeviceManagementSetting
       width: double.infinity,
       padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(
-        color: const Color(0xFFEFF6FF),
+        color: SboxColors.brand50,
         borderRadius: BorderRadius.circular(14),
-        border: Border.all(color: const Color(0xFFBFDBFE)),
+        border: Border.all(color: SboxColors.brand100),
       ),
       child: Row(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          const Icon(Icons.info_outline, color: Color(0xFF2563EB), size: 22),
+          const Icon(Icons.info_outline, color: SboxColors.brand600, size: 22),
           const SizedBox(width: 12),
           Expanded(
             child: Column(
@@ -994,7 +995,7 @@ class _DeviceManagementSettingsScreenState extends State<DeviceManagementSetting
                   style: TextStyle(
                     fontWeight: FontWeight.w700,
                     fontSize: 14,
-                    color: Color(0xFF1E3A8A),
+                    color: SboxColors.brand900,
                   ),
                 ),
                 SizedBox(height: 6),
@@ -1003,7 +1004,7 @@ class _DeviceManagementSettingsScreenState extends State<DeviceManagementSetting
                   style: TextStyle(
                     fontSize: 13,
                     height: 1.45,
-                    color: Color(0xFF1E40AF),
+                    color: SboxColors.brand800,
                   ),
                 ),
               ],
@@ -1058,15 +1059,15 @@ class _DeviceManagementSettingsScreenState extends State<DeviceManagementSetting
         filled: true,
         fillColor: Colors.white,
         contentPadding: const EdgeInsets.symmetric(vertical: 12),
-        border: OutlineInputBorder(borderRadius: BorderRadius.circular(12), borderSide: const BorderSide(color: Color(0xFFE4E4E7))),
-        enabledBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(12), borderSide: const BorderSide(color: Color(0xFFE4E4E7))),
+        border: OutlineInputBorder(borderRadius: BorderRadius.circular(14), borderSide: const BorderSide(color: SboxColors.slate200)),
+        enabledBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(14), borderSide: const BorderSide(color: SboxColors.slate200)),
       ),
     );
     final filterChips = Container(
       decoration: BoxDecoration(
         color: Colors.white,
-        borderRadius: BorderRadius.circular(12),
-        border: Border.all(color: const Color(0xFFE4E4E7)),
+        borderRadius: BorderRadius.circular(14),
+        border: Border.all(color: SboxColors.slate200),
       ),
       child: Row(
         mainAxisSize: MainAxisSize.min,
@@ -1101,12 +1102,12 @@ class _DeviceManagementSettingsScreenState extends State<DeviceManagementSetting
     final color = HrmPageChrome.chip;
     return InkWell(
       onTap: () => setState(() => _statusFilter = value),
-      borderRadius: BorderRadius.circular(12),
+      borderRadius: BorderRadius.circular(14),
       child: Container(
         padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
         decoration: BoxDecoration(
           color: isActive ? color : Colors.white,
-          borderRadius: BorderRadius.circular(12),
+          borderRadius: BorderRadius.circular(14),
           border: Border.all(
             color: isActive ? color : color.withValues(alpha: 0.45),
           ),
@@ -1137,11 +1138,11 @@ class _DeviceManagementSettingsScreenState extends State<DeviceManagementSetting
           padding: const EdgeInsets.symmetric(vertical: 60),
           child: Column(
             children: [
-              Icon(Icons.devices_other, size: 64, color: Colors.grey.shade300),
+              Icon(Icons.devices_other, size: 64, color: SboxColors.slate300),
               const SizedBox(height: 16),
               Text(
                 tr(_devices.isEmpty ? 'Chưa có máy chấm công nào' : 'Không tìm thấy thiết bị phù hợp'),
-                style: TextStyle(fontSize: 16, color: Colors.grey.shade500),
+                style: TextStyle(fontSize: 16, color: SboxColors.slate500),
               ),
               if (_devices.isEmpty) ...[
                 const SizedBox(height: 12),
@@ -1179,7 +1180,7 @@ class _DeviceManagementSettingsScreenState extends State<DeviceManagementSetting
 
   Widget _buildDeviceDeckItem(Map<String, dynamic> device) {
     final online = _isOnline(device);
-    final statusColor = online ? HrmPageChrome.primaryNavy : const Color(0xFFEF4444);
+    final statusColor = online ? HrmPageChrome.primaryNavy : SboxColors.danger;
     final deviceName = device['deviceName'] ?? 'Không tên';
     final serialNumber = device['serialNumber'] ?? '';
     final ipAddress = device['ipAddress'] ?? '—';
@@ -1191,7 +1192,7 @@ class _DeviceManagementSettingsScreenState extends State<DeviceManagementSetting
         child: Row(children: [
           Container(
             width: 36, height: 36,
-            decoration: BoxDecoration(color: statusColor.withValues(alpha: 0.1), borderRadius: BorderRadius.circular(8)),
+            decoration: BoxDecoration(color: statusColor.withValues(alpha: 0.1), borderRadius: BorderRadius.circular(10)),
             child: Stack(children: [
               Center(child: Icon(Icons.fingerprint, color: statusColor, size: 18)),
               Positioned(right: 4, top: 4, child: Container(width: 8, height: 8, decoration: BoxDecoration(color: online ? Colors.green : Colors.red, shape: BoxShape.circle))),
@@ -1204,7 +1205,7 @@ class _DeviceManagementSettingsScreenState extends State<DeviceManagementSetting
               const SizedBox(height: 2),
               Text(
                 tr([serialNumber, ipAddress].join(' · ')),
-                style: const TextStyle(color: Color(0xFF71717A), fontSize: 12),
+                style: const TextStyle(color: SboxColors.slate500, fontSize: 12),
                 maxLines: 1, overflow: TextOverflow.ellipsis,
               ),
             ]),
@@ -1217,7 +1218,7 @@ class _DeviceManagementSettingsScreenState extends State<DeviceManagementSetting
 
   Widget _buildDeviceCard(Map<String, dynamic> device) {
     final online = _isOnline(device);
-    final statusColor = online ? HrmPageChrome.primaryNavy : const Color(0xFFEF4444);
+    final statusColor = online ? HrmPageChrome.primaryNavy : SboxColors.danger;
     final deviceName = device['deviceName'] ?? 'Không tên';
     final serialNumber = device['serialNumber'] ?? '';
     final location = device['location'] ?? 'Chưa thiết lập';
@@ -1249,16 +1250,16 @@ class _DeviceManagementSettingsScreenState extends State<DeviceManagementSetting
       width: isMobile ? double.infinity : 340,
       child: Material(
         color: Colors.white,
-        borderRadius: BorderRadius.circular(16),
+        borderRadius: BorderRadius.circular(14),
         child: InkWell(
           onTap: () => _showDeviceDetail(device),
-          borderRadius: BorderRadius.circular(16),
+          borderRadius: BorderRadius.circular(14),
           hoverColor: const Color(0xFFF8F9FC),
           child: Container(
             padding: const EdgeInsets.all(18),
             decoration: BoxDecoration(
-              borderRadius: BorderRadius.circular(16),
-              border: Border.all(color: const Color(0xFFE4E4E7)),
+              borderRadius: BorderRadius.circular(14),
+              border: Border.all(color: SboxColors.slate200),
             ),
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
@@ -1270,7 +1271,7 @@ class _DeviceManagementSettingsScreenState extends State<DeviceManagementSetting
                       padding: const EdgeInsets.all(10),
                       decoration: BoxDecoration(
                         gradient: LinearGradient(colors: [statusColor, statusColor.withValues(alpha: 0.7)]),
-                        borderRadius: BorderRadius.circular(12),
+                        borderRadius: BorderRadius.circular(14),
                       ),
                       child: const Icon(Icons.fingerprint, color: Colors.white, size: 22),
                     ),
@@ -1279,9 +1280,9 @@ class _DeviceManagementSettingsScreenState extends State<DeviceManagementSetting
                       child: Column(
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
-                          Text(tr(deviceName), style: const TextStyle(fontSize: 14, fontWeight: FontWeight.w600, color: Color(0xFF0F172A)), maxLines: 1, overflow: TextOverflow.ellipsis),
+                          Text(tr(deviceName), style: const TextStyle(fontSize: 14, fontWeight: FontWeight.w600, color: SboxColors.slate900), maxLines: 1, overflow: TextOverflow.ellipsis),
                           const SizedBox(height: 2),
-                          Text(tr('SN: $serialNumber'), style: const TextStyle(fontSize: 11, color: Color(0xFFA1A1AA))),
+                          Text(tr('SN: $serialNumber'), style: const TextStyle(fontSize: 11, color: SboxColors.slate400)),
                         ],
                       ),
                     ),
@@ -1315,7 +1316,7 @@ class _DeviceManagementSettingsScreenState extends State<DeviceManagementSetting
                 Row(
                   children: [
                     Expanded(
-                      child: _buildQuickAction(Icons.refresh, 'Cập nhật', const Color(0xFF059669), () => _refreshDeviceStatus(device)),
+                      child: _buildQuickAction(Icons.refresh, 'Cập nhật', SboxColors.success, () => _refreshDeviceStatus(device)),
                     ),
                     const SizedBox(width: 8),
                     Expanded(
@@ -1327,7 +1328,7 @@ class _DeviceManagementSettingsScreenState extends State<DeviceManagementSetting
                         child: _buildQuickAction(
                             Icons.edit_outlined,
                             'Sửa',
-                            const Color(0xFFF59E0B),
+                            SboxColors.warning,
                             () => _showRenameDialog(device)),
                       ),
                     if (_perm.canEdit('Device') && _perm.canDelete('Device'))
@@ -1337,7 +1338,7 @@ class _DeviceManagementSettingsScreenState extends State<DeviceManagementSetting
                         child: _buildQuickAction(
                             Icons.delete_outline,
                             'Xóa',
-                            const Color(0xFFEF4444),
+                            SboxColors.danger,
                             () => _deleteDevice(device)),
                       ),
                   ],
@@ -1353,11 +1354,11 @@ class _DeviceManagementSettingsScreenState extends State<DeviceManagementSetting
   Widget _buildInfoRow(IconData icon, String label, String value) {
     return Row(
       children: [
-        Icon(icon, size: 14, color: const Color(0xFFA1A1AA)),
+        Icon(icon, size: 14, color: SboxColors.slate400),
         const SizedBox(width: 6),
-        Text(tr('$label: '), style: const TextStyle(fontSize: 12, color: Color(0xFFA1A1AA))),
+        Text(tr('$label: '), style: const TextStyle(fontSize: 12, color: SboxColors.slate400)),
         Expanded(
-          child: Text(tr(value), style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w500, color: Color(0xFF334155)), maxLines: 1, overflow: TextOverflow.ellipsis),
+          child: Text(tr(value), style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w500, color: SboxColors.slate700), maxLines: 1, overflow: TextOverflow.ellipsis),
         ),
       ],
     );
@@ -1366,12 +1367,12 @@ class _DeviceManagementSettingsScreenState extends State<DeviceManagementSetting
   Widget _buildQuickAction(IconData icon, String label, Color color, VoidCallback onTap) {
     return InkWell(
       onTap: onTap,
-      borderRadius: BorderRadius.circular(8),
+      borderRadius: BorderRadius.circular(10),
       child: Container(
         padding: const EdgeInsets.symmetric(vertical: 8),
         decoration: BoxDecoration(
           color: color.withValues(alpha: 0.08),
-          borderRadius: BorderRadius.circular(8),
+          borderRadius: BorderRadius.circular(10),
         ),
         child: Row(
           mainAxisAlignment: MainAxisAlignment.center,
@@ -1498,7 +1499,7 @@ class _BarcodeScannerDialogState extends State<_BarcodeScannerDialog> {
                                     color: Colors.white.withValues(alpha: 0.7),
                                     width: 2,
                                   ),
-                                  borderRadius: BorderRadius.circular(12),
+                                  borderRadius: BorderRadius.circular(14),
                                 ),
                               ),
                             ),
@@ -1508,7 +1509,7 @@ class _BarcodeScannerDialogState extends State<_BarcodeScannerDialog> {
                               right: 12,
                               child: IconButton(
                                 style: IconButton.styleFrom(
-                                  backgroundColor: Colors.black54,
+                                  backgroundColor: SboxColors.textSecondary,
                                   padding: const EdgeInsets.all(10),
                                 ),
                                 icon: Icon(
@@ -1534,7 +1535,7 @@ class _BarcodeScannerDialogState extends State<_BarcodeScannerDialog> {
                   children: [
                     Text(tr('Hướng camera vào mã barcode trên máy chấm công'),
                       textAlign: TextAlign.center,
-                      style: TextStyle(color: Color(0xFF586064), fontSize: 13),
+                      style: TextStyle(color: SboxColors.slate600, fontSize: 13),
                     ),
                     const SizedBox(height: 8),
                     TextButton.icon(
@@ -1564,7 +1565,7 @@ class _BarcodeScannerDialogState extends State<_BarcodeScannerDialog> {
             const SizedBox(height: 8),
             Text(tr('Vui lòng kiểm tra:\n• Quyền camera trong trình duyệt\n• Kết nối qua HTTPS hoặc localhost'),
               textAlign: TextAlign.center,
-              style: TextStyle(color: Color(0xFF586064), fontSize: 11),
+              style: TextStyle(color: SboxColors.slate600, fontSize: 11),
             ),
             const SizedBox(height: 16),
             FilledButton.icon(
@@ -1587,7 +1588,7 @@ class _BarcodeScannerDialogState extends State<_BarcodeScannerDialog> {
         children: [
           const Icon(Icons.qr_code, color: HrmPageChrome.primaryNavy, size: 40),
           const SizedBox(height: 12),
-          Text(tr('Nhập mã Serial Number'), style: TextStyle(fontWeight: FontWeight.w600, fontSize: 15)),
+          Text(tr('Nhập mã Serial Number'), style: TextStyle(fontWeight: FontWeight.w600, fontSize: 16)),
           const SizedBox(height: 16),
           TextField(
             controller: _manualController,
@@ -1721,8 +1722,8 @@ class _DeviceDetailDialogState extends State<_DeviceDetailDialog> {
       SnackBar(
         content: Text(tr(outcome.message)),
         backgroundColor: outcome.success
-            ? (outcome.isSync ? const Color(0xFF0284C7) : const Color(0xFF16A34A))
-            : const Color(0xFFDC2626),
+            ? (outcome.isSync ? const Color(0xFF0284C7) : SboxColors.success)
+            : SboxColors.danger,
         behavior: SnackBarBehavior.floating,
         duration: Duration(seconds: outcome.isSync ? 4 : 3),
       ),
@@ -1737,14 +1738,14 @@ class _DeviceDetailDialogState extends State<_DeviceDetailDialog> {
         const _DeviceControlAction(
           icon: Icons.restart_alt,
           label: 'Khởi động lại',
-          color: Color(0xFFF59E0B),
+          color: SboxColors.warning,
           commandType: 6,
         ),
       if (canDelete)
         const _DeviceControlAction(
           icon: Icons.delete_forever,
           label: 'Xóa toàn bộ dữ liệu',
-          color: Color(0xFFEF4444),
+          color: SboxColors.danger,
           commandType: 5,
         ),
       if (canEdit) ...[
@@ -1758,7 +1759,7 @@ class _DeviceDetailDialogState extends State<_DeviceDetailDialog> {
           const _DeviceControlAction(
             icon: Icons.lock,
             label: 'Đóng cửa',
-            color: Color(0xFFEF4444),
+            color: SboxColors.danger,
             commandType: 16,
           ),
         ],
@@ -1777,7 +1778,7 @@ class _DeviceDetailDialogState extends State<_DeviceDetailDialog> {
         const _DeviceControlAction(
           icon: Icons.info_outline,
           label: 'Lấy thông tin',
-          color: Color(0xFF71717A),
+          color: SboxColors.slate500,
           commandType: 17,
         ),
       ],
@@ -1797,12 +1798,12 @@ class _DeviceDetailDialogState extends State<_DeviceDetailDialog> {
       fg = const Color(0xFF0369A1);
       icon = Icons.cloud_download_outlined;
     } else if (feedback.success) {
-      bg = const Color(0xFFDCFCE7);
-      fg = const Color(0xFF166534);
+      bg = SboxColors.successSoft;
+      fg = SboxColors.successText;
       icon = Icons.check_circle_outline;
     } else {
-      bg = const Color(0xFFFEE2E2);
-      fg = const Color(0xFFB91C1C);
+      bg = SboxColors.dangerSoft;
+      fg = SboxColors.dangerText;
       icon = Icons.error_outline;
     }
 
@@ -1812,7 +1813,7 @@ class _DeviceDetailDialogState extends State<_DeviceDetailDialog> {
       padding: const EdgeInsets.all(12),
       decoration: BoxDecoration(
         color: bg,
-        borderRadius: BorderRadius.circular(12),
+        borderRadius: BorderRadius.circular(14),
         border: Border.all(color: fg.withValues(alpha: 0.25)),
       ),
       child: Row(
@@ -1879,7 +1880,7 @@ class _DeviceDetailDialogState extends State<_DeviceDetailDialog> {
     final canEdit = perm.canEdit('Device');
     final canDelete = perm.canDelete('Device');
     final statusColor =
-        widget.isOnline ? HrmPageChrome.primaryNavy : const Color(0xFFEF4444);
+        widget.isOnline ? HrmPageChrome.primaryNavy : SboxColors.danger;
     final isMobile = Responsive.isMobile(context);
     final device = _device;
     final deviceInfo = _deviceInfo;
@@ -1915,7 +1916,7 @@ class _DeviceDetailDialogState extends State<_DeviceDetailDialog> {
                           style: const TextStyle(
                               fontSize: 18,
                               fontWeight: FontWeight.w700,
-                              color: Color(0xFF0F172A))),
+                              color: SboxColors.slate900)),
                       const SizedBox(height: 4),
                       Row(
                         children: [
@@ -1951,7 +1952,7 @@ class _DeviceDetailDialogState extends State<_DeviceDetailDialog> {
                 ),
                 IconButton(
                   onPressed: () => Navigator.pop(context),
-                  icon: const Icon(Icons.close, color: Color(0xFFA1A1AA)),
+                  icon: const Icon(Icons.close, color: SboxColors.slate400),
                 ),
               ],
             ),
@@ -2039,7 +2040,7 @@ class _DeviceDetailDialogState extends State<_DeviceDetailDialog> {
           ],
           const SizedBox(height: 20),
           _buildSection('Điều khiển thiết bị', Icons.settings_remote,
-              const Color(0xFFF59E0B), []),
+              SboxColors.warning, []),
           const SizedBox(height: 8),
           if (canEdit) _buildControlGrid(controlActions, isMobile),
           _buildFeedbackBanner(),
@@ -2127,7 +2128,7 @@ class _DeviceDetailDialogState extends State<_DeviceDetailDialog> {
               padding: const EdgeInsets.all(6),
               decoration: BoxDecoration(
                   color: color.withValues(alpha: 0.1),
-                  borderRadius: BorderRadius.circular(8)),
+                  borderRadius: BorderRadius.circular(10)),
               child: Icon(icon, size: 16, color: color),
             ),
             const SizedBox(width: 8),
@@ -2143,9 +2144,9 @@ class _DeviceDetailDialogState extends State<_DeviceDetailDialog> {
           Container(
             padding: const EdgeInsets.all(14),
             decoration: BoxDecoration(
-              color: const Color(0xFFFAFAFA),
-              borderRadius: BorderRadius.circular(12),
-              border: Border.all(color: const Color(0xFFE4E4E7)),
+              color: SboxColors.slate50,
+              borderRadius: BorderRadius.circular(14),
+              border: Border.all(color: SboxColors.slate200),
             ),
             child: Column(children: children),
           ),
@@ -2164,14 +2165,14 @@ class _DeviceDetailDialogState extends State<_DeviceDetailDialog> {
             width: 160,
             child: Text(tr(label),
                 style: const TextStyle(
-                    fontSize: 13, color: Color(0xFF71717A))),
+                    fontSize: 13, color: SboxColors.slate500)),
           ),
           Expanded(
             child: Text(tr(value),
                 style: const TextStyle(
                     fontSize: 13,
                     fontWeight: FontWeight.w500,
-                    color: Color(0xFF0F172A))),
+                    color: SboxColors.slate900)),
           ),
         ],
       ),
@@ -2190,10 +2191,10 @@ class _DeviceDetailDialogState extends State<_DeviceDetailDialog> {
       color: isDisabled
           ? color.withValues(alpha: 0.04)
           : color.withValues(alpha: 0.08),
-      borderRadius: BorderRadius.circular(12),
+      borderRadius: BorderRadius.circular(14),
       child: InkWell(
         onTap: isDisabled ? null : onTap,
-        borderRadius: BorderRadius.circular(12),
+        borderRadius: BorderRadius.circular(14),
         child: Padding(
           padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 12),
           child: Column(
@@ -2217,7 +2218,7 @@ class _DeviceDetailDialogState extends State<_DeviceDetailDialog> {
                 maxLines: 2,
                 overflow: TextOverflow.ellipsis,
                 style: TextStyle(
-                  fontSize: 11.5,
+                  fontSize: 12,
                   fontWeight: FontWeight.w600,
                   height: 1.2,
                   color: isDisabled ? color.withValues(alpha: 0.45) : color,

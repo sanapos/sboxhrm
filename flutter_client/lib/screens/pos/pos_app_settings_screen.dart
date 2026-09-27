@@ -211,7 +211,7 @@ class _PosAppSettingsScreenState extends State<PosAppSettingsScreen> {
   Widget _card({required List<Widget> children}) {
     return Material(
       color: Colors.white,
-      borderRadius: BorderRadius.circular(12),
+      borderRadius: BorderRadius.circular(14),
       child: Column(children: children),
     );
   }

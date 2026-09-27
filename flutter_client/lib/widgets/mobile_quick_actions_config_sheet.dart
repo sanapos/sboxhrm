@@ -10,6 +10,7 @@ import '../utils/permission_navigation.dart';
 import '../widgets/hrm_page_chrome.dart';
 import 'package:zkteco_flutter_client/l10n/app_tr.dart';
 
+import '../theme/sbox_tokens.dart';
 /// Sheet tùy chỉnh lưới truy cập nhanh trong tab «Thêm».
 class MobileQuickActionsConfigSheet extends StatefulWidget {
   const MobileQuickActionsConfigSheet({super.key});
@@ -151,7 +152,7 @@ class _MobileQuickActionsConfigSheetState
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
           content: Text(tr('Không lưu được — thử lại sau')),
-          backgroundColor: Color(0xFFDC2626),
+          backgroundColor: SboxColors.danger,
         ),
       );
     }
@@ -173,7 +174,7 @@ class _MobileQuickActionsConfigSheetState
                 const SizedBox(width: 8),
                 Expanded(
                   child: Text(tr('Tùy chỉnh truy cập nhanh'),
-                    style: TextStyle(fontSize: 17, fontWeight: FontWeight.w700),
+                    style: TextStyle(fontSize: 18, fontWeight: FontWeight.w700),
                   ),
                 ),
                 IconButton(
@@ -186,7 +187,7 @@ class _MobileQuickActionsConfigSheetState
           Padding(
             padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
             child: Text(tr('9 ô trong tab «Thêm» — kéo đổi thứ tự, chạm để đổi chức năng.'),
-              style: TextStyle(fontSize: 13, color: Colors.grey.shade600),
+              style: TextStyle(fontSize: 13, color: SboxColors.slate600),
             ),
           ),
           Expanded(
@@ -226,7 +227,7 @@ class _MobileQuickActionsConfigSheetState
                       mainAxisSize: MainAxisSize.min,
                       children: [
                         if (def != null)
-                          Icon(def.icon, size: 20, color: Colors.grey.shade600),
+                          Icon(def.icon, size: 20, color: SboxColors.slate600),
                         IconButton(
                           tooltip: tr('Đổi chức năng'),
                           icon: const Icon(Icons.swap_horiz, size: 20),
@@ -235,7 +236,7 @@ class _MobileQuickActionsConfigSheetState
                         ReorderableDragStartListener(
                           index: index,
                           child: Icon(Icons.drag_handle,
-                              color: Colors.grey.shade500),
+                              color: SboxColors.slate500),
                         ),
                       ],
                     ),

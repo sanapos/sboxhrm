@@ -20,6 +20,7 @@ import '../../widgets/pos/pos_shipping_compare_sheet.dart';
 import '../../widgets/pos/pos_theme.dart';
 import 'package:zkteco_flutter_client/l10n/app_tr.dart';
 
+import '../../theme/sbox_tokens.dart';
 /// Theo dõi / đổi trạng thái đơn QR đặt online.
 class PosQrOnlineOrdersScreen extends StatefulWidget {
   const PosQrOnlineOrdersScreen({super.key, this.highlightOrderId});
@@ -135,9 +136,9 @@ class _PosQrOnlineOrdersScreenState extends State<PosQrOnlineOrdersScreen> {
       case 'delivered':
         return const Color(0xFF3F6F54);
       case 'cancelled':
-        return const Color(0xFFB91C1C);
+        return SboxColors.dangerText;
       case 'shipping':
-        return const Color(0xFF2563EB);
+        return SboxColors.brand600;
       case 'preparing':
         return const Color(0xFF9333EA);
       case 'confirmed':
@@ -664,8 +665,8 @@ class _PosQrOnlineOrdersScreenState extends State<PosQrOnlineOrdersScreen> {
           tr('Thanh toán & giao hàng'),
           style: TextStyle(
             fontSize: 11,
-            fontWeight: FontWeight.w800,
-            color: Colors.grey.shade600,
+            fontWeight: FontWeight.w700,
+            color: SboxColors.slate600,
           ),
         ),
         const SizedBox(height: 6),
@@ -723,7 +724,7 @@ class _PosQrOnlineOrdersScreenState extends State<PosQrOnlineOrdersScreen> {
           Text(
             '🚚 ${o.deliveryPartner.isNotEmpty ? o.deliveryPartner : tr('Vận chuyển')}'
             '${o.trackingCode.isNotEmpty ? ' · ${o.trackingCode}' : ''}',
-            style: TextStyle(fontSize: 12, color: Colors.grey.shade700),
+            style: TextStyle(fontSize: 12, color: SboxColors.slate700),
           ),
           if (o.trackingCode.isNotEmpty && _canManageCarrierShipment(o.deliveryPartner)) ...[
             const SizedBox(height: 6),
@@ -789,8 +790,8 @@ class _PosQrOnlineOrdersScreenState extends State<PosQrOnlineOrdersScreen> {
           tr('Cập nhật nhanh'),
           style: TextStyle(
             fontSize: 11,
-            fontWeight: FontWeight.w800,
-            color: Colors.grey.shade600,
+            fontWeight: FontWeight.w700,
+            color: SboxColors.slate600,
           ),
         ),
         const SizedBox(height: 6),
@@ -921,7 +922,7 @@ class _PosQrOnlineOrdersScreenState extends State<PosQrOnlineOrdersScreen> {
         width: double.infinity,
         padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
         decoration: BoxDecoration(
-          color: const Color(0xFFFEE2E2),
+          color: SboxColors.dangerSoft,
           borderRadius: BorderRadius.circular(10),
         ),
         child: Row(
@@ -930,7 +931,7 @@ class _PosQrOnlineOrdersScreenState extends State<PosQrOnlineOrdersScreen> {
             const SizedBox(width: 6),
             Text(tr('Đã hủy'),
                 style: TextStyle(
-                    fontWeight: FontWeight.w800, color: Colors.red.shade900)),
+                    fontWeight: FontWeight.w700, color: Colors.red.shade900)),
           ],
         ),
       );
@@ -978,10 +979,10 @@ class _PosQrOnlineOrdersScreenState extends State<PosQrOnlineOrdersScreen> {
                     _shortStatusLabel(_flow[i]),
                     style: TextStyle(
                       fontSize: 9,
-                      fontWeight: i == idx ? FontWeight.w800 : FontWeight.w500,
+                      fontWeight: i == idx ? FontWeight.w700 : FontWeight.w500,
                       color: i <= idx
                           ? const Color(0xFF1C1917)
-                          : Colors.grey.shade500,
+                          : SboxColors.slate500,
                     ),
                   ),
                 ],
@@ -1060,7 +1061,7 @@ class _PosQrOnlineOrdersScreenState extends State<PosQrOnlineOrdersScreen> {
                             child: Text(
                               '${tr('Đơn')} ${o.orderNo}',
                               style: const TextStyle(
-                                  fontWeight: FontWeight.w900, fontSize: 17),
+                                  fontWeight: FontWeight.w700, fontSize: 18),
                             ),
                           ),
                           Container(
@@ -1074,7 +1075,7 @@ class _PosQrOnlineOrdersScreenState extends State<PosQrOnlineOrdersScreen> {
                               o.statusLabel,
                               style: TextStyle(
                                 fontSize: 11,
-                                fontWeight: FontWeight.w800,
+                                fontWeight: FontWeight.w700,
                                 color: _statusColor(o.status),
                               ),
                             ),
@@ -1086,7 +1087,7 @@ class _PosQrOnlineOrdersScreenState extends State<PosQrOnlineOrdersScreen> {
                         maxLines: 1,
                         overflow: TextOverflow.ellipsis,
                         style: TextStyle(
-                            fontSize: 12, color: Colors.grey.shade700),
+                            fontSize: 12, color: SboxColors.slate700),
                       ),
                       const SizedBox(height: 8),
                       _statusStepper(o.status),
@@ -1127,11 +1128,11 @@ class _PosQrOnlineOrdersScreenState extends State<PosQrOnlineOrdersScreen> {
                               children: [
                                 Text(tr('Tổng'),
                                     style: const TextStyle(
-                                        fontWeight: FontWeight.w800)),
+                                        fontWeight: FontWeight.w700)),
                                 const Spacer(),
                                 Text('${_money.format(o.total)}₫',
                                     style: const TextStyle(
-                                        fontWeight: FontWeight.w900,
+                                        fontWeight: FontWeight.w700,
                                         color: Color(0xFFC2410C))),
                               ],
                             ),
@@ -1140,7 +1141,7 @@ class _PosQrOnlineOrdersScreenState extends State<PosQrOnlineOrdersScreen> {
                               Text(
                                 o.note,
                                 style: TextStyle(
-                                    color: Colors.grey.shade700, fontSize: 12),
+                                    color: SboxColors.slate700, fontSize: 12),
                               ),
                             ],
                           ],
@@ -1159,7 +1160,7 @@ class _PosQrOnlineOrdersScreenState extends State<PosQrOnlineOrdersScreen> {
                           children: [
                             Text(o.customerName,
                                 style: const TextStyle(
-                                    fontWeight: FontWeight.w800)),
+                                    fontWeight: FontWeight.w700)),
                             const SizedBox(height: 4),
                             Text('☎ ${o.phone}'),
                             if (o.address.trim().isNotEmpty) ...[
@@ -1194,7 +1195,7 @@ class _PosQrOnlineOrdersScreenState extends State<PosQrOnlineOrdersScreen> {
                                         tr('Maps'),
                                         style: TextStyle(
                                           fontSize: 11,
-                                          fontWeight: FontWeight.w800,
+                                          fontWeight: FontWeight.w700,
                                           color: PosTheme.kiotBlue,
                                         ),
                                       ),
@@ -1237,8 +1238,8 @@ class _PosQrOnlineOrdersScreenState extends State<PosQrOnlineOrdersScreen> {
                               Text(tr('Bước tiếp theo'),
                                   style: TextStyle(
                                       fontSize: 12,
-                                      fontWeight: FontWeight.w800,
-                                      color: Colors.grey.shade700)),
+                                      fontWeight: FontWeight.w700,
+                                      color: SboxColors.slate700)),
                               const SizedBox(height: 6),
                               Wrap(
                                 spacing: 8,
@@ -1283,7 +1284,7 @@ class _PosQrOnlineOrdersScreenState extends State<PosQrOnlineOrdersScreen> {
                               const SizedBox(height: 6),
                               Text(tr('Giao thành công'),
                                   style: TextStyle(
-                                      fontWeight: FontWeight.w800,
+                                      fontWeight: FontWeight.w700,
                                       color: _statusColor('delivered'))),
                             ] else if (o.status == 'cancelled') ...[
                               const SizedBox(height: 8),
@@ -1344,7 +1345,7 @@ class _PosQrOnlineOrdersScreenState extends State<PosQrOnlineOrdersScreen> {
                   Expanded(
                     child: Text(title,
                         style: const TextStyle(
-                            fontWeight: FontWeight.w800, fontSize: 13)),
+                            fontWeight: FontWeight.w700, fontSize: 13)),
                   ),
                   if (!expanded)
                     Flexible(
@@ -1354,21 +1355,21 @@ class _PosQrOnlineOrdersScreenState extends State<PosQrOnlineOrdersScreen> {
                         overflow: TextOverflow.ellipsis,
                         textAlign: TextAlign.right,
                         style: TextStyle(
-                            fontSize: 11, color: Colors.grey.shade600),
+                            fontSize: 11, color: SboxColors.slate600),
                       ),
                     ),
                   Icon(
                     expanded
                         ? Icons.expand_less
                         : Icons.expand_more,
-                    color: Colors.grey.shade600,
+                    color: SboxColors.slate600,
                   ),
                 ],
               ),
             ),
           ),
           if (expanded) ...[
-            Divider(height: 1, color: Colors.grey.shade200),
+            Divider(height: 1, color: SboxColors.slate200),
             Padding(
               padding: const EdgeInsets.fromLTRB(12, 8, 12, 10),
               child: child,
@@ -1386,7 +1387,7 @@ class _PosQrOnlineOrdersScreenState extends State<PosQrOnlineOrdersScreen> {
   Widget build(BuildContext context) {
     final pushed = PosHubScope.pushedSubPageOf(context);
     return Scaffold(
-      backgroundColor: const Color(0xFFF3F4F6),
+      backgroundColor: SboxColors.slate100,
       appBar: AppBar(
         backgroundColor: PosTheme.kiotBlue,
         foregroundColor: Colors.white,
@@ -1420,7 +1421,7 @@ class _PosQrOnlineOrdersScreenState extends State<PosQrOnlineOrdersScreen> {
                             prefixIcon: const Icon(Icons.search, size: 18),
                             isDense: true,
                             border: OutlineInputBorder(
-                              borderRadius: BorderRadius.circular(8),
+                              borderRadius: BorderRadius.circular(10),
                             ),
                             contentPadding: const EdgeInsets.symmetric(
                               horizontal: 8,
@@ -1473,7 +1474,7 @@ class _PosQrOnlineOrdersScreenState extends State<PosQrOnlineOrdersScreen> {
                         contentPadding: const EdgeInsets.symmetric(
                             horizontal: 10, vertical: 6),
                         border: OutlineInputBorder(
-                          borderRadius: BorderRadius.circular(8),
+                          borderRadius: BorderRadius.circular(10),
                         ),
                       ),
                       items: [
@@ -1563,7 +1564,7 @@ class _PosQrOnlineOrdersScreenState extends State<PosQrOnlineOrdersScreen> {
                                       tr('Chưa có đơn online'),
                                       textAlign: TextAlign.center,
                                       style: TextStyle(
-                                          color: Colors.grey.shade700),
+                                          color: SboxColors.slate700),
                                     ),
                                   ),
                                 ],
@@ -1658,7 +1659,7 @@ class _PosQrOnlineOrdersScreenState extends State<PosQrOnlineOrdersScreen> {
                                                   Text(tr('${_money.format(o.total)}₫ · ${o.lines.length} món'),
                                                     style: const TextStyle(
                                                       fontWeight:
-                                                          FontWeight.w800,
+                                                          FontWeight.w700,
                                                       fontSize: 13,
                                                       color: Color(0xFFC2410C),
                                                     ),
@@ -1668,7 +1669,7 @@ class _PosQrOnlineOrdersScreenState extends State<PosQrOnlineOrdersScreen> {
                                             ),
                                             const SizedBox(width: 6),
                                             Icon(Icons.chevron_right,
-                                                color: Colors.grey.shade400),
+                                                color: SboxColors.slate400),
                                           ],
                                         ),
                                       ),

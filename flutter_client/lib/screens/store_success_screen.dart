@@ -10,6 +10,7 @@ import 'package:zkteco_flutter_client/l10n/app_tr.dart';
 import '../config/sbox_app_variant.dart';
 import 'login_screen.dart';
 
+import '../theme/sbox_tokens.dart';
 class StoreSuccessScreen extends StatefulWidget {
   final String storeName;
   final String storeCode;
@@ -179,7 +180,7 @@ class _StoreSuccessScreenState extends State<StoreSuccessScreen>
                 shape: BoxShape.circle,
                 gradient: RadialGradient(
                   colors: [
-                    Colors.blue.withValues(alpha: 0.15),
+                    SboxColors.brand500.withValues(alpha: 0.15),
                     Colors.transparent,
                   ],
                 ),
@@ -246,7 +247,7 @@ class _StoreSuccessScreenState extends State<StoreSuccessScreen>
                               end: Alignment.bottomRight,
                               colors: [
                                 Color(0xFF00C853),
-                                Color(0xFF2E7D32),
+                                SboxColors.successText,
                               ],
                             ),
                             boxShadow: [
@@ -278,7 +279,7 @@ class _StoreSuccessScreenState extends State<StoreSuccessScreen>
                             Text(tr('Đăng ký thành công!'),
                               style: TextStyle(
                                 fontSize: 28,
-                                fontWeight: FontWeight.w800,
+                                fontWeight: FontWeight.w700,
                                 color: Colors.white,
                                 letterSpacing: -0.5,
                               ),
@@ -286,7 +287,7 @@ class _StoreSuccessScreenState extends State<StoreSuccessScreen>
                             const SizedBox(height: 8),
                             Text(tr('Lưu thông tin bên dưới để đăng nhập hệ thống'),
                               style: TextStyle(
-                                color: Colors.grey[400],
+                                color: SboxColors.slate400,
                                 fontSize: 14,
                                 height: 1.4,
                               ),
@@ -342,21 +343,21 @@ class _StoreSuccessScreenState extends State<StoreSuccessScreen>
                               child: _seedDone
                                   ? Container(
                                       decoration: BoxDecoration(
-                                        color: const Color(0xFF2E7D32).withValues(alpha: 0.15),
+                                        color: SboxColors.successText.withValues(alpha: 0.15),
                                         borderRadius: BorderRadius.circular(14),
                                         border: Border.all(
-                                          color: const Color(0xFF4CAF50).withValues(alpha: 0.3),
+                                          color: SboxColors.success.withValues(alpha: 0.3),
                                         ),
                                       ),
                                       child: Row(
                                         mainAxisAlignment: MainAxisAlignment.center,
                                         children: [
                                           Icon(Icons.check_circle_rounded,
-                                              color: Color(0xFF4CAF50), size: 20),
+                                              color: SboxColors.success, size: 20),
                                           SizedBox(width: 8),
                                           Text(tr('Đã cài dữ liệu mẫu'),
                                             style: TextStyle(
-                                              color: Color(0xFF4CAF50),
+                                              color: SboxColors.success,
                                               fontSize: 14,
                                               fontWeight: FontWeight.w500,
                                             ),
@@ -385,7 +386,7 @@ class _StoreSuccessScreenState extends State<StoreSuccessScreen>
                                       style: OutlinedButton.styleFrom(
                                         foregroundColor: const Color(0xFFFFB74D),
                                         side: BorderSide(
-                                          color: const Color(0xFFFF9800)
+                                          color: SboxColors.warning
                                               .withValues(alpha: 0.3),
                                         ),
                                         shape: RoundedRectangleBorder(
@@ -404,7 +405,7 @@ class _StoreSuccessScreenState extends State<StoreSuccessScreen>
                                     horizontal: 12, vertical: 8),
                                 decoration: BoxDecoration(
                                   color: Colors.red.withValues(alpha: 0.1),
-                                  borderRadius: BorderRadius.circular(8),
+                                  borderRadius: BorderRadius.circular(10),
                                   border: Border.all(
                                     color: Colors.red.withValues(alpha: 0.3),
                                   ),
@@ -465,7 +466,7 @@ class _StoreSuccessScreenState extends State<StoreSuccessScreen>
                                   ),
                                 ),
                                 style: FilledButton.styleFrom(
-                                  backgroundColor: const Color(0xFF1565C0),
+                                  backgroundColor: SboxColors.brand600,
                                   foregroundColor: Colors.white,
                                   shape: RoundedRectangleBorder(
                                     borderRadius: BorderRadius.circular(14),
@@ -544,7 +545,7 @@ class _StoreInfoCardState extends State<_StoreInfoCard> {
         ),
         boxShadow: [
           BoxShadow(
-            color: Colors.blue.withValues(alpha: 0.08),
+            color: SboxColors.brand500.withValues(alpha: 0.08),
             blurRadius: 40,
             offset: const Offset(0, 12),
           ),
@@ -565,7 +566,7 @@ class _StoreInfoCardState extends State<_StoreInfoCard> {
               gradient: LinearGradient(
                 begin: Alignment.topLeft,
                 end: Alignment.bottomRight,
-                colors: [Color(0xFF1565C0), Color(0xFF0D47A1)],
+                colors: [SboxColors.brand600, SboxColors.brand800],
               ),
               borderRadius: BorderRadius.vertical(
                 top: Radius.circular(23),
@@ -578,7 +579,7 @@ class _StoreInfoCardState extends State<_StoreInfoCard> {
                   height: 44,
                   decoration: BoxDecoration(
                     color: Colors.white.withValues(alpha: 0.15),
-                    borderRadius: BorderRadius.circular(12),
+                    borderRadius: BorderRadius.circular(14),
                   ),
                   child: const Icon(Icons.store_rounded,
                       color: Colors.white, size: 24),
@@ -629,13 +630,13 @@ class _StoreInfoCardState extends State<_StoreInfoCard> {
                   decoration: BoxDecoration(
                     gradient: LinearGradient(
                       colors: [
-                        const Color(0xFF1565C0).withValues(alpha: 0.2),
-                        const Color(0xFF0D47A1).withValues(alpha: 0.12),
+                        SboxColors.brand600.withValues(alpha: 0.2),
+                        SboxColors.brand800.withValues(alpha: 0.12),
                       ],
                     ),
-                    borderRadius: BorderRadius.circular(16),
+                    borderRadius: BorderRadius.circular(14),
                     border: Border.all(
-                      color: const Color(0xFF1565C0).withValues(alpha: 0.4),
+                      color: SboxColors.brand600.withValues(alpha: 0.4),
                     ),
                   ),
                   child: Column(
@@ -645,11 +646,11 @@ class _StoreInfoCardState extends State<_StoreInfoCard> {
                         children: [
                           Icon(Icons.key_rounded,
                               size: 14,
-                              color: Colors.blue.shade300),
+                              color: SboxColors.brand300),
                           const SizedBox(width: 6),
                           Text(tr('MÃ CỬA HÀNG'),
                             style: TextStyle(
-                              color: Colors.blue.shade300,
+                              color: SboxColors.brand300,
                               fontSize: 11,
                               letterSpacing: 2,
                               fontWeight: FontWeight.w700,
@@ -666,7 +667,7 @@ class _StoreInfoCardState extends State<_StoreInfoCard> {
                             style: const TextStyle(
                               color: Colors.white,
                               fontSize: 30,
-                              fontWeight: FontWeight.w800,
+                              fontWeight: FontWeight.w700,
                               letterSpacing: 3,
                             ),
                           ),
@@ -714,7 +715,7 @@ class _StoreInfoCardState extends State<_StoreInfoCard> {
                                   : Icons.visibility_rounded,
                               key: ValueKey(_showPassword),
                               size: 18,
-                              color: Colors.grey[500],
+                              color: SboxColors.slate500,
                             ),
                           ),
                         ),
@@ -751,10 +752,10 @@ class _StoreInfoCardState extends State<_StoreInfoCard> {
                   padding:
                       const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
                   decoration: BoxDecoration(
-                    color: const Color(0xFFFF9800).withValues(alpha: 0.08),
-                    borderRadius: BorderRadius.circular(12),
+                    color: SboxColors.warning.withValues(alpha: 0.08),
+                    borderRadius: BorderRadius.circular(14),
                     border: Border.all(
-                      color: const Color(0xFFFF9800).withValues(alpha: 0.25),
+                      color: SboxColors.warning.withValues(alpha: 0.25),
                     ),
                   ),
                   child: Row(
@@ -765,7 +766,7 @@ class _StoreInfoCardState extends State<_StoreInfoCard> {
                         padding: const EdgeInsets.all(4),
                         decoration: BoxDecoration(
                           color:
-                              const Color(0xFFFF9800).withValues(alpha: 0.15),
+                              SboxColors.warning.withValues(alpha: 0.15),
                           borderRadius: BorderRadius.circular(6),
                         ),
                         child: const Icon(Icons.info_outline_rounded,
@@ -800,11 +801,11 @@ class _StoreInfoCardState extends State<_StoreInfoCard> {
               mainAxisAlignment: MainAxisAlignment.center,
               children: [
                 Icon(Icons.verified_rounded,
-                    size: 13, color: Colors.blue.shade400),
+                    size: 13, color: SboxColors.brand400),
                 const SizedBox(width: 6),
                 Text(tr('${SboxAppVariant.productLine}  •  ${SboxAppVariant.slogan}'),
                   style: TextStyle(
-                    color: Colors.grey[600],
+                    color: SboxColors.slate600,
                     fontSize: 11,
                     letterSpacing: 0.3,
                   ),
@@ -842,7 +843,7 @@ class _InfoTile extends StatelessWidget {
       padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
       decoration: BoxDecoration(
         color: Colors.white.withValues(alpha: 0.04),
-        borderRadius: BorderRadius.circular(12),
+        borderRadius: BorderRadius.circular(14),
       ),
       child: Row(
         children: [
@@ -853,7 +854,7 @@ class _InfoTile extends StatelessWidget {
               color: Colors.white.withValues(alpha: 0.06),
               borderRadius: BorderRadius.circular(10),
             ),
-            child: Icon(icon, size: 18, color: Colors.grey[400]),
+            child: Icon(icon, size: 18, color: SboxColors.slate400),
           ),
           const SizedBox(width: 12),
           Expanded(
@@ -863,7 +864,7 @@ class _InfoTile extends StatelessWidget {
                 Text(
                   tr(label),
                   style: TextStyle(
-                    color: Colors.grey[500],
+                    color: SboxColors.slate500,
                     fontSize: 11,
                     fontWeight: FontWeight.w500,
                   ),
@@ -873,7 +874,7 @@ class _InfoTile extends StatelessWidget {
                   tr(value),
                   style: const TextStyle(
                     color: Colors.white,
-                    fontSize: 15,
+                    fontSize: 16,
                     fontWeight: FontWeight.w600,
                   ),
                 ),
@@ -901,15 +902,15 @@ class _CopyButton extends StatelessWidget {
       color: Colors.transparent,
       child: InkWell(
         onTap: onTap,
-        borderRadius: BorderRadius.circular(8),
+        borderRadius: BorderRadius.circular(10),
         child: Container(
           padding: const EdgeInsets.all(6),
           decoration: BoxDecoration(
             color: Colors.white.withValues(alpha: 0.06),
-            borderRadius: BorderRadius.circular(8),
+            borderRadius: BorderRadius.circular(10),
           ),
           child: Icon(Icons.copy_rounded,
-              size: 15, color: Colors.blue.shade300),
+              size: 15, color: SboxColors.brand300),
         ),
       ),
     );
@@ -933,7 +934,7 @@ class _ConfettiPainter extends CustomPainter {
         speed: 0.5 + rng.nextDouble() * 0.7,
         size: 3 + rng.nextDouble() * 5,
         color: [
-          const Color(0xFF42A5F5),
+          SboxColors.brand400,
           const Color(0xFF66BB6A),
           const Color(0xFFFFCA28),
           const Color(0xFFEF5350),

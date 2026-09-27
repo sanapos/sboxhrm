@@ -13,6 +13,7 @@ import '../widgets/hrm_page_chrome.dart';
 import 'mobile_quick_actions_config_sheet.dart';
 import 'package:zkteco_flutter_client/l10n/app_tr.dart';
 
+import '../theme/sbox_tokens.dart';
 /// Sheet tùy chỉnh 5 ô cố định — kéo thả thứ tự, đổi chức năng từng ô.
 class MobileBottomNavConfigSheet extends StatefulWidget {
   const MobileBottomNavConfigSheet({
@@ -170,7 +171,7 @@ class _MobileBottomNavConfigSheetState extends State<MobileBottomNavConfigSheet>
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
           content: Text(tr('Không lưu được — thử lại sau')),
-          backgroundColor: Color(0xFFDC2626),
+          backgroundColor: SboxColors.danger,
         ),
       );
     }
@@ -202,7 +203,7 @@ class _MobileBottomNavConfigSheetState extends State<MobileBottomNavConfigSheet>
                 const SizedBox(width: 8),
                 Expanded(
                   child: Text(tr('Tùy chỉnh thanh công cụ'),
-                    style: TextStyle(fontSize: 17, fontWeight: FontWeight.w700),
+                    style: TextStyle(fontSize: 18, fontWeight: FontWeight.w700),
                   ),
                 ),
                 IconButton(
@@ -217,7 +218,7 @@ class _MobileBottomNavConfigSheetState extends State<MobileBottomNavConfigSheet>
             child: Text(
               tr('5 vị trí cố định — kéo để đổi thứ tự, chạm để đổi chức năng.\n'
               'Mặc định: Trang chủ · Tổng quan · Chấm công · Công việc · Thêm.'),
-              style: TextStyle(fontSize: 13, color: Colors.grey.shade600),
+              style: TextStyle(fontSize: 13, color: SboxColors.slate600),
             ),
           ),
           Padding(
@@ -288,7 +289,7 @@ class _MobileBottomNavConfigSheetState extends State<MobileBottomNavConfigSheet>
                         ),
                         ReorderableDragStartListener(
                           index: index,
-                          child: Icon(Icons.drag_handle, color: Colors.grey.shade500),
+                          child: Icon(Icons.drag_handle, color: SboxColors.slate500),
                         ),
                       ],
                     ),

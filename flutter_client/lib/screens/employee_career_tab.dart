@@ -10,6 +10,7 @@ import '../widgets/hrm_page_chrome.dart';
 import '../utils/responsive_helper.dart';
 import 'package:zkteco_flutter_client/l10n/app_tr.dart';
 
+import '../theme/sbox_tokens.dart';
 // ═══════════════════════════════════════════════════════════════
 // QUẢN LÝ QUÁ TRÌNH CÔNG TÁC CỦA NHÂN VIÊN
 // Bao gồm: Chức vụ, Phòng ban, Khen thưởng, Kỷ luật
@@ -125,17 +126,17 @@ class _EmployeeCareerScreenState extends State<EmployeeCareerScreen>
   Color _positionColor(int level) {
     switch (level) {
       case 1:
-        return const Color(0xFF7C3AED);
+        return SboxColors.violet;
       case 2:
-        return const Color(0xFF1D4ED8);
+        return SboxColors.brand700;
       case 3:
         return const Color(0xFF0369A1);
       case 4:
         return const Color(0xFF0F766E);
       case 5:
-        return const Color(0xFF16A34A);
+        return SboxColors.success;
       default:
-        return const Color(0xFF52525B);
+        return SboxColors.slate600;
     }
   }
 
@@ -397,8 +398,8 @@ class _EmployeeCareerScreenState extends State<EmployeeCareerScreen>
             title: isDiscipline ? 'Thêm kỷ luật' : 'Thêm khen thưởng',
             icon: isDiscipline ? Icons.gavel : Icons.emoji_events,
             iconColor: isDiscipline
-                ? const Color(0xFFDC2626)
-                : const Color(0xFFD97706),
+                ? SboxColors.danger
+                : SboxColors.warning,
             content: content,
             isMobile: isMobile,
             onSave: () async {
@@ -656,11 +657,11 @@ class _EmployeeCareerScreenState extends State<EmployeeCareerScreen>
     return Card(
       margin: const EdgeInsets.only(bottom: 10),
       shape: RoundedRectangleBorder(
-        borderRadius: BorderRadius.circular(12),
+        borderRadius: BorderRadius.circular(14),
         side: BorderSide(
             color: isActive
                 ? color.withValues(alpha: 0.5)
-                : const Color(0xFFE4E4E7)),
+                : SboxColors.slate200),
       ),
       child: Padding(
         padding: const EdgeInsets.all(14),
@@ -679,7 +680,7 @@ class _EmployeeCareerScreenState extends State<EmployeeCareerScreen>
                 child: Icon(Icons.badge, color: color, size: 18),
               ),
               if (_positionHistory.indexOf(a) < _positionHistory.length - 1)
-                Container(width: 2, height: 20, color: const Color(0xFFE4E4E7)),
+                Container(width: 2, height: 20, color: SboxColors.slate200),
             ]),
             const SizedBox(width: 12),
             Expanded(
@@ -731,17 +732,17 @@ class _EmployeeCareerScreenState extends State<EmployeeCareerScreen>
                   Text(
                     tr(a['departmentName']?.toString() ?? '—'),
                     style:
-                        const TextStyle(fontSize: 12, color: Color(0xFF52525B)),
+                        const TextStyle(fontSize: 12, color: SboxColors.slate600),
                   ),
                   const SizedBox(height: 6),
                   Row(children: [
                     const Icon(Icons.calendar_today,
-                        size: 12, color: Color(0xFFA1A1AA)),
+                        size: 12, color: SboxColors.slate400),
                     const SizedBox(width: 4),
                     Text(
                       tr('${_fmt(a['startDate']?.toString())} → ${_fmt(a['endDate']?.toString())}'),
                       style: const TextStyle(
-                          fontSize: 11, color: Color(0xFFA1A1AA)),
+                          fontSize: 11, color: SboxColors.slate400),
                     ),
                   ]),
                 ],
@@ -751,7 +752,7 @@ class _EmployeeCareerScreenState extends State<EmployeeCareerScreen>
                 .canEdit('Employee'))
               IconButton(
                 icon: const Icon(Icons.delete_outline,
-                    size: 18, color: Color(0xFFA1A1AA)),
+                    size: 18, color: SboxColors.slate400),
                 onPressed: () => _deleteAssignment(a['id']?.toString() ?? ''),
                 tooltip: tr('Xóa'),
               ),
@@ -798,11 +799,11 @@ class _EmployeeCareerScreenState extends State<EmployeeCareerScreen>
     return Card(
       margin: const EdgeInsets.only(bottom: 10),
       shape: RoundedRectangleBorder(
-        borderRadius: BorderRadius.circular(12),
+        borderRadius: BorderRadius.circular(14),
         side: BorderSide(
             color: isActive
                 ? const Color(0xFF0369A1).withValues(alpha: 0.5)
-                : const Color(0xFFE4E4E7)),
+                : SboxColors.slate200),
       ),
       child: Padding(
         padding: const EdgeInsets.all(14),
@@ -852,17 +853,17 @@ class _EmployeeCareerScreenState extends State<EmployeeCareerScreen>
                   const SizedBox(height: 4),
                   Text(tr('${tr('Chức vụ: ')}${a['positionName']?.toString() ?? '—'}'),
                     style:
-                        const TextStyle(fontSize: 12, color: Color(0xFF52525B)),
+                        const TextStyle(fontSize: 12, color: SboxColors.slate600),
                   ),
                   const SizedBox(height: 6),
                   Row(children: [
                     const Icon(Icons.calendar_today,
-                        size: 12, color: Color(0xFFA1A1AA)),
+                        size: 12, color: SboxColors.slate400),
                     const SizedBox(width: 4),
                     Text(
                       tr('${_fmt(a['startDate']?.toString())} → ${_fmt(a['endDate']?.toString())}'),
                       style: const TextStyle(
-                          fontSize: 11, color: Color(0xFFA1A1AA)),
+                          fontSize: 11, color: SboxColors.slate400),
                     ),
                   ]),
                 ],
@@ -872,7 +873,7 @@ class _EmployeeCareerScreenState extends State<EmployeeCareerScreen>
                 .canEdit('Employee'))
               IconButton(
                 icon: const Icon(Icons.delete_outline,
-                    size: 18, color: Color(0xFFA1A1AA)),
+                    size: 18, color: SboxColors.slate400),
                 onPressed: () => _deleteAssignment(a['id']?.toString() ?? ''),
                 tooltip: tr('Xóa'),
               ),
@@ -892,7 +893,7 @@ class _EmployeeCareerScreenState extends State<EmployeeCareerScreen>
               onPressed: () => _showAddAwardDialog(isDiscipline: false),
               icon: const Icon(Icons.add),
               label: Text(tr('Thêm khen thưởng')),
-              backgroundColor: const Color(0xFFD97706),
+              backgroundColor: SboxColors.warning,
               foregroundColor: Colors.white,
             )
           : null,
@@ -924,7 +925,7 @@ class _EmployeeCareerScreenState extends State<EmployeeCareerScreen>
               onPressed: () => _showAddAwardDialog(isDiscipline: true),
               icon: const Icon(Icons.add),
               label: Text(tr('Thêm kỷ luật')),
-              backgroundColor: const Color(0xFFDC2626),
+              backgroundColor: SboxColors.danger,
               foregroundColor: Colors.white,
             )
           : null,
@@ -949,12 +950,12 @@ class _EmployeeCareerScreenState extends State<EmployeeCareerScreen>
   Widget _buildDocumentCard(Map<String, dynamic> doc,
       {required bool isDiscipline}) {
     final color =
-        isDiscipline ? const Color(0xFFDC2626) : const Color(0xFFD97706);
+        isDiscipline ? SboxColors.danger : SboxColors.warning;
     final bgColor = color.withValues(alpha: 0.08);
     return Card(
       margin: const EdgeInsets.only(bottom: 10),
       shape: RoundedRectangleBorder(
-        borderRadius: BorderRadius.circular(12),
+        borderRadius: BorderRadius.circular(14),
         side: BorderSide(color: color.withValues(alpha: 0.25)),
       ),
       child: Padding(
@@ -989,18 +990,18 @@ class _EmployeeCareerScreenState extends State<EmployeeCareerScreen>
                     const SizedBox(height: 3),
                     Text(tr('${tr('Số QĐ: ')}${doc['documentNumber']}'),
                       style: const TextStyle(
-                          fontSize: 12, color: Color(0xFF52525B)),
+                          fontSize: 12, color: SboxColors.slate600),
                     ),
                   ],
                   if (doc['effectiveDate'] != null) ...[
                     const SizedBox(height: 4),
                     Row(children: [
                       const Icon(Icons.calendar_today,
-                          size: 12, color: Color(0xFFA1A1AA)),
+                          size: 12, color: SboxColors.slate400),
                       const SizedBox(width: 4),
                       Text(tr('${tr('Ngày: ')}${_fmt(doc['effectiveDate']?.toString())}'),
                         style: const TextStyle(
-                            fontSize: 11, color: Color(0xFFA1A1AA)),
+                            fontSize: 11, color: SboxColors.slate400),
                       ),
                     ]),
                   ],
@@ -1010,13 +1011,13 @@ class _EmployeeCareerScreenState extends State<EmployeeCareerScreen>
                     Container(
                       padding: const EdgeInsets.all(8),
                       decoration: BoxDecoration(
-                        color: const Color(0xFFF4F4F5),
+                        color: SboxColors.slate100,
                         borderRadius: BorderRadius.circular(6),
                       ),
                       child: Text(
                         tr(doc['notes'].toString()),
                         style: const TextStyle(
-                            fontSize: 12, color: Color(0xFF52525B)),
+                            fontSize: 12, color: SboxColors.slate600),
                       ),
                     ),
                   ],
@@ -1025,7 +1026,7 @@ class _EmployeeCareerScreenState extends State<EmployeeCareerScreen>
             ),
             IconButton(
               icon: const Icon(Icons.delete_outline,
-                  size: 18, color: Color(0xFFA1A1AA)),
+                  size: 18, color: SboxColors.slate400),
               onPressed: () =>
                   _deleteDocument(doc['id']?.toString() ?? '', isDiscipline),
               tooltip: tr('Xóa'),
@@ -1041,10 +1042,10 @@ class _EmployeeCareerScreenState extends State<EmployeeCareerScreen>
       child: Column(
         mainAxisAlignment: MainAxisAlignment.center,
         children: [
-          Icon(Icons.inbox_outlined, size: 48, color: Colors.grey[300]),
+          Icon(Icons.inbox_outlined, size: 48, color: SboxColors.slate300),
           const SizedBox(height: 12),
           Text(tr(message),
-              style: TextStyle(fontSize: 14, color: Colors.grey[400])),
+              style: TextStyle(fontSize: 14, color: SboxColors.slate400)),
         ],
       ),
     );

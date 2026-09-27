@@ -17,6 +17,7 @@ import '../widgets/hrm_responsive_list_layout.dart';
 import '../widgets/hrm_mini_stat_chip.dart';
 import 'package:zkteco_flutter_client/l10n/app_tr.dart';
 
+import '../theme/sbox_tokens.dart';
 class OvertimeScreen extends StatefulWidget {
   const OvertimeScreen({super.key});
 
@@ -134,7 +135,7 @@ class _OvertimeScreenState extends State<OvertimeScreen>
                     tabBar: TabBar(
                       controller: _tabController,
                       labelColor: HrmPageChrome.primaryNavy,
-                      unselectedLabelColor: Colors.grey[600],
+                      unselectedLabelColor: SboxColors.slate600,
                       indicatorColor: HrmPageChrome.primaryNavy,
                       indicatorWeight: 3,
                       tabs: [
@@ -176,7 +177,7 @@ class _OvertimeScreenState extends State<OvertimeScreen>
                       TabBar(
                         controller: _tabController,
                         labelColor: HrmPageChrome.primaryNavy,
-                        unselectedLabelColor: Colors.grey[600],
+                        unselectedLabelColor: SboxColors.slate600,
                         indicatorColor: HrmPageChrome.primaryNavy,
                         indicatorWeight: 3,
                         tabs: [
@@ -253,21 +254,21 @@ class _OvertimeScreenState extends State<OvertimeScreen>
           isDense: true,
           contentPadding:
               const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-          border: OutlineInputBorder(borderRadius: BorderRadius.circular(8)),
+          border: OutlineInputBorder(borderRadius: BorderRadius.circular(10)),
           enabledBorder: OutlineInputBorder(
-              borderRadius: BorderRadius.circular(8),
-              borderSide: const BorderSide(color: Color(0xFFE4E4E7))),
+              borderRadius: BorderRadius.circular(10),
+              borderSide: const BorderSide(color: SboxColors.slate200)),
         ),
-        style: const TextStyle(fontSize: 13, color: Color(0xFF111827)),
+        style: const TextStyle(fontSize: 13, color: SboxColors.slate900),
         items: [
           DropdownMenuItem<String?>(
               value: null,
               child: Text(tr('T\u1ea5t c\u1ea3 chi nh\u00e1nh'),
-                  style: const TextStyle(color: Colors.black87))),
+                  style: const TextStyle(color: SboxColors.text))),
           ..._branches.map((b) => DropdownMenuItem<String?>(
               value: b['id']?.toString(),
               child: Text(tr(b['name']?.toString() ?? ''),
-                  style: const TextStyle(color: Colors.black87),
+                  style: const TextStyle(color: SboxColors.text),
                   overflow: TextOverflow.ellipsis))),
         ],
         onChanged: (v) => setState(() => _selectedBranchId = v),
@@ -284,7 +285,7 @@ class _OvertimeScreenState extends State<OvertimeScreen>
               'Tổng', '${_allOvertimes.length}', HrmPageChrome.primaryNavy),
           const SizedBox(width: 12),
           _buildMiniStat('Chờ duyệt', '${_pendingOvertimes.length}',
-              const Color(0xFFF59E0B)),
+              SboxColors.warning),
           const SizedBox(width: 12),
           _buildMiniStat('Tổng giờ TC', '${_statistics?['totalHours'] ?? 0}h',
               HrmPageChrome.primaryNavy),
@@ -299,7 +300,7 @@ class _OvertimeScreenState extends State<OvertimeScreen>
         padding: const EdgeInsets.all(10),
         decoration: BoxDecoration(
             color: Colors.white,
-            borderRadius: BorderRadius.circular(12),
+            borderRadius: BorderRadius.circular(14),
             border: Border.all(color: color.withValues(alpha: 0.3))),
         child: Row(
           children: [
@@ -319,7 +320,7 @@ class _OvertimeScreenState extends State<OvertimeScreen>
                           fontWeight: FontWeight.bold,
                           color: color)),
                   Text(tr(label),
-                      style: TextStyle(fontSize: 10, color: Colors.grey[600]),
+                      style: TextStyle(fontSize: 10, color: SboxColors.slate600),
                       overflow: TextOverflow.ellipsis),
                 ],
               ),
@@ -357,10 +358,10 @@ class _OvertimeScreenState extends State<OvertimeScreen>
         child: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
-            Icon(Icons.more_time, size: 64, color: Colors.grey[300]),
+            Icon(Icons.more_time, size: 64, color: SboxColors.slate300),
             const SizedBox(height: 16),
             Text(tr('Không có yêu cầu tăng ca'),
-                style: TextStyle(color: Colors.grey[500], fontSize: 16)),
+                style: TextStyle(color: SboxColors.slate500, fontSize: 16)),
           ],
         ),
       );
@@ -403,8 +404,8 @@ class _OvertimeScreenState extends State<OvertimeScreen>
                     child: Container(
                       decoration: BoxDecoration(
                         color: Colors.white,
-                        borderRadius: BorderRadius.circular(12),
-                        border: Border.all(color: const Color(0xFFE4E4E7)),
+                        borderRadius: BorderRadius.circular(14),
+                        border: Border.all(color: SboxColors.slate200),
                         boxShadow: [
                           BoxShadow(
                             color: Colors.black.withValues(alpha: 0.05),
@@ -428,14 +429,14 @@ class _OvertimeScreenState extends State<OvertimeScreen>
                       const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
                   decoration: BoxDecoration(
                     color: Colors.white,
-                    border: Border(top: BorderSide(color: Colors.grey.shade200)),
+                    border: Border(top: BorderSide(color: SboxColors.slate200)),
                   ),
                   child: Row(
                     mainAxisAlignment: MainAxisAlignment.spaceBetween,
                     children: [
                       Text(tr('Hiển thị ${startIndex + 1}-$endIndex / $totalCount'),
                         style:
-                            TextStyle(fontSize: 12, color: Colors.grey[600]),
+                            TextStyle(fontSize: 12, color: SboxColors.slate600),
                       ),
                       Row(
                         children: [
@@ -480,8 +481,8 @@ class _OvertimeScreenState extends State<OvertimeScreen>
                 child: Container(
                   decoration: BoxDecoration(
                     color: Colors.white,
-                    borderRadius: BorderRadius.circular(12),
-                    border: Border.all(color: const Color(0xFFE4E4E7)),
+                    borderRadius: BorderRadius.circular(14),
+                    border: Border.all(color: SboxColors.slate200),
                     boxShadow: [
                       BoxShadow(
                         color: Colors.black.withValues(alpha: 0.05),
@@ -502,13 +503,13 @@ class _OvertimeScreenState extends State<OvertimeScreen>
             padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
             decoration: BoxDecoration(
               color: Colors.white,
-              border: Border(top: BorderSide(color: Colors.grey.shade200)),
+              border: Border(top: BorderSide(color: SboxColors.slate200)),
             ),
             child: Row(
               mainAxisAlignment: MainAxisAlignment.spaceBetween,
               children: [
                 Text(tr('Hiển thị ${startIndex + 1}-$endIndex / $totalCount'),
-                  style: TextStyle(fontSize: 12, color: Colors.grey[600]),
+                  style: TextStyle(fontSize: 12, color: SboxColors.slate600),
                 ),
                 Row(
                   children: [
@@ -565,7 +566,7 @@ class _OvertimeScreenState extends State<OvertimeScreen>
                   const SizedBox(height: 2),
                   Text(
                     tr('${_formatDate(ot['date'] ?? ot['overtimeDate'])} · ${ot['startTime']?.toString().substring(0, 5) ?? '--:--'}-${ot['endTime']?.toString().substring(0, 5) ?? '--:--'} · ${ot['totalHours'] ?? ot['hours'] ?? 0}h'),
-                    style: TextStyle(fontSize: 12, color: Colors.grey[500]),
+                    style: TextStyle(fontSize: 12, color: SboxColors.slate500),
                     maxLines: 1,
                     overflow: TextOverflow.ellipsis,
                   ),
@@ -633,7 +634,7 @@ class _OvertimeScreenState extends State<OvertimeScreen>
           Row(
             children: [
               _buildStatCard('Từ chối', '${_statistics?['rejected'] ?? 0}',
-                  Icons.cancel, const Color(0xFFEF4444)),
+                  Icons.cancel, SboxColors.danger),
               const SizedBox(width: 16),
               _buildStatCard('Tổng giờ', '${_statistics?['totalHours'] ?? 0}h',
                   Icons.schedule, HrmPageChrome.primaryNavy),
@@ -659,15 +660,15 @@ class _OvertimeScreenState extends State<OvertimeScreen>
   Color _getStatusColor(String status) {
     switch (status.toLowerCase()) {
       case 'approved':
-        return const Color(0xFF16A34A);
+        return SboxColors.success;
       case 'rejected':
-        return const Color(0xFFEF4444);
+        return SboxColors.danger;
       case 'cancelled':
-        return const Color(0xFFDC2626);
+        return SboxColors.danger;
       case 'completed':
-        return const Color(0xFF16A34A);
+        return SboxColors.success;
       default:
-        return const Color(0xFFF59E0B);
+        return SboxColors.warning;
     }
   }
 
@@ -712,7 +713,7 @@ class _OvertimeScreenState extends State<OvertimeScreen>
                   leading: const Icon(Icons.calendar_today),
                   shape: RoundedRectangleBorder(
                       borderRadius: BorderRadius.circular(10),
-                      side: BorderSide(color: Colors.grey.shade300)),
+                      side: BorderSide(color: SboxColors.slate300)),
                   onTap: () async {
                     final d = await showDatePicker(
                         context: ctx,
@@ -838,7 +839,7 @@ class _OvertimeScreenState extends State<OvertimeScreen>
 
             return ScrollableAlertDialog(
               shape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(16)),
+                  borderRadius: BorderRadius.circular(14)),
               title: Row(children: [
                 Icon(Icons.more_time, color: HrmPageChrome.primaryNavy),
                 SizedBox(width: 8),

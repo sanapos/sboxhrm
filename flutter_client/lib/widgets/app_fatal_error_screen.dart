@@ -4,6 +4,7 @@ import '../utils/app_error_utils.dart';
 import '../utils/navigation_notifier.dart';
 import 'package:zkteco_flutter_client/l10n/app_tr.dart';
 
+import '../theme/sbox_tokens.dart';
 /// Màn hình thay thế [ErrorWidget] mặc định — tránh nền xanh/tối chung chung.
 class AppFatalErrorScreen extends StatelessWidget {
   final FlutterErrorDetails details;
@@ -21,14 +22,14 @@ class AppFatalErrorScreen extends StatelessWidget {
       AppErrorKind.unknown => Icons.error_outline_rounded,
     };
     final iconColor = switch (info.kind) {
-      AppErrorKind.network => const Color(0xFFF59E0B),
+      AppErrorKind.network => SboxColors.warning,
       AppErrorKind.timeout => const Color(0xFF6366F1),
-      AppErrorKind.server => const Color(0xFFEF4444),
-      AppErrorKind.unknown => const Color(0xFFEF4444),
+      AppErrorKind.server => SboxColors.danger,
+      AppErrorKind.unknown => SboxColors.danger,
     };
 
     return Material(
-      color: const Color(0xFFFAFAFA),
+      color: SboxColors.slate50,
       child: SafeArea(
         child: Center(
           child: SingleChildScrollView(
@@ -51,7 +52,7 @@ class AppFatalErrorScreen extends StatelessWidget {
                   style: const TextStyle(
                     fontSize: 20,
                     fontWeight: FontWeight.w700,
-                    color: Color(0xFF18181B),
+                    color: SboxColors.slate900,
                   ),
                 ),
                 if (screen != null && screen.isNotEmpty) ...[
@@ -61,7 +62,7 @@ class AppFatalErrorScreen extends StatelessWidget {
                     style: const TextStyle(
                       fontSize: 14,
                       fontWeight: FontWeight.w600,
-                      color: Color(0xFF71717A),
+                      color: SboxColors.slate500,
                     ),
                   ),
                 ],
@@ -70,9 +71,9 @@ class AppFatalErrorScreen extends StatelessWidget {
                   tr(info.message),
                   textAlign: TextAlign.center,
                   style: const TextStyle(
-                    fontSize: 15,
+                    fontSize: 16,
                     height: 1.45,
-                    color: Color(0xFF52525B),
+                    color: SboxColors.slate600,
                   ),
                 ),
                 if (info.technicalHint != null) ...[
@@ -81,9 +82,9 @@ class AppFatalErrorScreen extends StatelessWidget {
                     width: double.infinity,
                     padding: const EdgeInsets.all(12),
                     decoration: BoxDecoration(
-                      color: const Color(0xFFF4F4F5),
+                      color: SboxColors.slate100,
                       borderRadius: BorderRadius.circular(10),
-                      border: Border.all(color: const Color(0xFFE4E4E7)),
+                      border: Border.all(color: SboxColors.slate200),
                     ),
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
@@ -92,7 +93,7 @@ class AppFatalErrorScreen extends StatelessWidget {
                           style: TextStyle(
                             fontSize: 12,
                             fontWeight: FontWeight.w600,
-                            color: Color(0xFF71717A),
+                            color: SboxColors.slate500,
                           ),
                         ),
                         const SizedBox(height: 6),
@@ -101,7 +102,7 @@ class AppFatalErrorScreen extends StatelessWidget {
                           style: const TextStyle(
                             fontSize: 12,
                             height: 1.4,
-                            color: Color(0xFF3F3F46),
+                            color: SboxColors.slate700,
                             fontFamily: 'monospace',
                           ),
                         ),
@@ -110,7 +111,7 @@ class AppFatalErrorScreen extends StatelessWidget {
                           Text(tr('Vị trí: ${details.library}'),
                             style: const TextStyle(
                               fontSize: 11,
-                              color: Color(0xFFA1A1AA),
+                              color: SboxColors.slate400,
                             ),
                           ),
                         ],
@@ -138,7 +139,7 @@ class AppFatalErrorScreen extends StatelessWidget {
                   textAlign: TextAlign.center,
                   style: TextStyle(
                     fontSize: 13,
-                    color: Colors.grey.shade600,
+                    color: SboxColors.slate600,
                     height: 1.4,
                   ),
                 ),

@@ -8,6 +8,7 @@ import '../../utils/pos_sale_order_print.dart';
 import '../pos/pos_theme.dart';
 import 'package:zkteco_flutter_client/l10n/app_tr.dart';
 
+import '../../theme/sbox_tokens.dart';
 /// Bottom sheet phiếu in treo (HD / kho / bếp / tem) — thử lại / chọn máy / bỏ qua.
 Future<void> showPendingWarehousePrintSheet({
   required BuildContext context,
@@ -359,7 +360,7 @@ class _PendingWarehousePrintSheetBodyState
                       child: Text(
                         tr('Phiếu chưa in ($_totalCount)'),
                         style: const TextStyle(
-                          fontSize: 17,
+                          fontSize: 18,
                           fontWeight: FontWeight.w700,
                         ),
                       ),
@@ -382,7 +383,7 @@ class _PendingWarehousePrintSheetBodyState
                         },
                         child: Text(tr('Bỏ hết'),
                             style: const TextStyle(
-                              fontSize: 15,
+                              fontSize: 16,
                               fontWeight: FontWeight.w700,
                             )),
                       ),
@@ -596,16 +597,16 @@ class _PendingWarehousePrintSheetBodyState
   }) {
     return Material(
       color: bg,
-      borderRadius: BorderRadius.circular(8),
+      borderRadius: BorderRadius.circular(10),
       child: InkWell(
         onTap: onPressed,
-        borderRadius: BorderRadius.circular(8),
+        borderRadius: BorderRadius.circular(10),
         child: Container(
           height: 40,
           alignment: Alignment.center,
           padding: const EdgeInsets.symmetric(horizontal: 8),
           decoration: BoxDecoration(
-            borderRadius: BorderRadius.circular(8),
+            borderRadius: BorderRadius.circular(10),
             border: border == null ? null : Border.all(color: border),
           ),
           child: Row(
@@ -638,7 +639,7 @@ class _PendingWarehousePrintSheetBodyState
         ? ' · ${job.printerName}'
         : '';
     return _denseRow(
-      bg: const Color(0xFFFFFBEB),
+      bg: SboxColors.warningSoft,
       title: '${job.title} · ${job.tableName}$printer',
       subtitle: job.lineSummary,
       error: job.errorMessage ?? 'In phiếu bếp thất bại',
@@ -678,7 +679,7 @@ class _PendingWarehousePrintSheetBodyState
     final busy = _busyJobId == 'cup:${job.id}';
     final table = (job.tableLabel ?? '').trim();
     return _denseRow(
-      bg: const Color(0xFFECFDF5),
+      bg: SboxColors.successSoft,
       title: 'Tem ly × ${job.tickets.length}${table.isNotEmpty ? ' · $table' : ''}',
       subtitle: job.lineSummary,
       error: job.errorMessage ?? 'In tem ly thất bại',
@@ -701,7 +702,7 @@ class _PendingWarehousePrintSheetBodyState
   Widget _buildSaleRow(PendingSalePrintJob job) {
     final busy = _busyJobId == 'sale:${job.id}';
     return _denseRow(
-      bg: const Color(0xFFEFF6FF),
+      bg: SboxColors.brand50,
       title: job.orderLabel,
       subtitle: job.lineSummary,
       error: job.errorMessage ?? 'In hóa đơn thất bại',
@@ -738,7 +739,7 @@ class _PendingWarehousePrintSheetBodyState
     final busy = _busyJobId == job.id;
     final printer = job.printerName.isNotEmpty ? ' · ${job.printerName}' : '';
     return _denseRow(
-      bg: const Color(0xFFFFF7ED),
+      bg: SboxColors.warningSoft,
       title: '${job.orderLabel}$printer',
       subtitle: job.lineSummary,
       error: job.errorMessage ?? job.reason.label,

@@ -8,6 +8,7 @@ import '../../widgets/pos/pos_theme.dart';
 import 'pos_einvoice_report_screen.dart';
 import 'package:zkteco_flutter_client/l10n/app_tr.dart';
 
+import '../../theme/sbox_tokens.dart';
 /// Cấu hình hóa đơn điện tử — Viettel SInvoice và Easy Invoice.
 class PosEInvoiceSettingsScreen extends StatefulWidget {
   const PosEInvoiceSettingsScreen({super.key});
@@ -320,7 +321,7 @@ class _PosEInvoiceSettingsScreenState extends State<PosEInvoiceSettingsScreen> {
             const SizedBox(height: 6),
             Text(
               tr('Demo: http://api.softdreams.vn — token kèm MST từ 01/01/2026.'),
-              style: TextStyle(fontSize: 12, color: Colors.grey.shade700),
+              style: TextStyle(fontSize: 12, color: SboxColors.slate700),
             ),
           ],
           const SizedBox(height: 12),
@@ -374,7 +375,7 @@ class _PosEInvoiceSettingsScreenState extends State<PosEInvoiceSettingsScreen> {
                   'cột Ký hiệu trống. Điền Pattern=1C26MAA, Serial để trống. '
                   '«Kiểm tra kết nối» chỉ auth — không tạo HĐ. '
                   'Nếu portal báo Còn lại (MTT)=0 phải Gia hạn gói trước.'),
-              style: TextStyle(fontSize: 12, color: Colors.grey.shade700),
+              style: TextStyle(fontSize: 12, color: SboxColors.slate700),
             ),
           ],
           if (viettel) ...[
@@ -447,8 +448,8 @@ class _PosEInvoiceSettingsScreenState extends State<PosEInvoiceSettingsScreen> {
             const SizedBox(height: 12),
             Material(
               color: _testBannerOk
-                  ? const Color(0xFFECFDF5)
-                  : const Color(0xFFFEF2F2),
+                  ? SboxColors.successSoft
+                  : SboxColors.dangerSoft,
               borderRadius: BorderRadius.circular(10),
               child: Padding(
                 padding: const EdgeInsets.all(12),
@@ -460,8 +461,8 @@ class _PosEInvoiceSettingsScreenState extends State<PosEInvoiceSettingsScreen> {
                           ? Icons.check_circle_outline
                           : Icons.error_outline,
                       color: _testBannerOk
-                          ? const Color(0xFF059669)
-                          : const Color(0xFFDC2626),
+                          ? SboxColors.success
+                          : SboxColors.danger,
                       size: 22,
                     ),
                     const SizedBox(width: 10),
@@ -469,12 +470,12 @@ class _PosEInvoiceSettingsScreenState extends State<PosEInvoiceSettingsScreen> {
                       child: Text(
                         tr(_testBanner!),
                         style: TextStyle(
-                          fontSize: 13.5,
+                          fontSize: 14,
                           height: 1.35,
                           fontWeight: FontWeight.w600,
                           color: _testBannerOk
-                              ? const Color(0xFF065F46)
-                              : const Color(0xFF991B1B),
+                              ? SboxColors.successText
+                              : SboxColors.dangerText,
                         ),
                       ),
                     ),

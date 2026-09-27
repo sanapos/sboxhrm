@@ -17,6 +17,7 @@ import '../widgets/server_url_dialog.dart';
 import 'app_info_screen.dart';
 import 'package:zkteco_flutter_client/l10n/app_tr.dart';
 
+import '../theme/sbox_tokens.dart';
 class SettingsScreen extends StatefulWidget {
   const SettingsScreen({super.key});
 
@@ -77,7 +78,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
             const SizedBox(height: 8),
             Text(
               tr(l.settingsSubtitle),
-              style: TextStyle(color: Colors.grey[400]),
+              style: TextStyle(color: SboxColors.slate400),
             ),
             const SizedBox(height: 24),
 
@@ -113,7 +114,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
                   subtitle: Consumer<ThemeProvider>(
                     builder: (context, tp, _) => Text(
                       tr(tp.isDarkMode ? l.turnedOn : l.turnedOff),
-                      style: TextStyle(color: Colors.grey[400], fontSize: 14),
+                      style: TextStyle(color: SboxColors.slate400, fontSize: 14),
                     ),
                   ),
                   trailing: Consumer<ThemeProvider>(
@@ -135,7 +136,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
                       title: l.language,
                       subtitle: Text(
                         tr(themeProvider.languageLabel),
-                        style: TextStyle(color: Colors.grey[400], fontSize: 14),
+                        style: TextStyle(color: SboxColors.slate400, fontSize: 14),
                       ),
                       onTap: () => _showLanguageDialog(context),
                     );
@@ -363,7 +364,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
                 const SizedBox(height: 4),
                 Text(
                   tr(user?.email ?? ''),
-                  style: TextStyle(color: Colors.grey[400]),
+                  style: TextStyle(color: SboxColors.slate400),
                 ),
                 const SizedBox(height: 4),
                 Container(
@@ -374,7 +375,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
                   decoration: BoxDecoration(
                     color:
                         Theme.of(context).primaryColor.withValues(alpha: 0.2),
-                    borderRadius: BorderRadius.circular(12),
+                    borderRadius: BorderRadius.circular(14),
                   ),
                   child: Text(
                     tr(user?.role ?? 'Employee'),
@@ -417,7 +418,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
         padding: const EdgeInsets.all(8),
         decoration: BoxDecoration(
           color: Theme.of(context).primaryColor.withValues(alpha: 0.1),
-          borderRadius: BorderRadius.circular(8),
+          borderRadius: BorderRadius.circular(10),
         ),
         child: Icon(
           icon,
@@ -744,7 +745,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
                 ),
                 onPressed: toggle,
               ),
-              border: OutlineInputBorder(borderRadius: BorderRadius.circular(8)),
+              border: OutlineInputBorder(borderRadius: BorderRadius.circular(10)),
             );
           }
 
@@ -755,11 +756,11 @@ class _SettingsScreenState extends State<SettingsScreen> {
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 Text(tr('Nhập mật khẩu hiện tại và mật khẩu mới để cập nhật tài khoản của bạn.'),
-                  style: TextStyle(color: Color(0xFF71717A), fontSize: 13),
+                  style: TextStyle(color: SboxColors.slate500, fontSize: 13),
                 ),
                 const SizedBox(height: 16),
                 Text(tr('Mật khẩu hiện tại'),
-                    style: TextStyle(fontSize: 13, color: Color(0xFF71717A))),
+                    style: TextStyle(fontSize: 13, color: SboxColors.slate500)),
                 const SizedBox(height: 6),
                 TextField(
                   controller: currentController,
@@ -774,7 +775,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
                 ),
                 const SizedBox(height: 12),
                 Text(tr('Mật khẩu mới'),
-                    style: TextStyle(fontSize: 13, color: Color(0xFF71717A))),
+                    style: TextStyle(fontSize: 13, color: SboxColors.slate500)),
                 const SizedBox(height: 6),
                 TextField(
                   controller: newController,
@@ -788,7 +789,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
                 ),
                 const SizedBox(height: 12),
                 Text(tr('Xác nhận mật khẩu mới'),
-                    style: TextStyle(fontSize: 13, color: Color(0xFF71717A))),
+                    style: TextStyle(fontSize: 13, color: SboxColors.slate500)),
                 const SizedBox(height: 6),
                 TextField(
                   controller: confirmController,
@@ -839,7 +840,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
               width: 80,
               child: Text(tr(label),
                   style:
-                      const TextStyle(color: Color(0xFF71717A), fontSize: 13))),
+                      const TextStyle(color: SboxColors.slate500, fontSize: 13))),
           Expanded(
               child: Text(tr(value),
                   style: const TextStyle(

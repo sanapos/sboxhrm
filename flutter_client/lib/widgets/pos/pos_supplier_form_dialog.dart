@@ -8,7 +8,8 @@ import 'pos_theme.dart';
 import 'vn_admin_address_fields.dart';
 import 'package:zkteco_flutter_client/l10n/app_tr.dart';
 
-const _blue = Color(0xFF2563EB);
+import '../../theme/sbox_tokens.dart';
+const _blue = SboxColors.brand600;
 
 /// Form thêm/sửa NCC kiểu KiotViet.
 class PosSupplierFormDialog extends StatefulWidget {

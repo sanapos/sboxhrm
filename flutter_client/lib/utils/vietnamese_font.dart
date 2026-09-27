@@ -1,6 +1,7 @@
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 
+import '../theme/sbox_tokens.dart';
 /// Font chính (pubspec assets). Không fallback Arial/sans — Android 6 (T1)
 /// hay nhảy sang font CJK hệ thống, dấu tiếng Việt bị lỗi cả app.
 const String kVietnameseFontFamily = 'BeVietnamPro';
@@ -34,7 +35,7 @@ TextStyle vietnameseTextStyle([TextStyle? base]) {
 TextStyle get kDefaultVietnameseTextStyle => vietnameseTextStyle(
       const TextStyle(
         fontSize: 14,
-        color: Color(0xFF18181B),
+        color: SboxColors.slate900,
       ),
     );
 

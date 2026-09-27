@@ -14,6 +14,7 @@ import '../widgets/hrm_page_chrome.dart';
 import '../widgets/loading_widget.dart';
 import '../widgets/notification_overlay.dart';
 import 'package:zkteco_flutter_client/l10n/app_tr.dart';
+import '../theme/sbox_tokens.dart';
 // ===== HOLIDAY SETTINGS SCREEN =====
 class HolidaySettingsScreen extends StatefulWidget {
   const HolidaySettingsScreen({super.key});
@@ -41,10 +42,10 @@ class _HolidaySettingsScreenState extends State<HolidaySettingsScreen> {
   final List<int> _pageSizeOptions = [20, 50, 100, 200];
 
   static const _primaryColor = HrmPageChrome.primaryNavy;
-  static const _bgColor = Color(0xFFFAFAFA);
-  static const _borderColor = Color(0xFFE4E4E7);
-  static const _textDark = Color(0xFF18181B);
-  static const _textMuted = Color(0xFF71717A);
+  static const _bgColor = SboxColors.slate50;
+  static const _borderColor = SboxColors.slate200;
+  static const _textDark = SboxColors.slate900;
+  static const _textMuted = SboxColors.slate500;
 
   final List<Color> _badgeColors = [
     ...HrmPageChrome.chipShades,
@@ -162,7 +163,7 @@ class _HolidaySettingsScreenState extends State<HolidaySettingsScreen> {
       case 'Ngày nghỉ bù': return HrmPageChrome.chipLight;
       case 'Ngày nghỉ hàng tuần': return HrmPageChrome.chip;
       case 'Ngày đặc biệt công ty': return HrmPageChrome.primaryNavy;
-      default: return const Color(0xFFEF4444);
+      default: return SboxColors.danger;
     }
   }
 
@@ -288,7 +289,7 @@ class _HolidaySettingsScreenState extends State<HolidaySettingsScreen> {
       padding: EdgeInsets.symmetric(horizontal: compact ? 4 : 8),
       decoration: BoxDecoration(
         border: Border.all(color: _borderColor),
-        borderRadius: BorderRadius.circular(8),
+        borderRadius: BorderRadius.circular(10),
         color: Colors.white,
       ),
       child: Row(
@@ -448,7 +449,7 @@ class _HolidaySettingsScreenState extends State<HolidaySettingsScreen> {
       padding: const EdgeInsets.symmetric(horizontal: 10),
       decoration: BoxDecoration(
         color: _bgColor,
-        borderRadius: BorderRadius.circular(8),
+        borderRadius: BorderRadius.circular(10),
         border: Border.all(color: _borderColor),
       ),
       child: DropdownButtonHideUnderline(
@@ -456,7 +457,7 @@ class _HolidaySettingsScreenState extends State<HolidaySettingsScreen> {
           value: _categoryFilter,
           isDense: true,
           isExpanded: true,
-          icon: Icon(Icons.keyboard_arrow_down, color: Colors.grey[400], size: 18),
+          icon: Icon(Icons.keyboard_arrow_down, color: SboxColors.slate400, size: 18),
           style: const TextStyle(fontSize: 12, color: _textDark),
           items: [
             DropdownMenuItem(value: 'all', child: Text(tr('Tất cả danh mục'))),
@@ -477,8 +478,8 @@ class _HolidaySettingsScreenState extends State<HolidaySettingsScreen> {
     return TextField(
       decoration: InputDecoration(
         hintText: tr('Tìm ngày lễ...'),
-        hintStyle: TextStyle(color: Colors.grey[400], fontSize: 13),
-        prefixIcon: Icon(Icons.search, color: Colors.grey[400], size: 20),
+        hintStyle: TextStyle(color: SboxColors.slate400, fontSize: 13),
+        prefixIcon: Icon(Icons.search, color: SboxColors.slate400, size: 20),
         suffixIcon: _searchQuery.isNotEmpty
             ? IconButton(
                 icon: const Icon(Icons.clear, size: 18),
@@ -486,11 +487,11 @@ class _HolidaySettingsScreenState extends State<HolidaySettingsScreen> {
               )
             : null,
         border: OutlineInputBorder(
-          borderRadius: BorderRadius.circular(8),
+          borderRadius: BorderRadius.circular(10),
           borderSide: const BorderSide(color: _borderColor),
         ),
         enabledBorder: OutlineInputBorder(
-          borderRadius: BorderRadius.circular(8),
+          borderRadius: BorderRadius.circular(10),
           borderSide: const BorderSide(color: _borderColor),
         ),
         contentPadding: const EdgeInsets.symmetric(vertical: 8),
@@ -512,7 +513,7 @@ class _HolidaySettingsScreenState extends State<HolidaySettingsScreen> {
     );
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 9),
-      color: const Color(0xFFF8FAFC),
+      color: SboxColors.slate50,
       child: Row(
         children: [
           const SizedBox(width: 40),
@@ -559,7 +560,7 @@ class _HolidaySettingsScreenState extends State<HolidaySettingsScreen> {
         height: 32,
         decoration: BoxDecoration(
           color: color.withValues(alpha: 0.12),
-          borderRadius: BorderRadius.circular(8),
+          borderRadius: BorderRadius.circular(10),
         ),
         child: Center(child: Icon(Icons.celebration, size: 16, color: color)),
       ),
@@ -638,7 +639,7 @@ class _HolidaySettingsScreenState extends State<HolidaySettingsScreen> {
       color: isSelected ? _primaryColor.withValues(alpha: 0.06) : Colors.white,
       child: InkWell(
         onTap: onTap,
-        hoverColor: const Color(0xFFF1F5F9),
+        hoverColor: SboxColors.slate100,
         child: Container(
           padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
           decoration: BoxDecoration(
@@ -670,13 +671,13 @@ class _HolidaySettingsScreenState extends State<HolidaySettingsScreen> {
       child: Row(
         mainAxisAlignment: MainAxisAlignment.center,
         children: [
-          Text(tr('Hiển thị:'), style: TextStyle(fontSize: 12, color: Colors.grey[600])),
+          Text(tr('Hiển thị:'), style: TextStyle(fontSize: 12, color: SboxColors.slate600)),
           const SizedBox(width: 6),
           DropdownButtonHideUnderline(
             child: DropdownButton<int>(
               value: _holidayPageSize,
               isDense: true,
-              style: TextStyle(fontSize: 12, color: Colors.grey[800]),
+              style: TextStyle(fontSize: 12, color: SboxColors.slate800),
               items: _pageSizeOptions
                   .map((s) => DropdownMenuItem(value: s, child: Text(tr('$s'))))
                   .toList(),
@@ -748,7 +749,7 @@ class _HolidaySettingsScreenState extends State<HolidaySettingsScreen> {
             margin: const EdgeInsets.fromLTRB(16, 16, 16, 0),
             decoration: BoxDecoration(
               color: Colors.white,
-              borderRadius: BorderRadius.circular(12),
+              borderRadius: BorderRadius.circular(14),
               border: Border.all(color: _borderColor),
             ),
             clipBehavior: Clip.antiAlias,
@@ -825,7 +826,7 @@ class _HolidaySettingsScreenState extends State<HolidaySettingsScreen> {
               Container(
                 margin: const EdgeInsets.symmetric(vertical: 10),
                 width: 40, height: 4,
-                decoration: BoxDecoration(color: Colors.grey[300], borderRadius: BorderRadius.circular(2)),
+                decoration: BoxDecoration(color: SboxColors.slate300, borderRadius: BorderRadius.circular(2)),
               ),
               Expanded(child: _buildDetailPanel(holiday, onClose: () => Navigator.pop(ctx))),
             ],
@@ -896,7 +897,7 @@ class _HolidaySettingsScreenState extends State<HolidaySettingsScreen> {
                   // Date card
                   Container(
                     padding: const EdgeInsets.all(16),
-                    decoration: BoxDecoration(color: _bgColor, borderRadius: BorderRadius.circular(12), border: Border.all(color: _borderColor)),
+                    decoration: BoxDecoration(color: _bgColor, borderRadius: BorderRadius.circular(14), border: Border.all(color: _borderColor)),
                     child: Column(
                       children: [
                         Row(
@@ -913,8 +914,8 @@ class _HolidaySettingsScreenState extends State<HolidaySettingsScreen> {
                               child: Container(
                                 padding: const EdgeInsets.symmetric(vertical: 8),
                                 decoration: BoxDecoration(
-                                  color: (dayOfWeek == 'Chủ Nhật' || dayOfWeek == 'Thứ Bảy') ? Colors.red.withValues(alpha: 0.08) : Colors.blue.withValues(alpha: 0.08),
-                                  borderRadius: BorderRadius.circular(8),
+                                  color: (dayOfWeek == 'Chủ Nhật' || dayOfWeek == 'Thứ Bảy') ? Colors.red.withValues(alpha: 0.08) : SboxColors.brand500.withValues(alpha: 0.08),
+                                  borderRadius: BorderRadius.circular(10),
                                 ),
                                 child: Row(
                                   mainAxisAlignment: MainAxisAlignment.center,
@@ -931,7 +932,7 @@ class _HolidaySettingsScreenState extends State<HolidaySettingsScreen> {
                               padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
                               decoration: BoxDecoration(
                                 color: HrmPageChrome.primaryNavy.withValues(alpha: 0.1),
-                                borderRadius: BorderRadius.circular(8),
+                                borderRadius: BorderRadius.circular(10),
                               ),
                               child: Row(
                                 children: [
@@ -955,7 +956,7 @@ class _HolidaySettingsScreenState extends State<HolidaySettingsScreen> {
                   _buildInfoRow(Icons.payments, 'Hệ số lương', '${salaryRate}x', HrmPageChrome.primaryNavy),
                   _buildInfoRow(Icons.people, 'Nhân viên', empIds.isEmpty ? 'Tất cả nhân viên' : '${empIds.length} nhân viên', HrmPageChrome.primaryNavy),
                   if (holiday['createdAt'] != null)
-                    _buildInfoRow(Icons.access_time, 'Ngày tạo', _formatCreatedAt(holiday['createdAt']), Colors.grey),
+                    _buildInfoRow(Icons.access_time, 'Ngày tạo', _formatCreatedAt(holiday['createdAt']), SboxColors.slate500),
                   const SizedBox(height: 16),
 
                   // Employee list (if specific)
@@ -1005,7 +1006,7 @@ class _HolidaySettingsScreenState extends State<HolidaySettingsScreen> {
                         side: const BorderSide(color: _primaryColor),
                         padding: const EdgeInsets.symmetric(vertical: 12),
                         shape: RoundedRectangleBorder(
-                            borderRadius: BorderRadius.circular(8)),
+                            borderRadius: BorderRadius.circular(10)),
                       ),
                     ),
                   ),
@@ -1018,11 +1019,11 @@ class _HolidaySettingsScreenState extends State<HolidaySettingsScreen> {
                       icon: const Icon(Icons.delete_outline, size: 16),
                       label: Text(tr('Xóa'), style: TextStyle(fontSize: 13)),
                       style: OutlinedButton.styleFrom(
-                        foregroundColor: const Color(0xFFEF4444),
-                        side: const BorderSide(color: Color(0xFFEF4444)),
+                        foregroundColor: SboxColors.danger,
+                        side: const BorderSide(color: SboxColors.danger),
                         padding: const EdgeInsets.symmetric(vertical: 12),
                         shape: RoundedRectangleBorder(
-                            borderRadius: BorderRadius.circular(8)),
+                            borderRadius: BorderRadius.circular(10)),
                       ),
                     ),
                   ),
@@ -1051,7 +1052,7 @@ class _HolidaySettingsScreenState extends State<HolidaySettingsScreen> {
       padding: const EdgeInsets.only(bottom: 8),
       child: Container(
         padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
-        decoration: BoxDecoration(color: color.withValues(alpha: 0.05), borderRadius: BorderRadius.circular(8)),
+        decoration: BoxDecoration(color: color.withValues(alpha: 0.05), borderRadius: BorderRadius.circular(10)),
         child: Row(
           children: [
             Icon(icon, size: 16, color: color),
@@ -1083,12 +1084,12 @@ class _HolidaySettingsScreenState extends State<HolidaySettingsScreen> {
     return HrmPageChrome.horizontalStatCards(
       cards: [
         _buildStatCard(Icons.celebration, '${_holidays.length}', 'Tổng',
-            const Color(0xFFEF4444)),
+            SboxColors.danger),
         _buildStatCard(
             Icons.flag,
             '${_holidays.where((h) => _getCategory(h) == 'Ngày nghỉ chính thức').length}',
             'Chính thức',
-            const Color(0xFFEF4444)),
+            SboxColors.danger),
         _buildStatCard(
             Icons.swap_horiz,
             '${_holidays.where((h) => _getCategory(h) == 'Ngày nghỉ bù').length}',
@@ -1115,11 +1116,11 @@ class _HolidaySettingsScreenState extends State<HolidaySettingsScreen> {
       child: Column(
         mainAxisAlignment: MainAxisAlignment.center,
         children: [
-          Icon(Icons.celebration, size: 64, color: Colors.grey[300]),
+          Icon(Icons.celebration, size: 64, color: SboxColors.slate300),
           const SizedBox(height: 16),
-          Text(tr('Chưa có ngày lễ'), style: TextStyle(fontSize: 16, fontWeight: FontWeight.w500, color: Colors.grey[600])),
+          Text(tr('Chưa có ngày lễ'), style: TextStyle(fontSize: 16, fontWeight: FontWeight.w500, color: SboxColors.slate600)),
           const SizedBox(height: 8),
-          Text(tr('Nhấn "Thêm ngày lễ" để bắt đầu'), style: TextStyle(fontSize: 13, color: Colors.grey[400])),
+          Text(tr('Nhấn "Thêm ngày lễ" để bắt đầu'), style: TextStyle(fontSize: 13, color: SboxColors.slate400)),
           if (_perm.canCreate('Holiday')) ...[
             const SizedBox(height: 20),
             FilledButton.icon(
@@ -1209,13 +1210,13 @@ class _HolidaySettingsScreenState extends State<HolidaySettingsScreen> {
                           if (!isEditing) ...[
                             _dialogField('Chọn từ danh sách ngày lễ Việt Nam', Container(
                               padding: const EdgeInsets.symmetric(horizontal: 12),
-                              decoration: BoxDecoration(border: Border.all(color: HrmPageChrome.chipLight), borderRadius: BorderRadius.circular(8)),
+                              decoration: BoxDecoration(border: Border.all(color: HrmPageChrome.chipLight), borderRadius: BorderRadius.circular(10)),
                               child: DropdownButtonHideUnderline(
                                 child: DropdownButton<String>(
                                   value: selectedPreset,
                                   isExpanded: true,
                                   hint: Text(tr('-- Chọn ngày lễ có sẵn hoặc nhập thủ công --'), style: TextStyle(fontSize: 13, color: _textMuted)),
-                                  icon: Icon(Icons.keyboard_arrow_down, color: Colors.grey[400]),
+                                  icon: Icon(Icons.keyboard_arrow_down, color: SboxColors.slate400),
                                   items: _vietnamHolidayPresets.map((p) => DropdownMenuItem(
                                     value: p['name'] as String,
                                     child: Text(tr(p['name'] as String), style: const TextStyle(fontSize: 13)),
@@ -1266,12 +1267,12 @@ class _HolidaySettingsScreenState extends State<HolidaySettingsScreen> {
                               const SizedBox(width: 16),
                               Expanded(flex: 2, child: _dialogField('Danh mục', Container(
                                 padding: const EdgeInsets.symmetric(horizontal: 12),
-                                decoration: BoxDecoration(border: Border.all(color: _borderColor), borderRadius: BorderRadius.circular(8)),
+                                decoration: BoxDecoration(border: Border.all(color: _borderColor), borderRadius: BorderRadius.circular(10)),
                                 child: DropdownButtonHideUnderline(
                                   child: DropdownButton<String>(
                                     value: _categories.contains(selectedCategory) ? selectedCategory : _categories[0],
                                     isExpanded: true,
-                                    icon: Icon(Icons.keyboard_arrow_down, color: Colors.grey[400]),
+                                    icon: Icon(Icons.keyboard_arrow_down, color: SboxColors.slate400),
                                     items: _categories.map((c) => DropdownMenuItem(
                                       value: c,
                                       child: Row(
@@ -1314,13 +1315,13 @@ class _HolidaySettingsScreenState extends State<HolidaySettingsScreen> {
                                 },
                                 child: Container(
                                   padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 12),
-                                  decoration: BoxDecoration(border: Border.all(color: _borderColor), borderRadius: BorderRadius.circular(8)),
+                                  decoration: BoxDecoration(border: Border.all(color: _borderColor), borderRadius: BorderRadius.circular(10)),
                                   child: Row(
                                     children: [
                                       const Icon(Icons.calendar_today, size: 16, color: _primaryColor),
                                       const SizedBox(width: 8),
                                       Expanded(child: Text(tr('${selectedDate.day.toString().padLeft(2, '0')}/${selectedDate.month.toString().padLeft(2, '0')}/${selectedDate.year}'), style: const TextStyle(fontSize: 14))),
-                                      Icon(Icons.edit_calendar, color: Colors.grey[400], size: 18),
+                                      Icon(Icons.edit_calendar, color: SboxColors.slate400, size: 18),
                                     ],
                                   ),
                                 ),
@@ -1347,7 +1348,7 @@ class _HolidaySettingsScreenState extends State<HolidaySettingsScreen> {
                                 },
                                 child: Container(
                                   padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 12),
-                                  decoration: BoxDecoration(color: const Color(0xFFFFF7ED), border: Border.all(color: const Color(0xFFFED7AA)), borderRadius: BorderRadius.circular(8)),
+                                  decoration: BoxDecoration(color: SboxColors.warningSoft, border: Border.all(color: const Color(0xFFFED7AA)), borderRadius: BorderRadius.circular(10)),
                                   child: Row(
                                     children: [
                                       Icon(Icons.auto_awesome, size: 16, color: Colors.orange[700]),
@@ -1366,7 +1367,7 @@ class _HolidaySettingsScreenState extends State<HolidaySettingsScreen> {
                                   decoration: BoxDecoration(
                                     color: (dayOfWeek == 'Chủ Nhật' || dayOfWeek == 'Thứ Bảy') ? Colors.red.withValues(alpha: 0.05) : _bgColor,
                                     border: Border.all(color: _borderColor),
-                                    borderRadius: BorderRadius.circular(8),
+                                    borderRadius: BorderRadius.circular(10),
                                   ),
                                   child: Text(tr(dayOfWeek), style: TextStyle(fontSize: 14, fontWeight: FontWeight.w500, color: (dayOfWeek == 'Chủ Nhật' || dayOfWeek == 'Thứ Bảy') ? Colors.red : _textDark)),
                                 )),
@@ -1392,16 +1393,16 @@ class _HolidaySettingsScreenState extends State<HolidaySettingsScreen> {
                                 ),
                                 child: Container(
                                   padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 12),
-                                  decoration: BoxDecoration(border: Border.all(color: _borderColor), borderRadius: BorderRadius.circular(8)),
+                                  decoration: BoxDecoration(border: Border.all(color: _borderColor), borderRadius: BorderRadius.circular(10)),
                                   child: Row(
                                     children: [
-                                      Icon(Icons.people, size: 16, color: Colors.grey[400]),
+                                      Icon(Icons.people, size: 16, color: SboxColors.slate400),
                                       const SizedBox(width: 8),
                                       Expanded(child: Text(
                                         tr(selectedEmployeeIds.isEmpty ? 'Tất cả nhân viên' : '${selectedEmployeeIds.length} nhân viên đã chọn'),
                                         style: TextStyle(fontSize: 13, color: selectedEmployeeIds.isEmpty ? _textMuted : _textDark),
                                       )),
-                                      Icon(Icons.arrow_drop_down, color: Colors.grey[400]),
+                                      Icon(Icons.arrow_drop_down, color: SboxColors.slate400),
                                     ],
                                   ),
                                 ),
@@ -1409,17 +1410,17 @@ class _HolidaySettingsScreenState extends State<HolidaySettingsScreen> {
                             ],
                           ),
                           const SizedBox(height: 4),
-                          Text(tr('Bỏ trống để áp dụng cho tất cả nhân viên'), style: TextStyle(fontSize: 11, color: Colors.grey[400])),
+                          Text(tr('Bỏ trống để áp dụng cho tất cả nhân viên'), style: TextStyle(fontSize: 11, color: SboxColors.slate400)),
                           const SizedBox(height: 12),
                           // Recurring toggle
                           InkWell(
                             onTap: () => setDialogState(() => isRecurring = !isRecurring),
-                            borderRadius: BorderRadius.circular(8),
+                            borderRadius: BorderRadius.circular(10),
                             child: Container(
                               padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
                               decoration: BoxDecoration(
                                 border: Border.all(color: _borderColor),
-                                borderRadius: BorderRadius.circular(8),
+                                borderRadius: BorderRadius.circular(10),
                               ),
                               child: Row(
                                 children: [
@@ -1460,7 +1461,7 @@ class _HolidaySettingsScreenState extends State<HolidaySettingsScreen> {
 
           return Dialog(
             backgroundColor: Colors.white,
-            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
             insetPadding: const EdgeInsets.symmetric(horizontal: 40, vertical: 24),
             child: Container(
               width: math.min(650, MediaQuery.of(context).size.width - 32),
@@ -1501,7 +1502,7 @@ class _HolidaySettingsScreenState extends State<HolidaySettingsScreen> {
                           style: OutlinedButton.styleFrom(
                             foregroundColor: _textMuted,
                             padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 12),
-                            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+                            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
                             side: const BorderSide(color: _borderColor),
                           ),
                           child: Text(tr('Hủy')),
@@ -1544,10 +1545,10 @@ class _HolidaySettingsScreenState extends State<HolidaySettingsScreen> {
   InputDecoration _inputDecor(String hint) {
     return InputDecoration(
       hintText: tr(hint),
-      hintStyle: TextStyle(color: Colors.grey[400], fontSize: 13),
-      border: OutlineInputBorder(borderRadius: BorderRadius.circular(8), borderSide: const BorderSide(color: _borderColor)),
-      enabledBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(8), borderSide: const BorderSide(color: _borderColor)),
-      focusedBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(8), borderSide: const BorderSide(color: _primaryColor, width: 2)),
+      hintStyle: TextStyle(color: SboxColors.slate400, fontSize: 13),
+      border: OutlineInputBorder(borderRadius: BorderRadius.circular(10), borderSide: const BorderSide(color: _borderColor)),
+      enabledBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(10), borderSide: const BorderSide(color: _borderColor)),
+      focusedBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(10), borderSide: const BorderSide(color: _primaryColor, width: 2)),
       contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 12),
     );
   }
@@ -1568,7 +1569,7 @@ class _HolidaySettingsScreenState extends State<HolidaySettingsScreen> {
       builder: (ctx) => StatefulBuilder(
         builder: (ctx, setState) => Dialog(
           backgroundColor: Colors.white,
-          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
           child: Container(
             width: math.min(350, MediaQuery.of(context).size.width - 32).toDouble(),
             padding: const EdgeInsets.all(24),
@@ -1634,7 +1635,7 @@ class _HolidaySettingsScreenState extends State<HolidaySettingsScreen> {
                   final solarDate = LunarConverter.lunarToSolar(year, month, day);
                   return Container(
                     padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-                    decoration: BoxDecoration(color: _bgColor, borderRadius: BorderRadius.circular(8)),
+                    decoration: BoxDecoration(color: _bgColor, borderRadius: BorderRadius.circular(10)),
                     child: Row(
                       children: [
                         const Icon(Icons.calendar_today, size: 14, color: _primaryColor),
@@ -1657,7 +1658,7 @@ class _HolidaySettingsScreenState extends State<HolidaySettingsScreen> {
                         foregroundColor: _textMuted,
                         side: const BorderSide(color: _borderColor),
                         padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 10),
-                        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+                        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
                       ),
                       child: Text(tr('Hủy')),
                     ),
@@ -1671,7 +1672,7 @@ class _HolidaySettingsScreenState extends State<HolidaySettingsScreen> {
                         backgroundColor: HrmPageChrome.chipLight,
                         foregroundColor: Colors.white,
                         padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 10),
-                        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+                        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
                       ),
                       child: Text(tr('Xác nhận')),
                     ),
@@ -1745,7 +1746,7 @@ class _HolidaySettingsScreenState extends State<HolidaySettingsScreen> {
                     padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
                     child: Row(
                       children: [
-                        Icon(checked ? Icons.check_box : Icons.check_box_outline_blank, size: 20, color: checked ? _primaryColor : Colors.grey[400]),
+                        Icon(checked ? Icons.check_box : Icons.check_box_outline_blank, size: 20, color: checked ? _primaryColor : SboxColors.slate400),
                         const SizedBox(width: 10),
                         CircleAvatar(
                           radius: 14,
@@ -1792,7 +1793,7 @@ class _HolidaySettingsScreenState extends State<HolidaySettingsScreen> {
 
           return Dialog(
             backgroundColor: Colors.white,
-            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
             child: SizedBox(
               width: math.min(450, MediaQuery.of(context).size.width - 32),
               height: 550,
@@ -1825,7 +1826,7 @@ class _HolidaySettingsScreenState extends State<HolidaySettingsScreen> {
                           style: OutlinedButton.styleFrom(
                             foregroundColor: _textMuted,
                             side: const BorderSide(color: _borderColor),
-                            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+                            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
                           ),
                           child: Text(tr('Hủy')),
                         ),
@@ -1854,7 +1855,7 @@ class _HolidaySettingsScreenState extends State<HolidaySettingsScreen> {
       context: context,
       builder: (context) => ScrollableAlertDialog(
         backgroundColor: Colors.white,
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
         title: Text(tr('Xác nhận xóa'), style: TextStyle(color: _textDark)),
         content: Text(tr('${tr('Bạn có chắc muốn xóa ngày lễ "')}${holiday['name']}"?'), style: const TextStyle(color: _textMuted)),
         actions: [AppDialogActions.delete(onConfirm: () async {

@@ -15,6 +15,7 @@ import '../../widgets/pos/pos_theme.dart';
 import '../../widgets/pos/reports/pos_report_widgets.dart';
 import 'package:zkteco_flutter_client/l10n/app_tr.dart';
 
+import '../../theme/sbox_tokens.dart';
 /// Sổ thuế hộ kinh doanh (TT 152/2025) — dưới 1 tỷ / 1–3 tỷ / trên 3 tỷ.
 class PosHkdBooksScreen extends StatefulWidget {
   const PosHkdBooksScreen({super.key});
@@ -311,7 +312,7 @@ class _PosHkdBooksScreenState extends State<PosHkdBooksScreen> {
                         elevation: 0,
                         color: Colors.white,
                         shape: RoundedRectangleBorder(
-                          borderRadius: BorderRadius.circular(12),
+                          borderRadius: BorderRadius.circular(14),
                           side: const BorderSide(color: PosTheme.border),
                         ),
                         child: Padding(
@@ -347,7 +348,7 @@ class _PosHkdBooksScreenState extends State<PosHkdBooksScreen> {
       elevation: 0,
       color: Colors.white,
       shape: RoundedRectangleBorder(
-        borderRadius: BorderRadius.circular(12),
+        borderRadius: BorderRadius.circular(14),
         side: const BorderSide(color: PosTheme.border),
       ),
       child: Padding(padding: const EdgeInsets.all(16), child: child),
@@ -362,9 +363,9 @@ class _PosHkdBooksScreenState extends State<PosHkdBooksScreen> {
         tilePadding: EdgeInsets.zero,
         childrenPadding: EdgeInsets.zero,
         title: Text(tr('Hồ sơ hộ kinh doanh'),
-            style: const TextStyle(fontWeight: FontWeight.w700, fontSize: 15)),
+            style: const TextStyle(fontWeight: FontWeight.w700, fontSize: 16)),
         subtitle: Text(tr(_groupShort),
-            style: const TextStyle(fontSize: 12, color: Color(0xFF71717A))),
+            style: const TextStyle(fontSize: 12, color: SboxColors.slate500)),
         children: [
           Align(
             alignment: Alignment.centerLeft,
@@ -408,7 +409,7 @@ class _PosHkdBooksScreenState extends State<PosHkdBooksScreen> {
                       ),
                       const SizedBox(height: 8),
                       Text(tr(_groupHint),
-                          style: const TextStyle(fontSize: 12, color: Color(0xFF52525B))),
+                          style: const TextStyle(fontSize: 12, color: SboxColors.slate600)),
                       const SizedBox(height: 12),
                       TextField(
                         controller: _taxCodeCtrl,
@@ -479,7 +480,7 @@ class _PosHkdBooksScreenState extends State<PosHkdBooksScreen> {
             runSpacing: 6,
             children: [
               Text(tr('Sổ khuyến nghị:'),
-                  style: const TextStyle(fontSize: 12, color: Color(0xFF71717A))),
+                  style: const TextStyle(fontSize: 12, color: SboxColors.slate500)),
               ..._recommendedBooks.map(
                 (b) => Chip(
                   label: Text(b, style: const TextStyle(fontSize: 11)),

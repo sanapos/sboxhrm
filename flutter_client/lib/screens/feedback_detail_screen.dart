@@ -13,6 +13,7 @@ import '../widgets/notification_overlay.dart';
 import '../widgets/hrm_page_chrome.dart';
 import 'package:zkteco_flutter_client/l10n/app_tr.dart';
 
+import '../theme/sbox_tokens.dart';
 class FeedbackDetailScreen extends StatefulWidget {
   final String feedbackId;
   final bool isMine; // true = I am the original sender
@@ -52,10 +53,10 @@ class _FeedbackDetailScreenState extends State<FeedbackDetailScreen> {
     'Closed': 'Đã đóng',
   };
   static const _statusColors = {
-    'Pending': Color(0xFFF59E0B),
-    'InProgress': Color(0xFF3B82F6),
-    'Resolved': Color(0xFF10B981),
-    'Closed': Color(0xFF6B7280),
+    'Pending': SboxColors.warning,
+    'InProgress': SboxColors.brand500,
+    'Resolved': SboxColors.success,
+    'Closed': SboxColors.slate500,
   };
   static const _categoryLabels = {
     'General': 'Chung',
@@ -244,9 +245,9 @@ class _FeedbackDetailScreenState extends State<FeedbackDetailScreen> {
                 padding:
                     const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
                 decoration: BoxDecoration(
-                  color: (_statusColors[status] ?? Colors.grey)
+                  color: (_statusColors[status] ?? SboxColors.slate500)
                       .withValues(alpha: 0.25),
-                  borderRadius: BorderRadius.circular(12),
+                  borderRadius: BorderRadius.circular(14),
                   border: Border.all(color: Colors.white54),
                 ),
                 child: Row(
@@ -273,7 +274,7 @@ class _FeedbackDetailScreenState extends State<FeedbackDetailScreen> {
                           children: [
                             Icon(Icons.circle,
                                 size: 10,
-                                color: _statusColors[e.key] ?? Colors.grey),
+                                color: _statusColors[e.key] ?? SboxColors.slate500),
                             const SizedBox(width: 8),
                             Text(tr(e.value)),
                             if (e.key == status) ...[
@@ -291,16 +292,16 @@ class _FeedbackDetailScreenState extends State<FeedbackDetailScreen> {
               padding:
                   const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
               decoration: BoxDecoration(
-                color: (_statusColors[status] ?? Colors.grey)
+                color: (_statusColors[status] ?? SboxColors.slate500)
                     .withValues(alpha: 0.2),
-                borderRadius: BorderRadius.circular(12),
+                borderRadius: BorderRadius.circular(14),
               ),
               child: Text(
                 tr(_statusLabels[status] ?? status),
                 style: TextStyle(
                   fontSize: 12,
                   fontWeight: FontWeight.w600,
-                  color: _statusColors[status] ?? Colors.grey,
+                  color: _statusColors[status] ?? SboxColors.slate500,
                 ),
               ),
             ),
@@ -344,8 +345,8 @@ class _FeedbackDetailScreenState extends State<FeedbackDetailScreen> {
       padding: const EdgeInsets.all(14),
       decoration: BoxDecoration(
         color: Colors.white,
-        borderRadius: BorderRadius.circular(12),
-        border: Border.all(color: const Color(0xFFE4E4E7)),
+        borderRadius: BorderRadius.circular(14),
+        border: Border.all(color: SboxColors.slate200),
         boxShadow: [
           BoxShadow(
             color: Colors.black.withValues(alpha: 0.04),
@@ -361,7 +362,7 @@ class _FeedbackDetailScreenState extends State<FeedbackDetailScreen> {
             children: [
               CircleAvatar(
                 radius: 16,
-                backgroundColor: isAnonymous ? const Color(0xFFEF4444) : _primary,
+                backgroundColor: isAnonymous ? SboxColors.danger : _primary,
                 child: Icon(
                   isAnonymous ? Icons.visibility_off : Icons.person,
                   size: 16, color: Colors.white,
@@ -378,7 +379,7 @@ class _FeedbackDetailScreenState extends State<FeedbackDetailScreen> {
                     ),
                     Text(
                       tr('${_categoryLabels[category] ?? category} • ${DateFormat('dd/MM/yyyy HH:mm').format(createdAt)}'),
-                      style: TextStyle(fontSize: 11, color: Colors.grey[500]),
+                      style: TextStyle(fontSize: 11, color: SboxColors.slate500),
                     ),
                   ],
                 ),
@@ -414,8 +415,8 @@ class _FeedbackDetailScreenState extends State<FeedbackDetailScreen> {
         margin: const EdgeInsets.only(bottom: 8, right: 48),
         padding: const EdgeInsets.all(12),
         decoration: BoxDecoration(
-          color: const Color(0xFFF0FDF4),
-          borderRadius: BorderRadius.circular(12),
+          color: SboxColors.successSoft,
+          borderRadius: BorderRadius.circular(14),
           border: Border.all(color: const Color(0xFFBBF7D0)),
         ),
         child: Column(
@@ -423,10 +424,10 @@ class _FeedbackDetailScreenState extends State<FeedbackDetailScreen> {
           children: [
             Row(
               children: [
-                const Icon(Icons.reply, size: 14, color: Color(0xFF059669)),
+                const Icon(Icons.reply, size: 14, color: SboxColors.success),
                 const SizedBox(width: 4),
                 Text(tr('Phản hồi (cũ)'),
-                  style: TextStyle(fontSize: 11, color: Colors.grey[500], fontWeight: FontWeight.w600),
+                  style: TextStyle(fontSize: 11, color: SboxColors.slate500, fontWeight: FontWeight.w600),
                 ),
               ],
             ),
@@ -462,7 +463,7 @@ class _FeedbackDetailScreenState extends State<FeedbackDetailScreen> {
             bottomRight: isMe ? const Radius.circular(2) : const Radius.circular(12),
           ),
           border: Border.all(
-            color: isMe ? _primary.withValues(alpha: 0.2) : const Color(0xFFE4E4E7),
+            color: isMe ? _primary.withValues(alpha: 0.2) : SboxColors.slate200,
           ),
         ),
         child: Column(
@@ -473,7 +474,7 @@ class _FeedbackDetailScreenState extends State<FeedbackDetailScreen> {
               style: TextStyle(
                 fontSize: 12,
                 fontWeight: FontWeight.w600,
-                color: isMe ? _primary : const Color(0xFF64748B),
+                color: isMe ? _primary : SboxColors.slate500,
               ),
             ),
             const SizedBox(height: 4),
@@ -488,7 +489,7 @@ class _FeedbackDetailScreenState extends State<FeedbackDetailScreen> {
             const SizedBox(height: 4),
             Text(
               tr(DateFormat('HH:mm dd/MM').format(createdAt)),
-              style: TextStyle(fontSize: 10, color: Colors.grey[400]),
+              style: TextStyle(fontSize: 10, color: SboxColors.slate400),
             ),
           ],
         ),
@@ -514,7 +515,7 @@ class _FeedbackDetailScreenState extends State<FeedbackDetailScreen> {
       if (match.start > lastEnd) {
         spans.add(TextSpan(
           text: tr(text.substring(lastEnd, match.start)),
-          style: const TextStyle(fontSize: 14, height: 1.4, color: Colors.black87),
+          style: const TextStyle(fontSize: 14, height: 1.4, color: SboxColors.text),
         ));
       }
       final url = match.group(0)!;
@@ -525,7 +526,7 @@ class _FeedbackDetailScreenState extends State<FeedbackDetailScreen> {
             tr(url),
             style: const TextStyle(
               fontSize: 14, height: 1.4,
-              color: Color(0xFF3B82F6),
+              color: SboxColors.brand500,
               decoration: TextDecoration.underline,
             ),
           ),
@@ -536,7 +537,7 @@ class _FeedbackDetailScreenState extends State<FeedbackDetailScreen> {
     if (lastEnd < text.length) {
       spans.add(TextSpan(
         text: tr(text.substring(lastEnd)),
-        style: const TextStyle(fontSize: 14, height: 1.4, color: Colors.black87),
+        style: const TextStyle(fontSize: 14, height: 1.4, color: SboxColors.text),
       ));
     }
 
@@ -562,7 +563,7 @@ class _FeedbackDetailScreenState extends State<FeedbackDetailScreen> {
         return GestureDetector(
           onTap: () => _showFullImage(imageUrls, initialIndex: index),
           child: ClipRRect(
-            borderRadius: BorderRadius.circular(8),
+            borderRadius: BorderRadius.circular(10),
             child: AuthCachedImage(
               imagePath: url,
               apiService: _apiService,
@@ -572,8 +573,8 @@ class _FeedbackDetailScreenState extends State<FeedbackDetailScreen> {
               errorWidget: (_, __, ___) => Container(
                 width: 120,
                 height: 120,
-                color: Colors.grey[200],
-                child: const Icon(Icons.broken_image, color: Colors.grey),
+                color: SboxColors.slate200,
+                child: const Icon(Icons.broken_image, color: SboxColors.slate500),
               ),
             ),
           ),
@@ -587,7 +588,7 @@ class _FeedbackDetailScreenState extends State<FeedbackDetailScreen> {
     var currentPage = initialIndex;
     showDialog(
       context: context,
-      barrierColor: Colors.black87,
+      barrierColor: SboxColors.text,
       builder: (ctx) => StatefulBuilder(
         builder: (ctx, setDialogState) => Dialog(
           backgroundColor: Colors.black,
@@ -679,7 +680,7 @@ class _FeedbackDetailScreenState extends State<FeedbackDetailScreen> {
               children: _quickEmojis
                   .map((e) => InkWell(
                         onTap: () => _insertEmoji(e),
-                        borderRadius: BorderRadius.circular(8),
+                        borderRadius: BorderRadius.circular(10),
                         child: Padding(
                           padding: const EdgeInsets.all(6),
                           child: Text(tr(e), style: const TextStyle(fontSize: 22)),
@@ -712,7 +713,7 @@ class _FeedbackDetailScreenState extends State<FeedbackDetailScreen> {
                   _showEmojiPicker
                       ? Icons.emoji_emotions
                       : Icons.emoji_emotions_outlined,
-                  color: _showEmojiPicker ? _primary : const Color(0xFF64748B),
+                  color: _showEmojiPicker ? _primary : SboxColors.slate500,
                 ),
                 onPressed: _isSending
                     ? null
@@ -722,7 +723,7 @@ class _FeedbackDetailScreenState extends State<FeedbackDetailScreen> {
               ),
               IconButton(
                 icon: const Icon(Icons.image_outlined,
-                    color: Color(0xFF64748B)),
+                    color: SboxColors.slate500),
                 onPressed: _isSending ? null : _pickAndUploadImage,
                 tooltip: tr('Gửi hình ảnh'),
               ),
@@ -731,14 +732,14 @@ class _FeedbackDetailScreenState extends State<FeedbackDetailScreen> {
                   controller: _replyCtl,
                   decoration: InputDecoration(
                     hintText: tr('Nhập phản hồi...'),
-                    hintStyle: TextStyle(color: Colors.grey[400]),
+                    hintStyle: TextStyle(color: SboxColors.slate400),
                     border: OutlineInputBorder(
                       borderRadius: BorderRadius.circular(24),
-                      borderSide: BorderSide(color: Colors.grey[300]!),
+                      borderSide: BorderSide(color: SboxColors.slate300),
                     ),
                     enabledBorder: OutlineInputBorder(
                       borderRadius: BorderRadius.circular(24),
-                      borderSide: BorderSide(color: Colors.grey[300]!),
+                      borderSide: BorderSide(color: SboxColors.slate300),
                     ),
                     focusedBorder: OutlineInputBorder(
                       borderRadius: BorderRadius.circular(24),

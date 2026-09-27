@@ -22,6 +22,7 @@ import '../../utils/pos_vietnamese_money_words.dart';
 import '../../widgets/notification_overlay.dart';
 import 'pos_theme.dart';
 
+import '../../theme/sbox_tokens.dart';
 Future<void> openPosQuoteZalo(String? phone) async {
   final digits = (phone ?? '').replaceAll(RegExp(r'\D'), '');
   if (digits.isEmpty) {
@@ -677,12 +678,12 @@ class _PosQuoteCareSheetState extends State<_PosQuoteCareSheet> {
           children: [
             Text(
               '${tr('Lịch CSKH')} · ${widget.quoteNo}',
-              style: const TextStyle(fontSize: 16, fontWeight: FontWeight.w800),
+              style: const TextStyle(fontSize: 16, fontWeight: FontWeight.w700),
             ),
             if ((widget.customerName ?? '').isNotEmpty)
               Text(
                 widget.customerName!,
-                style: TextStyle(color: Colors.grey.shade700),
+                style: TextStyle(color: SboxColors.slate700),
               ),
             const SizedBox(height: 8),
             Wrap(
@@ -768,10 +769,10 @@ class _PosQuoteCareSheetState extends State<_PosQuoteCareSheet> {
                     selected: _score == n,
                     selectedColor: PosQuoteActivity.scoreColor(n).withValues(alpha: 0.22),
                     labelStyle: TextStyle(
-                      fontWeight: FontWeight.w800,
+                      fontWeight: FontWeight.w700,
                       color: _score == n
                           ? PosQuoteActivity.scoreColor(n)
-                          : const Color(0xFF334155),
+                          : SboxColors.slate700,
                     ),
                     onSelected: (_) => setState(() => _score = n),
                   ),
@@ -781,7 +782,7 @@ class _PosQuoteCareSheetState extends State<_PosQuoteCareSheet> {
               const SizedBox(height: 6),
               Text(
                 _potentialSummary(_items),
-                style: TextStyle(fontSize: 12, color: Colors.grey.shade700),
+                style: TextStyle(fontSize: 12, color: SboxColors.slate700),
               ),
             ],
             const SizedBox(height: 8),

@@ -15,6 +15,7 @@ import '../widgets/notification_overlay.dart';
 import '../widgets/pos/reports/pos_report_widgets.dart';
 import 'package:zkteco_flutter_client/l10n/app_tr.dart';
 
+import '../theme/sbox_tokens.dart';
 /// Sổ sách kế toán hộ kinh doanh (TT 152/2025) — S1a/S2a/S2b/S2c/S2d/S2e.
 class HkdBooksScreen extends StatefulWidget {
   const HkdBooksScreen({super.key});
@@ -413,8 +414,8 @@ class _HkdBooksScreenState extends State<HkdBooksScreen> {
                         elevation: 0,
                         color: Colors.white,
                         shape: RoundedRectangleBorder(
-                          borderRadius: BorderRadius.circular(12),
-                          side: const BorderSide(color: Color(0xFFE4E4E7)),
+                          borderRadius: BorderRadius.circular(14),
+                          side: const BorderSide(color: SboxColors.slate200),
                         ),
                         child: Padding(
                           padding: const EdgeInsets.fromLTRB(12, 10, 12, 8),
@@ -474,8 +475,8 @@ class _HkdBooksScreenState extends State<HkdBooksScreen> {
       elevation: 0,
       color: Colors.white,
       shape: RoundedRectangleBorder(
-        borderRadius: BorderRadius.circular(12),
-        side: const BorderSide(color: Color(0xFFE4E4E7)),
+        borderRadius: BorderRadius.circular(14),
+        side: const BorderSide(color: SboxColors.slate200),
       ),
       child: Theme(
         data: Theme.of(context).copyWith(dividerColor: Colors.transparent),
@@ -485,11 +486,11 @@ class _HkdBooksScreenState extends State<HkdBooksScreen> {
           childrenPadding: const EdgeInsets.fromLTRB(16, 0, 16, 16),
           title: Text(
             tr('Hồ sơ hộ kinh doanh'),
-            style: const TextStyle(fontWeight: FontWeight.w700, fontSize: 15),
+            style: const TextStyle(fontWeight: FontWeight.w700, fontSize: 16),
           ),
           subtitle: Text(
             tr(_groupShort),
-            style: const TextStyle(fontSize: 12, color: Color(0xFF71717A)),
+            style: const TextStyle(fontSize: 12, color: SboxColors.slate500),
           ),
           children: [
             Align(
@@ -530,7 +531,7 @@ class _HkdBooksScreenState extends State<HkdBooksScreen> {
             ),
             const SizedBox(height: 8),
             Text(tr(_groupHint),
-                style: const TextStyle(fontSize: 12, color: Color(0xFF52525B))),
+                style: const TextStyle(fontSize: 12, color: SboxColors.slate600)),
             const SizedBox(height: 12),
             TextField(
               controller: _taxCodeCtrl,
@@ -603,7 +604,7 @@ class _HkdBooksScreenState extends State<HkdBooksScreen> {
               runSpacing: 6,
               children: [
                 Text(tr('Sổ khuyến nghị:'),
-                    style: const TextStyle(fontSize: 12, color: Color(0xFF71717A))),
+                    style: const TextStyle(fontSize: 12, color: SboxColors.slate500)),
                 ..._recommendedBooks.map(
                   (b) => Chip(
                     label: Text(b, style: const TextStyle(fontSize: 11)),

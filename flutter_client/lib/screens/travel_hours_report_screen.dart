@@ -19,6 +19,7 @@ import '../widgets/page_top_actions.dart';
 import '../widgets/reports/hrm_report_widgets.dart';
 import 'package:zkteco_flutter_client/l10n/app_tr.dart';
 
+import '../theme/sbox_tokens.dart';
 const _theme = HrmPageChrome.primaryNavy;
 
 class _TravelTripRow {
@@ -353,7 +354,7 @@ class _TravelHoursReportScreenState extends State<TravelHoursReportScreen> {
         label: 'Thiếu chấm',
         value: '$incomplete',
         icon: Icons.warning_amber_outlined,
-        color: const Color(0xFFD97706),
+        color: SboxColors.warning,
       ),
       ReportKpiItem(
         label: _teamView ? 'Nhân viên' : 'Lượt',
@@ -933,7 +934,7 @@ class _TravelHoursReportScreenState extends State<TravelHoursReportScreen> {
         selectedColor: _theme.withValues(alpha: 0.15),
         checkmarkColor: _theme,
         side: BorderSide(
-          color: selected ? _theme : const Color(0xFFD1D5DB),
+          color: selected ? _theme : SboxColors.slate300,
         ),
         visualDensity: VisualDensity.compact,
         materialTapTargetSize: MaterialTapTargetSize.shrinkWrap,
@@ -958,7 +959,7 @@ class _TravelHoursReportScreenState extends State<TravelHoursReportScreen> {
         padding: const EdgeInsets.all(32),
         child: Center(
           child: Text(tr('Không có dữ liệu đi đường trong kỳ'),
-              style: TextStyle(color: Colors.grey.shade600)),
+              style: TextStyle(color: SboxColors.slate600)),
         ),
       );
     }
@@ -975,7 +976,7 @@ class _TravelHoursReportScreenState extends State<TravelHoursReportScreen> {
                 padding: const EdgeInsets.only(bottom: 10),
                 child: Text(
                   tr('Thiếu cặp? Bấm «Thêm đi đường» phía trên để bổ sung Bắt đầu đi + Đến điểm làm.'),
-                  style: TextStyle(fontSize: 12, color: Colors.grey.shade600),
+                  style: TextStyle(fontSize: 12, color: SboxColors.slate600),
                 ),
               ),
             ...pageRows.map((r) => _buildTripCard(r, canEdit: canSupplement)),
@@ -989,8 +990,8 @@ class _TravelHoursReportScreenState extends State<TravelHoursReportScreen> {
       child: Container(
         decoration: BoxDecoration(
           color: Colors.white,
-          borderRadius: BorderRadius.circular(12),
-          border: Border.all(color: const Color(0xFFE4E4E7)),
+          borderRadius: BorderRadius.circular(14),
+          border: Border.all(color: SboxColors.slate200),
         ),
         child: SingleChildScrollView(
           scrollDirection: Axis.horizontal,
@@ -1039,8 +1040,8 @@ class _TravelHoursReportScreenState extends State<TravelHoursReportScreen> {
                     style: TextStyle(
                       fontSize: 12,
                       color: r.isComplete
-                          ? const Color(0xFF15803D)
-                          : const Color(0xFFD97706),
+                          ? SboxColors.payHover
+                          : SboxColors.warning,
                     ))),
               ]);
             }).toList(),
@@ -1056,11 +1057,11 @@ class _TravelHoursReportScreenState extends State<TravelHoursReportScreen> {
       child: ListTile(
         onTap: () => _showTripActions(r, canEdit: canEdit),
         leading: CircleAvatar(
-          backgroundColor: (r.isComplete ? _theme : const Color(0xFFD97706))
+          backgroundColor: (r.isComplete ? _theme : SboxColors.warning)
               .withValues(alpha: 0.12),
           child: Icon(
             r.isComplete ? Icons.directions_car : Icons.warning_amber,
-            color: r.isComplete ? _theme : const Color(0xFFD97706),
+            color: r.isComplete ? _theme : SboxColors.warning,
             size: 20,
           ),
         ),
@@ -1073,7 +1074,7 @@ class _TravelHoursReportScreenState extends State<TravelHoursReportScreen> {
             r.statusLabel,
             if (canEdit) 'Chạm để sửa / xóa',
           ].join(' · ')),
-          style: TextStyle(fontSize: 12, color: Colors.grey.shade700),
+          style: TextStyle(fontSize: 12, color: SboxColors.slate700),
         ),
         trailing: Text(tr(_fmtHours(r.hours)),
             style: const TextStyle(
@@ -1089,7 +1090,7 @@ class _TravelHoursReportScreenState extends State<TravelHoursReportScreen> {
         padding: const EdgeInsets.all(32),
         child: Center(
           child: Text(tr('Không có dữ liệu'),
-              style: TextStyle(color: Colors.grey.shade600)),
+              style: TextStyle(color: SboxColors.slate600)),
         ),
       );
     }
@@ -1119,8 +1120,8 @@ class _TravelHoursReportScreenState extends State<TravelHoursReportScreen> {
       child: Container(
         decoration: BoxDecoration(
           color: Colors.white,
-          borderRadius: BorderRadius.circular(12),
-          border: Border.all(color: const Color(0xFFE4E4E7)),
+          borderRadius: BorderRadius.circular(14),
+          border: Border.all(color: SboxColors.slate200),
         ),
         child: SingleChildScrollView(
           scrollDirection: Axis.horizontal,

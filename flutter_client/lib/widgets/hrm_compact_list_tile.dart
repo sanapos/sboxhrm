@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import '../l10n/app_tr.dart';
 
 import './pos/pos_theme.dart';
+import '../theme/sbox_tokens.dart';
 /// Gợi ý thống nhất cho danh sách compact trong Thiết lập HRM.
 const String kHrmTapToViewHint = 'Chạm để xem chi tiết';
 const String kHrmTapToEditHint = 'Chạm để xem / chỉnh sửa';
@@ -55,7 +56,7 @@ class HrmCompactListTile extends StatelessWidget {
                   style: const TextStyle(
                     fontSize: 14,
                     fontWeight: FontWeight.w600,
-                    color: Color(0xFF18181B),
+                    color: SboxColors.slate900,
                   ),
                   maxLines: 1,
                   overflow: TextOverflow.ellipsis,
@@ -64,7 +65,7 @@ class HrmCompactListTile extends StatelessWidget {
                   const SizedBox(height: 2),
                   Text(
                     tr(subtitle),
-                    style: const TextStyle(fontSize: 12, color: Color(0xFF71717A)),
+                    style: const TextStyle(fontSize: 12, color: SboxColors.slate500),
                     maxLines: 1,
                     overflow: TextOverflow.ellipsis,
                   ),

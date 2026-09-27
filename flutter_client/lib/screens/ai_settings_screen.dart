@@ -8,6 +8,7 @@ import '../widgets/hrm_page_chrome.dart';
 import '../widgets/notification_overlay.dart';
 import '../widgets/pos/pos_theme.dart';
 import 'package:zkteco_flutter_client/l10n/app_tr.dart';
+import '../theme/sbox_tokens.dart';
 class AiSettingsScreen extends StatefulWidget {
   const AiSettingsScreen({super.key});
 
@@ -227,7 +228,7 @@ class _AiSettingsScreenState extends State<AiSettingsScreen> {
               icon: Icons.auto_awesome,
               gradientColors: [
                 PosTheme.kiotBlue,
-                const Color(0xFF0056C7),
+                SboxColors.brand700,
               ],
               enabled: _geminiEnabled,
               configured: _geminiConfigured,
@@ -360,7 +361,7 @@ class _AiSettingsScreenState extends State<AiSettingsScreen> {
               const SizedBox(height: 4),
               Text(tr('Tích hợp AI để tự động tạo nội dung'),
                   style: TextStyle(
-                      color: Colors.grey[600], fontSize: isMobile ? 12 : 14)),
+                      color: SboxColors.slate600, fontSize: isMobile ? 12 : 14)),
             ],
           ),
         ),
@@ -374,7 +375,7 @@ class _AiSettingsScreenState extends State<AiSettingsScreen> {
             Text(tr(enabled ? 'Đang bật' : 'Đang tắt'),
                 style: TextStyle(
                     fontSize: 11,
-                    color: enabled ? const Color(0xFF16A34A) : Colors.grey[500],
+                    color: enabled ? SboxColors.success : SboxColors.slate500,
                     fontWeight: FontWeight.w500)),
           ],
         ),
@@ -388,23 +389,23 @@ class _AiSettingsScreenState extends State<AiSettingsScreen> {
     String title, subtitle;
 
     if (!enabled) {
-      bgColor = const Color(0xFFF4F4F5);
-      borderColor = const Color(0xFFE4E4E7);
-      textColor = const Color(0xFF71717A);
+      bgColor = SboxColors.slate100;
+      borderColor = SboxColors.slate200;
+      textColor = SboxColors.slate500;
       statusIcon = Icons.power_settings_new;
       title = '$name đang tắt';
       subtitle = 'Bật công tắc phía trên để bắt đầu sử dụng';
     } else if (!configured) {
-      bgColor = const Color(0xFFFFF7ED);
+      bgColor = SboxColors.warningSoft;
       borderColor = const Color(0xFFFED7AA);
       textColor = const Color(0xFFF97316);
       statusIcon = Icons.warning_amber_rounded;
       title = 'Chưa cấu hình API Key';
       subtitle = 'Nhập API Key để bắt đầu sử dụng $name';
     } else {
-      bgColor = const Color(0xFFF0FDF4);
+      bgColor = SboxColors.successSoft;
       borderColor = const Color(0xFF86EFAC);
-      textColor = const Color(0xFF16A34A);
+      textColor = SboxColors.success;
       statusIcon = Icons.check_circle;
       title = '$name đã sẵn sàng';
       subtitle = 'AI đang hoạt động và sẵn sàng tạo nội dung';
@@ -414,7 +415,7 @@ class _AiSettingsScreenState extends State<AiSettingsScreen> {
       padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(
         color: bgColor,
-        borderRadius: BorderRadius.circular(12),
+        borderRadius: BorderRadius.circular(14),
         border: Border.all(color: borderColor),
       ),
       child: Row(
@@ -430,7 +431,7 @@ class _AiSettingsScreenState extends State<AiSettingsScreen> {
                         fontWeight: FontWeight.w600, color: textColor)),
                 const SizedBox(height: 2),
                 Text(tr(subtitle),
-                    style: TextStyle(fontSize: 13, color: Colors.grey[600])),
+                    style: TextStyle(fontSize: 13, color: SboxColors.slate600)),
               ],
             ),
           ),
@@ -444,7 +445,7 @@ class _AiSettingsScreenState extends State<AiSettingsScreen> {
     return _buildCard(
       title: 'API Key',
       icon: Icons.key,
-      iconColor: const Color(0xFFF59E0B),
+      iconColor: SboxColors.warning,
       children: [
         if (_geminiKeys.isNotEmpty || (maskedKey != null && maskedKey.isNotEmpty)) ...[
           for (final (i, k) in (_geminiKeys.isNotEmpty ? _geminiKeys : [maskedKey!]).indexed)
@@ -452,17 +453,17 @@ class _AiSettingsScreenState extends State<AiSettingsScreen> {
               margin: const EdgeInsets.only(bottom: 6),
               padding: const EdgeInsets.fromLTRB(12, 4, 4, 4),
               decoration: BoxDecoration(
-                color: const Color(0xFFF1F5F9),
-                borderRadius: BorderRadius.circular(8),
+                color: SboxColors.slate100,
+                borderRadius: BorderRadius.circular(10),
               ),
               child: Row(
                 children: [
-                  const Icon(Icons.lock, size: 16, color: Color(0xFF71717A)),
+                  const Icon(Icons.lock, size: 16, color: SboxColors.slate500),
                   const SizedBox(width: 8),
                   Expanded(
                     child: Text('${tr('Khóa')} ${i + 1}: $k',
                         style: const TextStyle(
-                            fontFamily: 'monospace', fontSize: 13, color: Color(0xFF52525B))),
+                            fontFamily: 'monospace', fontSize: 13, color: SboxColors.slate600)),
                   ),
                   if (_geminiCooling[k] != null)
                     Padding(
@@ -470,14 +471,14 @@ class _AiSettingsScreenState extends State<AiSettingsScreen> {
                       child: Text(
                         tr('Hết lượt · nghỉ đến ${_geminiCooling[k]!.hour.toString().padLeft(2, '0')}:'
                             '${_geminiCooling[k]!.minute.toString().padLeft(2, '0')}'),
-                        style: const TextStyle(fontSize: 11.5, color: Color(0xFFC2410C), fontWeight: FontWeight.w600),
+                        style: const TextStyle(fontSize: 12, color: Color(0xFFC2410C), fontWeight: FontWeight.w600),
                       ),
                     ),
                   if (_geminiKeys.isNotEmpty)
                     IconButton(
                       tooltip: tr('Xóa khóa này'),
                       onPressed: _isSaving ? null : () => _removeGeminiKey(k),
-                      icon: const Icon(Icons.close, size: 18, color: Color(0xFFB91C1C)),
+                      icon: const Icon(Icons.close, size: 18, color: SboxColors.dangerText),
                     ),
                 ],
               ),
@@ -487,7 +488,7 @@ class _AiSettingsScreenState extends State<AiSettingsScreen> {
             child: Text(
               tr('Có thể thêm nhiều khóa: khóa nào hết lượt (quota) hoặc lỗi sẽ tự chuyển sang khóa kế tiếp, '
                   'hết khóa của cửa hàng thì dùng AI chung của hệ thống.'),
-              style: const TextStyle(fontSize: 12, color: Color(0xFF71717A)),
+              style: const TextStyle(fontSize: 12, color: SboxColors.slate500),
             ),
           ),
           CheckboxListTile(
@@ -502,11 +503,11 @@ class _AiSettingsScreenState extends State<AiSettingsScreen> {
                 style: const TextStyle(fontSize: 12)),
           ),
           Text(tr('Nhập API Key mới (để trống nếu không đổi):'),
-              style: TextStyle(fontSize: 13, color: Color(0xFF71717A))),
+              style: TextStyle(fontSize: 13, color: SboxColors.slate500)),
           const SizedBox(height: 8),
         ] else ...[
           Text(tr('Nhập API Key:'),
-              style: TextStyle(fontSize: 13, color: Color(0xFF71717A))),
+              style: TextStyle(fontSize: 13, color: SboxColors.slate500)),
           const SizedBox(height: 8),
         ],
         TextFormField(
@@ -525,10 +526,10 @@ class _AiSettingsScreenState extends State<AiSettingsScreen> {
             fillColor: Colors.white,
             border: OutlineInputBorder(
                 borderRadius: BorderRadius.circular(10),
-                borderSide: const BorderSide(color: Color(0xFFE4E4E7))),
+                borderSide: const BorderSide(color: SboxColors.slate200)),
             enabledBorder: OutlineInputBorder(
                 borderRadius: BorderRadius.circular(10),
-                borderSide: const BorderSide(color: Color(0xFFE4E4E7))),
+                borderSide: const BorderSide(color: SboxColors.slate200)),
             focusedBorder: OutlineInputBorder(
                 borderRadius: BorderRadius.circular(10),
                 borderSide:
@@ -557,7 +558,7 @@ class _AiSettingsScreenState extends State<AiSettingsScreen> {
             style: TextStyle(
                 fontSize: 13,
                 fontWeight: FontWeight.w500,
-                color: Color(0xFF52525B))),
+                color: SboxColors.slate600)),
         const SizedBox(height: 6),
         DropdownButtonFormField<String>(
           initialValue: modelItems.any((i) => i.value == modelController.text)
@@ -572,10 +573,10 @@ class _AiSettingsScreenState extends State<AiSettingsScreen> {
             fillColor: Colors.white,
             border: OutlineInputBorder(
                 borderRadius: BorderRadius.circular(10),
-                borderSide: const BorderSide(color: Color(0xFFE4E4E7))),
+                borderSide: const BorderSide(color: SboxColors.slate200)),
             enabledBorder: OutlineInputBorder(
                 borderRadius: BorderRadius.circular(10),
-                borderSide: const BorderSide(color: Color(0xFFE4E4E7))),
+                borderSide: const BorderSide(color: SboxColors.slate200)),
             contentPadding:
                 const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
           ),
@@ -589,7 +590,7 @@ class _AiSettingsScreenState extends State<AiSettingsScreen> {
                   style: TextStyle(
                       fontSize: 13,
                       fontWeight: FontWeight.w500,
-                      color: Color(0xFF52525B))),
+                      color: SboxColors.slate600)),
               const SizedBox(height: 6),
               TextFormField(
                 controller: maxTokensController,
@@ -600,10 +601,10 @@ class _AiSettingsScreenState extends State<AiSettingsScreen> {
                   fillColor: Colors.white,
                   border: OutlineInputBorder(
                       borderRadius: BorderRadius.circular(10),
-                      borderSide: const BorderSide(color: Color(0xFFE4E4E7))),
+                      borderSide: const BorderSide(color: SboxColors.slate200)),
                   enabledBorder: OutlineInputBorder(
                       borderRadius: BorderRadius.circular(10),
-                      borderSide: const BorderSide(color: Color(0xFFE4E4E7))),
+                      borderSide: const BorderSide(color: SboxColors.slate200)),
                   contentPadding:
                       const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
                 ),
@@ -618,7 +619,7 @@ class _AiSettingsScreenState extends State<AiSettingsScreen> {
                   style: TextStyle(
                       fontSize: 13,
                       fontWeight: FontWeight.w500,
-                      color: Color(0xFF52525B))),
+                      color: SboxColors.slate600)),
               const SizedBox(height: 6),
               TextFormField(
                 controller: temperatureController,
@@ -630,10 +631,10 @@ class _AiSettingsScreenState extends State<AiSettingsScreen> {
                   fillColor: Colors.white,
                   border: OutlineInputBorder(
                       borderRadius: BorderRadius.circular(10),
-                      borderSide: const BorderSide(color: Color(0xFFE4E4E7))),
+                      borderSide: const BorderSide(color: SboxColors.slate200)),
                   enabledBorder: OutlineInputBorder(
                       borderRadius: BorderRadius.circular(10),
-                      borderSide: const BorderSide(color: Color(0xFFE4E4E7))),
+                      borderSide: const BorderSide(color: SboxColors.slate200)),
                   contentPadding:
                       const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
                 ),
@@ -651,7 +652,7 @@ class _AiSettingsScreenState extends State<AiSettingsScreen> {
                         style: TextStyle(
                             fontSize: 13,
                             fontWeight: FontWeight.w500,
-                            color: Color(0xFF52525B))),
+                            color: SboxColors.slate600)),
                     const SizedBox(height: 6),
                     TextFormField(
                       controller: maxTokensController,
@@ -663,11 +664,11 @@ class _AiSettingsScreenState extends State<AiSettingsScreen> {
                         border: OutlineInputBorder(
                             borderRadius: BorderRadius.circular(10),
                             borderSide:
-                                const BorderSide(color: Color(0xFFE4E4E7))),
+                                const BorderSide(color: SboxColors.slate200)),
                         enabledBorder: OutlineInputBorder(
                             borderRadius: BorderRadius.circular(10),
                             borderSide:
-                                const BorderSide(color: Color(0xFFE4E4E7))),
+                                const BorderSide(color: SboxColors.slate200)),
                         contentPadding: const EdgeInsets.symmetric(
                             horizontal: 16, vertical: 14),
                       ),
@@ -684,7 +685,7 @@ class _AiSettingsScreenState extends State<AiSettingsScreen> {
                         style: TextStyle(
                             fontSize: 13,
                             fontWeight: FontWeight.w500,
-                            color: Color(0xFF52525B))),
+                            color: SboxColors.slate600)),
                     const SizedBox(height: 6),
                     TextFormField(
                       controller: temperatureController,
@@ -697,11 +698,11 @@ class _AiSettingsScreenState extends State<AiSettingsScreen> {
                         border: OutlineInputBorder(
                             borderRadius: BorderRadius.circular(10),
                             borderSide:
-                                const BorderSide(color: Color(0xFFE4E4E7))),
+                                const BorderSide(color: SboxColors.slate200)),
                         enabledBorder: OutlineInputBorder(
                             borderRadius: BorderRadius.circular(10),
                             borderSide:
-                                const BorderSide(color: Color(0xFFE4E4E7))),
+                                const BorderSide(color: SboxColors.slate200)),
                         contentPadding: const EdgeInsets.symmetric(
                             horizontal: 16, vertical: 14),
                       ),
@@ -713,7 +714,7 @@ class _AiSettingsScreenState extends State<AiSettingsScreen> {
           ),
         const SizedBox(height: 8),
         Text(tr('💡 Temperature thấp (0.1-0.3): chính xác, nhất quán. Cao (0.7-1.5): sáng tạo, đa dạng.'),
-          style: TextStyle(fontSize: 12, color: Colors.grey[500]),
+          style: TextStyle(fontSize: 12, color: SboxColors.slate500),
         ),
       ],
     );
@@ -726,7 +727,7 @@ class _AiSettingsScreenState extends State<AiSettingsScreen> {
       iconColor: HrmPageChrome.primaryNavy,
       children: [
         Text(tr('Gửi yêu cầu thử để kiểm tra API Key và kết nối.'),
-          style: TextStyle(fontSize: 13, color: Colors.grey[600]),
+          style: TextStyle(fontSize: 13, color: SboxColors.slate600),
         ),
         const SizedBox(height: 12),
         SizedBox(
@@ -756,9 +757,9 @@ class _AiSettingsScreenState extends State<AiSettingsScreen> {
             padding: const EdgeInsets.all(12),
             decoration: BoxDecoration(
               color: _testSuccess == true
-                  ? const Color(0xFFF0FDF4)
-                  : const Color(0xFFFEF2F2),
-              borderRadius: BorderRadius.circular(8),
+                  ? SboxColors.successSoft
+                  : SboxColors.dangerSoft,
+              borderRadius: BorderRadius.circular(10),
               border: Border.all(
                 color: _testSuccess == true
                     ? const Color(0xFF86EFAC)
@@ -771,8 +772,8 @@ class _AiSettingsScreenState extends State<AiSettingsScreen> {
                 Icon(
                   _testSuccess == true ? Icons.check_circle : Icons.error,
                   color: _testSuccess == true
-                      ? const Color(0xFF16A34A)
-                      : const Color(0xFFDC2626),
+                      ? SboxColors.success
+                      : SboxColors.danger,
                   size: 20,
                 ),
                 const SizedBox(width: 8),
@@ -782,8 +783,8 @@ class _AiSettingsScreenState extends State<AiSettingsScreen> {
                     style: TextStyle(
                       fontSize: 13,
                       color: _testSuccess == true
-                          ? const Color(0xFF16A34A)
-                          : const Color(0xFFDC2626),
+                          ? SboxColors.success
+                          : SboxColors.danger,
                     ),
                   ),
                 ),
@@ -816,7 +817,7 @@ class _AiSettingsScreenState extends State<AiSettingsScreen> {
         style: FilledButton.styleFrom(
           backgroundColor: HrmPageChrome.primaryNavy,
           shape:
-              RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+              RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
           elevation: 2,
         ),
       ),
@@ -834,8 +835,8 @@ class _AiSettingsScreenState extends State<AiSettingsScreen> {
         Container(
           padding: const EdgeInsets.all(12),
           decoration: BoxDecoration(
-            color: const Color(0xFFEFF6FF),
-            borderRadius: BorderRadius.circular(8),
+            color: SboxColors.brand50,
+            borderRadius: BorderRadius.circular(10),
           ),
           child: Row(
             crossAxisAlignment: CrossAxisAlignment.start,
@@ -844,7 +845,7 @@ class _AiSettingsScreenState extends State<AiSettingsScreen> {
               const SizedBox(width: 8),
               Expanded(
                 child: Text(tr(note),
-                    style: TextStyle(fontSize: 13, color: Colors.grey[700])),
+                    style: TextStyle(fontSize: 13, color: SboxColors.slate700)),
               ),
             ],
           ),
@@ -884,7 +885,7 @@ class _AiSettingsScreenState extends State<AiSettingsScreen> {
                         fontSize: 14, fontWeight: FontWeight.w500)),
                 if (subtitle != null)
                   Text(tr(subtitle),
-                      style: TextStyle(fontSize: 12, color: Colors.blue[600])),
+                      style: TextStyle(fontSize: 12, color: SboxColors.brand600)),
               ],
             ),
           ),
@@ -905,7 +906,7 @@ class _AiSettingsScreenState extends State<AiSettingsScreen> {
       decoration: BoxDecoration(
         color: Colors.white,
         borderRadius: BorderRadius.circular(14),
-        border: Border.all(color: const Color(0xFFE4E4E7)),
+        border: Border.all(color: SboxColors.slate200),
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -918,7 +919,7 @@ class _AiSettingsScreenState extends State<AiSettingsScreen> {
                   style: const TextStyle(
                       fontSize: 16,
                       fontWeight: FontWeight.w600,
-                      color: Color(0xFF18181B))),
+                      color: SboxColors.slate900)),
             ],
           ),
           const SizedBox(height: 16),

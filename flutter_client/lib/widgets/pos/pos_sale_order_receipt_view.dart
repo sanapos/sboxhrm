@@ -15,6 +15,7 @@ import 'package:zkteco_flutter_client/l10n/app_tr.dart';
 
 
 
+import '../../theme/sbox_tokens.dart';
 /// Hiển thị tờ hóa đơn read-only — đủ trường như bản in cho khách.
 
 class PosSaleOrderReceiptView extends StatelessWidget {
@@ -37,7 +38,7 @@ class PosSaleOrderReceiptView extends StatelessWidget {
 
 
 
-  static const _blue = Color(0xFF2563EB);
+  static const _blue = SboxColors.brand600;
 
   static const _sidePadding = 12.0;
 
@@ -231,7 +232,7 @@ class PosSaleOrderReceiptView extends StatelessWidget {
 
                     child: Text(tr('Tích điểm: +${order.pointsEarned.toStringAsFixed(0)} điểm'),
 
-                      style: const TextStyle(fontSize: 12, color: Color(0xFF059669)),
+                      style: const TextStyle(fontSize: 12, color: SboxColors.success),
 
                     ),
 
@@ -293,7 +294,7 @@ class PosSaleOrderReceiptView extends StatelessWidget {
                 child: Text(
                   tr(order.orderNo),
                   style: TextStyle(
-                    fontSize: 15,
+                    fontSize: 16,
                     fontWeight: FontWeight.w700,
                     color: posSaleOrderAccentColor(order.status),
                     decoration: order.status == 'Cancelled'
@@ -423,7 +424,7 @@ class PosSaleOrderReceiptView extends StatelessWidget {
 
           text: TextSpan(
 
-            style: const TextStyle(fontSize: 12, color: Colors.black87, height: 1.35),
+            style: const TextStyle(fontSize: 12, color: SboxColors.text, height: 1.35),
 
             children: [
 
@@ -467,7 +468,7 @@ class PosSaleOrderReceiptView extends StatelessWidget {
 
       decoration: const BoxDecoration(
 
-        color: Color(0xFFF8FAFC),
+        color: SboxColors.slate50,
 
         border: Border(bottom: BorderSide(color: PosTheme.border)),
 
@@ -611,7 +612,7 @@ class PosSaleOrderReceiptView extends StatelessWidget {
 
                       overflow: TextOverflow.ellipsis,
 
-                      style: const TextStyle(fontSize: 10, color: Color(0xFF059669)),
+                      style: const TextStyle(fontSize: 10, color: SboxColors.success),
 
                     ),
 
@@ -735,7 +736,7 @@ class PosSaleOrderReceiptView extends StatelessWidget {
 
                 fontWeight: bold ? FontWeight.w600 : FontWeight.normal,
 
-                color: accent ? const Color(0xFF0F172A) : PosTheme.textSecondary,
+                color: accent ? SboxColors.slate900 : PosTheme.textSecondary,
 
               ),
 
@@ -757,9 +758,9 @@ class PosSaleOrderReceiptView extends StatelessWidget {
 
                   : negative
 
-                      ? const Color(0xFFDC2626)
+                      ? SboxColors.danger
 
-                      : const Color(0xFF0F172A),
+                      : SboxColors.slate900,
 
             ),
 

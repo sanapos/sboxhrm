@@ -28,6 +28,7 @@ import '../widgets/app_scroll_safe.dart';
 import 'package:zkteco_flutter_client/l10n/app_tr.dart';
 import 'package:zkteco_flutter_client/l10n/app_ui_locale.dart';
 
+import '../theme/sbox_tokens.dart';
 enum _SyncStatus { starting, deleting, syncing, completed, error }
 
 class _SyncProgress {
@@ -413,7 +414,7 @@ class _DeviceAttendanceScreenState extends State<DeviceAttendanceScreen> {
             title: Row(
               children: [
                 Icon(Icons.edit_calendar,
-                    color: Colors.blue.shade700, size: 24),
+                    color: SboxColors.brand700, size: 24),
                 const SizedBox(width: 8),
                 Text(tr('Sửa giờ chấm công')),
               ],
@@ -430,14 +431,14 @@ class _DeviceAttendanceScreenState extends State<DeviceAttendanceScreen> {
                   Container(
                     padding: const EdgeInsets.all(12),
                     decoration: BoxDecoration(
-                      color: Colors.grey.shade50,
-                      borderRadius: BorderRadius.circular(8),
-                      border: Border.all(color: Colors.grey.shade200),
+                      color: SboxColors.slate50,
+                      borderRadius: BorderRadius.circular(10),
+                      border: Border.all(color: SboxColors.slate200),
                     ),
                     child: Row(
                       children: [
                         Icon(Icons.person,
-                            color: Colors.grey.shade600, size: 20),
+                            color: SboxColors.slate600, size: 20),
                         const SizedBox(width: 8),
                         Expanded(
                           child: Column(
@@ -450,7 +451,7 @@ class _DeviceAttendanceScreenState extends State<DeviceAttendanceScreen> {
                               ),
                               Text(tr('Mã NV: ${att.employeeId ?? att.pin ?? "—"}'),
                                 style: TextStyle(
-                                    fontSize: 12, color: Colors.grey.shade600),
+                                    fontSize: 12, color: SboxColors.slate600),
                               ),
                             ],
                           ),
@@ -463,13 +464,13 @@ class _DeviceAttendanceScreenState extends State<DeviceAttendanceScreen> {
                   // Original time
                   Text(tr('Giờ chấm gốc:'),
                       style:
-                          TextStyle(fontSize: 12, color: Colors.grey.shade600)),
+                          TextStyle(fontSize: 12, color: SboxColors.slate600)),
                   const SizedBox(height: 4),
                   Text(
                     tr(DateFormat('dd/MM/yyyy HH:mm:ss')
                         .format(att.attendanceTime)),
                     style: const TextStyle(
-                        fontWeight: FontWeight.w500, fontSize: 15),
+                        fontWeight: FontWeight.w500, fontSize: 16),
                   ),
                   const SizedBox(height: 16),
                   const Divider(),
@@ -478,7 +479,7 @@ class _DeviceAttendanceScreenState extends State<DeviceAttendanceScreen> {
                   Text(tr('Chỉnh sửa:'),
                       style: TextStyle(
                           fontSize: 12,
-                          color: Colors.grey.shade600,
+                          color: SboxColors.slate600,
                           fontWeight: FontWeight.w600)),
                   const SizedBox(height: 8),
 
@@ -487,7 +488,7 @@ class _DeviceAttendanceScreenState extends State<DeviceAttendanceScreen> {
                     children: [
                       Expanded(
                         child: InkWell(
-                          borderRadius: BorderRadius.circular(8),
+                          borderRadius: BorderRadius.circular(10),
                           onTap: () async {
                             final picked = await showDatePicker(
                               context: ctx,
@@ -513,13 +514,13 @@ class _DeviceAttendanceScreenState extends State<DeviceAttendanceScreen> {
                             padding: const EdgeInsets.symmetric(
                                 horizontal: 12, vertical: 12),
                             decoration: BoxDecoration(
-                              border: Border.all(color: Colors.grey.shade300),
-                              borderRadius: BorderRadius.circular(8),
+                              border: Border.all(color: SboxColors.slate300),
+                              borderRadius: BorderRadius.circular(10),
                             ),
                             child: Row(
                               children: [
                                 Icon(Icons.calendar_today,
-                                    size: 18, color: Colors.blue.shade700),
+                                    size: 18, color: SboxColors.brand700),
                                 const SizedBox(width: 8),
                                 Text(
                                   tr(_dateFormat.format(editDate)),
@@ -535,7 +536,7 @@ class _DeviceAttendanceScreenState extends State<DeviceAttendanceScreen> {
                       const SizedBox(width: 12),
                       Expanded(
                         child: InkWell(
-                          borderRadius: BorderRadius.circular(8),
+                          borderRadius: BorderRadius.circular(10),
                           onTap: () async {
                             final picked = await showTimePicker(
                               context: ctx,
@@ -566,13 +567,13 @@ class _DeviceAttendanceScreenState extends State<DeviceAttendanceScreen> {
                             padding: const EdgeInsets.symmetric(
                                 horizontal: 12, vertical: 12),
                             decoration: BoxDecoration(
-                              border: Border.all(color: Colors.grey.shade300),
-                              borderRadius: BorderRadius.circular(8),
+                              border: Border.all(color: SboxColors.slate300),
+                              borderRadius: BorderRadius.circular(10),
                             ),
                             child: Row(
                               children: [
                                 Icon(Icons.access_time,
-                                    size: 18, color: Colors.blue.shade700),
+                                    size: 18, color: SboxColors.brand700),
                                 const SizedBox(width: 8),
                                 Text(
                                   tr('${editTime.hour.toString().padLeft(2, '0')}:${editTime.minute.toString().padLeft(2, '0')}'),
@@ -594,17 +595,17 @@ class _DeviceAttendanceScreenState extends State<DeviceAttendanceScreen> {
                   Container(
                     padding: const EdgeInsets.all(10),
                     decoration: BoxDecoration(
-                      color: Colors.blue.shade50,
-                      borderRadius: BorderRadius.circular(8),
+                      color: SboxColors.brand50,
+                      borderRadius: BorderRadius.circular(10),
                     ),
                     child: Row(
                       children: [
                         Icon(Icons.arrow_forward,
-                            size: 16, color: Colors.blue.shade700),
+                            size: 16, color: SboxColors.brand700),
                         const SizedBox(width: 8),
                         Text(tr('${tr('Giờ mới: ')}${DateFormat('dd/MM/yyyy HH:mm:ss').format(editDate)}'),
                           style: TextStyle(
-                              color: Colors.blue.shade700,
+                              color: SboxColors.brand700,
                               fontWeight: FontWeight.w600),
                         ),
                       ],
@@ -680,7 +681,7 @@ class _DeviceAttendanceScreenState extends State<DeviceAttendanceScreen> {
               padding: const EdgeInsets.all(12),
               decoration: BoxDecoration(
                 color: Colors.red.shade50,
-                borderRadius: BorderRadius.circular(8),
+                borderRadius: BorderRadius.circular(10),
                 border: Border.all(color: Colors.red.shade200),
               ),
               child: Column(
@@ -692,13 +693,13 @@ class _DeviceAttendanceScreenState extends State<DeviceAttendanceScreen> {
                   ),
                   const SizedBox(height: 4),
                   Text(tr('Mã NV: ${att.employeeId ?? att.pin ?? "—"}'),
-                    style: TextStyle(fontSize: 12, color: Colors.grey.shade700),
+                    style: TextStyle(fontSize: 12, color: SboxColors.slate700),
                   ),
                   Text(tr('${tr('Giờ chấm: ')}${DateFormat('dd/MM/yyyy HH:mm:ss').format(att.attendanceTime)}'),
-                    style: TextStyle(fontSize: 12, color: Colors.grey.shade700),
+                    style: TextStyle(fontSize: 12, color: SboxColors.slate700),
                   ),
                   Text(tr('Thiết bị: ${att.deviceName ?? "—"}'),
-                    style: TextStyle(fontSize: 12, color: Colors.grey.shade700),
+                    style: TextStyle(fontSize: 12, color: SboxColors.slate700),
                   ),
                 ],
               ),
@@ -1191,7 +1192,7 @@ class _DeviceAttendanceScreenState extends State<DeviceAttendanceScreen> {
             return ScrollableAlertDialog(
               title: Row(
                 children: [
-                  Icon(Icons.sync, color: Colors.blue.shade700, size: 24),
+                  Icon(Icons.sync, color: SboxColors.brand700, size: 24),
                   const SizedBox(width: 8),
                   Text(tr(fromTime != null
                       ? 'Đồng bộ theo thời gian'
@@ -1210,7 +1211,7 @@ class _DeviceAttendanceScreenState extends State<DeviceAttendanceScreen> {
                     Text(tr('Chọn máy chấm công:'),
                         style: TextStyle(
                             fontWeight: FontWeight.w600,
-                            color: Colors.grey.shade700)),
+                            color: SboxColors.slate700)),
                     const SizedBox(height: 8),
                     DropdownButtonFormField<String?>(
                       initialValue: selectedDeviceId,
@@ -1219,7 +1220,7 @@ class _DeviceAttendanceScreenState extends State<DeviceAttendanceScreen> {
                         prefixIcon: const Icon(Icons.router, size: 18),
                         isDense: true,
                         border: OutlineInputBorder(
-                            borderRadius: BorderRadius.circular(8)),
+                            borderRadius: BorderRadius.circular(10)),
                         contentPadding: const EdgeInsets.symmetric(
                             horizontal: 12, vertical: 10),
                       ),
@@ -1237,7 +1238,7 @@ class _DeviceAttendanceScreenState extends State<DeviceAttendanceScreen> {
                                     size: 10,
                                     color: d['isOnline'] == true
                                         ? Colors.green
-                                        : Colors.grey,
+                                        : SboxColors.slate500,
                                   ),
                                   const SizedBox(width: 8),
                                   Expanded(
@@ -1261,7 +1262,7 @@ class _DeviceAttendanceScreenState extends State<DeviceAttendanceScreen> {
                     Text(tr('Chế độ đồng bộ:'),
                         style: TextStyle(
                             fontWeight: FontWeight.w600,
-                            color: Colors.grey.shade700)),
+                            color: SboxColors.slate700)),
                     const SizedBox(height: 8),
                     // ignore: deprecated_member_use
                     RadioListTile<String>(
@@ -1295,7 +1296,7 @@ class _DeviceAttendanceScreenState extends State<DeviceAttendanceScreen> {
                         padding: const EdgeInsets.all(12),
                         decoration: BoxDecoration(
                           color: Colors.red.shade50,
-                          borderRadius: BorderRadius.circular(8),
+                          borderRadius: BorderRadius.circular(10),
                           border: Border.all(color: Colors.red.shade200),
                         ),
                         child: Row(
@@ -1318,17 +1319,17 @@ class _DeviceAttendanceScreenState extends State<DeviceAttendanceScreen> {
                       Container(
                         padding: const EdgeInsets.all(12),
                         decoration: BoxDecoration(
-                          color: Colors.blue.shade50,
-                          borderRadius: BorderRadius.circular(8),
+                          color: SboxColors.brand50,
+                          borderRadius: BorderRadius.circular(10),
                         ),
                         child: Row(
                           children: [
                             Icon(Icons.date_range,
-                                color: Colors.blue.shade700, size: 18),
+                                color: SboxColors.brand700, size: 18),
                             const SizedBox(width: 8),
                             Text(tr('Thời gian: ${_dateTimeFormat.format(fromTime)} → ${_dateTimeFormat.format(toTime)}'),
                               style: TextStyle(
-                                  color: Colors.blue.shade700, fontSize: 13),
+                                  color: SboxColors.brand700, fontSize: 13),
                             ),
                           ],
                         ),
@@ -1578,7 +1579,7 @@ class _DeviceAttendanceScreenState extends State<DeviceAttendanceScreen> {
             return ScrollableAlertDialog(
               title: Row(
                 children: [
-                  Icon(Icons.date_range, color: Colors.blue.shade700, size: 24),
+                  Icon(Icons.date_range, color: SboxColors.brand700, size: 24),
                   const SizedBox(width: 8),
                   Text(tr('Chọn khoảng thời gian')),
                 ],
@@ -1643,14 +1644,14 @@ class _DeviceAttendanceScreenState extends State<DeviceAttendanceScreen> {
       child: Container(
         padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
         decoration: BoxDecoration(
-          border: Border.all(color: Colors.grey.shade300),
-          borderRadius: BorderRadius.circular(8),
+          border: Border.all(color: SboxColors.slate300),
+          borderRadius: BorderRadius.circular(10),
         ),
         child: Row(
           children: [
             const Icon(Icons.calendar_today, size: 18),
             const SizedBox(width: 8),
-            Text(tr(label), style: const TextStyle(color: Colors.grey)),
+            Text(tr(label), style: const TextStyle(color: SboxColors.slate500)),
             const Spacer(),
             Text(tr(_dateFormat.format(date)),
                 style: const TextStyle(fontWeight: FontWeight.w500)),
@@ -1686,7 +1687,7 @@ class _DeviceAttendanceScreenState extends State<DeviceAttendanceScreen> {
             return ScrollableAlertDialog(
               title: Row(
                 children: [
-                  Icon(Icons.people, color: Colors.blue.shade700),
+                  Icon(Icons.people, color: SboxColors.brand700),
                   const SizedBox(width: 8),
                   Text(tr('Chọn nhân viên')),
                   const Spacer(),
@@ -1713,7 +1714,7 @@ class _DeviceAttendanceScreenState extends State<DeviceAttendanceScreen> {
                         prefixIcon: const Icon(Icons.search, size: 20),
                         isDense: true,
                         border: OutlineInputBorder(
-                          borderRadius: BorderRadius.circular(8),
+                          borderRadius: BorderRadius.circular(10),
                         ),
                         contentPadding: const EdgeInsets.symmetric(
                             horizontal: 12, vertical: 10),
@@ -1746,7 +1747,7 @@ class _DeviceAttendanceScreenState extends State<DeviceAttendanceScreen> {
                         Text(tr('Chọn tất cả (${filtered.length} nhân viên)'),
                           style: TextStyle(
                             fontSize: 13,
-                            color: Colors.grey.shade700,
+                            color: SboxColors.slate700,
                             fontWeight: FontWeight.w500,
                           ),
                         ),
@@ -1756,13 +1757,13 @@ class _DeviceAttendanceScreenState extends State<DeviceAttendanceScreen> {
                             padding: const EdgeInsets.symmetric(
                                 horizontal: 10, vertical: 4),
                             decoration: BoxDecoration(
-                              color: Colors.blue.shade50,
-                              borderRadius: BorderRadius.circular(12),
+                              color: SboxColors.brand50,
+                              borderRadius: BorderRadius.circular(14),
                             ),
                             child: Text(tr('Đã chọn: ${tempSelected.length}'),
                               style: TextStyle(
                                 fontSize: 12,
-                                color: Colors.blue.shade700,
+                                color: SboxColors.brand700,
                                 fontWeight: FontWeight.w600,
                               ),
                             ),
@@ -1780,11 +1781,11 @@ class _DeviceAttendanceScreenState extends State<DeviceAttendanceScreen> {
                                 mainAxisSize: MainAxisSize.min,
                                 children: [
                                   Icon(Icons.search_off,
-                                      size: 48, color: Colors.grey.shade300),
+                                      size: 48, color: SboxColors.slate300),
                                   const SizedBox(height: 8),
                                   Text(tr('Không tìm thấy nhân viên'),
                                       style: TextStyle(
-                                          color: Colors.grey.shade500)),
+                                          color: SboxColors.slate500)),
                                 ],
                               ),
                             )
@@ -1804,7 +1805,7 @@ class _DeviceAttendanceScreenState extends State<DeviceAttendanceScreen> {
 
                                 return Material(
                                   color: isSelected
-                                      ? Colors.blue.shade50
+                                      ? SboxColors.brand50
                                       : Colors.transparent,
                                   child: InkWell(
                                     onTap: () {
@@ -1838,7 +1839,7 @@ class _DeviceAttendanceScreenState extends State<DeviceAttendanceScreen> {
                                           CircleAvatar(
                                             radius: 16,
                                             backgroundColor:
-                                                Colors.blue.shade100,
+                                                SboxColors.brand100,
                                             child: Text(
                                               tr(name.isNotEmpty
                                                   ? name[0].toUpperCase()
@@ -1846,7 +1847,7 @@ class _DeviceAttendanceScreenState extends State<DeviceAttendanceScreen> {
                                               style: TextStyle(
                                                   fontSize: 13,
                                                   fontWeight: FontWeight.bold,
-                                                  color: Colors.blue.shade700),
+                                                  color: SboxColors.brand700),
                                             ),
                                           ),
                                           const SizedBox(width: 10),
@@ -1861,7 +1862,7 @@ class _DeviceAttendanceScreenState extends State<DeviceAttendanceScreen> {
                                                     fontWeight: FontWeight.w500,
                                                     fontSize: 13,
                                                     color: isSelected
-                                                        ? Colors.blue.shade800
+                                                        ? SboxColors.brand800
                                                         : null,
                                                   ),
                                                 ),
@@ -1869,7 +1870,7 @@ class _DeviceAttendanceScreenState extends State<DeviceAttendanceScreen> {
                                                   style: TextStyle(
                                                       fontSize: 11,
                                                       color:
-                                                          Colors.grey.shade500),
+                                                          SboxColors.slate500),
                                                 ),
                                               ],
                                             ),
@@ -1878,14 +1879,14 @@ class _DeviceAttendanceScreenState extends State<DeviceAttendanceScreen> {
                                             padding: const EdgeInsets.symmetric(
                                                 horizontal: 8, vertical: 2),
                                             decoration: BoxDecoration(
-                                              color: Colors.grey.shade100,
+                                              color: SboxColors.slate100,
                                               borderRadius:
                                                   BorderRadius.circular(10),
                                             ),
                                             child: Text(tr('$attCount lần'),
                                               style: TextStyle(
                                                   fontSize: 11,
-                                                  color: Colors.grey.shade600),
+                                                  color: SboxColors.slate600),
                                             ),
                                           ),
                                         ],
@@ -1998,9 +1999,9 @@ class _DeviceAttendanceScreenState extends State<DeviceAttendanceScreen> {
         return Colors.orange;
       case 4:
       case 5:
-        return Colors.blue;
+        return SboxColors.brand500;
       default:
-        return Colors.grey;
+        return SboxColors.slate500;
     }
   }
 
@@ -2016,7 +2017,7 @@ class _DeviceAttendanceScreenState extends State<DeviceAttendanceScreen> {
       case 100:
         return Colors.brown;
       default:
-        return Colors.grey;
+        return SboxColors.slate500;
     }
   }
 
@@ -2050,7 +2051,7 @@ class _DeviceAttendanceScreenState extends State<DeviceAttendanceScreen> {
     final totalPages = (_totalCount / _pageSize).ceil();
 
     return Scaffold(
-      backgroundColor: Colors.grey.shade50,
+      backgroundColor: SboxColors.slate50,
       body: Stack(
         children: [
           Column(
@@ -2114,7 +2115,7 @@ class _DeviceAttendanceScreenState extends State<DeviceAttendanceScreen> {
     IconData statusIcon;
     switch (sync.status) {
       case _SyncStatus.starting:
-        statusColor = Colors.blue;
+        statusColor = SboxColors.brand500;
         statusIcon = Icons.hourglass_top;
         break;
       case _SyncStatus.deleting:
@@ -2122,7 +2123,7 @@ class _DeviceAttendanceScreenState extends State<DeviceAttendanceScreen> {
         statusIcon = Icons.delete_sweep;
         break;
       case _SyncStatus.syncing:
-        statusColor = Colors.blue;
+        statusColor = SboxColors.brand500;
         statusIcon = Icons.sync;
         break;
       case _SyncStatus.completed:
@@ -2141,7 +2142,7 @@ class _DeviceAttendanceScreenState extends State<DeviceAttendanceScreen> {
       padding: const EdgeInsets.all(12),
       decoration: BoxDecoration(
         color: Colors.white,
-        borderRadius: BorderRadius.circular(12),
+        borderRadius: BorderRadius.circular(14),
         boxShadow: [
           BoxShadow(
             color: Colors.black.withValues(alpha: 0.15),
@@ -2172,14 +2173,14 @@ class _DeviceAttendanceScreenState extends State<DeviceAttendanceScreen> {
                 InkWell(
                   onTap: () => setState(() => _activeSyncs.remove(syncKey)),
                   child:
-                      Icon(Icons.close, size: 16, color: Colors.grey.shade500),
+                      Icon(Icons.close, size: 16, color: SboxColors.slate500),
                 ),
             ],
           ),
           const SizedBox(height: 6),
           Text(
             tr(sync.message),
-            style: TextStyle(fontSize: 12, color: Colors.grey.shade600),
+            style: TextStyle(fontSize: 12, color: SboxColors.slate600),
           ),
           if (sync.status != _SyncStatus.completed &&
               sync.status != _SyncStatus.error) ...[
@@ -2188,7 +2189,7 @@ class _DeviceAttendanceScreenState extends State<DeviceAttendanceScreen> {
               borderRadius: BorderRadius.circular(4),
               child: LinearProgressIndicator(
                 value: sync.progress > 0 ? sync.progress : null,
-                backgroundColor: Colors.grey.shade200,
+                backgroundColor: SboxColors.slate200,
                 color: statusColor,
                 minHeight: 4,
               ),
@@ -2217,11 +2218,11 @@ class _DeviceAttendanceScreenState extends State<DeviceAttendanceScreen> {
           Container(
             padding: const EdgeInsets.all(10),
             decoration: BoxDecoration(
-              color: Colors.blue.shade50,
-              borderRadius: BorderRadius.circular(12),
+              color: SboxColors.brand50,
+              borderRadius: BorderRadius.circular(14),
             ),
             child: Icon(Icons.access_time_filled,
-                color: Colors.blue.shade700, size: 28),
+                color: SboxColors.brand700, size: 28),
           ),
           const SizedBox(width: 16),
           Expanded(
@@ -2235,7 +2236,7 @@ class _DeviceAttendanceScreenState extends State<DeviceAttendanceScreen> {
                 const SizedBox(height: 2),
                 Text(tr('Dữ liệu chấm công real-time từ máy chấm công · $_totalCount bản ghi'),
                   style: theme.textTheme.bodySmall
-                      ?.copyWith(color: Colors.grey.shade600),
+                      ?.copyWith(color: SboxColors.slate600),
                 ),
               ],
             ),
@@ -2269,7 +2270,7 @@ class _DeviceAttendanceScreenState extends State<DeviceAttendanceScreen> {
                     width: 18,
                     height: 18,
                     child: CircularProgressIndicator(strokeWidth: 2))
-                : Icon(Icons.download, color: Colors.blue.shade700),
+                : Icon(Icons.download, color: SboxColors.brand700),
             itemBuilder: (context) => [
               PopupMenuItem(
                 value: 'csv',
@@ -2308,7 +2309,7 @@ class _DeviceAttendanceScreenState extends State<DeviceAttendanceScreen> {
                 value: 'png',
                 child: Row(
                   children: [
-                    Icon(Icons.image, color: Colors.blue.shade700, size: 20),
+                    Icon(Icons.image, color: SboxColors.brand700, size: 20),
                     const SizedBox(width: 12),
                     Text(tr('Xuất ảnh PNG')),
                   ],
@@ -2365,7 +2366,7 @@ class _DeviceAttendanceScreenState extends State<DeviceAttendanceScreen> {
                 prefixIcon: const Icon(Icons.router, size: 18),
                 isDense: true,
                 border:
-                    OutlineInputBorder(borderRadius: BorderRadius.circular(8)),
+                    OutlineInputBorder(borderRadius: BorderRadius.circular(10)),
                 contentPadding:
                     const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
               ),
@@ -2398,7 +2399,7 @@ class _DeviceAttendanceScreenState extends State<DeviceAttendanceScreen> {
                 prefixIcon: const Icon(Icons.calendar_today, size: 18),
                 isDense: true,
                 border:
-                    OutlineInputBorder(borderRadius: BorderRadius.circular(8)),
+                    OutlineInputBorder(borderRadius: BorderRadius.circular(10)),
                 contentPadding:
                     const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
               ),
@@ -2450,19 +2451,19 @@ class _DeviceAttendanceScreenState extends State<DeviceAttendanceScreen> {
           Container(
             padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
             decoration: BoxDecoration(
-              color: Colors.blue.shade50,
-              borderRadius: BorderRadius.circular(8),
+              color: SboxColors.brand50,
+              borderRadius: BorderRadius.circular(10),
             ),
             child: Row(
               mainAxisSize: MainAxisSize.min,
               children: [
-                Icon(Icons.date_range, size: 16, color: Colors.blue.shade700),
+                Icon(Icons.date_range, size: 16, color: SboxColors.brand700),
                 const SizedBox(width: 6),
                 Text(
                   tr('${DateFormat('dd/MM/yyyy').format(_fromDate)} - ${DateFormat('dd/MM/yyyy').format(_toDate)}'),
                   style: TextStyle(
                       fontSize: 12,
-                      color: Colors.blue.shade700,
+                      color: SboxColors.brand700,
                       fontWeight: FontWeight.w500),
                 ),
               ],
@@ -2470,25 +2471,25 @@ class _DeviceAttendanceScreenState extends State<DeviceAttendanceScreen> {
           ),
 
           const SizedBox(width: 8),
-          Container(width: 1, height: 28, color: Colors.grey.shade300),
+          Container(width: 1, height: 28, color: SboxColors.slate300),
           const SizedBox(width: 8),
 
           // Employee multi-select
           InkWell(
             onTap: _showEmployeePickerDialog,
-            borderRadius: BorderRadius.circular(8),
+            borderRadius: BorderRadius.circular(10),
             child: Container(
               constraints: const BoxConstraints(maxWidth: 280),
               padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 7),
               decoration: BoxDecoration(
                 border: Border.all(
                   color: _selectedEmployeePins.isNotEmpty
-                      ? Colors.blue.shade400
-                      : Colors.grey.shade400,
+                      ? SboxColors.brand400
+                      : SboxColors.slate400,
                 ),
-                borderRadius: BorderRadius.circular(8),
+                borderRadius: BorderRadius.circular(10),
                 color: _selectedEmployeePins.isNotEmpty
-                    ? Colors.blue.shade50
+                    ? SboxColors.brand50
                     : null,
               ),
               child: Row(
@@ -2497,8 +2498,8 @@ class _DeviceAttendanceScreenState extends State<DeviceAttendanceScreen> {
                   Icon(Icons.people_outline,
                       size: 18,
                       color: _selectedEmployeePins.isNotEmpty
-                          ? Colors.blue.shade700
-                          : Colors.grey.shade600),
+                          ? SboxColors.brand700
+                          : SboxColors.slate600),
                   const SizedBox(width: 8),
                   Flexible(
                     child: Text(
@@ -2509,8 +2510,8 @@ class _DeviceAttendanceScreenState extends State<DeviceAttendanceScreen> {
                       style: TextStyle(
                         fontSize: 13,
                         color: _selectedEmployeePins.isNotEmpty
-                            ? Colors.blue.shade700
-                            : Colors.grey.shade600,
+                            ? SboxColors.brand700
+                            : SboxColors.slate600,
                         fontWeight: _selectedEmployeePins.isNotEmpty
                             ? FontWeight.w600
                             : FontWeight.normal,
@@ -2519,7 +2520,7 @@ class _DeviceAttendanceScreenState extends State<DeviceAttendanceScreen> {
                   ),
                   const SizedBox(width: 4),
                   Icon(Icons.arrow_drop_down,
-                      size: 20, color: Colors.grey.shade600),
+                      size: 20, color: SboxColors.slate600),
                 ],
               ),
             ),
@@ -2535,7 +2536,7 @@ class _DeviceAttendanceScreenState extends State<DeviceAttendanceScreen> {
                 labelText: tr('Kiểu chấm'),
                 isDense: true,
                 border:
-                    OutlineInputBorder(borderRadius: BorderRadius.circular(8)),
+                    OutlineInputBorder(borderRadius: BorderRadius.circular(10)),
                 contentPadding:
                     const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
               ),
@@ -2558,7 +2559,7 @@ class _DeviceAttendanceScreenState extends State<DeviceAttendanceScreen> {
                 labelText: tr('Phương thức'),
                 isDense: true,
                 border:
-                    OutlineInputBorder(borderRadius: BorderRadius.circular(8)),
+                    OutlineInputBorder(borderRadius: BorderRadius.circular(10)),
                 contentPadding:
                     const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
               ),
@@ -2599,15 +2600,15 @@ class _DeviceAttendanceScreenState extends State<DeviceAttendanceScreen> {
       child: Column(
         mainAxisAlignment: MainAxisAlignment.center,
         children: [
-          Icon(Icons.access_time, size: 72, color: Colors.grey.shade300),
+          Icon(Icons.access_time, size: 72, color: SboxColors.slate300),
           const SizedBox(height: 16),
           Text(tr('Chưa có dữ liệu chấm công'),
-            style: TextStyle(fontSize: 18, color: Colors.grey.shade600),
+            style: TextStyle(fontSize: 18, color: SboxColors.slate600),
           ),
           const SizedBox(height: 8),
           Text(tr('Dữ liệu sẽ hiển thị khi nhân viên chấm công trên máy\nhoặc bấm "Tải lại tất cả" để đồng bộ từ thiết bị'),
             textAlign: TextAlign.center,
-            style: TextStyle(color: Colors.grey.shade500),
+            style: TextStyle(color: SboxColors.slate500),
           ),
           const SizedBox(height: 24),
           FilledButton.icon(
@@ -2634,8 +2635,8 @@ class _DeviceAttendanceScreenState extends State<DeviceAttendanceScreen> {
           child: Container(
             decoration: BoxDecoration(
               color: isNew ? Colors.green.shade50 : Colors.white,
-              borderRadius: BorderRadius.circular(12),
-              border: Border.all(color: const Color(0xFFE4E4E7)),
+              borderRadius: BorderRadius.circular(14),
+              border: Border.all(color: SboxColors.slate200),
               boxShadow: [
                 BoxShadow(
                   color: Colors.black.withValues(alpha: 0.05),
@@ -2645,7 +2646,7 @@ class _DeviceAttendanceScreenState extends State<DeviceAttendanceScreen> {
               ],
             ),
             child: InkWell(
-              borderRadius: BorderRadius.circular(12),
+              borderRadius: BorderRadius.circular(14),
               onTap: _canEditAtt ? () => _showEditAttendanceDialog(att) : null,
               child: Padding(
                 padding:
@@ -2658,7 +2659,7 @@ class _DeviceAttendanceScreenState extends State<DeviceAttendanceScreen> {
                       color: isNew
                           ? Colors.green.withValues(alpha: 0.15)
                           : HrmPageChrome.primaryNavy.withValues(alpha: 0.1),
-                      borderRadius: BorderRadius.circular(8),
+                      borderRadius: BorderRadius.circular(10),
                     ),
                     child: Icon(Icons.access_time,
                         color: isNew ? Colors.green : HrmPageChrome.primaryNavy,
@@ -2685,7 +2686,7 @@ class _DeviceAttendanceScreenState extends State<DeviceAttendanceScreen> {
                                 att.deviceName ?? ''
                               ].where((s) => s.isNotEmpty).join(' \u00b7 ')),
                               style: const TextStyle(
-                                  color: Color(0xFF71717A), fontSize: 12),
+                                  color: SboxColors.slate500, fontSize: 12),
                               maxLines: 1,
                               overflow: TextOverflow.ellipsis),
                         ]),
@@ -2693,7 +2694,7 @@ class _DeviceAttendanceScreenState extends State<DeviceAttendanceScreen> {
                   _buildStateChip(calcState, calcStateText),
                   const SizedBox(width: 4),
                   const Icon(Icons.chevron_right,
-                      size: 18, color: Color(0xFFA1A1AA)),
+                      size: 18, color: SboxColors.slate400),
                 ]),
               ),
             ),
@@ -2715,11 +2716,11 @@ class _DeviceAttendanceScreenState extends State<DeviceAttendanceScreen> {
             padding: const EdgeInsets.fromLTRB(24, 8, 24, 8),
             child: DataTable(
                   headingRowColor:
-                      WidgetStateProperty.all(Colors.grey.shade100),
+                      WidgetStateProperty.all(SboxColors.slate100),
                   headingTextStyle: const TextStyle(
                     fontWeight: FontWeight.bold,
                     fontSize: 13,
-                    color: Colors.black87,
+                    color: SboxColors.text,
                   ),
                   dataTextStyle: const TextStyle(fontSize: 13),
                   columnSpacing: 24,
@@ -2778,7 +2779,7 @@ class _DeviceAttendanceScreenState extends State<DeviceAttendanceScreen> {
                     final isNew = _realtimeQueue.any((r) => r.id == att.id);
                     final rowColor = isNew
                         ? Colors.green.shade50
-                        : (index % 2 == 0 ? Colors.white : Colors.grey.shade50);
+                        : (index % 2 == 0 ? Colors.white : SboxColors.slate50);
                         final calcState = _displayStateForChip(att);
                         final calcStateText = _displayStateText(att);
 
@@ -2789,7 +2790,7 @@ class _DeviceAttendanceScreenState extends State<DeviceAttendanceScreen> {
                             child: Text(
                           tr('${(_currentPage - 1) * _pageSize + index + 1}'),
                           style: TextStyle(
-                              color: Colors.grey.shade500, fontSize: 12),
+                              color: SboxColors.slate500, fontSize: 12),
                         ))),
                         DataCell(Center(child: _buildPinCell(att))),
                         DataCell(Center(
@@ -2810,7 +2811,7 @@ class _DeviceAttendanceScreenState extends State<DeviceAttendanceScreen> {
                               tr(att.deviceName ?? '—'),
                               overflow: TextOverflow.ellipsis,
                               style: TextStyle(
-                                  color: Colors.grey.shade600, fontSize: 12),
+                                  color: SboxColors.slate600, fontSize: 12),
                             ),
                           ),
                         )),
@@ -2822,7 +2823,7 @@ class _DeviceAttendanceScreenState extends State<DeviceAttendanceScreen> {
                             padding: const EdgeInsets.symmetric(
                                 horizontal: 8, vertical: 2),
                             decoration: BoxDecoration(
-                              color: Colors.grey.shade100,
+                              color: SboxColors.slate100,
                               borderRadius: BorderRadius.circular(4),
                             ),
                             child: Text(
@@ -2832,7 +2833,7 @@ class _DeviceAttendanceScreenState extends State<DeviceAttendanceScreen> {
                                 fontWeight: FontWeight.w500,
                                 color: att.attendanceTime.weekday >= 6
                                     ? Colors.red.shade700
-                                    : Colors.grey.shade700,
+                                    : SboxColors.slate700,
                               ),
                             ),
                           ),
@@ -2858,7 +2859,7 @@ class _DeviceAttendanceScreenState extends State<DeviceAttendanceScreen> {
                                   onPressed: () =>
                                       _showEditAttendanceDialog(att),
                                   icon: Icon(Icons.edit,
-                                      size: 18, color: Colors.blue.shade700),
+                                      size: 18, color: SboxColors.brand700),
                                   tooltip: tr('Sửa giờ chấm'),
                                   padding: EdgeInsets.zero,
                                   constraints: const BoxConstraints(
@@ -2898,7 +2899,7 @@ class _DeviceAttendanceScreenState extends State<DeviceAttendanceScreen> {
             style: const TextStyle(fontWeight: FontWeight.w600, fontSize: 13)),
         if (code != null && code != pin)
           Text(tr('PIN: $pin'),
-              style: TextStyle(fontSize: 11, color: Colors.grey.shade500)),
+              style: TextStyle(fontSize: 11, color: SboxColors.slate500)),
       ],
     );
   }
@@ -2909,7 +2910,7 @@ class _DeviceAttendanceScreenState extends State<DeviceAttendanceScreen> {
       padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
       decoration: BoxDecoration(
         color: color.withValues(alpha: 0.1),
-        borderRadius: BorderRadius.circular(12),
+        borderRadius: BorderRadius.circular(14),
         border: Border.all(color: color.withValues(alpha: 0.3)),
       ),
       child: Row(
@@ -2943,7 +2944,7 @@ class _DeviceAttendanceScreenState extends State<DeviceAttendanceScreen> {
       padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
       decoration: BoxDecoration(
         color: color.withValues(alpha: 0.08),
-        borderRadius: BorderRadius.circular(12),
+        borderRadius: BorderRadius.circular(14),
       ),
       child: Row(
         mainAxisSize: MainAxisSize.min,
@@ -2963,32 +2964,32 @@ class _DeviceAttendanceScreenState extends State<DeviceAttendanceScreen> {
       padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 8),
       decoration: BoxDecoration(
         color: Colors.white,
-        border: Border(top: BorderSide(color: Colors.grey.shade200)),
+        border: Border(top: BorderSide(color: SboxColors.slate200)),
       ),
       child: Builder(builder: (context) {
         final isMobile = Responsive.isMobile(context);
         final infoText = Text(tr('Tổng: $_totalCount bản ghi'),
-          style: TextStyle(color: Colors.grey.shade600, fontSize: 13),
+          style: TextStyle(color: SboxColors.slate600, fontSize: 13),
         );
         final pageSizeSelector = Row(
           mainAxisSize: MainAxisSize.min,
           children: [
             Text(tr('Hiển thị:'),
-                style: TextStyle(fontSize: 12, color: Colors.grey[500])),
+                style: TextStyle(fontSize: 12, color: SboxColors.slate500)),
             const SizedBox(width: 8),
             Container(
               height: 34,
               padding: const EdgeInsets.symmetric(horizontal: 12),
               decoration: BoxDecoration(
-                color: const Color(0xFFFAFAFA),
-                border: Border.all(color: const Color(0xFFE4E4E7)),
-                borderRadius: BorderRadius.circular(8),
+                color: SboxColors.slate50,
+                border: Border.all(color: SboxColors.slate200),
+                borderRadius: BorderRadius.circular(10),
               ),
               child: DropdownButtonHideUnderline(
                 child: DropdownButton<int>(
                   value: _pageSize,
                   isDense: true,
-                  style: TextStyle(fontSize: 13, color: Colors.grey[800]),
+                  style: TextStyle(fontSize: 13, color: SboxColors.slate800),
                   items: _pageSizeOptions
                       .map((s) => DropdownMenuItem(value: s, child: Text(tr('$s'))))
                       .toList(),
@@ -3030,14 +3031,14 @@ class _DeviceAttendanceScreenState extends State<DeviceAttendanceScreen> {
             Container(
               padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 6),
               decoration: BoxDecoration(
-                color: Colors.blue.shade50,
-                borderRadius: BorderRadius.circular(8),
+                color: SboxColors.brand50,
+                borderRadius: BorderRadius.circular(10),
               ),
               child: Text(
                 tr('Trang $_currentPage / $totalPages'),
                 style: TextStyle(
                   fontWeight: FontWeight.w600,
-                  color: Colors.blue.shade700,
+                  color: SboxColors.brand700,
                   fontSize: 13,
                 ),
               ),

@@ -20,6 +20,7 @@ import '../../widgets/pos/pos_customer_form_dialog.dart';
 import '../../widgets/pos/pos_quote_care_sheet.dart';
 import '../../widgets/pos/pos_theme.dart';
 
+import '../../theme/sbox_tokens.dart';
 class PosQuoteEditorScreen extends StatefulWidget {
   const PosQuoteEditorScreen({super.key, this.quoteId});
 
@@ -600,11 +601,11 @@ class _PosQuoteEditorScreenState extends State<PosQuoteEditorScreen> {
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         Text(tr('Hồ sơ thương mại'),
-            style: const TextStyle(fontWeight: FontWeight.w700, fontSize: 15)),
+            style: const TextStyle(fontWeight: FontWeight.w700, fontSize: 16)),
         const SizedBox(height: 4),
         Text(
           tr('Hợp đồng / xuất kho / bàn giao / nghiệm thu — không phải hóa đơn bán.'),
-          style: TextStyle(color: Colors.grey.shade700, fontSize: 12.5),
+          style: TextStyle(color: SboxColors.slate700, fontSize: 13),
         ),
         const SizedBox(height: 8),
         Wrap(
@@ -616,8 +617,8 @@ class _PosQuoteEditorScreenState extends State<PosQuoteEditorScreen> {
                 label: Text(PosQuote.stageLabel(stages[i]),
                     style: const TextStyle(fontSize: 12)),
                 backgroundColor: i <= current && current >= 0
-                    ? const Color(0xFFDCFCE7)
-                    : const Color(0xFFF3F4F6),
+                    ? SboxColors.successSoft
+                    : SboxColors.slate100,
                 visualDensity: VisualDensity.compact,
               ),
           ],
@@ -776,7 +777,7 @@ class _PosQuoteEditorScreenState extends State<PosQuoteEditorScreen> {
                 Text(
                     tr('Độc lập màn bán hàng — không trừ kho, không ghi doanh thu.'),
                     style: TextStyle(
-                        color: Colors.grey.shade700, fontSize: 12.5)),
+                        color: SboxColors.slate700, fontSize: 13)),
                 const SizedBox(height: 12),
                 if (canEdit)
                   Row(
@@ -976,7 +977,7 @@ class _PosQuoteEditorScreenState extends State<PosQuoteEditorScreen> {
                 ),
                 Text(
                   tr('Trước VAT: ${_money.format(_preVatTotal)} đ'),
-                  style: TextStyle(fontSize: 12, color: Colors.grey.shade700),
+                  style: TextStyle(fontSize: 12, color: SboxColors.slate700),
                 ),
                 const SizedBox(height: 6),
                 Row(

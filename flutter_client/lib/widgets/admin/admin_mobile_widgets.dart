@@ -4,6 +4,7 @@ import '../../screens/system_admin/system_admin_helpers.dart';
 import '../../utils/responsive_helper.dart';
 import 'package:zkteco_flutter_client/l10n/app_tr.dart';
 
+import '../../theme/sbox_tokens.dart';
 /// Super Admin dùng layout mobile (drawer + thẻ + filter sheet).
 bool adminUseMobileLayout(BuildContext context) =>
     Responsive.isMobile(context);
@@ -40,7 +41,7 @@ Future<void> showAdminFilterSheet(
               children: [
                 Text(tr(title),
                     style: const TextStyle(
-                        fontSize: 17, fontWeight: FontWeight.w600)),
+                        fontSize: 18, fontWeight: FontWeight.w600)),
                 const Spacer(),
                 if (onClear != null)
                   TextButton(onPressed: onClear, child: Text(tr('Xóa lọc'))),
@@ -203,7 +204,7 @@ class _FilterButton extends StatelessWidget {
             border: Border.all(
               color: count > 0
                   ? AdminHelpers.primary
-                  : Colors.grey.shade300,
+                  : SboxColors.slate300,
             ),
           ),
           child: Row(
@@ -211,7 +212,7 @@ class _FilterButton extends StatelessWidget {
             children: [
               Icon(Icons.tune,
                   size: 18,
-                  color: count > 0 ? AdminHelpers.primary : Colors.grey[600]),
+                  color: count > 0 ? AdminHelpers.primary : SboxColors.slate600),
               if (count > 0) ...[
                 const SizedBox(width: 4),
                 Container(
@@ -277,7 +278,7 @@ class AdminMobileFilterDropdown<T> extends StatelessWidget {
               style: TextStyle(
                   fontSize: 13,
                   fontWeight: FontWeight.w600,
-                  color: Colors.grey[700])),
+                  color: SboxColors.slate700)),
           const SizedBox(height: 6),
           Container(
             width: double.infinity,
@@ -285,7 +286,7 @@ class AdminMobileFilterDropdown<T> extends StatelessWidget {
             decoration: BoxDecoration(
               color: Colors.white,
               borderRadius: BorderRadius.circular(10),
-              border: Border.all(color: Colors.grey.shade300),
+              border: Border.all(color: SboxColors.slate300),
             ),
             child: DropdownButtonHideUnderline(
               child: DropdownButton<T>(
@@ -343,12 +344,12 @@ Future<void> showAdminActionSheet(
               children: [
                 Text(tr(title),
                     style: const TextStyle(
-                        fontSize: 17, fontWeight: FontWeight.w700)),
+                        fontSize: 18, fontWeight: FontWeight.w700)),
                 if (subtitle != null && subtitle.isNotEmpty) ...[
                   const SizedBox(height: 4),
                   Text(tr(subtitle),
                       style: TextStyle(
-                          fontSize: 13, color: Colors.grey.shade600)),
+                          fontSize: 13, color: SboxColors.slate600)),
                 ],
               ],
             ),
@@ -357,7 +358,7 @@ Future<void> showAdminActionSheet(
                 leading: Icon(a.icon,
                     color: a.destructive
                         ? Colors.red
-                        : (a.color ?? const Color(0xFF0F172A)),
+                        : (a.color ?? SboxColors.slate900),
                     size: 22),
                 title: Text(
                   tr(a.label),
@@ -430,7 +431,7 @@ class AdminMobileDrawer extends StatelessWidget {
                 20, MediaQuery.paddingOf(context).top + 16, 20, 16),
             decoration: const BoxDecoration(
               gradient: LinearGradient(
-                colors: [Color(0xFF0F172A), Color(0xFF334155)],
+                colors: [SboxColors.slate900, SboxColors.slate700],
               ),
             ),
             child: Column(
@@ -442,7 +443,7 @@ class AdminMobileDrawer extends StatelessWidget {
                       padding: const EdgeInsets.all(10),
                       decoration: BoxDecoration(
                         color: Colors.white.withValues(alpha: 0.15),
-                        borderRadius: BorderRadius.circular(12),
+                        borderRadius: BorderRadius.circular(14),
                       ),
                       child: const Icon(Icons.shield,
                           color: Colors.white, size: 22),
@@ -511,7 +512,7 @@ class AdminMobileDrawer extends StatelessWidget {
                         style: TextStyle(
                             fontSize: 11,
                             fontWeight: FontWeight.w700,
-                            color: Colors.grey[500],
+                            color: SboxColors.slate500,
                             letterSpacing: 0.8)),
                   ),
                   ...group.value.map((item) {
@@ -525,7 +526,7 @@ class AdminMobileDrawer extends StatelessWidget {
                           size: 22,
                           color: selected
                               ? AdminHelpers.primary
-                              : Colors.grey[700]),
+                              : SboxColors.slate700),
                       title: Text(tr(item.label),
                           style: TextStyle(
                               fontWeight: selected
@@ -533,7 +534,7 @@ class AdminMobileDrawer extends StatelessWidget {
                                   : FontWeight.normal,
                               color: selected
                                   ? AdminHelpers.primary
-                                  : Colors.grey[900])),
+                                  : SboxColors.slate900)),
                       trailing: item.count != null && item.count! > 0
                           ? Container(
                               padding: const EdgeInsets.symmetric(
@@ -541,8 +542,8 @@ class AdminMobileDrawer extends StatelessWidget {
                               decoration: BoxDecoration(
                                 color: selected
                                     ? AdminHelpers.primary
-                                    : Colors.grey.shade200,
-                                borderRadius: BorderRadius.circular(12),
+                                    : SboxColors.slate200,
+                                borderRadius: BorderRadius.circular(14),
                               ),
                               child: Text(tr('${item.count}'),
                                   style: TextStyle(
@@ -550,7 +551,7 @@ class AdminMobileDrawer extends StatelessWidget {
                                       fontWeight: FontWeight.bold,
                                       color: selected
                                           ? Colors.white
-                                          : Colors.grey[700])),
+                                          : SboxColors.slate700)),
                             )
                           : null,
                       onTap: () {

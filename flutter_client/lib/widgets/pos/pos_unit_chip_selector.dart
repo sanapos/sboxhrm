@@ -4,6 +4,7 @@ import 'pos_product_unit_view.dart';
 import 'pos_theme.dart';
 import '../../l10n/app_tr.dart';
 
+import '../../theme/sbox_tokens.dart';
 /// Chip chọn đơn vị / hàng cùng loại dưới tên SP (KiotViet).
 class PosUnitChipSelector extends StatelessWidget {
   const PosUnitChipSelector({
@@ -44,7 +45,7 @@ class PosUnitChipSelector extends StatelessWidget {
     return Material(
       color: selected
           ? PosTheme.kiotBlue.withValues(alpha: 0.12)
-          : Colors.grey.shade100,
+          : SboxColors.slate100,
       borderRadius: BorderRadius.circular(4),
       child: InkWell(
         onTap: onTap,

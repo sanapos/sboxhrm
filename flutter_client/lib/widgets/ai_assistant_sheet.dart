@@ -21,6 +21,7 @@ import 'notification_overlay.dart';
 import 'package:zkteco_flutter_client/l10n/app_tr.dart';
 
 import './pos/pos_theme.dart';
+import '../theme/sbox_tokens.dart';
 class _ChatMsg {
   final String role; // 'user' | 'assistant'
   final String content;
@@ -939,7 +940,7 @@ class _AiAssistantSheetState extends State<AiAssistantSheet> {
       padding: const EdgeInsets.fromLTRB(16, 8, 8, 8),
       decoration: BoxDecoration(
         border: Border(
-          bottom: BorderSide(color: Colors.grey.shade200),
+          bottom: BorderSide(color: SboxColors.slate200),
         ),
       ),
       child: Row(
@@ -949,11 +950,11 @@ class _AiAssistantSheetState extends State<AiAssistantSheet> {
             height: 36,
             margin: const EdgeInsets.only(right: 8),
             decoration: BoxDecoration(
-              color: const Color(0xFF8B5CF6),
+              color: SboxColors.violet,
               borderRadius: BorderRadius.circular(2),
             ),
           ),
-          const Icon(Icons.auto_awesome, color: Color(0xFF8B5CF6)),
+          const Icon(Icons.auto_awesome, color: SboxColors.violet),
           const SizedBox(width: 8),
           Expanded(
             child: Column(
@@ -963,7 +964,7 @@ class _AiAssistantSheetState extends State<AiAssistantSheet> {
                     style:
                         TextStyle(fontSize: 16, fontWeight: FontWeight.w600)),
                 Text(tr('Hỗ trợ nghỉ phép, lịch làm, chấm công, lương'),
-                    style: TextStyle(fontSize: 11, color: Colors.grey)),
+                    style: TextStyle(fontSize: 11, color: SboxColors.slate500)),
               ],
             ),
           ),
@@ -1009,7 +1010,7 @@ class _AiAssistantSheetState extends State<AiAssistantSheet> {
       constraints:
           BoxConstraints(maxWidth: MediaQuery.of(context).size.width * 0.78),
       decoration: BoxDecoration(
-        color: isUser ? PosTheme.kiotBlue : const Color(0xFFF3F4F6),
+        color: isUser ? PosTheme.kiotBlue : SboxColors.slate100,
         borderRadius: BorderRadius.only(
           topLeft: const Radius.circular(14),
           topRight: const Radius.circular(14),
@@ -1024,7 +1025,7 @@ class _AiAssistantSheetState extends State<AiAssistantSheet> {
           SelectableText(
             tr(m.content),
             style: TextStyle(
-              color: isUser ? Colors.white : const Color(0xFF18181B),
+              color: isUser ? Colors.white : SboxColors.slate900,
               fontSize: 14,
               height: 1.45,
             ),
@@ -1045,11 +1046,11 @@ class _AiAssistantSheetState extends State<AiAssistantSheet> {
                   final li = _actionLabelIcon(a);
                   return ActionChip(
                     avatar:
-                        Icon(li.$2, size: 16, color: const Color(0xFF8B5CF6)),
+                        Icon(li.$2, size: 16, color: SboxColors.violet),
                     label: Text(tr(li.$1),
                         style: const TextStyle(
                             fontSize: 12,
-                            color: Color(0xFF8B5CF6),
+                            color: SboxColors.violet,
                             fontWeight: FontWeight.w600)),
                     backgroundColor: const Color(0xFFF3E8FF),
                     side: const BorderSide(color: Color(0xFFDDD6FE)),
@@ -1075,13 +1076,13 @@ class _AiAssistantSheetState extends State<AiAssistantSheet> {
                   final label = _createLabel(c);
                   return ActionChip(
                     avatar: const Icon(Icons.check_circle_outline_rounded,
-                        size: 16, color: Color(0xFF059669)),
+                        size: 16, color: SboxColors.success),
                     label: Text(tr(label),
                         style: const TextStyle(
                             fontSize: 12,
-                            color: Color(0xFF059669),
+                            color: SboxColors.success,
                             fontWeight: FontWeight.w600)),
-                    backgroundColor: const Color(0xFFECFDF5),
+                    backgroundColor: SboxColors.successSoft,
                     side: const BorderSide(color: Color(0xFF6EE7B7)),
                     onPressed: _isSending ? null : () => _handleCreate(c),
                   );
@@ -1126,7 +1127,7 @@ class _AiAssistantSheetState extends State<AiAssistantSheet> {
         margin: const EdgeInsets.only(bottom: 8),
         padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
         decoration: BoxDecoration(
-          color: const Color(0xFFF3F4F6),
+          color: SboxColors.slate100,
           borderRadius: BorderRadius.circular(14),
         ),
         child: Row(
@@ -1139,7 +1140,7 @@ class _AiAssistantSheetState extends State<AiAssistantSheet> {
             ),
             SizedBox(width: 10),
             Text(tr('Đang suy nghĩ...'),
-                style: TextStyle(color: Colors.grey, fontSize: 13)),
+                style: TextStyle(color: SboxColors.slate500, fontSize: 13)),
           ],
         ),
       ),
@@ -1153,7 +1154,7 @@ class _AiAssistantSheetState extends State<AiAssistantSheet> {
         padding: const EdgeInsets.fromLTRB(8, 6, 8, 6),
         decoration: BoxDecoration(
           color: Colors.white,
-          border: Border(top: BorderSide(color: Colors.grey.shade200)),
+          border: Border(top: BorderSide(color: SboxColors.slate200)),
         ),
         child: Row(
           crossAxisAlignment: CrossAxisAlignment.end,
@@ -1163,7 +1164,7 @@ class _AiAssistantSheetState extends State<AiAssistantSheet> {
               onPressed: _toggleListening,
               icon: Icon(
                 _isListening ? Icons.mic : Icons.mic_none_rounded,
-                color: _isListening ? Colors.red : const Color(0xFF8B5CF6),
+                color: _isListening ? Colors.red : SboxColors.violet,
               ),
             ),
             Expanded(
@@ -1180,7 +1181,7 @@ class _AiAssistantSheetState extends State<AiAssistantSheet> {
                       ? 'Đang nghe...'
                       : 'Hỏi trợ lý (VD: "Còn bao nhiêu phép?")'),
                   filled: true,
-                  fillColor: const Color(0xFFF9FAFB),
+                  fillColor: SboxColors.slate50,
                   border: OutlineInputBorder(
                     borderRadius: BorderRadius.circular(20),
                     borderSide: BorderSide.none,
@@ -1193,7 +1194,7 @@ class _AiAssistantSheetState extends State<AiAssistantSheet> {
             const SizedBox(width: 4),
             Material(
               color:
-                  _isSending ? Colors.grey.shade300 : const Color(0xFF8B5CF6),
+                  _isSending ? SboxColors.slate300 : SboxColors.violet,
               shape: const CircleBorder(),
               child: InkWell(
                 customBorder: const CircleBorder(),

@@ -14,6 +14,7 @@ import '../widgets/hrm_collapsible_overview.dart';
 import '../widgets/hrm_responsive_list_layout.dart';
 import 'package:zkteco_flutter_client/l10n/app_tr.dart';
 
+import '../theme/sbox_tokens.dart';
 class DirectManagerScreen extends StatefulWidget {
   const DirectManagerScreen({super.key});
 
@@ -163,13 +164,13 @@ class _DirectManagerScreenState extends State<DirectManagerScreen> {
       case 'Kế toán trưởng':
         return Colors.purple[600]!;
       case 'Trưởng phòng':
-        return Colors.blue[700]!;
+        return SboxColors.brand700;
       case 'Phó phòng':
-        return Colors.blue[400]!;
+        return SboxColors.brand400;
       case 'Trưởng nhóm':
         return Colors.teal[600]!;
       default:
-        return Colors.grey[600]!;
+        return SboxColors.slate600;
     }
   }
 
@@ -277,8 +278,8 @@ class _DirectManagerScreenState extends State<DirectManagerScreen> {
         child: Container(
           decoration: BoxDecoration(
             color: Colors.white,
-            borderRadius: BorderRadius.circular(12),
-            border: Border.all(color: const Color(0xFFE4E4E7)),
+            borderRadius: BorderRadius.circular(14),
+            border: Border.all(color: SboxColors.slate200),
             boxShadow: [
               BoxShadow(
                 color: Colors.black.withValues(alpha: 0.05),
@@ -304,13 +305,13 @@ class _DirectManagerScreenState extends State<DirectManagerScreen> {
       padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
       decoration: BoxDecoration(
         color: Colors.white,
-        border: Border(top: BorderSide(color: Colors.grey.shade200)),
+        border: Border(top: BorderSide(color: SboxColors.slate200)),
       ),
       child: Row(
         mainAxisAlignment: MainAxisAlignment.spaceBetween,
         children: [
           Text(tr('Hiển thị ${startIndex + 1}-$endIndex / $totalCount'),
-              style: TextStyle(fontSize: 12, color: Colors.grey[600])),
+              style: TextStyle(fontSize: 12, color: SboxColors.slate600)),
           Row(children: [
             IconButton(
                 icon: const Icon(Icons.chevron_left, size: 20),
@@ -353,8 +354,8 @@ class _DirectManagerScreenState extends State<DirectManagerScreen> {
                 child: Container(
                   decoration: BoxDecoration(
                     color: Colors.white,
-                    borderRadius: BorderRadius.circular(12),
-                    border: Border.all(color: const Color(0xFFE4E4E7)),
+                    borderRadius: BorderRadius.circular(14),
+                    border: Border.all(color: SboxColors.slate200),
                     boxShadow: [
                       BoxShadow(
                         color: Colors.black.withValues(alpha: 0.05),
@@ -374,7 +375,7 @@ class _DirectManagerScreenState extends State<DirectManagerScreen> {
             padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
             decoration: BoxDecoration(
               color: Colors.white,
-              border: Border(top: BorderSide(color: Colors.grey.shade200)),
+              border: Border(top: BorderSide(color: SboxColors.slate200)),
             ),
             child: Wrap(
               alignment: WrapAlignment.spaceBetween,
@@ -383,26 +384,26 @@ class _DirectManagerScreenState extends State<DirectManagerScreen> {
               runSpacing: 8,
               children: [
                 Text(tr('Hiển thị ${startIndex + 1}-$endIndex / $totalCount'),
-                  style: TextStyle(fontSize: 12, color: Colors.grey[600]),
+                  style: TextStyle(fontSize: 12, color: SboxColors.slate600),
                 ),
                 Row(
                   mainAxisSize: MainAxisSize.min,
                   children: [
-                    Text(tr('Hiển thị:'), style: TextStyle(fontSize: 12, color: Colors.grey[500])),
+                    Text(tr('Hiển thị:'), style: TextStyle(fontSize: 12, color: SboxColors.slate500)),
                     const SizedBox(width: 8),
                     Container(
                       height: 34,
                       padding: const EdgeInsets.symmetric(horizontal: 12),
                       decoration: BoxDecoration(
-                        color: const Color(0xFFFAFAFA),
-                        border: Border.all(color: const Color(0xFFE4E4E7)),
-                        borderRadius: BorderRadius.circular(8),
+                        color: SboxColors.slate50,
+                        border: Border.all(color: SboxColors.slate200),
+                        borderRadius: BorderRadius.circular(10),
                       ),
                       child: DropdownButtonHideUnderline(
                         child: DropdownButton<int>(
                           value: _pageSize,
                           isDense: true,
-                          style: TextStyle(fontSize: 13, color: Colors.grey[800]),
+                          style: TextStyle(fontSize: 13, color: SboxColors.slate800),
                           items: _pageSizeOptions.map((s) => DropdownMenuItem(value: s, child: Text(tr('$s')))).toList(),
                           onChanged: (v) {
                             if (v != null) setState(() { _pageSize = v; _currentPage = 1; });
@@ -424,7 +425,7 @@ class _DirectManagerScreenState extends State<DirectManagerScreen> {
                       padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
                       decoration: BoxDecoration(
                         color: Theme.of(context).primaryColor,
-                        borderRadius: BorderRadius.circular(8),
+                        borderRadius: BorderRadius.circular(10),
                       ),
                       child: Text(tr('$page / $totalPages'),
                           style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w600, color: Colors.white)),
@@ -446,7 +447,7 @@ class _DirectManagerScreenState extends State<DirectManagerScreen> {
   Widget _buildHeader(bool isMobile) {
     return Row(
       children: [
-        Icon(Icons.supervisor_account, size: 28, color: Colors.blue[700]),
+        Icon(Icons.supervisor_account, size: 28, color: SboxColors.brand700),
         const SizedBox(width: 10),
         Expanded(
           child: Column(
@@ -459,7 +460,7 @@ class _DirectManagerScreenState extends State<DirectManagerScreen> {
                 ),
               ),
               Text(tr('Danh sách nhân sự có chức vụ quản lý'),
-                style: TextStyle(fontSize: 13, color: Colors.grey[600]),
+                style: TextStyle(fontSize: 13, color: SboxColors.slate600),
               ),
             ],
           ),
@@ -495,7 +496,7 @@ class _DirectManagerScreenState extends State<DirectManagerScreen> {
             icon: Icons.people,
             label: 'Tổng',
             count: _managers.length,
-            color: Colors.blue,
+            color: SboxColors.brand500,
           ),
           const SizedBox(width: 8),
           ...sortedPositions.map((e) => Padding(
@@ -655,7 +656,7 @@ class _DirectManagerScreenState extends State<DirectManagerScreen> {
                       if (manager.department != null) manager.department!,
                       if (manager.position != null) manager.position!,
                     ].join(' · ')),
-                    style: TextStyle(fontSize: 12, color: Colors.grey[500]),
+                    style: TextStyle(fontSize: 12, color: SboxColors.slate500),
                     maxLines: 1, overflow: TextOverflow.ellipsis,
                   ),
                 ],
@@ -674,10 +675,10 @@ class _DirectManagerScreenState extends State<DirectManagerScreen> {
                 onTap: () => _sendEmail(manager.email!),
                 child: Padding(
                   padding: const EdgeInsets.all(4),
-                  child: Icon(Icons.email, size: 18, color: Colors.blue[600]),
+                  child: Icon(Icons.email, size: 18, color: SboxColors.brand600),
                 ),
               ),
-            const Icon(Icons.chevron_right, size: 18, color: Color(0xFF71717A)),
+            const Icon(Icons.chevron_right, size: 18, color: SboxColors.slate500),
           ],
         ),
       ),
@@ -752,7 +753,7 @@ class _DirectManagerScreenState extends State<DirectManagerScreen> {
             final positionList = _allPositions.isEmpty
                 ? Padding(
                     padding: const EdgeInsets.all(32),
-                    child: Text(tr('Chưa có dữ liệu chức vụ'), style: TextStyle(color: Colors.grey[500])),
+                    child: Text(tr('Chưa có dữ liệu chức vụ'), style: TextStyle(color: SboxColors.slate500)),
                   )
                 : ListView.builder(
                     shrinkWrap: !isMobile,
@@ -774,9 +775,9 @@ class _DirectManagerScreenState extends State<DirectManagerScreen> {
                           child: Icon(_positionIcon(pos), size: 18, color: color),
                         ),
                         title: Text(tr(pos), style: const TextStyle(fontSize: 14)),
-                        subtitle: Text(tr('$count nhân viên'), style: TextStyle(fontSize: 12, color: Colors.grey[500])),
+                        subtitle: Text(tr('$count nhân viên'), style: TextStyle(fontSize: 12, color: SboxColors.slate500)),
                         dense: true,
-                        activeColor: Colors.blue[700],
+                        activeColor: SboxColors.brand700,
                         controlAffinity: ListTileControlAffinity.trailing,
                       );
                     },
@@ -806,7 +807,7 @@ class _DirectManagerScreenState extends State<DirectManagerScreen> {
                     appBar: AppBar(
                       leading: IconButton(icon: const Icon(Icons.close), onPressed: () => Navigator.pop(ctx)),
                       title: Row(children: [
-                        Icon(Icons.tune, size: 20, color: Colors.blue),
+                        Icon(Icons.tune, size: 20, color: SboxColors.brand500),
                         SizedBox(width: 10),
                         Expanded(child: Text(tr('Thiết lập chức vụ'))),
                       ]),
@@ -833,7 +834,7 @@ class _DirectManagerScreenState extends State<DirectManagerScreen> {
             }
 
             return Dialog(
-              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
               child: ConstrainedBox(
                 constraints: const BoxConstraints(maxWidth: 420, maxHeight: 520),
                 child: Column(
@@ -843,20 +844,20 @@ class _DirectManagerScreenState extends State<DirectManagerScreen> {
                     Container(
                       padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 16),
                       decoration: BoxDecoration(
-                        color: Colors.blue[50],
+                        color: SboxColors.brand50,
                         borderRadius: const BorderRadius.vertical(top: Radius.circular(16)),
                       ),
                       child: Row(
                         children: [
-                          Icon(Icons.tune, color: Colors.blue[700], size: 22),
+                          Icon(Icons.tune, color: SboxColors.brand700, size: 22),
                           const SizedBox(width: 10),
                           Expanded(
                             child: Column(
                               crossAxisAlignment: CrossAxisAlignment.start,
                               children: [
-                                Text(tr('Thiết lập chức vụ'), style: TextStyle(fontWeight: FontWeight.bold, fontSize: 15, color: Colors.blue[800])),
+                                Text(tr('Thiết lập chức vụ'), style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16, color: SboxColors.brand800)),
                                 const SizedBox(height: 2),
-                                Text(tr('Chọn chức vụ hiển thị trong danh sách'), style: TextStyle(fontSize: 12, color: Colors.blue[600])),
+                                Text(tr('Chọn chức vụ hiển thị trong danh sách'), style: TextStyle(fontSize: 12, color: SboxColors.brand600)),
                               ],
                             ),
                           ),
@@ -922,7 +923,7 @@ class _DirectManagerScreenState extends State<DirectManagerScreen> {
               padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
               decoration: BoxDecoration(
                 color: color.withValues(alpha: 0.15),
-                borderRadius: BorderRadius.circular(16),
+                borderRadius: BorderRadius.circular(14),
                 border: Border.all(color: color.withValues(alpha: 0.4)),
               ),
               child: Row(
@@ -974,8 +975,8 @@ class _DirectManagerScreenState extends State<DirectManagerScreen> {
                   icon: const Icon(Icons.email, size: 18),
                   label: Text(tr('Gửi email'), style: TextStyle(fontSize: 13)),
                   style: OutlinedButton.styleFrom(
-                    foregroundColor: Colors.blue[700],
-                    side: BorderSide(color: Colors.blue[300]!),
+                    foregroundColor: SboxColors.brand700,
+                    side: BorderSide(color: SboxColors.brand300),
                     padding: const EdgeInsets.symmetric(vertical: 10),
                   ),
                 ),
@@ -1044,7 +1045,7 @@ class _DirectManagerScreenState extends State<DirectManagerScreen> {
         }
 
         return Dialog(
-          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
           child: ConstrainedBox(
             constraints: const BoxConstraints(maxWidth: 440),
             child: Column(
@@ -1088,13 +1089,13 @@ class _DirectManagerScreenState extends State<DirectManagerScreen> {
       padding: const EdgeInsets.only(bottom: 10),
       child: Row(
         children: [
-          Icon(icon, size: 18, color: Colors.grey[500]),
+          Icon(icon, size: 18, color: SboxColors.slate500),
           const SizedBox(width: 10),
           SizedBox(
             width: 110,
             child: Text(
               tr(label),
-              style: TextStyle(fontSize: 13, color: Colors.grey[600]),
+              style: TextStyle(fontSize: 13, color: SboxColors.slate600),
             ),
           ),
           Expanded(

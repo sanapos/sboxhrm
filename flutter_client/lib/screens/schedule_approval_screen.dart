@@ -23,6 +23,7 @@ import 'main_layout.dart';
 import '../utils/staffing_quota_utils.dart';
 import 'package:zkteco_flutter_client/l10n/app_tr.dart';
 
+import '../theme/sbox_tokens.dart';
 // =====================================================
 // DUYỆT LỊCH LÀM VIỆC
 // =====================================================
@@ -386,7 +387,7 @@ class _ScheduleApprovalScreenState extends State<ScheduleApprovalScreen>
   }
 
   Color _getQuotaColor(int count, Map<String, dynamic>? quota, DateTime date) {
-    if (quota == null) return const Color(0xFF71717A);
+    if (quota == null) return SboxColors.slate500;
     return StaffingQuotaUtils.colorForStatus(
       StaffingQuotaUtils.statusForCount(quota, date, count),
     );
@@ -540,7 +541,7 @@ class _ScheduleApprovalScreenState extends State<ScheduleApprovalScreen>
             .canCreate('ShiftSwap');
     final showSwapFab = isMobile && onSwapTab;
     return Scaffold(
-      backgroundColor: const Color(0xFFFAFAFA),
+      backgroundColor: SboxColors.slate50,
       appBar: AppBar(
         backgroundColor: Colors.white,
         elevation: 0,
@@ -553,7 +554,7 @@ class _ScheduleApprovalScreenState extends State<ScheduleApprovalScreen>
             tabAlignment: TabAlignment.start,
             indicatorColor: HrmPageChrome.primaryNavy,
             labelColor: HrmPageChrome.primaryNavy,
-            unselectedLabelColor: const Color(0xFF71717A),
+            unselectedLabelColor: SboxColors.slate500,
             labelStyle:
                 const TextStyle(fontSize: 12, fontWeight: FontWeight.w600),
             unselectedLabelStyle: const TextStyle(fontSize: 12),
@@ -572,7 +573,7 @@ class _ScheduleApprovalScreenState extends State<ScheduleApprovalScreen>
                           horizontal: 6, vertical: 1),
                       decoration: BoxDecoration(
                           color: HrmPageChrome.chipLight,
-                          borderRadius: BorderRadius.circular(8)),
+                          borderRadius: BorderRadius.circular(10)),
                       child: Text(tr('${_getPendingCount()}'),
                           style: const TextStyle(
                               fontSize: 9,
@@ -611,7 +612,7 @@ class _ScheduleApprovalScreenState extends State<ScheduleApprovalScreen>
                           horizontal: 6, vertical: 1),
                       decoration: BoxDecoration(
                           color: HrmPageChrome.chipSoft,
-                          borderRadius: BorderRadius.circular(8)),
+                          borderRadius: BorderRadius.circular(10)),
                       child: Text(tr('$_swapPendingCount'),
                           style: const TextStyle(
                               fontSize: 9,
@@ -722,8 +723,8 @@ class _ScheduleApprovalScreenState extends State<ScheduleApprovalScreen>
           EdgeInsets.symmetric(horizontal: isMobile ? 10 : 16, vertical: 10),
       decoration: BoxDecoration(
         color: Colors.white,
-        borderRadius: BorderRadius.circular(12),
-        border: Border.all(color: const Color(0xFFE4E4E7)),
+        borderRadius: BorderRadius.circular(14),
+        border: Border.all(color: SboxColors.slate200),
       ),
       child: isMobile
           ? Column(children: [
@@ -734,8 +735,8 @@ class _ScheduleApprovalScreenState extends State<ScheduleApprovalScreen>
                   icon: const Icon(Icons.chevron_left, size: 18),
                   label: Text(tr('Trước'), style: TextStyle(fontSize: 12)),
                   style: OutlinedButton.styleFrom(
-                      foregroundColor: const Color(0xFF71717A),
-                      side: const BorderSide(color: Color(0xFFE4E4E7)),
+                      foregroundColor: SboxColors.slate500,
+                      side: const BorderSide(color: SboxColors.slate200),
                       padding: const EdgeInsets.symmetric(
                           horizontal: 8, vertical: 8)),
                 )),
@@ -758,8 +759,8 @@ class _ScheduleApprovalScreenState extends State<ScheduleApprovalScreen>
                   icon: Text(tr('Sau'), style: TextStyle(fontSize: 12)),
                   label: const Icon(Icons.chevron_right, size: 18),
                   style: OutlinedButton.styleFrom(
-                      foregroundColor: const Color(0xFF71717A),
-                      side: const BorderSide(color: Color(0xFFE4E4E7)),
+                      foregroundColor: SboxColors.slate500,
+                      side: const BorderSide(color: SboxColors.slate200),
                       padding: const EdgeInsets.symmetric(
                           horizontal: 8, vertical: 8)),
                 )),
@@ -771,11 +772,11 @@ class _ScheduleApprovalScreenState extends State<ScheduleApprovalScreen>
                   padding:
                       const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
                   decoration: BoxDecoration(
-                      color: const Color(0xFFFFFBEB),
-                      borderRadius: BorderRadius.circular(8)),
+                      color: SboxColors.warningSoft,
+                      borderRadius: BorderRadius.circular(10)),
                   child: Text(tr('Tuần $weekNumber (${dateFormat.format(_selectedWeekStart)} - ${dateFormat.format(weekEnd)})'),
                     style: const TextStyle(
-                        color: Color(0xFF18181B),
+                        color: SboxColors.slate900,
                         fontWeight: FontWeight.w600,
                         fontSize: 13),
                     textAlign: TextAlign.center,
@@ -792,14 +793,14 @@ class _ScheduleApprovalScreenState extends State<ScheduleApprovalScreen>
                   padding:
                       const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
                   decoration: BoxDecoration(
-                    color: const Color(0xFFF8FAFC),
+                    color: SboxColors.slate50,
                     borderRadius: BorderRadius.circular(10),
-                    border: Border.all(color: const Color(0xFFE4E4E7)),
+                    border: Border.all(color: SboxColors.slate200),
                   ),
                   child: Row(
                     children: [
                       const Icon(Icons.account_tree_outlined,
-                          size: 16, color: Color(0xFF6B7280)),
+                          size: 16, color: SboxColors.slate500),
                       const SizedBox(width: 8),
                       Expanded(
                         child: DropdownButtonHideUnderline(
@@ -809,9 +810,9 @@ class _ScheduleApprovalScreenState extends State<ScheduleApprovalScreen>
                             isExpanded: true,
                             isDense: true,
                             style: const TextStyle(
-                                fontSize: 13, color: Color(0xFF111827)),
+                                fontSize: 13, color: SboxColors.slate900),
                             icon: const Icon(Icons.keyboard_arrow_down,
-                                size: 18, color: Color(0xFF9CA3AF)),
+                                size: 18, color: SboxColors.slate400),
                             items: [
                               DropdownMenuItem<String?>(
                                   value: null,
@@ -831,11 +832,11 @@ class _ScheduleApprovalScreenState extends State<ScheduleApprovalScreen>
                       if (_selectedBranchId != null)
                         InkWell(
                           onTap: () => setState(() => _selectedBranchId = null),
-                          borderRadius: BorderRadius.circular(12),
+                          borderRadius: BorderRadius.circular(14),
                           child: const Padding(
                             padding: EdgeInsets.all(4),
                             child: Icon(Icons.close,
-                                size: 14, color: Color(0xFF9CA3AF)),
+                                size: 14, color: SboxColors.slate400),
                           ),
                         ),
                     ],
@@ -853,8 +854,8 @@ class _ScheduleApprovalScreenState extends State<ScheduleApprovalScreen>
                     icon: const Icon(Icons.chevron_left, size: 18),
                     label: Text(tr('Tuần trước')),
                     style: OutlinedButton.styleFrom(
-                        foregroundColor: const Color(0xFF71717A),
-                        side: const BorderSide(color: Color(0xFFE4E4E7)),
+                        foregroundColor: SboxColors.slate500,
+                        side: const BorderSide(color: SboxColors.slate200),
                         padding: const EdgeInsets.symmetric(
                             horizontal: 12, vertical: 8)),
                   ),
@@ -873,8 +874,8 @@ class _ScheduleApprovalScreenState extends State<ScheduleApprovalScreen>
                     icon: Text(tr('Tuần sau')),
                     label: const Icon(Icons.chevron_right, size: 18),
                     style: OutlinedButton.styleFrom(
-                        foregroundColor: const Color(0xFF71717A),
-                        side: const BorderSide(color: Color(0xFFE4E4E7)),
+                        foregroundColor: SboxColors.slate500,
+                        side: const BorderSide(color: SboxColors.slate200),
                         padding: const EdgeInsets.symmetric(
                             horizontal: 12, vertical: 8)),
                   ),
@@ -882,11 +883,11 @@ class _ScheduleApprovalScreenState extends State<ScheduleApprovalScreen>
                     padding:
                         const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
                     decoration: BoxDecoration(
-                        color: const Color(0xFFFFFBEB),
-                        borderRadius: BorderRadius.circular(8)),
+                        color: SboxColors.warningSoft,
+                        borderRadius: BorderRadius.circular(10)),
                     child: Text(tr('Tuần $weekNumber (${dateFormat.format(_selectedWeekStart)} - ${dateFormat.format(weekEnd)})'),
                       style: const TextStyle(
-                          color: Color(0xFF18181B),
+                          color: SboxColors.slate900,
                           fontWeight: FontWeight.w600,
                           fontSize: 13),
                     ),
@@ -900,13 +901,13 @@ class _ScheduleApprovalScreenState extends State<ScheduleApprovalScreen>
                         padding: const EdgeInsets.symmetric(
                             horizontal: 10, vertical: 6),
                         decoration: BoxDecoration(
-                          color: const Color(0xFFF8FAFC),
+                          color: SboxColors.slate50,
                           borderRadius: BorderRadius.circular(10),
-                          border: Border.all(color: const Color(0xFFE4E4E7)),
+                          border: Border.all(color: SboxColors.slate200),
                         ),
                         child: Row(children: [
                           const Icon(Icons.account_tree_outlined,
-                              size: 14, color: Color(0xFF6B7280)),
+                              size: 14, color: SboxColors.slate500),
                           const SizedBox(width: 6),
                           Expanded(
                             child: DropdownButtonHideUnderline(
@@ -916,9 +917,9 @@ class _ScheduleApprovalScreenState extends State<ScheduleApprovalScreen>
                                 isExpanded: true,
                                 isDense: true,
                                 style: const TextStyle(
-                                    fontSize: 12, color: Color(0xFF111827)),
+                                    fontSize: 12, color: SboxColors.slate900),
                                 icon: const Icon(Icons.keyboard_arrow_down,
-                                    size: 16, color: Color(0xFF9CA3AF)),
+                                    size: 16, color: SboxColors.slate400),
                                 items: [
                                   DropdownMenuItem<String?>(
                                       value: null,
@@ -942,11 +943,11 @@ class _ScheduleApprovalScreenState extends State<ScheduleApprovalScreen>
                             InkWell(
                               onTap: () =>
                                   setState(() => _selectedBranchId = null),
-                              borderRadius: BorderRadius.circular(12),
+                              borderRadius: BorderRadius.circular(14),
                               child: const Padding(
                                 padding: EdgeInsets.all(2),
                                 child: Icon(Icons.close,
-                                    size: 13, color: Color(0xFF9CA3AF)),
+                                    size: 13, color: SboxColors.slate400),
                               ),
                             ),
                         ]),
@@ -964,19 +965,19 @@ class _ScheduleApprovalScreenState extends State<ScheduleApprovalScreen>
       decoration: InputDecoration(
         contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
         border: OutlineInputBorder(
-            borderRadius: BorderRadius.circular(8),
-            borderSide: const BorderSide(color: Color(0xFFE4E4E7))),
+            borderRadius: BorderRadius.circular(10),
+            borderSide: const BorderSide(color: SboxColors.slate200)),
         enabledBorder: OutlineInputBorder(
-            borderRadius: BorderRadius.circular(8),
-            borderSide: const BorderSide(color: Color(0xFFE4E4E7))),
+            borderRadius: BorderRadius.circular(10),
+            borderSide: const BorderSide(color: SboxColors.slate200)),
         filled: true,
-        fillColor: const Color(0xFFFAFAFA),
+        fillColor: SboxColors.slate50,
         prefixIcon:
             const Icon(Icons.filter_list, size: 18, color: HrmPageChrome.chipLight),
         isDense: true,
       ),
       hint: Text(tr('Tất cả'), style: TextStyle(fontSize: 13)),
-      style: const TextStyle(color: Color(0xFF18181B), fontSize: 13),
+      style: const TextStyle(color: SboxColors.slate900, fontSize: 13),
       items: [
         DropdownMenuItem<String>(value: null, child: Text(tr('Tất cả'))),
         DropdownMenuItem<String>(value: 'Pending', child: Text(tr('Chờ duyệt'))),
@@ -1023,10 +1024,10 @@ class _ScheduleApprovalScreenState extends State<ScheduleApprovalScreen>
         gradient: LinearGradient(
           colors: [
             HrmPageChrome.chipLight.withValues(alpha: 0.12),
-            const Color(0xFFFEF3C7).withValues(alpha: 0.5),
+            SboxColors.warningSoft.withValues(alpha: 0.5),
           ],
         ),
-        borderRadius: BorderRadius.circular(12),
+        borderRadius: BorderRadius.circular(14),
         border: Border.all(color: HrmPageChrome.chipLight.withValues(alpha: 0.35)),
       ),
       child: Row(
@@ -1041,11 +1042,11 @@ class _ScheduleApprovalScreenState extends State<ScheduleApprovalScreen>
                   style: const TextStyle(
                     fontWeight: FontWeight.bold,
                     fontSize: 14,
-                    color: Color(0xFF92400E),
+                    color: SboxColors.warningText,
                   ),
                 ),
                 Text(tr('${tr('Tuần ')}${_getWeekNumber(_selectedWeekStart)} · ${DateFormat('dd/MM').format(_selectedWeekStart)} – ${DateFormat('dd/MM').format(_selectedWeekStart.add(const Duration(days: 6)))}'),
-                  style: const TextStyle(fontSize: 11, color: Color(0xFFB45309)),
+                  style: const TextStyle(fontSize: 11, color: SboxColors.warningText),
                 ),
               ],
             ),
@@ -1091,7 +1092,7 @@ class _ScheduleApprovalScreenState extends State<ScheduleApprovalScreen>
                   style: const TextStyle(
                     fontWeight: FontWeight.w700,
                     fontSize: 13,
-                    color: Color(0xFF18181B),
+                    color: SboxColors.slate900,
                   ),
                 ),
               ),
@@ -1100,7 +1101,7 @@ class _ScheduleApprovalScreenState extends State<ScheduleApprovalScreen>
                     const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
                 decoration: BoxDecoration(
                   color: HrmPageChrome.chipLight.withValues(alpha: 0.15),
-                  borderRadius: BorderRadius.circular(8),
+                  borderRadius: BorderRadius.circular(10),
                 ),
                 child: Text(
                   tr('${regs.length}'),
@@ -1145,8 +1146,8 @@ class _ScheduleApprovalScreenState extends State<ScheduleApprovalScreen>
       margin: const EdgeInsets.only(bottom: 8),
       decoration: BoxDecoration(
         color: Colors.white,
-        borderRadius: BorderRadius.circular(12),
-        border: Border.all(color: const Color(0xFFE4E4E7)),
+        borderRadius: BorderRadius.circular(14),
+        border: Border.all(color: SboxColors.slate200),
         boxShadow: [
           BoxShadow(
             color: Colors.black.withValues(alpha: 0.03),
@@ -1184,7 +1185,7 @@ class _ScheduleApprovalScreenState extends State<ScheduleApprovalScreen>
                     style: const TextStyle(
                       fontWeight: FontWeight.w700,
                       fontSize: 14,
-                      color: Color(0xFF18181B),
+                      color: SboxColors.slate900,
                     ),
                   ),
                   const SizedBox(height: 4),
@@ -1197,7 +1198,7 @@ class _ScheduleApprovalScreenState extends State<ScheduleApprovalScreen>
                         reg.isDayOff ? Icons.beach_access : Icons.schedule,
                         shiftLabel,
                         accent: reg.isDayOff
-                            ? const Color(0xFFEF4444)
+                            ? SboxColors.danger
                             : HrmPageChrome.primaryNavy,
                       ),
                       _pendingMetaChip(Icons.calendar_today, dateLabel),
@@ -1209,7 +1210,7 @@ class _ScheduleApprovalScreenState extends State<ScheduleApprovalScreen>
                       tr(reg.note!.trim()),
                       style: const TextStyle(
                         fontSize: 12,
-                        color: Color(0xFF71717A),
+                        color: SboxColors.slate500,
                         fontStyle: FontStyle.italic,
                       ),
                       maxLines: 2,
@@ -1223,7 +1224,7 @@ class _ScheduleApprovalScreenState extends State<ScheduleApprovalScreen>
                       tr(employee.department!),
                       style: const TextStyle(
                         fontSize: 11,
-                        color: Color(0xFFA1A1AA),
+                        color: SboxColors.slate400,
                       ),
                     ),
                   ],
@@ -1236,14 +1237,14 @@ class _ScheduleApprovalScreenState extends State<ScheduleApprovalScreen>
                 children: [
                   _pendingActionBtn(
                     icon: Icons.check_rounded,
-                    color: const Color(0xFF22C55E),
+                    color: SboxColors.success,
                     tooltip: tr('Duyệt'),
                     onTap: () => _approveRegistration(reg.id),
                   ),
                   const SizedBox(height: 6),
                   _pendingActionBtn(
                     icon: Icons.close_rounded,
-                    color: const Color(0xFFEF4444),
+                    color: SboxColors.danger,
                     tooltip: tr('Từ chối'),
                     onTap: () => _rejectRegistration(reg.id),
                   ),
@@ -1257,7 +1258,7 @@ class _ScheduleApprovalScreenState extends State<ScheduleApprovalScreen>
   }
 
   Widget _pendingMetaChip(IconData icon, String label, {Color? accent}) {
-    final c = accent ?? const Color(0xFF71717A);
+    final c = accent ?? SboxColors.slate500;
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
       decoration: BoxDecoration(
@@ -1288,10 +1289,10 @@ class _ScheduleApprovalScreenState extends State<ScheduleApprovalScreen>
       message: tooltip,
       child: Material(
         color: color,
-        borderRadius: BorderRadius.circular(8),
+        borderRadius: BorderRadius.circular(10),
         child: InkWell(
           onTap: onTap,
-          borderRadius: BorderRadius.circular(8),
+          borderRadius: BorderRadius.circular(10),
           child: SizedBox(
             width: 36,
             height: 36,
@@ -1330,7 +1331,7 @@ class _ScheduleApprovalScreenState extends State<ScheduleApprovalScreen>
             padding: const EdgeInsets.fromLTRB(16, 0, 16, 4),
             child: DecoratedBox(
               decoration: BoxDecoration(
-                color: const Color(0xFFFFF7ED),
+                color: SboxColors.warningSoft,
                 borderRadius: BorderRadius.circular(10),
                 border: Border.all(color: const Color(0xFFFED7AA)),
               ),
@@ -1349,7 +1350,7 @@ class _ScheduleApprovalScreenState extends State<ScheduleApprovalScreen>
                         child: Text(tr('$pendingCount đăng ký chờ duyệt — chuyển sang tab Chờ duyệt để xử lý nhanh'),
                           style: const TextStyle(
                             fontSize: 12,
-                            color: Color(0xFF92400E),
+                            color: SboxColors.warningText,
                           ),
                         ),
                       ),
@@ -1411,8 +1412,8 @@ class _ScheduleApprovalScreenState extends State<ScheduleApprovalScreen>
       margin: const EdgeInsets.only(bottom: 10),
       decoration: BoxDecoration(
         color: Colors.white,
-        borderRadius: BorderRadius.circular(12),
-        border: Border.all(color: const Color(0xFFE4E4E7)),
+        borderRadius: BorderRadius.circular(14),
+        border: Border.all(color: SboxColors.slate200),
       ),
       child: Theme(
         data: Theme.of(context).copyWith(dividerColor: Colors.transparent),
@@ -1425,7 +1426,7 @@ class _ScheduleApprovalScreenState extends State<ScheduleApprovalScreen>
             padding: const EdgeInsets.all(8),
             decoration: BoxDecoration(
               color: HrmPageChrome.primaryNavy,
-              borderRadius: BorderRadius.circular(8),
+              borderRadius: BorderRadius.circular(10),
             ),
             child: const Icon(Icons.schedule, color: Colors.white, size: 18),
           ),
@@ -1433,8 +1434,8 @@ class _ScheduleApprovalScreenState extends State<ScheduleApprovalScreen>
             tr(shift.name),
             style: const TextStyle(
               fontWeight: FontWeight.bold,
-              fontSize: 15,
-              color: Color(0xFF18181B),
+              fontSize: 16,
+              color: SboxColors.slate900,
             ),
           ),
           subtitle: Padding(
@@ -1446,7 +1447,7 @@ class _ScheduleApprovalScreenState extends State<ScheduleApprovalScreen>
               children: [
                 Text(
                   tr('${_formatTime(shift.startTime)} – ${_formatTime(shift.endTime)}'),
-                  style: const TextStyle(fontSize: 12, color: Color(0xFF71717A)),
+                  style: const TextStyle(fontSize: 12, color: SboxColors.slate500),
                 ),
                 if (allPending.isNotEmpty)
                   _buildCountBadge(
@@ -1465,7 +1466,7 @@ class _ScheduleApprovalScreenState extends State<ScheduleApprovalScreen>
                     constraints: const BoxConstraints(
                         minWidth: 32, minHeight: 32),
                     icon: const Icon(Icons.more_horiz,
-                        size: 20, color: Color(0xFF71717A)),
+                        size: 20, color: SboxColors.slate500),
                     onPressed: () => _showShiftActionsSheet(
                       allPending: allPending,
                       allProcessed: allProcessed,
@@ -1523,7 +1524,7 @@ class _ScheduleApprovalScreenState extends State<ScheduleApprovalScreen>
               ),
               ListTile(
                 leading:
-                    const Icon(Icons.close, color: Color(0xFFEF4444)),
+                    const Icon(Icons.close, color: SboxColors.danger),
                 title: Text(tr('Từ chối tất cả')),
                 onTap: () {
                   Navigator.pop(ctx);
@@ -1543,7 +1544,7 @@ class _ScheduleApprovalScreenState extends State<ScheduleApprovalScreen>
             if (_canDelete && allForShift.isNotEmpty)
               ListTile(
                 leading: const Icon(Icons.delete_outline,
-                    color: Color(0xFFEF4444)),
+                    color: SboxColors.danger),
                 title: Text(tr('Xóa tất cả đăng ký')),
                 onTap: () {
                   Navigator.pop(ctx);
@@ -1568,23 +1569,23 @@ class _ScheduleApprovalScreenState extends State<ScheduleApprovalScreen>
       margin: const EdgeInsets.only(bottom: 12),
       decoration: BoxDecoration(
         color: Colors.white,
-        borderRadius: BorderRadius.circular(12),
-        border: Border.all(color: const Color(0xFFE4E4E7)),
+        borderRadius: BorderRadius.circular(14),
+        border: Border.all(color: SboxColors.slate200),
       ),
       child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
         Container(
           padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
           decoration: const BoxDecoration(
-            color: Color(0xFFFEF3C7),
+            color: SboxColors.warningSoft,
             borderRadius: BorderRadius.vertical(top: Radius.circular(12)),
-            border: Border(bottom: BorderSide(color: Color(0xFFE4E4E7))),
+            border: Border(bottom: BorderSide(color: SboxColors.slate200)),
           ),
           child: Row(children: [
             Container(
               padding: const EdgeInsets.all(6),
               decoration: BoxDecoration(
                   color: HrmPageChrome.chipLight,
-                  borderRadius: BorderRadius.circular(8)),
+                  borderRadius: BorderRadius.circular(10)),
               child:
                   const Icon(Icons.beach_access, color: Colors.white, size: 18),
             ),
@@ -1621,7 +1622,7 @@ class _ScheduleApprovalScreenState extends State<ScheduleApprovalScreen>
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 8),
       decoration: const BoxDecoration(
-          border: Border(bottom: BorderSide(color: Color(0xFFF4F4F5)))),
+          border: Border(bottom: BorderSide(color: SboxColors.slate100))),
       child: Row(
         children: List.generate(7, (i) {
           final day = days[i];
@@ -1641,8 +1642,8 @@ class _ScheduleApprovalScreenState extends State<ScheduleApprovalScreen>
             dotColor = _getQuotaColor(total, quota, day);
           } else {
             dotColor = scheduled > 0
-                ? const Color(0xFF22C55E)
-                : const Color(0xFFE4E4E7);
+                ? SboxColors.success
+                : SboxColors.slate200;
           }
 
           return Expanded(
@@ -1653,7 +1654,7 @@ class _ScheduleApprovalScreenState extends State<ScheduleApprovalScreen>
                 color: isToday
                     ? HrmPageChrome.primaryNavy.withValues(alpha: 0.08)
                     : dotColor.withValues(alpha: 0.08),
-                borderRadius: BorderRadius.circular(8),
+                borderRadius: BorderRadius.circular(10),
                 border: Border.all(
                   color: isToday
                       ? HrmPageChrome.primaryNavy.withValues(alpha: 0.4)
@@ -1669,15 +1670,15 @@ class _ScheduleApprovalScreenState extends State<ScheduleApprovalScreen>
                       color: isToday
                           ? HrmPageChrome.primaryNavy
                           : isSunday
-                              ? const Color(0xFFEF4444)
-                              : const Color(0xFF71717A),
+                              ? SboxColors.danger
+                              : SboxColors.slate500,
                     )),
                 Text(tr(dateFormat.format(day)),
                     style: TextStyle(
                         fontSize: 9,
                         color: isToday
                             ? HrmPageChrome.primaryNavy
-                            : const Color(0xFFA1A1AA))),
+                            : SboxColors.slate400)),
                 const SizedBox(height: 4),
                 Text(
                   tr(quota != null && maxForDay > 0
@@ -1696,7 +1697,7 @@ class _ScheduleApprovalScreenState extends State<ScheduleApprovalScreen>
                       height: 4,
                       child: LinearProgressIndicator(
                         value: (total / maxForDay).clamp(0.0, 1.0),
-                        backgroundColor: Colors.grey.shade200,
+                        backgroundColor: SboxColors.slate200,
                         valueColor: AlwaysStoppedAnimation(dotColor),
                       ),
                     ),
@@ -1757,7 +1758,7 @@ class _ScheduleApprovalScreenState extends State<ScheduleApprovalScreen>
 
       widgets.add(Container(
         decoration: BoxDecoration(
-          border: const Border(bottom: BorderSide(color: Color(0xFFF4F4F5))),
+          border: const Border(bottom: BorderSide(color: SboxColors.slate100)),
           color:
               isToday ? HrmPageChrome.primaryNavy.withValues(alpha: 0.03) : null,
         ),
@@ -1768,9 +1769,9 @@ class _ScheduleApprovalScreenState extends State<ScheduleApprovalScreen>
             decoration: BoxDecoration(
               color: isToday
                   ? HrmPageChrome.primaryNavy.withValues(alpha: 0.05)
-                  : const Color(0xFFF8FAFC),
+                  : SboxColors.slate50,
               border:
-                  const Border(bottom: BorderSide(color: Color(0xFFF4F4F5))),
+                  const Border(bottom: BorderSide(color: SboxColors.slate100)),
             ),
             child: Row(children: [
               Text(tr('${dayNames[i]} ${dateFormat.format(day)}'),
@@ -1779,7 +1780,7 @@ class _ScheduleApprovalScreenState extends State<ScheduleApprovalScreen>
                     fontWeight: FontWeight.w600,
                     color: isToday
                         ? HrmPageChrome.primaryNavy
-                        : const Color(0xFF18181B),
+                        : SboxColors.slate900,
                   )),
               const Spacer(),
               if (quota != null && maxForDay > 0) ...[
@@ -1815,16 +1816,16 @@ class _ScheduleApprovalScreenState extends State<ScheduleApprovalScreen>
             Container(
               width: double.infinity,
               padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
-              color: const Color(0xFFEF4444).withValues(alpha: 0.08),
+              color: SboxColors.danger.withValues(alpha: 0.08),
               child: Row(children: [
                 const Icon(Icons.warning_amber_rounded,
-                    size: 14, color: Color(0xFFEF4444)),
+                    size: 14, color: SboxColors.danger),
                 const SizedBox(width: 6),
                 Expanded(
                     child: Text(tr('Nếu duyệt hết: $projected/$maxEmp → vượt ${projected - maxEmp} người'),
                   style: const TextStyle(
                       fontSize: 11,
-                      color: Color(0xFFEF4444),
+                      color: SboxColors.danger,
                       fontWeight: FontWeight.w500),
                 )),
               ]),
@@ -1864,14 +1865,14 @@ class _ScheduleApprovalScreenState extends State<ScheduleApprovalScreen>
     String statusLabel;
     switch (reg.status) {
       case ScheduleRegistrationStatus.approved:
-        statusBg = const Color(0xFF22C55E).withValues(alpha: 0.08);
-        statusText = const Color(0xFF22C55E);
+        statusBg = SboxColors.success.withValues(alpha: 0.08);
+        statusText = SboxColors.success;
         statusIcon = Icons.check_circle;
         statusLabel = 'Đã duyệt';
         break;
       case ScheduleRegistrationStatus.rejected:
-        statusBg = const Color(0xFFEF4444).withValues(alpha: 0.08);
-        statusText = const Color(0xFFEF4444);
+        statusBg = SboxColors.danger.withValues(alpha: 0.08);
+        statusText = SboxColors.danger;
         statusIcon = Icons.cancel;
         statusLabel = 'Từ chối';
         break;
@@ -1885,7 +1886,7 @@ class _ScheduleApprovalScreenState extends State<ScheduleApprovalScreen>
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
       decoration: const BoxDecoration(
-          border: Border(bottom: BorderSide(color: Color(0xFFF4F4F5)))),
+          border: Border(bottom: BorderSide(color: SboxColors.slate100))),
       child: Row(children: [
         CircleAvatar(
           radius: 14,
@@ -1906,15 +1907,15 @@ class _ScheduleApprovalScreenState extends State<ScheduleApprovalScreen>
               style: const TextStyle(
                   fontSize: 13,
                   fontWeight: FontWeight.w600,
-                  color: Color(0xFF18181B))),
+                  color: SboxColors.slate900)),
           Row(children: [
             Text(tr(employee.employeeCode),
-                style: const TextStyle(fontSize: 11, color: Color(0xFFA1A1AA))),
+                style: const TextStyle(fontSize: 11, color: SboxColors.slate400)),
             if (reg.isDayOff) ...[
               const SizedBox(width: 6),
               Text(tr('• $dateStr'),
                   style:
-                      const TextStyle(fontSize: 11, color: Color(0xFF71717A))),
+                      const TextStyle(fontSize: 11, color: SboxColors.slate500)),
             ],
             if (reg.note != null && reg.note!.isNotEmpty) ...[
               const SizedBox(width: 6),
@@ -1922,7 +1923,7 @@ class _ScheduleApprovalScreenState extends State<ScheduleApprovalScreen>
                   child: Text(tr('• ${reg.note}'),
                       style: const TextStyle(
                           fontSize: 11,
-                          color: Color(0xFFA1A1AA),
+                          color: SboxColors.slate400,
                           fontStyle: FontStyle.italic),
                       maxLines: 1,
                       overflow: TextOverflow.ellipsis)),
@@ -1933,15 +1934,15 @@ class _ScheduleApprovalScreenState extends State<ScheduleApprovalScreen>
         if (reg.status == ScheduleRegistrationStatus.pending)
           Row(mainAxisSize: MainAxisSize.min, children: [
             if (_canApprove) ...[
-              _actionIcon(Icons.check, const Color(0xFF22C55E),
+              _actionIcon(Icons.check, SboxColors.success,
                   () => _approveRegistration(reg.id), 'Duyệt'),
               const SizedBox(width: 5),
-              _actionIcon(Icons.close, const Color(0xFFEF4444),
+              _actionIcon(Icons.close, SboxColors.danger,
                   () => _rejectRegistration(reg.id), 'Từ chối'),
             ],
             if (_canDelete) ...[
               const SizedBox(width: 5),
-              _actionIcon(Icons.delete_outline, const Color(0xFF71717A),
+              _actionIcon(Icons.delete_outline, SboxColors.slate500,
                   () => _deleteRegistration(reg.id), 'Xóa'),
             ],
           ])
@@ -1968,7 +1969,7 @@ class _ScheduleApprovalScreenState extends State<ScheduleApprovalScreen>
             ],
             if (_canDelete) ...[
               const SizedBox(width: 5),
-              _actionIcon(Icons.delete_outline, const Color(0xFFEF4444),
+              _actionIcon(Icons.delete_outline, SboxColors.danger,
                   () => _deleteRegistration(reg.id), 'Xóa')
             ],
           ]),
@@ -2012,9 +2013,9 @@ class _ScheduleApprovalScreenState extends State<ScheduleApprovalScreen>
       padding: const EdgeInsets.all(8),
       child: Table(
         border: TableBorder.all(
-            color: const Color(0xFFE4E4E7),
+            color: SboxColors.slate200,
             width: 1,
-            borderRadius: BorderRadius.circular(8)),
+            borderRadius: BorderRadius.circular(10)),
         columnWidths: {
           0: const FlexColumnWidth(2.2),
           for (int i = 1; i <= 7; i++) i: const FlexColumnWidth(1),
@@ -2023,7 +2024,7 @@ class _ScheduleApprovalScreenState extends State<ScheduleApprovalScreen>
         children: [
           // HEADER ROW with quota indicators
           TableRow(
-            decoration: const BoxDecoration(color: Color(0xFFF1F5F9)),
+            decoration: const BoxDecoration(color: SboxColors.slate100),
             children: [
               _buildTableHeaderCell('NHÂN VIÊN'),
               ...List.generate(7, (i) {
@@ -2040,7 +2041,7 @@ class _ScheduleApprovalScreenState extends State<ScheduleApprovalScreen>
                     : (0, 0);
                 final qColor = quota != null
                     ? _getQuotaColor(total, quota, day)
-                    : const Color(0xFF71717A);
+                    : SboxColors.slate500;
 
                 return TableCell(
                     child: Container(
@@ -2061,14 +2062,14 @@ class _ScheduleApprovalScreenState extends State<ScheduleApprovalScreen>
                                 color: isToday
                                     ? HrmPageChrome.primaryNavy
                                     : isSunday
-                                        ? const Color(0xFFEF4444)
-                                        : const Color(0xFF71717A))),
+                                        ? SboxColors.danger
+                                        : SboxColors.slate500)),
                         Text(tr(dateFormat.format(day)),
                             style: TextStyle(
                                 fontSize: 9,
                                 color: isToday
                                     ? HrmPageChrome.primaryNavy
-                                    : const Color(0xFFA1A1AA))),
+                                    : SboxColors.slate400)),
                         const SizedBox(height: 4),
                         // Quota chip
                         Container(
@@ -2164,7 +2165,7 @@ class _ScheduleApprovalScreenState extends State<ScheduleApprovalScreen>
                           style: const TextStyle(
                               fontSize: 11,
                               fontWeight: FontWeight.bold,
-                              color: Color(0xFF22C55E))),
+                              color: SboxColors.success)),
                     if (pendingCount > 0)
                       Text(tr('$pendingCount⏳'),
                           style: const TextStyle(
@@ -2174,7 +2175,7 @@ class _ScheduleApprovalScreenState extends State<ScheduleApprovalScreen>
                     if (approvedCount == 0 && pendingCount == 0)
                       Text(tr('-'),
                           style: TextStyle(
-                              fontSize: 11, color: Color(0xFFA1A1AA))),
+                              fontSize: 11, color: SboxColors.slate400)),
                   ]),
                 ),
               ),
@@ -2194,7 +2195,7 @@ class _ScheduleApprovalScreenState extends State<ScheduleApprovalScreen>
           style: const TextStyle(
               fontSize: 11,
               fontWeight: FontWeight.bold,
-              color: Color(0xFF71717A))),
+              color: SboxColors.slate500)),
     ));
   }
 
@@ -2222,13 +2223,13 @@ class _ScheduleApprovalScreenState extends State<ScheduleApprovalScreen>
                   children: [
                 Text(tr(employee.fullName),
                     style: const TextStyle(
-                        color: Color(0xFF18181B),
+                        color: SboxColors.slate900,
                         fontWeight: FontWeight.w600,
                         fontSize: 12),
                     overflow: TextOverflow.ellipsis),
                 Text(tr(employee.employeeCode),
                     style: const TextStyle(
-                        color: Color(0xFFA1A1AA), fontSize: 10)),
+                        color: SboxColors.slate400, fontSize: 10)),
               ])),
         ]),
       ),
@@ -2247,14 +2248,14 @@ class _ScheduleApprovalScreenState extends State<ScheduleApprovalScreen>
     String tooltip;
     switch (reg.status) {
       case ScheduleRegistrationStatus.approved:
-        bgColor = const Color(0xFF22C55E).withValues(alpha: 0.08);
-        statusColor = const Color(0xFF22C55E);
+        bgColor = SboxColors.success.withValues(alpha: 0.08);
+        statusColor = SboxColors.success;
         statusIcon = Icons.check_circle;
         tooltip = 'Đã duyệt';
         break;
       case ScheduleRegistrationStatus.rejected:
-        bgColor = const Color(0xFFEF4444).withValues(alpha: 0.08);
-        statusColor = const Color(0xFFEF4444);
+        bgColor = SboxColors.danger.withValues(alpha: 0.08);
+        statusColor = SboxColors.danger;
         statusIcon = Icons.cancel;
         tooltip = 'Từ chối';
         break;
@@ -2284,7 +2285,7 @@ class _ScheduleApprovalScreenState extends State<ScheduleApprovalScreen>
                               child: Container(
                                   padding: const EdgeInsets.all(4),
                                   decoration: BoxDecoration(
-                                      color: const Color(0xFF22C55E),
+                                      color: SboxColors.success,
                                       borderRadius: BorderRadius.circular(4)),
                                   child: const Icon(Icons.check,
                                       color: Colors.white, size: 14)))),
@@ -2297,7 +2298,7 @@ class _ScheduleApprovalScreenState extends State<ScheduleApprovalScreen>
                               child: Container(
                                   padding: const EdgeInsets.all(4),
                                   decoration: BoxDecoration(
-                                      color: const Color(0xFFEF4444),
+                                      color: SboxColors.danger,
                                       borderRadius: BorderRadius.circular(4)),
                                   child: const Icon(Icons.close,
                                       color: Colors.white, size: 14)))),
@@ -2312,7 +2313,7 @@ class _ScheduleApprovalScreenState extends State<ScheduleApprovalScreen>
                               child: Container(
                                   padding: const EdgeInsets.all(4),
                                   decoration: BoxDecoration(
-                                      color: const Color(0xFF71717A),
+                                      color: SboxColors.slate500,
                                       borderRadius: BorderRadius.circular(4)),
                                   child: const Icon(Icons.delete_outline,
                                       color: Colors.white, size: 14)))),
@@ -2350,7 +2351,7 @@ class _ScheduleApprovalScreenState extends State<ScheduleApprovalScreen>
                               child: Container(
                                   padding: const EdgeInsets.all(3),
                                   decoration: BoxDecoration(
-                                      color: const Color(0xFFEF4444),
+                                      color: SboxColors.danger,
                                       borderRadius: BorderRadius.circular(4)),
                                   child: const Icon(Icons.delete_outline,
                                       color: Colors.white, size: 12)))),
@@ -2430,9 +2431,9 @@ class _ScheduleApprovalScreenState extends State<ScheduleApprovalScreen>
       margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 4),
       decoration: BoxDecoration(
         color: Colors.white,
-        borderRadius: BorderRadius.circular(12),
+        borderRadius: BorderRadius.circular(14),
         border:
-            Border.all(color: const Color(0xFFEF4444).withValues(alpha: 0.3)),
+            Border.all(color: SboxColors.danger.withValues(alpha: 0.3)),
         boxShadow: [
           BoxShadow(
               color: Colors.black.withValues(alpha: 0.04),
@@ -2445,17 +2446,17 @@ class _ScheduleApprovalScreenState extends State<ScheduleApprovalScreen>
         Container(
           padding: EdgeInsets.all(isMobile ? 12 : 16),
           decoration: const BoxDecoration(
-            color: Color(0xFFFEF2F2),
+            color: SboxColors.dangerSoft,
             borderRadius: BorderRadius.vertical(top: Radius.circular(12)),
           ),
           child: Row(children: [
             Container(
               padding: const EdgeInsets.all(8),
               decoration: BoxDecoration(
-                  color: const Color(0xFFEF4444).withValues(alpha: 0.15),
-                  borderRadius: BorderRadius.circular(8)),
+                  color: SboxColors.danger.withValues(alpha: 0.15),
+                  borderRadius: BorderRadius.circular(10)),
               child: const Icon(Icons.warning_amber_rounded,
-                  color: Color(0xFFEF4444), size: 20),
+                  color: SboxColors.danger, size: 20),
             ),
             const SizedBox(width: 10),
             Expanded(
@@ -2466,10 +2467,10 @@ class _ScheduleApprovalScreenState extends State<ScheduleApprovalScreen>
                       style: const TextStyle(
                           fontWeight: FontWeight.w700,
                           fontSize: 14,
-                          color: Color(0xFFEF4444))),
+                          color: SboxColors.danger)),
                   Text(tr('Tuần ${dateFormat.format(_selectedWeekStart)} - ${dateFormat.format(weekEnd)}'),
                       style: const TextStyle(
-                          fontSize: 11, color: Color(0xFF71717A))),
+                          fontSize: 11, color: SboxColors.slate500)),
                 ])),
             FilledButton.icon(
               onPressed: () => _sendReminderToAll(unregistered),
@@ -2477,7 +2478,7 @@ class _ScheduleApprovalScreenState extends State<ScheduleApprovalScreen>
               label: Text(tr(isMobile ? 'Nhắc tất cả' : 'Gửi nhắc nhở tất cả'),
                   style: const TextStyle(fontSize: 12)),
               style: ElevatedButton.styleFrom(
-                backgroundColor: const Color(0xFFEF4444),
+                backgroundColor: SboxColors.danger,
                 foregroundColor: Colors.white,
                 padding:
                     const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
@@ -2506,19 +2507,19 @@ class _ScheduleApprovalScreenState extends State<ScheduleApprovalScreen>
       child: Container(
         padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
         decoration: BoxDecoration(
-          color: const Color(0xFFFEF2F2),
+          color: SboxColors.dangerSoft,
           borderRadius: BorderRadius.circular(20),
           border:
-              Border.all(color: const Color(0xFFEF4444).withValues(alpha: 0.3)),
+              Border.all(color: SboxColors.danger.withValues(alpha: 0.3)),
         ),
         child: Row(mainAxisSize: MainAxisSize.min, children: [
           CircleAvatar(
             radius: 12,
-            backgroundColor: const Color(0xFFEF4444).withValues(alpha: 0.15),
+            backgroundColor: SboxColors.danger.withValues(alpha: 0.15),
             child: Text(
               tr(emp.firstName.isNotEmpty ? emp.firstName[0].toUpperCase() : '?'),
               style: const TextStyle(
-                  color: Color(0xFFEF4444),
+                  color: SboxColors.danger,
                   fontWeight: FontWeight.bold,
                   fontSize: 10),
             ),
@@ -2528,10 +2529,10 @@ class _ScheduleApprovalScreenState extends State<ScheduleApprovalScreen>
               style: const TextStyle(
                   fontSize: 12,
                   fontWeight: FontWeight.w500,
-                  color: Color(0xFF18181B))),
+                  color: SboxColors.slate900)),
           const SizedBox(width: 4),
           const Icon(Icons.notifications_none,
-              size: 14, color: Color(0xFFEF4444)),
+              size: 14, color: SboxColors.danger),
         ]),
       ),
     );
@@ -2543,7 +2544,7 @@ class _ScheduleApprovalScreenState extends State<ScheduleApprovalScreen>
       'Gửi nhắc nhở',
       'Gửi thông báo nhắc nhở đăng ký lịch đến ${employees.length} nhân viên?',
       'Gửi nhắc nhở',
-      const Color(0xFFEF4444),
+      SboxColors.danger,
     );
     if (confirmed != true) return;
 
@@ -2580,7 +2581,7 @@ class _ScheduleApprovalScreenState extends State<ScheduleApprovalScreen>
       'Gửi nhắc nhở',
       'Gửi thông báo nhắc nhở đăng ký lịch đến ${emp.fullName}?',
       'Gửi',
-      const Color(0xFFEF4444),
+      SboxColors.danger,
     );
     if (confirmed != true) return;
 
@@ -2641,7 +2642,7 @@ class _ScheduleApprovalScreenState extends State<ScheduleApprovalScreen>
       decoration: BoxDecoration(
         gradient: const LinearGradient(
             colors: [HrmPageChrome.primaryNavy, Color(0xFF2D5986)]),
-        borderRadius: BorderRadius.circular(12),
+        borderRadius: BorderRadius.circular(14),
         boxShadow: [
           BoxShadow(
               color: HrmPageChrome.primaryNavy.withValues(alpha: 0.2),
@@ -2654,16 +2655,16 @@ class _ScheduleApprovalScreenState extends State<ScheduleApprovalScreen>
           // Top row: key metrics
           Row(children: [
             _statBox('Tổng ĐK', '$totalRegs', Colors.white),
-            _statBox('Đã duyệt', '$totalApproved', const Color(0xFF22C55E)),
+            _statBox('Đã duyệt', '$totalApproved', SboxColors.success),
             _statBox('Chờ duyệt', '$totalPending', HrmPageChrome.chipLight),
-            _statBox('Từ chối', '$totalRejected', const Color(0xFFEF4444)),
+            _statBox('Từ chối', '$totalRejected', SboxColors.danger),
           ]),
           const SizedBox(height: 12),
           Container(
             padding: const EdgeInsets.all(10),
             decoration: BoxDecoration(
               color: Colors.white.withValues(alpha: 0.1),
-              borderRadius: BorderRadius.circular(8),
+              borderRadius: BorderRadius.circular(10),
             ),
             child: isMobile
                 ? Column(
@@ -2690,7 +2691,7 @@ class _ScheduleApprovalScreenState extends State<ScheduleApprovalScreen>
                               padding: const EdgeInsets.symmetric(
                                   horizontal: 8, vertical: 3),
                               decoration: BoxDecoration(
-                                  color: const Color(0xFFEF4444)
+                                  color: SboxColors.danger
                                       .withValues(alpha: 0.3),
                                   borderRadius: BorderRadius.circular(6)),
                               child: Text(tr('⚠ Chênh lệch lớn - cần cân bằng lại phân ca'),
@@ -2725,7 +2726,7 @@ class _ScheduleApprovalScreenState extends State<ScheduleApprovalScreen>
                             horizontal: 8, vertical: 3),
                         decoration: BoxDecoration(
                             color:
-                                const Color(0xFFEF4444).withValues(alpha: 0.3),
+                                SboxColors.danger.withValues(alpha: 0.3),
                             borderRadius: BorderRadius.circular(6)),
                         child: Text(tr('⚠ Mất cân bằng'),
                             style: TextStyle(
@@ -2784,16 +2785,16 @@ class _ScheduleApprovalScreenState extends State<ScheduleApprovalScreen>
     final barRatio =
         maxScheduled > 0 ? summary.scheduledShifts / maxScheduled : 0.0;
 
-    Color borderColor = const Color(0xFFE4E4E7);
+    Color borderColor = SboxColors.slate200;
     String? warningText;
     if (isZero) {
-      borderColor = const Color(0xFFEF4444);
+      borderColor = SboxColors.danger;
       warningText = '⚠ Chưa được xếp ca nào';
     } else if (isUnder) {
       borderColor = HrmPageChrome.chipLight;
       warningText = '⚠ Ít ca hơn trung bình';
     } else if (isOver) {
-      borderColor = const Color(0xFF3B82F6);
+      borderColor = SboxColors.brand500;
       warningText = '📌 Nhiều ca hơn trung bình';
     }
 
@@ -2802,7 +2803,7 @@ class _ScheduleApprovalScreenState extends State<ScheduleApprovalScreen>
       padding: const EdgeInsets.all(12),
       decoration: BoxDecoration(
         color: Colors.white,
-        borderRadius: BorderRadius.circular(12),
+        borderRadius: BorderRadius.circular(14),
         border: Border.all(
             color: borderColor, width: isZero || isUnder || isOver ? 1.5 : 1),
         boxShadow: [
@@ -2833,25 +2834,25 @@ class _ScheduleApprovalScreenState extends State<ScheduleApprovalScreen>
                     style: const TextStyle(
                         fontWeight: FontWeight.w600,
                         fontSize: 14,
-                        color: Color(0xFF18181B))),
+                        color: SboxColors.slate900)),
                 Text(tr(emp.employeeCode),
                     style: const TextStyle(
-                        fontSize: 11, color: Color(0xFFA1A1AA))),
+                        fontSize: 11, color: SboxColors.slate400)),
               ])),
           Container(
             padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
             decoration: BoxDecoration(
               color: isZero
-                  ? const Color(0xFFEF4444).withValues(alpha: 0.1)
+                  ? SboxColors.danger.withValues(alpha: 0.1)
                   : HrmPageChrome.primaryNavy.withValues(alpha: 0.1),
-              borderRadius: BorderRadius.circular(8),
+              borderRadius: BorderRadius.circular(10),
             ),
             child: Text(tr('${summary.scheduledShifts} ca'),
                 style: TextStyle(
                   fontSize: 14,
                   fontWeight: FontWeight.bold,
                   color: isZero
-                      ? const Color(0xFFEF4444)
+                      ? SboxColors.danger
                       : HrmPageChrome.primaryNavy,
                 )),
           ),
@@ -2863,28 +2864,28 @@ class _ScheduleApprovalScreenState extends State<ScheduleApprovalScreen>
             height: 6,
             child: LinearProgressIndicator(
               value: barRatio.clamp(0.0, 1.0),
-              backgroundColor: Colors.grey.shade200,
+              backgroundColor: SboxColors.slate200,
               valueColor: AlwaysStoppedAnimation(isZero
-                  ? const Color(0xFFEF4444)
+                  ? SboxColors.danger
                   : isUnder
                       ? HrmPageChrome.chipLight
                       : isOver
-                          ? const Color(0xFF3B82F6)
-                          : const Color(0xFF22C55E)),
+                          ? SboxColors.brand500
+                          : SboxColors.success),
             ),
           ),
         ),
         const SizedBox(height: 8),
         Row(children: [
           _miniCountChip(
-              '${summary.totalRegistered} ĐK', const Color(0xFF71717A)),
+              '${summary.totalRegistered} ĐK', SboxColors.slate500),
           const SizedBox(width: 6),
-          _miniCountChip('${summary.approved} duyệt', const Color(0xFF22C55E)),
+          _miniCountChip('${summary.approved} duyệt', SboxColors.success),
           const SizedBox(width: 6),
           _miniCountChip('${summary.pending} chờ', HrmPageChrome.chipLight),
           if (summary.rejected > 0) ...[
             const SizedBox(width: 6),
-            _miniCountChip('${summary.rejected} TC', const Color(0xFFEF4444)),
+            _miniCountChip('${summary.rejected} TC', SboxColors.danger),
           ],
         ]),
         if (warningText != null)
@@ -2927,8 +2928,8 @@ class _ScheduleApprovalScreenState extends State<ScheduleApprovalScreen>
         margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
         decoration: BoxDecoration(
           color: Colors.white,
-          borderRadius: BorderRadius.circular(12),
-          border: Border.all(color: const Color(0xFFE4E4E7)),
+          borderRadius: BorderRadius.circular(14),
+          border: Border.all(color: SboxColors.slate200),
           boxShadow: [
             BoxShadow(
                 color: Colors.black.withValues(alpha: 0.04),
@@ -2937,9 +2938,9 @@ class _ScheduleApprovalScreenState extends State<ScheduleApprovalScreen>
           ],
         ),
         child: DataTable(
-          headingRowColor: WidgetStateProperty.all(const Color(0xFFF1F5F9)),
+          headingRowColor: WidgetStateProperty.all(SboxColors.slate100),
           dataRowColor: WidgetStateProperty.all(Colors.white),
-          border: TableBorder.all(color: const Color(0xFFF4F4F5), width: 1),
+          border: TableBorder.all(color: SboxColors.slate100, width: 1),
           columns: [
             DataColumn(
                 label: Text(tr('NHÂN VIÊN'),
@@ -2988,32 +2989,32 @@ class _ScheduleApprovalScreenState extends State<ScheduleApprovalScreen>
             final isOver = s.scheduledShifts > avgScheduled + 1.5;
             final barRatio = maxBar > 0 ? s.scheduledShifts / maxBar : 0.0;
 
-            Color barColor = const Color(0xFF22C55E);
+            Color barColor = SboxColors.success;
             if (isZero) {
-              barColor = const Color(0xFFEF4444);
+              barColor = SboxColors.danger;
             } else if (isUnder) {
               barColor = HrmPageChrome.chipLight;
             } else if (isOver) {
-              barColor = const Color(0xFF3B82F6);
+              barColor = SboxColors.brand500;
             }
 
             String statusText = '✅ Bình thường';
-            Color statusColor = const Color(0xFF22C55E);
+            Color statusColor = SboxColors.success;
             if (isZero) {
               statusText = '🔴 Chưa xếp ca';
-              statusColor = const Color(0xFFEF4444);
+              statusColor = SboxColors.danger;
             } else if (isUnder) {
               statusText = '🟡 Ít ca';
               statusColor = HrmPageChrome.chipLight;
             } else if (isOver) {
               statusText = '🔵 Nhiều ca';
-              statusColor = const Color(0xFF3B82F6);
+              statusColor = SboxColors.brand500;
             }
 
             return DataRow(
               color: isZero
                   ? WidgetStateProperty.all(
-                      const Color(0xFFEF4444).withValues(alpha: 0.04))
+                      SboxColors.danger.withValues(alpha: 0.04))
                   : null,
               cells: [
                 DataCell(Row(mainAxisSize: MainAxisSize.min, children: [
@@ -3038,7 +3039,7 @@ class _ScheduleApprovalScreenState extends State<ScheduleApprovalScreen>
                                 fontWeight: FontWeight.w600, fontSize: 12)),
                         Text(tr(emp.employeeCode),
                             style: const TextStyle(
-                                color: Color(0xFFA1A1AA), fontSize: 10)),
+                                color: SboxColors.slate400, fontSize: 10)),
                       ]),
                 ])),
                 DataCell(Text(tr('${s.scheduledShifts}'),
@@ -3054,7 +3055,7 @@ class _ScheduleApprovalScreenState extends State<ScheduleApprovalScreen>
                           height: 8,
                           child: LinearProgressIndicator(
                             value: barRatio.clamp(0.0, 1.0),
-                            backgroundColor: Colors.grey.shade200,
+                            backgroundColor: SboxColors.slate200,
                             valueColor: AlwaysStoppedAnimation(barColor),
                           )),
                     ))),
@@ -3063,14 +3064,14 @@ class _ScheduleApprovalScreenState extends State<ScheduleApprovalScreen>
                 DataCell(Text(tr('${s.approved}'),
                     style: const TextStyle(
                         fontSize: 13,
-                        color: Color(0xFF22C55E),
+                        color: SboxColors.success,
                         fontWeight: FontWeight.w600))),
                 DataCell(Text(tr('${s.pending}'),
                     style: TextStyle(
                         fontSize: 13,
                         color: s.pending > 0
                             ? HrmPageChrome.chipLight
-                            : const Color(0xFFA1A1AA),
+                            : SboxColors.slate400,
                         fontWeight: s.pending > 0
                             ? FontWeight.w600
                             : FontWeight.normal))),
@@ -3078,8 +3079,8 @@ class _ScheduleApprovalScreenState extends State<ScheduleApprovalScreen>
                     style: TextStyle(
                         fontSize: 13,
                         color: s.rejected > 0
-                            ? const Color(0xFFEF4444)
-                            : const Color(0xFFA1A1AA)))),
+                            ? SboxColors.danger
+                            : SboxColors.slate400))),
                 DataCell(Text(tr(statusText),
                     style: TextStyle(
                         fontSize: 11,
@@ -3144,7 +3145,7 @@ class _ScheduleApprovalScreenState extends State<ScheduleApprovalScreen>
       padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
       decoration: BoxDecoration(
           color: color.withValues(alpha: 0.1),
-          borderRadius: BorderRadius.circular(12)),
+          borderRadius: BorderRadius.circular(14)),
       child: Text(tr(label),
           style: TextStyle(
               color: color, fontWeight: FontWeight.bold, fontSize: 11)),
@@ -3189,10 +3190,10 @@ class _ScheduleApprovalScreenState extends State<ScheduleApprovalScreen>
     final confirmed = await showDialog<bool>(
       context: context,
       builder: (context) => ScrollableAlertDialog(
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
         title: Text(tr('Từ chối đăng ký'),
             style: TextStyle(
-                color: Color(0xFF18181B), fontWeight: FontWeight.bold)),
+                color: SboxColors.slate900, fontWeight: FontWeight.bold)),
         content: SingleChildScrollView(
             child: Column(mainAxisSize: MainAxisSize.min, children: [
           Text(tr('Bạn có chắc chắn muốn từ chối đăng ký này?')),
@@ -3203,7 +3204,7 @@ class _ScheduleApprovalScreenState extends State<ScheduleApprovalScreen>
                 labelText: tr('Lý do từ chối'),
                 hintText: tr('Nhập lý do...'),
                 border:
-                    OutlineInputBorder(borderRadius: BorderRadius.circular(8)),
+                    OutlineInputBorder(borderRadius: BorderRadius.circular(10)),
               ),
               maxLines: 2),
         ])),
@@ -3211,11 +3212,11 @@ class _ScheduleApprovalScreenState extends State<ScheduleApprovalScreen>
           TextButton(
               onPressed: () => Navigator.pop(context, false),
               child: Text(tr('Hủy'),
-                  style: TextStyle(color: Color(0xFF71717A)))),
+                  style: TextStyle(color: SboxColors.slate500))),
           FilledButton(
               onPressed: () => Navigator.pop(context, true),
               style: ElevatedButton.styleFrom(
-                  backgroundColor: const Color(0xFFEF4444)),
+                  backgroundColor: SboxColors.danger),
               child: Text(tr('Từ chối'))),
         ],
       ),
@@ -3279,7 +3280,7 @@ class _ScheduleApprovalScreenState extends State<ScheduleApprovalScreen>
         'Xác nhận xóa',
         'Bạn có chắc chắn muốn xóa đăng ký này?',
         'Xóa',
-        const Color(0xFFEF4444));
+        SboxColors.danger);
     if (confirmed != true) return;
     try {
       final result = await _apiService.deleteScheduleRegistration(regId);
@@ -3354,7 +3355,7 @@ class _ScheduleApprovalScreenState extends State<ScheduleApprovalScreen>
         'Xác nhận từ chối hàng loạt',
         'Bạn có chắc chắn muốn từ chối ${regs.length} đăng ký?',
         'Từ chối tất cả',
-        const Color(0xFFEF4444));
+        SboxColors.danger);
     if (confirmed != true) return;
     setState(() => _isLoading = true);
     try {
@@ -3428,7 +3429,7 @@ class _ScheduleApprovalScreenState extends State<ScheduleApprovalScreen>
         'Xác nhận xóa',
         'Bạn có chắc chắn muốn xóa ${regs.length} đăng ký?',
         'Xóa tất cả',
-        const Color(0xFFEF4444));
+        SboxColors.danger);
     if (confirmed != true) return;
     setState(() => _isLoading = true);
     try {
@@ -3454,16 +3455,16 @@ class _ScheduleApprovalScreenState extends State<ScheduleApprovalScreen>
     return showDialog<bool>(
       context: context,
       builder: (context) => ScrollableAlertDialog(
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
         title: Text(tr(title),
             style: const TextStyle(
-                color: Color(0xFF18181B), fontWeight: FontWeight.bold)),
+                color: SboxColors.slate900, fontWeight: FontWeight.bold)),
         content: Text(tr(content)),
         actions: [
           TextButton(
               onPressed: () => Navigator.pop(context, false),
               child: Text(tr('Hủy'),
-                  style: TextStyle(color: Color(0xFF71717A)))),
+                  style: TextStyle(color: SboxColors.slate500))),
           FilledButton(
               onPressed: () => Navigator.pop(context, true),
               style: ElevatedButton.styleFrom(backgroundColor: confirmColor),

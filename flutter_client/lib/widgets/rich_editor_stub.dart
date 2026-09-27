@@ -53,7 +53,7 @@ class RichEditor extends StatelessWidget {
       controller: controller.textEditingController,
       decoration: InputDecoration(
         hintText: tr(placeholder ?? 'Nhập nội dung HTML...'),
-        border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
+        border: OutlineInputBorder(borderRadius: BorderRadius.circular(14)),
         alignLabelWithHint: true,
       ),
       maxLines: null,
@@ -88,7 +88,7 @@ class HtmlContentView extends StatelessWidget {
         .trim();
     return SelectableText(
       tr(text),
-      style: const TextStyle(fontSize: 15, height: 1.7),
+      style: const TextStyle(fontSize: 16, height: 1.7),
     );
   }
 }

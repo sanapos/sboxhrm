@@ -15,19 +15,20 @@ import '../widgets/landing_product_image.dart';
 import '../widgets/landing_youtube_player.dart';
 import 'package:zkteco_flutter_client/l10n/app_tr.dart';
 
+import '../theme/sbox_tokens.dart';
 /// Tông màu khớp trang chủ sboxhrm.com (nền sáng, xanh #1565C0).
 abstract final class _GuideUi {
-  static const brand = Color(0xFF1565C0);
-  static const brandDeep = Color(0xFF0C56D0);
-  static const ink = Color(0xFF0F172A);
-  static const muted = Color(0xFF64748B);
-  static const body = Color(0xFF475569);
+  static const brand = SboxColors.brand600;
+  static const brandDeep = SboxColors.brand600;
+  static const ink = SboxColors.slate900;
+  static const muted = SboxColors.slate500;
+  static const body = SboxColors.slate600;
   static const page = Color(0xFFF4F7FC);
   static const card = Color(0xFFFFFFFF);
   static const soft = Color(0xFFF8FAFF);
-  static const line = Color(0xFFE2E8F0);
+  static const line = SboxColors.slate200;
   static const lineSoft = Color(0xFFE8EEF8);
-  static const chip = Color(0xFFE3F2FD);
+  static const chip = SboxColors.brand50;
   static const shadow = Color(0x140F2864);
 
   static List<BoxShadow> get cardShadow => const [
@@ -108,8 +109,8 @@ class _LandingGuideScreenState extends State<LandingGuideScreen> {
           title: Text(
             tr('Hướng dẫn sử dụng'),
             style: const TextStyle(
-              fontWeight: FontWeight.w800,
-              fontSize: 17,
+              fontWeight: FontWeight.w700,
+              fontSize: 18,
               color: _GuideUi.ink,
             ),
           ),
@@ -365,7 +366,7 @@ class _LandingGuidePanelState extends State<LandingGuidePanel> {
             hintText: tr('Tìm hướng dẫn: máy chấm công, lương, nghỉ phép…'),
             hintStyle: const TextStyle(
               color: _GuideUi.muted,
-              fontSize: 13.5,
+              fontSize: 14,
             ),
             prefixIcon: const Icon(
               Icons.search_rounded,
@@ -421,7 +422,7 @@ class _LandingGuidePanelState extends State<LandingGuidePanel> {
                   (k) => ActionChip(
                     label: Text(tr(k), style: const TextStyle(fontSize: 12)),
                     backgroundColor: _GuideUi.chip,
-                    side: const BorderSide(color: Color(0xFFBBDEFB)),
+                    side: const BorderSide(color: SboxColors.brand100),
                     labelStyle: const TextStyle(color: _GuideUi.brand),
                     onPressed: () => _applyKeyword(k),
                     visualDensity: VisualDensity.compact,
@@ -475,14 +476,14 @@ class _LandingGuidePanelState extends State<LandingGuidePanel> {
                             style: const TextStyle(
                               color: _GuideUi.ink,
                               fontWeight: FontWeight.w600,
-                              fontSize: 13.5,
+                              fontSize: 14,
                             ),
                           ),
                           subtitle: Text(
                             tr('${hit.sectionLabel} · ${hit.matchedIn}'),
                             style: const TextStyle(
                               color: _GuideUi.muted,
-                              fontSize: 11.5,
+                              fontSize: 12,
                             ),
                           ),
                           trailing: const Icon(
@@ -579,7 +580,7 @@ class _LandingGuidePanelState extends State<LandingGuidePanel> {
                           horizontal: 16, vertical: 14),
                       decoration: BoxDecoration(
                         color: active ? _GuideUi.chip : _GuideUi.card,
-                        borderRadius: BorderRadius.circular(12),
+                        borderRadius: BorderRadius.circular(14),
                         border: Border.all(
                           color: active ? _GuideUi.brand : _GuideUi.line,
                         ),
@@ -601,7 +602,7 @@ class _LandingGuidePanelState extends State<LandingGuidePanel> {
                               tr('${i + 1}'),
                               style: TextStyle(
                                 color: active ? Colors.white : _GuideUi.brand,
-                                fontWeight: FontWeight.w900,
+                                fontWeight: FontWeight.w700,
                                 fontSize: 13,
                               ),
                             ),
@@ -649,7 +650,7 @@ class _LandingGuidePanelState extends State<LandingGuidePanel> {
         padding: const EdgeInsets.all(28),
         decoration: BoxDecoration(
           color: _GuideUi.card,
-          borderRadius: BorderRadius.circular(16),
+          borderRadius: BorderRadius.circular(14),
           border: Border.all(color: _GuideUi.line),
           boxShadow: _GuideUi.cardShadow,
         ),
@@ -686,7 +687,7 @@ class _LandingGuidePanelState extends State<LandingGuidePanel> {
           ? null
           : BoxDecoration(
               color: _GuideUi.card,
-              borderRadius: BorderRadius.circular(16),
+              borderRadius: BorderRadius.circular(14),
               border: Border.all(color: _GuideUi.line),
               boxShadow: _GuideUi.cardShadow,
             ),
@@ -739,7 +740,7 @@ class _LandingGuidePanelState extends State<LandingGuidePanel> {
                           child: Text(tr('${i + 1}'),
                               style: TextStyle(
                                   color: open ? Colors.white : _GuideUi.brand,
-                                  fontWeight: FontWeight.w900,
+                                  fontWeight: FontWeight.w700,
                                   fontSize: 14))),
                     ),
                     const SizedBox(width: 12),
@@ -827,7 +828,7 @@ class _GuideStepDetail extends StatelessWidget {
       if (!context.mounted) return;
       showDialog<void>(
         context: context,
-        barrierColor: Colors.black87,
+        barrierColor: SboxColors.text,
         builder: (_) => _GuideVideoPlayerDialog(
           videoId: videoId,
           title: step.title,
@@ -875,7 +876,7 @@ class _GuideStepDetail extends StatelessWidget {
                   overflow: TextOverflow.ellipsis,
                   style: const TextStyle(
                     color: _GuideUi.body,
-                    fontSize: 11.5,
+                    fontSize: 12,
                     height: 1.4,
                   ),
                 ),
@@ -902,7 +903,7 @@ class _GuideStepDetail extends StatelessWidget {
               padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
               decoration: BoxDecoration(
                 color: _GuideUi.chip,
-                borderRadius: BorderRadius.circular(8),
+                borderRadius: BorderRadius.circular(10),
               ),
               child: Text(
                 tr('Mục $stepNumber / $stepTotal'),
@@ -920,7 +921,7 @@ class _GuideStepDetail extends StatelessWidget {
                 style: const TextStyle(
                   color: _GuideUi.ink,
                   fontSize: 18,
-                  fontWeight: FontWeight.w800,
+                  fontWeight: FontWeight.w700,
                   height: 1.25,
                 ),
               ),
@@ -982,7 +983,7 @@ class _GuideStepDetail extends StatelessWidget {
           GestureDetector(
             onTap: () => _openVideo(context),
             child: ClipRRect(
-              borderRadius: BorderRadius.circular(12),
+              borderRadius: BorderRadius.circular(14),
               child: Stack(
                 alignment: Alignment.center,
                 children: [
@@ -1025,7 +1026,7 @@ class _GuideStepDetail extends StatelessWidget {
           style: const TextStyle(
             color: _GuideUi.ink,
             fontSize: 14,
-            fontWeight: FontWeight.w800,
+            fontWeight: FontWeight.w700,
           ),
         ),
         const SizedBox(height: 12),
@@ -1044,13 +1045,13 @@ class _GuideStepDetail extends StatelessWidget {
                   decoration: BoxDecoration(
                     color: _GuideUi.chip,
                     shape: BoxShape.circle,
-                    border: Border.all(color: const Color(0xFFBBDEFB)),
+                    border: Border.all(color: SboxColors.brand100),
                   ),
                   child: Text(
                     '${i + 1}',
                     style: const TextStyle(
                       color: _GuideUi.brandDeep,
-                      fontWeight: FontWeight.w800,
+                      fontWeight: FontWeight.w700,
                       fontSize: 12,
                     ),
                   ),
@@ -1061,7 +1062,7 @@ class _GuideStepDetail extends StatelessWidget {
                     tr(b),
                     style: const TextStyle(
                       color: _GuideUi.body,
-                      fontSize: 13.5,
+                      fontSize: 14,
                       height: 1.55,
                     ),
                   ),
@@ -1077,7 +1078,7 @@ class _GuideStepDetail extends StatelessWidget {
             decoration: BoxDecoration(
               color: _GuideUi.chip,
               borderRadius: BorderRadius.circular(10),
-              border: Border.all(color: const Color(0xFFBBDEFB)),
+              border: Border.all(color: SboxColors.brand100),
             ),
             child: Row(
               crossAxisAlignment: CrossAxisAlignment.start,
@@ -1089,7 +1090,7 @@ class _GuideStepDetail extends StatelessWidget {
                     child: Text(tr(step.tip),
                         style: const TextStyle(
                             color: _GuideUi.brandDeep,
-                            fontSize: 12.5,
+                            fontSize: 13,
                             height: 1.5))),
               ],
             ),
@@ -1163,7 +1164,7 @@ class _GuideVideoPlayerDialog extends StatelessWidget {
                         style: const TextStyle(
                             color: _GuideUi.ink,
                             fontSize: 18,
-                            fontWeight: FontWeight.w800)),
+                            fontWeight: FontWeight.w700)),
                   ),
                   IconButton(
                     onPressed: () => Navigator.of(context).pop(),
@@ -1173,7 +1174,7 @@ class _GuideVideoPlayerDialog extends StatelessWidget {
               ),
               const SizedBox(height: 14),
               ClipRRect(
-                borderRadius: BorderRadius.circular(16),
+                borderRadius: BorderRadius.circular(14),
                 child: AspectRatio(
                   aspectRatio: 16 / 9,
                   child: LandingYoutubePlayer(videoId: videoId, autoplay: true),
@@ -1213,7 +1214,7 @@ class _GuideSectionBadge extends StatelessWidget {
       decoration: BoxDecoration(
         color: _GuideUi.chip,
         borderRadius: BorderRadius.circular(100),
-        border: Border.all(color: const Color(0xFFBBDEFB)),
+        border: Border.all(color: SboxColors.brand100),
       ),
       child: Text(tr(label),
           style: const TextStyle(
@@ -1235,7 +1236,7 @@ class _GuideSectionTitle extends StatelessWidget {
         textAlign: TextAlign.center,
         style: const TextStyle(
             fontSize: 28,
-            fontWeight: FontWeight.w900,
+            fontWeight: FontWeight.w700,
             color: _GuideUi.ink,
             height: 1.2));
   }
@@ -1250,6 +1251,6 @@ class _GuideSectionSubtext extends StatelessWidget {
     return Text(tr(text),
         textAlign: TextAlign.center,
         style: const TextStyle(
-            color: _GuideUi.muted, fontSize: 15, height: 1.5));
+            color: _GuideUi.muted, fontSize: 16, height: 1.5));
   }
 }

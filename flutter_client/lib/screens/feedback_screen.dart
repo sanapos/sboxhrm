@@ -17,6 +17,7 @@ import '../widgets/page_top_actions.dart';
 import 'package:zkteco_flutter_client/l10n/app_tr.dart';
 import 'package:zkteco_flutter_client/l10n/app_ui_locale.dart';
 
+import '../theme/sbox_tokens.dart';
 class FeedbackScreen extends StatefulWidget {
   const FeedbackScreen({super.key});
   @override
@@ -51,9 +52,9 @@ class _FeedbackScreenState extends State<FeedbackScreen>
   };
   static const _statusColors = {
     'Pending': HrmPageChrome.chipLight,
-    'InProgress': Color(0xFF3B82F6),
+    'InProgress': SboxColors.brand500,
     'Resolved': HrmPageChrome.chipMid,
-    'Closed': Color(0xFF6B7280),
+    'Closed': SboxColors.slate500,
   };
   static const _categoryLabels = {
     'General': 'Chung',
@@ -275,7 +276,7 @@ class _FeedbackScreenState extends State<FeedbackScreen>
                         });
                       },
                       child: Text(tr('Xóa tất cả'),
-                          style: TextStyle(color: Color(0xFFEF4444))),
+                          style: TextStyle(color: SboxColors.danger)),
                     ),
                 ],
               ),
@@ -567,7 +568,7 @@ class _FeedbackScreenState extends State<FeedbackScreen>
                   child: TabBar(
                     controller: _tabCtl,
                     labelColor: primary,
-                    unselectedLabelColor: const Color(0xFF71717A),
+                    unselectedLabelColor: SboxColors.slate500,
                     indicatorColor: primary,
                     tabs: [
                       Tab(text: tr('Của tôi')),
@@ -686,7 +687,7 @@ class _FeedbackScreenState extends State<FeedbackScreen>
         child: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
-            Icon(Icons.inbox_outlined, size: 64, color: Colors.grey[300]),
+            Icon(Icons.inbox_outlined, size: 64, color: SboxColors.slate300),
             const SizedBox(height: 12),
             Text(
               tr(_hasActiveFilters
@@ -694,7 +695,7 @@ class _FeedbackScreenState extends State<FeedbackScreen>
                   : (isMine
                       ? 'Bạn chưa gửi phản ánh nào'
                       : 'Chưa có phản ánh nào')),
-              style: TextStyle(fontSize: 16, color: Colors.grey[500]),
+              style: TextStyle(fontSize: 16, color: SboxColors.slate500),
             ),
             if (_hasActiveFilters) ...[
               const SizedBox(height: 8),
@@ -747,8 +748,8 @@ class _FeedbackScreenState extends State<FeedbackScreen>
       margin: const EdgeInsets.only(bottom: 12),
       decoration: BoxDecoration(
         color: Colors.white,
-        borderRadius: BorderRadius.circular(12),
-        border: Border.all(color: const Color(0xFFE4E4E7)),
+        borderRadius: BorderRadius.circular(14),
+        border: Border.all(color: SboxColors.slate200),
         boxShadow: [
           BoxShadow(
             color: Colors.black.withValues(alpha: 0.05),
@@ -771,16 +772,16 @@ class _FeedbackScreenState extends State<FeedbackScreen>
                 Expanded(
                   child: Text(tr(fb['title'] ?? ''),
                       style: const TextStyle(
-                          fontSize: 15, fontWeight: FontWeight.w600)),
+                          fontSize: 16, fontWeight: FontWeight.w600)),
                 ),
                 Flexible(
                   child: Container(
                   padding:
                       const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
                   decoration: BoxDecoration(
-                    color: (_statusColors[status] ?? Colors.grey)
+                    color: (_statusColors[status] ?? SboxColors.slate500)
                         .withValues(alpha: 0.1),
-                    borderRadius: BorderRadius.circular(12),
+                    borderRadius: BorderRadius.circular(14),
                   ),
                   child: Text(
                     tr(_statusLabels[status] ?? status),
@@ -789,7 +790,7 @@ class _FeedbackScreenState extends State<FeedbackScreen>
                     style: TextStyle(
                       fontSize: 12,
                       fontWeight: FontWeight.w600,
-                      color: _statusColors[status] ?? Colors.grey,
+                      color: _statusColors[status] ?? SboxColors.slate500,
                     ),
                   ),
                 ),
@@ -806,10 +807,10 @@ class _FeedbackScreenState extends State<FeedbackScreen>
                     _categoryLabels[category] ?? category),
                 if (isAnonymous && !isMine)
                   _metaChip(Icons.visibility_off, 'Ẩn danh',
-                      color: const Color(0xFFEF4444))
+                      color: SboxColors.danger)
                 else if (isAnonymous && isMine)
                   _metaChip(Icons.visibility_off, 'Ẩn danh (bạn gửi)',
-                      color: const Color(0xFFEF4444))
+                      color: SboxColors.danger)
                 else if (fb['senderName'] != null)
                   _metaChip(Icons.person_outline, fb['senderName']),
                 if (fb['recipientName'] != null)
@@ -831,8 +832,8 @@ class _FeedbackScreenState extends State<FeedbackScreen>
               Container(
                 padding: const EdgeInsets.all(12),
                 decoration: BoxDecoration(
-                  color: const Color(0xFFF0FDF4),
-                  borderRadius: BorderRadius.circular(8),
+                  color: SboxColors.successSoft,
+                  borderRadius: BorderRadius.circular(10),
                   border: Border.all(color: const Color(0xFFBBF7D0)),
                 ),
                 child: Column(
@@ -855,7 +856,7 @@ class _FeedbackScreenState extends State<FeedbackScreen>
                             tr(DateFormat('dd/MM/yyyy HH:mm')
                                 .format(respondedAt)),
                             style: TextStyle(
-                                fontSize: 11, color: Colors.grey[500]),
+                                fontSize: 11, color: SboxColors.slate500),
                           ),
                         ],
                       ],
@@ -879,10 +880,10 @@ class _FeedbackScreenState extends State<FeedbackScreen>
                     child: Row(
                       mainAxisSize: MainAxisSize.min,
                       children: [
-                        const Icon(Icons.chat_bubble_outline, size: 14, color: Color(0xFF3B82F6)),
+                        const Icon(Icons.chat_bubble_outline, size: 14, color: SboxColors.brand500),
                         const SizedBox(width: 4),
                         Text(tr('$replyCount phản hồi'),
-                            style: const TextStyle(fontSize: 12, color: Color(0xFF3B82F6), fontWeight: FontWeight.w500)),
+                            style: const TextStyle(fontSize: 12, color: SboxColors.brand500, fontWeight: FontWeight.w500)),
                       ],
                     ),
                   ),
@@ -901,7 +902,7 @@ class _FeedbackScreenState extends State<FeedbackScreen>
                     icon: const Icon(Icons.delete_outline, size: 16),
                     label: Text(tr('Xóa')),
                     style: TextButton.styleFrom(
-                        foregroundColor: const Color(0xFFEF4444)),
+                        foregroundColor: SboxColors.danger),
                   ),
               ],
             ),
@@ -930,11 +931,11 @@ class _FeedbackScreenState extends State<FeedbackScreen>
     return Row(
       mainAxisSize: MainAxisSize.min,
       children: [
-        Icon(icon, size: 14, color: color ?? Colors.grey[500]),
+        Icon(icon, size: 14, color: color ?? SboxColors.slate500),
         const SizedBox(width: 4),
         Text(tr(label),
             style: TextStyle(
-                fontSize: 12, color: color ?? Colors.grey[600])),
+                fontSize: 12, color: color ?? SboxColors.slate600)),
       ],
     );
   }
@@ -965,7 +966,7 @@ class _FeedbackScreenState extends State<FeedbackScreen>
               secondary: Icon(
                 isAnonymous ? Icons.visibility_off : Icons.visibility,
                 color:
-                    isAnonymous ? const Color(0xFFEF4444) : Colors.grey,
+                    isAnonymous ? SboxColors.danger : SboxColors.slate500,
               ),
               onChanged: (v) => setDlgState(() => isAnonymous = v),
               contentPadding: EdgeInsets.zero,
@@ -1167,8 +1168,8 @@ class _FeedbackScreenState extends State<FeedbackScreen>
             Container(
               padding: const EdgeInsets.all(12),
               decoration: BoxDecoration(
-                color: Colors.grey[50],
-                borderRadius: BorderRadius.circular(8),
+                color: SboxColors.slate50,
+                borderRadius: BorderRadius.circular(10),
               ),
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
@@ -1178,13 +1179,13 @@ class _FeedbackScreenState extends State<FeedbackScreen>
                   const SizedBox(height: 4),
                   Text(tr(fb['content'] ?? ''),
                       style: const TextStyle(
-                          fontSize: 13, color: Color(0xFF64748B))),
+                          fontSize: 13, color: SboxColors.slate500)),
                   if (fb['isAnonymous'] == true)
                     Padding(
                       padding: EdgeInsets.only(top: 4),
                       child: Text(tr('🔒 Gửi ẩn danh'),
                           style: TextStyle(
-                              fontSize: 12, color: Color(0xFFEF4444))),
+                              fontSize: 12, color: SboxColors.danger)),
                     ),
                 ],
               ),

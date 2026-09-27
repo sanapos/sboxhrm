@@ -28,6 +28,7 @@ import 'main_layout.dart' show ScreenRefreshNotifier;
 import 'mobile_attendance_history_screen.dart';
 import 'package:zkteco_flutter_client/l10n/app_tr.dart';
 
+import '../theme/sbox_tokens.dart';
 class MobileAttendanceScreen extends StatefulWidget {
   const MobileAttendanceScreen({super.key});
 
@@ -1617,11 +1618,11 @@ class _MobileAttendanceScreenState extends State<MobileAttendanceScreen>
           Positioned(
               top: -140,
               right: -90,
-              child: _bgOrb(320, const Color(0xFFBFDBFE), 0.7)),
+              child: _bgOrb(320, SboxColors.brand100, 0.7)),
           Positioned(
               bottom: -40,
               left: -80,
-              child: _bgOrb(240, const Color(0xFFDBEAFE), 0.85)),
+              child: _bgOrb(240, SboxColors.brand100, 0.85)),
           SafeArea(
             child: SingleChildScrollView(
               physics: const BouncingScrollPhysics(),
@@ -1667,7 +1668,7 @@ class _MobileAttendanceScreenState extends State<MobileAttendanceScreen>
             decoration: BoxDecoration(
               borderRadius: BorderRadius.circular(14),
               gradient: const LinearGradient(
-                  colors: [Color(0xFF3B82F6), HrmPageChrome.chipSoft]),
+                  colors: [SboxColors.brand500, HrmPageChrome.chipSoft]),
             ),
             child: Center(
               child: Text(
@@ -1687,7 +1688,7 @@ class _MobileAttendanceScreenState extends State<MobileAttendanceScreen>
                 Text(
                   tr(_employeeName),
                   style: const TextStyle(
-                      color: Color(0xFF0F172A),
+                      color: SboxColors.slate900,
                       fontSize: 16,
                       fontWeight: FontWeight.w700),
                   overflow: TextOverflow.ellipsis,
@@ -1696,7 +1697,7 @@ class _MobileAttendanceScreenState extends State<MobileAttendanceScreen>
                 Text(
                   tr(_department),
                   style:
-                      const TextStyle(color: Color(0xFF64748B), fontSize: 12),
+                      const TextStyle(color: SboxColors.slate500, fontSize: 12),
                   overflow: TextOverflow.ellipsis,
                 ),
               ],
@@ -1723,10 +1724,10 @@ class _MobileAttendanceScreenState extends State<MobileAttendanceScreen>
         decoration: BoxDecoration(
           color: Colors.white,
           borderRadius: BorderRadius.circular(14),
-          border: Border.all(color: const Color(0xFFE2E8F0)),
+          border: Border.all(color: SboxColors.slate200),
           boxShadow: [
             BoxShadow(
-              color: const Color(0xFF0F172A).withValues(alpha: 0.05),
+              color: SboxColors.slate900.withValues(alpha: 0.05),
               blurRadius: 12,
               offset: const Offset(0, 3),
             ),
@@ -1746,11 +1747,11 @@ class _MobileAttendanceScreenState extends State<MobileAttendanceScreen>
     final weekdays = ['CN', 'T2', 'T3', 'T4', 'T5', 'T6', 'T7'];
 
     final List<Color> activeGradient = isCheckIn
-        ? [const Color(0xFF3B82F6), HrmPageChrome.chipMid]
-        : [const Color(0xFFEF4444), const Color(0xFFDC2626)];
+        ? [SboxColors.brand500, HrmPageChrome.chipMid]
+        : [SboxColors.danger, SboxColors.danger];
     final List<Color> disabledGradient = [
-      const Color(0xFFCBD5E1),
-      const Color(0xFF94A3B8)
+      SboxColors.slate300,
+      SboxColors.slate400
     ];
     final ctaLabel = isEnabled
         ? (needsFaceScan ? 'QUÉT MẶT' : (isCheckIn ? 'CHẤM VÀO' : 'CHẤM RA'))
@@ -1791,7 +1792,7 @@ class _MobileAttendanceScreenState extends State<MobileAttendanceScreen>
               style: const TextStyle(
                 fontSize: 56,
                 fontWeight: FontWeight.w600,
-                color: Color(0xFF0F172A),
+                color: SboxColors.slate900,
                 fontFeatures: [FontFeature.tabularFigures()],
                 letterSpacing: -1,
                 height: 1.05,
@@ -1802,14 +1803,14 @@ class _MobileAttendanceScreenState extends State<MobileAttendanceScreen>
               style: const TextStyle(
                   fontSize: 16,
                   fontWeight: FontWeight.w500,
-                  color: Color(0xFF94A3B8),
+                  color: SboxColors.slate400,
                   fontFeatures: [FontFeature.tabularFigures()]),
             ),
             const SizedBox(height: 8),
             Container(
               padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 5),
               decoration: BoxDecoration(
-                color: const Color(0xFFF1F5F9),
+                color: SboxColors.slate100,
                 borderRadius: BorderRadius.circular(999),
               ),
               child: Text(
@@ -1817,7 +1818,7 @@ class _MobileAttendanceScreenState extends State<MobileAttendanceScreen>
                 style: const TextStyle(
                     fontSize: 13,
                     fontWeight: FontWeight.w600,
-                    color: Color(0xFF475569)),
+                    color: SboxColors.slate600),
               ),
             ),
             const SizedBox(height: 14),
@@ -1843,7 +1844,7 @@ class _MobileAttendanceScreenState extends State<MobileAttendanceScreen>
                         border: Border.all(
                           color: isEnabled
                               ? activeGradient[0].withValues(alpha: 0.28)
-                              : const Color(0xFFE2E8F0),
+                              : SboxColors.slate200,
                           width: 3,
                         ),
                       ),
@@ -1919,7 +1920,7 @@ class _MobileAttendanceScreenState extends State<MobileAttendanceScreen>
                   const SizedBox(width: 8),
                   Text(tr('Đang xử lý...'),
                       style: const TextStyle(
-                          fontSize: 13, color: Color(0xFF64748B))),
+                          fontSize: 13, color: SboxColors.slate500)),
                 ],
               )
             else
@@ -1943,8 +1944,8 @@ class _MobileAttendanceScreenState extends State<MobileAttendanceScreen>
                     fontSize: 12,
                     fontWeight: FontWeight.w500,
                     color: isEnabled
-                        ? const Color(0xFF64748B)
-                        : const Color(0xFF94A3B8)),
+                        ? SboxColors.slate500
+                        : SboxColors.slate400),
               ),
           ],
         ),
@@ -1957,7 +1958,7 @@ class _MobileAttendanceScreenState extends State<MobileAttendanceScreen>
       required String hint,
       required bool needsFaceScan}) {
     final barColor = isEnabled
-        ? (needsFaceScan ? HrmPageChrome.chipLight : const Color(0xFF22C55E))
+        ? (needsFaceScan ? HrmPageChrome.chipLight : SboxColors.success)
         : HrmPageChrome.chipLight;
 
     return Container(
@@ -1965,7 +1966,7 @@ class _MobileAttendanceScreenState extends State<MobileAttendanceScreen>
       padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
       decoration: BoxDecoration(
         color: barColor.withValues(alpha: 0.12),
-        borderRadius: BorderRadius.circular(12),
+        borderRadius: BorderRadius.circular(14),
         border: Border.all(color: barColor.withValues(alpha: 0.25)),
       ),
       child: Row(
@@ -2005,7 +2006,7 @@ class _MobileAttendanceScreenState extends State<MobileAttendanceScreen>
         border: Border.all(color: const Color(0xFFE8EEF5)),
         boxShadow: [
           BoxShadow(
-            color: const Color(0xFF0F172A).withValues(alpha: 0.06),
+            color: SboxColors.slate900.withValues(alpha: 0.06),
             blurRadius: 24,
             offset: const Offset(0, 8),
           ),
@@ -2056,15 +2057,15 @@ class _MobileAttendanceScreenState extends State<MobileAttendanceScreen>
     return Container(
           padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
           decoration: BoxDecoration(
-            color: ready ? const Color(0xFFF0FDF4) : Colors.white,
-            borderRadius: BorderRadius.circular(16),
+            color: ready ? SboxColors.successSoft : Colors.white,
+            borderRadius: BorderRadius.circular(14),
             border: Border.all(
                 color: ready
                     ? const Color(0xFFBBF7D0)
-                    : const Color(0xFFE2E8F0)),
+                    : SboxColors.slate200),
             boxShadow: [
               BoxShadow(
-                color: const Color(0xFF0F172A).withValues(alpha: 0.04),
+                color: SboxColors.slate900.withValues(alpha: 0.04),
                 blurRadius: 16,
                 offset: const Offset(0, 4),
               ),
@@ -2078,11 +2079,11 @@ class _MobileAttendanceScreenState extends State<MobileAttendanceScreen>
                 decoration: BoxDecoration(
                   shape: BoxShape.circle,
                   color:
-                      ready ? const Color(0xFF22C55E) : HrmPageChrome.chipLight,
+                      ready ? SboxColors.success : HrmPageChrome.chipLight,
                   boxShadow: [
                     BoxShadow(
                         color: (ready
-                                ? const Color(0xFF22C55E)
+                                ? SboxColors.success
                                 : HrmPageChrome.chipLight)
                             .withValues(alpha: 0.4),
                         blurRadius: 6)
@@ -2098,7 +2099,7 @@ class _MobileAttendanceScreenState extends State<MobileAttendanceScreen>
                       tr(modeText),
                       style: const TextStyle(
                         fontSize: 11,
-                        color: Color(0xFF64748B),
+                        color: SboxColors.slate500,
                         fontWeight: FontWeight.w600,
                       ),
                     ),
@@ -2136,13 +2137,13 @@ class _MobileAttendanceScreenState extends State<MobileAttendanceScreen>
                   padding:
                       const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
                   decoration: BoxDecoration(
-                      color: const Color(0xFFF1F5F9),
-                      borderRadius: BorderRadius.circular(8)),
+                      color: SboxColors.slate100,
+                      borderRadius: BorderRadius.circular(10)),
                   child: Text(tr('ANY'),
                       style: const TextStyle(
                           fontSize: 9,
                           fontWeight: FontWeight.w700,
-                          color: Color(0xFF64748B),
+                          color: SboxColors.slate500,
                           letterSpacing: 1)),
                 ),
             ],
@@ -2152,14 +2153,14 @@ class _MobileAttendanceScreenState extends State<MobileAttendanceScreen>
 
   Widget _buildMiniChip(String label, bool ok, {bool pending = false}) {
     final chipColor = ok
-        ? const Color(0xFF22C55E)
-        : (pending ? HrmPageChrome.chipLight : const Color(0xFFEF4444));
+        ? SboxColors.success
+        : (pending ? HrmPageChrome.chipLight : SboxColors.danger);
 
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
       decoration: BoxDecoration(
         color: chipColor.withValues(alpha: 0.12),
-        borderRadius: BorderRadius.circular(8),
+        borderRadius: BorderRadius.circular(10),
         border: Border.all(color: chipColor.withValues(alpha: 0.2)),
       ),
       child: Row(
@@ -2180,10 +2181,10 @@ class _MobileAttendanceScreenState extends State<MobileAttendanceScreen>
               fontSize: 10,
               fontWeight: FontWeight.w600,
               color: ok
-                  ? const Color(0xFF15803D)
+                  ? SboxColors.payHover
                   : (pending
-                      ? const Color(0xFFB45309)
-                      : const Color(0xFFB91C1C)),
+                      ? SboxColors.warningText
+                      : SboxColors.dangerText),
             ),
           ),
         ],
@@ -2204,7 +2205,7 @@ class _MobileAttendanceScreenState extends State<MobileAttendanceScreen>
           style: TextStyle(
             fontSize: 12,
             fontWeight: FontWeight.w600,
-            color: const Color(0xFF475569),
+            color: SboxColors.slate600,
             letterSpacing: 0.2,
           ),
         ),
@@ -2252,7 +2253,7 @@ class _MobileAttendanceScreenState extends State<MobileAttendanceScreen>
           textAlign: TextAlign.center,
           style: TextStyle(
             fontSize: 10,
-            color: const Color(0xFF94A3B8),
+            color: SboxColors.slate400,
           ),
         ),
       ],
@@ -2274,7 +2275,7 @@ class _MobileAttendanceScreenState extends State<MobileAttendanceScreen>
           style: TextStyle(
             fontSize: 12,
             fontWeight: FontWeight.w600,
-            color: const Color(0xFF475569),
+            color: SboxColors.slate600,
             letterSpacing: 0.2,
           ),
         ),
@@ -2325,7 +2326,7 @@ class _MobileAttendanceScreenState extends State<MobileAttendanceScreen>
           textAlign: TextAlign.center,
           style: TextStyle(
             fontSize: 10,
-            color: const Color(0xFF94A3B8),
+            color: SboxColors.slate400,
           ),
         ),
       ],
@@ -2350,18 +2351,18 @@ class _MobileAttendanceScreenState extends State<MobileAttendanceScreen>
             borderRadius: BorderRadius.circular(14),
             color: enabled
                 ? color.withValues(alpha: 0.10)
-                : const Color(0xFFF8FAFC),
+                : SboxColors.slate50,
             border: Border.all(
               color: enabled
                   ? color.withValues(alpha: 0.35)
-                  : const Color(0xFFE2E8F0),
+                  : SboxColors.slate200,
             ),
           ),
           child: Column(
             children: [
               Icon(
                 icon,
-                color: enabled ? color : const Color(0xFFCBD5E1),
+                color: enabled ? color : SboxColors.slate300,
                 size: 22,
               ),
               const SizedBox(height: 6),
@@ -2372,8 +2373,8 @@ class _MobileAttendanceScreenState extends State<MobileAttendanceScreen>
                   fontSize: 11,
                   fontWeight: FontWeight.w600,
                   color: enabled
-                      ? const Color(0xFF0F172A)
-                      : const Color(0xFF94A3B8),
+                      ? SboxColors.slate900
+                      : SboxColors.slate400,
                 ),
               ),
             ],
@@ -2386,10 +2387,10 @@ class _MobileAttendanceScreenState extends State<MobileAttendanceScreen>
   Widget _buildGpsCard() {
     final gpsOk = _gpsRequirementMet;
     final statusColor = gpsOk
-        ? const Color(0xFF22C55E)
+        ? SboxColors.success
         : _isGettingLocation
             ? HrmPageChrome.chipLight
-            : const Color(0xFF64748B);
+            : SboxColors.slate500;
 
     return Container(
           padding: const EdgeInsets.all(14),
@@ -2399,7 +2400,7 @@ class _MobileAttendanceScreenState extends State<MobileAttendanceScreen>
             border: Border.all(color: statusColor.withValues(alpha: 0.22)),
             boxShadow: [
               BoxShadow(
-                color: const Color(0xFF0F172A).withValues(alpha: 0.04),
+                color: SboxColors.slate900.withValues(alpha: 0.04),
                 blurRadius: 16,
                 offset: const Offset(0, 4),
               ),
@@ -2436,7 +2437,7 @@ class _MobileAttendanceScreenState extends State<MobileAttendanceScreen>
                     GestureDetector(
                       onTap: _getCurrentLocation,
                       child: const Icon(Icons.refresh_rounded,
-                          size: 18, color: Color(0xFF94A3B8)),
+                          size: 18, color: SboxColors.slate400),
                     ),
                 ],
               ),
@@ -2461,7 +2462,7 @@ class _MobileAttendanceScreenState extends State<MobileAttendanceScreen>
                 Text(
                   tr(_nearestLocationName!),
                   style:
-                      const TextStyle(fontSize: 11, color: Color(0xFF64748B)),
+                      const TextStyle(fontSize: 11, color: SboxColors.slate500),
                   maxLines: 1,
                   overflow: TextOverflow.ellipsis,
                 ),
@@ -2481,10 +2482,10 @@ class _MobileAttendanceScreenState extends State<MobileAttendanceScreen>
 
   Widget _buildWifiCard() {
     final statusColor = _isWifiVerified
-        ? const Color(0xFF22C55E)
+        ? SboxColors.success
         : _isCheckingWifi
             ? HrmPageChrome.chipLight
-            : const Color(0xFF64748B);
+            : SboxColors.slate500;
 
     return Container(
           padding: const EdgeInsets.all(14),
@@ -2494,7 +2495,7 @@ class _MobileAttendanceScreenState extends State<MobileAttendanceScreen>
             border: Border.all(color: statusColor.withValues(alpha: 0.22)),
             boxShadow: [
               BoxShadow(
-                color: const Color(0xFF0F172A).withValues(alpha: 0.04),
+                color: SboxColors.slate900.withValues(alpha: 0.04),
                 blurRadius: 16,
                 offset: const Offset(0, 4),
               ),
@@ -2532,7 +2533,7 @@ class _MobileAttendanceScreenState extends State<MobileAttendanceScreen>
                       onTap: () =>
                           _checkWifiConnection(requestPermissions: true),
                       child: const Icon(Icons.refresh_rounded,
-                          size: 18, color: Color(0xFF94A3B8)),
+                          size: 18, color: SboxColors.slate400),
                     ),
                 ],
               ),
@@ -2553,7 +2554,7 @@ class _MobileAttendanceScreenState extends State<MobileAttendanceScreen>
                 Text(
                   tr(_wifiLocationName!),
                   style:
-                      const TextStyle(fontSize: 11, color: Color(0xFF64748B)),
+                      const TextStyle(fontSize: 11, color: SboxColors.slate500),
                   maxLines: 1,
                   overflow: TextOverflow.ellipsis,
                 ),
@@ -2580,10 +2581,10 @@ class _MobileAttendanceScreenState extends State<MobileAttendanceScreen>
       margin: const EdgeInsets.only(top: 8),
       padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
       decoration: BoxDecoration(
-        color: const Color(0xFF22C55E).withValues(alpha: 0.08),
+        color: SboxColors.success.withValues(alpha: 0.08),
         borderRadius: BorderRadius.circular(14),
         border:
-            Border.all(color: const Color(0xFF22C55E).withValues(alpha: 0.15)),
+            Border.all(color: SboxColors.success.withValues(alpha: 0.15)),
       ),
       child: Row(
         children: [
@@ -2591,7 +2592,7 @@ class _MobileAttendanceScreenState extends State<MobileAttendanceScreen>
             width: 6,
             height: 6,
             decoration: const BoxDecoration(
-                shape: BoxShape.circle, color: Color(0xFF22C55E)),
+                shape: BoxShape.circle, color: SboxColors.success),
           ),
           const SizedBox(width: 10),
           Expanded(
@@ -2599,7 +2600,7 @@ class _MobileAttendanceScreenState extends State<MobileAttendanceScreen>
                 style: const TextStyle(
                     fontSize: 12,
                     fontWeight: FontWeight.w600,
-                    color: Color(0xFF15803D))),
+                    color: SboxColors.payHover)),
           ),
         ],
       ),
@@ -2621,7 +2622,7 @@ class _MobileAttendanceScreenState extends State<MobileAttendanceScreen>
                   height: 32,
                   decoration: BoxDecoration(
                     borderRadius: BorderRadius.circular(10),
-                    color: const Color(0xFF3B82F6).withValues(alpha: 0.12),
+                    color: SboxColors.brand500.withValues(alpha: 0.12),
                   ),
                   child: const Icon(Icons.timeline_rounded,
                       size: 16, color: HrmPageChrome.primaryNavy),
@@ -2629,21 +2630,21 @@ class _MobileAttendanceScreenState extends State<MobileAttendanceScreen>
                 const SizedBox(width: 10),
                 Text(tr('Hôm nay'),
                     style: const TextStyle(
-                        fontSize: 15,
+                        fontSize: 16,
                         fontWeight: FontWeight.w700,
-                        color: Color(0xFF0F172A))),
+                        color: SboxColors.slate900)),
                 const Spacer(),
                 Container(
                   padding:
                       const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
                   decoration: BoxDecoration(
-                      color: const Color(0xFFF1F5F9),
-                      borderRadius: BorderRadius.circular(8)),
+                      color: SboxColors.slate100,
+                      borderRadius: BorderRadius.circular(10)),
                   child: Text(tr('${_todayRecords.length}'),
                       style: const TextStyle(
                           fontSize: 11,
                           fontWeight: FontWeight.w700,
-                          color: Color(0xFF475569))),
+                          color: SboxColors.slate600)),
                 ),
               ],
             ),
@@ -2655,11 +2656,11 @@ class _MobileAttendanceScreenState extends State<MobileAttendanceScreen>
                   child: Column(
                     children: [
                       const Icon(Icons.event_note_rounded,
-                          size: 32, color: Color(0xFFCBD5E1)),
+                          size: 32, color: SboxColors.slate300),
                       const SizedBox(height: 8),
                       Text(tr('Chưa có lượt chấm công'),
                           style: const TextStyle(
-                              fontSize: 13, color: Color(0xFF94A3B8))),
+                              fontSize: 13, color: SboxColors.slate400)),
                     ],
                   ),
                 ),
@@ -2695,18 +2696,18 @@ class _MobileAttendanceScreenState extends State<MobileAttendanceScreen>
           ? Icons.free_breakfast_outlined
           : Icons.login_rounded;
     } else {
-      color = isCheckIn ? const Color(0xFF3B82F6) : const Color(0xFFEF4444);
+      color = isCheckIn ? SboxColors.brand500 : SboxColors.danger;
       icon = isCheckIn ? Icons.south_west_rounded : Icons.north_east_rounded;
     }
 
     return InkWell(
       onTap: () => showMobileAttendanceRecordDetailSheet(context, record: record),
-      borderRadius: BorderRadius.circular(12),
+      borderRadius: BorderRadius.circular(14),
       child: Container(
       margin: const EdgeInsets.only(bottom: 8),
       padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
       decoration: BoxDecoration(
-        color: const Color(0xFFF8FAFC),
+        color: SboxColors.slate50,
         borderRadius: BorderRadius.circular(14),
         border: Border.all(color: const Color(0xFFEEF2F6)),
       ),
@@ -2730,7 +2731,7 @@ class _MobileAttendanceScreenState extends State<MobileAttendanceScreen>
                 style: const TextStyle(
                     fontSize: 16,
                     fontWeight: FontWeight.w700,
-                    color: Color(0xFF0F172A),
+                    color: SboxColors.slate900,
                     fontFeatures: [FontFeature.tabularFigures()]),
               ),
               const SizedBox(height: 1),
@@ -2743,10 +2744,10 @@ class _MobileAttendanceScreenState extends State<MobileAttendanceScreen>
                   ),
                   if (record.distanceFromLocation != null) ...[
                     const Text(' · ',
-                        style: TextStyle(color: Color(0xFFCBD5E1))),
+                        style: TextStyle(color: SboxColors.slate300)),
                     Text(tr(record.formattedDistanceFromLocation),
                         style: const TextStyle(
-                            fontSize: 11, color: Color(0xFF64748B))),
+                            fontSize: 11, color: SboxColors.slate500)),
                   ],
                 ],
               ),
@@ -2757,12 +2758,12 @@ class _MobileAttendanceScreenState extends State<MobileAttendanceScreen>
             padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
             decoration: BoxDecoration(
               color: approved
-                  ? const Color(0xFF22C55E).withValues(alpha: 0.1)
+                  ? SboxColors.success.withValues(alpha: 0.1)
                   : HrmPageChrome.chipLight.withValues(alpha: 0.1),
-              borderRadius: BorderRadius.circular(8),
+              borderRadius: BorderRadius.circular(10),
               border: Border.all(
                   color: (approved
-                          ? const Color(0xFF22C55E)
+                          ? SboxColors.success
                           : HrmPageChrome.chipLight)
                       .withValues(alpha: 0.15)),
             ),
@@ -2772,8 +2773,8 @@ class _MobileAttendanceScreenState extends State<MobileAttendanceScreen>
                   fontSize: 10,
                   fontWeight: FontWeight.w600,
                   color: approved
-                      ? const Color(0xFF15803D)
-                      : const Color(0xFFB45309)),
+                      ? SboxColors.payHover
+                      : SboxColors.warningText),
             ),
           ),
         ],

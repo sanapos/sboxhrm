@@ -16,10 +16,11 @@ import '../utils/shift_records_calculator.dart';
 import '../utils/work_schedule_load_utils.dart';
 import '../widgets/hrm_page_chrome.dart';
 
+import '../theme/sbox_tokens.dart';
 const _navy = HrmPageChrome.primaryNavy;
 
 Color scheduleComplianceColor(ScheduleComplianceStatus s) => switch (s) {
-      ScheduleComplianceStatus.onTime => const Color(0xFF2E7D32),
+      ScheduleComplianceStatus.onTime => SboxColors.successText,
       ScheduleComplianceStatus.lateEarly => const Color(0xFFEF6C00),
       ScheduleComplianceStatus.missingOut => const Color(0xFF8D6E63),
       ScheduleComplianceStatus.wrongShift => const Color(0xFF7B1FA2),
@@ -374,7 +375,7 @@ class _ScheduleComplianceScreenState extends State<ScheduleComplianceScreen> {
             const SizedBox(height: 10),
             Text(
               tr('Chỉ để theo dõi việc đi làm theo lịch — lương vẫn tính theo chấm công thực tế.'),
-              style: TextStyle(fontSize: 12, color: Colors.grey.shade700),
+              style: TextStyle(fontSize: 12, color: SboxColors.slate700),
             ),
             if (_error != null) ...[
               const SizedBox(height: 8),
@@ -414,8 +415,8 @@ class _ScheduleComplianceScreenState extends State<ScheduleComplianceScreen> {
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              Text(tr(label), style: TextStyle(fontSize: 12, color: Colors.grey.shade700)),
-              Text(value, style: const TextStyle(fontSize: 18, fontWeight: FontWeight.w800, color: _navy)),
+              Text(tr(label), style: TextStyle(fontSize: 12, color: SboxColors.slate700)),
+              Text(value, style: const TextStyle(fontSize: 18, fontWeight: FontWeight.w700, color: _navy)),
             ],
           ),
         );
@@ -471,7 +472,7 @@ class _ScheduleComplianceScreenState extends State<ScheduleComplianceScreen> {
               fillColor: Colors.white,
               prefixIcon: const Icon(Icons.search),
               hintText: tr('Tìm nhân viên, mã NV, phòng ban'),
-              border: OutlineInputBorder(borderRadius: BorderRadius.circular(8)),
+              border: OutlineInputBorder(borderRadius: BorderRadius.circular(10)),
             ),
           ),
         ),
@@ -498,7 +499,7 @@ class _ScheduleComplianceScreenState extends State<ScheduleComplianceScreen> {
       margin: const EdgeInsets.only(bottom: 6),
       elevation: 0,
       shape: RoundedRectangleBorder(
-        borderRadius: BorderRadius.circular(8),
+        borderRadius: BorderRadius.circular(10),
         side: BorderSide(color: color.withValues(alpha: 0.35)),
       ),
       child: Padding(
@@ -523,10 +524,10 @@ class _ScheduleComplianceScreenState extends State<ScheduleComplianceScreen> {
                       if (r.scheduledShift.isNotEmpty) '${tr('Lịch')}: ${r.scheduledShift}',
                       if (r.actualShift.isNotEmpty) '${tr('Thực tế')}: ${r.actualShift}',
                     ].join('   '),
-                    style: TextStyle(fontSize: 13, color: Colors.grey.shade800),
+                    style: TextStyle(fontSize: 13, color: SboxColors.slate800),
                   ),
                   if (times.isNotEmpty)
-                    Text(times, style: TextStyle(fontSize: 12, color: Colors.grey.shade700)),
+                    Text(times, style: TextStyle(fontSize: 12, color: SboxColors.slate700)),
                 ],
               ),
             ),
@@ -551,8 +552,8 @@ class _ScheduleComplianceScreenState extends State<ScheduleComplianceScreen> {
     Color statusColor(String s) => switch (s) {
           'Thiếu người' => const Color(0xFFC62828),
           'Vượt định mức' => const Color(0xFF7B1FA2),
-          'Đạt' => const Color(0xFF2E7D32),
-          _ => Colors.grey.shade600,
+          'Đạt' => SboxColors.successText,
+          _ => SboxColors.slate600,
         };
     final short = rows.where((r) => r.status == 'Thiếu người').length;
     return [
@@ -560,7 +561,7 @@ class _ScheduleComplianceScreenState extends State<ScheduleComplianceScreen> {
         padding: const EdgeInsets.only(bottom: 8),
         child: Text(
           tr('$short / ${rows.length} ca thiếu người so với định mức (theo người có mặt thực tế)'),
-          style: TextStyle(color: Colors.grey.shade800, fontWeight: FontWeight.w600),
+          style: TextStyle(color: SboxColors.slate800, fontWeight: FontWeight.w600),
         ),
       ),
       for (final r in rows)
@@ -568,7 +569,7 @@ class _ScheduleComplianceScreenState extends State<ScheduleComplianceScreen> {
           margin: const EdgeInsets.only(bottom: 6),
           elevation: 0,
           shape: RoundedRectangleBorder(
-            borderRadius: BorderRadius.circular(8),
+            borderRadius: BorderRadius.circular(10),
             side: BorderSide(color: statusColor(r.status).withValues(alpha: 0.35)),
           ),
           child: ListTile(
@@ -606,7 +607,7 @@ class _ScheduleComplianceScreenState extends State<ScheduleComplianceScreen> {
         Card(
           margin: const EdgeInsets.only(bottom: 6),
           elevation: 0,
-          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
           child: Padding(
             padding: const EdgeInsets.fromLTRB(12, 10, 12, 10),
             child: Column(
@@ -622,9 +623,9 @@ class _ScheduleComplianceScreenState extends State<ScheduleComplianceScreen> {
                     ),
                     Text(_pct(s.complianceRate),
                         style: TextStyle(
-                          fontWeight: FontWeight.w800,
+                          fontWeight: FontWeight.w700,
                           color: (s.complianceRate ?? 1) >= 0.9
-                              ? const Color(0xFF2E7D32)
+                              ? SboxColors.successText
                               : (s.complianceRate ?? 1) >= 0.7
                                   ? const Color(0xFFEF6C00)
                                   : const Color(0xFFC62828),
@@ -653,7 +654,7 @@ class _ScheduleComplianceScreenState extends State<ScheduleComplianceScreen> {
                       if (s.count(st) > 0) '${tr(scheduleComplianceLabel(st))} ${s.count(st)}',
                     '${tr('có mặt')} ${_pct(s.attendanceRate)}',
                   ].join(' · '),
-                  style: TextStyle(fontSize: 12, color: Colors.grey.shade700),
+                  style: TextStyle(fontSize: 12, color: SboxColors.slate700),
                 ),
               ],
             ),

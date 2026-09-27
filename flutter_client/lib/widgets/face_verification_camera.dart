@@ -17,6 +17,7 @@ import '../services/mlkit_face_signature_service.dart';
 import 'package:zkteco_flutter_client/l10n/app_tr.dart';
 import '../utils/play_system_ui.dart';
 
+import '../theme/sbox_tokens.dart';
 /// Result of face verification: score + captured photo as base64.
 class FaceVerificationResult {
   final double matchScore;
@@ -723,7 +724,7 @@ class _FaceVerificationCameraState extends State<FaceVerificationCamera>
               const SizedBox(height: 12),
               if (logPath != null)
                 Text(tr('Đã lưu log vào:\n$logPath'),
-                  style: const TextStyle(fontSize: 10, color: Colors.black54),
+                  style: const TextStyle(fontSize: 10, color: SboxColors.textSecondary),
                 ),
             ],
           ),
@@ -763,11 +764,11 @@ class _FaceVerificationCameraState extends State<FaceVerificationCamera>
       case _VerifyStatus.waiting:
         return Colors.white54;
       case _VerifyStatus.faceDetected:
-        return const Color(0xFF3B82F6);
+        return SboxColors.brand500;
       case _VerifyStatus.verified:
-        return const Color(0xFF22C55E);
+        return SboxColors.success;
       case _VerifyStatus.error:
-        return const Color(0xFFEF4444);
+        return SboxColors.danger;
     }
   }
 
@@ -875,7 +876,7 @@ class _FaceVerificationCameraState extends State<FaceVerificationCamera>
                   child: const Center(
                     child: CircleAvatar(
                       radius: 36,
-                      backgroundColor: Color(0xFF22C55E),
+                      backgroundColor: SboxColors.success,
                       child: Icon(Icons.check, color: Colors.white, size: 40),
                     ),
                   ),
@@ -918,7 +919,7 @@ class _FaceVerificationCameraState extends State<FaceVerificationCamera>
                             tr(_statusMessage),
                             style: const TextStyle(
                               color: Colors.white,
-                              fontSize: 15,
+                              fontSize: 16,
                               fontWeight: FontWeight.w600,
                             ),
                             textAlign: TextAlign.center,
@@ -941,7 +942,7 @@ class _FaceVerificationCameraState extends State<FaceVerificationCamera>
                   gradient: LinearGradient(
                     begin: Alignment.topCenter,
                     end: Alignment.bottomCenter,
-                    colors: [Colors.transparent, Colors.black54, Colors.black87],
+                    colors: [Colors.transparent, SboxColors.textSecondary, SboxColors.text],
                   ),
                 ),
                 child: Column(
@@ -983,7 +984,7 @@ class _FaceVerificationCameraState extends State<FaceVerificationCamera>
                 icon: Container(
                   padding: const EdgeInsets.all(6),
                   decoration: BoxDecoration(
-                    color: Colors.black38,
+                    color: SboxColors.textMuted,
                     borderRadius: BorderRadius.circular(20),
                   ),
                   child: const Icon(Icons.close, color: Colors.white, size: 24),
@@ -998,8 +999,8 @@ class _FaceVerificationCameraState extends State<FaceVerificationCamera>
                   margin: const EdgeInsets.all(32),
                   padding: const EdgeInsets.all(24),
                   decoration: BoxDecoration(
-                    color: Colors.black87,
-                    borderRadius: BorderRadius.circular(16),
+                    color: SboxColors.text,
+                    borderRadius: BorderRadius.circular(14),
                   ),
                   child: Column(
                     mainAxisSize: MainAxisSize.min,

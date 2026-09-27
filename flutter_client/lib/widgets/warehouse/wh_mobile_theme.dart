@@ -38,14 +38,14 @@ abstract final class WhMobileTheme {
   );
 
   static const titleMedium = TextStyle(
-    fontSize: 17,
+    fontSize: 18,
     fontWeight: FontWeight.w600,
     letterSpacing: -0.2,
     color: textPrimary,
   );
 
   static const body = TextStyle(
-    fontSize: 15,
+    fontSize: 16,
     fontWeight: FontWeight.w400,
     color: textPrimary,
     height: 1.35,
@@ -66,7 +66,7 @@ abstract final class WhMobileTheme {
   );
 
   static const money = TextStyle(
-    fontSize: 17,
+    fontSize: 18,
     fontWeight: FontWeight.w700,
     letterSpacing: -0.3,
     color: textPrimary,

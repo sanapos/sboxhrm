@@ -18,6 +18,7 @@ import '../widgets/loading_widget.dart';
 import '../widgets/notification_overlay.dart';
 import 'account_data_scope_panel.dart';
 import 'package:zkteco_flutter_client/l10n/app_tr.dart';
+import '../theme/sbox_tokens.dart';
 class RolePermissionsScreen extends StatefulWidget {
   const RolePermissionsScreen({super.key});
 
@@ -1168,8 +1169,8 @@ class _RolePermissionsScreenState extends State<RolePermissionsScreen> {
       width: double.infinity,
       padding: const EdgeInsets.fromLTRB(16, 12, 16, 12),
       decoration: const BoxDecoration(
-        color: Color(0xFFF8FAFC),
-        border: Border(bottom: BorderSide(color: Color(0xFFE4E4E7))),
+        color: SboxColors.slate50,
+        border: Border(bottom: BorderSide(color: SboxColors.slate200)),
       ),
       child: Row(
         children: [
@@ -1177,7 +1178,7 @@ class _RolePermissionsScreenState extends State<RolePermissionsScreen> {
               style: TextStyle(
                   fontSize: 12,
                   fontWeight: FontWeight.w600,
-                  color: Color(0xFF52525B))),
+                  color: SboxColors.slate600)),
           const SizedBox(width: 8),
           Expanded(
             child: SingleChildScrollView(
@@ -1308,7 +1309,7 @@ class _RolePermissionsScreenState extends State<RolePermissionsScreen> {
           if (byGroup.containsKey(gid)) ...[
             _buildGroupSectionHeader(gid, byGroup[gid]!),
             ...byGroup[gid]!.map(_buildPermissionRow),
-            const Divider(height: 1, color: Color(0xFFE4E4E7)),
+            const Divider(height: 1, color: SboxColors.slate200),
           ],
       ],
     );
@@ -1319,7 +1320,7 @@ class _RolePermissionsScreenState extends State<RolePermissionsScreen> {
     final g = PermissionRoleCatalog.groupById(groupId);
     final title = g?.title ?? 'Khác';
     final desc = g?.description ?? '';
-    final color = g?.color ?? const Color(0xFF94A3B8);
+    final color = g?.color ?? SboxColors.slate400;
     final icon = g?.icon ?? Icons.folder_outlined;
     final enabledCount =
         items.where((p) => p['canView'] == true).length;
@@ -1343,7 +1344,7 @@ class _RolePermissionsScreenState extends State<RolePermissionsScreen> {
                 if (desc.isNotEmpty)
                   Text(tr(desc),
                       style: const TextStyle(
-                          fontSize: 11, color: Color(0xFF71717A))),
+                          fontSize: 11, color: SboxColors.slate500)),
               ],
             ),
           ),
@@ -1560,7 +1561,7 @@ class _RolePermissionsScreenState extends State<RolePermissionsScreen> {
           FilledButton(
             onPressed: () => Navigator.pop(context, true),
             style: FilledButton.styleFrom(
-                backgroundColor: const Color(0xFFEF4444)),
+                backgroundColor: SboxColors.danger),
             child: Text(tr('Xóa')),
           ),
         ],
@@ -1637,7 +1638,7 @@ class _RolePermissionsScreenState extends State<RolePermissionsScreen> {
                 width: 280,
                 decoration: const BoxDecoration(
                   color: Colors.white,
-                  border: Border(right: BorderSide(color: Color(0xFFE4E4E7))),
+                  border: Border(right: BorderSide(color: SboxColors.slate200)),
                 ),
                 child: Column(
                   children: [
@@ -1645,7 +1646,7 @@ class _RolePermissionsScreenState extends State<RolePermissionsScreen> {
                       padding: const EdgeInsets.all(16),
                       decoration: const BoxDecoration(
                         border:
-                            Border(bottom: BorderSide(color: Color(0xFFE4E4E7))),
+                            Border(bottom: BorderSide(color: SboxColors.slate200)),
                       ),
                       child: Row(
                         children: [
@@ -1654,7 +1655,7 @@ class _RolePermissionsScreenState extends State<RolePermissionsScreen> {
                             decoration: BoxDecoration(
                               color: HrmPageChrome.primaryNavy
                                   .withValues(alpha: 0.1),
-                              borderRadius: BorderRadius.circular(8),
+                              borderRadius: BorderRadius.circular(10),
                             ),
                             child: const Icon(Icons.badge,
                                 color: HrmPageChrome.primaryNavy, size: 20),
@@ -1667,14 +1668,14 @@ class _RolePermissionsScreenState extends State<RolePermissionsScreen> {
                                 Text(tr('Chức danh'),
                                   style: TextStyle(
                                     fontWeight: FontWeight.bold,
-                                    fontSize: 15,
-                                    color: Color(0xFF18181B),
+                                    fontSize: 16,
+                                    color: SboxColors.slate900,
                                   ),
                                 ),
                                 Text(tr('Chọn để phân quyền'),
                                   style: TextStyle(
                                     fontSize: 12,
-                                    color: Color(0xFF71717A),
+                                    color: SboxColors.slate500,
                                   ),
                                 ),
                               ],
@@ -1709,7 +1710,7 @@ class _RolePermissionsScreenState extends State<RolePermissionsScreen> {
                 child: _selectedRolePermissions == null
                     ? Center(
                         child: Text(tr('Chọn một chức danh để xem và chỉnh sửa quyền'),
-                          style: TextStyle(color: Color(0xFF71717A)),
+                          style: TextStyle(color: SboxColors.slate500),
                         ),
                       )
                     : _isLoadingPermissions
@@ -1759,7 +1760,7 @@ class _RolePermissionsScreenState extends State<RolePermissionsScreen> {
         child: Material(
           color: selected
               ? HrmPageChrome.primaryNavy.withValues(alpha: 0.1)
-              : const Color(0xFFF4F4F5),
+              : SboxColors.slate100,
           borderRadius: BorderRadius.circular(10),
           child: InkWell(
             borderRadius: BorderRadius.circular(10),
@@ -1773,7 +1774,7 @@ class _RolePermissionsScreenState extends State<RolePermissionsScreen> {
                       size: 16,
                       color: selected
                           ? HrmPageChrome.primaryNavy
-                          : const Color(0xFF71717A)),
+                          : SboxColors.slate500),
                   const SizedBox(width: 6),
                   Text(
                     tr(label),
@@ -1782,7 +1783,7 @@ class _RolePermissionsScreenState extends State<RolePermissionsScreen> {
                       fontWeight: FontWeight.w600,
                       color: selected
                           ? HrmPageChrome.primaryNavy
-                          : const Color(0xFF3F3F46),
+                          : SboxColors.slate700,
                     ),
                   ),
                 ],
@@ -1839,7 +1840,7 @@ class _RolePermissionsScreenState extends State<RolePermissionsScreen> {
             padding: const EdgeInsets.all(16),
             decoration: const BoxDecoration(
               color: Colors.white,
-              border: Border(bottom: BorderSide(color: Color(0xFFE4E4E7))),
+              border: Border(bottom: BorderSide(color: SboxColors.slate200)),
             ),
             child: Row(
               children: [
@@ -1847,7 +1848,7 @@ class _RolePermissionsScreenState extends State<RolePermissionsScreen> {
                   padding: const EdgeInsets.all(8),
                   decoration: BoxDecoration(
                     color: HrmPageChrome.primaryNavy.withValues(alpha: 0.1),
-                    borderRadius: BorderRadius.circular(8),
+                    borderRadius: BorderRadius.circular(10),
                   ),
                   child: const Icon(Icons.badge,
                       color: HrmPageChrome.primaryNavy, size: 20),
@@ -1860,11 +1861,11 @@ class _RolePermissionsScreenState extends State<RolePermissionsScreen> {
                       Text(tr('Chức danh'),
                           style: TextStyle(
                               fontWeight: FontWeight.bold,
-                              fontSize: 15,
-                              color: Color(0xFF18181B))),
+                              fontSize: 16,
+                              color: SboxColors.slate900)),
                       Text(tr('Chọn để phân quyền'),
                           style: TextStyle(
-                              fontSize: 12, color: Color(0xFF71717A))),
+                              fontSize: 12, color: SboxColors.slate500)),
                     ],
                   ),
                 ),
@@ -1905,7 +1906,7 @@ class _RolePermissionsScreenState extends State<RolePermissionsScreen> {
             children: [
               if (!HrmPageChrome.isEmbedded)
                 IconButton(
-                  icon: const Icon(Icons.arrow_back, color: Color(0xFF18181B)),
+                  icon: const Icon(Icons.arrow_back, color: SboxColors.slate900),
                   onPressed: () {
                     setState(() {
                       _selectedRoleName = null;
@@ -1921,7 +1922,7 @@ class _RolePermissionsScreenState extends State<RolePermissionsScreen> {
                   style: const TextStyle(
                       fontSize: 16,
                       fontWeight: FontWeight.bold,
-                      color: Color(0xFF18181B)),
+                      color: SboxColors.slate900),
                   overflow: TextOverflow.ellipsis,
                 ),
               ),
@@ -1939,7 +1940,7 @@ class _RolePermissionsScreenState extends State<RolePermissionsScreen> {
                 icon: const Icon(Icons.check_box_outline_blank, size: 16),
                 label: Text(tr('Bỏ'), style: TextStyle(fontSize: 12)),
                 style: TextButton.styleFrom(
-                  foregroundColor: const Color(0xFFEF4444),
+                  foregroundColor: SboxColors.danger,
                   padding: const EdgeInsets.symmetric(horizontal: 8),
                 ),
               ),
@@ -2018,9 +2019,9 @@ class _RolePermissionsScreenState extends State<RolePermissionsScreen> {
                               padding: const EdgeInsets.all(12),
                               decoration: BoxDecoration(
                                 color: Colors.white,
-                                borderRadius: BorderRadius.circular(12),
+                                borderRadius: BorderRadius.circular(14),
                                 border: Border.all(
-                                    color: const Color(0xFFE4E4E7)),
+                                    color: SboxColors.slate200),
                               ),
                               child: Column(
                                 crossAxisAlignment: CrossAxisAlignment.start,
@@ -2057,7 +2058,7 @@ class _RolePermissionsScreenState extends State<RolePermissionsScreen> {
                                           Text(tr(allChecked ? 'Toàn quyền' : ''),
                                               style: const TextStyle(
                                                   fontSize: 11,
-                                                  color: Color(0xFF71717A))),
+                                                  color: SboxColors.slate500)),
                                           Checkbox(
                                             value: allChecked,
                                             onChanged: _perm.canEdit('Role')
@@ -2149,12 +2150,12 @@ class _RolePermissionsScreenState extends State<RolePermissionsScreen> {
         decoration: BoxDecoration(
           color: value
               ? _getPermissionColor(permType).withValues(alpha: 0.1)
-              : const Color(0xFFF4F4F5),
-          borderRadius: BorderRadius.circular(8),
+              : SboxColors.slate100,
+          borderRadius: BorderRadius.circular(10),
           border: Border.all(
               color: value
                   ? _getPermissionColor(permType).withValues(alpha: 0.3)
-                  : const Color(0xFFE4E4E7)),
+                  : SboxColors.slate200),
         ),
         child: Row(
           mainAxisSize: MainAxisSize.min,
@@ -2164,7 +2165,7 @@ class _RolePermissionsScreenState extends State<RolePermissionsScreen> {
               size: 14,
               color: value
                   ? _getPermissionColor(permType)
-                  : const Color(0xFFA1A1AA),
+                  : SboxColors.slate400,
             ),
             const SizedBox(width: 4),
             Text(tr(label),
@@ -2173,7 +2174,7 @@ class _RolePermissionsScreenState extends State<RolePermissionsScreen> {
                     fontWeight: FontWeight.w500,
                     color: value
                         ? _getPermissionColor(permType)
-                        : const Color(0xFF71717A))),
+                        : SboxColors.slate500)),
           ],
         ),
       ),
@@ -2236,7 +2237,7 @@ class _RolePermissionsScreenState extends State<RolePermissionsScreen> {
         color: isSelected
             ? HrmPageChrome.primaryNavy.withValues(alpha: 0.1)
             : Colors.transparent,
-        borderRadius: BorderRadius.circular(8),
+        borderRadius: BorderRadius.circular(10),
         border: Border.all(
           color: isSelected ? HrmPageChrome.primaryNavy : Colors.transparent,
         ),
@@ -2248,7 +2249,7 @@ class _RolePermissionsScreenState extends State<RolePermissionsScreen> {
           height: 40,
           decoration: BoxDecoration(
             color: _getRoleColor(role['roleName']).withValues(alpha: 0.1),
-            borderRadius: BorderRadius.circular(8),
+            borderRadius: BorderRadius.circular(10),
           ),
           child: Icon(
             _getRoleIcon(role['roleName']),
@@ -2261,11 +2262,11 @@ class _RolePermissionsScreenState extends State<RolePermissionsScreen> {
           style: TextStyle(
             fontWeight: isSelected ? FontWeight.bold : FontWeight.w500,
             color:
-                isSelected ? HrmPageChrome.primaryNavy : const Color(0xFF18181B),
+                isSelected ? HrmPageChrome.primaryNavy : SboxColors.slate900,
           ),
         ),
         subtitle: Text(tr('$permCount module được cấp quyền'),
-          style: const TextStyle(fontSize: 12, color: Color(0xFF71717A)),
+          style: const TextStyle(fontSize: 12, color: SboxColors.slate500),
         ),
         trailing: Row(
           mainAxisSize: MainAxisSize.min,
@@ -2277,7 +2278,7 @@ class _RolePermissionsScreenState extends State<RolePermissionsScreen> {
               IconButton(
                 onPressed: () => _deleteRole(role['roleName']),
                 icon: const Icon(Icons.delete_outline, size: 18),
-                color: const Color(0xFFEF4444),
+                color: SboxColors.danger,
                 tooltip: tr('Xóa chức danh'),
                 padding: EdgeInsets.zero,
                 constraints: const BoxConstraints(minWidth: 32, minHeight: 32),
@@ -2296,7 +2297,7 @@ class _RolePermissionsScreenState extends State<RolePermissionsScreen> {
           padding: const EdgeInsets.all(20),
           decoration: const BoxDecoration(
             color: Colors.white,
-            border: Border(bottom: BorderSide(color: Color(0xFFE4E4E7))),
+            border: Border(bottom: BorderSide(color: SboxColors.slate200)),
           ),
           child: Row(
             children: [
@@ -2310,7 +2311,7 @@ class _RolePermissionsScreenState extends State<RolePermissionsScreen> {
                           .withValues(alpha: 0.7),
                     ],
                   ),
-                  borderRadius: BorderRadius.circular(12),
+                  borderRadius: BorderRadius.circular(14),
                 ),
                 child: Icon(
                   _getRoleIcon(_selectedRoleName ?? ''),
@@ -2327,13 +2328,13 @@ class _RolePermissionsScreenState extends State<RolePermissionsScreen> {
                       style: const TextStyle(
                         fontSize: 18,
                         fontWeight: FontWeight.bold,
-                        color: Color(0xFF18181B),
+                        color: SboxColors.slate900,
                       ),
                     ),
                     Text(tr('Chọn từng chức năng theo nhóm — lưu khi bấm "Lưu thay đổi"'),
                       style: TextStyle(
                         fontSize: 13,
-                        color: Colors.grey[600],
+                        color: SboxColors.slate600,
                       ),
                     ),
                   ],
@@ -2361,8 +2362,8 @@ class _RolePermissionsScreenState extends State<RolePermissionsScreen> {
                       icon: const Icon(Icons.check_box_outline_blank, size: 18),
                       label: Text(tr('Bỏ tất cả')),
                       style: OutlinedButton.styleFrom(
-                        foregroundColor: const Color(0xFFEF4444),
-                        side: const BorderSide(color: Color(0xFFEF4444)),
+                        foregroundColor: SboxColors.danger,
+                        side: const BorderSide(color: SboxColors.danger),
                         padding: const EdgeInsets.symmetric(
                             horizontal: 12, vertical: 8),
                       ),
@@ -2381,8 +2382,8 @@ class _RolePermissionsScreenState extends State<RolePermissionsScreen> {
             child: Container(
               decoration: BoxDecoration(
                 color: Colors.white,
-                borderRadius: BorderRadius.circular(12),
-                border: Border.all(color: const Color(0xFFE4E4E7)),
+                borderRadius: BorderRadius.circular(14),
+                border: Border.all(color: SboxColors.slate200),
               ),
               child: Column(
                 children: [
@@ -2390,11 +2391,11 @@ class _RolePermissionsScreenState extends State<RolePermissionsScreen> {
                     padding: const EdgeInsets.symmetric(
                         horizontal: 16, vertical: 12),
                     decoration: const BoxDecoration(
-                      color: Color(0xFFFAFAFA),
+                      color: SboxColors.slate50,
                       borderRadius:
                           BorderRadius.vertical(top: Radius.circular(12)),
                       border:
-                          Border(bottom: BorderSide(color: Color(0xFFE4E4E7))),
+                          Border(bottom: BorderSide(color: SboxColors.slate200)),
                     ),
                     child: Row(
                       children: [
@@ -2403,7 +2404,7 @@ class _RolePermissionsScreenState extends State<RolePermissionsScreen> {
                           child: Text(tr('${_visiblePermissions().length} chức năng'),
                             style: const TextStyle(
                                 fontWeight: FontWeight.bold,
-                                color: Color(0xFF52525B)),
+                                color: SboxColors.slate600),
                           ),
                         ),
                         _buildHeaderCheckbox('Xem danh sách', 'canView'),
@@ -2418,7 +2419,7 @@ class _RolePermissionsScreenState extends State<RolePermissionsScreen> {
                                 textAlign: TextAlign.center,
                                 style: TextStyle(
                                     fontWeight: FontWeight.bold,
-                                    color: Color(0xFF52525B)))),
+                                    color: SboxColors.slate600))),
                       ],
                     ),
                   ),
@@ -2454,12 +2455,12 @@ class _RolePermissionsScreenState extends State<RolePermissionsScreen> {
                 tr(label),
                 style: const TextStyle(
                     fontWeight: FontWeight.bold,
-                    color: Color(0xFF52525B),
+                    color: SboxColors.slate600,
                     fontSize: 12),
                 overflow: TextOverflow.ellipsis,
               ),
             ),
-            const Icon(Icons.unfold_more, size: 14, color: Color(0xFFA1A1AA)),
+            const Icon(Icons.unfold_more, size: 14, color: SboxColors.slate400),
           ],
         ),
       ),
@@ -2481,7 +2482,7 @@ class _RolePermissionsScreenState extends State<RolePermissionsScreen> {
                 activeColor: _getPermissionColor(permissionType),
               )
             : Text(tr('—'),
-                style: TextStyle(fontSize: 18, color: Color(0xFFD4D4D8))),
+                style: TextStyle(fontSize: 18, color: SboxColors.slate300)),
       ),
     );
   }
@@ -2489,7 +2490,7 @@ class _RolePermissionsScreenState extends State<RolePermissionsScreen> {
   Color _getRoleColor(String roleName) {
     switch (roleName) {
       case 'Admin':
-        return const Color(0xFFEF4444);
+        return SboxColors.danger;
       case 'Director':
         return HrmPageChrome.chipDark;
       case 'Accountant':
@@ -2505,9 +2506,9 @@ class _RolePermissionsScreenState extends State<RolePermissionsScreen> {
       case 'Employee':
         return HrmPageChrome.primaryNavy;
       case 'User':
-        return const Color(0xFF71717A);
+        return SboxColors.slate500;
       default:
-        return const Color(0xFF71717A);
+        return SboxColors.slate500;
     }
   }
 
@@ -2563,9 +2564,9 @@ class _RolePermissionsScreenState extends State<RolePermissionsScreen> {
       case 'Report':
         return HrmPageChrome.chip;
       case 'Settings':
-        return const Color(0xFF71717A);
+        return SboxColors.slate500;
       default:
-        return const Color(0xFF71717A);
+        return SboxColors.slate500;
     }
   }
 
@@ -2639,13 +2640,13 @@ class _RolePermissionsScreenState extends State<RolePermissionsScreen> {
       case 'canEdit':
         return HrmPageChrome.chipLight;
       case 'canDelete':
-        return const Color(0xFFEF4444);
+        return SboxColors.danger;
       case 'canExport':
         return HrmPageChrome.primaryNavy;
       case 'canApprove':
         return HrmPageChrome.chipLight;
       default:
-        return const Color(0xFF71717A);
+        return SboxColors.slate500;
     }
   }
 

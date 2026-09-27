@@ -194,7 +194,7 @@ class _SitePhotoCaptureScreenState extends State<SitePhotoCaptureScreen> {
               Text(
                 tr(_error!),
                 textAlign: TextAlign.center,
-                style: const TextStyle(color: Colors.white70, fontSize: 15),
+                style: const TextStyle(color: Colors.white70, fontSize: 16),
               ),
               const SizedBox(height: 24),
               SizedBox(

@@ -7,6 +7,7 @@ import '../../widgets/notification_overlay.dart';
 import '../../widgets/pos/pos_theme.dart';
 import 'package:zkteco_flutter_client/l10n/app_tr.dart';
 
+import '../../theme/sbox_tokens.dart';
 /// Lịch sử mua + sổ buổi / trừ buổi lúc bán.
 Future<bool?> showPosSessionRedeemSheet(
   BuildContext context, {
@@ -258,7 +259,7 @@ class _PosCustomerSessionSheetState extends State<_PosCustomerSessionSheet>
                     child: Text(
                       tr(widget.customerName),
                       style: const TextStyle(
-                        fontSize: 17,
+                        fontSize: 18,
                         fontWeight: FontWeight.w700,
                       ),
                     ),
@@ -283,7 +284,7 @@ class _PosCustomerSessionSheetState extends State<_PosCustomerSessionSheet>
                         if (remain > 0 || memberships.isEmpty) tr('Còn $remain buổi'),
                         tr('đã dùng $used'),
                       ].join(' · '),
-                style: TextStyle(fontSize: 13, color: Colors.grey.shade600),
+                style: TextStyle(fontSize: 13, color: SboxColors.slate600),
               ),
               const SizedBox(height: 8),
               TabBar(
@@ -331,7 +332,7 @@ class _PosCustomerSessionSheetState extends State<_PosCustomerSessionSheet>
         child: Text(
           tr('Chưa có gói buổi.\nBán liệu trình / combo có số buổi (gắn khách) để cộng sổ.'),
           textAlign: TextAlign.center,
-          style: TextStyle(color: Colors.grey.shade700, height: 1.4),
+          style: TextStyle(color: SboxColors.slate700, height: 1.4),
         ),
       );
     }
@@ -378,7 +379,7 @@ class _PosCustomerSessionSheetState extends State<_PosCustomerSessionSheet>
             )
           else
             Text(tr('Chưa có danh sách nhân viên — trừ buổi vẫn ghi ngày.'),
-                style: TextStyle(fontSize: 12, color: Colors.grey.shade600)),
+                style: TextStyle(fontSize: 12, color: SboxColors.slate600)),
           const SizedBox(height: 8),
           InkWell(
             onTap: _pickUsedDate,
@@ -408,7 +409,7 @@ class _PosCustomerSessionSheetState extends State<_PosCustomerSessionSheet>
           Padding(
             padding: const EdgeInsets.only(top: 8),
             child: Text(tr('Chưa có lần sử dụng'),
-                style: TextStyle(color: Colors.grey.shade600)),
+                style: TextStyle(color: SboxColors.slate600)),
           ),
       ],
     );
@@ -443,7 +444,7 @@ class _PosCustomerSessionSheetState extends State<_PosCustomerSessionSheet>
             Padding(
               padding: const EdgeInsets.fromLTRB(12, 0, 12, 12),
               child: Text(tr('Chưa có giao dịch'),
-                  style: TextStyle(color: Colors.grey.shade600, fontSize: 12)),
+                  style: TextStyle(color: SboxColors.slate600, fontSize: 12)),
             )
           else
             for (final t in rows) _txnTile(t),
@@ -463,7 +464,7 @@ class _PosCustomerSessionSheetState extends State<_PosCustomerSessionSheet>
       dense: true,
       leading: Icon(
         t.isPurchase ? Icons.add_card_outlined : Icons.event_available_outlined,
-        color: t.isPurchase ? PosTheme.kiotBlue : const Color(0xFF16A34A),
+        color: t.isPurchase ? PosTheme.kiotBlue : SboxColors.success,
         size: 20,
       ),
       title: Text(tr(label), style: const TextStyle(fontSize: 13)),
@@ -477,7 +478,7 @@ class _PosCustomerSessionSheetState extends State<_PosCustomerSessionSheet>
         style: const TextStyle(fontSize: 11),
       ),
       trailing: Text(tr('còn ${t.remainingAfter}'),
-          style: const TextStyle(fontSize: 11, color: Color(0xFF71717A))),
+          style: const TextStyle(fontSize: 11, color: SboxColors.slate500)),
     );
   }
 
@@ -485,7 +486,7 @@ class _PosCustomerSessionSheetState extends State<_PosCustomerSessionSheet>
     if (_orders.isEmpty) {
       return Center(
         child: Text(tr('Chưa có đơn bán gắn khách này'),
-            style: TextStyle(color: Colors.grey.shade700)),
+            style: TextStyle(color: SboxColors.slate700)),
       );
     }
     return ListView.separated(
@@ -522,7 +523,7 @@ class _PosCustomerSessionSheetState extends State<_PosCustomerSessionSheet>
                     if (o.paidAmount < o.total)
                       'nợ ${_money.format(o.total - o.paidAmount)}',
                   ].join(' · '),
-                  style: TextStyle(fontSize: 12, color: Colors.grey.shade600),
+                  style: TextStyle(fontSize: 12, color: SboxColors.slate600),
                 ),
                 if (o.items.isNotEmpty) ...[
                   const SizedBox(height: 6),

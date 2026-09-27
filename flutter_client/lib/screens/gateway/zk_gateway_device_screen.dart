@@ -10,6 +10,7 @@ import '../../widgets/hrm_page_chrome.dart';
 import '../../widgets/notification_overlay.dart';
 import 'zk_gateway_widgets.dart';
 
+import '../../theme/sbox_tokens.dart';
 /// Quản lý máy chấm công qua API LAN của ESP32 — thay trang web portal.
 class ZkGatewayDeviceScreen extends StatefulWidget {
   const ZkGatewayDeviceScreen({
@@ -218,7 +219,7 @@ class _ZkGatewayDeviceScreenState extends State<ZkGatewayDeviceScreen>
         actions: [
           TextButton(onPressed: () => Navigator.pop(ctx, false), child: Text(tr('Huỷ'))),
           ElevatedButton(
-            style: ElevatedButton.styleFrom(backgroundColor: const Color(0xFFDC2626)),
+            style: ElevatedButton.styleFrom(backgroundColor: SboxColors.danger),
             onPressed: () => Navigator.pop(ctx, true),
             child: Text(tr('Xóa')),
           ),
@@ -249,7 +250,7 @@ class _ZkGatewayDeviceScreenState extends State<ZkGatewayDeviceScreen>
         actions: [
           TextButton(onPressed: () => Navigator.pop(ctx, false), child: Text(tr('Huỷ'))),
           ElevatedButton(
-            style: ElevatedButton.styleFrom(backgroundColor: const Color(0xFFDC2626)),
+            style: ElevatedButton.styleFrom(backgroundColor: SboxColors.danger),
             onPressed: () => Navigator.pop(ctx, true),
             child: Text(tr('Xóa')),
           ),
@@ -365,7 +366,7 @@ class _ZkGatewayDeviceScreenState extends State<ZkGatewayDeviceScreen>
             TextButton(onPressed: () => Navigator.pop(ctx, false), child: Text(tr('Huỷ'))),
             ElevatedButton(
               style: action == 'factory_reset' || action == 'clear_attlog'
-                  ? ElevatedButton.styleFrom(backgroundColor: const Color(0xFFDC2626))
+                  ? ElevatedButton.styleFrom(backgroundColor: SboxColors.danger)
                   : null,
               onPressed: () => Navigator.pop(ctx, true),
               child: Text(tr('Xác nhận')),
@@ -423,7 +424,7 @@ class _ZkGatewayDeviceScreenState extends State<ZkGatewayDeviceScreen>
           style: const TextStyle(
             color: HrmPageChrome.textDark,
             fontWeight: FontWeight.w700,
-            fontSize: 17,
+            fontSize: 18,
           ),
         ),
         iconTheme: const IconThemeData(color: HrmPageChrome.textDark),
@@ -517,14 +518,14 @@ class _ZkGatewayDeviceScreenState extends State<ZkGatewayDeviceScreen>
     return Container(
       decoration: BoxDecoration(
         color: Colors.white,
-        borderRadius: BorderRadius.circular(12),
-        border: Border.all(color: const Color(0xFFE2E8F0)),
+        borderRadius: BorderRadius.circular(14),
+        border: Border.all(color: SboxColors.slate200),
       ),
       child: ListTile(
         contentPadding: const EdgeInsets.fromLTRB(14, 4, 6, 4),
         title: Text(
           u.displayName,
-          style: const TextStyle(fontWeight: FontWeight.w700, fontSize: 14.5),
+          style: const TextStyle(fontWeight: FontWeight.w700, fontSize: 14),
         ),
         subtitle: Text(
           'PIN ${u.pin}${u.card > 0 ? ' · thẻ ${u.card}' : ''}',
@@ -561,7 +562,7 @@ class _ZkGatewayDeviceScreenState extends State<ZkGatewayDeviceScreen>
           decoration: BoxDecoration(
             color: Colors.white,
             borderRadius: BorderRadius.circular(14),
-            border: Border.all(color: const Color(0xFFE2E8F0)),
+            border: Border.all(color: SboxColors.slate200),
           ),
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.stretch,
@@ -569,8 +570,8 @@ class _ZkGatewayDeviceScreenState extends State<ZkGatewayDeviceScreen>
               Text(
                 tr('Đăng ký vân tay'),
                 style: const TextStyle(
-                  fontSize: 11.5,
-                  fontWeight: FontWeight.w800,
+                  fontSize: 12,
+                  fontWeight: FontWeight.w700,
                   letterSpacing: 1,
                   color: HrmPageChrome.textMuted,
                 ),
@@ -631,7 +632,7 @@ class _ZkGatewayDeviceScreenState extends State<ZkGatewayDeviceScreen>
                     ? tr('Chọn nhân viên và ngón tay, rồi đặt ngón lên máy khi đèn sáng (tối đa 45 giây).')
                     : _enrollMsg,
                 style: const TextStyle(
-                  fontSize: 12.5,
+                  fontSize: 13,
                   height: 1.4,
                   color: HrmPageChrome.textMuted,
                 ),
@@ -785,8 +786,8 @@ class _ZkGatewayDeviceScreenState extends State<ZkGatewayDeviceScreen>
                 padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 11),
                 decoration: BoxDecoration(
                   color: Colors.white,
-                  borderRadius: BorderRadius.circular(12),
-                  border: Border.all(color: const Color(0xFFE2E8F0)),
+                  borderRadius: BorderRadius.circular(14),
+                  border: Border.all(color: SboxColors.slate200),
                 ),
                 child: Row(
                   children: [
@@ -798,7 +799,7 @@ class _ZkGatewayDeviceScreenState extends State<ZkGatewayDeviceScreen>
                             row.pin,
                             style: const TextStyle(
                               fontWeight: FontWeight.w700,
-                              fontSize: 13.5,
+                              fontSize: 14,
                             ),
                           ),
                           const SizedBox(height: 2),
@@ -818,14 +819,14 @@ class _ZkGatewayDeviceScreenState extends State<ZkGatewayDeviceScreen>
                         Text(
                           row.state,
                           style: const TextStyle(
-                            fontSize: 12.5,
+                            fontSize: 13,
                             fontWeight: FontWeight.w600,
                           ),
                         ),
                         Text(
                           row.verify,
                           style: const TextStyle(
-                            fontSize: 11.5,
+                            fontSize: 12,
                             color: HrmPageChrome.textMuted,
                           ),
                         ),
@@ -847,7 +848,7 @@ class _ZkGatewayDeviceScreenState extends State<ZkGatewayDeviceScreen>
       decoration: BoxDecoration(
         color: Colors.white,
         borderRadius: BorderRadius.circular(14),
-        border: Border.all(color: const Color(0xFFE2E8F0)),
+        border: Border.all(color: SboxColors.slate200),
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
@@ -855,8 +856,8 @@ class _ZkGatewayDeviceScreenState extends State<ZkGatewayDeviceScreen>
           Text(
             tr(title),
             style: const TextStyle(
-              fontSize: 11.5,
-              fontWeight: FontWeight.w800,
+              fontSize: 12,
+              fontWeight: FontWeight.w700,
               letterSpacing: 1,
               color: HrmPageChrome.textMuted,
             ),
@@ -875,12 +876,12 @@ class _ZkGatewayDeviceScreenState extends State<ZkGatewayDeviceScreen>
     bool danger = false,
     bool last = false,
   }) {
-    final color = danger ? const Color(0xFFDC2626) : HrmPageChrome.primaryNavy;
+    final color = danger ? SboxColors.danger : HrmPageChrome.primaryNavy;
     return Column(
       children: [
         InkWell(
           onTap: _busy ? null : onTap,
-          borderRadius: BorderRadius.circular(9),
+          borderRadius: BorderRadius.circular(10),
           child: Padding(
             padding: const EdgeInsets.symmetric(vertical: 12),
             child: Row(
@@ -897,7 +898,7 @@ class _ZkGatewayDeviceScreenState extends State<ZkGatewayDeviceScreen>
                     ),
                   ),
                 ),
-                const Icon(Icons.chevron_right, size: 18, color: Color(0xFF94A3B8)),
+                const Icon(Icons.chevron_right, size: 18, color: SboxColors.slate400),
               ],
             ),
           ),
@@ -914,7 +915,7 @@ class _ZkGatewayDeviceScreenState extends State<ZkGatewayDeviceScreen>
         Text(
           message,
           textAlign: TextAlign.center,
-          style: const TextStyle(color: Color(0xFFDC2626), height: 1.4),
+          style: const TextStyle(color: SboxColors.danger, height: 1.4),
         ),
         const SizedBox(height: 16),
         Center(

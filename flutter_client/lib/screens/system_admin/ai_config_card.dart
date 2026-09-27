@@ -4,6 +4,7 @@ import '../../services/api_service.dart';
 import 'system_admin_helpers.dart';
 import 'package:zkteco_flutter_client/l10n/app_tr.dart';
 
+import '../../theme/sbox_tokens.dart';
 /// Cấu hình AI (Gemini) dùng chung toàn hệ thống — cửa hàng không có key riêng dùng cấu hình này
 /// cho quét menu bằng ảnh và phân tích mẫu Word báo giá / hợp đồng.
 class SystemAiConfigCard extends StatefulWidget {
@@ -153,14 +154,14 @@ class _SystemAiConfigCardState extends State<SystemAiConfigCard> {
         ? ''
         : '${until.hour.toString().padLeft(2, '0')}:${until.minute.toString().padLeft(2, '0')}';
     final (String label, Color color) = test != null && test['status'] == 'invalid'
-        ? (tr('Sai / bị khóa'), const Color(0xFFB91C1C))
+        ? (tr('Sai / bị khóa'), SboxColors.dangerText)
         : until != null
             ? (tr('Hết lượt · nghỉ đến $hhmm'), const Color(0xFFC2410C))
             : test != null && test['status'] == 'error'
-                ? (tr('Lỗi kết nối'), const Color(0xFFB91C1C))
+                ? (tr('Lỗi kết nối'), SboxColors.dangerText)
                 : inUse
-                    ? (tr('Đang dùng'), const Color(0xFF15803D))
-                    : (tr('Dự phòng'), Colors.grey.shade700);
+                    ? (tr('Đang dùng'), SboxColors.payHover)
+                    : (tr('Dự phòng'), SboxColors.slate700);
     return Container(
       margin: const EdgeInsets.only(left: 6),
       padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
@@ -168,7 +169,7 @@ class _SystemAiConfigCardState extends State<SystemAiConfigCard> {
         color: color.withOpacity(0.1),
         borderRadius: BorderRadius.circular(10),
       ),
-      child: Text(label, style: TextStyle(fontSize: 11.5, color: color, fontWeight: FontWeight.w600)),
+      child: Text(label, style: TextStyle(fontSize: 12, color: color, fontWeight: FontWeight.w600)),
     );
   }
 
@@ -177,7 +178,7 @@ class _SystemAiConfigCardState extends State<SystemAiConfigCard> {
     return Card(
       margin: const EdgeInsets.fromLTRB(20, 12, 20, 4),
       child: ExpansionTile(
-        leading: const Icon(Icons.auto_awesome, color: Color(0xFF7C3AED)),
+        leading: const Icon(Icons.auto_awesome, color: SboxColors.violet),
         title: Text(tr('AI dùng chung (Gemini)'),
             style: const TextStyle(fontWeight: FontWeight.w700)),
         subtitle: Text(_loading
@@ -189,20 +190,20 @@ class _SystemAiConfigCardState extends State<SystemAiConfigCard> {
         children: [
           Text(
             tr('Dùng cho mọi cửa hàng chưa nhập key riêng: chụp ảnh menu tạo hàng hóa, phân tích mẫu Word báo giá / hợp đồng.'),
-            style: TextStyle(color: Colors.grey.shade700, fontSize: 13),
+            style: TextStyle(color: SboxColors.slate700, fontSize: 13),
           ),
           const SizedBox(height: 12),
           for (final (i, k) in _keys.indexed)
             Row(
               children: [
-                const Icon(Icons.lock, size: 16, color: Colors.grey),
+                const Icon(Icons.lock, size: 16, color: SboxColors.slate500),
                 const SizedBox(width: 8),
                 Expanded(child: Text('${tr('Khóa')} ${i + 1}: $k', style: const TextStyle(fontFamily: 'monospace', fontSize: 13))),
                 _keyStatusChip(k, i == _firstReadyIndex),
                 IconButton(
                   tooltip: tr('Xóa khóa này'),
                   onPressed: _saving ? null : () => _removeKey(k),
-                  icon: const Icon(Icons.close, size: 18, color: Color(0xFFB91C1C)),
+                  icon: const Icon(Icons.close, size: 18, color: SboxColors.dangerText),
                 ),
               ],
             ),
@@ -210,7 +211,7 @@ class _SystemAiConfigCardState extends State<SystemAiConfigCard> {
             Text(
               tr('Dùng lần lượt từ khóa 1: khóa nào hết lượt (quota) tạm nghỉ 15 phút và tự chuyển sang khóa kế tiếp; '
                   'khóa sai / bị khóa nghỉ 6 giờ. Hết giờ nghỉ thì được dùng lại.'),
-              style: TextStyle(color: Colors.grey.shade700, fontSize: 12),
+              style: TextStyle(color: SboxColors.slate700, fontSize: 12),
             ),
             CheckboxListTile(
               dense: true,
@@ -277,7 +278,7 @@ class _SystemAiConfigCardState extends State<SystemAiConfigCard> {
             const SizedBox(height: 8),
             Align(
               alignment: Alignment.centerLeft,
-              child: Text(_testDetail!, style: const TextStyle(fontSize: 12.5)),
+              child: Text(_testDetail!, style: const TextStyle(fontSize: 13)),
             ),
           ],
         ],

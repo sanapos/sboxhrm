@@ -368,8 +368,11 @@ class SboxPager extends StatelessWidget {
     required this.onPage,
     this.onPageSize,
     this.pageSizes = const [20, 50, 100],
+    this.extra = const [],
   });
 
+  /// Nút phụ đặt cạnh dòng tổng (vd «Toàn màn hình»).
+  final List<Widget> extra;
   final int page;
   final int pageSize;
   final int total;
@@ -417,6 +420,7 @@ class SboxPager extends StatelessWidget {
                 ),
               ),
             ],
+            for (final w in extra) ...[const SizedBox(width: SboxSpace.md), w],
           ]),
           _SboxPagerButtons(page: page, pages: pages, onPage: onPage),
         ],

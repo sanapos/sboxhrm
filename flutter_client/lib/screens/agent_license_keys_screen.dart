@@ -8,6 +8,7 @@ import '../widgets/notification_overlay.dart';
 import '../widgets/hrm_page_chrome.dart';
 import 'package:zkteco_flutter_client/l10n/app_tr.dart';
 
+import '../theme/sbox_tokens.dart';
 class AgentLicenseKeysScreen extends StatefulWidget {
   final bool embedded;
 
@@ -36,10 +37,10 @@ class _AgentLicenseKeysScreenState extends State<AgentLicenseKeysScreen> {
   // Mobile UI state
 
   static const _primary = HrmPageChrome.primaryNavy;
-  static const _success = Color(0xFF22C55E);
-  static const _danger = Color(0xFFEF4444);
-  static const _warning = Color(0xFFF59E0B);
-  static const _info = Color(0xFF3B82F6);
+  static const _success = SboxColors.success;
+  static const _danger = SboxColors.danger;
+  static const _warning = SboxColors.warning;
+  static const _info = SboxColors.brand500;
 
   @override
   void initState() {
@@ -146,7 +147,7 @@ class _AgentLicenseKeysScreenState extends State<AgentLicenseKeysScreen> {
       padding: const EdgeInsets.all(20),
       decoration: const BoxDecoration(
         color: Colors.white,
-        border: Border(bottom: BorderSide(color: Color(0xFFE2E8F0))),
+        border: Border(bottom: BorderSide(color: SboxColors.slate200)),
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -171,7 +172,7 @@ class _AgentLicenseKeysScreenState extends State<AgentLicenseKeysScreen> {
                   if (_profile != null)
                     Text(tr('${tr('Đại lý: ')}${_profile!['name'] ?? ''} (${_profile!['code'] ?? ''})'),
                         style:
-                            TextStyle(color: Colors.grey[600], fontSize: 13)),
+                            TextStyle(color: SboxColors.slate600, fontSize: 13)),
                 ],
               ),
             ),
@@ -198,7 +199,7 @@ class _AgentLicenseKeysScreenState extends State<AgentLicenseKeysScreen> {
       child: Row(mainAxisSize: MainAxisSize.min, children: [
         Text(tr('$value'),
             style: TextStyle(
-                fontWeight: FontWeight.bold, color: color, fontSize: 15)),
+                fontWeight: FontWeight.bold, color: color, fontSize: 16)),
         const SizedBox(width: 6),
         Text(tr(label), style: TextStyle(color: color, fontSize: 12)),
       ]),
@@ -217,7 +218,7 @@ class _AgentLicenseKeysScreenState extends State<AgentLicenseKeysScreen> {
           isDense: true,
           contentPadding:
               const EdgeInsets.symmetric(vertical: 10, horizontal: 12),
-          border: OutlineInputBorder(borderRadius: BorderRadius.circular(8)),
+          border: OutlineInputBorder(borderRadius: BorderRadius.circular(10)),
           suffixIcon: _searchCtrl.text.isNotEmpty
               ? IconButton(
                   icon: const Icon(Icons.clear, size: 16),
@@ -278,7 +279,7 @@ class _AgentLicenseKeysScreenState extends State<AgentLicenseKeysScreen> {
                     ),
                     Text(tr('$_totalCount keys'),
                         style:
-                            TextStyle(color: Colors.grey[500], fontSize: 13)),
+                            TextStyle(color: SboxColors.slate500, fontSize: 13)),
                   ],
                 ),
               ],
@@ -317,7 +318,7 @@ class _AgentLicenseKeysScreenState extends State<AgentLicenseKeysScreen> {
               ),
               const Spacer(),
               Text(tr('$_totalCount keys'),
-                  style: TextStyle(color: Colors.grey[500], fontSize: 13)),
+                  style: TextStyle(color: SboxColors.slate500, fontSize: 13)),
             ]),
     );
   }
@@ -331,8 +332,8 @@ class _AgentLicenseKeysScreenState extends State<AgentLicenseKeysScreen> {
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 10),
       decoration: BoxDecoration(
-        border: Border.all(color: Colors.grey.shade300),
-        borderRadius: BorderRadius.circular(8),
+        border: Border.all(color: SboxColors.slate300),
+        borderRadius: BorderRadius.circular(10),
       ),
       child: DropdownButtonHideUnderline(
         child: DropdownButton<String?>(
@@ -341,7 +342,7 @@ class _AgentLicenseKeysScreenState extends State<AgentLicenseKeysScreen> {
           isDense: true,
           items: items,
           onChanged: onChanged,
-          style: TextStyle(fontSize: 13, color: Colors.grey[800]),
+          style: TextStyle(fontSize: 13, color: SboxColors.slate800),
         ),
       ),
     );
@@ -350,13 +351,13 @@ class _AgentLicenseKeysScreenState extends State<AgentLicenseKeysScreen> {
   Widget _buildEmpty() {
     return Center(
       child: Column(mainAxisSize: MainAxisSize.min, children: [
-        Icon(Icons.vpn_key_outlined, size: 64, color: Colors.grey[300]),
+        Icon(Icons.vpn_key_outlined, size: 64, color: SboxColors.slate300),
         const SizedBox(height: 12),
         Text(tr('Chưa có license key nào'),
-            style: TextStyle(color: Colors.grey[500], fontSize: 15)),
+            style: TextStyle(color: SboxColors.slate500, fontSize: 16)),
         const SizedBox(height: 6),
         Text(tr('Liên hệ quản trị viên để được cấp key'),
-            style: TextStyle(color: Colors.grey[400], fontSize: 13)),
+            style: TextStyle(color: SboxColors.slate400, fontSize: 13)),
       ]),
     );
   }
@@ -371,8 +372,8 @@ class _AgentLicenseKeysScreenState extends State<AgentLicenseKeysScreen> {
           child: Container(
             decoration: BoxDecoration(
               color: Colors.white,
-              borderRadius: BorderRadius.circular(12),
-              border: Border.all(color: const Color(0xFFE4E4E7)),
+              borderRadius: BorderRadius.circular(14),
+              border: Border.all(color: SboxColors.slate200),
               boxShadow: [
                 BoxShadow(
                   color: Colors.black.withValues(alpha: 0.05),
@@ -411,7 +412,7 @@ class _AgentLicenseKeysScreenState extends State<AgentLicenseKeysScreen> {
             height: 36,
             decoration: BoxDecoration(
                 color: typeColor.withValues(alpha: 0.1),
-                borderRadius: BorderRadius.circular(8)),
+                borderRadius: BorderRadius.circular(10)),
             child: Icon(Icons.vpn_key, color: typeColor, size: 18),
           ),
           const SizedBox(width: 12),
@@ -429,7 +430,7 @@ class _AgentLicenseKeysScreenState extends State<AgentLicenseKeysScreen> {
               const SizedBox(height: 2),
               Text(
                 tr([typeLabel, if (packageName != null) packageName].join(' · ')),
-                style: const TextStyle(color: Color(0xFF71717A), fontSize: 12),
+                style: const TextStyle(color: SboxColors.slate500, fontSize: 12),
                 maxLines: 1,
                 overflow: TextOverflow.ellipsis,
               ),
@@ -439,14 +440,14 @@ class _AgentLicenseKeysScreenState extends State<AgentLicenseKeysScreen> {
             padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
             decoration: BoxDecoration(
                 color: isUsed
-                    ? Colors.grey.withValues(alpha: 0.1)
+                    ? SboxColors.slate500.withValues(alpha: 0.1)
                     : Colors.green.withValues(alpha: 0.1),
-                borderRadius: BorderRadius.circular(8)),
+                borderRadius: BorderRadius.circular(10)),
             child: Text(tr(isUsed ? 'Đã dùng' : 'Chưa dùng'),
                 style: TextStyle(
                     fontSize: 10,
                     fontWeight: FontWeight.w600,
-                    color: isUsed ? Colors.grey : Colors.green)),
+                    color: isUsed ? SboxColors.slate500 : Colors.green)),
           ),
         ]),
       ),
@@ -472,17 +473,17 @@ class _AgentLicenseKeysScreenState extends State<AgentLicenseKeysScreen> {
       margin: const EdgeInsets.only(bottom: 10),
       decoration: BoxDecoration(
         color: Colors.white,
-        borderRadius: BorderRadius.circular(12),
+        borderRadius: BorderRadius.circular(14),
         border: Border.all(
             color: isUsed
-                ? Colors.grey.shade200
+                ? SboxColors.slate200
                 : _success.withValues(alpha: 0.3)),
         boxShadow: [
           BoxShadow(color: Colors.black.withValues(alpha: 0.03), blurRadius: 6)
         ],
       ),
       child: InkWell(
-        borderRadius: BorderRadius.circular(12),
+        borderRadius: BorderRadius.circular(14),
         onTap: () => _showKeyDetail(key),
         child: Padding(
           padding: const EdgeInsets.all(14),
@@ -516,8 +517,8 @@ class _AgentLicenseKeysScreenState extends State<AgentLicenseKeysScreen> {
                               fontWeight: FontWeight.w600,
                               fontSize: 13,
                               color: isActive
-                                  ? Colors.grey[800]
-                                  : Colors.grey[400],
+                                  ? SboxColors.slate800
+                                  : SboxColors.slate400,
                             )),
                       ),
                       IconButton(
@@ -540,11 +541,11 @@ class _AgentLicenseKeysScreenState extends State<AgentLicenseKeysScreen> {
                     if (storeName != null) ...[
                       const SizedBox(height: 4),
                       Row(children: [
-                        Icon(Icons.store, size: 13, color: Colors.grey[500]),
+                        Icon(Icons.store, size: 13, color: SboxColors.slate500),
                         const SizedBox(width: 4),
                         Text(tr(storeName),
                             style: TextStyle(
-                                fontSize: 12, color: Colors.grey[600])),
+                                fontSize: 12, color: SboxColors.slate600)),
                       ]),
                     ],
                   ],
@@ -555,15 +556,15 @@ class _AgentLicenseKeysScreenState extends State<AgentLicenseKeysScreen> {
                 crossAxisAlignment: CrossAxisAlignment.end,
                 children: [
                   Text(tr('$maxUsers users · $maxDevices TBị'),
-                      style: TextStyle(fontSize: 11, color: Colors.grey[500])),
+                      style: TextStyle(fontSize: 11, color: SboxColors.slate500)),
                   const SizedBox(height: 2),
                   Text(tr('$durationDays ngày'),
-                      style: TextStyle(fontSize: 11, color: Colors.grey[500])),
+                      style: TextStyle(fontSize: 11, color: SboxColors.slate500)),
                   if (createdAt != null) ...[
                     const SizedBox(height: 2),
                     Text(tr(_formatDate(createdAt)),
                         style:
-                            TextStyle(fontSize: 10, color: Colors.grey[400])),
+                            TextStyle(fontSize: 10, color: SboxColors.slate400)),
                   ],
                 ],
               ),
@@ -677,7 +678,7 @@ class _AgentLicenseKeysScreenState extends State<AgentLicenseKeysScreen> {
         context: context,
         builder: (ctx) => ScrollableAlertDialog(
           shape:
-              RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+              RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
           title: titleRow,
           content: SizedBox(
             width: math
@@ -696,12 +697,12 @@ class _AgentLicenseKeysScreenState extends State<AgentLicenseKeysScreen> {
     return Padding(
       padding: const EdgeInsets.only(bottom: 10),
       child: Row(children: [
-        Icon(icon, size: 16, color: Colors.grey[500]),
+        Icon(icon, size: 16, color: SboxColors.slate500),
         const SizedBox(width: 10),
         SizedBox(
           width: 100,
           child: Text(tr(label),
-              style: TextStyle(color: Colors.grey[600], fontSize: 13)),
+              style: TextStyle(color: SboxColors.slate600, fontSize: 13)),
         ),
         Expanded(
           child: Text(tr(value),
@@ -744,7 +745,7 @@ class _AgentLicenseKeysScreenState extends State<AgentLicenseKeysScreen> {
       padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
       decoration: const BoxDecoration(
         color: Colors.white,
-        border: Border(top: BorderSide(color: Color(0xFFE2E8F0))),
+        border: Border(top: BorderSide(color: SboxColors.slate200)),
       ),
       child: Wrap(
         alignment: WrapAlignment.spaceBetween,
@@ -753,26 +754,26 @@ class _AgentLicenseKeysScreenState extends State<AgentLicenseKeysScreen> {
         runSpacing: 8,
         children: [
           Text(tr('Hiển thị $start-$end / $_totalCount'),
-              style: TextStyle(color: Colors.grey[600], fontSize: 13)),
+              style: TextStyle(color: SboxColors.slate600, fontSize: 13)),
           Row(
             mainAxisSize: MainAxisSize.min,
             children: [
               Text(tr('Hiển thị:'),
-                  style: TextStyle(fontSize: 12, color: Colors.grey[500])),
+                  style: TextStyle(fontSize: 12, color: SboxColors.slate500)),
               const SizedBox(width: 8),
               Container(
                 height: 34,
                 padding: const EdgeInsets.symmetric(horizontal: 12),
                 decoration: BoxDecoration(
-                  color: const Color(0xFFFAFAFA),
-                  border: Border.all(color: const Color(0xFFE4E4E7)),
-                  borderRadius: BorderRadius.circular(8),
+                  color: SboxColors.slate50,
+                  border: Border.all(color: SboxColors.slate200),
+                  borderRadius: BorderRadius.circular(10),
                 ),
                 child: DropdownButtonHideUnderline(
                   child: DropdownButton<int>(
                     value: _pageSize,
                     isDense: true,
-                    style: TextStyle(fontSize: 13, color: Colors.grey[800]),
+                    style: TextStyle(fontSize: 13, color: SboxColors.slate800),
                     items: _pageSizeOptions
                         .map((s) =>
                             DropdownMenuItem(value: s, child: Text(tr('$s'))))
@@ -809,7 +810,7 @@ class _AgentLicenseKeysScreenState extends State<AgentLicenseKeysScreen> {
                     const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
                 decoration: BoxDecoration(
                   color: _primary,
-                  borderRadius: BorderRadius.circular(8),
+                  borderRadius: BorderRadius.circular(10),
                 ),
                 child: Text(tr('$_page / $_totalPages'),
                     style: const TextStyle(

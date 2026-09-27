@@ -19,6 +19,7 @@ import '../widgets/notification_overlay.dart';
 import '../widgets/attendance_correction_reason_field.dart';
 import 'package:zkteco_flutter_client/l10n/app_tr.dart';
 
+import '../theme/sbox_tokens.dart';
 class AttendanceCorrectionsScreen extends StatefulWidget {
   final String? highlightId;
   const AttendanceCorrectionsScreen({super.key, this.highlightId});
@@ -355,7 +356,7 @@ class _AttendanceCorrectionsScreenState
       case CorrectionAction.add:
         return Colors.green;
       case CorrectionAction.edit:
-        return Colors.blue;
+        return SboxColors.brand500;
       case CorrectionAction.delete:
         return Colors.red;
     }
@@ -370,9 +371,9 @@ class _AttendanceCorrectionsScreenState
       case ApprovalStatus.rejected:
         return Colors.red;
       case ApprovalStatus.cancelled:
-        return Colors.grey;
+        return SboxColors.slate500;
       case ApprovalStatus.expired:
-        return Colors.grey;
+        return SboxColors.slate500;
     }
   }
 
@@ -428,7 +429,7 @@ class _AttendanceCorrectionsScreenState
                   width: 40,
                   height: 4,
                   decoration: BoxDecoration(
-                      color: Colors.grey[300],
+                      color: SboxColors.slate300,
                       borderRadius: BorderRadius.circular(2)),
                 ),
               ),
@@ -461,7 +462,7 @@ class _AttendanceCorrectionsScreenState
                             request.reason!.isNotEmpty)
                           Text(tr(request.reason!),
                               style: TextStyle(
-                                  fontSize: 13, color: Colors.grey[600])),
+                                  fontSize: 13, color: SboxColors.slate600)),
                       ],
                     ),
                   ),
@@ -471,7 +472,7 @@ class _AttendanceCorrectionsScreenState
                     decoration: BoxDecoration(
                       color: _getStatusColor(request.status)
                           .withValues(alpha: 0.1),
-                      borderRadius: BorderRadius.circular(12),
+                      borderRadius: BorderRadius.circular(14),
                     ),
                     child: Text(
                       tr(getCorrectionStatusLabel(request.status)),
@@ -538,7 +539,7 @@ class _AttendanceCorrectionsScreenState
           SizedBox(
             width: 100,
             child: Text(tr(label),
-                style: TextStyle(fontSize: 13, color: Colors.grey[600])),
+                style: TextStyle(fontSize: 13, color: SboxColors.slate600)),
           ),
           Expanded(child: Text(tr(value), style: const TextStyle(fontSize: 13))),
         ],
@@ -550,7 +551,7 @@ class _AttendanceCorrectionsScreenState
     final records = request.approvalRecords;
     if (records.isEmpty) {
       return Text(tr('Chưa có dữ liệu duyệt'),
-          style: TextStyle(fontSize: 12, color: Colors.grey));
+          style: TextStyle(fontSize: 12, color: SboxColors.slate500));
     }
 
     return Column(
@@ -591,7 +592,7 @@ class _AttendanceCorrectionsScreenState
                         horizontal: 6, vertical: 1),
                     decoration: BoxDecoration(
                       color: color.withValues(alpha: 0.1),
-                      borderRadius: BorderRadius.circular(8),
+                      borderRadius: BorderRadius.circular(10),
                     ),
                     child: Text(
                       tr(_getApprovalStatusLabel(record.status)),
@@ -608,7 +609,7 @@ class _AttendanceCorrectionsScreenState
                 tr(record.status == ApprovalStatus.pending
                     ? 'Người duyệt: ${record.assignedUserName ?? 'Chưa xác định'}'
                     : 'Người duyệt: ${record.actualUserName ?? record.assignedUserName ?? '--'}'),
-                style: TextStyle(fontSize: 12, color: Colors.grey[700]),
+                style: TextStyle(fontSize: 12, color: SboxColors.slate700),
               ),
               if (record.note != null && record.note!.isNotEmpty)
                 Padding(
@@ -616,7 +617,7 @@ class _AttendanceCorrectionsScreenState
                   child: Text(tr('Ghi chú: ${record.note}'),
                     style: TextStyle(
                         fontSize: 11,
-                        color: Colors.grey[600],
+                        color: SboxColors.slate600,
                         fontStyle: FontStyle.italic),
                   ),
                 ),
@@ -626,7 +627,7 @@ class _AttendanceCorrectionsScreenState
                   child: Text(
                     tr(formatApiDateTime(record.actionDate)),
                     style: TextStyle(
-                        fontSize: 11, color: Colors.grey[500]),
+                        fontSize: 11, color: SboxColors.slate500),
                   ),
                 ),
             ],
@@ -652,7 +653,7 @@ class _AttendanceCorrectionsScreenState
                   height: 36,
                   decoration: BoxDecoration(
                       color: actionColor.withValues(alpha: 0.1),
-                      borderRadius: BorderRadius.circular(8)),
+                      borderRadius: BorderRadius.circular(10)),
                   child:
                       Icon(Icons.edit_calendar, color: actionColor, size: 18),
                 ),
@@ -675,7 +676,7 @@ class _AttendanceCorrectionsScreenState
                               request.reason!.isNotEmpty)
                             request.reason!,
                         ].join(' · ')),
-                        style: TextStyle(fontSize: 12, color: Colors.grey[500]),
+                        style: TextStyle(fontSize: 12, color: SboxColors.slate500),
                         maxLines: 1,
                         overflow: TextOverflow.ellipsis,
                       ),
@@ -719,14 +720,14 @@ class _AttendanceCorrectionsScreenState
                           ? Colors.green
                           : (i == request.currentApprovalStep
                               ? Colors.red
-                              : Colors.grey[300]!);
+                              : SboxColors.slate300);
                     } else {
                       dotColor = i < request.currentApprovalStep
                           ? Colors.green
                           : (i == request.currentApprovalStep &&
                                   request.status == CorrectionStatus.pending
                               ? Colors.orange
-                              : Colors.grey[300]!);
+                              : SboxColors.slate300);
                     }
                     return Container(
                       width: 10,
@@ -771,8 +772,8 @@ class _AttendanceCorrectionsScreenState
           child: Container(
             decoration: BoxDecoration(
               color: Colors.white,
-              borderRadius: BorderRadius.circular(12),
-              border: Border.all(color: const Color(0xFFE4E4E7)),
+              borderRadius: BorderRadius.circular(14),
+              border: Border.all(color: SboxColors.slate200),
               boxShadow: [
                 BoxShadow(
                   color: Colors.black.withValues(alpha: 0.05),
@@ -816,7 +817,7 @@ class _AttendanceCorrectionsScreenState
                           horizontal: 8, vertical: 2),
                       decoration: BoxDecoration(
                         color: Colors.orange,
-                        borderRadius: BorderRadius.circular(12),
+                        borderRadius: BorderRadius.circular(14),
                       ),
                       child: Text(
                         tr('${_pendingRequests.length}'),

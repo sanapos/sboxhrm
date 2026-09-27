@@ -6,6 +6,7 @@ import '../../widgets/app_button.dart';
 import '../../widgets/hrm_page_chrome.dart';
 import 'package:zkteco_flutter_client/l10n/app_tr.dart';
 
+import '../../theme/sbox_tokens.dart';
 /// Tab Phân công — dashboard giao việc cho quản lý / NV chờ xác nhận.
 class TaskAssignmentTab extends StatefulWidget {
   final ApiService api;
@@ -235,14 +236,14 @@ class _TaskAssignmentTabState extends State<TaskAssignmentTab> {
       padding: const EdgeInsets.all(14),
       decoration: BoxDecoration(
         color: Colors.white,
-        borderRadius: BorderRadius.circular(12),
+        borderRadius: BorderRadius.circular(14),
         border: Border.all(color: color.withValues(alpha: 0.3)),
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Text(tr(label),
-              style: const TextStyle(fontSize: 12, color: Color(0xFF71717A))),
+              style: const TextStyle(fontSize: 12, color: SboxColors.slate500)),
           const SizedBox(height: 6),
           Text(tr('$value'),
               style: TextStyle(
@@ -253,7 +254,7 @@ class _TaskAssignmentTabState extends State<TaskAssignmentTab> {
     if (onTap == null) return card;
     return InkWell(
       onTap: onTap,
-      borderRadius: BorderRadius.circular(12),
+      borderRadius: BorderRadius.circular(14),
       child: card,
     );
   }

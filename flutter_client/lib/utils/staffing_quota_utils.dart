@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 
+import '../theme/sbox_tokens.dart';
 /// Định mức nhân sự theo ca / phòng ban / thứ trong tuần.
 class StaffingQuotaUtils {
   static const weekdayLabels = [
@@ -102,15 +103,15 @@ class StaffingQuotaUtils {
   static Color colorForStatus(String status) {
     switch (status) {
       case 'overMax':
-        return const Color(0xFFEF4444);
+        return SboxColors.danger;
       case 'underMin':
-        return const Color(0xFF3B82F6);
+        return SboxColors.brand500;
       case 'nearMax':
-        return const Color(0xFFF59E0B);
+        return SboxColors.warning;
       case 'ok':
-        return const Color(0xFF22C55E);
+        return SboxColors.success;
       default:
-        return const Color(0xFF71717A);
+        return SboxColors.slate500;
     }
   }
 

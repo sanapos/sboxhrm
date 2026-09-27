@@ -23,6 +23,7 @@ import '../widgets/page_top_actions.dart';
 import '../widgets/app_scroll_safe.dart';
 import 'package:zkteco_flutter_client/l10n/app_tr.dart';
 
+import '../theme/sbox_tokens.dart';
 class KpiScreen extends StatefulWidget {
   const KpiScreen({super.key});
 
@@ -33,9 +34,9 @@ class KpiScreen extends StatefulWidget {
 class _KpiScreenState extends State<KpiScreen> with TickerProviderStateMixin {
   static const _accent = HrmPageChrome.primaryNavy;
   static const _green = HrmPageChrome.chipMid;
-  static const _blue = Color(0xFF3B82F6);
+  static const _blue = SboxColors.brand500;
   static const _amber = HrmPageChrome.chipLight;
-  static const _red = Color(0xFFEF4444);
+  static const _red = SboxColors.danger;
   static const _purple = HrmPageChrome.chipSoft;
 
   final ApiService _api = ApiService();
@@ -224,7 +225,7 @@ class _KpiScreenState extends State<KpiScreen> with TickerProviderStateMixin {
       decoration: BoxDecoration(
         color: HrmPageChrome.textMuted.withValues(alpha: 0.08),
         borderRadius: BorderRadius.circular(6),
-        border: Border.all(color: const Color(0xFFE4E4E7)),
+        border: Border.all(color: SboxColors.slate200),
       ),
       child: Text(tr('Dự kiến'),
           style: TextStyle(
@@ -434,7 +435,7 @@ class _KpiScreenState extends State<KpiScreen> with TickerProviderStateMixin {
       color: Colors.white,
       child: Container(
         decoration: const BoxDecoration(
-          border: Border(bottom: BorderSide(color: Color(0xFFE4E4E7))),
+          border: Border(bottom: BorderSide(color: SboxColors.slate200)),
         ),
         padding: EdgeInsets.only(left: isMobile ? 8 : 12, right: 4),
         child: Row(
@@ -624,7 +625,7 @@ class _KpiScreenState extends State<KpiScreen> with TickerProviderStateMixin {
                     style: const TextStyle(
                       fontSize: 12,
                       fontWeight: FontWeight.w600,
-                      color: Color(0xFF334155),
+                      color: SboxColors.slate700,
                     ),
                   ),
                 ),
@@ -649,14 +650,14 @@ class _KpiScreenState extends State<KpiScreen> with TickerProviderStateMixin {
   InputDecoration _kpiFilterDecoration(String label) {
     return InputDecoration(
       labelText: tr(label),
-      labelStyle: TextStyle(fontSize: 12, color: Colors.grey[500]),
+      labelStyle: TextStyle(fontSize: 12, color: SboxColors.slate500),
       contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
       border: OutlineInputBorder(
           borderRadius: BorderRadius.circular(10),
-          borderSide: BorderSide(color: Colors.grey.shade300)),
+          borderSide: BorderSide(color: SboxColors.slate300)),
       enabledBorder: OutlineInputBorder(
           borderRadius: BorderRadius.circular(10),
-          borderSide: BorderSide(color: Colors.grey.shade200)),
+          borderSide: BorderSide(color: SboxColors.slate200)),
       focusedBorder: OutlineInputBorder(
           borderRadius: BorderRadius.circular(10),
           borderSide: const BorderSide(color: _accent)),
@@ -782,7 +783,7 @@ class _KpiScreenState extends State<KpiScreen> with TickerProviderStateMixin {
                           height: 4,
                           margin: const EdgeInsets.only(bottom: 8),
                           decoration: BoxDecoration(
-                            color: const Color(0xFFD4D4D8),
+                            color: SboxColors.slate300,
                             borderRadius: BorderRadius.circular(999),
                           ),
                         ),
@@ -1377,7 +1378,7 @@ class _KpiScreenState extends State<KpiScreen> with TickerProviderStateMixin {
                       const SizedBox(width: 4),
                       Text(tr('Dưới tiến độ'),
                           style:
-                              TextStyle(fontSize: 11, color: Colors.grey[500])),
+                              TextStyle(fontSize: 11, color: SboxColors.slate500)),
                     ]),
                     Row(mainAxisSize: MainAxisSize.min, children: [
                       Container(
@@ -1389,7 +1390,7 @@ class _KpiScreenState extends State<KpiScreen> with TickerProviderStateMixin {
                       const SizedBox(width: 4),
                       Text(tr('Trên tiến độ'),
                           style:
-                              TextStyle(fontSize: 11, color: Colors.grey[500])),
+                              TextStyle(fontSize: 11, color: SboxColors.slate500)),
                     ]),
                     Row(mainAxisSize: MainAxisSize.min, children: [
                       Container(
@@ -1401,7 +1402,7 @@ class _KpiScreenState extends State<KpiScreen> with TickerProviderStateMixin {
                       const SizedBox(width: 4),
                       Text(tr('Vượt chỉ tiêu'),
                           style:
-                              TextStyle(fontSize: 11, color: Colors.grey[500])),
+                              TextStyle(fontSize: 11, color: SboxColors.slate500)),
                     ]),
                   ]),
                 ),
@@ -1445,8 +1446,8 @@ class _KpiScreenState extends State<KpiScreen> with TickerProviderStateMixin {
                               Container(
                                   height: 16,
                                   decoration: BoxDecoration(
-                                      color: Colors.grey.shade100,
-                                      borderRadius: BorderRadius.circular(8))),
+                                      color: SboxColors.slate100,
+                                      borderRadius: BorderRadius.circular(10))),
                               FractionallySizedBox(
                                 widthFactor: (dayPct / 100).clamp(0, 1),
                                 child: Container(
@@ -1454,7 +1455,7 @@ class _KpiScreenState extends State<KpiScreen> with TickerProviderStateMixin {
                                     decoration: BoxDecoration(
                                         color: _amber.withValues(alpha: 0.1),
                                         borderRadius:
-                                            BorderRadius.circular(8))),
+                                            BorderRadius.circular(10))),
                               ),
                               FractionallySizedBox(
                                 widthFactor: (pct / 100).clamp(0, 1),
@@ -1465,7 +1466,7 @@ class _KpiScreenState extends State<KpiScreen> with TickerProviderStateMixin {
                                       color.withValues(alpha: 0.7),
                                       color
                                     ]),
-                                    borderRadius: BorderRadius.circular(8),
+                                    borderRadius: BorderRadius.circular(10),
                                     boxShadow: [
                                       BoxShadow(
                                           color: color.withValues(alpha: 0.3),
@@ -1480,7 +1481,7 @@ class _KpiScreenState extends State<KpiScreen> with TickerProviderStateMixin {
                             Text(
                                 tr('${_cur.format(actual)} / ${_cur.format(target)}'),
                                 style: TextStyle(
-                                    color: Colors.grey[600], fontSize: 11)),
+                                    color: SboxColors.slate600, fontSize: 11)),
                             if (behindSchedule)
                               Text(tr('Kỳ vọng: ${_cur.format(expectedValue)}'),
                                   style: const TextStyle(
@@ -1504,8 +1505,8 @@ class _KpiScreenState extends State<KpiScreen> with TickerProviderStateMixin {
                         Container(
                             height: 16,
                             decoration: BoxDecoration(
-                                color: Colors.grey.shade100,
-                                borderRadius: BorderRadius.circular(8))),
+                                color: SboxColors.slate100,
+                                borderRadius: BorderRadius.circular(10))),
                         // Day progress marker (background fill)
                         Positioned(
                           left: 0,
@@ -1518,7 +1519,7 @@ class _KpiScreenState extends State<KpiScreen> with TickerProviderStateMixin {
                             child: Container(
                               decoration: BoxDecoration(
                                 color: _amber.withValues(alpha: 0.1),
-                                borderRadius: BorderRadius.circular(8),
+                                borderRadius: BorderRadius.circular(10),
                               ),
                             ),
                           ),
@@ -1533,7 +1534,7 @@ class _KpiScreenState extends State<KpiScreen> with TickerProviderStateMixin {
                                 color.withValues(alpha: 0.7),
                                 color
                               ]),
-                              borderRadius: BorderRadius.circular(8),
+                              borderRadius: BorderRadius.circular(10),
                               boxShadow: [
                                 BoxShadow(
                                     color: color.withValues(alpha: 0.3),
@@ -1578,7 +1579,7 @@ class _KpiScreenState extends State<KpiScreen> with TickerProviderStateMixin {
                           child: Text(tr('${pct.toStringAsFixed(0)}%'),
                               textAlign: TextAlign.right,
                               style: TextStyle(
-                                  fontWeight: FontWeight.w800,
+                                  fontWeight: FontWeight.w700,
                                   color: color,
                                   fontSize: 13))),
                       const SizedBox(width: 8),
@@ -1591,7 +1592,7 @@ class _KpiScreenState extends State<KpiScreen> with TickerProviderStateMixin {
                                   tr('${_cur.format(actual)} / ${_cur.format(target)}'),
                                   textAlign: TextAlign.right,
                                   style: TextStyle(
-                                      color: Colors.grey[600], fontSize: 11)),
+                                      color: SboxColors.slate600, fontSize: 11)),
                               if (behindSchedule)
                                 Text(tr('Kỳ vọng: ${_cur.format(expectedValue)}'),
                                     textAlign: TextAlign.right,
@@ -1634,8 +1635,8 @@ class _KpiScreenState extends State<KpiScreen> with TickerProviderStateMixin {
                   const Color(0xFFFFD700),
                   const Color(0xFFC0C0C0),
                   const Color(0xFFCD7F32),
-                  Colors.grey.shade300,
-                  Colors.grey.shade200
+                  SboxColors.slate300,
+                  SboxColors.slate200
                 ];
                 return Container(
                   margin:
@@ -1650,11 +1651,11 @@ class _KpiScreenState extends State<KpiScreen> with TickerProviderStateMixin {
                           ])
                         : null,
                     color: i >= 3 ? Colors.white : null,
-                    borderRadius: BorderRadius.circular(12),
+                    borderRadius: BorderRadius.circular(14),
                     border: Border.all(
                         color: i < 3
                             ? rankColors[i].withValues(alpha: 0.2)
-                            : Colors.grey.shade100),
+                            : SboxColors.slate100),
                   ),
                   child: Column(children: [
                     Row(children: [
@@ -1668,7 +1669,7 @@ class _KpiScreenState extends State<KpiScreen> with TickerProviderStateMixin {
                                   rankColors[i].withValues(alpha: 0.1)
                                 ])
                               : null,
-                          color: i >= 3 ? Colors.grey.shade100 : null,
+                          color: i >= 3 ? SboxColors.slate100 : null,
                           shape: BoxShape.circle,
                         ),
                         child: Center(
@@ -1687,7 +1688,7 @@ class _KpiScreenState extends State<KpiScreen> with TickerProviderStateMixin {
                                   fontWeight: FontWeight.w600, fontSize: 14)),
                           Text(tr(t['department'] ?? ''),
                               style: TextStyle(
-                                  fontSize: 12, color: Colors.grey[500])),
+                                  fontSize: 12, color: SboxColors.slate500)),
                         ],
                       )),
                       Padding(
@@ -1746,10 +1747,10 @@ class _KpiScreenState extends State<KpiScreen> with TickerProviderStateMixin {
         message: tooltip,
         child: Material(
           color: color.withValues(alpha: 0.08),
-          borderRadius: BorderRadius.circular(8),
+          borderRadius: BorderRadius.circular(10),
           child: InkWell(
             onTap: onTap,
-            borderRadius: BorderRadius.circular(8),
+            borderRadius: BorderRadius.circular(10),
             child: Container(
               padding: const EdgeInsets.all(7),
               child: Icon(icon, size: 16, color: color),
@@ -1794,7 +1795,7 @@ class _KpiScreenState extends State<KpiScreen> with TickerProviderStateMixin {
     showDialog(
       context: context,
       builder: (ctx) => ScrollableAlertDialog(
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
         title: Row(children: [
           Icon(icon, color: color, size: 22),
           const SizedBox(width: 8),
@@ -1881,13 +1882,13 @@ class _KpiScreenState extends State<KpiScreen> with TickerProviderStateMixin {
             child: Center(
               child: Column(mainAxisSize: MainAxisSize.min, children: [
                 Icon(Icons.assignment_outlined,
-                    size: 48, color: Colors.grey[300]),
+                    size: 48, color: SboxColors.slate300),
                 const SizedBox(height: 12),
                 Text(tr('Chưa có báo cáo nào'),
-                    style: TextStyle(color: Colors.grey[500], fontSize: 14)),
+                    style: TextStyle(color: SboxColors.slate500, fontSize: 14)),
                 const SizedBox(height: 8),
                 Text(tr('Nhấn "Yêu cầu báo cáo" để gửi yêu cầu cho nhân viên.'),
-                    style: TextStyle(color: Colors.grey[400], fontSize: 12)),
+                    style: TextStyle(color: SboxColors.slate400, fontSize: 12)),
               ]),
             ),
           ),
@@ -1909,7 +1910,7 @@ class _KpiScreenState extends State<KpiScreen> with TickerProviderStateMixin {
 
         return ScrollableAlertDialog(
           shape:
-              RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+              RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
           title: Row(children: [
             const Icon(Icons.assignment, color: _accent, size: 22),
             const SizedBox(width: 8),
@@ -1955,20 +1956,20 @@ class _KpiScreenState extends State<KpiScreen> with TickerProviderStateMixin {
               Container(
                 padding: const EdgeInsets.all(10),
                 decoration: BoxDecoration(
-                    color: Colors.blue.shade50,
-                    borderRadius: BorderRadius.circular(8)),
+                    color: SboxColors.brand50,
+                    borderRadius: BorderRadius.circular(10)),
                 child: Row(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
                       Icon(Icons.info_outline,
-                          color: Colors.blue.shade700, size: 16),
+                          color: SboxColors.brand700, size: 16),
                       const SizedBox(width: 8),
                       Expanded(
                           child: Text(
                         tr('Gửi yêu cầu báo cáo công việc hàng ngày cho nhân viên $name. '
                         'Nhân viên sẽ nhận thông báo và cần nộp báo cáo.'),
                         style: TextStyle(
-                            color: Colors.blue.shade700, fontSize: 11),
+                            color: SboxColors.brand700, fontSize: 11),
                       )),
                     ]),
               ),
@@ -2023,7 +2024,7 @@ class _KpiScreenState extends State<KpiScreen> with TickerProviderStateMixin {
 
         return ScrollableAlertDialog(
           shape:
-              RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+              RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
           title: Text(tr(dialogTitle), style: const TextStyle(fontSize: 16)),
           content: SizedBox(
             width: math
@@ -2113,7 +2114,7 @@ class _KpiScreenState extends State<KpiScreen> with TickerProviderStateMixin {
             style: FilledButton.styleFrom(
               backgroundColor: _accent,
               shape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(12)),
+                  borderRadius: BorderRadius.circular(14)),
             ),
           ),
         ),
@@ -2127,8 +2128,8 @@ class _KpiScreenState extends State<KpiScreen> with TickerProviderStateMixin {
                   child: Container(
                     decoration: BoxDecoration(
                       color: Colors.white,
-                      borderRadius: BorderRadius.circular(12),
-                      border: Border.all(color: const Color(0xFFE4E4E7)),
+                      borderRadius: BorderRadius.circular(14),
+                      border: Border.all(color: SboxColors.slate200),
                     ),
                     child: _buildPeriodDeckItem(p),
                   ),
@@ -2212,7 +2213,7 @@ class _KpiScreenState extends State<KpiScreen> with TickerProviderStateMixin {
             style: FilledButton.styleFrom(
               backgroundColor: _accent,
               shape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(12)),
+                  borderRadius: BorderRadius.circular(14)),
               padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 12),
             ),
           ),
@@ -2231,8 +2232,8 @@ class _KpiScreenState extends State<KpiScreen> with TickerProviderStateMixin {
                       child: Container(
                         decoration: BoxDecoration(
                           color: Colors.white,
-                          borderRadius: BorderRadius.circular(12),
-                          border: Border.all(color: const Color(0xFFE4E4E7)),
+                          borderRadius: BorderRadius.circular(14),
+                          border: Border.all(color: SboxColors.slate200),
                           boxShadow: [
                             BoxShadow(
                               color: Colors.black.withValues(alpha: 0.05),
@@ -2276,7 +2277,7 @@ class _KpiScreenState extends State<KpiScreen> with TickerProviderStateMixin {
             height: 36,
             decoration: BoxDecoration(
               color: statusColor.withValues(alpha: 0.1),
-              borderRadius: BorderRadius.circular(8),
+              borderRadius: BorderRadius.circular(10),
             ),
             child: Icon(
               status == 3
@@ -2322,7 +2323,7 @@ class _KpiScreenState extends State<KpiScreen> with TickerProviderStateMixin {
                     '${start.day}/${start.month}/${start.year}',
                   if (end != null) '→ ${end.day}/${end.month}/${end.year}',
                 ].join(' ')),
-                style: const TextStyle(color: Color(0xFF71717A), fontSize: 12),
+                style: const TextStyle(color: SboxColors.slate500, fontSize: 12),
               ),
             ]),
           ),
@@ -2330,7 +2331,7 @@ class _KpiScreenState extends State<KpiScreen> with TickerProviderStateMixin {
             padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
             decoration: BoxDecoration(
                 color: statusColor.withValues(alpha: 0.1),
-                borderRadius: BorderRadius.circular(8)),
+                borderRadius: BorderRadius.circular(10)),
             child: Text(tr(statusLabel),
                 style: TextStyle(
                     color: statusColor,
@@ -2338,7 +2339,7 @@ class _KpiScreenState extends State<KpiScreen> with TickerProviderStateMixin {
                     fontWeight: FontWeight.w600)),
           ),
           const SizedBox(width: 4),
-          const Icon(Icons.chevron_right, size: 18, color: Color(0xFFA1A1AA)),
+          const Icon(Icons.chevron_right, size: 18, color: SboxColors.slate400),
         ]),
       ),
     );
@@ -2351,16 +2352,16 @@ class _KpiScreenState extends State<KpiScreen> with TickerProviderStateMixin {
     final isCurrent = p['id']?.toString() == _selPeriodId;
     return Card(
       margin: const EdgeInsets.only(bottom: 12),
-      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
       elevation: 0,
       child: AnimatedContainer(
         duration: const Duration(milliseconds: 200),
         padding: const EdgeInsets.all(18),
         decoration: BoxDecoration(
           color: Colors.white,
-          borderRadius: BorderRadius.circular(16),
+          borderRadius: BorderRadius.circular(14),
           border: Border.all(
-              color: isCurrent ? _accent : Colors.grey.shade100,
+              color: isCurrent ? _accent : SboxColors.slate100,
               width: isCurrent ? 2 : 1),
           boxShadow: [
             if (isCurrent)
@@ -2424,12 +2425,12 @@ class _KpiScreenState extends State<KpiScreen> with TickerProviderStateMixin {
                   const SizedBox(height: 4),
                   Row(children: [
                     Icon(Icons.date_range_rounded,
-                        size: 13, color: Colors.grey[400]),
+                        size: 13, color: SboxColors.slate400),
                     const SizedBox(width: 4),
                     Text(
                         tr('${_fmtDate(p['periodStart'])} → ${_fmtDate(p['periodEnd'])}'),
                         style:
-                            TextStyle(color: Colors.grey[500], fontSize: 13)),
+                            TextStyle(color: SboxColors.slate500, fontSize: 13)),
                   ]),
                 ])),
             Container(
@@ -2469,7 +2470,7 @@ class _KpiScreenState extends State<KpiScreen> with TickerProviderStateMixin {
             if (status == 1 &&
                 Provider.of<PermissionProvider>(context, listen: false)
                     .canApprove('KPI'))
-              _chip('Mở lại', Icons.lock_open_rounded, Colors.grey,
+              _chip('Mở lại', Icons.lock_open_rounded, SboxColors.slate500,
                   () => _updatePeriodStatus(p['id'], 0)),
             if (status == 1)
               _chip('Tính lương', Icons.calculate_rounded, _blue,
@@ -2513,7 +2514,7 @@ class _KpiScreenState extends State<KpiScreen> with TickerProviderStateMixin {
         height: isCurrent ? 22 : 16,
         decoration: BoxDecoration(
           shape: BoxShape.circle,
-          color: isActive ? _periodStatusColor(step) : Colors.grey.shade200,
+          color: isActive ? _periodStatusColor(step) : SboxColors.slate200,
           border: isCurrent
               ? Border.all(
                   color: _periodStatusColor(step).withValues(alpha: 0.3),
@@ -2528,7 +2529,7 @@ class _KpiScreenState extends State<KpiScreen> with TickerProviderStateMixin {
       Text(tr(label),
           style: TextStyle(
               fontSize: 9,
-              color: isActive ? _periodStatusColor(step) : Colors.grey[400],
+              color: isActive ? _periodStatusColor(step) : SboxColors.slate400,
               fontWeight: isActive ? FontWeight.w600 : FontWeight.normal)),
     ]);
   }
@@ -2539,7 +2540,7 @@ class _KpiScreenState extends State<KpiScreen> with TickerProviderStateMixin {
       height: 2,
       margin: const EdgeInsets.only(bottom: 16, left: 4, right: 4),
       decoration: BoxDecoration(
-        color: isActive ? _green.withValues(alpha: 0.4) : Colors.grey.shade200,
+        color: isActive ? _green.withValues(alpha: 0.4) : SboxColors.slate200,
         borderRadius: BorderRadius.circular(1),
       ),
     ));
@@ -2575,7 +2576,7 @@ class _KpiScreenState extends State<KpiScreen> with TickerProviderStateMixin {
       case 0:
         return HrmPageChrome.chip;
       case 1:
-        return const Color(0xFFB45309);
+        return SboxColors.warningText;
       case 2:
         return _accent;
       case 3:
@@ -2688,7 +2689,7 @@ class _KpiScreenState extends State<KpiScreen> with TickerProviderStateMixin {
 
         return ScrollableAlertDialog(
           shape:
-              RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+              RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
           title: Text(tr('Tạo chu kỳ đánh giá')),
           content: SizedBox(
             width: math
@@ -2744,7 +2745,7 @@ class _KpiScreenState extends State<KpiScreen> with TickerProviderStateMixin {
     final filtered = _filteredTargets;
     final isMobile = Responsive.isMobile(context);
     final btnStyle = OutlinedButton.styleFrom(
-      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
       padding: EdgeInsets.symmetric(
           horizontal: isMobile ? 10 : 16, vertical: isMobile ? 6 : 10),
       textStyle: TextStyle(fontSize: isMobile ? 11 : 13),
@@ -2932,7 +2933,7 @@ class _KpiScreenState extends State<KpiScreen> with TickerProviderStateMixin {
                         decoration: BoxDecoration(
                           color: Colors.white,
                           borderRadius: BorderRadius.circular(14),
-                          border: Border.all(color: Colors.grey.shade100),
+                          border: Border.all(color: SboxColors.slate100),
                           boxShadow: [
                             BoxShadow(
                                 color: Colors.black.withValues(alpha: 0.02),
@@ -2949,14 +2950,14 @@ class _KpiScreenState extends State<KpiScreen> with TickerProviderStateMixin {
                               CircularProgressIndicator(
                                 value: (pct / 100).clamp(0, 1),
                                 strokeWidth: 5,
-                                backgroundColor: Colors.grey.shade100,
+                                backgroundColor: SboxColors.slate100,
                                 valueColor: AlwaysStoppedAnimation(color),
                                 strokeCap: StrokeCap.round,
                               ),
                               Text(tr(pct.toStringAsFixed(0)),
                                   style: TextStyle(
                                       fontSize: 11,
-                                      fontWeight: FontWeight.w800,
+                                      fontWeight: FontWeight.w700,
                                       color: color)),
                             ]),
                           ),
@@ -2994,11 +2995,11 @@ class _KpiScreenState extends State<KpiScreen> with TickerProviderStateMixin {
                                 const SizedBox(width: 6),
                                 Text(tr(t['department'] ?? ''),
                                     style: TextStyle(
-                                        color: Colors.grey[500], fontSize: 12)),
+                                        color: SboxColors.slate500, fontSize: 12)),
                                 const SizedBox(width: 6),
                                 Text(tr('${tr('Lương HT: ')}${_cur.format(t['completionSalary'] ?? 0)}'),
                                     style: TextStyle(
-                                        color: Colors.grey[400], fontSize: 11)),
+                                        color: SboxColors.slate400, fontSize: 11)),
                               ]),
                             ],
                           )),
@@ -3008,11 +3009,11 @@ class _KpiScreenState extends State<KpiScreen> with TickerProviderStateMixin {
                               children: [
                                 Row(mainAxisSize: MainAxisSize.min, children: [
                                   Icon(Icons.flag_rounded,
-                                      size: 12, color: Colors.grey[400]),
+                                      size: 12, color: SboxColors.slate400),
                                   const SizedBox(width: 3),
                                   Text(tr(_cur.format(t['targetValue'] ?? 0)),
                                       style: TextStyle(
-                                          color: Colors.grey[600],
+                                          color: SboxColors.slate600,
                                           fontSize: 12)),
                                 ]),
                                 const SizedBox(height: 4),
@@ -3024,7 +3025,7 @@ class _KpiScreenState extends State<KpiScreen> with TickerProviderStateMixin {
                                       color.withValues(alpha: 0.12),
                                       color.withValues(alpha: 0.04)
                                     ]),
-                                    borderRadius: BorderRadius.circular(8),
+                                    borderRadius: BorderRadius.circular(10),
                                   ),
                                   child: Text(
                                       tr(t['actualValue'] != null
@@ -3035,7 +3036,7 @@ class _KpiScreenState extends State<KpiScreen> with TickerProviderStateMixin {
                                           fontSize: 13,
                                           color: t['actualValue'] != null
                                               ? color
-                                              : Colors.grey)),
+                                              : SboxColors.slate500)),
                                 ),
                               ]),
                           const SizedBox(width: 8),
@@ -3225,7 +3226,7 @@ class _KpiScreenState extends State<KpiScreen> with TickerProviderStateMixin {
                 isDense: true,
                 contentPadding:
                     EdgeInsets.symmetric(horizontal: 8, vertical: 8)),
-            style: const TextStyle(fontSize: 11, color: Colors.black87),
+            style: const TextStyle(fontSize: 11, color: SboxColors.text),
             items: dropdownItems,
             onChanged: (v) => onRateTypeChanged(v ?? 0),
           ),
@@ -3247,13 +3248,13 @@ class _KpiScreenState extends State<KpiScreen> with TickerProviderStateMixin {
       const SizedBox(height: 8),
       Container(
         decoration: BoxDecoration(
-            border: Border.all(color: Colors.grey.shade300),
+            border: Border.all(color: SboxColors.slate300),
             borderRadius: BorderRadius.circular(10)),
         child: Column(children: [
           Container(
             padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
             decoration: BoxDecoration(
-                color: Colors.grey.shade50,
+                color: SboxColors.slate50,
                 borderRadius:
                     const BorderRadius.vertical(top: Radius.circular(10))),
             child: Row(children: [
@@ -3280,7 +3281,7 @@ class _KpiScreenState extends State<KpiScreen> with TickerProviderStateMixin {
             Padding(
                 padding: EdgeInsets.all(12),
                 child: Text(tr('Chưa có bậc thưởng'),
-                    style: TextStyle(color: Colors.grey, fontSize: 12)))
+                    style: TextStyle(color: SboxColors.slate500, fontSize: 12)))
           else
             ...tiers.asMap().entries.map((e) {
               final i = e.key;
@@ -3289,7 +3290,7 @@ class _KpiScreenState extends State<KpiScreen> with TickerProviderStateMixin {
                 padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 4),
                 decoration: BoxDecoration(
                     border:
-                        Border(top: BorderSide(color: Colors.grey.shade200))),
+                        Border(top: BorderSide(color: SboxColors.slate200))),
                 child: Row(children: [
                   Expanded(
                       child: TextFormField(
@@ -3352,7 +3353,7 @@ class _KpiScreenState extends State<KpiScreen> with TickerProviderStateMixin {
       const SizedBox(height: 4),
       Text(tr(example),
           style: TextStyle(
-              color: Colors.grey[500],
+              color: SboxColors.slate500,
               fontSize: 11,
               fontStyle: FontStyle.italic)),
     ]);
@@ -3374,7 +3375,7 @@ class _KpiScreenState extends State<KpiScreen> with TickerProviderStateMixin {
             style: TextStyle(
                 fontWeight: FontWeight.w600,
                 fontSize: 13,
-                color: Color(0xFFEF4444))),
+                color: SboxColors.danger)),
         const Spacer(),
         TextButton.icon(
           onPressed: () => ss(() => tiers.add({
@@ -3423,7 +3424,7 @@ class _KpiScreenState extends State<KpiScreen> with TickerProviderStateMixin {
             Padding(
                 padding: const EdgeInsets.all(12),
                 child: Text(tr('Chưa có mốc nào (lương tỷ lệ theo % đạt)'),
-                    style: TextStyle(color: Colors.grey[500], fontSize: 12)))
+                    style: TextStyle(color: SboxColors.slate500, fontSize: 12)))
           else
             ...tiers.asMap().entries.map((e) {
               final i = e.key;
@@ -3498,7 +3499,7 @@ class _KpiScreenState extends State<KpiScreen> with TickerProviderStateMixin {
       const SizedBox(height: 4),
       Text(tr(example),
           style: TextStyle(
-              color: Colors.grey[500],
+              color: SboxColors.slate500,
               fontSize: 11,
               fontStyle: FontStyle.italic)),
     ]);
@@ -3570,7 +3571,7 @@ class _KpiScreenState extends State<KpiScreen> with TickerProviderStateMixin {
             children: [
               Container(
                 decoration: BoxDecoration(
-                    border: Border.all(color: Colors.grey.shade300),
+                    border: Border.all(color: SboxColors.slate300),
                     borderRadius: BorderRadius.circular(10)),
                 child: Column(children: [
                   Padding(
@@ -3580,7 +3581,7 @@ class _KpiScreenState extends State<KpiScreen> with TickerProviderStateMixin {
                         hintText: tr('Tìm nhân viên...'),
                         prefixIcon: const Icon(Icons.search, size: 18),
                         border: OutlineInputBorder(
-                            borderRadius: BorderRadius.circular(8)),
+                            borderRadius: BorderRadius.circular(10)),
                         isDense: true,
                         suffixIcon:
                             Row(mainAxisSize: MainAxisSize.min, children: [
@@ -3711,7 +3712,7 @@ class _KpiScreenState extends State<KpiScreen> with TickerProviderStateMixin {
 
         return ScrollableAlertDialog(
           shape:
-              RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+              RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
           title: Text(tr('Giao chỉ tiêu cho nhân viên')),
           content: SizedBox(
             width: math
@@ -3838,7 +3839,7 @@ class _KpiScreenState extends State<KpiScreen> with TickerProviderStateMixin {
 
         return ScrollableAlertDialog(
           shape:
-              RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+              RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
           title: Text(tr(dialogTitle)),
           content: SizedBox(
             width: math
@@ -3910,14 +3911,14 @@ class _KpiScreenState extends State<KpiScreen> with TickerProviderStateMixin {
                         const SizedBox(height: 4),
                         Text(tr('${tr('Mục tiêu: ')}${_cur.format(t['targetValue'] ?? 0)}'),
                             style: TextStyle(
-                                fontSize: 11, color: Colors.grey[600])),
+                                fontSize: 11, color: SboxColors.slate600)),
                         const SizedBox(height: 4),
                         TextField(
                           controller: controllers[id],
                           decoration: InputDecoration(
                               labelText: tr('Thực tế'),
                               border: OutlineInputBorder(
-                                  borderRadius: BorderRadius.circular(8)),
+                                  borderRadius: BorderRadius.circular(10)),
                               isDense: true),
                           keyboardType: TextInputType.number,
                           inputFormatters: [ThousandSeparatorFormatter()],
@@ -3932,14 +3933,14 @@ class _KpiScreenState extends State<KpiScreen> with TickerProviderStateMixin {
                     Expanded(
                         child: Text(tr('${tr('Mục tiêu: ')}${_cur.format(t['targetValue'] ?? 0)}'),
                             style: TextStyle(
-                                fontSize: 11, color: Colors.grey[600]))),
+                                fontSize: 11, color: SboxColors.slate600))),
                     Expanded(
                         child: TextField(
                       controller: controllers[id],
                       decoration: InputDecoration(
                           labelText: tr('Thực tế'),
                           border: OutlineInputBorder(
-                              borderRadius: BorderRadius.circular(8)),
+                              borderRadius: BorderRadius.circular(10)),
                           isDense: true),
                       keyboardType: TextInputType.number,
                       inputFormatters: [ThousandSeparatorFormatter()],
@@ -3982,7 +3983,7 @@ class _KpiScreenState extends State<KpiScreen> with TickerProviderStateMixin {
 
         return ScrollableAlertDialog(
           shape:
-              RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+              RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
           title: Text(tr('Cập nhật doanh số hàng loạt')),
           content: SizedBox(
             width: math
@@ -4140,16 +4141,16 @@ class _KpiScreenState extends State<KpiScreen> with TickerProviderStateMixin {
               width: double.infinity,
               decoration: BoxDecoration(
                 color: Colors.white,
-                borderRadius: BorderRadius.circular(16),
-                border: Border.all(color: const Color(0xFFE4E4E7)),
+                borderRadius: BorderRadius.circular(14),
+                border: Border.all(color: SboxColors.slate200),
               ),
               child: ClipRRect(
-                borderRadius: BorderRadius.circular(16),
+                borderRadius: BorderRadius.circular(14),
                 child: SingleChildScrollView(
                   scrollDirection: Axis.horizontal,
                   child: DataTable(
                     headingRowColor:
-                        WidgetStateProperty.all(const Color(0xFFFAFAFA)),
+                        WidgetStateProperty.all(SboxColors.slate50),
                     columns: [
                       DataColumn(label: Text(tr('Mã NV'))),
                       DataColumn(label: Text(tr('Họ tên'))),
@@ -4184,7 +4185,7 @@ class _KpiScreenState extends State<KpiScreen> with TickerProviderStateMixin {
                           decoration: BoxDecoration(
                             color: (approved ? _green : _amber)
                                 .withValues(alpha: 0.12),
-                            borderRadius: BorderRadius.circular(8),
+                            borderRadius: BorderRadius.circular(10),
                           ),
                           child: Text(
                               tr(approved ? 'Đã duyệt' : 'Chờ duyệt'),
@@ -4225,7 +4226,7 @@ class _KpiScreenState extends State<KpiScreen> with TickerProviderStateMixin {
                     const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
                 decoration: BoxDecoration(
                   color: (approved ? _green : _amber).withValues(alpha: 0.12),
-                  borderRadius: BorderRadius.circular(8),
+                  borderRadius: BorderRadius.circular(10),
                 ),
                 child: Text(tr(approved ? 'Đã duyệt' : 'Chờ duyệt'),
                     style: TextStyle(
@@ -4240,7 +4241,7 @@ class _KpiScreenState extends State<KpiScreen> with TickerProviderStateMixin {
             const Divider(height: 20),
             _mobileInfoRow('% KPI', '${score.toStringAsFixed(1)}%', _accent),
             _mobileInfoRow(
-                'Lương CB', _cur.format(s['baseSalary'] ?? 0), Colors.black87),
+                'Lương CB', _cur.format(s['baseSalary'] ?? 0), SboxColors.text),
             _mobileInfoRow('Thưởng KPI',
                 _cur.format(s['kpiBonusAmount'] ?? 0), _green),
             _mobileInfoRow('Thực nhận', _cur.format(s['netIncome'] ?? 0), _accent),
@@ -4322,8 +4323,8 @@ class _KpiScreenState extends State<KpiScreen> with TickerProviderStateMixin {
                         width: double.infinity,
                         decoration: BoxDecoration(
                           color: Colors.white,
-                          borderRadius: BorderRadius.circular(16),
-                          border: Border.all(color: Colors.grey.shade100),
+                          borderRadius: BorderRadius.circular(14),
+                          border: Border.all(color: SboxColors.slate100),
                           boxShadow: [
                             BoxShadow(
                                 color: Colors.black.withValues(alpha: 0.03),
@@ -4332,7 +4333,7 @@ class _KpiScreenState extends State<KpiScreen> with TickerProviderStateMixin {
                           ],
                         ),
                         child: ClipRRect(
-                          borderRadius: BorderRadius.circular(16),
+                          borderRadius: BorderRadius.circular(14),
                           child: SingleChildScrollView(
                             scrollDirection: Axis.horizontal,
                             child: ConstrainedBox(
@@ -4345,11 +4346,11 @@ class _KpiScreenState extends State<KpiScreen> with TickerProviderStateMixin {
                                 dataRowMinHeight: 44,
                                 dataRowMaxHeight: 58,
                                 headingRowColor: WidgetStateProperty.all(
-                                    const Color(0xFFF8FAFC)),
+                                    SboxColors.slate50),
                                 headingTextStyle: const TextStyle(
                                     fontWeight: FontWeight.w700,
                                     fontSize: 12,
-                                    color: Color(0xFF334155)),
+                                    color: SboxColors.slate700),
                                 dataTextStyle: const TextStyle(fontSize: 12),
                                 columns: [
                                   DataColumn(
@@ -4444,7 +4445,7 @@ class _KpiScreenState extends State<KpiScreen> with TickerProviderStateMixin {
                                       DataCell(Center(
                                           child: Text(tr('${idx + 1}'),
                                               style: TextStyle(
-                                                  color: Colors.grey[500])))),
+                                                  color: SboxColors.slate500)))),
                                       DataCell(Center(
                                           child: SizedBox(
                                         width: 130,
@@ -4457,7 +4458,7 @@ class _KpiScreenState extends State<KpiScreen> with TickerProviderStateMixin {
                                       DataCell(Center(
                                           child: Text(tr(t['employeeCode'] ?? ''),
                                               style: TextStyle(
-                                                  color: Colors.grey[600])))),
+                                                  color: SboxColors.slate600)))),
                                       DataCell(Center(
                                           child: Text(tr(_cur.format(tgt))))),
                                       DataCell(Center(
@@ -4465,8 +4466,8 @@ class _KpiScreenState extends State<KpiScreen> with TickerProviderStateMixin {
                                               tr(act > 0 ? _cur.format(act) : '-'),
                                               style: TextStyle(
                                                   color: act > 0
-                                                      ? Colors.black87
-                                                      : Colors.grey)))),
+                                                      ? SboxColors.text
+                                                      : SboxColors.slate500)))),
                                       DataCell(Center(
                                           child: Container(
                                         padding: const EdgeInsets.symmetric(
@@ -4491,14 +4492,14 @@ class _KpiScreenState extends State<KpiScreen> with TickerProviderStateMixin {
                                                       ? Colors.red
                                                       : penaltyBonus > 0
                                                           ? _green
-                                                          : Colors.grey)))),
+                                                          : SboxColors.slate500)))),
                                       DataCell(Center(
                                           child: Text(tr(_cur.format(salaryHT)),
                                               style: TextStyle(
                                                   fontWeight: FontWeight.w500,
                                                   color: salaryHT > 0
-                                                      ? Colors.black87
-                                                      : Colors.grey)))),
+                                                      ? SboxColors.text
+                                                      : SboxColors.slate500)))),
                                       // Dynamic tier cells
                                       for (int i = 0; i < maxTiers; i++) ...[
                                         DataCell(Center(
@@ -4508,7 +4509,7 @@ class _KpiScreenState extends State<KpiScreen> with TickerProviderStateMixin {
                                                     style: TextStyle(
                                                         fontSize: 11,
                                                         color:
-                                                            Colors.grey[600]))
+                                                            SboxColors.slate600))
                                                 : Text(tr('-')))),
                                         DataCell(Center(
                                             child: i < tierBonuses.length
@@ -4521,7 +4522,7 @@ class _KpiScreenState extends State<KpiScreen> with TickerProviderStateMixin {
                                                                     as num) >
                                                                 0
                                                             ? _green
-                                                            : Colors.grey[400],
+                                                            : SboxColors.slate400,
                                                         fontWeight: (tierBonuses[i]
                                                                         ['bonus']
                                                                     as num) >
@@ -4542,7 +4543,7 @@ class _KpiScreenState extends State<KpiScreen> with TickerProviderStateMixin {
                                   if (filteredTgts.isNotEmpty)
                                     DataRow(
                                       color: WidgetStateProperty.all(
-                                          Colors.grey.shade50),
+                                          SboxColors.slate50),
                                       cells: [
                                         const DataCell(Center(child: Text(''))),
                                         DataCell(Center(
@@ -4671,29 +4672,29 @@ class _KpiScreenState extends State<KpiScreen> with TickerProviderStateMixin {
                     children: [
                       Text(tr('${filteredTgts.length} dòng'),
                           style:
-                              TextStyle(fontSize: 12, color: Colors.grey[600])),
+                              TextStyle(fontSize: 12, color: SboxColors.slate600)),
                       Row(
                         mainAxisSize: MainAxisSize.min,
                         children: [
                           Text(tr('Hiển thị:'),
                               style: TextStyle(
-                                  fontSize: 12, color: Colors.grey[500])),
+                                  fontSize: 12, color: SboxColors.slate500)),
                           const SizedBox(width: 8),
                           Container(
                             height: 34,
                             padding: const EdgeInsets.symmetric(horizontal: 12),
                             decoration: BoxDecoration(
-                              color: const Color(0xFFFAFAFA),
+                              color: SboxColors.slate50,
                               border:
-                                  Border.all(color: const Color(0xFFE4E4E7)),
-                              borderRadius: BorderRadius.circular(8),
+                                  Border.all(color: SboxColors.slate200),
+                              borderRadius: BorderRadius.circular(10),
                             ),
                             child: DropdownButtonHideUnderline(
                               child: DropdownButton<int>(
                                 value: _salaryPageSize,
                                 isDense: true,
                                 style: TextStyle(
-                                    fontSize: 13, color: Colors.grey[800]),
+                                    fontSize: 13, color: SboxColors.slate800),
                                 items: _pageSizeOptions
                                     .map((s) => DropdownMenuItem(
                                         value: s, child: Text(tr('$s'))))
@@ -4732,7 +4733,7 @@ class _KpiScreenState extends State<KpiScreen> with TickerProviderStateMixin {
                                   horizontal: 12, vertical: 4),
                               decoration: BoxDecoration(
                                 color: Theme.of(context).primaryColor,
-                                borderRadius: BorderRadius.circular(8),
+                                borderRadius: BorderRadius.circular(10),
                               ),
                               child: Text(tr('$safePage / $totalPages'),
                                   style: const TextStyle(
@@ -4789,7 +4790,7 @@ class _KpiScreenState extends State<KpiScreen> with TickerProviderStateMixin {
               style: TextStyle(fontWeight: FontWeight.w600, fontSize: 13)),
           Text(tr(_cur.format(totalSalaryAll)),
               style: const TextStyle(
-                  fontWeight: FontWeight.bold, fontSize: 15, color: _accent)),
+                  fontWeight: FontWeight.bold, fontSize: 16, color: _accent)),
         ]),
       ),
       const SizedBox(height: 8),
@@ -4822,7 +4823,7 @@ class _KpiScreenState extends State<KpiScreen> with TickerProviderStateMixin {
             decoration: BoxDecoration(
               color: Colors.white,
               borderRadius: BorderRadius.circular(14),
-              border: Border.all(color: Colors.grey.shade100),
+              border: Border.all(color: SboxColors.slate100),
               boxShadow: [
                 BoxShadow(
                     color: Colors.black.withValues(alpha: 0.02),
@@ -4855,10 +4856,10 @@ class _KpiScreenState extends State<KpiScreen> with TickerProviderStateMixin {
                 ),
               ]),
               Text(tr(t['employeeCode'] ?? ''),
-                  style: TextStyle(color: Colors.grey[400], fontSize: 12)),
+                  style: TextStyle(color: SboxColors.slate400, fontSize: 12)),
               const Divider(height: 24),
               _mobileInfoRow('Lương cơ bản', _cur.format(salaryHT),
-                  salaryHT > 0 ? Colors.black87 : Colors.grey),
+                  salaryHT > 0 ? SboxColors.text : SboxColors.slate500),
               _mobileInfoRow(
                   'Thưởng/Phạt',
                   _cur.format(penaltyBonus),
@@ -4866,9 +4867,9 @@ class _KpiScreenState extends State<KpiScreen> with TickerProviderStateMixin {
                       ? Colors.red
                       : penaltyBonus > 0
                           ? _green
-                          : Colors.grey),
+                          : SboxColors.slate500),
               _mobileInfoRow('Thưởng KPI', _cur.format(totalTierBonus),
-                  totalTierBonus > 0 ? _green : Colors.grey),
+                  totalTierBonus > 0 ? _green : SboxColors.slate500),
               const Divider(height: 12),
               Container(
                 padding:
@@ -4876,7 +4877,7 @@ class _KpiScreenState extends State<KpiScreen> with TickerProviderStateMixin {
                 decoration: BoxDecoration(
                   gradient: LinearGradient(
                       colors: [_accent.withValues(alpha: 0.06), Colors.white]),
-                  borderRadius: BorderRadius.circular(8),
+                  borderRadius: BorderRadius.circular(10),
                 ),
                 child: Row(
                     mainAxisAlignment: MainAxisAlignment.spaceBetween,
@@ -4886,7 +4887,7 @@ class _KpiScreenState extends State<KpiScreen> with TickerProviderStateMixin {
                               fontWeight: FontWeight.w600, fontSize: 13)),
                       Text(tr(_cur.format(totalSalary)),
                           style: const TextStyle(
-                              fontWeight: FontWeight.w800,
+                              fontWeight: FontWeight.w700,
                               fontSize: 16,
                               color: _accent)),
                     ]),
@@ -4902,7 +4903,7 @@ class _KpiScreenState extends State<KpiScreen> with TickerProviderStateMixin {
     return Padding(
       padding: const EdgeInsets.symmetric(vertical: 2),
       child: Row(mainAxisAlignment: MainAxisAlignment.spaceBetween, children: [
-        Text(tr(label), style: TextStyle(color: Colors.grey[600], fontSize: 12)),
+        Text(tr(label), style: TextStyle(color: SboxColors.slate600, fontSize: 12)),
         Text(tr(value),
             style: TextStyle(
                 fontWeight: FontWeight.w600, fontSize: 12, color: valueColor)),
@@ -4970,8 +4971,8 @@ class _KpiScreenState extends State<KpiScreen> with TickerProviderStateMixin {
       padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
       decoration: BoxDecoration(
         color: Colors.white,
-        borderRadius: BorderRadius.circular(12),
-        border: Border.all(color: const Color(0xFFE4E4E7)),
+        borderRadius: BorderRadius.circular(14),
+        border: Border.all(color: SboxColors.slate200),
       ),
       child: Row(
         mainAxisSize: MainAxisSize.min,
@@ -5016,8 +5017,8 @@ class _KpiScreenState extends State<KpiScreen> with TickerProviderStateMixin {
       padding: const EdgeInsets.symmetric(vertical: 6, horizontal: 10),
       decoration: BoxDecoration(
         color: Colors.white,
-        borderRadius: BorderRadius.circular(8),
-        border: Border.all(color: const Color(0xFFE4E4E7)),
+        borderRadius: BorderRadius.circular(10),
+        border: Border.all(color: SboxColors.slate200),
       ),
       child: Row(
         children: [
@@ -5054,7 +5055,7 @@ class _KpiScreenState extends State<KpiScreen> with TickerProviderStateMixin {
       decoration: BoxDecoration(
         color: Colors.white,
         borderRadius: BorderRadius.circular(isMobile ? 10 : 16),
-        border: Border.all(color: Colors.grey.shade100),
+        border: Border.all(color: SboxColors.slate100),
         boxShadow: [
           BoxShadow(
               color: Colors.black.withValues(alpha: 0.04),
@@ -5077,7 +5078,7 @@ class _KpiScreenState extends State<KpiScreen> with TickerProviderStateMixin {
               padding: EdgeInsets.all(isMobile ? 4 : 6),
               decoration: BoxDecoration(
                   color: color.withValues(alpha: 0.12),
-                  borderRadius: BorderRadius.circular(8)),
+                  borderRadius: BorderRadius.circular(10)),
               child: Icon(icon, color: color, size: isMobile ? 14 : 18),
             ),
             const SizedBox(width: 8),
@@ -5088,7 +5089,7 @@ class _KpiScreenState extends State<KpiScreen> with TickerProviderStateMixin {
                     fontSize: isMobile ? 13 : 15)),
           ]),
         ),
-        if (!isMobile) Divider(height: 24, color: Colors.grey.shade100),
+        if (!isMobile) Divider(height: 24, color: SboxColors.slate100),
         child,
       ]),
     );
@@ -5120,20 +5121,20 @@ class _KpiScreenState extends State<KpiScreen> with TickerProviderStateMixin {
       Container(
         padding: const EdgeInsets.all(20),
         decoration: BoxDecoration(
-          color: Colors.grey.shade50,
+          color: SboxColors.slate50,
           shape: BoxShape.circle,
         ),
-        child: Icon(icon, size: 48, color: Colors.grey[300]),
+        child: Icon(icon, size: 48, color: SboxColors.slate300),
       ),
       const SizedBox(height: 16),
       Text(tr(text),
           style: TextStyle(
-              color: Colors.grey[500],
-              fontSize: 15,
+              color: SboxColors.slate500,
+              fontSize: 16,
               fontWeight: FontWeight.w500)),
       const SizedBox(height: 8),
       Text(tr('Bắt đầu bằng cách tạo dữ liệu mới'),
-          style: TextStyle(color: Colors.grey[400], fontSize: 12)),
+          style: TextStyle(color: SboxColors.slate400, fontSize: 12)),
     ]));
   }
 
@@ -5196,7 +5197,7 @@ class _KpiScreenState extends State<KpiScreen> with TickerProviderStateMixin {
         ]),
         const SizedBox(height: 6),
         Text(tr('Thiết lập kết nối Google Sheet. Bấm "Tạo sheet mẫu" để tạo bảng theo mã NV, sau đó đồng bộ tự động.'),
-            style: TextStyle(color: Colors.grey[500], fontSize: 13)),
+            style: TextStyle(color: SboxColors.slate500, fontSize: 13)),
         if (lastSynced != null) ...[
           const SizedBox(height: 4),
           Text(tr('Lần đồng bộ cuối: ${_fmtDateTime(lastSynced)}'),
@@ -5259,7 +5260,7 @@ class _KpiScreenState extends State<KpiScreen> with TickerProviderStateMixin {
         Text(
           tr('C?n upload file credentials.json (Google Service Account key) d? kết nối Google Sheet. '
           'Tải file JSON key tế Google Cloud Console ? IAM ? Service Accounts ? Keys.'),
-          style: TextStyle(color: Colors.grey[700], fontSize: 12.5),
+          style: TextStyle(color: SboxColors.slate700, fontSize: 13),
         ),
         const SizedBox(height: 12),
         _credentialsLoading
@@ -5292,24 +5293,24 @@ class _KpiScreenState extends State<KpiScreen> with TickerProviderStateMixin {
         border: Border.all(
             color: hasConfig
                 ? _green.withValues(alpha: 0.3)
-                : Colors.grey.shade200),
+                : SboxColors.slate200),
       ),
       child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
         Row(children: [
-          Icon(Icons.link, color: hasConfig ? _green : Colors.grey, size: 18),
+          Icon(Icons.link, color: hasConfig ? _green : SboxColors.slate500, size: 18),
           const SizedBox(width: 8),
           Text(tr('Kết nối Google Sheet'),
               style: TextStyle(
                   fontWeight: FontWeight.bold,
                   fontSize: 14,
-                  color: hasConfig ? _green : Colors.grey[700])),
+                  color: hasConfig ? _green : SboxColors.slate700)),
           const Spacer(),
           if (hasConfig)
             Container(
               padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
               decoration: BoxDecoration(
                   color: _green.withValues(alpha: 0.1),
-                  borderRadius: BorderRadius.circular(12)),
+                  borderRadius: BorderRadius.circular(14)),
               child: Row(mainAxisSize: MainAxisSize.min, children: [
                 Icon(Icons.check_circle, color: _green, size: 14),
                 SizedBox(width: 4),
@@ -5367,7 +5368,7 @@ class _KpiScreenState extends State<KpiScreen> with TickerProviderStateMixin {
       SizedBox(
           width: 50,
           child: Text(tr('$label:'),
-              style: TextStyle(color: Colors.grey[500], fontSize: 12))),
+              style: TextStyle(color: SboxColors.slate500, fontSize: 12))),
       Expanded(
           child: Text(tr(value),
               style: const TextStyle(fontSize: 12),
@@ -5396,12 +5397,12 @@ class _KpiScreenState extends State<KpiScreen> with TickerProviderStateMixin {
       decoration: BoxDecoration(
           color: Colors.white,
           borderRadius: BorderRadius.circular(14),
-          border: Border.all(color: Colors.grey.shade200)),
+          border: Border.all(color: SboxColors.slate200)),
       child: Column(children: [
         Container(
           padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
           decoration: BoxDecoration(
-              color: Colors.grey.shade50,
+              color: SboxColors.slate50,
               borderRadius:
                   const BorderRadius.vertical(top: Radius.circular(14))),
           child: Row(children: [
@@ -5436,7 +5437,7 @@ class _KpiScreenState extends State<KpiScreen> with TickerProviderStateMixin {
         // Table header
         Container(
           padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-          color: Colors.grey.shade50,
+          color: SboxColors.slate50,
           child: Row(children: [
             Expanded(
                 flex: 3,
@@ -5444,14 +5445,14 @@ class _KpiScreenState extends State<KpiScreen> with TickerProviderStateMixin {
                     style: TextStyle(
                         fontWeight: FontWeight.w600,
                         fontSize: 12,
-                        color: Colors.grey))),
+                        color: SboxColors.slate500))),
             Expanded(
                 flex: 1,
                 child: Text(tr('Vị trí ô'),
                     style: TextStyle(
                         fontWeight: FontWeight.w600,
                         fontSize: 12,
-                        color: Colors.grey))),
+                        color: SboxColors.slate500))),
             SizedBox(width: 40),
           ]),
         ),
@@ -5470,7 +5471,7 @@ class _KpiScreenState extends State<KpiScreen> with TickerProviderStateMixin {
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
       decoration: BoxDecoration(
-          border: Border(bottom: BorderSide(color: Colors.grey.shade100))),
+          border: Border(bottom: BorderSide(color: SboxColors.slate100))),
       child: Row(children: [
         Expanded(
             flex: 3,
@@ -5480,7 +5481,7 @@ class _KpiScreenState extends State<KpiScreen> with TickerProviderStateMixin {
                       ? Icons.check_circle
                       : Icons.radio_button_unchecked,
                   size: 16,
-                  color: configured ? _green : Colors.grey[300]),
+                  color: configured ? _green : SboxColors.slate300),
               const SizedBox(width: 8),
               Expanded(
                   child: Text(tr(t['employeeName'] ?? ''),
@@ -5493,7 +5494,7 @@ class _KpiScreenState extends State<KpiScreen> with TickerProviderStateMixin {
               style: TextStyle(
                   fontSize: 13,
                   fontWeight: FontWeight.w600,
-                  color: configured ? Colors.black87 : Colors.grey[400],
+                  color: configured ? SboxColors.text : SboxColors.slate400,
                   fontFamily: 'monospace'),
             )),
         SizedBox(
@@ -5526,17 +5527,17 @@ class _KpiScreenState extends State<KpiScreen> with TickerProviderStateMixin {
         borderRadius: BorderRadius.circular(14),
         border: Border.all(
             color:
-                autoSync ? _blue.withValues(alpha: 0.3) : Colors.grey.shade200),
+                autoSync ? _blue.withValues(alpha: 0.3) : SboxColors.slate200),
       ),
       child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
         Row(children: [
-          Icon(Icons.schedule, color: autoSync ? _blue : Colors.grey, size: 18),
+          Icon(Icons.schedule, color: autoSync ? _blue : SboxColors.slate500, size: 18),
           const SizedBox(width: 8),
           Text(tr('Tự động đồng bộ'),
               style: TextStyle(
                   fontWeight: FontWeight.bold,
                   fontSize: 14,
-                  color: autoSync ? _blue : Colors.grey[700])),
+                  color: autoSync ? _blue : SboxColors.slate700)),
           const Spacer(),
           Switch(
             value: autoSync,
@@ -5547,7 +5548,7 @@ class _KpiScreenState extends State<KpiScreen> with TickerProviderStateMixin {
         if (autoSync) ...[
           const SizedBox(height: 8),
           Text(tr('Các mốc giờ đồng bộ tự động:'),
-              style: TextStyle(color: Colors.grey[600], fontSize: 12)),
+              style: TextStyle(color: SboxColors.slate600, fontSize: 12)),
           const SizedBox(height: 8),
           Wrap(spacing: 8, runSpacing: 8, children: [
             ...timeSlots.map((slot) => Chip(
@@ -5561,7 +5562,7 @@ class _KpiScreenState extends State<KpiScreen> with TickerProviderStateMixin {
               label: Text(tr('+ Thêm giờ'), style: TextStyle(fontSize: 12)),
               onPressed: () => _showAddTimeSlotDialog(timeSlots),
               avatar: const Icon(Icons.add, size: 14),
-              backgroundColor: Colors.grey.shade100,
+              backgroundColor: SboxColors.slate100,
               side: BorderSide.none,
             ),
           ]),
@@ -5573,7 +5574,7 @@ class _KpiScreenState extends State<KpiScreen> with TickerProviderStateMixin {
         ] else ...[
           const SizedBox(height: 4),
           Text(tr('Bật để tự động đọc dữ liệu từ Google Sheet theo lịch.'),
-              style: TextStyle(color: Colors.grey[500], fontSize: 12)),
+              style: TextStyle(color: SboxColors.slate500, fontSize: 12)),
         ],
       ]),
     );
@@ -5775,7 +5776,7 @@ class _KpiScreenState extends State<KpiScreen> with TickerProviderStateMixin {
                     color: testResult!['connected'] == true
                         ? _green.withValues(alpha: 0.05)
                         : _red.withValues(alpha: 0.05),
-                    borderRadius: BorderRadius.circular(8),
+                    borderRadius: BorderRadius.circular(10),
                     border: Border.all(
                         color: testResult!['connected'] == true
                             ? _green.withValues(alpha: 0.3)
@@ -5814,7 +5815,7 @@ class _KpiScreenState extends State<KpiScreen> with TickerProviderStateMixin {
                             padding: const EdgeInsets.only(top: 4),
                             child: Text(tr('${tr('Chi tiết: ')}${testResult!['rawError']}'),
                               style: TextStyle(
-                                  color: Colors.grey[600], fontSize: 10),
+                                  color: SboxColors.slate600, fontSize: 10),
                               maxLines: 3,
                               overflow: TextOverflow.ellipsis,
                             ),
@@ -5828,20 +5829,20 @@ class _KpiScreenState extends State<KpiScreen> with TickerProviderStateMixin {
               Container(
                 padding: const EdgeInsets.all(10),
                 decoration: BoxDecoration(
-                    color: Colors.blue.shade50,
-                    borderRadius: BorderRadius.circular(8)),
+                    color: SboxColors.brand50,
+                    borderRadius: BorderRadius.circular(10)),
                 child: Row(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
                       Icon(Icons.info_outline,
-                          color: Colors.blue.shade700, size: 16),
+                          color: SboxColors.brand700, size: 16),
                       const SizedBox(width: 8),
                       Expanded(
                           child: Text(
                         tr('Nhập URL Google Sheet và nhấn "Test" để kiểm tra kết nối. '
                         'Nếu chưa chia sẻ, hãy share cho service account email quyền Viewer.'),
                         style: TextStyle(
-                            color: Colors.blue.shade700, fontSize: 11),
+                            color: SboxColors.brand700, fontSize: 11),
                       )),
                     ]),
               ),
@@ -5875,7 +5876,7 @@ class _KpiScreenState extends State<KpiScreen> with TickerProviderStateMixin {
 
         return ScrollableAlertDialog(
           shape:
-              RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+              RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
           title: Text(tr('Thiết lập kết nối Google Sheet')),
           content: SizedBox(
             width: math
@@ -6063,7 +6064,7 @@ class _KpiScreenState extends State<KpiScreen> with TickerProviderStateMixin {
                 padding: const EdgeInsets.all(10),
                 decoration: BoxDecoration(
                     color: Colors.orange.shade50,
-                    borderRadius: BorderRadius.circular(8)),
+                    borderRadius: BorderRadius.circular(10)),
                 child: Row(children: [
                   Icon(Icons.warning_amber_rounded,
                       color: Colors.orange.shade700, size: 16),
@@ -6105,7 +6106,7 @@ class _KpiScreenState extends State<KpiScreen> with TickerProviderStateMixin {
 
         return ScrollableAlertDialog(
           shape:
-              RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+              RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
           title: Text(tr('Copy cấu hình từ chu kỳ khác')),
           content: SizedBox(
             width: math
@@ -6174,15 +6175,15 @@ class _KpiScreenState extends State<KpiScreen> with TickerProviderStateMixin {
             Container(
               padding: const EdgeInsets.all(10),
               decoration: BoxDecoration(
-                  color: Colors.blue.shade50,
-                  borderRadius: BorderRadius.circular(8)),
+                  color: SboxColors.brand50,
+                  borderRadius: BorderRadius.circular(10)),
               child:
                   Row(crossAxisAlignment: CrossAxisAlignment.start, children: [
-                Icon(Icons.info_outline, color: Colors.blue.shade700, size: 16),
+                Icon(Icons.info_outline, color: SboxColors.brand700, size: 16),
                 const SizedBox(width: 8),
                 Expanded(
                     child: Text(tr('Nhập vị trí ô chứa doanh số/point của nhân viên trên Google Sheet (VD: B5, C10, D3).'),
-                  style: TextStyle(color: Colors.blue.shade700, fontSize: 11),
+                  style: TextStyle(color: SboxColors.brand700, fontSize: 11),
                 )),
               ]),
             ),
@@ -6209,11 +6210,11 @@ class _KpiScreenState extends State<KpiScreen> with TickerProviderStateMixin {
                                 decoration: InputDecoration(
                                   hintText: tr('VD: B5'),
                                   hintStyle: TextStyle(
-                                      color: Colors.grey[400], fontSize: 12),
+                                      color: SboxColors.slate400, fontSize: 12),
                                   contentPadding:
                                       const EdgeInsets.symmetric(horizontal: 8),
                                   border: OutlineInputBorder(
-                                      borderRadius: BorderRadius.circular(8)),
+                                      borderRadius: BorderRadius.circular(10)),
                                 ),
                               ),
                             ),
@@ -6235,11 +6236,11 @@ class _KpiScreenState extends State<KpiScreen> with TickerProviderStateMixin {
                                 decoration: InputDecoration(
                                   hintText: tr('VD: B5'),
                                   hintStyle: TextStyle(
-                                      color: Colors.grey[400], fontSize: 12),
+                                      color: SboxColors.slate400, fontSize: 12),
                                   contentPadding:
                                       const EdgeInsets.symmetric(horizontal: 8),
                                   border: OutlineInputBorder(
-                                      borderRadius: BorderRadius.circular(8)),
+                                      borderRadius: BorderRadius.circular(10)),
                                 ),
                               ),
                             )),
@@ -6280,7 +6281,7 @@ class _KpiScreenState extends State<KpiScreen> with TickerProviderStateMixin {
 
         return ScrollableAlertDialog(
           shape:
-              RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+              RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
           title: Text(tr('Thiết lập vị trí ô cho tất cả nhân viên')),
           content: SizedBox(
             width: math
@@ -6312,7 +6313,7 @@ class _KpiScreenState extends State<KpiScreen> with TickerProviderStateMixin {
     showDialog(
       context: context,
       builder: (ctx) => ScrollableAlertDialog(
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
         title: Text(tr('${tr('Vị trí ô: ')}${target['employeeName'] ?? ''}'),
             style: const TextStyle(fontSize: 16)),
         content: SizedBox(
@@ -6321,7 +6322,7 @@ class _KpiScreenState extends State<KpiScreen> with TickerProviderStateMixin {
             _field(cellCtrl, 'Vị trí ô (VD: B5, C10)'),
             const SizedBox(height: 8),
             Text(tr('Nhập vị trí ô trên Google Sheet chứa giá trị doanh số / point.'),
-                style: TextStyle(color: Colors.grey[500], fontSize: 11)),
+                style: TextStyle(color: SboxColors.slate500, fontSize: 11)),
           ]),
         ),
         actions: [
@@ -6402,7 +6403,7 @@ class _KpiScreenState extends State<KpiScreen> with TickerProviderStateMixin {
       builder: (ctx) => StatefulBuilder(
           builder: (ctx, ss) => ScrollableAlertDialog(
                 shape: RoundedRectangleBorder(
-                    borderRadius: BorderRadius.circular(16)),
+                    borderRadius: BorderRadius.circular(14)),
                 title: Text(tr('Thêm mốc giờ đồng bộ'),
                     style: TextStyle(fontSize: 16)),
                 content: SizedBox(
@@ -6450,7 +6451,7 @@ class _KpiScreenState extends State<KpiScreen> with TickerProviderStateMixin {
                     if (currentSlots.isNotEmpty) ...[
                       Text(tr('Đã thiết lập: ${currentSlots.join(", ")}'),
                           style:
-                              TextStyle(color: Colors.grey[500], fontSize: 11)),
+                              TextStyle(color: SboxColors.slate500, fontSize: 11)),
                     ],
                   ]),
                 ),
@@ -6590,10 +6591,10 @@ class _KpiScreenState extends State<KpiScreen> with TickerProviderStateMixin {
               style: TextStyle(
                   fontWeight: FontWeight.bold,
                   fontSize: 12,
-                  color: Colors.blue.shade800)),
+                  color: SboxColors.brand800)),
         ),
         const SizedBox(width: 8),
-        Text(tr(desc), style: TextStyle(fontSize: 12, color: Colors.blue.shade700)),
+        Text(tr(desc), style: TextStyle(fontSize: 12, color: SboxColors.brand700)),
       ]),
     );
   }

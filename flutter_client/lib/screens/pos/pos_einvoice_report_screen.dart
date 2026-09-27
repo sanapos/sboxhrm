@@ -13,6 +13,7 @@ import '../../widgets/pos/pos_theme.dart';
 import '../../widgets/pos/reports/pos_report_widgets.dart';
 import 'package:zkteco_flutter_client/l10n/app_tr.dart';
 
+import '../../theme/sbox_tokens.dart';
 /// Quản lý vòng đời HĐĐT: danh sách, nháp, phát hành, email, thay thế, hủy.
 class PosEInvoiceReportScreen extends StatefulWidget {
   const PosEInvoiceReportScreen({super.key});
@@ -277,7 +278,7 @@ class _PosEInvoiceReportScreenState extends State<PosEInvoiceReportScreen> {
                       child: Text(
                         '${row.orderNo}${row.invoiceNo == null || row.invoiceNo!.isEmpty ? '' : ' · ${row.invoiceNo}'}',
                         style: const TextStyle(
-                            fontWeight: FontWeight.w800, fontSize: 16),
+                            fontWeight: FontWeight.w700, fontSize: 16),
                       ),
                     ),
                     Text(
@@ -443,7 +444,7 @@ class _PosEInvoiceReportScreenState extends State<PosEInvoiceReportScreen> {
                           (
                             label: posEInvoiceStatusLabel('Issued'),
                             value: issued,
-                            color: const Color(0xFF166534),
+                            color: SboxColors.successText,
                           ),
                           (
                             label: 'Đã gửi email',
@@ -458,7 +459,7 @@ class _PosEInvoiceReportScreenState extends State<PosEInvoiceReportScreen> {
                           (
                             label: 'Nháp / chờ ký',
                             value: draft + pending,
-                            color: const Color(0xFFB45309),
+                            color: SboxColors.warningText,
                           ),
                           (
                             label: posEInvoiceStatusLabel('Failed'),
@@ -468,7 +469,7 @@ class _PosEInvoiceReportScreenState extends State<PosEInvoiceReportScreen> {
                           (
                             label: posEInvoiceStatusLabel('Cancelled'),
                             value: cancelled,
-                            color: const Color(0xFF6B7280),
+                            color: SboxColors.slate500,
                           ),
                         ],
                       ),
@@ -483,7 +484,7 @@ class _PosEInvoiceReportScreenState extends State<PosEInvoiceReportScreen> {
                       (
                         label: 'Đã xuất',
                         value: _num(_summary?['issuedAmount']),
-                        color: const Color(0xFF166534),
+                        color: SboxColors.successText,
                       ),
                       (
                         label: 'Lỗi xuất',
@@ -507,7 +508,7 @@ class _PosEInvoiceReportScreenState extends State<PosEInvoiceReportScreen> {
                     child: Text(
                       tr('Không có hóa đơn trong khoảng thời gian này'),
                       textAlign: TextAlign.center,
-                      style: TextStyle(color: Colors.grey.shade600),
+                      style: TextStyle(color: SboxColors.slate600),
                     ),
                   ),
                 for (final row in _items) _rowCard(row),
@@ -524,11 +525,11 @@ class _PosEInvoiceReportScreenState extends State<PosEInvoiceReportScreen> {
       elevation: 0,
       color: Colors.white,
       shape: RoundedRectangleBorder(
-        borderRadius: BorderRadius.circular(12),
+        borderRadius: BorderRadius.circular(14),
         side: const BorderSide(color: Color(0xFFE8ECF0)),
       ),
       child: InkWell(
-        borderRadius: BorderRadius.circular(12),
+        borderRadius: BorderRadius.circular(14),
         onTap: busy ? null : () => _openActions(row),
         child: Padding(
           padding: const EdgeInsets.fromLTRB(12, 10, 8, 10),
@@ -544,7 +545,7 @@ class _PosEInvoiceReportScreenState extends State<PosEInvoiceReportScreen> {
                           child: Text(
                             row.orderNo,
                             style: const TextStyle(
-                                fontWeight: FontWeight.w800, fontSize: 14),
+                                fontWeight: FontWeight.w700, fontSize: 14),
                           ),
                         ),
                         Container(
@@ -553,13 +554,13 @@ class _PosEInvoiceReportScreenState extends State<PosEInvoiceReportScreen> {
                           decoration: BoxDecoration(
                             color: posEInvoiceStatusColor(row.status)
                                 .withValues(alpha: 0.12),
-                            borderRadius: BorderRadius.circular(8),
+                            borderRadius: BorderRadius.circular(10),
                           ),
                           child: Text(
                             tr(posEInvoiceStatusLabel(row.status)),
                             style: TextStyle(
                               fontSize: 11,
-                              fontWeight: FontWeight.w800,
+                              fontWeight: FontWeight.w700,
                               color: posEInvoiceStatusColor(row.status),
                             ),
                           ),
@@ -575,13 +576,13 @@ class _PosEInvoiceReportScreenState extends State<PosEInvoiceReportScreen> {
                         if ((row.provider ?? '').isNotEmpty) row.provider,
                       ].where((e) => (e ?? '').trim().isNotEmpty).join(' · '),
                       style: TextStyle(
-                          fontSize: 12, color: Colors.grey.shade700),
+                          fontSize: 12, color: SboxColors.slate700),
                     ),
                     const SizedBox(height: 2),
                     Text(
                       '${row.customerName ?? row.buyerName ?? 'Khách lẻ'} · ${_moneyFmt.format(row.total)}${dt == null ? '' : ' · ${_dateFmt.format(dt.toLocal())}'}',
                       style: TextStyle(
-                          fontSize: 12, color: Colors.grey.shade600),
+                          fontSize: 12, color: SboxColors.slate600),
                     ),
                     if ((row.error ?? '').isNotEmpty)
                       Padding(
@@ -604,7 +605,7 @@ class _PosEInvoiceReportScreenState extends State<PosEInvoiceReportScreen> {
                   child: CircularProgressIndicator(strokeWidth: 2),
                 )
               else
-                const Icon(Icons.more_vert, color: Color(0xFF94A3B8)),
+                const Icon(Icons.more_vert, color: SboxColors.slate400),
             ],
           ),
         ),

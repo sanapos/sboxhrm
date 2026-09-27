@@ -10,6 +10,7 @@ import 'pos/pos_customer_debt_collect_dialog.dart';
 import 'pos/pos_customer_form_dialog.dart';
 import 'package:zkteco_flutter_client/l10n/app_tr.dart';
 
+import '../theme/sbox_tokens.dart';
 enum CashPartyKind { customer, employee, other }
 
 /// Chọn đối tượng phiếu thu/chi: khách hàng (công nợ), nhân viên, hoặc liên hệ tự nhập.
@@ -355,7 +356,7 @@ class _CashPartyPickerState extends State<CashPartyPicker> {
           style: TextStyle(
             fontSize: widget.dense ? 12 : 13,
             fontWeight: FontWeight.w600,
-            color: const Color(0xFF334155),
+            color: SboxColors.slate700,
           ),
         ),
         const SizedBox(height: 8),
@@ -480,8 +481,8 @@ class _CashPartyPickerState extends State<CashPartyPicker> {
                           style: TextStyle(
                             fontSize: 11,
                             color: c.currentDebt > 0
-                                ? const Color(0xFFDC2626)
-                                : const Color(0xFF64748B),
+                                ? SboxColors.danger
+                                : SboxColors.slate500,
                           ),
                         ),
                         onTap: () => _selectCustomer(c),
@@ -502,7 +503,7 @@ class _CashPartyPickerState extends State<CashPartyPicker> {
                             if ((e.phone ?? '').isNotEmpty) e.phone!,
                           ].join(' · ')),
                           style: const TextStyle(
-                              fontSize: 11, color: Color(0xFF64748B)),
+                              fontSize: 11, color: SboxColors.slate500),
                         ),
                         onTap: () => _selectEmployee(e),
                       ))
@@ -547,8 +548,8 @@ class _CashPartyPickerState extends State<CashPartyPicker> {
       margin: const EdgeInsets.only(top: 6),
       constraints: const BoxConstraints(maxHeight: 220),
       decoration: BoxDecoration(
-        border: Border.all(color: const Color(0xFFE2E8F0)),
-        borderRadius: BorderRadius.circular(8),
+        border: Border.all(color: SboxColors.slate200),
+        borderRadius: BorderRadius.circular(10),
         color: Colors.white,
       ),
       child: ListView(shrinkWrap: true, children: children),
@@ -568,7 +569,7 @@ class _CashPartyPickerState extends State<CashPartyPicker> {
       padding: const EdgeInsets.all(12),
       decoration: BoxDecoration(
         color: hasDebt
-            ? const Color(0xFFFEF2F2)
+            ? SboxColors.dangerSoft
             : const Color(0xFFF0F9FF),
         borderRadius: BorderRadius.circular(10),
         border: Border.all(
@@ -587,7 +588,7 @@ class _CashPartyPickerState extends State<CashPartyPicker> {
                     ? Icons.warning_amber_rounded
                     : Icons.check_circle_outline,
                 color: hasDebt
-                    ? const Color(0xFFDC2626)
+                    ? SboxColors.danger
                     : const Color(0xFF0284C7),
                 size: 22,
               ),
@@ -602,7 +603,7 @@ class _CashPartyPickerState extends State<CashPartyPicker> {
                     if (subtitle.isNotEmpty)
                       Text(tr(subtitle),
                           style: const TextStyle(
-                              fontSize: 11, color: Color(0xFF64748B))),
+                              fontSize: 11, color: SboxColors.slate500)),
                     if (debt != null)
                       Padding(
                         padding: const EdgeInsets.only(top: 4),
@@ -614,8 +615,8 @@ class _CashPartyPickerState extends State<CashPartyPicker> {
                             fontSize: 12,
                             fontWeight: FontWeight.w700,
                             color: hasDebt
-                                ? const Color(0xFFB91C1C)
-                                : const Color(0xFF059669),
+                                ? SboxColors.dangerText
+                                : SboxColors.success,
                           ),
                         ),
                       ),
@@ -633,7 +634,7 @@ class _CashPartyPickerState extends State<CashPartyPicker> {
             FilledButton.icon(
               onPressed: debtBusy ? null : debtAction,
               style: FilledButton.styleFrom(
-                backgroundColor: const Color(0xFFDC2626),
+                backgroundColor: SboxColors.danger,
                 foregroundColor: Colors.white,
               ),
               icon: debtBusy
@@ -731,7 +732,7 @@ class _PartyBrowseDialogState<T> extends State<_PartyBrowseDialog<T>> {
                   Expanded(
                     child: Text(tr(widget.title),
                         style: const TextStyle(
-                            fontSize: 17, fontWeight: FontWeight.w700)),
+                            fontSize: 18, fontWeight: FontWeight.w700)),
                   ),
                   if (widget.onAdd != null)
                     TextButton.icon(

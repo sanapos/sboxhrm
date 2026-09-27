@@ -21,6 +21,7 @@ import 'pos_pdf_preview_dialog.dart';
 import 'pos_theme.dart';
 import 'package:zkteco_flutter_client/l10n/app_tr.dart';
 
+import '../../theme/sbox_tokens.dart';
 /// Dialog chọn loại giấy in tem mã — giao diện kiểu KiotViet.
 Future<void> showPosBarcodeLabelDialog(
   BuildContext context,
@@ -336,7 +337,7 @@ class _PosBarcodeLabelDialogState extends State<_PosBarcodeLabelDialog> {
         horizontal: mobile ? 8 : 24,
         vertical: mobile ? 8 : 32,
       ),
-      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
       child: ConstrainedBox(
         constraints: BoxConstraints(
           maxWidth: mobile ? size.width : (size.width * 0.92).clamp(720, 1100),
@@ -510,7 +511,7 @@ class _PosBarcodeLabelDialogState extends State<_PosBarcodeLabelDialog> {
   Widget _buildPrinterPanel() {
     return Material(
       color: Colors.white,
-      borderRadius: BorderRadius.circular(8),
+      borderRadius: BorderRadius.circular(10),
       child: ExpansionTile(
         initiallyExpanded: _printerExpanded || _labelPrinter.enabled,
         onExpansionChanged: (v) => setState(() => _printerExpanded = v),
@@ -667,7 +668,7 @@ class _PosBarcodeLabelDialogState extends State<_PosBarcodeLabelDialog> {
             Padding(
               padding: EdgeInsets.all(16),
               child: Text(tr('Chọn máy in tem'),
-                  style: TextStyle(fontSize: 17, fontWeight: FontWeight.w600)),
+                  style: TextStyle(fontSize: 18, fontWeight: FontWeight.w600)),
             ),
             ..._btDevices.map(
               (d) => ListTile(
@@ -743,12 +744,12 @@ class _PosBarcodeLabelDialogState extends State<_PosBarcodeLabelDialog> {
                 width: Responsive.isMobile(context) ? double.infinity : 200,
                 child: InkWell(
                   onTap: () => setState(() => _selectedTemplate = t),
-                  borderRadius: BorderRadius.circular(8),
+                  borderRadius: BorderRadius.circular(10),
                   child: Container(
                     padding: const EdgeInsets.all(10),
                     decoration: BoxDecoration(
-                      color: selected ? PosTheme.kiotBlueLight : Colors.grey.shade50,
-                      borderRadius: BorderRadius.circular(8),
+                      color: selected ? PosTheme.kiotBlueLight : SboxColors.slate50,
+                      borderRadius: BorderRadius.circular(10),
                       border: Border.all(
                         color: selected ? PosTheme.kiotBlue : PosTheme.border,
                         width: selected ? 2 : 1,
@@ -759,7 +760,7 @@ class _PosBarcodeLabelDialogState extends State<_PosBarcodeLabelDialog> {
                         Icon(
                           Icons.label_outline,
                           size: 32,
-                          color: selected ? PosTheme.kiotBlue : Colors.grey.shade500,
+                          color: selected ? PosTheme.kiotBlue : SboxColors.slate500,
                         ),
                         const SizedBox(height: 6),
                         Text(
@@ -774,7 +775,7 @@ class _PosBarcodeLabelDialogState extends State<_PosBarcodeLabelDialog> {
                         ),
                         if (t.cols > 1)
                           Text(tr('${t.cols} nhãn/hàng'),
-                            style: TextStyle(fontSize: 9, color: Colors.grey.shade600),
+                            style: TextStyle(fontSize: 9, color: SboxColors.slate600),
                           ),
                         const SizedBox(height: 8),
                         Row(
@@ -799,7 +800,7 @@ class _PosBarcodeLabelDialogState extends State<_PosBarcodeLabelDialog> {
           Text(
             tr('Lưu ý: Khổ giấy tem phải khớp cài đặt trên máy in. TSPL dùng cho Xprinter, TSC, Zywell tem. '
             'Nếu lệch vị trí, chỉnh khe giấy (GAP).'),
-            style: TextStyle(fontSize: 10, color: Colors.grey.shade700, height: 1.4),
+            style: TextStyle(fontSize: 10, color: SboxColors.slate700, height: 1.4),
           ),
         ],
       ),

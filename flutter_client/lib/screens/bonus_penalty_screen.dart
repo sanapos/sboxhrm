@@ -16,6 +16,7 @@ import 'package:provider/provider.dart';
 import '../providers/permission_provider.dart';
 import 'package:zkteco_flutter_client/l10n/app_tr.dart';
 
+import '../theme/sbox_tokens.dart';
 /// Màn hình Thưởng phạt
 class BonusPenaltyScreen extends StatefulWidget {
   /// Khi [bonusOnly] = true, chỉ hiển thị tab Phiếu thưởng (ẩn tab Phạt)
@@ -311,12 +312,12 @@ class _BonusPenaltyScreenState extends State<BonusPenaltyScreen>
             Container(
               decoration: BoxDecoration(
                 color: Colors.white,
-                border: Border(bottom: BorderSide(color: Colors.grey.shade200)),
+                border: Border(bottom: BorderSide(color: SboxColors.slate200)),
               ),
               child: TabBar(
                 controller: _tabController,
                 labelColor: Theme.of(context).primaryColor,
-                unselectedLabelColor: Colors.grey,
+                unselectedLabelColor: SboxColors.slate500,
                 indicatorWeight: 3,
                 tabs: [
                   Tab(
@@ -350,7 +351,7 @@ class _BonusPenaltyScreenState extends State<BonusPenaltyScreen>
                         tabBar: TabBar(
                           controller: _tabController,
                           labelColor: Theme.of(context).primaryColor,
-                          unselectedLabelColor: Colors.grey,
+                          unselectedLabelColor: SboxColors.slate500,
                           indicatorWeight: 3,
                           tabs: [
                             Tab(
@@ -450,13 +451,13 @@ class _BonusPenaltyScreenState extends State<BonusPenaltyScreen>
             mainAxisAlignment: MainAxisAlignment.center,
             children: [
               Icon(isBonus ? Icons.card_giftcard : Icons.gavel,
-                  size: 48, color: Colors.grey.shade400),
+                  size: 48, color: SboxColors.slate400),
               const SizedBox(height: 12),
               Text(
                 tr(isBonus
                     ? 'Chưa có khoản thưởng nào'
                     : 'Chưa có khoản phạt nào'),
-                style: TextStyle(color: Colors.grey.shade500, fontSize: 16),
+                style: TextStyle(color: SboxColors.slate500, fontSize: 16),
               ),
             ],
           ),
@@ -477,8 +478,8 @@ class _BonusPenaltyScreenState extends State<BonusPenaltyScreen>
                 child: Container(
                   decoration: BoxDecoration(
                     color: Colors.white,
-                    borderRadius: BorderRadius.circular(12),
-                    border: Border.all(color: const Color(0xFFE4E4E7)),
+                    borderRadius: BorderRadius.circular(14),
+                    border: Border.all(color: SboxColors.slate200),
                     boxShadow: [
                       BoxShadow(
                         color: Colors.black.withValues(alpha: 0.05),
@@ -514,13 +515,13 @@ class _BonusPenaltyScreenState extends State<BonusPenaltyScreen>
               mainAxisAlignment: MainAxisAlignment.center,
               children: [
                 Icon(isBonus ? Icons.card_giftcard : Icons.gavel,
-                    size: 48, color: Colors.grey.shade400),
+                    size: 48, color: SboxColors.slate400),
                 const SizedBox(height: 12),
                 Text(
                   tr(isBonus
                       ? 'Chưa có khoản thưởng nào'
                       : 'Chưa có khoản phạt nào'),
-                  style: TextStyle(color: Colors.grey.shade500, fontSize: 16),
+                  style: TextStyle(color: SboxColors.slate500, fontSize: 16),
                 ),
               ],
             ),
@@ -536,8 +537,8 @@ class _BonusPenaltyScreenState extends State<BonusPenaltyScreen>
         child: Container(
           decoration: BoxDecoration(
             color: Colors.white,
-            borderRadius: BorderRadius.circular(12),
-            border: Border.all(color: const Color(0xFFE4E4E7)),
+            borderRadius: BorderRadius.circular(14),
+            border: Border.all(color: SboxColors.slate200),
             boxShadow: [
               BoxShadow(
                 color: Colors.black.withValues(alpha: 0.05),
@@ -570,7 +571,7 @@ class _BonusPenaltyScreenState extends State<BonusPenaltyScreen>
           labelText: tr(_l10n.period),
           isDense: true,
           prefixIcon: const Icon(Icons.calendar_today, size: 18),
-          border: OutlineInputBorder(borderRadius: BorderRadius.circular(8)),
+          border: OutlineInputBorder(borderRadius: BorderRadius.circular(10)),
           contentPadding:
               const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
         ),
@@ -621,7 +622,7 @@ class _BonusPenaltyScreenState extends State<BonusPenaltyScreen>
                 labelText: tr(_l10n.type),
                 isDense: true,
                 border:
-                    OutlineInputBorder(borderRadius: BorderRadius.circular(8)),
+                    OutlineInputBorder(borderRadius: BorderRadius.circular(10)),
                 contentPadding:
                     const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
               ),
@@ -656,7 +657,7 @@ class _BonusPenaltyScreenState extends State<BonusPenaltyScreen>
                   },
                 )
               : null,
-          border: OutlineInputBorder(borderRadius: BorderRadius.circular(8)),
+          border: OutlineInputBorder(borderRadius: BorderRadius.circular(10)),
           contentPadding:
               const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
         ),
@@ -671,9 +672,9 @@ class _BonusPenaltyScreenState extends State<BonusPenaltyScreen>
       icon: Icon(_isSelectMode ? Icons.close : Icons.checklist, size: 18),
       label: Text(tr(_isSelectMode ? _l10n.cancel : 'Chọn')),
       style: OutlinedButton.styleFrom(
-        foregroundColor: _isSelectMode ? Colors.red : Colors.blue,
+        foregroundColor: _isSelectMode ? Colors.red : SboxColors.brand500,
         side: BorderSide(
-            color: _isSelectMode ? Colors.red.shade300 : Colors.blue.shade300),
+            color: _isSelectMode ? Colors.red.shade300 : SboxColors.brand300),
       ),
     );
 
@@ -698,7 +699,7 @@ class _BonusPenaltyScreenState extends State<BonusPenaltyScreen>
                       labelText: tr('Chi nhánh'),
                       isDense: true,
                       border: OutlineInputBorder(
-                          borderRadius: BorderRadius.circular(8)),
+                          borderRadius: BorderRadius.circular(10)),
                       contentPadding: const EdgeInsets.symmetric(
                           horizontal: 12, vertical: 8),
                     ),
@@ -733,7 +734,7 @@ class _BonusPenaltyScreenState extends State<BonusPenaltyScreen>
                         labelText: tr('Chi nhánh'),
                         isDense: true,
                         border: OutlineInputBorder(
-                            borderRadius: BorderRadius.circular(8)),
+                            borderRadius: BorderRadius.circular(10)),
                         contentPadding: const EdgeInsets.symmetric(
                             horizontal: 12, vertical: 8),
                       ),
@@ -759,11 +760,11 @@ class _BonusPenaltyScreenState extends State<BonusPenaltyScreen>
                       size: 18),
                   label: Text(tr(_isSelectMode ? 'Hủy chọn' : 'Chọn phiếu')),
                   style: OutlinedButton.styleFrom(
-                    foregroundColor: _isSelectMode ? Colors.red : Colors.blue,
+                    foregroundColor: _isSelectMode ? Colors.red : SboxColors.brand500,
                     side: BorderSide(
                         color: _isSelectMode
                             ? Colors.red.shade300
-                            : Colors.blue.shade300),
+                            : SboxColors.brand300),
                   ),
                 ),
               ],
@@ -785,8 +786,8 @@ class _BonusPenaltyScreenState extends State<BonusPenaltyScreen>
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
       decoration: BoxDecoration(
-        color: Colors.blue.shade50,
-        border: Border(bottom: BorderSide(color: Colors.blue.shade100)),
+        color: SboxColors.brand50,
+        border: Border(bottom: BorderSide(color: SboxColors.brand100)),
       ),
       child: Wrap(
         spacing: 8,
@@ -860,7 +861,7 @@ class _BonusPenaltyScreenState extends State<BonusPenaltyScreen>
                   : 'Thanh toán (${approvedSelected.length})')),
               style: FilledButton.styleFrom(
                 backgroundColor:
-                    _tabController.index == 1 ? Colors.teal : Colors.blue,
+                    _tabController.index == 1 ? Colors.teal : SboxColors.brand500,
               ),
             ),
         ],
@@ -940,7 +941,7 @@ class _BonusPenaltyScreenState extends State<BonusPenaltyScreen>
       padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
       decoration: BoxDecoration(
         color: Colors.white,
-        border: Border(top: BorderSide(color: Colors.grey.shade200)),
+        border: Border(top: BorderSide(color: SboxColors.slate200)),
       ),
       child: Wrap(
         alignment: WrapAlignment.spaceBetween,
@@ -949,27 +950,27 @@ class _BonusPenaltyScreenState extends State<BonusPenaltyScreen>
         runSpacing: 8,
         children: [
           Text(tr('Hiển thị $start-$end / $_totalCount'),
-            style: TextStyle(fontSize: 12, color: Colors.grey.shade600),
+            style: TextStyle(fontSize: 12, color: SboxColors.slate600),
           ),
           Row(
             mainAxisSize: MainAxisSize.min,
             children: [
               Text(tr('Hiển thị:'),
-                  style: TextStyle(fontSize: 12, color: Colors.grey[500])),
+                  style: TextStyle(fontSize: 12, color: SboxColors.slate500)),
               const SizedBox(width: 8),
               Container(
                 height: 34,
                 padding: const EdgeInsets.symmetric(horizontal: 12),
                 decoration: BoxDecoration(
-                  color: const Color(0xFFFAFAFA),
-                  border: Border.all(color: const Color(0xFFE4E4E7)),
-                  borderRadius: BorderRadius.circular(8),
+                  color: SboxColors.slate50,
+                  border: Border.all(color: SboxColors.slate200),
+                  borderRadius: BorderRadius.circular(10),
                 ),
                 child: DropdownButtonHideUnderline(
                   child: DropdownButton<int>(
                     value: _pageSize,
                     isDense: true,
-                    style: TextStyle(fontSize: 13, color: Colors.grey[800]),
+                    style: TextStyle(fontSize: 13, color: SboxColors.slate800),
                     items: _pageSizeOptions
                         .map((s) =>
                             DropdownMenuItem(value: s, child: Text(tr('$s'))))
@@ -1016,7 +1017,7 @@ class _BonusPenaltyScreenState extends State<BonusPenaltyScreen>
                     const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
                 decoration: BoxDecoration(
                   color: Theme.of(context).primaryColor,
-                  borderRadius: BorderRadius.circular(8),
+                  borderRadius: BorderRadius.circular(10),
                 ),
                 child: Text(tr('$_currentPage / $totalPages'),
                     style: const TextStyle(
@@ -1059,11 +1060,11 @@ class _BonusPenaltyScreenState extends State<BonusPenaltyScreen>
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
             Icon(isBonus ? Icons.card_giftcard : Icons.gavel,
-                size: 48, color: Colors.grey.shade400),
+                size: 48, color: SboxColors.slate400),
             const SizedBox(height: 12),
             Text(
               tr(isBonus ? 'Chưa có khoản thưởng nào' : 'Chưa có khoản phạt nào'),
-              style: TextStyle(color: Colors.grey.shade500, fontSize: 16),
+              style: TextStyle(color: SboxColors.slate500, fontSize: 16),
             ),
             const SizedBox(height: 8),
             if (Provider.of<PermissionProvider>(context, listen: false)
@@ -1091,8 +1092,8 @@ class _BonusPenaltyScreenState extends State<BonusPenaltyScreen>
           child: Container(
             decoration: BoxDecoration(
               color: Colors.white,
-              borderRadius: BorderRadius.circular(12),
-              border: Border.all(color: const Color(0xFFE4E4E7)),
+              borderRadius: BorderRadius.circular(14),
+              border: Border.all(color: SboxColors.slate200),
               boxShadow: [
                 BoxShadow(
                   color: Colors.black.withValues(alpha: 0.05),
@@ -1223,7 +1224,7 @@ class _BonusPenaltyScreenState extends State<BonusPenaltyScreen>
                       child: Text(tr(note),
                           style: TextStyle(
                               fontSize: 12,
-                              color: Colors.grey.shade600,
+                              color: SboxColors.slate600,
                               fontStyle: FontStyle.italic)),
                     ),
                   // Ngày + trạng thái + phương thức thanh toán
@@ -1233,7 +1234,7 @@ class _BonusPenaltyScreenState extends State<BonusPenaltyScreen>
                       children: [
                         Text(tr(DateFormat('dd/MM/yyyy').format(date)),
                             style: TextStyle(
-                                fontSize: 12, color: Colors.grey.shade500)),
+                                fontSize: 12, color: SboxColors.slate500)),
                         const SizedBox(width: 8),
                         HrmBrandChip(label: statusLabel),
                         if (isPaid || isSalary) ...[
@@ -1259,7 +1260,7 @@ class _BonusPenaltyScreenState extends State<BonusPenaltyScreen>
                           _ActionBtn(
                               icon: Icons.edit_rounded,
                               label: _l10n.edit,
-                              color: Colors.blue,
+                              color: SboxColors.brand500,
                               onTap: () => _handleAction('edit', tx)),
                           const SizedBox(width: 6),
                         ],
@@ -1283,7 +1284,7 @@ class _BonusPenaltyScreenState extends State<BonusPenaltyScreen>
                             icon: isBonus ? Icons.payment : Icons.receipt_long,
                             label:
                                 isBonus ? _l10n.payment : _l10n.collectPenalty,
-                            color: isBonus ? Colors.blue : Colors.teal,
+                            color: isBonus ? SboxColors.brand500 : Colors.teal,
                             onTap: () => _showPaymentDialog([txId]),
                           ),
                           const SizedBox(width: 6),
@@ -1397,7 +1398,7 @@ class _BonusPenaltyScreenState extends State<BonusPenaltyScreen>
                   if (desc.isNotEmpty) desc,
                   (DateFormat('dd/MM/yyyy').format(date)),
                 ].join(' · ')),
-                style: const TextStyle(color: Color(0xFF71717A), fontSize: 12),
+                style: const TextStyle(color: SboxColors.slate500, fontSize: 12),
                 maxLines: 1,
                 overflow: TextOverflow.ellipsis,
               ),
@@ -1457,14 +1458,14 @@ class _BonusPenaltyScreenState extends State<BonusPenaltyScreen>
               tr(count == 1
                   ? 'Chọn cách chi thưởng cho phiếu này:'
                   : 'Chọn cách chi thưởng cho $count phiếu đã chọn:'),
-              style: TextStyle(color: Colors.grey.shade700),
+              style: TextStyle(color: SboxColors.slate700),
             ),
             const SizedBox(height: 12),
             Card(
               elevation: 0,
-              color: Colors.blue.shade50,
+              color: SboxColors.brand50,
               child: ListTile(
-                leading: Icon(Icons.payments, color: Colors.blue.shade700),
+                leading: Icon(Icons.payments, color: SboxColors.brand700),
                 title: Text(tr('Chi tiền ngay'),
                     style: TextStyle(fontWeight: FontWeight.w600)),
                 subtitle: Text(tr('Tạo phiếu chi trong Thu chi để chi trả trực tiếp')),
@@ -1519,12 +1520,12 @@ class _BonusPenaltyScreenState extends State<BonusPenaltyScreen>
                   tr(tx['employeeName']?.toString() ??
                       tx['employeeCode']?.toString() ??
                       'Chi tiết phiếu'),
-                  style: const TextStyle(fontWeight: FontWeight.w600, fontSize: 15),
+                  style: const TextStyle(fontWeight: FontWeight.w600, fontSize: 16),
                 ),
               ),
               if (status != 'Completed' && perms.canEdit('BonusPenalty'))
                 ListTile(
-                  leading: const Icon(Icons.edit, color: Colors.blue),
+                  leading: const Icon(Icons.edit, color: SboxColors.brand500),
                   title: Text(tr(_l10n.edit)),
                   onTap: () {
                     Navigator.pop(ctx);
@@ -1546,7 +1547,7 @@ class _BonusPenaltyScreenState extends State<BonusPenaltyScreen>
                 ListTile(
                   leading: Icon(
                     isBonus ? Icons.payment : Icons.receipt_long,
-                    color: isBonus ? Colors.blue : Colors.teal,
+                    color: isBonus ? SboxColors.brand500 : Colors.teal,
                   ),
                   title: Text(tr(isBonus ? _l10n.payment : _l10n.collectPenalty)),
                   onTap: () {
@@ -1671,25 +1672,25 @@ class _BonusPenaltyScreenState extends State<BonusPenaltyScreen>
                 Container(
                   padding: const EdgeInsets.all(16),
                   decoration: BoxDecoration(
-                    color: Colors.blue.shade50,
-                    borderRadius: BorderRadius.circular(12),
+                    color: SboxColors.brand50,
+                    borderRadius: BorderRadius.circular(14),
                   ),
                   child: Row(
                     children: [
                       Icon(Icons.account_balance_wallet,
-                          color: Colors.blue.shade700, size: 28),
+                          color: SboxColors.brand700, size: 28),
                       const SizedBox(width: 12),
                       Column(
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
                           Text(tr(amountLabel),
                               style: TextStyle(
-                                  fontSize: 12, color: Colors.blue.shade600)),
+                                  fontSize: 12, color: SboxColors.brand600)),
                           Text(tr('${_currencyFormat.format(totalAmount)} đ'),
                               style: TextStyle(
                                   fontSize: 20,
                                   fontWeight: FontWeight.bold,
-                                  color: Colors.blue.shade800)),
+                                  color: SboxColors.brand800)),
                         ],
                       ),
                     ],
@@ -1709,7 +1710,7 @@ class _BonusPenaltyScreenState extends State<BonusPenaltyScreen>
                     groupValue: selectedMethod,
                     title: Row(
                       children: [
-                        Icon(icon, size: 20, color: Colors.grey.shade700),
+                        Icon(icon, size: 20, color: SboxColors.slate700),
                         const SizedBox(width: 8),
                         Text(tr(label)),
                       ],
@@ -1724,7 +1725,7 @@ class _BonusPenaltyScreenState extends State<BonusPenaltyScreen>
                   tr(noteText),
                   style: TextStyle(
                       fontSize: 12,
-                      color: Colors.grey.shade600,
+                      color: SboxColors.slate600,
                       fontStyle: FontStyle.italic),
                 ),
               ],
@@ -1764,7 +1765,7 @@ class _BonusPenaltyScreenState extends State<BonusPenaltyScreen>
                             label: Text(tr(btnLabel)),
                             style: FilledButton.styleFrom(
                                 backgroundColor:
-                                    isPenaltyTab ? Colors.teal : Colors.blue),
+                                    isPenaltyTab ? Colors.teal : SboxColors.brand500),
                           ),
                         ]),
                   ),
@@ -1776,7 +1777,7 @@ class _BonusPenaltyScreenState extends State<BonusPenaltyScreen>
             title: Row(
               children: [
                 Icon(isPenaltyTab ? Icons.receipt_long : Icons.payment,
-                    color: isPenaltyTab ? Colors.teal : Colors.blue),
+                    color: isPenaltyTab ? Colors.teal : SboxColors.brand500),
                 const SizedBox(width: 8),
                 Text(tr(dialogTitle)),
               ],
@@ -1794,7 +1795,7 @@ class _BonusPenaltyScreenState extends State<BonusPenaltyScreen>
                 icon: const Icon(Icons.check),
                 label: Text(tr(btnLabel)),
                 style: FilledButton.styleFrom(
-                    backgroundColor: isPenaltyTab ? Colors.teal : Colors.blue),
+                    backgroundColor: isPenaltyTab ? Colors.teal : SboxColors.brand500),
               ),
             ],
           );
@@ -2120,7 +2121,7 @@ class _BonusPenaltyScreenState extends State<BonusPenaltyScreen>
                     ),
                     Text(tr('Đã chọn ${selectedEmployeeIds.length}/${_employees.length}'),
                         style: TextStyle(
-                            fontSize: 12, color: Colors.grey.shade600)),
+                            fontSize: 12, color: SboxColors.slate600)),
                     const SizedBox(height: 8),
                     TextField(
                       decoration: InputDecoration(
@@ -2128,7 +2129,7 @@ class _BonusPenaltyScreenState extends State<BonusPenaltyScreen>
                         isDense: true,
                         prefixIcon: const Icon(Icons.search, size: 18),
                         border: OutlineInputBorder(
-                            borderRadius: BorderRadius.circular(8)),
+                            borderRadius: BorderRadius.circular(10)),
                         contentPadding: const EdgeInsets.symmetric(
                             horizontal: 12, vertical: 8),
                       ),
@@ -2142,8 +2143,8 @@ class _BonusPenaltyScreenState extends State<BonusPenaltyScreen>
                           ? null
                           : const BoxConstraints(maxHeight: 200),
                       decoration: BoxDecoration(
-                        border: Border.all(color: Colors.grey.shade300),
-                        borderRadius: BorderRadius.circular(8),
+                        border: Border.all(color: SboxColors.slate300),
+                        borderRadius: BorderRadius.circular(10),
                       ),
                       child: ListView.builder(
                         shrinkWrap: isMobile,
@@ -2186,13 +2187,13 @@ class _BonusPenaltyScreenState extends State<BonusPenaltyScreen>
               : Container(
                   padding: const EdgeInsets.all(12),
                   decoration: BoxDecoration(
-                    color: Colors.grey.shade100,
-                    borderRadius: BorderRadius.circular(8),
-                    border: Border.all(color: Colors.grey.shade300),
+                    color: SboxColors.slate100,
+                    borderRadius: BorderRadius.circular(10),
+                    border: Border.all(color: SboxColors.slate300),
                   ),
                   child: Row(
                     children: [
-                      const Icon(Icons.person, size: 18, color: Colors.grey),
+                      const Icon(Icons.person, size: 18, color: SboxColors.slate500),
                       const SizedBox(width: 8),
                       Text(
                         tr(editTx['employeeName']?.toString() ??
@@ -2246,7 +2247,7 @@ class _BonusPenaltyScreenState extends State<BonusPenaltyScreen>
                   labelText: tr('Danh mục *'),
                   prefixIcon: const Icon(Icons.category),
                   border: OutlineInputBorder(
-                      borderRadius: BorderRadius.circular(8)),
+                      borderRadius: BorderRadius.circular(10)),
                 ),
                 items: categories
                     .map((c) => DropdownMenuItem(value: c, child: Text(tr(c))))
@@ -2263,7 +2264,7 @@ class _BonusPenaltyScreenState extends State<BonusPenaltyScreen>
                   labelText: tr('Số tiền (VNĐ) *'),
                   prefixIcon: const Icon(Icons.attach_money),
                   border: OutlineInputBorder(
-                      borderRadius: BorderRadius.circular(8)),
+                      borderRadius: BorderRadius.circular(10)),
                 ),
               ),
               const SizedBox(height: 16),
@@ -2292,7 +2293,7 @@ class _BonusPenaltyScreenState extends State<BonusPenaltyScreen>
                   labelText: tr('Ghi chú'),
                   prefixIcon: const Icon(Icons.note),
                   border: OutlineInputBorder(
-                      borderRadius: BorderRadius.circular(8)),
+                      borderRadius: BorderRadius.circular(10)),
                 ),
               ),
               const SizedBox(height: 16),
@@ -2627,12 +2628,12 @@ class _ActionBtn extends StatelessWidget {
   Widget build(BuildContext context) {
     return InkWell(
       onTap: onTap,
-      borderRadius: BorderRadius.circular(8),
+      borderRadius: BorderRadius.circular(10),
       child: Container(
         padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
         decoration: BoxDecoration(
           color: color.withValues(alpha: 0.08),
-          borderRadius: BorderRadius.circular(8),
+          borderRadius: BorderRadius.circular(10),
           border: Border.all(color: color.withValues(alpha: 0.2)),
         ),
         child: Row(

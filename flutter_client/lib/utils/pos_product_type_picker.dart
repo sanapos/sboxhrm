@@ -4,6 +4,7 @@ import '../models/pos_product.dart';
 import '../widgets/pos/pos_theme.dart';
 import '../l10n/app_tr.dart';
 
+import '../theme/sbox_tokens.dart';
 enum PosProductTypePickAction { create, importExcel, downloadTemplate }
 
 class PosProductTypePickResult {
@@ -171,7 +172,7 @@ Future<PosProductTypePickResult?> showPosProductTypeHub(
                 alignment: Alignment.centerLeft,
                 child: Text(
                   tr('Chọn loại, rồi tạo tay hoặc nhập Excel riêng loại đó.'),
-                  style: TextStyle(fontSize: 12.5, color: Colors.grey.shade600),
+                  style: TextStyle(fontSize: 13, color: SboxColors.slate600),
                 ),
               ),
             ),

@@ -6,6 +6,7 @@ import '../widgets/loading_widget.dart';
 import '../widgets/hrm_page_chrome.dart';
 import 'package:zkteco_flutter_client/l10n/app_tr.dart';
 
+import '../theme/sbox_tokens.dart';
 /// Màn hình Nội quy công ty — hiển thị bài viết loại Regulation (type=7)
 class CompanyRulesScreen extends StatefulWidget {
   const CompanyRulesScreen({super.key});
@@ -125,7 +126,7 @@ class _CompanyRulesScreenState extends State<CompanyRulesScreen> {
   Widget build(BuildContext context) {
     final filtered = _filteredArticles;
     return Scaffold(
-      backgroundColor: const Color(0xFFFAFAFA),
+      backgroundColor: SboxColors.slate50,
       body: _isLoading
           ? const LoadingWidget()
           : Column(children: [
@@ -134,7 +135,7 @@ class _CompanyRulesScreenState extends State<CompanyRulesScreen> {
                 padding: const EdgeInsets.fromLTRB(24, 20, 24, 16),
                 decoration: const BoxDecoration(
                   color: Colors.white,
-                  border: Border(bottom: BorderSide(color: Color(0xFFE4E4E7))),
+                  border: Border(bottom: BorderSide(color: SboxColors.slate200)),
                 ),
                 child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
                   Row(children: [
@@ -150,10 +151,10 @@ class _CompanyRulesScreenState extends State<CompanyRulesScreen> {
                     Expanded(
                       child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
                         Text(tr('Nội quy công ty'),
-                            style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold, color: Color(0xFF18181B))),
+                            style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold, color: SboxColors.slate900)),
                         SizedBox(height: 2),
                         Text(tr('Quy định, quy chế, nội quy của công ty'),
-                            style: TextStyle(fontSize: 13, color: Color(0xFF71717A))),
+                            style: TextStyle(fontSize: 13, color: SboxColors.slate500)),
                       ]),
                     ),
                   ]),
@@ -170,10 +171,10 @@ class _CompanyRulesScreenState extends State<CompanyRulesScreen> {
                         onChanged: (v) => setState(() => _searchQuery = v),
                         decoration: InputDecoration(
                           hintText: tr('Tìm kiếm nội quy...'),
-                          hintStyle: const TextStyle(fontSize: 13, color: Color(0xFFA1A1AA)),
-                          prefixIcon: const Icon(Icons.search, size: 18, color: Color(0xFFA1A1AA)),
+                          hintStyle: const TextStyle(fontSize: 13, color: SboxColors.slate400),
+                          prefixIcon: const Icon(Icons.search, size: 18, color: SboxColors.slate400),
                           filled: true,
-                          fillColor: const Color(0xFFF1F5F9),
+                          fillColor: SboxColors.slate100,
                           border: OutlineInputBorder(borderRadius: BorderRadius.circular(10), borderSide: BorderSide.none),
                           contentPadding: const EdgeInsets.symmetric(vertical: 0, horizontal: 12),
                         ),
@@ -184,14 +185,14 @@ class _CompanyRulesScreenState extends State<CompanyRulesScreen> {
                         height: 40,
                         padding: const EdgeInsets.symmetric(horizontal: 12),
                         decoration: BoxDecoration(
-                          color: const Color(0xFFF1F5F9),
+                          color: SboxColors.slate100,
                           borderRadius: BorderRadius.circular(10),
                         ),
                         child: DropdownButtonHideUnderline(
                           child: DropdownButton<String?>(
                             value: _selectedCategoryId,
                             hint: Text(tr('Tất cả danh mục'), style: TextStyle(fontSize: 13)),
-                            style: const TextStyle(fontSize: 13, color: Color(0xFF334155)),
+                            style: const TextStyle(fontSize: 13, color: SboxColors.slate700),
                             items: [
                               DropdownMenuItem(value: null, child: Text(tr('Tất cả danh mục'))),
                               ..._categories.map((c) => DropdownMenuItem(
@@ -207,13 +208,13 @@ class _CompanyRulesScreenState extends State<CompanyRulesScreen> {
                       height: 40,
                       padding: const EdgeInsets.symmetric(horizontal: 12),
                       decoration: BoxDecoration(
-                        color: const Color(0xFFF1F5F9),
+                        color: SboxColors.slate100,
                         borderRadius: BorderRadius.circular(10),
                       ),
                       child: DropdownButtonHideUnderline(
                         child: DropdownButton<String>(
                           value: _selectedTimeFilter,
-                          style: const TextStyle(fontSize: 13, color: Color(0xFF334155)),
+                          style: const TextStyle(fontSize: 13, color: SboxColors.slate700),
                           items: [
                             DropdownMenuItem(value: 'newest', child: Text(tr('Mới nhất'))),
                             DropdownMenuItem(value: 'this_week', child: Text(tr('Tuần này'))),
@@ -229,7 +230,7 @@ class _CompanyRulesScreenState extends State<CompanyRulesScreen> {
                       padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
                       decoration: BoxDecoration(
                         color: HrmPageChrome.primaryNavy.withValues(alpha: 0.08),
-                        borderRadius: BorderRadius.circular(8),
+                        borderRadius: BorderRadius.circular(10),
                       ),
                       child: Text(tr('${filtered.length} bài viết'),
                           style: const TextStyle(fontSize: 12, color: HrmPageChrome.primaryNavy, fontWeight: FontWeight.w600)),
@@ -253,8 +254,8 @@ class _CompanyRulesScreenState extends State<CompanyRulesScreen> {
                             child: Container(
                               decoration: BoxDecoration(
                                 color: Colors.white,
-                                borderRadius: BorderRadius.circular(12),
-                                border: Border.all(color: const Color(0xFFE4E4E7)),
+                                borderRadius: BorderRadius.circular(14),
+                                border: Border.all(color: SboxColors.slate200),
                                 boxShadow: [
                                   BoxShadow(
                                     color: Colors.black.withValues(alpha: 0.05),
@@ -289,17 +290,17 @@ class _CompanyRulesScreenState extends State<CompanyRulesScreen> {
             width: 36, height: 36,
             decoration: BoxDecoration(
               color: HrmPageChrome.primaryNavy.withValues(alpha: 0.08),
-              borderRadius: BorderRadius.circular(8),
+              borderRadius: BorderRadius.circular(10),
               image: thumb != null && thumb.isNotEmpty
                   ? DecorationImage(image: _api.storeImageProvider(thumb), fit: BoxFit.cover, onError: (_, __) {}) : null,
             ),
             child: thumb == null || thumb.isEmpty
-                ? const Icon(Icons.article_outlined, color: Color(0xFF93C5FD), size: 18) : null,
+                ? const Icon(Icons.article_outlined, color: SboxColors.brand200, size: 18) : null,
           ),
           const SizedBox(width: 12),
           Expanded(
             child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-              Text(tr(title), style: const TextStyle(fontWeight: FontWeight.w600, fontSize: 14, color: Color(0xFF18181B)),
+              Text(tr(title), style: const TextStyle(fontWeight: FontWeight.w600, fontSize: 14, color: SboxColors.slate900),
                   maxLines: 1, overflow: TextOverflow.ellipsis),
               const SizedBox(height: 2),
               Text(
@@ -308,13 +309,13 @@ class _CompanyRulesScreenState extends State<CompanyRulesScreen> {
                   '$views lượt xem',
                   if (created != null) '${created.day}/${created.month}/${created.year}',
                 ].join(' · ')),
-                style: const TextStyle(color: Color(0xFF71717A), fontSize: 12),
+                style: const TextStyle(color: SboxColors.slate500, fontSize: 12),
                 maxLines: 1, overflow: TextOverflow.ellipsis,
               ),
             ]),
           ),
           const SizedBox(width: 8),
-          const Icon(Icons.chevron_right, size: 18, color: Color(0xFFCBD5E1)),
+          const Icon(Icons.chevron_right, size: 18, color: SboxColors.slate300),
         ]),
       ),
     );
@@ -328,11 +329,11 @@ class _CompanyRulesScreenState extends State<CompanyRulesScreen> {
 
   Widget _emptyState() => Center(
         child: Column(mainAxisSize: MainAxisSize.min, children: [
-          Icon(Icons.gavel_outlined, size: 64, color: Colors.grey[300]),
+          Icon(Icons.gavel_outlined, size: 64, color: SboxColors.slate300),
           const SizedBox(height: 16),
-          Text(tr('Chưa có nội quy nào'), style: TextStyle(fontSize: 16, fontWeight: FontWeight.w500, color: Colors.grey[500])),
+          Text(tr('Chưa có nội quy nào'), style: TextStyle(fontSize: 16, fontWeight: FontWeight.w500, color: SboxColors.slate500)),
           const SizedBox(height: 6),
-          Text(tr('Các nội quy đã xuất bản sẽ hiển thị ở đây'), style: TextStyle(fontSize: 13, color: Colors.grey[400])),
+          Text(tr('Các nội quy đã xuất bản sẽ hiển thị ở đây'), style: TextStyle(fontSize: 13, color: SboxColors.slate400)),
         ]),
       );
 }
@@ -354,11 +355,11 @@ class _ArticleViewPage extends StatelessWidget {
     final views = article['viewCount'] ?? 0;
 
     return Scaffold(
-      backgroundColor: const Color(0xFFFAFAFA),
+      backgroundColor: SboxColors.slate50,
       appBar: AppBar(
         backgroundColor: Colors.white, elevation: 0,
-        leading: IconButton(icon: const Icon(Icons.arrow_back, color: Color(0xFF18181B)), onPressed: () => Navigator.pop(context)),
-        title: Text(tr(title), style: const TextStyle(color: Color(0xFF18181B), fontSize: 16, fontWeight: FontWeight.bold),
+        leading: IconButton(icon: const Icon(Icons.arrow_back, color: SboxColors.slate900), onPressed: () => Navigator.pop(context)),
+        title: Text(tr(title), style: const TextStyle(color: SboxColors.slate900, fontSize: 16, fontWeight: FontWeight.bold),
             maxLines: 1, overflow: TextOverflow.ellipsis),
       ),
       body: SingleChildScrollView(
@@ -371,30 +372,30 @@ class _ArticleViewPage extends StatelessWidget {
                 margin: const EdgeInsets.all(16),
                 padding: const EdgeInsets.all(20),
                 decoration: BoxDecoration(
-                  color: Colors.white, borderRadius: BorderRadius.circular(12),
+                  color: Colors.white, borderRadius: BorderRadius.circular(14),
                   boxShadow: [BoxShadow(color: Colors.black.withValues(alpha: 0.03), blurRadius: 8, offset: const Offset(0, 2))],
                 ),
                 child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-                  Text(tr(title), style: const TextStyle(fontSize: 24, fontWeight: FontWeight.bold, color: Color(0xFF18181B))),
+                  Text(tr(title), style: const TextStyle(fontSize: 24, fontWeight: FontWeight.bold, color: SboxColors.slate900)),
                   const SizedBox(height: 12),
                   Wrap(spacing: 16, runSpacing: 6, children: [
                     if (author.isNotEmpty)
                       Row(mainAxisSize: MainAxisSize.min, children: [
-                        const Icon(Icons.person_outline, size: 16, color: Color(0xFF71717A)),
+                        const Icon(Icons.person_outline, size: 16, color: SboxColors.slate500),
                         const SizedBox(width: 4),
-                        Text(tr(author), style: const TextStyle(fontSize: 13, color: Color(0xFF71717A))),
+                        Text(tr(author), style: const TextStyle(fontSize: 13, color: SboxColors.slate500)),
                       ]),
                     if (created != null)
                       Row(mainAxisSize: MainAxisSize.min, children: [
-                        const Icon(Icons.calendar_today_outlined, size: 14, color: Color(0xFF71717A)),
+                        const Icon(Icons.calendar_today_outlined, size: 14, color: SboxColors.slate500),
                         const SizedBox(width: 4),
                         Text(tr('${created.day}/${created.month}/${created.year}'),
-                            style: const TextStyle(fontSize: 13, color: Color(0xFF71717A))),
+                            style: const TextStyle(fontSize: 13, color: SboxColors.slate500)),
                       ]),
                     Row(mainAxisSize: MainAxisSize.min, children: [
-                      Icon(Icons.visibility_outlined, size: 14, color: Colors.grey[400]),
+                      Icon(Icons.visibility_outlined, size: 14, color: SboxColors.slate400),
                       const SizedBox(width: 4),
-                      Text(tr('$views lượt xem'), style: TextStyle(fontSize: 13, color: Colors.grey[400])),
+                      Text(tr('$views lượt xem'), style: TextStyle(fontSize: 13, color: SboxColors.slate400)),
                     ]),
                   ]),
                 ]),
@@ -404,12 +405,12 @@ class _ArticleViewPage extends StatelessWidget {
                 margin: const EdgeInsets.fromLTRB(16, 0, 16, 24),
                 padding: const EdgeInsets.all(24),
                 decoration: BoxDecoration(
-                  color: Colors.white, borderRadius: BorderRadius.circular(12),
+                  color: Colors.white, borderRadius: BorderRadius.circular(14),
                   boxShadow: [BoxShadow(color: Colors.black.withValues(alpha: 0.03), blurRadius: 8, offset: const Offset(0, 2))],
                 ),
                 child: content.isNotEmpty
                     ? Html(data: content)
-                    : Text(tr('Không có nội dung'), style: TextStyle(color: Color(0xFFA1A1AA), fontStyle: FontStyle.italic)),
+                    : Text(tr('Không có nội dung'), style: TextStyle(color: SboxColors.slate400, fontStyle: FontStyle.italic)),
               ),
             ]),
           ),

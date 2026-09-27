@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 
+import '../theme/sbox_tokens.dart';
 /// Hàng filter chip cùng chiều cao — không dùng [IntrinsicHeight].
 class SafeEqualHeightRow extends StatelessWidget {
   const SafeEqualHeightRow({super.key, required this.children});
@@ -48,7 +49,7 @@ class SafeTimelineRow extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final line = lineColor ?? Colors.grey.shade300;
+    final line = lineColor ?? SboxColors.slate300;
     return Padding(
       padding: EdgeInsets.only(bottom: isLast ? 0 : bottomPadding),
       child: Row(

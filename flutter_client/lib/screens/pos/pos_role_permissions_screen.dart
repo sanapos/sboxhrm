@@ -305,7 +305,7 @@ class _PosRolePermissionsScreenState extends State<PosRolePermissionsScreen> {
                     child: Text(
                       tr('Vai trò'),
                       style: const TextStyle(
-                        fontWeight: FontWeight.w800,
+                        fontWeight: FontWeight.w700,
                         fontSize: 16,
                       ),
                     ),
@@ -343,7 +343,7 @@ class _PosRolePermissionsScreenState extends State<PosRolePermissionsScreen> {
                               child: Text(
                                 tr('Quyền POS · ${_role ?? ''}'),
                                 style: const TextStyle(
-                                  fontWeight: FontWeight.w800,
+                                  fontWeight: FontWeight.w700,
                                   fontSize: 16,
                                 ),
                               ),
@@ -419,7 +419,7 @@ class _PosRolePermissionsScreenState extends State<PosRolePermissionsScreen> {
                                   tr(g.key),
                                   style: const TextStyle(
                                     color: PosTheme.kiotBlue,
-                                    fontWeight: FontWeight.w800,
+                                    fontWeight: FontWeight.w700,
                                   ),
                                 ),
                               ),

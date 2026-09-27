@@ -8,6 +8,7 @@ import '../utils/web_route_parser.dart';
 import 'agent_license_keys_screen.dart';
 import 'package:zkteco_flutter_client/l10n/app_tr.dart';
 
+import '../theme/sbox_tokens.dart';
 /// Portal riêng cho đại lý (Agent) tại /admin.
 class AgentPortalScreen extends StatefulWidget {
   const AgentPortalScreen({super.key});
@@ -34,7 +35,7 @@ class _AgentPortalScreenState extends State<AgentPortalScreen>
   String? _error;
 
   static const _accent = Color(0xFFEA580C);
-  static const _navy = Color(0xFF0F172A);
+  static const _navy = SboxColors.slate900;
 
   @override
   void initState() {
@@ -143,13 +144,13 @@ class _AgentPortalScreenState extends State<AgentPortalScreen>
         dash?['agentName']?.toString() ?? _profile?['name']?.toString() ?? email;
 
     return Scaffold(
-      backgroundColor: const Color(0xFFF8FAFC),
+      backgroundColor: SboxColors.slate50,
       body: Column(
         children: [
           Container(
             decoration: const BoxDecoration(
               gradient: LinearGradient(
-                colors: [_navy, Color(0xFF334155)],
+                colors: [_navy, SboxColors.slate700],
               ),
             ),
             child: SafeArea(
@@ -253,7 +254,7 @@ class _AgentPortalScreenState extends State<AgentPortalScreen>
       padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
       decoration: BoxDecoration(
         color: Colors.white.withValues(alpha: 0.12),
-        borderRadius: BorderRadius.circular(8),
+        borderRadius: BorderRadius.circular(10),
       ),
       child: Text(
         tr('$label: $value'),
@@ -281,7 +282,7 @@ class _AgentPortalScreenState extends State<AgentPortalScreen>
             if (dash['agentCode'] != null)
               Text(tr('${tr('Mã đại lý: ')}${dash['agentCode']}'),
                   style: const TextStyle(
-                      fontSize: 13, color: Color(0xFF64748B))),
+                      fontSize: 13, color: SboxColors.slate500)),
             const SizedBox(height: 16),
             GridView.count(
               crossAxisCount: 2,
@@ -302,7 +303,7 @@ class _AgentPortalScreenState extends State<AgentPortalScreen>
                 ),
                 _dashCard(
                   icon: Icons.router,
-                  color: const Color(0xFF7C3AED),
+                  color: SboxColors.violet,
                   title: 'Thiết bị',
                   value: '${_intVal(dash['totalDevices'])}',
                   subtitle:
@@ -311,7 +312,7 @@ class _AgentPortalScreenState extends State<AgentPortalScreen>
                 ),
                 _dashCard(
                   icon: Icons.vpn_key,
-                  color: const Color(0xFF059669),
+                  color: SboxColors.success,
                   title: 'License key',
                   value: '${_intVal(dash['availableKeys'])}',
                   subtitle:
@@ -333,7 +334,7 @@ class _AgentPortalScreenState extends State<AgentPortalScreen>
               Container(
                 padding: const EdgeInsets.all(12),
                 decoration: BoxDecoration(
-                  color: const Color(0xFFFFF7ED),
+                  color: SboxColors.warningSoft,
                   borderRadius: BorderRadius.circular(10),
                   border: Border.all(color: const Color(0xFFFDBA74)),
                 ),
@@ -366,7 +367,7 @@ class _AgentPortalScreenState extends State<AgentPortalScreen>
                   ]),
                   const SizedBox(height: 8),
                   Text(tr('Gửi link cho khách hàng — cửa hàng đăng ký qua link sẽ tự thuộc quyền quản lý của bạn.'),
-                    style: TextStyle(fontSize: 13, color: Color(0xFF64748B)),
+                    style: TextStyle(fontSize: 13, color: SboxColors.slate500),
                   ),
                   const SizedBox(height: 12),
                   if (link != null) ...[
@@ -374,8 +375,8 @@ class _AgentPortalScreenState extends State<AgentPortalScreen>
                       width: double.infinity,
                       padding: const EdgeInsets.all(12),
                       decoration: BoxDecoration(
-                        color: const Color(0xFFF1F5F9),
-                        borderRadius: BorderRadius.circular(8),
+                        color: SboxColors.slate100,
+                        borderRadius: BorderRadius.circular(10),
                       ),
                       child: SelectableText(tr(link),
                           style: const TextStyle(
@@ -398,7 +399,7 @@ class _AgentPortalScreenState extends State<AgentPortalScreen>
             padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
             decoration: BoxDecoration(
               color: const Color(0xFFE0F2FE),
-              borderRadius: BorderRadius.circular(8),
+              borderRadius: BorderRadius.circular(10),
             ),
             child: Row(children: [
               Icon(Icons.visibility_outlined,
@@ -426,16 +427,16 @@ class _AgentPortalScreenState extends State<AgentPortalScreen>
   }) {
     return Material(
       color: Colors.white,
-      borderRadius: BorderRadius.circular(12),
+      borderRadius: BorderRadius.circular(14),
       elevation: 0,
       child: InkWell(
         onTap: onTap,
-        borderRadius: BorderRadius.circular(12),
+        borderRadius: BorderRadius.circular(14),
         child: Container(
           padding: const EdgeInsets.all(14),
           decoration: BoxDecoration(
-            borderRadius: BorderRadius.circular(12),
-            border: Border.all(color: Colors.grey.shade200),
+            borderRadius: BorderRadius.circular(14),
+            border: Border.all(color: SboxColors.slate200),
           ),
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
@@ -444,7 +445,7 @@ class _AgentPortalScreenState extends State<AgentPortalScreen>
                 padding: const EdgeInsets.all(8),
                 decoration: BoxDecoration(
                   color: color.withValues(alpha: 0.12),
-                  borderRadius: BorderRadius.circular(8),
+                  borderRadius: BorderRadius.circular(10),
                 ),
                 child: Icon(icon, color: color, size: 20),
               ),
@@ -458,7 +459,7 @@ class _AgentPortalScreenState extends State<AgentPortalScreen>
                   style: const TextStyle(
                       fontSize: 13, fontWeight: FontWeight.w600)),
               Text(tr(subtitle),
-                  style: TextStyle(fontSize: 11, color: Colors.grey.shade600),
+                  style: TextStyle(fontSize: 11, color: SboxColors.slate600),
                   maxLines: 2,
                   overflow: TextOverflow.ellipsis),
             ],
@@ -566,7 +567,7 @@ class _AgentPortalScreenState extends State<AgentPortalScreen>
                             SizedBox(height: 80),
                             Center(
                               child: Text(tr('Chưa có thiết bị tại cửa hàng thuộc đại lý'),
-                                style: TextStyle(color: Color(0xFF64748B)),
+                                style: TextStyle(color: SboxColors.slate500),
                               ),
                             ),
                           ],
@@ -600,11 +601,11 @@ class _AgentPortalScreenState extends State<AgentPortalScreen>
       child: ListTile(
         leading: CircleAvatar(
           backgroundColor: online
-              ? const Color(0xFFDCFCE7)
-              : const Color(0xFFF1F5F9),
+              ? SboxColors.successSoft
+              : SboxColors.slate100,
           child: Icon(
             Icons.router,
-            color: online ? const Color(0xFF059669) : Colors.grey,
+            color: online ? SboxColors.success : SboxColors.slate500,
             size: 20,
           ),
         ),
@@ -621,7 +622,7 @@ class _AgentPortalScreenState extends State<AgentPortalScreen>
             ),
             Text(
               tr('${d['storeName'] ?? '—'} · Sync: $lastLabel'),
-              style: const TextStyle(fontSize: 11, color: Color(0xFF64748B)),
+              style: const TextStyle(fontSize: 11, color: SboxColors.slate500),
             ),
           ],
         ),
@@ -629,16 +630,16 @@ class _AgentPortalScreenState extends State<AgentPortalScreen>
           padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
           decoration: BoxDecoration(
             color: online
-                ? const Color(0xFFDCFCE7)
-                : const Color(0xFFFEE2E2),
-            borderRadius: BorderRadius.circular(8),
+                ? SboxColors.successSoft
+                : SboxColors.dangerSoft,
+            borderRadius: BorderRadius.circular(10),
           ),
           child: Text(
             tr(online ? 'Online' : 'Offline'),
             style: TextStyle(
               fontSize: 11,
               fontWeight: FontWeight.w600,
-              color: online ? const Color(0xFF059669) : const Color(0xFFDC2626),
+              color: online ? SboxColors.success : SboxColors.danger,
             ),
           ),
         ),
@@ -720,7 +721,7 @@ class _AgentPortalScreenState extends State<AgentPortalScreen>
             SizedBox(height: 120),
             Center(
               child: Text(tr('Chưa có gian hàng nào thuộc đại lý'),
-                  style: TextStyle(color: Color(0xFF64748B))),
+                  style: TextStyle(color: SboxColors.slate500)),
             ),
           ],
         ),
@@ -755,10 +756,10 @@ class _AgentPortalScreenState extends State<AgentPortalScreen>
                   style: const TextStyle(fontSize: 11),
                 ),
                 backgroundColor: locked
-                    ? const Color(0xFFFEE2E2)
+                    ? SboxColors.dangerSoft
                     : (active
-                        ? const Color(0xFFDCFCE7)
-                        : const Color(0xFFF1F5F9)),
+                        ? SboxColors.successSoft
+                        : SboxColors.slate100),
               ),
             ),
           );

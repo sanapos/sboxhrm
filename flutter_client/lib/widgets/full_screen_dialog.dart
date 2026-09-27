@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:zkteco_flutter_client/l10n/app_tr.dart';
 
+import '../theme/sbox_tokens.dart';
 /// Dialog phủ toàn màn hình — không đóng khi bấm ra ngoài; dùng [buildPickerCloseAppBar].
 Future<T?> showFullScreenDialog<T>(
   BuildContext context, {
@@ -27,7 +28,7 @@ AppBar buildPickerCloseAppBar(
 }) {
   return AppBar(
     backgroundColor: Colors.white,
-    foregroundColor: const Color(0xFF0F172A),
+    foregroundColor: SboxColors.slate900,
     elevation: 0,
     surfaceTintColor: Colors.white,
     leading: IconButton(
@@ -43,13 +44,13 @@ AppBar buildPickerCloseAppBar(
               Text(
                 tr(title),
                 style: const TextStyle(
-                  fontSize: 17,
+                  fontSize: 18,
                   fontWeight: FontWeight.w700,
                 ),
               ),
               Text(
                 tr(subtitle),
-                style: TextStyle(fontSize: 12, color: Colors.grey.shade600),
+                style: TextStyle(fontSize: 12, color: SboxColors.slate600),
                 maxLines: 2,
                 overflow: TextOverflow.ellipsis,
               ),
@@ -57,7 +58,7 @@ AppBar buildPickerCloseAppBar(
           )
         : Text(
             tr(title),
-            style: const TextStyle(fontSize: 17, fontWeight: FontWeight.w700),
+            style: const TextStyle(fontSize: 18, fontWeight: FontWeight.w700),
           ),
     actions: actions,
     centerTitle: false,

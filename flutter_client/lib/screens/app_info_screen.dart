@@ -88,7 +88,7 @@ class _AppInfoScreenState extends State<AppInfoScreen> {
                             style: const TextStyle(fontSize: 20, fontWeight: FontWeight.bold)),
                         const SizedBox(height: 16),
                       ],
-                      Text(tr(_content), style: const TextStyle(fontSize: 15, height: 1.6)),
+                      Text(tr(_content), style: const TextStyle(fontSize: 16, height: 1.6)),
                     ],
                   ),
                 ),

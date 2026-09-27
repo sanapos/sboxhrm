@@ -15,6 +15,7 @@ import '../widgets/hrm_collapsible_overview.dart';
 import '../widgets/hrm_page_chrome.dart';
 import 'package:zkteco_flutter_client/l10n/app_tr.dart';
 
+import '../theme/sbox_tokens.dart';
 enum DeviceFilter {
   all,
   online,
@@ -336,13 +337,13 @@ class _AdmsDevicesScreenState extends State<AdmsDevicesScreen> {
         _allDevices.where((d) => !d.isOnline && !d.hasNeverConnected).length;
 
     return Scaffold(
-      backgroundColor: const Color(0xFFFAFAFA),
+      backgroundColor: SboxColors.slate50,
       appBar: AppBar(
         backgroundColor: Colors.white,
         elevation: 0,
         title: Text(tr('Máy Chấm Công ADMS'),
             style: TextStyle(
-                color: Color(0xFF18181B), fontWeight: FontWeight.bold),
+                color: SboxColors.slate900, fontWeight: FontWeight.bold),
             overflow: TextOverflow.ellipsis,
             maxLines: 1),
         actions: [
@@ -418,16 +419,16 @@ class _AdmsDevicesScreenState extends State<AdmsDevicesScreen> {
                   TextField(
                     controller: _searchController,
                     onChanged: _onSearchChanged,
-                    style: const TextStyle(color: Color(0xFF18181B)),
+                    style: const TextStyle(color: SboxColors.slate900),
                     decoration: InputDecoration(
                       hintText: tr('Tìm kiếm theo SN, tên, IP, vị trí...'),
-                      hintStyle: const TextStyle(color: Color(0xFFA1A1AA)),
+                      hintStyle: const TextStyle(color: SboxColors.slate400),
                       prefixIcon:
-                          const Icon(Icons.search, color: Color(0xFFA1A1AA)),
+                          const Icon(Icons.search, color: SboxColors.slate400),
                       suffixIcon: _searchQuery.isNotEmpty
                           ? IconButton(
                               icon: const Icon(Icons.clear,
-                                  color: Color(0xFFA1A1AA)),
+                                  color: SboxColors.slate400),
                               onPressed: () {
                                 _searchController.clear();
                                 _onSearchChanged('');
@@ -435,19 +436,19 @@ class _AdmsDevicesScreenState extends State<AdmsDevicesScreen> {
                             )
                           : null,
                       filled: true,
-                      fillColor: const Color(0xFFFAFAFA),
+                      fillColor: SboxColors.slate50,
                       border: OutlineInputBorder(
-                        borderRadius: BorderRadius.circular(12),
+                        borderRadius: BorderRadius.circular(14),
                         borderSide:
-                            const BorderSide(color: Color(0xFFE4E4E7)),
+                            const BorderSide(color: SboxColors.slate200),
                       ),
                       enabledBorder: OutlineInputBorder(
-                        borderRadius: BorderRadius.circular(12),
+                        borderRadius: BorderRadius.circular(14),
                         borderSide:
-                            const BorderSide(color: Color(0xFFE4E4E7)),
+                            const BorderSide(color: SboxColors.slate200),
                       ),
                       focusedBorder: OutlineInputBorder(
-                        borderRadius: BorderRadius.circular(12),
+                        borderRadius: BorderRadius.circular(14),
                         borderSide:
                             const BorderSide(color: HrmPageChrome.primaryNavy),
                       ),
@@ -509,13 +510,13 @@ class _AdmsDevicesScreenState extends State<AdmsDevicesScreen> {
                             labelStyle: TextStyle(
                               color: isSelected
                                   ? Colors.white
-                                  : const Color(0xFF71717A),
+                                  : SboxColors.slate500,
                             ),
                             onSelected: (_) => _onFilterChanged(filter),
                             side: BorderSide(
                               color: isSelected
                                   ? _getFilterColor(filter)
-                                  : const Color(0xFFE4E4E7),
+                                  : SboxColors.slate200,
                             ),
                           ),
                         );
@@ -527,8 +528,8 @@ class _AdmsDevicesScreenState extends State<AdmsDevicesScreen> {
                     padding: const EdgeInsets.all(12),
                     decoration: BoxDecoration(
                       color: Colors.white,
-                      borderRadius: BorderRadius.circular(12),
-                      border: Border.all(color: const Color(0xFFE4E4E7)),
+                      borderRadius: BorderRadius.circular(14),
+                      border: Border.all(color: SboxColors.slate200),
                       boxShadow: [
                         BoxShadow(
                           color: Colors.black.withValues(alpha: 0.04),
@@ -541,7 +542,7 @@ class _AdmsDevicesScreenState extends State<AdmsDevicesScreen> {
                       mainAxisAlignment: MainAxisAlignment.spaceAround,
                       children: [
                         _buildStatItem('Tổng', _allDevices.length,
-                            Icons.devices, Colors.blue),
+                            Icons.devices, SboxColors.brand500),
                         _buildStatItem('Online', onlineCount, Icons.wifi,
                             Colors.green),
                         _buildStatItem('Offline', offlineCount,
@@ -573,9 +574,9 @@ class _AdmsDevicesScreenState extends State<AdmsDevicesScreen> {
                             final card = Container(
                               decoration: BoxDecoration(
                                 color: Colors.white,
-                                borderRadius: BorderRadius.circular(12),
+                                borderRadius: BorderRadius.circular(14),
                                 border: Border.all(
-                                    color: const Color(0xFFE4E4E7)),
+                                    color: SboxColors.slate200),
                                 boxShadow: [
                                   BoxShadow(
                                     color: Colors.black.withValues(alpha: 0.05),
@@ -629,7 +630,7 @@ class _AdmsDevicesScreenState extends State<AdmsDevicesScreen> {
               color: color, fontWeight: FontWeight.bold, fontSize: 16),
         ),
         Text(tr(label),
-            style: const TextStyle(color: Color(0xFF71717A), fontSize: 11)),
+            style: const TextStyle(color: SboxColors.slate500, fontSize: 11)),
       ],
     );
   }
@@ -639,13 +640,13 @@ class _AdmsDevicesScreenState extends State<AdmsDevicesScreen> {
       child: Column(
         mainAxisAlignment: MainAxisAlignment.center,
         children: [
-          Icon(Icons.devices_other, size: 80, color: Colors.grey.shade400),
+          Icon(Icons.devices_other, size: 80, color: SboxColors.slate400),
           const SizedBox(height: 16),
           Text(
             tr(_searchQuery.isNotEmpty
                 ? 'Không tìm thấy thiết bị'
                 : 'Chưa có thiết bị nào kết nối'),
-            style: const TextStyle(color: Color(0xFF71717A), fontSize: 18),
+            style: const TextStyle(color: SboxColors.slate500, fontSize: 18),
           ),
           const SizedBox(height: 8),
           Text(
@@ -653,7 +654,7 @@ class _AdmsDevicesScreenState extends State<AdmsDevicesScreen> {
                 ? 'Thử tìm kiếm với từ khóa khác'
                 : DeviceSetupGuide.emptyStateHint),
             textAlign: TextAlign.center,
-            style: const TextStyle(color: Color(0xFFA1A1AA), fontSize: 14),
+            style: const TextStyle(color: SboxColors.slate400, fontSize: 14),
           ),
           const SizedBox(height: 24),
         ],
@@ -690,7 +691,7 @@ class _AdmsDevicesScreenState extends State<AdmsDevicesScreen> {
                   height: 36,
                   decoration: BoxDecoration(
                       color: statusColor.withValues(alpha: 0.1),
-                      borderRadius: BorderRadius.circular(8)),
+                      borderRadius: BorderRadius.circular(10)),
                   child: Icon(Icons.devices, color: statusColor, size: 18),
                 ),
                 Positioned(
@@ -726,7 +727,7 @@ class _AdmsDevicesScreenState extends State<AdmsDevicesScreen> {
                           device.location!.isNotEmpty)
                         device.location!,
                     ].join(' · ')),
-                    style: TextStyle(fontSize: 12, color: Colors.grey[500]),
+                    style: TextStyle(fontSize: 12, color: SboxColors.slate500),
                     maxLines: 1,
                     overflow: TextOverflow.ellipsis,
                   ),
@@ -746,7 +747,7 @@ class _AdmsDevicesScreenState extends State<AdmsDevicesScreen> {
                       fontWeight: FontWeight.w600)),
             ),
             const SizedBox(width: 4),
-            const Icon(Icons.chevron_right, size: 18, color: Color(0xFF71717A)),
+            const Icon(Icons.chevron_right, size: 18, color: SboxColors.slate500),
           ],
         ),
       ),
@@ -759,7 +760,7 @@ class _AdmsDevicesScreenState extends State<AdmsDevicesScreen> {
       padding: const EdgeInsets.symmetric(horizontal: 22),
       decoration: BoxDecoration(
         color: Colors.red,
-        borderRadius: BorderRadius.circular(12),
+        borderRadius: BorderRadius.circular(14),
       ),
       child: Row(
         mainAxisSize: MainAxisSize.min,
@@ -873,7 +874,7 @@ class _AdmsDevicesScreenState extends State<AdmsDevicesScreen> {
                     width: 40,
                     height: 4,
                     decoration: BoxDecoration(
-                      color: const Color(0xFFE4E4E7),
+                      color: SboxColors.slate200,
                       borderRadius: BorderRadius.circular(2),
                     ),
                   ),
@@ -896,7 +897,7 @@ class _AdmsDevicesScreenState extends State<AdmsDevicesScreen> {
                         padding: const EdgeInsets.all(12),
                         decoration: BoxDecoration(
                           color: detailColor.withValues(alpha: 0.1),
-                          borderRadius: BorderRadius.circular(12),
+                          borderRadius: BorderRadius.circular(14),
                         ),
                         child:
                             Icon(Icons.devices, color: detailColor, size: 32),
@@ -909,7 +910,7 @@ class _AdmsDevicesScreenState extends State<AdmsDevicesScreen> {
                             Text(
                               tr(device.deviceName),
                               style: const TextStyle(
-                                color: Color(0xFF18181B),
+                                color: SboxColors.slate900,
                                 fontSize: 20,
                                 fontWeight: FontWeight.bold,
                               ),
@@ -942,7 +943,7 @@ class _AdmsDevicesScreenState extends State<AdmsDevicesScreen> {
 
                 // Details
                 _buildDetailRow('Serial Number', device.serialNumber,
-                    Icons.qr_code, Colors.blue),
+                    Icons.qr_code, SboxColors.brand500),
                 if (device.ipAddress != null)
                   _buildDetailRow(
                       'Địa chỉ IP', device.ipAddress!, Icons.lan, Colors.cyan),
@@ -957,7 +958,7 @@ class _AdmsDevicesScreenState extends State<AdmsDevicesScreen> {
                   'Kết nối lần cuối',
                   _formatLastOnline(device.lastOnline),
                   Icons.access_time,
-                  Colors.grey,
+                  SboxColors.slate500,
                 ),
                 _buildDetailRow(
                   'Trạng thái',
@@ -995,7 +996,7 @@ class _AdmsDevicesScreenState extends State<AdmsDevicesScreen> {
                     padding: const EdgeInsets.all(12),
                     decoration: BoxDecoration(
                       color: noteColor.withValues(alpha: 0.06),
-                      borderRadius: BorderRadius.circular(8),
+                      borderRadius: BorderRadius.circular(10),
                       border: Border.all(color: noteBorderColor),
                     ),
                     child: Row(
@@ -1082,7 +1083,7 @@ class _AdmsDevicesScreenState extends State<AdmsDevicesScreen> {
             padding: const EdgeInsets.all(8),
             decoration: BoxDecoration(
               color: color.withValues(alpha: 0.1),
-              borderRadius: BorderRadius.circular(8),
+              borderRadius: BorderRadius.circular(10),
             ),
             child: Icon(icon, color: color, size: 18),
           ),
@@ -1093,11 +1094,11 @@ class _AdmsDevicesScreenState extends State<AdmsDevicesScreen> {
               children: [
                 Text(tr(label),
                     style: const TextStyle(
-                        color: Color(0xFF71717A), fontSize: 12)),
+                        color: SboxColors.slate500, fontSize: 12)),
                 const SizedBox(height: 2),
                 Text(tr(value),
                     style: const TextStyle(
-                        color: Color(0xFF18181B), fontSize: 14)),
+                        color: SboxColors.slate900, fontSize: 14)),
               ],
             ),
           ),

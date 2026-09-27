@@ -13,6 +13,7 @@ import '../services/app_permission_service.dart';
 import 'package:zkteco_flutter_client/l10n/app_tr.dart';
 import '../utils/play_system_ui.dart';
 
+import '../theme/sbox_tokens.dart';
 /// iphone-style circular face registration with ML Kit face detection.
 /// Only captures when a face is detected AND matches the required direction.
 class CircleFaceCaptureWidget extends StatefulWidget {
@@ -924,9 +925,9 @@ class _CircleFaceCaptureWidgetState extends State<CircleFaceCaptureWidget>
   /// Color of circle border based on face status.
   Color get _statusColor {
     switch (_faceStatus) {
-      case _FaceStatus.noFace: return const Color(0xFFEF4444); // red
+      case _FaceStatus.noFace: return SboxColors.danger; // red
       case _FaceStatus.wrongDirection: return const Color(0xFFFBBF24); // yellow
-      case _FaceStatus.aligned: return const Color(0xFF22C55E); // green
+      case _FaceStatus.aligned: return SboxColors.success; // green
     }
   }
 
@@ -1005,7 +1006,7 @@ class _CircleFaceCaptureWidgetState extends State<CircleFaceCaptureWidget>
                   child: const Center(
                     child: CircleAvatar(
                       radius: 40,
-                      backgroundColor: Color(0xFF22C55E),
+                      backgroundColor: SboxColors.success,
                       child: Icon(Icons.check, color: Colors.white, size: 44),
                     ),
                   ),
@@ -1077,7 +1078,7 @@ class _CircleFaceCaptureWidgetState extends State<CircleFaceCaptureWidget>
                 icon: Container(
                   padding: const EdgeInsets.all(6),
                   decoration: BoxDecoration(
-                    color: Colors.black38,
+                    color: SboxColors.textMuted,
                     borderRadius: BorderRadius.circular(20),
                   ),
                   child: const Icon(Icons.close, color: Colors.white, size: 24),
@@ -1092,8 +1093,8 @@ class _CircleFaceCaptureWidgetState extends State<CircleFaceCaptureWidget>
                   margin: const EdgeInsets.all(32),
                   padding: const EdgeInsets.all(24),
                   decoration: BoxDecoration(
-                    color: Colors.black87,
-                    borderRadius: BorderRadius.circular(16),
+                    color: SboxColors.text,
+                    borderRadius: BorderRadius.circular(14),
                   ),
                   child: Column(
                     mainAxisSize: MainAxisSize.min,
@@ -1163,7 +1164,7 @@ class _CircleFaceCaptureWidgetState extends State<CircleFaceCaptureWidget>
         gradient: LinearGradient(
           begin: Alignment.topCenter,
           end: Alignment.bottomCenter,
-          colors: [Colors.transparent, Colors.black45, Colors.black54],
+          colors: [Colors.transparent, SboxColors.textMuted, SboxColors.textSecondary],
         ),
       ),
       child: Column(
@@ -1182,11 +1183,11 @@ class _CircleFaceCaptureWidgetState extends State<CircleFaceCaptureWidget>
                 margin: const EdgeInsets.symmetric(horizontal: 4),
                 decoration: BoxDecoration(
                   color: done
-                      ? const Color(0xFF22C55E)
+                      ? SboxColors.success
                       : current
                           ? Colors.white
                           : Colors.white24,
-                  borderRadius: BorderRadius.circular(5),
+                  borderRadius: BorderRadius.circular(6),
                 ),
               );
             }),
@@ -1196,7 +1197,7 @@ class _CircleFaceCaptureWidgetState extends State<CircleFaceCaptureWidget>
           if (_allDone)
             Text(tr('Đăng ký khuôn mặt hoàn tất!'),
               style: TextStyle(
-                color: Color(0xFF22C55E),
+                color: SboxColors.success,
                 fontSize: 22,
                 fontWeight: FontWeight.bold,
               ),
@@ -1298,9 +1299,9 @@ class _SegmentedCirclePainter extends CustomPainter {
       double sweepFraction = 1.0;
 
       if (isComplete) {
-        color = const Color(0xFF22C55E);
+        color = SboxColors.success;
       } else if (i < completedSteps) {
-        color = const Color(0xFF22C55E);
+        color = SboxColors.success;
       } else if (i == completedSteps) {
         color = activeColor;
         sweepFraction = currentProgress;

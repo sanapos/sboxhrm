@@ -4,6 +4,7 @@ import '../services/api_service.dart';
 import 'notification_overlay.dart';
 import 'package:zkteco_flutter_client/l10n/app_tr.dart';
 
+import '../theme/sbox_tokens.dart';
 /// Reusable AI text-assist bottom sheet.
 ///
 /// Hiển thị 1 sheet cho phép user mô tả, chọn tone, AI trả về văn bản.
@@ -179,7 +180,7 @@ class _AiAssistSheetState extends State<_AiAssistSheet> {
                 height: 4,
                 margin: const EdgeInsets.only(top: 8),
                 decoration: BoxDecoration(
-                  color: Colors.grey[300],
+                  color: SboxColors.slate300,
                   borderRadius: BorderRadius.circular(2),
                 ),
               ),
@@ -190,11 +191,11 @@ class _AiAssistSheetState extends State<_AiAssistSheet> {
                     Container(
                       padding: const EdgeInsets.all(8),
                       decoration: BoxDecoration(
-                        color: const Color(0xFF8B5CF6).withValues(alpha: 0.1),
+                        color: SboxColors.violet.withValues(alpha: 0.1),
                         borderRadius: BorderRadius.circular(10),
                       ),
                       child: const Icon(Icons.auto_awesome,
-                          color: Color(0xFF8B5CF6), size: 20),
+                          color: SboxColors.violet, size: 20),
                     ),
                     const SizedBox(width: 10),
                     Expanded(
@@ -229,7 +230,7 @@ class _AiAssistSheetState extends State<_AiAssistSheet> {
                     Text(tr('Giọng văn'),
                         style: TextStyle(
                             fontSize: 12,
-                            color: Colors.grey[700],
+                            color: SboxColors.slate700,
                             fontWeight: FontWeight.w500)),
                     const SizedBox(height: 6),
                     Wrap(
@@ -262,7 +263,7 @@ class _AiAssistSheetState extends State<_AiAssistSheet> {
                                 ? 'Tạo nội dung'
                                 : 'Tạo lại'))),
                         style: FilledButton.styleFrom(
-                          backgroundColor: const Color(0xFF8B5CF6),
+                          backgroundColor: SboxColors.violet,
                           padding: const EdgeInsets.symmetric(vertical: 12),
                         ),
                       ),
@@ -274,7 +275,7 @@ class _AiAssistSheetState extends State<_AiAssistSheet> {
                           Text(tr('Kết quả AI'),
                               style: TextStyle(
                                   fontSize: 12,
-                                  color: Colors.grey[700],
+                                  color: SboxColors.slate700,
                                   fontWeight: FontWeight.w500)),
                           const Spacer(),
                           TextButton.icon(
@@ -321,19 +322,19 @@ class _AiAssistSheetState extends State<_AiAssistSheet> {
                       Container(
                         padding: const EdgeInsets.all(16),
                         decoration: BoxDecoration(
-                          color: Colors.grey[50],
+                          color: SboxColors.slate50,
                           borderRadius: BorderRadius.circular(10),
-                          border: Border.all(color: Colors.grey[200]!),
+                          border: Border.all(color: SboxColors.slate200),
                         ),
                         child: Row(
                           children: [
                             Icon(Icons.tips_and_updates_outlined,
-                                color: Colors.grey[600], size: 18),
+                                color: SboxColors.slate600, size: 18),
                             const SizedBox(width: 8),
                             Expanded(
                               child: Text(tr('Nhập mô tả ngắn về điều bạn muốn viết, AI sẽ soạn giúp bạn bằng tiếng Việt.'),
                                 style: TextStyle(
-                                    fontSize: 12, color: Colors.grey[700]),
+                                    fontSize: 12, color: SboxColors.slate700),
                               ),
                             ),
                           ],
@@ -378,7 +379,7 @@ class AiAssistIconButton extends StatelessWidget {
       iconSize: size,
       padding: EdgeInsets.zero,
       constraints: BoxConstraints.tightFor(width: size + 16, height: size + 16),
-      icon: const Icon(Icons.auto_awesome, color: Color(0xFF8B5CF6)),
+      icon: const Icon(Icons.auto_awesome, color: SboxColors.violet),
       onPressed: () => showAiAssistSheet(
         context,
         kind: kind,

@@ -5,6 +5,7 @@ import 'system_admin_helpers.dart';
 import '../../widgets/hrm_page_chrome.dart';
 import 'package:zkteco_flutter_client/l10n/app_tr.dart';
 
+import '../../theme/sbox_tokens.dart';
 class ServicePackagesTab extends StatefulWidget {
   const ServicePackagesTab({super.key});
 
@@ -287,7 +288,7 @@ class ServicePackagesTabState extends State<ServicePackagesTab> {
       avatar: Icon(
         active ? Icons.check_circle : Icons.point_of_sale_outlined,
         size: 16,
-        color: active ? AdminHelpers.primary : Colors.grey.shade600,
+        color: active ? AdminHelpers.primary : SboxColors.slate600,
       ),
       onPressed: apply.isEmpty
           ? null
@@ -324,8 +325,8 @@ class ServicePackagesTabState extends State<ServicePackagesTab> {
                       child: Container(
                         decoration: BoxDecoration(
                           color: Colors.white,
-                          borderRadius: BorderRadius.circular(12),
-                          border: Border.all(color: const Color(0xFFE4E4E7)),
+                          borderRadius: BorderRadius.circular(14),
+                          border: Border.all(color: SboxColors.slate200),
                           boxShadow: [BoxShadow(color: Colors.black.withValues(alpha: 0.05), blurRadius: 6, offset: const Offset(0, 2))],
                         ),
                         child: _buildPkgDeckItem(_filteredPackages[i]),
@@ -451,7 +452,7 @@ class ServicePackagesTabState extends State<ServicePackagesTab> {
               tr(_visibilityFilter == true
                   ? 'Đúng danh sách khách thấy khi đăng ký: gói đang bật và bật «Hiện trên màn hình đăng ký».'
                   : 'Gói không hiện lúc đăng ký. Super Admin gán tay cho từng cửa hàng.'),
-              style: TextStyle(fontSize: 12, color: Colors.grey.shade700),
+              style: TextStyle(fontSize: 12, color: SboxColors.slate700),
             ),
           ],
         ],
@@ -474,7 +475,7 @@ class ServicePackagesTabState extends State<ServicePackagesTab> {
         child: Row(children: [
           Container(
             width: 36, height: 36,
-            decoration: BoxDecoration(color: HrmPageChrome.primaryNavy.withValues(alpha: 0.1), borderRadius: BorderRadius.circular(8)),
+            decoration: BoxDecoration(color: HrmPageChrome.primaryNavy.withValues(alpha: 0.1), borderRadius: BorderRadius.circular(10)),
             child: const Icon(Icons.inventory_2, color: HrmPageChrome.primaryNavy, size: 18),
           ),
           const SizedBox(width: 12),
@@ -484,23 +485,23 @@ class ServicePackagesTabState extends State<ServicePackagesTab> {
               const SizedBox(height: 2),
               Text(
                 tr('${_limitText(maxUsers)} TK · ${_limitText(maxDevices)} MCC · ${_limitText(pkg['maxAccessDevices'])} TB · ${days}d'),
-                style: const TextStyle(color: Color(0xFF71717A), fontSize: 12),
+                style: const TextStyle(color: SboxColors.slate500, fontSize: 12),
               ),
             ]),
           ),
           Container(
             padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
             decoration: BoxDecoration(
-              color: (isPublic ? Colors.blue : Colors.orange)
+              color: (isPublic ? SboxColors.brand500 : Colors.orange)
                   .withValues(alpha: 0.1),
-              borderRadius: BorderRadius.circular(8),
+              borderRadius: BorderRadius.circular(10),
             ),
             child: Text(
               tr(isPublic ? 'Đăng ký' : 'Gán tay'),
               style: TextStyle(
                 fontSize: 10,
                 fontWeight: FontWeight.w600,
-                color: isPublic ? Colors.blue : Colors.orange,
+                color: isPublic ? SboxColors.brand500 : Colors.orange,
               ),
             ),
           ),
@@ -516,8 +517,8 @@ class ServicePackagesTabState extends State<ServicePackagesTab> {
           const SizedBox(width: 6),
           Container(
             padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
-            decoration: BoxDecoration(color: isActive ? Colors.green.withValues(alpha: 0.1) : Colors.grey.withValues(alpha: 0.1), borderRadius: BorderRadius.circular(8)),
-            child: Text(tr(isActive ? 'H\u0110' : 'T\u1eaft'), style: TextStyle(fontSize: 10, fontWeight: FontWeight.w600, color: isActive ? Colors.green : Colors.grey)),
+            decoration: BoxDecoration(color: isActive ? Colors.green.withValues(alpha: 0.1) : SboxColors.slate500.withValues(alpha: 0.1), borderRadius: BorderRadius.circular(10)),
+            child: Text(tr(isActive ? 'H\u0110' : 'T\u1eaft'), style: TextStyle(fontSize: 10, fontWeight: FontWeight.w600, color: isActive ? Colors.green : SboxColors.slate500)),
           ),
         ]),
       ),
@@ -534,22 +535,22 @@ class ServicePackagesTabState extends State<ServicePackagesTab> {
     return Container(
       margin: const EdgeInsets.only(bottom: 12),
       decoration: AdminHelpers.cardDecoration(
-        borderColor: isActive ? AdminHelpers.primary : Colors.grey,
+        borderColor: isActive ? AdminHelpers.primary : SboxColors.slate500,
       ),
       child: ExpansionTile(
         tilePadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 4),
         childrenPadding: const EdgeInsets.fromLTRB(16, 0, 16, 12),
         leading: CircleAvatar(
-          backgroundColor: (isActive ? AdminHelpers.primary : Colors.grey)
+          backgroundColor: (isActive ? AdminHelpers.primary : SboxColors.slate500)
               .withValues(alpha: 0.1),
           child: Icon(Icons.inventory_2,
-              color: isActive ? AdminHelpers.primary : Colors.grey, size: 22),
+              color: isActive ? AdminHelpers.primary : SboxColors.slate500, size: 22),
         ),
         title: Row(children: [
           Expanded(
             child: Text(tr(pkg['name'] ?? 'N/A'),
                 style: const TextStyle(
-                    fontWeight: FontWeight.w700, fontSize: 15)),
+                    fontWeight: FontWeight.w700, fontSize: 16)),
           ),
           if (context.systemAdminCanEdit)
             TextButton.icon(
@@ -567,7 +568,7 @@ class ServicePackagesTabState extends State<ServicePackagesTab> {
           const SizedBox(width: 6),
           AdminHelpers.statusChip(
               isActive ? 'Hoạt động' : 'Tắt',
-              isActive ? AdminHelpers.success : Colors.grey),
+              isActive ? AdminHelpers.success : SboxColors.slate500),
         ]),
         subtitle: Wrap(
           spacing: 12,
@@ -595,17 +596,17 @@ class ServicePackagesTabState extends State<ServicePackagesTab> {
                     _pkgBool(pkg, 'allowWeb') ? 'Web' : 'Không web',
                     _pkgBool(pkg, 'allowWeb')
                         ? AdminHelpers.success
-                        : Colors.grey),
+                        : SboxColors.slate500),
                 AdminHelpers.statusChip(
                     _pkgBool(pkg, 'allowMobile') ? 'Mobile/POS' : 'Không mobile',
                     _pkgBool(pkg, 'allowMobile')
                         ? AdminHelpers.success
-                        : Colors.grey),
+                        : SboxColors.slate500),
                 AdminHelpers.statusChip(
                     _pkgBool(pkg, 'allowFcm') ? 'FCM' : 'Không FCM',
                     _pkgBool(pkg, 'allowFcm')
                         ? AdminHelpers.info
-                        : Colors.grey),
+                        : SboxColors.slate500),
               ],
             ),
           ),
@@ -727,9 +728,9 @@ class ServicePackagesTabState extends State<ServicePackagesTab> {
     return Row(
       mainAxisSize: MainAxisSize.min,
       children: [
-        Icon(icon, size: 14, color: Colors.grey[500]),
+        Icon(icon, size: 14, color: SboxColors.slate500),
         const SizedBox(width: 4),
-        Text(tr(text), style: TextStyle(fontSize: 12, color: Colors.grey[600])),
+        Text(tr(text), style: TextStyle(fontSize: 12, color: SboxColors.slate600)),
       ],
     );
   }
@@ -802,7 +803,7 @@ class ServicePackagesTabState extends State<ServicePackagesTab> {
                   tr(asCopy
                       ? 'Sao chép gói — đổi tên rồi lưu'
                       : (isEdit ? 'Sửa gói dịch vụ' : 'Tạo gói dịch vụ mới')),
-                  style: const TextStyle(fontSize: 17),
+                  style: const TextStyle(fontSize: 18),
                 ),
               ),
             ]),
@@ -819,8 +820,8 @@ class ServicePackagesTabState extends State<ServicePackagesTab> {
                         margin: const EdgeInsets.only(bottom: 12),
                         padding: const EdgeInsets.all(10),
                         decoration: BoxDecoration(
-                          color: const Color(0xFFFFF7ED),
-                          borderRadius: BorderRadius.circular(8),
+                          color: SboxColors.warningSoft,
+                          borderRadius: BorderRadius.circular(10),
                           border: Border.all(color: const Color(0xFFFDBA74)),
                         ),
                         child: Text(
@@ -846,7 +847,7 @@ class ServicePackagesTabState extends State<ServicePackagesTab> {
                             ? 'Khách tự chọn gói này khi đăng ký cửa hàng'
                             : 'Gói nội bộ — Super Admin gán tay cho cửa hàng'),
                         style: TextStyle(
-                            fontSize: 11, color: Colors.grey.shade600),
+                            fontSize: 11, color: SboxColors.slate600),
                       ),
                       value: isPublic,
                       onChanged: (v) =>
@@ -880,17 +881,17 @@ class ServicePackagesTabState extends State<ServicePackagesTab> {
                       padding: const EdgeInsets.only(top: 6, bottom: 8),
                       child: Text(
                         tr('0 = không giới hạn (tài khoản, máy CC, thiết bị truy cập, chi nhánh)'),
-                        style: TextStyle(fontSize: 11, color: Colors.grey.shade600),
+                        style: TextStyle(fontSize: 11, color: SboxColors.slate600),
                       ),
                     ),
                     const Divider(),
                     Text(tr('Xóa dữ liệu định kỳ'),
                         style: const TextStyle(
-                            fontWeight: FontWeight.w700, fontSize: 15)),
+                            fontWeight: FontWeight.w700, fontSize: 16)),
                     const SizedBox(height: 4),
                     Text(
                       tr('Chỉ cửa hàng đang dùng gói này. 0 tháng = không xóa. Giờ theo Việt Nam, ví dụ 3 là 3 giờ sáng.'),
-                      style: TextStyle(fontSize: 11, color: Colors.grey.shade600),
+                      style: TextStyle(fontSize: 11, color: SboxColors.slate600),
                     ),
                     const SizedBox(height: 8),
                     Row(children: [
@@ -930,7 +931,7 @@ class ServicePackagesTabState extends State<ServicePackagesTab> {
                           style: const TextStyle(fontSize: 13)),
                       subtitle: Text(
                         tr('Tắt = chỉ thông báo trong app (SignalR), không đẩy điện thoại'),
-                        style: TextStyle(fontSize: 11, color: Colors.grey.shade600),
+                        style: TextStyle(fontSize: 11, color: SboxColors.slate600),
                       ),
                       value: allowFcm,
                       onChanged: (v) => setDialogState(() => allowFcm = v),
@@ -969,7 +970,7 @@ class ServicePackagesTabState extends State<ServicePackagesTab> {
                     Row(children: [
                       Text(tr('Chọn chức năng'),
                           style: TextStyle(
-                              fontWeight: FontWeight.w700, fontSize: 15)),
+                              fontWeight: FontWeight.w700, fontSize: 16)),
                       const Spacer(),
                       TextButton(
                         onPressed: () {
@@ -998,7 +999,7 @@ class ServicePackagesTabState extends State<ServicePackagesTab> {
                     const SizedBox(height: 8),
                     Text(tr('Preset POS'),
                         style: TextStyle(
-                            fontSize: 12, color: Colors.grey.shade600)),
+                            fontSize: 12, color: SboxColors.slate600)),
                     const SizedBox(height: 6),
                     Wrap(
                       spacing: 6,
@@ -1053,7 +1054,7 @@ class ServicePackagesTabState extends State<ServicePackagesTab> {
                           color: AdminHelpers.surfaceBg,
                           borderRadius: BorderRadius.circular(10),
                           border:
-                              Border.all(color: Colors.grey.shade200),
+                              Border.all(color: SboxColors.slate200),
                         ),
                         child: Column(
                           children: [
@@ -1080,7 +1081,7 @@ class ServicePackagesTabState extends State<ServicePackagesTab> {
                                       size: 20,
                                       color: allSelected
                                           ? AdminHelpers.primary
-                                          : Colors.grey),
+                                          : SboxColors.slate500),
                                   const SizedBox(width: 8),
                                   Text(tr(catName),
                                       style: const TextStyle(
@@ -1091,7 +1092,7 @@ class ServicePackagesTabState extends State<ServicePackagesTab> {
                                       tr('${catCodes.where((c) => selectedModules.contains(c)).length}/${catCodes.length}'),
                                       style: TextStyle(
                                           fontSize: 11,
-                                          color: Colors.grey[500])),
+                                          color: SboxColors.slate500)),
                                 ]),
                               ),
                             ),

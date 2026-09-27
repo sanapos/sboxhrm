@@ -6,6 +6,7 @@ import 'system_admin_helpers.dart';
 import '../../widgets/hrm_page_chrome.dart';
 import 'package:zkteco_flutter_client/l10n/app_tr.dart';
 
+import '../../theme/sbox_tokens.dart';
 /// SuperAdmin – Tab quản lý nội dung: Điều khoản, Chính sách, Trợ giúp + Báo lỗi
 class ContentPagesTab extends StatefulWidget {
   const ContentPagesTab({super.key});
@@ -46,7 +47,7 @@ class ContentPagesTabState extends State<ContentPagesTab>
                   text: tr('Báo lỗi & Góp ý')),
             ],
             labelColor: AdminHelpers.primary,
-            unselectedLabelColor: Colors.grey,
+            unselectedLabelColor: SboxColors.slate500,
             indicatorColor: AdminHelpers.primary,
           ),
         ),
@@ -95,7 +96,7 @@ class _PagesSubTabState extends State<_PagesSubTab> {
       'type': 'help',
       'label': 'Trợ giúp',
       'icon': Icons.help_outline,
-      'color': Color(0xFF059669)
+      'color': SboxColors.success
     },
   ];
 
@@ -150,7 +151,7 @@ class _PagesSubTabState extends State<_PagesSubTab> {
               return Card(
                 margin: const EdgeInsets.only(bottom: 12),
                 shape: RoundedRectangleBorder(
-                    borderRadius: BorderRadius.circular(12)),
+                    borderRadius: BorderRadius.circular(14)),
                 child: ListTile(
                   contentPadding:
                       const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
@@ -344,10 +345,10 @@ class _BugReportsSubTabState extends State<_BugReportsSubTab> {
   String _typeFilter = '';
 
   static const _statusColors = {
-    'New': Color(0xFFEF4444),
-    'InProgress': Color(0xFFF59E0B),
-    'Resolved': Color(0xFF10B981),
-    'Closed': Color(0xFF71717A),
+    'New': SboxColors.danger,
+    'InProgress': SboxColors.warning,
+    'Resolved': SboxColors.success,
+    'Closed': SboxColors.slate500,
   };
   static const _typeLabels = {
     'Bug': 'Lỗi',
@@ -464,7 +465,7 @@ class _BugReportsSubTabState extends State<_BugReportsSubTab> {
                 child: Padding(
                     padding: EdgeInsets.all(32),
                     child: Text(tr('Chưa có báo cáo nào'),
-                        style: TextStyle(color: Colors.grey)))),
+                        style: TextStyle(color: SboxColors.slate500)))),
           if (!_loading && _items.isNotEmpty)
             Expanded(
               child: ListView.separated(
@@ -492,7 +493,7 @@ class _BugReportsSubTabState extends State<_BugReportsSubTab> {
   Widget _buildItem(Map<String, dynamic> r) {
     final status = r['status'] as String? ?? 'New';
     final type = r['type'] as String? ?? 'Bug';
-    final statusColor = _statusColors[status] ?? Colors.grey;
+    final statusColor = _statusColors[status] ?? SboxColors.slate500;
     final createdAt = r['createdAt'] as String?;
     DateTime? dt;
     try {
@@ -505,8 +506,8 @@ class _BugReportsSubTabState extends State<_BugReportsSubTab> {
         backgroundColor: (type == 'Bug'
                 ? Colors.red
                 : type == 'Suggestion'
-                    ? Colors.blue
-                    : Colors.grey)
+                    ? SboxColors.brand500
+                    : SboxColors.slate500)
             .withValues(alpha: 0.12),
         child: Icon(
           type == 'Bug'
@@ -517,8 +518,8 @@ class _BugReportsSubTabState extends State<_BugReportsSubTab> {
           color: type == 'Bug'
               ? Colors.red
               : type == 'Suggestion'
-                  ? Colors.blue
-                  : Colors.grey,
+                  ? SboxColors.brand500
+                  : SboxColors.slate500,
           size: 20,
         ),
       ),
@@ -548,21 +549,21 @@ class _BugReportsSubTabState extends State<_BugReportsSubTab> {
             style: const TextStyle(fontSize: 12)),
         const SizedBox(height: 2),
         Row(children: [
-          Icon(Icons.person_outline, size: 12, color: Colors.grey[500]),
+          Icon(Icons.person_outline, size: 12, color: SboxColors.slate500),
           const SizedBox(width: 3),
           Text(tr(r['userName'] as String? ?? 'Ẩn danh'),
-              style: TextStyle(fontSize: 11, color: Colors.grey[500])),
+              style: TextStyle(fontSize: 11, color: SboxColors.slate500)),
           if (r['storeName'] != null) ...[
             const SizedBox(width: 6),
-            Icon(Icons.store_outlined, size: 12, color: Colors.grey[500]),
+            Icon(Icons.store_outlined, size: 12, color: SboxColors.slate500),
             const SizedBox(width: 3),
             Text(tr(r['storeName'] as String),
-                style: TextStyle(fontSize: 11, color: Colors.grey[500])),
+                style: TextStyle(fontSize: 11, color: SboxColors.slate500)),
           ],
           const Spacer(),
           if (dt != null)
             Text(tr(_df.format(dt)),
-                style: TextStyle(fontSize: 11, color: Colors.grey[500])),
+                style: TextStyle(fontSize: 11, color: SboxColors.slate500)),
         ]),
       ]),
       trailing: PopupMenuButton<String>(
@@ -599,9 +600,9 @@ class _BugReportsSubTabState extends State<_BugReportsSubTab> {
             Container(
               padding: const EdgeInsets.all(12),
               decoration: BoxDecoration(
-                color: Colors.grey[50],
-                borderRadius: BorderRadius.circular(8),
-                border: Border.all(color: Colors.grey[200]!),
+                color: SboxColors.slate50,
+                borderRadius: BorderRadius.circular(10),
+                border: Border.all(color: SboxColors.slate200),
               ),
               child: Text(tr(r['content'] as String? ?? '')),
             ),

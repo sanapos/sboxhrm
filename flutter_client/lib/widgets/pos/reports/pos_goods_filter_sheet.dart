@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import '../pos_theme.dart';
 import 'package:zkteco_flutter_client/l10n/app_tr.dart';
 
+import '../../../theme/sbox_tokens.dart';
 enum PosGoodsInventoryFilter {
   all,
   belowMin,
@@ -83,7 +84,7 @@ class _PosGoodsFilterSheetState extends State<PosGoodsFilterSheet> {
   Widget build(BuildContext context) {
     return Container(
       decoration: const BoxDecoration(
-        color: Color(0xFFF3F4F6),
+        color: SboxColors.slate100,
         borderRadius: BorderRadius.vertical(top: Radius.circular(16)),
       ),
       child: SafeArea(
@@ -101,7 +102,7 @@ class _PosGoodsFilterSheetState extends State<PosGoodsFilterSheet> {
                   ),
                   Expanded(
                     child: Text(tr('Lọc báo cáo'),
-                      style: TextStyle(fontSize: 17, fontWeight: FontWeight.w600),
+                      style: TextStyle(fontSize: 18, fontWeight: FontWeight.w600),
                     ),
                   ),
                   TextButton(

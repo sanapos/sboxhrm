@@ -20,6 +20,7 @@ import 'package:provider/provider.dart';
 import '../providers/permission_provider.dart';
 import 'package:zkteco_flutter_client/l10n/app_tr.dart';
 
+import '../theme/sbox_tokens.dart';
 class MealTrackingScreen extends StatefulWidget {
   const MealTrackingScreen({super.key});
   @override
@@ -651,8 +652,8 @@ class _MealTrackingScreenState extends State<MealTrackingScreen>
                   width: double.infinity,
                   padding: const EdgeInsets.all(12),
                   decoration: BoxDecoration(
-                    color: const Color(0xFFF0FDF4),
-                    borderRadius: BorderRadius.circular(8),
+                    color: SboxColors.successSoft,
+                    borderRadius: BorderRadius.circular(10),
                     border: Border.all(color: const Color(0xFF86EFAC)),
                   ),
                   child: Column(
@@ -661,13 +662,13 @@ class _MealTrackingScreenState extends State<MealTrackingScreen>
                       Row(
                         children: [
                           const Icon(Icons.restaurant_menu,
-                              size: 16, color: Color(0xFF16A34A)),
+                              size: 16, color: SboxColors.success),
                           const SizedBox(width: 6),
                           Text(tr('Thực đơn (${selectedDishes.length} món)'),
                               style: const TextStyle(
                                   fontWeight: FontWeight.bold,
                                   fontSize: 13,
-                                  color: Color(0xFF16A34A))),
+                                  color: SboxColors.success)),
                           const Spacer(),
                           if (selectedDishes.isNotEmpty)
                             GestureDetector(
@@ -693,7 +694,7 @@ class _MealTrackingScreenState extends State<MealTrackingScreen>
                                   visualDensity: VisualDensity.compact,
                                   materialTapTargetSize:
                                       MaterialTapTargetSize.shrinkWrap,
-                                  backgroundColor: const Color(0xFFDCFCE7),
+                                  backgroundColor: SboxColors.successSoft,
                                 ))
                             .toList(),
                       ),
@@ -705,7 +706,7 @@ class _MealTrackingScreenState extends State<MealTrackingScreen>
               // Category filter
               Text(tr('Chọn món (${selectedDishIds.length} đã chọn)'),
                   style: const TextStyle(
-                      fontWeight: FontWeight.bold, fontSize: 15)),
+                      fontWeight: FontWeight.bold, fontSize: 16)),
               const SizedBox(height: 8),
               if (categories.isNotEmpty)
                 Wrap(
@@ -740,7 +741,7 @@ class _MealTrackingScreenState extends State<MealTrackingScreen>
                 Padding(
                   padding: EdgeInsets.all(16),
                   child: Text(tr('Chưa có món ăn. Vui lòng thêm món trong "Quản lý danh sách món".'),
-                      style: TextStyle(color: Colors.grey)),
+                      style: TextStyle(color: SboxColors.slate500)),
                 ),
               ...filteredGrouped.entries.map((catEntry) {
                 final cat = catEntry.key;
@@ -917,20 +918,20 @@ class _MealTrackingScreenState extends State<MealTrackingScreen>
               Container(
                 padding: const EdgeInsets.all(10),
                 decoration: BoxDecoration(
-                  color: const Color(0xFFEFF6FF),
-                  borderRadius: BorderRadius.circular(8),
+                  color: SboxColors.brand50,
+                  borderRadius: BorderRadius.circular(10),
                 ),
                 child: Row(
                   children: [
                     const Icon(Icons.info_outline,
-                        size: 16, color: Color(0xFF3B82F6)),
+                        size: 16, color: SboxColors.brand500),
                     const SizedBox(width: 8),
                     Expanded(
                         child: Text(
                       tr('${menu.mealSessionName ?? ''} - ${DateFormat('dd/MM/yyyy').format(menu.date)}'),
                       style: const TextStyle(
                           fontWeight: FontWeight.w600,
-                          color: Color(0xFF1E40AF)),
+                          color: SboxColors.brand800),
                     )),
                   ],
                 ),
@@ -947,8 +948,8 @@ class _MealTrackingScreenState extends State<MealTrackingScreen>
                   width: double.infinity,
                   padding: const EdgeInsets.all(12),
                   decoration: BoxDecoration(
-                    color: const Color(0xFFF0FDF4),
-                    borderRadius: BorderRadius.circular(8),
+                    color: SboxColors.successSoft,
+                    borderRadius: BorderRadius.circular(10),
                     border: Border.all(color: const Color(0xFF86EFAC)),
                   ),
                   child: Column(
@@ -956,13 +957,13 @@ class _MealTrackingScreenState extends State<MealTrackingScreen>
                     children: [
                       Row(children: [
                         const Icon(Icons.restaurant_menu,
-                            size: 16, color: Color(0xFF16A34A)),
+                            size: 16, color: SboxColors.success),
                         const SizedBox(width: 6),
                         Text(tr('Thực đơn (${selectedDishes.length} món)'),
                             style: const TextStyle(
                                 fontWeight: FontWeight.bold,
                                 fontSize: 13,
-                                color: Color(0xFF16A34A))),
+                                color: SboxColors.success)),
                         const Spacer(),
                         GestureDetector(
                           onTap: () =>
@@ -986,7 +987,7 @@ class _MealTrackingScreenState extends State<MealTrackingScreen>
                                   visualDensity: VisualDensity.compact,
                                   materialTapTargetSize:
                                       MaterialTapTargetSize.shrinkWrap,
-                                  backgroundColor: const Color(0xFFDCFCE7),
+                                  backgroundColor: SboxColors.successSoft,
                                 ))
                             .toList(),
                       ),
@@ -997,7 +998,7 @@ class _MealTrackingScreenState extends State<MealTrackingScreen>
               ],
               Text(tr('Chọn món (${selectedDishIds.length} đã chọn)'),
                   style: const TextStyle(
-                      fontWeight: FontWeight.bold, fontSize: 15)),
+                      fontWeight: FontWeight.bold, fontSize: 16)),
               const SizedBox(height: 8),
               if (categories.isNotEmpty)
                 Wrap(
@@ -1387,7 +1388,7 @@ class _MealTrackingScreenState extends State<MealTrackingScreen>
                   child: _masterDishes.isEmpty
                       ? Center(
                           child: Text(tr('Chưa có món ăn nào'),
-                              style: TextStyle(color: Colors.grey)))
+                              style: TextStyle(color: SboxColors.slate500)))
                       : ListView(
                           children: filteredGrouped.entries.map((catEntry) {
                             return Column(
@@ -1408,7 +1409,7 @@ class _MealTrackingScreenState extends State<MealTrackingScreen>
                                       Text(tr('(${catEntry.value.length})'),
                                           style: const TextStyle(
                                               fontSize: 12,
-                                              color: Colors.grey)),
+                                              color: SboxColors.slate500)),
                                     ],
                                   ),
                                 ),
@@ -1506,7 +1507,7 @@ class _MealTrackingScreenState extends State<MealTrackingScreen>
                   ? Center(
                       child: Text(tr('Chưa có nhóm nào.\nThêm món với nhóm mới để tạo.'),
                           textAlign: TextAlign.center,
-                          style: TextStyle(color: Colors.grey)))
+                          style: TextStyle(color: SboxColors.slate500)))
                   : ListView.builder(
                       itemCount: categories.length,
                       itemBuilder: (_, i) {
@@ -1717,10 +1718,10 @@ class _MealTrackingScreenState extends State<MealTrackingScreen>
   Color _sessionColor(String sessionId) {
     const colors = [
       HrmPageChrome.chipMid,
-      Color(0xFF3B82F6),
+      SboxColors.brand500,
       HrmPageChrome.chipLight,
       HrmPageChrome.chipSoft,
-      Color(0xFFEF4444),
+      SboxColors.danger,
       HrmPageChrome.chipSoft,
     ];
     final idx = _sessions.indexWhere((s) => s.id == sessionId);
@@ -1866,10 +1867,10 @@ class _MealTrackingScreenState extends State<MealTrackingScreen>
         child: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
-            const Icon(Icons.restaurant, size: 64, color: Colors.grey),
+            const Icon(Icons.restaurant, size: 64, color: SboxColors.slate500),
             const SizedBox(height: 16),
             Text(tr('${tr('Chưa có dữ liệu cho ngày ')}${DateFormat('dd/MM/yyyy').format(_selectedDate)}'),
-              style: const TextStyle(color: Colors.grey),
+              style: const TextStyle(color: SboxColors.slate500),
             ),
             const SizedBox(height: 16),
             FilledButton(
@@ -1927,7 +1928,7 @@ class _MealTrackingScreenState extends State<MealTrackingScreen>
                               const SizedBox(height: 2),
                               Text(tr('Ước tính: ${summary.totalEstimated} | Thực tế: ${summary.totalActual}'),
                                 style: const TextStyle(
-                                    color: Colors.grey, fontSize: 12),
+                                    color: SboxColors.slate500, fontSize: 12),
                               ),
                             ],
                           ),
@@ -1953,7 +1954,7 @@ class _MealTrackingScreenState extends State<MealTrackingScreen>
                         'Ước tính',
                         summary.totalEstimated.toString(),
                         Icons.people,
-                        const Color(0xFF3B82F6),
+                        SboxColors.brand500,
                       ),
                     ),
                     const SizedBox(width: 12),
@@ -2012,7 +2013,7 @@ class _MealTrackingScreenState extends State<MealTrackingScreen>
             Text(tr(value),
                 style: TextStyle(
                     fontSize: 28, fontWeight: FontWeight.bold, color: color)),
-            Text(tr(label), style: const TextStyle(color: Colors.grey)),
+            Text(tr(label), style: const TextStyle(color: SboxColors.slate500)),
           ],
         ),
       ),
@@ -2029,16 +2030,16 @@ class _MealTrackingScreenState extends State<MealTrackingScreen>
 
     if (todayMenus.isEmpty) {
       return Card(
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
         child: Padding(
           padding: const EdgeInsets.all(20),
           child: Row(
             children: [
-              Icon(Icons.menu_book, size: 36, color: Colors.grey[300]),
+              Icon(Icons.menu_book, size: 36, color: SboxColors.slate300),
               const SizedBox(width: 16),
               Expanded(
                 child: Text(tr('Chưa có thực đơn cho ngày này'),
-                    style: TextStyle(color: Colors.grey, fontSize: 14)),
+                    style: TextStyle(color: SboxColors.slate500, fontSize: 14)),
               ),
             ],
           ),
@@ -2049,7 +2050,7 @@ class _MealTrackingScreenState extends State<MealTrackingScreen>
     // Group items by session
     return Card(
       shape: RoundedRectangleBorder(
-        borderRadius: BorderRadius.circular(12),
+        borderRadius: BorderRadius.circular(14),
         side: const BorderSide(color: HrmPageChrome.chip, width: 1),
       ),
       child: Column(
@@ -2071,7 +2072,7 @@ class _MealTrackingScreenState extends State<MealTrackingScreen>
                   style: const TextStyle(
                       color: Colors.white,
                       fontWeight: FontWeight.bold,
-                      fontSize: 15),
+                      fontSize: 16),
                 ),
               ],
             ),
@@ -2089,7 +2090,7 @@ class _MealTrackingScreenState extends State<MealTrackingScreen>
                           decoration: BoxDecoration(
                             color:
                                 HrmPageChrome.chip.withValues(alpha: 0.1),
-                            borderRadius: BorderRadius.circular(8),
+                            borderRadius: BorderRadius.circular(10),
                           ),
                           child: Text(
                             tr(menu.mealSessionName ?? 'Buổi ăn'),
@@ -2105,7 +2106,7 @@ class _MealTrackingScreenState extends State<MealTrackingScreen>
                               child: Text(tr(menu.note!),
                                   style: TextStyle(
                                       fontSize: 12,
-                                      color: Colors.grey[600],
+                                      color: SboxColors.slate600,
                                       fontStyle: FontStyle.italic),
                                   overflow: TextOverflow.ellipsis)),
                         ],
@@ -2184,7 +2185,7 @@ class _MealTrackingScreenState extends State<MealTrackingScreen>
                         fontSize: 16, fontWeight: FontWeight.bold)),
                 Text(
                   tr('${est.startTime ?? ''} - ${est.endTime ?? ''}'),
-                  style: const TextStyle(color: Colors.grey),
+                  style: const TextStyle(color: SboxColors.slate500),
                 ),
               ],
             ),
@@ -2197,11 +2198,11 @@ class _MealTrackingScreenState extends State<MealTrackingScreen>
               ),
             const SizedBox(height: 12),
             ClipRRect(
-              borderRadius: BorderRadius.circular(8),
+              borderRadius: BorderRadius.circular(10),
               child: LinearProgressIndicator(
                 value: percent,
                 minHeight: 12,
-                backgroundColor: Colors.grey[200],
+                backgroundColor: SboxColors.slate200,
                 valueColor: AlwaysStoppedAnimation(percent < 0.7
                     ? HrmPageChrome.chipMid
                     : HrmPageChrome.chipLight),
@@ -2214,7 +2215,7 @@ class _MealTrackingScreenState extends State<MealTrackingScreen>
                     HrmPageChrome.chipSoft),
                 const SizedBox(width: 12),
                 _miniStat('Ước tính', est.estimatedCount.toString(),
-                    const Color(0xFF3B82F6)),
+                    SboxColors.brand500),
                 const SizedBox(width: 12),
                 _miniStat('Thực tế', est.actualCount.toString(),
                     HrmPageChrome.chipMid),
@@ -2246,7 +2247,7 @@ class _MealTrackingScreenState extends State<MealTrackingScreen>
                             padding: const EdgeInsets.only(left: 6),
                             child: Text(tr('(${item.category})'),
                                 style: const TextStyle(
-                                    fontSize: 11, color: Colors.grey)),
+                                    fontSize: 11, color: SboxColors.slate500)),
                           ),
                       ],
                     ),
@@ -2264,8 +2265,8 @@ class _MealTrackingScreenState extends State<MealTrackingScreen>
         children: [
           Text(tr(value),
               style: TextStyle(
-                  fontWeight: FontWeight.bold, color: color, fontSize: 15)),
-          Text(tr(label), style: const TextStyle(fontSize: 11, color: Colors.grey)),
+                  fontWeight: FontWeight.bold, color: color, fontSize: 16)),
+          Text(tr(label), style: const TextStyle(fontSize: 11, color: SboxColors.slate500)),
         ],
       ),
     );
@@ -2363,7 +2364,7 @@ class _MealTrackingScreenState extends State<MealTrackingScreen>
                 tr(_totalPages > 1
                     ? '$_totalRecords bản ghi • Trang $_currentPage/$_totalPages'
                     : '${_records.length} bản ghi'),
-                style: const TextStyle(color: Colors.grey, fontSize: 12),
+                style: const TextStyle(color: SboxColors.slate500, fontSize: 12),
               ),
             ),
           ),
@@ -2374,7 +2375,7 @@ class _MealTrackingScreenState extends State<MealTrackingScreen>
               : _records.isEmpty
                   ? Center(
                       child: Text(tr('Chưa có dữ liệu chấm cơm'),
-                          style: TextStyle(color: Colors.grey)))
+                          style: TextStyle(color: SboxColors.slate500)))
                   : Builder(builder: (_) {
                       final filtered = _recordSearch.isEmpty
                           ? _records
@@ -2386,7 +2387,7 @@ class _MealTrackingScreenState extends State<MealTrackingScreen>
                       if (filtered.isEmpty) {
                         return Center(
                             child: Text(tr('Không tìm thấy'),
-                                style: TextStyle(color: Colors.grey)));
+                                style: TextStyle(color: SboxColors.slate500)));
                       }
                       return ListView.builder(
                         itemCount: filtered.length,
@@ -2415,7 +2416,7 @@ class _MealTrackingScreenState extends State<MealTrackingScreen>
                               trailing: canManage
                                   ? PopupMenuButton<String>(
                                       icon: Icon(Icons.more_vert,
-                                          color: Colors.grey[600], size: 20),
+                                          color: SboxColors.slate600, size: 20),
                                       onSelected: (v) {
                                         if (v == 'edit') {
                                           _showEditRecordDialog(r);
@@ -2435,7 +2436,7 @@ class _MealTrackingScreenState extends State<MealTrackingScreen>
                                   : Text(
                                       tr(r.deviceName ?? r.pin ?? ''),
                                       style:
-                                          const TextStyle(color: Colors.grey),
+                                          const TextStyle(color: SboxColors.slate500),
                                     ),
                             ),
                           );
@@ -2534,13 +2535,13 @@ class _MealTrackingScreenState extends State<MealTrackingScreen>
                   height: 40,
                   padding: const EdgeInsets.symmetric(horizontal: 12),
                   decoration: BoxDecoration(
-                    color: const Color(0xFFF8FAFC),
-                    borderRadius: BorderRadius.circular(8),
-                    border: Border.all(color: const Color(0xFFE4E4E7)),
+                    color: SboxColors.slate50,
+                    borderRadius: BorderRadius.circular(10),
+                    border: Border.all(color: SboxColors.slate200),
                   ),
                   child: Row(children: [
                     const Icon(Icons.account_tree_outlined,
-                        size: 16, color: Color(0xFF6B7280)),
+                        size: 16, color: SboxColors.slate500),
                     const SizedBox(width: 8),
                     Expanded(
                       child: DropdownButtonHideUnderline(
@@ -2549,9 +2550,9 @@ class _MealTrackingScreenState extends State<MealTrackingScreen>
                           isExpanded: true,
                           isDense: true,
                           style: const TextStyle(
-                              fontSize: 13, color: Color(0xFF111827)),
+                              fontSize: 13, color: SboxColors.slate900),
                           icon: const Icon(Icons.keyboard_arrow_down,
-                              size: 18, color: Color(0xFF9CA3AF)),
+                              size: 18, color: SboxColors.slate400),
                           items: [
                             DropdownMenuItem<String?>(
                                 value: null,
@@ -2574,7 +2575,7 @@ class _MealTrackingScreenState extends State<MealTrackingScreen>
                         child: const Padding(
                             padding: EdgeInsets.all(4),
                             child: Icon(Icons.close,
-                                size: 14, color: Color(0xFF9CA3AF))),
+                                size: 14, color: SboxColors.slate400)),
                       ),
                   ]),
                 ),
@@ -2589,7 +2590,7 @@ class _MealTrackingScreenState extends State<MealTrackingScreen>
               : _employeeSummaries.isEmpty
                   ? Center(
                       child: Text(tr('Chưa có dữ liệu'),
-                          style: TextStyle(color: Colors.grey)))
+                          style: TextStyle(color: SboxColors.slate500)))
                   : Builder(
                       builder: (_) {
                         final q = _summarySearch.toLowerCase();
@@ -2622,7 +2623,7 @@ class _MealTrackingScreenState extends State<MealTrackingScreen>
                         if (filtered.isEmpty) {
                           return Center(
                               child: Text(tr('Không tìm thấy'),
-                                  style: TextStyle(color: Colors.grey)));
+                                  style: TextStyle(color: SboxColors.slate500)));
                         }
                         return ListView.builder(
                           padding: const EdgeInsets.fromLTRB(12, 0, 12, 80),
@@ -2635,7 +2636,7 @@ class _MealTrackingScreenState extends State<MealTrackingScreen>
                             return Card(
                               margin: const EdgeInsets.only(bottom: 8),
                               child: InkWell(
-                                borderRadius: BorderRadius.circular(12),
+                                borderRadius: BorderRadius.circular(14),
                                 onTap: () => _showEmployeeDetail(s),
                                 child: Padding(
                                   padding: const EdgeInsets.all(12),
@@ -2666,7 +2667,7 @@ class _MealTrackingScreenState extends State<MealTrackingScreen>
                                             Text(
                                               tr('${s.employeeCode ?? ''} | ${s.totalMeals} suất | ${_formatCurrency(s.totalCost)}'),
                                               style: const TextStyle(
-                                                  color: Colors.grey,
+                                                  color: SboxColors.slate500,
                                                   fontSize: 12),
                                             ),
                                             const SizedBox(height: 4),
@@ -2687,7 +2688,7 @@ class _MealTrackingScreenState extends State<MealTrackingScreen>
                                             Text(tr('Đã trả ${_formatCurrency(s.totalPaid)}'),
                                               style: const TextStyle(
                                                   fontSize: 11,
-                                                  color: Colors.grey),
+                                                  color: SboxColors.slate500),
                                             ),
                                           ],
                                         ),
@@ -2701,7 +2702,7 @@ class _MealTrackingScreenState extends State<MealTrackingScreen>
                                             tr(_formatCurrency(s.balance)),
                                             style: TextStyle(
                                                 fontWeight: FontWeight.bold,
-                                                fontSize: 15,
+                                                fontSize: 16,
                                                 color: s.balance > 0
                                                     ? Colors.red
                                                     : HrmPageChrome.chipMid),
@@ -2712,7 +2713,7 @@ class _MealTrackingScreenState extends State<MealTrackingScreen>
                                                 : 'Đã trả đủ'),
                                             style: TextStyle(
                                                 fontSize: 10,
-                                                color: Colors.grey[600]),
+                                                color: SboxColors.slate600),
                                           ),
                                         ],
                                       ),
@@ -2889,11 +2890,11 @@ class _MealTrackingScreenState extends State<MealTrackingScreen>
                         mainAxisSize: MainAxisSize.min,
                         children: [
                           Icon(Icons.restaurant_menu,
-                              size: 72, color: Colors.grey[300]),
+                              size: 72, color: SboxColors.slate300),
                           const SizedBox(height: 16),
                           Text(tr('Chưa có thực đơn cho tuần này'),
                               style:
-                                  TextStyle(color: Colors.grey, fontSize: 15)),
+                                  TextStyle(color: SboxColors.slate500, fontSize: 16)),
                           if (canManage) ...[
                             const SizedBox(height: 16),
                             FilledButton.icon(
@@ -2945,7 +2946,7 @@ class _MealTrackingScreenState extends State<MealTrackingScreen>
                               margin: const EdgeInsets.only(bottom: 8),
                               elevation: today ? 3 : 1,
                               shape: RoundedRectangleBorder(
-                                borderRadius: BorderRadius.circular(12),
+                                borderRadius: BorderRadius.circular(14),
                                 side: today
                                     ? const BorderSide(
                                         color: HrmPageChrome.chip, width: 1.5)
@@ -2964,7 +2965,7 @@ class _MealTrackingScreenState extends State<MealTrackingScreen>
                                       Text(tr(_dayNames[dayIndex]),
                                           style: const TextStyle(
                                               fontWeight: FontWeight.w600,
-                                              fontSize: 15)),
+                                              fontSize: 16)),
                                       const SizedBox(width: 8),
                                       Container(
                                         padding: const EdgeInsets.symmetric(
@@ -2973,7 +2974,7 @@ class _MealTrackingScreenState extends State<MealTrackingScreen>
                                           color: HrmPageChrome.chip
                                               .withValues(alpha: 0.1),
                                           borderRadius:
-                                              BorderRadius.circular(12),
+                                              BorderRadius.circular(14),
                                         ),
                                         child: Text(tr('${dayMenus.length} buổi'),
                                             style: const TextStyle(
@@ -3004,7 +3005,7 @@ class _MealTrackingScreenState extends State<MealTrackingScreen>
       width: 40,
       height: 40,
       decoration: BoxDecoration(
-        color: isToday ? HrmPageChrome.chip : Colors.grey[200],
+        color: isToday ? HrmPageChrome.chip : SboxColors.slate200,
         borderRadius: BorderRadius.circular(10),
       ),
       child: Center(
@@ -3013,7 +3014,7 @@ class _MealTrackingScreenState extends State<MealTrackingScreen>
           style: TextStyle(
             fontWeight: FontWeight.bold,
             fontSize: 16,
-            color: isToday ? Colors.white : Colors.grey[700],
+            color: isToday ? Colors.white : SboxColors.slate700,
           ),
         ),
       ),
@@ -3027,7 +3028,7 @@ class _MealTrackingScreenState extends State<MealTrackingScreen>
         decoration: BoxDecoration(
           color: Theme.of(context).cardColor,
           borderRadius: BorderRadius.circular(10),
-          border: Border.all(color: Colors.grey.withValues(alpha: 0.15)),
+          border: Border.all(color: SboxColors.slate500.withValues(alpha: 0.15)),
         ),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
@@ -3078,7 +3079,7 @@ class _MealTrackingScreenState extends State<MealTrackingScreen>
                 child: Text(tr(menu.note!),
                     style: TextStyle(
                         fontStyle: FontStyle.italic,
-                        color: Colors.grey[600],
+                        color: SboxColors.slate600,
                         fontSize: 12)),
               ),
             // Dish list
@@ -3100,7 +3101,7 @@ class _MealTrackingScreenState extends State<MealTrackingScreen>
                         const SizedBox(width: 10),
                         Expanded(
                             child: Text(tr(item.dishName),
-                                style: const TextStyle(fontSize: 13.5))),
+                                style: const TextStyle(fontSize: 14))),
                         if (item.category != null && item.category!.isNotEmpty)
                           Container(
                             padding: const EdgeInsets.symmetric(
@@ -3252,7 +3253,7 @@ class _MealTrackingScreenState extends State<MealTrackingScreen>
               : _debtSummaries.isEmpty
                   ? Center(
                       child: Text(tr('Chưa có dữ liệu công nợ'),
-                          style: TextStyle(color: Colors.grey)))
+                          style: TextStyle(color: SboxColors.slate500)))
                   : Builder(
                       builder: (_) {
                         final q = _debtSearch.toLowerCase();
@@ -3268,7 +3269,7 @@ class _MealTrackingScreenState extends State<MealTrackingScreen>
                         if (filtered.isEmpty) {
                           return Center(
                               child: Text(tr('Không tìm thấy'),
-                                  style: TextStyle(color: Colors.grey)));
+                                  style: TextStyle(color: SboxColors.slate500)));
                         }
                         return ListView.builder(
                           padding: const EdgeInsets.fromLTRB(12, 0, 12, 80),
@@ -3286,7 +3287,7 @@ class _MealTrackingScreenState extends State<MealTrackingScreen>
                                   children: [
                                     CircleAvatar(
                                       backgroundColor: d.balance > 0
-                                          ? const Color(0xFFEF4444)
+                                          ? SboxColors.danger
                                           : HrmPageChrome.chipMid,
                                       child: Text(
                                         tr(d.employeeName.isNotEmpty
@@ -3310,7 +3311,7 @@ class _MealTrackingScreenState extends State<MealTrackingScreen>
                                           Text(
                                             tr('${d.employeeCode ?? ''} | ${d.totalMeals} suất'),
                                             style: const TextStyle(
-                                                color: Colors.grey,
+                                                color: SboxColors.slate500,
                                                 fontSize: 12),
                                           ),
                                           const SizedBox(height: 4),
@@ -3331,7 +3332,7 @@ class _MealTrackingScreenState extends State<MealTrackingScreen>
                                           Text(tr('Đã trả ${_formatCurrency(d.totalPaid)} / ${_formatCurrency(d.totalCharged)}'),
                                             style: const TextStyle(
                                                 fontSize: 11,
-                                                color: Colors.grey),
+                                                color: SboxColors.slate500),
                                           ),
                                         ],
                                       ),
@@ -3345,7 +3346,7 @@ class _MealTrackingScreenState extends State<MealTrackingScreen>
                                           tr(_formatCurrency(d.balance)),
                                           style: TextStyle(
                                               fontWeight: FontWeight.bold,
-                                              fontSize: 15,
+                                              fontSize: 16,
                                               color: d.balance > 0
                                                   ? Colors.red
                                                   : HrmPageChrome.chipMid),
@@ -3356,7 +3357,7 @@ class _MealTrackingScreenState extends State<MealTrackingScreen>
                                               : 'Đã trả đủ'),
                                           style: TextStyle(
                                               fontSize: 10,
-                                              color: Colors.grey[600]),
+                                              color: SboxColors.slate600),
                                         ),
                                         const SizedBox(height: 6),
                                         Row(
@@ -3391,7 +3392,7 @@ class _MealTrackingScreenState extends State<MealTrackingScreen>
                                                 child: Padding(
                                                   padding: EdgeInsets.all(4),
                                                   child: Icon(Icons.history,
-                                                      color: Color(0xFF3B82F6),
+                                                      color: SboxColors.brand500,
                                                       size: 22),
                                                 ),
                                               ),
@@ -3413,7 +3414,7 @@ class _MealTrackingScreenState extends State<MealTrackingScreen>
         if (_debtSummaries.isNotEmpty)
           Container(
             padding: const EdgeInsets.all(12),
-            color: const Color(0xFFFEF3C7),
+            color: SboxColors.warningSoft,
             child: Row(
               mainAxisAlignment: MainAxisAlignment.spaceBetween,
               children: [
@@ -3449,7 +3450,7 @@ class _MealTrackingScreenState extends State<MealTrackingScreen>
           return ListTile(
             leading: CircleAvatar(
               backgroundColor:
-                  isPayment ? HrmPageChrome.chipMid : const Color(0xFFEF4444),
+                  isPayment ? HrmPageChrome.chipMid : SboxColors.danger,
               child: Icon(isPayment ? Icons.arrow_downward : Icons.arrow_upward,
                   color: Colors.white, size: 18),
             ),
@@ -3458,13 +3459,13 @@ class _MealTrackingScreenState extends State<MealTrackingScreen>
                   fontWeight: FontWeight.bold,
                   color: isPayment
                       ? HrmPageChrome.chipMid
-                      : const Color(0xFFEF4444)),
+                      : SboxColors.danger),
             ),
             subtitle: Text(
               tr('${DateFormat('dd/MM/yyyy').format(d.date)}${d.note != null && d.note!.isNotEmpty ? ' - ${d.note}' : ''}'),
             ),
             trailing: Text(tr(d.recordedByName ?? ''),
-                style: const TextStyle(fontSize: 11, color: Colors.grey)),
+                style: const TextStyle(fontSize: 11, color: SboxColors.slate500)),
           );
         },
       );
@@ -3486,7 +3487,7 @@ class _MealTrackingScreenState extends State<MealTrackingScreen>
                 children: [
                   Container(
                     padding: const EdgeInsets.all(16),
-                    color: const Color(0xFFFEF3C7),
+                    color: SboxColors.warningSoft,
                     child: Row(
                       mainAxisAlignment: MainAxisAlignment.spaceAround,
                       children: [
@@ -3496,7 +3497,7 @@ class _MealTrackingScreenState extends State<MealTrackingScreen>
                                   const TextStyle(fontWeight: FontWeight.bold)),
                           Text(tr('Tiền cơm'),
                               style:
-                                  TextStyle(fontSize: 12, color: Colors.grey)),
+                                  TextStyle(fontSize: 12, color: SboxColors.slate500)),
                         ]),
                         Column(children: [
                           Text(tr(_formatCurrency(debt.totalPaid)),
@@ -3505,7 +3506,7 @@ class _MealTrackingScreenState extends State<MealTrackingScreen>
                                   color: HrmPageChrome.chipMid)),
                           Text(tr('Đã trả'),
                               style:
-                                  TextStyle(fontSize: 12, color: Colors.grey)),
+                                  TextStyle(fontSize: 12, color: SboxColors.slate500)),
                         ]),
                         Column(children: [
                           Text(tr(_formatCurrency(debt.balance)),
@@ -3514,7 +3515,7 @@ class _MealTrackingScreenState extends State<MealTrackingScreen>
                                   color: Colors.red)),
                           Text(tr('Còn nợ'),
                               style:
-                                  TextStyle(fontSize: 12, color: Colors.grey)),
+                                  TextStyle(fontSize: 12, color: SboxColors.slate500)),
                         ]),
                       ],
                     ),

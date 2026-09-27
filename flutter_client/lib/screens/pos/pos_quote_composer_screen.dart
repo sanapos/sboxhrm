@@ -30,6 +30,7 @@ import '../../widgets/pos/pos_sell_product_grid.dart';
 import '../../widgets/pos/pos_form_keyboard.dart';
 import '../../widgets/pos/pos_theme.dart';
 
+import '../../theme/sbox_tokens.dart';
 enum _RowExpand { note, price }
 
 enum _ComposerStage { catalog, cart, checkout }
@@ -1045,15 +1046,15 @@ class _PosQuoteComposerScreenState extends State<PosQuoteComposerScreen> {
                             ? tr('Giỏ hàng trống')
                             : tr('$n món · ${_money.format(_total)} đ'),
                         style: const TextStyle(
-                          fontWeight: FontWeight.w800,
-                          fontSize: 15,
+                          fontWeight: FontWeight.w700,
+                          fontSize: 16,
                           color: _kiotBlue,
                         ),
                       ),
                       Text(
                         tr('Bấm để xem giỏ hàng'),
                         style: const TextStyle(
-                          fontSize: 11.5,
+                          fontSize: 12,
                           color: PosTheme.textSecondary,
                         ),
                       ),
@@ -1095,7 +1096,7 @@ class _PosQuoteComposerScreenState extends State<PosQuoteComposerScreen> {
             height: 44,
             padding: const EdgeInsets.symmetric(horizontal: 10),
             decoration: const BoxDecoration(
-              color: Color(0xFFF8FAFC),
+              color: SboxColors.slate50,
               border: Border(bottom: BorderSide(color: PosTheme.border)),
             ),
             child: Row(
@@ -1162,7 +1163,7 @@ class _PosQuoteComposerScreenState extends State<PosQuoteComposerScreen> {
                       child: Text(
                         tr('Tiếp tục'),
                         style: const TextStyle(
-                          fontWeight: FontWeight.w800,
+                          fontWeight: FontWeight.w700,
                           fontSize: 16,
                         ),
                       ),
@@ -1189,7 +1190,7 @@ class _PosQuoteComposerScreenState extends State<PosQuoteComposerScreen> {
         Material(
           color: Colors.white,
           shape: RoundedRectangleBorder(
-            borderRadius: BorderRadius.circular(12),
+            borderRadius: BorderRadius.circular(14),
             side: BorderSide(
               color: noteOn || priceOn
                   ? _kiotBlue.withValues(alpha: 0.45)
@@ -1206,7 +1207,7 @@ class _PosQuoteComposerScreenState extends State<PosQuoteComposerScreen> {
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     Material(
-                      color: const Color(0xFFFEE2E2),
+                      color: SboxColors.dangerSoft,
                       borderRadius: BorderRadius.circular(10),
                       child: InkWell(
                         onTap: () => _removeRow(i),
@@ -1215,7 +1216,7 @@ class _PosQuoteComposerScreenState extends State<PosQuoteComposerScreen> {
                           width: 36,
                           height: 36,
                           child: Icon(Icons.delete_rounded,
-                              size: 18, color: Color(0xFFDC2626)),
+                              size: 18, color: SboxColors.danger),
                         ),
                       ),
                     ),
@@ -1231,7 +1232,7 @@ class _PosQuoteComposerScreenState extends State<PosQuoteComposerScreen> {
                     Expanded(
                       child: InkWell(
                         onTap: () => _toggleExpand(row, _RowExpand.note),
-                        borderRadius: BorderRadius.circular(8),
+                        borderRadius: BorderRadius.circular(10),
                         child: Padding(
                           padding: const EdgeInsets.symmetric(
                               vertical: 2, horizontal: 2),
@@ -1301,7 +1302,7 @@ class _PosQuoteComposerScreenState extends State<PosQuoteComposerScreen> {
                     const Spacer(),
                     InkWell(
                       onTap: () => _toggleExpand(row, _RowExpand.price),
-                      borderRadius: BorderRadius.circular(8),
+                      borderRadius: BorderRadius.circular(10),
                       child: Padding(
                         padding: const EdgeInsets.symmetric(
                             horizontal: 6, vertical: 4),
@@ -1311,8 +1312,8 @@ class _PosQuoteComposerScreenState extends State<PosQuoteComposerScreen> {
                             Text(
                               _money.format(row.lineNet),
                               style: TextStyle(
-                                fontSize: 15,
-                                fontWeight: FontWeight.w800,
+                                fontSize: 16,
+                                fontWeight: FontWeight.w700,
                                 color: priceOn ? _kiotBlue : null,
                               ),
                             ),
@@ -1353,11 +1354,11 @@ class _PosQuoteComposerScreenState extends State<PosQuoteComposerScreen> {
             width: 36,
             height: 36,
             decoration: BoxDecoration(
-              color: const Color(0xFFF1F5F9),
+              color: SboxColors.slate100,
               borderRadius: BorderRadius.circular(10),
-              border: Border.all(color: const Color(0xFFCBD5E1)),
+              border: Border.all(color: SboxColors.slate300),
             ),
-            child: Icon(icon, size: 18, color: const Color(0xFF475569)),
+            child: Icon(icon, size: 18, color: SboxColors.slate600),
           ),
         ),
       );
@@ -1370,7 +1371,7 @@ class _PosQuoteComposerScreenState extends State<PosQuoteComposerScreen> {
         btn(Icons.remove_rounded, () => _adjustQty(i, -1)),
         InkWell(
           onTap: () => unawaited(_promptLineQty(i)),
-          borderRadius: BorderRadius.circular(8),
+          borderRadius: BorderRadius.circular(10),
           child: SizedBox(
             width: 52,
             height: 36,
@@ -1411,7 +1412,7 @@ class _PosQuoteComposerScreenState extends State<PosQuoteComposerScreen> {
       );
     }
     return Material(
-      color: const Color(0xFFEFF6FF),
+      color: SboxColors.brand50,
       borderRadius: BorderRadius.circular(10),
       child: PopupMenuButton<String>(
         tooltip: tr('Size / ĐVT'),
@@ -1672,7 +1673,7 @@ class _PosQuoteComposerScreenState extends State<PosQuoteComposerScreen> {
           Text(
             tr('${_cart.length} món · ${_money.format(_total)} đ'),
             style: const TextStyle(
-              fontWeight: FontWeight.w800,
+              fontWeight: FontWeight.w700,
               fontSize: 16,
               color: _kiotBlue,
             ),
@@ -1680,7 +1681,7 @@ class _PosQuoteComposerScreenState extends State<PosQuoteComposerScreen> {
           const SizedBox(height: 14),
           Text(tr('Khách hàng'),
               style:
-                  const TextStyle(fontWeight: FontWeight.w700, fontSize: 15)),
+                  const TextStyle(fontWeight: FontWeight.w700, fontSize: 16)),
           const SizedBox(height: 8),
           Row(
             children: [
@@ -1871,7 +1872,7 @@ class _PosQuoteComposerScreenState extends State<PosQuoteComposerScreen> {
           ),
           Text(
             tr('Trên giá trị trước VAT: ${_money.format(_preVatTotal)} đ'),
-            style: TextStyle(fontSize: 11.5, color: Colors.grey.shade700),
+            style: TextStyle(fontSize: 12, color: SboxColors.slate700),
           ),
           const SizedBox(height: 8),
           Row(
@@ -1918,7 +1919,7 @@ class _PosQuoteComposerScreenState extends State<PosQuoteComposerScreen> {
             style: TextStyle(
               fontSize: 12,
               fontWeight: FontWeight.w600,
-              color: Colors.grey.shade700,
+              color: SboxColors.slate700,
             ),
           ),
           const SizedBox(height: 6),
@@ -1943,7 +1944,7 @@ class _PosQuoteComposerScreenState extends State<PosQuoteComposerScreen> {
             dense: true,
             title: Text(
               tr('Đưa hình ảnh sản phẩm vào phiếu in (3×3 cm)'),
-              style: const TextStyle(fontSize: 13.5),
+              style: const TextStyle(fontSize: 14),
             ),
           ),
           const SizedBox(height: 8),
@@ -1959,7 +1960,7 @@ class _PosQuoteComposerScreenState extends State<PosQuoteComposerScreen> {
             vietnameseMoneyInWords(_total.round()),
             style: TextStyle(
                 fontStyle: FontStyle.italic,
-                color: Colors.grey.shade700,
+                color: SboxColors.slate700,
                 fontSize: 12),
           ),
         ],
@@ -2007,16 +2008,16 @@ class _PosQuoteComposerScreenState extends State<PosQuoteComposerScreen> {
       child: Container(
         padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
         decoration: BoxDecoration(
-          color: on ? const Color(0xFFDBEAFE) : const Color(0xFFF1F5F9),
+          color: on ? SboxColors.brand100 : SboxColors.slate100,
           borderRadius: BorderRadius.circular(6),
-          border: Border.all(color: on ? _kiotBlue : const Color(0xFFCBD5E1)),
+          border: Border.all(color: on ? _kiotBlue : SboxColors.slate300),
         ),
         child: Text(
           label,
           style: TextStyle(
             fontWeight: FontWeight.w700,
             fontSize: 13,
-            color: on ? _kiotBlue : Colors.grey.shade700,
+            color: on ? _kiotBlue : SboxColors.slate700,
           ),
         ),
       ),
@@ -2037,7 +2038,7 @@ class _PosQuoteComposerScreenState extends State<PosQuoteComposerScreen> {
             : tr('Phiếu in đính kèm TK hồ sơ: $bits'),
         style: TextStyle(
           fontSize: 12,
-          color: bits.isEmpty ? Colors.orange.shade800 : Colors.grey.shade700,
+          color: bits.isEmpty ? Colors.orange.shade800 : SboxColors.slate700,
         ),
       ),
     );
@@ -2054,16 +2055,16 @@ class _PosQuoteComposerScreenState extends State<PosQuoteComposerScreen> {
       child: Container(
         padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
         decoration: BoxDecoration(
-          color: on ? const Color(0xFFDBEAFE) : const Color(0xFFF1F5F9),
+          color: on ? SboxColors.brand100 : SboxColors.slate100,
           borderRadius: BorderRadius.circular(6),
-          border: Border.all(color: on ? _kiotBlue : const Color(0xFFCBD5E1)),
+          border: Border.all(color: on ? _kiotBlue : SboxColors.slate300),
         ),
         child: Text(
           label,
           style: TextStyle(
             fontWeight: FontWeight.w700,
             fontSize: 13,
-            color: on ? _kiotBlue : Colors.grey.shade700,
+            color: on ? _kiotBlue : SboxColors.slate700,
           ),
         ),
       ),
@@ -2080,8 +2081,8 @@ class _PosQuoteComposerScreenState extends State<PosQuoteComposerScreen> {
     return Padding(
       padding: const EdgeInsets.only(top: 8),
       child: Material(
-        color: const Color(0xFFEFF6FF),
-        borderRadius: BorderRadius.circular(8),
+        color: SboxColors.brand50,
+        borderRadius: BorderRadius.circular(10),
         child: Padding(
           padding: const EdgeInsets.fromLTRB(10, 8, 4, 8),
           child: Row(
@@ -2099,7 +2100,7 @@ class _PosQuoteComposerScreenState extends State<PosQuoteComposerScreen> {
                     if (bits.isNotEmpty)
                       Text(bits.join(' · '),
                           style: TextStyle(
-                              fontSize: 11, color: Colors.grey.shade700)),
+                              fontSize: 11, color: SboxColors.slate700)),
                   ],
                 ),
               ),
@@ -2136,7 +2137,7 @@ class _PosQuoteComposerScreenState extends State<PosQuoteComposerScreen> {
           Text(
             text,
             style: TextStyle(
-              fontWeight: bold ? FontWeight.w800 : FontWeight.w600,
+              fontWeight: bold ? FontWeight.w700 : FontWeight.w600,
               color: bold ? _kiotBlue : (value < 0 ? Colors.red.shade700 : null),
               fontSize: bold ? 16 : 13,
             ),

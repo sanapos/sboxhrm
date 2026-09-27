@@ -20,6 +20,7 @@ import 'package:zkteco_flutter_client/l10n/app_tr.dart';
 
 import '../models/pos_sell_industry.dart';
 
+import '../theme/sbox_tokens.dart';
 String _sanitizeStoreLoginNameInput(String input) {
   var code = input.toLowerCase();
   code = _removeVietnameseAccentsForLoginName(code);
@@ -106,7 +107,7 @@ class _RegisterScreenState extends State<RegisterScreen>
 
   bool get _isPos => SboxAppVariant.posBranding;
   Color get _brand =>
-      _isPos ? const Color(0xFF2E7D32) : const Color(0xFF0C56D0);
+      _isPos ? SboxColors.successText : SboxColors.brand600;
   Color get _brandDim =>
       _isPos ? const Color(0xFF1B5E20) : const Color(0xFF004ABA);
 
@@ -441,7 +442,7 @@ class _RegisterScreenState extends State<RegisterScreen>
                     end: Alignment.bottomRight,
                     colors: [
                       const Color(0xFFDAE2FF),
-                      const Color(0xFF0C56D0).withValues(alpha: 0.3),
+                      SboxColors.brand600.withValues(alpha: 0.3),
                     ],
                   ),
                 ),
@@ -449,7 +450,7 @@ class _RegisterScreenState extends State<RegisterScreen>
                   child: Icon(
                     Icons.store_rounded,
                     size: 180,
-                    color: const Color(0xFF0C56D0).withValues(alpha: 0.2),
+                    color: SboxColors.brand600.withValues(alpha: 0.2),
                   ),
                 ),
               );
@@ -463,8 +464,8 @@ class _RegisterScreenState extends State<RegisterScreen>
                   begin: Alignment.bottomLeft,
                   end: Alignment.topRight,
                   colors: [
-                    const Color(0xFF0C56D0).withValues(alpha: 0.60),
-                    const Color(0xFF0C56D0).withValues(alpha: 0.20),
+                    SboxColors.brand600.withValues(alpha: 0.60),
+                    SboxColors.brand600.withValues(alpha: 0.20),
                     Colors.transparent,
                   ],
                   stops: const [0.0, 0.5, 1.0],
@@ -503,7 +504,7 @@ class _RegisterScreenState extends State<RegisterScreen>
                   style: TextStyle(
                     color: Colors.white,
                     fontSize: 42,
-                    fontWeight: FontWeight.w800,
+                    fontWeight: FontWeight.w700,
                     height: 1.15,
                     letterSpacing: -1.5,
                   ),
@@ -512,7 +513,7 @@ class _RegisterScreenState extends State<RegisterScreen>
                 Text(tr('Đăng ký doanh nghiệp để sử dụng hệ thống\nquản lý nhân sự thông minh.'),
                   style: TextStyle(
                     color: Colors.white.withValues(alpha: 0.8),
-                    fontSize: 17,
+                    fontSize: 18,
                     height: 1.6,
                   ),
                 ),
@@ -523,7 +524,7 @@ class _RegisterScreenState extends State<RegisterScreen>
                   constraints: const BoxConstraints(maxWidth: 280),
                   decoration: BoxDecoration(
                     color: Colors.white.withValues(alpha: 0.7),
-                    borderRadius: BorderRadius.circular(16),
+                    borderRadius: BorderRadius.circular(14),
                     border:
                         Border.all(color: Colors.white.withValues(alpha: 0.2)),
                     boxShadow: [
@@ -541,11 +542,11 @@ class _RegisterScreenState extends State<RegisterScreen>
                         width: 40,
                         height: 40,
                         decoration: BoxDecoration(
-                          color: const Color(0xFF0C56D0).withValues(alpha: 0.1),
+                          color: SboxColors.brand600.withValues(alpha: 0.1),
                           shape: BoxShape.circle,
                         ),
                         child: const Icon(Icons.rocket_launch_rounded,
-                            color: Color(0xFF0C56D0), size: 20),
+                            color: SboxColors.brand600, size: 20),
                       ),
                       const SizedBox(width: 16),
                       Column(
@@ -553,7 +554,7 @@ class _RegisterScreenState extends State<RegisterScreen>
                         children: [
                           Text(tr('THIẾT LẬP NHANH'),
                             style: TextStyle(
-                                color: Color(0xFF586064),
+                                color: SboxColors.slate600,
                                 fontSize: 10,
                                 fontWeight: FontWeight.w700,
                                 letterSpacing: 1.5),
@@ -561,9 +562,9 @@ class _RegisterScreenState extends State<RegisterScreen>
                           SizedBox(height: 2),
                           Text(tr('CHỈ 2 PHÚT'),
                             style: TextStyle(
-                                color: Color(0xFF0C56D0),
+                                color: SboxColors.brand600,
                                 fontSize: 20,
-                                fontWeight: FontWeight.w800),
+                                fontWeight: FontWeight.w700),
                           ),
                         ],
                       ),
@@ -609,7 +610,7 @@ class _RegisterScreenState extends State<RegisterScreen>
                     child: Text(tr(SboxAppVariant.registerTitle),
                       style: TextStyle(
                         fontSize: 28,
-                        fontWeight: FontWeight.w800,
+                        fontWeight: FontWeight.w700,
                         color: Color(0xFF2B3437),
                         letterSpacing: -0.5,
                       ),
@@ -621,7 +622,7 @@ class _RegisterScreenState extends State<RegisterScreen>
                         ? Alignment.center
                         : Alignment.centerLeft,
                     child: Text(tr(SboxAppVariant.registerSubtitle),
-                      style: TextStyle(color: Color(0xFF586064), fontSize: 14),
+                      style: TextStyle(color: SboxColors.slate600, fontSize: 14),
                     ),
                   ),
                   const SizedBox(height: 32),
@@ -708,7 +709,7 @@ class _RegisterScreenState extends State<RegisterScreen>
                           tr('Chọn để POS tự bật sơ đồ bàn/ghế/phòng, báo bếp, tính giờ…'),
                           style: TextStyle(
                             fontSize: 12,
-                            color: Colors.grey.shade600,
+                            color: SboxColors.slate600,
                           ),
                         ),
                         const SizedBox(height: 10),
@@ -719,7 +720,7 @@ class _RegisterScreenState extends State<RegisterScreen>
                           style: TextStyle(
                             fontSize: 12,
                             height: 1.35,
-                            color: Colors.grey.shade700,
+                            color: SboxColors.slate700,
                           ),
                         ),
                         const SizedBox(height: 16),
@@ -801,23 +802,23 @@ class _RegisterScreenState extends State<RegisterScreen>
                           decoration: InputDecoration(
                             hintText: tr('Chọn tỉnh / thành phố'),
                             prefixIcon: const Icon(Icons.location_city_outlined,
-                                color: Color(0xFF586064), size: 20),
+                                color: SboxColors.slate600, size: 20),
                             filled: true,
                             fillColor: Colors.white,
                             contentPadding: const EdgeInsets.symmetric(
                                 horizontal: 16, vertical: 18),
                             border: OutlineInputBorder(
-                              borderRadius: BorderRadius.circular(12),
+                              borderRadius: BorderRadius.circular(14),
                               borderSide:
                                   const BorderSide(color: Color(0xFFD9E0E3)),
                             ),
                             enabledBorder: OutlineInputBorder(
-                              borderRadius: BorderRadius.circular(12),
+                              borderRadius: BorderRadius.circular(14),
                               borderSide:
                                   const BorderSide(color: Color(0xFFD9E0E3)),
                             ),
                             focusedBorder: OutlineInputBorder(
-                              borderRadius: BorderRadius.circular(12),
+                              borderRadius: BorderRadius.circular(14),
                               borderSide: BorderSide(
                                   color: _brand, width: 1.4),
                             ),
@@ -874,23 +875,23 @@ class _RegisterScreenState extends State<RegisterScreen>
                                 ? 'Đang tải gói dịch vụ...'
                                 : 'Chọn gói dùng thử'),
                             prefixIcon: const Icon(Icons.inventory_2_outlined,
-                                color: Color(0xFF586064), size: 20),
+                                color: SboxColors.slate600, size: 20),
                             filled: true,
                             fillColor: Colors.white,
                             contentPadding: const EdgeInsets.symmetric(
                                 horizontal: 16, vertical: 18),
                             border: OutlineInputBorder(
-                              borderRadius: BorderRadius.circular(12),
+                              borderRadius: BorderRadius.circular(14),
                               borderSide:
                                   const BorderSide(color: Color(0xFFD9E0E3)),
                             ),
                             enabledBorder: OutlineInputBorder(
-                              borderRadius: BorderRadius.circular(12),
+                              borderRadius: BorderRadius.circular(14),
                               borderSide:
                                   const BorderSide(color: Color(0xFFD9E0E3)),
                             ),
                             focusedBorder: OutlineInputBorder(
-                              borderRadius: BorderRadius.circular(12),
+                              borderRadius: BorderRadius.circular(14),
                               borderSide: BorderSide(
                                   color: _brand, width: 1.4),
                             ),
@@ -1014,7 +1015,7 @@ class _RegisterScreenState extends State<RegisterScreen>
                                 shadowColor: Colors.transparent,
                                 foregroundColor: Colors.white,
                                 shape: RoundedRectangleBorder(
-                                    borderRadius: BorderRadius.circular(12)),
+                                    borderRadius: BorderRadius.circular(14)),
                               ),
                               child: _isLoading
                                   ? const SizedBox(
@@ -1030,7 +1031,7 @@ class _RegisterScreenState extends State<RegisterScreen>
                                       children: [
                                         Text(tr(SboxAppVariant.registerButton),
                                             style: TextStyle(
-                                                fontSize: 15,
+                                                fontSize: 16,
                                                 fontWeight: FontWeight.w700)),
                                         SizedBox(width: 8),
                                         Icon(Icons.arrow_forward, size: 18),
@@ -1050,7 +1051,7 @@ class _RegisterScreenState extends State<RegisterScreen>
                     children: [
                       Text(tr('Đã có tài khoản?'),
                           style: TextStyle(
-                              color: Color(0xFF586064), fontSize: 14)),
+                              color: SboxColors.slate600, fontSize: 14)),
                       TextButton(
                         onPressed: _goToLogin,
                         style: TextButton.styleFrom(
@@ -1091,7 +1092,7 @@ class _RegisterScreenState extends State<RegisterScreen>
                       children: [
                         Text(tr(SboxAppVariant.copyright),
                           style: TextStyle(
-                              color: Colors.grey.shade400,
+                              color: SboxColors.slate400,
                               fontSize: 10,
                               fontWeight: FontWeight.w500,
                               letterSpacing: 0.5),
@@ -1132,7 +1133,7 @@ class _RegisterScreenState extends State<RegisterScreen>
                         const SizedBox(height: 6),
                         Text(tr(SboxAppVariant.copyright),
                           style: TextStyle(
-                              color: Colors.grey.shade400,
+                              color: SboxColors.slate400,
                               fontSize: 10,
                               fontWeight: FontWeight.w500,
                               letterSpacing: 0.5),
@@ -1187,8 +1188,8 @@ class _RegisterScreenState extends State<RegisterScreen>
         width: double.infinity,
         padding: const EdgeInsets.fromLTRB(14, 12, 10, 12),
         decoration: BoxDecoration(
-          color: _isPos ? const Color(0xFFE8F5E9) : const Color(0xFFF4F8FF),
-          borderRadius: BorderRadius.circular(12),
+          color: _isPos ? SboxColors.successSoft : const Color(0xFFF4F8FF),
+          borderRadius: BorderRadius.circular(14),
           border: Border.all(
               color: _isPos ? const Color(0xFFC8E6C9) : const Color(0xFFD6E4FF)),
         ),
@@ -1233,7 +1234,7 @@ class _RegisterScreenState extends State<RegisterScreen>
             Text(
               tr(package.descriptionText),
               style: const TextStyle(
-                color: Color(0xFF586064),
+                color: SboxColors.slate600,
                 fontSize: 13,
                 height: 1.5,
               ),
@@ -1301,7 +1302,7 @@ class _RegisterScreenState extends State<RegisterScreen>
     showDialog<void>(
       context: context,
       builder: (ctx) => AlertDialog(
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
         title: Row(
           children: [
             Expanded(
@@ -1344,7 +1345,7 @@ class _RegisterScreenState extends State<RegisterScreen>
                             tr(entry.key),
                             style: TextStyle(
                               fontSize: 13,
-                              fontWeight: FontWeight.w800,
+                              fontWeight: FontWeight.w700,
                               color: _brand,
                             ),
                           ),
@@ -1356,7 +1357,7 @@ class _RegisterScreenState extends State<RegisterScreen>
                               crossAxisAlignment: CrossAxisAlignment.start,
                               children: [
                                 const Icon(Icons.check_circle_rounded,
-                                    size: 16, color: Color(0xFF16A34A)),
+                                    size: 16, color: SboxColors.success),
                                 const SizedBox(width: 8),
                                 Expanded(
                                   child: Text(
@@ -1424,7 +1425,7 @@ class _RegisterScreenState extends State<RegisterScreen>
               size: 16,
               color: _selectedSellProfile == p
                   ? _brand
-                  : const Color(0xFF586064),
+                  : SboxColors.slate600,
             ),
             label: Text(
               tr(p.label),
@@ -1437,7 +1438,7 @@ class _RegisterScreenState extends State<RegisterScreen>
               ),
             ),
             selectedColor:
-                _isPos ? const Color(0xFFE8F5E9) : const Color(0xFFE8F1FF),
+                _isPos ? SboxColors.successSoft : const Color(0xFFE8F1FF),
             side: BorderSide(
               color: _selectedSellProfile == p
                   ? _brand
@@ -1455,7 +1456,7 @@ class _RegisterScreenState extends State<RegisterScreen>
       style: const TextStyle(
         fontSize: 11,
         fontWeight: FontWeight.w700,
-        color: Color(0xFF586064),
+        color: SboxColors.slate600,
         letterSpacing: 1.2,
       ),
     );
@@ -1467,7 +1468,7 @@ class _RegisterScreenState extends State<RegisterScreen>
       child: Text(
         tr(text),
         style: TextStyle(
-          color: Colors.grey.shade400,
+          color: SboxColors.slate400,
           fontSize: 10,
           fontWeight: FontWeight.w500,
           letterSpacing: 0.5,
@@ -1480,8 +1481,8 @@ class _RegisterScreenState extends State<RegisterScreen>
     return Container(
       padding: const EdgeInsets.all(14),
       decoration: BoxDecoration(
-        color: isError ? const Color(0xFFFEF2F2) : const Color(0xFFF0FDF4),
-        borderRadius: BorderRadius.circular(12),
+        color: isError ? SboxColors.dangerSoft : SboxColors.successSoft,
+        borderRadius: BorderRadius.circular(14),
         border: Border.all(
           color: isError ? const Color(0xFFFECACA) : const Color(0xFFBBF7D0),
         ),
@@ -1492,7 +1493,7 @@ class _RegisterScreenState extends State<RegisterScreen>
             isError
                 ? Icons.error_outline_rounded
                 : Icons.check_circle_outline_rounded,
-            color: isError ? const Color(0xFFDC2626) : const Color(0xFF16A34A),
+            color: isError ? SboxColors.danger : SboxColors.success,
             size: 20,
           ),
           const SizedBox(width: 12),
@@ -1501,7 +1502,7 @@ class _RegisterScreenState extends State<RegisterScreen>
               tr(message),
               style: TextStyle(
                 color:
-                    isError ? const Color(0xFFDC2626) : const Color(0xFF16A34A),
+                    isError ? SboxColors.danger : SboxColors.success,
                 fontSize: 13,
               ),
             ),
@@ -1534,7 +1535,7 @@ class _RegisterScreenState extends State<RegisterScreen>
           ? null
           : (_, {required currentLength, required isFocused, maxLength}) =>
               null,
-      style: const TextStyle(color: Color(0xFF2B3437), fontSize: 15),
+      style: const TextStyle(color: Color(0xFF2B3437), fontSize: 16),
       validator: validator,
       decoration: InputDecoration(
         hintText: tr(hint),
@@ -1546,28 +1547,28 @@ class _RegisterScreenState extends State<RegisterScreen>
         contentPadding:
             const EdgeInsets.symmetric(horizontal: 16, vertical: 16),
         border: OutlineInputBorder(
-          borderRadius: BorderRadius.circular(16),
+          borderRadius: BorderRadius.circular(14),
           borderSide: BorderSide(
               color: const Color(0xFFABB3B7).withValues(alpha: 0.15)),
         ),
         enabledBorder: OutlineInputBorder(
-          borderRadius: BorderRadius.circular(16),
+          borderRadius: BorderRadius.circular(14),
           borderSide: BorderSide(
               color: const Color(0xFFABB3B7).withValues(alpha: 0.15)),
         ),
         focusedBorder: OutlineInputBorder(
-          borderRadius: BorderRadius.circular(16),
+          borderRadius: BorderRadius.circular(14),
           borderSide: BorderSide(color: _brand, width: 2),
         ),
         errorBorder: OutlineInputBorder(
-          borderRadius: BorderRadius.circular(16),
+          borderRadius: BorderRadius.circular(14),
           borderSide: const BorderSide(color: Color(0xFFF87171)),
         ),
         focusedErrorBorder: OutlineInputBorder(
-          borderRadius: BorderRadius.circular(16),
+          borderRadius: BorderRadius.circular(14),
           borderSide: const BorderSide(color: Color(0xFFF87171), width: 2),
         ),
-        errorStyle: const TextStyle(color: Color(0xFFEF4444)),
+        errorStyle: const TextStyle(color: SboxColors.danger),
       ),
     );
   }

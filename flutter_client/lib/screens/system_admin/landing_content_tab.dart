@@ -9,6 +9,7 @@ import '../../utils/landing_usage_guide.dart';
 import 'system_admin_helpers.dart';
 import 'package:zkteco_flutter_client/l10n/app_tr.dart';
 
+import '../../theme/sbox_tokens.dart';
 /// SuperAdmin – Tab quản lý nội dung trang Landing Page của SBOX HRM.
 class LandingContentTab extends StatefulWidget {
   const LandingContentTab({super.key});
@@ -44,7 +45,7 @@ class LandingContentTabState extends State<LandingContentTab>
             controller: _sub,
             isScrollable: true,
             labelColor: AdminHelpers.primary,
-            unselectedLabelColor: Colors.grey,
+            unselectedLabelColor: SboxColors.slate500,
             indicatorColor: AdminHelpers.primary,
             tabs: [
               Tab(icon: Icon(Icons.home_rounded), text: tr('Hero & Liên hệ')),
@@ -184,7 +185,7 @@ class _HeroContactSubTabState extends State<_HeroContactSubTab> {
           _sectionHeader('Hero Section', Icons.web_rounded),
           const SizedBox(height: 4),
           Text(tr('Nội dung hiển thị ở phần đầu trang chủ'),
-              style: TextStyle(color: Color(0xFF6B7280), fontSize: 12)),
+              style: TextStyle(color: SboxColors.slate500, fontSize: 12)),
           const SizedBox(height: 16),
           ...[
             'landing_hero_title',
@@ -254,7 +255,7 @@ class _HeroContactSubTabState extends State<_HeroContactSubTab> {
           style: const TextStyle(
               fontWeight: FontWeight.w700,
               fontSize: 16,
-              color: Color(0xFF111827))),
+              color: SboxColors.slate900)),
     ]);
   }
 }
@@ -400,7 +401,7 @@ class _FeaturesSubTabState extends State<_FeaturesSubTab> {
           child: Row(
             children: [
               Text(tr('Danh sách tính năng'),
-                  style: TextStyle(fontWeight: FontWeight.w700, fontSize: 15)),
+                  style: TextStyle(fontWeight: FontWeight.w700, fontSize: 16)),
               const Spacer(),
               FilledButton.icon(
                 onPressed: context.systemAdminCanEdit ? _addItem : null,
@@ -412,7 +413,7 @@ class _FeaturesSubTabState extends State<_FeaturesSubTab> {
                   padding:
                       const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
                   shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(8)),
+                      borderRadius: BorderRadius.circular(10)),
                 ),
               ),
             ],
@@ -444,7 +445,7 @@ class _FeaturesSubTabState extends State<_FeaturesSubTab> {
                       const Padding(
                         padding: EdgeInsets.only(top: 14, right: 8),
                         child: Icon(Icons.drag_handle_rounded,
-                            color: Colors.grey, size: 20),
+                            color: SboxColors.slate500, size: 20),
                       ),
                       Expanded(
                         child: Column(children: [
@@ -719,7 +720,7 @@ class _PricingSubTabState extends State<_PricingSubTab> {
               Expanded(
                   child: Text(tr('Gói dịch vụ & Bảng giá'),
                       style: TextStyle(
-                          fontWeight: FontWeight.w700, fontSize: 15))),
+                          fontWeight: FontWeight.w700, fontSize: 16))),
               FilledButton.icon(
                 onPressed: context.systemAdminCanEdit ? _addPlan : null,
                 icon: const Icon(Icons.add_rounded, size: 16),
@@ -730,7 +731,7 @@ class _PricingSubTabState extends State<_PricingSubTab> {
                   padding:
                       const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
                   shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(8)),
+                      borderRadius: BorderRadius.circular(10)),
                 ),
               ),
             ],
@@ -745,7 +746,7 @@ class _PricingSubTabState extends State<_PricingSubTab> {
               return Card(
                 margin: const EdgeInsets.only(bottom: 14),
                 shape: RoundedRectangleBorder(
-                    borderRadius: BorderRadius.circular(12)),
+                    borderRadius: BorderRadius.circular(14)),
                 elevation: 1,
                 child: Padding(
                   padding: const EdgeInsets.all(16),
@@ -855,7 +856,7 @@ class _PricingSubTabState extends State<_PricingSubTab> {
                             padding: EdgeInsets.symmetric(vertical: 6),
                             child: Text(tr('Chưa có tính năng. Nhấn "Thêm tính năng" dể bổ sung.'),
                                 style: TextStyle(
-                                    color: Colors.grey,
+                                    color: SboxColors.slate500,
                                     fontSize: 12,
                                     fontStyle: FontStyle.italic)),
                           )
@@ -1082,7 +1083,7 @@ class _GuideSubTabState extends State<_GuideSubTab>
             isScrollable: true,
             tabAlignment: TabAlignment.start,
             labelColor: AdminHelpers.primary,
-            unselectedLabelColor: Colors.grey,
+            unselectedLabelColor: SboxColors.slate500,
             indicatorColor: AdminHelpers.primary,
             tabs: [
               Tab(text: tr('Triển khai (${_basicSteps.length})')),
@@ -1185,7 +1186,7 @@ class _GuideSubTabState extends State<_GuideSubTab>
                     child: Padding(
                       padding: const EdgeInsets.only(top: 10, right: 10),
                       child: Icon(Icons.drag_handle_rounded,
-                          color: Colors.grey[500]),
+                          color: SboxColors.slate500),
                     ),
                   ),
                 Container(
@@ -1194,7 +1195,7 @@ class _GuideSubTabState extends State<_GuideSubTab>
                       const EdgeInsets.symmetric(horizontal: 8, vertical: 6),
                   decoration: BoxDecoration(
                     color: AdminHelpers.primary,
-                    borderRadius: BorderRadius.circular(8),
+                    borderRadius: BorderRadius.circular(10),
                   ),
                   child: Text(tr('${idx + 1}'),
                       style: const TextStyle(
@@ -1210,7 +1211,7 @@ class _GuideSubTabState extends State<_GuideSubTab>
                         children: [
                           Text(tr('ID: ${step.id}'),
                               style: TextStyle(
-                                  fontSize: 11, color: Colors.grey[600])),
+                                  fontSize: 11, color: SboxColors.slate600)),
                           const Spacer(),
                           TextButton.icon(
                             onPressed: () =>
@@ -1233,7 +1234,7 @@ class _GuideSubTabState extends State<_GuideSubTab>
                           )),
                           style: TextStyle(
                             fontSize: 11,
-                            color: Colors.grey[700],
+                            color: SboxColors.slate700,
                             height: 1.35,
                           ),
                         ),
@@ -1561,7 +1562,7 @@ class _VideoSubTabState extends State<_VideoSubTab> {
           _buildVideoCard(
             label: 'Video 1 – Giới thiệu',
             icon: Icons.play_circle_outline_rounded,
-            color: const Color(0xFF0C56D0),
+            color: SboxColors.brand600,
             urlCtrl: _introUrlCtrl,
             titleCtrl: _introTitleCtrl,
             subtitleCtrl: _introSubtitleCtrl,
@@ -1572,7 +1573,7 @@ class _VideoSubTabState extends State<_VideoSubTab> {
           _buildVideoCard(
             label: 'Video 2 – Hướng dẫn',
             icon: Icons.school_rounded,
-            color: const Color(0xFF1565C0),
+            color: SboxColors.brand600,
             urlCtrl: _guideUrlCtrl,
             titleCtrl: _guideTitleCtrl,
             subtitleCtrl: _guideSubtitleCtrl,
@@ -1617,7 +1618,7 @@ class _VideoSubTabState extends State<_VideoSubTab> {
     required TextEditingController durationCtrl,
   }) {
     return Card(
-      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
       elevation: 1,
       child: Padding(
         padding: const EdgeInsets.all(20),
@@ -1627,7 +1628,7 @@ class _VideoSubTabState extends State<_VideoSubTab> {
             const SizedBox(width: 8),
             Text(tr(label),
                 style:
-                    const TextStyle(fontWeight: FontWeight.w700, fontSize: 15)),
+                    const TextStyle(fontWeight: FontWeight.w700, fontSize: 16)),
           ]),
           const SizedBox(height: 16),
           TextFormField(
@@ -1636,7 +1637,7 @@ class _VideoSubTabState extends State<_VideoSubTab> {
               labelText: tr('URL YouTube (bắt buộc)'),
               hintText: tr('https://www.youtube.com/watch?v=...'),
               border:
-                  OutlineInputBorder(borderRadius: BorderRadius.circular(8)),
+                  OutlineInputBorder(borderRadius: BorderRadius.circular(10)),
               prefixIcon: const Icon(Icons.link_rounded),
               isDense: true,
             ),
@@ -1651,7 +1652,7 @@ class _VideoSubTabState extends State<_VideoSubTab> {
                   labelText: tr('Tiêu đề video'),
                   isDense: true,
                   border: OutlineInputBorder(
-                      borderRadius: BorderRadius.circular(8)),
+                      borderRadius: BorderRadius.circular(10)),
                 ),
               ),
             ),
@@ -1665,7 +1666,7 @@ class _VideoSubTabState extends State<_VideoSubTab> {
                   hintText: tr('Xem ngay'),
                   isDense: true,
                   border: OutlineInputBorder(
-                      borderRadius: BorderRadius.circular(8)),
+                      borderRadius: BorderRadius.circular(10)),
                 ),
               ),
             ),
@@ -1679,7 +1680,7 @@ class _VideoSubTabState extends State<_VideoSubTab> {
                   hintText: tr('3:45'),
                   isDense: true,
                   border: OutlineInputBorder(
-                      borderRadius: BorderRadius.circular(8)),
+                      borderRadius: BorderRadius.circular(10)),
                 ),
               ),
             ),
@@ -1692,7 +1693,7 @@ class _VideoSubTabState extends State<_VideoSubTab> {
               labelText: tr('Mô tả ngắn'),
               isDense: true,
               border:
-                  OutlineInputBorder(borderRadius: BorderRadius.circular(8)),
+                  OutlineInputBorder(borderRadius: BorderRadius.circular(10)),
             ),
           ),
         ]),
@@ -1937,10 +1938,10 @@ class _ProductsSubTabState extends State<_ProductsSubTab> {
           child: Row(
             children: [
               const Icon(Icons.devices_rounded,
-                  size: 18, color: Color(0xFF0C56D0)),
+                  size: 18, color: SboxColors.brand600),
               const SizedBox(width: 8),
               Text(tr('Danh sách máy chấm công'),
-                  style: TextStyle(fontWeight: FontWeight.w700, fontSize: 15)),
+                  style: TextStyle(fontWeight: FontWeight.w700, fontSize: 16)),
               const Spacer(),
               TextButton.icon(
                 onPressed: context.systemAdminCanEdit ? _addProduct : null,
@@ -1989,7 +1990,7 @@ class _ProductsSubTabState extends State<_ProductsSubTab> {
     final p = _items[idx];
     return Card(
       margin: const EdgeInsets.only(bottom: 16),
-      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
       elevation: 1,
       child: Padding(
         padding: const EdgeInsets.all(16),
@@ -1999,10 +2000,10 @@ class _ProductsSubTabState extends State<_ProductsSubTab> {
               padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
               decoration: BoxDecoration(
                   color: const Color(0xFFEBF2FF),
-                  borderRadius: BorderRadius.circular(8)),
+                  borderRadius: BorderRadius.circular(10)),
               child: Text(tr('Sản phẩm ${idx + 1}'),
                   style: const TextStyle(
-                      color: Color(0xFF0C56D0),
+                      color: SboxColors.brand600,
                       fontWeight: FontWeight.w700,
                       fontSize: 12)),
             ),
@@ -2063,18 +2064,18 @@ class _ProductsSubTabState extends State<_ProductsSubTab> {
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         Text(tr('Thông số kỹ thuật chi tiết'),
-            style: TextStyle(fontSize: 12, color: Color(0xFF6B7280))),
+            style: TextStyle(fontSize: 12, color: SboxColors.slate500)),
         const SizedBox(height: 6),
         InkWell(
           onTap: () => _openSpecsEditor(p),
-          borderRadius: BorderRadius.circular(8),
+          borderRadius: BorderRadius.circular(10),
           child: Container(
             width: double.infinity,
             padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
             decoration: BoxDecoration(
-              border: Border.all(color: const Color(0xFFD1D5DB)),
-              borderRadius: BorderRadius.circular(8),
-              color: const Color(0xFFF9FAFB),
+              border: Border.all(color: SboxColors.slate300),
+              borderRadius: BorderRadius.circular(10),
+              color: SboxColors.slate50,
             ),
             child: Row(
               children: [
@@ -2088,14 +2089,14 @@ class _ProductsSubTabState extends State<_ProductsSubTab> {
                     style: TextStyle(
                       fontSize: 13,
                       color: preview.isEmpty
-                          ? const Color(0xFF9CA3AF)
-                          : const Color(0xFF374151),
+                          ? SboxColors.slate400
+                          : SboxColors.slate700,
                     ),
                   ),
                 ),
                 const SizedBox(width: 8),
                 const Icon(Icons.edit_note_rounded,
-                    size: 20, color: Color(0xFF6B7280)),
+                    size: 20, color: SboxColors.slate500),
               ],
             ),
           ),
@@ -2138,7 +2139,7 @@ class _ProductsSubTabState extends State<_ProductsSubTab> {
         labelText: tr(label),
         hintText: trN(hint),
         isDense: true,
-        border: OutlineInputBorder(borderRadius: BorderRadius.circular(8)),
+        border: OutlineInputBorder(borderRadius: BorderRadius.circular(10)),
         prefixIcon: icon != null ? Icon(icon, size: 18) : null,
       ),
     );
@@ -2331,10 +2332,10 @@ class _DownloadsSubTabState extends State<_DownloadsSubTab> {
           child: Row(
             children: [
               const Icon(Icons.download_rounded,
-                  size: 18, color: Color(0xFF0C56D0)),
+                  size: 18, color: SboxColors.brand600),
               const SizedBox(width: 8),
               Text(tr('Danh sách file tải về'),
-                  style: TextStyle(fontWeight: FontWeight.w700, fontSize: 15)),
+                  style: TextStyle(fontWeight: FontWeight.w700, fontSize: 16)),
               const Spacer(),
               TextButton.icon(
                 onPressed: context.systemAdminCanEdit ? _addItem : null,
@@ -2383,7 +2384,7 @@ class _DownloadsSubTabState extends State<_DownloadsSubTab> {
     final item = _items[idx];
     return Card(
       margin: const EdgeInsets.only(bottom: 16),
-      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
       elevation: 1,
       child: Padding(
         padding: const EdgeInsets.all(16),
@@ -2393,10 +2394,10 @@ class _DownloadsSubTabState extends State<_DownloadsSubTab> {
               padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
               decoration: BoxDecoration(
                   color: const Color(0xFFEBF2FF),
-                  borderRadius: BorderRadius.circular(8)),
+                  borderRadius: BorderRadius.circular(10)),
               child: Text(tr('File ${idx + 1}'),
                   style: const TextStyle(
-                      color: Color(0xFF0C56D0),
+                      color: SboxColors.brand600,
                       fontWeight: FontWeight.w700,
                       fontSize: 12)),
             ),
@@ -2448,7 +2449,7 @@ class _DownloadsSubTabState extends State<_DownloadsSubTab> {
         labelText: tr(label),
         hintText: trN(hint),
         isDense: true,
-        border: OutlineInputBorder(borderRadius: BorderRadius.circular(8)),
+        border: OutlineInputBorder(borderRadius: BorderRadius.circular(10)),
         prefixIcon: icon != null ? Icon(icon, size: 18) : null,
       ),
     );
@@ -2584,7 +2585,7 @@ class _FaqSubTabState extends State<_FaqSubTab> {
             children: [
               Expanded(
                 child: Text(tr('Câu hỏi thường gặp (trang chủ)'),
-                  style: TextStyle(fontWeight: FontWeight.w700, fontSize: 15),
+                  style: TextStyle(fontWeight: FontWeight.w700, fontSize: 16),
                 ),
               ),
               FilledButton.icon(
@@ -2597,7 +2598,7 @@ class _FaqSubTabState extends State<_FaqSubTab> {
                   padding:
                       const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
                   shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(8)),
+                      borderRadius: BorderRadius.circular(10)),
                 ),
               ),
             ],
@@ -2629,7 +2630,7 @@ class _FaqSubTabState extends State<_FaqSubTab> {
                       const Padding(
                         padding: EdgeInsets.only(top: 14, right: 8),
                         child: Icon(Icons.drag_handle_rounded,
-                            color: Colors.grey, size: 20),
+                            color: SboxColors.slate500, size: 20),
                       ),
                       Expanded(
                         child: Column(children: [
@@ -2814,7 +2815,7 @@ class _SeoGoogleSubTabState extends State<_SeoGoogleSubTab> {
           _hdr('Meta trang chủ', Icons.search_rounded),
           const SizedBox(height: 4),
           Text(tr('Áp dụng cho trang chủ SEO (home.html). Để trống sẽ giữ nội dung mặc định trên trang.'),
-            style: TextStyle(color: Color(0xFF6B7280), fontSize: 12),
+            style: TextStyle(color: SboxColors.slate500, fontSize: 12),
           ),
           const SizedBox(height: 16),
           ...[
@@ -2835,7 +2836,7 @@ class _SeoGoogleSubTabState extends State<_SeoGoogleSubTab> {
           _hdr('Google Search Console & Analytics', Icons.analytics_rounded),
           const SizedBox(height: 4),
           Text(tr('Mã xác minh Search Console và Measurement ID (GA4 / Google Ads). Hiển thị công khai trên trang chủ.'),
-            style: TextStyle(color: Color(0xFF6B7280), fontSize: 12),
+            style: TextStyle(color: SboxColors.slate500, fontSize: 12),
           ),
           const SizedBox(height: 16),
           ...[
@@ -2877,7 +2878,7 @@ class _SeoGoogleSubTabState extends State<_SeoGoogleSubTab> {
           style: const TextStyle(
               fontWeight: FontWeight.w700,
               fontSize: 16,
-              color: Color(0xFF111827))),
+              color: SboxColors.slate900)),
     ]);
   }
 
@@ -2979,11 +2980,11 @@ class _SpecsEditorDialogState extends State<_SpecsEditorDialog> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: const Color(0xFFF1F5F9),
+      backgroundColor: SboxColors.slate100,
       appBar: AppBar(
         backgroundColor: Colors.white,
         elevation: 0,
-        foregroundColor: const Color(0xFF111827),
+        foregroundColor: SboxColors.slate900,
         title: Text(tr('Thông số kỹ thuật chi tiết'),
           style: TextStyle(fontSize: 16, fontWeight: FontWeight.w700),
         ),
@@ -3019,7 +3020,7 @@ class _SpecsEditorDialogState extends State<_SpecsEditorDialog> {
           child: Text(tr('Trình duyệt web đang dùng chế độ nhập văn bản ổn định để tránh lỗi màn hình xám.'),
             style: TextStyle(
                 fontSize: 12,
-                color: Color(0xFF1E40AF),
+                color: SboxColors.brand800,
                 fontWeight: FontWeight.w500),
           ),
         ),
@@ -3032,8 +3033,8 @@ class _SpecsEditorDialogState extends State<_SpecsEditorDialog> {
                 child: Container(
                   decoration: BoxDecoration(
                     color: Colors.white,
-                    borderRadius: BorderRadius.circular(12),
-                    border: Border.all(color: const Color(0xFFE5E7EB)),
+                    borderRadius: BorderRadius.circular(14),
+                    border: Border.all(color: SboxColors.slate200),
                   ),
                   padding: const EdgeInsets.all(16),
                   child: TextField(
@@ -3046,7 +3047,7 @@ class _SpecsEditorDialogState extends State<_SpecsEditorDialog> {
                     style: const TextStyle(
                       fontSize: 14,
                       height: 1.6,
-                      color: Color(0xFF1F2937),
+                      color: SboxColors.slate800,
                     ),
                     decoration: InputDecoration(
                       hintText: tr('Nhập thông số kỹ thuật đầy đủ...'),
@@ -3106,7 +3107,7 @@ class _SpecsEditorDialogState extends State<_SpecsEditorDialog> {
             ),
           ),
         ),
-        const Divider(height: 1, color: Color(0xFFE5E7EB)),
+        const Divider(height: 1, color: SboxColors.slate200),
         Expanded(
           child: SingleChildScrollView(
             padding: const EdgeInsets.all(20),
@@ -3116,8 +3117,8 @@ class _SpecsEditorDialogState extends State<_SpecsEditorDialog> {
                 child: Container(
                   decoration: BoxDecoration(
                     color: Colors.white,
-                    borderRadius: BorderRadius.circular(12),
-                    border: Border.all(color: const Color(0xFFE5E7EB)),
+                    borderRadius: BorderRadius.circular(14),
+                    border: Border.all(color: SboxColors.slate200),
                   ),
                   child: Container(
                     constraints: const BoxConstraints(minHeight: 420),
@@ -3137,7 +3138,7 @@ class _SpecsEditorDialogState extends State<_SpecsEditorDialog> {
                             TextStyle(
                               fontSize: 14,
                               height: 1.5,
-                              color: Color(0xFF1F2937),
+                              color: SboxColors.slate800,
                             ),
                             quill.HorizontalSpacing(0, 0),
                             quill.VerticalSpacing(4, 4),

@@ -24,6 +24,7 @@ import '../../widgets/pos/pos_lan_printer_scan_sheet.dart';
 import 'package:zkteco_flutter_client/l10n/app_tr.dart';
 import 'pos_product_printer_assignment_screen.dart';
 
+import '../../theme/sbox_tokens.dart';
 /// Quản lý nhiều máy in nội bộ (nhiệt + tem) trên thiết bị này.
 class PosLocalPrintersScreen extends StatefulWidget {
   const PosLocalPrintersScreen({super.key});
@@ -333,7 +334,7 @@ class _PosLocalPrintersScreenState extends State<PosLocalPrintersScreen> {
               padding: const EdgeInsets.fromLTRB(12, 12, 12, 88),
               children: [
                 Card(
-                  color: const Color(0xFFEFF6FF),
+                  color: SboxColors.brand50,
                   child: Padding(
                     padding: const EdgeInsets.all(12),
                     child: Text(
@@ -343,7 +344,7 @@ class _PosLocalPrintersScreenState extends State<PosLocalPrintersScreen> {
                           '• Máy in nhiệt: hóa đơn, báo bếp, báo kho… · Máy tem: tem mã vạch / tem bếp.\n'
                           '• Chữ tiếng Việt lỗi: Hãng = Xprinter/Zywell + Chế độ chữ = «In ảnh» hoặc «Tự động» (không dùng UTF-8 thuần trên XP-80C).\n'
                           '• Máy dùng chung web/A7/PC → quay lại «Máy in cửa hàng».'),
-                      style: const TextStyle(fontSize: 12.5, height: 1.35),
+                      style: const TextStyle(fontSize: 13, height: 1.35),
                     ),
                   ),
                 ),
@@ -354,7 +355,7 @@ class _PosLocalPrintersScreenState extends State<PosLocalPrintersScreen> {
                         p.roles.contains(PosLocalPrinterRoles.stockIssue))) ...[
                   const SizedBox(height: 8),
                   Card(
-                    color: const Color(0xFFFFF7ED),
+                    color: SboxColors.warningSoft,
                     child: Padding(
                       padding: const EdgeInsets.all(12),
                       child: Row(
@@ -369,7 +370,7 @@ class _PosLocalPrintersScreenState extends State<PosLocalPrintersScreen> {
                                   'Khi bật in xuất kho, app sẽ báo lỗi thay vì in nhầm máy báo bếp.\n'
                                   'Sửa một máy nhiệt (vd. zywel) → bật Báo kho / xuất kho.'),
                               style: const TextStyle(
-                                fontSize: 12.5,
+                                fontSize: 13,
                                 height: 1.35,
                                 color: Color(0xFF9A3412),
                               ),
@@ -400,27 +401,27 @@ class _PosLocalPrintersScreenState extends State<PosLocalPrintersScreen> {
                     final ready = link == PosPrinterLinkStatus.ready;
                     final lost = link == PosPrinterLinkStatus.lost;
                     final statusColor = !p.enabled
-                        ? Colors.grey
+                        ? SboxColors.slate500
                         : ready
                             ? Colors.green
                             : lost
                                 ? Colors.red
-                                : Colors.grey;
+                                : SboxColors.slate500;
                     final statusText = !p.enabled
                         ? 'Tắt'
                         : PosPrinterReadiness.labelVi(link);
                     final avatarBg = ready
-                        ? const Color(0xFFDCFCE7)
+                        ? SboxColors.successSoft
                         : lost
-                            ? const Color(0xFFFEE2E2)
+                            ? SboxColors.dangerSoft
                             : (p.enabled
                                 ? PosTheme.kiotBlue.withOpacity(0.12)
-                                : Colors.grey.shade200);
+                                : SboxColors.slate200);
                     final avatarFg = ready
-                        ? const Color(0xFF15803D)
+                        ? SboxColors.payHover
                         : lost
-                            ? const Color(0xFFB91C1C)
-                            : (p.enabled ? PosTheme.kiotBlue : Colors.grey);
+                            ? SboxColors.dangerText
+                            : (p.enabled ? PosTheme.kiotBlue : SboxColors.slate500);
                     return Padding(
                       padding: const EdgeInsets.only(bottom: 8),
                       child: Card(
@@ -750,7 +751,7 @@ class _LocalPrinterEditorSheetState extends State<_LocalPrinterEditorSheet> {
                       child: Text(
                         tr('Chọn máy in Bluetooth đã ghép'),
                         style: const TextStyle(
-                            fontSize: 17, fontWeight: FontWeight.w600),
+                            fontSize: 18, fontWeight: FontWeight.w600),
                       ),
                     ),
                     IconButton(
@@ -869,7 +870,7 @@ class _LocalPrinterEditorSheetState extends State<_LocalPrinterEditorSheet> {
                       child: Text(
                         tr('Chọn cổng / máy in USB'),
                         style: const TextStyle(
-                          fontSize: 17,
+                          fontSize: 18,
                           fontWeight: FontWeight.w600,
                         ),
                       ),
@@ -1156,7 +1157,7 @@ class _LocalPrinterEditorSheetState extends State<_LocalPrinterEditorSheet> {
               tr(widget.initial == null
                   ? 'Thêm máy in nội bộ'
                   : 'Sửa máy in nội bộ'),
-              style: const TextStyle(fontWeight: FontWeight.w800, fontSize: 16),
+              style: const TextStyle(fontWeight: FontWeight.w700, fontSize: 16),
             ),
             const SizedBox(height: 12),
             TextField(

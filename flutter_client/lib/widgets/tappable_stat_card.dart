@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:zkteco_flutter_client/l10n/app_tr.dart';
 
 import './pos/pos_theme.dart';
+import '../theme/sbox_tokens.dart';
 /// Ô thống kê bấm được — áp dụng bộ lọc và highlight khi đang chọn.
 class TappableStatCard extends StatelessWidget {
   const TappableStatCard({
@@ -72,9 +73,9 @@ class SummaryFilterBanner extends StatelessWidget {
       margin: const EdgeInsets.only(bottom: 12),
       padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
       decoration: BoxDecoration(
-        color: const Color(0xFFEFF6FF),
+        color: SboxColors.brand50,
         borderRadius: BorderRadius.circular(10),
-        border: Border.all(color: const Color(0xFFBFDBFE)),
+        border: Border.all(color: SboxColors.brand100),
       ),
       child: Row(
         children: [

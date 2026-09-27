@@ -7,6 +7,7 @@ import '../services/api_service.dart';
 import '../widgets/notification_overlay.dart';
 import 'package:zkteco_flutter_client/l10n/app_tr.dart';
 
+import '../theme/sbox_tokens.dart';
 class GoogleSheetsScreen extends StatefulWidget {
   const GoogleSheetsScreen({super.key});
 
@@ -158,7 +159,7 @@ class _GoogleSheetsScreenState extends State<GoogleSheetsScreen> {
             colorScheme: ColorScheme.dark(
               primary: Theme.of(context).primaryColor,
               onPrimary: Colors.white,
-              surface: const Color(0xFF18181B),
+              surface: SboxColors.slate900,
               onSurface: Colors.white,
             ),
           ),
@@ -221,7 +222,7 @@ class _GoogleSheetsScreenState extends State<GoogleSheetsScreen> {
               ),
               const SizedBox(height: 4),
               Text(tr('Đồng bộ dữ liệu chấm công realtime lên Google Sheets'),
-                style: TextStyle(color: Colors.grey[400]),
+                style: TextStyle(color: SboxColors.slate400),
               ),
             ],
           ),
@@ -278,7 +279,7 @@ class _GoogleSheetsScreenState extends State<GoogleSheetsScreen> {
                   padding: const EdgeInsets.all(10),
                   decoration: BoxDecoration(
                     color: Theme.of(context).primaryColor.withValues(alpha: 0.2),
-                    borderRadius: BorderRadius.circular(12),
+                    borderRadius: BorderRadius.circular(14),
                   ),
                   child: Icon(
                     Icons.table_chart,
@@ -299,7 +300,7 @@ class _GoogleSheetsScreenState extends State<GoogleSheetsScreen> {
                     Text(tr('Nhập thông tin để kết nối với Google Sheets của bạn'),
                       style: TextStyle(
                         fontSize: 12,
-                        color: Colors.grey,
+                        color: SboxColors.slate500,
                       ),
                     ),
                   ],
@@ -330,7 +331,7 @@ class _GoogleSheetsScreenState extends State<GoogleSheetsScreen> {
             ),
             const SizedBox(height: 8),
             Text(tr('ID lấy từ URL: docs.google.com/spreadsheets/d/ID_HERE/edit'),
-              style: TextStyle(fontSize: 12, color: Colors.grey[600]),
+              style: TextStyle(fontSize: 12, color: SboxColors.slate600),
             ),
             const SizedBox(height: 16),
 
@@ -408,7 +409,7 @@ class _GoogleSheetsScreenState extends State<GoogleSheetsScreen> {
             _buildSyncCard(
               title: 'Thiết bị',
               icon: Icons.devices,
-              color: Colors.blue,
+              color: SboxColors.brand500,
               buttonText: 'Đồng bộ thiết bị',
               onPressed: _isConnected && !_isLoading ? _syncDevices : null,
             ),
@@ -458,7 +459,7 @@ class _GoogleSheetsScreenState extends State<GoogleSheetsScreen> {
               padding: const EdgeInsets.all(12),
               decoration: BoxDecoration(
                 color: color.withValues(alpha: 0.2),
-                borderRadius: BorderRadius.circular(12),
+                borderRadius: BorderRadius.circular(14),
               ),
               child: Icon(icon, color: color, size: 28),
             ),
@@ -527,7 +528,7 @@ class _GoogleSheetsScreenState extends State<GoogleSheetsScreen> {
               padding: const EdgeInsets.all(12),
               decoration: BoxDecoration(
                 color: color.withValues(alpha: 0.2),
-                borderRadius: BorderRadius.circular(12),
+                borderRadius: BorderRadius.circular(14),
               ),
               child: Icon(icon, color: color, size: 28),
             ),
@@ -542,22 +543,22 @@ class _GoogleSheetsScreenState extends State<GoogleSheetsScreen> {
             const SizedBox(height: 8),
             InkWell(
               onTap: _selectDate,
-              borderRadius: BorderRadius.circular(8),
+              borderRadius: BorderRadius.circular(10),
               child: Container(
                 padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
                 decoration: BoxDecoration(
-                  color: const Color(0xFFFAFAFA),
-                  borderRadius: BorderRadius.circular(8),
-                  border: Border.all(color: const Color(0xFFE4E4E7)),
+                  color: SboxColors.slate50,
+                  borderRadius: BorderRadius.circular(10),
+                  border: Border.all(color: SboxColors.slate200),
                 ),
                 child: Row(
                   mainAxisAlignment: MainAxisAlignment.center,
                   children: [
-                    const Icon(Icons.date_range, size: 16, color: Color(0xFF71717A)),
+                    const Icon(Icons.date_range, size: 16, color: SboxColors.slate500),
                     const SizedBox(width: 8),
                     Text(
                       tr(DateFormat('dd/MM/yyyy').format(_syncDate)),
-                      style: const TextStyle(color: Color(0xFF18181B), fontSize: 13),
+                      style: const TextStyle(color: SboxColors.slate900, fontSize: 13),
                     ),
                   ],
                 ),
@@ -602,7 +603,7 @@ class _GoogleSheetsScreenState extends State<GoogleSheetsScreen> {
                   padding: const EdgeInsets.all(10),
                   decoration: BoxDecoration(
                     color: Colors.green.withValues(alpha: 0.2),
-                    borderRadius: BorderRadius.circular(12),
+                    borderRadius: BorderRadius.circular(14),
                   ),
                   child: const Icon(
                     Icons.analytics,
@@ -626,7 +627,7 @@ class _GoogleSheetsScreenState extends State<GoogleSheetsScreen> {
                     label: 'Thiết bị',
                     count: _lastSyncResult!.devicesCount,
                     isSuccess: _lastSyncResult!.devicesSynced,
-                    color: Colors.blue,
+                    color: SboxColors.brand500,
                   ),
                 ),
                 const SizedBox(width: 16),
@@ -664,9 +665,9 @@ class _GoogleSheetsScreenState extends State<GoogleSheetsScreen> {
     return Container(
       padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(
-        color: const Color(0xFFFAFAFA),
-        borderRadius: BorderRadius.circular(12),
-        border: Border.all(color: const Color(0xFFE4E4E7)),
+        color: SboxColors.slate50,
+        borderRadius: BorderRadius.circular(14),
+        border: Border.all(color: SboxColors.slate200),
       ),
       child: Column(
         children: [
@@ -694,7 +695,7 @@ class _GoogleSheetsScreenState extends State<GoogleSheetsScreen> {
             tr(label),
             style: const TextStyle(
               fontSize: 13,
-              color: Color(0xFF71717A),
+              color: SboxColors.slate500,
             ),
           ),
         ],
@@ -715,7 +716,7 @@ class _GoogleSheetsScreenState extends State<GoogleSheetsScreen> {
                   padding: const EdgeInsets.all(10),
                   decoration: BoxDecoration(
                     color: Colors.amber.withValues(alpha: 0.2),
-                    borderRadius: BorderRadius.circular(12),
+                    borderRadius: BorderRadius.circular(14),
                   ),
                   child: const Icon(
                     Icons.help_outline,
@@ -808,7 +809,7 @@ class _GoogleSheetsScreenState extends State<GoogleSheetsScreen> {
               child: Text(
                 tr(title),
                 style: const TextStyle(
-                  fontSize: 15,
+                  fontSize: 16,
                   fontWeight: FontWeight.w600,
                 ),
               ),
@@ -829,7 +830,7 @@ class _GoogleSheetsScreenState extends State<GoogleSheetsScreen> {
                     Text(
                       tr('${entry.key + 1}. '),
                       style: TextStyle(
-                        color: Colors.grey[500],
+                        color: SboxColors.slate500,
                         fontSize: 13,
                       ),
                     ),
@@ -837,7 +838,7 @@ class _GoogleSheetsScreenState extends State<GoogleSheetsScreen> {
                       child: Text(
                         tr(entry.value),
                         style: TextStyle(
-                          color: Colors.grey[400],
+                          color: SboxColors.slate400,
                           fontSize: 13,
                           height: 1.4,
                         ),

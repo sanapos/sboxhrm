@@ -195,7 +195,7 @@ class PosCommercialWordSurfaceState extends State<PosCommercialWordSurface> {
         textAlignVertical: TextAlignVertical.top,
         style: const TextStyle(
           fontFamily: 'Times New Roman',
-          fontSize: 13.5,
+          fontSize: 14,
           height: 1.45,
         ),
         decoration: const InputDecoration(

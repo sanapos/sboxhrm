@@ -117,7 +117,7 @@ class AppText extends StatelessWidget {
   TextStyle _baseStyle(TextTheme theme) {
     switch (variant) {
       case AppTextVariant.title:
-        return theme.titleMedium ?? const TextStyle(fontSize: 15);
+        return theme.titleMedium ?? const TextStyle(fontSize: 16);
       case AppTextVariant.label:
         return theme.labelMedium ?? const TextStyle(fontSize: 12);
       case AppTextVariant.chip:

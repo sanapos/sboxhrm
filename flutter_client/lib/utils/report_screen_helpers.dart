@@ -23,6 +23,7 @@ import 'web_canvas.dart' as web_canvas;
 import 'package:zkteco_flutter_client/l10n/app_tr.dart';
 import 'package:zkteco_flutter_client/l10n/app_ui_locale.dart';
 
+import '../theme/sbox_tokens.dart';
 /// Khoảng ngày theo preset (dùng chung cho màn báo cáo).
 class ReportDateRangePresets {
   ReportDateRangePresets._();
@@ -132,9 +133,9 @@ class ReportDateRangeFilterBar extends StatelessWidget {
         backgroundColor: Colors.white,
         selectedColor: HrmPageChrome.primaryNavy,
         labelStyle: TextStyle(
-          color: selected ? Colors.white : const Color(0xFF18181B),
+          color: selected ? Colors.white : SboxColors.slate900,
         ),
-        side: const BorderSide(color: Color(0xFFE4E4E7)),
+        side: const BorderSide(color: SboxColors.slate200),
         visualDensity: VisualDensity.compact,
         materialTapTargetSize: MaterialTapTargetSize.shrinkWrap,
       ),
@@ -166,7 +167,7 @@ class ReportDateRangeFilterBar extends StatelessWidget {
                   avatar: Icon(
                     Icons.date_range,
                     size: 16,
-                    color: isCustom ? Colors.white : const Color(0xFF6B7280),
+                    color: isCustom ? Colors.white : SboxColors.slate500,
                   ),
                   label: Text(
                     tr(isCustom
@@ -174,14 +175,14 @@ class ReportDateRangeFilterBar extends StatelessWidget {
                         : ReportDateRangePresets.presetLabel('custom')),
                     style: TextStyle(
                       fontSize: 12,
-                      color: isCustom ? Colors.white : const Color(0xFF18181B),
+                      color: isCustom ? Colors.white : SboxColors.slate900,
                     ),
                     maxLines: 1,
                     overflow: TextOverflow.ellipsis,
                   ),
                   backgroundColor:
                       isCustom ? HrmPageChrome.primaryNavy : Colors.white,
-                  side: const BorderSide(color: Color(0xFFE4E4E7)),
+                  side: const BorderSide(color: SboxColors.slate200),
                   visualDensity: VisualDensity.compact,
                   onPressed: () => _pickCustomRange(context),
                 ),
@@ -192,21 +193,21 @@ class ReportDateRangeFilterBar extends StatelessWidget {
         if (!compact) ...[
           const SizedBox(height: 6),
           Material(
-            color: const Color(0xFFF8FAFC),
-            borderRadius: BorderRadius.circular(8),
+            color: SboxColors.slate50,
+            borderRadius: BorderRadius.circular(10),
             child: InkWell(
               onTap: () => _pickCustomRange(context),
-              borderRadius: BorderRadius.circular(8),
+              borderRadius: BorderRadius.circular(10),
               child: Container(
                 padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
                 decoration: BoxDecoration(
-                  borderRadius: BorderRadius.circular(8),
-                  border: Border.all(color: const Color(0xFFE4E4E7)),
+                  borderRadius: BorderRadius.circular(10),
+                  border: Border.all(color: SboxColors.slate200),
                 ),
                 child: Row(
                   children: [
                     const Icon(Icons.calendar_month_outlined,
-                        size: 18, color: Color(0xFF6B7280)),
+                        size: 18, color: SboxColors.slate500),
                     const SizedBox(width: 8),
                     Expanded(
                       child: Text(
@@ -214,7 +215,7 @@ class ReportDateRangeFilterBar extends StatelessWidget {
                         style: vietnameseTextStyle(const TextStyle(
                           fontSize: 13,
                           fontWeight: FontWeight.w600,
-                          color: Color(0xFF111827),
+                          color: SboxColors.slate900,
                         )),
                         maxLines: 1,
                         overflow: TextOverflow.ellipsis,
@@ -226,7 +227,7 @@ class ReportDateRangeFilterBar extends StatelessWidget {
                         tr(ReportDateRangePresets.presetLabel(preset)),
                         style: const TextStyle(
                           fontSize: 11,
-                          color: Color(0xFF9CA3AF),
+                          color: SboxColors.slate400,
                         ),
                       ),
                     ],
@@ -489,18 +490,18 @@ class ReportEmptyState extends StatelessWidget {
         child: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
-            Icon(icon, size: 56, color: Colors.grey.shade300),
+            Icon(icon, size: 56, color: SboxColors.slate300),
             const SizedBox(height: 12),
             Text(tr(title),
                 style: TextStyle(
-                    fontSize: 15,
+                    fontSize: 16,
                     fontWeight: FontWeight.w600,
-                    color: Colors.grey.shade700),
+                    color: SboxColors.slate700),
                 textAlign: TextAlign.center),
             if (subtitle != null) ...[
               const SizedBox(height: 6),
               Text(tr(subtitle!),
-                  style: TextStyle(fontSize: 13, color: Colors.grey.shade500),
+                  style: TextStyle(fontSize: 13, color: SboxColors.slate500),
                   textAlign: TextAlign.center),
             ],
             if (action != null) ...[const SizedBox(height: 16), action!],

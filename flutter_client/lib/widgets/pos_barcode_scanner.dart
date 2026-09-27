@@ -3,6 +3,7 @@ import 'package:flutter/services.dart';
 import 'package:mobile_scanner/mobile_scanner.dart';
 import 'package:zkteco_flutter_client/l10n/app_tr.dart';
 
+import '../theme/sbox_tokens.dart';
 /// Nút quét mã vạch / QR bằng camera — dùng làm suffix ô nhập hoặc IconButton riêng.
 class PosBarcodeScanIcon extends StatelessWidget {
   const PosBarcodeScanIcon({
@@ -34,7 +35,7 @@ class PosBarcodeScanIcon extends StatelessWidget {
       icon: Icon(
         outlined ? Icons.qr_code_scanner_outlined : Icons.qr_code_scanner,
         size: iconSize,
-        color: color ?? Colors.grey.shade700,
+        color: color ?? SboxColors.slate700,
       ),
       onPressed: () => _scan(context),
     );
@@ -213,7 +214,7 @@ class _BarcodeScannerSheetState extends State<_BarcodeScannerSheet> {
                         Text(tr('Đã quét: $_scanCount'),
                           style: const TextStyle(
                             fontSize: 12,
-                            color: Colors.grey,
+                            color: SboxColors.slate500,
                           ),
                         ),
                     ],
@@ -224,7 +225,7 @@ class _BarcodeScannerSheetState extends State<_BarcodeScannerSheet> {
                   onPressed: _toggleTorch,
                   icon: Icon(
                     _torchOn ? Icons.flash_on : Icons.flash_off_outlined,
-                    color: _torchOn ? Colors.amber : Colors.grey.shade700,
+                    color: _torchOn ? Colors.amber : SboxColors.slate700,
                   ),
                 ),
                 if (widget.continuous)
@@ -244,7 +245,7 @@ class _BarcodeScannerSheetState extends State<_BarcodeScannerSheet> {
             child: Padding(
               padding: const EdgeInsets.symmetric(horizontal: 12),
               child: ClipRRect(
-                borderRadius: BorderRadius.circular(12),
+                borderRadius: BorderRadius.circular(14),
                 child: Stack(
                   fit: StackFit.expand,
                   children: [
@@ -271,7 +272,7 @@ class _BarcodeScannerSheetState extends State<_BarcodeScannerSheet> {
                   ? 'Đưa mã vào tâm khung — chạm màn hình để lấy nét. Ưu tiên quét cứng Sunmi nếu có.'
                   : 'Đưa mã vào tâm khung · chạm màn hình để lấy nét nhanh hơn'),
               textAlign: TextAlign.center,
-              style: const TextStyle(color: Colors.grey),
+              style: const TextStyle(color: SboxColors.slate500),
             ),
           ),
         ],
@@ -309,7 +310,7 @@ class _ScanReticlePainter extends CustomPainter {
     );
 
     final corner = Paint()
-      ..color = const Color(0xFF2563EB)
+      ..color = SboxColors.brand600
       ..strokeWidth = 4
       ..style = PaintingStyle.stroke
       ..strokeCap = StrokeCap.round;
@@ -323,7 +324,7 @@ class _ScanReticlePainter extends CustomPainter {
     canvas.drawLine(rect.bottomRight, rect.bottomRight + const Offset(-len, 0), corner);
     canvas.drawLine(rect.bottomRight, rect.bottomRight + const Offset(0, -len), corner);
 
-    canvas.drawCircle(center, 4, Paint()..color = const Color(0xFF2563EB));
+    canvas.drawCircle(center, 4, Paint()..color = SboxColors.brand600);
   }
 
   @override

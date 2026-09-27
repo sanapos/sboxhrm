@@ -20,6 +20,7 @@ import '../widgets/app_scroll_safe.dart';
 import '../widgets/page_top_actions.dart';
 import 'package:zkteco_flutter_client/l10n/app_tr.dart';
 
+import '../theme/sbox_tokens.dart';
 class CommunicationScreen extends StatefulWidget {
   const CommunicationScreen({super.key});
 
@@ -407,7 +408,7 @@ class _CommunicationScreenState extends State<CommunicationScreen>
         ),
       ],
       child: Scaffold(
-      backgroundColor: const Color(0xFFFAFAFA),
+      backgroundColor: SboxColors.slate50,
       body: Column(
         children: [
           _buildTabBar(),
@@ -452,14 +453,14 @@ class _CommunicationScreenState extends State<CommunicationScreen>
     return Container(
       decoration: const BoxDecoration(
         color: Colors.white,
-        border: Border(bottom: BorderSide(color: Color(0xFFE4E4E7), width: 1)),
+        border: Border(bottom: BorderSide(color: SboxColors.slate200, width: 1)),
       ),
       child: TabBar(
         controller: _tabController,
         indicatorColor: HrmPageChrome.primaryNavy,
         indicatorWeight: 3,
         labelColor: HrmPageChrome.primaryNavy,
-        unselectedLabelColor: const Color(0xFFA1A1AA),
+        unselectedLabelColor: SboxColors.slate400,
         tabs: [
           Tab(
             child: Row(
@@ -529,8 +530,8 @@ class _CommunicationScreenState extends State<CommunicationScreen>
                         'Đã xuất bản',
                         publishedPosts.toString(),
                         Icons.check_circle,
-                        const Color(0xFF059669),
-                        const Color(0xFFECFDF5),
+                        SboxColors.success,
+                        SboxColors.successSoft,
                         onTap: () => _goToListWithStatus(2)),
                   ]),
                   const SizedBox(height: 8),
@@ -539,8 +540,8 @@ class _CommunicationScreenState extends State<CommunicationScreen>
                         'Bản nháp',
                         draftPosts.toString(),
                         Icons.edit_note,
-                        const Color(0xFFF59E0B),
-                        const Color(0xFFFFFBEB),
+                        SboxColors.warning,
+                        SboxColors.warningSoft,
                         onTap: () => _goToListWithStatus(0)),
                     const SizedBox(width: 8),
                     _statCard(
@@ -548,7 +549,7 @@ class _CommunicationScreenState extends State<CommunicationScreen>
                         _formatNumber(totalViews),
                         Icons.visibility,
                         HrmPageChrome.primaryNavy,
-                        const Color(0xFFEFF6FF)),
+                        SboxColors.brand50),
                   ]),
                   const SizedBox(height: 8),
                   Row(children: [
@@ -556,15 +557,15 @@ class _CommunicationScreenState extends State<CommunicationScreen>
                         'Lượt thích',
                         _formatNumber(totalLikes),
                         Icons.favorite,
-                        const Color(0xFFEF4444),
-                        const Color(0xFFFEF2F2)),
+                        SboxColors.danger,
+                        SboxColors.dangerSoft),
                     const SizedBox(width: 8),
                     _statCard(
                         'Bình luận',
                         _formatNumber(totalComments),
                         Icons.chat_bubble,
                         HrmPageChrome.primaryNavy,
-                        const Color(0xFFF5F3FF)),
+                        SboxColors.violetSoft),
                   ]),
                 ] else ...[
                   Row(
@@ -581,16 +582,16 @@ class _CommunicationScreenState extends State<CommunicationScreen>
                           'Đã xuất bản',
                           publishedPosts.toString(),
                           Icons.check_circle,
-                          const Color(0xFF059669),
-                          const Color(0xFFECFDF5),
+                          SboxColors.success,
+                          SboxColors.successSoft,
                           onTap: () => _goToListWithStatus(2)),
                       const SizedBox(width: 12),
                       _statCard(
                           'Bản nháp',
                           draftPosts.toString(),
                           Icons.edit_note,
-                          const Color(0xFFF59E0B),
-                          const Color(0xFFFFFBEB),
+                          SboxColors.warning,
+                          SboxColors.warningSoft,
                           onTap: () => _goToListWithStatus(0)),
                     ],
                   ),
@@ -602,21 +603,21 @@ class _CommunicationScreenState extends State<CommunicationScreen>
                           _formatNumber(totalViews),
                           Icons.visibility,
                           HrmPageChrome.primaryNavy,
-                          const Color(0xFFEFF6FF)),
+                          SboxColors.brand50),
                       const SizedBox(width: 12),
                       _statCard(
                           'Lượt thích',
                           _formatNumber(totalLikes),
                           Icons.favorite,
-                          const Color(0xFFEF4444),
-                          const Color(0xFFFEF2F2)),
+                          SboxColors.danger,
+                          SboxColors.dangerSoft),
                       const SizedBox(width: 12),
                       _statCard(
                           'Bình luận',
                           _formatNumber(totalComments),
                           Icons.chat_bubble,
                           HrmPageChrome.primaryNavy,
-                          const Color(0xFFF5F3FF)),
+                          SboxColors.violetSoft),
                     ],
                   ),
                 ],
@@ -635,16 +636,16 @@ class _CommunicationScreenState extends State<CommunicationScreen>
                         'Đã xuất bản',
                         publishedPosts.toString(),
                         Icons.check_circle,
-                        const Color(0xFF059669),
-                        const Color(0xFFECFDF5),
+                        SboxColors.success,
+                        SboxColors.successSoft,
                         onTap: () => _goToListWithStatus(2)),
                     const SizedBox(width: 16),
                     _statCard(
                         'Bản nháp',
                         draftPosts.toString(),
                         Icons.edit_note,
-                        const Color(0xFFF59E0B),
-                        const Color(0xFFFFFBEB),
+                        SboxColors.warning,
+                        SboxColors.warningSoft,
                         onTap: () => _goToListWithStatus(0)),
                     const SizedBox(width: 16),
                     _statCard(
@@ -652,21 +653,21 @@ class _CommunicationScreenState extends State<CommunicationScreen>
                         _formatNumber(totalViews),
                         Icons.visibility,
                         HrmPageChrome.primaryNavy,
-                        const Color(0xFFEFF6FF)),
+                        SboxColors.brand50),
                     const SizedBox(width: 16),
                     _statCard(
                         'Lượt thích',
                         _formatNumber(totalLikes),
                         Icons.favorite,
-                        const Color(0xFFEF4444),
-                        const Color(0xFFFEF2F2)),
+                        SboxColors.danger,
+                        SboxColors.dangerSoft),
                     const SizedBox(width: 16),
                     _statCard(
                         'Bình luận',
                         _formatNumber(totalComments),
                         Icons.chat_bubble,
                         HrmPageChrome.primaryNavy,
-                        const Color(0xFFF5F3FF)),
+                        SboxColors.violetSoft),
                   ],
                 ),
               const SizedBox(height: 28),
@@ -715,16 +716,16 @@ class _CommunicationScreenState extends State<CommunicationScreen>
         color: Colors.transparent,
         child: InkWell(
           onTap: onTap,
-          borderRadius: BorderRadius.circular(16),
+          borderRadius: BorderRadius.circular(14),
           child: Container(
             padding: const EdgeInsets.all(20),
             decoration: BoxDecoration(
               color: Colors.white,
-              borderRadius: BorderRadius.circular(16),
+              borderRadius: BorderRadius.circular(14),
               border: Border.all(
                   color: onTap != null
                       ? color.withValues(alpha: 0.3)
-                      : const Color(0xFFE4E4E7)),
+                      : SboxColors.slate200),
               boxShadow: [
                 BoxShadow(
                     color: Colors.black.withValues(alpha: 0.04),
@@ -750,7 +751,7 @@ class _CommunicationScreenState extends State<CommunicationScreen>
                 const SizedBox(height: 2),
                 Text(tr(label),
                     style:
-                        const TextStyle(fontSize: 11, color: Color(0xFF71717A)),
+                        const TextStyle(fontSize: 11, color: SboxColors.slate500),
                     overflow: TextOverflow.ellipsis,
                     maxLines: 1),
                 if (onTap != null) ...[
@@ -769,22 +770,22 @@ class _CommunicationScreenState extends State<CommunicationScreen>
   Widget _buildTypeDistribution(List<Map<String, dynamic>> dist) {
     final typeConfigs = {
       'News': ('Tin tức', Icons.newspaper, HrmPageChrome.primaryNavy),
-      'Announcement': ('Thông báo', Icons.campaign, const Color(0xFFF59E0B)),
+      'Announcement': ('Thông báo', Icons.campaign, SboxColors.warning),
       'Event': ('Sự kiện', Icons.event, HrmPageChrome.primaryNavy),
       'Policy': ('Chính sách', Icons.policy, HrmPageChrome.primaryNavy),
-      'Training': ('Đào tạo', Icons.school, const Color(0xFF22C55E)),
+      'Training': ('Đào tạo', Icons.school, SboxColors.success),
       'Culture': ('Văn hóa', Icons.diversity_3, const Color(0xFFEC4899)),
       'Recruitment': ('Tuyển dụng', Icons.person_add, HrmPageChrome.primaryNavy),
-      'Regulation': ('Nội quy', Icons.gavel, const Color(0xFFEF4444)),
-      'Other': ('Khác', Icons.article, const Color(0xFFA1A1AA)),
+      'Regulation': ('Nội quy', Icons.gavel, SboxColors.danger),
+      'Other': ('Khác', Icons.article, SboxColors.slate400),
     };
 
     return Container(
       padding: const EdgeInsets.all(24),
       decoration: BoxDecoration(
         color: Colors.white,
-        borderRadius: BorderRadius.circular(16),
-        border: Border.all(color: const Color(0xFFE4E4E7)),
+        borderRadius: BorderRadius.circular(14),
+        border: Border.all(color: SboxColors.slate200),
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -797,7 +798,7 @@ class _CommunicationScreenState extends State<CommunicationScreen>
                   style: TextStyle(
                       fontSize: 16,
                       fontWeight: FontWeight.bold,
-                      color: Color(0xFF18181B))),
+                      color: SboxColors.slate900)),
             ],
           ),
           const SizedBox(height: 20),
@@ -806,13 +807,13 @@ class _CommunicationScreenState extends State<CommunicationScreen>
                 child: Padding(
                     padding: EdgeInsets.all(20),
                     child: Text(tr('Chưa có dữ liệu'),
-                        style: TextStyle(color: Color(0xFFA1A1AA)))))
+                        style: TextStyle(color: SboxColors.slate400))))
           else
             ...dist.map((d) {
               final typeName = d['type']?.toString() ?? 'Other';
               final count = d['count'] ?? 0;
               final config = typeConfigs[typeName] ??
-                  ('Khác', Icons.article, const Color(0xFFA1A1AA));
+                  ('Khác', Icons.article, SboxColors.slate400);
               final total =
                   dist.fold<int>(0, (s, e) => s + ((e['count'] ?? 0) as int));
               final pct = total > 0 ? (count / total * 100) : 0.0;
@@ -824,7 +825,7 @@ class _CommunicationScreenState extends State<CommunicationScreen>
                       padding: const EdgeInsets.all(8),
                       decoration: BoxDecoration(
                           color: config.$3.withValues(alpha: 0.1),
-                          borderRadius: BorderRadius.circular(8)),
+                          borderRadius: BorderRadius.circular(10)),
                       child: Icon(config.$2, size: 16, color: config.$3),
                     ),
                     const SizedBox(width: 12),
@@ -839,16 +840,16 @@ class _CommunicationScreenState extends State<CommunicationScreen>
                                   style: const TextStyle(
                                       fontSize: 13,
                                       fontWeight: FontWeight.w600,
-                                      color: Color(0xFF374151))),
+                                      color: SboxColors.slate700)),
                               Text(tr('$count bài  (${pct.toStringAsFixed(0)}%)'),
                                   style: const TextStyle(
-                                      fontSize: 12, color: Color(0xFF71717A))),
+                                      fontSize: 12, color: SboxColors.slate500)),
                             ],
                           ),
                           const SizedBox(height: 6),
                           LinearProgressIndicator(
                             value: pct / 100,
-                            backgroundColor: const Color(0xFFF1F5F9),
+                            backgroundColor: SboxColors.slate100,
                             valueColor: AlwaysStoppedAnimation(config.$3),
                             borderRadius: BorderRadius.circular(4),
                             minHeight: 6,
@@ -871,8 +872,8 @@ class _CommunicationScreenState extends State<CommunicationScreen>
       padding: const EdgeInsets.all(24),
       decoration: BoxDecoration(
         color: Colors.white,
-        borderRadius: BorderRadius.circular(16),
-        border: Border.all(color: const Color(0xFFE4E4E7)),
+        borderRadius: BorderRadius.circular(14),
+        border: Border.all(color: SboxColors.slate200),
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -885,7 +886,7 @@ class _CommunicationScreenState extends State<CommunicationScreen>
                   style: TextStyle(
                       fontSize: 16,
                       fontWeight: FontWeight.bold,
-                      color: Color(0xFF18181B))),
+                      color: SboxColors.slate900)),
               const Spacer(),
               TextButton(
                 onPressed: () {
@@ -902,7 +903,7 @@ class _CommunicationScreenState extends State<CommunicationScreen>
                 child: Padding(
                     padding: EdgeInsets.all(24),
                     child: Text(tr('Chưa có bài viết'),
-                        style: TextStyle(color: Color(0xFFA1A1AA)))))
+                        style: TextStyle(color: SboxColors.slate400))))
           else
             ...recent.map((c) => _recentPostItem(c)),
         ],
@@ -913,14 +914,14 @@ class _CommunicationScreenState extends State<CommunicationScreen>
   Widget _recentPostItem(InternalCommunication c) {
     return InkWell(
       onTap: () => _selectPost(c),
-      borderRadius: BorderRadius.circular(12),
+      borderRadius: BorderRadius.circular(14),
       child: Container(
         padding: const EdgeInsets.all(12),
         margin: const EdgeInsets.only(bottom: 8),
         decoration: BoxDecoration(
-          color: const Color(0xFFFAFAFA),
-          borderRadius: BorderRadius.circular(12),
-          border: Border.all(color: const Color(0xFFF1F5F9)),
+          color: SboxColors.slate50,
+          borderRadius: BorderRadius.circular(14),
+          border: Border.all(color: SboxColors.slate100),
         ),
         child: Row(
           children: [
@@ -943,7 +944,7 @@ class _CommunicationScreenState extends State<CommunicationScreen>
                       style: const TextStyle(
                           fontSize: 14,
                           fontWeight: FontWeight.w600,
-                          color: Color(0xFF18181B)),
+                          color: SboxColors.slate900),
                       maxLines: 1,
                       overflow: TextOverflow.ellipsis),
                   const SizedBox(height: 4),
@@ -951,11 +952,11 @@ class _CommunicationScreenState extends State<CommunicationScreen>
                     children: [
                       Text(tr(c.authorName ?? ''),
                           style: const TextStyle(
-                              fontSize: 12, color: Color(0xFF71717A))),
+                              fontSize: 12, color: SboxColors.slate500)),
                       const SizedBox(width: 8),
                       Text(tr(DateFormat('dd/MM/yyyy').format(c.createdAt)),
                           style: const TextStyle(
-                              fontSize: 11, color: Color(0xFFA1A1AA))),
+                              fontSize: 11, color: SboxColors.slate400)),
                     ],
                   ),
                 ],
@@ -965,15 +966,15 @@ class _CommunicationScreenState extends State<CommunicationScreen>
               mainAxisSize: MainAxisSize.min,
               children: [
                 Icon(Icons.visibility_outlined,
-                    size: 14, color: Colors.grey[400]),
+                    size: 14, color: SboxColors.slate400),
                 const SizedBox(width: 4),
                 Text(tr('${c.viewCount}'),
-                    style: TextStyle(fontSize: 11, color: Colors.grey[500])),
+                    style: TextStyle(fontSize: 11, color: SboxColors.slate500)),
                 const SizedBox(width: 10),
-                Icon(Icons.favorite_border, size: 14, color: Colors.grey[400]),
+                Icon(Icons.favorite_border, size: 14, color: SboxColors.slate400),
                 const SizedBox(width: 4),
                 Text(tr('${c.likeCount}'),
-                    style: TextStyle(fontSize: 11, color: Colors.grey[500])),
+                    style: TextStyle(fontSize: 11, color: SboxColors.slate500)),
               ],
             ),
           ],
@@ -1006,7 +1007,7 @@ class _CommunicationScreenState extends State<CommunicationScreen>
                     style: const TextStyle(
                       fontSize: 12,
                       fontWeight: FontWeight.w600,
-                      color: Color(0xFF334155),
+                      color: SboxColors.slate700,
                     ),
                   ),
                 ),
@@ -1057,7 +1058,7 @@ class _CommunicationScreenState extends State<CommunicationScreen>
                           height: 4,
                           margin: const EdgeInsets.only(bottom: 8),
                           decoration: BoxDecoration(
-                            color: const Color(0xFFD4D4D8),
+                            color: SboxColors.slate300,
                             borderRadius: BorderRadius.circular(999),
                           ),
                         ),
@@ -1125,8 +1126,8 @@ class _CommunicationScreenState extends State<CommunicationScreen>
           textInputAction: TextInputAction.search,
           decoration: InputDecoration(
             hintText: tr('Tìm kiếm bài viết...'),
-            hintStyle: const TextStyle(color: Color(0xFFA1A1AA)),
-            prefixIcon: const Icon(Icons.search, color: Color(0xFFA1A1AA)),
+            hintStyle: const TextStyle(color: SboxColors.slate400),
+            prefixIcon: const Icon(Icons.search, color: SboxColors.slate400),
             suffixIcon: _searchTerm.isNotEmpty
                 ? IconButton(
                     icon: const Icon(Icons.clear, size: 18),
@@ -1136,13 +1137,13 @@ class _CommunicationScreenState extends State<CommunicationScreen>
                     })
                 : null,
             filled: true,
-            fillColor: const Color(0xFFFAFAFA),
+            fillColor: SboxColors.slate50,
             border: OutlineInputBorder(
                 borderRadius: BorderRadius.circular(10),
-                borderSide: const BorderSide(color: Color(0xFFE4E4E7))),
+                borderSide: const BorderSide(color: SboxColors.slate200)),
             enabledBorder: OutlineInputBorder(
                 borderRadius: BorderRadius.circular(10),
-                borderSide: const BorderSide(color: Color(0xFFE4E4E7))),
+                borderSide: const BorderSide(color: SboxColors.slate200)),
             contentPadding:
                 const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
           ),
@@ -1194,9 +1195,9 @@ class _CommunicationScreenState extends State<CommunicationScreen>
         );
         final viewToggle = Container(
           decoration: BoxDecoration(
-            color: const Color(0xFFFAFAFA),
+            color: SboxColors.slate50,
             borderRadius: BorderRadius.circular(10),
-            border: Border.all(color: const Color(0xFFE4E4E7)),
+            border: Border.all(color: SboxColors.slate200),
           ),
           child: Row(
             mainAxisSize: MainAxisSize.min,
@@ -1231,8 +1232,8 @@ class _CommunicationScreenState extends State<CommunicationScreen>
             padding: const EdgeInsets.fromLTRB(12, 10, 12, 12),
             decoration: BoxDecoration(
               color: Colors.white,
-              borderRadius: BorderRadius.circular(12),
-              border: Border.all(color: const Color(0xFFEEEEF0)),
+              borderRadius: BorderRadius.circular(14),
+              border: Border.all(color: SboxColors.divider),
             ),
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.stretch,
@@ -1297,8 +1298,8 @@ class _CommunicationScreenState extends State<CommunicationScreen>
           padding: const EdgeInsets.fromLTRB(12, 10, 12, 12),
           decoration: BoxDecoration(
             color: Colors.white,
-            borderRadius: BorderRadius.circular(12),
-            border: Border.all(color: const Color(0xFFEEEEF0)),
+            borderRadius: BorderRadius.circular(14),
+            border: Border.all(color: SboxColors.divider),
           ),
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.stretch,
@@ -1339,22 +1340,22 @@ class _CommunicationScreenState extends State<CommunicationScreen>
         initialValue: value,
         decoration: InputDecoration(
           labelText: tr(hint),
-          prefixIcon: Icon(icon, size: 18, color: const Color(0xFFA1A1AA)),
+          prefixIcon: Icon(icon, size: 18, color: SboxColors.slate400),
           filled: true,
-          fillColor: const Color(0xFFFAFAFA),
+          fillColor: SboxColors.slate50,
           border: OutlineInputBorder(
               borderRadius: BorderRadius.circular(10),
-              borderSide: const BorderSide(color: Color(0xFFE4E4E7))),
+              borderSide: const BorderSide(color: SboxColors.slate200)),
           enabledBorder: OutlineInputBorder(
               borderRadius: BorderRadius.circular(10),
-              borderSide: const BorderSide(color: Color(0xFFE4E4E7))),
+              borderSide: const BorderSide(color: SboxColors.slate200)),
           contentPadding:
               const EdgeInsets.symmetric(horizontal: 12, vertical: 12),
           labelStyle: const TextStyle(fontSize: 13),
         ),
         items: items,
         onChanged: onChanged,
-        style: const TextStyle(fontSize: 13, color: Color(0xFF374151)),
+        style: const TextStyle(fontSize: 13, color: SboxColors.slate700),
         isExpanded: true,
       ),
     );
@@ -1368,15 +1369,15 @@ class _CommunicationScreenState extends State<CommunicationScreen>
         setState(() => _viewMode = mode);
         onFilterUiTick?.call();
       },
-      borderRadius: BorderRadius.circular(8),
+      borderRadius: BorderRadius.circular(10),
       child: Container(
         padding: const EdgeInsets.all(10),
         decoration: BoxDecoration(
           color: sel ? HrmPageChrome.primaryNavy : Colors.transparent,
-          borderRadius: BorderRadius.circular(8),
+          borderRadius: BorderRadius.circular(10),
         ),
         child: Icon(icon,
-            size: 18, color: sel ? Colors.white : const Color(0xFFA1A1AA)),
+            size: 18, color: sel ? Colors.white : SboxColors.slate400),
       ),
     );
   }
@@ -1413,19 +1414,19 @@ class _CommunicationScreenState extends State<CommunicationScreen>
             Container(
               padding: const EdgeInsets.all(24),
               decoration: const BoxDecoration(
-                  color: Color(0xFFF1F5F9), shape: BoxShape.circle),
+                  color: SboxColors.slate100, shape: BoxShape.circle),
               child: const Icon(Icons.article_outlined,
-                  size: 48, color: Color(0xFFA1A1AA)),
+                  size: 48, color: SboxColors.slate400),
             ),
             const SizedBox(height: 16),
             Text(tr('Chưa có bài viết nào'),
                 style: TextStyle(
                     fontSize: 16,
                     fontWeight: FontWeight.w500,
-                    color: Color(0xFF71717A))),
+                    color: SboxColors.slate500)),
             const SizedBox(height: 8),
             Text(tr('Hãy tạo bài viết đầu tiên'),
-                style: TextStyle(fontSize: 13, color: Color(0xFFA1A1AA))),
+                style: TextStyle(fontSize: 13, color: SboxColors.slate400)),
             const SizedBox(height: 20),
             if (Provider.of<PermissionProvider>(context, listen: false)
                 .canCreate('Communication'))
@@ -1451,8 +1452,8 @@ class _CommunicationScreenState extends State<CommunicationScreen>
           child: Container(
             decoration: BoxDecoration(
               color: Colors.white,
-              borderRadius: BorderRadius.circular(12),
-              border: Border.all(color: const Color(0xFFE4E4E7)),
+              borderRadius: BorderRadius.circular(14),
+              border: Border.all(color: SboxColors.slate200),
               boxShadow: [
                 BoxShadow(
                   color: Colors.black.withValues(alpha: 0.05),
@@ -1499,7 +1500,7 @@ class _CommunicationScreenState extends State<CommunicationScreen>
             height: 36,
             decoration: BoxDecoration(
               color: _typeColor(c.type).withValues(alpha: 0.1),
-              borderRadius: BorderRadius.circular(8),
+              borderRadius: BorderRadius.circular(10),
             ),
             child: Icon(_typeIcon(c.type), color: _typeColor(c.type), size: 18),
           ),
@@ -1533,7 +1534,7 @@ class _CommunicationScreenState extends State<CommunicationScreen>
                   '${c.likeCount} thích',
                   '${c.createdAt.day}/${c.createdAt.month}/${c.createdAt.year}',
                 ].join(' · ')),
-                style: const TextStyle(color: Color(0xFF71717A), fontSize: 12),
+                style: const TextStyle(color: SboxColors.slate500, fontSize: 12),
                 maxLines: 1,
                 overflow: TextOverflow.ellipsis,
               ),
@@ -1543,20 +1544,20 @@ class _CommunicationScreenState extends State<CommunicationScreen>
             padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
             decoration: BoxDecoration(
               color: c.status == CommunicationStatus.published
-                  ? const Color(0xFFECFDF5)
-                  : const Color(0xFFFFFBEB),
-              borderRadius: BorderRadius.circular(8),
+                  ? SboxColors.successSoft
+                  : SboxColors.warningSoft,
+              borderRadius: BorderRadius.circular(10),
             ),
             child: Text(tr(c.statusDisplay),
                 style: TextStyle(
                     fontSize: 10,
                     fontWeight: FontWeight.w600,
                     color: c.status == CommunicationStatus.published
-                        ? const Color(0xFF059669)
-                        : const Color(0xFFF59E0B))),
+                        ? SboxColors.success
+                        : SboxColors.warning)),
           ),
           const SizedBox(width: 4),
-          const Icon(Icons.chevron_right, size: 18, color: Color(0xFFA1A1AA)),
+          const Icon(Icons.chevron_right, size: 18, color: SboxColors.slate400),
         ]),
       ),
     );
@@ -1570,13 +1571,13 @@ class _CommunicationScreenState extends State<CommunicationScreen>
 
     return InkWell(
       onTap: () => _selectPost(c),
-      borderRadius: BorderRadius.circular(16),
+      borderRadius: BorderRadius.circular(14),
       child: AnimatedContainer(
         duration: const Duration(milliseconds: 200),
         decoration: BoxDecoration(
           color: Colors.white,
-          borderRadius: BorderRadius.circular(16),
-          border: Border.all(color: const Color(0xFFE4E4E7), width: 1),
+          borderRadius: BorderRadius.circular(14),
+          border: Border.all(color: SboxColors.slate200, width: 1),
           boxShadow: [
             BoxShadow(
               color: Colors.black.withValues(alpha: 0.04),
@@ -1622,7 +1623,7 @@ class _CommunicationScreenState extends State<CommunicationScreen>
                         if (c.isPinned) ...[
                           const SizedBox(width: 6),
                           const Icon(Icons.push_pin,
-                              size: 14, color: Color(0xFFF59E0B))
+                              size: 14, color: SboxColors.warning)
                         ],
                         if (c.priority == CommunicationPriority.high ||
                             c.priority == CommunicationPriority.urgent) ...[
@@ -1641,7 +1642,7 @@ class _CommunicationScreenState extends State<CommunicationScreen>
                         style: const TextStyle(
                             fontSize: 14,
                             fontWeight: FontWeight.bold,
-                            color: Color(0xFF18181B),
+                            color: SboxColors.slate900,
                             height: 1.3),
                         maxLines: 2,
                         overflow: TextOverflow.ellipsis),
@@ -1650,7 +1651,7 @@ class _CommunicationScreenState extends State<CommunicationScreen>
                       Text(tr(c.summary!),
                           style: const TextStyle(
                               fontSize: 12,
-                              color: Color(0xFF71717A),
+                              color: SboxColors.slate500,
                               height: 1.3),
                           maxLines: 2,
                           overflow: TextOverflow.ellipsis),
@@ -1674,7 +1675,7 @@ class _CommunicationScreenState extends State<CommunicationScreen>
                           Expanded(
                               child: Text(tr(c.authorName!),
                                   style: const TextStyle(
-                                      fontSize: 11, color: Color(0xFF71717A)),
+                                      fontSize: 11, color: SboxColors.slate500),
                                   overflow: TextOverflow.ellipsis)),
                         ],
                         const Spacer(),
@@ -1716,7 +1717,7 @@ class _CommunicationScreenState extends State<CommunicationScreen>
         decoration: BoxDecoration(
           color: Colors.white,
           borderRadius: BorderRadius.circular(14),
-          border: Border.all(color: const Color(0xFFE4E4E7), width: 1),
+          border: Border.all(color: SboxColors.slate200, width: 1),
           boxShadow: [
             BoxShadow(
                 color: Colors.black.withValues(alpha: 0.03),
@@ -1729,7 +1730,7 @@ class _CommunicationScreenState extends State<CommunicationScreen>
           children: [
             // Thumbnail
             ClipRRect(
-              borderRadius: BorderRadius.circular(12),
+              borderRadius: BorderRadius.circular(14),
               child: thumbPath != null
                   ? AuthCachedImage(
                       imagePath: thumbPath!,
@@ -1764,18 +1765,18 @@ class _CommunicationScreenState extends State<CommunicationScreen>
                             padding: const EdgeInsets.symmetric(
                                 horizontal: 8, vertical: 3),
                             decoration: BoxDecoration(
-                                color: const Color(0xFFFFFBEB),
+                                color: SboxColors.warningSoft,
                                 borderRadius: BorderRadius.circular(6)),
                             child: Row(
                                 mainAxisSize: MainAxisSize.min,
                                 children: [
                                   Icon(Icons.push_pin,
-                                      size: 12, color: Color(0xFFF59E0B)),
+                                      size: 12, color: SboxColors.warning),
                                   SizedBox(width: 4),
                                   Text(tr('Ghim'),
                                       style: TextStyle(
                                           fontSize: 10,
-                                          color: Color(0xFFF59E0B),
+                                          color: SboxColors.warning,
                                           fontWeight: FontWeight.w600)),
                                 ]),
                           ),
@@ -1786,12 +1787,12 @@ class _CommunicationScreenState extends State<CommunicationScreen>
                             padding: const EdgeInsets.symmetric(
                                 horizontal: 8, vertical: 3),
                             decoration: BoxDecoration(
-                                color: const Color(0xFFFEF2F2),
+                                color: SboxColors.dangerSoft,
                                 borderRadius: BorderRadius.circular(6)),
                             child: Text(tr('Khẩn cấp'),
                                 style: TextStyle(
                                     fontSize: 10,
-                                    color: Color(0xFFEF4444),
+                                    color: SboxColors.danger,
                                     fontWeight: FontWeight.w600)),
                           ),
                         ],
@@ -1835,7 +1836,7 @@ class _CommunicationScreenState extends State<CommunicationScreen>
                             if (v == 'delete') _deletePost(c);
                           },
                           child: const Icon(Icons.more_horiz,
-                              size: 20, color: Color(0xFFA1A1AA)),
+                              size: 20, color: SboxColors.slate400),
                         ),
                       ],
                     ),
@@ -1844,7 +1845,7 @@ class _CommunicationScreenState extends State<CommunicationScreen>
                         style: const TextStyle(
                             fontSize: 16,
                             fontWeight: FontWeight.bold,
-                            color: Color(0xFF18181B)),
+                            color: SboxColors.slate900),
                         maxLines: 2,
                         overflow: TextOverflow.ellipsis),
                     if (c.summary != null) ...[
@@ -1852,7 +1853,7 @@ class _CommunicationScreenState extends State<CommunicationScreen>
                       Text(tr(c.summary!),
                           style: const TextStyle(
                               fontSize: 13,
-                              color: Color(0xFF71717A),
+                              color: SboxColors.slate500,
                               height: 1.4),
                           maxLines: 2,
                           overflow: TextOverflow.ellipsis),
@@ -1876,15 +1877,15 @@ class _CommunicationScreenState extends State<CommunicationScreen>
                               style: const TextStyle(
                                   fontSize: 12,
                                   fontWeight: FontWeight.w500,
-                                  color: Color(0xFF52525B))),
+                                  color: SboxColors.slate600)),
                           const SizedBox(width: 12),
                         ],
                         Icon(Icons.access_time,
-                            size: 13, color: Colors.grey[400]),
+                            size: 13, color: SboxColors.slate400),
                         const SizedBox(width: 4),
                         Text(tr(DateFormat('dd/MM/yyyy HH:mm').format(c.createdAt)),
                             style: TextStyle(
-                                fontSize: 11, color: Colors.grey[500])),
+                                fontSize: 11, color: SboxColors.slate500)),
                         const Spacer(),
                         _miniStat(Icons.visibility_outlined, c.viewCount),
                         const SizedBox(width: 14),
@@ -1925,7 +1926,7 @@ class _CommunicationScreenState extends State<CommunicationScreen>
       padding: const EdgeInsets.symmetric(vertical: 12, horizontal: 24),
       decoration: const BoxDecoration(
           color: Colors.white,
-          border: Border(top: BorderSide(color: Color(0xFFE4E4E7)))),
+          border: Border(top: BorderSide(color: SboxColors.slate200))),
       child: Wrap(
         alignment: WrapAlignment.center,
         crossAxisAlignment: WrapCrossAlignment.center,
@@ -1936,21 +1937,21 @@ class _CommunicationScreenState extends State<CommunicationScreen>
             mainAxisSize: MainAxisSize.min,
             children: [
               Text(tr('Hiển thị:'),
-                  style: TextStyle(fontSize: 12, color: Colors.grey[500])),
+                  style: TextStyle(fontSize: 12, color: SboxColors.slate500)),
               const SizedBox(width: 8),
               Container(
                 height: 34,
                 padding: const EdgeInsets.symmetric(horizontal: 12),
                 decoration: BoxDecoration(
-                  color: const Color(0xFFFAFAFA),
-                  border: Border.all(color: const Color(0xFFE4E4E7)),
-                  borderRadius: BorderRadius.circular(8),
+                  color: SboxColors.slate50,
+                  border: Border.all(color: SboxColors.slate200),
+                  borderRadius: BorderRadius.circular(10),
                 ),
                 child: DropdownButtonHideUnderline(
                   child: DropdownButton<int>(
                     value: _pageSize,
                     isDense: true,
-                    style: TextStyle(fontSize: 13, color: Colors.grey[800]),
+                    style: TextStyle(fontSize: 13, color: SboxColors.slate800),
                     items: _pageSizeOptions
                         .map((s) =>
                             DropdownMenuItem(value: s, child: Text(tr('$s'))))
@@ -1979,12 +1980,12 @@ class _CommunicationScreenState extends State<CommunicationScreen>
             icon: const Icon(Icons.chevron_left, size: 18),
             label: Text(tr('Trước')),
             style: OutlinedButton.styleFrom(
-                foregroundColor: const Color(0xFF71717A),
-                side: const BorderSide(color: Color(0xFFE4E4E7))),
+                foregroundColor: SboxColors.slate500,
+                side: const BorderSide(color: SboxColors.slate200)),
           ),
           Text(tr('Hiển thị $start-$end / $_totalCount'),
               style: const TextStyle(
-                  fontWeight: FontWeight.w500, color: Color(0xFF52525B))),
+                  fontWeight: FontWeight.w500, color: SboxColors.slate600)),
           OutlinedButton.icon(
             onPressed: _currentPage < _totalPages
                 ? () {
@@ -1995,8 +1996,8 @@ class _CommunicationScreenState extends State<CommunicationScreen>
             icon: Text(tr('Sau')),
             label: const Icon(Icons.chevron_right, size: 18),
             style: OutlinedButton.styleFrom(
-                foregroundColor: const Color(0xFF71717A),
-                side: const BorderSide(color: Color(0xFFE4E4E7))),
+                foregroundColor: SboxColors.slate500,
+                side: const BorderSide(color: SboxColors.slate200)),
           ),
         ],
       ),
@@ -2045,11 +2046,11 @@ class _CommunicationScreenState extends State<CommunicationScreen>
 
   Widget _miniStat(IconData icon, int value, {Color? color}) {
     return Row(mainAxisSize: MainAxisSize.min, children: [
-      Icon(icon, size: 14, color: color ?? const Color(0xFFA1A1AA)),
+      Icon(icon, size: 14, color: color ?? SboxColors.slate400),
       const SizedBox(width: 3),
       Text(tr('$value'),
           style:
-              TextStyle(fontSize: 11, color: color ?? const Color(0xFFA1A1AA))),
+              TextStyle(fontSize: 11, color: color ?? SboxColors.slate400)),
     ]);
   }
 
@@ -2074,14 +2075,14 @@ class _CommunicationScreenState extends State<CommunicationScreen>
 
   static Color _typeColor(CommunicationType t) => switch (t) {
         CommunicationType.news => HrmPageChrome.primaryNavy,
-        CommunicationType.announcement => const Color(0xFFF59E0B),
+        CommunicationType.announcement => SboxColors.warning,
         CommunicationType.event => HrmPageChrome.primaryNavy,
         CommunicationType.policy => HrmPageChrome.primaryNavy,
-        CommunicationType.training => const Color(0xFF22C55E),
+        CommunicationType.training => SboxColors.success,
         CommunicationType.culture => const Color(0xFFEC4899),
         CommunicationType.recruitment => HrmPageChrome.primaryNavy,
-        CommunicationType.regulation => const Color(0xFFEF4444),
-        CommunicationType.other => const Color(0xFFA1A1AA),
+        CommunicationType.regulation => SboxColors.danger,
+        CommunicationType.other => SboxColors.slate400,
       };
 
   static String _typeLabel(CommunicationType t) => switch (t) {
@@ -2283,7 +2284,7 @@ class _CommunicationDetailPanelState extends State<_CommunicationDetailPanel> {
               padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 12),
               decoration: const BoxDecoration(
                 color: Colors.white,
-                border: Border(bottom: BorderSide(color: Color(0xFFF1F5F9))),
+                border: Border(bottom: BorderSide(color: SboxColors.slate100)),
                 boxShadow: [
                   BoxShadow(
                       color: Color(0x08000000),
@@ -2298,7 +2299,7 @@ class _CommunicationDetailPanelState extends State<_CommunicationDetailPanel> {
                     icon: const Icon(Icons.arrow_back, size: 20),
                     tooltip: tr('Quay lại'),
                     style: IconButton.styleFrom(
-                        foregroundColor: const Color(0xFF52525B)),
+                        foregroundColor: SboxColors.slate600),
                   ),
                   const SizedBox(width: 8),
                   const Icon(Icons.article, size: 20, color: HrmPageChrome.primaryNavy),
@@ -2308,7 +2309,7 @@ class _CommunicationDetailPanelState extends State<_CommunicationDetailPanel> {
                           style: TextStyle(
                               fontWeight: FontWeight.bold,
                               fontSize: 16,
-                              color: Color(0xFF18181B)))),
+                              color: SboxColors.slate900))),
                   if (canEdit)
                     IconButton(
                       onPressed: widget.onEdit,
@@ -2323,7 +2324,7 @@ class _CommunicationDetailPanelState extends State<_CommunicationDetailPanel> {
                       icon: const Icon(Icons.send_outlined, size: 18),
                       tooltip: tr('Xuất bản'),
                       style: IconButton.styleFrom(
-                          foregroundColor: const Color(0xFF22C55E)),
+                          foregroundColor: SboxColors.success),
                     ),
                   if (canDelete)
                     IconButton(
@@ -2331,7 +2332,7 @@ class _CommunicationDetailPanelState extends State<_CommunicationDetailPanel> {
                       icon: const Icon(Icons.delete_outline, size: 18),
                       tooltip: tr('Xóa'),
                       style: IconButton.styleFrom(
-                          foregroundColor: const Color(0xFFEF4444)),
+                          foregroundColor: SboxColors.danger),
                     ),
                   IconButton(
                     onPressed: widget.onClose,
@@ -2352,7 +2353,7 @@ class _CommunicationDetailPanelState extends State<_CommunicationDetailPanel> {
                       // Cover image
                       if (thumbPath != null)
                         ClipRRect(
-                          borderRadius: BorderRadius.circular(12),
+                          borderRadius: BorderRadius.circular(14),
                           child: ConstrainedBox(
                             constraints: const BoxConstraints(maxHeight: 400),
                             child: AuthCachedImage(
@@ -2384,7 +2385,7 @@ class _CommunicationDetailPanelState extends State<_CommunicationDetailPanel> {
                               color:
                                   _CommunicationScreenState._typeColor(c.type)
                                       .withValues(alpha: 0.1),
-                              borderRadius: BorderRadius.circular(8),
+                              borderRadius: BorderRadius.circular(10),
                             ),
                             child:
                                 Row(mainAxisSize: MainAxisSize.min, children: [
@@ -2407,17 +2408,17 @@ class _CommunicationDetailPanelState extends State<_CommunicationDetailPanel> {
                                 horizontal: 10, vertical: 5),
                             decoration: BoxDecoration(
                               color: c.status == CommunicationStatus.published
-                                  ? const Color(0xFFECFDF5)
-                                  : const Color(0xFFFFFBEB),
-                              borderRadius: BorderRadius.circular(8),
+                                  ? SboxColors.successSoft
+                                  : SboxColors.warningSoft,
+                              borderRadius: BorderRadius.circular(10),
                             ),
                             child: Text(tr(c.statusDisplay),
                                 style: TextStyle(
                                     fontSize: 12,
                                     color: c.status ==
                                             CommunicationStatus.published
-                                        ? const Color(0xFF059669)
-                                        : const Color(0xFFF59E0B),
+                                        ? SboxColors.success
+                                        : SboxColors.warning,
                                     fontWeight: FontWeight.w600)),
                           ),
                           if (c.isPinned)
@@ -2425,18 +2426,18 @@ class _CommunicationDetailPanelState extends State<_CommunicationDetailPanel> {
                               padding: const EdgeInsets.symmetric(
                                   horizontal: 10, vertical: 5),
                               decoration: BoxDecoration(
-                                  color: const Color(0xFFFFFBEB),
-                                  borderRadius: BorderRadius.circular(8)),
+                                  color: SboxColors.warningSoft,
+                                  borderRadius: BorderRadius.circular(10)),
                               child: Row(
                                   mainAxisSize: MainAxisSize.min,
                                   children: [
                                     Icon(Icons.push_pin,
-                                        size: 13, color: Color(0xFFF59E0B)),
+                                        size: 13, color: SboxColors.warning),
                                     SizedBox(width: 4),
                                     Text(tr('Ghim'),
                                         style: TextStyle(
                                             fontSize: 12,
-                                            color: Color(0xFFF59E0B),
+                                            color: SboxColors.warning,
                                             fontWeight: FontWeight.w600)),
                                   ]),
                             ),
@@ -2448,8 +2449,8 @@ class _CommunicationDetailPanelState extends State<_CommunicationDetailPanel> {
                       Text(tr(c.title),
                           style: const TextStyle(
                               fontSize: 26,
-                              fontWeight: FontWeight.w800,
-                              color: Color(0xFF0F172A),
+                              fontWeight: FontWeight.w700,
+                              color: SboxColors.slate900,
                               height: 1.3,
                               letterSpacing: -0.3)),
                       const SizedBox(height: 12),
@@ -2473,17 +2474,17 @@ class _CommunicationDetailPanelState extends State<_CommunicationDetailPanel> {
                                 style: const TextStyle(
                                     fontSize: 13,
                                     fontWeight: FontWeight.w500,
-                                    color: Color(0xFF52525B))),
+                                    color: SboxColors.slate600)),
                             const SizedBox(width: 12),
                           ],
                           Icon(Icons.access_time,
-                              size: 14, color: Colors.grey[400]),
+                              size: 14, color: SboxColors.slate400),
                           const SizedBox(width: 4),
                           Text(
                               tr(DateFormat('dd/MM/yyyy HH:mm')
                                   .format(c.createdAt)),
                               style: TextStyle(
-                                  fontSize: 12, color: Colors.grey[500])),
+                                  fontSize: 12, color: SboxColors.slate500)),
                         ],
                       ),
                       const SizedBox(height: 16),
@@ -2493,9 +2494,9 @@ class _CommunicationDetailPanelState extends State<_CommunicationDetailPanel> {
                         Container(
                           padding: const EdgeInsets.all(12),
                           decoration: BoxDecoration(
-                            color: const Color(0xFFEFF6FF),
+                            color: SboxColors.brand50,
                             borderRadius: BorderRadius.circular(10),
-                            border: Border.all(color: const Color(0xFFBFDBFE)),
+                            border: Border.all(color: SboxColors.brand100),
                           ),
                           child: Row(
                             crossAxisAlignment: CrossAxisAlignment.start,
@@ -2507,7 +2508,7 @@ class _CommunicationDetailPanelState extends State<_CommunicationDetailPanel> {
                                   child: Text(tr(c.summary!),
                                       style: const TextStyle(
                                           fontSize: 13,
-                                          color: Color(0xFF1D4ED8),
+                                          color: SboxColors.brand700,
                                           fontStyle: FontStyle.italic,
                                           height: 1.4))),
                             ],
@@ -2534,7 +2535,7 @@ class _CommunicationDetailPanelState extends State<_CommunicationDetailPanel> {
                                     padding: const EdgeInsets.symmetric(
                                         horizontal: 10, vertical: 4),
                                     decoration: BoxDecoration(
-                                      color: const Color(0xFFF1F5F9),
+                                      color: SboxColors.slate100,
                                       borderRadius: BorderRadius.circular(20),
                                     ),
                                     child: Text(tr('#${t.trim()}'),
@@ -2553,7 +2554,7 @@ class _CommunicationDetailPanelState extends State<_CommunicationDetailPanel> {
                             style: TextStyle(
                                 fontSize: 13,
                                 fontWeight: FontWeight.w600,
-                                color: Color(0xFF52525B))),
+                                color: SboxColors.slate600)),
                         const SizedBox(height: 8),
                         SizedBox(
                           height: 80,
@@ -2589,11 +2590,11 @@ class _CommunicationDetailPanelState extends State<_CommunicationDetailPanel> {
                                                         size: 28),
                                                     style: IconButton.styleFrom(
                                                         backgroundColor:
-                                                            Colors.black54)),
+                                                            SboxColors.textSecondary)),
                                               ]),
                                         )),
                                 child: ClipRRect(
-                                  borderRadius: BorderRadius.circular(8),
+                                  borderRadius: BorderRadius.circular(10),
                                   child: AuthCachedImage(
                                       imagePath: attachPath,
                                       apiService: _api,
@@ -2609,9 +2610,9 @@ class _CommunicationDetailPanelState extends State<_CommunicationDetailPanel> {
                                       errorWidget: (_, __, ___) => Container(
                                           width: 80,
                                           height: 80,
-                                          color: const Color(0xFFF1F5F9),
+                                          color: SboxColors.slate100,
                                           child: const Icon(Icons.broken_image,
-                                              color: Color(0xFFA1A1AA)))),
+                                              color: SboxColors.slate400))),
                                 ),
                               );
                             },
@@ -2624,7 +2625,7 @@ class _CommunicationDetailPanelState extends State<_CommunicationDetailPanel> {
                       Container(
                         padding: const EdgeInsets.all(16),
                         decoration: BoxDecoration(
-                            color: const Color(0xFFFAFAFA),
+                            color: SboxColors.slate50,
                             borderRadius: BorderRadius.circular(10)),
                         child: Row(
                           mainAxisAlignment: MainAxisAlignment.spaceAround,
@@ -2641,7 +2642,7 @@ class _CommunicationDetailPanelState extends State<_CommunicationDetailPanel> {
                       ),
                       const SizedBox(height: 16),
 
-                      const Divider(height: 24, color: Color(0xFFF1F5F9)),
+                      const Divider(height: 24, color: SboxColors.slate100),
                       const SizedBox(height: 16),
 
                       // ── REACTIONS ──
@@ -2650,7 +2651,7 @@ class _CommunicationDetailPanelState extends State<_CommunicationDetailPanel> {
                           style: TextStyle(
                               fontSize: 14,
                               fontWeight: FontWeight.bold,
-                              color: Color(0xFF18181B))),
+                              color: SboxColors.slate900)),
                       const SizedBox(height: 10),
                       Wrap(
                         spacing: 8,
@@ -2669,12 +2670,12 @@ class _CommunicationDetailPanelState extends State<_CommunicationDetailPanel> {
                                 color: isActive
                                     ? HrmPageChrome.primaryNavy
                                         .withValues(alpha: 0.1)
-                                    : const Color(0xFFFAFAFA),
+                                    : SboxColors.slate50,
                                 borderRadius: BorderRadius.circular(20),
                                 border: Border.all(
                                     color: isActive
                                         ? HrmPageChrome.primaryNavy
-                                        : const Color(0xFFE4E4E7)),
+                                        : SboxColors.slate200),
                               ),
                               child: Row(
                                   mainAxisSize: MainAxisSize.min,
@@ -2690,7 +2691,7 @@ class _CommunicationDetailPanelState extends State<_CommunicationDetailPanel> {
                                                 : FontWeight.normal,
                                             color: isActive
                                                 ? HrmPageChrome.primaryNavy
-                                                : const Color(0xFF71717A))),
+                                                : SboxColors.slate500)),
                                   ]),
                             ),
                           );
@@ -2698,7 +2699,7 @@ class _CommunicationDetailPanelState extends State<_CommunicationDetailPanel> {
                       ),
                       const SizedBox(height: 20),
 
-                      const Divider(height: 24, color: Color(0xFFF1F5F9)),
+                      const Divider(height: 24, color: SboxColors.slate100),
                       const SizedBox(height: 16),
                       ],
 
@@ -2712,7 +2713,7 @@ class _CommunicationDetailPanelState extends State<_CommunicationDetailPanel> {
                               style: const TextStyle(
                                   fontSize: 14,
                                   fontWeight: FontWeight.bold,
-                                  color: Color(0xFF18181B))),
+                                  color: SboxColors.slate900)),
                           const Spacer(),
                         ],
                       ),
@@ -2725,8 +2726,8 @@ class _CommunicationDetailPanelState extends State<_CommunicationDetailPanel> {
                               horizontal: 12, vertical: 8),
                           margin: const EdgeInsets.only(bottom: 8),
                           decoration: BoxDecoration(
-                            color: const Color(0xFFF1F5F9),
-                            borderRadius: BorderRadius.circular(8),
+                            color: SboxColors.slate100,
+                            borderRadius: BorderRadius.circular(10),
                           ),
                           child: Row(
                             children: [
@@ -2743,7 +2744,7 @@ class _CommunicationDetailPanelState extends State<_CommunicationDetailPanel> {
                                   _replyToName = null;
                                 }),
                                 child: const Icon(Icons.close,
-                                    size: 14, color: Color(0xFFA1A1AA)),
+                                    size: 14, color: SboxColors.slate400),
                               ),
                             ],
                           ),
@@ -2760,17 +2761,17 @@ class _CommunicationDetailPanelState extends State<_CommunicationDetailPanel> {
                                       ? 'Trả lời $_replyToName...'
                                       : 'Viết bình luận...'),
                                   hintStyle: const TextStyle(
-                                      fontSize: 13, color: Color(0xFFA1A1AA)),
+                                      fontSize: 13, color: SboxColors.slate400),
                                   filled: true,
-                                  fillColor: const Color(0xFFFAFAFA),
+                                  fillColor: SboxColors.slate50,
                                   border: OutlineInputBorder(
                                       borderRadius: BorderRadius.circular(10),
                                       borderSide: const BorderSide(
-                                          color: Color(0xFFE4E4E7))),
+                                          color: SboxColors.slate200)),
                                   enabledBorder: OutlineInputBorder(
                                       borderRadius: BorderRadius.circular(10),
                                       borderSide: const BorderSide(
-                                          color: Color(0xFFE4E4E7))),
+                                          color: SboxColors.slate200)),
                                   contentPadding: const EdgeInsets.symmetric(
                                       horizontal: 14, vertical: 10),
                                 ),
@@ -2810,14 +2811,14 @@ class _CommunicationDetailPanelState extends State<_CommunicationDetailPanel> {
                           child:
                               Column(mainAxisSize: MainAxisSize.min, children: [
                             Icon(Icons.chat_bubble_outline,
-                                size: 36, color: Color(0xFFCBD5E1)),
+                                size: 36, color: SboxColors.slate300),
                             SizedBox(height: 8),
                             Text(tr('Chưa có bình luận nào'),
                                 style: TextStyle(
-                                    color: Color(0xFFA1A1AA), fontSize: 13)),
+                                    color: SboxColors.slate400, fontSize: 13)),
                             Text(tr('Hãy là người đầu tiên bình luận!'),
                                 style: TextStyle(
-                                    color: Color(0xFFCBD5E1), fontSize: 12)),
+                                    color: SboxColors.slate300, fontSize: 12)),
                           ]),
                         ))
                       else
@@ -2864,11 +2865,11 @@ class _CommunicationDetailPanelState extends State<_CommunicationDetailPanel> {
                             style: const TextStyle(
                                 fontSize: 13,
                                 fontWeight: FontWeight.w600,
-                                color: Color(0xFF374151))),
+                                color: SboxColors.slate700)),
                         const SizedBox(width: 8),
                         Text(tr(_timeAgo(cm.createdAt)),
                             style: const TextStyle(
-                                fontSize: 11, color: Color(0xFFA1A1AA))),
+                                fontSize: 11, color: SboxColors.slate400)),
                       ],
                     ),
                     const SizedBox(height: 4),
@@ -2876,14 +2877,14 @@ class _CommunicationDetailPanelState extends State<_CommunicationDetailPanel> {
                       padding: const EdgeInsets.all(10),
                       decoration: BoxDecoration(
                         color: depth > 0
-                            ? const Color(0xFFFAFAFA)
-                            : const Color(0xFFF1F5F9),
+                            ? SboxColors.slate50
+                            : SboxColors.slate100,
                         borderRadius: BorderRadius.circular(10),
                       ),
                       child: Text(tr(cm.content),
                           style: const TextStyle(
                               fontSize: 13,
-                              color: Color(0xFF374151),
+                              color: SboxColors.slate700,
                               height: 1.4)),
                     ),
                     const SizedBox(height: 4),
@@ -2934,15 +2935,15 @@ class _CommunicationDetailPanelState extends State<_CommunicationDetailPanel> {
       {Color? color}) {
     return Column(
       children: [
-        Icon(icon, size: 18, color: color ?? const Color(0xFFA1A1AA)),
+        Icon(icon, size: 18, color: color ?? SboxColors.slate400),
         const SizedBox(height: 4),
         Text(tr(value),
             style: TextStyle(
                 fontWeight: FontWeight.bold,
-                fontSize: 15,
-                color: color ?? const Color(0xFF374151))),
+                fontSize: 16,
+                color: color ?? SboxColors.slate700)),
         Text(tr(label),
-            style: const TextStyle(fontSize: 11, color: Color(0xFFA1A1AA))),
+            style: const TextStyle(fontSize: 11, color: SboxColors.slate400)),
       ],
     );
   }
@@ -3219,7 +3220,7 @@ class _CreateEditDialogState extends State<_CreateEditDialog> {
                   hintText: tr('Nhập tiêu đề bài viết'),
                   prefixIcon: const Icon(Icons.title),
                   border: OutlineInputBorder(
-                      borderRadius: BorderRadius.circular(12)),
+                      borderRadius: BorderRadius.circular(14)),
                 ),
                 validator: (v) => v == null || v.trim().isEmpty
                     ? 'Vui lòng nhập tiêu đề'
@@ -3233,7 +3234,7 @@ class _CreateEditDialogState extends State<_CreateEditDialog> {
                   hintText: tr('Mô tả ngắn gọn...'),
                   prefixIcon: const Icon(Icons.short_text),
                   border: OutlineInputBorder(
-                      borderRadius: BorderRadius.circular(12)),
+                      borderRadius: BorderRadius.circular(14)),
                 ),
                 maxLines: 2,
               ),
@@ -3245,7 +3246,7 @@ class _CreateEditDialogState extends State<_CreateEditDialog> {
                     style: TextStyle(
                         fontWeight: FontWeight.w600,
                         fontSize: 14,
-                        color: Color(0xFF374151))),
+                        color: SboxColors.slate700)),
               ]),
               const SizedBox(height: 8),
               RichEditor(
@@ -3270,7 +3271,7 @@ class _CreateEditDialogState extends State<_CreateEditDialog> {
                   hintText: tr('Nhập tags, cách nhau bằng dấu phẩy'),
                   prefixIcon: const Icon(Icons.tag),
                   border: OutlineInputBorder(
-                      borderRadius: BorderRadius.circular(12)),
+                      borderRadius: BorderRadius.circular(14)),
                 ),
               ),
               const SizedBox(height: 20),
@@ -3278,9 +3279,9 @@ class _CreateEditDialogState extends State<_CreateEditDialog> {
               Container(
                 padding: const EdgeInsets.all(16),
                 decoration: BoxDecoration(
-                  color: const Color(0xFFFAFAFA),
+                  color: SboxColors.slate50,
                   borderRadius: BorderRadius.circular(14),
-                  border: Border.all(color: const Color(0xFFE4E4E7)),
+                  border: Border.all(color: SboxColors.slate200),
                 ),
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
@@ -3292,7 +3293,7 @@ class _CreateEditDialogState extends State<_CreateEditDialog> {
                       Text(tr('Hình ảnh'),
                           style: TextStyle(
                               fontWeight: FontWeight.bold,
-                              color: Color(0xFF52525B))),
+                              color: SboxColors.slate600)),
                       const Spacer(),
                       if (_isUploadingImage)
                         const SizedBox(
@@ -3327,8 +3328,8 @@ class _CreateEditDialogState extends State<_CreateEditDialog> {
                           icon: const Icon(Icons.add_photo_alternate, size: 18),
                           label: Text(tr('Thêm ảnh')),
                           style: OutlinedButton.styleFrom(
-                              foregroundColor: const Color(0xFF059669),
-                              side: const BorderSide(color: Color(0xFF059669)),
+                              foregroundColor: SboxColors.success,
+                              side: const BorderSide(color: SboxColors.success),
                               padding:
                                   const EdgeInsets.symmetric(vertical: 10)),
                         ),
@@ -3353,10 +3354,10 @@ class _CreateEditDialogState extends State<_CreateEditDialog> {
                                           strokeWidth: 2))),
                               errorWidget: (_, __, ___) => Container(
                                   height: 100,
-                                  color: const Color(0xFFF1F5F9),
+                                  color: SboxColors.slate100,
                                   child: const Center(
                                       child: Icon(Icons.broken_image,
-                                          color: Color(0xFFA1A1AA))))),
+                                          color: SboxColors.slate400)))),
                         ),
                         Positioned(
                             top: 4,
@@ -3366,7 +3367,7 @@ class _CreateEditDialogState extends State<_CreateEditDialog> {
                               child: Container(
                                   padding: const EdgeInsets.all(4),
                                   decoration: const BoxDecoration(
-                                      color: Colors.black54,
+                                      color: SboxColors.textSecondary,
                                       shape: BoxShape.circle),
                                   child: const Icon(Icons.close,
                                       color: Colors.white, size: 14)),
@@ -3384,7 +3385,7 @@ class _CreateEditDialogState extends State<_CreateEditDialog> {
                               .map(
                                 (e) => Stack(children: [
                                   ClipRRect(
-                                      borderRadius: BorderRadius.circular(8),
+                                      borderRadius: BorderRadius.circular(10),
                                       child: AuthCachedImage(
                                           imagePath: e.value,
                                           apiService: _api,
@@ -3396,12 +3397,12 @@ class _CreateEditDialogState extends State<_CreateEditDialog> {
                                                   width: 70,
                                                   height: 70,
                                                   color:
-                                                      const Color(0xFFF1F5F9),
+                                                      SboxColors.slate100,
                                                   child: const Icon(
                                                       Icons.broken_image,
                                                       size: 18,
                                                       color:
-                                                          Color(0xFFA1A1AA))))),
+                                                          SboxColors.slate400)))),
                                   Positioned(
                                       top: 2,
                                       right: 2,
@@ -3411,7 +3412,7 @@ class _CreateEditDialogState extends State<_CreateEditDialog> {
                                           child: Container(
                                               padding: const EdgeInsets.all(2),
                                               decoration: const BoxDecoration(
-                                                  color: Colors.black54,
+                                                  color: SboxColors.textSecondary,
                                                   shape: BoxShape.circle),
                                               child: const Icon(Icons.close,
                                                   color: Colors.white,
@@ -3430,13 +3431,13 @@ class _CreateEditDialogState extends State<_CreateEditDialog> {
             children: [
               Text(tr('Loại bài viết'),
                   style: TextStyle(
-                      fontWeight: FontWeight.w600, color: Color(0xFF374151))),
+                      fontWeight: FontWeight.w600, color: SboxColors.slate700)),
               const SizedBox(height: 8),
               DropdownButtonFormField<int>(
                 initialValue: _selectedType,
                 decoration: InputDecoration(
                   border: OutlineInputBorder(
-                      borderRadius: BorderRadius.circular(12)),
+                      borderRadius: BorderRadius.circular(14)),
                   contentPadding:
                       const EdgeInsets.symmetric(horizontal: 12, vertical: 12),
                 ),
@@ -3456,13 +3457,13 @@ class _CreateEditDialogState extends State<_CreateEditDialog> {
               const SizedBox(height: 16),
               Text(tr('Mức độ ưu tiên'),
                   style: TextStyle(
-                      fontWeight: FontWeight.w600, color: Color(0xFF374151))),
+                      fontWeight: FontWeight.w600, color: SboxColors.slate700)),
               const SizedBox(height: 8),
               DropdownButtonFormField<int>(
                 initialValue: _selectedPriority,
                 decoration: InputDecoration(
                   border: OutlineInputBorder(
-                      borderRadius: BorderRadius.circular(12)),
+                      borderRadius: BorderRadius.circular(14)),
                   contentPadding:
                       const EdgeInsets.symmetric(horizontal: 12, vertical: 12),
                 ),
@@ -3528,7 +3529,7 @@ class _CreateEditDialogState extends State<_CreateEditDialog> {
                         decoration: InputDecoration(
                           hintText: tr('Mô tả nội dung bạn muốn AI viết...\nVD: Viết nội quy sử dụng phòng họp'),
                           border: OutlineInputBorder(
-                              borderRadius: BorderRadius.circular(12)),
+                              borderRadius: BorderRadius.circular(14)),
                           fillColor: Colors.white,
                           filled: true,
                         ),
@@ -3545,7 +3546,7 @@ class _CreateEditDialogState extends State<_CreateEditDialog> {
                                 decoration: InputDecoration(
                                   labelText: tr('AI Provider'),
                                   border: OutlineInputBorder(
-                                      borderRadius: BorderRadius.circular(12)),
+                                      borderRadius: BorderRadius.circular(14)),
                                   contentPadding: const EdgeInsets.symmetric(
                                       horizontal: 12, vertical: 12),
                                   fillColor: Colors.white,
@@ -3569,7 +3570,7 @@ class _CreateEditDialogState extends State<_CreateEditDialog> {
                               decoration: InputDecoration(
                                 labelText: tr('Giọng văn'),
                                 border: OutlineInputBorder(
-                                    borderRadius: BorderRadius.circular(12)),
+                                    borderRadius: BorderRadius.circular(14)),
                                 contentPadding: const EdgeInsets.symmetric(
                                     horizontal: 12, vertical: 12),
                                 fillColor: Colors.white,
@@ -3722,7 +3723,7 @@ class _CreateEditDialogState extends State<_CreateEditDialog> {
                     decoration: BoxDecoration(
                       gradient: const LinearGradient(
                           colors: [HrmPageChrome.primaryNavy, HrmPageChrome.primaryNavy]),
-                      borderRadius: BorderRadius.circular(12),
+                      borderRadius: BorderRadius.circular(14),
                     ),
                     child: Icon(_isEditing ? Icons.edit : Icons.add,
                         color: Colors.white, size: 22),
@@ -3732,7 +3733,7 @@ class _CreateEditDialogState extends State<_CreateEditDialog> {
                       style: const TextStyle(
                           fontSize: 20,
                           fontWeight: FontWeight.bold,
-                          color: Color(0xFF18181B))),
+                          color: SboxColors.slate900)),
                   const Spacer(),
                   IconButton(
                       onPressed: () => Navigator.pop(context),
@@ -3740,11 +3741,11 @@ class _CreateEditDialogState extends State<_CreateEditDialog> {
                 ],
               ),
               const SizedBox(height: 16),
-              const Divider(height: 24, color: Color(0xFFF1F5F9)),
+              const Divider(height: 24, color: SboxColors.slate100),
               const SizedBox(height: 16),
               Expanded(child: bodyContent),
               const SizedBox(height: 16),
-              const Divider(height: 24, color: Color(0xFFF1F5F9)),
+              const Divider(height: 24, color: SboxColors.slate100),
               const SizedBox(height: 16),
               actionButtons,
             ],

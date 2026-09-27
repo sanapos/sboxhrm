@@ -8,6 +8,7 @@ import '../../widgets/admin/admin_mobile_widgets.dart';
 import 'system_admin_helpers.dart';
 import 'package:zkteco_flutter_client/l10n/app_tr.dart';
 
+import '../../theme/sbox_tokens.dart';
 class LicensesTab extends StatefulWidget {
   final bool agentMode;
 
@@ -417,7 +418,7 @@ class LicensesTabState extends State<LicensesTab> {
       decoration: BoxDecoration(
           color: Colors.white,
           borderRadius: BorderRadius.circular(10),
-          border: Border.all(color: Colors.grey.shade300)),
+          border: Border.all(color: SboxColors.slate300)),
       child: DropdownButtonHideUnderline(
         child: DropdownButton<T>(
           isExpanded: fullWidth,
@@ -425,7 +426,7 @@ class LicensesTabState extends State<LicensesTab> {
           hint: Text(tr(hint), style: const TextStyle(fontSize: 13)),
           items: items,
           onChanged: onChanged,
-          style: const TextStyle(fontSize: 13, color: Colors.black87),
+          style: const TextStyle(fontSize: 13, color: SboxColors.text),
         ),
       ),
     );
@@ -458,7 +459,7 @@ class LicensesTabState extends State<LicensesTab> {
           ],
           const SizedBox(width: 8),
           Text(tr('Hiển thị: ${_filteredLicenses.length}'),
-              style: TextStyle(fontSize: 12, color: Colors.grey[500])),
+              style: TextStyle(fontSize: 12, color: SboxColors.slate500)),
         ]),
       ),
     );
@@ -493,8 +494,8 @@ class LicensesTabState extends State<LicensesTab> {
                   child: Container(
                     decoration: BoxDecoration(
                       color: Colors.white,
-                      borderRadius: BorderRadius.circular(12),
-                      border: Border.all(color: const Color(0xFFE4E4E7)),
+                      borderRadius: BorderRadius.circular(14),
+                      border: Border.all(color: SboxColors.slate200),
                       boxShadow: [BoxShadow(color: Colors.black.withValues(alpha: 0.05), blurRadius: 6, offset: const Offset(0, 2))],
                     ),
                     child: _buildLicenseDeckItem(paginatedItems[i]),
@@ -512,12 +513,12 @@ class LicensesTabState extends State<LicensesTab> {
             padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
             decoration: BoxDecoration(
               color: Colors.white,
-              border: Border(top: BorderSide(color: Colors.grey.shade200)),
+              border: Border(top: BorderSide(color: SboxColors.slate200)),
             ),
             child: Row(
               mainAxisAlignment: MainAxisAlignment.spaceBetween,
               children: [
-                Text(tr('Hiển thị ${startIndex + 1}-$endIndex / $totalCount'), style: TextStyle(fontSize: 12, color: Colors.grey[600])),
+                Text(tr('Hiển thị ${startIndex + 1}-$endIndex / $totalCount'), style: TextStyle(fontSize: 12, color: SboxColors.slate600)),
                 Row(children: [
                   IconButton(icon: const Icon(Icons.chevron_left, size: 20), onPressed: page > 1 ? () => setState(() => _currentPage--) : null, visualDensity: VisualDensity.compact),
                   Text(tr('$page / $totalPages'), style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w500)),
@@ -532,7 +533,7 @@ class LicensesTabState extends State<LicensesTab> {
 
   Widget _buildLicenseDeckItem(Map<String, dynamic> license) {
     final status = _getStatus(license);
-    final statusColor = status == 'activated' ? Colors.green : status == 'available' ? Colors.blue : Colors.red;
+    final statusColor = status == 'activated' ? Colors.green : status == 'available' ? SboxColors.brand500 : Colors.red;
     final statusText = status == 'activated' ? 'K\u00edch ho\u1ea1t' : status == 'available' ? 'C\u00f2n tr\u1ed1ng' : 'Thu h\u1ed3i';
     final key = license['key']?.toString() ?? '';
     final licenseType = license['licenseType']?.toString() ?? '';
@@ -548,7 +549,7 @@ class LicensesTabState extends State<LicensesTab> {
         child: Row(children: [
           Container(
             width: 36, height: 36,
-            decoration: BoxDecoration(color: statusColor.withValues(alpha: 0.1), borderRadius: BorderRadius.circular(8)),
+            decoration: BoxDecoration(color: statusColor.withValues(alpha: 0.1), borderRadius: BorderRadius.circular(10)),
             child: Icon(Icons.vpn_key, color: statusColor, size: 18),
           ),
           const SizedBox(width: 12),
@@ -557,12 +558,12 @@ class LicensesTabState extends State<LicensesTab> {
               Text(tr(key.length > 24 ? '${key.substring(0, 24)}...' : key), style: const TextStyle(fontWeight: FontWeight.w600, fontSize: 12, fontFamily: 'monospace'), maxLines: 1, overflow: TextOverflow.ellipsis),
               const SizedBox(height: 2),
               Text(tr([AdminHelpers.licenseTypeLabel(licenseType), license['servicePackageName'] ?? '', '${license['durationDays'] ?? 0}d'].join(' \u00b7 ')),
-                style: const TextStyle(color: Color(0xFF71717A), fontSize: 12), maxLines: 1, overflow: TextOverflow.ellipsis),
+                style: const TextStyle(color: SboxColors.slate500, fontSize: 12), maxLines: 1, overflow: TextOverflow.ellipsis),
             ]),
           ),
           Container(
             padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
-            decoration: BoxDecoration(color: statusColor.withValues(alpha: 0.1), borderRadius: BorderRadius.circular(8)),
+            decoration: BoxDecoration(color: statusColor.withValues(alpha: 0.1), borderRadius: BorderRadius.circular(10)),
             child: Text(tr(statusText), style: TextStyle(fontSize: 10, fontWeight: FontWeight.w600, color: statusColor)),
           ),
         ]),
@@ -623,7 +624,7 @@ class LicensesTabState extends State<LicensesTab> {
       'activated' => AdminHelpers.primaryDark,
       'available' => AdminHelpers.success,
       'revoked' => AdminHelpers.danger,
-      _ => Colors.grey,
+      _ => SboxColors.slate500,
     };
     final statusText = switch (status) {
       'activated' => 'Đã kích hoạt',
@@ -645,7 +646,7 @@ class LicensesTabState extends State<LicensesTab> {
               padding: const EdgeInsets.all(8),
               decoration: BoxDecoration(
                   color: statusColor.withValues(alpha: 0.1),
-                  borderRadius: BorderRadius.circular(8)),
+                  borderRadius: BorderRadius.circular(10)),
               child: Icon(Icons.vpn_key, color: statusColor, size: 18),
             ),
             const SizedBox(width: 12),
@@ -686,7 +687,7 @@ class LicensesTabState extends State<LicensesTab> {
                             license['servicePackageName'], AdminHelpers.primary),
                       AdminHelpers.statusChip(
                           '${license['durationDays'] ?? 0} ngày',
-                          Colors.grey),
+                          SboxColors.slate500),
                     ]),
                   ]),
             ),
@@ -734,10 +735,10 @@ class LicensesTabState extends State<LicensesTab> {
 
   Widget _infoItem(IconData icon, String text) {
     return Row(mainAxisSize: MainAxisSize.min, children: [
-      Icon(icon, size: 13, color: Colors.grey[500]),
+      Icon(icon, size: 13, color: SboxColors.slate500),
       const SizedBox(width: 4),
       Text(tr(text),
-          style: TextStyle(fontSize: 12, color: Colors.grey[700])),
+          style: TextStyle(fontSize: 12, color: SboxColors.slate700)),
     ]);
   }
 
@@ -1067,7 +1068,7 @@ class LicensesTabState extends State<LicensesTab> {
                   padding: const EdgeInsets.all(12),
                   decoration: BoxDecoration(
                     color: AdminHelpers.info.withValues(alpha: 0.1),
-                    borderRadius: BorderRadius.circular(8),
+                    borderRadius: BorderRadius.circular(10),
                   ),
                   child: Row(children: [
                     const Icon(Icons.info_outline,

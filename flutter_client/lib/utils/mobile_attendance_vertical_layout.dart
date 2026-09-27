@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:zkteco_flutter_client/l10n/app_tr.dart';
 
 import '../widgets/pos/pos_theme.dart';
+import '../theme/sbox_tokens.dart';
 /// Mobile: nhân viên (hoặc chỉ 1 NV trong dữ liệu) → bảng dọc dễ đọc hơn bảng ngang.
 bool preferMobileVerticalAttendanceView({
   required String? userRole,
@@ -84,10 +85,10 @@ class MobileAttendanceVerticalTable extends StatelessWidget {
 
   static const _headerBg = Color(0xFFF4F6F8);
   static const _accent = PosTheme.kiotBlue;
-  static const _border = Color(0xFFE4E4E7);
-  static const _todayBg = Color(0xFFEFF6FF);
-  static const _totalBg = Color(0xFFEFF6FF);
-  static const _totalBorder = Color(0xFF93C5FD);
+  static const _border = SboxColors.slate200;
+  static const _todayBg = SboxColors.brand50;
+  static const _totalBg = SboxColors.brand50;
+  static const _totalBorder = SboxColors.brand200;
 
   List<String> get _headers {
     final h = <String>['Ngày', 'Thứ', 'Chấm công'];
@@ -118,7 +119,7 @@ class MobileAttendanceVerticalTable extends StatelessWidget {
     return Container(
       decoration: BoxDecoration(
         color: Colors.white,
-        borderRadius: BorderRadius.circular(12),
+        borderRadius: BorderRadius.circular(14),
         border: Border.all(color: _border),
         boxShadow: [
           BoxShadow(
@@ -147,7 +148,7 @@ class MobileAttendanceVerticalTable extends StatelessWidget {
                       style: const TextStyle(
                         fontSize: 13,
                         fontWeight: FontWeight.w600,
-                        color: Color(0xFF18181B),
+                        color: SboxColors.slate900,
                       ),
                     ),
                   ),
@@ -159,7 +160,7 @@ class MobileAttendanceVerticalTable extends StatelessWidget {
               padding: const EdgeInsets.fromLTRB(12, 0, 12, 6),
               child: Text(
                 tr('Vuốt ngang để xem giờ từng ca'),
-                style: TextStyle(fontSize: 10, color: Colors.grey.shade600),
+                style: TextStyle(fontSize: 10, color: SboxColors.slate600),
               ),
             ),
           SingleChildScrollView(
@@ -177,7 +178,7 @@ class MobileAttendanceVerticalTable extends StatelessWidget {
                         child: Text(
                           tr('Không có dữ liệu trong khoảng ngày đã chọn'),
                           style: const TextStyle(
-                              fontSize: 12, color: Color(0xFF71717A)),
+                              fontSize: 12, color: SboxColors.slate500),
                         ),
                       ),
                     )
@@ -212,7 +213,7 @@ class MobileAttendanceVerticalTable extends StatelessWidget {
                 maxLines: 2,
                 overflow: TextOverflow.ellipsis,
                 style: const TextStyle(
-                  color: Color(0xFF374151),
+                  color: SboxColors.slate700,
                   fontSize: 10,
                   fontWeight: FontWeight.w700,
                   height: 1.15,
@@ -238,14 +239,14 @@ class MobileAttendanceVerticalTable extends StatelessWidget {
 
   Color _cellColor(int textIndex, String? value, {required bool total}) {
     if (value == null || value == '—') {
-      return total ? const Color(0xFF1E40AF) : const Color(0xFF18181B);
+      return total ? SboxColors.brand800 : SboxColors.slate900;
     }
     final shiftEnd = maxShifts;
     if (textIndex >= 0 && textIndex < shiftEnd) {
       return const Color(0xFF0F766E);
     }
     if (textIndex == shiftEnd) {
-      return total ? const Color(0xFF15803D) : const Color(0xFF16A34A);
+      return total ? SboxColors.payHover : SboxColors.success;
     }
     var idx = shiftEnd + 1;
     if (showTravel) {
@@ -253,15 +254,15 @@ class MobileAttendanceVerticalTable extends StatelessWidget {
       idx++;
     }
     if (textIndex == idx) {
-      return total ? const Color(0xFF1D4ED8) : const Color(0xFF2563EB);
+      return total ? SboxColors.brand700 : SboxColors.brand600;
     }
-    return total ? const Color(0xFF1E40AF) : const Color(0xFF18181B);
+    return total ? SboxColors.brand800 : SboxColors.slate900;
   }
 
   Widget _buildDataRow(MobileAttendanceVerticalRow row, int index) {
     final bg = row.isToday
         ? _todayBg
-        : (index.isEven ? const Color(0xFFF9FAFB) : Colors.white);
+        : (index.isEven ? SboxColors.slate50 : Colors.white);
     final texts = _textCells(row);
     final widths = _colWidths;
     Widget rowBody = Container(
@@ -323,11 +324,11 @@ class MobileAttendanceVerticalTable extends StatelessWidget {
         children: [
           SizedBox(
             width: widths[0],
-            child: _plainCell(texts[0], true, color: const Color(0xFF1E40AF)),
+            child: _plainCell(texts[0], true, color: SboxColors.brand800),
           ),
           SizedBox(
             width: widths[1],
-            child: _plainCell(texts[1], true, color: const Color(0xFF1E40AF)),
+            child: _plainCell(texts[1], true, color: SboxColors.brand800),
           ),
           SizedBox(width: widths[2], child: row.attendance),
           for (var i = 3; i < widths.length; i++)
@@ -356,8 +357,8 @@ class MobileAttendanceVerticalTable extends StatelessWidget {
         overflow: TextOverflow.ellipsis,
         style: TextStyle(
           fontSize: 10,
-          fontWeight: (emphasize || bold) ? FontWeight.w800 : FontWeight.w500,
-          color: color ?? const Color(0xFF18181B),
+          fontWeight: (emphasize || bold) ? FontWeight.w700 : FontWeight.w500,
+          color: color ?? SboxColors.slate900,
           height: 1.2,
         ),
       ),
@@ -376,7 +377,7 @@ Widget mobileAttendancePunchText(String text) {
       style: const TextStyle(
         fontSize: 9,
         fontWeight: FontWeight.w600,
-        color: Color(0xFF18181B),
+        color: SboxColors.slate900,
         height: 1.25,
       ),
     ),
@@ -433,10 +434,10 @@ class MobileAttendanceShiftVerticalTable extends StatelessWidget {
 
   static const _headerBg = Color(0xFFF4F6F8);
   static const _accent = PosTheme.kiotBlue;
-  static const _border = Color(0xFFE4E4E7);
-  static const _todayBg = Color(0xFFEFF6FF);
-  static const _totalBg = Color(0xFFEFF6FF);
-  static const _totalBorder = Color(0xFF93C5FD);
+  static const _border = SboxColors.slate200;
+  static const _todayBg = SboxColors.brand50;
+  static const _totalBg = SboxColors.brand50;
+  static const _totalBorder = SboxColors.brand200;
 
   List<String> get _headers {
     final h = <String>['Ngày', 'Thứ', 'Chấm công'];
@@ -467,7 +468,7 @@ class MobileAttendanceShiftVerticalTable extends StatelessWidget {
     return Container(
       decoration: BoxDecoration(
         color: Colors.white,
-        borderRadius: BorderRadius.circular(12),
+        borderRadius: BorderRadius.circular(14),
         border: Border.all(color: _border),
         boxShadow: [
           BoxShadow(
@@ -499,7 +500,7 @@ class MobileAttendanceShiftVerticalTable extends StatelessWidget {
                           style: const TextStyle(
                             fontSize: 13,
                             fontWeight: FontWeight.w600,
-                            color: Color(0xFF18181B),
+                            color: SboxColors.slate900,
                           ),
                         ),
                       ),
@@ -512,7 +513,7 @@ class MobileAttendanceShiftVerticalTable extends StatelessWidget {
                         : 'Vuốt ngang để xem đủ cột'),
                     style: TextStyle(
                       fontSize: 10,
-                      color: Colors.grey.shade600,
+                      color: SboxColors.slate600,
                     ),
                   ),
                 ],
@@ -533,7 +534,7 @@ class MobileAttendanceShiftVerticalTable extends StatelessWidget {
                         child: Text(
                           tr('Không có dữ liệu trong khoảng ngày đã chọn'),
                           style: const TextStyle(
-                              fontSize: 12, color: Color(0xFF71717A)),
+                              fontSize: 12, color: SboxColors.slate500),
                         ),
                       ),
                     )
@@ -569,7 +570,7 @@ class MobileAttendanceShiftVerticalTable extends StatelessWidget {
                 maxLines: 2,
                 overflow: TextOverflow.ellipsis,
                 style: const TextStyle(
-                  color: Color(0xFF374151),
+                  color: SboxColors.slate700,
                   fontSize: 9,
                   fontWeight: FontWeight.w700,
                   height: 1.15,
@@ -596,7 +597,7 @@ class MobileAttendanceShiftVerticalTable extends StatelessWidget {
 
   Color _cellColor(int textIndex, String value, {required bool total}) {
     if (value == '—') {
-      return total ? const Color(0xFF1E40AF) : const Color(0xFF18181B);
+      return total ? SboxColors.brand800 : SboxColors.slate900;
     }
     final n = shiftHourLabels.length;
     if (textIndex >= 0 && textIndex < n) {
@@ -604,29 +605,29 @@ class MobileAttendanceShiftVerticalTable extends StatelessWidget {
     }
     var idx = n;
     if (textIndex == idx) {
-      return total ? const Color(0xFF1D4ED8) : const Color(0xFF2563EB);
+      return total ? SboxColors.brand700 : SboxColors.brand600;
     }
     idx++;
     if (textIndex == idx) {
-      return total ? const Color(0xFF15803D) : const Color(0xFF16A34A);
+      return total ? SboxColors.payHover : SboxColors.success;
     }
     idx++;
     if (showTravel) {
       if (textIndex == idx) return const Color(0xFFEA580C);
       idx++;
     }
-    if (textIndex == idx) return const Color(0xFFF59E0B);
+    if (textIndex == idx) return SboxColors.warning;
     idx++;
-    if (textIndex == idx) return const Color(0xFFEF4444);
+    if (textIndex == idx) return SboxColors.danger;
     idx++;
-    if (textIndex == idx) return const Color(0xFF8B5CF6);
-    return total ? const Color(0xFF1E40AF) : const Color(0xFF18181B);
+    if (textIndex == idx) return SboxColors.violet;
+    return total ? SboxColors.brand800 : SboxColors.slate900;
   }
 
   Widget _buildDataRow(MobileAttendanceShiftVerticalRow row, int index) {
     final bg = row.isToday
         ? _todayBg
-        : (index.isEven ? const Color(0xFFF9FAFB) : Colors.white);
+        : (index.isEven ? SboxColors.slate50 : Colors.white);
     final texts = _textCells(row);
     final widths = _colWidths;
     Widget rowBody = Container(
@@ -725,8 +726,8 @@ class MobileAttendanceShiftVerticalTable extends StatelessWidget {
         overflow: TextOverflow.ellipsis,
         style: TextStyle(
           fontSize: 10,
-          fontWeight: bold || isToday ? FontWeight.w800 : FontWeight.w500,
-          color: color ?? const Color(0xFF18181B),
+          fontWeight: bold || isToday ? FontWeight.w700 : FontWeight.w500,
+          color: color ?? SboxColors.slate900,
           height: 1.2,
         ),
       ),
@@ -770,10 +771,10 @@ class MobilePayrollVerticalTable extends StatelessWidget {
 
   static const _headerBg = Color(0xFFF4F6F8);
   static const _accent = PosTheme.kiotBlue;
-  static const _border = Color(0xFFE4E4E7);
-  static const _totalBg = Color(0xFFEFF6FF);
-  static const _totalFrozenBg = Color(0xFFDBEAFE);
-  static const _totalBorder = Color(0xFF93C5FD);
+  static const _border = SboxColors.slate200;
+  static const _totalBg = SboxColors.brand50;
+  static const _totalFrozenBg = SboxColors.brand100;
+  static const _totalBorder = SboxColors.brand200;
   static const _empColW = 118.0;
   static const _rowH = 46.0;
   static const _hdrH = 44.0;
@@ -786,7 +787,7 @@ class MobilePayrollVerticalTable extends StatelessWidget {
     return Container(
       decoration: BoxDecoration(
         color: Colors.white,
-        borderRadius: BorderRadius.circular(12),
+        borderRadius: BorderRadius.circular(14),
         border: Border.all(color: _border),
         boxShadow: [
           BoxShadow(
@@ -818,7 +819,7 @@ class MobilePayrollVerticalTable extends StatelessWidget {
                           style: const TextStyle(
                             fontSize: 13,
                             fontWeight: FontWeight.w600,
-                            color: Color(0xFF18181B),
+                            color: SboxColors.slate900,
                           ),
                         ),
                       ),
@@ -828,7 +829,7 @@ class MobilePayrollVerticalTable extends StatelessWidget {
                   Text(tr('Vuốt ngang để xem đủ cột'),
                     style: TextStyle(
                       fontSize: 10,
-                      color: Colors.grey.shade600,
+                      color: SboxColors.slate600,
                     ),
                   ),
                 ],
@@ -839,7 +840,7 @@ class MobilePayrollVerticalTable extends StatelessWidget {
               padding: EdgeInsets.all(20),
               child: Center(
                 child: Text(tr('Không có dữ liệu lương'),
-                  style: TextStyle(fontSize: 12, color: Color(0xFF71717A)),
+                  style: TextStyle(fontSize: 12, color: SboxColors.slate500),
                 ),
               ),
             )
@@ -887,13 +888,13 @@ class MobilePayrollVerticalTable extends StatelessWidget {
             decoration: const BoxDecoration(
               color: _headerBg,
               border: Border(
-                right: BorderSide(color: Color(0xFFE5E7EB)),
-                bottom: BorderSide(color: Color(0xFFE5E7EB), width: 0.5),
+                right: BorderSide(color: SboxColors.slate200),
+                bottom: BorderSide(color: SboxColors.slate200, width: 0.5),
               ),
             ),
             child: Text(tr('Nhân viên'),
               style: TextStyle(
-                color: Color(0xFF374151),
+                color: SboxColors.slate700,
                 fontSize: 10,
                 fontWeight: FontWeight.w700,
               ),
@@ -925,14 +926,14 @@ class MobilePayrollVerticalTable extends StatelessWidget {
           decoration: BoxDecoration(
             color: isTotal
                 ? _totalFrozenBg
-                : (isEven ? const Color(0xFFF4F4F5) : Colors.white),
+                : (isEven ? SboxColors.slate100 : Colors.white),
             border: Border(
               top: isTotal
                   ? const BorderSide(color: _totalBorder, width: 1)
                   : BorderSide.none,
-              right: const BorderSide(color: Color(0xFFD4D4D8)),
+              right: const BorderSide(color: SboxColors.slate300),
               bottom: BorderSide(
-                color: isTotal ? _totalBorder : const Color(0xFFE4E4E7),
+                color: isTotal ? _totalBorder : SboxColors.slate200,
                 width: 0.5,
               ),
             ),
@@ -947,10 +948,10 @@ class MobilePayrollVerticalTable extends StatelessWidget {
                 overflow: TextOverflow.ellipsis,
                 style: TextStyle(
                   fontSize: 10,
-                  fontWeight: isTotal ? FontWeight.w800 : FontWeight.w600,
+                  fontWeight: isTotal ? FontWeight.w700 : FontWeight.w600,
                   color: isTotal
-                      ? const Color(0xFF1E40AF)
-                      : const Color(0xFF18181B),
+                      ? SboxColors.brand800
+                      : SboxColors.slate900,
                 ),
               ),
               if (row.employeeSubtitle.isNotEmpty)
@@ -961,15 +962,15 @@ class MobilePayrollVerticalTable extends StatelessWidget {
                   style: TextStyle(
                     fontSize: 9,
                     color: isTotal
-                        ? const Color(0xFF1D4ED8)
-                        : const Color(0xFF71717A),
+                        ? SboxColors.brand700
+                        : SboxColors.slate500,
                     fontWeight:
                         isTotal ? FontWeight.w700 : FontWeight.normal,
                   ),
                 ),
               if (!isTotal)
                 Text(tr('Chạm xem'),
-                  style: TextStyle(fontSize: 8, color: Color(0xFF2563EB)),
+                  style: TextStyle(fontSize: 8, color: SboxColors.brand600),
                 ),
             ],
           ),
@@ -995,7 +996,7 @@ class MobilePayrollVerticalTable extends StatelessWidget {
                   maxLines: 2,
                   overflow: TextOverflow.ellipsis,
                   style: const TextStyle(
-                    color: Color(0xFF374151),
+                    color: SboxColors.slate700,
                     fontSize: 9,
                     fontWeight: FontWeight.w700,
                     height: 1.15,
@@ -1023,7 +1024,7 @@ class MobilePayrollVerticalTable extends StatelessWidget {
           height: _rowH,
           color: isTotal
               ? _totalBg
-              : (isEven ? const Color(0xFFF9FAFB) : Colors.white),
+              : (isEven ? SboxColors.slate50 : Colors.white),
           child: Row(
             children: List.generate(headers.length, (i) {
               final value = i < row.cells.length ? row.cells[i] : '—';
@@ -1039,9 +1040,9 @@ class MobilePayrollVerticalTable extends StatelessWidget {
                       top: isTotal
                           ? const BorderSide(color: _totalBorder, width: 1)
                           : BorderSide.none,
-                      right: const BorderSide(color: Color(0xFFE4E4E7), width: 0.5),
+                      right: const BorderSide(color: SboxColors.slate200, width: 0.5),
                       bottom: BorderSide(
-                        color: isTotal ? _totalBorder : const Color(0xFFE4E4E7),
+                        color: isTotal ? _totalBorder : SboxColors.slate200,
                         width: 0.5,
                       ),
                     ),
@@ -1060,8 +1061,8 @@ class MobilePayrollVerticalTable extends StatelessWidget {
                           : FontWeight.w500,
                       color: color ??
                           (isTotal
-                              ? const Color(0xFF1E40AF)
-                              : const Color(0xFF18181B)),
+                              ? SboxColors.brand800
+                              : SboxColors.slate900),
                     ),
                   ),
                 ),
@@ -1077,7 +1078,7 @@ class MobilePayrollVerticalTable extends StatelessWidget {
 /// Nhãn vắng/phép/lễ trong cột Chấm công.
 Widget mobileAttendanceAbsenceLabel(
   String label, {
-  Color color = const Color(0xFFEF4444),
+  Color color = SboxColors.danger,
   VoidCallback? onTap,
 }) {
   final child = Text(

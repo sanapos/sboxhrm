@@ -6,6 +6,7 @@ import '../widgets/hrm_page_chrome.dart';
 import '../widgets/notification_overlay.dart';
 import 'package:zkteco_flutter_client/l10n/app_tr.dart';
 
+import '../theme/sbox_tokens.dart';
 const _theme = HrmPageChrome.primaryNavy;
 
 /// Dialog bổ sung / chỉnh cặp chấm đi đường (Bắt đầu đi → Đến điểm làm).
@@ -160,7 +161,7 @@ Future<bool> showManualTravelDialog(
                           ? 'Bổ sung chấm còn thiếu trên phiếu hiện có (không tạo dòng mới).'
                           : 'Tạo cặp Bắt đầu đi → Đến điểm làm (đã duyệt).'),
                       style:
-                          TextStyle(fontSize: 13, color: Colors.grey.shade700),
+                          TextStyle(fontSize: 13, color: SboxColors.slate700),
                     ),
                     const SizedBox(height: 14),
                     DropdownButtonFormField<String>(

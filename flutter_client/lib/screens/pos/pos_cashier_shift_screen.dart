@@ -14,6 +14,7 @@ import '../../widgets/pos/pos_vnd_thousands_formatter.dart';
 import 'pos_sell_industry_settings_hub_screen.dart';
 import 'package:zkteco_flutter_client/l10n/app_tr.dart';
 
+import '../../theme/sbox_tokens.dart';
 final _money = NumberFormat('#,##0', 'vi_VN');
 final _dtFmt = DateFormat('dd/MM/yyyy HH:mm');
 final _timeFmt = DateFormat('HH:mm');
@@ -252,7 +253,7 @@ class _PosCashierShiftScreenState extends State<PosCashierShiftScreen> {
   Widget build(BuildContext context) {
     final pushed = PosHubScope.pushedSubPageOf(context);
     return Scaffold(
-      backgroundColor: const Color(0xFFF3F4F6),
+      backgroundColor: SboxColors.slate100,
       appBar: AppBar(
         backgroundColor: PosTheme.kiotBlue,
         foregroundColor: Colors.white,
@@ -308,7 +309,7 @@ class _PosCashierShiftScreenState extends State<PosCashierShiftScreen> {
       child: Row(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Icon(Icons.info_outline, size: 20, color: Colors.blue.shade700),
+          Icon(Icons.info_outline, size: 20, color: SboxColors.brand700),
           const SizedBox(width: 10),
           Expanded(
             child: Text(
@@ -318,7 +319,7 @@ class _PosCashierShiftScreenState extends State<PosCashierShiftScreen> {
                 'Mỗi ca đóng là một lần đối chiếu két riêng.',
               ),
               style: TextStyle(
-                color: Colors.grey.shade700,
+                color: SboxColors.slate700,
                 height: 1.4,
                 fontSize: 13,
               ),
@@ -336,12 +337,12 @@ class _PosCashierShiftScreenState extends State<PosCashierShiftScreen> {
         children: [
           Text(
             tr('Ca hôm nay (${_todayShifts.length})'),
-            style: const TextStyle(fontWeight: FontWeight.w800, fontSize: 15),
+            style: const TextStyle(fontWeight: FontWeight.w700, fontSize: 16),
           ),
           const SizedBox(height: 4),
           Text(
             tr('Chạm vào một ca để xem chi tiết tài khoản / tiền két'),
-            style: TextStyle(fontSize: 12, color: Colors.grey.shade600),
+            style: TextStyle(fontSize: 12, color: SboxColors.slate600),
           ),
           const SizedBox(height: 8),
           for (final s in _todayShifts) _shiftHistoryTile(s),
@@ -361,12 +362,12 @@ class _PosCashierShiftScreenState extends State<PosCashierShiftScreen> {
         children: [
           Text(
             tr('Lịch sử mở/đóng ca ($_historyDays ngày gần nhất)'),
-            style: const TextStyle(fontWeight: FontWeight.w800, fontSize: 15),
+            style: const TextStyle(fontWeight: FontWeight.w700, fontSize: 16),
           ),
           const SizedBox(height: 4),
           Text(
             tr('Tài khoản mở · đóng · tiền đầu · đếm · lệch — chạm xem lại'),
-            style: TextStyle(fontSize: 12, color: Colors.grey.shade600),
+            style: TextStyle(fontSize: 12, color: SboxColors.slate600),
           ),
           const SizedBox(height: 8),
           for (final s in older) _shiftHistoryTile(s),
@@ -415,10 +416,10 @@ class _PosCashierShiftScreenState extends State<PosCashierShiftScreen> {
     return Padding(
       padding: const EdgeInsets.only(bottom: 8),
       child: Material(
-        color: const Color(0xFFF8FAFC),
-        borderRadius: BorderRadius.circular(8),
+        color: SboxColors.slate50,
+        borderRadius: BorderRadius.circular(10),
         child: InkWell(
-          borderRadius: BorderRadius.circular(8),
+          borderRadius: BorderRadius.circular(10),
           onTap: () => _showShiftDetail(s),
           child: Padding(
             padding: const EdgeInsets.fromLTRB(10, 8, 10, 8),
@@ -430,8 +431,8 @@ class _PosCashierShiftScreenState extends State<PosCashierShiftScreen> {
                       const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
                   decoration: BoxDecoration(
                     color: s.status == 'Open'
-                        ? const Color(0xFFDCFCE7)
-                        : const Color(0xFFE2E8F0),
+                        ? SboxColors.successSoft
+                        : SboxColors.slate200,
                     borderRadius: BorderRadius.circular(4),
                   ),
                   child: Text(
@@ -440,8 +441,8 @@ class _PosCashierShiftScreenState extends State<PosCashierShiftScreen> {
                       fontSize: 11,
                       fontWeight: FontWeight.w700,
                       color: s.status == 'Open'
-                          ? const Color(0xFF166534)
-                          : const Color(0xFF475569),
+                          ? SboxColors.successText
+                          : SboxColors.slate600,
                     ),
                   ),
                 ),
@@ -462,14 +463,14 @@ class _PosCashierShiftScreenState extends State<PosCashierShiftScreen> {
                           when,
                           style: TextStyle(
                             fontSize: 12,
-                            color: Colors.grey.shade700,
+                            color: SboxColors.slate700,
                           ),
                         ),
                       Text(
                         money,
                         style: TextStyle(
                           fontSize: 12,
-                          color: Colors.grey.shade800,
+                          color: SboxColors.slate800,
                           height: 1.35,
                         ),
                       ),
@@ -477,7 +478,7 @@ class _PosCashierShiftScreenState extends State<PosCashierShiftScreen> {
                   ),
                 ),
                 Icon(Icons.chevron_right,
-                    size: 20, color: Colors.grey.shade500),
+                    size: 20, color: SboxColors.slate500),
               ],
             ),
           ),
@@ -508,7 +509,7 @@ class _PosCashierShiftScreenState extends State<PosCashierShiftScreen> {
                     tr(label),
                     style: TextStyle(
                       fontSize: 13,
-                      color: Colors.grey.shade600,
+                      color: SboxColors.slate600,
                     ),
                   ),
                 ),
@@ -538,7 +539,7 @@ class _PosCashierShiftScreenState extends State<PosCashierShiftScreen> {
                     width: 40,
                     height: 4,
                     decoration: BoxDecoration(
-                      color: Colors.grey.shade300,
+                      color: SboxColors.slate300,
                       borderRadius: BorderRadius.circular(2),
                     ),
                   ),
@@ -549,8 +550,8 @@ class _PosCashierShiftScreenState extends State<PosCashierShiftScreen> {
                       ? 'Chi tiết ca đang mở'
                       : 'Chi tiết ca đã đóng'),
                   style: const TextStyle(
-                    fontSize: 17,
-                    fontWeight: FontWeight.w800,
+                    fontSize: 18,
+                    fontWeight: FontWeight.w700,
                   ),
                 ),
                 const SizedBox(height: 14),
@@ -610,7 +611,7 @@ class _PosCashierShiftScreenState extends State<PosCashierShiftScreen> {
         children: [
           Text(
             tr('Chưa bật ca thu ngân'),
-            style: const TextStyle(fontWeight: FontWeight.w800, fontSize: 16),
+            style: const TextStyle(fontWeight: FontWeight.w700, fontSize: 16),
           ),
           const SizedBox(height: 8),
           Text(
@@ -619,7 +620,7 @@ class _PosCashierShiftScreenState extends State<PosCashierShiftScreen> {
               '«Ca thu ngân». Mỗi tài khoản thu ngân mở ca riêng. '
               'Mở lại Menu ⋮ → Ca thu ngân sau khi bật.',
             ),
-            style: TextStyle(color: Colors.grey.shade700, height: 1.4),
+            style: TextStyle(color: SboxColors.slate700, height: 1.4),
           ),
           const SizedBox(height: 16),
           FilledButton.icon(
@@ -655,7 +656,7 @@ class _PosCashierShiftScreenState extends State<PosCashierShiftScreen> {
           textAlign: TextAlign.right,
           style: const TextStyle(
             fontSize: 28,
-            fontWeight: FontWeight.w800,
+            fontWeight: FontWeight.w700,
             letterSpacing: 0.3,
           ),
           inputFormatters: [PosVndThousandsFormatter()],
@@ -665,8 +666,8 @@ class _PosCashierShiftScreenState extends State<PosCashierShiftScreen> {
             hintText: '0',
             suffixText: tr('đ'),
             filled: true,
-            fillColor: const Color(0xFFF8FAFC),
-            border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
+            fillColor: SboxColors.slate50,
+            border: OutlineInputBorder(borderRadius: BorderRadius.circular(14)),
             contentPadding:
                 const EdgeInsets.symmetric(horizontal: 14, vertical: 16),
             suffixIcon: IconButton(
@@ -688,8 +689,8 @@ class _PosCashierShiftScreenState extends State<PosCashierShiftScreen> {
                   style: const TextStyle(fontWeight: FontWeight.w600),
                 ),
                 onPressed: () => _setCash(a),
-                backgroundColor: const Color(0xFFEFF6FF),
-                side: BorderSide(color: Colors.blue.shade100),
+                backgroundColor: SboxColors.brand50,
+                side: BorderSide(color: SboxColors.brand100),
               ),
           ],
         ),
@@ -707,7 +708,7 @@ class _PosCashierShiftScreenState extends State<PosCashierShiftScreen> {
             children: [
               Text(
                 tr('Mở ca'),
-                style: const TextStyle(fontWeight: FontWeight.w800, fontSize: 18),
+                style: const TextStyle(fontWeight: FontWeight.w700, fontSize: 18),
               ),
               const SizedBox(height: 6),
               Text(
@@ -715,7 +716,7 @@ class _PosCashierShiftScreenState extends State<PosCashierShiftScreen> {
                   'Nhập tiền mặt đầu ca trong két. Mỗi tài khoản mở ca riêng — '
                   'sau khi mở mới thanh toán được trên tài khoản này.',
                 ),
-                style: TextStyle(color: Colors.grey.shade700, height: 1.35),
+                style: TextStyle(color: SboxColors.slate700, height: 1.35),
               ),
               const SizedBox(height: 16),
               _moneyInput(
@@ -729,7 +730,7 @@ class _PosCashierShiftScreenState extends State<PosCashierShiftScreen> {
                 decoration: InputDecoration(
                   labelText: tr('Ghi chú (không bắt buộc)'),
                   border: OutlineInputBorder(
-                    borderRadius: BorderRadius.circular(12),
+                    borderRadius: BorderRadius.circular(14),
                   ),
                 ),
               ),
@@ -772,10 +773,10 @@ class _PosCashierShiftScreenState extends State<PosCashierShiftScreen> {
     final hasCount = _cashCtrl.text.trim().isNotEmpty;
     final diff = counted - expected;
     final diffColor = !hasCount
-        ? Colors.grey.shade600
+        ? SboxColors.slate600
         : (diff == 0
-            ? const Color(0xFF166534)
-            : (diff > 0 ? const Color(0xFFB45309) : const Color(0xFFB91C1C)));
+            ? SboxColors.successText
+            : (diff > 0 ? SboxColors.warningText : SboxColors.dangerText));
 
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
@@ -790,13 +791,13 @@ class _PosCashierShiftScreenState extends State<PosCashierShiftScreen> {
                     padding:
                         const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
                     decoration: BoxDecoration(
-                      color: const Color(0xFFDCFCE7),
+                      color: SboxColors.successSoft,
                       borderRadius: BorderRadius.circular(6),
                     ),
                     child: Text(
                       tr('Đang mở ca'),
                       style: const TextStyle(
-                        color: Color(0xFF166534),
+                        color: SboxColors.successText,
                         fontWeight: FontWeight.w700,
                         fontSize: 12,
                       ),
@@ -807,7 +808,7 @@ class _PosCashierShiftScreenState extends State<PosCashierShiftScreen> {
                     Text(
                       _dtFmt.format(s!.openedAt!),
                       style:
-                          TextStyle(color: Colors.grey.shade700, fontSize: 13),
+                          TextStyle(color: SboxColors.slate700, fontSize: 13),
                     ),
                 ],
               ),
@@ -815,7 +816,7 @@ class _PosCashierShiftScreenState extends State<PosCashierShiftScreen> {
                 const SizedBox(height: 8),
                 Text(
                   tr('Mở bởi ${s!.openedByName}'),
-                  style: TextStyle(color: Colors.grey.shade700),
+                  style: TextStyle(color: SboxColors.slate700),
                 ),
               ],
               const SizedBox(height: 16),
@@ -827,7 +828,7 @@ class _PosCashierShiftScreenState extends State<PosCashierShiftScreen> {
                 ),
                 style: TextStyle(
                   fontSize: 12,
-                  color: Colors.grey.shade600,
+                  color: SboxColors.slate600,
                   height: 1.35,
                 ),
               ),
@@ -841,7 +842,7 @@ class _PosCashierShiftScreenState extends State<PosCashierShiftScreen> {
             children: [
               Text(
                 tr('Đóng ca / đếm két'),
-                style: const TextStyle(fontWeight: FontWeight.w800, fontSize: 18),
+                style: const TextStyle(fontWeight: FontWeight.w700, fontSize: 18),
               ),
               const SizedBox(height: 16),
               _moneyInput(
@@ -870,7 +871,7 @@ class _PosCashierShiftScreenState extends State<PosCashierShiftScreen> {
                                   : 'Thiếu ${_money.format(-diff)}đ'),
                         ),
                         style: TextStyle(
-                          fontWeight: FontWeight.w800,
+                          fontWeight: FontWeight.w700,
                           fontSize: 16,
                           color: diffColor,
                         ),
@@ -882,7 +883,7 @@ class _PosCashierShiftScreenState extends State<PosCashierShiftScreen> {
                         ),
                         style: TextStyle(
                           fontSize: 12,
-                          color: Colors.grey.shade700,
+                          color: SboxColors.slate700,
                         ),
                       ),
                     ],
@@ -896,7 +897,7 @@ class _PosCashierShiftScreenState extends State<PosCashierShiftScreen> {
                 decoration: InputDecoration(
                   labelText: tr('Ghi chú (không bắt buộc)'),
                   border: OutlineInputBorder(
-                    borderRadius: BorderRadius.circular(12),
+                    borderRadius: BorderRadius.circular(14),
                   ),
                 ),
               ),
@@ -905,7 +906,7 @@ class _PosCashierShiftScreenState extends State<PosCashierShiftScreen> {
                 height: 52,
                 child: FilledButton.icon(
                   style: FilledButton.styleFrom(
-                    backgroundColor: const Color(0xFFB45309),
+                    backgroundColor: SboxColors.warningText,
                   ),
                   onPressed: (_busy || !_canShiftAct()) ? null : _closeShift,
                   icon: _busy
@@ -940,11 +941,11 @@ class _PosCashierShiftScreenState extends State<PosCashierShiftScreen> {
       child: Row(
         children: [
           Expanded(
-            child: Text(tr(label), style: TextStyle(color: Colors.grey.shade700)),
+            child: Text(tr(label), style: TextStyle(color: SboxColors.slate700)),
           ),
           Text(
             value,
-            style: const TextStyle(fontWeight: FontWeight.w800, fontSize: 16),
+            style: const TextStyle(fontWeight: FontWeight.w700, fontSize: 16),
           ),
         ],
       ),
@@ -954,7 +955,7 @@ class _PosCashierShiftScreenState extends State<PosCashierShiftScreen> {
   Widget _card({required Widget child}) {
     return Material(
       color: Colors.white,
-      borderRadius: BorderRadius.circular(12),
+      borderRadius: BorderRadius.circular(14),
       child: Padding(padding: const EdgeInsets.all(16), child: child),
     );
   }

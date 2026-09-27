@@ -23,6 +23,7 @@ import '../widgets/hrm_mini_stat_chip.dart';
 import '../utils/navigation_notifier.dart';
 import 'main_layout.dart' show ScreenRefreshNotifier;
 import 'package:zkteco_flutter_client/l10n/app_tr.dart';
+import '../theme/sbox_tokens.dart';
 enum _DeviceOutsideCheckInFilter { all, outsideOn, outsideOff }
 
 class MobileAttendanceSettingsScreen extends StatefulWidget {
@@ -241,14 +242,14 @@ class _MobileAttendanceSettingsScreenState extends State<MobileAttendanceSetting
                           fit: BoxFit.cover,
                           width: double.infinity,
                           placeholder: (_, __) => Container(
-                            color: const Color(0xFFF4F4F5),
+                            color: SboxColors.slate100,
                             child: const Center(
                               child: CircularProgressIndicator(strokeWidth: 2),
                             ),
                           ),
                           errorWidget: (_, __, ___) => Container(
-                            color: const Color(0xFFF4F4F5),
-                            child: const Icon(Icons.broken_image, color: Color(0xFF71717A)),
+                            color: SboxColors.slate100,
+                            child: const Icon(Icons.broken_image, color: SboxColors.slate500),
                           ),
                         ),
                       ),
@@ -258,7 +259,7 @@ class _MobileAttendanceSettingsScreenState extends State<MobileAttendanceSetting
                   Text(
                     tr(label),
                     textAlign: TextAlign.center,
-                    style: const TextStyle(fontSize: 10, color: Color(0xFF71717A)),
+                    style: const TextStyle(fontSize: 10, color: SboxColors.slate500),
                     overflow: TextOverflow.ellipsis,
                   ),
                 ],
@@ -398,7 +399,7 @@ class _MobileAttendanceSettingsScreenState extends State<MobileAttendanceSetting
             ? null
             : Text(tr('Chấm Công Mobile'),
                 style: TextStyle(
-                  color: Color(0xFF18181B),
+                  color: SboxColors.slate900,
                   fontWeight: FontWeight.bold,
                 ),
               ),
@@ -406,7 +407,7 @@ class _MobileAttendanceSettingsScreenState extends State<MobileAttendanceSetting
           controller: _tabController,
           isScrollable: true,
           labelColor: HrmPageChrome.primaryNavy,
-          unselectedLabelColor: const Color(0xFF71717A),
+          unselectedLabelColor: SboxColors.slate500,
           indicatorColor: HrmPageChrome.primaryNavy,
           tabs: [
             Tab(icon: Icon(Icons.settings), text: tr('Cài đặt')),
@@ -612,7 +613,7 @@ class _MobileAttendanceSettingsScreenState extends State<MobileAttendanceSetting
           _buildSettingsCard(
             title: 'Ảnh hiện trường',
             icon: Icons.photo_camera_outlined,
-            color: const Color(0xFF059669),
+            color: SboxColors.success,
             children: [
               _buildSwitchTile(
                 title: 'Ảnh hiện trường (cửa hàng)',
@@ -633,7 +634,7 @@ class _MobileAttendanceSettingsScreenState extends State<MobileAttendanceSetting
           _buildSettingsCard(
             title: 'Quy trình duyệt',
             icon: Icons.approval,
-            color: const Color(0xFFF59E0B),
+            color: SboxColors.warning,
             children: [
               _buildSwitchTile(
                 title: 'Cho phép duyệt thủ công',
@@ -677,7 +678,7 @@ class _MobileAttendanceSettingsScreenState extends State<MobileAttendanceSetting
                   tr(_settings.minPunchIntervalMinutes == 0
                       ? 'Tắt kiểm tra chấm trùng - cho phép chấm liên tục'
                       : 'Nếu chấm công dưới ${_settings.minPunchIntervalMinutes} phút sẽ bị từ chối là chấm trùng'),
-                  style: const TextStyle(fontSize: 12, color: Color(0xFF71717A)),
+                  style: const TextStyle(fontSize: 12, color: SboxColors.slate500),
                 ),
               ),
             ],
@@ -716,7 +717,7 @@ class _MobileAttendanceSettingsScreenState extends State<MobileAttendanceSetting
     return Container(
       decoration: BoxDecoration(
         color: Colors.white,
-        borderRadius: BorderRadius.circular(16),
+        borderRadius: BorderRadius.circular(14),
         boxShadow: [
           BoxShadow(
             color: Colors.black.withValues(alpha: 0.04),
@@ -746,13 +747,13 @@ class _MobileAttendanceSettingsScreenState extends State<MobileAttendanceSetting
                   style: const TextStyle(
                     fontSize: 18,
                     fontWeight: FontWeight.bold,
-                    color: Color(0xFF18181B),
+                    color: SboxColors.slate900,
                   ),
                 ),
               ],
             ),
           ),
-          const Divider(height: 24, color: Color(0xFFE4E4E7)),
+          const Divider(height: 24, color: SboxColors.slate200),
           ...children,
         ],
       ),
@@ -778,9 +779,9 @@ class _MobileAttendanceSettingsScreenState extends State<MobileAttendanceSetting
         children: [
           Text(tr('Chế độ xác thực'),
             style: TextStyle(
-              fontSize: 15,
+              fontSize: 16,
               fontWeight: FontWeight.w600,
-              color: Color(0xFF18181B),
+              color: SboxColors.slate900,
             ),
           ),
           const SizedBox(height: 4),
@@ -788,7 +789,7 @@ class _MobileAttendanceSettingsScreenState extends State<MobileAttendanceSetting
             tr(enabledCount <= 1
                 ? 'Chỉ có ${enabledNames.isNotEmpty ? enabledNames.first : "0"} phương thức bật'
                 : 'Đang bật: ${enabledNames.join(", ")}'),
-            style: const TextStyle(fontSize: 12, color: Color(0xFF71717A)),
+            style: const TextStyle(fontSize: 12, color: SboxColors.slate500),
           ),
           const SizedBox(height: 8),
           Row(
@@ -853,23 +854,23 @@ class _MobileAttendanceSettingsScreenState extends State<MobileAttendanceSetting
       child: Container(
         padding: const EdgeInsets.all(12),
         decoration: BoxDecoration(
-          color: selected ? HrmPageChrome.primaryNavy.withValues(alpha: 0.1) : const Color(0xFFF4F4F5),
-          borderRadius: BorderRadius.circular(12),
+          color: selected ? HrmPageChrome.primaryNavy.withValues(alpha: 0.1) : SboxColors.slate100,
+          borderRadius: BorderRadius.circular(14),
           border: Border.all(
-            color: selected ? HrmPageChrome.primaryNavy : const Color(0xFFE4E4E7),
+            color: selected ? HrmPageChrome.primaryNavy : SboxColors.slate200,
             width: selected ? 2 : 1,
           ),
         ),
         child: Column(
           children: [
-            Icon(icon, color: selected ? HrmPageChrome.primaryNavy : const Color(0xFF71717A), size: 24),
+            Icon(icon, color: selected ? HrmPageChrome.primaryNavy : SboxColors.slate500, size: 24),
             const SizedBox(height: 4),
             Text(
               tr(label),
               style: TextStyle(
                 fontWeight: FontWeight.bold,
                 fontSize: 13,
-                color: selected ? HrmPageChrome.primaryNavy : const Color(0xFF71717A),
+                color: selected ? HrmPageChrome.primaryNavy : SboxColors.slate500,
               ),
             ),
             Text(
@@ -877,7 +878,7 @@ class _MobileAttendanceSettingsScreenState extends State<MobileAttendanceSetting
               textAlign: TextAlign.center,
               style: TextStyle(
                 fontSize: 10,
-                color: selected ? HrmPageChrome.primaryNavy.withValues(alpha: 0.7) : const Color(0xFF71717A),
+                color: selected ? HrmPageChrome.primaryNavy.withValues(alpha: 0.7) : SboxColors.slate500,
               ),
             ),
           ],
@@ -903,9 +904,9 @@ class _MobileAttendanceSettingsScreenState extends State<MobileAttendanceSetting
                 Text(
                   tr(title),
                   style: const TextStyle(
-                    fontSize: 15,
+                    fontSize: 16,
                     fontWeight: FontWeight.w500,
-                    color: Color(0xFF18181B),
+                    color: SboxColors.slate900,
                   ),
                 ),
                 const SizedBox(height: 2),
@@ -913,7 +914,7 @@ class _MobileAttendanceSettingsScreenState extends State<MobileAttendanceSetting
                   tr(subtitle),
                   style: const TextStyle(
                     fontSize: 13,
-                    color: Color(0xFF71717A),
+                    color: SboxColors.slate500,
                   ),
                 ),
               ],
@@ -950,9 +951,9 @@ class _MobileAttendanceSettingsScreenState extends State<MobileAttendanceSetting
                 child: Text(
                   tr(title),
                   style: const TextStyle(
-                    fontSize: 15,
+                    fontSize: 16,
                     fontWeight: FontWeight.w500,
-                    color: Color(0xFF18181B),
+                    color: SboxColors.slate900,
                   ),
                   overflow: TextOverflow.ellipsis,
                 ),
@@ -963,7 +964,7 @@ class _MobileAttendanceSettingsScreenState extends State<MobileAttendanceSetting
                   padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
                   decoration: BoxDecoration(
                     color: HrmPageChrome.primaryNavy.withValues(alpha: 0.1),
-                    borderRadius: BorderRadius.circular(8),
+                    borderRadius: BorderRadius.circular(10),
                   ),
                   child: Text(
                     tr(subtitle),
@@ -1045,14 +1046,14 @@ class _MobileAttendanceSettingsScreenState extends State<MobileAttendanceSetting
       padding: const EdgeInsets.symmetric(horizontal: 16),
       decoration: BoxDecoration(
         color: Colors.white,
-        borderRadius: BorderRadius.circular(12),
-        border: Border.all(color: const Color(0xFFE4E4E7)),
+        borderRadius: BorderRadius.circular(14),
+        border: Border.all(color: SboxColors.slate200),
       ),
       child: TextField(
         decoration: InputDecoration(
           hintText: tr('Tìm kiếm vị trí...'),
           border: InputBorder.none,
-          icon: Icon(Icons.search, color: Color(0xFF71717A)),
+          icon: Icon(Icons.search, color: SboxColors.slate500),
         ),
         onChanged: (value) => setState(() => _locationSearchQuery = value),
       ),
@@ -1111,8 +1112,8 @@ class _MobileAttendanceSettingsScreenState extends State<MobileAttendanceSetting
                     child: Container(
                       decoration: BoxDecoration(
                         color: Colors.white,
-                        borderRadius: BorderRadius.circular(12),
-                        border: Border.all(color: const Color(0xFFE4E4E7)),
+                        borderRadius: BorderRadius.circular(14),
+                        border: Border.all(color: SboxColors.slate200),
                         boxShadow: [
                           BoxShadow(
                             color: Colors.black.withValues(alpha: 0.05),
@@ -1184,7 +1185,7 @@ class _MobileAttendanceSettingsScreenState extends State<MobileAttendanceSetting
               onTap: _perm.canEdit('MobileAttendance')
                   ? () => _showEditLocationDialog(location)
                   : null,
-              borderRadius: BorderRadius.circular(8),
+              borderRadius: BorderRadius.circular(10),
               child: Row(
                 children: [
                   Container(
@@ -1192,7 +1193,7 @@ class _MobileAttendanceSettingsScreenState extends State<MobileAttendanceSetting
                     height: 36,
                     decoration: BoxDecoration(
                       color: HrmPageChrome.primaryNavy.withValues(alpha: 0.1),
-                      borderRadius: BorderRadius.circular(8),
+                      borderRadius: BorderRadius.circular(10),
                     ),
                     child: const Icon(Icons.location_on,
                         size: 18, color: HrmPageChrome.primaryNavy),
@@ -1206,13 +1207,13 @@ class _MobileAttendanceSettingsScreenState extends State<MobileAttendanceSetting
                             style: const TextStyle(
                                 fontSize: 14,
                                 fontWeight: FontWeight.w600,
-                                color: Color(0xFF18181B)),
+                                color: SboxColors.slate900),
                             overflow: TextOverflow.ellipsis),
                         const SizedBox(height: 2),
                         Text(
                           tr('${location.address} · ${location.radius}m · ${location.autoApproveInRange ? 'Tự động' : 'Duyệt tay'}${location.wifiSsid != null && location.wifiSsid!.isNotEmpty ? ' · 📶 ${location.wifiSsid}' : ''}'),
                           style: const TextStyle(
-                              fontSize: 12, color: Color(0xFF71717A)),
+                              fontSize: 12, color: SboxColors.slate500),
                           overflow: TextOverflow.ellipsis,
                         ),
                         const SizedBox(height: 4),
@@ -1227,7 +1228,7 @@ class _MobileAttendanceSettingsScreenState extends State<MobileAttendanceSetting
                                 size: 14,
                                 color: empCount > 0
                                     ? HrmPageChrome.primaryNavy
-                                    : const Color(0xFF71717A),
+                                    : SboxColors.slate500,
                               ),
                               const SizedBox(width: 4),
                               Text(
@@ -1237,7 +1238,7 @@ class _MobileAttendanceSettingsScreenState extends State<MobileAttendanceSetting
                                   fontWeight: FontWeight.w600,
                                   color: empCount > 0
                                       ? HrmPageChrome.primaryNavy
-                                      : const Color(0xFF71717A),
+                                      : SboxColors.slate500,
                                 ),
                               ),
                             ],
@@ -1263,7 +1264,7 @@ class _MobileAttendanceSettingsScreenState extends State<MobileAttendanceSetting
                     ),
                   const SizedBox(width: 4),
                   const Icon(Icons.chevron_right,
-                      size: 18, color: Color(0xFF71717A)),
+                      size: 18, color: SboxColors.slate500),
                 ],
               ),
             ),
@@ -1357,10 +1358,10 @@ class _MobileAttendanceSettingsScreenState extends State<MobileAttendanceSetting
                     hintText: tr('VD: Văn phòng chính'),
                     prefixIcon: const Icon(Icons.business),
                     filled: true,
-                    fillColor: const Color(0xFFFAFAFA),
+                    fillColor: SboxColors.slate50,
                     border: OutlineInputBorder(
-                      borderRadius: BorderRadius.circular(12),
-                      borderSide: const BorderSide(color: Color(0xFFE4E4E7)),
+                      borderRadius: BorderRadius.circular(14),
+                      borderSide: const BorderSide(color: SboxColors.slate200),
                     ),
                   ),
                 ),
@@ -1372,10 +1373,10 @@ class _MobileAttendanceSettingsScreenState extends State<MobileAttendanceSetting
                     hintText: tr('VD: 123 Nguyễn Huệ, Q1'),
                     prefixIcon: const Icon(Icons.location_on),
                     filled: true,
-                    fillColor: const Color(0xFFFAFAFA),
+                    fillColor: SboxColors.slate50,
                     border: OutlineInputBorder(
-                      borderRadius: BorderRadius.circular(12),
-                      borderSide: const BorderSide(color: Color(0xFFE4E4E7)),
+                      borderRadius: BorderRadius.circular(14),
+                      borderSide: const BorderSide(color: SboxColors.slate200),
                     ),
                   ),
                 ),
@@ -1387,10 +1388,10 @@ class _MobileAttendanceSettingsScreenState extends State<MobileAttendanceSetting
                     labelText: tr('Bán kính cho phép (mét)'),
                     prefixIcon: const Icon(Icons.radar),
                     filled: true,
-                    fillColor: const Color(0xFFFAFAFA),
+                    fillColor: SboxColors.slate50,
                     border: OutlineInputBorder(
-                      borderRadius: BorderRadius.circular(12),
-                      borderSide: const BorderSide(color: Color(0xFFE4E4E7)),
+                      borderRadius: BorderRadius.circular(14),
+                      borderSide: const BorderSide(color: SboxColors.slate200),
                     ),
                   ),
                 ),
@@ -1442,10 +1443,10 @@ class _MobileAttendanceSettingsScreenState extends State<MobileAttendanceSetting
                             },
                           ),
                     filled: true,
-                    fillColor: const Color(0xFFFAFAFA),
+                    fillColor: SboxColors.slate50,
                     border: OutlineInputBorder(
-                      borderRadius: BorderRadius.circular(12),
-                      borderSide: const BorderSide(color: Color(0xFFE4E4E7)),
+                      borderRadius: BorderRadius.circular(14),
+                      borderSide: const BorderSide(color: SboxColors.slate200),
                     ),
                     helperText: tr('Kết nối WiFi cửa hàng rồi nhấn nút để tự động lấy'),
                     helperMaxLines: 2,
@@ -1471,18 +1472,18 @@ class _MobileAttendanceSettingsScreenState extends State<MobileAttendanceSetting
                       });
                     }
                   },
-                  borderRadius: BorderRadius.circular(12),
+                  borderRadius: BorderRadius.circular(14),
                   child: Container(
                     width: double.infinity,
                     padding: const EdgeInsets.all(16),
                     decoration: BoxDecoration(
                       color: selectedLat != null
-                          ? const Color(0xFFECFDF5)
-                          : const Color(0xFFEFF6FF),
-                      borderRadius: BorderRadius.circular(12),
+                          ? SboxColors.successSoft
+                          : SboxColors.brand50,
+                      borderRadius: BorderRadius.circular(14),
                       border: Border.all(
                         color: selectedLat != null
-                            ? const Color(0xFF16A34A).withValues(alpha: 0.3)
+                            ? SboxColors.success.withValues(alpha: 0.3)
                             : HrmPageChrome.primaryNavy.withValues(alpha: 0.2),
                       ),
                     ),
@@ -1491,7 +1492,7 @@ class _MobileAttendanceSettingsScreenState extends State<MobileAttendanceSetting
                         Icon(
                           selectedLat != null ? Icons.check_circle : Icons.map,
                           color: selectedLat != null
-                              ? const Color(0xFF16A34A)
+                              ? SboxColors.success
                               : HrmPageChrome.primaryNavy,
                           size: 24,
                         ),
@@ -1508,7 +1509,7 @@ class _MobileAttendanceSettingsScreenState extends State<MobileAttendanceSetting
                                   fontSize: 14,
                                   fontWeight: FontWeight.w600,
                                   color: selectedLat != null
-                                      ? const Color(0xFF16A34A)
+                                      ? SboxColors.success
                                       : HrmPageChrome.primaryNavy,
                                 ),
                               ),
@@ -1516,18 +1517,18 @@ class _MobileAttendanceSettingsScreenState extends State<MobileAttendanceSetting
                                 const SizedBox(height: 2),
                                 Text(
                                   tr('${selectedLat!.toStringAsFixed(6)}, ${selectedLng!.toStringAsFixed(6)}'),
-                                  style: const TextStyle(fontSize: 11, color: Color(0xFF71717A)),
+                                  style: const TextStyle(fontSize: 11, color: SboxColors.slate500),
                                 ),
                               ] else ...[
                                 const SizedBox(height: 2),
                                 Text(tr('Nhấn để mở bản đồ và chọn tọa độ'),
-                                  style: TextStyle(fontSize: 11, color: Color(0xFF71717A)),
+                                  style: TextStyle(fontSize: 11, color: SboxColors.slate500),
                                 ),
                               ],
                             ],
                           ),
                         ),
-                        const Icon(Icons.chevron_right, color: Color(0xFF71717A)),
+                        const Icon(Icons.chevron_right, color: SboxColors.slate500),
                       ],
                     ),
                   ),
@@ -1558,7 +1559,7 @@ class _MobileAttendanceSettingsScreenState extends State<MobileAttendanceSetting
                       children: [
                         TextButton(
                           onPressed: () => Navigator.pop(context),
-                          child: Text(tr('Hủy'), style: TextStyle(color: Color(0xFF71717A))),
+                          child: Text(tr('Hủy'), style: TextStyle(color: SboxColors.slate500)),
                         ),
                         const SizedBox(width: 12),
                         FilledButton(
@@ -1576,19 +1577,19 @@ class _MobileAttendanceSettingsScreenState extends State<MobileAttendanceSetting
 
           return ScrollableAlertDialog(
             backgroundColor: Colors.white,
-            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
             title: Row(
               children: [
                 Icon(Icons.add_location_alt, color: HrmPageChrome.primaryNavy),
                 SizedBox(width: 12),
-                Text(tr('Thêm vị trí làm việc'), style: TextStyle(color: Color(0xFF18181B))),
+                Text(tr('Thêm vị trí làm việc'), style: TextStyle(color: SboxColors.slate900)),
               ],
             ),
             content: SizedBox(width: 480, child: formContent),
             actions: [
               TextButton(
                 onPressed: () => Navigator.pop(context),
-                child: Text(tr('Hủy'), style: TextStyle(color: Color(0xFF71717A))),
+                child: Text(tr('Hủy'), style: TextStyle(color: SboxColors.slate500)),
               ),
               FilledButton(
                 onPressed: onSave,
@@ -1615,18 +1616,18 @@ class _MobileAttendanceSettingsScreenState extends State<MobileAttendanceSetting
                   padding: const EdgeInsets.symmetric(horizontal: 16),
                   decoration: BoxDecoration(
                     color: Colors.white,
-                    borderRadius: BorderRadius.circular(12),
-                    border: Border.all(color: const Color(0xFFE4E4E7)),
+                    borderRadius: BorderRadius.circular(14),
+                    border: Border.all(color: SboxColors.slate200),
                   ),
                   child: TextField(
                     controller: _faceSearchController,
                     decoration: InputDecoration(
                       hintText: tr('Tìm kiếm nhân viên...'),
                       border: InputBorder.none,
-                      icon: const Icon(Icons.search, color: Color(0xFF71717A)),
+                      icon: const Icon(Icons.search, color: SboxColors.slate500),
                       suffixIcon: _faceSearchQuery.isNotEmpty
                           ? IconButton(
-                              icon: const Icon(Icons.clear, size: 18, color: Color(0xFF71717A)),
+                              icon: const Icon(Icons.clear, size: 18, color: SboxColors.slate500),
                               onPressed: () {
                                 _faceSearchController.clear();
                                 setState(() => _faceSearchQuery = '');
@@ -1679,7 +1680,7 @@ class _MobileAttendanceSettingsScreenState extends State<MobileAttendanceSetting
                   icon: Icons.pending,
                   value: _faceRegistrations.where((f) => !f.isVerified).length.toString(),
                   label: 'Chờ xác thực',
-                  color: const Color(0xFFF59E0B),
+                  color: SboxColors.warning,
                 ),
               ),
             ],
@@ -1707,8 +1708,8 @@ class _MobileAttendanceSettingsScreenState extends State<MobileAttendanceSetting
                         child: Container(
                           decoration: BoxDecoration(
                             color: Colors.white,
-                            borderRadius: BorderRadius.circular(12),
-                            border: Border.all(color: const Color(0xFFE4E4E7)),
+                            borderRadius: BorderRadius.circular(14),
+                            border: Border.all(color: SboxColors.slate200),
                             boxShadow: [
                               BoxShadow(
                                 color: Colors.black.withValues(alpha: 0.05),
@@ -1741,7 +1742,7 @@ class _MobileAttendanceSettingsScreenState extends State<MobileAttendanceSetting
   }
 
   Widget _buildFaceDeckItem(FaceRegistration registration) {
-    final statusColor = registration.isVerified ? HrmPageChrome.primaryNavy : const Color(0xFFF59E0B);
+    final statusColor = registration.isVerified ? HrmPageChrome.primaryNavy : SboxColors.warning;
     final hasPhotos = registration.faceImages.isNotEmpty;
 
     return InkWell(
@@ -1753,7 +1754,7 @@ class _MobileAttendanceSettingsScreenState extends State<MobileAttendanceSetting
             // Face photo thumbnail or fallback icon
             if (hasPhotos)
               ClipRRect(
-                borderRadius: BorderRadius.circular(8),
+                borderRadius: BorderRadius.circular(10),
                 child: SizedBox(
                   width: 44, height: 44,
                   child: AuthCachedImage(
@@ -1776,7 +1777,7 @@ class _MobileAttendanceSettingsScreenState extends State<MobileAttendanceSetting
                 width: 44, height: 44,
                 decoration: BoxDecoration(
                   color: statusColor.withValues(alpha: 0.1),
-                  borderRadius: BorderRadius.circular(8),
+                  borderRadius: BorderRadius.circular(10),
                 ),
                 child: Icon(Icons.face, size: 20, color: statusColor),
               ),
@@ -1785,18 +1786,18 @@ class _MobileAttendanceSettingsScreenState extends State<MobileAttendanceSetting
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  Text(tr(registration.employeeName), style: const TextStyle(fontSize: 14, fontWeight: FontWeight.w600, color: Color(0xFF18181B)), overflow: TextOverflow.ellipsis),
+                  Text(tr(registration.employeeName), style: const TextStyle(fontSize: 14, fontWeight: FontWeight.w600, color: SboxColors.slate900), overflow: TextOverflow.ellipsis),
                   const SizedBox(height: 2),
                   Text(
                     tr('${registration.employeeCode ?? ''} · ${registration.department ?? ''}'),
-                    style: const TextStyle(fontSize: 12, color: Color(0xFF71717A)),
+                    style: const TextStyle(fontSize: 12, color: SboxColors.slate500),
                     overflow: TextOverflow.ellipsis,
                   ),
                   if (hasPhotos)
                     Padding(
                       padding: const EdgeInsets.only(top: 4),
                       child: Text(tr('${registration.faceImages.length} ảnh đăng ký'),
-                        style: TextStyle(fontSize: 11, color: Colors.grey[500]),
+                        style: TextStyle(fontSize: 11, color: SboxColors.slate500),
                       ),
                     ),
                 ],
@@ -1819,7 +1820,7 @@ class _MobileAttendanceSettingsScreenState extends State<MobileAttendanceSetting
                             imagePath: url,
                             apiService: _apiService,
                             fit: BoxFit.cover,
-                            errorWidget: (_, __, ___) => Container(color: Colors.grey[200]),
+                            errorWidget: (_, __, ___) => Container(color: SboxColors.slate200),
                           ),
                         ),
                       ),
@@ -1839,7 +1840,7 @@ class _MobileAttendanceSettingsScreenState extends State<MobileAttendanceSetting
               ),
             ),
             const SizedBox(width: 4),
-            const Icon(Icons.chevron_right, size: 18, color: Color(0xFF71717A)),
+            const Icon(Icons.chevron_right, size: 18, color: SboxColors.slate500),
           ],
         ),
       ),
@@ -1875,12 +1876,12 @@ class _MobileAttendanceSettingsScreenState extends State<MobileAttendanceSetting
 
           return ScrollableAlertDialog(
             backgroundColor: Colors.white,
-            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
             title: Row(
               children: [
                 Icon(Icons.face, color: HrmPageChrome.primaryNavy),
                 SizedBox(width: 12),
-                Text(tr('Đăng ký khuôn mặt'), style: TextStyle(color: Color(0xFF18181B))),
+                Text(tr('Đăng ký khuôn mặt'), style: TextStyle(color: SboxColors.slate900)),
               ],
             ),
             content: SizedBox(
@@ -1890,13 +1891,13 @@ class _MobileAttendanceSettingsScreenState extends State<MobileAttendanceSetting
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
                   // Employee selector
-                  Text(tr('Chọn nhân viên'), style: TextStyle(fontWeight: FontWeight.w600, color: Color(0xFF18181B))),
+                  Text(tr('Chọn nhân viên'), style: TextStyle(fontWeight: FontWeight.w600, color: SboxColors.slate900)),
                   const SizedBox(height: 8),
                   Container(
                     padding: const EdgeInsets.symmetric(horizontal: 12),
                     decoration: BoxDecoration(
-                      border: Border.all(color: const Color(0xFFE4E4E7)),
-                      borderRadius: BorderRadius.circular(12),
+                      border: Border.all(color: SboxColors.slate200),
+                      borderRadius: BorderRadius.circular(14),
                     ),
                     child: DropdownButtonFormField<String>(
                       decoration: InputDecoration(
@@ -1932,7 +1933,7 @@ class _MobileAttendanceSettingsScreenState extends State<MobileAttendanceSetting
                                     Text(tr(name), style: const TextStyle(fontSize: 14, fontWeight: FontWeight.w500), overflow: TextOverflow.ellipsis),
                                     if (code.isNotEmpty || dept.isNotEmpty)
                                       Text(tr('$code${code.isNotEmpty && dept.isNotEmpty ? ' · ' : ''}$dept'),
-                                          style: const TextStyle(fontSize: 12, color: Color(0xFF71717A)), overflow: TextOverflow.ellipsis),
+                                          style: const TextStyle(fontSize: 12, color: SboxColors.slate500), overflow: TextOverflow.ellipsis),
                                   ],
                                 ),
                               ),
@@ -1953,12 +1954,12 @@ class _MobileAttendanceSettingsScreenState extends State<MobileAttendanceSetting
                   if (employees.isEmpty)
                     Padding(
                       padding: EdgeInsets.only(top: 8),
-                      child: Text(tr('Không tải được danh sách nhân viên'), style: TextStyle(color: Color(0xFFEF4444), fontSize: 12)),
+                      child: Text(tr('Không tải được danh sách nhân viên'), style: TextStyle(color: SboxColors.danger, fontSize: 12)),
                     ),
                   if (unregistered.isEmpty && employees.isNotEmpty)
                     Padding(
                       padding: EdgeInsets.only(top: 8),
-                      child: Text(tr('Tất cả nhân viên đã được đăng ký khuôn mặt'), style: TextStyle(color: Color(0xFF71717A), fontSize: 12)),
+                      child: Text(tr('Tất cả nhân viên đã được đăng ký khuôn mặt'), style: TextStyle(color: SboxColors.slate500, fontSize: 12)),
                     ),
                   const SizedBox(height: 20),
 
@@ -1968,7 +1969,7 @@ class _MobileAttendanceSettingsScreenState extends State<MobileAttendanceSetting
                       padding: const EdgeInsets.all(16),
                       decoration: BoxDecoration(
                         color: HrmPageChrome.primaryNavy.withValues(alpha: 0.05),
-                        borderRadius: BorderRadius.circular(12),
+                        borderRadius: BorderRadius.circular(14),
                         border: Border.all(color: HrmPageChrome.primaryNavy.withValues(alpha: 0.2)),
                       ),
                       child: Row(
@@ -1985,11 +1986,11 @@ class _MobileAttendanceSettingsScreenState extends State<MobileAttendanceSetting
                               children: [
                                 Text(
                                   tr('${selectedEmployee!['lastName'] ?? ''} ${selectedEmployee!['firstName'] ?? ''}'.trim()),
-                                  style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 16, color: Color(0xFF18181B)),
+                                  style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 16, color: SboxColors.slate900),
                                 ),
                                 Text(
                                   tr(selectedEmployee!['employeeCode'] ?? ''),
-                                  style: const TextStyle(color: Color(0xFF71717A), fontSize: 13),
+                                  style: const TextStyle(color: SboxColors.slate500, fontSize: 13),
                                 ),
                               ],
                             ),
@@ -2004,16 +2005,16 @@ class _MobileAttendanceSettingsScreenState extends State<MobileAttendanceSetting
                   Container(
                     padding: const EdgeInsets.all(12),
                     decoration: BoxDecoration(
-                      color: const Color(0xFFFEF3C7),
-                      borderRadius: BorderRadius.circular(12),
+                      color: SboxColors.warningSoft,
+                      borderRadius: BorderRadius.circular(14),
                     ),
                     child: Row(
                       children: [
-                        Icon(Icons.lightbulb, color: Color(0xFFF59E0B), size: 20),
+                        Icon(Icons.lightbulb, color: SboxColors.warning, size: 20),
                         SizedBox(width: 8),
                         Expanded(
                           child: Text(tr('Camera sẽ mở và chụp 5 ảnh khuôn mặt: thẳng, trái, phải, trên, dưới'),
-                            style: TextStyle(fontSize: 12, color: Color(0xFF92400E)),
+                            style: TextStyle(fontSize: 12, color: SboxColors.warningText),
                           ),
                         ),
                       ],
@@ -2025,7 +2026,7 @@ class _MobileAttendanceSettingsScreenState extends State<MobileAttendanceSetting
             actions: [
               TextButton(
                 onPressed: () => Navigator.pop(ctx),
-                child: Text(tr('Hủy'), style: TextStyle(color: Color(0xFF71717A))),
+                child: Text(tr('Hủy'), style: TextStyle(color: SboxColors.slate500)),
               ),
               FilledButton.icon(
                 onPressed: selectedEmployee == null
@@ -2038,7 +2039,7 @@ class _MobileAttendanceSettingsScreenState extends State<MobileAttendanceSetting
                 label: Text(tr('Bắt đầu chụp')),
                 style: FilledButton.styleFrom(
                   backgroundColor: HrmPageChrome.primaryNavy,
-                  disabledBackgroundColor: const Color(0xFFE4E4E7),
+                  disabledBackgroundColor: SboxColors.slate200,
                 ),
               ),
             ],
@@ -2126,18 +2127,18 @@ class _MobileAttendanceSettingsScreenState extends State<MobileAttendanceSetting
       padding: const EdgeInsets.symmetric(horizontal: 16),
       decoration: BoxDecoration(
         color: Colors.white,
-        borderRadius: BorderRadius.circular(12),
-        border: Border.all(color: const Color(0xFFE4E4E7)),
+        borderRadius: BorderRadius.circular(14),
+        border: Border.all(color: SboxColors.slate200),
       ),
       child: TextField(
         controller: _deviceSearchController,
         decoration: InputDecoration(
           hintText: tr('Tìm kiếm theo nhân viên, tên máy...'),
           border: InputBorder.none,
-          icon: const Icon(Icons.search, color: Color(0xFF71717A)),
+          icon: const Icon(Icons.search, color: SboxColors.slate500),
           suffixIcon: _deviceSearchQuery.isNotEmpty
               ? IconButton(
-                  icon: const Icon(Icons.clear, size: 18, color: Color(0xFF71717A)),
+                  icon: const Icon(Icons.clear, size: 18, color: SboxColors.slate500),
                   onPressed: () {
                     _deviceSearchController.clear();
                     setState(() => _deviceSearchQuery = '');
@@ -2206,7 +2207,7 @@ class _MobileAttendanceSettingsScreenState extends State<MobileAttendanceSetting
                       : 'Ngoài CT',
                   count: _deviceCountOutsideOn,
                   filter: _DeviceOutsideCheckInFilter.outsideOn,
-                  color: const Color(0xFF2563EB),
+                  color: SboxColors.brand600,
                   icon: Icons.location_off_outlined,
                 ),
                 const SizedBox(width: 8),
@@ -2214,7 +2215,7 @@ class _MobileAttendanceSettingsScreenState extends State<MobileAttendanceSetting
                   label: 'Trong CT',
                   count: _deviceCountOutsideOff,
                   filter: _DeviceOutsideCheckInFilter.outsideOff,
-                  color: const Color(0xFF71717A),
+                  color: SboxColors.slate500,
                   icon: Icons.business,
                 ),
               ],
@@ -2249,13 +2250,13 @@ class _MobileAttendanceSettingsScreenState extends State<MobileAttendanceSetting
                         padding: const EdgeInsets.only(bottom: 8, top: 4),
                         child: Row(
                           children: [
-                            const Icon(Icons.swap_horiz, size: 18, color: Color(0xFF2563EB)),
+                            const Icon(Icons.swap_horiz, size: 18, color: SboxColors.brand600),
                             const SizedBox(width: 6),
                             Text(tr('Yêu cầu đổi máy (${_filteredDeviceChangeRequests.length})'),
                               style: const TextStyle(
                                 fontSize: 14,
                                 fontWeight: FontWeight.bold,
-                                color: Color(0xFF2563EB),
+                                color: SboxColors.brand600,
                               ),
                             ),
                           ],
@@ -2266,8 +2267,8 @@ class _MobileAttendanceSettingsScreenState extends State<MobileAttendanceSetting
                         child: Container(
                           decoration: BoxDecoration(
                             color: Colors.white,
-                            borderRadius: BorderRadius.circular(12),
-                            border: Border.all(color: const Color(0xFF2563EB).withValues(alpha: 0.3)),
+                            borderRadius: BorderRadius.circular(14),
+                            border: Border.all(color: SboxColors.brand600.withValues(alpha: 0.3)),
                             boxShadow: [
                               BoxShadow(
                                 color: Colors.black.withValues(alpha: 0.05),
@@ -2287,8 +2288,8 @@ class _MobileAttendanceSettingsScreenState extends State<MobileAttendanceSetting
                       child: Container(
                         decoration: BoxDecoration(
                           color: Colors.white,
-                          borderRadius: BorderRadius.circular(12),
-                          border: Border.all(color: const Color(0xFFE4E4E7)),
+                          borderRadius: BorderRadius.circular(14),
+                          border: Border.all(color: SboxColors.slate200),
                           boxShadow: [
                             BoxShadow(
                               color: Colors.black.withValues(alpha: 0.05),
@@ -2326,21 +2327,21 @@ class _MobileAttendanceSettingsScreenState extends State<MobileAttendanceSetting
             color: isSelected ? color.withValues(alpha: 0.12) : Colors.white,
             borderRadius: BorderRadius.circular(20),
             border: Border.all(
-              color: isSelected ? color : const Color(0xFFE4E4E7),
+              color: isSelected ? color : SboxColors.slate200,
               width: isSelected ? 1.5 : 1,
             ),
           ),
           child: Row(
             mainAxisSize: MainAxisSize.min,
             children: [
-              Icon(icon, size: 16, color: isSelected ? color : const Color(0xFF71717A)),
+              Icon(icon, size: 16, color: isSelected ? color : SboxColors.slate500),
               const SizedBox(width: 6),
               Text(
                 tr('$label ($count)'),
                 style: TextStyle(
                   fontSize: 12,
                   fontWeight: isSelected ? FontWeight.w600 : FontWeight.w500,
-                  color: isSelected ? color : const Color(0xFF52525B),
+                  color: isSelected ? color : SboxColors.slate600,
                 ),
               ),
             ],
@@ -2355,23 +2356,23 @@ class _MobileAttendanceSettingsScreenState extends State<MobileAttendanceSetting
     return Padding(
       padding: const EdgeInsets.only(bottom: 8),
       child: Material(
-        color: const Color(0xFF2563EB).withValues(alpha: 0.06),
-        borderRadius: BorderRadius.circular(8),
+        color: SboxColors.brand600.withValues(alpha: 0.06),
+        borderRadius: BorderRadius.circular(10),
         child: InkWell(
           onTap: () => _setDeviceOutsideFilter(_DeviceOutsideCheckInFilter.all),
-          borderRadius: BorderRadius.circular(8),
+          borderRadius: BorderRadius.circular(10),
           child: Padding(
             padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
             child: Row(
               children: [
-                const Icon(Icons.filter_alt, size: 16, color: Color(0xFF2563EB)),
+                const Icon(Icons.filter_alt, size: 16, color: SboxColors.brand600),
                 const SizedBox(width: 8),
                 Expanded(
                   child: Text(tr('Đang lọc: $_deviceOutsideFilterLabel · ${_filteredAuthorizedDevices.length} thiết bị'),
                     style: const TextStyle(
                       fontSize: 12,
                       fontWeight: FontWeight.w600,
-                      color: Color(0xFF2563EB),
+                      color: SboxColors.brand600,
                     ),
                   ),
                 ),
@@ -2379,7 +2380,7 @@ class _MobileAttendanceSettingsScreenState extends State<MobileAttendanceSetting
                   style: TextStyle(
                     fontSize: 12,
                     fontWeight: FontWeight.w600,
-                    color: Color(0xFF2563EB),
+                    color: SboxColors.brand600,
                   ),
                 ),
               ],
@@ -2426,13 +2427,13 @@ class _MobileAttendanceSettingsScreenState extends State<MobileAttendanceSetting
               width: 36, height: 36,
               decoration: BoxDecoration(
                 color: isPending
-                    ? const Color(0xFFF59E0B).withValues(alpha: 0.1)
+                    ? SboxColors.warning.withValues(alpha: 0.1)
                     : HrmPageChrome.primaryNavy.withValues(alpha: 0.1),
-                borderRadius: BorderRadius.circular(8),
+                borderRadius: BorderRadius.circular(10),
               ),
               child: Icon(
                 device.deviceModel.toLowerCase().contains('iphone') ? Icons.phone_iphone : Icons.phone_android,
-                size: 18, color: isPending ? const Color(0xFFF59E0B) : HrmPageChrome.primaryNavy,
+                size: 18, color: isPending ? SboxColors.warning : HrmPageChrome.primaryNavy,
               ),
             ),
             const SizedBox(width: 12),
@@ -2449,8 +2450,8 @@ class _MobileAttendanceSettingsScreenState extends State<MobileAttendanceSetting
                             fontSize: 14,
                             fontWeight: FontWeight.w600,
                             color: device.employeeName != null && device.employeeName!.isNotEmpty
-                                ? const Color(0xFF18181B)
-                                : const Color(0xFF71717A),
+                                ? SboxColors.slate900
+                                : SboxColors.slate500,
                           ),
                           overflow: TextOverflow.ellipsis,
                         ),
@@ -2459,17 +2460,17 @@ class _MobileAttendanceSettingsScreenState extends State<MobileAttendanceSetting
                         Container(
                           padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
                           decoration: BoxDecoration(
-                            color: const Color(0xFFFEF3C7),
+                            color: SboxColors.warningSoft,
                             borderRadius: BorderRadius.circular(6),
                           ),
-                          child: Text(tr('Chờ duyệt'), style: TextStyle(fontSize: 10, fontWeight: FontWeight.w600, color: Color(0xFFF59E0B))),
+                          child: Text(tr('Chờ duyệt'), style: TextStyle(fontSize: 10, fontWeight: FontWeight.w600, color: SboxColors.warning)),
                         ),
                     ],
                   ),
                   const SizedBox(height: 2),
                   Text(
                     tr(subtitleParts.join(' · ')),
-                    style: const TextStyle(fontSize: 12, color: Color(0xFF71717A)),
+                    style: const TextStyle(fontSize: 12, color: SboxColors.slate500),
                     overflow: TextOverflow.ellipsis,
                   ),
                 ],
@@ -2478,14 +2479,14 @@ class _MobileAttendanceSettingsScreenState extends State<MobileAttendanceSetting
             if (isPending) ...[
               IconButton(
                 onPressed: () => _approveDevice(device, true),
-                icon: const Icon(Icons.check_circle, color: Color(0xFF22C55E), size: 24),
+                icon: const Icon(Icons.check_circle, color: SboxColors.success, size: 24),
                 tooltip: tr('Duyệt'),
                 constraints: const BoxConstraints(minWidth: 36, minHeight: 36),
                 padding: EdgeInsets.zero,
               ),
               IconButton(
                 onPressed: () => _approveDevice(device, false),
-                icon: const Icon(Icons.cancel, color: Color(0xFFEF4444), size: 24),
+                icon: const Icon(Icons.cancel, color: SboxColors.danger, size: 24),
                 tooltip: tr('Từ chối'),
                 constraints: const BoxConstraints(minWidth: 36, minHeight: 36),
                 padding: EdgeInsets.zero,
@@ -2508,12 +2509,12 @@ class _MobileAttendanceSettingsScreenState extends State<MobileAttendanceSetting
       context: context,
       builder: (context) => ScrollableAlertDialog(
         backgroundColor: Colors.white,
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
         title: Row(
           children: [
             Icon(Icons.phone_android, color: HrmPageChrome.primaryNavy),
             SizedBox(width: 12),
-            Text(tr('Cấp quyền thiết bị'), style: TextStyle(color: Color(0xFF18181B))),
+            Text(tr('Cấp quyền thiết bị'), style: TextStyle(color: SboxColors.slate900)),
           ],
         ),
         content: Column(
@@ -2522,8 +2523,8 @@ class _MobileAttendanceSettingsScreenState extends State<MobileAttendanceSetting
             Container(
               padding: const EdgeInsets.all(20),
               decoration: BoxDecoration(
-                color: const Color(0xFFFAFAFA),
-                borderRadius: BorderRadius.circular(16),
+                color: SboxColors.slate50,
+                borderRadius: BorderRadius.circular(14),
               ),
               child: Column(
                 children: [
@@ -2531,8 +2532,8 @@ class _MobileAttendanceSettingsScreenState extends State<MobileAttendanceSetting
                     padding: const EdgeInsets.all(16),
                     decoration: BoxDecoration(
                       color: Colors.white,
-                      borderRadius: BorderRadius.circular(12),
-                      border: Border.all(color: const Color(0xFFE4E4E7)),
+                      borderRadius: BorderRadius.circular(14),
+                      border: Border.all(color: SboxColors.slate200),
                     ),
                     child: CachedNetworkImage(
                       imageUrl: 'https://api.qrserver.com/v1/create-qr-code/?size=150x150&data=ZKTECO_MOBILE_AUTH_${DateTime.now().millisecondsSinceEpoch}',
@@ -2542,7 +2543,7 @@ class _MobileAttendanceSettingsScreenState extends State<MobileAttendanceSetting
                       errorWidget: (context, error, stackTrace) => const Icon(
                         Icons.qr_code,
                         size: 150,
-                        color: Color(0xFF71717A),
+                        color: SboxColors.slate500,
                       ),
                     ),
                   ),
@@ -2550,14 +2551,14 @@ class _MobileAttendanceSettingsScreenState extends State<MobileAttendanceSetting
                   Text(tr('Quét mã QR từ ứng dụng mobile'),
                     style: TextStyle(
                       fontWeight: FontWeight.w500,
-                      color: Color(0xFF18181B),
+                      color: SboxColors.slate900,
                     ),
                   ),
                   const SizedBox(height: 4),
                   Text(tr('Mã có hiệu lực trong 5 phút'),
                     style: TextStyle(
                       fontSize: 12,
-                      color: Color(0xFF71717A),
+                      color: SboxColors.slate500,
                     ),
                   ),
                 ],
@@ -2567,8 +2568,8 @@ class _MobileAttendanceSettingsScreenState extends State<MobileAttendanceSetting
             Container(
               padding: const EdgeInsets.all(12),
               decoration: BoxDecoration(
-                color: const Color(0xFFEFF6FF),
-                borderRadius: BorderRadius.circular(12),
+                color: SboxColors.brand50,
+                borderRadius: BorderRadius.circular(14),
               ),
               child: Row(
                 children: [
@@ -2587,7 +2588,7 @@ class _MobileAttendanceSettingsScreenState extends State<MobileAttendanceSetting
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(context),
-            child: Text(tr('Đóng'), style: TextStyle(color: Color(0xFF71717A))),
+            child: Text(tr('Đóng'), style: TextStyle(color: SboxColors.slate500)),
           ),
         ],
       ),
@@ -2606,10 +2607,10 @@ class _MobileAttendanceSettingsScreenState extends State<MobileAttendanceSetting
           Container(
             padding: const EdgeInsets.all(24),
             decoration: const BoxDecoration(
-              color: Color(0xFFF1F5F9),
+              color: SboxColors.slate100,
               shape: BoxShape.circle,
             ),
-            child: Icon(icon, size: 48, color: const Color(0xFFA1A1AA)),
+            child: Icon(icon, size: 48, color: SboxColors.slate400),
           ),
           const SizedBox(height: 16),
           Text(
@@ -2617,7 +2618,7 @@ class _MobileAttendanceSettingsScreenState extends State<MobileAttendanceSetting
             style: const TextStyle(
               fontSize: 18,
               fontWeight: FontWeight.w600,
-              color: Color(0xFF71717A),
+              color: SboxColors.slate500,
             ),
           ),
           const SizedBox(height: 8),
@@ -2626,7 +2627,7 @@ class _MobileAttendanceSettingsScreenState extends State<MobileAttendanceSetting
             textAlign: TextAlign.center,
             style: const TextStyle(
               fontSize: 14,
-              color: Color(0xFFA1A1AA),
+              color: SboxColors.slate400,
             ),
           ),
         ],
@@ -2644,7 +2645,7 @@ class _MobileAttendanceSettingsScreenState extends State<MobileAttendanceSetting
           TextButton(onPressed: () => Navigator.pop(ctx, false), child: Text(tr('Hủy'))),
           FilledButton(
             onPressed: () => Navigator.pop(ctx, true),
-            style: FilledButton.styleFrom(backgroundColor: const Color(0xFFEF4444)),
+            style: FilledButton.styleFrom(backgroundColor: SboxColors.danger),
             child: Text(tr('Xóa')),
           ),
         ],
@@ -2678,7 +2679,7 @@ class _MobileAttendanceSettingsScreenState extends State<MobileAttendanceSetting
           TextButton(onPressed: () => Navigator.pop(ctx, false), child: Text(tr('Hủy'))),
           FilledButton(
             onPressed: () => Navigator.pop(ctx, true),
-            style: FilledButton.styleFrom(backgroundColor: const Color(0xFFEF4444)),
+            style: FilledButton.styleFrom(backgroundColor: SboxColors.danger),
             child: Text(tr('Xóa')),
           ),
         ],
@@ -2763,8 +2764,8 @@ class _MobileAttendanceSettingsScreenState extends State<MobileAttendanceSetting
                     labelText: tr('Tên vị trí *'),
                     prefixIcon: const Icon(Icons.business),
                     filled: true,
-                    fillColor: const Color(0xFFFAFAFA),
-                    border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
+                    fillColor: SboxColors.slate50,
+                    border: OutlineInputBorder(borderRadius: BorderRadius.circular(14)),
                   ),
                 ),
                 const SizedBox(height: 16),
@@ -2774,8 +2775,8 @@ class _MobileAttendanceSettingsScreenState extends State<MobileAttendanceSetting
                     labelText: tr('Địa chỉ *'),
                     prefixIcon: const Icon(Icons.location_on),
                     filled: true,
-                    fillColor: const Color(0xFFFAFAFA),
-                    border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
+                    fillColor: SboxColors.slate50,
+                    border: OutlineInputBorder(borderRadius: BorderRadius.circular(14)),
                   ),
                 ),
                 const SizedBox(height: 16),
@@ -2786,8 +2787,8 @@ class _MobileAttendanceSettingsScreenState extends State<MobileAttendanceSetting
                     labelText: tr('Bán kính cho phép (mét)'),
                     prefixIcon: const Icon(Icons.radar),
                     filled: true,
-                    fillColor: const Color(0xFFFAFAFA),
-                    border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
+                    fillColor: SboxColors.slate50,
+                    border: OutlineInputBorder(borderRadius: BorderRadius.circular(14)),
                   ),
                 ),
                 const SizedBox(height: 16),
@@ -2838,8 +2839,8 @@ class _MobileAttendanceSettingsScreenState extends State<MobileAttendanceSetting
                             },
                           ),
                     filled: true,
-                    fillColor: const Color(0xFFFAFAFA),
-                    border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
+                    fillColor: SboxColors.slate50,
+                    border: OutlineInputBorder(borderRadius: BorderRadius.circular(14)),
                     helperText: tr('Kết nối WiFi cửa hàng rồi nhấn nút để tự động lấy'),
                     helperMaxLines: 2,
                   ),
@@ -2864,18 +2865,18 @@ class _MobileAttendanceSettingsScreenState extends State<MobileAttendanceSetting
                       });
                     }
                   },
-                  borderRadius: BorderRadius.circular(12),
+                  borderRadius: BorderRadius.circular(14),
                   child: Container(
                     width: double.infinity,
                     padding: const EdgeInsets.all(16),
                     decoration: BoxDecoration(
                       color: hasCoords
-                          ? const Color(0xFFECFDF5)
-                          : const Color(0xFFEFF6FF),
-                      borderRadius: BorderRadius.circular(12),
+                          ? SboxColors.successSoft
+                          : SboxColors.brand50,
+                      borderRadius: BorderRadius.circular(14),
                       border: Border.all(
                         color: hasCoords
-                            ? const Color(0xFF16A34A).withValues(alpha: 0.3)
+                            ? SboxColors.success.withValues(alpha: 0.3)
                             : HrmPageChrome.primaryNavy.withValues(alpha: 0.2),
                       ),
                     ),
@@ -2884,7 +2885,7 @@ class _MobileAttendanceSettingsScreenState extends State<MobileAttendanceSetting
                         Icon(
                           hasCoords ? Icons.check_circle : Icons.map,
                           color: hasCoords
-                              ? const Color(0xFF16A34A)
+                              ? SboxColors.success
                               : HrmPageChrome.primaryNavy,
                           size: 24,
                         ),
@@ -2901,7 +2902,7 @@ class _MobileAttendanceSettingsScreenState extends State<MobileAttendanceSetting
                                   fontSize: 14,
                                   fontWeight: FontWeight.w600,
                                   color: hasCoords
-                                      ? const Color(0xFF16A34A)
+                                      ? SboxColors.success
                                       : HrmPageChrome.primaryNavy,
                                 ),
                               ),
@@ -2910,12 +2911,12 @@ class _MobileAttendanceSettingsScreenState extends State<MobileAttendanceSetting
                                 tr(hasCoords
                                     ? '${editLat.toStringAsFixed(6)}, ${editLng.toStringAsFixed(6)}'
                                     : 'Nhấn để mở bản đồ và chọn tọa độ'),
-                                style: const TextStyle(fontSize: 11, color: Color(0xFF71717A)),
+                                style: const TextStyle(fontSize: 11, color: SboxColors.slate500),
                               ),
                             ],
                           ),
                         ),
-                        const Icon(Icons.chevron_right, color: Color(0xFF71717A)),
+                        const Icon(Icons.chevron_right, color: SboxColors.slate500),
                       ],
                     ),
                   ),
@@ -2950,14 +2951,14 @@ class _MobileAttendanceSettingsScreenState extends State<MobileAttendanceSetting
                               _deleteLocation(location);
                             },
                             icon: const Icon(Icons.delete_outline,
-                                size: 18, color: Color(0xFFEF4444)),
+                                size: 18, color: SboxColors.danger),
                             label: Text(tr('Xóa'),
-                                style: TextStyle(color: Color(0xFFEF4444))),
+                                style: TextStyle(color: SboxColors.danger)),
                           ),
                         const Spacer(),
                         TextButton(
                           onPressed: () => Navigator.pop(dialogContext),
-                          child: Text(tr('Hủy'), style: TextStyle(color: Color(0xFF71717A))),
+                          child: Text(tr('Hủy'), style: TextStyle(color: SboxColors.slate500)),
                         ),
                         const SizedBox(width: 12),
                         FilledButton(
@@ -2975,12 +2976,12 @@ class _MobileAttendanceSettingsScreenState extends State<MobileAttendanceSetting
 
           return ScrollableAlertDialog(
             backgroundColor: Colors.white,
-            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
             title: Row(
               children: [
-                Icon(Icons.edit_location_alt, color: Color(0xFFF59E0B)),
+                Icon(Icons.edit_location_alt, color: SboxColors.warning),
                 SizedBox(width: 12),
-                Text(tr('Sửa vị trí làm việc'), style: TextStyle(color: Color(0xFF18181B))),
+                Text(tr('Sửa vị trí làm việc'), style: TextStyle(color: SboxColors.slate900)),
               ],
             ),
             content: formContent,
@@ -2996,14 +2997,14 @@ class _MobileAttendanceSettingsScreenState extends State<MobileAttendanceSetting
                           _deleteLocation(location);
                         },
                         icon: const Icon(Icons.delete_outline,
-                            size: 18, color: Color(0xFFEF4444)),
+                            size: 18, color: SboxColors.danger),
                         label: Text(tr('Xóa'),
-                            style: TextStyle(color: Color(0xFFEF4444))),
+                            style: TextStyle(color: SboxColors.danger)),
                       ),
                     const Spacer(),
                     TextButton(
                       onPressed: () => Navigator.pop(context),
-                      child: Text(tr('Hủy'), style: TextStyle(color: Color(0xFF71717A))),
+                      child: Text(tr('Hủy'), style: TextStyle(color: SboxColors.slate500)),
                     ),
                     const SizedBox(width: 8),
                     FilledButton(
@@ -3033,7 +3034,7 @@ class _MobileAttendanceSettingsScreenState extends State<MobileAttendanceSetting
               TextButton(onPressed: () => Navigator.pop(ctx, false), child: Text(tr('Hủy'))),
               FilledButton(
                 onPressed: () => Navigator.pop(ctx, true),
-                style: FilledButton.styleFrom(backgroundColor: const Color(0xFFEF4444)),
+                style: FilledButton.styleFrom(backgroundColor: SboxColors.danger),
                 child: Text(tr('Xóa')),
               ),
             ],
@@ -3072,7 +3073,7 @@ class _MobileAttendanceSettingsScreenState extends State<MobileAttendanceSetting
       barrierDismissible: true,
       builder: (ctx) => Dialog(
         insetPadding: isMobile ? EdgeInsets.zero : const EdgeInsets.symmetric(horizontal: 40, vertical: 24),
-        shape: isMobile ? const RoundedRectangleBorder() : RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+        shape: isMobile ? const RoundedRectangleBorder() : RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
         child: Scaffold(
           backgroundColor: Colors.white,
           appBar: AppBar(
@@ -3092,13 +3093,13 @@ class _MobileAttendanceSettingsScreenState extends State<MobileAttendanceSetting
                 margin: const EdgeInsets.only(right: 12),
                 padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
                 decoration: BoxDecoration(
-                  color: (registration.isVerified ? Colors.white : const Color(0xFFF59E0B)).withValues(alpha: 0.2),
-                  borderRadius: BorderRadius.circular(8),
+                  color: (registration.isVerified ? Colors.white : SboxColors.warning).withValues(alpha: 0.2),
+                  borderRadius: BorderRadius.circular(10),
                 ),
                 child: Text(
                   tr(registration.isVerified ? 'Đã xác thực' : 'Chờ xác thực'),
                   style: TextStyle(fontSize: 11, fontWeight: FontWeight.w600,
-                    color: registration.isVerified ? Colors.white : const Color(0xFFFEF3C7)),
+                    color: registration.isVerified ? Colors.white : SboxColors.warningSoft),
                 ),
               ),
             ],
@@ -3108,9 +3109,9 @@ class _MobileAttendanceSettingsScreenState extends State<MobileAttendanceSetting
                   child: Column(
                     mainAxisSize: MainAxisSize.min,
                     children: [
-                      Icon(Icons.image_not_supported, size: 48, color: Color(0xFF71717A)),
+                      Icon(Icons.image_not_supported, size: 48, color: SboxColors.slate500),
                       SizedBox(height: 8),
-                      Text(tr('Chưa có ảnh khuôn mặt'), style: TextStyle(color: Color(0xFF71717A))),
+                      Text(tr('Chưa có ảnh khuôn mặt'), style: TextStyle(color: SboxColors.slate500)),
                     ],
                   ),
                 )
@@ -3120,7 +3121,7 @@ class _MobileAttendanceSettingsScreenState extends State<MobileAttendanceSetting
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
                       Text(tr('${registration.faceImages.length} ảnh đã đăng ký'),
-                          style: const TextStyle(color: Color(0xFF71717A), fontSize: 13)),
+                          style: const TextStyle(color: SboxColors.slate500, fontSize: 13)),
                       const SizedBox(height: 12),
                       SafeFixedGrid(
                         crossAxisCount: isMobile ? 2 : 3,
@@ -3134,24 +3135,24 @@ class _MobileAttendanceSettingsScreenState extends State<MobileAttendanceSetting
                             onTap: () => _showFullScreenImage(
                                 imageUrl, registration.employeeName),
                             child: ClipRRect(
-                              borderRadius: BorderRadius.circular(12),
+                              borderRadius: BorderRadius.circular(14),
                               child: AuthCachedImage(
                                 imagePath: imageUrl,
                                 apiService: _apiService,
                                 fit: BoxFit.cover,
                                 placeholder: (_, __) => Container(
-                                  color: const Color(0xFFF4F4F5),
+                                  color: SboxColors.slate100,
                                   child: const Center(
                                       child: CircularProgressIndicator(
                                           strokeWidth: 2)),
                                 ),
                                 errorWidget: (_, url, error) => Container(
-                                  color: const Color(0xFFF4F4F5),
+                                  color: SboxColors.slate100,
                                   child: Column(
                                     mainAxisAlignment: MainAxisAlignment.center,
                                     children: [
                                       const Icon(Icons.broken_image,
-                                          color: Color(0xFF71717A)),
+                                          color: SboxColors.slate500),
                                       const SizedBox(height: 4),
                                       Padding(
                                         padding: const EdgeInsets.symmetric(
@@ -3159,7 +3160,7 @@ class _MobileAttendanceSettingsScreenState extends State<MobileAttendanceSetting
                                         child: Text(tr(url),
                                             style: const TextStyle(
                                                 fontSize: 8,
-                                                color: Color(0xFF71717A)),
+                                                color: SboxColors.slate500),
                                             maxLines: 2,
                                             overflow: TextOverflow.ellipsis),
                                       ),
@@ -3174,7 +3175,7 @@ class _MobileAttendanceSettingsScreenState extends State<MobileAttendanceSetting
                       if (registration.registeredAt != null) ...[
                         const SizedBox(height: 12),
                         Text(tr('Đăng ký: ${registration.registeredAt!.day}/${registration.registeredAt!.month}/${registration.registeredAt!.year}'),
-                          style: const TextStyle(fontSize: 12, color: Color(0xFF71717A)),
+                          style: const TextStyle(fontSize: 12, color: SboxColors.slate500),
                         ),
                       ],
                     ],
@@ -3192,9 +3193,9 @@ class _MobileAttendanceSettingsScreenState extends State<MobileAttendanceSetting
                         _handleFaceRegistrationAction('delete', registration);
                       },
                       icon: const Icon(Icons.delete_outline,
-                          size: 18, color: Color(0xFFEF4444)),
+                          size: 18, color: SboxColors.danger),
                       label: Text(tr('Xóa'),
-                          style: TextStyle(color: Color(0xFFEF4444))),
+                          style: TextStyle(color: SboxColors.danger)),
                     ),
                   const Spacer(),
                   if (_perm.canEdit('MobileAttendance'))
@@ -3544,10 +3545,10 @@ class _MobileAttendanceSettingsScreenState extends State<MobileAttendanceSetting
           Container(
             width: 36, height: 36,
             decoration: BoxDecoration(
-              color: const Color(0xFF2563EB).withValues(alpha: 0.1),
-              borderRadius: BorderRadius.circular(8),
+              color: SboxColors.brand600.withValues(alpha: 0.1),
+              borderRadius: BorderRadius.circular(10),
             ),
-            child: const Icon(Icons.swap_horiz, size: 18, color: Color(0xFF2563EB)),
+            child: const Icon(Icons.swap_horiz, size: 18, color: SboxColors.brand600),
           ),
           const SizedBox(width: 12),
           Expanded(
@@ -3556,26 +3557,26 @@ class _MobileAttendanceSettingsScreenState extends State<MobileAttendanceSetting
               children: [
                 Text(
                   tr(req['employeeName'] ?? ''),
-                  style: const TextStyle(fontSize: 14, fontWeight: FontWeight.w600, color: Color(0xFF18181B)),
+                  style: const TextStyle(fontSize: 14, fontWeight: FontWeight.w600, color: SboxColors.slate900),
                   overflow: TextOverflow.ellipsis,
                 ),
                 const SizedBox(height: 2),
                 Text(
                   tr('${req['oldDeviceName'] ?? '?'} → ${req['newDeviceName'] ?? '?'}'),
-                  style: const TextStyle(fontSize: 12, color: Color(0xFF71717A)),
+                  style: const TextStyle(fontSize: 12, color: SboxColors.slate500),
                   overflow: TextOverflow.ellipsis,
                 ),
                 if (req['reason'] != null && (req['reason'] as String).isNotEmpty) ...[
                   const SizedBox(height: 2),
                   Text(tr('${tr('Lý do: ')}${req['reason']}'),
-                    style: const TextStyle(fontSize: 11, color: Color(0xFFA1A1AA), fontStyle: FontStyle.italic),
+                    style: const TextStyle(fontSize: 11, color: SboxColors.slate400, fontStyle: FontStyle.italic),
                     overflow: TextOverflow.ellipsis,
                   ),
                 ],
                 if (formatSelectedWorkLocationsFromRequest(req) != 'Chưa chọn') ...[
                   const SizedBox(height: 2),
                   Text(tr('Vị trí: ${formatSelectedWorkLocationsFromRequest(req)}'),
-                    style: const TextStyle(fontSize: 11, color: Color(0xFF71717A)),
+                    style: const TextStyle(fontSize: 11, color: SboxColors.slate500),
                     overflow: TextOverflow.ellipsis,
                   ),
                 ],
@@ -3583,7 +3584,7 @@ class _MobileAttendanceSettingsScreenState extends State<MobileAttendanceSetting
                   const SizedBox(height: 2),
                   Text(
                     tr('${requestedAt.day}/${requestedAt.month}/${requestedAt.year}'),
-                    style: const TextStyle(fontSize: 11, color: Color(0xFFA1A1AA)),
+                    style: const TextStyle(fontSize: 11, color: SboxColors.slate400),
                   ),
                 ],
               ],
@@ -3591,14 +3592,14 @@ class _MobileAttendanceSettingsScreenState extends State<MobileAttendanceSetting
           ),
           IconButton(
             onPressed: () => _approveDeviceChange(req, true),
-            icon: const Icon(Icons.check_circle, color: Color(0xFF22C55E), size: 24),
+            icon: const Icon(Icons.check_circle, color: SboxColors.success, size: 24),
             tooltip: tr('Duyệt đổi máy'),
             constraints: const BoxConstraints(minWidth: 36, minHeight: 36),
             padding: EdgeInsets.zero,
           ),
           IconButton(
             onPressed: () => _approveDeviceChange(req, false),
-            icon: const Icon(Icons.cancel, color: Color(0xFFEF4444), size: 24),
+            icon: const Icon(Icons.cancel, color: SboxColors.danger, size: 24),
             tooltip: tr('Từ chối'),
             constraints: const BoxConstraints(minWidth: 36, minHeight: 36),
             padding: EdgeInsets.zero,
@@ -3634,7 +3635,7 @@ class _MobileAttendanceSettingsScreenState extends State<MobileAttendanceSetting
               ),
               FilledButton(
                 onPressed: () => Navigator.pop(ctx, controller.text),
-                style: FilledButton.styleFrom(backgroundColor: const Color(0xFFEF4444)),
+                style: FilledButton.styleFrom(backgroundColor: SboxColors.danger),
                 child: Text(tr('Từ chối')),
               ),
             ],
@@ -3701,7 +3702,7 @@ class _MobileAttendanceSettingsScreenState extends State<MobileAttendanceSetting
               ),
               FilledButton(
                 onPressed: () => Navigator.pop(ctx, controller.text),
-                style: FilledButton.styleFrom(backgroundColor: const Color(0xFFEF4444)),
+                style: FilledButton.styleFrom(backgroundColor: SboxColors.danger),
                 child: Text(tr('Từ chối')),
               ),
             ],
@@ -3766,7 +3767,7 @@ class _MobileAttendanceSettingsScreenState extends State<MobileAttendanceSetting
           }
           return Dialog(
         insetPadding: isMobile ? EdgeInsets.zero : const EdgeInsets.symmetric(horizontal: 40, vertical: 24),
-        shape: isMobile ? const RoundedRectangleBorder() : RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+        shape: isMobile ? const RoundedRectangleBorder() : RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
         child: Scaffold(
           backgroundColor: Colors.white,
           appBar: AppBar(
@@ -3790,10 +3791,10 @@ class _MobileAttendanceSettingsScreenState extends State<MobileAttendanceSetting
                   margin: const EdgeInsets.only(right: 12),
                   padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
                   decoration: BoxDecoration(
-                    color: const Color(0xFFF59E0B).withValues(alpha: 0.2),
-                    borderRadius: BorderRadius.circular(8),
+                    color: SboxColors.warning.withValues(alpha: 0.2),
+                    borderRadius: BorderRadius.circular(10),
                   ),
-                  child: Text(tr('Chờ duyệt'), style: TextStyle(fontSize: 11, fontWeight: FontWeight.w600, color: Color(0xFFFEF3C7))),
+                  child: Text(tr('Chờ duyệt'), style: TextStyle(fontSize: 11, fontWeight: FontWeight.w600, color: SboxColors.warningSoft)),
                 ),
             ],
           ),
@@ -3821,9 +3822,9 @@ class _MobileAttendanceSettingsScreenState extends State<MobileAttendanceSetting
                   contentPadding: EdgeInsets.zero,
                   title: Text(tr('Chụp ảnh hiện trường sau chấm'),
                     style: TextStyle(
-                      fontSize: 15,
+                      fontSize: 16,
                       fontWeight: FontWeight.w600,
-                      color: Color(0xFF18181B),
+                      color: SboxColors.slate900,
                     ),
                   ),
                   subtitle: Text(
@@ -3835,8 +3836,8 @@ class _MobileAttendanceSettingsScreenState extends State<MobileAttendanceSetting
                     style: TextStyle(
                       fontSize: 13,
                       color: !_settings.requirePhotoProof
-                          ? const Color(0xFFF59E0B)
-                          : const Color(0xFF71717A),
+                          ? SboxColors.warning
+                          : SboxColors.slate500,
                     ),
                   ),
                   value: photoProofOn,
@@ -3856,7 +3857,7 @@ class _MobileAttendanceSettingsScreenState extends State<MobileAttendanceSetting
                           }
                           setDialogState(() => photoProofOn = v);
                         },
-                  activeThumbColor: const Color(0xFF059669),
+                  activeThumbColor: SboxColors.success,
                 ),
                 _buildDetailRow('MAC WiFi (BSSID)', device.wifiBssid ?? 'Chưa có'),
                 _buildDetailRow(
@@ -3872,7 +3873,7 @@ class _MobileAttendanceSettingsScreenState extends State<MobileAttendanceSetting
                   tr(device.faceImages.isNotEmpty
                       ? 'Khuôn mặt của ${_deviceEmployeeLabel(device)} trên thiết bị'
                       : 'Khuôn mặt trên thiết bị'),
-                  style: const TextStyle(fontWeight: FontWeight.w600, fontSize: 14, color: Color(0xFF18181B)),
+                  style: const TextStyle(fontWeight: FontWeight.w600, fontSize: 14, color: SboxColors.slate900),
                 ),
                 const SizedBox(height: 4),
                 Text(
@@ -3881,7 +3882,7 @@ class _MobileAttendanceSettingsScreenState extends State<MobileAttendanceSetting
                       : (device.employeeId != null && device.employeeId!.isNotEmpty
                           ? 'Nhân viên chưa có ảnh khuôn mặt — đăng ký khi cấp thiết bị hoặc quét trên máy nhân viên'
                           : 'Gán nhân viên cho thiết bị để xem ảnh khuôn mặt')),
-                  style: const TextStyle(fontSize: 12, color: Color(0xFF71717A)),
+                  style: const TextStyle(fontSize: 12, color: SboxColors.slate500),
                 ),
                 if (device.faceImages.isNotEmpty) ...[
                   const SizedBox(height: 8),
@@ -3896,17 +3897,17 @@ class _MobileAttendanceSettingsScreenState extends State<MobileAttendanceSetting
                     width: double.infinity,
                     padding: const EdgeInsets.all(16),
                     decoration: BoxDecoration(
-                      color: const Color(0xFFFAFAFA),
-                      borderRadius: BorderRadius.circular(12),
-                      border: Border.all(color: const Color(0xFFE4E4E7)),
+                      color: SboxColors.slate50,
+                      borderRadius: BorderRadius.circular(14),
+                      border: Border.all(color: SboxColors.slate200),
                     ),
                     child: Row(
                       children: [
-                        Icon(Icons.face_retouching_off, color: Color(0xFF71717A)),
+                        Icon(Icons.face_retouching_off, color: SboxColors.slate500),
                         SizedBox(width: 12),
                         Expanded(
                           child: Text(tr('Chưa có ảnh khuôn mặt gắn với thiết bị này'),
-                            style: TextStyle(fontSize: 13, color: Color(0xFF71717A)),
+                            style: TextStyle(fontSize: 13, color: SboxColors.slate500),
                           ),
                         ),
                       ],
@@ -3931,9 +3932,9 @@ class _MobileAttendanceSettingsScreenState extends State<MobileAttendanceSetting
                         _deleteDevice(device);
                       },
                       icon: const Icon(Icons.delete_outline,
-                          size: 18, color: Color(0xFFEF4444)),
+                          size: 18, color: SboxColors.danger),
                       label: Text(tr('Xóa'),
-                          style: TextStyle(color: Color(0xFFEF4444))),
+                          style: TextStyle(color: SboxColors.danger)),
                     ),
                   if (_perm.canEdit('MobileAttendance'))
                     TextButton.icon(
@@ -3944,11 +3945,11 @@ class _MobileAttendanceSettingsScreenState extends State<MobileAttendanceSetting
                     icon: Icon(
                       device.allowOutsideCheckIn ? Icons.location_off : Icons.location_on,
                       size: 18,
-                      color: device.allowOutsideCheckIn ? const Color(0xFFF59E0B) : const Color(0xFF6B7280),
+                      color: device.allowOutsideCheckIn ? SboxColors.warning : SboxColors.slate500,
                     ),
                     label: Text(
                       tr(device.allowOutsideCheckIn ? 'Tắt ngoài CT' : 'Bật ngoài CT'),
-                      style: TextStyle(color: device.allowOutsideCheckIn ? const Color(0xFFF59E0B) : const Color(0xFF6B7280)),
+                      style: TextStyle(color: device.allowOutsideCheckIn ? SboxColors.warning : SboxColors.slate500),
                     ),
                   ),
                   if (_perm.canEdit('MobileAttendance'))
@@ -3964,14 +3965,14 @@ class _MobileAttendanceSettingsScreenState extends State<MobileAttendanceSetting
                         size: 18,
                         color: device.allowTravelCheckIn
                             ? const Color(0xFF0EA5E9)
-                            : const Color(0xFF6B7280),
+                            : SboxColors.slate500,
                       ),
                       label: Text(
                         tr(device.allowTravelCheckIn ? 'Tắt đi đường' : 'Bật đi đường'),
                         style: TextStyle(
                           color: device.allowTravelCheckIn
                               ? const Color(0xFF0EA5E9)
-                              : const Color(0xFF6B7280),
+                              : SboxColors.slate500,
                         ),
                       ),
                     ),
@@ -3984,7 +3985,7 @@ class _MobileAttendanceSettingsScreenState extends State<MobileAttendanceSetting
                       icon: const Icon(Icons.close, size: 18),
                       label: Text(tr('Từ chối')),
                       style: FilledButton.styleFrom(
-                        backgroundColor: const Color(0xFFEF4444),
+                        backgroundColor: SboxColors.danger,
                       ),
                     ),
                     FilledButton.icon(
@@ -3995,7 +3996,7 @@ class _MobileAttendanceSettingsScreenState extends State<MobileAttendanceSetting
                       icon: const Icon(Icons.check, size: 18),
                       label: Text(tr('Duyệt')),
                       style: FilledButton.styleFrom(
-                        backgroundColor: const Color(0xFF22C55E),
+                        backgroundColor: SboxColors.success,
                       ),
                     ),
                   ],
@@ -4020,28 +4021,28 @@ class _MobileAttendanceSettingsScreenState extends State<MobileAttendanceSetting
     final String label;
     final IconData icon;
     if (effective) {
-      bg = const Color(0xFFECFDF5);
+      bg = SboxColors.successSoft;
       border = const Color(0xFF6EE7B7);
-      text = const Color(0xFF047857);
+      text = SboxColors.successText;
       label = 'Ảnh hiện trường: ĐANG BẬT (sau mỗi lần chấm sẽ mở camera)';
       icon = Icons.photo_camera;
     } else if (!storeOn) {
-      bg = const Color(0xFFFFF7ED);
+      bg = SboxColors.warningSoft;
       border = const Color(0xFFFDBA74);
       text = const Color(0xFFC2410C);
       label = 'Ảnh hiện trường: TẮT — chưa bật ở cấp cửa hàng';
       icon = Icons.storefront_outlined;
     } else if (deviceOn) {
-      bg = const Color(0xFFEFF6FF);
-      border = const Color(0xFF93C5FD);
-      text = const Color(0xFF1D4ED8);
+      bg = SboxColors.brand50;
+      border = SboxColors.brand200;
+      text = SboxColors.brand700;
       label =
           'Thiết bị: ĐANG BẬT · Cửa hàng: TẮT (chưa có hiệu lực khi chấm công)';
       icon = Icons.info_outline;
     } else {
-      bg = const Color(0xFFF4F4F5);
-      border = const Color(0xFFE4E4E7);
-      text = const Color(0xFF52525B);
+      bg = SboxColors.slate100;
+      border = SboxColors.slate200;
+      text = SboxColors.slate600;
       label = 'Ảnh hiện trường: TẮT trên thiết bị này';
       icon = Icons.photo_camera_outlined;
     }
@@ -4080,7 +4081,7 @@ class _MobileAttendanceSettingsScreenState extends State<MobileAttendanceSetting
         children: [
           SizedBox(
             width: 120,
-            child: Text(tr(label), style: const TextStyle(color: Color(0xFF71717A), fontSize: 13)),
+            child: Text(tr(label), style: const TextStyle(color: SboxColors.slate500, fontSize: 13)),
           ),
           Expanded(child: Text(tr(value), style: const TextStyle(fontWeight: FontWeight.w500, fontSize: 13))),
         ],
@@ -4217,13 +4218,13 @@ class _LocationEmployeesAssignDialogState
     if (_loadError.isNotEmpty) {
       return Center(
         child: Text(tr(_loadError),
-            style: const TextStyle(color: Color(0xFFEF4444))),
+            style: const TextStyle(color: SboxColors.danger)),
       );
     }
     if (_allEmployees.isEmpty) {
       return Center(
         child: Text(tr('Chưa có nhân viên trong hệ thống'),
-            style: TextStyle(color: Color(0xFF71717A))),
+            style: TextStyle(color: SboxColors.slate500)),
       );
     }
     final filtered = _filteredEmployees;
@@ -4261,7 +4262,7 @@ class _LocationEmployeesAssignDialogState
             subtitle: subtitle.isNotEmpty
                 ? Text(tr(subtitle),
                     style: const TextStyle(
-                        fontSize: 12, color: Color(0xFF71717A)))
+                        fontSize: 12, color: SboxColors.slate500))
                 : null,
             controlAffinity: ListTileControlAffinity.leading,
             dense: true,
@@ -4277,14 +4278,14 @@ class _LocationEmployeesAssignDialogState
         Container(
           padding: const EdgeInsets.all(12),
           decoration: BoxDecoration(
-            color: const Color(0xFFF4F4F5),
+            color: SboxColors.slate100,
             borderRadius: BorderRadius.circular(10),
           ),
           child: Text(
             tr('Chọn nhân viên được phép chấm tại vị trí này. '
             'NV chưa được gán vị trí nào → chấm được mọi vị trí. '
             'NV đã gán ít nhất 1 vị trí → chỉ chấm các vị trí đã gán.'),
-            style: TextStyle(fontSize: 12, color: Color(0xFF52525B), height: 1.35),
+            style: TextStyle(fontSize: 12, color: SboxColors.slate600, height: 1.35),
           ),
         ),
         const SizedBox(height: 12),
@@ -4293,10 +4294,10 @@ class _LocationEmployeesAssignDialogState
             hintText: tr('Tìm theo tên, mã, phòng ban…'),
             prefixIcon: const Icon(Icons.search, size: 20),
             filled: true,
-            fillColor: const Color(0xFFFAFAFA),
+            fillColor: SboxColors.slate50,
             border: OutlineInputBorder(
               borderRadius: BorderRadius.circular(10),
-              borderSide: const BorderSide(color: Color(0xFFE4E4E7)),
+              borderSide: const BorderSide(color: SboxColors.slate200),
             ),
             isDense: true,
           ),
@@ -4309,7 +4310,7 @@ class _LocationEmployeesAssignDialogState
               style: const TextStyle(
                   fontSize: 12,
                   fontWeight: FontWeight.w600,
-                  color: Color(0xFF71717A)),
+                  color: SboxColors.slate500),
             ),
             const Spacer(),
             TextButton(

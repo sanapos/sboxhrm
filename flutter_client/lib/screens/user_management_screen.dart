@@ -9,6 +9,7 @@ import '../widgets/hrm_page_chrome.dart';
 import '../widgets/hrm_responsive_list_layout.dart';
 import 'package:zkteco_flutter_client/l10n/app_tr.dart';
 
+import '../theme/sbox_tokens.dart';
 class UserManagementScreen extends StatefulWidget {
   const UserManagementScreen({super.key});
 
@@ -61,11 +62,11 @@ class _UserManagementScreenState extends State<UserManagementScreen> {
 
   Color _getRoleColor(String? role) {
     switch (role?.toLowerCase()) {
-      case 'admin': return const Color(0xFFDC2626);
+      case 'admin': return SboxColors.danger;
       case 'manager': return HrmPageChrome.primaryNavy;
       case 'hr': return HrmPageChrome.primaryNavy;
       case 'user': case 'employee': return HrmPageChrome.primaryNavy;
-      default: return const Color(0xFF6B7280);
+      default: return SboxColors.slate500;
     }
   }
 
@@ -106,13 +107,13 @@ class _UserManagementScreenState extends State<UserManagementScreen> {
         HrmScrollSlivers.fillRemaining(
           child: Center(
             child: Column(mainAxisSize: MainAxisSize.min, children: [
-              Icon(Icons.person_search, size: 80, color: Colors.grey[300]),
+              Icon(Icons.person_search, size: 80, color: SboxColors.slate300),
               const SizedBox(height: 16),
               Text(
                   tr(_searchQuery.isNotEmpty
                       ? 'Không tìm thấy tài khoản'
                       : 'Chưa có tài khoản'),
-                  style: TextStyle(color: Colors.grey[500], fontSize: 16)),
+                  style: TextStyle(color: SboxColors.slate500, fontSize: 16)),
             ]),
           ),
         ),
@@ -126,8 +127,8 @@ class _UserManagementScreenState extends State<UserManagementScreen> {
         child: Container(
           decoration: BoxDecoration(
             color: Colors.white,
-            borderRadius: BorderRadius.circular(12),
-            border: Border.all(color: const Color(0xFFE4E4E7)),
+            borderRadius: BorderRadius.circular(14),
+            border: Border.all(color: SboxColors.slate200),
             boxShadow: [
               BoxShadow(
                 color: Colors.black.withValues(alpha: 0.05),
@@ -157,7 +158,7 @@ class _UserManagementScreenState extends State<UserManagementScreen> {
           prefixIcon: const Icon(Icons.search, color: Colors.white70, size: 20),
           filled: true,
           fillColor: Colors.white.withValues(alpha: 0.15),
-          border: OutlineInputBorder(borderRadius: BorderRadius.circular(12), borderSide: BorderSide.none),
+          border: OutlineInputBorder(borderRadius: BorderRadius.circular(14), borderSide: BorderSide.none),
           contentPadding: const EdgeInsets.symmetric(vertical: 10),
         ),
       ),
@@ -165,7 +166,7 @@ class _UserManagementScreenState extends State<UserManagementScreen> {
     return Container(
       padding: EdgeInsets.fromLTRB(isMobile ? 16 : 24, 20, isMobile ? 16 : 24, 16),
       decoration: const BoxDecoration(
-        gradient: LinearGradient(colors: [Color(0xFF18181B), Color(0xFF52525B)]),
+        gradient: LinearGradient(colors: [SboxColors.slate900, SboxColors.slate600]),
       ),
       child: Column(
         children: [
@@ -173,7 +174,7 @@ class _UserManagementScreenState extends State<UserManagementScreen> {
             children: [
               Container(
                 padding: const EdgeInsets.all(10),
-                decoration: BoxDecoration(color: Colors.white.withValues(alpha: 0.2), borderRadius: BorderRadius.circular(12)),
+                decoration: BoxDecoration(color: Colors.white.withValues(alpha: 0.2), borderRadius: BorderRadius.circular(14)),
                 child: const Icon(Icons.admin_panel_settings, color: Colors.white, size: 24),
               ),
               const SizedBox(width: 16),
@@ -235,9 +236,9 @@ class _UserManagementScreenState extends State<UserManagementScreen> {
     if (filtered.isEmpty) {
       return Center(
         child: Column(mainAxisSize: MainAxisSize.min, children: [
-          Icon(Icons.person_search, size: 80, color: Colors.grey[300]),
+          Icon(Icons.person_search, size: 80, color: SboxColors.slate300),
           const SizedBox(height: 16),
-          Text(tr(_searchQuery.isNotEmpty ? 'Không tìm thấy tài khoản' : 'Chưa có tài khoản'), style: TextStyle(color: Colors.grey[500], fontSize: 16)),
+          Text(tr(_searchQuery.isNotEmpty ? 'Không tìm thấy tài khoản' : 'Chưa có tài khoản'), style: TextStyle(color: SboxColors.slate500, fontSize: 16)),
         ]),
       );
     }
@@ -260,8 +261,8 @@ class _UserManagementScreenState extends State<UserManagementScreen> {
               child: Container(
                 decoration: BoxDecoration(
                   color: Colors.white,
-                  borderRadius: BorderRadius.circular(12),
-                  border: Border.all(color: const Color(0xFFE4E4E7)),
+                  borderRadius: BorderRadius.circular(14),
+                  border: Border.all(color: SboxColors.slate200),
                   boxShadow: [
                     BoxShadow(
                       color: Colors.black.withValues(alpha: 0.05),
@@ -280,13 +281,13 @@ class _UserManagementScreenState extends State<UserManagementScreen> {
           padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
           decoration: BoxDecoration(
             color: Colors.white,
-            border: Border(top: BorderSide(color: Colors.grey.shade200)),
+            border: Border(top: BorderSide(color: SboxColors.slate200)),
           ),
           child: Row(
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
               Text(tr('Hiển thị ${startIndex + 1}-$endIndex / $totalCount'),
-                style: TextStyle(fontSize: 12, color: Colors.grey[600]),
+                style: TextStyle(fontSize: 12, color: SboxColors.slate600),
               ),
               Row(
                 children: [
@@ -336,7 +337,7 @@ class _UserManagementScreenState extends State<UserManagementScreen> {
                     right: 0, bottom: 0,
                     child: Container(
                       padding: const EdgeInsets.all(2),
-                      decoration: BoxDecoration(color: Colors.red, borderRadius: BorderRadius.circular(8)),
+                      decoration: BoxDecoration(color: Colors.red, borderRadius: BorderRadius.circular(10)),
                       child: const Icon(Icons.lock, color: Colors.white, size: 9),
                     ),
                   ),
@@ -363,7 +364,7 @@ class _UserManagementScreenState extends State<UserManagementScreen> {
                       if (user['email'] != null) user['email'],
                       isLocked ? 'Bị khóa' : 'Hoạt động',
                     ].join(' · ')),
-                    style: TextStyle(fontSize: 12, color: Colors.grey[500]),
+                    style: TextStyle(fontSize: 12, color: SboxColors.slate500),
                     maxLines: 1, overflow: TextOverflow.ellipsis,
                   ),
                 ],
@@ -371,7 +372,7 @@ class _UserManagementScreenState extends State<UserManagementScreen> {
             ),
             if (_perm.canEdit('UserManagement') || _perm.canDelete('UserManagement'))
               PopupMenuButton<String>(
-                icon: Icon(Icons.more_vert, color: Colors.grey[400], size: 18),
+                icon: Icon(Icons.more_vert, color: SboxColors.slate400, size: 18),
                 itemBuilder: (_) => [
                   if (_perm.canEdit('UserManagement'))
                     PopupMenuItem(
@@ -396,7 +397,7 @@ class _UserManagementScreenState extends State<UserManagementScreen> {
                     PopupMenuItem(
                         value: 'reset',
                         child: Row(children: [
-                          Icon(Icons.password, size: 16, color: Colors.blue),
+                          Icon(Icons.password, size: 16, color: SboxColors.brand500),
                           SizedBox(width: 8),
                           Text(tr('Đặt lại mật khẩu'))
                         ])),
@@ -481,7 +482,7 @@ class _UserManagementScreenState extends State<UserManagementScreen> {
         content: SizedBox(
           width: 350,
           child: Column(mainAxisSize: MainAxisSize.min, children: [
-            Text(tr('${tr('Tài khoản: ')}${user['fullName'] ?? user['userName']}'), style: TextStyle(color: Colors.grey[600])),
+            Text(tr('${tr('Tài khoản: ')}${user['fullName'] ?? user['userName']}'), style: TextStyle(color: SboxColors.slate600)),
             const SizedBox(height: 16),
             DropdownButtonFormField<String>(
               initialValue: _availableRoles.contains(selectedRole) ? selectedRole : null,
@@ -523,7 +524,7 @@ class _UserManagementScreenState extends State<UserManagementScreen> {
           content: SizedBox(
             width: 350,
             child: Column(mainAxisSize: MainAxisSize.min, children: [
-              Text(tr('${tr('Tài khoản: ')}${user['fullName'] ?? user['userName']}'), style: TextStyle(color: Colors.grey[600])),
+              Text(tr('${tr('Tài khoản: ')}${user['fullName'] ?? user['userName']}'), style: TextStyle(color: SboxColors.slate600)),
               const SizedBox(height: 16),
               TextField(
                 controller: pwdCtrl,

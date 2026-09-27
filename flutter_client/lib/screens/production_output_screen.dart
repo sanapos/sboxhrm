@@ -21,6 +21,7 @@ import '../widgets/hrm_page_chrome.dart';
 import '../widgets/notification_overlay.dart';
 import '../widgets/page_top_actions.dart';
 
+import '../theme/sbox_tokens.dart';
 /// Parse Excel trên isolate — tránh đơ UI khi bấm Import file lớn.
 Map<String, dynamic> _parseProductionExcelIsolate(List<int> bytes) {
   final excel = xl.Excel.decodeBytes(bytes);
@@ -282,7 +283,7 @@ class _ProductionOutputScreenState extends State<ProductionOutputScreen>
                       child: TabBar(
                         controller: _tabCtl,
                         labelColor: _accent,
-                        unselectedLabelColor: const Color(0xFF71717A),
+                        unselectedLabelColor: SboxColors.slate500,
                         indicatorColor: _accent,
                         tabs: [
                           Tab(text: tr('Chi tiết')),
@@ -469,7 +470,7 @@ class _ProductionOutputScreenState extends State<ProductionOutputScreen>
       child: Container(
         decoration: const BoxDecoration(
           color: Colors.white,
-          border: Border(bottom: BorderSide(color: Color(0xFFE4E4E7))),
+          border: Border(bottom: BorderSide(color: SboxColors.slate200)),
         ),
         padding: EdgeInsets.symmetric(
             horizontal: isMobile ? 10 : 16, vertical: isMobile ? 6 : 8),
@@ -483,7 +484,7 @@ class _ProductionOutputScreenState extends State<ProductionOutputScreen>
 
   static const _toolbarFieldText = TextStyle(
     fontSize: 12,
-    color: Color(0xFF111827),
+    color: SboxColors.slate900,
   );
 
   InputDecoration _toolbarFieldDecoration(String label) {
@@ -492,20 +493,20 @@ class _ProductionOutputScreenState extends State<ProductionOutputScreen>
       isDense: true,
       filled: true,
       fillColor: Colors.white,
-      labelStyle: const TextStyle(fontSize: 12, color: Color(0xFF6B7280)),
+      labelStyle: const TextStyle(fontSize: 12, color: SboxColors.slate500),
       floatingLabelStyle:
           const TextStyle(fontSize: 12, color: HrmPageChrome.primaryNavy),
       contentPadding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
       border: OutlineInputBorder(
-        borderRadius: BorderRadius.circular(8),
-        borderSide: const BorderSide(color: Color(0xFFE4E4E7)),
+        borderRadius: BorderRadius.circular(10),
+        borderSide: const BorderSide(color: SboxColors.slate200),
       ),
       enabledBorder: OutlineInputBorder(
-        borderRadius: BorderRadius.circular(8),
-        borderSide: const BorderSide(color: Color(0xFFE4E4E7)),
+        borderRadius: BorderRadius.circular(10),
+        borderSide: const BorderSide(color: SboxColors.slate200),
       ),
       focusedBorder: OutlineInputBorder(
-        borderRadius: BorderRadius.circular(8),
+        borderRadius: BorderRadius.circular(10),
         borderSide: const BorderSide(color: HrmPageChrome.primaryNavy),
       ),
     );
@@ -517,7 +518,7 @@ class _ProductionOutputScreenState extends State<ProductionOutputScreen>
       initialValue: _datePreset,
       isExpanded: true,
       dropdownColor: Colors.white,
-      icon: const Icon(Icons.arrow_drop_down, color: Color(0xFF6B7280)),
+      icon: const Icon(Icons.arrow_drop_down, color: SboxColors.slate500),
       decoration: _toolbarFieldDecoration('Kỳ'),
       style: _toolbarFieldText,
       items: [
@@ -594,27 +595,27 @@ class _ProductionOutputScreenState extends State<ProductionOutputScreen>
           _reloadCurrentTab();
         }
       },
-      borderRadius: BorderRadius.circular(8),
+      borderRadius: BorderRadius.circular(10),
       child: Container(
         height: 40,
         padding: const EdgeInsets.symmetric(horizontal: 10),
         decoration: BoxDecoration(
-          border: Border.all(color: const Color(0xFFE4E4E7)),
-          borderRadius: BorderRadius.circular(8),
-          color: const Color(0xFFF8FAFC),
+          border: Border.all(color: SboxColors.slate200),
+          borderRadius: BorderRadius.circular(10),
+          color: SboxColors.slate50,
         ),
         child: Row(
           mainAxisSize: MainAxisSize.min,
           children: [
             const Icon(Icons.calendar_today_outlined,
-                size: 14, color: Color(0xFF6B7280)),
+                size: 14, color: SboxColors.slate500),
             const SizedBox(width: 6),
             Text(
               tr('${fmt.format(_fromDate)} – ${fmt.format(_toDate)}'),
               style: const TextStyle(
                   fontSize: 12,
                   fontWeight: FontWeight.w600,
-                  color: Color(0xFF111827)),
+                  color: SboxColors.slate900),
             ),
           ],
         ),
@@ -754,7 +755,7 @@ class _ProductionOutputScreenState extends State<ProductionOutputScreen>
                           branchId = null;
                         }),
                         child: Text(tr('Xóa tất cả'),
-                            style: TextStyle(color: Color(0xFFEF4444))),
+                            style: TextStyle(color: SboxColors.danger)),
                       ),
                   ],
                 ),
@@ -1133,10 +1134,10 @@ class _ProductionOutputScreenState extends State<ProductionOutputScreen>
                   mainAxisSize: MainAxisSize.min,
                   children: [
                     Icon(Icons.inbox_outlined,
-                        size: 64, color: Colors.grey[300]),
+                        size: 64, color: SboxColors.slate300),
                     const SizedBox(height: 16),
                     Text(tr('Chưa có dữ liệu sản lượng'),
-                        style: TextStyle(color: Colors.grey[500])),
+                        style: TextStyle(color: SboxColors.slate500)),
                     if (Provider.of<PermissionProvider>(context, listen: false)
                         .canCreate('Production')) ...[
                       const SizedBox(height: 16),
@@ -1185,7 +1186,7 @@ class _ProductionOutputScreenState extends State<ProductionOutputScreen>
             minWidth: 1120,
             child: DataTable(
                 headingRowColor:
-                    WidgetStateProperty.all(const Color(0xFFF8FAFC)),
+                    WidgetStateProperty.all(SboxColors.slate50),
                 columnSpacing: 20,
                 columns: [
                   DataColumn(
@@ -1256,7 +1257,7 @@ class _ProductionOutputScreenState extends State<ProductionOutputScreen>
                             height: 28,
                             child: IconButton(
                               icon: const Icon(Icons.edit_outlined, size: 16),
-                              color: const Color(0xFF64748B),
+                              color: SboxColors.slate500,
                               padding: EdgeInsets.zero,
                               constraints: const BoxConstraints(),
                               onPressed: () => _showEditEntryDialog(entry),
@@ -1271,7 +1272,7 @@ class _ProductionOutputScreenState extends State<ProductionOutputScreen>
                             height: 28,
                             child: IconButton(
                               icon: const Icon(Icons.delete_outline, size: 16),
-                              color: const Color(0xFFEF4444),
+                              color: SboxColors.danger,
                               padding: EdgeInsets.zero,
                               constraints: const BoxConstraints(),
                               onPressed: () => _confirmDeleteEntry(entry),
@@ -1297,8 +1298,8 @@ class _ProductionOutputScreenState extends State<ProductionOutputScreen>
     return Container(
       decoration: BoxDecoration(
         color: Colors.white,
-        borderRadius: BorderRadius.circular(12),
-        border: Border.all(color: const Color(0xFFE4E4E7)),
+        borderRadius: BorderRadius.circular(14),
+        border: Border.all(color: SboxColors.slate200),
         boxShadow: [
           BoxShadow(
             color: Colors.black.withValues(alpha: 0.05),
@@ -1308,7 +1309,7 @@ class _ProductionOutputScreenState extends State<ProductionOutputScreen>
         ],
       ),
       child: InkWell(
-        borderRadius: BorderRadius.circular(12),
+        borderRadius: BorderRadius.circular(14),
         onTap: () => _showEditEntryDialog(entry),
         child: Padding(
           padding: const EdgeInsets.all(14),
@@ -1344,7 +1345,7 @@ class _ProductionOutputScreenState extends State<ProductionOutputScreen>
                         Text(
                           tr('${entry['employeeCode'] ?? ''} · ${workDate != null ? DateFormat('dd/MM/yyyy').format(workDate) : ''}'),
                           style: const TextStyle(
-                              color: Color(0xFF71717A), fontSize: 12),
+                              color: SboxColors.slate500, fontSize: 12),
                         ),
                       ],
                     ),
@@ -1354,14 +1355,14 @@ class _ProductionOutputScreenState extends State<ProductionOutputScreen>
                     children: [
                       Text(tr('${_currencyFormat.format(amount)} đ'),
                         style: const TextStyle(
-                            fontSize: 15,
+                            fontSize: 16,
                             fontWeight: FontWeight.bold,
                             color: primary),
                       ),
                       Text(
                         tr('SL: ${entry['quantity'] ?? 0}'),
                         style: const TextStyle(
-                            fontSize: 12, color: Color(0xFF71717A)),
+                            fontSize: 12, color: SboxColors.slate500),
                       ),
                     ],
                   ),
@@ -1385,14 +1386,14 @@ class _ProductionOutputScreenState extends State<ProductionOutputScreen>
                           Text(
                             tr(entry['productGroupName']),
                             style: const TextStyle(
-                                fontSize: 11, color: Color(0xFF94A3B8)),
+                                fontSize: 11, color: SboxColors.slate400),
                           ),
                       ],
                     ),
                   ),
                   Text(tr('${tr('ĐG: ')}${_currencyFormat.format(_toDouble(entry['unitPrice']))}'),
                     style:
-                        const TextStyle(fontSize: 12, color: Color(0xFF64748B)),
+                        const TextStyle(fontSize: 12, color: SboxColors.slate500),
                   ),
                 ],
               ),
@@ -1401,7 +1402,7 @@ class _ProductionOutputScreenState extends State<ProductionOutputScreen>
                 const SizedBox(height: 6),
                 Text(
                   tr(entry['note']),
-                  style: TextStyle(fontSize: 12, color: Colors.grey[600]),
+                  style: TextStyle(fontSize: 12, color: SboxColors.slate600),
                   maxLines: 2,
                   overflow: TextOverflow.ellipsis,
                 ),
@@ -1413,12 +1414,12 @@ class _ProductionOutputScreenState extends State<ProductionOutputScreen>
                 children: [
                   if (Provider.of<PermissionProvider>(context, listen: false)
                       .canEdit('Production'))
-                    _miniBtn(Icons.edit_outlined, const Color(0xFF3B82F6),
+                    _miniBtn(Icons.edit_outlined, SboxColors.brand500,
                         'Sửa', () => _showEditEntryDialog(entry)),
                   const SizedBox(width: 8),
                   if (Provider.of<PermissionProvider>(context, listen: false)
                       .canDelete('Production'))
-                    _miniBtn(Icons.delete_outline, const Color(0xFFEF4444),
+                    _miniBtn(Icons.delete_outline, SboxColors.danger,
                         'Xóa', () => _confirmDeleteEntry(entry)),
                 ],
               ),
@@ -1498,10 +1499,10 @@ class _ProductionOutputScreenState extends State<ProductionOutputScreen>
                   mainAxisSize: MainAxisSize.min,
                   children: [
                     Icon(Icons.analytics_outlined,
-                        size: 64, color: Colors.grey[300]),
+                        size: 64, color: SboxColors.slate300),
                     const SizedBox(height: 16),
                     Text(tr('Chưa có dữ liệu tổng hợp'),
-                        style: TextStyle(color: Colors.grey[500])),
+                        style: TextStyle(color: SboxColors.slate500)),
                   ],
                 ),
               ),
@@ -1523,8 +1524,8 @@ class _ProductionOutputScreenState extends State<ProductionOutputScreen>
             margin: const EdgeInsets.only(bottom: 12),
             elevation: 0,
             shape: RoundedRectangleBorder(
-              borderRadius: BorderRadius.circular(12),
-              side: const BorderSide(color: Color(0xFFE4E4E7)),
+              borderRadius: BorderRadius.circular(14),
+              side: const BorderSide(color: SboxColors.slate200),
             ),
             child: Padding(
               padding: const EdgeInsets.all(16),
@@ -1551,10 +1552,10 @@ class _ProductionOutputScreenState extends State<ProductionOutputScreen>
                           children: [
                             Text(tr(summary['employeeName'] ?? ''),
                                 style: const TextStyle(
-                                    fontWeight: FontWeight.w600, fontSize: 15)),
+                                    fontWeight: FontWeight.w600, fontSize: 16)),
                             Text(tr('${tr('Mã: ')}${summary['employeeCode'] ?? ''}'),
                               style: const TextStyle(
-                                  fontSize: 12, color: Color(0xFF71717A)),
+                                  fontSize: 12, color: SboxColors.slate500),
                             ),
                           ],
                         ),
@@ -1571,7 +1572,7 @@ class _ProductionOutputScreenState extends State<ProductionOutputScreen>
                           ),
                           Text(tr('${tr('Tổng SL: ')}${summary['totalQuantity'] ?? 0}'),
                             style: const TextStyle(
-                                fontSize: 12, color: Color(0xFF71717A)),
+                                fontSize: 12, color: SboxColors.slate500),
                           ),
                         ],
                       ),
@@ -1589,7 +1590,7 @@ class _ProductionOutputScreenState extends State<ProductionOutputScreen>
                                       style: const TextStyle(fontSize: 13))),
                               Text(tr('SL: ${item['quantity'] ?? 0}'),
                                   style: const TextStyle(
-                                      fontSize: 13, color: Color(0xFF64748B))),
+                                      fontSize: 13, color: SboxColors.slate500)),
                               const SizedBox(width: 16),
                               Text(
                                 tr('${_currencyFormat.format(_toDouble(item['amount']))} đ'),
@@ -1684,9 +1685,9 @@ class _ProductionOutputScreenState extends State<ProductionOutputScreen>
                 margin: const EdgeInsets.only(bottom: 12),
                 padding: const EdgeInsets.all(12),
                 decoration: BoxDecoration(
-                  color: const Color(0xFFF8FAFC),
-                  borderRadius: BorderRadius.circular(8),
-                  border: Border.all(color: const Color(0xFFE2E8F0)),
+                  color: SboxColors.slate50,
+                  borderRadius: BorderRadius.circular(10),
+                  border: Border.all(color: SboxColors.slate200),
                 ),
                 child: Column(
                   children: [
@@ -2164,8 +2165,8 @@ class _ProductionOutputScreenState extends State<ProductionOutputScreen>
               Container(
                 padding: const EdgeInsets.all(12),
                 decoration: BoxDecoration(
-                  color: const Color(0xFFF0FDF4),
-                  borderRadius: BorderRadius.circular(8),
+                  color: SboxColors.successSoft,
+                  borderRadius: BorderRadius.circular(10),
                   border: Border.all(color: const Color(0xFFBBF7D0)),
                 ),
                 child: Column(
@@ -2354,7 +2355,7 @@ class _ProductionOutputScreenState extends State<ProductionOutputScreen>
                 if (previewRows.length > 10)
                   Text(tr('... và ${previewRows.length - 10} dòng nữa'),
                       style: const TextStyle(
-                          fontSize: 12, color: Color(0xFF71717A))),
+                          fontSize: 12, color: SboxColors.slate500)),
               ],
             ],
           );
@@ -2524,9 +2525,9 @@ class _ProductionOutputScreenState extends State<ProductionOutputScreen>
               Container(
                 padding: const EdgeInsets.all(12),
                 decoration: BoxDecoration(
-                  color: const Color(0xFFEFF6FF),
-                  borderRadius: BorderRadius.circular(8),
-                  border: Border.all(color: const Color(0xFFBFDBFE)),
+                  color: SboxColors.brand50,
+                  borderRadius: BorderRadius.circular(10),
+                  border: Border.all(color: SboxColors.brand100),
                 ),
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
@@ -2638,8 +2639,8 @@ class _ProductionOutputScreenState extends State<ProductionOutputScreen>
                 Container(
                   constraints: const BoxConstraints(maxHeight: 280),
                   decoration: BoxDecoration(
-                    border: Border.all(color: const Color(0xFFE2E8F0)),
-                    borderRadius: BorderRadius.circular(8),
+                    border: Border.all(color: SboxColors.slate200),
+                    borderRadius: BorderRadius.circular(10),
                   ),
                   child: ListView.separated(
                     shrinkWrap: true,
@@ -2673,8 +2674,8 @@ class _ProductionOutputScreenState extends State<ProductionOutputScreen>
                                         fontSize: 13,
                                         fontWeight: FontWeight.w500,
                                         color: isSelected
-                                            ? const Color(0xFF0F172A)
-                                            : const Color(0xFF94A3B8),
+                                            ? SboxColors.slate900
+                                            : SboxColors.slate400,
                                       )),
                                   if (isDateName)
                                     Text(tr('Tự nhận ngày từ tên tab'),
@@ -2708,28 +2709,28 @@ class _ProductionOutputScreenState extends State<ProductionOutputScreen>
                                   decoration: BoxDecoration(
                                     border: Border.all(
                                         color: isSelected
-                                            ? const Color(0xFFCBD5E1)
-                                            : const Color(0xFFE2E8F0)),
+                                            ? SboxColors.slate300
+                                            : SboxColors.slate200),
                                     borderRadius: BorderRadius.circular(6),
                                     color: isSelected
                                         ? Colors.white
-                                        : const Color(0xFFF8FAFC),
+                                        : SboxColors.slate50,
                                   ),
                                   child: Row(
                                     children: [
                                       Icon(Icons.calendar_today,
                                           size: 12,
                                           color: isSelected
-                                              ? const Color(0xFF64748B)
-                                              : const Color(0xFFCBD5E1)),
+                                              ? SboxColors.slate500
+                                              : SboxColors.slate300),
                                       const SizedBox(width: 4),
                                       Text(
                                         tr(DateFormat('dd/MM/yyyy').format(date)),
                                         style: TextStyle(
                                           fontSize: 12,
                                           color: isSelected
-                                              ? const Color(0xFF0F172A)
-                                              : const Color(0xFFCBD5E1),
+                                              ? SboxColors.slate900
+                                              : SboxColors.slate300,
                                         ),
                                       ),
                                     ],
@@ -2910,7 +2911,7 @@ class _CatalogPickerField extends StatelessWidget {
                       width: 40,
                       height: 4,
                       decoration: BoxDecoration(
-                        color: const Color(0xFFE4E4E7),
+                        color: SboxColors.slate200,
                         borderRadius: BorderRadius.circular(2),
                       ),
                     ),
@@ -2997,7 +2998,7 @@ class _CatalogPickerField extends StatelessWidget {
     }
     return InkWell(
       onTap: () => _open(context),
-      borderRadius: BorderRadius.circular(8),
+      borderRadius: BorderRadius.circular(10),
       child: InputDecorator(
         decoration: InputDecoration(
           labelText: label == null ? null : tr(label!),
@@ -3014,7 +3015,7 @@ class _CatalogPickerField extends StatelessWidget {
           overflow: TextOverflow.ellipsis,
           style: TextStyle(
             fontSize: 13,
-            color: sel == null ? const Color(0xFF9CA3AF) : const Color(0xFF111827),
+            color: sel == null ? SboxColors.slate400 : SboxColors.slate900,
           ),
         ),
       ),

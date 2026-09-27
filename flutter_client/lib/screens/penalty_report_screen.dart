@@ -13,10 +13,11 @@ import '../widgets/page_top_actions.dart';
 import '../widgets/reports/hrm_report_widgets.dart';
 import 'package:zkteco_flutter_client/l10n/app_tr.dart';
 
+import '../theme/sbox_tokens.dart';
 const _theme = HrmPageChrome.primaryNavy;
-const _accentBlue = Color(0xFF2563EB);
-const _accentLight = Color(0xFF3B82F6);
-const _accentDark = Color(0xFF1E40AF);
+const _accentBlue = SboxColors.brand600;
+const _accentLight = SboxColors.brand500;
+const _accentDark = SboxColors.brand800;
 
 class PenaltyReportScreen extends StatefulWidget {
   const PenaltyReportScreen({super.key});
@@ -426,8 +427,8 @@ class _PenaltyReportScreenState extends State<PenaltyReportScreen> {
       height: 40,
       padding: const EdgeInsets.symmetric(horizontal: 10),
       decoration: BoxDecoration(
-        border: Border.all(color: const Color(0xFFD1D5DB)),
-        borderRadius: BorderRadius.circular(8),
+        border: Border.all(color: SboxColors.slate300),
+        borderRadius: BorderRadius.circular(10),
       ),
       child: DropdownButtonHideUnderline(
         child: DropdownButton<String?>(
@@ -435,9 +436,9 @@ class _PenaltyReportScreenState extends State<PenaltyReportScreen> {
           isExpanded: true,
           hint: Text(tr('Trạng thái'),
               style: vietnameseTextStyle(
-                  const TextStyle(fontSize: 12, color: Color(0xFF6B7280)))),
+                  const TextStyle(fontSize: 12, color: SboxColors.slate500))),
           style: vietnameseTextStyle(
-              const TextStyle(fontSize: 12, color: Color(0xFF111827))),
+              const TextStyle(fontSize: 12, color: SboxColors.slate900)),
           items: [
             DropdownMenuItem(
                 value: null,

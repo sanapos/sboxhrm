@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:zkteco_flutter_client/l10n/app_tr.dart';
 
+import '../theme/sbox_tokens.dart';
 class LandingYoutubePlayerImpl extends StatelessWidget {
   const LandingYoutubePlayerImpl({
     super.key,
@@ -14,7 +15,7 @@ class LandingYoutubePlayerImpl extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Container(
-      color: const Color(0xFF0F172A),
+      color: SboxColors.slate900,
       alignment: Alignment.center,
       child: Column(
         mainAxisSize: MainAxisSize.min,

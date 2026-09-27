@@ -11,6 +11,7 @@ import '../../widgets/pos/pos_theme.dart';
 import '../../widgets/pos/reports/pos_report_widgets.dart';
 import 'package:zkteco_flutter_client/l10n/app_tr.dart';
 
+import '../../theme/sbox_tokens.dart';
 /// Doanh thu / lần mua / khách mới theo kỳ.
 class PosCustomerSalesReportScreen extends StatefulWidget {
   const PosCustomerSalesReportScreen({super.key});
@@ -119,12 +120,12 @@ class _PosCustomerSalesReportScreenState extends State<PosCustomerSalesReportScr
                       (
                         label: 'LN',
                         value: _n(_data?['totalProfit']),
-                        color: const Color(0xFF166534),
+                        color: SboxColors.successText,
                       ),
                       (
                         label: 'KH mới',
                         value: (_data?['newCustomerCount'] as num?)?.toDouble() ?? 0,
-                        color: const Color(0xFF7C3AED),
+                        color: SboxColors.violet,
                       ),
                     ],
                   ),
@@ -172,11 +173,11 @@ class _PosCustomerSalesReportScreenState extends State<PosCustomerSalesReportScr
               Container(
                 padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
                 decoration: BoxDecoration(
-                  color: const Color(0xFF7C3AED).withOpacity(0.12),
+                  color: SboxColors.violet.withOpacity(0.12),
                   borderRadius: BorderRadius.circular(4),
                 ),
                 child: Text(tr('Mới'),
-                    style: const TextStyle(fontSize: 11, color: Color(0xFF7C3AED))),
+                    style: const TextStyle(fontSize: 11, color: SboxColors.violet)),
               ),
           ],
         ),

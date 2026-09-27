@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 
+import '../theme/sbox_tokens.dart';
 class LandingProductImageImpl extends StatelessWidget {
   const LandingProductImageImpl({
     super.key,
@@ -20,17 +21,17 @@ class LandingProductImageImpl extends StatelessWidget {
       loadingBuilder: (_, child, progress) => progress == null
           ? child
           : Container(
-              color: const Color(0xFFF3F4F6),
+              color: SboxColors.slate100,
               child: const Center(
                 child: CircularProgressIndicator(strokeWidth: 2),
               ),
             ),
       errorBuilder: (_, __, ___) => Container(
-        color: const Color(0xFFF3F4F6),
+        color: SboxColors.slate100,
         child: Icon(
           Icons.devices_rounded,
           size: errorIconSize,
-          color: const Color(0xFFD1D5DB),
+          color: SboxColors.slate300,
         ),
       ),
     );

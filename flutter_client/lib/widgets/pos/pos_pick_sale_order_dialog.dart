@@ -273,7 +273,7 @@ class _PosPickSaleOrderShellState extends State<_PosPickSaleOrderShell> {
                           style: const TextStyle(
                             color: _kiotBlue,
                             fontWeight: FontWeight.w700,
-                            fontSize: 15,
+                            fontSize: 16,
                           ),
                         ),
                       ),
@@ -281,7 +281,7 @@ class _PosPickSaleOrderShellState extends State<_PosPickSaleOrderShell> {
                         tr(_moneyFmt.format(o.total)),
                         style: const TextStyle(
                           fontWeight: FontWeight.w700,
-                          fontSize: 15,
+                          fontSize: 16,
                         ),
                       ),
                     ],

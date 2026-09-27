@@ -13,6 +13,7 @@ import 'pos_commercial_word_stub.dart'
     if (dart.library.js_interop) 'pos_commercial_word_web.dart';
 import 'pos_html_preview_stub.dart';
 
+import '../../theme/sbox_tokens.dart';
 /// Soạn mẫu A4 kiểu Word: ribbon (font, cỡ, đậm/nghiêng, căn, màu, bảng, undo)
 /// + trang giấy A4 contenteditable + tab «Xem trước» render HTML thật.
 ///
@@ -94,11 +95,11 @@ class PosCommercialA4EditorState extends State<PosCommercialA4Editor> {
 
   static const _fontColors = <Color>[
     Colors.black,
-    Color(0xFFDC2626),
-    Color(0xFF16A34A),
-    Color(0xFF2563EB),
-    Color(0xFFF59E0B),
-    Color(0xFF6B7280),
+    SboxColors.danger,
+    SboxColors.success,
+    SboxColors.brand600,
+    SboxColors.warning,
+    SboxColors.slate500,
   ];
 
   @override
@@ -246,7 +247,7 @@ class PosCommercialA4EditorState extends State<PosCommercialA4Editor> {
     Widget modeBtn(int tab, IconData icon, String label) {
       final on = _tab == tab;
       return Material(
-        color: on ? const Color(0xFF2563EB) : const Color(0xFFF3F4F6),
+        color: on ? SboxColors.brand600 : SboxColors.slate100,
         borderRadius: BorderRadius.circular(10),
         child: InkWell(
           borderRadius: BorderRadius.circular(10),
@@ -256,14 +257,14 @@ class PosCommercialA4EditorState extends State<PosCommercialA4Editor> {
             child: Row(
               mainAxisAlignment: MainAxisAlignment.center,
               children: [
-                Icon(icon, size: 20, color: on ? Colors.white : const Color(0xFF374151)),
+                Icon(icon, size: 20, color: on ? Colors.white : SboxColors.slate700),
                 const SizedBox(width: 6),
                 Text(
                   tr(label),
                   style: TextStyle(
-                    fontSize: 15,
-                    fontWeight: FontWeight.w800,
-                    color: on ? Colors.white : const Color(0xFF111827),
+                    fontSize: 16,
+                    fontWeight: FontWeight.w700,
+                    color: on ? Colors.white : SboxColors.slate900,
                   ),
                 ),
               ],
@@ -296,7 +297,7 @@ class PosCommercialA4EditorState extends State<PosCommercialA4Editor> {
               icon: Icon(
                 Icons.zoom_in,
                 size: 24,
-                color: _zoomOpen ? const Color(0xFF2563EB) : null,
+                color: _zoomOpen ? SboxColors.brand600 : null,
               ),
             ),
             IconButton(
@@ -324,7 +325,7 @@ class PosCommercialA4EditorState extends State<PosCommercialA4Editor> {
     final zoom = _viewZoom;
     final label = '${(zoom * 100).round()}%';
     return Material(
-      color: const Color(0xFFF8FAFC),
+      color: SboxColors.slate50,
       child: Padding(
         padding: const EdgeInsets.fromLTRB(12, 0, 8, 6),
         child: Row(
@@ -350,7 +351,7 @@ class PosCommercialA4EditorState extends State<PosCommercialA4Editor> {
               child: Text(
                 label,
                 textAlign: TextAlign.right,
-                style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w800),
+                style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w700),
               ),
             ),
           ],
@@ -407,7 +408,7 @@ class PosCommercialA4EditorState extends State<PosCommercialA4Editor> {
                     Expanded(
                       child: Text(tr('Định dạng & chèn trường'),
                           style: const TextStyle(
-                              fontWeight: FontWeight.w800, fontSize: 16)),
+                              fontWeight: FontWeight.w700, fontSize: 16)),
                     ),
                     TextButton(
                       onPressed: () => Navigator.pop(ctx),
@@ -464,8 +465,8 @@ class PosCommercialA4EditorState extends State<PosCommercialA4Editor> {
     }
 
     return Material(
-      color: const Color(0xFFF8FAFC),
-      borderRadius: BorderRadius.circular(8),
+      color: SboxColors.slate50,
+      borderRadius: BorderRadius.circular(10),
       child: Padding(
         padding: EdgeInsets.fromLTRB(10, compact ? 6 : 10, 10, compact ? 4 : 8),
         child: Column(
@@ -519,7 +520,7 @@ class PosCommercialA4EditorState extends State<PosCommercialA4Editor> {
             const SizedBox(height: 4),
             Text(
               tr('Lề so với nội dung (mm)'),
-              style: TextStyle(fontSize: 12, color: Colors.grey.shade700),
+              style: TextStyle(fontSize: 12, color: SboxColors.slate700),
             ),
             mmSlider('Trên', _setup.topMm, (v) => _applySetup(_setup.copyWith(topMm: v))),
             mmSlider('Phải', _setup.rightMm, (v) => _applySetup(_setup.copyWith(rightMm: v))),
@@ -547,13 +548,13 @@ class PosCommercialA4EditorState extends State<PosCommercialA4Editor> {
       tr(widget.snapshot
           ? 'Sửa chữ của riêng chứng từ này. Mẫu chung và chứng từ khác không đổi.'
           : 'Chạm vào chữ trên trang để sửa như Word. Bôi đen rồi chọn đậm / font / màu.'),
-      style: TextStyle(fontSize: 12.5, color: Colors.grey.shade700),
+      style: TextStyle(fontSize: 13, color: SboxColors.slate700),
     );
   }
 
   Widget _immersiveBar() {
     return Material(
-      color: const Color(0xFF111827),
+      color: SboxColors.slate900,
       child: Padding(
         padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
         child: Row(
@@ -613,7 +614,7 @@ class PosCommercialA4EditorState extends State<PosCommercialA4Editor> {
           onPressed: () => setState(() => _zoomOpen = !_zoomOpen),
           icon: Icon(
             Icons.zoom_in,
-            color: _zoomOpen ? const Color(0xFF2563EB) : null,
+            color: _zoomOpen ? SboxColors.brand600 : null,
           ),
         ),
         if (!widget.immersive)
@@ -637,7 +638,7 @@ class PosCommercialA4EditorState extends State<PosCommercialA4Editor> {
       MaterialPageRoute(
         fullscreenDialog: true,
         builder: (_) => Scaffold(
-          backgroundColor: const Color(0xFFE5E7EB),
+          backgroundColor: SboxColors.slate200,
           body: SafeArea(
             child: Padding(
               padding: const EdgeInsets.fromLTRB(12, 8, 12, 12),
@@ -676,8 +677,8 @@ class PosCommercialA4EditorState extends State<PosCommercialA4Editor> {
     }
 
     return Material(
-      color: const Color(0xFFF3F4F6),
-      borderRadius: BorderRadius.circular(8),
+      color: SboxColors.slate100,
+      borderRadius: BorderRadius.circular(10),
       child: Padding(
         padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 2),
         child: Wrap(
@@ -866,7 +867,7 @@ class PosCommercialA4EditorState extends State<PosCommercialA4Editor> {
         for (final c in [
           const Color(0xFFFDE68A),
           const Color(0xFFBBF7D0),
-          const Color(0xFFBFDBFE),
+          SboxColors.brand100,
           const Color(0xFFFECACA),
           Colors.white,
         ])
@@ -1135,7 +1136,7 @@ class PosCommercialA4EditorState extends State<PosCommercialA4Editor> {
         final scale = _viewZoom;
         final paperW = _setup.cssWidth * scale;
         return ColoredBox(
-          color: const Color(0xFFE5E7EB),
+          color: SboxColors.slate200,
           child: Scrollbar(
             controller: _pageScroll,
             thumbVisibility: true,
@@ -1254,10 +1255,10 @@ class _RulerPainter extends CustomPainter {
 
   @override
   void paint(Canvas canvas, Size size) {
-    final bg = Paint()..color = const Color(0xFFF8FAFC);
+    final bg = Paint()..color = SboxColors.slate50;
     canvas.drawRect(Offset.zero & size, bg);
     final pxPerMm = size.width / widthMm;
-    final margin = Paint()..color = const Color(0xFFE2E8F0);
+    final margin = Paint()..color = SboxColors.slate200;
     canvas.drawRect(Rect.fromLTWH(0, 0, leftMm * pxPerMm, size.height), margin);
     final rightW = rightMm * pxPerMm;
     canvas.drawRect(
@@ -1265,7 +1266,7 @@ class _RulerPainter extends CustomPainter {
       margin,
     );
     final tick = Paint()
-      ..color = const Color(0xFF334155)
+      ..color = SboxColors.slate700
       ..strokeWidth = 1;
     final tp = TextPainter(textDirection: TextDirection.ltr);
     for (var mm = 0; mm <= widthMm; mm += 10) {
@@ -1273,7 +1274,7 @@ class _RulerPainter extends CustomPainter {
       canvas.drawLine(Offset(x, 8), Offset(x, size.height), tick);
       tp.text = TextSpan(
         text: '$mm',
-        style: const TextStyle(fontSize: 8, color: Color(0xFF334155)),
+        style: const TextStyle(fontSize: 8, color: SboxColors.slate700),
       );
       tp.layout();
       tp.paint(canvas, Offset(x + 2, 0));

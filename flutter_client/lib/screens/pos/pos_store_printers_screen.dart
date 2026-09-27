@@ -32,6 +32,7 @@ import 'pos_local_printers_screen.dart';
 import 'pos_product_printer_assignment_screen.dart';
 import 'package:zkteco_flutter_client/l10n/app_tr.dart';
 
+import '../../theme/sbox_tokens.dart';
 /// Quản lý máy in cloud + vai trò từng máy + Print Agent.
 class PosStorePrintersScreen extends StatefulWidget {
   const PosStorePrintersScreen({
@@ -919,7 +920,7 @@ class _PosStorePrintersScreenState extends State<PosStorePrintersScreen> {
                     const SizedBox(height: 8),
                   ],
                   Card(
-                    color: const Color(0xFFFFF7ED),
+                    color: SboxColors.warningSoft,
                     child: Padding(
                       padding: const EdgeInsets.all(12),
                       child: Text(
@@ -929,7 +930,7 @@ class _PosStorePrintersScreenState extends State<PosStorePrintersScreen> {
                             '• Vai trò từng máy cloud: chọn chip bên dưới tên máy (tự lưu). Hóa đơn chỉ 1 máy.\n'
                             '• Gán món chỉ hiện với máy báo bếp / báo kho / in tem.\n'
                             '• Chữ tiếng Việt lỗi trên XP-80C, Zywell…: sửa máy → Hãng = Xprinter/Zywell + Chế độ chữ «In ảnh» hoặc «Tự động».'),
-                        style: const TextStyle(fontSize: 12.5, height: 1.35),
+                        style: const TextStyle(fontSize: 13, height: 1.35),
                       ),
                     ),
                   ),
@@ -1140,7 +1141,7 @@ class _PosStorePrintersScreenState extends State<PosStorePrintersScreen> {
                 const SizedBox(width: 8),
                 Expanded(
                   child: Text(tr('Máy nhận lệnh in (Agent)'),
-                    style: TextStyle(fontWeight: FontWeight.bold, fontSize: 15),
+                    style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16),
                   ),
                 ),
                 Switch(
@@ -1155,8 +1156,8 @@ class _PosStorePrintersScreenState extends State<PosStorePrintersScreen> {
               padding: const EdgeInsets.all(10),
               decoration: BoxDecoration(
                 color: const Color(0xFFF0F7FF),
-                borderRadius: BorderRadius.circular(8),
-                border: Border.all(color: const Color(0xFFBFDBFE)),
+                borderRadius: BorderRadius.circular(10),
+                border: Border.all(color: SboxColors.brand100),
               ),
               child: Text(
                 tr('Cách dùng đơn giản (1 máy in + nhiều điện thoại):\n'
@@ -1328,8 +1329,8 @@ class _PosStorePrintersScreenState extends State<PosStorePrintersScreen> {
                 margin: const EdgeInsets.only(bottom: 8),
                 padding: const EdgeInsets.all(10),
                 decoration: BoxDecoration(
-                  color: const Color(0xFFFFF7ED),
-                  borderRadius: BorderRadius.circular(8),
+                  color: SboxColors.warningSoft,
+                  borderRadius: BorderRadius.circular(10),
                   border: Border.all(color: const Color(0xFFFDBA74)),
                 ),
                 child: Column(
@@ -1390,13 +1391,13 @@ class _PosStorePrintersScreenState extends State<PosStorePrintersScreen> {
                   padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
                   decoration: BoxDecoration(
                     color: mine
-                        ? const Color(0xFFECFDF5)
-                        : const Color(0xFFF9FAFB),
-                    borderRadius: BorderRadius.circular(8),
+                        ? SboxColors.successSoft
+                        : SboxColors.slate50,
+                    borderRadius: BorderRadius.circular(10),
                     border: Border.all(
                       color: mine
                           ? const Color(0xFF86EFAC)
-                          : const Color(0xFFE5E7EB),
+                          : SboxColors.slate200,
                     ),
                   ),
                   child: Column(
@@ -1408,7 +1409,7 @@ class _PosStorePrintersScreenState extends State<PosStorePrintersScreen> {
                             Icons.smartphone,
                             size: 16,
                             color: mine
-                                ? const Color(0xFF166534)
+                                ? SboxColors.successText
                                 : PosTheme.textSecondary,
                           ),
                           const SizedBox(width: 6),
@@ -1419,8 +1420,8 @@ class _PosStorePrintersScreenState extends State<PosStorePrintersScreen> {
                                 fontWeight: FontWeight.w700,
                                 fontSize: 13,
                                 color: mine
-                                    ? const Color(0xFF166534)
-                                    : Colors.black87,
+                                    ? SboxColors.successText
+                                    : SboxColors.text,
                               ),
                             ),
                           ),
@@ -1429,7 +1430,7 @@ class _PosStorePrintersScreenState extends State<PosStorePrintersScreen> {
                               style: TextStyle(
                                 fontSize: 11,
                                 fontWeight: FontWeight.w700,
-                                color: Color(0xFF166534),
+                                color: SboxColors.successText,
                               ),
                             )
                           else
@@ -1478,7 +1479,7 @@ class _PosStorePrintersScreenState extends State<PosStorePrintersScreen> {
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             Text(tr('Danh sách máy in cloud / Agent'),
-                style: TextStyle(fontWeight: FontWeight.bold, fontSize: 15)),
+                style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16)),
             const SizedBox(height: 4),
             Text(
               tr('Máy thu ngân (A7): xem Online khi Agent (A6) đang nhận chip đó. '
@@ -1528,7 +1529,7 @@ class _PosStorePrintersScreenState extends State<PosStorePrintersScreen> {
         ? Colors.green
         : (locallyLost || p.healthStatus == 'Offline')
             ? Colors.red
-            : Colors.grey;
+            : SboxColors.slate500;
     final statusText = locallyLost
         ? 'Mất kết nối'
         : locallyReady
@@ -1550,14 +1551,14 @@ class _PosStorePrintersScreenState extends State<PosStorePrintersScreen> {
         ? 'Nội bộ'
         : (p.isLabelPrinter ? 'Tem nhãn · Agent' : 'Agent / cloud');
     final avatarBg = ready
-        ? const Color(0xFFDCFCE7)
+        ? SboxColors.successSoft
         : (locallyLost
-            ? const Color(0xFFFEE2E2)
+            ? SboxColors.dangerSoft
             : (isAgentCloud ? const Color(0xFFE0F2FE) : PosTheme.kiotBlueLight));
     final avatarFg = ready
-        ? const Color(0xFF15803D)
+        ? SboxColors.payHover
         : (locallyLost
-            ? const Color(0xFFB91C1C)
+            ? SboxColors.dangerText
             : (isAgentCloud ? const Color(0xFF0284C7) : PosTheme.kiotBlue));
     final roleKeys = p.isLabelPrinter
         ? PosLocalPrinterRoles.labelRoles
@@ -1594,7 +1595,7 @@ class _PosStorePrintersScreenState extends State<PosStorePrintersScreen> {
             style: TextStyle(
               fontSize: 11,
               color: ready
-                  ? const Color(0xFF15803D)
+                  ? SboxColors.payHover
                   : (isAgentCloud ? const Color(0xFF0369A1) : null),
             ),
           ),
@@ -1933,7 +1934,7 @@ class _PrinterEditorSheetState extends State<_PrinterEditorSheet> {
               child: Text(
                 tr('Chọn cổng USB'),
                 style: const TextStyle(
-                    fontSize: 17, fontWeight: FontWeight.w600),
+                    fontSize: 18, fontWeight: FontWeight.w600),
               ),
             ),
             ...list.map(
@@ -1990,7 +1991,7 @@ class _PrinterEditorSheetState extends State<_PrinterEditorSheet> {
             Padding(
               padding: EdgeInsets.all(16),
               child: Text(tr('Chọn máy in Bluetooth'),
-                  style: TextStyle(fontSize: 17, fontWeight: FontWeight.w600)),
+                  style: TextStyle(fontSize: 18, fontWeight: FontWeight.w600)),
             ),
             ..._btDevices.map(
               (d) => ListTile(
@@ -2111,7 +2112,7 @@ class _PrinterEditorSheetState extends State<_PrinterEditorSheet> {
           children: [
             Text(
               tr(widget.existing == null ? 'Thêm máy in' : 'Sửa máy in'),
-              style: const TextStyle(fontSize: 17, fontWeight: FontWeight.bold),
+              style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
             ),
             const SizedBox(height: 12),
             TextField(

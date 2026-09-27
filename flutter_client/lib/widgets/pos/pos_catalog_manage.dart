@@ -7,6 +7,7 @@ import '../notification_overlay.dart';
 import 'pos_theme.dart';
 import 'package:zkteco_flutter_client/l10n/app_tr.dart';
 
+import '../../theme/sbox_tokens.dart';
 enum PosCatalogKind { category, brand, location, supplier }
 
 String posCatalogKindTitle(PosCatalogKind kind) => switch (kind) {
@@ -362,7 +363,7 @@ class _PosCatalogManageDialogState extends State<_PosCatalogManageDialog> {
                                   Icons.delete_outline,
                                   size: 20,
                                   color: item.productCount > 0
-                                      ? Colors.grey
+                                      ? SboxColors.slate500
                                       : Colors.red.shade400,
                                 ),
                                 onPressed: item.productCount > 0

@@ -4,6 +4,7 @@ import 'package:flutter/material.dart';
 import '../services/api_service.dart';
 import 'package:zkteco_flutter_client/l10n/app_tr.dart';
 
+import '../theme/sbox_tokens.dart';
 /// Hiển thị ảnh chấm (khuôn mặt / hiện trường); fallback avatar nếu có.
 class PunchPhotoPreview extends StatefulWidget {
   const PunchPhotoPreview({
@@ -55,16 +56,16 @@ class MobilePunchPhotoThumb extends StatelessWidget {
         width: size,
         height: size,
         decoration: BoxDecoration(
-          color: const Color(0xFFF4F4F5),
-          borderRadius: BorderRadius.circular(8),
-          border: Border.all(color: const Color(0xFFE4E4E7)),
+          color: SboxColors.slate100,
+          borderRadius: BorderRadius.circular(10),
+          border: Border.all(color: SboxColors.slate200),
         ),
         child: const Icon(Icons.image_not_supported_outlined,
-            size: 20, color: Color(0xFFA1A1AA)),
+            size: 20, color: SboxColors.slate400),
       );
     }
     return ClipRRect(
-      borderRadius: BorderRadius.circular(8),
+      borderRadius: BorderRadius.circular(10),
       child: SizedBox(
         width: size,
         height: size,
@@ -134,7 +135,7 @@ class _PunchPhotoPreviewState extends State<PunchPhotoPreview> {
         child: Text(
           tr(widget.emptyHint!),
           textAlign: TextAlign.center,
-          style: const TextStyle(fontSize: 12, color: Color(0xFF71717A)),
+          style: const TextStyle(fontSize: 12, color: SboxColors.slate500),
         ),
       );
     }
@@ -145,11 +146,11 @@ class _PunchPhotoPreviewState extends State<PunchPhotoPreview> {
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
             const Icon(Icons.broken_image_outlined,
-                color: Color(0xFFA1A1AA), size: 36),
+                color: SboxColors.slate400, size: 36),
             if (!widget.compact) ...[
               const SizedBox(height: 8),
               Text(tr('Không tải được ảnh'),
-                style: TextStyle(fontSize: 12, color: Color(0xFF71717A)),
+                style: TextStyle(fontSize: 12, color: SboxColors.slate500),
               ),
             ],
           ],
@@ -173,7 +174,7 @@ class _PunchPhotoPreviewState extends State<PunchPhotoPreview> {
         });
         return _placeholderBox(
           child: const Icon(Icons.broken_image_outlined,
-              color: Color(0xFFA1A1AA), size: 36),
+              color: SboxColors.slate400, size: 36),
         );
       },
     );
@@ -181,7 +182,7 @@ class _PunchPhotoPreviewState extends State<PunchPhotoPreview> {
     if (widget.compact) return image;
 
     return ClipRRect(
-      borderRadius: BorderRadius.circular(12),
+      borderRadius: BorderRadius.circular(14),
       child: AspectRatio(
         aspectRatio: widget.aspectRatio,
         child: image,
@@ -192,7 +193,7 @@ class _PunchPhotoPreviewState extends State<PunchPhotoPreview> {
   Widget _placeholderBox({required Widget child}) {
     if (widget.compact) {
       return ColoredBox(
-        color: const Color(0xFFF4F4F5),
+        color: SboxColors.slate100,
         child: Center(child: child),
       );
     }
@@ -200,9 +201,9 @@ class _PunchPhotoPreviewState extends State<PunchPhotoPreview> {
       aspectRatio: widget.aspectRatio,
       child: Container(
         decoration: BoxDecoration(
-          color: const Color(0xFFF4F4F5),
-          borderRadius: BorderRadius.circular(12),
-          border: Border.all(color: const Color(0xFFE4E4E7)),
+          color: SboxColors.slate100,
+          borderRadius: BorderRadius.circular(14),
+          border: Border.all(color: SboxColors.slate200),
         ),
         alignment: Alignment.center,
         child: child,

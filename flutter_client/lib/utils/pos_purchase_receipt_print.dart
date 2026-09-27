@@ -9,10 +9,11 @@ import 'package:printing/printing.dart';
 import '../models/pos_purchase.dart';
 import 'package:zkteco_flutter_client/l10n/app_tr.dart';
 import 'pos_pdf_fonts.dart';
+import '../theme/sbox_tokens.dart';
 import '../widgets/pos/pos_pdf_iframe_stub.dart'
     if (dart.library.js_interop) '../widgets/pos/pos_pdf_iframe_web.dart';
 
-const _blue = Color(0xFF2563EB);
+const _blue = SboxColors.brand600;
 
 /// Tạo PDF phiếu nhập hàng kiểu KiotViet (khổ ngang A4, font tiếng Việt).
 Future<Uint8List> buildPosPurchaseReceiptPdfBytes({

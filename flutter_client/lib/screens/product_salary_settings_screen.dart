@@ -10,6 +10,7 @@ import '../widgets/hrm_page_chrome.dart';
 import '../widgets/notification_overlay.dart';
 import 'package:zkteco_flutter_client/l10n/app_tr.dart';
 
+import '../theme/sbox_tokens.dart';
 class ProductSalarySettingsScreen extends StatefulWidget {
   const ProductSalarySettingsScreen({super.key});
   @override
@@ -19,7 +20,7 @@ class ProductSalarySettingsScreen extends StatefulWidget {
 
 class _ProductSalarySettingsScreenState
     extends State<ProductSalarySettingsScreen> {
-  static const Color _bg = Color(0xFFFAFAFA);
+  static const Color _bg = SboxColors.slate50;
 
   PermissionProvider get _perm =>
       Provider.of<PermissionProvider>(context, listen: false);
@@ -108,7 +109,7 @@ class _ProductSalarySettingsScreenState
               automaticallyImplyLeading: false,
               title: Text(tr('Lương sản phẩm'),
                 style: TextStyle(
-                  color: Color(0xFF18181B),
+                  color: SboxColors.slate900,
                   fontWeight: FontWeight.bold,
                   fontSize: 18,
                 ),
@@ -149,7 +150,7 @@ class _ProductSalarySettingsScreenState
             padding: const EdgeInsets.all(24),
             decoration: const BoxDecoration(
               color: Colors.white,
-              border: Border(bottom: BorderSide(color: Color(0xFFE4E4E7))),
+              border: Border(bottom: BorderSide(color: SboxColors.slate200)),
             ),
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
@@ -164,7 +165,7 @@ class _ProductSalarySettingsScreenState
                           style: TextStyle(
                               fontSize: 20,
                               fontWeight: FontWeight.w700,
-                              color: Color(0xFF0F172A))),
+                              color: SboxColors.slate900)),
                     ),
                     if (_perm.canCreate('ProductSalary')) ...[
                       FilledButton.icon(
@@ -189,7 +190,7 @@ class _ProductSalarySettingsScreenState
                 ),
                 const SizedBox(height: 8),
                 Text(tr('Quản lý nhóm sản phẩm, sản phẩm và đơn giá theo bậc'),
-                  style: TextStyle(color: Color(0xFF71717A), fontSize: 13),
+                  style: TextStyle(color: SboxColors.slate500, fontSize: 13),
                 ),
               ],
             ),
@@ -224,7 +225,7 @@ class _ProductSalarySettingsScreenState
                       mainAxisSize: MainAxisSize.min,
                       children: [
                         Icon(Icons.inventory_2_outlined,
-                            size: 64, color: Colors.grey[300]),
+                            size: 64, color: SboxColors.slate300),
                         const SizedBox(height: 16),
                         Text(
                           tr(_groups.isEmpty
@@ -232,7 +233,7 @@ class _ProductSalarySettingsScreenState
                               : 'Chưa có sản phẩm nào.'),
                           textAlign: TextAlign.center,
                           style:
-                              TextStyle(color: Colors.grey[500], fontSize: 14),
+                              TextStyle(color: SboxColors.slate500, fontSize: 14),
                         ),
                       ],
                     ),
@@ -274,19 +275,19 @@ class _ProductSalarySettingsScreenState
       label: Text(tr(label)),
       selectedColor: HrmPageChrome.primaryNavy,
       labelStyle: TextStyle(
-          color: selected ? Colors.white : const Color(0xFF334155),
+          color: selected ? Colors.white : SboxColors.slate700,
           fontWeight: selected ? FontWeight.w600 : FontWeight.w500),
       checkmarkColor: Colors.white,
       onSelected: (_) => setState(() => _selectedGroupId = groupId),
       side: BorderSide(
-          color: selected ? HrmPageChrome.primaryNavy : const Color(0xFFCBD5E1)),
+          color: selected ? HrmPageChrome.primaryNavy : SboxColors.slate300),
       onDeleted: groupId == null || !_perm.canEdit('ProductSalary')
           ? null
           : () => _showEditGroupDialog(
               _groups.firstWhere((g) => g['id']?.toString() == groupId)),
       deleteIcon: groupId == null || !_perm.canEdit('ProductSalary')
           ? null
-          : const Icon(Icons.edit, size: 16, color: Color(0xFF71717A)),
+          : const Icon(Icons.edit, size: 16, color: SboxColors.slate500),
     );
   }
 
@@ -298,8 +299,8 @@ class _ProductSalarySettingsScreenState
       margin: const EdgeInsets.only(bottom: 12),
       elevation: 0,
       shape: RoundedRectangleBorder(
-        borderRadius: BorderRadius.circular(12),
-        side: const BorderSide(color: Color(0xFFE4E4E7)),
+        borderRadius: BorderRadius.circular(14),
+        side: const BorderSide(color: SboxColors.slate200),
       ),
       child: Padding(
         padding: const EdgeInsets.all(16),
@@ -326,8 +327,8 @@ class _ProductSalarySettingsScreenState
                   child: Text(tr(item['name'] ?? ''),
                       style: const TextStyle(
                           fontWeight: FontWeight.w600,
-                          fontSize: 15,
-                          color: Color(0xFF0F172A)),
+                          fontSize: 16,
+                          color: SboxColors.slate900),
                       overflow: TextOverflow.ellipsis),
                 ),
                 if (groupName.isNotEmpty)
@@ -335,18 +336,18 @@ class _ProductSalarySettingsScreenState
                     padding:
                         const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
                     decoration: BoxDecoration(
-                      color: const Color(0xFFF1F5F9),
+                      color: SboxColors.slate100,
                       borderRadius: BorderRadius.circular(6),
                     ),
                     child: Text(tr(groupName),
                         style: const TextStyle(
-                            fontSize: 11, color: Color(0xFF64748B))),
+                            fontSize: 11, color: SboxColors.slate500)),
                   ),
                 if (_perm.canEdit('ProductSalary')) ...[
                   const SizedBox(width: 4),
                   IconButton(
                     icon: const Icon(Icons.edit_outlined, size: 18),
-                    color: const Color(0xFF64748B),
+                    color: SboxColors.slate500,
                     padding: EdgeInsets.zero,
                     constraints: const BoxConstraints(),
                     onPressed: () => _showEditItemDialog(item),
@@ -357,7 +358,7 @@ class _ProductSalarySettingsScreenState
                   const SizedBox(width: 4),
                   IconButton(
                     icon: const Icon(Icons.delete_outline, size: 18),
-                    color: const Color(0xFFEF4444),
+                    color: SboxColors.danger,
                     padding: EdgeInsets.zero,
                     constraints: const BoxConstraints(),
                     onPressed: () => _confirmDeleteItem(item),
@@ -371,7 +372,7 @@ class _ProductSalarySettingsScreenState
                 padding: const EdgeInsets.only(top: 4),
                 child: Text(tr('${tr('Đơn vị: ')}${item['unit']}'),
                     style: const TextStyle(
-                        fontSize: 12, color: Color(0xFF71717A))),
+                        fontSize: 12, color: SboxColors.slate500)),
               ),
             const SizedBox(height: 12),
             // Price tiers table
@@ -380,12 +381,12 @@ class _ProductSalarySettingsScreenState
                   style: TextStyle(
                       fontWeight: FontWeight.w600,
                       fontSize: 13,
-                      color: Color(0xFF334155))),
+                      color: SboxColors.slate700)),
               const SizedBox(height: 8),
               Container(
                 decoration: BoxDecoration(
-                  border: Border.all(color: const Color(0xFFE4E4E7)),
-                  borderRadius: BorderRadius.circular(8),
+                  border: Border.all(color: SboxColors.slate200),
+                  borderRadius: BorderRadius.circular(10),
                 ),
                 child: Table(
                   columnWidths: const {
@@ -396,7 +397,7 @@ class _ProductSalarySettingsScreenState
                   children: [
                     TableRow(
                       decoration: BoxDecoration(
-                        color: Color(0xFFF8FAFC),
+                        color: SboxColors.slate50,
                         borderRadius: BorderRadius.vertical(
                             top: Radius.circular(7)),
                       ),
@@ -407,21 +408,21 @@ class _ProductSalarySettingsScreenState
                                 style: TextStyle(
                                     fontWeight: FontWeight.w600,
                                     fontSize: 12,
-                                    color: Color(0xFF475569)))),
+                                    color: SboxColors.slate600))),
                         Padding(
                             padding: EdgeInsets.all(10),
                             child: Text(tr('Số lượng'),
                                 style: TextStyle(
                                     fontWeight: FontWeight.w600,
                                     fontSize: 12,
-                                    color: Color(0xFF475569)))),
+                                    color: SboxColors.slate600))),
                         Padding(
                             padding: EdgeInsets.all(10),
                             child: Text(tr('Đơn giá (đ)'),
                                 style: TextStyle(
                                     fontWeight: FontWeight.w600,
                                     fontSize: 12,
-                                    color: Color(0xFF475569)))),
+                                    color: SboxColors.slate600))),
                       ],
                     ),
                     ...priceTiers.asMap().entries.map((entry) {
@@ -435,7 +436,7 @@ class _ProductSalarySettingsScreenState
                       return TableRow(
                         decoration: const BoxDecoration(
                           border: Border(
-                              top: BorderSide(color: Color(0xFFE4E4E7))),
+                              top: BorderSide(color: SboxColors.slate200)),
                         ),
                         children: [
                           Padding(
@@ -452,7 +453,7 @@ class _ProductSalarySettingsScreenState
                                   style: const TextStyle(
                                       fontSize: 13,
                                       fontWeight: FontWeight.w600,
-                                      color: Color(0xFF059669)))),
+                                      color: SboxColors.success))),
                         ],
                       );
                     }),
@@ -464,17 +465,17 @@ class _ProductSalarySettingsScreenState
                 padding:
                     const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
                 decoration: BoxDecoration(
-                  color: const Color(0xFFFFFBEB),
-                  borderRadius: BorderRadius.circular(8),
+                  color: SboxColors.warningSoft,
+                  borderRadius: BorderRadius.circular(10),
                 ),
                 child: Row(
                   children: [
                     Icon(Icons.info_outline,
-                        size: 16, color: Color(0xFFF59E0B)),
+                        size: 16, color: SboxColors.warning),
                     SizedBox(width: 8),
                     Text(tr('Chưa thiết lập đơn giá'),
                         style:
-                            TextStyle(fontSize: 12, color: Color(0xFFF59E0B))),
+                            TextStyle(fontSize: 12, color: SboxColors.warning)),
                   ],
                 ),
               ),
@@ -839,9 +840,9 @@ class _ProductSalarySettingsScreenState
                 margin: const EdgeInsets.only(bottom: 10),
                 padding: const EdgeInsets.all(10),
                 decoration: BoxDecoration(
-                  color: const Color(0xFFF8FAFC),
-                  borderRadius: BorderRadius.circular(8),
-                  border: Border.all(color: const Color(0xFFE2E8F0)),
+                  color: SboxColors.slate50,
+                  borderRadius: BorderRadius.circular(10),
+                  border: Border.all(color: SboxColors.slate200),
                 ),
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,

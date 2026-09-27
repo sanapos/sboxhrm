@@ -28,6 +28,7 @@ import '../utils/report_screen_helpers.dart';
 import '../utils/safe_navigator.dart';
 import 'package:zkteco_flutter_client/l10n/app_tr.dart';
 
+import '../theme/sbox_tokens.dart';
 // Hàm chuyển đổi tiếng Việt có dấu sang không dấu
 String removeVietnameseAccents(String str) {
   const Map<String, String> vietnameseMap = {
@@ -306,7 +307,7 @@ class _DeviceUsersScreenState extends State<DeviceUsersScreen> {
                 return ListTile(
                   leading: Icon(
                     Icons.router,
-                    color: isOnline ? Colors.green : Colors.grey,
+                    color: isOnline ? Colors.green : SboxColors.slate500,
                   ),
                   title: Text(tr(device.deviceName)),
                   subtitle: Text(tr('SN: ${device.serialNumber}')),
@@ -316,13 +317,13 @@ class _DeviceUsersScreenState extends State<DeviceUsersScreen> {
                     decoration: BoxDecoration(
                       color: isOnline
                           ? Colors.green.withValues(alpha: 0.2)
-                          : Colors.grey.withValues(alpha: 0.2),
-                      borderRadius: BorderRadius.circular(12),
+                          : SboxColors.slate500.withValues(alpha: 0.2),
+                      borderRadius: BorderRadius.circular(14),
                     ),
                     child: Text(
                       tr(isOnline ? 'Online' : 'Offline'),
                       style: TextStyle(
-                        color: isOnline ? Colors.green : Colors.grey,
+                        color: isOnline ? Colors.green : SboxColors.slate500,
                         fontSize: 11,
                       ),
                     ),
@@ -481,7 +482,7 @@ class _DeviceUsersScreenState extends State<DeviceUsersScreen> {
                           children: [
                             Icon(Icons.circle,
                                 size: 10,
-                                color: online ? Colors.green : Colors.grey),
+                                color: online ? Colors.green : SboxColors.slate500),
                             const SizedBox(width: 8),
                             Text(tr('${d.deviceName} (${d.serialNumber})')),
                           ],
@@ -500,14 +501,14 @@ class _DeviceUsersScreenState extends State<DeviceUsersScreen> {
                   Container(
                     padding: const EdgeInsets.all(8),
                     decoration: BoxDecoration(
-                      color: Colors.blue.withValues(alpha: 0.08),
-                      borderRadius: BorderRadius.circular(8),
+                      color: SboxColors.brand500.withValues(alpha: 0.08),
+                      borderRadius: BorderRadius.circular(10),
                     ),
                     child: Row(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
                         const Icon(Icons.info_outline,
-                            size: 16, color: Colors.blue),
+                            size: 16, color: SboxColors.brand500),
                         const SizedBox(width: 8),
                         Expanded(
                           child: Text(
@@ -517,7 +518,7 @@ class _DeviceUsersScreenState extends State<DeviceUsersScreen> {
                                     'PIN trên máy ≤ 8 số: dùng mã NV nếu ngắn; '
                                     'nếu mã/SĐT dài sẽ lấy đuôi 6–8 số hoặc tự cấp số mới (không trùng).'),
                             style: const TextStyle(
-                                fontSize: 12, color: Colors.blue),
+                                fontSize: 12, color: SboxColors.brand500),
                           ),
                         ),
                       ],
@@ -592,14 +593,14 @@ class _DeviceUsersScreenState extends State<DeviceUsersScreen> {
                                       : null,
                                   onBackgroundImageError:
                                       emp.avatarUrl != null ? (_, __) {} : null,
-                                  backgroundColor: Colors.grey[200],
+                                  backgroundColor: SboxColors.slate200,
                                   child: emp.avatarUrl == null
                                       ? Text(
                                           tr(emp.firstName.isNotEmpty
                                               ? emp.firstName[0].toUpperCase()
                                               : '?'),
                                           style: TextStyle(
-                                              color: Colors.grey[600]))
+                                              color: SboxColors.slate600))
                                       : null,
                                 ),
                                 title: Text(tr(emp.fullName),
@@ -607,7 +608,7 @@ class _DeviceUsersScreenState extends State<DeviceUsersScreen> {
                                 subtitle: Text(
                                   tr('${emp.employeeCode}${emp.department != null ? ' • ${emp.department}' : ''}'),
                                   style: TextStyle(
-                                      fontSize: 12, color: Colors.grey[600]),
+                                      fontSize: 12, color: SboxColors.slate600),
                                 ),
                               );
                             },
@@ -1066,12 +1067,12 @@ class _DeviceUsersScreenState extends State<DeviceUsersScreen> {
       color: Colors.transparent,
       child: InkWell(
         onTap: () => _setOverviewFilter(filter),
-        borderRadius: BorderRadius.circular(12),
+        borderRadius: BorderRadius.circular(14),
         child: Container(
           padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 10),
           decoration: BoxDecoration(
             color: isSelected ? color.withValues(alpha: 0.08) : Colors.white,
-            borderRadius: BorderRadius.circular(12),
+            borderRadius: BorderRadius.circular(14),
             border: Border.all(
               color: isSelected ? color : color.withValues(alpha: 0.15),
               width: isSelected ? 2 : 1,
@@ -1090,7 +1091,7 @@ class _DeviceUsersScreenState extends State<DeviceUsersScreen> {
                 padding: const EdgeInsets.all(6),
                 decoration: BoxDecoration(
                   color: color.withValues(alpha: isSelected ? 0.18 : 0.10),
-                  borderRadius: BorderRadius.circular(8),
+                  borderRadius: BorderRadius.circular(10),
                 ),
                 child: Icon(icon, size: 16, color: color),
               ),
@@ -1103,7 +1104,7 @@ class _DeviceUsersScreenState extends State<DeviceUsersScreen> {
               Text(tr(label),
                   style: TextStyle(
                       fontSize: 10,
-                      color: isSelected ? color : const Color(0xFFA1A1AA),
+                      color: isSelected ? color : SboxColors.slate400,
                       fontWeight:
                           isSelected ? FontWeight.w600 : FontWeight.normal),
                   maxLines: 1,
@@ -1121,10 +1122,10 @@ class _DeviceUsersScreenState extends State<DeviceUsersScreen> {
       padding: const EdgeInsets.only(bottom: 8),
       child: Material(
         color: HrmPageChrome.primaryNavy.withValues(alpha: 0.06),
-        borderRadius: BorderRadius.circular(8),
+        borderRadius: BorderRadius.circular(10),
         child: InkWell(
           onTap: () => _setOverviewFilter(DeviceUsersOverviewFilter.all),
-          borderRadius: BorderRadius.circular(8),
+          borderRadius: BorderRadius.circular(10),
           child: Padding(
             padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
             child: Row(
@@ -1161,9 +1162,9 @@ class _DeviceUsersScreenState extends State<DeviceUsersScreen> {
       height: 36,
       padding: const EdgeInsets.symmetric(horizontal: 10),
       decoration: BoxDecoration(
-        color: const Color(0xFFFAFAFA),
-        borderRadius: BorderRadius.circular(8),
-        border: Border.all(color: const Color(0xFFE4E4E7)),
+        color: SboxColors.slate50,
+        borderRadius: BorderRadius.circular(10),
+        border: Border.all(color: SboxColors.slate200),
       ),
       child: child,
     );
@@ -1191,7 +1192,7 @@ class _DeviceUsersScreenState extends State<DeviceUsersScreen> {
               value: null,
               child: Row(
                 children: [
-                  Icon(icon, size: 14, color: Colors.grey[500]),
+                  Icon(icon, size: 14, color: SboxColors.slate500),
                   const SizedBox(width: 6),
                   Expanded(
                       child: Text(tr(allLabel),
@@ -1297,7 +1298,7 @@ class _DeviceUsersScreenState extends State<DeviceUsersScreen> {
               value: null,
               child: Row(
                 children: [
-                  Icon(Icons.devices, size: 14, color: Colors.grey[500]),
+                  Icon(Icons.devices, size: 14, color: SboxColors.slate500),
                   const SizedBox(width: 6),
                   Text(tr(_l10n.allDevices)),
                 ],
@@ -1311,7 +1312,7 @@ class _DeviceUsersScreenState extends State<DeviceUsersScreen> {
                           size: 8,
                           color: _isDeviceOnline(d.lastOnline)
                               ? HrmPageChrome.primaryNavy
-                              : const Color(0xFFA1A1AA)),
+                              : SboxColors.slate400),
                       const SizedBox(width: 6),
                       Expanded(
                           child: Text(
@@ -1339,7 +1340,7 @@ class _DeviceUsersScreenState extends State<DeviceUsersScreen> {
                         size: 8,
                         color: _isDeviceOnline(d.lastOnline)
                             ? HrmPageChrome.primaryNavy
-                            : const Color(0xFFA1A1AA)),
+                            : SboxColors.slate400),
                     const SizedBox(width: 6),
                     Expanded(
                         child: Text(
@@ -1365,17 +1366,17 @@ class _DeviceUsersScreenState extends State<DeviceUsersScreen> {
     return Container(
       height: 36,
       decoration: BoxDecoration(
-        color: const Color(0xFFFAFAFA),
-        borderRadius: BorderRadius.circular(8),
-        border: Border.all(color: const Color(0xFFE4E4E7)),
+        color: SboxColors.slate50,
+        borderRadius: BorderRadius.circular(10),
+        border: Border.all(color: SboxColors.slate200),
       ),
       child: TextField(
         style: const TextStyle(fontSize: 13),
         decoration: InputDecoration(
           hintText: tr(_l10n.search),
-          hintStyle: const TextStyle(fontSize: 13, color: Color(0xFFA1A1AA)),
+          hintStyle: const TextStyle(fontSize: 13, color: SboxColors.slate400),
           prefixIcon:
-              const Icon(Icons.search, size: 18, color: Color(0xFFA1A1AA)),
+              const Icon(Icons.search, size: 18, color: SboxColors.slate400),
           suffixIcon: _searchQuery.isNotEmpty
               ? IconButton(
                   icon: const Icon(Icons.clear, size: 16),
@@ -1430,7 +1431,7 @@ class _DeviceUsersScreenState extends State<DeviceUsersScreen> {
       padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
       decoration: BoxDecoration(
         color: Colors.white,
-        borderRadius: BorderRadius.circular(12),
+        borderRadius: BorderRadius.circular(14),
         boxShadow: [
           BoxShadow(
             color: Colors.black.withValues(alpha: 0.04),
@@ -1725,7 +1726,7 @@ class _DeviceUsersScreenState extends State<DeviceUsersScreen> {
     return Container(
       decoration: BoxDecoration(
         color: Colors.white,
-        borderRadius: BorderRadius.circular(12),
+        borderRadius: BorderRadius.circular(14),
         boxShadow: [
           BoxShadow(
             color: Colors.black.withValues(alpha: 0.04),
@@ -1735,7 +1736,7 @@ class _DeviceUsersScreenState extends State<DeviceUsersScreen> {
         ],
       ),
       child: ClipRRect(
-        borderRadius: BorderRadius.circular(12),
+        borderRadius: BorderRadius.circular(14),
         child: Column(
           children: [
             Expanded(
@@ -1757,12 +1758,12 @@ class _DeviceUsersScreenState extends State<DeviceUsersScreen> {
                                 BoxConstraints(minWidth: constraints.maxWidth),
                             child: DataTable(
                               headingRowColor: WidgetStateProperty.all(
-                                  const Color(0xFFFAFAFA)),
+                                  SboxColors.slate50),
                               dataRowColor:
                                   WidgetStateProperty.resolveWith<Color?>(
                                       (states) {
                                 if (states.contains(WidgetState.hovered)) {
-                                  return const Color(0xFFF1F5F9);
+                                  return SboxColors.slate100;
                                 }
                                 return null;
                               }),
@@ -1779,7 +1780,7 @@ class _DeviceUsersScreenState extends State<DeviceUsersScreen> {
                                             style: TextStyle(
                                                 fontWeight: FontWeight.w600,
                                                 fontSize: 13,
-                                                color: Color(0xFF71717A))))),
+                                                color: SboxColors.slate500)))),
                                 DataColumn(
                                     label: Expanded(
                                         child: Text(tr('ID'),
@@ -1787,7 +1788,7 @@ class _DeviceUsersScreenState extends State<DeviceUsersScreen> {
                                             style: TextStyle(
                                                 fontWeight: FontWeight.w600,
                                                 fontSize: 13,
-                                                color: Color(0xFF71717A))))),
+                                                color: SboxColors.slate500)))),
                                 DataColumn(
                                     label: Expanded(
                                         child: Text(tr(_l10n.privilege),
@@ -1795,7 +1796,7 @@ class _DeviceUsersScreenState extends State<DeviceUsersScreen> {
                                             style: const TextStyle(
                                                 fontWeight: FontWeight.w600,
                                                 fontSize: 13,
-                                                color: Color(0xFF71717A))))),
+                                                color: SboxColors.slate500)))),
                                 DataColumn(
                                     label: Expanded(
                                         child: Text(tr(_l10n.deviceName),
@@ -1803,7 +1804,7 @@ class _DeviceUsersScreenState extends State<DeviceUsersScreen> {
                                             style: const TextStyle(
                                                 fontWeight: FontWeight.w600,
                                                 fontSize: 13,
-                                                color: Color(0xFF71717A))))),
+                                                color: SboxColors.slate500)))),
                                 DataColumn(
                                     label: Expanded(
                                         child: Text(tr(_l10n.nameOnDevice),
@@ -1811,7 +1812,7 @@ class _DeviceUsersScreenState extends State<DeviceUsersScreen> {
                                             style: const TextStyle(
                                                 fontWeight: FontWeight.w600,
                                                 fontSize: 13,
-                                                color: Color(0xFF71717A))))),
+                                                color: SboxColors.slate500)))),
                                 DataColumn(
                                     label: Expanded(
                                         child: Text(tr(_l10n.employeeName),
@@ -1819,7 +1820,7 @@ class _DeviceUsersScreenState extends State<DeviceUsersScreen> {
                                             style: const TextStyle(
                                                 fontWeight: FontWeight.w600,
                                                 fontSize: 13,
-                                                color: Color(0xFF71717A))))),
+                                                color: SboxColors.slate500)))),
                                 DataColumn(
                                     label: Expanded(
                                         child: Text(tr(_l10n.password),
@@ -1827,7 +1828,7 @@ class _DeviceUsersScreenState extends State<DeviceUsersScreen> {
                                             style: const TextStyle(
                                                 fontWeight: FontWeight.w600,
                                                 fontSize: 13,
-                                                color: Color(0xFF71717A))))),
+                                                color: SboxColors.slate500)))),
                                 DataColumn(
                                     label: Expanded(
                                         child: Text(tr(_l10n.cardCode),
@@ -1835,7 +1836,7 @@ class _DeviceUsersScreenState extends State<DeviceUsersScreen> {
                                             style: const TextStyle(
                                                 fontWeight: FontWeight.w600,
                                                 fontSize: 13,
-                                                color: Color(0xFF71717A))))),
+                                                color: SboxColors.slate500)))),
                                 DataColumn(
                                     label: Expanded(
                                         child: Text(tr('Vân tay'),
@@ -1843,7 +1844,7 @@ class _DeviceUsersScreenState extends State<DeviceUsersScreen> {
                                             style: TextStyle(
                                                 fontWeight: FontWeight.w600,
                                                 fontSize: 13,
-                                                color: Color(0xFF71717A))))),
+                                                color: SboxColors.slate500)))),
                                 DataColumn(
                                     label: Expanded(
                                         child: Text(tr('Khuôn mặt'),
@@ -1851,7 +1852,7 @@ class _DeviceUsersScreenState extends State<DeviceUsersScreen> {
                                             style: TextStyle(
                                                 fontWeight: FontWeight.w600,
                                                 fontSize: 13,
-                                                color: Color(0xFF71717A))))),
+                                                color: SboxColors.slate500)))),
                               ],
                               rows: _buildDesktopRows(displayedUsers),
                             ),
@@ -1893,8 +1894,8 @@ class _DeviceUsersScreenState extends State<DeviceUsersScreen> {
       child: Container(
         decoration: BoxDecoration(
           color: Colors.white,
-          borderRadius: BorderRadius.circular(12),
-          border: Border.all(color: const Color(0xFFE4E4E7)),
+          borderRadius: BorderRadius.circular(14),
+          border: Border.all(color: SboxColors.slate200),
           boxShadow: [
             BoxShadow(
               color: Colors.black.withValues(alpha: 0.05),
@@ -1904,7 +1905,7 @@ class _DeviceUsersScreenState extends State<DeviceUsersScreen> {
           ],
         ),
         child: InkWell(
-          borderRadius: BorderRadius.circular(12),
+          borderRadius: BorderRadius.circular(14),
           onTap: () => _showUserActionsDialog(user),
           child: Padding(
             padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
@@ -1921,14 +1922,14 @@ class _DeviceUsersScreenState extends State<DeviceUsersScreen> {
                           : null,
                       onBackgroundImageError:
                           avatarUrl != null ? (_, __) {} : null,
-                      backgroundColor: Colors.grey[200],
+                      backgroundColor: SboxColors.slate200,
                       child: avatarUrl == null
                           ? Text(
                               tr(user.name.isNotEmpty
                                   ? user.name[0].toUpperCase()
                                   : '?'),
                               style: TextStyle(
-                                  color: Colors.grey[600],
+                                  color: SboxColors.slate600,
                                   fontWeight: FontWeight.bold,
                                   fontSize: 14))
                           : null,
@@ -1955,7 +1956,7 @@ class _DeviceUsersScreenState extends State<DeviceUsersScreen> {
                               .where((s) => s.isNotEmpty)
                               .join(' · ')),
                           style: const TextStyle(
-                              color: Color(0xFF71717A), fontSize: 12),
+                              color: SboxColors.slate500, fontSize: 12),
                           maxLines: 1,
                           overflow: TextOverflow.ellipsis),
                       const SizedBox(height: 4),
@@ -1968,7 +1969,7 @@ class _DeviceUsersScreenState extends State<DeviceUsersScreen> {
                                 : Icons.link_off,
                             size: 14,
                             color: user.employeeId != null
-                                ? const Color(0xFF16A34A)
+                                ? SboxColors.success
                                 : HrmPageChrome.chipMid,
                           ),
                           const SizedBox(width: 4),
@@ -1980,7 +1981,7 @@ class _DeviceUsersScreenState extends State<DeviceUsersScreen> {
                               style: TextStyle(
                                 fontSize: 12,
                                 color: user.employeeId != null
-                                    ? const Color(0xFF16A34A)
+                                    ? SboxColors.success
                                     : HrmPageChrome.chipMid,
                                 fontWeight: user.employeeId != null
                                     ? FontWeight.w500
@@ -1998,23 +1999,23 @@ class _DeviceUsersScreenState extends State<DeviceUsersScreen> {
                             size: 12,
                             color: user.password != null &&
                                     user.password!.isNotEmpty
-                                ? const Color(0xFF16A34A)
-                                : const Color(0xFFD4D4D8)),
+                                ? SboxColors.success
+                                : SboxColors.slate300),
                         const SizedBox(width: 2),
                         Text(tr('MK'),
                             style: TextStyle(
                                 fontSize: 10,
                                 color: user.password != null &&
                                         user.password!.isNotEmpty
-                                    ? const Color(0xFF16A34A)
-                                    : const Color(0xFFA1A1AA))),
+                                    ? SboxColors.success
+                                    : SboxColors.slate400)),
                         const SizedBox(width: 8),
                         Icon(Icons.credit_card,
                             size: 12,
                             color: user.cardNumber != null &&
                                     user.cardNumber!.isNotEmpty
                                 ? HrmPageChrome.chipMid
-                                : const Color(0xFFD4D4D8)),
+                                : SboxColors.slate300),
                         const SizedBox(width: 2),
                         Text(tr('Thẻ'),
                             style: TextStyle(
@@ -2022,15 +2023,15 @@ class _DeviceUsersScreenState extends State<DeviceUsersScreen> {
                                 color: user.cardNumber != null &&
                                         user.cardNumber!.isNotEmpty
                                     ? HrmPageChrome.chipMid
-                                    : const Color(0xFFA1A1AA))),
+                                    : SboxColors.slate400)),
                         const SizedBox(width: 8),
                         Icon(Icons.fingerprint,
                             size: 12,
                             color: user.fingerprintReady
                                 ? HrmPageChrome.chipMid
                                 : user.fingerprintSyncing
-                                    ? const Color(0xFFD97706)
-                                    : const Color(0xFFD4D4D8)),
+                                    ? SboxColors.warning
+                                    : SboxColors.slate300),
                         const SizedBox(width: 2),
                         Text(tr(user.fingerprintStatusLabel),
                             style: TextStyle(
@@ -2038,21 +2039,21 @@ class _DeviceUsersScreenState extends State<DeviceUsersScreen> {
                                 color: user.fingerprintReady
                                     ? HrmPageChrome.chipMid
                                     : user.fingerprintSyncing
-                                        ? const Color(0xFFD97706)
-                                        : const Color(0xFFA1A1AA))),
+                                        ? SboxColors.warning
+                                        : SboxColors.slate400)),
                         const SizedBox(width: 8),
                         Icon(Icons.face,
                             size: 12,
                             color: user.faceCount > 0
                                 ? HrmPageChrome.chipMid
-                                : const Color(0xFFD4D4D8)),
+                                : SboxColors.slate300),
                         const SizedBox(width: 2),
                         Text(tr('${user.faceCount} KM'),
                             style: TextStyle(
                                 fontSize: 10,
                                 color: user.faceCount > 0
                                     ? HrmPageChrome.chipMid
-                                    : const Color(0xFFA1A1AA))),
+                                    : SboxColors.slate400)),
                       ]),
                     ],
                   ),
@@ -2060,7 +2061,7 @@ class _DeviceUsersScreenState extends State<DeviceUsersScreen> {
                 const Padding(
                   padding: EdgeInsets.only(top: 2),
                   child: Icon(Icons.chevron_right,
-                      size: 18, color: Color(0xFFA1A1AA)),
+                      size: 18, color: SboxColors.slate400),
                 ),
               ],
             ),
@@ -2080,7 +2081,7 @@ class _DeviceUsersScreenState extends State<DeviceUsersScreen> {
             padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
             decoration: BoxDecoration(
               color: primary.withValues(alpha: 0.08),
-              borderRadius: BorderRadius.circular(8),
+              borderRadius: BorderRadius.circular(10),
             ),
             child: Row(
               mainAxisSize: MainAxisSize.min,
@@ -2145,7 +2146,7 @@ class _DeviceUsersScreenState extends State<DeviceUsersScreen> {
             Container(
               padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 1),
               decoration: BoxDecoration(
-                  color: primary, borderRadius: BorderRadius.circular(9)),
+                  color: primary, borderRadius: BorderRadius.circular(10)),
               child: Text(tr('${group.length}'),
                   style: const TextStyle(
                       color: Colors.white,
@@ -2175,12 +2176,12 @@ class _DeviceUsersScreenState extends State<DeviceUsersScreen> {
                       ? _apiService.storeImageProvider(avatarUrl)
                       : null,
               onBackgroundImageError: avatarUrl != null ? (_, __) {} : null,
-              backgroundColor: Colors.grey[200],
+              backgroundColor: SboxColors.slate200,
               child: avatarUrl == null
                   ? Text(
                       tr(user.name.isNotEmpty ? user.name[0].toUpperCase() : '?'),
                       style: TextStyle(
-                          color: Colors.grey[600], fontWeight: FontWeight.bold))
+                          color: SboxColors.slate600, fontWeight: FontWeight.bold))
                   : null,
             ),
           )),
@@ -2196,7 +2197,7 @@ class _DeviceUsersScreenState extends State<DeviceUsersScreen> {
                     Text(tr(_getFullEmployeeName(user)),
                         style: const TextStyle(color: Colors.green)),
                   ])
-                : Text(tr('-'), style: TextStyle(color: Colors.grey)),
+                : Text(tr('-'), style: TextStyle(color: SboxColors.slate500)),
           )),
           DataCell(Center(child: Text(tr(user.password ?? '-')))),
           DataCell(Center(child: Text(tr(user.cardNumber ?? '-')))),
@@ -2210,14 +2211,14 @@ class _DeviceUsersScreenState extends State<DeviceUsersScreen> {
                       color: user.fingerprintReady
                           ? HrmPageChrome.chipMid
                           : user.fingerprintSyncing
-                              ? const Color(0xFFD97706)
-                              : Colors.grey)))),
+                              ? SboxColors.warning
+                              : SboxColors.slate500)))),
           DataCell(Center(
               child: Text(tr('${user.faceCount}'),
                   style: TextStyle(
                       color: user.faceCount > 0
                           ? HrmPageChrome.chipMid
-                          : Colors.grey)))),
+                          : SboxColors.slate500)))),
         ],
       );
     }).toList();
@@ -2229,42 +2230,42 @@ class _DeviceUsersScreenState extends State<DeviceUsersScreen> {
       padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
       decoration: BoxDecoration(
         color: Colors.white,
-        border: Border(top: BorderSide(color: Colors.grey.shade200)),
+        border: Border(top: BorderSide(color: SboxColors.slate200)),
       ),
       child: Builder(builder: (context) {
         final isMobile = Responsive.isMobile(context);
         final infoChip = Container(
           padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
           decoration: BoxDecoration(
-            color: const Color(0xFFF0FDF4),
-            borderRadius: BorderRadius.circular(12),
+            color: SboxColors.successSoft,
+            borderRadius: BorderRadius.circular(14),
           ),
           child: Text(tr('Hiển thị ${(_currentPage - 1) * _pageSize + 1}-${(_currentPage * _pageSize).clamp(0, totalItems)} / $totalItems'),
             style: const TextStyle(
                 fontSize: 12,
                 fontWeight: FontWeight.w500,
-                color: Color(0xFF16A34A)),
+                color: SboxColors.success),
           ),
         );
         final pageSizeSelector = Row(
           mainAxisSize: MainAxisSize.min,
           children: [
             Text(tr('Hiển thị:'),
-                style: TextStyle(fontSize: 12, color: Colors.grey[500])),
+                style: TextStyle(fontSize: 12, color: SboxColors.slate500)),
             const SizedBox(width: 8),
             Container(
               height: 34,
               padding: const EdgeInsets.symmetric(horizontal: 12),
               decoration: BoxDecoration(
-                color: const Color(0xFFFAFAFA),
-                border: Border.all(color: const Color(0xFFE4E4E7)),
-                borderRadius: BorderRadius.circular(8),
+                color: SboxColors.slate50,
+                border: Border.all(color: SboxColors.slate200),
+                borderRadius: BorderRadius.circular(10),
               ),
               child: DropdownButtonHideUnderline(
                 child: DropdownButton<int>(
                   value: _pageSize,
                   isDense: true,
-                  style: TextStyle(fontSize: 13, color: Colors.grey[800]),
+                  style: TextStyle(fontSize: 13, color: SboxColors.slate800),
                   items: _pageSizeOptions
                       .map((s) => DropdownMenuItem(value: s, child: Text(tr('$s'))))
                       .toList(),
@@ -2294,7 +2295,7 @@ class _DeviceUsersScreenState extends State<DeviceUsersScreen> {
               padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 6),
               decoration: BoxDecoration(
                 color: primary,
-                borderRadius: BorderRadius.circular(8),
+                borderRadius: BorderRadius.circular(10),
               ),
               child: Text(
                 tr('$_currentPage / $totalPages'),
@@ -2334,17 +2335,17 @@ class _DeviceUsersScreenState extends State<DeviceUsersScreen> {
 
   Widget _buildPageNavBtn(IconData icon, bool enabled, VoidCallback onTap) {
     return Material(
-      color: enabled ? const Color(0xFFF1F5F9) : const Color(0xFFFAFAFA),
-      borderRadius: BorderRadius.circular(8),
+      color: enabled ? SboxColors.slate100 : SboxColors.slate50,
+      borderRadius: BorderRadius.circular(10),
       child: InkWell(
         onTap: enabled ? onTap : null,
-        borderRadius: BorderRadius.circular(8),
+        borderRadius: BorderRadius.circular(10),
         child: Padding(
           padding: const EdgeInsets.all(6),
           child: Icon(icon,
               size: 18,
               color:
-                  enabled ? const Color(0xFF52525B) : const Color(0xFFCBD5E1)),
+                  enabled ? SboxColors.slate600 : SboxColors.slate300),
         ),
       ),
     );
@@ -2352,7 +2353,7 @@ class _DeviceUsersScreenState extends State<DeviceUsersScreen> {
 
   void _showUserActionsDialog(DeviceUser user) {
     final infoCard = Card(
-      color: Colors.grey.withValues(alpha: 0.1),
+      color: SboxColors.slate500.withValues(alpha: 0.1),
       child: Padding(
         padding: const EdgeInsets.all(12),
         child: Column(
@@ -2376,7 +2377,7 @@ class _DeviceUsersScreenState extends State<DeviceUsersScreen> {
       if (_perm.canEdit('DeviceUser')) ...[
         ListTile(
           leading: const CircleAvatar(
-            backgroundColor: Colors.blue,
+            backgroundColor: SboxColors.brand500,
             child: Icon(Icons.edit, color: Colors.white, size: 20),
           ),
           title: Text(tr(_l10n.editInfo)),
@@ -2484,7 +2485,7 @@ class _DeviceUsersScreenState extends State<DeviceUsersScreen> {
               Expanded(
                 child: Text(
                   tr('PIN: ${user.pin} | ${user.privilegeText}'),
-                  style: TextStyle(fontSize: 12, color: Colors.grey[600]),
+                  style: TextStyle(fontSize: 12, color: SboxColors.slate600),
                 ),
               ),
             ],
@@ -2504,12 +2505,12 @@ class _DeviceUsersScreenState extends State<DeviceUsersScreen> {
       padding: const EdgeInsets.symmetric(vertical: 4),
       child: Row(
         children: [
-          Icon(icon, size: 16, color: Colors.grey[600]),
+          Icon(icon, size: 16, color: SboxColors.slate600),
           const SizedBox(width: 8),
           SizedBox(
             width: 80,
             child: Text(tr(label),
-                style: TextStyle(color: Colors.grey[600], fontSize: 12)),
+                style: TextStyle(color: SboxColors.slate600, fontSize: 12)),
           ),
           Expanded(
             child: Text(
@@ -2604,8 +2605,8 @@ class _DeviceUsersScreenState extends State<DeviceUsersScreen> {
                                         Colors.purple.shade500
                                       ]
                                     : [
-                                        Colors.grey.shade300,
-                                        Colors.grey.shade400
+                                        SboxColors.slate300,
+                                        SboxColors.slate400
                                       ],
                               ),
                         borderRadius: BorderRadius.only(
@@ -2620,7 +2621,7 @@ class _DeviceUsersScreenState extends State<DeviceUsersScreen> {
                             : Border.all(
                                 color: isEnrolled
                                     ? Colors.green.shade700
-                                    : Colors.grey.shade500,
+                                    : SboxColors.slate500,
                                 width: 1),
                         boxShadow: [
                           if (isSelected) ...[
@@ -2663,7 +2664,7 @@ class _DeviceUsersScreenState extends State<DeviceUsersScreen> {
                                           decoration: BoxDecoration(
                                             color: isSelected
                                                 ? Colors.purple.shade200
-                                                : Colors.grey.shade500
+                                                : SboxColors.slate500
                                                     .withValues(alpha: 0.5),
                                             borderRadius:
                                                 BorderRadius.circular(1),
@@ -2697,7 +2698,7 @@ class _DeviceUsersScreenState extends State<DeviceUsersScreen> {
                               ? Colors.purple.shade700
                               : isEnrolled
                                   ? Colors.green.shade700
-                                  : Colors.grey.shade600,
+                                  : SboxColors.slate600,
                         ),
                       ),
                     ),
@@ -2728,9 +2729,9 @@ class _DeviceUsersScreenState extends State<DeviceUsersScreen> {
             return Container(
               padding: const EdgeInsets.all(12),
               decoration: BoxDecoration(
-                color: Colors.grey.shade50,
-                borderRadius: BorderRadius.circular(16),
-                border: Border.all(color: Colors.grey.shade200),
+                color: SboxColors.slate50,
+                borderRadius: BorderRadius.circular(14),
+                border: Border.all(color: SboxColors.slate200),
               ),
               child: Column(
                 children: [
@@ -2740,9 +2741,9 @@ class _DeviceUsersScreenState extends State<DeviceUsersScreen> {
                         const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
                     decoration: BoxDecoration(
                       color: isLeftHand
-                          ? Colors.blue.shade50
+                          ? SboxColors.brand50
                           : Colors.orange.shade50,
-                      borderRadius: BorderRadius.circular(12),
+                      borderRadius: BorderRadius.circular(14),
                     ),
                     child: Row(
                       mainAxisSize: MainAxisSize.min,
@@ -2751,7 +2752,7 @@ class _DeviceUsersScreenState extends State<DeviceUsersScreen> {
                           isLeftHand ? Icons.back_hand : Icons.front_hand,
                           size: 14,
                           color: isLeftHand
-                              ? Colors.blue.shade600
+                              ? SboxColors.brand600
                               : Colors.orange.shade600,
                         ),
                         const SizedBox(width: 4),
@@ -2761,7 +2762,7 @@ class _DeviceUsersScreenState extends State<DeviceUsersScreen> {
                             fontSize: 11,
                             fontWeight: FontWeight.bold,
                             color: isLeftHand
-                                ? Colors.blue.shade700
+                                ? SboxColors.brand700
                                 : Colors.orange.shade700,
                           ),
                         ),
@@ -2791,7 +2792,7 @@ class _DeviceUsersScreenState extends State<DeviceUsersScreen> {
                       gradient: LinearGradient(
                         begin: Alignment.topCenter,
                         end: Alignment.bottomCenter,
-                        colors: [Colors.grey.shade300, Colors.grey.shade200],
+                        colors: [SboxColors.slate300, SboxColors.slate200],
                       ),
                       borderRadius: const BorderRadius.only(
                         topLeft: Radius.circular(8),
@@ -2800,7 +2801,7 @@ class _DeviceUsersScreenState extends State<DeviceUsersScreen> {
                         bottomRight: Radius.circular(20),
                       ),
                       border:
-                          Border.all(color: Colors.grey.shade400, width: 0.5),
+                          Border.all(color: SboxColors.slate400, width: 0.5),
                     ),
                   ),
                 ],
@@ -2842,19 +2843,19 @@ class _DeviceUsersScreenState extends State<DeviceUsersScreen> {
                             Container(
                               padding: const EdgeInsets.all(12),
                               decoration: BoxDecoration(
-                                color: Colors.blue.withValues(alpha: 0.1),
-                                borderRadius: BorderRadius.circular(8),
+                                color: SboxColors.brand500.withValues(alpha: 0.1),
+                                borderRadius: BorderRadius.circular(10),
                               ),
                               child: Row(
                                 mainAxisAlignment: MainAxisAlignment.center,
                                 children: [
                                   const Icon(Icons.fingerprint,
-                                      color: Colors.blue, size: 20),
+                                      color: SboxColors.brand500, size: 20),
                                   const SizedBox(width: 8),
                                   Text(tr('Đã đăng ký: ${enrolledFingers.length}/10 vân tay'),
                                     style: const TextStyle(
                                         fontWeight: FontWeight.bold,
-                                        color: Colors.blue),
+                                        color: SboxColors.brand500),
                                   ),
                                 ],
                               ),
@@ -2865,7 +2866,7 @@ class _DeviceUsersScreenState extends State<DeviceUsersScreen> {
                               padding: const EdgeInsets.all(8),
                               decoration: BoxDecoration(
                                 color: Colors.orange.withValues(alpha: 0.1),
-                                borderRadius: BorderRadius.circular(8),
+                                borderRadius: BorderRadius.circular(10),
                               ),
                               child: Row(
                                 children: [
@@ -2902,7 +2903,7 @@ class _DeviceUsersScreenState extends State<DeviceUsersScreen> {
                                     width: 16,
                                     height: 16,
                                     decoration: BoxDecoration(
-                                        color: Colors.grey.shade300,
+                                        color: SboxColors.slate300,
                                         borderRadius:
                                             BorderRadius.circular(4))),
                                 const SizedBox(width: 4),
@@ -2923,7 +2924,7 @@ class _DeviceUsersScreenState extends State<DeviceUsersScreen> {
                                 padding: const EdgeInsets.all(12),
                                 decoration: BoxDecoration(
                                   color: Colors.purple.withValues(alpha: 0.1),
-                                  borderRadius: BorderRadius.circular(8),
+                                  borderRadius: BorderRadius.circular(10),
                                   border: Border.all(
                                       color:
                                           Colors.purple.withValues(alpha: 0.3)),
@@ -2947,7 +2948,7 @@ class _DeviceUsersScreenState extends State<DeviceUsersScreen> {
                                         color: enrolledFingers
                                                 .contains(selectedFinger)
                                             ? Colors.green
-                                            : Colors.grey,
+                                            : SboxColors.slate500,
                                       ),
                                     ),
                                   ],
@@ -3051,19 +3052,19 @@ class _DeviceUsersScreenState extends State<DeviceUsersScreen> {
                         Container(
                           padding: const EdgeInsets.all(12),
                           decoration: BoxDecoration(
-                            color: Colors.blue.withValues(alpha: 0.1),
-                            borderRadius: BorderRadius.circular(8),
+                            color: SboxColors.brand500.withValues(alpha: 0.1),
+                            borderRadius: BorderRadius.circular(10),
                           ),
                           child: Row(
                             mainAxisAlignment: MainAxisAlignment.center,
                             children: [
                               const Icon(Icons.fingerprint,
-                                  color: Colors.blue, size: 20),
+                                  color: SboxColors.brand500, size: 20),
                               const SizedBox(width: 8),
                               Text(tr('Đã đăng ký: ${enrolledFingers.length}/10 vân tay'),
                                 style: const TextStyle(
                                     fontWeight: FontWeight.bold,
-                                    color: Colors.blue),
+                                    color: SboxColors.brand500),
                               ),
                             ],
                           ),
@@ -3074,7 +3075,7 @@ class _DeviceUsersScreenState extends State<DeviceUsersScreen> {
                           padding: const EdgeInsets.all(8),
                           decoration: BoxDecoration(
                             color: Colors.orange.withValues(alpha: 0.1),
-                            borderRadius: BorderRadius.circular(8),
+                            borderRadius: BorderRadius.circular(10),
                           ),
                           child: Row(
                             children: [
@@ -3110,7 +3111,7 @@ class _DeviceUsersScreenState extends State<DeviceUsersScreen> {
                                 width: 16,
                                 height: 16,
                                 decoration: BoxDecoration(
-                                    color: Colors.grey.shade300,
+                                    color: SboxColors.slate300,
                                     borderRadius: BorderRadius.circular(4))),
                             const SizedBox(width: 4),
                             Text(tr('Chưa đăng ký'),
@@ -3133,7 +3134,7 @@ class _DeviceUsersScreenState extends State<DeviceUsersScreen> {
                             padding: const EdgeInsets.all(12),
                             decoration: BoxDecoration(
                               color: Colors.purple.withValues(alpha: 0.1),
-                              borderRadius: BorderRadius.circular(8),
+                              borderRadius: BorderRadius.circular(10),
                               border: Border.all(
                                   color: Colors.purple.withValues(alpha: 0.3)),
                             ),
@@ -3156,7 +3157,7 @@ class _DeviceUsersScreenState extends State<DeviceUsersScreen> {
                                     color:
                                         enrolledFingers.contains(selectedFinger)
                                             ? Colors.green
-                                            : Colors.grey,
+                                            : SboxColors.slate500,
                                   ),
                                 ),
                               ],
@@ -3511,12 +3512,12 @@ class _DeviceUsersScreenState extends State<DeviceUsersScreen> {
                           decoration: BoxDecoration(
                             color: hasFace
                                 ? Colors.green.withValues(alpha: 0.1)
-                                : Colors.grey.withValues(alpha: 0.1),
-                            borderRadius: BorderRadius.circular(16),
+                                : SboxColors.slate500.withValues(alpha: 0.1),
+                            borderRadius: BorderRadius.circular(14),
                             border: Border.all(
                               color: hasFace
                                   ? Colors.green.withValues(alpha: 0.3)
-                                  : Colors.grey.withValues(alpha: 0.3),
+                                  : SboxColors.slate500.withValues(alpha: 0.3),
                             ),
                           ),
                           child: Column(
@@ -3527,12 +3528,12 @@ class _DeviceUsersScreenState extends State<DeviceUsersScreen> {
                                 decoration: BoxDecoration(
                                   color: hasFace
                                       ? Colors.green.shade50
-                                      : Colors.grey.shade100,
+                                      : SboxColors.slate100,
                                   shape: BoxShape.circle,
                                   border: Border.all(
                                     color: hasFace
                                         ? Colors.green.shade400
-                                        : Colors.grey.shade400,
+                                        : SboxColors.slate400,
                                     width: 3,
                                   ),
                                   boxShadow: hasFace
@@ -3551,7 +3552,7 @@ class _DeviceUsersScreenState extends State<DeviceUsersScreen> {
                                   size: 50,
                                   color: hasFace
                                       ? Colors.green.shade600
-                                      : Colors.grey.shade400,
+                                      : SboxColors.slate400,
                                 ),
                               ),
                               const SizedBox(height: 16),
@@ -3564,7 +3565,7 @@ class _DeviceUsersScreenState extends State<DeviceUsersScreen> {
                                   fontWeight: FontWeight.bold,
                                   color: hasFace
                                       ? Colors.green.shade700
-                                      : Colors.grey.shade600,
+                                      : SboxColors.slate600,
                                 ),
                               ),
                               const SizedBox(height: 4),
@@ -3574,7 +3575,7 @@ class _DeviceUsersScreenState extends State<DeviceUsersScreen> {
                                     : 'Chưa có dữ liệu khuôn mặt'),
                                 style: TextStyle(
                                   fontSize: 12,
-                                  color: Colors.grey.shade600,
+                                  color: SboxColors.slate600,
                                 ),
                               ),
                             ],
@@ -3590,7 +3591,7 @@ class _DeviceUsersScreenState extends State<DeviceUsersScreen> {
                             decoration: BoxDecoration(
                               color: (canRemoteFace ? Colors.teal : Colors.orange)
                                   .withValues(alpha: 0.1),
-                              borderRadius: BorderRadius.circular(8),
+                              borderRadius: BorderRadius.circular(10),
                             ),
                             child: Row(
                               children: [
@@ -3693,7 +3694,7 @@ class _DeviceUsersScreenState extends State<DeviceUsersScreen> {
                                 padding:
                                     const EdgeInsets.symmetric(vertical: 14),
                                 shape: RoundedRectangleBorder(
-                                  borderRadius: BorderRadius.circular(8),
+                                  borderRadius: BorderRadius.circular(10),
                                 ),
                               ),
                             ),
@@ -4116,7 +4117,7 @@ class _DeviceUsersScreenState extends State<DeviceUsersScreen> {
     // ZKTeco chỉ có 2 loại: 0 = Người dùng, 14 = Quản trị viên
     final isAdmin = privilege == 14;
     final text = isAdmin ? 'Admin' : 'User';
-    final color = isAdmin ? Colors.red : Colors.blue;
+    final color = isAdmin ? Colors.red : SboxColors.brand500;
     return Container(
       padding: EdgeInsets.symmetric(
         horizontal: compact ? 6 : 8,
@@ -4150,13 +4151,13 @@ class _DeviceUsersScreenState extends State<DeviceUsersScreen> {
               radius: 28,
               backgroundColor: user.isActive
                   ? Theme.of(context).primaryColor.withValues(alpha: 0.2)
-                  : Colors.grey.withValues(alpha: 0.2),
+                  : SboxColors.slate500.withValues(alpha: 0.2),
               child: Text(
                 tr(user.name.isNotEmpty ? user.name[0].toUpperCase() : user.pin),
                 style: TextStyle(
                   color: user.isActive
                       ? Theme.of(context).primaryColor
-                      : Colors.grey,
+                      : SboxColors.slate500,
                   fontWeight: FontWeight.bold,
                   fontSize: 20,
                 ),
@@ -4257,7 +4258,7 @@ class _DeviceUsersScreenState extends State<DeviceUsersScreen> {
                       value: 'link',
                       child: Row(
                         children: [
-                          const Icon(Icons.link, size: 20, color: Colors.blue),
+                          const Icon(Icons.link, size: 20, color: SboxColors.brand500),
                           const SizedBox(width: 12),
                           Text(tr(user.employeeId != null
                               ? 'Đổi liên kết NV'
@@ -4303,13 +4304,13 @@ class _DeviceUsersScreenState extends State<DeviceUsersScreen> {
       decoration: BoxDecoration(
         color: isActive
             ? Colors.green.withValues(alpha: 0.2)
-            : Colors.grey.withValues(alpha: 0.2),
-        borderRadius: BorderRadius.circular(12),
+            : SboxColors.slate500.withValues(alpha: 0.2),
+        borderRadius: BorderRadius.circular(14),
       ),
       child: Text(
         tr(isActive ? 'Active' : 'Inactive'),
         style: TextStyle(
-          color: isActive ? Colors.green : Colors.grey,
+          color: isActive ? Colors.green : SboxColors.slate500,
           fontSize: 11,
           fontWeight: FontWeight.w600,
         ),
@@ -4321,9 +4322,9 @@ class _DeviceUsersScreenState extends State<DeviceUsersScreen> {
     return Row(
       mainAxisSize: MainAxisSize.min,
       children: [
-        Icon(icon, size: 14, color: Colors.grey[500]),
+        Icon(icon, size: 14, color: SboxColors.slate500),
         const SizedBox(width: 4),
-        Text(tr(text), style: TextStyle(color: Colors.grey[500], fontSize: 13)),
+        Text(tr(text), style: TextStyle(color: SboxColors.slate500, fontSize: 13)),
       ],
     );
   }
@@ -4579,15 +4580,15 @@ class _DeviceUsersScreenState extends State<DeviceUsersScreen> {
                 Container(
                   padding: const EdgeInsets.all(12),
                   decoration: BoxDecoration(
-                    color: Colors.grey.shade100,
-                    borderRadius: BorderRadius.circular(8),
+                    color: SboxColors.slate100,
+                    borderRadius: BorderRadius.circular(10),
                   ),
                   child: Row(
                     children: [
-                      const Icon(Icons.fingerprint, color: Colors.grey),
+                      const Icon(Icons.fingerprint, color: SboxColors.slate500),
                       const SizedBox(width: 8),
                       Text(tr('UID: ${user.id}'),
-                          style: const TextStyle(color: Colors.grey)),
+                          style: const TextStyle(color: SboxColors.slate500)),
                     ],
                   ),
                 ),
@@ -4726,7 +4727,7 @@ class _DeviceUsersScreenState extends State<DeviceUsersScreen> {
               mainAxisSize: MainAxisSize.min,
               children: [
                 Text(tr('Chọn nhân viên và thiết bị để đồng bộ. User sẽ được tạo trên máy chấm công.'),
-                  style: TextStyle(color: Colors.grey),
+                  style: TextStyle(color: SboxColors.slate500),
                 ),
                 const SizedBox(height: 16),
                 DropdownButtonFormField<String>(
@@ -5017,9 +5018,9 @@ class _DeviceUsersScreenState extends State<DeviceUsersScreen> {
         Container(
           padding: const EdgeInsets.all(10),
           decoration: BoxDecoration(
-            color: const Color(0xFFF8FAFC),
+            color: SboxColors.slate50,
             borderRadius: BorderRadius.circular(10),
-            border: Border.all(color: const Color(0xFFE2E8F0)),
+            border: Border.all(color: SboxColors.slate200),
           ),
           child: Row(
             children: [
@@ -5051,7 +5052,7 @@ class _DeviceUsersScreenState extends State<DeviceUsersScreen> {
                       '${user.deviceName != null ? ' · ${user.deviceName}' : ''}'),
                       style: const TextStyle(
                         fontSize: 12,
-                        color: Color(0xFF64748B),
+                        color: SboxColors.slate500,
                       ),
                     ),
                   ],
@@ -5065,7 +5066,7 @@ class _DeviceUsersScreenState extends State<DeviceUsersScreen> {
           tr(user.employeeId != null
               ? 'Đang liên kết: ${user.employeeName ?? '—'}. Chọn nhân viên khác để thay đổi.'
               : 'Chọn nhân viên trong hệ thống để liên kết với user trên máy chấm công.'),
-          style: const TextStyle(fontSize: 13, color: Color(0xFF64748B)),
+          style: const TextStyle(fontSize: 13, color: SboxColors.slate500),
         ),
       ],
     );
@@ -5233,7 +5234,7 @@ class _EmployeeLinkPickerPanelState extends State<_EmployeeLinkPickerPanel> {
             padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
             decoration: BoxDecoration(
               color: Colors.green.shade50,
-              borderRadius: BorderRadius.circular(8),
+              borderRadius: BorderRadius.circular(10),
               border: Border.all(color: Colors.green.shade200),
             ),
             child: Row(
@@ -5266,7 +5267,7 @@ class _EmployeeLinkPickerPanelState extends State<_EmployeeLinkPickerPanel> {
         ],
         const SizedBox(height: 8),
         Text(tr('${display.length} nhân viên'),
-          style: const TextStyle(fontSize: 12, color: Color(0xFF64748B)),
+          style: const TextStyle(fontSize: 12, color: SboxColors.slate500),
         ),
         const SizedBox(height: 4),
         Expanded(
@@ -5276,7 +5277,7 @@ class _EmployeeLinkPickerPanelState extends State<_EmployeeLinkPickerPanel> {
                     mainAxisSize: MainAxisSize.min,
                     children: [
                       Icon(Icons.person_search,
-                          size: 40, color: Colors.grey.shade300),
+                          size: 40, color: SboxColors.slate300),
                       const SizedBox(height: 8),
                       Text(
                         tr(_query.isNotEmpty
@@ -5284,7 +5285,7 @@ class _EmployeeLinkPickerPanelState extends State<_EmployeeLinkPickerPanel> {
                             : (_filter == _EmployeeLinkFilter.unlinked
                                 ? 'Không còn nhân viên chưa liên kết'
                                 : 'Chưa có nhân viên')),
-                        style: TextStyle(color: Colors.grey.shade600),
+                        style: TextStyle(color: SboxColors.slate600),
                         textAlign: TextAlign.center,
                       ),
                     ],
@@ -5293,7 +5294,7 @@ class _EmployeeLinkPickerPanelState extends State<_EmployeeLinkPickerPanel> {
               : ListView.separated(
                   itemCount: display.length,
                   separatorBuilder: (_, __) =>
-                      const Divider(height: 1, color: Color(0xFFF1F5F9)),
+                      const Divider(height: 1, color: SboxColors.slate100),
                   itemBuilder: (context, index) {
                     final emp = display[index];
                     final isSelected = _selected?.id == emp.id;
@@ -5316,7 +5317,7 @@ class _EmployeeLinkPickerPanelState extends State<_EmployeeLinkPickerPanel> {
                                 radius: 18,
                                 backgroundColor: isSelected
                                     ? Theme.of(context).primaryColor
-                                    : const Color(0xFFE2E8F0),
+                                    : SboxColors.slate200,
                                 child: Text(
                                   tr(emp.fullName.isNotEmpty
                                       ? emp.fullName[0].toUpperCase()
@@ -5326,7 +5327,7 @@ class _EmployeeLinkPickerPanelState extends State<_EmployeeLinkPickerPanel> {
                                     fontWeight: FontWeight.w600,
                                     color: isSelected
                                         ? Colors.white
-                                        : const Color(0xFF475569),
+                                        : SboxColors.slate600,
                                   ),
                                 ),
                               ),
@@ -5354,7 +5355,7 @@ class _EmployeeLinkPickerPanelState extends State<_EmployeeLinkPickerPanel> {
                                       ].join(' · ')),
                                       style: const TextStyle(
                                         fontSize: 12,
-                                        color: Color(0xFF64748B),
+                                        color: SboxColors.slate500,
                                       ),
                                     ),
                                   ],
@@ -5640,7 +5641,7 @@ class _EnrollmentProgressDialogState extends State<_EnrollmentProgressDialog> {
             padding: const EdgeInsets.all(12),
             decoration: BoxDecoration(
               color: Colors.purple.withValues(alpha: 0.1),
-              borderRadius: BorderRadius.circular(8),
+              borderRadius: BorderRadius.circular(10),
             ),
             child: Row(
               mainAxisAlignment: MainAxisAlignment.center,
@@ -5687,7 +5688,7 @@ class _EnrollmentProgressDialogState extends State<_EnrollmentProgressDialog> {
             const SizedBox(
               width: 200,
               child: LinearProgressIndicator(
-                backgroundColor: Color(0xFFE0E0E0),
+                backgroundColor: SboxColors.slate200,
                 valueColor: AlwaysStoppedAnimation<Color>(Colors.purple),
               ),
             ),
@@ -5762,7 +5763,7 @@ class _EnrollmentProgressDialogState extends State<_EnrollmentProgressDialog> {
               padding: const EdgeInsets.all(8),
               decoration: BoxDecoration(
                 color: Colors.orange.withValues(alpha: 0.1),
-                borderRadius: BorderRadius.circular(8),
+                borderRadius: BorderRadius.circular(10),
               ),
               child: Row(
                 children: [
@@ -6039,7 +6040,7 @@ class _FaceEnrollmentProgressDialogState
               padding: const EdgeInsets.all(8),
               decoration: BoxDecoration(
                 color: Colors.orange.withValues(alpha: 0.1),
-                borderRadius: BorderRadius.circular(8),
+                borderRadius: BorderRadius.circular(10),
               ),
               child: Row(
                 children: [

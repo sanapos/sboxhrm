@@ -7,6 +7,7 @@ import '../utils/responsive_helper.dart';
 import '../widgets/app_button.dart';
 import 'package:zkteco_flutter_client/l10n/app_tr.dart';
 
+import '../theme/sbox_tokens.dart';
 /// Copy fingerprint / face templates from one attendance device to another.
 class CopyBiometricsDialog extends StatefulWidget {
   final List<Device> devices;
@@ -249,7 +250,7 @@ class _CopyBiometricsDialogState extends State<CopyBiometricsDialog> {
             children: [
               Row(
                 children: [
-                  const Icon(Icons.fingerprint, color: Color(0xFF2563EB)),
+                  const Icon(Icons.fingerprint, color: SboxColors.brand600),
                   const SizedBox(width: 8),
                   Expanded(
                     child: Text(tr('Copy sinh trắc'),
@@ -273,7 +274,7 @@ class _CopyBiometricsDialogState extends State<CopyBiometricsDialog> {
               const SizedBox(height: 4),
               Text(
                 tr('Bấm một lần. Vừa đăng ký xong thì đợi 15–60 giây cho file lên server (chữ “đang đồng bộ”) — không mất dữ liệu. Danh sách tự làm mới.'),
-                style: TextStyle(fontSize: 13, color: Colors.grey[600], height: 1.4),
+                style: TextStyle(fontSize: 13, color: SboxColors.slate600, height: 1.4),
               ),
               if (_status.isNotEmpty) ...[
                 const SizedBox(height: 12),
@@ -281,9 +282,9 @@ class _CopyBiometricsDialogState extends State<CopyBiometricsDialog> {
                   width: double.infinity,
                   padding: const EdgeInsets.all(12),
                   decoration: BoxDecoration(
-                    color: const Color(0xFFEFF6FF),
+                    color: SboxColors.brand50,
                     borderRadius: BorderRadius.circular(10),
-                    border: Border.all(color: const Color(0xFFBFDBFE)),
+                    border: Border.all(color: SboxColors.brand100),
                   ),
                   child: Row(
                     crossAxisAlignment: CrossAxisAlignment.start,
@@ -301,13 +302,13 @@ class _CopyBiometricsDialogState extends State<CopyBiometricsDialog> {
                         const Padding(
                           padding: EdgeInsets.only(top: 1, right: 8),
                           child: Icon(Icons.info_outline,
-                              size: 18, color: Color(0xFF2563EB)),
+                              size: 18, color: SboxColors.brand600),
                         ),
                       Expanded(
                         child: Text(
                           tr(_status),
                           style: const TextStyle(
-                              fontSize: 13, height: 1.4, color: Color(0xFF1E3A8A)),
+                              fontSize: 13, height: 1.4, color: SboxColors.brand900),
                         ),
                       ),
                     ],
@@ -432,7 +433,7 @@ class _CopyBiometricsDialogState extends State<CopyBiometricsDialog> {
                               ? Padding(
                                   padding: const EdgeInsets.all(12),
                                   child: Text(tr('Không có nhân viên trên máy này.'),
-                                      style: TextStyle(color: Colors.grey[600])),
+                                      style: TextStyle(color: SboxColors.slate600)),
                                 )
                               : ListView.builder(
                                   shrinkWrap: true,
@@ -459,7 +460,7 @@ class _CopyBiometricsDialogState extends State<CopyBiometricsDialog> {
                                           style: TextStyle(
                                               fontSize: 12,
                                               color: u.fingerprintSyncing
-                                                  ? const Color(0xFFD97706)
+                                                  ? SboxColors.warning
                                                   : null)),
                                     );
                                   },

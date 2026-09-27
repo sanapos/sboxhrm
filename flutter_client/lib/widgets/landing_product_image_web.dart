@@ -1,6 +1,7 @@
 import 'dart:ui_web' as ui_web;
 
 import 'package:flutter/material.dart';
+import '../theme/sbox_tokens.dart';
 import 'package:web/web.dart' as web;
 
 class LandingProductImageImpl extends StatefulWidget {
@@ -50,11 +51,11 @@ class _LandingProductImageImplState extends State<LandingProductImageImpl> {
   Widget build(BuildContext context) {
     if (_failed || widget.imageUrl.trim().isEmpty) {
       return Container(
-        color: const Color(0xFFF3F4F6),
+        color: SboxColors.slate100,
         child: Icon(
           Icons.devices_rounded,
           size: widget.errorIconSize,
-          color: const Color(0xFFD1D5DB),
+          color: SboxColors.slate300,
         ),
       );
     }

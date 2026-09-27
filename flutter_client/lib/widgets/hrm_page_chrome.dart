@@ -8,6 +8,7 @@ import 'pos/pos_hub_scope.dart';
 import 'pos/pos_theme.dart';
 import '../l10n/app_tr.dart';
 
+import '../theme/sbox_tokens.dart';
 /// MainLayout publishes this on the same route as its title/back bar.
 /// [Navigator.push] overlays are not descendants — they must draw their own chrome.
 class HrmShellChrome extends InheritedWidget {
@@ -46,7 +47,7 @@ class HrmPageChrome {
   static const Color chipDark = Color(0xFF003B80);
   static const Color chip = primaryNavy; // #0056B3
   static const Color chipMid = Color(0xFF1A6FD4);
-  static const Color chipLight = Color(0xFF3B8CFF);
+  static const Color chipLight = SboxColors.brand400;
   static const Color chipSoft = Color(0xFF6BA3E8);
   static const Color chipMuted = Color(0xFF8BB4E8);
   static const Color chipBg = PosTheme.kiotBlueLight;
@@ -295,7 +296,7 @@ class HrmPageHero extends StatelessWidget {
                       padding: const EdgeInsets.all(10),
                       decoration: BoxDecoration(
                         color: PosTheme.kiotBlueLight,
-                        borderRadius: BorderRadius.circular(12),
+                        borderRadius: BorderRadius.circular(14),
                       ),
                       child: Icon(icon, color: accent, size: 22),
                     ),
@@ -437,7 +438,7 @@ class HrmFilterBar extends StatelessWidget {
       width: double.infinity,
       margin: margin,
       padding: padding,
-      decoration: PosTheme.mobileCardDecoration(borderColor: const Color(0xFFEEEEF0)),
+      decoration: PosTheme.mobileCardDecoration(borderColor: SboxColors.divider),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         mainAxisSize: MainAxisSize.min,

@@ -8,6 +8,7 @@ import 'package:zkteco_flutter_client/l10n/app_tr.dart';
 
 import 'image_compress.dart';
 
+import '../theme/sbox_tokens.dart';
 class PickedImageResult {
   final Uint8List bytes;
   final String name;
@@ -66,14 +67,14 @@ Future<List<PickedImageResult>?> pickImagesWithCamera(
               height: 4,
               margin: const EdgeInsets.only(bottom: 12),
               decoration: BoxDecoration(
-                color: Colors.grey.shade300,
+                color: SboxColors.slate300,
                 borderRadius: BorderRadius.circular(2),
               ),
             ),
             ListTile(
               leading: const CircleAvatar(
-                backgroundColor: Color(0xFFE3F2FD),
-                child: Icon(Icons.camera_alt, color: Colors.blue),
+                backgroundColor: SboxColors.brand50,
+                child: Icon(Icons.camera_alt, color: SboxColors.brand500),
               ),
               title: Text(tr('Chụp ảnh')),
               subtitle: Text(tr('Sử dụng camera để chụp')),
@@ -81,7 +82,7 @@ Future<List<PickedImageResult>?> pickImagesWithCamera(
             ),
             ListTile(
               leading: const CircleAvatar(
-                backgroundColor: Color(0xFFE8F5E9),
+                backgroundColor: SboxColors.successSoft,
                 child: Icon(Icons.photo_library, color: Colors.green),
               ),
               title: Text(tr('Chọn từ thư viện')),

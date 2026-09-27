@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import '../widgets/hrm_page_chrome.dart';
 import 'package:zkteco_flutter_client/l10n/app_tr.dart';
 
+import '../theme/sbox_tokens.dart';
 /// Banner / empty state khi báo cáo lương không có dữ liệu vì NV chưa thiết lập bảng lương.
 class ReportSalarySetupBanner extends StatelessWidget {
   final int notConfiguredCount;
@@ -26,7 +27,7 @@ class ReportSalarySetupBanner extends StatelessWidget {
         vertical: dense ? 8 : 12,
       ),
       decoration: BoxDecoration(
-        color: const Color(0xFFFFF7ED),
+        color: SboxColors.warningSoft,
         borderRadius: BorderRadius.circular(10),
         border: Border.all(color: const Color(0xFFFDBA74)),
       ),
@@ -99,13 +100,13 @@ class ReportSalarySetupEmptyState extends StatelessWidget {
           mainAxisSize: MainAxisSize.min,
           children: [
             Icon(Icons.account_balance_wallet_outlined,
-                size: 64, color: Colors.grey.shade300),
+                size: 64, color: SboxColors.slate300),
             const SizedBox(height: 16),
             Text(tr('Chưa có dữ liệu tổng hợp lương'),
               style: TextStyle(
                 fontSize: 16,
                 fontWeight: FontWeight.w600,
-                color: Color(0xFF374151),
+                color: SboxColors.slate700,
               ),
               textAlign: TextAlign.center,
             ),
@@ -115,7 +116,7 @@ class ReportSalarySetupEmptyState extends StatelessWidget {
                   ? 'Có $notConfiguredCount nhân viên đang hoạt động nhưng chưa được gán bảng lương. '
                       'Hãy thiết lập lương trước — sau đó báo cáo mới tính được lương và xuất Excel.'
                   : 'Không có nhân viên phù hợp bộ lọc hoặc khoảng thời gian đã chọn.'),
-              style: TextStyle(fontSize: 13, color: Colors.grey.shade600, height: 1.4),
+              style: TextStyle(fontSize: 13, color: SboxColors.slate600, height: 1.4),
               textAlign: TextAlign.center,
             ),
             if (onOpenSalarySettings != null) ...[

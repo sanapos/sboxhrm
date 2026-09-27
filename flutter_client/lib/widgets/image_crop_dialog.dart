@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import 'package:zkteco_flutter_client/widgets/app_responsive_dialog.dart';
 import 'package:zkteco_flutter_client/l10n/app_tr.dart';
 
+import '../theme/sbox_tokens.dart';
 /// Kết quả crop ảnh
 class CropResult {
   final List<int> bytes;
@@ -77,7 +78,7 @@ class _ImageCropDialogState extends State<ImageCropDialog> {
     return ScrollableAlertDialog(
       title: Row(
         children: [
-          const Icon(Icons.crop, color: Colors.blue),
+          const Icon(Icons.crop, color: SboxColors.brand500),
           const SizedBox(width: 8),
           Text(tr(widget.title)),
         ],
@@ -91,18 +92,18 @@ class _ImageCropDialogState extends State<ImageCropDialog> {
             Container(
               padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
               decoration: BoxDecoration(
-                color: Colors.blue.withValues(alpha: 0.1),
-                borderRadius: BorderRadius.circular(8),
+                color: SboxColors.brand500.withValues(alpha: 0.1),
+                borderRadius: BorderRadius.circular(10),
               ),
               child: Row(
                 mainAxisSize: MainAxisSize.min,
                 children: [
-                  const Icon(Icons.aspect_ratio, size: 16, color: Colors.blue),
+                  const Icon(Icons.aspect_ratio, size: 16, color: SboxColors.brand500),
                   const SizedBox(width: 6),
                   Text(
                     tr(_aspectRatioLabel),
                     style: const TextStyle(
-                      color: Colors.blue,
+                      color: SboxColors.brand500,
                       fontWeight: FontWeight.w500,
                       fontSize: 13,
                     ),
@@ -115,12 +116,12 @@ class _ImageCropDialogState extends State<ImageCropDialog> {
             Expanded(
               child: Container(
                 decoration: BoxDecoration(
-                  border: Border.all(color: Colors.grey[300]!),
-                  borderRadius: BorderRadius.circular(8),
-                  color: Colors.grey[100],
+                  border: Border.all(color: SboxColors.slate300),
+                  borderRadius: BorderRadius.circular(10),
+                  color: SboxColors.slate100,
                 ),
                 child: ClipRRect(
-                  borderRadius: BorderRadius.circular(7),
+                  borderRadius: BorderRadius.circular(6),
                   child: InteractiveViewer(
                     minScale: 0.5,
                     maxScale: 3.0,
@@ -146,7 +147,7 @@ class _ImageCropDialogState extends State<ImageCropDialog> {
             ),
             const SizedBox(height: 8),
             Text(tr('Xem trước ảnh sẽ được sử dụng'),
-              style: TextStyle(color: Colors.grey[500], fontSize: 12),
+              style: TextStyle(color: SboxColors.slate500, fontSize: 12),
             ),
           ],
         ),
@@ -169,7 +170,7 @@ class _ImageCropDialogState extends State<ImageCropDialog> {
           icon: const Icon(Icons.check),
           label: Text(tr('Sử dụng ảnh')),
           style: ElevatedButton.styleFrom(
-            backgroundColor: Colors.blue,
+            backgroundColor: SboxColors.brand500,
             foregroundColor: Colors.white,
           ),
         ),

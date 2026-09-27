@@ -9,9 +9,10 @@ import '../pos_mobile_widgets.dart';
 import '../pos_theme.dart';
 import 'package:zkteco_flutter_client/l10n/app_tr.dart';
 
+import '../../../theme/sbox_tokens.dart';
 const _kiotBlue = PosTheme.kiotBlue;
 const _ink = Color(0xFF2B3437);
-const _muted = Color(0xFF586064);
+const _muted = SboxColors.slate600;
 const _hint = Color(0xFF8A9199);
 const _pageBg = Color(0xFFF1F4F6);
 const _rose = Color(0xFFB42318);
@@ -195,7 +196,7 @@ class PosReportMobileScaffold extends StatelessWidget {
                       tr(title),
                       maxLines: 1,
                       style: const TextStyle(
-                        fontSize: 17,
+                        fontSize: 18,
                         fontWeight: FontWeight.w700,
                         color: _ink,
                         letterSpacing: -0.3,
@@ -304,7 +305,7 @@ class PosReportCard extends StatelessWidget {
       decoration: PosTheme.mobileCardDecoration(),
       child: InkWell(
         onTap: onTap,
-        borderRadius: BorderRadius.circular(8),
+        borderRadius: BorderRadius.circular(10),
         child: Padding(
           padding: const EdgeInsets.all(14),
           child: Column(
@@ -376,10 +377,10 @@ class PosReportChipBar extends StatelessWidget {
             color: selected == i
                 ? _kiotBlue.withOpacity(0.12)
                 : const Color(0xFFF3F5F7),
-            borderRadius: BorderRadius.circular(16),
+            borderRadius: BorderRadius.circular(14),
             child: InkWell(
               onTap: () => onSelected(i),
-              borderRadius: BorderRadius.circular(16),
+              borderRadius: BorderRadius.circular(14),
               child: Padding(
                 padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
                 child: Text(
@@ -825,7 +826,7 @@ class PosReportDonut extends StatelessWidget {
                     posReportMoneyOf(total, moneyFmt),
                     maxLines: 1,
                     style: const TextStyle(
-                      fontSize: 15,
+                      fontSize: 16,
                       fontWeight: FontWeight.w700,
                       color: _ink,
                       letterSpacing: -0.2,
@@ -864,12 +865,12 @@ class PosReportMetricTiles extends StatelessWidget {
               color: Colors.transparent,
               child: InkWell(
                 onTap: onTileTap == null ? null : () => onTileTap!(i),
-                borderRadius: BorderRadius.circular(8),
+                borderRadius: BorderRadius.circular(10),
                 child: Container(
               padding: const EdgeInsets.fromLTRB(10, 8, 10, 8),
               decoration: BoxDecoration(
                 color: const Color(0xFFF7F9FB),
-                borderRadius: BorderRadius.circular(8),
+                borderRadius: BorderRadius.circular(10),
                 border: Border(
                   left: BorderSide(color: tiles[i].color, width: 3),
                   top: const BorderSide(color: Color(0xFFE8ECF0)),
@@ -901,7 +902,7 @@ class PosReportMetricTiles extends StatelessWidget {
                         maxLines: 1,
                         softWrap: false,
                         style: const TextStyle(
-                          fontSize: 15,
+                          fontSize: 16,
                           fontWeight: FontWeight.w700,
                           color: _ink,
                           height: 1.15,
@@ -933,7 +934,7 @@ class PosReportBranchFooter extends StatelessWidget {
       padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
       decoration: BoxDecoration(
         color: const Color(0xFFF7F9FB),
-        borderRadius: BorderRadius.circular(8),
+        borderRadius: BorderRadius.circular(10),
         border: Border.all(color: const Color(0xFFE8ECF0)),
       ),
       child: Row(

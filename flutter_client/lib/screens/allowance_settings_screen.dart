@@ -15,6 +15,7 @@ import '../widgets/loading_widget.dart';
 import '../widgets/empty_state.dart';
 import '../widgets/notification_overlay.dart';
 import 'package:zkteco_flutter_client/l10n/app_tr.dart';
+import '../theme/sbox_tokens.dart';
 class AllowanceSettingsScreen extends StatefulWidget {
   const AllowanceSettingsScreen({super.key});
 
@@ -190,7 +191,7 @@ class _AllowanceSettingsScreenState extends State<AllowanceSettingsScreen> {
                 ),
                 PopupMenuButton<String>(
                   tooltip: tr('Thêm thao tác'),
-                  icon: const Icon(Icons.more_vert, color: Color(0xFF71717A)),
+                  icon: const Icon(Icons.more_vert, color: SboxColors.slate500),
                   onSelected: (value) {
                     if (value == 'export') {
                       appNotification.showInfo(
@@ -216,7 +217,7 @@ class _AllowanceSettingsScreenState extends State<AllowanceSettingsScreen> {
                         dense: true,
                         contentPadding: EdgeInsets.zero,
                         leading: Icon(Icons.download,
-                            size: 20, color: Color(0xFFEF4444)),
+                            size: 20, color: SboxColors.danger),
                         title: Text(tr('Xuất dữ liệu')),
                       ),
                     ),
@@ -235,7 +236,7 @@ class _AllowanceSettingsScreenState extends State<AllowanceSettingsScreen> {
                       foregroundColor: HrmPageChrome.primaryNavy,
                       side: const BorderSide(color: HrmPageChrome.primaryNavy),
                       shape: RoundedRectangleBorder(
-                          borderRadius: BorderRadius.circular(8)),
+                          borderRadius: BorderRadius.circular(10)),
                       padding: const EdgeInsets.symmetric(
                           horizontal: 12, vertical: 8),
                     ),
@@ -252,10 +253,10 @@ class _AllowanceSettingsScreenState extends State<AllowanceSettingsScreen> {
                     icon: const Icon(Icons.download, size: 16),
                     label: Text(tr('Xuất')),
                     style: OutlinedButton.styleFrom(
-                      foregroundColor: const Color(0xFFEF4444),
-                      side: const BorderSide(color: Color(0xFFEF4444)),
+                      foregroundColor: SboxColors.danger,
+                      side: const BorderSide(color: SboxColors.danger),
                       shape: RoundedRectangleBorder(
-                          borderRadius: BorderRadius.circular(8)),
+                          borderRadius: BorderRadius.circular(10)),
                       padding: const EdgeInsets.symmetric(
                           horizontal: 12, vertical: 8),
                     ),
@@ -304,7 +305,7 @@ class _AllowanceSettingsScreenState extends State<AllowanceSettingsScreen> {
                       _buildStatCard(Icons.lock, '$_fixedAllowances', 'Cố định',
                           HrmPageChrome.primaryNavy),
                       _buildStatCard(Icons.calendar_today, '$_dailyAllowances',
-                          'Theo ngày', const Color(0xFFF59E0B)),
+                          'Theo ngày', SboxColors.warning),
                     ],
                   ),
                   const SizedBox(height: 16),
@@ -331,7 +332,7 @@ class _AllowanceSettingsScreenState extends State<AllowanceSettingsScreen> {
                       padding: const EdgeInsets.all(16),
                       decoration: BoxDecoration(
                         color: Colors.white,
-                        borderRadius: BorderRadius.circular(12),
+                        borderRadius: BorderRadius.circular(14),
                         boxShadow: [
                           BoxShadow(
                             color: Colors.black.withValues(alpha: 0.05),
@@ -352,35 +353,35 @@ class _AllowanceSettingsScreenState extends State<AllowanceSettingsScreen> {
                                     height: 44,
                                     child: TextField(
                                       style: const TextStyle(
-                                          color: Color(0xFF18181B),
+                                          color: SboxColors.slate900,
                                           fontSize: 14),
                                       decoration: InputDecoration(
                                         hintText: tr('Tìm theo tên phụ cấp...'),
                                         hintStyle: const TextStyle(
-                                            color: Color(0xFFA1A1AA),
+                                            color: SboxColors.slate400,
                                             fontSize: 14),
                                         prefixIcon: const Icon(Icons.search,
-                                            color: Color(0xFFA1A1AA), size: 20),
+                                            color: SboxColors.slate400, size: 20),
                                         contentPadding:
                                             const EdgeInsets.symmetric(
                                                 horizontal: 16, vertical: 10),
                                         filled: true,
-                                        fillColor: const Color(0xFFFAFAFA),
+                                        fillColor: SboxColors.slate50,
                                         border: OutlineInputBorder(
                                           borderRadius:
-                                              BorderRadius.circular(8),
+                                              BorderRadius.circular(10),
                                           borderSide: const BorderSide(
-                                              color: Color(0xFFE4E4E7)),
+                                              color: SboxColors.slate200),
                                         ),
                                         enabledBorder: OutlineInputBorder(
                                           borderRadius:
-                                              BorderRadius.circular(8),
+                                              BorderRadius.circular(10),
                                           borderSide: const BorderSide(
-                                              color: Color(0xFFE4E4E7)),
+                                              color: SboxColors.slate200),
                                         ),
                                         focusedBorder: OutlineInputBorder(
                                           borderRadius:
-                                              BorderRadius.circular(8),
+                                              BorderRadius.circular(10),
                                           borderSide: const BorderSide(
                                               color: HrmPageChrome.primaryNavy),
                                         ),
@@ -402,7 +403,7 @@ class _AllowanceSettingsScreenState extends State<AllowanceSettingsScreen> {
                                       icon:
                                           const Icon(Icons.keyboard_arrow_down),
                                       style: const TextStyle(
-                                          color: Color(0xFF18181B),
+                                          color: SboxColors.slate900,
                                           fontSize: 14),
                                       decoration: InputDecoration(
                                         contentPadding:
@@ -410,19 +411,19 @@ class _AllowanceSettingsScreenState extends State<AllowanceSettingsScreen> {
                                                 horizontal: 12, vertical: 10),
                                         border: OutlineInputBorder(
                                           borderRadius:
-                                              BorderRadius.circular(8),
+                                              BorderRadius.circular(10),
                                           borderSide: const BorderSide(
-                                              color: Color(0xFFE4E4E7)),
+                                              color: SboxColors.slate200),
                                         ),
                                         enabledBorder: OutlineInputBorder(
                                           borderRadius:
-                                              BorderRadius.circular(8),
+                                              BorderRadius.circular(10),
                                           borderSide: const BorderSide(
-                                              color: Color(0xFFE4E4E7)),
+                                              color: SboxColors.slate200),
                                         ),
                                         focusedBorder: OutlineInputBorder(
                                           borderRadius:
-                                              BorderRadius.circular(8),
+                                              BorderRadius.circular(10),
                                           borderSide: const BorderSide(
                                               color: HrmPageChrome.primaryNavy),
                                         ),
@@ -463,13 +464,13 @@ class _AllowanceSettingsScreenState extends State<AllowanceSettingsScreen> {
                                       size: 18),
                                   label: Text(tr('Xóa lọc')),
                                   style: OutlinedButton.styleFrom(
-                                    foregroundColor: const Color(0xFF71717A),
+                                    foregroundColor: SboxColors.slate500,
                                     side: const BorderSide(
-                                        color: Color(0xFFE4E4E7)),
+                                        color: SboxColors.slate200),
                                     padding: const EdgeInsets.symmetric(
                                         horizontal: 16, vertical: 12),
                                     shape: RoundedRectangleBorder(
-                                        borderRadius: BorderRadius.circular(8)),
+                                        borderRadius: BorderRadius.circular(10)),
                                   ),
                                 ),
                               ],
@@ -481,31 +482,31 @@ class _AllowanceSettingsScreenState extends State<AllowanceSettingsScreen> {
                                   height: 44,
                                   child: TextField(
                                     style: const TextStyle(
-                                        color: Color(0xFF18181B), fontSize: 14),
+                                        color: SboxColors.slate900, fontSize: 14),
                                     decoration: InputDecoration(
                                       hintText: tr('Tìm theo tên phụ cấp...'),
                                       hintStyle: const TextStyle(
-                                          color: Color(0xFFA1A1AA),
+                                          color: SboxColors.slate400,
                                           fontSize: 14),
                                       prefixIcon: const Icon(Icons.search,
-                                          color: Color(0xFFA1A1AA), size: 20),
+                                          color: SboxColors.slate400, size: 20),
                                       contentPadding:
                                           const EdgeInsets.symmetric(
                                               horizontal: 16, vertical: 10),
                                       filled: true,
-                                      fillColor: const Color(0xFFFAFAFA),
+                                      fillColor: SboxColors.slate50,
                                       border: OutlineInputBorder(
-                                        borderRadius: BorderRadius.circular(8),
+                                        borderRadius: BorderRadius.circular(10),
                                         borderSide: const BorderSide(
-                                            color: Color(0xFFE4E4E7)),
+                                            color: SboxColors.slate200),
                                       ),
                                       enabledBorder: OutlineInputBorder(
-                                        borderRadius: BorderRadius.circular(8),
+                                        borderRadius: BorderRadius.circular(10),
                                         borderSide: const BorderSide(
-                                            color: Color(0xFFE4E4E7)),
+                                            color: SboxColors.slate200),
                                       ),
                                       focusedBorder: OutlineInputBorder(
-                                        borderRadius: BorderRadius.circular(8),
+                                        borderRadius: BorderRadius.circular(10),
                                         borderSide: const BorderSide(
                                             color: HrmPageChrome.primaryNavy),
                                       ),
@@ -526,7 +527,7 @@ class _AllowanceSettingsScreenState extends State<AllowanceSettingsScreen> {
                                           icon: const Icon(
                                               Icons.keyboard_arrow_down),
                                           style: const TextStyle(
-                                              color: Color(0xFF18181B),
+                                              color: SboxColors.slate900,
                                               fontSize: 14),
                                           decoration: InputDecoration(
                                             contentPadding:
@@ -535,19 +536,19 @@ class _AllowanceSettingsScreenState extends State<AllowanceSettingsScreen> {
                                                     vertical: 10),
                                             border: OutlineInputBorder(
                                               borderRadius:
-                                                  BorderRadius.circular(8),
+                                                  BorderRadius.circular(10),
                                               borderSide: const BorderSide(
-                                                  color: Color(0xFFE4E4E7)),
+                                                  color: SboxColors.slate200),
                                             ),
                                             enabledBorder: OutlineInputBorder(
                                               borderRadius:
-                                                  BorderRadius.circular(8),
+                                                  BorderRadius.circular(10),
                                               borderSide: const BorderSide(
-                                                  color: Color(0xFFE4E4E7)),
+                                                  color: SboxColors.slate200),
                                             ),
                                             focusedBorder: OutlineInputBorder(
                                               borderRadius:
-                                                  BorderRadius.circular(8),
+                                                  BorderRadius.circular(10),
                                               borderSide: const BorderSide(
                                                   color: HrmPageChrome.primaryNavy),
                                             ),
@@ -588,14 +589,14 @@ class _AllowanceSettingsScreenState extends State<AllowanceSettingsScreen> {
                                       label: Text(tr('Xóa lọc')),
                                       style: OutlinedButton.styleFrom(
                                         foregroundColor:
-                                            const Color(0xFF71717A),
+                                            SboxColors.slate500,
                                         side: const BorderSide(
-                                            color: Color(0xFFE4E4E7)),
+                                            color: SboxColors.slate200),
                                         padding: const EdgeInsets.symmetric(
                                             horizontal: 16, vertical: 12),
                                         shape: RoundedRectangleBorder(
                                             borderRadius:
-                                                BorderRadius.circular(8)),
+                                                BorderRadius.circular(10)),
                                       ),
                                     ),
                                   ],
@@ -689,12 +690,12 @@ class _AllowanceSettingsScreenState extends State<AllowanceSettingsScreen> {
 
   Widget _buildAllowanceSearchField() {
     return TextField(
-      style: const TextStyle(color: Color(0xFF18181B), fontSize: 14),
+      style: const TextStyle(color: SboxColors.slate900, fontSize: 14),
       decoration: InputDecoration(
         hintText: tr('Tìm theo tên phụ cấp...'),
-        hintStyle: const TextStyle(color: Color(0xFFA1A1AA), fontSize: 14),
+        hintStyle: const TextStyle(color: SboxColors.slate400, fontSize: 14),
         prefixIcon:
-            const Icon(Icons.search, color: Color(0xFFA1A1AA), size: 20),
+            const Icon(Icons.search, color: SboxColors.slate400, size: 20),
         contentPadding:
             const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
         filled: true,
@@ -702,11 +703,11 @@ class _AllowanceSettingsScreenState extends State<AllowanceSettingsScreen> {
         isDense: true,
         border: OutlineInputBorder(
           borderRadius: BorderRadius.circular(10),
-          borderSide: const BorderSide(color: Color(0xFFE4E4E7)),
+          borderSide: const BorderSide(color: SboxColors.slate200),
         ),
         enabledBorder: OutlineInputBorder(
           borderRadius: BorderRadius.circular(10),
-          borderSide: const BorderSide(color: Color(0xFFE4E4E7)),
+          borderSide: const BorderSide(color: SboxColors.slate200),
         ),
         focusedBorder: OutlineInputBorder(
           borderRadius: BorderRadius.circular(10),
@@ -734,7 +735,7 @@ class _AllowanceSettingsScreenState extends State<AllowanceSettingsScreen> {
       iconColor: meta.color,
       badge: isActive ? 'Bật' : 'Tắt',
       badgeColor:
-          isActive ? const Color(0xFF16A34A) : const Color(0xFF71717A),
+          isActive ? SboxColors.success : SboxColors.slate500,
       onTap: () => _showAllowanceDialog(allowance: allowance),
       onMenuSelected: (v) {
         if (v == 'edit') _showAllowanceDialog(allowance: allowance);
@@ -769,7 +770,7 @@ class _AllowanceSettingsScreenState extends State<AllowanceSettingsScreen> {
       return (
         label: 'Theo ngày',
         icon: Icons.calendar_today_outlined,
-        color: const Color(0xFFF59E0B)
+        color: SboxColors.warning
       );
     }
     if (typeValue == 2) {
@@ -783,7 +784,7 @@ class _AllowanceSettingsScreenState extends State<AllowanceSettingsScreen> {
       return (
         label: 'Theo sự kiện',
         icon: Icons.event,
-        color: const Color(0xFF7C3AED)
+        color: SboxColors.violet
       );
     }
     if (typeValue == 4) {
@@ -804,8 +805,8 @@ class _AllowanceSettingsScreenState extends State<AllowanceSettingsScreen> {
     return Container(
       decoration: BoxDecoration(
         color: Colors.white,
-        borderRadius: BorderRadius.circular(12),
-        border: Border.all(color: const Color(0xFFE4E4E7)),
+        borderRadius: BorderRadius.circular(14),
+        border: Border.all(color: SboxColors.slate200),
       ),
       clipBehavior: Clip.antiAlias,
       child: Column(
@@ -813,7 +814,7 @@ class _AllowanceSettingsScreenState extends State<AllowanceSettingsScreen> {
           _buildAllowanceWebListHeader(),
           for (var i = 0; i < _filteredAllowances.length; i++) ...[
             if (i > 0)
-              const Divider(height: 1, thickness: 1, color: Color(0xFFE4E4E7)),
+              const Divider(height: 1, thickness: 1, color: SboxColors.slate200),
             _buildAllowanceWebRow(_filteredAllowances[i]),
           ],
         ],
@@ -825,12 +826,12 @@ class _AllowanceSettingsScreenState extends State<AllowanceSettingsScreen> {
     TextStyle style = const TextStyle(
       fontSize: 11,
       fontWeight: FontWeight.w600,
-      color: Color(0xFF71717A),
+      color: SboxColors.slate500,
       letterSpacing: 0.2,
     );
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
-      color: const Color(0xFFF8FAFC),
+      color: SboxColors.slate50,
       child: Row(
         children: [
           const SizedBox(width: 48),
@@ -858,7 +859,7 @@ class _AllowanceSettingsScreenState extends State<AllowanceSettingsScreen> {
       color: Colors.white,
       child: InkWell(
         onTap: () => _showAllowanceDialog(allowance: allowance),
-        hoverColor: const Color(0xFFF1F5F9),
+        hoverColor: SboxColors.slate100,
         child: Padding(
           padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
           child: Row(
@@ -870,13 +871,13 @@ class _AllowanceSettingsScreenState extends State<AllowanceSettingsScreen> {
                 decoration: BoxDecoration(
                   color: isActive
                       ? meta.color.withValues(alpha: 0.12)
-                      : const Color(0xFFF1F5F9),
-                  borderRadius: BorderRadius.circular(8),
+                      : SboxColors.slate100,
+                  borderRadius: BorderRadius.circular(10),
                 ),
                 child: Icon(
                   meta.icon,
                   size: 20,
-                  color: isActive ? meta.color : const Color(0xFFA1A1AA),
+                  color: isActive ? meta.color : SboxColors.slate400,
                 ),
               ),
               const SizedBox(width: 12),
@@ -891,8 +892,8 @@ class _AllowanceSettingsScreenState extends State<AllowanceSettingsScreen> {
                         fontSize: 14,
                         fontWeight: FontWeight.w600,
                         color: isActive
-                            ? const Color(0xFF18181B)
-                            : const Color(0xFF71717A),
+                            ? SboxColors.slate900
+                            : SboxColors.slate500,
                       ),
                       maxLines: 1,
                       overflow: TextOverflow.ellipsis,
@@ -903,7 +904,7 @@ class _AllowanceSettingsScreenState extends State<AllowanceSettingsScreen> {
                           ? '$code · $empLabel${_parseType(allowance['type']) == 4 ? ' · ${_shiftNamesLabel(allowance)}' : ''}'
                           : '$empLabel${_parseType(allowance['type']) == 4 ? ' · ${_shiftNamesLabel(allowance)}' : ''}'),
                       style: const TextStyle(
-                          fontSize: 11, color: Color(0xFF71717A)),
+                          fontSize: 11, color: SboxColors.slate500),
                       maxLines: 1,
                       overflow: TextOverflow.ellipsis,
                     ),
@@ -937,7 +938,7 @@ class _AllowanceSettingsScreenState extends State<AllowanceSettingsScreen> {
                   style: const TextStyle(
                     fontSize: 13,
                     fontWeight: FontWeight.w700,
-                    color: Color(0xFF18181B),
+                    color: SboxColors.slate900,
                   ),
                   maxLines: 1,
                   overflow: TextOverflow.ellipsis,
@@ -952,8 +953,8 @@ class _AllowanceSettingsScreenState extends State<AllowanceSettingsScreen> {
                         const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
                     decoration: BoxDecoration(
                       color: isActive
-                          ? const Color(0xFFDCFCE7)
-                          : const Color(0xFFF1F5F9),
+                          ? SboxColors.successSoft
+                          : SboxColors.slate100,
                       borderRadius: BorderRadius.circular(4),
                     ),
                     child: Text(
@@ -962,8 +963,8 @@ class _AllowanceSettingsScreenState extends State<AllowanceSettingsScreen> {
                         fontSize: 11,
                         fontWeight: FontWeight.w600,
                         color: isActive
-                            ? const Color(0xFF16A34A)
-                            : const Color(0xFF71717A),
+                            ? SboxColors.success
+                            : SboxColors.slate500,
                       ),
                     ),
                   ),
@@ -990,7 +991,7 @@ class _AllowanceSettingsScreenState extends State<AllowanceSettingsScreen> {
                         tooltip: tr('Xóa'),
                         onPressed: () => _deleteAllowance(allowance),
                         icon: const Icon(Icons.delete_outline, size: 18),
-                        color: const Color(0xFFEF4444),
+                        color: SboxColors.danger,
                         visualDensity: VisualDensity.compact,
                         constraints:
                             const BoxConstraints(minWidth: 36, minHeight: 36),
@@ -1019,8 +1020,8 @@ class _AllowanceSettingsScreenState extends State<AllowanceSettingsScreen> {
       elevation: 1,
       color: Colors.white,
       shape: RoundedRectangleBorder(
-        borderRadius: BorderRadius.circular(12),
-        side: const BorderSide(color: Color(0xFFE4E4E7)),
+        borderRadius: BorderRadius.circular(14),
+        side: const BorderSide(color: SboxColors.slate200),
       ),
       clipBehavior: Clip.antiAlias,
       child: InkWell(
@@ -1039,12 +1040,12 @@ class _AllowanceSettingsScreenState extends State<AllowanceSettingsScreen> {
                 decoration: BoxDecoration(
                   color: isActive
                       ? typeColor.withValues(alpha: 0.12)
-                      : const Color(0xFFA1A1AA).withValues(alpha: 0.1),
+                      : SboxColors.slate400.withValues(alpha: 0.1),
                   borderRadius: BorderRadius.circular(10),
                 ),
                 child: Icon(
                   typeIcon,
-                  color: isActive ? typeColor : const Color(0xFFA1A1AA),
+                  color: isActive ? typeColor : SboxColors.slate400,
                   size: 22,
                 ),
               ),
@@ -1059,9 +1060,9 @@ class _AllowanceSettingsScreenState extends State<AllowanceSettingsScreen> {
                           child: Text(
                             tr(allowance['name'] ?? ''),
                             style: const TextStyle(
-                                fontSize: 15,
+                                fontSize: 16,
                                 fontWeight: FontWeight.w600,
-                                color: Color(0xFF18181B)),
+                                color: SboxColors.slate900),
                             maxLines: 1,
                             overflow: TextOverflow.ellipsis,
                           ),
@@ -1072,16 +1073,16 @@ class _AllowanceSettingsScreenState extends State<AllowanceSettingsScreen> {
                               horizontal: 6, vertical: 2),
                           decoration: BoxDecoration(
                             color: isActive
-                                ? const Color(0xFFDCFCE7)
-                                : const Color(0xFFF1F5F9),
+                                ? SboxColors.successSoft
+                                : SboxColors.slate100,
                             borderRadius: BorderRadius.circular(4),
                           ),
                           child: Text(
                             tr(isActive ? 'Bật' : 'Tắt'),
                             style: TextStyle(
                                 color: isActive
-                                    ? const Color(0xFF16A34A)
-                                    : const Color(0xFF71717A),
+                                    ? SboxColors.success
+                                    : SboxColors.slate500,
                                 fontSize: 10,
                                 fontWeight: FontWeight.w600),
                           ),
@@ -1102,14 +1103,14 @@ class _AllowanceSettingsScreenState extends State<AllowanceSettingsScreen> {
                         ),
                         const SizedBox(width: 8),
                         const Icon(Icons.payments_outlined,
-                            size: 12, color: Color(0xFF71717A)),
+                            size: 12, color: SboxColors.slate500),
                         const SizedBox(width: 3),
                         Flexible(
                           child: Text(tr('${_currencyFormat.format(amount)}đ'),
                             style: const TextStyle(
                                 fontSize: 12,
                                 fontWeight: FontWeight.w600,
-                                color: Color(0xFF18181B)),
+                                color: SboxColors.slate900),
                             maxLines: 1,
                             overflow: TextOverflow.ellipsis,
                           ),
@@ -1120,26 +1121,26 @@ class _AllowanceSettingsScreenState extends State<AllowanceSettingsScreen> {
                     Row(
                       children: [
                         Icon(Icons.people_outline,
-                            size: 11, color: Colors.grey[500]),
+                            size: 11, color: SboxColors.slate500),
                         const SizedBox(width: 3),
                         Text(
                           tr(empIds.isEmpty
                               ? 'Tất cả nhân viên'
                               : '${empIds.length} nhân viên'),
                           style:
-                              TextStyle(fontSize: 11, color: Colors.grey[600]),
+                              TextStyle(fontSize: 11, color: SboxColors.slate600),
                         ),
                         if (allowance['code'] != null &&
                             allowance['code'].toString().isNotEmpty) ...[
                           const SizedBox(width: 8),
-                          Text(tr('·'), style: TextStyle(color: Colors.grey[400])),
+                          Text(tr('·'), style: TextStyle(color: SboxColors.slate400)),
                           const SizedBox(width: 8),
                           Flexible(
                             child: Text(
                               tr(allowance['code'].toString()),
                               style: TextStyle(
                                   fontSize: 11,
-                                  color: Colors.grey[600],
+                                  color: SboxColors.slate600,
                                   fontFamily: 'monospace'),
                               maxLines: 1,
                               overflow: TextOverflow.ellipsis,
@@ -1185,9 +1186,9 @@ class _AllowanceSettingsScreenState extends State<AllowanceSettingsScreen> {
                               label: Text(tr('Xoá'),
                                   style: TextStyle(fontSize: 12)),
                               style: OutlinedButton.styleFrom(
-                                foregroundColor: const Color(0xFFEF4444),
+                                foregroundColor: SboxColors.danger,
                                 side: const BorderSide(
-                                    color: Color(0xFFEF4444)),
+                                    color: SboxColors.danger),
                                 padding: const EdgeInsets.symmetric(
                                     vertical: 6, horizontal: 12),
                                 minimumSize: const Size(0, 32),
@@ -1235,7 +1236,7 @@ class _AllowanceSettingsScreenState extends State<AllowanceSettingsScreen> {
     return Container(
       decoration: BoxDecoration(
         color: Colors.white,
-        borderRadius: BorderRadius.circular(16),
+        borderRadius: BorderRadius.circular(14),
         boxShadow: [
           BoxShadow(
             color: Colors.black.withValues(alpha: 0.05),
@@ -1244,7 +1245,7 @@ class _AllowanceSettingsScreenState extends State<AllowanceSettingsScreen> {
           ),
         ],
         border: !isActive
-            ? Border.all(color: const Color(0xFFE4E4E7), width: 1)
+            ? Border.all(color: SboxColors.slate200, width: 1)
             : null,
       ),
       child: Opacity(
@@ -1262,14 +1263,14 @@ class _AllowanceSettingsScreenState extends State<AllowanceSettingsScreen> {
                     decoration: BoxDecoration(
                       color: isActive
                           ? HrmPageChrome.primaryNavy.withValues(alpha: 0.1)
-                          : const Color(0xFFA1A1AA).withValues(alpha: 0.1),
+                          : SboxColors.slate400.withValues(alpha: 0.1),
                       borderRadius: BorderRadius.circular(10),
                     ),
                     child: Icon(
                       Icons.receipt_long,
                       color: isActive
                           ? HrmPageChrome.primaryNavy
-                          : const Color(0xFFA1A1AA),
+                          : SboxColors.slate400,
                       size: 22,
                     ),
                   ),
@@ -1284,7 +1285,7 @@ class _AllowanceSettingsScreenState extends State<AllowanceSettingsScreen> {
                               child: Text(
                                 tr(allowance['name'] ?? ''),
                                 style: const TextStyle(
-                                  color: Color(0xFF18181B),
+                                  color: SboxColors.slate900,
                                   fontSize: 16,
                                   fontWeight: FontWeight.bold,
                                 ),
@@ -1296,16 +1297,16 @@ class _AllowanceSettingsScreenState extends State<AllowanceSettingsScreen> {
                                   horizontal: 6, vertical: 2),
                               decoration: BoxDecoration(
                                 color: isActive
-                                    ? const Color(0xFFDCFCE7)
-                                    : const Color(0xFFF1F5F9),
+                                    ? SboxColors.successSoft
+                                    : SboxColors.slate100,
                                 borderRadius: BorderRadius.circular(4),
                               ),
                               child: Text(
                                 tr(isActive ? 'Đang bật' : 'Đã tắt'),
                                 style: TextStyle(
                                   color: isActive
-                                      ? const Color(0xFF16A34A)
-                                      : const Color(0xFF71717A),
+                                      ? SboxColors.success
+                                      : SboxColors.slate500,
                                   fontSize: 10,
                                   fontWeight: FontWeight.w500,
                                 ),
@@ -1347,7 +1348,7 @@ class _AllowanceSettingsScreenState extends State<AllowanceSettingsScreen> {
                   Icon(
                     typeIcon,
                     size: 14,
-                    color: const Color(0xFF71717A),
+                    color: SboxColors.slate500,
                   ),
                   const SizedBox(width: 4),
                   Text(
@@ -1355,17 +1356,17 @@ class _AllowanceSettingsScreenState extends State<AllowanceSettingsScreen> {
                         ? '$typeLabel · ${_shiftNamesLabel(allowance)}'
                         : typeLabel),
                     style: const TextStyle(
-                      color: Color(0xFF71717A),
+                      color: SboxColors.slate500,
                       fontSize: 12,
                     ),
                   ),
                   const Spacer(),
-                  Icon(Icons.people, size: 13, color: Colors.grey[400]),
+                  Icon(Icons.people, size: 13, color: SboxColors.slate400),
                   const SizedBox(width: 3),
                   Text(
                     tr(empIds.isEmpty ? 'Tất cả' : '${empIds.length} NV'),
                     style:
-                        const TextStyle(color: Color(0xFF71717A), fontSize: 11),
+                        const TextStyle(color: SboxColors.slate500, fontSize: 11),
                   ),
                 ],
               ),
@@ -1378,7 +1379,7 @@ class _AllowanceSettingsScreenState extends State<AllowanceSettingsScreen> {
                   style: TextStyle(
                     color: isActive
                         ? HrmPageChrome.primaryNavy
-                        : const Color(0xFFA1A1AA),
+                        : SboxColors.slate400,
                     fontSize: 22,
                     fontWeight: FontWeight.bold,
                   ),
@@ -1391,7 +1392,7 @@ class _AllowanceSettingsScreenState extends State<AllowanceSettingsScreen> {
               padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
               decoration: const BoxDecoration(
                 border: Border(
-                  top: BorderSide(color: Color(0xFFE4E4E7)),
+                  top: BorderSide(color: SboxColors.slate200),
                 ),
               ),
               child: Row(
@@ -1402,14 +1403,14 @@ class _AllowanceSettingsScreenState extends State<AllowanceSettingsScreen> {
                       onPressed: () =>
                           _showAllowanceDialog(allowance: allowance),
                       icon: const Icon(Icons.edit_outlined, size: 20),
-                      color: const Color(0xFF71717A),
+                      color: SboxColors.slate500,
                       tooltip: tr('Sửa'),
                     ),
                   if (_perm.canDelete('Allowance'))
                     IconButton(
                       onPressed: () => _deleteAllowance(allowance),
                       icon: const Icon(Icons.delete_outline, size: 20),
-                      color: const Color(0xFF71717A),
+                      color: SboxColors.slate500,
                       tooltip: tr('Xóa'),
                     ),
                 ],
@@ -1544,7 +1545,7 @@ class _AllowanceSettingsScreenState extends State<AllowanceSettingsScreen> {
                 style: TextStyle(
                   color: isActive
                       ? HrmPageChrome.primaryNavy
-                      : const Color(0xFFA1A1AA),
+                      : SboxColors.slate400,
                   fontSize: 12,
                   fontWeight: FontWeight.w500,
                 ),
@@ -1574,34 +1575,34 @@ class _AllowanceSettingsScreenState extends State<AllowanceSettingsScreen> {
                           children: [
                             Text(tr('Tên phụ cấp'),
                                 style: TextStyle(
-                                    color: Color(0xFF71717A), fontSize: 13)),
+                                    color: SboxColors.slate500, fontSize: 13)),
                             Text(tr(' *'),
-                                style: TextStyle(color: Color(0xFFEF4444))),
+                                style: TextStyle(color: SboxColors.danger)),
                           ],
                         ),
                         const SizedBox(height: 6),
                         TextField(
                           controller: nameController,
                           style: const TextStyle(
-                              color: Color(0xFF18181B), fontSize: 14),
+                              color: SboxColors.slate900, fontSize: 14),
                           decoration: InputDecoration(
                             hintText: tr('Vd: Phụ cấp ăn trưa'),
                             hintStyle: const TextStyle(
-                                color: Color(0xFFA1A1AA), fontSize: 13),
+                                color: SboxColors.slate400, fontSize: 13),
                             contentPadding: const EdgeInsets.symmetric(
                                 horizontal: 12, vertical: 12),
                             border: OutlineInputBorder(
-                              borderRadius: BorderRadius.circular(8),
+                              borderRadius: BorderRadius.circular(10),
                               borderSide:
-                                  const BorderSide(color: Color(0xFFE4E4E7)),
+                                  const BorderSide(color: SboxColors.slate200),
                             ),
                             enabledBorder: OutlineInputBorder(
-                              borderRadius: BorderRadius.circular(8),
+                              borderRadius: BorderRadius.circular(10),
                               borderSide:
-                                  const BorderSide(color: Color(0xFFE4E4E7)),
+                                  const BorderSide(color: SboxColors.slate200),
                             ),
                             focusedBorder: OutlineInputBorder(
-                              borderRadius: BorderRadius.circular(8),
+                              borderRadius: BorderRadius.circular(10),
                               borderSide:
                                   const BorderSide(color: HrmPageChrome.primaryNavy),
                             ),
@@ -1617,30 +1618,30 @@ class _AllowanceSettingsScreenState extends State<AllowanceSettingsScreen> {
                       children: [
                         Text(tr('Mã phụ cấp'),
                             style: TextStyle(
-                                color: Color(0xFF71717A), fontSize: 13)),
+                                color: SboxColors.slate500, fontSize: 13)),
                         const SizedBox(height: 6),
                         TextField(
                           controller: codeController,
                           style: const TextStyle(
-                              color: Color(0xFF18181B), fontSize: 14),
+                              color: SboxColors.slate900, fontSize: 14),
                           decoration: InputDecoration(
                             hintText: tr('Vd: PC_AT'),
                             hintStyle: const TextStyle(
-                                color: Color(0xFFA1A1AA), fontSize: 13),
+                                color: SboxColors.slate400, fontSize: 13),
                             contentPadding: const EdgeInsets.symmetric(
                                 horizontal: 12, vertical: 12),
                             border: OutlineInputBorder(
-                              borderRadius: BorderRadius.circular(8),
+                              borderRadius: BorderRadius.circular(10),
                               borderSide:
-                                  const BorderSide(color: Color(0xFFE4E4E7)),
+                                  const BorderSide(color: SboxColors.slate200),
                             ),
                             enabledBorder: OutlineInputBorder(
-                              borderRadius: BorderRadius.circular(8),
+                              borderRadius: BorderRadius.circular(10),
                               borderSide:
-                                  const BorderSide(color: Color(0xFFE4E4E7)),
+                                  const BorderSide(color: SboxColors.slate200),
                             ),
                             focusedBorder: OutlineInputBorder(
-                              borderRadius: BorderRadius.circular(8),
+                              borderRadius: BorderRadius.circular(10),
                               borderSide:
                                   const BorderSide(color: HrmPageChrome.primaryNavy),
                             ),
@@ -1665,9 +1666,9 @@ class _AllowanceSettingsScreenState extends State<AllowanceSettingsScreen> {
                           children: [
                             Text(tr('Loại phụ cấp'),
                                 style: TextStyle(
-                                    color: Color(0xFF71717A), fontSize: 13)),
+                                    color: SboxColors.slate500, fontSize: 13)),
                             Text(tr(' *'),
-                                style: TextStyle(color: Color(0xFFEF4444))),
+                                style: TextStyle(color: SboxColors.danger)),
                           ],
                         ),
                         const SizedBox(height: 6),
@@ -1676,17 +1677,17 @@ class _AllowanceSettingsScreenState extends State<AllowanceSettingsScreen> {
                             contentPadding: const EdgeInsets.symmetric(
                                 horizontal: 12, vertical: 6),
                             border: OutlineInputBorder(
-                              borderRadius: BorderRadius.circular(8),
+                              borderRadius: BorderRadius.circular(10),
                               borderSide:
-                                  const BorderSide(color: Color(0xFFE4E4E7)),
+                                  const BorderSide(color: SboxColors.slate200),
                             ),
                             enabledBorder: OutlineInputBorder(
-                              borderRadius: BorderRadius.circular(8),
+                              borderRadius: BorderRadius.circular(10),
                               borderSide:
-                                  const BorderSide(color: Color(0xFFE4E4E7)),
+                                  const BorderSide(color: SboxColors.slate200),
                             ),
                             focusedBorder: OutlineInputBorder(
-                              borderRadius: BorderRadius.circular(8),
+                              borderRadius: BorderRadius.circular(10),
                               borderSide:
                                   const BorderSide(color: HrmPageChrome.primaryNavy),
                             ),
@@ -1697,7 +1698,7 @@ class _AllowanceSettingsScreenState extends State<AllowanceSettingsScreen> {
                               value: type,
                               dropdownColor: Colors.white,
                               style: const TextStyle(
-                                  color: Color(0xFF18181B), fontSize: 14),
+                                  color: SboxColors.slate900, fontSize: 14),
                               items: [
                                 DropdownMenuItem(
                                     value: 0,
@@ -1727,9 +1728,9 @@ class _AllowanceSettingsScreenState extends State<AllowanceSettingsScreen> {
                           children: [
                             Text(tr('Giá trị (VNĐ)'),
                                 style: TextStyle(
-                                    color: Color(0xFF71717A), fontSize: 13)),
+                                    color: SboxColors.slate500, fontSize: 13)),
                             Text(tr(' *'),
-                                style: TextStyle(color: Color(0xFFEF4444))),
+                                style: TextStyle(color: SboxColors.danger)),
                           ],
                         ),
                         const SizedBox(height: 6),
@@ -1738,25 +1739,25 @@ class _AllowanceSettingsScreenState extends State<AllowanceSettingsScreen> {
                           keyboardType: TextInputType.number,
                           inputFormatters: [ThousandSeparatorFormatter()],
                           style: const TextStyle(
-                              color: Color(0xFF18181B), fontSize: 14),
+                              color: SboxColors.slate900, fontSize: 14),
                           decoration: InputDecoration(
                             hintText: tr('Vd: 500000'),
                             hintStyle: const TextStyle(
-                                color: Color(0xFFA1A1AA), fontSize: 13),
+                                color: SboxColors.slate400, fontSize: 13),
                             contentPadding: const EdgeInsets.symmetric(
                                 horizontal: 12, vertical: 12),
                             border: OutlineInputBorder(
-                              borderRadius: BorderRadius.circular(8),
+                              borderRadius: BorderRadius.circular(10),
                               borderSide:
-                                  const BorderSide(color: Color(0xFFE4E4E7)),
+                                  const BorderSide(color: SboxColors.slate200),
                             ),
                             enabledBorder: OutlineInputBorder(
-                              borderRadius: BorderRadius.circular(8),
+                              borderRadius: BorderRadius.circular(10),
                               borderSide:
-                                  const BorderSide(color: Color(0xFFE4E4E7)),
+                                  const BorderSide(color: SboxColors.slate200),
                             ),
                             focusedBorder: OutlineInputBorder(
-                              borderRadius: BorderRadius.circular(8),
+                              borderRadius: BorderRadius.circular(10),
                               borderSide:
                                   const BorderSide(color: HrmPageChrome.primaryNavy),
                             ),
@@ -1771,13 +1772,13 @@ class _AllowanceSettingsScreenState extends State<AllowanceSettingsScreen> {
                 const SizedBox(height: 8),
                 Text(
                   tr('Chọn ca được hưởng. Mỗi ca một mức. Lương kỳ = mức × số lần chấm đủ ca đó.'),
-                  style: const TextStyle(color: Color(0xFF71717A), fontSize: 12),
+                  style: const TextStyle(color: SboxColors.slate500, fontSize: 12),
                 ),
                 const SizedBox(height: 8),
                 if (_shifts.isEmpty)
                   Text(
                     tr('Chưa có ca. Tạo ca ở Thiết lập ca trước.'),
-                    style: const TextStyle(color: Color(0xFFEF4444), fontSize: 12),
+                    style: const TextStyle(color: SboxColors.danger, fontSize: 12),
                   )
                 else
                   Wrap(
@@ -1818,7 +1819,7 @@ class _AllowanceSettingsScreenState extends State<AllowanceSettingsScreen> {
                       children: [
                         Text(tr('Ngày bắt đầu'),
                             style: TextStyle(
-                                color: Color(0xFF71717A), fontSize: 13)),
+                                color: SboxColors.slate500, fontSize: 13)),
                         const SizedBox(height: 6),
                         InkWell(
                           onTap: () async {
@@ -1837,13 +1838,13 @@ class _AllowanceSettingsScreenState extends State<AllowanceSettingsScreen> {
                                 horizontal: 12, vertical: 14),
                             decoration: BoxDecoration(
                               border:
-                                  Border.all(color: const Color(0xFFE4E4E7)),
-                              borderRadius: BorderRadius.circular(8),
+                                  Border.all(color: SboxColors.slate200),
+                              borderRadius: BorderRadius.circular(10),
                             ),
                             child: Row(
                               children: [
                                 const Icon(Icons.calendar_today,
-                                    size: 16, color: Color(0xFF71717A)),
+                                    size: 16, color: SboxColors.slate500),
                                 const SizedBox(width: 8),
                                 Text(
                                   tr(startDate != null
@@ -1852,8 +1853,8 @@ class _AllowanceSettingsScreenState extends State<AllowanceSettingsScreen> {
                                       : 'Không giới hạn'),
                                   style: TextStyle(
                                     color: startDate != null
-                                        ? const Color(0xFF18181B)
-                                        : const Color(0xFFA1A1AA),
+                                        ? SboxColors.slate900
+                                        : SboxColors.slate400,
                                     fontSize: 14,
                                   ),
                                 ),
@@ -1863,7 +1864,7 @@ class _AllowanceSettingsScreenState extends State<AllowanceSettingsScreen> {
                                     onTap: () =>
                                         setDialogState(() => startDate = null),
                                     child: const Icon(Icons.close,
-                                        size: 16, color: Color(0xFFA1A1AA)),
+                                        size: 16, color: SboxColors.slate400),
                                   ),
                               ],
                             ),
@@ -1879,7 +1880,7 @@ class _AllowanceSettingsScreenState extends State<AllowanceSettingsScreen> {
                       children: [
                         Text(tr('Ngày kết thúc'),
                             style: TextStyle(
-                                color: Color(0xFF71717A), fontSize: 13)),
+                                color: SboxColors.slate500, fontSize: 13)),
                         const SizedBox(height: 6),
                         InkWell(
                           onTap: () async {
@@ -1899,13 +1900,13 @@ class _AllowanceSettingsScreenState extends State<AllowanceSettingsScreen> {
                                 horizontal: 12, vertical: 14),
                             decoration: BoxDecoration(
                               border:
-                                  Border.all(color: const Color(0xFFE4E4E7)),
-                              borderRadius: BorderRadius.circular(8),
+                                  Border.all(color: SboxColors.slate200),
+                              borderRadius: BorderRadius.circular(10),
                             ),
                             child: Row(
                               children: [
                                 const Icon(Icons.calendar_today,
-                                    size: 16, color: Color(0xFF71717A)),
+                                    size: 16, color: SboxColors.slate500),
                                 const SizedBox(width: 8),
                                 Text(
                                   tr(endDate != null
@@ -1914,8 +1915,8 @@ class _AllowanceSettingsScreenState extends State<AllowanceSettingsScreen> {
                                       : 'Không giới hạn'),
                                   style: TextStyle(
                                     color: endDate != null
-                                        ? const Color(0xFF18181B)
-                                        : const Color(0xFFA1A1AA),
+                                        ? SboxColors.slate900
+                                        : SboxColors.slate400,
                                     fontSize: 14,
                                   ),
                                 ),
@@ -1925,7 +1926,7 @@ class _AllowanceSettingsScreenState extends State<AllowanceSettingsScreen> {
                                     onTap: () =>
                                         setDialogState(() => endDate = null),
                                     child: const Icon(Icons.close,
-                                        size: 16, color: Color(0xFFA1A1AA)),
+                                        size: 16, color: SboxColors.slate400),
                                   ),
                               ],
                             ),
@@ -1943,29 +1944,29 @@ class _AllowanceSettingsScreenState extends State<AllowanceSettingsScreen> {
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
                   Text(tr('Mô tả'),
-                      style: TextStyle(color: Color(0xFF71717A), fontSize: 13)),
+                      style: TextStyle(color: SboxColors.slate500, fontSize: 13)),
                   const SizedBox(height: 6),
                   TextField(
                     controller: descriptionController,
                     maxLines: 2,
                     style:
-                        const TextStyle(color: Color(0xFF18181B), fontSize: 14),
+                        const TextStyle(color: SboxColors.slate900, fontSize: 14),
                     decoration: InputDecoration(
                       hintText: tr('Ghi chú về phụ cấp này...'),
                       hintStyle: const TextStyle(
-                          color: Color(0xFFA1A1AA), fontSize: 13),
+                          color: SboxColors.slate400, fontSize: 13),
                       contentPadding: const EdgeInsets.symmetric(
                           horizontal: 12, vertical: 12),
                       border: OutlineInputBorder(
-                        borderRadius: BorderRadius.circular(8),
-                        borderSide: const BorderSide(color: Color(0xFFE4E4E7)),
+                        borderRadius: BorderRadius.circular(10),
+                        borderSide: const BorderSide(color: SboxColors.slate200),
                       ),
                       enabledBorder: OutlineInputBorder(
-                        borderRadius: BorderRadius.circular(8),
-                        borderSide: const BorderSide(color: Color(0xFFE4E4E7)),
+                        borderRadius: BorderRadius.circular(10),
+                        borderSide: const BorderSide(color: SboxColors.slate200),
                       ),
                       focusedBorder: OutlineInputBorder(
-                        borderRadius: BorderRadius.circular(8),
+                        borderRadius: BorderRadius.circular(10),
                         borderSide: const BorderSide(color: HrmPageChrome.primaryNavy),
                       ),
                     ),
@@ -1978,8 +1979,8 @@ class _AllowanceSettingsScreenState extends State<AllowanceSettingsScreen> {
               Container(
                 padding: const EdgeInsets.all(12),
                 decoration: BoxDecoration(
-                  color: const Color(0xFFFAFAFA),
-                  borderRadius: BorderRadius.circular(8),
+                  color: SboxColors.slate50,
+                  borderRadius: BorderRadius.circular(10),
                 ),
                 child: Row(
                   children: [
@@ -1991,23 +1992,23 @@ class _AllowanceSettingsScreenState extends State<AllowanceSettingsScreen> {
                     ),
                     Text(tr('Tính thuế TNCN'),
                         style:
-                            TextStyle(color: Color(0xFF18181B), fontSize: 14)),
+                            TextStyle(color: SboxColors.slate900, fontSize: 14)),
                     const Spacer(),
                     Container(
                       padding: const EdgeInsets.symmetric(
                           horizontal: 8, vertical: 4),
                       decoration: BoxDecoration(
                         color: isTaxable
-                            ? const Color(0xFFFEF3C7)
-                            : const Color(0xFFDCFCE7),
+                            ? SboxColors.warningSoft
+                            : SboxColors.successSoft,
                         borderRadius: BorderRadius.circular(4),
                       ),
                       child: Text(
                         tr(isTaxable ? 'Có thuế' : 'Miễn thuế'),
                         style: TextStyle(
                           color: isTaxable
-                              ? const Color(0xFFD97706)
-                              : const Color(0xFF16A34A),
+                              ? SboxColors.warning
+                              : SboxColors.success,
                           fontSize: 11,
                           fontWeight: FontWeight.w500,
                         ),
@@ -2022,8 +2023,8 @@ class _AllowanceSettingsScreenState extends State<AllowanceSettingsScreen> {
               Container(
                 padding: const EdgeInsets.all(12),
                 decoration: BoxDecoration(
-                  color: const Color(0xFFFAFAFA),
-                  borderRadius: BorderRadius.circular(8),
+                  color: SboxColors.slate50,
+                  borderRadius: BorderRadius.circular(10),
                 ),
                 child: Row(
                   children: [
@@ -2035,23 +2036,23 @@ class _AllowanceSettingsScreenState extends State<AllowanceSettingsScreen> {
                     ),
                     Text(tr('Tính bảo hiểm'),
                         style:
-                            TextStyle(color: Color(0xFF18181B), fontSize: 14)),
+                            TextStyle(color: SboxColors.slate900, fontSize: 14)),
                     const Spacer(),
                     Container(
                       padding: const EdgeInsets.symmetric(
                           horizontal: 8, vertical: 4),
                       decoration: BoxDecoration(
                         color: isInsuranceApplicable
-                            ? const Color(0xFFFEF3C7)
-                            : const Color(0xFFDCFCE7),
+                            ? SboxColors.warningSoft
+                            : SboxColors.successSoft,
                         borderRadius: BorderRadius.circular(4),
                       ),
                       child: Text(
                         tr(isInsuranceApplicable ? 'Có BH' : 'Miễn BH'),
                         style: TextStyle(
                           color: isInsuranceApplicable
-                              ? const Color(0xFFD97706)
-                              : const Color(0xFF16A34A),
+                              ? SboxColors.warning
+                              : SboxColors.success,
                           fontSize: 11,
                           fontWeight: FontWeight.w500,
                         ),
@@ -2066,8 +2067,8 @@ class _AllowanceSettingsScreenState extends State<AllowanceSettingsScreen> {
               Container(
                 padding: const EdgeInsets.all(12),
                 decoration: BoxDecoration(
-                  border: Border.all(color: const Color(0xFFE4E4E7)),
-                  borderRadius: BorderRadius.circular(8),
+                  border: Border.all(color: SboxColors.slate200),
+                  borderRadius: BorderRadius.circular(10),
                 ),
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
@@ -2075,11 +2076,11 @@ class _AllowanceSettingsScreenState extends State<AllowanceSettingsScreen> {
                     Row(
                       children: [
                         const Icon(Icons.people,
-                            size: 18, color: Color(0xFF71717A)),
+                            size: 18, color: SboxColors.slate500),
                         const SizedBox(width: 8),
                         Text(tr('Áp dụng cho'),
                             style: TextStyle(
-                                color: Color(0xFF18181B),
+                                color: SboxColors.slate900,
                                 fontSize: 14,
                                 fontWeight: FontWeight.w500)),
                         const Spacer(),
@@ -2088,7 +2089,7 @@ class _AllowanceSettingsScreenState extends State<AllowanceSettingsScreen> {
                               horizontal: 8, vertical: 4),
                           decoration: BoxDecoration(
                             color: selectedEmployeeIds.isEmpty
-                                ? const Color(0xFFDCFCE7)
+                                ? SboxColors.successSoft
                                 : const Color(0xFFE0E7FF),
                             borderRadius: BorderRadius.circular(4),
                           ),
@@ -2098,7 +2099,7 @@ class _AllowanceSettingsScreenState extends State<AllowanceSettingsScreen> {
                                 : '${selectedEmployeeIds.length} nhân viên'),
                             style: TextStyle(
                               color: selectedEmployeeIds.isEmpty
-                                  ? const Color(0xFF16A34A)
+                                  ? SboxColors.success
                                   : HrmPageChrome.primaryNavy,
                               fontSize: 11,
                               fontWeight: FontWeight.w500,
@@ -2113,7 +2114,7 @@ class _AllowanceSettingsScreenState extends State<AllowanceSettingsScreen> {
                           ? 'Phụ cấp này sẽ áp dụng cho tất cả nhân viên trong công ty'
                           : 'Đã chọn ${selectedEmployeeIds.length} nhân viên cụ thể'),
                       style: const TextStyle(
-                          color: Color(0xFF71717A), fontSize: 12),
+                          color: SboxColors.slate500, fontSize: 12),
                     ),
                     const SizedBox(height: 8),
                     OutlinedButton.icon(
@@ -2171,7 +2172,7 @@ class _AllowanceSettingsScreenState extends State<AllowanceSettingsScreen> {
           return Dialog(
             backgroundColor: Colors.white,
             shape:
-                RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+                RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
             insetPadding:
                 const EdgeInsets.symmetric(horizontal: 40, vertical: 24),
             child: Container(
@@ -2186,7 +2187,7 @@ class _AllowanceSettingsScreenState extends State<AllowanceSettingsScreen> {
                     padding: const EdgeInsets.fromLTRB(20, 16, 12, 12),
                     decoration: const BoxDecoration(
                       border:
-                          Border(bottom: BorderSide(color: Color(0xFFE4E4E7))),
+                          Border(bottom: BorderSide(color: SboxColors.slate200)),
                     ),
                     child: Row(
                       children: [
@@ -2197,14 +2198,14 @@ class _AllowanceSettingsScreenState extends State<AllowanceSettingsScreen> {
                             style: const TextStyle(
                                 fontSize: 18,
                                 fontWeight: FontWeight.bold,
-                                color: Color(0xFF18181B))),
+                                color: SboxColors.slate900)),
                         const Spacer(),
                         activeSwitch,
                         const SizedBox(width: 8),
                         IconButton(
                           onPressed: () => Navigator.pop(context),
                           icon:
-                              const Icon(Icons.close, color: Color(0xFF71717A)),
+                              const Icon(Icons.close, color: SboxColors.slate500),
                         ),
                       ],
                     ),
@@ -2220,7 +2221,7 @@ class _AllowanceSettingsScreenState extends State<AllowanceSettingsScreen> {
                   Container(
                     padding: const EdgeInsets.all(20),
                     decoration: const BoxDecoration(
-                      border: Border(top: BorderSide(color: Color(0xFFE4E4E7))),
+                      border: Border(top: BorderSide(color: SboxColors.slate200)),
                     ),
                     child: Row(
                       mainAxisAlignment: MainAxisAlignment.end,
@@ -2228,12 +2229,12 @@ class _AllowanceSettingsScreenState extends State<AllowanceSettingsScreen> {
                         OutlinedButton(
                           onPressed: () => Navigator.pop(context),
                           style: OutlinedButton.styleFrom(
-                            foregroundColor: const Color(0xFF71717A),
-                            side: const BorderSide(color: Color(0xFFE4E4E7)),
+                            foregroundColor: SboxColors.slate500,
+                            side: const BorderSide(color: SboxColors.slate200),
                             padding: const EdgeInsets.symmetric(
                                 horizontal: 24, vertical: 12),
                             shape: RoundedRectangleBorder(
-                                borderRadius: BorderRadius.circular(8)),
+                                borderRadius: BorderRadius.circular(10)),
                           ),
                           child: Text(tr('Hủy')),
                         ),
@@ -2293,24 +2294,24 @@ class _AllowanceSettingsScreenState extends State<AllowanceSettingsScreen> {
           final searchField = Padding(
             padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
             child: TextField(
-              style: const TextStyle(fontSize: 13, color: Color(0xFF18181B)),
+              style: const TextStyle(fontSize: 13, color: SboxColors.slate900),
               decoration: InputDecoration(
                 hintText: tr('Tìm nhân viên...'),
                 hintStyle:
-                    const TextStyle(color: Color(0xFFA1A1AA), fontSize: 13),
+                    const TextStyle(color: SboxColors.slate400, fontSize: 13),
                 prefixIcon: const Icon(Icons.search,
-                    size: 18, color: Color(0xFFA1A1AA)),
+                    size: 18, color: SboxColors.slate400),
                 isDense: true,
                 contentPadding:
                     const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
                 border: OutlineInputBorder(
-                    borderRadius: BorderRadius.circular(8),
-                    borderSide: const BorderSide(color: Color(0xFFE4E4E7))),
+                    borderRadius: BorderRadius.circular(10),
+                    borderSide: const BorderSide(color: SboxColors.slate200)),
                 enabledBorder: OutlineInputBorder(
-                    borderRadius: BorderRadius.circular(8),
-                    borderSide: const BorderSide(color: Color(0xFFE4E4E7))),
+                    borderRadius: BorderRadius.circular(10),
+                    borderSide: const BorderSide(color: SboxColors.slate200)),
                 focusedBorder: OutlineInputBorder(
-                    borderRadius: BorderRadius.circular(8),
+                    borderRadius: BorderRadius.circular(10),
                     borderSide: const BorderSide(color: HrmPageChrome.primaryNavy)),
               ),
               onChanged: (v) => setDialogState(() => searchText = v),
@@ -2330,7 +2331,7 @@ class _AllowanceSettingsScreenState extends State<AllowanceSettingsScreen> {
             },
             child: Container(
               padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
-              color: const Color(0xFFFAFAFA),
+              color: SboxColors.slate50,
               child: Row(
                 children: [
                   Icon(
@@ -2352,7 +2353,7 @@ class _AllowanceSettingsScreenState extends State<AllowanceSettingsScreen> {
             child: ListView.separated(
               itemCount: filtered.length,
               separatorBuilder: (_, __) =>
-                  const Divider(height: 24, color: Color(0xFFE4E4E7)),
+                  const Divider(height: 24, color: SboxColors.slate200),
               itemBuilder: (_, i) {
                 final emp = filtered[i];
                 final id = emp['id'].toString();
@@ -2360,9 +2361,9 @@ class _AllowanceSettingsScreenState extends State<AllowanceSettingsScreen> {
                 final colors = [
                   HrmPageChrome.primaryNavy,
                   HrmPageChrome.primaryNavy,
-                  const Color(0xFFF59E0B),
+                  SboxColors.warning,
                   HrmPageChrome.primaryNavy,
-                  const Color(0xFFEF4444)
+                  SboxColors.danger
                 ];
                 final color = colors[i % colors.length];
                 return InkWell(
@@ -2387,7 +2388,7 @@ class _AllowanceSettingsScreenState extends State<AllowanceSettingsScreen> {
                             size: 20,
                             color: checked
                                 ? HrmPageChrome.primaryNavy
-                                : Colors.grey[400]),
+                                : SboxColors.slate400),
                         const SizedBox(width: 10),
                         CircleAvatar(
                           radius: 14,
@@ -2408,10 +2409,10 @@ class _AllowanceSettingsScreenState extends State<AllowanceSettingsScreen> {
                                   style: const TextStyle(
                                       fontSize: 13,
                                       fontWeight: FontWeight.w500,
-                                      color: Color(0xFF18181B))),
+                                      color: SboxColors.slate900)),
                               Text(tr(emp['employeeCode'] ?? ''),
                                   style: const TextStyle(
-                                      fontSize: 11, color: Color(0xFF71717A))),
+                                      fontSize: 11, color: SboxColors.slate500)),
                             ],
                           ),
                         ),
@@ -2455,7 +2456,7 @@ class _AllowanceSettingsScreenState extends State<AllowanceSettingsScreen> {
             insetPadding:
                 const EdgeInsets.symmetric(horizontal: 40, vertical: 24),
             shape:
-                RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+                RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
             child: SizedBox(
               width: math.min(450, MediaQuery.of(ctx).size.width - 32),
               height: 550,
@@ -2465,7 +2466,7 @@ class _AllowanceSettingsScreenState extends State<AllowanceSettingsScreen> {
                     padding: const EdgeInsets.fromLTRB(20, 16, 12, 12),
                     decoration: const BoxDecoration(
                         border: Border(
-                            bottom: BorderSide(color: Color(0xFFE4E4E7)))),
+                            bottom: BorderSide(color: SboxColors.slate200))),
                     child: Row(
                       children: [
                         const Icon(Icons.people,
@@ -2476,11 +2477,11 @@ class _AllowanceSettingsScreenState extends State<AllowanceSettingsScreen> {
                                 style: TextStyle(
                                     fontSize: 16,
                                     fontWeight: FontWeight.bold,
-                                    color: Color(0xFF18181B)))),
+                                    color: SboxColors.slate900))),
                         IconButton(
                             onPressed: () => Navigator.pop(ctx),
                             icon: const Icon(Icons.close,
-                                color: Color(0xFF71717A), size: 20)),
+                                color: SboxColors.slate500, size: 20)),
                       ],
                     ),
                   ),
@@ -2492,7 +2493,7 @@ class _AllowanceSettingsScreenState extends State<AllowanceSettingsScreen> {
                     padding: const EdgeInsets.all(16),
                     decoration: const BoxDecoration(
                         border:
-                            Border(top: BorderSide(color: Color(0xFFE4E4E7)))),
+                            Border(top: BorderSide(color: SboxColors.slate200))),
                     child: Row(
                       mainAxisAlignment: MainAxisAlignment.end,
                       children: [
@@ -2502,10 +2503,10 @@ class _AllowanceSettingsScreenState extends State<AllowanceSettingsScreen> {
                             Navigator.pop(ctx);
                           },
                           style: OutlinedButton.styleFrom(
-                            foregroundColor: const Color(0xFF71717A),
-                            side: const BorderSide(color: Color(0xFFE4E4E7)),
+                            foregroundColor: SboxColors.slate500,
+                            side: const BorderSide(color: SboxColors.slate200),
                             shape: RoundedRectangleBorder(
-                                borderRadius: BorderRadius.circular(8)),
+                                borderRadius: BorderRadius.circular(10)),
                           ),
                           child: Text(tr('Tất cả NV')),
                         ),
@@ -2513,10 +2514,10 @@ class _AllowanceSettingsScreenState extends State<AllowanceSettingsScreen> {
                         OutlinedButton(
                           onPressed: () => Navigator.pop(ctx),
                           style: OutlinedButton.styleFrom(
-                            foregroundColor: const Color(0xFF71717A),
-                            side: const BorderSide(color: Color(0xFFE4E4E7)),
+                            foregroundColor: SboxColors.slate500,
+                            side: const BorderSide(color: SboxColors.slate200),
                             shape: RoundedRectangleBorder(
-                                borderRadius: BorderRadius.circular(8)),
+                                borderRadius: BorderRadius.circular(10)),
                           ),
                           child: Text(tr('Hủy')),
                         ),
@@ -2545,18 +2546,18 @@ class _AllowanceSettingsScreenState extends State<AllowanceSettingsScreen> {
       context: context,
       builder: (context) => ScrollableAlertDialog(
         backgroundColor: Colors.white,
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
         title: Text(tr('Xác nhận xóa'),
             style: TextStyle(
-                color: Color(0xFF18181B), fontWeight: FontWeight.bold)),
+                color: SboxColors.slate900, fontWeight: FontWeight.bold)),
         content: Text(tr('${tr('Bạn có chắc muốn xóa phụ cấp "')}${allowance['name']}"?'),
-          style: const TextStyle(color: Color(0xFF71717A)),
+          style: const TextStyle(color: SboxColors.slate500),
         ),
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(context),
             child:
-                Text(tr('Hủy'), style: TextStyle(color: Color(0xFF71717A))),
+                Text(tr('Hủy'), style: TextStyle(color: SboxColors.slate500)),
           ),
           FilledButton(
             onPressed: () async {
@@ -2585,7 +2586,7 @@ class _AllowanceSettingsScreenState extends State<AllowanceSettingsScreen> {
               }
             },
             style: FilledButton.styleFrom(
-              backgroundColor: const Color(0xFFEF4444),
+              backgroundColor: SboxColors.danger,
             ),
             child: Text(tr('Xóa')),
           ),

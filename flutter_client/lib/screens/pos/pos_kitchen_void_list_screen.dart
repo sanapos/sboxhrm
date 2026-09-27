@@ -8,6 +8,7 @@ import '../../services/api_service.dart';
 import '../../widgets/pos/pos_theme.dart';
 import 'package:zkteco_flutter_client/l10n/app_tr.dart';
 
+import '../../theme/sbox_tokens.dart';
 /// Danh sách phiếu hủy món đã báo bếp — đối soát / chống gian lận sau tạm tính.
 class PosKitchenVoidListScreen extends StatefulWidget {
   const PosKitchenVoidListScreen({super.key});
@@ -138,7 +139,7 @@ class _PosKitchenVoidListScreenState extends State<PosKitchenVoidListScreen> {
       appBar: AppBar(
         title: Text(tr('Phiếu hủy bếp')),
         backgroundColor: Colors.white,
-        foregroundColor: Colors.black87,
+        foregroundColor: SboxColors.text,
         elevation: 0.5,
         actions: [
           IconButton(onPressed: _load, icon: const Icon(Icons.refresh)),
@@ -286,7 +287,7 @@ class _PosKitchenVoidListScreenState extends State<PosKitchenVoidListScreen> {
                                     side: BorderSide(
                                       color: after
                                           ? const Color(0xFFFECACA)
-                                          : const Color(0xFFE5E7EB),
+                                          : SboxColors.slate200,
                                     ),
                                   ),
                                   title: Text(

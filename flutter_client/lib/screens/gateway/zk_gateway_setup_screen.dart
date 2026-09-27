@@ -13,6 +13,7 @@ import '../../widgets/notification_overlay.dart';
 import 'zk_gateway_user_errors.dart';
 import 'zk_gateway_widgets.dart';
 
+import '../../theme/sbox_tokens.dart';
 /// Trình hướng dẫn thêm gateway mới, theo lối các app thiết bị thông minh:
 /// nối điện thoại vào sóng của thiết bị -> chọn WiFi nhà -> chờ nó lên mạng.
 ///
@@ -114,7 +115,7 @@ class _ZkGatewaySetupScreenState extends State<ZkGatewaySetupScreen> {
         content: SingleChildScrollView(
           child: Text(
             tr(mapped.message),
-            style: const TextStyle(fontSize: 13.5, height: 1.45),
+            style: const TextStyle(fontSize: 14, height: 1.45),
           ),
         ),
         actions: [
@@ -452,7 +453,7 @@ class _ZkGatewaySetupScreenState extends State<ZkGatewaySetupScreen> {
           style: const TextStyle(
             color: HrmPageChrome.textDark,
             fontWeight: FontWeight.w700,
-            fontSize: 17,
+            fontSize: 18,
           ),
         ),
         iconTheme: const IconThemeData(color: HrmPageChrome.textDark),
@@ -489,7 +490,7 @@ class _ZkGatewaySetupScreenState extends State<ZkGatewaySetupScreen> {
           final active = i == _step;
           final color = done || active
               ? HrmPageChrome.primaryNavy
-              : const Color(0xFFCBD5E1);
+              : SboxColors.slate300;
           return Expanded(
             child: Column(
               children: [
@@ -527,7 +528,7 @@ class _ZkGatewaySetupScreenState extends State<ZkGatewaySetupScreen> {
                         height: 3,
                         color: i == labels.length - 1
                             ? Colors.transparent
-                            : (i < _step ? HrmPageChrome.primaryNavy : const Color(0xFFCBD5E1)),
+                            : (i < _step ? HrmPageChrome.primaryNavy : SboxColors.slate300),
                       ),
                     ),
                   ],
@@ -537,7 +538,7 @@ class _ZkGatewaySetupScreenState extends State<ZkGatewaySetupScreen> {
                   tr(labels[i]),
                   textAlign: TextAlign.center,
                   style: TextStyle(
-                    fontSize: 10.5,
+                    fontSize: 11,
                     fontWeight: active ? FontWeight.w700 : FontWeight.w500,
                     color: active ? HrmPageChrome.primaryNavy : HrmPageChrome.textMuted,
                   ),
@@ -557,7 +558,7 @@ class _ZkGatewaySetupScreenState extends State<ZkGatewaySetupScreen> {
       decoration: BoxDecoration(
         color: Colors.white,
         borderRadius: BorderRadius.circular(14),
-        border: Border.all(color: const Color(0xFFE2E8F0)),
+        border: Border.all(color: SboxColors.slate200),
       ),
       child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: children),
     );
@@ -569,7 +570,7 @@ class _ZkGatewaySetupScreenState extends State<ZkGatewaySetupScreen> {
           tr(text),
           style: const TextStyle(
             fontSize: 16,
-            fontWeight: FontWeight.w800,
+            fontWeight: FontWeight.w700,
             color: HrmPageChrome.textDark,
           ),
         ),
@@ -590,7 +591,7 @@ class _ZkGatewaySetupScreenState extends State<ZkGatewaySetupScreen> {
             : Icon(icon ?? Icons.arrow_forward, size: 18),
         label: Text(
           tr(label),
-          style: const TextStyle(fontWeight: FontWeight.w700, fontSize: 14.5),
+          style: const TextStyle(fontWeight: FontWeight.w700, fontSize: 14),
         ),
         style: ElevatedButton.styleFrom(
           backgroundColor: HrmPageChrome.primaryNavy,
@@ -619,8 +620,8 @@ class _ZkGatewaySetupScreenState extends State<ZkGatewaySetupScreen> {
               child: Text(
                 '$n',
                 style: const TextStyle(
-                  fontSize: 11.5,
-                  fontWeight: FontWeight.w800,
+                  fontSize: 12,
+                  fontWeight: FontWeight.w700,
                   color: HrmPageChrome.primaryNavy,
                 ),
               ),
@@ -631,7 +632,7 @@ class _ZkGatewaySetupScreenState extends State<ZkGatewaySetupScreen> {
             child: Text(
               tr(text),
               style: const TextStyle(
-                fontSize: 13.5,
+                fontSize: 14,
                 height: 1.5,
                 color: HrmPageChrome.textDark,
               ),
@@ -652,7 +653,7 @@ class _ZkGatewaySetupScreenState extends State<ZkGatewaySetupScreen> {
                 'công. Nó đọc dữ liệu chấm công qua cổng 4370 rồi đẩy lên máy chủ, '
                 'nhờ đó máy cũ không có chức năng máy chủ đám mây vẫn đồng bộ được.'),
             style: const TextStyle(
-              fontSize: 13.5,
+              fontSize: 14,
               height: 1.55,
               color: HrmPageChrome.textDark,
             ),
@@ -713,7 +714,7 @@ class _ZkGatewaySetupScreenState extends State<ZkGatewaySetupScreen> {
               tr('Giữ điện thoại trên WiFi nhà. Cấp nguồn mạch — tên BLE giống '
                   'SBOX-Gateway-XXXX.'),
               style: const TextStyle(
-                fontSize: 13.5,
+                fontSize: 14,
                 height: 1.45,
                 color: HrmPageChrome.textDark,
               ),
@@ -798,7 +799,7 @@ class _ZkGatewaySetupScreenState extends State<ZkGatewaySetupScreen> {
             text: 'Điện thoại có thể báo "mạng này không có Internet" - đúng là '
                 'như vậy, hãy chọn giữ kết nối.',
             icon: Icons.warning_amber_rounded,
-            color: Color(0xFFF59E0B),
+            color: SboxColors.warning,
           ),
         ]),
         const SizedBox(height: 14),
@@ -831,7 +832,7 @@ class _ZkGatewaySetupScreenState extends State<ZkGatewaySetupScreen> {
           _card(children: [
             Row(
               children: [
-                const Icon(Icons.check_circle, color: Color(0xFF16A34A), size: 20),
+                const Icon(Icons.check_circle, color: SboxColors.success, size: 20),
                 const SizedBox(width: 9),
                 Expanded(
                   child: Text(
@@ -841,7 +842,7 @@ class _ZkGatewaySetupScreenState extends State<ZkGatewaySetupScreen> {
                           : 'Đã thấy gateway${_probed!.version.isNotEmpty ? ' (${_probed!.version})' : ''}',
                     ),
                     style: const TextStyle(
-                      fontSize: 13.5,
+                      fontSize: 14,
                       fontWeight: FontWeight.w700,
                       color: HrmPageChrome.textDark,
                     ),
@@ -860,7 +861,7 @@ class _ZkGatewaySetupScreenState extends State<ZkGatewaySetupScreen> {
                 tr('Nhập SSID 2.4GHz (đã gợi ý từ WiFi điện thoại nếu có). '
                     'Nút quét WiFi chỉ dùng khi cấu hình SoftAP.'),
                 style: const TextStyle(
-                  fontSize: 12.5,
+                  fontSize: 13,
                   height: 1.4,
                   color: HrmPageChrome.textMuted,
                 ),
@@ -899,9 +900,9 @@ class _ZkGatewaySetupScreenState extends State<ZkGatewaySetupScreen> {
             Container(
               constraints: const BoxConstraints(maxHeight: 280),
               decoration: BoxDecoration(
-                color: const Color(0xFFF8FAFC),
-                borderRadius: BorderRadius.circular(12),
-                border: Border.all(color: const Color(0xFFE2E8F0)),
+                color: SboxColors.slate50,
+                borderRadius: BorderRadius.circular(14),
+                border: Border.all(color: SboxColors.slate200),
               ),
               clipBehavior: Clip.antiAlias,
               child: ListView.separated(
@@ -909,7 +910,7 @@ class _ZkGatewaySetupScreenState extends State<ZkGatewaySetupScreen> {
                 padding: EdgeInsets.zero,
                 itemCount: _aps.length,
                 separatorBuilder: (_, __) =>
-                    const Divider(height: 1, color: Color(0xFFE2E8F0)),
+                    const Divider(height: 1, color: SboxColors.slate200),
                 itemBuilder: (_, i) {
                   final ap = _aps[i];
                   final selected = ap.ssid == _ssidCtrl.text.trim();
@@ -942,7 +943,7 @@ class _ZkGatewaySetupScreenState extends State<ZkGatewaySetupScreen> {
                                     style: TextStyle(
                                       fontSize: 14,
                                       fontWeight: selected
-                                          ? FontWeight.w800
+                                          ? FontWeight.w700
                                           : FontWeight.w600,
                                       color: HrmPageChrome.textDark,
                                     ),
@@ -951,7 +952,7 @@ class _ZkGatewaySetupScreenState extends State<ZkGatewaySetupScreen> {
                                   Text(
                                     tr('${ap.rssi} dBm · ${ap.secure ? 'có mật khẩu' : 'mở'}'),
                                     style: const TextStyle(
-                                      fontSize: 11.5,
+                                      fontSize: 12,
                                       color: HrmPageChrome.textMuted,
                                     ),
                                   ),
@@ -967,7 +968,7 @@ class _ZkGatewaySetupScreenState extends State<ZkGatewaySetupScreen> {
                               size: 18,
                               color: selected
                                   ? HrmPageChrome.primaryNavy
-                                  : const Color(0xFF94A3B8),
+                                  : SboxColors.slate400,
                             ),
                           ],
                         ),
@@ -1080,7 +1081,7 @@ class _ZkGatewaySetupScreenState extends State<ZkGatewaySetupScreen> {
         Text(
           tr(label),
           style: const TextStyle(
-            fontSize: 12.5,
+            fontSize: 13,
             fontWeight: FontWeight.w600,
             color: HrmPageChrome.textMuted,
           ),
@@ -1093,17 +1094,17 @@ class _ZkGatewaySetupScreenState extends State<ZkGatewaySetupScreen> {
           style: const TextStyle(fontSize: 14),
           decoration: InputDecoration(
             hintText: hint == null ? null : tr(hint),
-            hintStyle: const TextStyle(fontSize: 13, color: Color(0xFF94A3B8)),
+            hintStyle: const TextStyle(fontSize: 13, color: SboxColors.slate400),
             isDense: true,
             contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 13),
             suffixIcon: suffix,
             border: OutlineInputBorder(
               borderRadius: BorderRadius.circular(10),
-              borderSide: const BorderSide(color: Color(0xFFE2E8F0)),
+              borderSide: const BorderSide(color: SboxColors.slate200),
             ),
             enabledBorder: OutlineInputBorder(
               borderRadius: BorderRadius.circular(10),
-              borderSide: const BorderSide(color: Color(0xFFE2E8F0)),
+              borderSide: const BorderSide(color: SboxColors.slate200),
             ),
             focusedBorder: OutlineInputBorder(
               borderRadius: BorderRadius.circular(10),
@@ -1126,10 +1127,10 @@ class _ZkGatewaySetupScreenState extends State<ZkGatewaySetupScreen> {
                   width: 44,
                   height: 44,
                   decoration: BoxDecoration(
-                    color: const Color(0xFF16A34A).withValues(alpha: 0.12),
+                    color: SboxColors.success.withValues(alpha: 0.12),
                     shape: BoxShape.circle,
                   ),
-                  child: const Icon(Icons.check, color: Color(0xFF16A34A)),
+                  child: const Icon(Icons.check, color: SboxColors.success),
                 ),
                 const SizedBox(width: 13),
                 Expanded(
@@ -1137,7 +1138,7 @@ class _ZkGatewaySetupScreenState extends State<ZkGatewaySetupScreen> {
                     tr('Gateway đã lên mạng'),
                     style: const TextStyle(
                       fontSize: 16,
-                      fontWeight: FontWeight.w800,
+                      fontWeight: FontWeight.w700,
                       color: HrmPageChrome.textDark,
                     ),
                   ),
@@ -1177,7 +1178,7 @@ class _ZkGatewaySetupScreenState extends State<ZkGatewaySetupScreen> {
                 height: 22,
                 child: _busy
                     ? const CircularProgressIndicator(strokeWidth: 2.4)
-                    : const Icon(Icons.info_outline, color: Color(0xFFF59E0B)),
+                    : const Icon(Icons.info_outline, color: SboxColors.warning),
               ),
               const SizedBox(width: 13),
               Expanded(
@@ -1185,7 +1186,7 @@ class _ZkGatewaySetupScreenState extends State<ZkGatewaySetupScreen> {
                   tr(_busy ? 'Đang thiết lập' : 'Chưa hoàn tất'),
                   style: const TextStyle(
                     fontSize: 16,
-                    fontWeight: FontWeight.w800,
+                    fontWeight: FontWeight.w700,
                     color: HrmPageChrome.textDark,
                   ),
                 ),
@@ -1197,7 +1198,7 @@ class _ZkGatewaySetupScreenState extends State<ZkGatewaySetupScreen> {
             Text(
               _waitMessage!,
               style: const TextStyle(
-                fontSize: 13.5,
+                fontSize: 14,
                 height: 1.55,
                 color: HrmPageChrome.textDark,
               ),
@@ -1209,7 +1210,7 @@ class _ZkGatewaySetupScreenState extends State<ZkGatewaySetupScreen> {
               text: 'Kiểm tra: điện thoại đã về WiFi nhà chưa, mật khẩu WiFi có '
                   'đúng không, và mạng đó có phát 2.4GHz không.',
               icon: Icons.help_outline,
-              color: Color(0xFFF59E0B),
+              color: SboxColors.warning,
             ),
           ],
         ]),

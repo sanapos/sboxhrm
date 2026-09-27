@@ -6,6 +6,7 @@ import 'landing_industry_guide.dart';
 
 import 'device_setup_guide.dart';
 
+import '../theme/sbox_tokens.dart';
 /// Kết quả tìm kiếm một mục hướng dẫn.
 class LandingGuideSearchHit {
   const LandingGuideSearchHit({
@@ -660,7 +661,7 @@ class LandingUsageGuide {
       ],
       tip:
           'Tuần đầu ưu tiên nhân sự → ca → chấm công → lương. POS và KPI làm sau khi chấm công đã ổn.',
-      accent: Color(0xFF0C56D0),
+      accent: SboxColors.brand600,
     ),
     const LandingUsageGuideStep(
       id: 'register',
@@ -679,7 +680,7 @@ class LandingUsageGuide {
       ],
       tip:
           'Dùng email và SĐT thật để nhận hỗ trợ kích hoạt và khôi phục tài khoản nhanh. Hotline: 0973 024 042.',
-      accent: Color(0xFF0C56D0),
+      accent: SboxColors.brand600,
     ),
     const LandingUsageGuideStep(
       id: 'org_structure',
@@ -754,7 +755,7 @@ class LandingUsageGuide {
       ],
       tip:
           'Cửa hàng chỉ chấm 1 lần/ngày trên máy: chọn «Chấm vào (đủ ca…)». Chi tiết các mode xem tab Nâng cao → Kiểu chấm công.',
-      accent: Color(0xFF1565C0),
+      accent: SboxColors.brand600,
     ),
     const LandingUsageGuideStep(
       id: 'work_schedule_basic',
@@ -809,7 +810,7 @@ class LandingUsageGuide {
       ],
       tip:
           'Nếu log hiện PIN lạ: kiểm tra mã trên máy và mã trong hồ sơ có trùng không.',
-      accent: Color(0xFF2E7D32),
+      accent: SboxColors.successText,
     ),
     const LandingUsageGuideStep(
       id: 'mobile_attendance',
@@ -845,7 +846,7 @@ class LandingUsageGuide {
       ],
       tip:
           'Admin cửa hàng giữ quyền đầy đủ; kế toán cần xem lương/báo cáo; NV thường chỉ cần chấm công, phép, phiếu lương.',
-      accent: Color(0xFF1565C0),
+      accent: SboxColors.brand600,
     ),
     const LandingUsageGuideStep(
       id: 'penalty_ticket',
@@ -955,7 +956,7 @@ class LandingUsageGuide {
       ],
       tip:
           'Số liệu lệch: kiểm tra kiểu chấm công + lịch ca + ân hạn trước khi sửa tay. Báo cáo bán hàng nằm ở tab POS.',
-      accent: Color(0xFF1976D2),
+      accent: SboxColors.brand600,
     ),
     const LandingUsageGuideStep(
       id: 'daily_ops',
@@ -1019,7 +1020,7 @@ class LandingUsageGuide {
       ],
       tip:
           'Quán/cửa hàng chỉ chấm 1 lần trên máy (toàn bộ log là CheckIn): chọn «Chấm vào (đủ ca…)».',
-      accent: Color(0xFF0C56D0),
+      accent: SboxColors.brand600,
     ),
     LandingUsageGuideStep(
       id: 'work_schedule',
@@ -1114,7 +1115,7 @@ class LandingUsageGuide {
         'Dùng kết quả để tạo Phiếu thưởng hoặc đánh giá',
       ],
       tip: 'Gắn KPI rõ ràng với phiếu thưởng để tránh thưởng tay trùng với KPI.',
-      accent: Color(0xFF059669),
+      accent: SboxColors.success,
     ),
     LandingUsageGuideStep(
       id: 'bonus',
@@ -1160,7 +1161,7 @@ class LandingUsageGuide {
         'Đối soát sản lượng trước khi chốt kỳ',
       ],
       tip: 'Khai báo đơn giá trước khi nhập sản lượng hàng loạt.',
-      accent: Color(0xFF059669),
+      accent: SboxColors.success,
     ),
     LandingUsageGuideStep(
       id: 'asset',
@@ -1176,7 +1177,7 @@ class LandingUsageGuide {
         'Báo cáo → Báo cáo tài sản',
       ],
       tip: 'Ghi hạn bảo hành để nhận nhắc trước khi hết hạn.',
-      accent: Color(0xFF334155),
+      accent: SboxColors.slate700,
     ),
     LandingUsageGuideStep(
       id: 'field_checkin',
@@ -1252,7 +1253,7 @@ class LandingUsageGuide {
         'NV xem tại Tổng quan hoặc mục Truyền thông',
       ],
       tip: 'Thông báo đổi ca, chính sách phạt, lịch lễ qua Truyền thông để có dấu vết.',
-      accent: Color(0xFF059669),
+      accent: SboxColors.success,
     ),
     LandingUsageGuideStep(
       id: 'feedback',
@@ -1267,7 +1268,7 @@ class LandingUsageGuide {
         'Theo dõi chờ xử lý / đã xử lý',
       ],
       tip: 'Bật góp ý ẩn danh nếu muốn nhận phản hồi trung thực hơn.',
-      accent: Color(0xFF0C56D0),
+      accent: SboxColors.brand600,
     ),
     LandingUsageGuideStep(
       id: 'notifications',
@@ -1428,7 +1429,7 @@ class LandingUsageGuide {
         'Cài đặt ngành hàng: bật/tắt điểm, hạn mức nợ nếu cửa hàng dùng',
       ],
       tip: 'Không gắn khách thì đơn vẫn bán được — nhưng không tích điểm / không lên công nợ.',
-      accent: Color(0xFF1565C0),
+      accent: SboxColors.brand600,
     ),
     LandingUsageGuideStep(
       id: 'pos_inventory',
@@ -1481,7 +1482,7 @@ class LandingUsageGuide {
       ],
       tip:
           'Không thấy một thẻ báo cáo: thiếu quyền module PosReport… — tick trong Phân quyền / gói dịch vụ.',
-      accent: Color(0xFF1976D2),
+      accent: SboxColors.brand600,
     ),
     LandingUsageGuideStep(
       id: 'pos_eod',

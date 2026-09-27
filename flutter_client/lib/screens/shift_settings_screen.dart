@@ -20,6 +20,7 @@ import '../widgets/loading_widget.dart';
 import '../widgets/pos/pos_theme.dart';
 import '../widgets/notification_overlay.dart';
 import 'package:zkteco_flutter_client/l10n/app_tr.dart';
+import '../theme/sbox_tokens.dart';
 class ShiftSettingsScreen extends StatefulWidget {
   const ShiftSettingsScreen({super.key});
 
@@ -45,10 +46,10 @@ class _ShiftSettingsScreenState extends State<ShiftSettingsScreen> {
   final int _shiftPageSize = 50;
 
   static const _primaryColor = HrmPageChrome.primaryNavy;
-  static const _bgColor = Color(0xFFFAFAFA);
-  static const _borderColor = Color(0xFFE4E4E7);
-  static const _textDark = Color(0xFF18181B);
-  static const _textMuted = Color(0xFF71717A);
+  static const _bgColor = SboxColors.slate50;
+  static const _borderColor = SboxColors.slate200;
+  static const _textDark = SboxColors.slate900;
+  static const _textMuted = SboxColors.slate500;
 
   final List<Color> _badgeColors = [
     ...HrmPageChrome.chipShades,
@@ -313,8 +314,8 @@ class _ShiftSettingsScreenState extends State<ShiftSettingsScreen> {
     return TextField(
       decoration: InputDecoration(
         hintText: tr('Tìm theo tên ca...'),
-        hintStyle: TextStyle(color: Colors.grey[400], fontSize: 13),
-        prefixIcon: Icon(Icons.search, color: Colors.grey[400], size: 20),
+        hintStyle: TextStyle(color: SboxColors.slate400, fontSize: 13),
+        prefixIcon: Icon(Icons.search, color: SboxColors.slate400, size: 20),
         suffixIcon: _searchQuery.isNotEmpty
             ? IconButton(
                 icon: const Icon(Icons.clear, size: 18),
@@ -346,13 +347,13 @@ class _ShiftSettingsScreenState extends State<ShiftSettingsScreen> {
   Widget _buildGuideButton({bool compact = false}) {
     return InkWell(
       onTap: _showShiftGuide,
-      borderRadius: BorderRadius.circular(8),
+      borderRadius: BorderRadius.circular(10),
       child: Container(
         padding: EdgeInsets.symmetric(
             horizontal: compact ? 10 : 12, vertical: compact ? 8 : 10),
         decoration: BoxDecoration(
-          color: const Color(0xFFFFF7ED),
-          borderRadius: BorderRadius.circular(8),
+          color: SboxColors.warningSoft,
+          borderRadius: BorderRadius.circular(10),
           border: Border.all(
               color: const Color(0xFFFB923C).withValues(alpha: 0.35)),
         ),
@@ -504,7 +505,7 @@ class _ShiftSettingsScreenState extends State<ShiftSettingsScreen> {
                             width: 650,
                             decoration: BoxDecoration(
                               color: Colors.white,
-                              borderRadius: BorderRadius.circular(12),
+                              borderRadius: BorderRadius.circular(14),
                               border: Border.all(color: _borderColor),
                             ),
                             child: Column(
@@ -639,8 +640,8 @@ class _ShiftSettingsScreenState extends State<ShiftSettingsScreen> {
       textStyle:
           const TextStyle(fontSize: 12, color: Colors.white, height: 1.5),
       decoration: BoxDecoration(
-          color: const Color(0xFF334155),
-          borderRadius: BorderRadius.circular(8)),
+          color: SboxColors.slate700,
+          borderRadius: BorderRadius.circular(10)),
       padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
       child: InkWell(
         onTap: () => setState(() => _selectedShift = shift),
@@ -669,7 +670,7 @@ class _ShiftSettingsScreenState extends State<ShiftSettingsScreen> {
                       height: 36,
                       decoration: BoxDecoration(
                           color: color.withValues(alpha: 0.15),
-                          borderRadius: BorderRadius.circular(8)),
+                          borderRadius: BorderRadius.circular(10)),
                       child: Center(
                           child: Text(tr(_getShiftAbbreviation(shift)),
                               style: TextStyle(
@@ -880,9 +881,9 @@ class _ShiftSettingsScreenState extends State<ShiftSettingsScreen> {
                           child: Container(
                             decoration: BoxDecoration(
                               color: Colors.white,
-                              borderRadius: BorderRadius.circular(12),
+                              borderRadius: BorderRadius.circular(14),
                               border:
-                                  Border.all(color: const Color(0xFFE4E4E7)),
+                                  Border.all(color: SboxColors.slate200),
                               boxShadow: [
                                 BoxShadow(
                                   color: Colors.black.withValues(alpha: 0.05),
@@ -956,8 +957,8 @@ class _ShiftSettingsScreenState extends State<ShiftSettingsScreen> {
               child: Container(
                 decoration: BoxDecoration(
                   color: Colors.white,
-                  borderRadius: BorderRadius.circular(12),
-                  border: Border.all(color: const Color(0xFFE4E4E7)),
+                  borderRadius: BorderRadius.circular(14),
+                  border: Border.all(color: SboxColors.slate200),
                   boxShadow: [
                     BoxShadow(
                       color: Colors.black.withValues(alpha: 0.05),
@@ -1013,7 +1014,7 @@ class _ShiftSettingsScreenState extends State<ShiftSettingsScreen> {
               height: 36,
               decoration: BoxDecoration(
                   color: color.withValues(alpha: 0.15),
-                  borderRadius: BorderRadius.circular(8)),
+                  borderRadius: BorderRadius.circular(10)),
               child: Center(
                   child: Text(tr(_getShiftAbbreviation(shift)),
                       style: TextStyle(
@@ -1058,7 +1059,7 @@ class _ShiftSettingsScreenState extends State<ShiftSettingsScreen> {
             const SizedBox(width: 6),
             Icon(shift.isActive ? Icons.check_circle : Icons.pause_circle,
                 size: 14,
-                color: shift.isActive ? HrmPageChrome.primaryNavy : Colors.grey),
+                color: shift.isActive ? HrmPageChrome.primaryNavy : SboxColors.slate500),
             const SizedBox(width: 4),
             if (_canRemoveShift)
               IconButton(
@@ -1068,7 +1069,7 @@ class _ShiftSettingsScreenState extends State<ShiftSettingsScreen> {
                 constraints: const BoxConstraints(minWidth: 32, minHeight: 32),
                 onPressed: () => _deleteShift(shift),
                 icon: const Icon(Icons.delete_outline,
-                    size: 20, color: Color(0xFFEF4444)),
+                    size: 20, color: SboxColors.danger),
               ),
             const Icon(Icons.chevron_right, size: 18, color: _textMuted),
           ],
@@ -1100,7 +1101,7 @@ class _ShiftSettingsScreenState extends State<ShiftSettingsScreen> {
                 width: 40,
                 height: 4,
                 decoration: BoxDecoration(
-                    color: Colors.grey[300],
+                    color: SboxColors.slate300,
                     borderRadius: BorderRadius.circular(2)),
               ),
               Expanded(
@@ -1177,7 +1178,7 @@ class _ShiftSettingsScreenState extends State<ShiftSettingsScreen> {
                               color: shift.isActive
                                   ? HrmPageChrome.primaryNavy
                                       .withValues(alpha: 0.1)
-                                  : Colors.grey.withValues(alpha: 0.1),
+                                  : SboxColors.slate500.withValues(alpha: 0.1),
                               borderRadius: BorderRadius.circular(4),
                             ),
                             child: Text(
@@ -1187,7 +1188,7 @@ class _ShiftSettingsScreenState extends State<ShiftSettingsScreen> {
                                   fontWeight: FontWeight.w600,
                                   color: shift.isActive
                                       ? HrmPageChrome.primaryNavy
-                                      : Colors.grey),
+                                      : SboxColors.slate500),
                             ),
                           ),
                         ],
@@ -1216,7 +1217,7 @@ class _ShiftSettingsScreenState extends State<ShiftSettingsScreen> {
                     padding: const EdgeInsets.all(16),
                     decoration: BoxDecoration(
                         color: _bgColor,
-                        borderRadius: BorderRadius.circular(12),
+                        borderRadius: BorderRadius.circular(14),
                         border: Border.all(color: _borderColor)),
                     child: Row(
                       children: [
@@ -1226,7 +1227,7 @@ class _ShiftSettingsScreenState extends State<ShiftSettingsScreen> {
                         Column(
                           children: [
                             Icon(Icons.arrow_forward,
-                                color: Colors.grey[400], size: 16),
+                                color: SboxColors.slate400, size: 16),
                             const SizedBox(height: 2),
                             Container(
                               padding: const EdgeInsets.symmetric(
@@ -1258,7 +1259,7 @@ class _ShiftSettingsScreenState extends State<ShiftSettingsScreen> {
                           color: _textDark)),
                   const SizedBox(height: 10),
                   _buildParamRow(Icons.fast_forward, 'Cho phép chấm sớm',
-                      '${shift.earlyCheckInMinutes ?? 30} phút', Colors.blue),
+                      '${shift.earlyCheckInMinutes ?? 30} phút', SboxColors.brand500),
                   _buildParamRow(
                       Icons.schedule,
                       'Cho phép chấm trễ',
@@ -1335,7 +1336,7 @@ class _ShiftSettingsScreenState extends State<ShiftSettingsScreen> {
                         side: const BorderSide(color: _primaryColor),
                         padding: const EdgeInsets.symmetric(vertical: 12),
                         shape: RoundedRectangleBorder(
-                            borderRadius: BorderRadius.circular(8)),
+                            borderRadius: BorderRadius.circular(10)),
                       ),
                     ),
                   ),
@@ -1352,7 +1353,7 @@ class _ShiftSettingsScreenState extends State<ShiftSettingsScreen> {
                         side: const BorderSide(color: HrmPageChrome.chipLight),
                         padding: const EdgeInsets.symmetric(vertical: 12),
                         shape: RoundedRectangleBorder(
-                            borderRadius: BorderRadius.circular(8)),
+                            borderRadius: BorderRadius.circular(10)),
                       ),
                     ),
                   ),
@@ -1365,11 +1366,11 @@ class _ShiftSettingsScreenState extends State<ShiftSettingsScreen> {
                       icon: const Icon(Icons.delete_outline, size: 16),
                       label: Text(tr('Xóa ca'), style: TextStyle(fontSize: 13)),
                       style: OutlinedButton.styleFrom(
-                        foregroundColor: const Color(0xFFEF4444),
-                        side: const BorderSide(color: Color(0xFFEF4444)),
+                        foregroundColor: SboxColors.danger,
+                        side: const BorderSide(color: SboxColors.danger),
                         padding: const EdgeInsets.symmetric(vertical: 12),
                         shape: RoundedRectangleBorder(
-                            borderRadius: BorderRadius.circular(8)),
+                            borderRadius: BorderRadius.circular(10)),
                       ),
                     ),
                   ),
@@ -1407,7 +1408,7 @@ class _ShiftSettingsScreenState extends State<ShiftSettingsScreen> {
         padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
         decoration: BoxDecoration(
             color: color.withValues(alpha: 0.05),
-            borderRadius: BorderRadius.circular(8)),
+            borderRadius: BorderRadius.circular(10)),
         child: Row(
           children: [
             Icon(icon, size: 16, color: color),
@@ -1491,16 +1492,16 @@ class _ShiftSettingsScreenState extends State<ShiftSettingsScreen> {
       child: Column(
         mainAxisAlignment: MainAxisAlignment.center,
         children: [
-          Icon(Icons.schedule, size: 64, color: Colors.grey[300]),
+          Icon(Icons.schedule, size: 64, color: SboxColors.slate300),
           const SizedBox(height: 16),
           Text(tr('Chưa có ca làm việc'),
               style: TextStyle(
                   fontSize: 16,
                   fontWeight: FontWeight.w500,
-                  color: Colors.grey[600])),
+                  color: SboxColors.slate600)),
           const SizedBox(height: 8),
           Text(tr('Nhấn "Thêm ca" để bắt đầu tạo ca mới'),
-              style: TextStyle(fontSize: 13, color: Colors.grey[400])),
+              style: TextStyle(fontSize: 13, color: SboxColors.slate400)),
           const SizedBox(height: 20),
           FilledButton.icon(
             onPressed: () => _showShiftDialog(),
@@ -1523,7 +1524,7 @@ class _ShiftSettingsScreenState extends State<ShiftSettingsScreen> {
       context: context,
       builder: (context) => ScrollableAlertDialog(
         backgroundColor: Colors.white,
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
         title: Row(
           children: [
             Icon(Icons.menu_book, color: HrmPageChrome.chipMid),
@@ -1533,7 +1534,7 @@ class _ShiftSettingsScreenState extends State<ShiftSettingsScreen> {
                 style: TextStyle(
                     color: _textDark,
                     fontWeight: FontWeight.bold,
-                    fontSize: 17),
+                    fontSize: 18),
               ),
             ),
           ],
@@ -1672,7 +1673,7 @@ class _ShiftSettingsScreenState extends State<ShiftSettingsScreen> {
             Expanded(
               child: Text(tr(title),
                   style: TextStyle(
-                      color: color, fontWeight: FontWeight.bold, fontSize: 15)),
+                      color: color, fontWeight: FontWeight.bold, fontSize: 16)),
             ),
           ],
         ),
@@ -1686,7 +1687,7 @@ class _ShiftSettingsScreenState extends State<ShiftSettingsScreen> {
                   Expanded(
                     child: Text(tr(step),
                         style: const TextStyle(
-                            color: Color(0xFF52525B),
+                            color: SboxColors.slate600,
                             fontSize: 13,
                             height: 1.45)),
                   ),
@@ -1707,7 +1708,7 @@ class _ShiftSettingsScreenState extends State<ShiftSettingsScreen> {
         width: double.infinity,
         padding: const EdgeInsets.all(12),
         decoration: BoxDecoration(
-          color: const Color(0xFFF8FAFC),
+          color: SboxColors.slate50,
           borderRadius: BorderRadius.circular(10),
           border: Border.all(color: _borderColor),
         ),
@@ -1724,9 +1725,9 @@ class _ShiftSettingsScreenState extends State<ShiftSettingsScreen> {
                   padding: const EdgeInsets.only(bottom: 4),
                   child: Text(tr(row),
                       style: const TextStyle(
-                          fontSize: 12.5,
+                          fontSize: 13,
                           height: 1.4,
-                          color: Color(0xFF475569))),
+                          color: SboxColors.slate600)),
                 )),
           ],
         ),
@@ -1956,7 +1957,7 @@ class _ShiftSettingsScreenState extends State<ShiftSettingsScreen> {
                                           border:
                                               Border.all(color: _borderColor),
                                           borderRadius:
-                                              BorderRadius.circular(8)),
+                                              BorderRadius.circular(10)),
                                       child: Row(
                                         children: [
                                           Expanded(
@@ -1988,7 +1989,7 @@ class _ShiftSettingsScreenState extends State<ShiftSettingsScreen> {
                                           border:
                                               Border.all(color: _borderColor),
                                           borderRadius:
-                                              BorderRadius.circular(8)),
+                                              BorderRadius.circular(10)),
                                       child: DropdownButtonHideUnderline(
                                         child: DropdownButton<String>(
                                           value: _shiftTypes.contains(shiftType)
@@ -1996,7 +1997,7 @@ class _ShiftSettingsScreenState extends State<ShiftSettingsScreen> {
                                               : 'Hành chính',
                                           isExpanded: true,
                                           icon: Icon(Icons.keyboard_arrow_down,
-                                              color: Colors.grey[400]),
+                                              color: SboxColors.slate400),
                                           items: _shiftTypes
                                               .map((t) => DropdownMenuItem(
                                                   value: t,
@@ -2033,13 +2034,13 @@ class _ShiftSettingsScreenState extends State<ShiftSettingsScreen> {
                                           border:
                                               Border.all(color: _borderColor),
                                           borderRadius:
-                                              BorderRadius.circular(8)),
+                                              BorderRadius.circular(10)),
                                       child: DropdownButtonHideUnderline(
                                         child: DropdownButton<bool>(
                                           value: isActive,
                                           isExpanded: true,
                                           icon: Icon(Icons.keyboard_arrow_down,
-                                              color: Colors.grey[400]),
+                                              color: SboxColors.slate400),
                                           items: [
                                             DropdownMenuItem(
                                                 value: true,
@@ -2057,7 +2058,7 @@ class _ShiftSettingsScreenState extends State<ShiftSettingsScreen> {
                                                 child: Row(children: [
                                                   Icon(Icons.pause_circle,
                                                       size: 16,
-                                                      color: Colors.grey[400]),
+                                                      color: SboxColors.slate400),
                                                   const SizedBox(width: 8),
                                                   Text(tr('Tạm dừng'),
                                                       style: TextStyle(
@@ -2078,7 +2079,7 @@ class _ShiftSettingsScreenState extends State<ShiftSettingsScreen> {
                             Container(
                               padding: const EdgeInsets.all(14),
                               decoration: BoxDecoration(
-                                color: const Color(0xFFFEF2F2),
+                                color: SboxColors.dangerSoft,
                                 borderRadius: BorderRadius.circular(10),
                                 border: Border.all(
                                     color: const Color(0xFFFECACA)),
@@ -2090,7 +2091,7 @@ class _ShiftSettingsScreenState extends State<ShiftSettingsScreen> {
                                     tr('Giờ vào = giờ ra (vd. 06:00–06:00) hệ thống không ghép ca qua đêm được. Ca gần 24h: đặt giờ ra sớm hơn 1 phút (vd. 06:00–05:59), loại Qua đêm.'),
                                     style: const TextStyle(
                                       fontSize: 12,
-                                      color: Color(0xFFB91C1C),
+                                      color: SboxColors.dangerText,
                                       fontWeight: FontWeight.w600,
                                       height: 1.35,
                                     ),
@@ -2112,7 +2113,7 @@ class _ShiftSettingsScreenState extends State<ShiftSettingsScreen> {
                                     icon: const Icon(Icons.schedule, size: 16),
                                     label: Text(tr('Đặt giờ ra = vào − 1 phút')),
                                     style: TextButton.styleFrom(
-                                      backgroundColor: const Color(0xFFDC2626),
+                                      backgroundColor: SboxColors.danger,
                                       foregroundColor: Colors.white,
                                       padding: const EdgeInsets.symmetric(
                                           horizontal: 12, vertical: 8),
@@ -2156,7 +2157,7 @@ class _ShiftSettingsScreenState extends State<ShiftSettingsScreen> {
                                     tr('Nhận công khi giờ ra < giờ vào (vd. 22:00–06:00 hoặc 06:00–05:59). Đặt «Giờ kết thúc ngày» (day_end_time) sau giờ ra ca. Hệ số lương ca đêm cấu hình ở bậc lương / phụ cấp.'),
                                     style: const TextStyle(
                                         fontSize: 12,
-                                        color: Color(0xFF64748B),
+                                        color: SboxColors.slate500,
                                         height: 1.35),
                                   ),
                                 ],
@@ -2169,8 +2170,8 @@ class _ShiftSettingsScreenState extends State<ShiftSettingsScreen> {
                           Container(
                             padding: const EdgeInsets.all(16),
                             decoration: BoxDecoration(
-                              color: const Color(0xFFFFF7ED),
-                              borderRadius: BorderRadius.circular(12),
+                              color: SboxColors.warningSoft,
+                              borderRadius: BorderRadius.circular(14),
                               border:
                                   Border.all(color: const Color(0xFFFED7AA)),
                             ),
@@ -2204,7 +2205,7 @@ class _ShiftSettingsScreenState extends State<ShiftSettingsScreen> {
                                         : 'Không nghỉ — không trừ giờ, không gửi khung nghỉ.'),
                                     style: const TextStyle(
                                         fontSize: 12,
-                                        color: Color(0xFF64748B)),
+                                        color: SboxColors.slate500),
                                   ),
                                   value: hasLunchBreak,
                                   activeThumbColor: HrmPageChrome.chipMid,
@@ -2225,7 +2226,7 @@ class _ShiftSettingsScreenState extends State<ShiftSettingsScreen> {
                                     tr('Chấm trong khung này (máy MealOut/MealIn hoặc app) được tính tăng ca. Giờ làm chính sẽ trừ khoảng nghỉ.'),
                                     style: const TextStyle(
                                         fontSize: 12,
-                                        color: Color(0xFF64748B)),
+                                        color: SboxColors.slate500),
                                   ),
                                   const SizedBox(height: 12),
                                   Row(
@@ -2278,8 +2279,8 @@ class _ShiftSettingsScreenState extends State<ShiftSettingsScreen> {
                                       width: double.infinity,
                                       padding: const EdgeInsets.all(10),
                                       decoration: BoxDecoration(
-                                        color: const Color(0xFFFEF2F2),
-                                        borderRadius: BorderRadius.circular(8),
+                                        color: SboxColors.dangerSoft,
+                                        borderRadius: BorderRadius.circular(10),
                                         border: Border.all(
                                             color: const Color(0xFFFECACA)),
                                       ),
@@ -2291,7 +2292,7 @@ class _ShiftSettingsScreenState extends State<ShiftSettingsScreen> {
                                             tr('Khung nghỉ đang nằm ngoài giờ ca — tổng giờ / chấm công sẽ sai. Bấm nút bên dưới nếu muốn chỉnh, hoặc tắt «Có nghỉ giữa ca».'),
                                             style: const TextStyle(
                                               fontSize: 12,
-                                              color: Color(0xFFB91C1C),
+                                              color: SboxColors.dangerText,
                                               fontWeight: FontWeight.w600,
                                             ),
                                           ),
@@ -2316,7 +2317,7 @@ class _ShiftSettingsScreenState extends State<ShiftSettingsScreen> {
                                                 tr('Tự nhảy vào giữa ca')),
                                             style: TextButton.styleFrom(
                                               backgroundColor:
-                                                  const Color(0xFFDC2626),
+                                                  SboxColors.danger,
                                               foregroundColor: Colors.white,
                                               padding:
                                                   const EdgeInsets.symmetric(
@@ -2339,7 +2340,7 @@ class _ShiftSettingsScreenState extends State<ShiftSettingsScreen> {
                             padding: const EdgeInsets.all(16),
                             decoration: BoxDecoration(
                               color: const Color(0xFFF0F9FF),
-                              borderRadius: BorderRadius.circular(12),
+                              borderRadius: BorderRadius.circular(14),
                               border:
                                   Border.all(color: const Color(0xFFBAE6FD)),
                             ),
@@ -2421,7 +2422,7 @@ class _ShiftSettingsScreenState extends State<ShiftSettingsScreen> {
                             padding: const EdgeInsets.symmetric(
                                 horizontal: 20, vertical: 12),
                             shape: RoundedRectangleBorder(
-                                borderRadius: BorderRadius.circular(8)),
+                                borderRadius: BorderRadius.circular(10)),
                             side: const BorderSide(color: _borderColor),
                           ),
                           child: Text(tr('Hủy')),
@@ -2569,15 +2570,15 @@ class _ShiftSettingsScreenState extends State<ShiftSettingsScreen> {
   InputDecoration _inputDecor(String hint) {
     return InputDecoration(
       hintText: tr(hint),
-      hintStyle: TextStyle(color: Colors.grey[400], fontSize: 13),
+      hintStyle: TextStyle(color: SboxColors.slate400, fontSize: 13),
       border: OutlineInputBorder(
-          borderRadius: BorderRadius.circular(8),
+          borderRadius: BorderRadius.circular(10),
           borderSide: const BorderSide(color: _borderColor)),
       enabledBorder: OutlineInputBorder(
-          borderRadius: BorderRadius.circular(8),
+          borderRadius: BorderRadius.circular(10),
           borderSide: const BorderSide(color: _borderColor)),
       focusedBorder: OutlineInputBorder(
-          borderRadius: BorderRadius.circular(8),
+          borderRadius: BorderRadius.circular(10),
           borderSide: const BorderSide(color: _primaryColor, width: 2)),
       contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 12),
     );
@@ -2588,7 +2589,7 @@ class _ShiftSettingsScreenState extends State<ShiftSettingsScreen> {
       padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 12),
       decoration: BoxDecoration(
           border: Border.all(color: _borderColor),
-          borderRadius: BorderRadius.circular(8)),
+          borderRadius: BorderRadius.circular(10)),
       child: Row(
         children: [
           Icon(icon, color: color.withValues(alpha: 0.6), size: 18),
@@ -2598,7 +2599,7 @@ class _ShiftSettingsScreenState extends State<ShiftSettingsScreen> {
                   tr('${time.hour.toString().padLeft(2, '0')}:${time.minute.toString().padLeft(2, '0')}'),
                   style: const TextStyle(
                       fontSize: 14, fontWeight: FontWeight.w500))),
-          Icon(Icons.access_time, color: Colors.grey[400], size: 18),
+          Icon(Icons.access_time, color: SboxColors.slate400, size: 18),
         ],
       ),
     );
@@ -2679,8 +2680,8 @@ class _ShiftSettingsScreenState extends State<ShiftSettingsScreen> {
         width: double.infinity,
         padding: const EdgeInsets.all(12),
         decoration: BoxDecoration(
-          color: const Color(0xFFFFF7ED),
-          borderRadius: BorderRadius.circular(8),
+          color: SboxColors.warningSoft,
+          borderRadius: BorderRadius.circular(10),
           border: Border.all(color: const Color(0xFFFED7AA)),
         ),
         child: Column(
@@ -2792,7 +2793,7 @@ class _ShiftSettingsScreenState extends State<ShiftSettingsScreen> {
               foregroundColor: Colors.white,
               padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
               shape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(8)),
+                  borderRadius: BorderRadius.circular(10)),
             ),
           );
 
@@ -2809,15 +2810,15 @@ class _ShiftSettingsScreenState extends State<ShiftSettingsScreen> {
                           mainAxisSize: MainAxisSize.min,
                           children: [
                             Icon(Icons.payments_outlined,
-                                size: 48, color: Colors.grey[400]),
+                                size: 48, color: SboxColors.slate400),
                             const SizedBox(height: 12),
                             Text(tr('Chưa có mức lương nào'),
                                 style:
-                                    TextStyle(fontSize: 15, color: _textMuted)),
+                                    TextStyle(fontSize: 16, color: _textMuted)),
                             const SizedBox(height: 4),
                             Text(tr('Nhấn "Thêm mức lương" để tạo loại lương, đơn giá và nhóm nhân viên'),
                                 style: TextStyle(
-                                    fontSize: 12, color: Colors.grey[400])),
+                                    fontSize: 12, color: SboxColors.slate400)),
                           ],
                         ),
                       ),
@@ -2849,7 +2850,7 @@ class _ShiftSettingsScreenState extends State<ShiftSettingsScreen> {
                           rateLabel = 'Lương theo giờ';
                           rateValue =
                               '${_formatCurrency(sl['hourlyRate'])} /giờ';
-                          rateColor = Colors.blue;
+                          rateColor = SboxColors.brand500;
                         } else if (rateType == 'multiplier') {
                           rateLabel = 'Nhân hệ số';
                           rateValue = 'x${sl['multiplier'] ?? 1.0}';
@@ -3017,7 +3018,7 @@ class _ShiftSettingsScreenState extends State<ShiftSettingsScreen> {
           return Dialog(
             backgroundColor: Colors.white,
             shape:
-                RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+                RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
             child: Container(
               width: math.min(700, MediaQuery.of(context).size.width - 32),
               constraints: BoxConstraints(
@@ -3081,7 +3082,7 @@ class _ShiftSettingsScreenState extends State<ShiftSettingsScreen> {
                             padding: const EdgeInsets.symmetric(
                                 horizontal: 20, vertical: 12),
                             shape: RoundedRectangleBorder(
-                                borderRadius: BorderRadius.circular(8)),
+                                borderRadius: BorderRadius.circular(10)),
                             side: const BorderSide(color: _borderColor),
                           ),
                           child: Text(tr('Đóng')),
@@ -3249,20 +3250,20 @@ class _ShiftSettingsScreenState extends State<ShiftSettingsScreen> {
                         color: _textDark)),
                 const SizedBox(height: 4),
                 Text(tr('Bỏ trống = áp dụng cho tất cả nhân viên'),
-                    style: TextStyle(fontSize: 12, color: Colors.grey[400])),
+                    style: TextStyle(fontSize: 12, color: SboxColors.slate400)),
                 if (BranchFilterHelper.showBranchFilter(_branches)) ...[
                   const SizedBox(height: 8),
                   Container(
                     height: 38,
                     padding: const EdgeInsets.symmetric(horizontal: 10),
                     decoration: BoxDecoration(
-                      color: const Color(0xFFF8FAFC),
-                      borderRadius: BorderRadius.circular(8),
+                      color: SboxColors.slate50,
+                      borderRadius: BorderRadius.circular(10),
                       border: Border.all(color: _borderColor),
                     ),
                     child: Row(children: [
                       const Icon(Icons.account_tree_outlined,
-                          size: 15, color: Color(0xFF6B7280)),
+                          size: 15, color: SboxColors.slate500),
                       const SizedBox(width: 6),
                       Expanded(
                         child: DropdownButtonHideUnderline(
@@ -3273,7 +3274,7 @@ class _ShiftSettingsScreenState extends State<ShiftSettingsScreen> {
                             style:
                                 const TextStyle(fontSize: 12, color: _textDark),
                             icon: const Icon(Icons.keyboard_arrow_down,
-                                size: 16, color: Color(0xFF9CA3AF)),
+                                size: 16, color: SboxColors.slate400),
                             items: [
                               DropdownMenuItem<String?>(
                                   value: null,
@@ -3297,7 +3298,7 @@ class _ShiftSettingsScreenState extends State<ShiftSettingsScreen> {
                           child: const Padding(
                               padding: EdgeInsets.all(3),
                               child: Icon(Icons.close,
-                                  size: 13, color: Color(0xFF9CA3AF))),
+                                  size: 13, color: SboxColors.slate400)),
                         ),
                     ]),
                   ),
@@ -3396,7 +3397,7 @@ class _ShiftSettingsScreenState extends State<ShiftSettingsScreen> {
                                             size: 20,
                                             color: isChecked
                                                 ? _primaryColor
-                                                : Colors.grey[400]),
+                                                : SboxColors.slate400),
                                         const SizedBox(width: 10),
                                         CircleAvatar(
                                           radius: 14,
@@ -3547,7 +3548,7 @@ class _ShiftSettingsScreenState extends State<ShiftSettingsScreen> {
                               padding: const EdgeInsets.symmetric(
                                   horizontal: 24, vertical: 12),
                               shape: RoundedRectangleBorder(
-                                  borderRadius: BorderRadius.circular(8)),
+                                  borderRadius: BorderRadius.circular(10)),
                             ),
                           ),
                         ]),
@@ -3560,7 +3561,7 @@ class _ShiftSettingsScreenState extends State<ShiftSettingsScreen> {
           return Dialog(
             backgroundColor: Colors.white,
             shape:
-                RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+                RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
             child: Container(
               width: math.min(600, MediaQuery.of(context).size.width - 32),
               constraints: BoxConstraints(
@@ -3606,7 +3607,7 @@ class _ShiftSettingsScreenState extends State<ShiftSettingsScreen> {
                             padding: const EdgeInsets.symmetric(
                                 horizontal: 20, vertical: 12),
                             shape: RoundedRectangleBorder(
-                                borderRadius: BorderRadius.circular(8)),
+                                borderRadius: BorderRadius.circular(10)),
                             side: const BorderSide(color: _borderColor),
                           ),
                           child: Text(tr('Hủy')),
@@ -3622,7 +3623,7 @@ class _ShiftSettingsScreenState extends State<ShiftSettingsScreen> {
                             padding: const EdgeInsets.symmetric(
                                 horizontal: 24, vertical: 12),
                             shape: RoundedRectangleBorder(
-                                borderRadius: BorderRadius.circular(8)),
+                                borderRadius: BorderRadius.circular(10)),
                           ),
                         ),
                       ],
@@ -3649,7 +3650,7 @@ class _ShiftSettingsScreenState extends State<ShiftSettingsScreen> {
       context: context,
       builder: (dialogContext) => AlertDialog(
         backgroundColor: Colors.white,
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
         title: Text(tr('Xác nhận xóa'), style: const TextStyle(color: _textDark)),
         content: Text(tr('Bạn có chắc muốn xóa ca "${shift.name}"?'),
             style: const TextStyle(color: _textMuted)),
@@ -3681,7 +3682,7 @@ class _ShiftSettingsScreenState extends State<ShiftSettingsScreen> {
               }
             },
             child: Text(tr('Xóa'),
-                style: const TextStyle(color: Color(0xFFEF4444))),
+                style: const TextStyle(color: SboxColors.danger)),
           ),
         ],
       ),
@@ -3764,15 +3765,15 @@ class _MinuteStepperFieldState extends State<_MinuteStepperField> {
       children: [
         Text(
           tr(widget.label),
-          style: const TextStyle(fontSize: 11, color: Color(0xFF71717A)),
+          style: const TextStyle(fontSize: 11, color: SboxColors.slate500),
           maxLines: 2,
           overflow: TextOverflow.ellipsis,
         ),
         const SizedBox(height: 4),
         Container(
           decoration: BoxDecoration(
-            border: Border.all(color: const Color(0xFFE4E4E7)),
-            borderRadius: BorderRadius.circular(8),
+            border: Border.all(color: SboxColors.slate200),
+            borderRadius: BorderRadius.circular(10),
           ),
           child: Row(
             children: [
@@ -3788,7 +3789,7 @@ class _MinuteStepperFieldState extends State<_MinuteStepperField> {
                     size: 14,
                     color: widget.value > widget.min
                         ? HrmPageChrome.primaryNavy
-                        : Colors.grey[300],
+                        : SboxColors.slate300,
                   ),
                 ),
               ),
@@ -3814,7 +3815,7 @@ class _MinuteStepperFieldState extends State<_MinuteStepperField> {
                     suffixText: tr('phút'),
                     suffixStyle: TextStyle(
                       fontSize: 11,
-                      color: Colors.grey[600],
+                      color: SboxColors.slate600,
                     ),
                   ),
                   onSubmitted: (_) => _commit(),

@@ -11,6 +11,7 @@ import '../widgets/hrm_page_chrome.dart';
 import '../widgets/notification_overlay.dart';
 import 'package:zkteco_flutter_client/l10n/app_tr.dart';
 
+import '../theme/sbox_tokens.dart';
 class ConnectMccScreen extends StatefulWidget {
   const ConnectMccScreen({super.key});
 
@@ -89,11 +90,11 @@ class _ConnectMccScreenState extends State<ConnectMccScreen> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: const Color(0xFFFAFAFA),
+      backgroundColor: SboxColors.slate50,
       appBar: AppBar(
         backgroundColor: Colors.white,
         elevation: 0,
-        title: Text(tr('Kết Nối MCC'), style: TextStyle(color: Color(0xFF18181B), fontWeight: FontWeight.bold), overflow: TextOverflow.ellipsis, maxLines: 1),
+        title: Text(tr('Kết Nối MCC'), style: TextStyle(color: SboxColors.slate900, fontWeight: FontWeight.bold), overflow: TextOverflow.ellipsis, maxLines: 1),
         actions: const [],
       ),
       body: _isLoading
@@ -132,7 +133,7 @@ class _ConnectMccScreenState extends State<ConnectMccScreen> {
       padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(
         color: Colors.white,
-        borderRadius: BorderRadius.circular(12),
+        borderRadius: BorderRadius.circular(14),
         border: Border.all(color: HrmPageChrome.primaryNavy.withValues(alpha: 0.3)),
         boxShadow: [
           BoxShadow(
@@ -151,14 +152,14 @@ class _ConnectMccScreenState extends State<ConnectMccScreen> {
                 padding: const EdgeInsets.all(8),
                 decoration: BoxDecoration(
                   color: HrmPageChrome.primaryNavy.withValues(alpha: 0.1),
-                  borderRadius: BorderRadius.circular(8),
+                  borderRadius: BorderRadius.circular(10),
                 ),
                 child: const Icon(Icons.add_circle, color: HrmPageChrome.primaryNavy),
               ),
               const SizedBox(width: 12),
               Text(tr('Thêm Máy Chấm Công Mới'),
                 style: TextStyle(
-                  color: Color(0xFF18181B),
+                  color: SboxColors.slate900,
                   fontSize: 18,
                   fontWeight: FontWeight.bold,
                 ),
@@ -167,12 +168,12 @@ class _ConnectMccScreenState extends State<ConnectMccScreen> {
           ),
           const SizedBox(height: 16),
           Text(tr('Nhập số Serial (SN) trên máy chấm công để kết nối'),
-            style: TextStyle(color: Color(0xFF71717A), fontSize: 14),
+            style: TextStyle(color: SboxColors.slate500, fontSize: 14),
           ),
           const SizedBox(height: 10),
           Text(
             tr(DeviceSetupGuide.summary),
-            style: TextStyle(color: Color(0xFF2563EB), fontSize: 13, height: 1.4),
+            style: TextStyle(color: SboxColors.brand600, fontSize: 13, height: 1.4),
           ),
           const SizedBox(height: 16),
           FilledButton.icon(
@@ -195,11 +196,11 @@ class _ConnectMccScreenState extends State<ConnectMccScreen> {
       children: [
         Row(
           children: [
-            const Icon(Icons.wifi_tethering, color: Color(0xFFF59E0B)),
+            const Icon(Icons.wifi_tethering, color: SboxColors.warning),
             const SizedBox(width: 8),
             Text(tr('Thiết Bị Sẵn Sàng Kết Nối'),
               style: TextStyle(
-                color: Color(0xFF18181B),
+                color: SboxColors.slate900,
                 fontSize: 18,
                 fontWeight: FontWeight.bold,
               ),
@@ -208,19 +209,19 @@ class _ConnectMccScreenState extends State<ConnectMccScreen> {
             Container(
               padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
               decoration: BoxDecoration(
-                color: const Color(0xFFF59E0B).withValues(alpha: 0.1),
+                color: SboxColors.warning.withValues(alpha: 0.1),
                 borderRadius: BorderRadius.circular(10),
               ),
               child: Text(
                 tr('${_availableDevices.length}'),
-                style: const TextStyle(color: Color(0xFFF59E0B), fontWeight: FontWeight.bold),
+                style: const TextStyle(color: SboxColors.warning, fontWeight: FontWeight.bold),
               ),
             ),
           ],
         ),
         const SizedBox(height: 8),
         Text(tr('Các thiết bị đã kết nối đến server ADMS và chưa được đăng ký'),
-          style: TextStyle(color: Color(0xFF71717A), fontSize: 13),
+          style: TextStyle(color: SboxColors.slate500, fontSize: 13),
         ),
         const SizedBox(height: 12),
         ...(_availableDevices.map((device) => _buildAvailableDeviceCard(device))),
@@ -234,8 +235,8 @@ class _ConnectMccScreenState extends State<ConnectMccScreen> {
       elevation: 0,
       margin: const EdgeInsets.only(bottom: 8),
       shape: RoundedRectangleBorder(
-        borderRadius: BorderRadius.circular(12),
-        side: BorderSide(color: const Color(0xFFF59E0B).withValues(alpha: 0.3)),
+        borderRadius: BorderRadius.circular(14),
+        side: BorderSide(color: SboxColors.warning.withValues(alpha: 0.3)),
       ),
       child: Padding(
         padding: const EdgeInsets.all(12),
@@ -244,10 +245,10 @@ class _ConnectMccScreenState extends State<ConnectMccScreen> {
             Container(
               padding: const EdgeInsets.all(10),
               decoration: BoxDecoration(
-                color: const Color(0xFFF59E0B).withValues(alpha: 0.1),
+                color: SboxColors.warning.withValues(alpha: 0.1),
                 borderRadius: BorderRadius.circular(10),
               ),
-              child: const Icon(Icons.devices, color: Color(0xFFF59E0B)),
+              child: const Icon(Icons.devices, color: SboxColors.warning),
             ),
             const SizedBox(width: 12),
             Expanded(
@@ -256,14 +257,14 @@ class _ConnectMccScreenState extends State<ConnectMccScreen> {
                 children: [
                   Row(
                     children: [
-                      const Icon(Icons.qr_code, size: 14, color: Color(0xFFA1A1AA)),
+                      const Icon(Icons.qr_code, size: 14, color: SboxColors.slate400),
                       const SizedBox(width: 4),
                       Text(
                         tr(device.serialNumber),
                         style: const TextStyle(
-                          color: Color(0xFF18181B),
+                          color: SboxColors.slate900,
                           fontWeight: FontWeight.bold,
-                          fontSize: 15,
+                          fontSize: 16,
                         ),
                       ),
                     ],
@@ -272,24 +273,24 @@ class _ConnectMccScreenState extends State<ConnectMccScreen> {
                   Row(
                     children: [
                       if (device.ipAddress != null) ...[
-                        const Icon(Icons.lan, size: 12, color: Color(0xFFA1A1AA)),
+                        const Icon(Icons.lan, size: 12, color: SboxColors.slate400),
                         const SizedBox(width: 4),
                         Text(
                           tr(device.ipAddress!),
-                          style: const TextStyle(color: Color(0xFF71717A), fontSize: 12),
+                          style: const TextStyle(color: SboxColors.slate500, fontSize: 12),
                         ),
                         const SizedBox(width: 12),
                       ],
                       Icon(
                         device.isOnline ? Icons.wifi : Icons.wifi_off,
                         size: 12,
-                        color: device.isOnline ? Colors.green : Colors.grey,
+                        color: device.isOnline ? Colors.green : SboxColors.slate500,
                       ),
                       const SizedBox(width: 4),
                       Text(
                         tr(device.isOnline ? 'Online' : 'Offline'),
                         style: TextStyle(
-                          color: device.isOnline ? Colors.green : Colors.grey,
+                          color: device.isOnline ? Colors.green : SboxColors.slate500,
                           fontSize: 12,
                         ),
                       ),
@@ -327,7 +328,7 @@ class _ConnectMccScreenState extends State<ConnectMccScreen> {
             const SizedBox(width: 8),
             Text(tr('Thiết Bị Của Tôi'),
               style: TextStyle(
-                color: Color(0xFF18181B),
+                color: SboxColors.slate900,
                 fontSize: 18,
                 fontWeight: FontWeight.bold,
               ),
@@ -353,21 +354,21 @@ class _ConnectMccScreenState extends State<ConnectMccScreen> {
             padding: const EdgeInsets.all(24),
             decoration: BoxDecoration(
               color: Colors.white,
-              borderRadius: BorderRadius.circular(12),
-              border: Border.all(color: const Color(0xFFE4E4E7)),
+              borderRadius: BorderRadius.circular(14),
+              border: Border.all(color: SboxColors.slate200),
             ),
             child: Center(
               child: Column(
                 children: [
-                  Icon(Icons.devices_other, size: 48, color: Colors.grey.shade400),
+                  Icon(Icons.devices_other, size: 48, color: SboxColors.slate400),
                   const SizedBox(height: 12),
                   Text(tr('Chưa có thiết bị nào'),
-                    style: TextStyle(color: Color(0xFF71717A), fontSize: 16),
+                    style: TextStyle(color: SboxColors.slate500, fontSize: 16),
                   ),
                   const SizedBox(height: 4),
                   Text(tr('Thêm thiết bị bằng cách nhập SN hoặc chọn từ danh sách sẵn sàng'),
                     textAlign: TextAlign.center,
-                    style: TextStyle(color: Color(0xFFA1A1AA), fontSize: 13),
+                    style: TextStyle(color: SboxColors.slate400, fontSize: 13),
                   ),
                 ],
               ),
@@ -388,9 +389,9 @@ class _ConnectMccScreenState extends State<ConnectMccScreen> {
       elevation: 0,
       margin: const EdgeInsets.only(bottom: 12),
       shape: RoundedRectangleBorder(
-        borderRadius: BorderRadius.circular(12),
+        borderRadius: BorderRadius.circular(14),
         side: BorderSide(
-          color: isOnline ? Colors.green.withValues(alpha: 0.3) : const Color(0xFFE4E4E7),
+          color: isOnline ? Colors.green.withValues(alpha: 0.3) : SboxColors.slate200,
         ),
       ),
       child: Padding(
@@ -434,7 +435,7 @@ class _ConnectMccScreenState extends State<ConnectMccScreen> {
                       Text(
                         tr(device.deviceName),
                         style: const TextStyle(
-                          color: Color(0xFF18181B),
+                          color: SboxColors.slate900,
                           fontSize: 16,
                           fontWeight: FontWeight.bold,
                         ),
@@ -444,11 +445,11 @@ class _ConnectMccScreenState extends State<ConnectMccScreen> {
                       const SizedBox(height: 2),
                       Row(
                         children: [
-                          const Icon(Icons.qr_code, size: 14, color: Color(0xFFA1A1AA)),
+                          const Icon(Icons.qr_code, size: 14, color: SboxColors.slate400),
                           const SizedBox(width: 4),
                           Text(
                             tr(device.serialNumber),
-                            style: const TextStyle(color: Color(0xFF71717A), fontSize: 13),
+                            style: const TextStyle(color: SboxColors.slate500, fontSize: 13),
                           ),
                         ],
                       ),
@@ -482,7 +483,7 @@ class _ConnectMccScreenState extends State<ConnectMccScreen> {
             ),
             
             const SizedBox(height: 12),
-              const Divider(color: Color(0xFFE4E4E7), height: 1),
+              const Divider(color: SboxColors.slate200, height: 1),
             const SizedBox(height: 12),
             
             // Info row
@@ -498,12 +499,12 @@ class _ConnectMccScreenState extends State<ConnectMccScreen> {
                   const SizedBox(width: 16),
                 ],
                 if (device.location != null && device.location!.isNotEmpty) ...[
-                  const Icon(Icons.location_on, size: 14, color: Color(0xFFF59E0B)),
+                  const Icon(Icons.location_on, size: 14, color: SboxColors.warning),
                   const SizedBox(width: 4),
                   Flexible(
                     child: Text(
                       tr(device.location!),
-                      style: const TextStyle(color: Color(0xFFF59E0B), fontSize: 12),
+                      style: const TextStyle(color: SboxColors.warning, fontSize: 12),
                       overflow: TextOverflow.ellipsis,
                     ),
                   ),
@@ -533,8 +534,8 @@ class _ConnectMccScreenState extends State<ConnectMccScreen> {
                     icon: const Icon(Icons.delete_outline, size: 18),
                     label: Text(tr('Xóa')),
                     style: OutlinedButton.styleFrom(
-                      foregroundColor: const Color(0xFFEF4444),
-                      side: const BorderSide(color: Color(0xFFEF4444)),
+                      foregroundColor: SboxColors.danger,
+                      side: const BorderSide(color: SboxColors.danger),
                     ),
                   ),
                 ],
@@ -558,12 +559,12 @@ class _ConnectMccScreenState extends State<ConnectMccScreen> {
       builder: (context) => StatefulBuilder(
         builder: (context, setDialogState) => ScrollableAlertDialog(
           backgroundColor: Colors.white,
-          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
           title: Row(
             children: [
               Icon(Icons.add_circle, color: HrmPageChrome.primaryNavy),
               SizedBox(width: 12),
-              Text(tr('Thêm Máy Chấm Công'), style: TextStyle(color: Color(0xFF18181B))),
+              Text(tr('Thêm Máy Chấm Công'), style: TextStyle(color: SboxColors.slate900)),
             ],
           ),
           content: SingleChildScrollView(
@@ -574,25 +575,25 @@ class _ConnectMccScreenState extends State<ConnectMccScreen> {
                 // SN Input
                 TextField(
                   controller: snController,
-                  style: const TextStyle(color: Color(0xFF18181B)),
+                  style: const TextStyle(color: SboxColors.slate900),
                   decoration: InputDecoration(
                     labelText: tr('Số Serial (SN) *'),
-                    labelStyle: const TextStyle(color: Color(0xFF71717A)),
+                    labelStyle: const TextStyle(color: SboxColors.slate500),
                     hintText: tr('VD: 1313232261894'),
-                    hintStyle: const TextStyle(color: Color(0xFFA1A1AA)),
-                    prefixIcon: const Icon(Icons.qr_code, color: Color(0xFF71717A)),
+                    hintStyle: const TextStyle(color: SboxColors.slate400),
+                    prefixIcon: const Icon(Icons.qr_code, color: SboxColors.slate500),
                     filled: true,
-                    fillColor: const Color(0xFFFAFAFA),
+                    fillColor: SboxColors.slate50,
                     border: OutlineInputBorder(
-                      borderRadius: BorderRadius.circular(8),
-                      borderSide: const BorderSide(color: Color(0xFFE4E4E7)),
+                      borderRadius: BorderRadius.circular(10),
+                      borderSide: const BorderSide(color: SboxColors.slate200),
                     ),
                     enabledBorder: OutlineInputBorder(
-                      borderRadius: BorderRadius.circular(8),
-                      borderSide: const BorderSide(color: Color(0xFFE4E4E7)),
+                      borderRadius: BorderRadius.circular(10),
+                      borderSide: const BorderSide(color: SboxColors.slate200),
                     ),
                     focusedBorder: OutlineInputBorder(
-                      borderRadius: BorderRadius.circular(8),
+                      borderRadius: BorderRadius.circular(10),
                       borderSide: const BorderSide(color: HrmPageChrome.primaryNavy),
                     ),
                     suffixIcon: Row(
@@ -728,7 +729,7 @@ class _ConnectMccScreenState extends State<ConnectMccScreen> {
                       color: isAvailable 
                           ? Colors.green.withValues(alpha: 0.1)
                           : Colors.orange.withValues(alpha: 0.1),
-                      borderRadius: BorderRadius.circular(8),
+                      borderRadius: BorderRadius.circular(10),
                     ),
                     child: Row(
                       children: [
@@ -757,25 +758,25 @@ class _ConnectMccScreenState extends State<ConnectMccScreen> {
                 // Name Input
                 TextField(
                   controller: nameController,
-                  style: const TextStyle(color: Color(0xFF18181B)),
+                  style: const TextStyle(color: SboxColors.slate900),
                   decoration: InputDecoration(
                     labelText: tr('Tên máy chấm công *'),
-                    labelStyle: const TextStyle(color: Color(0xFF71717A)),
+                    labelStyle: const TextStyle(color: SboxColors.slate500),
                     hintText: tr('VD: Máy chấm công Tầng 1'),
-                    hintStyle: const TextStyle(color: Color(0xFFA1A1AA)),
-                    prefixIcon: const Icon(Icons.label, color: Color(0xFF71717A)),
+                    hintStyle: const TextStyle(color: SboxColors.slate400),
+                    prefixIcon: const Icon(Icons.label, color: SboxColors.slate500),
                     filled: true,
-                    fillColor: const Color(0xFFFAFAFA),
+                    fillColor: SboxColors.slate50,
                     border: OutlineInputBorder(
-                      borderRadius: BorderRadius.circular(8),
-                      borderSide: const BorderSide(color: Color(0xFFE4E4E7)),
+                      borderRadius: BorderRadius.circular(10),
+                      borderSide: const BorderSide(color: SboxColors.slate200),
                     ),
                     enabledBorder: OutlineInputBorder(
-                      borderRadius: BorderRadius.circular(8),
-                      borderSide: const BorderSide(color: Color(0xFFE4E4E7)),
+                      borderRadius: BorderRadius.circular(10),
+                      borderSide: const BorderSide(color: SboxColors.slate200),
                     ),
                     focusedBorder: OutlineInputBorder(
-                      borderRadius: BorderRadius.circular(8),
+                      borderRadius: BorderRadius.circular(10),
                       borderSide: const BorderSide(color: HrmPageChrome.primaryNavy),
                     ),
                   ),
@@ -787,8 +788,8 @@ class _ConnectMccScreenState extends State<ConnectMccScreen> {
                 Container(
                   padding: const EdgeInsets.all(12),
                   decoration: BoxDecoration(
-                    color: const Color(0xFFEFF6FF),
-                    borderRadius: BorderRadius.circular(8),
+                    color: SboxColors.brand50,
+                    borderRadius: BorderRadius.circular(10),
                   ),
                   child: Row(
                     children: [
@@ -808,7 +809,7 @@ class _ConnectMccScreenState extends State<ConnectMccScreen> {
           actions: [
             TextButton(
               onPressed: () => Navigator.pop(context),
-              child: Text(tr('Hủy'), style: TextStyle(color: Color(0xFF71717A))),
+              child: Text(tr('Hủy'), style: TextStyle(color: SboxColors.slate500)),
             ),
             FilledButton(
               onPressed: (isAvailable && nameController.text.isNotEmpty)
@@ -835,27 +836,27 @@ class _ConnectMccScreenState extends State<ConnectMccScreen> {
       context: context,
       builder: (context) => ScrollableAlertDialog(
         backgroundColor: Colors.white,
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
-        title: Text(tr('Đặt tên thiết bị'), style: TextStyle(color: Color(0xFF18181B))),
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
+        title: Text(tr('Đặt tên thiết bị'), style: TextStyle(color: SboxColors.slate900)),
         content: SingleChildScrollView(
           child: TextField(
             controller: nameController,
-            style: const TextStyle(color: Color(0xFF18181B)),
+            style: const TextStyle(color: SboxColors.slate900),
             decoration: InputDecoration(
               labelText: tr('Tên máy chấm công'),
-              labelStyle: const TextStyle(color: Color(0xFF71717A)),
+              labelStyle: const TextStyle(color: SboxColors.slate500),
               filled: true,
-              fillColor: const Color(0xFFFAFAFA),
+              fillColor: SboxColors.slate50,
               border: OutlineInputBorder(
-                borderRadius: BorderRadius.circular(8),
-                borderSide: const BorderSide(color: Color(0xFFE4E4E7)),
+                borderRadius: BorderRadius.circular(10),
+                borderSide: const BorderSide(color: SboxColors.slate200),
               ),
               enabledBorder: OutlineInputBorder(
-                borderRadius: BorderRadius.circular(8),
-                borderSide: const BorderSide(color: Color(0xFFE4E4E7)),
+                borderRadius: BorderRadius.circular(10),
+                borderSide: const BorderSide(color: SboxColors.slate200),
               ),
               focusedBorder: OutlineInputBorder(
-                borderRadius: BorderRadius.circular(8),
+                borderRadius: BorderRadius.circular(10),
                 borderSide: const BorderSide(color: HrmPageChrome.primaryNavy),
               ),
             ),
@@ -865,7 +866,7 @@ class _ConnectMccScreenState extends State<ConnectMccScreen> {
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(context),
-            child: Text(tr('Hủy'), style: TextStyle(color: Color(0xFF71717A))),
+            child: Text(tr('Hủy'), style: TextStyle(color: SboxColors.slate500)),
           ),
           FilledButton(
             onPressed: () => Navigator.pop(context, nameController.text),
@@ -938,7 +939,7 @@ class _ConnectMccScreenState extends State<ConnectMccScreen> {
                 width: 40,
                 height: 4,
                 decoration: BoxDecoration(
-                  color: const Color(0xFFE4E4E7),
+                  color: SboxColors.slate200,
                   borderRadius: BorderRadius.circular(2),
                 ),
               ),
@@ -950,7 +951,7 @@ class _ConnectMccScreenState extends State<ConnectMccScreen> {
                   padding: const EdgeInsets.all(12),
                   decoration: BoxDecoration(
                     color: (device.isOnline ? Colors.green : Colors.red).withValues(alpha: 0.1),
-                    borderRadius: BorderRadius.circular(12),
+                    borderRadius: BorderRadius.circular(14),
                   ),
                   child: Icon(
                     Icons.devices,
@@ -966,7 +967,7 @@ class _ConnectMccScreenState extends State<ConnectMccScreen> {
                       Text(
                         tr(device.deviceName),
                         style: const TextStyle(
-                          color: Color(0xFF18181B),
+                          color: SboxColors.slate900,
                           fontSize: 20,
                           fontWeight: FontWeight.bold,
                         ),
@@ -987,12 +988,12 @@ class _ConnectMccScreenState extends State<ConnectMccScreen> {
             if (device.ipAddress != null)
               _buildInfoRow('Địa chỉ IP', device.ipAddress!, Icons.lan, const Color(0xFF2D5F8B)),
             if (device.location != null && device.location!.isNotEmpty)
-              _buildInfoRow('Vị trí', device.location!, Icons.location_on, const Color(0xFFF59E0B)),
+              _buildInfoRow('Vị trí', device.location!, Icons.location_on, SboxColors.warning),
             _buildInfoRow(
               'Trạng thái',
               device.isActive ? 'Đang hoạt động' : 'Không hoạt động',
               Icons.info,
-              device.isActive ? Colors.green : Colors.grey,
+              device.isActive ? Colors.green : SboxColors.slate500,
             ),
             const SizedBox(height: 20),
           ],
@@ -1010,7 +1011,7 @@ class _ConnectMccScreenState extends State<ConnectMccScreen> {
             padding: const EdgeInsets.all(8),
             decoration: BoxDecoration(
               color: color.withValues(alpha: 0.1),
-              borderRadius: BorderRadius.circular(8),
+              borderRadius: BorderRadius.circular(10),
             ),
             child: Icon(icon, color: color, size: 18),
           ),
@@ -1019,8 +1020,8 @@ class _ConnectMccScreenState extends State<ConnectMccScreen> {
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Text(tr(label), style: const TextStyle(color: Color(0xFF71717A), fontSize: 12)),
-                Text(tr(value), style: const TextStyle(color: Color(0xFF18181B), fontSize: 14)),
+                Text(tr(label), style: const TextStyle(color: SboxColors.slate500, fontSize: 12)),
+                Text(tr(value), style: const TextStyle(color: SboxColors.slate900, fontSize: 14)),
               ],
             ),
           ),
@@ -1034,21 +1035,21 @@ class _ConnectMccScreenState extends State<ConnectMccScreen> {
       context: context,
       builder: (context) => ScrollableAlertDialog(
         backgroundColor: Colors.white,
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
         title: Row(
           children: [
-            Icon(Icons.warning, color: Color(0xFFEF4444)),
+            Icon(Icons.warning, color: SboxColors.danger),
             SizedBox(width: 12),
-            Text(tr('Xác nhận xóa'), style: TextStyle(color: Color(0xFF18181B))),
+            Text(tr('Xác nhận xóa'), style: TextStyle(color: SboxColors.slate900)),
           ],
         ),
         content: Text(tr('Bạn có chắc chắn muốn xóa thiết bị "${device.deviceName}"?\n\nThiết bị sẽ được trả về danh sách sẵn sàng và có thể được đăng ký lại.'),
-          style: const TextStyle(color: Color(0xFF71717A)),
+          style: const TextStyle(color: SboxColors.slate500),
         ),
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(context),
-            child: Text(tr('Hủy'), style: TextStyle(color: Color(0xFF71717A))),
+            child: Text(tr('Hủy'), style: TextStyle(color: SboxColors.slate500)),
           ),
           FilledButton(
             onPressed: () async {
@@ -1061,7 +1062,7 @@ class _ConnectMccScreenState extends State<ConnectMccScreen> {
                 _showError(result['message'] ?? 'Không thể xóa thiết bị');
               }
             },
-            style: FilledButton.styleFrom(backgroundColor: const Color(0xFFEF4444)),
+            style: FilledButton.styleFrom(backgroundColor: SboxColors.danger),
             child: Text(tr('Xóa')),
           ),
         ],
@@ -1114,7 +1115,7 @@ class _BarcodeScannerDialogState extends State<_BarcodeScannerDialog> {
   @override
   Widget build(BuildContext context) {
     return Dialog(
-      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
       child: SizedBox(
         width: 400,
         height: 460,
@@ -1176,7 +1177,7 @@ class _BarcodeScannerDialogState extends State<_BarcodeScannerDialog> {
                                     color: Colors.white.withValues(alpha: 0.7),
                                     width: 2,
                                   ),
-                                  borderRadius: BorderRadius.circular(12),
+                                  borderRadius: BorderRadius.circular(14),
                                 ),
                               ),
                             ),
@@ -1186,7 +1187,7 @@ class _BarcodeScannerDialogState extends State<_BarcodeScannerDialog> {
                               right: 12,
                               child: IconButton(
                                 style: IconButton.styleFrom(
-                                  backgroundColor: Colors.black54,
+                                  backgroundColor: SboxColors.textSecondary,
                                   padding: const EdgeInsets.all(10),
                                 ),
                                 icon: Icon(
@@ -1212,7 +1213,7 @@ class _BarcodeScannerDialogState extends State<_BarcodeScannerDialog> {
                       children: [
                         Text(tr('Hướng camera vào mã barcode trên máy chấm công'),
                           textAlign: TextAlign.center,
-                          style: TextStyle(color: Color(0xFF586064), fontSize: 13),
+                          style: TextStyle(color: SboxColors.slate600, fontSize: 13),
                         ),
                         const SizedBox(height: 8),
                         TextButton.icon(
@@ -1242,7 +1243,7 @@ class _BarcodeScannerDialogState extends State<_BarcodeScannerDialog> {
             const SizedBox(height: 8),
             Text(tr('Vui lòng kiểm tra:\n• Quyền camera trong trình duyệt\n• Kết nối qua HTTPS hoặc localhost'),
               textAlign: TextAlign.center,
-              style: TextStyle(color: Color(0xFF586064), fontSize: 11),
+              style: TextStyle(color: SboxColors.slate600, fontSize: 11),
             ),
             const SizedBox(height: 16),
             FilledButton.icon(
@@ -1265,7 +1266,7 @@ class _BarcodeScannerDialogState extends State<_BarcodeScannerDialog> {
         children: [
           const Icon(Icons.qr_code, color: HrmPageChrome.primaryNavy, size: 40),
           const SizedBox(height: 12),
-          Text(tr('Nhập mã Serial Number'), style: TextStyle(fontWeight: FontWeight.w600, fontSize: 15)),
+          Text(tr('Nhập mã Serial Number'), style: TextStyle(fontWeight: FontWeight.w600, fontSize: 16)),
           const SizedBox(height: 16),
           TextField(
             controller: _manualController,

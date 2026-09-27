@@ -7,6 +7,7 @@ import '../../services/api_service.dart';
 import '../../widgets/pos/pos_theme.dart';
 import 'package:zkteco_flutter_client/l10n/app_tr.dart';
 
+import '../../theme/sbox_tokens.dart';
 /// Lịch sử hủy món / hủy đơn / trả hàng — lọc thao tác & trước/sau tạm tính.
 class PosCancelReturnHistoryScreen extends StatefulWidget {
   const PosCancelReturnHistoryScreen({super.key});
@@ -125,9 +126,9 @@ class _PosCancelReturnHistoryScreenState
       };
 
   Color _actionColor(String? t) => switch (t) {
-        'KitchenVoid' => const Color(0xFFB45309),
-        'SaleCancel' => const Color(0xFFDC2626),
-        'SaleReturn' => const Color(0xFF2563EB),
+        'KitchenVoid' => SboxColors.warningText,
+        'SaleCancel' => SboxColors.danger,
+        'SaleReturn' => SboxColors.brand600,
         _ => PosTheme.textSecondary,
       };
 
@@ -138,7 +139,7 @@ class _PosCancelReturnHistoryScreenState
       appBar: AppBar(
         title: Text(tr('Lịch sử hủy / trả')),
         backgroundColor: Colors.white,
-        foregroundColor: Colors.black87,
+        foregroundColor: SboxColors.text,
         elevation: 0.5,
         actions: [
           IconButton(
@@ -327,7 +328,7 @@ class _PosCancelReturnHistoryScreenState
                   decoration: BoxDecoration(
                     color: after
                         ? const Color(0xFFFFEDD5)
-                        : const Color(0xFFECFDF5),
+                        : SboxColors.successSoft,
                     borderRadius: BorderRadius.circular(6),
                   ),
                   child: Text(
@@ -337,7 +338,7 @@ class _PosCancelReturnHistoryScreenState
                       fontWeight: FontWeight.w600,
                       color: after
                           ? const Color(0xFFC2410C)
-                          : const Color(0xFF047857),
+                          : SboxColors.successText,
                     ),
                   ),
                 ),
@@ -346,7 +347,7 @@ class _PosCancelReturnHistoryScreenState
                   Text(
                     tr('${_money.format(amount)}đ'),
                     style: const TextStyle(
-                        fontWeight: FontWeight.w800, fontSize: 14),
+                        fontWeight: FontWeight.w700, fontSize: 14),
                   ),
               ],
             ),

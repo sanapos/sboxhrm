@@ -10,6 +10,7 @@ import '../widgets/leave_request_form.dart';
 import '../widgets/notification_overlay.dart';
 import 'package:zkteco_flutter_client/l10n/app_tr.dart';
 
+import '../theme/sbox_tokens.dart';
   /// Menu khi bấm ô **Vắng** (không phép): thêm công, tạo đơn nghỉ hoặc phạt nghỉ không phép.
 class AbsenceDayActions {
   AbsenceDayActions._();
@@ -78,7 +79,7 @@ class AbsenceDayActions {
               ),
               Text(
                 tr('Mã: $employeeCode · ${DateFormat('dd/MM/yyyy').format(date)}'),
-                style: TextStyle(fontSize: 13, color: Colors.grey[600]),
+                style: TextStyle(fontSize: 13, color: SboxColors.slate600),
               ),
               const SizedBox(height: 8),
               Text(tr('Ngày vắng (chưa có phép duyệt). Chọn xử lý:'),
@@ -88,7 +89,7 @@ class AbsenceDayActions {
               if (onAddWork != null)
                 ListTile(
                   leading:
-                      const Icon(Icons.add_circle, color: Color(0xFF2563EB)),
+                      const Icon(Icons.add_circle, color: SboxColors.brand600),
                   title: Text(tr('Thêm công')),
                   subtitle: Text(tr('Bổ sung giờ vào/ra thủ công')),
                   onTap: () => Navigator.pop(ctx, 'addWork'),
@@ -100,7 +101,7 @@ class AbsenceDayActions {
                 onTap: () => Navigator.pop(ctx, 'leave'),
               ),
               ListTile(
-                leading: const Icon(Icons.gavel, color: Color(0xFFDC2626)),
+                leading: const Icon(Icons.gavel, color: SboxColors.danger),
                 title: Text(tr('Nghỉ không phép')),
                 subtitle: Text(tr('Tạo phiếu phạt nghỉ không phép')),
                 onTap: () => Navigator.pop(ctx, 'unauthorized'),

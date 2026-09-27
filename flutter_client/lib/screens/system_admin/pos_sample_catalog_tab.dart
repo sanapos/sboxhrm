@@ -13,6 +13,7 @@ import '../../utils/image_compress.dart';
 import '../../widgets/notification_overlay.dart';
 import 'system_admin_helpers.dart';
 
+import '../../theme/sbox_tokens.dart';
 /// Super Admin — catalog hàng mẫu / menu món (ảnh dùng chung, Excel, nhóm hàng).
 class PosSampleCatalogTab extends StatefulWidget {
   const PosSampleCatalogTab({super.key});
@@ -364,7 +365,7 @@ class PosSampleCatalogTabState extends State<PosSampleCatalogTab> {
                             });
                           },
                           child: ClipRRect(
-                            borderRadius: BorderRadius.circular(12),
+                            borderRadius: BorderRadius.circular(14),
                             child: SizedBox(
                               height: 180,
                               width: double.infinity,
@@ -387,7 +388,7 @@ class PosSampleCatalogTabState extends State<PosSampleCatalogTab> {
                                             child: Text(
                                               tr('Bấm để chọn ảnh (tới 1920px)'),
                                               style: TextStyle(
-                                                  color: Colors.grey.shade600),
+                                                  color: SboxColors.slate600),
                                             ),
                                           ),
                               ),
@@ -416,7 +417,7 @@ class PosSampleCatalogTabState extends State<PosSampleCatalogTab> {
                               ? 'Ngành (trống = mọi ngành)'
                               : 'Ngành áp dụng'),
                           style: TextStyle(
-                              fontSize: 12, color: Colors.grey.shade700),
+                              fontSize: 12, color: SboxColors.slate700),
                         ),
                       ),
                     ),
@@ -981,7 +982,7 @@ class PosSampleCatalogTabState extends State<PosSampleCatalogTab> {
                 'Ảnh tới 1920px, dùng chung khi cửa hàng adopt. '
                 'Excel: xuất/nhập tên, mã, nhóm, giá, thuế, ngành. Ảnh upload riêng.',
               ),
-              style: TextStyle(fontSize: 12, color: Colors.grey.shade700),
+              style: TextStyle(fontSize: 12, color: SboxColors.slate700),
             ),
           ),
         ),
@@ -1030,14 +1031,14 @@ class PosSampleCatalogTabState extends State<PosSampleCatalogTab> {
     final price = row['defaultPrice'];
     return Material(
       color: Colors.white,
-      borderRadius: BorderRadius.circular(12),
+      borderRadius: BorderRadius.circular(14),
       child: InkWell(
-        borderRadius: BorderRadius.circular(12),
+        borderRadius: BorderRadius.circular(14),
         onTap: () => _edit(row),
         child: Ink(
           decoration: BoxDecoration(
-            borderRadius: BorderRadius.circular(12),
-            border: Border.all(color: const Color(0xFFE2E8F0)),
+            borderRadius: BorderRadius.circular(14),
+            border: Border.all(color: SboxColors.slate200),
           ),
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.stretch,
@@ -1118,7 +1119,7 @@ class PosSampleCatalogTabState extends State<PosSampleCatalogTab> {
                       maxLines: 2,
                       overflow: TextOverflow.ellipsis,
                       style: TextStyle(
-                          fontSize: 11, color: Colors.grey.shade700),
+                          fontSize: 11, color: SboxColors.slate700),
                     ),
                   ],
                 ),
@@ -1152,7 +1153,7 @@ class PosSampleCatalogTabState extends State<PosSampleCatalogTab> {
           : kind == 'Food'
               ? Icons.restaurant_outlined
               : Icons.inventory_2_outlined,
-      color: Colors.grey,
+      color: SboxColors.slate500,
       size: 40,
     );
   }
@@ -1166,7 +1167,7 @@ class PosSampleCatalogTabState extends State<PosSampleCatalogTab> {
         : (row['vatRate'] != null ? '${row['vatRate']}%' : null);
     return ListTile(
       leading: ClipRRect(
-        borderRadius: BorderRadius.circular(8),
+        borderRadius: BorderRadius.circular(10),
         child: SizedBox(
           width: 72,
           height: 72,

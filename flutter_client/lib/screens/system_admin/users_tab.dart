@@ -6,6 +6,7 @@ import '../../widgets/admin/admin_mobile_widgets.dart';
 import 'system_admin_helpers.dart';
 import 'package:zkteco_flutter_client/l10n/app_tr.dart';
 
+import '../../theme/sbox_tokens.dart';
 class UsersTab extends StatefulWidget {
   final bool agentMode;
 
@@ -353,7 +354,7 @@ class UsersTabState extends State<UsersTab> {
       decoration: BoxDecoration(
           color: Colors.white,
           borderRadius: BorderRadius.circular(10),
-          border: Border.all(color: Colors.grey.shade300)),
+          border: Border.all(color: SboxColors.slate300)),
       child: DropdownButtonHideUnderline(
         child: DropdownButton<T>(
           isExpanded: mobile,
@@ -386,7 +387,7 @@ class UsersTabState extends State<UsersTab> {
       margin: const EdgeInsets.only(bottom: 16),
       decoration: BoxDecoration(
         color: Colors.white,
-        borderRadius: BorderRadius.circular(12),
+        borderRadius: BorderRadius.circular(14),
         border: Border.all(
           color: isNoStore
               ? AdminHelpers.primaryDark.withValues(alpha: 0.3)
@@ -418,18 +419,18 @@ class UsersTabState extends State<UsersTab> {
           title: Row(children: [
             Text(tr(storeName),
                 style: const TextStyle(
-                    fontWeight: FontWeight.bold, fontSize: 15)),
+                    fontWeight: FontWeight.bold, fontSize: 16)),
             if (storeCode.isNotEmpty) ...[
               const SizedBox(width: 8),
               Text(tr('($storeCode)'),
-                  style: TextStyle(fontSize: 12, color: Colors.grey[500])),
+                  style: TextStyle(fontSize: 12, color: SboxColors.slate500)),
             ],
           ]),
           subtitle: Text(
               tr(isNoStore
                   ? '${users.length} tài khoản'
                   : '${users.length} tài khoản · Đại lý: ${agentName.isNotEmpty ? agentName : "Chưa gán"}'),
-              style: TextStyle(fontSize: 12, color: Colors.grey[600])),
+              style: TextStyle(fontSize: 12, color: SboxColors.slate600)),
           children: [
             const Divider(height: 24),
             if (adminUseMobileLayout(context))
@@ -440,8 +441,8 @@ class UsersTabState extends State<UsersTab> {
                   child: Container(
                     decoration: BoxDecoration(
                       color: Colors.white,
-                      borderRadius: BorderRadius.circular(12),
-                      border: Border.all(color: const Color(0xFFE4E4E7)),
+                      borderRadius: BorderRadius.circular(14),
+                      border: Border.all(color: SboxColors.slate200),
                       boxShadow: [BoxShadow(color: Colors.black.withValues(alpha: 0.05), blurRadius: 6, offset: const Offset(0, 2))],
                     ),
                     child: _buildUserDeckItem(users[i]),
@@ -478,17 +479,17 @@ class UsersTabState extends State<UsersTab> {
             child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
               Text(tr(fullName.isNotEmpty ? fullName : email), style: const TextStyle(fontWeight: FontWeight.w600, fontSize: 14), maxLines: 1, overflow: TextOverflow.ellipsis),
               const SizedBox(height: 2),
-              Text(tr([email, role].join(' \u00b7 ')), style: const TextStyle(color: Color(0xFF71717A), fontSize: 12), maxLines: 1, overflow: TextOverflow.ellipsis),
+              Text(tr([email, role].join(' \u00b7 ')), style: const TextStyle(color: SboxColors.slate500, fontSize: 12), maxLines: 1, overflow: TextOverflow.ellipsis),
             ]),
           ),
           if (!isActive)
             Container(
               padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
-              decoration: BoxDecoration(color: Colors.red.withValues(alpha: 0.1), borderRadius: BorderRadius.circular(8)),
+              decoration: BoxDecoration(color: Colors.red.withValues(alpha: 0.1), borderRadius: BorderRadius.circular(10)),
               child: Text(tr('T\u1eaft'), style: TextStyle(fontSize: 10, fontWeight: FontWeight.w600, color: Colors.red)),
             ),
           const SizedBox(width: 4),
-          const Icon(Icons.chevron_right, size: 18, color: Color(0xFFA1A1AA)),
+          const Icon(Icons.chevron_right, size: 18, color: SboxColors.slate400),
         ]),
       ),
     );
@@ -508,7 +509,7 @@ class UsersTabState extends State<UsersTab> {
       padding: const EdgeInsets.symmetric(vertical: 10, horizontal: 16),
       decoration: BoxDecoration(
         border: Border(
-          bottom: BorderSide(color: Colors.grey.shade100),
+          bottom: BorderSide(color: SboxColors.slate100),
         ),
       ),
       child: Column(
@@ -553,13 +554,13 @@ class UsersTabState extends State<UsersTab> {
                     const SizedBox(height: 2),
                     Row(children: [
                       Icon(Icons.email,
-                          size: 12, color: Colors.grey[500]),
+                          size: 12, color: SboxColors.slate500),
                       const SizedBox(width: 4),
                       Expanded(
                         child: Text(tr(email),
                             style: TextStyle(
                                 fontSize: 12,
-                                color: Colors.grey[600])),
+                                color: SboxColors.slate600)),
                       ),
                       InkWell(
                         onTap: () {
@@ -569,14 +570,14 @@ class UsersTabState extends State<UsersTab> {
                               context, 'Đã copy email');
                         },
                         child: Icon(Icons.copy,
-                            size: 14, color: Colors.grey[400]),
+                            size: 14, color: SboxColors.slate400),
                       ),
                     ]),
                     if (lastLogin != null)
                       Text(tr('Đăng nhập cuối: ${AdminHelpers.formatDateTime(lastLogin)}'),
                           style: TextStyle(
                               fontSize: 11,
-                              color: Colors.grey[500])),
+                              color: SboxColors.slate500)),
                   ],
                 ),
               ),
@@ -593,13 +594,13 @@ class UsersTabState extends State<UsersTab> {
                   padding: const EdgeInsets.symmetric(
                       horizontal: 10, vertical: 6),
                   decoration: BoxDecoration(
-                    color: Colors.grey[50],
-                    borderRadius: BorderRadius.circular(8),
-                    border: Border.all(color: Colors.grey.shade200),
+                    color: SboxColors.slate50,
+                    borderRadius: BorderRadius.circular(10),
+                    border: Border.all(color: SboxColors.slate200),
                   ),
                   child: Row(children: [
                     Icon(Icons.vpn_key,
-                        size: 14, color: Colors.grey[500]),
+                        size: 14, color: SboxColors.slate500),
                     const SizedBox(width: 6),
                     Expanded(
                       child: visiblePassword != null
@@ -613,10 +614,10 @@ class UsersTabState extends State<UsersTab> {
                               : Text(tr('••••••••'),
                                   style: TextStyle(
                                       fontSize: 13,
-                                      color: Colors.grey[500])))
+                                      color: SboxColors.slate500)))
                           : Text(tr('Chưa lưu (đặt lại MK để xem)'),
                               style: TextStyle(
-                                  fontSize: 12, color: Colors.grey[500])),
+                                  fontSize: 12, color: SboxColors.slate500)),
                     ),
                     InkWell(
                       onTap: () {
@@ -642,7 +643,7 @@ class UsersTabState extends State<UsersTab> {
                               ? Icons.visibility_off
                               : Icons.visibility,
                           size: 14,
-                          color: Colors.grey[600],
+                          color: SboxColors.slate600,
                         ),
                       ),
                     ),
@@ -720,13 +721,13 @@ class UsersTabState extends State<UsersTab> {
       'superadmin' => AdminHelpers.primaryDark,
       'admin' => AdminHelpers.info,
       'director' => const Color(0xFF0D9488),
-      'accountant' => const Color(0xFF2563EB),
+      'accountant' => SboxColors.brand600,
       'departmenthead' => const Color(0xFF9333EA),
-      'manager' => const Color(0xFF7C3AED),
+      'manager' => SboxColors.violet,
       'cashier' => const Color(0xFFEA580C),
       'agent' => AdminHelpers.warning,
       'employee' => AdminHelpers.success,
-      'user' => Colors.grey,
+      'user' => SboxColors.slate500,
       _ => AdminHelpers.primary,
     };
   }
@@ -829,7 +830,7 @@ class UsersTabState extends State<UsersTab> {
             const SizedBox(width: 8),
             Expanded(
                 child: Text(tr('Đổi quyền — $name'),
-                    style: const TextStyle(fontSize: 17))),
+                    style: const TextStyle(fontSize: 18))),
           ]),
           content: SizedBox(
             width: MediaQuery.of(context).size.width < 600
@@ -846,7 +847,7 @@ class UsersTabState extends State<UsersTab> {
                     border: Border.all(
                       color: isSelected
                           ? _roleColor(role)
-                          : Colors.grey.shade300,
+                          : SboxColors.slate300,
                       width: isSelected ? 2 : 1,
                     ),
                     borderRadius: BorderRadius.circular(10),
@@ -864,7 +865,7 @@ class UsersTabState extends State<UsersTab> {
                           : Icons.radio_button_off,
                       color: isSelected
                           ? _roleColor(role)
-                          : Colors.grey,
+                          : SboxColors.slate500,
                       size: 20,
                     ),
                     title: Text(tr(opt.display),
@@ -874,7 +875,7 @@ class UsersTabState extends State<UsersTab> {
                         )),
                     subtitle: Text(tr(opt.description),
                         style: TextStyle(
-                            fontSize: 11, color: Colors.grey[600])),
+                            fontSize: 11, color: SboxColors.slate600)),
                     trailing: currentRole == role
                         ? Chip(
                             label: Text(tr('Hiện tại'),
@@ -963,7 +964,7 @@ class UsersTabState extends State<UsersTab> {
         title: Row(children: [
           Icon(Icons.edit, color: AdminHelpers.primary, size: 22),
           SizedBox(width: 8),
-          Text(tr('Cập nhật thông tin'), style: TextStyle(fontSize: 17)),
+          Text(tr('Cập nhật thông tin'), style: TextStyle(fontSize: 18)),
         ]),
         content: SizedBox(
           width: MediaQuery.of(context).size.width < 600 ? MediaQuery.of(context).size.width - 32 : 420,
@@ -1040,7 +1041,7 @@ class UsersTabState extends State<UsersTab> {
           Icon(Icons.person_add,
               color: AdminHelpers.primaryDark, size: 22),
           SizedBox(width: 8),
-          Text(tr('Tạo SuperAdmin'), style: TextStyle(fontSize: 17)),
+          Text(tr('Tạo SuperAdmin'), style: TextStyle(fontSize: 18)),
         ]),
         content: SizedBox(
           width: MediaQuery.of(context).size.width < 600 ? MediaQuery.of(context).size.width - 32 : 420,

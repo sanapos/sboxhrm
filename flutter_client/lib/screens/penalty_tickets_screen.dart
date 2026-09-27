@@ -18,6 +18,7 @@ import '../widgets/hrm_pushed_screen_shell.dart';
 import '../widgets/page_top_actions.dart';
 import 'package:zkteco_flutter_client/l10n/app_tr.dart';
 
+import '../theme/sbox_tokens.dart';
 /// Màn hình quản lý phiếu phạt
 class PenaltyTicketsScreen extends StatefulWidget {
   final String? highlightId;
@@ -252,9 +253,9 @@ class _PenaltyTicketsScreenState extends State<PenaltyTicketsScreen> {
       case 'Approved':
         return Colors.green;
       case 'AutoApproved':
-        return Colors.blue;
+        return SboxColors.brand500;
       case 'Cancelled':
-        return const Color(0xFFDC2626);
+        return SboxColors.danger;
       default:
         return Colors.black;
     }
@@ -309,7 +310,7 @@ class _PenaltyTicketsScreenState extends State<PenaltyTicketsScreen> {
       context: context,
       builder: (context) => ScrollableAlertDialog(
         backgroundColor: Colors.white,
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
         title: Text(tr('Duyệt phiếu phạt'),
             style: TextStyle(fontWeight: FontWeight.bold)),
         content: Text(tr('Duyệt phiếu phạt? Theo thiết lập phạt: trừ vào lương (không tạo phiếu thu) hoặc thu tiền mặt (tạo phiếu thu).')),
@@ -317,11 +318,11 @@ class _PenaltyTicketsScreenState extends State<PenaltyTicketsScreen> {
           TextButton(
               onPressed: () => Navigator.pop(context, false),
               child: Text(tr('Không'),
-                  style: TextStyle(color: Color(0xFF71717A)))),
+                  style: TextStyle(color: SboxColors.slate500))),
           FilledButton(
             onPressed: () => Navigator.pop(context, true),
             style: FilledButton.styleFrom(
-                backgroundColor: const Color(0xFF16A34A)),
+                backgroundColor: SboxColors.success),
             child: Text(tr('Duyệt')),
           ),
         ],
@@ -357,7 +358,7 @@ class _PenaltyTicketsScreenState extends State<PenaltyTicketsScreen> {
       context: context,
       builder: (context) => ScrollableAlertDialog(
         backgroundColor: Colors.white,
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
         title: Text(tr('Hoàn duyệt phiếu phạt'),
             style: TextStyle(fontWeight: FontWeight.bold)),
         content: Text(tr('Hoàn duyệt sẽ đưa phiếu phạt về trạng thái chờ duyệt (xóa phiếu thu liên quan nếu có). Bạn có chắc?')),
@@ -365,7 +366,7 @@ class _PenaltyTicketsScreenState extends State<PenaltyTicketsScreen> {
           TextButton(
               onPressed: () => Navigator.pop(context, false),
               child: Text(tr('Không'),
-                  style: TextStyle(color: Color(0xFF71717A)))),
+                  style: TextStyle(color: SboxColors.slate500))),
           FilledButton(
             onPressed: () => Navigator.pop(context, true),
             style: FilledButton.styleFrom(backgroundColor: Colors.orange),
@@ -395,7 +396,7 @@ class _PenaltyTicketsScreenState extends State<PenaltyTicketsScreen> {
       context: context,
       builder: (context) => ScrollableAlertDialog(
         backgroundColor: Colors.white,
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
         title: Text(tr('Hủy phiếu phạt'),
             style: TextStyle(fontWeight: FontWeight.bold)),
         content: SingleChildScrollView(
@@ -409,7 +410,7 @@ class _PenaltyTicketsScreenState extends State<PenaltyTicketsScreen> {
                 decoration: InputDecoration(
                   labelText: tr('Lý do hủy'),
                   border: OutlineInputBorder(
-                      borderRadius: BorderRadius.circular(8)),
+                      borderRadius: BorderRadius.circular(10)),
                 ),
                 maxLines: 2,
               ),
@@ -420,7 +421,7 @@ class _PenaltyTicketsScreenState extends State<PenaltyTicketsScreen> {
           TextButton(
               onPressed: () => Navigator.pop(context, false),
               child: Text(tr('Không'),
-                  style: TextStyle(color: Color(0xFF71717A)))),
+                  style: TextStyle(color: SboxColors.slate500))),
           FilledButton(
             onPressed: () => Navigator.pop(context, true),
             style: FilledButton.styleFrom(backgroundColor: Colors.red),
@@ -453,7 +454,7 @@ class _PenaltyTicketsScreenState extends State<PenaltyTicketsScreen> {
       context: context,
       builder: (context) => ScrollableAlertDialog(
         backgroundColor: Colors.white,
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
         title: Text(tr('Xóa phiếu phạt'),
             style: TextStyle(fontWeight: FontWeight.bold)),
         content: Text(tr('Bạn có chắc muốn xóa phiếu phạt này? Chỉ xóa được phiếu đang chờ duyệt.')),
@@ -461,7 +462,7 @@ class _PenaltyTicketsScreenState extends State<PenaltyTicketsScreen> {
           TextButton(
               onPressed: () => Navigator.pop(context, false),
               child: Text(tr('Không'),
-                  style: TextStyle(color: Color(0xFF71717A)))),
+                  style: TextStyle(color: SboxColors.slate500))),
           FilledButton(
             onPressed: () => Navigator.pop(context, true),
             style: FilledButton.styleFrom(backgroundColor: Colors.red),
@@ -514,7 +515,7 @@ class _PenaltyTicketsScreenState extends State<PenaltyTicketsScreen> {
       context: context,
       builder: (context) => ScrollableAlertDialog(
         backgroundColor: Colors.white,
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
         title: Text(tr('Quét lại chấm công'),
             style: TextStyle(fontWeight: FontWeight.bold)),
         content: Text(
@@ -526,7 +527,7 @@ class _PenaltyTicketsScreenState extends State<PenaltyTicketsScreen> {
           TextButton(
             onPressed: () => Navigator.pop(context, false),
             child: Text(tr('Hủy'),
-                style: TextStyle(color: Color(0xFF71717A))),
+                style: TextStyle(color: SboxColors.slate500)),
           ),
           FilledButton(
             onPressed: () => Navigator.pop(context, true),
@@ -594,7 +595,7 @@ class _PenaltyTicketsScreenState extends State<PenaltyTicketsScreen> {
       context: context,
       builder: (context) => ScrollableAlertDialog(
         backgroundColor: Colors.white,
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
         title: Text(tr('Duyệt nhanh'),
             style: TextStyle(fontWeight: FontWeight.bold)),
         content: Text(tr('Duyệt ${ids.length} phiếu phạt đã chọn? Theo thiết lập phạt: trừ vào lương hoặc tạo phiếu thu tiền mặt cho từng phiếu.')),
@@ -602,11 +603,11 @@ class _PenaltyTicketsScreenState extends State<PenaltyTicketsScreen> {
           TextButton(
               onPressed: () => Navigator.pop(context, false),
               child: Text(tr('Không'),
-                  style: TextStyle(color: Color(0xFF71717A)))),
+                  style: TextStyle(color: SboxColors.slate500))),
           FilledButton(
             onPressed: () => Navigator.pop(context, true),
             style: FilledButton.styleFrom(
-                backgroundColor: const Color(0xFF16A34A)),
+                backgroundColor: SboxColors.success),
             child: Text(tr('Duyệt ${ids.length}')),
           ),
         ],
@@ -785,7 +786,7 @@ class _PenaltyTicketsScreenState extends State<PenaltyTicketsScreen> {
               children: [
                 if (!isEditing) ...[
                   Text(tr('Nhân viên *'),
-                      style: TextStyle(color: Color(0xFF71717A), fontSize: 13)),
+                      style: TextStyle(color: SboxColors.slate500, fontSize: 13)),
                   const SizedBox(height: 6),
                   DropdownButtonFormField<String>(
                     initialValue: selectedEmployeeId,
@@ -808,7 +809,7 @@ class _PenaltyTicketsScreenState extends State<PenaltyTicketsScreen> {
                   const SizedBox(height: 16),
                 ],
                 Text(tr('Loại phạt *'),
-                    style: TextStyle(color: Color(0xFF71717A), fontSize: 13)),
+                    style: TextStyle(color: SboxColors.slate500, fontSize: 13)),
                 const SizedBox(height: 6),
                 DropdownButtonFormField<String>(
                   initialValue: selectedType,
@@ -825,19 +826,19 @@ class _PenaltyTicketsScreenState extends State<PenaltyTicketsScreen> {
                 ),
                 const SizedBox(height: 16),
                 Text(tr('Số tiền phạt (VNĐ) *'),
-                    style: TextStyle(color: Color(0xFF71717A), fontSize: 13)),
+                    style: TextStyle(color: SboxColors.slate500, fontSize: 13)),
                 const SizedBox(height: 6),
                 TextField(
                   controller: amountCtrl,
                   keyboardType: TextInputType.number,
                   style:
-                      const TextStyle(color: Color(0xFF18181B), fontSize: 14),
+                      const TextStyle(color: SboxColors.slate900, fontSize: 14),
                   decoration: _inputDecor('50000'),
                 ),
                 const SizedBox(height: 16),
                 if (!isEditing) ...[
                   Text(tr('Ngày vi phạm *'),
-                      style: TextStyle(color: Color(0xFF71717A), fontSize: 13)),
+                      style: TextStyle(color: SboxColors.slate500, fontSize: 13)),
                   const SizedBox(height: 6),
                   InkWell(
                     onTap: () async {
@@ -855,13 +856,13 @@ class _PenaltyTicketsScreenState extends State<PenaltyTicketsScreen> {
                       padding: const EdgeInsets.symmetric(
                           horizontal: 12, vertical: 14),
                       decoration: BoxDecoration(
-                        border: Border.all(color: const Color(0xFFE4E4E7)),
-                        borderRadius: BorderRadius.circular(8),
+                        border: Border.all(color: SboxColors.slate200),
+                        borderRadius: BorderRadius.circular(10),
                       ),
                       child: Row(
                         children: [
                           const Icon(Icons.calendar_today,
-                              size: 16, color: Color(0xFF71717A)),
+                              size: 16, color: SboxColors.slate500),
                           const SizedBox(width: 8),
                           Text(tr(DateFormat('dd/MM/yyyy').format(selectedDate)),
                               style: const TextStyle(fontSize: 14)),
@@ -872,24 +873,24 @@ class _PenaltyTicketsScreenState extends State<PenaltyTicketsScreen> {
                   const SizedBox(height: 16),
                 ],
                 Text(tr('Số phút trễ/sớm'),
-                    style: TextStyle(color: Color(0xFF71717A), fontSize: 13)),
+                    style: TextStyle(color: SboxColors.slate500, fontSize: 13)),
                 const SizedBox(height: 6),
                 TextField(
                   controller: minutesCtrl,
                   keyboardType: TextInputType.number,
                   style:
-                      const TextStyle(color: Color(0xFF18181B), fontSize: 14),
+                      const TextStyle(color: SboxColors.slate900, fontSize: 14),
                   decoration: _inputDecor('15'),
                 ),
                 const SizedBox(height: 16),
                 Text(tr('Mô tả'),
-                    style: TextStyle(color: Color(0xFF71717A), fontSize: 13)),
+                    style: TextStyle(color: SboxColors.slate500, fontSize: 13)),
                 const SizedBox(height: 6),
                 TextField(
                   controller: descCtrl,
                   maxLines: 2,
                   style:
-                      const TextStyle(color: Color(0xFF18181B), fontSize: 14),
+                      const TextStyle(color: SboxColors.slate900, fontSize: 14),
                   decoration: _inputDecor('Ghi chú thêm...'),
                 ),
               ],
@@ -905,13 +906,13 @@ class _PenaltyTicketsScreenState extends State<PenaltyTicketsScreen> {
                   backgroundColor: Colors.white,
                   elevation: 0,
                   leading: IconButton(
-                    icon: const Icon(Icons.close, color: Color(0xFF18181B)),
+                    icon: const Icon(Icons.close, color: SboxColors.slate900),
                     onPressed: () => Navigator.pop(context),
                   ),
                   title: Text(
                     tr(isEditing ? 'Sửa phiếu phạt' : 'Tạo phiếu phạt'),
                     style: const TextStyle(
-                        color: Color(0xFF18181B),
+                        color: SboxColors.slate900,
                         fontSize: 16,
                         fontWeight: FontWeight.bold),
                   ),
@@ -978,7 +979,7 @@ class _PenaltyTicketsScreenState extends State<PenaltyTicketsScreen> {
             insetPadding:
                 const EdgeInsets.symmetric(horizontal: 40, vertical: 24),
             shape:
-                RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+                RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
             child: Container(
               width: math
                   .min(480, MediaQuery.of(context).size.width - 32)
@@ -996,19 +997,19 @@ class _PenaltyTicketsScreenState extends State<PenaltyTicketsScreen> {
                           child: Text(
                               tr(isEditing ? 'Sửa phiếu phạt' : 'Tạo phiếu phạt'),
                               style: const TextStyle(
-                                  color: Color(0xFF18181B),
+                                  color: SboxColors.slate900,
                                   fontSize: 18,
                                   fontWeight: FontWeight.bold))),
                       IconButton(
                           onPressed: () => Navigator.pop(context),
                           icon: const Icon(Icons.close,
-                              color: Color(0xFF71717A))),
+                              color: SboxColors.slate500)),
                     ],
                   ),
                   const SizedBox(height: 20),
                   Flexible(child: formBody),
                   const SizedBox(height: 20),
-                  const Divider(color: Color(0xFFE4E4E7)),
+                  const Divider(color: SboxColors.slate200),
                   const SizedBox(height: 12),
                   Row(
                     children: [
@@ -1017,7 +1018,7 @@ class _PenaltyTicketsScreenState extends State<PenaltyTicketsScreen> {
                               ? null
                               : () => Navigator.pop(context),
                           child: Text(tr('Hủy'),
-                              style: TextStyle(color: Color(0xFF71717A)))),
+                              style: TextStyle(color: SboxColors.slate500))),
                       const Spacer(),
                       if (canApproveCreate) ...[
                         OutlinedButton.icon(
@@ -1070,16 +1071,16 @@ class _PenaltyTicketsScreenState extends State<PenaltyTicketsScreen> {
   InputDecoration _inputDecor(String hint) {
     return InputDecoration(
       hintText: tr(hint),
-      hintStyle: const TextStyle(color: Color(0xFFA1A1AA), fontSize: 14),
+      hintStyle: const TextStyle(color: SboxColors.slate400, fontSize: 14),
       contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 12),
       border: OutlineInputBorder(
-          borderRadius: BorderRadius.circular(8),
-          borderSide: const BorderSide(color: Color(0xFFE4E4E7))),
+          borderRadius: BorderRadius.circular(10),
+          borderSide: const BorderSide(color: SboxColors.slate200)),
       enabledBorder: OutlineInputBorder(
-          borderRadius: BorderRadius.circular(8),
-          borderSide: const BorderSide(color: Color(0xFFE4E4E7))),
+          borderRadius: BorderRadius.circular(10),
+          borderSide: const BorderSide(color: SboxColors.slate200)),
       focusedBorder: OutlineInputBorder(
-          borderRadius: BorderRadius.circular(8),
+          borderRadius: BorderRadius.circular(10),
           borderSide: BorderSide(color: HrmPageChrome.primaryNavy)),
     );
   }
@@ -1113,7 +1114,7 @@ class _PenaltyTicketsScreenState extends State<PenaltyTicketsScreen> {
                   width: 40,
                   height: 4,
                   decoration: BoxDecoration(
-                      color: const Color(0xFFE4E4E7),
+                      color: SboxColors.slate200,
                       borderRadius: BorderRadius.circular(2))),
               const SizedBox(height: 20),
               CircleAvatar(
@@ -1128,15 +1129,15 @@ class _PenaltyTicketsScreenState extends State<PenaltyTicketsScreen> {
                   style: const TextStyle(
                       fontSize: 18,
                       fontWeight: FontWeight.bold,
-                      color: Color(0xFF18181B))),
+                      color: SboxColors.slate900)),
               if (ticket['employeeCode'] != null)
                 Text(tr(ticket['employeeCode']),
                     style: const TextStyle(
-                        color: Color(0xFFA1A1AA), fontSize: 13)),
+                        color: SboxColors.slate400, fontSize: 13)),
               const SizedBox(height: 8),
               Text(tr(ticket['ticketCode'] ?? ''),
                   style: const TextStyle(
-                      color: Color(0xFF71717A),
+                      color: SboxColors.slate500,
                       fontSize: 12,
                       fontWeight: FontWeight.w500)),
               const SizedBox(height: 12),
@@ -1164,7 +1165,7 @@ class _PenaltyTicketsScreenState extends State<PenaltyTicketsScreen> {
                 ],
               ),
               const SizedBox(height: 16),
-              const Divider(color: Color(0xFFE4E4E7)),
+              const Divider(color: SboxColors.slate200),
               const SizedBox(height: 8),
               _detailRow(
                   Icons.category_outlined, 'Loại phạt', _getTypeLabel(type)),
@@ -1202,7 +1203,7 @@ class _PenaltyTicketsScreenState extends State<PenaltyTicketsScreen> {
               _detailRow(Icons.access_time_filled, 'Ngày tạo',
                   _formatDateTime(ticket['createdAt'])),
               const SizedBox(height: 16),
-              const Divider(color: Color(0xFFE4E4E7)),
+              const Divider(color: SboxColors.slate200),
               const SizedBox(height: 16),
               if (isPending) ...[
                 Row(
@@ -1218,8 +1219,8 @@ class _PenaltyTicketsScreenState extends State<PenaltyTicketsScreen> {
                           icon: const Icon(Icons.edit_outlined, size: 18),
                           label: Text(tr('Sửa')),
                           style: OutlinedButton.styleFrom(
-                            foregroundColor: const Color(0xFF71717A),
-                            side: const BorderSide(color: Color(0xFFE4E4E7)),
+                            foregroundColor: SboxColors.slate500,
+                            side: const BorderSide(color: SboxColors.slate200),
                             padding: const EdgeInsets.symmetric(vertical: 12),
                             shape: RoundedRectangleBorder(
                                 borderRadius: BorderRadius.circular(10)),
@@ -1258,7 +1259,7 @@ class _PenaltyTicketsScreenState extends State<PenaltyTicketsScreen> {
                           icon: const Icon(Icons.check, size: 18),
                           label: Text(tr('Duyệt')),
                           style: FilledButton.styleFrom(
-                            backgroundColor: const Color(0xFF16A34A),
+                            backgroundColor: SboxColors.success,
                             padding: const EdgeInsets.symmetric(vertical: 12),
                           ),
                         ),
@@ -1322,17 +1323,17 @@ class _PenaltyTicketsScreenState extends State<PenaltyTicketsScreen> {
       child: Row(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Icon(icon, size: 18, color: const Color(0xFF71717A)),
+          Icon(icon, size: 18, color: SboxColors.slate500),
           const SizedBox(width: 12),
           SizedBox(
               width: 110,
               child: Text(tr(label),
                   style:
-                      const TextStyle(color: Color(0xFF71717A), fontSize: 13))),
+                      const TextStyle(color: SboxColors.slate500, fontSize: 13))),
           Expanded(
               child: Text(tr(value),
                   style: const TextStyle(
-                      color: Color(0xFF18181B),
+                      color: SboxColors.slate900,
                       fontSize: 13,
                       fontWeight: FontWeight.w500))),
         ],
@@ -1373,7 +1374,7 @@ class _PenaltyTicketsScreenState extends State<PenaltyTicketsScreen> {
     return RegisterPageTopActions(
       actions: _buildTopActions(isMobile, canCreateTicket),
       child: Scaffold(
-      backgroundColor: const Color(0xFFFAFAFA),
+      backgroundColor: SboxColors.slate50,
       floatingActionButton: isMobile && canCreateTicket
           ? FloatingActionButton(
               onPressed: () => _showTicketDialog(),
@@ -1436,7 +1437,7 @@ class _PenaltyTicketsScreenState extends State<PenaltyTicketsScreen> {
                 Icon(Icons.check_circle_outline, size: 64, color: Colors.green),
                 SizedBox(height: 16),
                 Text(tr('Không có phiếu phạt'),
-                    style: TextStyle(fontSize: 16, color: Colors.grey)),
+                    style: TextStyle(fontSize: 16, color: SboxColors.slate500)),
               ],
             ),
           ),
@@ -1458,11 +1459,11 @@ class _PenaltyTicketsScreenState extends State<PenaltyTicketsScreen> {
         return Padding(
           padding: const EdgeInsets.only(bottom: 8),
           child: Material(
-            color: isSelected ? const Color(0xFFFFFBEB) : Colors.white,
-            borderRadius: BorderRadius.circular(12),
+            color: isSelected ? SboxColors.warningSoft : Colors.white,
+            borderRadius: BorderRadius.circular(14),
             elevation: 0,
             child: InkWell(
-              borderRadius: BorderRadius.circular(12),
+              borderRadius: BorderRadius.circular(14),
               onTap: () {
                 if (_isSelectionMode && isPending) {
                   _toggleSelection(id);
@@ -1474,11 +1475,11 @@ class _PenaltyTicketsScreenState extends State<PenaltyTicketsScreen> {
               child: Container(
                 padding: const EdgeInsets.all(14),
                 decoration: BoxDecoration(
-                  borderRadius: BorderRadius.circular(12),
+                  borderRadius: BorderRadius.circular(14),
                   border: Border.all(
                       color: isSelected
                           ? Colors.orange
-                          : const Color(0xFFE4E4E7),
+                          : SboxColors.slate200,
                       width: isSelected ? 1.5 : 1),
                 ),
                 child: Row(
@@ -1492,7 +1493,7 @@ class _PenaltyTicketsScreenState extends State<PenaltyTicketsScreen> {
                               : Icons.radio_button_unchecked,
                           color: isSelected
                               ? Colors.orange
-                              : const Color(0xFFA1A1AA),
+                              : SboxColors.slate400,
                           size: 22,
                         ),
                       ),
@@ -1512,7 +1513,7 @@ class _PenaltyTicketsScreenState extends State<PenaltyTicketsScreen> {
                               style: const TextStyle(
                                   fontWeight: FontWeight.w600,
                                   fontSize: 14,
-                                  color: Color(0xFF18181B))),
+                                  color: SboxColors.slate900)),
                           const SizedBox(height: 2),
                           Text(
                             tr([
@@ -1520,7 +1521,7 @@ class _PenaltyTicketsScreenState extends State<PenaltyTicketsScreen> {
                               _formatDate(ticket['violationDate'])
                             ].where((s) => s.isNotEmpty).join(' \u00b7 ')),
                             style: const TextStyle(
-                                color: Color(0xFF71717A), fontSize: 12),
+                                color: SboxColors.slate500, fontSize: 12),
                           ),
                         ],
                       ),
@@ -1585,7 +1586,7 @@ class _PenaltyTicketsScreenState extends State<PenaltyTicketsScreen> {
           const SizedBox(width: 8),
           Expanded(
               child: _buildStatCard(
-                  'Đã hủy', _stats['totalCancelled'] ?? 0, const Color(0xFFDC2626))),
+                  'Đã hủy', _stats['totalCancelled'] ?? 0, SboxColors.danger)),
         ],
       ),
     );
@@ -1598,7 +1599,7 @@ class _PenaltyTicketsScreenState extends State<PenaltyTicketsScreen> {
       elevation: 0,
       shape: RoundedRectangleBorder(
           borderRadius: BorderRadius.circular(10),
-          side: const BorderSide(color: Color(0xFFE4E4E7))),
+          side: const BorderSide(color: SboxColors.slate200)),
       child: Padding(
         padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 10),
         child: Column(
@@ -1610,7 +1611,7 @@ class _PenaltyTicketsScreenState extends State<PenaltyTicketsScreen> {
                 maxLines: 1,
                 overflow: TextOverflow.ellipsis),
             Text(tr(label),
-                style: const TextStyle(fontSize: 11, color: Color(0xFF71717A)),
+                style: const TextStyle(fontSize: 11, color: SboxColors.slate500),
                 maxLines: 1,
                 overflow: TextOverflow.ellipsis),
             if (amount != null && amount > 0)
@@ -1664,8 +1665,8 @@ class _PenaltyTicketsScreenState extends State<PenaltyTicketsScreen> {
                       fontSize: 12,
                       color: _datePreset == 'custom'
                           ? Colors.white
-                          : const Color(0xFF18181B)),
-                  side: const BorderSide(color: Color(0xFFE4E4E7)),
+                          : SboxColors.slate900),
+                  side: const BorderSide(color: SboxColors.slate200),
                   onPressed: _pickDateRange,
                 ),
                 if (Provider.of<PermissionProvider>(context, listen: false)
@@ -1676,8 +1677,8 @@ class _PenaltyTicketsScreenState extends State<PenaltyTicketsScreen> {
                     label: Text(tr('Quét lại')),
                     backgroundColor: Colors.white,
                     labelStyle: const TextStyle(
-                        fontSize: 12, color: Color(0xFF18181B)),
-                    side: const BorderSide(color: Color(0xFFE4E4E7)),
+                        fontSize: 12, color: SboxColors.slate900),
+                    side: const BorderSide(color: SboxColors.slate200),
                     onPressed: _isLoading ? null : _backfillFromAttendance,
                   ),
                 ],
@@ -1812,13 +1813,13 @@ class _PenaltyTicketsScreenState extends State<PenaltyTicketsScreen> {
               height: 40,
               padding: const EdgeInsets.symmetric(horizontal: 12),
               decoration: BoxDecoration(
-                color: const Color(0xFFF8FAFC),
-                borderRadius: BorderRadius.circular(8),
-                border: Border.all(color: const Color(0xFFE4E4E7)),
+                color: SboxColors.slate50,
+                borderRadius: BorderRadius.circular(10),
+                border: Border.all(color: SboxColors.slate200),
               ),
               child: Row(children: [
                 const Icon(Icons.account_tree_outlined,
-                    size: 16, color: Color(0xFF6B7280)),
+                    size: 16, color: SboxColors.slate500),
                 const SizedBox(width: 8),
                 Expanded(
                   child: DropdownButtonHideUnderline(
@@ -1827,9 +1828,9 @@ class _PenaltyTicketsScreenState extends State<PenaltyTicketsScreen> {
                       isExpanded: true,
                       isDense: true,
                       style: const TextStyle(
-                          fontSize: 13, color: Color(0xFF111827)),
+                          fontSize: 13, color: SboxColors.slate900),
                       icon: const Icon(Icons.keyboard_arrow_down,
-                          size: 18, color: Color(0xFF9CA3AF)),
+                          size: 18, color: SboxColors.slate400),
                       items: [
                         DropdownMenuItem<String?>(
                             value: null,
@@ -1851,7 +1852,7 @@ class _PenaltyTicketsScreenState extends State<PenaltyTicketsScreen> {
                     child: const Padding(
                         padding: EdgeInsets.all(4),
                         child: Icon(Icons.close,
-                            size: 14, color: Color(0xFF9CA3AF))),
+                            size: 14, color: SboxColors.slate400)),
                   ),
               ]),
             ),
@@ -1869,8 +1870,8 @@ class _PenaltyTicketsScreenState extends State<PenaltyTicketsScreen> {
       backgroundColor: Colors.white,
       selectedColor: HrmPageChrome.primaryNavy,
       labelStyle:
-          TextStyle(color: selected ? Colors.white : const Color(0xFF18181B)),
-      side: const BorderSide(color: Color(0xFFE4E4E7)),
+          TextStyle(color: selected ? Colors.white : SboxColors.slate900),
+      side: const BorderSide(color: SboxColors.slate200),
       visualDensity: VisualDensity.compact,
     );
   }
@@ -1881,7 +1882,7 @@ class _PenaltyTicketsScreenState extends State<PenaltyTicketsScreen> {
     final pendingOnPage =
         _tickets.where((t) => t['status'] == 'Pending').length;
     return Container(
-      color: const Color(0xFFFFF7ED),
+      color: SboxColors.warningSoft,
       padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
       child: Row(
         children: [
@@ -1912,7 +1913,7 @@ class _PenaltyTicketsScreenState extends State<PenaltyTicketsScreen> {
               icon: const Icon(Icons.check, size: 16),
               label: Text(tr('Duyệt ${_selectedIds.length}')),
               style: FilledButton.styleFrom(
-                backgroundColor: const Color(0xFF16A34A),
+                backgroundColor: SboxColors.success,
                 padding:
                     const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
               ),
@@ -1932,7 +1933,7 @@ class _PenaltyTicketsScreenState extends State<PenaltyTicketsScreen> {
             Icon(Icons.check_circle_outline, size: 64, color: Colors.green),
             SizedBox(height: 16),
             Text(tr('Không có phiếu phạt'),
-                style: TextStyle(fontSize: 16, color: Colors.grey)),
+                style: TextStyle(fontSize: 16, color: SboxColors.slate500)),
           ],
         ),
       );
@@ -1959,11 +1960,11 @@ class _PenaltyTicketsScreenState extends State<PenaltyTicketsScreen> {
         return Padding(
           padding: const EdgeInsets.only(bottom: 8),
           child: Material(
-            color: isSelected ? const Color(0xFFFFFBEB) : Colors.white,
-            borderRadius: BorderRadius.circular(12),
+            color: isSelected ? SboxColors.warningSoft : Colors.white,
+            borderRadius: BorderRadius.circular(14),
             elevation: 0,
             child: InkWell(
-              borderRadius: BorderRadius.circular(12),
+              borderRadius: BorderRadius.circular(14),
               onTap: () {
                 if (_isSelectionMode && isPending) {
                   _toggleSelection(id);
@@ -1975,10 +1976,10 @@ class _PenaltyTicketsScreenState extends State<PenaltyTicketsScreen> {
               child: Container(
                 padding: const EdgeInsets.all(14),
                 decoration: BoxDecoration(
-                  borderRadius: BorderRadius.circular(12),
+                  borderRadius: BorderRadius.circular(14),
                   border: Border.all(
                       color:
-                          isSelected ? Colors.orange : const Color(0xFFE4E4E7),
+                          isSelected ? Colors.orange : SboxColors.slate200,
                       width: isSelected ? 1.5 : 1),
                 ),
                 child: Row(
@@ -1992,7 +1993,7 @@ class _PenaltyTicketsScreenState extends State<PenaltyTicketsScreen> {
                               : Icons.radio_button_unchecked,
                           color: isSelected
                               ? Colors.orange
-                              : const Color(0xFFA1A1AA),
+                              : SboxColors.slate400,
                           size: 22,
                         ),
                       ),
@@ -2012,7 +2013,7 @@ class _PenaltyTicketsScreenState extends State<PenaltyTicketsScreen> {
                               style: const TextStyle(
                                   fontWeight: FontWeight.w600,
                                   fontSize: 14,
-                                  color: Color(0xFF18181B))),
+                                  color: SboxColors.slate900)),
                           const SizedBox(height: 2),
                           Text(
                             tr([
@@ -2020,7 +2021,7 @@ class _PenaltyTicketsScreenState extends State<PenaltyTicketsScreen> {
                               _formatDate(ticket['violationDate'])
                             ].where((s) => s.isNotEmpty).join(' \u00b7 ')),
                             style: const TextStyle(
-                                color: Color(0xFF71717A), fontSize: 12),
+                                color: SboxColors.slate500, fontSize: 12),
                           ),
                         ],
                       ),
@@ -2052,7 +2053,7 @@ class _PenaltyTicketsScreenState extends State<PenaltyTicketsScreen> {
                     ),
                     const SizedBox(width: 4),
                     const Icon(Icons.chevron_right,
-                        color: Color(0xFFA1A1AA), size: 20),
+                        color: SboxColors.slate400, size: 20),
                   ],
                 ),
               ),
@@ -2078,12 +2079,12 @@ class _PenaltyTicketsScreenState extends State<PenaltyTicketsScreen> {
         final isSelected = _selectedIds.contains(id);
 
         return Card(
-          color: isSelected ? const Color(0xFFFFFBEB) : Colors.white,
+          color: isSelected ? SboxColors.warningSoft : Colors.white,
           elevation: 0,
           shape: RoundedRectangleBorder(
             borderRadius: BorderRadius.circular(10),
             side: BorderSide(
-                color: isSelected ? Colors.orange : const Color(0xFFE4E4E7),
+                color: isSelected ? Colors.orange : SboxColors.slate200,
                 width: isSelected ? 1.5 : 1),
           ),
           margin: const EdgeInsets.symmetric(vertical: 4),
@@ -2115,7 +2116,7 @@ class _PenaltyTicketsScreenState extends State<PenaltyTicketsScreen> {
                                   : Icons.check_box_outline_blank,
                               color: isSelected
                                   ? Colors.orange
-                                  : const Color(0xFFA1A1AA),
+                                  : SboxColors.slate400,
                               size: 22,
                             ),
                           ),
@@ -2143,7 +2144,7 @@ class _PenaltyTicketsScreenState extends State<PenaltyTicketsScreen> {
                                 ticket['ticketCode'] ?? ''
                               ].where((s) => s.isNotEmpty).join(' \u00b7 ')),
                               style: const TextStyle(
-                                  color: Color(0xFF71717A), fontSize: 12),
+                                  color: SboxColors.slate500, fontSize: 12),
                             ),
                           ],
                         ),
@@ -2152,7 +2153,7 @@ class _PenaltyTicketsScreenState extends State<PenaltyTicketsScreen> {
                           style: TextStyle(
                               fontWeight: FontWeight.bold,
                               color: Colors.red[700],
-                              fontSize: 15)),
+                              fontSize: 16)),
                       const SizedBox(width: 12),
                       Container(
                         padding: const EdgeInsets.symmetric(
@@ -2160,7 +2161,7 @@ class _PenaltyTicketsScreenState extends State<PenaltyTicketsScreen> {
                         decoration: BoxDecoration(
                             color:
                                 _getStatusColor(status).withValues(alpha: 0.15),
-                            borderRadius: BorderRadius.circular(8)),
+                            borderRadius: BorderRadius.circular(10)),
                         child: Text(tr(_getStatusLabel(status)),
                             style: TextStyle(
                                 fontSize: 11,
@@ -2174,7 +2175,7 @@ class _PenaltyTicketsScreenState extends State<PenaltyTicketsScreen> {
                     const SizedBox(height: 6),
                     Text(tr(ticket['description']),
                         style: const TextStyle(
-                            fontSize: 12, color: Color(0xFF71717A)),
+                            fontSize: 12, color: SboxColors.slate500),
                         maxLines: 1,
                         overflow: TextOverflow.ellipsis),
                   ],
@@ -2190,7 +2191,7 @@ class _PenaltyTicketsScreenState extends State<PenaltyTicketsScreen> {
                             _actionBtn(
                                 Icons.edit_outlined,
                                 'Sửa',
-                                const Color(0xFF71717A),
+                                SboxColors.slate500,
                                 () => _showTicketDialog(ticket: ticket)),
                           if (Provider.of<PermissionProvider>(context,
                                   listen: false)
@@ -2224,7 +2225,7 @@ class _PenaltyTicketsScreenState extends State<PenaltyTicketsScreen> {
                               label: Text(tr('Duyệt'),
                                   style: TextStyle(fontSize: 12)),
                               style: FilledButton.styleFrom(
-                                backgroundColor: const Color(0xFF16A34A),
+                                backgroundColor: SboxColors.success,
                                 padding: const EdgeInsets.symmetric(
                                     horizontal: 12, vertical: 6),
                                 minimumSize: Size.zero,
@@ -2240,7 +2241,7 @@ class _PenaltyTicketsScreenState extends State<PenaltyTicketsScreen> {
                           ] else if (ticket['collectionMethod'] == 'Salary') ...[
                             Text(tr('Trừ vào lương'),
                                 style: TextStyle(
-                                    fontSize: 11, color: Colors.blue[700])),
+                                    fontSize: 11, color: SboxColors.brand700)),
                             const SizedBox(width: 8),
                           ],
                           if (Provider.of<PermissionProvider>(context,
@@ -2285,7 +2286,7 @@ class _PenaltyTicketsScreenState extends State<PenaltyTicketsScreen> {
         side: BorderSide(color: color.withValues(alpha: 0.5)),
         padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
         minimumSize: Size.zero,
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
       ),
     );
   }
@@ -2299,7 +2300,7 @@ class _PenaltyTicketsScreenState extends State<PenaltyTicketsScreen> {
       padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
       decoration: BoxDecoration(
         color: Colors.white,
-        border: Border(top: BorderSide(color: Colors.grey.shade200)),
+        border: Border(top: BorderSide(color: SboxColors.slate200)),
       ),
       child: Wrap(
         alignment: WrapAlignment.spaceBetween,
@@ -2308,26 +2309,26 @@ class _PenaltyTicketsScreenState extends State<PenaltyTicketsScreen> {
         runSpacing: 8,
         children: [
           Text(tr('Hiển thị $start-$end / $_totalCount'),
-              style: TextStyle(fontSize: 12, color: Colors.grey.shade600)),
+              style: TextStyle(fontSize: 12, color: SboxColors.slate600)),
           Row(
             mainAxisSize: MainAxisSize.min,
             children: [
               Text(tr('Hiển thị:'),
-                  style: TextStyle(fontSize: 12, color: Colors.grey[500])),
+                  style: TextStyle(fontSize: 12, color: SboxColors.slate500)),
               const SizedBox(width: 8),
               Container(
                 height: 34,
                 padding: const EdgeInsets.symmetric(horizontal: 12),
                 decoration: BoxDecoration(
-                  color: const Color(0xFFFAFAFA),
-                  border: Border.all(color: const Color(0xFFE4E4E7)),
-                  borderRadius: BorderRadius.circular(8),
+                  color: SboxColors.slate50,
+                  border: Border.all(color: SboxColors.slate200),
+                  borderRadius: BorderRadius.circular(10),
                 ),
                 child: DropdownButtonHideUnderline(
                   child: DropdownButton<int>(
                     value: _pageSize,
                     isDense: true,
-                    style: TextStyle(fontSize: 13, color: Colors.grey[800]),
+                    style: TextStyle(fontSize: 13, color: SboxColors.slate800),
                     items: _pageSizeOptions
                         .map((s) =>
                             DropdownMenuItem(value: s, child: Text(tr('$s'))))
@@ -2364,7 +2365,7 @@ class _PenaltyTicketsScreenState extends State<PenaltyTicketsScreen> {
                     const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
                 decoration: BoxDecoration(
                     color: HrmPageChrome.primaryNavy,
-                    borderRadius: BorderRadius.circular(8)),
+                    borderRadius: BorderRadius.circular(10)),
                 child: Text(tr('$_currentPage / $totalPages'),
                     style: const TextStyle(
                         fontSize: 13,

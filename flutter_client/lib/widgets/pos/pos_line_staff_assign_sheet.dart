@@ -4,6 +4,7 @@ import '../../models/pos_product.dart';
 import 'pos_theme.dart';
 import 'package:zkteco_flutter_client/l10n/app_tr.dart';
 
+import '../../theme/sbox_tokens.dart';
 class PosStaffAssignment {
   PosStaffAssignment({
     this.componentProductId,
@@ -165,7 +166,7 @@ class _SheetState extends State<_Sheet> {
             const SizedBox(height: 4),
             Text(
               tr('Combo / gói dịch vụ: chọn NV cho từng phần để tính hoa hồng'),
-              style: TextStyle(fontSize: 12.5, color: Colors.grey.shade600),
+              style: TextStyle(fontSize: 13, color: SboxColors.slate600),
             ),
             const SizedBox(height: 12),
             Flexible(
@@ -181,7 +182,7 @@ class _SheetState extends State<_Sheet> {
                       helperText: slot.subtitle == null ? null : tr(slot.subtitle!),
                       isDense: true,
                       border: OutlineInputBorder(
-                        borderRadius: BorderRadius.circular(8),
+                        borderRadius: BorderRadius.circular(10),
                       ),
                     ),
                     child: DropdownButtonHideUnderline(

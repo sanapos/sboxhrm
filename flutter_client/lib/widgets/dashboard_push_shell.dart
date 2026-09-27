@@ -24,7 +24,7 @@ class DashboardPushShell extends StatelessWidget {
               color: Colors.white,
               elevation: 3,
               shadowColor: Colors.black26,
-              borderRadius: BorderRadius.circular(8),
+              borderRadius: BorderRadius.circular(10),
               child: IconButton(
                 tooltip: tr('Quay lại'),
                 icon: const Icon(Icons.arrow_back),

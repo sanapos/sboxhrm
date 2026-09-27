@@ -13,6 +13,7 @@ import 'pos_quote_document_wording_screen.dart';
 import '../../widgets/pos/pos_quote_care_sheet.dart';
 import '../../widgets/pos/pos_theme.dart';
 
+import '../../theme/sbox_tokens.dart';
 /// Chi tiết hợp đồng: tạm ứng + biên bản nghiệm thu.
 class PosContractDetailScreen extends StatefulWidget {
   const PosContractDetailScreen({super.key, required this.quoteId});
@@ -195,7 +196,7 @@ class _PosContractDetailScreenState extends State<PosContractDetailScreen> {
                               Text(
                                 contract?.title ?? tr('Hợp đồng'),
                                 style: const TextStyle(
-                                    fontWeight: FontWeight.w800, fontSize: 16),
+                                    fontWeight: FontWeight.w700, fontSize: 16),
                               ),
                               const SizedBox(height: 4),
                               Text(
@@ -206,7 +207,7 @@ class _PosContractDetailScreenState extends State<PosContractDetailScreen> {
                                   PosQuote.stageLabel(q.commercialStage),
                                 ].where((e) => e.isNotEmpty).join(' · '),
                                 style: TextStyle(
-                                    color: Colors.grey.shade700, fontSize: 13),
+                                    color: SboxColors.slate700, fontSize: 13),
                               ),
                               if (q.depositAmount > 0) ...[
                                 const SizedBox(height: 8),
@@ -309,7 +310,7 @@ class _PosContractDetailScreenState extends State<PosContractDetailScreen> {
           Expanded(
             child: Text(
               tr(title),
-              style: const TextStyle(fontWeight: FontWeight.w800, fontSize: 15),
+              style: const TextStyle(fontWeight: FontWeight.w700, fontSize: 16),
             ),
           ),
           TextButton.icon(
@@ -377,11 +378,11 @@ class _PosContractDetailScreenState extends State<PosContractDetailScreen> {
       padding: const EdgeInsets.only(bottom: 8),
       child: Material(
         color: Colors.white,
-        borderRadius: BorderRadius.circular(8),
+        borderRadius: BorderRadius.circular(10),
         child: ListTile(
           title: Text(
             '${d.docNo} · ${d.title}',
-            style: const TextStyle(fontWeight: FontWeight.w700, fontSize: 13.5),
+            style: const TextStyle(fontWeight: FontWeight.w700, fontSize: 14),
           ),
           subtitle: Text([
             PosQuoteDocument.kindLabel(d.kind),

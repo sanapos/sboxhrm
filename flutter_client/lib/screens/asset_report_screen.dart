@@ -17,6 +17,7 @@ import '../utils/responsive_helper.dart';
 import 'package:excel/excel.dart' as excel_lib;
 import 'package:zkteco_flutter_client/l10n/app_tr.dart';
 
+import '../theme/sbox_tokens.dart';
 const _theme = HrmPageChrome.primaryNavy;
 const _rowH = 52.0;
 const _hdrH = 42.0;
@@ -506,7 +507,7 @@ class _AssetReportScreenState extends State<AssetReportScreen>
                                   controller: _tabs,
                                   isScrollable: true,
                                   labelColor: _theme,
-                                  unselectedLabelColor: Colors.grey[600],
+                                  unselectedLabelColor: SboxColors.slate600,
                                   indicatorColor: _theme,
                                   tabAlignment: TabAlignment.start,
                                   tabs: [
@@ -574,13 +575,13 @@ class _AssetReportScreenState extends State<AssetReportScreen>
               label: Text(tr(sec.label), style: const TextStyle(fontSize: 12)),
               avatar: Icon(sec.icon,
                   size: 16,
-                  color: selected ? Colors.white : const Color(0xFF6B7280)),
+                  color: selected ? Colors.white : SboxColors.slate500),
               selected: selected,
               showCheckmark: false,
               visualDensity: VisualDensity.compact,
               selectedColor: _theme,
               labelStyle: TextStyle(
-                color: selected ? Colors.white : const Color(0xFF374151),
+                color: selected ? Colors.white : SboxColors.slate700,
                 fontWeight: selected ? FontWeight.w600 : FontWeight.w500,
               ),
               onSelected: (_) {
@@ -960,14 +961,14 @@ class _AssetReportScreenState extends State<AssetReportScreen>
         isDense: true,
         contentPadding:
             const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
-        border: OutlineInputBorder(borderRadius: BorderRadius.circular(8)),
+        border: OutlineInputBorder(borderRadius: BorderRadius.circular(10)),
       ),
       child: DropdownButtonHideUnderline(
         child: DropdownButton<T>(
           value: value,
           isExpanded: true,
           isDense: true,
-          style: const TextStyle(fontSize: 12, color: Color(0xFF111827)),
+          style: const TextStyle(fontSize: 12, color: SboxColors.slate900),
           items: items,
           onChanged: onChanged,
         ),
@@ -987,7 +988,7 @@ class _AssetReportScreenState extends State<AssetReportScreen>
         labelText: tr(label),
         labelStyle: const TextStyle(fontSize: 11),
         isDense: true,
-        border: OutlineInputBorder(borderRadius: BorderRadius.circular(8)),
+        border: OutlineInputBorder(borderRadius: BorderRadius.circular(10)),
         prefixIcon: const Icon(Icons.search, size: 18),
       ),
       textInputAction: TextInputAction.search,
@@ -1174,7 +1175,7 @@ class _AssetReportScreenState extends State<AssetReportScreen>
       padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
       decoration: BoxDecoration(
         color: _theme.withValues(alpha: 0.1),
-        borderRadius: BorderRadius.circular(8),
+        borderRadius: BorderRadius.circular(10),
       ),
       child: Text(tr('$label: $value'),
           style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w600)),
@@ -1332,7 +1333,7 @@ class _AssetReportScreenState extends State<AssetReportScreen>
       elevation: 0,
       shape: RoundedRectangleBorder(
         borderRadius: BorderRadius.circular(10),
-        side: BorderSide(color: Colors.grey.shade200),
+        side: BorderSide(color: SboxColors.slate200),
       ),
       child: Padding(
         padding: const EdgeInsets.all(12),
@@ -1352,10 +1353,10 @@ class _AssetReportScreenState extends State<AssetReportScreen>
             ),
             const SizedBox(height: 4),
             Text(tr(code),
-                style: TextStyle(fontSize: 11, color: Colors.grey.shade600)),
+                style: TextStyle(fontSize: 11, color: SboxColors.slate600)),
             const SizedBox(height: 4),
             Text(tr(subtitle),
-                style: TextStyle(fontSize: 12, color: Colors.grey.shade700)),
+                style: TextStyle(fontSize: 12, color: SboxColors.slate700)),
             if (trailing != null) ...[
               const SizedBox(height: 8),
               Align(
@@ -1379,7 +1380,7 @@ class _AssetReportScreenState extends State<AssetReportScreen>
       padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
       decoration: BoxDecoration(
         color: color.withValues(alpha: 0.12),
-        borderRadius: BorderRadius.circular(8),
+        borderRadius: BorderRadius.circular(10),
         border: Border.all(color: color.withValues(alpha: 0.35)),
       ),
       child: Text(tr(status ?? '—'),
@@ -1441,7 +1442,7 @@ class _AssetReportScreenState extends State<AssetReportScreen>
           'Kỳ vọng ${r['expectedQuantity'] ?? 0} · Thực tế ${r['actualQuantity'] ?? '-'}\n${r['conditionName'] ?? ''}${hasIssue ? ' · ${r['issueDescription'] ?? 'Có vấn đề'}' : ''}',
       trailing: 'Chênh: $variance',
       trailingColor:
-          (variance is num && variance != 0) ? const Color(0xFFDC2626) : _theme,
+          (variance is num && variance != 0) ? SboxColors.danger : _theme,
     );
   }
 
@@ -1458,9 +1459,9 @@ class _AssetReportScreenState extends State<AssetReportScreen>
           '${r['categoryName'] ?? ''}\nHết BH: ${assetReportFormatDate(r['warrantyExpiry'])} · $daysStr\nNgười giữ: ${r['assigneeName'] ?? '—'}',
       trailing: daysStr,
       trailingColor: expired
-          ? const Color(0xFFDC2626)
+          ? SboxColors.danger
           : (days is num && days <= 7
-              ? const Color(0xFFF59E0B)
+              ? SboxColors.warning
               : _theme),
     );
   }

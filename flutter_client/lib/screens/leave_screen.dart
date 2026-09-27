@@ -28,6 +28,7 @@ import '../utils/navigation_notifier.dart';
 import '../utils/vietnamese_font.dart';
 import 'package:zkteco_flutter_client/l10n/app_tr.dart';
 import 'package:zkteco_flutter_client/l10n/app_ui_locale.dart';
+import '../theme/sbox_tokens.dart';
 class LeaveScreen extends StatefulWidget {
   final String? highlightId;
   const LeaveScreen({super.key, this.highlightId});
@@ -565,7 +566,7 @@ class _LeaveScreenState extends State<LeaveScreen>
       controller: _tabController,
       tabAlignment: TabAlignment.fill,
       labelColor: theme.primaryColor,
-      unselectedLabelColor: Colors.grey,
+      unselectedLabelColor: SboxColors.slate500,
       indicatorColor: theme.primaryColor,
       indicatorWeight: 3,
       labelStyle: const TextStyle(fontWeight: FontWeight.w600, fontSize: 13),
@@ -658,12 +659,12 @@ class _LeaveScreenState extends State<LeaveScreen>
     return Container(
       decoration: const BoxDecoration(
         color: Colors.white,
-        border: Border(bottom: BorderSide(color: Color(0xFFE4E4E7))),
+        border: Border(bottom: BorderSide(color: SboxColors.slate200)),
       ),
       child: TabBar(
         controller: _tabController,
         labelColor: theme.primaryColor,
-        unselectedLabelColor: Colors.grey,
+        unselectedLabelColor: SboxColors.slate500,
         indicatorColor: theme.primaryColor,
         indicatorWeight: 3,
         labelStyle: const TextStyle(fontWeight: FontWeight.w600, fontSize: 13),
@@ -873,7 +874,7 @@ class _LeaveScreenState extends State<LeaveScreen>
             ),
             ...options.map(
               (o) => ListTile(
-                title: Text(tr(o.label), style: const TextStyle(fontSize: 15)),
+                title: Text(tr(o.label), style: const TextStyle(fontSize: 16)),
                 onTap: () {
                   Navigator.pop(ctx);
                   o.onPick();
@@ -979,19 +980,19 @@ class _LeaveScreenState extends State<LeaveScreen>
     final accent = accentColor ?? Theme.of(context).primaryColor;
     final isActive = active;
     return Material(
-      color: isActive ? accent.withValues(alpha: 0.08) : const Color(0xFFFAFAFA),
-      borderRadius: BorderRadius.circular(12),
+      color: isActive ? accent.withValues(alpha: 0.08) : SboxColors.slate50,
+      borderRadius: BorderRadius.circular(14),
       child: InkWell(
         onTap: onTap,
-        borderRadius: BorderRadius.circular(12),
+        borderRadius: BorderRadius.circular(14),
         child: Container(
           width: double.infinity,
           constraints: const BoxConstraints(minHeight: 58),
           padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 10),
           decoration: BoxDecoration(
-            borderRadius: BorderRadius.circular(12),
+            borderRadius: BorderRadius.circular(14),
             border: Border.all(
-              color: isActive ? accent.withValues(alpha: 0.45) : const Color(0xFFE4E4E7),
+              color: isActive ? accent.withValues(alpha: 0.45) : SboxColors.slate200,
               width: isActive ? 1.5 : 1,
             ),
           ),
@@ -1001,7 +1002,7 @@ class _LeaveScreenState extends State<LeaveScreen>
             children: [
               Row(
                 children: [
-                  Icon(icon, size: 15, color: isActive ? accent : Colors.grey[500]),
+                  Icon(icon, size: 15, color: isActive ? accent : SboxColors.slate500),
                   const SizedBox(width: 5),
                   Expanded(
                     child: Text(
@@ -1009,14 +1010,14 @@ class _LeaveScreenState extends State<LeaveScreen>
                       style: TextStyle(
                         fontSize: 11,
                         fontWeight: FontWeight.w600,
-                        color: Colors.grey[600],
+                        color: SboxColors.slate600,
                       ),
                       maxLines: 1,
                     ),
                   ),
                   if (onTap != null)
                     Icon(Icons.expand_more,
-                        size: 16, color: Colors.grey[500]),
+                        size: 16, color: SboxColors.slate500),
                 ],
               ),
               const SizedBox(height: 6),
@@ -1026,7 +1027,7 @@ class _LeaveScreenState extends State<LeaveScreen>
                   fontSize: 13,
                   fontWeight: FontWeight.w700,
                   height: 1.25,
-                  color: isActive ? accent : const Color(0xFF18181B),
+                  color: isActive ? accent : SboxColors.slate900,
                 ),
                 maxLines: 2,
                 softWrap: true,
@@ -1213,7 +1214,7 @@ class _LeaveScreenState extends State<LeaveScreen>
         child: Column(
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
-            Icon(Icons.event_busy_outlined, size: 72, color: Colors.grey[300]),
+            Icon(Icons.event_busy_outlined, size: 72, color: SboxColors.slate300),
             const SizedBox(height: 16),
             Text(
               tr(showApprovalActions
@@ -1221,12 +1222,12 @@ class _LeaveScreenState extends State<LeaveScreen>
                   : _l10n.noLeaveRequests),
               style: TextStyle(
                   fontSize: 16,
-                  color: Colors.grey[500],
+                  color: SboxColors.slate500,
                   fontWeight: FontWeight.w500),
             ),
             const SizedBox(height: 8),
             Text(tr('Các đơn nghỉ phép sẽ hiển thị tại đây'),
-                style: TextStyle(fontSize: 13, color: Colors.grey[400])),
+                style: TextStyle(fontSize: 13, color: SboxColors.slate400)),
             if (isMyLeaves) ...[
               const SizedBox(height: 20),
               FilledButton.icon(
@@ -1290,8 +1291,8 @@ class _LeaveScreenState extends State<LeaveScreen>
                 child: Container(
                   decoration: BoxDecoration(
                     color: Colors.white,
-                    borderRadius: BorderRadius.circular(12),
-                    border: Border.all(color: const Color(0xFFE4E4E7)),
+                    borderRadius: BorderRadius.circular(14),
+                    border: Border.all(color: SboxColors.slate200),
                     boxShadow: [
                       BoxShadow(
                         color: Colors.black.withValues(alpha: 0.05),
@@ -1321,8 +1322,8 @@ class _LeaveScreenState extends State<LeaveScreen>
                 width: double.infinity,
                 decoration: BoxDecoration(
                   color: Colors.white,
-                  borderRadius: BorderRadius.circular(12),
-                  border: Border.all(color: const Color(0xFFE4E4E7)),
+                  borderRadius: BorderRadius.circular(14),
+                  border: Border.all(color: SboxColors.slate200),
                   boxShadow: [
                     BoxShadow(
                       color: Colors.black.withValues(alpha: 0.04),
@@ -1332,7 +1333,7 @@ class _LeaveScreenState extends State<LeaveScreen>
                   ],
                 ),
                 child: ClipRRect(
-                  borderRadius: BorderRadius.circular(12),
+                  borderRadius: BorderRadius.circular(14),
                   child: SingleChildScrollView(
                     child: SingleChildScrollView(
                       scrollDirection: Axis.horizontal,
@@ -1345,13 +1346,13 @@ class _LeaveScreenState extends State<LeaveScreen>
                               : (_sortColumn == 'createdAt' ? 9 : null),
                           sortAscending: _sortAscending,
                           headingRowColor:
-                              WidgetStateProperty.all(const Color(0xFFFAFAFA)),
+                              WidgetStateProperty.all(SboxColors.slate50),
                           headingTextStyle: const TextStyle(
                               fontWeight: FontWeight.bold,
                               fontSize: 12,
-                              color: Color(0xFF71717A)),
+                              color: SboxColors.slate500),
                           dataTextStyle: const TextStyle(
-                              fontSize: 13, color: Color(0xFF18181B)),
+                              fontSize: 13, color: SboxColors.slate900),
                           columnSpacing: 16,
                           horizontalMargin: 16,
                           dataRowMinHeight: 48,
@@ -1526,7 +1527,7 @@ class _LeaveScreenState extends State<LeaveScreen>
                                           color: statusInfo.color
                                               .withValues(alpha: 0.12),
                                           borderRadius:
-                                              BorderRadius.circular(12),
+                                              BorderRadius.circular(14),
                                         ),
                                         child: Row(
                                           mainAxisSize: MainAxisSize.min,
@@ -1552,7 +1553,7 @@ class _LeaveScreenState extends State<LeaveScreen>
                                             tr('${leave['currentApprovalStep'] ?? 0}/${leave['totalApprovalLevels']} cấp'),
                                             style: TextStyle(
                                                 fontSize: 10,
-                                                color: Colors.grey.shade600),
+                                                color: SboxColors.slate600),
                                           ),
                                         ),
                                     ],
@@ -1609,7 +1610,7 @@ class _LeaveScreenState extends State<LeaveScreen>
           bottomLeft: Radius.circular(12),
           bottomRight: Radius.circular(12),
         ),
-        border: Border(top: BorderSide(color: Color(0xFFE4E4E7))),
+        border: Border(top: BorderSide(color: SboxColors.slate200)),
       ),
       child: Builder(builder: (context) {
         final isMobile = Responsive.isMobile(context);
@@ -1619,27 +1620,27 @@ class _LeaveScreenState extends State<LeaveScreen>
             Text(tr('Hiển thị ${startIndex + 1}-$endIndex / $totalItems'),
               style: TextStyle(
                   fontSize: 13,
-                  color: Colors.grey[600],
+                  color: SboxColors.slate600,
                   fontWeight: FontWeight.w500),
             ),
             Row(
               children: [
                 Text(tr('Hiển thị:'),
-                    style: TextStyle(fontSize: 12, color: Colors.grey[500])),
+                    style: TextStyle(fontSize: 12, color: SboxColors.slate500)),
                 const SizedBox(width: 8),
                 Container(
                   height: 34,
                   padding: const EdgeInsets.symmetric(horizontal: 12),
                   decoration: BoxDecoration(
-                    color: const Color(0xFFFAFAFA),
-                    border: Border.all(color: const Color(0xFFE4E4E7)),
-                    borderRadius: BorderRadius.circular(8),
+                    color: SboxColors.slate50,
+                    border: Border.all(color: SboxColors.slate200),
+                    borderRadius: BorderRadius.circular(10),
                   ),
                   child: DropdownButtonHideUnderline(
                     child: DropdownButton<int>(
                       value: _itemsPerPage,
                       isDense: true,
-                      style: TextStyle(fontSize: 13, color: Colors.grey[800]),
+                      style: TextStyle(fontSize: 13, color: SboxColors.slate800),
                       items: _pageSizeOptions
                           .map((size) => DropdownMenuItem(
                               value: size, child: Text(tr('$size'))))
@@ -1671,7 +1672,7 @@ class _LeaveScreenState extends State<LeaveScreen>
               padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 6),
               decoration: BoxDecoration(
                 color: Theme.of(context).primaryColor,
-                borderRadius: BorderRadius.circular(8),
+                borderRadius: BorderRadius.circular(10),
               ),
               child: Text(
                 tr('$_currentPage / $totalPages'),
@@ -1702,17 +1703,17 @@ class _LeaveScreenState extends State<LeaveScreen>
 
   Widget _buildPageNavBtn(IconData icon, bool enabled, VoidCallback onPressed) {
     return Material(
-      color: enabled ? const Color(0xFFF1F5F9) : Colors.transparent,
-      borderRadius: BorderRadius.circular(8),
+      color: enabled ? SboxColors.slate100 : Colors.transparent,
+      borderRadius: BorderRadius.circular(10),
       child: InkWell(
         onTap: enabled ? onPressed : null,
-        borderRadius: BorderRadius.circular(8),
+        borderRadius: BorderRadius.circular(10),
         child: Container(
           padding: const EdgeInsets.all(6),
           child: Icon(icon,
               size: 20,
               color:
-                  enabled ? Theme.of(context).primaryColor : Colors.grey[400]),
+                  enabled ? Theme.of(context).primaryColor : SboxColors.slate400),
         ),
       ),
     );
@@ -1732,7 +1733,7 @@ class _LeaveScreenState extends State<LeaveScreen>
           bottomLeft: Radius.circular(12),
           bottomRight: Radius.circular(12),
         ),
-        border: Border(top: BorderSide(color: Color(0xFFE4E4E7))),
+        border: Border(top: BorderSide(color: SboxColors.slate200)),
       ),
       child: Column(
         children: [
@@ -1743,7 +1744,7 @@ class _LeaveScreenState extends State<LeaveScreen>
                 tr('${startIndex + 1}-$endIndex / $totalItems'),
                 style: TextStyle(
                     fontSize: 12,
-                    color: Colors.grey[600],
+                    color: SboxColors.slate600,
                     fontWeight: FontWeight.w500),
               ),
               Row(
@@ -1756,7 +1757,7 @@ class _LeaveScreenState extends State<LeaveScreen>
                         const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
                     decoration: BoxDecoration(
                       color: Theme.of(context).primaryColor,
-                      borderRadius: BorderRadius.circular(8),
+                      borderRadius: BorderRadius.circular(10),
                     ),
                     child: Text(
                       tr('$_currentPage / $totalPages'),
@@ -1875,9 +1876,9 @@ class _LeaveScreenState extends State<LeaveScreen>
                           tr(line1Title),
                           style: const TextStyle(
                             fontWeight: FontWeight.w700,
-                            fontSize: 15,
+                            fontSize: 16,
                             height: 1.3,
-                            color: Color(0xFF18181B),
+                            color: SboxColors.slate900,
                           ),
                           maxLines: 2,
                           softWrap: true,
@@ -1908,7 +1909,7 @@ class _LeaveScreenState extends State<LeaveScreen>
                       Padding(
                         padding: const EdgeInsets.only(top: 2),
                         child: Icon(Icons.date_range_rounded,
-                            size: 15, color: Colors.grey[600]),
+                            size: 15, color: SboxColors.slate600),
                       ),
                       const SizedBox(width: 6),
                       Expanded(
@@ -1918,7 +1919,7 @@ class _LeaveScreenState extends State<LeaveScreen>
                             fontSize: 13,
                             fontWeight: FontWeight.w500,
                             height: 1.35,
-                            color: Colors.grey[700],
+                            color: SboxColors.slate700,
                           ),
                           maxLines: 2,
                           softWrap: true,
@@ -1931,7 +1932,7 @@ class _LeaveScreenState extends State<LeaveScreen>
                     Text(tr('Duyệt $approvalStep/$approvalLevels cấp'),
                       style: TextStyle(
                         fontSize: 11,
-                        color: Colors.grey[600],
+                        color: SboxColors.slate600,
                         height: 1.2,
                       ),
                     ),
@@ -1954,13 +1955,13 @@ class _LeaveScreenState extends State<LeaveScreen>
                     child: const Padding(
                       padding: EdgeInsets.all(4),
                       child: Icon(Icons.more_horiz,
-                          size: 20, color: Color(0xFF71717A)),
+                          size: 20, color: SboxColors.slate500),
                     ),
                   ),
                 const Padding(
                   padding: EdgeInsets.only(top: 2),
                   child: Icon(Icons.chevron_right,
-                      size: 20, color: Color(0xFF71717A)),
+                      size: 20, color: SboxColors.slate500),
                 ),
               ],
             ),
@@ -1993,7 +1994,7 @@ class _LeaveScreenState extends State<LeaveScreen>
       buttons.add(_ActionBtn(
           icon: Icons.edit_rounded,
           label: 'Sửa',
-          color: Colors.blue,
+          color: SboxColors.brand500,
           onTap: () => _showLeaveFormDialog(leave: leave)));
       buttons.add(const SizedBox(width: 6));
     }
@@ -2104,7 +2105,7 @@ class _LeaveScreenState extends State<LeaveScreen>
       dialogActions.add(_ActionBtn(
           icon: Icons.edit_rounded,
           label: 'Sửa',
-          color: Colors.blue,
+          color: SboxColors.brand500,
           onTap: () {
             Navigator.pop(context);
             _showLeaveFormDialog(leave: leave);
@@ -2194,7 +2195,7 @@ class _LeaveScreenState extends State<LeaveScreen>
         1: FlexColumnWidth(),
       },
       border: TableBorder(
-        horizontalInside: BorderSide(color: Colors.grey.shade100),
+        horizontalInside: BorderSide(color: SboxColors.slate100),
       ),
       children: [
         _detailTableRow('Nhân viên', leave['employeeName'] ?? 'N/A'),
@@ -2279,12 +2280,12 @@ class _LeaveScreenState extends State<LeaveScreen>
               child: LinearProgressIndicator(
                 value: totalLevels > 0 ? currentStep / totalLevels : 0,
                 minHeight: 6,
-                backgroundColor: Colors.grey.shade200,
+                backgroundColor: SboxColors.slate200,
                 valueColor: AlwaysStoppedAnimation<Color>(status == 1
                     ? Colors.green
                     : status == 2
                         ? Colors.red
-                        : Colors.blue),
+                        : SboxColors.brand500),
               ),
             ),
             const SizedBox(height: 12),
@@ -2317,7 +2318,7 @@ class _LeaveScreenState extends State<LeaveScreen>
                 dotIcon = Icons.cancel;
                 break;
               case 3:
-                dotColor = Colors.grey;
+                dotColor = SboxColors.slate500;
                 dotIcon = Icons.block;
                 break;
               default:
@@ -2342,11 +2343,11 @@ class _LeaveScreenState extends State<LeaveScreen>
                   if (assignedUser.isNotEmpty)
                     Text(tr('Phân công: $assignedUser'),
                         style: TextStyle(
-                            fontSize: 12, color: Colors.grey.shade600)),
+                            fontSize: 12, color: SboxColors.slate600)),
                   if (actualUser.isNotEmpty && stepStatus != 0)
                     Text(tr('Thực hiện: $actualUser'),
                         style: TextStyle(
-                            fontSize: 12, color: Colors.grey.shade600)),
+                            fontSize: 12, color: SboxColors.slate600)),
                   if (stepStatus != 0)
                     Text(
                       tr(_approvalStepStatusLabel(stepStatus is int
@@ -2362,7 +2363,7 @@ class _LeaveScreenState extends State<LeaveScreen>
                     Text(
                         tr(formatApiDateTime(actionDate)),
                         style: TextStyle(
-                            fontSize: 11, color: Colors.grey.shade500)),
+                            fontSize: 11, color: SboxColors.slate500)),
                   if (note.isNotEmpty)
                     Padding(
                       padding: const EdgeInsets.only(top: 2),
@@ -2370,7 +2371,7 @@ class _LeaveScreenState extends State<LeaveScreen>
                           style: TextStyle(
                               fontSize: 12,
                               fontStyle: FontStyle.italic,
-                              color: Colors.grey.shade700)),
+                              color: SboxColors.slate700)),
                     ),
                 ],
               ),
@@ -2524,7 +2525,7 @@ class _LeaveScreenState extends State<LeaveScreen>
                   padding: const EdgeInsets.all(16),
                   decoration: BoxDecoration(
                       border:
-                          Border(top: BorderSide(color: Colors.grey.shade200))),
+                          Border(top: BorderSide(color: SboxColors.slate200))),
                   child: Row(
                     children: [
                       if (dialogActions.isNotEmpty) ...dialogActions,
@@ -2553,18 +2554,18 @@ class _LeaveScreenState extends State<LeaveScreen>
       child: Row(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Icon(icon, size: 18, color: Colors.grey.shade500),
+          Icon(icon, size: 18, color: SboxColors.slate500),
           const SizedBox(width: 10),
           SizedBox(
               width: 100,
               child: Text(tr(label),
-                  style: TextStyle(fontSize: 13, color: Colors.grey.shade500))),
+                  style: TextStyle(fontSize: 13, color: SboxColors.slate500))),
           Expanded(
             child: Text(tr(value),
                 style: TextStyle(
                     fontSize: 13,
                     fontWeight: FontWeight.w500,
-                    color: valueColor ?? Colors.grey.shade800)),
+                    color: valueColor ?? SboxColors.slate800)),
           ),
         ],
       ),
@@ -2580,7 +2581,7 @@ class _LeaveScreenState extends State<LeaveScreen>
               style: TextStyle(
                   fontSize: 13,
                   fontWeight: FontWeight.w600,
-                  color: Colors.grey.shade600)),
+                  color: SboxColors.slate600)),
         ),
         Padding(
           padding: const EdgeInsets.symmetric(vertical: 10, horizontal: 8),
@@ -2588,7 +2589,7 @@ class _LeaveScreenState extends State<LeaveScreen>
               style: TextStyle(
                   fontSize: 13,
                   fontWeight: FontWeight.w500,
-                  color: valueColor ?? Colors.grey.shade800)),
+                  color: valueColor ?? SboxColors.slate800)),
         ),
       ],
     );
@@ -2719,10 +2720,10 @@ class _LeaveScreenState extends State<LeaveScreen>
       context: context,
       builder: (ctx) => StatefulBuilder(
         builder: (ctx, setLocal) => ScrollableAlertDialog(
-          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
           title: Row(
             children: [
-              Icon(Icons.check_circle_rounded, color: Color(0xFF16A34A)),
+              Icon(Icons.check_circle_rounded, color: SboxColors.success),
               SizedBox(width: 8),
               Text(tr('Duyệt đơn nghỉ phép')),
             ],
@@ -2738,8 +2739,8 @@ class _LeaveScreenState extends State<LeaveScreen>
                   style: TextStyle(
                     fontSize: 13,
                     color: daysNeeded > balanceRemaining
-                        ? const Color(0xFFDC2626)
-                        : const Color(0xFF047857),
+                        ? SboxColors.danger
+                        : SboxColors.successText,
                     fontWeight: FontWeight.w600,
                   ),
                 ),
@@ -2785,7 +2786,7 @@ class _LeaveScreenState extends State<LeaveScreen>
     final confirm = await showDialog<bool>(
       context: context,
       builder: (ctx) => ScrollableAlertDialog(
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
         title: Row(children: [
           Icon(Icons.cancel_rounded, color: Colors.red[400]),
           const SizedBox(width: 8),
@@ -2805,7 +2806,7 @@ class _LeaveScreenState extends State<LeaveScreen>
                 decoration: InputDecoration(
                     hintText: tr('Lý do từ chối...'),
                     border: OutlineInputBorder(
-                        borderRadius: BorderRadius.circular(12))),
+                        borderRadius: BorderRadius.circular(14))),
               ),
             ],
           ),
@@ -2852,7 +2853,7 @@ class _LeaveScreenState extends State<LeaveScreen>
     return showDialog<bool>(
       context: context,
       builder: (ctx) => ScrollableAlertDialog(
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
         title: Row(children: [
           Icon(icon, color: iconColor),
           const SizedBox(width: 8),
@@ -2916,10 +2917,10 @@ class _LeaveScreenState extends State<LeaveScreen>
         return const _StatusInfo('Từ chối', Colors.red, Icons.cancel_rounded);
       case 3:
         return const _StatusInfo(
-            'Đã hủy', Color(0xFFDC2626), Icons.block_rounded);
+            'Đã hủy', SboxColors.danger, Icons.block_rounded);
       default:
         return const _StatusInfo(
-            'N/A', Colors.grey, Icons.help_outline_rounded);
+            'N/A', SboxColors.slate500, Icons.help_outline_rounded);
     }
   }
 
@@ -2979,12 +2980,12 @@ class _ActionBtn extends StatelessWidget {
   Widget build(BuildContext context) {
     return InkWell(
       onTap: onTap,
-      borderRadius: BorderRadius.circular(8),
+      borderRadius: BorderRadius.circular(10),
       child: Container(
         padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
         decoration: BoxDecoration(
           color: color.withValues(alpha: 0.08),
-          borderRadius: BorderRadius.circular(8),
+          borderRadius: BorderRadius.circular(10),
           border: Border.all(color: color.withValues(alpha: 0.2)),
         ),
         child: Row(

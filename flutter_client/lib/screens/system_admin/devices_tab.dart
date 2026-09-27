@@ -7,6 +7,7 @@ import '../../widgets/device_sync_progress_overlay.dart';
 import 'system_admin_helpers.dart';
 import 'package:zkteco_flutter_client/l10n/app_tr.dart';
 
+import '../../theme/sbox_tokens.dart';
 class DevicesTab extends StatefulWidget {
   final List<Map<String, dynamic>> stores;
   final bool agentMode;
@@ -295,7 +296,7 @@ class DevicesTabState extends State<DevicesTab> {
               '$totalDevices thiết bị', AdminHelpers.info),
           const SizedBox(width: 6),
           AdminHelpers.statusChip('$onlineDevices online',
-              onlineDevices > 0 ? AdminHelpers.success : Colors.grey),
+              onlineDevices > 0 ? AdminHelpers.success : SboxColors.slate500),
           const SizedBox(width: 6),
           AdminHelpers.statusChip('${storeEntries.length} cửa hàng',
               AdminHelpers.primaryDark),
@@ -326,7 +327,7 @@ class DevicesTabState extends State<DevicesTab> {
       AdminHelpers.countBadge(
           'Offline',
           _devices.length - onlineCount - unassignedCount,
-          Colors.grey),
+          SboxColors.slate500),
       if (unassignedCount > 0) ...[
         const SizedBox(width: 8),
         AdminHelpers.countBadge(
@@ -390,7 +391,7 @@ class DevicesTabState extends State<DevicesTab> {
             decoration: BoxDecoration(
                 color: Colors.white,
                 borderRadius: BorderRadius.circular(10),
-                border: Border.all(color: Colors.grey.shade300)),
+                border: Border.all(color: SboxColors.slate300)),
             child: DropdownButtonHideUnderline(
               child: DropdownButton<String>(
                 isExpanded: true,
@@ -431,7 +432,7 @@ class DevicesTabState extends State<DevicesTab> {
       decoration: BoxDecoration(
           color: Colors.white,
           borderRadius: BorderRadius.circular(10),
-          border: Border.all(color: Colors.grey.shade300)),
+          border: Border.all(color: SboxColors.slate300)),
       child: DropdownButtonHideUnderline(
         child: DropdownButton<String>(
           isExpanded: true,
@@ -462,7 +463,7 @@ class DevicesTabState extends State<DevicesTab> {
       decoration: BoxDecoration(
           color: Colors.white,
           borderRadius: BorderRadius.circular(10),
-          border: Border.all(color: Colors.grey.shade300)),
+          border: Border.all(color: SboxColors.slate300)),
       child: DropdownButtonHideUnderline(
         child: DropdownButton<String?>(
           isExpanded: fullWidth,
@@ -545,7 +546,7 @@ class DevicesTabState extends State<DevicesTab> {
               '${devices.length} thiết bị', AdminHelpers.info),
           const SizedBox(width: 6),
           AdminHelpers.statusChip('$onlineCount online',
-              onlineCount > 0 ? AdminHelpers.success : Colors.grey),
+              onlineCount > 0 ? AdminHelpers.success : SboxColors.slate500),
         ]),
         children: MediaQuery.of(context).size.width < 600
           ? [
@@ -556,8 +557,8 @@ class DevicesTabState extends State<DevicesTab> {
                   child: Container(
                     decoration: BoxDecoration(
                       color: Colors.white,
-                      borderRadius: BorderRadius.circular(12),
-                      border: Border.all(color: const Color(0xFFE4E4E7)),
+                      borderRadius: BorderRadius.circular(14),
+                      border: Border.all(color: SboxColors.slate200),
                       boxShadow: [BoxShadow(color: Colors.black.withValues(alpha: 0.05), blurRadius: 6, offset: const Offset(0, 2))],
                     ),
                     child: _buildDeviceDeckItem(devices[i]),
@@ -583,7 +584,7 @@ class DevicesTabState extends State<DevicesTab> {
         child: Row(children: [
           Container(
             width: 36, height: 36,
-            decoration: BoxDecoration(color: isOnline ? AdminHelpers.success.withValues(alpha: 0.1) : Colors.red.withValues(alpha: 0.1), borderRadius: BorderRadius.circular(8)),
+            decoration: BoxDecoration(color: isOnline ? AdminHelpers.success.withValues(alpha: 0.1) : Colors.red.withValues(alpha: 0.1), borderRadius: BorderRadius.circular(10)),
             child: Icon(Icons.router, color: isOnline ? AdminHelpers.success : Colors.red.shade400, size: 18),
           ),
           const SizedBox(width: 12),
@@ -592,12 +593,12 @@ class DevicesTabState extends State<DevicesTab> {
               Text(tr(displayName), style: const TextStyle(fontWeight: FontWeight.w600, fontSize: 14), maxLines: 1, overflow: TextOverflow.ellipsis),
               const SizedBox(height: 2),
               Text(tr([serialNumber, if (device['ipAddress'] != null) device['ipAddress']].where((s) => s.toString().isNotEmpty).join(' \u00b7 ')),
-                style: const TextStyle(color: Color(0xFF71717A), fontSize: 12, fontFamily: 'monospace'), maxLines: 1, overflow: TextOverflow.ellipsis),
+                style: const TextStyle(color: SboxColors.slate500, fontSize: 12, fontFamily: 'monospace'), maxLines: 1, overflow: TextOverflow.ellipsis),
             ]),
           ),
           Container(
             padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
-            decoration: BoxDecoration(color: isOnline ? Colors.green.withValues(alpha: 0.1) : Colors.red.withValues(alpha: 0.1), borderRadius: BorderRadius.circular(8)),
+            decoration: BoxDecoration(color: isOnline ? Colors.green.withValues(alpha: 0.1) : Colors.red.withValues(alpha: 0.1), borderRadius: BorderRadius.circular(10)),
             child: Text(tr(isOnline ? 'Online' : 'Offline'), style: TextStyle(fontSize: 10, fontWeight: FontWeight.w600, color: isOnline ? Colors.green : Colors.red)),
           ),
         ]),
@@ -618,7 +619,7 @@ class DevicesTabState extends State<DevicesTab> {
       decoration: BoxDecoration(
         color: AdminHelpers.surfaceBg,
         borderRadius: BorderRadius.circular(10),
-        border: Border.all(color: Colors.grey.shade200),
+        border: Border.all(color: SboxColors.slate200),
       ),
       child: ExpansionTile(
         tilePadding: const EdgeInsets.symmetric(horizontal: 12),
@@ -643,21 +644,21 @@ class DevicesTabState extends State<DevicesTab> {
             style: const TextStyle(
                 fontWeight: FontWeight.w600, fontSize: 13)),
         subtitle: Row(children: [
-          Icon(Icons.tag, size: 12, color: Colors.grey[500]),
+          Icon(Icons.tag, size: 12, color: SboxColors.slate500),
           const SizedBox(width: 4),
           Text(tr(serialNumber),
               style: TextStyle(
                   fontSize: 11,
-                  color: Colors.grey[600],
+                  color: SboxColors.slate600,
                   fontFamily: 'monospace')),
           if (device['ipAddress'] != null) ...[
             const SizedBox(width: 10),
-            Icon(Icons.lan, size: 12, color: Colors.grey[500]),
+            Icon(Icons.lan, size: 12, color: SboxColors.slate500),
             const SizedBox(width: 4),
             Text(tr(device['ipAddress']),
                 style: TextStyle(
                     fontSize: 11,
-                    color: Colors.grey[500],
+                    color: SboxColors.slate500,
                     fontFamily: 'monospace')),
           ],
         ]),
@@ -763,7 +764,7 @@ class DevicesTabState extends State<DevicesTab> {
         padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
         visualDensity: VisualDensity.compact,
         shape: RoundedRectangleBorder(
-            borderRadius: BorderRadius.circular(8)),
+            borderRadius: BorderRadius.circular(10)),
       ),
       onPressed: onTap,
       icon: Icon(icon, size: 14),
@@ -820,7 +821,7 @@ class DevicesTabState extends State<DevicesTab> {
             const SizedBox(width: 8),
             Expanded(
                 child: Text(tr('Chuyển "$name"'),
-                    style: const TextStyle(fontSize: 17))),
+                    style: const TextStyle(fontSize: 18))),
           ]),
           content: SizedBox(
             width: MediaQuery.of(context).size.width < 600 ? MediaQuery.of(context).size.width - 32 : 400,
@@ -833,7 +834,7 @@ class DevicesTabState extends State<DevicesTab> {
                     padding: const EdgeInsets.only(bottom: 12),
                     child: Row(children: [
                       Text(tr('Đang ở: '),
-                          style: TextStyle(color: Colors.grey)),
+                          style: TextStyle(color: SboxColors.slate500)),
                       AdminHelpers.statusChip(
                           device['storeName'], AdminHelpers.info),
                     ]),
@@ -857,18 +858,18 @@ class DevicesTabState extends State<DevicesTab> {
                           color: isSelected
                               ? AdminHelpers.primary.withValues(alpha: 0.1)
                               : null,
-                          borderRadius: BorderRadius.circular(8),
+                          borderRadius: BorderRadius.circular(10),
                           border: Border.all(
                               color: isSelected
                                   ? AdminHelpers.primary
-                                  : Colors.grey.shade200),
+                                  : SboxColors.slate200),
                         ),
                         child: ListTile(
                           dense: true,
                           leading: Icon(Icons.store,
                               color: isSelected
                                   ? AdminHelpers.primary
-                                  : Colors.grey,
+                                  : SboxColors.slate500,
                               size: 20),
                           title: Text(tr(store['name'] ?? 'N/A'),
                               style: TextStyle(
@@ -962,7 +963,7 @@ class DevicesTabState extends State<DevicesTab> {
           Icon(Icons.cleaning_services,
               color: AdminHelpers.danger, size: 22),
           SizedBox(width: 8),
-          Text(tr('Xóa dữ liệu thiết bị'), style: TextStyle(fontSize: 17)),
+          Text(tr('Xóa dữ liệu thiết bị'), style: TextStyle(fontSize: 18)),
         ]),
         content: SizedBox(
           width: MediaQuery.of(context).size.width < 600 ? MediaQuery.of(context).size.width - 32 : 380,
@@ -1014,11 +1015,11 @@ class DevicesTabState extends State<DevicesTab> {
       child: ListTile(
         dense: true,
         shape: RoundedRectangleBorder(
-            borderRadius: BorderRadius.circular(8),
+            borderRadius: BorderRadius.circular(10),
             side: BorderSide(
                 color: danger
                     ? AdminHelpers.danger.withValues(alpha: 0.3)
-                    : Colors.grey.shade200)),
+                    : SboxColors.slate200)),
         leading: Icon(icon,
             color: danger ? AdminHelpers.danger : AdminHelpers.warning,
             size: 20),

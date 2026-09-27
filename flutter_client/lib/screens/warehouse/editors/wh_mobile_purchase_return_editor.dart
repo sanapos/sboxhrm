@@ -293,7 +293,7 @@ class _WhMobilePurchaseReturnEditorState extends State<WhMobilePurchaseReturnEdi
                     ),
                     trailing: Text(
                       tr(_moneyFmt.format(l.qty * l.cost)),
-                      style: WhMobileTheme.money.copyWith(fontSize: 15),
+                      style: WhMobileTheme.money.copyWith(fontSize: 16),
                     ),
                   );
                 }),

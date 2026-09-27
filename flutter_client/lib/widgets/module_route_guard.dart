@@ -6,6 +6,7 @@ import '../utils/permission_navigation.dart';
 import '../utils/store_role_helper.dart';
 import 'package:zkteco_flutter_client/l10n/app_tr.dart';
 
+import '../theme/sbox_tokens.dart';
 /// Chặn hiển thị màn hình khi user không có quyền xem module.
 class ModuleRouteGuard extends StatelessWidget {
   const ModuleRouteGuard({
@@ -51,20 +52,20 @@ class _AccessDeniedBody extends StatelessWidget {
         child: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
-            Icon(Icons.lock_outline, size: 56, color: Colors.grey.shade400),
+            Icon(Icons.lock_outline, size: 56, color: SboxColors.slate400),
             const SizedBox(height: 16),
             Text(tr('Bạn không có quyền truy cập'),
               style: TextStyle(
                 fontSize: 16,
                 fontWeight: FontWeight.w600,
-                color: Colors.grey.shade800,
+                color: SboxColors.slate800,
               ),
               textAlign: TextAlign.center,
             ),
             const SizedBox(height: 8),
             Text(
               tr('Module: $name'),
-              style: TextStyle(fontSize: 13, color: Colors.grey.shade600),
+              style: TextStyle(fontSize: 13, color: SboxColors.slate600),
               textAlign: TextAlign.center,
             ),
           ],

@@ -11,7 +11,8 @@ import 'pos_theme.dart';
 import 'vn_admin_address_fields.dart';
 import 'package:zkteco_flutter_client/l10n/app_tr.dart';
 
-const _blue = Color(0xFF2563EB);
+import '../../theme/sbox_tokens.dart';
+const _blue = SboxColors.brand600;
 
 class PosCustomerFormDialog extends StatefulWidget {
   const PosCustomerFormDialog({super.key, this.customer});
@@ -264,7 +265,7 @@ class _PosCustomerFormDialogState extends State<PosCustomerFormDialog> {
                             padding: const EdgeInsets.all(12),
                             decoration: BoxDecoration(
                               color: PosTheme.kiotBlueLight,
-                              borderRadius: BorderRadius.circular(8),
+                              borderRadius: BorderRadius.circular(10),
                             ),
                             child: Row(
                               children: [
@@ -364,7 +365,7 @@ class _PosCustomerFormDialogState extends State<PosCustomerFormDialog> {
                             style: TextStyle(
                               fontSize: 12,
                               color: _taxLookupOk
-                                  ? const Color(0xFF059669)
+                                  ? SboxColors.success
                                   : Colors.orange.shade800,
                             ),
                           ),
@@ -453,7 +454,7 @@ class _PosCustomerFormDialogState extends State<PosCustomerFormDialog> {
                         _sectionTitle('Thông tin thêm'),
                         InkWell(
                           onTap: _pickBirthday,
-                          borderRadius: BorderRadius.circular(8),
+                          borderRadius: BorderRadius.circular(10),
                           child: InputDecorator(
                             decoration: PosTheme.inputDecoration(
                                 label: 'Sinh nhật'),

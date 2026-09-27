@@ -9,6 +9,7 @@ import '../../utils/file_saver.dart';
 import '../../widgets/notification_overlay.dart';
 import '../../widgets/pos/pos_theme.dart';
 
+import '../../theme/sbox_tokens.dart';
 /// Gym: hội viên check-in bằng máy chấm công (vân tay / khuôn mặt / thẻ) hoặc tại quầy.
 /// Tách biệt chấm công nhân viên — hội viên có PIN riêng (9xxxxxxx), lượt quét ghi vào lượt tập,
 /// trừ 1 buổi / ngày (thẻ thời gian chỉ kiểm tra hạn).
@@ -302,7 +303,7 @@ class _VisitsTabState extends State<_VisitsTab> with AutomaticKeepAliveClientMix
                 const Spacer(),
                 if (_isToday)
                   Text(tr('Tự cập nhật 10 giây'),
-                      style: TextStyle(fontSize: 12, color: Colors.grey.shade600)),
+                      style: TextStyle(fontSize: 12, color: SboxColors.slate600)),
                 IconButton(onPressed: _load, icon: const Icon(Icons.refresh)),
               ],
             ),
@@ -330,7 +331,7 @@ class _VisitsTabState extends State<_VisitsTab> with AutomaticKeepAliveClientMix
                     tr('Chưa có lượt tập.\nHội viên quét vân tay / khuôn mặt / thẻ trên máy chấm công '
                         'sẽ hiện ở đây.'),
                     textAlign: TextAlign.center,
-                    style: TextStyle(color: Colors.grey.shade700),
+                    style: TextStyle(color: SboxColors.slate700),
                   ),
                 ),
               )
@@ -358,9 +359,9 @@ class _VisitsTabState extends State<_VisitsTab> with AutomaticKeepAliveClientMix
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            Text(tr(label), style: TextStyle(fontSize: 12, color: Colors.grey.shade700)),
+            Text(tr(label), style: TextStyle(fontSize: 12, color: SboxColors.slate700)),
             Text('${(value as num?)?.toInt() ?? 0}',
-                style: TextStyle(fontSize: 20, fontWeight: FontWeight.w800, color: color)),
+                style: TextStyle(fontSize: 20, fontWeight: FontWeight.w700, color: color)),
           ],
         ),
       ),
@@ -374,7 +375,7 @@ class _VisitsTabState extends State<_VisitsTab> with AutomaticKeepAliveClientMix
     final inside = outAt == null;
     final minutes = (v['durationMinutes'] as num?)?.toInt() ??
         (inAt == null ? 0 : DateTime.now().difference(inAt).inMinutes);
-    final color = !ok ? Colors.red.shade700 : (inside ? Colors.green.shade700 : Colors.grey.shade600);
+    final color = !ok ? Colors.red.shade700 : (inside ? Colors.green.shade700 : SboxColors.slate600);
     final timeText = inside
         ? 'Vào ${inAt == null ? '' : _hm.format(inAt)} · đang tập ${_duration(minutes)}'
         : 'Vào ${inAt == null ? '' : _hm.format(inAt)} · Ra ${_hm.format(outAt)} · ${_duration(minutes)}';
@@ -401,11 +402,11 @@ class _VisitsTabState extends State<_VisitsTab> with AutomaticKeepAliveClientMix
                 if (v['sessionDeducted'] == true) 'đã trừ 1 buổi',
                 if ((v['deviceName'] ?? '').toString().isNotEmpty) v['deviceName'],
               ].join(' · ')),
-              style: TextStyle(fontSize: 12, color: _packageWarn(v) ? Colors.orange.shade800 : Colors.grey.shade700),
+              style: TextStyle(fontSize: 12, color: _packageWarn(v) ? Colors.orange.shade800 : SboxColors.slate700),
             ),
             if (!ok || (v['note'] ?? '').toString().isNotEmpty)
               Text(tr(v['note']?.toString() ?? ''),
-                  style: TextStyle(fontSize: 12, color: ok ? Colors.grey.shade700 : Colors.red.shade700,
+                  style: TextStyle(fontSize: 12, color: ok ? SboxColors.slate700 : Colors.red.shade700,
                       fontWeight: ok ? FontWeight.normal : FontWeight.w700)),
           ],
         ),
@@ -489,7 +490,7 @@ class _MembersTabState extends State<_MembersTab> with AutomaticKeepAliveClientM
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 Text(tr('Chọn máy hội viên sẽ quét (cửa ra vào / quầy lễ tân):'),
-                    style: TextStyle(fontSize: 13, color: Colors.grey.shade700)),
+                    style: TextStyle(fontSize: 13, color: SboxColors.slate700)),
                 for (final d in devices)
                   CheckboxListTile(
                     dense: true,
@@ -600,7 +601,7 @@ class _MembersTabState extends State<_MembersTab> with AutomaticKeepAliveClientM
                 isDense: true,
                 filled: true,
                 fillColor: Colors.white,
-                border: OutlineInputBorder(borderRadius: BorderRadius.circular(8)),
+                border: OutlineInputBorder(borderRadius: BorderRadius.circular(10)),
               ),
               onChanged: (v) {
                 _search = v;
@@ -621,7 +622,7 @@ class _MembersTabState extends State<_MembersTab> with AutomaticKeepAliveClientM
                       'Bấm "Đăng ký hội viên lên máy", chọn khách và máy, rồi lấy vân tay / khuôn mặt.\n'
                       'Hội viên có mã PIN riêng, không lẫn vào chấm công nhân viên.'),
                   textAlign: TextAlign.center,
-                  style: TextStyle(color: Colors.grey.shade700),
+                  style: TextStyle(color: SboxColors.slate700),
                 ),
               )
             else
@@ -657,7 +658,7 @@ class _MembersTabState extends State<_MembersTab> with AutomaticKeepAliveClientM
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             Row(children: [
-              Icon(Icons.circle, size: 8, color: online ? Colors.green : Colors.grey),
+              Icon(Icons.circle, size: 8, color: online ? Colors.green : SboxColors.slate500),
               const SizedBox(width: 4),
               Flexible(
                 child: Text(tr('${m['deviceName']} · PIN ${m['pin']} · '
@@ -668,7 +669,7 @@ class _MembersTabState extends State<_MembersTab> with AutomaticKeepAliveClientM
             ]),
             Text(
               tr('${_packageText(m)}${last == null ? '' : ' · tập gần nhất ${_dmy.format(last)}'}'),
-              style: TextStyle(fontSize: 12, color: _packageWarn(m) ? Colors.orange.shade800 : Colors.grey.shade700),
+              style: TextStyle(fontSize: 12, color: _packageWarn(m) ? Colors.orange.shade800 : SboxColors.slate700),
             ),
           ],
         ),

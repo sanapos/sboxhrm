@@ -5,6 +5,7 @@ import '../services/api_service.dart';
 import 'auth_cached_image.dart';
 import 'package:zkteco_flutter_client/l10n/app_tr.dart';
 
+import '../theme/sbox_tokens.dart';
 bool isLikelyImageUrl(String url) {
   final raw = url.trim().toLowerCase();
   if (raw.isEmpty) return false;
@@ -34,7 +35,7 @@ Future<void> showInAppImageViewer(
 
   await showDialog<void>(
     context: context,
-    barrierColor: Colors.black87,
+    barrierColor: SboxColors.text,
     builder: (ctx) {
       final pageCtrl = PageController(initialPage: start);
       var current = start;
@@ -99,7 +100,7 @@ Future<void> showInAppImageViewer(
                             style: const TextStyle(
                               color: Colors.white,
                               fontWeight: FontWeight.w600,
-                              fontSize: 15,
+                              fontSize: 16,
                             ),
                             overflow: TextOverflow.ellipsis,
                           ),

@@ -5,3 +5,4 @@ library;
 export '../../theme/sbox_tokens.dart';
 export 'sbox_basics.dart';
 export 'sbox_table.dart';
+export 'sbox_command_palette.dart';

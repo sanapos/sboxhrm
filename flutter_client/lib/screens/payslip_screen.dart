@@ -8,6 +8,7 @@ import '../widgets/hrm_page_chrome.dart';
 import '../widgets/page_top_actions.dart';
 import 'package:zkteco_flutter_client/l10n/app_tr.dart';
 
+import '../theme/sbox_tokens.dart';
 class PayslipScreen extends StatefulWidget {
   const PayslipScreen({super.key});
 
@@ -239,15 +240,15 @@ class _PayslipScreenState extends State<PayslipScreen> {
       child: Column(
         mainAxisSize: MainAxisSize.min,
         children: [
-          Icon(Icons.receipt_long, size: 72, color: Colors.grey[300]),
+          Icon(Icons.receipt_long, size: 72, color: SboxColors.slate300),
           const SizedBox(height: 16),
           Text(tr('Chưa có phiếu lương'),
-            style: TextStyle(color: Colors.grey[500], fontSize: 16),
+            style: TextStyle(color: SboxColors.slate500, fontSize: 16),
           ),
           if (_isManager) ...[
             const SizedBox(height: 8),
             Text(tr('Chốt lương tại Tổng hợp lương để tạo phiếu'),
-              style: TextStyle(color: Colors.grey[400], fontSize: 13),
+              style: TextStyle(color: SboxColors.slate400, fontSize: 13),
             ),
           ],
         ],
@@ -266,7 +267,7 @@ class _PayslipScreenState extends State<PayslipScreen> {
         ),
         subtitle: Text(
           tr(_filterSummary()),
-          style: TextStyle(fontSize: 12, color: Colors.grey[600]),
+          style: TextStyle(fontSize: 12, color: SboxColors.slate600),
           maxLines: 1,
           overflow: TextOverflow.ellipsis,
         ),
@@ -276,7 +277,7 @@ class _PayslipScreenState extends State<PayslipScreen> {
             TextButton(onPressed: _resetFilters, child: Text(tr('Xóa lọc'))),
             Icon(
               _filtersExpanded ? Icons.expand_less : Icons.expand_more,
-              color: Colors.grey[600],
+              color: SboxColors.slate600,
             ),
           ],
         ),
@@ -456,17 +457,17 @@ class _PayslipScreenState extends State<PayslipScreen> {
   Widget _dateChip(String label, DateTime? date, VoidCallback onTap) {
     return InkWell(
       onTap: onTap,
-      borderRadius: BorderRadius.circular(8),
+      borderRadius: BorderRadius.circular(10),
       child: Container(
         padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
         decoration: BoxDecoration(
-          border: Border.all(color: const Color(0xFFE4E4E7)),
-          borderRadius: BorderRadius.circular(8),
+          border: Border.all(color: SboxColors.slate200),
+          borderRadius: BorderRadius.circular(10),
         ),
         child: Row(
           mainAxisSize: MainAxisSize.min,
           children: [
-            Icon(Icons.calendar_today, size: 14, color: Colors.grey[600]),
+            Icon(Icons.calendar_today, size: 14, color: SboxColors.slate600),
             const SizedBox(width: 6),
             Text(
               tr(date != null
@@ -485,7 +486,7 @@ class _PayslipScreenState extends State<PayslipScreen> {
       labelText: tr(label),
       isDense: true,
       contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
-      border: OutlineInputBorder(borderRadius: BorderRadius.circular(8)),
+      border: OutlineInputBorder(borderRadius: BorderRadius.circular(10)),
     );
   }
 
@@ -516,8 +517,8 @@ class _PayslipScreenState extends State<PayslipScreen> {
     return Container(
       decoration: BoxDecoration(
         color: Colors.white,
-        borderRadius: BorderRadius.circular(16),
-        border: Border.all(color: const Color(0xFFE4E4E7)),
+        borderRadius: BorderRadius.circular(14),
+        border: Border.all(color: SboxColors.slate200),
         boxShadow: [
           BoxShadow(
             color: Colors.black.withValues(alpha: 0.05),
@@ -543,7 +544,7 @@ class _PayslipScreenState extends State<PayslipScreen> {
               child: Ink(
                 decoration: const BoxDecoration(
                   gradient: LinearGradient(
-                    colors: [Color(0xFF059669), HrmPageChrome.primaryNavy],
+                    colors: [SboxColors.success, HrmPageChrome.primaryNavy],
                   ),
                 ),
                 child: Padding(
@@ -560,7 +561,7 @@ class _PayslipScreenState extends State<PayslipScreen> {
                               tr(empName.isNotEmpty ? empName : 'Nhân viên'),
                               style: const TextStyle(
                                 color: Colors.white,
-                                fontSize: 15,
+                                fontSize: 16,
                                 fontWeight: FontWeight.w700,
                                 height: 1.25,
                               ),
@@ -610,8 +611,8 @@ class _PayslipScreenState extends State<PayslipScreen> {
                                 _buildStatusChip(
                                   paymentStatus,
                                   isPaid
-                                      ? const Color(0xFF16A34A)
-                                      : const Color(0xFFF59E0B),
+                                      ? SboxColors.success
+                                      : SboxColors.warning,
                                 ),
                               ],
                             ),
@@ -647,7 +648,7 @@ class _PayslipScreenState extends State<PayslipScreen> {
             ),
           ),
           if (expanded) ...[
-            const Divider(height: 1, color: Color(0xFFE4E4E7)),
+            const Divider(height: 1, color: SboxColors.slate200),
             Padding(
               padding: const EdgeInsets.all(16),
               child: Column(
@@ -673,7 +674,7 @@ class _PayslipScreenState extends State<PayslipScreen> {
                   _buildInlineSection(
                     'Khấu trừ',
                     Icons.remove_circle,
-                    const Color(0xFFEF4444),
+                    SboxColors.danger,
                     [
                       _detailRow('BHXH', p['socialInsurance']),
                       _detailRow('BHYT', p['healthInsurance']),
@@ -688,7 +689,7 @@ class _PayslipScreenState extends State<PayslipScreen> {
                       alignment: Alignment.centerLeft,
                       child: Text(tr('${tr('Phiếu chi: ')}${p['cashTransactionCode']}'),
                         style:
-                            TextStyle(fontSize: 12, color: Colors.grey[600]),
+                            TextStyle(fontSize: 12, color: SboxColors.slate600),
                       ),
                     ),
                   ],
@@ -699,7 +700,7 @@ class _PayslipScreenState extends State<PayslipScreen> {
                       child: Text(
                         tr(p['notes'].toString()),
                         style:
-                            TextStyle(fontSize: 12, color: Colors.grey[600]),
+                            TextStyle(fontSize: 12, color: SboxColors.slate600),
                       ),
                     ),
                   ],
@@ -749,9 +750,9 @@ class _PayslipScreenState extends State<PayslipScreen> {
   ) {
     return Container(
       decoration: BoxDecoration(
-        color: const Color(0xFFFAFAFA),
-        borderRadius: BorderRadius.circular(12),
-        border: Border.all(color: Colors.grey.shade200),
+        color: SboxColors.slate50,
+        borderRadius: BorderRadius.circular(14),
+        border: Border.all(color: SboxColors.slate200),
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -798,7 +799,7 @@ class _PayslipScreenState extends State<PayslipScreen> {
       child: Row(
         mainAxisAlignment: MainAxisAlignment.spaceBetween,
         children: [
-          Text(tr(label), style: TextStyle(color: Colors.grey[700], fontSize: 13)),
+          Text(tr(label), style: TextStyle(color: SboxColors.slate700, fontSize: 13)),
           Text(
             tr(_formatCurrency(value ?? 0)),
             style: const TextStyle(fontWeight: FontWeight.w600, fontSize: 13),
@@ -854,7 +855,7 @@ class _PayslipScreenState extends State<PayslipScreen> {
       context: context,
       builder: (ctx) => Dialog(
         insetPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 24),
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
         child: ConstrainedBox(
           constraints: BoxConstraints(
             maxWidth: 720,
@@ -893,7 +894,7 @@ class _PayslipScreenState extends State<PayslipScreen> {
                             tr(errorMessage ??
                                 'Phiếu lương này chưa có bản chấm công (chốt trước khi cập nhật tính năng).'),
                             textAlign: TextAlign.center,
-                            style: TextStyle(color: Colors.grey[700]),
+                            style: TextStyle(color: SboxColors.slate700),
                           ),
                         ),
                       )
@@ -958,7 +959,7 @@ class _PayslipScreenState extends State<PayslipScreen> {
         const SizedBox(height: 8),
         if (daily.isEmpty)
           Text(tr('Không có dòng chấm công'),
-              style: TextStyle(color: Colors.grey[600], fontSize: 13))
+              style: TextStyle(color: SboxColors.slate600, fontSize: 13))
         else
           ...daily.map((d) => _dailySnapshotTile(d)),
         if (data['attendanceLogs'] is List &&
@@ -1003,7 +1004,7 @@ class _PayslipScreenState extends State<PayslipScreen> {
       crossAxisAlignment: CrossAxisAlignment.start,
       mainAxisSize: MainAxisSize.min,
       children: [
-        Text(tr(label), style: TextStyle(fontSize: 11, color: Colors.grey[600])),
+        Text(tr(label), style: TextStyle(fontSize: 11, color: SboxColors.slate600)),
         Text(tr(value),
             style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 13)),
       ],
@@ -1017,8 +1018,8 @@ class _PayslipScreenState extends State<PayslipScreen> {
       padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
       decoration: BoxDecoration(
         color: Colors.white,
-        borderRadius: BorderRadius.circular(8),
-        border: Border.all(color: const Color(0xFFE4E4E7)),
+        borderRadius: BorderRadius.circular(10),
+        border: Border.all(color: SboxColors.slate200),
       ),
       child: Row(
         children: [
@@ -1038,7 +1039,7 @@ class _PayslipScreenState extends State<PayslipScreen> {
                 if (shifts.isNotEmpty)
                   Text(tr(shifts),
                       style:
-                          TextStyle(fontSize: 11, color: Colors.grey[600])),
+                          TextStyle(fontSize: 11, color: SboxColors.slate600)),
               ],
             ),
           ),

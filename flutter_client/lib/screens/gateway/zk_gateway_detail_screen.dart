@@ -15,6 +15,7 @@ import 'zk_gateway_setup_screen.dart';
 import 'zk_gateway_user_errors.dart';
 import 'zk_gateway_widgets.dart';
 
+import '../../theme/sbox_tokens.dart';
 /// Trang chi tiết một gateway: trạng thái đồng bộ, các thao tác điều khiển
 /// và đổi tên. Mọi lệnh gọi thẳng vào IP LAN của thiết bị.
 class ZkGatewayDetailScreen extends StatefulWidget {
@@ -205,7 +206,7 @@ class _ZkGatewayDetailScreenState extends State<ZkGatewayDetailScreen> {
         content: SingleChildScrollView(
           child: Text(
             tr(err.message),
-            style: const TextStyle(fontSize: 13.5, height: 1.45),
+            style: const TextStyle(fontSize: 14, height: 1.45),
           ),
         ),
         actions: [
@@ -302,7 +303,7 @@ class _ZkGatewayDetailScreenState extends State<ZkGatewayDetailScreen> {
             const SizedBox(height: 8),
             Text(
               tr('Quên mật khẩu: nối điện thoại vào sóng SBOX-Gateway-XXXX rồi bấm Đặt lại.'),
-              style: TextStyle(fontSize: 12, color: Colors.grey.shade700),
+              style: TextStyle(fontSize: 12, color: SboxColors.slate700),
             ),
           ],
         ),
@@ -516,7 +517,7 @@ class _ZkGatewayDetailScreenState extends State<ZkGatewayDetailScreen> {
             child: Text(tr('Huỷ')),
           ),
           TextButton(
-            style: TextButton.styleFrom(foregroundColor: const Color(0xFFDC2626)),
+            style: TextButton.styleFrom(foregroundColor: SboxColors.danger),
             onPressed: () => Navigator.pop(ctx, true),
             child: Text(tr('Tôi đã hiểu, tiếp tục')),
           ),
@@ -567,7 +568,7 @@ class _ZkGatewayDetailScreenState extends State<ZkGatewayDetailScreen> {
           ),
           ElevatedButton(
             style: ElevatedButton.styleFrom(
-              backgroundColor: const Color(0xFFDC2626),
+              backgroundColor: SboxColors.danger,
               foregroundColor: Colors.white,
             ),
             onPressed: () {
@@ -644,7 +645,7 @@ class _ZkGatewayDetailScreenState extends State<ZkGatewayDetailScreen> {
             child: Text(tr('Huỷ')),
           ),
           TextButton(
-            style: TextButton.styleFrom(foregroundColor: const Color(0xFFDC2626)),
+            style: TextButton.styleFrom(foregroundColor: SboxColors.danger),
             onPressed: () => Navigator.pop(ctx, true),
             child: Text(tr('Tôi đã hiểu, tiếp tục')),
           ),
@@ -696,7 +697,7 @@ class _ZkGatewayDetailScreenState extends State<ZkGatewayDetailScreen> {
           ),
           ElevatedButton(
             style: ElevatedButton.styleFrom(
-              backgroundColor: const Color(0xFFDC2626),
+              backgroundColor: SboxColors.danger,
               foregroundColor: Colors.white,
             ),
             onPressed: () {
@@ -890,7 +891,7 @@ class _ZkGatewayDetailScreenState extends State<ZkGatewayDetailScreen> {
                       ),
                       style: TextStyle(
                         fontSize: 12,
-                        color: Colors.grey.shade700,
+                        color: SboxColors.slate700,
                       ),
                     ),
                   ],
@@ -987,7 +988,7 @@ class _ZkGatewayDetailScreenState extends State<ZkGatewayDetailScreen> {
           style: const TextStyle(
             color: HrmPageChrome.textDark,
             fontWeight: FontWeight.w700,
-            fontSize: 17,
+            fontSize: 18,
           ),
         ),
         iconTheme: const IconThemeData(color: HrmPageChrome.textDark),
@@ -1042,7 +1043,7 @@ class _ZkGatewayDetailScreenState extends State<ZkGatewayDetailScreen> {
       decoration: BoxDecoration(
         color: Colors.white,
         borderRadius: BorderRadius.circular(14),
-        border: Border.all(color: const Color(0xFFE2E8F0)),
+        border: Border.all(color: SboxColors.slate200),
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -1050,8 +1051,8 @@ class _ZkGatewayDetailScreenState extends State<ZkGatewayDetailScreen> {
           Text(
             tr(title),
             style: const TextStyle(
-              fontSize: 11.5,
-              fontWeight: FontWeight.w800,
+              fontSize: 12,
+              fontWeight: FontWeight.w700,
               letterSpacing: 1,
               color: HrmPageChrome.textMuted,
             ),
@@ -1068,16 +1069,16 @@ class _ZkGatewayDetailScreenState extends State<ZkGatewayDetailScreen> {
       Text(
         _loadError ?? tr('Không kết nối được gateway'),
         style: const TextStyle(
-          fontSize: 14.5,
+          fontSize: 14,
           fontWeight: FontWeight.w700,
-          color: Color(0xFFDC2626),
+          color: SboxColors.danger,
         ),
       ),
       const SizedBox(height: 12),
       GatewayNoteBox(
         text: _loadGuide ?? ZkGatewayUserError.connectionChecklist,
         icon: Icons.help_outline,
-        color: const Color(0xFFF59E0B),
+        color: SboxColors.warning,
       ),
       const SizedBox(height: 12),
       _actionRow(
@@ -1134,7 +1135,7 @@ class _ZkGatewayDetailScreenState extends State<ZkGatewayDetailScreen> {
         GatewayNoteBox(
           text: s.error,
           icon: Icons.error_outline,
-          color: const Color(0xFFDC2626),
+          color: SboxColors.danger,
         ),
       ],
       if (hint != null) ...[
@@ -1142,7 +1143,7 @@ class _ZkGatewayDetailScreenState extends State<ZkGatewayDetailScreen> {
         GatewayNoteBox(
           text: hint,
           icon: Icons.lightbulb_outline,
-          color: const Color(0xFFF59E0B),
+          color: SboxColors.warning,
         ),
       ],
       const SizedBox(height: 12),
@@ -1272,7 +1273,7 @@ class _ZkGatewayDetailScreenState extends State<ZkGatewayDetailScreen> {
     return _card(title: 'Dành cho kỹ thuật', children: [
       InkWell(
         onTap: () => setState(() => _advancedOpen = !_advancedOpen),
-        borderRadius: BorderRadius.circular(9),
+        borderRadius: BorderRadius.circular(10),
         child: Padding(
           padding: const EdgeInsets.symmetric(vertical: 8),
           child: Row(
@@ -1283,7 +1284,7 @@ class _ZkGatewayDetailScreenState extends State<ZkGatewayDetailScreen> {
                       ? 'Thu gọn cấu hình nâng cao'
                       : 'Hiện thêm (web, mật khẩu, OTA…)'),
                   style: const TextStyle(
-                    fontSize: 13.5,
+                    fontSize: 14,
                     fontWeight: FontWeight.w700,
                     color: HrmPageChrome.textDark,
                   ),
@@ -1365,7 +1366,7 @@ class _ZkGatewayDetailScreenState extends State<ZkGatewayDetailScreen> {
                     '${sizeKb != null ? ' ($sizeKb)' : ''}',
           ),
           style: const TextStyle(
-            fontSize: 12.5,
+            fontSize: 13,
             fontWeight: FontWeight.w600,
             color: HrmPageChrome.textMuted,
           ),
@@ -1390,7 +1391,7 @@ class _ZkGatewayDetailScreenState extends State<ZkGatewayDetailScreen> {
               style: const TextStyle(
                 fontSize: 12,
                 fontWeight: FontWeight.w700,
-                color: Color(0xFFD97706),
+                color: SboxColors.warning,
               ),
             ),
           ),
@@ -1429,12 +1430,12 @@ class _ZkGatewayDetailScreenState extends State<ZkGatewayDetailScreen> {
     bool danger = false,
     bool last = false,
   }) {
-    final color = danger ? const Color(0xFFDC2626) : HrmPageChrome.primaryNavy;
+    final color = danger ? SboxColors.danger : HrmPageChrome.primaryNavy;
     return Column(
       children: [
         InkWell(
           onTap: _busy ? null : onTap,
-          borderRadius: BorderRadius.circular(9),
+          borderRadius: BorderRadius.circular(10),
           child: Padding(
             padding: const EdgeInsets.symmetric(vertical: 11),
             child: Row(
@@ -1444,7 +1445,7 @@ class _ZkGatewayDetailScreenState extends State<ZkGatewayDetailScreen> {
                   height: 34,
                   decoration: BoxDecoration(
                     color: color.withValues(alpha: 0.10),
-                    borderRadius: BorderRadius.circular(9),
+                    borderRadius: BorderRadius.circular(10),
                   ),
                   child: Icon(icon, size: 18, color: color),
                 ),
@@ -1473,7 +1474,7 @@ class _ZkGatewayDetailScreenState extends State<ZkGatewayDetailScreen> {
                     ],
                   ),
                 ),
-                const Icon(Icons.chevron_right, size: 19, color: Color(0xFF94A3B8)),
+                const Icon(Icons.chevron_right, size: 19, color: SboxColors.slate400),
               ],
             ),
           ),

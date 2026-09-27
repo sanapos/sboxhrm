@@ -13,6 +13,7 @@ import 'zk_gateway_detail_screen.dart';
 import 'zk_gateway_setup_screen.dart';
 import 'zk_gateway_widgets.dart';
 
+import '../../theme/sbox_tokens.dart';
 /// Danh sách các gateway ESP32 tìm thấy trong mạng nội bộ.
 ///
 /// Không lấy danh sách từ máy chủ mà dò trực tiếp trong LAN: gateway có thể
@@ -235,8 +236,8 @@ class _ZkGatewayListScreenState extends State<ZkGatewayListScreen> {
       width: double.infinity,
       padding: const EdgeInsets.all(14),
       decoration: BoxDecoration(
-        color: const Color(0xFFFFF7ED),
-        borderRadius: BorderRadius.circular(12),
+        color: SboxColors.warningSoft,
+        borderRadius: BorderRadius.circular(14),
         border: Border.all(color: const Color(0xFFFDBA74)),
       ),
       child: Column(
@@ -251,8 +252,8 @@ class _ZkGatewayListScreenState extends State<ZkGatewayListScreen> {
                 child: Text(
                   tr('Phát hiện cấu hình xung đột'),
                   style: const TextStyle(
-                    fontWeight: FontWeight.w800,
-                    fontSize: 13.5,
+                    fontWeight: FontWeight.w700,
+                    fontSize: 14,
                     color: Color(0xFF9A3412),
                   ),
                 ),
@@ -266,7 +267,7 @@ class _ZkGatewayListScreenState extends State<ZkGatewayListScreen> {
               child: Text(
                 '• ${tr(m)}',
                 style: const TextStyle(
-                  fontSize: 12.5,
+                  fontSize: 13,
                   height: 1.4,
                   color: Color(0xFF9A3412),
                 ),
@@ -292,7 +293,7 @@ class _ZkGatewayListScreenState extends State<ZkGatewayListScreen> {
       decoration: BoxDecoration(
         color: Colors.white,
         borderRadius: BorderRadius.circular(14),
-        border: Border.all(color: const Color(0xFFE2E8F0)),
+        border: Border.all(color: SboxColors.slate200),
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -304,7 +305,7 @@ class _ZkGatewayListScreenState extends State<ZkGatewayListScreen> {
                 height: 44,
                 decoration: BoxDecoration(
                   color: HrmPageChrome.primaryNavy.withValues(alpha: 0.10),
-                  borderRadius: BorderRadius.circular(12),
+                  borderRadius: BorderRadius.circular(14),
                 ),
                 child: const Icon(Icons.router, color: HrmPageChrome.primaryNavy),
               ),
@@ -317,7 +318,7 @@ class _ZkGatewayListScreenState extends State<ZkGatewayListScreen> {
                       tr('Gateway chấm công WiFi'),
                       style: const TextStyle(
                         fontSize: 16,
-                        fontWeight: FontWeight.w800,
+                        fontWeight: FontWeight.w700,
                         color: HrmPageChrome.textDark,
                       ),
                     ),
@@ -331,7 +332,7 @@ class _ZkGatewayListScreenState extends State<ZkGatewayListScreen> {
                                   ? tr('1 gateway trong mạng WiFi')
                                   : '${_gateways.length} ${tr('gateway trong mạng WiFi')}',
                       style: const TextStyle(
-                        fontSize: 12.5,
+                        fontSize: 13,
                         color: HrmPageChrome.textMuted,
                       ),
                     ),
@@ -352,7 +353,7 @@ class _ZkGatewayListScreenState extends State<ZkGatewayListScreen> {
                   tr('Thêm gateway'),
                   style: const TextStyle(
                     fontWeight: FontWeight.w700,
-                    fontSize: 14.5,
+                    fontSize: 14,
                   ),
                 ),
                 style: ElevatedButton.styleFrom(
@@ -381,7 +382,7 @@ class _ZkGatewayListScreenState extends State<ZkGatewayListScreen> {
       decoration: BoxDecoration(
         color: Colors.white,
         borderRadius: BorderRadius.circular(14),
-        border: Border.all(color: const Color(0xFFE2E8F0)),
+        border: Border.all(color: SboxColors.slate200),
       ),
       child: Column(
         children: [
@@ -389,21 +390,21 @@ class _ZkGatewayListScreenState extends State<ZkGatewayListScreen> {
             width: 58,
             height: 58,
             decoration: const BoxDecoration(
-              color: Color(0xFFF1F5F9),
+              color: SboxColors.slate100,
               shape: BoxShape.circle,
             ),
             child: const Icon(
               Icons.phone_android,
               size: 27,
-              color: Color(0xFF94A3B8),
+              color: SboxColors.slate400,
             ),
           ),
           const SizedBox(height: 14),
           Text(
             tr('Hãy dùng app trên điện thoại'),
             style: const TextStyle(
-              fontSize: 15.5,
-              fontWeight: FontWeight.w800,
+              fontSize: 16,
+              fontWeight: FontWeight.w700,
               color: HrmPageChrome.textDark,
             ),
           ),
@@ -438,7 +439,7 @@ class _ZkGatewayListScreenState extends State<ZkGatewayListScreen> {
           Text(
             tr('Đang dò tìm gateway (Bonjour + UDP)...'),
             style: const TextStyle(
-              fontSize: 13.5,
+              fontSize: 14,
               color: HrmPageChrome.textMuted,
             ),
           ),
@@ -453,7 +454,7 @@ class _ZkGatewayListScreenState extends State<ZkGatewayListScreen> {
       decoration: BoxDecoration(
         color: Colors.white,
         borderRadius: BorderRadius.circular(14),
-        border: Border.all(color: const Color(0xFFE2E8F0)),
+        border: Border.all(color: SboxColors.slate200),
       ),
       child: Column(
         children: [
@@ -461,17 +462,17 @@ class _ZkGatewayListScreenState extends State<ZkGatewayListScreen> {
             width: 58,
             height: 58,
             decoration: const BoxDecoration(
-              color: Color(0xFFF1F5F9),
+              color: SboxColors.slate100,
               shape: BoxShape.circle,
             ),
-            child: const Icon(Icons.wifi_find, size: 27, color: Color(0xFF94A3B8)),
+            child: const Icon(Icons.wifi_find, size: 27, color: SboxColors.slate400),
           ),
           const SizedBox(height: 14),
           Text(
             tr('Chưa tìm thấy gateway nào'),
             style: const TextStyle(
-              fontSize: 15.5,
-              fontWeight: FontWeight.w800,
+              fontSize: 16,
+              fontWeight: FontWeight.w700,
               color: HrmPageChrome.textDark,
             ),
           ),
@@ -494,7 +495,7 @@ class _ZkGatewayListScreenState extends State<ZkGatewayListScreen> {
                 '3. Bấm Dò tìm lại — IP có thể đã đổi.\n'
                 '4. Vẫn lỗi: dùng nút "Thêm theo IP" để nhập IP gateway vào mạng.',
             icon: Icons.help_outline,
-            color: const Color(0xFFF59E0B),
+            color: SboxColors.warning,
           ),
           const SizedBox(height: 12),
           GatewayNoteBox(

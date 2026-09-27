@@ -8,6 +8,7 @@ import '../utils/file_saver.dart';
 import '../widgets/hrm_page_chrome.dart';
 import '../widgets/notification_overlay.dart';
 
+import '../theme/sbox_tokens.dart';
 /// Kiểu tham số kỳ của báo cáo.
 enum _PeriodKind { range, month, year, none }
 
@@ -69,7 +70,7 @@ class AnalyticsReportsScreen extends StatelessWidget {
                     padding: const EdgeInsets.fromLTRB(4, 8, 4, 6),
                     child: Text(tr(g.key),
                         style: const TextStyle(
-                            fontWeight: FontWeight.w800, color: HrmPageChrome.primaryNavy)),
+                            fontWeight: FontWeight.w700, color: HrmPageChrome.primaryNavy)),
                   ),
                   for (final r in g.value)
                     Card(
@@ -294,7 +295,7 @@ class _AnalyticsReportViewerState extends State<_AnalyticsReportViewer> {
                     fillColor: Colors.white,
                     prefixIcon: const Icon(Icons.search),
                     hintText: tr('Lọc theo tên, mã, phòng ban...'),
-                    border: OutlineInputBorder(borderRadius: BorderRadius.circular(8)),
+                    border: OutlineInputBorder(borderRadius: BorderRadius.circular(10)),
                   ),
                 ),
               ),
@@ -318,7 +319,7 @@ class _AnalyticsReportViewerState extends State<_AnalyticsReportViewer> {
               if (title != null)
                 Padding(
                   padding: const EdgeInsets.only(bottom: 6),
-                  child: Text(tr(title), style: const TextStyle(fontWeight: FontWeight.w800)),
+                  child: Text(tr(title), style: const TextStyle(fontWeight: FontWeight.w700)),
                 ),
               Wrap(
                 spacing: 18,
@@ -329,9 +330,9 @@ class _AnalyticsReportViewerState extends State<_AnalyticsReportViewer> {
                       crossAxisAlignment: CrossAxisAlignment.start,
                       mainAxisSize: MainAxisSize.min,
                       children: [
-                        Text(tr(_label(e.key)), style: TextStyle(fontSize: 12, color: Colors.grey.shade700)),
+                        Text(tr(_label(e.key)), style: TextStyle(fontSize: 12, color: SboxColors.slate700)),
                         Text(_fmt(e.key, e.value),
-                            style: const TextStyle(fontWeight: FontWeight.w800, color: HrmPageChrome.primaryNavy)),
+                            style: const TextStyle(fontWeight: FontWeight.w700, color: HrmPageChrome.primaryNavy)),
                       ],
                     ),
                 ],
@@ -363,7 +364,7 @@ class _AnalyticsReportViewerState extends State<_AnalyticsReportViewer> {
             Padding(
               padding: const EdgeInsets.fromLTRB(4, 4, 4, 8),
               child: Text('${tr(_label(key))} (${visible.length})',
-                  style: const TextStyle(fontWeight: FontWeight.w800)),
+                  style: const TextStyle(fontWeight: FontWeight.w700)),
             ),
             SingleChildScrollView(
               scrollDirection: Axis.horizontal,

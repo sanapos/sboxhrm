@@ -12,6 +12,7 @@ import '../widgets/hrm_page_chrome.dart';
 import '../widgets/page_top_actions.dart';
 import 'package:zkteco_flutter_client/l10n/app_tr.dart';
 
+import '../theme/sbox_tokens.dart';
 /// Màn hình Sơ đồ tổ chức & Luồng duyệt
 class OrgChartScreen extends StatefulWidget {
   const OrgChartScreen({super.key});
@@ -245,7 +246,7 @@ class _OrgChartScreenState extends State<OrgChartScreen> with SingleTickerProvid
       spacing: 12,
       runSpacing: 12,
       children: [
-        _statCard('Phòng ban', s.totalDepartments, Icons.business, Colors.blue),
+        _statCard('Phòng ban', s.totalDepartments, Icons.business, SboxColors.brand500),
         _statCard('Chức vụ', s.totalPositions, Icons.badge, Colors.purple),
         _statCard('Đã gán', s.totalAssignments, Icons.assignment_ind, Colors.green),
         _statCard('Tổng NV', s.totalEmployees, Icons.people, Colors.orange),
@@ -261,7 +262,7 @@ class _OrgChartScreenState extends State<OrgChartScreen> with SingleTickerProvid
       padding: const EdgeInsets.all(12),
       decoration: BoxDecoration(
         color: color.withValues(alpha: 0.08),
-        borderRadius: BorderRadius.circular(12),
+        borderRadius: BorderRadius.circular(14),
         border: Border.all(color: color.withValues(alpha: 0.2)),
       ),
       child: Column(
@@ -289,14 +290,14 @@ class _OrgChartScreenState extends State<OrgChartScreen> with SingleTickerProvid
             margin: const EdgeInsets.only(bottom: 8),
             elevation: depth == 0 ? 3 : 1,
             shape: RoundedRectangleBorder(
-              borderRadius: BorderRadius.circular(12),
+              borderRadius: BorderRadius.circular(14),
               side: BorderSide(
-                color: depth == 0 ? Colors.blue.shade300 : Colors.grey.shade300,
+                color: depth == 0 ? SboxColors.brand300 : SboxColors.slate300,
                 width: depth == 0 ? 2 : 1,
               ),
             ),
             child: InkWell(
-              borderRadius: BorderRadius.circular(12),
+              borderRadius: BorderRadius.circular(14),
               onTap: () {
                 _showDepartmentDetailDialog(node, depth);
               },
@@ -312,7 +313,7 @@ class _OrgChartScreenState extends State<OrgChartScreen> with SingleTickerProvid
                           padding: const EdgeInsets.all(8),
                           decoration: BoxDecoration(
                             color: _deptColor(depth).withValues(alpha: 0.1),
-                            borderRadius: BorderRadius.circular(8),
+                            borderRadius: BorderRadius.circular(10),
                           ),
                           child: Icon(
                             depth == 0 ? Icons.business : Icons.folder,
@@ -333,7 +334,7 @@ class _OrgChartScreenState extends State<OrgChartScreen> with SingleTickerProvid
                                 ),
                               ),
                               Text(tr('${node.code} • $memberCount thành viên'),
-                                style: TextStyle(fontSize: 12, color: Colors.grey[600]),
+                                style: TextStyle(fontSize: 12, color: SboxColors.slate600),
                               ),
                             ],
                           ),
@@ -347,7 +348,7 @@ class _OrgChartScreenState extends State<OrgChartScreen> with SingleTickerProvid
                               padding: const EdgeInsets.all(4),
                               child: Icon(
                                 node.isExpanded ? Icons.expand_less : Icons.expand_more,
-                                color: Colors.grey,
+                                color: SboxColors.slate500,
                               ),
                             ),
                           ),
@@ -381,7 +382,7 @@ class _OrgChartScreenState extends State<OrgChartScreen> with SingleTickerProvid
   Widget _buildMemberTile(OrgChartMember member, {required bool isHead}) {
     final posColor = member.positionColor != null
         ? Color(int.parse('0xFF${member.positionColor!.replaceAll('#', '')}'))
-        : (isHead ? Colors.blue : Colors.grey);
+        : (isHead ? SboxColors.brand500 : SboxColors.slate500);
 
     return Padding(
       padding: const EdgeInsets.symmetric(vertical: 2),
@@ -412,7 +413,7 @@ class _OrgChartScreenState extends State<OrgChartScreen> with SingleTickerProvid
                 ),
                 Text(
                   tr('${member.positionName} • ${member.employeeCode}'),
-                  style: TextStyle(fontSize: 11, color: Colors.grey[600]),
+                  style: TextStyle(fontSize: 11, color: SboxColors.slate600),
                 ),
               ],
             ),
@@ -453,7 +454,7 @@ class _OrgChartScreenState extends State<OrgChartScreen> with SingleTickerProvid
             children: [
               Text(tr(node.name), style: const TextStyle(fontSize: 18)),
               Text(tr('${node.code} • ${node.members.length} thành viên'),
-                  style: TextStyle(fontSize: 12, color: Colors.grey[600], fontWeight: FontWeight.normal)),
+                  style: TextStyle(fontSize: 12, color: SboxColors.slate600, fontWeight: FontWeight.normal)),
             ],
           ),
         ),
@@ -500,9 +501,9 @@ class _OrgChartScreenState extends State<OrgChartScreen> with SingleTickerProvid
                       ),
                       const SizedBox(height: 4),
                       Text(tr(manager.employeeName),
-                          style: const TextStyle(fontSize: 15, fontWeight: FontWeight.bold)),
+                          style: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
                       Text(tr('${manager.positionName} • ${manager.employeeCode}'),
-                          style: TextStyle(fontSize: 12, color: Colors.grey[600])),
+                          style: TextStyle(fontSize: 12, color: SboxColors.slate600)),
                     ],
                   ),
                 ),
@@ -513,12 +514,12 @@ class _OrgChartScreenState extends State<OrgChartScreen> with SingleTickerProvid
         ],
         if (otherMembers.isNotEmpty) ...[
           Text(tr('Danh sách nhân viên'),
-              style: TextStyle(fontSize: 14, fontWeight: FontWeight.w600, color: Colors.grey[700])),
+              style: TextStyle(fontSize: 14, fontWeight: FontWeight.w600, color: SboxColors.slate700)),
           const SizedBox(height: 8),
           ...otherMembers.map((m) {
             final posColor = m.positionColor != null
                 ? Color(int.parse('0xFF${m.positionColor!.replaceAll('#', '')}'))
-                : Colors.grey;
+                : SboxColors.slate500;
             return Padding(
               padding: const EdgeInsets.only(bottom: 8),
               child: Row(
@@ -542,7 +543,7 @@ class _OrgChartScreenState extends State<OrgChartScreen> with SingleTickerProvid
                         Text(tr(m.employeeName),
                             style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w500)),
                         Text(tr('${m.positionName} • ${m.employeeCode}'),
-                            style: TextStyle(fontSize: 11, color: Colors.grey[600])),
+                            style: TextStyle(fontSize: 11, color: SboxColors.slate600)),
                       ],
                     ),
                   ),
@@ -566,10 +567,10 @@ class _OrgChartScreenState extends State<OrgChartScreen> with SingleTickerProvid
               padding: const EdgeInsets.all(24),
               child: Column(
                 children: [
-                  Icon(Icons.people_outline, size: 48, color: Colors.grey[400]),
+                  Icon(Icons.people_outline, size: 48, color: SboxColors.slate400),
                   const SizedBox(height: 8),
                   Text(tr('Chưa có nhân viên nào trong phòng ban này'),
-                      style: TextStyle(color: Colors.grey[600])),
+                      style: TextStyle(color: SboxColors.slate600)),
                 ],
               ),
             ),
@@ -629,7 +630,7 @@ class _OrgChartScreenState extends State<OrgChartScreen> with SingleTickerProvid
   }
 
   Color _deptColor(int depth) {
-    final colors = [Colors.blue, Colors.teal, Colors.purple, Colors.orange, Colors.green];
+    final colors = [SboxColors.brand500, Colors.teal, Colors.purple, Colors.orange, Colors.green];
     return colors[depth % colors.length];
   }
 
@@ -663,8 +664,8 @@ class _OrgChartScreenState extends State<OrgChartScreen> with SingleTickerProvid
                           child: Container(
                             decoration: BoxDecoration(
                               color: Colors.white,
-                              borderRadius: BorderRadius.circular(12),
-                              border: Border.all(color: const Color(0xFFE4E4E7)),
+                              borderRadius: BorderRadius.circular(14),
+                              border: Border.all(color: SboxColors.slate200),
                               boxShadow: [BoxShadow(color: Colors.black.withValues(alpha: 0.05), blurRadius: 6, offset: const Offset(0, 2))],
                             ),
                             child: _buildPositionDeckItem(_positions[i]),
@@ -685,7 +686,7 @@ class _OrgChartScreenState extends State<OrgChartScreen> with SingleTickerProvid
   Widget _buildPositionDeckItem(OrgPosition position) {
     final posColor = position.color != null
         ? Color(int.parse('0xFF${position.color!.replaceAll('#', '')}'))
-        : Colors.blue;
+        : SboxColors.brand500;
     return InkWell(
       onTap: () => _showEditPositionDialog(position),
       child: Padding(
@@ -703,12 +704,12 @@ class _OrgChartScreenState extends State<OrgChartScreen> with SingleTickerProvid
               const SizedBox(height: 2),
               Text(
                 tr([position.code, 'Cấp ${position.level}', '${position.assignmentCount} NV', if (position.canApprove) 'Được duyệt'].join(' · ')),
-                style: const TextStyle(color: Color(0xFF71717A), fontSize: 12),
+                style: const TextStyle(color: SboxColors.slate500, fontSize: 12),
                 maxLines: 1, overflow: TextOverflow.ellipsis,
               ),
             ]),
           ),
-          const Icon(Icons.chevron_right, size: 18, color: Color(0xFFA1A1AA)),
+          const Icon(Icons.chevron_right, size: 18, color: SboxColors.slate400),
         ]),
       ),
     );
@@ -717,7 +718,7 @@ class _OrgChartScreenState extends State<OrgChartScreen> with SingleTickerProvid
   Widget _buildPositionCard(OrgPosition position) {
     final posColor = position.color != null
         ? Color(int.parse('0xFF${position.color!.replaceAll('#', '')}'))
-        : Colors.blue;
+        : SboxColors.brand500;
 
     return Card(
       margin: const EdgeInsets.only(bottom: 8),
@@ -731,7 +732,7 @@ class _OrgChartScreenState extends State<OrgChartScreen> with SingleTickerProvid
         subtitle: Text(
           tr('${position.code} • Cấp ${position.level} • ${position.assignmentCount} NV'
           '${position.canApprove ? ' • Được duyệt' : ''}'),
-          style: TextStyle(fontSize: 12, color: Colors.grey[600]),
+          style: TextStyle(fontSize: 12, color: SboxColors.slate600),
         ),
         trailing: Row(
           mainAxisSize: MainAxisSize.min,
@@ -784,8 +785,8 @@ class _OrgChartScreenState extends State<OrgChartScreen> with SingleTickerProvid
                           child: Container(
                             decoration: BoxDecoration(
                               color: Colors.white,
-                              borderRadius: BorderRadius.circular(12),
-                              border: Border.all(color: const Color(0xFFE4E4E7)),
+                              borderRadius: BorderRadius.circular(14),
+                              border: Border.all(color: SboxColors.slate200),
                               boxShadow: [BoxShadow(color: Colors.black.withValues(alpha: 0.05), blurRadius: 6, offset: const Offset(0, 2))],
                             ),
                             child: _buildAssignDeckItem(_assignments[i]),
@@ -811,10 +812,10 @@ class _OrgChartScreenState extends State<OrgChartScreen> with SingleTickerProvid
         child: Row(children: [
           CircleAvatar(
             radius: 18,
-            backgroundColor: Colors.blue.shade50,
+            backgroundColor: SboxColors.brand50,
             backgroundImage: assign.employeePhoto != null && assign.employeePhoto!.isNotEmpty ? _api.storeImageProvider(assign.employeePhoto!) : null,
             onBackgroundImageError: assign.employeePhoto != null && assign.employeePhoto!.isNotEmpty ? (_, __) {} : null,
-            child: assign.employeePhoto == null || assign.employeePhoto!.isEmpty ? const Icon(Icons.person, color: Colors.blue, size: 18) : null,
+            child: assign.employeePhoto == null || assign.employeePhoto!.isEmpty ? const Icon(Icons.person, color: SboxColors.brand500, size: 18) : null,
           ),
           const SizedBox(width: 12),
           Expanded(
@@ -823,14 +824,14 @@ class _OrgChartScreenState extends State<OrgChartScreen> with SingleTickerProvid
               const SizedBox(height: 2),
               Text(
                 tr([assign.employeeCode, assign.positionName, assign.departmentName].join(' · ')),
-                style: const TextStyle(color: Color(0xFF71717A), fontSize: 12),
+                style: const TextStyle(color: SboxColors.slate500, fontSize: 12),
                 maxLines: 1, overflow: TextOverflow.ellipsis,
               ),
             ]),
           ),
           if (assign.isPrimary) Container(
             padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
-            decoration: BoxDecoration(color: Colors.green.withValues(alpha: 0.1), borderRadius: BorderRadius.circular(8)),
+            decoration: BoxDecoration(color: Colors.green.withValues(alpha: 0.1), borderRadius: BorderRadius.circular(10)),
             child: Text(tr('Chính'), style: TextStyle(fontSize: 10, fontWeight: FontWeight.w600, color: Colors.green)),
           ),
         ]),
@@ -848,13 +849,13 @@ class _OrgChartScreenState extends State<OrgChartScreen> with SingleTickerProvid
           children: [
             CircleAvatar(
               radius: 22,
-              backgroundColor: Colors.blue.shade50,
+              backgroundColor: SboxColors.brand50,
               backgroundImage: assign.employeePhoto != null && assign.employeePhoto!.isNotEmpty
                   ? _api.storeImageProvider(assign.employeePhoto!)
                   : null,
               onBackgroundImageError: assign.employeePhoto != null && assign.employeePhoto!.isNotEmpty ? (_, __) {} : null,
               child: assign.employeePhoto == null || assign.employeePhoto!.isEmpty
-                  ? const Icon(Icons.person, color: Colors.blue)
+                  ? const Icon(Icons.person, color: SboxColors.brand500)
                   : null,
             ),
             const SizedBox(width: 12),
@@ -881,11 +882,11 @@ class _OrgChartScreenState extends State<OrgChartScreen> with SingleTickerProvid
                   const SizedBox(height: 2),
                   Text(
                     tr('${assign.positionName} • ${assign.departmentName}'),
-                    style: TextStyle(fontSize: 12, color: Colors.grey[600]),
+                    style: TextStyle(fontSize: 12, color: SboxColors.slate600),
                   ),
                   if (assign.reportToEmployeeName != null)
                     Text(tr('Báo cáo: ${assign.reportToEmployeeName}'),
-                      style: TextStyle(fontSize: 11, color: Colors.grey[500]),
+                      style: TextStyle(fontSize: 11, color: SboxColors.slate500),
                     ),
                 ],
               ),
@@ -944,8 +945,8 @@ class _OrgChartScreenState extends State<OrgChartScreen> with SingleTickerProvid
                           child: Container(
                             decoration: BoxDecoration(
                               color: Colors.white,
-                              borderRadius: BorderRadius.circular(12),
-                              border: Border.all(color: const Color(0xFFE4E4E7)),
+                              borderRadius: BorderRadius.circular(14),
+                              border: Border.all(color: SboxColors.slate200),
                               boxShadow: [BoxShadow(color: Colors.black.withValues(alpha: 0.05), blurRadius: 6, offset: const Offset(0, 2))],
                             ),
                             child: _buildFlowDeckItem(_approvalFlows[i]),
@@ -981,12 +982,12 @@ class _OrgChartScreenState extends State<OrgChartScreen> with SingleTickerProvid
               const SizedBox(height: 2),
               Text(
                 tr([ApprovalFlow.requestTypeName2(flow.requestType), flow.departmentName ?? 'Tất cả PB', '${flow.steps.length} bước'].join(' · ')),
-                style: const TextStyle(color: Color(0xFF71717A), fontSize: 12),
+                style: const TextStyle(color: SboxColors.slate500, fontSize: 12),
                 maxLines: 1, overflow: TextOverflow.ellipsis,
               ),
             ]),
           ),
-          const Icon(Icons.chevron_right, size: 18, color: Color(0xFFA1A1AA)),
+          const Icon(Icons.chevron_right, size: 18, color: SboxColors.slate400),
         ]),
       ),
     );
@@ -995,7 +996,7 @@ class _OrgChartScreenState extends State<OrgChartScreen> with SingleTickerProvid
   Widget _buildApprovalFlowCard(ApprovalFlow flow) {
     return Card(
       margin: const EdgeInsets.only(bottom: 10),
-      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
       child: ExpansionTile(
         leading: CircleAvatar(
           backgroundColor: Colors.teal.shade50,
@@ -1006,7 +1007,7 @@ class _OrgChartScreenState extends State<OrgChartScreen> with SingleTickerProvid
           tr('${ApprovalFlow.requestTypeName2(flow.requestType)}'
           '${flow.departmentName != null ? ' • ${flow.departmentName}' : ' • Tất cả PB'}'
           ' • ${flow.steps.length} bước'),
-          style: TextStyle(fontSize: 12, color: Colors.grey[600]),
+          style: TextStyle(fontSize: 12, color: SboxColors.slate600),
         ),
         trailing: (_perm.canEdit('OrgChart') || _perm.canDelete('OrgChart'))
             ? Row(
@@ -1071,7 +1072,7 @@ class _OrgChartScreenState extends State<OrgChartScreen> with SingleTickerProvid
                   '${step.approverPositionName != null ? ' (${step.approverPositionName})' : ''}'
                   '${step.approverEmployeeName != null ? ' (${step.approverEmployeeName})' : ''}'
                   '${step.isRequired ? '' : ' [Không bắt buộc]'}'),
-                  style: TextStyle(fontSize: 11, color: Colors.grey[600]),
+                  style: TextStyle(fontSize: 11, color: SboxColors.slate600),
                 ),
               ],
             ),
@@ -1118,8 +1119,8 @@ class _OrgChartScreenState extends State<OrgChartScreen> with SingleTickerProvid
                           child: Container(
                             decoration: BoxDecoration(
                               color: Colors.white,
-                              borderRadius: BorderRadius.circular(12),
-                              border: Border.all(color: const Color(0xFFE4E4E7)),
+                              borderRadius: BorderRadius.circular(14),
+                              border: Border.all(color: SboxColors.slate200),
                               boxShadow: [BoxShadow(color: Colors.black.withValues(alpha: 0.05), blurRadius: 6, offset: const Offset(0, 2))],
                             ),
                             child: _buildUnassignedDeckItem(_unassignedEmployees[i]),
@@ -1157,7 +1158,7 @@ class _OrgChartScreenState extends State<OrgChartScreen> with SingleTickerProvid
               const SizedBox(height: 2),
               Text(
                 tr([emp.employeeCode, if (emp.departmentName != null) emp.departmentName!, if (emp.position != null) emp.position!].join(' · ')),
-                style: const TextStyle(color: Color(0xFF71717A), fontSize: 12),
+                style: const TextStyle(color: SboxColors.slate500, fontSize: 12),
                 maxLines: 1, overflow: TextOverflow.ellipsis,
               ),
             ]),
@@ -1184,7 +1185,7 @@ class _OrgChartScreenState extends State<OrgChartScreen> with SingleTickerProvid
         subtitle: Text(
           tr('${emp.employeeCode}${emp.departmentName != null ? ' • ${emp.departmentName}' : ''}'
           '${emp.position != null ? ' • ${emp.position}' : ''}'),
-          style: TextStyle(fontSize: 12, color: Colors.grey[600]),
+          style: TextStyle(fontSize: 12, color: SboxColors.slate600),
         ),
         trailing: _perm.canCreate('OrgChart')
             ? FilledButton.icon(
@@ -1206,11 +1207,11 @@ class _OrgChartScreenState extends State<OrgChartScreen> with SingleTickerProvid
       child: Column(
         mainAxisAlignment: MainAxisAlignment.center,
         children: [
-          Icon(Icons.inbox_outlined, size: 64, color: Colors.grey[300]),
+          Icon(Icons.inbox_outlined, size: 64, color: SboxColors.slate300),
           const SizedBox(height: 12),
-          Text(tr(title), style: TextStyle(fontSize: 16, fontWeight: FontWeight.w600, color: Colors.grey[600])),
+          Text(tr(title), style: TextStyle(fontSize: 16, fontWeight: FontWeight.w600, color: SboxColors.slate600)),
           const SizedBox(height: 4),
-          Text(tr(subtitle), style: TextStyle(fontSize: 13, color: Colors.grey[500])),
+          Text(tr(subtitle), style: TextStyle(fontSize: 13, color: SboxColors.slate500)),
         ],
       ),
     );
@@ -1491,8 +1492,8 @@ class _OrgChartScreenState extends State<OrgChartScreen> with SingleTickerProvid
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               Text(tr('NV: ${assign.employeeName}'), style: const TextStyle(fontWeight: FontWeight.w600)),
-              Text(tr('PB: ${assign.departmentName}'), style: TextStyle(color: Colors.grey[600])),
-              Text(tr('CV: ${assign.positionName}'), style: TextStyle(color: Colors.grey[600])),
+              Text(tr('PB: ${assign.departmentName}'), style: TextStyle(color: SboxColors.slate600)),
+              Text(tr('CV: ${assign.positionName}'), style: TextStyle(color: SboxColors.slate600)),
               const SizedBox(height: 12),
               SwitchListTile(title: Text(tr('Chức vụ chính')), value: isPrimary, onChanged: (v) => setDialogState(() => isPrimary = v), contentPadding: EdgeInsets.zero),
               SwitchListTile(title: Text(tr('Đang hoạt động')), value: isActive, onChanged: (v) => setDialogState(() => isActive = v), contentPadding: EdgeInsets.zero),

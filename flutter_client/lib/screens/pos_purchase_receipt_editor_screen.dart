@@ -29,7 +29,8 @@ import 'main_layout.dart' show ScreenRefreshNotifier;
 import 'pos/pos_product_editor_page.dart';
 import 'package:zkteco_flutter_client/l10n/app_tr.dart';
 
-const _blue = Color(0xFF2563EB);
+import '../theme/sbox_tokens.dart';
+const _blue = SboxColors.brand600;
 
 enum _PurchaseLineColumn {
   stt('STT'),
@@ -418,7 +419,7 @@ class _PosPurchaseReceiptEditorScreenState
     }
     return InkWell(
       onTap: _openDiscountEditor,
-      borderRadius: BorderRadius.circular(8),
+      borderRadius: BorderRadius.circular(10),
       child: InputDecorator(
         decoration: PosTheme.inputDecoration(
           label: 'Giảm giá phiếu',
@@ -440,7 +441,7 @@ class _PosPurchaseReceiptEditorScreenState
         ),
         child: Text(
           tr(display),
-          style: const TextStyle(fontSize: 15, fontWeight: FontWeight.w500),
+          style: const TextStyle(fontSize: 16, fontWeight: FontWeight.w500),
         ),
       ),
     );
@@ -1109,7 +1110,7 @@ class _PosPurchaseReceiptEditorScreenState
           else
             Expanded(
               child: Text(tr('Chi tiết phiếu nhập hàng'),
-                  style: TextStyle(fontSize: 15, fontWeight: FontWeight.w600)),
+                  style: TextStyle(fontSize: 16, fontWeight: FontWeight.w600)),
             ),
           IconButton(
             tooltip: tr('Quét mã vạch'),
@@ -1258,7 +1259,7 @@ class _PosPurchaseReceiptEditorScreenState
       return Container(
         decoration: BoxDecoration(
           color: Colors.white,
-          border: Border(top: BorderSide(color: Colors.grey.shade200)),
+          border: Border(top: BorderSide(color: SboxColors.slate200)),
         ),
         padding: EdgeInsets.fromLTRB(
           12,
@@ -1308,7 +1309,7 @@ class _PosPurchaseReceiptEditorScreenState
       return Container(
         decoration: BoxDecoration(
           color: Colors.white,
-          border: Border(top: BorderSide(color: Colors.grey.shade200)),
+          border: Border(top: BorderSide(color: SboxColors.slate200)),
         ),
         padding: EdgeInsets.fromLTRB(
           12,
@@ -1329,7 +1330,7 @@ class _PosPurchaseReceiptEditorScreenState
       return Container(
         decoration: BoxDecoration(
           color: Colors.white,
-          border: Border(top: BorderSide(color: Colors.grey.shade200)),
+          border: Border(top: BorderSide(color: SboxColors.slate200)),
         ),
         padding: EdgeInsets.fromLTRB(
           12,
@@ -1474,7 +1475,7 @@ class _PosPurchaseReceiptEditorScreenState
                                     Expanded(
                                       child: Text(tr('Chi tiết phiếu nhập hàng'),
                                           style: TextStyle(
-                                              fontSize: 15, fontWeight: FontWeight.w600)),
+                                              fontSize: 16, fontWeight: FontWeight.w600)),
                                     ),
                                   const SizedBox(width: 4),
                                   IconButton(
@@ -1502,14 +1503,14 @@ class _PosPurchaseReceiptEditorScreenState
                                         mainAxisSize: MainAxisSize.min,
                                         children: [
                                           Icon(Icons.inventory_2_outlined,
-                                              size: 48, color: Colors.grey.shade400),
+                                              size: 48, color: SboxColors.slate400),
                                           const SizedBox(height: 12),
                                           Text(tr('Chưa có hàng trong phiếu'),
-                                              style: TextStyle(color: Colors.grey.shade600)),
+                                              style: TextStyle(color: SboxColors.slate600)),
                                           const SizedBox(height: 8),
                                           Text(tr('Tìm theo mã, tên hoặc quét mã vạch (F3)'),
                                               style: TextStyle(
-                                                  fontSize: 12, color: Colors.grey.shade500)),
+                                                  fontSize: 12, color: SboxColors.slate500)),
                                         ],
                                       ),
                                     )
@@ -1632,7 +1633,7 @@ class _PosPurchaseReceiptEditorScreenState
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
         Container(
-          color: const Color(0xFFF8FAFC),
+          color: SboxColors.slate50,
           child: IntrinsicHeight(
             child: Row(
               crossAxisAlignment: CrossAxisAlignment.stretch,
@@ -1651,7 +1652,7 @@ class _PosPurchaseReceiptEditorScreenState
         Expanded(
           child: ListView.separated(
             itemCount: _lines.length,
-            separatorBuilder: (_, __) => Divider(height: 1, color: Colors.grey.shade200),
+            separatorBuilder: (_, __) => Divider(height: 1, color: SboxColors.slate200),
             itemBuilder: (_, i) {
               final l = _lines[i];
               return IntrinsicHeight(
@@ -1685,7 +1686,7 @@ class _PosPurchaseReceiptEditorScreenState
                                         mainAxisSize: MainAxisSize.min,
                                         children: [
                                           Icon(Icons.edit_outlined,
-                                              size: 12, color: Colors.grey.shade600),
+                                              size: 12, color: SboxColors.slate600),
                                           const SizedBox(width: 4),
                                           Flexible(
                                             child: Text(
@@ -1695,8 +1696,8 @@ class _PosPurchaseReceiptEditorScreenState
                                               style: TextStyle(
                                                 fontSize: 11,
                                                 color: l.lineNoteCtrl.text.isEmpty
-                                                    ? Colors.grey.shade500
-                                                    : Colors.grey.shade700,
+                                                    ? SboxColors.slate500
+                                                    : SboxColors.slate700,
                                               ),
                                               maxLines: 2,
                                               overflow: TextOverflow.ellipsis,
@@ -1712,7 +1713,7 @@ class _PosPurchaseReceiptEditorScreenState
                                     child: Text(
                                       tr(l.lineNoteCtrl.text),
                                       style: TextStyle(
-                                          fontSize: 11, color: Colors.grey.shade600),
+                                          fontSize: 11, color: SboxColors.slate600),
                                       maxLines: 2,
                                       overflow: TextOverflow.ellipsis,
                                     ),

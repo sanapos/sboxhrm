@@ -8,6 +8,7 @@ import '../../widgets/pos/pos_theme.dart';
 import '../../widgets/pos/reports/pos_report_widgets.dart';
 import 'package:zkteco_flutter_client/l10n/app_tr.dart';
 
+import '../../theme/sbox_tokens.dart';
 class PosCustomerDebtReportScreen extends StatefulWidget {
   const PosCustomerDebtReportScreen({super.key});
 
@@ -152,7 +153,7 @@ class _PosCustomerDebtReportScreenState extends State<PosCustomerDebtReportScree
                     spacing: 8,
                     runSpacing: 8,
                     children: [
-                      _agingChip('0–30', _sum0, const Color(0xFF166534)),
+                      _agingChip('0–30', _sum0, SboxColors.successText),
                       _agingChip('31–60', _sum31, const Color(0xFFCA8A04)),
                       _agingChip('61–90', _sum61, Colors.orange.shade800),
                       _agingChip('>90', _sum90, Colors.red.shade700),
@@ -189,7 +190,7 @@ class _PosCustomerDebtReportScreenState extends State<PosCustomerDebtReportScree
                               children: [
                                 Text(
                                   tr(row['name']?.toString() ?? '—'),
-                                  style: const TextStyle(fontWeight: FontWeight.w600, fontSize: 15),
+                                  style: const TextStyle(fontWeight: FontWeight.w600, fontSize: 16),
                                 ),
                                 if (row['phone'] != null)
                                   Text(
@@ -224,7 +225,7 @@ class _PosCustomerDebtReportScreenState extends State<PosCustomerDebtReportScree
                                     spacing: 6,
                                     runSpacing: 4,
                                     children: [
-                                      if (d0 > 0) _agingChip('0–30', d0, const Color(0xFF166534)),
+                                      if (d0 > 0) _agingChip('0–30', d0, SboxColors.successText),
                                       if (d31 > 0) _agingChip('31–60', d31, const Color(0xFFCA8A04)),
                                       if (d61 > 0) _agingChip('61–90', d61, Colors.orange.shade800),
                                       if (d90 > 0) _agingChip('>90', d90, Colors.red.shade700),

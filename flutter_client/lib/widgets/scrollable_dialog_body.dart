@@ -2,6 +2,7 @@ import 'dart:math' as math;
 
 import 'package:flutter/material.dart';
 
+import '../theme/sbox_tokens.dart';
 /// Scrollable body for [AlertDialog] / [Dialog] ?? on web & desktop when content can grow tall.
 class ScrollableDialogBody {
   ScrollableDialogBody._();
@@ -67,7 +68,7 @@ class ScrollableDialogBody {
   }) {
     return Dialog(
       backgroundColor: Colors.white,
-      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
       child: ConstrainedBox(
         constraints: BoxConstraints(
           maxWidth: dialogWidth(context, maxWidth: maxWidth),
@@ -80,7 +81,7 @@ class ScrollableDialogBody {
               padding: const EdgeInsets.fromLTRB(20, 16, 8, 8),
               child: title,
             ),
-            const Divider(height: 1, color: Color(0xFFE4E4E7)),
+            const Divider(height: 1, color: SboxColors.slate200),
             Flexible(child: body),
             Padding(
               padding: const EdgeInsets.all(16),

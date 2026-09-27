@@ -30,6 +30,7 @@ import '../utils/paid_leave_schedule_utils.dart';
 import '../widgets/reports/hrm_report_widgets.dart';
 import 'package:zkteco_flutter_client/l10n/app_tr.dart';
 
+import '../theme/sbox_tokens.dart';
 /// M\u00e0n h\u00ecnh t\u1ed5ng h\u1ee3p ch\u1ea5m c\u00f4ng theo ca \u2014 wrapper cho [AttendanceByShiftTab].
 class AttendanceByShiftScreen extends StatefulWidget {
   const AttendanceByShiftScreen({super.key});
@@ -352,21 +353,21 @@ class _AttendanceByShiftScreenState extends State<AttendanceByShiftScreen> {
             Padding(
               padding: const EdgeInsets.fromLTRB(12, 0, 12, 0),
               child: Material(
-                color: const Color(0xFFEFF6FF),
-                borderRadius: BorderRadius.circular(8),
+                color: SboxColors.brand50,
+                borderRadius: BorderRadius.circular(10),
                 child: Padding(
                   padding: const EdgeInsets.all(10),
                   child: Row(
                     children: [
                       Icon(Icons.info_outline,
-                          size: 18, color: Colors.blue.shade800),
+                          size: 18, color: SboxColors.brand800),
                       const SizedBox(width: 8),
                       Expanded(
                         child: Text(
                           tr('Ch\u01b0a c\u00f3 b\u1ea3ng l\u01b0\u01a1ng c\u1ea5u h\u00ecnh \u2014 h\u1ec7 s\u1ed1 ca/l\u01b0\u01a1ng c\u00f3 th\u1ec3 kh\u00f4ng ch\u00ednh x\u00e1c. '
                           'V\u00e0o Thi\u1ebft l\u1eadp l\u01b0\u01a1ng \u0111\u1ec3 c\u1ea5u h\u00ecnh.'),
                           style: vietnameseTextStyle(TextStyle(
-                              fontSize: 12, color: Colors.blue.shade900)),
+                              fontSize: 12, color: SboxColors.brand900)),
                         ),
                       ),
                     ],

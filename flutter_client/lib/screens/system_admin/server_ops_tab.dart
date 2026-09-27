@@ -4,6 +4,7 @@ import 'package:zkteco_flutter_client/l10n/app_tr.dart';
 import '../../services/api_service.dart';
 import 'system_admin_helpers.dart';
 
+import '../../theme/sbox_tokens.dart';
 class ServerOpsTab extends StatefulWidget {
   const ServerOpsTab({super.key});
 
@@ -224,7 +225,7 @@ class ServerOpsTabState extends State<ServerOpsTab> {
             tr(total > 0
                 ? '${_gb(used)} / ${_gb(total)} · còn ${_gb(free)} (${pct.toStringAsFixed(0)}%)'
                 : 'Chưa đo được'),
-            style: TextStyle(color: Colors.grey[700]),
+            style: TextStyle(color: SboxColors.slate700),
           ),
           const SizedBox(height: 8),
           LinearProgressIndicator(
@@ -235,7 +236,7 @@ class ServerOpsTabState extends State<ServerOpsTab> {
           const SizedBox(height: 8),
           Text(
             tr('wwwroot ${_gb(_asNum(_storage?['wwwrootMb']))} · downloads ${_gb(_asNum(_storage?['downloadsMb']))} · rác app ~ ${_bytes(_asNum(_storage?['junkBytes']))}'),
-            style: TextStyle(fontSize: 12, color: Colors.grey[600]),
+            style: TextStyle(fontSize: 12, color: SboxColors.slate600),
           ),
           if (_storage?['hostGcReady'] != true)
             Padding(
@@ -249,7 +250,7 @@ class ServerOpsTabState extends State<ServerOpsTab> {
             const SizedBox(height: 6),
             Text(
               tr('Lần dọn host: ${host['ranAt']} · giải phóng ${_kb(host['freedKb'])}'),
-              style: TextStyle(fontSize: 12, color: Colors.grey[600]),
+              style: TextStyle(fontSize: 12, color: SboxColors.slate600),
             ),
           ],
         ],
@@ -269,7 +270,7 @@ class ServerOpsTabState extends State<ServerOpsTab> {
           const SizedBox(height: 8),
           Text(
             tr('An toàn: không xóa Postgres, Redis, upload cửa hàng, image đang chạy.'),
-            style: TextStyle(fontSize: 13, color: Colors.grey[700]),
+            style: TextStyle(fontSize: 13, color: SboxColors.slate700),
           ),
           const SizedBox(height: 12),
           Wrap(spacing: 8, runSpacing: 8, children: [
@@ -306,7 +307,7 @@ class ServerOpsTabState extends State<ServerOpsTab> {
           const SizedBox(height: 8),
           Text(
             tr('Chỉ nhận .apk .exe .msi .zip .json .bin · tối đa 280 MB · kiểm tra chữ ký file.'),
-            style: TextStyle(fontSize: 13, color: Colors.grey[700]),
+            style: TextStyle(fontSize: 13, color: SboxColors.slate700),
           ),
           const SizedBox(height: 12),
           Wrap(spacing: 8, children: [
@@ -368,7 +369,7 @@ class ServerOpsTabState extends State<ServerOpsTab> {
               style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 16)),
           const SizedBox(height: 8),
           if (_files.isEmpty)
-            Text(tr('Chưa có file'), style: TextStyle(color: Colors.grey[600])),
+            Text(tr('Chưa có file'), style: TextStyle(color: SboxColors.slate600)),
           for (final f in _files)
             ListTile(
               contentPadding: EdgeInsets.zero,

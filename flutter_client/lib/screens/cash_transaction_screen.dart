@@ -26,6 +26,7 @@ import '../widgets/page_top_actions.dart';
 import '../widgets/cash_party_picker.dart';
 import 'package:zkteco_flutter_client/l10n/app_tr.dart';
 
+import '../theme/sbox_tokens.dart';
 class CashTransactionScreen extends StatefulWidget {
   const CashTransactionScreen({super.key});
 
@@ -831,7 +832,7 @@ class _CashTransactionScreenState extends State<CashTransactionScreen> {
         labelText: tr('Thời gian'),
         isDense: true,
         prefixIcon: const Icon(Icons.calendar_today, size: 16),
-        border: OutlineInputBorder(borderRadius: BorderRadius.circular(8)),
+        border: OutlineInputBorder(borderRadius: BorderRadius.circular(10)),
         contentPadding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
       ),
       items: [
@@ -897,13 +898,13 @@ class _CashTransactionScreenState extends State<CashTransactionScreen> {
         children: [
           Row(
             children: [
-              Icon(Icons.account_balance_wallet, size: 16, color: Colors.blue.shade700),
+              Icon(Icons.account_balance_wallet, size: 16, color: SboxColors.brand700),
               const SizedBox(width: 6),
               Text(tr('Số dư quỹ'),
                   style: TextStyle(
                       fontWeight: FontWeight.w600,
                       fontSize: 13,
-                      color: Colors.blue.shade700)),
+                      color: SboxColors.brand700)),
             ],
           ),
           const SizedBox(height: 8),
@@ -1006,8 +1007,8 @@ class _CashTransactionScreenState extends State<CashTransactionScreen> {
     return Container(
       decoration: BoxDecoration(
         color: Colors.white,
-        borderRadius: BorderRadius.circular(12),
-        border: Border.all(color: const Color(0xFFE4E4E7)),
+        borderRadius: BorderRadius.circular(14),
+        border: Border.all(color: SboxColors.slate200),
         boxShadow: [
           BoxShadow(
             color: Colors.black.withValues(alpha: 0.05),
@@ -1026,7 +1027,7 @@ class _CashTransactionScreenState extends State<CashTransactionScreen> {
                 Container(
                   padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
                   decoration: BoxDecoration(
-                    color: Colors.blue.shade50,
+                    color: SboxColors.brand50,
                     borderRadius: BorderRadius.circular(6),
                   ),
                   child: Text(
@@ -1034,14 +1035,14 @@ class _CashTransactionScreenState extends State<CashTransactionScreen> {
                     style: TextStyle(
                       fontSize: 12,
                       fontWeight: FontWeight.w600,
-                      color: Colors.blue.shade800,
+                      color: SboxColors.brand800,
                     ),
                   ),
                 ),
                 const Spacer(),
                 Text(
                   tr(DateFormat('dd/MM/yyyy').format(transfer.transferDate)),
-                  style: TextStyle(fontSize: 12, color: Colors.grey.shade600),
+                  style: TextStyle(fontSize: 12, color: SboxColors.slate600),
                 ),
                 if (canDelete) ...[
                   const SizedBox(width: 4),
@@ -1068,7 +1069,7 @@ class _CashTransactionScreenState extends State<CashTransactionScreen> {
                 ),
                 Padding(
                   padding: const EdgeInsets.symmetric(horizontal: 8),
-                  child: Icon(Icons.arrow_forward, size: 18, color: Colors.blue.shade600),
+                  child: Icon(Icons.arrow_forward, size: 18, color: SboxColors.brand600),
                 ),
                 Expanded(
                   child: Text(
@@ -1087,20 +1088,20 @@ class _CashTransactionScreenState extends State<CashTransactionScreen> {
               style: TextStyle(
                 fontSize: 18,
                 fontWeight: FontWeight.bold,
-                color: Colors.blue.shade800,
+                color: SboxColors.brand800,
               ),
             ),
             if (transfer.description.isNotEmpty) ...[
               const SizedBox(height: 6),
               Text(
                 tr(transfer.description),
-                style: TextStyle(fontSize: 12, color: Colors.grey.shade700),
+                style: TextStyle(fontSize: 12, color: SboxColors.slate700),
               ),
             ],
             if (transfer.createdByUserName.isNotEmpty) ...[
               const SizedBox(height: 6),
               Text(tr('Tạo bởi: ${transfer.createdByUserName}'),
-                style: TextStyle(fontSize: 11, color: Colors.grey.shade500),
+                style: TextStyle(fontSize: 11, color: SboxColors.slate500),
               ),
             ],
           ],
@@ -1195,8 +1196,8 @@ class _CashTransactionScreenState extends State<CashTransactionScreen> {
         child: Container(
           decoration: BoxDecoration(
             color: Colors.white,
-            borderRadius: BorderRadius.circular(12),
-            border: Border.all(color: const Color(0xFFE4E4E7)),
+            borderRadius: BorderRadius.circular(14),
+            border: Border.all(color: SboxColors.slate200),
             boxShadow: [
               BoxShadow(
                 color: Colors.black.withValues(alpha: 0.05),
@@ -1227,7 +1228,7 @@ class _CashTransactionScreenState extends State<CashTransactionScreen> {
         labelText: tr('Thời gian'),
         isDense: true,
         prefixIcon: const Icon(Icons.calendar_today, size: 16),
-        border: OutlineInputBorder(borderRadius: BorderRadius.circular(8)),
+        border: OutlineInputBorder(borderRadius: BorderRadius.circular(10)),
         contentPadding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
       ),
       items: [
@@ -1271,7 +1272,7 @@ class _CashTransactionScreenState extends State<CashTransactionScreen> {
       decoration: InputDecoration(
         labelText: tr('Loại'),
         isDense: true,
-        border: OutlineInputBorder(borderRadius: BorderRadius.circular(8)),
+        border: OutlineInputBorder(borderRadius: BorderRadius.circular(10)),
         contentPadding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
       ),
       items: [
@@ -1294,7 +1295,7 @@ class _CashTransactionScreenState extends State<CashTransactionScreen> {
       decoration: InputDecoration(
         labelText: tr('Trạng thái'),
         isDense: true,
-        border: OutlineInputBorder(borderRadius: BorderRadius.circular(8)),
+        border: OutlineInputBorder(borderRadius: BorderRadius.circular(10)),
         contentPadding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
       ),
       items: [
@@ -1315,7 +1316,7 @@ class _CashTransactionScreenState extends State<CashTransactionScreen> {
         labelText: tr('Danh mục'),
         isDense: true,
         prefixIcon: const Icon(Icons.category, size: 16),
-        border: OutlineInputBorder(borderRadius: BorderRadius.circular(8)),
+        border: OutlineInputBorder(borderRadius: BorderRadius.circular(10)),
         contentPadding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
       ),
       items: [
@@ -1477,7 +1478,7 @@ class _CashTransactionScreenState extends State<CashTransactionScreen> {
                   width: double.infinity,
                   padding: const EdgeInsets.all(14),
                   decoration: BoxDecoration(
-                    color: Colors.blue.shade50,
+                    color: SboxColors.brand50,
                     borderRadius: BorderRadius.circular(10),
                   ),
                   child: Column(
@@ -1491,7 +1492,7 @@ class _CashTransactionScreenState extends State<CashTransactionScreen> {
                         style: TextStyle(
                             fontSize: 20,
                             fontWeight: FontWeight.bold,
-                            color: Colors.blue.shade800),
+                            color: SboxColors.brand800),
                       ),
                     ],
                   ),
@@ -1619,7 +1620,7 @@ class _CashTransactionScreenState extends State<CashTransactionScreen> {
                 child: Text(
                   tr(transaction.description),
                   style: const TextStyle(
-                      fontWeight: FontWeight.w600, fontSize: 15),
+                      fontWeight: FontWeight.w600, fontSize: 16),
                 ),
               ),
               if (canPay)
@@ -1636,7 +1637,7 @@ class _CashTransactionScreenState extends State<CashTransactionScreen> {
                 ),
               if (perms.canEdit('CashTransaction'))
                 ListTile(
-                  leading: const Icon(Icons.edit, color: Colors.blue),
+                  leading: const Icon(Icons.edit, color: SboxColors.brand500),
                   title: Text(tr('Sửa')),
                   onTap: () {
                     Navigator.pop(ctx);
@@ -1741,8 +1742,8 @@ class _CashTransactionScreenState extends State<CashTransactionScreen> {
               child: Container(
                 decoration: BoxDecoration(
                   color: Colors.white,
-                  borderRadius: BorderRadius.circular(12),
-                  border: Border.all(color: const Color(0xFFE4E4E7)),
+                  borderRadius: BorderRadius.circular(14),
+                  border: Border.all(color: SboxColors.slate200),
                   boxShadow: [
                     BoxShadow(
                       color: Colors.black.withValues(alpha: 0.05),
@@ -1773,7 +1774,7 @@ class _CashTransactionScreenState extends State<CashTransactionScreen> {
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
       decoration: BoxDecoration(
-        border: Border(top: BorderSide(color: Colors.grey.shade200)),
+        border: Border(top: BorderSide(color: SboxColors.slate200)),
       ),
       child: Wrap(
         alignment: WrapAlignment.spaceBetween,
@@ -1782,25 +1783,25 @@ class _CashTransactionScreenState extends State<CashTransactionScreen> {
         runSpacing: 8,
         children: [
           Text(tr('Hiển thị $start-$end / $_totalTransactions'),
-              style: TextStyle(fontSize: 13, color: Colors.grey.shade600)),
+              style: TextStyle(fontSize: 13, color: SboxColors.slate600)),
           Row(
             mainAxisSize: MainAxisSize.min,
             children: [
-              Text(tr('Hiển thị:'), style: TextStyle(fontSize: 12, color: Colors.grey[500])),
+              Text(tr('Hiển thị:'), style: TextStyle(fontSize: 12, color: SboxColors.slate500)),
               const SizedBox(width: 8),
               Container(
                 height: 34,
                 padding: const EdgeInsets.symmetric(horizontal: 12),
                 decoration: BoxDecoration(
-                  color: const Color(0xFFFAFAFA),
-                  border: Border.all(color: const Color(0xFFE4E4E7)),
-                  borderRadius: BorderRadius.circular(8),
+                  color: SboxColors.slate50,
+                  border: Border.all(color: SboxColors.slate200),
+                  borderRadius: BorderRadius.circular(10),
                 ),
                 child: DropdownButtonHideUnderline(
                   child: DropdownButton<int>(
                     value: _pageSize,
                     isDense: true,
-                    style: TextStyle(fontSize: 13, color: Colors.grey[800]),
+                    style: TextStyle(fontSize: 13, color: SboxColors.slate800),
                     items: _pageSizeOptions.map((s) => DropdownMenuItem(value: s, child: Text(tr('$s')))).toList(),
                     onChanged: (v) {
                       if (v != null) {
@@ -1827,7 +1828,7 @@ class _CashTransactionScreenState extends State<CashTransactionScreen> {
                 padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
                 decoration: BoxDecoration(
                   color: Theme.of(context).primaryColor,
-                  borderRadius: BorderRadius.circular(8),
+                  borderRadius: BorderRadius.circular(10),
                 ),
                 child: Text(tr('$_currentPage / $totalPages'),
                     style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w600, color: Colors.white)),
@@ -1857,7 +1858,7 @@ class _CashTransactionScreenState extends State<CashTransactionScreen> {
         child: Row(children: [
           Container(
             width: 36, height: 36,
-            decoration: BoxDecoration(color: color.withAlpha(30), borderRadius: BorderRadius.circular(8)),
+            decoration: BoxDecoration(color: color.withAlpha(30), borderRadius: BorderRadius.circular(10)),
             child: Icon(isIncome ? Icons.arrow_downward : Icons.arrow_upward, color: color, size: 18),
           ),
           const SizedBox(width: 12),
@@ -1867,7 +1868,7 @@ class _CashTransactionScreenState extends State<CashTransactionScreen> {
               const SizedBox(height: 2),
               Text(
                 tr([transaction.transactionCode, transaction.categoryName, DateFormat('dd/MM/yyyy').format(transaction.transactionDate)].join(' · ')),
-                style: const TextStyle(color: Color(0xFF71717A), fontSize: 12),
+                style: const TextStyle(color: SboxColors.slate500, fontSize: 12),
                 maxLines: 1, overflow: TextOverflow.ellipsis,
               ),
               if (transaction.isAwaitingPayment) ...[
@@ -1902,7 +1903,7 @@ class _CashTransactionScreenState extends State<CashTransactionScreen> {
                   padding: const EdgeInsets.all(8),
                   decoration: BoxDecoration(
                     color: color.withAlpha(30),
-                    borderRadius: BorderRadius.circular(8),
+                    borderRadius: BorderRadius.circular(10),
                   ),
                   child: Icon(
                     isIncome ? Icons.arrow_downward : Icons.arrow_upward,
@@ -1919,7 +1920,7 @@ class _CashTransactionScreenState extends State<CashTransactionScreen> {
                         tr(transaction.description),
                         style: const TextStyle(
                           fontWeight: FontWeight.w600,
-                          fontSize: 15,
+                          fontSize: 16,
                         ),
                         maxLines: 1,
                         overflow: TextOverflow.ellipsis,
@@ -1928,7 +1929,7 @@ class _CashTransactionScreenState extends State<CashTransactionScreen> {
                       Text(
                         tr('${transaction.transactionCode} • ${transaction.categoryName}'),
                         style: TextStyle(
-                          color: Colors.grey[600],
+                          color: SboxColors.slate600,
                           fontSize: 12,
                         ),
                       ),
@@ -1949,7 +1950,7 @@ class _CashTransactionScreenState extends State<CashTransactionScreen> {
                     Text(
                       tr(_dateFormat.format(transaction.transactionDate)),
                       style: TextStyle(
-                        color: Colors.grey[600],
+                        color: SboxColors.slate600,
                         fontSize: 12,
                       ),
                     ),
@@ -1973,7 +1974,7 @@ class _CashTransactionScreenState extends State<CashTransactionScreen> {
                 _ActionBtn(
                   icon: Icons.edit_rounded,
                   label: 'Sửa',
-                  color: Colors.blue,
+                  color: SboxColors.brand500,
                   onTap: () => _showTransactionForm(transaction),
                 ),
                 if (Provider.of<PermissionProvider>(context, listen: false).canEdit('CashTransaction'))
@@ -2155,7 +2156,7 @@ class _CashTransactionScreenState extends State<CashTransactionScreen> {
           padding: const EdgeInsets.all(8),
           decoration: BoxDecoration(
             color: color.withAlpha(30),
-            borderRadius: BorderRadius.circular(8),
+            borderRadius: BorderRadius.circular(10),
           ),
           child: Icon(
             _getCategoryIcon(category.icon),
@@ -2257,8 +2258,8 @@ class _CashTransactionScreenState extends State<CashTransactionScreen> {
           child: Container(
             decoration: BoxDecoration(
               color: Colors.white,
-              borderRadius: BorderRadius.circular(12),
-              border: Border.all(color: const Color(0xFFE4E4E7)),
+              borderRadius: BorderRadius.circular(14),
+              border: Border.all(color: SboxColors.slate200),
               boxShadow: [
                 BoxShadow(
                   color: Colors.black.withValues(alpha: 0.05),
@@ -2290,10 +2291,10 @@ class _CashTransactionScreenState extends State<CashTransactionScreen> {
         child: Row(children: [
           Container(
             width: 36, height: 36,
-            decoration: BoxDecoration(color: Colors.blue.withAlpha(30), borderRadius: BorderRadius.circular(8)),
+            decoration: BoxDecoration(color: SboxColors.brand500.withAlpha(30), borderRadius: BorderRadius.circular(10)),
             child: account.bankLogoUrl != null
-              ? ClipRRect(borderRadius: BorderRadius.circular(8), child: CachedNetworkImage(imageUrl: account.bankLogoUrl!, fit: BoxFit.contain, width: 36, height: 36, errorWidget: (_, __, ___) => const Icon(Icons.account_balance, color: Colors.blue, size: 18)))
-              : const Icon(Icons.account_balance, color: Colors.blue, size: 18),
+              ? ClipRRect(borderRadius: BorderRadius.circular(10), child: CachedNetworkImage(imageUrl: account.bankLogoUrl!, fit: BoxFit.contain, width: 36, height: 36, errorWidget: (_, __, ___) => const Icon(Icons.account_balance, color: SboxColors.brand500, size: 18)))
+              : const Icon(Icons.account_balance, color: SboxColors.brand500, size: 18),
           ),
           const SizedBox(width: 12),
           Expanded(
@@ -2302,18 +2303,18 @@ class _CashTransactionScreenState extends State<CashTransactionScreen> {
               const SizedBox(height: 2),
               Text(
                 tr([account.bankName, account.accountNumber].join(' · ')),
-                style: const TextStyle(color: Color(0xFF71717A), fontSize: 12),
+                style: const TextStyle(color: SboxColors.slate500, fontSize: 12),
                 maxLines: 1, overflow: TextOverflow.ellipsis,
               ),
             ]),
           ),
           if (account.isDefault) Container(
             padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
-            decoration: BoxDecoration(color: Colors.green.withValues(alpha: 0.1), borderRadius: BorderRadius.circular(8)),
+            decoration: BoxDecoration(color: Colors.green.withValues(alpha: 0.1), borderRadius: BorderRadius.circular(10)),
             child: Text(tr('Mặc định'), style: TextStyle(fontSize: 10, fontWeight: FontWeight.w600, color: Colors.green)),
           ),
           const SizedBox(width: 4),
-          const Icon(Icons.chevron_right, size: 18, color: Color(0xFFA1A1AA)),
+          const Icon(Icons.chevron_right, size: 18, color: SboxColors.slate400),
         ]),
       ),
     );
@@ -2327,20 +2328,20 @@ class _CashTransactionScreenState extends State<CashTransactionScreen> {
           width: 48,
           height: 48,
           decoration: BoxDecoration(
-            color: Colors.blue.withAlpha(30),
-            borderRadius: BorderRadius.circular(8),
+            color: SboxColors.brand500.withAlpha(30),
+            borderRadius: BorderRadius.circular(10),
           ),
           child: account.bankLogoUrl != null
               ? ClipRRect(
-                  borderRadius: BorderRadius.circular(8),
+                  borderRadius: BorderRadius.circular(10),
                   child: CachedNetworkImage(
                     imageUrl: account.bankLogoUrl!,
                     fit: BoxFit.contain,
                     errorWidget: (_, __, ___) =>
-                        const Icon(Icons.account_balance, color: Colors.blue),
+                        const Icon(Icons.account_balance, color: SboxColors.brand500),
                   ),
                 )
-              : const Icon(Icons.account_balance, color: Colors.blue),
+              : const Icon(Icons.account_balance, color: SboxColors.brand500),
         ),
         title: Text(
           tr(account.accountName),
@@ -2535,7 +2536,7 @@ class _CashTransactionScreenState extends State<CashTransactionScreen> {
           _buildSummaryCard(
             'Số dư',
             _summary!.balance,
-            _summary!.balance >= 0 ? Colors.blue : Colors.orange,
+            _summary!.balance >= 0 ? SboxColors.brand500 : Colors.orange,
             _summary!.balance >= 0 ? Icons.trending_up : Icons.trending_down,
             'Tổng ${_summary!.totalTransactions} giao dịch',
           ),
@@ -2586,7 +2587,7 @@ class _CashTransactionScreenState extends State<CashTransactionScreen> {
       child: ListTile(
         leading: CircularProgressIndicator(
           value: category.percentage / 100,
-          backgroundColor: Colors.grey[200],
+          backgroundColor: SboxColors.slate200,
           valueColor: AlwaysStoppedAnimation(color),
           strokeWidth: 3,
         ),
@@ -2606,7 +2607,7 @@ class _CashTransactionScreenState extends State<CashTransactionScreen> {
             Text(
               tr('${category.percentage.toStringAsFixed(1)}%'),
               style: TextStyle(
-                color: Colors.grey[600],
+                color: SboxColors.slate600,
                 fontSize: 12,
               ),
             ),
@@ -3192,7 +3193,7 @@ class _CategoryFormDialogState extends State<_CategoryFormDialog> {
             Padding(
               padding: const EdgeInsets.only(bottom: 12),
               child: Text(tr('Danh mục hệ thống: có thể đổi tên/mô tả/biểu tượng. Xóa sẽ ẩn khỏi danh sách.'),
-                style: TextStyle(fontSize: 12, color: Colors.grey.shade700),
+                style: TextStyle(fontSize: 12, color: SboxColors.slate700),
               ),
             ),
           if (!isEdit)
@@ -3237,14 +3238,14 @@ class _CategoryFormDialogState extends State<_CategoryFormDialog> {
                   final isSelected = _icon == name;
                   return InkWell(
                     onTap: () => setState(() => _icon = name),
-                    borderRadius: BorderRadius.circular(8),
+                    borderRadius: BorderRadius.circular(10),
                     child: Container(
                       padding: const EdgeInsets.all(8),
                       decoration: BoxDecoration(
                         color: isSelected
                             ? Theme.of(context).colorScheme.primaryContainer
-                            : Colors.grey.withAlpha(30),
-                        borderRadius: BorderRadius.circular(8),
+                            : SboxColors.slate500.withAlpha(30),
+                        borderRadius: BorderRadius.circular(10),
                         border: isSelected
                             ? Border.all(color: Theme.of(context).colorScheme.primary)
                             : null,
@@ -3623,7 +3624,7 @@ class _VietQRDialogState extends State<_VietQRDialog> {
               padding: const EdgeInsets.all(8),
               decoration: BoxDecoration(
                 color: Colors.white,
-                borderRadius: BorderRadius.circular(8),
+                borderRadius: BorderRadius.circular(10),
               ),
               child: CachedNetworkImage(
                 imageUrl: _qrUrl!,
@@ -3665,7 +3666,7 @@ class _VietQRDialogState extends State<_VietQRDialog> {
           Text(
             tr(widget.transaction.transactionCode),
             style: TextStyle(
-              color: Colors.grey[600],
+              color: SboxColors.slate600,
               fontFamily: 'monospace',
             ),
           ),
@@ -3976,12 +3977,12 @@ class _ActionBtn extends StatelessWidget {
   Widget build(BuildContext context) {
     return InkWell(
       onTap: onTap,
-      borderRadius: BorderRadius.circular(8),
+      borderRadius: BorderRadius.circular(10),
       child: Container(
         padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
         decoration: BoxDecoration(
           color: color.withValues(alpha: 0.08),
-          borderRadius: BorderRadius.circular(8),
+          borderRadius: BorderRadius.circular(10),
           border: Border.all(color: color.withValues(alpha: 0.2)),
         ),
         child: Row(

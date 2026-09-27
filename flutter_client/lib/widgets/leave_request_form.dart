@@ -13,14 +13,15 @@ import 'package:zkteco_flutter_client/l10n/app_tr.dart';
 import 'hrm_page_chrome.dart';
 
 import './pos/pos_theme.dart';
+import '../theme/sbox_tokens.dart';
 export '../features/leave/leave_catalog.dart' show normalizeLeaveType;
 
 const _primary = PosTheme.kiotBlue;
 const _primaryDark = Color(0xFF0F2340);
-const _border = Color(0xFFE4E4E7);
-const _muted = Color(0xFF71717A);
-const _text = Color(0xFF18181B);
-const _bg = Color(0xFFF8FAFC);
+const _border = SboxColors.slate200;
+const _muted = SboxColors.slate500;
+const _text = SboxColors.slate900;
+const _bg = SboxColors.slate50;
 
 /// Form tạo/sửa đơn nghỉ phép — wizard theo nhóm pháp lý.
 class LeaveRequestFormDialog extends StatefulWidget {
@@ -179,11 +180,11 @@ class _LeaveRequestFormDialogState extends State<LeaveRequestFormDialog> {
         margin: const EdgeInsets.only(bottom: 12),
         padding: const EdgeInsets.all(12),
         decoration: BoxDecoration(
-          color: const Color(0xFFFEF3C7),
+          color: SboxColors.warningSoft,
           borderRadius: BorderRadius.circular(10),
         ),
         child: Text(tr('Chưa có quỹ phép năm (gắn hồ sơ lương trong Thiết lập lương).'),
-          style: TextStyle(fontSize: 13, color: Color(0xFF92400E)),
+          style: TextStyle(fontSize: 13, color: SboxColors.warningText),
         ),
       );
     }
@@ -197,9 +198,9 @@ class _LeaveRequestFormDialogState extends State<LeaveRequestFormDialog> {
       padding: const EdgeInsets.all(14),
       decoration: BoxDecoration(
         color: insufficient
-            ? const Color(0xFFFEF2F2)
-            : const Color(0xFFECFDF5),
-        borderRadius: BorderRadius.circular(12),
+            ? SboxColors.dangerSoft
+            : SboxColors.successSoft,
+        borderRadius: BorderRadius.circular(14),
         border: Border.all(
           color: insufficient
               ? const Color(0xFFFECACA)
@@ -214,7 +215,7 @@ class _LeaveRequestFormDialogState extends State<LeaveRequestFormDialog> {
               Icon(
                 insufficient ? Icons.warning_amber_rounded : Icons.beach_access,
                 color: insufficient
-                    ? const Color(0xFFDC2626)
+                    ? SboxColors.danger
                     : HrmPageChrome.chip,
                 size: 22,
               ),
@@ -224,10 +225,10 @@ class _LeaveRequestFormDialogState extends State<LeaveRequestFormDialog> {
                   '${_annualBalanceEntitlement != null ? ' / ${_annualBalanceEntitlement!.toStringAsFixed(0)} ngày/năm' : ''}'),
                   style: TextStyle(
                     fontWeight: FontWeight.w700,
-                    fontSize: 15,
+                    fontSize: 16,
                     color: insufficient
-                        ? const Color(0xFFDC2626)
-                        : const Color(0xFF047857),
+                        ? SboxColors.danger
+                        : SboxColors.successText,
                   ),
                 ),
               ),
@@ -240,8 +241,8 @@ class _LeaveRequestFormDialogState extends State<LeaveRequestFormDialog> {
             style: TextStyle(
               fontSize: 12,
               color: insufficient
-                  ? const Color(0xFFB91C1C)
-                  : const Color(0xFF065F46),
+                  ? SboxColors.dangerText
+                  : SboxColors.successText,
             ),
           ),
         ],
@@ -524,7 +525,7 @@ class _LeaveRequestFormDialogState extends State<LeaveRequestFormDialog> {
       padding: const EdgeInsets.all(16),
       children: [
         Text(tr('Bước 1 — Chọn nhóm chế độ'),
-          style: TextStyle(fontSize: 17, fontWeight: FontWeight.bold, color: _text),
+          style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold, color: _text),
         ),
         const SizedBox(height: 6),
         Text(tr('Mỗi ngày nghỉ chỉ áp dụng một chế độ chi trả.'),
@@ -576,7 +577,7 @@ class _LeaveRequestFormDialogState extends State<LeaveRequestFormDialog> {
                             Text(
                               tr(LeaveCatalog.categoryTitle(cat)),
                               style: const TextStyle(
-                                  fontWeight: FontWeight.w700, fontSize: 15),
+                                  fontWeight: FontWeight.w700, fontSize: 16),
                             ),
                             const SizedBox(height: 4),
                             Text(
@@ -614,7 +615,7 @@ class _LeaveRequestFormDialogState extends State<LeaveRequestFormDialog> {
       padding: const EdgeInsets.all(16),
       children: [
         Text(tr('Bước 2 — ${LeaveCatalog.categoryTitle(cat)}'),
-          style: const TextStyle(fontSize: 17, fontWeight: FontWeight.bold, color: _text),
+          style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold, color: _text),
         ),
         const SizedBox(height: 12),
         ...entries.map((e) {
@@ -623,18 +624,18 @@ class _LeaveRequestFormDialogState extends State<LeaveRequestFormDialog> {
             padding: const EdgeInsets.only(bottom: 8),
             child: Material(
               color: selected ? e.color.withValues(alpha: 0.1) : Colors.white,
-              borderRadius: BorderRadius.circular(12),
+              borderRadius: BorderRadius.circular(14),
               child: InkWell(
                 onTap: () {
                   setState(() => _entry = e);
                   _loadAnnualBalance();
                   _goStep(2);
                 },
-                borderRadius: BorderRadius.circular(12),
+                borderRadius: BorderRadius.circular(14),
                 child: Container(
                   padding: const EdgeInsets.all(14),
                   decoration: BoxDecoration(
-                    borderRadius: BorderRadius.circular(12),
+                    borderRadius: BorderRadius.circular(14),
                     border: Border.all(
                         color: selected ? e.color : _border,
                         width: selected ? 2 : 1),
@@ -650,7 +651,7 @@ class _LeaveRequestFormDialogState extends State<LeaveRequestFormDialog> {
                           children: [
                             Text(tr(e.title),
                                 style: const TextStyle(
-                                    fontWeight: FontWeight.w700, fontSize: 15)),
+                                    fontWeight: FontWeight.w700, fontSize: 16)),
                             Text(tr(e.subtitle),
                                 style: TextStyle(fontSize: 12, color: e.color)),
                             const SizedBox(height: 6),
@@ -738,7 +739,7 @@ class _LeaveRequestFormDialogState extends State<LeaveRequestFormDialog> {
       padding: const EdgeInsets.all(12),
       decoration: BoxDecoration(
         color: entry.color.withValues(alpha: 0.08),
-        borderRadius: BorderRadius.circular(12),
+        borderRadius: BorderRadius.circular(14),
         border: Border.all(color: entry.color.withValues(alpha: 0.35)),
       ),
       child: Row(
@@ -753,7 +754,7 @@ class _LeaveRequestFormDialogState extends State<LeaveRequestFormDialog> {
                     style: TextStyle(
                         fontWeight: FontWeight.w700,
                         color: entry.color,
-                        fontSize: 15)),
+                        fontSize: 16)),
                 Text(tr(entry.paymentSource.label),
                     style: const TextStyle(fontSize: 12, color: _muted)),
               ],
@@ -763,7 +764,7 @@ class _LeaveRequestFormDialogState extends State<LeaveRequestFormDialog> {
             padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
             decoration: BoxDecoration(
               color: entry.paymentSource.color.withValues(alpha: 0.15),
-              borderRadius: BorderRadius.circular(8),
+              borderRadius: BorderRadius.circular(10),
             ),
             child: Text(tr(entry.paymentSource.label),
                 style: TextStyle(
@@ -800,7 +801,7 @@ class _LeaveRequestFormDialogState extends State<LeaveRequestFormDialog> {
       elevation: 0,
       color: Colors.white,
       shape: RoundedRectangleBorder(
-        borderRadius: BorderRadius.circular(12),
+        borderRadius: BorderRadius.circular(14),
         side: const BorderSide(color: _border),
       ),
       child: Column(
@@ -868,7 +869,7 @@ class _LeaveRequestFormDialogState extends State<LeaveRequestFormDialog> {
           children: [
             Text(tr(label), style: const TextStyle(fontSize: 11, color: _muted)),
             Text(tr(DateFormat('dd/MM/yyyy').format(date)),
-                style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 15)),
+                style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 16)),
           ],
         ),
       ),
@@ -884,7 +885,7 @@ class _LeaveRequestFormDialogState extends State<LeaveRequestFormDialog> {
         tr(_selectedEmployeeId == null
             ? 'Chọn nhân viên trước.'
             : 'Chưa gắn ca trong Thiết lập lương.'),
-        style: const TextStyle(color: Color(0xFFB45309), fontSize: 13),
+        style: const TextStyle(color: SboxColors.warningText, fontSize: 13),
       );
     }
     return Wrap(

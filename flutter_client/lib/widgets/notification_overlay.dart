@@ -8,6 +8,7 @@ import '../utils/vietnamese_text_fix.dart';
 import './pos/pos_theme.dart';
 import '../utils/pos_kds_alert.dart';
 
+import '../theme/sbox_tokens.dart';
 /// Nhóm toast in POS — luôn chỉ giữ 1 dòng trên màn thu ngân.
 const kPosPrintNotifyKind = 'pos_print';
 
@@ -307,12 +308,12 @@ class _NotificationCardState extends State<_NotificationCard>
     if (item.relatedEntityType == 'Device') {
       final titleLower = item.title.toLowerCase();
       if (titleLower.contains('ngắt') || titleLower.contains('mất')) {
-        return const Color(0xFFEF4444); // Màu đỏ - disconnect
+        return SboxColors.danger; // Màu đỏ - disconnect
       } else if (titleLower.contains('kết nối') ||
           titleLower.contains('phát hiện')) {
-        return const Color(0xFF22C55E); // Màu xanh - connect
+        return SboxColors.success; // Màu xanh - connect
       }
-      return const Color(0xFF71717A); // Thiết bị khác
+      return SboxColors.slate500; // Thiết bị khác
     }
 
     // Chấm công
@@ -324,11 +325,11 @@ class _NotificationCardState extends State<_NotificationCard>
 
     switch (item.type) {
       case NotificationType.success:
-        return const Color(0xFF22C55E); // Bright green
+        return SboxColors.success; // Bright green
       case NotificationType.warning:
-        return const Color(0xFFF59E0B); // Bright amber
+        return SboxColors.warning; // Bright amber
       case NotificationType.error:
-        return const Color(0xFFEF4444); // Bright red
+        return SboxColors.danger; // Bright red
       case NotificationType.info:
       default:
         return PosTheme.kiotBlue; // Bright blue
@@ -382,17 +383,17 @@ class _NotificationCardState extends State<_NotificationCard>
           padding: const EdgeInsets.only(bottom: 8),
           child: Material(
             elevation: 8,
-            borderRadius: BorderRadius.circular(12),
-            color: const Color(0xFF18181B),
+            borderRadius: BorderRadius.circular(14),
+            color: SboxColors.slate900,
             child: InkWell(
               onTap: () {
                 widget.item.onTap?.call();
                 _dismiss();
               },
-              borderRadius: BorderRadius.circular(12),
+              borderRadius: BorderRadius.circular(14),
               child: Container(
                 decoration: BoxDecoration(
-                  borderRadius: BorderRadius.circular(12),
+                  borderRadius: BorderRadius.circular(14),
                   border: Border.all(color: color.withValues(alpha: 0.5), width: 1),
                 ),
                 child: Row(
@@ -443,7 +444,7 @@ class _NotificationCardState extends State<_NotificationCard>
                               tr(widget.item.message),
                               style: TextStyle(
                                 fontSize: 13,
-                                color: Colors.grey[400],
+                                color: SboxColors.slate400,
                               ),
                               maxLines: 2,
                               overflow: TextOverflow.ellipsis,
@@ -455,7 +456,7 @@ class _NotificationCardState extends State<_NotificationCard>
                     // Close button
                     IconButton(
                       icon:
-                          Icon(Icons.close, size: 18, color: Colors.grey[500]),
+                          Icon(Icons.close, size: 18, color: SboxColors.slate500),
                       onPressed: _dismiss,
                       padding: EdgeInsets.zero,
                       constraints:

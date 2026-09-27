@@ -4,6 +4,7 @@ import '../../services/api_service.dart';
 import 'system_admin_helpers.dart';
 import 'package:zkteco_flutter_client/l10n/app_tr.dart';
 
+import '../../theme/sbox_tokens.dart';
 class DatabaseTab extends StatefulWidget {
   final List<Map<String, dynamic>> stores;
 
@@ -80,7 +81,7 @@ class DatabaseTabState extends State<DatabaseTab> {
               padding: const EdgeInsets.all(8),
               decoration: BoxDecoration(
                   color: AdminHelpers.primary.withValues(alpha: 0.1),
-                  borderRadius: BorderRadius.circular(8)),
+                  borderRadius: BorderRadius.circular(10)),
               child: const Icon(Icons.storage,
                   color: AdminHelpers.primary, size: 20),
             ),
@@ -89,7 +90,7 @@ class DatabaseTabState extends State<DatabaseTab> {
                 style: TextStyle(
                     fontWeight: FontWeight.bold,
                     fontSize: 16,
-                    color: Colors.grey[800])),
+                    color: SboxColors.slate800)),
             const Spacer(),
           ]),
           const SizedBox(height: 16),
@@ -113,7 +114,7 @@ class DatabaseTabState extends State<DatabaseTab> {
                 style: TextStyle(
                     fontWeight: FontWeight.w600,
                     fontSize: 14,
-                    color: Colors.grey[700])),
+                    color: SboxColors.slate700)),
             const SizedBox(height: 10),
             Wrap(spacing: 14, runSpacing: 10, children: [
               _dbTableCount(
@@ -136,7 +137,7 @@ class DatabaseTabState extends State<DatabaseTab> {
           ] else
             Center(
                 child: Text(tr('Đang tải...'),
-                    style: TextStyle(color: Colors.grey))),
+                    style: TextStyle(color: SboxColors.slate500))),
         ],
       ),
     );
@@ -146,7 +147,7 @@ class DatabaseTabState extends State<DatabaseTab> {
     return SizedBox(
       width: 200,
       child: Row(children: [
-        Icon(icon, size: 16, color: Colors.grey[500]),
+        Icon(icon, size: 16, color: SboxColors.slate500),
         const SizedBox(width: 8),
         Flexible(
           child: Column(
@@ -154,7 +155,7 @@ class DatabaseTabState extends State<DatabaseTab> {
               children: [
                 Text(tr(label),
                     style:
-                        TextStyle(fontSize: 11, color: Colors.grey[500])),
+                        TextStyle(fontSize: 11, color: SboxColors.slate500)),
                 Text(tr(value),
                     style: const TextStyle(
                         fontSize: 13, fontWeight: FontWeight.w600),
@@ -171,8 +172,8 @@ class DatabaseTabState extends State<DatabaseTab> {
       padding: const EdgeInsets.all(10),
       decoration: BoxDecoration(
         color: AdminHelpers.surfaceBg,
-        borderRadius: BorderRadius.circular(8),
-        border: Border.all(color: Colors.grey.shade200),
+        borderRadius: BorderRadius.circular(10),
+        border: Border.all(color: SboxColors.slate200),
       ),
       child: Row(children: [
         Icon(icon, size: 16, color: AdminHelpers.primary),
@@ -180,7 +181,7 @@ class DatabaseTabState extends State<DatabaseTab> {
         Expanded(
             child: Text(tr(label),
                 style:
-                    TextStyle(fontSize: 11, color: Colors.grey[600]))),
+                    TextStyle(fontSize: 11, color: SboxColors.slate600))),
         Text(tr('${count ?? 0}'),
             style: const TextStyle(
                 fontSize: 13,
@@ -203,7 +204,7 @@ class DatabaseTabState extends State<DatabaseTab> {
               padding: const EdgeInsets.all(8),
               decoration: BoxDecoration(
                   color: AdminHelpers.success.withValues(alpha: 0.1),
-                  borderRadius: BorderRadius.circular(8)),
+                  borderRadius: BorderRadius.circular(10)),
               child: const Icon(Icons.backup,
                   color: AdminHelpers.success, size: 20),
             ),
@@ -212,7 +213,7 @@ class DatabaseTabState extends State<DatabaseTab> {
                 style: TextStyle(
                     fontWeight: FontWeight.bold,
                     fontSize: 16,
-                    color: Colors.grey[800])),
+                    color: SboxColors.slate800)),
           ]),
           const SizedBox(height: 16),
           Wrap(spacing: 12, runSpacing: 12, children: [
@@ -264,8 +265,8 @@ class DatabaseTabState extends State<DatabaseTab> {
             Text(tr('File backup (${_backupFiles.length})'),
                 style: TextStyle(
                     fontWeight: FontWeight.bold,
-                    fontSize: 15,
-                    color: Colors.grey[800])),
+                    fontSize: 16,
+                    color: SboxColors.slate800)),
             const Spacer(),
           ]),
           const SizedBox(height: 12),
@@ -274,7 +275,7 @@ class DatabaseTabState extends State<DatabaseTab> {
               padding: const EdgeInsets.all(20),
               child: Center(
                   child: Text(tr('Chưa có file backup'),
-                      style: TextStyle(color: Colors.grey[500]))),
+                      style: TextStyle(color: SboxColors.slate500))),
             )
           else
             ..._backupFiles.map((f) => Container(
@@ -283,8 +284,8 @@ class DatabaseTabState extends State<DatabaseTab> {
                       horizontal: 14, vertical: 10),
                   decoration: BoxDecoration(
                     color: AdminHelpers.surfaceBg,
-                    borderRadius: BorderRadius.circular(8),
-                    border: Border.all(color: Colors.grey.shade200),
+                    borderRadius: BorderRadius.circular(10),
+                    border: Border.all(color: SboxColors.slate200),
                   ),
                   child: Row(children: [
                     Icon(
@@ -310,7 +311,7 @@ class DatabaseTabState extends State<DatabaseTab> {
                                 tr('${f['sizeMB'] ?? 0} MB — ${AdminHelpers.formatDateTime(f['createdAt'])}'),
                                 style: TextStyle(
                                     fontSize: 11,
-                                    color: Colors.grey[500])),
+                                    color: SboxColors.slate500)),
                           ]),
                     ),
                     AdminHelpers.statusChip(
@@ -355,7 +356,7 @@ class DatabaseTabState extends State<DatabaseTab> {
               padding: const EdgeInsets.all(8),
               decoration: BoxDecoration(
                   color: Colors.red.withValues(alpha: 0.1),
-                  borderRadius: BorderRadius.circular(8)),
+                  borderRadius: BorderRadius.circular(10)),
               child: const Icon(Icons.warning_amber,
                   color: Colors.red, size: 20),
             ),
@@ -369,7 +370,7 @@ class DatabaseTabState extends State<DatabaseTab> {
           const SizedBox(height: 12),
           Text(tr('Các thao tác dưới đây không thể hoàn tác. Hãy chắc chắn đã sao lưu dữ liệu trước khi thực hiện.'),
               style:
-                  TextStyle(fontSize: 13, color: Colors.grey[600])),
+                  TextStyle(fontSize: 13, color: SboxColors.slate600)),
           const SizedBox(height: 16),
           if (context.systemAdminCanDelete)
             Wrap(spacing: 12, runSpacing: 12, children: [
@@ -490,7 +491,7 @@ class DatabaseTabState extends State<DatabaseTab> {
               padding: const EdgeInsets.all(12),
               decoration: BoxDecoration(
                   color: Colors.orange.withValues(alpha: 0.1),
-                  borderRadius: BorderRadius.circular(8)),
+                  borderRadius: BorderRadius.circular(10)),
               child: Row(children: [
                 Icon(Icons.warning, color: Colors.orange, size: 20),
                 SizedBox(width: 8),
@@ -567,7 +568,7 @@ class DatabaseTabState extends State<DatabaseTab> {
                       padding: const EdgeInsets.all(12),
                       decoration: BoxDecoration(
                           color: Colors.red.withValues(alpha: 0.1),
-                          borderRadius: BorderRadius.circular(8)),
+                          borderRadius: BorderRadius.circular(10)),
                       child: Row(children: [
                         Icon(Icons.warning,
                             color: Colors.red, size: 20),
@@ -640,7 +641,7 @@ class DatabaseTabState extends State<DatabaseTab> {
               padding: const EdgeInsets.all(12),
               decoration: BoxDecoration(
                   color: Colors.red.withValues(alpha: 0.1),
-                  borderRadius: BorderRadius.circular(8)),
+                  borderRadius: BorderRadius.circular(10)),
               child: Column(children: [
                 Row(children: [
                   Icon(Icons.warning, color: Colors.red, size: 24),

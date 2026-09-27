@@ -5,6 +5,7 @@ import 'package:flutter/material.dart';
 import '../../l10n/app_tr.dart';
 import '../../services/api_service.dart';
 
+import '../../theme/sbox_tokens.dart';
 /// Khối thông tin pháp lý công ty — in trên báo giá / hợp đồng A4.
 class PosCommercialCompanyFields extends StatefulWidget {
   const PosCommercialCompanyFields({
@@ -142,7 +143,7 @@ class _PosCommercialCompanyFieldsState
         const SizedBox(height: 4),
         Text(
           tr('Tên cửa hàng phía trên dùng hóa đơn bán. Các trường này in trên báo giá, hợp đồng — tra cứu MST để điền tên và địa chỉ.'),
-          style: TextStyle(fontSize: 12, color: Colors.grey.shade600),
+          style: TextStyle(fontSize: 12, color: SboxColors.slate600),
         ),
         const SizedBox(height: 12),
         Row(
@@ -180,7 +181,7 @@ class _PosCommercialCompanyFieldsState
             style: TextStyle(
               fontSize: 12,
               color: _taxLookupOk
-                  ? const Color(0xFF059669)
+                  ? SboxColors.success
                   : Colors.orange.shade800,
             ),
           ),

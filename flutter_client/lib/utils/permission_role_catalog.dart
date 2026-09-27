@@ -4,6 +4,7 @@ import 'permission_module_catalog.dart';
 import 'permission_module_labels.dart';
 import '../widgets/hrm_page_chrome.dart';
 
+import '../theme/sbox_tokens.dart';
 /// Nhóm chức năng — khớp menu app (`main_layout.dart`, `settings_hub_screen.dart`).
 class PermissionUiGroup {
   final String id;
@@ -59,7 +60,7 @@ class PermissionRoleCatalog {
       title: 'Điều hướng',
       description: 'Trang chủ, thông báo',
       icon: Icons.home_outlined,
-      color: Color(0xFF0F172A),
+      color: SboxColors.slate900,
       moduleCodes: ['Home', 'Notification'],
     ),
     PermissionUiGroup(
@@ -223,7 +224,7 @@ class PermissionRoleCatalog {
       title: 'Thiết lập Sbox',
       description: 'Ca, ngày lễ, máy chấm công, phụ cấp, thuế, chi nhánh',
       icon: Icons.tune,
-      color: Color(0xFF64748B),
+      color: SboxColors.slate500,
       moduleCodes: [
         'ShiftSetup',
         'Holiday',
@@ -246,7 +247,7 @@ class PermissionRoleCatalog {
       title: 'Quản trị hệ thống',
       description: 'Tài khoản, phân quyền, PQ phòng ban',
       icon: Icons.admin_panel_settings_outlined,
-      color: Color(0xFF475569),
+      color: SboxColors.slate600,
       moduleCodes: ['UserManagement', 'Role', 'DepartmentPermission'],
     ),
   ];

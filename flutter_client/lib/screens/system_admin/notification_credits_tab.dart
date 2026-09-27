@@ -9,6 +9,7 @@ import '../../widgets/notification_overlay.dart';
 import 'system_admin_helpers.dart';
 import 'tingee_store_setup_card.dart';
 
+import '../../theme/sbox_tokens.dart';
 /// SuperAdmin — kho lượt Tingee, credentials platform, bán gói cho cửa hàng.
 class NotificationCreditsTab extends StatefulWidget {
   const NotificationCreditsTab({super.key});
@@ -228,10 +229,10 @@ class NotificationCreditsTabState extends State<NotificationCreditsTab> {
             runSpacing: 12,
             children: [
               _statCard(tr('Còn trong kho'), '$remain', Colors.green),
-              _statCard(tr('Đã mua Tingee'), '$purchased', Colors.blue),
+              _statCard(tr('Đã mua Tingee'), '$purchased', SboxColors.brand500),
               _statCard(tr('Đã bán CH'), '$allocated', Colors.orange),
               _statCard(tr('Giá vốn/lượt'), '${costPer.toStringAsFixed(0)} đ',
-                  Colors.grey),
+                  SboxColors.slate500),
             ],
           ),
           const SizedBox(height: 16),
@@ -291,11 +292,11 @@ class NotificationCreditsTabState extends State<NotificationCreditsTab> {
                   const SizedBox(height: 4),
                   Text(
                     tr('Webhook: $webhookUrl'),
-                    style: const TextStyle(fontSize: 12, color: Colors.grey),
+                    style: const TextStyle(fontSize: 12, color: SboxColors.slate500),
                   ),
                   Text(
                     tr('UAT API: https://uat-open-api.tingee.vn/v1'),
-                    style: const TextStyle(fontSize: 12, color: Colors.grey),
+                    style: const TextStyle(fontSize: 12, color: SboxColors.slate500),
                   ),
                   const SizedBox(height: 12),
                   SwitchListTile(
@@ -451,7 +452,7 @@ class NotificationCreditsTabState extends State<NotificationCreditsTab> {
             Text(
               tr('Paid: ${_purchaseReport!['totalCreditsPaid'] ?? 0} lượt · '
                   'Pending: ${_purchaseReport!['totalCreditsPending'] ?? 0} lượt'),
-              style: const TextStyle(color: Colors.grey),
+              style: const TextStyle(color: SboxColors.slate500),
             ),
           ],
         ],
@@ -467,7 +468,7 @@ class NotificationCreditsTabState extends State<NotificationCreditsTab> {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Text(label, style: TextStyle(fontSize: 12, color: Colors.grey[600])),
+          Text(label, style: TextStyle(fontSize: 12, color: SboxColors.slate600)),
           const SizedBox(height: 4),
           Text(value,
               style: TextStyle(

@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import '../l10n/app_tr.dart';
 
+import '../theme/sbox_tokens.dart';
 /// Chiều rộng cột tên NV cố định (bảng chấm công ngang).
 double attendanceFrozenEmployeeColWidth(BuildContext context) =>
     (MediaQuery.sizeOf(context).width * 0.44).clamp(152.0, 200.0);
@@ -11,7 +12,7 @@ class AttendanceFrozenEmployeeNameCell extends StatelessWidget {
     super.key,
     required this.name,
     this.subtext,
-    this.subtextColor = const Color(0xFF16A34A),
+    this.subtextColor = SboxColors.success,
     this.code,
     this.showCode = false,
   });
@@ -37,7 +38,7 @@ class AttendanceFrozenEmployeeNameCell extends StatelessWidget {
             style: const TextStyle(
               fontSize: 10,
               fontWeight: FontWeight.w600,
-              color: Color(0xFF18181B),
+              color: SboxColors.slate900,
               height: 1.2,
             ),
             maxLines: 1,
@@ -48,7 +49,7 @@ class AttendanceFrozenEmployeeNameCell extends StatelessWidget {
           const SizedBox(height: 1),
           Text(
             tr(code!),
-            style: const TextStyle(fontSize: 9, color: Color(0xFF71717A)),
+            style: const TextStyle(fontSize: 9, color: SboxColors.slate500),
             maxLines: 1,
             overflow: TextOverflow.ellipsis,
           ),

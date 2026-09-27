@@ -4,6 +4,7 @@ import 'package:flutter/material.dart';
 
 import '../../l10n/app_tr.dart';
 
+import '../../theme/sbox_tokens.dart';
 /// Trạng thái gói giờ: chưa bắt đầu / đang chạy / sắp hết / hết giờ (đang tính quá giờ).
 enum PosPackageTimerStage { notStarted, running, soon, over }
 
@@ -96,19 +97,19 @@ class _PosPackageTimerChipState extends State<PosPackageTimerChip> {
           icon: const Icon(Icons.play_arrow_rounded, size: 18),
           label: Text(tr('Bắt đầu tính ${_minutesLabel(c.totalMinutes)}')),
           style: FilledButton.styleFrom(
-            backgroundColor: const Color(0xFF16A34A),
+            backgroundColor: SboxColors.success,
             visualDensity: VisualDensity.compact,
             padding: const EdgeInsets.symmetric(horizontal: 12),
-            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
           ),
         ),
       );
     }
     final r = c.remaining()!;
     final (Color color, IconData icon, String text) = switch (stage) {
-      PosPackageTimerStage.over => (const Color(0xFFDC2626), Icons.alarm_on, tr('Hết giờ · quá ${PosPackageTimerCalc.fmt(r)}')),
-      PosPackageTimerStage.soon => (const Color(0xFFD97706), Icons.alarm, tr('Sắp hết · còn ${PosPackageTimerCalc.fmt(r)}')),
-      _ => (const Color(0xFF16A34A), Icons.timer_outlined, tr('Còn ${PosPackageTimerCalc.fmt(r)}')),
+      PosPackageTimerStage.over => (SboxColors.danger, Icons.alarm_on, tr('Hết giờ · quá ${PosPackageTimerCalc.fmt(r)}')),
+      PosPackageTimerStage.soon => (SboxColors.warning, Icons.alarm, tr('Sắp hết · còn ${PosPackageTimerCalc.fmt(r)}')),
+      _ => (SboxColors.success, Icons.timer_outlined, tr('Còn ${PosPackageTimerCalc.fmt(r)}')),
     };
     final total = c.totalMinutes <= 0 ? 1 : c.totalMinutes * 60;
     final used = (total - r.inSeconds).clamp(0, total);
@@ -124,7 +125,7 @@ class _PosPackageTimerChipState extends State<PosPackageTimerChip> {
               widget.paused ? tr('Tạm dừng · $text') : text,
               style: TextStyle(
                 fontSize: widget.compact ? 12 : 13,
-                fontWeight: FontWeight.w800,
+                fontWeight: FontWeight.w700,
                 color: color,
                 fontFeatures: const [FontFeature.tabularFigures()],
               ),
@@ -132,7 +133,7 @@ class _PosPackageTimerChipState extends State<PosPackageTimerChip> {
           ),
           const SizedBox(width: 6),
           Text(tr('gói ${_minutesLabel(c.totalMinutes)}'),
-              style: const TextStyle(fontSize: 11.5, color: Color(0xFF94A3B8))),
+              style: const TextStyle(fontSize: 12, color: SboxColors.slate400)),
         ]),
         if (stage != PosPackageTimerStage.over) ...[
           const SizedBox(height: 3),

@@ -12,6 +12,7 @@ import '../widgets/page_top_actions.dart';
 import '../widgets/reports/hrm_report_widgets.dart';
 import 'package:zkteco_flutter_client/l10n/app_tr.dart';
 
+import '../theme/sbox_tokens.dart';
 const _theme = HrmPageChrome.primaryNavy;
 
 class AdvanceReportScreen extends StatefulWidget {
@@ -187,7 +188,7 @@ class _AdvanceReportScreenState extends State<AdvanceReportScreen> {
             label: 'Đã duyệt',
             value: approved.toString(),
             icon: Icons.check_circle_outline,
-            color: const Color(0xFF16A34A)),
+            color: SboxColors.success),
         ReportKpiItem(
             label: 'Tổng đã ứng',
             value: '${reportMoneyFmt.format(approvedAmt)}đ',
@@ -217,7 +218,7 @@ class _AdvanceReportScreenState extends State<AdvanceReportScreen> {
           label: 'Đã duyệt',
           value: '${reportMoneyFmt.format(approvedAmt)}đ',
           icon: Icons.account_balance,
-          color: const Color(0xFF16A34A)),
+          color: SboxColors.success),
     ];
   }
 
@@ -239,11 +240,11 @@ class _AdvanceReportScreenState extends State<AdvanceReportScreen> {
       case AdvanceRequestStatus.pending:
         return Colors.orange;
       case AdvanceRequestStatus.approved:
-        return const Color(0xFF16A34A);
+        return SboxColors.success;
       case AdvanceRequestStatus.rejected:
-        return const Color(0xFFDC2626);
+        return SboxColors.danger;
       case AdvanceRequestStatus.cancelled:
-        return const Color(0xFFDC2626);
+        return SboxColors.danger;
     }
   }
 
@@ -441,16 +442,16 @@ class _AdvanceReportScreenState extends State<AdvanceReportScreen> {
       height: 40,
       padding: const EdgeInsets.symmetric(horizontal: 8),
       decoration: BoxDecoration(
-        border: Border.all(color: const Color(0xFFD1D5DB)),
-        borderRadius: BorderRadius.circular(8),
+        border: Border.all(color: SboxColors.slate300),
+        borderRadius: BorderRadius.circular(10),
       ),
       child: DropdownButtonHideUnderline(
         child: DropdownButton<AdvanceRequestStatus?>(
           value: _statusFilter,
           isExpanded: true,
           hint: Text(tr('Trạng thái'),
-              style: TextStyle(fontSize: 12, color: Color(0xFF6B7280))),
-          style: const TextStyle(fontSize: 12, color: Color(0xFF111827)),
+              style: TextStyle(fontSize: 12, color: SboxColors.slate500)),
+          style: const TextStyle(fontSize: 12, color: SboxColors.slate900),
           items: [
             DropdownMenuItem(value: null, child: Text(tr('Tất cả'))),
             ...AdvanceRequestStatus.values.map(

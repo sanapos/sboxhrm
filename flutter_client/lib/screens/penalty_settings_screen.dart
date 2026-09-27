@@ -10,6 +10,7 @@ import '../widgets/hrm_page_chrome.dart';
 import '../widgets/notification_overlay.dart';
 import 'package:zkteco_flutter_client/l10n/app_tr.dart';
 
+import '../theme/sbox_tokens.dart';
 class PenaltySettingsScreen extends StatefulWidget {
   const PenaltySettingsScreen({super.key});
 
@@ -53,10 +54,10 @@ class _PenaltySettingsScreenState extends State<PenaltySettingsScreen> {
   /// Salary = trừ vào lương (không phiếu thu); Cash = thu tiền mặt từng lần (phiếu thu).
   String _collectionMethod = 'Salary';
 
-  static const _bg = Color(0xFFFAFAFA);
+  static const _bg = SboxColors.slate50;
   static const _navy = HrmPageChrome.primaryNavy;
-  static const _border = Color(0xFFE4E4E7);
-  static const _muted = Color(0xFF71717A);
+  static const _border = SboxColors.slate200;
+  static const _muted = SboxColors.slate500;
 
   @override
   void initState() {
@@ -252,7 +253,7 @@ class _PenaltySettingsScreenState extends State<PenaltySettingsScreen> {
               automaticallyImplyLeading: false,
               title: Text(tr('Thiết lập Phạt'),
                 style: TextStyle(
-                  color: Color(0xFF18181B),
+                  color: SboxColors.slate900,
                   fontWeight: FontWeight.bold,
                   fontSize: 18,
                 ),
@@ -398,7 +399,7 @@ class _PenaltySettingsScreenState extends State<PenaltySettingsScreen> {
           padding: const EdgeInsets.all(12),
           decoration: BoxDecoration(
             color: _navy.withValues(alpha: 0.1),
-            borderRadius: BorderRadius.circular(12),
+            borderRadius: BorderRadius.circular(14),
           ),
           child: const Icon(Icons.gavel, color: _navy, size: 28),
         ),
@@ -501,7 +502,7 @@ class _PenaltySettingsScreenState extends State<PenaltySettingsScreen> {
                   style: const TextStyle(
                     fontSize: 16,
                     fontWeight: FontWeight.bold,
-                    color: Color(0xFF18181B),
+                    color: SboxColors.slate900,
                   ),
                 ),
                 const SizedBox(height: 4),
@@ -520,7 +521,7 @@ class _PenaltySettingsScreenState extends State<PenaltySettingsScreen> {
   Widget _buildLatePenaltyCard() {
     return _buildSectionCard(
       header: _buildCardHeader(
-        gradient: const [Color(0xFFEF4444), Color(0xFFF87171)],
+        gradient: const [SboxColors.danger, Color(0xFFF87171)],
         icon: Icons.schedule,
         title: 'Phạt đi trễ',
         subtitle: 'Mức phạt theo số phút đi trễ',
@@ -584,12 +585,12 @@ class _PenaltySettingsScreenState extends State<PenaltySettingsScreen> {
   Widget _buildRepeatOffensePenaltyCard() {
     return _buildSectionCard(
       header: _buildCardHeader(
-        gradient: const [Color(0xFFFEF3C7), Color(0xFFFEF3C7)],
+        gradient: const [SboxColors.warningSoft, SboxColors.warningSoft],
         icon: Icons.refresh,
         title: 'Phạt tái phạm',
         subtitle: 'Phạt thêm khi vi phạm nhiều lần trong tháng',
-        iconBg: const Color(0xFFFEF3C7),
-        iconColor: const Color(0xFFF59E0B),
+        iconBg: SboxColors.warningSoft,
+        iconColor: SboxColors.warning,
       ),
       children: [
         _buildPenaltyLevelRow(
@@ -632,7 +633,7 @@ class _PenaltySettingsScreenState extends State<PenaltySettingsScreen> {
             children: [
               Icon(
                 selected ? Icons.radio_button_checked : Icons.radio_button_off,
-                color: selected ? _navy : Colors.grey,
+                color: selected ? _navy : SboxColors.slate500,
                 size: 22,
               ),
               const SizedBox(width: 12),
@@ -648,7 +649,7 @@ class _PenaltySettingsScreenState extends State<PenaltySettingsScreen> {
                     const SizedBox(height: 2),
                     Text(tr(desc),
                         style: TextStyle(
-                            fontSize: 12.5, color: Colors.grey.shade700)),
+                            fontSize: 13, color: SboxColors.slate700)),
                   ],
                 ),
               ),
@@ -678,7 +679,7 @@ class _PenaltySettingsScreenState extends State<PenaltySettingsScreen> {
   Widget _buildOtherPenaltiesCard() {
     return _buildSectionCard(
       header: _buildCardHeader(
-        gradient: const [Color(0xFFEF4444), Color(0xFFF97316)],
+        gradient: const [SboxColors.danger, Color(0xFFF97316)],
         icon: Icons.warning_amber_rounded,
         title: 'Các loại phạt khác',
         subtitle: 'Quên chấm công, nghỉ không phép, vi phạm nội quy',
@@ -686,7 +687,7 @@ class _PenaltySettingsScreenState extends State<PenaltySettingsScreen> {
       children: [
         _buildOtherPenaltyRow(
           icon: Icons.fingerprint,
-          iconColor: const Color(0xFFF59E0B),
+          iconColor: SboxColors.warning,
           title: 'Quên chấm công',
           description: 'Không chấm công vào hoặc ra',
           controller: _forgotCheckPenaltyController,
@@ -714,7 +715,7 @@ class _PenaltySettingsScreenState extends State<PenaltySettingsScreen> {
   }
 
   Color _levelColor(int level) {
-    return level == 3 ? const Color(0xFFEF4444) : _navy;
+    return level == 3 ? SboxColors.danger : _navy;
   }
 
   /// Mỗi mức: nhãn + 2 ô nhập full-width (hoặc 2 cột khi card đủ rộng).
@@ -772,7 +773,7 @@ class _PenaltySettingsScreenState extends State<PenaltySettingsScreen> {
           decoration: BoxDecoration(
             border: isLast
                 ? null
-                : const Border(bottom: BorderSide(color: Color(0xFFF1F5F9))),
+                : const Border(bottom: BorderSide(color: SboxColors.slate100)),
           ),
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
@@ -781,7 +782,7 @@ class _PenaltySettingsScreenState extends State<PenaltySettingsScreen> {
                 padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
                 decoration: BoxDecoration(
                   color: color.withValues(alpha: 0.1),
-                  borderRadius: BorderRadius.circular(8),
+                  borderRadius: BorderRadius.circular(10),
                 ),
                 child: Text(tr('MỨC $level'),
                   style: TextStyle(
@@ -815,7 +816,7 @@ class _PenaltySettingsScreenState extends State<PenaltySettingsScreen> {
       decoration: BoxDecoration(
         border: isLast
             ? null
-            : const Border(bottom: BorderSide(color: Color(0xFFF1F5F9))),
+            : const Border(bottom: BorderSide(color: SboxColors.slate100)),
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -827,7 +828,7 @@ class _PenaltySettingsScreenState extends State<PenaltySettingsScreen> {
                 padding: const EdgeInsets.all(8),
                 decoration: BoxDecoration(
                   color: iconColor.withValues(alpha: 0.1),
-                  borderRadius: BorderRadius.circular(8),
+                  borderRadius: BorderRadius.circular(10),
                 ),
                 child: Icon(icon, color: iconColor, size: 20),
               ),
@@ -841,7 +842,7 @@ class _PenaltySettingsScreenState extends State<PenaltySettingsScreen> {
                       style: const TextStyle(
                         fontSize: 14,
                         fontWeight: FontWeight.w600,
-                        color: Color(0xFF18181B),
+                        color: SboxColors.slate900,
                       ),
                     ),
                     const SizedBox(height: 4),
@@ -895,13 +896,13 @@ class _PenaltySettingsScreenState extends State<PenaltySettingsScreen> {
           scrollPadding: const EdgeInsets.only(bottom: 120),
           onTap: () => _scrollFieldIntoView(context),
           style: const TextStyle(
-            color: Color(0xFF18181B),
+            color: SboxColors.slate900,
             fontWeight: FontWeight.w600,
-            fontSize: 15,
+            fontSize: 16,
           ),
           decoration: InputDecoration(
             hintText: trN(hint),
-            hintStyle: const TextStyle(color: Color(0xFFA1A1AA), fontSize: 14),
+            hintStyle: const TextStyle(color: SboxColors.slate400, fontSize: 14),
             contentPadding:
                 const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
             border: OutlineInputBorder(
@@ -917,7 +918,7 @@ class _PenaltySettingsScreenState extends State<PenaltySettingsScreen> {
               borderSide: const BorderSide(color: _navy, width: 2),
             ),
             filled: true,
-            fillColor: const Color(0xFFFAFAFA),
+            fillColor: SboxColors.slate50,
             isDense: true,
           ),
         ),

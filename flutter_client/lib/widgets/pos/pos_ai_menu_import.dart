@@ -8,6 +8,7 @@ import 'pos_product_image.dart';
 import 'pos_theme.dart';
 import 'package:zkteco_flutter_client/l10n/app_tr.dart';
 
+import '../../theme/sbox_tokens.dart';
 /// Chụp / chọn ảnh menu → AI (Gemini) đọc tên món, nhóm, giá, size, gợi ý ảnh catalog mẫu
 /// → xem trước, sửa → tạo nhóm hàng / hàng hóa / size. Trả `true` nếu đã tạo hàng.
 Future<bool> showPosAiMenuImport(BuildContext context, ApiService api) async {
@@ -218,7 +219,7 @@ class _PosAiMenuImportPageState extends State<_PosAiMenuImportPage> {
             const SizedBox(height: 12),
             Text(
               tr('Kiểm tra lại trước khi tạo. Size ghi dạng «M 30.000; L 38.000». Món đã có trong cửa hàng được bỏ chọn sẵn.'),
-              style: TextStyle(color: Colors.grey.shade700, fontSize: 13),
+              style: TextStyle(color: SboxColors.slate700, fontSize: 13),
             ),
             const SizedBox(height: 8),
             for (final r in _rows) _buildRow(r),
@@ -257,7 +258,7 @@ class _PosAiMenuImportPageState extends State<_PosAiMenuImportPage> {
                           onTap: _scanning ? null : () => setState(() => _images.removeAt(i)),
                           child: const CircleAvatar(
                               radius: 11,
-                              backgroundColor: Colors.black54,
+                              backgroundColor: SboxColors.textSecondary,
                               child: Icon(Icons.close, size: 14, color: Colors.white)),
                         ),
                       ),
@@ -295,8 +296,8 @@ class _PosAiMenuImportPageState extends State<_PosAiMenuImportPage> {
                 width: double.infinity,
                 padding: const EdgeInsets.all(12),
                 decoration: BoxDecoration(
-                  color: const Color(0xFFFFEBEE),
-                  borderRadius: BorderRadius.circular(8),
+                  color: SboxColors.dangerSoft,
+                  borderRadius: BorderRadius.circular(10),
                   border: Border.all(color: const Color(0xFFEF9A9A)),
                 ),
                 child: Row(
@@ -327,7 +328,7 @@ class _PosAiMenuImportPageState extends State<_PosAiMenuImportPage> {
           border: const OutlineInputBorder(),
         );
     return Card(
-      color: r.include ? null : Colors.grey.shade100,
+      color: r.include ? null : SboxColors.slate100,
       child: Padding(
         padding: const EdgeInsets.fromLTRB(4, 8, 12, 8),
         child: Row(
@@ -345,7 +346,7 @@ class _PosAiMenuImportPageState extends State<_PosAiMenuImportPage> {
                       ? Container(
                           width: 56,
                           height: 56,
-                          color: Colors.grey.shade200,
+                          color: SboxColors.slate200,
                           child: const Icon(Icons.image_not_supported_outlined, size: 20),
                         )
                       : PosProductImage(imageUrl: r.imageUrl, size: 56),
@@ -391,7 +392,7 @@ class _PosAiMenuImportPageState extends State<_PosAiMenuImportPage> {
                           fontSize: 12,
                           color: r.existingProductName != null
                               ? Colors.orange.shade800
-                              : Colors.grey.shade700,
+                              : SboxColors.slate700,
                         ),
                       ),
                     ),

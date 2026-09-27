@@ -14,6 +14,7 @@ import 'pos_form_keyboard.dart';
 import 'pos_theme.dart';
 import 'package:zkteco_flutter_client/l10n/app_tr.dart';
 
+import '../../theme/sbox_tokens.dart';
 /// Dữ liệu mở dialog «Thiết lập đơn vị tính và thuộc tính» (kiểu KiotViet).
 class UnitAttributeSetupInput {
   const UnitAttributeSetupInput({
@@ -1566,7 +1567,7 @@ class _UnitAttributeSetupDialogState extends State<_UnitAttributeSetupDialog> {
                   style: TextStyle(
                       fontSize: 16,
                       fontWeight: FontWeight.w500,
-                      color: Colors.grey.shade700)),
+                      color: SboxColors.slate700)),
               SizedBox(
                 width: 72,
                 child: TextField(
@@ -1584,7 +1585,7 @@ class _UnitAttributeSetupDialogState extends State<_UnitAttributeSetupDialog> {
                   tr(baseName),
                   maxLines: 1,
                   overflow: TextOverflow.ellipsis,
-                  style: TextStyle(fontSize: 13, color: Colors.grey.shade700),
+                  style: TextStyle(fontSize: 13, color: SboxColors.slate700),
                 ),
               ),
             ],
@@ -1612,8 +1613,8 @@ class _UnitAttributeSetupDialogState extends State<_UnitAttributeSetupDialog> {
         padding: const EdgeInsets.fromLTRB(12, 10, 8, 8),
         decoration: BoxDecoration(
           border: Border.all(color: PosTheme.border),
-          borderRadius: BorderRadius.circular(8),
-          color: u.isBase ? const Color(0xFFF8FAFC) : Colors.white,
+          borderRadius: BorderRadius.circular(10),
+          color: u.isBase ? SboxColors.slate50 : Colors.white,
         ),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.stretch,
@@ -1625,7 +1626,7 @@ class _UnitAttributeSetupDialogState extends State<_UnitAttributeSetupDialog> {
                 style: TextStyle(
                   fontSize: 11,
                   fontWeight: FontWeight.w600,
-                  color: Colors.grey.shade600,
+                  color: SboxColors.slate600,
                 ),
               ),
             ),
@@ -1679,7 +1680,7 @@ class _UnitAttributeSetupDialogState extends State<_UnitAttributeSetupDialog> {
                         style: TextStyle(
                             fontSize: 16,
                             fontWeight: FontWeight.w500,
-                            color: Colors.grey.shade700)),
+                            color: SboxColors.slate700)),
                   ),
                   const SizedBox(width: 6),
                   SizedBox(
@@ -1704,7 +1705,7 @@ class _UnitAttributeSetupDialogState extends State<_UnitAttributeSetupDialog> {
                         softWrap: true,
                         style: TextStyle(
                           fontSize: 12,
-                          color: Colors.grey.shade700,
+                          color: SboxColors.slate700,
                           height: 1.2,
                         ),
                       ),
@@ -1852,7 +1853,7 @@ class _UnitAttributeSetupDialogState extends State<_UnitAttributeSetupDialog> {
         const SizedBox(height: 8),
         if (_relatedRows.isEmpty)
           Text(tr('Thêm đơn vị hoặc thuộc tính để sinh dòng hàng'),
-              style: TextStyle(color: Colors.grey.shade600, fontSize: 13))
+              style: TextStyle(color: SboxColors.slate600, fontSize: 13))
         else
           SingleChildScrollView(
             scrollDirection: Axis.horizontal,
@@ -1861,7 +1862,7 @@ class _UnitAttributeSetupDialogState extends State<_UnitAttributeSetupDialog> {
               child: DecoratedBox(
                 decoration: BoxDecoration(
                   border: Border.all(color: PosTheme.border),
-                  borderRadius: BorderRadius.circular(8),
+                  borderRadius: BorderRadius.circular(10),
                 ),
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.stretch,
@@ -1882,7 +1883,7 @@ class _UnitAttributeSetupDialogState extends State<_UnitAttributeSetupDialog> {
 
   Widget _relatedTableHeader() {
     return Container(
-      color: Colors.grey.shade50,
+      color: SboxColors.slate50,
       padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
       child: Row(
         children: [
@@ -1913,7 +1914,7 @@ class _UnitAttributeSetupDialogState extends State<_UnitAttributeSetupDialog> {
       decoration: BoxDecoration(
         color: focused ? PosTheme.kiotBlueLight.withValues(alpha: 0.45) : null,
         border: Border(
-          bottom: BorderSide(color: Colors.grey.shade200),
+          bottom: BorderSide(color: SboxColors.slate200),
           left: focused
               ? const BorderSide(color: PosTheme.kiotBlue, width: 3)
               : BorderSide.none,
@@ -1929,8 +1930,8 @@ class _UnitAttributeSetupDialogState extends State<_UnitAttributeSetupDialog> {
               style: TextStyle(
                 fontSize: 12,
                 color: r.attrLabel.isEmpty
-                    ? Colors.grey.shade500
-                    : Colors.black87,
+                    ? SboxColors.slate500
+                    : SboxColors.text,
               ),
             ),
           ),
@@ -1943,7 +1944,7 @@ class _UnitAttributeSetupDialogState extends State<_UnitAttributeSetupDialog> {
             child: Container(
               padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 6),
               decoration: BoxDecoration(
-                color: Colors.grey.shade100,
+                color: SboxColors.slate100,
                 borderRadius: BorderRadius.circular(4),
               ),
               child: Text(tr(convText),

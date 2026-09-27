@@ -5,6 +5,7 @@ import '../l10n/app_tr.dart';
 import '../utils/responsive_helper.dart';
 import '../utils/vietnamese_font.dart';
 
+import '../theme/sbox_tokens.dart';
 /// Host đăng ký action của trang hiện tại lên top bar (main_layout).
 class PageTopActions extends ChangeNotifier {
   PageTopActions._();
@@ -147,7 +148,7 @@ class HrmTopBarAction extends StatelessWidget {
               tapTargetSize: MaterialTapTargetSize.shrinkWrap,
               visualDensity: VisualDensity.compact,
               shape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(8)),
+                  borderRadius: BorderRadius.circular(10)),
             ),
             child: Icon(icon, size: compact ? 20 : 18),
           ),
@@ -167,7 +168,7 @@ class HrmTopBarAction extends StatelessWidget {
     return FilledButton.icon(
       onPressed: onPressed,
       icon: Icon(icon, size: 16),
-      label: Text(tr(label), style: const TextStyle(fontSize: 12.5)),
+      label: Text(tr(label), style: const TextStyle(fontSize: 13)),
       style: FilledButton.styleFrom(
         backgroundColor: PosTheme.kiotBlue,
         foregroundColor: Colors.white,
@@ -176,7 +177,7 @@ class HrmTopBarAction extends StatelessWidget {
         minimumSize: Size(0, minTap),
         tapTargetSize: MaterialTapTargetSize.shrinkWrap,
         visualDensity: VisualDensity.compact,
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
       ),
     );
   }
@@ -209,7 +210,7 @@ Future<void> showPageTopActionsSheet(
                   height: 4,
                   margin: const EdgeInsets.only(bottom: 12),
                   decoration: BoxDecoration(
-                    color: const Color(0xFFD4D4D8),
+                    color: SboxColors.slate300,
                     borderRadius: BorderRadius.circular(999),
                   ),
                 ),
@@ -235,25 +236,25 @@ Future<void> showPageTopActionsSheet(
                     radius: 22,
                     backgroundColor: a.primary
                         ? PosTheme.kiotBlue.withValues(alpha: 0.12)
-                        : const Color(0xFFF4F4F5),
+                        : SboxColors.slate100,
                     child: Icon(
                       a.icon,
                       color: enabled
                           ? (a.primary
                               ? PosTheme.kiotBlue
                               : PosTheme.textPrimary)
-                          : const Color(0xFFA1A1AA),
+                          : SboxColors.slate400,
                       size: 22,
                     ),
                   ),
                   title: Text(
                     tr(a.label),
                     style: vietnameseTextStyle(TextStyle(
-                      fontSize: 15,
+                      fontSize: 16,
                       fontWeight: FontWeight.w600,
                       color: enabled
-                          ? const Color(0xFF18181B)
-                          : const Color(0xFFA1A1AA),
+                          ? SboxColors.slate900
+                          : SboxColors.slate400,
                     )),
                   ),
                   onTap: !enabled

@@ -5,6 +5,7 @@ import '../../services/api_service.dart';
 import 'system_admin_helpers.dart';
 import 'package:zkteco_flutter_client/l10n/app_tr.dart';
 
+import '../../theme/sbox_tokens.dart';
 /// SuperAdmin – tab "Marketing" (Phase 3): templates + campaigns đa kênh.
 class MarketingTab extends StatefulWidget {
   const MarketingTab({super.key});
@@ -78,7 +79,7 @@ class MarketingTabState extends State<MarketingTab>
               child: TabBar(
                 controller: _inner,
                 labelColor: AdminHelpers.primary,
-                unselectedLabelColor: Colors.grey,
+                unselectedLabelColor: SboxColors.slate500,
                 indicatorColor: AdminHelpers.primary,
                 tabs: [
                   Tab(text: tr('Mẫu (${templates.length})')),
@@ -163,7 +164,7 @@ class MarketingTabState extends State<MarketingTab>
                   children: [
                     Text(tr(t['title']?.toString() ?? ''),
                         style: const TextStyle(
-                            fontWeight: FontWeight.bold, fontSize: 15)),
+                            fontWeight: FontWeight.bold, fontSize: 16)),
                     const SizedBox(height: 2),
                     Wrap(spacing: 6, runSpacing: 4, children: [
                       AdminHelpers.statusChip(
@@ -172,7 +173,7 @@ class MarketingTabState extends State<MarketingTab>
                           isActive ? 'Bật' : 'Tắt',
                           isActive
                               ? AdminHelpers.success
-                              : Colors.grey),
+                              : SboxColors.slate500),
                       ..._channelChips(channels),
                     ]),
                   ],
@@ -196,7 +197,7 @@ class MarketingTabState extends State<MarketingTab>
               const SizedBox(height: 6),
               Text(tr('${tr('Biến: ')}${(t['variables'] as List).join(", ")}'),
                   style:
-                      TextStyle(fontSize: 11, color: Colors.grey[600])),
+                      TextStyle(fontSize: 11, color: SboxColors.slate600)),
             ],
           ],
         ),
@@ -371,7 +372,7 @@ class MarketingTabState extends State<MarketingTab>
       1 => AdminHelpers.info,
       2 => AdminHelpers.warning,
       3 => AdminHelpers.success,
-      4 => Colors.grey,
+      4 => SboxColors.slate500,
       5 => AdminHelpers.danger,
       _ => Colors.blueGrey,
     };
@@ -394,7 +395,7 @@ class MarketingTabState extends State<MarketingTab>
                   children: [
                     Text(tr(c['name']?.toString() ?? ''),
                         style: const TextStyle(
-                            fontWeight: FontWeight.bold, fontSize: 15)),
+                            fontWeight: FontWeight.bold, fontSize: 16)),
                     const SizedBox(height: 2),
                     Wrap(spacing: 6, runSpacing: 4, children: [
                       AdminHelpers.statusChip(
@@ -433,23 +434,23 @@ class MarketingTabState extends State<MarketingTab>
             ],
             const SizedBox(height: 8),
             Row(children: [
-              Icon(Icons.people, size: 14, color: Colors.grey[600]),
+              Icon(Icons.people, size: 14, color: SboxColors.slate600),
               const SizedBox(width: 4),
               Text(tr('${tr('Người nhận: ')}${c['recipientCount'] ?? 0}'
                   ' • Đã gửi: ${c['deliveredCount'] ?? 0}'),
                   style:
-                      TextStyle(fontSize: 12, color: Colors.grey[700])),
+                      TextStyle(fontSize: 12, color: SboxColors.slate700)),
               const Spacer(),
               if (schedule != null)
                 Text(tr('Lịch: ${_df.format(schedule)}'),
                     style: TextStyle(
-                        fontSize: 11, color: Colors.grey[600])),
+                        fontSize: 11, color: SboxColors.slate600)),
               if (launched != null)
                 Padding(
                   padding: const EdgeInsets.only(left: 8),
                   child: Text(tr('Phóng: ${_df.format(launched)}'),
                       style: TextStyle(
-                          fontSize: 11, color: Colors.grey[600])),
+                          fontSize: 11, color: SboxColors.slate600)),
                 ),
             ]),
           ],

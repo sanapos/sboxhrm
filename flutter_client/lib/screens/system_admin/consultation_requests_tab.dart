@@ -9,6 +9,7 @@ import '../../utils/file_saver.dart' as file_saver;
 import 'system_admin_helpers.dart';
 import 'package:zkteco_flutter_client/l10n/app_tr.dart';
 
+import '../../theme/sbox_tokens.dart';
 class ConsultationRequestsTab extends StatefulWidget {
   const ConsultationRequestsTab({super.key});
 
@@ -30,11 +31,11 @@ class ConsultationRequestsTabState extends State<ConsultationRequestsTab> {
   List<Map<String, dynamic>> get items => _items;
 
   static const _statusColors = {
-    'New': Color(0xFFEF4444),
-    'Contacted': Color(0xFFF59E0B),
-    'Qualified': Color(0xFF2563EB),
-    'Closed': Color(0xFF10B981),
-    'Spam': Color(0xFF71717A),
+    'New': SboxColors.danger,
+    'Contacted': SboxColors.warning,
+    'Qualified': SboxColors.brand600,
+    'Closed': SboxColors.success,
+    'Spam': SboxColors.slate500,
   };
 
   static const _statusLabels = {
@@ -120,7 +121,7 @@ class ConsultationRequestsTabState extends State<ConsultationRequestsTab> {
                             icon: const Icon(Icons.close),
                           ),
                     border: OutlineInputBorder(
-                      borderRadius: BorderRadius.circular(12),
+                      borderRadius: BorderRadius.circular(14),
                     ),
                     filled: true,
                     fillColor: Colors.white,
@@ -156,7 +157,7 @@ class ConsultationRequestsTabState extends State<ConsultationRequestsTab> {
             Expanded(
               child: Center(
                 child: Text(tr('Chưa có lead tư vấn'),
-                    style: TextStyle(color: Colors.grey)),
+                    style: TextStyle(color: SboxColors.slate500)),
               ),
             ),
           if (!_loading && _items.isNotEmpty)
@@ -190,7 +191,7 @@ class ConsultationRequestsTabState extends State<ConsultationRequestsTab> {
 
   Widget _buildItem(Map<String, dynamic> item) {
     final status = item['status'] as String? ?? 'New';
-    final statusColor = _statusColors[status] ?? Colors.grey;
+    final statusColor = _statusColors[status] ?? SboxColors.slate500;
     final createdAt = _tryParseDate(item['createdAt'] as String?);
     final company = (item['company'] as String?)?.trim();
     final province = (item['province'] as String?)?.trim();
@@ -252,14 +253,14 @@ class ConsultationRequestsTabState extends State<ConsultationRequestsTab> {
           const SizedBox(height: 2),
           Row(
             children: [
-              Icon(Icons.public, size: 12, color: Colors.grey[500]),
+              Icon(Icons.public, size: 12, color: SboxColors.slate500),
               const SizedBox(width: 4),
               Text(tr(item['source'] as String? ?? 'LandingPage'),
-                  style: TextStyle(fontSize: 11, color: Colors.grey[500])),
+                  style: TextStyle(fontSize: 11, color: SboxColors.slate500)),
               const Spacer(),
               if (createdAt != null)
                 Text(tr(_df.format(createdAt)),
-                    style: TextStyle(fontSize: 11, color: Colors.grey[500])),
+                    style: TextStyle(fontSize: 11, color: SboxColors.slate500)),
             ],
           ),
         ],
@@ -477,9 +478,9 @@ class ConsultationRequestsTabState extends State<ConsultationRequestsTab> {
                       width: double.infinity,
                       padding: const EdgeInsets.all(12),
                       decoration: BoxDecoration(
-                        color: Colors.grey[50],
-                        borderRadius: BorderRadius.circular(8),
-                        border: Border.all(color: Colors.grey[200]!),
+                        color: SboxColors.slate50,
+                        borderRadius: BorderRadius.circular(10),
+                        border: Border.all(color: SboxColors.slate200),
                       ),
                       child: Text(tr(item['notes'] as String)),
                     ),

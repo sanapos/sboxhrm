@@ -16,6 +16,7 @@ import '../utils/branch_filter_helper.dart';
 import 'package:zkteco_flutter_client/l10n/app_tr.dart';
 import 'package:zkteco_flutter_client/l10n/app_ui_locale.dart';
 
+import '../theme/sbox_tokens.dart';
 class MobileAttendanceApprovalScreen extends StatefulWidget {
   /// Nhúng trong [AttendanceApprovalScreen] (TabBarView cha) — tránh NestedScrollView lồng nhau.
   final bool embeddedInParentTab;
@@ -259,7 +260,7 @@ class _MobileAttendanceApprovalScreenState
       isScrollable: true,
       tabAlignment: TabAlignment.start,
       labelColor: HrmPageChrome.primaryNavy,
-      unselectedLabelColor: const Color(0xFF71717A),
+      unselectedLabelColor: SboxColors.slate500,
       indicatorColor: HrmPageChrome.primaryNavy,
       labelPadding: const EdgeInsets.symmetric(horizontal: 12),
       tabs: [
@@ -276,7 +277,7 @@ class _MobileAttendanceApprovalScreenState
                   padding:
                       const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
                   decoration: BoxDecoration(
-                    color: const Color(0xFFF59E0B),
+                    color: SboxColors.warning,
                     borderRadius: BorderRadius.circular(10),
                   ),
                   child: Text(
@@ -387,8 +388,8 @@ class _MobileAttendanceApprovalScreenState
           child: Container(
             decoration: BoxDecoration(
               color: Colors.white,
-              borderRadius: BorderRadius.circular(12),
-              border: Border.all(color: const Color(0xFFE4E4E7)),
+              borderRadius: BorderRadius.circular(14),
+              border: Border.all(color: SboxColors.slate200),
               boxShadow: [
                 BoxShadow(
                   color: Colors.black.withValues(alpha: 0.05),
@@ -406,13 +407,13 @@ class _MobileAttendanceApprovalScreenState
             padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
             decoration: BoxDecoration(
               color: Colors.white,
-              border: Border(top: BorderSide(color: Colors.grey.shade200)),
+              border: Border(top: BorderSide(color: SboxColors.slate200)),
             ),
             child: Row(
               mainAxisAlignment: MainAxisAlignment.spaceBetween,
               children: [
                 Text(tr('Hiển thị ${startIndex + 1}-$endIndex / $totalCount'),
-                    style: TextStyle(fontSize: 12, color: Colors.grey[600])),
+                    style: TextStyle(fontSize: 12, color: SboxColors.slate600)),
                 Row(children: [
                   IconButton(
                       icon: const Icon(Icons.chevron_left, size: 20),
@@ -456,7 +457,7 @@ class _MobileAttendanceApprovalScreenState
       margin: const EdgeInsets.all(16),
       decoration: BoxDecoration(
         color: Colors.white,
-        borderRadius: BorderRadius.circular(12),
+        borderRadius: BorderRadius.circular(14),
         boxShadow: [
           BoxShadow(
             color: Colors.black.withValues(alpha: 0.04),
@@ -474,7 +475,7 @@ class _MobileAttendanceApprovalScreenState
           Text(tr('${_filteredPendingRecords.length} yêu cầu chờ duyệt'),
             style: const TextStyle(
               fontWeight: FontWeight.w600,
-              color: Color(0xFF18181B),
+              color: SboxColors.slate900,
             ),
           ),
           Row(
@@ -487,8 +488,8 @@ class _MobileAttendanceApprovalScreenState
                   icon: const Icon(Icons.close, size: 18),
                   label: Text(tr('Từ chối tất cả')),
                   style: OutlinedButton.styleFrom(
-                    foregroundColor: const Color(0xFFEF4444),
-                    side: const BorderSide(color: Color(0xFFEF4444)),
+                    foregroundColor: SboxColors.danger,
+                    side: const BorderSide(color: SboxColors.danger),
                     padding:
                         const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
                   ),
@@ -566,13 +567,13 @@ class _MobileAttendanceApprovalScreenState
                       style: const TextStyle(
                           fontSize: 14,
                           fontWeight: FontWeight.w600,
-                          color: Color(0xFF18181B)),
+                          color: SboxColors.slate900),
                       overflow: TextOverflow.ellipsis),
                   const SizedBox(height: 2),
                   Text(
                     tr('$time · $date · ${record.punchTypeLabel} · ${record.formattedDistanceFromLocation} · ${record.faceMatchScore?.toStringAsFixed(0) ?? '0'}%'),
                     style:
-                        const TextStyle(fontSize: 12, color: Color(0xFF71717A)),
+                        const TextStyle(fontSize: 12, color: SboxColors.slate500),
                     overflow: TextOverflow.ellipsis,
                   ),
                 ],
@@ -583,7 +584,7 @@ class _MobileAttendanceApprovalScreenState
               decoration: BoxDecoration(
                 color: (isCheckIn
                         ? HrmPageChrome.primaryNavy
-                        : const Color(0xFFEF4444))
+                        : SboxColors.danger)
                     .withValues(alpha: 0.1),
                 borderRadius: BorderRadius.circular(6),
               ),
@@ -593,7 +594,7 @@ class _MobileAttendanceApprovalScreenState
                       fontWeight: FontWeight.w600,
                       color: isCheckIn
                           ? HrmPageChrome.primaryNavy
-                          : const Color(0xFFEF4444))),
+                          : SboxColors.danger)),
             ),
             const SizedBox(width: 8),
             if (canApproveMobileAttendance(
@@ -604,7 +605,7 @@ class _MobileAttendanceApprovalScreenState
                 child: const Padding(
                     padding: EdgeInsets.all(4),
                     child:
-                        Icon(Icons.close, size: 18, color: Color(0xFFEF4444))),
+                        Icon(Icons.close, size: 18, color: SboxColors.danger)),
               ),
             const SizedBox(width: 4),
             if (canApproveMobileAttendance(
@@ -648,13 +649,13 @@ class _MobileAttendanceApprovalScreenState
                       style: const TextStyle(
                           fontSize: 14,
                           fontWeight: FontWeight.w600,
-                          color: Color(0xFF18181B)),
+                          color: SboxColors.slate900),
                       overflow: TextOverflow.ellipsis),
                   const SizedBox(height: 2),
                   Text(
                     tr('$time · $date · ${record.punchTypeLabel} · ${record.approvedBy ?? 'N/A'}'),
                     style:
-                        const TextStyle(fontSize: 12, color: Color(0xFF71717A)),
+                        const TextStyle(fontSize: 12, color: SboxColors.slate500),
                     overflow: TextOverflow.ellipsis,
                   ),
                 ],
@@ -664,8 +665,8 @@ class _MobileAttendanceApprovalScreenState
               padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
               decoration: BoxDecoration(
                 color: (isApproved
-                        ? const Color(0xFF22C55E)
-                        : const Color(0xFFEF4444))
+                        ? SboxColors.success
+                        : SboxColors.danger)
                     .withValues(alpha: 0.1),
                 borderRadius: BorderRadius.circular(6),
               ),
@@ -680,9 +681,9 @@ class _MobileAttendanceApprovalScreenState
                     fontWeight: FontWeight.w600,
                     color: isApproved
                         ? (record.status == 'auto_approved'
-                            ? const Color(0xFF3B82F6)
-                            : const Color(0xFF22C55E))
-                        : const Color(0xFFEF4444)),
+                            ? SboxColors.brand500
+                            : SboxColors.success)
+                        : SboxColors.danger),
               ),
             ),
           ],
@@ -719,8 +720,8 @@ class _MobileAttendanceApprovalScreenState
           child: Container(
             decoration: BoxDecoration(
               color: Colors.white,
-              borderRadius: BorderRadius.circular(12),
-              border: Border.all(color: const Color(0xFFE4E4E7)),
+              borderRadius: BorderRadius.circular(14),
+              border: Border.all(color: SboxColors.slate200),
               boxShadow: [
                 BoxShadow(
                   color: Colors.black.withValues(alpha: 0.05),
@@ -738,13 +739,13 @@ class _MobileAttendanceApprovalScreenState
             padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
             decoration: BoxDecoration(
               color: Colors.white,
-              border: Border(top: BorderSide(color: Colors.grey.shade200)),
+              border: Border(top: BorderSide(color: SboxColors.slate200)),
             ),
             child: Row(
               mainAxisAlignment: MainAxisAlignment.spaceBetween,
               children: [
                 Text(tr('Hiển thị ${startIndex + 1}-$endIndex / $totalCount'),
-                    style: TextStyle(fontSize: 12, color: Colors.grey[600])),
+                    style: TextStyle(fontSize: 12, color: SboxColors.slate600)),
                 Row(children: [
                   IconButton(
                       icon: const Icon(Icons.chevron_left, size: 20),
@@ -811,14 +812,14 @@ class _MobileAttendanceApprovalScreenState
       child: Column(
         mainAxisAlignment: MainAxisAlignment.center,
         children: [
-          Icon(icon, size: 64, color: Colors.grey.shade300),
+          Icon(icon, size: 64, color: SboxColors.slate300),
           const SizedBox(height: 16),
           Text(
             tr(title),
             style: const TextStyle(
               fontSize: 16,
               fontWeight: FontWeight.w600,
-              color: Color(0xFF71717A),
+              color: SboxColors.slate500,
             ),
           ),
           const SizedBox(height: 4),
@@ -826,7 +827,7 @@ class _MobileAttendanceApprovalScreenState
             tr(subtitle),
             textAlign: TextAlign.center,
             style: const TextStyle(
-              color: Color(0xFFA1A1AA),
+              color: SboxColors.slate400,
             ),
           ),
         ],
@@ -838,7 +839,7 @@ class _MobileAttendanceApprovalScreenState
     final confirmed = await showDialog<bool>(
       context: context,
       builder: (context) => ScrollableAlertDialog(
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
         title: Text(tr('Xác nhận duyệt')),
         content: Text(tr('Bạn có chắc muốn duyệt chấm công của ${record.employeeName}?\n\nSau khi duyệt, dữ liệu sẽ được thêm vào chấm công chi tiết.')),
         actions: [
@@ -887,7 +888,7 @@ class _MobileAttendanceApprovalScreenState
     final result = await showDialog<String>(
       context: context,
       builder: (context) => ScrollableAlertDialog(
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
         title: Text(tr('Từ chối chấm công')),
         content: SingleChildScrollView(
           child: Column(
@@ -918,7 +919,7 @@ class _MobileAttendanceApprovalScreenState
           FilledButton(
             onPressed: () => Navigator.pop(context, reasonController.text),
             style: FilledButton.styleFrom(
-              backgroundColor: const Color(0xFFEF4444),
+              backgroundColor: SboxColors.danger,
             ),
             child: Text(tr('Từ chối')),
           ),
@@ -956,7 +957,7 @@ class _MobileAttendanceApprovalScreenState
     final confirmed = await showDialog<bool>(
       context: context,
       builder: (context) => ScrollableAlertDialog(
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
         title: Text(tr(approve ? 'Duyệt tất cả' : 'Từ chối tất cả')),
         content: Text(
           tr(approve
@@ -972,7 +973,7 @@ class _MobileAttendanceApprovalScreenState
             onPressed: () => Navigator.pop(context, true),
             style: FilledButton.styleFrom(
               backgroundColor:
-                  approve ? HrmPageChrome.primaryNavy : const Color(0xFFEF4444),
+                  approve ? HrmPageChrome.primaryNavy : SboxColors.danger,
             ),
             child: Text(tr(approve ? 'Duyệt tất cả' : 'Từ chối tất cả')),
           ),
@@ -1106,8 +1107,8 @@ class _MobileAttendanceApprovalScreenState
                     padding:
                         const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
                     decoration: BoxDecoration(
-                      border: Border.all(color: const Color(0xFFE4E4E7)),
-                      borderRadius: BorderRadius.circular(8),
+                      border: Border.all(color: SboxColors.slate200),
+                      borderRadius: BorderRadius.circular(10),
                     ),
                     child: Text(
                       tr('${DateFormat('dd/MM/yyyy').format(_summaryFrom)} – ${DateFormat('dd/MM/yyyy').format(_summaryTo)}'),
@@ -1132,10 +1133,10 @@ class _MobileAttendanceApprovalScreenState
               child: Column(
                 mainAxisSize: MainAxisSize.min,
                 children: [
-                  Icon(Icons.table_chart, size: 56, color: Color(0xFFE4E4E7)),
+                  Icon(Icons.table_chart, size: 56, color: SboxColors.slate200),
                   SizedBox(height: 12),
                   Text(tr('Chưa có dữ liệu'),
-                      style: TextStyle(color: Color(0xFF71717A))),
+                      style: TextStyle(color: SboxColors.slate500)),
                 ],
               ),
             ),
@@ -1150,7 +1151,7 @@ class _MobileAttendanceApprovalScreenState
       if (recs.isEmpty) {
         return Center(
             child: Text(tr('—'),
-                style: TextStyle(color: Color(0xFFA1A1AA), fontSize: 13)));
+                style: TextStyle(color: SboxColors.slate400, fontSize: 13)));
       }
       final hasIn = recs.any((r) => r.punchType == 0);
       final hasOut = recs.any((r) => r.punchType == 1);
@@ -1159,11 +1160,11 @@ class _MobileAttendanceApprovalScreenState
           mainAxisSize: MainAxisSize.min,
           children: [
             if (hasIn)
-              const Icon(Icons.login, size: 14, color: Color(0xFF22C55E)),
+              const Icon(Icons.login, size: 14, color: SboxColors.success),
             if (hasOut)
-              const Icon(Icons.logout, size: 14, color: Color(0xFF3B82F6)),
+              const Icon(Icons.logout, size: 14, color: SboxColors.brand500),
             if (!hasIn && !hasOut)
-              const Icon(Icons.circle, size: 8, color: Color(0xFFF59E0B)),
+              const Icon(Icons.circle, size: 8, color: SboxColors.warning),
           ],
         ),
       );
@@ -1174,7 +1175,7 @@ class _MobileAttendanceApprovalScreenState
       if (recs.isEmpty) {
         return Center(
             child: Text(tr('—'),
-                style: TextStyle(color: Color(0xFFA1A1AA), fontSize: 13)));
+                style: TextStyle(color: SboxColors.slate400, fontSize: 13)));
       }
       final ins = recs
           .where((r) => r.punchType == 0)
@@ -1192,7 +1193,7 @@ class _MobileAttendanceApprovalScreenState
             tr(ins.isNotEmpty
                 ? 'V ${DateFormat('HH:mm').format(ins.first)}'
                 : 'R ${DateFormat('HH:mm').format(outs.first)}'),
-            style: const TextStyle(fontSize: 10, color: Color(0xFFF59E0B)),
+            style: const TextStyle(fontSize: 10, color: SboxColors.warning),
             textAlign: TextAlign.center,
           ),
         );
@@ -1207,8 +1208,8 @@ class _MobileAttendanceApprovalScreenState
             fontSize: 13,
             fontWeight: FontWeight.w600,
             color: h >= 8
-                ? const Color(0xFF22C55E)
-                : (h >= 4 ? const Color(0xFFF59E0B) : const Color(0xFFEF4444)),
+                ? SboxColors.success
+                : (h >= 4 ? SboxColors.warning : SboxColors.danger),
           ),
         ),
       );
@@ -1220,12 +1221,12 @@ class _MobileAttendanceApprovalScreenState
         spacing: 12,
         children: [
           _LegendItem(
-              icon: Icons.login, color: Color(0xFF22C55E), label: 'Vào'),
+              icon: Icons.login, color: SboxColors.success, label: 'Vào'),
           _LegendItem(
-              icon: Icons.logout, color: Color(0xFF3B82F6), label: 'Ra'),
+              icon: Icons.logout, color: SboxColors.brand500, label: 'Ra'),
           _LegendItem(
               icon: Icons.circle,
-              color: Color(0xFFF59E0B),
+              color: SboxColors.warning,
               label: 'Thiếu lượt'),
         ],
       ),
@@ -1366,8 +1367,8 @@ class _MobileAttendanceApprovalScreenState
           padding: const EdgeInsets.fromLTRB(12, 8, 12, 12),
           decoration: BoxDecoration(
             color: Colors.white,
-            borderRadius: BorderRadius.circular(12),
-            border: Border.all(color: const Color(0xFFEEEEF0)),
+            borderRadius: BorderRadius.circular(14),
+            border: Border.all(color: SboxColors.divider),
             boxShadow: const [
               BoxShadow(
                 color: Color(0x0A000000),
@@ -1490,7 +1491,7 @@ class _MobileAttendanceApprovalScreenState
                       style: TextStyle(
                           fontSize: 12,
                           fontWeight: FontWeight.w600,
-                          color: Colors.grey.shade700)),
+                          color: SboxColors.slate700)),
                   const SizedBox(height: 6),
                   Wrap(
                     spacing: 6,
@@ -1649,7 +1650,7 @@ class _LegendItem extends StatelessWidget {
           Icon(icon, size: 12, color: color),
           const SizedBox(width: 3),
           Text(tr(label),
-              style: const TextStyle(fontSize: 11, color: Color(0xFF52525B))),
+              style: const TextStyle(fontSize: 11, color: SboxColors.slate600)),
         ],
       );
 }
@@ -1718,14 +1719,14 @@ class _SyncScrollTablesState extends State<_SyncScrollTables> {
         children: [
           _buildTable(
             title: 'BẢNG ĐIỂM DANH',
-            titleColor: const Color(0xFF16A34A),
+            titleColor: SboxColors.success,
             cellBuilder: widget.attendanceCellBuilder,
             scrollCtrl: _attScroll,
           ),
           const SizedBox(height: 8),
           _buildTable(
             title: 'BẢNG GIỜ LÀM',
-            titleColor: const Color(0xFF2563EB),
+            titleColor: SboxColors.brand600,
             cellBuilder: widget.hoursCellBuilder,
             scrollCtrl: _hrsScroll,
           ),
@@ -1806,18 +1807,18 @@ class _SyncScrollTablesState extends State<_SyncScrollTables> {
                       alignment: Alignment.centerLeft,
                       padding: const EdgeInsets.symmetric(horizontal: 8),
                       decoration: BoxDecoration(
-                        color: isEven ? const Color(0xFFF4F4F5) : Colors.white,
+                        color: isEven ? SboxColors.slate100 : Colors.white,
                         border: const Border(
-                          right: BorderSide(color: Color(0xFFD4D4D8)),
+                          right: BorderSide(color: SboxColors.slate300),
                           bottom:
-                              BorderSide(color: Color(0xFFE4E4E7), width: 0.5),
+                              BorderSide(color: SboxColors.slate200, width: 0.5),
                         ),
                       ),
                       child: Text(tr(e.value),
                           style: const TextStyle(
                               fontSize: 11,
                               fontWeight: FontWeight.w500,
-                              color: Color(0xFF18181B)),
+                              color: SboxColors.slate900),
                           overflow: TextOverflow.ellipsis,
                           maxLines: 2),
                     );
@@ -1847,7 +1848,7 @@ class _SyncScrollTablesState extends State<_SyncScrollTables> {
                               alignment: Alignment.center,
                               decoration: BoxDecoration(
                                 color: isToday
-                                    ? const Color(0xFF2563EB)
+                                    ? SboxColors.brand600
                                     : HrmPageChrome.primaryNavy,
                                 border: const Border(
                                     right: BorderSide(
@@ -1886,10 +1887,10 @@ class _SyncScrollTablesState extends State<_SyncScrollTables> {
                                             : Colors.white,
                                         border: const Border(
                                           right: BorderSide(
-                                              color: Color(0xFFE4E4E7),
+                                              color: SboxColors.slate200,
                                               width: 0.5),
                                           bottom: BorderSide(
-                                              color: Color(0xFFE4E4E7),
+                                              color: SboxColors.slate200,
                                               width: 0.5),
                                         ),
                                       ),

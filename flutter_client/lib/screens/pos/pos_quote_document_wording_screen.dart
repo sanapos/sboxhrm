@@ -9,6 +9,7 @@ import '../../widgets/notification_overlay.dart';
 import '../../widgets/pos/pos_commercial_a4_editor.dart';
 import '../../widgets/pos/pos_quote_care_sheet.dart';
 
+import '../../theme/sbox_tokens.dart';
 /// Sửa ngôn từ của một chứng từ đã lập. Lưu vào HTML của chứng từ đó.
 class PosQuoteDocumentWordingScreen extends StatefulWidget {
   const PosQuoteDocumentWordingScreen({
@@ -171,7 +172,7 @@ class _PosQuoteDocumentWordingScreenState
               crossAxisAlignment: CrossAxisAlignment.stretch,
               children: [
                 Material(
-                  color: const Color(0xFFFFF7ED),
+                  color: SboxColors.warningSoft,
                   child: Padding(
                     padding: const EdgeInsets.symmetric(
                       horizontal: 16,

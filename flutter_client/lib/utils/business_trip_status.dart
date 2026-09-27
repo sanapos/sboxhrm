@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 
+import '../theme/sbox_tokens.dart';
 /// Parse status từ API (int / string / enum name) — tránh cast cứng gây crash widget library.
 /// Khớp `BusinessTripCaseStatus` backend:
 /// Draft=0 … Closed=8, Cancelled=9.
@@ -67,11 +68,11 @@ Color tripStatusColor(dynamic status) {
   switch (parseTripStatus(status)) {
     case 1:
     case 5:
-      return const Color(0xFFF59E0B);
+      return SboxColors.warning;
     case 8:
-      return const Color(0xFF16A34A);
+      return SboxColors.success;
     case 9:
-      return const Color(0xFFDC2626);
+      return SboxColors.danger;
     case 2:
     case 3:
       return const Color(0xFF0EA5E9);

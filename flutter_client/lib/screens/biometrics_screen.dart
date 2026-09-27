@@ -5,6 +5,7 @@ import '../widgets/notification_overlay.dart';
 import '../widgets/hrm_page_chrome.dart';
 import 'package:zkteco_flutter_client/l10n/app_tr.dart';
 
+import '../theme/sbox_tokens.dart';
 class BiometricsScreen extends StatefulWidget {
   const BiometricsScreen({super.key});
 
@@ -108,7 +109,7 @@ class _BiometricsScreenState extends State<BiometricsScreen> {
                                 Expanded(
                                   child: Text(
                                     tr(_devices.firstWhere((d) => d['id']?.toString() == _selectedDeviceId, orElse: () => {})['deviceName'] ?? 'Thiết bị'),
-                                    style: const TextStyle(fontWeight: FontWeight.w600, fontSize: 15),
+                                    style: const TextStyle(fontWeight: FontWeight.w600, fontSize: 16),
                                     overflow: TextOverflow.ellipsis,
                                   ),
                                 ),
@@ -143,12 +144,12 @@ class _BiometricsScreenState extends State<BiometricsScreen> {
         children: [
           Padding(
             padding: const EdgeInsets.all(16),
-            child: Text(tr('Thiết bị'), style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16, color: Colors.grey[800])),
+            child: Text(tr('Thiết bị'), style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16, color: SboxColors.slate800)),
           ),
           const Divider(height: 24),
           Expanded(
             child: _devices.isEmpty
-                ? Center(child: Text(tr('Chưa có thiết bị'), style: TextStyle(color: Colors.grey[500])))
+                ? Center(child: Text(tr('Chưa có thiết bị'), style: TextStyle(color: SboxColors.slate500)))
                 : ListView.builder(
                     itemCount: _devices.length,
                     itemBuilder: (ctx, i) {
@@ -159,8 +160,8 @@ class _BiometricsScreenState extends State<BiometricsScreen> {
                         selected: isSelected,
                         selectedTileColor: HrmPageChrome.primaryNavy.withValues(alpha: 0.08),
                         leading: CircleAvatar(
-                          backgroundColor: isSelected ? HrmPageChrome.primaryNavy : Colors.grey[200],
-                          child: Icon(Icons.router, color: isSelected ? Colors.white : Colors.grey[600], size: 20),
+                          backgroundColor: isSelected ? HrmPageChrome.primaryNavy : SboxColors.slate200,
+                          child: Icon(Icons.router, color: isSelected ? Colors.white : SboxColors.slate600, size: 20),
                         ),
                         title: Text(tr(device['deviceName'] ?? device['name'] ?? 'Device'), style: TextStyle(fontWeight: isSelected ? FontWeight.w600 : FontWeight.normal)),
                         subtitle: Text(tr(device['serialNumber'] ?? ''), style: const TextStyle(fontSize: 12)),
@@ -178,9 +179,9 @@ class _BiometricsScreenState extends State<BiometricsScreen> {
     if (_selectedDeviceId == null) {
       return Center(
         child: Column(mainAxisSize: MainAxisSize.min, children: [
-          Icon(Icons.fingerprint, size: 80, color: Colors.grey[300]),
+          Icon(Icons.fingerprint, size: 80, color: SboxColors.slate300),
           const SizedBox(height: 16),
-          Text(tr('Chọn thiết bị để xem sinh trắc học'), style: TextStyle(color: Colors.grey[500], fontSize: 16)),
+          Text(tr('Chọn thiết bị để xem sinh trắc học'), style: TextStyle(color: SboxColors.slate500, fontSize: 16)),
         ]),
       );
     }
@@ -192,7 +193,7 @@ class _BiometricsScreenState extends State<BiometricsScreen> {
         children: [
           if (_summary != null) _buildSummaryCards(),
           const SizedBox(height: 20),
-          Text(tr('Danh sách sinh trắc học'), style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16, color: Colors.grey[800])),
+          Text(tr('Danh sách sinh trắc học'), style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16, color: SboxColors.slate800)),
           const SizedBox(height: 12),
           if (_biometrics.isEmpty)
             Container(
@@ -200,9 +201,9 @@ class _BiometricsScreenState extends State<BiometricsScreen> {
               padding: const EdgeInsets.all(20),
               decoration: BoxDecoration(color: Colors.white, borderRadius: BorderRadius.circular(14)),
               child: Column(children: [
-                Icon(Icons.fingerprint, size: 48, color: Colors.grey[300]),
+                Icon(Icons.fingerprint, size: 48, color: SboxColors.slate300),
                 const SizedBox(height: 12),
-                Text(tr('Chưa có dữ liệu sinh trắc học'), style: TextStyle(color: Colors.grey[500])),
+                Text(tr('Chưa có dữ liệu sinh trắc học'), style: TextStyle(color: SboxColors.slate500)),
               ]),
             )
           else if (Responsive.isMobile(context))
@@ -213,8 +214,8 @@ class _BiometricsScreenState extends State<BiometricsScreen> {
                 child: Container(
                   decoration: BoxDecoration(
                     color: Colors.white,
-                    borderRadius: BorderRadius.circular(12),
-                    border: Border.all(color: const Color(0xFFE4E4E7)),
+                    borderRadius: BorderRadius.circular(14),
+                    border: Border.all(color: SboxColors.slate200),
                     boxShadow: [
                       BoxShadow(
                         color: Colors.black.withValues(alpha: 0.05),
@@ -256,14 +257,14 @@ class _BiometricsScreenState extends State<BiometricsScreen> {
   Widget _buildMiniStat(String label, String value, IconData icon, Color color, {bool expanded = true}) {
     final content = Container(
       padding: const EdgeInsets.all(10),
-      decoration: BoxDecoration(color: Colors.white, borderRadius: BorderRadius.circular(12), border: Border.all(color: color.withValues(alpha: 0.15))),
+      decoration: BoxDecoration(color: Colors.white, borderRadius: BorderRadius.circular(14), border: Border.all(color: color.withValues(alpha: 0.15))),
       child: Row(
         children: [
-          Container(padding: const EdgeInsets.all(8), decoration: BoxDecoration(color: color.withValues(alpha: 0.1), borderRadius: BorderRadius.circular(8)), child: Icon(icon, color: color, size: 18)),
+          Container(padding: const EdgeInsets.all(8), decoration: BoxDecoration(color: color.withValues(alpha: 0.1), borderRadius: BorderRadius.circular(10)), child: Icon(icon, color: color, size: 18)),
           const SizedBox(width: 10),
           Expanded(child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
             Text(tr(value), style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold, color: color)),
-            Text(tr(label), style: TextStyle(color: Colors.grey[600], fontSize: 11), overflow: TextOverflow.ellipsis),
+            Text(tr(label), style: TextStyle(color: SboxColors.slate600, fontSize: 11), overflow: TextOverflow.ellipsis),
           ])),
         ],
       ),
@@ -281,7 +282,7 @@ class _BiometricsScreenState extends State<BiometricsScreen> {
       child: Row(children: [
         Container(
           width: 36, height: 36,
-          decoration: BoxDecoration(color: color.withValues(alpha: 0.1), borderRadius: BorderRadius.circular(8)),
+          decoration: BoxDecoration(color: color.withValues(alpha: 0.1), borderRadius: BorderRadius.circular(10)),
           child: Icon(icon, color: color, size: 18),
         ),
         const SizedBox(width: 12),
@@ -289,12 +290,12 @@ class _BiometricsScreenState extends State<BiometricsScreen> {
           child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
             Text(tr(bio['userName'] ?? bio['userId']?.toString() ?? 'N/A'), style: const TextStyle(fontWeight: FontWeight.w600, fontSize: 14), maxLines: 1, overflow: TextOverflow.ellipsis),
             const SizedBox(height: 2),
-            Text(tr('Index: ${bio['fingerIndex'] ?? bio['index'] ?? 'N/A'}'), style: const TextStyle(color: Color(0xFF71717A), fontSize: 12)),
+            Text(tr('Index: ${bio['fingerIndex'] ?? bio['index'] ?? 'N/A'}'), style: const TextStyle(color: SboxColors.slate500, fontSize: 12)),
           ]),
         ),
         Container(
           padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
-          decoration: BoxDecoration(color: color.withValues(alpha: 0.1), borderRadius: BorderRadius.circular(8)),
+          decoration: BoxDecoration(color: color.withValues(alpha: 0.1), borderRadius: BorderRadius.circular(10)),
           child: Text(tr(bioType.contains('face') ? 'M\u1eb7t' : 'V\u00e2n tay'), style: TextStyle(fontSize: 10, fontWeight: FontWeight.w600, color: color)),
         ),
       ]),
@@ -307,11 +308,11 @@ class _BiometricsScreenState extends State<BiometricsScreen> {
     final color = bioType.contains('face') ? HrmPageChrome.primaryNavy : HrmPageChrome.primaryNavy;
     return Card(
       margin: const EdgeInsets.only(bottom: 10),
-      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
       elevation: 0,
       child: Container(
         padding: const EdgeInsets.all(14),
-        decoration: BoxDecoration(color: Colors.white, borderRadius: BorderRadius.circular(12), border: Border.all(color: Colors.grey.shade200)),
+        decoration: BoxDecoration(color: Colors.white, borderRadius: BorderRadius.circular(14), border: Border.all(color: SboxColors.slate200)),
         child: Row(
           children: [
             Container(
@@ -323,7 +324,7 @@ class _BiometricsScreenState extends State<BiometricsScreen> {
             Expanded(
               child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
                 Text(tr(bio['userName'] ?? bio['userId']?.toString() ?? 'N/A'), style: const TextStyle(fontWeight: FontWeight.w600)),
-                Text(tr('Finger Index: ${bio['fingerIndex'] ?? bio['index'] ?? 'N/A'}'), style: TextStyle(color: Colors.grey[600], fontSize: 13)),
+                Text(tr('Finger Index: ${bio['fingerIndex'] ?? bio['index'] ?? 'N/A'}'), style: TextStyle(color: SboxColors.slate600, fontSize: 13)),
               ]),
             ),
             Chip(

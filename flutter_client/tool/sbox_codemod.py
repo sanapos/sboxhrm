@@ -83,7 +83,7 @@ def transform(src):
         counts['color'] += 1
         return f'SboxColors.{tok}'
 
-    s = re.sub(r'(const\s+)?Color\(0x[fF]{2}([0-9A-Fa-f]{6})\)', hex_sub, src)
+    s = re.sub(r'(?<![A-Za-z0-9_])(const\s+)?Color\(0x[fF]{2}([0-9A-Fa-f]{6})\)', hex_sub, src)
 
     def mat_sub(fam, tokfam):
         nonlocal s
@@ -92,23 +92,23 @@ def transform(src):
             counts['material'] += 1
             return f'SboxColors.{tokfam}{SHADE[m.group(1)]}'
 
-        s = re.sub(rf'Colors\.{fam}\.shade(50|100|200|300|400|500|600|700|800|900)\b', shade, s)
-        s = re.sub(rf'Colors\.{fam}\[(50|100|200|300|400|500|600|700|800|900)\]!?', shade, s)
+        s = re.sub(rf'(?<![A-Za-z0-9_])Colors\.{fam}\.shade(50|100|200|300|400|500|600|700|800|900)\b', shade, s)
+        s = re.sub(rf'(?<![A-Za-z0-9_])Colors\.{fam}\[(50|100|200|300|400|500|600|700|800|900)\]!?', shade, s)
 
         def plain(m):
             counts['material'] += 1
             return f'SboxColors.{tokfam}500'
 
-        s = re.sub(rf'Colors\.{fam}(?![A-Za-z0-9_\[])(?!\.shade)', plain, s)
+        s = re.sub(rf'(?<![A-Za-z0-9_])Colors\.{fam}(?![A-Za-z0-9_\[])(?!\.shade)', plain, s)
 
     mat_sub('grey', 'slate')
     mat_sub('blue', 'brand')
 
     for a, tok in (('black87', 'text'), ('black54', 'textSecondary'), ('black45', 'textMuted'), ('black38', 'textMuted')):
-        n = len(re.findall(rf'Colors\.{a}\b', s))
+        n = len(re.findall(rf'(?<![A-Za-z0-9_])Colors\.{a}\b', s))
         if n:
             counts['material'] += n
-            s = re.sub(rf'Colors\.{a}\b', f'SboxColors.{tok}', s)
+            s = re.sub(rf'(?<![A-Za-z0-9_])Colors\.{a}\b', f'SboxColors.{tok}', s)
 
     def fs(m):
         v = FONT_SIZE.get(m.group(1))

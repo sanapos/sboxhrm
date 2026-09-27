@@ -13,6 +13,7 @@ import '../services/api_service.dart';
 import '../widgets/pos/pos_hub_scope.dart';
 import '../widgets/pos/pos_theme.dart';
 
+import '../theme/sbox_tokens.dart';
 /// Mở phiếu gốc / danh sách tổng hợp từ báo cáo POS (A6 + A7).
 class PosReportOpen {
   static final _api = ApiService();
@@ -216,7 +217,7 @@ class _CashTxSheet extends StatelessWidget {
               tr(income ? 'Phiếu thu' : 'Phiếu chi'),
               style: const TextStyle(
                 fontSize: 12,
-                color: Color(0xFF586064),
+                color: SboxColors.slate600,
                 fontWeight: FontWeight.w500,
               ),
             ),
@@ -235,7 +236,7 @@ class _CashTxSheet extends StatelessWidget {
                 fontSize: 18,
                 fontWeight: FontWeight.w700,
                 color: income
-                    ? const Color(0xFF166534)
+                    ? SboxColors.successText
                     : const Color(0xFFB42318),
               ),
             ),

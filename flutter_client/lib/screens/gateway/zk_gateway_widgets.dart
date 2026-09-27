@@ -4,6 +4,7 @@ import '../../l10n/app_tr.dart';
 import '../../models/zk_gateway.dart';
 import '../../widgets/hrm_page_chrome.dart';
 
+import '../../theme/sbox_tokens.dart';
 /// Cột vạch tín hiệu WiFi 1..4 vạch.
 class WifiSignalBars extends StatelessWidget {
   const WifiSignalBars({super.key, required this.bars, this.color});
@@ -13,7 +14,7 @@ class WifiSignalBars extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final active = color ?? const Color(0xFF16A34A);
+    final active = color ?? SboxColors.success;
     return SizedBox(
       width: 22,
       height: 18,
@@ -26,7 +27,7 @@ class WifiSignalBars extends StatelessWidget {
             height: 5.0 + i * 3.5,
             margin: EdgeInsets.only(right: i == 3 ? 0 : 2),
             decoration: BoxDecoration(
-              color: on ? active : const Color(0xFFCBD5E1),
+              color: on ? active : SboxColors.slate300,
               borderRadius: BorderRadius.circular(2),
             ),
           );
@@ -51,7 +52,7 @@ class GatewayStatusChip extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final color = ok ? (okColor ?? const Color(0xFF16A34A)) : const Color(0xFFDC2626);
+    final color = ok ? (okColor ?? SboxColors.success) : SboxColors.danger;
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 9, vertical: 5),
       decoration: BoxDecoration(
@@ -71,7 +72,7 @@ class GatewayStatusChip extends StatelessWidget {
           Text(
             tr(label),
             style: TextStyle(
-              fontSize: 11.5,
+              fontSize: 12,
               fontWeight: FontWeight.w600,
               color: color,
             ),
@@ -94,9 +95,9 @@ class GatewayInfoTile extends StatelessWidget {
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
       decoration: BoxDecoration(
-        color: const Color(0xFFF8FAFC),
+        color: SboxColors.slate50,
         borderRadius: BorderRadius.circular(10),
-        border: Border.all(color: const Color(0xFFE2E8F0)),
+        border: Border.all(color: SboxColors.slate200),
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -113,7 +114,7 @@ class GatewayInfoTile extends StatelessWidget {
           Text(
             value,
             style: const TextStyle(
-              fontSize: 13.5,
+              fontSize: 14,
               fontWeight: FontWeight.w700,
               color: HrmPageChrome.textDark,
             ),
@@ -178,7 +179,7 @@ class GatewayCard extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final healthy = info.isHealthy;
-    final accent = healthy ? const Color(0xFF16A34A) : const Color(0xFFF59E0B);
+    final accent = healthy ? SboxColors.success : SboxColors.warning;
 
     return InkWell(
       onTap: onTap,
@@ -188,7 +189,7 @@ class GatewayCard extends StatelessWidget {
         decoration: BoxDecoration(
           color: Colors.white,
           borderRadius: BorderRadius.circular(14),
-          border: Border.all(color: const Color(0xFFE2E8F0)),
+          border: Border.all(color: SboxColors.slate200),
           boxShadow: [
             BoxShadow(
               color: Colors.black.withValues(alpha: 0.04),
@@ -221,7 +222,7 @@ class GatewayCard extends StatelessWidget {
                         maxLines: 1,
                         overflow: TextOverflow.ellipsis,
                         style: const TextStyle(
-                          fontSize: 15,
+                          fontSize: 16,
                           fontWeight: FontWeight.w700,
                           color: HrmPageChrome.textDark,
                         ),
@@ -243,7 +244,7 @@ class GatewayCard extends StatelessWidget {
                     ],
                   ),
                 ),
-                const Icon(Icons.chevron_right, color: Color(0xFF94A3B8)),
+                const Icon(Icons.chevron_right, color: SboxColors.slate400),
               ],
             ),
             const SizedBox(height: 12),

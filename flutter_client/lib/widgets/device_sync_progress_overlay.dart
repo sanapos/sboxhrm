@@ -7,6 +7,7 @@ import 'package:zkteco_flutter_client/l10n/app_tr.dart';
 
 import './pos/pos_theme.dart';
 import '../utils/pos_kds_alert.dart';
+import '../theme/sbox_tokens.dart';
 export 'device_sync_types.dart';
 export 'device_sync_progress_dialog.dart';
 
@@ -699,7 +700,7 @@ class _SyncJobCard extends StatelessWidget {
       margin: const EdgeInsets.only(top: 8),
       decoration: BoxDecoration(
         color: Colors.white,
-        borderRadius: BorderRadius.circular(12),
+        borderRadius: BorderRadius.circular(14),
         boxShadow: [
           BoxShadow(
             color: Colors.black.withValues(alpha: 0.12),
@@ -738,7 +739,7 @@ class _SyncJobCard extends StatelessWidget {
                             tr(job.currentDevice.deviceName),
                             style: TextStyle(
                               fontSize: 11,
-                              color: Colors.grey.shade600,
+                              color: SboxColors.slate600,
                             ),
                             overflow: TextOverflow.ellipsis,
                           )
@@ -746,7 +747,7 @@ class _SyncJobCard extends StatelessWidget {
                           Text(tr('Máy ${job.deviceIndex + 1}/${job.devices.length}: ${job.currentDevice.deviceName}'),
                             style: TextStyle(
                               fontSize: 11,
-                              color: Colors.grey.shade600,
+                              color: SboxColors.slate600,
                             ),
                             overflow: TextOverflow.ellipsis,
                           ),
@@ -783,7 +784,7 @@ class _SyncJobCard extends StatelessWidget {
                     ? (job.progress > 0 ? job.progress : null)
                     : 1,
                 minHeight: 4,
-                backgroundColor: Colors.grey.shade200,
+                backgroundColor: SboxColors.slate200,
                 color: statusColor,
               ),
             ),
@@ -795,7 +796,7 @@ class _SyncJobCard extends StatelessWidget {
                 tr(job.statusMessage),
                 style: TextStyle(
                   fontSize: 11,
-                  color: Colors.grey.shade800,
+                  color: SboxColors.slate800,
                   height: 1.3,
                 ),
               ),
@@ -835,14 +836,14 @@ class _SyncJobCard extends StatelessWidget {
 
   Widget _chip(String label, String value,
       {bool green = false, bool blue = false, bool orange = false}) {
-    Color bg = Colors.grey.shade100;
-    Color fg = Colors.grey.shade700;
+    Color bg = SboxColors.slate100;
+    Color fg = SboxColors.slate700;
     if (green) {
       bg = Colors.green.withValues(alpha: 0.12);
       fg = Colors.green.shade800;
     } else if (blue) {
-      bg = Colors.blue.withValues(alpha: 0.12);
-      fg = Colors.blue.shade800;
+      bg = SboxColors.brand500.withValues(alpha: 0.12);
+      fg = SboxColors.brand800;
     } else if (orange) {
       bg = Colors.orange.withValues(alpha: 0.15);
       fg = Colors.orange.shade900;

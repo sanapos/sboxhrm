@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:zkteco_flutter_client/l10n/app_tr.dart';
 
+import '../theme/sbox_tokens.dart';
 /// Chuẩn hóa trạng thái phiếu POS từ API (enum string, số, hoặc lowercase).
 String normalizePosDocStatus(dynamic raw, {String fallback = 'Draft'}) {
   if (raw == null) return fallback;
@@ -42,7 +43,7 @@ String posDocStatusLabel(String status, {String completedLabel = 'Hoàn thành'}
 Color posDocStatusColor(String status) => switch (status) {
       'Completed' => Colors.green,
       'Cancelled' => Colors.red,
-      'InProgress' => Colors.blue,
+      'InProgress' => SboxColors.brand500,
       _ => Colors.orange,
     };
 
@@ -55,7 +56,7 @@ TextStyle posDocCancelledTextStyle({double fontSize = 13}) => TextStyle(
 
 TextStyle posDocNoTextStyle(
   String status, {
-  Color activeColor = const Color(0xFF2563EB),
+  Color activeColor = SboxColors.brand600,
   double fontSize = 13,
   FontWeight fontWeight = FontWeight.w600,
 }) {
@@ -78,8 +79,8 @@ TextStyle posDocNoTextStyle(
 }
 
 Color? posDocRowBackground(String status) => switch (status) {
-      'Cancelled' => const Color(0xFFF8FAFC),
-      'Draft' || 'InProgress' => const Color(0xFFFFF7ED),
+      'Cancelled' => SboxColors.slate50,
+      'Draft' || 'InProgress' => SboxColors.warningSoft,
       _ => null,
     };
 
@@ -117,19 +118,19 @@ Widget? posDocStatusBanner(String status, {String completedLabel = 'Hoàn thành
       width: double.infinity,
       padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
       decoration: BoxDecoration(
-        color: Colors.blue.shade50,
-        border: Border(bottom: BorderSide(color: Colors.blue.shade200)),
+        color: SboxColors.brand50,
+        border: Border(bottom: BorderSide(color: SboxColors.brand200)),
       ),
       child: Row(
         children: [
-          Icon(Icons.fact_check_outlined, size: 18, color: Colors.blue.shade800),
+          Icon(Icons.fact_check_outlined, size: 18, color: SboxColors.brand800),
           const SizedBox(width: 8),
           Expanded(
             child: Text(tr('Đang kiểm kê — chưa cân bằng kho'),
               style: TextStyle(
                 fontSize: 12,
                 fontWeight: FontWeight.w600,
-                color: Colors.blue.shade900,
+                color: SboxColors.brand900,
               ),
             ),
           ),
@@ -175,7 +176,7 @@ Widget posDocStatusChip(String status, {String completedLabel = 'Hoàn thành'})
     padding: EdgeInsets.fromLTRB(isCancelled ? 6 : 8, 2, 8, 2),
     decoration: BoxDecoration(
       color: color.withValues(alpha: 0.12),
-      borderRadius: BorderRadius.circular(12),
+      borderRadius: BorderRadius.circular(14),
       border: isCancelled
           ? Border.all(color: Colors.red.shade200, width: 1)
           : isDraft

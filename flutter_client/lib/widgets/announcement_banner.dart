@@ -8,6 +8,7 @@ import '../utils/vietnamese_font.dart';
 import '../utils/pos_kds_alert.dart';
 import 'package:zkteco_flutter_client/l10n/app_tr.dart';
 
+import '../theme/sbox_tokens.dart';
 /// Top banner that polls active SuperAdmin announcements and lets the user
 /// click action / acknowledge / dismiss.  Designed to be placed at the top
 /// of the layout (above body content).
@@ -85,9 +86,9 @@ class _AnnouncementBannerState extends State<AnnouncementBanner> {
   }
 
   Color _color(int severity) => switch (severity) {
-        3 => const Color(0xFFDC2626), // critical
+        3 => SboxColors.danger, // critical
         2 => const Color(0xFFEA580C), // warning
-        1 => const Color(0xFF059669), // success
+        1 => SboxColors.success, // success
         _ => const Color(0xFF0891B2), // info
       };
 

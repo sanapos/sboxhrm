@@ -7,6 +7,7 @@ import '../../widgets/pos/pos_mobile_widgets.dart';
 import '../../widgets/pos/pos_theme.dart';
 import 'package:zkteco_flutter_client/l10n/app_tr.dart';
 
+import '../../theme/sbox_tokens.dart';
 class PosWarrantyLookupScreen extends StatefulWidget {
   const PosWarrantyLookupScreen({super.key});
 
@@ -183,13 +184,13 @@ class _PosWarrantyLookupScreenState extends State<PosWarrantyLookupScreen> {
     final now = DateTime.now();
     Color? statusColor;
     if (status != 'Active') {
-      statusColor = Colors.grey;
+      statusColor = SboxColors.slate500;
     } else if (expiry != null && expiry.isBefore(now)) {
-      statusColor = const Color(0xFFEF4444);
+      statusColor = SboxColors.danger;
     } else if (expiry != null && expiry.difference(now).inDays <= 30) {
-      statusColor = const Color(0xFFF59E0B);
+      statusColor = SboxColors.warning;
     } else {
-      statusColor = const Color(0xFF10B981);
+      statusColor = SboxColors.success;
     }
 
     return Container(
@@ -204,14 +205,14 @@ class _PosWarrantyLookupScreenState extends State<PosWarrantyLookupScreen> {
               Expanded(
                 child: Text(
                   tr((r['serialNumber'] ?? r['SerialNumber'] ?? '').toString()),
-                  style: const TextStyle(fontWeight: FontWeight.w700, fontSize: 15),
+                  style: const TextStyle(fontWeight: FontWeight.w700, fontSize: 16),
                 ),
               ),
               Container(
                 padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
                 decoration: BoxDecoration(
                   color: statusColor.withValues(alpha: 0.12),
-                  borderRadius: BorderRadius.circular(12),
+                  borderRadius: BorderRadius.circular(14),
                 ),
                 child: Text(
                   tr(_statusLabel(status)),

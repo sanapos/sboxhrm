@@ -10,6 +10,7 @@ import '../widgets/notification_overlay.dart';
 import '../widgets/pos/pos_theme.dart';
 import 'package:zkteco_flutter_client/l10n/app_tr.dart';
 
+import '../theme/sbox_tokens.dart';
 /// Nhả slot thiết bị đăng nhập (web / app / POS) theo hạn mức gói.
 class StoreAccessDevicesScreen extends StatefulWidget {
   const StoreAccessDevicesScreen({super.key});
@@ -191,19 +192,19 @@ class _StoreAccessDevicesScreenState extends State<StoreAccessDevicesScreen> {
           Text(
             tr('Mỗi điện thoại, trình duyệt hoặc máy POS đăng nhập chiếm 1 slot. '
                 'Nhả máy không dùng để máy mới vào được khi gói có hạn mức.'),
-            style: TextStyle(fontSize: 13, color: Colors.grey.shade700),
+            style: TextStyle(fontSize: 13, color: SboxColors.slate700),
           ),
           const SizedBox(height: 10),
           Material(
-            color: Colors.blue.shade50,
-            borderRadius: BorderRadius.circular(8),
+            color: SboxColors.brand50,
+            borderRadius: BorderRadius.circular(10),
             child: Padding(
               padding: const EdgeInsets.all(12),
               child: Text(
                 tr(quota),
                 style: TextStyle(
                   fontWeight: FontWeight.w600,
-                  color: Colors.blue.shade900,
+                  color: SboxColors.brand900,
                 ),
               ),
             ),
@@ -214,7 +215,7 @@ class _StoreAccessDevicesScreenState extends State<StoreAccessDevicesScreen> {
               padding: const EdgeInsets.only(top: 24),
               child: Text(
                 tr('Chưa ghi nhận thiết bị đăng nhập.'),
-                style: TextStyle(color: Colors.grey.shade600),
+                style: TextStyle(color: SboxColors.slate600),
               ),
             )
           else

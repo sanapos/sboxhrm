@@ -6,6 +6,7 @@ import '../../widgets/notification_overlay.dart';
 import 'system_admin_helpers.dart';
 import 'package:zkteco_flutter_client/l10n/app_tr.dart';
 
+import '../../theme/sbox_tokens.dart';
 class KeyPromotionsTab extends StatefulWidget {
   const KeyPromotionsTab({super.key});
 
@@ -75,8 +76,8 @@ class KeyPromotionsTabState extends State<KeyPromotionsTab> {
                       child: Container(
                         decoration: BoxDecoration(
                           color: Colors.white,
-                          borderRadius: BorderRadius.circular(12),
-                          border: Border.all(color: const Color(0xFFE4E4E7)),
+                          borderRadius: BorderRadius.circular(14),
+                          border: Border.all(color: SboxColors.slate200),
                           boxShadow: [BoxShadow(color: Colors.black.withValues(alpha: 0.05), blurRadius: 6, offset: const Offset(0, 2))],
                         ),
                         child: _buildPromoDeckItem(_promotions[i]),
@@ -136,7 +137,7 @@ class KeyPromotionsTabState extends State<KeyPromotionsTab> {
         child: Row(children: [
           Container(
             width: 36, height: 36,
-            decoration: BoxDecoration(color: Colors.amber.withValues(alpha: 0.1), borderRadius: BorderRadius.circular(8)),
+            decoration: BoxDecoration(color: Colors.amber.withValues(alpha: 0.1), borderRadius: BorderRadius.circular(10)),
             child: const Icon(Icons.card_giftcard, color: Colors.amber, size: 18),
           ),
           const SizedBox(width: 12),
@@ -145,13 +146,13 @@ class KeyPromotionsTabState extends State<KeyPromotionsTab> {
               Text(tr(name), style: const TextStyle(fontWeight: FontWeight.w600, fontSize: 14), maxLines: 1, overflow: TextOverflow.ellipsis),
               const SizedBox(height: 2),
               Text(tr([pkg, if (endDate != null) '\u0110\u1ebfn ${endDate.day}/${endDate.month}/${endDate.year}'].join(' \u00b7 ')),
-                style: const TextStyle(color: Color(0xFF71717A), fontSize: 12), maxLines: 1, overflow: TextOverflow.ellipsis),
+                style: const TextStyle(color: SboxColors.slate500, fontSize: 12), maxLines: 1, overflow: TextOverflow.ellipsis),
             ]),
           ),
           Container(
             padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
-            decoration: BoxDecoration(color: isExpired ? Colors.red.withValues(alpha: 0.1) : isActive ? Colors.green.withValues(alpha: 0.1) : Colors.grey.withValues(alpha: 0.1), borderRadius: BorderRadius.circular(8)),
-            child: Text(tr(isExpired ? 'H\u1ebft h\u1ea1n' : isActive ? 'H\u0110' : 'T\u1eaft'), style: TextStyle(fontSize: 10, fontWeight: FontWeight.w600, color: isExpired ? Colors.red : isActive ? Colors.green : Colors.grey)),
+            decoration: BoxDecoration(color: isExpired ? Colors.red.withValues(alpha: 0.1) : isActive ? Colors.green.withValues(alpha: 0.1) : SboxColors.slate500.withValues(alpha: 0.1), borderRadius: BorderRadius.circular(10)),
+            child: Text(tr(isExpired ? 'H\u1ebft h\u1ea1n' : isActive ? 'H\u0110' : 'T\u1eaft'), style: TextStyle(fontSize: 10, fontWeight: FontWeight.w600, color: isExpired ? Colors.red : isActive ? Colors.green : SboxColors.slate500)),
           ),
         ]),
       ),
@@ -165,7 +166,7 @@ class KeyPromotionsTabState extends State<KeyPromotionsTab> {
 
     return Card(
       margin: const EdgeInsets.only(bottom: 12),
-      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
       child: Padding(
         padding: const EdgeInsets.all(16),
         child: Column(
@@ -177,7 +178,7 @@ class KeyPromotionsTabState extends State<KeyPromotionsTab> {
                   padding: const EdgeInsets.all(8),
                   decoration: BoxDecoration(
                     color: AdminHelpers.primary.withValues(alpha: 0.1),
-                    borderRadius: BorderRadius.circular(8),
+                    borderRadius: BorderRadius.circular(10),
                   ),
                   child: const Icon(Icons.card_giftcard,
                       color: AdminHelpers.primary, size: 20),
@@ -189,11 +190,11 @@ class KeyPromotionsTabState extends State<KeyPromotionsTab> {
                     children: [
                       Text(tr(promo['name'] ?? ''),
                           style: const TextStyle(
-                              fontWeight: FontWeight.bold, fontSize: 15)),
+                              fontWeight: FontWeight.bold, fontSize: 16)),
                       const SizedBox(height: 2),
                       Text(tr('${tr('Gói: ')}${promo['servicePackageName'] ?? 'N/A'}'),
                           style: TextStyle(
-                              color: Colors.grey[600], fontSize: 13)),
+                              color: SboxColors.slate600, fontSize: 13)),
                     ],
                   ),
                 ),
@@ -205,8 +206,8 @@ class KeyPromotionsTabState extends State<KeyPromotionsTab> {
                         ? Colors.red.withValues(alpha: 0.1)
                         : isActive
                             ? Colors.green.withValues(alpha: 0.1)
-                            : Colors.grey.withValues(alpha: 0.1),
-                    borderRadius: BorderRadius.circular(12),
+                            : SboxColors.slate500.withValues(alpha: 0.1),
+                    borderRadius: BorderRadius.circular(14),
                   ),
                   child: Text(
                     tr(isExpired ? 'Hết hạn' : isActive ? 'Hoạt động' : 'Tắt'),
@@ -215,7 +216,7 @@ class KeyPromotionsTabState extends State<KeyPromotionsTab> {
                           ? Colors.red
                           : isActive
                               ? Colors.green
-                              : Colors.grey,
+                              : SboxColors.slate500,
                       fontWeight: FontWeight.w600,
                       fontSize: 12,
                     ),
@@ -266,9 +267,9 @@ class KeyPromotionsTabState extends State<KeyPromotionsTab> {
     return Row(
       mainAxisSize: MainAxisSize.min,
       children: [
-        Icon(icon, size: 14, color: Colors.grey[600]),
+        Icon(icon, size: 14, color: SboxColors.slate600),
         const SizedBox(width: 4),
-        Text(tr('$label: '), style: TextStyle(color: Colors.grey[600], fontSize: 13)),
+        Text(tr('$label: '), style: TextStyle(color: SboxColors.slate600, fontSize: 13)),
         Text(tr(value), style: const TextStyle(fontWeight: FontWeight.w600, fontSize: 13)),
       ],
     );
@@ -281,17 +282,17 @@ class KeyPromotionsTabState extends State<KeyPromotionsTab> {
       decoration: BoxDecoration(
         color: d > 0
             ? AdminHelpers.primary.withValues(alpha: 0.08)
-            : Colors.grey.withValues(alpha: 0.08),
-        borderRadius: BorderRadius.circular(8),
+            : SboxColors.slate500.withValues(alpha: 0.08),
+        borderRadius: BorderRadius.circular(10),
         border: Border.all(
           color: d > 0
               ? AdminHelpers.primary.withValues(alpha: 0.3)
-              : Colors.grey.withValues(alpha: 0.3),
+              : SboxColors.slate500.withValues(alpha: 0.3),
         ),
       ),
       child: Text(tr('$label: +$d ngày'),
           style: TextStyle(
-            color: d > 0 ? AdminHelpers.primary : Colors.grey,
+            color: d > 0 ? AdminHelpers.primary : SboxColors.slate500,
             fontWeight: FontWeight.w600,
             fontSize: 13,
           )),

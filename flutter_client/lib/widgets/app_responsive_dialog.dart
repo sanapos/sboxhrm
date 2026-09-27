@@ -3,6 +3,7 @@ import '../utils/responsive_helper.dart';
 import 'app_button.dart';
 import 'package:zkteco_flutter_client/l10n/app_tr.dart';
 
+import '../theme/sbox_tokens.dart';
 /// Helper mở dialog responsive: full-screen trên mobile, dialog trên desktop.
 ///
 /// Usage:
@@ -193,7 +194,7 @@ class AppResponsiveDialog {
         actions: actions != null ? [actions] : null,
         actionsPadding: const EdgeInsets.fromLTRB(24, 0, 24, 16),
         contentPadding: const EdgeInsets.fromLTRB(24, 16, 24, 8),
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
       ),
     );
   }
@@ -209,7 +210,7 @@ class AppResponsiveDialog {
       context: context,
       title: 'Xác nhận xóa',
       icon: Icons.warning_amber_rounded,
-      iconColor: const Color(0xFFEF4444),
+      iconColor: SboxColors.danger,
       maxWidth: 420,
       scrollable: false,
       child: Column(
@@ -223,19 +224,19 @@ class AppResponsiveDialog {
           Container(
             padding: const EdgeInsets.all(12),
             decoration: BoxDecoration(
-              color: const Color(0xFFFEF2F2),
-              borderRadius: BorderRadius.circular(8),
+              color: SboxColors.dangerSoft,
+              borderRadius: BorderRadius.circular(10),
               border: Border.all(color: const Color(0xFFFECACA)),
             ),
             child: Row(
               children: [
-                Icon(Icons.info_outline, size: 16, color: Color(0xFFEF4444)),
+                Icon(Icons.info_outline, size: 16, color: SboxColors.danger),
                 SizedBox(width: 8),
                 Expanded(
                   child: Text(tr('Hành động này không thể hoàn tác.'),
                     style: TextStyle(
                       fontSize: 13,
-                      color: Color(0xFFDC2626),
+                      color: SboxColors.danger,
                     ),
                   ),
                 ),

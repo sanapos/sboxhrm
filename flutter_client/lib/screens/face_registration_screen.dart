@@ -7,6 +7,7 @@ import '../widgets/notification_overlay.dart';
 import '../widgets/hrm_page_chrome.dart';
 import 'package:zkteco_flutter_client/l10n/app_tr.dart';
 
+import '../theme/sbox_tokens.dart';
 class FaceRegistrationScreen extends StatefulWidget {
   final String? employeeId;
   final String? employeeName;
@@ -37,14 +38,14 @@ class _FaceRegistrationScreenState extends State<FaceRegistrationScreen> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: const Color(0xFFFAFAFA),
+      backgroundColor: SboxColors.slate50,
       appBar: AppBar(
         backgroundColor: Colors.white,
         elevation: 0,
         automaticallyImplyLeading: false,
         title: Text(tr('Đăng ký khuôn mặt'),
           style: TextStyle(
-            color: Color(0xFF18181B),
+            color: SboxColors.slate900,
             fontWeight: FontWeight.bold,
           ),
         ),
@@ -86,13 +87,13 @@ class _FaceRegistrationScreenState extends State<FaceRegistrationScreen> {
                         style: const TextStyle(
                           fontWeight: FontWeight.bold,
                           fontSize: 16,
-                          color: Color(0xFF18181B),
+                          color: SboxColors.slate900,
                         ),
                       ),
                       if (widget.employeeId != null)
                         Text(tr('Mã NV: ${widget.employeeId}'),
                           style: const TextStyle(
-                            color: Color(0xFF71717A),
+                            color: SboxColors.slate500,
                             fontSize: 13,
                           ),
                         ),
@@ -119,7 +120,7 @@ class _FaceRegistrationScreenState extends State<FaceRegistrationScreen> {
                             ? HrmPageChrome.primaryNavy
                             : isCurrent
                                 ? HrmPageChrome.primaryNavy
-                                : const Color(0xFFE4E4E7),
+                                : SboxColors.slate200,
                         shape: BoxShape.circle,
                       ),
                       child: Center(
@@ -128,7 +129,7 @@ class _FaceRegistrationScreenState extends State<FaceRegistrationScreen> {
                             : Text(
                                 tr('${index + 1}'),
                                 style: TextStyle(
-                                  color: isCurrent ? Colors.white : const Color(0xFF71717A),
+                                  color: isCurrent ? Colors.white : SboxColors.slate500,
                                   fontWeight: FontWeight.bold,
                                 ),
                               ),
@@ -140,7 +141,7 @@ class _FaceRegistrationScreenState extends State<FaceRegistrationScreen> {
                           height: 3,
                           color: isCompleted
                               ? HrmPageChrome.primaryNavy
-                              : const Color(0xFFE4E4E7),
+                              : SboxColors.slate200,
                         ),
                       ),
                   ],
@@ -154,7 +155,7 @@ class _FaceRegistrationScreenState extends State<FaceRegistrationScreen> {
                 ? 'Hoàn tất - Đã chụp $_requiredImages ảnh'
                 : 'Chưa chụp - Nhấn "Bắt đầu chụp" để bắt đầu'),
             style: const TextStyle(
-              color: Color(0xFF71717A),
+              color: SboxColors.slate500,
               fontSize: 14,
             ),
           ),
@@ -187,14 +188,14 @@ class _FaceRegistrationScreenState extends State<FaceRegistrationScreen> {
               style: TextStyle(
                 fontSize: 22,
                 fontWeight: FontWeight.bold,
-                color: Color(0xFF18181B),
+                color: SboxColors.slate900,
               ),
             ),
             const SizedBox(height: 12),
             Text(tr('Hệ thống sẽ chụp 5 góc khuôn mặt:\nThẳng, Trái, Phải, Trên, Dưới'),
               textAlign: TextAlign.center,
               style: TextStyle(
-                color: Color(0xFF71717A),
+                color: SboxColors.slate500,
                 fontSize: 14,
                 height: 1.5,
               ),
@@ -206,7 +207,7 @@ class _FaceRegistrationScreenState extends State<FaceRegistrationScreen> {
                 onPressed: _openFaceCapture,
                 icon: const Icon(Icons.camera_alt),
                 label: Text(tr('Bắt đầu chụp'),
-                  style: TextStyle(fontSize: 17, fontWeight: FontWeight.w600),
+                  style: TextStyle(fontSize: 18, fontWeight: FontWeight.w600),
                 ),
                 style: ElevatedButton.styleFrom(
                   backgroundColor: HrmPageChrome.primaryNavy,
@@ -264,13 +265,13 @@ class _FaceRegistrationScreenState extends State<FaceRegistrationScreen> {
             style: TextStyle(
               fontSize: 24,
               fontWeight: FontWeight.bold,
-              color: Color(0xFF18181B),
+              color: SboxColors.slate900,
             ),
           ),
           const SizedBox(height: 8),
           Text(tr('Nhấn "Đăng ký" để hoàn tất quá trình'),
             style: TextStyle(
-              color: Color(0xFF71717A),
+              color: SboxColors.slate500,
             ),
           ),
           const SizedBox(height: 32),
@@ -286,7 +287,7 @@ class _FaceRegistrationScreenState extends State<FaceRegistrationScreen> {
                 margin: const EdgeInsets.symmetric(horizontal: 4),
                 decoration: BoxDecoration(
                   color: Colors.white,
-                  borderRadius: BorderRadius.circular(12),
+                  borderRadius: BorderRadius.circular(14),
                   border: Border.all(color: HrmPageChrome.primaryNavy, width: 2),
                   boxShadow: [
                     BoxShadow(
@@ -301,7 +302,7 @@ class _FaceRegistrationScreenState extends State<FaceRegistrationScreen> {
                   children: [
                     const Icon(
                       Icons.check_circle,
-                      color: Color(0xFF22C55E),
+                      color: SboxColors.success,
                       size: 24,
                     ),
                     const SizedBox(height: 4),
@@ -309,7 +310,7 @@ class _FaceRegistrationScreenState extends State<FaceRegistrationScreen> {
                       tr(label),
                       style: const TextStyle(
                         fontSize: 10,
-                        color: Color(0xFF71717A),
+                        color: SboxColors.slate500,
                       ),
                     ),
                   ],
@@ -326,11 +327,11 @@ class _FaceRegistrationScreenState extends State<FaceRegistrationScreen> {
                   icon: const Icon(Icons.refresh),
                   label: Text(tr('Chụp lại')),
                   style: OutlinedButton.styleFrom(
-                    foregroundColor: const Color(0xFF71717A),
+                    foregroundColor: SboxColors.slate500,
                     padding: const EdgeInsets.symmetric(vertical: 16),
-                    side: const BorderSide(color: Color(0xFFE4E4E7)),
+                    side: const BorderSide(color: SboxColors.slate200),
                     shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(12),
+                      borderRadius: BorderRadius.circular(14),
                     ),
                   ),
                 ),
@@ -356,7 +357,7 @@ class _FaceRegistrationScreenState extends State<FaceRegistrationScreen> {
                     foregroundColor: Colors.white,
                     padding: const EdgeInsets.symmetric(vertical: 16),
                     shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(12),
+                      borderRadius: BorderRadius.circular(14),
                     ),
                     elevation: 0,
                   ),

@@ -16,6 +16,7 @@ import '../widgets/pos/pos_theme.dart';
 import '../widgets/notification_overlay.dart';
 import 'package:zkteco_flutter_client/l10n/app_tr.dart';
 
+import '../theme/sbox_tokens.dart';
 class TaxSettingsScreen extends StatefulWidget {
   const TaxSettingsScreen({super.key});
 
@@ -207,7 +208,7 @@ class _TaxSettingsScreenState extends State<TaxSettingsScreen> {
         ),
         style: FilledButton.styleFrom(
           backgroundColor: HrmPageChrome.primaryNavy,
-          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
         ),
       ),
     );
@@ -242,11 +243,11 @@ class _TaxSettingsScreenState extends State<TaxSettingsScreen> {
                           padding: const EdgeInsets.all(8),
                           decoration: BoxDecoration(
                             color:
-                                const Color(0xFF71717A).withValues(alpha: 0.1),
-                            borderRadius: BorderRadius.circular(8),
+                                SboxColors.slate500.withValues(alpha: 0.1),
+                            borderRadius: BorderRadius.circular(10),
                           ),
                           child: const Icon(Icons.receipt_long,
-                              color: Color(0xFF71717A), size: 20),
+                              color: SboxColors.slate500, size: 20),
                         ),
                         const SizedBox(width: 12),
                         Expanded(
@@ -264,7 +265,7 @@ class _TaxSettingsScreenState extends State<TaxSettingsScreen> {
                                 maxLines: 2,
                                 overflow: TextOverflow.ellipsis,
                                 style: TextStyle(
-                                    color: Color(0xFF71717A), fontSize: 13),
+                                    color: SboxColors.slate500, fontSize: 13),
                               ),
                             ],
                           ),
@@ -362,8 +363,8 @@ class _TaxSettingsScreenState extends State<TaxSettingsScreen> {
     return Container(
       decoration: BoxDecoration(
         color: Colors.white,
-        borderRadius: BorderRadius.circular(16),
-        border: Border.all(color: const Color(0xFFE4E4E7)),
+        borderRadius: BorderRadius.circular(14),
+        border: Border.all(color: SboxColors.slate200),
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -381,17 +382,17 @@ class _TaxSettingsScreenState extends State<TaxSettingsScreen> {
                     children: [
                       Text(tr('Người phụ thuộc theo nhân viên'),
                           style: const TextStyle(
-                              fontSize: 15, fontWeight: FontWeight.w700)),
+                              fontSize: 16, fontWeight: FontWeight.w700)),
                       Text(
                         tr('Chỉnh số NPT tại chỗ · bấm tên để sửa BH / miễn khác'),
-                        style: TextStyle(fontSize: 12, color: Colors.grey[600]),
+                        style: TextStyle(fontSize: 12, color: SboxColors.slate600),
                       ),
                     ],
                   ),
                 ),
                 Text(tr('${filtered.length} NV'),
                     style: const TextStyle(
-                        fontSize: 12, color: Color(0xFF71717A))),
+                        fontSize: 12, color: SboxColors.slate500)),
               ],
             ),
           ),
@@ -404,14 +405,14 @@ class _TaxSettingsScreenState extends State<TaxSettingsScreen> {
                 prefixIcon: const Icon(Icons.search, size: 20),
                 isDense: true,
                 filled: true,
-                fillColor: const Color(0xFFFAFAFA),
+                fillColor: SboxColors.slate50,
                 border: OutlineInputBorder(
                   borderRadius: BorderRadius.circular(10),
-                  borderSide: const BorderSide(color: Color(0xFFE4E4E7)),
+                  borderSide: const BorderSide(color: SboxColors.slate200),
                 ),
                 enabledBorder: OutlineInputBorder(
                   borderRadius: BorderRadius.circular(10),
-                  borderSide: const BorderSide(color: Color(0xFFE4E4E7)),
+                  borderSide: const BorderSide(color: SboxColors.slate200),
                 ),
               ),
             ),
@@ -421,7 +422,7 @@ class _TaxSettingsScreenState extends State<TaxSettingsScreen> {
               padding: const EdgeInsets.all(32),
               child: Center(
                 child: Text(tr('Không có nhân viên'),
-                    style: const TextStyle(color: Color(0xFFA1A1AA))),
+                    style: const TextStyle(color: SboxColors.slate400)),
               ),
             )
           else
@@ -432,7 +433,7 @@ class _TaxSettingsScreenState extends State<TaxSettingsScreen> {
                 padding: const EdgeInsets.fromLTRB(8, 0, 8, 12),
                 itemCount: filtered.length,
                 separatorBuilder: (_, __) =>
-                    const Divider(height: 1, color: Color(0xFFF4F4F5)),
+                    const Divider(height: 1, color: SboxColors.slate100),
                 itemBuilder: (context, i) {
                   final emp = filtered[i];
                   final index = _employeeDeductions.indexOf(emp);
@@ -464,7 +465,7 @@ class _TaxSettingsScreenState extends State<TaxSettingsScreen> {
                           'có hồ sơ',
                       ].where((s) => s.isNotEmpty).join(' · ')),
                       style: const TextStyle(
-                          fontSize: 11, color: Color(0xFF71717A)),
+                          fontSize: 11, color: SboxColors.slate500),
                     ),
                     trailing: Row(
                       mainAxisSize: MainAxisSize.min,
@@ -603,7 +604,7 @@ class _TaxSettingsScreenState extends State<TaxSettingsScreen> {
                   height: 36,
                   decoration: BoxDecoration(
                     color: HrmPageChrome.primaryNavy.withValues(alpha: 0.1),
-                    borderRadius: BorderRadius.circular(8),
+                    borderRadius: BorderRadius.circular(10),
                   ),
                   child: const Icon(Icons.person, color: HrmPageChrome.primaryNavy, size: 20),
                 ),
@@ -613,7 +614,7 @@ class _TaxSettingsScreenState extends State<TaxSettingsScreen> {
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
                       Text(tr(emp['employeeName'] ?? ''), style: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
-                      Text(tr(emp['employeeCode'] ?? ''), style: TextStyle(fontSize: 12, color: Colors.grey[500])),
+                      Text(tr(emp['employeeCode'] ?? ''), style: TextStyle(fontSize: 12, color: SboxColors.slate500)),
                     ],
                   ),
                 ),
@@ -723,16 +724,16 @@ class _TaxSettingsScreenState extends State<TaxSettingsScreen> {
                   Container(
                     padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
                     decoration: BoxDecoration(
-                      color: const Color(0xFFFFFBEB),
-                      borderRadius: BorderRadius.circular(8),
-                      border: Border.all(color: const Color(0xFFF59E0B).withValues(alpha: 0.3)),
+                      color: SboxColors.warningSoft,
+                      borderRadius: BorderRadius.circular(10),
+                      border: Border.all(color: SboxColors.warning.withValues(alpha: 0.3)),
                     ),
                     child: Row(
                       mainAxisAlignment: MainAxisAlignment.spaceBetween,
                       children: [
                         Text(tr('Tổng TN miễn thuế'), style: TextStyle(fontWeight: FontWeight.w600, fontSize: 14)),
                         Text(tr('${_formatCurrency(total)} đ'),
-                          style: const TextStyle(color: Color(0xFFF59E0B), fontSize: 16, fontWeight: FontWeight.bold),
+                          style: const TextStyle(color: SboxColors.warning, fontSize: 16, fontWeight: FontWeight.bold),
                         ),
                       ],
                     ),
@@ -800,7 +801,7 @@ class _TaxSettingsScreenState extends State<TaxSettingsScreen> {
     return Row(
       mainAxisAlignment: MainAxisAlignment.spaceBetween,
       children: [
-        Text(tr(label), style: TextStyle(fontSize: 13, color: Colors.grey[600])),
+        Text(tr(label), style: TextStyle(fontSize: 13, color: SboxColors.slate600)),
         Text(tr('$value đ'), style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w500)),
       ],
     );
@@ -809,7 +810,7 @@ class _TaxSettingsScreenState extends State<TaxSettingsScreen> {
   Widget _dialogEditRow(String label, TextEditingController ctrl, void Function(void Function()) setDialogState, {bool isNumber = false}) {
     return Row(
       children: [
-        Expanded(child: Text(tr(label), style: TextStyle(fontSize: 13, color: Colors.grey[600]))),
+        Expanded(child: Text(tr(label), style: TextStyle(fontSize: 13, color: SboxColors.slate600))),
         SizedBox(
           width: 150,
           child: TextField(
@@ -821,9 +822,9 @@ class _TaxSettingsScreenState extends State<TaxSettingsScreen> {
             decoration: InputDecoration(
               isDense: true,
               contentPadding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
-              border: OutlineInputBorder(borderRadius: BorderRadius.circular(8)),
+              border: OutlineInputBorder(borderRadius: BorderRadius.circular(10)),
               suffixText: tr(isNumber ? '' : 'đ'),
-              suffixStyle: TextStyle(fontSize: 12, color: Colors.grey[400]),
+              suffixStyle: TextStyle(fontSize: 12, color: SboxColors.slate400),
             ),
             onChanged: (_) => setDialogState(() {}),
           ),
@@ -889,7 +890,7 @@ class _TaxSettingsScreenState extends State<TaxSettingsScreen> {
     return Container(
       decoration: BoxDecoration(
         color: Colors.white,
-        borderRadius: BorderRadius.circular(16),
+        borderRadius: BorderRadius.circular(14),
         boxShadow: [
           BoxShadow(
             color: Colors.black.withValues(alpha: 0.05),
@@ -924,13 +925,13 @@ class _TaxSettingsScreenState extends State<TaxSettingsScreen> {
                     children: [
                       Text(tr('Giảm trừ gia cảnh'),
                         style: TextStyle(
-                          color: Color(0xFF18181B),
-                          fontSize: 15,
+                          color: SboxColors.slate900,
+                          fontSize: 16,
                           fontWeight: FontWeight.bold,
                         ),
                       ),
                       Text(tr('Mức giảm trừ bản thân và người phụ thuộc'),
-                        style: TextStyle(color: Colors.grey[500], fontSize: 12),
+                        style: TextStyle(color: SboxColors.slate500, fontSize: 12),
                       ),
                     ],
                   ),
@@ -982,27 +983,27 @@ class _TaxSettingsScreenState extends State<TaxSettingsScreen> {
         controller: controller,
         textAlign: TextAlign.right,
         style: const TextStyle(
-            color: Color(0xFF18181B),
+            color: SboxColors.slate900,
             fontSize: 14,
             fontWeight: FontWeight.w600),
         keyboardType: TextInputType.number,
         inputFormatters: [ThousandSeparatorFormatter()],
         decoration: InputDecoration(
           suffixText: tr(suffix),
-          suffixStyle: const TextStyle(color: Color(0xFF71717A), fontSize: 10),
+          suffixStyle: const TextStyle(color: SboxColors.slate500, fontSize: 10),
           contentPadding:
               const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
           enabledBorder: OutlineInputBorder(
-            borderRadius: BorderRadius.circular(8),
-            borderSide: const BorderSide(color: Color(0xFFE4E4E7)),
+            borderRadius: BorderRadius.circular(10),
+            borderSide: const BorderSide(color: SboxColors.slate200),
           ),
           focusedBorder: OutlineInputBorder(
-            borderRadius: BorderRadius.circular(8),
+            borderRadius: BorderRadius.circular(10),
             borderSide:
                 const BorderSide(color: HrmPageChrome.primaryNavy, width: 2),
           ),
           filled: true,
-          fillColor: const Color(0xFFFAFAFA),
+          fillColor: SboxColors.slate50,
         ),
         onChanged: (_) => setState(() {}),
       ),
@@ -1011,7 +1012,7 @@ class _TaxSettingsScreenState extends State<TaxSettingsScreen> {
     final labelBlock = Row(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        Icon(icon, color: const Color(0xFF71717A), size: 20),
+        Icon(icon, color: SboxColors.slate500, size: 20),
         const SizedBox(width: 12),
         Expanded(
           child: Column(
@@ -1019,12 +1020,12 @@ class _TaxSettingsScreenState extends State<TaxSettingsScreen> {
             children: [
               Text(tr(label),
                   style: const TextStyle(
-                      color: Color(0xFF18181B),
+                      color: SboxColors.slate900,
                       fontWeight: FontWeight.w500,
                       fontSize: 14)),
               const SizedBox(height: 2),
               Text(tr(description),
-                  style: TextStyle(color: Colors.grey[500], fontSize: 11)),
+                  style: TextStyle(color: SboxColors.slate500, fontSize: 11)),
             ],
           ),
         ),
@@ -1045,7 +1046,7 @@ class _TaxSettingsScreenState extends State<TaxSettingsScreen> {
     return Row(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        Icon(icon, color: const Color(0xFF71717A), size: 20),
+        Icon(icon, color: SboxColors.slate500, size: 20),
         const SizedBox(width: 12),
         Expanded(
           child: Column(
@@ -1053,12 +1054,12 @@ class _TaxSettingsScreenState extends State<TaxSettingsScreen> {
             children: [
               Text(tr(label),
                   style: const TextStyle(
-                      color: Color(0xFF18181B),
+                      color: SboxColors.slate900,
                       fontWeight: FontWeight.w500,
                       fontSize: 14)),
               const SizedBox(height: 2),
               Text(tr(description),
-                  style: TextStyle(color: Colors.grey[500], fontSize: 11)),
+                  style: TextStyle(color: SboxColors.slate500, fontSize: 11)),
             ],
           ),
         ),
@@ -1073,7 +1074,7 @@ class _TaxSettingsScreenState extends State<TaxSettingsScreen> {
     return Container(
       decoration: BoxDecoration(
         color: Colors.white,
-        borderRadius: BorderRadius.circular(16),
+        borderRadius: BorderRadius.circular(14),
         boxShadow: [
           BoxShadow(
             color: Colors.black.withValues(alpha: 0.05),
@@ -1095,7 +1096,7 @@ class _TaxSettingsScreenState extends State<TaxSettingsScreen> {
                   height: Responsive.isMobile(context) ? 44 : 45,
                   decoration: BoxDecoration(
                     gradient: const LinearGradient(
-                      colors: [Color(0xFFF59E0B), Color(0xFFFBBF24)],
+                      colors: [SboxColors.warning, Color(0xFFFBBF24)],
                     ),
                     borderRadius: BorderRadius.circular(10),
                   ),
@@ -1110,13 +1111,13 @@ class _TaxSettingsScreenState extends State<TaxSettingsScreen> {
                     children: [
                       Text(tr('Biểu thuế lũy tiến từng phần'),
                         style: TextStyle(
-                          color: Color(0xFF18181B),
-                          fontSize: 15,
+                          color: SboxColors.slate900,
+                          fontSize: 16,
                           fontWeight: FontWeight.bold,
                         ),
                       ),
                       Text(tr('5 bậc thuế theo Luật thuế TNCN 2026'),
-                        style: TextStyle(color: Colors.grey[500], fontSize: 12),
+                        style: TextStyle(color: SboxColors.slate500, fontSize: 12),
                       ),
                     ],
                   ),
@@ -1151,9 +1152,9 @@ class _TaxSettingsScreenState extends State<TaxSettingsScreen> {
     final colors = [
       HrmPageChrome.primaryNavy, // Bracket 1
       HrmPageChrome.primaryNavy, // Bracket 2
-      const Color(0xFFF59E0B), // Bracket 3
-      const Color(0xFFEF4444), // Bracket 4
-      const Color(0xFF7C3AED), // Bracket 5
+      SboxColors.warning, // Bracket 3
+      SboxColors.danger, // Bracket 4
+      SboxColors.violet, // Bracket 5
       const Color(0xFFEC4899), // Bracket 6
       HrmPageChrome.primaryNavy, // Bracket 7
     ];
@@ -1168,26 +1169,26 @@ class _TaxSettingsScreenState extends State<TaxSettingsScreen> {
         controller: amountController,
         textAlign: TextAlign.right,
         style: const TextStyle(
-            color: Color(0xFF18181B),
+            color: SboxColors.slate900,
             fontSize: 13,
             fontWeight: FontWeight.w600),
         keyboardType: TextInputType.number,
         inputFormatters: [ThousandSeparatorFormatter()],
         decoration: InputDecoration(
           suffixText: tr('đ'),
-          suffixStyle: const TextStyle(color: Color(0xFF71717A), fontSize: 11),
+          suffixStyle: const TextStyle(color: SboxColors.slate500, fontSize: 11),
           contentPadding:
               const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
           enabledBorder: OutlineInputBorder(
             borderRadius: BorderRadius.circular(6),
-            borderSide: const BorderSide(color: Color(0xFFE4E4E7)),
+            borderSide: const BorderSide(color: SboxColors.slate200),
           ),
           focusedBorder: OutlineInputBorder(
             borderRadius: BorderRadius.circular(6),
             borderSide: BorderSide(color: color, width: 2),
           ),
           filled: true,
-          fillColor: const Color(0xFFFAFAFA),
+          fillColor: SboxColors.slate50,
         ),
         onChanged: (_) => setState(() {}),
       ),
@@ -1216,7 +1217,7 @@ class _TaxSettingsScreenState extends State<TaxSettingsScreen> {
               ),
               const SizedBox(width: 8),
               Text(tr(prefix),
-                  style: TextStyle(color: Colors.grey[600], fontSize: 13)),
+                  style: TextStyle(color: SboxColors.slate600, fontSize: 13)),
             ],
           ),
           const SizedBox(height: 8),
@@ -1243,7 +1244,7 @@ class _TaxSettingsScreenState extends State<TaxSettingsScreen> {
                 color: Colors.white, fontWeight: FontWeight.bold, fontSize: 12),
           ),
         ),
-        Text(tr(prefix), style: TextStyle(color: Colors.grey[600], fontSize: 13)),
+        Text(tr(prefix), style: TextStyle(color: SboxColors.slate600, fontSize: 13)),
         SizedBox(width: 110, child: amountField),
         rateGroup,
       ],
@@ -1257,7 +1258,7 @@ class _TaxSettingsScreenState extends State<TaxSettingsScreen> {
       mainAxisSize: isMobile ? MainAxisSize.max : MainAxisSize.min,
       children: [
         Text(tr('Thuế suất'),
-            style: TextStyle(color: Colors.grey[600], fontSize: 13)),
+            style: TextStyle(color: SboxColors.slate600, fontSize: 13)),
         if (isMobile) const Spacer() else const SizedBox(width: 8),
         SizedBox(
           width: 72,
@@ -1266,26 +1267,26 @@ class _TaxSettingsScreenState extends State<TaxSettingsScreen> {
             controller: rateController,
             textAlign: TextAlign.center,
             style: const TextStyle(
-                color: Color(0xFF18181B),
+                color: SboxColors.slate900,
                 fontSize: 13,
                 fontWeight: FontWeight.w600),
             keyboardType: const TextInputType.numberWithOptions(decimal: true),
             decoration: InputDecoration(
               suffixText: tr('%'),
               suffixStyle:
-                  const TextStyle(color: Color(0xFF71717A), fontSize: 11),
+                  const TextStyle(color: SboxColors.slate500, fontSize: 11),
               contentPadding:
                   const EdgeInsets.symmetric(horizontal: 8, vertical: 6),
               enabledBorder: OutlineInputBorder(
                 borderRadius: BorderRadius.circular(6),
-                borderSide: const BorderSide(color: Color(0xFFE4E4E7)),
+                borderSide: const BorderSide(color: SboxColors.slate200),
               ),
               focusedBorder: OutlineInputBorder(
                 borderRadius: BorderRadius.circular(6),
                 borderSide: BorderSide(color: color, width: 2),
               ),
               filled: true,
-              fillColor: const Color(0xFFFAFAFA),
+              fillColor: SboxColors.slate50,
             ),
             onChanged: (_) => setState(() {}),
           ),
@@ -1308,14 +1309,14 @@ class _TaxSettingsScreenState extends State<TaxSettingsScreen> {
       alignment: Alignment.centerRight,
       padding: const EdgeInsets.symmetric(horizontal: 10),
       decoration: BoxDecoration(
-        color: const Color(0xFFF1F5F9),
+        color: SboxColors.slate100,
         borderRadius: BorderRadius.circular(6),
-        border: Border.all(color: const Color(0xFFE4E4E7)),
+        border: Border.all(color: SboxColors.slate200),
       ),
       child: Text(
         tr('${formatNumber(amount4)}đ'),
         style: const TextStyle(
-            color: Color(0xFF71717A),
+            color: SboxColors.slate500,
             fontSize: 13,
             fontWeight: FontWeight.w500),
       ),
@@ -1344,7 +1345,7 @@ class _TaxSettingsScreenState extends State<TaxSettingsScreen> {
               ),
               const SizedBox(width: 8),
               Text(tr('Trên'),
-                  style: TextStyle(color: Colors.grey[600], fontSize: 13)),
+                  style: TextStyle(color: SboxColors.slate600, fontSize: 13)),
             ],
           ),
           const SizedBox(height: 8),
@@ -1371,7 +1372,7 @@ class _TaxSettingsScreenState extends State<TaxSettingsScreen> {
                 color: Colors.white, fontWeight: FontWeight.bold, fontSize: 12),
           ),
         ),
-        Text(tr('Trên'), style: TextStyle(color: Colors.grey[600], fontSize: 13)),
+        Text(tr('Trên'), style: TextStyle(color: SboxColors.slate600, fontSize: 13)),
         amountBox,
         rateGroup,
       ],
@@ -1406,7 +1407,7 @@ class _TaxSettingsScreenState extends State<TaxSettingsScreen> {
     return Container(
       decoration: BoxDecoration(
         color: Colors.white,
-        borderRadius: BorderRadius.circular(16),
+        borderRadius: BorderRadius.circular(14),
         boxShadow: [
           BoxShadow(
             color: Colors.black.withValues(alpha: 0.05),
@@ -1441,13 +1442,13 @@ class _TaxSettingsScreenState extends State<TaxSettingsScreen> {
                     children: [
                       Text(tr('Bảng biểu thuế TNCN'),
                         style: TextStyle(
-                          color: Color(0xFF18181B),
-                          fontSize: 15,
+                          color: SboxColors.slate900,
+                          fontSize: 16,
                           fontWeight: FontWeight.bold,
                         ),
                       ),
                       Text(tr('Tóm tắt 5 bậc thuế lũy tiến'),
-                        style: TextStyle(color: Colors.grey[500], fontSize: 12),
+                        style: TextStyle(color: SboxColors.slate500, fontSize: 12),
                       ),
                     ],
                   ),
@@ -1461,8 +1462,8 @@ class _TaxSettingsScreenState extends State<TaxSettingsScreen> {
             padding: const EdgeInsets.fromLTRB(20, 0, 20, 20),
             child: Container(
               decoration: BoxDecoration(
-                borderRadius: BorderRadius.circular(12),
-                border: Border.all(color: const Color(0xFFE4E4E7)),
+                borderRadius: BorderRadius.circular(14),
+                border: Border.all(color: SboxColors.slate200),
               ),
               child: Column(
                 children: [
@@ -1503,9 +1504,9 @@ class _TaxSettingsScreenState extends State<TaxSettingsScreen> {
     final colors = [
       HrmPageChrome.primaryNavy,
       HrmPageChrome.primaryNavy,
-      const Color(0xFFF59E0B),
-      const Color(0xFFEF4444),
-      const Color(0xFF7C3AED),
+      SboxColors.warning,
+      SboxColors.danger,
+      SboxColors.violet,
       const Color(0xFFEC4899),
       HrmPageChrome.primaryNavy,
     ];
@@ -1514,7 +1515,7 @@ class _TaxSettingsScreenState extends State<TaxSettingsScreen> {
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
       decoration: BoxDecoration(
-        color: isAlt ? const Color(0xFFFAFAFA) : Colors.white,
+        color: isAlt ? SboxColors.slate50 : Colors.white,
         borderRadius: isLast
             ? const BorderRadius.only(
                 bottomLeft: Radius.circular(11),
@@ -1540,7 +1541,7 @@ class _TaxSettingsScreenState extends State<TaxSettingsScreen> {
           ),
           const SizedBox(width: 12),
           Expanded(
-            child: Text(tr(range), style: const TextStyle(color: Color(0xFF71717A), fontSize: 13)),
+            child: Text(tr(range), style: const TextStyle(color: SboxColors.slate500, fontSize: 13)),
           ),
           Text(
             tr('${rate.toStringAsFixed(rate == rate.toInt() ? 0 : 1)}%'),
