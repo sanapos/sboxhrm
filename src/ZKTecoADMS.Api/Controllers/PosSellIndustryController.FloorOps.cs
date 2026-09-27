@@ -724,6 +724,8 @@ public partial class PosSellIndustryController
             BillableMinutes = src.BillableMinutes,
             ServiceStartedAt = src.ServiceStartedAt,
             ServiceEndedAt = src.ServiceEndedAt,
+            ServicePausedAt = src.ServicePausedAt,
+            ServicePauseMinutes = src.ServicePauseMinutes,
             AssignedEmployeeId = src.AssignedEmployeeId,
             KitchenSentQty = kitchenSent,
             KitchenSentAt = kitchenSent > 0 ? src.KitchenSentAt ?? now : null,

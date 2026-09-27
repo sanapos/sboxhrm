@@ -50,6 +50,12 @@ public class PosSaleOrderLine : AuditableEntity<Guid>
     public DateTime? ServiceStartedAt { get; set; }
     public DateTime? ServiceEndedAt { get; set; }
 
+    /// <summary>Dòng đang tạm dừng đếm giờ từ lúc này (đếm giờ riêng từng dòng).</summary>
+    public DateTime? ServicePausedAt { get; set; }
+
+    /// <summary>Tổng phút đã tạm dừng riêng của dòng (cộng dồn).</summary>
+    public int ServicePauseMinutes { get; set; }
+
     /// <summary>NV phụ trách dòng (stylist / PT) — dòng đơn hoặc fallback combo.</summary>
     public Guid? AssignedEmployeeId { get; set; }
 

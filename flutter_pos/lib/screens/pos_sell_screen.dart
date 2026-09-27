@@ -323,6 +323,10 @@ class _SellCartLine {
   List<_CartStaffAssign> staffAssignments = [];
   /// Giờ bắt đầu riêng của dòng (gói giờ đếm ngược / dòng quá giờ). null = theo giờ mở bàn.
   DateTime? timerStartedAt;
+  /// Đếm giờ riêng từng dòng: kết thúc lúc / đang tạm dừng từ / tổng phút đã dừng.
+  DateTime? timerEndedAt;
+  DateTime? timerPausedAt;
+  int timerPauseMinutes = 0;
   bool timerAlertedSoon = false;
   bool timerAlertedEnd = false;
   final Set<String> selectedQuickNotes = {};
@@ -4657,12 +4661,7 @@ class _PosSellScreenState extends State<PosSellScreen>
       final started = line.timerStartedAt ?? (hourly ? tabStarted : null);
       if (started == null) continue;
       final mode = PosServiceBillingMode.parse(line.product.serviceBillingMode);
-      final elapsed = PosServiceBillingCalc.elapsedMinutes(
-        started,
-        null,
-        accumulatedPauseMinutes: _tab.accumulatedPauseMinutes,
-        pausedAt: _tab.sessionIsPaused ? _tab.sessionPausedAt : null,
-      );
+      final elapsed = _timedLineElapsed(_tab, line, started);
       final billable = PosServiceBillingCalc.billableMinutes(
         elapsed: elapsed,
         mode: mode,
@@ -4674,7 +4673,7 @@ class _PosSellScreenState extends State<PosSellScreen>
       final hotel = PosHotelStayPolicy.parse(_industrySettings?.extraJson);
       // Khách sạn: tính theo đêm (giờ nhận / trả phòng) — khớp máy chủ.
       final qty = mode == PosServiceBillingMode.perDay && hotel.nightMode
-          ? hotel.nights(started, DateTime.now().toUtc())
+          ? hotel.nights(started, line.timerEndedAt ?? DateTime.now().toUtc())
           : PosServiceBillingCalc.extraQty(
               mode: mode,
               billableMinutes: billable,
@@ -4797,21 +4796,147 @@ class _PosSellScreenState extends State<PosSellScreen>
         onStart: _tab.draftReadOnly ? null : () => _startPackageTimer(line),
       );
     }
-    if (line.product.isTimedService && line.timerStartedAt != null) {
-      final t = line.timerStartedAt!.toLocal();
-      return Text(
-        tr('⏱ Quá giờ tính từ ${t.hour.toString().padLeft(2, '0')}:${t.minute.toString().padLeft(2, '0')}'),
-        style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w700, color: Color(0xFFDC2626)),
-      );
-    }
+    if (line.product.isTimedService) return _timedLineControls(line);
     return null;
+  }
+
+  // ─── Đếm giờ riêng từng dòng dịch vụ ─────────────────────────────
+
+  /// Phút đã dùng của dòng tính giờ: trừ tạm dừng cả bàn + tạm dừng riêng dòng; dừng ở giờ kết thúc dòng.
+  int _timedLineElapsed(_SellInvoiceTab tab, _SellCartLine line, DateTime start, {bool complete = false}) {
+    final end = line.timerEndedAt ?? (complete ? DateTime.now().toUtc() : null);
+    DateTime? pauseFrom = tab.sessionIsPaused ? tab.sessionPausedAt : null;
+    final lp = line.timerPausedAt;
+    if (lp != null && (pauseFrom == null || lp.isBefore(pauseFrom))) pauseFrom = lp;
+    return PosServiceBillingCalc.elapsedMinutes(
+      start,
+      end,
+      accumulatedPauseMinutes: tab.accumulatedPauseMinutes + line.timerPauseMinutes,
+      pausedAt: pauseFrom,
+    );
+  }
+
+  DateTime? _timedLineStart(_SellCartLine line) =>
+      line.timerStartedAt ??
+      (_industrySettings?.enableHourlyBilling == true ? _tab.serviceStartedAt : null);
+
+  void _applyLineTimer(_SellCartLine line, void Function(DateTime now) change) {
+    final now = DateTime.now().toUtc();
+    setState(() {
+      // Ghim giờ bắt đầu (dòng đang theo giờ mở bàn) để thao tác riêng không ảnh hưởng dòng khác.
+      line.timerStartedAt ??= _timedLineStart(line);
+      change(now);
+    });
+    _refreshTimedLineQtys();
+    _scheduleDraftAutosave();
+    _ensureTimedBillingTimer();
+  }
+
+  int _minutesSince(DateTime from, DateTime now) {
+    final d = now.difference(from).inSeconds;
+    return d <= 0 ? 0 : d ~/ 60;
+  }
+
+  void _lineTimerStart(_SellCartLine line) => _applyLineTimer(line, (now) {
+        line.timerStartedAt = now;
+        line.timerEndedAt = null;
+        line.timerPausedAt = null;
+        line.timerPauseMinutes = 0;
+      });
+
+  void _lineTimerPause(_SellCartLine line) => _applyLineTimer(line, (now) {
+        line.timerPausedAt ??= now;
+      });
+
+  void _lineTimerResume(_SellCartLine line) => _applyLineTimer(line, (now) {
+        final p = line.timerPausedAt;
+        if (p != null) line.timerPauseMinutes += _minutesSince(p, now);
+        line.timerPausedAt = null;
+      });
+
+  void _lineTimerStop(_SellCartLine line) => _applyLineTimer(line, (now) {
+        final p = line.timerPausedAt;
+        if (p != null) line.timerPauseMinutes += _minutesSince(p, now);
+        line.timerPausedAt = null;
+        line.timerEndedAt = now;
+      });
+
+  /// Tính tiếp sau khi đã kết thúc: khoảng nghỉ không tính tiền.
+  void _lineTimerReopen(_SellCartLine line) => _applyLineTimer(line, (now) {
+        final e = line.timerEndedAt;
+        if (e != null) line.timerPauseMinutes += _minutesSince(e, now);
+        line.timerEndedAt = null;
+      });
+
+  Widget _timedLineControls(_SellCartLine line) {
+    String hm(DateTime t) {
+      final l = t.toLocal();
+      return '${l.hour.toString().padLeft(2, '0')}:${l.minute.toString().padLeft(2, '0')}';
+    }
+
+    final start = _timedLineStart(line);
+    final readOnly = _tab.draftReadOnly;
+    Widget btn(IconData icon, String tip, Color c, VoidCallback onTap) => Tooltip(
+          message: tr(tip),
+          child: InkWell(
+            onTap: readOnly ? null : onTap,
+            borderRadius: BorderRadius.circular(6),
+            child: Container(
+              padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 3),
+              decoration: BoxDecoration(
+                color: c.withOpacity(0.10),
+                borderRadius: BorderRadius.circular(6),
+                border: Border.all(color: c.withOpacity(0.35)),
+              ),
+              child: Row(mainAxisSize: MainAxisSize.min, children: [
+                Icon(icon, size: 14, color: c),
+                const SizedBox(width: 3),
+                Text(tr(tip), style: TextStyle(fontSize: 11, fontWeight: FontWeight.w700, color: c)),
+              ]),
+            ),
+          ),
+        );
+    const green = Color(0xFF16A34A);
+    const amber = Color(0xFFD97706);
+    const red = Color(0xFFDC2626);
+    const slate = Color(0xFF475569);
+
+    if (start == null) {
+      return Wrap(spacing: 6, runSpacing: 4, crossAxisAlignment: WrapCrossAlignment.center, children: [
+        Text(tr('⏱ Chưa tính giờ'), style: const TextStyle(fontSize: 12, color: slate)),
+        btn(Icons.play_arrow, 'Bắt đầu', green, () => _lineTimerStart(line)),
+      ]);
+    }
+    final mins = _timedLineElapsed(_tab, line, start);
+    final dur = PosServiceBillingCalc.formatDurationLabel(mins);
+    final ended = line.timerEndedAt != null;
+    final paused = !ended && (line.timerPausedAt != null || _tab.sessionIsPaused);
+    final overtime = (line.lineNote ?? '').startsWith(tr('Quá giờ'));
+    final color = ended ? slate : paused ? amber : overtime ? red : green;
+    final label = ended
+        ? '⏹ ${hm(start)}–${hm(line.timerEndedAt!)} · $dur'
+        : paused
+            ? '⏸ Tạm dừng · $dur'
+            : '⏱ ${overtime ? 'Quá giờ từ' : 'Từ'} ${hm(start)} · $dur';
+    return Wrap(spacing: 6, runSpacing: 4, crossAxisAlignment: WrapCrossAlignment.center, children: [
+      Text(tr(label), style: TextStyle(fontSize: 12, fontWeight: FontWeight.w700, color: color)),
+      if (ended)
+        btn(Icons.replay, 'Tính tiếp', green, () => _lineTimerReopen(line))
+      else ...[
+        if (line.timerPausedAt != null)
+          btn(Icons.play_arrow, 'Tiếp', green, () => _lineTimerResume(line))
+        else if (!_tab.sessionIsPaused)
+          btn(Icons.pause, 'Dừng', amber, () => _lineTimerPause(line)),
+        btn(Icons.stop, 'Kết thúc', red, () => _lineTimerStop(line)),
+      ],
+    ]);
   }
 
   Timer? _timedBillingTimer;
 
   void _ensureTimedBillingTimer() {
     final need = !_tab.sessionIsPaused &&
-        (_tab.cart.any((l) => l.timerStartedAt != null) ||
+        (_tab.cart.any((l) => l.timerStartedAt != null && l.timerEndedAt == null) ||
             (_industrySettings?.enableHourlyBilling == true &&
                 _tab.serviceStartedAt != null &&
                 _tab.cart.any((l) => l.product.isTimedService)));
@@ -7330,12 +7455,21 @@ class _PosSellScreenState extends State<PosSellScreen>
           line.kitchenSentQty.clamp(0.0, line.qty).toDouble();
       // Gói giờ / dòng quá giờ: giờ bắt đầu riêng (khác giờ mở bàn).
       final ls = line.serviceStartedAt;
+      final lineTimerState = p.isTimedService &&
+          (line.servicePausedAt != null || line.servicePauseMinutes > 0 ||
+              (line.serviceEndedAt != null && order.status.toLowerCase() == 'draft'));
       if (ls != null &&
           (p.timePackageMinutes > 0 ||
+              lineTimerState ||
               (p.isTimedService &&
                   (order.serviceStartedAt == null ||
                       ls.difference(order.serviceStartedAt!).inSeconds.abs() > 60)))) {
         cartLine.timerStartedAt = ls.toUtc();
+      }
+      if (lineTimerState) {
+        cartLine.timerEndedAt = line.serviceEndedAt?.toUtc();
+        cartLine.timerPausedAt = cartLine.timerEndedAt == null ? line.servicePausedAt?.toUtc() : null;
+        cartLine.timerPauseMinutes = line.servicePauseMinutes;
       }
       // Giữ mốc đã in phiếu kho từ giỏ hiện tại (cùng SP/ĐVT) — không reset về 0.
       final prevWh = tab.cart
@@ -9433,12 +9567,11 @@ class _PosSellScreenState extends State<PosSellScreen>
         }
         if (c.product.isTimedService && lineStart != null) {
           final mode = PosServiceBillingMode.parse(c.product.serviceBillingMode);
-          final elapsed = PosServiceBillingCalc.elapsedMinutes(
-            lineStart,
-            complete ? DateTime.now().toUtc() : null,
-            accumulatedPauseMinutes: tab.accumulatedPauseMinutes,
-            pausedAt: tab.sessionIsPaused ? tab.sessionPausedAt : null,
-          );
+          final elapsed = _timedLineElapsed(tab, c, lineStart, complete: complete);
+          if (c.timerPauseMinutes > 0) line['servicePauseMinutes'] = c.timerPauseMinutes;
+          if (c.timerPausedAt != null && c.timerEndedAt == null) {
+            line['servicePausedAt'] = c.timerPausedAt!.toUtc().toIso8601String();
+          }
           final billable = PosServiceBillingCalc.billableMinutes(
             elapsed: elapsed,
             mode: mode,
@@ -9450,7 +9583,9 @@ class _PosSellScreenState extends State<PosSellScreen>
           line['durationMinutes'] = elapsed;
           line['billableMinutes'] = billable;
           line['serviceStartedAt'] = lineStart.toUtc().toIso8601String();
-          if (complete) {
+          if (c.timerEndedAt != null) {
+            line['serviceEndedAt'] = c.timerEndedAt!.toUtc().toIso8601String();
+          } else if (complete) {
             line['serviceEndedAt'] = DateTime.now().toUtc().toIso8601String();
           }
         }

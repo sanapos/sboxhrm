@@ -83,6 +83,9 @@ class PosSaleOrderLine {
   final int? billableMinutes;
   final DateTime? serviceStartedAt;
   final DateTime? serviceEndedAt;
+  /// Đếm giờ riêng từng dòng: đang tạm dừng từ / tổng phút đã dừng.
+  final DateTime? servicePausedAt;
+  final int servicePauseMinutes;
   final double kitchenSentQty;
   final DateTime? kitchenSentAt;
   final List<PosSaleLineTopping> toppings;
@@ -104,6 +107,8 @@ class PosSaleOrderLine {
     this.billableMinutes,
     this.serviceStartedAt,
     this.serviceEndedAt,
+    this.servicePausedAt,
+    this.servicePauseMinutes = 0,
     this.kitchenSentQty = 0,
     this.kitchenSentAt,
     this.toppings = const [],
@@ -134,6 +139,9 @@ class PosSaleOrderLine {
           parseApiDateTime(json['serviceStartedAt'] ?? json['ServiceStartedAt']),
       serviceEndedAt:
           parseApiDateTime(json['serviceEndedAt'] ?? json['ServiceEndedAt']),
+      servicePausedAt:
+          parseApiDateTime(json['servicePausedAt'] ?? json['ServicePausedAt']),
+      servicePauseMinutes: i(json['servicePauseMinutes'] ?? json['ServicePauseMinutes']) ?? 0,
       kitchenSentQty: n(json['kitchenSentQty'] ?? json['KitchenSentQty']),
       kitchenSentAt:
           parseApiDateTime(json['kitchenSentAt'] ?? json['KitchenSentAt']),

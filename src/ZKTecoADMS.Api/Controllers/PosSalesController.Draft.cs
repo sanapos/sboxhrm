@@ -1467,8 +1467,11 @@ public partial class PosSalesController
             {
                 var started = lineStarted ?? order.ServiceStartedAt ?? DateTime.UtcNow;
                 var ended = lineEnded ?? (complete ? DateTime.UtcNow : (DateTime?)null);
+                // Tạm dừng riêng của dòng cộng với tạm dừng cả bàn; đang dừng lấy mốc sớm hơn.
+                DateTime? pauseFrom = sessionPausedAt;
+                if (line.ServicePausedAt is DateTime lp && (pauseFrom == null || lp < pauseFrom)) pauseFrom = lp;
                 var elapsed = PosServiceBillingHelper.CalcElapsedMinutes(
-                    started, ended, sessionPauseAccum, sessionPausedAt);
+                    started, ended, sessionPauseAccum + Math.Max(0, line.ServicePauseMinutes), pauseFrom);
                 if (durationMinutes is null or <= 0) durationMinutes = elapsed;
                 billableMinutes = PosServiceBillingHelper.CalcBillableMinutes(
                     durationMinutes ?? elapsed,
@@ -1521,6 +1524,8 @@ public partial class PosSalesController
                 BillableMinutes = billableMinutes,
                 ServiceStartedAt = lineStarted,
                 ServiceEndedAt = lineEnded,
+                ServicePausedAt = lineEnded == null ? line.ServicePausedAt : null,
+                ServicePauseMinutes = Math.Max(0, line.ServicePauseMinutes),
                 AssignedEmployeeId = line.AssignedEmployeeId
                     ?? line.StaffAssignments?.FirstOrDefault(a => a.ComponentProductId == null)?.AssignedEmployeeId,
                 StaffAssignmentsJson = PosStaffCommissionHelper.SerializeAssignments(line.StaffAssignments),

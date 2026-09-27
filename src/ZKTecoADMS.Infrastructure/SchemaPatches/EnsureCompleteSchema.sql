@@ -1000,3 +1000,7 @@ ALTER TABLE "PosResourceSessions" ADD COLUMN IF NOT EXISTS "BillingLockedBy" cha
 ALTER TABLE "PosProducts" ADD COLUMN IF NOT EXISTS "CommissionPerSession" boolean NOT NULL DEFAULT false;
 ALTER TABLE "PosSaleCommissionLines" ADD COLUMN IF NOT EXISTS "PerformedAt" timestamp without time zone NULL;
 ALTER TABLE "PosSaleCommissionLines" ADD COLUMN IF NOT EXISTS "SessionTransactionId" uuid NULL;
+
+-- Đếm giờ riêng từng dòng dịch vụ (tạm dừng / kết thúc từng dòng)
+ALTER TABLE "PosSaleOrderLines" ADD COLUMN IF NOT EXISTS "ServicePausedAt" timestamp without time zone NULL;
+ALTER TABLE "PosSaleOrderLines" ADD COLUMN IF NOT EXISTS "ServicePauseMinutes" integer NOT NULL DEFAULT 0;
