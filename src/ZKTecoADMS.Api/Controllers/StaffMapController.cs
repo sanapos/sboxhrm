@@ -268,7 +268,12 @@ public class StaffMapController(ZKTecoDbContext db, IMemoryCache cache) : Authen
             g => g.Key,
             g => RouteAnalyzer.DistanceKm(RouteAnalyzer.Clean(
                 g.Select(p => new RouteAnalyzer.GeoPoint(p.Latitude, p.Longitude, AsUtc(p.RecordedAt), p.Accuracy)))));
-        cache.Set(key, map, TimeSpan.FromMinutes(2));
+        // MemoryCache của API có SizeLimit → bắt buộc khai báo Size.
+        cache.Set(key, map, new MemoryCacheEntryOptions
+        {
+            AbsoluteExpirationRelativeToNow = TimeSpan.FromMinutes(2),
+            Size = 1,
+        });
         return map;
     }
 
