@@ -16,7 +16,6 @@ import '../models/department.dart';
 import '../services/api_service.dart';
 import '../widgets/auth_cached_image.dart';
 import '../widgets/app_scroll_safe.dart';
-import '../widgets/hrm_mini_stat_chip.dart';
 import '../utils/responsive_helper.dart';
 import '../utils/employee_work_status.dart';
 import '../utils/branch_filter_helper.dart';
@@ -41,6 +40,8 @@ import 'package:zkteco_flutter_client/l10n/app_tr.dart';
 
 import '../theme/sbox_tokens.dart';
 import '../widgets/sbox/sbox_table.dart';
+import '../widgets/sbox/sbox_basics.dart' show SboxTone;
+import '../widgets/sbox/sbox_report.dart' show SboxKpi, SboxKpiStrip;
 class EmployeesScreen extends StatefulWidget {
   final String? highlightId;
   const EmployeesScreen({super.key, this.highlightId});
@@ -540,15 +541,39 @@ class _EmployeesScreenState extends State<EmployeesScreen> {
     });
   }
 
+  /// Lọc nhanh từ thẻ cảnh báo: 'incomplete' (thiếu CCCD / SĐT / STK), 'contract' (HĐ hết hạn ≤ 30 ngày).
+  String? _quickFilter;
+
+  bool _isResigned(Employee e) => e.workStatusDisplay == 'Đã nghỉ việc';
+
+  bool _isIncomplete(Employee e) =>
+      !_isResigned(e) &&
+      ((e.nationalIdNumber ?? '').trim().isEmpty ||
+          (e.phone ?? '').trim().isEmpty ||
+          (e.bankAccountNumber ?? '').trim().isEmpty);
+
+  bool _contractExpiringSoon(Employee e) {
+    final end = e.contractEndDate;
+    if (end == null || _isResigned(e)) return false;
+    final today = DateTime.now();
+    final d0 = DateTime(today.year, today.month, today.day);
+    final diff = DateTime(end.year, end.month, end.day).difference(d0).inDays;
+    return diff <= 30;
+  }
+
   void _applyFilters() {
+    // Tìm không dấu: «nguyen» khớp «Nguyễn».
+    final q = _removeVietnameseAccents(_searchQuery.trim().toLowerCase());
+    bool hit(String? s) => s != null && _removeVietnameseAccents(s.toLowerCase()).contains(q);
     _filteredEmployees = _employees.where((emp) {
-      final matchesSearch = _searchQuery.isEmpty ||
-          emp.fullName.toLowerCase().contains(_searchQuery.toLowerCase()) ||
-          emp.employeeCode.toLowerCase().contains(_searchQuery.toLowerCase()) ||
-          (emp.email?.toLowerCase().contains(_searchQuery.toLowerCase()) ??
-              false) ||
-          (emp.phone?.toLowerCase().contains(_searchQuery.toLowerCase()) ??
-              false);
+      if (_quickFilter == 'incomplete' && !_isIncomplete(emp)) return false;
+      if (_quickFilter == 'contract' && !_contractExpiringSoon(emp)) return false;
+      final matchesSearch = q.isEmpty ||
+          hit(emp.fullName) ||
+          hit(emp.employeeCode) ||
+          hit(emp.email) ||
+          hit(emp.phone) ||
+          hit(emp.nationalIdNumber);
 
       final matchesDepartment = DepartmentFilterHelper.employeeMatchesDepartmentFilter(
         filterName: _filterDepartment,
@@ -590,7 +615,7 @@ class _EmployeesScreenState extends State<EmployeesScreen> {
 
   void _showSuccess(String message) {
     if (!mounted) return;
-    appNotification.showSuccess(title: 'Success', message: message);
+    appNotification.showSuccess(title: 'Thành công', message: message);
   }
 
   // ─── Export Excel ─────────────────────────────────────────────────────────
@@ -779,9 +804,11 @@ class _EmployeesScreenState extends State<EmployeesScreen> {
         _employees.where((e) => e.workStatusDisplay == 'Đang làm việc').length;
     final probationCount =
         _employees.where((e) => e.workStatusDisplay == 'Đang thử việc').length;
+    // Chỉ đếm phòng ban của nhân sự còn làm, bỏ tên rỗng.
     final deptCount = _employees
-        .map((e) => e.department)
-        .where((d) => d != null)
+        .where((e) => e.workStatusDisplay != 'Đã nghỉ việc')
+        .map((e) => (e.department ?? '').trim())
+        .where((d) => d.isNotEmpty)
         .toSet()
         .length;
 
@@ -794,13 +821,13 @@ class _EmployeesScreenState extends State<EmployeesScreen> {
       if (_perm.canExport(_module))
         HrmTopBarAction(
           icon: Icons.download,
-          label: _isExporting ? 'Exporting...' : _l10n.exportExcel,
+          label: _isExporting ? 'Đang xuất…' : _l10n.exportExcel,
           onPressed: _isExporting ? null : _exportEmployeesExcel,
         ),
       if (_perm.canCreate(_module))
         HrmTopBarAction(
           icon: Icons.upload_file,
-          label: _isImporting ? 'Importing...' : _l10n.importExcel,
+          label: _isImporting ? 'Đang nhập…' : _l10n.importExcel,
           onPressed: _isImporting ? null : _importEmployeesExcel,
         ),
       if (_perm.canCreate(_module))
@@ -1200,24 +1227,16 @@ class _EmployeesScreenState extends State<EmployeesScreen> {
     );
   }
 
-  Widget _buildStatCard(
-      String label, String value, IconData icon, Color color) {
-    return HrmStatSummaryCard(
-      icon: icon,
-      value: value,
-      label: label,
-      color: color,
-    );
-  }
-
   bool _hasActiveEmpFilters() {
     return _searchQuery.isNotEmpty ||
+        _quickFilter != null ||
         _filterDepartment != 'Tất cả' ||
         _filterStatus != 'Tất cả' ||
         _filterBranchId != null;
   }
 
   void _clearEmpFilters() {
+    _quickFilter = null;
     setState(() {
       _searchQuery = '';
       _filterDepartment = 'Tất cả';
@@ -1544,31 +1563,71 @@ class _EmployeesScreenState extends State<EmployeesScreen> {
     }
   }
 
+  /// Thẻ KPI hồ sơ — bấm để lọc danh sách (bấm lại để bỏ lọc).
   Widget _buildEmployeesStatsRow(
       int activeCount, int probationCount, int deptCount) {
-    final cards = [
-      _buildStatCard('Tổng NV', '${_employees.length}', Icons.people_outline,
-          HrmPageChrome.primaryNavy),
-      _buildStatCard('Đang làm', '$activeCount', Icons.check_circle_outline,
-          HrmPageChrome.primaryNavy),
-      _buildStatCard('Thử việc', '$probationCount', Icons.hourglass_bottom,
-          HrmPageChrome.chipLight),
-      _buildStatCard(_l10n.department, '$deptCount', Icons.business_outlined,
-          HrmPageChrome.primaryNavy),
-    ];
-    if (Responsive.isMobile(context)) {
-      return HrmPageChrome.horizontalStatCards(
-        cards: cards,
-        minCardWidth: 100,
-        gap: 8,
-      );
-    }
-    return Row(
-      children: cards
-          .expand((c) => [Expanded(child: c), const SizedBox(width: 8)])
-          .toList()
-        ..removeLast(),
-    );
+    int countStatus(String s) => _employees.where((e) => e.workStatusDisplay == s).length;
+    final working = _employees.where((e) => !_isResigned(e)).length;
+    final onLeave = countStatus('Nghỉ phép');
+    final resigned = countStatus('Đã nghỉ việc');
+    final incomplete = _employees.where(_isIncomplete).length;
+    final expiring = _employees.where(_contractExpiringSoon).length;
+    void byStatus(String s) => setState(() {
+          _quickFilter = null;
+          _filterStatus = _filterStatus == s ? 'Tất cả' : s;
+          _applyFilters();
+        });
+    void byQuick(String k) => setState(() {
+          _quickFilter = _quickFilter == k ? null : k;
+          _applyFilters();
+        });
+    return SboxKpiStrip(maxColumns: 6, items: [
+      SboxKpi(
+        label: 'Đang làm việc',
+        value: '$activeCount',
+        icon: Icons.check_circle_outline,
+        tone: SboxTone.success,
+        note: '$working nhân sự · $deptCount phòng ban',
+        onTap: () => byStatus('Đang làm việc'),
+      ),
+      SboxKpi(
+        label: 'Thử việc',
+        value: '$probationCount',
+        icon: Icons.hourglass_bottom,
+        tone: SboxTone.brand,
+        onTap: () => byStatus('Đang thử việc'),
+      ),
+      SboxKpi(
+        label: 'Nghỉ phép',
+        value: '$onLeave',
+        icon: Icons.beach_access_outlined,
+        tone: SboxTone.violet,
+        onTap: () => byStatus('Nghỉ phép'),
+      ),
+      SboxKpi(
+        label: 'Đã nghỉ việc',
+        value: '$resigned',
+        icon: Icons.person_off_outlined,
+        tone: SboxTone.neutral,
+        onTap: () => byStatus('Đã nghỉ việc'),
+      ),
+      SboxKpi(
+        label: 'Hồ sơ thiếu thông tin',
+        value: '$incomplete',
+        icon: Icons.assignment_late_outlined,
+        tone: incomplete > 0 ? SboxTone.warning : SboxTone.success,
+        note: _quickFilter == 'incomplete' ? 'Đang lọc — bấm để bỏ' : 'Thiếu CCCD / SĐT / số tài khoản',
+        onTap: () => byQuick('incomplete'),
+      ),
+      SboxKpi(
+        label: 'HĐ sắp hết hạn',
+        value: '$expiring',
+        icon: Icons.event_note_outlined,
+        tone: expiring > 0 ? SboxTone.danger : SboxTone.success,
+        note: _quickFilter == 'contract' ? 'Đang lọc — bấm để bỏ' : 'Trong 30 ngày tới (gồm đã quá hạn)',
+        onTap: () => byQuick('contract'),
+      ),
+    ]);
   }
 
   Widget _buildEmployeesOverviewSection(
@@ -1605,8 +1664,8 @@ class _EmployeesScreenState extends State<EmployeesScreen> {
       return EmptyState(
         icon: Icons.people,
         title: 'Không có nhân viên',
-        description: _searchQuery.isNotEmpty
-            ? 'No matching employees found'
+        description: _searchQuery.isNotEmpty || _quickFilter != null
+            ? 'Không có nhân viên phù hợp bộ lọc'
             : _l10n.addFirstEmployee,
         actionLabel: _perm.canCreate(_module) ? _l10n.addEmployee : null,
         onAction: _perm.canCreate(_module)

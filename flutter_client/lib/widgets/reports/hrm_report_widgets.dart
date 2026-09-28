@@ -6,12 +6,15 @@ import '../../utils/department_filter_helper.dart';
 import '../../utils/report_screen_helpers.dart';
 import '../../utils/vietnamese_font.dart';
 import '../hrm_collapsible_overview.dart';
-import '../hrm_mini_stat_chip.dart';
 import '../hrm_page_chrome.dart';
 import 'package:zkteco_flutter_client/l10n/app_tr.dart';
 
 import '../../theme/sbox_tokens.dart';
+import '../sbox/sbox_basics.dart';
+import '../sbox/sbox_report.dart';
 import '../sbox/sbox_table.dart';
+
+export '../sbox/sbox_basics.dart' show SboxTone;
 /// Bọc KPI + bộ lọc báo cáo — thu gọn còn 1 hàng như Hồ sơ nhân sự.
 class ReportCollapsibleChrome extends StatelessWidget {
   final bool expanded;
@@ -53,15 +56,60 @@ class ReportKpiItem {
   final IconData icon;
   final Color color;
 
+  /// Dòng phụ dưới số (vd «trên 12 nhân viên»).
+  final String? note;
+
+  /// Màu thẻ; bỏ trống → suy từ [color].
+  final SboxTone? tone;
+
+  /// Số kỳ này / kỳ trước → hiện «+12% so với kỳ trước».
+  final num? current;
+  final num? previous;
+  final bool higherIsBetter;
+
+  /// Bấm thẻ (vd lọc danh sách theo chỉ số này).
+  final VoidCallback? onTap;
+
   const ReportKpiItem({
     required this.label,
     required this.value,
     required this.icon,
     required this.color,
+    this.note,
+    this.tone,
+    this.current,
+    this.previous,
+    this.higherIsBetter = true,
+    this.onTap,
   });
+
+  SboxTone get resolvedTone {
+    if (tone != null) return tone!;
+    final c = color.toARGB32();
+    bool near(Color x) => x.toARGB32() == c;
+    if (near(SboxColors.success) || near(Colors.green)) return SboxTone.success;
+    if (near(SboxColors.danger) || near(Colors.red)) return SboxTone.danger;
+    if (near(SboxColors.warning) || near(Colors.orange) || near(Colors.amber)) return SboxTone.warning;
+    if (near(SboxColors.violet) || near(Colors.purple)) return SboxTone.violet;
+    if (near(Colors.blueGrey) || near(SboxColors.slate500) || near(SboxColors.slate600)) return SboxTone.neutral;
+    return SboxTone.brand;
+  }
+
+  SboxKpi toSbox() => SboxKpi(
+        label: label,
+        value: value,
+        icon: icon,
+        tone: resolvedTone,
+        note: note,
+        current: current,
+        previous: previous,
+        higherIsBetter: higherIsBetter,
+        compareLabel: current != null && previous != null ? 'kỳ trước' : null,
+        onTap: onTap,
+      );
 }
 
-/// Lưới KPI — nền trắng, viền xanh, chia đều, chiều cao thấp (dùng [HrmStatBar]).
+/// Lưới KPI dạng thẻ (icon màu + số lớn + dòng phụ) — điện thoại 2 cột, máy tính 4–6 cột.
 class ReportKpiGrid extends StatelessWidget {
   final List<ReportKpiItem> items;
 
@@ -72,19 +120,83 @@ class ReportKpiGrid extends StatelessWidget {
     if (items.isEmpty) return const SizedBox.shrink();
     return ColoredBox(
       color: Colors.white,
-      child: HrmStatBar(
-        items: [
-          for (final k in items)
-            HrmStatItem(
-              icon: k.icon,
-              label: k.label,
-              value: k.value,
-            ),
-        ],
-        padding: const EdgeInsets.fromLTRB(12, 6, 12, 4),
-        gap: 6,
-        valueFontSize: 14,
+      child: Padding(
+        padding: const EdgeInsets.fromLTRB(12, 8, 12, 8),
+        child: SboxKpiStrip(items: [for (final k in items) k.toSbox()]),
       ),
+    );
+  }
+}
+
+/// Dashboard đầu báo cáo: thẻ KPI + biểu đồ (ẩn/hiện biểu đồ, nhớ trạng thái trong phiên).
+class ReportDashboard extends StatefulWidget {
+  const ReportDashboard({
+    super.key,
+    required this.kpis,
+    this.charts = const [],
+    this.title = 'Tổng quan',
+    this.subtitle,
+    this.storageKey,
+  });
+
+  final List<ReportKpiItem> kpis;
+  final List<Widget> charts;
+  final String title;
+  final String? subtitle;
+
+  /// Khóa nhớ trạng thái ẩn/hiện biểu đồ (vd 'penalty').
+  final String? storageKey;
+
+  static final Map<String, bool> _chartsOpen = {};
+
+  @override
+  State<ReportDashboard> createState() => _ReportDashboardState();
+}
+
+class _ReportDashboardState extends State<ReportDashboard> {
+  late bool _open = ReportDashboard._chartsOpen[widget.storageKey ?? ''] ?? true;
+
+  void _toggle() {
+    setState(() => _open = !_open);
+    if (widget.storageKey != null) ReportDashboard._chartsOpen[widget.storageKey!] = _open;
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final charts = widget.charts;
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(12, 10, 12, 4),
+      child: Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
+        Row(children: [
+          const Icon(Icons.insights_rounded, size: 18, color: SboxColors.brand600),
+          const SizedBox(width: 6),
+          Text(tr(widget.title),
+              style: vietnameseTextStyle(const TextStyle(
+                  fontSize: 14, fontWeight: FontWeight.w700, color: SboxColors.slate900))),
+          const SizedBox(width: 8),
+          Expanded(
+            child: widget.subtitle == null
+                ? const SizedBox.shrink()
+                : Text(tr(widget.subtitle!),
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    style: vietnameseTextStyle(const TextStyle(fontSize: 12, color: SboxColors.slate500))),
+          ),
+          if (charts.isNotEmpty)
+            TextButton.icon(
+              onPressed: _toggle,
+              style: TextButton.styleFrom(visualDensity: VisualDensity.compact),
+              icon: Icon(_open ? Icons.expand_less_rounded : Icons.bar_chart_rounded, size: 18),
+              label: Text(tr(_open ? 'Ẩn biểu đồ' : 'Xem biểu đồ'), style: const TextStyle(fontSize: 12)),
+            ),
+        ]),
+        const SizedBox(height: 6),
+        SboxInsightPanel(
+          bottomGap: 0,
+          kpis: [for (final k in widget.kpis) k.toSbox()],
+          charts: _open ? charts : const [],
+        ),
+      ]),
     );
   }
 }
@@ -240,78 +352,91 @@ class ReportTimelineCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Card(
-      margin: const EdgeInsets.symmetric(horizontal: 12, vertical: 5),
-      elevation: 0,
-      shape: RoundedRectangleBorder(
-        borderRadius: BorderRadius.circular(14),
-        side: const BorderSide(color: SboxColors.slate200),
+    // Thẻ gọn: 1 hàng tiêu đề + ngày, 1 hàng số tiền + trạng thái, ghi chú tối đa 2 dòng.
+    final sc = statusColor ?? accentColor;
+    return Container(
+      margin: const EdgeInsets.symmetric(horizontal: 12, vertical: 3),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(color: SboxColors.slate200),
       ),
-      child: Padding(
-        padding: const EdgeInsets.all(14),
-        child: Row(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Container(
-              padding: const EdgeInsets.all(8),
-              decoration: BoxDecoration(
-                color: accentColor.withValues(alpha: 0.1),
-                borderRadius: BorderRadius.circular(10),
-              ),
-              child: Icon(icon, color: accentColor, size: 20),
+      padding: const EdgeInsets.fromLTRB(10, 9, 12, 9),
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Container(
+            width: 34,
+            height: 34,
+            decoration: BoxDecoration(
+              color: accentColor.withValues(alpha: 0.1),
+              borderRadius: BorderRadius.circular(9),
             ),
-            const SizedBox(width: 12),
-            Expanded(
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Row(
-                    children: [
+            child: Icon(icon, color: accentColor, size: 18),
+          ),
+          const SizedBox(width: 10),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Row(
+                  children: [
+                    Expanded(
+                      child: Text(tr(title),
+                          style: vietnameseTextStyle(const TextStyle(
+                              fontSize: 13.5, fontWeight: FontWeight.w700, color: SboxColors.slate900)),
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis),
+                    ),
+                    if (trailing != null)
+                      Text(tr(trailing!),
+                          style: vietnameseTextStyle(const TextStyle(
+                              fontSize: 11.5, color: SboxColors.slate500))),
+                  ],
+                ),
+                if (amount != null || statusLabel != null) ...[
+                  const SizedBox(height: 3),
+                  Row(children: [
+                    if (amount != null)
                       Expanded(
-                        child: Text(tr(title),
-                            style: vietnameseTextStyle(const TextStyle(
-                                fontSize: 14, fontWeight: FontWeight.w600)),
+                        child: Text(tr(amount!),
                             maxLines: 1,
-                            overflow: TextOverflow.ellipsis),
-                      ),
-                      if (trailing != null)
-                        Text(tr(trailing!),
+                            overflow: TextOverflow.ellipsis,
                             style: vietnameseTextStyle(TextStyle(
-                                fontSize: 11, color: SboxColors.slate600))),
-                    ],
-                  ),
-                  if (amount != null) ...[
-                    const SizedBox(height: 4),
-                    Text(tr(amount!),
-                        style: vietnameseTextStyle(TextStyle(
-                            fontSize: 16,
-                            fontWeight: FontWeight.bold,
-                            color: accentColor))),
-                  ],
-                  if (subtitle != null && subtitle!.isNotEmpty) ...[
-                    const SizedBox(height: 4),
-                    Text(tr(subtitle!),
-                        style: vietnameseTextStyle(TextStyle(
-                            fontSize: 12, color: SboxColors.slate700)),
-                        maxLines: 3,
-                        overflow: TextOverflow.ellipsis),
-                  ],
-                  if (statusLabel != null) ...[
-                    const SizedBox(height: 8),
-                    _statusChip(statusLabel!, statusColor ?? accentColor),
-                  ],
+                                fontSize: 14, fontWeight: FontWeight.w800, color: accentColor))),
+                      )
+                    else
+                      const Spacer(),
+                    if (statusLabel != null) _statusChip(statusLabel!, sc),
+                  ]),
                 ],
-              ),
+                if (subtitle != null && subtitle!.isNotEmpty) ...[
+                  const SizedBox(height: 3),
+                  Text(tr(subtitle!),
+                      style: vietnameseTextStyle(const TextStyle(
+                          fontSize: 12, color: SboxColors.slate600)),
+                      maxLines: 2,
+                      overflow: TextOverflow.ellipsis),
+                ],
+              ],
             ),
-          ],
-        ),
+          ),
+        ],
       ),
     );
   }
 }
 
 Widget _statusChip(String label, Color color) {
-  return HrmBrandChip(label: label);
+  return Container(
+    padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
+    decoration: BoxDecoration(
+      color: color.withValues(alpha: 0.12),
+      borderRadius: BorderRadius.circular(99),
+    ),
+    child: Text(tr(label),
+        style: vietnameseTextStyle(TextStyle(fontSize: 11, fontWeight: FontWeight.w700, color: color))),
+  );
 }
 
 /// Thẻ nhóm theo nhân viên (tab Theo NV).
@@ -336,17 +461,17 @@ class ReportEmployeeSummaryCard extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Card(
-      margin: const EdgeInsets.symmetric(horizontal: 12, vertical: 5),
+      margin: const EdgeInsets.symmetric(horizontal: 12, vertical: 3),
       elevation: 0,
       shape: RoundedRectangleBorder(
-        borderRadius: BorderRadius.circular(14),
+        borderRadius: BorderRadius.circular(12),
         side: const BorderSide(color: SboxColors.slate200),
       ),
       child: InkWell(
         onTap: onTap,
-        borderRadius: BorderRadius.circular(14),
+        borderRadius: BorderRadius.circular(12),
         child: Padding(
-          padding: const EdgeInsets.all(14),
+          padding: const EdgeInsets.fromLTRB(12, 10, 10, 10),
           child: Row(
             children: [
               CircleAvatar(

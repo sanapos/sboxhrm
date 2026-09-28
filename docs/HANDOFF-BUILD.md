@@ -78,6 +78,19 @@ Mã của phiên này đã nằm trong commit `e800cff`. Phần bổ sung tài l
 
 **Ràng buộc:** tiếng Việt; không in API key; DB production chỉ kiểm tra schema/đếm; commit kết thúc bằng `Co-Authored-By: Claude Opus 5.5 <noreply@anthropic.com>`.
 
+## Bổ sung: chi nhánh đầy đủ + báo cáo hiện đại (28/09/2026)
+- **Tồn kho theo chi nhánh**: `PosBranchStocks` (chi nhánh ngoài trụ sở), trụ sở = tổng − các CN khác − hàng đang chuyển.
+  `BranchStockInterceptor` tự ghi chênh lệch tồn vào chi nhánh của thao tác. Chuyển kho: `PosStockTransfers` / `Lines`, API `api/branch-ops`.
+- **Ngữ cảnh chi nhánh**: `BranchContextMiddleware` (header `X-Branch-Id`, `?branchId=`, danh sách CN được phép). App: `BranchSession`, `BranchSwitcher`.
+- **Báo cáo chi nhánh / Kho chi nhánh / Chuyển kho / Chi tiết chi nhánh**: `flutter_client/lib/screens/branch_ops/*`.
+- Cột `BranchId` mới trên 8 bảng chứng từ; khi API khởi động, dữ liệu cũ (null) được gán về trụ sở.
+
+**App cũ với server mới:** không lỗi — app cũ không gửi `X-Branch-Id` → server dùng chi nhánh của NV, không có thì trụ sở.
+Thay đổi hành vi (chỉ cửa hàng có ≥ 2 chi nhánh): NV / quản lý không phải Admin/Giám đốc/Kế toán, đã gán vào chi nhánh
+khác trụ sở, chỉ thấy đơn POS / thu chi của chi nhánh mình (lịch sử cũ nằm ở trụ sở). Khi kiểm tra DB 28/09: server
+103.133.224.176 có 5 cửa hàng ≥ 2 CN, ~10 tài khoản bị ảnh hưởng, 0 sản phẩm POS; server 103.133.225.67 không có.
+Giới hạn: bán hàng vẫn kiểm tồn theo tổng (tồn CN có thể âm); giao diện chuyển kho theo mặt hàng (chưa tách biến thể).
+
 ## Không nằm trong commit
 Các thư mục / file tạm và bản build trong gốc repo (`.tmp-*`, `dist/`, `installed*_apk/`, ảnh chụp, log build)
 và các dự án riêng chưa từng được theo dõi: `android_pos/`, `tools/SboxPrintAgent/`, `firmware/`.

@@ -8,6 +8,7 @@ using ZKTecoADMS.Application.Models;
 using ZKTecoADMS.Domain.Entities;
 using ZKTecoADMS.Domain.Enums;
 using ZKTecoADMS.Infrastructure;
+using ZKTecoADMS.Infrastructure.Services;
 
 namespace ZKTecoADMS.Api.Controllers;
 
@@ -68,6 +69,7 @@ public class PosStockCountsController(ZKTecoDbContext dbContext) : Authenticated
         var lines = dto.SeedAllProducts
             ? await BuildAllProductLinesAsync(storeId, count.Id)
             : new List<PosStockCountLine>();
+        await RebaseSystemQtyToBranchAsync(storeId, count.BranchId, lines);
 
         dbContext.PosStockCounts.Add(count);
         if (lines.Count > 0)
@@ -200,6 +202,7 @@ public class PosStockCountsController(ZKTecoDbContext dbContext) : Authenticated
 
         if (added.Count == 0)
             return BadRequest(AppResponse<StockCountDto>.Fail("Hàng đã có trong phiếu hoặc không hợp lệ"));
+        await RebaseSystemQtyToBranchAsync(storeId, count.BranchId, added);
 
         dbContext.PosStockCountLines.AddRange(added);
         await dbContext.SaveChangesAsync();
@@ -248,7 +251,7 @@ public class PosStockCountsController(ZKTecoDbContext dbContext) : Authenticated
         // (đếm − tồn lúc đếm) vào tồn hiện tại → hàng bán sau lúc đếm không bị cộng bù.
         var updLineIds = (dto.Lines ?? []).Select(u => u.LineId).ToHashSet();
         var touchedLines = count.Lines.Where(l => updLineIds.Contains(l.Id)).ToList();
-        var liveQty = await LoadLiveSystemQtyAsync(storeId, touchedLines);
+        var liveQty = await LoadLiveSystemQtyAsync(storeId, touchedLines, count.BranchId);
 
         var applied = 0;
         foreach (var upd in dto.Lines ?? new List<UpdateCountLineDto>())
@@ -294,10 +297,13 @@ public class PosStockCountsController(ZKTecoDbContext dbContext) : Authenticated
     }
 
     /// <summary>Tồn hiện tại (theo ĐVT dòng kiểm) của các dòng kiểm kê.</summary>
-    async Task<Dictionary<Guid, decimal>> LoadLiveSystemQtyAsync(Guid storeId, List<PosStockCountLine> lines)
+    async Task<Dictionary<Guid, decimal>> LoadLiveSystemQtyAsync(
+        Guid storeId, List<PosStockCountLine> lines, Guid? countBranchId = null)
     {
         var result = new Dictionary<Guid, decimal>();
         if (lines.Count == 0) return result;
+        // Cửa hàng có chi nhánh → «tồn sổ» là tồn của chi nhánh phiếu kiểm, không phải tổng cửa hàng.
+        var branchQty = await BranchQtyForLinesAsync(storeId, countBranchId, lines);
         var pids = lines.Select(l => l.ProductId).Distinct().ToList();
         var vids = lines.Where(l => l.VariantId.HasValue).Select(l => l.VariantId!.Value).Distinct().ToList();
         var products = await dbContext.PosProducts.AsNoTracking()
@@ -311,12 +317,39 @@ public class PosStockCountsController(ZKTecoDbContext dbContext) : Authenticated
         foreach (var l in lines)
         {
             if (!products.TryGetValue(l.ProductId, out var p)) continue;
+            var pQty = branchQty != null ? branchQty.GetValueOrDefault((p.Id, (Guid?)null)) : p.OnHandQty;
             if (l.VariantId.HasValue && variants.TryGetValue(l.VariantId.Value, out var v))
-                result[l.Id] = PosVariantStockHelper.ResolveVariantDisplayQty(p.OnHandQty, v.AttributeJson, v.OnHandQty);
+            {
+                var vQty = branchQty != null ? branchQty.GetValueOrDefault((p.Id, (Guid?)v.Id)) : v.OnHandQty;
+                result[l.Id] = PosVariantStockHelper.ResolveVariantDisplayQty(pQty, v.AttributeJson, vQty);
+            }
             else
-                result[l.Id] = p.OnHandQty;
+                result[l.Id] = pQty;
         }
         return result;
+    }
+
+    /// <summary>Tồn theo chi nhánh (null khi cửa hàng chưa dùng chi nhánh → dùng tổng như cũ).</summary>
+    async Task<Dictionary<(Guid, Guid?), decimal>?> BranchQtyForLinesAsync(
+        Guid storeId, Guid? countBranchId, List<PosStockCountLine> lines)
+    {
+        var ctx = HttpContext.BranchContext();
+        if (ctx == null || !ctx.StoreUsesBranches) return null;
+        var branch = countBranchId ?? ctx.CurrentBranchId ?? ctx.HeadquarterBranchId;
+        if (branch == null) return null;
+        var pids = lines.Select(l => l.ProductId).Distinct().ToList();
+        return await BranchStockService.GetBranchQtyAsync(dbContext, storeId, branch.Value, ctx.HeadquarterBranchId, pids);
+    }
+
+    /// <summary>Dòng kiểm mới: tồn sổ = tồn của chi nhánh phiếu kiểm (thay cho tổng cửa hàng).</summary>
+    async Task RebaseSystemQtyToBranchAsync(Guid storeId, Guid? countBranchId, List<PosStockCountLine> lines)
+    {
+        if (lines.Count == 0) return;
+        var ctx = HttpContext.BranchContext();
+        if (ctx == null || !ctx.StoreUsesBranches) return;
+        var live = await LoadLiveSystemQtyAsync(storeId, lines, countBranchId);
+        foreach (var l in lines)
+            if (live.TryGetValue(l.Id, out var q)) l.SystemQty = q;
     }
 
     [HttpPost("{id:guid}/complete")]
@@ -551,6 +584,7 @@ public class PosStockCountsController(ZKTecoDbContext dbContext) : Authenticated
             var built = await BuildLineAsync(storeId, count.Id, l.ProductId, l.VariantId);
             if (built != null) lines.Add(built);
         }
+        await RebaseSystemQtyToBranchAsync(storeId, count.BranchId, lines);
 
         dbContext.PosStockCounts.Add(count);
         if (lines.Count > 0)

@@ -334,46 +334,72 @@ class _TravelHoursReportScreenState extends State<TravelHoursReportScreen> {
     return '${hh}h${mm}p';
   }
 
-  /// Biểu đồ đầu báo cáo: giờ di chuyển theo ngày + người đi nhiều nhất.
-  Widget _buildInsight(List<_TravelTripRow> filtered) {
+  /// Biểu đồ dashboard: giờ di chuyển theo ngày, đủ cặp / thiếu chấm, thời lượng chuyến, người đi nhiều nhất.
+  List<Widget> _buildCharts(List<_TravelTripRow> filtered) {
+    if (filtered.isEmpty) return const [];
     final complete = filtered.where((t) => t.isComplete && t.hours > 0).toList();
-    if (complete.isEmpty) return const SizedBox.shrink();
+    final incomplete = filtered.where((t) => !t.isComplete).length;
     final byDay = <DateTime, double>{};
     final byEmp = <String, double>{};
     final trips = <String, int>{};
+    // Thời lượng mỗi chuyến: <30p, 30–60p, 1–2h, >2h.
+    const durLabels = ['Dưới 30 phút', '30–60 phút', '1–2 giờ', 'Trên 2 giờ'];
+    final dur = List<double>.filled(4, 0);
     for (final t in complete) {
       final l = t.start.isUtc ? t.start.toLocal() : t.start;
       final d = DateTime(l.year, l.month, l.day);
       byDay[d] = (byDay[d] ?? 0) + t.hours;
       byEmp[t.employeeName] = (byEmp[t.employeeName] ?? 0) + t.hours;
       trips[t.employeeName] = (trips[t.employeeName] ?? 0) + 1;
+      dur[t.hours < 0.5 ? 0 : (t.hours < 1 ? 1 : (t.hours < 2 ? 2 : 3))]++;
     }
     final days = byDay.keys.toList()..sort();
     String h(num? v) => '${SboxFmt.number(v)} giờ';
-    return Padding(
-      padding: const EdgeInsets.fromLTRB(12, 12, 12, 0),
-      child: SboxInsightPanel(
-        bottomGap: 0,
-        charts: [
-          SboxChartCard(
-            title: 'Giờ di chuyển theo ngày',
-            child: SboxBarChart(
-              valueFormat: h,
-              axisFormat: (v) => SboxFmt.number(v),
-              labels: [for (final d in days) sboxDayLabel(d)],
-              series: [SboxSeries(name: 'Giờ di chuyển', values: [for (final d in days) byDay[d]!])],
-            ),
+    return [
+      if (days.isNotEmpty)
+        SboxChartCard(
+          title: 'Giờ di chuyển theo ngày',
+          child: SboxBarChart(
+            valueFormat: h,
+            axisFormat: (v) => SboxFmt.number(v),
+            labels: [for (final d in days) sboxDayLabel(d)],
+            series: [SboxSeries(name: 'Giờ di chuyển', values: [for (final d in days) byDay[d]!])],
           ),
-          SboxChartCard(
-            title: 'Di chuyển nhiều nhất',
-            child: SboxRankList(
-              valueFormat: h,
-              items: [for (final e in byEmp.entries) SboxSlice(e.key, e.value, caption: '${trips[e.key]} chuyến')],
-            ),
-          ),
-        ],
+        ),
+      SboxChartCard(
+        title: 'Tình trạng chấm đi đường',
+        subtitle: 'Số lượt',
+        child: SboxDonutChart(
+          valueFormat: (v) => '${SboxFmt.number(v)} lượt',
+          centerValue: '${filtered.length}',
+          centerLabel: 'lượt',
+          slices: [
+            SboxSlice('Đủ cặp đi – đến', complete.length.toDouble(), color: SboxColors.success),
+            if (incomplete > 0) SboxSlice('Thiếu chấm', incomplete.toDouble(), color: SboxColors.warning),
+            if (filtered.length - complete.length - incomplete > 0)
+              SboxSlice('Không tính giờ', (filtered.length - complete.length - incomplete).toDouble(),
+                  color: SboxColors.slate300),
+          ],
+        ),
       ),
-    );
+      if (complete.isNotEmpty)
+        SboxChartCard(
+          title: 'Thời lượng mỗi chuyến',
+          child: SboxRankList(
+            color: SboxColors.brand500,
+            valueFormat: (v) => '${SboxFmt.number(v)} chuyến',
+            items: [for (var i = 0; i < 4; i++) SboxSlice(durLabels[i], dur[i])],
+          ),
+        ),
+      if (_teamView && byEmp.isNotEmpty)
+        SboxChartCard(
+          title: 'Di chuyển nhiều nhất',
+          child: SboxRankList(
+            valueFormat: h,
+            items: [for (final e in byEmp.entries) SboxSlice(e.key, e.value, caption: '${trips[e.key]} chuyến')],
+          ),
+        ),
+    ];
   }
 
   List<ReportKpiItem> _buildKpis(List<_TravelTripRow> filtered) {
@@ -381,28 +407,34 @@ class _TravelHoursReportScreenState extends State<TravelHoursReportScreen> {
     final hours = complete.fold<double>(0, (s, t) => s + t.hours);
     final incomplete = filtered.where((t) => !t.isComplete).length;
     final empCount = filtered.map((t) => t.employeeId).toSet().length;
+    final completePct = filtered.isEmpty ? null : (complete.length / filtered.length * 100).round();
     return [
       ReportKpiItem(
         label: 'Chuyến đủ cặp',
         value: '${complete.length}',
+        note: completePct == null ? null : '$completePct% tổng lượt',
         icon: Icons.directions_car_outlined,
-        color: _theme,
+        color: SboxColors.success,
       ),
       ReportKpiItem(
         label: 'Tổng giờ',
         value: _fmtHours(hours),
+        note: complete.isEmpty ? null : 'TB ${_fmtHours(hours / complete.length)}/chuyến',
         icon: Icons.schedule,
         color: _theme,
       ),
       ReportKpiItem(
         label: 'Thiếu chấm',
         value: '$incomplete',
+        note: incomplete > 0 ? 'Cần bổ sung giờ đến' : 'Đầy đủ',
         icon: Icons.warning_amber_outlined,
         color: SboxColors.warning,
+        tone: incomplete > 0 ? SboxTone.warning : SboxTone.success,
       ),
       ReportKpiItem(
         label: _teamView ? 'Nhân viên' : 'Lượt',
         value: _teamView ? '$empCount' : '${filtered.length}',
+        note: _teamView && empCount > 0 ? 'TB ${_fmtHours(hours / empCount)}/người' : null,
         icon: Icons.people_outline,
         color: _theme,
       ),
@@ -810,12 +842,10 @@ class _TravelHoursReportScreenState extends State<TravelHoursReportScreen> {
                         child: Column(
                           crossAxisAlignment: CrossAxisAlignment.stretch,
                           children: [
-                      _buildInsight(_filtered),
                       ReportCollapsibleChrome(
                         expanded: _showOverviewPanel,
                         onToggle: () => setState(
                             () => _showOverviewPanel = !_showOverviewPanel),
-                        kpi: ReportKpiGrid(items: _buildKpis(filtered)),
                         betweenKpiAndFilter: [
                           if (canSupplement)
                             Padding(
@@ -901,6 +931,13 @@ class _TravelHoursReportScreenState extends State<TravelHoursReportScreen> {
                         ),
                       ),
                       reportLoadErrorBanner(_loadError),
+                      if (!_loading)
+                        ReportDashboard(
+                          storageKey: 'travel',
+                          subtitle: reportPeriodSubtitle(_from, _to, team: _teamView),
+                          kpis: _buildKpis(filtered),
+                          charts: _buildCharts(filtered),
+                        ),
                       if (_teamView)
                         ReportViewModeTabs(
                           index: _viewTab,

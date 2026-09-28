@@ -190,10 +190,10 @@ class _BusinessTripReportScreenState extends State<BusinessTripReportScreen> {
     }
   }
 
-  /// Biểu đồ đầu báo cáo: chi phí theo khoản mục + tạm ứng / quyết toán theo nhân viên.
-  Widget _buildInsight() {
+  /// Biểu đồ dashboard: khoản mục chi phí, tạm ứng / quyết toán theo NV, hóa đơn, trạng thái hồ sơ.
+  List<Widget> _buildCharts() {
     final f = _filtered.where((c) => parseTripStatus(c['status']) != 9).toList();
-    if (f.isEmpty && _byCategory.isEmpty) return const SizedBox.shrink();
+    if (f.isEmpty && _byCategory.isEmpty) return const [];
     final adv = <String, double>{};
     final set = <String, double>{};
     for (final c in f) {
@@ -203,33 +203,65 @@ class _BusinessTripReportScreenState extends State<BusinessTripReportScreen> {
     }
     final names = adv.keys.toList()..sort((a, b) => (set[b]! + adv[b]!).compareTo(set[a]! + adv[a]!));
     final top = names.take(10).toList();
-    return Padding(
-      padding: const EdgeInsets.fromLTRB(12, 12, 12, 0),
-      child: SboxInsightPanel(
-        bottomGap: 0,
-        charts: [
-          if (_byCategory.isNotEmpty)
-            SboxChartCard(
-              title: 'Chi phí theo khoản mục',
-              child: SboxDonutChart(slices: [
-                for (final e in _byCategory)
-                  SboxSlice('${e['categoryName'] ?? e['CategoryName'] ?? 'Khác'}', reportSafeDouble(e['totalAmount'])),
-              ]),
-            ),
-          if (top.isNotEmpty)
-            SboxChartCard(
-              title: _teamView ? 'Tạm ứng và quyết toán theo nhân viên' : 'Tạm ứng và quyết toán',
-              child: SboxBarChart(
-                labels: top,
-                series: [
-                  SboxSeries(name: 'Tạm ứng', values: [for (final n in top) adv[n]!], color: SboxColors.warning),
-                  SboxSeries(name: 'Quyết toán', values: [for (final n in top) set[n]!], color: SboxColors.success),
-                ],
-              ),
-            ),
-        ],
-      ),
-    );
+    final byStatus = <String, double>{};
+    for (final c in _filtered) {
+      final label = c['statusLabel']?.toString() ?? tripStatusLabel(parseTripStatus(c['status']));
+      byStatus[label] = (byStatus[label] ?? 0) + 1;
+    }
+    final withInv = _summaryWithInvoice;
+    final withoutInv = _summaryWithoutInvoice;
+    return [
+      if (_byCategory.isNotEmpty)
+        SboxChartCard(
+          title: 'Chi phí theo khoản mục',
+          child: SboxDonutChart(
+            valueFormat: (v) => SboxFmt.money(v),
+            slices: [
+              for (final e in _byCategory)
+                SboxSlice('${e['categoryName'] ?? e['CategoryName'] ?? 'Khác'}', reportSafeDouble(e['totalAmount'])),
+            ],
+          ),
+        ),
+      if (withInv + withoutInv > 0)
+        SboxChartCard(
+          title: 'Chứng từ chi phí',
+          subtitle: 'Có / không có hóa đơn',
+          child: Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
+            SboxRatioBar(parts: [
+              SboxSlice('Có hóa đơn', withInv, color: SboxColors.success),
+              SboxSlice('Không hóa đơn', withoutInv, color: SboxColors.warning),
+            ]),
+            const SizedBox(height: 10),
+            Text('${tr('Có hóa đơn')}: ${reportMoneyFmt.format(withInv)}đ',
+                style: const TextStyle(fontSize: 12.5, color: SboxColors.successText)),
+            const SizedBox(height: 2),
+            Text('${tr('Không hóa đơn')}: ${reportMoneyFmt.format(withoutInv)}đ',
+                style: const TextStyle(fontSize: 12.5, color: SboxColors.warningText)),
+          ]),
+        ),
+      if (top.isNotEmpty)
+        SboxChartCard(
+          title: _teamView ? 'Tạm ứng và quyết toán theo nhân viên' : 'Tạm ứng và quyết toán',
+          wide: true,
+          child: SboxBarChart(
+            valueFormat: (v) => SboxFmt.money(v),
+            labels: top,
+            series: [
+              SboxSeries(name: 'Tạm ứng', values: [for (final n in top) adv[n]!], color: SboxColors.warning),
+              SboxSeries(name: 'Quyết toán', values: [for (final n in top) set[n]!], color: SboxColors.success),
+            ],
+          ),
+        ),
+      if (byStatus.length > 1)
+        SboxChartCard(
+          title: 'Trạng thái hồ sơ',
+          child: SboxRankList(
+            color: SboxColors.brand500,
+            valueFormat: (v) => '${SboxFmt.number(v)} hồ sơ',
+            items: [for (final e in byStatus.entries) SboxSlice(e.key, e.value)],
+          ),
+        ),
+    ];
   }
 
   List<ReportKpiItem> _buildKpis() {
@@ -252,27 +284,36 @@ class _BusinessTripReportScreenState extends State<BusinessTripReportScreen> {
         ? f.length
         : (_summaryTotalCases ?? f.length);
 
+    final empCount = f.map((c) => c['employeeName']?.toString() ?? '').where((n) => n.isNotEmpty).toSet().length;
+    // Chênh lệch = chi phí − tạm ứng: dương → công ty trả thêm cho NV; âm → NV hoàn lại.
+    final balNote = totalBal > 0
+        ? 'Công ty cần trả thêm cho NV'
+        : (totalBal < 0 ? 'NV cần hoàn lại công ty' : 'Đã cân bằng');
     return [
       ReportKpiItem(
           label: _teamView ? 'Tổng hồ sơ' : 'Hồ sơ',
           value: '$caseCount',
+          note: _teamView && empCount > 0 ? '$empCount nhân viên' : null,
           icon: Icons.flight_takeoff,
           color: _theme),
       ReportKpiItem(
-          label: 'Tổng ứng',
+          label: 'Tổng tạm ứng',
           value: '${reportMoneyFmt.format(totalAdv)}đ',
           icon: Icons.payments_outlined,
-          color: _theme),
+          color: SboxColors.warning),
       ReportKpiItem(
           label: 'Tổng chi phí',
           value: '${reportMoneyFmt.format(totalSet)}đ',
+          note: _expenseLineCount > 0 ? '$_expenseLineCount khoản chi' : null,
           icon: Icons.receipt_long,
           color: SboxColors.success),
       ReportKpiItem(
           label: 'Chênh lệch',
-          value: '${reportMoneyFmt.format(totalBal)}đ',
+          value: '${reportMoneyFmt.format(totalBal.abs())}đ',
+          note: balNote,
           icon: Icons.balance_outlined,
-          color: totalBal >= 0 ? Colors.orange : SboxColors.danger),
+          color: _theme,
+          tone: totalBal == 0 ? SboxTone.success : (totalBal > 0 ? SboxTone.warning : SboxTone.danger)),
     ];
   }
 
@@ -545,12 +586,10 @@ class _BusinessTripReportScreenState extends State<BusinessTripReportScreen> {
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.stretch,
                       children: [
-                  _buildInsight(),
                   ReportCollapsibleChrome(
                     expanded: _showOverviewPanel,
                     onToggle: () => setState(
                         () => _showOverviewPanel = !_showOverviewPanel),
-                    kpi: ReportKpiGrid(items: _buildKpis()),
                     filter: ReportFilterSection(
                       embedded: true,
                       from: _from,
@@ -609,16 +648,12 @@ class _BusinessTripReportScreenState extends State<BusinessTripReportScreen> {
                       ),
                     ),
                   reportLoadErrorBanner(_loadError),
-                  if (_teamView &&
-                      (_summaryWithInvoice > 0 || _summaryWithoutInvoice > 0))
-                    Padding(
-                      padding: const EdgeInsets.fromLTRB(12, 0, 12, 8),
-                      child: Text(tr('${tr('Có HĐ: ')}${reportMoneyFmt.format(_summaryWithInvoice)}đ'
-                        ' · Không HĐ: ${reportMoneyFmt.format(_summaryWithoutInvoice)}đ'
-                        '${_expenseLineCount > 0 ? ' · $_expenseLineCount dòng chi' : ''}'),
-                        style: const TextStyle(
-                            fontSize: 12, color: SboxColors.slate500),
-                      ),
+                  if (!_loading)
+                    ReportDashboard(
+                      storageKey: 'business_trip',
+                      subtitle: reportPeriodSubtitle(_from, _to, team: _teamView),
+                      kpis: _buildKpis(),
+                      charts: _buildCharts(),
                     ),
                   if (_teamView)
                     ReportViewModeTabs(

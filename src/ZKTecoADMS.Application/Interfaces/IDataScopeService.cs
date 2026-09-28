@@ -32,4 +32,18 @@ public interface IDataScopeService
     /// Kiểm tra user có quyền xem dữ liệu của employee không
     /// </summary>
     Task<bool> CanAccessEmployeeDataAsync(Guid userId, Guid employeeId, Guid storeId);
+
+    /// <summary>
+    /// Quyền Tạo / Sửa / Xóa dữ liệu thuộc chi nhánh <paramref name="branchId"/> theo BranchPermission.
+    /// Chỉ chặn khi quyền của user với chi nhánh này đến TỪ BranchPermission mà thiếu cờ tương ứng;
+    /// quản lý chi nhánh (Branch.ManagerId) và người có quyền theo phòng ban / cấp trên trực tiếp không bị ảnh hưởng.
+    /// </summary>
+    Task<bool> CanActOnBranchAsync(Guid userId, Guid storeId, Guid? branchId, BranchAction action);
+}
+
+public enum BranchAction
+{
+    Create,
+    Edit,
+    Delete,
 }

@@ -12,9 +12,12 @@ namespace ZKTecoADMS.Domain.Entities;
 
 /// <summary>Phiếu nhập hàng / nhập kho POS (PN).</summary>
 
-public class PosStockReceipt : AuditableEntity<Guid>
+public class PosStockReceipt : AuditableEntity<Guid>, IBranchScoped
 
 {
+    /// <summary>Chi nhánh (null = cửa hàng chưa dùng chi nhánh). Tự gán khi tạo mới.</summary>
+    public Guid? BranchId { get; set; }
+
 
     [Required]
 

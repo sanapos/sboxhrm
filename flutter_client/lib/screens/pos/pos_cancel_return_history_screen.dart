@@ -8,6 +8,10 @@ import '../../widgets/pos/pos_theme.dart';
 import 'package:zkteco_flutter_client/l10n/app_tr.dart';
 
 import '../../theme/sbox_tokens.dart';
+import '../../widgets/reports/hrm_report_widgets.dart' show ReportKpiItem, ReportDashboard, SboxTone;
+import '../../widgets/sbox/sbox_charts.dart';
+import '../../widgets/sbox/sbox_report.dart';
+
 /// Lịch sử hủy món / hủy đơn / trả hàng — lọc thao tác & trước/sau tạm tính.
 class PosCancelReturnHistoryScreen extends StatefulWidget {
   const PosCancelReturnHistoryScreen({super.key});
@@ -99,25 +103,6 @@ class _PosCancelReturnHistoryScreenState
     });
   }
 
-  Future<void> _pickDay({required bool isFrom}) async {
-    final initial = isFrom ? _from : _to;
-    final d = await showDatePicker(
-      context: context,
-      initialDate: initial,
-      firstDate: DateTime(2024),
-      lastDate: DateTime.now().add(const Duration(days: 1)),
-    );
-    if (d == null) return;
-    setState(() {
-      if (isFrom) {
-        _from = d;
-      } else {
-        _to = d;
-      }
-    });
-    await _load();
-  }
-
   String _actionLabel(String? t) => switch (t) {
         'KitchenVoid' => 'Hủy món bếp',
         'SaleCancel' => 'Hủy đơn',
@@ -131,6 +116,266 @@ class _PosCancelReturnHistoryScreenState
         'SaleReturn' => SboxColors.brand600,
         _ => PosTheme.textSecondary,
       };
+
+  void _setRange(int days) {
+    final now = DateTime.now();
+    setState(() {
+      _to = DateTime(now.year, now.month, now.day);
+      _from = _to.subtract(Duration(days: days - 1));
+    });
+    unawaited(_load());
+  }
+
+  // ── Dashboard ──
+
+  List<ReportKpiItem> _kpis() {
+    int count(String t) => _items.where((m) => m['actionType'] == t).length;
+    double amt(Iterable<Map<String, dynamic>> xs) =>
+        xs.fold(0.0, (s, m) => s + ((m['amount'] as num?)?.toDouble() ?? 0));
+    final total = amt(_items);
+    final after = _items.where((m) => m['afterProvisionalBill'] == true).toList();
+    String sub(String t) => '${_money.format(amt(_items.where((m) => m['actionType'] == t)))}đ';
+    return [
+      ReportKpiItem(
+        label: 'Tổng lượt hủy / trả',
+        value: '${_items.length}',
+        note: '${_money.format(total)}đ',
+        icon: Icons.receipt_long_outlined,
+        color: SboxColors.brand600,
+      ),
+      ReportKpiItem(
+        label: 'Hủy món bếp',
+        value: '${count('KitchenVoid')}',
+        note: sub('KitchenVoid'),
+        icon: Icons.soup_kitchen_outlined,
+        color: SboxColors.warning,
+        onTap: () => _quickAction(_ActionFilter.kitchenVoid),
+      ),
+      ReportKpiItem(
+        label: 'Hủy đơn',
+        value: '${count('SaleCancel')}',
+        note: sub('SaleCancel'),
+        icon: Icons.cancel_outlined,
+        color: SboxColors.danger,
+        onTap: () => _quickAction(_ActionFilter.saleCancel),
+      ),
+      ReportKpiItem(
+        label: 'Trả hàng',
+        value: '${count('SaleReturn')}',
+        note: sub('SaleReturn'),
+        icon: Icons.assignment_return_outlined,
+        color: SboxColors.brand500,
+        onTap: () => _quickAction(_ActionFilter.saleReturn),
+      ),
+      ReportKpiItem(
+        label: 'Sau tạm tính',
+        value: '${after.length}',
+        note: after.isEmpty ? 'Không có — tốt' : '${_money.format(amt(after))}đ · cần kiểm soát',
+        icon: Icons.policy_outlined,
+        color: SboxColors.danger,
+        tone: after.isEmpty ? SboxTone.success : SboxTone.danger,
+        onTap: () {
+          setState(() => _phase = _phase == _BillPhaseFilter.after ? _BillPhaseFilter.all : _BillPhaseFilter.after);
+          unawaited(_load());
+        },
+      ),
+    ];
+  }
+
+  void _quickAction(_ActionFilter a) {
+    setState(() => _action = _action == a ? _ActionFilter.all : a);
+    unawaited(_load());
+  }
+
+  List<Widget> _charts() {
+    if (_items.isEmpty) return const [];
+    final from = DateTime(_from.year, _from.month, _from.day);
+    final to = DateTime(_to.year, _to.month, _to.day);
+    final days = <DateTime>[];
+    for (var d = from; !d.isAfter(to); d = d.add(const Duration(days: 1))) {
+      days.add(d);
+    }
+    final byDay = <String, Map<DateTime, double>>{
+      'KitchenVoid': {for (final d in days) d: 0},
+      'SaleCancel': {for (final d in days) d: 0},
+      'SaleReturn': {for (final d in days) d: 0},
+    };
+    final byActor = <String, double>{};
+    final actorCnt = <String, int>{};
+    final byProduct = <String, double>{};
+    final byReason = <String, double>{};
+    for (final m in _items) {
+      final t = m['actionType']?.toString() ?? '';
+      final occ = DateTime.tryParse(m['occurredAt']?.toString() ?? '')?.toLocal();
+      final amount = (m['amount'] as num?)?.toDouble() ?? 0;
+      if (occ != null) {
+        final k = DateTime(occ.year, occ.month, occ.day);
+        final series = byDay[t];
+        if (series != null && series.containsKey(k)) series[k] = series[k]! + 1;
+      }
+      final actor = (m['actor'] ?? '').toString().trim();
+      if (actor.isNotEmpty) {
+        byActor[actor] = (byActor[actor] ?? 0) + amount;
+        actorCnt[actor] = (actorCnt[actor] ?? 0) + 1;
+      }
+      final p = (m['productName'] ?? '').toString().trim();
+      if (p.isNotEmpty) byProduct[p] = (byProduct[p] ?? 0) + ((m['qty'] as num?)?.toDouble() ?? 1);
+      final r = (m['reason'] ?? '').toString().trim();
+      byReason[r.isEmpty ? 'Không ghi lý do' : r] = (byReason[r.isEmpty ? 'Không ghi lý do' : r] ?? 0) + 1;
+    }
+    return [
+      if (days.length > 1 && days.length <= 62)
+        SboxChartCard(
+          title: 'Số lượt theo ngày',
+          wide: true,
+          child: SboxBarChart(
+            stacked: true,
+            valueFormat: (v) => '${SboxFmt.number(v)} lượt',
+            axisFormat: (v) => SboxFmt.number(v),
+            labels: [for (final d in days) sboxDayLabel(d)],
+            series: [
+              SboxSeries(name: 'Hủy món bếp', values: [for (final d in days) byDay['KitchenVoid']![d]!], color: SboxColors.warning),
+              SboxSeries(name: 'Hủy đơn', values: [for (final d in days) byDay['SaleCancel']![d]!], color: SboxColors.danger),
+              SboxSeries(name: 'Trả hàng', values: [for (final d in days) byDay['SaleReturn']![d]!], color: SboxColors.brand500),
+            ],
+          ),
+        ),
+      if (byActor.isNotEmpty)
+        SboxChartCard(
+          title: 'Người hủy / trả nhiều nhất',
+          subtitle: 'Theo số tiền',
+          child: SboxRankList(
+            color: SboxColors.danger,
+            valueFormat: (v) => SboxFmt.money(v),
+            items: [for (final e in byActor.entries) SboxSlice(e.key, e.value, caption: '${actorCnt[e.key]} lượt')],
+          ),
+        ),
+      if (byProduct.isNotEmpty)
+        SboxChartCard(
+          title: 'Món / hàng bị hủy nhiều nhất',
+          subtitle: 'Theo số lượng',
+          child: SboxRankList(
+            color: SboxColors.warning,
+            valueFormat: (v) => _qty.format(v ?? 0),
+            items: [for (final e in byProduct.entries) SboxSlice(e.key, e.value)],
+          ),
+        ),
+      SboxChartCard(
+        title: 'Lý do thường gặp',
+        child: SboxRankList(
+          color: SboxColors.slate500,
+          valueFormat: (v) => '${SboxFmt.number(v)} lượt',
+          items: [for (final e in byReason.entries) SboxSlice(e.key, e.value)],
+        ),
+      ),
+    ];
+  }
+
+  Widget _filters() {
+    Widget chip(String label, bool selected, VoidCallback onTap) => Padding(
+          padding: const EdgeInsets.only(right: 6),
+          child: ChoiceChip(
+            label: Text(tr(label), style: const TextStyle(fontSize: 12.5)),
+            selected: selected,
+            visualDensity: VisualDensity.compact,
+            onSelected: (_) => onTap(),
+          ),
+        );
+    final spanDays = DateTime(_to.year, _to.month, _to.day).difference(DateTime(_from.year, _from.month, _from.day)).inDays + 1;
+    final isToday = spanDays == 1 && DateUtils.isSameDay(_to, DateTime.now());
+    return Material(
+      color: Colors.white,
+      child: Padding(
+        padding: const EdgeInsets.fromLTRB(12, 10, 12, 10),
+        child: Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
+          SingleChildScrollView(
+            scrollDirection: Axis.horizontal,
+            child: Row(children: [
+              chip('Hôm nay', isToday, () => _setRange(1)),
+              chip('7 ngày', spanDays == 7 && DateUtils.isSameDay(_to, DateTime.now()), () => _setRange(7)),
+              chip('30 ngày', spanDays == 30 && DateUtils.isSameDay(_to, DateTime.now()), () => _setRange(30)),
+              OutlinedButton.icon(
+                onPressed: () async {
+                  final r = await showDateRangePicker(
+                    context: context,
+                    firstDate: DateTime(2024),
+                    lastDate: DateTime.now().add(const Duration(days: 1)),
+                    initialDateRange: DateTimeRange(start: _from, end: _to),
+                  );
+                  if (r == null) return;
+                  setState(() {
+                    _from = r.start;
+                    _to = r.end;
+                  });
+                  unawaited(_load());
+                },
+                style: OutlinedButton.styleFrom(visualDensity: VisualDensity.compact),
+                icon: const Icon(Icons.date_range, size: 16),
+                label: Text('${_dayFmt.format(_from)} – ${_dayFmt.format(_to)}', style: const TextStyle(fontSize: 12.5)),
+              ),
+            ]),
+          ),
+          const SizedBox(height: 8),
+          SingleChildScrollView(
+            scrollDirection: Axis.horizontal,
+            child: Row(children: [
+              chip('Mọi thao tác', _action == _ActionFilter.all, () => _quickAction(_ActionFilter.all)),
+              chip('Hủy món bếp', _action == _ActionFilter.kitchenVoid, () => _quickAction(_ActionFilter.kitchenVoid)),
+              chip('Hủy đơn', _action == _ActionFilter.saleCancel, () => _quickAction(_ActionFilter.saleCancel)),
+              chip('Trả hàng', _action == _ActionFilter.saleReturn, () => _quickAction(_ActionFilter.saleReturn)),
+              const SizedBox(width: 6),
+              chip('Trước + sau tạm tính', _phase == _BillPhaseFilter.all, () {
+                setState(() => _phase = _BillPhaseFilter.all);
+                unawaited(_load());
+              }),
+              chip('Chỉ sau tạm tính', _phase == _BillPhaseFilter.after, () {
+                setState(() => _phase = _BillPhaseFilter.after);
+                unawaited(_load());
+              }),
+              chip('Chỉ trước tạm tính', _phase == _BillPhaseFilter.before, () {
+                setState(() => _phase = _BillPhaseFilter.before);
+                unawaited(_load());
+              }),
+            ]),
+          ),
+          const SizedBox(height: 8),
+          Row(children: [
+            Expanded(
+              child: TextField(
+                controller: _actorCtrl,
+                decoration: InputDecoration(
+                  hintText: tr('Người hủy'),
+                  prefixIcon: const Icon(Icons.person_search_outlined, size: 18),
+                  isDense: true,
+                  border: const OutlineInputBorder(),
+                ),
+                onSubmitted: (_) => _load(),
+              ),
+            ),
+            const SizedBox(width: 8),
+            Expanded(
+              child: TextField(
+                controller: _searchCtrl,
+                decoration: InputDecoration(
+                  hintText: tr('Mã đơn / bàn / lý do'),
+                  prefixIcon: const Icon(Icons.search, size: 18),
+                  isDense: true,
+                  border: const OutlineInputBorder(),
+                ),
+                onSubmitted: (_) => _load(),
+              ),
+            ),
+            const SizedBox(width: 4),
+            FilledButton(
+              onPressed: _load,
+              style: FilledButton.styleFrom(visualDensity: VisualDensity.compact),
+              child: Text(tr('Lọc')),
+            ),
+          ]),
+        ]),
+      ),
+    );
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -149,138 +394,42 @@ class _PosCancelReturnHistoryScreenState
           ),
         ],
       ),
-      body: Column(
-        children: [
-          Material(
-            color: Colors.white,
-            child: Padding(
-              padding: const EdgeInsets.fromLTRB(12, 10, 12, 8),
-              child: Column(
-                children: [
-                  Row(
-                    children: [
-                      Expanded(
-                        child: OutlinedButton.icon(
-                          onPressed: () => _pickDay(isFrom: true),
-                          icon: const Icon(Icons.calendar_today, size: 16),
-                          label: Text(tr('Từ ${_dayFmt.format(_from)}')),
-                        ),
-                      ),
-                      const SizedBox(width: 8),
-                      Expanded(
-                        child: OutlinedButton.icon(
-                          onPressed: () => _pickDay(isFrom: false),
-                          icon: const Icon(Icons.event, size: 16),
-                          label: Text(tr('Đến ${_dayFmt.format(_to)}')),
-                        ),
-                      ),
-                    ],
-                  ),
-                  const SizedBox(height: 8),
-                  DropdownButtonFormField<_ActionFilter>(
-                    value: _action,
-                    decoration: InputDecoration(
-                      labelText: tr('Loại thao tác'),
-                      isDense: true,
-                      border: const OutlineInputBorder(),
-                    ),
-                    items: [
-                      DropdownMenuItem(
-                          value: _ActionFilter.all, child: Text(tr('Tất cả'))),
-                      DropdownMenuItem(
-                          value: _ActionFilter.kitchenVoid,
-                          child: Text(tr('Hủy món bếp'))),
-                      DropdownMenuItem(
-                          value: _ActionFilter.saleCancel,
-                          child: Text(tr('Hủy đơn'))),
-                      DropdownMenuItem(
-                          value: _ActionFilter.saleReturn,
-                          child: Text(tr('Trả hàng'))),
-                    ],
-                    onChanged: (v) {
-                      if (v == null) return;
-                      setState(() => _action = v);
-                      unawaited(_load());
-                    },
-                  ),
-                  const SizedBox(height: 8),
-                  DropdownButtonFormField<_BillPhaseFilter>(
-                    value: _phase,
-                    decoration: InputDecoration(
-                      labelText: tr('Trước / sau tạm tính'),
-                      isDense: true,
-                      border: const OutlineInputBorder(),
-                    ),
-                    items: [
-                      DropdownMenuItem(
-                          value: _BillPhaseFilter.all,
-                          child: Text(tr('Tất cả'))),
-                      DropdownMenuItem(
-                          value: _BillPhaseFilter.before,
-                          child: Text(tr('Trước tạm tính'))),
-                      DropdownMenuItem(
-                          value: _BillPhaseFilter.after,
-                          child: Text(tr('Sau tạm tính'))),
-                    ],
-                    onChanged: (v) {
-                      if (v == null) return;
-                      setState(() => _phase = v);
-                      unawaited(_load());
-                    },
-                  ),
-                  const SizedBox(height: 8),
-                  Row(
-                    children: [
-                      Expanded(
-                        child: TextField(
-                          controller: _actorCtrl,
-                          decoration: InputDecoration(
-                            labelText: tr('Người hủy'),
-                            isDense: true,
-                            border: const OutlineInputBorder(),
-                          ),
-                          onSubmitted: (_) => _load(),
-                        ),
-                      ),
-                      const SizedBox(width: 8),
-                      Expanded(
-                        child: TextField(
-                          controller: _searchCtrl,
-                          decoration: InputDecoration(
-                            labelText: tr('Mã đơn / bàn / lý do'),
-                            isDense: true,
-                            border: const OutlineInputBorder(),
-                          ),
-                          onSubmitted: (_) => _load(),
-                        ),
-                      ),
-                      IconButton(
-                        onPressed: _load,
-                        icon: const Icon(Icons.search),
-                      ),
-                    ],
-                  ),
-                ],
+      body: RefreshIndicator(
+        onRefresh: _load,
+        child: ListView(
+          physics: const AlwaysScrollableScrollPhysics(),
+          padding: const EdgeInsets.only(bottom: 24),
+          children: [
+            _filters(),
+            const Divider(height: 1),
+            if (_loading)
+              const Padding(padding: EdgeInsets.all(48), child: Center(child: CircularProgressIndicator()))
+            else if (_error != null)
+              Padding(padding: const EdgeInsets.all(32), child: Center(child: Text(tr(_error!))))
+            else ...[
+              ReportDashboard(
+                storageKey: 'pos_cancel_return',
+                subtitle: '${_dayFmt.format(_from)} – ${_dayFmt.format(_to)}${_items.length >= 400 ? ' · 400 bản ghi gần nhất' : ''}',
+                kpis: _kpis(),
+                charts: _charts(),
               ),
-            ),
-          ),
-          const Divider(height: 1),
-          Expanded(
-            child: _loading
-                ? const Center(child: CircularProgressIndicator())
-                : _error != null
-                    ? Center(child: Text(tr(_error!)))
-                    : _items.isEmpty
-                        ? Center(child: Text(tr('Chưa có bản ghi')))
-                        : ListView.separated(
-                            padding: const EdgeInsets.fromLTRB(12, 8, 12, 24),
-                            itemCount: _items.length,
-                            separatorBuilder: (_, __) =>
-                                const SizedBox(height: 8),
-                            itemBuilder: (_, i) => _tile(_items[i]),
-                          ),
-          ),
-        ],
+              if (_items.isEmpty)
+                Padding(
+                  padding: const EdgeInsets.all(40),
+                  child: Center(child: Text(tr('Không có lượt hủy / trả nào trong kỳ'))),
+                )
+              else ...[
+                Padding(
+                  padding: const EdgeInsets.fromLTRB(16, 12, 16, 6),
+                  child: Text(tr('Chi tiết (${_items.length})'),
+                      style: const TextStyle(fontWeight: FontWeight.w700, fontSize: 14)),
+                ),
+                for (final m in _items)
+                  Padding(padding: const EdgeInsets.fromLTRB(12, 0, 12, 6), child: _tile(m)),
+              ],
+            ],
+          ],
+        ),
       ),
     );
   }

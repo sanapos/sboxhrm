@@ -54,6 +54,8 @@ public static class DependencyInjectionExtensions
         services.AddScoped<AuditableEntityInterceptor>();
         services.AddScoped<ActivityAuditCollector>();
         services.AddScoped<ActivityAuditInterceptor>();
+        services.AddScoped<ZKTecoADMS.Application.Interfaces.IBranchContext, ZKTecoADMS.Application.Interfaces.BranchContext>();
+        services.AddScoped<BranchStockInterceptor>();
         services.AddDbContext<ZKTecoDbContext>((sp, options) =>
         {
             var auditableInterceptor = sp.GetRequiredService<AuditableEntityInterceptor>();
@@ -65,7 +67,8 @@ public static class DependencyInjectionExtensions
                     builder.MaxBatchSize(100);
                     builder.CommandTimeout(120);
                 })
-                .AddInterceptors(auditableInterceptor, sp.GetRequiredService<ActivityAuditInterceptor>())
+                .AddInterceptors(auditableInterceptor, sp.GetRequiredService<ActivityAuditInterceptor>(),
+                    sp.GetRequiredService<BranchStockInterceptor>())
                 .UseQueryTrackingBehavior(QueryTrackingBehavior.NoTracking);
         });
         services.AddScoped<DbContext>(sp => sp.GetRequiredService<ZKTecoDbContext>());

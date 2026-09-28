@@ -128,6 +128,10 @@ class ApiService {
     };
   }
 
+  /// Chi nhánh đang thao tác (BranchSession đặt) — gửi kèm mọi request qua header X-Branch-Id.
+  /// Server kiểm quyền; không hợp lệ thì dùng chi nhánh của NV / trụ sở.
+  static String? currentBranchId;
+
   // Headers với token
   Map<String, String> get _headers {
     final headers = {
@@ -137,6 +141,8 @@ class ApiService {
     if (_token != null) {
       headers['Authorization'] = 'Bearer $_token';
     }
+    final branch = currentBranchId;
+    if (branch != null && branch.isNotEmpty) headers['X-Branch-Id'] = branch;
     return headers;
   }
 
@@ -2863,6 +2869,35 @@ class ApiService {
     return null;
   }
 
+  /// Hồ sơ lương của mọi NV trong cửa hàng — 1 request (thay cho gọi từng NV).
+  /// Trả null khi lỗi (để màn gọi phân biệt «lỗi tải» với «chưa cấu hình»).
+  /// Map: employeeId (chữ thường) → hồ sơ; NV chưa cấu hình không có trong map.
+  Future<Map<String, Map<String, dynamic>>?> getEmployeeSalaryProfilesBulk() async {
+    try {
+      final response = await http
+          .get(Uri.parse('$baseUrl/api/benefits/employees'), headers: _headers)
+          .timeout(const Duration(seconds: 30));
+      final result = _handleResponse(response);
+      if (result['isSuccess'] != true || result['data'] is! List) return null;
+      final out = <String, Map<String, dynamic>>{};
+      for (final item in result['data'] as List) {
+        if (item is! Map) continue;
+        final m = Map<String, dynamic>.from(item);
+        final empId = (m['employeeId'] ?? m['EmployeeId'])?.toString().toLowerCase();
+        final benefit = m['benefit'] ?? m['Benefit'];
+        final benefitId = (m['benefitId'] ?? m['BenefitId'])?.toString() ?? '';
+        final configured = benefit is Map ||
+            (benefitId.isNotEmpty && benefitId != '00000000-0000-0000-0000-000000000000');
+        if (empId == null || empId.isEmpty || !configured) continue;
+        out[empId] = m;
+      }
+      return out;
+    } catch (e) {
+      debugPrint('Error getting salary profiles (bulk): $e');
+      return null;
+    }
+  }
+
   // Get employee salary profile by employee ID
   Future<Map<String, dynamic>?> getEmployeeSalaryProfile(
       String employeeId) async {
@@ -3804,6 +3839,69 @@ class ApiService {
   }
 
   /// Đánh dấu thông báo đã đọc
+  // ── Vận hành chi nhánh: ngữ cảnh, tồn kho chi nhánh, chuyển kho, báo cáo ──
+
+  Future<Map<String, dynamic>> _branchGet(String path, [Map<String, String>? q]) async {
+    try {
+      final uri = Uri.parse('$baseUrl/api/branch-ops/$path').replace(
+          queryParameters: q == null ? null : (Map.of(q)..removeWhere((k, v) => v.isEmpty)));
+      final r = await http.get(uri, headers: _headers).timeout(const Duration(seconds: 30));
+      return _handleResponse(r);
+    } catch (e) {
+      return _connectionFailure(e);
+    }
+  }
+
+  Future<Map<String, dynamic>> _branchPost(String path, [Object? body]) async {
+    try {
+      final r = await http
+          .post(Uri.parse('$baseUrl/api/branch-ops/$path'),
+              headers: _headers, body: body == null ? null : jsonEncode(body))
+          .timeout(const Duration(seconds: 30));
+      return _handleResponse(r);
+    } catch (e) {
+      return _connectionFailure(e);
+    }
+  }
+
+  static String _d(DateTime d) =>
+      '${d.year.toString().padLeft(4, '0')}-${d.month.toString().padLeft(2, '0')}-${d.day.toString().padLeft(2, '0')}';
+
+  Future<Map<String, dynamic>> getBranchContext() => _branchGet('context');
+
+  Future<Map<String, dynamic>> getBranchStock(
+          {String? branchId, String? search, String? filter, int page = 1, int pageSize = 100}) =>
+      _branchGet('stock', {
+        'branchId': branchId ?? '',
+        'search': search ?? '',
+        'filter': filter ?? '',
+        'page': '$page',
+        'pageSize': '$pageSize',
+      });
+
+  Future<Map<String, dynamic>> getBranchStockMatrix(String productId, {String? variantId}) =>
+      _branchGet('stock/matrix/$productId', {'variantId': variantId ?? ''});
+
+  Future<Map<String, dynamic>> getStockTransfers({int? status, String? branchId}) =>
+      _branchGet('transfers', {'status': status?.toString() ?? '', 'branchId': branchId ?? ''});
+
+  Future<Map<String, dynamic>> getStockTransfer(String id) => _branchGet('transfers/$id');
+
+  Future<Map<String, dynamic>> createStockTransfer(Map<String, dynamic> body) => _branchPost('transfers', body);
+
+  Future<Map<String, dynamic>> sendStockTransfer(String id) => _branchPost('transfers/$id/send');
+
+  Future<Map<String, dynamic>> receiveStockTransfer(String id, {List<Map<String, dynamic>>? lines}) =>
+      _branchPost('transfers/$id/receive', {'lines': lines});
+
+  Future<Map<String, dynamic>> cancelStockTransfer(String id) => _branchPost('transfers/$id/cancel');
+
+  Future<Map<String, dynamic>> getBranchCompare(DateTime from, DateTime to) =>
+      _branchGet('reports/compare', {'from': _d(from), 'to': _d(to)});
+
+  Future<Map<String, dynamic>> getBranchOverview(String branchId, DateTime from, DateTime to) =>
+      _branchGet('reports/overview/$branchId', {'from': _d(from), 'to': _d(to)});
+
   /// Đánh dấu lại chưa đọc.
   Future<Map<String, dynamic>> markNotificationAsUnread(String id) async {
     try {

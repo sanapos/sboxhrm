@@ -5,7 +5,6 @@ import '../utils/file_saver.dart' as file_saver;
 import '../utils/platform_storage.dart' as platform_storage;
 import 'package:flutter/material.dart';
 import '../widgets/app_scroll_safe.dart';
-import '../widgets/hrm_mini_stat_chip.dart';
 import 'package:zkteco_flutter_client/widgets/app_responsive_dialog.dart';
 import 'package:intl/intl.dart';
 import 'package:file_picker/file_picker.dart';
@@ -48,6 +47,9 @@ import 'package:url_launcher/url_launcher.dart';
 import 'package:zkteco_flutter_client/l10n/app_tr.dart';
 
 import '../theme/sbox_tokens.dart';
+import '../utils/vn_search.dart';
+import '../widgets/sbox/sbox_basics.dart' show SboxTone;
+import '../widgets/sbox/sbox_report.dart' show SboxKpi, SboxKpiStrip;
 class AttendanceScreen extends StatefulWidget {
   const AttendanceScreen({super.key});
 
@@ -145,8 +147,20 @@ class _AttendanceScreenState extends State<AttendanceScreen> {
     }
   }
 
-  /// Load correction requests from localStorage
+  /// Luồng sửa giờ cũ lưu phiếu «đã duyệt» trong localStorage rồi áp đè lên log thô →
+  /// mỗi máy thấy log khác nhau, có bản ghi ảo (manual_*) không có trong CSDL.
+  /// Nay sửa giờ đi qua server → xóa dữ liệu cũ, «Chấm công thô» luôn đúng log máy.
   void _loadCorrectionRequestsFromStorage() {
+    try {
+      platform_storage.storageRemove(_pendingRequestsKey);
+      platform_storage.storageRemove(_processedRequestsKey);
+    } catch (_) {}
+    _pendingCorrectionRequests = [];
+    _processedCorrectionRequests = [];
+  }
+
+  // ignore: unused_element
+  void _legacyLoadCorrectionRequestsFromStorage() {
     try {
       final pendingJson = platform_storage.storageGet(_pendingRequestsKey);
       final processedJson = platform_storage.storageGet(_processedRequestsKey);
@@ -302,7 +316,13 @@ class _AttendanceScreenState extends State<AttendanceScreen> {
 
   /// Handle new attendance from SignalR
   void _handleNewAttendance(Attendance attendance) {
-    // Check if attendance is for a selected device
+    // Chỉ thêm khi thuộc máy đang chọn, nằm trong khoảng ngày đang xem và chưa có (tránh trùng
+    // khi tải lại danh sách cùng lúc với sự kiện realtime).
+    final t = attendance.attendanceTime;
+    final inRange = !t.isBefore(DateTime(_fromDate.year, _fromDate.month, _fromDate.day)) &&
+        t.isBefore(DateTime(_toDate.year, _toDate.month, _toDate.day).add(const Duration(days: 1)));
+    if (!mounted || !inRange) return;
+    if (_attendances.any((a) => a.id == attendance.id)) return;
     if (_selectedDevices.isEmpty ||
         _selectedDevices.contains(attendance.deviceId)) {
       setState(() {
@@ -2035,59 +2055,79 @@ class _AttendanceScreenState extends State<AttendanceScreen> {
     ];
   }
 
+  /// Thẻ KPI log thô — bấm thẻ kiểu xác thực để lọc (bấm lại để bỏ lọc).
   Widget _buildStatsRow() {
-    final total = _filteredAttendances.length;
-    final fingerprint =
-        _filteredAttendances.where((a) => a.verifyType == 1).length;
-    final face = _filteredAttendances
-        .where((a) => a.verifyType == 15 || a.verifyType == 9)
+    final list = _filteredAttendances;
+    final total = list.length;
+    final fingerprint = list.where((a) => a.verifyType == 1).length;
+    final face = list.where((a) => a.verifyType == 15 || a.verifyType == 9).length;
+    final manual = list.where((a) => a.verifyType == 100).length;
+    final card = list.where((a) => a.verifyType == 2).length;
+    final people = list
+        .map((a) => (a.employeeId ?? a.enrollNumber ?? '').trim())
+        .where((s) => s.isNotEmpty)
+        .toSet()
         .length;
-    final manual =
-        _filteredAttendances.where((a) => a.verifyType == 100).length;
-    final card = _filteredAttendances.where((a) => a.verifyType == 2).length;
+    // Log có PIN nhưng chưa gắn hồ sơ nhân sự → không vào bảng công.
+    final unlinked = list.where((a) => (a.employeeName ?? '').trim().isEmpty).length;
 
-    final totalLabel = _attendanceLoadTruncated &&
-            _attendanceServerTotalCount != null &&
-            _attendanceServerTotalCount! > total
-        ? '$total/${_attendanceServerTotalCount}'
-        : '$total';
-    final cards = [
-      _buildStatCard('Tổng bản ghi', totalLabel, Icons.list_alt,
-          _attendanceLoadTruncated ? HrmPageChrome.chipLight : HrmPageChrome.primaryNavy),
-      _buildStatCard('Vân tay', '$fingerprint', Icons.fingerprint,
-          HrmPageChrome.primaryNavy),
-      _buildStatCard(
-          'Khuôn mặt', '$face', Icons.face, HrmPageChrome.primaryNavy),
-      _buildStatCard(
-          'Thẻ từ', '$card', Icons.credit_card, HrmPageChrome.chipLight),
-      _buildStatCard(
-          'Thủ công', '$manual', Icons.edit_note, SboxColors.danger),
-    ];
-
-    if (Responsive.isMobile(context)) {
-      return HrmPageChrome.horizontalStatCards(
-        cards: cards,
-        minCardWidth: 100,
-        gap: 8,
-      );
-    }
-
-    return Row(
-      children: cards
-          .expand((c) => [Expanded(child: c), const SizedBox(width: 8)])
-          .toList()
-        ..removeLast(),
-    );
-  }
-
-  Widget _buildStatCard(
-      String label, String value, IconData icon, Color color) {
-    return HrmStatSummaryCard(
-      icon: icon,
-      value: value,
-      label: label,
-      color: color,
-    );
+    final truncated = _attendanceLoadTruncated &&
+        _attendanceServerTotalCount != null &&
+        _attendanceServerTotalCount! > total;
+    void byVerify(int v) => setState(() {
+          _selectedVerifyType = _selectedVerifyType == v ? null : v;
+          _currentPage = 1;
+        });
+    String pct(int n) => total == 0 ? '' : '${(n / total * 100).round()}% lượt';
+    String sel(int v, String note) => _selectedVerifyType == v ? 'Đang lọc — bấm để bỏ' : note;
+    return SboxKpiStrip(maxColumns: 6, items: [
+      SboxKpi(
+        label: 'Tổng bản ghi',
+        value: truncated ? '$total/${_attendanceServerTotalCount}' : '$total',
+        icon: Icons.list_alt,
+        tone: truncated ? SboxTone.warning : SboxTone.brand,
+        note: truncated ? 'Chưa tải hết — thu hẹp khoảng ngày' : '$people người đã chấm',
+      ),
+      SboxKpi(
+        label: 'Vân tay',
+        value: '$fingerprint',
+        icon: Icons.fingerprint,
+        tone: SboxTone.brand,
+        note: sel(1, pct(fingerprint)),
+        onTap: () => byVerify(1),
+      ),
+      SboxKpi(
+        label: 'Khuôn mặt',
+        value: '$face',
+        icon: Icons.face,
+        tone: SboxTone.violet,
+        note: sel(15, pct(face)),
+        onTap: () => byVerify(15),
+      ),
+      SboxKpi(
+        label: 'Thẻ từ',
+        value: '$card',
+        icon: Icons.credit_card,
+        tone: SboxTone.neutral,
+        note: sel(2, pct(card)),
+        onTap: () => byVerify(2),
+      ),
+      SboxKpi(
+        label: 'Thủ công',
+        value: '$manual',
+        icon: Icons.edit_note,
+        tone: manual > 0 ? SboxTone.warning : SboxTone.success,
+        note: sel(100, manual > 0 ? 'Nhập tay / sửa giờ' : 'Không có'),
+        onTap: () => byVerify(100),
+      ),
+      SboxKpi(
+        label: 'Chưa gắn nhân viên',
+        value: '$unlinked',
+        icon: Icons.link_off,
+        tone: unlinked > 0 ? SboxTone.danger : SboxTone.success,
+        note: unlinked > 0 ? 'Chưa vào bảng công — liên kết ở Nhân sự chấm công' : 'Đầy đủ',
+      ),
+    ]);
   }
 
   // Pagination widget
@@ -2327,13 +2367,38 @@ class _AttendanceScreenState extends State<AttendanceScreen> {
     }
   }
 
-  List<Attendance> get _filteredAttendances {
-    var result = _attendances;
+  // Kết quả lọc + sắp xếp được nhớ theo «chữ ký» bộ lọc — getter bị gọi nhiều lần mỗi lần vẽ;
+  // trước đây mỗi lần đều lọc + sắp xếp lại hàng nghìn log (và sắp xếp thẳng trên _attendances).
+  List<Attendance>? _filteredCache;
+  Object? _filteredCacheKey;
 
-    // Filter by branch
+  List<Attendance> get _filteredAttendances {
+    final key = Object.hashAll([
+      identityHashCode(_attendances),
+      _attendances.length,
+      _selectedBranchId,
+      _selectedVerifyType,
+      _filterEmployeeCode,
+      _searchPin,
+      _sortColumn,
+      _sortAscending,
+      _employeesList.length,
+    ]);
+    if (_filteredCache != null && _filteredCacheKey == key) return _filteredCache!;
+    final r = _computeFilteredAttendances();
+    _filteredCache = r;
+    _filteredCacheKey = key;
+    return r;
+  }
+
+  List<Attendance> _computeFilteredAttendances() {
+    var result = List<Attendance>.from(_attendances);
+
+    // Filter by branch (gồm chi nhánh con)
     if (_selectedBranchId != null) {
+      final branchIds = BranchFilterHelper.expandBranchIds(_selectedBranchId!, _branches);
       final branchCodes = _employeesList
-          .where((e) => e['branchId']?.toString() == _selectedBranchId)
+          .where((e) => branchIds.contains(e['branchId']?.toString()))
           .map((e) => e['employeeCode']?.toString() ?? '')
           .where((c) => c.isNotEmpty)
           .toSet();
@@ -2364,12 +2429,12 @@ class _AttendanceScreenState extends State<AttendanceScreen> {
     }
 
     // Filter by quick search (header)
-    if (_searchPin.isNotEmpty) {
-      final search = _searchPin.toLowerCase();
+    if (_searchPin.trim().isNotEmpty) {
+      // Không dấu: «nguyen» khớp «Nguyễn».
       result = result.where((a) {
-        return (a.enrollNumber?.toLowerCase().contains(search) ?? false) ||
-            (a.employeeName?.toLowerCase().contains(search) ?? false) ||
-            (a.employeeId?.toLowerCase().contains(search) ?? false);
+        return vnContains(a.enrollNumber, _searchPin) ||
+            vnContains(a.employeeName, _searchPin) ||
+            vnContains(a.employeeId, _searchPin);
       }).toList();
     }
 

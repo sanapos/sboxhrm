@@ -5,8 +5,11 @@ using ZKTecoADMS.Domain.Enums;
 namespace ZKTecoADMS.Domain.Entities;
 
 /// <summary>Phiếu kiểm kê tồn POS.</summary>
-public class PosStockCount : AuditableEntity<Guid>
+public class PosStockCount : AuditableEntity<Guid>, IBranchScoped
 {
+    /// <summary>Chi nhánh (null = cửa hàng chưa dùng chi nhánh). Tự gán khi tạo mới.</summary>
+    public Guid? BranchId { get; set; }
+
     [Required]
     public Guid StoreId { get; set; }
     public virtual Store? Store { get; set; }

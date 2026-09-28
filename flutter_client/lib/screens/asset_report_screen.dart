@@ -1,6 +1,5 @@
 import 'package:flutter/material.dart';
 import '../widgets/hrm_collapsible_overview.dart';
-import '../widgets/hrm_mini_stat_chip.dart';
 import '../widgets/hrm_page_chrome.dart';
 import 'package:intl/intl.dart';
 import 'package:provider/provider.dart';
@@ -616,40 +615,6 @@ class _AssetReportScreenState extends State<AssetReportScreen>
     }
   }
 
-  List<HrmStatItem> _summaryStatItems() {
-    return [
-      HrmStatItem(
-        label: 'Tổng TS',
-        value: '${_summary['totalAssets'] ?? 0}',
-        icon: Icons.inventory,
-      ),
-      HrmStatItem(
-        label: 'Đang dùng',
-        value: '${_summary['activeAssets'] ?? 0}',
-        icon: Icons.check_circle_outline,
-        onTap: () => _jumpToTab(1, statusFilter: 0),
-      ),
-      HrmStatItem(
-        label: 'Trong kho',
-        value: '${_summary['inStockAssets'] ?? 0}',
-        icon: Icons.warehouse_outlined,
-        onTap: () => _jumpToTab(1, statusFilter: 5),
-      ),
-      HrmStatItem(
-        label: 'Đã cấp',
-        value: '${_summary['assignedAssets'] ?? 0}',
-        icon: Icons.person_outline,
-        onTap: () => _jumpToTab(2),
-      ),
-      HrmStatItem(
-        label: 'BH sắp hết',
-        value: '${_summary['warrantyExpiringSoon'] ?? 0}',
-        icon: Icons.warning_amber,
-        onTap: () => _jumpToTab(6),
-      ),
-    ];
-  }
-
   Widget _buildOverviewSection() {
     return Container(
       color: Colors.white,
@@ -658,16 +623,8 @@ class _AssetReportScreenState extends State<AssetReportScreen>
         expanded: _showOverviewPanel,
         onToggle: () =>
             setState(() => _showOverviewPanel = !_showOverviewPanel),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.stretch,
-          children: [
-            if (_tabs.index == 0 && _summary.isNotEmpty) ...[
-              HrmStatBar(items: _summaryStatItems(), valueFontSize: 14),
-              const SizedBox(height: 8),
-            ],
-            _buildFiltersContent(),
-          ],
-        ),
+        // KPI tổng quan nằm trong dashboard tab «Tổng quan» — không lặp lại ở đây.
+        child: _buildFiltersContent(),
       ),
     );
   }
@@ -686,10 +643,6 @@ class _AssetReportScreenState extends State<AssetReportScreen>
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
-            if (_tabs.index == 0 && _summary.isNotEmpty) ...[
-              HrmStatBar(items: _summaryStatItems(), valueFontSize: 14),
-              const SizedBox(height: 8),
-            ],
             if (showDate) ...[
               ReportDateRangeFilterBar(
                 from: _from,
@@ -1002,11 +955,6 @@ class _AssetReportScreenState extends State<AssetReportScreen>
   /// Tổng quan: dùng chung bảng điều khiển tài sản (giá trị còn lại sau khấu hao,
   /// tỷ lệ sử dụng, phân bổ, mua sắm 12 tháng, tuổi tài sản, việc cần xử lý).
   Widget _buildSummaryTab() => const AssetDashboardView(forReport: true);
-
-  void _jumpToTab(int index, {int? statusFilter}) {
-    if (statusFilter != null) _statusFilter = statusFilter;
-    _tabs.animateTo(index);
-  }
 
   Widget _buildRegisterTab() => _buildDataView(
         _register,

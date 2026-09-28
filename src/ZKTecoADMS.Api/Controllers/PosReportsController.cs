@@ -51,7 +51,7 @@ public partial class PosReportsController(
             storeId, fromDt, toDt, IsManager ? null : orderIds);
         var totalRevenueInclVat = totalRevenue + totalVat;
 
-        var byPaymentRaw = await dbContext.CashTransactions.AsNoTracking()
+        var byPaymentRaw = await dbContext.CashTransactions.AsNoTracking().ApplyBranchScope(HttpContext.BranchContext())
             .Where(c => c.StoreId == storeId && c.Deleted == null && c.IsActive
                 && c.Status == CashTransactionStatus.Completed
                 && c.Type == CashTransactionType.Income
@@ -185,7 +185,7 @@ public partial class PosReportsController(
             .Where(x => x.DepositStatus == PosReservationDepositStatus.Refunded)
             .Sum(x => x.DepositPaid);
 
-        var depositCash = await dbContext.CashTransactions.AsNoTracking()
+        var depositCash = await dbContext.CashTransactions.AsNoTracking().ApplyBranchScope(HttpContext.BranchContext())
             .Where(c => c.StoreId == storeId && c.Deleted == null && c.IsActive
                 && c.Status == CashTransactionStatus.Completed
                 && c.InternalNote != null
@@ -1117,7 +1117,7 @@ public partial class PosReportsController(
         if (orderIds.Count > 0)
         {
             var orderIdSet = orderIds.ToHashSet();
-            var saleCashTx = await dbContext.CashTransactions.AsNoTracking()
+            var saleCashTx = await dbContext.CashTransactions.AsNoTracking().ApplyBranchScope(HttpContext.BranchContext())
                 .Where(c => c.StoreId == storeId && c.Deleted == null && c.IsActive
                     && c.Status == CashTransactionStatus.Completed
                     && c.Type == CashTransactionType.Income
@@ -1642,6 +1642,8 @@ public partial class PosReportsController(
 
     private IQueryable<PosSaleOrder> ScopeOrdersForViewer(IQueryable<PosSaleOrder> query)
     {
+        // Chi nhánh: ?branchId= hoặc giới hạn theo chi nhánh được phép xem.
+        query = query.ApplyBranchScope(HttpContext.BranchContext());
         if (IsManager) return query;
         var filter = EmployeeId.HasValue ? "soldByEmployee" : "soldBy";
         return ApplyStaffFilter(query, CurrentUserEmail, EmployeeId, filter);
@@ -1786,7 +1788,7 @@ public partial class PosReportsController(
                 .FirstOrDefaultAsync();
         }
 
-        var cashQ = dbContext.CashTransactions.AsNoTracking()
+        var cashQ = dbContext.CashTransactions.AsNoTracking().ApplyBranchScope(HttpContext.BranchContext())
             .Where(c => c.StoreId == storeId && c.Deleted == null && c.IsActive
                 && c.Status == CashTransactionStatus.Completed
                 && c.InternalNote != null

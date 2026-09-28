@@ -46,14 +46,36 @@ const _reports = <_ReportSpec>[
   _ReportSpec('Tài chính nhân sự', 'Nợ tiền cơm', 'Theo nhân viên', '/api/reports/finance/meal-debt', _PeriodKind.range, ['Meal']),
 ];
 
-/// Danh sách báo cáo phân tích (lọc theo quyền).
-class AnalyticsReportsScreen extends StatelessWidget {
+/// Icon + màu theo nhóm báo cáo.
+const _groupStyle = <String, (IconData, Color)>{
+  'Chấm công': (Icons.fingerprint_rounded, SboxColors.brand500),
+  'Nghỉ phép & ca': (Icons.event_available_rounded, SboxColors.violet),
+  'Hiệu suất': (Icons.trending_up_rounded, SboxColors.success),
+  'Tổng hợp': (Icons.dashboard_rounded, HrmPageChrome.primaryNavy),
+  'Khách sạn': (Icons.hotel_rounded, SboxColors.info),
+  'Gym / Spa': (Icons.fitness_center_rounded, SboxColors.warning),
+  'Tài chính nhân sự': (Icons.account_balance_wallet_rounded, SboxColors.danger),
+};
+
+/// Danh sách báo cáo phân tích (lọc theo quyền) — lưới thẻ theo nhóm, có ô tìm.
+class AnalyticsReportsScreen extends StatefulWidget {
   const AnalyticsReportsScreen({super.key});
+
+  @override
+  State<AnalyticsReportsScreen> createState() => _AnalyticsReportsScreenState();
+}
+
+class _AnalyticsReportsScreenState extends State<AnalyticsReportsScreen> {
+  String _q = '';
 
   @override
   Widget build(BuildContext context) {
     final perm = context.watch<PermissionProvider>();
-    final visible = _reports.where((r) => r.modules.any(perm.canView)).toList();
+    final q = _q.trim().toLowerCase();
+    final visible = _reports
+        .where((r) => r.modules.any(perm.canView))
+        .where((r) => q.isEmpty || '${r.title} ${r.subtitle} ${r.group}'.toLowerCase().contains(q))
+        .toList();
     final groups = <String, List<_ReportSpec>>{};
     for (final r in visible) {
       groups.putIfAbsent(r.group, () => []).add(r);
@@ -61,34 +83,91 @@ class AnalyticsReportsScreen extends StatelessWidget {
     return Scaffold(
       backgroundColor: HrmPageChrome.background,
       appBar: AppBar(title: Text(tr('Báo cáo phân tích'))),
-      body: visible.isEmpty
-          ? Center(child: Text(tr('Không có báo cáo nào bạn được xem')))
-          : ListView(
-              padding: const EdgeInsets.fromLTRB(12, 12, 12, 24),
-              children: [
-                for (final g in groups.entries) ...[
-                  Padding(
-                    padding: const EdgeInsets.fromLTRB(4, 8, 4, 6),
-                    child: Text(tr(g.key),
-                        style: const TextStyle(
-                            fontWeight: FontWeight.w700, color: HrmPageChrome.primaryNavy)),
-                  ),
-                  for (final r in g.value)
-                    Card(
-                      margin: const EdgeInsets.only(bottom: 6),
-                      elevation: 0,
-                      child: ListTile(
-                        leading: const Icon(Icons.insert_chart_outlined, color: HrmPageChrome.primaryNavy),
-                        title: Text(tr(r.title), style: const TextStyle(fontWeight: FontWeight.w600)),
-                        subtitle: Text(tr(r.subtitle)),
-                        trailing: const Icon(Icons.chevron_right),
-                        onTap: () => Navigator.of(context).push(MaterialPageRoute(
-                            builder: (_) => _AnalyticsReportViewer(spec: r))),
-                      ),
-                    ),
-                ],
-              ],
+      body: LayoutBuilder(builder: (context, cons) {
+        final cols = cons.maxWidth >= 1100 ? 3 : (cons.maxWidth >= 680 ? 2 : 1);
+        return ListView(
+          padding: const EdgeInsets.fromLTRB(12, 12, 12, 24),
+          children: [
+            TextField(
+              onChanged: (v) => setState(() => _q = v),
+              decoration: InputDecoration(
+                isDense: true,
+                filled: true,
+                fillColor: Colors.white,
+                prefixIcon: const Icon(Icons.search_rounded),
+                hintText: tr('Tìm báo cáo…'),
+                border: OutlineInputBorder(borderRadius: BorderRadius.circular(12), borderSide: BorderSide.none),
+              ),
             ),
+            if (visible.isEmpty)
+              Padding(
+                padding: const EdgeInsets.all(40),
+                child: Center(child: Text(tr(q.isEmpty ? 'Không có báo cáo nào bạn được xem' : 'Không tìm thấy báo cáo'))),
+              ),
+            for (final g in groups.entries) ...[
+              Padding(
+                padding: const EdgeInsets.fromLTRB(4, 16, 4, 8),
+                child: Row(children: [
+                  Icon(_groupStyle[g.key]?.$1 ?? Icons.insert_chart_outlined,
+                      size: 18, color: _groupStyle[g.key]?.$2 ?? HrmPageChrome.primaryNavy),
+                  const SizedBox(width: 6),
+                  Text(tr(g.key),
+                      style: const TextStyle(fontWeight: FontWeight.w800, fontSize: 14.5, color: SboxColors.slate900)),
+                  const SizedBox(width: 6),
+                  Text('${g.value.length}', style: const TextStyle(fontSize: 12, color: SboxColors.slate500)),
+                ]),
+              ),
+              SboxGrid(
+                columns: cols,
+                spacing: 8,
+                children: [for (final r in g.value) _reportTile(context, r)],
+              ),
+            ],
+          ],
+        );
+      }),
+    );
+  }
+
+  Widget _reportTile(BuildContext context, _ReportSpec r) {
+    final color = _groupStyle[r.group]?.$2 ?? HrmPageChrome.primaryNavy;
+    return Material(
+      color: Colors.white,
+      borderRadius: BorderRadius.circular(12),
+      child: InkWell(
+        borderRadius: BorderRadius.circular(12),
+        onTap: () => Navigator.of(context).push(MaterialPageRoute(builder: (_) => _AnalyticsReportViewer(spec: r))),
+        child: Container(
+          padding: const EdgeInsets.all(12),
+          decoration: BoxDecoration(
+            borderRadius: BorderRadius.circular(12),
+            border: Border.all(color: SboxColors.slate200),
+          ),
+          child: Row(children: [
+            Container(
+              width: 38,
+              height: 38,
+              decoration: BoxDecoration(color: color.withValues(alpha: 0.12), borderRadius: BorderRadius.circular(10)),
+              child: Icon(Icons.insert_chart_outlined_rounded, color: color, size: 20),
+            ),
+            const SizedBox(width: 10),
+            Expanded(
+              child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+                Text(tr(r.title),
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    style: const TextStyle(fontWeight: FontWeight.w700, fontSize: 13.5, color: SboxColors.slate900)),
+                const SizedBox(height: 2),
+                Text(tr(r.subtitle),
+                    maxLines: 2,
+                    overflow: TextOverflow.ellipsis,
+                    style: const TextStyle(fontSize: 12, color: SboxColors.slate500)),
+              ]),
+            ),
+            const Icon(Icons.chevron_right_rounded, color: SboxColors.slate400),
+          ]),
+        ),
+      ),
     );
   }
 }
@@ -114,14 +193,125 @@ const _labels = <String, String>{
   'usedSessions': 'Đã dùng', 'remainingSessions': 'Còn lại', 'expiresAt': 'Hết hạn', 'daysLeft': 'Còn (ngày)',
   'lastUsedAt': 'Lần tập cuối', 'renewed': 'Đã gia hạn', 'expiringCount': 'Sắp hết hạn',
   'expiredCount': 'Đã hết hạn', 'lowSessionsCount': 'Sắp hết buổi', 'renewedCount': 'Đã gia hạn',
+  // ── Chấm công ──
+  'standardDays': 'Ngày công chuẩn', 'lateDays': 'Ngày đi trễ', 'leaveDays': 'Ngày nghỉ phép',
+  'avgComplianceRate': 'TB chuyên cần (%)', 'totalEmployees': 'Tổng nhân viên', 'absenceDate': 'Ngày vắng',
+  'totalAbsenceRecords': 'Tổng lượt vắng', 'affectedEmployees': 'Nhân viên bị ảnh hưởng',
+  'firstPunch': 'Chấm đầu tiên', 'lastPunch': 'Chấm cuối cùng', 'punchCount': 'Số lần chấm', 'issues': 'Bất thường',
+  'checkIns': 'Lượt check-in', 'faceGpsCount': 'Khuôn mặt / GPS', 'wifiCount': 'WiFi', 'rejectedCount': 'Bị từ chối',
+  'pendingCount': 'Chờ duyệt', 'deviceCount': 'Số thiết bị', 'totalCount': 'Tổng số', 'checkInCount': 'Lượt vào',
+  'checkOutCount': 'Lượt ra', 'pin': 'Mã chấm công', 'locationName': 'Địa điểm', 'location': 'Địa điểm',
+  // ── Nghỉ phép & ca ──
+  'paidEntitlement': 'Phép năm được hưởng', 'paidUsed': 'Phép năm đã dùng', 'paidRemaining': 'Phép năm còn lại',
+  'unpaidUsed': 'Nghỉ không lương', 'sickUsed': 'Nghỉ ốm', 'otherUsed': 'Nghỉ khác', 'usagePercent': 'Tỷ lệ đã dùng (%)',
+  'year': 'Năm', 'month': 'Tháng', 'approvalDate': 'Ngày duyệt', 'approved': 'Đã duyệt', 'rejected': 'Từ chối',
+  'cancelled': 'Đã hủy', 'avgResponseHours': 'TB giờ phản hồi', 'totalRequests': 'Tổng đơn', 'approvalRate': 'Tỷ lệ duyệt (%)',
+  'rejectionRate': 'Tỷ lệ từ chối (%)', 'avgResolutionHours': 'TB giờ xử lý', 'minEmployees': 'Tối thiểu (người)',
+  'maxEmployees': 'Tối đa (người)', 'totalRequested': 'Tổng yêu cầu', 'totalSwaps': 'Tổng lượt đổi ca',
+  'totalApproved': 'Tổng đã duyệt', 'totalRejected': 'Tổng từ chối',
+  // ── Hiệu suất / KPI / sản lượng / tài sản ──
+  'periodName': 'Kỳ', 'periodStart': 'Bắt đầu kỳ', 'periodEnd': 'Kết thúc kỳ', 'avgCompletion': 'TB hoàn thành (%)',
+  'kpiCount': 'Số chỉ tiêu', 'kpiCode': 'Mã KPI', 'kpiName': 'Chỉ tiêu KPI', 'totalScore': 'Tổng điểm',
+  'details': 'Chi tiết', 'code': 'Mã', 'name': 'Tên', 'completionPercent': 'Hoàn thành (%)',
+  'weightedScore': 'Điểm có trọng số', 'employeeCount': 'Số nhân viên', 'avgScore': 'Điểm TB',
+  'totalEntries': 'Tổng lượt nhập', 'totalQuantity': 'Tổng sản lượng', 'totalAmount': 'Tổng tiền',
+  'daysWorked': 'Ngày làm', 'avgDailyQuantity': 'TB sản lượng/ngày', 'productCode': 'Mã sản phẩm', 'unit': 'Đơn vị',
+  'totalAssets': 'Tổng tài sản', 'assignedCount': 'Đang giao', 'inStockCount': 'Trong kho', 'brokenCount': 'Hỏng',
+  'lostCount': 'Mất', 'disposedCount': 'Đã thanh lý', 'totalValue': 'Tổng giá trị', 'brand': 'Thương hiệu',
+  'serialNumber': 'Số serial', 'assignedDate': 'Ngày giao', 'currentValue': 'Giá trị hiện tại',
+  // ── Điều hành tháng ──
+  'headcount': 'Nhân sự', 'attendance': 'Chấm công', 'leave': 'Nghỉ phép', 'payroll': 'Bảng lương', 'finance': 'Tài chính',
+  'atMonthStart': 'Đầu tháng', 'atMonthEnd': 'Cuối tháng', 'hired': 'Tuyển mới', 'resigned': 'Nghỉ việc',
+  'netChange': 'Tăng / giảm', 'turnoverRatePercent': 'Tỷ lệ nghỉ việc (%)', 'totalPunches': 'Tổng lượt chấm',
+  'uniqueManDays': 'Ngày công thực tế', 'avgPunchesPerDay': 'TB lượt chấm/ngày', 'approvedLeaves': 'Đơn phép đã duyệt',
+  'pendingLeaves': 'Đơn phép chờ duyệt', 'payslipCount': 'Số phiếu lương', 'totalGross': 'Tổng lương gộp',
+  'totalNet': 'Tổng thực lĩnh', 'totalOvertime': 'Tổng tăng ca', 'totalBonus': 'Tổng thưởng',
+  'otRatioPercent': 'Tỷ lệ tăng ca (%)', 'penaltyApproved': 'Tiền phạt đã duyệt', 'advanceApproved': 'Tạm ứng đã duyệt',
+  'advanceOutstanding': 'Tạm ứng chưa trừ', 'mealCharge': 'Tiền cơm phát sinh', 'mealPayment': 'Tiền cơm đã thu',
+  'mealOutstanding': 'Tiền cơm còn nợ',
+  // ── Tài chính nhân sự ──
+  'totalTickets': 'Tổng phiếu', 'approvedAmount': 'Tiền đã duyệt', 'cancelledAmount': 'Tiền đã hủy', 'byType': 'Theo loại',
+  'type': 'Loại', 'avgAmount': 'TB số tiền', 'ticketCount': 'Số phiếu', 'forgotCount': 'Quên chấm', 'otherCount': 'Khác',
+  'pendingAmount': 'Tiền chờ duyệt', 'approvedUnpaid': 'Đã duyệt chưa chi', 'paidAmount': 'Đã chi',
+  'rejectedAmount': 'Tiền bị từ chối', 'totalPaid': 'Tổng đã chi', 'outstandingDebt': 'Còn nợ', 'totalCases': 'Tổng hồ sơ',
+  'pendingAdvanceCases': 'Chờ tạm ứng', 'pendingSettlementCases': 'Chờ quyết toán', 'closedCases': 'Đã đóng',
+  'totalAdvanceAmount': 'Tổng tạm ứng', 'totalSettledAmount': 'Tổng quyết toán', 'totalBalanceAmount': 'Tổng chênh lệch',
+  'totalWithInvoice': 'Có hóa đơn', 'totalWithoutInvoice': 'Không hóa đơn', 'expenseLineCount': 'Số khoản chi',
+  'byCategory': 'Theo khoản mục', 'caseCode': 'Mã hồ sơ', 'title': 'Tiêu đề', 'destination': 'Nơi đến',
+  'statusLabel': 'Trạng thái', 'advanceAmount': 'Tạm ứng', 'settledAmount': 'Quyết toán', 'balanceAmount': 'Chênh lệch',
+  'tripFromDate': 'Đi từ ngày', 'tripToDate': 'Đến ngày', 'createdAt': 'Ngày tạo', 'advanceIsPaid': 'Đã chi tạm ứng',
+  'advanceStatus': 'Trạng thái tạm ứng', 'settlementStatus': 'Trạng thái quyết toán', 'settlementType': 'Hình thức quyết toán',
+  'hasUncategorizedExpense': 'Có khoản chưa phân loại', 'totalAdvance': 'Tổng tạm ứng', 'totalSettled': 'Tổng quyết toán',
+  'totalBalance': 'Tổng chênh lệch', 'pendingAdvance': 'Chờ tạm ứng', 'pendingSettlement': 'Chờ quyết toán',
+  'categoryCode': 'Mã khoản mục', 'categoryName': 'Khoản mục', 'lineCount': 'Số dòng', 'caseCount': 'Số hồ sơ',
+  'withInvoiceAmount': 'Có hóa đơn', 'withoutInvoiceAmount': 'Không hóa đơn', 'percentage': 'Tỷ lệ (%)', 'period': 'Kỳ',
+  'totalCharge': 'Tổng phát sinh', 'totalPayment': 'Tổng đã trả', 'totalOutstanding': 'Tổng còn nợ',
+  'lastTransactionDate': 'Giao dịch gần nhất', 'pendingItems': 'Chờ xử lý', 'summary': 'Tổng quan',
+  'paidIncome': 'Đã thu', 'paidExpense': 'Đã chi', 'paidIncomeCount': 'Số phiếu thu', 'paidExpenseCount': 'Số phiếu chi',
+  'pendingIncome': 'Thu chờ duyệt', 'pendingExpense': 'Chi chờ duyệt', 'pendingIncomeCount': 'Phiếu thu chờ',
+  'pendingExpenseCount': 'Phiếu chi chờ', 'cancelledCount': 'Đã hủy', 'transactionCode': 'Mã phiếu',
+  'transactionDate': 'Ngày giao dịch', 'description': 'Diễn giải', 'paymentMethod': 'Hình thức', 'isPaid': 'Đã thanh toán',
+  'createdByUserName': 'Người tạo', 'page': 'Trang', 'pageSize': 'Số dòng/trang',
+  // ── Khách lưu trú / thẻ tập ──
+  'guestName': 'Khách', 'fullName': 'Họ tên', 'idNumber': 'Số giấy tờ', 'idType': 'Loại giấy tờ', 'nationality': 'Quốc tịch',
+  'roomName': 'Phòng', 'roomCode': 'Mã phòng', 'checkInAt': 'Nhận phòng', 'checkOutAt': 'Trả phòng', 'birthDate': 'Ngày sinh',
+  'gender': 'Giới tính', 'address': 'Địa chỉ', 'totalSessions': 'Tổng buổi', 'startDate': 'Từ ngày', 'endDate': 'Đến ngày',
+};
+
+/// Từ điển từng từ để dịch tên cột lạ (không có trong [_labels]) — tránh lộ chữ tiếng Anh.
+const _words = <String, String>{
+  'total': 'tổng', 'count': 'số lượng', 'amount': 'số tiền', 'avg': 'TB', 'average': 'TB', 'max': 'tối đa',
+  'min': 'tối thiểu', 'days': 'ngày', 'day': 'ngày', 'hours': 'giờ', 'hour': 'giờ', 'minutes': 'phút',
+  'minute': 'phút', 'date': 'ngày', 'time': 'giờ', 'rate': 'tỷ lệ', 'percent': '%', 'ratio': 'tỷ lệ',
+  'employee': 'nhân viên', 'employees': 'nhân viên', 'name': 'tên', 'code': 'mã', 'status': 'trạng thái',
+  'late': 'đi trễ', 'early': 'về sớm', 'absent': 'vắng', 'absence': 'vắng', 'present': 'có mặt', 'leave': 'nghỉ phép',
+  'leaves': 'đơn nghỉ', 'sick': 'ốm', 'paid': 'đã trả', 'unpaid': 'chưa trả', 'approved': 'đã duyệt',
+  'rejected': 'từ chối', 'pending': 'chờ duyệt', 'cancelled': 'đã hủy', 'request': 'yêu cầu', 'requests': 'yêu cầu',
+  'shift': 'ca', 'shifts': 'ca', 'swap': 'đổi ca', 'swaps': 'đổi ca', 'punch': 'lượt chấm', 'punches': 'lượt chấm',
+  'check': 'chấm', 'in': 'vào', 'out': 'ra', 'device': 'thiết bị', 'devices': 'thiết bị', 'department': 'phòng ban',
+  'branch': 'chi nhánh', 'store': 'cửa hàng', 'salary': 'lương', 'gross': 'lương gộp', 'net': 'thực lĩnh',
+  'bonus': 'thưởng', 'overtime': 'tăng ca', 'ot': 'tăng ca', 'penalty': 'phạt', 'advance': 'tạm ứng',
+  'meal': 'cơm', 'debt': 'nợ', 'outstanding': 'còn nợ', 'charge': 'phát sinh', 'payment': 'đã trả', 'income': 'thu',
+  'expense': 'chi', 'cost': 'chi phí', 'price': 'giá', 'value': 'giá trị', 'quantity': 'số lượng', 'qty': 'số lượng',
+  'product': 'sản phẩm', 'asset': 'tài sản', 'assets': 'tài sản', 'score': 'điểm', 'target': 'mục tiêu',
+  'actual': 'thực tế', 'completion': 'hoàn thành', 'records': 'lượt', 'record': 'lượt', 'entries': 'lượt',
+  'first': 'đầu', 'last': 'cuối', 'start': 'bắt đầu', 'end': 'kết thúc', 'from': 'từ', 'to': 'đến', 'new': 'mới',
+  'used': 'đã dùng', 'remaining': 'còn lại', 'entitlement': 'được hưởng', 'invoice': 'hóa đơn', 'case': 'hồ sơ',
+  'cases': 'hồ sơ', 'category': 'khoản mục', 'type': 'loại', 'items': 'chi tiết', 'by': 'theo', 'per': '/',
+  'unique': 'riêng', 'man': 'người', 'month': 'tháng', 'year': 'năm', 'week': 'tuần', 'no': 'không', 'show': 'có mặt',
+  'shows': 'lượt', 'mobile': 'di động', 'wifi': 'WiFi', 'face': 'khuôn mặt', 'gps': 'GPS', 'field': 'hiện trường',
+  'is': '', 'has': 'có', 'of': '', 'and': 'và', 'with': 'có', 'without': 'không', 'id': 'mã', 'user': 'người dùng',
 };
 
 String _label(String key) {
-  final k = _labels[key];
+  final k = _labels[key] ?? _labels[key.isEmpty ? key : key[0].toLowerCase() + key.substring(1)];
   if (k != null) return k;
-  final spaced = key.replaceAllMapped(RegExp(r'([a-z])([A-Z])'), (m) => '${m[1]} ${m[2]}');
-  return spaced.isEmpty ? key : spaced[0].toUpperCase() + spaced.substring(1);
+  // Dự phòng: tách camelCase và dịch từng từ.
+  final parts = key
+      .replaceAllMapped(RegExp(r'([a-z0-9])([A-Z])'), (m) => '${m[1]} ${m[2]}')
+      .split(RegExp(r'[\s_]+'))
+      .where((p) => p.isNotEmpty)
+      .map((p) => _words[p.toLowerCase()] ?? p)
+      .where((p) => p.isNotEmpty)
+      .toList();
+  final s = parts.join(' ');
+  return s.isEmpty ? key : s[0].toUpperCase() + s.substring(1);
 }
+
+/// Giá trị chữ tiếng Anh hay gặp (enum trạng thái) → tiếng Việt.
+const _valueVi = <String, String>{
+  'pending': 'Chờ duyệt', 'approved': 'Đã duyệt', 'rejected': 'Từ chối', 'cancelled': 'Đã hủy', 'canceled': 'Đã hủy',
+  'completed': 'Hoàn thành', 'active': 'Đang hoạt động', 'inactive': 'Ngưng hoạt động', 'assigned': 'Đang giao',
+  'instock': 'Trong kho', 'in_stock': 'Trong kho', 'available': 'Sẵn sàng', 'broken': 'Hỏng', 'lost': 'Mất',
+  'disposed': 'Đã thanh lý', 'maintenance': 'Bảo trì', 'under': 'Thiếu người', 'ok': 'Đủ', 'over': 'Vượt',
+  'checkin': 'Vào', 'checkout': 'Ra', 'income': 'Thu', 'expense': 'Chi', 'cash': 'Tiền mặt', 'transfer': 'Chuyển khoản',
+  'banktransfer': 'Chuyển khoản', 'late': 'Đi trễ', 'early': 'Về sớm', 'forgot': 'Quên chấm', 'other': 'Khác',
+  'paid': 'Đã trả', 'unpaid': 'Chưa trả', 'draft': 'Nháp', 'closed': 'Đã đóng', 'open': 'Đang mở',
+  'annualleave': 'Phép năm', 'sickleave': 'Nghỉ ốm', 'personalpaid': 'Phép có lương', 'personalunpaid': 'Phép không lương',
+  'maternityleave': 'Thai sản', 'compensatoryleave': 'Nghỉ bù', 'holiday': 'Nghỉ lễ', 'male': 'Nam', 'female': 'Nữ',
+  'monday': 'Thứ 2', 'tuesday': 'Thứ 3', 'wednesday': 'Thứ 4', 'thursday': 'Thứ 5', 'friday': 'Thứ 6',
+  'saturday': 'Thứ 7', 'sunday': 'Chủ nhật', 'true': 'Có', 'false': 'Không',
+};
 
 bool _isScalar(dynamic v) => v == null || v is num || v is String || v is bool;
 
@@ -232,6 +422,8 @@ class _AnalyticsReportViewerState extends State<_AnalyticsReportViewer> {
     if (v is bool) return v ? tr('Có') : tr('Không');
     if (v is num) return _num.format(v);
     final s = v.toString();
+    final vi = _valueVi[s.trim().toLowerCase()];
+    if (vi != null) return vi;
     if (RegExp(r'^\d{4}-\d{2}-\d{2}T').hasMatch(s)) {
       final d = DateTime.tryParse(s);
       if (d != null) {

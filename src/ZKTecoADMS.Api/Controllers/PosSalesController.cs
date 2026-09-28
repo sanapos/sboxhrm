@@ -1349,7 +1349,8 @@ public partial class PosSalesController(
 
         var query = dbContext.PosSaleOrders
             .AsNoTracking()
-            .Where(o => o.StoreId == storeId && o.Deleted == null && o.IsActive);
+            .Where(o => o.StoreId == storeId && o.Deleted == null && o.IsActive)
+            .ApplyBranchScope(HttpContext.BranchContext()); // chỉ đơn của chi nhánh được xem
 
         if (!string.IsNullOrWhiteSpace(search))
         {

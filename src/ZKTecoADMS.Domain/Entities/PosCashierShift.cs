@@ -4,8 +4,11 @@ using ZKTecoADMS.Domain.Entities.Base;
 namespace ZKTecoADMS.Domain.Entities;
 
 /// <summary>Ca thu ngân — mở/đóng két. Tắt mặc định, bật trong thiết lập POS.</summary>
-public class PosCashierShift : AuditableEntity<Guid>
+public class PosCashierShift : AuditableEntity<Guid>, IBranchScoped
 {
+    /// <summary>Chi nhánh (null = cửa hàng chưa dùng chi nhánh). Tự gán khi tạo mới.</summary>
+    public Guid? BranchId { get; set; }
+
     [Required]
     public Guid StoreId { get; set; }
     public virtual Store? Store { get; set; }

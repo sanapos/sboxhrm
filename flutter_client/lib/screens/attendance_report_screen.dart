@@ -13,7 +13,6 @@ import '../utils/report_access_utils.dart';
 import '../utils/report_screen_helpers.dart';
 import '../utils/salary_profile_load_utils.dart';
 import '../utils/shift_records_calculator.dart';
-import '../widgets/hrm_mini_stat_chip.dart';
 import '../widgets/hrm_page_chrome.dart';
 import '../widgets/page_top_actions.dart';
 import '../widgets/pos/pos_theme.dart';
@@ -735,13 +734,14 @@ class _AttendanceReportScreenState extends State<AttendanceReportScreen> {
     return out;
   }
 
-  /// Biểu đồ đầu báo cáo: tình trạng đi làm theo ngày (đủ công / nửa công / nghỉ phép / vắng).
-  Widget _buildInsight() {
+  /// Biểu đồ dashboard: tình trạng đi làm theo ngày, cơ cấu ngày công, vắng nhiều nhất, trễ nhiều nhất.
+  List<Widget> _buildCharts() {
     final emps = _filteredEmployees;
     final days = _daysInRange;
-    if (emps.isEmpty || days.isEmpty) return const SizedBox.shrink();
+    if (emps.isEmpty || days.isEmpty) return const [];
     final full = <double>[], half = <double>[], leave = <double>[], absent = <double>[];
     final lateBy = <String, double>{};
+    final absentBy = <String, double>{};
     for (final d in days) {
       var f = 0.0, h = 0.0, l = 0.0, a = 0.0;
       for (final emp in emps) {
@@ -749,6 +749,7 @@ class _AttendanceReportScreenState extends State<AttendanceReportScreen> {
         final code = emp['employeeCode']?.toString() ?? '';
         final cell = _dayCells['${id.isNotEmpty ? id : code}|${_fmtDate.format(d)}'];
         if (cell == null) continue;
+        final n = emp['fullName']?.toString() ?? emp['name']?.toString() ?? code;
         final st = cell['status']?.toString() ?? '';
         if (st == _DayStatus.present.name) {
           f++;
@@ -758,52 +759,69 @@ class _AttendanceReportScreenState extends State<AttendanceReportScreen> {
           l++;
         } else if (st == _DayStatus.unpaidAbsent.name) {
           a++;
+          absentBy[n] = (absentBy[n] ?? 0) + 1;
         }
         final late = (cell['lateMinutes'] as num?)?.toDouble() ?? 0;
-        if (late > 0) {
-          final n = emp['fullName']?.toString() ?? emp['name']?.toString() ?? code;
-          lateBy[n] = (lateBy[n] ?? 0) + late;
-        }
+        if (late > 0) lateBy[n] = (lateBy[n] ?? 0) + late;
       }
       full.add(f);
       half.add(h);
       leave.add(l);
       absent.add(a);
     }
-    return Padding(
-      padding: const EdgeInsets.fromLTRB(12, 12, 12, 0),
-      child: SboxInsightPanel(
-        bottomGap: 0,
-        charts: [
-          SboxChartCard(
-            title: 'Tình trạng đi làm theo ngày',
-            subtitle: 'Số nhân viên',
-            wide: !_teamView || lateBy.isEmpty,
-            child: SboxBarChart(
-              stacked: true,
-              valueFormat: (v) => '${SboxFmt.number(v)} NV',
-              axisFormat: (v) => SboxFmt.number(v),
-              labels: [for (final d in days) sboxDayLabel(d)],
-              series: [
-                SboxSeries(name: 'Đủ công', values: full, color: SboxColors.success),
-                SboxSeries(name: 'Nửa công / thiếu chấm', values: half, color: SboxColors.warning),
-                SboxSeries(name: 'Nghỉ phép', values: leave, color: SboxColors.violet),
-                SboxSeries(name: 'Vắng', values: absent, color: SboxColors.danger),
-              ],
-            ),
-          ),
-          if (_teamView && lateBy.isNotEmpty)
-            SboxChartCard(
-              title: 'Đi trễ nhiều nhất',
-              child: SboxRankList(
-                color: SboxColors.warning,
-                valueFormat: (v) => '${SboxFmt.number(v)} phút',
-                items: [for (final e in lateBy.entries) SboxSlice(e.key, e.value)],
-              ),
-            ),
-        ],
+    double sum(List<double> x) => x.fold(0, (s, v) => s + v);
+    return [
+      SboxChartCard(
+        title: 'Tình trạng đi làm theo ngày',
+        subtitle: 'Số nhân viên',
+        wide: true,
+        child: SboxBarChart(
+          stacked: true,
+          valueFormat: (v) => '${SboxFmt.number(v)} NV',
+          axisFormat: (v) => SboxFmt.number(v),
+          labels: [for (final d in days) sboxDayLabel(d)],
+          series: [
+            SboxSeries(name: 'Đủ công', values: full, color: SboxColors.success),
+            SboxSeries(name: 'Nửa công / thiếu chấm', values: half, color: SboxColors.warning),
+            SboxSeries(name: 'Nghỉ phép', values: leave, color: SboxColors.violet),
+            SboxSeries(name: 'Vắng', values: absent, color: SboxColors.danger),
+          ],
+        ),
       ),
-    );
+      SboxChartCard(
+        title: 'Cơ cấu ngày công',
+        subtitle: 'Tổng lượt ngày trong kỳ',
+        child: SboxDonutChart(
+          valueFormat: (v) => '${SboxFmt.number(v)} ngày',
+          slices: [
+            SboxSlice('Đủ công', sum(full), color: SboxColors.success),
+            SboxSlice('Nửa công / thiếu chấm', sum(half), color: SboxColors.warning),
+            SboxSlice('Nghỉ phép', sum(leave), color: SboxColors.violet),
+            SboxSlice('Vắng', sum(absent), color: SboxColors.danger),
+          ],
+        ),
+      ),
+      if (_teamView && absentBy.isNotEmpty)
+        SboxChartCard(
+          title: 'Vắng nhiều nhất',
+          subtitle: 'Vắng không phép',
+          child: SboxRankList(
+            color: SboxColors.danger,
+            valueFormat: (v) => '${SboxFmt.number(v)} ngày',
+            items: [for (final e in absentBy.entries) SboxSlice(e.key, e.value)],
+          ),
+        ),
+      if (_teamView && lateBy.isNotEmpty)
+        SboxChartCard(
+          title: 'Đi trễ nhiều nhất',
+          subtitle: 'Tổng phút trễ',
+          child: SboxRankList(
+            color: SboxColors.warning,
+            valueFormat: (v) => '${SboxFmt.number(v)} phút',
+            items: [for (final e in lateBy.entries) SboxSlice(e.key, e.value)],
+          ),
+        ),
+    ];
   }
 
   List<ReportKpiItem> _buildKpis() {
@@ -836,57 +854,48 @@ class _AttendanceReportScreenState extends State<AttendanceReportScreen> {
     }
     final workLabel = totalWork == totalWork.roundToDouble()
         ? totalWork.toInt().toString()
-        : totalWork.toStringAsFixed(1);
+        : totalWork.toStringAsFixed(1).replaceAll('.', ',');
+    // Chuyên cần = công thực tế / (ngày phải đi làm, không tính ngày nghỉ phép).
+    final expected = present + half + unpaid;
+    final rate = expected == 0 ? null : ((present + half * 0.5) / expected * 100).round();
     return [
       ReportKpiItem(
-          label: 'NV',
+          label: 'Nhân viên',
           value: emps.length.toString(),
+          note: '${_daysInRange.length} ngày trong kỳ',
           icon: Icons.people_outline,
           color: Colors.blueGrey),
       ReportKpiItem(
-          label: 'X đủ công',
-          value: present.toString(),
-          icon: Icons.check_circle_outline,
-          color: PosTheme.primaryDark),
-      ReportKpiItem(
-          label: 'X/2',
-          value: half.toString(),
-          icon: Icons.timelapse,
-          color: PosTheme.kiotBlue),
-      ReportKpiItem(
           label: 'Tổng công',
           value: workLabel,
+          note: emps.isEmpty ? null : 'TB ${(totalWork / emps.length).toStringAsFixed(1).replaceAll('.', ',')} công/NV',
           icon: Icons.calculate_outlined,
           color: _theme),
       ReportKpiItem(
-          label: 'V vắng',
+          label: 'Tỷ lệ chuyên cần',
+          value: rate == null ? '—' : '$rate%',
+          note: 'Đủ công + nửa công / ngày phải làm',
+          icon: Icons.verified_outlined,
+          color: SboxColors.success,
+          tone: rate == null ? SboxTone.neutral : (rate >= 95 ? SboxTone.success : (rate >= 85 ? SboxTone.warning : SboxTone.danger))),
+      ReportKpiItem(
+          label: 'Ngày đủ công',
+          value: present.toString(),
+          note: half > 0 ? '$half ngày nửa công' : null,
+          icon: Icons.check_circle_outline,
+          color: SboxColors.success),
+      ReportKpiItem(
+          label: 'Ngày vắng',
           value: unpaid.toString(),
+          note: 'Không có đơn phép',
           icon: Icons.person_off_outlined,
           color: SboxColors.danger),
       ReportKpiItem(
-          label: 'Phép',
+          label: 'Ngày nghỉ phép',
           value: leave.toString(),
           icon: Icons.beach_access_outlined,
-          color: PosTheme.primary),
+          color: SboxColors.violet),
     ];
-  }
-
-  /// Thanh KPI 1 hàng — nền trắng, viền xanh, thấp gọn.
-  Widget _compactKpiBar(List<ReportKpiItem> items) {
-    if (items.isEmpty) return const SizedBox.shrink();
-    return ColoredBox(
-      color: Colors.white,
-      child: HrmStatBar(
-        items: [
-          for (final k in items)
-            HrmStatItem(icon: k.icon, label: k.label, value: k.value),
-        ],
-        padding: const EdgeInsets.fromLTRB(12, 6, 12, 4),
-        gap: 6,
-        valueFontSize: 14,
-        minCardWidth: 100,
-      ),
-    );
   }
 
   Future<void> _exportExcel({bool png = false}) async {
@@ -1182,12 +1191,10 @@ class _AttendanceReportScreenState extends State<AttendanceReportScreen> {
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.stretch,
                       children: [
-                  _buildInsight(),
                   ReportCollapsibleChrome(
                     expanded: _showOverviewPanel,
                     onToggle: () => setState(
                         () => _showOverviewPanel = !_showOverviewPanel),
-                    kpi: _compactKpiBar(_buildKpis()),
                     filter: ReportFilterSection(
                       embedded: true,
                       from: _from,
@@ -1245,6 +1252,13 @@ class _AttendanceReportScreenState extends State<AttendanceReportScreen> {
                     ),
                   ),
                   reportLoadErrorBanner(_loadError),
+                  if (!_loading)
+                    ReportDashboard(
+                      storageKey: 'attendance_report',
+                      subtitle: reportPeriodSubtitle(_from, _to, team: _teamView),
+                      kpis: _buildKpis(),
+                      charts: _buildCharts(),
+                    ),
                   _calendarLegend(),
                   if (_loading)
                     const Padding(

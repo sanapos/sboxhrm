@@ -29,6 +29,9 @@ import '../utils/safe_navigator.dart';
 import 'package:zkteco_flutter_client/l10n/app_tr.dart';
 
 import '../theme/sbox_tokens.dart';
+import '../utils/vn_search.dart';
+import '../widgets/sbox/sbox_basics.dart' show SboxTone;
+import '../widgets/sbox/sbox_report.dart' show SboxKpi, SboxKpiStrip;
 // Hàm chuyển đổi tiếng Việt có dấu sang không dấu
 String removeVietnameseAccents(String str) {
   const Map<String, String> vietnameseMap = {
@@ -181,6 +184,9 @@ enum DeviceUsersOverviewFilter {
   linked,
   unlinked,
   onOnlineDevice,
+
+  /// Chưa có vân tay / khuôn mặt / thẻ / mật khẩu → không chấm công được.
+  noBiometric,
 }
 
 /// Bộ lọc danh sách nhân viên khi gán/liên kết user máy chấm công.
@@ -371,20 +377,36 @@ class _DeviceUsersScreenState extends State<DeviceUsersScreen> {
       if (success) {
         _showSuccess('Đã gửi lệnh tải nhân viên. Đang chờ dữ liệu từ máy...');
 
-        // Auto reload với retry - đợi máy trả về dữ liệu
+        // Ảnh chụp trước khi máy trả dữ liệu — chỉ báo «đã tải» khi danh sách thực sự thay đổi
+        // (trước đây: danh sách vốn đã có user → báo xong ngay dù máy chưa gửi gì).
+        String snapshot(List<DeviceUser> xs) => (xs
+                .map((u) => '${u.pin}|${u.name}|${u.fingerprintCount}|${u.faceCount}|${u.cardNumber ?? ''}')
+                .toList()
+              ..sort())
+            .join(';');
         setState(() => _selectedDeviceId = selectedDevice.id);
+        await _loadDeviceUsers();
+        final before = snapshot(_deviceUsers);
+        final beforeCount = _deviceUsers.length;
 
-        // Retry load users nhiều lần trong vòng 30 giây
-        for (int i = 0; i < 6; i++) {
+        // Chờ tối đa ~45 giây; khi dữ liệu đổi thì chờ thêm 1 nhịp cho máy gửi nốt.
+        for (int i = 0; i < 9; i++) {
           await Future.delayed(const Duration(seconds: 5));
           if (!mounted) return;
           await _loadDeviceUsers();
-          if (_deviceUsers.isNotEmpty) {
-            _showSuccess('Đã tải ${_deviceUsers.length} nhân viên từ máy!');
+          if (snapshot(_deviceUsers) != before) {
+            await Future.delayed(const Duration(seconds: 5));
+            if (!mounted) return;
+            await _loadDeviceUsers();
+            final diff = _deviceUsers.length - beforeCount;
+            _showSuccess(diff > 0
+                ? 'Đã tải từ máy: thêm $diff user (tổng ${_deviceUsers.length}).'
+                : 'Đã cập nhật dữ liệu từ máy (${_deviceUsers.length} user).');
             return;
           }
         }
-        _showSuccess('Lệnh đã gửi. Hãy nhấn Refresh nếu chưa thấy dữ liệu.');
+        _showSuccess(
+            'Máy chưa gửi dữ liệu mới (có thể danh sách đã khớp, hoặc máy đang ngoại tuyến). Bấm Tải lại sau ít phút.');
       } else {
         _showError('Không thể gửi lệnh đến máy chấm công');
       }
@@ -756,9 +778,26 @@ class _DeviceUsersScreenState extends State<DeviceUsersScreen> {
       case DeviceUsersOverviewFilter.onOnlineDevice:
         final onlineIds = _onlineDeviceIds;
         return _deviceUsers.where((u) => onlineIds.contains(u.deviceId)).toList();
+      case DeviceUsersOverviewFilter.noBiometric:
+        return _deviceUsers.where(_hasNoCredential).toList();
       case DeviceUsersOverviewFilter.all:
         return _deviceUsers;
     }
+  }
+
+  /// User trên máy chưa có cách xác thực nào (vân tay, khuôn mặt, thẻ, mật khẩu).
+  bool _hasNoCredential(DeviceUser u) =>
+      u.fingerprintCount <= 0 &&
+      u.faceCount <= 0 &&
+      (u.cardNumber ?? '').trim().isEmpty &&
+      (u.password ?? '').trim().isEmpty;
+
+  /// Nhân viên đang làm chưa có user trên bất kỳ máy nào.
+  List<Employee> get _employeesNotOnDevice {
+    final linked = _linkedEmployeeIds;
+    return _employees
+        .where((e) => e.workStatusDisplay != 'Đã nghỉ việc' && !linked.contains(e.id))
+        .toList();
   }
 
   Employee? _employeeOf(DeviceUser user) {
@@ -847,14 +886,13 @@ class _DeviceUsersScreenState extends State<DeviceUsersScreen> {
     if (_selectedEmployeeId != null) {
       list = list.where((u) => u.employeeId == _selectedEmployeeId).toList();
     }
-    if (_searchQuery.isEmpty) return list;
-    final query = _searchQuery.toLowerCase();
+    if (_searchQuery.trim().isEmpty) return list;
+    // Tìm không dấu: «nguyen» khớp «Nguyễn».
     return list.where((u) {
-      final empName = _employeeOf(u)?.fullName.toLowerCase() ?? '';
-      return u.name.toLowerCase().contains(query) ||
-          u.pin.toLowerCase().contains(query) ||
-          empName.contains(query) ||
-          (u.cardNumber?.toLowerCase().contains(query) ?? false);
+      return vnContains(u.name, _searchQuery) ||
+          vnContains(u.pin, _searchQuery) ||
+          vnContains(_employeeOf(u)?.fullName, _searchQuery) ||
+          vnContains(u.cardNumber, _searchQuery);
     }).toList();
   }
 
@@ -877,6 +915,8 @@ class _DeviceUsersScreenState extends State<DeviceUsersScreen> {
         return _l10n.unlinkedUsers;
       case DeviceUsersOverviewFilter.onOnlineDevice:
         return _l10n.onlineDevices;
+      case DeviceUsersOverviewFilter.noBiometric:
+        return 'Chưa đăng ký vân tay / khuôn mặt';
       case DeviceUsersOverviewFilter.all:
         return _l10n.totalUsers;
     }
@@ -898,6 +938,12 @@ class _DeviceUsersScreenState extends State<DeviceUsersScreen> {
           title: 'Không có user chưa liên kết',
           description: 'Tất cả user trên máy đã được liên kết nhân sự',
           icon: Icons.link_off,
+        );
+      case DeviceUsersOverviewFilter.noBiometric:
+        return (
+          title: 'Mọi user đều đã có cách chấm công',
+          description: 'Không có user nào thiếu vân tay / khuôn mặt / thẻ / mật khẩu',
+          icon: Icons.fingerprint,
         );
       case DeviceUsersOverviewFilter.onOnlineDevice:
         return (
@@ -1048,67 +1094,6 @@ class _DeviceUsersScreenState extends State<DeviceUsersScreen> {
                       fontSize: 11,
                       color: Colors.white,
                       fontWeight: FontWeight.w600)),
-            ],
-          ),
-        ),
-      ),
-    );
-  }
-
-  Widget _buildStatCard(
-    String label,
-    String value,
-    IconData icon,
-    Color color, {
-    required DeviceUsersOverviewFilter filter,
-  }) {
-    final isSelected = _overviewFilter == filter;
-    return Material(
-      color: Colors.transparent,
-      child: InkWell(
-        onTap: () => _setOverviewFilter(filter),
-        borderRadius: BorderRadius.circular(14),
-        child: Container(
-          padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 10),
-          decoration: BoxDecoration(
-            color: isSelected ? color.withValues(alpha: 0.08) : Colors.white,
-            borderRadius: BorderRadius.circular(14),
-            border: Border.all(
-              color: isSelected ? color : color.withValues(alpha: 0.15),
-              width: isSelected ? 2 : 1,
-            ),
-            boxShadow: [
-              BoxShadow(
-                color: color.withValues(alpha: isSelected ? 0.18 : 0.10),
-                blurRadius: isSelected ? 10 : 8,
-                offset: const Offset(0, 2),
-              ),
-            ],
-          ),
-          child: Column(
-            children: [
-              Container(
-                padding: const EdgeInsets.all(6),
-                decoration: BoxDecoration(
-                  color: color.withValues(alpha: isSelected ? 0.18 : 0.10),
-                  borderRadius: BorderRadius.circular(10),
-                ),
-                child: Icon(icon, size: 16, color: color),
-              ),
-              const SizedBox(height: 4),
-              Text(tr(value),
-                  style: TextStyle(
-                      fontSize: 14,
-                      fontWeight: FontWeight.bold,
-                      color: color)),
-              Text(tr(label),
-                  style: TextStyle(
-                      fontSize: 10,
-                      color: isSelected ? color : SboxColors.slate400,
-                      fontWeight:
-                          isSelected ? FontWeight.w600 : FontWeight.normal),
-                  maxLines: 1,
-                  overflow: TextOverflow.ellipsis),
             ],
           ),
         ),
@@ -1537,87 +1522,64 @@ class _DeviceUsersScreenState extends State<DeviceUsersScreen> {
     );
   }
 
+  /// Thẻ KPI — bấm để lọc danh sách (bấm lại để bỏ lọc).
   Widget _buildUsersStatsRow(
       int linkedCount, int unlinkedCount, int onlineDevices) {
-    if (Responsive.isMobile(context)) {
-      return SingleChildScrollView(
-        scrollDirection: Axis.horizontal,
-        child: Row(
-          children: [
-            SizedBox(
-                width: 120,
-                child: _buildStatCard(
-                    _l10n.totalUsers,
-                    '${_deviceUsers.length}',
-                    Icons.people_outline,
-                    HrmPageChrome.primaryNavy,
-                    filter: DeviceUsersOverviewFilter.all)),
-            const SizedBox(width: 10),
-            SizedBox(
-                width: 120,
-                child: _buildStatCard(
-                    _l10n.linkedUsers,
-                    '$linkedCount',
-                    Icons.link,
-                    HrmPageChrome.primaryNavy,
-                    filter: DeviceUsersOverviewFilter.linked)),
-            const SizedBox(width: 10),
-            SizedBox(
-                width: 120,
-                child: _buildStatCard(
-                    _l10n.unlinkedUsers,
-                    '$unlinkedCount',
-                    Icons.link_off,
-                    HrmPageChrome.chipLight,
-                    filter: DeviceUsersOverviewFilter.unlinked)),
-            const SizedBox(width: 10),
-            SizedBox(
-                width: 120,
-                child: _buildStatCard(
-                    _l10n.onlineDevices,
-                    '$onlineDevices/${_devices.length}',
-                    Icons.router,
-                    HrmPageChrome.primaryNavy,
-                    filter: DeviceUsersOverviewFilter.onOnlineDevice)),
-          ],
-        ),
-      );
-    }
-    return Row(
-      children: [
-        Expanded(
-            child: _buildStatCard(
-                _l10n.totalUsers,
-                '${_deviceUsers.length}',
-                Icons.people_outline,
-                HrmPageChrome.primaryNavy,
-                filter: DeviceUsersOverviewFilter.all)),
-        const SizedBox(width: 10),
-        Expanded(
-            child: _buildStatCard(
-                _l10n.linkedUsers,
-                '$linkedCount',
-                Icons.link,
-                HrmPageChrome.primaryNavy,
-                filter: DeviceUsersOverviewFilter.linked)),
-        const SizedBox(width: 10),
-        Expanded(
-            child: _buildStatCard(
-                _l10n.unlinkedUsers,
-                '$unlinkedCount',
-                Icons.link_off,
-                HrmPageChrome.chipLight,
-                filter: DeviceUsersOverviewFilter.unlinked)),
-        const SizedBox(width: 10),
-        Expanded(
-            child: _buildStatCard(
-                _l10n.onlineDevices,
-                '$onlineDevices/${_devices.length}',
-                Icons.router,
-                HrmPageChrome.primaryNavy,
-                filter: DeviceUsersOverviewFilter.onOnlineDevice)),
-      ],
-    );
+    final noCred = _deviceUsers.where(_hasNoCredential).length;
+    final notOnDevice = _employeesNotOnDevice.length;
+    final offline = _devices.length - onlineDevices;
+    String sel(DeviceUsersOverviewFilter f, String note) =>
+        _overviewFilter == f && f != DeviceUsersOverviewFilter.all ? 'Đang lọc — bấm để bỏ' : note;
+    return SboxKpiStrip(maxColumns: 6, items: [
+      SboxKpi(
+        label: _l10n.totalUsers,
+        value: '${_deviceUsers.length}',
+        icon: Icons.people_outline,
+        tone: SboxTone.brand,
+        note: '${_devices.length} máy chấm công',
+        onTap: () => _setOverviewFilter(DeviceUsersOverviewFilter.all),
+      ),
+      SboxKpi(
+        label: _l10n.linkedUsers,
+        value: '$linkedCount',
+        icon: Icons.link,
+        tone: SboxTone.success,
+        note: sel(DeviceUsersOverviewFilter.linked, 'Đã gắn hồ sơ nhân sự'),
+        onTap: () => _setOverviewFilter(DeviceUsersOverviewFilter.linked),
+      ),
+      SboxKpi(
+        label: _l10n.unlinkedUsers,
+        value: '$unlinkedCount',
+        icon: Icons.link_off,
+        tone: unlinkedCount > 0 ? SboxTone.warning : SboxTone.success,
+        note: sel(DeviceUsersOverviewFilter.unlinked, unlinkedCount > 0 ? 'Công chưa vào bảng lương' : 'Đầy đủ'),
+        onTap: () => _setOverviewFilter(DeviceUsersOverviewFilter.unlinked),
+      ),
+      SboxKpi(
+        label: 'Chưa có vân tay / mặt',
+        value: '$noCred',
+        icon: Icons.fingerprint,
+        tone: noCred > 0 ? SboxTone.danger : SboxTone.success,
+        note: sel(DeviceUsersOverviewFilter.noBiometric, noCred > 0 ? 'Không chấm công được' : 'Đầy đủ'),
+        onTap: () => _setOverviewFilter(DeviceUsersOverviewFilter.noBiometric),
+      ),
+      SboxKpi(
+        label: 'NV chưa có trên máy',
+        value: '$notOnDevice',
+        icon: Icons.person_add_alt_1_outlined,
+        tone: notOnDevice > 0 ? SboxTone.warning : SboxTone.success,
+        note: notOnDevice > 0 ? 'Bấm để đồng bộ lên máy' : 'Đã có đủ',
+        onTap: notOnDevice > 0 ? _showSyncEmployeeDialog : null,
+      ),
+      SboxKpi(
+        label: _l10n.onlineDevices,
+        value: '$onlineDevices/${_devices.length}',
+        icon: Icons.router,
+        tone: offline > 0 ? SboxTone.warning : SboxTone.success,
+        note: sel(DeviceUsersOverviewFilter.onOnlineDevice, offline > 0 ? '$offline máy mất kết nối' : 'Tất cả đang kết nối'),
+        onTap: () => _setOverviewFilter(DeviceUsersOverviewFilter.onOnlineDevice),
+      ),
+    ]);
   }
 
   Widget _buildUsersListDesktopBody() {

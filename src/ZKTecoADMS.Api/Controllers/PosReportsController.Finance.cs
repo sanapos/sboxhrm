@@ -1,6 +1,7 @@
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
 using ZKTecoADMS.Api.Authorization;
+using ZKTecoADMS.Api.Controllers.Base;
 using ZKTecoADMS.Application.Constants;
 using ZKTecoADMS.Application.Models;
 using ZKTecoADMS.Domain.Enums;
@@ -20,7 +21,7 @@ public partial class PosReportsController
         var hour = await ResolveReportDayStartHourAsync(storeId, dayStartHour);
         var (fromDt, toDt, fromVn, toVnEx) = ResolvePosRange(from, to, hour, defaultLookbackDays: 30);
 
-        var txs = dbContext.CashTransactions.AsNoTracking()
+        var txs = dbContext.CashTransactions.AsNoTracking().ApplyBranchScope(HttpContext.BranchContext())
             .Where(c => c.StoreId == storeId && c.Deleted == null && c.IsActive
                         && c.Status == CashTransactionStatus.Completed
                         && c.TransactionDate >= fromDt && c.TransactionDate < toDt);
@@ -144,7 +145,7 @@ public partial class PosReportsController
         var hour = await ResolveReportDayStartHourAsync(storeId, dayStartHour);
         var (fromDt, toDt, fromVn, toVnEx) = ResolvePosRange(from, to, hour, defaultLookbackDays: 30);
 
-        var txs = dbContext.CashTransactions.AsNoTracking()
+        var txs = dbContext.CashTransactions.AsNoTracking().ApplyBranchScope(HttpContext.BranchContext())
             .Where(c => c.StoreId == storeId && c.Deleted == null && c.IsActive
                         && c.Status == CashTransactionStatus.Completed
                         && c.Type == CashTransactionType.Expense
@@ -278,7 +279,7 @@ public partial class PosReportsController
         // tiền bán hàng & thu nợ khách (đã nằm trong doanh thu), nhập hàng (đã nằm trong giá vốn),
         // trả hàng khách (đã trừ doanh thu), cọc đặt chỗ nhận / hoàn (tiền giữ hộ),
         // thu trả hàng NCC (giảm tồn kho). Hoàn ứng công tác → giảm chi phí.
-        var cashQ = dbContext.CashTransactions.AsNoTracking()
+        var cashQ = dbContext.CashTransactions.AsNoTracking().ApplyBranchScope(HttpContext.BranchContext())
             .Where(c => c.StoreId == storeId && c.Deleted == null && c.IsActive
                         && c.Status == CashTransactionStatus.Completed
                         && c.TransactionDate >= fromDt && c.TransactionDate < toDt);

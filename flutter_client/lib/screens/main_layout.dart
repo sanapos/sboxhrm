@@ -1,3 +1,5 @@
+import '../services/branch_session.dart';
+import '../widgets/branch_switcher.dart';
 import 'dart:async';
 import 'activity_log_screen.dart';
 import '../utils/nav_package_profile.dart';
@@ -128,6 +130,9 @@ import 'work/work_hub_screen.dart';
 import 'comm/comm_hub_screen.dart';
 import 'hr_finance/hr_finance_hub_screen.dart';
 import 'attendance_approval_v2/aa_hub_screen.dart';
+import 'branch_ops/branch_report_screen.dart';
+import 'branch_ops/branch_stock_view.dart';
+import 'branch_ops/stock_transfer_screen.dart';
 export '../utils/navigation_notifier.dart';
 
 /// Global notifiers for screen refresh
@@ -418,6 +423,7 @@ class _MainLayoutState extends State<MainLayout> with WidgetsBindingObserver {
   @override
   void initState() {
     super.initState();
+    BranchSession.instance.addListener(_onBranchChanged);
     NavigationNotifier.mainLayoutReady.value = true;
     WidgetsBinding.instance.addObserver(this);
     HardwareKeyboard.instance.addHandler(_onGlobalKey);
@@ -877,8 +883,14 @@ class _MainLayoutState extends State<MainLayout> with WidgetsBindingObserver {
     if (mounted) setState(() {});
   }
 
+  /// Đổi chi nhánh làm việc → dựng lại màn đang mở để tải dữ liệu của chi nhánh mới.
+  void _onBranchChanged() {
+    if (mounted) setState(() {});
+  }
+
   @override
   void dispose() {
+    BranchSession.instance.removeListener(_onBranchChanged);
     HardwareKeyboard.instance.removeHandler(_onGlobalKey);
     MobileBottomNavPrefs.revision.removeListener(_onMobileNavPrefsChanged);
     MobileQuickActionsPrefs.revision.removeListener(_onMobileNavPrefsChanged);
@@ -1760,6 +1772,28 @@ class _MainLayoutState extends State<MainLayout> with WidgetsBindingObserver {
       moduleCode: 'PosProducts',
     ),
     NavItem(
+      icon: Icons.warehouse_outlined,
+      activeIcon: Icons.warehouse,
+      label: 'Kho chi nhánh',
+      subtitle: 'Tồn theo CN',
+      screen: const BranchStockView(),
+      group: 'POS',
+      showInSidebar: false,
+      themeColor: HrmPageChrome.primaryNavy,
+      moduleCode: 'PosProducts',
+    ),
+    NavItem(
+      icon: Icons.local_shipping_outlined,
+      activeIcon: Icons.local_shipping,
+      label: 'Chuyển kho',
+      subtitle: 'Giữa chi nhánh',
+      screen: const StockTransferScreen(),
+      group: 'POS',
+      showInSidebar: false,
+      themeColor: HrmPageChrome.primaryNavy,
+      moduleCode: 'PosProducts',
+    ),
+    NavItem(
       icon: Icons.point_of_sale_outlined,
       activeIcon: Icons.point_of_sale,
       label: 'Bán hàng',
@@ -1946,6 +1980,17 @@ class _MainLayoutState extends State<MainLayout> with WidgetsBindingObserver {
       label: 'Báo cáo POS',
       subtitle: '14 báo cáo',
       screen: const PosReportsHubScreen(),
+      group: 'Báo cáo kinh doanh',
+      showInSidebar: true,
+      themeColor: HrmPageChrome.primaryNavy,
+      moduleCode: 'PosSalesReport',
+    ),
+    NavItem(
+      icon: Icons.account_tree_outlined,
+      activeIcon: Icons.account_tree,
+      label: 'Báo cáo chi nhánh',
+      subtitle: 'Doanh thu, lãi',
+      screen: const BranchReportScreen(),
       group: 'Báo cáo kinh doanh',
       showInSidebar: true,
       themeColor: HrmPageChrome.primaryNavy,
@@ -2237,7 +2282,7 @@ class _MainLayoutState extends State<MainLayout> with WidgetsBindingObserver {
             child: item.screen,
           );
     return KeyedSubtree(
-      key: ValueKey('nav_${index}_${_moduleVisitGen[index] ?? 0}'),
+      key: ValueKey('nav_${index}_${_moduleVisitGen[index] ?? 0}_${BranchSession.instance.currentId ?? ''}'),
       child: child,
     );
   }
@@ -2577,6 +2622,7 @@ class _MainLayoutState extends State<MainLayout> with WidgetsBindingObserver {
         ),
         // Mobile: AI + thông báo đặt thẳng trên AppBar; action trang → FAB.
         actions: [
+          const BranchSwitcher(compact: true),
           IconButton(
             visualDensity: VisualDensity.compact,
             icon: const Icon(Icons.auto_awesome, color: SboxColors.violet),
@@ -2731,7 +2777,7 @@ class _MainLayoutState extends State<MainLayout> with WidgetsBindingObserver {
 
     // Một tab tại một thời điểm — IndexedStack giữ Home+POS+… làm V2s 3GB bị dừng.
     final current = KeyedSubtree(
-      key: ValueKey('mobile_bottom_$visibleIndex'),
+      key: ValueKey('mobile_bottom_${visibleIndex}_${BranchSession.instance.currentId ?? ''}'),
       child: _mobileBottomScreenCache[visibleIndex] ?? const SizedBox.shrink(),
     );
 
@@ -3502,6 +3548,8 @@ class _MainLayoutState extends State<MainLayout> with WidgetsBindingObserver {
               },
             ),
           ),
+          const SizedBox(width: 8),
+          const BranchSwitcher(),
           const SizedBox(width: 8),
           // Tìm nhanh chức năng (Ctrl+K).
           Tooltip(

@@ -9,6 +9,9 @@ import '../widgets/page_top_actions.dart';
 import 'package:zkteco_flutter_client/l10n/app_tr.dart';
 
 import '../theme/sbox_tokens.dart';
+import '../widgets/reports/hrm_report_widgets.dart' show ReportKpiItem, ReportDashboard, SboxTone;
+import '../widgets/sbox/sbox_charts.dart';
+import '../widgets/sbox/sbox_report.dart';
 class PayslipScreen extends StatefulWidget {
   const PayslipScreen({super.key});
 
@@ -220,12 +223,22 @@ class _PayslipScreenState extends State<PayslipScreen> {
                     : RefreshIndicator(
                         onRefresh: _loadData,
                         child: ListView.builder(
-                          padding: const EdgeInsets.fromLTRB(12, 8, 12, 24),
-                          itemCount: list.length,
-                          itemBuilder: (_, i) => Padding(
-                            padding: const EdgeInsets.only(bottom: 12),
-                            child: _buildPayslipCard(list[i]),
-                          ),
+                          padding: const EdgeInsets.fromLTRB(0, 0, 0, 24),
+                          itemCount: list.length + 1,
+                          itemBuilder: (_, i) {
+                            if (i == 0) {
+                              return ReportDashboard(
+                                storageKey: 'payslip',
+                                subtitle: '${list.length} phiếu lương',
+                                kpis: _dashboardKpis(list),
+                                charts: _dashboardCharts(list),
+                              );
+                            }
+                            return Padding(
+                              padding: const EdgeInsets.fromLTRB(12, 0, 12, 10),
+                              child: _buildPayslipCard(list[i - 1]),
+                            );
+                          },
                         ),
                       ),
           ),
@@ -233,6 +246,148 @@ class _PayslipScreenState extends State<PayslipScreen> {
       ),
     ),
     );
+  }
+
+  // ── Dashboard ──
+
+  double _num(dynamic v) => v is num ? v.toDouble() : double.tryParse('${v ?? ''}') ?? 0;
+
+  bool _isPaidSlip(Map<String, dynamic> p) =>
+      p['isPaid'] == true || p['paymentStatus']?.toString() == 'Đã thanh toán' || p['status'] == 'Paid';
+
+  String _periodKey(Map<String, dynamic> p) {
+    final m = (p['month'] as num?)?.toInt() ?? 0;
+    final y = (p['year'] as num?)?.toInt() ?? 0;
+    return '$y-${m.toString().padLeft(2, '0')}';
+  }
+
+  String _periodLabel(String key) {
+    final parts = key.split('-');
+    return parts.length == 2 ? 'T${parts[1]}/${parts[0]}' : key;
+  }
+
+  String _moneyShort(num v) => '${NumberFormat('#,##0', 'vi_VN').format(v)}đ';
+
+  List<ReportKpiItem> _dashboardKpis(List<Map<String, dynamic>> list) {
+    final net = list.fold<double>(0, (s, p) => s + _num(p['netSalary']));
+    final gross = list.fold<double>(0, (s, p) => s + _num(p['grossSalary']));
+    final unpaid = list.where((p) => !_isPaidSlip(p)).toList();
+    final unpaidAmt = unpaid.fold<double>(0, (s, p) => s + _num(p['netSalary']));
+    if (!_isManager) {
+      final latest = list.isEmpty ? null : list.first;
+      return [
+        ReportKpiItem(
+          label: 'Thực lĩnh kỳ gần nhất',
+          value: latest == null ? '—' : _moneyShort(_num(latest['netSalary'])),
+          note: latest == null ? null : 'Kỳ ${_periodLabel(_periodKey(latest))}',
+          icon: Icons.account_balance_wallet_outlined,
+          color: SboxColors.success,
+        ),
+        ReportKpiItem(
+          label: 'TB thực lĩnh / tháng',
+          value: list.isEmpty ? '—' : _moneyShort(net / list.length),
+          note: '${list.length} phiếu',
+          icon: Icons.trending_up,
+          color: HrmPageChrome.primaryNavy,
+        ),
+        ReportKpiItem(
+          label: 'Chưa thanh toán',
+          value: '${unpaid.length}',
+          note: unpaid.isEmpty ? 'Đã nhận đủ' : _moneyShort(unpaidAmt),
+          icon: Icons.hourglass_top,
+          color: SboxColors.warning,
+          tone: unpaid.isEmpty ? SboxTone.success : SboxTone.warning,
+        ),
+      ];
+    }
+    final empCount = list.map((p) => p['employeeUserId']?.toString() ?? p['employeeName']?.toString()).toSet().length;
+    return [
+      ReportKpiItem(
+        label: 'Số phiếu lương',
+        value: '${list.length}',
+        note: '$empCount nhân viên',
+        icon: Icons.receipt_long_outlined,
+        color: HrmPageChrome.primaryNavy,
+      ),
+      ReportKpiItem(
+        label: 'Tổng thực lĩnh',
+        value: _moneyShort(net),
+        note: list.isEmpty ? null : 'TB ${_moneyShort(net / list.length)}/phiếu',
+        icon: Icons.payments_outlined,
+        color: SboxColors.success,
+      ),
+      ReportKpiItem(
+        label: 'Tổng lương gộp',
+        value: _moneyShort(gross),
+        note: gross > 0 ? 'Khấu trừ ${_moneyShort(gross - net)}' : null,
+        icon: Icons.calculate_outlined,
+        color: SboxColors.brand500,
+      ),
+      ReportKpiItem(
+        label: 'Chưa thanh toán',
+        value: '${unpaid.length}',
+        note: unpaid.isEmpty ? 'Đã trả hết' : '${_moneyShort(unpaidAmt)} cần chi',
+        icon: Icons.hourglass_top,
+        color: SboxColors.warning,
+        tone: unpaid.isEmpty ? SboxTone.success : SboxTone.warning,
+      ),
+    ];
+  }
+
+  List<Widget> _dashboardCharts(List<Map<String, dynamic>> list) {
+    if (list.isEmpty) return const [];
+    final byPeriod = <String, double>{};
+    for (final p in list) {
+      final k = _periodKey(p);
+      byPeriod[k] = (byPeriod[k] ?? 0) + _num(p['netSalary']);
+    }
+    final periods = byPeriod.keys.toList()..sort();
+    final charts = <Widget>[
+      if (periods.length > 1)
+        SboxChartCard(
+          title: _isManager ? 'Tổng thực lĩnh theo kỳ' : 'Thực lĩnh theo tháng',
+          child: SboxBarChart(
+            valueFormat: (v) => SboxFmt.money(v),
+            labels: [for (final k in periods) _periodLabel(k)],
+            series: [SboxSeries(name: 'Thực lĩnh', values: [for (final k in periods) byPeriod[k]!], color: SboxColors.success)],
+          ),
+        ),
+    ];
+    if (!_isManager) return charts;
+    final byDept = <String, double>{};
+    final deptCnt = <String, int>{};
+    for (final p in list) {
+      final d = (p['department']?.toString() ?? '').trim();
+      final k = d.isEmpty ? 'Chưa có phòng ban' : d;
+      byDept[k] = (byDept[k] ?? 0) + _num(p['netSalary']);
+      deptCnt[k] = (deptCnt[k] ?? 0) + 1;
+    }
+    final byStatus = <String, double>{};
+    for (final p in list) {
+      final s = _isPaidSlip(p) ? 'Đã thanh toán' : _statusLabel(p['status']?.toString() ?? 'Draft');
+      byStatus[s] = (byStatus[s] ?? 0) + 1;
+    }
+    return [
+      ...charts,
+      if (byDept.length > 1)
+        SboxChartCard(
+          title: 'Quỹ lương theo phòng ban',
+          subtitle: 'Thực lĩnh',
+          child: SboxRankList(
+            valueFormat: (v) => SboxFmt.money(v),
+            items: [for (final e in byDept.entries) SboxSlice(e.key, e.value, caption: '${deptCnt[e.key]} phiếu')],
+          ),
+        ),
+      SboxChartCard(
+        title: 'Trạng thái phiếu',
+        child: SboxDonutChart(
+          valueFormat: (v) => '${SboxFmt.number(v)} phiếu',
+          centerValue: '${list.length}',
+          centerLabel: 'phiếu',
+          slices: [for (final e in byStatus.entries) SboxSlice(e.key, e.value)],
+        ),
+      ),
+    ];
   }
 
   Widget _buildEmptyState() {

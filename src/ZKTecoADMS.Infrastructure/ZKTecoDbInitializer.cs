@@ -3204,6 +3204,94 @@ public class ZKTecoDbInitializer(
                     END $$;
                 ");
 
+                // Chi nhánh: gắn chi nhánh cho chứng từ bán / kho / quỹ + tồn kho theo chi nhánh + chuyển kho
+                await context.Database.ExecuteSqlRawAsync(@"
+                    ALTER TABLE ""PosSaleOrders"" ADD COLUMN IF NOT EXISTS ""BranchId"" uuid;
+                    CREATE INDEX IF NOT EXISTS ""IX_PosSaleOrders_StoreId_BranchId"" ON ""PosSaleOrders"" (""StoreId"", ""BranchId"");
+                    ALTER TABLE ""PosStockReceipts"" ADD COLUMN IF NOT EXISTS ""BranchId"" uuid;
+                    CREATE INDEX IF NOT EXISTS ""IX_PosStockReceipts_StoreId_BranchId"" ON ""PosStockReceipts"" (""StoreId"", ""BranchId"");
+                    ALTER TABLE ""PosStockIssues"" ADD COLUMN IF NOT EXISTS ""BranchId"" uuid;
+                    CREATE INDEX IF NOT EXISTS ""IX_PosStockIssues_StoreId_BranchId"" ON ""PosStockIssues"" (""StoreId"", ""BranchId"");
+                    ALTER TABLE ""PosStockCounts"" ADD COLUMN IF NOT EXISTS ""BranchId"" uuid;
+                    CREATE INDEX IF NOT EXISTS ""IX_PosStockCounts_StoreId_BranchId"" ON ""PosStockCounts"" (""StoreId"", ""BranchId"");
+                    ALTER TABLE ""PosPurchaseReturns"" ADD COLUMN IF NOT EXISTS ""BranchId"" uuid;
+                    CREATE INDEX IF NOT EXISTS ""IX_PosPurchaseReturns_StoreId_BranchId"" ON ""PosPurchaseReturns"" (""StoreId"", ""BranchId"");
+                    ALTER TABLE ""CashTransactions"" ADD COLUMN IF NOT EXISTS ""BranchId"" uuid;
+                    CREATE INDEX IF NOT EXISTS ""IX_CashTransactions_StoreId_BranchId"" ON ""CashTransactions"" (""StoreId"", ""BranchId"");
+                    ALTER TABLE ""PosCashierShifts"" ADD COLUMN IF NOT EXISTS ""BranchId"" uuid;
+                    CREATE INDEX IF NOT EXISTS ""IX_PosCashierShifts_StoreId_BranchId"" ON ""PosCashierShifts"" (""StoreId"", ""BranchId"");
+                    ALTER TABLE ""PosStockTransactions"" ADD COLUMN IF NOT EXISTS ""BranchId"" uuid;
+                    CREATE INDEX IF NOT EXISTS ""IX_PosStockTransactions_StoreId_BranchId"" ON ""PosStockTransactions"" (""StoreId"", ""BranchId"");
+                    CREATE TABLE IF NOT EXISTS ""PosBranchStocks"" (
+                        ""Id"" uuid NOT NULL PRIMARY KEY,
+                        ""StoreId"" uuid NOT NULL,
+                        ""BranchId"" uuid NOT NULL,
+                        ""ProductId"" uuid NOT NULL,
+                        ""VariantId"" uuid,
+                        ""Qty"" numeric(18,4) NOT NULL DEFAULT 0,
+                        ""UpdatedAt"" timestamp without time zone NOT NULL DEFAULT NOW()
+                    );
+                    CREATE INDEX IF NOT EXISTS ""IX_PosBranchStocks_Store_Branch"" ON ""PosBranchStocks"" (""StoreId"", ""BranchId"");
+                    CREATE INDEX IF NOT EXISTS ""IX_PosBranchStocks_Product"" ON ""PosBranchStocks"" (""ProductId"", ""VariantId"");
+                    CREATE TABLE IF NOT EXISTS ""PosStockTransfers"" (
+                        ""Id"" uuid NOT NULL PRIMARY KEY,
+                        ""StoreId"" uuid NOT NULL,
+                        ""TransferNo"" character varying(30) NOT NULL DEFAULT '',
+                        ""FromBranchId"" uuid NOT NULL,
+                        ""ToBranchId"" uuid NOT NULL,
+                        ""Status"" integer NOT NULL DEFAULT 0,
+                        ""Note"" character varying(500),
+                        ""CreatedByName"" character varying(200),
+                        ""SentByName"" character varying(200),
+                        ""ReceivedByName"" character varying(200),
+                        ""CreatedAt"" timestamp without time zone NOT NULL DEFAULT NOW(),
+                        ""SentAt"" timestamp without time zone,
+                        ""ReceivedAt"" timestamp without time zone
+                    );
+                    CREATE INDEX IF NOT EXISTS ""IX_PosStockTransfers_Store"" ON ""PosStockTransfers"" (""StoreId"", ""Status"");
+                    CREATE TABLE IF NOT EXISTS ""PosStockTransferLines"" (
+                        ""Id"" uuid NOT NULL PRIMARY KEY,
+                        ""TransferId"" uuid NOT NULL REFERENCES ""PosStockTransfers""(""Id"") ON DELETE CASCADE,
+                        ""ProductId"" uuid NOT NULL,
+                        ""VariantId"" uuid,
+                        ""ProductName"" character varying(300) NOT NULL DEFAULT '',
+                        ""Sku"" character varying(100),
+                        ""Unit"" character varying(50),
+                        ""Qty"" numeric(18,4) NOT NULL DEFAULT 0,
+                        ""ReceivedQty"" numeric(18,4)
+                    );
+                    CREATE INDEX IF NOT EXISTS ""IX_PosStockTransferLines_Transfer"" ON ""PosStockTransferLines"" (""TransferId"");
+                    CREATE INDEX IF NOT EXISTS ""IX_PosStockTransferLines_Product"" ON ""PosStockTransferLines"" (""ProductId"");
+                ");
+
+                // Mỗi cửa hàng có chi nhánh phải có 1 trụ sở cố định (tồn trụ sở tính ngầm dựa vào nó).
+                await context.Database.ExecuteSqlRawAsync(@"
+                    UPDATE ""Branches"" SET ""IsHeadquarter"" = TRUE
+                    WHERE ""Id"" IN (
+                        SELECT DISTINCT ON (b.""StoreId"") b.""Id"" FROM ""Branches"" b
+                        WHERE b.""Deleted"" IS NULL AND NOT EXISTS (
+                            SELECT 1 FROM ""Branches"" h WHERE h.""StoreId"" = b.""StoreId"" AND h.""IsHeadquarter"" AND h.""Deleted"" IS NULL)
+                        ORDER BY b.""StoreId"", b.""IsActive"" DESC, (b.""ParentBranchId"" IS NULL) DESC, b.""SortOrder"", b.""CreatedAt"");
+                ");
+
+                // Chứng từ cũ (trước khi dùng chi nhánh) → gán về trụ sở, để lọc theo chi nhánh không sót.
+                await context.Database.ExecuteSqlRawAsync(@"
+                    WITH hq AS (
+                        SELECT DISTINCT ON (""StoreId"") ""StoreId"", ""Id""
+                        FROM ""Branches"" WHERE ""Deleted"" IS NULL
+                        ORDER BY ""StoreId"", ""IsHeadquarter"" DESC, ""IsActive"" DESC, (""ParentBranchId"" IS NULL) DESC, ""SortOrder"", ""CreatedAt""
+                    )
+                    , u_possaleorders AS (UPDATE ""PosSaleOrders"" x SET ""BranchId"" = hq.""Id"" FROM hq WHERE x.""StoreId"" = hq.""StoreId"" AND x.""BranchId"" IS NULL RETURNING 1)
+                    , u_posstockreceipts AS (UPDATE ""PosStockReceipts"" x SET ""BranchId"" = hq.""Id"" FROM hq WHERE x.""StoreId"" = hq.""StoreId"" AND x.""BranchId"" IS NULL RETURNING 1)
+                    , u_posstockissues AS (UPDATE ""PosStockIssues"" x SET ""BranchId"" = hq.""Id"" FROM hq WHERE x.""StoreId"" = hq.""StoreId"" AND x.""BranchId"" IS NULL RETURNING 1)
+                    , u_posstockcounts AS (UPDATE ""PosStockCounts"" x SET ""BranchId"" = hq.""Id"" FROM hq WHERE x.""StoreId"" = hq.""StoreId"" AND x.""BranchId"" IS NULL RETURNING 1)
+                    , u_pospurchasereturns AS (UPDATE ""PosPurchaseReturns"" x SET ""BranchId"" = hq.""Id"" FROM hq WHERE x.""StoreId"" = hq.""StoreId"" AND x.""BranchId"" IS NULL RETURNING 1)
+                    , u_cashtransactions AS (UPDATE ""CashTransactions"" x SET ""BranchId"" = hq.""Id"" FROM hq WHERE x.""StoreId"" = hq.""StoreId"" AND x.""BranchId"" IS NULL RETURNING 1)
+                    , u_poscashiershifts AS (UPDATE ""PosCashierShifts"" x SET ""BranchId"" = hq.""Id"" FROM hq WHERE x.""StoreId"" = hq.""StoreId"" AND x.""BranchId"" IS NULL RETURNING 1)
+                    , u_posstocktransactions AS (UPDATE ""PosStockTransactions"" x SET ""BranchId"" = hq.""Id"" FROM hq WHERE x.""StoreId"" = hq.""StoreId"" AND x.""BranchId"" IS NULL RETURNING 1)
+                    SELECT 1;
+                ");
+
                 // Thông báo: cài đặt đẩy / giờ yên lặng theo tài khoản + mẫu thông báo của cửa hàng
                 await context.Database.ExecuteSqlRawAsync(@"
                     CREATE TABLE IF NOT EXISTS ""UserNotificationSettings"" (

@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
 
 import '../../services/api_service.dart';
+import '../../services/branch_session.dart';
 import '../../utils/pos_kiot_time_range.dart';
 import '../../widgets/pos/pos_theme.dart';
 import '../../widgets/pos/reports/pos_report_widgets.dart';
@@ -26,6 +27,8 @@ class _PosSalesReportScreenState extends State<PosSalesReportScreen> {
   bool _loading = true;
   Map<String, dynamic>? _data;
   Map<String, dynamic>? _einvoice;
+  /// Doanh thu thật theo từng chi nhánh (null = cửa hàng không dùng chi nhánh).
+  List<Map<String, dynamic>>? _branches;
 
   @override
   void initState() {
@@ -43,9 +46,19 @@ class _PosSalesReportScreenState extends State<PosSalesReportScreen> {
       from: _time.from,
       to: _time.to,
     );
+    List<Map<String, dynamic>>? branches;
+    if (BranchSession.instance.usesBranches) {
+      final now = DateTime.now();
+      final br = await _api.getBranchCompare(_time.from ?? DateTime(2023), _time.to ?? now);
+      final list = (br['data'] as Map?)?['branches'];
+      if (br['isSuccess'] == true && list is List) {
+        branches = [for (final b in list) Map<String, dynamic>.from(b as Map)];
+      }
+    }
     if (!mounted) return;
     setState(() {
       _loading = false;
+      _branches = branches;
       if (res['isSuccess'] == true && res['data'] is Map) {
         _data = Map<String, dynamic>.from(res['data'] as Map);
       } else {
@@ -58,6 +71,17 @@ class _PosSalesReportScreenState extends State<PosSalesReportScreen> {
       }
     });
   }
+
+  static const _branchPalette = [
+    PosTheme.kiotBlue,
+    SboxColors.success,
+    SboxColors.violet,
+    SboxColors.warning,
+    SboxColors.danger,
+    Color(0xFF0EA5E9),
+    Color(0xFFF97316),
+    Color(0xFF14B8A6),
+  ];
 
   double _num(dynamic v) => v is num ? v.toDouble() : double.tryParse('$v') ?? 0;
 
@@ -172,26 +196,22 @@ class _PosSalesReportScreenState extends State<PosSalesReportScreen> {
                     ],
                   ),
                 ),
-                PosReportCard(
-                  title: 'Doanh thu theo chi nhánh',
-                  child: Column(
-                    children: [
-                      PosReportDonut(
-                        total: revenue,
-                        moneyFmt: _moneyFmt,
-                        slices: [
+                if (_branches != null && _branches!.length > 1)
+                  PosReportCard(
+                    title: 'Doanh thu theo chi nhánh',
+                    child: PosReportDonut(
+                      total: _branches!.fold<double>(0, (a, b) => a + _num(b['revenue'])),
+                      moneyFmt: _moneyFmt,
+                      slices: [
+                        for (var i = 0; i < _branches!.length; i++)
                           (
-                            label: storeName.isEmpty ? 'Chi nhánh' : storeName,
-                            value: revenue,
-                            color: PosTheme.kiotBlue,
+                            label: _branches![i]['name']?.toString() ?? '—',
+                            value: _num(_branches![i]['revenue']),
+                            color: _branchPalette[i % _branchPalette.length],
                           ),
-                        ],
-                      ),
-                      const SizedBox(height: 10),
-                      PosReportBranchFooter(branchName: storeName),
-                    ],
+                      ],
+                    ),
                   ),
-                ),
                 PosReportCard(
                   title: 'Đặt chỗ / cọc',
                   child: PosReportMetricTiles(

@@ -22,6 +22,7 @@ public class BranchController(
     ZKTecoDbContext dbContext,
     IDataScopeService dataScopeService,
     IStoreLicenseLimitService storeLicenseLimitService,
+    Microsoft.Extensions.Caching.Memory.IMemoryCache memoryCache,
     ILogger<BranchController> logger)
     : AuthenticatedControllerBase
 {
@@ -256,18 +257,26 @@ public class BranchController(
         if (existingCode)
             return BadRequest(AppResponse<BranchDto>.Fail($"Mã chi nhánh '{request.Code}' đã tồn tại"));
 
-        // If set as headquarter, unset others
-        if (request.IsHeadquarter)
+        // Trụ sở luôn cố định: chi nhánh đầu tiên tự thành trụ sở; đổi trụ sở → chuyển tồn cho đúng.
+        Guid? oldHqId = null;
+        if (storeId.HasValue)
+            oldHqId = BranchStockService.ResolveHeadquarter(
+                await BranchStockService.GetStoreBranchesAsync(dbContext, storeId.Value));
+        var makeHq = request.IsHeadquarter || oldHqId == null;
+        var newId = Guid.NewGuid();
+        if (makeHq)
         {
             var hqs = await dbContext.Branches                .AsTracking()                .Where(b => b.IsHeadquarter && b.Deleted == null
                     && (!storeId.HasValue || b.StoreId == storeId.Value))
                 .ToListAsync();
             foreach (var hq in hqs) hq.IsHeadquarter = false;
+            if (oldHqId.HasValue && storeId.HasValue)
+                await BranchStockService.RebaseHeadquarterAsync(dbContext, storeId.Value, oldHqId.Value, newId);
         }
 
         var branch = new Branch
         {
-            Id = Guid.NewGuid(),
+            Id = newId,
             Code = request.Code.Trim(),
             Name = request.Name.Trim(),
             Description = request.Description?.Trim(),
@@ -281,7 +290,7 @@ public class BranchController(
             Longitude = request.Longitude,
             ParentBranchId = request.ParentBranchId,
             ManagerId = request.ManagerId,
-            IsHeadquarter = request.IsHeadquarter,
+            IsHeadquarter = makeHq,
             SortOrder = request.SortOrder,
             TaxCode = request.TaxCode?.Trim(),
             OpenTime = request.OpenTime,
@@ -293,6 +302,7 @@ public class BranchController(
 
         dbContext.Branches.Add(branch);
         await dbContext.SaveChangesAsync();
+        await AfterBranchesChangedAsync(storeId);
 
         // Reload with navigation
         var saved = await dbContext.Branches
@@ -335,7 +345,12 @@ public class BranchController(
         if (request.ParentBranchId.HasValue && request.ParentBranchId.Value == id)
             return BadRequest(AppResponse<BranchDto>.Fail("Chi nhánh không thể là cha của chính nó"));
 
-        // If set as headquarter, unset others
+        // Bỏ cờ trụ sở mà không chọn trụ sở khác → tồn trụ sở không còn chỗ tính.
+        if (!request.IsHeadquarter && branch.IsHeadquarter)
+            return BadRequest(AppResponse<BranchDto>.Fail(
+                "Cửa hàng cần 1 trụ sở. Hãy mở chi nhánh khác và đánh dấu «Trụ sở» để chuyển."));
+
+        // If set as headquarter, unset others (và chuyển tồn trụ sở cũ thành số lưu)
         if (request.IsHeadquarter && !branch.IsHeadquarter)
         {
             var hqs = await dbContext.Branches
@@ -343,6 +358,13 @@ public class BranchController(
                 .Where(b => b.IsHeadquarter && b.Id != id && b.Deleted == null
                     && (!storeId.HasValue || b.StoreId == storeId.Value))
                 .ToListAsync();
+            if (storeId.HasValue)
+            {
+                var oldHq = BranchStockService.ResolveHeadquarter(
+                    await BranchStockService.GetStoreBranchesAsync(dbContext, storeId.Value));
+                if (oldHq.HasValue)
+                    await BranchStockService.RebaseHeadquarterAsync(dbContext, storeId.Value, oldHq.Value, id);
+            }
             foreach (var hq in hqs) hq.IsHeadquarter = false;
         }
 
@@ -368,6 +390,7 @@ public class BranchController(
         branch.IsActive = request.IsActive;
 
         await dbContext.SaveChangesAsync();
+        await AfterBranchesChangedAsync(storeId);
 
         var updated = await dbContext.Branches
             .Include(b => b.Manager)
@@ -402,6 +425,17 @@ public class BranchController(
         if (hasChildren)
             return BadRequest(AppResponse<bool>.Fail("Không thể xóa chi nhánh có chi nhánh con. Hãy xóa chi nhánh con trước."));
 
+        if (branch.IsHeadquarter)
+            return BadRequest(AppResponse<bool>.Fail("Không thể xóa trụ sở. Hãy chọn chi nhánh khác làm trụ sở trước."));
+        var pendingTransfers = await dbContext.PosStockTransfers
+            .AnyAsync(t => (t.FromBranchId == id || t.ToBranchId == id) &&
+                           (t.Status == PosStockTransferStatus.Draft || t.Status == PosStockTransferStatus.Sent));
+        if (pendingTransfers)
+            return BadRequest(AppResponse<bool>.Fail("Chi nhánh còn phiếu chuyển kho chưa hoàn tất — hãy nhận hoặc hủy phiếu trước."));
+        // Hàng còn ở chi nhánh này quay về trụ sở.
+        if (branch.StoreId.HasValue)
+            await BranchStockService.ReleaseBranchStockAsync(dbContext, branch.StoreId.Value, id);
+
         var linkedEmployees = await dbContext.Set<Employee>()
             .AsTracking()
             .Where(e => e.BranchId == id && e.Deleted == null)
@@ -412,6 +446,7 @@ public class BranchController(
         branch.Deleted = DateTime.UtcNow;
         branch.DeletedBy = CurrentUserId.ToString();
         await dbContext.SaveChangesAsync();
+        await AfterBranchesChangedAsync(branch.StoreId);
 
         return Ok(AppResponse<bool>.Success(true));
     }
@@ -681,6 +716,21 @@ public class BranchController(
     // â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
     // HELPERS
     // â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
+
+    /// <summary>Sau khi đổi danh sách chi nhánh: gán chứng từ cũ về trụ sở + xóa cache ngữ cảnh chi nhánh.</summary>
+    private async Task AfterBranchesChangedAsync(Guid? storeId)
+    {
+        if (!storeId.HasValue) return;
+        memoryCache.Remove($"branches:{storeId.Value}");
+        try
+        {
+            await BranchStockService.BackfillStoreAsync(dbContext, storeId.Value);
+        }
+        catch (Exception ex)
+        {
+            logger.LogWarning(ex, "Backfill branch for store {StoreId} failed", storeId);
+        }
+    }
 
     private static BranchDto MapToDto(Branch b)
     {

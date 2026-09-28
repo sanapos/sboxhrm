@@ -60,11 +60,12 @@ public class CashTransactionsController(
             .Include(x => x.BankAccount)
             .Include(x => x.CreatedByUser)
             .Where(x => x.StoreId == storeId && x.IsActive)
-            .AsQueryable();
+            .AsQueryable()
+            .ApplyBranchScope(HttpContext.BranchContext()); // quỹ của chi nhánh được xem
 
         if (type.HasValue)
             query = query.Where(x => x.Type == type.Value);
-        
+
         if (categoryId.HasValue)
             query = query.Where(x => x.CategoryId == categoryId.Value);
         

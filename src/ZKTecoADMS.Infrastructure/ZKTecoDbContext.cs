@@ -134,6 +134,9 @@ public class ZKTecoDbContext : IdentityDbContext<ApplicationUser, IdentityRole<G
     
     // Organization & HR
     public DbSet<Branch> Branches => Set<Branch>();
+    public DbSet<PosBranchStock> PosBranchStocks => Set<PosBranchStock>();
+    public DbSet<PosStockTransfer> PosStockTransfers => Set<PosStockTransfer>();
+    public DbSet<PosStockTransferLine> PosStockTransferLines => Set<PosStockTransferLine>();
     public DbSet<Department> Departments => Set<Department>();
     public DbSet<ApprovalFlow> ApprovalFlows => Set<ApprovalFlow>();
     public DbSet<ApprovalStep> ApprovalSteps => Set<ApprovalStep>();

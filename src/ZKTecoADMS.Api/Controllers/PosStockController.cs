@@ -17,6 +17,7 @@ using ZKTecoADMS.Domain.Entities;
 using ZKTecoADMS.Domain.Enums;
 
 using ZKTecoADMS.Infrastructure;
+using ZKTecoADMS.Infrastructure.Services;
 
 
 
@@ -288,6 +289,19 @@ public class PosStockController(ZKTecoDbContext dbContext) : AuthenticatedContro
         if (product == null)
 
             return NotFound(AppResponse<StockTransactionDto>.Fail("Không tìm thấy hàng hóa"));
+
+        // Cửa hàng có chi nhánh: xuất / giảm không vượt tồn của chi nhánh đang thao tác.
+        var bctx = HttpContext.BranchContext();
+        if (bctx is { StoreUsesBranches: true } && dto.QtyChange < 0 && !dto.VariantId.HasValue &&
+            (bctx.CurrentBranchId ?? bctx.HeadquarterBranchId) is Guid curBranch)
+        {
+            var bq = await BranchStockService.GetBranchQtyAsync(
+                dbContext, storeId, curBranch, bctx.HeadquarterBranchId, [productId]);
+            var have = bq.GetValueOrDefault((productId, (Guid?)null));
+            if (have + dto.QtyChange < 0)
+                return BadRequest(AppResponse<StockTransactionDto>.Fail(
+                    $"Chi nhánh đang chọn chỉ còn {have:0.##} — không thể giảm {Math.Abs(dto.QtyChange):0.##}"));
+        }
 
 
 

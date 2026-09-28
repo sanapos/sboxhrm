@@ -43,7 +43,6 @@ class _AdvanceReportScreenState extends State<AdvanceReportScreen> {
   String? _loadError;
   List<AdvanceRequest> _requests = [];
   int _totalCount = 0;
-  int? _summaryTotalRequests;
   List<Map<String, dynamic>> _byEmployee = [];
   final _pngKey = GlobalKey();
 
@@ -53,8 +52,15 @@ class _AdvanceReportScreenState extends State<AdvanceReportScreen> {
     return isTeamReportView(role: role);
   }
 
-  List<AdvanceRequest> get _filtered {
-    var result = _requests;
+  /// Toàn bộ yêu cầu trong kỳ (không phân trang) — để dashboard tính đúng.
+  List<AdvanceRequest> _statsRequests = [];
+
+  List<AdvanceRequest> get _filtered => _scoped(_requests);
+
+  List<AdvanceRequest> get _statsFiltered => _scoped(_statsRequests);
+
+  List<AdvanceRequest> _scoped(List<AdvanceRequest> source) {
+    var result = source;
     if (_teamView) {
       result = result.where((r) {
         return _branchFilter.mapRowInScope(
@@ -104,25 +110,36 @@ class _AdvanceReportScreenState extends State<AdvanceReportScreen> {
       _loadError = null;
     });
     try {
-      final result = await _api.getAdvanceRequests(
-        fromDate: _from,
-        toDate: _to,
-        status: _statusFilter?.index,
-        page: _page,
-        pageSize: _pageSize,
-      );
-      final parsed = parsePagedReportListResponse(result);
-      final list = <AdvanceRequest>[];
-      for (final item in parsed.items) {
-        try {
-          list.add(AdvanceRequest.fromJson(item));
-        } catch (_) {}
+      Future<Map<String, dynamic>> fetch(int page, int size) => _api.getAdvanceRequests(
+            fromDate: _from,
+            toDate: _to,
+            status: _statusFilter?.index,
+            page: page,
+            pageSize: size,
+          );
+      List<AdvanceRequest> toList(List<Map<String, dynamic>> items) {
+        final list = <AdvanceRequest>[];
+        for (final item in items) {
+          try {
+            list.add(AdvanceRequest.fromJson(item));
+          } catch (_) {}
+        }
+        return list;
       }
+
+      // Dashboard cần cả kỳ: tải 1 lần khi đổi bộ lọc (trang 1).
+      final statsFuture = _page == 1 ? fetch(1, 2000) : null;
+      final parsed = parsePagedReportListResponse(await fetch(_page, _pageSize));
+      final list = toList(parsed.items);
+      final statsParsed = statsFuture == null ? null : parsePagedReportListResponse(await statsFuture);
       if (mounted) {
         setState(() {
           _requests = list;
           _totalCount = parsed.totalCount;
           _loadError = parsed.error;
+          if (statsParsed != null) {
+            _statsRequests = statsParsed.error == null ? toList(statsParsed.items) : list;
+          }
         });
       }
       if (_teamView) await _loadSummary();
@@ -147,9 +164,6 @@ class _AdvanceReportScreenState extends State<AdvanceReportScreen> {
         final raw = data['items'] ?? data['Items'];
         if (mounted) {
           setState(() {
-            final total = data['totalRequests'] ?? data['TotalRequests'];
-            _summaryTotalRequests =
-                total is int ? total : int.tryParse('$total');
             if (raw is List) {
               _byEmployee = raw
                   .map((e) => Map<String, dynamic>.from(e as Map))
@@ -161,14 +175,16 @@ class _AdvanceReportScreenState extends State<AdvanceReportScreen> {
     } catch (_) {}
   }
 
-  /// Biểu đồ đầu báo cáo: tiền ứng theo ngày (yêu cầu / đã duyệt) + trạng thái.
-  Widget _buildInsight() {
-    final f = advanceRowsForReportStats(_filtered, _statusFilter);
-    if (f.isEmpty) return const SizedBox.shrink();
+  /// Biểu đồ dashboard: tiền ứng theo ngày (yêu cầu / đã duyệt), trạng thái, top nhân viên.
+  List<Widget> _buildCharts() {
+    final all = _statsFiltered;
+    final f = advanceRowsForReportStats(all, _statusFilter);
+    if (f.isEmpty) return const [];
     final req = <DateTime, double>{};
     final ok = <DateTime, double>{};
     final byStatus = <AdvanceRequestStatus, double>{};
     final byEmp = <String, double>{};
+    final empCnt = <String, int>{};
     for (final r in f) {
       final d = r.requestDate.isUtc ? r.requestDate.toLocal() : r.requestDate;
       final k = DateTime(d.year, d.month, d.day);
@@ -177,7 +193,10 @@ class _AdvanceReportScreenState extends State<AdvanceReportScreen> {
       if (r.status == AdvanceRequestStatus.approved) {
         ok[k] = ok[k]! + r.payoutAmount;
         byEmp[r.employeeName] = (byEmp[r.employeeName] ?? 0) + r.payoutAmount;
+        empCnt[r.employeeName] = (empCnt[r.employeeName] ?? 0) + 1;
       }
+    }
+    for (final r in all) {
       byStatus[r.status] = (byStatus[r.status] ?? 0) + r.amount;
     }
     final days = req.keys.toList()..sort();
@@ -193,38 +212,47 @@ class _AdvanceReportScreenState extends State<AdvanceReportScreen> {
           AdvanceRequestStatus.rejected => SboxColors.danger,
           _ => SboxColors.slate400,
         };
-    return Padding(
-      padding: const EdgeInsets.fromLTRB(12, 12, 12, 0),
-      child: SboxInsightPanel(
-        bottomGap: 0,
-        charts: [
-          SboxChartCard(
-            title: 'Tiền ứng theo ngày',
-            child: SboxBarChart(
-              labels: [for (final d in days) sboxDayLabel(d)],
-              series: [
-                SboxSeries(name: 'Yêu cầu', values: [for (final d in days) req[d]!], color: SboxColors.slate300),
-                SboxSeries(name: 'Đã duyệt', values: [for (final d in days) ok[d]!], color: SboxColors.success),
-              ],
-            ),
-          ),
-          SboxChartCard(
-            title: _teamView ? 'Ứng nhiều nhất (đã duyệt)' : 'Theo trạng thái',
-            child: _teamView
-                ? SboxRankList(items: [for (final e in byEmp.entries) SboxSlice(e.key, e.value)])
-                : SboxDonutChart(slices: [
-                    for (final e in byStatus.entries) SboxSlice(statusVi(e.key), e.value, color: statusColor(e.key)),
-                  ]),
-          ),
-        ],
+    return [
+      SboxChartCard(
+        title: 'Tiền ứng theo ngày',
+        subtitle: 'Yêu cầu và đã duyệt chi',
+        child: SboxBarChart(
+          valueFormat: (v) => SboxFmt.money(v),
+          labels: [for (final d in days) sboxDayLabel(d)],
+          series: [
+            SboxSeries(name: 'Yêu cầu', values: [for (final d in days) req[d]!], color: SboxColors.slate300),
+            SboxSeries(name: 'Đã duyệt', values: [for (final d in days) ok[d]!], color: SboxColors.success),
+          ],
+        ),
       ),
-    );
+      SboxChartCard(
+        title: 'Theo trạng thái',
+        subtitle: 'Số tiền yêu cầu',
+        child: SboxDonutChart(
+          valueFormat: (v) => SboxFmt.money(v),
+          slices: [
+            for (final e in byStatus.entries) SboxSlice(statusVi(e.key), e.value, color: statusColor(e.key)),
+          ],
+        ),
+      ),
+      if (_teamView)
+        SboxChartCard(
+          title: 'Ứng nhiều nhất',
+          subtitle: 'Đã duyệt chi',
+          wide: true,
+          child: SboxRankList(
+            valueFormat: (v) => SboxFmt.money(v),
+            items: [for (final e in byEmp.entries) SboxSlice(e.key, e.value, caption: '${empCnt[e.key]} lần')],
+          ),
+        ),
+    ];
   }
 
   List<ReportKpiItem> _buildKpis() {
-    final f = advanceRowsForReportStats(_filtered, _statusFilter);
-    final pending =
-        f.where((r) => r.status == AdvanceRequestStatus.pending).length;
+    final f = advanceRowsForReportStats(_statsFiltered, _statusFilter);
+    final pendingRows = f.where((r) => r.status == AdvanceRequestStatus.pending).toList();
+    final pending = pendingRows.length;
+    final pendingAmt = pendingRows.fold(0.0, (s, r) => s + r.amount);
     final approved =
         f.where((r) => r.status == AdvanceRequestStatus.approved).length;
     final totalAmt = f.fold(0.0, (s, r) => s + r.amount);
@@ -233,6 +261,11 @@ class _AdvanceReportScreenState extends State<AdvanceReportScreen> {
     final approvedAmt = f
         .where((r) => r.status == AdvanceRequestStatus.approved)
         .fold(0.0, (s, r) => s + r.payoutAmount);
+    final empCount = f
+        .where((r) => r.status == AdvanceRequestStatus.approved)
+        .map((r) => r.employeeName)
+        .toSet()
+        .length;
 
     if (!_teamView) {
       return [
@@ -244,6 +277,7 @@ class _AdvanceReportScreenState extends State<AdvanceReportScreen> {
         ReportKpiItem(
             label: 'Chờ duyệt',
             value: pending.toString(),
+            note: pending == 0 ? null : '${reportMoneyFmt.format(pendingAmt)}đ',
             icon: Icons.hourglass_empty,
             color: Colors.orange),
         ReportKpiItem(
@@ -254,6 +288,7 @@ class _AdvanceReportScreenState extends State<AdvanceReportScreen> {
         ReportKpiItem(
             label: 'Tổng đã ứng',
             value: '${reportMoneyFmt.format(approvedAmt)}đ',
+            note: 'Trừ vào lương kỳ này',
             icon: Icons.payments_outlined,
             color: _theme),
       ];
@@ -261,26 +296,28 @@ class _AdvanceReportScreenState extends State<AdvanceReportScreen> {
     return [
       ReportKpiItem(
           label: 'Tổng yêu cầu',
-          value: (_statusFilter == null && _summaryTotalRequests != null)
-              ? '$_summaryTotalRequests'
-              : (_statusFilter != null ? '$_totalCount' : '${f.length}'),
+          value: '${f.length}',
+          note: '${reportMoneyFmt.format(totalAmt)}đ',
           icon: Icons.list_alt,
           color: Colors.blueGrey),
       ReportKpiItem(
           label: 'Chờ duyệt',
           value: pending.toString(),
+          note: pending == 0 ? 'Đã xử lý hết' : '${reportMoneyFmt.format(pendingAmt)}đ đang chờ',
           icon: Icons.hourglass_empty,
           color: Colors.orange),
       ReportKpiItem(
-          label: 'Tổng tiền',
-          value: '${reportMoneyFmt.format(totalAmt)}đ',
-          icon: Icons.payments_outlined,
-          color: _theme),
-      ReportKpiItem(
-          label: 'Đã duyệt',
+          label: 'Đã duyệt chi',
           value: '${reportMoneyFmt.format(approvedAmt)}đ',
+          note: '$approved yêu cầu',
           icon: Icons.account_balance,
           color: SboxColors.success),
+      ReportKpiItem(
+          label: 'Nhân viên đã ứng',
+          value: '$empCount',
+          note: empCount == 0 ? null : 'TB ${reportMoneyFmt.format(approvedAmt / empCount)}đ/NV',
+          icon: Icons.people_outline,
+          color: _theme),
     ];
   }
 
@@ -409,12 +446,10 @@ class _AdvanceReportScreenState extends State<AdvanceReportScreen> {
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.stretch,
                       children: [
-                  _buildInsight(),
                   ReportCollapsibleChrome(
                     expanded: _showOverviewPanel,
                     onToggle: () => setState(
                         () => _showOverviewPanel = !_showOverviewPanel),
-                    kpi: ReportKpiGrid(items: _buildKpis()),
                     filter: ReportFilterSection(
                       embedded: true,
                       from: _from,
@@ -455,6 +490,12 @@ class _AdvanceReportScreenState extends State<AdvanceReportScreen> {
                     ),
                   ),
                   reportLoadErrorBanner(_loadError),
+                  ReportDashboard(
+                    storageKey: 'advance',
+                    subtitle: reportPeriodSubtitle(_from, _to, team: _teamView),
+                    kpis: _buildKpis(),
+                    charts: _buildCharts(),
+                  ),
                   if (_teamView)
                     ReportViewModeTabs(
                       index: _viewTab,

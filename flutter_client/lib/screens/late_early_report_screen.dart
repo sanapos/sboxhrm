@@ -944,33 +944,33 @@ class _LateEarlyReportScreenState extends State<LateEarlyReportScreen> {
       ReportKpiItem(
         label: 'Lần đi trễ',
         value: '$lateEvents',
+        note: lateEvents > 0 ? 'Tổng $lateMin phút' : null,
         icon: Icons.timer_off_outlined,
         color: _lateColor,
+        tone: SboxTone.warning,
       ),
       ReportKpiItem(
         label: 'TB phút/lần trễ',
-        value: lateEvents > 0 ? '${avgLate}p' : '—',
+        value: lateEvents > 0 ? '$avgLate phút' : '—',
         icon: Icons.hourglass_bottom,
         color: _theme,
       ),
       ReportKpiItem(
         label: 'Lần về sớm',
         value: '$earlyEvents',
+        note: earlyEvents > 0 ? 'Tổng $earlyMin phút' : null,
         icon: Icons.logout,
         color: _earlyColor,
-      ),
-      ReportKpiItem(
-        label: _teamView ? 'NV vi phạm' : 'Tổng phút sớm',
-        value: _teamView ? '$empCount' : '$earlyMin',
-        icon: _teamView ? Icons.people_outline : Icons.hourglass_top,
-        color: _theme,
+        tone: SboxTone.violet,
       ),
       if (_teamView)
         ReportKpiItem(
-          label: 'NV tái phạm',
-          value: '$repeatEmp',
-          icon: Icons.replay,
-          color: SboxColors.warningText,
+          label: 'NV vi phạm',
+          value: '$empCount',
+          note: repeatEmp > 0 ? '$repeatEmp người tái phạm (≥ 2 lần)' : 'Không ai tái phạm',
+          icon: Icons.people_outline,
+          color: SboxColors.danger,
+          tone: repeatEmp > 0 ? SboxTone.danger : SboxTone.success,
         ),
     ];
   }
@@ -1206,16 +1206,10 @@ class _LateEarlyReportScreenState extends State<LateEarlyReportScreen> {
                         child: Column(
                           crossAxisAlignment: CrossAxisAlignment.stretch,
                           children: [
-                      if (filtered.isNotEmpty)
-                        Padding(
-                          padding: const EdgeInsets.fromLTRB(12, 12, 12, 0),
-                          child: _buildInsight(filtered),
-                        ),
                       ReportCollapsibleChrome(
                         expanded: _showOverviewPanel,
                         onToggle: () => setState(
                             () => _showOverviewPanel = !_showOverviewPanel),
-                        kpi: ReportKpiGrid(items: _buildKpis(filtered)),
                         betweenKpiAndFilter: [
                           Padding(
                             padding: const EdgeInsets.fromLTRB(12, 0, 12, 8),
@@ -1331,6 +1325,13 @@ class _LateEarlyReportScreenState extends State<LateEarlyReportScreen> {
                         ),
                       ),
                       reportLoadErrorBanner(_loadError),
+                      if (!_loading)
+                        ReportDashboard(
+                          storageKey: 'late_early',
+                          subtitle: reportPeriodSubtitle(_from, _to, team: _teamView),
+                          kpis: _buildKpis(filtered),
+                          charts: _buildCharts(filtered),
+                        ),
                       if (!_loading) _analysisBanner(filtered),
                       if (_teamView)
                         ReportViewModeTabs(
@@ -1766,43 +1767,101 @@ class _LateEarlyReportScreenState extends State<LateEarlyReportScreen> {
     );
   }
 
-  /// Biểu đồ đầu báo cáo: số lượt trễ / sớm theo ngày + người trễ nhiều nhất.
-  Widget _buildInsight(List<DailyShiftLateEntry> rows) {
+  /// Biểu đồ dashboard: lượt trễ / sớm theo ngày, mức độ trễ, theo thứ, theo ca, người trễ nhiều nhất.
+  List<Widget> _buildCharts(List<DailyShiftLateEntry> rows) {
+    if (rows.isEmpty) return const [];
     final late = <DateTime, double>{};
     final early = <DateTime, double>{};
     final lateMin = <String, double>{};
     final lateCnt = <String, int>{};
     final names = <String, String>{};
+    // Mức độ trễ: 1–5, 6–15, 16–30, >30 phút.
+    const bucketLabels = ['1–5 phút', '6–15 phút', '16–30 phút', 'Trên 30 phút'];
+    const bucketColors = [SboxColors.warning, Color(0xFFF97316), SboxColors.danger, Color(0xFF991B1B)];
+    final buckets = List<double>.filled(4, 0);
+    // Thứ trong tuần (T2..CN) và theo ca.
+    const weekdayLabels = ['T2', 'T3', 'T4', 'T5', 'T6', 'T7', 'CN'];
+    final lateByWd = List<double>.filled(7, 0);
+    final earlyByWd = List<double>.filled(7, 0);
+    final byShift = <String, double>{};
     for (final e in rows) {
       final d = DateTime(e.date.year, e.date.month, e.date.day);
       late.putIfAbsent(d, () => 0);
       early.putIfAbsent(d, () => 0);
+      final wd = e.date.weekday - 1;
       if (e.lateMinutes >= _minMinutes) {
         late[d] = late[d]! + 1;
         final k = e.employeeCode.isNotEmpty ? e.employeeCode : e.employeeId;
         lateMin[k] = (lateMin[k] ?? 0) + e.lateMinutes;
         lateCnt[k] = (lateCnt[k] ?? 0) + 1;
         names[k] = e.employeeName;
+        final m = e.lateMinutes;
+        buckets[m <= 5 ? 0 : (m <= 15 ? 1 : (m <= 30 ? 2 : 3))]++;
+        lateByWd[wd]++;
       }
-      if (e.earlyMinutes >= _minMinutes) early[d] = early[d]! + 1;
+      if (e.earlyMinutes >= _minMinutes) {
+        early[d] = early[d]! + 1;
+        earlyByWd[wd]++;
+      }
+      if (e.lateMinutes >= _minMinutes || e.earlyMinutes >= _minMinutes) {
+        final s = e.shiftName.trim().isEmpty ? 'Không rõ ca' : e.shiftName.trim();
+        byShift[s] = (byShift[s] ?? 0) + 1;
+      }
     }
     final days = late.keys.toList()..sort();
-    return SboxInsightPanel(
-      bottomGap: 0,
-      charts: [
+    return [
+      SboxChartCard(
+        title: 'Lượt đi trễ / về sớm theo ngày',
+        wide: true,
+        child: SboxBarChart(
+          stacked: true,
+          valueFormat: (v) => '${SboxFmt.number(v)} lượt',
+          axisFormat: (v) => SboxFmt.number(v),
+          labels: [for (final d in days) sboxDayLabel(d)],
+          series: [
+            SboxSeries(name: 'Đi trễ', values: [for (final d in days) late[d]!], color: SboxColors.warning),
+            SboxSeries(name: 'Về sớm', values: [for (final d in days) early[d]!], color: SboxColors.violet),
+          ],
+        ),
+      ),
+      if (buckets.any((b) => b > 0))
         SboxChartCard(
-          title: 'Lượt đi trễ / về sớm theo ngày',
-          child: SboxBarChart(
-            stacked: true,
+          title: 'Mức độ đi trễ',
+          subtitle: 'Số lượt theo số phút trễ',
+          child: SboxDonutChart(
             valueFormat: (v) => '${SboxFmt.number(v)} lượt',
-            axisFormat: (v) => SboxFmt.number(v),
-            labels: [for (final d in days) sboxDayLabel(d)],
-            series: [
-              SboxSeries(name: 'Đi trễ', values: [for (final d in days) late[d]!], color: SboxColors.warning),
-              SboxSeries(name: 'Về sớm', values: [for (final d in days) early[d]!], color: SboxColors.violet),
+            centerValue: SboxFmt.number(buckets.fold<double>(0, (a, b) => a + b)),
+            centerLabel: 'lượt trễ',
+            slices: [
+              for (var i = 0; i < 4; i++)
+                if (buckets[i] > 0) SboxSlice(bucketLabels[i], buckets[i], color: bucketColors[i]),
             ],
           ),
         ),
+      SboxChartCard(
+        title: 'Theo thứ trong tuần',
+        subtitle: 'Ngày nào hay vi phạm',
+        child: SboxBarChart(
+          valueFormat: (v) => '${SboxFmt.number(v)} lượt',
+          axisFormat: (v) => SboxFmt.number(v),
+          labels: weekdayLabels,
+          series: [
+            SboxSeries(name: 'Đi trễ', values: lateByWd, color: SboxColors.warning),
+            SboxSeries(name: 'Về sớm', values: earlyByWd, color: SboxColors.violet),
+          ],
+        ),
+      ),
+      if (byShift.length > 1)
+        SboxChartCard(
+          title: 'Theo ca làm việc',
+          subtitle: 'Số lượt vi phạm',
+          child: SboxRankList(
+            color: SboxColors.brand500,
+            valueFormat: (v) => '${SboxFmt.number(v)} lượt',
+            items: [for (final e in byShift.entries) SboxSlice(e.key, e.value)],
+          ),
+        ),
+      if (_teamView && lateMin.isNotEmpty)
         SboxChartCard(
           title: 'Đi trễ nhiều nhất',
           subtitle: 'Tổng phút trễ trong kỳ',
@@ -1812,8 +1871,7 @@ class _LateEarlyReportScreenState extends State<LateEarlyReportScreen> {
             items: [for (final e in lateMin.entries) SboxSlice(names[e.key] ?? e.key, e.value, caption: '${lateCnt[e.key]} lần')],
           ),
         ),
-      ],
-    );
+    ];
   }
 
   Widget _buildEmployeeSection(bool compact) {

@@ -7,8 +7,11 @@ namespace ZKTecoADMS.Domain.Entities;
 /// <summary>
 /// Giao dịch thu chi - Income/Expense Transaction
 /// </summary>
-public class CashTransaction : AuditableEntity<Guid>
+public class CashTransaction : AuditableEntity<Guid>, IBranchScoped
 {
+    /// <summary>Chi nhánh (null = cửa hàng chưa dùng chi nhánh). Tự gán khi tạo mới.</summary>
+    public Guid? BranchId { get; set; }
+
     /// <summary>
     /// Mã giao dịch (tự động sinh: TC-YYYYMMDD-XXXX)
     /// </summary>

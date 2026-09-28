@@ -14,6 +14,7 @@ import '../widgets/hrm_collapsible_overview.dart';
 import '../widgets/hrm_mini_stat_chip.dart';
 import '../widgets/hrm_page_chrome.dart';
 import '../widgets/page_top_actions.dart';
+import '../widgets/reports/hrm_report_widgets.dart' show ReportKpiItem, ReportDashboard, SboxTone;
 import 'package:zkteco_flutter_client/l10n/app_tr.dart';
 
 import '../theme/sbox_tokens.dart';
@@ -387,8 +388,8 @@ class _CashReportScreenState extends State<CashReportScreen> {
                 crossAxisAlignment: CrossAxisAlignment.stretch,
                 children: [
                   _buildOverviewSection(),
-                  if (!_loading) _buildInsight(),
                   reportLoadErrorBanner(_loadError),
+                  if (!_loading) _buildSummary(),
                   _buildFilterResultBar(),
                   if (_loading)
                     const Padding(
@@ -410,13 +411,16 @@ class _CashReportScreenState extends State<CashReportScreen> {
     );
   }
 
-  /// Biểu đồ đầu báo cáo: thu – chi theo ngày + cơ cấu chi (bỏ phiếu đã hủy).
-  Widget _buildInsight() {
-    final rows = _filtered.where((t) => !cashReportRowIsCancelled(t)).toList();
-    if (rows.isEmpty) return const SizedBox.shrink();
+  /// Biểu đồ dashboard: thu – chi theo ngày, số dư lũy kế, cơ cấu chi / thu (bỏ phiếu đã hủy, chỉ phiếu đã thanh toán).
+  List<Widget> _buildCharts() {
+    final rows = _filtered
+        .where((t) => !cashReportRowIsCancelled(t) && !cashReportRowIsPending(t))
+        .toList();
+    if (rows.isEmpty) return const [];
     final inc = <DateTime, double>{};
     final exp = <DateTime, double>{};
     final expCat = <String, double>{};
+    final incCat = <String, double>{};
     for (final t in rows) {
       final d = cashReportRowDate(t);
       if (d == null) continue;
@@ -424,41 +428,67 @@ class _CashReportScreenState extends State<CashReportScreen> {
       inc.putIfAbsent(k, () => 0);
       exp.putIfAbsent(k, () => 0);
       final amt = cashReportRowAmount(t);
+      final c = fixVietnameseMojibake(t['categoryName']?.toString() ?? 'Khác');
       if (cashReportRowType(t) == CashTransactionType.income) {
         inc[k] = inc[k]! + amt;
+        incCat[c] = (incCat[c] ?? 0) + amt;
       } else {
         exp[k] = exp[k]! + amt;
-        final c = fixVietnameseMojibake(t['categoryName']?.toString() ?? 'Khác');
         expCat[c] = (expCat[c] ?? 0) + amt;
       }
     }
     final days = inc.keys.toList()..sort();
-    return Padding(
-      padding: const EdgeInsets.fromLTRB(12, 12, 12, 0),
-      child: SboxInsightPanel(
-        bottomGap: 0,
-        charts: [
-          SboxChartCard(
-            title: 'Thu – chi theo ngày',
-            child: SboxBarChart(
-              labels: [for (final d in days) sboxDayLabel(d)],
-              series: [
-                SboxSeries(name: 'Thu', values: [for (final d in days) inc[d]!], color: SboxColors.success),
-                SboxSeries(name: 'Chi', values: [for (final d in days) exp[d]!], color: SboxColors.danger),
-              ],
-            ),
-          ),
-          SboxChartCard(
-            title: 'Cơ cấu chi theo danh mục',
-            child: SboxDonutChart(
-              centerValue: SboxFmt.compact(expCat.values.fold<double>(0, (a, b) => a + b)),
-              centerLabel: 'Tổng chi',
-              slices: [for (final e in expCat.entries) SboxSlice(e.key, e.value)],
-            ),
-          ),
-        ],
+    // Số dư lũy kế trong kỳ (thu − chi cộng dồn theo ngày).
+    var run = 0.0;
+    final balance = <double>[];
+    for (final d in days) {
+      run += inc[d]! - exp[d]!;
+      balance.add(run);
+    }
+    return [
+      SboxChartCard(
+        title: 'Thu – chi theo ngày',
+        child: SboxBarChart(
+          valueFormat: (v) => SboxFmt.money(v),
+          labels: [for (final d in days) sboxDayLabel(d)],
+          series: [
+            SboxSeries(name: 'Thu', values: [for (final d in days) inc[d]!], color: SboxColors.success),
+            SboxSeries(name: 'Chi', values: [for (final d in days) exp[d]!], color: SboxColors.danger),
+          ],
+        ),
       ),
-    );
+      if (days.length > 1)
+        SboxChartCard(
+          title: 'Chênh lệch thu – chi cộng dồn',
+          subtitle: 'Trong kỳ đang xem',
+          child: SboxLineChart(
+            area: true,
+            valueFormat: (v) => SboxFmt.money(v),
+            labels: [for (final d in days) sboxDayLabel(d)],
+            series: [SboxSeries(name: 'Cộng dồn', values: balance, color: SboxColors.brand500)],
+          ),
+        ),
+      if (expCat.isNotEmpty)
+        SboxChartCard(
+          title: 'Cơ cấu chi theo danh mục',
+          child: SboxDonutChart(
+            valueFormat: (v) => SboxFmt.money(v),
+            centerValue: SboxFmt.compact(expCat.values.fold<double>(0, (a, b) => a + b)),
+            centerLabel: 'Tổng chi',
+            slices: [for (final e in expCat.entries) SboxSlice(e.key, e.value)],
+          ),
+        ),
+      if (incCat.length > 1)
+        SboxChartCard(
+          title: 'Cơ cấu thu theo danh mục',
+          child: SboxDonutChart(
+            valueFormat: (v) => SboxFmt.money(v),
+            centerValue: SboxFmt.compact(incCat.values.fold<double>(0, (a, b) => a + b)),
+            centerLabel: 'Tổng thu',
+            slices: [for (final e in incCat.entries) SboxSlice(e.key, e.value)],
+          ),
+        ),
+    ];
   }
 
   Widget _buildOverviewSection() {
@@ -469,14 +499,7 @@ class _CashReportScreenState extends State<CashReportScreen> {
         expanded: _showOverviewPanel,
         onToggle: () =>
             setState(() => _showOverviewPanel = !_showOverviewPanel),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.stretch,
-          children: [
-            _buildSummary(),
-            const SizedBox(height: 8),
-            _buildFilters(),
-          ],
-        ),
+        child: _buildFilters(),
       ),
     );
   }
@@ -799,92 +822,81 @@ class _CashReportScreenState extends State<CashReportScreen> {
     );
   }
 
+  /// Dashboard sổ quỹ: thẻ KPI (bấm để lọc danh sách) + biểu đồ.
   Widget _buildSummary() {
     final s = _summary;
     final period = ReportDateRangePresets.presetLabel(_datePreset);
-    final items = <HrmStatItem>[
-      HrmStatItem(
+    void toggle(String key) => _applyStatusFilter(_statusFilter == key ? null : key);
+    final kpis = <ReportKpiItem>[
+      ReportKpiItem(
         icon: Icons.arrow_circle_down,
         label: 'Đã thu',
         value: '${_fmtMoney.format(s.paidIncome)}đ',
-        subtitle: '${s.paidIncomeCount} GD',
-        onTap: () => _applyStatusFilter(
-            _statusFilter == 'paid_income' ? null : 'paid_income'),
+        note: '${s.paidIncomeCount} phiếu thu',
+        color: SboxColors.success,
+        onTap: () => toggle('paid_income'),
       ),
-      HrmStatItem(
+      ReportKpiItem(
         icon: Icons.arrow_circle_up,
         label: 'Đã chi',
         value: '${_fmtMoney.format(s.paidExpense)}đ',
-        subtitle: '${s.paidExpenseCount} GD',
-        onTap: () => _applyStatusFilter(
-            _statusFilter == 'paid_expense' ? null : 'paid_expense'),
+        note: '${s.paidExpenseCount} phiếu chi',
+        color: SboxColors.danger,
+        onTap: () => toggle('paid_expense'),
       ),
-      HrmStatItem(
+      ReportKpiItem(
         icon: Icons.savings_outlined,
         label: 'Số dư quỹ',
         value: '${_fmtMoney.format(s.fundBalance)}đ',
-        subtitle: 'Đã thu − Đã chi',
-        onTap: () => _applyStatusFilter(
-            _statusFilter == 'completed' ? null : 'completed'),
+        note: 'Đã thu − đã chi',
+        color: HrmPageChrome.primaryNavy,
+        tone: s.fundBalance < 0 ? SboxTone.danger : SboxTone.brand,
+        onTap: () => toggle('completed'),
       ),
       if (s.pendingIncome > 0 || s.pendingIncomeCount > 0)
-        HrmStatItem(
+        ReportKpiItem(
           icon: Icons.hourglass_top,
           label: 'Chờ thu',
           value: '${_fmtMoney.format(s.pendingIncome)}đ',
-          subtitle: '${s.pendingIncomeCount} phiếu',
-          onTap: () => _applyStatusFilter(
-              _statusFilter == 'pending_income' ? null : 'pending_income'),
+          note: '${s.pendingIncomeCount} phiếu',
+          color: SboxColors.warning,
+          onTap: () => toggle('pending_income'),
         ),
       if (s.pendingExpense > 0 || s.pendingExpenseCount > 0)
-        HrmStatItem(
+        ReportKpiItem(
           icon: Icons.payments_outlined,
           label: 'Chờ chi',
           value: '${_fmtMoney.format(s.pendingExpense)}đ',
-          subtitle: '${s.pendingExpenseCount} phiếu',
-          onTap: () => _applyStatusFilter(
-              _statusFilter == 'pending_expense' ? null : 'pending_expense'),
+          note: '${s.pendingExpenseCount} phiếu',
+          color: SboxColors.warning,
+          onTap: () => toggle('pending_expense'),
         ),
       if (s.cancelledCount > 0)
-        HrmStatItem(
+        ReportKpiItem(
           icon: Icons.block,
           label: 'Đã hủy',
           value: '${s.cancelledCount}',
-          subtitle: 'phiếu',
-          onTap: () => _applyStatusFilter(
-              _statusFilter == 'cancelled' ? null : 'cancelled'),
+          note: 'phiếu',
+          color: SboxColors.slate500,
+          onTap: () => toggle('cancelled'),
         ),
     ];
 
-    return Container(
-      color: Colors.white,
-      margin: const EdgeInsets.only(top: 1),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        ReportDashboard(
+          storageKey: 'cash',
+          title: 'Sổ quỹ',
+          subtitle: '$period · ${_filtered.length}/${_items.length} dòng · bấm thẻ để lọc',
+          kpis: kpis,
+          charts: _buildCharts(),
+        ),
+        if (_statusFilter != null)
           Padding(
-            padding: const EdgeInsets.fromLTRB(16, 10, 16, 0),
-            child: Row(
-              children: [
-                const Icon(Icons.account_balance_wallet_outlined,
-                    size: 16, color: HrmPageChrome.chip),
-                const SizedBox(width: 6),
-                Text(tr('Sổ quỹ · $period'),
-                    style: const TextStyle(
-                        fontSize: 13,
-                        fontWeight: FontWeight.w700,
-                        color: SboxColors.slate900)),
-                const Spacer(),
-                Text(tr('${_filtered.length}/${_items.length} dòng'),
-                    style:
-                        TextStyle(fontSize: 11, color: SboxColors.slate600)),
-              ],
-            ),
-          ),
-          HrmStatBar(items: items, padding: const EdgeInsets.fromLTRB(12, 10, 12, 10)),
-          if (_statusFilter != null)
-            Padding(
-              padding: const EdgeInsets.fromLTRB(16, 0, 16, 10),
+            padding: const EdgeInsets.fromLTRB(16, 4, 16, 4),
+            child: Align(
+              alignment: Alignment.centerLeft,
               child: HrmBrandChip(
                 label: 'Lọc: ${cashReportStatusFilterLabel(_statusFilter!)}',
                 selected: true,
@@ -892,8 +904,8 @@ class _CashReportScreenState extends State<CashReportScreen> {
                 onDeleted: () => setState(() => _statusFilter = null),
               ),
             ),
-        ],
-      ),
+          ),
+      ],
     );
   }
 

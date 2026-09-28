@@ -45,7 +45,6 @@ class _LeaveReportScreenState extends State<LeaveReportScreen> {
   String? _loadError;
   List<Map<String, dynamic>> _leaves = [];
   int _totalCount = 0;
-  int? _summaryTotalRequests;
   List<Map<String, dynamic>> _byEmployee = [];
   String? _annualBalanceText;
   final _pngKey = GlobalKey();
@@ -61,8 +60,15 @@ class _LeaveReportScreenState extends State<LeaveReportScreen> {
         .canView('LeaveReport');
   }
 
-  List<Map<String, dynamic>> get _filtered {
-    return _leaves.where((l) {
+  /// Toàn bộ đơn trong kỳ (không phân trang) — để dashboard tính đúng.
+  List<Map<String, dynamic>> _statsLeaves = [];
+
+  List<Map<String, dynamic>> get _filtered => _scoped(_leaves);
+
+  List<Map<String, dynamic>> get _statsFiltered => _scoped(_statsLeaves);
+
+  List<Map<String, dynamic>> _scoped(List<Map<String, dynamic>> source) {
+    return source.where((l) {
       if (_teamView &&
           !_branchFilter.mapRowInScope(
             l,
@@ -147,19 +153,23 @@ class _LeaveReportScreenState extends State<LeaveReportScreen> {
       _loadError = null;
     });
     try {
-      final res = await _api.getAllLeaves(
-        page: _page,
-        pageSize: _pageSize,
-        fromDate: _fmtDateApi.format(_from),
-        toDate: _fmtDateApi.format(_to),
-        status: _leaveStatusParam(),
-      );
-      final parsed = parsePagedReportListResponse(res);
+      Future<Map<String, dynamic>> fetch(int page, int size) => _api.getAllLeaves(
+            page: page,
+            pageSize: size,
+            fromDate: _fmtDateApi.format(_from),
+            toDate: _fmtDateApi.format(_to),
+            status: _leaveStatusParam(),
+          );
+      // Dashboard cần cả kỳ: tải 1 lần khi đổi bộ lọc (trang 1).
+      final statsFuture = _page == 1 ? fetch(1, 2000) : null;
+      final parsed = parsePagedReportListResponse(await fetch(_page, _pageSize));
+      final stats = statsFuture == null ? null : parsePagedReportListResponse(await statsFuture);
       if (mounted) {
         setState(() {
           _leaves = parsed.items;
           _totalCount = parsed.totalCount;
           _loadError = parsed.error;
+          if (stats != null) _statsLeaves = stats.error == null ? stats.items : parsed.items;
         });
       }
       if (_teamView && _canLeaveSummary) {
@@ -188,10 +198,6 @@ class _LeaveReportScreenState extends State<LeaveReportScreen> {
         final raw = data['items'] ?? data['Items'];
         if (mounted) {
           setState(() {
-            final total =
-                data['totalLeaveRequests'] ?? data['TotalLeaveRequests'];
-            _summaryTotalRequests =
-                total is int ? total : int.tryParse('$total');
             if (raw is List) {
               _byEmployee = raw
                   .map((e) => Map<String, dynamic>.from(e as Map))
@@ -265,72 +271,122 @@ class _LeaveReportScreenState extends State<LeaveReportScreen> {
     }
   }
 
-  int _leaveDays(Map<String, dynamic> l) {
+  /// Số ngày nghỉ của đơn — nghỉ nửa ca tính 0,5 ngày.
+  double _leaveDays(Map<String, dynamic> l) {
     try {
       final start = parseApiCalendarDate(l['startDate']);
       final end = parseApiCalendarDate(l['endDate']);
-      if (start == null || end == null) return 1;
-      return end.difference(start).inDays + 1;
+      final days = (start == null || end == null) ? 1 : end.difference(start).inDays + 1;
+      final half = l['isHalfShift'] == true || l['IsHalfShift'] == true;
+      return half ? days * 0.5 : days.toDouble();
     } catch (_) {
       return 1;
     }
   }
 
-  /// Biểu đồ đầu báo cáo: cơ cấu loại nghỉ + người nghỉ nhiều nhất (đơn đã duyệt).
-  Widget _buildInsight() {
-    final f = leaveRowsForReportStats(_filtered, _statusFilter)
+  String _daysText(num v) => '${SboxFmt.number(v)} ngày';
+
+  /// Biểu đồ dashboard: số người nghỉ theo ngày, cơ cấu loại nghỉ, trạng thái đơn, nghỉ nhiều nhất.
+  List<Widget> _buildCharts() {
+    final all = _statsFiltered;
+    final f = leaveRowsForReportStats(all, _statusFilter)
         .where((l) => _normalizeStatus(l['status']) == 1)
         .toList();
-    if (f.isEmpty) return const SizedBox.shrink();
+    if (all.isEmpty) return const [];
     final byType = <String, double>{};
     final byEmp = <String, double>{};
     final cnt = <String, int>{};
+    // Số người nghỉ mỗi ngày trong kỳ (đơn đã duyệt).
+    final from = DateTime(_from.year, _from.month, _from.day);
+    final to = DateTime(_to.year, _to.month, _to.day);
+    final perDay = <DateTime, double>{};
+    for (var d = from; !d.isAfter(to); d = d.add(const Duration(days: 1))) {
+      perDay[d] = 0;
+    }
     for (final l in f) {
-      final d = _leaveDays(l).toDouble();
+      final d = _leaveDays(l);
       final t = _leaveTypeName(l['leaveType'] ?? l['type']);
       byType[t] = (byType[t] ?? 0) + d;
       final n = l['employeeName']?.toString() ?? '—';
       byEmp[n] = (byEmp[n] ?? 0) + d;
       cnt[n] = (cnt[n] ?? 0) + 1;
+      final s = parseApiCalendarDate(l['startDate']);
+      final e = parseApiCalendarDate(l['endDate']) ?? s;
+      if (s != null && e != null) {
+        final w = (l['isHalfShift'] == true) ? 0.5 : 1.0;
+        for (var d0 = DateTime(s.year, s.month, s.day);
+            !d0.isAfter(DateTime(e.year, e.month, e.day));
+            d0 = d0.add(const Duration(days: 1))) {
+          if (perDay.containsKey(d0)) perDay[d0] = perDay[d0]! + w;
+        }
+      }
+    }
+    final byStatus = <int, double>{};
+    for (final l in all) {
+      final s = _normalizeStatus(l['status']);
+      byStatus[s] = (byStatus[s] ?? 0) + 1;
     }
     final total = byType.values.fold<double>(0, (a, b) => a + b);
-    String days(num? v) => '${SboxFmt.number(v)} ngày';
-    return Padding(
-      padding: const EdgeInsets.fromLTRB(12, 12, 12, 0),
-      child: SboxInsightPanel(
-        bottomGap: 0,
-        charts: [
-          SboxChartCard(
-            title: 'Ngày nghỉ theo loại',
-            subtitle: 'Đơn đã duyệt',
-            child: SboxDonutChart(
-              valueFormat: days,
-              centerValue: SboxFmt.number(total),
-              centerLabel: 'ngày nghỉ',
-              slices: [for (final e in byType.entries) SboxSlice(e.key, e.value)],
-            ),
+    final days = perDay.keys.toList()..sort();
+    return [
+      if (_teamView && days.length > 1 && days.length <= 62)
+        SboxChartCard(
+          title: 'Số người nghỉ theo ngày',
+          subtitle: 'Đơn đã duyệt',
+          wide: true,
+          child: SboxBarChart(
+            valueFormat: (v) => '${SboxFmt.number(v)} người',
+            labels: [for (final d in days) sboxDayLabel(d)],
+            series: [SboxSeries(name: 'Người nghỉ', values: [for (final d in days) perDay[d]!], color: SboxColors.violet)],
           ),
-          if (_teamView)
-            SboxChartCard(
-              title: 'Nghỉ nhiều nhất',
-              child: SboxRankList(
-                color: SboxColors.violet,
-                valueFormat: days,
-                items: [for (final e in byEmp.entries) SboxSlice(e.key, e.value, caption: '${cnt[e.key]} đơn')],
-              ),
-            ),
-        ],
+        ),
+      if (byType.isNotEmpty)
+        SboxChartCard(
+          title: 'Ngày nghỉ theo loại',
+          subtitle: 'Đơn đã duyệt',
+          child: SboxDonutChart(
+            valueFormat: (v) => _daysText(v ?? 0),
+            centerValue: SboxFmt.number(total),
+            centerLabel: 'ngày nghỉ',
+            slices: [for (final e in byType.entries) SboxSlice(e.key, e.value)],
+          ),
+        ),
+      SboxChartCard(
+        title: 'Trạng thái đơn',
+        subtitle: 'Số đơn',
+        child: SboxDonutChart(
+          valueFormat: (v) => '${SboxFmt.number(v)} đơn',
+          centerValue: '${all.length}',
+          centerLabel: 'đơn',
+          slices: [
+            for (final e in byStatus.entries) SboxSlice(_statusLabel(e.key), e.value, color: _statusColor(e.key)),
+          ],
+        ),
       ),
-    );
+      if (_teamView && byEmp.isNotEmpty)
+        SboxChartCard(
+          title: 'Nghỉ nhiều nhất',
+          child: SboxRankList(
+            color: SboxColors.violet,
+            valueFormat: (v) => _daysText(v ?? 0),
+            items: [for (final e in byEmp.entries) SboxSlice(e.key, e.value, caption: '${cnt[e.key]} đơn')],
+          ),
+        ),
+    ];
   }
 
   List<ReportKpiItem> _buildKpis() {
-    final f = leaveRowsForReportStats(_filtered, _statusFilter);
+    final f = leaveRowsForReportStats(_statsFiltered, _statusFilter);
     final pending = f.where((l) => _normalizeStatus(l['status']) == 0).length;
-    final approved = f.where((l) => _normalizeStatus(l['status']) == 1).length;
-    final totalDays = f
-        .where((l) => _normalizeStatus(l['status']) == 1)
-        .fold(0, (s, l) => s + _leaveDays(l));
+    final approvedRows = f.where((l) => _normalizeStatus(l['status']) == 1).toList();
+    final approved = approvedRows.length;
+    final totalDays = approvedRows.fold<double>(0, (s, l) => s + _leaveDays(l));
+    final decided = _statsFiltered.where((l) {
+      final s = _normalizeStatus(l['status']);
+      return s == 1 || s == 2;
+    }).length;
+    final approvalRate = decided == 0 ? null : (approved / decided * 100).round();
+    final empCount = approvedRows.map((l) => l['employeeName']?.toString() ?? '').toSet().length;
 
     if (!_teamView) {
       return [
@@ -351,7 +407,8 @@ class _LeaveReportScreenState extends State<LeaveReportScreen> {
             color: SboxColors.success),
         ReportKpiItem(
             label: 'Tổng ngày nghỉ',
-            value: '$totalDays ngày',
+            value: _daysText(totalDays),
+            note: _annualBalanceText,
             icon: Icons.event_busy,
             color: _theme),
       ];
@@ -359,25 +416,26 @@ class _LeaveReportScreenState extends State<LeaveReportScreen> {
     return [
       ReportKpiItem(
           label: 'Tổng đơn',
-          value: (_statusFilter == null && _summaryTotalRequests != null)
-              ? '$_summaryTotalRequests'
-              : (_statusFilter != null ? '$_totalCount' : '${f.length}'),
+          value: '${f.length}',
+          note: pending > 0 ? '$pending đơn chờ duyệt' : 'Đã xử lý hết',
           icon: Icons.description_outlined,
           color: Colors.blueGrey),
       ReportKpiItem(
-          label: 'Chờ duyệt',
-          value: pending.toString(),
-          icon: Icons.hourglass_empty,
-          color: Colors.orange),
-      ReportKpiItem(
           label: 'Đã duyệt',
           value: approved.toString(),
+          note: approvalRate == null ? null : 'Tỷ lệ duyệt $approvalRate%',
           icon: Icons.check_circle_outline,
           color: SboxColors.success),
       ReportKpiItem(
           label: 'Tổng ngày nghỉ',
-          value: '$totalDays ngày',
+          value: _daysText(totalDays),
+          note: empCount == 0 ? null : 'TB ${SboxFmt.number(totalDays / empCount)} ngày/NV',
           icon: Icons.event_busy,
+          color: SboxColors.violet),
+      ReportKpiItem(
+          label: 'Nhân viên nghỉ',
+          value: '$empCount',
+          icon: Icons.people_outline,
           color: _theme),
     ];
   }
@@ -480,7 +538,6 @@ class _LeaveReportScreenState extends State<LeaveReportScreen> {
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.stretch,
                       children: [
-                  _buildInsight(),
                   if (!_teamView && _annualBalanceText != null)
                     ReportPersonalInsightBanner(
                       message: _annualBalanceText!,
@@ -491,7 +548,6 @@ class _LeaveReportScreenState extends State<LeaveReportScreen> {
                     expanded: _showOverviewPanel,
                     onToggle: () => setState(
                         () => _showOverviewPanel = !_showOverviewPanel),
-                    kpi: ReportKpiGrid(items: _buildKpis()),
                     filter: ReportFilterSection(
                       embedded: true,
                       from: _from,
@@ -532,6 +588,12 @@ class _LeaveReportScreenState extends State<LeaveReportScreen> {
                     ),
                   ),
                   reportLoadErrorBanner(_loadError),
+                  ReportDashboard(
+                    storageKey: 'leave',
+                    subtitle: reportPeriodSubtitle(_from, _to, team: _teamView),
+                    kpis: _buildKpis(),
+                    charts: _buildCharts(),
+                  ),
                   if (_teamView && _canLeaveSummary)
                     ReportViewModeTabs(
                       index: _viewTab,

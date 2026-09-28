@@ -194,6 +194,10 @@ public class EmployeesController(
     {
         try
         {
+            if (!IsAdmin && !await dataScopeService.CanActOnBranchAsync(
+                    CurrentUserId, RequiredStoreId, request.BranchId, BranchAction.Create))
+                return Ok(AppResponse<Guid>.Error("Bạn không có quyền thêm nhân viên vào chi nhánh này"));
+
             var command = request.Adapt<CreateEmployeeCommand>();
             command.StoreId = RequiredStoreId;
             command.ManagerId = CurrentUserId;
@@ -233,6 +237,8 @@ public class EmployeesController(
     [RequireModulePermission("Employee", ModulePermissionAction.Edit)]
     public async Task<IActionResult> UpdateEmployee(Guid id, [FromBody] UpdateEmployeeCommand command)
     {
+        var deny = await DenyOutOfScopeAsync(id, BranchAction.Edit, command.BranchId);
+        if (deny != null) return Ok(AppResponse<bool>.Error(deny));
         command.StoreId = RequiredStoreId;
         command.Id = id;
         var result = await mediator.Send(command);
@@ -244,8 +250,35 @@ public class EmployeesController(
     [RequireModulePermission("Employee", ModulePermissionAction.Delete)]
     public async Task<IActionResult> DeleteEmployee(Guid id)
     {
+        var deny = await DenyOutOfScopeAsync(id, BranchAction.Delete, null);
+        if (deny != null) return Ok(AppResponse<bool>.Error(deny));
         var result = await mediator.Send(new DeleteEmployeeCommand { StoreId = RequiredStoreId, Id = id });
         return Ok(result);
+    }
+
+    /// <summary>
+    /// Quản lý (không phải chủ / quản trị) chỉ sửa / xóa NV trong phạm vi mình quản lý và
+    /// phải có cờ Sửa / Xóa của chi nhánh (nếu quyền đến từ phân quyền chi nhánh).
+    /// Chuyển NV sang chi nhánh khác cần quyền Tạo ở chi nhánh đích.
+    /// </summary>
+    private async Task<string?> DenyOutOfScopeAsync(Guid employeeId, BranchAction action, Guid? newBranchId)
+    {
+        if (IsAdmin) return null;
+        var storeId = RequiredStoreId;
+        if (!await dataScopeService.CanAccessEmployeeDataAsync(CurrentUserId, employeeId, storeId))
+            return "Nhân viên này không thuộc phạm vi bạn quản lý";
+        var curBranch = await dbContext.Employees.AsNoTracking()
+            .Where(e => e.Id == employeeId && e.StoreId == storeId)
+            .Select(e => e.BranchId)
+            .FirstOrDefaultAsync();
+        if (!await dataScopeService.CanActOnBranchAsync(CurrentUserId, storeId, curBranch, action))
+            return action == BranchAction.Delete
+                ? "Bạn không có quyền xóa nhân viên của chi nhánh này"
+                : "Bạn không có quyền sửa nhân viên của chi nhánh này";
+        if (action == BranchAction.Edit && newBranchId != null && newBranchId != curBranch &&
+            !await dataScopeService.CanActOnBranchAsync(CurrentUserId, storeId, newBranchId, BranchAction.Create))
+            return "Bạn không có quyền chuyển nhân viên sang chi nhánh đó";
+        return null;
     }
 
     // ─── Export Excel ────────────────────────────────────────────────────────

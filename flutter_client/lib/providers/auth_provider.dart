@@ -1,3 +1,4 @@
+import '../services/branch_session.dart';
 import 'dart:async';
 import 'dart:convert';
 import 'package:flutter/material.dart';
@@ -228,7 +229,8 @@ class AuthProvider extends ChangeNotifier {
     // ignore: discarded_futures
     FcmService.instance.registerForCurrentUser();
     // ignore: discarded_futures
-    NotificationPreferencesCache.instance.refresh(_apiService);
+    NotificationPreferencesCache.instance.refresh(_apiService);    // ignore: discarded_futures
+    BranchSession.instance.load();
   }
 
   // Decode user info từ JWT token
@@ -322,6 +324,8 @@ class AuthProvider extends ChangeNotifier {
           FcmService.instance.registerForCurrentUser();
           // ignore: discarded_futures
           NotificationPreferencesCache.instance.refresh(_apiService);
+          // ignore: discarded_futures
+          BranchSession.instance.load();
           Future.delayed(const Duration(seconds: 35), () {
             FcmService.instance.registerForCurrentUser();
           });
@@ -433,6 +437,7 @@ class AuthProvider extends ChangeNotifier {
     notifyListeners();
 
     GlobalLocationReporter.instance.stop();
+    BranchSession.instance.clear();
 
     // Unregister FCM token before clearing access token.
     try {

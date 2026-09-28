@@ -24,6 +24,9 @@ import '../utils/shift_records_calculator.dart';
 import 'package:zkteco_flutter_client/l10n/app_tr.dart';
 
 import '../theme/sbox_tokens.dart';
+import '../utils/vn_search.dart';
+import '../widgets/sbox/sbox_basics.dart' show SboxTone;
+import '../widgets/sbox/sbox_report.dart' show SboxKpi, SboxKpiStrip;
 class SalarySettingsScreen extends StatefulWidget {
   const SalarySettingsScreen({super.key});
 
@@ -108,12 +111,32 @@ class _SalarySettingsScreenState extends State<SalarySettingsScreen> {
         }
       }
 
-      // Load all employee salary profiles in parallel
-      final profileFutures = employees.map((emp) {
-        final id = emp['id']?.toString() ?? '';
-        return _apiService.getEmployeeSalaryProfile(id);
-      }).toList();
-      final allProfiles = await Future.wait(profileFutures);
+      // Hồ sơ lương: 1 request cho cả cửa hàng. Trước đây gọi từng NV cùng lúc (N request) —
+      // request lỗi bị hiểu nhầm là «Chưa cấu hình».
+      final bulk = await _apiService.getEmployeeSalaryProfilesBulk();
+      final allProfiles = <Map<String, dynamic>?>[];
+      final failedIds = <String>{};
+      if (bulk != null) {
+        for (final emp in employees) {
+          allProfiles.add(bulk[(emp['id']?.toString() ?? '').toLowerCase()]);
+        }
+      } else {
+        // Dự phòng: từng NV nhưng tối đa 6 request song song.
+        for (var i = 0; i < employees.length; i += 6) {
+          final chunk = employees.skip(i).take(6).toList();
+          final res = await Future.wait(chunk.map((emp) async {
+            final id = emp['id']?.toString() ?? '';
+            try {
+              return await _apiService.getEmployeeSalaryProfile(id);
+            } catch (_) {
+              failedIds.add(id);
+              return null;
+            }
+          }));
+          allProfiles.addAll(res);
+        }
+      }
+      _profileLoadFailed = bulk == null && failedIds.isNotEmpty;
 
       // Merge employee data with their salary profiles
       final employeeSalaries = <Map<String, dynamic>>[];
@@ -170,28 +193,29 @@ class _SalarySettingsScreenState extends State<SalarySettingsScreen> {
       });
     } catch (e) {
       debugPrint('Error loading data: $e');
+      _profileLoadFailed = true;
     } finally {
-      setState(() => _isLoading = false);
+      if (mounted) setState(() => _isLoading = false);
     }
   }
+
+  /// Có hồ sơ lương tải lỗi → không được kết luận «Chưa cấu hình».
+  bool _profileLoadFailed = false;
 
   List<Map<String, dynamic>> get _filteredEmployees {
     var list = _employeeSalaries;
 
-    // Apply branch filter
+    // Apply branch filter (gồm chi nhánh con)
     if (_filterBranchId != null) {
-      list = list
-          .where((emp) => emp['branchId']?.toString() == _filterBranchId)
-          .toList();
+      final ids = BranchFilterHelper.expandBranchIds(_filterBranchId!, _branches);
+      list = list.where((emp) => ids.contains(emp['branchId']?.toString())).toList();
     }
 
-    // Apply search filter
-    if (_searchQuery.isNotEmpty) {
+    // Apply search filter (không dấu)
+    if (_searchQuery.trim().isNotEmpty) {
       list = list.where((emp) {
-        final name = emp['fullName']?.toString().toLowerCase() ?? '';
-        final code = emp['employeeCode']?.toString().toLowerCase() ?? '';
-        return name.contains(_searchQuery.toLowerCase()) ||
-            code.contains(_searchQuery.toLowerCase());
+        return vnContains(emp['fullName']?.toString(), _searchQuery) ||
+            vnContains(emp['employeeCode']?.toString(), _searchQuery);
       }).toList();
     }
 
@@ -587,71 +611,90 @@ class _SalarySettingsScreenState extends State<SalarySettingsScreen> {
     );
   }
 
+  /// Thẻ KPI thiết lập lương — bấm để lọc (bấm lại để bỏ lọc).
   Widget _buildStatisticsRow() {
-    final chips = [
-      _buildSetupStatusChip(
-        type: 'all',
-        label: 'Tất cả',
-        count: _totalEmployees,
-        color: SboxColors.slate500,
-      ),
-      _buildSetupStatusChip(
-        type: 'configured',
-        label: 'Đã thiết lập',
-        count: _configuredCount,
-        color: HrmPageChrome.primaryNavy,
-      ),
-      _buildSetupStatusChip(
-        type: 'notConfigured',
-        label: 'Chưa thiết lập',
-        count: _notConfiguredCount,
-        color: HrmPageChrome.chipLight,
-      ),
-    ];
-    return SingleChildScrollView(
-      scrollDirection: Axis.horizontal,
-      child: Row(children: [
-        for (var i = 0; i < chips.length; i++) ...[
-          if (i > 0) const SizedBox(width: 6),
-          chips[i],
-        ],
-      ]),
-    );
-  }
-
-  Widget _buildSetupStatusChip({
-    required String type,
-    required String label,
-    required int count,
-    required Color color,
-  }) {
-    final selected = _filterType == type;
-    return ChoiceChip(
-      label: Text(
-        tr('$label · $count'),
-        style: TextStyle(
-          fontSize: 12,
-          height: 1.2,
-          fontWeight: selected ? FontWeight.w600 : FontWeight.w500,
-          color: selected ? color : SboxColors.slate600,
+    final configured = _employeeSalaries.where((e) => e['isConfigured'] == true).toList();
+    final pct = _totalEmployees == 0 ? 0 : (_configuredCount / _totalEmployees * 100).round();
+    final monthly = configured.where((e) => _parseSalaryRateType(e['salaryType']) == 1).toList();
+    final monthlyFund = monthly.fold<double>(0, (s, e) => s + ((e['baseSalary'] as num?)?.toDouble() ?? 0));
+    final insured = configured.where((e) {
+      final b = e['benefit'];
+      final t = (b is Map ? b['socialInsuranceType'] : null)?.toString() ?? '0';
+      return t != '0' && t.toLowerCase() != 'none';
+    }).length;
+    final byType = <int, int>{};
+    for (final e in configured) {
+      final t = _parseSalaryRateType(e['salaryType']);
+      byType[t] = (byType[t] ?? 0) + 1;
+    }
+    final typeNote = [
+      if ((byType[1] ?? 0) > 0) '${byType[1]} theo tháng',
+      if ((byType[2] ?? 0) > 0) '${byType[2]} theo ngày',
+      if ((byType[0] ?? 0) > 0) '${byType[0]} theo giờ',
+      if ((byType[3] ?? 0) > 0) '${byType[3]} theo ca',
+    ].join(' · ');
+    void setType(String t) => setState(() => _filterType = _filterType == t ? 'all' : t);
+    return Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
+      if (_profileLoadFailed)
+        Container(
+          margin: const EdgeInsets.only(bottom: 8),
+          padding: const EdgeInsets.all(10),
+          decoration: BoxDecoration(color: SboxColors.warningSoft, borderRadius: BorderRadius.circular(10)),
+          child: Row(children: [
+            const Icon(Icons.warning_amber_rounded, size: 18, color: SboxColors.warningText),
+            const SizedBox(width: 8),
+            Expanded(
+              child: Text(
+                tr('Một số hồ sơ lương tải không thành công — trạng thái «Chưa thiết lập» có thể chưa chính xác. Bấm Tải lại trước khi sửa.'),
+                style: const TextStyle(fontSize: 12.5, color: SboxColors.warningText),
+              ),
+            ),
+            TextButton(onPressed: _loadData, child: Text(tr('Tải lại'))),
+          ]),
         ),
-      ),
-      selected: selected,
-      showCheckmark: false,
-      onSelected: (_) => setState(() => _filterType = type),
-      padding: EdgeInsets.zero,
-      labelPadding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
-      materialTapTargetSize: MaterialTapTargetSize.shrinkWrap,
-      visualDensity: VisualDensity.compact,
-      side: BorderSide(
-        color: selected
-            ? color.withValues(alpha: 0.5)
-            : SboxColors.slate200,
-      ),
-      selectedColor: color.withValues(alpha: 0.12),
-      backgroundColor: Colors.white,
-      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
-    );
+      SboxKpiStrip(maxColumns: 5, items: [
+        SboxKpi(
+          label: 'Nhân viên',
+          value: '$_totalEmployees',
+          icon: Icons.people_outline,
+          tone: SboxTone.brand,
+          note: 'Đang làm việc',
+          onTap: () => setState(() => _filterType = 'all'),
+        ),
+        SboxKpi(
+          label: 'Đã thiết lập',
+          value: '$_configuredCount',
+          icon: Icons.check_circle_outline,
+          tone: SboxTone.success,
+          note: _filterType == 'configured' ? 'Đang lọc — bấm để bỏ' : '$pct% nhân viên',
+          onTap: () => setType('configured'),
+        ),
+        SboxKpi(
+          label: 'Chưa thiết lập',
+          value: '$_notConfiguredCount',
+          icon: Icons.pending_actions_outlined,
+          tone: _notConfiguredCount > 0 ? SboxTone.warning : SboxTone.success,
+          note: _filterType == 'notConfigured'
+              ? 'Đang lọc — bấm để bỏ'
+              : (_notConfiguredCount > 0 ? 'Chưa tính được lương' : 'Đầy đủ'),
+          onTap: () => setType('notConfigured'),
+        ),
+        SboxKpi(
+          label: 'Tổng lương CB (tháng)',
+          value: '${_formatNumber(monthlyFund)}đ',
+          icon: Icons.payments_outlined,
+          tone: SboxTone.violet,
+          note: typeNote.isEmpty ? null : typeNote,
+        ),
+        SboxKpi(
+          label: 'Đóng BHXH',
+          value: '$insured',
+          icon: Icons.health_and_safety_outlined,
+          tone: SboxTone.neutral,
+          note: configured.isEmpty ? null : '${configured.length - insured} người không đóng',
+        ),
+      ]),
+    ]);
   }
 
   int get _activeFilterCount {
@@ -2458,7 +2501,7 @@ class _SalarySettingsScreenState extends State<SalarySettingsScreen> {
         final base =
             double.tryParse(baseSalaryController.text.replaceAll('.', '')) ?? 0;
         label = 'Mức lương đóng BHXH (Lương CB)';
-        amount = _formatNumber(base);
+        amount = _cappedInsText(base);
         break;
       case '2':
         final base =
@@ -2467,7 +2510,7 @@ class _SalarySettingsScreenState extends State<SalarySettingsScreen> {
                 completionSalaryController.text.replaceAll('.', '')) ??
             0;
         label = 'Mức lương đóng BHXH (CB + HT)';
-        amount = _formatNumber(base + comp);
+        amount = _cappedInsText(base + comp);
         break;
       case '3':
         final region =
@@ -2513,7 +2556,7 @@ class _SalarySettingsScreenState extends State<SalarySettingsScreen> {
                 insuranceSalaryController.text.replaceAll('.', '')) ??
             0;
         label = 'Mức lương đóng BHXH';
-        amount = _formatNumber(custom);
+        amount = _cappedInsText(custom);
         break;
       default:
         return const SizedBox.shrink();
@@ -2543,7 +2586,21 @@ class _SalarySettingsScreenState extends State<SalarySettingsScreen> {
     );
   }
 
+  String _cappedInsText(double v) {
+    final maxIns = (_insuranceSettings['maxInsuranceSalary'] as num?)?.toDouble() ?? 46800000;
+    return v > maxIns ? '${_formatNumber(maxIns)} (áp trần)' : _formatNumber(v);
+  }
+
+  /// Lương đóng BHXH hiển thị — áp trần (20 × lương cơ sở) giống hệt Tổng hợp lương,
+  /// để số trên màn thiết lập khớp số trừ trong bảng lương.
   double _calculateInsuranceSalary(String socialInsType, double baseSalary,
+      double completionSalary, double customAmount) {
+    final raw = _insuranceSalaryRaw(socialInsType, baseSalary, completionSalary, customAmount);
+    final maxIns = (_insuranceSettings['maxInsuranceSalary'] as num?)?.toDouble() ?? 46800000;
+    return raw > maxIns ? maxIns : raw;
+  }
+
+  double _insuranceSalaryRaw(String socialInsType, double baseSalary,
       double completionSalary, double customAmount) {
     switch (socialInsType) {
       case '1':
