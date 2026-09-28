@@ -13,6 +13,7 @@ using ZKTecoADMS.Application.Constants;
 using ZKTecoADMS.Application.DTOs.Meals;
 using ZKTecoADMS.Application.Interfaces;
 using ZKTecoADMS.Application.Models;
+using ZKTecoADMS.Application.Services;
 using ZKTecoADMS.Application.Queries.Meals.GetEmployeeMealSummary;
 using ZKTecoADMS.Application.Queries.Meals.GetMealEstimate;
 using ZKTecoADMS.Application.Queries.Meals.GetMealMenu;
@@ -61,8 +62,8 @@ public class MealsController(
     }
 
     [HttpPost("dishes")]
-    [Authorize(Policy = PolicyNames.AtLeastManager)]
-    [RequireModulePermission("Meal", ModulePermissionAction.Create)]
+    [Authorize(Policy = PolicyNames.AtLeastEmployee)]
+    [RequireModulePermission("Meal", ModulePermissionAction.Edit)] // đơn vị căn tin
     public async Task<ActionResult<AppResponse<MealDishDto>>> CreateMealDish([FromBody] CreateMealDishRequest request)
     {
         var dish = new MealDish
@@ -86,8 +87,8 @@ public class MealsController(
     }
 
     [HttpPut("dishes/{id}")]
-    [Authorize(Policy = PolicyNames.AtLeastManager)]
-    [RequireModulePermission("Meal", ModulePermissionAction.Edit)]
+    [Authorize(Policy = PolicyNames.AtLeastEmployee)]
+    [RequireModulePermission("Meal", ModulePermissionAction.Edit)] // đơn vị căn tin
     public async Task<ActionResult<AppResponse<MealDishDto>>> UpdateMealDish(Guid id, [FromBody] UpdateMealDishRequest request)
     {
         var dish = await mealDishRepository.GetByIdAsync(id);
@@ -109,8 +110,8 @@ public class MealsController(
     }
 
     [HttpDelete("dishes/{id}")]
-    [Authorize(Policy = PolicyNames.AtLeastManager)]
-    [RequireModulePermission("Meal", ModulePermissionAction.Delete)]
+    [Authorize(Policy = PolicyNames.AtLeastEmployee)]
+    [RequireModulePermission("Meal", ModulePermissionAction.Edit)] // đơn vị căn tin
     public async Task<ActionResult<AppResponse<bool>>> DeleteMealDish(Guid id)
     {
         var dish = await mealDishRepository.GetByIdAsync(id);
@@ -249,8 +250,8 @@ public class MealsController(
     }
 
     [HttpPost("menu")]
-    [Authorize(Policy = PolicyNames.AtLeastManager)]
-    [RequireModulePermission("Meal", ModulePermissionAction.Create)]
+    [Authorize(Policy = PolicyNames.AtLeastEmployee)]
+    [RequireModulePermission("Meal", ModulePermissionAction.Edit)] // đơn vị căn tin
     public async Task<ActionResult<AppResponse<MealMenuDto>>> CreateMealMenu([FromBody] CreateMealMenuRequest request)
     {
         var command = new CreateMealMenuCommand(
@@ -264,8 +265,8 @@ public class MealsController(
     }
 
     [HttpPut("menu/{id}")]
-    [Authorize(Policy = PolicyNames.AtLeastManager)]
-    [RequireModulePermission("Meal", ModulePermissionAction.Edit)]
+    [Authorize(Policy = PolicyNames.AtLeastEmployee)]
+    [RequireModulePermission("Meal", ModulePermissionAction.Edit)] // đơn vị căn tin
     public async Task<ActionResult<AppResponse<MealMenuDto>>> UpdateMealMenu(Guid id, [FromBody] UpdateMealMenuRequest request)
     {
         var command = new UpdateMealMenuCommand(
@@ -278,8 +279,8 @@ public class MealsController(
     }
 
     [HttpDelete("menu/{id}")]
-    [Authorize(Policy = PolicyNames.AtLeastManager)]
-    [RequireModulePermission("Meal", ModulePermissionAction.Delete)]
+    [Authorize(Policy = PolicyNames.AtLeastEmployee)]
+    [RequireModulePermission("Meal", ModulePermissionAction.Edit)] // đơn vị căn tin
     public async Task<ActionResult<AppResponse<bool>>> DeleteMealMenu(Guid id)
     {
         var command = new DeleteMealMenuCommand(RequiredStoreId, id);
@@ -534,20 +535,16 @@ public class MealsController(
             }
             else
             {
-                var timeOfDay = now.TimeOfDay;
                 var sessions = await mealSessionRepository.GetAllAsync(
                     s => s.StoreId == storeId && s.IsActive);
-                session = sessions.FirstOrDefault(s => timeOfDay >= s.StartTime && timeOfDay <= s.EndTime)
-                       ?? sessions.OrderBy(s => Math.Abs((timeOfDay - s.StartTime).TotalMinutes)).FirstOrDefault();
+                session = MealRules.MatchSession(sessions, now.TimeOfDay);
             }
 
             if (session == null)
-                return Ok(AppResponse<object>.Error("Không tìm thấy buổi ăn phù hợp"));
+                return Ok(AppResponse<object>.Error("Không trong giờ chấm cơm của buổi ăn nào"));
 
-            // Check time window: allow check-in from 15min before start to end
-            var timeNow = now.TimeOfDay;
-            var earlyStart = session.StartTime.Subtract(TimeSpan.FromMinutes(15));
-            if (timeNow < earlyStart || timeNow > session.EndTime)
+            // Cùng quy tắc với máy chấm công căn tin: sớm / trễ tối đa MealRules.ToleranceMinutes phút
+            if (MealRules.MinutesOutside(session, now.TimeOfDay) > MealRules.ToleranceMinutes)
                 return Ok(AppResponse<object>.Error($"Chưa đến giờ chấm cơm ({session.StartTime:hh\\:mm} - {session.EndTime:hh\\:mm})"));
 
             // Check duplicate
@@ -564,7 +561,10 @@ public class MealsController(
                 MealTime = now,
                 Date = date,
                 StoreId = storeId,
-                PIN = request.QrCode
+                PIN = request.QrCode,
+                TicketNo = await MealRules.NextTicketNoAsync(mealRecordRepository, storeId, date),
+                Price = session.PricePerMeal,
+                Source = MealRules.SourceQr,
             };
             await mealRecordRepository.AddAsync(record);
 
@@ -585,6 +585,7 @@ public class MealsController(
             return Ok(AppResponse<object>.Success(new
             {
                 record.Id,
+                record.TicketNo,
                 MealSessionName = session.Name,
                 record.MealTime,
                 message = $"Chấm cơm thành công - {session.Name}"
@@ -613,7 +614,11 @@ public class MealsController(
         {
             var storeId = RequiredStoreId;
             var targetPeriod = period ?? DateTime.UtcNow.ToString("yyyy-MM");
-            var fromDate = from ?? new DateTime(DateTime.UtcNow.Year, DateTime.UtcNow.Month, 1);
+            // Khoảng ngày theo kỳ đã chọn (trước đây luôn lấy tháng hiện tại dù truyền kỳ khác)
+            var periodStart = DateTime.TryParseExact(targetPeriod + "-01", "yyyy-MM-dd",
+                System.Globalization.CultureInfo.InvariantCulture, System.Globalization.DateTimeStyles.None, out var ps)
+                ? ps : new DateTime(DateTime.Now.Year, DateTime.Now.Month, 1);
+            var fromDate = from ?? periodStart;
             var toDate = to ?? fromDate.AddMonths(1).AddDays(-1);
 
             // Get all meal records in period
@@ -621,8 +626,8 @@ public class MealsController(
                 r => r.StoreId == storeId && r.Date >= fromDate && r.Date <= toDate,
                 includeProperties: new[] { "MealSession", "EmployeeUser" });
 
-            // Get sessions for pricing
-            var sessions = await mealSessionRepository.GetAllAsync(s => s.StoreId == storeId && s.IsActive);
+            // Giá: giá chốt lúc chấm (MealRecord.Price); bản ghi cũ → giá buổi ăn (kể cả buổi đã ngừng dùng)
+            var sessions = await mealSessionRepository.GetAllAsync(s => s.StoreId == storeId);
             var sessionPrices = sessions.ToDictionary(s => s.Id, s => s.PricePerMeal);
 
             // Get debt records
@@ -633,7 +638,7 @@ public class MealsController(
             var grouped = records.GroupBy(r => r.EmployeeUserId).Select(g =>
             {
                 var totalMeals = g.Count();
-                var totalCharged = g.Sum(r => sessionPrices.GetValueOrDefault(r.MealSessionId, 0));
+                var totalCharged = g.Sum(r => MealRules.PriceOf(r, sessionPrices));
                 var empDebts = debts.Where(d => d.EmployeeUserId == g.Key);
                 var totalPaid = empDebts.Where(d => d.Type == 1).Sum(d => d.Amount);
                 var first = g.First();
@@ -716,10 +721,17 @@ public class MealsController(
             var storeId = RequiredStoreId;
             var recorderName = User.FindFirst("FullName")?.Value ?? "";
 
+            if (request.Amount <= 0)
+                return Ok(AppResponse<MealDebtDto>.Error("Số tiền phải lớn hơn 0"));
+            var employeeName = (await mealRecordRepository.GetFirstOrDefaultAsync(
+                    r => r.Date, r => r.EmployeeUserId == request.EmployeeUserId && r.StoreId == storeId,
+                    includeProperties: new[] { "EmployeeUser" }))
+                ?.EmployeeUser?.FullName.Trim() ?? "";
+
             var debt = new MealDebt
             {
                 EmployeeUserId = request.EmployeeUserId,
-                EmployeeName = "", // will be resolved
+                EmployeeName = employeeName,
                 Type = request.Type,
                 Amount = request.Amount,
                 Date = DateTime.UtcNow,
@@ -789,7 +801,7 @@ public class MealsController(
             var count = 0;
             foreach (var g in grouped)
             {
-                var total = g.Sum(r => sessionPrices.GetValueOrDefault(r.MealSessionId, 0));
+                var total = g.Sum(r => MealRules.PriceOf(r, sessionPrices));
                 if (total <= 0) continue;
 
                 var first = g.First();
@@ -851,6 +863,9 @@ public class MealsController(
                 Date = recordDate,
                 StoreId = storeId,
                 PIN = request.PIN,
+                TicketNo = await MealRules.NextTicketNoAsync(mealRecordRepository, storeId, recordDate),
+                Price = session.PricePerMeal,
+                Source = MealRules.SourceManual,
             };
             await mealRecordRepository.AddAsync(record);
 

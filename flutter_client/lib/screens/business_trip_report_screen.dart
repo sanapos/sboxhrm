@@ -13,6 +13,8 @@ import '../widgets/reports/hrm_report_widgets.dart';
 import 'package:zkteco_flutter_client/l10n/app_tr.dart';
 
 import '../theme/sbox_tokens.dart';
+import '../widgets/sbox/sbox_report.dart';
+import '../widgets/sbox/sbox_charts.dart';
 const _theme = HrmPageChrome.primaryNavy;
 
 class BusinessTripReportScreen extends StatefulWidget {
@@ -186,6 +188,48 @@ class _BusinessTripReportScreenState extends State<BusinessTripReportScreen> {
     } finally {
       if (mounted) setState(() => _loading = false);
     }
+  }
+
+  /// Biểu đồ đầu báo cáo: chi phí theo khoản mục + tạm ứng / quyết toán theo nhân viên.
+  Widget _buildInsight() {
+    final f = _filtered.where((c) => parseTripStatus(c['status']) != 9).toList();
+    if (f.isEmpty && _byCategory.isEmpty) return const SizedBox.shrink();
+    final adv = <String, double>{};
+    final set = <String, double>{};
+    for (final c in f) {
+      final n = c['employeeName']?.toString() ?? '—';
+      adv[n] = (adv[n] ?? 0) + reportSafeDouble(c['advanceAmount']);
+      set[n] = (set[n] ?? 0) + reportSafeDouble(c['settledAmount']);
+    }
+    final names = adv.keys.toList()..sort((a, b) => (set[b]! + adv[b]!).compareTo(set[a]! + adv[a]!));
+    final top = names.take(10).toList();
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(12, 12, 12, 0),
+      child: SboxInsightPanel(
+        bottomGap: 0,
+        charts: [
+          if (_byCategory.isNotEmpty)
+            SboxChartCard(
+              title: 'Chi phí theo khoản mục',
+              child: SboxDonutChart(slices: [
+                for (final e in _byCategory)
+                  SboxSlice('${e['categoryName'] ?? e['CategoryName'] ?? 'Khác'}', reportSafeDouble(e['totalAmount'])),
+              ]),
+            ),
+          if (top.isNotEmpty)
+            SboxChartCard(
+              title: _teamView ? 'Tạm ứng và quyết toán theo nhân viên' : 'Tạm ứng và quyết toán',
+              child: SboxBarChart(
+                labels: top,
+                series: [
+                  SboxSeries(name: 'Tạm ứng', values: [for (final n in top) adv[n]!], color: SboxColors.warning),
+                  SboxSeries(name: 'Quyết toán', values: [for (final n in top) set[n]!], color: SboxColors.success),
+                ],
+              ),
+            ),
+        ],
+      ),
+    );
   }
 
   List<ReportKpiItem> _buildKpis() {
@@ -501,6 +545,7 @@ class _BusinessTripReportScreenState extends State<BusinessTripReportScreen> {
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.stretch,
                       children: [
+                  _buildInsight(),
                   ReportCollapsibleChrome(
                     expanded: _showOverviewPanel,
                     onToggle: () => setState(

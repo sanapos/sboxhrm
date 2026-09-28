@@ -68,6 +68,7 @@ public static class BusinessTripFinanceHelper
             IsActive = true
         };
 
+        PaymentFinanceHelper.StampSource(cashTx, marker, tripCase.EmployeeId);
         db.CashTransactions.Add(cashTx);
         advance.CashTransactionId = cashTx.Id;
         await db.SaveChangesAsync(cancellationToken);
@@ -123,6 +124,7 @@ public static class BusinessTripFinanceHelper
             IsActive = true
         };
 
+        PaymentFinanceHelper.StampSource(cashTx, marker, tripCase.EmployeeId);
         db.CashTransactions.Add(cashTx);
         settlement.ExtraCashTransactionId = cashTx.Id;
         await db.SaveChangesAsync(cancellationToken);
@@ -257,6 +259,7 @@ public static class BusinessTripFinanceHelper
             IsActive = true
         };
 
+        PaymentFinanceHelper.StampSource(cashTx, marker, tripCase.EmployeeId);
         db.CashTransactions.Add(cashTx);
         settlement.SettlementType = BusinessTripSettlementType.SurplusRefunded;
         settlement.ExtraCashTransactionId = cashTx.Id;

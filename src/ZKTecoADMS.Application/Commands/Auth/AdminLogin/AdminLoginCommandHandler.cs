@@ -24,43 +24,19 @@ public class AdminLoginCommandHandler(
             .Where(e => e.UserName == request.UserName || e.Email == request.UserName)
             .FirstOrDefaultAsync(cancellationToken);
         
+        const string invalidCredentials = "Email hoặc mật khẩu không đúng.";
         if (user == null)
         {
-            return AppResponse<AuthenticateResponse>.Error("Email không tồn tại.");
+            return AppResponse<AuthenticateResponse>.Error(invalidCredentials);
         }
 
-        // Self-heal: user.Role = SuperAdmin/Agent nhưng thiếu AspNetUserRoles (tạo tài khoản đại lý lỗi cũ).
-        await IdentityRoleSyncHelper.TryHealAdminPortalRoleAsync(userManager, roleManager, user);
-        
-        // Check if user has admin role (SuperAdmin or Agent)
-        var roles = await userManager.GetRolesAsync(user);
-        var isAdmin = roles.Contains(nameof(Roles.SuperAdmin)) || roles.Contains(nameof(Roles.Agent));
-        
-        if (!isAdmin)
-        {
-            return AppResponse<AuthenticateResponse>.Error("Tài khoản không có quyền truy cập Admin Portal.");
-        }
-
-        // Check if the user account is active
-        if (!user.IsActive)
-        {
-            return AppResponse<AuthenticateResponse>.Error("Tài khoản đã bị vô hiệu hóa.");
-        }
-        
-        // Check if the user's email is confirmed
-        if (!await userManager.IsEmailConfirmedAsync(user))
-        {
-            return AppResponse<AuthenticateResponse>.Error("Email chưa được xác nhận.");
-        }
-
-        // Check if the user account is locked out
         if (await userManager.IsLockedOutAsync(user))
         {
             return AppResponse<AuthenticateResponse>.Error(
                 LockoutMessageHelper.GetLockedMessage(user, adminPortal: true));
         }
 
-        // Validate password
+        // Kiểm tra mật khẩu trước — không để lộ email / vai trò / trạng thái cho người không biết mật khẩu.
         var passwordValid = await userManager.CheckPasswordAsync(user, request.Password);
         if (!passwordValid)
         {
@@ -71,7 +47,27 @@ public class AdminLoginCommandHandler(
                 return AppResponse<AuthenticateResponse>.Error(
                     LockoutMessageHelper.GetLockedMessage(refreshed, adminPortal: true));
             }
-            return AppResponse<AuthenticateResponse>.Error("Mật khẩu không đúng.");
+            return AppResponse<AuthenticateResponse>.Error(invalidCredentials);
+        }
+
+        // Self-heal: user.Role = SuperAdmin/Agent nhưng thiếu AspNetUserRoles (tạo tài khoản đại lý lỗi cũ).
+        await IdentityRoleSyncHelper.TryHealAdminPortalRoleAsync(userManager, roleManager, user);
+
+        var roles = await userManager.GetRolesAsync(user);
+        var isAdmin = roles.Contains(nameof(Roles.SuperAdmin)) || roles.Contains(nameof(Roles.Agent));
+        if (!isAdmin)
+        {
+            return AppResponse<AuthenticateResponse>.Error("Tài khoản không có quyền truy cập Admin Portal.");
+        }
+
+        if (!user.IsActive)
+        {
+            return AppResponse<AuthenticateResponse>.Error("Tài khoản đã bị vô hiệu hóa.");
+        }
+
+        if (!await userManager.IsEmailConfirmedAsync(user))
+        {
+            return AppResponse<AuthenticateResponse>.Error("Email chưa được xác nhận.");
         }
 
         // Reset failed login attempts on successful login

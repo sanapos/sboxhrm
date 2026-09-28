@@ -119,6 +119,20 @@ public class PenaltyTicket : AuditableEntity<Guid>
     /// </summary>
     public Guid? AttendanceId { get; set; }
 
+    /// <summary>JSON mảng URL ảnh / tệp bằng chứng</summary>
+    public string? EvidenceUrls { get; set; }
+
+    /// <summary>0 = không khiếu nại, 1 = đang khiếu nại, 2 = chấp nhận (đã hủy phiếu), 3 = bác khiếu nại</summary>
+    public int DisputeStatus { get; set; }
+
+    [MaxLength(1000)]
+    public string? DisputeReason { get; set; }
+
+    public DateTime? DisputedAt { get; set; }
+
+    [MaxLength(1000)]
+    public string? DisputeResponse { get; set; }
+
     /// <summary>
     /// Cửa hàng
     /// </summary>

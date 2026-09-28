@@ -27,6 +27,11 @@ public class CreateShiftSwapHandler(
                 return AppResponse<ShiftSwapRequestDto>.Error("Không thể đổi ca với chính mình");
             }
 
+            // Không đổi ca đã qua (giờ Việt Nam)
+            var vnToday = DateTime.UtcNow.AddHours(7).Date;
+            if (request.RequesterDate.Date < vnToday || request.TargetDate.Date < vnToday)
+                return AppResponse<ShiftSwapRequestDto>.Error("Không thể đổi ca của ngày đã qua");
+
             var requesterShift = await shiftTemplateRepository.GetSingleAsync(
                 filter: s => s.Id == request.RequesterShiftId,
                 cancellationToken: cancellationToken);

@@ -69,7 +69,8 @@ public class SystemNotificationService : ISystemNotificationService
             }
             await _push.PushToUserAsync(userId, display.Title, display.Body,
                 notification.RelatedUrl,
-                NotificationDtoMapper.ToFcmData(notification, display: display));
+                NotificationDtoMapper.ToFcmData(notification, display: display),
+                androidTag: notification.CategoryCode ?? "sbox_hrm");
         }
         catch (Exception ex)
         {
@@ -400,9 +401,22 @@ public class SystemNotificationService : ISystemNotificationService
                 }
             }
 
+            // Gói dịch vụ không có FCM → chỉ lưu + SignalR (trước đây đoạn gửi hàng loạt bỏ qua kiểm tra này).
+            var canFcm = true;
+            try
+            {
+                if (storeId is Guid fcmStore)
+                    canFcm = await StorePackageHelper.CanSendFcmAsync(_dbContext, fcmStore, categoryCode);
+            }
+            catch (Exception ex)
+            {
+                _logger.LogWarning(ex, "CanSendFcm check failed for store {StoreId}", storeId);
+            }
+
             // FCM per user so each device gets the correct notificationId in data payload.
             foreach (var notification in notifications)
             {
+                if (!canFcm) break;
                 if (!notification.TargetUserId.HasValue) continue;
                 try
                 {

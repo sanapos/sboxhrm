@@ -474,18 +474,20 @@ public static class AiAssistantHelpCorpus
         new(
             Mode: "advanced",
             StepId: "feedback",
-            Title: "Góp ý / Khiếu nại",
+            Title: "Kiến nghị / Khiếu nại",
             Summary:
-            "Tiếp nhận phản ánh, góp ý ẩn danh hoặc công khai từ nhân viên; quản lý phản hồi và theo dõi xử lý.",
+            "Nhân viên gửi khiếu nại / kiến nghị / góp ý (có thể ẩn danh); người xử lý tiếp nhận, giao việc, trao đổi, giải quyết theo hạn; người gửi đánh giá hài lòng.",
             Bullets:
             [
-                "Menu: Phản ánh / Ý kiến",
-                "NV gửi góp ý từ app (ẩn danh hoặc có tên)",
-                "Quản lý xem, trả lời và đóng phiếu",
-                "Theo dõi trạng thái đã xử lý / chờ xử lý",
+                "Gửi: loại phiếu, chủ đề, mức độ, ảnh; tới hòm thư chung hoặc 1 quản lý; có mã phiếu KN-yyMM-xxxx",
+                "Ẩn danh: không ai (kể cả quản trị) thấy người gửi; lọc theo người gửi không trả phiếu ẩn danh",
+                "Hạn xử lý: Khẩn 1 ngày, Cao 2 ngày, Bình thường 3 ngày, Thấp 7 ngày",
+                "Người xử lý: Tiếp nhận, giao người xử lý, ghi chú nội bộ, Đã giải quyết / Đóng",
+                "Người gửi: đánh giá 1–5 sao, mở lại trong 30 ngày, thu hồi khi chưa tiếp nhận",
+                "Tab Báo cáo: tỷ lệ đúng hạn, thời gian phản hồi / giải quyết, mức hài lòng, chủ đề, người xử lý",
             ],
-            Tip: "Khuyến khích góp ý ẩn danh để nhận phản hồi trung thực từ tập thể.",
-            Keywords: "góp ý khiếu nại phản ánh ý kiến ẩn danh phản hồi xử lý",
+            Tip: "Nhân viên chỉ thấy phiếu của mình; quản lý thấy hòm thư chung và phiếu gửi / giao cho mình.",
+            Keywords: "góp ý khiếu nại kiến nghị phản ánh ý kiến ẩn danh phản hồi xử lý hạn xử lý đánh giá hài lòng báo cáo",
             ModuleCode: "Feedback",
             ActionTags: ["nav_feedback", "nav_feedback_create"]),
 
@@ -494,16 +496,17 @@ public static class AiAssistantHelpCorpus
             StepId: "meal",
             Title: "Chấm cơm",
             Summary:
-            "Ghi nhận suất ăn / chấm cơm theo ca hoặc theo ngày, phục vụ kiểm soát chi phí suất ăn.",
+            "Máy chấm công đặt ở căn tin ghi suất ăn; mỗi lượt chấm in 1 phiếu ăn; tổng hợp số người ăn trong ngày, báo cáo suất và tiền ăn từng người để thu công nợ.",
             Bullets:
             [
-                "Menu: Chấm cơm",
-                "Cấu hình suất ăn theo ca (nếu có)",
-                "NV hoặc quản lý ghi nhận suất ăn",
-                "Đối soát theo tháng với báo cáo nhân sự",
+                "Menu: Chấm cơm → Quản lý buổi ăn: giờ Sáng/Trưa/Tối + giá suất (chấm sớm/trễ tối đa 30 phút, ngoài khung giờ không tính)",
+                "Máy chấm công loại «Chấm cơm» đặt tại căn tin; mở «Trạm in phiếu ăn» trên máy tính/POS cạnh đó để tự in phiếu",
+                "Căn tin (quyền Sửa module Chấm cơm) nhập thực đơn ở tab Hôm nay hoặc Căn tin; nhân viên xem thực đơn hôm nay",
+                "Tab Căn tin: số suất theo buổi, đăng ký chưa ăn, ăn không đăng ký; tab Báo cáo: suất + tiền từng người, xuất Excel",
+                "Tab Công nợ: Tính tiền cơm theo tháng, ghi nhận nhân viên trả tiền",
             ],
-            Tip: "Liên kết chấm cơm với ca làm việc để tránh ghi nhận trùng.",
-            Keywords: "chấm cơm suất ăn cơm trưa cơm ca đối soát suất ăn",
+            Tip: "Giá suất chốt tại thời điểm chấm, đổi giá sau không làm sai tiền các ngày trước.",
+            Keywords: "chấm cơm suất ăn cơm trưa cơm ca phiếu ăn in phiếu căn tin thực đơn menu hôm nay tiền ăn công nợ",
             ModuleCode: "Meal",
             ActionTags: ["nav_meal", "nav_meal_register"]),
 
@@ -687,15 +690,18 @@ public static class AiAssistantHelpCorpus
             StepId: "pos_sales",
             Title: "Quy trình bán hàng",
             Summary:
-            "Bán hàng → chọn SP/bàn → SL/giảm giá → thanh toán (tiền mặt/QR/ck) → in HĐ. Cần quyền duyệt PosSell để hoàn tất.",
+            "Bán hàng → chọn SP/bàn → SL, giảm giá → chọn khách (điểm, công nợ, HĐĐT có MST) → thanh toán → in HĐ. Kho chỉ trừ lúc thanh toán. Cần quyền Duyệt PosSell; bật Ca thu ngân thì phải mở ca.",
             Bullets:
             [
-                "A7/HRM: menu Bán hàng; A6: app POS",
-                "Chiết khấu / đổi giá cần quyền duyệt",
-                "Đơn hàng: in lại, hủy; Trả hàng bán gắn đơn gốc",
+                "A7/HRM/web: menu Bán hàng; A6: app POS",
+                "Ca thu ngân: Menu ⋮ → Ca thu ngân → Mở ca trước khi thu tiền",
+                "Chiết khấu / đổi giá cần quyền duyệt PosSell",
+                "Chip «Xuất HĐĐT» trên màn thanh toán; sau thanh toán báo Đã xuất / Chưa xuất được / Chờ ký",
+                "Mất mạng: bấm Thanh toán lại an toàn — không tạo đơn / trừ kho hai lần",
+                "Đơn hàng: in lại, hủy; menu Trả hàng bán gắn đơn gốc",
             ],
-            Tip: "Waiter chỉ order thì không thanh toán được — cần quyền Approve PosSell.",
-            Keywords: "bán hàng thu ngân thanh toán hóa đơn order pos",
+            Tip: "Tài khoản chỉ có quyền tạo đơn thì order / gửi bếp được nhưng không thanh toán — cần Approve PosSell.",
+            Keywords: "bán hàng thu ngân thanh toán hóa đơn order pos ca thu ngân mở ca",
             ModuleCode: "PosSell",
             ActionTags: ["nav_pos_sell"]),
 
@@ -718,36 +724,81 @@ public static class AiAssistantHelpCorpus
         new(
             Mode: "pos",
             StepId: "pos_inventory",
-            Title: "Kho nhập xuất",
+            Title: "Kho: nhập, xuất, kiểm kê",
             Summary:
-            "Nhập hàng NCC hoàn thành thì tăng tồn. Bán (trừ kho), xuất hủy, xuất nội bộ thì giảm tồn.",
+            "Tồn tăng: nhập NCC hoàn thành, trả hàng bán, hủy đơn. Tồn giảm: thanh toán đơn, xuất hủy, xuất dùng nội bộ, trả hàng nhập. Mọi biến động ghi Thẻ kho.",
             Bullets:
             [
-                "Nhập hàng NCC → duyệt/hoàn thành",
-                "Kiểm kho: đếm → cân bằng lệch",
-                "Báo cáo POS → Tồn kho / Hàng sắp hết hạn",
+                "Nhập hàng NCC → Hoàn thành (phiếu tạm chưa cộng tồn); giá vốn bình quân gia quyền",
+                "Hủy phiếu nhập: trừ lại tồn, trả giá vốn về như trước (cần đủ tồn)",
+                "Xuất hủy / Xuất dùng nội bộ: Hoàn thành mới trừ tồn",
+                "Kiểm kho: nhập số đếm ngay khi đếm → Hoàn thành; chỉ cộng/trừ chênh lệch nên hàng bán sau lúc đếm vẫn đúng",
+                "Hàng hóa → chọn hàng → Thẻ kho: xem ai, chứng từ nào, tồn sau giao dịch",
             ],
-            Tip: "Nhập hàng trước khi bán món trừ nguyên liệu — tránh tồn âm.",
-            Keywords: "kho nhập hàng tồn kho kiểm kho ncc xuất hủy",
+            Tip: "Chỉnh tồn cho đúng thực tế bằng Kiểm kho, không sửa tay ô tồn trong form hàng hóa.",
+            Keywords: "kho nhập hàng tồn kho kiểm kho kiểm kê ncc xuất hủy xuất nội bộ thẻ kho giá vốn",
             ModuleCode: "PosProducts",
             ActionTags: ["nav_pos_products", "nav_pos_reports"]),
 
         new(
             Mode: "pos",
-            StepId: "pos_einvoice",
-            Title: "Hóa đơn điện tử",
+            StepId: "pos_stock_rules",
+            Title: "Nguyên tắc tồn kho (giữ chỗ, bán âm)",
             Summary:
-            "Cài đặt → Hóa đơn điện tử (Viettel / Easy Invoice / MISA). Xuất sau khi đơn hoàn tất.",
+            "Tồn khả dụng = tồn kho − phần giữ chỗ cho bàn / đơn tạm / đơn online chưa thanh toán. Đơn mở chỉ giữ chỗ; thanh toán (hoặc xác nhận COD / nhận CK Tingee) mới trừ kho.",
             Bullets:
             [
-                "MST/địa chỉ trên Thiết lập cửa hàng khớp hồ sơ thuế",
-                "Nút Xuất HĐĐT trên đơn đã thanh toán",
-                "Lỗi thường: MST, hết serial, token hết hạn",
+                "Combo trừ thành phần (+ combo nếu bật «Quản lý tồn kho combo»); món định lượng trừ nguyên liệu; topping trừ theo SL",
+                "ĐVT lớn quy về ĐVT cơ bản; dịch vụ không trừ kho; hàng lô/HSD xuất lô hết hạn sớm nhất trước",
+                "Bán âm: Cài đặt → Ngành hàng & bán hàng → «Cho phép bán khi hết hàng / tồn âm»",
+                "Phiếu xuất hủy/nội bộ không vượt tồn thực và không lấy phần đang giữ chỗ (khi tắt bán âm)",
+                "Phiếu xuất kho / báo kho in từ màn bán chỉ là phiếu soạn hàng — không trừ kho lần hai",
+                "Hai người cùng sửa một mặt hàng: một bên báo «Tồn kho vừa được thay đổi… thao tác lại» — không ghi đè sai",
+                "Giữ chỗ tự đối soát lại mỗi đêm 3 giờ sáng",
             ],
-            Tip: "Hủy đơn đã xuất HĐĐT phải điều chỉnh theo nhà cung cấp hóa đơn.",
-            Keywords: "hóa đơn điện tử viettel misa einvoice",
-            ModuleCode: "PosSell",
+            Tip: "Tồn âm do bán trước khi nhập, khai sai combo / định lượng, hoặc đang bật bán âm → nhập bù / kiểm kho.",
+            Keywords: "tồn khả dụng giữ chỗ bán âm tồn âm hết hàng không đủ tồn kho combo định lượng lô hsd fefo",
+            ModuleCode: "PosProducts",
+            ActionTags: ["nav_pos_products", "nav_pos_sell"]),
+
+        new(
+            Mode: "pos",
+            StepId: "pos_einvoice",
+            Title: "Hóa đơn điện tử: kết nối & xuất",
+            Summary:
+            "Cài đặt → Hóa đơn điện tử: Viettel SInvoice / Easy Invoice / MISA meInvoice / VNPT Invoice. Lưu → Kiểm tra kết nối. Xuất bằng chip «Xuất HĐĐT» khi thanh toán hoặc từ Đơn hàng.",
+            Bullets:
+            [
+                "Viettel: tài khoản API, MST, mẫu 1/001, ký hiệu; Easy: Pattern đúng portal, Serial thường trống",
+                "MISA: AppID + tài khoản meInvoice + ký hiệu đầy đủ (1C25TAA), ký HSM hoặc máy tính tiền",
+                "VNPT: địa chỉ web service riêng, Account/ACpass, tài khoản phát hành, mẫu số, ký hiệu",
+                "«Mặc định xuất» + tắt hỏi thu ngân: mọi đơn tự xuất, kể cả đơn online / Tingee",
+                "Khách công ty: chọn khách có MST, địa chỉ, email trước khi thanh toán",
+                "Bill in thêm ký hiệu, số, mã CQT, mã tra cứu + QR tra cứu (tắt được trong cấu hình)",
+            ],
+            Tip: "HĐĐT lỗi không làm hỏng đơn — màn bán báo lỗi, xuất lại trong Quản lý HĐĐT.",
+            Keywords: "hóa đơn điện tử viettel easy misa vnpt einvoice kết nối cấu hình xuất hđđt qr tra cứu",
+            ModuleCode: "PosEInvoice",
             ActionTags: ["nav_pos_sell"]),
+
+        new(
+            Mode: "pos",
+            StepId: "pos_einvoice_manage",
+            Title: "Quản lý HĐĐT",
+            Summary:
+            "Báo cáo POS → Hóa đơn điện tử (hoặc Cài đặt → Hóa đơn điện tử → Quản lý): xem PDF, gửi qua Zalo/email, gửi bản nháp, thay thế, hủy, đồng bộ, tải danh sách từ hãng, mở portal hãng, báo cáo.",
+            Bullets:
+            [
+                "Gửi qua ứng dụng khác: đính kèm PDF + số, mã tra cứu, link tra cứu",
+                "Bản nháp gửi khách kiểm tra trước khi phát hành (Viettel, Easy, MISA)",
+                "Thay thế: sửa tên / MST / địa chỉ / email người mua; lỗi thì HĐ gốc giữ nguyên",
+                "Hủy: NĐ 70/2025 — HĐ đã gửi CQT thường phải thay thế, hãng có thể từ chối hủy",
+                "Đồng bộ hàng loạt tối đa 100 đơn; Tải danh sách từ hãng (Viettel, Easy) để đối chiếu",
+            ],
+            Tip: "Lỗi thường: sai MST / mẫu / ký hiệu, MISA sai AppID, VNPT ERR:20, Easy lỗi 117 (mẫu MTT chưa mở API).",
+            Keywords: "quản lý hóa đơn điện tử thay thế hủy đồng bộ gửi zalo email bản nháp tải danh sách portal",
+            ModuleCode: "PosEInvoice",
+            ActionTags: ["nav_pos_reports"]),
 
         new(
             Mode: "pos",
@@ -770,17 +821,18 @@ public static class AiAssistantHelpCorpus
         new(
             Mode: "pos",
             StepId: "pos_eod",
-            Title: "Tổng kết cuối ngày",
+            Title: "Ca thu ngân & tổng kết cuối ngày",
             Summary:
-            "Báo cáo POS → Tổng kết cuối ngày: đối chiếu tiền mặt, QR, công nợ trong ca trước khi giao ca.",
+            "Bật «Ca thu ngân (mở ca / đóng két)» thì mỗi thu ngân mở / đóng ca riêng. Cuối ngày: Báo cáo POS → Tổng kết cuối ngày, đối chiếu tiền mặt, QR, công nợ.",
             Bullets:
             [
-                "Đóng bàn / đơn đang mở trước",
-                "Chọn khoảng ca → đối soát ngăn kéo với cột tiền mặt",
+                "Menu ⋮ màn bán → Ca thu ngân → Mở ca / Đóng ca, đếm két",
+                "Đóng bàn / đơn đang mở trước khi chốt",
+                "Đối soát ngăn kéo với cột tiền mặt; QR với sao kê",
                 "Xem hủy/trả và PTTT nếu lệch tiền",
             ],
             Tip: "Đừng bù tay vào quỹ trước khi rà Đơn hàng trong ca.",
-            Keywords: "cuối ngày chốt ca tổng kết end of day tiền mặt",
+            Keywords: "cuối ngày chốt ca tổng kết end of day tiền mặt ca thu ngân mở ca đóng két",
             ModuleCode: "PosSalesReport",
             ActionTags: ["nav_pos_reports"]),
 
@@ -789,18 +841,39 @@ public static class AiAssistantHelpCorpus
             StepId: "pos_common",
             Title: "Tình huống POS thường gặp",
             Summary:
-            "Không in: máy + mẫu mặc định store. A6 khác A7: chọn lại mặc định Mẫu in. Không thanh toán: thiếu Approve PosSell.",
+            "Không in: máy + mẫu mặc định store. Không thanh toán: thiếu Approve PosSell hoặc chưa mở ca. «Không đủ tồn kho»: bàn / đơn khác đang giữ chỗ.",
             Bullets:
             [
                 "HĐ in được / bếp không: gán máy + mẫu phiếu bếp riêng",
+                "«Tồn kho vừa được thay đổi… thao tác lại»: người khác vừa bán / nhập cùng hàng — bấm lại",
+                "Tồn âm: bán trước khi nhập, khai sai combo / định lượng, hoặc đang bật bán âm",
+                "Ai bán / trừ kho: Thẻ kho; ai sửa / xóa đơn: Lịch sử thao tác",
+                "HĐĐT lỗi sau thanh toán: đơn vẫn hợp lệ — xuất lại trong Quản lý HĐĐT",
                 "Màn phụ A6 trắng: rút USB debug rồi mở lại POS",
-                "Bàn không hiện: chưa chọn ngành F&B hoặc chưa tạo khu/bàn",
-                "Tồn âm: bán trước khi nhập kho",
             ],
             Tip: "Hotline 0973 024 042 khi Agent USB không nhận job in.",
-            Keywords: "không in in sai lệch tiền hủy đơn trả hàng tình huống pos",
+            Keywords: "không in in sai lệch tiền hủy đơn trả hàng tình huống pos không đủ tồn tồn âm thao tác lại",
             ModuleCode: "PosSell",
             ActionTags: ["nav_pos_sell", "nav_pos_printers", "nav_pos_reports"]),
+
+        new(
+            Mode: "pos",
+            StepId: "pos_rules",
+            Title: "Nguyên tắc chung của phần mềm",
+            Summary:
+            "Chứng từ Tạm chưa ảnh hưởng kho / quỹ; Hoàn thành mới ghi sổ; muốn đảo ngược thì Hủy. Không xóa dữ liệu đã phát sinh — tắt bán, hủy, trả hàng.",
+            Bullets:
+            [
+                "Mọi thay đổi tồn có dòng Thẻ kho; mọi sửa / xóa đơn có Lịch sử thao tác",
+                "Hủy đơn: gỡ doanh thu, hoàn kho, hoàn điểm / voucher / công nợ",
+                "Giá trên đơn là giá lúc thêm món",
+                "Quyền Xem / Tạo / Sửa / Duyệt theo module; thanh toán, đổi giá, hủy cần Duyệt",
+                "Dữ liệu, mẫu in, máy in, cấu hình HĐĐT riêng từng cửa hàng",
+            ],
+            Tip: "Cuối tháng: kiểm kho hàng chính, đồng bộ HĐĐT hàng loạt, xem tỷ lệ xuất HĐĐT và lợi nhuận.",
+            Keywords: "nguyên tắc quy tắc chứng từ tạm hoàn thành hủy xóa thẻ kho phân quyền",
+            ModuleCode: "PosSell",
+            ActionTags: ["nav_pos_sell"]),
     ];
 
     private static List<string> SplitTerms(string query)

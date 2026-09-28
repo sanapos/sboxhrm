@@ -106,10 +106,21 @@ public partial class TasksController(
         [FromQuery] bool? onlyAssignedToMe = null,
         [FromQuery] bool? onlyAssignedByMe = null,
         [FromQuery] string? sortBy = "CreatedAt",
-        [FromQuery] bool sortDesc = true)
+        [FromQuery] bool sortDesc = true,
+        [FromQuery] Guid? projectId = null,
+        [FromQuery] string? stageKey = null,
+        [FromQuery] bool? noProject = null,
+        [FromQuery] bool includeSubTasks = false)
     {
         var query = _dbContext.WorkTasks
             .Where(t => t.StoreId == RequiredStoreId && t.IsActive);
+
+        if (projectId.HasValue)
+            query = query.Where(t => t.ProjectId == projectId.Value);
+        else if (noProject == true)
+            query = query.Where(t => t.ProjectId == null);
+        if (!string.IsNullOrWhiteSpace(stageKey))
+            query = query.Where(t => t.StageKey == stageKey);
 
         query = await TaskWorkflowHelper.ApplyViewerScopeAsync(
             query, _dbContext, RequiredStoreId, CurrentUserId, User);
@@ -178,7 +189,7 @@ public partial class TasksController(
 
         if (parentTaskId.HasValue)
             query = query.Where(t => t.ParentTaskId == parentTaskId.Value);
-        else
+        else if (!includeSubTasks)
             query = query.Where(t => t.ParentTaskId == null); // Only top-level tasks by default
 
         // Sorting
@@ -224,6 +235,12 @@ public partial class TasksController(
                 CreatedBy = t.CreatedBy,
                 UpdatedAt = t.UpdatedAt,
                 IsActive = t.IsActive,
+                ProjectId = t.ProjectId,
+                ProjectName = t.Project != null ? t.Project.Name : null,
+                ProjectColor = t.Project != null ? t.Project.Color : null,
+                StageKey = t.StageKey,
+                ProgressMode = t.ProgressMode,
+                Location = t.Location,
                 Assignees = t.TaskAssignees != null ? t.TaskAssignees.Select(ta => new TaskAssigneeDto
                 {
                     Id = ta.Id,
@@ -355,6 +372,12 @@ public partial class TasksController(
                 CreatedBy = t.CreatedBy,
                 UpdatedAt = t.UpdatedAt,
                 IsActive = t.IsActive,
+                ProjectId = t.ProjectId,
+                ProjectName = t.Project != null ? t.Project.Name : null,
+                ProjectColor = t.Project != null ? t.Project.Color : null,
+                StageKey = t.StageKey,
+                ProgressMode = t.ProgressMode,
+                Location = t.Location,
                 Assignees = t.TaskAssignees != null ? t.TaskAssignees.Select(ta => new TaskAssigneeDto
                 {
                     Id = ta.Id,
@@ -392,7 +415,7 @@ public partial class TasksController(
         var task = await _dbContext.WorkTasks
             .Include(t => t.Store)
             .Include(t => t.Assignee)
-            .Include(t => t.AssignedBy)
+            .Include(t => t.AssignedBy).Include(t => t.Project)
             .Include(t => t.ParentTask)
             .Include(t => t.TaskAssignees!)
                 .ThenInclude(ta => ta.Employee)
@@ -459,10 +482,18 @@ public partial class TasksController(
             EstimatedHours = request.EstimatedHours,
             ParentTaskId = request.ParentTaskId,
             Tags = request.Tags,
-            Checklist = request.Checklist,
+            Checklist = TaskV2Helper.NormalizeChecklist(request.Checklist),
             IsActive = true,
-            CreatedBy = CurrentUserEmail
+            CreatedBy = CurrentUserEmail,
+            Location = string.IsNullOrWhiteSpace(request.Location) ? null : request.Location.Trim(),
         };
+
+        var v2Error = await ApplyProjectAndStageAsync(task, request.ProjectId, request.StageKey);
+        if (v2Error != null)
+            return Ok(AppResponse<WorkTaskDto>.Error(v2Error));
+        task.ProgressMode = request.ProgressMode
+            ?? (task.Checklist != null ? TaskProgressMode.Checklist : TaskProgressMode.Manual);
+        task.Progress = TaskV2Helper.AutoProgress(task) ?? 0;
 
         _dbContext.WorkTasks.Add(task);
 
@@ -488,7 +519,7 @@ public partial class TasksController(
         // Reload with includes
         var createdTask = await _dbContext.WorkTasks
             .Include(t => t.Assignee)
-            .Include(t => t.AssignedBy)
+            .Include(t => t.AssignedBy).Include(t => t.Project)
             .FirstOrDefaultAsync(t => t.Id == task.Id);
 
         try
@@ -594,8 +625,27 @@ public partial class TasksController(
         task.EstimatedHours = request.EstimatedHours ?? task.EstimatedHours;
         task.ActualHours = request.ActualHours ?? task.ActualHours;
         task.Tags = request.Tags ?? task.Tags;
-        task.Checklist = request.Checklist ?? task.Checklist;
+        if (request.Checklist != null)
+            task.Checklist = TaskV2Helper.NormalizeChecklist(request.Checklist);
         task.CompletionNotes = request.CompletionNotes ?? task.CompletionNotes;
+        if (request.Location != null)
+            task.Location = string.IsNullOrWhiteSpace(request.Location) ? null : request.Location.Trim();
+        if (request.ProgressMode.HasValue)
+            task.ProgressMode = request.ProgressMode.Value;
+        if (request.ProjectId.HasValue || request.StageKey != null)
+        {
+            var projectError = await ApplyProjectAndStageAsync(
+                task,
+                request.ProjectId.HasValue
+                    ? (request.ProjectId == Guid.Empty ? null : request.ProjectId)
+                    : task.ProjectId,
+                request.StageKey ?? task.StageKey);
+            if (projectError != null)
+                return Ok(AppResponse<WorkTaskDto>.Error(projectError));
+        }
+        if (task.ProgressMode == TaskProgressMode.Checklist &&
+            TaskV2Helper.AutoProgress(task) is int autoProgress)
+            task.Progress = autoProgress;
         if (request.BranchId.HasValue) task.BranchId = request.BranchId;
         if (request.DepartmentId.HasValue) task.DepartmentId = request.DepartmentId;
         if (request.SlaReminderHours.HasValue) task.SlaReminderHours = request.SlaReminderHours;
@@ -639,7 +689,7 @@ public partial class TasksController(
 
         var updatedTask = await _dbContext.WorkTasks
             .Include(t => t.Assignee)
-            .Include(t => t.AssignedBy)
+            .Include(t => t.AssignedBy).Include(t => t.Project)
             .FirstOrDefaultAsync(t => t.Id == task.Id);
 
         return Ok(AppResponse<WorkTaskDto>.Success(MapToDto(updatedTask!)));
@@ -690,8 +740,10 @@ public partial class TasksController(
             task.Progress = 100;
         }
 
+        await SyncStageWithStatusAsync(task);
         task.UpdatedAt = DateTime.Now;
         task.UpdatedBy = CurrentUserEmail;
+        await TaskV2Helper.RecalcParentAsync(_dbContext, task.ParentTaskId);
 
         _dbContext.TaskHistories.Add(CreateHistory(task.Id, "StatusChanged", oldStatus.ToString(), request.Status.ToString()));
 
@@ -699,7 +751,7 @@ public partial class TasksController(
 
         var updatedTask = await _dbContext.WorkTasks
             .Include(t => t.Assignee)
-            .Include(t => t.AssignedBy)
+            .Include(t => t.AssignedBy).Include(t => t.Project)
             .FirstOrDefaultAsync(t => t.Id == task.Id);
 
         try
@@ -823,7 +875,7 @@ public partial class TasksController(
 
         var updatedTask = await _dbContext.WorkTasks
             .Include(t => t.Assignee)
-            .Include(t => t.AssignedBy)
+            .Include(t => t.AssignedBy).Include(t => t.Project)
             .FirstOrDefaultAsync(t => t.Id == task.Id);
 
         return Ok(AppResponse<WorkTaskDto>.Success(MapToDto(updatedTask!)));
@@ -1353,7 +1405,7 @@ public partial class TasksController(
     {
         var query = _dbContext.WorkTasks
             .Include(t => t.Assignee)
-            .Include(t => t.AssignedBy)
+            .Include(t => t.AssignedBy).Include(t => t.Project)
             .Include(t => t.TaskAssignees!)
                 .ThenInclude(ta => ta.Employee)
             .Where(t => t.StoreId == RequiredStoreId && t.IsActive && t.ParentTaskId == null);
@@ -1777,8 +1829,27 @@ public partial class TasksController(
         task.EstimatedHours = request.EstimatedHours ?? task.EstimatedHours;
         task.ActualHours = request.ActualHours ?? task.ActualHours;
         task.Tags = request.Tags ?? task.Tags;
-        task.Checklist = request.Checklist ?? task.Checklist;
+        if (request.Checklist != null)
+            task.Checklist = TaskV2Helper.NormalizeChecklist(request.Checklist);
         task.CompletionNotes = request.CompletionNotes ?? task.CompletionNotes;
+        if (request.Location != null)
+            task.Location = string.IsNullOrWhiteSpace(request.Location) ? null : request.Location.Trim();
+        if (request.ProgressMode.HasValue)
+            task.ProgressMode = request.ProgressMode.Value;
+        if (request.ProjectId.HasValue || request.StageKey != null)
+        {
+            var projectError = await ApplyProjectAndStageAsync(
+                task,
+                request.ProjectId.HasValue
+                    ? (request.ProjectId == Guid.Empty ? null : request.ProjectId)
+                    : task.ProjectId,
+                request.StageKey ?? task.StageKey);
+            if (projectError != null)
+                return Ok(AppResponse<WorkTaskDto>.Error(projectError));
+        }
+        if (task.ProgressMode == TaskProgressMode.Checklist &&
+            TaskV2Helper.AutoProgress(task) is int autoProgress)
+            task.Progress = autoProgress;
         if (request.BranchId.HasValue) task.BranchId = request.BranchId;
         if (request.DepartmentId.HasValue) task.DepartmentId = request.DepartmentId;
         if (request.SlaReminderHours.HasValue) task.SlaReminderHours = request.SlaReminderHours;
@@ -1816,7 +1887,7 @@ public partial class TasksController(
         }
         catch { /* Notification failure should not affect main operation */ }
 
-        var updatedTask = await _dbContext.WorkTasks.Include(t => t.Assignee).Include(t => t.AssignedBy).FirstOrDefaultAsync(t => t.Id == task.Id);
+        var updatedTask = await _dbContext.WorkTasks.Include(t => t.Assignee).Include(t => t.AssignedBy).Include(t => t.Project).FirstOrDefaultAsync(t => t.Id == task.Id);
         return Ok(AppResponse<WorkTaskDto>.Success(MapToDto(updatedTask!)));
     }
 
@@ -1860,6 +1931,12 @@ public partial class TasksController(
             Tags = task.Tags,
             Checklist = task.Checklist,
             CompletionNotes = task.CompletionNotes,
+            ProjectId = task.ProjectId,
+            ProjectName = task.Project?.Name,
+            ProjectColor = task.Project?.Color,
+            StageKey = task.StageKey,
+            ProgressMode = task.ProgressMode,
+            Location = task.Location,
             CreatedAt = task.CreatedAt,
             CreatedBy = task.CreatedBy,
             UpdatedAt = task.UpdatedAt,

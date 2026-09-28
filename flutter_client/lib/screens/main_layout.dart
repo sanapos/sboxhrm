@@ -52,27 +52,19 @@ import 'attendance_screen.dart';
 import 'settings_screen.dart';
 import 'system_admin_screen.dart';
 import 'settings_hub_screen.dart';
-import 'advance_requests_screen.dart';
 import 'business_trip_expense_screen.dart';
-import 'attendance_approval_screen.dart';
 import 'notifications_screen.dart';
-import 'work_schedule_screen.dart';
 import 'schedule_approval_screen.dart';
 import 'department_screen.dart';
 import 'leave_screen.dart';
 import 'task_management_screen.dart';
 import 'asset_management_screen.dart';
-import 'cash_transaction_screen.dart';
-import 'communication_screen.dart';
 import 'payroll_screen.dart';
 import 'payslip_screen.dart';
 import 'salary_settings_screen.dart';
-import 'bonus_penalty_screen.dart';
-import 'penalty_tickets_screen.dart';
 import 'attendance_summary_screen.dart';
 import 'attendance_by_shift_screen.dart';
 import 'kpi_screen.dart';
-import 'dashboard_screen.dart';
 import 'overtime_screen.dart';
 
 import 'penalty_report_screen.dart';
@@ -95,7 +87,8 @@ import '../utils/notification_navigation.dart';
 import '../utils/pending_notification_launch.dart';
 import 'mobile_device_registration_screen.dart';
 import 'meal_tracking_screen.dart';
-import 'field_checkin_screen.dart';
+import 'staff_map/staff_map_screen.dart';
+import 'shift_hub/shift_hub_screen.dart';
 import 'pos_products_screen.dart';
 import 'pos_sell_screen.dart';
 import 'pos_sale_order_list_screen.dart';
@@ -130,6 +123,11 @@ import '../services/app_permission_service.dart';
 
 import '../theme/sbox_tokens.dart';
 import '../widgets/sbox/sbox_command_palette.dart';
+import 'overview/business_overview_screen.dart';
+import 'work/work_hub_screen.dart';
+import 'comm/comm_hub_screen.dart';
+import 'hr_finance/hr_finance_hub_screen.dart';
+import 'attendance_approval_v2/aa_hub_screen.dart';
 export '../utils/navigation_notifier.dart';
 
 /// Global notifiers for screen refresh
@@ -1422,7 +1420,7 @@ class _MainLayoutState extends State<MainLayout> with WidgetsBindingObserver {
       activeIcon: Icons.dashboard,
       label: 'Tổng quan',
       subtitle: 'Tổng quan',
-      screen: const DashboardScreen(),
+      screen: const OverviewRouterScreen(),
       group: 'Tổng quan',
       themeColor: HrmPageChrome.primaryNavy,
       moduleCode: 'Dashboard',
@@ -1498,9 +1496,9 @@ class _MainLayoutState extends State<MainLayout> with WidgetsBindingObserver {
     NavItem(
       icon: Icons.calendar_month_outlined,
       activeIcon: Icons.calendar_month,
-      label: 'Lịch làm việc',
-      subtitle: 'Phân ca',
-      screen: const WorkScheduleScreen(),
+      label: 'Ca làm việc',
+      subtitle: 'Lịch, đăng ký, nghỉ, đổi ca',
+      screen: const ShiftHubScreen(),
       group: 'Chấm công',
       showInSidebar: false,
       themeColor: HrmPageChrome.primaryNavy,
@@ -1551,7 +1549,7 @@ class _MainLayoutState extends State<MainLayout> with WidgetsBindingObserver {
       activeIcon: Icons.fact_check,
       label: 'Duyệt chấm công',
       subtitle: 'Duyệt CC',
-      screen: const AttendanceApprovalScreen(),
+      screen: const AttendanceApprovalHubScreen(),
       group: 'Chấm công',
       showInSidebar: false,
       themeColor: HrmPageChrome.primaryNavy,
@@ -1626,7 +1624,7 @@ class _MainLayoutState extends State<MainLayout> with WidgetsBindingObserver {
       activeIcon: Icons.card_giftcard,
       label: 'Phiếu thưởng',
       subtitle: 'Thưởng',
-      screen: const BonusPenaltyScreen(bonusOnly: true),
+      screen: const HrFinanceHubScreen(initialTab: HrFinTab.rewards, initialRewardKind: 'bonus'),
       group: 'Tài chính',
       showInSidebar: true,
       themeColor: HrmPageChrome.primaryNavy,
@@ -1637,7 +1635,7 @@ class _MainLayoutState extends State<MainLayout> with WidgetsBindingObserver {
       activeIcon: Icons.money,
       label: 'Ứng lương',
       subtitle: 'Ứng lương',
-      screen: const AdvanceRequestsScreen(),
+      screen: const HrFinanceHubScreen(initialTab: HrFinTab.advances),
       group: 'Tài chính',
       showInSidebar: true,
       themeColor: HrmPageChrome.primaryNavy,
@@ -1659,7 +1657,7 @@ class _MainLayoutState extends State<MainLayout> with WidgetsBindingObserver {
       activeIcon: Icons.account_balance_wallet,
       label: 'Thu chi',
       subtitle: 'Thu chi',
-      screen: const CashTransactionScreen(),
+      screen: const HrFinanceHubScreen(initialTab: HrFinTab.cash),
       group: 'Tài chính',
       showInSidebar: false,
       themeColor: HrmPageChrome.primaryNavy,
@@ -1683,7 +1681,7 @@ class _MainLayoutState extends State<MainLayout> with WidgetsBindingObserver {
       activeIcon: Icons.task_alt,
       label: 'Công việc',
       subtitle: 'Công việc',
-      screen: const TaskManagementScreen(),
+      screen: const WorkHubScreen(),
       group: 'Quản lý Vận hành',
       showInSidebar: false,
       themeColor: HrmPageChrome.primaryNavy,
@@ -1694,7 +1692,7 @@ class _MainLayoutState extends State<MainLayout> with WidgetsBindingObserver {
       activeIcon: Icons.campaign,
       label: 'Truyền thông',
       subtitle: 'Thông báo',
-      screen: const CommunicationScreen(),
+      screen: const CommHubScreen(),
       group: 'Quản lý Vận hành',
       themeColor: HrmPageChrome.primaryNavy,
       moduleCode: 'Communication',
@@ -1741,8 +1739,8 @@ class _MainLayoutState extends State<MainLayout> with WidgetsBindingObserver {
       icon: Icons.map_outlined,
       activeIcon: Icons.map,
       label: 'Bản đồ nhân sự',
-      subtitle: 'Vị trí NV',
-      screen: const FieldCheckInScreen(),
+      subtitle: 'Vị trí & lộ trình NV',
+      screen: const StaffMapScreen(),
       group: 'Quản lý Vận hành',
       themeColor: HrmPageChrome.primaryNavy,
       moduleCode: 'FieldCheckIn',
@@ -2111,7 +2109,7 @@ class _MainLayoutState extends State<MainLayout> with WidgetsBindingObserver {
       activeIcon: Icons.receipt_long,
       label: 'Phiếu phạt',
       subtitle: 'Phạt tự động',
-      screen: const PenaltyTicketsScreen(),
+      screen: const HrFinanceHubScreen(initialTab: HrFinTab.rewards, initialRewardKind: 'penalty'),
       group: 'Tài chính',
       showInSidebar: false,
       themeColor: HrmPageChrome.primaryNavy,

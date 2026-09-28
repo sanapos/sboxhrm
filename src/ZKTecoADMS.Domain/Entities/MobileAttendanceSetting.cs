@@ -38,4 +38,18 @@ public class MobileAttendanceSetting : AuditableEntity<Guid>
     /// Punches within this interval are rejected as duplicates. Default: 5 minutes.
     /// </summary>
     public int MinPunchIntervalMinutes { get; set; } = 5;
+
+    // ─── Duyệt chấm công v2 ───
+
+    /// <summary>Tự duyệt bản chấm ngoài vị trí được chấm điểm «tin cậy»</summary>
+    public bool AutoApproveTrusted { get; set; } = true;
+
+    /// <summary>Khoảng cách tối đa tới vị trí gần nhất để còn được xem là tin cậy (mét)</summary>
+    public int TrustedMaxDistanceMeters { get; set; } = 300;
+
+    /// <summary>Điểm khớp khuôn mặt tối thiểu để tin cậy (%)</summary>
+    public double TrustedMinFaceScore { get; set; } = 85;
+
+    /// <summary>Giữ ảnh bằng chứng sau khi duyệt (ngày), sau đó tự xóa</summary>
+    public int EvidenceRetentionDays { get; set; } = 30;
 }

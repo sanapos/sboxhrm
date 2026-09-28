@@ -14,9 +14,22 @@ public class ResetPasswordCommandHandler(
     public async Task<AppResponse<string>> Handle(ResetPasswordCommand request, CancellationToken cancellationToken)
     {
         // Tìm user theo email
-        var user = await userManager.Users
+        // Email có thể tồn tại ở nhiều cửa hàng: token chỉ hợp lệ với đúng 1 tài khoản → thử lần lượt
+        var candidates = await userManager.Users
             .Where(u => u.Email.ToLower() == request.Email.ToLower() || u.UserName.ToLower() == request.Email.ToLower())
-            .FirstOrDefaultAsync(cancellationToken);
+            .ToListAsync(cancellationToken);
+        var token0 = Uri.UnescapeDataString(request.Token);
+        ApplicationUser? user = null;
+        foreach (var c in candidates)
+        {
+            if (await userManager.VerifyUserTokenAsync(c, userManager.Options.Tokens.PasswordResetTokenProvider,
+                    UserManager<ApplicationUser>.ResetPasswordTokenPurpose, token0))
+            {
+                user = c;
+                break;
+            }
+        }
+        user ??= candidates.FirstOrDefault();
         
         if (user == null)
         {

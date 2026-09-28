@@ -18,6 +18,7 @@ import 'package:excel/excel.dart' as excel_lib;
 import 'package:zkteco_flutter_client/l10n/app_tr.dart';
 
 import '../theme/sbox_tokens.dart';
+import 'assets/asset_dashboard_view.dart';
 const _theme = HrmPageChrome.primaryNavy;
 const _rowH = 52.0;
 const _hdrH = 42.0;
@@ -511,7 +512,7 @@ class _AssetReportScreenState extends State<AssetReportScreen>
                                   indicatorColor: _theme,
                                   tabAlignment: TabAlignment.start,
                                   tabs: [
-                                    Tab(text: tr('Tổng hợp')),
+                                    Tab(text: tr('Tổng quan')),
                                     Tab(text: tr('Danh mục')),
                                     Tab(text: tr('Cấp phát')),
                                     Tab(text: tr('Chuyển giao')),
@@ -998,107 +999,13 @@ class _AssetReportScreenState extends State<AssetReportScreen>
     return SizedBox(width: width, child: field);
   }
 
-  Widget _buildSummaryTab() {
-    if (_summary.isEmpty) {
-      return Center(child: Text(tr('Không có dữ liệu')));
-    }
-    return ListView(
-      padding: const EdgeInsets.fromLTRB(0, 4, 0, 12),
-      children: [
-        Padding(
-          padding: const EdgeInsets.fromLTRB(12, 4, 12, 0),
-          child: Column(
-            children: [
-              _moneyCard(
-                  'Tổng giá mua', _money(_summary['totalPurchaseValue'])),
-              _moneyCard(
-                  'Giá trị hiện tại', _money(_summary['totalCurrentValue'])),
-            ],
-          ),
-        ),
-        const SizedBox(height: 12),
-        Padding(
-          padding: const EdgeInsets.symmetric(horizontal: 12),
-          child: Column(
-            children: [
-              _groupSection('Theo trạng thái', _summary['byStatus']),
-              _groupSection('Theo loại', _summary['byType']),
-              _groupSection('Theo danh mục', _summary['byCategory']),
-            ],
-          ),
-        ),
-      ],
-    );
-  }
+  /// Tổng quan: dùng chung bảng điều khiển tài sản (giá trị còn lại sau khấu hao,
+  /// tỷ lệ sử dụng, phân bổ, mua sắm 12 tháng, tuổi tài sản, việc cần xử lý).
+  Widget _buildSummaryTab() => const AssetDashboardView(forReport: true);
 
   void _jumpToTab(int index, {int? statusFilter}) {
     if (statusFilter != null) _statusFilter = statusFilter;
     _tabs.animateTo(index);
-  }
-
-  Widget _moneyCard(String label, double value) {
-    return Container(
-      margin: const EdgeInsets.only(bottom: 6),
-      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-      decoration: BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.circular(10),
-        border: Border.all(color: HrmPageChrome.chip.withValues(alpha: 0.45)),
-      ),
-      child: Row(
-        children: [
-          Text(tr(label),
-              style: const TextStyle(
-                  fontWeight: FontWeight.w600,
-                  fontSize: 13,
-                  color: HrmPageChrome.textMuted)),
-          const Spacer(),
-          Text(tr('${_fmtMoney.format(value)} đ'),
-              style: const TextStyle(
-                  fontWeight: FontWeight.bold,
-                  color: HrmPageChrome.chipDark,
-                  fontSize: 14)),
-        ],
-      ),
-    );
-  }
-
-  Widget _groupSection(String title, dynamic groups) {
-    if (groups is! List || groups.isEmpty) return const SizedBox.shrink();
-    return Padding(
-      padding: const EdgeInsets.only(bottom: 12),
-      child: Card(
-        child: Padding(
-          padding: const EdgeInsets.all(12),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Text(tr(title),
-                  style: const TextStyle(
-                      fontWeight: FontWeight.bold, fontSize: 14)),
-              const Divider(),
-              ...groups.map((g) {
-                final m = Map<String, dynamic>.from(g as Map);
-                final name = m['statusName'] ??
-                    m['assetTypeName'] ??
-                    m['categoryName'] ??
-                    '-';
-                return Padding(
-                  padding: const EdgeInsets.symmetric(vertical: 4),
-                  child: Row(
-                    children: [
-                      Expanded(child: Text(tr(name.toString()))),
-                      Text(tr('${m['count'] ?? 0}'),
-                          style: const TextStyle(fontWeight: FontWeight.w600)),
-                    ],
-                  ),
-                );
-              }),
-            ],
-          ),
-        ),
-      ),
-    );
   }
 
   Widget _buildRegisterTab() => _buildDataView(

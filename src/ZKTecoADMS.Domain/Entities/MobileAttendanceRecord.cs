@@ -81,4 +81,29 @@ public class MobileAttendanceRecord : AuditableEntity<Guid>
 
     [MaxLength(100)]
     public string? WifiIpAddress { get; set; }
+
+    // ─── Duyệt chấm công v2 ───
+
+    /// <summary>Chấm ngoài vị trí công ty (ngoài GPS/WiFi đã khai báo)</summary>
+    public bool IsOutside { get; set; }
+
+    /// <summary>Lý do nhân viên ghi khi chấm ngoài vị trí</summary>
+    [MaxLength(500)]
+    public string? OutsideReason { get; set; }
+
+    /// <summary>Độ chính xác GPS (mét) do máy báo</summary>
+    public double? GpsAccuracy { get; set; }
+
+    /// <summary>Điểm rủi ro 0–100 (càng cao càng cần xem kỹ)</summary>
+    public int RiskScore { get; set; }
+
+    /// <summary>trusted / review / high</summary>
+    [MaxLength(10)]
+    public string? RiskLevel { get; set; }
+
+    /// <summary>JSON mảng mô tả các dấu hiệu rủi ro</summary>
+    public string? RiskFlags { get; set; }
+
+    /// <summary>Thời điểm đã xóa ảnh bằng chứng theo hạn lưu</summary>
+    public DateTime? EvidencePurgedAt { get; set; }
 }

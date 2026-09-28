@@ -39,6 +39,7 @@ public interface IPosTingeePaidOrderService
 public sealed class PosTingeePaidOrderService(
     ZKTecoDbContext db,
     IPosPrintDispatchService dispatch,
+    ZKTecoADMS.Api.Services.EInvoice.PosEInvoiceAutoIssuer eInvoiceAuto,
     ILogger<PosTingeePaidOrderService> logger) : IPosTingeePaidOrderService
 {
     public async Task<bool> IsTingeeEnabledAsync(Guid storeId, CancellationToken ct = default)
@@ -208,6 +209,7 @@ public sealed class PosTingeePaidOrderService(
                 logger.LogWarning("Tingee: không hoàn tất được đơn {OrderNo}: {Error}", order.OrderNo, err);
                 return $"Đã nhận chuyển khoản {paid:0} đồng nhưng chưa hoàn tất được đơn {order.OrderNo}. Thu ngân kiểm tra lại";
             }
+            eInvoiceAuto.Enqueue(storeId, order.Id);
         }
         else if (order.Status != PosSaleOrderStatus.Completed)
         {

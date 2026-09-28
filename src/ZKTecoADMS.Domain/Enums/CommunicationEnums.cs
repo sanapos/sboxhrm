@@ -90,7 +90,10 @@ public enum CommunicationStatus
     /// <summary>
     /// Bị từ chối
     /// </summary>
-    Rejected = 4
+    Rejected = 4,
+
+    /// <summary>Hẹn giờ đăng</summary>
+    Scheduled = 5
 }
 
 /// <summary>

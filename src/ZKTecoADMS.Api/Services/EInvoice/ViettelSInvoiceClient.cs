@@ -264,6 +264,171 @@ public class ViettelSInvoiceClient(IHttpClientFactory httpFactory, IMemoryCache 
         }
     }
 
+    /// <summary>File thể hiện hóa đơn (PDF) — getInvoiceRepresentationFile.</summary>
+    public async Task<(bool Ok, byte[]? File, string? FileName, string? Error)> GetInvoiceFileAsync(
+        string baseUrl,
+        string accessToken,
+        string supplierTaxCode,
+        string invoiceNo,
+        string templateCode,
+        string? transactionUuid,
+        CancellationToken ct = default)
+    {
+        var root = NormalizeBaseUrl(baseUrl);
+        var url = $"{root}/services/einvoiceapplication/api/InvoiceAPI/InvoiceUtilsWS/getInvoiceRepresentationFile";
+        var client = httpFactory.CreateClient("viettel-sinvoice");
+        using var req = new HttpRequestMessage(HttpMethod.Post, url);
+        req.Headers.TryAddWithoutValidation("Cookie", $"access_token={accessToken}");
+        req.Headers.Accept.Add(new MediaTypeWithQualityHeaderValue("application/json"));
+        req.Content = new StringContent(
+            JsonSerializer.Serialize(new
+            {
+                supplierTaxCode = supplierTaxCode.Trim(),
+                invoiceNo = invoiceNo.Trim(),
+                templateCode = templateCode.Trim(),
+                transactionUuid = string.IsNullOrWhiteSpace(transactionUuid) ? null : transactionUuid.Trim(),
+                fileType = "PDF",
+            }, JsonOpts),
+            Encoding.UTF8,
+            "application/json");
+        try
+        {
+            using var res = await client.SendAsync(req, ct);
+            var body = await res.Content.ReadAsStringAsync(ct);
+            using var doc = JsonDocument.Parse(string.IsNullOrWhiteSpace(body) ? "{}" : body);
+            var rootEl = doc.RootElement;
+            var err = Str(rootEl, "errorCode");
+            var b64 = Str(rootEl, "fileToBytes");
+            if (!string.IsNullOrWhiteSpace(err) || string.IsNullOrWhiteSpace(b64))
+                return (false, null, null, TrimErr(Str(rootEl, "description") ?? err ?? body));
+            return (true, Convert.FromBase64String(b64), Str(rootEl, "fileName"), null);
+        }
+        catch (Exception ex)
+        {
+            logger.LogWarning(ex, "Viettel getInvoiceRepresentationFile failed");
+            return (false, null, null, ex.Message);
+        }
+    }
+
+    /// <summary>PDF xem trước từ dữ liệu lập hóa đơn — Viettel không lưu (createInvoiceDraftPreview).</summary>
+    public async Task<(bool Ok, byte[]? File, string? Error)> PreviewDraftAsync(
+        string baseUrl,
+        string accessToken,
+        string supplierTaxCode,
+        object payload,
+        CancellationToken ct = default)
+    {
+        var root = NormalizeBaseUrl(baseUrl);
+        var tax = Uri.EscapeDataString(supplierTaxCode.Trim());
+        var url = $"{root}/services/einvoiceapplication/api/InvoiceAPI/InvoiceUtilsWS/createInvoiceDraftPreview/{tax}";
+        var client = httpFactory.CreateClient("viettel-sinvoice");
+        using var req = new HttpRequestMessage(HttpMethod.Post, url);
+        req.Headers.TryAddWithoutValidation("Cookie", $"access_token={accessToken}");
+        req.Headers.Accept.Add(new MediaTypeWithQualityHeaderValue("application/json"));
+        req.Content = new StringContent(JsonSerializer.Serialize(payload, JsonOpts), Encoding.UTF8, "application/json");
+        try
+        {
+            using var res = await client.SendAsync(req, ct);
+            var body = await res.Content.ReadAsStringAsync(ct);
+            using var doc = JsonDocument.Parse(string.IsNullOrWhiteSpace(body) ? "{}" : body);
+            var rootEl = doc.RootElement;
+            var err = Str(rootEl, "errorCode");
+            var b64 = Str(rootEl, "fileToBytes");
+            if (!string.IsNullOrWhiteSpace(err) || string.IsNullOrWhiteSpace(b64))
+                return (false, null, TrimErr(Str(rootEl, "description") ?? err ?? body));
+            return (true, Convert.FromBase64String(b64), null);
+        }
+        catch (Exception ex)
+        {
+            logger.LogWarning(ex, "Viettel createInvoiceDraftPreview failed");
+            return (false, null, ex.Message);
+        }
+    }
+
+    public record ViettelInvoiceItem(
+        string? InvoiceNo,
+        string? TemplateCode,
+        string? InvoiceSeri,
+        DateTime? IssueDate,
+        decimal Total,
+        decimal TaxAmount,
+        string? BuyerName,
+        string? BuyerTaxCode,
+        string? AdjustmentType,
+        string? OriginalInvoiceId);
+
+    /// <summary>Tra cứu danh sách hóa đơn theo ngày lập (getInvoices) — tối đa ~3 tháng / lần.</summary>
+    public async Task<(bool Ok, string? Error, int Total, List<ViettelInvoiceItem> Items)> GetInvoicesAsync(
+        string baseUrl,
+        string accessToken,
+        string supplierTaxCode,
+        DateTime fromLocal,
+        DateTime toLocal,
+        int page,
+        int pageSize,
+        CancellationToken ct = default)
+    {
+        var root = NormalizeBaseUrl(baseUrl);
+        var tax = Uri.EscapeDataString(supplierTaxCode.Trim());
+        var url = $"{root}/services/einvoiceapplication/api/InvoiceAPI/InvoiceUtilsWS/getInvoices/{tax}";
+        var client = httpFactory.CreateClient("viettel-sinvoice");
+        using var req = new HttpRequestMessage(HttpMethod.Post, url);
+        req.Headers.TryAddWithoutValidation("Cookie", $"access_token={accessToken}");
+        req.Headers.Accept.Add(new MediaTypeWithQualityHeaderValue("application/json"));
+        req.Content = new StringContent(
+            JsonSerializer.Serialize(new
+            {
+                startDate = fromLocal.ToString("yyyy-MM-dd"),
+                endDate = toLocal.ToString("yyyy-MM-dd"),
+                rowPerPage = Math.Clamp(pageSize, 1, 200),
+                pageNum = Math.Max(1, page),
+            }, JsonOpts),
+            Encoding.UTF8,
+            "application/json");
+        try
+        {
+            using var res = await client.SendAsync(req, ct);
+            var body = await res.Content.ReadAsStringAsync(ct);
+            using var doc = JsonDocument.Parse(string.IsNullOrWhiteSpace(body) ? "{}" : body);
+            var rootEl = doc.RootElement;
+            var err = Str(rootEl, "errorCode");
+            if (!string.IsNullOrWhiteSpace(err) || !res.IsSuccessStatusCode)
+                return (false, TrimErr(Str(rootEl, "description") ?? err ?? body), 0, []);
+            int.TryParse(Str(rootEl, "totalRow"), out var total);
+            var items = new List<ViettelInvoiceItem>();
+            if (rootEl.TryGetProperty("invoices", out var arr) && arr.ValueKind == JsonValueKind.Array)
+            {
+                foreach (var it in arr.EnumerateArray())
+                {
+                    DateTime? issued = long.TryParse(Str(it, "issueDate"), out var ms)
+                        ? DateTimeOffset.FromUnixTimeMilliseconds(ms).UtcDateTime
+                        : null;
+                    items.Add(new ViettelInvoiceItem(
+                        Str(it, "invoiceNo"),
+                        Str(it, "templateCode"),
+                        Str(it, "invoiceSeri"),
+                        issued,
+                        Dec(it, "total"),
+                        Dec(it, "taxAmount"),
+                        Str(it, "buyerName"),
+                        Str(it, "buyerTaxCode"),
+                        Str(it, "adjustmentType"),
+                        Str(it, "originalInvoiceId")));
+                }
+            }
+            return (true, null, total == 0 ? items.Count : total, items);
+        }
+        catch (Exception ex)
+        {
+            logger.LogWarning(ex, "Viettel getInvoices failed");
+            return (false, ex.Message, 0, []);
+        }
+    }
+
+    static decimal Dec(JsonElement el, string name) =>
+        decimal.TryParse(Str(el, name), System.Globalization.NumberStyles.Any,
+            System.Globalization.CultureInfo.InvariantCulture, out var d) ? d : 0;
+
     static ViettelActionResult ParseActionResponse(bool httpOk, string body)
     {
         if (string.IsNullOrWhiteSpace(body))

@@ -25,6 +25,7 @@ public class AdvanceRequestDto
     public DateTime? PaidDate { get; set; }
     public int? ForMonth { get; set; }
     public int? ForYear { get; set; }
+    public int InstallmentCount { get; set; } = 1;
     public int TotalApprovalLevels { get; set; }
     public int CurrentApprovalStep { get; set; }
     public DateTime CreatedAt { get; set; }
@@ -55,6 +56,8 @@ public class CreateAdvanceRequestDto
     public string? Note { get; set; }
     public int? ForMonth { get; set; }
     public int? ForYear { get; set; }
+    /// <summary>Trừ dần vào bao nhiêu kỳ lương (mặc định 1)</summary>
+    public int? InstallmentCount { get; set; }
 }
 
 public class PayAdvanceRequestDto

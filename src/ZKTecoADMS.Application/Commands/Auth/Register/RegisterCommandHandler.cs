@@ -50,22 +50,35 @@ public class RegisterCommandHandler(
             return AppResponse<string>.Error("Email này đã được sử dụng.");
         }
 
-        var storeCode = !string.IsNullOrWhiteSpace(request.StoreCode)
-            ? SanitizeStoreCode(request.StoreCode)
-            : GenerateStoreCode(request.StoreName);
+        var userChoseCode = !string.IsNullOrWhiteSpace(request.StoreCode);
+        var storeCode = StoreCodeRules.Sanitize(userChoseCode ? request.StoreCode : request.StoreName);
 
-        if (string.IsNullOrWhiteSpace(storeCode))
+        var formatError = StoreCodeRules.FormatError(storeCode);
+        if (formatError != null && (userChoseCode || storeCode.Length < StoreCodeRules.MinLength))
         {
-            return AppResponse<string>.Error("Mã doanh nghiệp không hợp lệ. Vui lòng nhập lại.");
+            return AppResponse<string>.Error($"Mã doanh nghiệp không hợp lệ: {formatError}");
         }
 
-        var existingStore = await storeRepository.GetSingleAsync(
-            s => s.Code.ToLower() == storeCode.ToLower(),
-            cancellationToken: cancellationToken);
-        if (existingStore != null)
+        async Task<bool> TakenAsync(string c) => await storeRepository.ExistsAsync(
+            s => s.Code.ToLower() == c.ToLower(), cancellationToken);
+
+        if (formatError != null || await TakenAsync(storeCode))
         {
-            return AppResponse<string>.Error(
-                $"Mã cửa hàng '{storeCode}' đã tồn tại. Vui lòng chọn mã khác.");
+            if (userChoseCode)
+            {
+                return AppResponse<string>.Error(
+                    $"Mã cửa hàng '{storeCode}' đã tồn tại. Vui lòng chọn mã khác.");
+            }
+            // Mã tự sinh từ tên bị trùng / bị giữ → tự chọn mã còn trống thay vì báo lỗi
+            var taken = (await storeRepository.GetAllAsync(
+                    s => s.Code.ToLower().StartsWith(storeCode.Length > 3 ? storeCode.Substring(0, 3) : storeCode),
+                    cancellationToken: cancellationToken))
+                .Select(s => s.Code.ToLower()).ToHashSet();
+            var alt = StoreCodeRules.Suggest(storeCode, request.StoreName, request.Province, c => taken.Contains(c), 1)
+                .FirstOrDefault();
+            if (alt == null)
+                return AppResponse<string>.Error("Không tạo được mã doanh nghiệp tự động. Vui lòng tự nhập mã.");
+            storeCode = alt;
         }
 
         var phoneConflict = await FindPhoneConflictMessageAsync(normalizedPhone, cancellationToken);

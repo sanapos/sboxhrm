@@ -141,6 +141,21 @@ public class WorkTask : AuditableEntity<Guid>
     [MaxLength(1000)]
     public string? AssignmentNote { get; set; }
 
+    /// <summary>Dự án / công trình / đơn việc chứa công việc này</summary>
+    public Guid? ProjectId { get; set; }
+
+    /// <summary>Giai đoạn trong quy trình của dự án (khóa trong TaskProject.Stages)</summary>
+    [MaxLength(40)]
+    public string? StageKey { get; set; }
+
+    /// <summary>Cách tính tiến độ: nhập tay / theo checklist / theo việc con</summary>
+    public TaskProgressMode ProgressMode { get; set; } = TaskProgressMode.Manual;
+
+    /// <summary>Địa điểm làm việc (công trình, nhà khách, kho…)</summary>
+    [MaxLength(300)]
+    public string? Location { get; set; }
+
+    public virtual TaskProject? Project { get; set; }
     public virtual Branch? Branch { get; set; }
     public virtual Department? Department { get; set; }
     public virtual TaskTemplate? Template { get; set; }
@@ -439,7 +454,101 @@ public class TaskTemplate : AuditableEntity<Guid>
     public string? Checklist { get; set; }
 
     public bool IsActive { get; set; } = true;
+
+    /// <summary>Gói ngành đã cài mẫu này (vd "interior", "spa")</summary>
+    [MaxLength(40)]
+    public string? IndustryKey { get; set; }
+
+    /// <summary>Giai đoạn mặc định khi tạo việc từ mẫu</summary>
+    [MaxLength(40)]
+    public string? StageKey { get; set; }
+
+    public TaskProgressMode ProgressMode { get; set; } = TaskProgressMode.Checklist;
+
+    /// <summary>Dự án mặc định cho việc tạo tự động (lặp lại)</summary>
+    public Guid? ProjectId { get; set; }
+
+    public TaskRecurrenceType RecurrenceType { get; set; } = TaskRecurrenceType.None;
+
+    /// <summary>Weekly: "1,3,5" (1=T2…7=CN); Monthly: "1,15" (0 = cuối tháng)</summary>
+    [MaxLength(100)]
+    public string? RecurrenceDays { get; set; }
+
+    /// <summary>Giờ tạo việc trong ngày, dạng "HH:mm"</summary>
+    [MaxLength(5)]
+    public string? RecurrenceTime { get; set; }
+
+    /// <summary>Hạn chót = lúc tạo + số giờ này</summary>
+    public int? DueAfterHours { get; set; }
+
+    /// <summary>Nhân viên nhận việc lặp lại (JSON mảng Guid) — mỗi người một việc riêng</summary>
+    [MaxLength(2000)]
+    public string? DefaultAssigneeIds { get; set; }
+
+    public DateTime? NextRunAt { get; set; }
+    public DateTime? LastRunAt { get; set; }
+
     public virtual Store? Store { get; set; }
+}
+
+/// <summary>
+/// Dự án / công trình / đơn sửa chữa / chiến dịch — gom công việc và theo dõi tiến độ chung.
+/// Quy trình (giai đoạn) riêng cho từng ngành lưu ở <see cref="Stages"/>.
+/// </summary>
+public class TaskProject : AuditableEntity<Guid>
+{
+    [Required]
+    public Guid StoreId { get; set; }
+
+    [Required]
+    [MaxLength(32)]
+    public string Code { get; set; } = string.Empty;
+
+    [Required]
+    [MaxLength(200)]
+    public string Name { get; set; } = string.Empty;
+
+    [MaxLength(4000)]
+    public string? Description { get; set; }
+
+    /// <summary>Gói ngành (interior, repair, spa, fnb, retail, logistics, manufacturing, hotel, office)</summary>
+    [MaxLength(40)]
+    public string? IndustryKey { get; set; }
+
+    /// <summary>Màu nhận diện (#RRGGBB)</summary>
+    [MaxLength(9)]
+    public string? Color { get; set; }
+
+    public TaskProjectStatus Status { get; set; } = TaskProjectStatus.Active;
+
+    /// <summary>Người phụ trách (Employee.Id)</summary>
+    public Guid? OwnerEmployeeId { get; set; }
+
+    public Guid? BranchId { get; set; }
+
+    [MaxLength(200)]
+    public string? CustomerName { get; set; }
+
+    [MaxLength(30)]
+    public string? CustomerPhone { get; set; }
+
+    [MaxLength(300)]
+    public string? Address { get; set; }
+
+    /// <summary>Giá trị hợp đồng / dự toán (tùy chọn)</summary>
+    public decimal? Budget { get; set; }
+
+    public DateTime? StartDate { get; set; }
+    public DateTime? DueDate { get; set; }
+    public DateTime? CompletedAt { get; set; }
+
+    /// <summary>JSON: [{"key":"survey","name":"Khảo sát","color":"#158DC0","done":false}]</summary>
+    [MaxLength(4000)]
+    public string? Stages { get; set; }
+
+    public virtual Store? Store { get; set; }
+    public virtual Employee? OwnerEmployee { get; set; }
+    public virtual ICollection<WorkTask>? Tasks { get; set; }
 }
 
 /// <summary>Phụ thuộc: task bị chặn bởi task khác</summary>

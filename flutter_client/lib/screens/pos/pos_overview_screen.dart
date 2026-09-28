@@ -1,26 +1,20 @@
 import 'package:flutter/material.dart';
-import 'package:intl/intl.dart';
 import 'package:provider/provider.dart';
 
 import '../../providers/auth_provider.dart';
 import '../../providers/permission_provider.dart';
-import '../../services/api_service.dart';
 import '../../utils/navigation_notifier.dart';
 import '../../utils/permission_navigation.dart';
-import '../../utils/pos_kiot_time_range.dart';
 import '../../widgets/pos/pos_hub_scope.dart';
-import '../../widgets/pos/pos_kiot_time_filter.dart';
 import '../../widgets/pos/pos_mobile_widgets.dart';
 import '../../widgets/pos/pos_theme.dart';
-import '../../widgets/pos/reports/pos_report_widgets.dart';
 import '../main_layout.dart' show ScreenRefreshNotifier;
-import 'package:zkteco_flutter_client/l10n/app_tr.dart';
+import '../overview/business_overview_screen.dart';
 import 'pos_qr_menu_screen.dart';
 import 'pos_qr_online_orders_screen.dart';
 import 'pos_kds_screen.dart';
 
-import '../../theme/sbox_tokens.dart';
-/// Tổng quan POS mobile — layout đồng bộ với tab Nhiều hơn.
+/// Tổng quan POS — Truy cập nhanh + tổng quan bán hàng chuẩn SBOX (biểu đồ trên, bảng dưới).
 class PosOverviewScreen extends StatefulWidget {
   const PosOverviewScreen({super.key});
 
@@ -29,68 +23,22 @@ class PosOverviewScreen extends StatefulWidget {
 }
 
 class _PosOverviewScreenState extends State<PosOverviewScreen> {
-  final _api = ApiService();
-  final _moneyFmt = NumberFormat('#,##0', 'vi_VN');
-
-  PosKiotTimeFilterState _time =
-      const PosKiotTimeFilterState(preset: PosKiotTimePreset.today);
-  bool _loading = true;
-  Map<String, dynamic>? _sales;
-  Map<String, dynamic>? _stock;
-  Map<String, dynamic>? _analysis;
-  bool _topByRevenue = true;
+  int _reloadKey = 0;
 
   @override
   void initState() {
     super.initState();
     ScreenRefreshNotifier.posOverview.addListener(_onExternalRefresh);
-    NavigationNotifier.currentModuleCode.addListener(_onModuleVisible);
-    _load();
   }
 
   void _onExternalRefresh() {
-    if (mounted) _load();
-  }
-
-  void _onModuleVisible() {
-    if (!mounted) return;
-    if (NavigationNotifier.currentModuleCode.value == 'PosSalesReport') {
-      _load();
-    }
+    if (mounted) setState(() => _reloadKey++);
   }
 
   @override
   void dispose() {
     ScreenRefreshNotifier.posOverview.removeListener(_onExternalRefresh);
-    NavigationNotifier.currentModuleCode.removeListener(_onModuleVisible);
     super.dispose();
-  }
-
-  Future<void> _load() async {
-    setState(() => _loading = true);
-    final results = await Future.wait([
-      _api.getPosSalesReportSummary(from: _time.from, to: _time.to),
-      _api.getPosStockReportSummary(),
-      _api.getPosBusinessAnalysis(from: _time.from, to: _time.to),
-    ]);
-    if (!mounted) return;
-    final salesRes = results[0];
-    final stockRes = results[1];
-    final analysisRes = results[2];
-    setState(() {
-      _loading = false;
-      if (salesRes['isSuccess'] == true && salesRes['data'] is Map) {
-        _sales = Map<String, dynamic>.from(salesRes['data'] as Map);
-      }
-      if (stockRes['isSuccess'] == true && stockRes['data'] is Map) {
-        _stock = Map<String, dynamic>.from(stockRes['data'] as Map);
-      }
-      if (analysisRes['isSuccess'] == true && analysisRes['data'] is Map) {
-        _analysis = Map<String, dynamic>.from(analysisRes['data'] as Map);
-      } else {
-        _analysis = null;
-      }
-    });
   }
 
   void _goHubTab(int index) {
@@ -109,14 +57,14 @@ class _PosOverviewScreenState extends State<PosOverviewScreen> {
     );
   }
 
-  double _num(dynamic v) => v is num ? v.toDouble() : double.tryParse('$v') ?? 0;
-
   @override
   Widget build(BuildContext context) {
     final inHub = PosHubScope.of(context);
+    final perm = Provider.of<PermissionProvider>(context);
     final auth = Provider.of<AuthProvider>(context);
-    final user = auth.user;
-
+    final canReport = PermissionNavigation.canAccessModule('PosSalesReport',
+        allowedModules: auth.user?.allowedModules, perm: perm, role: auth.userRole);
+    final quick = _buildQuickAccessSection();
     return ColoredBox(
       color: PosTheme.background,
       child: Column(
@@ -125,72 +73,17 @@ class _PosOverviewScreenState extends State<PosOverviewScreen> {
           if (inHub)
             PosMobileKiotHeader(
               title: 'Tổng quan',
-              onRefresh: _load,
+              onRefresh: () async => setState(() => _reloadKey++),
             ),
           Expanded(
-            child: RefreshIndicator(
-              color: PosTheme.kiotBlue,
-              onRefresh: _load,
-              child: ListView(
-                padding: EdgeInsets.fromLTRB(12, inHub ? 8 : 12, 12, 24),
-                children: [
-                  if (!inHub)
-                    Padding(
-                      padding: EdgeInsets.only(bottom: 8),
-                      child: Text(tr('Tổng quan'),
-                        style: TextStyle(
-                          fontSize: 20,
-                          fontWeight: FontWeight.bold,
-                          color: PosTheme.textPrimary,
-                        ),
-                      ),
-                    ),
-                  PosMobileProfileCard(
-                    name: user?.fullName ?? 'Cửa hàng',
-                    subtitle: (user != null && user.email.isNotEmpty)
-                        ? user.email
-                        : (user?.position ??
-                            user?.department ??
-                            'Chi nhánh'),
-                  ),
-                  const SizedBox(height: 12),
-                  _buildQuickAccessSection(),
-                  const SizedBox(height: 12),
-                  Container(
-                    decoration: PosTheme.mobileCardDecoration(),
-                    padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-                    child: PosKiotTimeFilter(
-                      state: _time,
-                      dense: true,
-                      onChanged: (s) async {
-                        setState(() => _time = s);
-                        await _load();
-                      },
-                    ),
-                  ),
-                  const SizedBox(height: 12),
-                  if (_loading)
-                    const Padding(
-                      padding: EdgeInsets.all(32),
-                      child: Center(
-                        child: CircularProgressIndicator(color: PosTheme.kiotBlue),
-                      ),
-                    )
-                  else ...[
-                    _buildMetricsSection(),
-                    const SizedBox(height: 12),
-                    _buildRevenueChartSection(),
-                    ...() {
-                      final alert = _buildStockAlertSection();
-                      if (alert == null) return <Widget>[];
-                      return [const SizedBox(height: 12), alert];
-                    }(),
-                    const SizedBox(height: 12),
-                    _buildTopProductsSection(),
-                  ],
-                ],
-              ),
-            ),
+            child: canReport
+                ? BusinessOverviewScreen(
+                    key: ValueKey('pos_overview_$_reloadKey'),
+                    mode: OverviewMode.pos,
+                    leading: [quick],
+                    showLegacyLink: false,
+                  )
+                : ListView(padding: const EdgeInsets.all(12), children: [quick]),
           ),
         ],
       ),
@@ -256,247 +149,6 @@ class _PosOverviewScreenState extends State<PosOverviewScreen> {
     return PosMobileHubSectionGrid(
       title: 'Truy cập nhanh',
       items: items,
-    );
-  }
-
-  Widget _buildMetricsSection() {
-    final s = _sales;
-    final st = _stock;
-    final cur = _analysis?['current'] as Map?;
-    final revenue = _num(s?['totalRevenue']);
-    final orders = (s?['orderCount'] as num?)?.toInt() ?? 0;
-    final profit = cur != null ? _num(cur['profit']) : 0.0;
-    final margin = cur != null ? _num(cur['marginPct']) : 0.0;
-    final stockValue = _num(st?['totalStockValue'] ?? st?['stockValue']);
-    final productCount = (st?['productCount'] as num?)?.toInt() ?? 0;
-
-    return PosMobileHubSection(
-      title: 'Kết quả kinh doanh',
-      trailing: Text(
-        tr(_time.displayLabel),
-        style: const TextStyle(fontSize: 11, color: PosTheme.textSecondary),
-      ),
-      child: GridView.count(
-        crossAxisCount: 2,
-        shrinkWrap: true,
-        physics: const NeverScrollableScrollPhysics(),
-        mainAxisSpacing: 8,
-        crossAxisSpacing: 8,
-        childAspectRatio: 1.55,
-        children: [
-          PosMobileMetricTile(
-            label: 'Doanh thu',
-            icon: Icons.payments_outlined,
-            value: '${_moneyFmt.format(revenue)} đ',
-            subtitle: '$orders đơn · Đã thu ${_moneyFmt.format(_num(s?['totalPaid']))}',
-          ),
-          PosMobileMetricTile(
-            label: 'Lợi nhuận gộp',
-            icon: Icons.trending_up,
-            value: cur != null ? '${_moneyFmt.format(profit)} đ' : '—',
-            subtitle: cur != null
-                ? 'Biên ${margin.toStringAsFixed(1)}%'
-                : 'Chưa có dữ liệu',
-            valueColor: cur != null && profit >= 0
-                ? SboxColors.success
-                : PosTheme.textPrimary,
-          ),
-          PosMobileMetricTile(
-            label: 'Giá trị tồn',
-            icon: Icons.inventory_outlined,
-            value: '${_moneyFmt.format(stockValue)} đ',
-            subtitle: '$productCount hàng hoá',
-          ),
-          PosMobileMetricTile(
-            label: 'Giảm giá',
-            icon: Icons.discount_outlined,
-            value: '${_moneyFmt.format(_num(s?['totalDiscount']))} đ',
-            subtitle: s != null ? 'Trong ${_time.displayLabel.toLowerCase()}' : null,
-          ),
-        ],
-      ),
-    );
-  }
-
-  DateTime? _parseDate(dynamic v) {
-    if (v == null) return null;
-    if (v is DateTime) return v;
-    return DateTime.tryParse(v.toString());
-  }
-
-  Widget _buildRevenueChartSection() {
-    final byDay = (_sales?['byDay'] as List?) ?? [];
-    final points = byDay.whereType<Map>().map((d) {
-      final dt = _parseDate(d['date']) ?? DateTime.now();
-      return (date: dt, value: _num(d['total']));
-    }).toList();
-
-    return PosMobileHubSection(
-      title: 'Doanh thu',
-      trailing: Text(
-        tr(_time.displayLabel),
-        style: const TextStyle(fontSize: 11, color: PosTheme.textSecondary),
-      ),
-      child: PosReportBarChart(points: points, height: 168),
-    );
-  }
-
-  Widget? _buildStockAlertSection() {
-    final st = _stock;
-    final out = (st?['outOfStockCount'] as num?)?.toInt() ??
-        (st?['outOfStock'] as num?)?.toInt() ??
-        0;
-    final below = (st?['belowMin'] as num?)?.toInt() ?? 0;
-    if (out == 0 && below == 0) return null;
-
-    return Container(
-      decoration: PosTheme.mobileCardDecoration().copyWith(
-        color: const Color(0xFFFFF8E1),
-        border: Border.all(color: const Color(0xFFFFE082)),
-      ),
-      padding: const EdgeInsets.fromLTRB(12, 12, 12, 8),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.stretch,
-        children: [
-          Row(
-            children: [
-              Icon(Icons.warning_amber_rounded, color: SboxColors.warning, size: 20),
-              SizedBox(width: 8),
-              Text(tr('Cảnh báo tồn kho'),
-                style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
-              ),
-            ],
-          ),
-          const SizedBox(height: 10),
-          if (out > 0)
-            Text(tr('• $out hàng hoá đã hết hàng'),
-                style: const TextStyle(fontSize: 13)),
-          if (below > 0)
-            Text(tr('• $below hàng hoá dưới mức tồn tối thiểu'),
-                style: const TextStyle(fontSize: 13)),
-          const SizedBox(height: 8),
-          Align(
-            alignment: Alignment.centerRight,
-            child: TextButton(
-              onPressed: () => _goHubTab(1),
-              child: Text(tr('Xem hàng hoá')),
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-
-  Widget _buildTopProductsSection() {
-    final top = (_sales?['topProducts'] as List?) ?? [];
-    if (top.isEmpty) {
-      return PosMobileHubSection(
-        title: 'Hàng bán chạy',
-        child: Text(tr('Chưa có dữ liệu trong kỳ đã chọn'),
-          style: TextStyle(color: PosTheme.textSecondary, fontSize: 13),
-        ),
-      );
-    }
-
-    final sorted = [...top.whereType<Map>()];
-    sorted.sort((a, b) {
-      if (_topByRevenue) {
-        return _num(b['revenue']).compareTo(_num(a['revenue']));
-      }
-      return _num(b['qty']).compareTo(_num(a['qty']));
-    });
-
-    return PosMobileHubSection(
-      title: 'Hàng bán chạy',
-      trailing: Row(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          _chipToggle('Doanh thu', _topByRevenue, () {
-            setState(() => _topByRevenue = true);
-          }),
-          const SizedBox(width: 6),
-          _chipToggle('Số lượng', !_topByRevenue, () {
-            setState(() => _topByRevenue = false);
-          }),
-        ],
-      ),
-      child: Column(
-        children: [
-          for (var i = 0; i < sorted.length && i < 10; i++) ...[
-            if (i > 0) const Divider(height: 16),
-            Row(
-              children: [
-                Container(
-                  width: 22,
-                  alignment: Alignment.center,
-                  child: Text(
-                    tr('${i + 1}'),
-                    style: const TextStyle(
-                      fontSize: 12,
-                      fontWeight: FontWeight.bold,
-                      color: PosTheme.kiotBlue,
-                    ),
-                  ),
-                ),
-                const SizedBox(width: 6),
-                Expanded(
-                  child: Text(
-                    tr(sorted[i]['productName']?.toString() ?? '—'),
-                    maxLines: 2,
-                    overflow: TextOverflow.ellipsis,
-                    style: const TextStyle(
-                      fontSize: 13,
-                      fontWeight: FontWeight.w500,
-                    ),
-                  ),
-                ),
-                const SizedBox(width: 8),
-                Column(
-                  crossAxisAlignment: CrossAxisAlignment.end,
-                  children: [
-                    Text(
-                      tr('${_moneyFmt.format(_num(sorted[i]['revenue']))} đ'),
-                      style: const TextStyle(
-                        fontWeight: FontWeight.bold,
-                        fontSize: 13,
-                      ),
-                    ),
-                    Text(
-                      tr('${_num(sorted[i]['qty']).toStringAsFixed(_num(sorted[i]['qty']) == _num(sorted[i]['qty']).roundToDouble() ? 0 : 1)} sp'),
-                      style: const TextStyle(
-                        fontSize: 11,
-                        color: PosTheme.textSecondary,
-                      ),
-                    ),
-                  ],
-                ),
-              ],
-            ),
-          ],
-        ],
-      ),
-    );
-  }
-
-  Widget _chipToggle(String label, bool active, VoidCallback onTap) {
-    return Material(
-      color: active ? PosTheme.kiotBlueLight : SboxColors.slate100,
-      borderRadius: BorderRadius.circular(14),
-      child: InkWell(
-        onTap: onTap,
-        borderRadius: BorderRadius.circular(14),
-        child: Padding(
-          padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-          child: Text(
-            tr(label),
-            style: TextStyle(
-              fontSize: 10,
-              fontWeight: FontWeight.w600,
-              color: active ? PosTheme.kiotBlue : PosTheme.textSecondary,
-            ),
-          ),
-        ),
-      ),
     );
   }
 }

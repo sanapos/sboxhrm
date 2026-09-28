@@ -136,6 +136,47 @@ public class InternalCommunication : Entity<Guid>
     [MaxLength(64)]
     public string? PublicShareToken { get; set; }
 
+    // ─── Truyền thông v2 (mạng xã hội nội bộ) ───
+
+    /// <summary>Kênh đăng bài</summary>
+    public Guid? ChannelId { get; set; }
+
+    /// <summary>"html" = bài soạn bằng trình soạn thảo mới; null = văn bản cũ</summary>
+    [MaxLength(10)]
+    public string? ContentFormat { get; set; }
+
+    /// <summary>Nội dung dạng Quill Delta (JSON) để mở lại trình soạn thảo giữ nguyên định dạng</summary>
+    public string? ContentDelta { get; set; }
+
+    /// <summary>JSON: [{"url","name","mime","size","kind"}] — ảnh, Word, PDF, Excel…</summary>
+    public string? Attachments { get; set; }
+
+    /// <summary>Bắt buộc bấm «Tôi đã đọc và cam kết»</summary>
+    public bool RequireAck { get; set; }
+
+    public DateTime? AckDeadline { get; set; }
+
+    /// <summary>Phiên bản văn bản (nội quy/chính sách) — tăng khi cập nhật, phải xác nhận lại</summary>
+    public int Version { get; set; } = 1;
+
+    /// <summary>JSON đối tượng nhận: {"all":true} hoặc {"branchIds":[],"departmentIds":[],"positions":[],"employeeIds":[]}</summary>
+    public string? Audience { get; set; }
+
+    /// <summary>JSON bình chọn: {"question","options":[{"id","text"}],"multiple":false,"closesAt":null,"anonymous":false}</summary>
+    public string? Poll { get; set; }
+
+    public DateTime? EventAt { get; set; }
+
+    [MaxLength(300)]
+    public string? EventLocation { get; set; }
+
+    /// <summary>Đăng hẹn giờ (dịch vụ nền xuất bản khi đến giờ)</summary>
+    public DateTime? ScheduledAt { get; set; }
+
+    public bool AllowComments { get; set; } = true;
+
+    public virtual CommChannel? Channel { get; set; }
+
     // Navigation properties
     public virtual Store? Store { get; set; }
     public virtual ApplicationUser? Author { get; set; }

@@ -35,7 +35,13 @@ public class PosEInvoiceController(
         bool AskAtCheckout,
         bool DefaultIssueAtCheckout,
         string TaxMode,
-        decimal DefaultTaxPercent);
+        decimal DefaultTaxPercent,
+        string AppId,
+        string ServiceAccount,
+        bool HasServicePassword,
+        int SignType,
+        string PortalUrl,
+        bool PrintQrOnReceipt);
 
     static EInvoiceSettingsDto ToDto(PosEInvoiceSetting s) => new(
         s.Enabled,
@@ -50,7 +56,13 @@ public class PosEInvoiceController(
         s.AskAtCheckout,
         s.DefaultIssueAtCheckout,
         s.TaxMode,
-        s.DefaultTaxPercent);
+        s.DefaultTaxPercent,
+        s.AppId,
+        s.ServiceAccount,
+        !string.IsNullOrEmpty(s.ServicePassword),
+        s.SignType,
+        s.PortalUrl,
+        s.PrintQrOnReceipt);
 
     static bool TryGetProp(JsonElement root, string name, out JsonElement p)
     {
@@ -170,21 +182,20 @@ public class PosEInvoiceController(
             DefaultIssueAtCheckout = JsonBool(body, "defaultIssueAtCheckout"),
             TaxMode = JsonStr(body, "taxMode") ?? "included",
             DefaultTaxPercent = JsonDec(body, "defaultTaxPercent", 10),
+            AppId = JsonStr(body, "appId") ?? "",
+            ServiceAccount = JsonStr(body, "serviceAccount") ?? "",
+            SignType = (int)JsonDec(body, "signType", 2),
+            PortalUrl = JsonStr(body, "portalUrl") ?? "",
+            PrintQrOnReceipt = JsonBool(body, "printQrOnReceipt", true),
         };
-
-        if (incoming.Provider.Equals("Misa", StringComparison.OrdinalIgnoreCase) ||
-            incoming.Provider.Contains("misa", StringComparison.OrdinalIgnoreCase))
-        {
-            return BadRequest(AppResponse<EInvoiceSettingsDto>.Fail(
-                "MISA chưa hỗ trợ xuất — chọn Viettel SInvoice hoặc Easy Invoice."));
-        }
 
         logger.LogInformation(
             "EInvoice save store={StoreId} provider={Provider} template={Template} series={Series} user={User} tax={Tax}",
             RequiredStoreId, incoming.Provider, incoming.TemplateCode, incoming.InvoiceSeries,
             incoming.Username, incoming.SupplierTaxCode);
 
-        await eInvoice.SaveSettingsAsync(RequiredStoreId, incoming, JsonStr(body, "password"));
+        await eInvoice.SaveSettingsAsync(
+            RequiredStoreId, incoming, JsonStr(body, "password"), JsonStr(body, "servicePassword"));
 
         // Đọc lại không cache tracker — xác nhận đã ghi DB.
         var s = await db.PosEInvoiceSettings.AsNoTracking()
@@ -421,6 +432,90 @@ public class PosEInvoiceController(
         if (toUtc.Kind == DateTimeKind.Unspecified) toUtc = DateTime.SpecifyKind(toUtc, DateTimeKind.Utc);
         var data = await eInvoice.ListAsync(RequiredStoreId, fromUtc, toUtc, status, q, page, pageSize);
         return Ok(AppResponse<object>.Success(data));
+    }
+
+    static (DateTime From, DateTime To) Range(DateTime? from, DateTime? to)
+    {
+        var fromUtc = from ?? DateTime.UtcNow.Date.AddDays(-30);
+        var toUtc = to ?? DateTime.UtcNow.Date.AddDays(1);
+        if (fromUtc.Kind == DateTimeKind.Unspecified) fromUtc = DateTime.SpecifyKind(fromUtc, DateTimeKind.Utc);
+        if (toUtc.Kind == DateTimeKind.Unspecified) toUtc = DateTime.SpecifyKind(toUtc, DateTimeKind.Utc);
+        return (fromUtc.ToUniversalTime(), toUtc.ToUniversalTime());
+    }
+
+    /// <summary>Link trang quản lý / tra cứu của hãng + khả năng theo hãng.</summary>
+    [HttpGet("portal")]
+    [RequireModulePermission("PosEInvoice", ModulePermissionAction.View)]
+    public async Task<ActionResult<AppResponse<object>>> Portal()
+    {
+        var s = await eInvoice.GetOrCreateSettingsAsync(RequiredStoreId);
+        return Ok(AppResponse<object>.Success(eInvoice.PortalInfo(s)));
+    }
+
+    /// <summary>Xem lại hóa đơn: PDF (base64) / link / html từ hãng.</summary>
+    [HttpGet("view/{orderId:guid}")]
+    [RequireModulePermission("PosEInvoice", ModulePermissionAction.View)]
+    public async Task<ActionResult<AppResponse<EInvoiceView>>> View(Guid orderId)
+    {
+        var order = await FindCompletedOrderAsync(orderId);
+        if (order == null)
+            return NotFound(AppResponse<EInvoiceView>.Fail("Không tìm thấy đơn hàng"));
+        try
+        {
+            return Ok(AppResponse<EInvoiceView>.Success(await eInvoice.GetViewAsync(order)));
+        }
+        catch (InvalidOperationException ex)
+        {
+            return BadRequest(AppResponse<EInvoiceView>.Fail(ex.Message));
+        }
+    }
+
+    /// <summary>Tải danh sách hóa đơn trực tiếp từ hãng + đối chiếu với đơn POS.</summary>
+    [HttpGet("provider-invoices")]
+    [RequireModulePermission("PosEInvoice", ModulePermissionAction.View)]
+    public async Task<ActionResult<AppResponse<object>>> ProviderInvoices(
+        [FromQuery] DateTime? from = null,
+        [FromQuery] DateTime? to = null,
+        [FromQuery] int page = 1,
+        [FromQuery] int pageSize = 50)
+    {
+        var (f, t) = Range(from, to);
+        try
+        {
+            return Ok(AppResponse<object>.Success(
+                await eInvoice.ProviderListAsync(RequiredStoreId, f, t, page, pageSize)));
+        }
+        catch (InvalidOperationException ex)
+        {
+            return BadRequest(AppResponse<object>.Fail(ex.Message));
+        }
+    }
+
+    /// <summary>Đồng bộ hàng loạt trạng thái HĐ POS trong khoảng ngày.</summary>
+    [HttpPost("sync-range")]
+    [RequireModulePermission("PosEInvoice", ModulePermissionAction.Approve)]
+    public async Task<ActionResult<AppResponse<object>>> SyncRange(
+        [FromQuery] DateTime? from = null, [FromQuery] DateTime? to = null)
+    {
+        var (f, t) = Range(from, to);
+        try
+        {
+            return Ok(AppResponse<object>.Success(await eInvoice.SyncRangeAsync(RequiredStoreId, f, t)));
+        }
+        catch (InvalidOperationException ex)
+        {
+            return BadRequest(AppResponse<object>.Fail(ex.Message));
+        }
+    }
+
+    /// <summary>Báo cáo HĐĐT theo ngày / theo hãng / tỷ lệ phủ doanh thu.</summary>
+    [HttpGet("report")]
+    [RequireModulePermission("PosEInvoice", ModulePermissionAction.View)]
+    public async Task<ActionResult<AppResponse<object>>> Report(
+        [FromQuery] DateTime? from = null, [FromQuery] DateTime? to = null)
+    {
+        var (f, t) = Range(from, to);
+        return Ok(AppResponse<object>.Success(await eInvoice.ReportAsync(RequiredStoreId, f, t)));
     }
 
     [HttpGet("summary")]

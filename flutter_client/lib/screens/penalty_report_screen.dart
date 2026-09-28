@@ -14,6 +14,8 @@ import '../widgets/reports/hrm_report_widgets.dart';
 import 'package:zkteco_flutter_client/l10n/app_tr.dart';
 
 import '../theme/sbox_tokens.dart';
+import '../widgets/sbox/sbox_report.dart';
+import '../widgets/sbox/sbox_charts.dart';
 const _theme = HrmPageChrome.primaryNavy;
 const _accentBlue = SboxColors.brand600;
 const _accentLight = SboxColors.brand500;
@@ -149,6 +151,49 @@ class _PenaltyReportScreenState extends State<PenaltyReportScreen> {
         }
       }
     } catch (_) {}
+  }
+
+  /// Biểu đồ đầu báo cáo: tiền phạt theo loại + theo ngày.
+  Widget _buildInsight() {
+    final f = penaltyRowsForReportStats(_filtered, _statusFilter);
+    if (f.isEmpty) return const SizedBox.shrink();
+    final byType = <String, double>{};
+    final byDay = <DateTime, double>{};
+    final byEmp = <String, double>{};
+    for (final t in f) {
+      final amt = reportSafeDouble(t['amount']);
+      final type = (t['penaltyTypeLabel'] ?? t['type'] ?? 'Khác').toString();
+      byType[type] = (byType[type] ?? 0) + amt;
+      final d = DateTime.tryParse('${t['date'] ?? ''}');
+      if (d != null) {
+        final k = DateTime(d.year, d.month, d.day);
+        byDay[k] = (byDay[k] ?? 0) + amt;
+      }
+      final n = t['employeeName']?.toString() ?? '—';
+      byEmp[n] = (byEmp[n] ?? 0) + amt;
+    }
+    final days = byDay.keys.toList()..sort();
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(12, 12, 12, 0),
+      child: SboxInsightPanel(
+        bottomGap: 0,
+        charts: [
+          SboxChartCard(
+            title: 'Tiền phạt theo ngày',
+            child: SboxBarChart(
+              labels: [for (final d in days) sboxDayLabel(d)],
+              series: [SboxSeries(name: 'Tiền phạt', values: [for (final d in days) byDay[d]!], color: SboxColors.danger)],
+            ),
+          ),
+          SboxChartCard(
+            title: _teamView ? 'Theo nhân viên' : 'Theo loại vi phạm',
+            child: _teamView
+                ? SboxRankList(color: SboxColors.danger, items: [for (final e in byEmp.entries) SboxSlice(e.key, e.value)])
+                : SboxDonutChart(slices: [for (final e in byType.entries) SboxSlice(e.key, e.value)]),
+          ),
+        ],
+      ),
+    );
   }
 
   List<ReportKpiItem> _buildKpis() {
@@ -320,6 +365,7 @@ class _PenaltyReportScreenState extends State<PenaltyReportScreen> {
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.stretch,
                       children: [
+                  _buildInsight(),
                   ReportCollapsibleChrome(
                     expanded: _showOverviewPanel,
                     onToggle: () => setState(

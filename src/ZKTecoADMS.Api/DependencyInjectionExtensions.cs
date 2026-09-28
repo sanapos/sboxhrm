@@ -138,9 +138,20 @@ public static class DependencyInjectionExtensions
         {
             client.Timeout = TimeSpan.FromSeconds(90);
         });
+        services.AddHttpClient("misa-meinvoice", client =>
+        {
+            client.Timeout = TimeSpan.FromSeconds(90);
+        });
+        services.AddHttpClient("vnpt-invoice", client =>
+        {
+            client.Timeout = TimeSpan.FromSeconds(90);
+        });
         services.AddScoped<ZKTecoADMS.Api.Services.EInvoice.ViettelSInvoiceClient>();
+        services.AddScoped<ZKTecoADMS.Api.Services.EInvoice.MisaMeInvoiceClient>();
+        services.AddScoped<ZKTecoADMS.Api.Services.EInvoice.VnptInvoiceClient>();
         services.AddScoped<ZKTecoADMS.Api.Services.EInvoice.EasyInvoiceClient>();
         services.AddScoped<ZKTecoADMS.Api.Services.EInvoice.PosEInvoiceService>();
+        services.AddSingleton<ZKTecoADMS.Api.Services.EInvoice.PosEInvoiceAutoIssuer>();
         services.AddHttpClient("shipping-ghn", c => c.Timeout = TimeSpan.FromSeconds(60));
         services.AddHttpClient("shipping-ghtk", c => c.Timeout = TimeSpan.FromSeconds(60));
         services.AddHttpClient("shipping-viettelpost", c => c.Timeout = TimeSpan.FromSeconds(60));
@@ -228,7 +239,11 @@ public static class DependencyInjectionExtensions
         services.AddHostedService<DeviceMonitorBackgroundService>();
         services.AddHostedService<KpiAutoSyncBackgroundService>();
         services.AddHostedService<PenaltyAutoApproveBackgroundService>();
+        services.AddHostedService<TaskRecurrenceBackgroundService>();
+        services.AddHostedService<CommScheduleBackgroundService>();
+        services.AddHostedService<AttendanceEvidencePurgeBackgroundService>();
         services.AddHostedService<NotificationCleanupBackgroundService>();
+        services.AddHostedService<ZKTecoADMS.Api.Services.PosReservedStockReconcileBackgroundService>();
         services.AddHostedService<ActivityLogCleanupService>();
         services.AddHostedService<RawAttendanceCleanupBackgroundService>();
         services.AddHostedService<PackageDataRetentionBackgroundService>();
@@ -311,6 +326,17 @@ public static class DependencyInjectionExtensions
                     factory: _ => new FixedWindowRateLimiterOptions
                     {
                         PermitLimit = 20,
+                        Window = TimeSpan.FromMinutes(1),
+                        QueueLimit = 0
+                    }));
+            // Tra cứu khi đang gõ (mã cửa hàng / email ở màn đăng nhập, đăng ký) — tách khỏi «login»
+            // để không làm hết lượt đăng nhập của cả văn phòng dùng chung IP.
+            options.AddPolicy("auth-lookup", httpContext =>
+                RateLimitPartition.GetFixedWindowLimiter(
+                    partitionKey: httpContext.Connection.RemoteIpAddress?.ToString() ?? "unknown",
+                    factory: _ => new FixedWindowRateLimiterOptions
+                    {
+                        PermitLimit = 90,
                         Window = TimeSpan.FromMinutes(1),
                         QueueLimit = 0
                     }));

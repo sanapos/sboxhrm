@@ -212,6 +212,15 @@ class SignalRService {
       _hubConnection!.on('NewAttendance', _handleNewAttendance);
       _hubConnection!.on('NewNotification', _handleNewNotification);
       _hubConnection!.on('NotificationRead', _handleNotificationRead);
+      _hubConnection!.on('NotificationUnread', (args) {
+        try {
+          if (args == null || args.isEmpty) return;
+          final data = Map<String, dynamic>.from(args[0] as Map);
+          _notificationReadController.add({...data, 'unread': true});
+        } catch (e) {
+          debugPrint('📡 Error parsing notification-unread: $e');
+        }
+      });
       _hubConnection!.on('DeviceStatusChanged', _handleDeviceStatusChanged);
       _hubConnection!.on('CommunicationCreated', _handleCommunicationEvent);
       _hubConnection!.on('CommunicationPublished', _handleCommunicationEvent);

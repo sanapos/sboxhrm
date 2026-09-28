@@ -48,7 +48,7 @@ public partial class TasksController
                 .OrderByDescending(t => t.CreatedAt)
                 .Take(20)
                 .Include(t => t.Assignee)
-                .Include(t => t.AssignedBy)
+                .Include(t => t.AssignedBy).Include(t => t.Project)
                 .Include(t => t.TaskAssignees!)
                     .ThenInclude(ta => ta.Employee)
                 .ToListAsync();
@@ -57,7 +57,7 @@ public partial class TasksController
             .OrderByDescending(t => t.UpdatedAt ?? t.CreatedAt)
             .Take(15)
             .Include(t => t.Assignee)
-            .Include(t => t.AssignedBy)
+            .Include(t => t.AssignedBy).Include(t => t.Project)
             .Include(t => t.TaskAssignees!)
                 .ThenInclude(ta => ta.Employee)
             .ToListAsync();
@@ -163,7 +163,7 @@ public partial class TasksController
         catch { }
 
         var updated = await _dbContext.WorkTasks
-            .Include(t => t.Assignee).Include(t => t.AssignedBy)
+            .Include(t => t.Assignee).Include(t => t.AssignedBy).Include(t => t.Project)
             .FirstAsync(t => t.Id == id);
         return Ok(AppResponse<WorkTaskDto>.Success(MapToDto(updated)));
     }
@@ -217,7 +217,7 @@ public partial class TasksController
         catch { }
 
         var updated = await _dbContext.WorkTasks
-            .Include(t => t.Assignee).Include(t => t.AssignedBy)
+            .Include(t => t.Assignee).Include(t => t.AssignedBy).Include(t => t.Project)
             .FirstAsync(t => t.Id == id);
         return Ok(AppResponse<WorkTaskDto>.Success(MapToDto(updated)));
     }
@@ -242,9 +242,22 @@ public partial class TasksController
                 DefaultSlaReminderHours = t.DefaultSlaReminderHours,
                 Tags = t.Tags,
                 Checklist = t.Checklist,
-                IsActive = t.IsActive
+                IsActive = t.IsActive,
+                IndustryKey = t.IndustryKey,
+                StageKey = t.StageKey,
+                ProgressMode = t.ProgressMode,
+                ProjectId = t.ProjectId,
+                RecurrenceType = t.RecurrenceType,
+                RecurrenceDays = t.RecurrenceDays,
+                RecurrenceTime = t.RecurrenceTime,
+                DueAfterHours = t.DueAfterHours,
+                NextRunAt = t.NextRunAt,
+                LastRunAt = t.LastRunAt,
+                DefaultAssigneeIdsRaw = t.DefaultAssigneeIds,
             })
             .ToListAsync();
+        foreach (var t in list)
+            t.DefaultAssigneeIds = TaskV2Helper.ParseGuidList(t.DefaultAssigneeIdsRaw);
         return Ok(AppResponse<List<TaskTemplateDto>>.Success(list));
     }
 
@@ -266,27 +279,15 @@ public partial class TasksController
             EstimatedHours = request.EstimatedHours,
             DefaultSlaReminderHours = request.DefaultSlaReminderHours,
             Tags = request.Tags,
-            Checklist = request.Checklist,
+            Checklist = TaskV2Helper.NormalizeChecklist(request.Checklist),
             IsActive = true,
             CreatedBy = CurrentUserEmail
         };
+        ApplyTemplateV2(entity, request);
         _dbContext.TaskTemplates.Add(entity);
         await _dbContext.SaveChangesAsync();
 
-        return Ok(AppResponse<TaskTemplateDto>.Success(new TaskTemplateDto
-        {
-            Id = entity.Id,
-            Name = entity.Name,
-            Title = entity.Title,
-            Description = entity.Description,
-            TaskType = entity.TaskType,
-            Priority = entity.Priority,
-            EstimatedHours = entity.EstimatedHours,
-            DefaultSlaReminderHours = entity.DefaultSlaReminderHours,
-            Tags = entity.Tags,
-            Checklist = entity.Checklist,
-            IsActive = entity.IsActive
-        }));
+        return Ok(AppResponse<TaskTemplateDto>.Success(ToTemplateDto(entity)));
     }
 
     [HttpPost("from-template")]
@@ -320,7 +321,11 @@ public partial class TasksController
             DepartmentId = request.DepartmentId,
             TemplateId = template.Id,
             SlaReminderHours = template.DefaultSlaReminderHours ?? 24,
-            RequireAcceptance = true
+            RequireAcceptance = true,
+            ProjectId = request.ProjectId ?? template.ProjectId,
+            StageKey = request.StageKey ?? template.StageKey,
+            ProgressMode = template.ProgressMode,
+            Location = request.Location,
         });
     }
 
@@ -413,7 +418,7 @@ public partial class TasksController
     {
         var query = _dbContext.WorkTasks
             .Include(t => t.Assignee)
-            .Include(t => t.AssignedBy)
+            .Include(t => t.AssignedBy).Include(t => t.Project)
             .Where(t => t.StoreId == RequiredStoreId && t.IsActive);
 
         if (fromDate.HasValue) query = query.Where(t => t.CreatedAt >= fromDate.Value);

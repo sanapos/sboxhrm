@@ -20,6 +20,8 @@ class Employee {
   final String? workStatus;
   final DateTime? joinDate;
   final DateTime? contractEndDate;
+  /// Ngày nghỉ việc (nếu đã nghỉ) — dùng để vẫn tính lương kỳ có ngày làm trước khi nghỉ.
+  final DateTime? resignationDate;
   final DateTime? createdAt;
   final DateTime? updatedAt;
 
@@ -90,6 +92,7 @@ class Employee {
     this.workStatus,
     this.joinDate,
     this.contractEndDate,
+    this.resignationDate,
     this.createdAt,
     this.updatedAt,
     this.permanentAddress,
@@ -170,6 +173,9 @@ class Employee {
         workStatus: json['workStatus']?.toString(),
         joinDate: json['joinDate'] != null
             ? DateTime.tryParse(json['joinDate'])
+            : null,
+        resignationDate: json['resignationDate'] != null
+            ? DateTime.tryParse(json['resignationDate'].toString())
             : null,
         contractEndDate: json['contractEndDate'] != null
             ? DateTime.tryParse(json['contractEndDate'])

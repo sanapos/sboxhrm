@@ -24,6 +24,7 @@ import '../widgets/app_scroll_safe.dart';
 import 'package:zkteco_flutter_client/l10n/app_tr.dart';
 
 import '../theme/sbox_tokens.dart';
+import 'kpi/kpi_report_view.dart';
 class KpiScreen extends StatefulWidget {
   const KpiScreen({super.key});
 
@@ -81,7 +82,7 @@ class _KpiScreenState extends State<KpiScreen> with TickerProviderStateMixin {
   @override
   void initState() {
     super.initState();
-    _tabCtrl = TabController(length: 4, vsync: this);
+    _tabCtrl = TabController(length: 5, vsync: this);
     _tabCtrl.addListener(() {
       if (!_tabCtrl.indexIsChanging) {
         final i = _tabCtrl.index;
@@ -355,6 +356,7 @@ class _KpiScreenState extends State<KpiScreen> with TickerProviderStateMixin {
                           _buildDashboardTab(theme),
                           _buildTargetsTab(theme),
                           _buildSalaryTab(theme),
+                          KpiReportView(periodId: _selPeriodId),
                           _buildSettingsTab(theme),
                         ],
                       ),
@@ -427,6 +429,7 @@ class _KpiScreenState extends State<KpiScreen> with TickerProviderStateMixin {
         Tab(height: isMobile ? 36 : 42, text: tr('Tổng quan')),
         Tab(height: isMobile ? 36 : 42, text: tr('Chỉ tiêu')),
         Tab(height: isMobile ? 36 : 42, text: tr('Lương KPI')),
+        Tab(height: isMobile ? 36 : 42, text: tr('Báo cáo')),
         Tab(height: isMobile ? 36 : 42, text: tr('Thiết lập')),
       ],
     );

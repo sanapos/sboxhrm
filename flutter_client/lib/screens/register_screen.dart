@@ -7,7 +7,9 @@ import '../data/vietnam_provinces.dart';
 import '../utils/web_route_parser.dart';
 import '../utils/agent_referral_prefs.dart';
 import '../utils/permission_navigation.dart';
+import 'dart:async';
 import '../services/api_service.dart';
+import '../widgets/auth/auth_field_helpers.dart';
 import '../utils/web_marketing_gate_stub.dart'
     if (dart.library.html) '../utils/web_marketing_gate_web.dart' as web_home;
 import '../widgets/sbox_hrm_brand.dart';
@@ -103,6 +105,93 @@ class _RegisterScreenState extends State<RegisterScreen>
   bool _obscureConfirmPassword = true;
   bool _loginNameManuallyEdited = false;
   String? _errorMessage;
+
+  // Kiểm tra trực tiếp: mã doanh nghiệp còn trống? email đã dùng?
+  Timer? _codeDebounce;
+  Timer? _emailDebounce;
+  int _codeSeq = 0, _emailSeq = 0;
+  FieldCheckState _codeCheck = FieldCheckState.idle;
+  String _codeCheckText = '';
+  List<String> _codeSuggestions = [];
+  bool? _codeAvailable;
+  FieldCheckState _emailCheck = FieldCheckState.idle;
+  String _emailCheckText = '';
+  bool? _emailAvailable;
+
+  void _onLoginNameChanged() {
+    _codeDebounce?.cancel();
+    final code = _loginNameController.text.trim();
+    if (code.length < 2) {
+      setState(() {
+        _codeCheck = FieldCheckState.idle;
+        _codeSuggestions = [];
+        _codeAvailable = null;
+      });
+      return;
+    }
+    _codeDebounce = Timer(const Duration(milliseconds: 500), () => _checkCode(code));
+  }
+
+  Future<void> _checkCode(String code) async {
+    final seq = ++_codeSeq;
+    setState(() {
+      _codeCheck = FieldCheckState.checking;
+      _codeCheckText = 'Đang kiểm tra mã…';
+    });
+    final r = await ApiService().authCheckStoreCode(
+        code: code, storeName: _storeNameController.text, province: _selectedProvince);
+    if (!mounted || seq != _codeSeq) return;
+    final d = r['data'];
+    setState(() {
+      if (r['isSuccess'] != true || d is! Map) {
+        _codeCheck = FieldCheckState.idle;
+        _codeAvailable = null;
+        return;
+      }
+      _codeAvailable = d['available'] == true;
+      _codeCheck = _codeAvailable! ? FieldCheckState.ok : FieldCheckState.error;
+      _codeCheckText = _codeAvailable!
+          ? 'Mã «$code» còn trống — nhân viên sẽ đăng nhập bằng mã này'
+          : (d['message']?.toString() ?? 'Mã đã có người dùng');
+      _codeSuggestions = [for (final x in (d['suggestions'] as List? ?? const [])) x.toString()];
+    });
+  }
+
+  void _onEmailChanged() {
+    _emailDebounce?.cancel();
+    final email = _emailController.text.trim();
+    if (!RegExp(r'^[\w\.\-]+@[\w\.\-]+\.\w+$').hasMatch(email)) {
+      if (_emailCheck != FieldCheckState.idle) {
+        setState(() {
+          _emailCheck = FieldCheckState.idle;
+          _emailAvailable = null;
+        });
+      }
+      return;
+    }
+    _emailDebounce = Timer(const Duration(milliseconds: 600), () async {
+      final seq = ++_emailSeq;
+      setState(() {
+        _emailCheck = FieldCheckState.checking;
+        _emailCheckText = 'Đang kiểm tra email…';
+      });
+      final r = await ApiService().authCheckEmail(email);
+      if (!mounted || seq != _emailSeq) return;
+      final d = r['data'];
+      setState(() {
+        if (r['isSuccess'] != true || d is! Map) {
+          _emailCheck = FieldCheckState.idle;
+          _emailAvailable = null;
+          return;
+        }
+        _emailAvailable = d['available'] == true;
+        _emailCheck = _emailAvailable! ? FieldCheckState.ok : FieldCheckState.error;
+        _emailCheckText = _emailAvailable!
+            ? 'Email dùng được'
+            : 'Email này đã đăng ký cửa hàng khác — hãy đăng nhập hoặc dùng email khác';
+      });
+    });
+  }
   String? _successMessage;
 
   bool get _isPos => SboxAppVariant.posBranding;
@@ -121,6 +210,9 @@ class _RegisterScreenState extends State<RegisterScreen>
     _loadAgentCode();
     _loadServicePackages();
     _storeNameController.addListener(_onStoreNameChanged);
+    _loginNameController.addListener(_onLoginNameChanged);
+    _emailController.addListener(_onEmailChanged);
+    _passwordController.addListener(() => setState(() {}));
     _animController = AnimationController(
       vsync: this,
       duration: const Duration(milliseconds: 800),
@@ -296,7 +388,11 @@ class _RegisterScreenState extends State<RegisterScreen>
   void dispose() {
     _animController.dispose();
     _scrollController.dispose();
+    _codeDebounce?.cancel();
+    _emailDebounce?.cancel();
     _storeNameController.removeListener(_onStoreNameChanged);
+    _loginNameController.removeListener(_onLoginNameChanged);
+    _emailController.removeListener(_onEmailChanged);
     _storeNameController.dispose();
     _loginNameController.dispose();
     _emailController.dispose();
@@ -334,6 +430,16 @@ class _RegisterScreenState extends State<RegisterScreen>
 
   Future<void> _handleRegister() async {
     if (!_formKey.currentState!.validate()) return;
+    if (_codeAvailable == false) {
+      setState(() => _errorMessage = _codeSuggestions.isNotEmpty
+          ? 'Mã doanh nghiệp đã có người dùng. Chọn một gợi ý: ${_codeSuggestions.join(', ')}'
+          : 'Mã doanh nghiệp đã có người dùng. Vui lòng chọn mã khác.');
+      return;
+    }
+    if (_emailAvailable == false) {
+      setState(() => _errorMessage = 'Email này đã được dùng để đăng ký. Hãy đăng nhập hoặc dùng email khác.');
+      return;
+    }
 
     setState(() {
       _isLoading = true;
@@ -771,6 +877,24 @@ class _RegisterScreenState extends State<RegisterScreen>
                             return null;
                           },
                         ),
+                        FieldStatusLine(state: _codeCheck, text: _codeCheckText),
+                        if (_codeAvailable == false && _codeSuggestions.isNotEmpty)
+                          Padding(
+                            padding: const EdgeInsets.only(top: 6, left: 4),
+                            child: Wrap(spacing: 6, runSpacing: 6, crossAxisAlignment: WrapCrossAlignment.center, children: [
+                              Text(tr('Gợi ý:'), style: const TextStyle(fontSize: 12, color: SboxColors.slate500)),
+                              for (final c in _codeSuggestions)
+                                ActionChip(
+                                  visualDensity: VisualDensity.compact,
+                                  avatar: Icon(Icons.auto_fix_high_rounded, size: 14, color: _brand),
+                                  label: Text(c, style: const TextStyle(fontWeight: FontWeight.w700)),
+                                  onPressed: () => setState(() {
+                                    _loginNameManuallyEdited = true;
+                                    _loginNameController.text = c;
+                                  }),
+                                ),
+                            ]),
+                          ),
                         const SizedBox(height: 16),
 
                         // Email
@@ -791,6 +915,16 @@ class _RegisterScreenState extends State<RegisterScreen>
                             }
                             return null;
                           },
+                        ),
+                        FieldStatusLine(
+                          state: _emailCheck,
+                          text: _emailCheckText,
+                          trailing: _emailAvailable == false
+                              ? TextButton(
+                                  onPressed: () => Navigator.of(context).pushReplacement(MaterialPageRoute(builder: (_) => const LoginScreen())),
+                                  child: Text(tr('Đăng nhập')),
+                                )
+                              : null,
                         ),
                         const SizedBox(height: 16),
 
@@ -955,6 +1089,7 @@ class _RegisterScreenState extends State<RegisterScreen>
                             return null;
                           },
                         ),
+                        PasswordStrengthMeter(password: _passwordController.text),
                         const SizedBox(height: 16),
 
                         // Confirm password

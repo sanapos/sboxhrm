@@ -102,12 +102,22 @@ class GlobalLocationReporter {
           return false;
         }
       }
-      var pos = await getLastKnownPosition();
-      pos ??= await getCurrentPosition(timeout: 15000);
+      // Ưu tiên vị trí đo mới — vị trí đệm của hệ điều hành có thể đã cũ nhiều phút, gửi lên sẽ
+      // làm lộ trình trong ca bị «đứng yên» sai. Chỉ dùng vị trí đệm khi đo mới thất bại và đệm < 2 phút.
+      GeoPosition? pos;
+      try {
+        pos = await getCurrentPosition(timeout: 15000);
+      } catch (_) {
+        final cached = await getLastKnownPosition();
+        final ts = cached?.timestamp;
+        if (cached != null && ts != null && DateTime.now().difference(ts).inMinutes < 2) pos = cached;
+      }
+      if (pos == null) return false;
       final resp = await _api.reportLocation(
         latitude: pos.latitude,
         longitude: pos.longitude,
         accuracy: pos.accuracy,
+        speed: pos.speed,
       );
       if (resp['isSuccess'] == true && resp['data'] is Map) {
         final data = resp['data'] as Map;

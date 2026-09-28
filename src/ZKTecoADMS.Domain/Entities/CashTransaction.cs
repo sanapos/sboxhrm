@@ -127,6 +127,21 @@ public class CashTransaction : AuditableEntity<Guid>
     [MaxLength(500)]
     public string? Tags { get; set; }
 
+    // ─── Tài chính nhân sự v2: liên kết chuẩn tới chứng từ gốc ───
+
+    /// <summary>Loại chứng từ gốc: advance / reward / penalty_ticket / trip_advance / trip_settlement…</summary>
+    [MaxLength(30)]
+    public string? SourceType { get; set; }
+
+    /// <summary>Id chứng từ gốc — mỗi chứng từ chỉ có MỘT phiếu thu/chi còn hiệu lực</summary>
+    public Guid? SourceId { get; set; }
+
+    /// <summary>Nhân viên liên quan (để lọc sổ quỹ / công nợ theo người)</summary>
+    public Guid? EmployeeId { get; set; }
+
+    /// <summary>JSON [{"url","name","kind"}] — chứng từ đính kèm</summary>
+    public string? Attachments { get; set; }
+
     // Navigation Properties
     public virtual TransactionCategory Category { get; set; } = null!;
     public virtual BankAccount? BankAccount { get; set; }

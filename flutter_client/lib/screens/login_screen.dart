@@ -2,6 +2,8 @@ import 'dart:async';
 import 'dart:convert';
 import 'package:flutter/foundation.dart' show kIsWeb, defaultTargetPlatform, TargetPlatform;
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
+import '../widgets/auth/auth_field_helpers.dart';
 import 'package:http/http.dart' as http;
 import 'package:package_info_plus/package_info_plus.dart';
 import 'package:provider/provider.dart';
@@ -39,6 +41,19 @@ class _LoginScreenState extends State<LoginScreen>
   bool _obscurePassword = true;
   bool _rememberMe = false;
   String? _errorMessage;
+
+  final _passwordFocus = FocusNode();
+  final _emailFocus = FocusNode();
+
+  /// Xác nhận mã cửa hàng (hiện tên cửa hàng dưới ô nhập).
+  FieldCheckState _storeCheck = FieldCheckState.idle;
+  String _storeCheckText = '';
+  String? _storeName;
+  int _storeLookupSeq = 0;
+
+  /// Tài khoản đăng nhập gần đây trên máy này (mã cửa hàng + tên đăng nhập, không lưu mật khẩu).
+  List<Map<String, String>> _recentLogins = [];
+  static const String _prefRecentLogins = 'recent_logins_v1';
 
   late AnimationController _animController;
   late Animation<double> _fadeAnim;
@@ -146,6 +161,7 @@ class _LoginScreenState extends State<LoginScreen>
         CurvedAnimation(parent: _animController, curve: Curves.easeOutCubic));
     _animController.forward();
     _loadSavedCredentials();
+    _loadRecentLogins();
     _loadPublicSettings();
     _loadAppVersion();
     _storeCodeController.addListener(_onStoreCodeChanged);
@@ -161,9 +177,131 @@ class _LoginScreenState extends State<LoginScreen>
 
   void _onStoreCodeChanged() {
     _agentLookupDebounce?.cancel();
+    final code = _storeCodeController.text.trim();
+    if (code.isEmpty) {
+      setState(() {
+        _storeCheck = FieldCheckState.idle;
+        _storeName = null;
+      });
+    }
     _agentLookupDebounce = Timer(const Duration(milliseconds: 500), () {
-      _loadStoreAgentContact(_storeCodeController.text.trim());
+      _loadStoreAgentContact(code);
+      _lookupStore(code);
     });
+  }
+
+  /// Gõ mã cửa hàng → hiện tên cửa hàng để chắc chắn không gõ nhầm.
+  Future<void> _lookupStore(String code) async {
+    if (code.length < 2) return;
+    final seq = ++_storeLookupSeq;
+    setState(() {
+      _storeCheck = FieldCheckState.checking;
+      _storeCheckText = 'Đang kiểm tra mã cửa hàng…';
+    });
+    final r = await ApiService().authStoreLookup(code);
+    if (!mounted || seq != _storeLookupSeq) return;
+    final d = r['data'];
+    setState(() {
+      if (r['isSuccess'] != true || d is! Map) {
+        _storeCheck = FieldCheckState.idle;
+      } else if (d['exists'] != true) {
+        _storeCheck = FieldCheckState.error;
+        _storeCheckText = 'Không tìm thấy cửa hàng với mã «$code»';
+        _storeName = null;
+      } else if (d['active'] == false) {
+        _storeCheck = FieldCheckState.warn;
+        _storeCheckText = '${d['name']} — cửa hàng đang tạm ngưng';
+        _storeName = d['name']?.toString();
+      } else if (d['expired'] == true) {
+        _storeCheck = FieldCheckState.warn;
+        _storeCheckText = '${d['name']} — gói dịch vụ đã hết hạn, liên hệ đại lý để gia hạn';
+        _storeName = d['name']?.toString();
+      } else {
+        _storeCheck = FieldCheckState.ok;
+        _storeCheckText = d['name']?.toString() ?? '';
+        _storeName = d['name']?.toString();
+      }
+    });
+  }
+
+  Future<void> _loadRecentLogins() async {
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      final raw = prefs.getString(_prefRecentLogins);
+      if (raw == null) return;
+      final list = (jsonDecode(raw) as List)
+          .whereType<Map>()
+          .map((m) => m.map((k, v) => MapEntry(k.toString(), v?.toString() ?? '')))
+          .where((m) => (m['email'] ?? '').isNotEmpty)
+          .toList();
+      if (mounted) setState(() => _recentLogins = list);
+    } catch (_) {}
+  }
+
+  Future<void> _rememberRecentLogin() async {
+    final store = _storeCodeController.text.trim();
+    final email = _emailController.text.trim();
+    if (email.isEmpty) return;
+    final list = [
+      {'storeCode': store, 'email': email, 'storeName': _storeName ?? ''},
+      ..._recentLogins.where((m) =>
+          !((m['storeCode'] ?? '').toLowerCase() == store.toLowerCase() &&
+              (m['email'] ?? '').toLowerCase() == email.toLowerCase())),
+    ].take(5).toList();
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      await prefs.setString(_prefRecentLogins, jsonEncode(list));
+    } catch (_) {}
+  }
+
+  Future<void> _forgetRecentLogin(Map<String, String> m) async {
+    setState(() => _recentLogins.remove(m));
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      await prefs.setString(_prefRecentLogins, jsonEncode(_recentLogins));
+    } catch (_) {}
+  }
+
+  void _useRecentLogin(Map<String, String> m) {
+    setState(() {
+      _storeCodeController.text = m['storeCode'] ?? '';
+      _emailController.text = m['email'] ?? '';
+      _passwordController.clear();
+      _errorMessage = null;
+    });
+    _passwordFocus.requestFocus();
+  }
+
+  Widget _recentLoginsSection() {
+    if (_recentLogins.isEmpty) return const SizedBox.shrink();
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 18),
+      child: Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
+        _buildLabel('ĐĂNG NHẬP GẦN ĐÂY'),
+        const SizedBox(height: 8),
+        Wrap(spacing: 8, runSpacing: 8, children: [
+          for (final m in _recentLogins)
+            InputChip(
+              avatar: CircleAvatar(
+                backgroundColor: _brand.withValues(alpha: 0.12),
+                child: Icon(Icons.storefront_rounded, size: 14, color: _brand),
+              ),
+              label: Column(mainAxisSize: MainAxisSize.min, crossAxisAlignment: CrossAxisAlignment.start, children: [
+                Text(
+                  (m['storeName'] ?? '').isNotEmpty ? m['storeName']! : (m['storeCode'] ?? ''),
+                  style: const TextStyle(fontSize: 12.5, fontWeight: FontWeight.w700),
+                ),
+                Text(m['email'] ?? '', style: const TextStyle(fontSize: 11, color: SboxColors.slate500)),
+              ]),
+              onPressed: () => _useRecentLogin(m),
+              onDeleted: () => _forgetRecentLogin(m),
+              deleteButtonTooltipMessage: tr('Xoá khỏi danh sách'),
+              backgroundColor: Colors.white,
+              side: BorderSide(color: SboxColors.slate200),
+            ),
+        ]),
+      ]),
+    );
   }
 
   Future<void> _loadAppVersion() async {
@@ -253,6 +391,7 @@ class _LoginScreenState extends State<LoginScreen>
         });
         if (!isAdminPortalEmail && savedStore.isNotEmpty) {
           _loadStoreAgentContact(savedStore);
+          _lookupStore(savedStore);
         }
       }
       // Clean up any previously saved password
@@ -290,6 +429,8 @@ class _LoginScreenState extends State<LoginScreen>
     _storeCodeController.dispose();
     _emailController.dispose();
     _passwordController.dispose();
+    _passwordFocus.dispose();
+    _emailFocus.dispose();
     super.dispose();
   }
 
@@ -318,7 +459,9 @@ class _LoginScreenState extends State<LoginScreen>
       );
 
       if (success && mounted) {
+        TextInput.finishAutofillContext(); // để trình duyệt / điện thoại đề nghị lưu mật khẩu
         await _saveCredentials();
+        await _rememberRecentLogin();
         final role = authProvider.userRole;
         if (!mounted) return;
         if (role == 'SuperAdmin' || role == 'Agent') {
@@ -657,7 +800,8 @@ class _LoginScreenState extends State<LoginScreen>
                   // Form
                   Form(
                     key: _formKey,
-                    child: Column(
+                    child: AutofillGroup(
+                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.stretch,
                       children: [
                         if (_errorMessage != null) ...[
@@ -665,16 +809,26 @@ class _LoginScreenState extends State<LoginScreen>
                           const SizedBox(height: 20),
                         ],
 
+                        _recentLoginsSection(),
+
                         // Store Code
-                        _buildLabel('TÊN CỬA HÀNG'),
+                        _buildLabel('MÃ CỬA HÀNG'),
                         const SizedBox(height: 8),
                         _buildField(
                           controller: _storeCodeController,
-                          hint: 'Ví dụ: SBOX-HQ',
+                          hint: 'Ví dụ: sanapos',
                           icon: Icons.storefront_rounded,
+                          textInputAction: TextInputAction.next,
+                          onSubmitted: (_) => _emailFocus.requestFocus(),
+                          inputFormatters: [
+                            FilteringTextInputFormatter.deny(RegExp(r'\s')),
+                            TextInputFormatter.withFunction(
+                                (o, n) => n.copyWith(text: n.text.toLowerCase())),
+                          ],
                           // Để trống = SuperAdmin/Agent (AdminLogin). Store thường vẫn nhập mã.
                           validator: (_) => null,
                         ),
+                        FieldStatusLine(state: _storeCheck, text: _storeCheckText),
                         if (_storeAgentContact != null) ...[
                           const SizedBox(height: 12),
                           StoreAgentSupportCard.fromMap(
@@ -691,6 +845,11 @@ class _LoginScreenState extends State<LoginScreen>
                           controller: _emailController,
                           hint: 'Email hoặc số điện thoại',
                           icon: Icons.person_outline_rounded,
+                          focusNode: _emailFocus,
+                          keyboardType: TextInputType.emailAddress,
+                          textInputAction: TextInputAction.next,
+                          autofillHints: const [AutofillHints.username, AutofillHints.email],
+                          onSubmitted: (_) => _passwordFocus.requestFocus(),
                           validator: (v) => (v == null || v.isEmpty)
                               ? 'Vui lòng nhập email hoặc số điện thoại'
                               : null,
@@ -730,6 +889,12 @@ class _LoginScreenState extends State<LoginScreen>
                           hint: 'Nhập mật khẩu',
                           icon: Icons.lock_outline_rounded,
                           obscure: _obscurePassword,
+                          focusNode: _passwordFocus,
+                          textInputAction: TextInputAction.done,
+                          autofillHints: const [AutofillHints.password],
+                          onSubmitted: (_) {
+                            if (!_isLoading) _handleLogin();
+                          },
                           suffixIcon: IconButton(
                             icon: Icon(
                               _obscurePassword
@@ -751,6 +916,7 @@ class _LoginScreenState extends State<LoginScreen>
                             return null;
                           },
                         ),
+                        CapsLockHint(focusNode: _passwordFocus),
                         const SizedBox(height: 16),
 
                         // Remember me
@@ -844,6 +1010,7 @@ class _LoginScreenState extends State<LoginScreen>
                           ),
                         ),
                       ],
+                    ),
                     ),
                   ),
                   const SizedBox(height: 28),
@@ -1242,11 +1409,23 @@ class _LoginScreenState extends State<LoginScreen>
     bool obscure = false,
     Widget? suffixIcon,
     String? Function(String?)? validator,
+    FocusNode? focusNode,
+    TextInputAction? textInputAction,
+    ValueChanged<String>? onSubmitted,
+    Iterable<String>? autofillHints,
+    List<TextInputFormatter>? inputFormatters,
   }) {
     return TextFormField(
       controller: controller,
       keyboardType: keyboardType,
       obscureText: obscure,
+      focusNode: focusNode,
+      textInputAction: textInputAction,
+      onFieldSubmitted: onSubmitted,
+      autofillHints: autofillHints,
+      inputFormatters: inputFormatters,
+      autocorrect: false,
+      enableSuggestions: !obscure,
       style:
           const TextStyle(color: Color(0xFF2B3437), fontSize: 16, height: 1.5),
       validator: validator,

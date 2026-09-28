@@ -36,6 +36,7 @@ using ZKTecoADMS.Domain.Enums;
 
 
 using ZKTecoADMS.Infrastructure;
+using ZKTecoADMS.Infrastructure.Services;
 using ZKTecoADMS.Infrastructure.Helpers;
 
 
@@ -5369,6 +5370,12 @@ public partial class MobileAttendanceController : AuthenticatedControllerBase
         var defaultGpsRadius = settings?.GpsRadiusMeters > 0 ? settings.GpsRadiusMeters : 100;
 
 
+
+
+
+        double nearestRadius = defaultGpsRadius;
+
+
         if (request.Latitude.HasValue && request.Longitude.HasValue)
 
 
@@ -5400,6 +5407,9 @@ public partial class MobileAttendanceController : AuthenticatedControllerBase
 
 
                     distance = d;
+
+
+                    nearestRadius = radius;
 
 
                     locationName = loc.Name;
@@ -6429,9 +6439,23 @@ public partial class MobileAttendanceController : AuthenticatedControllerBase
         }
 
         // Chấm ngoài công ty/công trình: luôn chờ duyệt mobile — chỉ ghi chấm công thô sau khi duyệt.
+        // Chấm ngoài công ty/công trình: chấm điểm rủi ro — «tin cậy» được tự duyệt (nếu cửa hàng bật), còn lại chờ duyệt.
+        MobilePunchRisk? punchRisk = null;
+        if (!atCompany && registeredDevice.RequireOutsideReason && string.IsNullOrWhiteSpace(request.OutsideReason))
+        {
+            return BadRequest(AppResponse<object>.Create(false, new { code = "OUTSIDE_REASON_REQUIRED" },
+                ["Vui lòng nhập lý do chấm công ngoài vị trí công ty."]));
+        }
         string status;
         if (!atCompany)
-            status = "pending";
+        {
+            punchRisk = await ScoreOutsidePunchAsync(storeId, request, settings, distance, nearestRadius,
+                serverFaceScore, !string.IsNullOrWhiteSpace(request.SitePhotoBase64) && request.SitePhotoBase64.Length > 100,
+                serverPunchTime, isTravelPunch);
+            status = MobilePunchRiskScorer.CanAutoApprove(punchRisk, settings?.AutoApproveTrusted ?? true, isTravelPunch)
+                ? "auto_approved"
+                : "pending";
+        }
         else if (IsAdmin)
             status = "auto_approved";
         else
@@ -6531,6 +6555,24 @@ public partial class MobileAttendanceController : AuthenticatedControllerBase
             CreatedBy = CurrentUserEmail,
 
 
+            IsOutside = !atCompany,
+
+
+            OutsideReason = string.IsNullOrWhiteSpace(request.OutsideReason) ? null : request.OutsideReason.Trim()[..Math.Min(500, request.OutsideReason.Trim().Length)],
+
+
+            GpsAccuracy = request.GpsAccuracy,
+
+
+            RiskScore = punchRisk?.Score ?? 0,
+
+
+            RiskLevel = punchRisk?.Level,
+
+
+            RiskFlags = punchRisk == null || punchRisk.Flags.Count == 0 ? null : System.Text.Json.JsonSerializer.Serialize(punchRisk.Flags),
+
+
         };
 
 
@@ -6596,7 +6638,7 @@ public partial class MobileAttendanceController : AuthenticatedControllerBase
         }
 
         // Ảnh hiện trường chỉ phục vụ duyệt thủ công — tự động duyệt thì xóa ngay.
-        if (status != "pending")
+        if (status != "pending" && atCompany)
             await TryPurgeSitePhotoAsync(record, CurrentUserEmail);
 
         // Đồng bộ vào bảng chấm công chính nếu auto_approved
@@ -6668,19 +6710,7 @@ public partial class MobileAttendanceController : AuthenticatedControllerBase
             {
 
 
-                var managerIds = await _dbContext.Users
-
-
-                    .Where(u => u.StoreId == storeId && u.IsActive
-
-
-                        && (u.Role == "Manager" || u.Role == "Admin" || u.Role == "StoreOwner"))
-
-
-                    .Select(u => u.Id)
-
-
-                    .ToListAsync();
+                var managerIds = await ResolvePunchApproversAsync(storeId, record.OdooEmployeeId);
 
 
 
@@ -7784,21 +7814,10 @@ public partial class MobileAttendanceController : AuthenticatedControllerBase
         record.UpdatedBy = CurrentUserEmail;
 
 
-        var punchFacePathToDelete = record.FaceImageUrl;
-        var sitePhotoPathToDelete = record.SitePhotoUrl;
+        // Ảnh bằng chứng được giữ theo hạn lưu (mặc định 30 ngày) để đối chiếu khi khiếu nại — dịch vụ nền tự xóa.
 
-        record.FaceImageUrl = null;
-        record.SitePhotoUrl = null;
 
         await _dbContext.SaveChangesAsync();
-
-        if (!string.IsNullOrWhiteSpace(punchFacePathToDelete))
-            await TryDeletePunchFaceImageAsync(punchFacePathToDelete);
-
-        if (!string.IsNullOrWhiteSpace(sitePhotoPathToDelete))
-            await TryDeletePunchFaceImageAsync(sitePhotoPathToDelete);
-
-        await ClearSitePhotoUrlAsync(record.Id, storeId, CurrentUserEmail);
 
 
 
@@ -8665,8 +8684,6 @@ public partial class MobileAttendanceController : AuthenticatedControllerBase
     /// <summary>Ảnh hiện trường chỉ trả về API khi bản ghi chờ duyệt.</summary>
     private static string? SitePhotoUrlForApi(string? status, string? url)
     {
-        if (!string.Equals(status, "pending", StringComparison.OrdinalIgnoreCase))
-            return null;
         return NormalizeImagePathOrNull(url);
     }
 
@@ -9455,6 +9472,12 @@ public class MobilePunchRequest
 
     /// <summary>Ảnh hiện trường (tùy chọn) gửi kèm punch hoặc upload sau.</summary>
     public string? SitePhotoBase64 { get; set; }
+
+    /// <summary>Lý do chấm ngoài vị trí công ty</summary>
+    public string? OutsideReason { get; set; }
+
+    /// <summary>Độ chính xác GPS (m)</summary>
+    public double? GpsAccuracy { get; set; }
 
 
 }

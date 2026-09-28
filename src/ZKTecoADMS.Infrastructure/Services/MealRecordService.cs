@@ -1,5 +1,6 @@
 using Microsoft.Extensions.Logging;
 using ZKTecoADMS.Application.Interfaces;
+using ZKTecoADMS.Application.Services;
 using ZKTecoADMS.Domain.Entities;
 using ZKTecoADMS.Domain.Enums;
 using ZKTecoADMS.Domain.Repositories;
@@ -38,18 +39,14 @@ public class MealRecordService(
                 var mealTime = attendance.AttendanceTime;
                 var timeOfDay = mealTime.TimeOfDay;
 
-                // Find matching meal session by time
-                var matchingSession = mealSessions.FirstOrDefault(s =>
-                    timeOfDay >= s.StartTime && timeOfDay <= s.EndTime);
-
+                // Buổi ăn theo giờ chấm (± MealRules.ToleranceMinutes). Ngoài mọi khung giờ → bỏ qua,
+                // không tự gán vào buổi xa nhất (tránh tính tiền sai); quản lý có thể thêm tay.
+                var matchingSession = MealRules.MatchSession(mealSessions, timeOfDay);
                 if (matchingSession == null)
                 {
-                    // If no exact match, find closest session
-                    matchingSession = mealSessions
-                        .OrderBy(s => Math.Abs((timeOfDay - s.StartTime).TotalMinutes))
-                        .First();
-                    logger.LogWarning("No exact meal session match for time {Time}, using closest: {SessionName}",
-                        timeOfDay, matchingSession.Name);
+                    logger.LogWarning("Meal punch at {Time} (PIN {PIN}) is outside every meal session window — skipped",
+                        mealTime, attendance.PIN);
+                    continue;
                 }
 
                 // Find the employee's user ID via DeviceUser mapping
@@ -101,7 +98,10 @@ public class MealRecordService(
                     Date = date,
                     ShiftId = shiftId,
                     DeviceId = device.Id,
-                    StoreId = storeId
+                    StoreId = storeId,
+                    TicketNo = await MealRules.NextTicketNoAsync(mealRecordRepository, storeId, date),
+                    Price = matchingSession.PricePerMeal,
+                    Source = MealRules.SourceDevice,
                 };
 
                 await mealRecordRepository.AddAsync(mealRecord);

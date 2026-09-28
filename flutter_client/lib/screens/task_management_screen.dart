@@ -4888,6 +4888,7 @@ class _TaskManagementScreenState extends State<TaskManagementScreen>
         TaskType.improvement => Icons.trending_up,
         TaskType.meeting => Icons.groups,
         TaskType.other => Icons.more_horiz,
+        _ => Icons.task_alt,
       };
 
   Color _taskTypeColor(TaskType t) => switch (t) {
@@ -4897,6 +4898,7 @@ class _TaskManagementScreenState extends State<TaskManagementScreen>
         TaskType.improvement => HrmPageChrome.chipMid,
         TaskType.meeting => HrmPageChrome.chipLight,
         TaskType.other => SboxColors.slate400,
+        _ => HrmPageChrome.primaryNavy,
       };
 
   void _confirmDeleteTask(WorkTask task) {

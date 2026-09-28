@@ -13,6 +13,22 @@ public class GlobalExceptionMiddleware(ILogger<GlobalExceptionMiddleware> logger
             "Unhandled exception at {Path}, Time: {Time}",
             context.Request.Path, DateTime.Now);
 
+        // Xung đột ghi đồng thời (tồn kho vừa bị giao dịch khác đổi) → 409, người dùng bấm lại.
+        if (IsConcurrencyConflict(exception))
+        {
+            context.Response.StatusCode = (int)HttpStatusCode.Conflict;
+            var conflict = new ProblemDetails
+            {
+                Title = "Conflict",
+                Detail = "Tồn kho / dữ liệu vừa được thay đổi bởi giao dịch khác (bán hàng, nhập, xuất, kiểm kê). Vui lòng thao tác lại.",
+                Status = (int)HttpStatusCode.Conflict,
+                Instance = context.Request.Path,
+            };
+            conflict.Extensions.Add("traceId", context.TraceIdentifier);
+            await context.Response.WriteAsJsonAsync(conflict, cancellationToken: cancellationToken);
+            return true;
+        }
+
         var details = exception switch
         {
             NotFoundException notFoundEx => new
@@ -75,5 +91,15 @@ public class GlobalExceptionMiddleware(ILogger<GlobalExceptionMiddleware> logger
         await context.Response.WriteAsJsonAsync(problemDetails, cancellationToken: cancellationToken);
 
         return true;
+    }
+
+    internal static bool IsConcurrencyConflict(Exception ex)
+    {
+        for (var e = ex; e != null; e = e.InnerException)
+        {
+            if (e is Microsoft.EntityFrameworkCore.DbUpdateConcurrencyException) return true;
+            if (e is Npgsql.PostgresException { SqlState: "40001" or "40P01" }) return true;
+        }
+        return false;
     }
 } 

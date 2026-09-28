@@ -9,6 +9,7 @@ using ZKTecoADMS.Domain.Entities;
 using ZKTecoADMS.Domain.Enums;
 using ZKTecoADMS.Domain.Repositories;
 using MediatR;
+using ZKTecoADMS.Api.Services.Kpi;
 using ZKTecoADMS.Application.Constants;
 using ZKTecoADMS.Application.Queries.Settings;
 using ZKTecoADMS.Infrastructure;
@@ -23,7 +24,7 @@ namespace ZKTecoADMS.Api.Controllers;
 [Route("api/kpi")]
 [Authorize]
 #pragma warning disable IDE0060,CA1823,CS9113 // Remove unused parameter
-public class KpiController(
+public partial class KpiController(
     ZKTecoDbContext dbContext,
     IKpiGoogleSheetService kpiSheetService,
     IRepository<Employee> employeeRepository,
@@ -273,12 +274,39 @@ public class KpiController(
     [RequireModulePermission("KPI", ModulePermissionAction.Edit)]
     public async Task<ActionResult<AppResponse<bool>>> UpdatePeriodStatus(Guid id, [FromBody] UpdateStatusRequest request)
     {
-        var period = await dbContext.KpiPeriods.FindAsync(id);
+        var period = await dbContext.KpiPeriods.AsTracking()
+            .FirstOrDefaultAsync(p => p.Id == id && p.StoreId == RequiredStoreId && p.Deleted == null);
         if (period == null) return NotFound(AppResponse<bool>.Fail("Không tìm thấy kỳ đánh giá"));
+
+        var salaries = await dbContext.KpiSalaries.AsTracking()
+            .Where(s => s.KpiPeriodId == id && s.StoreId == RequiredStoreId && s.Deleted == null)
+            .ToListAsync();
+        if (request.Status == KpiPeriodStatus.Approved)
+        {
+            // Duyệt kỳ = chốt toàn bộ lương KPI của kỳ (phải tính lương trước).
+            if (salaries.Count == 0)
+                return BadRequest(AppResponse<bool>.Fail("Chưa tính lương KPI cho kỳ này — bấm «Tính lương» trước khi duyệt"));
+            foreach (var s in salaries.Where(s => !s.IsApproved))
+            {
+                s.IsApproved = true;
+                s.ApprovedByUserId = CurrentUserId;
+                s.ApprovedDate = DateTime.UtcNow;
+            }
+        }
+        else if (request.Status is KpiPeriodStatus.Open or KpiPeriodStatus.Locked &&
+                 period.Status is KpiPeriodStatus.Calculated or KpiPeriodStatus.Approved)
+        {
+            // Mở lại kỳ để sửa: bỏ duyệt lương KPI để lần tính sau cập nhật được.
+            foreach (var s in salaries.Where(s => s.IsApproved))
+            {
+                s.IsApproved = false;
+                s.ApprovedByUserId = null;
+                s.ApprovedDate = null;
+            }
+        }
 
         period.Status = request.Status;
         period.UpdatedAt = DateTime.UtcNow;
-        dbContext.KpiPeriods.Update(period);
         await dbContext.SaveChangesAsync();
 
         // Notify employees when period is locked or calculated
@@ -486,6 +514,8 @@ public class KpiController(
     public async Task<ActionResult<AppResponse<bool>>> SaveResults([FromBody] SaveKpiResultsRequest request)
     {
         var storeId = RequiredStoreId;
+        var lockErr = await PeriodLockedErrorAsync(request.PeriodId);
+        if (lockErr != null) return BadRequest(AppResponse<bool>.Fail(lockErr));
 
         // Pre-load all needed data to avoid N+1
         var configIds = request.Results.Select(r => r.KpiConfigId).Distinct().ToList();
@@ -599,6 +629,8 @@ public class KpiController(
     public async Task<ActionResult<AppResponse<SyncKpiResult>>> SyncFromGoogleSheet([FromBody] SyncKpiFromSheetRequest request)
     {
         var storeId = RequiredStoreId;
+        var lockErr = await PeriodLockedErrorAsync(request.PeriodId);
+        if (lockErr != null) return BadRequest(AppResponse<SyncKpiResult>.Fail(lockErr));
         var syncResult = new SyncKpiResult();
 
         try
@@ -738,146 +770,76 @@ public class KpiController(
 
         try
         {
-            // Ưu tiên: Nếu có KpiEmployeeTargets với ActualValue → dùng công thức band-based
+            var periodEntity = await dbContext.KpiPeriods.AsTracking()
+                .FirstOrDefaultAsync(p => p.Id == request.PeriodId && p.StoreId == storeId && p.Deleted == null);
+            if (periodEntity == null)
+                return NotFound(AppResponse<List<KpiSalaryDto>>.Fail("Không tìm thấy kỳ đánh giá"));
+            if (periodEntity.Status == KpiPeriodStatus.Approved)
+                return BadRequest(AppResponse<List<KpiSalaryDto>>.Fail(
+                    "Kỳ KPI đã duyệt — chuyển kỳ về «Đã khóa» nếu cần tính lại"));
+
+            // Ưu tiên: chỉ tiêu theo nhân viên (doanh thu / point) có số thực tế → công thức theo mốc.
             var empTargets = await dbContext.KpiEmployeeTargets
                 .Include(t => t.Employee)
-                .Where(t => t.KpiPeriodId == request.PeriodId &&
-                            t.ActualValue.HasValue &&
-                            t.Deleted == null)
+                .Where(t => t.KpiPeriodId == request.PeriodId && t.StoreId == storeId &&
+                            t.ActualValue.HasValue && t.Deleted == null)
                 .ToListAsync();
 
             if (empTargets.Count > 0)
             {
                 var bandResults = new List<KpiSalaryDto>();
-
-                // Pre-load all existing salaries for this period to avoid N+1
                 var empIds = empTargets.Select(t => t.EmployeeId).Distinct().ToList();
                 var existingSalariesMap = await dbContext.KpiSalaries
                     .AsTracking()
-                    .Where(s => empIds.Contains(s.EmployeeId) && s.KpiPeriodId == request.PeriodId)
-                    .ToDictionaryAsync(s => s.EmployeeId);
+                    .Where(s => empIds.Contains(s.EmployeeId) && s.KpiPeriodId == request.PeriodId && s.Deleted == null)
+                    .GroupBy(s => s.EmployeeId)
+                    .ToDictionaryAsync(g => g.Key, g => g.OrderByDescending(x => x.IsApproved).First());
 
-                foreach (var target in empTargets)
+                // MỘT dòng lương / nhân viên = tổng mọi chỉ tiêu (trước đây mỗi chỉ tiêu ghi đè nhau / tạo trùng dòng).
+                foreach (var group in empTargets.GroupBy(t => t.EmployeeId))
                 {
-                    var employee = target.Employee;
+                    var employee = group.First().Employee;
+                    existingSalariesMap.TryGetValue(group.Key, out var existing);
+                    if (existing is { IsApproved: true })
+                    {
+                        // Lương đã duyệt: không tính đè — muốn tính lại phải bỏ duyệt.
+                        bandResults.Add(ToSalaryDto(existing, employee, "Đã duyệt — giữ nguyên, không tính lại"));
+                        continue;
+                    }
 
-                    // Tính % hoàn thành
-                    var pct = (target.ActualValue.HasValue && target.TargetValue != 0)
-                        ? target.ActualValue.Value / target.TargetValue * 100m
+                    var pays = group.Select(KpiPayCalculator.Compute).ToList();
+                    var baseSalary = pays.Sum(x => x.BasePay);
+                    var kpiBonusAmount = pays.Sum(x => x.Adjustment);
+                    var kpiTotal = pays.Sum(x => x.Total);
+                    var completionSalary = group.Sum(t => t.CompletionSalary);
+                    var score = Math.Round(pays.Average(x => x.CompletionPct), 2);
+                    var bonusRate = completionSalary > 0
+                        ? Math.Round(kpiBonusAmount / completionSalary * 100m, 2)
                         : 0m;
 
-                    decimal baseSalary, kpiBonusAmount, grossIncome;
-                    if (pct < 100m)
-                    {
-                        // Chưa đạt 100%: lương tỉ lệ + thưởng/phạt theo PenaltyTiersJson
-                        baseSalary = Math.Round(target.CompletionSalary * pct / 100m, 0);
-                        kpiBonusAmount = CalcPenaltyBonus(target, pct);
-                        grossIncome = baseSalary + kpiBonusAmount;
-                        if (grossIncome < 0) grossIncome = 0;
-                    }
-                    else
-                    {
-                        // Đạt/vượt 100%: lương cơ bản = CompletionSalary + thưởng vượt từ tiers
-                        var bandBonus = CalcBandedBonus(target);
-                        baseSalary = target.CompletionSalary;
-                        kpiBonusAmount = bandBonus - target.CompletionSalary;
-                        if (kpiBonusAmount < 0) kpiBonusAmount = 0;
-                        grossIncome = baseSalary + kpiBonusAmount;
-                    }
-
-                    var allowances = 0m;
-                    var deductions = 0m;
-                    var netIncome = grossIncome - deductions;
-                    var bonusRate = target.CompletionSalary > 0
-                        ? Math.Round(kpiBonusAmount / target.CompletionSalary * 100m, 2)
-                        : 0m;
-
-                    existingSalariesMap.TryGetValue(target.EmployeeId, out var existing);
-                    if (existing != null)
-                    {
-                        existing.BaseSalary = baseSalary;
-                        existing.TotalKpiScore = target.CompletionRate;
-                        existing.KpiBonusRate = bonusRate;
-                        existing.KpiBonusAmount = kpiBonusAmount;
-                        existing.Allowances = allowances;
-                        existing.Deductions = deductions;
-                        existing.GrossIncome = grossIncome;
-                        existing.NetIncome = netIncome;
-                        existing.UpdatedAt = DateTime.UtcNow;
-                        dbContext.KpiSalaries.Update(existing);
-                    }
-                    else
-                    {
-                        existing = new KpiSalary
-                        {
-                            EmployeeId = target.EmployeeId,
-                            KpiPeriodId = request.PeriodId,
-                            BaseSalary = baseSalary,
-                            TotalKpiScore = target.CompletionRate,
-                            KpiBonusRate = bonusRate,
-                            KpiBonusAmount = kpiBonusAmount,
-                            Allowances = allowances,
-                            Deductions = deductions,
-                            GrossIncome = grossIncome,
-                            NetIncome = netIncome,
-                            StoreId = storeId,
-                            IsActive = true
-                        };
-                        dbContext.KpiSalaries.Add(existing);
-                    }
-
-                    bandResults.Add(new KpiSalaryDto
-                    {
-                        Id = existing.Id,
-                        EmployeeId = target.EmployeeId,
-                        EmployeeCode = employee.EmployeeCode ?? "",
-                        EmployeeName = (employee.LastName ?? "") + " " + (employee.FirstName ?? ""),
-                        KpiPeriodId = request.PeriodId,
-                        BaseSalary = baseSalary,
-                        TotalKpiScore = target.CompletionRate,
-                        KpiBonusRate = bonusRate,
-                        KpiBonusAmount = kpiBonusAmount,
-                        Allowances = allowances,
-                        OtherBonus = existing.OtherBonus,
-                        Deductions = deductions,
-                        GrossIncome = grossIncome,
-                        NetIncome = netIncome,
-                        IsApproved = existing.IsApproved
-                    });
+                    existing ??= TrackNew(NewKpiSalary(group.Key, request.PeriodId, storeId));
+                    existing.BaseSalary = baseSalary;
+                    existing.TotalKpiScore = score;
+                    existing.KpiBonusRate = bonusRate;
+                    existing.KpiBonusAmount = kpiBonusAmount;
+                    existing.Allowances = 0;
+                    existing.Deductions = 0;
+                    existing.GrossIncome = kpiTotal + existing.OtherBonus;
+                    existing.NetIncome = existing.GrossIncome - existing.Deductions;
+                    existing.UpdatedAt = DateTime.UtcNow;
+                    bandResults.Add(ToSalaryDto(existing, employee, null));
                 }
 
                 await dbContext.SaveChangesAsync();
 
-                var period2 = await dbContext.KpiPeriods.FindAsync(request.PeriodId);
-                if (period2 != null && period2.Status == KpiPeriodStatus.Locked)
+                if (periodEntity.Status is KpiPeriodStatus.Open or KpiPeriodStatus.Locked)
                 {
-                    period2.Status = KpiPeriodStatus.Calculated;
-                    dbContext.KpiPeriods.Update(period2);
+                    periodEntity.Status = KpiPeriodStatus.Calculated;
+                    periodEntity.UpdatedAt = DateTime.UtcNow;
                     await dbContext.SaveChangesAsync();
                 }
 
-                // Notify employees about salary calculation
-                try
-                {
-                    foreach (var result in bandResults)
-                    {
-                        var empUserId = await dbContext.Employees
-                            .Where(e => e.Id == result.EmployeeId)
-                            .Select(e => e.ApplicationUserId)
-                            .FirstOrDefaultAsync();
-                        if (empUserId.HasValue && empUserId.Value != CurrentUserId)
-                        {
-                            await notificationService.CreateAndSendAsync(
-                                empUserId.Value, NotificationType.Info,
-                                "Lương KPI đã tính",
-                                $"Lương KPI của bạn đã được tính. Vui lòng kiểm tra.",
-                                relatedEntityType: "KpiSalary",
-                                fromUserId: CurrentUserId, categoryCode: "kpi", storeId: RequiredStoreId);
-                        }
-                    }
-                }
-                catch { /* Notification failure should not affect main operation */ }
-
+                await NotifyKpiSalaryCalculatedAsync(bandResults.Where(r => r.Notes == null).Select(r => r.EmployeeId));
                 return Ok(AppResponse<List<KpiSalaryDto>>.Success(bandResults));
             }
 
@@ -885,7 +847,7 @@ public class KpiController(
             var kpiResults = await dbContext.KpiResults
                 .Include(r => r.Employee)
                 .Include(r => r.KpiConfig)
-                .Where(r => r.KpiPeriodId == request.PeriodId && r.Deleted == null)
+                .Where(r => r.KpiPeriodId == request.PeriodId && r.StoreId == storeId && r.Deleted == null)
                 .ToListAsync();
 
             // 2. Lấy bonus rules
@@ -909,19 +871,23 @@ public class KpiController(
 
             var existingSalariesMap2 = await dbContext.KpiSalaries
                 .AsTracking()
-                .Where(s => allEmployeeIds.Contains(s.EmployeeId) && s.KpiPeriodId == request.PeriodId)
-                .ToDictionaryAsync(s => s.EmployeeId);
+                .Where(s => allEmployeeIds.Contains(s.EmployeeId) && s.KpiPeriodId == request.PeriodId && s.Deleted == null)
+                .GroupBy(s => s.EmployeeId)
+                .ToDictionaryAsync(g => g.Key, g => g.OrderByDescending(x => x.IsApproved).First());
 
             foreach (var group in employeeGroups)
             {
                 var employeeId = group.Key;
                 var employee = group.First().Employee;
                 var totalScore = group.Sum(r => r.WeightedScore);
+                if (existingSalariesMap2.TryGetValue(employeeId, out var approvedRow) && approvedRow.IsApproved)
+                {
+                    salaryResults.Add(ToSalaryDto(approvedRow, employee, "Đã duyệt — giữ nguyên, không tính lại"));
+                    continue;
+                }
 
-                // Tìm mức thưởng áp dụng
-                var applicableRule = bonusRules.FirstOrDefault(r =>
-                    totalScore >= r.MinScore && totalScore <= r.MaxScore);
-                var bonusRate = applicableRule?.BonusRate ?? 0;
+                // Mức thưởng: mốc có điểm tối thiểu lớn nhất ≤ điểm (không hụt ở khoảng lẻ 89.5…)
+                var bonusRate = KpiPayCalculator.BonusRateForScore(bonusRules, totalScore);
 
                 // Lấy lương cơ bản từ SalaryProfile
                 employeeBenefitsMap.TryGetValue(employeeId, out var employeeBenefit);
@@ -932,7 +898,7 @@ public class KpiController(
                                  (employeeBenefit?.Benefit?.HousingAllowance ?? 0) +
                                  (employeeBenefit?.Benefit?.ResponsibilityAllowance ?? 0);
 
-                var kpiBonusAmount = baseSalary * bonusRate / 100m;
+                var kpiBonusAmount = Math.Round(baseSalary * bonusRate / 100m, 0);
                 var grossIncome = baseSalary + kpiBonusAmount + allowances;
                 var deductions = 0m;
                 try
@@ -1007,11 +973,10 @@ public class KpiController(
             await dbContext.SaveChangesAsync();
 
             // Cập nhật trạng thái kỳ
-            var period = await dbContext.KpiPeriods.FindAsync(request.PeriodId);
-            if (period != null && period.Status == KpiPeriodStatus.Locked)
+            if (periodEntity.Status is KpiPeriodStatus.Open or KpiPeriodStatus.Locked)
             {
-                period.Status = KpiPeriodStatus.Calculated;
-                dbContext.KpiPeriods.Update(period);
+                periodEntity.Status = KpiPeriodStatus.Calculated;
+                periodEntity.UpdatedAt = DateTime.UtcNow;
                 await dbContext.SaveChangesAsync();
             }
 
@@ -1312,6 +1277,8 @@ public class KpiController(
         [FromBody] SaveKpiEmployeeTargetsRequest request)
     {
         var storeId = RequiredStoreId;
+        var lockErr = await PeriodLockedErrorAsync(request.PeriodId);
+        if (lockErr != null) return BadRequest(AppResponse<int>.Fail(lockErr));
         int count = 0;
 
         // Pre-load all existing targets for this period to avoid N+1
@@ -1409,8 +1376,11 @@ public class KpiController(
     [RequireModulePermission("KPI", ModulePermissionAction.Delete)]
     public async Task<ActionResult<AppResponse<bool>>> DeleteEmployeeTarget(Guid id)
     {
-        var target = await dbContext.KpiEmployeeTargets.FindAsync(id);
+        var target = await dbContext.KpiEmployeeTargets.AsTracking()
+            .FirstOrDefaultAsync(t => t.Id == id && t.StoreId == RequiredStoreId && t.Deleted == null);
         if (target == null) return NotFound(AppResponse<bool>.Fail("Không tìm thấy thiết lập KPI"));
+        var lockErr = await PeriodLockedErrorAsync(target.KpiPeriodId);
+        if (lockErr != null) return BadRequest(AppResponse<bool>.Fail(lockErr));
 
         target.Deleted = DateTime.UtcNow;
         target.DeletedBy = CurrentUserId.ToString();
@@ -1427,6 +1397,8 @@ public class KpiController(
     public async Task<ActionResult<AppResponse<object>>> SyncActualsFromSheet(
         [FromBody] SyncActualsFromSheetRequest request)
     {
+        var lockErr = await PeriodLockedErrorAsync(request.PeriodId);
+        if (lockErr != null) return BadRequest(AppResponse<object>.Fail(lockErr));
         try
         {
             var sheetRows = await kpiSheetService.ReadKpiDataAsync(
@@ -1803,9 +1775,12 @@ public class KpiController(
     [RequireModulePermission("KPI", ModulePermissionAction.Edit)]
     public async Task<ActionResult<AppResponse<object>>> SyncActualsPerEmployee(Guid periodId)
     {
+        var lockErr = await PeriodLockedErrorAsync(periodId);
+        if (lockErr != null) return BadRequest(AppResponse<object>.Fail(lockErr));
         try
         {
-            var period = await dbContext.KpiPeriods.FindAsync(periodId);
+            var period = await dbContext.KpiPeriods
+                .FirstOrDefaultAsync(p => p.Id == periodId && p.StoreId == RequiredStoreId && p.Deleted == null);
             if (period == null)
                 return NotFound(AppResponse<object>.Fail("Không tìm thấy chu kỳ"));
 
@@ -1983,6 +1958,8 @@ public class KpiController(
     {
         if (data == null || data.Count == 0)
             return Ok(AppResponse<object>.Fail("Không có dữ liệu import"));
+        var lockErr = await PeriodLockedErrorAsync(periodId);
+        if (lockErr != null) return BadRequest(AppResponse<object>.Fail(lockErr));
 
         var targets = await dbContext.KpiEmployeeTargets
             .AsTracking()
@@ -2195,87 +2172,78 @@ public class KpiController(
         Notes = p.Notes
     };
 
-    /// <summary>Tính thưởng vượt chỉ tiêu theo cấu trúc band</summary>
-    private static decimal CalcBandedBonus(KpiEmployeeTarget target)
+
+    /// <summary>
+    /// Kỳ chỉ sửa chỉ tiêu / số thực tế khi đang «Mở». Đã khóa / đã tính / đã duyệt → phải mở lại kỳ.
+    /// </summary>
+    async Task<string?> PeriodLockedErrorAsync(Guid periodId)
     {
-        if (!target.ActualValue.HasValue || target.TargetValue == 0) return 0;
-        var act = target.ActualValue.Value;
-        var tgt = target.TargetValue;
-        var pct = act / tgt * 100m;
-        if (pct < 100m) return 0;
-
-        var bonus = target.CompletionSalary; // lương cố định khi đạt 100%
-        if (string.IsNullOrWhiteSpace(target.BonusTiersJson)) return bonus;
-
-        try
-        {
-            var tiers = System.Text.Json.JsonSerializer.Deserialize<List<BandTier>>(
-                target.BonusTiersJson,
-                new System.Text.Json.JsonSerializerOptions { PropertyNameCaseInsensitive = true });
-            if (tiers == null) return bonus;
-
-            foreach (var band in tiers)
-            {
-                var fromVal = tgt * (decimal)band.FromPct / 100m;
-                var toVal = band.ToPct < 0 ? act : tgt * (decimal)band.ToPct / 100m;
-                if (act <= fromVal) continue;
-
-                if (band.RateType == 2)
-                {
-                    // Giá trị VNĐ cố định
-                    bonus += band.Rate;
-                }
-                else if (band.RateType == 3)
-                {
-                    // % lương hoàn thành
-                    bonus += Math.Round(target.CompletionSalary * band.Rate / 100m, 0);
-                }
-                else
-                {
-                    var inBand = Math.Min(act, toVal) - fromVal;
-                    if (inBand <= 0) continue;
-                    bonus += band.RateType == 1
-                        ? inBand * band.Rate / 100m   // % giá trị vượt
-                        : inBand * band.Rate;          // đ/đơn vị cố định
-                }
-            }
-        }
-        catch { /* Json parse failed, trả về completionSalary */ }
-
-        return bonus;
+        var status = await dbContext.KpiPeriods
+            .Where(p => p.Id == periodId && p.StoreId == RequiredStoreId && p.Deleted == null)
+            .Select(p => (KpiPeriodStatus?)p.Status)
+            .FirstOrDefaultAsync();
+        if (status == null) return "Không tìm thấy kỳ đánh giá";
+        return status == KpiPeriodStatus.Open
+            ? null
+            : "Kỳ KPI đã khóa / đã tính lương — chuyển kỳ về «Mở» nếu cần sửa chỉ tiêu hoặc số thực tế";
     }
 
-    /// <summary>Tính thưởng/phạt khi chưa đạt 100% theo PenaltyTiersJson</summary>
-    private static decimal CalcPenaltyBonus(KpiEmployeeTarget target, decimal pct)
+    static KpiSalary NewKpiSalary(Guid employeeId, Guid periodId, Guid storeId) => new()
     {
-        if (string.IsNullOrWhiteSpace(target.PenaltyTiersJson)) return 0;
+        EmployeeId = employeeId,
+        KpiPeriodId = periodId,
+        StoreId = storeId,
+        IsActive = true,
+    };
 
+    KpiSalary TrackNew(KpiSalary s)
+    {
+        dbContext.KpiSalaries.Add(s);
+        return s;
+    }
+
+    static KpiSalaryDto ToSalaryDto(KpiSalary s, Employee employee, string? notes) => new()
+    {
+        Id = s.Id,
+        EmployeeId = s.EmployeeId,
+        EmployeeCode = employee.EmployeeCode ?? "",
+        EmployeeName = ((employee.LastName ?? "") + " " + (employee.FirstName ?? "")).Trim(),
+        KpiPeriodId = s.KpiPeriodId,
+        BaseSalary = s.BaseSalary,
+        TotalKpiScore = s.TotalKpiScore,
+        KpiBonusRate = s.KpiBonusRate,
+        KpiBonusAmount = s.KpiBonusAmount,
+        Allowances = s.Allowances,
+        OtherBonus = s.OtherBonus,
+        Deductions = s.Deductions,
+        GrossIncome = s.GrossIncome,
+        NetIncome = s.NetIncome,
+        IsApproved = s.IsApproved,
+        Notes = notes ?? s.Notes,
+    };
+
+    async Task NotifyKpiSalaryCalculatedAsync(IEnumerable<Guid> employeeIds)
+    {
         try
         {
-            var tiers = System.Text.Json.JsonSerializer.Deserialize<List<BandTier>>(
-                target.PenaltyTiersJson,
-                new System.Text.Json.JsonSerializerOptions { PropertyNameCaseInsensitive = true });
-            if (tiers == null) return 0;
-
-            // Tìm band chứa pct hiện tại, áp dụng rate
-            foreach (var band in tiers)
+            var ids = employeeIds.Distinct().ToList();
+            var userIds = await dbContext.Employees
+                .Where(e => ids.Contains(e.Id) && e.ApplicationUserId.HasValue)
+                .Select(e => e.ApplicationUserId!.Value)
+                .ToListAsync();
+            foreach (var uid in userIds.Where(u => u != CurrentUserId))
             {
-                var fromPct = (decimal)band.FromPct;
-                var toPct = band.ToPct < 0 ? 100m : (decimal)band.ToPct;
-                if (pct >= fromPct && pct < toPct)
-                {
-                    // rate < 0 = phạt, rate > 0 = thưởng
-                    // rateType 1 = % của CompletionSalary, rateType 0 = số tiền cố định
-                    return band.RateType == 1
-                        ? Math.Round(target.CompletionSalary * band.Rate / 100m, 0)
-                        : band.Rate;
-                }
+                await notificationService.CreateAndSendAsync(
+                    uid, NotificationType.Info,
+                    "Lương KPI đã tính",
+                    "Lương KPI của bạn đã được tính. Vui lòng kiểm tra.",
+                    relatedEntityType: "KpiSalary",
+                    fromUserId: CurrentUserId, categoryCode: "kpi", storeId: RequiredStoreId);
             }
         }
-        catch { /* ignore */ }
-
-        return 0;
+        catch { /* Thông báo lỗi không ảnh hưởng tính lương */ }
     }
+
 }
 
 // â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•

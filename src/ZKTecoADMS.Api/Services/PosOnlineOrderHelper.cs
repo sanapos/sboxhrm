@@ -143,6 +143,15 @@ public static class PosOnlineOrderHelper
                 .Where(l => l.Deleted == null)
                 .Select(l => (l.ProductId, l.Qty, l.VariantId, l.UnitId, l.ToppingsJson))
                 .ToList();
+            // Đơn nháp (QR bàn / online) đã giữ chỗ ReservedQty lúc gọi món — phải nhả trước khi
+            // trừ tồn thật; không thì tồn khả dụng bị trừ 2 lần và ReservedQty rò rỉ vĩnh viễn.
+            var releaseErr = await PosSaleStockHelper.SyncDraftStockReservationAsync(
+                db, storeId, lineInputs, [], allowNegativeStock: true);
+            if (releaseErr != null)
+            {
+                await tx.RollbackAsync(ct);
+                return (false, releaseErr);
+            }
             var (plan, stockErr) = await PosSaleStockHelper.PrepareSaleStockAsync(
                 db, storeId, PosSaleStockHelper.ExpandStockInputsWithToppings(lineInputs),
                 allowNegativeStock: allowNeg);
@@ -163,6 +172,12 @@ public static class PosOnlineOrderHelper
             await db.SaveChangesAsync(ct);
             await tx.CommitAsync(ct);
             return (true, null);
+        }
+        catch (InvalidOperationException ex) when (ex is not ObjectDisposedException)
+        {
+            // Lỗi nghiệp vụ kho (thiếu lô/HSD, lô vừa đổi…) → báo rõ thay vì lỗi hệ thống.
+            await tx.RollbackAsync(ct);
+            return (false, ex.Message);
         }
         catch
         {

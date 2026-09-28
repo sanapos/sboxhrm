@@ -20,6 +20,10 @@ public class PosEInvoiceSettingConfiguration : IEntityTypeConfiguration<PosEInvo
         builder.Property(x => x.InvoiceType).HasMaxLength(10);
         builder.Property(x => x.TaxMode).HasMaxLength(20);
         builder.Property(x => x.DefaultTaxPercent).HasPrecision(18, 2);
+        builder.Property(x => x.AppId).HasMaxLength(200);
+        builder.Property(x => x.ServiceAccount).HasMaxLength(100);
+        builder.Property(x => x.ServicePassword).HasMaxLength(200);
+        builder.Property(x => x.PortalUrl).HasMaxLength(300);
         builder.HasIndex(x => x.StoreId).IsUnique();
         builder.HasOne(x => x.Store).WithMany().HasForeignKey(x => x.StoreId).OnDelete(DeleteBehavior.Cascade);
     }

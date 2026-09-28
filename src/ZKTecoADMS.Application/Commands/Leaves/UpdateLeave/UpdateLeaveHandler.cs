@@ -76,7 +76,7 @@ public class UpdateLeaveHandler(
                 filter: l => l.Id != leave.Id &&
                              l.EmployeeUserId == leave.EmployeeUserId &&
                              l.StoreId == request.StoreId &&
-                             l.Status != LeaveStatus.Rejected &&
+                             l.Status != LeaveStatus.Rejected && l.Status != LeaveStatus.Cancelled && // đơn đã huỷ không chặn đơn mới
                              l.StartDate <= request.EndDate &&
                              l.EndDate >= request.StartDate,
                 cancellationToken: cancellationToken);

@@ -8,6 +8,8 @@ import '../../widgets/pos/reports/pos_report_widgets.dart';
 import 'package:zkteco_flutter_client/l10n/app_tr.dart';
 
 import '../../theme/sbox_tokens.dart';
+import '../../widgets/sbox/sbox_report.dart';
+import '../../widgets/sbox/sbox_charts.dart';
 /// Công nợ NCC + nhập/trả theo kỳ.
 class PosSupplierReportScreen extends StatefulWidget {
   const PosSupplierReportScreen({super.key});
@@ -123,6 +125,31 @@ class _PosSupplierReportScreenState extends State<PosSupplierReportScreen> {
         onSubmitted: (_) => _load(),
       ),
       const SizedBox(height: 10),
+      SboxInsightPanel(
+        charts: [
+          SboxChartCard(
+            title: 'Tuổi nợ nhà cung cấp',
+            child: SboxBarChart(
+              labels: const ['0–30 ngày', '31–60 ngày', '61–90 ngày', '> 90 ngày'],
+              series: [
+                SboxSeries(name: 'Nợ NCC', color: SboxColors.violet, values: [
+                  _n(_debt?['sumDebt0To30']).toDouble(),
+                  _n(_debt?['sumDebt31To60']).toDouble(),
+                  _n(_debt?['sumDebt61To90']).toDouble(),
+                  _n(_debt?['sumDebtOver90']).toDouble(),
+                ]),
+              ],
+            ),
+          ),
+          SboxChartCard(
+            title: 'Nợ lớn nhất',
+            child: SboxRankList(
+              color: SboxColors.violet,
+              items: [for (final r in items) SboxSlice(r['name']?.toString() ?? '—', _n(r['currentDebt']).toDouble())],
+            ),
+          ),
+        ],
+      ),
       PosReportCard(
         title: '${_debt?['totalSuppliers'] ?? 0} NCC còn nợ',
         child: Column(

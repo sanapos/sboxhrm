@@ -11,6 +11,7 @@ using ZKTecoADMS.Application.Constants;
 using ZKTecoADMS.Application.DTOs.Notifications;
 using ZKTecoADMS.Application.DTOs.Commons;
 using ZKTecoADMS.Application.Models;
+using ZKTecoADMS.Application.Notifications;
 using ZKTecoADMS.Domain.Entities;
 using ZKTecoADMS.Domain.Enums;
 using ZKTecoADMS.Infrastructure;
@@ -36,10 +37,18 @@ public class NotificationsController(
         [FromQuery] int page = 1,
         [FromQuery] int pageSize = 20,
         [FromQuery] bool? isRead = null,
-        [FromQuery] NotificationType? type = null)
+        [FromQuery] NotificationType? type = null,
+        [FromQuery] string? category = null,
+        [FromQuery] string? q = null)
     {
+        // category: danh sách mã loại, phân tách dấu phẩy (VD "attendance,shift"); "none" = thông báo cũ chưa gắn loại.
+        var cats = string.IsNullOrWhiteSpace(category)
+            ? null
+            : category.Split(',', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries)
+                .Select(c => c.ToLowerInvariant()).Distinct().ToList();
         var query = new GetUserNotificationsQuery(
-            CurrentUserId, CurrentStoreId, NotificationCrossStore, page, pageSize, isRead, type);
+            CurrentUserId, CurrentStoreId, NotificationCrossStore, page, pageSize, isRead, type,
+            cats, string.IsNullOrWhiteSpace(q) ? null : q.Trim()[..Math.Min(q.Trim().Length, 100)]);
         var result = await mediator.Send(query);
         return Ok(result);
     }
@@ -124,8 +133,83 @@ public class NotificationsController(
             // Notify other devices/tabs of this user so they can update the badge and
             // greyed-out state immediately, instead of waiting for the next manual refresh.
             await BroadcastToUserAsync("NotificationRead", new { id = id.ToString(), all = false });
+            await SyncBadgeSafeAsync();
         }
         return Ok(result);
+    }
+
+    /// <summary>Đánh dấu lại là chưa đọc (để xử lý sau).</summary>
+    [HttpPost("{id}/unread")]
+    [Authorize(Policy = PolicyNames.AtLeastEmployee)]
+    [RequireModulePermission("Notification", ModulePermissionAction.View)]
+    public async Task<ActionResult<AppResponse<bool>>> MarkNotificationAsUnread(Guid id)
+    {
+        var filter = NotificationUserScope.FilterById(id, CurrentUserId, CurrentStoreId, NotificationCrossStore);
+        var n = await db.Notifications.Where(filter).FirstOrDefaultAsync();
+        if (n == null) return Ok(AppResponse<bool>.Fail("Không tìm thấy thông báo"));
+        if (n.IsRead)
+        {
+            n.IsRead = false;
+            n.ReadAt = null;
+            n.UpdatedAt = DateTime.UtcNow;
+            await db.SaveChangesAsync();
+        }
+        await BroadcastToUserAsync("NotificationUnread", new { id = id.ToString() });
+        await SyncBadgeSafeAsync();
+        return Ok(AppResponse<bool>.Success(true));
+    }
+
+    /// <summary>Đánh dấu đã đọc cả 1 nhóm loại (VD tất cả thông báo chấm công).</summary>
+    [HttpPost("read-category")]
+    [Authorize(Policy = PolicyNames.AtLeastEmployee)]
+    [RequireModulePermission("Notification", ModulePermissionAction.View)]
+    public async Task<ActionResult<AppResponse<int>>> MarkCategoryAsRead([FromQuery] string category)
+    {
+        var cats = (category ?? "").Split(',', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries)
+            .Select(c => c.ToLowerInvariant()).Distinct().ToList();
+        if (cats.Count == 0) return Ok(AppResponse<int>.Fail("Thiếu loại thông báo"));
+        var filter = NotificationUserScope.FilterForUser(CurrentUserId, CurrentStoreId, NotificationCrossStore,
+            isRead: false, categories: cats);
+        var now = DateTime.UtcNow;
+        var count = await db.Notifications.Where(filter).ExecuteUpdateAsync(s => s
+            .SetProperty(n => n.IsRead, true)
+            .SetProperty(n => n.ReadAt, now)
+            .SetProperty(n => n.UpdatedAt, now));
+        await BroadcastToUserAsync("NotificationRead", new { id = (string?)null, all = false, category = string.Join(',', cats) });
+        await SyncBadgeSafeAsync();
+        return Ok(AppResponse<int>.Success(count));
+    }
+
+    /// <summary>Số thông báo (tổng / chưa đọc) theo từng loại — cho thanh lọc có số đếm.</summary>
+    [HttpGet("category-counts")]
+    [Authorize(Policy = PolicyNames.AtLeastEmployee)]
+    [RequireModulePermission("Notification", ModulePermissionAction.View)]
+    public async Task<ActionResult<AppResponse<List<NotificationCategoryCountDto>>>> GetCategoryCounts()
+    {
+        var filter = NotificationUserScope.FilterForUser(CurrentUserId, CurrentStoreId, NotificationCrossStore);
+        var rows = await db.Notifications.AsNoTracking().Where(filter)
+            .GroupBy(n => n.CategoryCode)
+            .Select(g => new { Code = g.Key, Total = g.Count(), Unread = g.Count(x => !x.IsRead) })
+            .ToListAsync();
+        var list = rows
+            .Select(r => new NotificationCategoryCountDto(r.Code ?? NotificationUserScope.UncategorizedCode, r.Total, r.Unread))
+            .OrderByDescending(r => r.Unread).ThenByDescending(r => r.Total)
+            .ToList();
+        return Ok(AppResponse<List<NotificationCategoryCountDto>>.Success(list));
+    }
+
+    public record NotificationCategoryCountDto(string Code, int Total, int Unread);
+
+    private async Task SyncBadgeSafeAsync()
+    {
+        try
+        {
+            await push.SyncBadgeAsync(CurrentUserId);
+        }
+        catch (Exception ex)
+        {
+            _logger.LogWarning(ex, "Sync FCM badge failed for {UserId}", CurrentUserId);
+        }
     }
 
     [HttpPost("read-all")]

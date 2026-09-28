@@ -9,6 +9,7 @@ import '../widgets/hrm_page_chrome.dart';
 import '../widgets/notification_overlay.dart';
 
 import '../theme/sbox_tokens.dart';
+import '../widgets/sbox/sbox_ui.dart';
 /// Kiểu tham số kỳ của báo cáo.
 enum _PeriodKind { range, month, year, none }
 
@@ -278,7 +279,24 @@ class _AnalyticsReportViewerState extends State<_AnalyticsReportViewer> {
           else if (_error != null)
             Text(_error!, style: const TextStyle(color: Colors.red))
           else ...[
-            if (scalars.isNotEmpty) _kpis(scalars),
+            if (scalars.isNotEmpty)
+              Padding(
+                padding: const EdgeInsets.only(bottom: 10),
+                child: SboxKpiStrip(items: [
+                  for (final e in scalars.take(12))
+                    SboxKpi(
+                      label: _label(e.key),
+                      value: _fmt(e.key, e.value),
+                      tone: SboxTone.values[1 + scalars.indexOf(e) % (SboxTone.values.length - 1)],
+                    ),
+                ]),
+              ),
+            if (lists.isNotEmpty) ...[
+              for (final c in [
+                for (final l in lists.take(2)) _autoChart(l.key, (l.value as List).whereType<Map>().toList()),
+              ].whereType<Widget>())
+                Padding(padding: const EdgeInsets.only(bottom: 10), child: c),
+            ],
             for (final b in blocks)
               _kpis((b.value as Map).entries
                   .where((e) => _isScalar(e.value))
@@ -342,6 +360,63 @@ class _AnalyticsReportViewerState extends State<_AnalyticsReportViewer> {
         ),
       );
 
+  static const _valueHints = ['revenue', 'amount', 'total', 'salary', 'net', 'profit', 'hours', 'value', 'count', 'qty', 'days'];
+
+  bool _isDateText(dynamic v) => v is String && RegExp(r'^\d{4}-\d{2}-\d{2}').hasMatch(v);
+
+  /// Tự chọn biểu đồ cho một danh sách: có cột ngày → cột theo ngày; có cột tên → xếp hạng top 10.
+  Widget? _autoChart(String key, List<Map> rows) {
+    if (rows.length < 2) return null;
+    final sample = rows.take(30).toList();
+    final keys = <String>[];
+    for (final r in sample) {
+      for (final k in r.keys) {
+        if (!keys.contains('$k') && !'$k'.toLowerCase().endsWith('id')) keys.add('$k');
+      }
+    }
+    bool mostly(String k, bool Function(dynamic) f) => sample.where((r) => f(r[k])).length >= sample.length * 0.7;
+    final nums = keys.where((k) => mostly(k, (v) => v is num && v is! bool)).toList();
+    if (nums.isEmpty) return null;
+    String? pickValue() {
+      for (final h in _valueHints) {
+        final m = nums.where((k) => k.toLowerCase().contains(h));
+        if (m.isNotEmpty) return m.first;
+      }
+      return nums.first;
+    }
+
+    final valueKey = pickValue()!;
+    final dateKey = keys.where((k) => mostly(k, _isDateText)).firstOrNull;
+    final labelKey = keys.where((k) => mostly(k, (v) => v is String && !_isDateText(v) && '$v'.isNotEmpty)).firstOrNull;
+    double val(Map r) => (r[valueKey] as num?)?.toDouble() ?? 0;
+    final money = RegExp('revenue|amount|salary|profit|net|total|value|price|cost', caseSensitive: false).hasMatch(valueKey);
+    String fmtV(num? v) => money ? SboxFmt.money(v) : SboxFmt.number(v);
+
+    if (dateKey != null && rows.length <= 62) {
+      final sorted = [...rows]..sort((a, b) => '${a[dateKey]}'.compareTo('${b[dateKey]}'));
+      return SboxChartCard(
+        title: '${tr(_label(valueKey))} theo ${tr(_label(dateKey)).toLowerCase()}',
+        subtitle: tr(_label(key)),
+        child: SboxBarChart(
+          valueFormat: fmtV,
+          axisFormat: (v) => SboxFmt.compact(v),
+          labels: [for (final r in sorted) sboxDayLabel(r[dateKey])],
+          series: [SboxSeries(name: _label(valueKey), values: [for (final r in sorted) val(r)])],
+        ),
+      );
+    }
+    if (labelKey == null) return null;
+    return SboxChartCard(
+      title: 'Top ${tr(_label(valueKey)).toLowerCase()}',
+      subtitle: tr(_label(key)),
+      child: SboxRankList(
+        maxItems: 10,
+        valueFormat: fmtV,
+        items: [for (final r in rows) SboxSlice('${r[labelKey] ?? '—'}', val(r))],
+      ),
+    );
+  }
+
   Widget _table(String key, List<Map> rows) {
     final cols = <String>[];
     for (final r in rows.take(20)) {
@@ -353,40 +428,36 @@ class _AnalyticsReportViewerState extends State<_AnalyticsReportViewer> {
     final visible = _search.isEmpty
         ? rows
         : rows.where((r) => r.values.any((v) => '$v'.toLowerCase().contains(_search))).toList();
-    return Card(
-      elevation: 0,
-      margin: const EdgeInsets.only(bottom: 10),
-      child: Padding(
-        padding: const EdgeInsets.all(8),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Padding(
-              padding: const EdgeInsets.fromLTRB(4, 4, 4, 8),
-              child: Text('${tr(_label(key))} (${visible.length})',
-                  style: const TextStyle(fontWeight: FontWeight.w700)),
-            ),
-            SingleChildScrollView(
-              scrollDirection: Axis.horizontal,
-              child: DataTable(
-                headingRowHeight: 36,
-                dataRowMinHeight: 32,
-                dataRowMaxHeight: 48,
-                columnSpacing: 18,
-                columns: [for (final c in cols) DataColumn(label: Text(tr(_label(c))))],
-                rows: [
-                  for (final r in visible.take(500))
-                    DataRow(cells: [for (final c in cols) DataCell(Text(_fmt(c, r[c])))]),
-                ],
-              ),
-            ),
-            if (visible.length > 500)
-              Padding(
-                padding: const EdgeInsets.all(8),
-                child: Text(tr('Hiển thị 500 / ${visible.length} dòng — xuất Excel để xem đủ.')),
-              ),
-          ],
-        ),
+    bool numericCol(String c) => rows.take(20).any((r) => r[c] is num && r[c] is! bool);
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 12),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          Padding(
+            padding: const EdgeInsets.fromLTRB(4, 4, 4, 8),
+            child: Text('${tr(_label(key))} (${visible.length})', style: SboxType.titleSmStyle()),
+          ),
+          SboxDataTable<Map>(
+            rows: visible,
+            pageSize: 20,
+            emptyTitle: 'Không có dòng phù hợp',
+            columns: [
+              for (var i = 0; i < cols.length; i++)
+                SboxColumn<Map>(
+                  label: _label(cols[i]),
+                  primary: i == 0,
+                  numeric: numericCol(cols[i]),
+                  minWidth: 110,
+                  hideOnMobile: i >= 4,
+                  text: (r) => _fmt(cols[i], r[cols[i]]),
+                  sortValue: numericCol(cols[i])
+                      ? (r) => ((r[cols[i]] as num?) ?? 0) as Comparable<Object?>
+                      : (r) => '${r[cols[i]] ?? ''}' as Comparable<Object?>,
+                ),
+            ],
+          ),
+        ],
       ),
     );
   }

@@ -13,6 +13,8 @@ internal sealed class SaleStockPlan
     public Dictionary<Guid, List<PosProductComboLine>> ComboLinesMap { get; init; } = [];
     public Dictionary<Guid, List<PosProductRecipeLine>> RecipeLinesMap { get; init; } = [];
     public HashSet<Guid> ProductsNeedingVariantSync { get; } = [];
+    /// <summary>Cửa hàng cho bán âm kho — trừ lô FEFO được phép thiếu.</summary>
+    public bool AllowNegativeStock { get; init; }
 }
 
 internal static class PosSaleStockHelper
@@ -408,7 +410,8 @@ internal static class PosSaleStockHelper
         }
 
         var (allocations, lotErr) = await PosStockLotHelper.AllocateFefoAsync(
-            db, storeId, product.Id, variantId, baseDeduct, product, createdBy);
+            db, storeId, product.Id, variantId, baseDeduct, product, createdBy,
+            allowShortfall: plan.AllowNegativeStock);
         if (lotErr != null)
             throw new InvalidOperationException(lotErr);
 
@@ -442,14 +445,15 @@ internal static class PosSaleStockHelper
         PosProduct component,
         decimal deduct,
         string note,
-        string? createdBy)
+        string? createdBy,
+        bool allowShortfall)
     {
         component.OnHandQty -= deduct;
         component.UpdatedAt = DateTime.UtcNow;
         component.UpdatedBy = createdBy;
 
         var (allocations, lotErr) = await PosStockLotHelper.AllocateFefoAsync(
-            db, storeId, component.Id, null, deduct, component, createdBy);
+            db, storeId, component.Id, null, deduct, component, createdBy, allowShortfall);
         if (lotErr != null)
             throw new InvalidOperationException(lotErr);
 
@@ -777,6 +781,7 @@ internal static class PosSaleStockHelper
             Variants = variants,
             ComboLinesMap = comboLinesMap,
             RecipeLinesMap = recipeLinesMap,
+            AllowNegativeStock = allowNegativeStock,
         }, null);
     }
 
@@ -817,7 +822,7 @@ internal static class PosSaleStockHelper
                     var deduct = cl.Qty * deductQty;
                     await ApplyFefoComboComponentSaleAsync(
                         db, storeId, order, comp, deduct,
-                        $"Định lượng: {p.Name}", createdBy);
+                        $"Định lượng: {p.Name}", createdBy, plan.AllowNegativeStock);
                 }
             }
             else if (p.ProductType == PosProductType.Combo &&
@@ -830,7 +835,7 @@ internal static class PosSaleStockHelper
                     var deduct = cl.Qty * deductQty;
                     await ApplyFefoComboComponentSaleAsync(
                         db, storeId, order, comp, deduct,
-                        $"Bán combo: {p.Name}", createdBy);
+                        $"Bán combo: {p.Name}", createdBy, plan.AllowNegativeStock);
                 }
                 if (p.ComboTrackStock)
                 {

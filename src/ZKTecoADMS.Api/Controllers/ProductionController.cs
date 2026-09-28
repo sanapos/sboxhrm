@@ -9,13 +9,14 @@ using ZKTecoADMS.Application.Models;
 using ZKTecoADMS.Domain.Entities;
 using ZKTecoADMS.Domain.Enums;
 using ZKTecoADMS.Infrastructure;
+using ZKTecoADMS.Api.Services.Production;
 
 namespace ZKTecoADMS.Api.Controllers;
 
 [ApiController]
 [Route("api/[controller]")]
 [Authorize]
-public class ProductionController(
+public partial class ProductionController(
     ZKTecoDbContext dbContext,
     IKpiGoogleSheetService kpiSheetService,
     ISystemNotificationService notificationService,
@@ -168,6 +169,8 @@ public class ProductionController(
     public async Task<ActionResult<AppResponse<ProductItemDto>>> CreateItem([FromBody] ProductItemCreateDto dto)
     {
         var storeId = RequiredStoreId;
+        if (await ItemCodeTakenAsync(storeId, dto.Code, null))
+            return BadRequest(AppResponse<ProductItemDto>.Fail($"Mã sản phẩm «{dto.Code}» đã tồn tại"));
         var item = new ProductItem
         {
             Code = dto.Code,
@@ -224,6 +227,8 @@ public class ProductionController(
             .Include(p => p.PriceTiers)
             .FirstOrDefaultAsync(p => p.Id == id && p.StoreId == storeId && p.Deleted == null);
         if (item == null) return NotFound(AppResponse<ProductItemDto>.Fail("Không tìm thấy sản phẩm"));
+        if (await ItemCodeTakenAsync(storeId, dto.Code, id))
+            return BadRequest(AppResponse<ProductItemDto>.Fail($"Mã sản phẩm «{dto.Code}» đã tồn tại"));
 
         item.Code = dto.Code;
         item.Name = dto.Name;
@@ -307,7 +312,7 @@ public class ProductionController(
         }
 
         if (fromDate.HasValue) query = query.Where(e => e.WorkDate >= fromDate.Value.Date);
-        if (toDate.HasValue) query = query.Where(e => e.WorkDate <= toDate.Value.Date.AddDays(1));
+        if (toDate.HasValue) query = query.Where(e => e.WorkDate < toDate.Value.Date.AddDays(1));
         if (employeeId.HasValue) query = query.Where(e => e.EmployeeId == employeeId.Value);
         if (productItemId.HasValue) query = query.Where(e => e.ProductItemId == productItemId.Value);
         if (productGroupId.HasValue) query = query.Where(e => e.ProductItem.ProductGroupId == productGroupId.Value);
@@ -332,9 +337,10 @@ public class ProductionController(
     public async Task<ActionResult<AppResponse<ProductionEntryDto>>> CreateEntry([FromBody] ProductionEntryCreateDto dto)
     {
         var storeId = RequiredStoreId;
-
-        // Calculate amount based on price tiers
-        var amount = await CalculateAmount(dto.ProductItemId, dto.Quantity, dto.EmployeeId, dto.WorkDate, storeId);
+        if (dto.Quantity <= 0)
+            return BadRequest(AppResponse<ProductionEntryDto>.Fail("Số lượng phải lớn hơn 0"));
+        var lockErr = await LockErrorAsync(storeId, [(dto.EmployeeId, dto.WorkDate)]);
+        if (lockErr != null) return BadRequest(AppResponse<ProductionEntryDto>.Fail(lockErr));
 
         var entry = new ProductionEntry
         {
@@ -342,15 +348,13 @@ public class ProductionController(
             ProductItemId = dto.ProductItemId,
             WorkDate = dto.WorkDate.Date,
             Quantity = dto.Quantity,
-            UnitPrice = amount.unitPrice,
-            Amount = amount.total,
             Note = dto.Note,
             StoreId = storeId,
             IsActive = true,
             CreatedBy = CurrentUserId.ToString(),
         };
         dbContext.ProductionEntries.Add(entry);
-        await dbContext.SaveChangesAsync();
+        await SaveAndRepriceAsync(storeId);
 
         // Reload with navigation properties
         await dbContext.Entry(entry).Reference(e => e.Employee).LoadAsync();
@@ -394,6 +398,9 @@ public class ProductionController(
             .Select(e => e.EmployeeId + "|" + e.ProductItemId + "|" + e.WorkDate.Date)
             .ToListAsync();
         var existingSet = existingKeys.ToHashSet();
+        var locked = await ProductionPricing.LockedEmployeeMonthsAsync(
+            dbContext, storeId, dto.Entries.Select(e => (e.EmployeeId, e.WorkDate)));
+        int lockedSkipped = 0;
 
         foreach (var item in dto.Entries)
         {
@@ -403,16 +410,19 @@ public class ProductionController(
                 duplicateSkipped++;
                 continue;
             }
+            if (item.Quantity <= 0) continue;
+            if (locked.Contains(ProductionPricing.LockKey(item.EmployeeId, item.WorkDate)))
+            {
+                lockedSkipped++;
+                continue;
+            }
 
-            var amount = await CalculateAmount(item.ProductItemId, item.Quantity, item.EmployeeId, item.WorkDate, storeId);
             entries.Add(new ProductionEntry
             {
                 EmployeeId = item.EmployeeId,
                 ProductItemId = item.ProductItemId,
                 WorkDate = item.WorkDate.Date,
                 Quantity = item.Quantity,
-                UnitPrice = amount.unitPrice,
-                Amount = amount.total,
                 Note = item.Note,
                 StoreId = storeId,
                 IsActive = true,
@@ -421,7 +431,7 @@ public class ProductionController(
         }
 
         dbContext.ProductionEntries.AddRange(entries);
-        await dbContext.SaveChangesAsync();
+        await SaveAndRepriceAsync(storeId);
 
         // Batch notification
         try
@@ -444,7 +454,7 @@ public class ProductionController(
         }
         catch { }
 
-        return Ok(AppResponse<object>.Success(new { created = entries.Count, duplicateSkipped }));
+        return Ok(AppResponse<object>.Success(new { created = entries.Count, duplicateSkipped, lockedSkipped }));
     }
 
     [HttpPut("entries/{id}")]
@@ -457,20 +467,21 @@ public class ProductionController(
             .Include(e => e.ProductItem).ThenInclude(p => p.ProductGroup)
             .FirstOrDefaultAsync(e => e.Id == id && e.StoreId == storeId && e.Deleted == null);
         if (entry == null) return NotFound(AppResponse<ProductionEntryDto>.Fail("Không tìm thấy bản ghi"));
-
-        var amount = await CalculateAmount(dto.ProductItemId, dto.Quantity, dto.EmployeeId, dto.WorkDate, storeId, id);
+        if (dto.Quantity <= 0)
+            return BadRequest(AppResponse<ProductionEntryDto>.Fail("Số lượng phải lớn hơn 0"));
+        var lockErr = await LockErrorAsync(storeId,
+            [(entry.EmployeeId, entry.WorkDate), (dto.EmployeeId, dto.WorkDate)]);
+        if (lockErr != null) return BadRequest(AppResponse<ProductionEntryDto>.Fail(lockErr));
 
         entry.EmployeeId = dto.EmployeeId;
         entry.ProductItemId = dto.ProductItemId;
         entry.WorkDate = dto.WorkDate.Date;
         entry.Quantity = dto.Quantity;
-        entry.UnitPrice = amount.unitPrice;
-        entry.Amount = amount.total;
         entry.Note = dto.Note;
         entry.UpdatedAt = DateTime.Now;
         entry.UpdatedBy = CurrentUserId.ToString();
 
-        await dbContext.SaveChangesAsync();
+        await SaveAndRepriceAsync(storeId);
 
         // Reload navigation properties in case FKs changed
         await dbContext.Entry(entry).Reference(e => e.Employee).LoadAsync();
@@ -508,6 +519,8 @@ public class ProductionController(
             .Include(e => e.ProductItem)
             .FirstOrDefaultAsync(e => e.Id == id && e.StoreId == storeId && e.Deleted == null);
         if (entry == null) return NotFound(AppResponse<bool>.Fail("Không tìm thấy bản ghi"));
+        var lockErr = await LockErrorAsync(storeId, [(entry.EmployeeId, entry.WorkDate)]);
+        if (lockErr != null) return BadRequest(AppResponse<bool>.Fail(lockErr));
 
         var empUserId = entry.Employee?.ApplicationUserId;
         var productName = entry.ProductItem?.Name;
@@ -516,7 +529,7 @@ public class ProductionController(
 
         entry.Deleted = DateTime.Now;
         entry.DeletedBy = CurrentUserId.ToString();
-        await dbContext.SaveChangesAsync();
+        await SaveAndRepriceAsync(storeId);
 
         // Notification
         try
@@ -559,7 +572,7 @@ public class ProductionController(
             .Include(e => e.Employee)
             .Include(e => e.ProductItem).ThenInclude(p => p.ProductGroup)
             .Where(e => e.StoreId == storeId && e.Deleted == null
-                && e.WorkDate >= fromDate.Date && e.WorkDate <= toDate.Date.AddDays(1));
+                && e.WorkDate >= fromDate.Date && e.WorkDate < toDate.Date.AddDays(1));
 
         if (employeeId.HasValue) query = query.Where(e => e.EmployeeId == employeeId.Value);
         if (productGroupId.HasValue) query = query.Where(e => e.ProductItem.ProductGroupId == productGroupId.Value);
@@ -601,7 +614,7 @@ public class ProductionController(
             .Include(e => e.Employee)
             .Include(e => e.ProductItem).ThenInclude(p => p.ProductGroup)
             .Where(e => e.StoreId == storeId && e.Deleted == null
-                && e.WorkDate >= fromDate.Date && e.WorkDate <= toDate.Date.AddDays(1));
+                && e.WorkDate >= fromDate.Date && e.WorkDate < toDate.Date.AddDays(1));
 
         if (employeeId.HasValue) query = query.Where(e => e.EmployeeId == employeeId.Value);
         if (productGroupId.HasValue) query = query.Where(e => e.ProductItem.ProductGroupId == productGroupId.Value);
@@ -638,8 +651,9 @@ public class ProductionController(
             .Select(p => new { p.Id, p.Code })
             .ToListAsync();
 
-        int created = 0;
+        int created = 0, updated = 0;
         var errors = new List<string>();
+        var upsert = new EntryUpserter(dbContext, storeId, CurrentUserId.ToString());
 
         foreach (var row in dto.Rows)
         {
@@ -679,24 +693,14 @@ public class ProductionController(
                 }
             }
 
-            var amount = await CalculateAmount(prod.Id, row.Quantity, emp.Id, entryDate, storeId);
-            dbContext.ProductionEntries.Add(new ProductionEntry
-            {
-                EmployeeId = emp.Id,
-                ProductItemId = prod.Id,
-                WorkDate = entryDate,
-                Quantity = row.Quantity,
-                UnitPrice = amount.unitPrice,
-                Amount = amount.total,
-                Note = row.Note ?? "Excel import",
-                StoreId = storeId,
-                IsActive = true,
-                CreatedBy = CurrentUserId.ToString(),
-            });
-            created++;
+            var outcome = await upsert.UpsertAsync(emp.Id, prod.Id, entryDate, row.Quantity, row.Note ?? "Excel import");
+            if (outcome == UpsertOutcome.Locked)
+                errors.Add($"NV '{row.EmployeeCode}' tháng {entryDate:MM/yyyy} đã chốt lương — bỏ qua");
+            else if (outcome == UpsertOutcome.Updated) updated++;
+            else created++;
         }
 
-        await dbContext.SaveChangesAsync();
+        await SaveAndRepriceAsync(storeId);
 
         // Notification for import
         try
@@ -715,6 +719,7 @@ public class ProductionController(
         return Ok(AppResponse<object>.Success(new
         {
             created,
+            updated,
             totalRows = dto.Rows.Count,
             errors = errors.Take(20).ToList()
         }));
@@ -799,6 +804,7 @@ public class ProductionController(
 
             int created = 0;
             var errors = new List<string>();
+            var upsert = new EntryUpserter(dbContext, storeId, CurrentUserId.ToString());
 
             foreach (var row in sheetData)
             {
@@ -830,25 +836,15 @@ public class ProductionController(
                         continue;
                     }
 
-                    var amount = await CalculateAmount(prod.Id, quantity, emp.Id, dto.WorkDate, storeId);
-                    dbContext.ProductionEntries.Add(new ProductionEntry
-                    {
-                        EmployeeId = emp.Id,
-                        ProductItemId = prod.Id,
-                        WorkDate = dto.WorkDate.Date,
-                        Quantity = quantity,
-                        UnitPrice = amount.unitPrice,
-                        Amount = amount.total,
-                        Note = "Google Sheet sync",
-                        StoreId = storeId,
-                        IsActive = true,
-                        CreatedBy = CurrentUserId.ToString(),
-                    });
-                    created++;
+                    // Đồng bộ lại cùng ngày: cập nhật số lượng thay vì nhân đôi dòng.
+                    var outcome = await upsert.UpsertAsync(emp.Id, prod.Id, dto.WorkDate.Date, quantity, "Google Sheet sync");
+                    if (outcome == UpsertOutcome.Locked)
+                        errors.Add($"NV '{row.EmployeeCode}' tháng {dto.WorkDate:MM/yyyy} đã chốt lương — bỏ qua");
+                    else created++;
                 }
             }
 
-            await dbContext.SaveChangesAsync();
+            await SaveAndRepriceAsync(storeId);
             return Ok(AppResponse<object>.Success(new
             {
                 created,
@@ -887,6 +883,7 @@ public class ProductionController(
                 .ToListAsync();
 
             int totalCreated = 0;
+            var upsert = new EntryUpserter(dbContext, storeId, CurrentUserId.ToString());
             var errors = new List<string>();
 
             foreach (var tab in dto.Tabs)
@@ -924,21 +921,11 @@ public class ProductionController(
                                 continue;
                             }
 
-                            var amount = await CalculateAmount(prod.Id, quantity, emp.Id, tab.WorkDate, storeId);
-                            dbContext.ProductionEntries.Add(new ProductionEntry
-                            {
-                                EmployeeId = emp.Id,
-                                ProductItemId = prod.Id,
-                                WorkDate = tab.WorkDate.Date,
-                                Quantity = quantity,
-                                UnitPrice = amount.unitPrice,
-                                Amount = amount.total,
-                                Note = $"GSheet sync - {tab.SheetName}",
-                                StoreId = storeId,
-                                IsActive = true,
-                                CreatedBy = CurrentUserId.ToString(),
-                            });
-                            totalCreated++;
+                            var outcome = await upsert.UpsertAsync(
+                                emp.Id, prod.Id, tab.WorkDate.Date, quantity, $"GSheet sync - {tab.SheetName}");
+                            if (outcome == UpsertOutcome.Locked)
+                                errors.Add($"[{tab.SheetName}] NV '{row.EmployeeCode}' đã chốt lương tháng {tab.WorkDate:MM/yyyy} — bỏ qua");
+                            else totalCreated++;
                         }
                     }
                 }
@@ -948,7 +935,7 @@ public class ProductionController(
                 }
             }
 
-            await dbContext.SaveChangesAsync();
+            await SaveAndRepriceAsync(storeId);
             return Ok(AppResponse<object>.Success(new
             {
                 created = totalCreated,
@@ -963,76 +950,6 @@ public class ProductionController(
     }
 
     // â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â• HELPERS â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
-
-    private async Task<(decimal unitPrice, decimal total)> CalculateAmount(
-        Guid productItemId, decimal quantity, Guid employeeId, DateTime workDate, Guid storeId,
-        Guid? excludeEntryId = null)
-    {
-        // Get total quantity for this employee + product in the same month (for tiered pricing)
-        var monthStart = new DateTime(workDate.Year, workDate.Month, 1);
-        var monthEnd = monthStart.AddMonths(1);
-
-        var qry = dbContext.ProductionEntries
-            .Where(e => e.EmployeeId == employeeId && e.ProductItemId == productItemId
-                && e.WorkDate >= monthStart && e.WorkDate < monthEnd
-                && e.StoreId == storeId && e.Deleted == null);
-        if (excludeEntryId.HasValue)
-            qry = qry.Where(e => e.Id != excludeEntryId.Value);
-        var existingQty = await qry.SumAsync(e => e.Quantity);
-
-        // Get price tiers
-        var tiers = await dbContext.ProductPriceTiers
-            .Where(t => t.ProductItemId == productItemId && t.Deleted == null)
-            .OrderBy(t => t.TierLevel)
-            .ToListAsync();
-
-        if (!tiers.Any())
-            return (0, 0);
-
-        // Progressive tiered pricing:
-        // Total cost for (existingQty + quantity) minus total cost for existingQty
-        // = cost attributable to this entry only
-        var totalForAll = CalculateProgressiveTotal(tiers, existingQty + quantity);
-        var totalForExisting = CalculateProgressiveTotal(tiers, existingQty);
-        var total = totalForAll - totalForExisting;
-        var unitPrice = quantity > 0 ? Math.Round(total / quantity, 0) : 0;
-
-        return (unitPrice, total);
-    }
-
-    /// <summary>
-    /// Tính tổng tiền lũy tiến theo bậc cho một số lượng cho trước.
-    /// Ví dụ: Bậc 1 (1-100) = 5000đ, Bậc 2 (101-200) = 6000đ
-    /// → 150 SP = 100Ã—5000 + 50Ã—6000 = 800.000đ
-    /// </summary>
-    private static decimal CalculateProgressiveTotal(List<ProductPriceTier> tiers, decimal quantity)
-    {
-        if (quantity <= 0) return 0;
-
-        decimal total = 0;
-        decimal counted = 0; // số lượng đã tính qua các bậc trước
-
-        foreach (var tier in tiers.OrderBy(t => t.TierLevel))
-        {
-            if (counted >= quantity) break;
-
-            // Số lượng thuộc bậc này = min(quantity, maxOfTier) - counted
-            decimal tierEnd = tier.MaxQuantity.HasValue ? tier.MaxQuantity.Value : quantity;
-            decimal qtyInTier = Math.Min(quantity, tierEnd) - counted;
-            if (qtyInTier <= 0) continue;
-
-            total += qtyInTier * tier.UnitPrice;
-            counted += qtyInTier;
-        }
-
-        // Nếu vượt tất cả bậc, phần dư dùng giá bậc cao nhất
-        if (counted < quantity && tiers.Any())
-        {
-            total += (quantity - counted) * tiers.Last().UnitPrice;
-        }
-
-        return total;
-    }
 
     private static string NormalizeCode(string code)
     {

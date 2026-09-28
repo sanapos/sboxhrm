@@ -1,3 +1,4 @@
+using ZKTecoADMS.Api.Services.Assets;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
@@ -44,6 +45,12 @@ public class AssetReportsController(
         }
     }
 
+    // GET /api/reports/assets/dashboard — tổng quan (giá trị còn lại, khấu hao, phân bổ, việc cần xử lý)
+    [HttpGet("dashboard")]
+    [RequireModulePermission("AssetReport", ModulePermissionAction.View)]
+    public async Task<IActionResult> GetDashboard(CancellationToken ct = default) =>
+        Ok(AppResponse<object>.Success(await AssetDashboardBuilder.BuildAsync(db, RequiredStoreId, ct)));
+
     // GET /api/reports/assets/register?status=&assetType=&categoryId=&search=&format=excel
     [HttpGet("register")]
     [RequireModulePermission("AssetReport", ModulePermissionAction.View)]
@@ -63,7 +70,7 @@ public class AssetReportsController(
             {
                 TotalCount = items.Count,
                 TotalPurchaseValue = assets.Sum(a => a.PurchasePrice * a.Quantity),
-                TotalCurrentValue = assets.Sum(a => (a.CurrentValue ?? a.PurchasePrice) * a.Quantity),
+                TotalCurrentValue = assets.Sum(a => AssetValuation.BookValue(a, DateTime.UtcNow)),
                 Items = items
             };
 
@@ -155,7 +162,7 @@ public class AssetReportsController(
                     EmployeeName = $"{r.Emp.FirstName} {r.Emp.LastName}".Trim(),
                     Department = r.Dept,
                     AssignedDate = r.Asset.AssignedDate,
-                    Value = r.Asset.CurrentValue ?? r.Asset.PurchasePrice
+                    Value = AssetValuation.BookValue(r.Asset, DateTime.UtcNow)
                 })
                 .OrderBy(i => i.Department).ThenBy(i => i.EmployeeName)
                 .ToList();
@@ -169,7 +176,7 @@ public class AssetReportsController(
                 BrokenCount = all.Count(a => a.Status == AssetStatus.Broken),
                 LostCount = all.Count(a => a.Status == AssetStatus.Lost),
                 DisposedCount = all.Count(a => a.Status == AssetStatus.Disposed),
-                TotalValue = all.Sum(a => a.CurrentValue ?? a.PurchasePrice),
+                TotalValue = all.Sum(a => AssetValuation.BookValue(a, DateTime.UtcNow)),
                 ByStatus = byStatus,
                 Assignments = assignments
             };
@@ -606,7 +613,7 @@ public class AssetReportsController(
             BrokenAssets = assets.Count(a => a.Status == AssetStatus.Broken),
             DisposedAssets = assets.Count(a => a.Status == AssetStatus.Disposed),
             TotalPurchaseValue = assets.Sum(a => a.PurchasePrice * a.Quantity),
-            TotalCurrentValue = assets.Sum(a => (a.CurrentValue ?? a.PurchasePrice) * a.Quantity),
+            TotalCurrentValue = assets.Sum(a => AssetValuation.BookValue(a, DateTime.UtcNow)),
             WarrantyExpiringSoon = assets.Count(a =>
                 a.WarrantyExpiry.HasValue &&
                 a.WarrantyExpiry.Value <= warningDate &&
@@ -654,7 +661,7 @@ public class AssetReportsController(
         Quantity = a.Quantity,
         Unit = a.Unit,
         PurchasePrice = a.PurchasePrice,
-        CurrentValue = a.CurrentValue,
+        CurrentValue = AssetValuation.UnitBookValue(a, DateTime.UtcNow),
         Location = a.Location,
         AssigneeName = a.CurrentAssigneeName,
         AssignedDate = a.AssignedDate,

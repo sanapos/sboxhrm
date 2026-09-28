@@ -15,7 +15,9 @@ public record GetUserNotificationsQuery(
     int Page = 1,
     int PageSize = 20,
     bool? IsRead = null,
-    NotificationType? Type = null) : IQuery<AppResponse<PagedResult<NotificationDto>>>;
+    NotificationType? Type = null,
+    IReadOnlyCollection<string>? Categories = null,
+    string? Search = null) : IQuery<AppResponse<PagedResult<NotificationDto>>>;
 
 internal static class NotificationVisibilityFilter
 {
@@ -55,7 +57,7 @@ public class GetUserNotificationsHandler(
         {
             Expression<Func<Notification, bool>> filter = NotificationUserScope.FilterForUser(
                 request.UserId, request.StoreId, request.IsCrossStoreUser,
-                request.IsRead, request.Type);
+                request.IsRead, request.Type, request.Categories, request.Search);
 
             var totalCount = await notificationRepository.CountAsync(filter, cancellationToken);
 

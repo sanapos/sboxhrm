@@ -77,6 +77,15 @@ public class WorkTaskConfiguration : IEntityTypeConfiguration<WorkTask>
             .HasForeignKey(e => e.AssigneeId)
             .OnDelete(DeleteBehavior.SetNull);
         
+        builder.Property(e => e.StageKey).HasMaxLength(40);
+        builder.Property(e => e.Location).HasMaxLength(300);
+        builder.HasIndex(e => new { e.StoreId, e.ProjectId })
+            .HasDatabaseName("IX_WorkTasks_Store_Project");
+        builder.HasOne(e => e.Project)
+            .WithMany(p => p.Tasks)
+            .HasForeignKey(e => e.ProjectId)
+            .OnDelete(DeleteBehavior.SetNull);
+
         builder.HasOne(e => e.ParentTask)
             .WithMany(e => e.SubTasks)
             .HasForeignKey(e => e.ParentTaskId)
@@ -280,9 +289,41 @@ public class TaskTemplateConfiguration : IEntityTypeConfiguration<TaskTemplate>
         builder.Property(e => e.Description).HasMaxLength(2000);
         builder.Property(e => e.Tags).HasMaxLength(500);
         builder.Property(e => e.Checklist).HasMaxLength(4000);
+        builder.Property(e => e.IndustryKey).HasMaxLength(40);
+        builder.Property(e => e.StageKey).HasMaxLength(40);
+        builder.Property(e => e.RecurrenceDays).HasMaxLength(100);
+        builder.Property(e => e.RecurrenceTime).HasMaxLength(5);
+        builder.Property(e => e.DefaultAssigneeIds).HasMaxLength(2000);
         builder.HasIndex(e => e.StoreId);
+        builder.HasIndex(e => new { e.RecurrenceType, e.NextRunAt })
+            .HasDatabaseName("IX_TaskTemplates_Recurrence_NextRun");
         builder.HasOne(e => e.Store).WithMany().HasForeignKey(e => e.StoreId)
             .OnDelete(DeleteBehavior.Cascade);
+    }
+}
+
+public class TaskProjectConfiguration : IEntityTypeConfiguration<TaskProject>
+{
+    public void Configure(EntityTypeBuilder<TaskProject> builder)
+    {
+        builder.ToTable("TaskProjects");
+        builder.HasKey(e => e.Id);
+        builder.Property(e => e.Code).HasMaxLength(32).IsRequired();
+        builder.Property(e => e.Name).HasMaxLength(200).IsRequired();
+        builder.Property(e => e.Description).HasMaxLength(4000);
+        builder.Property(e => e.IndustryKey).HasMaxLength(40);
+        builder.Property(e => e.Color).HasMaxLength(9);
+        builder.Property(e => e.CustomerName).HasMaxLength(200);
+        builder.Property(e => e.CustomerPhone).HasMaxLength(30);
+        builder.Property(e => e.Address).HasMaxLength(300);
+        builder.Property(e => e.Budget).HasColumnType("numeric(18,2)");
+        builder.Property(e => e.Stages).HasMaxLength(4000);
+        builder.HasIndex(e => new { e.StoreId, e.Status }).HasDatabaseName("IX_TaskProjects_Store_Status");
+        builder.HasIndex(e => new { e.StoreId, e.Code }).IsUnique().HasDatabaseName("IX_TaskProjects_Store_Code");
+        builder.HasOne(e => e.Store).WithMany().HasForeignKey(e => e.StoreId)
+            .OnDelete(DeleteBehavior.Cascade);
+        builder.HasOne(e => e.OwnerEmployee).WithMany().HasForeignKey(e => e.OwnerEmployeeId)
+            .OnDelete(DeleteBehavior.SetNull);
     }
 }
 

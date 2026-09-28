@@ -6,6 +6,7 @@ import 'package:intl/intl.dart';
 import 'package:provider/provider.dart';
 
 import '../models/pos_einvoice.dart';
+import '../utils/pos_einvoice_actions.dart';
 import '../models/pos_sale_order.dart';
 import '../providers/auth_provider.dart';
 import '../providers/permission_provider.dart';
@@ -669,6 +670,22 @@ class _PosSaleOrderListScreenState extends State<PosSaleOrderListScreen> {
                   invoiceNo: o.eInvoiceNo,
                 ))),
               ),
+              if (posEInvoiceCanView(st))
+                tile(Icons.picture_as_pdf_outlined, 'Xem lại hóa đơn (PDF)',
+                    () => PosEInvoiceActions.viewTarget(
+                        context, _api, PosEInvoiceTarget.fromOrder(o))),
+              if (st == 'Issued')
+                tile(Icons.share_outlined, 'Gửi HĐĐT qua ứng dụng khác (Zalo, email…)',
+                    () => PosEInvoiceActions.share(
+                        context, _api, PosEInvoiceTarget.fromOrder(o))),
+              if (posEInvoiceCanPreviewDraft(st)) ...[
+                tile(Icons.preview_outlined, 'Xem bản nháp (chưa ký)',
+                    () => PosEInvoiceActions.viewTarget(
+                        context, _api, PosEInvoiceTarget.fromOrder(o))),
+                tile(Icons.ios_share, 'Gửi bản nháp cho khách kiểm tra',
+                    () => PosEInvoiceActions.share(
+                        context, _api, PosEInvoiceTarget.fromOrder(o))),
+              ],
               if (posEInvoiceCanIssue(st))
                 tile(Icons.send_outlined, 'Phát hành / xuất lại',
                     () => _issueEInvoice(o)),

@@ -46,8 +46,8 @@ public class ForgotPasswordCommandHandler(
         if (string.IsNullOrWhiteSpace(user.Email))
         {
             logger.LogWarning("ForgotPassword: User {UserId} has no email", user.Id);
-            return AppResponse<string>.Error(
-                "Tài khoản chưa có email. Vui lòng liên hệ quản trị viên để đặt lại mật khẩu.");
+            // Không báo riêng «tài khoản chưa có email» — tránh lộ tài khoản tồn tại
+            return AppResponse<string>.Success("Nếu email tồn tại trong hệ thống, chúng tôi đã gửi mã OTP xác nhận.");
         }
 
         if (await otpStore.IsSendCooldownActiveAsync(request.StoreCode, request.Email, cancellationToken))
@@ -57,7 +57,8 @@ public class ForgotPasswordCommandHandler(
         }
 
         // Tạo OTP 6 chữ số
-        var otp = Random.Shared.Next(100000, 999999).ToString();
+        // Sinh OTP bằng bộ sinh số ngẫu nhiên mật mã (Random.Shared đoán được)
+        var otp = System.Security.Cryptography.RandomNumberGenerator.GetInt32(100000, 1000000).ToString();
 
         // Tạo reset token và lưu cùng OTP (5 phút) — distributed cache
         var resetToken = await userManager.GeneratePasswordResetTokenAsync(user);

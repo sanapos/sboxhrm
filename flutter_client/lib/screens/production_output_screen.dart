@@ -20,6 +20,7 @@ import '../widgets/hrm_fab_clearance.dart';
 import '../widgets/hrm_page_chrome.dart';
 import '../widgets/notification_overlay.dart';
 import '../widgets/page_top_actions.dart';
+import 'production/production_report_view.dart';
 
 import '../theme/sbox_tokens.dart';
 /// Parse Excel trên isolate — tránh đơ UI khi bấm Import file lớn.
@@ -153,7 +154,7 @@ class _ProductionOutputScreenState extends State<ProductionOutputScreen>
   @override
   void initState() {
     super.initState();
-    _tabCtl = TabController(length: 2, vsync: this);
+    _tabCtl = TabController(length: 3, vsync: this);
     _tabCtl.addListener(() {
       if (!_tabCtl.indexIsChanging) {
         if (_tabCtl.index == 1) _loadSummary();
@@ -288,6 +289,7 @@ class _ProductionOutputScreenState extends State<ProductionOutputScreen>
                         tabs: [
                           Tab(text: tr('Chi tiết')),
                           Tab(text: tr('Tổng hợp')),
+                          Tab(text: tr('Báo cáo')),
                         ],
                       ),
                     ),
@@ -297,6 +299,14 @@ class _ProductionOutputScreenState extends State<ProductionOutputScreen>
                         children: [
                           _buildEntriesTab(),
                           _buildSummaryTab(),
+                          ProductionReportView(
+                            fromDate: _fromDate,
+                            toDate: _toDate,
+                            employeeId: _filterEmployeeId,
+                            productGroupId: _filterGroupId,
+                            canEdit: Provider.of<PermissionProvider>(context, listen: false)
+                                .canEdit('Production'),
+                          ),
                         ],
                       ),
                     ),
@@ -1110,8 +1120,10 @@ class _ProductionOutputScreenState extends State<ProductionOutputScreen>
     if (_tabCtl.index == 0) {
       _page = 1;
       _loadEntries();
-    } else {
+    } else if (_tabCtl.index == 1) {
       _loadSummary();
+    } else {
+      setState(() {}); // Báo cáo tự tải lại khi đổi kỳ / bộ lọc
     }
   }
 

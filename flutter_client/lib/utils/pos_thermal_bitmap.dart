@@ -3,6 +3,7 @@ import 'dart:ui' as ui;
 
 import 'package:flutter/material.dart';
 import 'package:http/http.dart' as http;
+import 'pos_einvoice_qr.dart';
 
 import 'vietnamese_font.dart';
 import '../l10n/app_tr.dart';
@@ -633,17 +634,26 @@ class PosThermalBitmapEncoder {
   }
 
   /// Tải VietQR rồi đặt giữa khổ giấy — T1 printImage ảnh nhỏ sẽ lệch trái.
+  /// Ảnh theo URL mạng, hoặc QR sinh tại máy khi URL dạng «qrdata:…» (QR tra cứu HĐĐT).
+  static Future<Uint8List?> _fetchImageBytes(String url) async {
+    final inline = posInlineQrData(url);
+    if (inline != null) return posQrPngBytes(inline, size: 420);
+    final res =
+        await http.get(Uri.parse(url)).timeout(const Duration(seconds: 12));
+    if (res.statusCode != 200) return null;
+    return res.bodyBytes;
+  }
+
   static Future<Uint8List?> qrCenteredOnPaper(
     String url, {
     required int paperDots,
   }) async {
     final qrDots = paperDots <= 384 ? 260 : 360;
     try {
-      final res =
-          await http.get(Uri.parse(url)).timeout(const Duration(seconds: 12));
-      if (res.statusCode != 200 || res.bodyBytes.isEmpty) return null;
+      final body = await _fetchImageBytes(url);
+      if (body == null || body.isEmpty) return null;
       final codec = await ui.instantiateImageCodec(
-        res.bodyBytes,
+        body,
         targetWidth: qrDots,
       );
       final frame = await codec.getNextFrame();
@@ -673,10 +683,10 @@ class PosThermalBitmapEncoder {
     int maxWidth = 280,
   }) async {
     try {
-      final res = await http.get(Uri.parse(url)).timeout(const Duration(seconds: 12));
-      if (res.statusCode != 200 || res.bodyBytes.isEmpty) return null;
+      final body = await _fetchImageBytes(url);
+      if (body == null || body.isEmpty) return null;
       final codec = await ui.instantiateImageCodec(
-        res.bodyBytes,
+        body,
         targetWidth: maxWidth,
       );
       final frame = await codec.getNextFrame();
@@ -693,10 +703,10 @@ class PosThermalBitmapEncoder {
     int maxWidth = 280,
   }) async {
     try {
-      final res = await http.get(Uri.parse(url)).timeout(const Duration(seconds: 12));
-      if (res.statusCode != 200 || res.bodyBytes.isEmpty) return null;
+      final body = await _fetchImageBytes(url);
+      if (body == null || body.isEmpty) return null;
       final codec = await ui.instantiateImageCodec(
-        res.bodyBytes,
+        body,
         targetWidth: maxWidth,
       );
       final frame = await codec.getNextFrame();

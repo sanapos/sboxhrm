@@ -22,6 +22,9 @@ import 'package:zkteco_flutter_client/l10n/app_tr.dart';
 
 import '../theme/sbox_tokens.dart';
 import '../widgets/sbox/sbox_table.dart';
+import '../widgets/sbox/sbox_charts.dart';
+import '../widgets/sbox/sbox_basics.dart';
+import '../widgets/sbox/sbox_report.dart';
 const _kiotBlue = PosTheme.kiotBlue;
 
 /// Báo cáo POS: doanh thu + tồn kho + lô/HSD (API `/api/pos/reports/*`).
@@ -678,9 +681,10 @@ class _PosReportsScreenState extends State<PosReportsScreen>
                   key: _stockPngKey,
                   child: ListView.builder(
                   padding: const EdgeInsets.symmetric(horizontal: 8),
-                  itemCount: _stockProducts.length,
+                  itemCount: _stockProducts.length + 1,
                   itemBuilder: (_, i) {
-                    final p = _stockProducts[i];
+                    if (i == 0) return _stockInsight();
+                    final p = _stockProducts[i - 1];
                     if (mobile) {
                       return Container(
                         margin: const EdgeInsets.only(bottom: 8),
@@ -722,6 +726,99 @@ class _PosReportsScreenState extends State<PosReportsScreen>
                   ),
                 ),
       ],
+    );
+  }
+
+  Widget _stockInsight() {
+    final sm = _stockSummary ?? const <String, dynamic>{};
+    final skus = _num(sm['totalSkus']);
+    final out = _num(sm['outOfStock']);
+    final below = _num(sm['belowMin']);
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(4, 0, 4, 4),
+      child: SboxInsightPanel(
+        kpis: [
+          SboxKpi(label: 'Giá trị tồn kho', value: SboxFmt.money(_num(sm['inventoryValue'])), icon: Icons.warehouse_outlined),
+          SboxKpi(label: 'Mặt hàng (SKU)', value: SboxFmt.number(skus), icon: Icons.category_outlined, tone: SboxTone.violet,
+              note: 'Tổng tồn ${SboxFmt.number(_num(sm['totalQty']))}'),
+          SboxKpi(label: 'Hết hàng', value: SboxFmt.number(out), icon: Icons.remove_shopping_cart_outlined, tone: SboxTone.danger),
+          SboxKpi(label: 'Dưới tồn tối thiểu', value: SboxFmt.number(below), icon: Icons.inventory_outlined, tone: SboxTone.warning, note: 'Cần nhập thêm'),
+        ],
+        charts: [
+          SboxChartCard(
+            title: 'Tình trạng tồn kho',
+            child: SboxDonutChart(
+              valueFormat: (v) => '${SboxFmt.number(v)} mã',
+              centerValue: SboxFmt.number(skus),
+              centerLabel: 'mặt hàng',
+              slices: [
+                SboxSlice('Đủ hàng', (skus - out - below).clamp(0, double.infinity).toDouble(), color: SboxColors.success),
+                SboxSlice('Dưới tối thiểu', below, color: SboxColors.warning),
+                SboxSlice('Hết hàng', out, color: SboxColors.danger),
+              ],
+            ),
+          ),
+          SboxChartCard(
+            title: 'Giá trị tồn lớn nhất',
+            subtitle: 'Trong trang đang xem',
+            child: SboxRankList(
+              color: SboxColors.violet,
+              items: [
+                for (final p in _stockProducts)
+                  SboxSlice(p['name']?.toString() ?? '—', _num(p['stockValue']), caption: 'Tồn ${p['onHandQty'] ?? 0}'),
+              ],
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _lotInsight() {
+    final sm = _lotSummary ?? const <String, dynamic>{};
+    final active = _num(sm['activeLotCount']);
+    final soon = _num(sm['expiringSoonLotCount']);
+    final expired = _num(sm['expiredLotCount']);
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(4, 0, 4, 4),
+      child: SboxInsightPanel(
+        kpis: [
+          SboxKpi(label: 'Giá trị hàng theo lô', value: SboxFmt.money(_num(sm['lotInventoryValue'])), icon: Icons.inventory_2_outlined),
+          SboxKpi(label: 'Lô đang còn hàng', value: SboxFmt.number(active), icon: Icons.layers_outlined, tone: SboxTone.violet,
+              note: 'SL ${SboxFmt.number(_num(sm['totalLotQty']))}'),
+          SboxKpi(label: 'Sắp hết hạn', value: SboxFmt.number(soon), icon: Icons.event_busy_outlined, tone: SboxTone.warning, note: 'Ưu tiên bán trước'),
+          SboxKpi(label: 'Đã hết hạn', value: SboxFmt.number(expired), icon: Icons.dangerous_outlined, tone: SboxTone.danger, note: 'Cần hủy / xử lý'),
+        ],
+        charts: [
+          SboxChartCard(
+            title: 'Tình trạng hạn dùng',
+            child: SboxDonutChart(
+              valueFormat: (v) => '${SboxFmt.number(v)} lô',
+              centerValue: SboxFmt.number(active),
+              centerLabel: 'lô',
+              slices: [
+                SboxSlice('Còn hạn', (active - soon - expired).clamp(0, double.infinity).toDouble(), color: SboxColors.success),
+                SboxSlice('Sắp hết hạn', soon, color: SboxColors.warning),
+                SboxSlice('Đã hết hạn', expired, color: SboxColors.danger),
+              ],
+            ),
+          ),
+          SboxChartCard(
+            title: 'Lô rủi ro giá trị lớn',
+            subtitle: 'Sắp hết / đã hết hạn trong trang',
+            child: SboxRankList(
+              color: SboxColors.danger,
+              items: [
+                for (final l in _lotItems)
+                  if ('${l['status']}' == 'expired' || '${l['status']}' == 'expiring')
+                    SboxSlice('${l['productName'] ?? ''}${(l['lotNo'] ?? '').toString().isEmpty ? '' : ' · ${l['lotNo']}'}',
+                        _num(l['stockValue'] ?? l['StockValue']),
+                        caption: '${l['daysUntilExpiry'] ?? ''} ngày'),
+              ],
+            ),
+          ),
+        ],
+      ),
     );
   }
 
@@ -833,9 +930,10 @@ class _PosReportsScreenState extends State<PosReportsScreen>
                   key: _lotPngKey,
                   child: ListView.builder(
                   padding: const EdgeInsets.symmetric(horizontal: 8),
-                  itemCount: _lotItems.length,
+                  itemCount: _lotItems.length + 1,
                   itemBuilder: (_, i) {
-                    final l = _lotItems[i];
+                    if (i == 0) return _lotInsight();
+                    final l = _lotItems[i - 1];
                     final status = l['status']?.toString();
                     final expiryRaw = l['expiryDate'] ?? l['ExpiryDate'];
                     final expiry = expiryRaw != null

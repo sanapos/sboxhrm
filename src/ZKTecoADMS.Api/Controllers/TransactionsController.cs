@@ -149,9 +149,11 @@ public class TransactionsController(
                     }
                     else if (request.Status is "Pending" or "Cancelled")
                     {
-                        PaymentFinanceHelper.ClearSalaryDisbursementOnUnapprove(tx);
                         var linked = await PaymentFinanceHelper.ResolveLinkedAsync(
                             context, storeId, PaymentFinanceHelper.BonusPenaltyNote(id));
+                        PaymentFinanceHelper.ClearSalaryDisbursementOnUnapprove(tx, linked);
+                        if (context.Entry(tx).State == EntityState.Detached)
+                            context.PaymentTransactions.Update(tx);
                         if (linked != null && !linked.IsPaid)
                         {
                             PaymentFinanceHelper.CancelLinkedCashTransaction(

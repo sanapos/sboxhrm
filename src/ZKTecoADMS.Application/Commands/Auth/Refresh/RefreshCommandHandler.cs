@@ -1,4 +1,4 @@
-﻿using Microsoft.AspNetCore.Identity;
+using Microsoft.AspNetCore.Identity;
 using Microsoft.EntityFrameworkCore;
 using ZKTecoADMS.Application.DTOs.Auth;
 using ZKTecoADMS.Application.Helpers;
@@ -35,7 +35,7 @@ public class RefreshCommandHandler(
             .Include(u => u.Employee)
             .Include(u => u.Manager)
             .Include(u => u.Store)
-            .FirstOrDefaultAsync(u => u.Email == userRefreshToken.ApplicationUser.Email, cancellationToken);
+            .FirstOrDefaultAsync(u => u.Id == userRefreshToken.ApplicationUserId, cancellationToken); // theo ID: email có thể trùng giữa các cửa hàng
 
         if (user == null)
         {

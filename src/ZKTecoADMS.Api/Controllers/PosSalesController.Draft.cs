@@ -246,6 +246,12 @@ public partial class PosSalesController
                         false, conflictMapped,
                         ["Trùng mã đơn/phiếu thu do xử lý đồng thời — vui lòng bấm thanh toán lại"]));
                 }
+                catch (InvalidOperationException ex) when (!IsSerializationFailure(ex))
+                {
+                    // Lỗi nghiệp vụ kho khi trừ tồn (lô/HSD vừa đổi, thiếu lô…) → báo rõ, không 500.
+                    await tx.RollbackAsync();
+                    return BadRequest(AppResponse<SaleOrderDto>.Fail(ex.Message));
+                }
                 catch
                 {
                     await tx.RollbackAsync();
@@ -926,6 +932,12 @@ public partial class PosSalesController
                 return Conflict(AppResponse<SaleOrderDto>.Create(
                     false, conflictMapped,
                     ["Trùng mã đơn/phiếu thu do xử lý đồng thời — vui lòng bấm hoàn thành lại"]));
+            }
+            catch (InvalidOperationException ex) when (!IsSerializationFailure(ex))
+            {
+                // Lỗi nghiệp vụ kho khi trừ tồn (lô/HSD vừa đổi, thiếu lô…) → báo rõ, không 500.
+                await tx.RollbackAsync();
+                return BadRequest(AppResponse<SaleOrderDto>.Fail(ex.Message));
             }
             catch
             {

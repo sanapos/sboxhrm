@@ -15,13 +15,70 @@ public static class PaymentFinanceHelper
     public static string BonusPenaltyNote(Guid paymentTxId)
         => $"Tự động tạo từ phiếu thưởng/phạt #{paymentTxId}";
 
+    public const string CashDisbursementMethod = "Cash";
+
+    // ─── Liên kết chuẩn phiếu thu/chi ↔ chứng từ gốc (SourceType/SourceId) ───
+    public const string SourceAdvance = "advance";
+    public const string SourceReward = "reward";
+    public const string SourcePenaltyTicket = "penalty_ticket";
+    public const string SourceTripAdvance = "trip_advance";
+    public const string SourceTripSettlement = "trip_settlement";
+    public const string SourceTripRefund = "trip_refund";
+
+    private static readonly (string Prefix, string Type)[] MarkerPrefixes =
+    {
+        ("Tự động tạo từ yêu cầu ứng lương #", SourceAdvance),
+        ("Tự động tạo từ phiếu thưởng/phạt #", SourceReward),
+        ("Tự động tạo từ ứng công tác #", SourceTripAdvance),
+        ("Tự động tạo từ quyết toán công tác phí #", SourceTripSettlement),
+        ("Tự động tạo từ thu hoàn ứng công tác #", SourceTripRefund),
+    };
+
+    /// <summary>Suy ra (SourceType, SourceId) từ chuỗi đánh dấu cũ trong InternalNote.</summary>
+    public static (string Type, Guid Id)? SourceFromMarker(string marker)
+    {
+        foreach (var (prefix, type) in MarkerPrefixes)
+        {
+            if (marker.StartsWith(prefix, StringComparison.Ordinal)
+                && Guid.TryParse(marker.AsSpan(prefix.Length), out var id))
+                return (type, id);
+        }
+        return null;
+    }
+
+    /// <summary>Gắn nguồn chứng từ + nhân viên vào phiếu thu/chi vừa tạo.</summary>
+    public static void StampSource(CashTransaction cash, string sourceType, Guid sourceId, Guid? employeeId)
+    {
+        cash.SourceType = sourceType;
+        cash.SourceId = sourceId;
+        cash.EmployeeId ??= employeeId;
+    }
+
+    public static void StampSource(CashTransaction cash, string marker, Guid? employeeId)
+    {
+        var src = SourceFromMarker(marker);
+        if (src != null) StampSource(cash, src.Value.Type, src.Value.Id, employeeId);
+        else cash.EmployeeId ??= employeeId;
+    }
+
     public static bool IsSalaryDisbursement(PaymentTransaction tx)
-        => tx.Type == "Bonus"
-           && string.Equals(tx.PaymentMethod, SalaryDisbursementMethod, StringComparison.OrdinalIgnoreCase);
+        => string.Equals(tx.PaymentMethod, SalaryDisbursementMethod, StringComparison.OrdinalIgnoreCase);
+
+    /// <summary>salary / cash — cách xử lý tiền của phiếu thưởng/phạt khi duyệt.</summary>
+    public static string ResolveSettlement(PaymentTransaction tx, string? disbursementMode, HrFinanceSettings? settings)
+    {
+        var mode = disbursementMode ?? tx.Settlement;
+        if (string.IsNullOrWhiteSpace(mode))
+            mode = tx.Type == "Penalty"
+                ? settings?.PenaltyDefaultSettlement ?? "salary"
+                : settings?.BonusDefaultSettlement ?? "salary";
+        return mode.Trim().ToLowerInvariant() == "cash" ? "cash" : "salary";
+    }
 
     /// <summary>
-    /// Phiếu thưởng: Cash → phiếu chi chờ thanh toán; Salary → gắn PaymentMethod=Salary, không tạo phiếu chi.
-    /// Phiếu phạt: luôn tạo phiếu thu.
+    /// Duyệt thưởng/phạt — MỘT nơi xử lý tiền duy nhất để không bị tính 2 lần:
+    /// • salary → PaymentMethod=Salary, bảng lương cộng/trừ, KHÔNG tạo phiếu thu/chi.
+    /// • cash   → PaymentMethod=Cash (bảng lương bỏ qua) + tạo phiếu chi/thu chờ thanh toán.
     /// </summary>
     public static async Task<CashTransaction?> ApplyBonusPenaltyDisbursementOnApproveAsync(
         ZKTecoDbContext db,
@@ -34,24 +91,47 @@ public static class PaymentFinanceHelper
         if (tx.Status != "Completed" || tx.Type is not ("Bonus" or "Penalty"))
             return null;
 
-        if (tx.Type == "Bonus"
-            && string.Equals(disbursementMode, SalaryDisbursementMethod, StringComparison.OrdinalIgnoreCase))
+        var settings = await HrFinanceSettingsHelper.GetAsync(db, storeId, cancellationToken);
+        var settlement = ResolveSettlement(tx, disbursementMode, settings);
+        var tracked = db.Entry(tx).State != EntityState.Detached;
+        tx.Settlement = settlement;
+
+        if (settlement == "salary")
         {
             tx.PaymentMethod = SalaryDisbursementMethod;
-            await db.SaveChangesAsync(cancellationToken);
+            await PersistTxAsync(db, tx, tracked, cancellationToken);
             return null;
         }
 
-        if (tx.Type == "Bonus")
-            tx.PaymentMethod = null;
+        // Tiền mặt: đánh dấu ngay để bảng lương bỏ qua (tránh vừa trả tiền mặt vừa cộng lương)
+        if (!string.Equals(tx.PaymentMethod, CashDisbursementMethod, StringComparison.OrdinalIgnoreCase)
+            && !string.Equals(tx.PaymentMethod, "Transfer", StringComparison.OrdinalIgnoreCase)
+            && !string.Equals(tx.PaymentMethod, "BankTransfer", StringComparison.OrdinalIgnoreCase))
+            tx.PaymentMethod = CashDisbursementMethod;
+        await PersistTxAsync(db, tx, tracked, cancellationToken);
 
-        return await CreateBonusPenaltyPendingOnApproveAsync(
+        var cash = await CreateBonusPenaltyPendingOnApproveAsync(
             db, tx, storeId, createdByUserId, cancellationToken);
+        if (cash != null && tx.CashTransactionId != cash.Id)
+        {
+            tx.CashTransactionId = cash.Id;
+            await PersistTxAsync(db, tx, tracked, cancellationToken);
+        }
+        return cash;
     }
 
-    public static void ClearSalaryDisbursementOnUnapprove(PaymentTransaction tx)
+    private static async Task PersistTxAsync(ZKTecoDbContext db, PaymentTransaction tx, bool tracked, CancellationToken ct)
     {
-        if (IsSalaryDisbursement(tx))
+        if (!tracked) db.PaymentTransactions.Update(tx);
+        await db.SaveChangesAsync(ct);
+    }
+
+    /// <summary>Hoàn duyệt / hủy: bỏ đánh dấu cách chi (chỉ khi phiếu thu/chi chưa thanh toán).</summary>
+    public static void ClearSalaryDisbursementOnUnapprove(PaymentTransaction tx, CashTransaction? linked = null)
+    {
+        if (linked != null && linked.IsPaid) return;
+        if (IsSalaryDisbursement(tx)
+            || string.Equals(tx.PaymentMethod, CashDisbursementMethod, StringComparison.OrdinalIgnoreCase))
             tx.PaymentMethod = null;
     }
 
@@ -64,6 +144,19 @@ public static class PaymentFinanceHelper
         string marker,
         CancellationToken cancellationToken = default)
     {
+        var src = SourceFromMarker(marker);
+        if (src != null)
+        {
+            var (type, id) = src.Value;
+            var bySource = await db.CashTransactions
+                .Where(c => c.StoreId == storeId && c.Deleted == null && c.IsActive
+                    && c.SourceType == type && c.SourceId == id)
+                .OrderByDescending(c => c.CreatedAt)
+                .FirstOrDefaultAsync(cancellationToken);
+            if (bySource != null) return bySource;
+        }
+
+        // Dữ liệu cũ chưa có SourceId → tìm theo chuỗi đánh dấu trong ghi chú
         return await db.CashTransactions
             .Where(c => c.StoreId == storeId
                 && c.Deleted == null
@@ -124,6 +217,7 @@ public static class PaymentFinanceHelper
                 : marker,
             IsActive = true
         };
+        StampSource(cashTx, SourceReward, tx.Id, tx.EmployeeId);
 
         db.CashTransactions.Add(cashTx);
         await db.SaveChangesAsync(cancellationToken);
@@ -196,6 +290,7 @@ public static class PaymentFinanceHelper
             InternalNote = marker,
             IsActive = true
         };
+        StampSource(cashTx, SourceAdvance, advance.Id, advance.EmployeeId);
 
         db.CashTransactions.Add(cashTx);
         await db.SaveChangesAsync(cancellationToken);

@@ -55,7 +55,7 @@
 <header>
   <a class="back" href="/">← Trang chủ SBOX HRM</a>
   <h1>Hướng dẫn sử dụng HRM &amp; POS</h1>
-  <p>Quy trình từng bước, cách xem báo cáo và thiết lập các tình huống phổ biến. Cập nhật 20/08/2026. Hotline: 0973 024 042.</p>
+  <p>Quy trình từng bước, cách xem báo cáo và thiết lập các tình huống phổ biến. Cập nhật 27/09/2026. Hotline: 0973 024 042.</p>
 </header>
 <div class="wrap">
   <nav class="toc" aria-label="Mục lục">
@@ -65,10 +65,13 @@
     <a href="#hrm-daily">3. Quy trình hàng ngày &amp; cuối tháng</a>
     <a href="#hrm-cases">4. Tình huống HRM thường gặp</a>
     <a href="#pos-start">5. POS: máy A6 / A7 &amp; thiết lập</a>
-    <a href="#pos-sell">6. Bán hàng, in, bếp, kho</a>
-    <a href="#pos-reports">7. Báo cáo POS &amp; tổng kết cuối ngày</a>
-    <a href="#pos-cases">8. Tình huống POS thường gặp</a>
-    <a href="#industry">9. Hướng dẫn theo ngành hàng</a>
+    <a href="#pos-sell">6. Bán hàng, in, bếp</a>
+    <a href="#pos-stock">7. Kho hàng &amp; nguyên tắc tồn kho</a>
+    <a href="#pos-einvoice">8. Hóa đơn điện tử</a>
+    <a href="#pos-reports">9. Báo cáo POS, ca thu ngân &amp; cuối ngày</a>
+    <a href="#pos-cases">10. Tình huống POS thường gặp</a>
+    <a href="#rules">11. Nguyên tắc chung của phần mềm</a>
+    <a href="#industry">12. Hướng dẫn theo ngành hàng</a>
   </nav>
 
   <article id="hrm-start">
@@ -123,67 +126,146 @@
 
   <article id="pos-start">
     <h2>5. POS: máy A6 / A7 &amp; thiết lập</h2>
-    <p><strong>A6 Sunmi T1</strong> chạy app POS. <strong>A7 / web / iOS</strong> bán hàng trong app HRM → menu <strong>Bán hàng</strong>. Cùng mã cửa hàng và quyền PosSell.</p>
+    <p><strong>A6 Sunmi T1</strong> chạy app POS. <strong>A7 / web / iOS</strong> bán hàng trong app HRM → menu <strong>Bán hàng</strong>. Cùng mã cửa hàng; thu ngân cần quyền <strong>Duyệt PosSell</strong> để thanh toán.</p>
     <ol>
-      <li>Cài đặt → <strong>Ngành hàng &amp; bán hàng</strong> (retail / nhà hàng / salon…).</li>
-      <li>Cài đặt → <strong>Thiết lập cửa hàng</strong>: tên, địa chỉ, VAT, VietQR.</li>
-      <li>Menu <strong>Hàng hóa</strong>: danh mục, món/SP, giá.</li>
+      <li>Cài đặt → <strong>Ngành hàng &amp; bán hàng</strong>: chọn ngành, bật/tắt <em>Cho phép bán khi hết hàng / tồn âm</em>, <em>Ca thu ngân (mở ca / đóng két)</em>.</li>
+      <li>Cài đặt → <strong>Thiết lập cửa hàng</strong>: tên, địa chỉ, MST, VAT, tài khoản VietQR.</li>
+      <li>Menu <strong>Hàng hóa</strong>: danh mục, món/SP, giá, ĐVT quy đổi, combo, định lượng nguyên liệu, tồn đầu kỳ.</li>
       <li>F&amp;B: <strong>Quản lý bàn / phòng</strong>.</li>
       <li>Cài đặt → <strong>Máy in</strong> và <strong>Mẫu in</strong> (hóa đơn K80, phiếu bếp, tem) — mặc định theo cửa hàng.</li>
-      <li>Bán thử 1 đơn, in thử.</li>
+      <li>Cài đặt → <strong>Hóa đơn điện tử</strong> nếu cần xuất HĐĐT (mục 8).</li>
+      <li>Phân quyền thu ngân / quản kho / quản lý → bán thử 1 đơn, in thử.</li>
     </ol>
     <p class="tip">Sau khi cài POS trên A6, rút USB/ADB trước khi kiểm tra màn hình phụ khách.</p>
   </article>
 
   <article id="pos-sell">
-    <h2>6. Bán hàng, in, bếp, kho</h2>
+    <h2>6. Bán hàng, in, bếp</h2>
     <h3>Bán hàng</h3>
     <ol>
-      <li>Mở Bán hàng (HRM) hoặc app POS (A6).</li>
-      <li>Retail: chọn/quét SP. F&amp;B: chọn bàn rồi chọn món.</li>
-      <li>Thanh toán tiền mặt / chuyển khoản / QR. Cần quyền duyệt PosSell để hoàn tất hóa đơn.</li>
-      <li>In hóa đơn. Xuất hóa đơn điện tử nếu khách cần (Cài đặt → Hóa đơn điện tử).</li>
+      <li>Mở Bán hàng (HRM / web) hoặc app POS (A6). Cửa hàng bật ca thu ngân: <strong>Menu ⋮ → Ca thu ngân → Mở ca</strong> trước.</li>
+      <li>Bán lẻ: quét / chọn hàng. F&amp;B: chọn bàn → gọi món → <strong>Gửi bếp</strong>.</li>
+      <li>Sửa SL, ghi chú, topping; chiết khấu / đổi giá cần quyền duyệt.</li>
+      <li>Chọn khách nếu cần tích điểm, ghi công nợ hoặc xuất HĐĐT có MST.</li>
+      <li>Thanh toán tiền mặt / chuyển khoản / VietQR / nhiều hình thức; chọn chip <em>In hóa đơn</em>, <em>Xuất HĐĐT</em>.</li>
+      <li>Màn hình báo kết quả HĐĐT: <em>Đã xuất</em> (chạm để gửi cho khách), <em>Chưa xuất được</em> (kèm lý do), <em>Chờ ký</em>.</li>
     </ol>
-    <h3>Bếp</h3>
-    <p>Thêm món → <strong>Gửi bếp</strong>. Gán máy + mẫu phiếu bếp riêng với máy hóa đơn.</p>
-    <h3>Kho</h3>
-    <p>Nhập hàng NCC (hoàn thành mới tăng tồn) → Kiểm kho → Xuất hủy / xuất nội bộ. Nhập trước khi bán món trừ nguyên liệu.</p>
+    <p class="tip">Mất mạng lúc bấm Thanh toán: cứ bấm lại — hệ thống nhận ra cùng đơn, không tạo đơn / trừ kho / thu tiền hai lần.</p>
+    <h3>Bếp &amp; in</h3>
+    <ul>
+      <li>Gán máy + mẫu phiếu bếp riêng với máy hóa đơn; gửi bếp trước khi thanh toán.</li>
+      <li>Đơn đã xuất HĐĐT: hóa đơn in tự thêm <strong>ký hiệu, số HĐ, mã CQT, mã tra cứu và mã QR tra cứu</strong>. Mẫu tự thiết kế dùng biến <code>{HDDT_So}</code> <code>{HDDT_Ky_Hieu}</code> <code>{HDDT_Ma_CQT}</code> <code>{HDDT_Ma_Tra_Cuu}</code> <code>{HDDT_Link_Tra_Cuu}</code>.</li>
+      <li>Đơn hàng: tra cứu, in lại, hủy (đúng quyền). Trả hàng: menu <strong>Trả hàng bán</strong>, chọn đơn gốc.</li>
+    </ul>
+  </article>
+
+  <article id="pos-stock">
+    <h2>7. Kho hàng &amp; nguyên tắc tồn kho</h2>
+    <h3>Chứng từ kho</h3>
+    <ul>
+      <li><strong>Nhập hàng NCC</strong>: thêm hàng, SL, giá nhập (hàng có lô: số lô + HSD) → <em>Hoàn thành</em> mới cộng tồn. Giá vốn bình quân gia quyền. Hủy phiếu nhập: trừ lại tồn và trả giá vốn về như trước.</li>
+      <li><strong>Trả hàng nhập</strong>: trả NCC, giảm tồn và công nợ NCC.</li>
+      <li><strong>Xuất hủy</strong> / <strong>Xuất dùng nội bộ</strong>: <em>Hoàn thành</em> mới trừ tồn; Hủy phiếu thì cộng lại.</li>
+      <li><strong>Kiểm kho</strong>: thêm hàng → <em>nhập số đếm ngay khi đếm</em> (hệ thống chốt tồn sổ lúc nhập) → Hoàn thành. Khi cân bằng chỉ cộng / trừ phần chênh lệch, nên hàng bán sau lúc đếm vẫn đúng.</li>
+      <li><strong>Thẻ kho</strong>: Hàng hóa → chọn hàng → Thẻ kho — mọi biến động, chứng từ, người thao tác, tồn sau giao dịch.</li>
+    </ul>
+    <h3>Nguyên tắc</h3>
+    <ul>
+      <li><strong>Tồn khả dụng</strong> = tồn kho − phần đang giữ chỗ cho bàn / đơn tạm / đơn online chưa thanh toán.</li>
+      <li>Đơn tạm, bàn đang mở, đơn QR / online chưa hoàn tất: <strong>chưa trừ kho</strong>, chỉ giữ chỗ. Thanh toán (hoặc xác nhận COD / nhận chuyển khoản Tingee) mới trừ kho thật.</li>
+      <li>Combo trừ từng thành phần (bật <em>Quản lý tồn kho combo</em> nếu combo có tồn riêng); món định lượng trừ nguyên liệu; topping trừ theo SL món × SL topping; ĐVT lớn quy về ĐVT cơ bản; dịch vụ không trừ kho.</li>
+      <li>Hàng <em>Theo dõi lô / HSD</em>: bán / xuất lô hết hạn sớm nhất trước.</li>
+      <li><strong>Bán âm</strong> (Cài đặt → Ngành hàng &amp; bán hàng → <em>Cho phép bán khi hết hàng / tồn âm</em>): tắt thì chặn khi tồn khả dụng không đủ; bật thì vẫn bán, tồn có thể âm.</li>
+      <li>Phiếu xuất hủy / nội bộ không vượt tồn thực và (khi tắt bán âm) không lấy phần đang giữ chỗ cho bàn.</li>
+      <li><em>Phiếu xuất kho / báo kho</em> in từ màn bán hàng chỉ là phiếu soạn hàng — <strong>không trừ kho lần hai</strong>.</li>
+      <li>Hủy đơn đã thanh toán hoàn đúng số lượng về kho; đơn đã có trả hàng thì dùng Trả hàng bán, không hủy.</li>
+      <li>Hai người cùng sửa một mặt hàng cùng lúc: một bên nhận thông báo <em>“Tồn kho vừa được thay đổi… thao tác lại”</em> — hệ thống không ghi đè sai số tồn.</li>
+    </ul>
+    <p class="tip">Chỉnh tồn cho đúng thực tế bằng Kiểm kho (có chứng từ, có chênh lệch) — không sửa tay ô tồn trong form hàng hóa.</p>
+  </article>
+
+  <article id="pos-einvoice">
+    <h2>8. Hóa đơn điện tử</h2>
+    <h3>Kết nối</h3>
+    <ul>
+      <li>Cài đặt → <strong>Hóa đơn điện tử</strong> → chọn nhà cung cấp:
+        <ul>
+          <li><strong>Viettel SInvoice</strong>: tài khoản API, MST, mẫu (1/001), ký hiệu (C25TAA).</li>
+          <li><strong>Easy Invoice</strong>: tài khoản API, MST, Pattern đúng như portal (vd. 1C25MAA), Serial thường để trống.</li>
+          <li><strong>MISA meInvoice</strong>: AppID (MISA cấp khi đăng ký tích hợp), tài khoản meInvoice, MST, ký hiệu đầy đủ (1C25TAA); ký HSM hoặc HĐ máy tính tiền.</li>
+          <li><strong>VNPT Invoice</strong>: địa chỉ web service riêng (https://&lt;MST&gt;-tt78admin.vnpt-invoice.com.vn), Account/ACpass web service, tài khoản phát hành, mẫu số, ký hiệu.</li>
+        </ul>
+      </li>
+      <li>Lưu → <em>Kiểm tra kết nối</em> (chỉ xác thực, không tạo hóa đơn).</li>
+      <li><em>Mặc định xuất hóa đơn</em> + tắt hỏi thu ngân: mọi đơn tự xuất, kể cả đơn online / Tingee.</li>
+      <li><em>In mã HĐĐT + QR tra cứu trên hóa đơn bán hàng</em>: bật / tắt khối HĐĐT trên bill.</li>
+    </ul>
+    <h3>Quản lý</h3>
+    <p>Mở từ <strong>Báo cáo POS → Hóa đơn điện tử</strong>, Cài đặt → Hóa đơn điện tử → Quản lý, hoặc menu HĐĐT của từng đơn.</p>
+    <ul>
+      <li><strong>Xem lại</strong> PDF từ hãng; <strong>gửi qua ứng dụng khác</strong> (Zalo, Messenger, Gmail…) kèm số, mã tra cứu, link tra cứu.</li>
+      <li><strong>Gửi bản nháp</strong> cho khách kiểm tra tên / MST / địa chỉ trước khi phát hành (Viettel, Easy, MISA).</li>
+      <li><strong>Thay thế</strong>: lập HĐ mới thay HĐ gốc, sửa được thông tin người mua; lỗi thì HĐ gốc giữ nguyên.</li>
+      <li><strong>Hủy</strong>: theo NĐ 70/2025, HĐ đã gửi CQT thường phải thay thế / điều chỉnh thay vì hủy — hãng có thể từ chối.</li>
+      <li><strong>Đồng bộ</strong> từng đơn hoặc hàng loạt (tối đa 100 đơn); <strong>Tải danh sách từ hãng</strong> (Viettel, Easy) để đối chiếu HĐ lập ngoài POS.</li>
+      <li>Nút mở <strong>trang quản lý của hãng</strong>; báo cáo tỷ lệ doanh thu đã xuất HĐĐT, thuế GTGT, HĐ thay thế.</li>
+    </ul>
+    <p class="tip">HĐĐT lỗi không làm hỏng đơn đã thanh toán. Lỗi thường gặp: sai MST / mẫu / ký hiệu, MISA sai AppID, VNPT «ERR:20», Easy «117» (mẫu máy tính tiền chưa mở API).</p>
   </article>
 
   <article id="pos-reports">
-    <h2>7. Báo cáo POS &amp; tổng kết cuối ngày</h2>
+    <h2>9. Báo cáo POS, ca thu ngân &amp; cuối ngày</h2>
     <p>Menu <strong>Báo cáo → Báo cáo POS</strong> (A7: Tổng quan POS hoặc Nhiều hơn). Chọn từ ngày–đến ngày rồi mở từng loại:</p>
     <ul>
       <li>Doanh thu · Hàng hóa bán ra · Doanh thu theo thu ngân</li>
       <li>Tồn kho · Nhập hàng · Hàng sắp hết hạn</li>
       <li>Phương thức thanh toán · Công nợ · Sổ quỹ</li>
-      <li>Lợi nhuận · Chi phí · Kết quả kinh doanh (P&amp;L) · Voucher</li>
+      <li>Lợi nhuận · Chi phí · Kết quả kinh doanh (P&amp;L) · Voucher · Hóa đơn điện tử</li>
       <li>Báo cáo hủy/trả · Thuế hộ kinh doanh (nếu kê khai)</li>
     </ul>
-    <h3>Tổng kết cuối ngày</h3>
+    <h3>Ca thu ngân &amp; tổng kết cuối ngày</h3>
     <ol>
-      <li>Đóng bàn / đơn đang mở.</li>
-      <li>Mở <strong>Tổng kết cuối ngày</strong>, chọn khoảng ca.</li>
-      <li>Đối chiếu tiền mặt ngăn kéo với cột tiền mặt; QR với sao kê.</li>
+      <li>Đầu ca: Menu ⋮ → Ca thu ngân → Mở ca (nếu cửa hàng bật ca).</li>
+      <li>Cuối ca: thanh toán / trả hết bàn đang mở, đóng ca và đếm két.</li>
+      <li>Mở <strong>Tổng kết cuối ngày</strong>, chọn khoảng ca; đối chiếu tiền mặt ngăn kéo, QR với sao kê.</li>
       <li>Nếu lệch: xem Đơn hàng trong ca + hủy/trả + PTTT trước khi bù tay vào quỹ.</li>
     </ol>
   </article>
 
   <article id="pos-cases">
-    <h2>8. Tình huống POS thường gặp</h2>
+    <h2>10. Tình huống POS thường gặp</h2>
     <ul>
       <li><strong>Không in hóa đơn</strong> — máy Online? Mẫu hóa đơn đã đặt mặc định cửa hàng?</li>
       <li><strong>In HĐ nhưng không in bếp</strong> — gán máy + mẫu phiếu bếp riêng; gửi bếp trước khi thanh toán.</li>
       <li><strong>A6 in khác A7</strong> — cùng cửa hàng: vào Mẫu in chọn lại mặc định store.</li>
       <li><strong>Màn phụ A6 trắng</strong> — rút cáp USB debug rồi mở lại POS.</li>
-      <li><strong>Không thanh toán được</strong> — thiếu quyền duyệt PosSell.</li>
+      <li><strong>Không thanh toán được</strong> — thiếu quyền Duyệt PosSell, hoặc bật ca thu ngân mà chưa mở ca.</li>
+      <li><strong>“Không đủ tồn kho”</strong> — bàn / đơn tạm khác đang giữ chỗ: thanh toán / hủy bớt đơn đó, nhập thêm, hoặc bật bán âm.</li>
+      <li><strong>“Tồn kho vừa được thay đổi… thao tác lại”</strong> — người khác vừa bán / nhập cùng mặt hàng: bấm lại.</li>
+      <li><strong>Tồn âm</strong> — bán trước khi nhập, khai sai combo / định lượng, hoặc đang bật bán âm → nhập bù / Kiểm kho.</li>
+      <li><strong>Ai đã bán / trừ kho</strong> — Thẻ kho của mặt hàng; ai sửa / xóa đơn — Lịch sử thao tác (30 ngày).</li>
+      <li><strong>HĐĐT lỗi / chờ ký</strong> — đơn vẫn hợp lệ; sửa cấu hình rồi xuất lại, hoặc ký trên portal hãng rồi Đồng bộ.</li>
       <li><strong>Bàn không hiện</strong> — ngành hàng chưa phải F&amp;B hoặc chưa tạo khu/bàn.</li>
     </ul>
-    <p class="tip">Giao diện hướng dẫn đầy đủ (tìm kiếm, từng bước, ảnh): <a href="/guide">sboxhrm.com/guide</a> — tab Triển khai, Nâng cao, POS và Ngành hàng.</p>
+  </article>
+
+  <article id="rules">
+    <h2>11. Nguyên tắc chung của phần mềm</h2>
+    <ul>
+      <li>Chứng từ <strong>Tạm</strong> sửa / xóa được và chưa ảnh hưởng kho / quỹ; <strong>Hoàn thành</strong> mới ghi sổ. Muốn đảo ngược thì <strong>Hủy</strong> — không sửa chứng từ đã hoàn thành.</li>
+      <li>Không xóa dữ liệu đã phát sinh: hàng ngừng bán thì tắt bán; đơn sai thì hủy / trả hàng — lịch sử luôn được giữ.</li>
+      <li>Mọi thay đổi tồn có dòng Thẻ kho; mọi sửa / xóa đơn có trong Lịch sử thao tác.</li>
+      <li>Doanh thu ghi nhận khi đơn hoàn tất; hủy đơn gỡ doanh thu, hoàn kho, hoàn điểm / voucher / công nợ khách.</li>
+      <li>Giá trên đơn là giá lúc thêm món; đổi giá hàng hóa không làm đổi đơn cũ.</li>
+      <li>Quyền Xem / Tạo / Sửa / Duyệt theo từng module; thanh toán, đổi giá, chiết khấu, hủy cần quyền Duyệt.</li>
+      <li>Hàng hóa, kho, mẫu in, máy in, cấu hình HĐĐT là riêng của từng cửa hàng.</li>
+      <li>HĐĐT là chứng từ thuế của hãng: sai sót xử lý bằng thay thế / điều chỉnh theo quy định.</li>
+    </ul>
+    <p class="tip">Cuối mỗi tháng: kiểm kho các mặt hàng chính, đồng bộ HĐĐT hàng loạt, xem báo cáo tỷ lệ xuất HĐĐT và lợi nhuận. Giao diện hướng dẫn đầy đủ (tìm kiếm, từng bước): <a href="/guide">sboxhrm.com/guide</a>.</p>
   </article>
 
   <article id="industry">
-    <h2>9. Hướng dẫn theo ngành hàng</h2>
+    <h2>12. Hướng dẫn theo ngành hàng</h2>
     <p>Chọn ngành: <strong>Cài đặt → Ngành hàng &amp; chế độ bán → Chọn ngành hàng → Đổi ngành</strong>. Ngành quyết định màn bán có sơ đồ bàn, tính giờ, gửi bếp, gói buổi hay hoa hồng.</p>
     <h3>Bán lẻ / Siêu thị</h3>
     <ul>

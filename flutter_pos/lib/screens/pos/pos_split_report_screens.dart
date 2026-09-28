@@ -66,7 +66,7 @@ class PosReportsHubScreen extends StatelessWidget {
       (label: 'Voucher', subtitle: 'Sử dụng', icon: Icons.confirmation_number_outlined, module: 'PosReportVoucher', screen: const PosVoucherUsageReportScreen()),
       (label: 'Bán theo khách', subtitle: 'Doanh thu / nợ KH', icon: Icons.people_outline, module: 'PosReportRevenue', screen: const PosCustomerSalesReportScreen()),
       (label: 'Sức khỏe kho', subtitle: 'Cháy / chậm / chết tồn', icon: Icons.inventory_2_outlined, module: 'PosReportStock', screen: const PosStockHealthReportScreen()),
-      (label: 'Hóa đơn điện tử', subtitle: 'Xuất / nháp / email / hủy / thay thế', icon: Icons.request_quote_outlined, module: 'PosEInvoice', screen: const PosEInvoiceReportScreen()),
+      (label: 'Hóa đơn điện tử', subtitle: 'Xuất, xem lại PDF, gửi, thay thế, hủy, đồng bộ, tải từ hãng', icon: Icons.request_quote_outlined, module: 'PosEInvoice', screen: const PosEInvoiceReportScreen()),
       (label: 'Thuế hộ kinh doanh', subtitle: 'Dưới 1 tỷ / 1–3 tỷ / trên 3 tỷ', icon: Icons.request_quote_outlined, module: 'HkdBooks', screen: const PosHkdBooksScreen()),
     ].where((item) => PermissionNavigation.canAccessModule(
           item.module,

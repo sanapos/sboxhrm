@@ -594,6 +594,15 @@ class AppNotification {
           ? displayTitle!.trim()
           : title;
 
+  /// Bản sao với trạng thái đọc mới.
+  AppNotification withRead(bool read) => AppNotification(
+        id: id, userId: userId, title: title, message: message, type: type,
+        isRead: read, readAt: read ? (readAt ?? DateTime.now()) : null,
+        actionUrl: actionUrl, relatedEntityId: relatedEntityId, relatedEntityType: relatedEntityType,
+        categoryCode: categoryCode, fromUserName: fromUserName, categoryLabel: categoryLabel,
+        displayTitle: displayTitle, displayBody: displayBody, createdAt: createdAt,
+      );
+
   String get effectiveMessage =>
       (displayBody != null && displayBody!.trim().isNotEmpty)
           ? displayBody!.trim()

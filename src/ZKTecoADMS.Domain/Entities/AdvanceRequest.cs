@@ -92,6 +92,9 @@ public class AdvanceRequest : AuditableEntity<Guid>
     /// </summary>
     public int? ForMonth { get; set; }
     public int? ForYear { get; set; }
+
+    /// <summary>Trừ dần vào bao nhiêu kỳ lương (bắt đầu từ ForMonth/ForYear), mặc định 1</summary>
+    public int InstallmentCount { get; set; } = 1;
     
     /// <summary>
     /// Cửa hàng liên quan

@@ -9,6 +9,7 @@ using ZKTecoADMS.Application.Models;
 using ZKTecoADMS.Domain.Entities;
 using ZKTecoADMS.Domain.Enums;
 using ZKTecoADMS.Infrastructure;
+using ZKTecoADMS.Api.Services.Assets;
 
 namespace ZKTecoADMS.Api.Controllers;
 
@@ -312,7 +313,7 @@ public class AssetsController(ZKTecoDbContext context) : AuthenticatedController
             Location = a.Location,
             Notes = a.Notes,
             DepreciationRate = a.DepreciationRate,
-            CurrentValue = a.CurrentValue,
+            CurrentValue = AssetValuation.UnitBookValue(a, DateTime.UtcNow),
             CurrentAssigneeId = a.CurrentAssigneeId?.ToString(),
             CurrentAssigneeName = a.CurrentAssignee != null ? $"{a.CurrentAssignee.FirstName} {a.CurrentAssignee.LastName}" : null,
             AssignedDate = a.AssignedDate,
@@ -374,7 +375,7 @@ public class AssetsController(ZKTecoDbContext context) : AuthenticatedController
             Location = asset.Location,
             Notes = asset.Notes,
             DepreciationRate = asset.DepreciationRate,
-            CurrentValue = asset.CurrentValue,
+            CurrentValue = AssetValuation.UnitBookValue(asset, DateTime.UtcNow),
             CurrentAssigneeId = asset.CurrentAssigneeId?.ToString(),
             CurrentAssigneeName = asset.CurrentAssignee != null ? $"{asset.CurrentAssignee.FirstName} {asset.CurrentAssignee.LastName}" : null,
             AssignedDate = asset.AssignedDate,
@@ -892,7 +893,7 @@ public class AssetsController(ZKTecoDbContext context) : AuthenticatedController
             StatusName = GetAssetStatusName(asset.Status),
             PurchaseDate = asset.PurchaseDate,
             PurchasePrice = asset.PurchasePrice,
-            CurrentValue = asset.CurrentValue,
+            CurrentValue = AssetValuation.UnitBookValue(asset, DateTime.UtcNow),
             WarrantyExpiry = asset.WarrantyExpiry,
             Location = asset.Location,
             Quantity = asset.Quantity,
@@ -1489,6 +1490,12 @@ public class AssetsController(ZKTecoDbContext context) : AuthenticatedController
     #endregion
 
     #region Statistics
+    /// <summary>Tổng quan tài sản: giá trị còn lại, khấu hao, tỷ lệ sử dụng, việc cần xử lý…</summary>
+    [HttpGet("dashboard")]
+    [RequireModulePermission("Asset", ModulePermissionAction.View)]
+    public async Task<IActionResult> GetDashboard(CancellationToken ct) =>
+        Ok(AppResponse<object>.Success(await AssetDashboardBuilder.BuildAsync(_context, RequiredStoreId, ct)));
+
     [HttpGet("statistics")]
     [RequireModulePermission("Asset", ModulePermissionAction.View)]
     public async Task<IActionResult> GetStatistics()
@@ -1512,7 +1519,7 @@ public class AssetsController(ZKTecoDbContext context) : AuthenticatedController
             BrokenAssets = assets.Count(a => a.Status == AssetStatus.Broken),
             DisposedAssets = assets.Count(a => a.Status == AssetStatus.Disposed),
             TotalPurchaseValue = assets.Sum(a => a.PurchasePrice * a.Quantity),
-            TotalCurrentValue = assets.Sum(a => (a.CurrentValue ?? a.PurchasePrice) * a.Quantity),
+            TotalCurrentValue = assets.Sum(a => AssetValuation.BookValue(a, now)),
             WarrantyExpiringSoon = assets.Count(a => a.WarrantyExpiry.HasValue && a.WarrantyExpiry.Value <= warningDate && a.WarrantyExpiry.Value > now),
             ByType = assets.GroupBy(a => a.AssetType).Select(g => new AssetByTypeDto
             {

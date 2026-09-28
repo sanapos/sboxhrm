@@ -19,6 +19,8 @@ public class FieldDataCleanupBackgroundService : BackgroundService
     private const int LiveLocationRetentionDays = 1;
     private const int RoutePointsRetentionDays = 7;
     private const int PhotoRetentionDays = 45;
+    /// <summary>Lịch sử vị trí trong ca (lộ trình Bản đồ nhân sự) giữ 60 ngày.</summary>
+    private const int LocationPointRetentionDays = 60;
 
     public FieldDataCleanupBackgroundService(
         IServiceProvider serviceProvider,
@@ -63,6 +65,15 @@ public class FieldDataCleanupBackgroundService : BackgroundService
             .ExecuteDeleteAsync(stoppingToken);
         if (deletedLive > 0)
             _logger.LogInformation("Deleted {Count} old live locations (> {Days}d)", deletedLive, LiveLocationRetentionDays);
+
+        // 1b. Lịch sử vị trí (lộ trình trong ca) quá 60 ngày
+        var pointCutoff = DateTime.UtcNow.AddDays(-LocationPointRetentionDays);
+        var deletedPoints = await dbContext.EmployeeLocationPoints
+            .IgnoreQueryFilters()
+            .Where(p => p.RecordedAt < pointCutoff)
+            .ExecuteDeleteAsync(stoppingToken);
+        if (deletedPoints > 0)
+            _logger.LogInformation("Deleted {Count} old location points (> {Days}d)", deletedPoints, LocationPointRetentionDays);
 
         // 2. Clear RoutePointsJson from old journeys (> 7 days) to save DB space
         var routeCutoff = DateTime.UtcNow.AddDays(-RoutePointsRetentionDays);

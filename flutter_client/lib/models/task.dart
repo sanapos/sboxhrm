@@ -16,7 +16,26 @@ enum WorkTaskStatus {
 
 enum TaskPriority { low, medium, high, urgent }
 
-enum TaskType { task, bug, feature, improvement, meeting, other }
+/// Thứ tự khớp enum TaskType phía server (0..13) — chỉ thêm vào cuối.
+enum TaskType {
+  task,
+  bug,
+  feature,
+  improvement,
+  meeting,
+  other,
+  routine,
+  maintenance,
+  installation,
+  inspection,
+  delivery,
+  customerService,
+  survey,
+  procurement,
+}
+
+/// Cách tính tiến độ: nhập tay / theo checklist / theo việc con.
+enum TaskProgressMode { manual, checklist, subTasks }
 
 // ============ HELPER FUNCTIONS ============
 String jsonStrId(Map<String, dynamic> json, [String key = 'id']) {
@@ -94,7 +113,49 @@ String getTaskTypeLabel(TaskType type) {
       return 'Cuộc họp';
     case TaskType.other:
       return 'Khác';
+    case TaskType.routine:
+      return 'Việc định kỳ';
+    case TaskType.maintenance:
+      return 'Bảo trì';
+    case TaskType.installation:
+      return 'Lắp đặt / thi công';
+    case TaskType.inspection:
+      return 'Kiểm tra / nghiệm thu';
+    case TaskType.delivery:
+      return 'Giao hàng';
+    case TaskType.customerService:
+      return 'Chăm sóc khách';
+    case TaskType.survey:
+      return 'Khảo sát';
+    case TaskType.procurement:
+      return 'Mua hàng / vật tư';
   }
+}
+
+/// Loại việc hay dùng cho các ngành (ẩn Bug / Tính năng / Cải tiến — dành cho phần mềm).
+const kTaskTypesForIndustry = <TaskType>[
+  TaskType.task,
+  TaskType.routine,
+  TaskType.survey,
+  TaskType.installation,
+  TaskType.maintenance,
+  TaskType.inspection,
+  TaskType.delivery,
+  TaskType.customerService,
+  TaskType.procurement,
+  TaskType.meeting,
+  TaskType.other,
+];
+
+TaskProgressMode parseProgressMode(dynamic value) {
+  if (value is int) return TaskProgressMode.values[value.clamp(0, TaskProgressMode.values.length - 1)];
+  switch ('${value ?? ''}'.toLowerCase()) {
+    case 'checklist':
+      return TaskProgressMode.checklist;
+    case 'subtasks':
+      return TaskProgressMode.subTasks;
+  }
+  return TaskProgressMode.manual;
 }
 
 WorkTaskStatus parseTaskStatus(dynamic value) {
@@ -166,6 +227,9 @@ TaskType parseTaskType(dynamic value) {
       case 'other':
         return TaskType.other;
     }
+    for (final t in TaskType.values) {
+      if (t.name.toLowerCase() == lower) return t;
+    }
   }
   return TaskType.task;
 }
@@ -211,6 +275,12 @@ class WorkTask {
   final String? createdBy;
   final DateTime? updatedAt;
   final bool isActive;
+  final String? projectId;
+  final String? projectName;
+  final String? projectColor;
+  final String? stageKey;
+  final TaskProgressMode progressMode;
+  final String? location;
 
   WorkTask({
     required this.id,
@@ -251,6 +321,12 @@ class WorkTask {
     this.createdBy,
     this.updatedAt,
     this.isActive = true,
+      this.projectId,
+    this.projectName,
+    this.projectColor,
+    this.stageKey,
+    this.progressMode = TaskProgressMode.manual,
+    this.location,
   });
 
   factory WorkTask.fromJson(Map<String, dynamic> json) {
@@ -306,6 +382,12 @@ class WorkTask {
       createdBy: json['createdBy'],
       updatedAt: json['updatedAt'] != null ? DateTime.tryParse(json['updatedAt']) : null,
       isActive: json['isActive'] ?? true,
+      projectId: json['projectId']?.toString(),
+      projectName: json['projectName'],
+      projectColor: json['projectColor'],
+      stageKey: json['stageKey'],
+      progressMode: parseProgressMode(json['progressMode']),
+      location: json['location'],
     );
   }
 

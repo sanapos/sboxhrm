@@ -40,7 +40,7 @@ const landingIndustrySteps = <LandingUsageGuideStep>[
       'Bán hàng: quét hoặc gõ tên (F3) → chỉnh số lượng → F9/Thanh toán → chọn tiền mặt / chuyển khoản / QR → in',
       'Nhiều khách cùng lúc: bấm + để mở hóa đơn mới (HĐ1, HĐ2…), chuyển qua lại không mất giỏ',
       'Khách quen: chọn khách trước khi thanh toán để tích điểm / ghi công nợ',
-      'Hết hàng: mặc định chặn bán khi tồn âm; muốn bán trước nhập sau thì bật «Cho phép bán khi hết hàng / tồn âm»',
+      'Hết hàng: mặc định chặn khi tồn khả dụng không đủ (tồn trừ phần đang nằm ở hóa đơn tạm HĐ1, HĐ2… chưa thanh toán); muốn bán trước nhập sau thì bật «Cho phép bán khi hết hàng / tồn âm»',
       'Cuối ngày: Báo cáo POS → Tổng kết cuối ngày; bật «Ca thu ngân» nếu nhiều thu ngân giao ca',
     ],
     tip:
@@ -61,6 +61,7 @@ const landingIndustrySteps = <LandingUsageGuideStep>[
       'Tạm tính: in phiếu tạm tính cho khách xem trước khi trả tiền (cần bật «Cho phép tạm tính»)',
       'Chuyển bàn, Gộp bàn vào đây, Tách bàn / Tách hóa đơn: chạm giữ bàn trên sơ đồ để mở menu thao tác',
       'QR order tại bàn: khách quét QR trên bàn gọi món; tùy chọn chỉ gọi khi đã mở bàn, giới hạn GPS trong quán, xác nhận order, tự in phiếu bếp',
+      'Kho: món đã gọi ở bàn chưa trừ kho, chỉ giữ chỗ (bàn khác không bán được phần đó); thanh toán bàn mới trừ nguyên liệu / hàng',
       'Thanh toán xong bàn tự về trống; «Trả về bàn trống» khi khách đi mà chưa gọi món',
     ],
     tip:

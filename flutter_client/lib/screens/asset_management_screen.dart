@@ -18,7 +18,6 @@ import '../widgets/notification_overlay.dart';
 import '../widgets/hrm_collapsible_overview.dart';
 import '../widgets/hrm_responsive_list_layout.dart';
 import '../widgets/app_scroll_safe.dart';
-import '../widgets/hrm_mini_stat_chip.dart';
 import 'package:provider/provider.dart';
 import '../providers/permission_provider.dart';
 import '../widgets/hrm_page_chrome.dart';
@@ -26,6 +25,8 @@ import '../widgets/page_top_actions.dart';
 import 'package:zkteco_flutter_client/l10n/app_tr.dart';
 
 import '../theme/sbox_tokens.dart';
+import '../utils/asset_ui.dart';
+import 'assets/asset_dashboard_view.dart';
 class AssetManagementScreen extends StatefulWidget {
   const AssetManagementScreen({super.key});
 
@@ -39,7 +40,8 @@ class _AssetManagementScreenState extends State<AssetManagementScreen> {
   final _searchController = TextEditingController();
 
   // Tab navigation
-  int _currentTab = 0; // 0=Sản phẩm, 1=Kho, 2=Kiểm kê, 3=Lịch sử
+  int _currentTab = 0; // 0=Tổng quan, 1=Tài sản, 2=Kho, 3=Kiểm kê, 4=Lịch sử
+  int _dashboardVersion = 0;
 
   // Data
   List<Asset> _assets = [];
@@ -414,14 +416,7 @@ class _AssetManagementScreenState extends State<AssetManagementScreen> {
       HrmTopBarAction(
         icon: Icons.checklist,
         label: 'Kiểm kê',
-        onPressed: () {
-          setState(() {
-            _showInventories = !_showInventories;
-            _showTransfers = false;
-            _showCategories = false;
-          });
-          if (_showInventories && _inventories.isEmpty) _loadInventories();
-        },
+        onPressed: () => _switchTab(3),
       ),
       HrmTopBarAction(
         icon: Icons.qr_code_scanner,
@@ -446,10 +441,20 @@ class _AssetManagementScreenState extends State<AssetManagementScreen> {
       _showCategories = false;
       _showInventories = false;
     });
-    if (tab == 0) _loadAssets();
-    if (tab == 1) { _loadStockSummary(); _loadAssets(); }
-    if (tab == 2) _loadInventories();
-    if (tab == 3) _loadStockTransactions(typeFilter: _historyTypeFilter);
+    if (tab == 0) setState(() => _dashboardVersion++);
+    if (tab == 1) _loadAssets();
+    if (tab == 2) { _loadStockSummary(); _loadAssets(); }
+    if (tab == 3) _loadInventories();
+    if (tab == 4) _loadStockTransactions(typeFilter: _historyTypeFilter);
+  }
+
+  /// Từ Tổng quan: chạm thẻ số liệu → mở danh sách lọc theo trạng thái.
+  void _openAssetsFiltered(AssetStatus? status) {
+    setState(() {
+      _statusFilter = status;
+      _currentPage = 1;
+    });
+    _switchTab(1);
   }
 
   Widget _buildBody() {
@@ -457,13 +462,16 @@ class _AssetManagementScreenState extends State<AssetManagementScreen> {
       children: [
         _buildTabBar(),
         Expanded(
-          child: _currentTab == 0
-              ? _buildProductTab()
-              : _currentTab == 1
-                  ? _buildStockTab()
-                  : _currentTab == 2
-                      ? _buildInventoryTab()
-                      : _buildHistoryTab(),
+          child: switch (_currentTab) {
+            0 => AssetDashboardView(
+                key: ValueKey(_dashboardVersion),
+                onOpenAssets: _openAssetsFiltered,
+              ),
+            1 => _buildProductTab(),
+            2 => _buildStockTab(),
+            3 => _buildInventoryTab(),
+            _ => _buildHistoryTab(),
+          },
         ),
       ],
     );
@@ -471,54 +479,79 @@ class _AssetManagementScreenState extends State<AssetManagementScreen> {
 
   Widget _buildTabBar() {
     final isMobile = Responsive.isMobile(context);
-    final tabs = [
-      (Icons.inventory_2, 'Sản phẩm'),
-      (Icons.warehouse, 'Kho'),
-      (Icons.checklist, 'Kiểm kê'),
-      (Icons.history, 'Lịch sử'),
+    final tabs = <(IconData, String, int?)>[
+      (Icons.space_dashboard_rounded, 'Tổng quan', null),
+      (Icons.inventory_2_rounded, 'Tài sản', _statistics?.totalAssets),
+      (Icons.warehouse_rounded, 'Kho', null),
+      (Icons.fact_check_rounded, 'Kiểm kê', null),
+      (Icons.history_rounded, 'Lịch sử', null),
     ];
     return Container(
+      width: double.infinity,
       decoration: const BoxDecoration(
         color: Colors.white,
         border: Border(bottom: BorderSide(color: SboxColors.slate200)),
       ),
-      child: Row(
-        children: tabs.asMap().entries.map((entry) {
-          final i = entry.key;
-          final tab = entry.value;
-          final isActive = _currentTab == i;
-          return Expanded(
-            child: InkWell(
-              onTap: () => _switchTab(i),
-              child: Container(
-                padding: EdgeInsets.symmetric(vertical: isMobile ? 10 : 14),
-                decoration: BoxDecoration(
-                  border: Border(
-                    bottom: BorderSide(
-                      color: isActive ? HrmPageChrome.primaryNavy : Colors.transparent,
-                      width: 2,
-                    ),
-                  ),
-                ),
-                child: Row(
-                  mainAxisAlignment: MainAxisAlignment.center,
-                  children: [
-                    Icon(tab.$1, size: isMobile ? 16 : 18, color: isActive ? HrmPageChrome.primaryNavy : SboxColors.slate500),
-                    const SizedBox(width: 6),
-                    Text(
-                      tr(tab.$2),
-                      style: TextStyle(
-                        fontSize: isMobile ? 12 : 14,
-                        fontWeight: isActive ? FontWeight.w700 : FontWeight.w500,
-                        color: isActive ? HrmPageChrome.primaryNavy : SboxColors.slate500,
-                      ),
-                    ),
-                  ],
+      padding: EdgeInsets.symmetric(horizontal: isMobile ? 8 : 20, vertical: 8),
+      child: SingleChildScrollView(
+        scrollDirection: Axis.horizontal,
+        child: Row(
+          children: [
+            for (var i = 0; i < tabs.length; i++)
+              Padding(
+                padding: const EdgeInsets.only(right: 6),
+                child: _tabPill(
+                  icon: tabs[i].$1,
+                  label: tabs[i].$2,
+                  count: tabs[i].$3,
+                  active: _currentTab == i,
+                  onTap: () => _switchTab(i),
                 ),
               ),
-            ),
-          );
-        }).toList(),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _tabPill({
+    required IconData icon,
+    required String label,
+    required bool active,
+    required VoidCallback onTap,
+    int? count,
+  }) {
+    final fg = active ? Colors.white : SboxColors.slate600;
+    return Material(
+      color: active ? SboxColors.brand600 : SboxColors.slate50,
+      borderRadius: BorderRadius.circular(999),
+      child: InkWell(
+        borderRadius: BorderRadius.circular(999),
+        onTap: onTap,
+        child: AnimatedContainer(
+          duration: const Duration(milliseconds: 180),
+          padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
+          decoration: BoxDecoration(
+            borderRadius: BorderRadius.circular(999),
+            border: Border.all(color: active ? SboxColors.brand600 : SboxColors.slate200),
+          ),
+          child: Row(mainAxisSize: MainAxisSize.min, children: [
+            Icon(icon, size: 17, color: fg),
+            const SizedBox(width: 6),
+            Text(tr(label), style: TextStyle(fontSize: 13, fontWeight: FontWeight.w600, color: fg)),
+            if (count != null && count > 0) ...[
+              const SizedBox(width: 6),
+              Container(
+                padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 1),
+                decoration: BoxDecoration(
+                  color: active ? Colors.white.withValues(alpha: 0.25) : SboxColors.slate200,
+                  borderRadius: BorderRadius.circular(99),
+                ),
+                child: Text('$count', style: TextStyle(fontSize: 11, fontWeight: FontWeight.w700, color: fg)),
+              ),
+            ],
+          ]),
+        ),
       ),
     );
   }
@@ -1311,56 +1344,79 @@ class _AssetManagementScreenState extends State<AssetManagementScreen> {
   // ==================== STAT CARDS ====================
   Widget _buildStatCards() {
     final stats = _statistics;
-    final items = <HrmStatItem>[
-      HrmStatItem(
-          icon: Icons.inventory_2,
-          value: '${stats?.totalAssets ?? 0}',
-          label: 'Tổng'),
-      HrmStatItem(
-          icon: Icons.check_circle,
-          value: '${stats?.activeAssets ?? 0}',
-          label: 'Đang dùng'),
-      HrmStatItem(
-          icon: Icons.warehouse,
-          value: '${stats?.inStockAssets ?? 0}',
-          label: 'Trong kho'),
-      HrmStatItem(
-          icon: Icons.person,
-          value: '${stats?.assignedAssets ?? 0}',
-          label: 'Đã cấp'),
-      HrmStatItem(
-          icon: Icons.build,
-          value: '${stats?.maintenanceAssets ?? 0}',
-          label: 'Bảo trì'),
-      HrmStatItem(
-          icon: Icons.error,
-          value: '${stats?.brokenAssets ?? 0}',
-          label: 'Hỏng'),
-      HrmStatItem(
-          icon: Icons.payments_outlined,
-          value: _currencyFormat.format(stats?.totalPurchaseValue ?? 0),
-          label: 'Tổng giá trị'),
+    int countOf(AssetStatus st) =>
+        stats?.byStatus?.where((b) => b.status == st).fold<int>(0, (s, b) => s + b.count) ?? 0;
+    const order = [
+      AssetStatus.active,
+      AssetStatus.inStock,
+      AssetStatus.inMaintenance,
+      AssetStatus.broken,
+      AssetStatus.lost,
+      AssetStatus.disposed,
     ];
+    Widget chip(String label, int count, bool selected, Color color, VoidCallback onTap, {IconData? icon}) {
+      return Padding(
+        padding: const EdgeInsets.only(right: 8),
+        child: Material(
+          color: selected ? color.withValues(alpha: 0.12) : Colors.white,
+          borderRadius: BorderRadius.circular(12),
+          child: InkWell(
+            borderRadius: BorderRadius.circular(12),
+            onTap: onTap,
+            child: Container(
+              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+              decoration: BoxDecoration(
+                borderRadius: BorderRadius.circular(12),
+                border: Border.all(color: selected ? color : SboxColors.slate200, width: selected ? 1.5 : 1),
+              ),
+              child: Row(mainAxisSize: MainAxisSize.min, children: [
+                if (icon != null) ...[Icon(icon, size: 16, color: color), const SizedBox(width: 6)],
+                Text(tr(label), style: TextStyle(fontSize: 13, fontWeight: FontWeight.w600,
+                    color: selected ? color : SboxColors.slate700)),
+                const SizedBox(width: 6),
+                Text('$count', style: TextStyle(fontSize: 13, fontWeight: FontWeight.w800, color: color)),
+              ]),
+            ),
+          ),
+        ),
+      );
+    }
+
+    void pick(AssetStatus? st) {
+      setState(() {
+        _statusFilter = st;
+        _currentPage = 1;
+      });
+      _loadAssets();
+    }
+
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
-        HrmStatBar(
-          items: items,
+        SingleChildScrollView(
+          scrollDirection: Axis.horizontal,
           padding: const EdgeInsets.fromLTRB(12, 6, 12, 4),
-          valueFontSize: 14,
+          child: Row(children: [
+            chip('Tất cả', stats?.totalAssets ?? 0, _statusFilter == null, SboxColors.brand600,
+                () => pick(null), icon: Icons.apps_rounded),
+            for (final st in order)
+              if (countOf(st) > 0 || _statusFilter == st)
+                chip(getAssetStatusLabel(st), countOf(st), _statusFilter == st, AssetUi.statusColor(st),
+                    () => pick(_statusFilter == st ? null : st), icon: AssetUi.statusIcon(st)),
+          ]),
         ),
-        if ((stats?.warrantyExpiringSoon ?? 0) > 0)
-          Padding(
-            padding: const EdgeInsets.fromLTRB(16, 0, 16, 8),
-            child: Align(
-              alignment: Alignment.centerLeft,
-              child: HrmBrandChip(
-                label: '${stats!.warrantyExpiringSoon} sắp hết BH',
-                icon: Icons.warning_amber,
-                dense: true,
-              ),
-            ),
-          ),
+        Padding(
+          padding: const EdgeInsets.fromLTRB(16, 2, 16, 6),
+          child: Wrap(spacing: 16, runSpacing: 4, children: [
+            Text(tr('Nguyên giá ${_currencyFormat.format(stats?.totalPurchaseValue ?? 0)}'),
+                style: const TextStyle(fontSize: 12, color: SboxColors.slate600)),
+            Text(tr('Còn lại ${_currencyFormat.format(stats?.totalCurrentValue ?? 0)}'),
+                style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w700, color: SboxColors.slate800)),
+            if ((stats?.warrantyExpiringSoon ?? 0) > 0)
+              Text(tr('⚠ ${stats!.warrantyExpiringSoon} sắp hết bảo hành'),
+                  style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w600, color: SboxColors.warningText)),
+          ]),
+        ),
       ],
     );
   }
@@ -1556,99 +1612,91 @@ class _AssetManagementScreenState extends State<AssetManagementScreen> {
       itemCount: _assets.length,
       itemBuilder: (context, index) {
         final asset = _assets[index];
-        return Card(
-          margin: const EdgeInsets.only(bottom: 8),
-          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
-          elevation: 0,
+        final book = _bookValue(asset);
+        final purchase = asset.purchasePrice * asset.quantity;
+        final depreciated = purchase > 0 && book < purchase;
+        return Container(
+          margin: const EdgeInsets.only(bottom: 10),
+          decoration: BoxDecoration(
+            color: Colors.white,
+            borderRadius: BorderRadius.circular(16),
+            border: Border.all(color: SboxColors.slate200),
+          ),
           child: InkWell(
-            borderRadius: BorderRadius.circular(10),
+            borderRadius: BorderRadius.circular(16),
             onTap: () => _showAssetDetail(asset),
             child: Padding(
               padding: const EdgeInsets.all(12),
-              child: Column(
+              child: Row(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  // Row 1: Name + Actions
-                  Row(
-                    children: [
-                      Expanded(
-                        child: Text(
-                          tr(asset.name),
-                          style: const TextStyle(fontSize: 16, fontWeight: FontWeight.w600, color: SboxColors.slate900),
-                          maxLines: 2,
-                          overflow: TextOverflow.ellipsis,
-                        ),
-                      ),
-                      _buildRowActions(asset),
-                    ],
-                  ),
-                  const SizedBox(height: 6),
-                  // Row 2: Code + Status
-                  Row(
-                    children: [
-                      Icon(Icons.qr_code_2, size: 14, color: SboxColors.slate500),
-                      const SizedBox(width: 4),
-                      Text(
-                        tr(asset.assetCode),
-                        style: const TextStyle(fontSize: 12, color: HrmPageChrome.primaryNavy, fontWeight: FontWeight.w500),
-                      ),
-                      const SizedBox(width: 10),
-                      _buildStatusBadge(asset.status),
-                    ],
-                  ),
-                  const SizedBox(height: 8),
-                  // Row 3: Quantity + Price
-                  Container(
-                    padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
-                    decoration: BoxDecoration(
-                      color: SboxColors.slate50,
-                      borderRadius: BorderRadius.circular(10),
-                    ),
-                    child: Row(
+                  _assetThumb(asset, size: 56),
+                  const SizedBox(width: 12),
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
-                        _mobileInfoChip(Icons.inventory_2_outlined, 'SL: ${asset.quantity}${" ${asset.unit}"}'),
-                        const SizedBox(width: 16),
-                        _mobileInfoChip(Icons.payments_outlined, _currencyFormat.format(asset.purchasePrice)),
-                        if (asset.currentAssigneeName != null) ...[
-                          const Spacer(),
-                          Icon(Icons.person_outline, size: 13, color: SboxColors.slate500),
-                          const SizedBox(width: 3),
-                          Flexible(
-                            child: Text(
-                              tr(asset.currentAssigneeName!),
-                              style: TextStyle(fontSize: 11, color: SboxColors.slate600),
-                              overflow: TextOverflow.ellipsis,
-                            ),
+                        Row(children: [
+                          Expanded(
+                            child: Text(asset.name,
+                                maxLines: 2, overflow: TextOverflow.ellipsis,
+                                style: const TextStyle(fontSize: 15, fontWeight: FontWeight.w700, color: SboxColors.slate900)),
                           ),
-                        ],
+                          _buildRowActions(asset),
+                        ]),
+                        const SizedBox(height: 2),
+                        Text(
+                          [
+                            asset.assetCode,
+                            if ((asset.brand ?? '').isNotEmpty) asset.brand!,
+                            if ((asset.model ?? '').isNotEmpty) asset.model!,
+                          ].join(' · '),
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                          style: const TextStyle(fontSize: 12, color: SboxColors.slate500),
+                        ),
+                        const SizedBox(height: 8),
+                        Wrap(
+                          spacing: 6,
+                          runSpacing: 6,
+                          crossAxisAlignment: WrapCrossAlignment.center,
+                          children: [
+                            _buildStatusBadge(asset.status),
+                            if (asset.warrantyExpiringSoon)
+                              _miniTag(Icons.verified_user_outlined, 'BH còn ${asset.daysUntilWarrantyExpiry} ngày',
+                                  SboxColors.warningText, SboxColors.warningSoft),
+                            if (asset.quantity > 1)
+                              _miniTag(Icons.layers_outlined, '${asset.quantity} ${asset.unit}',
+                                  SboxColors.slate700, SboxColors.slate100),
+                          ],
+                        ),
+                        const SizedBox(height: 8),
+                        Row(children: [
+                          Expanded(
+                            child: Row(children: [
+                              const Icon(Icons.person_outline_rounded, size: 15, color: SboxColors.slate500),
+                              const SizedBox(width: 4),
+                              Flexible(
+                                child: Text(
+                                  asset.currentAssigneeName ?? (asset.location ?? 'Chưa cấp phát'),
+                                  maxLines: 1,
+                                  overflow: TextOverflow.ellipsis,
+                                  style: const TextStyle(fontSize: 12, color: SboxColors.slate600),
+                                ),
+                              ),
+                            ]),
+                          ),
+                          Column(crossAxisAlignment: CrossAxisAlignment.end, children: [
+                            Text(_currencyFormat.format(book),
+                                style: const TextStyle(fontSize: 14, fontWeight: FontWeight.w800, color: SboxColors.slate900)),
+                            if (depreciated)
+                              Text(tr('Nguyên giá ${_currencyFormat.format(purchase)}'),
+                                  style: const TextStyle(fontSize: 10.5, color: SboxColors.slate400)),
+                          ]),
+                        ]),
                       ],
                     ),
                   ),
-                  // Row 4: Type + Brand (if present)
-                  if (asset.brand != null || asset.model != null)
-                    Padding(
-                      padding: const EdgeInsets.only(top: 6),
-                      child: Row(
-                        children: [
-                          Container(
-                            padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
-                            decoration: BoxDecoration(
-                              color: HrmPageChrome.primaryNavy.withValues(alpha: 0.08),
-                              borderRadius: BorderRadius.circular(4),
-                            ),
-                            child: Text(tr(getAssetTypeLabel(asset.assetType)), style: const TextStyle(fontSize: 10, color: HrmPageChrome.primaryNavy, fontWeight: FontWeight.w500)),
-                          ),
-                          if (asset.brand != null) ...[
-                            const SizedBox(width: 6),
-                            Text(tr(asset.brand!), style: TextStyle(fontSize: 11, color: SboxColors.slate600)),
-                          ],
-                          if (asset.model != null) ...[
-                            const SizedBox(width: 4),
-                            Text(tr('· ${asset.model}'), style: TextStyle(fontSize: 11, color: SboxColors.slate500)),
-                          ],
-                        ],
-                      ),
-                    ),
                 ],
               ),
             ),
@@ -1658,16 +1706,15 @@ class _AssetManagementScreenState extends State<AssetManagementScreen> {
     );
   }
 
-  Widget _mobileInfoChip(IconData icon, String text) {
-    return Row(
-      mainAxisSize: MainAxisSize.min,
-      children: [
-        Icon(icon, size: 13, color: SboxColors.slate600),
-        const SizedBox(width: 4),
-        Text(tr(text), style: TextStyle(fontSize: 12, fontWeight: FontWeight.w500, color: SboxColors.slate800)),
-      ],
-    );
-  }
+  Widget _miniTag(IconData icon, String text, Color fg, Color bg) => Container(
+        padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 3),
+        decoration: BoxDecoration(color: bg, borderRadius: BorderRadius.circular(99)),
+        child: Row(mainAxisSize: MainAxisSize.min, children: [
+          Icon(icon, size: 12, color: fg),
+          const SizedBox(width: 3),
+          Text(tr(text), style: TextStyle(fontSize: 11, fontWeight: FontWeight.w600, color: fg)),
+        ]),
+      );
 
   Widget _buildDataTable() {
     return DataTable(
@@ -1683,7 +1730,8 @@ class _AssetManagementScreenState extends State<AssetManagementScreen> {
         DataColumn(label: Expanded(child: Text(tr('LOẠI'), textAlign: TextAlign.center))),
         DataColumn(label: Expanded(child: Text(tr('TRẠNG THÁI'), textAlign: TextAlign.center))),
         DataColumn(label: Expanded(child: Text(tr('NGƯỜI DÙNG'), textAlign: TextAlign.center))),
-        DataColumn(label: Expanded(child: Text(tr('GIÁ TRỊ'), textAlign: TextAlign.center))),
+        DataColumn(label: Expanded(child: Text(tr('NGUYÊN GIÁ'), textAlign: TextAlign.center))),
+        DataColumn(label: Expanded(child: Text(tr('CÒN LẠI'), textAlign: TextAlign.center))),
         DataColumn(label: Expanded(child: Text(tr('SỐ LƯỢNG'), textAlign: TextAlign.center))),
         DataColumn(label: Expanded(child: Text('', textAlign: TextAlign.center))),
       ],
@@ -1712,20 +1760,25 @@ class _AssetManagementScreenState extends State<AssetManagementScreen> {
             child: Text(tr(asset.assetCode), style: const TextStyle(color: HrmPageChrome.primaryNavy, fontWeight: FontWeight.w600, fontSize: 13)),
           ),
         )),
-        // Name + serial
-        DataCell(Center(
-          child: InkWell(
-            onTap: () => _showAssetDetail(asset),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              mainAxisAlignment: MainAxisAlignment.center,
-              children: [
-                Text(tr(asset.name), style: const TextStyle(fontWeight: FontWeight.w500), overflow: TextOverflow.ellipsis),
-                if (asset.serialNumber != null)
-                  Text(tr('S/N: ${asset.serialNumber}'), style: const TextStyle(fontSize: 11, color: SboxColors.slate400)),
-              ],
+        // Ảnh + tên + serial
+        DataCell(InkWell(
+          onTap: () => _showAssetDetail(asset),
+          child: Row(mainAxisSize: MainAxisSize.min, children: [
+            _assetThumb(asset, size: 36),
+            const SizedBox(width: 10),
+            ConstrainedBox(
+              constraints: const BoxConstraints(maxWidth: 240),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: [
+                  Text(asset.name, style: const TextStyle(fontWeight: FontWeight.w600), overflow: TextOverflow.ellipsis),
+                  if (asset.serialNumber != null)
+                    Text(tr('S/N: ${asset.serialNumber}'), style: const TextStyle(fontSize: 11, color: SboxColors.slate400)),
+                ],
+              ),
             ),
-          ),
+          ]),
         )),
         // Type
         DataCell(Center(child: Text(tr(getAssetTypeLabel(asset.assetType)), style: const TextStyle(fontSize: 12)))),
@@ -1751,8 +1804,11 @@ class _AssetManagementScreenState extends State<AssetManagementScreen> {
                 )
               : Text(tr('—'), style: TextStyle(color: SboxColors.slate300)),
         )),
-        // Price
-        DataCell(Center(child: Text(tr(_currencyFormat.format(asset.purchasePrice)), style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w500)))),
+        // Nguyên giá / giá trị còn lại (đã nhân số lượng)
+        DataCell(Center(child: Text(_currencyFormat.format(asset.purchasePrice * asset.quantity),
+            style: const TextStyle(fontSize: 12, color: SboxColors.slate500)))),
+        DataCell(Center(child: Text(_currencyFormat.format(_bookValue(asset)),
+            style: const TextStyle(fontSize: 12.5, fontWeight: FontWeight.w700)))),
         // Quantity
         DataCell(Center(child: Text(tr('${asset.quantity}'), style: const TextStyle(fontSize: 12)))),
         // Actions
@@ -1761,12 +1817,26 @@ class _AssetManagementScreenState extends State<AssetManagementScreen> {
     );
   }
 
-  Widget _buildStatusBadge(AssetStatus status) {
-    return HrmBrandChip(
-      label: getAssetStatusLabel(status),
-      dense: true,
+  Widget _buildStatusBadge(AssetStatus status) => AssetUi.statusChip(status, dense: true);
+
+  /// Ảnh đại diện tài sản (ảnh chính, không có thì biểu tượng loại).
+  Widget _assetThumb(Asset asset, {double size = 44}) {
+    final url = asset.primaryImageUrl;
+    if (url == null || url.isEmpty) return AssetUi.typeAvatar(asset.assetType, size: size);
+    return ClipRRect(
+      borderRadius: BorderRadius.circular(size * 0.28),
+      child: AuthCachedImage(
+        imagePath: url,
+        apiService: _apiService,
+        width: size,
+        height: size,
+        errorWidget: (_, __, ___) => AssetUi.typeAvatar(asset.assetType, size: size),
+      ),
     );
   }
+
+  /// Giá trị còn lại (sau khấu hao) × số lượng.
+  double _bookValue(Asset a) => (a.currentValue ?? a.purchasePrice) * a.quantity;
 
   Widget _buildRowActions(Asset asset) {
     return Row(
@@ -2308,17 +2378,6 @@ class _AssetManagementScreenState extends State<AssetManagementScreen> {
   }
 
   // ==================== Colors ====================
-  Color _getStatusColor(AssetStatus status) {
-    switch (status) {
-      case AssetStatus.active: return HrmPageChrome.primaryNavy;
-      case AssetStatus.inMaintenance: return SboxColors.warning;
-      case AssetStatus.broken: return SboxColors.danger;
-      case AssetStatus.disposed: return SboxColors.slate400;
-      case AssetStatus.lost: return HrmPageChrome.primaryNavy;
-      case AssetStatus.inStock: return HrmPageChrome.primaryNavy;
-    }
-  }
-
   Color _getTransferTypeColor(AssetTransferType type) {
     switch (type) {
       case AssetTransferType.assignment: return HrmPageChrome.primaryNavy;

@@ -866,11 +866,14 @@ class PosReportMetricTiles extends StatelessWidget {
               child: InkWell(
                 onTap: onTileTap == null ? null : () => onTileTap!(i),
                 borderRadius: BorderRadius.circular(10),
+                // Viền trái màu nhấn + viền xám: Flutter không cho borderRadius với viền khác màu
+                // → bo góc bằng ClipRRect.
+                child: ClipRRect(
+                borderRadius: BorderRadius.circular(10),
                 child: Container(
               padding: const EdgeInsets.fromLTRB(10, 8, 10, 8),
               decoration: BoxDecoration(
                 color: const Color(0xFFF7F9FB),
-                borderRadius: BorderRadius.circular(10),
                 border: Border(
                   left: BorderSide(color: tiles[i].color, width: 3),
                   top: const BorderSide(color: Color(0xFFE8ECF0)),
@@ -913,6 +916,7 @@ class PosReportMetricTiles extends StatelessWidget {
                   ),
                 ],
               ),
+                ),
                 ),
               ),
             ),

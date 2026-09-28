@@ -49,6 +49,13 @@ public class PosProductConfiguration : IEntityTypeConfiguration<PosProduct>
     {
         builder.ToTable("PosProducts");
         builder.HasKey(x => x.Id);
+        // Chống «mất cập nhật tồn»: 2 giao dịch (bán / nhập / xuất / kiểm kê / sửa hàng) cùng đọc
+        // tồn rồi ghi đè nhau. xmin là cột hệ thống Postgres — không cần thêm cột.
+        builder.Property<uint>("xmin")
+            .HasColumnName("xmin")
+            .HasColumnType("xid")
+            .ValueGeneratedOnAddOrUpdate()
+            .IsConcurrencyToken();
         builder.Property(x => x.ProductCode).IsRequired().HasMaxLength(50);
         builder.Property(x => x.Barcode).HasMaxLength(50);
         builder.Property(x => x.Name).IsRequired().HasMaxLength(500);
@@ -414,6 +421,13 @@ public class PosProductVariantConfiguration : IEntityTypeConfiguration<PosProduc
     {
         builder.ToTable("PosProductVariants");
         builder.HasKey(x => x.Id);
+        // Chống «mất cập nhật tồn»: 2 giao dịch (bán / nhập / xuất / kiểm kê / sửa hàng) cùng đọc
+        // tồn rồi ghi đè nhau. xmin là cột hệ thống Postgres — không cần thêm cột.
+        builder.Property<uint>("xmin")
+            .HasColumnName("xmin")
+            .HasColumnType("xid")
+            .ValueGeneratedOnAddOrUpdate()
+            .IsConcurrencyToken();
         builder.Property(x => x.SkuCode).IsRequired().HasMaxLength(50);
         builder.Property(x => x.Barcode).HasMaxLength(50);
         builder.Property(x => x.Name).IsRequired().HasMaxLength(500);

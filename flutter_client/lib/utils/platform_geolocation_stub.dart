@@ -4,7 +4,17 @@ class GeoPosition {
   final double latitude;
   final double longitude;
   final double accuracy;
-  GeoPosition({required this.latitude, required this.longitude, required this.accuracy});
+  /// Tốc độ (m/s) nếu thiết bị cung cấp.
+  final double? speed;
+  /// Thời điểm đo (null = không rõ).
+  final DateTime? timestamp;
+  GeoPosition({
+    required this.latitude,
+    required this.longitude,
+    required this.accuracy,
+    this.speed,
+    this.timestamp,
+  });
 }
 
 class GeoError {
@@ -38,6 +48,8 @@ Future<GeoPosition?> getLastKnownPosition() async {
       latitude: position.latitude,
       longitude: position.longitude,
       accuracy: position.accuracy,
+      speed: position.speed >= 0 ? position.speed : null,
+      timestamp: position.timestamp,
     );
   } catch (_) {
     return null;
@@ -76,5 +88,7 @@ Future<GeoPosition> getCurrentPosition({
     latitude: position.latitude,
     longitude: position.longitude,
     accuracy: position.accuracy,
+    speed: position.speed >= 0 ? position.speed : null,
+    timestamp: position.timestamp,
   );
 }

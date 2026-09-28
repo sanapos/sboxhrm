@@ -62,7 +62,7 @@ public class CreateLeaveHandler(
             var overlapping = await leaveRepository.GetAllAsync(
                 filter: l => l.EmployeeUserId == request.EmployeeUserId &&
                              l.StoreId == request.StoreId &&
-                             l.Status != LeaveStatus.Rejected &&
+                             l.Status != LeaveStatus.Rejected && l.Status != LeaveStatus.Cancelled && // đơn đã huỷ không chặn đơn mới
                              l.StartDate <= request.EndDate &&
                              l.EndDate >= request.StartDate,
                 cancellationToken: cancellationToken);

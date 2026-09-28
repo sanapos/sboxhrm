@@ -50,6 +50,13 @@ public class WorkTaskDto
     public string? Tags { get; set; }
     public string? Checklist { get; set; }
     public string? CompletionNotes { get; set; }
+
+    public Guid? ProjectId { get; set; }
+    public string? ProjectName { get; set; }
+    public string? ProjectColor { get; set; }
+    public string? StageKey { get; set; }
+    public TaskProgressMode ProgressMode { get; set; }
+    public string? Location { get; set; }
     
     public bool IsOverdue => DueDate.HasValue && DueDate.Value < DateTime.Now && Status != WorkTaskStatus.Completed && Status != WorkTaskStatus.Cancelled;
     
@@ -147,6 +154,10 @@ public class CreateTaskDto
     public string? Tags { get; set; }
     public string? Checklist { get; set; }
     public bool RequireAcceptance { get; set; } = true;
+    public Guid? ProjectId { get; set; }
+    public string? StageKey { get; set; }
+    public TaskProgressMode? ProgressMode { get; set; }
+    public string? Location { get; set; }
 }
 
 public class UpdateTaskDto
@@ -171,6 +182,10 @@ public class UpdateTaskDto
     public string? Tags { get; set; }
     public string? Checklist { get; set; }
     public string? CompletionNotes { get; set; }
+    public Guid? ProjectId { get; set; }
+    public string? StageKey { get; set; }
+    public TaskProgressMode? ProgressMode { get; set; }
+    public string? Location { get; set; }
 }
 
 public class AcceptTaskDto
@@ -207,6 +222,19 @@ public class TaskTemplateDto
     public string? Tags { get; set; }
     public string? Checklist { get; set; }
     public bool IsActive { get; set; }
+    public string? IndustryKey { get; set; }
+    public string? StageKey { get; set; }
+    public TaskProgressMode ProgressMode { get; set; }
+    public Guid? ProjectId { get; set; }
+    public TaskRecurrenceType RecurrenceType { get; set; }
+    public string? RecurrenceDays { get; set; }
+    public string? RecurrenceTime { get; set; }
+    public int? DueAfterHours { get; set; }
+    public List<Guid>? DefaultAssigneeIds { get; set; }
+    [System.Text.Json.Serialization.JsonIgnore]
+    public string? DefaultAssigneeIdsRaw { get; set; }
+    public DateTime? NextRunAt { get; set; }
+    public DateTime? LastRunAt { get; set; }
 }
 
 public class CreateTaskTemplateDto
@@ -220,6 +248,14 @@ public class CreateTaskTemplateDto
     public int? DefaultSlaReminderHours { get; set; }
     public string? Tags { get; set; }
     public string? Checklist { get; set; }
+    public string? StageKey { get; set; }
+    public TaskProgressMode ProgressMode { get; set; } = TaskProgressMode.Checklist;
+    public Guid? ProjectId { get; set; }
+    public TaskRecurrenceType RecurrenceType { get; set; }
+    public string? RecurrenceDays { get; set; }
+    public string? RecurrenceTime { get; set; }
+    public int? DueAfterHours { get; set; }
+    public List<Guid>? DefaultAssigneeIds { get; set; }
 }
 
 public class CreateTaskFromTemplateDto
@@ -231,6 +267,9 @@ public class CreateTaskFromTemplateDto
     public DateTime? DueDate { get; set; }
     public Guid? BranchId { get; set; }
     public Guid? DepartmentId { get; set; }
+    public Guid? ProjectId { get; set; }
+    public string? StageKey { get; set; }
+    public string? Location { get; set; }
 }
 
 public class TaskDependencyDto

@@ -66,15 +66,29 @@ class FcmService {
       await _localPlugin.initialize(
         const InitializationSettings(android: androidInit, iOS: iosInit),
       );
-      await _localPlugin
-          .resolvePlatformSpecificImplementation<
-              AndroidFlutterLocalNotificationsPlugin>()
-          ?.createNotificationChannel(const AndroidNotificationChannel(
-            _channelId,
-            _channelName,
-            description: _channelDesc,
-            importance: Importance.high,
-          ));
+      final androidImpl = _localPlugin.resolvePlatformSpecificImplementation<
+          AndroidFlutterLocalNotificationsPlugin>();
+      await androidImpl?.createNotificationChannel(const AndroidNotificationChannel(
+        _channelId,
+        _channelName,
+        description: _channelDesc,
+        importance: Importance.high,
+      ));
+      // Server chọn kênh theo mức độ: khẩn (cần duyệt / cảnh báo) và yên lặng (giờ nghỉ — không chuông).
+      await androidImpl?.createNotificationChannel(const AndroidNotificationChannel(
+        'attendance_urgent',
+        'Thông báo khẩn',
+        description: 'Cần duyệt, cảnh báo — luôn đổ chuông',
+        importance: Importance.max,
+      ));
+      await androidImpl?.createNotificationChannel(const AndroidNotificationChannel(
+        'attendance_quiet',
+        'Thông báo yên lặng',
+        description: 'Nhận trong giờ yên lặng — không chuông, không rung',
+        importance: Importance.low,
+        playSound: false,
+        enableVibration: false,
+      ));
 
       // Foreground iOS presentation: tắt vì SignalR đã hiển thị in-app khi
       // app đang mở; nếu để alert=true sẽ trùng 2 thông báo trên iOS.

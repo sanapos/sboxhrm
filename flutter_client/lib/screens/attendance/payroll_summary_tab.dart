@@ -1,3 +1,4 @@
+import '../../widgets/attendance/punch_cells.dart';
 import 'dart:convert';
 import '../../utils/work_schedule_load_utils.dart';
 import 'dart:math' as math;
@@ -16,6 +17,7 @@ import 'package:shared_preferences/shared_preferences.dart';
 import '../../models/attendance.dart';
 import '../../models/device.dart';
 import '../../models/employee.dart';
+import '../../models/hr_finance.dart';
 import '../../services/api_service.dart';
 import '../../widgets/notification_overlay.dart';
 import '../../utils/responsive_helper.dart';
@@ -45,6 +47,8 @@ import 'package:zkteco_flutter_client/l10n/app_ui_locale.dart';
 
 import '../../theme/sbox_tokens.dart';
 import '../../widgets/sbox/sbox_table.dart';
+import '../../widgets/sbox/sbox_report.dart';
+import '../../widgets/sbox/sbox_charts.dart';
 // ═══════════════════════════════════════════════════════════════
 //  PayrollColumn – định nghĩa 1 cột bảng lương
 // ═══════════════════════════════════════════════════════════════
@@ -153,6 +157,7 @@ class PayrollSummaryTabState extends State<PayrollSummaryTab> {
 
   // ═══ Data ═══
   List<Employee> _employees = [];
+  final ValueNotifier<String?> _payrollHoveredRow = ValueNotifier<String?>(null);
   List<Map<String, dynamic>> _employeeSalaryProfiles = [];
   Map<String, dynamic> _insuranceSettings = {};
   // ignore: unused_field
@@ -163,6 +168,9 @@ class PayrollSummaryTabState extends State<PayrollSummaryTab> {
   /// Phiếu phạt chấm công (đi trễ/về sớm/…) trong kỳ — tránh trừ trùng với latePenalty.
   List<Map<String, dynamic>> _penaltyTickets = [];
   List<Map<String, dynamic>> _advanceRequests = [];
+  /// Khoản cộng/trừ lương tính sẵn trên server (api/hr-finance/payroll-adjustments).
+  /// null = server chưa hỗ trợ / lỗi → dùng cách tính cũ trên máy.
+  Map<String, HrFinPayrollAdj>? _payrollAdj;
   // ignore: unused_field
   List<Map<String, dynamic>> _shifts = [];
   List<Map<String, dynamic>> _holidays = [];
@@ -175,6 +183,8 @@ class PayrollSummaryTabState extends State<PayrollSummaryTab> {
 
   Map<String, dynamic> _commissionSettings = {};
   List<Map<String, dynamic>> _productionSummaries = [];
+  /// Lương KPI theo NV do server tính (cùng công thức tab Lương KPI). null = server cũ → tính trên app.
+  Map<String, double>? _kpiPayrollAmounts;
 
   // Attendance loaded for selected period (from parent screen)
   List<Attendance> _periodAttendances = [];
@@ -489,6 +499,7 @@ class PayrollSummaryTabState extends State<PayrollSummaryTab> {
 
   @override
   void dispose() {
+    _payrollHoveredRow.dispose();
     _searchController.dispose();
     _verticalScrollController.dispose();
     _horizontalScrollController.dispose();
@@ -713,8 +724,13 @@ class PayrollSummaryTabState extends State<PayrollSummaryTab> {
 
       // Hồ sơ lương: batch API chỉ manager+; NV dùng /api/benefits/me.
       _employeeSalaryProfiles = [];
-      final activeEmployees =
-          _employees.where((e) => e.isActive).toList(growable: false);
+      // Đang làm + đã nghỉ việc trong/sau đầu kỳ (vẫn phải trả lương những ngày đã làm).
+      final periodStart = DateTime(_fromDate.year, _fromDate.month, _fromDate.day);
+      final activeEmployees = _employees
+          .where((e) =>
+              e.isActive ||
+              (e.resignationDate != null && !e.resignationDate!.isBefore(periodStart)))
+          .toList(growable: false);
       final profileMap = await _loadSalaryProfileMap(
         activeEmployees,
         preferSelfServiceApi: mounted && _isEmployeeRole(context),
@@ -772,6 +788,10 @@ class PayrollSummaryTabState extends State<PayrollSummaryTab> {
           ),
           <String, dynamic>{},
         ),
+        _loadWithTimeout(
+          _apiService.getHrFinPayrollAdjustments(_fromDate, _toDate),
+          <String, dynamic>{},
+        ),
       ]);
 
       _insuranceSettings = results[0] is Map<String, dynamic>
@@ -811,6 +831,16 @@ class PayrollSummaryTabState extends State<PayrollSummaryTab> {
       final ticketResult = results[9] as Map<String, dynamic>;
       _penaltyTickets =
           _extractList(ticketResult['items'] ?? ticketResult['data']);
+      final adjResult = results[10] is Map<String, dynamic>
+          ? results[10] as Map<String, dynamic>
+          : <String, dynamic>{};
+      _payrollAdj = adjResult['isSuccess'] == true && adjResult['data'] is List
+          ? {
+              for (final a in (adjResult['data'] as List).whereType<Map>())
+                _normEmpId('${a['employeeId']}'):
+                    HrFinPayrollAdj.fromJson(Map<String, dynamic>.from(a)),
+            }
+          : null;
       final codeToGuid = <String, String>{
         for (final e in _employees)
           if (e.employeeCode.isNotEmpty) e.employeeCode: e.id,
@@ -900,6 +930,21 @@ class PayrollSummaryTabState extends State<PayrollSummaryTab> {
             List<Map<String, dynamic>>.from(prodRes['data'] ?? []);
       } else {
         _productionSummaries = [];
+      }
+
+      final kpiPayRes = await _loadWithTimeout(
+        _apiService.getKpiSalaryForPayroll(from: _fromDate, to: _toDate),
+        <String, dynamic>{'isSuccess': false},
+      );
+      if (kpiPayRes['isSuccess'] == true && kpiPayRes['data'] is Map) {
+        final items = (kpiPayRes['data'] as Map)['items'];
+        _kpiPayrollAmounts = {
+          if (items is List)
+            for (final it in items.whereType<Map>())
+              (it['employeeId'] ?? '').toString(): _toDouble(it['amount']),
+        };
+      } else {
+        _kpiPayrollAmounts = null;
       }
 
       await _loadPeriodAttendances();
@@ -1470,6 +1515,14 @@ class PayrollSummaryTabState extends State<PayrollSummaryTab> {
 
     int paidLeaveDays = 0;
     int absentDays = 0;
+    final nowTs = DateTime.now();
+    final todayStart = DateTime(nowTs.year, nowTs.month, nowTs.day);
+    final joinDay = emp?.joinDate == null
+        ? null
+        : DateTime(emp!.joinDate!.year, emp.joinDate!.month, emp.joinDate!.day);
+    final resignDay = emp?.resignationDate == null
+        ? null
+        : DateTime(emp!.resignationDate!.year, emp.resignationDate!.month, emp.resignationDate!.day);
 
     // Count paid leave and absent days
     for (var d = _fromDate;
@@ -1526,7 +1579,10 @@ class PayrollSummaryTabState extends State<PayrollSummaryTab> {
 
       if (isPaidOff) {
         paidLeaveDays++;
-      } else if (!daysWithWork.contains(key) && d.isBefore(DateTime.now())) {
+      } else if (!daysWithWork.contains(key) &&
+          d.isBefore(todayStart) &&
+          (joinDay == null || !d.isBefore(joinDay)) &&
+          (resignDay == null || !d.isAfter(resignDay))) {
         // Theo lịch: chỉ đếm vắng khi có xếp ca làm và không chấm.
         if (isSchedulePaidLeaveType(paidLeaveType)) {
           final onWorkDay = scheduleKeyHit(
@@ -1781,10 +1837,8 @@ class PayrollSummaryTabState extends State<PayrollSummaryTab> {
       // Match by employeeId or employeeUserId (backward compatibility)
       final txEmpId = tx['employeeId']?.toString();
       final txEmpUserId = tx['employeeUserId']?.toString();
-      if (txEmpId != empId &&
-          txEmpUserId != empId &&
-          txEmpId != empCode &&
-          txEmpUserId != empCode) {
+      final myIds = {empCode, if (empId != null && empId.isNotEmpty) empId};
+      if (!myIds.contains(txEmpId) && !myIds.contains(txEmpUserId)) {
         continue;
       }
       final txType = tx['type']?.toString().toLowerCase() ?? '';
@@ -1819,6 +1873,14 @@ class PayrollSummaryTabState extends State<PayrollSummaryTab> {
       latePenaltyTotal += _toDouble(t['amount']).abs();
     }
 
+    // Nguồn chung từ server (cùng quy tắc với Tài chính nhân sự): ưu tiên khi có.
+    final adj = _payrollAdj == null || empId == null ? null : (_payrollAdj![_normEmpId(empId)]);
+    if (_payrollAdj != null && empId != null) {
+      bonusTotal = adj?.bonus ?? 0;
+      penaltyTotal = adj?.penalty ?? 0;
+      latePenaltyTotal = adj?.ticketPenalty ?? 0;
+    }
+
     // ═══ Insurance (BHXH, BHYT, BHTN, Đoàn phí) ═══
     // Use correct field names from InsuranceSetting entity (camelCase from C#)
     final double bhxhRate =
@@ -1845,12 +1907,24 @@ class PayrollSummaryTabState extends State<PayrollSummaryTab> {
     final double unionFeePart = insuranceSalary * unionFeeRate / 100;
     final double totalInsurance = bhxhPart + bhytPart + bhtnPart + unionFeePart;
 
+    // ═══ KPI / hoa hồng / lương sản phẩm (tính trước thuế — đều là thu nhập chịu thuế TNCN) ═══
+    final kpiRow = _kpiSalaryFor(emp);
+    final double kpiSalaryAmount = kpiRow;
+    final double salesAmount = _salesFor(emp);
+    final double commissionAmount = _calculateCommission(salesAmount);
+    final double productionAmount = _productionFor(emp, empCode);
+
     // ═══ Tax (PIT – Vietnamese progressive) ═══
+    // Trước đây bỏ sót lương công tác, hoa hồng, KPI, lương sản phẩm → thu nhập chịu thuế bị thấp.
     final double grossIncome = workSalary +
         completionSalaryEarned +
         otSalary +
+        travelSalary +
         totalAllowance +
-        bonusTotal;
+        bonusTotal +
+        commissionAmount +
+        kpiSalaryAmount +
+        productionAmount;
     final double taxableIncome = grossIncome - totalInsurance;
     double pit = 0;
     final double personalDeduction =
@@ -1891,61 +1965,18 @@ class PayrollSummaryTabState extends State<PayrollSummaryTab> {
         if (paidDateStr == null) continue;
         final paidDate = DateTime.tryParse(paidDateStr);
         if (paidDate == null) continue;
-        if (paidDate.isBefore(_fromDate) || paidDate.isAfter(_toDate)) continue;
+        final paidDay = DateTime(paidDate.year, paidDate.month, paidDate.day);
+        final fromDay = DateTime(_fromDate.year, _fromDate.month, _fromDate.day);
+        final toDay = DateTime(_toDate.year, _toDate.month, _toDate.day);
+        if (paidDay.isBefore(fromDay) || paidDay.isAfter(toDay)) continue;
         // Trừ lương theo số tiền THỰC TẾ đã duyệt/chi (có thể thấp hơn số
         // tiền yêu cầu ban đầu nếu quản lý duyệt một phần).
         advanceTotal +=
             _toDouble(req['approvedAmount'] ?? req['amount']);
       }
     }
-
-    // ═══ KPI Salary (Lương KPI = Tổng thưởng từ KPI targets) ═══
-    double kpiSalaryAmount = 0;
-    final kpiTarget =
-        _kpiEmployeeTargets.cast<Map<String, dynamic>?>().firstWhere(
-              (t) => t?['employeeId']?.toString() == emp?.id,
-              orElse: () => null,
-            );
-    if (kpiTarget != null) {
-      final tgt = ((kpiTarget['targetValue'] ?? 0) as num).toDouble();
-      final act = ((kpiTarget['actualValue'] ?? 0) as num).toDouble();
-      final pct = tgt > 0 ? act / tgt * 100 : 0.0;
-      final cs = ((kpiTarget['completionSalary'] ?? 0) as num).toDouble();
-      final salaryHT = pct >= 100 ? cs : 0.0;
-      final penaltyBonus = _kpiCalcPenaltyBonus(kpiTarget);
-      final tierBonuses = _kpiCalcTierBonuses(kpiTarget);
-      final totalTierBonus =
-          tierBonuses.fold<double>(0, (s, b) => s + _toDouble(b['bonus']));
-      kpiSalaryAmount = salaryHT + penaltyBonus + totalTierBonus;
-    }
-
-    // ═══ Sales & Commission ═══
-    double salesAmount = 0;
-    double commissionAmount = 0;
-    final empTarget =
-        _kpiEmployeeTargets.cast<Map<String, dynamic>?>().firstWhere(
-              (t) =>
-                  t?['employeeId']?.toString() == emp?.id &&
-                  t?['criteriaType'] == 0,
-              orElse: () => null,
-            );
-    if (empTarget != null) {
-      salesAmount = _toDouble(empTarget['actualValue']);
-      commissionAmount = _calculateCommission(salesAmount);
-    }
-
-    // ═══ Production / Piece-rate salary ═══
-    double productionAmount = 0;
-    final prodSummary =
-        _productionSummaries.cast<Map<String, dynamic>?>().firstWhere(
-              (s) =>
-                  s?['employeeId']?.toString() == emp?.id ||
-                  s?['employeeCode']?.toString() == empCode,
-              orElse: () => null,
-            );
-    if (prodSummary != null) {
-      productionAmount = _toDouble(prodSummary['totalAmount']);
-    }
+    // Ứng lương trừ theo kỳ (ForMonth) + trả góp — tính trên server.
+    if (_payrollAdj != null && empId != null) advanceTotal = adj?.advance ?? 0;
 
     // ═══ Total deductions ═══
     final double totalDeduction =
@@ -2039,6 +2070,43 @@ class PayrollSummaryTabState extends State<PayrollSummaryTab> {
       'totalDeduction': totalDeduction,
       'netSalary': netSalary,
     };
+  }
+
+  double _kpiSalaryFor(Employee? emp) {
+    if (_kpiPayrollAmounts != null) {
+      // Server: gộp mọi chỉ tiêu của NV, ưu tiên lương KPI đã duyệt, kỳ trả vào tháng kết thúc kỳ.
+      return _kpiPayrollAmounts![emp?.id ?? ''] ?? 0;
+    }
+    final kpiTarget = _kpiEmployeeTargets.cast<Map<String, dynamic>?>().firstWhere(
+          (t) => t?['employeeId']?.toString() == emp?.id,
+          orElse: () => null,
+        );
+    if (kpiTarget == null) return 0;
+    final tgt = ((kpiTarget['targetValue'] ?? 0) as num).toDouble();
+    final act = ((kpiTarget['actualValue'] ?? 0) as num).toDouble();
+    final pct = tgt > 0 ? act / tgt * 100 : 0.0;
+    final cs = ((kpiTarget['completionSalary'] ?? 0) as num).toDouble();
+    final salaryHT = pct >= 100 ? cs : 0.0;
+    final penaltyBonus = _kpiCalcPenaltyBonus(kpiTarget);
+    final totalTierBonus =
+        _kpiCalcTierBonuses(kpiTarget).fold<double>(0, (s, b) => s + _toDouble(b['bonus']));
+    return salaryHT + penaltyBonus + totalTierBonus;
+  }
+
+  double _salesFor(Employee? emp) {
+    final t = _kpiEmployeeTargets.cast<Map<String, dynamic>?>().firstWhere(
+          (t) => t?['employeeId']?.toString() == emp?.id && t?['criteriaType'] == 0,
+          orElse: () => null,
+        );
+    return t == null ? 0 : _toDouble(t['actualValue']);
+  }
+
+  double _productionFor(Employee? emp, String empCode) {
+    final s = _productionSummaries.cast<Map<String, dynamic>?>().firstWhere(
+          (s) => s?['employeeId']?.toString() == emp?.id || s?['employeeCode']?.toString() == empCode,
+          orElse: () => null,
+        );
+    return s == null ? 0 : _toDouble(s['totalAmount']);
   }
 
   // ──────── Commission calculation ────────
@@ -3478,10 +3546,14 @@ class PayrollSummaryTabState extends State<PayrollSummaryTab> {
       setState(() {
         if (isFrom) {
           _fromDate = picked;
-          if (_fromDate.isAfter(_toDate)) _toDate = _fromDate;
+          if (_fromDate.isAfter(_toDate)) {
+            _toDate = DateTime(picked.year, picked.month, picked.day, 23, 59, 59);
+          }
         } else {
-          _toDate = picked;
-          if (_toDate.isBefore(_fromDate)) _fromDate = _toDate;
+          _toDate = DateTime(picked.year, picked.month, picked.day, 23, 59, 59);
+          if (_toDate.isBefore(_fromDate)) {
+            _fromDate = DateTime(picked.year, picked.month, picked.day);
+          }
         }
         _selectedPeriod = 'custom';
         _cachedPayrollData = null;
@@ -3753,6 +3825,7 @@ class PayrollSummaryTabState extends State<PayrollSummaryTab> {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
+            _buildPayrollInsight(payrollData),
             _buildSummaryCards(payrollData),
             const SizedBox(height: 12),
             _buildToolbar(),
@@ -4482,6 +4555,51 @@ class PayrollSummaryTabState extends State<PayrollSummaryTab> {
               )),
         ],
       ),
+    );
+  }
+
+  /// Biểu đồ đầu bảng lương: cơ cấu thu nhập / khấu trừ + thực lĩnh cao nhất.
+  Widget _buildPayrollInsight(List<Map<String, dynamic>> data) {
+    if (data.isEmpty) return const SizedBox.shrink();
+    double sum(String k) => data.fold<double>(0, (s, r) => s + ((r[k] as num?) ?? 0).toDouble());
+    return SboxInsightPanel(
+      charts: [
+        SboxChartCard(
+          title: 'Cơ cấu thu nhập',
+          child: SboxDonutChart(
+            centerValue: SboxFmt.compact(sum('netSalary')),
+            centerLabel: 'Thực lĩnh',
+            slices: [
+              SboxSlice('Lương theo công', sum('workSalary')),
+              SboxSlice('Phụ cấp', sum('totalAllowance'), color: SboxColors.success),
+              SboxSlice('Thưởng', sum('bonus'), color: SboxColors.violet),
+              SboxSlice('Lương KPI', sum('kpiSalary'), color: SboxColors.warning),
+            ],
+          ),
+        ),
+        SboxChartCard(
+          title: 'Các khoản trừ',
+          child: SboxBarChart(
+            labels: const ['Bảo hiểm', 'Phạt', 'Ứng lương'],
+            series: [
+              SboxSeries(name: 'Khấu trừ', values: [sum('totalInsurance'), sum('penalty'), sum('advance')], color: SboxColors.danger),
+            ],
+          ),
+        ),
+        if (data.length > 1)
+          SboxChartCard(
+            title: 'Thực lĩnh cao nhất',
+            wide: true,
+            child: SboxRankList(
+              maxItems: 8,
+              items: [
+                for (final r in data)
+                  SboxSlice('${r['employeeName'] ?? r['fullName'] ?? r['name'] ?? '—'}', ((r['netSalary'] as num?) ?? 0).toDouble(),
+                      caption: '${((r['workDays'] as num?) ?? 0)} công'),
+              ],
+            ),
+          ),
+      ],
     );
   }
 
@@ -5329,11 +5447,16 @@ class PayrollSummaryTabState extends State<PayrollSummaryTab> {
             textAlign:
                 _isPayrollLeftAlignKey(col.key) ? TextAlign.left : TextAlign.center,
             style: TextStyle(
-              fontSize: 12,
+              fontSize: col.key == 'netSalary' ? 13 : 12,
               fontWeight: col.key == 'netSalary' || col.key == 'totalSalary'
                   ? FontWeight.w700
                   : (col.key == 'name' ? FontWeight.w600 : FontWeight.normal),
-              color: color ?? SboxColors.slate900,
+              color: col.key == 'netSalary' && _toDouble(row['netSalary']) < 0
+                  ? SboxColors.danger
+                  : col.key == 'netSalary'
+                      ? SboxColors.brand700
+                      : (color ?? SboxColors.slate900),
+              fontFeatures: const [FontFeature.tabularFigures()],
             ),
             maxLines: col.key == 'name' ? 1 : null,
             overflow: TextOverflow.ellipsis,
@@ -5580,7 +5703,6 @@ class PayrollSummaryTabState extends State<PayrollSummaryTab> {
       );
     }
 
-    final detailCols = _mobilePayrollDetailColumns();
 
     final totalPages = math.max(1, (data.length / _rowsPerPage).ceil());
     if (_currentPage > totalPages) _currentPage = totalPages;
@@ -5589,156 +5711,246 @@ class PayrollSummaryTabState extends State<PayrollSummaryTab> {
     final end = math.min(start + _rowsPerPage, data.length);
     final paged = data.sublist(start, end);
 
-    Widget buildExpandedDetail(Map<String, dynamic> row, int index) {
-      if (detailCols.isEmpty) {
-        return Align(
-          alignment: Alignment.centerLeft,
-          child: TextButton.icon(
-            onPressed: () => _showEmployeeDetail(row),
-            icon: const Icon(Icons.open_in_new, size: 16),
-            label: Text(tr('Xem chi tiết đầy đủ')),
-          ),
-        );
-      }
-      final detailRows = detailCols
-          .map((col) {
-            final value = _formatCellValue(col.key, row, index);
-            if (value.isEmpty || value == '—') return null;
-            return MapEntry(col, value);
-          })
-          .whereType<MapEntry<PayrollColumn, String>>()
-          .toList();
+    String money(dynamic v) => _fmtCurrency(v);
+    double d(String k, Map<String, dynamic> r) => _toDouble(r[k]);
+    String num1(double v) => v % 1 == 0 ? v.toInt().toString() : v.toStringAsFixed(1);
 
-      return Column(
-        crossAxisAlignment: CrossAxisAlignment.stretch,
-        children: [
-          Container(
-            decoration: BoxDecoration(
-              color: SboxColors.slate50,
-              borderRadius: BorderRadius.circular(10),
-              border: Border.all(color: SboxColors.slate200),
+    Widget line(String label, String value, {Color? color, bool bold = false}) => Padding(
+          padding: const EdgeInsets.symmetric(vertical: 4),
+          child: Row(children: [
+            Expanded(
+              child: Text(tr(label), style: const TextStyle(fontSize: 12.5, color: SboxColors.slate600)),
             ),
-            child: Column(
-              children: [
-                for (var i = 0; i < detailRows.length; i++) ...[
-                  Padding(
-                    padding: const EdgeInsets.symmetric(
-                      horizontal: 12,
-                      vertical: 8,
-                    ),
-                    child: Row(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Expanded(
-                          flex: 11,
-                          child: Text(
-                            tr(detailRows[i].key.label),
-                            style: TextStyle(
-                              fontSize: 12,
-                              color: SboxColors.slate700,
-                            ),
-                          ),
-                        ),
-                        const SizedBox(width: 8),
-                        Expanded(
-                          flex: 9,
-                          child: Text(
-                            tr(detailRows[i].value),
-                            textAlign: TextAlign.right,
-                            style: TextStyle(
-                              fontSize: 13,
-                              fontWeight: FontWeight.w600,
-                              color: _payrollCellDisplayColor(
-                                detailRows[i].key.key,
-                                row,
-                              ),
-                            ),
-                          ),
-                        ),
-                      ],
-                    ),
-                  ),
-                  if (i < detailRows.length - 1)
-                    const Divider(height: 1, color: SboxColors.slate200),
-                ],
-              ],
-            ),
-          ),
-          const SizedBox(height: 6),
-          Align(
-            alignment: Alignment.centerLeft,
-            child: TextButton.icon(
-              onPressed: () => _showEmployeeDetail(row),
-              icon: const Icon(Icons.open_in_new, size: 16),
-              label: Text(tr('Xem chi tiết đầy đủ')),
-            ),
-          ),
-        ],
+            Text(tr(value),
+                style: TextStyle(
+                    fontSize: 13,
+                    fontWeight: bold ? FontWeight.w800 : FontWeight.w600,
+                    color: color ?? SboxColors.slate800)),
+          ]),
+        );
+
+    Widget group(String title, IconData icon, Color color, List<Widget> lines, {Widget? total}) {
+      if (lines.isEmpty && total == null) return const SizedBox.shrink();
+      return Container(
+        margin: const EdgeInsets.only(top: 8),
+        padding: const EdgeInsets.fromLTRB(12, 8, 12, 8),
+        decoration: BoxDecoration(
+          color: color.withValues(alpha: 0.05),
+          borderRadius: BorderRadius.circular(12),
+          border: Border.all(color: color.withValues(alpha: 0.18)),
+        ),
+        child: Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
+          Row(children: [
+            Icon(icon, size: 15, color: color),
+            const SizedBox(width: 6),
+            Text(tr(title), style: TextStyle(fontSize: 12.5, fontWeight: FontWeight.w800, color: color)),
+          ]),
+          const SizedBox(height: 2),
+          ...lines,
+          if (total != null) ...[const Divider(height: 10), total],
+        ]),
       );
     }
 
-    final tiles = paged.asMap().entries.map((entry) {
-      final pageIndex = entry.key;
-      final row = entry.value;
-      final globalIndex = start + pageIndex;
-      final code = row['code']?.toString() ?? '';
-      final dept = row['department']?.toString() ?? '';
+    Widget chip(String text, Color color, IconData icon) => Container(
+          padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 3),
+          decoration: BoxDecoration(color: color.withValues(alpha: 0.1), borderRadius: BorderRadius.circular(99)),
+          child: Row(mainAxisSize: MainAxisSize.min, children: [
+            Icon(icon, size: 11, color: color),
+            const SizedBox(width: 3),
+            Text(tr(text), style: TextStyle(fontSize: 11, fontWeight: FontWeight.w700, color: color)),
+          ]),
+        );
+
+    Widget buildCard(Map<String, dynamic> row, int index) {
+      final name = row['name']?.toString() ?? '';
+      final parts = name.trim().split(RegExp(r'\s+')).where((x) => x.isNotEmpty).toList();
+      final initials = parts.isEmpty
+          ? '?'
+          : parts.length == 1
+              ? parts.first.characters.first.toUpperCase()
+              : (parts[parts.length - 2].characters.first + parts.last.characters.first).toUpperCase();
+      final gross = d('totalSalary', row);
+      final ded = d('totalDeduction', row);
+      final net = d('netSalary', row);
+      final workDays = d('workDays', row), stdDays = d('standardDays', row);
+      final ot = d('otTotalHours', row);
+      final lateCount = d('lateCount', row), absent = d('absentDays', row);
+      final dedRatio = gross > 0 ? (ded / gross).clamp(0.0, 1.0) : 0.0;
       final subtitle = [
-        if (code.isNotEmpty) code,
-        if (dept.isNotEmpty) dept,
-      ].join(' · ');
+        row['department']?.toString() ?? '',
+        row['salaryType']?.toString() ?? '',
+      ].where((x) => x.isNotEmpty).join(' · ');
+
+      final income = <Widget>[
+        for (final (k, label) in const [
+          ('workSalary', 'Lương theo công'),
+          ('completionSalary', 'Lương hoàn thành'),
+          ('otSalary', 'Tăng ca'),
+          ('travelSalary', 'Đi đường / công tác'),
+          ('totalAllowance', 'Phụ cấp'),
+          ('bonus', 'Thưởng'),
+          ('kpiSalary', 'Lương KPI'),
+          ('commission', 'Hoa hồng'),
+          ('productionAmount', 'Lương sản phẩm'),
+        ])
+          if (d(k, row) != 0) line(label, money(row[k])),
+      ];
+      final deductions = <Widget>[
+        for (final (k, label) in const [
+          ('totalInsurance', 'Bảo hiểm (BHXH, BHYT, BHTN)'),
+          ('pit', 'Thuế TNCN'),
+          ('penalty', 'Phạt'),
+          ('advance', 'Tạm ứng'),
+        ])
+          if (d(k, row) != 0) line(label, '−${money(row[k])}', color: SboxColors.danger),
+      ];
+      final attendance = <Widget>[
+        line('Công thực tế / chuẩn', '${num1(workDays)} / ${num1(stdDays)}'),
+        if (d('totalHours', row) > 0) line('Giờ làm', '${num1(d('totalHours', row))} giờ'),
+        if (ot > 0)
+          line('Tăng ca',
+              '${num1(ot)} giờ (thường ${num1(d('otHoursWeekday', row))} · nghỉ ${num1(d('otHoursWeekend', row))} · lễ ${num1(d('otHoursHoliday', row))})'),
+        if (lateCount > 0) line('Đi muộn', '${num1(lateCount)} lần · ${num1(d('lateMinutes', row))} phút'),
+        if (d('earlyCount', row) > 0) line('Về sớm', '${num1(d('earlyCount', row))} lần · ${num1(d('earlyMinutes', row))} phút'),
+        if (absent > 0) line('Vắng', '${num1(absent)} ngày', color: SboxColors.danger),
+        if (d('paidLeaveDays', row) > 0) line('Nghỉ hưởng lương', '${num1(d('paidLeaveDays', row))} ngày'),
+      ];
+
       return Theme(
         data: Theme.of(context).copyWith(dividerColor: Colors.transparent),
-        child: ExpansionTile(
-          tilePadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 2),
-          childrenPadding:
-              const EdgeInsets.fromLTRB(16, 0, 16, 12),
-          leading: CircleAvatar(
-            radius: 16,
-            backgroundColor: SboxColors.brand50,
-            child: Text(
-              tr('${globalIndex + 1}'),
-              style: TextStyle(
-                fontSize: 12,
-                fontWeight: FontWeight.bold,
-                color: SboxColors.brand700,
-              ),
+        child: Container(
+          margin: const EdgeInsets.fromLTRB(10, 0, 10, 10),
+          decoration: BoxDecoration(
+            color: Colors.white,
+            borderRadius: BorderRadius.circular(16),
+            border: Border.all(color: net < 0 ? SboxColors.danger.withValues(alpha: 0.5) : SboxColors.slate200),
+          ),
+          child: ExpansionTile(
+            tilePadding: const EdgeInsets.fromLTRB(12, 6, 10, 6),
+            childrenPadding: const EdgeInsets.fromLTRB(12, 0, 12, 12),
+            shape: const RoundedRectangleBorder(side: BorderSide.none),
+            leading: CircleAvatar(
+              radius: 20,
+              backgroundColor: SboxColors.brand50,
+              child: Text(initials,
+                  style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w800, color: SboxColors.brand700)),
             ),
-          ),
-          title: Text(
-            tr(row['name']?.toString() ?? ''),
-            style: const TextStyle(fontWeight: FontWeight.w600, fontSize: 14),
-          ),
-          subtitle: subtitle.isEmpty
-              ? null
-              : Text(tr(subtitle), style: const TextStyle(fontSize: 12)),
-          trailing: Column(
-            mainAxisAlignment: MainAxisAlignment.center,
-            crossAxisAlignment: CrossAxisAlignment.end,
+            title: Row(children: [
+              Expanded(
+                child: Text(tr(name),
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    style: const TextStyle(fontWeight: FontWeight.w800, fontSize: 14, color: SboxColors.slate900)),
+              ),
+              Text(tr(money(net)),
+                  style: TextStyle(
+                      fontWeight: FontWeight.w800, fontSize: 15, color: net < 0 ? SboxColors.danger : SboxColors.brand700)),
+            ]),
+            subtitle: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+              if (subtitle.isNotEmpty)
+                Text(tr(subtitle), maxLines: 1, overflow: TextOverflow.ellipsis, style: const TextStyle(fontSize: 11.5)),
+              const SizedBox(height: 6),
+              // Thanh tỉ lệ: phần còn nhận (xanh) / khấu trừ (đỏ) trên tổng thu nhập
+              ClipRRect(
+                borderRadius: BorderRadius.circular(99),
+                child: Row(children: [
+                  Expanded(
+                    flex: ((1 - dedRatio) * 1000).round().clamp(1, 1000),
+                    child: Container(height: 5, color: SboxColors.success),
+                  ),
+                  if (dedRatio > 0)
+                    Expanded(
+                      flex: (dedRatio * 1000).round().clamp(1, 1000),
+                      child: Container(height: 5, color: SboxColors.danger.withValues(alpha: 0.7)),
+                    ),
+                ]),
+              ),
+              const SizedBox(height: 6),
+              Wrap(spacing: 5, runSpacing: 4, children: [
+                chip('${num1(workDays)}/${num1(stdDays)} công', SboxColors.brand600, Icons.calendar_today_rounded),
+                if (ot > 0) chip('OT ${num1(ot)}h', SboxColors.violet, Icons.bolt_rounded),
+                if (lateCount > 0) chip('Muộn ${num1(lateCount)}', SboxColors.warning, Icons.more_time_rounded),
+                if (absent > 0) chip('Vắng ${num1(absent)}', SboxColors.danger, Icons.event_busy_rounded),
+                if (_showTravelPayrollColumns && d('travelHours', row) > 0)
+                  chip('Đi đường ${num1(d('travelHours', row))}h', SboxColors.warning, Icons.directions_car_rounded),
+                if (net < 0) chip('Thực nhận âm', SboxColors.danger, Icons.warning_amber_rounded),
+              ]),
+            ]),
             children: [
-              Text(
-                tr(_fmtCurrency(row['netSalary'])),
-                style: const TextStyle(
-                  fontWeight: FontWeight.bold,
-                  fontSize: 14,
-                  color: SboxColors.brand700,
+              group('Thu nhập', Icons.add_circle_outline_rounded, SboxColors.success, income,
+                  total: line('Tổng thu nhập', money(gross), bold: true, color: SboxColors.success)),
+              group('Khấu trừ', Icons.remove_circle_outline_rounded, SboxColors.danger, deductions,
+                  total: deductions.isEmpty ? null : line('Tổng khấu trừ', '−${money(ded)}', bold: true, color: SboxColors.danger)),
+              group('Chấm công', Icons.fact_check_outlined, SboxColors.brand600, attendance),
+              const SizedBox(height: 10),
+              Container(
+                padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+                decoration: BoxDecoration(
+                  gradient: const LinearGradient(colors: [SboxColors.brand700, SboxColors.brand500]),
+                  borderRadius: BorderRadius.circular(12),
+                ),
+                child: Row(children: [
+                  Text(tr('THỰC NHẬN'), style: const TextStyle(color: Colors.white70, fontWeight: FontWeight.w700, fontSize: 12)),
+                  const Spacer(),
+                  Text(tr(money(net)), style: const TextStyle(color: Colors.white, fontWeight: FontWeight.w800, fontSize: 17)),
+                ]),
+              ),
+              Align(
+                alignment: Alignment.centerRight,
+                child: TextButton.icon(
+                  onPressed: () => _showEmployeeDetail(row),
+                  icon: const Icon(Icons.open_in_new_rounded, size: 16),
+                  label: Text(tr('Xem chi tiết đầy đủ')),
                 ),
               ),
-              if (_showTravelPayrollColumns &&
-                  (_toDouble(row['travelHours'])) > 0)
-                Text(tr('${tr('Đi đường: ')}${(_toDouble(row['travelHours'])).toStringAsFixed(1)}h'),
-                  style: TextStyle(
-                    fontSize: 10,
-                    fontWeight: FontWeight.w600,
-                    color: Colors.orange.shade700,
-                  ),
-                ),
             ],
           ),
-          children: [buildExpandedDetail(row, globalIndex)],
         ),
       );
-    }).toList();
+    }
+
+    Widget sortChips() {
+      Widget c(String key, String label, bool defaultAsc) {
+        final sel = _sortColumn == key;
+        return Padding(
+          padding: const EdgeInsets.only(right: 6),
+          child: ChoiceChip(
+            label: Text(tr(sel ? '$label ${_sortAscending ? '↑' : '↓'}' : label)),
+            selected: sel,
+            visualDensity: VisualDensity.compact,
+            onSelected: (_) => setState(() {
+              if (sel) {
+                _sortAscending = !_sortAscending;
+              } else {
+                _sortColumn = key;
+                _sortAscending = defaultAsc;
+              }
+              _cachedPayrollData = null;
+              _currentPage = 1;
+            }),
+          ),
+        );
+      }
+
+      return SingleChildScrollView(
+        scrollDirection: Axis.horizontal,
+        padding: const EdgeInsets.fromLTRB(10, 8, 10, 8),
+        child: Row(children: [
+          Text(tr('Sắp xếp: '), style: const TextStyle(fontSize: 12, color: SboxColors.slate500)),
+          c('netSalary', 'Thực nhận', false),
+          c('name', 'Tên', true),
+          c('workDays', 'Công', false),
+          c('otTotalHours', 'Tăng ca', false),
+          c('totalDeduction', 'Khấu trừ', false),
+        ]),
+      );
+    }
+
+    final tiles = <Widget>[
+      sortChips(),
+      for (final entry in paged.asMap().entries) buildCard(entry.value, start + entry.key),
+    ];
 
     final totalNet = data.fold<double>(
       0,
@@ -5846,17 +6058,82 @@ class PayrollSummaryTabState extends State<PayrollSummaryTab> {
     final end = math.min(start + _rowsPerPage, data.length);
     final paged = data.sublist(start, end);
 
-    final columnWidths = _payrollDesktopColumnWidths(visibleCols);
-    final tableMinWidth = _payrollDesktopTableMinWidth(visibleCols);
-    const headerH = 44.0;
-
-    final headerRow = _buildPayrollHeaderRow(visibleCols);
-    final dataRows = paged
-        .asMap()
-        .entries
-        .map((e) => _buildPayrollDataRow(e.value, e.key, visibleCols))
+    // Cột cố định: STT + Tên bên trái, Thực nhận bên phải; phần giữa cuộn ngang.
+    const leftKeys = {'stt', 'name'};
+    const rightKeys = {'netSalary'};
+    final leftCols = visibleCols.where((c) => leftKeys.contains(c.key)).toList();
+    final rightCols = visibleCols.where((c) => rightKeys.contains(c.key)).toList();
+    final midCols = visibleCols
+        .where((c) => !leftKeys.contains(c.key) && !rightKeys.contains(c.key))
         .toList();
-    dataRows.add(_buildPayrollTotalRow(data, visibleCols));
+    final leftW = _payrollDesktopTableMinWidth(leftCols);
+    final rightW = _payrollDesktopTableMinWidth(rightCols);
+    final midW = _payrollDesktopTableMinWidth(midCols);
+    const headerH = 44.0, groupH = 26.0, rowH = 40.0, totalH = 44.0;
+
+    Widget fixH(Widget c, double h) => SizedBox(height: h, child: c);
+
+    TableRow headerFor(List<PayrollColumn> cols) {
+      final r = _buildPayrollHeaderRow(cols);
+      return TableRow(decoration: r.decoration, children: [for (final c in r.children) fixH(c, headerH)]);
+    }
+
+    List<TableRow> bodyFor(List<PayrollColumn> cols) {
+      final rows = <TableRow>[];
+      for (final e in paged.asMap().entries) {
+        final rowKey = 'p${start + e.key}';
+        final r = _buildPayrollDataRow(e.value, e.key, cols);
+        rows.add(TableRow(
+          decoration: BoxDecoration(color: e.key.isEven ? Colors.white : const Color(0xFFF7FAFC)),
+          children: [
+            for (final c in r.children)
+              HoverRowCell(rowKey: rowKey, hovered: _payrollHoveredRow, child: fixH(c, rowH)),
+          ],
+        ));
+      }
+      final t = _buildPayrollTotalRow(data, cols);
+      rows.add(TableRow(
+        decoration: const BoxDecoration(
+          color: SboxColors.brand50,
+          border: Border(top: BorderSide(color: SboxColors.brand200, width: 2)),
+        ),
+        children: [for (final c in t.children) fixH(c, totalH)],
+      ));
+      return rows;
+    }
+
+    Widget tableFor(List<PayrollColumn> cols, List<TableRow> rows) =>
+        _buildPayrollDesktopTable(columnWidths: _payrollDesktopColumnWidths(cols), rows: rows);
+
+    Widget headerBlock(List<PayrollColumn> cols) => Column(
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          mainAxisSize: MainAxisSize.min,
+          children: [_payrollGroupHeader(cols, groupH), tableFor(cols, [headerFor(cols)])],
+        );
+
+    const frozenShadowR = [BoxShadow(color: Color(0x14000000), blurRadius: 6, offset: Offset(3, 0))];
+    const frozenShadowL = [BoxShadow(color: Color(0x14000000), blurRadius: 6, offset: Offset(-3, 0))];
+
+    Widget frozen(double w, Widget child, List<BoxShadow> shadow) => Container(
+          width: w,
+          decoration: BoxDecoration(color: Colors.white, boxShadow: shadow),
+          child: child,
+        );
+
+    Widget threePart({required Widget Function(List<PayrollColumn>) build}) => Row(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            if (leftCols.isNotEmpty) frozen(leftW, build(leftCols), frozenShadowR),
+            Expanded(
+              child: _buildPayrollHorizontalClip(
+                tableMinWidth: midW,
+                hController: _desktopTableHScrollBody,
+                child: build(midCols),
+              ),
+            ),
+            if (rightCols.isNotEmpty) frozen(rightW, build(rightCols), frozenShadowL),
+          ],
+        );
 
     return Container(
       decoration: BoxDecoration(
@@ -5871,20 +6148,11 @@ class PayrollSummaryTabState extends State<PayrollSummaryTab> {
           ),
         ],
       ),
+      clipBehavior: Clip.antiAlias,
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
-          SizedBox(
-            height: headerH,
-            child: _buildPayrollHorizontalClip(
-              tableMinWidth: tableMinWidth,
-              hController: _desktopTableHScrollBody,
-              child: _buildPayrollDesktopTable(
-                columnWidths: columnWidths,
-                rows: [headerRow],
-              ),
-            ),
-          ),
+          SizedBox(height: groupH + headerH, child: threePart(build: headerBlock)),
           const Divider(height: 1, color: SboxColors.slate200),
           Expanded(
             child: Scrollbar(
@@ -5893,14 +6161,7 @@ class PayrollSummaryTabState extends State<PayrollSummaryTab> {
               child: SingleChildScrollView(
                 controller: _desktopTableVScroll,
                 primary: false,
-                child: _buildPayrollHorizontalClip(
-                  tableMinWidth: tableMinWidth,
-                  hController: _desktopTableHScrollBody,
-                  child: _buildPayrollDesktopTable(
-                    columnWidths: columnWidths,
-                    rows: dataRows,
-                  ),
-                ),
+                child: threePart(build: (cols) => tableFor(cols, bodyFor(cols))),
               ),
             ),
           ),
@@ -5910,9 +6171,71 @@ class PayrollSummaryTabState extends State<PayrollSummaryTab> {
             onOpenFullscreen: () =>
                 _openPayrollTableFullscreen(data, visibleCols),
           ),
-          _buildBottomHorizontalScrollBar(tableMinWidth),
+          Padding(
+            padding: EdgeInsets.only(left: leftW, right: rightW),
+            child: _buildBottomHorizontalScrollBar(midW),
+          ),
         ],
       ),
+    );
+  }
+
+  /// Nhóm cột bảng lương (tiêu đề tầng trên).
+  static String _payrollGroupOf(String key) {
+    const info = {'stt', 'name', 'code', 'department', 'salaryType'};
+    const att = {'standardDays', 'workDays', 'totalHours', 'otTotalHours', 'travelHours', 'standardHours',
+      'lateCount', 'lateMinutes', 'earlyCount', 'earlyMinutes', 'absentDays', 'paidLeaveDays'};
+    const ded = {'penalty', 'latePenalty', 'bhxh', 'bhyt', 'bhtn', 'unionFee', 'totalInsurance', 'pit', 'advance',
+      'totalDeduction'};
+    if (info.contains(key)) return 'Nhân viên';
+    if (att.contains(key)) return 'Chấm công';
+    if (ded.contains(key)) return 'Khấu trừ';
+    if (key == 'netSalary') return 'Thực nhận';
+    if (key == _employeeSignColumnKey) return 'Ký nhận';
+    return 'Thu nhập';
+  }
+
+  static (Color, Color) _payrollGroupColors(String g) => switch (g) {
+        'Chấm công' => (const Color(0xFFE8F4FA), SboxColors.brand700),
+        'Thu nhập' => (const Color(0xFFE9F8EF), const Color(0xFF15803D)),
+        'Khấu trừ' => (const Color(0xFFFDECEC), const Color(0xFFB91C1C)),
+        'Thực nhận' => (SboxColors.brand600, Colors.white),
+        _ => (SboxColors.slate100, SboxColors.slate700),
+      };
+
+  /// Tiêu đề tầng trên: gộp các cột liền nhau cùng nhóm thành 1 khối màu.
+  Widget _payrollGroupHeader(List<PayrollColumn> cols, double height) {
+    final blocks = <(String, double)>[];
+    for (final c in cols) {
+      final g = _payrollGroupOf(c.key);
+      final w = _payrollColWidth(c);
+      if (blocks.isNotEmpty && blocks.last.$1 == g) {
+        blocks[blocks.length - 1] = (g, blocks.last.$2 + w);
+      } else {
+        blocks.add((g, w));
+      }
+    }
+    return SizedBox(
+      height: height,
+      child: Row(children: [
+        for (final (g, w) in blocks)
+          Container(
+            width: w,
+            alignment: Alignment.center,
+            decoration: BoxDecoration(
+              color: _payrollGroupColors(g).$1,
+              border: const Border(right: BorderSide(color: Colors.white, width: 2)),
+            ),
+            child: Text(tr(g.toUpperCase()),
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+                style: TextStyle(
+                    fontSize: 10.5,
+                    letterSpacing: 0.6,
+                    fontWeight: FontWeight.w800,
+                    color: _payrollGroupColors(g).$2)),
+          ),
+      ]),
     );
   }
 

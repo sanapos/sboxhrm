@@ -15,6 +15,18 @@ public record EasyInvoiceResult(
     string? ErrorCode,
     string? Error);
 
+public record EasyInvoiceListItem(
+    string? Ikey,
+    string? No,
+    string? Pattern,
+    string? Serial,
+    string? LookupCode,
+    string? ArisingDate,
+    string? CustomerName,
+    decimal Amount,
+    int InvoiceStatus,
+    string? LinkView);
+
 /// <summary>
 /// Easy Invoice v8 — token Authentication (kèm taxCode từ 01/01/2026)
 /// + importAndIssueInvoice (ký server) + tra cứu theo ikey.
@@ -78,19 +90,214 @@ public class EasyInvoiceClient(IHttpClientFactory httpFactory, ILogger<EasyInvoi
             ct);
     }
 
+    /// <summary>Phát hành hóa đơn nháp / chờ ký theo Ikeys (tài liệu v8: «issueInvoices», Pattern bắt buộc).</summary>
     public async Task<EasyInvoiceResult> IssueByIkeysAsync(
         string baseUrl,
         string username,
         string password,
         string taxCode,
         IReadOnlyList<string> ikeys,
+        string pattern,
+        string serial,
         CancellationToken ct = default)
     {
-        return await PostPublishAsync(
-            baseUrl, username, password, taxCode,
-            "/api/publish/issueInvoice",
-            new { Ikeys = ikeys },
+        var body = new { Ikeys = ikeys, Pattern = pattern, Serial = serial };
+        var first = await PostPublishAsync(
+            baseUrl, username, password, taxCode, "/api/publish/issueInvoices", body, ct);
+        if (first.Ok || first.ErrorCode is "TIMEOUT") return first;
+        // Bản API cũ dùng tên số ít.
+        var legacy = await PostPublishAsync(
+            baseUrl, username, password, taxCode, "/api/publish/issueInvoice", body, ct);
+        return legacy.Ok ? legacy : first;
+    }
+
+    /// <summary>Thay thế hóa đơn đã phát hành (ký server) — Ikey = ikey HĐ gốc; XmlData chứa Ikey mới.</summary>
+    public Task<EasyInvoiceResult> ReplaceAsync(
+        string baseUrl,
+        string username,
+        string password,
+        string taxCode,
+        string originalIkey,
+        string xmlData,
+        string pattern,
+        string serial,
+        CancellationToken ct = default) =>
+        PostPublishAsync(
+            baseUrl, username, password, taxCode, "/api/business/replaceInvoice",
+            new { Ikey = originalIkey, XmlData = xmlData, Pattern = pattern, Serial = serial },
             ct);
+
+    /// <summary>Tải PDF hóa đơn (Option 0 = PDF thường).</summary>
+    public async Task<(bool Ok, byte[]? Pdf, string? Error)> GetPdfAsync(
+        string baseUrl,
+        string username,
+        string password,
+        string taxCode,
+        string ikey,
+        string pattern,
+        CancellationToken ct = default)
+    {
+        var root = NormalizeBaseUrl(baseUrl);
+        var client = httpFactory.CreateClient("easy-invoice");
+        using var req = new HttpRequestMessage(HttpMethod.Post, $"{root}/api/publish/getInvoicePdf");
+        ApplyAuth(req, username, password, taxCode);
+        req.Content = new StringContent(
+            JsonSerializer.Serialize(new { Ikey = ikey, Pattern = pattern, Option = 0 }, JsonOpts),
+            Encoding.UTF8,
+            "application/json");
+        try
+        {
+            using var res = await client.SendAsync(req, ct);
+            return await ReadPdfResponseAsync(res, ct);
+        }
+        catch (Exception ex)
+        {
+            logger.LogWarning(ex, "Easy Invoice getInvoicePdf failed");
+            return (false, null, ex.Message);
+        }
+    }
+
+    /// <summary>PDF xem trước từ XmlData — không lưu trên Easy (previewInvoice, Option 1 = PDF).</summary>
+    public async Task<(bool Ok, byte[]? Pdf, string? Error)> PreviewAsync(
+        string baseUrl,
+        string username,
+        string password,
+        string taxCode,
+        string xmlData,
+        string pattern,
+        string serial,
+        CancellationToken ct = default)
+    {
+        var root = NormalizeBaseUrl(baseUrl);
+        var client = httpFactory.CreateClient("easy-invoice");
+        using var req = new HttpRequestMessage(HttpMethod.Post, $"{root}/api/publish/previewInvoice");
+        ApplyAuth(req, username, password, taxCode);
+        req.Content = new StringContent(
+            JsonSerializer.Serialize(new { XmlData = xmlData, Pattern = pattern, Serial = serial, Option = 1 }, JsonOpts),
+            Encoding.UTF8,
+            "application/json");
+        try
+        {
+            using var res = await client.SendAsync(req, ct);
+            return await ReadPdfResponseAsync(res, ct);
+        }
+        catch (Exception ex)
+        {
+            logger.LogWarning(ex, "Easy Invoice previewInvoice failed");
+            return (false, null, ex.Message);
+        }
+    }
+
+    /// <summary>Easy trả file PDF thô hoặc JSON { Data: base64 }.</summary>
+    static async Task<(bool Ok, byte[]? Pdf, string? Error)> ReadPdfResponseAsync(
+        HttpResponseMessage res, CancellationToken ct)
+    {
+        var bytes = await res.Content.ReadAsByteArrayAsync(ct);
+        if (LooksLikePdf(bytes))
+            return (true, bytes, null);
+        try
+        {
+            var text = Encoding.UTF8.GetString(bytes);
+            using var doc = JsonDocument.Parse(string.IsNullOrWhiteSpace(text) ? "{}" : text);
+            var rootEl = doc.RootElement;
+            if (rootEl.ValueKind == JsonValueKind.Object &&
+                (rootEl.TryGetProperty("Data", out var data) || rootEl.TryGetProperty("data", out data)))
+            {
+                var b64 = data.ValueKind switch
+                {
+                    JsonValueKind.String => data.GetString(),
+                    JsonValueKind.Object => ReadString(data, "Pdf") ?? ReadString(data, "Base64") ??
+                                            ReadString(data, "File") ?? ReadString(data, "FileData"),
+                    _ => null,
+                };
+                if (!string.IsNullOrWhiteSpace(b64))
+                {
+                    var pdf = Convert.FromBase64String(b64);
+                    if (LooksLikePdf(pdf)) return (true, pdf, null);
+                }
+            }
+            return (false, null,
+                ReadKeyInvoiceMsg(rootEl) ?? ReadString(rootEl, "Message") ??
+                $"Easy Invoice không trả PDF (HTTP {(int)res.StatusCode})");
+        }
+        catch (Exception ex)
+        {
+            return (false, null, $"Easy Invoice trả dữ liệu PDF không hợp lệ: {ex.Message}");
+        }
+    }
+
+    static bool LooksLikePdf(byte[] b) =>
+        b.Length > 4 && b[0] == 0x25 && b[1] == 0x50 && b[2] == 0x44 && b[3] == 0x46;
+
+    /// <summary>Danh sách hóa đơn theo ngày lập (Option 1 = tất cả, kể cả lập trên portal).</summary>
+    public async Task<(bool Ok, string? Error, int Total, List<EasyInvoiceListItem> Items)> ListByArisingDateAsync(
+        string baseUrl,
+        string username,
+        string password,
+        string taxCode,
+        DateTime fromLocal,
+        DateTime toLocal,
+        int page,
+        int pageSize,
+        CancellationToken ct = default)
+    {
+        var root = NormalizeBaseUrl(baseUrl);
+        var client = httpFactory.CreateClient("easy-invoice");
+        using var req = new HttpRequestMessage(HttpMethod.Post, $"{root}/api/business/getInvoiceByArisingDateRange");
+        ApplyAuth(req, username, password, taxCode);
+        req.Content = new StringContent(
+            JsonSerializer.Serialize(new
+            {
+                FromDate = fromLocal.ToString("dd/MM/yyyy"),
+                ToDate = toLocal.ToString("dd/MM/yyyy"),
+                Page = Math.Max(1, page),
+                PageSize = Math.Clamp(pageSize, 1, 100),
+                Option = 1,
+            }, JsonOpts),
+            Encoding.UTF8,
+            "application/json");
+        try
+        {
+            using var res = await client.SendAsync(req, ct);
+            var body = await res.Content.ReadAsStringAsync(ct);
+            using var doc = JsonDocument.Parse(string.IsNullOrWhiteSpace(body) ? "{}" : body);
+            var rootEl = doc.RootElement;
+            if (ReadStatus(rootEl) != 2)
+                return (false, ReadString(rootEl, "Message") ?? $"HTTP {(int)res.StatusCode}: {TrimErr(body)}", 0, []);
+            var total = 0;
+            var items = new List<EasyInvoiceListItem>();
+            if (TryGetData(rootEl, out var data) && data.ValueKind == JsonValueKind.Object)
+            {
+                int.TryParse(ReadString(data, "TotalRecords"), out total);
+                if ((data.TryGetProperty("Invoices", out var arr) || data.TryGetProperty("invoices", out arr)) &&
+                    arr.ValueKind == JsonValueKind.Array)
+                {
+                    foreach (var el in arr.EnumerateArray())
+                    {
+                        decimal.TryParse(ReadString(el, "Amount"), System.Globalization.NumberStyles.Any,
+                            System.Globalization.CultureInfo.InvariantCulture, out var amt);
+                        int.TryParse(ReadString(el, "InvoiceStatus"), out var st);
+                        items.Add(new EasyInvoiceListItem(
+                            ReadString(el, "Ikey"),
+                            ReadString(el, "No"),
+                            ReadString(el, "Pattern"),
+                            ReadString(el, "Serial"),
+                            ReadString(el, "LookupCode"),
+                            ReadString(el, "ArisingDate"),
+                            ReadString(el, "CustomerName") ?? ReadString(el, "Buyer"),
+                            amt,
+                            st,
+                            ReadString(el, "LinkView")));
+                    }
+                }
+            }
+            return (true, null, total == 0 ? items.Count : total, items);
+        }
+        catch (Exception ex)
+        {
+            logger.LogWarning(ex, "Easy Invoice getInvoiceByArisingDateRange failed");
+            return (false, ex.Message, 0, []);
+        }
     }
 
     public async Task<EasyInvoiceResult> CancelAsync(
@@ -120,13 +327,16 @@ public class EasyInvoiceClient(IHttpClientFactory httpFactory, ILogger<EasyInvoi
         string email,
         CancellationToken ct = default)
     {
+        // Tài liệu v8: business/sendIssuanceNotice { IkeyEmail: { ikey: email } }.
+        var notice = await PostPublishAsync(
+            baseUrl, username, password, taxCode, "/api/business/sendIssuanceNotice",
+            new { IkeyEmail = new Dictionary<string, string> { [ikey] = email.Trim() } }, ct);
+        if (notice.Ok) return notice;
         var mails = new[] { email.Trim() };
         var payload = new { Ikeys = new[] { ikey }, Mails = mails, Emails = mails };
-        var first = await PostPublishAsync(
+        var legacy = await PostPublishAsync(
             baseUrl, username, password, taxCode, "/api/publish/sendInvoiceByMail", payload, ct);
-        if (first.Ok) return first;
-        return await PostPublishAsync(
-            baseUrl, username, password, taxCode, "/api/publish/sendMail", payload, ct);
+        return legacy.Ok ? legacy : notice;
     }
 
     async Task<EasyInvoiceResult> PostPublishAsync(
@@ -299,6 +509,12 @@ public class EasyInvoiceClient(IHttpClientFactory httpFactory, ILogger<EasyInvoi
                 }
                 return new(false, null, null, null, null, null, errorCode ?? "FAIL", detail);
             }
+
+            // sendIssuanceNotice: Status 2 nhưng KeyInvoiceMsg từng ikey có thể báo «Lỗi, …».
+            var perKey = ReadKeyInvoiceMsg(root);
+            if (perKey != null && perKey.Contains("Lỗi", StringComparison.OrdinalIgnoreCase) &&
+                !perKey.Contains("Thành công", StringComparison.OrdinalIgnoreCase))
+                return new(false, null, null, null, null, null, errorCode ?? "FAIL", perKey);
 
             var invoices = ReadInvoices(root);
             EasyInvoiceDto? first = invoices.Count > 0 ? invoices[0] : null;

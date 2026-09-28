@@ -2,6 +2,7 @@ using FirebaseAdmin.Messaging;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Logging;
 using ZKTecoADMS.Application.Interfaces;
+using ZKTecoADMS.Application.Services;
 using ZKTecoADMS.Domain.Entities;
 using FcmNotification = FirebaseAdmin.Messaging.Notification;
 
@@ -27,6 +28,9 @@ public interface IPushNotificationService
 
     /// <summary>Đưa badge iOS về 0. Android xóa khay khi app mở và gọi cancelAll.</summary>
     Task ClearBadgeAsync(Guid userId, CancellationToken ct = default);
+
+    /// <summary>Cập nhật badge iOS = số chưa đọc hiện tại (sau khi đọc / bỏ đọc 1 thông báo).</summary>
+    Task SyncBadgeAsync(Guid userId, CancellationToken ct = default);
 }
 
 public sealed class PushNotificationService : IPushNotificationService
@@ -56,11 +60,27 @@ public sealed class PushNotificationService : IPushNotificationService
         var idList = userIds as IList<Guid> ?? userIds.ToList();
         if (idList.Count == 0) return 0;
 
+        // Cài đặt đẩy theo tài khoản: tắt đẩy / giờ yên lặng.
+        var settings = await _db.UserNotificationSettings.AsNoTracking()
+            .Where(s => idList.Contains(s.UserId))
+            .ToDictionaryAsync(s => s.UserId, ct);
+        var pushOff = settings.Values.Where(s => !s.PushEnabled).Select(s => s.UserId).ToHashSet();
+
         var tokens = await _db.UserDeviceTokens.AsNoTracking()
             .Where(t => idList.Contains(t.UserId) && !t.IsDisabled)
             .Select(t => new { t.Id, t.Token, t.UserId })
             .ToListAsync(ct);
+        tokens = tokens.Where(t => !pushOff.Contains(t.UserId)).ToList();
         if (tokens.Count == 0) return 0;
+
+        var urgent = NotificationQuietRules.IsUrgent(
+            data != null && data.TryGetValue("notificationType", out var nt) ? nt : null,
+            data != null && data.TryGetValue("categoryCode", out var cc) ? cc : androidTag);
+        var nowMinute = NotificationQuietRules.VnMinuteOfDay(DateTime.UtcNow);
+        // Mỗi thông báo 1 tag riêng → không đè thông báo trước trong khay (trước đây cùng loại là đè nhau).
+        var tag = data != null && data.TryGetValue("notificationId", out var nid) && !string.IsNullOrEmpty(nid)
+            ? nid
+            : $"{androidTag ?? "sbox"}_{Guid.NewGuid():N}";
 
         // Build common payload once.
         var payload = new Dictionary<string, string>(data ?? new Dictionary<string, string>());
@@ -91,19 +111,25 @@ public sealed class PushNotificationService : IPushNotificationService
         foreach (var userGroup in tokens.GroupBy(t => t.UserId))
         {
             var badge = unreadByUser.TryGetValue(userGroup.Key, out var c) ? c : 0;
+            var quiet = settings.TryGetValue(userGroup.Key, out var st)
+                        && st.QuietEnabled
+                        && NotificationQuietRules.IsInQuiet(nowMinute, st.QuietStartMinute, st.QuietEndMinute)
+                        && !(urgent && st.AllowUrgentInQuiet);
 
             var apnsConfig = new ApnsConfig
             {
                 Headers = new Dictionary<string, string>
                 {
-                    ["apns-priority"] = "10",
+                    ["apns-priority"] = quiet ? "5" : "10",
                     ["apns-push-type"] = "alert",
                 },
                 Aps = new Aps
                 {
-                    Sound = "default",
+                    // Giờ yên lặng: vẫn hiện trong trung tâm thông báo nhưng không chuông.
+                    Sound = quiet ? null : "default",
                     Badge = badge,
                     ContentAvailable = true,
+                    ThreadId = androidTag ?? "sbox_hrm",
                 },
             };
 
@@ -121,12 +147,13 @@ public sealed class PushNotificationService : IPushNotificationService
                     Apns = apnsConfig,
                     Android = new AndroidConfig
                     {
-                        CollapseKey = androidTag ?? "sbox_hrm",
+                        Priority = quiet ? Priority.Normal : Priority.High,
                         Notification = new AndroidNotification
                         {
-                            Tag = androidTag ?? "sbox_hrm",
-                            ChannelId = "attendance_default",
+                            Tag = tag,
+                            ChannelId = quiet ? "attendance_quiet" : (urgent ? "attendance_urgent" : "attendance_default"),
                             NotificationCount = badge,
+                            Sound = quiet ? null : "default",
                         },
                     },
                 };
@@ -182,7 +209,20 @@ public sealed class PushNotificationService : IPushNotificationService
         return success;
     }
 
-    public async Task ClearBadgeAsync(Guid userId, CancellationToken ct = default)
+    public Task ClearBadgeAsync(Guid userId, CancellationToken ct = default) => SendBadgeAsync(userId, 0, ct);
+
+    public async Task SyncBadgeAsync(Guid userId, CancellationToken ct = default)
+    {
+        if (!_firebase.IsAvailable) return;
+        var unread = await (
+            from n in _db.Notifications.IgnoreQueryFilters().AsNoTracking()
+            join u in _db.Users.IgnoreQueryFilters().AsNoTracking() on n.TargetUserId equals u.Id
+            where n.TargetUserId == userId && !n.IsRead && (n.StoreId == null || n.StoreId == u.StoreId)
+            select n.Id).CountAsync(ct);
+        await SendBadgeAsync(userId, unread, ct);
+    }
+
+    private async Task SendBadgeAsync(Guid userId, int badge, CancellationToken ct)
     {
         if (!_firebase.IsAvailable) return;
 
@@ -197,8 +237,8 @@ public sealed class PushNotificationService : IPushNotificationService
             Tokens = tokens,
             Data = new Dictionary<string, string>
             {
-                ["type"] = "badge_clear",
-                ["badge"] = "0",
+                ["type"] = badge == 0 ? "badge_clear" : "badge_sync",
+                ["badge"] = badge.ToString(),
             },
             Apns = new ApnsConfig
             {
@@ -209,7 +249,7 @@ public sealed class PushNotificationService : IPushNotificationService
                 },
                 Aps = new Aps
                 {
-                    Badge = 0,
+                    Badge = badge,
                     ContentAvailable = true,
                 },
             },

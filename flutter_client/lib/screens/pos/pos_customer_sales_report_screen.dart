@@ -11,7 +11,7 @@ import '../../widgets/pos/pos_theme.dart';
 import '../../widgets/pos/reports/pos_report_widgets.dart';
 import 'package:zkteco_flutter_client/l10n/app_tr.dart';
 
-import '../../theme/sbox_tokens.dart';
+import '../../widgets/sbox/sbox_ui.dart';
 /// Doanh thu / lần mua / khách mới theo kỳ.
 class PosCustomerSalesReportScreen extends StatefulWidget {
   const PosCustomerSalesReportScreen({super.key});
@@ -67,6 +67,35 @@ class _PosCustomerSalesReportScreenState extends State<PosCustomerSalesReportScr
         .whereType<Map>()
         .map((e) => Map<String, dynamic>.from(e))
         .toList();
+    final rev = _n(_data?['totalRevenue']);
+    final newCount = items.where((r) => r['isNew'] == true).length;
+    final newRev = items.where((r) => r['isNew'] == true).fold<double>(0, (a, r) => a + _n(r['revenue']));
+    final custCount = _n(_data?['customerCount'] ?? items.length);
+    final insight = SboxInsightPanel(
+      kpis: [
+        SboxKpi(label: 'Doanh thu từ khách', value: SboxFmt.money(rev), icon: Icons.payments_outlined, note: _time.displayLabel),
+        SboxKpi(label: 'Lợi nhuận', value: SboxFmt.money(_n(_data?['totalProfit'])), icon: Icons.trending_up_rounded, tone: SboxTone.success),
+        SboxKpi(label: 'Khách mua', value: SboxFmt.number(custCount), icon: Icons.people_outline, tone: SboxTone.violet,
+            note: '${SboxFmt.number(_n(_data?['newCustomerCount']))} khách mới'),
+        SboxKpi(label: 'DT TB / khách', value: SboxFmt.money(custCount > 0 ? rev / custCount : 0), icon: Icons.person_outline, tone: SboxTone.neutral),
+      ],
+      charts: [
+        SboxChartCard(
+          title: 'Khách mua nhiều nhất',
+          child: SboxRankList(items: [
+            for (final r in items) SboxSlice(r['name']?.toString() ?? '—', _n(r['revenue']), caption: '${r['orderCount'] ?? 0} HĐ'),
+          ]),
+        ),
+        SboxChartCard(
+          title: 'Khách mới và khách cũ',
+          subtitle: 'Theo doanh thu trong danh sách',
+          child: SboxDonutChart(slices: [
+            SboxSlice('Khách cũ', items.fold<double>(0, (a, r) => a + _n(r['revenue'])) - newRev),
+            SboxSlice('Khách mới ($newCount)', newRev, color: SboxColors.success),
+          ]),
+        ),
+      ],
+    );
     return PosReportMobileScaffold(
       title: 'Bán theo khách',
       time: _time,
@@ -107,6 +136,7 @@ class _PosCustomerSalesReportScreenState extends State<PosCustomerSalesReportScr
                   onSubmitted: (_) => _load(),
                 ),
                 const SizedBox(height: 10),
+                insight,
                 PosReportCard(
                   title: 'Tổng kỳ',
                   child: PosReportMetricTiles(

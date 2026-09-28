@@ -56,6 +56,37 @@ public class Feedback : AuditableEntity<Guid>
     /// <summary>Thời gian phản hồi</summary>
     public DateTime? RespondedAt { get; set; }
 
+    /// <summary>Mã phiếu để tra cứu, VD KN-2609-0012</summary>
+    [MaxLength(20)]
+    public string? Code { get; set; }
+
+    /// <summary>Chủ đề: Lương thưởng, Chế độ phúc lợi, Môi trường làm việc, An toàn, Ứng xử, Cơ sở vật chất, Quy trình, Khác</summary>
+    [MaxLength(60)]
+    public string? Topic { get; set; }
+
+    /// <summary>Mức độ: 0 Thấp, 1 Bình thường, 2 Cao, 3 Khẩn cấp</summary>
+    public int Priority { get; set; } = 1;
+
+    /// <summary>Hạn xử lý (tính theo mức độ khi gửi; người xử lý có thể đổi)</summary>
+    public DateTime? DueAt { get; set; }
+
+    /// <summary>Người được giao xử lý</summary>
+    public Guid? AssigneeEmployeeId { get; set; }
+
+    /// <summary>Lần phản hồi đầu tiên của phía xử lý</summary>
+    public DateTime? FirstResponseAt { get; set; }
+
+    /// <summary>Thời điểm chuyển sang Đã giải quyết / Đã đóng (lần gần nhất)</summary>
+    public DateTime? ResolvedAt { get; set; }
+
+    /// <summary>Người gửi đánh giá mức hài lòng 1–5 sau khi được giải quyết</summary>
+    public int? Rating { get; set; }
+
+    [MaxLength(1000)]
+    public string? RatingComment { get; set; }
+
+    public int ReopenCount { get; set; }
+
     public Guid? StoreId { get; set; }
     public virtual Store? Store { get; set; }
 

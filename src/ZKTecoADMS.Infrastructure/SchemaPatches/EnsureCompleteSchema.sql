@@ -1054,3 +1054,201 @@ CREATE TABLE IF NOT EXISTS "PosShipmentEvents" (
 );
 CREATE INDEX IF NOT EXISTS "IX_PosShipmentEvents_Order" ON "PosShipmentEvents" ("SaleOrderId", "OccurredAt");
 CREATE INDEX IF NOT EXISTS "IX_PosShipmentEvents_Store_Status" ON "PosShipmentEvents" ("StoreId", "StatusCode", "OccurredAt");
+-- Công việc v2: dự án / giai đoạn ngành / checklist có ảnh / việc lặp lại
+CREATE TABLE IF NOT EXISTS "TaskProjects" (
+    "Id" uuid NOT NULL PRIMARY KEY,
+    "StoreId" uuid NOT NULL REFERENCES "Stores" ("Id") ON DELETE CASCADE,
+    "Code" character varying(32) NOT NULL,
+    "Name" character varying(200) NOT NULL,
+    "Description" character varying(4000) NULL,
+    "IndustryKey" character varying(40) NULL,
+    "Color" character varying(9) NULL,
+    "Status" integer NOT NULL DEFAULT 0,
+    "OwnerEmployeeId" uuid NULL REFERENCES "Employees" ("Id") ON DELETE SET NULL,
+    "BranchId" uuid NULL,
+    "CustomerName" character varying(200) NULL,
+    "CustomerPhone" character varying(30) NULL,
+    "Address" character varying(300) NULL,
+    "Budget" numeric(18,2) NULL,
+    "StartDate" timestamp without time zone NULL,
+    "DueDate" timestamp without time zone NULL,
+    "CompletedAt" timestamp without time zone NULL,
+    "Stages" character varying(4000) NULL,
+    "IsActive" boolean NOT NULL DEFAULT true,
+    "CreatedAt" timestamp without time zone NOT NULL DEFAULT NOW(),
+    "CreatedBy" text NULL,
+    "UpdatedAt" timestamp without time zone NULL,
+    "UpdatedBy" text NULL,
+    "LastModified" timestamp without time zone NULL,
+    "LastModifiedBy" text NULL,
+    "Deleted" timestamp without time zone NULL,
+    "DeletedBy" text NULL
+);
+CREATE INDEX IF NOT EXISTS "IX_TaskProjects_Store_Status" ON "TaskProjects" ("StoreId", "Status");
+CREATE UNIQUE INDEX IF NOT EXISTS "IX_TaskProjects_Store_Code" ON "TaskProjects" ("StoreId", "Code");
+ALTER TABLE "WorkTasks" ADD COLUMN IF NOT EXISTS "ProjectId" uuid NULL REFERENCES "TaskProjects" ("Id") ON DELETE SET NULL;
+ALTER TABLE "WorkTasks" ADD COLUMN IF NOT EXISTS "StageKey" character varying(40) NULL;
+ALTER TABLE "WorkTasks" ADD COLUMN IF NOT EXISTS "ProgressMode" integer NOT NULL DEFAULT 0;
+ALTER TABLE "WorkTasks" ADD COLUMN IF NOT EXISTS "Location" character varying(300) NULL;
+CREATE INDEX IF NOT EXISTS "IX_WorkTasks_Store_Project" ON "WorkTasks" ("StoreId", "ProjectId");
+ALTER TABLE "TaskTemplates" ADD COLUMN IF NOT EXISTS "IndustryKey" character varying(40) NULL;
+ALTER TABLE "TaskTemplates" ADD COLUMN IF NOT EXISTS "StageKey" character varying(40) NULL;
+ALTER TABLE "TaskTemplates" ADD COLUMN IF NOT EXISTS "ProgressMode" integer NOT NULL DEFAULT 1;
+ALTER TABLE "TaskTemplates" ADD COLUMN IF NOT EXISTS "ProjectId" uuid NULL;
+ALTER TABLE "TaskTemplates" ADD COLUMN IF NOT EXISTS "RecurrenceType" integer NOT NULL DEFAULT 0;
+ALTER TABLE "TaskTemplates" ADD COLUMN IF NOT EXISTS "RecurrenceDays" character varying(100) NULL;
+ALTER TABLE "TaskTemplates" ADD COLUMN IF NOT EXISTS "RecurrenceTime" character varying(5) NULL;
+ALTER TABLE "TaskTemplates" ADD COLUMN IF NOT EXISTS "DueAfterHours" integer NULL;
+ALTER TABLE "TaskTemplates" ADD COLUMN IF NOT EXISTS "DefaultAssigneeIds" character varying(2000) NULL;
+ALTER TABLE "TaskTemplates" ADD COLUMN IF NOT EXISTS "NextRunAt" timestamp without time zone NULL;
+ALTER TABLE "TaskTemplates" ADD COLUMN IF NOT EXISTS "LastRunAt" timestamp without time zone NULL;
+CREATE INDEX IF NOT EXISTS "IX_TaskTemplates_Recurrence_NextRun" ON "TaskTemplates" ("RecurrenceType", "NextRunAt");
+-- Truyền thông v2: kênh, đính kèm file, xác nhận đọc, bình chọn, lưu bài, hẹn giờ
+CREATE TABLE IF NOT EXISTS "CommChannels" (
+    "Id" uuid NOT NULL PRIMARY KEY,
+    "StoreId" uuid NOT NULL REFERENCES "Stores" ("Id") ON DELETE CASCADE,
+    "Key" character varying(40) NULL,
+    "Name" character varying(120) NOT NULL,
+    "Description" character varying(500) NULL,
+    "Icon" character varying(40) NULL,
+    "Color" character varying(9) NULL,
+    "PostPolicy" integer NOT NULL DEFAULT 0,
+    "RequireApproval" boolean NOT NULL DEFAULT false,
+    "BranchId" uuid NULL,
+    "DepartmentId" uuid NULL,
+    "SortOrder" integer NOT NULL DEFAULT 0,
+    "IsSystem" boolean NOT NULL DEFAULT false,
+    "IsActive" boolean NOT NULL DEFAULT true,
+    "CreatedAt" timestamp without time zone NOT NULL DEFAULT NOW(),
+    "CreatedBy" text NULL,
+    "UpdatedAt" timestamp without time zone NULL,
+    "UpdatedBy" text NULL,
+    "LastModified" timestamp without time zone NULL,
+    "LastModifiedBy" text NULL,
+    "Deleted" timestamp without time zone NULL,
+    "DeletedBy" text NULL
+);
+CREATE INDEX IF NOT EXISTS "IX_CommChannels_Store" ON "CommChannels" ("StoreId", "SortOrder");
+CREATE TABLE IF NOT EXISTS "CommunicationReads" (
+    "Id" uuid NOT NULL PRIMARY KEY,
+    "StoreId" uuid NOT NULL,
+    "CommunicationId" uuid NOT NULL REFERENCES "InternalCommunications" ("Id") ON DELETE CASCADE,
+    "UserId" uuid NOT NULL,
+    "EmployeeId" uuid NULL,
+    "FirstViewedAt" timestamp without time zone NOT NULL DEFAULT NOW(),
+    "LastViewedAt" timestamp without time zone NOT NULL DEFAULT NOW(),
+    "ViewCount" integer NOT NULL DEFAULT 1,
+    "AcknowledgedAt" timestamp without time zone NULL,
+    "AckVersion" integer NOT NULL DEFAULT 0,
+    "CreatedAt" timestamp without time zone NOT NULL DEFAULT NOW(),
+    "CreatedBy" text NULL,
+    "UpdatedAt" timestamp without time zone NULL,
+    "UpdatedBy" text NULL
+);
+CREATE UNIQUE INDEX IF NOT EXISTS "IX_CommunicationReads_Post_User" ON "CommunicationReads" ("CommunicationId", "UserId");
+CREATE INDEX IF NOT EXISTS "IX_CommunicationReads_Store_User" ON "CommunicationReads" ("StoreId", "UserId");
+CREATE TABLE IF NOT EXISTS "CommunicationPollVotes" (
+    "Id" uuid NOT NULL PRIMARY KEY,
+    "StoreId" uuid NOT NULL,
+    "CommunicationId" uuid NOT NULL REFERENCES "InternalCommunications" ("Id") ON DELETE CASCADE,
+    "UserId" uuid NOT NULL,
+    "OptionId" character varying(40) NOT NULL,
+    "CreatedAt" timestamp without time zone NOT NULL DEFAULT NOW(),
+    "CreatedBy" text NULL,
+    "UpdatedAt" timestamp without time zone NULL,
+    "UpdatedBy" text NULL
+);
+CREATE UNIQUE INDEX IF NOT EXISTS "IX_CommunicationPollVotes_Post_User_Option" ON "CommunicationPollVotes" ("CommunicationId", "UserId", "OptionId");
+CREATE TABLE IF NOT EXISTS "CommunicationBookmarks" (
+    "Id" uuid NOT NULL PRIMARY KEY,
+    "StoreId" uuid NOT NULL,
+    "CommunicationId" uuid NOT NULL REFERENCES "InternalCommunications" ("Id") ON DELETE CASCADE,
+    "UserId" uuid NOT NULL,
+    "CreatedAt" timestamp without time zone NOT NULL DEFAULT NOW(),
+    "CreatedBy" text NULL,
+    "UpdatedAt" timestamp without time zone NULL,
+    "UpdatedBy" text NULL
+);
+CREATE UNIQUE INDEX IF NOT EXISTS "IX_CommunicationBookmarks_Post_User" ON "CommunicationBookmarks" ("CommunicationId", "UserId");
+ALTER TABLE "InternalCommunications" ADD COLUMN IF NOT EXISTS "ChannelId" uuid NULL REFERENCES "CommChannels" ("Id") ON DELETE SET NULL;
+ALTER TABLE "InternalCommunications" ADD COLUMN IF NOT EXISTS "ContentFormat" character varying(10) NULL;
+ALTER TABLE "InternalCommunications" ADD COLUMN IF NOT EXISTS "ContentDelta" text NULL;
+ALTER TABLE "InternalCommunications" ADD COLUMN IF NOT EXISTS "Attachments" text NULL;
+ALTER TABLE "InternalCommunications" ADD COLUMN IF NOT EXISTS "RequireAck" boolean NOT NULL DEFAULT false;
+ALTER TABLE "InternalCommunications" ADD COLUMN IF NOT EXISTS "AckDeadline" timestamp without time zone NULL;
+ALTER TABLE "InternalCommunications" ADD COLUMN IF NOT EXISTS "Version" integer NOT NULL DEFAULT 1;
+ALTER TABLE "InternalCommunications" ADD COLUMN IF NOT EXISTS "Audience" text NULL;
+ALTER TABLE "InternalCommunications" ADD COLUMN IF NOT EXISTS "Poll" text NULL;
+ALTER TABLE "InternalCommunications" ADD COLUMN IF NOT EXISTS "EventAt" timestamp without time zone NULL;
+ALTER TABLE "InternalCommunications" ADD COLUMN IF NOT EXISTS "EventLocation" character varying(300) NULL;
+ALTER TABLE "InternalCommunications" ADD COLUMN IF NOT EXISTS "ScheduledAt" timestamp without time zone NULL;
+ALTER TABLE "InternalCommunications" ADD COLUMN IF NOT EXISTS "AllowComments" boolean NOT NULL DEFAULT true;
+CREATE INDEX IF NOT EXISTS "IX_InternalCommunications_Store_Channel" ON "InternalCommunications" ("StoreId", "ChannelId", "PublishedAt");
+-- Tài chính nhân sự v2: liên kết chuẩn phiếu thu/chi ↔ chứng từ gốc, khiếu nại, trừ dần ứng lương
+ALTER TABLE "CashTransactions" ADD COLUMN IF NOT EXISTS "SourceType" character varying(30) NULL;
+ALTER TABLE "CashTransactions" ADD COLUMN IF NOT EXISTS "SourceId" uuid NULL;
+ALTER TABLE "CashTransactions" ADD COLUMN IF NOT EXISTS "EmployeeId" uuid NULL;
+ALTER TABLE "CashTransactions" ADD COLUMN IF NOT EXISTS "Attachments" text NULL;
+ALTER TABLE "PaymentTransactions" ADD COLUMN IF NOT EXISTS "Source" character varying(20) NULL;
+ALTER TABLE "PaymentTransactions" ADD COLUMN IF NOT EXISTS "Settlement" character varying(10) NULL;
+ALTER TABLE "PaymentTransactions" ADD COLUMN IF NOT EXISTS "CashTransactionId" uuid NULL;
+ALTER TABLE "PaymentTransactions" ADD COLUMN IF NOT EXISTS "EvidenceUrls" text NULL;
+ALTER TABLE "PaymentTransactions" ADD COLUMN IF NOT EXISTS "DisputeStatus" integer NOT NULL DEFAULT 0;
+ALTER TABLE "PaymentTransactions" ADD COLUMN IF NOT EXISTS "DisputeReason" character varying(1000) NULL;
+ALTER TABLE "PaymentTransactions" ADD COLUMN IF NOT EXISTS "DisputedAt" timestamp without time zone NULL;
+ALTER TABLE "PaymentTransactions" ADD COLUMN IF NOT EXISTS "DisputeResponse" character varying(1000) NULL;
+ALTER TABLE "PenaltyTickets" ADD COLUMN IF NOT EXISTS "EvidenceUrls" text NULL;
+ALTER TABLE "PenaltyTickets" ADD COLUMN IF NOT EXISTS "DisputeStatus" integer NOT NULL DEFAULT 0;
+ALTER TABLE "PenaltyTickets" ADD COLUMN IF NOT EXISTS "DisputeReason" character varying(1000) NULL;
+ALTER TABLE "PenaltyTickets" ADD COLUMN IF NOT EXISTS "DisputedAt" timestamp without time zone NULL;
+ALTER TABLE "PenaltyTickets" ADD COLUMN IF NOT EXISTS "DisputeResponse" character varying(1000) NULL;
+ALTER TABLE "AdvanceRequests" ADD COLUMN IF NOT EXISTS "InstallmentCount" integer NOT NULL DEFAULT 0;
+CREATE TABLE IF NOT EXISTS "HrFinanceSettings" (
+    "Id" uuid NOT NULL PRIMARY KEY,
+    "StoreId" uuid NOT NULL REFERENCES "Stores" ("Id") ON DELETE CASCADE,
+    "AdvanceLimitPercent" numeric(9,2) NULL,
+    "AdvanceLimitAmount" numeric(18,2) NULL,
+    "AdvanceMaxRequestsPerPeriod" integer NULL,
+    "AdvanceMaxInstallments" integer NOT NULL DEFAULT 3,
+    "BonusDefaultSettlement" character varying(10) NOT NULL DEFAULT 'salary',
+    "PenaltyDefaultSettlement" character varying(10) NOT NULL DEFAULT 'salary',
+    "DisputeWindowDays" integer NOT NULL DEFAULT 7,
+    "IsActive" boolean NOT NULL DEFAULT true,
+    "CreatedAt" timestamp without time zone NOT NULL DEFAULT NOW(),
+    "CreatedBy" text NULL,
+    "UpdatedAt" timestamp without time zone NULL,
+    "UpdatedBy" text NULL,
+    "LastModified" timestamp without time zone NULL,
+    "LastModifiedBy" text NULL,
+    "Deleted" timestamp without time zone NULL,
+    "DeletedBy" text NULL
+);
+CREATE UNIQUE INDEX IF NOT EXISTS "IX_HrFinanceSettings_Store" ON "HrFinanceSettings" ("StoreId") WHERE "Deleted" IS NULL;
+UPDATE "CashTransactions" SET "SourceType" = 'advance', "SourceId" = CAST(substring("InternalNote" from 'ứng lương #([0-9a-fA-F-]{36})') AS uuid) WHERE "SourceId" IS NULL AND "InternalNote" ~ 'ứng lương #[0-9a-fA-F-]{36}';
+UPDATE "CashTransactions" SET "SourceType" = 'reward', "SourceId" = CAST(substring("InternalNote" from 'thưởng/phạt #([0-9a-fA-F-]{36})') AS uuid) WHERE "SourceId" IS NULL AND "InternalNote" ~ 'thưởng/phạt #[0-9a-fA-F-]{36}';
+UPDATE "CashTransactions" SET "SourceType" = 'trip_refund', "SourceId" = CAST(substring("InternalNote" from 'thu hoàn ứng công tác #([0-9a-fA-F-]{36})') AS uuid) WHERE "SourceId" IS NULL AND "InternalNote" ~ 'thu hoàn ứng công tác #[0-9a-fA-F-]{36}';
+UPDATE "CashTransactions" SET "SourceType" = 'trip_settlement', "SourceId" = CAST(substring("InternalNote" from 'quyết toán công tác phí #([0-9a-fA-F-]{36})') AS uuid) WHERE "SourceId" IS NULL AND "InternalNote" ~ 'quyết toán công tác phí #[0-9a-fA-F-]{36}';
+UPDATE "CashTransactions" SET "SourceType" = 'trip_advance', "SourceId" = CAST(substring("InternalNote" from 'ứng công tác #([0-9a-fA-F-]{36})') AS uuid) WHERE "SourceId" IS NULL AND "InternalNote" ~ 'ứng công tác #[0-9a-fA-F-]{36}';
+UPDATE "CashTransactions" c SET "SourceType" = 'penalty_ticket', "SourceId" = t."Id", "EmployeeId" = t."EmployeeId" FROM "PenaltyTickets" t WHERE t."CashTransactionId" = c."Id" AND c."SourceId" IS NULL;
+UPDATE "CashTransactions" c SET "SourceType" = 'trip_advance', "SourceId" = a."Id" FROM "BusinessTripAdvanceClaims" a WHERE a."CashTransactionId" = c."Id" AND c."SourceId" IS NULL;
+UPDATE "CashTransactions" c SET "SourceType" = 'trip_settlement', "SourceId" = s."Id" FROM "BusinessTripSettlementClaims" s WHERE s."ExtraCashTransactionId" = c."Id" AND c."SourceId" IS NULL;
+UPDATE "CashTransactions" c SET "EmployeeId" = a."EmployeeId" FROM "AdvanceRequests" a WHERE c."SourceType" = 'advance' AND c."SourceId" = a."Id" AND c."EmployeeId" IS NULL;
+UPDATE "CashTransactions" c SET "EmployeeId" = p."EmployeeId" FROM "PaymentTransactions" p WHERE c."SourceType" = 'reward' AND c."SourceId" = p."Id" AND c."EmployeeId" IS NULL;
+UPDATE "PaymentTransactions" SET "Source" = 'manual' WHERE "Source" IS NULL AND "Type" IN ('Bonus', 'Penalty');
+CREATE UNIQUE INDEX IF NOT EXISTS "UX_CashTransactions_Source" ON "CashTransactions" ("StoreId", "SourceType", "SourceId") WHERE "SourceId" IS NOT NULL AND "IsActive" = true AND "Deleted" IS NULL;
+CREATE INDEX IF NOT EXISTS "IX_CashTransactions_Store_Employee" ON "CashTransactions" ("StoreId", "EmployeeId") WHERE "EmployeeId" IS NOT NULL;
+-- Duyệt chấm công v2: chấm điểm rủi ro, lý do ngoài vị trí, tự duyệt tin cậy, hạn giữ ảnh bằng chứng
+ALTER TABLE "MobileAttendanceRecords" ADD COLUMN IF NOT EXISTS "IsOutside" boolean NOT NULL DEFAULT false;
+ALTER TABLE "MobileAttendanceRecords" ADD COLUMN IF NOT EXISTS "OutsideReason" character varying(500) NULL;
+ALTER TABLE "MobileAttendanceRecords" ADD COLUMN IF NOT EXISTS "GpsAccuracy" double precision NULL;
+ALTER TABLE "MobileAttendanceRecords" ADD COLUMN IF NOT EXISTS "RiskScore" integer NOT NULL DEFAULT 0;
+ALTER TABLE "MobileAttendanceRecords" ADD COLUMN IF NOT EXISTS "RiskLevel" character varying(10) NULL;
+ALTER TABLE "MobileAttendanceRecords" ADD COLUMN IF NOT EXISTS "RiskFlags" text NULL;
+ALTER TABLE "MobileAttendanceRecords" ADD COLUMN IF NOT EXISTS "EvidencePurgedAt" timestamp without time zone NULL;
+ALTER TABLE "AuthorizedMobileDevices" ADD COLUMN IF NOT EXISTS "RequireOutsideReason" boolean NOT NULL DEFAULT false;
+ALTER TABLE "MobileAttendanceSettings" ADD COLUMN IF NOT EXISTS "AutoApproveTrusted" boolean NOT NULL DEFAULT true;
+ALTER TABLE "MobileAttendanceSettings" ADD COLUMN IF NOT EXISTS "TrustedMaxDistanceMeters" integer NOT NULL DEFAULT 300;
+ALTER TABLE "MobileAttendanceSettings" ADD COLUMN IF NOT EXISTS "TrustedMinFaceScore" double precision NOT NULL DEFAULT 85;
+ALTER TABLE "MobileAttendanceSettings" ADD COLUMN IF NOT EXISTS "EvidenceRetentionDays" integer NOT NULL DEFAULT 30;
+UPDATE "MobileAttendanceRecords" SET "IsOutside" = true WHERE "IsOutside" = false AND "Status" = 'pending' AND "WifiBssid" IS NULL AND "DistanceFromLocation" IS NOT NULL AND "DistanceFromLocation" > 100;
+CREATE INDEX IF NOT EXISTS "IX_MobileAttendanceRecords_Store_Status_Punch" ON "MobileAttendanceRecords" ("StoreId", "Status", "PunchTime");

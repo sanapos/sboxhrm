@@ -1,1343 +1,622 @@
-import 'package:flutter/material.dart';
-import 'package:zkteco_flutter_client/widgets/app_responsive_dialog.dart';
-import 'package:intl/intl.dart';
-import '../services/api_service.dart';
-import '../utils/responsive_helper.dart';
-import '../widgets/notification_overlay.dart';
-import '../widgets/app_scroll_safe.dart';
-import '../widgets/ai_assist_sheet.dart';
-import 'package:provider/provider.dart';
-import '../providers/permission_provider.dart';
-import '../providers/auth_provider.dart';
-import '../utils/navigation_notifier.dart';
-import 'feedback_detail_screen.dart';
-import '../widgets/hrm_page_chrome.dart';
-import '../widgets/hrm_fab_clearance.dart';
-import '../widgets/page_top_actions.dart';
-import 'package:zkteco_flutter_client/l10n/app_tr.dart';
-import 'package:zkteco_flutter_client/l10n/app_ui_locale.dart';
+import 'dart:async';
 
+import 'package:flutter/material.dart';
+import 'package:provider/provider.dart';
+import 'package:zkteco_flutter_client/l10n/app_tr.dart';
+
+import '../providers/auth_provider.dart';
+import '../providers/permission_provider.dart';
+import '../services/api_service.dart';
 import '../theme/sbox_tokens.dart';
+import '../utils/navigation_notifier.dart';
+import '../utils/responsive_helper.dart';
+import '../widgets/hrm_page_chrome.dart';
+import '../widgets/page_top_actions.dart';
+import 'feedback/feedback_compose_sheet.dart';
+import 'feedback/feedback_report_view.dart';
+import 'feedback/feedback_ui.dart';
+import 'feedback_detail_screen.dart';
+
+/// Kiến nghị / khiếu nại: «Của tôi» (phiếu tôi gửi), «Cần xử lý» (hòm thư của người xử lý), «Báo cáo».
 class FeedbackScreen extends StatefulWidget {
   const FeedbackScreen({super.key});
+
   @override
   State<FeedbackScreen> createState() => _FeedbackScreenState();
 }
 
-class _FeedbackScreenState extends State<FeedbackScreen>
-    with SingleTickerProviderStateMixin {
-  final ApiService _apiService = ApiService();
-  late TabController _tabCtl;
-
-  List<Map<String, dynamic>> _allFeedbacks = [];
-  List<Map<String, dynamic>> _myFeedbacks = [];
-  List<Map<String, dynamic>> _managers = [];
-  List<Map<String, dynamic>> _senders = [];
-  bool _isLoading = true;
-  String? _filterStatus;
-  String? _filterCategory;
-  String? _filterSenderId;
-  /// null = tất cả; 'general' = hòm thư chung; còn lại = id người nhận
-  String? _filterRecipientKey;
-  DateTime? _fromDate;
-  DateTime? _toDate;
+class _FeedbackScreenState extends State<FeedbackScreen> with SingleTickerProviderStateMixin {
+  final _api = ApiService();
+  late final TabController _tabCtl;
+  late final List<String> _tabs;
+  late final bool _handler;
   VoidCallback? _highlightListener;
 
-  // Mobile UI state
-  static const _statusLabels = {
-    'Pending': 'Chờ xử lý',
-    'InProgress': 'Đang xử lý',
-    'Resolved': 'Đã giải quyết',
-    'Closed': 'Đã đóng',
-  };
-  static const _statusColors = {
-    'Pending': HrmPageChrome.chipLight,
-    'InProgress': SboxColors.brand500,
-    'Resolved': HrmPageChrome.chipMid,
-    'Closed': SboxColors.slate500,
-  };
-  static const _categoryLabels = {
-    'General': 'Chung',
-    'Complaint': 'Khiếu nại',
-    'Suggestion': 'Đề xuất',
-    'Other': 'Khác',
-  };
-  static const _categoryIcons = {
-    'General': Icons.chat_bubble_outline,
-    'Complaint': Icons.report_problem_outlined,
-    'Suggestion': Icons.lightbulb_outline,
-    'Other': Icons.more_horiz,
-  };
+  // Của tôi
+  List<Map<String, dynamic>> _mine = [];
+  bool _mineLoading = true;
+  String _mineFilter = 'all';
+  final _mineSearch = TextEditingController();
 
-  bool _isFeedbackManager() {
-    final role =
-        Provider.of<AuthProvider>(context, listen: false).userRole ?? '';
-    final r = role.toLowerCase();
-    return r == 'admin' ||
-        r == 'director' ||
-        r == 'manager' ||
-        r == 'departmenthead' ||
-        Provider.of<PermissionProvider>(context, listen: false)
-            .canApprove('Feedback');
+  // Cần xử lý
+  List<Map<String, dynamic>> _inbox = [];
+  Map<String, dynamic> _counts = {};
+  bool _inboxLoading = true;
+  bool _inboxMore = false;
+  int _inboxPage = 1;
+  String _inboxQuick = 'open';
+  String? _fCategory;
+  String? _fTopic;
+  int? _fPriority;
+  String? _fRecipient; // 'general' | employeeId
+  final _inboxSearch = TextEditingController();
+  Timer? _debounce;
+
+  List<Map<String, dynamic>> _managers = [];
+
+  bool _isHandlerRole() {
+    final r = Provider.of<AuthProvider>(context, listen: false).userRole.toLowerCase();
+    return const {'admin', 'superadmin', 'director', 'manager', 'departmenthead', 'accountant', 'agent'}.contains(r) ||
+        Provider.of<PermissionProvider>(context, listen: false).canApprove('Feedback');
   }
 
   @override
   void initState() {
     super.initState();
+    _handler = _isHandlerRole();
+    _tabs = ['mine', if (_handler) 'inbox', if (_handler) 'report'];
     final preferInbox = NavigationNotifier.feedbackPreferInbox.value;
-    final initialTab = preferInbox
-        ? 1
-        : (_isFeedbackManager() ? 1 : 0);
-    _tabCtl = TabController(length: 2, vsync: this, initialIndex: initialTab);
+    _tabCtl = TabController(
+      length: _tabs.length,
+      vsync: this,
+      initialIndex: _handler && preferInbox ? 1 : (_handler ? 1 : 0),
+    );
     _tabCtl.addListener(() {
-      if (!_tabCtl.indexIsChanging) _reloadCurrentTab();
+      if (!_tabCtl.indexIsChanging) setState(() {});
     });
     _highlightListener = () {
-      if (NavigationNotifier.notificationHighlightId.value != null) {
-        _consumeNotificationHighlight();
-      }
+      if (NavigationNotifier.notificationHighlightId.value != null) _consumeHighlight();
     };
-    NavigationNotifier.notificationHighlightId
-        .addListener(_highlightListener!);
+    NavigationNotifier.notificationHighlightId.addListener(_highlightListener!);
+
     _loadManagers();
-    if (_isFeedbackManager()) _loadSenders();
-    _loadBoth().then((_) {
-      if (preferInbox) {
-        NavigationNotifier.feedbackPreferInbox.value = false;
-      }
-      _consumeNotificationHighlight();
+    Future.wait([_loadMine(), if (_handler) _loadInbox()]).then((_) {
+      if (preferInbox) NavigationNotifier.feedbackPreferInbox.value = false;
+      _consumeHighlight();
       if (NavigationNotifier.takePendingAiOpenCreate('feedback')) {
         WidgetsBinding.instance.addPostFrameCallback((_) {
-          if (mounted) _showCreateDialog();
+          if (mounted) _compose();
         });
       }
-    });
-    WidgetsBinding.instance.addPostFrameCallback((_) {
-      _consumeNotificationHighlight();
     });
   }
 
   @override
   void dispose() {
     if (_highlightListener != null) {
-      NavigationNotifier.notificationHighlightId
-          .removeListener(_highlightListener!);
+      NavigationNotifier.notificationHighlightId.removeListener(_highlightListener!);
     }
+    _debounce?.cancel();
     _tabCtl.dispose();
+    _mineSearch.dispose();
+    _inboxSearch.dispose();
     super.dispose();
   }
 
-  Future<void> _consumeNotificationHighlight() async {
-    final id = NavigationNotifier.notificationHighlightId.value;
-    if (id == null || id.isEmpty || !mounted) return;
+  // ═════════════ DỮ LIỆU ═════════════
 
-    if (_myFeedbacks.isEmpty && _allFeedbacks.isEmpty) {
-      await _loadBoth(showSpinner: false);
-    }
-
-    Map<String, dynamic>? fb;
-    var isMine = false;
-    for (final item in _myFeedbacks) {
-      if (item['id']?.toString() == id) {
-        fb = item;
-        isMine = true;
-        break;
-      }
-    }
-    if (fb == null) {
-      for (final item in _allFeedbacks) {
-        if (item['id']?.toString() == id) {
-          fb = item;
-          break;
-        }
-      }
-    }
-
-    if (fb == null) {
-      await _loadBoth(showSpinner: false);
-      for (final item in _myFeedbacks) {
-        if (item['id']?.toString() == id) {
-          fb = item;
-          isMine = true;
-          break;
-        }
-      }
-      if (fb == null) {
-        for (final item in _allFeedbacks) {
-          if (item['id']?.toString() == id) {
-            fb = item;
-            break;
-          }
-        }
-      }
-    }
-
-    if (fb == null || !mounted) return;
-
-    NavigationNotifier.notificationHighlightId.value = null;
-    final targetTab = isMine ? 0 : 1;
-    if (_tabCtl.index != targetTab) {
-      _tabCtl.animateTo(targetTab);
-    }
-    await Future.delayed(const Duration(milliseconds: 120));
-    if (!mounted) return;
-    _openDetail(fb, isMine: isMine);
-  }
+  List<Map<String, dynamic>> _rows(dynamic v) => [
+        for (final x in (v as List? ?? const []))
+          if (x is Map) Map<String, dynamic>.from(x),
+      ];
 
   Future<void> _loadManagers() async {
-    try {
-      final res = await _apiService.getFeedbackManagers();
-      if (res['isSuccess'] == true) {
-        _managers = List<Map<String, dynamic>>.from(res['data'] ?? []);
-      }
-    } catch (e) {
-      debugPrint('Load managers error: $e');
-    }
+    final res = await _api.getFeedbackManagers();
+    if (mounted && res['isSuccess'] == true) setState(() => _managers = _rows(res['data']));
   }
 
-  Future<void> _loadSenders() async {
-    try {
-      final rows = await _apiService.getEmployeesForSelect(pageSize: 500);
-      _senders = rows
-          .map((e) => Map<String, dynamic>.from(e as Map))
-          .toList()
-        ..sort((a, b) {
-          final na = _employeeDisplayName(a);
-          final nb = _employeeDisplayName(b);
-          return na.compareTo(nb);
-        });
-    } catch (e) {
-      debugPrint('Load senders error: $e');
-    }
-  }
-
-  String _employeeDisplayName(Map<String, dynamic> e) {
-    final fn = '${e['lastName'] ?? ''} ${e['firstName'] ?? ''}'.trim();
-    if (fn.isNotEmpty) return fn;
-    return e['fullName']?.toString() ?? e['name']?.toString() ?? '';
-  }
-
-  bool get _hasActiveFilters =>
-      _filterStatus != null ||
-      _filterCategory != null ||
-      _filterSenderId != null ||
-      _filterRecipientKey != null ||
-      _fromDate != null ||
-      _toDate != null;
-
-  int get _activeFilterCount {
-    var n = 0;
-    if (_filterStatus != null) n++;
-    if (_filterCategory != null) n++;
-    if (_filterSenderId != null) n++;
-    if (_filterRecipientKey != null) n++;
-    if (_fromDate != null || _toDate != null) n++;
-    return n;
-  }
-
-  void _showFilterSheet(bool showSenderFilter) {
-    var status = _filterStatus;
-    var category = _filterCategory;
-    var senderId = _filterSenderId;
-    var recipientKey = _filterRecipientKey;
-    var fromDate = _fromDate;
-    var toDate = _toDate;
-
-    showAppSheet(
-      context: context,
-      builder: (ctx) => StatefulBuilder(
-        builder: (ctx, setSheet) => Padding(
-          padding: EdgeInsets.fromLTRB(
-            16,
-            12,
-            16,
-            16 + MediaQuery.of(ctx).padding.bottom,
-          ),
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            crossAxisAlignment: CrossAxisAlignment.stretch,
-            children: [
-              Row(
-                children: [
-                  Text(tr('Bộ lọc'),
-                      style: TextStyle(
-                          fontSize: 16, fontWeight: FontWeight.w600)),
-                  const Spacer(),
-                  if (_hasActiveFilters)
-                    TextButton(
-                      onPressed: () {
-                        setSheet(() {
-                          status = null;
-                          category = null;
-                          senderId = null;
-                          recipientKey = null;
-                          fromDate = null;
-                          toDate = null;
-                        });
-                      },
-                      child: Text(tr('Xóa tất cả'),
-                          style: TextStyle(color: SboxColors.danger)),
-                    ),
-                ],
-              ),
-              const SizedBox(height: 8),
-              _buildFilterDropdown(
-                'Trạng thái',
-                status,
-                _statusLabels.entries
-                    .map((e) =>
-                        DropdownMenuItem(value: e.key, child: Text(tr(e.value))))
-                    .toList(),
-                (v) => setSheet(() => status = v),
-              ),
-              const SizedBox(height: 10),
-              _buildFilterDropdown(
-                'Phân loại',
-                category,
-                _categoryLabels.entries
-                    .map((e) =>
-                        DropdownMenuItem(value: e.key, child: Text(tr(e.value))))
-                    .toList(),
-                (v) => setSheet(() => category = v),
-              ),
-              if (showSenderFilter) ...[
-                const SizedBox(height: 10),
-                _buildEmployeeFilterDropdown(
-                  'Người gửi',
-                  senderId,
-                  _senders,
-                  (v) => setSheet(() => senderId = v),
-                ),
-              ],
-              const SizedBox(height: 10),
-              DropdownButtonFormField<String>(
-                key: ValueKey('recipient-sheet-$recipientKey'),
-                initialValue: recipientKey,
-                isExpanded: true,
-                decoration: InputDecoration(
-                  labelText: tr('Người nhận'),
-                  border: OutlineInputBorder(),
-                  isDense: true,
-                ),
-                items: [
-                  DropdownMenuItem(
-                      value: null, child: Text(tr('Tất cả người nhận'))),
-                  DropdownMenuItem(
-                      value: 'general', child: Text(tr('Hòm thư chung'))),
-                  ..._managers.map((m) {
-                    final id = m['id']?.toString() ?? '';
-                    final name = m['name']?.toString() ?? '';
-                    return DropdownMenuItem(value: id, child: Text(tr(name)));
-                  }),
-                ],
-                onChanged: (v) => setSheet(() => recipientKey = v),
-              ),
-              const SizedBox(height: 10),
-              OutlinedButton.icon(
-                onPressed: () async {
-                  final range = await showDateRangePicker(
-                    context: ctx,
-                    firstDate: DateTime(2020),
-                    lastDate: DateTime.now().add(const Duration(days: 365)),
-                    initialDateRange: fromDate != null
-                        ? DateTimeRange(
-                            start: fromDate!,
-                            end: toDate ?? fromDate!)
-                        : null,
-                    locale: appUiLocale(),
-                  );
-                  if (range != null) {
-                    setSheet(() {
-                      fromDate = range.start;
-                      toDate = range.end;
-                    });
-                  }
-                },
-                icon: const Icon(Icons.date_range, size: 18),
-                label: Text(
-                  tr(fromDate != null
-                      ? '${DateFormat('dd/MM/yy').format(fromDate!)} – ${DateFormat('dd/MM/yy').format(toDate ?? fromDate!)}'
-                      : 'Thời gian gửi'),
-                ),
-              ),
-              const SizedBox(height: 16),
-              FilledButton(
-                onPressed: () {
-                  setState(() {
-                    _filterStatus = status;
-                    _filterCategory = category;
-                    _filterSenderId = senderId;
-                    _filterRecipientKey = recipientKey;
-                    _fromDate = fromDate;
-                    _toDate = toDate;
-                  });
-                  Navigator.pop(ctx);
-                  _reloadCurrentTab();
-                },
-                style: FilledButton.styleFrom(
-                  backgroundColor: HrmPageChrome.primaryNavy,
-                ),
-                child: Text(tr('Áp dụng')),
-              ),
-            ],
-          ),
-        ),
-      ),
-    );
-  }
-
-  void _clearFilters() {
+  Future<void> _loadMine() async {
+    final res = await _api.getMyFeedbacks(search: _mineSearch.text);
+    if (!mounted) return;
     setState(() {
-      _filterStatus = null;
-      _filterCategory = null;
-      _filterSenderId = null;
-      _filterRecipientKey = null;
-      _fromDate = null;
-      _toDate = null;
+      _mineLoading = false;
+      if (res['isSuccess'] == true) _mine = _rows(res['data']);
     });
-    _reloadCurrentTab();
   }
 
-  ({
-    String? senderEmployeeId,
-    String? recipientEmployeeId,
-    bool? generalMailboxOnly,
-    DateTime? fromDate,
-    DateTime? toDate,
-  }) _filterQuery() {
-    return (
-      senderEmployeeId: _filterSenderId,
-      recipientEmployeeId:
-          _filterRecipientKey != null && _filterRecipientKey != 'general'
-              ? _filterRecipientKey
-              : null,
-      generalMailboxOnly: _filterRecipientKey == 'general' ? true : null,
-      fromDate: _fromDate,
-      toDate: _toDate,
+  Future<void> _loadInbox({bool more = false}) async {
+    if (!more) setState(() => _inboxLoading = _inbox.isEmpty);
+    final page = more ? _inboxPage + 1 : 1;
+    final res = await _api.getFeedbacks(
+      status: switch (_inboxQuick) {
+        'open' => 'Open',
+        'pending' => 'Pending',
+        'resolved' => 'Resolved',
+        _ => null,
+      },
+      overdue: _inboxQuick == 'overdue',
+      assignedToMe: _inboxQuick == 'mine',
+      category: _fCategory,
+      topic: _fTopic,
+      priority: _fPriority,
+      generalMailboxOnly: _fRecipient == 'general',
+      recipientEmployeeId: _fRecipient == 'general' ? null : _fRecipient,
+      search: _inboxSearch.text,
+      page: page,
+      pageSize: 30,
     );
-  }
-
-  Future<void> _fetchAll() async {
-    final q = _filterQuery();
-    final res = await _apiService.getFeedbacks(
-      status: _filterStatus,
-      category: _filterCategory,
-      senderEmployeeId: q.senderEmployeeId,
-      recipientEmployeeId: q.recipientEmployeeId,
-      generalMailboxOnly: q.generalMailboxOnly,
-      fromDate: q.fromDate,
-      toDate: q.toDate,
-    );
-    if (res['isSuccess'] == true) {
-      final data = res['data'];
-      _allFeedbacks = List<Map<String, dynamic>>.from(data['items'] ?? []);
-    } else if (mounted) {
-      NotificationOverlayManager().showError(
-          title: 'Lỗi',
-          message: res['message']?.toString() ??
-              'Không thể tải danh sách phản hồi');
-    }
-  }
-
-  Future<void> _fetchMy() async {
-    final q = _filterQuery();
-    final res = await _apiService.getMyFeedbacks(
-      status: _filterStatus,
-      category: _filterCategory,
-      senderEmployeeId: q.senderEmployeeId,
-      recipientEmployeeId: q.recipientEmployeeId,
-      generalMailboxOnly: q.generalMailboxOnly,
-      fromDate: q.fromDate,
-      toDate: q.toDate,
-    );
-    if (res['isSuccess'] == true) {
-      _myFeedbacks = List<Map<String, dynamic>>.from(res['data'] ?? []);
-    } else if (mounted) {
-      NotificationOverlayManager().showError(
-          title: 'Lỗi',
-          message: res['message']?.toString() ??
-              'Không thể tải phản hồi của bạn');
-    }
-  }
-
-  Future<void> _loadBoth({bool showSpinner = true}) async {
-    if (showSpinner) setState(() => _isLoading = true);
-    try {
-      await Future.wait([_fetchMy(), _fetchAll()]);
-    } catch (e) {
-      debugPrint('Load feedback lists error: $e');
-      if (mounted) {
-        NotificationOverlayManager().showError(
-            title: 'Lỗi', message: tr('Không thể tải danh sách phản ánh'));
+    if (!mounted) return;
+    setState(() {
+      _inboxLoading = false;
+      if (res['isSuccess'] == true) {
+        final d = res['data'] as Map<String, dynamic>? ?? const {};
+        final items = _rows(d['items']);
+        _inbox = more ? [..._inbox, ...items] : items;
+        _inboxPage = page;
+        _inboxMore = _inbox.length < FeedbackUi.n(d['total']);
+        _counts = Map<String, dynamic>.from(d['counts'] as Map? ?? const {});
       }
-    } finally {
-      if (mounted) setState(() => _isLoading = false);
-    }
+    });
   }
 
-  Future<void> _loadAll() async {
-    setState(() => _isLoading = true);
-    try {
-      await _fetchAll();
-    } catch (e) {
-      debugPrint('Load feedbacks error: $e');
-      if (mounted) {
-        NotificationOverlayManager().showError(
-            title: 'Lỗi', message: tr('Không thể tải danh sách phản hồi'));
-      }
-    }
-    if (mounted) setState(() => _isLoading = false);
+  Future<void> _reloadAll() => Future.wait([_loadMine(), if (_handler) _loadInbox()]);
+
+  Future<void> _consumeHighlight() async {
+    final id = NavigationNotifier.notificationHighlightId.value;
+    if (id == null || id.isEmpty || !mounted) return;
+    NavigationNotifier.notificationHighlightId.value = null;
+    final isMine = _mine.any((f) => f['id']?.toString() == id);
+    await _openDetail(id, isMine: isMine);
   }
 
-  Future<void> _loadMy() async {
-    setState(() => _isLoading = true);
-    try {
-      await _fetchMy();
-    } catch (e) {
-      debugPrint('Load my feedbacks error: $e');
-      if (mounted) {
-        NotificationOverlayManager().showError(
-            title: 'Lỗi', message: tr('Không thể tải phản hồi của bạn'));
-      }
-    }
-    if (mounted) setState(() => _isLoading = false);
+  Future<void> _openDetail(String id, {required bool isMine}) async {
+    await Navigator.of(context).push(MaterialPageRoute(
+      builder: (_) => FeedbackDetailScreen(feedbackId: id, isMine: isMine),
+    ));
+    if (mounted) _reloadAll();
   }
 
-  void _reloadCurrentTab() {
-    if (_tabCtl.index == 0) {
-      _loadMy();
-    } else {
-      _loadAll();
-    }
+  Future<void> _compose() async {
+    final ok = await showFeedbackCompose(context, managers: _managers);
+    if (!ok || !mounted) return;
+    _tabCtl.animateTo(0);
+    _loadMine();
   }
 
-  List<Widget> _buildTopActions(bool isMobile) {
-    final canCreate = Provider.of<PermissionProvider>(context, listen: false)
-        .canCreate('Feedback');
+  // ═════════════ GIAO DIỆN ═════════════
 
-    return [
-      HrmTopBarAction(
-        icon: _hasActiveFilters ? Icons.filter_list : Icons.filter_list_outlined,
-        label: 'Bộ lọc',
-        onPressed: () => _showFilterSheet(
-            _isFeedbackManager() && _senders.isNotEmpty),
-      ),
-      if (canCreate && !isMobile)
-        HrmTopBarAction(
-          icon: Icons.add,
-          label: 'Gửi ý kiến',
-          primary: true,
-          showLabel: true,
-          onPressed: _showCreateDialog,
-        ),
-    ];
-  }
+  String _tab() => _tabs[_tabCtl.index];
 
   @override
   Widget build(BuildContext context) {
     final isMobile = Responsive.isMobile(context);
-    const primary = HrmPageChrome.primaryNavy;
-    final hasActiveFilter = _hasActiveFilters;
-    final canCreateFeedback = isMobile &&
-        Provider.of<PermissionProvider>(context, listen: false)
-            .canCreate('Feedback');
-
+    final canCreate = Provider.of<PermissionProvider>(context, listen: false).canCreate('Feedback');
     return RegisterPageTopActions(
-      actions: _buildTopActions(isMobile),
-      child: Scaffold(
-      backgroundColor: HrmPageChrome.background,
-      floatingActionButton: canCreateFeedback
-          ? FloatingActionButton.extended(
-              onPressed: _showCreateDialog,
-              icon: const Icon(Icons.add),
-              label: Text(tr('Gửi ý kiến')),
-              backgroundColor: primary,
-              foregroundColor: Colors.white,
-              elevation: 4,
-            )
-          : null,
-      body: Column(
-        children: [
-          // ===== TabBar + filter chip =====
-          Container(
-            color: Colors.white,
-            padding: EdgeInsets.only(right: isMobile ? 4 : 12),
-            child: Row(
-              children: [
-                Expanded(
-                  child: TabBar(
-                    controller: _tabCtl,
-                    labelColor: primary,
-                    unselectedLabelColor: SboxColors.slate500,
-                    indicatorColor: primary,
-                    tabs: [
-                      Tab(text: tr('Của tôi')),
-                      Tab(text: tr('Hòm thư')),
-                    ],
-                  ),
-                ),
-                if (hasActiveFilter)
-                  Padding(
-                    padding: const EdgeInsets.only(right: 4),
-                    child: Chip(
-                      label: Text(tr('$_activeFilterCount'),
-                          style: const TextStyle(fontSize: 11)),
-                      backgroundColor: primary.withValues(alpha: 0.1),
-                      labelStyle: const TextStyle(color: primary),
-                      visualDensity: VisualDensity.compact,
-                      padding: EdgeInsets.zero,
-                    ),
-                  ),
-              ],
-            ),
+      actions: [
+        HrmTopBarAction(icon: Icons.refresh_rounded, label: 'Làm mới', onPressed: _reloadAll),
+        if (canCreate && !isMobile)
+          HrmTopBarAction(
+            icon: Icons.add_rounded,
+            label: 'Gửi kiến nghị',
+            primary: true,
+            showLabel: true,
+            onPressed: _compose,
           ),
-          // ===== Content =====
-          Expanded(
-            child: TabBarView(
-              controller: _tabCtl,
-              children: [
-                _buildFeedbackList(_myFeedbacks, isMine: true,
-                    fabClearance: canCreateFeedback),
-                _buildFeedbackList(_allFeedbacks, isMine: false,
-                    fabClearance: canCreateFeedback),
-              ],
-            ),
-          ),
-        ],
-      ),
-    ),
-    );
-  }
-
-  double _filterFieldWidth([double desktop = 180]) {
-    if (!Responsive.isMobile(context)) return desktop;
-    return MediaQuery.of(context).size.width - 28;
-  }
-
-  Widget _buildFilterDropdown(String label, String? value,
-      List<DropdownMenuItem<String>> items, ValueChanged<String?> onChanged) {
-    return SizedBox(
-      width: _filterFieldWidth(),
-      child: DropdownButtonFormField<String>(
-        key: ValueKey('$label-$value'),
-        initialValue: value,
-        decoration: InputDecoration(
-          labelText: tr(label),
-          border: const OutlineInputBorder(),
-          contentPadding:
-              const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-          isDense: true,
-        ),
-        items: [
-          DropdownMenuItem<String>(value: null, child: Text(tr('Tất cả $label'))),
-          ...items,
-        ],
-        onChanged: onChanged,
-      ),
-    );
-  }
-
-  Widget _buildEmployeeFilterDropdown(
-    String label,
-    String? value,
-    List<Map<String, dynamic>> employees,
-    ValueChanged<String?> onChanged,
-  ) {
-    return SizedBox(
-      width: _filterFieldWidth(200),
-      child: DropdownButtonFormField<String>(
-        key: ValueKey('$label-$value'),
-        initialValue: value,
-        isExpanded: true,
-        decoration: InputDecoration(
-          labelText: tr(label),
-          border: const OutlineInputBorder(),
-          contentPadding:
-              const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-          isDense: true,
-        ),
-        items: [
-          DropdownMenuItem<String>(
-              value: null, child: Text(tr('Tất cả $label'))),
-          ...employees.map((e) {
-            final id = e['id']?.toString() ?? '';
-            final name = _employeeDisplayName(e);
-            final code = e['employeeCode']?.toString() ?? '';
-            return DropdownMenuItem<String>(
-              value: id,
-              child: Text(
-                tr(code.isNotEmpty ? '$name ($code)' : name),
-                overflow: TextOverflow.ellipsis,
-              ),
-            );
-          }),
-        ],
-        onChanged: onChanged,
-      ),
-    );
-  }
-
-  Widget _buildFeedbackList(List<Map<String, dynamic>> list,
-      {required bool isMine, bool fabClearance = false}) {
-    if (_isLoading) {
-      return const Center(child: CircularProgressIndicator());
-    }
-    if (list.isEmpty) {
-      final empty = Center(
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            Icon(Icons.inbox_outlined, size: 64, color: SboxColors.slate300),
-            const SizedBox(height: 12),
-            Text(
-              tr(_hasActiveFilters
-                  ? 'Không có phản ánh phù hợp bộ lọc'
-                  : (isMine
-                      ? 'Bạn chưa gửi phản ánh nào'
-                      : 'Chưa có phản ánh nào')),
-              style: TextStyle(fontSize: 16, color: SboxColors.slate500),
-            ),
-            if (_hasActiveFilters) ...[
-              const SizedBox(height: 8),
-              TextButton(onPressed: _clearFilters, child: Text(tr('Xóa bộ lọc'))),
-            ],
-          ],
-        ),
-      );
-      if (fabClearance) {
-        return HrmFabClearance(
-          fabVisible: true,
-          extendedFab: true,
-          child: empty,
-        );
-      }
-      return empty;
-    }
-
-    return RefreshIndicator(
-      onRefresh: () async => _reloadCurrentTab(),
-      child: ListView.builder(
-        padding: Responsive.fabListInsets(
-          context,
-          base: const EdgeInsets.all(16),
-          extendedFab: fabClearance,
-        ),
-        itemCount: list.length,
-        itemBuilder: (ctx, i) => _buildFeedbackCard(list[i], isMine: isMine),
-      ),
-    );
-  }
-
-  Widget _buildFeedbackCard(Map<String, dynamic> fb,
-      {required bool isMine}) {
-    final status = fb['status'] ?? 'Pending';
-    final category = fb['category'] ?? 'General';
-    final isAnonymous = fb['isAnonymous'] == true;
-    final createdAt =
-        DateTime.tryParse(fb['createdAt'] ?? '') ?? DateTime.now();
-    final response = fb['response'] as String?;
-    final respondedByName = fb['respondedByName'] as String?;
-    final respondedAt = fb['respondedAt'] != null
-        ? DateTime.tryParse(fb['respondedAt'])
-        : null;
-    final replyCount = fb['replyCount'] ?? 0;
-
-    return GestureDetector(
-      onTap: () => _openDetail(fb, isMine: isMine),
-      child: Container(
-      margin: const EdgeInsets.only(bottom: 12),
-      decoration: BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.circular(14),
-        border: Border.all(color: SboxColors.slate200),
-        boxShadow: [
-          BoxShadow(
-            color: Colors.black.withValues(alpha: 0.05),
-            blurRadius: 6,
-            offset: const Offset(0, 2),
-          ),
-        ],
-      ),
-      child: Padding(
-        padding: const EdgeInsets.all(14),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            // Header row
-            Row(
-              children: [
-                Icon(_categoryIcons[category] ?? Icons.chat_bubble_outline,
-                    size: 20, color: HrmPageChrome.primaryNavy),
-                const SizedBox(width: 8),
-                Expanded(
-                  child: Text(tr(fb['title'] ?? ''),
-                      style: const TextStyle(
-                          fontSize: 16, fontWeight: FontWeight.w600)),
-                ),
-                Flexible(
-                  child: Container(
-                  padding:
-                      const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
-                  decoration: BoxDecoration(
-                    color: (_statusColors[status] ?? SboxColors.slate500)
-                        .withValues(alpha: 0.1),
-                    borderRadius: BorderRadius.circular(14),
-                  ),
-                  child: Text(
-                    tr(_statusLabels[status] ?? status),
-                    maxLines: 1,
-                    overflow: TextOverflow.ellipsis,
-                    style: TextStyle(
-                      fontSize: 12,
-                      fontWeight: FontWeight.w600,
-                      color: _statusColors[status] ?? SboxColors.slate500,
-                    ),
-                  ),
-                ),
-                ),
-              ],
-            ),
-            const SizedBox(height: 8),
-            // Meta info
-            Wrap(
-              spacing: 16,
-              runSpacing: 4,
-              children: [
-                _metaChip(Icons.category_outlined,
-                    _categoryLabels[category] ?? category),
-                if (isAnonymous && !isMine)
-                  _metaChip(Icons.visibility_off, 'Ẩn danh',
-                      color: SboxColors.danger)
-                else if (isAnonymous && isMine)
-                  _metaChip(Icons.visibility_off, 'Ẩn danh (bạn gửi)',
-                      color: SboxColors.danger)
-                else if (fb['senderName'] != null)
-                  _metaChip(Icons.person_outline, fb['senderName']),
-                if (fb['recipientName'] != null)
-                  _metaChip(Icons.send_outlined,
-                      'Gửi: ${fb['recipientName']}')
-                else
-                  _metaChip(Icons.inbox_outlined, 'Hòm thư chung'),
-                _metaChip(Icons.access_time,
-                    DateFormat('dd/MM/yyyy HH:mm').format(createdAt)),
-              ],
-            ),
-            const SizedBox(height: 10),
-            // Content
-            Text(tr(fb['content'] ?? ''),
-                style: const TextStyle(fontSize: 14, height: 1.5)),
-            // Response
-            if (response != null && response.isNotEmpty) ...[
-              const Divider(height: 20),
-              Container(
-                padding: const EdgeInsets.all(12),
-                decoration: BoxDecoration(
-                  color: SboxColors.successSoft,
-                  borderRadius: BorderRadius.circular(10),
-                  border: Border.all(color: const Color(0xFFBBF7D0)),
-                ),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Row(
-                      children: [
-                        const Icon(Icons.reply, size: 16,
-                            color: HrmPageChrome.chip),
-                        const SizedBox(width: 6),
-                        Text(tr('${tr('Phản hồi')}${respondedByName != null ? ' từ $respondedByName' : ''}'),
-                          style: const TextStyle(
-                              fontSize: 13,
-                              fontWeight: FontWeight.w600,
-                              color: HrmPageChrome.chip),
-                        ),
-                        if (respondedAt != null) ...[
-                          const Spacer(),
-                          Text(
-                            tr(DateFormat('dd/MM/yyyy HH:mm')
-                                .format(respondedAt)),
-                            style: TextStyle(
-                                fontSize: 11, color: SboxColors.slate500),
-                          ),
-                        ],
-                      ],
-                    ),
-                    const SizedBox(height: 6),
-                    Text(tr(response),
-                        style: const TextStyle(fontSize: 14, height: 1.4)),
-                  ],
-                ),
-              ),
-            ],
-            // Actions
-            const SizedBox(height: 8),
-            Row(
-              mainAxisAlignment: MainAxisAlignment.end,
-              children: [
-                // Reply count badge
-                if (replyCount > 0)
-                  Padding(
-                    padding: const EdgeInsets.only(right: 8),
-                    child: Row(
-                      mainAxisSize: MainAxisSize.min,
-                      children: [
-                        const Icon(Icons.chat_bubble_outline, size: 14, color: SboxColors.brand500),
-                        const SizedBox(width: 4),
-                        Text(tr('$replyCount phản hồi'),
-                            style: const TextStyle(fontSize: 12, color: SboxColors.brand500, fontWeight: FontWeight.w500)),
-                      ],
-                    ),
-                  ),
-                const Spacer(),
-                TextButton.icon(
-                  onPressed: () => _openDetail(fb, isMine: isMine),
-                  icon: const Icon(Icons.chat_outlined, size: 16),
-                  label: Text(tr('Xem / Trả lời')),
-                  style: TextButton.styleFrom(
-                      foregroundColor: HrmPageChrome.primaryNavy),
-                ),
-                if (Provider.of<PermissionProvider>(context, listen: false)
-                    .canDelete('Feedback'))
-                  TextButton.icon(
-                    onPressed: () => _confirmDelete(fb),
-                    icon: const Icon(Icons.delete_outline, size: 16),
-                    label: Text(tr('Xóa')),
-                    style: TextButton.styleFrom(
-                        foregroundColor: SboxColors.danger),
-                  ),
-              ],
-            ),
-          ],
-        ),
-      ),
-    ),  // close GestureDetector
-    );
-  }
-
-  void _openDetail(Map<String, dynamic> fb, {required bool isMine}) async {
-    await Navigator.push(
-      context,
-      MaterialPageRoute(
-        builder: (_) => FeedbackDetailScreen(
-          feedbackId: fb['id']?.toString() ?? '',
-          isMine: isMine,
-        ),
-      ),
-    );
-    // Reload after returning from detail
-    _reloadCurrentTab();
-  }
-
-  Widget _metaChip(IconData icon, String label, {Color? color}) {
-    return Row(
-      mainAxisSize: MainAxisSize.min,
-      children: [
-        Icon(icon, size: 14, color: color ?? SboxColors.slate500),
-        const SizedBox(width: 4),
-        Text(tr(label),
-            style: TextStyle(
-                fontSize: 12, color: color ?? SboxColors.slate600)),
       ],
-    );
-  }
-
-  // =========== DIALOGS ===========
-
-  void _showCreateDialog() {
-    final titleCtl = TextEditingController();
-    final contentCtl = TextEditingController();
-    bool isAnonymous = false;
-    String category = 'General';
-    String? recipientId;
-
-    Widget buildFormContent(StateSetter setDlgState) {
-      return SingleChildScrollView(
-        padding: const EdgeInsets.all(16),
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            // Ẩn danh toggle
-            SwitchListTile(
-              title: Text(tr('Gửi ẩn danh')),
-              subtitle: Text(tr(isAnonymous
-                  ? 'Danh tính sẽ được bảo mật'
-                  : 'Người nhận sẽ biết bạn là ai')),
-              value: isAnonymous,
-              activeThumbColor: HrmPageChrome.primaryNavy,
-              secondary: Icon(
-                isAnonymous ? Icons.visibility_off : Icons.visibility,
-                color:
-                    isAnonymous ? SboxColors.danger : SboxColors.slate500,
-              ),
-              onChanged: (v) => setDlgState(() => isAnonymous = v),
-              contentPadding: EdgeInsets.zero,
-            ),
-            const SizedBox(height: 12),
-            // Phân loại
-            DropdownButtonFormField<String>(
-              initialValue: category,
-              decoration: InputDecoration(
-                  labelText: tr('Phân loại *'),
-                  border: OutlineInputBorder()),
-              items: _categoryLabels.entries
-                  .map((e) => DropdownMenuItem(
-                      value: e.key, child: Text(tr(e.value))))
-                  .toList(),
-              onChanged: (v) =>
-                  setDlgState(() => category = v ?? 'General'),
-            ),
-            const SizedBox(height: 12),
-            // Gửi đến
-            DropdownButtonFormField<String>(
-              initialValue: recipientId,
-              decoration: InputDecoration(
-                  labelText: tr('Gửi đến'),
-                  hintText: tr('Hòm thư chung (mặc định)'),
-                  border: OutlineInputBorder()),
-              items: [
-                DropdownMenuItem<String>(
-                    value: null,
-                    child: Text(tr('📧 Hòm thư chung'))),
-                ..._managers.map((m) {
-                  final name = m['name'] ?? '';
-                  final pos = m['position'] ?? '';
-                  return DropdownMenuItem<String>(
-                      value: m['id']?.toString(),
-                      child: Text(
-                          tr('$name${pos.isNotEmpty ? ' ($pos)' : ''}')));
-                }),
-              ],
-              onChanged: (v) => setDlgState(() => recipientId = v),
-            ),
-            const SizedBox(height: 12),
-            // Tiêu đề
-            TextField(
-              controller: titleCtl,
-              decoration: InputDecoration(
-                  labelText: tr('Tiêu đề *'),
-                  border: const OutlineInputBorder(),
-                  suffixIcon: AiAssistIconButton(
-                    kind: 'feedback',
-                    title: 'AI gợi ý tiêu đề',
-                    targetController: titleCtl,
-                    tooltip: tr('AI gợi ý tiêu đề'),
-                    contextBuilder: () =>
-                        'Phân loại: ${_categoryLabels[category] ?? category}. '
-                        'Gợi ý 1 tiêu đề ngắn gọn (tối đa 100 ký tự) cho phản ánh này. '
-                        'Chỉ trả về tiêu đề, không có dấu ngoặc kép, không giải thích.',
-                  )),
-              maxLength: 300,
-            ),
-            const SizedBox(height: 12),
-            // Nội dung
-            TextField(
-              controller: contentCtl,
-              decoration: InputDecoration(
-                  labelText: tr('Nội dung *'),
-                  border: const OutlineInputBorder(),
-                  alignLabelWithHint: true,
-                  suffixIcon: AiAssistIconButton(
-                    kind: 'feedback',
-                    title: 'AI soạn phản ánh',
-                    targetController: contentCtl,
-                    tooltip: tr('AI soạn phản ánh'),
-                    contextBuilder: () =>
-                        'Phân loại: ${_categoryLabels[category] ?? category}. '
-                        '${titleCtl.text.trim().isNotEmpty ? 'Tiêu đề: ${titleCtl.text.trim()}. ' : ''}'
-                        'Viết nội dung phản ánh/ý kiến đầy đủ, có đề xuất giải pháp.',
-                  )),
-              maxLines: 5,
-              maxLength: 5000,
-            ),
-          ],
-        ),
-      );
-    }
-
-    void onSubmit(BuildContext ctx) async {
-      if (titleCtl.text.trim().isEmpty ||
-          contentCtl.text.trim().isEmpty) {
-        appNotification.showError(
-            title: 'Lỗi',
-            message: tr('Vui lòng nhập tiêu đề và nội dung'));
-        return;
-      }
-      final res = await _apiService.createFeedback({
-        'title': titleCtl.text.trim(),
-        'content': contentCtl.text.trim(),
-        'category': category,
-        'isAnonymous': isAnonymous,
-        if (recipientId != null) 'recipientEmployeeId': recipientId,
-      });
-      if (res['isSuccess'] == true) {
-        if (ctx.mounted) Navigator.pop(ctx);
-        appNotification.showSuccess(
-            title: 'Thành công',
-            message:
-                isAnonymous ? 'Đã gửi phản ánh ẩn danh' : 'Đã gửi phản ánh');
-        if (_tabCtl.index != 0) _tabCtl.animateTo(0);
-        _loadBoth();
-      } else {
-        appNotification.showError(
-            title: 'Lỗi',
-            message: res['message'] ?? 'Không thể gửi');
-      }
-    }
-
-    final isMobile = Responsive.isMobile(context);
-
-    showDialog(
-      context: context,
-      builder: (ctx) => StatefulBuilder(
-        builder: (ctx, setDlgState) {
-          if (isMobile) {
-            return Dialog(
-              insetPadding: EdgeInsets.zero,
-              child: Scaffold(
-                appBar: AppBar(
-                  title: Text(tr('Gửi phản ánh / Ý kiến'), overflow: TextOverflow.ellipsis, maxLines: 1),
-                  backgroundColor: HrmPageChrome.primaryNavy,
-                  foregroundColor: Colors.white,
-                  leading: IconButton(
-                    icon: const Icon(Icons.close),
-                    onPressed: () => Navigator.pop(ctx),
-                  ),
-                ),
-                body: buildFormContent(setDlgState),
-                bottomNavigationBar: Padding(
-                  padding: const EdgeInsets.all(16),
-                  child: Row(
-                    children: [
-                      Expanded(
-                        child: OutlinedButton(
-                          onPressed: () => Navigator.pop(ctx),
-                          child: Text(tr('Hủy')),
-                        ),
-                      ),
-                      const SizedBox(width: 12),
-                      Expanded(
-                        child: FilledButton(
-                          onPressed: () => onSubmit(ctx),
-                          style: FilledButton.styleFrom(
-                              backgroundColor: HrmPageChrome.primaryNavy),
-                          child: Text(tr('Gửi')),
-                        ),
-                      ),
-                    ],
-                  ),
-                ),
-              ),
-            );
-          }
-          return ScrollableAlertDialog(
-            title: Text(tr('Gửi phản ánh / Ý kiến')),
-            content: SizedBox(
-              width: 500,
-              child: buildFormContent(setDlgState),
-            ),
-            actions: [
-              TextButton(
-                  onPressed: () => Navigator.pop(ctx),
-                  child: Text(tr('Hủy'))),
-              FilledButton(
-                onPressed: () => onSubmit(ctx),
-                style: FilledButton.styleFrom(
-                    backgroundColor: HrmPageChrome.primaryNavy),
-                child: Text(tr('Gửi')),
-              ),
-            ],
-          );
-        },
-      ),
-    );
-  }
-
-  // ignore: unused_element
-  void _showRespondDialog(Map<String, dynamic> fb) {
-    final responseCtl =
-        TextEditingController(text: tr(fb['response'] ?? ''));
-    String status = fb['status'] ?? 'InProgress';
-
-    Widget buildFormContent(StateSetter setDlgState) {
-      return SingleChildScrollView(
-        padding: const EdgeInsets.all(16),
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            // Show original feedback
-            Container(
-              padding: const EdgeInsets.all(12),
-              decoration: BoxDecoration(
-                color: SboxColors.slate50,
-                borderRadius: BorderRadius.circular(10),
-              ),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text(tr(fb['title'] ?? ''),
-                      style: const TextStyle(fontWeight: FontWeight.w600)),
-                  const SizedBox(height: 4),
-                  Text(tr(fb['content'] ?? ''),
-                      style: const TextStyle(
-                          fontSize: 13, color: SboxColors.slate500)),
-                  if (fb['isAnonymous'] == true)
-                    Padding(
-                      padding: EdgeInsets.only(top: 4),
-                      child: Text(tr('🔒 Gửi ẩn danh'),
-                          style: TextStyle(
-                              fontSize: 12, color: SboxColors.danger)),
+      child: Scaffold(
+        backgroundColor: HrmPageChrome.background,
+        floatingActionButton: canCreate && isMobile && _tab() != 'report'
+            ? FloatingActionButton.extended(
+                onPressed: _compose,
+                icon: const Icon(Icons.edit_rounded),
+                label: Text(tr('Gửi kiến nghị')),
+              )
+            : null,
+        body: Column(children: [
+          if (_tabs.length > 1)
+            Material(
+              color: Colors.white,
+              child: TabBar(
+                controller: _tabCtl,
+                labelColor: SboxColors.brand700,
+                unselectedLabelColor: SboxColors.slate500,
+                indicatorColor: SboxColors.brand600,
+                indicatorWeight: 3,
+                labelStyle: const TextStyle(fontWeight: FontWeight.w700),
+                tabs: [
+                  for (final t in _tabs)
+                    Tab(
+                      child: Row(mainAxisSize: MainAxisSize.min, children: [
+                        Icon(switch (t) {
+                          'mine' => Icons.outbox_rounded,
+                          'inbox' => Icons.inbox_rounded,
+                          _ => Icons.insights_rounded,
+                        }, size: 18),
+                        const SizedBox(width: 6),
+                        Text(tr(switch (t) { 'mine' => 'Của tôi', 'inbox' => 'Cần xử lý', _ => 'Báo cáo' })),
+                        if (t == 'inbox' && FeedbackUi.n(_counts['open']) > 0) ...[
+                          const SizedBox(width: 6),
+                          FeedbackUi.pill('${FeedbackUi.n(_counts['open'])}',
+                              FeedbackUi.n(_counts['overdue']) > 0 ? SboxColors.danger : SboxColors.brand600,
+                              solid: true),
+                        ],
+                      ]),
                     ),
                 ],
               ),
             ),
-            const SizedBox(height: 16),
-            // Status
-            DropdownButtonFormField<String>(
-              initialValue: status,
-              decoration: InputDecoration(
-                  labelText: tr('Trạng thái'),
-                  border: OutlineInputBorder()),
-              items: _statusLabels.entries
-                  .map((e) => DropdownMenuItem(
-                      value: e.key, child: Text(tr(e.value))))
-                  .toList(),
-              onChanged: (v) =>
-                  setDlgState(() => status = v ?? 'InProgress'),
+          Expanded(
+            child: TabBarView(
+              controller: _tabCtl,
+              physics: const NeverScrollableScrollPhysics(),
+              children: [
+                for (final t in _tabs)
+                  switch (t) {
+                    'mine' => _mineTab(),
+                    'inbox' => _inboxTab(),
+                    _ => const FeedbackReportView(),
+                  },
+              ],
             ),
-            const SizedBox(height: 12),
-            // Response
-            TextField(
-              controller: responseCtl,
-              decoration: InputDecoration(
-                  labelText: tr('Phản hồi *'),
-                  border: OutlineInputBorder(),
-                  alignLabelWithHint: true),
-              maxLines: 4,
-              maxLength: 5000,
-            ),
-          ],
-        ),
-      );
-    }
-
-    void onSubmit(BuildContext ctx) async {
-      if (responseCtl.text.trim().isEmpty) {
-        appNotification.showError(
-            title: 'Lỗi', message: tr('Vui lòng nhập nội dung phản hồi'));
-        return;
-      }
-      final res = await _apiService.respondFeedback(
-          fb['id'].toString(), {
-        'response': responseCtl.text.trim(),
-        'status': status,
-      });
-      if (res['isSuccess'] == true) {
-        if (ctx.mounted) Navigator.pop(ctx);
-        appNotification.showSuccess(
-            title: 'Thành công', message: tr('Đã phản hồi'));
-        _loadAll();
-      } else {
-        appNotification.showError(
-            title: 'Lỗi',
-            message: res['message'] ?? 'Không thể phản hồi');
-      }
-    }
-
-    final isMobile = Responsive.isMobile(context);
-
-    showDialog(
-      context: context,
-      builder: (ctx) => StatefulBuilder(
-        builder: (ctx, setDlgState) {
-          if (isMobile) {
-            return Dialog(
-              insetPadding: EdgeInsets.zero,
-              child: Scaffold(
-                appBar: AppBar(
-                  title: Text(tr('Phản hồi ý kiến')),
-                  backgroundColor: HrmPageChrome.primaryNavy,
-                  foregroundColor: Colors.white,
-                  leading: IconButton(
-                    icon: const Icon(Icons.close),
-                    onPressed: () => Navigator.pop(ctx),
-                  ),
-                ),
-                body: buildFormContent(setDlgState),
-                bottomNavigationBar: Padding(
-                  padding: const EdgeInsets.all(16),
-                  child: Row(
-                    children: [
-                      Expanded(
-                        child: OutlinedButton(
-                          onPressed: () => Navigator.pop(ctx),
-                          child: Text(tr('Hủy')),
-                        ),
-                      ),
-                      const SizedBox(width: 12),
-                      Expanded(
-                        child: FilledButton(
-                          onPressed: () => onSubmit(ctx),
-                          style: FilledButton.styleFrom(
-                              backgroundColor: HrmPageChrome.primaryNavy),
-                          child: Text(tr('Gửi phản hồi')),
-                        ),
-                      ),
-                    ],
-                  ),
-                ),
-              ),
-            );
-          }
-          return ScrollableAlertDialog(
-            title: Text(tr('Phản hồi ý kiến')),
-            content: SizedBox(
-              width: 500,
-              child: buildFormContent(setDlgState),
-            ),
-            actions: [
-              TextButton(
-                  onPressed: () => Navigator.pop(ctx),
-                  child: Text(tr('Hủy'))),
-              FilledButton(
-                onPressed: () => onSubmit(ctx),
-                style: FilledButton.styleFrom(
-                    backgroundColor: HrmPageChrome.primaryNavy),
-                child: Text(tr('Gửi phản hồi')),
-              ),
-            ],
-          );
-        },
+          ),
+        ]),
       ),
     );
   }
 
-  void _confirmDelete(Map<String, dynamic> fb) async {
-    final confirm = await showDialog<bool>(
-      context: context,
-      builder: (ctx) => ScrollableAlertDialog(
-        title: Text(tr('Xác nhận xóa')),
-        content: Text(tr('Xóa phản ánh này?')),
-        actions: [
-          TextButton(
-              onPressed: () => Navigator.pop(ctx, false),
-              child: Text(tr('Hủy'))),
-          FilledButton(
-              onPressed: () => Navigator.pop(ctx, true),
-              style: FilledButton.styleFrom(backgroundColor: Colors.red),
-              child: Text(tr('Xóa'))),
+  // ── Của tôi ──
+
+  Widget _mineTab() {
+    final waitingRate = _mine.where((f) =>
+        (f['status'] == 'Resolved' || f['status'] == 'Closed') && f['rating'] == null).length;
+    final list = _mine.where((f) => switch (_mineFilter) {
+          'open' => FeedbackUi.isOpen(f['status']?.toString()),
+          'done' => !FeedbackUi.isOpen(f['status']?.toString()),
+          'rate' => (f['status'] == 'Resolved' || f['status'] == 'Closed') && f['rating'] == null,
+          _ => true,
+        }).toList();
+    return RefreshIndicator(
+      onRefresh: _loadMine,
+      child: ListView(
+        padding: const EdgeInsets.fromLTRB(12, 12, 12, 96),
+        children: [
+          _mineHero(waitingRate),
+          const SizedBox(height: 12),
+          _searchBox(_mineSearch, 'Tìm theo tiêu đề, nội dung, mã phiếu', _loadMine),
+          const SizedBox(height: 10),
+          _chips([
+            ('all', 'Tất cả', _mine.length),
+            ('open', 'Đang xử lý', _mine.where((f) => FeedbackUi.isOpen(f['status']?.toString())).length),
+            ('done', 'Đã xong', _mine.where((f) => !FeedbackUi.isOpen(f['status']?.toString())).length),
+            if (waitingRate > 0) ('rate', 'Chờ đánh giá', waitingRate),
+          ], _mineFilter, (k) => setState(() => _mineFilter = k)),
+          const SizedBox(height: 8),
+          if (_mineLoading)
+            const Padding(padding: EdgeInsets.all(40), child: Center(child: CircularProgressIndicator()))
+          else if (list.isEmpty)
+            _empty(Icons.outbox_rounded, _mine.isEmpty ? 'Bạn chưa gửi kiến nghị nào' : 'Không có phiếu phù hợp',
+                _mine.isEmpty ? 'Có vướng mắc về lương, chế độ, môi trường làm việc…? Hãy gửi để được giải quyết.' : null)
+          else
+            ...list.map((f) => _card(f, mine: true)),
         ],
       ),
     );
-    if (confirm == true) {
-      final res =
-          await _apiService.deleteFeedback(fb['id'].toString());
-      if (res['isSuccess'] == true) {
-        appNotification.showSuccess(title: 'Thành công', message: tr('Đã xóa'));
-        _loadMy();
-      } else {
-        appNotification.showError(
-            title: 'Lỗi', message: res['message'] ?? 'Không thể xóa');
-      }
+  }
+
+  Widget _mineHero(int waitingRate) {
+    final open = _mine.where((f) => FeedbackUi.isOpen(f['status']?.toString())).length;
+    final done = _mine.length - open;
+    return Container(
+      padding: const EdgeInsets.all(18),
+      decoration: BoxDecoration(
+        gradient: const LinearGradient(colors: [SboxColors.brand700, SboxColors.brand500]),
+        borderRadius: BorderRadius.circular(20),
+      ),
+      child: Row(children: [
+        Expanded(
+          child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+            Text(tr('Tiếng nói của bạn được lắng nghe'),
+                style: const TextStyle(color: Colors.white, fontSize: 17, fontWeight: FontWeight.w800)),
+            const SizedBox(height: 4),
+            Text(
+              tr('$open đang xử lý · $done đã xong'
+                  '${waitingRate > 0 ? ' · $waitingRate chờ bạn đánh giá' : ''}'),
+              style: const TextStyle(color: Colors.white70, fontSize: 13),
+            ),
+          ]),
+        ),
+        const Icon(Icons.record_voice_over_rounded, color: Colors.white54, size: 40),
+      ]),
+    );
+  }
+
+  // ── Cần xử lý ──
+
+  Widget _inboxTab() {
+    final activeFilters = [_fCategory, _fTopic, _fPriority, _fRecipient].where((x) => x != null).length;
+    return RefreshIndicator(
+      onRefresh: _loadInbox,
+      child: ListView(
+        padding: const EdgeInsets.fromLTRB(12, 12, 12, 96),
+        children: [
+          Row(children: [
+            Expanded(
+              child: _searchBox(_inboxSearch, 'Tìm theo tiêu đề, nội dung, mã phiếu', () => _loadInbox()),
+            ),
+            const SizedBox(width: 8),
+            Badge(
+              isLabelVisible: activeFilters > 0,
+              label: Text('$activeFilters'),
+              child: IconButton.filledTonal(
+                tooltip: tr('Bộ lọc'),
+                onPressed: _filterSheet,
+                icon: const Icon(Icons.tune_rounded),
+              ),
+            ),
+          ]),
+          const SizedBox(height: 10),
+          _chips([
+            ('open', 'Đang mở', FeedbackUi.n(_counts['open'])),
+            ('pending', 'Chờ tiếp nhận', FeedbackUi.n(_counts['pending'])),
+            ('overdue', 'Quá hạn', FeedbackUi.n(_counts['overdue'])),
+            ('mine', 'Giao cho tôi', FeedbackUi.n(_counts['assignedToMe'])),
+            ('resolved', 'Đã giải quyết', FeedbackUi.n(_counts['resolved'])),
+            ('all', 'Tất cả', FeedbackUi.n(_counts['all'])),
+          ], _inboxQuick, (k) {
+            setState(() => _inboxQuick = k);
+            _loadInbox();
+          }, danger: const {'overdue'}),
+          const SizedBox(height: 8),
+          if (_inboxLoading)
+            const Padding(padding: EdgeInsets.all(40), child: Center(child: CircularProgressIndicator()))
+          else if (_inbox.isEmpty)
+            _empty(Icons.inbox_rounded, 'Không có phiếu nào', 'Mọi kiến nghị trong mục này đã được xử lý.')
+          else ...[
+            ..._inbox.map((f) => _card(f, mine: false)),
+            if (_inboxMore)
+              Center(
+                child: TextButton.icon(
+                  onPressed: () => _loadInbox(more: true),
+                  icon: const Icon(Icons.expand_more_rounded),
+                  label: Text(tr('Xem thêm')),
+                ),
+              ),
+          ],
+        ],
+      ),
+    );
+  }
+
+  Future<void> _filterSheet() async {
+    String? c = _fCategory, t = _fTopic, r = _fRecipient;
+    int? p = _fPriority;
+    final apply = await showModalBottomSheet<bool>(
+      context: context,
+      showDragHandle: true,
+      isScrollControlled: true,
+      builder: (ctx) => StatefulBuilder(builder: (ctx, setS) {
+        Widget group(String title, List<Widget> chips) => Padding(
+              padding: const EdgeInsets.only(bottom: 14),
+              child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+                Text(tr(title), style: const TextStyle(fontWeight: FontWeight.w700)),
+                const SizedBox(height: 8),
+                Wrap(spacing: 8, runSpacing: 8, children: chips),
+              ]),
+            );
+        return SafeArea(
+          child: SingleChildScrollView(
+            padding: const EdgeInsets.fromLTRB(20, 0, 20, 16),
+            child: Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
+              group('Loại phiếu', [
+                for (final e in FeedbackUi.categories.entries)
+                  ChoiceChip(label: Text(tr(e.value)), selected: c == e.key,
+                      onSelected: (s) => setS(() => c = s ? e.key : null)),
+              ]),
+              group('Mức độ', [
+                for (final e in FeedbackUi.priorities.entries)
+                  ChoiceChip(label: Text(tr(e.value)), selected: p == e.key,
+                      onSelected: (s) => setS(() => p = s ? e.key : null)),
+              ]),
+              group('Chủ đề', [
+                for (final x in FeedbackUi.topics)
+                  ChoiceChip(label: Text(tr(x)), selected: t == x, onSelected: (s) => setS(() => t = s ? x : null)),
+              ]),
+              group('Gửi tới', [
+                ChoiceChip(label: Text(tr('Hòm thư chung')), selected: r == 'general',
+                    onSelected: (s) => setS(() => r = s ? 'general' : null)),
+                for (final m in _managers)
+                  ChoiceChip(label: Text(m['name']?.toString() ?? ''), selected: r == m['id']?.toString(),
+                      onSelected: (s) => setS(() => r = s ? m['id']?.toString() : null)),
+              ]),
+              Row(children: [
+                Expanded(
+                  child: OutlinedButton(
+                    onPressed: () => setS(() {
+                      c = null;
+                      t = null;
+                      p = null;
+                      r = null;
+                    }),
+                    child: Text(tr('Xoá lọc')),
+                  ),
+                ),
+                const SizedBox(width: 12),
+                Expanded(
+                  child: FilledButton(onPressed: () => Navigator.pop(ctx, true), child: Text(tr('Áp dụng'))),
+                ),
+              ]),
+            ]),
+          ),
+        );
+      }),
+    );
+    if (apply == true) {
+      setState(() {
+        _fCategory = c;
+        _fTopic = t;
+        _fPriority = p;
+        _fRecipient = r;
+      });
+      _loadInbox();
     }
+  }
+
+  // ── Thành phần chung ──
+
+  Widget _searchBox(TextEditingController ctl, String hint, VoidCallback onSearch) => TextField(
+        controller: ctl,
+        onChanged: (_) {
+          _debounce?.cancel();
+          _debounce = Timer(const Duration(milliseconds: 450), onSearch);
+        },
+        decoration: InputDecoration(
+          prefixIcon: const Icon(Icons.search_rounded),
+          hintText: tr(hint),
+          isDense: true,
+          filled: true,
+          fillColor: Colors.white,
+          border: OutlineInputBorder(
+              borderRadius: BorderRadius.circular(14), borderSide: const BorderSide(color: SboxColors.slate200)),
+          enabledBorder: OutlineInputBorder(
+              borderRadius: BorderRadius.circular(14), borderSide: const BorderSide(color: SboxColors.slate200)),
+        ),
+      );
+
+  Widget _chips(List<(String, String, int)> items, String selected, ValueChanged<String> onTap,
+      {Set<String> danger = const {}}) {
+    return SingleChildScrollView(
+      scrollDirection: Axis.horizontal,
+      child: Row(children: [
+        for (final (k, label, count) in items)
+          Padding(
+            padding: const EdgeInsets.only(right: 8),
+            child: ChoiceChip(
+              selected: selected == k,
+              onSelected: (_) => onTap(k),
+              label: Row(mainAxisSize: MainAxisSize.min, children: [
+                Text(tr(label)),
+                const SizedBox(width: 6),
+                Text('$count',
+                    style: TextStyle(
+                        fontWeight: FontWeight.w800,
+                        color: danger.contains(k) && count > 0 ? SboxColors.danger : SboxColors.slate600)),
+              ]),
+            ),
+          ),
+      ]),
+    );
+  }
+
+  Widget _empty(IconData icon, String title, String? sub) => Padding(
+        padding: const EdgeInsets.symmetric(vertical: 48, horizontal: 24),
+        child: Column(children: [
+          Icon(icon, size: 56, color: SboxColors.slate300),
+          const SizedBox(height: 12),
+          Text(tr(title), style: const TextStyle(fontSize: 16, fontWeight: FontWeight.w700, color: SboxColors.slate700)),
+          if (sub != null) ...[
+            const SizedBox(height: 6),
+            Text(tr(sub), textAlign: TextAlign.center, style: const TextStyle(color: SboxColors.slate500)),
+          ],
+        ]),
+      );
+
+  Widget _card(Map<String, dynamic> f, {required bool mine}) {
+    final status = f['status']?.toString();
+    final priority = FeedbackUi.n(f['priority']);
+    final category = f['category']?.toString();
+    final open = FeedbackUi.isOpen(status);
+    final rating = f['rating'];
+    final who = f['isAnonymous'] == true
+        ? (mine ? 'Bạn (ẩn danh)' : 'Ẩn danh')
+        : mine
+            ? 'Bạn'
+            : [f['senderName'], f['senderDepartment']].where((x) => (x?.toString() ?? '').isNotEmpty).join(' · ');
+    final to = f['assigneeName'] ?? f['recipientName'] ?? 'Hòm thư chung';
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 10),
+      child: Material(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(16),
+        clipBehavior: Clip.antiAlias,
+        child: InkWell(
+          onTap: () => _openDetail(f['id'].toString(), isMine: mine || f['isMine'] == true),
+          child: Container(
+            decoration: BoxDecoration(
+              borderRadius: BorderRadius.circular(16),
+              border: Border.all(color: f['overdue'] == true ? SboxColors.danger.withValues(alpha: 0.5) : SboxColors.slate200),
+            ),
+            child: IntrinsicHeight(
+              child: Row(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
+                Container(width: 5, color: open ? FeedbackUi.priorityColor(priority) : SboxColors.slate200),
+                Expanded(
+                  child: Padding(
+                    padding: const EdgeInsets.fromLTRB(12, 12, 12, 10),
+                    child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+                      Row(children: [
+                        Icon(FeedbackUi.categoryIcon(category), size: 16, color: FeedbackUi.categoryColor(category)),
+                        const SizedBox(width: 6),
+                        Text(tr(FeedbackUi.categories[category] ?? ''),
+                            style: TextStyle(fontSize: 12, fontWeight: FontWeight.w700, color: FeedbackUi.categoryColor(category))),
+                        if ((f['code']?.toString() ?? '').isNotEmpty) ...[
+                          const Text('  ·  ', style: TextStyle(color: SboxColors.slate300)),
+                          Text(f['code'].toString(), style: const TextStyle(fontSize: 12, color: SboxColors.slate500)),
+                        ],
+                        const Spacer(),
+                        Text(tr(FeedbackUi.ago(FeedbackUi.date(f['updatedAt']) ?? FeedbackUi.date(f['createdAt']))),
+                            style: const TextStyle(fontSize: 11.5, color: SboxColors.slate400)),
+                      ]),
+                      const SizedBox(height: 6),
+                      Text(f['title']?.toString() ?? '',
+                          maxLines: 2, overflow: TextOverflow.ellipsis,
+                          style: const TextStyle(fontSize: 15, fontWeight: FontWeight.w700, color: SboxColors.slate900)),
+                      const SizedBox(height: 3),
+                      Text(f['content']?.toString() ?? '',
+                          maxLines: 2, overflow: TextOverflow.ellipsis,
+                          style: const TextStyle(fontSize: 13, color: SboxColors.slate600)),
+                      const SizedBox(height: 8),
+                      Wrap(spacing: 6, runSpacing: 6, children: [
+                        FeedbackUi.statusPill(status),
+                        if (priority >= 2 && open) FeedbackUi.priorityPill(priority),
+                        FeedbackUi.duePill(f),
+                        if ((f['topic']?.toString() ?? '').isNotEmpty)
+                          FeedbackUi.pill(f['topic'].toString(), SboxColors.slate500),
+                        if (FeedbackUi.n(f['reopenCount']) > 0)
+                          FeedbackUi.pill('Mở lại ${FeedbackUi.n(f['reopenCount'])} lần', SboxColors.violet),
+                      ]),
+                      const SizedBox(height: 8),
+                      Row(children: [
+                        Icon(f['isAnonymous'] == true ? Icons.visibility_off_rounded : Icons.person_outline_rounded,
+                            size: 15, color: SboxColors.slate400),
+                        const SizedBox(width: 4),
+                        Flexible(
+                          child: Text(tr(who),
+                              maxLines: 1, overflow: TextOverflow.ellipsis,
+                              style: const TextStyle(fontSize: 12, color: SboxColors.slate500)),
+                        ),
+                        const Icon(Icons.arrow_right_alt_rounded, size: 16, color: SboxColors.slate300),
+                        Flexible(
+                          child: Text(tr(to.toString()),
+                              maxLines: 1, overflow: TextOverflow.ellipsis,
+                              style: const TextStyle(fontSize: 12, color: SboxColors.slate500)),
+                        ),
+                        const Spacer(),
+                        if (rating != null) FeedbackUi.stars(FeedbackUi.n(rating), size: 14),
+                        if (FeedbackUi.n(f['replyCount']) > 0) ...[
+                          const SizedBox(width: 8),
+                          const Icon(Icons.chat_bubble_outline_rounded, size: 14, color: SboxColors.slate400),
+                          const SizedBox(width: 3),
+                          Text('${FeedbackUi.n(f['replyCount'])}',
+                              style: const TextStyle(fontSize: 12, color: SboxColors.slate500)),
+                        ],
+                      ]),
+                    ]),
+                  ),
+                ),
+              ]),
+            ),
+          ),
+        ),
+      ),
+    );
   }
 }

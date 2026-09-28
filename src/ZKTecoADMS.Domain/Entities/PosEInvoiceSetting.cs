@@ -3,7 +3,7 @@ using ZKTecoADMS.Domain.Entities.Base;
 
 namespace ZKTecoADMS.Domain.Entities;
 
-/// <summary>Cấu hình hóa đơn điện tử theo cửa hàng (Viettel SInvoice, Easy Invoice; MISA sau).</summary>
+/// <summary>Cấu hình hóa đơn điện tử theo cửa hàng (Viettel SInvoice, Easy Invoice, MISA meInvoice, VNPT Invoice).</summary>
 public class PosEInvoiceSetting : AuditableEntity<Guid>
 {
     [Required]
@@ -12,7 +12,7 @@ public class PosEInvoiceSetting : AuditableEntity<Guid>
 
     public bool Enabled { get; set; }
 
-    /// <summary>Viettel | Easy | Misa</summary>
+    /// <summary>Viettel | Easy | Misa | Vnpt</summary>
     [Required]
     [MaxLength(20)]
     public string Provider { get; set; } = "Viettel";
@@ -52,4 +52,26 @@ public class PosEInvoiceSetting : AuditableEntity<Guid>
     public string TaxMode { get; set; } = "included";
 
     public decimal DefaultTaxPercent { get; set; } = 10;
+
+    /// <summary>MISA meInvoice: AppID do MISA cấp cho đơn vị tích hợp.</summary>
+    [MaxLength(200)]
+    public string AppId { get; set; } = string.Empty;
+
+    /// <summary>VNPT: tài khoản web service (Account); MISA/Viettel/Easy không dùng.</summary>
+    [MaxLength(100)]
+    public string ServiceAccount { get; set; } = string.Empty;
+
+    /// <summary>VNPT: mật khẩu web service (ACpass).</summary>
+    [MaxLength(200)]
+    public string ServicePassword { get; set; } = string.Empty;
+
+    /// <summary>MISA: 2 = ký HSM, 5 = HĐ máy tính tiền (không ký).</summary>
+    public int SignType { get; set; } = 2;
+
+    /// <summary>Link trang quản lý HĐĐT của hãng (để trống = mặc định theo nhà cung cấp).</summary>
+    [MaxLength(300)]
+    public string PortalUrl { get; set; } = string.Empty;
+
+    /// <summary>In khối HĐĐT (ký hiệu, số, mã CQT, mã tra cứu, QR tra cứu) trên bill bán hàng.</summary>
+    public bool PrintQrOnReceipt { get; set; } = true;
 }

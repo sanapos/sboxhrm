@@ -596,6 +596,26 @@ Map<String, String> buildSaleOrderPrintData(
     'Lan_In': order.printCount > 1 ? '${order.printCount}' : '',
     'Thu_Tu_Hoa_Don_Ngay': '',
     'Tong_Hoa_Don_Trong_Ngay': '',
+    ...posEInvoicePrintTokens(order),
+  };
+}
+
+/// Biến in HĐĐT: {HDDT_Ky_Hieu} {HDDT_So} {HDDT_Ma_CQT} {HDDT_Ma_Tra_Cuu}
+/// {HDDT_Link_Tra_Cuu} {HDDT_MST_Ban} {HDDT_QR}. Rỗng khi đơn chưa phát hành HĐĐT
+/// hoặc cửa hàng tắt «In mã QR HĐĐT trên hóa đơn».
+Map<String, String> posEInvoicePrintTokens(PosSaleOrder order) {
+  final no = (order.eInvoiceNo ?? '').trim();
+  final issued = (order.eInvoiceStatus ?? '').trim() == 'Issued';
+  if (!issued || no.isEmpty || !order.eInvoicePrintOnReceipt) return const {};
+  final lookup = (order.eInvoiceLookupUrl ?? '').trim();
+  return {
+    'HDDT_Ky_Hieu': (order.eInvoiceSeries ?? '').trim(),
+    'HDDT_So': no,
+    'HDDT_Ma_CQT': (order.eInvoiceCode ?? '').trim(),
+    'HDDT_Ma_Tra_Cuu': (order.eInvoiceReservationCode ?? '').trim(),
+    'HDDT_Link_Tra_Cuu': lookup,
+    'HDDT_MST_Ban': (order.eInvoiceSellerTaxCode ?? '').trim(),
+    'HDDT_QR': lookup.isNotEmpty ? lookup : 'https://hoadondientu.gdt.gov.vn',
   };
 }
 

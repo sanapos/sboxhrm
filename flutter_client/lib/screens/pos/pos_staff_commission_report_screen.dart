@@ -8,6 +8,7 @@ import '../../utils/pos_kiot_time_range.dart';
 import '../../utils/pos_report_export.dart';
 import '../../utils/pos_report_open.dart';
 import '../../widgets/pos/reports/pos_report_widgets.dart';
+import '../../widgets/sbox/sbox_ui.dart';
 import 'package:zkteco_flutter_client/l10n/app_tr.dart';
 
 /// Hoa hồng theo NV làm hàng/DV / thành phần combo.
@@ -112,32 +113,55 @@ class _PosStaffCommissionReportScreenState
           : ListView(
               padding: const EdgeInsets.fromLTRB(12, 8, 12, 24),
               children: [
-                Text(
-                  tr('Tổng hoa hồng ${_money.format(_n(_data?['totalCommission']))} · ${_n(_data?['staffCount'])} NV'),
-                  style: const TextStyle(fontWeight: FontWeight.w700),
-                ),
-                const SizedBox(height: 10),
-                Text(tr('Theo nhân viên'),
-                    style: const TextStyle(fontWeight: FontWeight.w600)),
-                ...staff.map((e) {
-                  final id = '${e['employeeId'] ?? e['EmployeeId'] ?? ''}';
-                  final selected = _employeeId == id;
-                  return ListTile(
-                    dense: true,
-                    selected: selected,
-                    title: Text(tr('${e['employeeName'] ?? e['EmployeeName'] ?? '—'}')),
-                    subtitle: Text(tr(
-                        '${_n(e['orderCount'])} HĐ · DT ${_money.format(_n(e['revenue']))}')),
-                    trailing: Text(
-                      _money.format(_n(e['commission'])),
-                      style: const TextStyle(fontWeight: FontWeight.w700),
+                SboxInsightPanel(
+                  kpis: [
+                    SboxKpi(label: 'Tổng hoa hồng', value: SboxFmt.money(_n(_data?['totalCommission'])), icon: Icons.handshake_outlined, tone: SboxTone.success,
+                        note: _time.displayLabel),
+                    SboxKpi(label: 'Doanh thu tính HH', value: SboxFmt.money(_n(_data?['totalRevenue'])), icon: Icons.payments_outlined),
+                    SboxKpi(label: 'Nhân viên hưởng', value: SboxFmt.number(_n(_data?['staffCount'])), icon: Icons.badge_outlined, tone: SboxTone.violet),
+                    SboxKpi(
+                        label: 'Tỷ lệ HH / doanh thu',
+                        value: SboxFmt.pct(_n(_data?['totalRevenue']) > 0 ? _n(_data?['totalCommission']) / _n(_data?['totalRevenue']) * 100 : 0),
+                        icon: Icons.percent_rounded,
+                        tone: SboxTone.neutral),
+                  ],
+                  charts: [
+                    SboxChartCard(
+                      title: 'Hoa hồng theo nhân viên',
+                      child: SboxRankList(color: SboxColors.success, maxItems: 8, items: [
+                        for (final e in staff)
+                          SboxSlice('${e['employeeName'] ?? e['EmployeeName'] ?? '—'}', _n(e['commission']).toDouble(), caption: '${_n(e['orderCount']).toInt()} HĐ'),
+                      ]),
                     ),
-                    onTap: () {
-                      setState(() => _employeeId = selected ? null : id);
-                      _load();
-                    },
-                  );
-                }),
+                    SboxChartCard(
+                      title: 'Hoa hồng theo hàng / dịch vụ',
+                      child: SboxDonutChart(
+                        centerValue: SboxFmt.compact(_n(_data?['totalCommission'])),
+                        centerLabel: 'Hoa hồng',
+                        slices: [for (final e in products) SboxSlice('${e['productName'] ?? e['ProductName'] ?? '—'}', _n(e['commission']).toDouble())],
+                      ),
+                    ),
+                  ],
+                ),
+                Text(tr('Theo nhân viên · bấm để lọc chi tiết'), style: SboxType.titleSmStyle()),
+                const SizedBox(height: 8),
+                SboxDataTable<Map<String, dynamic>>(
+                  rows: staff,
+                  paginate: false,
+                  emptyTitle: 'Chưa có hoa hồng trong kỳ',
+                  selectedRow: staff.where((e) => '${e['employeeId'] ?? e['EmployeeId'] ?? ''}' == _employeeId).firstOrNull,
+                  onRowTap: (e) {
+                    final id = '${e['employeeId'] ?? e['EmployeeId'] ?? ''}';
+                    setState(() => _employeeId = _employeeId == id ? null : id);
+                    _load();
+                  },
+                  columns: [
+                    SboxColumn(label: 'Nhân viên', primary: true, flex: 3, text: (e) => '${e['employeeName'] ?? e['EmployeeName'] ?? '—'}'),
+                    SboxColumn(label: 'Số HĐ', numeric: true, flex: 1, text: (e) => SboxFmt.number(_n(e['orderCount'])), sortValue: (e) => _n(e['orderCount'])),
+                    SboxColumn(label: 'Doanh thu', numeric: true, flex: 2, text: (e) => SboxFmt.money(_n(e['revenue'])), sortValue: (e) => _n(e['revenue'])),
+                    SboxColumn(label: 'Hoa hồng', numeric: true, flex: 2, text: (e) => SboxFmt.money(_n(e['commission'])), sortValue: (e) => _n(e['commission'])),
+                  ],
+                ),
                 const SizedBox(height: 12),
                 Text(tr('Theo hàng / dịch vụ'),
                     style: const TextStyle(fontWeight: FontWeight.w600)),

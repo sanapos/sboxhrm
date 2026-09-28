@@ -12,6 +12,7 @@ import 'package:provider/provider.dart';
 
 import '../models/cash_transaction.dart';
 import '../models/pos_einvoice.dart';
+import '../utils/pos_einvoice_actions.dart';
 import '../models/pos_customer.dart';
 import '../models/pos_price_list.dart';
 import '../models/pos_product.dart';
@@ -10314,6 +10315,7 @@ class _PosSellScreenState extends State<PosSellScreen>
 
       // Happy-path silent — tránh chồng toast che màn bán hàng (in/kho báo riêng khi lỗi).
       debugPrint('POS checkout OK: $orderNo');
+      _notifyEInvoiceAfterCheckout(data, orderNo);
 
       final shipPartner = _sellMode == _SellMode.delivery ? _tab.deliveryPartner : null;
       final shipOrderId = orderId;
@@ -15241,6 +15243,51 @@ class _PosSellScreenState extends State<PosSellScreen>
         ),
       ),
     );
+  }
+
+  /// Kết quả đẩy HĐĐT lúc thanh toán — lỗi / chờ ký phải báo thu ngân, không im lặng.
+  void _notifyEInvoiceAfterCheckout(Map<String, dynamic>? data, String orderNo) {
+    if (data == null || !_eInvoiceSettings.enabled) return;
+    final st = (data['eInvoiceStatus'] ?? data['EInvoiceStatus'] ?? '').toString();
+    final no = (data['eInvoiceNo'] ?? data['EInvoiceNo'] ?? '').toString();
+    final err = (data['eInvoiceError'] ?? data['EInvoiceError'] ?? '').toString();
+    final provider = posEInvoiceProviderName(
+        (data['eInvoiceProvider'] ?? data['EInvoiceProvider'])?.toString());
+    switch (st) {
+      case 'Issued':
+        final orderId = (data['id'] ?? data['Id'] ?? '').toString();
+        NotificationOverlayManager().showSuccess(
+          title: 'Đã xuất HĐĐT',
+          message: tr('$orderNo → $provider số ${no.isEmpty ? '(chờ cấp số)' : no}'
+              '${orderId.isEmpty ? '' : ' · Chạm để gửi cho khách'}'),
+          duration: const Duration(seconds: 5),
+          onTap: orderId.isEmpty
+              ? null
+              : () {
+                  if (!mounted) return;
+                  PosEInvoiceActions.share(
+                    context,
+                    _api,
+                    PosEInvoiceTarget.fromOrder(PosSaleOrder.fromJson(data)),
+                  );
+                },
+        );
+      case 'Failed':
+        NotificationOverlayManager().showError(
+          title: 'Chưa xuất được HĐĐT',
+          message: tr('$orderNo: ${err.isEmpty ? 'Nhà cung cấp từ chối' : err}. '
+              'Đơn đã thanh toán — xuất lại ở Danh sách đơn / Quản lý HĐĐT.'),
+          duration: const Duration(seconds: 10),
+        );
+      case 'Pending':
+        NotificationOverlayManager().showWarning(
+          title: 'HĐĐT chờ ký / chờ số',
+          message: tr('$orderNo: ${err.isEmpty ? 'Đã gửi $provider, chưa có số hóa đơn' : err}'),
+          duration: const Duration(seconds: 6),
+        );
+      default:
+        break;
+    }
   }
 
   Widget _buildPaymentSidebar(PermissionProvider perm, {required double width, bool compact = false}) {

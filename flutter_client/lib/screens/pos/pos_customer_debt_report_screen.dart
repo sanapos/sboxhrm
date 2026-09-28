@@ -9,6 +9,8 @@ import '../../widgets/pos/reports/pos_report_widgets.dart';
 import 'package:zkteco_flutter_client/l10n/app_tr.dart';
 
 import '../../theme/sbox_tokens.dart';
+import '../../widgets/sbox/sbox_report.dart';
+import '../../widgets/sbox/sbox_charts.dart';
 class PosCustomerDebtReportScreen extends StatefulWidget {
   const PosCustomerDebtReportScreen({super.key});
 
@@ -170,10 +172,36 @@ class _PosCustomerDebtReportScreenState extends State<PosCustomerDebtReportScree
                     onRefresh: _load,
                     child: ListView.separated(
                       padding: const EdgeInsets.fromLTRB(12, 0, 12, 24),
-                      itemCount: _items.length,
+                      itemCount: _items.length + 1,
                       separatorBuilder: (_, __) => const SizedBox(height: 8),
                       itemBuilder: (_, i) {
-                        final row = _items[i];
+                        if (i == 0) {
+                          return SboxInsightPanel(
+                            bottomGap: 0,
+                            charts: [
+                              SboxChartCard(
+                                title: 'Tuổi nợ khách hàng',
+                                child: SboxBarChart(
+                                  labels: const ['0–30 ngày', '31–60 ngày', '61–90 ngày', '> 90 ngày'],
+                                  series: [
+                                    SboxSeries(
+                                        name: 'Khách nợ',
+                                        color: SboxColors.danger,
+                                        values: [_sum0, _sum31, _sum61, _sum90].map((v) => _n(v).toDouble()).toList()),
+                                  ],
+                                ),
+                              ),
+                              SboxChartCard(
+                                title: 'Khách nợ nhiều nhất',
+                                child: SboxRankList(
+                                  color: SboxColors.danger,
+                                  items: [for (final r in _items) SboxSlice(r['name']?.toString() ?? '—', _n(r['currentDebt']).toDouble())],
+                                ),
+                              ),
+                            ],
+                          );
+                        }
+                        final row = _items[i - 1];
                         final debt = _n(row['currentDebt']);
                         final openDebt = _n(row['openOrderDebt']);
                         final d0 = _n(row['debt0To30']);

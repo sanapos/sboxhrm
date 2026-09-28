@@ -52,6 +52,7 @@ public class StorePackageModuleMiddleware
         ("/api/cashtransactions", "CashTransaction"),
         ("/api/assets", "Asset"),
         ("/api/tasks", "Task"),
+        ("/api/task-projects", "Task"),
         ("/api/communications", "Communication"),
         ("/api/kpi", "KPI"),
         ("/api/production", "Production"),

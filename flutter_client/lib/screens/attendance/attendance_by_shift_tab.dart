@@ -1,3 +1,5 @@
+import '../../widgets/attendance/punch_cells.dart';
+import '../../widgets/attendance/attendance_day_strip.dart';
 import 'dart:convert';
 import 'dart:math' as math;
 // ignore_for_file: unused_element
@@ -44,6 +46,8 @@ import 'package:zkteco_flutter_client/l10n/app_tr.dart';
 
 import '../../theme/sbox_tokens.dart';
 import '../../widgets/sbox/sbox_table.dart';
+import '../../widgets/sbox/sbox_report.dart';
+import '../../widgets/sbox/sbox_charts.dart';
 class AttendanceByShiftTab extends StatefulWidget {
   final List<Attendance> attendances;
   final List<Device> devices;
@@ -201,20 +205,44 @@ class _AttendanceByShiftTabState extends State<AttendanceByShiftTab> {
 
   int get _excelPunchStartCol => _showPunchBranchColumn ? 4 : 3;
 
+  /// Hàng đang rê chuột trên bảng máy tính.
+  final ValueNotifier<String?> _hoveredRow = ValueNotifier<String?>(null);
+
+  /// Dấu «đã sửa tay» theo attendanceId.
+  Map<String, Map<String, dynamic>> _editMarks = {};
+
+  Future<void> _loadEditMarks() async {
+    try {
+      final r = await ApiService().getAttendanceEditMarks(widget.fromDate, widget.toDate);
+      if (!mounted || r['isSuccess'] != true) return;
+      final list = r['data'] as List? ?? const [];
+      setState(() {
+        _editMarks = {
+          for (final x in list)
+            if (x is Map && x['attendanceId'] != null)
+              x['attendanceId'].toString().toLowerCase(): Map<String, dynamic>.from(x),
+        };
+      });
+    } catch (_) {}
+  }
+
   @override
   void initState() {
     super.initState();
     _selectedPreset = widget.dateRangePreset ?? 'month';
     _buildLookupMaps();
+    WidgetsBinding.instance.addPostFrameCallback((_) => _loadEditMarks());
   }
 
   void _notifyDataChanged() {
     _viewportPreserve.capture(listScroll: _listScrollController);
     widget.onDataChanged?.call();
+    _loadEditMarks();
   }
 
   @override
   void dispose() {
+    _hoveredRow.dispose();
     _listScrollController.dispose();
     _desktopTableHScrollHeader.dispose();
     _desktopTableHScrollBody.dispose();
@@ -299,6 +327,7 @@ class _AttendanceByShiftTabState extends State<AttendanceByShiftTab> {
     if (oldWidget.fromDate != widget.fromDate ||
         oldWidget.toDate != widget.toDate) {
       _cachedShiftData = null;
+      _loadEditMarks();
     }
     if (oldWidget.shiftTemplates != widget.shiftTemplates ||
         oldWidget.shiftSalaryLevels != widget.shiftSalaryLevels ||
@@ -1119,6 +1148,7 @@ class _AttendanceByShiftTabState extends State<AttendanceByShiftTab> {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
+            if (records.isNotEmpty) _buildShiftInsight(records),
             _buildStatsRow(totalRecords, uniqueEmployees, totalHours,
                 totalLate, totalEarly, totalOT),
             const SizedBox(height: 10),
@@ -1824,6 +1854,15 @@ class _AttendanceByShiftTabState extends State<AttendanceByShiftTab> {
                   ),
                 ),
                 const SizedBox(height: 16),
+                ShiftTimeSuggestionChips(
+                  suggestions: _shiftSuggestions(record, resolvedIsIn),
+                  selected: selectedTime,
+                  onPick: (sg) => setDialogState(() {
+                    selectedTime = sg.time;
+                    selectedDate = sg.nextDay ? record.date.add(const Duration(days: 1)) : record.date;
+                  }),
+                ),
+                const SizedBox(height: 16),
                 AttendanceCorrectionReasonField(
                   controller: reasonController,
                   kind: AttendanceCorrectionReasonKind.add,
@@ -2196,6 +2235,53 @@ class _AttendanceByShiftTabState extends State<AttendanceByShiftTab> {
               style: TextStyle(
                   fontSize: 10, fontWeight: FontWeight.w600, color: color)),
         ),
+      ],
+    );
+  }
+
+  /// Biểu đồ đầu báo cáo: lượt ca đúng giờ / trễ / sớm theo ngày + giờ công theo ca.
+  Widget _buildShiftInsight(List<_DailyShiftRecord> records) {
+    final ok = <DateTime, double>{}, late = <DateTime, double>{}, early = <DateTime, double>{};
+    final byShift = <String, double>{};
+    for (final r in records) {
+      final d = DateTime(r.date.year, r.date.month, r.date.day);
+      ok.putIfAbsent(d, () => 0);
+      late.putIfAbsent(d, () => 0);
+      early.putIfAbsent(d, () => 0);
+      if (r.lateMinutes > 0) {
+        late[d] = late[d]! + 1;
+      } else if (r.earlyMinutes > 0) {
+        early[d] = early[d]! + 1;
+      } else if (r.workHours > 0) {
+        ok[d] = ok[d]! + 1;
+      }
+      r.hoursByShiftName.forEach((k, v) => byShift[k] = (byShift[k] ?? 0) + v);
+    }
+    final days = ok.keys.toList()..sort();
+    return SboxInsightPanel(
+      charts: [
+        SboxChartCard(
+          title: 'Lượt ca theo ngày',
+          child: SboxBarChart(
+            stacked: true,
+            valueFormat: (v) => '${SboxFmt.number(v)} lượt',
+            axisFormat: (v) => SboxFmt.number(v),
+            labels: [for (final d in days) sboxDayLabel(d)],
+            series: [
+              SboxSeries(name: 'Đúng giờ', values: [for (final d in days) ok[d]!], color: SboxColors.success),
+              SboxSeries(name: 'Đi trễ', values: [for (final d in days) late[d]!], color: SboxColors.warning),
+              SboxSeries(name: 'Về sớm', values: [for (final d in days) early[d]!], color: SboxColors.violet),
+            ],
+          ),
+        ),
+        if (byShift.isNotEmpty)
+          SboxChartCard(
+            title: 'Giờ công theo ca',
+            child: SboxDonutChart(
+              valueFormat: (v) => '${SboxFmt.number(v)} giờ',
+              slices: [for (final e in byShift.entries) SboxSlice(e.key, e.value)],
+            ),
+          ),
       ],
     );
   }
@@ -2841,6 +2927,15 @@ class _AttendanceByShiftTabState extends State<AttendanceByShiftTab> {
                       ],
                     ),
                   ),
+                ),
+                const SizedBox(height: 16),
+                ShiftTimeSuggestionChips(
+                  suggestions: _shiftSuggestions(record, isIn),
+                  selected: selectedTime,
+                  onPick: (sg) => setDialogState(() {
+                    selectedTime = sg.time;
+                    if (sg.nextDay) selectedDate = record.date.add(const Duration(days: 1));
+                  }),
                 ),
                 const SizedBox(height: 16),
                 AttendanceCorrectionReasonField(
@@ -4336,55 +4431,140 @@ class _AttendanceByShiftTabState extends State<AttendanceByShiftTab> {
   }
 
   Widget _buildShiftPunchCell(_DailyShiftRecord r, int punchIndex) {
-    return Center(child: _buildPunchTimeCell(r, punchIndex));
+    return Center(child: _buildPunchTimeCell(r, punchIndex, inTable: true));
   }
 
   /// Ô giờ chấm — click để thêm (ô trống kế tiếp) hoặc sửa/xóa (đã có giờ).
-  Widget _buildPunchTimeCell(_DailyShiftRecord record, int punchIndex) {
+  List<TimeSuggestion> _shiftSuggestions(_DailyShiftRecord record, bool isIn) =>
+      shiftTimeSuggestions(widget.shiftTemplates, isIn: isIn, preferredNames: record.shiftNames);
+
+  /// Thêm nhanh giờ từ gợi ý ca.
+  Future<bool> _quickAddShiftPunch(_DailyShiftRecord record, bool isIn, TimeSuggestion sg) async {
+    final day = sg.nextDay ? record.date.add(const Duration(days: 1)) : record.date;
+    final result = await ApiService().createAttendanceCorrection(
+      action: 0,
+      pin: record.employeeCode,
+      employeeName: record.employeeName,
+      employeeCode: record.employeeCode,
+      newDate: DateTime(day.year, day.month, day.day),
+      newTime: '${sg.hm}:00',
+      newType: isIn ? 'CheckIn' : 'CheckOut',
+      reason: 'Thêm nhanh trên bảng theo ca: ${sg.hm} (${sg.label})',
+    );
+    if (!mounted) return false;
+    if (result['isSuccess'] == true) {
+      NotificationOverlayManager().showSuccess(title: 'Đã thêm giờ', message: '${record.employeeName}: ${sg.hm}');
+      _notifyDataChanged();
+      return true;
+    }
+    NotificationOverlayManager().showError(title: 'Lỗi', message: attendanceCorrectionErrorMessage(result));
+    return false;
+  }
+
+  /// Sửa nhanh trong ô (bấm đúp → gõ giờ → Enter) — chỉ khi quyền áp dụng trực tiếp.
+  Future<bool> _quickEditShiftPunch(_DailyShiftRecord record, int punchIndex, TimeOfDay t) async {
+    final originalTime = record.punchTimes[punchIndex];
+    final preferredId = punchIndex < record.attendanceIds.length ? record.attendanceIds[punchIndex] : null;
+    final attendanceId = resolveAttendanceIdForPunch(
+      attendances: widget.attendances,
+      employeeKey: record.employeeId,
+      employeeCode: record.employeeCode,
+      workDate: record.date,
+      punchTime: originalTime,
+      preferredId: preferredId,
+      logicalDayOf: (x) => _getLogicalDate(x, employeeKey: record.employeeId),
+    );
+    final newTime = '${t.hour.toString().padLeft(2, '0')}:${t.minute.toString().padLeft(2, '0')}:00';
+    final result = await ApiService().createAttendanceCorrection(
+      action: 1,
+      pin: record.employeeCode,
+      employeeName: record.employeeName,
+      employeeCode: record.employeeCode,
+      attendanceId: attendanceId,
+      oldDate: DateTime(originalTime.year, originalTime.month, originalTime.day),
+      oldTime: correctionTimeOnly(originalTime),
+      newDate: DateTime(originalTime.year, originalTime.month, originalTime.day),
+      newTime: newTime,
+      newType: punchIndex.isEven ? 'CheckIn' : 'CheckOut',
+      reason: 'Sửa nhanh trên bảng theo ca: ${DateFormat('HH:mm').format(originalTime)} → ${newTime.substring(0, 5)}',
+    );
+    if (!mounted) return false;
+    if (result['isSuccess'] == true) {
+      NotificationOverlayManager().showSuccess(
+          title: 'Đã sửa giờ', message: '${record.employeeName}: ${newTime.substring(0, 5)}');
+      _notifyDataChanged();
+      return true;
+    }
+    final msg = result['message']?.toString();
+    NotificationOverlayManager()
+        .showError(title: 'Lỗi', message: msg != null && msg.isNotEmpty ? msg : 'Cập nhật thất bại');
+    return false;
+  }
+
+  /// Ô giờ chấm — bấm để sửa / xoá, bấm đúp sửa nhanh; ô trống kế tiếp để thêm.
+  Widget _buildPunchTimeCell(_DailyShiftRecord record, int punchIndex, {bool inTable = false}) {
     final isIn = punchIndex.isEven;
 
     if (punchIndex < record.punchTimes.length) {
       final displayTime = punchIndex < record.displayPunchTimes.length
           ? record.displayPunchTimes[punchIndex]
           : record.punchTimes[punchIndex];
-      if (!widget.allowCorrection) {
-        return Text(
-          tr(DateFormat('HH:mm').format(displayTime)),
-          textAlign: TextAlign.center,
-          style: TextStyle(
-            fontSize: 12,
-            fontWeight: FontWeight.w600,
-            color: isIn ? HrmPageChrome.chip : SboxColors.danger,
-          ),
-        );
+      var tone = PunchTone.normal;
+      String? hint;
+      if (isIn && punchIndex == 0 && record.lateMinutes > 0) {
+        tone = PunchTone.warn;
+        hint = 'Đi muộn ${record.lateMinutes} phút';
+      } else if (!isIn && punchIndex == record.punchTimes.length - 1 && record.earlyMinutes > 0) {
+        tone = PunchTone.warn;
+        hint = 'Về sớm ${record.earlyMinutes} phút';
       }
-      return InkWell(
-        onTap: () => _showEditPunchDialog(record, punchIndex),
-        borderRadius: BorderRadius.circular(4),
-        child: _buildPunchTimeBadge(displayTime, isIn),
+      final id = punchIndex < record.attendanceIds.length ? record.attendanceIds[punchIndex].toLowerCase() : null;
+      return PunchTimeChip(
+        time: displayTime,
+        isIn: isIn,
+        tone: tone,
+        toneHint: hint,
+        editMarkTooltip: id == null ? null : editMarkTooltip(_editMarks[id]),
+        readOnly: !widget.allowCorrection,
+        onTap: widget.allowCorrection ? () => _showEditPunchDialog(record, punchIndex) : null,
+        onQuickSave: widget.allowCorrection && widget.directApplyCorrections
+            ? (t) => _quickEditShiftPunch(record, punchIndex, t)
+            : null,
+        suggestions: widget.allowCorrection && widget.directApplyCorrections
+            ? _shiftSuggestions(record, isIn)
+            : const [],
       );
     }
 
-    if (widget.allowCorrection && punchIndex == record.punchTimes.length) {
-      return InkWell(
-        onTap: () => _showManualPunchDialog(record),
-        borderRadius: BorderRadius.circular(4),
-        child: Container(
-          padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-          decoration: BoxDecoration(
-            border: Border.all(
-                color: SboxColors.slate500.withValues(alpha: 0.3),
-                style: BorderStyle.solid),
-            borderRadius: BorderRadius.circular(4),
-          ),
-          child: const Icon(Icons.add, size: 14, color: SboxColors.slate500),
+    if (punchIndex == record.punchTimes.length) {
+      final now = DateTime.now();
+      final past = DateTime(record.date.year, record.date.month, record.date.day)
+          .isBefore(DateTime(now.year, now.month, now.day));
+      final missing = past && record.punchTimes.length.isOdd;
+      final onTap = widget.allowCorrection ? () => _showManualPunchDialog(record) : null;
+      final canQuickAdd = widget.allowCorrection && widget.directApplyCorrections;
+      final sugg = canQuickAdd ? _shiftSuggestions(record, isIn) : const <TimeSuggestion>[];
+      Future<bool> Function(TimeSuggestion)? quickAdd =
+          canQuickAdd ? (sg) => _quickAddShiftPunch(record, isIn, sg) : null;
+      if (!inTable) {
+        return EmptyPunchCell(isIn: isIn, missing: missing, onTap: onTap, suggestions: sugg, onQuickAdd: quickAdd);
+      }
+      final rowKey = _shiftRecordRowKey(record);
+      return ValueListenableBuilder<String?>(
+        valueListenable: _hoveredRow,
+        builder: (_, hovered, __) => EmptyPunchCell(
+          isIn: isIn,
+          missing: missing,
+          hoverOnly: true,
+          rowHovered: hovered == rowKey,
+          onTap: onTap,
+          suggestions: sugg,
+          onQuickAdd: quickAdd,
         ),
       );
     }
 
-    return Text(tr('—'),
-        textAlign: TextAlign.center,
-        style: TextStyle(fontSize: 11, color: SboxColors.slate400));
+    return const Text('—', textAlign: TextAlign.center, style: TextStyle(fontSize: 11, color: SboxColors.slate300));
   }
 
   TableRow _buildShiftEmployeeSubtotalRow(
@@ -4470,7 +4650,13 @@ class _AttendanceByShiftTabState extends State<AttendanceByShiftTab> {
           style: TextStyle(fontSize: 11, color: SboxColors.slate400))),
     ]);
     return TableRow(
-      decoration: const BoxDecoration(color: SboxColors.brand50),
+      decoration: const BoxDecoration(
+        color: SboxColors.brand50,
+        border: Border(
+          top: BorderSide(color: SboxColors.brand200),
+          bottom: BorderSide(color: SboxColors.brand200, width: 2),
+        ),
+      ),
       children: cells,
     );
   }
@@ -4484,6 +4670,8 @@ class _AttendanceByShiftTabState extends State<AttendanceByShiftTab> {
     final empTotals = _employeeTotalsFrom(allRecords);
     final empLastKeys = _employeeLastRowKeys(allRecords);
     final rows = <TableRow>[];
+    String? zebraEmp;
+    var zebraOdd = false;
 
     for (final r in paged) {
       final stt = daySttMap[r.employeeId]?[_shiftRecordRowKey(r)] ?? 1;
@@ -4558,7 +4746,18 @@ class _AttendanceByShiftTabState extends State<AttendanceByShiftTab> {
           ),
         ),
       ]);
-      rows.add(TableRow(children: cells));
+      final rowKey = _shiftRecordRowKey(r);
+      if (zebraEmp != r.employeeId) {
+        zebraEmp = r.employeeId;
+        zebraOdd = !zebraOdd;
+      }
+      rows.add(TableRow(
+        decoration: BoxDecoration(
+          color: zebraOdd ? Colors.white : const Color(0xFFF7FAFC),
+          border: const Border(bottom: BorderSide(color: Color(0xFFEFF3F7))),
+        ),
+        children: [for (final c in cells) HoverRowCell(rowKey: rowKey, hovered: _hoveredRow, child: c)],
+      ));
 
       if (empLastKeys[r.employeeId] == _shiftRecordRowKey(r)) {
         final totals = empTotals[r.employeeId];
@@ -5239,8 +5438,11 @@ class _AttendanceByShiftTabState extends State<AttendanceByShiftTab> {
         _shiftRecordsForEmployee(records, empId).fold<double>(
             0.0, (sum, r) => sum + _travelHoursForShiftRecord(r));
 
+    // Đếm theo NGÀY (trước đây đếm theo ca: 2 ca/ngày bị tính thành 2 ngày).
     int presentDaysFor(String empId) => _shiftRecordsForEmployee(records, empId)
         .where((r) => r.displayPunchTimes.isNotEmpty)
+        .map((r) => DateTime(r.date.year, r.date.month, r.date.day))
+        .toSet()
         .length;
 
     int lateMinutesFor(String empId) => _shiftRecordsForEmployee(records, empId)
@@ -5267,9 +5469,39 @@ class _AttendanceByShiftTabState extends State<AttendanceByShiftTab> {
       return '${list.take(2).join(' · ')} +${list.length - 2}';
     }
 
+    // Công chuẩn tính đến hôm nay (không tính ngày chưa tới / ngày nghỉ tuần).
     int expectedDaysFor(String empId) {
       final code = empCodeMap[empId] ?? '';
-      return dates.where((d) => !_isWeeklyOffDay(d, code)).length;
+      return expectedWorkDaysSoFar(dates, (d) => _isWeeklyOffDay(d, code));
+    }
+
+    final nowTs = DateTime.now();
+    final todayStart = DateTime(nowTs.year, nowTs.month, nowTs.day);
+    List<(DateTime, AttendanceDayState)> dayStatesFor(String empId) {
+      final code = empCodeMap[empId] ?? '';
+      final byDay = <DateTime, List<_DailyShiftRecord>>{};
+      for (final r in _shiftRecordsForEmployee(records, empId)) {
+        byDay.putIfAbsent(DateTime(r.date.year, r.date.month, r.date.day), () => []).add(r);
+      }
+      return [
+        for (final d in dates)
+          (
+            d,
+            () {
+              final day = DateTime(d.year, d.month, d.day);
+              final rs = byDay[day] ?? const <_DailyShiftRecord>[];
+              final punched = rs.any((r) => r.displayPunchTimes.isNotEmpty);
+              if (punched) {
+                if (rs.any((r) => r.lateMinutes > 0 || r.earlyMinutes > 0)) return AttendanceDayState.late;
+                final wc = rs.fold<double>(0, (a, r) => a + r.workCount);
+                return wc >= 1 ? AttendanceDayState.full : AttendanceDayState.partial;
+              }
+              if (!day.isBefore(todayStart)) return AttendanceDayState.future;
+              if (_isWeeklyOffDay(d, code)) return AttendanceDayState.off;
+              return AttendanceDayState.absent;
+            }(),
+          ),
+      ];
     }
 
     String formatWork(double w) => w <= 0
@@ -5300,6 +5532,8 @@ class _AttendanceByShiftTabState extends State<AttendanceByShiftTab> {
       final otMin = overtimeFor(empId);
       final lateDays = lateDaysFor(empId);
       final expected = expectedDaysFor(empId);
+      final dayStates = dayStatesFor(empId);
+      final absent = dayStates.where((x) => x.$2 == AttendanceDayState.absent).length;
       final shifts = shiftNamesFor(empId);
       final shiftHourMap = <String, double>{};
       for (final r in _shiftRecordsForEmployee(records, empId)) {
@@ -5506,8 +5740,19 @@ class _AttendanceByShiftTabState extends State<AttendanceByShiftTab> {
                         value: otMin > 0 ? '${otMin}p' : '—',
                         color: HrmPageChrome.chipSoft,
                       ),
+                      const SizedBox(width: 6),
+                      _mobileShiftMetricChip(
+                        icon: Icons.event_busy_rounded,
+                        label: 'Vắng',
+                        value: absent > 0 ? '$absent ngày' : '—',
+                        color: absent > 0 ? SboxColors.danger : SboxColors.slate400,
+                      ),
                     ],
                   ),
+                  if (dayStates.length <= 42) ...[
+                    const SizedBox(height: 10),
+                    AttendanceDayStrip(days: dayStates, showLegend: index == 0),
+                  ],
                   if (expected > 0) ...[
                     const SizedBox(height: 10),
                     Row(

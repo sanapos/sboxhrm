@@ -131,13 +131,24 @@ public static class TaskWorkflowHelper
         }
     }
 
-    public static async Task<string> GenerateTaskCodeAsync(ZKTecoDbContext db, Guid storeId)
+    /// <summary>
+    /// Mã việc TASK-yyyyMMdd-NNNN. Chỉ mục TaskCode là duy nhất TOÀN HỆ THỐNG nên phải đếm
+    /// mọi cửa hàng (bỏ bộ lọc tenant) — trước đây đếm theo cửa hàng nên 2 cửa hàng cùng ngày bị trùng mã.
+    /// <paramref name="offset"/>: số mã đã cấp trong cùng lượt lưu (tạo nhiều việc một lúc).
+    /// </summary>
+    public static async Task<string> GenerateTaskCodeAsync(ZKTecoDbContext db, Guid storeId, int offset = 0)
     {
         var today = DateTime.UtcNow.ToString("yyyyMMdd");
         var prefix = $"TASK-{today}-";
-        var countToday = await db.WorkTasks
-            .CountAsync(t => t.StoreId == storeId && t.TaskCode.StartsWith(prefix));
-        return $"{prefix}{(countToday + 1):D4}";
+        var codes = await db.WorkTasks.IgnoreQueryFilters()
+            .Where(t => t.TaskCode.StartsWith(prefix))
+            .Select(t => t.TaskCode)
+            .ToListAsync();
+        var max = codes
+            .Select(c => int.TryParse(c[prefix.Length..], out var n) ? n : 0)
+            .DefaultIfEmpty(0)
+            .Max();
+        return $"{prefix}{(max + 1 + offset):D4}";
     }
 
     public static IQueryable<WorkTask> ApplyBranchFilter(

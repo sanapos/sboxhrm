@@ -139,6 +139,7 @@ public static class PenaltyTicketFinanceHelper
             CreatedAt = DateTime.UtcNow,
             IsActive = true
         };
+        PaymentFinanceHelper.StampSource(cashTransaction, PaymentFinanceHelper.SourcePenaltyTicket, ticket.Id, ticket.EmployeeId);
 
         dbContext.CashTransactions.Add(cashTransaction);
         return cashTransaction;

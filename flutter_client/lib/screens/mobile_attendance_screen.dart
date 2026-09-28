@@ -11,6 +11,8 @@ import 'package:permission_handler/permission_handler.dart';
 import '../models/mobile_attendance.dart';
 import '../providers/auth_provider.dart';
 import '../services/api_service.dart';
+import 'attendance_approval_v2/outside_reason_dialog.dart';
+import 'attendance_corrections_screen.dart';
 import '../services/global_location_reporter.dart';
 import '../services/face_storage_service.dart';
 import '../services/face_embedding_service_stub.dart'
@@ -50,6 +52,8 @@ class _MobileAttendanceScreenState extends State<MobileAttendanceScreen>
   String? _wifiLocationName;
   String? _detectedBssid;
   double? _currentLatitude;
+  /// Độ chính xác GPS (m) — gửi lên để chấm điểm rủi ro khi chấm ngoài vị trí.
+  double? _gpsAccuracy;
   double? _currentLongitude;
   double? _distanceFromOffice;
   String? _nearestLocationName;
@@ -145,6 +149,7 @@ class _MobileAttendanceScreenState extends State<MobileAttendanceScreen>
       setState(() {
         _currentLatitude = lastPos.latitude;
         _currentLongitude = lastPos.longitude;
+        _gpsAccuracy = lastPos.accuracy;
       });
     }
 
@@ -430,6 +435,7 @@ class _MobileAttendanceScreenState extends State<MobileAttendanceScreen>
       setState(() {
         _currentLatitude = position.latitude;
         _currentLongitude = position.longitude;
+        _gpsAccuracy = position.accuracy;
       });
       _calculateNearestLocation();
     } catch (e) {
@@ -441,6 +447,12 @@ class _MobileAttendanceScreenState extends State<MobileAttendanceScreen>
   /// Khớp server: (RequirePhotoProof cửa hàng HOẶC thiết bị) && ngoài công ty.
   bool get _serverWouldRequireSitePhoto =>
       _sitePhotoFeatureEnabled && !_isAtCompanyLocation;
+
+  bool _isOutsideReasonRequired(Map<String, dynamic> r) {
+    final d = r['data'];
+    if (d is Map && d['code']?.toString() == 'OUTSIDE_REASON_REQUIRED') return true;
+    return (r['message'] ?? '').toString().contains('lý do chấm công ngoài vị trí');
+  }
 
   bool _isMissingSitePhotoError(String message) {
     final m = message.toLowerCase();
@@ -996,7 +1008,7 @@ class _MobileAttendanceScreenState extends State<MobileAttendanceScreen>
       final punchType = _punchContextType ?? _getNextPunchType();
       final onDeviceFaceOk =
           _faceMatchScore != null && (_faceMatchScore ?? 0) > 0;
-      final response = await _apiService.submitMobileAttendance(
+      var response = await _apiService.submitMobileAttendance(
         employeeId: _employeeId,
         employeeName: _employeeName,
         punchType: punchType,
@@ -1011,9 +1023,35 @@ class _MobileAttendanceScreenState extends State<MobileAttendanceScreen>
         livenessPassed: _livenessPassed,
         clientFaceEngine: onDeviceFaceOk ? (_clientFaceEngine ?? 'tflite') : null,
         sitePhotoBase64: sitePhotoBase64,
+        gpsAccuracy: _gpsAccuracy,
       );
 
       if (!mounted) return;
+
+      // Nhân viên được cài «bắt buộc lý do» khi chấm ngoài vị trí → hỏi lý do rồi gửi lại.
+      if (response['isSuccess'] != true && _isOutsideReasonRequired(response)) {
+        final reason = await showOutsideReasonDialog(context);
+        if (!mounted || reason == null) return;
+        response = await _apiService.submitMobileAttendance(
+          employeeId: _employeeId,
+          employeeName: _employeeName,
+          punchType: punchType,
+          latitude: _currentLatitude!,
+          longitude: _currentLongitude!,
+          faceImage: _faceImageBase64 ?? '',
+          distanceFromLocation: _distanceFromOffice,
+          faceMatchScore: _faceMatchScore,
+          deviceId: _currentDeviceId,
+          wifiSsid: _connectedWifiSsid,
+          wifiBssid: _detectedBssid,
+          livenessPassed: _livenessPassed,
+          clientFaceEngine: onDeviceFaceOk ? (_clientFaceEngine ?? 'tflite') : null,
+          sitePhotoBase64: sitePhotoBase64,
+          gpsAccuracy: _gpsAccuracy,
+          outsideReason: reason,
+        );
+        if (!mounted) return;
+      }
 
       if (response['isSuccess'] == true) {
         final data = response['data'];
@@ -1084,6 +1122,7 @@ class _MobileAttendanceScreenState extends State<MobileAttendanceScreen>
               clientFaceEngine:
                   onDeviceFaceOk ? (_clientFaceEngine ?? 'tflite') : null,
               sitePhotoBase64: retryPhoto,
+              gpsAccuracy: _gpsAccuracy,
             );
             if (!mounted) return;
             if (retryResponse['isSuccess'] == true) {
@@ -1222,6 +1261,7 @@ class _MobileAttendanceScreenState extends State<MobileAttendanceScreen>
           setState(() {
             _currentLatitude = cached.latitude;
             _currentLongitude = cached.longitude;
+            _gpsAccuracy = cached.accuracy;
           });
           _calculateNearestLocation();
           if (_isLocationVerified) {
@@ -1247,6 +1287,7 @@ class _MobileAttendanceScreenState extends State<MobileAttendanceScreen>
       setState(() {
         _currentLatitude = fastPosition.latitude;
         _currentLongitude = fastPosition.longitude;
+        _gpsAccuracy = fastPosition.accuracy;
       });
       _calculateNearestLocation();
 
@@ -1267,6 +1308,7 @@ class _MobileAttendanceScreenState extends State<MobileAttendanceScreen>
       setState(() {
         _currentLatitude = position.latitude;
         _currentLongitude = position.longitude;
+        _gpsAccuracy = position.accuracy;
         _isGettingLocation = false;
       });
       _calculateNearestLocation();
@@ -1292,6 +1334,7 @@ class _MobileAttendanceScreenState extends State<MobileAttendanceScreen>
       setState(() {
         _currentLatitude = position.latitude;
         _currentLongitude = position.longitude;
+        _gpsAccuracy = position.accuracy;
       });
       _calculateNearestLocation();
     } catch (_) {}
@@ -2679,6 +2722,7 @@ class _MobileAttendanceScreenState extends State<MobileAttendanceScreen>
     final isLunchOt = record.isLunchOtPunch;
     final approved =
         record.status == 'auto_approved' || record.status == 'approved';
+    final rejected = record.status == 'rejected';
     final Color color;
     IconData icon;
     if (isTravel) {
@@ -2711,7 +2755,8 @@ class _MobileAttendanceScreenState extends State<MobileAttendanceScreen>
         borderRadius: BorderRadius.circular(14),
         border: Border.all(color: const Color(0xFFEEF2F6)),
       ),
-      child: Row(
+      child: Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
+      Row(
         children: [
           Container(
             width: 36,
@@ -2757,7 +2802,9 @@ class _MobileAttendanceScreenState extends State<MobileAttendanceScreen>
           Container(
             padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
             decoration: BoxDecoration(
-              color: approved
+              color: rejected
+                  ? SboxColors.dangerSoft
+                  : approved
                   ? SboxColors.success.withValues(alpha: 0.1)
                   : HrmPageChrome.chipLight.withValues(alpha: 0.1),
               borderRadius: BorderRadius.circular(10),
@@ -2768,17 +2815,41 @@ class _MobileAttendanceScreenState extends State<MobileAttendanceScreen>
                       .withValues(alpha: 0.15)),
             ),
             child: Text(
-              tr(approved ? 'Duyệt' : 'Chờ'),
+              tr(rejected ? 'Từ chối' : approved ? 'Duyệt' : 'Chờ'),
               style: TextStyle(
                   fontSize: 10,
                   fontWeight: FontWeight.w600,
-                  color: approved
+                  color: rejected
+                      ? SboxColors.dangerText
+                      : approved
                       ? SboxColors.payHover
                       : SboxColors.warningText),
             ),
           ),
         ],
       ),
+      if (rejected)
+        Padding(
+          padding: const EdgeInsets.only(top: 8, left: 48),
+          child: Row(children: [
+            Expanded(
+              child: Text(
+                tr('Lý do từ chối: ${(record.rejectReason ?? '').isEmpty ? 'không ghi' : record.rejectReason}'),
+                style: const TextStyle(fontSize: 11, color: SboxColors.dangerText),
+              ),
+            ),
+            TextButton(
+              style: TextButton.styleFrom(visualDensity: VisualDensity.compact),
+              onPressed: () => Navigator.of(context).push(MaterialPageRoute(
+                  builder: (_) => Scaffold(
+                        appBar: AppBar(title: Text(tr('Giải trình / xin bổ sung công'))),
+                        body: const AttendanceCorrectionsScreen(),
+                      ))),
+              child: Text(tr('Giải trình')),
+            ),
+          ]),
+        ),
+      ]),
     ),
     );
   }

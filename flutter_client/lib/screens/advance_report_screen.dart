@@ -13,6 +13,8 @@ import '../widgets/reports/hrm_report_widgets.dart';
 import 'package:zkteco_flutter_client/l10n/app_tr.dart';
 
 import '../theme/sbox_tokens.dart';
+import '../widgets/sbox/sbox_report.dart';
+import '../widgets/sbox/sbox_charts.dart';
 const _theme = HrmPageChrome.primaryNavy;
 
 class AdvanceReportScreen extends StatefulWidget {
@@ -157,6 +159,66 @@ class _AdvanceReportScreenState extends State<AdvanceReportScreen> {
         }
       }
     } catch (_) {}
+  }
+
+  /// Biểu đồ đầu báo cáo: tiền ứng theo ngày (yêu cầu / đã duyệt) + trạng thái.
+  Widget _buildInsight() {
+    final f = advanceRowsForReportStats(_filtered, _statusFilter);
+    if (f.isEmpty) return const SizedBox.shrink();
+    final req = <DateTime, double>{};
+    final ok = <DateTime, double>{};
+    final byStatus = <AdvanceRequestStatus, double>{};
+    final byEmp = <String, double>{};
+    for (final r in f) {
+      final d = r.requestDate.isUtc ? r.requestDate.toLocal() : r.requestDate;
+      final k = DateTime(d.year, d.month, d.day);
+      req[k] = (req[k] ?? 0) + r.amount;
+      ok.putIfAbsent(k, () => 0);
+      if (r.status == AdvanceRequestStatus.approved) {
+        ok[k] = ok[k]! + r.payoutAmount;
+        byEmp[r.employeeName] = (byEmp[r.employeeName] ?? 0) + r.payoutAmount;
+      }
+      byStatus[r.status] = (byStatus[r.status] ?? 0) + r.amount;
+    }
+    final days = req.keys.toList()..sort();
+    String statusVi(AdvanceRequestStatus s) => switch (s) {
+          AdvanceRequestStatus.pending => 'Chờ duyệt',
+          AdvanceRequestStatus.approved => 'Đã duyệt',
+          AdvanceRequestStatus.rejected => 'Từ chối',
+          _ => 'Đã hủy',
+        };
+    Color statusColor(AdvanceRequestStatus s) => switch (s) {
+          AdvanceRequestStatus.pending => SboxColors.warning,
+          AdvanceRequestStatus.approved => SboxColors.success,
+          AdvanceRequestStatus.rejected => SboxColors.danger,
+          _ => SboxColors.slate400,
+        };
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(12, 12, 12, 0),
+      child: SboxInsightPanel(
+        bottomGap: 0,
+        charts: [
+          SboxChartCard(
+            title: 'Tiền ứng theo ngày',
+            child: SboxBarChart(
+              labels: [for (final d in days) sboxDayLabel(d)],
+              series: [
+                SboxSeries(name: 'Yêu cầu', values: [for (final d in days) req[d]!], color: SboxColors.slate300),
+                SboxSeries(name: 'Đã duyệt', values: [for (final d in days) ok[d]!], color: SboxColors.success),
+              ],
+            ),
+          ),
+          SboxChartCard(
+            title: _teamView ? 'Ứng nhiều nhất (đã duyệt)' : 'Theo trạng thái',
+            child: _teamView
+                ? SboxRankList(items: [for (final e in byEmp.entries) SboxSlice(e.key, e.value)])
+                : SboxDonutChart(slices: [
+                    for (final e in byStatus.entries) SboxSlice(statusVi(e.key), e.value, color: statusColor(e.key)),
+                  ]),
+          ),
+        ],
+      ),
+    );
   }
 
   List<ReportKpiItem> _buildKpis() {
@@ -347,6 +409,7 @@ class _AdvanceReportScreenState extends State<AdvanceReportScreen> {
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.stretch,
                       children: [
+                  _buildInsight(),
                   ReportCollapsibleChrome(
                     expanded: _showOverviewPanel,
                     onToggle: () => setState(

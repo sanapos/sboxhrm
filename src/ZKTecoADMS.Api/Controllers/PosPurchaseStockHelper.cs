@@ -19,6 +19,20 @@ internal static class PosPurchaseStockHelper
         return (oldQty * oldCost + addQty * addCost) / newQty;
     }
 
+    /// <summary>
+    /// Giá vốn bình quân trước khi nhập lô [removedQty] giá [removedCost] (hủy phiếu nhập).
+    /// Không còn đủ tồn để suy ngược → giữ giá vốn hiện tại.
+    /// </summary>
+    public static decimal ReverseWeightedAverageCost(
+        decimal currentQty, decimal currentCost, decimal removedQty, decimal removedCost)
+    {
+        if (removedQty <= 0 || removedCost <= 0) return currentCost;
+        var remaining = currentQty - removedQty;
+        if (remaining <= 0) return currentCost;
+        var cost = (currentQty * currentCost - removedQty * removedCost) / remaining;
+        return cost > 0 ? Math.Round(cost, 4) : currentCost;
+    }
+
     public static async Task ApplyReceiptStockAsync(
         ZKTecoDbContext db,
         Guid storeId,
@@ -175,6 +189,24 @@ internal static class PosPurchaseStockHelper
                 {
                     throw new InvalidOperationException($"Không đủ tồn để hủy phiếu: {line.ProductName}");
                 }
+                // Trả giá vốn bình quân về như trước khi nhập phiếu này.
+                if (line.CostPrice > 0)
+                {
+                    if (PosVariantStockHelper.IsUnitOnlyVariant(variant.AttributeJson))
+                    {
+                        var rate = PosVariantStockHelper.ParseConversionRate(variant.AttributeJson);
+                        var costPerBase = rate > 0 ? line.CostPrice / rate : line.CostPrice;
+                        var oldCost = p.CostPrice;
+                        p.CostPrice = ReverseWeightedAverageCost(p.OnHandQty, p.CostPrice, txQtyChange, costPerBase);
+                        PosStockRecording.RecordCostChangeIfChanged(
+                            db, storeId, p.Id, null, p.OnHandQty - txQtyChange, oldCost, p.CostPrice, createdBy);
+                    }
+                    else
+                    {
+                        variant.CostPrice = ReverseWeightedAverageCost(
+                            variant.OnHandQty, variant.CostPrice, line.Qty, line.CostPrice);
+                    }
+                }
                 qtyAfter = PosVariantStockHelper.ApplyStockDelta(p, variant, line.Qty, add: false);
                 variant.UpdatedAt = DateTime.UtcNow;
                 variant.UpdatedBy = createdBy;
@@ -186,6 +218,14 @@ internal static class PosPurchaseStockHelper
             {
                 if (p.OnHandQty < line.Qty)
                     throw new InvalidOperationException($"Không đủ tồn để hủy phiếu: {line.ProductName}");
+                if (line.CostPrice > 0)
+                {
+                    // Trả giá vốn bình quân về như trước khi nhập phiếu này.
+                    var oldCost = p.CostPrice;
+                    p.CostPrice = ReverseWeightedAverageCost(p.OnHandQty, p.CostPrice, line.Qty, line.CostPrice);
+                    PosStockRecording.RecordCostChangeIfChanged(
+                        db, storeId, p.Id, null, p.OnHandQty - line.Qty, oldCost, p.CostPrice, createdBy);
+                }
                 p.OnHandQty -= line.Qty;
                 p.UpdatedAt = DateTime.UtcNow;
                 p.UpdatedBy = createdBy;
@@ -671,12 +711,31 @@ internal static class PosPurchaseStockHelper
 
         var touchedProducts = new HashSet<Guid>();
         var note = issue.Note?.Trim() ?? noteFallback;
+        var allowNegative = await db.PosStoreSellSettings.AsNoTracking()
+            .Where(s => s.StoreId == storeId && s.Deleted == null)
+            .Select(s => s.AllowNegativeStock)
+            .FirstOrDefaultAsync();
         foreach (var line in lines)
         {
             if (!products.TryGetValue(line.ProductId, out var p)) continue;
             PosProductVariant? variant = null;
             if (line.VariantId.HasValue)
                 variants.TryGetValue(line.VariantId.Value, out variant);
+
+            // Không bán âm: phiếu xuất không được lấy phần tồn đang giữ chỗ cho bàn / đơn tạm
+            // (nếu không, lúc bàn đó thanh toán mới báo thiếu hàng).
+            if (!allowNegative && p.ReservedQty > 0)
+            {
+                var baseQty = variant != null
+                    ? PosVariantStockHelper.StockDeltaInBase(variant, line.Qty)
+                    : line.Qty;
+                var available = p.OnHandQty - p.ReservedQty;
+                if (available < baseQty)
+                    throw new InvalidOperationException(
+                        $"Không đủ tồn khả dụng: {line.ProductName} (tồn {p.OnHandQty:0.##}, đang giữ chỗ " +
+                        $"{p.ReservedQty:0.##} cho bàn / đơn tạm, còn xuất được {Math.Max(0, available):0.##}). " +
+                        "Hủy món ở bàn / đơn tạm trước hoặc bật «Cho phép bán khi hết hàng / tồn âm».");
+            }
 
             await ApplyFefoIssueLineAsync(
                 db, storeId, issue, p, variant, line.Qty, line.ProductName, note, createdBy, touchedProducts);

@@ -5,16 +5,19 @@ import 'package:intl/intl.dart';
 
 import '../../models/pos_einvoice.dart';
 import '../../services/api_service.dart';
+import '../../utils/pos_einvoice_actions.dart';
 import '../../utils/pos_kiot_time_range.dart';
 import '../../utils/pos_report_export.dart';
 import '../../utils/pos_report_open.dart';
 import '../../widgets/notification_overlay.dart';
 import '../../widgets/pos/pos_theme.dart';
 import '../../widgets/pos/reports/pos_report_widgets.dart';
+import 'pos_einvoice_provider_list_screen.dart';
 import 'package:sbox_pos/l10n/app_tr.dart';
 
 import '../../theme/sbox_tokens.dart';
-/// Quản lý vòng đời HĐĐT: danh sách, nháp, phát hành, email, thay thế, hủy.
+/// Quản lý vòng đời HĐĐT: danh sách, nháp, phát hành, xem lại, email, thay thế, hủy,
+/// đồng bộ hàng loạt, tải danh sách từ hãng, mở trang quản lý của hãng, báo cáo.
 class PosEInvoiceReportScreen extends StatefulWidget {
   const PosEInvoiceReportScreen({super.key});
 
@@ -35,6 +38,9 @@ class _PosEInvoiceReportScreenState extends State<PosEInvoiceReportScreen> {
   bool _loading = true;
   String? _busyId;
   Map<String, dynamic>? _summary;
+  Map<String, dynamic>? _report;
+  Map<String, dynamic>? _portal;
+  bool _bulkSyncing = false;
   List<PosEInvoiceRow> _items = [];
   int _total = 0;
 
@@ -45,7 +51,9 @@ class _PosEInvoiceReportScreenState extends State<PosEInvoiceReportScreen> {
     ('Pending', 'Chờ ký'),
     ('Failed', 'Lỗi'),
     ('Cancelled', 'Đã hủy'),
+    ('replacement', 'Thay thế'),
     ('email', 'Đã gửi mail'),
+    ('None', 'Chưa xuất'),
   ];
 
   @override
@@ -73,11 +81,21 @@ class _PosEInvoiceReportScreenState extends State<PosEInvoiceReportScreen> {
       page: 1,
       pageSize: 80,
     );
+    final reportF = _api.getPosEInvoiceReport(from: from, to: to);
+    final portalF = _portal == null ? _api.getPosEInvoicePortal() : null;
     final sum = await sumF;
     final list = await listF;
+    final report = await reportF;
+    final portal = portalF == null ? null : await portalF;
     if (!mounted) return;
     setState(() {
       _loading = false;
+      if (report['isSuccess'] == true && report['data'] is Map) {
+        _report = Map<String, dynamic>.from(report['data'] as Map);
+      }
+      if (portal != null && portal['isSuccess'] == true && portal['data'] is Map) {
+        _portal = Map<String, dynamic>.from(portal['data'] as Map);
+      }
       _summary = sum['isSuccess'] == true && sum['data'] is Map
           ? Map<String, dynamic>.from(sum['data'] as Map)
           : null;
@@ -218,14 +236,105 @@ class _PosEInvoiceReportScreenState extends State<PosEInvoiceReportScreen> {
   }
 
   Future<void> _replace(PosEInvoiceRow row) async {
-    final reason = await _prompt(
-      'Thay thế hóa đơn ${row.invoiceNo ?? row.orderNo}',
-      'Lý do thay thế',
-      initial: 'Sai thông tin hóa đơn',
+    final input = await PosEInvoiceActions.askReplace(context, row);
+    if (input == null || !mounted) return;
+    await _run(
+      row,
+      'Đã thay thế HĐĐT',
+      () => _api.replacePosEInvoice(row.id,
+          reason: input.reason, buyer: input.buyer),
     );
-    if (reason == null || !mounted) return;
-    await _run(row, 'Đã thay thế HĐĐT',
-        () => _api.replacePosEInvoice(row.id, reason: reason));
+  }
+
+  String get _providerName => posEInvoiceProviderName(
+      _portal?['providerName']?.toString() ?? _portal?['provider']?.toString());
+
+  Future<void> _syncAll() async {
+    final ok = await showDialog<bool>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: Text(tr('Đồng bộ hàng loạt')),
+        content: Text(tr(
+            'Cập nhật số hóa đơn / trạng thái (đã hủy, chờ ký, lỗi) từ $_providerName '
+            'cho tối đa 100 đơn trong khoảng «${_time.displayLabel}».')),
+        actions: [
+          TextButton(
+              onPressed: () => Navigator.pop(ctx, false),
+              child: Text(tr('Không'))),
+          FilledButton(
+            onPressed: () => Navigator.pop(ctx, true),
+            style: FilledButton.styleFrom(backgroundColor: PosTheme.kiotBlue),
+            child: Text(tr('Đồng bộ')),
+          ),
+        ],
+      ),
+    );
+    if (ok != true || !mounted) return;
+    setState(() => _bulkSyncing = true);
+    final res = await _api.syncPosEInvoiceRange(from: _time.from, to: _time.to);
+    if (!mounted) return;
+    setState(() => _bulkSyncing = false);
+    if (res['isSuccess'] == true && res['data'] is Map) {
+      final d = Map<String, dynamic>.from(res['data'] as Map);
+      final errors = (d['errors'] is List) ? (d['errors'] as List).join('\n') : '';
+      final msg = 'Đã kiểm tra ${d['total']} đơn · thay đổi ${d['changed']} · lỗi ${d['failed']}'
+          '${errors.isEmpty ? '' : '\n$errors'}';
+      if (_num(d['failed']) > 0) {
+        NotificationOverlayManager().showError(
+          title: 'Đồng bộ xong, có lỗi',
+          message: msg,
+          duration: const Duration(seconds: 8),
+        );
+      } else {
+        NotificationOverlayManager().showSuccess(title: 'Đã đồng bộ', message: msg);
+      }
+      await _load();
+    } else {
+      NotificationOverlayManager().showError(
+        title: 'Đồng bộ thất bại',
+        message: res['message']?.toString() ?? 'Lỗi đồng bộ',
+      );
+    }
+  }
+
+  void _openProviderList() {
+    Navigator.of(context).push(
+      MaterialPageRoute<void>(
+        builder: (_) => PosEInvoiceProviderListScreen(
+          initialTime: _time,
+          portal: _portal,
+        ),
+      ),
+    );
+  }
+
+  Widget _toolsBar() {
+    Widget chip(IconData icon, String label, VoidCallback? onTap) => Padding(
+          padding: const EdgeInsets.only(right: 6),
+          child: ActionChip(
+            avatar: Icon(icon, size: 16, color: PosTheme.kiotBlue),
+            label: Text(tr(label), style: const TextStyle(fontSize: 12)),
+            onPressed: onTap,
+          ),
+        );
+    return SizedBox(
+      height: 40,
+      child: ListView(
+        scrollDirection: Axis.horizontal,
+        padding: const EdgeInsets.fromLTRB(8, 4, 8, 0),
+        children: [
+          chip(Icons.open_in_new, 'Trang quản lý $_providerName',
+              _portal == null ? null : () => PosEInvoiceActions.openPortal(_portal)),
+          chip(Icons.cloud_download_outlined, 'Tải danh sách từ hãng',
+              _openProviderList),
+          chip(
+            _bulkSyncing ? Icons.hourglass_top : Icons.sync,
+            _bulkSyncing ? 'Đang đồng bộ…' : 'Đồng bộ hàng loạt',
+            _bulkSyncing ? null : _syncAll,
+          ),
+        ],
+      ),
+    );
   }
 
   Future<void> _cancel(PosEInvoiceRow row) async {
@@ -291,9 +400,24 @@ class _PosEInvoiceReportScreenState extends State<PosEInvoiceReportScreen> {
                   ],
                 ),
               ),
+              if (posEInvoiceCanView(row.status))
+                tile(Icons.picture_as_pdf_outlined, 'Xem lại hóa đơn (PDF)',
+                    () => PosEInvoiceActions.view(context, _api, row)),
+              if (row.status == 'Issued')
+                tile(Icons.share_outlined, 'Gửi HĐĐT qua ứng dụng khác (Zalo, email…)',
+                    () => PosEInvoiceActions.share(
+                        context, _api, PosEInvoiceTarget.fromRow(row))),
+              if (posEInvoiceCanPreviewDraft(row.status)) ...[
+                tile(Icons.preview_outlined, 'Xem bản nháp (chưa ký)',
+                    () => PosEInvoiceActions.view(context, _api, row)),
+                tile(Icons.ios_share, 'Gửi bản nháp cho khách kiểm tra',
+                    () => PosEInvoiceActions.share(
+                        context, _api, PosEInvoiceTarget.fromRow(row))),
+              ],
               if (posEInvoiceCanIssue(row.status))
                 tile(Icons.send_outlined, 'Phát hành / xuất lại', () => _issue(row)),
-              if (posEInvoiceCanDraft(row.status))
+              if (posEInvoiceCanDraft(row.status) &&
+                  _portal?['supportsDraft'] != false)
                 tile(Icons.note_add_outlined, 'Xuất nháp (chưa ký)',
                     () => _draft(row)),
               if (posEInvoiceCanEmail(row.status))
@@ -311,9 +435,12 @@ class _PosEInvoiceReportScreenState extends State<PosEInvoiceReportScreen> {
                     color: Colors.red.shade700),
               if (posEInvoiceCanSync(row.status))
                 tile(Icons.sync, 'Đồng bộ từ nhà cung cấp', () => _sync(row)),
-              tile(Icons.receipt_long_outlined, 'Mở hóa đơn gốc', () {
+              tile(Icons.receipt_long_outlined, 'Mở đơn bán hàng', () {
                 unawaited(PosReportOpen.sale(context, row.id));
               }),
+              if (_portal != null)
+                tile(Icons.open_in_new, 'Mở trang quản lý $_providerName',
+                    () => PosEInvoiceActions.openPortal(_portal)),
               const SizedBox(height: 8),
             ],
           ),
@@ -380,6 +507,7 @@ class _PosEInvoiceReportScreenState extends State<PosEInvoiceReportScreen> {
               )),
       filterBar: Column(
         children: [
+          _toolsBar(),
           SizedBox(
             height: 36,
             child: ListView(
@@ -494,6 +622,7 @@ class _PosEInvoiceReportScreenState extends State<PosEInvoiceReportScreen> {
                     ],
                   ),
                 ),
+                ..._reportCards(),
                 Padding(
                   padding: const EdgeInsets.fromLTRB(4, 4, 4, 8),
                   child: Text(
@@ -515,6 +644,109 @@ class _PosEInvoiceReportScreenState extends State<PosEInvoiceReportScreen> {
               ],
             ),
     );
+  }
+
+  List<Widget> _reportCards() {
+    final r = _report;
+    if (r == null) return const [];
+    final byProvider = (r['byProvider'] is List)
+        ? (r['byProvider'] as List).whereType<Map>().toList()
+        : const <Map>[];
+    return [
+      PosReportCard(
+        title: 'Tỷ lệ xuất HĐĐT trên doanh thu',
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            PosReportMetricTiles(
+              moneyFmt: _moneyFmt,
+              tiles: [
+                (
+                  label: 'Doanh thu',
+                  value: _num(r['revenue']),
+                  color: PosTheme.kiotBlue,
+                ),
+                (
+                  label: 'Đã xuất HĐĐT',
+                  value: _num(r['issuedAmount']),
+                  color: SboxColors.successText,
+                ),
+                (
+                  label: 'Thuế GTGT đã xuất',
+                  value: _num(_summary?['issuedVatAmount']),
+                  color: SboxColors.slate700,
+                ),
+              ],
+            ),
+            const SizedBox(height: 8),
+            LinearProgressIndicator(
+              value: (_num(r['coveragePct']) / 100).clamp(0, 1).toDouble(),
+              minHeight: 8,
+              borderRadius: BorderRadius.circular(6),
+              color: SboxColors.success,
+              backgroundColor: SboxColors.slate200,
+            ),
+            const SizedBox(height: 6),
+            Text(
+              tr('${_num(r['coveragePct']).toStringAsFixed(1)}% doanh thu đã có HĐĐT · '
+                  '${_num(r['replacementCount']).toInt()} HĐ thay thế · '
+                  'chưa xuất ${_moneyFmt.format(_num(_summary?['noneAmount']))}'),
+              style: TextStyle(fontSize: 12, color: SboxColors.slate700),
+            ),
+            if (byProvider.length > 1) ...[
+              const SizedBox(height: 8),
+              for (final p in byProvider)
+                Text(
+                  '${p['providerName']}: ${_num(p['count']).toInt()} HĐ · ${_moneyFmt.format(_num(p['amount']))}',
+                  style: const TextStyle(fontSize: 12),
+                ),
+            ],
+          ],
+        ),
+      ),
+      ..._dailyChart(),
+    ];
+  }
+
+  List<Widget> _dailyChart() {
+    final daily = (_report?['daily'] is List)
+        ? (_report!['daily'] as List).whereType<Map>().toList()
+        : const <Map>[];
+    if (daily.isEmpty) return const [];
+    return [
+      PosReportCard(
+        title: 'HĐĐT theo ngày',
+        child: Column(
+          children: [
+            for (final d in daily.reversed.take(14))
+              Padding(
+                padding: const EdgeInsets.symmetric(vertical: 3),
+                child: Row(
+                  children: [
+                    SizedBox(
+                      width: 48,
+                      child: Text(
+                        d['date'].toString().substring(5).split('-').reversed.join('/'),
+                        style: const TextStyle(fontSize: 12),
+                      ),
+                    ),
+                    Expanded(
+                      child: Text(
+                        '${_num(d['issuedCount']).toInt()}/${_num(d['orders']).toInt()} đơn',
+                        style: TextStyle(fontSize: 12, color: SboxColors.slate700),
+                      ),
+                    ),
+                    Text(
+                      _moneyFmt.format(_num(d['issuedAmount'])),
+                      style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w600),
+                    ),
+                  ],
+                ),
+              ),
+          ],
+        ),
+      ),
+    ];
   }
 
   Widget _rowCard(PosEInvoiceRow row) {
@@ -573,8 +805,8 @@ class _PosEInvoiceReportScreenState extends State<PosEInvoiceReportScreen> {
                         if ((row.invoiceNo ?? '').isNotEmpty) 'HĐ ${row.invoiceNo}',
                         if (row.isReplacement) 'Thay thế ${row.originalNo ?? ''}',
                         if (row.emailSent) 'Đã gửi mail',
-                        if ((row.provider ?? '').isNotEmpty) row.provider,
-                      ].where((e) => (e ?? '').trim().isNotEmpty).join(' · '),
+                        if ((row.provider ?? '').isNotEmpty) posEInvoiceProviderName(row.provider),
+                      ].where((e) => e.trim().isNotEmpty).join(' · '),
                       style: TextStyle(
                           fontSize: 12, color: SboxColors.slate700),
                     ),

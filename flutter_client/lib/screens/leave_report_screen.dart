@@ -14,6 +14,8 @@ import '../widgets/reports/hrm_report_widgets.dart';
 import 'package:zkteco_flutter_client/l10n/app_tr.dart';
 
 import '../theme/sbox_tokens.dart';
+import '../widgets/sbox/sbox_report.dart';
+import '../widgets/sbox/sbox_charts.dart';
 const _theme = HrmPageChrome.primaryNavy;
 
 class LeaveReportScreen extends StatefulWidget {
@@ -274,6 +276,54 @@ class _LeaveReportScreenState extends State<LeaveReportScreen> {
     }
   }
 
+  /// Biểu đồ đầu báo cáo: cơ cấu loại nghỉ + người nghỉ nhiều nhất (đơn đã duyệt).
+  Widget _buildInsight() {
+    final f = leaveRowsForReportStats(_filtered, _statusFilter)
+        .where((l) => _normalizeStatus(l['status']) == 1)
+        .toList();
+    if (f.isEmpty) return const SizedBox.shrink();
+    final byType = <String, double>{};
+    final byEmp = <String, double>{};
+    final cnt = <String, int>{};
+    for (final l in f) {
+      final d = _leaveDays(l).toDouble();
+      final t = _leaveTypeName(l['leaveType'] ?? l['type']);
+      byType[t] = (byType[t] ?? 0) + d;
+      final n = l['employeeName']?.toString() ?? '—';
+      byEmp[n] = (byEmp[n] ?? 0) + d;
+      cnt[n] = (cnt[n] ?? 0) + 1;
+    }
+    final total = byType.values.fold<double>(0, (a, b) => a + b);
+    String days(num? v) => '${SboxFmt.number(v)} ngày';
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(12, 12, 12, 0),
+      child: SboxInsightPanel(
+        bottomGap: 0,
+        charts: [
+          SboxChartCard(
+            title: 'Ngày nghỉ theo loại',
+            subtitle: 'Đơn đã duyệt',
+            child: SboxDonutChart(
+              valueFormat: days,
+              centerValue: SboxFmt.number(total),
+              centerLabel: 'ngày nghỉ',
+              slices: [for (final e in byType.entries) SboxSlice(e.key, e.value)],
+            ),
+          ),
+          if (_teamView)
+            SboxChartCard(
+              title: 'Nghỉ nhiều nhất',
+              child: SboxRankList(
+                color: SboxColors.violet,
+                valueFormat: days,
+                items: [for (final e in byEmp.entries) SboxSlice(e.key, e.value, caption: '${cnt[e.key]} đơn')],
+              ),
+            ),
+        ],
+      ),
+    );
+  }
+
   List<ReportKpiItem> _buildKpis() {
     final f = leaveRowsForReportStats(_filtered, _statusFilter);
     final pending = f.where((l) => _normalizeStatus(l['status']) == 0).length;
@@ -430,6 +480,7 @@ class _LeaveReportScreenState extends State<LeaveReportScreen> {
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.stretch,
                       children: [
+                  _buildInsight(),
                   if (!_teamView && _annualBalanceText != null)
                     ReportPersonalInsightBanner(
                       message: _annualBalanceText!,

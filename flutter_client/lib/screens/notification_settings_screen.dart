@@ -6,6 +6,7 @@ import '../utils/notification_group_settings.dart';
 import '../widgets/notification_overlay.dart';
 import '../widgets/hrm_page_chrome.dart';
 import '../widgets/pos/pos_theme.dart';
+import '../widgets/notifications/push_settings_card.dart';
 import 'package:zkteco_flutter_client/l10n/app_tr.dart';
 
 import '../theme/sbox_tokens.dart';
@@ -164,12 +165,17 @@ class _NotificationSettingsScreenState
       body: _isLoading
           ? const Center(child: CircularProgressIndicator())
           : SingleChildScrollView(
-              padding: const EdgeInsets.all(28),
-              child: Column(
+              padding: EdgeInsets.all(MediaQuery.sizeOf(context).width < 600 ? 14 : 28),
+              child: Center(
+               child: ConstrainedBox(
+                constraints: const BoxConstraints(maxWidth: 760),
+                child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
                   _buildHeader(),
-                  const SizedBox(height: 24),
+                  const SizedBox(height: 16),
+                  const PushSettingsCard(),
+                  const SizedBox(height: 16),
                   // Nhóm 1: Thông báo chấm công
                   _buildGroupCard(
                     title: 'Thông báo chấm công',
@@ -208,6 +214,8 @@ class _NotificationSettingsScreenState
                   const SizedBox(height: 24),
                   _buildSaveButton(),
                 ],
+              ),
+              ),
               ),
             ),
     );
@@ -374,7 +382,7 @@ class _NotificationSettingsScreenState
                 ),
                 const SizedBox(height: 4),
                 Text(
-                  tr('Chọn nhóm thông báo bạn muốn nhận. Tắt nhóm nào sẽ không nhận thông báo loại đó.'),
+                  tr('Chọn cách nhận thông báo trên điện thoại và nhóm thông báo muốn nhận. Tắt nhóm nào sẽ không nhận thông báo loại đó.'),
                   style: const TextStyle(
                     color: PosTheme.textSecondary,
                     fontSize: 13,

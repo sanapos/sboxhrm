@@ -21,6 +21,8 @@ import '../widgets/reports/hrm_report_widgets.dart';
 import 'package:zkteco_flutter_client/l10n/app_tr.dart';
 
 import '../theme/sbox_tokens.dart';
+import '../widgets/sbox/sbox_report.dart';
+import '../widgets/sbox/sbox_charts.dart';
 /// Màu chủ đạo kiểu KiotViet (xanh dương #0070F4 + xanh lá #00B63E).
 const _theme = PosTheme.kiotBlue;
 
@@ -733,6 +735,77 @@ class _AttendanceReportScreenState extends State<AttendanceReportScreen> {
     return out;
   }
 
+  /// Biểu đồ đầu báo cáo: tình trạng đi làm theo ngày (đủ công / nửa công / nghỉ phép / vắng).
+  Widget _buildInsight() {
+    final emps = _filteredEmployees;
+    final days = _daysInRange;
+    if (emps.isEmpty || days.isEmpty) return const SizedBox.shrink();
+    final full = <double>[], half = <double>[], leave = <double>[], absent = <double>[];
+    final lateBy = <String, double>{};
+    for (final d in days) {
+      var f = 0.0, h = 0.0, l = 0.0, a = 0.0;
+      for (final emp in emps) {
+        final id = emp['id']?.toString() ?? '';
+        final code = emp['employeeCode']?.toString() ?? '';
+        final cell = _dayCells['${id.isNotEmpty ? id : code}|${_fmtDate.format(d)}'];
+        if (cell == null) continue;
+        final st = cell['status']?.toString() ?? '';
+        if (st == _DayStatus.present.name) {
+          f++;
+        } else if (st == _DayStatus.halfDay.name || st == 'missingPunch') {
+          h++;
+        } else if (st == _DayStatus.approvedLeave.name || st == _DayStatus.pendingLeave.name) {
+          l++;
+        } else if (st == _DayStatus.unpaidAbsent.name) {
+          a++;
+        }
+        final late = (cell['lateMinutes'] as num?)?.toDouble() ?? 0;
+        if (late > 0) {
+          final n = emp['fullName']?.toString() ?? emp['name']?.toString() ?? code;
+          lateBy[n] = (lateBy[n] ?? 0) + late;
+        }
+      }
+      full.add(f);
+      half.add(h);
+      leave.add(l);
+      absent.add(a);
+    }
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(12, 12, 12, 0),
+      child: SboxInsightPanel(
+        bottomGap: 0,
+        charts: [
+          SboxChartCard(
+            title: 'Tình trạng đi làm theo ngày',
+            subtitle: 'Số nhân viên',
+            wide: !_teamView || lateBy.isEmpty,
+            child: SboxBarChart(
+              stacked: true,
+              valueFormat: (v) => '${SboxFmt.number(v)} NV',
+              axisFormat: (v) => SboxFmt.number(v),
+              labels: [for (final d in days) sboxDayLabel(d)],
+              series: [
+                SboxSeries(name: 'Đủ công', values: full, color: SboxColors.success),
+                SboxSeries(name: 'Nửa công / thiếu chấm', values: half, color: SboxColors.warning),
+                SboxSeries(name: 'Nghỉ phép', values: leave, color: SboxColors.violet),
+                SboxSeries(name: 'Vắng', values: absent, color: SboxColors.danger),
+              ],
+            ),
+          ),
+          if (_teamView && lateBy.isNotEmpty)
+            SboxChartCard(
+              title: 'Đi trễ nhiều nhất',
+              child: SboxRankList(
+                color: SboxColors.warning,
+                valueFormat: (v) => '${SboxFmt.number(v)} phút',
+                items: [for (final e in lateBy.entries) SboxSlice(e.key, e.value)],
+              ),
+            ),
+        ],
+      ),
+    );
+  }
+
   List<ReportKpiItem> _buildKpis() {
     final emps = _filteredEmployees;
     final days = _daysInRange;
@@ -1109,6 +1182,7 @@ class _AttendanceReportScreenState extends State<AttendanceReportScreen> {
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.stretch,
                       children: [
+                  _buildInsight(),
                   ReportCollapsibleChrome(
                     expanded: _showOverviewPanel,
                     onToggle: () => setState(

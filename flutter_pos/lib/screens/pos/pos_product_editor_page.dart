@@ -131,6 +131,7 @@ class PosProductEditorPage extends StatefulWidget {
           'costPrice': full.costPrice,
           'basePrice': full.basePrice,
           'onHandQty': full.onHandQty,
+          'originalOnHandQty': full.onHandQty,
           'reservedQty': full.reservedQty,
           'minStockQty': full.minStockQty,
           'maxStockQty': full.maxStockQty,
@@ -236,6 +237,9 @@ class _PosProductEditorPageState extends State<PosProductEditorPage>
   late final TextEditingController _costCtrl;
   late final TextEditingController _priceCtrl;
   late final TextEditingController _stockCtrl;
+  /// Giá trị ô tồn lúc mở form — server chỉ ghi tồn khi ô này bị sửa
+  /// (không ghi đè lượt bán / nhập xảy ra trong lúc đang sửa hàng).
+  double _stockLoadedQty = 0;
   late final TextEditingController _minStockCtrl;
   late final TextEditingController _maxStockCtrl;
   late final TextEditingController _weightCtrl;
@@ -495,6 +499,7 @@ class _PosProductEditorPageState extends State<PosProductEditorPage>
         text: tr(_fmtInputMoney(p?.basePrice ?? 0)));
     _stockCtrl = TextEditingController(
         text: tr(p != null ? p.onHandQty.toStringAsFixed(0) : '0'));
+    _stockLoadedQty = _parseNum(_stockCtrl.text);
     _minStockCtrl = TextEditingController(
         text: tr(p != null ? p.minStockQty.toStringAsFixed(0) : '0'));
     _maxStockCtrl = TextEditingController(
@@ -766,6 +771,7 @@ class _PosProductEditorPageState extends State<PosProductEditorPage>
       if (_variants.isNotEmpty && !_usesSharedUnitStock) {
         final sum = _variants.fold(0.0, (s, v) => s + v.onHandQty);
         _stockCtrl.text = sum.toStringAsFixed(0);
+        _stockLoadedQty = _parseNum(_stockCtrl.text);
       }
     });
   }
@@ -1058,6 +1064,7 @@ class _PosProductEditorPageState extends State<PosProductEditorPage>
             ? 0
             : _parseNum(_stockCtrl.text),
       'reservedQty': widget.product?.reservedQty ?? 0,
+      if (widget.product != null) 'originalOnHandQty': _stockLoadedQty,
       // ĐVT: luôn gửi (hàng/dịch vụ/combo) — không mặc định «Cái» khi user đã nhập.
       'baseUnitName':
           _unitCtrl.text.trim().isEmpty ? 'Cái' : _unitCtrl.text.trim(),
@@ -3693,6 +3700,7 @@ class _PosProductEditorPageState extends State<PosProductEditorPage>
             ? 0
             : _parseNum(_stockCtrl.text),
       'reservedQty': widget.product?.reservedQty ?? 0,
+      if (widget.product != null) 'originalOnHandQty': _stockLoadedQty,
         if (_isGoods) ...{
           'minStockQty': _parseNum(_minStockCtrl.text),
           'maxStockQty': _parseNum(_maxStockCtrl.text),

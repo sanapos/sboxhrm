@@ -67,4 +67,7 @@ public class AuthorizedMobileDevice : AuditableEntity<Guid>
     /// <summary>JSON mảng Guid — chi nhánh NV chọn lúc đăng ký thiết bị (chờ duyệt).</summary>
     [MaxLength(4000)]
     public string? SelectedLocationIdsJson { get; set; }
+
+    /// <summary>Bắt buộc nhập lý do khi chấm ngoài vị trí công ty</summary>
+    public bool RequireOutsideReason { get; set; }
 }

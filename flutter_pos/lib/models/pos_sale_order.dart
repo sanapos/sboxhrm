@@ -245,6 +245,12 @@ class PosSaleOrder {
   final String? eInvoiceError;
   final String? eInvoiceBuyerName;
   final String? eInvoiceBuyerTaxCode;
+  /// Link tra cứu HĐĐT (mã QR trên bill) — server tính theo nhà cung cấp.
+  final String? eInvoiceLookupUrl;
+  /// MST người bán trên HĐĐT.
+  final String? eInvoiceSellerTaxCode;
+  /// Cửa hàng bật «In mã QR HĐĐT trên hóa đơn».
+  final bool eInvoicePrintOnReceipt;
 
   PosSaleOrder({
     required this.id,
@@ -322,6 +328,9 @@ class PosSaleOrder {
     this.eInvoiceError,
     this.eInvoiceBuyerName,
     this.eInvoiceBuyerTaxCode,
+    this.eInvoiceLookupUrl,
+    this.eInvoiceSellerTaxCode,
+    this.eInvoicePrintOnReceipt = false,
   });
 
   PosSaleOrder copyWithPrintContext({
@@ -404,6 +413,9 @@ class PosSaleOrder {
         eInvoiceError: eInvoiceError,
         eInvoiceBuyerName: eInvoiceBuyerName,
         eInvoiceBuyerTaxCode: eInvoiceBuyerTaxCode,
+        eInvoiceLookupUrl: eInvoiceLookupUrl,
+        eInvoiceSellerTaxCode: eInvoiceSellerTaxCode,
+        eInvoicePrintOnReceipt: eInvoicePrintOnReceipt,
         splitFromOrderId: splitFromOrderId,
       );
 
@@ -577,6 +589,13 @@ class PosSaleOrder {
       eInvoiceBuyerTaxCode: (json['eInvoiceBuyerTaxCode'] ??
               json['EInvoiceBuyerTaxCode'])
           ?.toString(),
+      eInvoiceLookupUrl:
+          (json['eInvoiceLookupUrl'] ?? json['EInvoiceLookupUrl'])?.toString(),
+      eInvoiceSellerTaxCode: (json['eInvoiceSellerTaxCode'] ??
+              json['EInvoiceSellerTaxCode'])
+          ?.toString(),
+      eInvoicePrintOnReceipt: json['eInvoicePrintOnReceipt'] == true ||
+          json['EInvoicePrintOnReceipt'] == true,
     );
   }
 
@@ -606,6 +625,16 @@ class PosSaleOrder {
         'dailyOrderIndex': dailyOrderIndex,
         'serviceResourceName': serviceResourceName,
         'serviceAreaName': serviceAreaName,
+        // HĐĐT — Agent in cùng khối mã / QR tra cứu như máy thu ngân.
+        'eInvoiceStatus': eInvoiceStatus,
+        'eInvoiceProvider': eInvoiceProvider,
+        'eInvoiceNo': eInvoiceNo,
+        'eInvoiceSeries': eInvoiceSeries,
+        'eInvoiceReservationCode': eInvoiceReservationCode,
+        'eInvoiceCode': eInvoiceCode,
+        'eInvoiceLookupUrl': eInvoiceLookupUrl,
+        'eInvoiceSellerTaxCode': eInvoiceSellerTaxCode,
+        'eInvoicePrintOnReceipt': eInvoicePrintOnReceipt,
         'lines': lines.map((l) => l.toPrintAgentJson()).toList(),
       };
 }

@@ -114,8 +114,75 @@ public class AuthController(IMediator _bus, UserManager<ApplicationUser> _userMa
     [HttpGet("me")]
     public Task<ActionResult> Me(CancellationToken cancellationToken = new())
     {
+        // Trả danh sách claim (trước đây trả thẳng ClaimsPrincipal — dễ lỗi tuần tự hoá / lộ dữ liệu thừa)
+        var claims = User.Claims
+            .GroupBy(c => c.Type)
+            .ToDictionary(g => g.Key, g => g.Count() == 1 ? (object)g.First().Value : g.Select(c => c.Value).ToList());
+        return Task.FromResult<ActionResult>(Ok(AppResponse<object>.Success(claims)));
+    }
 
-        return Task.FromResult<ActionResult>(Ok(User));
+    /// <summary>
+    /// Màn đăng nhập: gõ mã cửa hàng → xác nhận tên cửa hàng (tránh gõ nhầm mã).
+    /// Không trả gì nhạy cảm ngoài tên hiển thị.
+    /// </summary>
+    [HttpGet]
+    [AllowAnonymous]
+    [EnableRateLimiting("auth-lookup")]
+    public async Task<ActionResult<AppResponse<object>>> StoreLookup([FromQuery] string code, CancellationToken ct = default)
+    {
+        var c = (code ?? "").Trim().ToLower();
+        if (c.Length < 2) return Ok(AppResponse<object>.Success(new { exists = false }));
+        var store = await _dbContext.Stores.AsNoTracking()
+            .Where(x => x.Code.ToLower() == c)
+            .Select(x => new { x.Name, x.IsActive, x.ExpiryDate })
+            .FirstOrDefaultAsync(ct);
+        if (store == null) return Ok(AppResponse<object>.Success(new { exists = false }));
+        return Ok(AppResponse<object>.Success(new
+        {
+            exists = true,
+            name = store.Name,
+            active = store.IsActive,
+            expired = store.ExpiryDate.HasValue && store.ExpiryDate.Value < DateTime.UtcNow,
+        }));
+    }
+
+    /// <summary>Màn đăng ký: kiểm tra mã cửa hàng còn trống + gợi ý mã khác.</summary>
+    [HttpGet]
+    [AllowAnonymous]
+    [EnableRateLimiting("auth-lookup")]
+    public async Task<ActionResult<AppResponse<object>>> CheckStoreCode(
+        [FromQuery] string? code, [FromQuery] string? storeName, [FromQuery] string? province, CancellationToken ct = default)
+    {
+        var normalized = Application.Services.StoreCodeRules.Sanitize(string.IsNullOrWhiteSpace(code) ? storeName : code);
+        var error = Application.Services.StoreCodeRules.FormatError(normalized);
+        var taken = await _dbContext.Stores.AsNoTracking().Select(x => x.Code.ToLower())
+            .Where(x => x.StartsWith(normalized.Length > 3 ? normalized.Substring(0, 3) : normalized))
+            .ToListAsync(ct);
+        var takenSet = taken.ToHashSet();
+        var available = error == null && !takenSet.Contains(normalized);
+        var suggestions = available
+            ? new List<string>()
+            : Application.Services.StoreCodeRules.Suggest(normalized, storeName, province,
+                c => takenSet.Contains(c) || _dbContext.Stores.Any(x => x.Code.ToLower() == c));
+        return Ok(AppResponse<object>.Success(new
+        {
+            code = normalized,
+            available,
+            message = error ?? (available ? "Mã có thể sử dụng" : $"Mã «{normalized}» đã có cửa hàng khác dùng"),
+            suggestions,
+        }));
+    }
+
+    /// <summary>Màn đăng ký: email đã dùng để đăng ký cửa hàng khác chưa.</summary>
+    [HttpGet]
+    [AllowAnonymous]
+    [EnableRateLimiting("auth-lookup")]
+    public async Task<ActionResult<AppResponse<object>>> CheckEmail([FromQuery] string email, CancellationToken ct = default)
+    {
+        var e = (email ?? "").Trim();
+        if (e.Length < 5 || !e.Contains('@')) return Ok(AppResponse<object>.Success(new { available = false, valid = false }));
+        var used = await _userManager.FindByEmailAsync(e) != null;
+        return Ok(AppResponse<object>.Success(new { available = !used, valid = true }));
     }
 
     /// <summary>

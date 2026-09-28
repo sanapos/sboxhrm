@@ -38,7 +38,8 @@ public class PosQrTableOrderController(
     ISystemNotificationService notificationService,
     PosShippingService shipping,
     PosQrMenuService qrMenu,
-    IPosTingeePaidOrderService tingeePaid) : AuthenticatedControllerBase
+    IPosTingeePaidOrderService tingeePaid,
+    ZKTecoADMS.Api.Services.EInvoice.PosEInvoiceAutoIssuer eInvoiceAuto) : AuthenticatedControllerBase
 {
     public class QrOrderItemDto
     {
@@ -1204,6 +1205,7 @@ public class PosQrTableOrderController(
         if (!string.IsNullOrWhiteSpace(dto?.PaymentMethod))
             order.PaymentMethod = dto.PaymentMethod!.Trim();
         await db.SaveChangesAsync();
+        eInvoiceAuto.Enqueue(storeId, order.Id);
 
         PosFloorRealtimeHelper.Notify(hub, storeId, "saleCompleted",
             orderId: order.Id, tableName: "Online", message: order.OrderNo);
@@ -1484,7 +1486,10 @@ public class PosQrTableOrderController(
             var (ok, err) = await PosOnlineOrderHelper.TryCompleteAsCodAsync(
                 db, storeId, order, CurrentUserEmail, ct);
             if (ok)
+            {
                 msg = "Đã tự hoàn thành đơn (COD)";
+                eInvoiceAuto.Enqueue(storeId, order.Id);
+            }
             else if (!string.IsNullOrWhiteSpace(err))
                 msg = err;
         }

@@ -1,74 +1,48 @@
-import 'dart:io';
-
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
-import 'package:path_provider/path_provider.dart';
 import 'package:url_launcher/url_launcher.dart';
-import 'package:provider/provider.dart';
-import '../providers/permission_provider.dart';
-import '../services/api_service.dart';
-import '../utils/image_source_picker.dart';
-import '../widgets/auth_cached_image.dart';
-import '../widgets/notification_overlay.dart';
-import '../widgets/hrm_page_chrome.dart';
 import 'package:zkteco_flutter_client/l10n/app_tr.dart';
 
+import '../services/api_service.dart';
 import '../theme/sbox_tokens.dart';
-class FeedbackDetailScreen extends StatefulWidget {
-  final String feedbackId;
-  final bool isMine; // true = I am the original sender
+import '../utils/image_source_picker.dart';
+import '../widgets/auth_cached_image.dart';
+import '../widgets/hrm_page_chrome.dart';
+import '../widgets/notification_overlay.dart';
+import 'feedback/feedback_ui.dart';
 
-  const FeedbackDetailScreen({
-    super.key,
-    required this.feedbackId,
-    required this.isMine,
-  });
+/// Chi tiết kiến nghị / khiếu nại: nội dung gốc, dòng thời gian trao đổi (tin nhắn, ghi chú nội bộ, sự kiện),
+/// bảng xử lý (trạng thái, mức độ, người xử lý, hạn) cho người xử lý; đánh giá / mở lại / thu hồi cho người gửi.
+class FeedbackDetailScreen extends StatefulWidget {
+  const FeedbackDetailScreen({super.key, required this.feedbackId, required this.isMine});
+  final String feedbackId;
+  final bool isMine;
 
   @override
   State<FeedbackDetailScreen> createState() => _FeedbackDetailScreenState();
 }
 
 class _FeedbackDetailScreenState extends State<FeedbackDetailScreen> {
-  final ApiService _apiService = ApiService();
-  final TextEditingController _replyCtl = TextEditingController();
-  final ScrollController _scrollCtl = ScrollController();
+  final _api = ApiService();
+  final _replyCtl = TextEditingController();
+  final _scrollCtl = ScrollController();
 
-  Map<String, dynamic>? _feedback;
+  Map<String, dynamic>? _f;
   List<Map<String, dynamic>> _replies = [];
-  bool _isLoading = true;
-  bool _isSending = false;
-  bool _canReply = true;
-  bool _showEmojiPicker = false;
+  List<Map<String, dynamic>> _handlers = [];
+  Map<String, dynamic> _ctx = {};
+  bool _loading = true;
+  bool _sending = false;
+  bool _internal = false;
+  String? _error;
 
-  static const _quickEmojis = [
-    '😊', '😂', '👍', '❤️', '🙏', '😢', '😅', '🎉',
-    '✅', '❌', '💡', '⚠️', '👏', '🤔', '😍', '🙌',
-  ];
-
-  static const _primary = HrmPageChrome.primaryNavy;
-  static const _statusLabels = {
-    'Pending': 'Chờ xử lý',
-    'InProgress': 'Đang xử lý',
-    'Resolved': 'Đã giải quyết',
-    'Closed': 'Đã đóng',
-  };
-  static const _statusColors = {
-    'Pending': SboxColors.warning,
-    'InProgress': SboxColors.brand500,
-    'Resolved': SboxColors.success,
-    'Closed': SboxColors.slate500,
-  };
-  static const _categoryLabels = {
-    'General': 'Chung',
-    'Complaint': 'Khiếu nại',
-    'Suggestion': 'Đề xuất',
-    'Other': 'Khác',
-  };
+  bool get _canManage => _ctx['canManage'] == true;
+  bool get _isSender => _ctx['isOriginalSender'] == true;
 
   @override
   void initState() {
     super.initState();
-    _loadData();
+    _load();
   }
 
   @override
@@ -78,700 +52,774 @@ class _FeedbackDetailScreenState extends State<FeedbackDetailScreen> {
     super.dispose();
   }
 
-  Future<void> _loadData() async {
-    setState(() => _isLoading = true);
-    try {
-      final res = await _apiService.getFeedbackReplies(widget.feedbackId);
-      if (res['isSuccess'] == true) {
-        final data = res['data'];
-        _feedback = Map<String, dynamic>.from(data['feedback'] ?? {});
-        _replies = List<Map<String, dynamic>>.from(data['replies'] ?? []);
-        final ctx = data['viewerContext'];
-        if (ctx is Map) {
-          _canReply = ctx['canReply'] == true;
-        } else {
-          _canReply = true;
-        }
-      }
-    } catch (e) {
-      debugPrint('Load feedback detail error: $e');
-    }
-    if (mounted) setState(() => _isLoading = false);
-    _scrollToBottom();
-  }
+  List<Map<String, dynamic>> _rows(dynamic v) => [
+        for (final x in (v as List? ?? const []))
+          if (x is Map) Map<String, dynamic>.from(x),
+      ];
 
-  void _scrollToBottom() {
-    WidgetsBinding.instance.addPostFrameCallback((_) {
-      if (_scrollCtl.hasClients) {
-        _scrollCtl.animateTo(
-          _scrollCtl.position.maxScrollExtent,
-          duration: const Duration(milliseconds: 300),
-          curve: Curves.easeOut,
-        );
+  Future<void> _load({bool scroll = false}) async {
+    final res = await _api.getFeedbackReplies(widget.feedbackId);
+    if (!mounted) return;
+    setState(() {
+      _loading = false;
+      if (res['isSuccess'] == true) {
+        final d = res['data'] as Map<String, dynamic>;
+        _f = Map<String, dynamic>.from(d['feedback'] as Map);
+        _replies = _rows(d['replies']);
+        _handlers = _rows(d['handlers']);
+        _ctx = Map<String, dynamic>.from(d['viewerContext'] as Map? ?? const {});
+        _error = null;
+      } else {
+        _error = res['message']?.toString() ?? 'Không tải được phiếu';
       }
     });
-  }
-
-  Future<void> _updateStatus(String newStatus) async {
-    if (_feedback == null || newStatus == _feedback!['status']) return;
-    try {
-      final res =
-          await _apiService.updateFeedbackStatus(widget.feedbackId, newStatus);
-      if (res['isSuccess'] == true) {
-        await _loadData();
-        if (mounted) {
-          NotificationOverlayManager().showSuccess(
-            title: 'Đã cập nhật',
-            message: _statusLabels[newStatus] ?? newStatus,
-          );
+    if (scroll) {
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (_scrollCtl.hasClients) {
+          _scrollCtl.animateTo(_scrollCtl.position.maxScrollExtent,
+              duration: const Duration(milliseconds: 250), curve: Curves.easeOut);
         }
-      } else if (mounted) {
-        NotificationOverlayManager().showError(
-          title: 'Lỗi',
-          message: res['message']?.toString() ?? 'Không thể đổi trạng thái',
-        );
-      }
-    } catch (e) {
-      debugPrint('Update feedback status error: $e');
+      });
     }
   }
 
-  Future<void> _sendReply() async {
+  Future<void> _run(Future<Map<String, dynamic>> call, String ok) async {
+    final res = await call;
+    if (!mounted) return;
+    if (res['isSuccess'] == true) {
+      NotificationOverlayManager().showSuccess(title: 'Kiến nghị', message: ok);
+      _load(scroll: true);
+    } else {
+      NotificationOverlayManager().showError(title: 'Kiến nghị', message: res['message']?.toString() ?? 'Thao tác thất bại');
+    }
+  }
+
+  // ═════════════ HÀNH ĐỘNG ═════════════
+
+  Future<void> _send() async {
     final text = _replyCtl.text.trim();
     if (text.isEmpty) return;
-
-    setState(() => _isSending = true);
-    try {
-      final res = await _apiService.createFeedbackReply(
-        widget.feedbackId,
-        {'content': text},
-      );
-      if (res['isSuccess'] == true) {
-        _replyCtl.clear();
-        await _loadData();
-      } else {
-        if (mounted) {
-          NotificationOverlayManager().showError(
-            title: 'Lỗi',
-            message: res['message'] ?? 'Không thể gửi phản hồi',
-          );
-        }
-      }
-    } catch (e) {
-      debugPrint('Send reply error: $e');
+    setState(() => _sending = true);
+    final res = await _api.createFeedbackReply(widget.feedbackId, {'content': text, 'internal': _internal});
+    if (!mounted) return;
+    setState(() => _sending = false);
+    if (res['isSuccess'] == true) {
+      _replyCtl.clear();
+      _load(scroll: true);
+    } else {
+      NotificationOverlayManager().showError(title: 'Gửi phản hồi', message: res['message']?.toString() ?? '');
     }
-    if (mounted) setState(() => _isSending = false);
   }
 
-  Future<void> _pickAndUploadImage() async {
+  Future<void> _sendImage() async {
     final picked = await pickSingleImageWithCamera(context);
-    if (picked == null) return;
-
-    setState(() => _isSending = true);
-    try {
-      final replyRes = await _apiService.createFeedbackReply(
-        widget.feedbackId,
-        {'content': '📷 Hình ảnh'},
-      );
-      if (replyRes['isSuccess'] == true) {
-        final replyData = replyRes['data'];
-        final replyId = replyData['id']?.toString();
-        if (replyId != null) {
-          var name = picked.name.trim();
-          if (name.isEmpty) name = 'feedback.jpg';
-          if (!name.contains('.')) name = '$name.jpg';
-          final tempDir = await getTemporaryDirectory();
-          final tempFile = File('${tempDir.path}/$name');
-          await tempFile.writeAsBytes(picked.bytes);
-          await _apiService.uploadFeedbackReplyImage(
-            widget.feedbackId,
-            replyId,
-            tempFile.path,
-          );
-        }
-        await _loadData();
-      }
-    } catch (e) {
-      debugPrint('Upload image error: $e');
+    if (picked == null || !mounted) return;
+    setState(() => _sending = true);
+    final r = await _api.createFeedbackReply(widget.feedbackId, {'content': '📷 Hình ảnh', 'internal': _internal});
+    final id = (r['data'] as Map?)?['id']?.toString();
+    if (r['isSuccess'] == true && id != null) {
+      final name = picked.name.contains('.') ? picked.name : 'anh.jpg';
+      await _api.uploadFeedbackReplyImageBytes(widget.feedbackId, id, picked.bytes, name);
     }
-    if (mounted) setState(() => _isSending = false);
+    if (!mounted) return;
+    setState(() => _sending = false);
+    _load(scroll: true);
   }
+
+  Future<void> _changeStatus(String status, String title, {bool askNote = false}) async {
+    String? note;
+    if (askNote) {
+      note = await _askText(title,
+          hint: status == 'Resolved' ? 'Kết quả giải quyết gửi tới người gửi (khuyến khích ghi rõ)' : 'Ghi chú cho người gửi (không bắt buộc)');
+      if (note == null) return;
+    }
+    await _run(_api.updateFeedbackStatus(widget.feedbackId, status, note: note?.isEmpty == true ? null : note),
+        'Đã chuyển sang «${FeedbackUi.statuses[status]}»');
+  }
+
+  Future<void> _rate() async {
+    var stars = 5;
+    final comment = TextEditingController();
+    final ok = await showDialog<bool>(
+      context: context,
+      builder: (ctx) => StatefulBuilder(
+        builder: (ctx, setS) => AlertDialog(
+          title: Text(tr('Bạn hài lòng với kết quả?')),
+          content: Column(mainAxisSize: MainAxisSize.min, children: [
+            FeedbackUi.stars(stars, size: 36, onTap: (v) => setS(() => stars = v)),
+            const SizedBox(height: 6),
+            Text(tr(const ['', 'Rất không hài lòng', 'Không hài lòng', 'Bình thường', 'Hài lòng', 'Rất hài lòng'][stars]),
+                style: const TextStyle(color: SboxColors.slate500)),
+            const SizedBox(height: 12),
+            TextField(
+              controller: comment,
+              maxLines: 3,
+              decoration: InputDecoration(labelText: tr('Nhận xét (không bắt buộc)'), border: const OutlineInputBorder()),
+            ),
+          ]),
+          actions: [
+            TextButton(onPressed: () => Navigator.pop(ctx, false), child: Text(tr('Để sau'))),
+            FilledButton(onPressed: () => Navigator.pop(ctx, true), child: Text(tr('Gửi đánh giá'))),
+          ],
+        ),
+      ),
+    );
+    if (ok == true) {
+      await _run(_api.rateFeedback(widget.feedbackId, stars, comment: comment.text.trim()), 'Cảm ơn bạn đã đánh giá');
+    }
+    comment.dispose();
+  }
+
+  Future<void> _reopen() async {
+    final reason = await _askText('Mở lại phiếu', hint: 'Vì sao kết quả chưa thoả đáng?', required: true);
+    if (reason == null) return;
+    await _run(_api.reopenFeedback(widget.feedbackId, reason: reason), 'Đã mở lại phiếu');
+  }
+
+  Future<void> _withdraw() async {
+    final ok = await showDialog<bool>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: Text(tr('Thu hồi phiếu?')),
+        content: Text(tr('Phiếu chưa được tiếp nhận sẽ bị xoá và không thể khôi phục.')),
+        actions: [
+          TextButton(onPressed: () => Navigator.pop(ctx, false), child: Text(tr('Không'))),
+          FilledButton(
+            style: FilledButton.styleFrom(backgroundColor: SboxColors.danger),
+            onPressed: () => Navigator.pop(ctx, true),
+            child: Text(tr('Thu hồi')),
+          ),
+        ],
+      ),
+    );
+    if (ok != true) return;
+    final res = await _api.deleteFeedback(widget.feedbackId);
+    if (!mounted) return;
+    if (res['isSuccess'] == true) {
+      NotificationOverlayManager().showSuccess(title: 'Kiến nghị', message: 'Đã thu hồi phiếu');
+      Navigator.pop(context);
+    } else {
+      NotificationOverlayManager().showError(title: 'Kiến nghị', message: res['message']?.toString() ?? '');
+    }
+  }
+
+  Future<String?> _askText(String title, {String? hint, bool required = false}) async {
+    final ctl = TextEditingController();
+    final res = await showDialog<String>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: Text(tr(title)),
+        content: SizedBox(
+          width: 460,
+          child: TextField(
+            controller: ctl,
+            autofocus: true,
+            minLines: 3,
+            maxLines: 6,
+            decoration: InputDecoration(hintText: hint == null ? null : tr(hint), border: const OutlineInputBorder()),
+          ),
+        ),
+        actions: [
+          TextButton(onPressed: () => Navigator.pop(ctx), child: Text(tr('Huỷ'))),
+          FilledButton(
+            onPressed: () {
+              if (required && ctl.text.trim().isEmpty) return;
+              Navigator.pop(ctx, ctl.text.trim());
+            },
+            child: Text(tr('Xác nhận')),
+          ),
+        ],
+      ),
+    );
+    ctl.dispose();
+    return res;
+  }
+
+  Future<void> _pickAssignee() async {
+    final id = await showModalBottomSheet<String>(
+      context: context,
+      showDragHandle: true,
+      builder: (ctx) => SafeArea(
+        child: ListView(shrinkWrap: true, children: [
+          Padding(
+            padding: const EdgeInsets.fromLTRB(20, 0, 20, 8),
+            child: Text(tr('Giao người xử lý'), style: const TextStyle(fontSize: 17, fontWeight: FontWeight.w700)),
+          ),
+          if (_f?['assigneeEmployeeId'] != null)
+            ListTile(
+              leading: const Icon(Icons.person_off_outlined, color: SboxColors.danger),
+              title: Text(tr('Bỏ giao')),
+              onTap: () => Navigator.pop(ctx, '__clear'),
+            ),
+          for (final h in _handlers)
+            ListTile(
+              leading: CircleAvatar(
+                backgroundColor: SboxColors.brand50,
+                child: Text((h['name']?.toString() ?? '?').trim().split(' ').last.characters.first,
+                    style: const TextStyle(color: SboxColors.brand700, fontWeight: FontWeight.w700)),
+              ),
+              title: Text(h['name']?.toString() ?? ''),
+              subtitle: Text([h['position'], h['department']]
+                  .where((x) => (x?.toString() ?? '').isNotEmpty)
+                  .join(' · ')),
+              trailing: h['id']?.toString() == _f?['assigneeEmployeeId']?.toString()
+                  ? const Icon(Icons.check_rounded, color: SboxColors.success)
+                  : null,
+              onTap: () => Navigator.pop(ctx, h['id']?.toString()),
+            ),
+        ]),
+      ),
+    );
+    if (id == null) return;
+    await _run(
+      _api.manageFeedback(widget.feedbackId,
+          id == '__clear' ? {'clearAssignee': true} : {'assigneeEmployeeId': id}),
+      id == '__clear' ? 'Đã bỏ giao' : 'Đã giao người xử lý',
+    );
+  }
+
+  Future<void> _pickPriority() async {
+    final p = await showModalBottomSheet<int>(
+      context: context,
+      showDragHandle: true,
+      builder: (ctx) => SafeArea(
+        child: Column(mainAxisSize: MainAxisSize.min, children: [
+          for (final e in FeedbackUi.priorities.entries)
+            ListTile(
+              leading: Icon(Icons.flag_rounded, color: FeedbackUi.priorityColor(e.key)),
+              title: Text(tr(e.value)),
+              subtitle: Text(tr('Hạn xử lý ${switch (e.key) { 3 => '1 ngày', 2 => '2 ngày', 1 => '3 ngày', _ => '7 ngày' }} từ lúc gửi')),
+              trailing: FeedbackUi.n(_f?['priority']) == e.key ? const Icon(Icons.check_rounded) : null,
+              onTap: () => Navigator.pop(ctx, e.key),
+            ),
+        ]),
+      ),
+    );
+    if (p != null) await _run(_api.manageFeedback(widget.feedbackId, {'priority': p}), 'Đã đổi mức độ');
+  }
+
+  Future<void> _pickTopic() async {
+    final t = await showModalBottomSheet<String>(
+      context: context,
+      showDragHandle: true,
+      builder: (ctx) => SafeArea(
+        child: ListView(shrinkWrap: true, children: [
+          for (final x in FeedbackUi.topics)
+            ListTile(
+              title: Text(tr(x)),
+              trailing: _f?['topic'] == x ? const Icon(Icons.check_rounded) : null,
+              onTap: () => Navigator.pop(ctx, x),
+            ),
+        ]),
+      ),
+    );
+    if (t != null) await _run(_api.manageFeedback(widget.feedbackId, {'topic': t}), 'Đã đổi chủ đề');
+  }
+
+  Future<void> _pickDue() async {
+    final cur = FeedbackUi.date(_f?['dueAt']) ?? DateTime.now().add(const Duration(days: 3));
+    final d = await showDatePicker(
+      context: context,
+      initialDate: cur.isBefore(DateTime.now()) ? DateTime.now() : cur,
+      firstDate: DateTime.now().subtract(const Duration(days: 1)),
+      lastDate: DateTime.now().add(const Duration(days: 365)),
+    );
+    if (d == null) return;
+    final due = DateTime(d.year, d.month, d.day, 17, 0);
+    await _run(_api.manageFeedback(widget.feedbackId, {'dueAt': due.toIso8601String()}), 'Đã đặt hạn xử lý');
+  }
+
+  // ═════════════ GIAO DIỆN ═════════════
 
   @override
   Widget build(BuildContext context) {
-    if (_isLoading) {
-      return Scaffold(
-        appBar: AppBar(
-          title: Text(tr('Phản ánh')),
-          backgroundColor: _primary,
-          foregroundColor: Colors.white,
-        ),
-        body: const Center(child: CircularProgressIndicator()),
-      );
-    }
-
-    if (_feedback == null) {
-      return Scaffold(
-        appBar: AppBar(
-          title: Text(tr('Phản ánh')),
-          backgroundColor: _primary,
-          foregroundColor: Colors.white,
-        ),
-        body: Center(child: Text(tr('Không tìm thấy phản ánh'))),
-      );
-    }
-
-    final fb = _feedback!;
-    final status = fb['status'] ?? 'Pending';
-    final isClosed = status == 'Closed' || !_canReply;
-    final canManageStatus = Provider.of<PermissionProvider>(context, listen: false)
-        .canApprove('Feedback');
-
+    final f = _f;
+    final wide = MediaQuery.of(context).size.width >= 1000;
     return Scaffold(
+      backgroundColor: HrmPageChrome.background,
       appBar: AppBar(
+        backgroundColor: Colors.white,
+        foregroundColor: SboxColors.slate900,
+        elevation: 0,
         title: Text(
-          tr(fb['title'] ?? 'Phản ánh'),
-          maxLines: 1,
-          overflow: TextOverflow.ellipsis,
+          f == null ? tr('Kiến nghị') : (f['code']?.toString() ?? tr(FeedbackUi.categories[f['category']] ?? 'Kiến nghị')),
+          style: const TextStyle(fontWeight: FontWeight.w700),
         ),
-        backgroundColor: _primary,
-        foregroundColor: Colors.white,
         actions: [
-          if (canManageStatus)
-            PopupMenuButton<String>(
-              tooltip: tr('Đổi trạng thái'),
-              child: Container(
-                margin: const EdgeInsets.only(right: 4),
-                padding:
-                    const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
-                decoration: BoxDecoration(
-                  color: (_statusColors[status] ?? SboxColors.slate500)
-                      .withValues(alpha: 0.25),
-                  borderRadius: BorderRadius.circular(14),
-                  border: Border.all(color: Colors.white54),
-                ),
-                child: Row(
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    Text(
-                      tr(_statusLabels[status] ?? status),
-                      style: TextStyle(
-                        fontSize: 12,
-                        fontWeight: FontWeight.w600,
-                        color: _statusColors[status] ?? Colors.white,
-                      ),
-                    ),
-                    const SizedBox(width: 4),
-                    const Icon(Icons.arrow_drop_down, color: Colors.white, size: 18),
-                  ],
-                ),
-              ),
-              onSelected: _updateStatus,
-              itemBuilder: (_) => _statusLabels.entries
-                  .map((e) => PopupMenuItem(
-                        value: e.key,
-                        child: Row(
-                          children: [
-                            Icon(Icons.circle,
-                                size: 10,
-                                color: _statusColors[e.key] ?? SboxColors.slate500),
-                            const SizedBox(width: 8),
-                            Text(tr(e.value)),
-                            if (e.key == status) ...[
-                              const Spacer(),
-                              const Icon(Icons.check, size: 16),
-                            ],
-                          ],
+          IconButton(tooltip: tr('Làm mới'), onPressed: _load, icon: const Icon(Icons.refresh_rounded)),
+        ],
+      ),
+      body: _loading
+          ? const Center(child: CircularProgressIndicator())
+          : f == null
+              ? Center(child: Text(tr(_error ?? 'Không tìm thấy phiếu')))
+              : wide
+                  ? Row(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
+                      Expanded(child: _conversation(f)),
+                      Container(
+                        width: 340,
+                        decoration: const BoxDecoration(
+                          color: Colors.white,
+                          border: Border(left: BorderSide(color: SboxColors.slate200)),
                         ),
-                      ))
-                  .toList(),
-            )
-          else
-            Container(
-              margin: const EdgeInsets.only(right: 12),
-              padding:
-                  const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
-              decoration: BoxDecoration(
-                color: (_statusColors[status] ?? SboxColors.slate500)
-                    .withValues(alpha: 0.2),
-                borderRadius: BorderRadius.circular(14),
-              ),
-              child: Text(
-                tr(_statusLabels[status] ?? status),
-                style: TextStyle(
-                  fontSize: 12,
-                  fontWeight: FontWeight.w600,
-                  color: _statusColors[status] ?? SboxColors.slate500,
-                ),
-              ),
-            ),
-        ],
-      ),
-      body: Column(
-        children: [
-          // Chat messages
-          Expanded(
-            child: ListView(
-              controller: _scrollCtl,
-              padding: const EdgeInsets.all(12),
-              children: [
-                // Original feedback as first message
-                _buildOriginalFeedback(fb),
-                const SizedBox(height: 8),
-                // Old single response (if exists, for backward compat)
-                if (fb['response'] != null && fb['response'].toString().isNotEmpty)
-                  _buildLegacyResponse(fb),
-                // Replies
-                ..._replies.map((r) => _buildReplyBubble(r)),
-              ],
-            ),
-          ),
-          // Reply input bar
-          if (!isClosed) _buildReplyBar(),
-        ],
-      ),
+                        child: ListView(padding: const EdgeInsets.all(16), children: _sidePanel(f)),
+                      ),
+                    ])
+                  : _conversation(f, inlinePanel: true),
     );
   }
 
-  Widget _buildOriginalFeedback(Map<String, dynamic> fb) {
-    final isAnonymous = fb['isAnonymous'] == true;
-    final senderName = fb['senderName'] as String?;
-    final createdAt = DateTime.tryParse(fb['createdAt'] ?? '') ?? DateTime.now();
-    final category = fb['category'] ?? 'General';
-    final imageUrls = List<String>.from(fb['imageUrls'] ?? []);
+  Widget _conversation(Map<String, dynamic> f, {bool inlinePanel = false}) {
+    return Column(children: [
+      Expanded(
+        child: ListView(
+          controller: _scrollCtl,
+          padding: const EdgeInsets.fromLTRB(14, 14, 14, 20),
+          children: [
+            _header(f),
+            if (inlinePanel) ...[
+              const SizedBox(height: 12),
+              _actionsBar(f),
+            ],
+            const SizedBox(height: 16),
+            if (_replies.isEmpty)
+              Padding(
+                padding: const EdgeInsets.all(24),
+                child: Center(
+                  child: Text(tr(_isSender ? 'Phiếu đã được gửi — bạn sẽ nhận thông báo khi có phản hồi.' : 'Chưa có trao đổi.'),
+                      textAlign: TextAlign.center, style: const TextStyle(color: SboxColors.slate500)),
+                ),
+              )
+            else
+              ..._replies.map(_replyItem),
+          ],
+        ),
+      ),
+      if (_ctx['canReply'] == true) _composer(),
+    ]);
+  }
 
+  Widget _header(Map<String, dynamic> f) {
+    final category = f['category']?.toString();
+    final images = [for (final u in (f['imageUrls'] as List? ?? const [])) u.toString()];
+    final sender = f['isAnonymous'] == true
+        ? (_isSender ? 'Bạn (gửi ẩn danh)' : 'Người gửi ẩn danh')
+        : [f['senderName'], f['senderCode'], f['senderDepartment']]
+            .where((x) => (x?.toString() ?? '').isNotEmpty)
+            .join(' · ');
     return Container(
-      margin: const EdgeInsets.only(bottom: 4),
-      padding: const EdgeInsets.all(14),
+      padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(
         color: Colors.white,
-        borderRadius: BorderRadius.circular(14),
+        borderRadius: BorderRadius.circular(18),
         border: Border.all(color: SboxColors.slate200),
-        boxShadow: [
-          BoxShadow(
-            color: Colors.black.withValues(alpha: 0.04),
-            blurRadius: 4, offset: const Offset(0, 2),
-          ),
-        ],
       ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          // Header
-          Row(
-            children: [
-              CircleAvatar(
-                radius: 16,
-                backgroundColor: isAnonymous ? SboxColors.danger : _primary,
-                child: Icon(
-                  isAnonymous ? Icons.visibility_off : Icons.person,
-                  size: 16, color: Colors.white,
-                ),
-              ),
+      child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+        Wrap(spacing: 6, runSpacing: 6, crossAxisAlignment: WrapCrossAlignment.center, children: [
+          FeedbackUi.pill(FeedbackUi.categories[category] ?? '', FeedbackUi.categoryColor(category),
+              icon: FeedbackUi.categoryIcon(category)),
+          FeedbackUi.statusPill(f['status']?.toString()),
+          FeedbackUi.priorityPill(FeedbackUi.n(f['priority'])),
+          FeedbackUi.duePill(f),
+          if ((f['topic']?.toString() ?? '').isNotEmpty) FeedbackUi.pill(f['topic'].toString(), SboxColors.slate500),
+        ]),
+        const SizedBox(height: 10),
+        Text(f['title']?.toString() ?? '',
+            style: const TextStyle(fontSize: 19, fontWeight: FontWeight.w800, color: SboxColors.slate900)),
+        const SizedBox(height: 6),
+        Row(children: [
+          CircleAvatar(
+            radius: 14,
+            backgroundColor: f['isAnonymous'] == true ? SboxColors.violet.withValues(alpha: 0.15) : SboxColors.brand50,
+            child: Icon(f['isAnonymous'] == true ? Icons.visibility_off_rounded : Icons.person_rounded,
+                size: 16, color: f['isAnonymous'] == true ? SboxColors.violet : SboxColors.brand600),
+          ),
+          const SizedBox(width: 8),
+          Expanded(
+            child: Text(
+              '${tr(sender)} · ${DateFormat('HH:mm dd/MM/yyyy').format(FeedbackUi.date(f['createdAt']) ?? DateTime.now())}',
+              style: const TextStyle(fontSize: 12.5, color: SboxColors.slate500),
+            ),
+          ),
+        ]),
+        const Divider(height: 22),
+        _richText(f['content']?.toString() ?? ''),
+        if (images.isNotEmpty) ...[
+          const SizedBox(height: 12),
+          _imageGrid(images, size: 110),
+        ],
+        if (f['rating'] != null) ...[
+          const Divider(height: 22),
+          Row(children: [
+            Text(tr('Đánh giá: '), style: const TextStyle(fontWeight: FontWeight.w600)),
+            FeedbackUi.stars(FeedbackUi.n(f['rating'])),
+            if ((f['ratingComment']?.toString() ?? '').isNotEmpty) ...[
               const SizedBox(width: 8),
               Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(
-                      tr(isAnonymous ? 'Ẩn danh' : (senderName ?? 'Nhân viên')),
-                      style: const TextStyle(fontWeight: FontWeight.w600, fontSize: 14),
-                    ),
-                    Text(
-                      tr('${_categoryLabels[category] ?? category} • ${DateFormat('dd/MM/yyyy HH:mm').format(createdAt)}'),
-                      style: TextStyle(fontSize: 11, color: SboxColors.slate500),
-                    ),
-                  ],
-                ),
+                child: Text('“${f['ratingComment']}”',
+                    style: const TextStyle(fontStyle: FontStyle.italic, color: SboxColors.slate600)),
               ),
             ],
-          ),
-          const SizedBox(height: 10),
-          // Title
-          Text(
-            tr(fb['title'] ?? ''),
-            style: const TextStyle(fontSize: 16, fontWeight: FontWeight.w700),
-          ),
-          const SizedBox(height: 6),
-          // Content with linkified text
-          _buildRichContent(fb['content'] ?? ''),
-          // Images
-          if (imageUrls.isNotEmpty) ...[
-            const SizedBox(height: 8),
-            _buildImageGrid(imageUrls),
-          ],
+          ]),
         ],
-      ),
+      ]),
     );
   }
 
-  Widget _buildLegacyResponse(Map<String, dynamic> fb) {
-    final response = fb['response'] as String?;
-    if (response == null || response.isEmpty) return const SizedBox.shrink();
-
-    return Align(
-      alignment: Alignment.centerLeft,
-      child: Container(
-        margin: const EdgeInsets.only(bottom: 8, right: 48),
+  /// Thanh hành động (điện thoại) — gọn: thông tin xử lý + nút chính.
+  Widget _actionsBar(Map<String, dynamic> f) => Container(
         padding: const EdgeInsets.all(12),
         decoration: BoxDecoration(
-          color: SboxColors.successSoft,
-          borderRadius: BorderRadius.circular(14),
-          border: Border.all(color: const Color(0xFFBBF7D0)),
+          color: Colors.white,
+          borderRadius: BorderRadius.circular(16),
+          border: Border.all(color: SboxColors.slate200),
         ),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Row(
-              children: [
-                const Icon(Icons.reply, size: 14, color: SboxColors.success),
-                const SizedBox(width: 4),
-                Text(tr('Phản hồi (cũ)'),
-                  style: TextStyle(fontSize: 11, color: SboxColors.slate500, fontWeight: FontWeight.w600),
-                ),
-              ],
-            ),
-            const SizedBox(height: 4),
-            _buildRichContent(response),
-          ],
-        ),
-      ),
-    );
-  }
+        child: Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: _sidePanel(f, compact: true)),
+      );
 
-  Widget _buildReplyBubble(Map<String, dynamic> reply) {
-    final senderName = reply['senderName'] as String?;
-    final content = reply['content'] ?? '';
-    final createdAt = DateTime.tryParse(reply['createdAt'] ?? '') ?? DateTime.now();
-    final imageUrls = List<String>.from(reply['imageUrls'] ?? []);
-    final isMe = reply['isMine'] == true;
-
-    return Align(
-      alignment: isMe ? Alignment.centerRight : Alignment.centerLeft,
-      child: Container(
-        constraints: BoxConstraints(
-          maxWidth: MediaQuery.of(context).size.width * 0.75,
-        ),
-        margin: const EdgeInsets.only(bottom: 8),
-        padding: const EdgeInsets.all(12),
-        decoration: BoxDecoration(
-          color: isMe ? _primary.withValues(alpha: 0.1) : Colors.white,
-          borderRadius: BorderRadius.only(
-            topLeft: const Radius.circular(12),
-            topRight: const Radius.circular(12),
-            bottomLeft: isMe ? const Radius.circular(12) : const Radius.circular(2),
-            bottomRight: isMe ? const Radius.circular(2) : const Radius.circular(12),
-          ),
-          border: Border.all(
-            color: isMe ? _primary.withValues(alpha: 0.2) : SboxColors.slate200,
-          ),
-        ),
-        child: Column(
-          crossAxisAlignment: isMe ? CrossAxisAlignment.end : CrossAxisAlignment.start,
-          children: [
-            Text(
-              tr(isMe ? 'Bạn' : (senderName ?? 'Người phản hồi')),
-              style: TextStyle(
-                fontSize: 12,
-                fontWeight: FontWeight.w600,
-                color: isMe ? _primary : SboxColors.slate500,
+  List<Widget> _sidePanel(Map<String, dynamic> f, {bool compact = false}) {
+    final status = f['status']?.toString();
+    Widget info(IconData icon, String label, String value, {VoidCallback? onTap, Color? color}) => InkWell(
+          onTap: _canManage ? onTap : null,
+          borderRadius: BorderRadius.circular(10),
+          child: Padding(
+            padding: const EdgeInsets.symmetric(vertical: 7, horizontal: 4),
+            child: Row(children: [
+              Icon(icon, size: 18, color: SboxColors.slate400),
+              const SizedBox(width: 10),
+              SizedBox(width: 92, child: Text(tr(label), style: const TextStyle(fontSize: 13, color: SboxColors.slate500))),
+              Expanded(
+                child: Text(tr(value),
+                    style: TextStyle(fontSize: 13, fontWeight: FontWeight.w600, color: color ?? SboxColors.slate800)),
               ),
-            ),
-            const SizedBox(height: 4),
-            // Content
-            _buildRichContent(content),
-            // Images
-            if (imageUrls.isNotEmpty) ...[
-              const SizedBox(height: 6),
-              _buildImageGrid(imageUrls),
-            ],
-            // Time
-            const SizedBox(height: 4),
-            Text(
-              tr(DateFormat('HH:mm dd/MM').format(createdAt)),
-              style: TextStyle(fontSize: 10, color: SboxColors.slate400),
-            ),
-          ],
-        ),
-      ),
-    );
-  }
-
-  Widget _buildRichContent(String text) {
-    // Split text by URL patterns and make them tappable
-    final urlRegex = RegExp(
-      r'(https?://[^\s<>\[\]{}|\\^]+)',
-      caseSensitive: false,
-    );
-
-    final matches = urlRegex.allMatches(text).toList();
-    if (matches.isEmpty) {
-      return Text(tr(text), style: const TextStyle(fontSize: 14, height: 1.4));
-    }
-
-    final spans = <InlineSpan>[];
-    var lastEnd = 0;
-    for (final match in matches) {
-      if (match.start > lastEnd) {
-        spans.add(TextSpan(
-          text: tr(text.substring(lastEnd, match.start)),
-          style: const TextStyle(fontSize: 14, height: 1.4, color: SboxColors.text),
-        ));
-      }
-      final url = match.group(0)!;
-      spans.add(WidgetSpan(
-        child: GestureDetector(
-          onTap: () => _launchUrl(url),
-          child: Text(
-            tr(url),
-            style: const TextStyle(
-              fontSize: 14, height: 1.4,
-              color: SboxColors.brand500,
-              decoration: TextDecoration.underline,
-            ),
-          ),
-        ),
-      ));
-      lastEnd = match.end;
-    }
-    if (lastEnd < text.length) {
-      spans.add(TextSpan(
-        text: tr(text.substring(lastEnd)),
-        style: const TextStyle(fontSize: 14, height: 1.4, color: SboxColors.text),
-      ));
-    }
-
-    return RichText(text: TextSpan(children: spans));
-  }
-
-  Future<void> _launchUrl(String url) async {
-    final uri = Uri.tryParse(url);
-    if (uri != null && await canLaunchUrl(uri)) {
-      await launchUrl(uri, mode: LaunchMode.externalApplication);
-    }
-  }
-
-  Widget _buildImageGrid(List<String> imageUrls) {
-    if (imageUrls.isEmpty) return const SizedBox.shrink();
-
-    return Wrap(
-      spacing: 6,
-      runSpacing: 6,
-      children: imageUrls.asMap().entries.map((entry) {
-        final index = entry.key;
-        final url = entry.value;
-        return GestureDetector(
-          onTap: () => _showFullImage(imageUrls, initialIndex: index),
-          child: ClipRRect(
-            borderRadius: BorderRadius.circular(10),
-            child: AuthCachedImage(
-              imagePath: url,
-              apiService: _apiService,
-              width: 120,
-              height: 120,
-              fit: BoxFit.cover,
-              errorWidget: (_, __, ___) => Container(
-                width: 120,
-                height: 120,
-                color: SboxColors.slate200,
-                child: const Icon(Icons.broken_image, color: SboxColors.slate500),
-              ),
-            ),
+              if (_canManage && onTap != null) const Icon(Icons.edit_rounded, size: 15, color: SboxColors.slate400),
+            ]),
           ),
         );
-      }).toList(),
-    );
+    final due = FeedbackUi.date(f['dueAt']);
+    final actions = <Widget>[
+      if (_canManage) ...[
+        if (status == 'Pending')
+          FilledButton.icon(
+            onPressed: () => _changeStatus('InProgress', 'Tiếp nhận xử lý', askNote: true),
+            icon: const Icon(Icons.play_arrow_rounded),
+            label: Text(tr('Tiếp nhận')),
+          ),
+        if (FeedbackUi.isOpen(status))
+          FilledButton.icon(
+            style: FilledButton.styleFrom(backgroundColor: SboxColors.success),
+            onPressed: () => _changeStatus('Resolved', 'Kết quả giải quyết', askNote: true),
+            icon: const Icon(Icons.task_alt_rounded),
+            label: Text(tr('Đã giải quyết')),
+          ),
+        if (status == 'Resolved')
+          OutlinedButton.icon(
+            onPressed: () => _changeStatus('Closed', 'Đóng phiếu'),
+            icon: const Icon(Icons.lock_outline_rounded),
+            label: Text(tr('Đóng phiếu')),
+          ),
+        if (status == 'Resolved' || status == 'Closed')
+          OutlinedButton.icon(
+            onPressed: () => _changeStatus('InProgress', 'Xử lý lại', askNote: true),
+            icon: const Icon(Icons.replay_rounded),
+            label: Text(tr('Xử lý lại')),
+          ),
+        if (FeedbackUi.isOpen(status))
+          TextButton.icon(
+            onPressed: () => _changeStatus('Closed', 'Đóng phiếu (không xử lý)', askNote: true),
+            icon: const Icon(Icons.block_rounded, size: 18),
+            label: Text(tr('Đóng không xử lý')),
+          ),
+      ],
+      if (_ctx['canRate'] == true)
+        FilledButton.icon(
+          style: FilledButton.styleFrom(backgroundColor: const Color(0xFFF5A524)),
+          onPressed: _rate,
+          icon: const Icon(Icons.star_rounded),
+          label: Text(tr('Đánh giá kết quả')),
+        ),
+      if (_ctx['canReopen'] == true)
+        OutlinedButton.icon(onPressed: _reopen, icon: const Icon(Icons.replay_rounded), label: Text(tr('Chưa thoả đáng — mở lại'))),
+      if (_ctx['canWithdraw'] == true)
+        TextButton.icon(
+          style: TextButton.styleFrom(foregroundColor: SboxColors.danger),
+          onPressed: _withdraw,
+          icon: const Icon(Icons.undo_rounded, size: 18),
+          label: Text(tr('Thu hồi phiếu')),
+        ),
+    ];
+    return [
+      if (!compact)
+        Padding(
+          padding: const EdgeInsets.only(bottom: 6),
+          child: Text(tr('Thông tin xử lý'), style: const TextStyle(fontSize: 15, fontWeight: FontWeight.w800)),
+        ),
+      info(Icons.flag_rounded, 'Mức độ', FeedbackUi.priorities[FeedbackUi.n(f['priority'])] ?? '',
+          onTap: _pickPriority, color: FeedbackUi.priorityColor(FeedbackUi.n(f['priority']))),
+      info(Icons.schedule_rounded, 'Hạn xử lý',
+          due == null ? '—' : '${DateFormat('HH:mm dd/MM').format(due)}'
+              '${FeedbackUi.isOpen(status) ? ' (${FeedbackUi.dueText(due)})' : ''}',
+          onTap: _pickDue, color: f['overdue'] == true ? SboxColors.danger : null),
+      info(Icons.inbox_rounded, 'Gửi tới', f['recipientName']?.toString() ?? 'Hòm thư chung'),
+      info(Icons.assignment_ind_rounded, 'Người xử lý', f['assigneeName']?.toString() ?? 'Chưa giao',
+          onTap: _pickAssignee),
+      info(Icons.label_outline_rounded, 'Chủ đề', f['topic']?.toString() ?? 'Chưa phân loại', onTap: _pickTopic),
+      if (f['firstResponseAt'] != null)
+        info(Icons.reply_rounded, 'Phản hồi đầu',
+            FeedbackUi.ago(FeedbackUi.date(f['firstResponseAt']))),
+      if (actions.isNotEmpty) ...[
+        const SizedBox(height: 10),
+        Wrap(spacing: 8, runSpacing: 8, children: actions),
+      ],
+      if (_canManage && !compact) ...[
+        const SizedBox(height: 16),
+        Container(
+          padding: const EdgeInsets.all(12),
+          decoration: BoxDecoration(color: SboxColors.slate50, borderRadius: BorderRadius.circular(12)),
+          child: Text(
+            tr(f['isAnonymous'] == true
+                ? 'Phiếu ẩn danh: hệ thống không tiết lộ người gửi cho bất kỳ ai. Trao đổi trực tiếp tại đây, người gửi vẫn nhận được thông báo.'
+                : 'Ghi chú nội bộ (bật ở ô nhập) chỉ người xử lý thấy, người gửi không thấy.'),
+            style: const TextStyle(fontSize: 12, color: SboxColors.slate600),
+          ),
+        ),
+      ],
+    ];
   }
 
-  void _showFullImage(List<String> urls, {int initialIndex = 0}) {
-    final pageCtrl = PageController(initialPage: initialIndex);
-    var currentPage = initialIndex;
-    showDialog(
-      context: context,
-      barrierColor: SboxColors.text,
-      builder: (ctx) => StatefulBuilder(
-        builder: (ctx, setDialogState) => Dialog(
-          backgroundColor: Colors.black,
-          insetPadding: EdgeInsets.zero,
-          child: SizedBox(
-            width: MediaQuery.of(ctx).size.width,
-            height: MediaQuery.of(ctx).size.height,
-            child: Stack(
-              children: [
-                PageView.builder(
-                  controller: pageCtrl,
-                  itemCount: urls.length,
-                  onPageChanged: (i) => setDialogState(() => currentPage = i),
-                  itemBuilder: (_, i) => Center(
-                    child: InteractiveViewer(
-                      minScale: 0.5,
-                      maxScale: 6,
-                      panEnabled: true,
-                      scaleEnabled: true,
-                      boundaryMargin: const EdgeInsets.all(80),
-                      child: AuthCachedImage(
-                        imagePath: urls[i],
-                        apiService: _apiService,
-                        fit: BoxFit.contain,
-                        errorWidget: (_, __, ___) => const Icon(
-                          Icons.broken_image,
-                          color: Colors.white54,
-                          size: 64,
-                        ),
-                      ),
-                    ),
-                  ),
-                ),
-                if (urls.length > 1)
-                  Positioned(
-                    bottom: 24,
-                    left: 0,
-                    right: 0,
-                    child: Text(
-                      tr('${currentPage + 1}/${urls.length}'),
-                      textAlign: TextAlign.center,
-                      style: const TextStyle(
-                        color: Colors.white70,
-                        fontSize: 13,
-                      ),
-                    ),
-                  ),
-                Positioned(
-                  top: 8,
-                  right: 8,
-                  child: IconButton(
-                    icon: const Icon(Icons.close, color: Colors.white, size: 28),
-                    onPressed: () => Navigator.pop(ctx),
-                  ),
-                ),
-              ],
+  Widget _replyItem(Map<String, dynamic> r) {
+    final kind = FeedbackUi.n(r['kind']);
+    final time = FeedbackUi.date(r['createdAt']);
+    if (kind == 2) {
+      return Padding(
+        padding: const EdgeInsets.symmetric(vertical: 6),
+        child: Row(children: [
+          const Expanded(child: Divider(color: SboxColors.slate200)),
+          Flexible(
+            flex: 6,
+            child: Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 8),
+              child: Text(
+                '${r['content']} · ${time == null ? '' : DateFormat('HH:mm dd/MM').format(time)}',
+                textAlign: TextAlign.center,
+                style: const TextStyle(fontSize: 11.5, color: SboxColors.slate500),
+              ),
             ),
           ),
+          const Expanded(child: Divider(color: SboxColors.slate200)),
+        ]),
+      );
+    }
+    final mine = r['isMine'] == true;
+    final internal = kind == 1;
+    final images = [for (final u in (r['imageUrls'] as List? ?? const [])) u.toString()];
+    final name = r['senderName']?.toString() ??
+        (r['isFromSender'] == true ? 'Người gửi (ẩn danh)' : 'Người xử lý');
+    final bg = internal
+        ? const Color(0xFFFFF7E0)
+        : mine
+            ? SboxColors.brand600
+            : Colors.white;
+    final fg = mine && !internal ? Colors.white : SboxColors.slate800;
+    var content = r['content']?.toString() ?? '';
+    if (images.isNotEmpty && content == '📷 Hình ảnh') content = '';
+    return Align(
+      alignment: mine ? Alignment.centerRight : Alignment.centerLeft,
+      child: ConstrainedBox(
+        constraints: const BoxConstraints(maxWidth: 560),
+        child: Container(
+          margin: const EdgeInsets.symmetric(vertical: 5),
+          padding: const EdgeInsets.fromLTRB(12, 9, 12, 8),
+          decoration: BoxDecoration(
+            color: bg,
+            borderRadius: BorderRadius.only(
+              topLeft: const Radius.circular(16),
+              topRight: const Radius.circular(16),
+              bottomLeft: Radius.circular(mine ? 16 : 4),
+              bottomRight: Radius.circular(mine ? 4 : 16),
+            ),
+            border: Border.all(
+                color: internal ? const Color(0xFFF5C84C) : mine ? SboxColors.brand600 : SboxColors.slate200),
+          ),
+          child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+            if (!mine || internal)
+              Padding(
+                padding: const EdgeInsets.only(bottom: 3),
+                child: Row(mainAxisSize: MainAxisSize.min, children: [
+                  if (internal) ...[
+                    const Icon(Icons.lock_rounded, size: 12, color: Color(0xFFB7791F)),
+                    const SizedBox(width: 4),
+                    Text(tr('Ghi chú nội bộ · '),
+                        style: const TextStyle(fontSize: 11.5, fontWeight: FontWeight.w700, color: Color(0xFFB7791F))),
+                  ],
+                  Text(tr(mine ? 'Bạn' : name),
+                      style: TextStyle(fontSize: 11.5, fontWeight: FontWeight.w700,
+                          color: internal ? const Color(0xFFB7791F) : SboxColors.brand700)),
+                ]),
+              ),
+            if (content.isNotEmpty) _richText(content, color: fg),
+            if (images.isNotEmpty) ...[
+              if (content.isNotEmpty) const SizedBox(height: 6),
+              _imageGrid(images, size: 150),
+            ],
+            const SizedBox(height: 3),
+            Text(time == null ? '' : DateFormat('HH:mm dd/MM').format(time),
+                style: TextStyle(fontSize: 10.5, color: mine && !internal ? Colors.white70 : SboxColors.slate400)),
+          ]),
         ),
       ),
     );
   }
 
-  void _insertEmoji(String emoji) {
-    final text = _replyCtl.text;
-    final sel = _replyCtl.selection;
-    final start = sel.start >= 0 ? sel.start : text.length;
-    final end = sel.end >= 0 ? sel.end : text.length;
-    final newText = text.replaceRange(start, end, emoji);
-    _replyCtl.value = TextEditingValue(
-      text: tr(newText),
-      selection: TextSelection.collapsed(offset: start + emoji.length),
-    );
-    setState(() => _showEmojiPicker = false);
-  }
-
-  Widget _buildReplyBar() {
-    return Column(
-      mainAxisSize: MainAxisSize.min,
-      children: [
-        if (_showEmojiPicker)
-          Container(
-            width: double.infinity,
-            padding: const EdgeInsets.fromLTRB(12, 8, 12, 4),
-            color: Colors.white,
-            child: Wrap(
-              spacing: 4,
-              runSpacing: 4,
-              children: _quickEmojis
-                  .map((e) => InkWell(
-                        onTap: () => _insertEmoji(e),
-                        borderRadius: BorderRadius.circular(10),
-                        child: Padding(
-                          padding: const EdgeInsets.all(6),
-                          child: Text(tr(e), style: const TextStyle(fontSize: 22)),
-                        ),
-                      ))
-                  .toList(),
-            ),
-          ),
-        Container(
-          padding: EdgeInsets.only(
-            left: 12,
-            right: 8,
-            top: 8,
-            bottom: 8 + MediaQuery.of(context).padding.bottom,
-          ),
-          decoration: BoxDecoration(
-            color: Colors.white,
-            boxShadow: [
-              BoxShadow(
-                color: Colors.black.withValues(alpha: 0.08),
-                blurRadius: 8,
-                offset: const Offset(0, -2),
-              ),
-            ],
-          ),
-          child: Row(
-            children: [
-              IconButton(
-                icon: Icon(
-                  _showEmojiPicker
-                      ? Icons.emoji_emotions
-                      : Icons.emoji_emotions_outlined,
-                  color: _showEmojiPicker ? _primary : SboxColors.slate500,
+  Widget _composer() => Container(
+        decoration: const BoxDecoration(
+          color: Colors.white,
+          border: Border(top: BorderSide(color: SboxColors.slate200)),
+        ),
+        padding: const EdgeInsets.fromLTRB(8, 6, 8, 8),
+        child: SafeArea(
+          top: false,
+          child: Column(mainAxisSize: MainAxisSize.min, children: [
+            if (_canManage)
+              Row(children: [
+                const SizedBox(width: 6),
+                ChoiceChip(
+                  label: Text(tr('Trả lời người gửi')),
+                  selected: !_internal,
+                  onSelected: (_) => setState(() => _internal = false),
+                  visualDensity: VisualDensity.compact,
                 ),
-                onPressed: _isSending
-                    ? null
-                    : () => setState(
-                        () => _showEmojiPicker = !_showEmojiPicker),
-                tooltip: tr('Biểu tượng cảm xúc'),
-              ),
+                const SizedBox(width: 6),
+                ChoiceChip(
+                  avatar: const Icon(Icons.lock_rounded, size: 14),
+                  label: Text(tr('Ghi chú nội bộ')),
+                  selected: _internal,
+                  selectedColor: const Color(0xFFFFF0C2),
+                  onSelected: (_) => setState(() => _internal = true),
+                  visualDensity: VisualDensity.compact,
+                ),
+              ]),
+            Row(crossAxisAlignment: CrossAxisAlignment.end, children: [
               IconButton(
-                icon: const Icon(Icons.image_outlined,
-                    color: SboxColors.slate500),
-                onPressed: _isSending ? null : _pickAndUploadImage,
-                tooltip: tr('Gửi hình ảnh'),
+                tooltip: tr('Gửi ảnh'),
+                onPressed: _sending ? null : _sendImage,
+                icon: const Icon(Icons.add_photo_alternate_outlined, color: SboxColors.slate500),
               ),
               Expanded(
                 child: TextField(
                   controller: _replyCtl,
-                  decoration: InputDecoration(
-                    hintText: tr('Nhập phản hồi...'),
-                    hintStyle: TextStyle(color: SboxColors.slate400),
-                    border: OutlineInputBorder(
-                      borderRadius: BorderRadius.circular(24),
-                      borderSide: BorderSide(color: SboxColors.slate300),
-                    ),
-                    enabledBorder: OutlineInputBorder(
-                      borderRadius: BorderRadius.circular(24),
-                      borderSide: BorderSide(color: SboxColors.slate300),
-                    ),
-                    focusedBorder: OutlineInputBorder(
-                      borderRadius: BorderRadius.circular(24),
-                      borderSide: const BorderSide(color: _primary),
-                    ),
-                    contentPadding: const EdgeInsets.symmetric(
-                      horizontal: 16,
-                      vertical: 10,
-                    ),
-                    isDense: true,
-                  ),
-                  maxLines: 3,
                   minLines: 1,
-                  textInputAction: TextInputAction.send,
-                  onSubmitted: (_) => _sendReply(),
+                  maxLines: 5,
+                  textInputAction: TextInputAction.newline,
+                  decoration: InputDecoration(
+                    hintText: tr(_internal ? 'Ghi chú cho người xử lý khác (người gửi không thấy)…' : 'Nhập phản hồi…'),
+                    isDense: true,
+                    filled: true,
+                    fillColor: _internal ? const Color(0xFFFFF9E6) : SboxColors.slate50,
+                    border: OutlineInputBorder(borderRadius: BorderRadius.circular(22), borderSide: BorderSide.none),
+                    contentPadding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+                  ),
                 ),
               ),
-              const SizedBox(width: 4),
-              IconButton(
-                icon: _isSending
-                    ? const SizedBox(
-                        width: 20,
-                        height: 20,
-                        child: CircularProgressIndicator(strokeWidth: 2),
-                      )
-                    : const Icon(Icons.send_rounded, color: _primary),
-                onPressed: _isSending ? null : _sendReply,
+              const SizedBox(width: 6),
+              IconButton.filled(
+                onPressed: _sending ? null : _send,
+                icon: _sending
+                    ? const SizedBox(width: 18, height: 18, child: CircularProgressIndicator(strokeWidth: 2))
+                    : const Icon(Icons.send_rounded),
               ),
-            ],
-          ),
+            ]),
+          ]),
         ),
-      ],
+      );
+
+  // ── Nội dung / ảnh ──
+
+  Widget _richText(String text, {Color color = SboxColors.slate800}) {
+    final urlRegex = RegExp(r'(https?://[^\s<>\[\]{}|\\^]+)', caseSensitive: false);
+    final style = TextStyle(fontSize: 14, height: 1.45, color: color);
+    final matches = urlRegex.allMatches(text).toList();
+    if (matches.isEmpty) return SelectableText(text, style: style);
+    final spans = <InlineSpan>[];
+    var last = 0;
+    for (final m in matches) {
+      if (m.start > last) spans.add(TextSpan(text: text.substring(last, m.start), style: style));
+      final url = m.group(0)!;
+      spans.add(WidgetSpan(
+        child: GestureDetector(
+          onTap: () async {
+            final uri = Uri.tryParse(url);
+            if (uri != null && await canLaunchUrl(uri)) await launchUrl(uri, mode: LaunchMode.externalApplication);
+          },
+          child: Text(url, style: style.copyWith(decoration: TextDecoration.underline, color: SboxColors.brand500)),
+        ),
+      ));
+      last = m.end;
+    }
+    if (last < text.length) spans.add(TextSpan(text: text.substring(last), style: style));
+    return RichText(text: TextSpan(children: spans));
+  }
+
+  Widget _imageGrid(List<String> urls, {double size = 120}) => Wrap(
+        spacing: 6,
+        runSpacing: 6,
+        children: [
+          for (var i = 0; i < urls.length; i++)
+            GestureDetector(
+              onTap: () => _showImages(urls, i),
+              child: ClipRRect(
+                borderRadius: BorderRadius.circular(10),
+                child: AuthCachedImage(
+                  imagePath: urls[i],
+                  apiService: _api,
+                  width: size,
+                  height: size,
+                  fit: BoxFit.cover,
+                  errorWidget: (_, __, ___) => Container(
+                    width: size,
+                    height: size,
+                    color: SboxColors.slate200,
+                    child: const Icon(Icons.broken_image_outlined, color: SboxColors.slate500),
+                  ),
+                ),
+              ),
+            ),
+        ],
+      );
+
+  void _showImages(List<String> urls, int initial) {
+    final ctl = PageController(initialPage: initial);
+    showDialog(
+      context: context,
+      barrierColor: Colors.black,
+      builder: (ctx) => Dialog.fullscreen(
+        backgroundColor: Colors.black,
+        child: Stack(children: [
+          PageView.builder(
+            controller: ctl,
+            itemCount: urls.length,
+            itemBuilder: (_, i) => InteractiveViewer(
+              maxScale: 6,
+              child: Center(
+                child: AuthCachedImage(
+                  imagePath: urls[i],
+                  apiService: _api,
+                  fit: BoxFit.contain,
+                  errorWidget: (_, __, ___) => const Icon(Icons.broken_image, color: Colors.white54, size: 64),
+                ),
+              ),
+            ),
+          ),
+          Positioned(
+            top: 12,
+            right: 12,
+            child: IconButton(
+              icon: const Icon(Icons.close_rounded, color: Colors.white, size: 28),
+              onPressed: () => Navigator.pop(ctx),
+            ),
+          ),
+        ]),
+      ),
     );
   }
 }

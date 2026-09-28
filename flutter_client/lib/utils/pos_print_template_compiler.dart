@@ -1,5 +1,6 @@
 import '../models/pos_print_template.dart';
 import '../models/pos_print_template_v2.dart';
+import 'pos_einvoice_qr.dart';
 import 'pos_print_template_renderer.dart';
 import 'pos_receipt_layout.dart';
 import 'pos_table_label.dart';
@@ -948,6 +949,10 @@ abstract final class PosPrintTemplateCompiler {
       }
     }
 
+    if (isSaleDoc) {
+      _appendEInvoiceBlock(steps, htmlBuf, working, data, k58: k58);
+    }
+
     htmlBuf.write('</div>');
     final html = wrapPosPrintHtmlDocument(htmlBuf.toString(), paperSize: template.paperSize);
     return PosPrintCompiledOutput(
@@ -957,6 +962,77 @@ abstract final class PosPrintTemplateCompiler {
       frameInsetMm: template.frameInsetMm,
       frameMarginMm: template.frameMarginMm,
     );
+  }
+
+  /// Mẫu đã tự đặt biến {HDDT_…} → chỉ thêm mã QR, không lặp lại chữ.
+  static bool _templateUsesEInvoiceTokens(PosPrintTemplateV2 template) {
+    bool has(String? v) => (v ?? '').contains('HDDT_');
+    for (final b in template.blocks) {
+      if (has(b.text) || has(b.field) || has(b.leftField) || has(b.rightField)) {
+        return true;
+      }
+      if ((b.fields ?? const <String>[]).any((f) => f.startsWith('HDDT_'))) {
+        return true;
+      }
+    }
+    return false;
+  }
+
+  /// Khối HĐĐT cuối bill (khi đơn đã phát hành HĐĐT): ký hiệu, số, mã CQT, mã tra cứu, QR tra cứu.
+  static void _appendEInvoiceBlock(
+    List<Object> steps,
+    StringBuffer htmlBuf,
+    PosPrintTemplateV2 template,
+    Map<String, String> data, {
+    required bool k58,
+  }) {
+    final no = (data['HDDT_So'] ?? '').trim();
+    final qrData = (data['HDDT_QR'] ?? '').trim();
+    if (no.isEmpty || qrData.isEmpty) return;
+    final body = k58 ? 20.0 : 22.0;
+    final small = k58 ? 18.0 : 20.0;
+
+    void line(String text, {double? size, bool bold = false, bool center = true}) {
+      steps.add(PosPrintCompiledLine(
+        text: text,
+        fontSize: size ?? body,
+        bold: bold,
+        center: center,
+      ));
+      htmlBuf.write(
+        '<div style="text-align:${center ? 'center' : 'left'};font-size:${size ?? body}px;'
+        '${bold ? 'font-weight:bold;' : ''}">$text</div>',
+      );
+    }
+
+    if (!_templateUsesEInvoiceTokens(template)) {
+      steps.add(const PosPrintCompiledLine(text: '', fontSize: 14, isDivider: true));
+      htmlBuf.write('<div style="border-top:1.5px solid #000;margin:6px 0;width:100%"></div>');
+      line('HÓA ĐƠN ĐIỆN TỬ', bold: true);
+      final series = (data['HDDT_Ky_Hieu'] ?? '').trim();
+      line(series.isEmpty ? 'Số: $no' : 'Ký hiệu: $series - Số: $no', bold: true);
+      final mst = (data['HDDT_MST_Ban'] ?? '').trim();
+      if (mst.isNotEmpty) line('MST người bán: $mst', size: small);
+      final cqt = (data['HDDT_Ma_CQT'] ?? '').trim();
+      if (cqt.isNotEmpty) line('Mã CQT: $cqt', size: small);
+      final lookupCode = (data['HDDT_Ma_Tra_Cuu'] ?? '').trim();
+      if (lookupCode.isNotEmpty) line('Mã tra cứu: $lookupCode', size: small);
+    }
+
+    steps.add(PosPrintCompiledQr(
+      imageUrl: posInlineQrUrl(qrData),
+      size: 260,
+      caption: 'Quét mã để tra cứu hóa đơn điện tử',
+    ));
+    final svg = posQrSvg(qrData, size: 110);
+    htmlBuf.write(
+      '<div style="text-align:center;margin:6px 0">$svg'
+      '<div style="font-size:${small}px">Quét mã để tra cứu hóa đơn điện tử</div></div>',
+    );
+    final link = (data['HDDT_Link_Tra_Cuu'] ?? '').trim();
+    if (link.isNotEmpty && link.length <= 64) {
+      line(link.replaceFirst(RegExp(r'^https?://'), ''), size: small - 2);
+    }
   }
 
   static void _appendSaleTableHeader(

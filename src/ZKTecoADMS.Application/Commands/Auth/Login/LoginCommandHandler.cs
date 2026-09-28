@@ -57,30 +57,21 @@ public class LoginCommandHandler(
             .Include(e => e.Store)
             .FirstOrDefaultAsync(cancellationToken);
         
+        // Thông báo chung cho «không có tài khoản» và «sai mật khẩu» — không để lộ tài khoản nào tồn tại.
+        const string invalidCredentials = "Tên đăng nhập hoặc mật khẩu không đúng.";
         if (user == null)
         {
-            return AppResponse<AuthenticateResponse>.Error("Tài khoản không tồn tại trong cửa hàng này.");
+            return AppResponse<AuthenticateResponse>.Error(invalidCredentials);
         }
 
-        // Check if the user account is active
-        if (!user.IsActive)
-        {
-            return AppResponse<AuthenticateResponse>.Error("Tài khoản đã bị vô hiệu hóa. Vui lòng liên hệ quản trị viên.");
-        }
-        
-        // Check if the user's email is confirmed (if required)
-        if (!await userManager.IsEmailConfirmedAsync(user))
-        {
-            return AppResponse<AuthenticateResponse>.Error("Email chưa được xác nhận. Vui lòng kiểm tra email và xác nhận tài khoản.");
-        }
-
-        // Check if the user account is locked out
+        // Tài khoản đang bị khoá do nhập sai nhiều lần
         if (await userManager.IsLockedOutAsync(user))
         {
             return AppResponse<AuthenticateResponse>.Error(LockoutMessageHelper.GetLockedMessage(user));
         }
 
-        // Validate password
+        // Kiểm tra mật khẩu TRƯỚC khi báo trạng thái tài khoản (vô hiệu hoá / chưa xác nhận email),
+        // để người không biết mật khẩu không dò được tình trạng tài khoản.
         var passwordValid = await userManager.CheckPasswordAsync(user, request.Password);
         if (!passwordValid)
         {
@@ -91,7 +82,24 @@ public class LoginCommandHandler(
                 return AppResponse<AuthenticateResponse>.Error(
                     LockoutMessageHelper.GetLockedMessage(refreshed));
             }
-            return AppResponse<AuthenticateResponse>.Error("Mật khẩu không đúng.");
+            if (refreshed is { LockoutEnabled: true })
+            {
+                var left = Math.Max(0, userManager.Options.Lockout.MaxFailedAccessAttempts - refreshed.AccessFailedCount);
+                if (left > 0 && left <= 3)
+                    return AppResponse<AuthenticateResponse>.Error(
+                        $"{invalidCredentials} Còn {left} lần thử trước khi tài khoản bị tạm khoá.");
+            }
+            return AppResponse<AuthenticateResponse>.Error(invalidCredentials);
+        }
+
+        if (!user.IsActive)
+        {
+            return AppResponse<AuthenticateResponse>.Error("Tài khoản đã bị vô hiệu hóa. Vui lòng liên hệ quản trị viên.");
+        }
+
+        if (!await userManager.IsEmailConfirmedAsync(user))
+        {
+            return AppResponse<AuthenticateResponse>.Error("Email chưa được xác nhận. Vui lòng kiểm tra email và xác nhận tài khoản.");
         }
 
         // Reset failed login attempts on successful login

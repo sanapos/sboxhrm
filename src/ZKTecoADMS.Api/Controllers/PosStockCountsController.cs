@@ -244,28 +244,43 @@ public class PosStockCountsController(ZKTecoDbContext dbContext) : Authenticated
         if (count.Status != PosStockCountStatus.InProgress)
             return BadRequest(AppResponse<StockCountDto>.Fail("Phiếu đã hoàn thành hoặc hủy"));
 
+        // Tồn sổ «lúc đếm»: chốt lại mỗi khi nhập / đổi số đếm. Khi cân bằng chỉ cộng/trừ chênh lệch
+        // (đếm − tồn lúc đếm) vào tồn hiện tại → hàng bán sau lúc đếm không bị cộng bù.
+        var updLineIds = (dto.Lines ?? []).Select(u => u.LineId).ToHashSet();
+        var touchedLines = count.Lines.Where(l => updLineIds.Contains(l.Id)).ToList();
+        var liveQty = await LoadLiveSystemQtyAsync(storeId, touchedLines);
+
         var applied = 0;
         foreach (var upd in dto.Lines ?? new List<UpdateCountLineDto>())
         {
             var line = count.Lines.FirstOrDefault(l => l.Id == upd.LineId);
             if (line == null) continue;
 
-            var counted = upd.CountedQty ?? (upd.IsChecked == true ? line.SystemQty : line.CountedQty);
+            var countChanged = upd.CountedQty.HasValue
+                ? upd.CountedQty != line.CountedQty
+                : upd.IsChecked == true && !line.CountedQty.HasValue;
+            var systemQty = countChanged && liveQty.TryGetValue(line.Id, out var live)
+                ? live
+                : line.SystemQty;
+
+            var counted = upd.CountedQty ?? (upd.IsChecked == true ? systemQty : line.CountedQty);
             var isChecked = upd.IsChecked ?? (counted.HasValue ? true : line.IsChecked);
             if (isChecked && !counted.HasValue)
-                counted = line.SystemQty;
+                counted = systemQty;
 
             var n = await dbContext.PosStockCountLines
                 .Where(l => l.Id == line.Id && l.CountId == count.Id && l.StoreId == storeId)
                 .ExecuteUpdateAsync(s => s
                     .SetProperty(l => l.CountedQty, counted)
                     .SetProperty(l => l.IsChecked, isChecked)
+                    .SetProperty(l => l.SystemQty, systemQty)
                     .SetProperty(l => l.UpdatedAt, DateTime.UtcNow)
                     .SetProperty(l => l.UpdatedBy, CurrentUserEmail));
             if (n > 0)
             {
                 line.CountedQty = counted;
                 line.IsChecked = isChecked;
+                line.SystemQty = systemQty;
                 applied++;
             }
         }
@@ -276,6 +291,32 @@ public class PosStockCountsController(ZKTecoDbContext dbContext) : Authenticated
         // Reload lines for response accuracy
         await dbContext.Entry(count).Collection(c => c.Lines).LoadAsync();
         return Ok(AppResponse<StockCountDto>.Success(MapCount(count, count.Lines.ToList())));
+    }
+
+    /// <summary>Tồn hiện tại (theo ĐVT dòng kiểm) của các dòng kiểm kê.</summary>
+    async Task<Dictionary<Guid, decimal>> LoadLiveSystemQtyAsync(Guid storeId, List<PosStockCountLine> lines)
+    {
+        var result = new Dictionary<Guid, decimal>();
+        if (lines.Count == 0) return result;
+        var pids = lines.Select(l => l.ProductId).Distinct().ToList();
+        var vids = lines.Where(l => l.VariantId.HasValue).Select(l => l.VariantId!.Value).Distinct().ToList();
+        var products = await dbContext.PosProducts.AsNoTracking()
+            .Where(p => pids.Contains(p.Id) && p.StoreId == storeId && p.Deleted == null)
+            .ToDictionaryAsync(p => p.Id);
+        var variants = vids.Count == 0
+            ? new Dictionary<Guid, PosProductVariant>()
+            : await dbContext.PosProductVariants.AsNoTracking()
+                .Where(v => vids.Contains(v.Id) && v.StoreId == storeId && v.Deleted == null)
+                .ToDictionaryAsync(v => v.Id);
+        foreach (var l in lines)
+        {
+            if (!products.TryGetValue(l.ProductId, out var p)) continue;
+            if (l.VariantId.HasValue && variants.TryGetValue(l.VariantId.Value, out var v))
+                result[l.Id] = PosVariantStockHelper.ResolveVariantDisplayQty(p.OnHandQty, v.AttributeJson, v.OnHandQty);
+            else
+                result[l.Id] = p.OnHandQty;
+        }
+        return result;
     }
 
     [HttpPost("{id:guid}/complete")]
@@ -343,14 +384,14 @@ public class PosStockCountsController(ZKTecoDbContext dbContext) : Authenticated
                 if (line.VariantId.HasValue)
                     variants.TryGetValue(line.VariantId.Value, out variant);
 
-                // SystemQty live lúc cân — tránh lệch nếu kho đã đổi trong lúc kiểm.
+                // Chênh lệch = số đếm − tồn sổ LÚC ĐẾM (chốt khi nhập số); áp lên tồn hiện tại để
+                // hàng bán / nhập xảy ra giữa lúc đếm và lúc cân bằng vẫn được giữ nguyên.
                 var liveSystem = variant != null
                     ? PosVariantStockHelper.ResolveVariantDisplayQty(
                         p.OnHandQty, variant.AttributeJson, variant.OnHandQty)
                     : p.OnHandQty;
-                line.SystemQty = liveSystem;
                 var counted = line.CountedQty!.Value;
-                var diff = counted - liveSystem;
+                var diff = counted - line.SystemQty;
                 if (diff == 0)
                 {
                     line.IsChecked = true;
@@ -393,8 +434,10 @@ public class PosStockCountsController(ZKTecoDbContext dbContext) : Authenticated
                 if (txChangeBase < 0)
                 {
                     var need = Math.Abs(txChangeBase);
+                    // Kiểm kê là số thực tế — lô ghi thiếu hơn tồn sổ không được chặn cân bằng.
                     var (allocations, lotErr) = await PosStockLotHelper.AllocateFefoAsync(
-                        dbContext, storeId, p.Id, variant?.Id, need, p, CurrentUserEmail);
+                        dbContext, storeId, p.Id, variant?.Id, need, p, CurrentUserEmail,
+                        allowShortfall: true);
                     if (lotErr != null)
                         throw new InvalidOperationException(lotErr);
                     foreach (var alloc in allocations!)
@@ -412,7 +455,7 @@ public class PosStockCountsController(ZKTecoDbContext dbContext) : Authenticated
                             UnitCost = alloc.UnitCost,
                             ReferenceNo = count.CountNo,
                             StockCountId = count.Id,
-                            Note = $"Kiểm kê: hệ thống {liveSystem:N2} → thực tế {counted:N2}",
+                            Note = $"Kiểm kê: lúc đếm {line.SystemQty:N2} → thực tế {counted:N2} (tồn lúc cân {liveSystem:N2} → {liveSystem + diff:N2})",
                             IsActive = true,
                             CreatedBy = CurrentUserEmail,
                         });
@@ -442,7 +485,7 @@ public class PosStockCountsController(ZKTecoDbContext dbContext) : Authenticated
                         QtyAfter = qtyAfter,
                         ReferenceNo = count.CountNo,
                         StockCountId = count.Id,
-                        Note = $"Kiểm kê: hệ thống {liveSystem:N2} → thực tế {counted:N2}",
+                        Note = $"Kiểm kê: lúc đếm {line.SystemQty:N2} → thực tế {counted:N2} (tồn lúc cân {liveSystem:N2} → {liveSystem + diff:N2})",
                         IsActive = true,
                         CreatedBy = CurrentUserEmail,
                     });

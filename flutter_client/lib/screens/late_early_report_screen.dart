@@ -24,6 +24,8 @@ import '../widgets/reports/hrm_report_widgets.dart';
 import 'package:zkteco_flutter_client/l10n/app_tr.dart';
 
 import '../theme/sbox_tokens.dart';
+import '../widgets/sbox/sbox_report.dart';
+import '../widgets/sbox/sbox_charts.dart';
 /// Brand blue shades — cùng tông, đậm/nhạt khác để phân biệt trễ / sớm.
 const _theme = HrmPageChrome.primaryNavy; // #0056B3
 const _lateColor = Color(0xFF00408A); // đậm hơn — đi trễ
@@ -1204,6 +1206,11 @@ class _LateEarlyReportScreenState extends State<LateEarlyReportScreen> {
                         child: Column(
                           crossAxisAlignment: CrossAxisAlignment.stretch,
                           children: [
+                      if (filtered.isNotEmpty)
+                        Padding(
+                          padding: const EdgeInsets.fromLTRB(12, 12, 12, 0),
+                          child: _buildInsight(filtered),
+                        ),
                       ReportCollapsibleChrome(
                         expanded: _showOverviewPanel,
                         onToggle: () => setState(
@@ -1753,6 +1760,56 @@ class _LateEarlyReportScreenState extends State<LateEarlyReportScreen> {
                           color: Colors.red.shade700))),
                 ),
             ],
+          ),
+        ),
+      ],
+    );
+  }
+
+  /// Biểu đồ đầu báo cáo: số lượt trễ / sớm theo ngày + người trễ nhiều nhất.
+  Widget _buildInsight(List<DailyShiftLateEntry> rows) {
+    final late = <DateTime, double>{};
+    final early = <DateTime, double>{};
+    final lateMin = <String, double>{};
+    final lateCnt = <String, int>{};
+    final names = <String, String>{};
+    for (final e in rows) {
+      final d = DateTime(e.date.year, e.date.month, e.date.day);
+      late.putIfAbsent(d, () => 0);
+      early.putIfAbsent(d, () => 0);
+      if (e.lateMinutes >= _minMinutes) {
+        late[d] = late[d]! + 1;
+        final k = e.employeeCode.isNotEmpty ? e.employeeCode : e.employeeId;
+        lateMin[k] = (lateMin[k] ?? 0) + e.lateMinutes;
+        lateCnt[k] = (lateCnt[k] ?? 0) + 1;
+        names[k] = e.employeeName;
+      }
+      if (e.earlyMinutes >= _minMinutes) early[d] = early[d]! + 1;
+    }
+    final days = late.keys.toList()..sort();
+    return SboxInsightPanel(
+      bottomGap: 0,
+      charts: [
+        SboxChartCard(
+          title: 'Lượt đi trễ / về sớm theo ngày',
+          child: SboxBarChart(
+            stacked: true,
+            valueFormat: (v) => '${SboxFmt.number(v)} lượt',
+            axisFormat: (v) => SboxFmt.number(v),
+            labels: [for (final d in days) sboxDayLabel(d)],
+            series: [
+              SboxSeries(name: 'Đi trễ', values: [for (final d in days) late[d]!], color: SboxColors.warning),
+              SboxSeries(name: 'Về sớm', values: [for (final d in days) early[d]!], color: SboxColors.violet),
+            ],
+          ),
+        ),
+        SboxChartCard(
+          title: 'Đi trễ nhiều nhất',
+          subtitle: 'Tổng phút trễ trong kỳ',
+          child: SboxRankList(
+            color: SboxColors.warning,
+            valueFormat: (v) => '${SboxFmt.number(v)} phút',
+            items: [for (final e in lateMin.entries) SboxSlice(names[e.key] ?? e.key, e.value, caption: '${lateCnt[e.key]} lần')],
           ),
         ),
       ],

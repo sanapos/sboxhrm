@@ -1,4 +1,4 @@
-﻿using Microsoft.AspNetCore.Authorization;
+using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Caching.Memory;
@@ -8,6 +8,7 @@ using ZKTecoADMS.Api.Authorization;
 using ZKTecoADMS.Api.Controllers.Base;
 using ZKTecoADMS.Api.Services;
 using ZKTecoADMS.Application.Constants;
+using ZKTecoADMS.Application.Services;
 using ZKTecoADMS.Application.Interfaces;
 using ZKTecoADMS.Application.Models;
 using ZKTecoADMS.Domain.Entities;
@@ -1606,6 +1607,18 @@ public class FieldCheckInController : AuthenticatedControllerBase
 
             var allowOutsideCheckIn = outsideDeviceIds.Any(MatchesEmployee);
 
+            // Ca đang diễn ra (giờ ca lưu theo giờ Việt Nam) — dùng cả để gắn điểm lộ trình vào ca
+            var vnNow = DateTime.UtcNow.AddHours(7);
+            var currentShiftId = await _dbContext.Shifts
+                .AsNoTracking()
+                .Where(s => s.StoreId == storeId
+                    && s.EmployeeUserId == CurrentUserId
+                    && s.Status == Domain.Enums.ShiftStatus.Approved
+                    && s.StartTime.AddMinutes(-30) <= vnNow
+                    && s.EndTime.AddMinutes(15) >= vnNow)
+                .Select(s => (Guid?)s.Id)
+                .FirstOrDefaultAsync();
+
             if (!allowOutsideCheckIn)
             {
                 // Bản đồ nhân sự: chỉ store có bật chức năng này mới theo dõi vị trí,
@@ -1615,14 +1628,7 @@ public class FieldCheckInController : AuthenticatedControllerBase
                 var storeHasFieldCheckIn = await StorePackageHelper
                     .IsModuleAllowedAsync(_dbContext, storeId, "FieldCheckIn");
 
-                var nowLocal = DateTime.Now;
-                var onShift = storeHasFieldCheckIn && await _dbContext.Shifts
-                    .AsNoTracking()
-                    .AnyAsync(s => s.StoreId == storeId
-                        && s.EmployeeUserId == CurrentUserId
-                        && s.Status == Domain.Enums.ShiftStatus.Approved
-                        && s.StartTime.AddMinutes(-30) <= nowLocal
-                        && s.EndTime.AddMinutes(15) >= nowLocal);
+                var onShift = storeHasFieldCheckIn && currentShiftId.HasValue;
 
                 if (!onShift)
                 {
@@ -1663,6 +1669,35 @@ public class FieldCheckInController : AuthenticatedControllerBase
                 await _dbContext.SaveChangesAsync();
             }
 
+            // Lịch sử lộ trình: bỏ điểm trùng (gửi lại trong 20 giây mà gần như không di chuyển)
+            var nowUtc = DateTime.UtcNow;
+            var lastPoint = await _dbContext.EmployeeLocationPoints
+                .AsNoTracking()
+                .Where(p => p.StoreId == storeId && p.UserId == CurrentUserId)
+                .OrderByDescending(p => p.RecordedAt)
+                .Select(p => new { p.RecordedAt, p.Latitude, p.Longitude })
+                .FirstOrDefaultAsync();
+            if (lastPoint == null
+                || (nowUtc - lastPoint.RecordedAt).TotalSeconds >= 20
+                || RouteAnalyzer.DistanceMeters(lastPoint.Latitude, lastPoint.Longitude, request.Latitude, request.Longitude) >= 15)
+            {
+                _dbContext.EmployeeLocationPoints.Add(new EmployeeLocationPoint
+                {
+                    Id = Guid.NewGuid(),
+                    StoreId = storeId,
+                    UserId = CurrentUserId,
+                    EmployeeId = empRecord?.Id,
+                    Latitude = request.Latitude,
+                    Longitude = request.Longitude,
+                    Accuracy = request.Accuracy,
+                    Speed = request.Speed,
+                    Battery = request.Battery is >= 0 and <= 100 ? request.Battery : null,
+                    RecordedAt = nowUtc,
+                    ShiftId = currentShiftId,
+                });
+                await _dbContext.SaveChangesAsync();
+            }
+
             _logger.LogInformation(
                 "ReportLocation stored for employee {LocationKey} store {StoreId} lat={Lat} lng={Lng}",
                 locationKey, storeId, request.Latitude, request.Longitude);
@@ -1682,6 +1717,10 @@ public class FieldCheckInController : AuthenticatedControllerBase
         public double Latitude { get; set; }
         public double Longitude { get; set; }
         public double? Accuracy { get; set; }
+        /// <summary>Tốc độ (m/s) thiết bị báo.</summary>
+        public double? Speed { get; set; }
+        /// <summary>% pin.</summary>
+        public int? Battery { get; set; }
     }
 
     /// <summary>

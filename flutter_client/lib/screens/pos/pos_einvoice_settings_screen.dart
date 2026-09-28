@@ -9,7 +9,7 @@ import 'pos_einvoice_report_screen.dart';
 import 'package:zkteco_flutter_client/l10n/app_tr.dart';
 
 import '../../theme/sbox_tokens.dart';
-/// Cấu hình hóa đơn điện tử — Viettel SInvoice và Easy Invoice.
+/// Cấu hình hóa đơn điện tử — Viettel SInvoice, Easy Invoice, MISA meInvoice, VNPT Invoice.
 class PosEInvoiceSettingsScreen extends StatefulWidget {
   const PosEInvoiceSettingsScreen({super.key});
 
@@ -26,6 +26,10 @@ class _PosEInvoiceSettingsScreenState extends State<PosEInvoiceSettingsScreen> {
   final _templateCtrl = TextEditingController();
   final _seriesCtrl = TextEditingController();
   final _urlCtrl = TextEditingController();
+  final _appIdCtrl = TextEditingController();
+  final _svcAccountCtrl = TextEditingController();
+  final _svcPassCtrl = TextEditingController();
+  final _portalCtrl = TextEditingController();
 
   bool _loading = true;
   bool _saving = false;
@@ -37,11 +41,21 @@ class _PosEInvoiceSettingsScreenState extends State<PosEInvoiceSettingsScreen> {
   bool _defaultIssue = false;
   String _taxMode = 'included';
   double _taxPercent = 10;
+  int _signType = 2;
+  bool _printQr = true;
   bool _hasPassword = false;
+  bool _hasServicePassword = false;
   bool _obscurePass = true;
   /// Kết quả «Kiểm tra kết nối» — hiện ngay trên form (không chỉ toast).
   String? _testBanner;
   bool _testBannerOk = false;
+
+  static const _defaultUrls = <String, String>{
+    'Viettel': 'https://api-vinvoice.viettel.vn',
+    'Easy': 'https://api.easyinvoice.vn',
+    'Misa': 'https://api.meinvoice.vn/api/integration',
+    'Vnpt': '',
+  };
 
   @override
   void initState() {
@@ -57,6 +71,10 @@ class _PosEInvoiceSettingsScreenState extends State<PosEInvoiceSettingsScreen> {
     _templateCtrl.dispose();
     _seriesCtrl.dispose();
     _urlCtrl.dispose();
+    _appIdCtrl.dispose();
+    _svcAccountCtrl.dispose();
+    _svcPassCtrl.dispose();
+    _portalCtrl.dispose();
     super.dispose();
   }
 
@@ -80,18 +98,17 @@ class _PosEInvoiceSettingsScreenState extends State<PosEInvoiceSettingsScreen> {
       _defaultIssue = s.defaultIssueAtCheckout;
       _taxMode = s.taxMode;
       _taxPercent = s.defaultTaxPercent;
+      _appIdCtrl.text = s.appId;
+      _svcAccountCtrl.text = s.serviceAccount;
+      _hasServicePassword = s.hasServicePassword;
+      _signType = s.signType == 5 ? 5 : 2;
+      _portalCtrl.text = s.portalUrl;
+      _printQr = s.printQrOnReceipt;
     }
     setState(() => _loading = false);
   }
 
   Future<void> _save() async {
-    if (_provider == 'Misa') {
-      NotificationOverlayManager().showError(
-        title: 'Nhà cung cấp không hỗ trợ',
-        message: tr('MISA chưa hỗ trợ xuất. Chọn Viettel SInvoice hoặc Easy Invoice.'),
-      );
-      return;
-    }
     setState(() => _saving = true);
     final body = PosEInvoiceSettings(
       enabled: _enabled,
@@ -107,14 +124,22 @@ class _PosEInvoiceSettingsScreenState extends State<PosEInvoiceSettingsScreen> {
       defaultIssueAtCheckout: _defaultIssue,
       taxMode: _taxMode,
       defaultTaxPercent: _taxPercent,
+      appId: _appIdCtrl.text.trim(),
+      serviceAccount: _svcAccountCtrl.text.trim(),
+      signType: _signType,
+      portalUrl: _portalCtrl.text.trim(),
+      printQrOnReceipt: _printQr,
     ).toSaveJson(
       password: _passCtrl.text.trim().isEmpty ? null : _passCtrl.text.trim(),
+      servicePassword:
+          _svcPassCtrl.text.trim().isEmpty ? null : _svcPassCtrl.text.trim(),
     );
     final res = await _api.savePosEInvoiceSettings(body);
     if (!mounted) return;
     setState(() => _saving = false);
     if (res['isSuccess'] == true) {
       _passCtrl.clear();
+      _svcPassCtrl.clear();
       NotificationOverlayManager().showSuccess(
         title: 'Đã lưu',
         message: tr('Cấu hình hóa đơn điện tử đã cập nhật'),
@@ -191,8 +216,219 @@ class _PosEInvoiceSettingsScreenState extends State<PosEInvoiceSettingsScreen> {
     final p = raw.trim().toLowerCase();
     if (p.contains('easy')) return 'Easy';
     if (p.contains('misa')) return 'Misa';
+    if (p.contains('vnpt')) return 'Vnpt';
     return 'Viettel';
   }
+
+  void _onProviderChanged(String v) {
+    setState(() {
+      final oldDefault = _defaultUrls[_provider] ?? '';
+      final url = _urlCtrl.text.trim();
+      _provider = v;
+      // Đổi hãng: thay URL nếu đang trống hoặc là URL mặc định của hãng cũ.
+      if (url.isEmpty || url == oldDefault || _defaultUrls.values.contains(url)) {
+        _urlCtrl.text = _defaultUrls[v] ?? '';
+      }
+      _testBanner = null;
+    });
+  }
+
+  Widget _hint(String text) => Padding(
+        padding: const EdgeInsets.only(top: 6),
+        child: Text(
+          tr(text),
+          style: TextStyle(fontSize: 12, color: SboxColors.slate700),
+        ),
+      );
+
+  Widget _passwordField(
+    TextEditingController ctrl,
+    String label, {
+    required bool hasExisting,
+  }) {
+    return TextField(
+      controller: ctrl,
+      obscureText: _obscurePass,
+      decoration: _dec(
+        hasExisting ? '$label (để trống = giữ mật khẩu cũ)' : label,
+      ).copyWith(
+        suffixIcon: IconButton(
+          icon: Icon(_obscurePass ? Icons.visibility_off : Icons.visibility),
+          onPressed: () => setState(() => _obscurePass = !_obscurePass),
+        ),
+      ),
+    );
+  }
+
+  List<Widget> _providerFields() {
+    switch (_provider) {
+      case 'Easy':
+        return [
+          TextField(
+            controller: _urlCtrl,
+            decoration: _dec('API base URL', hint: 'https://api.easyinvoice.vn'),
+          ),
+          _hint('Demo: http://api.softdreams.vn — token kèm MST từ 01/01/2026.'),
+          const SizedBox(height: 12),
+          TextField(
+            controller: _userCtrl,
+            decoration: _dec('Tài khoản API', hint: 'Username Easy Invoice'),
+          ),
+          const SizedBox(height: 12),
+          _passwordField(_passCtrl, 'Mật khẩu', hasExisting: _hasPassword),
+          const SizedBox(height: 12),
+          _taxField(),
+          const SizedBox(height: 12),
+          TextField(
+            controller: _templateCtrl,
+            decoration: _dec('Mẫu số SoftDreams (Pattern)',
+                hint: '1C26MAA  (đúng như trên portal)'),
+          ),
+          const SizedBox(height: 12),
+          TextField(
+            controller: _seriesCtrl,
+            textCapitalization: TextCapitalization.characters,
+            decoration: _dec('Ký hiệu (Serial) — thường để trống',
+                hint: 'Để trống nếu portal để trống cột Ký hiệu'),
+          ),
+          _hint('Trên portal Pattern = «1C26MAA» (HĐ máy tính tiền), cột Ký hiệu trống. '
+              'Điền Pattern=1C26MAA, Serial để trống. «Kiểm tra kết nối» chỉ xác thực — không tạo HĐ.'),
+        ];
+      case 'Misa':
+        return [
+          TextField(
+            controller: _urlCtrl,
+            decoration: _dec('API base URL',
+                hint: 'https://api.meinvoice.vn/api/integration'),
+          ),
+          _hint('Thử nghiệm: https://testapi.meinvoice.vn/api/integration'),
+          const SizedBox(height: 12),
+          TextField(
+            controller: _appIdCtrl,
+            decoration: _dec('AppID (MISA cấp khi đăng ký tích hợp)'),
+          ),
+          const SizedBox(height: 12),
+          TextField(
+            controller: _userCtrl,
+            decoration: _dec('Tài khoản đăng nhập meInvoice',
+                hint: 'Email / SĐT đăng nhập app.meinvoice.vn'),
+          ),
+          const SizedBox(height: 12),
+          _passwordField(_passCtrl, 'Mật khẩu', hasExisting: _hasPassword),
+          const SizedBox(height: 12),
+          _taxField(),
+          const SizedBox(height: 12),
+          TextField(
+            controller: _seriesCtrl,
+            textCapitalization: TextCapitalization.characters,
+            decoration: _dec('Ký hiệu hóa đơn (InvSeries)', hint: '1C25TAA'),
+          ),
+          const SizedBox(height: 12),
+          DropdownButtonFormField<int>(
+            value: _signType,
+            decoration: _dec('Hình thức phát hành'),
+            items: [
+              DropdownMenuItem(
+                  value: 2, child: Text(tr('Ký số HSM (hóa đơn GTGT thường)'))),
+              DropdownMenuItem(
+                  value: 5,
+                  child: Text(tr('Hóa đơn khởi tạo từ máy tính tiền (không ký)'))),
+            ],
+            onChanged: (v) {
+              if (v != null) setState(() => _signType = v);
+            },
+          ),
+          _hint('Ký hiệu đầy đủ như trên meInvoice, vd. 1C25TAA (HĐ có mã) hoặc 1C25MAA (máy tính tiền). '
+              'Chọn «máy tính tiền» khi ký hiệu có chữ M ở vị trí thứ 5.'),
+        ];
+      case 'Vnpt':
+        return [
+          TextField(
+            controller: _urlCtrl,
+            decoration: _dec('Địa chỉ web service VNPT',
+                hint: 'https://<MST>-tt78admin.vnpt-invoice.com.vn'),
+          ),
+          _hint('Mỗi doanh nghiệp có domain riêng do VNPT cấp (bản thử: …-tt78admindemo…).'),
+          const SizedBox(height: 12),
+          TextField(
+            controller: _svcAccountCtrl,
+            decoration: _dec('Account web service', hint: 'vd. 0101234567service'),
+          ),
+          const SizedBox(height: 12),
+          _passwordField(_svcPassCtrl, 'ACpass web service',
+              hasExisting: _hasServicePassword),
+          const SizedBox(height: 12),
+          TextField(
+            controller: _userCtrl,
+            decoration: _dec('Tài khoản phát hành (username)',
+                hint: 'vd. 0101234567admin'),
+          ),
+          const SizedBox(height: 12),
+          _passwordField(_passCtrl, 'Mật khẩu phát hành', hasExisting: _hasPassword),
+          const SizedBox(height: 12),
+          _taxField(),
+          const SizedBox(height: 12),
+          TextField(
+            controller: _templateCtrl,
+            decoration: _dec('Mẫu số (pattern)', hint: '1/001'),
+          ),
+          const SizedBox(height: 12),
+          TextField(
+            controller: _seriesCtrl,
+            textCapitalization: TextCapitalization.characters,
+            decoration: _dec('Ký hiệu (serial)', hint: 'C25TAA'),
+          ),
+        ];
+      default:
+        return [
+          TextField(
+            controller: _urlCtrl,
+            decoration:
+                _dec('API base URL', hint: 'https://api-vinvoice.viettel.vn'),
+          ),
+          const SizedBox(height: 12),
+          TextField(
+            controller: _userCtrl,
+            decoration: _dec('Tài khoản API', hint: 'MST-xxx'),
+          ),
+          const SizedBox(height: 12),
+          _passwordField(_passCtrl, 'Mật khẩu', hasExisting: _hasPassword),
+          const SizedBox(height: 12),
+          _taxField(),
+          const SizedBox(height: 12),
+          TextField(
+            controller: _templateCtrl,
+            decoration: _dec('Ký hiệu mẫu (templateCode)', hint: '1/001'),
+          ),
+          const SizedBox(height: 12),
+          TextField(
+            controller: _seriesCtrl,
+            textCapitalization: TextCapitalization.characters,
+            decoration: _dec('Ký hiệu hóa đơn (invoiceSeries)', hint: 'C24AAA'),
+          ),
+          const SizedBox(height: 12),
+          DropdownButtonFormField<String>(
+            value: _invoiceType,
+            decoration: _dec('Loại hóa đơn (TT78)'),
+            items: [
+              DropdownMenuItem(value: '1', child: Text(tr('1 — Hóa đơn GTGT'))),
+              DropdownMenuItem(
+                  value: '2', child: Text(tr('2 — Hóa đơn bán hàng'))),
+              DropdownMenuItem(value: '5', child: Text(tr('5 — HĐ khác'))),
+            ],
+            onChanged: (v) {
+              if (v != null) setState(() => _invoiceType = v);
+            },
+          ),
+        ];
+    }
+  }
+
+  Widget _taxField() => TextField(
+        controller: _taxCtrl,
+        decoration:
+            _dec('MST người bán', hint: '0100109106 hoặc 0100109106-001'),
+      );
 
   @override
   Widget build(BuildContext context) {
@@ -208,9 +444,7 @@ class _PosEInvoiceSettingsScreenState extends State<PosEInvoiceSettingsScreen> {
         body: spinner,
       );
     }
-    final viettel = _provider == 'Viettel';
-    final easy = _provider == 'Easy';
-    final canTest = viettel || easy;
+    final providerName = posEInvoiceProviderName(_provider);
     return Scaffold(
       backgroundColor: HrmPageChrome.background,
       appBar: HrmPageChrome.appBar(
@@ -232,9 +466,9 @@ class _PosEInvoiceSettingsScreenState extends State<PosEInvoiceSettingsScreen> {
           ListTile(
             contentPadding: EdgeInsets.zero,
             leading: const Icon(Icons.receipt_long_outlined),
-            title: Text(tr('Quản lý hóa đơn đã xuất')),
+            title: Text(tr('Quản lý hóa đơn điện tử')),
             subtitle: Text(tr(
-                'Nháp, gửi email, thay thế, hủy, đồng bộ từ Viettel / Easy')),
+                'Xem lại, gửi email, thay thế, hủy, đồng bộ, tải danh sách từ hãng, báo cáo')),
             trailing: const Icon(Icons.chevron_right),
             onTap: () {
               Navigator.of(context).push(
@@ -249,42 +483,14 @@ class _PosEInvoiceSettingsScreenState extends State<PosEInvoiceSettingsScreen> {
             value: _provider,
             decoration: _dec('Nhà cung cấp'),
             items: [
-              DropdownMenuItem(value: 'Viettel', child: Text(tr('Viettel SInvoice'))),
-              DropdownMenuItem(value: 'Easy', child: Text(tr('Easy Invoice'))),
-              if (_provider == 'Misa')
+              for (final p in const ['Viettel', 'Easy', 'Misa', 'Vnpt'])
                 DropdownMenuItem(
-                  value: 'Misa',
-                  child: Text(tr('MISA (chưa hỗ trợ — hãy đổi)')),
-                ),
+                    value: p, child: Text(tr(posEInvoiceProviderName(p)))),
             ],
             onChanged: (v) {
-              if (v == null) return;
-              setState(() {
-                _provider = v;
-                final url = _urlCtrl.text.trim();
-                if (v == 'Easy' &&
-                    (url.isEmpty || url.contains('viettel'))) {
-                  _urlCtrl.text = 'https://api.easyinvoice.vn';
-                } else if (v == 'Viettel' &&
-                    (url.isEmpty ||
-                        url.contains('easyinvoice') ||
-                        url.contains('softdreams') ||
-                        url.contains('misa'))) {
-                  _urlCtrl.text = 'https://api-vinvoice.viettel.vn';
-                }
-              });
+              if (v != null) _onProviderChanged(v);
             },
           ),
-          if (_provider == 'Misa') ...[
-            const SizedBox(height: 12),
-            Text(
-              tr(
-                'Cấu hình đang là MISA (chưa hỗ trợ xuất). '
-                'Chọn Viettel SInvoice hoặc Easy Invoice rồi Lưu.',
-              ),
-              style: TextStyle(fontSize: 12, color: Colors.orange.shade800),
-            ),
-          ],
           const SizedBox(height: 16),
           Text(tr('Khi thanh toán'),
               style: const TextStyle(fontSize: 14, fontWeight: FontWeight.w700)),
@@ -303,96 +509,28 @@ class _PosEInvoiceSettingsScreenState extends State<PosEInvoiceSettingsScreen> {
             value: _defaultIssue,
             onChanged: (v) => setState(() => _defaultIssue = v),
           ),
+          SwitchListTile(
+            contentPadding: EdgeInsets.zero,
+            title: Text(tr('In mã HĐĐT + QR tra cứu trên hóa đơn bán hàng')),
+            subtitle: Text(tr(
+                'Bill in sau khi xuất HĐĐT có thêm: ký hiệu, số hóa đơn, mã CQT, '
+                'mã tra cứu và mã QR để khách quét tra cứu. '
+                'Mẫu in tự đặt có thể dùng biến {HDDT_So}, {HDDT_Ky_Hieu}, {HDDT_Ma_CQT}, {HDDT_Ma_Tra_Cuu}.')),
+            value: _printQr,
+            onChanged: (v) => setState(() => _printQr = v),
+          ),
           const Divider(height: 28),
-          Text(
-              tr(easy
-                  ? 'Tài khoản Easy Invoice'
-                  : 'Tài khoản Viettel SInvoice'),
+          Text(tr('Tài khoản $providerName'),
               style: const TextStyle(fontSize: 14, fontWeight: FontWeight.w700)),
           const SizedBox(height: 8),
-          TextField(
-            controller: _urlCtrl,
-            decoration: _dec('API base URL',
-                hint: easy
-                    ? 'https://api.easyinvoice.vn'
-                    : 'https://api-vinvoice.viettel.vn'),
-          ),
-          if (easy) ...[
-            const SizedBox(height: 6),
-            Text(
-              tr('Demo: http://api.softdreams.vn — token kèm MST từ 01/01/2026.'),
-              style: TextStyle(fontSize: 12, color: SboxColors.slate700),
-            ),
-          ],
+          ..._providerFields(),
           const SizedBox(height: 12),
           TextField(
-            controller: _userCtrl,
-            decoration: _dec('Tài khoản API',
-                hint: easy ? 'Username Easy Invoice' : 'MST-xxx'),
+            controller: _portalCtrl,
+            keyboardType: TextInputType.url,
+            decoration: _dec('Link trang quản lý HĐĐT của hãng (tùy chọn)',
+                hint: 'Để trống = trang mặc định của $providerName'),
           ),
-          const SizedBox(height: 12),
-          TextField(
-            controller: _passCtrl,
-            obscureText: _obscurePass,
-            decoration: _dec(
-              _hasPassword ? 'Mật khẩu (để trống = giữ mật khẩu cũ)' : 'Mật khẩu',
-            ).copyWith(
-              suffixIcon: IconButton(
-                icon: Icon(
-                    _obscurePass ? Icons.visibility_off : Icons.visibility),
-                onPressed: () => setState(() => _obscurePass = !_obscurePass),
-              ),
-            ),
-          ),
-          const SizedBox(height: 12),
-          TextField(
-            controller: _taxCtrl,
-            decoration: _dec('MST người bán', hint: '0100109106 hoặc 0100109106-001'),
-          ),
-          const SizedBox(height: 12),
-          TextField(
-            controller: _templateCtrl,
-            decoration: _dec(
-                easy
-                    ? 'Mẫu số SoftDreams (Pattern)'
-                    : 'Ký hiệu mẫu (templateCode)',
-                hint: easy ? '1C26MAA  (đúng như trên portal)' : '1/001'),
-          ),
-          const SizedBox(height: 12),
-          TextField(
-            controller: _seriesCtrl,
-            textCapitalization: TextCapitalization.characters,
-            decoration: _dec(
-                easy
-                    ? 'Ký hiệu (Serial) — thường để trống'
-                    : 'Ký hiệu hóa đơn (invoiceSeries)',
-                hint: easy ? 'Để trống nếu portal để trống cột Ký hiệu' : 'C24AAA'),
-          ),
-          if (easy) ...[
-            const SizedBox(height: 8),
-            Text(
-              tr('Sen Garden: trên portal Pattern = «1C26MAA» (HĐ máy tính tiền), '
-                  'cột Ký hiệu trống. Điền Pattern=1C26MAA, Serial để trống. '
-                  '«Kiểm tra kết nối» chỉ auth — không tạo HĐ. '
-                  'Nếu portal báo Còn lại (MTT)=0 phải Gia hạn gói trước.'),
-              style: TextStyle(fontSize: 12, color: SboxColors.slate700),
-            ),
-          ],
-          if (viettel) ...[
-            const SizedBox(height: 12),
-            DropdownButtonFormField<String>(
-              value: _invoiceType,
-              decoration: _dec('Loại hóa đơn (TT78)'),
-              items: [
-                DropdownMenuItem(value: '1', child: Text(tr('1 — Hóa đơn GTGT'))),
-                DropdownMenuItem(value: '2', child: Text(tr('2 — Hóa đơn bán hàng'))),
-                DropdownMenuItem(value: '5', child: Text(tr('5 — HĐ khác'))),
-              ],
-              onChanged: (v) {
-                if (v != null) setState(() => _invoiceType = v);
-              },
-            ),
-          ],
           const SizedBox(height: 16),
           Text(tr('Thuế suất khi xuất HĐĐT'),
               style: const TextStyle(fontSize: 14, fontWeight: FontWeight.w700)),
@@ -432,7 +570,7 @@ class _PosEInvoiceSettingsScreenState extends State<PosEInvoiceSettingsScreen> {
           ],
           const SizedBox(height: 20),
           OutlinedButton.icon(
-            onPressed: _testing || !canTest ? null : _test,
+            onPressed: _testing ? null : _test,
             icon: _testing
                 ? const SizedBox(
                     width: 18,
@@ -440,10 +578,9 @@ class _PosEInvoiceSettingsScreenState extends State<PosEInvoiceSettingsScreen> {
                     child: CircularProgressIndicator(strokeWidth: 2),
                   )
                 : const Icon(Icons.wifi_tethering),
-            label: Text(tr(easy
-                ? 'Kiểm tra kết nối Easy Invoice'
-                : 'Kiểm tra kết nối Viettel')),
+            label: Text(tr('Kiểm tra kết nối $providerName')),
           ),
+          _hint('Lưu cấu hình trước khi kiểm tra kết nối.'),
           if (_testBanner != null) ...[
             const SizedBox(height: 12),
             Material(

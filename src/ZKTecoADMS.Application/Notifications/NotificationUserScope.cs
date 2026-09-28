@@ -18,13 +18,28 @@ public static class NotificationUserScope
         Guid? storeId,
         bool crossStore,
         bool? isRead = null,
-        NotificationType? type = null) =>
-        n => n.TargetUserId == userId
+        NotificationType? type = null,
+        IReadOnlyCollection<string>? categories = null,
+        string? search = null)
+    {
+        // Lọc nhóm loại phía server (trước đây app lọc trên trang đã tải → thiếu kết quả).
+        var cats = categories is { Count: > 0 } ? categories.ToList() : null;
+        var includeUncategorized = cats != null && cats.Contains(UncategorizedCode);
+        var q = string.IsNullOrWhiteSpace(search) ? null : search.Trim().ToLower();
+        return n => n.TargetUserId == userId
              && (crossStore
                  || n.StoreId == storeId
                  || n.StoreId == null)
              && (!isRead.HasValue || n.IsRead == isRead.Value)
-             && (!type.HasValue || n.Type == type.Value);
+             && (!type.HasValue || n.Type == type.Value)
+             && (cats == null
+                 || (n.CategoryCode != null && cats.Contains(n.CategoryCode))
+                 || (includeUncategorized && n.CategoryCode == null))
+             && (q == null || n.Title.ToLower().Contains(q) || n.Message.ToLower().Contains(q));
+    }
+
+    /// <summary>Mã giả cho thông báo cũ chưa gắn loại.</summary>
+    public const string UncategorizedCode = "none";
 
     public static Expression<Func<Notification, bool>> FilterById(
         Guid notificationId,

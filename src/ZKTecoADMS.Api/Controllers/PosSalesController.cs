@@ -286,7 +286,10 @@ public partial class PosSalesController(
         string? DeliveryTrackingCode = null,
         string? DeliveryCarrierOrderId = null,
         string? DeliveryCarrierCode = null,
-        string? DeliveryLabelUrl = null);
+        string? DeliveryLabelUrl = null,
+        string? EInvoiceLookupUrl = null,
+        string? EInvoiceSellerTaxCode = null,
+        bool EInvoicePrintOnReceipt = false);
 
     public record SaleOrderSummaryDto(
         Guid Id,
@@ -1007,6 +1010,9 @@ public partial class PosSalesController(
         {
             if (e is Npgsql.PostgresException { SqlState: "40001" or "40P01" })
                 return true;
+            // Token xmin trên hàng hóa: tồn đổi bởi giao dịch khác sau khi đọc → build lại đơn.
+            if (e is DbUpdateConcurrencyException)
+                return true;
         }
         return false;
     }
@@ -1114,9 +1120,24 @@ public partial class PosSalesController(
 
             string? err;
             var allowPrice = await HasPosSellApproveAsync();
-            (order, lines, err) = await BuildSaleAsync(
-                storeId, null, dto, dto.Complete,
-                allowManualPriceOverride: allowPrice);
+            try
+            {
+                (order, lines, err) = await BuildSaleAsync(
+                    storeId, null, dto, dto.Complete,
+                    allowManualPriceOverride: allowPrice);
+            }
+            catch (Exception ex) when (outerAttempt < 4 && IsSerializationFailure(ex))
+            {
+                // Lô/tồn bị giao dịch khác ghi trong lúc trừ kho → build lại đơn.
+                await tx.RollbackAsync();
+                continue;
+            }
+            catch (InvalidOperationException ex) when (!IsSerializationFailure(ex))
+            {
+                // Lỗi nghiệp vụ kho (thiếu lô/HSD, lô vừa đổi…) → báo rõ thay vì lỗi hệ thống.
+                await tx.RollbackAsync();
+                return BadRequest(AppResponse<SaleOrderDto>.Fail(ex.Message));
+            }
             if (err == PriceOverrideDeniedMessage)
             {
                 var denied = await DenyIfCannotOverridePriceAsync();
@@ -2372,12 +2393,29 @@ public partial class PosSalesController(
                     .FirstOrDefaultAsync();
             }
         }
-        return MapOrder(
+        var dto = MapOrder(
             order, lines, returnedMap.GetValueOrDefault(order.Id),
             returnedQtyMap, dailyIndex, dailyTotal, serialMap, customerCode, customerPhone,
             resourceCode, resourceName, areaName, CurrentUserId,
             viewerDeviceId: viewerDeviceId,
             viewerDeviceName: viewerDeviceName);
+        try
+        {
+            // In bill: link tra cứu + MST người bán cho khối mã QR HĐĐT.
+            var (lookup, sellerTax, printOnReceipt) = await eInvoiceService.PrintInfoAsync(order);
+            if (lookup != null || sellerTax != null)
+                dto = dto with
+                {
+                    EInvoiceLookupUrl = lookup,
+                    EInvoiceSellerTaxCode = sellerTax,
+                    EInvoicePrintOnReceipt = printOnReceipt,
+                };
+        }
+        catch
+        {
+            // Không để thông tin HĐĐT làm fail GetSale.
+        }
+        return dto;
     }
 
     private static string? ComputeReturnStatus(

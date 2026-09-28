@@ -20,6 +20,8 @@ import '../widgets/reports/hrm_report_widgets.dart';
 import 'package:zkteco_flutter_client/l10n/app_tr.dart';
 
 import '../theme/sbox_tokens.dart';
+import '../widgets/sbox/sbox_report.dart';
+import '../widgets/sbox/sbox_charts.dart';
 const _theme = HrmPageChrome.primaryNavy;
 
 class _TravelTripRow {
@@ -330,6 +332,48 @@ class _TravelHoursReportScreenState extends State<TravelHoursReportScreen> {
     final mm = ((h - hh) * 60).round();
     if (mm <= 0) return '${hh}h';
     return '${hh}h${mm}p';
+  }
+
+  /// Biểu đồ đầu báo cáo: giờ di chuyển theo ngày + người đi nhiều nhất.
+  Widget _buildInsight(List<_TravelTripRow> filtered) {
+    final complete = filtered.where((t) => t.isComplete && t.hours > 0).toList();
+    if (complete.isEmpty) return const SizedBox.shrink();
+    final byDay = <DateTime, double>{};
+    final byEmp = <String, double>{};
+    final trips = <String, int>{};
+    for (final t in complete) {
+      final l = t.start.isUtc ? t.start.toLocal() : t.start;
+      final d = DateTime(l.year, l.month, l.day);
+      byDay[d] = (byDay[d] ?? 0) + t.hours;
+      byEmp[t.employeeName] = (byEmp[t.employeeName] ?? 0) + t.hours;
+      trips[t.employeeName] = (trips[t.employeeName] ?? 0) + 1;
+    }
+    final days = byDay.keys.toList()..sort();
+    String h(num? v) => '${SboxFmt.number(v)} giờ';
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(12, 12, 12, 0),
+      child: SboxInsightPanel(
+        bottomGap: 0,
+        charts: [
+          SboxChartCard(
+            title: 'Giờ di chuyển theo ngày',
+            child: SboxBarChart(
+              valueFormat: h,
+              axisFormat: (v) => SboxFmt.number(v),
+              labels: [for (final d in days) sboxDayLabel(d)],
+              series: [SboxSeries(name: 'Giờ di chuyển', values: [for (final d in days) byDay[d]!])],
+            ),
+          ),
+          SboxChartCard(
+            title: 'Di chuyển nhiều nhất',
+            child: SboxRankList(
+              valueFormat: h,
+              items: [for (final e in byEmp.entries) SboxSlice(e.key, e.value, caption: '${trips[e.key]} chuyến')],
+            ),
+          ),
+        ],
+      ),
+    );
   }
 
   List<ReportKpiItem> _buildKpis(List<_TravelTripRow> filtered) {
@@ -766,6 +810,7 @@ class _TravelHoursReportScreenState extends State<TravelHoursReportScreen> {
                         child: Column(
                           crossAxisAlignment: CrossAxisAlignment.stretch,
                           children: [
+                      _buildInsight(_filtered),
                       ReportCollapsibleChrome(
                         expanded: _showOverviewPanel,
                         onToggle: () => setState(

@@ -1,3 +1,4 @@
+using ZKTecoADMS.Domain.Enums;
 using System.Text.Json;
 using System.Text.RegularExpressions;
 using Microsoft.EntityFrameworkCore;
@@ -74,6 +75,7 @@ public class KpiAutoSyncBackgroundService : BackgroundService
         // Find all periods with auto-sync enabled (no-tracking for read-only check)
         var periods = await dbContext.KpiPeriods
             .Where(p => p.AutoSyncEnabled
+                        && p.Status == KpiPeriodStatus.Open // kỳ đã khóa / tính / duyệt: không ghi đè số thực tế
                         && p.GoogleSpreadsheetId != null
                         && p.AutoSyncTimeSlots != null
                         && p.Deleted == null)

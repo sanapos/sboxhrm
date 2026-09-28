@@ -121,6 +121,7 @@ public class ZKTecoDbContext : IdentityDbContext<ApplicationUser, IdentityRole<G
     public DbSet<TaskEvaluation> TaskEvaluations => Set<TaskEvaluation>();
     public DbSet<TaskTemplate> TaskTemplates => Set<TaskTemplate>();
     public DbSet<TaskDependency> TaskDependencies => Set<TaskDependency>();
+    public DbSet<TaskProject> TaskProjects => Set<TaskProject>();
     
     // Assets & Inventory
     public DbSet<Asset> Assets => Set<Asset>();
@@ -145,6 +146,11 @@ public class ZKTecoDbContext : IdentityDbContext<ApplicationUser, IdentityRole<G
     public DbSet<InternalCommunication> InternalCommunications => Set<InternalCommunication>();
     public DbSet<CommunicationComment> CommunicationComments => Set<CommunicationComment>();
     public DbSet<CommunicationReaction> CommunicationReactions => Set<CommunicationReaction>();
+    public DbSet<CommChannel> CommChannels => Set<CommChannel>();
+    public DbSet<HrFinanceSettings> HrFinanceSettings => Set<HrFinanceSettings>();
+    public DbSet<CommunicationRead> CommunicationReads => Set<CommunicationRead>();
+    public DbSet<CommunicationPollVote> CommunicationPollVotes => Set<CommunicationPollVote>();
+    public DbSet<CommunicationBookmark> CommunicationBookmarks => Set<CommunicationBookmark>();
     public DbSet<ContentCategory> ContentCategories => Set<ContentCategory>();
     
     // KPI Management
@@ -205,6 +211,9 @@ public class ZKTecoDbContext : IdentityDbContext<ApplicationUser, IdentityRole<G
     public DbSet<MealMenu> MealMenus => Set<MealMenu>();
     public DbSet<MealMenuItem> MealMenuItems => Set<MealMenuItem>();
     public DbSet<MealRecord> MealRecords => Set<MealRecord>();
+    public DbSet<EmployeeLocationPoint> EmployeeLocationPoints => Set<EmployeeLocationPoint>();
+    public DbSet<UserNotificationSetting> UserNotificationSettings => Set<UserNotificationSetting>();
+    public DbSet<StoreNotificationTemplate> StoreNotificationTemplates => Set<StoreNotificationTemplate>();
     public DbSet<MealRegistration> MealRegistrations => Set<MealRegistration>();
     public DbSet<MealDebt> MealDebts => Set<MealDebt>();
     public DbSet<MealDish> MealDishes => Set<MealDish>();

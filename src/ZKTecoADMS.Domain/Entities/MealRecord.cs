@@ -33,6 +33,20 @@ public class MealRecord : Entity<Guid>
     public Guid? DeviceId { get; set; }
     public virtual Device? Device { get; set; }
 
+    /// <summary>Số phiếu ăn trong ngày (theo cửa hàng), in trên phiếu: 1, 2, 3…</summary>
+    public int TicketNo { get; set; }
+
+    /// <summary>Giá suất ăn chốt tại thời điểm chấm (null = bản ghi cũ → lấy giá buổi ăn hiện tại).</summary>
+    public decimal? Price { get; set; }
+
+    /// <summary>Nguồn: 0 = máy chấm công căn tin, 1 = QR trên điện thoại, 2 = quản lý nhập tay.</summary>
+    public int Source { get; set; }
+
+    /// <summary>Lần đầu trạm in căn tin in phiếu ăn (null = chưa in).</summary>
+    public DateTime? PrintedAt { get; set; }
+
+    public int PrintCount { get; set; }
+
     public Guid? StoreId { get; set; }
     public virtual Store? Store { get; set; }
 }

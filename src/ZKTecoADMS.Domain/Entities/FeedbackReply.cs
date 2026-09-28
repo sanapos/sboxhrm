@@ -29,6 +29,9 @@ public class FeedbackReply : Entity<Guid>
     /// <summary>true = người gửi phản ánh gốc, false = người được gửi (quản lý)</summary>
     public bool IsFromSender { get; set; }
 
+    /// <summary>0 = tin nhắn, 1 = ghi chú nội bộ (người gửi không thấy), 2 = sự kiện hệ thống (đổi trạng thái, giao việc…)</summary>
+    public int Kind { get; set; }
+
     public Guid? StoreId { get; set; }
     public virtual Store? Store { get; set; }
 }

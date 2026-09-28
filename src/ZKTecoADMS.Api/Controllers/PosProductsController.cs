@@ -208,7 +208,10 @@ public partial class PosProductsController(
         int TimePackageMinutes = 0,
         Guid? OvertimeProductId = null,
         int TimeAlertBeforeMinutes = 5,
-        bool CommissionPerSession = false);
+        bool CommissionPerSession = false,
+        // Tồn lúc mở form sửa — chỉ ghi tồn khi người dùng thực sự đổi ô tồn kho
+        // (tránh ghi đè số tồn cũ lên lượt bán xảy ra trong lúc đang sửa hàng).
+        decimal? OriginalOnHandQty = null);
 
     public record PosProductAttributeInput(Guid? AttributeId, string? AttributeName, string Value);
 
@@ -701,7 +704,7 @@ public partial class PosProductsController(
             VatRate = dto.VatExempt ? 0 : Math.Max(0, dto.VatRate),
             VatExempt = dto.VatExempt,
             OnHandQty = dto.OnHandQty,
-            ReservedQty = dto.ReservedQty,
+            ReservedQty = 0, // giữ chỗ do server quản lý
             MinStockQty = dto.MinStockQty,
             MaxStockQty = dto.MaxStockQty,
             Weight = dto.Weight,
@@ -755,6 +758,11 @@ public partial class PosProductsController(
         NormalizeByProductType(entity);
 
         dbContext.PosProducts.Add(entity);
+        // Tồn đầu kỳ vào thẻ kho — không có thì thẻ kho cộng dồn lệch với tồn hiện tại.
+        if (entity.OnHandQty != 0)
+            PosStockRecording.RecordAdjustIfChanged(
+                dbContext, storeId, entity.Id, null, 0, entity.OnHandQty, CurrentUserEmail,
+                "Tồn đầu kỳ khi tạo hàng hóa");
         await dbContext.SaveChangesAsync();
 
         await EnsureBaseUnitAsync(entity);
@@ -815,7 +823,11 @@ public partial class PosProductsController(
             await PosVariantStockHelper.UsesSharedBaseStockAsync(dbContext, id);
 
         var oldOnHand = entity.OnHandQty;
-        if (usesSharedBase)
+        // Ô tồn không đổi so với lúc mở form → giữ tồn hiện tại trên server
+        // (bán / nhập / kiểm kê trong lúc sửa hàng không bị ghi đè).
+        var stockUntouched = dto.OriginalOnHandQty.HasValue &&
+                             Math.Abs(dto.OnHandQty - dto.OriginalOnHandQty.Value) < 0.0001m;
+        if (usesSharedBase && !stockUntouched)
         {
             if (entity.OnHandQty != dto.OnHandQty)
             {
@@ -832,7 +844,7 @@ public partial class PosProductsController(
                 oldCost, dto.CostPrice, CurrentUserEmail);
         }
 
-        entity.ReservedQty = dto.ReservedQty;
+        // ReservedQty do server quản lý (giữ chỗ bàn/đơn nháp) — không nhận từ form.
         entity.MinStockQty = dto.MinStockQty;
         entity.MaxStockQty = dto.MaxStockQty;
         entity.Weight = dto.Weight;

@@ -150,6 +150,27 @@ public partial class PosEInvoiceService
             if (!cancelled.Ok)
                 throw new InvalidOperationException(cancelled.Error ?? cancelled.ErrorCode ?? "Easy Invoice từ chối hủy hóa đơn");
         }
+        else if (provider == "Misa")
+        {
+            var transactionId = order.EInvoiceReservationCode
+                ?? throw new InvalidOperationException("MISA cần mã tra cứu (TransactionID) để hủy — thử Đồng bộ trước");
+            var token = await MisaTokenAsync(order.StoreId, settings, ct);
+            var cancelled = await misa.CancelAsync(
+                settings.ApiBaseUrl, token, settings.SupplierTaxCode, transactionId,
+                FirstNonEmpty(order.EInvoiceSeries, ResolveMisaSeries(settings)), why, ct);
+            if (!cancelled.Ok)
+                throw new InvalidOperationException(cancelled.Error ?? "MISA từ chối hủy hóa đơn");
+        }
+        else if (provider == "Vnpt")
+        {
+            var fkey = order.EInvoiceTransactionUuid
+                ?? throw new InvalidOperationException("VNPT cần fkey để hủy");
+            var cancelled = await vnpt.CancelAsync(
+                settings.ApiBaseUrl, settings.ServiceAccount, settings.ServicePassword,
+                settings.Username, settings.Password, fkey, ct);
+            if (!cancelled.Ok)
+                throw new InvalidOperationException(cancelled.Error ?? "VNPT từ chối hủy hóa đơn");
+        }
         else
             throw new InvalidOperationException($"Nhà cung cấp {provider} chưa hỗ trợ hủy hóa đơn");
 
@@ -173,6 +194,11 @@ public partial class PosEInvoiceService
 
         var provider = NormalizeProvider(settings.Provider);
         var originalNo = order.EInvoiceNo!;
+        var originalUuid = order.EInvoiceTransactionUuid;
+        var originalSeries = order.EInvoiceSeries;
+        var originalLookup = order.EInvoiceReservationCode;
+        var prevKind = order.EInvoiceKind;
+        var prevOriginalNo = order.EInvoiceOriginalNo;
         var originalIssued = order.EInvoiceIssuedAt ?? order.SaleDate ?? DateTime.UtcNow;
         var why = string.IsNullOrWhiteSpace(reason)
             ? $"Thay thế hóa đơn {originalNo}"
@@ -205,7 +231,20 @@ public partial class PosEInvoiceService
                 await IssueEasyAsync(
                     order, lines, settings,
                     draftOnly: false, signExistingDraft: false,
-                    easyType: 2, originalNo: originalNo, ct: ct);
+                    easyType: 2, originalNo: originalNo, originalIkey: originalUuid, ct: ct);
+            }
+            else if (provider == "Misa")
+            {
+                await IssueMisaAsync(order, lines, settings,
+                    new MisaReplaceInfo(originalNo, FirstNonEmpty(originalSeries, ResolveMisaSeries(settings)),
+                        originalIssued, why),
+                    ct);
+            }
+            else if (provider == "Vnpt")
+            {
+                if (string.IsNullOrWhiteSpace(originalUuid))
+                    throw new InvalidOperationException("VNPT cần fkey hóa đơn gốc để thay thế");
+                await IssueVnptAsync(order, lines, settings, originalFkey: originalUuid, ct);
             }
             else
             {
@@ -224,18 +263,33 @@ public partial class PosEInvoiceService
         catch (Exception ex)
         {
             logger.LogWarning(ex, "Replace e-invoice failed for order {OrderNo}", order.OrderNo);
-            order.EInvoiceStatus = "Failed";
-            order.EInvoiceError = Trim(ex.Message, 1000);
+            // Không làm «mất» HĐ gốc: trả về trạng thái đã xuất với định danh cũ.
+            order.EInvoiceStatus = "Issued";
+            order.EInvoiceError = Trim($"Thay thế thất bại: {ex.Message}", 1000);
             order.EInvoiceNo = originalNo;
+            order.EInvoiceTransactionUuid = originalUuid;
+            order.EInvoiceReservationCode = originalLookup;
+            order.EInvoiceSeries = originalSeries;
+            order.EInvoiceKind = prevKind;
+            order.EInvoiceOriginalNo = prevOriginalNo;
             await db.SaveChangesAsync(ct);
-            throw;
+            throw new InvalidOperationException(ex.Message, ex);
         }
 
         if (string.Equals(order.EInvoiceStatus, "Failed", StringComparison.OrdinalIgnoreCase))
         {
+            // Giữ nguyên định danh HĐ gốc để còn hủy / thay thế / xem lại được.
             order.EInvoiceNo = originalNo;
+            order.EInvoiceTransactionUuid = originalUuid;
+            order.EInvoiceReservationCode = originalLookup;
+            order.EInvoiceSeries = originalSeries;
+            order.EInvoiceStatus = "Issued";
+            order.EInvoiceKind = prevKind;
+            order.EInvoiceOriginalNo = prevOriginalNo;
+            var failMsg = order.EInvoiceError ?? "Nhà cung cấp từ chối hóa đơn thay thế";
+            order.EInvoiceError = $"Thay thế thất bại: {failMsg}";
             await db.SaveChangesAsync(ct);
-            throw new InvalidOperationException(order.EInvoiceError ?? "Nhà cung cấp từ chối hóa đơn thay thế");
+            throw new InvalidOperationException(failMsg);
         }
 
         order.EInvoiceKind = "Replacement";
@@ -295,6 +349,14 @@ public partial class PosEInvoiceService
                 order, settings, found,
                 string.IsNullOrWhiteSpace(found.InvoiceNo) ? "Draft" : "Issued");
             order.EInvoiceError = null;
+        }
+        else if (provider == "Misa")
+        {
+            await SyncMisaAsync(order, settings, ct);
+        }
+        else if (provider == "Vnpt")
+        {
+            await SyncVnptAsync(order, settings, ct);
         }
         else
             throw new InvalidOperationException($"Nhà cung cấp {provider} chưa hỗ trợ đồng bộ");
@@ -371,6 +433,27 @@ public partial class PosEInvoiceService
                 ikey, email, ct);
             if (!sent.Ok)
                 throw new InvalidOperationException(sent.Error ?? sent.ErrorCode ?? "Easy Invoice từ chối gửi email");
+        }
+        else if (provider == "Misa")
+        {
+            var transactionId = order.EInvoiceReservationCode
+                ?? throw new InvalidOperationException("Thiếu mã tra cứu MISA để gửi email — thử Đồng bộ");
+            var token = await MisaTokenAsync(order.StoreId, settings, ct);
+            var sent = await misa.SendEmailAsync(
+                settings.ApiBaseUrl, token, settings.SupplierTaxCode, transactionId,
+                FirstNonEmpty(order.EInvoiceBuyerName, order.CustomerName, "Quý khách"), email,
+                invoiceWithCode: MisaWithCode(settings), cashRegister: settings.SignType == 5, ct);
+            if (!sent.Ok)
+                throw new InvalidOperationException(sent.Error ?? "MISA từ chối gửi email");
+        }
+        else if (provider == "Vnpt")
+        {
+            // VNPT gửi tới email ghi trên hóa đơn (DCTDTu) — không đổi được người nhận qua API.
+            var fkey = order.EInvoiceTransactionUuid
+                ?? throw new InvalidOperationException("Thiếu fkey để gửi email VNPT");
+            var sent = await vnpt.DeliverAsync(settings.ApiBaseUrl, settings.Username, settings.Password, fkey, ct);
+            if (!sent.Ok)
+                throw new InvalidOperationException(sent.Error ?? "VNPT từ chối gửi email");
         }
         else
             throw new InvalidOperationException($"Nhà cung cấp {provider} chưa hỗ trợ gửi email");

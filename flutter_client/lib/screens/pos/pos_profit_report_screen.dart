@@ -11,7 +11,7 @@ import '../../widgets/pos/pos_theme.dart';
 import '../../widgets/pos/reports/pos_report_widgets.dart';
 import 'package:zkteco_flutter_client/l10n/app_tr.dart';
 
-import '../../theme/sbox_tokens.dart';
+import '../../widgets/sbox/sbox_ui.dart';
 /// LN theo hàng / nhóm / kênh / nhân viên — bấm dòng mở hóa đơn gốc.
 class PosProfitReportScreen extends StatefulWidget {
   const PosProfitReportScreen({super.key, this.initialDim = 'product'});
@@ -120,6 +120,43 @@ class _PosProfitReportScreenState extends State<PosProfitReportScreen> {
   @override
   Widget build(BuildContext context) {
     final items = _items();
+    String nameOf(Map<String, dynamic> r) => r['productName']?.toString() ?? r['label']?.toString() ?? '—';
+    final byRev = [...items]..sort((a, b) => _n(b['revenue']).compareTo(_n(a['revenue'])));
+    final top = byRev.take(10).toList();
+    final rev = _n(_data?['totalRevenue']);
+    final profit = _n(_data?['totalProfit']);
+    final losing = items.where((r) => _n(r['profit']) < 0).length;
+    final dimLabel = const {'product': 'hàng', 'category': 'nhóm', 'channel': 'kênh', 'staff': 'nhân viên'}[_dim] ?? 'mục';
+    final insight = SboxInsightPanel(
+      kpis: [
+        SboxKpi(label: 'Doanh thu', value: SboxFmt.money(rev), icon: Icons.payments_outlined, note: _time.displayLabel),
+        SboxKpi(label: 'Giá vốn', value: SboxFmt.money(_n(_data?['totalCogs'])), icon: Icons.inventory_2_outlined, tone: SboxTone.warning),
+        SboxKpi(label: 'Lợi nhuận gộp', value: SboxFmt.money(profit), icon: Icons.trending_up_rounded, tone: profit < 0 ? SboxTone.danger : SboxTone.success,
+            note: 'Biên ${SboxFmt.pct(rev > 0 ? profit / rev * 100 : 0)}'),
+        SboxKpi(label: 'Mục bị lỗ', value: SboxFmt.number(losing), icon: Icons.report_gmailerrorred_outlined,
+            tone: losing > 0 ? SboxTone.danger : SboxTone.neutral, note: 'Bán dưới giá vốn'),
+      ],
+      charts: [
+        SboxChartCard(
+          title: 'Doanh thu và lợi nhuận theo $dimLabel',
+          subtitle: 'Top 10 theo doanh thu',
+          child: SboxBarChart(
+            labels: [for (final r in top) nameOf(r)],
+            series: [
+              SboxSeries(name: 'Doanh thu', values: [for (final r in top) _n(r['revenue'])]),
+              SboxSeries(name: 'Lợi nhuận', values: [for (final r in top) _n(r['profit'])], color: SboxColors.success),
+            ],
+          ),
+        ),
+        SboxChartCard(
+          title: 'Lãi nhiều nhất',
+          child: SboxRankList(
+            color: SboxColors.success,
+            items: [for (final r in items) SboxSlice(nameOf(r), _n(r['profit']), caption: 'biên ${SboxFmt.pct(_n(r['marginPct']))}')],
+          ),
+        ),
+      ],
+    );
     return PosReportMobileScaffold(
       title: 'Lợi nhuận',
       time: _time,
@@ -165,6 +202,7 @@ class _PosProfitReportScreenState extends State<PosProfitReportScreen> {
                   ],
                 ),
                 const SizedBox(height: 10),
+                insight,
                 PosReportCard(
                   title: 'Tổng kỳ',
                   subtitle: _time.displayLabel,

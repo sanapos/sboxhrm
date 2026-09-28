@@ -2174,6 +2174,12 @@ public class ZKTecoDbInitializer(
                     );
                     CREATE UNIQUE INDEX IF NOT EXISTS ""IX_PosEInvoiceSettings_StoreId""
                         ON ""PosEInvoiceSettings"" (""StoreId"");
+                    ALTER TABLE ""PosEInvoiceSettings"" ADD COLUMN IF NOT EXISTS ""AppId"" character varying(200) NOT NULL DEFAULT '';
+                    ALTER TABLE ""PosEInvoiceSettings"" ADD COLUMN IF NOT EXISTS ""ServiceAccount"" character varying(100) NOT NULL DEFAULT '';
+                    ALTER TABLE ""PosEInvoiceSettings"" ADD COLUMN IF NOT EXISTS ""ServicePassword"" character varying(200) NOT NULL DEFAULT '';
+                    ALTER TABLE ""PosEInvoiceSettings"" ADD COLUMN IF NOT EXISTS ""SignType"" integer NOT NULL DEFAULT 2;
+                    ALTER TABLE ""PosEInvoiceSettings"" ADD COLUMN IF NOT EXISTS ""PortalUrl"" character varying(300) NOT NULL DEFAULT '';
+                    ALTER TABLE ""PosEInvoiceSettings"" ADD COLUMN IF NOT EXISTS ""PrintQrOnReceipt"" boolean NOT NULL DEFAULT true;
 
                     CREATE TABLE IF NOT EXISTS ""PosBarcodeCatalog"" (
                         ""Id"" uuid NOT NULL,
@@ -3194,6 +3200,92 @@ public class ZKTecoDbInitializer(
                         IF EXISTS (SELECT 1 FROM information_schema.tables WHERE table_name = 'Notifications') THEN
                             ALTER TABLE ""Notifications"" ADD COLUMN IF NOT EXISTS ""CategoryCode"" VARCHAR(50);
                             CREATE INDEX IF NOT EXISTS ""IX_Notifications_CategoryCode"" ON ""Notifications"" (""CategoryCode"");
+                        END IF;
+                    END $$;
+                ");
+
+                // Thông báo: cài đặt đẩy / giờ yên lặng theo tài khoản + mẫu thông báo của cửa hàng
+                await context.Database.ExecuteSqlRawAsync(@"
+                    CREATE TABLE IF NOT EXISTS ""UserNotificationSettings"" (
+                        ""UserId"" uuid NOT NULL PRIMARY KEY,
+                        ""PushEnabled"" boolean NOT NULL DEFAULT TRUE,
+                        ""QuietEnabled"" boolean NOT NULL DEFAULT FALSE,
+                        ""QuietStartMinute"" integer NOT NULL DEFAULT 1320,
+                        ""QuietEndMinute"" integer NOT NULL DEFAULT 420,
+                        ""AllowUrgentInQuiet"" boolean NOT NULL DEFAULT TRUE,
+                        ""UpdatedAt"" timestamp without time zone NOT NULL DEFAULT NOW()
+                    );
+                    CREATE TABLE IF NOT EXISTS ""StoreNotificationTemplates"" (
+                        ""Id"" uuid NOT NULL PRIMARY KEY,
+                        ""StoreId"" uuid NOT NULL,
+                        ""Name"" character varying(120) NOT NULL DEFAULT '',
+                        ""Title"" character varying(200) NOT NULL DEFAULT '',
+                        ""Body"" character varying(2000) NOT NULL DEFAULT '',
+                        ""CategoryCode"" character varying(50) NOT NULL DEFAULT 'internal_comm',
+                        ""Type"" integer NOT NULL DEFAULT 0,
+                        ""UsageCount"" integer NOT NULL DEFAULT 0,
+                        ""LastUsedAt"" timestamp without time zone,
+                        ""CreatedByUserId"" uuid,
+                        ""CreatedAt"" timestamp without time zone NOT NULL DEFAULT NOW(),
+                        ""IsActive"" boolean NOT NULL DEFAULT TRUE
+                    );
+                    CREATE INDEX IF NOT EXISTS ""IX_StoreNotificationTemplates_StoreId"" ON ""StoreNotificationTemplates"" (""StoreId"");
+                    CREATE INDEX IF NOT EXISTS ""IX_Notifications_Target_Store_Time"" ON ""Notifications"" (""TargetUserId"", ""StoreId"", ""Timestamp"");
+                ");
+
+                // Bản đồ nhân sự: lịch sử vị trí GPS trong ca (vẽ lộ trình)
+                await context.Database.ExecuteSqlRawAsync(@"
+                    CREATE TABLE IF NOT EXISTS ""EmployeeLocationPoints"" (
+                        ""Id"" uuid NOT NULL PRIMARY KEY,
+                        ""StoreId"" uuid NOT NULL,
+                        ""UserId"" uuid NOT NULL,
+                        ""EmployeeId"" uuid,
+                        ""Latitude"" double precision NOT NULL,
+                        ""Longitude"" double precision NOT NULL,
+                        ""Accuracy"" double precision,
+                        ""Speed"" double precision,
+                        ""Battery"" integer,
+                        ""RecordedAt"" timestamp without time zone NOT NULL,
+                        ""ShiftId"" uuid
+                    );
+                    CREATE INDEX IF NOT EXISTS ""IX_EmployeeLocationPoints_Store_User_Time""
+                        ON ""EmployeeLocationPoints"" (""StoreId"", ""UserId"", ""RecordedAt"");
+                    CREATE INDEX IF NOT EXISTS ""IX_EmployeeLocationPoints_Store_Time""
+                        ON ""EmployeeLocationPoints"" (""StoreId"", ""RecordedAt"");
+                ");
+
+                // Kiến nghị / khiếu nại: mã phiếu, chủ đề, mức độ, hạn xử lý, người xử lý, đánh giá
+                await context.Database.ExecuteSqlRawAsync(@"
+                    DO $$ BEGIN
+                        IF EXISTS (SELECT 1 FROM information_schema.tables WHERE table_name = 'Feedbacks') THEN
+                            ALTER TABLE ""Feedbacks"" ADD COLUMN IF NOT EXISTS ""Code"" VARCHAR(20);
+                            ALTER TABLE ""Feedbacks"" ADD COLUMN IF NOT EXISTS ""Topic"" VARCHAR(60);
+                            ALTER TABLE ""Feedbacks"" ADD COLUMN IF NOT EXISTS ""Priority"" INTEGER NOT NULL DEFAULT 1;
+                            ALTER TABLE ""Feedbacks"" ADD COLUMN IF NOT EXISTS ""DueAt"" TIMESTAMP WITHOUT TIME ZONE;
+                            ALTER TABLE ""Feedbacks"" ADD COLUMN IF NOT EXISTS ""AssigneeEmployeeId"" UUID;
+                            ALTER TABLE ""Feedbacks"" ADD COLUMN IF NOT EXISTS ""FirstResponseAt"" TIMESTAMP WITHOUT TIME ZONE;
+                            ALTER TABLE ""Feedbacks"" ADD COLUMN IF NOT EXISTS ""ResolvedAt"" TIMESTAMP WITHOUT TIME ZONE;
+                            ALTER TABLE ""Feedbacks"" ADD COLUMN IF NOT EXISTS ""Rating"" INTEGER;
+                            ALTER TABLE ""Feedbacks"" ADD COLUMN IF NOT EXISTS ""RatingComment"" VARCHAR(1000);
+                            ALTER TABLE ""Feedbacks"" ADD COLUMN IF NOT EXISTS ""ReopenCount"" INTEGER NOT NULL DEFAULT 0;
+                            CREATE INDEX IF NOT EXISTS ""IX_Feedbacks_AssigneeEmployeeId"" ON ""Feedbacks"" (""AssigneeEmployeeId"");
+                        END IF;
+                        IF EXISTS (SELECT 1 FROM information_schema.tables WHERE table_name = 'FeedbackReplies') THEN
+                            ALTER TABLE ""FeedbackReplies"" ADD COLUMN IF NOT EXISTS ""Kind"" INTEGER NOT NULL DEFAULT 0;
+                        END IF;
+                    END $$;
+                ");
+
+                // Chấm cơm: số phiếu ăn / giá chốt / nguồn / trạng thái in phiếu
+                await context.Database.ExecuteSqlRawAsync(@"
+                    DO $$ BEGIN
+                        IF EXISTS (SELECT 1 FROM information_schema.tables WHERE table_name = 'MealRecords') THEN
+                            ALTER TABLE ""MealRecords"" ADD COLUMN IF NOT EXISTS ""TicketNo"" INTEGER NOT NULL DEFAULT 0;
+                            ALTER TABLE ""MealRecords"" ADD COLUMN IF NOT EXISTS ""Price"" NUMERIC(18,2);
+                            ALTER TABLE ""MealRecords"" ADD COLUMN IF NOT EXISTS ""Source"" INTEGER NOT NULL DEFAULT 0;
+                            ALTER TABLE ""MealRecords"" ADD COLUMN IF NOT EXISTS ""PrintedAt"" TIMESTAMP WITHOUT TIME ZONE;
+                            ALTER TABLE ""MealRecords"" ADD COLUMN IF NOT EXISTS ""PrintCount"" INTEGER NOT NULL DEFAULT 0;
+                            CREATE INDEX IF NOT EXISTS ""IX_MealRecords_Store_Date"" ON ""MealRecords"" (""StoreId"", ""Date"");
                         END IF;
                     END $$;
                 ");

@@ -11,7 +11,6 @@ import 'package:share_plus/share_plus.dart';
 import '../services/api_service.dart';
 import '../models/meal.dart';
 import '../utils/responsive_helper.dart';
-import '../utils/branch_filter_helper.dart';
 import '../widgets/notification_overlay.dart';
 import '../widgets/hrm_collapsible_overview.dart';
 import '../widgets/hrm_page_chrome.dart';
@@ -21,6 +20,11 @@ import '../providers/permission_provider.dart';
 import 'package:zkteco_flutter_client/l10n/app_tr.dart';
 
 import '../theme/sbox_tokens.dart';
+import 'meal_tracking_registration_tab.dart';
+import 'meal/meal_canteen_live_view.dart';
+import 'meal/meal_report_view.dart';
+import 'meal/meal_ticket_station_screen.dart';
+import 'meal/meal_today_view.dart';
 class MealTrackingScreen extends StatefulWidget {
   const MealTrackingScreen({super.key});
   @override
@@ -32,8 +36,14 @@ class _MealTrackingScreenState extends State<MealTrackingScreen>
   final ApiService _apiService = ApiService();
   late TabController _tabCtl;
 
+  /// Tab theo quyền: nhân viên thấy Hôm nay / Đăng ký / Thực đơn tuần / Báo cáo (của mình);
+  /// căn tin & quản lý (quyền Sửa module Chấm cơm) thêm Căn tin / Lịch sử / Công nợ.
+  late final List<String> _tabKeys;
+  late final bool _canManage;
+  bool _sessionsLoaded = false;
+  String get _tab => _tabKeys[_tabCtl.index];
+
   // Dashboard
-  MealSummary? _mealSummary;
   DateTime _selectedDate = DateTime.now();
 
   // Sessions
@@ -45,16 +55,10 @@ class _MealTrackingScreenState extends State<MealTrackingScreen>
   int _totalPages = 1;
   int _totalRecords = 0;
   String _recordSearch = '';
-  String _summarySearch = '';
   String _debtSearch = '';
   String? _filterSessionId;
 
   // Summary
-  List<EmployeeMealSummary> _employeeSummaries = [];
-  DateTime _summaryFrom = DateTime.now().subtract(const Duration(days: 30));
-  DateTime _summaryTo = DateTime.now();
-  String? _selectedBranchId;
-  List<Map<String, dynamic>> _branches = [];
 
   // Menu
   List<MealMenu> _weeklyMenus = [];
@@ -93,7 +97,17 @@ class _MealTrackingScreenState extends State<MealTrackingScreen>
   @override
   void initState() {
     super.initState();
-    _tabCtl = TabController(length: 5, vsync: this);
+    _canManage = Provider.of<PermissionProvider>(context, listen: false).canEdit('Meal');
+    _tabKeys = [
+      'today',
+      if (_canManage) 'canteen',
+      'register',
+      'menu',
+      if (_canManage) 'records',
+      'report',
+      if (_canManage) 'debt',
+    ];
+    _tabCtl = TabController(length: _tabKeys.length, vsync: this);
     _tabCtl.addListener(() {
       if (!_tabCtl.indexIsChanging) {
         setState(() {});
@@ -114,20 +128,14 @@ class _MealTrackingScreenState extends State<MealTrackingScreen>
   }
 
   void _loadCurrentTab() {
-    switch (_tabCtl.index) {
-      case 0:
-        _loadEstimate();
-        break;
-      case 1:
+    switch (_tab) {
+      case 'records':
         _loadRecords();
         break;
-      case 2:
-        _loadEmployeeSummary();
-        break;
-      case 3:
+      case 'menu':
         _loadWeeklyMenu();
         break;
-      case 4:
+      case 'debt':
         _loadDebtSummary();
         break;
     }
@@ -145,6 +153,7 @@ class _MealTrackingScreenState extends State<MealTrackingScreen>
     } catch (e) {
       debugPrint('Load sessions error: $e');
     }
+    if (mounted) setState(() => _sessionsLoaded = true);
   }
 
   Future<void> _loadMasterDishes() async {
@@ -159,32 +168,6 @@ class _MealTrackingScreenState extends State<MealTrackingScreen>
     } catch (e) {
       debugPrint('Load dishes error: $e');
     }
-  }
-
-  Future<void> _loadEstimate() async {
-    setState(() => _isLoading = true);
-    try {
-      final dateStr = DateFormat('yyyy-MM-dd').format(_selectedDate);
-      final res = await _apiService.getMealEstimate(date: dateStr);
-      if (res['isSuccess'] == true && res['data'] != null) {
-        _mealSummary =
-            MealSummary.fromJson(res['data'] as Map<String, dynamic>);
-      }
-      // Also load today's menu for inline display
-      final weekStart = _getMonday(_selectedDate);
-      final menuRes = await _apiService.getWeeklyMealMenu(
-        weekStartDate: DateFormat('yyyy-MM-dd').format(weekStart),
-      );
-      if (menuRes['isSuccess'] == true && menuRes['data'] != null) {
-        final list = menuRes['data'] as List? ?? [];
-        _weeklyMenus = list
-            .map((e) => MealMenu.fromJson(e as Map<String, dynamic>))
-            .toList();
-      }
-    } catch (e) {
-      debugPrint('Load estimate error: $e');
-    }
-    if (mounted) setState(() => _isLoading = false);
   }
 
   Future<void> _loadRecords() async {
@@ -207,25 +190,6 @@ class _MealTrackingScreenState extends State<MealTrackingScreen>
       }
     } catch (e) {
       debugPrint('Load records error: $e');
-    }
-    if (mounted) setState(() => _isLoading = false);
-  }
-
-  Future<void> _loadEmployeeSummary() async {
-    setState(() => _isLoading = true);
-    try {
-      final res = await _apiService.getEmployeeMealSummary(
-        fromDate: DateFormat('yyyy-MM-dd').format(_summaryFrom),
-        toDate: DateFormat('yyyy-MM-dd').format(_summaryTo),
-      );
-      if (res['isSuccess'] == true && res['data'] != null) {
-        final list = res['data'] as List? ?? [];
-        _employeeSummaries = list
-            .map((e) => EmployeeMealSummary.fromJson(e as Map<String, dynamic>))
-            .toList();
-      }
-    } catch (e) {
-      debugPrint('Load employee summary error: $e');
     }
     if (mounted) setState(() => _isLoading = false);
   }
@@ -289,14 +253,6 @@ class _MealTrackingScreenState extends State<MealTrackingScreen>
     } catch (e) {
       debugPrint('Load employees error: $e');
     }
-    try {
-      final br = await _apiService.getBranchesForSelect();
-      final bd = br['data'];
-      if (bd is List && mounted) {
-        setState(() => _branches =
-            bd.map((b) => Map<String, dynamic>.from(b as Map)).toList());
-      }
-    } catch (_) {}
   }
 
   Future<void> _doBatchCharge() async {
@@ -1317,7 +1273,7 @@ class _MealTrackingScreenState extends State<MealTrackingScreen>
 
           Widget buildContent() {
             final perm = Provider.of<PermissionProvider>(ctx, listen: false);
-            final canCreateMeal = perm.canCreate('Meal');
+            final canCreateMeal = perm.canEdit('Meal');
             final canEditMeal = perm.canEdit('Meal');
             final canDeleteMeal = perm.canDelete('Meal');
             return Column(
@@ -1743,41 +1699,33 @@ class _MealTrackingScreenState extends State<MealTrackingScreen>
     }
   }
 
-  Future<void> _pickSummaryRange() async {
-    final range = await showDateRangePicker(
-      context: context,
-      firstDate: DateTime(2024),
-      lastDate: DateTime(2030),
-      initialDateRange: DateTimeRange(start: _summaryFrom, end: _summaryTo),
-    );
-    if (range != null) {
-      setState(() {
-        _summaryFrom = range.start;
-        _summaryTo = range.end;
-      });
-      _loadEmployeeSummary();
-    }
-  }
-
   // ==================== BUILD ====================
 
   List<Widget> _buildTopActions() {
     final canCreate =
-        Provider.of<PermissionProvider>(context, listen: false).canCreate('Meal');
-    final tab = _tabCtl.index;
+        Provider.of<PermissionProvider>(context, listen: false).canEdit('Meal');
+    final tab = _tab;
 
     return [
-      if (tab == 0 || tab == 1)
+      if (tab == 'records')
         HrmTopBarAction(
           icon: Icons.calendar_today,
           label: 'Chọn ngày',
           onPressed: _pickDate,
         ),
-      HrmTopBarAction(
-        icon: Icons.restaurant_menu,
-        label: 'Quản lý buổi ăn',
-        onPressed: _showSessionsDialog,
-      ),
+      if (_canManage)
+        HrmTopBarAction(
+          icon: Icons.print_rounded,
+          label: 'Trạm in phiếu ăn',
+          onPressed: () => Navigator.of(context)
+              .push(MaterialPageRoute(builder: (_) => const MealTicketStationScreen())),
+        ),
+      if (_canManage)
+        HrmTopBarAction(
+          icon: Icons.restaurant_menu,
+          label: 'Quản lý buổi ăn',
+          onPressed: _showSessionsDialog,
+        ),
       if (canCreate)
         HrmTopBarAction(
           icon: Icons.menu_book_outlined,
@@ -1790,7 +1738,7 @@ class _MealTrackingScreenState extends State<MealTrackingScreen>
           label: 'Tạo thực đơn',
           onPressed: _showCreateMenuDialog,
         ),
-      if (_weeklyMenus.isNotEmpty) ...[
+      if (tab == 'menu' && _weeklyMenus.isNotEmpty) ...[
         HrmTopBarAction(
           icon: Icons.image_outlined,
           label: 'Xuất ảnh PNG',
@@ -1818,26 +1766,28 @@ class _MealTrackingScreenState extends State<MealTrackingScreen>
             color: Colors.white,
             child: TabBar(
               controller: _tabCtl,
-              isScrollable: isMobile,
+              isScrollable: isMobile || _tabKeys.length > 6,
+              tabAlignment: isMobile || _tabKeys.length > 6 ? TabAlignment.start : null,
+              labelColor: SboxColors.brand700,
+              unselectedLabelColor: SboxColors.slate500,
+              indicatorColor: SboxColors.brand600,
+              indicatorWeight: 3,
+              labelStyle: const TextStyle(fontWeight: FontWeight.w700, fontSize: 13),
               tabs: [
-                Tab(icon: Icon(Icons.restaurant), text: tr('Tổng quan')),
-                Tab(icon: Icon(Icons.list_alt), text: tr('Lịch sử')),
-                Tab(icon: Icon(Icons.people), text: tr('Tổng hợp')),
-                Tab(icon: Icon(Icons.menu_book), text: tr('Thực đơn')),
-                Tab(icon: Icon(Icons.account_balance_wallet), text: tr('Công nợ')),
+                for (final k in _tabKeys)
+                  Tab(
+                    height: 52,
+                    icon: Icon(_tabIcon(k), size: 20),
+                    text: tr(_tabLabel(k)),
+                  ),
               ],
             ),
           ),
           Expanded(
             child: TabBarView(
               controller: _tabCtl,
-              children: [
-                _buildDashboardTab(),
-                _buildRecordsTab(),
-                _buildSummaryTab(),
-                _buildMenuTab(),
-                _buildDebtTab(),
-              ],
+              physics: const NeverScrollableScrollPhysics(),
+              children: [for (final k in _tabKeys) _tabBody(k)],
             ),
           ),
         ],
@@ -1845,6 +1795,47 @@ class _MealTrackingScreenState extends State<MealTrackingScreen>
     ),
     );
   }
+
+  static String _tabLabel(String k) => switch (k) {
+        'today' => 'Hôm nay',
+        'canteen' => 'Căn tin',
+        'register' => 'Đăng ký ăn',
+        'menu' => 'Thực đơn tuần',
+        'records' => 'Lịch sử chấm',
+        'report' => 'Báo cáo',
+        _ => 'Công nợ',
+      };
+
+  static IconData _tabIcon(String k) => switch (k) {
+        'today' => Icons.wb_sunny_rounded,
+        'canteen' => Icons.storefront_rounded,
+        'register' => Icons.event_available_rounded,
+        'menu' => Icons.menu_book_rounded,
+        'records' => Icons.list_alt_rounded,
+        'report' => Icons.insert_chart_rounded,
+        _ => Icons.account_balance_wallet_rounded,
+      };
+
+  Widget _tabBody(String k) => switch (k) {
+        'today' => MealTodayView(canEditMenu: _canManage),
+        'canteen' => const MealCanteenLiveView(),
+        'register' => !_sessionsLoaded
+            ? const Center(child: CircularProgressIndicator())
+            : MealRegistrationTab(
+                key: ValueKey('reg-${_sessions.length}-${_employees.length}'),
+                sessions: _sessions,
+                apiService: _apiService,
+                canCreate: Provider.of<PermissionProvider>(context, listen: false).canCreate('Meal'),
+                isManager: _canManage,
+                employees: _employees.whereType<Map<String, dynamic>>().toList(),
+              ),
+        'menu' => _buildMenuTab(),
+        'records' => _buildRecordsTab(),
+        'report' => MealReportView(
+            onCollect: _canManage ? () => _tabCtl.animateTo(_tabKeys.indexOf('debt')) : null,
+          ),
+        _ => _buildDebtTab(),
+      };
 
   Widget _buildMealOverviewSection({required Widget child}) {
     return Padding(
@@ -1860,423 +1851,11 @@ class _MealTrackingScreenState extends State<MealTrackingScreen>
 
   // ==================== TAB 1: DASHBOARD ====================
 
-  Widget _buildDashboardTab() {
-    if (_isLoading) return const Center(child: CircularProgressIndicator());
-    if (_mealSummary == null) {
-      return Center(
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            const Icon(Icons.restaurant, size: 64, color: SboxColors.slate500),
-            const SizedBox(height: 16),
-            Text(tr('${tr('Chưa có dữ liệu cho ngày ')}${DateFormat('dd/MM/yyyy').format(_selectedDate)}'),
-              style: const TextStyle(color: SboxColors.slate500),
-            ),
-            const SizedBox(height: 16),
-            FilledButton(
-              onPressed: _loadEstimate,
-              child: Text(tr('Tải lại')),
-            ),
-          ],
-        ),
-      );
-    }
-    final summary = _mealSummary!;
-    return RefreshIndicator(
-      onRefresh: _loadEstimate,
-      child: ListView(
-        padding: const EdgeInsets.fromLTRB(0, 0, 0, 16),
-        children: [
-          _buildMealOverviewSection(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.stretch,
-              children: [
-                Card(
-                  child: Padding(
-                    padding: const EdgeInsets.symmetric(vertical: 4),
-                    child: Row(
-                      children: [
-                        IconButton(
-                          icon: const Icon(Icons.chevron_left),
-                          tooltip: tr('Ngày trước'),
-                          onPressed: () {
-                            setState(() => _selectedDate =
-                                _selectedDate.subtract(const Duration(days: 1)));
-                            _loadCurrentTab();
-                          },
-                        ),
-                        Expanded(
-                          child: Column(
-                            children: [
-                              Row(
-                                mainAxisAlignment: MainAxisAlignment.center,
-                                children: [
-                                  const Icon(Icons.calendar_today,
-                                      size: 16, color: HrmPageChrome.chip),
-                                  const SizedBox(width: 6),
-                                  Flexible(
-                                    child: Text(
-                                      tr(DateFormat('EEEE, dd/MM/yyyy', 'vi')
-                                          .format(summary.date)),
-                                      style: const TextStyle(
-                                          fontWeight: FontWeight.bold),
-                                      textAlign: TextAlign.center,
-                                    ),
-                                  ),
-                                ],
-                              ),
-                              const SizedBox(height: 2),
-                              Text(tr('Ước tính: ${summary.totalEstimated} | Thực tế: ${summary.totalActual}'),
-                                style: const TextStyle(
-                                    color: SboxColors.slate500, fontSize: 12),
-                              ),
-                            ],
-                          ),
-                        ),
-                        IconButton(
-                          icon: const Icon(Icons.chevron_right),
-                          tooltip: tr('Ngày sau'),
-                          onPressed: () {
-                            setState(() => _selectedDate =
-                                _selectedDate.add(const Duration(days: 1)));
-                            _loadCurrentTab();
-                          },
-                        ),
-                      ],
-                    ),
-                  ),
-                ),
-                const SizedBox(height: 12),
-                Row(
-                  children: [
-                    Expanded(
-                      child: _summaryCard(
-                        'Ước tính',
-                        summary.totalEstimated.toString(),
-                        Icons.people,
-                        SboxColors.brand500,
-                      ),
-                    ),
-                    const SizedBox(width: 12),
-                    Expanded(
-                      child: _summaryCard(
-                        'Thực ăn',
-                        summary.totalActual.toString(),
-                        Icons.restaurant,
-                        HrmPageChrome.chipMid,
-                      ),
-                    ),
-                    const SizedBox(width: 12),
-                    Expanded(
-                      child: _summaryCard(
-                        'Còn lại',
-                        (summary.totalEstimated - summary.totalActual)
-                            .toString(),
-                        Icons.hourglass_bottom,
-                        HrmPageChrome.chipLight,
-                      ),
-                    ),
-                  ],
-                ),
-              ],
-            ),
-          ),
-          const SizedBox(height: 16),
-          Padding(
-            padding: const EdgeInsets.symmetric(horizontal: 16),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.stretch,
-              children: [
-          // Today's menu section
-          _buildTodayMenuSection(),
-          const SizedBox(height: 24),
-          Text(tr('Chi tiết theo buổi'),
-              style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
-          const SizedBox(height: 12),
-          ...summary.sessions.map(_buildSessionCard),
-              ],
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-
-  Widget _summaryCard(String label, String value, IconData icon, Color color) {
-    return Card(
-      child: Padding(
-        padding: const EdgeInsets.all(16),
-        child: Column(
-          children: [
-            Icon(icon, color: color, size: 32),
-            const SizedBox(height: 8),
-            Text(tr(value),
-                style: TextStyle(
-                    fontSize: 28, fontWeight: FontWeight.bold, color: color)),
-            Text(tr(label), style: const TextStyle(color: SboxColors.slate500)),
-          ],
-        ),
-      ),
-    );
-  }
-
-  Widget _buildTodayMenuSection() {
-    final todayMenus = _weeklyMenus
-        .where((m) =>
-            m.date.year == _selectedDate.year &&
-            m.date.month == _selectedDate.month &&
-            m.date.day == _selectedDate.day)
-        .toList();
-
-    if (todayMenus.isEmpty) {
-      return Card(
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
-        child: Padding(
-          padding: const EdgeInsets.all(20),
-          child: Row(
-            children: [
-              Icon(Icons.menu_book, size: 36, color: SboxColors.slate300),
-              const SizedBox(width: 16),
-              Expanded(
-                child: Text(tr('Chưa có thực đơn cho ngày này'),
-                    style: TextStyle(color: SboxColors.slate500, fontSize: 14)),
-              ),
-            ],
-          ),
-        ),
-      );
-    }
-
-    // Group items by session
-    return Card(
-      shape: RoundedRectangleBorder(
-        borderRadius: BorderRadius.circular(14),
-        side: const BorderSide(color: HrmPageChrome.chip, width: 1),
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Container(
-            width: double.infinity,
-            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
-            decoration: const BoxDecoration(
-              color: HrmPageChrome.chip,
-              borderRadius: BorderRadius.vertical(top: Radius.circular(12)),
-            ),
-            child: Row(
-              children: [
-                const Icon(Icons.restaurant_menu,
-                    color: Colors.white, size: 20),
-                const SizedBox(width: 8),
-                Text(tr('${tr('Thực đơn ')}${DateFormat('dd/MM/yyyy').format(_selectedDate)}'),
-                  style: const TextStyle(
-                      color: Colors.white,
-                      fontWeight: FontWeight.bold,
-                      fontSize: 16),
-                ),
-              ],
-            ),
-          ),
-          ...todayMenus.map((menu) => Padding(
-                padding: const EdgeInsets.fromLTRB(16, 12, 16, 4),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Row(
-                      children: [
-                        Container(
-                          padding: const EdgeInsets.symmetric(
-                              horizontal: 8, vertical: 3),
-                          decoration: BoxDecoration(
-                            color:
-                                HrmPageChrome.chip.withValues(alpha: 0.1),
-                            borderRadius: BorderRadius.circular(10),
-                          ),
-                          child: Text(
-                            tr(menu.mealSessionName ?? 'Buổi ăn'),
-                            style: const TextStyle(
-                                fontWeight: FontWeight.w600,
-                                color: HrmPageChrome.chip,
-                                fontSize: 13),
-                          ),
-                        ),
-                        if (menu.note != null && menu.note!.isNotEmpty) ...[
-                          const SizedBox(width: 8),
-                          Expanded(
-                              child: Text(tr(menu.note!),
-                                  style: TextStyle(
-                                      fontSize: 12,
-                                      color: SboxColors.slate600,
-                                      fontStyle: FontStyle.italic),
-                                  overflow: TextOverflow.ellipsis)),
-                        ],
-                      ],
-                    ),
-                    const SizedBox(height: 8),
-                    ...menu.items.map((item) => Padding(
-                          padding: const EdgeInsets.only(left: 4, bottom: 5),
-                          child: Row(
-                            children: [
-                              Container(
-                                width: 6,
-                                height: 6,
-                                decoration: const BoxDecoration(
-                                    color: HrmPageChrome.chipMid,
-                                    shape: BoxShape.circle),
-                              ),
-                              const SizedBox(width: 10),
-                              Expanded(
-                                  child: Text(tr(item.dishName),
-                                      style: const TextStyle(fontSize: 14))),
-                              if (item.category != null &&
-                                  item.category!.isNotEmpty)
-                                Container(
-                                  padding: const EdgeInsets.symmetric(
-                                      horizontal: 6, vertical: 2),
-                                  decoration: BoxDecoration(
-                                    color: HrmPageChrome.chipMid
-                                        .withValues(alpha: 0.08),
-                                    borderRadius: BorderRadius.circular(6),
-                                  ),
-                                  child: Text(tr(item.category!),
-                                      style: const TextStyle(
-                                          fontSize: 11,
-                                          color: HrmPageChrome.chipMid,
-                                          fontWeight: FontWeight.w500)),
-                                ),
-                            ],
-                          ),
-                        )),
-                    if (todayMenus.last != menu) const Divider(height: 8),
-                  ],
-                ),
-              )),
-          const SizedBox(height: 12),
-        ],
-      ),
-    );
-  }
-
-  Widget _buildSessionCard(MealEstimate est) {
-    final percent = est.estimatedCount > 0
-        ? (est.actualCount / est.estimatedCount).clamp(0.0, 1.0)
-        : 0.0;
-    // Find today's menu for this session
-    final todayMenus = _weeklyMenus
-        .where((m) =>
-            m.mealSessionId == est.mealSessionId &&
-            m.date.year == _selectedDate.year &&
-            m.date.month == _selectedDate.month &&
-            m.date.day == _selectedDate.day)
-        .toList();
-
-    return Card(
-      margin: const EdgeInsets.only(bottom: 12),
-      child: Padding(
-        padding: const EdgeInsets.all(16),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Row(
-              mainAxisAlignment: MainAxisAlignment.spaceBetween,
-              children: [
-                Text(tr(est.mealSessionName),
-                    style: const TextStyle(
-                        fontSize: 16, fontWeight: FontWeight.bold)),
-                Text(
-                  tr('${est.startTime ?? ''} - ${est.endTime ?? ''}'),
-                  style: const TextStyle(color: SboxColors.slate500),
-                ),
-              ],
-            ),
-            if (est.pricePerMeal > 0)
-              Padding(
-                padding: const EdgeInsets.only(top: 4),
-                child: Text(tr('Giá: ${_formatCurrency(est.pricePerMeal)}/suất'),
-                    style: const TextStyle(
-                        color: HrmPageChrome.chipLight, fontSize: 13)),
-              ),
-            const SizedBox(height: 12),
-            ClipRRect(
-              borderRadius: BorderRadius.circular(10),
-              child: LinearProgressIndicator(
-                value: percent,
-                minHeight: 12,
-                backgroundColor: SboxColors.slate200,
-                valueColor: AlwaysStoppedAnimation(percent < 0.7
-                    ? HrmPageChrome.chipMid
-                    : HrmPageChrome.chipLight),
-              ),
-            ),
-            const SizedBox(height: 8),
-            Row(
-              children: [
-                _miniStat('Đăng ký', est.registeredCount.toString(),
-                    HrmPageChrome.chipSoft),
-                const SizedBox(width: 12),
-                _miniStat('Ước tính', est.estimatedCount.toString(),
-                    SboxColors.brand500),
-                const SizedBox(width: 12),
-                _miniStat('Thực tế', est.actualCount.toString(),
-                    HrmPageChrome.chipMid),
-                const SizedBox(width: 12),
-                _miniStat(
-                    'Còn', est.remaining.toString(), HrmPageChrome.chipLight),
-              ],
-            ),
-            // Today's menu inline
-            if (todayMenus.isNotEmpty) ...[
-              const Divider(height: 20),
-              Text(tr('🍽️ Thực đơn hôm nay'),
-                  style: TextStyle(
-                      fontSize: 13,
-                      fontWeight: FontWeight.w600,
-                      color: HrmPageChrome.chip)),
-              const SizedBox(height: 4),
-              ...todayMenus.expand((menu) => menu.items.map((item) => Padding(
-                    padding: const EdgeInsets.only(left: 8, top: 2),
-                    child: Row(
-                      children: [
-                        const Icon(Icons.circle,
-                            size: 5, color: HrmPageChrome.chipMid),
-                        const SizedBox(width: 6),
-                        Text(tr(item.dishName),
-                            style: const TextStyle(fontSize: 13)),
-                        if (item.category != null && item.category!.isNotEmpty)
-                          Padding(
-                            padding: const EdgeInsets.only(left: 6),
-                            child: Text(tr('(${item.category})'),
-                                style: const TextStyle(
-                                    fontSize: 11, color: SboxColors.slate500)),
-                          ),
-                      ],
-                    ),
-                  ))),
-            ],
-          ],
-        ),
-      ),
-    );
-  }
-
-  Widget _miniStat(String label, String value, Color color) {
-    return Expanded(
-      child: Column(
-        children: [
-          Text(tr(value),
-              style: TextStyle(
-                  fontWeight: FontWeight.bold, color: color, fontSize: 16)),
-          Text(tr(label), style: const TextStyle(fontSize: 11, color: SboxColors.slate500)),
-        ],
-      ),
-    );
-  }
-
   // ==================== TAB 2: RECORDS ====================
 
   Widget _buildRecordsTab() {
     final canManage = Provider.of<PermissionProvider>(context, listen: false)
-        .canCreate('Meal');
+        .canEdit('Meal');
     return Column(
       children: [
         _buildMealOverviewSection(
@@ -2397,7 +1976,7 @@ class _MealTrackingScreenState extends State<MealTrackingScreen>
                           final canManage = Provider.of<PermissionProvider>(
                                   context,
                                   listen: false)
-                              .canCreate('Meal');
+                              .canEdit('Meal');
                           return Card(
                             child: ListTile(
                               leading: CircleAvatar(
@@ -2479,340 +2058,11 @@ class _MealTrackingScreenState extends State<MealTrackingScreen>
 
   // ==================== TAB 4: SUMMARY ====================
 
-  Widget _buildSummaryTab() {
-    return Column(
-      children: [
-        _buildMealOverviewSection(
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.stretch,
-            children: [
-              Row(
-                children: [
-                  Expanded(
-                    child: InkWell(
-                      onTap: _pickSummaryRange,
-                      child: InputDecorator(
-                        decoration: InputDecoration(
-                            labelText: tr('Khoảng thời gian'),
-                            border: OutlineInputBorder(),
-                            contentPadding: EdgeInsets.symmetric(
-                                horizontal: 12, vertical: 8)),
-                        child: Text(
-                          tr('${DateFormat('dd/MM/yyyy').format(_summaryFrom)} - ${DateFormat('dd/MM/yyyy').format(_summaryTo)}'),
-                        ),
-                      ),
-                    ),
-                  ),
-                  const SizedBox(width: 12),
-                  FilledButton.icon(
-                    icon: const Icon(Icons.search),
-                    label: Text(tr('Xem')),
-                    onPressed: _loadEmployeeSummary,
-                  ),
-                ],
-              ),
-              const SizedBox(height: 8),
-              TextField(
-                decoration: InputDecoration(
-                  hintText: tr('Tìm theo tên / mã nhân viên...'),
-                  prefixIcon: const Icon(Icons.search, size: 20),
-                  border: const OutlineInputBorder(),
-                  contentPadding:
-                      const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-                  isDense: true,
-                  suffixIcon: _summarySearch.isNotEmpty
-                      ? IconButton(
-                          icon: const Icon(Icons.clear, size: 18),
-                          onPressed: () => setState(() => _summarySearch = ''),
-                        )
-                      : null,
-                ),
-                onChanged: (v) => setState(() => _summarySearch = v),
-              ),
-              if (BranchFilterHelper.showBranchFilter(_branches)) ...[
-                const SizedBox(height: 6),
-                Container(
-                  height: 40,
-                  padding: const EdgeInsets.symmetric(horizontal: 12),
-                  decoration: BoxDecoration(
-                    color: SboxColors.slate50,
-                    borderRadius: BorderRadius.circular(10),
-                    border: Border.all(color: SboxColors.slate200),
-                  ),
-                  child: Row(children: [
-                    const Icon(Icons.account_tree_outlined,
-                        size: 16, color: SboxColors.slate500),
-                    const SizedBox(width: 8),
-                    Expanded(
-                      child: DropdownButtonHideUnderline(
-                        child: DropdownButton<String?>(
-                          value: _selectedBranchId,
-                          isExpanded: true,
-                          isDense: true,
-                          style: const TextStyle(
-                              fontSize: 13, color: SboxColors.slate900),
-                          icon: const Icon(Icons.keyboard_arrow_down,
-                              size: 18, color: SboxColors.slate400),
-                          items: [
-                            DropdownMenuItem<String?>(
-                                value: null,
-                                child: Text(tr('Tất cả chi nhánh'),
-                                    style: TextStyle(fontSize: 13))),
-                            ..._branches.map((b) => DropdownMenuItem<String?>(
-                                value: b['id']?.toString(),
-                                child: Text(tr(b['name']?.toString() ?? ''),
-                                    overflow: TextOverflow.ellipsis,
-                                    style: const TextStyle(fontSize: 13)))),
-                          ],
-                          onChanged: (v) =>
-                              setState(() => _selectedBranchId = v),
-                        ),
-                      ),
-                    ),
-                    if (_selectedBranchId != null)
-                      InkWell(
-                        onTap: () => setState(() => _selectedBranchId = null),
-                        child: const Padding(
-                            padding: EdgeInsets.all(4),
-                            child: Icon(Icons.close,
-                                size: 14, color: SboxColors.slate400)),
-                      ),
-                  ]),
-                ),
-              ],
-            ],
-          ),
-        ),
-        // Summary list
-        Expanded(
-          child: _isLoading
-              ? const Center(child: CircularProgressIndicator())
-              : _employeeSummaries.isEmpty
-                  ? Center(
-                      child: Text(tr('Chưa có dữ liệu'),
-                          style: TextStyle(color: SboxColors.slate500)))
-                  : Builder(
-                      builder: (_) {
-                        final q = _summarySearch.toLowerCase();
-                        // Filter by branch
-                        Set<String>? branchEmpIds;
-                        if (_selectedBranchId != null) {
-                          branchEmpIds = _employees
-                              .whereType<Map>()
-                              .where((e) =>
-                                  e['branchId']?.toString() ==
-                                  _selectedBranchId)
-                              .map((e) => e['id']?.toString() ?? '')
-                              .toSet();
-                        }
-                        var filtered = branchEmpIds != null
-                            ? _employeeSummaries
-                                .where((s) =>
-                                    branchEmpIds!.contains(s.employeeUserId))
-                                .toList()
-                            : _employeeSummaries;
-                        if (q.isNotEmpty) {
-                          filtered = filtered
-                              .where((s) =>
-                                  s.employeeName.toLowerCase().contains(q) ||
-                                  (s.employeeCode ?? '')
-                                      .toLowerCase()
-                                      .contains(q))
-                              .toList();
-                        }
-                        if (filtered.isEmpty) {
-                          return Center(
-                              child: Text(tr('Không tìm thấy'),
-                                  style: TextStyle(color: SboxColors.slate500)));
-                        }
-                        return ListView.builder(
-                          padding: const EdgeInsets.fromLTRB(12, 0, 12, 80),
-                          itemCount: filtered.length,
-                          itemBuilder: (_, i) {
-                            final s = filtered[i];
-                            final paidRatio = s.totalCost > 0
-                                ? (s.totalPaid / s.totalCost).clamp(0.0, 1.0)
-                                : 1.0;
-                            return Card(
-                              margin: const EdgeInsets.only(bottom: 8),
-                              child: InkWell(
-                                borderRadius: BorderRadius.circular(14),
-                                onTap: () => _showEmployeeDetail(s),
-                                child: Padding(
-                                  padding: const EdgeInsets.all(12),
-                                  child: Row(
-                                    children: [
-                                      CircleAvatar(
-                                        backgroundColor:
-                                            HrmPageChrome.chip,
-                                        child: Text(
-                                          tr(s.employeeName.isNotEmpty
-                                              ? s.employeeName[0].toUpperCase()
-                                              : '?'),
-                                          style: const TextStyle(
-                                              color: Colors.white,
-                                              fontWeight: FontWeight.bold),
-                                        ),
-                                      ),
-                                      const SizedBox(width: 12),
-                                      Expanded(
-                                        child: Column(
-                                          crossAxisAlignment:
-                                              CrossAxisAlignment.start,
-                                          children: [
-                                            Text(tr(s.employeeName),
-                                                style: const TextStyle(
-                                                    fontWeight: FontWeight.bold,
-                                                    fontSize: 14)),
-                                            Text(
-                                              tr('${s.employeeCode ?? ''} | ${s.totalMeals} suất | ${_formatCurrency(s.totalCost)}'),
-                                              style: const TextStyle(
-                                                  color: SboxColors.slate500,
-                                                  fontSize: 12),
-                                            ),
-                                            const SizedBox(height: 4),
-                                            ClipRRect(
-                                              borderRadius:
-                                                  BorderRadius.circular(4),
-                                              child: LinearProgressIndicator(
-                                                value: paidRatio,
-                                                minHeight: 5,
-                                                backgroundColor: Colors.red
-                                                    .withValues(alpha: 0.15),
-                                                valueColor:
-                                                    const AlwaysStoppedAnimation(
-                                                        HrmPageChrome.chipMid),
-                                              ),
-                                            ),
-                                            const SizedBox(height: 2),
-                                            Text(tr('Đã trả ${_formatCurrency(s.totalPaid)}'),
-                                              style: const TextStyle(
-                                                  fontSize: 11,
-                                                  color: SboxColors.slate500),
-                                            ),
-                                          ],
-                                        ),
-                                      ),
-                                      const SizedBox(width: 8),
-                                      Column(
-                                        crossAxisAlignment:
-                                            CrossAxisAlignment.end,
-                                        children: [
-                                          Text(
-                                            tr(_formatCurrency(s.balance)),
-                                            style: TextStyle(
-                                                fontWeight: FontWeight.bold,
-                                                fontSize: 16,
-                                                color: s.balance > 0
-                                                    ? Colors.red
-                                                    : HrmPageChrome.chipMid),
-                                          ),
-                                          Text(
-                                            tr(s.balance > 0
-                                                ? 'Còn nợ'
-                                                : 'Đã trả đủ'),
-                                            style: TextStyle(
-                                                fontSize: 10,
-                                                color: SboxColors.slate600),
-                                          ),
-                                        ],
-                                      ),
-                                    ],
-                                  ),
-                                ),
-                              ),
-                            );
-                          },
-                        );
-                      },
-                    ),
-        ),
-        // Total
-        if (_employeeSummaries.isNotEmpty)
-          Container(
-            padding: const EdgeInsets.all(16),
-            color: const Color(0xFFF0F9FF),
-            child: Row(
-              mainAxisAlignment: MainAxisAlignment.spaceBetween,
-              children: [
-                Text(tr('${_employeeSummaries.length} NV'),
-                    style: const TextStyle(fontWeight: FontWeight.bold)),
-                Text(tr('Suất: ${_employeeSummaries.fold<int>(0, (sum, e) => sum + e.totalMeals)}'),
-                  style: const TextStyle(
-                      fontWeight: FontWeight.bold, color: HrmPageChrome.chip),
-                ),
-                Text(tr('Nợ: ${_formatCurrency(_employeeSummaries.fold<double>(0, (sum, e) => sum + e.balance))}'),
-                  style: const TextStyle(
-                      fontWeight: FontWeight.bold, color: Colors.red),
-                ),
-              ],
-            ),
-          ),
-      ],
-    );
-  }
-
-  void _showEmployeeDetail(EmployeeMealSummary emp) {
-    final isMobile = Responsive.isMobile(context);
-
-    Widget buildList() {
-      if (emp.details.isEmpty) {
-        return Center(child: Text(tr('Không có chi tiết')));
-      }
-      return ListView.builder(
-        shrinkWrap: !isMobile,
-        physics: isMobile ? null : const NeverScrollableScrollPhysics(),
-        itemCount: emp.details.length,
-        itemBuilder: (_, i) {
-          final d = emp.details[i];
-          return ListTile(
-            leading: const Icon(Icons.restaurant, color: HrmPageChrome.chipMid),
-            title: Text(tr(d.mealSessionName)),
-            subtitle: Text(tr(DateFormat('dd/MM/yyyy').format(d.date))),
-            trailing: Text(tr(DateFormat('HH:mm').format(d.mealTime))),
-          );
-        },
-      );
-    }
-
-    showDialog(
-      context: context,
-      builder: (ctx) {
-        if (isMobile) {
-          return Dialog.fullscreen(
-            child: Scaffold(
-              appBar: AppBar(
-                title: Text(tr(emp.employeeName)),
-                leading: IconButton(
-                    icon: const Icon(Icons.close),
-                    onPressed: () => Navigator.pop(ctx)),
-              ),
-              body: buildList(),
-            ),
-          );
-        }
-
-        return ScrollableAlertDialog(
-          title: Text(tr(emp.employeeName)),
-          content: SizedBox(
-            width: 400,
-            height: 400,
-            child: buildList(),
-          ),
-          actions: [
-            TextButton(
-                onPressed: () => Navigator.pop(ctx), child: Text(tr('Đóng'))),
-          ],
-        );
-      },
-    );
-  }
-
   // ==================== TAB 4: MENU ====================
 
   Widget _buildMenuTab() {
     final canManage = Provider.of<PermissionProvider>(context, listen: false)
-        .canCreate('Meal');
+        .canEdit('Meal');
     final weekEnd = _menuWeekStart.add(const Duration(days: 6));
     bool isToday(d) =>
         d.year == DateTime.now().year &&
@@ -3133,7 +2383,7 @@ class _MealTrackingScreenState extends State<MealTrackingScreen>
 
   Widget _buildDebtTab() {
     final canManage = Provider.of<PermissionProvider>(context, listen: false)
-        .canCreate('Meal');
+        .canEdit('Meal');
     return Column(
       children: [
         // Period selector
@@ -3803,7 +3053,7 @@ class _MealTrackingScreenState extends State<MealTrackingScreen>
                     onPressed: () => Navigator.pop(ctx)),
                 actions: [
                   if (Provider.of<PermissionProvider>(context, listen: false)
-                      .canCreate('Meal'))
+                      .canEdit('Meal'))
                     IconButton(
                       icon: const Icon(Icons.add),
                       onPressed: () {

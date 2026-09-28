@@ -26,8 +26,8 @@ import 'pos_hkd_books_screen.dart';
 import 'pos_staff_commission_report_screen.dart';
 import 'package:zkteco_flutter_client/l10n/app_tr.dart';
 
-import '../../theme/sbox_tokens.dart';
 import 'pos_shipping_report_screen.dart';
+import '../../widgets/sbox/sbox_ui.dart';
 /// Hub 14 báo cáo — cùng token trang chủ A7 (nền xám, thẻ nổi, chữ #2B3437).
 class PosReportsHubScreen extends StatelessWidget {
   const PosReportsHubScreen({super.key});
@@ -66,7 +66,7 @@ class PosReportsHubScreen extends StatelessWidget {
       (label: 'Voucher', subtitle: 'Sử dụng', icon: Icons.confirmation_number_outlined, module: 'PosReportVoucher', screen: const PosVoucherUsageReportScreen()),
       (label: 'Bán theo khách', subtitle: 'Doanh thu / nợ KH', icon: Icons.people_outline, module: 'PosReportRevenue', screen: const PosCustomerSalesReportScreen()),
       (label: 'Sức khỏe kho', subtitle: 'Cháy / chậm / chết tồn', icon: Icons.inventory_2_outlined, module: 'PosReportStock', screen: const PosStockHealthReportScreen()),
-      (label: 'Hóa đơn điện tử', subtitle: 'Xuất / nháp / email / hủy / thay thế', icon: Icons.request_quote_outlined, module: 'PosEInvoice', screen: const PosEInvoiceReportScreen()),
+      (label: 'Hóa đơn điện tử', subtitle: 'Xuất, xem lại PDF, gửi, thay thế, hủy, đồng bộ, tải từ hãng', icon: Icons.request_quote_outlined, module: 'PosEInvoice', screen: const PosEInvoiceReportScreen()),
       (label: 'Thuế hộ kinh doanh', subtitle: 'Dưới 1 tỷ / 1–3 tỷ / trên 3 tỷ', icon: Icons.request_quote_outlined, module: 'HkdBooks', screen: const PosHkdBooksScreen()),
     ].where((item) => PermissionNavigation.canAccessModule(
           item.module,
@@ -456,6 +456,36 @@ Future<(int total, List<Map<String, dynamic>> items)> _fetchSalesOrders(
   return (0, <Map<String, dynamic>>[]);
 }
 
+// ─── Biểu đồ đầu báo cáo (SBOX) ─────────────────────────────────────
+
+/// Gộp danh sách theo ngày → (nhãn dd/MM, tổng) theo thứ tự ngày.
+({List<String> labels, List<double> values}) _sumByDay(
+  List<Map<String, dynamic>> items,
+  String dateKey,
+  double Function(Map<String, dynamic> e) valueOf,
+) {
+  final map = <DateTime, double>{};
+  for (final e in items) {
+    final d = _parseDate(e[dateKey]);
+    if (d == null) continue;
+    final l = d.isUtc ? d.toLocal() : d;
+    final k = DateTime(l.year, l.month, l.day);
+    map[k] = (map[k] ?? 0) + valueOf(e);
+  }
+  final keys = map.keys.toList()..sort();
+  return (labels: [for (final k in keys) sboxDayLabel(k)], values: [for (final k in keys) map[k]!]);
+}
+
+/// Tóm tắt bán hàng kỳ trước (để tính % so sánh). null nếu kỳ «Toàn thời gian».
+Future<Map<String, dynamic>?> _prevSalesSummary(ApiService api, PosKiotTimeFilterState time) async {
+  final prev = sboxPreviousRange(time.from, time.to);
+  if (prev == null) return null;
+  final r = await api.getPosSalesReportSummary(from: prev.$1, to: prev.$2);
+  return r['isSuccess'] == true && r['data'] is Map ? Map<String, dynamic>.from(r['data'] as Map) : null;
+}
+
+const _vsPrev = 'kỳ trước';
+
 /// Doanh thu — không gộp lợi nhuận / PTTT / nhân viên.
 class PosRevenueReportScreen extends StatefulWidget {
   const PosRevenueReportScreen({super.key});
@@ -473,6 +503,7 @@ class _PosRevenueReportScreenState extends State<PosRevenueReportScreen> {
   bool _loading = true;
   bool _exporting = false;
   Map<String, dynamic>? _data;
+  Map<String, dynamic>? _prev;
   List<Map<String, dynamic>> _orders = [];
   int _orderTotal = 0;
 
@@ -484,7 +515,9 @@ class _PosRevenueReportScreenState extends State<PosRevenueReportScreen> {
 
   Future<void> _load() async {
     setState(() => _loading = true);
+    final prevF = _prevSalesSummary(_api, _time);
     final res = await _api.getPosSalesReportSummary(from: _time.from, to: _time.to);
+    final prev = await prevF;
     final or = await _api.getPosSalesReportOrders(
       from: _time.from,
       to: _time.to,
@@ -494,6 +527,7 @@ class _PosRevenueReportScreenState extends State<PosRevenueReportScreen> {
     if (!mounted) return;
     setState(() {
       _loading = false;
+      _prev = prev;
       _data = res['isSuccess'] == true && res['data'] is Map
           ? Map<String, dynamic>.from(res['data'] as Map)
           : null;
@@ -565,13 +599,40 @@ class _PosRevenueReportScreenState extends State<PosRevenueReportScreen> {
     final revenue = _n(_data?['totalRevenue']);
     final vat = _n(_data?['totalVat']);
     final revenueInclVat = _n(_data?['totalRevenueInclVat']);
-    final byDay = (_data?['byDay'] as List?) ?? [];
-    final barPoints = byDay.whereType<Map>().map((d) {
-      final dt = _parseDate(d['date']) ?? DateTime.now();
-      return (date: dt, value: _n(d['total']));
-    }).toList();
+    final byDay = _maps(_data?['profitByDay']).isNotEmpty ? _maps(_data?['profitByDay']) : _maps(_data?['byDay']);
     final byPay = _maps(_data?['byPayment']);
     final staff = _maps(_data?['topEmployees']);
+    final hasPrev = _prev != null;
+    final insight = SboxInsightPanel(
+      kpis: [
+        SboxKpi(label: 'Doanh thu (chưa VAT)', value: SboxFmt.money(revenue), icon: Icons.payments_outlined,
+            current: revenue, previous: hasPrev ? _n(_prev!['totalRevenue']) : null, compareLabel: _vsPrev),
+        SboxKpi(label: 'Số hóa đơn', value: SboxFmt.number(_n(_data?['orderCount'])), icon: Icons.receipt_long_outlined, tone: SboxTone.violet,
+            current: _n(_data?['orderCount']), previous: hasPrev ? _n(_prev!['orderCount']) : null, compareLabel: _vsPrev),
+        SboxKpi(label: 'Đã thu', value: SboxFmt.money(_n(_data?['totalPaid'])), icon: Icons.account_balance_wallet_outlined, tone: SboxTone.success,
+            current: _n(_data?['totalPaid']), previous: hasPrev ? _n(_prev!['totalPaid']) : null, compareLabel: _vsPrev),
+        SboxKpi(label: 'Hoàn trả', value: SboxFmt.money(_n(_data?['totalRefund'])), icon: Icons.assignment_return_outlined, tone: SboxTone.warning,
+            current: _n(_data?['totalRefund']), previous: hasPrev ? _n(_prev!['totalRefund']) : null, higherIsBetter: false, compareLabel: _vsPrev),
+      ],
+      charts: [
+        SboxChartCard(
+          title: 'Doanh thu theo ngày',
+          subtitle: _time.displayLabel,
+          child: SboxBarChart(
+            labels: [for (final d in byDay) sboxDayLabel(d['date'])],
+            series: [SboxSeries(name: 'Doanh thu', values: [for (final d in byDay) _n(d['revenue'] ?? d['total'])])],
+          ),
+        ),
+        SboxChartCard(
+          title: 'Theo phương thức thanh toán',
+          child: SboxDonutChart(
+            centerValue: SboxFmt.compact(_n(_data?['totalPaid'])),
+            centerLabel: 'Đã thu',
+            slices: [for (final p in byPay) SboxSlice('${p['paymentMethod'] ?? p['method'] ?? 'Khác'}', _n(p['total']))],
+          ),
+        ),
+      ],
+    );
 
     return PosReportMobileScaffold(
       title: 'Doanh thu',
@@ -593,14 +654,13 @@ class _PosRevenueReportScreenState extends State<PosRevenueReportScreen> {
           : ListView(
               padding: const EdgeInsets.fromLTRB(12, 8, 12, 24),
               children: [
+                insight,
                 PosReportCard(
                   title: 'Doanh thu bán hàng',
                   subtitle: _time.displayLabel,
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.stretch,
                     children: [
-                      PosReportBarChart(points: barPoints),
-                      const SizedBox(height: 12),
                       PosReportMetricTiles(
                         moneyFmt: _moneyFmt,
                         onTileTap: (_) => _openAllSales(),
@@ -776,6 +836,41 @@ class _PosSoldGoodsReportScreenState extends State<PosSoldGoodsReportScreen> {
   @override
   Widget build(BuildContext context) {
     final items = _maps(_data?['topByRevenue']);
+    final totalRev = items.fold<double>(0, (a, e) => a + _n(e['revenue']));
+    final totalQty = items.fold<double>(0, (a, e) => a + _n(e['qty']));
+    final byQty = [...items]..sort((a, b) => _n(b['qty']).compareTo(_n(a['qty'])));
+    String nameOf(Map<String, dynamic> p) => p['productName']?.toString() ?? p['name']?.toString() ?? '—';
+    final insight = SboxInsightPanel(
+      kpis: [
+        SboxKpi(label: 'Doanh thu hàng bán', value: SboxFmt.money(totalRev), icon: Icons.payments_outlined, note: _time.displayLabel),
+        SboxKpi(label: 'Số lượng bán', value: SboxFmt.number(totalQty), icon: Icons.shopping_cart_outlined, tone: SboxTone.violet, note: 'Tổng các mặt hàng'),
+        SboxKpi(label: 'Mặt hàng có bán', value: SboxFmt.number(items.where((e) => _n(e['qty']) > 0).length), icon: Icons.category_outlined, tone: SboxTone.neutral),
+        SboxKpi(
+            label: 'Bán chạy nhất',
+            value: byQty.isEmpty ? '—' : nameOf(byQty.first),
+            icon: Icons.local_fire_department_outlined,
+            tone: SboxTone.warning,
+            note: byQty.isEmpty ? null : 'SL ${SboxFmt.number(_n(byQty.first['qty']))}'),
+      ],
+      charts: [
+        SboxChartCard(
+          title: 'Top 10 theo doanh thu',
+          child: SboxRankList(maxItems: 10, items: [
+            for (final p in items) SboxSlice(nameOf(p), _n(p['revenue']), caption: 'SL ${SboxFmt.number(_n(p['qty']))}'),
+          ]),
+        ),
+        SboxChartCard(
+          title: 'Tỷ trọng doanh thu',
+          subtitle: '5 mặt hàng lớn nhất + khác',
+          child: SboxDonutChart(
+            maxSlices: 6,
+            centerValue: SboxFmt.compact(totalRev),
+            centerLabel: 'Doanh thu',
+            slices: [for (final p in items) SboxSlice(nameOf(p), _n(p['revenue']))],
+          ),
+        ),
+      ],
+    );
     return PosReportMobileScaffold(
       title: 'Hàng hóa bán ra',
       time: _time,
@@ -797,6 +892,7 @@ class _PosSoldGoodsReportScreenState extends State<PosSoldGoodsReportScreen> {
           : ListView(
               padding: const EdgeInsets.fromLTRB(12, 8, 12, 24),
               children: [
+                insight,
                 PosReportCard(
                   title: 'Hàng bán trong kỳ',
                   subtitle: 'Bấm món để mở hóa đơn gốc',
@@ -907,6 +1003,38 @@ class _PosPurchaseReportScreenState extends State<PosPurchaseReportScreen> {
   Widget build(BuildContext context) {
     final receipts = _maps(_data?['receipts']);
     final returns = _maps(_data?['returns']);
+    final inDay = _sumByDay(receipts, 'date', (e) => _n(e['grandTotal']));
+    final bySupplier = <String, double>{};
+    for (final e in receipts) {
+      final k = e['supplierName']?.toString().trim().isNotEmpty == true ? e['supplierName'].toString() : 'Không rõ NCC';
+      bySupplier[k] = (bySupplier[k] ?? 0) + _n(e['grandTotal']);
+    }
+    final insight = SboxInsightPanel(
+      kpis: [
+        SboxKpi(label: 'Tiền nhập hàng', value: SboxFmt.money(_n(_data?['receiptAmount'])), icon: Icons.move_to_inbox_outlined,
+            note: '${_n(_data?['receiptCount']).toInt()} phiếu nhập'),
+        SboxKpi(label: 'Trả nhà cung cấp', value: SboxFmt.money(_n(_data?['returnAmount'])), icon: Icons.outbox_outlined, tone: SboxTone.warning,
+            note: '${_n(_data?['returnCount']).toInt()} phiếu trả'),
+        SboxKpi(label: 'Đã trả tiền NCC', value: SboxFmt.money(_n(_data?['paidInPeriod'])), icon: Icons.price_check_outlined, tone: SboxTone.success),
+        SboxKpi(
+            label: 'Nhập ròng',
+            value: SboxFmt.money(_n(_data?['receiptAmount']) - _n(_data?['returnAmount'])),
+            icon: Icons.inventory_outlined,
+            tone: SboxTone.violet,
+            note: 'Nhập − trả NCC'),
+      ],
+      charts: [
+        SboxChartCard(
+          title: 'Giá trị nhập theo ngày',
+          subtitle: _time.displayLabel,
+          child: SboxBarChart(labels: inDay.labels, series: [SboxSeries(name: 'Nhập hàng', values: inDay.values)]),
+        ),
+        SboxChartCard(
+          title: 'Theo nhà cung cấp',
+          child: SboxRankList(items: [for (final e in bySupplier.entries) SboxSlice(e.key, e.value)]),
+        ),
+      ],
+    );
     return PosReportMobileScaffold(
       title: 'Báo cáo nhập hàng',
       time: _time,
@@ -932,6 +1060,7 @@ class _PosPurchaseReportScreenState extends State<PosPurchaseReportScreen> {
           : ListView(
               padding: const EdgeInsets.fromLTRB(12, 8, 12, 24),
               children: [
+                insight,
                 PosReportCard(
                   title: 'Tổng kỳ',
                   child: Column(
@@ -1137,6 +1266,41 @@ class _PosPaymentMethodReportScreenState
     final paySelected = _pay == null
         ? 0
         : payLabels.indexWhere((l) => l == _pay).clamp(0, payLabels.length - 1);
+    final txCount = rows.fold<double>(0, (a, e) => a + _n(e['count']));
+    final sortedPay = [...rows]..sort((a, b) => _n(b['total']).compareTo(_n(a['total'])));
+    final insight = SboxInsightPanel(
+      kpis: [
+        SboxKpi(label: 'Tổng đã thu', value: SboxFmt.money(total), icon: Icons.account_balance_wallet_outlined, note: _time.displayLabel),
+        SboxKpi(label: 'Số giao dịch', value: SboxFmt.number(txCount), icon: Icons.receipt_outlined, tone: SboxTone.violet),
+        SboxKpi(
+            label: 'Phương thức chính',
+            value: sortedPay.isEmpty ? '—' : '${sortedPay.first['paymentMethod'] ?? 'Khác'}',
+            icon: Icons.star_outline_rounded,
+            tone: SboxTone.success,
+            note: sortedPay.isEmpty || total <= 0 ? null : 'Chiếm ${SboxFmt.pct(_n(sortedPay.first['total']) / total * 100)}'),
+        SboxKpi(label: 'TB mỗi giao dịch', value: SboxFmt.money(txCount > 0 ? total / txCount : 0), icon: Icons.calculate_outlined, tone: SboxTone.neutral),
+      ],
+      charts: [
+        SboxChartCard(
+          title: 'Cơ cấu đã thu',
+          subtitle: _time.displayLabel,
+          child: SboxDonutChart(
+            centerValue: SboxFmt.compact(total),
+            centerLabel: 'Đã thu',
+            slices: [for (final s in slices) SboxSlice(s.label, s.value, color: s.color)],
+          ),
+        ),
+        SboxChartCard(
+          title: 'Số giao dịch theo phương thức',
+          child: SboxBarChart(
+            valueFormat: (v) => '${SboxFmt.number(v)} GD',
+            axisFormat: (v) => SboxFmt.number(v),
+            labels: [for (final e in rows) '${e['paymentMethod'] ?? 'Khác'}'],
+            series: [SboxSeries(name: 'Giao dịch', values: [for (final e in rows) _n(e['count'])], color: SboxColors.violet)],
+          ),
+        ),
+      ],
+    );
     return PosReportMobileScaffold(
       title: 'Phương thức thanh toán',
       time: _time,
@@ -1180,17 +1344,12 @@ class _PosPaymentMethodReportScreenState
           : ListView(
               padding: const EdgeInsets.fromLTRB(12, 8, 12, 24),
               children: [
+                insight,
                 PosReportCard(
-                  title: 'Cơ cấu đã thu',
-                  subtitle: _time.displayLabel,
+                  title: 'Chi tiết theo phương thức',
+                  subtitle: 'Bấm để lọc hóa đơn',
                   child: Column(
                     children: [
-                      PosReportDonut(
-                        total: total,
-                        moneyFmt: _moneyFmt,
-                        slices: slices,
-                      ),
-                      const SizedBox(height: 12),
                       PosReportRankList(
                         items: rows,
                         labelOf: (e) {
@@ -1296,6 +1455,52 @@ class _PosDebtCombinedReportScreenState
   Widget build(BuildContext context) {
     final kh = _maps(_customers?['items']);
     final ncc = _maps(_suppliers?['items']);
+    List<double> aging(Map<String, dynamic>? d, List<Map<String, dynamic>> rows) {
+      double sumOf(String key) => rows.fold<double>(0, (a, e) => a + _n(e[key]));
+      return [
+        _n(d?['sumDebt0To30']) != 0 ? _n(d?['sumDebt0To30']) : sumOf('debt0To30'),
+        _n(d?['sumDebt31To60']) != 0 ? _n(d?['sumDebt31To60']) : sumOf('debt31To60'),
+        _n(d?['sumDebt61To90']) != 0 ? _n(d?['sumDebt61To90']) : sumOf('debt61To90'),
+        _n(d?['sumDebtOver90']) != 0 ? _n(d?['sumDebtOver90']) : sumOf('debtOver90'),
+      ];
+    }
+    final insight = SboxInsightPanel(
+      kpis: [
+        SboxKpi(label: 'Khách hàng nợ', value: SboxFmt.money(_n(_customers?['sumDebt'])), icon: Icons.person_outline, tone: SboxTone.danger,
+            note: '${kh.where((e) => _n(e['currentDebt'] ?? e['debt']) > 0).length} khách'),
+        SboxKpi(label: 'Nợ khách quá 90 ngày', value: SboxFmt.money(_n(_customers?['sumDebtOver90'])), icon: Icons.warning_amber_rounded, tone: SboxTone.warning,
+            note: 'Cần thu hồi gấp'),
+        SboxKpi(label: 'Phải trả NCC', value: SboxFmt.money(_n(_suppliers?['sumDebt'])), icon: Icons.local_shipping_outlined, tone: SboxTone.violet,
+            note: '${ncc.where((e) => _n(e['currentDebt']) > 0).length} nhà cung cấp'),
+        SboxKpi(
+            label: 'Chênh lệch thu − trả',
+            value: SboxFmt.money(_n(_customers?['sumDebt']) - _n(_suppliers?['sumDebt'])),
+            icon: Icons.balance_outlined,
+            tone: SboxTone.neutral),
+      ],
+      charts: [
+        SboxChartCard(
+          title: 'Tuổi nợ',
+          subtitle: 'Khách hàng và nhà cung cấp theo số ngày',
+          child: SboxBarChart(
+            labels: const ['0–30 ngày', '31–60 ngày', '61–90 ngày', '> 90 ngày'],
+            series: [
+              if (_party != 2) SboxSeries(name: 'Khách nợ', values: aging(_customers, kh), color: SboxColors.danger),
+              if (_party != 1) SboxSeries(name: 'Nợ NCC', values: aging(_suppliers, ncc), color: SboxColors.violet),
+            ],
+          ),
+        ),
+        SboxChartCard(
+          title: _party == 2 ? 'Nợ NCC lớn nhất' : 'Khách nợ nhiều nhất',
+          child: SboxRankList(
+            color: _party == 2 ? SboxColors.violet : SboxColors.danger,
+            items: _party == 2
+                ? [for (final e in ncc) SboxSlice(e['name']?.toString() ?? '—', _n(e['currentDebt']))]
+                : [for (final e in kh) SboxSlice(e['name']?.toString() ?? e['customerName']?.toString() ?? '—', _n(e['currentDebt'] ?? e['debt']))],
+          ),
+        ),
+      ],
+    );
     return PosReportMobileScaffold(
       title: 'Báo cáo công nợ',
       time: _time,
@@ -1402,6 +1607,7 @@ class _PosDebtCombinedReportScreenState
           : ListView(
               padding: const EdgeInsets.fromLTRB(12, 8, 12, 24),
               children: [
+                insight,
                 if (_party != 2)
                   PosReportCard(
                     title: 'Công nợ khách hàng',
@@ -1510,6 +1716,7 @@ class _PosProfitOnlyReportScreenState extends State<PosProfitOnlyReportScreen> {
       const PosKiotTimeFilterState(preset: PosKiotTimePreset.thisWeek);
   bool _loading = true;
   Map<String, dynamic>? _data;
+  Map<String, dynamic>? _prev;
 
   @override
   void initState() {
@@ -1519,10 +1726,13 @@ class _PosProfitOnlyReportScreenState extends State<PosProfitOnlyReportScreen> {
 
   Future<void> _load() async {
     setState(() => _loading = true);
+    final prevF = _prevSalesSummary(_api, _time);
     final res = await _api.getPosSalesReportSummary(from: _time.from, to: _time.to);
+    final prev = await prevF;
     if (!mounted) return;
     setState(() {
       _loading = false;
+      _prev = prev;
       _data = res['isSuccess'] == true && res['data'] is Map
           ? Map<String, dynamic>.from(res['data'] as Map)
           : null;
@@ -1535,16 +1745,35 @@ class _PosProfitOnlyReportScreenState extends State<PosProfitOnlyReportScreen> {
     final cogs = _n(_data?['totalCogs']);
     final profit = _n(_data?['totalProfit']);
     final margin = _n(_data?['profitMarginPct']);
-    final profitByDay = (_data?['profitByDay'] as List?) ?? [];
-    final linePoints = profitByDay.whereType<Map>().map((d) {
-      final dt = _parseDate(d['date']) ?? DateTime.now();
-      return (
-        date: dt,
-        revenue: _n(d['revenue']),
-        cogs: _n(d['cogs']),
-        profit: _n(d['profit']),
-      );
-    }).toList();
+    final days = _maps(_data?['profitByDay']);
+    final hasPrev = _prev != null;
+    final insight = SboxInsightPanel(
+      kpis: [
+        SboxKpi(label: 'Lợi nhuận gộp', value: SboxFmt.money(profit), icon: Icons.trending_up_rounded, tone: SboxTone.success,
+            current: profit, previous: hasPrev ? _n(_prev!['totalProfit']) : null, compareLabel: _vsPrev),
+        SboxKpi(label: 'Doanh thu', value: SboxFmt.money(revenue), icon: Icons.payments_outlined,
+            current: revenue, previous: hasPrev ? _n(_prev!['totalRevenue']) : null, compareLabel: _vsPrev),
+        SboxKpi(label: 'Giá vốn', value: SboxFmt.money(cogs), icon: Icons.inventory_2_outlined, tone: SboxTone.warning,
+            current: cogs, previous: hasPrev ? _n(_prev!['totalCogs']) : null, higherIsBetter: false, compareLabel: _vsPrev),
+        SboxKpi(label: 'Biên lợi nhuận', value: SboxFmt.pct(margin), icon: Icons.percent_rounded, tone: SboxTone.violet,
+            current: margin, previous: hasPrev ? _n(_prev!['profitMarginPct']) : null, compareLabel: _vsPrev),
+      ],
+      charts: [
+        SboxChartCard(
+          title: 'Doanh thu – giá vốn – lợi nhuận',
+          subtitle: _time.displayLabel,
+          wide: true,
+          child: SboxLineChart(
+            labels: [for (final d in days) sboxDayLabel(d['date'])],
+            series: [
+              SboxSeries(name: 'Doanh thu', values: [for (final d in days) _n(d['revenue'])]),
+              SboxSeries(name: 'Giá vốn', values: [for (final d in days) _n(d['cogs'])], color: SboxColors.warning),
+              SboxSeries(name: 'Lợi nhuận', values: [for (final d in days) _n(d['profit'])], color: SboxColors.success),
+            ],
+          ),
+        ),
+      ],
+    );
 
     return PosReportMobileScaffold(
       title: 'Báo cáo lợi nhuận',
@@ -1579,13 +1808,12 @@ class _PosProfitOnlyReportScreenState extends State<PosProfitOnlyReportScreen> {
           : ListView(
               padding: const EdgeInsets.fromLTRB(12, 8, 12, 24),
               children: [
+                insight,
                 PosReportCard(
                   title: 'Lợi nhuận gộp',
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.stretch,
                     children: [
-                      PosReportMultiLineChart(points: linePoints),
-                      const SizedBox(height: 12),
                       PosReportMetricTiles(
                         moneyFmt: _moneyFmt,
                         onTileTap: (_) => PosReportOpen.sales(
@@ -1667,6 +1895,38 @@ class _PosExpenseReportScreenState extends State<PosExpenseReportScreen> {
     final catSelected = _category == null
         ? 0
         : catLabels.indexWhere((l) => l == _category).clamp(0, catLabels.length - 1);
+    final expDay = _sumByDay(items, 'transactionDate', (e) => _n(e['amount']));
+    final sortedCats = [...cats]..sort((a, b) => _n(b['total']).compareTo(_n(a['total'])));
+    final totalExp = _n(_data?['total']);
+    final dayCount = expDay.labels.isEmpty ? 0 : expDay.labels.length;
+    final insight = SboxInsightPanel(
+      kpis: [
+        SboxKpi(label: 'Tổng chi', value: SboxFmt.money(totalExp), icon: Icons.money_off_csred_outlined, tone: SboxTone.danger, note: _time.displayLabel),
+        SboxKpi(label: 'Số phiếu chi', value: SboxFmt.number(_n(_data?['count'])), icon: Icons.receipt_outlined, tone: SboxTone.neutral),
+        SboxKpi(
+            label: 'Khoản chi lớn nhất',
+            value: sortedCats.isEmpty ? '—' : '${sortedCats.first['category'] ?? 'Khác'}',
+            icon: Icons.pie_chart_outline_rounded,
+            tone: SboxTone.warning,
+            note: sortedCats.isEmpty ? null : SboxFmt.money(_n(sortedCats.first['total']))),
+        SboxKpi(label: 'Chi TB / ngày có chi', value: SboxFmt.money(dayCount > 0 ? totalExp / dayCount : 0), icon: Icons.calendar_today_outlined, tone: SboxTone.violet),
+      ],
+      charts: [
+        SboxChartCard(
+          title: 'Chi theo ngày',
+          subtitle: _category ?? 'Tất cả khoản mục',
+          child: SboxBarChart(labels: expDay.labels, series: [SboxSeries(name: 'Chi', values: expDay.values, color: SboxColors.danger)]),
+        ),
+        SboxChartCard(
+          title: 'Cơ cấu chi phí',
+          child: SboxDonutChart(
+            centerValue: SboxFmt.compact(totalExp),
+            centerLabel: 'Tổng chi',
+            slices: [for (final c in cats) SboxSlice('${c['category'] ?? 'Khác'}', _n(c['total']))],
+          ),
+        ),
+      ],
+    );
     return PosReportMobileScaffold(
       title: 'Báo cáo chi phí',
       time: _time,
@@ -1715,6 +1975,7 @@ class _PosExpenseReportScreenState extends State<PosExpenseReportScreen> {
           : ListView(
               padding: const EdgeInsets.fromLTRB(12, 8, 12, 24),
               children: [
+                insight,
                 PosReportCard(
                   title: 'Tổng chi',
                   child: Column(
@@ -1821,6 +2082,7 @@ class _PosStaffRevenueReportScreenState
       const PosKiotTimeFilterState(preset: PosKiotTimePreset.thisWeek);
   bool _loading = true;
   Map<String, dynamic>? _data;
+  Map<String, dynamic>? _prev;
   String? _staff;
   List<Map<String, dynamic>> _orders = [];
   int _orderTotal = 0;
@@ -1833,7 +2095,9 @@ class _PosStaffRevenueReportScreenState
 
   Future<void> _load() async {
     setState(() => _loading = true);
+    final prevF = _prevSalesSummary(_api, _time);
     final res = await _api.getPosSalesReportSummary(from: _time.from, to: _time.to);
+    _prev = await prevF;
     final orders = await _fetchSalesOrders(
       _api,
       from: _time.from,
@@ -1867,6 +2131,46 @@ class _PosStaffRevenueReportScreenState
   @override
   Widget build(BuildContext context) {
     final staff = _maps(_data?['topEmployees']);
+    String who(Map<String, dynamic> e) => e['soldBy']?.toString().trim().isNotEmpty == true ? e['soldBy'].toString() : '—';
+    final staffRev = staff.fold<double>(0, (a, e) => a + _n(e['revenue']));
+    final prevStaff = <String, double>{for (final e in _maps(_prev?['topEmployees'])) who(e): _n(e['revenue'])};
+    final sortedStaff = [...staff]..sort((a, b) => _n(b['revenue']).compareTo(_n(a['revenue'])));
+    final insight = SboxInsightPanel(
+      kpis: [
+        SboxKpi(label: 'Doanh thu nhân viên bán', value: SboxFmt.money(staffRev), icon: Icons.payments_outlined,
+            current: staffRev, previous: _prev == null ? null : prevStaff.values.fold<double>(0, (a, b) => a + b), compareLabel: _vsPrev),
+        SboxKpi(label: 'Số nhân viên có bán', value: SboxFmt.number(staff.length), icon: Icons.badge_outlined, tone: SboxTone.violet),
+        SboxKpi(label: 'TB / nhân viên', value: SboxFmt.money(staff.isEmpty ? 0 : staffRev / staff.length), icon: Icons.groups_2_outlined, tone: SboxTone.neutral),
+        SboxKpi(
+            label: 'Bán tốt nhất',
+            value: sortedStaff.isEmpty ? '—' : who(sortedStaff.first),
+            icon: Icons.emoji_events_outlined,
+            tone: SboxTone.success,
+            note: sortedStaff.isEmpty ? null : SboxFmt.money(_n(sortedStaff.first['revenue']))),
+      ],
+      charts: [
+        SboxChartCard(
+          title: 'Doanh thu kỳ này và kỳ trước',
+          subtitle: _time.displayLabel,
+          child: SboxBarChart(
+            labels: [for (final e in sortedStaff.take(10)) who(e)],
+            series: [
+              SboxSeries(name: 'Kỳ này', values: [for (final e in sortedStaff.take(10)) _n(e['revenue'])]),
+              if (_prev != null)
+                SboxSeries(name: 'Kỳ trước', values: [for (final e in sortedStaff.take(10)) prevStaff[who(e)] ?? 0], color: SboxColors.slate300),
+            ],
+          ),
+        ),
+        SboxChartCard(
+          title: 'Tỷ trọng doanh thu',
+          child: SboxDonutChart(
+            centerValue: SboxFmt.compact(staffRev),
+            centerLabel: 'Doanh thu',
+            slices: [for (final e in staff) SboxSlice(who(e), _n(e['revenue']))],
+          ),
+        ),
+      ],
+    );
     return PosReportMobileScaffold(
       title: 'Doanh thu theo nhân viên',
       time: _time,
@@ -1900,6 +2204,7 @@ class _PosStaffRevenueReportScreenState
           : ListView(
               padding: const EdgeInsets.fromLTRB(12, 8, 12, 24),
               children: [
+                insight,
                 PosReportCard(
                   title: 'Theo người bán',
                   subtitle: _time.displayLabel,
@@ -1984,6 +2289,34 @@ class _PosCashbookReportScreenState extends State<PosCashbookReportScreen> {
       final income = e['type']?.toString().toLowerCase() == 'income';
       return _cashKind == 1 ? income : !income;
     }).toList();
+    final all = _maps(_data?['items']);
+    bool isIncome(Map<String, dynamic> e) => e['type']?.toString().toLowerCase() == 'income';
+    final inDay = _sumByDay(all, 'transactionDate', (e) => isIncome(e) ? _n(e['amount']) : 0);
+    final outDay = _sumByDay(all, 'transactionDate', (e) => isIncome(e) ? 0 : _n(e['amount']));
+    final insight = SboxInsightPanel(
+      kpis: [
+        SboxKpi(label: 'Tổng thu', value: SboxFmt.money(_n(_data?['income'])), icon: Icons.south_west_rounded, tone: SboxTone.success,
+            note: '${all.where(isIncome).length} phiếu thu'),
+        SboxKpi(label: 'Tổng chi', value: SboxFmt.money(_n(_data?['expense'])), icon: Icons.north_east_rounded, tone: SboxTone.danger,
+            note: '${all.where((e) => !isIncome(e)).length} phiếu chi'),
+        SboxKpi(label: 'Chênh lệch', value: SboxFmt.money(_n(_data?['net'])), icon: Icons.balance_outlined,
+            tone: _n(_data?['net']) < 0 ? SboxTone.danger : SboxTone.brand, note: 'Thu − chi'),
+      ],
+      charts: [
+        SboxChartCard(
+          title: 'Thu – chi theo ngày',
+          subtitle: _time.displayLabel,
+          wide: true,
+          child: SboxBarChart(
+            labels: inDay.labels,
+            series: [
+              SboxSeries(name: 'Thu', values: inDay.values, color: SboxColors.success),
+              SboxSeries(name: 'Chi', values: outDay.values, color: SboxColors.danger),
+            ],
+          ),
+        ),
+      ],
+    );
     return PosReportMobileScaffold(
       title: 'Sổ quỹ',
       time: _time,
@@ -2034,6 +2367,7 @@ class _PosCashbookReportScreenState extends State<PosCashbookReportScreen> {
           : ListView(
               padding: const EdgeInsets.fromLTRB(12, 8, 12, 24),
               children: [
+                insight,
                 PosReportCard(
                   title: 'Thu — chi kỳ',
                   child: PosReportMetricTiles(
@@ -2178,6 +2512,44 @@ class _PosPnlReportScreenState extends State<PosPnlReportScreen> {
   @override
   Widget build(BuildContext context) {
     final net = _n(_data?['netProfit']);
+    final expCats = _maps(_data?['expenseByCategory']);
+    final insight = SboxInsightPanel(
+      kpis: [
+        SboxKpi(label: 'Doanh thu', value: SboxFmt.money(_n(_data?['revenue'])), icon: Icons.payments_outlined,
+            note: '${_n(_data?['orderCount']).toInt()} hóa đơn'),
+        SboxKpi(label: 'Lợi nhuận gộp', value: SboxFmt.money(_n(_data?['grossProfit'])), icon: Icons.trending_up_rounded, tone: SboxTone.success),
+        SboxKpi(label: 'Chi phí', value: SboxFmt.money(_n(_data?['expenses'])), icon: Icons.money_off_csred_outlined, tone: SboxTone.warning),
+        SboxKpi(label: 'Lợi nhuận ròng', value: SboxFmt.money(net), icon: Icons.savings_outlined, tone: net < 0 ? SboxTone.danger : SboxTone.success,
+            note: 'Biên ${SboxFmt.pct(_n(_data?['marginPct']))}'),
+      ],
+      charts: [
+        SboxChartCard(
+          title: 'Từ doanh thu đến lợi nhuận ròng',
+          subtitle: _time.displayLabel,
+          child: SboxBarChart(
+            labels: const ['Doanh thu', 'Giá vốn', 'LN gộp', 'Chi phí', 'Thu khác', 'LN ròng'],
+            series: [
+              SboxSeries(name: 'Số tiền', values: [
+                _n(_data?['revenue']),
+                _n(_data?['cogs']),
+                _n(_data?['grossProfit']),
+                _n(_data?['expenses']),
+                _n(_data?['otherIncome']),
+                net,
+              ]),
+            ],
+          ),
+        ),
+        SboxChartCard(
+          title: 'Cơ cấu chi phí',
+          child: SboxDonutChart(
+            centerValue: SboxFmt.compact(_n(_data?['expenses'])),
+            centerLabel: 'Chi phí',
+            slices: [for (final c in expCats) SboxSlice('${c['category'] ?? 'Khác'}', _n(c['amount']))],
+          ),
+        ),
+      ],
+    );
     return PosReportMobileScaffold(
       title: 'Kết quả kinh doanh',
       time: _time,
@@ -2219,6 +2591,7 @@ class _PosPnlReportScreenState extends State<PosPnlReportScreen> {
           : ListView(
               padding: const EdgeInsets.fromLTRB(12, 8, 12, 24),
               children: [
+                insight,
                 PosReportCard(
                   title: 'P&L kỳ',
                   subtitle: _time.displayLabel,
@@ -2478,6 +2851,36 @@ class _PosVoucherUsageReportScreenState
   @override
   Widget build(BuildContext context) {
     final items = _maps(_data?['items']);
+    final uses = _n(_data?['uses']);
+    final insight = SboxInsightPanel(
+      kpis: [
+        SboxKpi(label: 'Tiền giảm bằng voucher', value: SboxFmt.money(_n(_data?['totalDiscount'])), icon: Icons.local_offer_outlined, tone: SboxTone.warning),
+        SboxKpi(label: 'Doanh thu kèm voucher', value: SboxFmt.money(_n(_data?['revenueWithVoucher'])), icon: Icons.payments_outlined),
+        SboxKpi(label: 'Lượt dùng', value: SboxFmt.number(uses), icon: Icons.confirmation_number_outlined, tone: SboxTone.violet,
+            note: '${items.length} mã voucher'),
+        SboxKpi(
+            label: 'Giảm TB / lượt',
+            value: SboxFmt.money(uses > 0 ? _n(_data?['totalDiscount']) / uses : 0),
+            icon: Icons.calculate_outlined,
+            tone: SboxTone.neutral),
+      ],
+      charts: [
+        SboxChartCard(
+          title: 'Doanh thu mang về theo mã',
+          child: SboxRankList(items: [
+            for (final e in items) SboxSlice('${e['voucherCode'] ?? '—'}', _n(e['revenue']), caption: '${_n(e['uses']).toInt()} lượt'),
+          ]),
+        ),
+        SboxChartCard(
+          title: 'Tiền giảm theo mã',
+          child: SboxDonutChart(
+            centerValue: SboxFmt.compact(_n(_data?['totalDiscount'])),
+            centerLabel: 'Đã giảm',
+            slices: [for (final e in items) SboxSlice('${e['voucherCode'] ?? '—'}', _n(e['discount']))],
+          ),
+        ),
+      ],
+    );
     return PosReportMobileScaffold(
       title: 'Báo cáo voucher',
       time: _time,
@@ -2513,6 +2916,7 @@ class _PosVoucherUsageReportScreenState
           : ListView(
               padding: const EdgeInsets.fromLTRB(12, 8, 12, 24),
               children: [
+                insight,
                 PosReportCard(
                   title: 'Sử dụng voucher',
                   subtitle: _time.displayLabel,

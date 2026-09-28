@@ -28,6 +28,8 @@ public partial class PosEInvoiceService(
     ZKTecoDbContext db,
     ViettelSInvoiceClient viettel,
     EasyInvoiceClient easy,
+    MisaMeInvoiceClient misa,
+    VnptInvoiceClient vnpt,
     ILogger<PosEInvoiceService> logger)
 {
     public async Task<PosEInvoiceSetting> GetOrCreateSettingsAsync(Guid storeId, CancellationToken ct = default)
@@ -55,7 +57,9 @@ public partial class PosEInvoiceService(
         return row;
     }
 
-    public async Task SaveSettingsAsync(Guid storeId, PosEInvoiceSetting incoming, string? newPassword, CancellationToken ct = default)
+    public async Task SaveSettingsAsync(
+        Guid storeId, PosEInvoiceSetting incoming, string? newPassword, string? newServicePassword = null,
+        CancellationToken ct = default)
     {
         var row = await GetOrCreateSettingsAsync(storeId, ct);
         row.Enabled = incoming.Enabled;
@@ -78,6 +82,13 @@ public partial class PosEInvoiceService(
         row.DefaultIssueAtCheckout = incoming.DefaultIssueAtCheckout;
         row.TaxMode = string.IsNullOrWhiteSpace(incoming.TaxMode) ? "included" : incoming.TaxMode.Trim().ToLowerInvariant();
         row.DefaultTaxPercent = incoming.DefaultTaxPercent;
+        row.AppId = (incoming.AppId ?? "").Trim();
+        row.ServiceAccount = (incoming.ServiceAccount ?? "").Trim();
+        if (!string.IsNullOrWhiteSpace(newServicePassword))
+            row.ServicePassword = newServicePassword;
+        row.SignType = incoming.SignType is 2 or 5 ? incoming.SignType : 2;
+        row.PortalUrl = (incoming.PortalUrl ?? "").Trim();
+        row.PrintQrOnReceipt = incoming.PrintQrOnReceipt;
         row.UpdatedAt = DateTime.UtcNow;
         row.LastModified = DateTime.UtcNow;
         row.IsActive = true;
@@ -89,6 +100,7 @@ public partial class PosEInvoiceService(
             "EInvoice SaveSettings store={StoreId} written={Written} template={Template} provider={Provider}",
             storeId, written, row.TemplateCode, row.Provider);
         viettel.InvalidateToken(storeId);
+        misa.InvalidateToken(storeId);
     }
 
     public async Task<(bool Ok, string Message)> TestConnectionAsync(Guid storeId, CancellationToken ct = default)
@@ -105,8 +117,14 @@ public partial class PosEInvoiceService(
             return await easy.TestConnectionAsync(s.ApiBaseUrl, s.Username, s.Password, s.SupplierTaxCode, ct);
         }
 
-        if (provider != "Viettel")
-            return (false, $"Nhà cung cấp {s.Provider} chưa hỗ trợ kiểm tra kết nối");
+        if (provider == "Misa")
+            return await TestMisaAsync(s, ct);
+        if (provider == "Vnpt")
+        {
+            if (string.IsNullOrWhiteSpace(s.ApiBaseUrl))
+                return (false, "Chưa nhập địa chỉ web service VNPT (vd. https://<MST>-tt78admin.vnpt-invoice.com.vn)");
+            return await vnpt.TestConnectionAsync(s.ApiBaseUrl, s.Username, s.Password, ct);
+        }
 
         viettel.InvalidateToken(storeId);
         var login = await viettel.LoginAsync(s.ApiBaseUrl, s.Username, s.Password, ct);
@@ -173,29 +191,16 @@ public partial class PosEInvoiceService(
             !string.IsNullOrWhiteSpace(order.EInvoiceTransactionUuid);
 
         var provider = NormalizeProvider(settings.Provider);
-        if (provider == "Misa")
-        {
-            order.EInvoiceStatus = "Failed";
-            order.EInvoiceProvider = provider;
-            order.EInvoiceError = "Nhà cung cấp MISA chưa hỗ trợ — hiện tại Viettel SInvoice và Easy Invoice";
-            await db.SaveChangesAsync(ct);
-            return;
-        }
+        if (draftOnly && provider is "Misa" or "Vnpt")
+            throw new InvalidOperationException(
+                $"{ProviderLabel(provider)} không hỗ trợ lưu nháp qua API — dùng «Phát hành» hoặc tạo nháp trên trang quản lý của hãng");
 
-        var missingCreds =
-            string.IsNullOrWhiteSpace(settings.Username) ||
-            string.IsNullOrWhiteSpace(settings.Password) ||
-            string.IsNullOrWhiteSpace(settings.SupplierTaxCode) ||
-            string.IsNullOrWhiteSpace(settings.TemplateCode);
-        // Easy SoftDreams: Serial (InvoiceSeries) có thể trống khi Pattern = cả chuỗi 1C26MAA
-        var missingSeries = provider != "Easy" && string.IsNullOrWhiteSpace(settings.InvoiceSeries);
-        if (missingCreds || missingSeries)
+        var missing = MissingConfig(settings, provider);
+        if (missing != null)
         {
             order.EInvoiceStatus = "Failed";
             order.EInvoiceProvider = provider;
-            order.EInvoiceError = provider == "Easy"
-                ? "Thiếu cấu hình Easy Invoice (tài khoản, MST, mẫu số Pattern)"
-                : "Thiếu cấu hình Viettel (tài khoản, MST, mẫu, ký hiệu hóa đơn)";
+            order.EInvoiceError = missing;
             await db.SaveChangesAsync(ct);
             return;
         }
@@ -221,10 +226,21 @@ public partial class PosEInvoiceService(
 
         try
         {
-            if (provider == "Easy")
-                await IssueEasyAsync(order, lines, settings, draftOnly, signExistingDraft, ct: ct);
-            else
-                await IssueViettelAsync(order, lines, settings, draftOnly, ct: ct);
+            switch (provider)
+            {
+                case "Easy":
+                    await IssueEasyAsync(order, lines, settings, draftOnly, signExistingDraft, ct: ct);
+                    break;
+                case "Misa":
+                    await IssueMisaAsync(order, lines, settings, replace: null, ct);
+                    break;
+                case "Vnpt":
+                    await IssueVnptAsync(order, lines, settings, originalFkey: null, ct);
+                    break;
+                default:
+                    await IssueViettelAsync(order, lines, settings, draftOnly, ct: ct);
+                    break;
+            }
         }
         catch (Exception ex)
         {
@@ -335,6 +351,7 @@ public partial class PosEInvoiceService(
         bool signExistingDraft = false,
         int easyType = 1,
         string? originalNo = null,
+        string? originalIkey = null,
         CancellationToken ct = default)
     {
         var xml = BuildEasyXml(order, lines, settings, easyType, originalNo);
@@ -345,7 +362,13 @@ public partial class PosEInvoiceService(
         {
             created = await easy.IssueByIkeysAsync(
                 settings.ApiBaseUrl, settings.Username, settings.Password, settings.SupplierTaxCode,
-                [order.EInvoiceTransactionUuid!], ct);
+                [order.EInvoiceTransactionUuid!], pattern, serial, ct);
+        }
+        else if (easyType == 2 && !string.IsNullOrWhiteSpace(originalIkey))
+        {
+            created = await easy.ReplaceAsync(
+                settings.ApiBaseUrl, settings.Username, settings.Password, settings.SupplierTaxCode,
+                originalIkey, xml, pattern, serial, ct);
         }
         else if (draftOnly)
         {
@@ -416,6 +439,7 @@ public partial class PosEInvoiceService(
         var skipped = q.Where(o => o.EInvoiceStatus == "Skipped");
         var failed = q.Where(o => o.EInvoiceStatus == "Failed");
         var pending = q.Where(o => o.EInvoiceStatus == "Pending");
+        var vatIssued = issued;
         var draft = q.Where(o => o.EInvoiceStatus == "Draft");
         var cancelled = q.Where(o => o.EInvoiceStatus == "Cancelled");
         var none = q.Where(o => o.EInvoiceStatus == "None" || o.EInvoiceStatus == null);
@@ -428,6 +452,9 @@ public partial class PosEInvoiceService(
             to = toUtc,
             issuedCount = await issued.CountAsync(ct),
             issuedAmount = await issued.SumAsync(o => (decimal?)(o.Total + o.VatAmount), ct) ?? 0,
+            issuedVatAmount = await vatIssued.SumAsync(o => (decimal?)o.VatAmount, ct) ?? 0,
+            cancelledAmount = await cancelled.SumAsync(o => (decimal?)(o.Total + o.VatAmount), ct) ?? 0,
+            noneAmount = await none.SumAsync(o => (decimal?)(o.Total + o.VatAmount), ct) ?? 0,
             skippedCount = await skipped.CountAsync(ct),
             skippedAmount = await skipped.SumAsync(o => (decimal?)(o.Total + o.VatAmount), ct) ?? 0,
             failedCount = await failed.CountAsync(ct),
@@ -880,6 +907,8 @@ public partial class PosEInvoiceService(
         if (p.Equals("Misa", StringComparison.OrdinalIgnoreCase) ||
             p.Contains("misa", StringComparison.OrdinalIgnoreCase))
             return "Misa";
+        if (p.Contains("vnpt", StringComparison.OrdinalIgnoreCase))
+            return "Vnpt";
         return "Viettel";
     }
 
@@ -925,9 +954,13 @@ public partial class PosEInvoiceService(
 
     static string NormalizeBaseUrl(string provider, string? raw)
     {
-        if (provider == "Easy")
-            return EasyInvoiceClient.NormalizeBaseUrl(raw);
-        return ViettelSInvoiceClient.NormalizeBaseUrl(raw);
+        return provider switch
+        {
+            "Easy" => EasyInvoiceClient.NormalizeBaseUrl(raw),
+            "Misa" => MisaMeInvoiceClient.NormalizeBaseUrl(raw),
+            "Vnpt" => VnptInvoiceClient.NormalizeBaseUrl(raw),
+            _ => ViettelSInvoiceClient.NormalizeBaseUrl(raw),
+        };
     }
 
     static string Num(decimal v, int decimals)

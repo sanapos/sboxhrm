@@ -6,7 +6,17 @@ class GeoPosition {
   final double latitude;
   final double longitude;
   final double accuracy;
-  GeoPosition({required this.latitude, required this.longitude, required this.accuracy});
+  /// Tốc độ (m/s) nếu thiết bị cung cấp.
+  final double? speed;
+  /// Thời điểm đo (null = không rõ).
+  final DateTime? timestamp;
+  GeoPosition({
+    required this.latitude,
+    required this.longitude,
+    required this.accuracy,
+    this.speed,
+    this.timestamp,
+  });
 }
 
 class GeoError {

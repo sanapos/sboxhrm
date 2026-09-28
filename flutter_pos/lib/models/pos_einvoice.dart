@@ -15,6 +15,17 @@ class PosEInvoiceSettings {
   final bool defaultIssueAtCheckout;
   final String taxMode;
   final double defaultTaxPercent;
+  /// MISA: AppID do MISA cấp.
+  final String appId;
+  /// VNPT: tài khoản web service (Account) + mật khẩu (ACpass).
+  final String serviceAccount;
+  final bool hasServicePassword;
+  /// MISA: 2 = ký HSM, 5 = HĐ máy tính tiền.
+  final int signType;
+  /// Link trang quản lý của hãng (trống = mặc định).
+  final String portalUrl;
+  /// In ký hiệu / số / mã CQT / mã tra cứu + QR tra cứu HĐĐT trên bill bán hàng.
+  final bool printQrOnReceipt;
 
   const PosEInvoiceSettings({
     this.enabled = false,
@@ -30,6 +41,12 @@ class PosEInvoiceSettings {
     this.defaultIssueAtCheckout = false,
     this.taxMode = 'included',
     this.defaultTaxPercent = 10,
+    this.appId = '',
+    this.serviceAccount = '',
+    this.hasServicePassword = false,
+    this.signType = 2,
+    this.portalUrl = '',
+    this.printQrOnReceipt = true,
   });
 
   bool get isViettel => provider.toLowerCase() == 'viettel';
@@ -61,10 +78,19 @@ class PosEInvoiceSettings {
           json['DefaultIssueAtCheckout'] == true,
       taxMode: (json['taxMode'] ?? json['TaxMode'] ?? 'included').toString(),
       defaultTaxPercent: n(json['defaultTaxPercent'] ?? json['DefaultTaxPercent']),
+      appId: (json['appId'] ?? json['AppId'] ?? '').toString(),
+      serviceAccount:
+          (json['serviceAccount'] ?? json['ServiceAccount'] ?? '').toString(),
+      hasServicePassword: json['hasServicePassword'] == true ||
+          json['HasServicePassword'] == true,
+      signType: int.tryParse('${json['signType'] ?? json['SignType'] ?? 2}') ?? 2,
+      portalUrl: (json['portalUrl'] ?? json['PortalUrl'] ?? '').toString(),
+      printQrOnReceipt: json['printQrOnReceipt'] != false &&
+          json['PrintQrOnReceipt'] != false,
     );
   }
 
-  Map<String, dynamic> toSaveJson({String? password}) => {
+  Map<String, dynamic> toSaveJson({String? password, String? servicePassword}) => {
         'enabled': enabled,
         'provider': provider,
         'apiBaseUrl': apiBaseUrl,
@@ -78,7 +104,46 @@ class PosEInvoiceSettings {
         'defaultIssueAtCheckout': defaultIssueAtCheckout,
         'taxMode': taxMode,
         'defaultTaxPercent': defaultTaxPercent,
+        'appId': appId,
+        'serviceAccount': serviceAccount,
+        if (servicePassword != null && servicePassword.isNotEmpty)
+          'servicePassword': servicePassword,
+        'signType': signType,
+        'portalUrl': portalUrl,
+        'printQrOnReceipt': printQrOnReceipt,
       };
+}
+
+/// Tên hiển thị nhà cung cấp HĐĐT.
+String posEInvoiceProviderName(String? provider) {
+  switch ((provider ?? '').trim().toLowerCase()) {
+    case 'easy':
+      return 'Easy Invoice';
+    case 'misa':
+      return 'MISA meInvoice';
+    case 'vnpt':
+      return 'VNPT Invoice';
+    case 'viettel':
+      return 'Viettel SInvoice';
+    default:
+      return provider ?? '';
+  }
+}
+
+/// Xem lại được hóa đơn (PDF / link từ hãng).
+bool posEInvoiceCanView(String? status) {
+  final st = (status ?? '').trim();
+  return st == 'Issued' || st == 'Cancelled';
+}
+
+/// Chưa có bản ký chính thức → xem / gửi bản NHÁP (xem trước từ hãng) cho khách kiểm tra.
+bool posEInvoiceCanPreviewDraft(String? status) {
+  final st = (status ?? 'None').trim();
+  return st == 'None' ||
+      st == 'Skipped' ||
+      st == 'Failed' ||
+      st == 'Draft' ||
+      st == 'Pending';
 }
 
 String posEInvoiceStatusLabel(String? status) {
@@ -184,6 +249,8 @@ class PosEInvoiceRow {
   final String? invoiceNo;
   final String? series;
   final String? code;
+  /// Mã tra cứu (Viettel reservationCode / Easy LookupCode / MISA TransactionID / VNPT fkey).
+  final String? reservationCode;
   final String? error;
   final String? kind;
   final String? originalNo;
@@ -192,6 +259,7 @@ class PosEInvoiceRow {
   final String? emailTo;
   final String? buyerName;
   final String? buyerEmail;
+  final String? buyerTaxCode;
   final DateTime? cancelledAt;
   final String? cancelReason;
 
@@ -206,6 +274,7 @@ class PosEInvoiceRow {
     this.invoiceNo,
     this.series,
     this.code,
+    this.reservationCode,
     this.error,
     this.kind,
     this.originalNo,
@@ -214,6 +283,7 @@ class PosEInvoiceRow {
     this.emailTo,
     this.buyerName,
     this.buyerEmail,
+    this.buyerTaxCode,
     this.cancelledAt,
     this.cancelReason,
   });
@@ -242,6 +312,9 @@ class PosEInvoiceRow {
       invoiceNo: (json['eInvoiceNo'] ?? json['EInvoiceNo'])?.toString(),
       series: (json['eInvoiceSeries'] ?? json['EInvoiceSeries'])?.toString(),
       code: (json['eInvoiceCode'] ?? json['EInvoiceCode'])?.toString(),
+      reservationCode: (json['eInvoiceReservationCode'] ??
+              json['EInvoiceReservationCode'])
+          ?.toString(),
       error: (json['eInvoiceError'] ?? json['EInvoiceError'])?.toString(),
       kind: (json['eInvoiceKind'] ?? json['EInvoiceKind'])?.toString(),
       originalNo:
@@ -254,6 +327,8 @@ class PosEInvoiceRow {
           (json['eInvoiceBuyerName'] ?? json['EInvoiceBuyerName'])?.toString(),
       buyerEmail:
           (json['eInvoiceBuyerEmail'] ?? json['EInvoiceBuyerEmail'])?.toString(),
+      buyerTaxCode: (json['eInvoiceBuyerTaxCode'] ?? json['EInvoiceBuyerTaxCode'])
+          ?.toString(),
       cancelledAt:
           d(json['eInvoiceCancelledAt'] ?? json['EInvoiceCancelledAt']),
       cancelReason: (json['eInvoiceCancelReason'] ?? json['EInvoiceCancelReason'])

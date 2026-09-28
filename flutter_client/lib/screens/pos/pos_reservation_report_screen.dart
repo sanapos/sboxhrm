@@ -8,6 +8,9 @@ import '../../widgets/pos/reports/pos_report_widgets.dart';
 import 'package:zkteco_flutter_client/l10n/app_tr.dart';
 
 import '../../theme/sbox_tokens.dart';
+import '../../widgets/sbox/sbox_report.dart';
+import '../../widgets/sbox/sbox_charts.dart';
+import '../../widgets/sbox/sbox_basics.dart' show SboxTone;
 /// Đặt chỗ / cọc theo kỳ.
 class PosReservationReportScreen extends StatefulWidget {
   const PosReservationReportScreen({super.key});
@@ -127,6 +130,28 @@ class _PosReservationReportScreenState extends State<PosReservationReportScreen>
                   ],
                 ),
                 const SizedBox(height: 10),
+                SboxInsightPanel(
+                  kpis: [
+                    SboxKpi(label: 'Cọc đang giữ', value: SboxFmt.money(_n(_data?['depositHeld'])), icon: Icons.lock_clock_outlined),
+                    SboxKpi(label: 'Đã trừ vào HĐ', value: SboxFmt.money(_n(_data?['depositApplied'])), icon: Icons.receipt_long_outlined, tone: SboxTone.success),
+                    SboxKpi(label: 'Hoàn cọc', value: SboxFmt.money(_n(_data?['depositRefunded'])), icon: Icons.undo_rounded, tone: SboxTone.violet),
+                    SboxKpi(label: 'Phạt / mất cọc', value: SboxFmt.money(_n(_data?['depositForfeited'])), icon: Icons.money_off_outlined, tone: SboxTone.danger),
+                  ],
+                  charts: [
+                    SboxChartCard(
+                      title: 'Tình trạng lịch đặt',
+                      child: SboxDonutChart(
+                        valueFormat: (v) => '${SboxFmt.number(v)} lịch',
+                        slices: [
+                          SboxSlice('Đã đặt', _n(_data?['bookedCount']).toDouble()),
+                          SboxSlice('Đã nhận bàn', _n(_data?['seatedCount']).toDouble(), color: SboxColors.success),
+                          SboxSlice('Hủy', _n(_data?['cancelledCount']).toDouble(), color: SboxColors.slate400),
+                          SboxSlice('Không đến', _n(_data?['noShowCount']).toDouble(), color: SboxColors.danger),
+                        ],
+                      ),
+                    ),
+                  ],
+                ),
                 PosReportCard(
                   title: 'Cọc',
                   child: PosReportMetricTiles(

@@ -38,8 +38,11 @@ internal static class PosStockLotHelper
         Guid? variantId,
         decimal qtyNeeded,
         PosProduct product,
-        string? updatedBy)
+        string? updatedBy,
+        bool allowShortfall = false)
     {
+        // allowShortfall: bán âm kho / kiểm kê — phần thiếu lô ghi «không lô» (giá vốn hiện tại)
+        // thay vì chặn giao dịch (trước đây bán âm hàng có HSD bị lỗi hệ thống).
         if (qtyNeeded <= 0) return ([], null);
 
         var hasActiveLots = await db.PosStockLots.AsNoTracking().AnyAsync(l =>
@@ -72,7 +75,7 @@ internal static class PosStockLotHelper
             remaining -= take;
         }
 
-        if (product.TrackExpiry && remaining > 0)
+        if (product.TrackExpiry && remaining > 0 && !allowShortfall)
             return (null, $"Không đủ tồn lô/HSD: {product.Name} (thiếu {remaining})");
 
         var allocations = new List<LotAllocation>();

@@ -609,6 +609,12 @@ abstract final class PosPrintTokens {
     ('Hinh_Thuc_Thanh_Toan', 'Hình thức thanh toán'),
     ('Nguoi_Ban', 'Người bán'),
     ('Ghi_Chu', 'Ghi chú'),
+    // HĐĐT — chỉ có giá trị khi đơn đã phát hành hóa đơn điện tử.
+    ('HDDT_Ky_Hieu', 'HĐĐT: ký hiệu'),
+    ('HDDT_So', 'HĐĐT: số hóa đơn'),
+    ('HDDT_Ma_CQT', 'HĐĐT: mã CQT'),
+    ('HDDT_Ma_Tra_Cuu', 'HĐĐT: mã tra cứu'),
+    ('HDDT_Link_Tra_Cuu', 'HĐĐT: link tra cứu'),
   ];
 
   static const blockHint =

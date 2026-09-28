@@ -15705,13 +15705,17 @@ class ApiService {
   Future<Map<String, dynamic>> replacePosEInvoice(
     String orderId, {
     String? reason,
+    Map<String, dynamic>? buyer,
   }) async {
     try {
       final response = await http
           .post(
             Uri.parse('$baseUrl/api/pos/einvoice/replace/$orderId'),
             headers: _headers,
-            body: jsonEncode({if (reason != null) 'reason': reason}),
+            body: jsonEncode({
+              if (reason != null) 'reason': reason,
+              ...?buyer,
+            }),
           )
           .timeout(const Duration(seconds: 120));
       return _handleResponse(response);
@@ -15747,6 +15751,91 @@ class ApiService {
             body: jsonEncode({}),
           )
           .timeout(const Duration(seconds: 60));
+      return _handleResponse(response);
+    } catch (e) {
+      return _connectionFailure(e);
+    }
+  }
+
+  /// Link trang quản lý / tra cứu HĐĐT của hãng + khả năng (nháp, danh sách từ hãng).
+  Future<Map<String, dynamic>> getPosEInvoicePortal() async {
+    try {
+      final response = await http
+          .get(Uri.parse('$baseUrl/api/pos/einvoice/portal'), headers: _headers)
+          .timeout(const Duration(seconds: 20));
+      return _handleResponse(response);
+    } catch (e) {
+      return _connectionFailure(e);
+    }
+  }
+
+  /// Xem lại hóa đơn: data.kind = pdf (base64) | url | html.
+  Future<Map<String, dynamic>> getPosEInvoiceView(String orderId) async {
+    try {
+      final response = await http
+          .get(Uri.parse('$baseUrl/api/pos/einvoice/view/$orderId'),
+              headers: _headers)
+          .timeout(const Duration(seconds: 90));
+      return _handleResponse(response);
+    } catch (e) {
+      return _connectionFailure(e);
+    }
+  }
+
+  /// Danh sách hóa đơn tải trực tiếp từ hãng (Viettel / Easy) + đối chiếu đơn POS.
+  Future<Map<String, dynamic>> getPosEInvoiceProviderInvoices({
+    DateTime? from,
+    DateTime? to,
+    int page = 1,
+    int pageSize = 50,
+  }) async {
+    try {
+      final qp = <String, String>{'page': '$page', 'pageSize': '$pageSize'};
+      if (from != null) qp['from'] = from.toUtc().toIso8601String();
+      if (to != null) qp['to'] = to.toUtc().toIso8601String();
+      final uri = Uri.parse('$baseUrl/api/pos/einvoice/provider-invoices')
+          .replace(queryParameters: qp);
+      final response =
+          await http.get(uri, headers: _headers).timeout(const Duration(seconds: 90));
+      return _handleResponse(response);
+    } catch (e) {
+      return _connectionFailure(e);
+    }
+  }
+
+  /// Đồng bộ hàng loạt trạng thái HĐĐT (tối đa 100 đơn / lần).
+  Future<Map<String, dynamic>> syncPosEInvoiceRange({
+    DateTime? from,
+    DateTime? to,
+  }) async {
+    try {
+      final qp = <String, String>{};
+      if (from != null) qp['from'] = from.toUtc().toIso8601String();
+      if (to != null) qp['to'] = to.toUtc().toIso8601String();
+      final uri = Uri.parse('$baseUrl/api/pos/einvoice/sync-range')
+          .replace(queryParameters: qp.isEmpty ? null : qp);
+      final response = await http
+          .post(uri, headers: _headers, body: jsonEncode({}))
+          .timeout(const Duration(minutes: 5));
+      return _handleResponse(response);
+    } catch (e) {
+      return _connectionFailure(e);
+    }
+  }
+
+  /// Báo cáo HĐĐT theo ngày / hãng / tỷ lệ phủ doanh thu.
+  Future<Map<String, dynamic>> getPosEInvoiceReport({
+    DateTime? from,
+    DateTime? to,
+  }) async {
+    try {
+      final q = <String, String>{};
+      if (from != null) q['from'] = from.toIso8601String();
+      if (to != null) q['to'] = to.toIso8601String();
+      final uri = Uri.parse('$baseUrl/api/pos/einvoice/report')
+          .replace(queryParameters: q.isEmpty ? null : q);
+      final response =
+          await http.get(uri, headers: _headers).timeout(const Duration(seconds: 45));
       return _handleResponse(response);
     } catch (e) {
       return _connectionFailure(e);

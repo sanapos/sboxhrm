@@ -17,6 +17,8 @@ import '../widgets/page_top_actions.dart';
 import 'package:zkteco_flutter_client/l10n/app_tr.dart';
 
 import '../theme/sbox_tokens.dart';
+import '../widgets/sbox/sbox_report.dart';
+import '../widgets/sbox/sbox_charts.dart';
 const _cRowH = 54.0;
 const _cHdrH = 44.0;
 const _cStickyW = 168.0;
@@ -385,6 +387,7 @@ class _CashReportScreenState extends State<CashReportScreen> {
                 crossAxisAlignment: CrossAxisAlignment.stretch,
                 children: [
                   _buildOverviewSection(),
+                  if (!_loading) _buildInsight(),
                   reportLoadErrorBanner(_loadError),
                   _buildFilterResultBar(),
                   if (_loading)
@@ -403,6 +406,57 @@ class _CashReportScreenState extends State<CashReportScreen> {
           ),
         ),
       ]),
+      ),
+    );
+  }
+
+  /// Biểu đồ đầu báo cáo: thu – chi theo ngày + cơ cấu chi (bỏ phiếu đã hủy).
+  Widget _buildInsight() {
+    final rows = _filtered.where((t) => !cashReportRowIsCancelled(t)).toList();
+    if (rows.isEmpty) return const SizedBox.shrink();
+    final inc = <DateTime, double>{};
+    final exp = <DateTime, double>{};
+    final expCat = <String, double>{};
+    for (final t in rows) {
+      final d = cashReportRowDate(t);
+      if (d == null) continue;
+      final k = DateTime(d.year, d.month, d.day);
+      inc.putIfAbsent(k, () => 0);
+      exp.putIfAbsent(k, () => 0);
+      final amt = cashReportRowAmount(t);
+      if (cashReportRowType(t) == CashTransactionType.income) {
+        inc[k] = inc[k]! + amt;
+      } else {
+        exp[k] = exp[k]! + amt;
+        final c = fixVietnameseMojibake(t['categoryName']?.toString() ?? 'Khác');
+        expCat[c] = (expCat[c] ?? 0) + amt;
+      }
+    }
+    final days = inc.keys.toList()..sort();
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(12, 12, 12, 0),
+      child: SboxInsightPanel(
+        bottomGap: 0,
+        charts: [
+          SboxChartCard(
+            title: 'Thu – chi theo ngày',
+            child: SboxBarChart(
+              labels: [for (final d in days) sboxDayLabel(d)],
+              series: [
+                SboxSeries(name: 'Thu', values: [for (final d in days) inc[d]!], color: SboxColors.success),
+                SboxSeries(name: 'Chi', values: [for (final d in days) exp[d]!], color: SboxColors.danger),
+              ],
+            ),
+          ),
+          SboxChartCard(
+            title: 'Cơ cấu chi theo danh mục',
+            child: SboxDonutChart(
+              centerValue: SboxFmt.compact(expCat.values.fold<double>(0, (a, b) => a + b)),
+              centerLabel: 'Tổng chi',
+              slices: [for (final e in expCat.entries) SboxSlice(e.key, e.value)],
+            ),
+          ),
+        ],
       ),
     );
   }
