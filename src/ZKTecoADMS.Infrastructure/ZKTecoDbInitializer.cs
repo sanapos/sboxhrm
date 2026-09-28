@@ -3467,7 +3467,8 @@ public class ZKTecoDbInitializer(
         {
             try
             {
-                await context.Database.ExecuteSqlRawAsync(stmt);
+                // ExecuteSqlRaw coi {n} là chỗ điền tham số → regex như [0-9a-f-]{36} bị lỗi FormatException.
+                await context.Database.ExecuteSqlRawAsync(stmt.Replace("{", "{{").Replace("}", "}}"));
             }
             catch (Exception ex)
             {
