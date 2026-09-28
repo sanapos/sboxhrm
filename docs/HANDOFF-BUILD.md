@@ -60,6 +60,24 @@ Bảng mới: `EmployeeLocationPoints`, `UserNotificationSettings`, `StoreNotifi
 5. Đăng nhập sai mật khẩu / mã cửa hàng; đăng ký cửa hàng mới với mã trùng → có gợi ý mã.
 6. Bảng lương: NV nghỉ việc giữa tháng, thuế TNCN có hoa hồng / KPI.
 
+## Bổ sung: deploy + build iOS (phiên Tài chính NS / Duyệt chấm công v2, 28/09/2026)
+Mã của phiên này đã nằm trong commit `e800cff`. Phần bổ sung tài liệu này chưa commit — commit kèm khi bắt đầu.
+
+1. `git push origin fix/tingee-agent-scope-deploy` (nhánh đi trước GitHub 1 commit).
+2. Chạy lại `dotnet test` + `flutter test` (flutter_client). Test "App loads successfully" trong `widget_test.dart` lỗi sẵn — bỏ qua.
+3. Tag dự phòng trên 2 server trước khi deploy — chỉ dùng SSH key, **không** dùng mật khẩu người dùng từng gửi:
+   `ssh -i "$USERPROFILE/.ssh/sbox_deploy_ed25519" -o BatchMode=yes root@103.133.225.67 "docker tag zktecoadms-api:latest zktecoadms-api:rollback-YYYYMMDD-HHMM"` (tương tự 103.133.224.176)
+4. Deploy API (PowerShell): `$env:SBOX_DEPLOY_KEY="$env:USERPROFILE\.ssh\sbox_deploy_ed25519"; foreach ($ip in "103.133.225.67","103.133.224.176") { .\scripts\deploy-api-only.ps1 -Server $ip }`
+5. Deploy web: `$env:Path="C:\Users\TH DECOR\flutter\bin;$env:Path"; .\scripts\deploy-flutter-web-only.ps1 -Target both`
+6. Build iOS + Android qua Codemagic từ nhánh đã push — không in/copy token Codemagic. Không sửa code khi đang đóng gói.
+7. Nhắc người dùng: dán lại URL webhook vận chuyển ở các hãng; build lại APK POS.
+
+**App cũ với server mới:** không lỗi (trường mới tùy chọn, enum mới bị kẹp → chỉ sai nhãn). Rủi ro duy nhất: bật «Bắt buộc lý do chấm ngoài vị trí» cho NV dùng app cũ → NV đó không chấm ngoài vị trí được (mặc định tắt; bật sau khi NV cập nhật app). Hành vi mới áp dụng cả app cũ: tự duyệt bản chấm «tin cậy» (mặc định bật), hạn mức ứng 50% lương/kỳ, duyệt phiếu phạt mặc định trừ lương.
+
+**Kiểm thử thêm:** thưởng tiền mặt → có phiếu chi, bảng lương không cộng; xin ứng vượt hạn mức → báo lỗi; chấm ngoài vị trí gần (<300 m, mặt ≥85%) → tự duyệt, xa → hộp duyệt có bản đồ; «Duyệt + phạt» bổ sung công → có phiếu phạt quên chấm.
+
+**Ràng buộc:** tiếng Việt; không in API key; DB production chỉ kiểm tra schema/đếm; commit kết thúc bằng `Co-Authored-By: Claude Opus 5.5 <noreply@anthropic.com>`.
+
 ## Không nằm trong commit
 Các thư mục / file tạm và bản build trong gốc repo (`.tmp-*`, `dist/`, `installed*_apk/`, ảnh chụp, log build)
 và các dự án riêng chưa từng được theo dõi: `android_pos/`, `tools/SboxPrintAgent/`, `firmware/`.
