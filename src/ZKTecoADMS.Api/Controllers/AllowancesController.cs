@@ -16,7 +16,7 @@ namespace ZKTecoADMS.Api.Controllers;
 public class AllowancesController(IMediator mediator) : AuthenticatedControllerBase
 {
     [HttpGet]
-    [Authorize(Policy = PolicyNames.AtLeastManager)]
+    [Authorize(Policy = PolicyNames.AtLeastEmployee)]
     [RequireModulePermission("Allowance", ModulePermissionAction.View)]
     public async Task<ActionResult<AppResponse<PagedResult<AllowanceDto>>>> GetAllowances(
         [FromQuery] int page = 1,
@@ -31,7 +31,7 @@ public class AllowancesController(IMediator mediator) : AuthenticatedControllerB
     }
 
     [HttpGet("{id}")]
-    [Authorize(Policy = PolicyNames.AtLeastManager)]
+    [Authorize(Policy = PolicyNames.AtLeastEmployee)]
     [RequireModulePermission("Allowance", ModulePermissionAction.View)]
     public async Task<ActionResult<AppResponse<AllowanceDto>>> GetAllowanceById(Guid id)
     {
@@ -41,7 +41,7 @@ public class AllowancesController(IMediator mediator) : AuthenticatedControllerB
     }
 
     [HttpPost]
-    [Authorize(Policy = PolicyNames.AtLeastManager)]
+    [Authorize(Policy = PolicyNames.AtLeastEmployee)]
     [RequireModulePermission("Allowance", ModulePermissionAction.Create)]
     public async Task<ActionResult<AppResponse<AllowanceDto>>> CreateAllowance([FromBody] CreateAllowanceDto request)
     {
@@ -65,7 +65,7 @@ public class AllowancesController(IMediator mediator) : AuthenticatedControllerB
     }
 
     [HttpPut("{id}")]
-    [Authorize(Policy = PolicyNames.AtLeastManager)]
+    [Authorize(Policy = PolicyNames.AtLeastEmployee)]
     [RequireModulePermission("Allowance", ModulePermissionAction.Edit)]
     public async Task<ActionResult<AppResponse<AllowanceDto>>> UpdateAllowance(Guid id, [FromBody] UpdateAllowanceDto request)
     {
@@ -91,7 +91,7 @@ public class AllowancesController(IMediator mediator) : AuthenticatedControllerB
     }
 
     [HttpDelete("{id}")]
-    [Authorize(Policy = PolicyNames.AtLeastManager)]
+    [Authorize(Policy = PolicyNames.AtLeastEmployee)]
     [RequireModulePermission("Allowance", ModulePermissionAction.Delete)]
     public async Task<ActionResult<AppResponse<bool>>> DeleteAllowance(Guid id)
     {

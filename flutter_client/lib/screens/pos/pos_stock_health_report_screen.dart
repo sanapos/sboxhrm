@@ -105,6 +105,7 @@ class _PosStockHealthReportScreenState extends State<PosStockHealthReportScreen>
     );
     return PosReportMobileScaffold(
       title: 'Tồn chậm / cháy hàng',
+      exportModule: 'PosReportStock',
       time: _time,
       onTimeChanged: (s) async {
         setState(() => _time = s);

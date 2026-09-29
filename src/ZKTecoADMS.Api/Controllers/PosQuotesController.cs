@@ -69,7 +69,9 @@ public partial class PosQuotesController(
         List<QuoteLineDto>? Lines,
         List<QuoteDocumentDto>? Documents,
         int? PotentialScore = null,
-        bool IncludeImages = false);
+        bool IncludeImages = false,
+        string VatMode = "per_item",
+        decimal? VatPercent = null);
 
     public record QuoteLineInput(
         string? ProductId,
@@ -101,7 +103,9 @@ public partial class PosQuotesController(
         decimal Discount = 0,
         bool IncludeImages = false,
         decimal DepositAmount = 0,
-        decimal? DepositPercent = null);
+        decimal? DepositPercent = null,
+        string? VatMode = null,
+        decimal? VatPercent = null);
 
     [HttpGet]
     [RequireModulePermission("PosQuotes", ModulePermissionAction.View)]
@@ -211,8 +215,8 @@ public partial class PosQuotesController(
         };
         ApplyHeader(quote, dto);
         ApplyLines(quote, storeId, dto.Lines);
-        ApplyDeposit(quote, dto);
         Recalc(quote);
+        ApplyDeposit(quote, dto);
         dbContext.PosQuotes.Add(quote);
         await AttachQuoteSlipAsync(quote, dto.IncludeImages);
         AddActivity(quote, "Created", $"Tạo báo giá {quote.QuoteNo}");
@@ -245,13 +249,13 @@ public partial class PosQuotesController(
             .FirstAsync(x => x.Id == id);
         ApplyHeader(quote, dto);
         InsertLines(quote, storeId, dto.Lines);
+        Recalc(quote);
         ApplyDeposit(quote, dto);
         if (quote.Status == PosQuoteStatus.Sent)
         {
             quote.Status = PosQuoteStatus.Revised;
             quote.Revision++;
         }
-        Recalc(quote);
         quote.UpdatedAt = now;
         quote.UpdatedBy = CurrentUserEmail;
         await dbContext.Database.ExecuteSqlInterpolatedAsync(
@@ -270,6 +274,9 @@ public partial class PosQuotesController(
                 ""DepositPercent"" = {quote.DepositPercent},
                 ""PrintTemplateId"" = {quote.PrintTemplateId},
                 ""IncludeImages"" = {quote.IncludeImages},
+                ""VatMode"" = {quote.VatMode},
+                ""VatPercent"" = {quote.VatPercent},
+                ""Status"" = {(int)quote.Status},
                 ""CustomerId"" = {quote.CustomerId},
                 ""UpdatedAt"" = {now},
                 ""UpdatedBy"" = {CurrentUserEmail},
@@ -454,6 +461,13 @@ public partial class PosQuotesController(
                 quote.PrintTemplateId = tpl;
         }
         quote.IncludeImages = dto.IncludeImages;
+        if (!string.IsNullOrWhiteSpace(dto.VatMode))
+        {
+            var mode = dto.VatMode.Trim().ToLowerInvariant();
+            quote.VatMode = mode is "per_item" or "added" or "included" or "none" ? mode : "per_item";
+        }
+        if (dto.VatPercent.HasValue)
+            quote.VatPercent = Math.Clamp(dto.VatPercent.Value, 0, 100);
     }
 
     static void ApplyDeposit(PosQuote quote, QuoteSaveDto dto)
@@ -471,12 +485,14 @@ public partial class PosQuotesController(
     static decimal? PositiveDim(decimal? value) =>
         value is > 0 ? value : null;
 
-    static decimal PreVatTotal(PosQuote quote)
-    {
-        var lines = quote.Lines.Where(l => l.Deleted == null).ToList();
-        var lineNet = lines.Sum(l => Math.Max(0, l.Qty * l.UnitPrice - l.DiscountAmount));
-        return Math.Max(0, lineNet - quote.Discount);
-    }
+    /// <summary>Giá trị trước VAT (sau giảm giá) — cơ sở tính cọc %.</summary>
+    static decimal PreVatTotal(PosQuote quote) =>
+        quote.VatMode == "per_item" ? Math.Max(0, NetSum(quote) - quote.Discount) : Math.Max(0, quote.Total - quote.VatAmount);
+
+    static decimal NetSum(PosQuote quote) =>
+        quote.Lines.Where(l => l.Deleted == null).Sum(l => Math.Max(0, l.Qty * l.UnitPrice - l.DiscountAmount));
+
+    static decimal Round0(decimal v) => Math.Round(v, 0, MidpointRounding.AwayFromZero);
 
     void InsertLines(PosQuote quote, Guid storeId, List<QuoteLineInput> inputs)
     {
@@ -632,17 +648,65 @@ public partial class PosQuotesController(
         }
     }
 
+    /// <summary>
+    /// Tính lại tổng theo chế độ VAT (xem <see cref="PosQuote.VatMode"/>):
+    ///  • per_item: thuế từng dòng cộng thêm, giảm giá đơn trừ sau thuế (như trước);
+    ///  • added: (tiền hàng − giảm giá) × (1 + VAT%);
+    ///  • included: giá đã gồm VAT — tổng = tiền hàng − giảm giá, VAT tách ra = tổng × r / (100 + r);
+    ///  • none: không VAT.
+    /// </summary>
     static void Recalc(PosQuote quote)
     {
         var lines = quote.Lines.Where(l => l.Deleted == null).ToList();
-        quote.SubTotal = lines.Sum(l => l.Qty * l.UnitPrice);
-        quote.VatAmount = lines.Sum(l =>
+        var mode = quote.VatMode ?? "per_item";
+        var rate = Math.Clamp(quote.VatPercent ?? 8m, 0, 100);
+        foreach (var l in lines)
         {
             var net = Math.Max(0, l.Qty * l.UnitPrice - l.DiscountAmount);
-            return Math.Round(net * l.VatRate / 100m, 0, MidpointRounding.AwayFromZero);
-        });
-        var lineSum = lines.Sum(l => l.LineTotal);
-        quote.Total = Math.Max(0, lineSum - quote.Discount);
+            switch (mode)
+            {
+                case "added":
+                    l.VatRate = rate;
+                    l.LineTotal = Round0(net * (1 + rate / 100m));
+                    break;
+                case "included":
+                    l.VatRate = rate;
+                    l.LineTotal = Round0(net);
+                    break;
+                case "none":
+                    l.VatRate = 0;
+                    l.LineTotal = Round0(net);
+                    break;
+                default:
+                    l.LineTotal = Round0(net * (1 + l.VatRate / 100m));
+                    break;
+            }
+        }
+        quote.SubTotal = lines.Sum(l => l.Qty * l.UnitPrice);
+        var netSum = lines.Sum(l => Math.Max(0, l.Qty * l.UnitPrice - l.DiscountAmount));
+        switch (mode)
+        {
+            case "added":
+            {
+                var pre = Math.Max(0, netSum - quote.Discount);
+                quote.VatAmount = Round0(pre * rate / 100m);
+                quote.Total = pre + quote.VatAmount;
+                break;
+            }
+            case "included":
+                quote.Total = Math.Max(0, Round0(netSum - quote.Discount));
+                quote.VatAmount = Round0(quote.Total * rate / (100m + rate));
+                break;
+            case "none":
+                quote.VatAmount = 0;
+                quote.Total = Math.Max(0, Round0(netSum - quote.Discount));
+                break;
+            default:
+                quote.VatAmount = lines.Sum(l =>
+                    Round0(Math.Max(0, l.Qty * l.UnitPrice - l.DiscountAmount) * l.VatRate / 100m));
+                quote.Total = Math.Max(0, lines.Sum(l => l.LineTotal) - quote.Discount);
+                break;
+        }
     }
 
     bool CanViewAllQuotes => IsManager;
@@ -768,7 +832,7 @@ public partial class PosQuotesController(
         x.QuotedByEmployeeId,
         x.QuotedByEmployeeId is Guid eid ? names?.GetValueOrDefault(eid) : null,
         x.CommercialStage.ToString(),
-        x.CreatedAt, x.UpdatedAt, null, null, x.PotentialScore, x.IncludeImages);
+        x.CreatedAt, x.UpdatedAt, null, null, x.PotentialScore, x.IncludeImages, x.VatMode, x.VatPercent);
 
     static QuoteDto Map(PosQuote x, IReadOnlyDictionary<Guid, string>? names = null) => new(
         x.Id, x.QuoteNo, x.Status.ToString(), x.CustomerId, x.CustomerName,
@@ -790,5 +854,7 @@ public partial class PosQuotesController(
             .Select(d => MapDoc(d))
             .ToList(),
         x.PotentialScore,
-        x.IncludeImages);
+        x.IncludeImages,
+        x.VatMode,
+        x.VatPercent);
 }

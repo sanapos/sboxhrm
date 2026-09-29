@@ -280,11 +280,15 @@ public class RegisterCommandHandler(
 
             try
             {
+                // Quyền mẫu theo gói đã chọn khi đăng ký (HRM / POS / HRM + POS).
                 await StoreDefaultSetupSeeder.SeedRolePermissionsIfEmptyAsync(
                     permissionRepository,
                     rolePermissionRepository,
                     storeId,
-                    cancellationToken);
+                    cancellationToken,
+                    selectedPackage?.AllowedModules is { Length: > 0 } json
+                        ? System.Text.Json.JsonSerializer.Deserialize<List<string>>(json)
+                        : null);
             }
             catch (Exception ex)
             {

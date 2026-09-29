@@ -61,6 +61,16 @@ public class PosQuote : AuditableEntity<Guid>
     /// <summary>Phiếu in của báo giá này có chèn ảnh sản phẩm 3×3.</summary>
     public bool IncludeImages { get; set; }
 
+    /// <summary>
+    /// Cách tính VAT: per_item (theo từng mặt hàng, cộng thêm) · added (giá chưa VAT + VatPercent %)
+    /// · included (giá đã gồm VAT, tách VatPercent %) · none (không VAT).
+    /// </summary>
+    [MaxLength(20)]
+    public string VatMode { get; set; } = "per_item";
+
+    /// <summary>% VAT chung khi VatMode = added / included.</summary>
+    public decimal? VatPercent { get; set; }
+
     public int Revision { get; set; } = 1;
 
     [MaxLength(200)]

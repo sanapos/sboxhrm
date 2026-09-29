@@ -1,4 +1,5 @@
 import 'dart:async';
+import '../utils/export_permission_guard.dart';
 import 'dart:convert';
 import 'dart:math' as math;
 import '../utils/file_saver.dart' as file_saver;
@@ -759,6 +760,7 @@ class _DeviceAttendanceScreenState extends State<DeviceAttendanceScreen> {
 
   /// Export filtered attendance data to Excel (.xlsx)
   Future<void> _exportToExcel() async {
+    if (!ensureCanExport(context, 'Attendance')) return;
     final data = _filteredAttendances;
     if (data.isEmpty) {
       _showError('Không có dữ liệu để xuất');
@@ -920,6 +922,7 @@ class _DeviceAttendanceScreenState extends State<DeviceAttendanceScreen> {
 
   /// CSV: STT, Pin, Tên nhân viên, Thứ, Ngày, Giờ, Kiểu chấm, Loại xác thực
   Future<void> _exportToCsv() async {
+    if (!ensureCanExport(context, 'Attendance')) return;
     final data = _filteredAttendances;
     if (data.isEmpty) {
       NotificationOverlayManager().showWarning(
@@ -983,6 +986,7 @@ class _DeviceAttendanceScreenState extends State<DeviceAttendanceScreen> {
 
   /// Export filtered attendance data to PDF
   Future<void> _exportToPdf() async {
+    if (!ensureCanExport(context, 'Attendance')) return;
     final data = _filteredAttendances;
     if (data.isEmpty) {
       _showError('Không có dữ liệu để xuất');
@@ -1132,6 +1136,7 @@ class _DeviceAttendanceScreenState extends State<DeviceAttendanceScreen> {
   }
 
   Future<void> _exportToPng() async {
+    if (!ensureCanExport(context, 'Attendance')) return;
     final data = _filteredAttendances;
     if (data.isEmpty) {
       _showError('Không có dữ liệu để xuất');

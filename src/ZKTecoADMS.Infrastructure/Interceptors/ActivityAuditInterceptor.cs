@@ -36,6 +36,9 @@ public sealed class ActivityAuditInterceptor(ActivityAuditCollector collector) :
         nameof(AuditLog), "RefreshToken", "UserToken", "DeviceCommand", "DeviceInfo", "Notification",
         "NotificationRecipient", "UserNotification", "PushSubscription", "FcmToken", "UserDeviceToken",
         "AttendanceSyncLog", "ErrorLog", "PosPrintJob", "LoginSession", "AccessDeviceSession",
+        // Chạy nền (GPS, hành trình, thống kê, webhook, lượt xem) — không phải thao tác của người dùng.
+        "EmployeeLocationPoint", "EmployeeLiveLocation", "JourneyTracking", "ServerMetricSample", "SyncLog",
+        "PosPaymentWebhookEvent", "CommunicationRead", "AnnouncementDelivery", "PosBranchStock",
     };
 
     static readonly HashSet<string> SkipFields = new(StringComparer.OrdinalIgnoreCase)

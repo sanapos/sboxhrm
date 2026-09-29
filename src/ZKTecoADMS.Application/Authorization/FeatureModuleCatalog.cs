@@ -134,6 +134,11 @@ public static class FeatureModuleCatalog
         new("PosStorePrinters", "Máy in cloud", "Máy in Cloud / Print Agent dùng chung cửa hàng — bật theo gói dịch vụ", "Thiết lập POS", 87),
         new("PosShipping", "Đơn vị giao hàng", "GHN / GHTK / Viettel Post / AhaMove — cấu hình, so sánh cước, tạo vận đơn", "Thiết lập POS", 72),
         new("HkdBooks", "Thuế hộ kinh doanh", "Sổ thuế HKD dưới 1 tỷ / 1–3 tỷ / trên 3 tỷ (TT 152/2025)", "Báo cáo", 73),
+        // Quyền con bán hàng / kho — không chọn theo gói (đi theo Bán hàng / Hàng hóa).
+        new("PosSellPriceEdit", "Sửa giá khi bán", "Đổi đơn giá tay trên màn bán (khác giá niêm yết / bảng giá)", "POS / Bán hàng", 53, false),
+        new("PosSellDiscount", "Giảm giá khi bán", "Chiết khấu dòng / chiết khấu cả đơn trên màn bán", "POS / Bán hàng", 53, false),
+        new("PosSellCancelPaid", "Hủy hóa đơn đã thu", "Hủy đơn đã thanh toán (hoàn kho, đảo thu chi)", "POS / Bán hàng", 53, false),
+        new("PosViewCost", "Xem giá vốn & lợi nhuận", "Thấy giá vốn, giá trị tồn, lãi trên hàng hóa / kho / chi nhánh", "POS / Bán hàng", 52, false),
         new("PosQuotes", "Báo giá", "Báo giá thương mại: hạn, mẫu, trạng thái — độc lập bán hàng, không trừ kho", "POS / Thương mại", 89),
 
         // ══════════ THIẾT LẬP HRM ══════════

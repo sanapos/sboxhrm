@@ -63,7 +63,7 @@ public class TransactionsController(
     }
 
     [HttpGet("summary")]
-    [Authorize(Policy = PolicyNames.AtLeastManager)]
+    [Authorize(Policy = PolicyNames.ManagerOrAccountant)]
     [RequireAnyModulePermission(ModulePermissionAction.View, "Transaction", "CashTransaction", "BonusPenalty")]
     public async Task<ActionResult<AppResponse<TransactionSummaryDto>>> GetTransactionSummary(
         [FromQuery] Guid? employeeUserId = null,
@@ -76,7 +76,7 @@ public class TransactionsController(
     }
 
     [HttpPost]
-    [Authorize(Policy = PolicyNames.AtLeastManager)]
+    [Authorize(Policy = PolicyNames.ManagerOrAccountant)]
     [RequireAnyModulePermission(ModulePermissionAction.Create, "Transaction", "CashTransaction", "BonusPenalty")]
     public async Task<ActionResult<AppResponse<PaymentTransactionDto>>> CreateTransaction([FromBody] CreatePaymentTransactionDto request)
     {
@@ -117,7 +117,7 @@ public class TransactionsController(
     }
 
     [HttpPut("{id}/status")]
-    [Authorize(Policy = PolicyNames.AtLeastManager)]
+    [Authorize(Policy = PolicyNames.ManagerOrAccountant)]
     [RequireAnyModulePermission(ModulePermissionAction.Edit, "Transaction", "CashTransaction", "BonusPenalty")]
     public async Task<ActionResult<AppResponse<PaymentTransactionDto>>> UpdateTransactionStatus(
         Guid id,
@@ -173,7 +173,7 @@ public class TransactionsController(
     }
 
     [HttpPut("{id}")]
-    [Authorize(Policy = PolicyNames.AtLeastManager)]
+    [Authorize(Policy = PolicyNames.ManagerOrAccountant)]
     [RequireAnyModulePermission(ModulePermissionAction.Edit, "Transaction", "CashTransaction", "BonusPenalty")]
     public async Task<ActionResult<AppResponse<PaymentTransactionDto>>> UpdateTransaction(
         Guid id,
@@ -193,7 +193,7 @@ public class TransactionsController(
     }
 
     [HttpDelete("{id}")]
-    [Authorize(Policy = PolicyNames.AtLeastManager)]
+    [Authorize(Policy = PolicyNames.ManagerOrAccountant)]
     [RequireAnyModulePermission(ModulePermissionAction.Delete, "Transaction", "CashTransaction", "BonusPenalty")]
     public async Task<ActionResult<AppResponse<bool>>> DeleteTransaction(Guid id)
     {
@@ -233,7 +233,7 @@ public class TransactionsController(
     }
 
     [HttpPost("bulk-approve")]
-    [Authorize(Policy = PolicyNames.AtLeastManager)]
+    [Authorize(Policy = PolicyNames.ManagerOrAccountant)]
     [RequireAnyModulePermission(ModulePermissionAction.Approve, "Transaction", "CashTransaction", "BonusPenalty")]
     public async Task<ActionResult<AppResponse<BulkTransactionResultDto>>> BulkApprove([FromBody] BulkTransactionApproveDto request)
     {
@@ -283,7 +283,7 @@ public class TransactionsController(
     }
 
     [HttpPost("bulk-pay")]
-    [Authorize(Policy = PolicyNames.AtLeastManager)]
+    [Authorize(Policy = PolicyNames.ManagerOrAccountant)]
     [RequireAnyModulePermission(ModulePermissionAction.Create, "Transaction", "CashTransaction", "BonusPenalty")]
     public async Task<ActionResult<AppResponse<BulkTransactionResultDto>>> BulkPay([FromBody] BulkTransactionPayDto request)
     {

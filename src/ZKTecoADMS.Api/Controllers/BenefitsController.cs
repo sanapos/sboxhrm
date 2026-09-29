@@ -24,7 +24,7 @@ public class BenefitsController(IMediator mediator) : AuthenticatedControllerBas
     /// Get all salary profiles
     /// </summary>
     [HttpGet]
-    [Authorize(Policy = PolicyNames.AtLeastManager)]
+    [Authorize(Policy = PolicyNames.ManagerOrAccountant)]
     [RequireAnyModulePermission(ModulePermissionAction.View, "Benefit", "BonusPenalty")]
     public async Task<ActionResult<AppResponse<List<BenefitDto>>>> GetAllProfiles([FromQuery] int? salaryRateType = null)
     {
@@ -37,7 +37,7 @@ public class BenefitsController(IMediator mediator) : AuthenticatedControllerBas
     /// Get salary profile by ID
     /// </summary>
     [HttpGet("{id}")]
-    [Authorize(Policy = PolicyNames.AtLeastManager)]
+    [Authorize(Policy = PolicyNames.ManagerOrAccountant)]
     [RequireAnyModulePermission(ModulePermissionAction.View, "Benefit", "BonusPenalty")]
     public async Task<ActionResult<AppResponse<BenefitDto>>> GetProfileById(Guid id)
     {
@@ -50,7 +50,7 @@ public class BenefitsController(IMediator mediator) : AuthenticatedControllerBas
     /// Create a new salary profile
     /// </summary>
     [HttpPost]
-    [Authorize(Policy = PolicyNames.AtLeastManager)]
+    [Authorize(Policy = PolicyNames.ManagerOrAccountant)]
     [RequireAnyModulePermission(ModulePermissionAction.Create, "Benefit", "BonusPenalty")]
     public async Task<ActionResult<AppResponse<BenefitDto>>> CreateProfile([FromBody] CreateBenefitRequest request)
     {
@@ -65,7 +65,7 @@ public class BenefitsController(IMediator mediator) : AuthenticatedControllerBas
     /// Update an existing salary profile
     /// </summary>
     [HttpPut("{id}")]
-    [Authorize(Policy = PolicyNames.AtLeastManager)]
+    [Authorize(Policy = PolicyNames.ManagerOrAccountant)]
     [RequireAnyModulePermission(ModulePermissionAction.Edit, "Benefit", "BonusPenalty")]
     public async Task<ActionResult<AppResponse<BenefitDto>>> UpdateProfile(Guid id, [FromBody] UpdateSalaryProfileRequest request)
     {
@@ -81,7 +81,7 @@ public class BenefitsController(IMediator mediator) : AuthenticatedControllerBas
     /// Delete a salary profile
     /// </summary>
     [HttpDelete("{id}")]
-    [Authorize(Policy = PolicyNames.AtLeastManager)]
+    [Authorize(Policy = PolicyNames.ManagerOrAccountant)]
     [RequireAnyModulePermission(ModulePermissionAction.Delete, "Benefit", "BonusPenalty")]
     public async Task<ActionResult<AppResponse<bool>>> DeleteProfile(Guid id)
     {
@@ -94,7 +94,7 @@ public class BenefitsController(IMediator mediator) : AuthenticatedControllerBas
     /// Assign a salary profile to an employee
     /// </summary>
     [HttpPost("assign")]
-    [Authorize(Policy = PolicyNames.AtLeastManager)]
+    [Authorize(Policy = PolicyNames.ManagerOrAccountant)]
     [RequireAnyModulePermission(ModulePermissionAction.Create, "Benefit", "BonusPenalty")]
     public async Task<ActionResult<AppResponse<EmployeeBenefitDto>>> AssignEmployee([FromBody] AssignSalaryProfileRequest request)
     {
@@ -142,7 +142,7 @@ public class BenefitsController(IMediator mediator) : AuthenticatedControllerBas
     /// Get active salary profile for an employee
     /// </summary>
     [HttpGet("employees")]
-    [Authorize(Policy = PolicyNames.AtLeastManager)]
+    [Authorize(Policy = PolicyNames.ManagerOrAccountant)]
     [RequireAnyModulePermission(ModulePermissionAction.View, "Benefit", "BonusPenalty", "Payroll")]
     public async Task<ActionResult<AppResponse<IEnumerable<EmployeeBenefitDto>>>> GetEmployeeBenefits()
     {

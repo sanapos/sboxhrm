@@ -49,6 +49,12 @@ public class GlobalExceptionMiddleware(ILogger<GlobalExceptionMiddleware> logger
                 Errors = new[] { "Unauthorized access" },
                 Data = (object?)null
             },
+            ForbiddenException forbiddenEx => new
+            {
+                IsSuccess = false,
+                Errors = new[] { forbiddenEx.Message },
+                Data = (object?)null
+            },
             BadRequestException badRequestEx => new
             {
                 IsSuccess = false,
@@ -74,6 +80,7 @@ public class GlobalExceptionMiddleware(ILogger<GlobalExceptionMiddleware> logger
             NotFoundException => (int)HttpStatusCode.NotFound,
             UnauthorizedException => (int)HttpStatusCode.Unauthorized,
             BadRequestException => (int)HttpStatusCode.BadRequest,
+            ForbiddenException => (int)HttpStatusCode.Forbidden,
             UnauthorizedAccessException => (int)HttpStatusCode.Unauthorized,
             ArgumentException => (int)HttpStatusCode.BadRequest,
             _ => (int)HttpStatusCode.InternalServerError

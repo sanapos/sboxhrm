@@ -11,6 +11,48 @@ namespace ZKTecoADMS.Infrastructure.Services;
 /// </summary>
 public static class BranchStockService
 {
+    /// <summary>
+    /// Quyền Thêm / Sửa / Xóa tại chi nhánh: quản lý chi nhánh (hoặc chi nhánh cha) → được;
+    /// có dòng phân quyền chi nhánh phủ chi nhánh này → theo cờ; không có dòng nào → được (quyền đến từ vai trò / phòng ban).
+    /// </summary>
+    public static async Task<bool> CanActOnBranchAsync(
+        ZKTecoDbContext db, Guid userId, Guid storeId, Guid? branchId,
+        ZKTecoADMS.Application.Interfaces.BranchAction action, CancellationToken ct = default)
+    {
+        if (branchId == null) return true;
+        var parents = await db.Branches.AsNoTracking()
+            .Where(b => b.StoreId == storeId && b.Deleted == null)
+            .Select(b => new { b.Id, b.ParentBranchId, b.ManagerId })
+            .ToDictionaryAsync(b => b.Id, ct);
+        var chain = new List<Guid>();
+        for (Guid? cur = branchId; cur != null && parents.ContainsKey(cur.Value) && !chain.Contains(cur.Value);
+             cur = parents[cur.Value].ParentBranchId)
+            chain.Add(cur.Value);
+
+        var employeeId = await db.Employees.AsNoTracking()
+            .Where(e => e.ApplicationUserId == userId && e.StoreId == storeId)
+            .Select(e => e.Id)
+            .FirstOrDefaultAsync(ct);
+        if (employeeId != Guid.Empty && chain.Any(id => parents[id].ManagerId == employeeId)) return true;
+
+        var perms = await db.BranchPermissions.AsNoTracking()
+            .Where(bp => bp.UserId == userId && bp.IsActive && (bp.StoreId == storeId || bp.StoreId == null))
+            .Select(bp => new { bp.BranchId, bp.IncludeChildren, bp.CanCreate, bp.CanEdit, bp.CanDelete })
+            .ToListAsync(ct);
+        var covering = perms.Where(p =>
+                p.BranchId == null ||
+                p.BranchId == branchId ||
+                (p.IncludeChildren && chain.Contains(p.BranchId.Value)))
+            .ToList();
+        if (covering.Count == 0) return true;
+        return covering.Any(p => action switch
+        {
+            ZKTecoADMS.Application.Interfaces.BranchAction.Create => p.CanCreate,
+            ZKTecoADMS.Application.Interfaces.BranchAction.Edit => p.CanEdit,
+            _ => p.CanDelete,
+        });
+    }
+
     public sealed record BranchInfo(
         Guid Id, string Code, string Name, Guid? ParentBranchId, bool IsHeadquarter, bool IsActive, int SortOrder);
 

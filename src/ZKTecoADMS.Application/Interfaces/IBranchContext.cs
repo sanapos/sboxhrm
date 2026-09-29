@@ -21,6 +21,12 @@ public interface IBranchContext
     /// <summary>Lọc báo cáo / danh sách theo 1 chi nhánh (query ?branchId=), đã kiểm quyền.</summary>
     Guid? FilterBranchId { get; set; }
 
+    /// <summary>Người dùng của request (null = job nền / webhook → không kiểm quyền chi nhánh khi ghi).</summary>
+    Guid? UserId { get; set; }
+
+    /// <summary>Không phải chủ / giám đốc / quản trị / kế toán → kiểm phạm vi + quyền Thêm/Sửa/Xóa theo chi nhánh khi ghi.</summary>
+    bool RestrictWrites { get; set; }
+
     /// <summary>Người dùng xem được chi nhánh này không.</summary>
     bool CanAccess(Guid? branchId) =>
         !StoreUsesBranches || AllowedBranchIds == null || (branchId.HasValue && AllowedBranchIds.Contains(branchId.Value));
@@ -34,4 +40,6 @@ public sealed class BranchContext : IBranchContext
     public Guid? HeadquarterBranchId { get; set; }
     public IReadOnlyCollection<Guid>? AllowedBranchIds { get; set; }
     public Guid? FilterBranchId { get; set; }
+    public Guid? UserId { get; set; }
+    public bool RestrictWrites { get; set; }
 }

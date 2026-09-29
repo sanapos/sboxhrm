@@ -123,6 +123,7 @@ class _PosSalesReportScreenState extends State<PosSalesReportScreen> {
 
     return PosReportMobileScaffold(
       title: 'Báo cáo bán hàng',
+      exportModule: 'PosSalesReport',
       time: _time,
       onTimeChanged: (PosKiotTimeFilterState s) async {
         setState(() => _time = s);

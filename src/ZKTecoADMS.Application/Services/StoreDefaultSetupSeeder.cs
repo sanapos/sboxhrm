@@ -307,7 +307,8 @@ public static class StoreDefaultSetupSeeder
         IRepository<Permission> permissionRepository,
         IRepository<RolePermission> rolePermissionRepository,
         Guid storeId,
-        CancellationToken cancellationToken = default)
+        CancellationToken cancellationToken = default,
+        IEnumerable<string>? allowedModules = null)
     {
         var existing = await rolePermissionRepository.GetSingleAsync(
             rp => rp.StoreId == storeId && rp.RoleName == nameof(Roles.Employee),
@@ -323,12 +324,24 @@ public static class StoreDefaultSetupSeeder
 
         var now = DateTime.UtcNow;
         var entries = new List<RolePermission>();
+        // Bộ mẫu theo gói cửa hàng (HRM / POS / HRM + POS); chủ cửa hàng luôn toàn quyền.
+        var allowed = allowedModules?.ToHashSet(StringComparer.OrdinalIgnoreCase);
+        var package = PermissionPresetCatalog.Detect(allowed);
+        var defaults = PermissionPresetCatalog.Defaults(package);
         foreach (var roleName in DefaultSeedRoles)
         {
+            var preset = roleName != nameof(Roles.Admin) && defaults.TryGetValue(roleName, out var presetId)
+                ? PermissionPresetCatalog.Build(presetId)
+                : null;
             foreach (var module in modules)
             {
                 var (canView, canCreate, canEdit, canDelete, canExport, canApprove) =
                     ModulePermissionDefaults.Get(roleName, module.Module);
+                if (preset != null)
+                {
+                    var f = PermissionPresetCatalog.FlagsFor(preset, module.Module, allowed);
+                    (canView, canCreate, canEdit, canDelete, canExport, canApprove) = (f.V, f.C, f.E, f.D, f.X, f.A);
+                }
                 entries.Add(new RolePermission
                 {
                     Id = Guid.NewGuid(),

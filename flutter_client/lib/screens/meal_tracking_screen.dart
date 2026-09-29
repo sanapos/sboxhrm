@@ -1,4 +1,5 @@
 import 'dart:io';
+import '../utils/export_permission_guard.dart';
 import 'package:flutter/material.dart';
 import 'package:zkteco_flutter_client/widgets/app_responsive_dialog.dart';
 import 'package:flutter/rendering.dart';
@@ -1118,6 +1119,7 @@ class _MealTrackingScreenState extends State<MealTrackingScreen>
   // ==================== EXPORT MENU ====================
 
   Future<void> _exportMenuAsExcel() async {
+    if (!ensureCanExport(context, 'Meal')) return;
     try {
       final excelLib = Excel.createExcel();
       final weekEnd = _menuWeekStart.add(const Duration(days: 6));
@@ -1192,6 +1194,7 @@ class _MealTrackingScreenState extends State<MealTrackingScreen>
   }
 
   Future<void> _exportMenuAsPng() async {
+    if (!ensureCanExport(context, 'Meal')) return;
     final rows = <List<dynamic>>[];
     for (int i = 0; i < 7; i++) {
       final dayDate = _menuWeekStart.add(Duration(days: i));

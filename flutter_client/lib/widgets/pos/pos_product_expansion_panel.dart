@@ -1,6 +1,8 @@
 import 'dart:typed_data';
 
 import 'package:flutter/material.dart';
+import 'package:provider/provider.dart';
+import '../../providers/permission_provider.dart';
 import 'package:intl/intl.dart';
 
 import '../../models/pos_product.dart';
@@ -270,7 +272,9 @@ class _PosProductExpansionPanelState extends State<PosProductExpansionPanel> {
                     _infoCell('Mã hàng', displayCode),
                     if (_p.productType != PosProductType.service)
                       _infoCell('Mã vạch', displayBarcode ?? 'Chưa có'),
-                    _infoCell('Giá vốn', widget.moneyFmt.format(displayCost)),
+                    _infoCell('Giá vốn', context.read<PermissionProvider>().canViewCost()
+                        ? widget.moneyFmt.format(displayCost)
+                        : '—'),
                     _infoCell('Giá bán', widget.moneyFmt.format(displayPrice)),
                     if (tracksStock)
                       _infoCell('Tồn kho', widget.moneyFmt.format(displayStock)),

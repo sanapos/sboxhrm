@@ -219,6 +219,9 @@ class _VariantAttrRow {
 
 class _PosProductEditorPageState extends State<PosProductEditorPage>
     with SingleTickerProviderStateMixin {
+  /// Quyền «Xem giá vốn & lợi nhuận» — không có thì ô giá vốn khóa, máy chủ giữ giá vốn cũ.
+  bool get _canViewCost => context.read<PermissionProvider>().canViewCost();
+
   final _api = ApiService();
   final _moneyFmt = NumberFormat('#,##0', 'vi_VN');
   static final _inputMoneyFmt = NumberFormat('#,###', 'vi_VN');
@@ -1947,7 +1950,9 @@ class _PosProductEditorPageState extends State<PosProductEditorPage>
                     controller: _costCtrl,
                     keyboardType: TextInputType.number,
                     inputFormatters: [ThousandSeparatorFormatter()],
-                    decoration: PosTheme.inputDecoration(label: 'Giá vốn'),
+                    enabled: _canViewCost,
+                    decoration: PosTheme.inputDecoration(
+                        label: _canViewCost ? 'Giá vốn' : 'Giá vốn (không có quyền xem)'),
                   ),
                 ),
                 const SizedBox(width: 12),
@@ -2356,7 +2361,9 @@ class _PosProductEditorPageState extends State<PosProductEditorPage>
                         controller: _costCtrl,
                         keyboardType: TextInputType.number,
                         inputFormatters: [ThousandSeparatorFormatter()],
-                        decoration: PosTheme.inputDecoration(label: 'Giá vốn'),
+                        enabled: _canViewCost,
+                    decoration: PosTheme.inputDecoration(
+                        label: _canViewCost ? 'Giá vốn' : 'Giá vốn (không có quyền xem)'),
                       ),
                     ),
                     const SizedBox(width: 12),
@@ -4474,7 +4481,9 @@ class _PosProductEditorPageState extends State<PosProductEditorPage>
                   controller: _costCtrl,
                   keyboardType: TextInputType.number,
                   inputFormatters: [ThousandSeparatorFormatter()],
-                  decoration: PosTheme.inputDecoration(label: 'Giá vốn'),
+                  enabled: _canViewCost,
+                    decoration: PosTheme.inputDecoration(
+                        label: _canViewCost ? 'Giá vốn' : 'Giá vốn (không có quyền xem)'),
                 ),
               ),
               const SizedBox(width: 12),
@@ -4608,7 +4617,9 @@ class _PosProductEditorPageState extends State<PosProductEditorPage>
                   controller: _costCtrl,
                   keyboardType: TextInputType.number,
                   inputFormatters: [ThousandSeparatorFormatter()],
-                  decoration: PosTheme.inputDecoration(label: 'Giá vốn'),
+                  enabled: _canViewCost,
+                    decoration: PosTheme.inputDecoration(
+                        label: _canViewCost ? 'Giá vốn' : 'Giá vốn (không có quyền xem)'),
                 ),
               ),
               const SizedBox(width: 12),
@@ -4882,7 +4893,9 @@ class _PosProductEditorPageState extends State<PosProductEditorPage>
                   child: TextField(
                     controller: costCtrl,
                     keyboardType: TextInputType.number,
-                    decoration: PosTheme.inputDecoration(label: 'Giá vốn'),
+                    enabled: _canViewCost,
+                    decoration: PosTheme.inputDecoration(
+                        label: _canViewCost ? 'Giá vốn' : 'Giá vốn (không có quyền xem)'),
                   ),
                 ),
                 const SizedBox(width: 8),

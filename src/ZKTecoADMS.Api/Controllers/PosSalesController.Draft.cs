@@ -197,6 +197,7 @@ public partial class PosSalesController
                     PosDraftLockHelper.StampDeviceIfMissing(order, actor);
                 }
 
+                var priorComplete = SnapshotPricing(order);
                 dbContext.PosSaleOrderLines.RemoveRange(order.Lines);
 
                 await using var tx = await dbContext.Database.BeginTransactionAsync(IsolationLevel.RepeatableRead);
@@ -204,7 +205,14 @@ public partial class PosSalesController
                 {
                     var (_, builtLines, errComplete) =
                         await BuildSaleAsync(storeId, order, createDto, complete: true,
-                            allowManualPriceOverride: true);
+                            allowManualPriceOverride: await CanEditSellPriceAsync(),
+                            allowManualDiscount: await CanGiveSellDiscountAsync(),
+                            prior: priorComplete);
+                    if (PricingDenied(errComplete) is { } pricingDeniedComplete)
+                    {
+                        await tx.RollbackAsync();
+                        return pricingDeniedComplete;
+                    }
                     if (errComplete != null)
                     {
                         await tx.RollbackAsync();
@@ -333,19 +341,15 @@ public partial class PosSalesController
                 g => (
                     Sent: g.Sum(x => x.KitchenSentQty),
                     At: g.Max(x => x.KitchenSentAt)));
+        var priorDraft = SnapshotPricing(order);
         dbContext.PosSaleOrderLines.RemoveRange(order.Lines);
 
-        var allowPrice = await HasPosSellApproveAsync();
         var (_, lines, err) = await BuildSaleAsync(
             storeId, order, createDto, dto.Complete,
-            allowManualPriceOverride: allowPrice);
-        if (err == PriceOverrideDeniedMessage)
-        {
-            var denied = await DenyIfCannotOverridePriceAsync();
-            return denied ?? StatusCode(StatusCodes.Status403Forbidden,
-                AppResponse<SaleOrderDto>.Fail(
-                    "Tài khoản không có quyền duyệt PosSell (đổi giá / chiết khấu)."));
-        }
+            allowManualPriceOverride: await CanEditSellPriceAsync(),
+            allowManualDiscount: await CanGiveSellDiscountAsync(),
+            prior: priorDraft);
+        if (PricingDenied(err) is { } pricingDenied) return pricingDenied;
         if (err != null) return BadRequest(AppResponse<SaleOrderDto>.Fail(err));
         if (lines == null)
             return BadRequest(AppResponse<SaleOrderDto>.Fail("Không cập nhật được đơn"));
@@ -1105,26 +1109,40 @@ public partial class PosSalesController
     }
 
     const string PriceOverrideDeniedMessage = "PRICE_OVERRIDE_REQUIRES_APPROVE";
+    const string DiscountDeniedMessage = "DISCOUNT_REQUIRES_PERMISSION";
+
+    /// <summary>Giá / chiết khấu đang có trên đơn tạm — giữ nguyên thì không cần quyền (người có quyền đã đặt).</summary>
+    sealed record PriorPricing(Dictionary<(Guid ProductId, Guid? VariantId), (decimal Price, decimal Disc)> Lines, decimal Discount);
+
+    static PriorPricing SnapshotPricing(PosSaleOrder order) => new(
+        (order.Lines ?? [])
+            .GroupBy(l => (l.ProductId, l.VariantId))
+            .ToDictionary(g => g.Key, g => (g.First().UnitPrice, g.Max(x => x.DiscountAmount))),
+        order.Discount);
 
     private async Task<(PosSaleOrder? order, List<PosSaleOrderLine>? lines, string? error)> BuildSaleAsync(
         Guid storeId,
         PosSaleOrder? existing,
         CreateSaleDto dto,
         bool complete,
-        bool allowManualPriceOverride = false)
+        bool allowManualPriceOverride = false,
+        bool? allowManualDiscount = null,
+        PriorPricing? prior = null)
     {
+        var allowDiscount = allowManualDiscount ?? allowManualPriceOverride;
         if (dto.Lines == null || dto.Lines.Count == 0)
         {
             // CreateSale / complete không cho trống; UpdateSale clear đã xử lý riêng.
             return (null, null, "Đơn hàng trống");
         }
 
-        if (!allowManualPriceOverride)
+        if (!allowDiscount)
         {
-            if (dto.Discount > 0.009m)
-                return (null, null, PriceOverrideDeniedMessage);
-            if (dto.Lines.Any(l => l.DiscountAmount > 0.009m))
-                return (null, null, PriceOverrideDeniedMessage);
+            if (dto.Discount > (prior?.Discount ?? 0) + 0.009m)
+                return (null, null, DiscountDeniedMessage);
+            if (dto.Lines.Any(l => l.DiscountAmount >
+                    (prior != null && prior.Lines.TryGetValue((l.ProductId, l.VariantId), out var pd) ? pd.Disc : 0) + 0.009m))
+                return (null, null, DiscountDeniedMessage);
         }
 
         if (dto.CustomerId.HasValue && !await dbContext.PosCustomers.AnyAsync(c =>
@@ -1427,7 +1445,10 @@ public partial class PosSalesController
             if (!allowManualPriceOverride
                 && listPrice == null
                 && line.UnitPrice.HasValue
-                && Math.Abs(line.UnitPrice.Value - catalogPrice) > 0.009m)
+                && Math.Abs(line.UnitPrice.Value - catalogPrice) > 0.009m
+                && !(prior != null
+                     && prior.Lines.TryGetValue((line.ProductId, line.VariantId), out var pp)
+                     && Math.Abs(line.UnitPrice.Value - pp.Price) <= 0.009m))
             {
                 return (null, null, PriceOverrideDeniedMessage);
             }

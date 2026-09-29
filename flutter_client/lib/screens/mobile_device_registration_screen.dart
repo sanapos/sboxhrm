@@ -256,7 +256,31 @@ class _MobileDeviceRegistrationScreenState
               height: 1.5,
             ),
           ),
-          const SizedBox(height: 12),
+          if (_registrationLocations.length > 1 && !_loadingLocations)
+            Align(
+              alignment: Alignment.centerRight,
+              child: TextButton.icon(
+                onPressed: () => setState(() {
+                  final all = _registrationLocations
+                      .map((l) => l['id']?.toString() ?? '')
+                      .where((e) => e.isNotEmpty)
+                      .toSet();
+                  if (_selectedLocationIds.containsAll(all)) {
+                    _selectedLocationIds.clear();
+                  } else {
+                    _selectedLocationIds
+                      ..clear()
+                      ..addAll(all);
+                  }
+                }),
+                icon: const Icon(Icons.done_all_rounded, size: 18),
+                label: Text(tr(_selectedLocationIds.length == _registrationLocations.length
+                    ? 'Bỏ chọn tất cả'
+                    : 'Chọn tất cả')),
+              ),
+            )
+          else
+            const SizedBox(height: 12),
           if (_loadingLocations)
             const Center(
               child: Padding(
@@ -783,7 +807,7 @@ class _MobileDeviceRegistrationScreenState
         return const Center(child: CircularProgressIndicator());
 
       case _RegStatus.notRegistered:
-        return _buildRegistrationForm();
+        return kIsWeb ? _buildWebNotice() : _buildRegistrationForm();
 
       case _RegStatus.pending:
         return _buildPendingView();
@@ -802,208 +826,246 @@ class _MobileDeviceRegistrationScreenState
     }
   }
 
-  Widget _buildRegistrationForm() {
-    return SingleChildScrollView(
-      padding: const EdgeInsets.all(20),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          // Header info
-          Container(
-            width: double.infinity,
-            padding: const EdgeInsets.all(20),
-            decoration: BoxDecoration(
-              gradient: LinearGradient(
-                colors: [
-                  HrmPageChrome.primaryNavy,
-                  HrmPageChrome.primaryNavy.withValues(alpha: 0.85),
-                ],
+  String _fmtDate(DateTime? d) {
+    if (d == null) return '';
+    final l = d.toLocal();
+    String two(int n) => n.toString().padLeft(2, '0');
+    return '${two(l.hour)}:${two(l.minute)} ${two(l.day)}/${two(l.month)}/${l.year}';
+  }
+
+  /// Trình duyệt web không phải thiết bị chấm công — hướng dẫn dùng app điện thoại.
+  Widget _buildWebNotice() {
+    return Center(
+      child: SingleChildScrollView(
+        padding: const EdgeInsets.all(24),
+        child: ConstrainedBox(
+          constraints: const BoxConstraints(maxWidth: 520),
+          child: Column(mainAxisSize: MainAxisSize.min, children: [
+            Container(
+              padding: const EdgeInsets.all(22),
+              decoration: const BoxDecoration(color: SboxColors.brand50, shape: BoxShape.circle),
+              child: const Icon(Icons.install_mobile_rounded, size: 56, color: HrmPageChrome.primaryNavy),
+            ),
+            const SizedBox(height: 20),
+            Text(tr('Đăng ký trên điện thoại'),
+                style: const TextStyle(fontSize: 22, fontWeight: FontWeight.w800, color: SboxColors.slate900)),
+            const SizedBox(height: 10),
+            Text(
+              tr('Chấm công mobile gắn với chiếc điện thoại bạn dùng hằng ngày (mã máy, khuôn mặt, GPS). '
+                  'Hãy mở ứng dụng SBOX HRM trên điện thoại, đăng nhập tài khoản này rồi vào «Đăng ký chấm công Mobile».'),
+              textAlign: TextAlign.center,
+              style: const TextStyle(color: SboxColors.slate600, height: 1.5),
+            ),
+            const SizedBox(height: 18),
+            for (final s in const [
+              'Tải app SBOX HRM trên App Store / Google Play',
+              'Đăng nhập, mở menu Chấm công → Đăng ký chấm công Mobile',
+              'Chọn vị trí, chụp 5 góc khuôn mặt, gửi và chờ quản lý duyệt',
+            ])
+              Padding(
+                padding: const EdgeInsets.only(bottom: 8),
+                child: Row(children: [
+                  const Icon(Icons.check_circle_outline_rounded, size: 18, color: SboxColors.success),
+                  const SizedBox(width: 8),
+                  Expanded(child: Text(tr(s), style: const TextStyle(color: SboxColors.slate700))),
+                ]),
               ),
-              borderRadius: BorderRadius.circular(14),
-            ),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Row(
-                  children: [
-                    Icon(Icons.phone_android, color: Colors.white, size: 28),
-                    SizedBox(width: 12),
-                    Expanded(
-                      child: Text(tr('Đăng ký thiết bị'),
-                        style: TextStyle(
-                          color: Colors.white,
-                          fontSize: 20,
-                          fontWeight: FontWeight.bold,
-                        ),
-                      ),
-                    ),
-                  ],
-                ),
-                const SizedBox(height: 12),
-                Text(
-                  tr('Đăng ký điện thoại và khuôn mặt để sử dụng chấm công mobile. '
-                  'Mỗi tài khoản chỉ được đăng ký 1 thiết bị.'),
-                  style: TextStyle(
-                    color: Colors.white.withValues(alpha: 0.85),
-                    fontSize: 14,
-                    height: 1.5,
-                  ),
-                ),
-              ],
-            ),
-          ),
-          const SizedBox(height: 24),
-
-          // Step 1: Device info (auto-detected)
-          _buildStepCard(
-            step: 1,
-            title: 'Thông tin thiết bị',
-            subtitle: 'Tự động nhận diện',
-            icon: Icons.smartphone,
-            isCompleted: _deviceId.isNotEmpty,
-            child: Column(
-              children: [
-                _buildInfoRow(Icons.badge, 'Tên thiết bị', _deviceName),
-                _buildInfoRow(Icons.phone_android, 'Model', _deviceModel),
-                _buildInfoRow(Icons.system_update, 'Hệ điều hành', _osVersion),
-                _buildInfoRow(Icons.fingerprint, 'Mã thiết bị',
-                    _deviceId.length > 20 ? '${_deviceId.substring(0, 20)}...' : _deviceId),
-                _buildInfoRow(Icons.router, 'MAC WiFi (BSSID)',
-                    _wifiBssid ?? 'Không phát hiện được'),
-              ],
-            ),
-          ),
-          const SizedBox(height: 16),
-
-          _buildLocationPicker(step: 2),
-          const SizedBox(height: 16),
-
-          // Step 3: Face capture
-          _buildStepCard(
-            step: 3,
-            title: 'Chụp khuôn mặt',
-            subtitle: _capturedImages.isEmpty
-                ? 'Chưa chụp'
-                : '${_capturedImages.length} ảnh đã chụp',
-            icon: Icons.face_retouching_natural,
-            isCompleted: _capturedImages.isNotEmpty,
-            child: Column(
-              children: [
-                if (_capturedImages.isEmpty) ...[
-                  Text(tr('Hệ thống sẽ chụp 5 góc khuôn mặt: Thẳng, Trái, Phải, Trên, Dưới'),
-                    style: TextStyle(
-                      color: SboxColors.slate500,
-                      fontSize: 13,
-                      height: 1.5,
-                    ),
-                  ),
-                  const SizedBox(height: 16),
-                ] else ...[
-                  Row(
-                    children: [
-                      const Icon(Icons.check_circle,
-                          color: SboxColors.success, size: 20),
-                      const SizedBox(width: 8),
-                      Expanded(
-                        child: Text(tr('Đã chụp ${_capturedImages.length} ảnh khuôn mặt'),
-                          style: const TextStyle(
-                            color: SboxColors.success,
-                            fontWeight: FontWeight.w600,
-                          ),
-                        ),
-                      ),
-                    ],
-                  ),
-                  const SizedBox(height: 12),
-                  _buildFacePreviewBeforeSubmit(),
-                  const SizedBox(height: 12),
-                ],
-                SizedBox(
-                  width: double.infinity,
-                  child: OutlinedButton.icon(
-                    onPressed: _openFaceCapture,
-                    icon: Icon(_capturedImages.isEmpty
-                        ? Icons.camera_alt
-                        : Icons.refresh),
-                    label: Text(
-                        tr(_capturedImages.isEmpty ? 'Bắt đầu chụp' : 'Chụp lại')),
-                    style: OutlinedButton.styleFrom(
-                      foregroundColor: HrmPageChrome.primaryNavy,
-                      padding: const EdgeInsets.symmetric(vertical: 14),
-                      side: const BorderSide(color: HrmPageChrome.primaryNavy),
-                      shape: RoundedRectangleBorder(
-                        borderRadius: BorderRadius.circular(14),
-                      ),
-                    ),
-                  ),
-                ),
-              ],
-            ),
-          ),
-          const SizedBox(height: 24),
-
-          // Submit button
-          SizedBox(
-            width: double.infinity,
-            child: FilledButton.icon(
-              onPressed: (_hasValidLocationSelection &&
-                      _capturedImages.length >= 5 &&
-                      !_isSubmitting)
-                  ? _submitRegistration
-                  : null,
-              icon: _isSubmitting
-                  ? const SizedBox(
-                      width: 20,
-                      height: 20,
-                      child: CircularProgressIndicator(
-                        color: Colors.white,
-                        strokeWidth: 2,
-                      ),
-                    )
-                  : const Icon(Icons.send),
-              label: Text(
-                tr(_isSubmitting ? 'Đang gửi...' : 'Gửi yêu cầu đăng ký'),
-                style: const TextStyle(
-                    fontSize: 16, fontWeight: FontWeight.w600),
-              ),
-              style: FilledButton.styleFrom(
-                backgroundColor: HrmPageChrome.primaryNavy,
-                disabledBackgroundColor: SboxColors.slate300,
-                padding: const EdgeInsets.symmetric(vertical: 16),
-              ),
-            ),
-          ),
-          const SizedBox(height: 16),
-
-          // Note
-          Container(
-            padding: const EdgeInsets.all(14),
-            decoration: BoxDecoration(
-              color: SboxColors.warningSoft,
-              borderRadius: BorderRadius.circular(14),
-            ),
-            child: Row(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Icon(Icons.info_outline, color: SboxColors.warning, size: 20),
-                SizedBox(width: 10),
-                Expanded(
-                  child: Text(
-                    tr('Sau khi gửi yêu cầu, quản lý sẽ duyệt đăng ký. '
-                    'Khi được duyệt, chức năng chấm công mobile sẽ hiển thị.'),
-                    style: TextStyle(
-                      fontSize: 13,
-                      color: SboxColors.warningText,
-                      height: 1.5,
-                    ),
-                  ),
-                ),
-              ],
-            ),
-          ),
-        ],
+          ]),
+        ),
       ),
     );
+  }
+
+  List<String> get _missingSteps => [
+        if (!_hasValidLocationSelection) 'chọn vị trí chấm công',
+        if (_capturedImages.length < 5) 'chụp khuôn mặt',
+      ];
+
+  Widget _stepDot(int n, String label, bool done, bool active) {
+    final c = done ? SboxColors.success : (active ? HrmPageChrome.primaryNavy : SboxColors.slate300);
+    return Expanded(
+      child: Column(children: [
+        Container(
+          width: 30,
+          height: 30,
+          decoration: BoxDecoration(color: c, shape: BoxShape.circle),
+          alignment: Alignment.center,
+          child: done
+              ? const Icon(Icons.check_rounded, color: Colors.white, size: 18)
+              : Text('$n', style: const TextStyle(color: Colors.white, fontWeight: FontWeight.w800)),
+        ),
+        const SizedBox(height: 4),
+        Text(tr(label),
+            textAlign: TextAlign.center,
+            style: TextStyle(
+                fontSize: 11.5,
+                fontWeight: FontWeight.w600,
+                color: done || active ? SboxColors.slate800 : SboxColors.slate400)),
+      ]),
+    );
+  }
+
+  Widget _buildRegistrationForm() {
+    final locDone = _hasValidLocationSelection;
+    final faceDone = _capturedImages.length >= 5;
+    final missing = _missingSteps;
+    return Column(children: [
+      Expanded(
+        child: RefreshIndicator(
+          onRefresh: _checkRegistrationStatus,
+          child: ListView(
+            padding: const EdgeInsets.fromLTRB(16, 16, 16, 24),
+            children: [
+              Center(
+                child: ConstrainedBox(
+                  constraints: const BoxConstraints(maxWidth: 720),
+                  child: Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
+                    Container(
+                      padding: const EdgeInsets.all(18),
+                      decoration: BoxDecoration(
+                        gradient: const LinearGradient(colors: [HrmPageChrome.primaryNavy, SboxColors.brand600]),
+                        borderRadius: BorderRadius.circular(16),
+                      ),
+                      child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+                        Row(children: [
+                          const Icon(Icons.phonelink_setup_rounded, color: Colors.white, size: 26),
+                          const SizedBox(width: 10),
+                          Expanded(
+                            child: Text(tr('Đăng ký điện thoại chấm công'),
+                                style: const TextStyle(color: Colors.white, fontSize: 18, fontWeight: FontWeight.w800)),
+                          ),
+                        ]),
+                        const SizedBox(height: 8),
+                        Text(
+                          tr('Mỗi tài khoản dùng 1 điện thoại. Quản lý duyệt xong là bạn chấm công được ngay trên máy này.'),
+                          style: TextStyle(color: Colors.white.withValues(alpha: 0.88), fontSize: 13, height: 1.45),
+                        ),
+                        const SizedBox(height: 14),
+                        Container(
+                          padding: const EdgeInsets.symmetric(vertical: 10),
+                          decoration: BoxDecoration(color: Colors.white, borderRadius: BorderRadius.circular(12)),
+                          child: Row(children: [
+                            _stepDot(1, 'Thiết bị', _deviceId.isNotEmpty, false),
+                            _stepDot(2, 'Vị trí', locDone, !locDone),
+                            _stepDot(3, 'Khuôn mặt', faceDone, locDone && !faceDone),
+                          ]),
+                        ),
+                      ]),
+                    ),
+                    const SizedBox(height: 16),
+                    _buildStepCard(
+                      step: 1,
+                      title: 'Điện thoại này',
+                      subtitle: '$_deviceName · $_osVersion',
+                      icon: Icons.smartphone,
+                      isCompleted: _deviceId.isNotEmpty,
+                      child: Theme(
+                        data: Theme.of(context).copyWith(dividerColor: Colors.transparent),
+                        child: ExpansionTile(
+                          tilePadding: EdgeInsets.zero,
+                          childrenPadding: EdgeInsets.zero,
+                          title: Text(tr('Chi tiết kỹ thuật'),
+                              style: const TextStyle(fontSize: 13, color: SboxColors.slate600)),
+                          children: [
+                            _buildInfoRow(Icons.phone_android, 'Dòng máy', _deviceModel),
+                            _buildInfoRow(Icons.fingerprint, 'Mã thiết bị',
+                                _deviceId.length > 20 ? '${_deviceId.substring(0, 20)}…' : _deviceId),
+                            _buildInfoRow(Icons.router, 'Wi-Fi (BSSID)', _wifiBssid ?? 'Chưa kết nối Wi-Fi'),
+                          ],
+                        ),
+                      ),
+                    ),
+                    const SizedBox(height: 14),
+                    _buildLocationPicker(step: 2),
+                    const SizedBox(height: 14),
+                    _buildStepCard(
+                      step: 3,
+                      title: 'Chụp khuôn mặt',
+                      subtitle: faceDone ? 'Đã chụp đủ 5 góc' : 'Chụp 5 góc: thẳng, trái, phải, trên, dưới',
+                      icon: Icons.face_retouching_natural,
+                      isCompleted: faceDone,
+                      child: Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
+                        if (_capturedImages.isEmpty)
+                          Container(
+                            padding: const EdgeInsets.all(12),
+                            decoration: BoxDecoration(color: SboxColors.slate50, borderRadius: BorderRadius.circular(12)),
+                            child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+                              for (final t in const [
+                                'Đứng nơi đủ sáng, nhìn thẳng vào camera',
+                                'Bỏ khẩu trang, kính râm; không để tóc che mặt',
+                                'Xoay đầu chậm theo hướng dẫn trên màn hình',
+                              ])
+                                Padding(
+                                  padding: const EdgeInsets.only(bottom: 4),
+                                  child: Row(children: [
+                                    const Icon(Icons.lightbulb_outline_rounded, size: 16, color: SboxColors.warning),
+                                    const SizedBox(width: 6),
+                                    Expanded(
+                                        child: Text(tr(t),
+                                            style: const TextStyle(fontSize: 12.5, color: SboxColors.slate600))),
+                                  ]),
+                                ),
+                            ]),
+                          )
+                        else
+                          _buildFacePreviewBeforeSubmit(),
+                        const SizedBox(height: 12),
+                        OutlinedButton.icon(
+                          onPressed: _isSubmitting ? null : _openFaceCapture,
+                          icon: Icon(_capturedImages.isEmpty ? Icons.camera_alt_outlined : Icons.refresh_rounded),
+                          label: Text(tr(_capturedImages.isEmpty ? 'Bắt đầu chụp' : 'Chụp lại')),
+                          style: OutlinedButton.styleFrom(
+                            foregroundColor: HrmPageChrome.primaryNavy,
+                            padding: const EdgeInsets.symmetric(vertical: 13),
+                            side: const BorderSide(color: HrmPageChrome.primaryNavy),
+                            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                          ),
+                        ),
+                      ]),
+                    ),
+                  ]),
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
+      Material(
+        color: Colors.white,
+        elevation: 8,
+        child: SafeArea(
+          top: false,
+          child: Padding(
+            padding: const EdgeInsets.fromLTRB(16, 10, 16, 10),
+            child: Column(mainAxisSize: MainAxisSize.min, crossAxisAlignment: CrossAxisAlignment.stretch, children: [
+              Text(
+                tr(missing.isEmpty
+                    ? 'Sẵn sàng gửi — quản lý sẽ nhận thông báo để duyệt.'
+                    : 'Còn thiếu: ${missing.join(', ')}'),
+                textAlign: TextAlign.center,
+                style: TextStyle(
+                    fontSize: 12.5, color: missing.isEmpty ? SboxColors.successText : SboxColors.slate500),
+              ),
+              const SizedBox(height: 8),
+              FilledButton.icon(
+                onPressed: missing.isEmpty && !_isSubmitting ? _submitRegistration : null,
+                icon: _isSubmitting
+                    ? const SizedBox(
+                        width: 18, height: 18, child: CircularProgressIndicator(color: Colors.white, strokeWidth: 2))
+                    : const Icon(Icons.send_rounded),
+                label: Text(tr(_isSubmitting ? 'Đang gửi…' : 'Gửi đăng ký'),
+                    style: const TextStyle(fontSize: 15.5, fontWeight: FontWeight.w700)),
+                style: FilledButton.styleFrom(
+                  backgroundColor: HrmPageChrome.primaryNavy,
+                  disabledBackgroundColor: SboxColors.slate300,
+                  padding: const EdgeInsets.symmetric(vertical: 14),
+                ),
+              ),
+            ]),
+          ),
+        ),
+      ),
+    ]);
   }
 
   Widget _buildStepCard({
@@ -1166,7 +1228,7 @@ class _MobileDeviceRegistrationScreenState
             ),
             if (_registeredAt != null) ...[
               const SizedBox(height: 8),
-              Text(tr('Đăng ký lúc: ${_registeredAt!.day}/${_registeredAt!.month}/${_registeredAt!.year}'),
+              Text(tr('Đăng ký lúc ${_fmtDate(_registeredAt)}'),
                 style: const TextStyle(
                   color: SboxColors.slate400,
                   fontSize: 13,
@@ -1337,7 +1399,7 @@ class _MobileDeviceRegistrationScreenState
                         const SizedBox(height: 4),
                         Padding(
                           padding: const EdgeInsets.only(left: 28),
-                          child: Text(tr('Đăng ký: ${_registeredAt!.day}/${_registeredAt!.month}/${_registeredAt!.year}'),
+                          child: Text(tr('Đăng ký lúc ${_fmtDate(_registeredAt)}'),
                             style: TextStyle(
                               color: Colors.white.withValues(alpha: 0.7),
                               fontSize: 12,

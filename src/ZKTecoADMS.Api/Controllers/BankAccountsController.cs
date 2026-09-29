@@ -22,7 +22,7 @@ public class BankAccountsController(ZKTecoDbContext context) : AuthenticatedCont
     /// Lấy danh sách tài khoản ngân hàng
     /// </summary>
     [HttpGet]
-    [Authorize(Policy = PolicyNames.AtLeastManager)]
+    [Authorize(Policy = PolicyNames.AtLeastEmployee)]
     [RequireModulePermission("CashTransaction", ModulePermissionAction.View)]
     public async Task<ActionResult<AppResponse<List<BankAccountDto>>>> GetBankAccounts()
     {
@@ -58,7 +58,7 @@ public class BankAccountsController(ZKTecoDbContext context) : AuthenticatedCont
     /// Lấy chi tiết tài khoản ngân hàng
     /// </summary>
     [HttpGet("{id}")]
-    [Authorize(Policy = PolicyNames.AtLeastManager)]
+    [Authorize(Policy = PolicyNames.AtLeastEmployee)]
     [RequireModulePermission("CashTransaction", ModulePermissionAction.View)]
     public async Task<ActionResult<AppResponse<BankAccountDto>>> GetBankAccount(Guid id)
     {
@@ -93,7 +93,7 @@ public class BankAccountsController(ZKTecoDbContext context) : AuthenticatedCont
     /// Tạo tài khoản ngân hàng mới
     /// </summary>
     [HttpPost]
-    [Authorize(Policy = PolicyNames.AtLeastManager)]
+    [Authorize(Policy = PolicyNames.AtLeastEmployee)]
     [RequireModulePermission("BankAccount", ModulePermissionAction.Create)]
     public async Task<ActionResult<AppResponse<BankAccountDto>>> CreateBankAccount([FromBody] CreateBankAccountDto request)
     {
@@ -136,7 +136,7 @@ public class BankAccountsController(ZKTecoDbContext context) : AuthenticatedCont
     /// Cập nhật tài khoản ngân hàng
     /// </summary>
     [HttpPut("{id}")]
-    [Authorize(Policy = PolicyNames.AtLeastManager)]
+    [Authorize(Policy = PolicyNames.AtLeastEmployee)]
     [RequireModulePermission("CashTransaction", ModulePermissionAction.Edit)]
     public async Task<ActionResult<AppResponse<BankAccountDto>>> UpdateBankAccount(Guid id, [FromBody] UpdateBankAccountDto request)
     {
@@ -174,7 +174,7 @@ public class BankAccountsController(ZKTecoDbContext context) : AuthenticatedCont
     /// Đặt tài khoản làm mặc định
     /// </summary>
     [HttpPut("{id}/set-default")]
-    [Authorize(Policy = PolicyNames.AtLeastManager)]
+    [Authorize(Policy = PolicyNames.AtLeastEmployee)]
     [RequireModulePermission("BankAccount", ModulePermissionAction.Edit)]
     public async Task<ActionResult<AppResponse<BankAccountDto>>> SetDefaultBankAccount(Guid id)
     {
@@ -203,7 +203,7 @@ public class BankAccountsController(ZKTecoDbContext context) : AuthenticatedCont
     /// Xóa tài khoản ngân hàng (soft delete)
     /// </summary>
     [HttpDelete("{id}")]
-    [Authorize(Policy = PolicyNames.AtLeastManager)]
+    [Authorize(Policy = PolicyNames.AtLeastEmployee)]
     [RequireModulePermission("CashTransaction", ModulePermissionAction.Delete)]
     public async Task<ActionResult<AppResponse<bool>>> DeleteBankAccount(Guid id)
     {
@@ -282,7 +282,7 @@ public class TransactionCategoriesController(ZKTecoDbContext context, ICacheServ
     /// Lấy danh sách danh mục giao dịch
     /// </summary>
     [HttpGet]
-    [Authorize(Policy = PolicyNames.AtLeastManager)]
+    [Authorize(Policy = PolicyNames.AtLeastEmployee)]
     [RequireModulePermission("CashTransaction", ModulePermissionAction.View)]
     public async Task<ActionResult<AppResponse<List<TransactionCategoryDto>>>> GetCategories(
         [FromQuery] CashTransactionType? type = null,
@@ -348,7 +348,7 @@ public class TransactionCategoriesController(ZKTecoDbContext context, ICacheServ
     /// Lấy danh sách danh mục dạng phẳng (flat list)
     /// </summary>
     [HttpGet("flat")]
-    [Authorize(Policy = PolicyNames.AtLeastManager)]
+    [Authorize(Policy = PolicyNames.AtLeastEmployee)]
     [RequireModulePermission("CashTransaction", ModulePermissionAction.View)]
     public async Task<ActionResult<AppResponse<List<TransactionCategoryDto>>>> GetCategoriesFlat(
         [FromQuery] CashTransactionType? type = null)
@@ -396,7 +396,7 @@ public class TransactionCategoriesController(ZKTecoDbContext context, ICacheServ
     /// Tạo danh mục mới
     /// </summary>
     [HttpPost]
-    [Authorize(Policy = PolicyNames.AtLeastManager)]
+    [Authorize(Policy = PolicyNames.AtLeastEmployee)]
     [RequireModulePermission("CashTransaction", ModulePermissionAction.Create)]
     public async Task<ActionResult<AppResponse<TransactionCategoryDto>>> CreateCategory([FromBody] CreateTransactionCategoryDto request)
     {
@@ -438,7 +438,7 @@ public class TransactionCategoriesController(ZKTecoDbContext context, ICacheServ
     /// Lấy chi tiết danh mục
     /// </summary>
     [HttpGet("{id}")]
-    [Authorize(Policy = PolicyNames.AtLeastManager)]
+    [Authorize(Policy = PolicyNames.AtLeastEmployee)]
     [RequireModulePermission("CashTransaction", ModulePermissionAction.View)]
     public async Task<ActionResult<AppResponse<TransactionCategoryDto>>> GetCategory(Guid id)
     {
@@ -473,7 +473,7 @@ public class TransactionCategoriesController(ZKTecoDbContext context, ICacheServ
     /// Cập nhật danh mục
     /// </summary>
     [HttpPut("{id}")]
-    [Authorize(Policy = PolicyNames.AtLeastManager)]
+    [Authorize(Policy = PolicyNames.AtLeastEmployee)]
     [RequireModulePermission("CashTransaction", ModulePermissionAction.Edit)]
     public async Task<ActionResult<AppResponse<TransactionCategoryDto>>> UpdateCategory(Guid id, [FromBody] UpdateTransactionCategoryDto request)
     {
@@ -511,7 +511,7 @@ public class TransactionCategoriesController(ZKTecoDbContext context, ICacheServ
     /// Xóa danh mục (soft delete)
     /// </summary>
     [HttpDelete("{id}")]
-    [Authorize(Policy = PolicyNames.AtLeastManager)]
+    [Authorize(Policy = PolicyNames.AtLeastEmployee)]
     [RequireModulePermission("CashTransaction", ModulePermissionAction.Delete)]
     public async Task<ActionResult<AppResponse<bool>>> DeleteCategory(Guid id)
     {
@@ -540,7 +540,7 @@ public class TransactionCategoriesController(ZKTecoDbContext context, ICacheServ
     /// Đồng bộ danh mục hệ thống Thu + Chi (bổ sung thiếu, sửa tên/type, kích hoạt lại).
     /// </summary>
     [HttpPost("init-default")]
-    [Authorize(Policy = PolicyNames.AtLeastManager)]
+    [Authorize(Policy = PolicyNames.AtLeastEmployee)]
     [RequireModulePermission("CashTransaction", ModulePermissionAction.Create)]
     public async Task<ActionResult<AppResponse<object>>> InitDefaultCategories()
     {
@@ -655,7 +655,7 @@ public class TransactionCategoriesController(ZKTecoDbContext context, ICacheServ
     /// Sửa tên danh mục bị lỗi font (mojibake) trong DB.
     /// </summary>
     [HttpPost("repair-encoding")]
-    [Authorize(Policy = PolicyNames.AtLeastManager)]
+    [Authorize(Policy = PolicyNames.AtLeastEmployee)]
     [RequireModulePermission("CashTransaction", ModulePermissionAction.Edit)]
     public async Task<ActionResult<AppResponse<object>>> RepairCategoryEncoding()
     {

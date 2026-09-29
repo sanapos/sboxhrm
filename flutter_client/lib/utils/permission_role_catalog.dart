@@ -150,8 +150,12 @@ class PermissionRoleCatalog {
       color: HrmPageChrome.chipMid,
       moduleCodes: [
         'PosSell',
+        'PosSellPriceEdit',
+        'PosSellDiscount',
+        'PosSellCancelPaid',
         'PosQuotes',
         'PosProducts',
+        'PosViewCost',
         'PosSaleOrders',
         'PosSaleReturns',
         'PosBooking',

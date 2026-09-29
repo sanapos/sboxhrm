@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import '../utils/export_permission_guard.dart';
 import 'package:intl/intl.dart';
 import '../l10n/app_tr.dart';
 import '../services/api_service.dart';
@@ -88,6 +89,7 @@ class _ShiftCoverageScreenState extends State<ShiftCoverageScreen> {
       DateTime.tryParse('${i['date']}') ?? DateTime(2000);
 
   Future<void> _export() async {
+    if (!ensureCanExport(context, 'WorkSchedule')) return;
     final rows = _visible;
     await ClientExcelExport.export(
       context: context,

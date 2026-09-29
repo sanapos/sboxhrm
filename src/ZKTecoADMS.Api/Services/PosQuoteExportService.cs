@@ -64,15 +64,26 @@ public static class PosQuoteExportService
         r++;
         ws.Cell(r, 6).Value = "Tổng tiền hàng"; ws.Cell(r, 7).Value = (double)quote.SubTotal; r++;
         ws.Cell(r, 6).Value = "Chiết khấu"; ws.Cell(r, 7).Value = (double)quote.Discount; r++;
-        ws.Cell(r, 6).Value = "Thuế"; ws.Cell(r, 7).Value = (double)quote.VatAmount; r++;
-        ws.Cell(r, 6).Value = "Tổng cộng"; ws.Cell(r, 7).Value = (double)quote.Total;
+        var vatRate = quote.VatPercent ?? 8m;
+        var vatLabel = quote.VatMode switch
+        {
+            "included" => $"Trong đó VAT {vatRate:0.##}%",
+            "added" => $"VAT {vatRate:0.##}%",
+            "none" => "VAT (không tính)",
+            _ => "Thuế (theo mặt hàng)",
+        };
+        ws.Cell(r, 6).Value = vatLabel; ws.Cell(r, 7).Value = (double)quote.VatAmount; r++;
+        ws.Cell(r, 6).Value = quote.VatMode == "included" ? "Tổng cộng (đã gồm VAT)" : "Tổng cộng";
+        ws.Cell(r, 7).Value = (double)quote.Total;
         ws.Cell(r, 6).Style.Font.SetBold();
         ws.Cell(r, 7).Style.Font.SetBold();
         r += 2;
 
-        var preVat = Math.Max(0,
-            quote.Lines.Where(l => l.Deleted == null)
-                .Sum(l => Math.Max(0, l.Qty * l.UnitPrice - l.DiscountAmount)) - quote.Discount);
+        var preVat = quote.VatMode is "included" or "added" or "none"
+            ? Math.Max(0, quote.Total - quote.VatAmount)
+            : Math.Max(0,
+                quote.Lines.Where(l => l.Deleted == null)
+                    .Sum(l => Math.Max(0, l.Qty * l.UnitPrice - l.DiscountAmount)) - quote.Discount);
         ws.Cell(r++, 1).Value = "Tiền cọc:"; ws.Cell(r - 1, 2).Value = (double)quote.DepositAmount;
         ws.Cell(r++, 1).Value = "% cọc / trước VAT:";
         ws.Cell(r - 1, 2).Value = quote.DepositPercent is > 0

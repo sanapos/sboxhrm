@@ -1557,7 +1557,7 @@ class _PosSaleOrderListScreenState extends State<PosSaleOrderListScreen> {
         ));
       }
     }
-    if (canEdit && o.canCancelWithStock) {
+    if (canEdit && o.canCancelWithStock && perm.canPosCancelPaid()) {
       btns.add(_compactOrderBtn(
         label: 'Hoàn kho',
         color: Colors.red.shade700,

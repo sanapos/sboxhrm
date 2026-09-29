@@ -64,6 +64,7 @@ class _PosReservationReportScreenState extends State<PosReservationReportScreen>
         .toList();
     return PosReportMobileScaffold(
       title: 'Đặt chỗ / cọc',
+      exportModule: 'PosSalesReport',
       time: _time,
       onTimeChanged: (s) async {
         setState(() => _time = s);

@@ -529,6 +529,8 @@ public class PosQuoteConfiguration : IEntityTypeConfiguration<PosQuote>
         builder.Property(x => x.Total).HasPrecision(18, 2);
         builder.Property(x => x.DepositAmount).HasPrecision(18, 2);
         builder.Property(x => x.DepositPercent).HasPrecision(5, 2);
+        builder.Property(x => x.VatMode).HasMaxLength(20).HasDefaultValue("per_item");
+        builder.Property(x => x.VatPercent).HasPrecision(5, 2);
         builder.HasIndex(x => new { x.StoreId, x.QuoteNo }).IsUnique();
         builder.HasIndex(x => new { x.StoreId, x.Status });
         builder.HasIndex(x => new { x.StoreId, x.CommercialStage });

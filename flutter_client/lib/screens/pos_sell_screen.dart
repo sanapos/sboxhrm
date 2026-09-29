@@ -13138,12 +13138,13 @@ class _PosSellScreenState extends State<PosSellScreen>
     final isExpanded = _expandedCartRowId == line.rowId;
     final noteExpanded = isExpanded && _expandedCartMode == _CartRowExpand.note;
     final priceExpanded = isExpanded && _expandedCartMode == _CartRowExpand.priceDiscount;
-    final canEditPrice = context.read<PermissionProvider>().canPosPay();
+    final sellPerm = context.read<PermissionProvider>();
+    final canEditPrice = sellPerm.canPosPriceEdit() || sellPerm.canPosDiscount();
     void openPriceEditor() {
       if (!canEditPrice) {
         NotificationOverlayManager().showError(
           title: tr('Không đủ quyền'),
-          message: tr('Cần quyền thu ngân (duyệt) để đổi giá / chiết khấu'),
+          message: tr('Cần quyền «Sửa giá khi bán» hoặc «Giảm giá khi bán» — nhờ quản lý tick trong Phân quyền'),
         );
         return;
       }
@@ -13493,6 +13494,9 @@ class _PosSellScreenState extends State<PosSellScreen>
   }
 
   Widget _buildCartLinePriceEditor(_SellCartLine line) {
+    final sellPerm = context.read<PermissionProvider>();
+    final canPrice = sellPerm.canPosPriceEdit();
+    final canDiscount = sellPerm.canPosDiscount();
     return Listener(
       behavior: HitTestBehavior.opaque,
       onPointerDown: (_) {},
@@ -13518,7 +13522,7 @@ class _PosSellScreenState extends State<PosSellScreen>
                     allowDecimal: true,
                     textAlign: TextAlign.right,
                     keypadTitle: 'Đơn giá',
-                    enabled: !_tab.draftReadOnly,
+                    enabled: !_tab.draftReadOnly && canPrice,
                     decoration: InputDecoration(
                       isDense: true,
                       suffixText: tr('đ'),
@@ -13546,7 +13550,7 @@ class _PosSellScreenState extends State<PosSellScreen>
                 Expanded(
                   child: PosNoSoftKeyboardField(
                     controller: line.discountCtrl,
-                    enabled: !_tab.draftReadOnly,
+                    enabled: !_tab.draftReadOnly && canDiscount,
                     allowDecimal: true,
                     textAlign: TextAlign.right,
                     keypadTitle: 'Chiết khấu dòng',
@@ -13571,6 +13575,7 @@ class _PosSellScreenState extends State<PosSellScreen>
                 ),
               ],
             ),
+            if (canDiscount)
             Padding(
               padding: const EdgeInsets.only(top: 6),
               child: line.discountIsPercent
@@ -14045,7 +14050,7 @@ class _PosSellScreenState extends State<PosSellScreen>
             Expanded(
               child: PosNoSoftKeyboardField(
                 controller: _tab._discountCtrl,
-                enabled: !_tab.draftReadOnly,
+                enabled: !_tab.draftReadOnly && context.read<PermissionProvider>().canPosDiscount(),
                 allowDecimal: true,
                 textAlign: TextAlign.right,
                 keypadTitle: 'Giảm giá đơn',
@@ -14074,7 +14079,7 @@ class _PosSellScreenState extends State<PosSellScreen>
             ),
           ],
         ),
-        if (_orderDiscountPresetsVisible)
+        if (_orderDiscountPresetsVisible && context.read<PermissionProvider>().canPosDiscount())
           Padding(
             padding: const EdgeInsets.only(top: 6),
             child: _tab.discountIsPercent

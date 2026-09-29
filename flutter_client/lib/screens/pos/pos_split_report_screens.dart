@@ -636,6 +636,7 @@ class _PosRevenueReportScreenState extends State<PosRevenueReportScreen> {
 
     return PosReportMobileScaffold(
       title: 'Doanh thu',
+      exportModule: 'PosReportRevenue',
       time: _time,
       pngKey: _pngKey,
       onExportExcel: _exporting ? null : () => unawaited(_exportExcel()),
@@ -873,6 +874,7 @@ class _PosSoldGoodsReportScreenState extends State<PosSoldGoodsReportScreen> {
     );
     return PosReportMobileScaffold(
       title: 'Hàng hóa bán ra',
+      exportModule: 'PosReportSoldGoods',
       time: _time,
       pngKey: _pngKey,
       onFilterTap: () => unawaited(_openFilter()),
@@ -1037,6 +1039,7 @@ class _PosPurchaseReportScreenState extends State<PosPurchaseReportScreen> {
     );
     return PosReportMobileScaffold(
       title: 'Báo cáo nhập hàng',
+      exportModule: 'PosReportPurchases',
       time: _time,
       pngKey: _pngKey,
       filterBar: PosReportChipBar(
@@ -1303,6 +1306,7 @@ class _PosPaymentMethodReportScreenState
     );
     return PosReportMobileScaffold(
       title: 'Phương thức thanh toán',
+      exportModule: 'PosReportPayment',
       time: _time,
       pngKey: _pngKey,
       filterBar: payLabels.length > 1
@@ -1503,6 +1507,7 @@ class _PosDebtCombinedReportScreenState
     );
     return PosReportMobileScaffold(
       title: 'Báo cáo công nợ',
+      exportModule: 'PosReportDebt',
       time: _time,
       showTimeFilter: true,
       pngKey: _pngKey,
@@ -1777,6 +1782,7 @@ class _PosProfitOnlyReportScreenState extends State<PosProfitOnlyReportScreen> {
 
     return PosReportMobileScaffold(
       title: 'Báo cáo lợi nhuận',
+      exportModule: 'PosReportProfit',
       time: _time,
       pngKey: _pngKey,
       onExportExcel: () => unawaited(PosReportExport.excel(
@@ -1929,6 +1935,7 @@ class _PosExpenseReportScreenState extends State<PosExpenseReportScreen> {
     );
     return PosReportMobileScaffold(
       title: 'Báo cáo chi phí',
+      exportModule: 'PosReportExpense',
       time: _time,
       pngKey: _pngKey,
       filterBar: catLabels.length > 1
@@ -2173,6 +2180,7 @@ class _PosStaffRevenueReportScreenState
     );
     return PosReportMobileScaffold(
       title: 'Doanh thu theo nhân viên',
+      exportModule: 'PosReportStaffRevenue',
       time: _time,
       pngKey: _pngKey,
       onExportExcel: () => unawaited(PosReportExport.excel(
@@ -2319,6 +2327,7 @@ class _PosCashbookReportScreenState extends State<PosCashbookReportScreen> {
     );
     return PosReportMobileScaffold(
       title: 'Sổ quỹ',
+      exportModule: 'PosReportCashbook',
       time: _time,
       pngKey: _pngKey,
       filterBar: PosReportChipBar(
@@ -2552,6 +2561,7 @@ class _PosPnlReportScreenState extends State<PosPnlReportScreen> {
     );
     return PosReportMobileScaffold(
       title: 'Kết quả kinh doanh',
+      exportModule: 'PosReportPnl',
       time: _time,
       pngKey: _pngKey,
       onExportExcel: () => unawaited(PosReportExport.excel(
@@ -2883,6 +2893,7 @@ class _PosVoucherUsageReportScreenState
     );
     return PosReportMobileScaffold(
       title: 'Báo cáo voucher',
+      exportModule: 'PosReportVoucher',
       time: _time,
       pngKey: _pngKey,
       onExportExcel: () => unawaited(PosReportExport.excel(

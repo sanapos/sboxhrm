@@ -19,24 +19,24 @@ abstract final class NavPackageProfile {
 
   /// Thanh dưới mặc định (5 ô, ô giữa là thao tác chính, ô cuối «Thêm»).
   static List<String> defaultMainSlots(NavPackageKind kind) => switch (kind) {
-        NavPackageKind.attendance => const ['Home', 'Leave', 'MobileAttendance', 'Payslip', '_drawer'],
-        NavPackageKind.pos => const ['Home', 'PosProducts', 'PosSell', 'PosSaleOrders', '_drawer'],
-        NavPackageKind.full => const ['Home', 'PosSell', 'MobileAttendance', 'SettingsHub', '_drawer'],
+        NavPackageKind.attendance => const ['Home', 'Dashboard', 'MobileAttendance', 'Payslip', '_drawer'],
+        NavPackageKind.pos => const ['Home', 'Dashboard', 'PosSell', 'PosSaleOrders', '_drawer'],
+        NavPackageKind.full => const ['Home', 'Dashboard', 'MobileAttendance', 'PosSell', '_drawer'],
       };
 
   /// Thứ tự ưu tiên để lấp ô bị mất quyền (không để ô trống).
   static List<String> mainPriority(NavPackageKind kind) => switch (kind) {
         NavPackageKind.attendance => const [
-            'Home', 'MobileAttendance', 'Leave', 'Payslip', 'Task', 'Notification',
-            'Employee', 'Payroll', 'Communication', 'Dashboard', 'SettingsHub',
+            'Home', 'Dashboard', 'MobileAttendance', 'Leave', 'Payslip', 'Task', 'Notification',
+            'Employee', 'Payroll', 'Communication', 'SettingsHub',
           ],
         NavPackageKind.pos => const [
-            'Home', 'PosSell', 'PosSaleOrders', 'PosProducts', 'PosSalesReport', 'PosKds',
-            'Notification', 'SettingsHub', 'Dashboard',
+            'Home', 'Dashboard', 'PosSell', 'PosSaleOrders', 'PosProducts', 'PosSalesReport', 'PosKds',
+            'Notification', 'SettingsHub',
           ],
         NavPackageKind.full => const [
-            'Home', 'PosSell', 'MobileAttendance', 'PosSaleOrders', 'PosProducts', 'Task', 'Leave',
-            'Payslip', 'Notification', 'SettingsHub', 'Dashboard', 'PosSalesReport', 'Employee',
+            'Home', 'Dashboard', 'MobileAttendance', 'PosSell', 'PosSaleOrders', 'PosProducts', 'Task', 'Leave',
+            'Payslip', 'Notification', 'SettingsHub', 'PosSalesReport', 'Employee',
             'Payroll', 'Communication', 'PosKds',
           ],
       };

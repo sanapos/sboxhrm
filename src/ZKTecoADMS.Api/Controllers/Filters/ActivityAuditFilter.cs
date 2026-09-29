@@ -109,63 +109,13 @@ public sealed class ActivityAuditFilter(
 
     static string Trim(string s, int max) => s.Length > max ? s[..max] : s;
 
-    static string Summary(ActivityEntityChange main, int count)
-    {
-        var name = EntityLabel(main.Type);
-        var label = string.IsNullOrWhiteSpace(main.Label) ? "" : $" «{Trim(main.Label!, 120)}»";
-        var more = count > 1 ? $" (+{count - 1} bản ghi liên quan)" : "";
-        return Trim($"{name}{label}{more}", 480);
-    }
+    static string Summary(ActivityEntityChange main, int count) =>
+        Trim(ActivityLabels.Summary(main.Type, main.Label, count), 480);
 
     static string? GuessModule(List<ActivityEntityChange> changes) => null;
 
-    /// <summary>Tên dễ hiểu của loại dữ liệu (không có → tên kỹ thuật).</summary>
-    public static string EntityLabel(string type) => type switch
-    {
-        "PosSaleOrder" => "Hóa đơn / đơn hàng",
-        "PosSaleOrderLine" => "Dòng hàng trên hóa đơn",
-        "PosSalePayment" or "PosPayment" => "Thanh toán",
-        "PosSaleReturn" => "Phiếu trả hàng",
-        "PosProduct" => "Hàng hóa",
-        "PosProductVariant" => "Biến thể hàng hóa",
-        "PosCategory" or "PosProductCategory" => "Nhóm hàng",
-        "PosCustomer" => "Khách hàng",
-        "PosSupplier" => "Nhà cung cấp",
-        "PosPurchaseReceipt" => "Phiếu nhập hàng",
-        "PosPurchaseReturn" => "Phiếu trả hàng nhập",
-        "PosStockCount" => "Phiếu kiểm kho",
-        "PosStockTransfer" => "Phiếu chuyển kho",
-        "PosInventoryTransaction" or "PosStockMovement" => "Biến động kho",
-        "PosQuote" => "Báo giá",
-        "PosQuoteDocument" => "Hợp đồng / biên bản",
-        "PosPrintTemplate" => "Mẫu in",
-        "PosVoucher" or "PosPromotion" => "Khuyến mãi",
-        "PosCashierShift" => "Ca thu ngân",
-        "PosResourceSession" => "Phiên bàn / phòng",
-        "PosServiceResource" => "Bàn / phòng",
-        "PosCustomerSessionBalance" => "Gói buổi / thẻ tập",
-        "PosGymVisit" => "Lượt tập",
-        "PosStoreSellSettings" => "Thiết lập bán hàng",
-        "CashTransaction" => "Phiếu thu / chi",
-        "Employee" => "Nhân viên",
-        "Department" => "Phòng ban",
-        "Attendance" => "Chấm công",
-        "Leave" => "Đơn nghỉ phép",
-        "WorkSchedule" => "Lịch làm việc",
-        "Shift" or "ShiftTemplate" => "Ca làm việc",
-        "Payslip" or "Payroll" or "SalaryRecord" => "Bảng lương",
-        "BonusPenalty" => "Thưởng / phạt",
-        "PenaltyTicket" => "Phiếu phạt",
-        "AdvanceRequest" => "Tạm ứng",
-        "Asset" => "Tài sản",
-        "TaskItem" or "WorkTask" => "Công việc",
-        "AppSettings" => "Cài đặt",
-        "ApplicationUser" => "Tài khoản",
-        "RolePermission" or "DepartmentPermission" => "Phân quyền",
-        "Device" => "Máy chấm công",
-        "DeviceUser" => "Người dùng máy chấm công",
-        _ => type,
-    };
+    /// <summary>Tên dễ hiểu của loại dữ liệu (xem <see cref="ActivityLabels"/>).</summary>
+    public static string EntityLabel(string type) => ActivityLabels.Entity(type);
 
     /// <summary>Tên chức năng theo mã module (Lịch sử thao tác hiển thị).</summary>
     public static string ModuleLabel(string? code)

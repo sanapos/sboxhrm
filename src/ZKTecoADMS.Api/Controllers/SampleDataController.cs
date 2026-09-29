@@ -37,7 +37,11 @@ public class SampleDataController(
                 return NotFound(AppResponse<SampleDataResult>.Error("Không tìm thấy cửa hàng."));
 
             var storeId = store.Id;
-            var authError = AuthorizeStoreAccess(storeId, allowAnonymousIfEmpty: true);
+            // Chưa đăng nhập: chỉ dùng cho màn «Đăng ký xong → cài dữ liệu mẫu» ngay sau khi tạo cửa hàng.
+            // Quá 30 phút phải đăng nhập — tránh người lạ biết mã cửa hàng tạo tài khoản demo (mật khẩu cố định).
+            var anonymousWindowOk = (DateTime.UtcNow - DateTime.SpecifyKind(store.CreatedAt, DateTimeKind.Utc))
+                < TimeSpan.FromMinutes(30);
+            var authError = AuthorizeStoreAccess(storeId, allowAnonymousIfEmpty: anonymousWindowOk);
             if (authError != null)
                 return authError;
 

@@ -417,14 +417,12 @@ Map<String, String> _quoteHeaderData(
   final day = DateFormat('dd/MM/yyyy');
   final now = DateTime.now();
   final use = lines.isNotEmpty ? lines : q.lines;
-  final subTotal = use.fold<double>(0, (a, l) => a + l.qty * l.unitPrice);
-  final lineSum = use.fold<double>(0, (a, l) => a + _quoteLineAmount(l));
-  final vat = use.fold<double>(0, (a, l) {
-    final net =
-        (l.qty * l.unitPrice - l.discountAmount).clamp(0.0, double.infinity);
-    return a + (_quoteLineAmount(l) - net);
-  });
-  final total = (lineSum - q.discount).clamp(0.0, double.infinity);
+  final rate = q.vatPercent ?? 8;
+  final t = PosQuoteVat.compute(use, mode: q.vatMode, rate: rate, discount: q.discount);
+  final subTotal = t.subTotal;
+  final vat = t.vat;
+  final total = t.total;
+  final rateText = rate == rate.roundToDouble() ? rate.toStringAsFixed(0) : rate.toStringAsFixed(1);
   String prof(String a, String b) =>
       (profile?[a] ?? profile?[b] ?? '').toString().trim();
   final quoteTerms = (q.terms ?? '').trim();
@@ -450,6 +448,15 @@ Map<String, String> _quoteHeaderData(
     'Tien_Thue': money.format(vat),
     'Thue': money.format(vat),
     'VAT': money.format(vat),
+    'Thue_Suat': q.vatMode == PosQuoteVat.included || q.vatMode == PosQuoteVat.added ? '$rateText%' : '',
+    'Cach_Tinh_VAT': q.vatMode == PosQuoteVat.included
+        ? 'Giá đã bao gồm VAT $rateText%'
+        : q.vatMode == PosQuoteVat.added
+            ? 'Giá chưa bao gồm VAT, cộng VAT $rateText%'
+            : q.vatMode == PosQuoteVat.none
+                ? 'Không tính VAT'
+                : 'VAT theo từng mặt hàng',
+    'Gia_Tri_Truoc_VAT': money.format(t.preVat),
     'Tong_Cong': money.format(total),
     'Khach_Can_Tra': money.format(total),
     'Tong_Cong_Bang_Chu': vietnameseMoneyInWords(total.round()),

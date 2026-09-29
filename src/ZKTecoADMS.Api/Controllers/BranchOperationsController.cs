@@ -54,6 +54,7 @@ public class BranchOperationsController(ZKTecoDbContext db, IBranchContext branc
 
     /// <summary>Tồn kho của 1 chi nhánh (mặc định chi nhánh đang thao tác).</summary>
     [HttpGet("stock")]
+    [MaskCostData("totalValue")]
     [RequireModulePermission("PosProducts", ModulePermissionAction.View)]
     public async Task<ActionResult<AppResponse<object>>> GetBranchStock(
         [FromQuery] Guid? branchId, [FromQuery] string? search, [FromQuery] string? filter,

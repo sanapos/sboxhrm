@@ -2,7 +2,7 @@ import 'dart:convert';
 import 'dart:typed_data';
 import 'dart:ui' as ui;
 
-import 'package:cross_file/cross_file.dart';
+import 'package:flutter/foundation.dart' show kIsWeb;
 import 'package:flutter/material.dart';
 import 'package:pdf/pdf.dart';
 import 'package:printing/printing.dart';
@@ -13,6 +13,7 @@ import '../l10n/app_tr.dart';
 import '../models/pos_quote.dart';
 import '../services/api_service.dart';
 import '../utils/file_saver.dart';
+import 'export_permission_guard.dart';
 import '../models/pos_print_template.dart';
 import '../utils/pos_html_print.dart';
 import '../utils/pos_quote_document_wording.dart';
@@ -176,89 +177,91 @@ class PosQuoteExport {
     );
   }
 
+  /// Tệp gửi khách: PDF A4 (máy chủ dựng) → ảnh PNG (dựng trên máy) → Word (.doc) nếu hai cách trên lỗi.
+  static Future<({Uint8List bytes, String name, String mime})?> _shareFile({
+    required String quoteId,
+    required String html,
+    required String fileBase,
+  }) async {
+    if (html.trim().isNotEmpty) {
+      final pdf = await ApiService().exportPosQuotePdfFromHtml(quoteId, html: html, fileName: fileBase);
+      if (pdf['isSuccess'] == true && pdf['data'] is List && (pdf['data'] as List).isNotEmpty) {
+        return (
+          bytes: Uint8List.fromList(List<int>.from(pdf['data'] as List)),
+          name: '$fileBase.pdf',
+          mime: 'application/pdf',
+        );
+      }
+      try {
+        final png = await htmlToPngBytes(html);
+        if (png != null && png.isNotEmpty) {
+          return (bytes: png, name: '$fileBase.png', mime: 'image/png');
+        }
+      } catch (_) {}
+      final doc = html.toLowerCase().contains('<html')
+          ? html
+          : '<html><head><meta charset="utf-8"></head><body>$html</body></html>';
+      return (bytes: Uint8List.fromList(utf8.encode(doc)), name: '$fileBase.doc', mime: 'application/msword');
+    }
+    return null;
+  }
+
+  /// Gửi báo giá / chứng từ cho khách qua Email, Zalo, Facebook (Messenger) hoặc ứng dụng khác.
+  /// Điện thoại: mở bảng chia sẻ kèm file PDF → chọn Zalo / Messenger / Gmail.
+  /// Web: tải PDF về máy rồi mở Zalo Web / Messenger / thư để đính kèm.
   static Future<void> shareQuote(
     BuildContext context, {
     required String quoteId,
     required String quoteNo,
     required String customerName,
     required String channel,
-    bool includeImages = false,
-    bool includeStamp = true,
-    PosQuote? quote,
+    required String html,
+    String? customerPhone,
+    String title = 'Báo giá',
   }) async {
-    final local = await _localWordBytes(quote, includeStamp: includeStamp);
-    final bytes = local ??
-        await ApiService().downloadPosQuoteExport(
-      quoteId,
-      'word',
-      includeImages: includeImages,
+    NotificationOverlayManager().showInfo(
+      title: 'Đang chuẩn bị file…',
+      message: tr('Dựng PDF khổ A4 để gửi khách'),
     );
-    final summary =
-        'Báo giá $quoteNo — $customerName\nVui lòng xem file đính kèm.';
-    final name = 'BaoGia_$quoteNo.doc';
-    final fileBytes = bytes == null ? null : Uint8List.fromList(bytes);
+    final file = await _shareFile(quoteId: quoteId, html: html, fileBase: 'BaoGia_$quoteNo');
+    if (!context.mounted) return;
+    final who = customerName.trim().isEmpty ? '' : ' — $customerName';
+    final summary = '$title $quoteNo$who\nKính gửi Quý khách file $title đính kèm.';
+    if (file == null) {
+      NotificationOverlayManager().showError(title: 'Không tạo được file', message: tr('Vui lòng thử lại'));
+      return;
+    }
+    final phone = (customerPhone ?? '').replaceAll(RegExp(r'[^0-9]'), '');
 
-    switch (channel) {
-      case 'email':
-        if (fileBytes != null && fileBytes.isNotEmpty) {
-          await Share.shareXFiles(
-            [
-              XFile.fromData(
-                fileBytes,
-                name: name,
-                mimeType: 'application/msword',
-              ),
-            ],
-            text: summary,
-            subject: 'Báo giá $quoteNo',
-          );
-        } else {
-          final uri = Uri.parse(
-            'mailto:?subject=${Uri.encodeComponent('Báo giá $quoteNo')}'
-            '&body=${Uri.encodeComponent(summary)}',
-          );
-          await launchUrl(uri, mode: LaunchMode.externalApplication);
-        }
-        break;
-      case 'zalo':
-        if (fileBytes != null && fileBytes.isNotEmpty) {
-          await Share.shareXFiles(
-            [
-              XFile.fromData(
-                fileBytes,
-                name: name,
-                mimeType: 'application/msword',
-              ),
-            ],
-            text: summary,
-          );
-        } else {
-          final uri = Uri.parse(
-              'https://zalo.me/share?url=${Uri.encodeComponent(summary)}');
-          await launchUrl(uri, mode: LaunchMode.externalApplication);
-        }
-        break;
-      case 'facebook':
-        final uri = Uri.parse(
-          'https://www.facebook.com/sharer/sharer.php?quote=${Uri.encodeComponent(summary)}',
-        );
-        await launchUrl(uri, mode: LaunchMode.externalApplication);
-        break;
-      default:
-        if (fileBytes != null && fileBytes.isNotEmpty) {
-          await Share.shareXFiles(
-            [
-              XFile.fromData(
-                fileBytes,
-                name: name,
-                mimeType: 'application/msword',
-              ),
-            ],
-            text: summary,
-          );
-        } else {
-          await Share.share(summary);
-        }
+    if (kIsWeb) {
+      // Trình duyệt máy tính không gửi file thẳng sang Zalo / Messenger được → tải file rồi mở cửa sổ chat.
+      await saveAndOpenFileBytes(file.bytes, file.name, file.mime);
+      final Uri target = switch (channel) {
+        'zalo' => Uri.parse(phone.isNotEmpty ? 'https://zalo.me/$phone' : 'https://chat.zalo.me/'),
+        'facebook' => Uri.parse('https://www.facebook.com/messages/'),
+        _ => Uri.parse('mailto:?subject=${Uri.encodeComponent('$title $quoteNo')}'
+            '&body=${Uri.encodeComponent(summary)}'),
+      };
+      await launchUrl(target, mode: LaunchMode.externalApplication);
+      NotificationOverlayManager().showSuccess(
+        title: 'Đã tải ${file.name}',
+        message: tr(channel == 'email'
+            ? 'Đính kèm file vừa tải vào thư đang mở.'
+            : 'Kéo thả file vừa tải vào cuộc trò chuyện ${channel == 'zalo' ? 'Zalo' : 'Messenger'} để gửi khách.'),
+      );
+      return;
+    }
+
+    final box = context.findRenderObject() as RenderBox?;
+    final origin = box == null ? null : box.localToGlobal(Offset.zero) & box.size;
+    final result = await Share.shareXFiles(
+      [XFile.fromData(file.bytes, name: file.name, mimeType: file.mime)],
+      text: summary,
+      subject: '$title $quoteNo',
+      sharePositionOrigin: origin,
+    );
+    if (result.status == ShareResultStatus.unavailable) {
+      await saveAndOpenFileBytes(file.bytes, file.name, file.mime);
     }
   }
 
@@ -276,8 +279,12 @@ class PosQuoteExport {
     BuildContext context, {
     required String html,
     required String fileName,
+    String? quoteId,
   }) async {
-    final png = await htmlToPngBytes(html);
+    Uint8List? png;
+    try {
+      png = await htmlToPngBytes(html, quoteId: quoteId);
+    } catch (_) {}
     if (!context.mounted) return;
     if (png == null || png.isEmpty) {
       NotificationOverlayManager().showError(
@@ -293,13 +300,24 @@ class PosQuoteExport {
     );
   }
 
-  static Future<Uint8List?> htmlToPngBytes(String html) async {
+  /// HTML → ảnh PNG (tối đa 3 trang ghép dọc). Có [quoteId] → PDF do máy chủ dựng (chạy cả trên web).
+  static Future<Uint8List?> htmlToPngBytes(String html, {String? quoteId}) async {
     final raw = html.trim();
     if (raw.isEmpty) return null;
-    final pdfBytes = await Printing.convertHtml(
-      html: raw,
-      format: PdfPageFormat.a4,
-    );
+    Uint8List? pdfBytes;
+    if (quoteId != null) {
+      final res = await ApiService().exportPosQuotePdfFromHtml(quoteId, html: raw, fileName: 'anh');
+      if (res['isSuccess'] == true && res['data'] is List) {
+        pdfBytes = Uint8List.fromList(List<int>.from(res['data'] as List));
+      }
+    }
+    pdfBytes ??= kIsWeb
+        ? null
+        : await Printing.convertHtml(
+            html: raw,
+            format: PdfPageFormat.a4,
+          );
+    if (pdfBytes == null || pdfBytes.isEmpty) return null;
     final images = <ui.Image>[];
     await for (final raster in Printing.raster(pdfBytes, dpi: 110)) {
       images.add(await raster.toImage());
@@ -460,6 +478,9 @@ class PosQuoteExport {
     required String action,
     String documentType = PosPrintDocumentTypes.quote,
   }) async {
+    // Xuất file / gửi file cho khách cần quyền «Xuất» của Báo giá (in trực tiếp chỉ cần Xem).
+    const exportActions = {'excel', 'word', 'pdf', 'png', 'email', 'zalo', 'facebook'};
+    if (exportActions.contains(action) && !ensureCanExport(context, 'PosQuotes')) return;
     // Có mẫu Word giữ bố cục → Word / PDF lấy từ mẫu đó (không hỏi con dấu HTML).
     if ((action == 'word' || action == 'pdf') && await hasDocxTemplate(documentType)) {
       if (!context.mounted) return;
@@ -480,6 +501,23 @@ class PosQuoteExport {
       if (picked == null || !context.mounted) return;
       stamp = picked;
     }
+    try {
+      await _runAction(context, quote: quote, action: action, documentType: documentType, stamp: stamp);
+    } catch (e) {
+      NotificationOverlayManager().showError(
+        title: 'Không thực hiện được',
+        message: tr('Lỗi khi xuất / chia sẻ: $e'),
+      );
+    }
+  }
+
+  static Future<void> _runAction(
+    BuildContext context, {
+    required PosQuote quote,
+    required String action,
+    required String documentType,
+    required bool stamp,
+  }) async {
     final full = await ensureLines(quote);
     if (!context.mounted) return;
     final no = docNoOf(full, documentType) ?? full.quoteNo;
@@ -533,18 +571,24 @@ class PosQuoteExport {
       case 'png':
         final body = await html();
         if (!context.mounted) return;
-        await exportPng(context, html: body, fileName: '${documentType}_$no.png');
+        await exportPng(context, html: body, fileName: '${documentType}_$no.png', quoteId: full.id);
       case 'email':
       case 'zalo':
       case 'facebook':
+        final body = await html();
+        if (!context.mounted) return;
         await shareQuote(
           context,
           quoteId: full.id,
           quoteNo: no,
           customerName: full.customerName ?? '',
+          customerPhone: full.customerPhone,
           channel: action,
-          includeStamp: stamp,
-          quote: full,
+          html: body,
+          title: switch (documentType) {
+            PosPrintDocumentTypes.quote => 'Báo giá',
+            _ => 'Chứng từ',
+          },
         );
       case 'call':
         await callPosQuoteCustomer(full.customerPhone);

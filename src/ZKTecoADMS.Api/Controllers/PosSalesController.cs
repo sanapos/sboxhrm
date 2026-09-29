@@ -23,6 +23,7 @@ namespace ZKTecoADMS.Api.Controllers;
 [ApiController]
 [Route("api/pos/sales")]
 [Authorize]
+[MaskCostData]
 public partial class PosSalesController(
     ZKTecoDbContext dbContext,
     ISystemNotificationService notificationService,
@@ -83,14 +84,29 @@ public partial class PosSalesController(
             ct);
     }
 
-    /// <summary>Đổi giá tay / CK đơn / CK dòng cần Approve (Order không được hạ giá).</summary>
-    async Task<ActionResult?> DenyIfCannotOverridePriceAsync(CancellationToken ct = default)
+    /// <summary>Quyền con bán hàng: Sửa giá khi bán / Giảm giá khi bán / Hủy hóa đơn đã thu.</summary>
+    async Task<bool> HasPosSellSubAsync(string module, ModulePermissionAction action, CancellationToken ct = default)
     {
-        if (await HasPosSellApproveAsync(ct)) return null;
-        return StatusCode(StatusCodes.Status403Forbidden,
-            AppResponse<SaleOrderDto>.Fail(
-                "Tài khoản không có quyền duyệt PosSell (đổi giá / chiết khấu)."));
+        if (IsAdmin) return true;
+        return await modulePermissionService.HasPermissionAsync(
+            CurrentUserId, CurrentUserRole, CurrentStoreId, module, action, ct);
     }
+
+    Task<bool> CanEditSellPriceAsync(CancellationToken ct = default) =>
+        HasPosSellSubAsync("PosSellPriceEdit", ModulePermissionAction.Edit, ct);
+
+    Task<bool> CanGiveSellDiscountAsync(CancellationToken ct = default) =>
+        HasPosSellSubAsync("PosSellDiscount", ModulePermissionAction.Edit, ct);
+
+    /// <summary>Lỗi dựng đơn do thiếu quyền đổi giá / chiết khấu → 403 kèm tên quyền cần tick.</summary>
+    ActionResult? PricingDenied(string? err) => err switch
+    {
+        PriceOverrideDeniedMessage => StatusCode(StatusCodes.Status403Forbidden,
+            AppResponse<SaleOrderDto>.Fail("Tài khoản không có quyền «Sửa giá khi bán» — nhờ quản lý tick trong Phân quyền.")),
+        DiscountDeniedMessage => StatusCode(StatusCodes.Status403Forbidden,
+            AppResponse<SaleOrderDto>.Fail("Tài khoản không có quyền «Giảm giá khi bán» — nhờ quản lý tick trong Phân quyền.")),
+        _ => null,
+    };
 
     public record SaleLineDto(
         Guid ProductId, decimal Qty, Guid? UnitId, decimal? UnitPrice, Guid? VariantId,
@@ -1119,12 +1135,14 @@ public partial class PosSalesController(
             await using var tx = await dbContext.Database.BeginTransactionAsync(IsolationLevel.RepeatableRead);
 
             string? err;
-            var allowPrice = await HasPosSellApproveAsync();
+            var allowPrice = await CanEditSellPriceAsync();
+            var allowDiscount = await CanGiveSellDiscountAsync();
             try
             {
                 (order, lines, err) = await BuildSaleAsync(
                     storeId, null, dto, dto.Complete,
-                    allowManualPriceOverride: allowPrice);
+                    allowManualPriceOverride: allowPrice,
+                    allowManualDiscount: allowDiscount);
             }
             catch (Exception ex) when (outerAttempt < 4 && IsSerializationFailure(ex))
             {
@@ -1138,12 +1156,10 @@ public partial class PosSalesController(
                 await tx.RollbackAsync();
                 return BadRequest(AppResponse<SaleOrderDto>.Fail(ex.Message));
             }
-            if (err == PriceOverrideDeniedMessage)
+            if (PricingDenied(err) is { } pricingDenied)
             {
-                var denied = await DenyIfCannotOverridePriceAsync();
-                return denied ?? StatusCode(StatusCodes.Status403Forbidden,
-                    AppResponse<SaleOrderDto>.Fail(
-                        "Tài khoản không có quyền duyệt PosSell (đổi giá / chiết khấu)."));
+                await tx.RollbackAsync();
+                return pricingDenied;
             }
             if (err != null) return BadRequest(AppResponse<SaleOrderDto>.Fail(err));
             if (order == null || lines == null)
@@ -1482,7 +1498,7 @@ public partial class PosSalesController(
     public record CancelSaleDto(string? Reason = null, string? DetailNote = null, string? DeviceName = null);
 
     [HttpPost("{id:guid}/cancel")]
-    [RequireModulePermission("PosSell", ModulePermissionAction.Approve)]
+    [RequireModulePermission("PosSellCancelPaid", ModulePermissionAction.Approve)]
     public async Task<ActionResult<AppResponse<SaleOrderDto>>> CancelSale(
         Guid id, [FromBody] CancelSaleDto? dto = null)
     {

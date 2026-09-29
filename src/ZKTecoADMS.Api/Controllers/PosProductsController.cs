@@ -17,6 +17,7 @@ namespace ZKTecoADMS.Api.Controllers;
 [ApiController]
 [Route("api/pos/products")]
 [Authorize]
+[MaskCostData]
 public partial class PosProductsController(
     ZKTecoDbContext dbContext,
     IFileStorageService fileStorageService,
@@ -812,7 +813,8 @@ public partial class PosProductsController(
         entity.ProductType = dto.ProductType;
         entity.Description = dto.Description?.Trim();
         var oldCost = entity.CostPrice;
-        entity.CostPrice = dto.CostPrice;
+        // Không có quyền xem giá vốn → form không có giá vốn thật, giữ nguyên giá vốn cũ.
+        if (await CanViewCostAsync()) entity.CostPrice = dto.CostPrice;
         entity.BasePrice = dto.BasePrice;
         entity.VatRate = dto.VatExempt ? 0 : Math.Max(0, dto.VatRate);
         entity.VatExempt = dto.VatExempt;
@@ -837,11 +839,11 @@ public partial class PosProductsController(
             }
         }
 
-        if (oldCost != dto.CostPrice)
+        if (oldCost != entity.CostPrice)
         {
             PosStockRecording.RecordCostChangeIfChanged(
                 dbContext, storeId, entity.Id, null, entity.OnHandQty,
-                oldCost, dto.CostPrice, CurrentUserEmail);
+                oldCost, entity.CostPrice, CurrentUserEmail);
         }
 
         // ReservedQty do server quản lý (giữ chỗ bàn/đơn nháp) — không nhận từ form.

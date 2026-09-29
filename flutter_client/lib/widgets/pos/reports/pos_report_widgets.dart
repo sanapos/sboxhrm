@@ -1,5 +1,7 @@
 import 'package:fl_chart/fl_chart.dart';
 import 'package:flutter/material.dart';
+import 'package:provider/provider.dart';
+import '../../../providers/permission_provider.dart';
 import 'package:intl/intl.dart';
 
 import '../../../utils/media_query_safe_padding.dart';
@@ -160,6 +162,7 @@ class PosReportMobileScaffold extends StatelessWidget {
     this.onExportExcel,
     this.onExportPng,
     this.pngKey,
+    this.exportModule,
   });
 
   final String title;
@@ -174,8 +177,19 @@ class PosReportMobileScaffold extends StatelessWidget {
   final VoidCallback? onExportPng;
   final GlobalKey? pngKey;
 
+  /// Mã chức năng để kiểm quyền Xuất (không có quyền → ẩn nút xuất Excel / PNG).
+  final String? exportModule;
+
   @override
   Widget build(BuildContext context) {
+    var canExport = true;
+    if (exportModule != null) {
+      try {
+        canExport = Provider.of<PermissionProvider>(context).canExport(exportModule);
+      } on ProviderNotFoundException {
+        canExport = true; // màn nhúng / test không có PermissionProvider — giữ như cũ
+      }
+    }
     final header = Material(
       color: Colors.white,
       child: Column(
@@ -204,13 +218,13 @@ class PosReportMobileScaffold extends StatelessWidget {
                     ),
                   ),
                 ),
-                if (onExportPng != null)
+                if (onExportPng != null && canExport)
                   IconButton(
                     tooltip: tr('Xuất PNG'),
                     icon: const Icon(Icons.image_outlined, color: _muted),
                     onPressed: onExportPng,
                   ),
-                if (onExportExcel != null)
+                if (onExportExcel != null && canExport)
                   IconButton(
                     tooltip: tr('Xuất Excel'),
                     icon: const Icon(Icons.file_download_outlined, color: _muted),

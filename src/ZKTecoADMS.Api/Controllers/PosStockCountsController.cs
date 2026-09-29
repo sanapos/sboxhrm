@@ -15,6 +15,7 @@ namespace ZKTecoADMS.Api.Controllers;
 [ApiController]
 [Route("api/pos/stock/counts")]
 [Authorize]
+[MaskCostData("systemValue", "actualValue", "diffValue", "totalSystemValue", "totalActualValue", "totalDiffValue")]
 public class PosStockCountsController(ZKTecoDbContext dbContext) : AuthenticatedControllerBase
 {
     public record CreateStockCountDto(string? Name, string? Note, bool SeedAllProducts = false);

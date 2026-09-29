@@ -78,6 +78,7 @@ class _PosSupplierReportScreenState extends State<PosSupplierReportScreen> {
   Widget build(BuildContext context) {
     return PosReportMobileScaffold(
       title: 'Nhà cung cấp',
+      exportModule: 'PosReportPurchases',
       time: _time,
       onTimeChanged: (s) async {
         setState(() => _time = s);

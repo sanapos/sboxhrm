@@ -39,7 +39,7 @@ public class ShiftSalaryLevelsController(IMediator mediator) : AuthenticatedCont
     }
 
     [HttpPost]
-    [Authorize(Policy = PolicyNames.AtLeastManager)]
+    [Authorize(Policy = PolicyNames.AtLeastEmployee)]
     [RequireModulePermission("ShiftSalaryLevel", ModulePermissionAction.Create)]
     public async Task<ActionResult<AppResponse<ShiftSalaryLevelDto>>> Create([FromBody] CreateShiftSalaryLevelDto request)
     {
@@ -62,7 +62,7 @@ public class ShiftSalaryLevelsController(IMediator mediator) : AuthenticatedCont
     }
 
     [HttpPut("{id}")]
-    [Authorize(Policy = PolicyNames.AtLeastManager)]
+    [Authorize(Policy = PolicyNames.AtLeastEmployee)]
     [RequireModulePermission("ShiftSalaryLevel", ModulePermissionAction.Edit)]
     public async Task<ActionResult<AppResponse<ShiftSalaryLevelDto>>> Update(Guid id, [FromBody] UpdateShiftSalaryLevelDto request)
     {
@@ -86,7 +86,7 @@ public class ShiftSalaryLevelsController(IMediator mediator) : AuthenticatedCont
     }
 
     [HttpDelete("{id}")]
-    [Authorize(Policy = PolicyNames.AtLeastManager)]
+    [Authorize(Policy = PolicyNames.AtLeastEmployee)]
     [RequireModulePermission("ShiftSalaryLevel", ModulePermissionAction.Delete)]
     public async Task<ActionResult<AppResponse<bool>>> Delete(Guid id)
     {

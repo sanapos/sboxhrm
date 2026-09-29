@@ -53,7 +53,7 @@ public class PayslipsController(IMediator mediator) : AuthenticatedControllerBas
     /// Manager/Admin only.
     /// </summary>
     [HttpGet("store")]
-    [Authorize(Policy = PolicyNames.AtLeastManager)]
+    [Authorize(Policy = PolicyNames.ManagerOrAccountant)]
     [RequireModulePermission("Payslip", ModulePermissionAction.View)]
     public async Task<ActionResult<AppResponse<List<PayslipDto>>>> GetStorePayslips(
         [FromQuery] int? year,
@@ -73,7 +73,7 @@ public class PayslipsController(IMediator mediator) : AuthenticatedControllerBas
     /// Chốt lương — tạo/cập nhật phiếu lương từ dữ liệu tổng hợp lương đã tính.
     /// </summary>
     [HttpPost("finalize")]
-    [Authorize(Policy = PolicyNames.AtLeastManager)]
+    [Authorize(Policy = PolicyNames.ManagerOrAccountant)]
     [RequireModulePermission("Payroll", ModulePermissionAction.Export)]
     public async Task<ActionResult<AppResponse<FinalizePayrollResultDto>>> FinalizePayroll(
         [FromBody] FinalizePayrollRequest request)

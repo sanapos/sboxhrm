@@ -309,8 +309,7 @@ public class PermissionManagementController(
         var existingPermissions = await context.RolePermissions
             .Include(p => p.Permission)
             .AsTracking()
-            .Where(p => (p.StoreId == RequiredStoreId || p.StoreId == null)
-                        && p.RoleName == roleName)
+            .Where(p => p.StoreId == RequiredStoreId && p.RoleName == roleName)
             .ToListAsync();
 
         var updated = 0;
@@ -421,7 +420,7 @@ public class PermissionManagementController(
         }
 
         var existingPermissions = await context.RolePermissions
-            .Where(p => (p.StoreId == RequiredStoreId || p.StoreId == null) && p.RoleName == roleName)
+            .Where(p => p.StoreId == RequiredStoreId && p.RoleName == roleName)
             .ToListAsync();
 
         context.RolePermissions.RemoveRange(existingPermissions);
@@ -477,10 +476,19 @@ public class PermissionManagementController(
     private async Task<List<RolePermission>> CreateDefaultPermissionsForRole(string roleName, List<Permission> modules)
     {
         var newPermissions = new List<RolePermission>();
+        // Mặc định theo gói cửa hàng (HRM / POS / HRM + POS) — cùng bộ mẫu với lúc tạo cửa hàng.
+        var allowed = await ResolveStorePackageModuleSetAsync();
+        var defaults = PermissionPresetCatalog.Defaults(PermissionPresetCatalog.Detect(allowed));
+        var preset = defaults.TryGetValue(roleName, out var presetId) ? PermissionPresetCatalog.Build(presetId) : null;
 
         foreach (var module in modules)
         {
             var (canView, canCreate, canEdit, canDelete, canExport, canApprove) = GetDefaultPermissions(roleName, module.Module);
+            if (preset != null)
+            {
+                var f = PermissionPresetCatalog.FlagsFor(preset, module.Module, allowed);
+                (canView, canCreate, canEdit, canDelete, canExport, canApprove) = (f.V, f.C, f.E, f.D, f.X, f.A);
+            }
 
             var newPermission = new RolePermission
             {

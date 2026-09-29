@@ -1,6 +1,7 @@
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.ChangeTracking;
 using Microsoft.EntityFrameworkCore.Diagnostics;
+using ZKTecoADMS.Application.Exceptions;
 using ZKTecoADMS.Application.Interfaces;
 using ZKTecoADMS.Domain.Entities;
 using ZKTecoADMS.Infrastructure.Services;
@@ -45,7 +46,10 @@ public sealed class BranchStockInterceptor(IBranchContext branchContext) : SaveC
             .Where(e => e.Entity is PosProduct or PosProductVariant &&
                         (e.State == EntityState.Added || (e.State == EntityState.Modified && e.Property("OnHandQty").IsModified)))
             .ToList();
-        if (scopedAdded.Count == 0 && stockChanges.Count == 0) return;
+        var guardedWrites = branchContext.RestrictWrites && branchContext.UserId != null &&
+            entries.Any(e => e.Entity is IBranchScoped && IsGuardedDoc(e.Entity) &&
+                             e.State is EntityState.Added or EntityState.Modified or EntityState.Deleted);
+        if (scopedAdded.Count == 0 && stockChanges.Count == 0 && !guardedWrites) return;
 
         var cache = new Dictionary<Guid, StoreBranches>();
         async Task<StoreBranches> BranchesOf(Guid storeId)
@@ -77,6 +81,9 @@ public sealed class BranchStockInterceptor(IBranchContext branchContext) : SaveC
                 branch = await BranchOfSourceDocAsync(db, tx, ct);
             entity.BranchId = branch ?? await DefaultBranch(storeId);
         }
+
+        // ── 1b. Người dùng bị giới hạn chi nhánh: chỉ ghi chứng từ trong chi nhánh được phép + đúng cờ Thêm/Sửa/Xóa ──
+        await GuardBranchWritesAsync(db, entries, BranchesOf, ct);
 
         // ── 2. Chênh lệch tồn → tồn chi nhánh ──
         if (stockChanges.Count == 0) return;
@@ -117,6 +124,59 @@ public sealed class BranchStockInterceptor(IBranchContext branchContext) : SaveC
             if (branch == null || branch == sb.Hq || !sb.Ids.Contains(branch.Value)) continue; // trụ sở tính ngầm
 
             await BranchStockService.AddAsync(db, storeId, branch.Value, productId, variantId, delta, ct);
+        }
+    }
+
+    /// <summary>Chứng từ người dùng tạo / sửa trực tiếp (thẻ kho, ca thu ngân là phát sinh kèm theo — không kiểm).</summary>
+    private static bool IsGuardedDoc(object entity) =>
+        entity is PosSaleOrder or PosStockReceipt or PosStockIssue or PosStockCount or PosPurchaseReturn or CashTransaction;
+
+    private async Task GuardBranchWritesAsync(
+        ZKTecoDbContext db, List<EntityEntry> entries, Func<Guid, Task<StoreBranches>> branchesOf, CancellationToken ct)
+    {
+        if (!branchContext.RestrictWrites || branchContext.UserId is not Guid userId) return;
+        var checkedActs = new Dictionary<(Guid, BranchAction), bool>();
+        foreach (var e in entries)
+        {
+            if (e.State is not (EntityState.Added or EntityState.Modified or EntityState.Deleted)) continue;
+            if (e.Entity is not IBranchScoped scoped || !IsGuardedDoc(e.Entity)) continue;
+            if (StoreIdOf(e) is not Guid storeId) continue;
+            var sb = await branchesOf(storeId);
+            if (sb.Hq == null) continue; // cửa hàng chưa dùng chi nhánh
+
+            var action = e.State switch
+            {
+                EntityState.Added => BranchAction.Create,
+                EntityState.Deleted => BranchAction.Delete,
+                _ when e.Metadata.FindProperty("Deleted") != null
+                       && e.Property("Deleted").IsModified
+                       && e.Property("Deleted").OriginalValue == null
+                       && e.Property("Deleted").CurrentValue != null => BranchAction.Delete,
+                _ => BranchAction.Edit,
+            };
+
+            var branches = new List<Guid> { scoped.BranchId ?? sb.Hq.Value };
+            if (e.State == EntityState.Modified && e.Property(nameof(IBranchScoped.BranchId)).OriginalValue is Guid origBranch
+                && !branches.Contains(origBranch))
+                branches.Add(origBranch); // chuyển chứng từ sang chi nhánh khác: phải có quyền ở cả hai
+
+            foreach (var branch in branches)
+            {
+                if (branchContext.AllowedBranchIds is { } allowed && !allowed.Contains(branch))
+                    throw new ForbiddenException("Chứng từ thuộc chi nhánh ngoài phạm vi của tài khoản — không thể thêm / sửa / xóa.");
+                if (!checkedActs.TryGetValue((branch, action), out var ok))
+                {
+                    ok = await BranchStockService.CanActOnBranchAsync(db, userId, storeId, branch, action, ct);
+                    checkedActs[(branch, action)] = ok;
+                }
+                if (!ok)
+                    throw new ForbiddenException(action switch
+                    {
+                        BranchAction.Create => "Tài khoản không có quyền Thêm chứng từ ở chi nhánh này (Phân quyền chi nhánh).",
+                        BranchAction.Edit => "Tài khoản không có quyền Sửa chứng từ ở chi nhánh này (Phân quyền chi nhánh).",
+                        _ => "Tài khoản không có quyền Xóa / hủy chứng từ ở chi nhánh này (Phân quyền chi nhánh).",
+                    });
+            }
         }
     }
 

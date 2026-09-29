@@ -159,6 +159,7 @@ class _PosProfitReportScreenState extends State<PosProfitReportScreen> {
     );
     return PosReportMobileScaffold(
       title: 'Lợi nhuận',
+      exportModule: 'PosReportProfit',
       time: _time,
       pngKey: _pngKey,
       onExportExcel: () => unawaited(_exportExcel()),

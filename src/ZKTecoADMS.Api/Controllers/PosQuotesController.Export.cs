@@ -10,7 +10,7 @@ namespace ZKTecoADMS.Api.Controllers;
 public partial class PosQuotesController
 {
     [HttpGet("{id:guid}/export/excel")]
-    [RequireModulePermission("PosQuotes", ModulePermissionAction.View)]
+    [RequireModulePermission("PosQuotes", ModulePermissionAction.Export)]
     public async Task<IActionResult> ExportExcel(Guid id, [FromQuery] bool includeImages = false)
     {
         var storeId = RequiredStoreId;
@@ -25,7 +25,7 @@ public partial class PosQuotesController
     }
 
     [HttpGet("{id:guid}/export/word")]
-    [RequireModulePermission("PosQuotes", ModulePermissionAction.View)]
+    [RequireModulePermission("PosQuotes", ModulePermissionAction.Export)]
     public async Task<IActionResult> ExportWord(Guid id, [FromQuery] bool includeImages = false)
     {
         var storeId = RequiredStoreId;

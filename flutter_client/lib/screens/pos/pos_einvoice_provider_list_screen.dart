@@ -104,6 +104,7 @@ class _PosEInvoiceProviderListScreenState
         _data?['provider']?.toString() ?? widget.portal?['provider']?.toString());
     return PosReportMobileScaffold(
       title: 'HĐĐT trên $providerName',
+      exportModule: 'PosEInvoice',
       time: _time,
       onTimeChanged: (s) {
         setState(() {

@@ -45,6 +45,8 @@ class _MobileAttendanceSettingsScreenState extends State<MobileAttendanceSetting
   
   // Settings
   MobileAttendanceSettings _settings = MobileAttendanceSettings();
+  /// Bản đã lưu trên server — so sánh để báo «có thay đổi chưa lưu».
+  MobileAttendanceSettings? _savedSettings;
   
   // Data
   List<WorkLocation> _locations = [];
@@ -334,6 +336,8 @@ class _MobileAttendanceSettingsScreenState extends State<MobileAttendanceSetting
         await DeviceSitePhotoPrefs.setStoreEnabled(true);
       }
 
+      _savedSettings = _settings;
+
       // Device change requests
       if (results[3]['isSuccess'] == true && results[3]['data'] != null) {
         final data = results[3]['data'];
@@ -430,569 +434,532 @@ class _MobileAttendanceSettingsScreenState extends State<MobileAttendanceSetting
   }
 
   // ==================== TAB 1: CÀI ĐẶT CHUNG ====================
+  bool get _settingsDirty => _savedSettings == null
+      ? false
+      : _savedSettings!.toJson().toString() != _settings.toJson().toString();
+
+  int get _enabledMethodCount =>
+      [_settings.enableFaceId, _settings.enableGps, _settings.enableWifi].where((e) => e).length;
+
+  void _updateSettings(MobileAttendanceSettings next) => setState(() => _settings = next);
+
   Widget _buildSettingsTab() {
-    return SingleChildScrollView(
-      padding: HrmSettingsMobileKit.active(context)
-          ? HrmSettingsMobileKit.pagePadding(context)
-          : const EdgeInsets.all(16),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          _buildSettingsCard(
-            title: 'Phương thức xác thực',
-            icon: Icons.verified_user,
-            color: HrmPageChrome.primaryNavy,
-            children: [
-              _buildSwitchTile(
-                title: 'Bật xác thực Face ID',
-                subtitle: 'Cho phép chấm công bằng khuôn mặt',
-                value: _settings.enableFaceId,
-                onChanged: (v) => setState(() => _settings = MobileAttendanceSettings(
-                  enableFaceId: v,
-                  enableGps: _settings.enableGps,
-                  enableWifi: _settings.enableWifi,
-                  verificationMode: _settings.verificationMode,
-                  gpsRadiusMeters: _settings.gpsRadiusMeters,
-                  minFaceMatchScore: _settings.minFaceMatchScore,
-                  autoApproveInRange: _settings.autoApproveInRange,
-                  allowManualApproval: _settings.allowManualApproval,
-                  maxPhotosPerRegistration: _settings.maxPhotosPerRegistration,
-                  requireLivenessDetection: _settings.requireLivenessDetection,
-                )),
-              ),
-              _buildSwitchTile(
-                title: 'Bật xác thực GPS',
-                subtitle: 'Cho phép xác thực vị trí khi chấm công',
-                value: _settings.enableGps,
-                onChanged: (v) => setState(() => _settings = MobileAttendanceSettings(
-                  enableFaceId: _settings.enableFaceId,
-                  enableGps: v,
-                  enableWifi: _settings.enableWifi,
-                  verificationMode: _settings.verificationMode,
-                  gpsRadiusMeters: _settings.gpsRadiusMeters,
-                  minFaceMatchScore: _settings.minFaceMatchScore,
-                  autoApproveInRange: _settings.autoApproveInRange,
-                  allowManualApproval: _settings.allowManualApproval,
-                  maxPhotosPerRegistration: _settings.maxPhotosPerRegistration,
-                  requireLivenessDetection: _settings.requireLivenessDetection,
-                )),
-              ),
-              _buildSwitchTile(
-                title: 'Bật xác thực WiFi văn phòng',
-                subtitle: 'Cho phép chấm công qua WiFi đã đăng ký',
-                value: _settings.enableWifi,
-                onChanged: (v) => setState(() => _settings = MobileAttendanceSettings(
-                  enableFaceId: _settings.enableFaceId,
-                  enableGps: _settings.enableGps,
-                  enableWifi: v,
-                  verificationMode: _settings.verificationMode,
-                  gpsRadiusMeters: _settings.gpsRadiusMeters,
-                  minFaceMatchScore: _settings.minFaceMatchScore,
-                  autoApproveInRange: _settings.autoApproveInRange,
-                  allowManualApproval: _settings.allowManualApproval,
-                  maxPhotosPerRegistration: _settings.maxPhotosPerRegistration,
-                  requireLivenessDetection: _settings.requireLivenessDetection,
-                )),
-              ),
-              const Divider(),
-              _buildVerificationModeSelector(),
-              const Divider(),
-              _buildSwitchTile(
-                title: 'Phát hiện người thật (Liveness)',
-                subtitle: 'Chống giả mạo bằng ảnh/video',
-                value: _settings.requireLivenessDetection,
-                onChanged: (v) => setState(() => _settings = MobileAttendanceSettings(
-                  enableFaceId: _settings.enableFaceId,
-                  enableGps: _settings.enableGps,
-                  enableWifi: _settings.enableWifi,
-                  verificationMode: _settings.verificationMode,
-                  gpsRadiusMeters: _settings.gpsRadiusMeters,
-                  minFaceMatchScore: _settings.minFaceMatchScore,
-                  autoApproveInRange: _settings.autoApproveInRange,
-                  allowManualApproval: _settings.allowManualApproval,
-                  maxPhotosPerRegistration: _settings.maxPhotosPerRegistration,
-                  requireLivenessDetection: v,
-                )),
-              ),
-            ],
-          ),
-          const SizedBox(height: 16),
-          _buildSettingsCard(
-            title: 'Cài đặt GPS',
-            icon: Icons.gps_fixed,
-            color: HrmPageChrome.primaryNavy,
-            children: [
-              _buildSliderTile(
-                title: 'Bán kính cho phép',
-                subtitle: '${_settings.gpsRadiusMeters} mét từ vị trí công ty',
-                value: _settings.gpsRadiusMeters.toDouble(),
-                min: 50,
-                max: 500,
-                divisions: 9,
-                onChanged: (v) => setState(() => _settings = MobileAttendanceSettings(
-                  enableFaceId: _settings.enableFaceId,
-                  enableGps: _settings.enableGps,
-                  enableWifi: _settings.enableWifi,
-                  verificationMode: _settings.verificationMode,
-                  gpsRadiusMeters: v.toInt(),
-                  minFaceMatchScore: _settings.minFaceMatchScore,
-                  autoApproveInRange: _settings.autoApproveInRange,
-                  allowManualApproval: _settings.allowManualApproval,
-                  maxPhotosPerRegistration: _settings.maxPhotosPerRegistration,
-                  requireLivenessDetection: _settings.requireLivenessDetection,
-                )),
-              ),
-              _buildSwitchTile(
-                title: 'Tự động duyệt trong phạm vi',
-                subtitle: 'Duyệt tự động nếu trong bán kính cho phép',
-                value: _settings.autoApproveInRange,
-                onChanged: (v) => setState(() => _settings = MobileAttendanceSettings(
-                  enableFaceId: _settings.enableFaceId,
-                  enableGps: _settings.enableGps,
-                  enableWifi: _settings.enableWifi,
-                  verificationMode: _settings.verificationMode,
-                  gpsRadiusMeters: _settings.gpsRadiusMeters,
-                  minFaceMatchScore: _settings.minFaceMatchScore,
-                  autoApproveInRange: v,
-                  allowManualApproval: _settings.allowManualApproval,
-                  maxPhotosPerRegistration: _settings.maxPhotosPerRegistration,
-                  requireLivenessDetection: _settings.requireLivenessDetection,
-                )),
-              ),
-            ],
-          ),
-          const SizedBox(height: 16),
-          _buildSettingsCard(
-            title: 'Cài đặt Face ID',
-            icon: Icons.face_retouching_natural,
-            color: HrmPageChrome.primaryNavy,
-            children: [
-              _buildSliderTile(
-                title: 'Độ chính xác tối thiểu',
-                subtitle: '${_settings.minFaceMatchScore.toInt()}% độ khớp khuôn mặt',
-                value: _settings.minFaceMatchScore,
-                min: 60,
-                max: 99,
-                divisions: 39,
-                onChanged: (v) => setState(() => _settings = MobileAttendanceSettings(
-                  enableFaceId: _settings.enableFaceId,
-                  enableGps: _settings.enableGps,
-                  enableWifi: _settings.enableWifi,
-                  verificationMode: _settings.verificationMode,
-                  gpsRadiusMeters: _settings.gpsRadiusMeters,
-                  minFaceMatchScore: v,
-                  autoApproveInRange: _settings.autoApproveInRange,
-                  allowManualApproval: _settings.allowManualApproval,
-                  maxPhotosPerRegistration: _settings.maxPhotosPerRegistration,
-                  requireLivenessDetection: _settings.requireLivenessDetection,
-                )),
-              ),
-              _buildSliderTile(
-                title: 'Số ảnh đăng ký tối đa',
-                subtitle: '${_settings.maxPhotosPerRegistration} ảnh cho mỗi nhân viên',
-                value: _settings.maxPhotosPerRegistration.toDouble(),
-                min: 3,
-                max: 10,
-                divisions: 7,
-                onChanged: (v) => setState(() => _settings = MobileAttendanceSettings(
-                  enableFaceId: _settings.enableFaceId,
-                  enableGps: _settings.enableGps,
-                  enableWifi: _settings.enableWifi,
-                  verificationMode: _settings.verificationMode,
-                  gpsRadiusMeters: _settings.gpsRadiusMeters,
-                  minFaceMatchScore: _settings.minFaceMatchScore,
-                  autoApproveInRange: _settings.autoApproveInRange,
-                  allowManualApproval: _settings.allowManualApproval,
-                  maxPhotosPerRegistration: v.toInt(),
-                  requireLivenessDetection: _settings.requireLivenessDetection,
-                )),
-              ),
-            ],
-          ),
-          const SizedBox(height: 16),
-          _buildSettingsCard(
-            title: 'Ảnh hiện trường',
-            icon: Icons.photo_camera_outlined,
-            color: SboxColors.success,
-            children: [
-              _buildSwitchTile(
-                title: 'Ảnh hiện trường (cửa hàng)',
-                subtitle: _settings.requirePhotoProof
-                    ? 'ĐANG BẬT — bật thêm từng máy ở tab Thiết bị'
-                    : 'ĐANG TẮT — chưa yêu cầu chụp ảnh sau chấm',
-                value: _settings.requirePhotoProof,
-                onChanged: (v) async {
-                  setState(
-                      () => _settings = _settings.copyWith(requirePhotoProof: v));
-                  await DeviceSitePhotoPrefs.setStoreEnabled(v);
-                  await _saveSettings();
-                },
-              ),
-            ],
-          ),
-          const SizedBox(height: 16),
-          _buildSettingsCard(
-            title: 'Quy trình duyệt',
-            icon: Icons.approval,
-            color: SboxColors.warning,
-            children: [
-              _buildSwitchTile(
-                title: 'Cho phép duyệt thủ công',
-                subtitle: 'HR có thể duyệt các trường hợp ngoài phạm vi',
-                value: _settings.allowManualApproval,
-                onChanged: (v) => setState(() => _settings = MobileAttendanceSettings(
-                  enableFaceId: _settings.enableFaceId,
-                  enableGps: _settings.enableGps,
-                  enableWifi: _settings.enableWifi,
-                  verificationMode: _settings.verificationMode,
-                  gpsRadiusMeters: _settings.gpsRadiusMeters,
-                  minFaceMatchScore: _settings.minFaceMatchScore,
-                  autoApproveInRange: _settings.autoApproveInRange,
-                  allowManualApproval: v,
-                  maxPhotosPerRegistration: _settings.maxPhotosPerRegistration,
-                  requireLivenessDetection: _settings.requireLivenessDetection,
-                )),
-              ),
-            ],
-          ),
-          const SizedBox(height: 16),
-          _buildSettingsCard(
-            title: 'Chống chấm trùng',
-            icon: Icons.timer_outlined,
-            color: const Color(0xFFE11D48),
-            children: [
-              _buildSliderTile(
-                title: 'Khoảng cách tối thiểu',
-                subtitle: '${_settings.minPunchIntervalMinutes} phút giữa 2 lần chấm',
-                value: _settings.minPunchIntervalMinutes.toDouble(),
-                min: 0,
-                max: 30,
-                divisions: 6,
-                onChanged: (v) => setState(() => _settings = _settings.copyWith(
-                  minPunchIntervalMinutes: v.toInt(),
-                )),
-              ),
-              Padding(
-                padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-                child: Text(
-                  tr(_settings.minPunchIntervalMinutes == 0
-                      ? 'Tắt kiểm tra chấm trùng - cho phép chấm liên tục'
-                      : 'Nếu chấm công dưới ${_settings.minPunchIntervalMinutes} phút sẽ bị từ chối là chấm trùng'),
-                  style: const TextStyle(fontSize: 12, color: SboxColors.slate500),
-                ),
-              ),
-            ],
-          ),
-          const SizedBox(height: 24),
-          if (_perm.canEdit('MobileAttendance'))
+    final canEdit = _perm.canEdit('MobileAttendance');
+    final pad = HrmSettingsMobileKit.active(context)
+        ? HrmSettingsMobileKit.pagePadding(context)
+        : const EdgeInsets.all(16);
+    final wide = MediaQuery.sizeOf(context).width >= 900;
+
+    final methods = _settingsSection(
+      title: 'Phương thức xác thực',
+      subtitle: 'Nhân viên phải qua các bước này khi bấm chấm công trên điện thoại',
+      icon: Icons.verified_user_outlined,
+      color: HrmPageChrome.primaryNavy,
+      children: [
+        LayoutBuilder(builder: (context, c) {
+          final cols = c.maxWidth >= 620 ? 3 : 1;
+          final w = (c.maxWidth - (cols - 1) * 10) / cols;
+          return Wrap(spacing: 10, runSpacing: 10, children: [
             SizedBox(
-              width: double.infinity,
-              child: FilledButton.icon(
-                onPressed: _isSaving ? null : _saveSettings,
-                icon: _isSaving
-                    ? const SizedBox(
-                        width: 18,
-                        height: 18,
-                        child: CircularProgressIndicator(
-                            strokeWidth: 2, color: Colors.white))
-                    : const Icon(Icons.save),
-                label: Text(tr(_isSaving ? 'Đang lưu...' : 'Lưu cài đặt')),
-                style: FilledButton.styleFrom(
-                  backgroundColor: HrmPageChrome.primaryNavy,
-                  padding: const EdgeInsets.symmetric(vertical: 16),
-                ),
+              width: w,
+              child: _methodTile(
+                icon: Icons.face_retouching_natural,
+                title: 'Khuôn mặt',
+                desc: 'So khớp với ảnh đã đăng ký',
+                value: _settings.enableFaceId,
+                enabled: canEdit,
+                onChanged: (v) => _updateSettings(_settings.copyWith(enableFaceId: v)),
               ),
             ),
+            SizedBox(
+              width: w,
+              child: _methodTile(
+                icon: Icons.location_on_outlined,
+                title: 'Vị trí GPS',
+                desc: 'Phải ở trong bán kính điểm chấm công',
+                value: _settings.enableGps,
+                enabled: canEdit,
+                onChanged: (v) => _updateSettings(_settings.copyWith(enableGps: v)),
+              ),
+            ),
+            SizedBox(
+              width: w,
+              child: _methodTile(
+                icon: Icons.wifi_rounded,
+                title: 'Wi-Fi công ty',
+                desc: 'Kết nối Wi-Fi đã khai báo ở điểm chấm',
+                value: _settings.enableWifi,
+                enabled: canEdit,
+                onChanged: (v) => _updateSettings(_settings.copyWith(enableWifi: v)),
+              ),
+            ),
+          ]);
+        }),
+        if (_enabledMethodCount == 0) ...[
+          const SizedBox(height: 10),
+          _settingsHint(
+            'Chưa bật phương thức nào — nhân viên sẽ chấm công không cần xác thực. Nên bật ít nhất Khuôn mặt hoặc GPS.',
+            tone: SboxColors.danger,
+            icon: Icons.error_outline_rounded,
+          ),
         ],
+        if (_enabledMethodCount >= 2) ...[
+          const SizedBox(height: 14),
+          Text(tr('Khi bật nhiều phương thức'),
+              style: const TextStyle(fontWeight: FontWeight.w700, color: SboxColors.slate800)),
+          const SizedBox(height: 8),
+          SegmentedButton<String>(
+            showSelectedIcon: false,
+            segments: [
+              ButtonSegment(
+                value: 'any',
+                icon: const Icon(Icons.looks_one_outlined, size: 18),
+                label: Text(tr('Chỉ cần đạt 1')),
+              ),
+              ButtonSegment(
+                value: 'all',
+                icon: const Icon(Icons.done_all_rounded, size: 18),
+                label: Text(tr('Phải đạt tất cả')),
+              ),
+            ],
+            selected: {_settings.verificationMode == 'any' ? 'any' : 'all'},
+            onSelectionChanged: canEdit
+                ? (s) => _updateSettings(_settings.copyWith(verificationMode: s.first))
+                : null,
+          ),
+          const SizedBox(height: 6),
+          Text(
+            tr(_settings.verificationMode == 'any'
+                ? 'Linh hoạt: đạt 1 trong ${_methodNames().join(', ')} là chấm được.'
+                : 'Chặt chẽ: phải đạt đủ ${_methodNames().join(' + ')}.'),
+            style: const TextStyle(fontSize: 12.5, color: SboxColors.slate500),
+          ),
+        ],
+      ],
+    );
+
+    final face = _settingsSection(
+      title: 'Khuôn mặt',
+      icon: Icons.face_outlined,
+      color: SboxColors.violet,
+      disabledNote: _settings.enableFaceId ? null : 'Đang tắt xác thực khuôn mặt',
+      children: [
+        _sliderRow(
+          title: 'Độ khớp tối thiểu',
+          valueText: '${_settings.minFaceMatchScore.round()}%',
+          value: _settings.minFaceMatchScore.clamp(50, 99).toDouble(),
+          min: 50,
+          max: 99,
+          divisions: 49,
+          enabled: canEdit && _settings.enableFaceId,
+          onChanged: (v) => _updateSettings(_settings.copyWith(minFaceMatchScore: v.roundToDouble())),
+          note: _settings.minFaceMatchScore < 70
+              ? 'Dễ — ít bị từ chối, nhưng dễ bị người khác chấm hộ'
+              : _settings.minFaceMatchScore <= 85
+                  ? 'Cân bằng — khuyên dùng (70–85%)'
+                  : 'Rất chặt — có thể từ chối khi thiếu sáng, đeo kính',
+        ),
+        _switchRow(
+          title: 'Chống ảnh giả (người thật)',
+          subtitle: 'Yêu cầu chớp mắt / quay đầu — chặn chấm bằng ảnh hoặc video',
+          value: _settings.requireLivenessDetection,
+          enabled: canEdit && _settings.enableFaceId,
+          onChanged: (v) => _updateSettings(_settings.copyWith(requireLivenessDetection: v)),
+        ),
+      ],
+    );
+
+    final gps = _settingsSection(
+      title: 'Vị trí GPS',
+      icon: Icons.gps_fixed_rounded,
+      color: const Color(0xFF0EA5E9),
+      disabledNote: _settings.enableGps ? null : 'Đang tắt xác thực GPS',
+      children: [
+        _sliderRow(
+          title: 'Bán kính mặc định',
+          valueText: '${_settings.gpsRadiusMeters} m',
+          value: _settings.gpsRadiusMeters.clamp(30, 1000).toDouble(),
+          min: 30,
+          max: 1000,
+          divisions: 97,
+          enabled: canEdit && _settings.enableGps,
+          onChanged: (v) => _updateSettings(_settings.copyWith(gpsRadiusMeters: (v / 10).round() * 10)),
+          note: 'Dùng cho điểm chấm công chưa đặt bán kính riêng (tab Vị trí).',
+          presets: const [50, 100, 200, 300, 500],
+          onPreset: (p) => _updateSettings(_settings.copyWith(gpsRadiusMeters: p)),
+        ),
+      ],
+    );
+
+    final approve = _settingsSection(
+      title: 'Duyệt và chống gian lận',
+      icon: Icons.shield_outlined,
+      color: SboxColors.warning,
+      children: [
+        _switchRow(
+          title: 'Tự duyệt khi chấm tại công ty',
+          subtitle: _settings.autoApproveInRange
+              ? 'Chấm trong vị trí / Wi-Fi công ty được ghi công ngay'
+              : 'Mọi lượt chấm (kể cả tại công ty) đều chờ quản lý duyệt',
+          value: _settings.autoApproveInRange,
+          enabled: canEdit,
+          onChanged: (v) => _updateSettings(_settings.copyWith(autoApproveInRange: v)),
+        ),
+        _switchRow(
+          title: 'Ảnh hiện trường khi chấm ngoài công ty',
+          subtitle: _settings.requirePhotoProof
+              ? 'Đang bật cho cả cửa hàng — nhân viên phải chụp ảnh nơi làm việc'
+              : 'Đang tắt — có thể bật riêng từng máy ở tab Thiết bị',
+          value: _settings.requirePhotoProof,
+          enabled: canEdit,
+          onChanged: (v) async {
+            _updateSettings(_settings.copyWith(requirePhotoProof: v));
+            await DeviceSitePhotoPrefs.setStoreEnabled(v);
+            final r = await _apiService.updateMobileAttendanceSettings(requirePhotoProof: v);
+            if (!mounted) return;
+            if (r['isSuccess'] == true) {
+              _savedSettings = (_savedSettings ?? _settings).copyWith(requirePhotoProof: v);
+              setState(() {});
+            } else {
+              appNotification.showError(title: 'Lỗi', message: r['message']?.toString() ?? 'Không lưu được');
+            }
+          },
+        ),
+        const SizedBox(height: 4),
+        Text(tr('Chống chấm trùng'), style: const TextStyle(fontWeight: FontWeight.w600, color: SboxColors.slate900)),
+        const SizedBox(height: 6),
+        Wrap(spacing: 6, runSpacing: 6, children: [
+          for (final m in const [0, 1, 3, 5, 10, 15, 30])
+            ChoiceChip(
+              visualDensity: VisualDensity.compact,
+              label: Text(tr(m == 0 ? 'Tắt' : '$m phút')),
+              selected: _settings.minPunchIntervalMinutes == m,
+              onSelected: canEdit
+                  ? (_) => _updateSettings(_settings.copyWith(minPunchIntervalMinutes: m))
+                  : null,
+            ),
+        ]),
+        const SizedBox(height: 6),
+        Text(
+          tr(_settings.minPunchIntervalMinutes == 0
+              ? 'Cho phép chấm liên tục.'
+              : 'Hai lần chấm cách nhau dưới ${_settings.minPunchIntervalMinutes} phút sẽ bị từ chối.'),
+          style: const TextStyle(fontSize: 12.5, color: SboxColors.slate500),
+        ),
+        const SizedBox(height: 12),
+        _settingsHint(
+          'Chấm ngoài vị trí công ty: lượt «tin cậy» (gần, khuôn mặt khớp cao) được tự duyệt, còn lại chờ duyệt. '
+          'Ngưỡng tin cậy và lý do bắt buộc chỉnh ở Duyệt chấm công → Thiết lập, hoặc từng máy ở tab Thiết bị.',
+          tone: SboxColors.brand600,
+          icon: Icons.info_outline_rounded,
+        ),
+      ],
+    );
+
+    final left = [methods, const SizedBox(height: 14), approve];
+    final right = [face, const SizedBox(height: 14), gps];
+
+    return Column(children: [
+      Expanded(
+        child: RefreshIndicator(
+          onRefresh: _loadData,
+          child: ListView(
+            padding: pad.copyWith(bottom: 24),
+            children: [
+              _settingsSummary(),
+              const SizedBox(height: 14),
+              if (wide)
+                Row(crossAxisAlignment: CrossAxisAlignment.start, children: [
+                  Expanded(flex: 3, child: Column(children: left)),
+                  const SizedBox(width: 14),
+                  Expanded(flex: 2, child: Column(children: right)),
+                ])
+              else ...[
+                methods,
+                const SizedBox(height: 14),
+                face,
+                const SizedBox(height: 14),
+                gps,
+                const SizedBox(height: 14),
+                approve,
+              ],
+            ],
+          ),
+        ),
+      ),
+      if (canEdit) _settingsSaveBar(),
+    ]);
+  }
+
+  List<String> _methodNames() => [
+        if (_settings.enableFaceId) 'khuôn mặt',
+        if (_settings.enableGps) 'GPS',
+        if (_settings.enableWifi) 'Wi-Fi',
+      ];
+
+  Widget _settingsSummary() {
+    final names = _methodNames();
+    final rules = <String>[
+      if (_settings.enableGps) 'bán kính ${_settings.gpsRadiusMeters} m',
+      if (_settings.enableFaceId) 'khớp mặt ≥ ${_settings.minFaceMatchScore.round()}%',
+      if (_settings.minPunchIntervalMinutes > 0) 'cách nhau ≥ ${_settings.minPunchIntervalMinutes} phút',
+      _settings.autoApproveInRange ? 'tự duyệt tại công ty' : 'mọi lượt chờ duyệt',
+      if (_settings.requirePhotoProof) 'ảnh hiện trường khi ở ngoài',
+    ];
+    return Container(
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        gradient: const LinearGradient(colors: [HrmPageChrome.primaryNavy, SboxColors.brand600]),
+        borderRadius: BorderRadius.circular(16),
+      ),
+      child: Row(children: [
+        Container(
+          width: 48,
+          height: 48,
+          decoration: BoxDecoration(color: Colors.white.withValues(alpha: 0.16), borderRadius: BorderRadius.circular(14)),
+          child: const Icon(Icons.phonelink_lock_rounded, color: Colors.white),
+        ),
+        const SizedBox(width: 14),
+        Expanded(
+          child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+            Text(
+              tr(names.isEmpty
+                  ? 'Chấm công không cần xác thực'
+                  : 'Chấm bằng ${names.join(_settings.verificationMode == 'any' && names.length > 1 ? ' hoặc ' : ' + ')}'),
+              style: const TextStyle(color: Colors.white, fontSize: 16, fontWeight: FontWeight.w800),
+            ),
+            const SizedBox(height: 4),
+            Text(tr(rules.join(' · ')),
+                style: TextStyle(color: Colors.white.withValues(alpha: 0.85), fontSize: 12.5, height: 1.35)),
+          ]),
+        ),
+      ]),
+    );
+  }
+
+  Widget _settingsSaveBar() {
+    final dirty = _settingsDirty;
+    return Material(
+      color: Colors.white,
+      elevation: 6,
+      child: SafeArea(
+        top: false,
+        child: Padding(
+          padding: const EdgeInsets.fromLTRB(16, 10, 16, 10),
+          child: Row(children: [
+            Icon(dirty ? Icons.edit_note_rounded : Icons.check_circle_outline_rounded,
+                color: dirty ? SboxColors.warning : SboxColors.success, size: 20),
+            const SizedBox(width: 8),
+            Expanded(
+              child: Text(tr(dirty ? 'Có thay đổi chưa lưu' : 'Đã lưu'),
+                  style: TextStyle(fontWeight: FontWeight.w600, color: dirty ? SboxColors.warningText : SboxColors.slate500)),
+            ),
+            if (dirty)
+              TextButton(
+                onPressed: _isSaving ? null : () => setState(() => _settings = _savedSettings!),
+                child: Text(tr('Hoàn tác')),
+              ),
+            const SizedBox(width: 6),
+            FilledButton.icon(
+              onPressed: _isSaving || !dirty ? null : _saveSettings,
+              style: FilledButton.styleFrom(backgroundColor: HrmPageChrome.primaryNavy),
+              icon: _isSaving
+                  ? const SizedBox(width: 16, height: 16, child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white))
+                  : const Icon(Icons.save_outlined, size: 18),
+              label: Text(tr(_isSaving ? 'Đang lưu…' : 'Lưu cài đặt')),
+            ),
+          ]),
+        ),
       ),
     );
   }
 
-  Widget _buildSettingsCard({
+  Widget _settingsSection({
     required String title,
+    String? subtitle,
     required IconData icon,
     required Color color,
+    String? disabledNote,
     required List<Widget> children,
   }) {
     return Container(
       decoration: BoxDecoration(
         color: Colors.white,
-        borderRadius: BorderRadius.circular(14),
-        boxShadow: [
-          BoxShadow(
-            color: Colors.black.withValues(alpha: 0.04),
-            blurRadius: 10,
-            offset: const Offset(0, 4),
-          ),
-        ],
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(color: SboxColors.slate200),
       ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Padding(
-            padding: const EdgeInsets.all(16),
-            child: Row(
-              children: [
-                Container(
-                  padding: const EdgeInsets.all(10),
-                  decoration: BoxDecoration(
-                    color: color.withValues(alpha: 0.1),
-                    borderRadius: BorderRadius.circular(10),
-                  ),
-                  child: Icon(icon, color: color, size: 24),
-                ),
-                const SizedBox(width: 12),
-                Text(
-                  tr(title),
-                  style: const TextStyle(
-                    fontSize: 18,
-                    fontWeight: FontWeight.bold,
-                    color: SboxColors.slate900,
-                  ),
-                ),
-              ],
+      padding: const EdgeInsets.all(16),
+      child: Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
+        Row(children: [
+          Container(
+            width: 36,
+            height: 36,
+            decoration: BoxDecoration(color: color.withValues(alpha: 0.12), borderRadius: BorderRadius.circular(10)),
+            child: Icon(icon, color: color, size: 20),
+          ),
+          const SizedBox(width: 10),
+          Expanded(
+            child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+              Text(tr(title), style: const TextStyle(fontSize: 15.5, fontWeight: FontWeight.w800, color: SboxColors.slate900)),
+              if (subtitle != null)
+                Text(tr(subtitle), style: const TextStyle(fontSize: 12.5, color: SboxColors.slate500)),
+            ]),
+          ),
+          if (disabledNote != null)
+            Container(
+              padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+              decoration: BoxDecoration(color: SboxColors.slate100, borderRadius: BorderRadius.circular(99)),
+              child: Text(tr('Đang tắt'), style: const TextStyle(fontSize: 11.5, color: SboxColors.slate500, fontWeight: FontWeight.w700)),
             ),
-          ),
-          const Divider(height: 24, color: SboxColors.slate200),
-          ...children,
-        ],
-      ),
+        ]),
+        const SizedBox(height: 14),
+        Opacity(opacity: disabledNote != null ? 0.55 : 1, child: Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: children)),
+      ]),
     );
   }
 
-  Widget _buildVerificationModeSelector() {
-    final enabledCount = [
-      _settings.enableFaceId,
-      _settings.enableGps,
-      _settings.enableWifi,
-    ].where((e) => e).length;
-
-    final enabledNames = <String>[];
-    if (_settings.enableFaceId) enabledNames.add('Face');
-    if (_settings.enableGps) enabledNames.add('GPS');
-    if (_settings.enableWifi) enabledNames.add('WiFi');
-
-    return Padding(
-      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Text(tr('Chế độ xác thực'),
-            style: TextStyle(
-              fontSize: 16,
-              fontWeight: FontWeight.w600,
-              color: SboxColors.slate900,
-            ),
-          ),
-          const SizedBox(height: 4),
-          Text(
-            tr(enabledCount <= 1
-                ? 'Chỉ có ${enabledNames.isNotEmpty ? enabledNames.first : "0"} phương thức bật'
-                : 'Đang bật: ${enabledNames.join(", ")}'),
-            style: const TextStyle(fontSize: 12, color: SboxColors.slate500),
-          ),
-          const SizedBox(height: 8),
-          Row(
-            children: [
-              Expanded(
-                child: _buildModeOption(
-                  label: 'Bất kỳ 1',
-                  subtitle: 'Chỉ cần 1 phương thức đạt',
-                  icon: Icons.looks_one,
-                  selected: _settings.verificationMode == 'any',
-                  onTap: () => setState(() => _settings = MobileAttendanceSettings(
-                    enableFaceId: _settings.enableFaceId,
-                    enableGps: _settings.enableGps,
-                    enableWifi: _settings.enableWifi,
-                    verificationMode: 'any',
-                    gpsRadiusMeters: _settings.gpsRadiusMeters,
-                    minFaceMatchScore: _settings.minFaceMatchScore,
-                    autoApproveInRange: _settings.autoApproveInRange,
-                    allowManualApproval: _settings.allowManualApproval,
-                    maxPhotosPerRegistration: _settings.maxPhotosPerRegistration,
-                    requireLivenessDetection: _settings.requireLivenessDetection,
-                  )),
-                ),
-              ),
-              const SizedBox(width: 8),
-              Expanded(
-                child: _buildModeOption(
-                  label: 'Tất cả',
-                  subtitle: 'Phải đạt mọi phương thức',
-                  icon: Icons.done_all,
-                  selected: _settings.verificationMode == 'all',
-                  onTap: () => setState(() => _settings = MobileAttendanceSettings(
-                    enableFaceId: _settings.enableFaceId,
-                    enableGps: _settings.enableGps,
-                    enableWifi: _settings.enableWifi,
-                    verificationMode: 'all',
-                    gpsRadiusMeters: _settings.gpsRadiusMeters,
-                    minFaceMatchScore: _settings.minFaceMatchScore,
-                    autoApproveInRange: _settings.autoApproveInRange,
-                    allowManualApproval: _settings.allowManualApproval,
-                    maxPhotosPerRegistration: _settings.maxPhotosPerRegistration,
-                    requireLivenessDetection: _settings.requireLivenessDetection,
-                  )),
-                ),
-              ),
-            ],
-          ),
-        ],
-      ),
-    );
-  }
-
-  Widget _buildModeOption({
-    required String label,
-    required String subtitle,
+  Widget _methodTile({
     required IconData icon,
-    required bool selected,
-    required VoidCallback onTap,
+    required String title,
+    required String desc,
+    required bool value,
+    required bool enabled,
+    required ValueChanged<bool> onChanged,
   }) {
-    return GestureDetector(
-      onTap: onTap,
-      child: Container(
+    final c = value ? HrmPageChrome.primaryNavy : SboxColors.slate400;
+    return InkWell(
+      borderRadius: BorderRadius.circular(14),
+      onTap: enabled ? () => onChanged(!value) : null,
+      child: AnimatedContainer(
+        duration: const Duration(milliseconds: 180),
         padding: const EdgeInsets.all(12),
         decoration: BoxDecoration(
-          color: selected ? HrmPageChrome.primaryNavy.withValues(alpha: 0.1) : SboxColors.slate100,
+          color: value ? HrmPageChrome.primaryNavy.withValues(alpha: 0.06) : SboxColors.slate50,
           borderRadius: BorderRadius.circular(14),
-          border: Border.all(
-            color: selected ? HrmPageChrome.primaryNavy : SboxColors.slate200,
-            width: selected ? 2 : 1,
+          border: Border.all(color: value ? HrmPageChrome.primaryNavy : SboxColors.slate200, width: value ? 1.6 : 1),
+        ),
+        child: Row(children: [
+          Icon(icon, color: c, size: 26),
+          const SizedBox(width: 10),
+          Expanded(
+            child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+              Text(tr(title), style: TextStyle(fontWeight: FontWeight.w700, color: value ? SboxColors.slate900 : SboxColors.slate600)),
+              Text(tr(desc), style: const TextStyle(fontSize: 11.5, color: SboxColors.slate500)),
+            ]),
           ),
-        ),
-        child: Column(
-          children: [
-            Icon(icon, color: selected ? HrmPageChrome.primaryNavy : SboxColors.slate500, size: 24),
-            const SizedBox(height: 4),
-            Text(
-              tr(label),
-              style: TextStyle(
-                fontWeight: FontWeight.bold,
-                fontSize: 13,
-                color: selected ? HrmPageChrome.primaryNavy : SboxColors.slate500,
-              ),
-            ),
-            Text(
-              tr(subtitle),
-              textAlign: TextAlign.center,
-              style: TextStyle(
-                fontSize: 10,
-                color: selected ? HrmPageChrome.primaryNavy.withValues(alpha: 0.7) : SboxColors.slate500,
-              ),
-            ),
-          ],
-        ),
+          Switch(value: value, onChanged: enabled ? onChanged : null, activeThumbColor: HrmPageChrome.primaryNavy),
+        ]),
       ),
     );
   }
 
-  Widget _buildSwitchTile({
+  Widget _switchRow({
     required String title,
     required String subtitle,
     required bool value,
+    required bool enabled,
     required ValueChanged<bool> onChanged,
   }) {
     return Padding(
-      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-      child: Row(
-        children: [
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(
-                  tr(title),
-                  style: const TextStyle(
-                    fontSize: 16,
-                    fontWeight: FontWeight.w500,
-                    color: SboxColors.slate900,
-                  ),
-                ),
-                const SizedBox(height: 2),
-                Text(
-                  tr(subtitle),
-                  style: const TextStyle(
-                    fontSize: 13,
-                    color: SboxColors.slate500,
-                  ),
-                ),
-              ],
-            ),
-          ),
-          Switch(
-            value: value,
-            onChanged: onChanged,
-            activeThumbColor: HrmPageChrome.primaryNavy,
-          ),
-        ],
-      ),
+      padding: const EdgeInsets.only(bottom: 10),
+      child: Row(children: [
+        Expanded(
+          child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+            Text(tr(title), style: const TextStyle(fontWeight: FontWeight.w600, color: SboxColors.slate900)),
+            const SizedBox(height: 2),
+            Text(tr(subtitle), style: const TextStyle(fontSize: 12.5, color: SboxColors.slate500)),
+          ]),
+        ),
+        Switch(value: value, onChanged: enabled ? onChanged : null, activeThumbColor: HrmPageChrome.primaryNavy),
+      ]),
     );
   }
 
-  Widget _buildSliderTile({
+  Widget _sliderRow({
     required String title,
-    required String subtitle,
+    required String valueText,
     required double value,
     required double min,
     required double max,
     required int divisions,
+    required bool enabled,
     required ValueChanged<double> onChanged,
+    String? note,
+    List<int> presets = const [],
+    ValueChanged<int>? onPreset,
   }) {
     return Padding(
-      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Row(
-            mainAxisAlignment: MainAxisAlignment.spaceBetween,
-            children: [
-              Flexible(
-                child: Text(
-                  tr(title),
-                  style: const TextStyle(
-                    fontSize: 16,
-                    fontWeight: FontWeight.w500,
-                    color: SboxColors.slate900,
-                  ),
-                  overflow: TextOverflow.ellipsis,
-                ),
-              ),
-              const SizedBox(width: 8),
-              Flexible(
-                child: Container(
-                  padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
-                  decoration: BoxDecoration(
-                    color: HrmPageChrome.primaryNavy.withValues(alpha: 0.1),
-                    borderRadius: BorderRadius.circular(10),
-                  ),
-                  child: Text(
-                    tr(subtitle),
-                    style: const TextStyle(
-                      fontSize: 12,
-                      fontWeight: FontWeight.w600,
-                      color: HrmPageChrome.primaryNavy,
-                    ),
-                    overflow: TextOverflow.ellipsis,
-                  ),
-                ),
-              ),
-            ],
+      padding: const EdgeInsets.only(bottom: 10),
+      child: Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
+        Row(children: [
+          Expanded(child: Text(tr(title), style: const TextStyle(fontWeight: FontWeight.w600, color: SboxColors.slate900))),
+          Container(
+            padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 3),
+            decoration: BoxDecoration(
+              color: HrmPageChrome.primaryNavy.withValues(alpha: 0.1),
+              borderRadius: BorderRadius.circular(99),
+            ),
+            child: Text(valueText,
+                style: const TextStyle(fontWeight: FontWeight.w800, color: HrmPageChrome.primaryNavy, fontSize: 13)),
           ),
-          Slider(
-            value: value,
-            min: min,
-            max: max,
-            divisions: divisions,
-            activeColor: HrmPageChrome.primaryNavy,
-            onChanged: onChanged,
+        ]),
+        Slider(
+          value: value,
+          min: min,
+          max: max,
+          divisions: divisions,
+          activeColor: HrmPageChrome.primaryNavy,
+          onChanged: enabled ? onChanged : null,
+        ),
+        if (presets.isNotEmpty)
+          Wrap(spacing: 6, children: [
+            for (final p in presets)
+              ActionChip(
+                visualDensity: VisualDensity.compact,
+                label: Text('$p m'),
+                onPressed: enabled && onPreset != null ? () => onPreset(p) : null,
+              ),
+          ]),
+        if (note != null)
+          Padding(
+            padding: const EdgeInsets.only(top: 4),
+            child: Text(tr(note), style: const TextStyle(fontSize: 12.5, color: SboxColors.slate500)),
           ),
-        ],
+      ]),
+    );
+  }
+
+  Widget _settingsHint(String text, {required Color tone, required IconData icon}) {
+    return Container(
+      padding: const EdgeInsets.all(10),
+      decoration: BoxDecoration(
+        color: tone.withValues(alpha: 0.07),
+        borderRadius: BorderRadius.circular(10),
+        border: Border.all(color: tone.withValues(alpha: 0.25)),
       ),
+      child: Row(crossAxisAlignment: CrossAxisAlignment.start, children: [
+        Icon(icon, size: 18, color: tone),
+        const SizedBox(width: 8),
+        Expanded(child: Text(tr(text), style: const TextStyle(fontSize: 12.5, color: SboxColors.slate700, height: 1.35))),
+      ]),
     );
   }
 
   Future<void> _saveSettings() async {
+    if (_enabledMethodCount == 0) {
+      final ok = await showDialog<bool>(
+        context: context,
+        builder: (ctx) => AlertDialog(
+          title: Text(tr('Tắt hết xác thực?')),
+          content: Text(tr('Nhân viên sẽ chấm công trên điện thoại mà không cần khuôn mặt, GPS hay Wi-Fi. Vẫn lưu?')),
+          actions: [
+            TextButton(onPressed: () => Navigator.pop(ctx, false), child: Text(tr('Xem lại'))),
+            FilledButton(onPressed: () => Navigator.pop(ctx, true), child: Text(tr('Vẫn lưu'))),
+          ],
+        ),
+      );
+      if (ok != true) return;
+    }
     setState(() => _isSaving = true);
     try {
       final response = await _apiService.updateMobileAttendanceSettings(
@@ -1004,7 +971,6 @@ class _MobileAttendanceSettingsScreenState extends State<MobileAttendanceSetting
         gpsRadiusMeters: _settings.gpsRadiusMeters.toDouble(),
         minFaceMatchScore: _settings.minFaceMatchScore,
         autoApproveInRange: _settings.autoApproveInRange,
-        allowManualApproval: _settings.allowManualApproval,
         requirePhotoProof: _settings.requirePhotoProof,
         minPunchIntervalMinutes: _settings.minPunchIntervalMinutes,
       );
@@ -1013,6 +979,7 @@ class _MobileAttendanceSettingsScreenState extends State<MobileAttendanceSetting
 
       if (response['isSuccess'] == true) {
         await DeviceSitePhotoPrefs.setStoreEnabled(_settings.requirePhotoProof);
+        _savedSettings = _settings;
         appNotification.showSuccess(
           title: 'Thành công',
           message: tr('Đã lưu cài đặt chấm công mobile'),

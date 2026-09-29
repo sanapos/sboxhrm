@@ -1,6 +1,8 @@
 import 'dart:convert';
 
 import 'package:flutter/material.dart';
+import 'package:provider/provider.dart';
+import '../../providers/permission_provider.dart';
 import 'package:intl/intl.dart';
 
 import '../../models/pos_product.dart';
@@ -83,6 +85,7 @@ class PosVariantDetailPanel extends StatelessWidget {
                     _chip('Mã hàng', variant.skuCode),
                     _chip('Mã vạch', variant.barcode ?? '—'),
                     _chip('Giá bán', moneyFmt.format(variant.basePrice)),
+                    if (context.read<PermissionProvider>().canViewCost())
                     _chip('Giá vốn', moneyFmt.format(variant.costPrice)),
                     _chip('Tồn kho', moneyFmt.format(variant.onHandQty)),
                     if (unit != null) _chip('Đơn vị', unit),

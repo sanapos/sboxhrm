@@ -39,6 +39,17 @@ public abstract class AuthenticatedControllerBase : ControllerBase
     
     protected bool IsEmployee => CurrentUserRole.Equals(nameof(Roles.Employee), StringComparison.OrdinalIgnoreCase);
 
+    /// <summary>Được xem / sửa giá vốn (quyền «Xem giá vốn & lợi nhuận» — PosViewCost).</summary>
+    protected async Task<bool> CanViewCostAsync()
+    {
+        if (IsAdmin) return true;
+        var svc = HttpContext.RequestServices
+            .GetRequiredService<ZKTecoADMS.Application.Interfaces.IModulePermissionService>();
+        Guid? storeId = Guid.TryParse(User.FindFirst("storeId")?.Value, out var sid) ? sid : null;
+        return await svc.HasPermissionAsync(CurrentUserId, CurrentUserRole, storeId,
+            "PosViewCost", ZKTecoADMS.Application.Constants.ModulePermissionAction.View);
+    }
+
     protected bool IsAccountant =>
         CurrentUserRole.Equals(nameof(Roles.Accountant), StringComparison.OrdinalIgnoreCase);
 

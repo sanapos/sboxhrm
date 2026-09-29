@@ -91,6 +91,33 @@ khác trụ sở, chỉ thấy đơn POS / thu chi của chi nhánh mình (lịc
 103.133.224.176 có 5 cửa hàng ≥ 2 CN, ~10 tài khoản bị ảnh hưởng, 0 sản phẩm POS; server 103.133.225.67 không có.
 Giới hạn: bán hàng vẫn kiểm tồn theo tổng (tồn CN có thể âm); giao diện chuyển kho theo mặt hàng (chưa tách biến thể).
 
+## Bổ sung: nâng cấp phân quyền (29/09/2026)
+- **Quyền Xuất** áp cho báo giá (Excel/Word/PDF/gửi file), lịch sử thao tác, công việc, máy in, vận chuyển + nút xuất ~35 màn app
+  (`utils/export_permission_guard.dart`, `PosReportMobileScaffold.exportModule`). Một lần duy nhất (`SboxDataMigrations` id
+  `perm-export-v1`): ai đang Xem các chức năng này được bật Xuất.
+- **Quyền con bán hàng**: `PosSellPriceEdit` (Sửa giá), `PosSellDiscount` (Giảm giá), `PosSellCancelPaid` (Hủy HĐ đã thu),
+  `PosViewCost` (Xem giá vốn). `PatchPermissionSplitAsync` chèn dòng còn thiếu sao chép từ quyền cha (không ghi đè chỉnh tay).
+  Giá / chiết khấu đã có trên đơn tạm giữ nguyên thì không cần quyền (`PriorPricing`).
+- **Giá vốn**: `[MaskCostData]` bỏ trường giá vốn / giá trị tồn / lãi khỏi JSON khi thiếu PosViewCost; sửa hàng / biến thể / import
+  giữ nguyên giá vốn cũ; xuất Excel hàng hóa để trống cột giá vốn.
+- **Chi nhánh**: `BranchStockInterceptor.GuardBranchWritesAsync` — người bị giới hạn chi nhánh chỉ ghi đơn / phiếu kho / thu chi
+  trong chi nhánh được phép + theo cờ Thêm/Sửa/Xóa của phân quyền chi nhánh → `ForbiddenException` (403).
+- **Vai trò → quyền**: Thu chi, TK ngân hàng, phụ cấp, bậc lương ca bỏ điều kiện «từ Quản lý» (chỉ cần quyền chức năng — Kế toán
+  dùng được như đã tick); Phiếu lương / thưởng phạt / giao dịch lương dùng policy `ManagerOrAccountant` (NV có Xem phiếu lương
+  của mình nên không mở cho mọi vai trò).
+- **Bảo mật**: `POST api/sampledata/seed/{code}` ẩn danh chỉ trong 30 phút đầu sau khi tạo cửa hàng (trước đây ai biết mã cửa hàng
+  chưa có NV đều tạo được tài khoản Quản lý mật khẩu cố định).
+
+## Bổ sung: mẫu phân quyền HRM / POS / HRM + POS (29/09/2026)
+- `Application/Authorization/PermissionPresetCatalog.cs`: 20 mẫu gắn với vai trò hệ thống (tài khoản chỉ gán được vai trò có sẵn).
+  HRM: Giám đốc, Quản lý nhân sự, Trưởng phòng, Kế toán lương, Nhân viên. POS: Chủ cửa hàng, Quản lý cửa hàng, Kế toán bán hàng,
+  Thủ kho (vai trò Trưởng phòng), Thu ngân, Phục vụ, Nhân viên kinh doanh (vai trò Nhân viên). HRM + POS: gộp tương ứng.
+  Gói nhận diện từ chức năng được phép của cửa hàng; chức năng ngoài gói không được cấp.
+- API `GET api/permissions/presets[?package=hrm|pos|full]`, `GET api/permissions/presets/{id}`, `POST api/permissions/presets/apply`.
+- Tạo cửa hàng mới + nút «Khôi phục mặc định» dùng mẫu theo gói. App: nút «Mẫu phân quyền» / «Nạp mẫu» trên màn Phân quyền.
+- Vá: `api/permissions/*` chỉ SuperAdmin chọn được cửa hàng khác; lưu / khôi phục quyền không còn đụng dòng quyền dùng chung
+  (StoreId null — production hiện có 0 dòng); dòng riêng cửa hàng được ưu tiên hơn dòng dùng chung.
+
 ## Không nằm trong commit
 Các thư mục / file tạm và bản build trong gốc repo (`.tmp-*`, `dist/`, `installed*_apk/`, ảnh chụp, log build)
 và các dự án riêng chưa từng được theo dõi: `android_pos/`, `tools/SboxPrintAgent/`, `firmware/`.

@@ -1,4 +1,5 @@
 import 'dart:async';
+import '../../utils/export_permission_guard.dart';
 
 import 'package:excel/excel.dart' as excel_lib;
 import 'package:flutter/material.dart';
@@ -398,6 +399,7 @@ class _MealReportViewState extends State<MealReportView> {
   }
 
   Future<void> _exportExcel(List<Map<String, dynamic>> sessions, List<Map<String, dynamic>> rows) async {
+    if (!ensureCanExport(context, 'Meal')) return;
     final headers = [
       'Mã NV',
       'Họ tên',

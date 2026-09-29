@@ -429,6 +429,34 @@ class PermissionProvider extends ChangeNotifier {
   /// Thu ngân — thanh toán / hoàn tất hóa đơn.
   bool canPosPay() => canApprove('PosSell');
 
+  /// Quyền con đã tải từ máy chủ chưa (máy chủ cũ chưa có → dùng quyền cha như trước).
+  bool _knows(String moduleCode) => _permissions.containsKey(moduleCode);
+
+  /// Đổi đơn giá tay khi bán (trước đây: quyền thanh toán).
+  bool canPosPriceEdit() {
+    if (_isSuperUser) return true;
+    return _knows('PosSellPriceEdit') ? _flag('PosSellPriceEdit', 'canEdit') : canPosPay();
+  }
+
+  /// Chiết khấu dòng / đơn khi bán (trước đây: quyền thanh toán).
+  bool canPosDiscount() {
+    if (_isSuperUser) return true;
+    return _knows('PosSellDiscount') ? _flag('PosSellDiscount', 'canEdit') : canPosPay();
+  }
+
+  /// Hủy hóa đơn đã thanh toán (trước đây: quyền thanh toán).
+  bool canPosCancelPaid() {
+    if (_isSuperUser) return true;
+    return _knows('PosSellCancelPaid') ? _flag('PosSellCancelPaid', 'canApprove') : canPosPay();
+  }
+
+  /// Thấy giá vốn / giá trị tồn / lãi (trước đây: ai xem hàng hóa đều thấy).
+  bool canViewCost() {
+    if (_isSuperUser) return true;
+    if (!_isLoaded || _loadError) return false;
+    return _knows('PosViewCost') ? _flag('PosViewCost', 'canView') : canView('PosProducts');
+  }
+
   /// Module thiết lập POS — tick trên ma trận, không alias từ PosSell.
   static const List<String> posSetupModuleCodes = [
     'SettingsHub',

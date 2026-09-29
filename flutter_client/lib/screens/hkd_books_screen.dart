@@ -388,6 +388,7 @@ class _HkdBooksScreenState extends State<HkdBooksScreen> {
 
     return PosReportMobileScaffold(
       title: 'Thuế hộ kinh doanh',
+      exportModule: 'HkdBooks',
       time: _time,
       onTimeChanged: (v) {
         setState(() => _time = v);

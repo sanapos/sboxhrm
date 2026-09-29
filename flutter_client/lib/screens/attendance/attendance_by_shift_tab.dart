@@ -1,4 +1,5 @@
 import '../../widgets/attendance/punch_cells.dart';
+import '../../utils/export_permission_guard.dart';
 import '../../widgets/attendance/attendance_day_strip.dart';
 import 'dart:convert';
 import 'dart:math' as math;
@@ -3964,6 +3965,7 @@ class _AttendanceByShiftTabState extends State<AttendanceByShiftTab> {
 
   /// Export to Excel — mỗi nhân viên một khối: tiêu đề, thông tin, bảng chi tiết, ký.
   Future<void> exportToExcel() async {
+    if (!ensureCanExport(context, 'AttendanceByShift')) return;
     final records = _shiftData;
     if (records.isEmpty || _isExporting) return;
     setState(() => _isExporting = true);
@@ -4053,6 +4055,7 @@ class _AttendanceByShiftTabState extends State<AttendanceByShiftTab> {
 
   /// Export to PNG — cùng bố cục Excel: từng nhân viên, thông tin, bảng, ký.
   Future<void> exportToPng() async {
+    if (!ensureCanExport(context, 'AttendanceByShift')) return;
     final records = _shiftData;
     if (records.isEmpty) {
       NotificationOverlayManager().showWarning(

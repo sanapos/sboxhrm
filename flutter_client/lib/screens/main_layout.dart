@@ -2622,7 +2622,6 @@ class _MainLayoutState extends State<MainLayout> with WidgetsBindingObserver {
         ),
         // Mobile: AI + thông báo đặt thẳng trên AppBar; action trang → FAB.
         actions: [
-          const BranchSwitcher(compact: true),
           IconButton(
             visualDensity: VisualDensity.compact,
             icon: const Icon(Icons.auto_awesome, color: SboxColors.violet),
@@ -3797,6 +3796,7 @@ class _MainLayoutState extends State<MainLayout> with WidgetsBindingObserver {
             child: ListView(
               padding: const EdgeInsets.symmetric(vertical: 4),
               children: [
+                const _DrawerBranchPicker(),
                 _buildDrawerQuickActionsSection(),
                 ...groupOrder
                   .where((g) => groupedItems.containsKey(g))
@@ -5530,3 +5530,66 @@ class _DeviceStatusPopupState extends State<_DeviceStatusPopup>
     );
   }
 }
+
+/// Menu 3 gạch (điện thoại): chọn chi nhánh đang xem — dữ liệu bán hàng, kho, thu chi theo chi nhánh này.
+class _DrawerBranchPicker extends StatelessWidget {
+  const _DrawerBranchPicker();
+
+  @override
+  Widget build(BuildContext context) {
+    return ListenableBuilder(
+      listenable: BranchSession.instance,
+      builder: (context, _) {
+        final s = BranchSession.instance;
+        if (!s.showSwitcher) return const SizedBox.shrink();
+        return Container(
+          margin: const EdgeInsets.fromLTRB(12, 8, 12, 4),
+          decoration: BoxDecoration(
+            color: SboxColors.brand50,
+            borderRadius: BorderRadius.circular(12),
+            border: Border.all(color: SboxColors.brand200),
+          ),
+          child: Theme(
+            data: Theme.of(context).copyWith(dividerColor: Colors.transparent),
+            child: ExpansionTile(
+              tilePadding: const EdgeInsets.symmetric(horizontal: 12),
+              leading: const Icon(Icons.storefront_rounded, color: SboxColors.brand700),
+              title: Text(tr('Chi nhánh đang xem'),
+                  style: const TextStyle(fontSize: 11.5, color: SboxColors.slate500, fontWeight: FontWeight.w600)),
+              subtitle: Text(tr(s.current?.name ?? 'Chọn chi nhánh'),
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: const TextStyle(fontSize: 14.5, fontWeight: FontWeight.w800, color: SboxColors.brand700)),
+              childrenPadding: const EdgeInsets.only(bottom: 6),
+              children: [
+                for (final b in s.branches)
+                  ListTile(
+                    dense: true,
+                    visualDensity: VisualDensity.compact,
+                    leading: Icon(
+                      b.id == s.currentId ? Icons.radio_button_checked_rounded : Icons.radio_button_off_rounded,
+                      size: 20,
+                      color: b.id == s.currentId ? SboxColors.brand600 : SboxColors.slate400,
+                    ),
+                    title: Text(tr(b.name),
+                        style: TextStyle(
+                            fontWeight: b.id == s.currentId ? FontWeight.w700 : FontWeight.w500,
+                            color: b.isActive ? SboxColors.slate900 : SboxColors.slate400)),
+                    trailing: b.isHeadquarter
+                        ? Text(tr('Trụ sở'),
+                            style: const TextStyle(fontSize: 11, color: SboxColors.brand700, fontWeight: FontWeight.w700))
+                        : null,
+                    onTap: () async {
+                      await s.select(b.id);
+                      if (context.mounted) Navigator.of(context).maybePop();
+                    },
+                  ),
+              ],
+            ),
+          ),
+        );
+      },
+    );
+  }
+}
+

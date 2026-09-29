@@ -1,4 +1,5 @@
 import 'dart:async';
+import '../../utils/export_permission_guard.dart';
 
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
@@ -278,6 +279,7 @@ class _PosEndOfDayScreenState extends State<PosEndOfDayScreen> {
   }
 
   Future<void> _exportExcel() async {
+    if (!ensureCanExport(context, 'PosReportEndOfDay')) return;
     final r = _report;
     if (r == null) return;
     final txRows = r.transactions.isEmpty

@@ -19,7 +19,7 @@ namespace ZKTecoADMS.Api.Controllers;
 public class PosProductPrinterController(ZKTecoDbContext db) : AuthenticatedControllerBase
 {
     [HttpGet("export/excel")]
-    [RequireModulePermission("PosPrinters", ModulePermissionAction.View)]
+    [RequireModulePermission("PosPrinters", ModulePermissionAction.Export)]
     public async Task<IActionResult> ExportExcel()
     {
         var storeId = RequiredStoreId;

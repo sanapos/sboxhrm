@@ -463,6 +463,7 @@ class _PosEInvoiceReportScreenState extends State<PosEInvoiceReportScreen> {
 
     return PosReportMobileScaffold(
       title: 'Quản lý hóa đơn điện tử',
+      exportModule: 'PosEInvoice',
       time: _time,
       onTimeChanged: (PosKiotTimeFilterState s) async {
         setState(() => _time = s);

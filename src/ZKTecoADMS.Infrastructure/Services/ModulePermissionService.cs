@@ -107,7 +107,8 @@ public class ModulePermissionService(ZKTecoDbContext db) : IModulePermissionServ
 
         var result = allModules.Select(module =>
         {
-            var rolePerm = rolePermissions.FirstOrDefault(rp => rp.PermissionId == module.Id);
+            var rolePerm = rolePermissions.Where(rp => rp.PermissionId == module.Id)
+                .OrderBy(rp => rp.StoreId == null ? 1 : 0).FirstOrDefault(); // dòng riêng cửa hàng thắng dòng dùng chung
             var deptPerm = deptPermissions.FirstOrDefault(dp => dp.PermissionId == module.Id);
             return new ModulePermissionDto
             {

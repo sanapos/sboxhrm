@@ -1,4 +1,5 @@
 import '../../widgets/attendance/punch_cells.dart';
+import '../../utils/export_permission_guard.dart';
 import '../../widgets/attendance/attendance_day_strip.dart';
 import 'dart:math' as math;
 import '../../utils/file_saver.dart' as file_saver;
@@ -2824,6 +2825,7 @@ class _AttendanceSummaryTabState extends State<AttendanceSummaryTab> {
 
   /// Export to Excel — mỗi nhân viên một khối: tiêu đề, thông tin, bảng chi tiết, ký.
   Future<void> exportToExcel() async {
+    if (!ensureCanExport(context, 'AttendanceSummary')) return;
     final summaries = _dailySummaryData;
     if (summaries.isEmpty || _isExporting) return;
     setState(() => _isExporting = true);
@@ -3240,6 +3242,7 @@ class _AttendanceSummaryTabState extends State<AttendanceSummaryTab> {
 
   /// Export to PNG — cùng bố cục Excel: từng nhân viên, thông tin, bảng, ký.
   Future<void> exportToPng() async {
+    if (!ensureCanExport(context, 'AttendanceSummary')) return;
     final summaries = _dailySummaryData;
     if (summaries.isEmpty) {
       NotificationOverlayManager().showWarning(

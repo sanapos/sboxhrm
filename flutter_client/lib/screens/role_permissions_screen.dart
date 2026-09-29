@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import '../widgets/permission_preset_sheet.dart';
 import 'package:provider/provider.dart';
 import '../providers/auth_provider.dart';
 import '../providers/permission_provider.dart';
@@ -361,6 +362,7 @@ class _RolePermissionsScreenState extends State<RolePermissionsScreen> {
       'canCreate',
       'canEdit',
       'canDelete',
+      'canExport',
       'canApprove'
     },
     'AttendanceSummary': {'canView', 'canExport'},
@@ -418,7 +420,7 @@ class _RolePermissionsScreenState extends State<RolePermissionsScreen> {
     'BankAccount': {'canView', 'canCreate', 'canEdit', 'canDelete'},
     // ── QUẢN LÝ VẬN HÀNH ──
     'Asset': {'canView', 'canCreate', 'canEdit', 'canDelete', 'canExport'},
-    'Task': {'canView', 'canCreate', 'canEdit', 'canDelete'},
+    'Task': {'canView', 'canCreate', 'canEdit', 'canDelete', 'canExport'},
     'Communication': {'canView', 'canCreate', 'canEdit', 'canDelete'},
     'KPI': {
       'canView',
@@ -431,7 +433,7 @@ class _RolePermissionsScreenState extends State<RolePermissionsScreen> {
     'Production': {'canView', 'canCreate', 'canEdit', 'canDelete', 'canExport'},
     'MobileDeviceRegistration': {'canView', 'canApprove'},
     'MobileAttendanceApproval': {'canView', 'canApprove'},
-    'Meal': {'canView', 'canCreate', 'canEdit', 'canDelete'},
+    'Meal': {'canView', 'canCreate', 'canEdit', 'canDelete', 'canExport'},
     'FieldCheckIn': {'canView', 'canCreate', 'canEdit', 'canDelete'},
     'Feedback': {'canView', 'canCreate', 'canDelete', 'canApprove'},
     // ── BÁO CÁO — chỉ xem + xuất ──
@@ -493,14 +495,20 @@ class _RolePermissionsScreenState extends State<RolePermissionsScreen> {
       'canEdit',
       'canDelete',
     },
-    'PosSaleOrders': {'canView', 'canEdit', 'canDelete'},
+    'PosSaleOrders': {'canView', 'canEdit', 'canDelete', 'canExport'},
     'PosQuotes': {
       'canView',
       'canCreate',
       'canEdit',
       'canDelete',
+      'canExport',
       'canApprove',
     },
+    // Quyền con bán hàng — tick riêng (trước đây đi theo «Duyệt» của Bán hàng).
+    'PosSellPriceEdit': {'canView', 'canEdit'},
+    'PosSellDiscount': {'canView', 'canEdit'},
+    'PosSellCancelPaid': {'canView', 'canApprove'},
+    'PosViewCost': {'canView'},
     'PosSaleReturns': {
       // Xem = menu/danh sách; Duyệt = thực hiện trả / hủy phiếu trả
       'canView',
@@ -552,13 +560,13 @@ class _RolePermissionsScreenState extends State<RolePermissionsScreen> {
     'PosReportCashbook': {'canView', 'canExport'},
     'PosReportPnl': {'canView', 'canExport'},
     'PosReportVoucher': {'canView', 'canExport'},
-    'PosEInvoice': {'canView', 'canEdit', 'canApprove'},
+    'PosEInvoice': {'canView', 'canEdit', 'canExport', 'canApprove'},
     'PosKds': {'canView', 'canCreate'},
     'PosQrOrder': {'canView', 'canEdit', 'canApprove'},
     'PosCashierShift': {'canView', 'canCreate'},
-    'PosPrinters': {'canView', 'canEdit'},
+    'PosPrinters': {'canView', 'canEdit', 'canExport'},
     'PosStorePrinters': {'canView', 'canEdit'},
-    'PosShipping': {'canView', 'canCreate', 'canEdit'},
+    'PosShipping': {'canView', 'canCreate', 'canEdit', 'canExport'},
     'PosBooking': {'canView', 'canCreate', 'canEdit'},
     'PosCustomers': {'canView', 'canCreate', 'canEdit', 'canDelete'},
     'PosWarranty': {'canView'},
@@ -1009,6 +1017,26 @@ class _RolePermissionsScreenState extends State<RolePermissionsScreen> {
           'canApprove': false
         };
     }
+  }
+
+  /// Mẫu phân quyền dựng sẵn: áp dụng thẳng cho nhiều vai trò, hoặc nạp vào bảng để chỉnh rồi lưu.
+  Future<void> _openPresets({String? focusRole}) async {
+    final res = await PermissionPresetSheet.show(context, focusRole: focusRole);
+    if (res == null || !mounted) return;
+    if (res.isApplied) {
+      await _loadData();
+      if (mounted && _selectedRoleName != null) await _selectRole(_selectedRoleName!);
+      return;
+    }
+    setState(() {
+      _selectedRoleName = res.roleName;
+      _selectedRolePermissions = Map<String, dynamic>.from(res.preview!);
+      _normalizeLoadedPermissions();
+    });
+    appNotification.showInfo(
+      title: 'Đang xem mẫu — chưa lưu',
+      message: tr('Chỉnh từng quyền nếu cần rồi bấm «Lưu thay đổi» để áp dụng cho vai trò.'),
+    );
   }
 
   Future<void> _savePermissions() async {
@@ -1605,12 +1633,29 @@ class _RolePermissionsScreenState extends State<RolePermissionsScreen> {
       if (mounted) _syncModulesWithPackage();
     });
 
-    final saveAction = _section == 0 &&
-            _selectedRolePermissions != null &&
-            _perm.canEdit('Role')
+    final canEditRoles = _section == 0 && _perm.canEdit('Role');
+    final saveAction = canEditRoles
         ? Padding(
             padding: const EdgeInsets.only(right: 16),
-            child: FilledButton.icon(
+            child: Row(mainAxisSize: MainAxisSize.min, children: [
+              OutlinedButton.icon(
+                onPressed: _isSaving ? null : () => _openPresets(),
+                icon: const Icon(Icons.auto_awesome_outlined, size: 18),
+                label: Text(tr('Mẫu phân quyền')),
+                style: OutlinedButton.styleFrom(
+                  foregroundColor: HrmPageChrome.primaryNavy,
+                  padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+                ),
+              ),
+              if (_selectedRolePermissions != null) ...[
+                const SizedBox(width: 8),
+                IconButton(
+                  tooltip: tr('Nạp mẫu cho vai trò này'),
+                  onPressed: _isSaving ? null : () => _openPresets(focusRole: _selectedRoleName),
+                  icon: const Icon(Icons.playlist_add_check_rounded, color: HrmPageChrome.primaryNavy),
+                ),
+                const SizedBox(width: 4),
+                FilledButton.icon(
               onPressed: _isSaving ? null : _savePermissions,
               icon: _isSaving
                   ? const SizedBox(
@@ -1626,6 +1671,8 @@ class _RolePermissionsScreenState extends State<RolePermissionsScreen> {
                     const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
               ),
             ),
+              ],
+            ]),
           )
         : null;
 

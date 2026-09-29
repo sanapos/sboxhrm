@@ -126,12 +126,16 @@ class PosProductDataTable extends StatelessWidget {
     PosProductTableColumn.stockout: 2,
   };
 
+  /// Không có quyền «Xem giá vốn» → cột giá vốn hiện «—» (máy chủ cũng không trả giá vốn).
+  static bool _hideCost = false;
+
   List<PosProductTableColumn> _visibleCols() =>
       PosProductTableColumn.values.where(visibleColumns.contains).toList();
 
   @override
   Widget build(BuildContext context) {
     final perm = Provider.of<PermissionProvider>(context);
+    _hideCost = !perm.canViewCost();
     return SingleChildScrollView(
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
@@ -476,7 +480,7 @@ class PosProductDataTable extends StatelessWidget {
         ),
       PosProductTableColumn.price => _priceCell(p, activeView),
       PosProductTableColumn.cost => _cellText(
-          moneyFmt.format(activeView.costPrice),
+          (!_hideCost ? moneyFmt.format(activeView.costPrice) : '—'),
           align: TextAlign.right,
         ),
       PosProductTableColumn.brand =>
@@ -646,7 +650,7 @@ class PosProductDataTable extends StatelessWidget {
         ),
       PosProductTableColumn.price => _variantPriceCell(parent, v),
       PosProductTableColumn.cost => _cellText(
-          moneyFmt.format(v.costPrice),
+          (!_hideCost ? moneyFmt.format(v.costPrice) : '—'),
           align: TextAlign.right,
           color: PosTheme.textSecondary,
         ),

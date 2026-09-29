@@ -118,6 +118,7 @@ class _PosBusinessAnalysisScreenState extends State<PosBusinessAnalysisScreen> {
 
     return PosReportMobileScaffold(
       title: 'Phân tích kinh doanh',
+      exportModule: 'PosSalesReport',
       time: _time,
       onTimeChanged: (PosKiotTimeFilterState s) async {
         setState(() => _time = s);

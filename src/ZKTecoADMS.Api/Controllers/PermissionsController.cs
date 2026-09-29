@@ -16,6 +16,12 @@ namespace ZKTecoADMS.Api.Controllers;
 [Authorize]
 public class PermissionsController(ZKTecoDbContext context) : AuthenticatedControllerBase
 {
+    /// <summary>Cửa hàng được thao tác: chỉ SuperAdmin chọn được cửa hàng khác (tránh ghi đè quyền cửa hàng người khác).</summary>
+    Guid? ScopedStore(Guid? requested) =>
+        CurrentUserRole.Equals("SuperAdmin", StringComparison.OrdinalIgnoreCase)
+            ? requested ?? CurrentStoreId
+            : CurrentStoreId;
+
     /// <summary>
     /// Lấy danh sách tất cả các module (permissions)
     /// </summary>
@@ -43,11 +49,7 @@ public class PermissionsController(ZKTecoDbContext context) : AuthenticatedContr
     [HttpGet("roles")]
     public async Task<ActionResult<AppResponse<List<RoleDto>>>> GetRoles([FromQuery] Guid? storeId = null)
     {
-        // Auto-resolve storeId from current user if not provided
-        if (!storeId.HasValue)
-        {
-            storeId = CurrentStoreId;
-        }
+        storeId = ScopedStore(storeId);
 
         var query = context.RolePermissions
             .Include(rp => rp.Store)
@@ -108,11 +110,7 @@ public class PermissionsController(ZKTecoDbContext context) : AuthenticatedContr
         string roleName, 
         [FromQuery] Guid? storeId = null)
     {
-        // Auto-resolve storeId from current user if not provided
-        if (!storeId.HasValue)
-        {
-            storeId = CurrentStoreId;
-        }
+        storeId = ScopedStore(storeId);
 
         var permissions = await context.Permissions
             .OrderBy(p => p.DisplayOrder)
@@ -196,11 +194,7 @@ public class PermissionsController(ZKTecoDbContext context) : AuthenticatedContr
     public async Task<ActionResult<AppResponse<RolePermissionGroupDto>>> CreateOrUpdateRolePermissions(
         [FromBody] CreateRolePermissionRequest request)
     {
-        // Auto-resolve storeId from current user if not provided
-        if (!request.StoreId.HasValue)
-        {
-            request.StoreId = CurrentStoreId;
-        }
+        request.StoreId = ScopedStore(request.StoreId);
 
         // Xóa các quyền cũ của role này (nếu có)
         var existingPermissions = await context.RolePermissions
@@ -244,11 +238,7 @@ public class PermissionsController(ZKTecoDbContext context) : AuthenticatedContr
         string roleName, 
         [FromQuery] Guid? storeId = null)
     {
-        // Auto-resolve storeId from current user if not provided
-        if (!storeId.HasValue)
-        {
-            storeId = CurrentStoreId;
-        }
+        storeId = ScopedStore(storeId);
 
         var permissions = await context.RolePermissions
             .Where(rp => rp.RoleName == roleName && rp.StoreId == storeId)
@@ -263,6 +253,146 @@ public class PermissionsController(ZKTecoDbContext context) : AuthenticatedContr
         await context.SaveChangesAsync();
 
         return Ok(AppResponse<bool>.Success(true));
+    }
+
+    // ══════════ MẪU PHÂN QUYỀN (HRM / POS / HRM + POS) ══════════
+
+    public record PresetAssignment(string RoleName, string PresetId);
+    public record ApplyPresetsRequest(List<PresetAssignment> Assignments);
+
+    static PermissionPresetPackage? ParsePackage(string? raw) => (raw ?? "").Trim().ToLowerInvariant() switch
+    {
+        "hrm" => PermissionPresetPackage.Hrm,
+        "pos" => PermissionPresetPackage.Pos,
+        "full" => PermissionPresetPackage.Full,
+        _ => null,
+    };
+
+    static string PackageCode(PermissionPresetPackage p) => p switch
+    {
+        PermissionPresetPackage.Hrm => "hrm",
+        PermissionPresetPackage.Pos => "pos",
+        _ => "full",
+    };
+
+    async Task<HashSet<string>> StoreModulesAsync(Guid storeId) =>
+        (await ZKTecoADMS.Infrastructure.Helpers.StorePackageHelper.ResolveAllowedModulesAsync(context, storeId))
+            .ToHashSet(StringComparer.OrdinalIgnoreCase);
+
+    /// <summary>Danh sách mẫu + gói nhận diện của cửa hàng + mẫu mặc định cho từng vai trò.</summary>
+    [HttpGet("presets")]
+    public async Task<ActionResult<AppResponse<object>>> GetPresets([FromQuery] string? package = null)
+    {
+        var storeId = CurrentStoreId;
+        var allowed = storeId is Guid sid ? await StoreModulesAsync(sid) : [];
+        var detected = PermissionPresetCatalog.Detect(allowed);
+        var chosen = ParsePackage(package) ?? detected;
+        var presets = PermissionPresetCatalog.List(chosen).Select(p =>
+        {
+            var built = PermissionPresetCatalog.Build(p.Id);
+            var granted = built.Keys.Count(m => PermissionPresetCatalog.FlagsFor(built, m, allowed).Any);
+            return new
+            {
+                id = p.Id,
+                roleName = p.RoleName,
+                extraRoles = p.ExtraRoles ?? [],
+                title = p.Title,
+                description = p.Description,
+                grantedModules = granted,
+                superRole = ModulePermissionDefaults.IsSuperRole(p.RoleName),
+            };
+        }).ToList();
+        return Ok(AppResponse<object>.Success(new
+        {
+            detectedPackage = PackageCode(detected),
+            package = PackageCode(chosen),
+            packages = new[] { PermissionPresetPackage.Hrm, PermissionPresetPackage.Pos, PermissionPresetPackage.Full }
+                .Select(x => new { code = PackageCode(x), label = PermissionPresetCatalog.PackageLabel(x) }),
+            defaults = PermissionPresetCatalog.Defaults(chosen),
+            presets,
+        }));
+    }
+
+    /// <summary>Xem trước quyền của một mẫu (đã lọc theo gói cửa hàng) — cùng dạng với quyền của vai trò.</summary>
+    [HttpGet("presets/{presetId}")]
+    public async Task<ActionResult<AppResponse<RolePermissionGroupDto>>> GetPreset(string presetId)
+    {
+        var preset = PermissionPresetCatalog.Find(presetId);
+        if (preset == null) return NotFound(AppResponse<RolePermissionGroupDto>.Fail("Không tìm thấy mẫu phân quyền"));
+        var allowed = CurrentStoreId is Guid sid ? await StoreModulesAsync(sid) : [];
+        var built = PermissionPresetCatalog.Build(preset.Id);
+        var modules = await context.Permissions.AsNoTracking().OrderBy(p => p.DisplayOrder).ToListAsync();
+        var list = modules.Select(m =>
+        {
+            var f = PermissionPresetCatalog.FlagsFor(built, m.Module, allowed);
+            return new ModulePermissionDto
+            {
+                PermissionId = m.Id, Module = m.Module, ModuleDisplayName = m.ModuleDisplayName, DisplayOrder = m.DisplayOrder,
+                CanView = f.V, CanCreate = f.C, CanEdit = f.E, CanDelete = f.D, CanExport = f.X, CanApprove = f.A,
+            };
+        }).ToList();
+        return Ok(AppResponse<RolePermissionGroupDto>.Success(new RolePermissionGroupDto
+        {
+            RoleName = preset.RoleName,
+            RoleDisplayName = preset.Title,
+            StoreId = CurrentStoreId,
+            Permissions = list,
+            GrantedModuleCount = list.Count(x => x.CanView || x.CanCreate || x.CanEdit || x.CanDelete || x.CanExport || x.CanApprove),
+        }));
+    }
+
+    /// <summary>Áp dụng mẫu cho một hoặc nhiều vai trò của cửa hàng (ghi đè quyền hiện có của vai trò đó).</summary>
+    [HttpPost("presets/apply")]
+    [Authorize(Policy = PolicyNames.AtLeastAdmin)]
+    public async Task<ActionResult<AppResponse<object>>> ApplyPresets([FromBody] ApplyPresetsRequest request)
+    {
+        if (CurrentStoreId is not Guid storeId)
+            return BadRequest(AppResponse<object>.Fail("Không xác định được cửa hàng"));
+        if (request.Assignments == null || request.Assignments.Count == 0)
+            return BadRequest(AppResponse<object>.Fail("Chưa chọn vai trò nào"));
+
+        var allowed = await StoreModulesAsync(storeId);
+        var modules = await context.Permissions.AsNoTracking().ToListAsync();
+        var applied = new List<object>();
+        foreach (var a in request.Assignments)
+        {
+            var preset = PermissionPresetCatalog.Find(a.PresetId);
+            if (preset == null)
+                return BadRequest(AppResponse<object>.Fail($"Mẫu «{a.PresetId}» không tồn tại"));
+            if (!preset.FitsRole(a.RoleName))
+                return BadRequest(AppResponse<object>.Fail($"Mẫu «{preset.Title}» dành cho vai trò {preset.RoleName}"));
+            if (a.RoleName.Equals("Admin", StringComparison.OrdinalIgnoreCase))
+                continue; // chủ cửa hàng luôn toàn quyền
+
+            var built = PermissionPresetCatalog.Build(preset.Id);
+            var old = await context.RolePermissions.AsTracking()
+                .Where(rp => rp.RoleName == a.RoleName && rp.StoreId == storeId)
+                .ToListAsync();
+            context.RolePermissions.RemoveRange(old);
+            var rows = modules.Select(m =>
+            {
+                var f = PermissionPresetCatalog.FlagsFor(built, m.Module, allowed);
+                return new RolePermission
+                {
+                    Id = Guid.NewGuid(),
+                    RoleName = a.RoleName,
+                    RoleDisplayName = preset.RoleName.Equals(a.RoleName, StringComparison.OrdinalIgnoreCase)
+                        ? preset.Title
+                        : GetDefaultRoleDisplayName(a.RoleName),
+                    PermissionId = m.Id,
+                    StoreId = storeId,
+                    CanView = f.V, CanCreate = f.C, CanEdit = f.E, CanDelete = f.D, CanExport = f.X, CanApprove = f.A,
+                    IsActive = true,
+                    CreatedAt = DateTime.UtcNow,
+                    CreatedBy = "Preset:" + preset.Id,
+                };
+            }).ToList();
+            await context.RolePermissions.AddRangeAsync(rows);
+            applied.Add(new { roleName = a.RoleName, presetId = preset.Id, title = preset.Title,
+                granted = rows.Count(r => r.CanView || r.CanCreate || r.CanEdit || r.CanDelete || r.CanExport || r.CanApprove) });
+        }
+        await context.SaveChangesAsync();
+        return Ok(AppResponse<object>.Success(new { applied }));
     }
 
     /// <summary>

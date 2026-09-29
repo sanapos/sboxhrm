@@ -16,6 +16,7 @@ namespace ZKTecoADMS.Api.Controllers;
 [ApiController]
 [Route("api/pos/products/{productId:guid}/variants")]
 [Authorize]
+[MaskCostData]
 public class PosProductVariantsController(
     ZKTecoDbContext dbContext,
     ILogger<PosProductVariantsController> logger) : AuthenticatedControllerBase
@@ -136,7 +137,7 @@ public class PosProductVariantsController(
         entity.Barcode = string.IsNullOrWhiteSpace(dto.Barcode) ? null : dto.Barcode.Trim();
         entity.Name = name;
         entity.AttributeJson = dto.AttributeJson;
-        entity.CostPrice = dto.CostPrice;
+        if (await CanViewCostAsync()) entity.CostPrice = dto.CostPrice;
         entity.BasePrice = dto.BasePrice;
         if (!PosVariantStockHelper.IsUnitOnlyVariant(entity.AttributeJson))
         {
@@ -194,7 +195,7 @@ public class PosProductVariantsController(
             return NotFound(AppResponse<VariantDto>.Fail("Không tìm thấy biến thể"));
 
         if (dto.BasePrice.HasValue) entity.BasePrice = dto.BasePrice.Value;
-        if (dto.CostPrice.HasValue) entity.CostPrice = dto.CostPrice.Value;
+        if (dto.CostPrice.HasValue && await CanViewCostAsync()) entity.CostPrice = dto.CostPrice.Value;
         if (dto.OnHandQty.HasValue && entity.Product != null)
         {
             var oldDisplay = PosVariantStockHelper.ResolveVariantDisplayQty(
@@ -431,7 +432,10 @@ public class PosProductVariantsController(
             entity.Barcode = string.IsNullOrWhiteSpace(input.Barcode) ? null : input.Barcode.Trim();
             entity.Name = name;
             entity.AttributeJson = input.AttributeJson;
-            entity.CostPrice = input.CostPrice;
+            if (await CanViewCostAsync())
+                entity.CostPrice = input.CostPrice;
+            else if (dbContext.Entry(entity).State == EntityState.Added)
+                entity.CostPrice = product.CostPrice;
             entity.BasePrice = input.BasePrice;
             entity.Product = product;
             if (PosVariantStockHelper.IsUnitOnlyVariant(input.AttributeJson))

@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import '../utils/export_permission_guard.dart';
 import 'package:intl/intl.dart';
 import 'package:provider/provider.dart';
 import '../l10n/app_tr.dart';
@@ -222,6 +223,7 @@ class _ScheduleComplianceScreenState extends State<ScheduleComplianceScreen> {
   String _t(DateTime? d) => d == null ? '' : _timeFmt.format(d);
 
   Future<void> _export() async {
+    if (!ensureCanExport(context, 'WorkSchedule')) return;
     final period = '${_dateFmt.format(_from)} – ${_dateFmt.format(_to)}';
     if (_tab == 3) {
       final rows = computeShiftStaffing(_result!.rows, _quotas);

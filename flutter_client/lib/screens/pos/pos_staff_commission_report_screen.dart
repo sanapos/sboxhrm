@@ -70,6 +70,7 @@ class _PosStaffCommissionReportScreenState
     final lines = _maps(_data?['lines']);
     return PosReportMobileScaffold(
       title: 'Hoa hồng nhân viên',
+      exportModule: 'PosReportStaffCommission',
       time: _time,
       pngKey: _pngKey,
       onTimeChanged: (t) {

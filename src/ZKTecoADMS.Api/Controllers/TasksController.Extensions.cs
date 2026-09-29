@@ -410,7 +410,7 @@ public partial class TasksController
 
     [HttpGet("export")]
     [Authorize(Policy = PolicyNames.AtLeastManager)]
-    [RequireModulePermission("Task", ModulePermissionAction.View)]
+    [RequireModulePermission("Task", ModulePermissionAction.Export)]
     public async Task<IActionResult> ExportTasks(
         [FromQuery] DateTime? fromDate = null,
         [FromQuery] DateTime? toDate = null,

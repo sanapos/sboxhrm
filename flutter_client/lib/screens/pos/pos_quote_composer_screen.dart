@@ -14,6 +14,7 @@ import '../../utils/pos_print_template_loader.dart';
 import '../../utils/pos_print_template_v2_codec.dart';
 import '../../utils/pos_purchase_product_lookup.dart';
 import '../../utils/pos_qty_rules.dart';
+import '../../utils/pos_sell_store_settings.dart';
 import '../../utils/pos_sell_unit_views.dart';
 import '../../utils/pos_vietnamese_money_words.dart';
 import '../../widgets/notification_overlay.dart';
@@ -115,6 +116,11 @@ class _PosQuoteComposerScreenState extends State<PosQuoteComposerScreen> {
   String? _expandedKey;
   _RowExpand? _expandMode;
 
+  /// Cách tính VAT (mặc định theo thiết lập bán hàng của cửa hàng, đổi được từng báo giá).
+  String _vatMode = PosQuoteVat.included;
+  double _vatRate = 8;
+  final _vatRateCtrl = TextEditingController(text: '8');
+
   static const _depositPayments = ['Chuyển khoản', 'Tiền mặt'];
   static const _kiotBlue = PosTheme.kiotBlue;
 
@@ -130,11 +136,14 @@ class _PosQuoteComposerScreenState extends State<PosQuoteComposerScreen> {
     return _depositPayments.contains(v) ? v : 'Chuyển khoản';
   }
 
-  double get _lineNetSum =>
-      _cart.fold(0.0, (a, r) => a + r.lineNet);
+  PosQuoteTotals get _totals => PosQuoteVat.compute(
+        [for (final r in _cart) r.line],
+        mode: _vatMode,
+        rate: _vatRate,
+        discount: _orderDiscount,
+      );
 
-  double get _preVatTotal =>
-      (_lineNetSum - _orderDiscount).clamp(0, double.infinity);
+  double get _preVatTotal => _totals.preVat;
 
   double get _depositInput =>
       double.tryParse(_deposit.text.replaceAll('.', '').replaceAll(',', '')) ??
@@ -154,7 +163,32 @@ class _PosQuoteComposerScreenState extends State<PosQuoteComposerScreen> {
     _loadCommercialProfile();
     if (_isEdit) {
       _loadQuote();
+    } else {
+      _loadVatDefaults();
     }
+  }
+
+  /// Mặc định VAT theo Thiết lập bán hàng: giá đã gồm thuế / thuế từng mặt hàng / thuế trên tổng đơn.
+  Future<void> _loadVatDefaults() async {
+    try {
+      final st = await PosSellStoreSettings.load();
+      if (!mounted) return;
+      setState(() {
+        _vatMode = switch (st.taxMode) {
+          PosSellTaxMode.includedInPrice => PosQuoteVat.included,
+          PosSellTaxMode.perItem => PosQuoteVat.perItem,
+          PosSellTaxMode.orderTotal => PosQuoteVat.added,
+        };
+        _setVatRate(st.defaultVatRate);
+      });
+    } catch (_) {}
+  }
+
+  void _setVatRate(double r) {
+    _vatRate = r.clamp(0, 100).toDouble();
+    _vatRateCtrl.text = _vatRate == _vatRate.roundToDouble()
+        ? _vatRate.toStringAsFixed(0)
+        : _vatRate.toStringAsFixed(1);
   }
 
   Future<void> _loadCommercialProfile() async {
@@ -254,6 +288,8 @@ class _PosQuoteComposerScreenState extends State<PosQuoteComposerScreen> {
         _printTemplateId = q.printTemplateId ?? _printTemplateId;
         _includeImages = q.includeImages;
         if (q.validUntil != null) _validUntil = q.validUntil!.toLocal();
+        _vatMode = PosQuoteVat.modes.contains(q.vatMode) ? q.vatMode : PosQuoteVat.perItem;
+        _setVatRate(q.vatPercent ?? _vatRate);
       });
       for (final row in _cart) {
         unawaited(_hydrateRow(row));
@@ -304,6 +340,7 @@ class _PosQuoteComposerScreenState extends State<PosQuoteComposerScreen> {
     _discount.dispose();
     _deposit.dispose();
     _note.dispose();
+    _vatRateCtrl.dispose();
     for (final r in _cart) {
       r.dispose();
     }
@@ -611,13 +648,10 @@ class _PosQuoteComposerScreenState extends State<PosQuoteComposerScreen> {
   double get _subTotal => _cart.fold(0.0, (a, r) => a + r.lineGross);
   double get _lineDiscountTotal =>
       _cart.fold(0.0, (a, r) => a + r.line.discountAmount);
-  double get _lineVat => _cart.fold(0.0, (a, r) {
-        final net = r.lineNet;
-        return a + (net * r.line.vatRate / 100);
-      });
-  double get _lineSum => _cart.fold(0.0, (a, r) {
-        return a + (r.lineNet * (1 + r.line.vatRate / 100));
-      });
+  double get _lineVat => _totals.vat;
+
+  /// Cơ sở tính giảm giá % của đơn (đã gồm thuế từng dòng khi VAT theo mặt hàng).
+  double get _lineSum => PosQuoteVat.discountBase([for (final r in _cart) r.line], _vatMode);
   double get _discountInput =>
       double.tryParse(_discount.text.replaceAll('.', '').replaceAll(',', '')) ??
       0;
@@ -628,7 +662,7 @@ class _PosQuoteComposerScreenState extends State<PosQuoteComposerScreen> {
     return _discountInput.clamp(0, _lineSum);
   }
 
-  double get _total => (_lineSum - _orderDiscount).clamp(0, double.infinity);
+  double get _total => _totals.total;
 
   Map<String, double> get _cartQty {
     final m = <String, double>{};
@@ -727,6 +761,8 @@ class _PosQuoteComposerScreenState extends State<PosQuoteComposerScreen> {
         'depositPercent': _depositIsPercent ? _depositInput : null,
         if (tplId != null) 'printTemplateId': tplId,
         'includeImages': _includeImages,
+        'vatMode': _vatMode,
+        'vatPercent': _vatRate,
         'lines': _cart.map((r) => r.line.toInputJson()).toList(),
       };
       final quoteId = _activeQuoteId;
@@ -833,7 +869,7 @@ class _PosQuoteComposerScreenState extends State<PosQuoteComposerScreen> {
     for (final r in _cart) {
       _applyNote(r);
       _applyPrice(r);
-      r.line.lineTotal = r.lineNet * (1 + r.line.vatRate / 100);
+      r.line.lineTotal = PosQuoteVat.lineAmount(r.line, _vatMode, _vatRate);
     }
   }
 
@@ -1074,6 +1110,7 @@ class _PosQuoteComposerScreenState extends State<PosQuoteComposerScreen> {
     return PosSellProductGrid(
       api: _api,
       sellListLayout: listLayout,
+      stockWarnOnly: true,
       cartQtyByProductId: _cartQty,
       onPick: _addPick,
       onSetQty: _setLineQty,
@@ -1784,10 +1821,11 @@ class _PosQuoteComposerScreenState extends State<PosQuoteComposerScreen> {
             ),
             const SizedBox(height: 12),
           ],
+          _vatSelector(),
+          const SizedBox(height: 12),
           _moneyRow('Tổng tiền hàng', _subTotal),
           if (_lineDiscountTotal > 0)
             _moneyRow('Chiết khấu SP', -_lineDiscountTotal),
-          if (_lineVat > 0) _moneyRow('Thuế', _lineVat),
           const SizedBox(height: 10),
           Row(
             children: [
@@ -1955,7 +1993,18 @@ class _PosQuoteComposerScreenState extends State<PosQuoteComposerScreen> {
           ),
           const SizedBox(height: 12),
           const Divider(),
-          _moneyRow('Tổng cộng', _total, bold: true),
+          if (_vatMode == PosQuoteVat.added) ...[
+            _moneyRow('Trước VAT', _totals.preVat),
+            _moneyRow('VAT ${_vatRateCtrl.text}%', _lineVat),
+          ] else if (_vatMode == PosQuoteVat.perItem && _lineVat > 0)
+            _moneyRow('Thuế (theo mặt hàng)', _lineVat),
+          _moneyRow(_vatMode == PosQuoteVat.included ? 'Tổng cộng (đã gồm VAT)' : 'Tổng cộng', _total, bold: true),
+          if (_vatMode == PosQuoteVat.included && _lineVat > 0)
+            Text(
+              tr('Trong đó VAT ${_vatRateCtrl.text}%: ${_money.format(_lineVat)} đ · trước VAT ${_money.format(_totals.preVat)} đ'),
+              textAlign: TextAlign.right,
+              style: const TextStyle(fontSize: 12, color: SboxColors.slate500),
+            ),
           Text(
             vietnameseMoneyInWords(_total.round()),
             style: TextStyle(
@@ -2113,6 +2162,76 @@ class _PosQuoteComposerScreenState extends State<PosQuoteComposerScreen> {
           ),
         ),
       ),
+    );
+  }
+
+  Widget _vatSelector() {
+    final showRate = _vatMode == PosQuoteVat.included || _vatMode == PosQuoteVat.added;
+    return Container(
+      padding: const EdgeInsets.all(12),
+      decoration: BoxDecoration(
+        color: SboxColors.slate50,
+        borderRadius: BorderRadius.circular(10),
+        border: Border.all(color: PosTheme.border),
+      ),
+      child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+        Row(children: [
+          const Icon(Icons.receipt_long_outlined, size: 18, color: _kiotBlue),
+          const SizedBox(width: 6),
+          Text(tr('Thuế VAT'), style: const TextStyle(fontWeight: FontWeight.w700, fontSize: 14)),
+        ]),
+        const SizedBox(height: 8),
+        Wrap(spacing: 6, runSpacing: 6, children: [
+          for (final m in PosQuoteVat.modes)
+            ChoiceChip(
+              visualDensity: VisualDensity.compact,
+              label: Text(tr(PosQuoteVat.label(m))),
+              selected: _vatMode == m,
+              onSelected: (_) => setState(() => _vatMode = m),
+            ),
+        ]),
+        if (showRate) ...[
+          const SizedBox(height: 10),
+          Row(children: [
+            Text(tr('Thuế suất'), style: const TextStyle(fontSize: 13)),
+            const SizedBox(width: 8),
+            for (final r in const [0.0, 5.0, 8.0, 10.0])
+              Padding(
+                padding: const EdgeInsets.only(right: 4),
+                child: ChoiceChip(
+                  visualDensity: VisualDensity.compact,
+                  label: Text('${r.toStringAsFixed(0)}%'),
+                  selected: _vatRate == r,
+                  onSelected: (_) => setState(() => _setVatRate(r)),
+                ),
+              ),
+            const SizedBox(width: 4),
+            SizedBox(
+              width: 64,
+              child: TextField(
+                controller: _vatRateCtrl,
+                keyboardType: const TextInputType.numberWithOptions(decimal: true),
+                textAlign: TextAlign.right,
+                decoration: const InputDecoration(
+                  isDense: true,
+                  suffixText: '%',
+                  border: OutlineInputBorder(),
+                  contentPadding: EdgeInsets.symmetric(horizontal: 6, vertical: 8),
+                ),
+                onChanged: (v) {
+                  final x = double.tryParse(v.replaceAll(',', '.'));
+                  if (x != null) setState(() => _vatRate = x.clamp(0, 100).toDouble());
+                },
+              ),
+            ),
+          ]),
+        ],
+        const SizedBox(height: 6),
+        Text(
+          tr(PosQuoteVat.describe(_vatMode, _vatRate)),
+          style: const TextStyle(fontSize: 12, color: SboxColors.slate500),
+        ),
+      ]),
     );
   }
 

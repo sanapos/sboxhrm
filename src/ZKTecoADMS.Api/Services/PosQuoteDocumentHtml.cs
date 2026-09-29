@@ -236,7 +236,10 @@ public static class PosQuoteDocumentHtml
         var customerCompany = FirstText(customer?.CompanyName, quote.CustomerName);
         var customerTaxCode = customer?.TaxCode ?? "";
         var lines = quote.Lines.Where(l => l.Deleted == null).ToList();
-        var preVat = Math.Max(0, lines.Sum(l => Math.Max(0, l.Qty * l.UnitPrice - l.DiscountAmount)) - quote.Discount);
+        var preVat = quote.VatMode is "included" or "added" or "none"
+            ? Math.Max(0, quote.Total - quote.VatAmount)
+            : Math.Max(0, lines.Sum(l => Math.Max(0, l.Qty * l.UnitPrice - l.DiscountAmount)) - quote.Discount);
+        var vatRateText = (quote.VatPercent ?? 8m).ToString("0.##", vn);
         var deposit = quote.DepositAmount;
         if (deposit <= 0 && quote.DepositPercent is > 0)
             deposit = Math.Round(preVat * quote.DepositPercent.Value / 100m, 0, MidpointRounding.AwayFromZero);
@@ -295,6 +298,14 @@ public static class PosQuoteDocumentHtml
             ["Tien_Thue"] = quote.VatAmount.ToString("#,##0", vn),
             ["Thue"] = quote.VatAmount.ToString("#,##0", vn),
             ["VAT"] = quote.VatAmount.ToString("#,##0", vn),
+            ["Thue_Suat"] = quote.VatMode is "included" or "added" ? vatRateText + "%" : "",
+            ["Cach_Tinh_VAT"] = quote.VatMode switch
+            {
+                "included" => $"Giá đã bao gồm VAT {vatRateText}%",
+                "added" => $"Giá chưa bao gồm VAT, cộng VAT {vatRateText}%",
+                "none" => "Không tính VAT",
+                _ => "VAT theo từng mặt hàng",
+            },
             ["Tong_Cong"] = quote.Total.ToString("#,##0", vn),
             ["Khach_Can_Tra"] = quote.Total.ToString("#,##0", vn),
             ["Tam_Ung"] = deposit.ToString("#,##0", vn),

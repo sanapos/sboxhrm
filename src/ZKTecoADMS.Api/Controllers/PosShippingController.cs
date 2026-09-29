@@ -269,7 +269,7 @@ public class PosShippingController(
     }
 
     [HttpGet("report/excel")]
-    [RequireModulePermission("PosShipping", ModulePermissionAction.View)]
+    [RequireModulePermission("PosShipping", ModulePermissionAction.Export)]
     public async Task<IActionResult> ReportExcel(
         [FromQuery] DateTime? from, [FromQuery] DateTime? to, [FromQuery] string? carrier, CancellationToken ct)
     {

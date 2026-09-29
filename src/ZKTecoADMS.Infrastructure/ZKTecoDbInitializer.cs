@@ -297,6 +297,8 @@ public class ZKTecoDbInitializer(
                         CONSTRAINT ""PK_PosQuoteLines"" PRIMARY KEY (""Id"")
                     );
                     ALTER TABLE ""PosQuotes"" ADD COLUMN IF NOT EXISTS ""CommercialStage"" integer NOT NULL DEFAULT 0;
+                    ALTER TABLE ""PosQuotes"" ADD COLUMN IF NOT EXISTS ""VatMode"" character varying(20) NOT NULL DEFAULT 'per_item';
+                    ALTER TABLE ""PosQuotes"" ADD COLUMN IF NOT EXISTS ""VatPercent"" numeric(5,2) NULL;
                     ALTER TABLE ""PosStockIssues"" ADD COLUMN IF NOT EXISTS ""QuoteId"" uuid NULL;
                     CREATE TABLE IF NOT EXISTS ""PosQuoteDocuments"" (
                         ""Id"" uuid NOT NULL,
@@ -3577,6 +3579,7 @@ public class ZKTecoDbInitializer(
             await SeedPermissionModulesAsync();
             await SyncEmployeeRolePermissionsAsync();
             await PatchPosSellOpsRolePermissionsAsync();
+            await PatchPermissionSplitAsync();
             await SeedServicePackagesAsync();
             // Không gọi PatchPosReportPackageModulesAsync — bỏ tick báo cáo phải được giữ.
             await context.SaveChangesAsync();
@@ -4074,6 +4077,10 @@ public class ZKTecoDbInitializer(
         ["PosStorePrinters"] = Guid.Parse("11111111-1111-1111-1111-111111111123"),
         ["PosShipping"] = Guid.Parse("11111111-1111-1111-1111-111111111122"),
         ["PosQuotes"] = Guid.Parse("11111111-1111-1111-1111-111111111125"),
+        ["PosSellPriceEdit"] = Guid.Parse("11111111-1111-1111-1111-111111111126"),
+        ["PosSellDiscount"] = Guid.Parse("11111111-1111-1111-1111-111111111127"),
+        ["PosSellCancelPaid"] = Guid.Parse("11111111-1111-1111-1111-111111111128"),
+        ["PosViewCost"] = Guid.Parse("11111111-1111-1111-1111-111111111129"),
     };
 
     private async Task SeedPermissionModulesAsync()
@@ -4149,6 +4156,125 @@ public class ZKTecoDbInitializer(
         {
             logger.LogInformation("Permission modules already up to date ({Count} modules)", requiredModules.Length);
         }
+    }
+
+    /// <summary>Quyền con mới: sao chép từ quyền cha để không ai mất quyền đang có.</summary>
+    static readonly (string Sub, string Parent, Func<bool, bool, bool, bool, bool, bool,
+        (bool v, bool c, bool e, bool d, bool x, bool a)> Map)[] SubPermissionCopies =
+    [
+        // Đổi giá / chiết khấu trước đây đi theo quyền Thanh toán (PosSell · Duyệt).
+        ("PosSellPriceEdit", "PosSell", (v, c, e, d, x, a) => (v && a, false, a, false, false, false)),
+        ("PosSellDiscount", "PosSell", (v, c, e, d, x, a) => (v && a, false, a, false, false, false)),
+        // Hủy hóa đơn đã thu trước đây cũng là PosSell · Duyệt.
+        ("PosSellCancelPaid", "PosSell", (v, c, e, d, x, a) => (v && a, false, false, false, false, a)),
+        // Ai xem được Hàng hóa đều đang thấy giá vốn.
+        ("PosViewCost", "PosProducts", (v, c, e, d, x, a) => (v, false, false, false, false, false)),
+    ];
+
+    /// <summary>Chức năng có nút / API xuất mới được kiểm quyền Xuất — cấp Xuất cho ai đang Xem (một lần).</summary>
+    static readonly string[] ExportGateModules =
+    [
+        "ActivityLog", "KPI", "PosPrinters", "PosQuotes", "PosShipping", "Task", "Meal", "WorkSchedule",
+        "PosEInvoice", "PosSaleOrders", "AttendanceSummary", "AttendanceByShift", "Attendance",
+        "PosSalesReport", "PosReportRevenue", "PosReportSoldGoods", "PosReportStock", "PosReportPurchases",
+        "PosReportPayment", "PosReportDebt", "PosReportExpiry", "PosReportProfit", "PosReportExpense",
+        "PosReportEndOfDay", "PosReportStaffRevenue", "PosReportStaffCommission", "PosReportCashbook",
+        "PosReportPnl", "PosReportVoucher",
+    ];
+
+    /// <summary>
+    /// Tách quyền (2026-09): chèn dòng quyền con còn thiếu theo quyền cha (không ghi đè chỉnh tay),
+    /// và một lần duy nhất bật Xuất cho ai đang Xem ở các chức năng mới kiểm quyền Xuất.
+    /// </summary>
+    private async Task PatchPermissionSplitAsync()
+    {
+        var codes = SubPermissionCopies.SelectMany(s => new[] { s.Sub, s.Parent }).Distinct().ToArray();
+        var perms = await context.Permissions.AsNoTracking().Where(p => codes.Contains(p.Module)).ToListAsync();
+        var idOf = perms.ToDictionary(p => p.Module, p => p.Id);
+        var inserted = 0;
+        foreach (var (sub, parent, map) in SubPermissionCopies)
+        {
+            if (!idOf.TryGetValue(sub, out var subId) || !idOf.TryGetValue(parent, out var parentId)) continue;
+
+            var haveRole = (await context.RolePermissions.AsNoTracking()
+                    .Where(r => r.PermissionId == subId)
+                    .Select(r => new { r.RoleName, r.StoreId }).ToListAsync())
+                .Select(x => (x.RoleName, x.StoreId)).ToHashSet();
+            var parentRows = await context.RolePermissions.AsNoTracking()
+                .Where(r => r.PermissionId == parentId && r.IsActive).ToListAsync();
+            foreach (var src in parentRows)
+            {
+                if (haveRole.Contains((src.RoleName, src.StoreId))) continue;
+                var f = map(src.CanView, src.CanCreate, src.CanEdit, src.CanDelete, src.CanExport, src.CanApprove);
+                // Quản lý trước đây được đổi giá / chiết khấu không cần tick Duyệt.
+                if (src.RoleName == "Manager" && sub is "PosSellPriceEdit" or "PosSellDiscount")
+                    f = (src.CanView, false, true, false, false, false);
+                if (!f.v && !f.c && !f.e && !f.d && !f.x && !f.a) continue;
+                context.RolePermissions.Add(new RolePermission
+                {
+                    Id = Guid.NewGuid(),
+                    RoleName = src.RoleName,
+                    RoleDisplayName = src.RoleDisplayName,
+                    PermissionId = subId,
+                    StoreId = src.StoreId,
+                    CanView = f.v, CanCreate = f.c, CanEdit = f.e, CanDelete = f.d, CanExport = f.x, CanApprove = f.a,
+                    IsActive = true,
+                    CreatedAt = DateTime.UtcNow,
+                    CreatedBy = "System",
+                });
+                haveRole.Add((src.RoleName, src.StoreId));
+                inserted++;
+            }
+
+            var haveDept = (await context.DepartmentPermissions.AsNoTracking()
+                    .Where(r => r.PermissionId == subId)
+                    .Select(r => new { r.UserId, r.DepartmentId, r.StoreId }).ToListAsync())
+                .Select(x => (x.UserId, x.DepartmentId, x.StoreId)).ToHashSet();
+            var parentDept = await context.DepartmentPermissions.AsNoTracking()
+                .Where(r => r.PermissionId == parentId && r.IsActive).ToListAsync();
+            foreach (var src in parentDept)
+            {
+                if (haveDept.Contains((src.UserId, src.DepartmentId, src.StoreId))) continue;
+                var f = map(src.CanView, src.CanCreate, src.CanEdit, src.CanDelete, src.CanExport, src.CanApprove);
+                if (!f.v && !f.c && !f.e && !f.d && !f.x && !f.a) continue;
+                context.DepartmentPermissions.Add(new DepartmentPermission
+                {
+                    Id = Guid.NewGuid(),
+                    UserId = src.UserId,
+                    DepartmentId = src.DepartmentId,
+                    PermissionId = subId,
+                    IncludeChildren = src.IncludeChildren,
+                    StoreId = src.StoreId,
+                    CanView = f.v, CanCreate = f.c, CanEdit = f.e, CanDelete = f.d, CanExport = f.x, CanApprove = f.a,
+                    IsActive = true,
+                    GrantedBy = "System",
+                    Note = "Tách quyền từ " + parent,
+                });
+                haveDept.Add((src.UserId, src.DepartmentId, src.StoreId));
+                inserted++;
+            }
+        }
+        if (inserted > 0)
+        {
+            await context.SaveChangesAsync();
+            logger.LogInformation("Permission split: inserted {Count} sub-permission rows", inserted);
+        }
+
+        // Một lần: bật Xuất cho ai đang Xem (trước đây xuất không cần quyền Xuất).
+        var exportModules = string.Join(",", ExportGateModules.Select(m => "'" + m + "'"));
+        await context.Database.ExecuteSqlRawAsync(
+            @"CREATE TABLE IF NOT EXISTS ""SboxDataMigrations"" (""Id"" character varying(100) NOT NULL PRIMARY KEY, ""AppliedAt"" timestamp with time zone NOT NULL DEFAULT now());
+DO $$ BEGIN
+IF NOT EXISTS (SELECT 1 FROM ""SboxDataMigrations"" WHERE ""Id"" = 'perm-export-v1') THEN
+  UPDATE ""RolePermissions"" rp SET ""CanExport"" = true
+    FROM ""Permissions"" p WHERE p.""Id"" = rp.""PermissionId"" AND p.""Module"" IN (" + exportModules + @")
+    AND rp.""CanView"" AND NOT rp.""CanExport"";
+  UPDATE ""DepartmentPermissions"" dp SET ""CanExport"" = true
+    FROM ""Permissions"" p WHERE p.""Id"" = dp.""PermissionId"" AND p.""Module"" IN (" + exportModules + @")
+    AND dp.""CanView"" AND NOT dp.""CanExport"";
+  INSERT INTO ""SboxDataMigrations"" (""Id"") VALUES ('perm-export-v1');
+END IF;
+END $$;");
     }
 
     /// <summary>

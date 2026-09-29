@@ -196,6 +196,8 @@ class PosQuote {
     this.commercialStage = 'None',
     this.potentialScore,
     this.includeImages = false,
+    this.vatMode = PosQuoteVat.perItem,
+    this.vatPercent,
     this.createdAt,
     this.lines = const [],
     this.documents = const [],
@@ -232,6 +234,12 @@ class PosQuote {
 
   /// Phiếu in của báo giá này chèn ảnh sản phẩm.
   final bool includeImages;
+
+  /// Cách tính VAT — xem [PosQuoteVat].
+  final String vatMode;
+
+  /// % VAT chung khi [vatMode] là added / included.
+  final double? vatPercent;
   final DateTime? createdAt;
   final List<PosQuoteLine> lines;
   final List<PosQuoteDocument> documents;
@@ -338,6 +346,12 @@ class PosQuote {
           (json['commercialStage'] ?? json['CommercialStage'] ?? 'None')
               .toString(),
       potentialScore: _score010(json['potentialScore'] ?? json['PotentialScore']),
+      vatMode: (json['vatMode'] ?? json['VatMode'] ?? PosQuoteVat.perItem).toString(),
+      vatPercent: () {
+        final v = json['vatPercent'] ?? json['VatPercent'];
+        if (v == null) return null;
+        return n(v);
+      }(),
       includeImages: json['includeImages'] == true ||
           json['IncludeImages'] == true,
       createdAt: d(json['createdAt'] ?? json['CreatedAt']),
@@ -463,3 +477,111 @@ class PosQuoteActivity {
     );
   }
 }
+
+/// Tổng tiền báo giá theo cách tính VAT.
+class PosQuoteTotals {
+  const PosQuoteTotals({
+    required this.subTotal,
+    required this.netSum,
+    required this.preVat,
+    required this.vat,
+    required this.total,
+  });
+
+  /// Σ SL × đơn giá (chưa trừ CK dòng).
+  final double subTotal;
+
+  /// Σ thành tiền sau CK dòng.
+  final double netSum;
+
+  /// Giá trị trước VAT (sau giảm giá đơn).
+  final double preVat;
+  final double vat;
+  final double total;
+}
+
+/// Cách tính VAT của báo giá — khớp máy chủ (PosQuotesController.Recalc).
+class PosQuoteVat {
+  /// Thuế theo từng mặt hàng, cộng thêm (cách cũ).
+  static const perItem = 'per_item';
+
+  /// Giá chưa VAT + % VAT chung.
+  static const added = 'added';
+
+  /// Giá đã gồm VAT — tách VAT ra để hiển thị.
+  static const included = 'included';
+
+  /// Không tính VAT.
+  static const none = 'none';
+
+  static const modes = [included, added, perItem, none];
+
+  static String label(String mode) => switch (mode) {
+        included => 'Giá đã gồm VAT',
+        added => 'Giá + VAT',
+        none => 'Không VAT',
+        _ => 'VAT theo mặt hàng',
+      };
+
+  static String describe(String mode, double rate) {
+    final r = rate == rate.roundToDouble() ? rate.toStringAsFixed(0) : rate.toStringAsFixed(1);
+    return switch (mode) {
+      included => 'Đơn giá đã bao gồm VAT $r% — tổng tiền không đổi, VAT được tách ra trên phiếu.',
+      added => 'Đơn giá chưa VAT — cộng thêm $r% VAT trên tổng sau giảm giá.',
+      none => 'Không tính thuế VAT trên báo giá này.',
+      _ => 'Mỗi mặt hàng cộng thuế suất riêng đã khai báo ở hàng hóa.',
+    };
+  }
+
+  static double _net(PosQuoteLine l) =>
+      (l.qty * l.unitPrice - l.discountAmount).clamp(0.0, double.infinity).toDouble();
+
+  static double _round(double v) => v.roundToDouble();
+
+  /// Cơ sở tính giảm giá % của đơn.
+  static double discountBase(List<PosQuoteLine> lines, String mode) => mode == perItem
+      ? lines.fold(0.0, (a, l) => a + _net(l) * (1 + l.vatRate / 100))
+      : lines.fold(0.0, (a, l) => a + _net(l));
+
+  static PosQuoteTotals compute(
+    List<PosQuoteLine> lines, {
+    required String mode,
+    required double rate,
+    required double discount,
+  }) {
+    final sub = lines.fold<double>(0, (a, l) => a + l.qty * l.unitPrice);
+    final netSum = lines.fold<double>(0, (a, l) => a + _net(l));
+    final r = rate.clamp(0, 100).toDouble();
+    switch (mode) {
+      case added:
+        final pre = (netSum - discount).clamp(0.0, double.infinity).toDouble();
+        final vat = _round(pre * r / 100);
+        return PosQuoteTotals(subTotal: sub, netSum: netSum, preVat: pre, vat: vat, total: pre + vat);
+      case included:
+        final total = _round((netSum - discount).clamp(0.0, double.infinity).toDouble());
+        final vat = _round(total * r / (100 + r));
+        return PosQuoteTotals(subTotal: sub, netSum: netSum, preVat: total - vat, vat: vat, total: total);
+      case none:
+        final total = (netSum - discount).clamp(0.0, double.infinity).toDouble();
+        return PosQuoteTotals(subTotal: sub, netSum: netSum, preVat: total, vat: 0, total: total);
+      default:
+        final lineSum = lines.fold<double>(0, (a, l) => a + _round(_net(l) * (1 + l.vatRate / 100)));
+        final vat = lines.fold<double>(0, (a, l) => a + _round(_net(l) * l.vatRate / 100));
+        return PosQuoteTotals(
+          subTotal: sub,
+          netSum: netSum,
+          preVat: (netSum - discount).clamp(0.0, double.infinity).toDouble(),
+          vat: vat,
+          total: (lineSum - discount).clamp(0.0, double.infinity).toDouble(),
+        );
+    }
+  }
+
+  /// Thành tiền một dòng theo cách tính VAT (hiển thị / in).
+  static double lineAmount(PosQuoteLine l, String mode, double rate) => switch (mode) {
+        added => _round(_net(l) * (1 + rate / 100)),
+        included || none => _round(_net(l)),
+        _ => _round(_net(l) * (1 + l.vatRate / 100)),
+      };
+}
+

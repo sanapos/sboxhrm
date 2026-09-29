@@ -115,6 +115,8 @@ public static class ModulePermissionDefaults
             => (true, false, false, false, false, false),
         // View + Create (order) + Approve (thanh toán)
         "possell" => (true, true, false, false, false, true),
+        "possellpriceedit" or "posselldiscount" => (true, false, true, false, false, false),
+        "possellcancelpaid" => (true, false, false, false, false, true),
         "posproducts" => (true, false, false, false, false, false),
         "posprinttemplates" => (true, false, false, false, false, false),
         "possaleorders" => (true, false, false, false, false, false),

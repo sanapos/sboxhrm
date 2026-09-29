@@ -16,7 +16,7 @@ public partial class PosQuotesController
     /// <paramref name="includeStamp"/> = false: in bản không đóng dấu (để trống chỗ dấu).
     /// </summary>
     [HttpGet("{id:guid}/export/file")]
-    [RequireModulePermission("PosQuotes", ModulePermissionAction.View)]
+    [RequireModulePermission("PosQuotes", ModulePermissionAction.Export)]
     public async Task<IActionResult> ExportFile(
         Guid id,
         [FromQuery] PosQuoteDocumentKind kind = PosQuoteDocumentKind.Quote,
@@ -97,7 +97,7 @@ public partial class PosQuotesController
     /// HTML được làm sạch (bỏ script, khung, URL ngoài) rồi dựng bằng Chromium khổ A4.
     /// </summary>
     [HttpPost("{id:guid}/export/pdf")]
-    [RequireModulePermission("PosQuotes", ModulePermissionAction.View)]
+    [RequireModulePermission("PosQuotes", ModulePermissionAction.Export)]
     [RequestSizeLimit(30_000_000)]
     public async Task<IActionResult> ExportPdfFromHtml(Guid id, [FromBody] HtmlPdfRequest body, CancellationToken ct)
     {

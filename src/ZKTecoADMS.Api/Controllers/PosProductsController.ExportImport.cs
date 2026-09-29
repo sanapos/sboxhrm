@@ -53,6 +53,9 @@ public partial class PosProductsController
             .ThenBy(p => p.ProductCode)
             .ThenBy(p => p.Name)
             .ToListAsync();
+        // Không có quyền xem giá vốn → cột «Giá vốn» để trống (nhập lại file không ghi đè giá vốn).
+        if (!await CanViewCostAsync())
+            foreach (var p in products) p.CostPrice = 0;
 
         using var workbook = new XLWorkbook();
         var typesToWrite = productType.HasValue
@@ -465,7 +468,7 @@ public partial class PosProductsController
                 entity.SupplierId = supplierId;
                 entity.StorageLocationId = locId;
                 entity.ProductType = row.ProductType;
-                entity.CostPrice = row.CostPrice;
+                if (isNew || await CanViewCostAsync()) entity.CostPrice = row.CostPrice;
                 entity.BasePrice = row.BasePrice;
                 // Tồn kho chỉ đổi khi tạo mới — cập nhật Excel không ghi đè phiếu nhập/bán/kiểm.
                 if (isNew)

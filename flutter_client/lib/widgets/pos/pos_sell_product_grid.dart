@@ -44,6 +44,7 @@ class PosSellProductGrid extends StatefulWidget {
     this.cartQtyByProductId = const {},
     this.priceOverrides = const {},
     this.allowNegativeStock = false,
+    this.stockWarnOnly = false,
   });
 
   final ApiService api;
@@ -64,6 +65,9 @@ class PosSellProductGrid extends StatefulWidget {
   final Map<String, double> priceOverrides;
   /// Thiết lập ngành: cho phép bán khi hết hàng / tồn âm.
   final bool allowNegativeStock;
+
+  /// Báo giá: hàng hết / tạm khóa chỉ cảnh báo, vẫn cho thêm (không trừ kho).
+  final bool stockWarnOnly;
 
   @override
   State<PosSellProductGrid> createState() => PosSellProductGridState();
@@ -629,16 +633,27 @@ class PosSellProductGridState extends State<PosSellProductGrid> {
     return widgets;
   }
 
+  void _stockSnack(String text) {
+    ScaffoldMessenger.maybeOf(context)?.showSnackBar(
+      SnackBar(
+        content: Row(children: [
+          const Icon(Icons.warning_amber_rounded, color: Colors.amber, size: 18),
+          const SizedBox(width: 8),
+          Expanded(child: Text(text)),
+        ]),
+        duration: const Duration(seconds: 3),
+      ),
+    );
+  }
+
   Future<void> _scanAndPick() async {
     final code = await scanBarcodeWithCamera(context);
     if (code == null || !mounted) return;
     final pick = await lookupOrPickPosProduct(context, widget.api, code);
     if (pick == null || !mounted) return;
     if (pick.product.isDailySoldOut) {
-      ScaffoldMessenger.maybeOf(context)?.showSnackBar(
-        SnackBar(content: Text(tr('${pick.product.name}: đã hết / tạm khóa'))),
-      );
-      return;
+      _stockSnack(tr('${pick.product.name}: đã hết / tạm khóa'));
+      if (!widget.stockWarnOnly) return;
     }
     await _emitPick(pick);
   }
@@ -652,12 +667,8 @@ class PosSellProductGridState extends State<PosSellProductGrid> {
         final pick = await lookupOrPickPosProduct(context, widget.api, code);
         if (pick != null && mounted) {
           if (pick.product.isDailySoldOut) {
-            ScaffoldMessenger.maybeOf(context)?.showSnackBar(
-              SnackBar(
-                content: Text(tr('${pick.product.name}: đã hết / tạm khóa')),
-              ),
-            );
-            return;
+            _stockSnack(tr('${pick.product.name}: đã hết / tạm khóa'));
+            if (!widget.stockWarnOnly) return;
           }
           await _emitPick(pick);
         }
@@ -909,24 +920,20 @@ class PosSellProductGridState extends State<PosSellProductGrid> {
 
   Future<void> _pickProduct(PosProduct p, {PosProductUnitView? view}) async {
     if (p.isDailySoldOut) {
-      ScaffoldMessenger.maybeOf(context)?.showSnackBar(
-        SnackBar(
-          content: Text(tr('${p.name}: đã hết / tạm khóa')),
-          duration: const Duration(seconds: 2),
-        ),
-      );
-      return;
+      _stockSnack(tr(widget.stockWarnOnly
+          ? '${p.name}: đang hết / tạm khóa — vẫn thêm vào báo giá'
+          : '${p.name}: đã hết / tạm khóa'));
+      if (!widget.stockWarnOnly) return;
     }
     final views = await _viewsFor(p);
     if (!mounted || views.isEmpty) return;
-    if (!widget.allowNegativeStock && isPosSellOutOfStock(p, views)) {
-      ScaffoldMessenger.maybeOf(context)?.showSnackBar(
-        SnackBar(
-          content: Text('${p.name}: ${tr('hết hàng')}'),
-          duration: const Duration(seconds: 2),
-        ),
-      );
-      return;
+    if (!p.isDailySoldOut && isPosSellOutOfStock(p, views)) {
+      if (widget.stockWarnOnly) {
+        _stockSnack(tr('${p.name}: hết hàng trong kho — vẫn thêm vào báo giá, nhớ kiểm tra thời gian giao'));
+      } else if (!widget.allowNegativeStock) {
+        _stockSnack('${p.name}: ${tr('hết hàng')}');
+        return;
+      }
     }
     final v = view ?? pickDefaultSellUnitView(p, views) ?? views.first;
     _listUnitKeyByProduct[p.id] = v.viewKey;

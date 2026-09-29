@@ -3902,6 +3902,45 @@ class ApiService {
   Future<Map<String, dynamic>> getBranchOverview(String branchId, DateTime from, DateTime to) =>
       _branchGet('reports/overview/$branchId', {'from': _d(from), 'to': _d(to)});
 
+  // ── Mẫu phân quyền (HRM / POS / HRM + POS) ──
+
+  /// Danh sách mẫu + gói nhận diện của cửa hàng. [package]: hrm | pos | full (null = theo gói cửa hàng).
+  Future<Map<String, dynamic>> getPermissionPresets({String? package}) async {
+    try {
+      final uri = Uri.parse('$baseUrl/api/permissions/presets')
+          .replace(queryParameters: package == null ? null : {'package': package});
+      final r = await http.get(uri, headers: _headers).timeout(const Duration(seconds: 20));
+      return _handleResponse(r);
+    } catch (e) {
+      return _connectionFailure(e);
+    }
+  }
+
+  /// Xem trước quyền của một mẫu (cùng dạng với quyền của vai trò).
+  Future<Map<String, dynamic>> getPermissionPreset(String presetId) async {
+    try {
+      final r = await http
+          .get(Uri.parse('$baseUrl/api/permissions/presets/${Uri.encodeComponent(presetId)}'), headers: _headers)
+          .timeout(const Duration(seconds: 20));
+      return _handleResponse(r);
+    } catch (e) {
+      return _connectionFailure(e);
+    }
+  }
+
+  /// Áp dụng mẫu cho các vai trò: [{roleName, presetId}] — ghi đè quyền hiện có của vai trò đó.
+  Future<Map<String, dynamic>> applyPermissionPresets(List<Map<String, String>> assignments) async {
+    try {
+      final r = await http
+          .post(Uri.parse('$baseUrl/api/permissions/presets/apply'),
+              headers: _headers, body: json.encode({'assignments': assignments}))
+          .timeout(const Duration(seconds: 30));
+      return _handleResponse(r);
+    } catch (e) {
+      return _connectionFailure(e);
+    }
+  }
+
   /// Đánh dấu lại chưa đọc.
   Future<Map<String, dynamic>> markNotificationAsUnread(String id) async {
     try {

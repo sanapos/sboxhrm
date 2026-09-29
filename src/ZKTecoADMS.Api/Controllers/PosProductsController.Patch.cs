@@ -66,7 +66,7 @@ public partial class PosProductsController
             return BadRequest(AppResponse<PosProductDto>.Fail("Chỉ hàng hóa / NVL / topping mới sửa nhanh giá/tồn"));
 
         if (dto.BasePrice.HasValue) entity.BasePrice = dto.BasePrice.Value;
-        if (dto.CostPrice.HasValue)
+        if (dto.CostPrice.HasValue && await CanViewCostAsync())
         {
             var oldCost = entity.CostPrice;
             var newCost = dto.CostPrice.Value;

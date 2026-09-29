@@ -112,6 +112,7 @@ class _PosShippingReportScreenState extends State<PosShippingReportScreen> {
     final byCarrier = _maps(_data?['byCarrier']);
     return PosReportMobileScaffold(
       title: 'Báo cáo vận chuyển',
+      exportModule: 'PosShipping',
       time: _time,
       pngKey: _pngKey,
       onTimeChanged: (t) {

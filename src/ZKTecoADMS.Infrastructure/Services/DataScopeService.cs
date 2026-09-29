@@ -269,45 +269,8 @@ public class DataScopeService(ZKTecoDbContext context) : IDataScopeService
         return result.ToList();
     }
 
-    public async Task<bool> CanActOnBranchAsync(Guid userId, Guid storeId, Guid? branchId, BranchAction action)
-    {
-        if (branchId == null) return true;
-
-        // Chuỗi tổ tiên của chi nhánh (quyền cấp ở chi nhánh cha + «gồm chi nhánh con» vẫn áp dụng).
-        var parents = await context.Branches.AsNoTracking()
-            .Where(b => b.StoreId == storeId && b.Deleted == null)
-            .Select(b => new { b.Id, b.ParentBranchId, b.ManagerId })
-            .ToDictionaryAsync(b => b.Id);
-        var chain = new List<Guid>();
-        for (Guid? cur = branchId; cur != null && parents.ContainsKey(cur.Value) && !chain.Contains(cur.Value);
-             cur = parents[cur.Value].ParentBranchId)
-            chain.Add(cur.Value);
-
-        // Quản lý chi nhánh (hoặc chi nhánh cha) → toàn quyền.
-        var employeeId = await context.Employees
-            .Where(e => e.ApplicationUserId == userId && e.StoreId == storeId)
-            .Select(e => e.Id)
-            .FirstOrDefaultAsync();
-        if (employeeId != Guid.Empty && chain.Any(id => parents[id].ManagerId == employeeId)) return true;
-
-        var perms = await context.BranchPermissions.AsNoTracking()
-            .Where(bp => bp.UserId == userId && bp.IsActive && (bp.StoreId == storeId || bp.StoreId == null))
-            .Select(bp => new { bp.BranchId, bp.IncludeChildren, bp.CanCreate, bp.CanEdit, bp.CanDelete })
-            .ToListAsync();
-        var covering = perms.Where(p =>
-                p.BranchId == null ||
-                p.BranchId == branchId ||
-                (p.IncludeChildren && chain.Contains(p.BranchId.Value)))
-            .ToList();
-        if (covering.Count == 0) return true; // quyền đến từ phòng ban / cấp trên — không thuộc phạm vi cờ chi nhánh
-
-        return covering.Any(p => action switch
-        {
-            BranchAction.Create => p.CanCreate,
-            BranchAction.Edit => p.CanEdit,
-            _ => p.CanDelete,
-        });
-    }
+    public Task<bool> CanActOnBranchAsync(Guid userId, Guid storeId, Guid? branchId, BranchAction action) =>
+        BranchStockService.CanActOnBranchAsync(context, userId, storeId, branchId, action);
 
     public async Task<bool> CanAccessEmployeeDataAsync(Guid userId, Guid employeeId, Guid storeId)
     {

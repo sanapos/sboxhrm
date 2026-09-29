@@ -1,4 +1,5 @@
 import 'dart:async';
+import '../utils/export_permission_guard.dart';
 
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
@@ -165,6 +166,7 @@ class _ActivityLogScreenState extends State<ActivityLogScreen> {
   }
 
   Future<void> _export() async {
+    if (!ensureCanExport(context, 'ActivityLog')) return;
     final res = await _api.downloadActivityLogsExcel(
         from: _from, to: _to, userId: _userId, module: _module, action: _action, search: _searchCtrl.text);
     if (!mounted) return;
@@ -557,7 +559,7 @@ class _ActivityLogScreenState extends State<ActivityLogScreen> {
               ]),
               for (final f in fields)
                 TableRow(children: [
-                  _cell(activityFieldLabel('${f['field']}'), bold: true),
+                  _cell('${f['fieldName'] ?? activityFieldLabel('${f['field']}')}', bold: true),
                   _cell(f['old'] == null ? '—' : '${f['old']}', color: SboxColors.dangerText),
                   _cell(f['new'] == null ? '—' : '${f['new']}', color: SboxColors.payHover),
                 ]),

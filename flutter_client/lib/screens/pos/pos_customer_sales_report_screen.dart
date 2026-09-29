@@ -98,6 +98,7 @@ class _PosCustomerSalesReportScreenState extends State<PosCustomerSalesReportScr
     );
     return PosReportMobileScaffold(
       title: 'Bán theo khách',
+      exportModule: 'PosSalesReport',
       time: _time,
       onExportExcel: () => unawaited(PosReportExport.excel(
         context: context,

@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import '../utils/export_permission_guard.dart';
 import 'package:intl/intl.dart';
 import 'package:provider/provider.dart';
 import '../l10n/app_tr.dart';
@@ -403,6 +404,7 @@ class _AnalyticsReportViewerState extends State<_AnalyticsReportViewer> {
       };
 
   Future<void> _excel() async {
+    if (!ensureCanExport(context, 'AttendanceReport')) return;
     final res = await _api.downloadAnalyticsReportExcel(widget.spec.path, _params);
     if (!mounted) return;
     if (res['isSuccess'] != true) {

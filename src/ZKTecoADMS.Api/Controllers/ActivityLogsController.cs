@@ -99,9 +99,7 @@ public class ActivityLogsController(ZKTecoDbContext db) : AuthenticatedControlle
         var storeId = RequiredStoreId;
         var a = await db.AuditLogs.AsNoTracking().FirstOrDefaultAsync(x => x.Id == id && x.StoreId == storeId, ct);
         if (a == null) return NotFound(AppResponse<object>.Fail("Không tìm thấy thao tác"));
-        object? details = null;
-        try { details = JsonSerializer.Deserialize<JsonElement>(a.Details ?? "{}"); } catch (JsonException) { }
-        return Ok(AppResponse<object>.Success(new { row = ToRow(a), details, userAgent = a.UserAgent }));
+        return Ok(AppResponse<object>.Success(new { row = ToRow(a), details = LocalizedDetails(a.Details), userAgent = a.UserAgent }));
     }
 
     /// <summary>Danh sách người thao tác + chức năng có trong kỳ (cho ô lọc).</summary>
@@ -131,7 +129,7 @@ public class ActivityLogsController(ZKTecoDbContext db) : AuthenticatedControlle
     }
 
     [HttpGet("export")]
-    [RequireModulePermission("ActivityLog", ModulePermissionAction.View)]
+    [RequireModulePermission("ActivityLog", ModulePermissionAction.Export)]
     public async Task<IActionResult> Export(
         [FromQuery] DateTime? from, [FromQuery] DateTime? to, [FromQuery] Guid? userId,
         [FromQuery] string? module, [FromQuery] string? action, [FromQuery] string? search, CancellationToken ct)
@@ -149,10 +147,10 @@ public class ActivityLogsController(ZKTecoDbContext db) : AuthenticatedControlle
                     ws.Cell(r, 1).Value = ReportHelpers.ToVn(a.Timestamp).ToString("dd/MM/yyyy HH:mm:ss");
                     ws.Cell(r, 2).Value = a.UserName ?? "";
                     ws.Cell(r, 3).Value = a.UserEmail ?? "";
-                    ws.Cell(r, 4).Value = a.UserRole ?? "";
+                    ws.Cell(r, 4).Value = row.UserRole ?? "";
                     ws.Cell(r, 5).Value = row.ModuleName;
                     ws.Cell(r, 6).Value = ActionLabel(a.Action);
-                    ws.Cell(r, 7).Value = a.EntityName ?? "";
+                    ws.Cell(r, 7).Value = row.EntityName ?? "";
                     ws.Cell(r, 8).Value = ChangeText(a.Details);
                     ws.Cell(r, 9).Value = a.IpAddress ?? "";
                     r++;
@@ -179,9 +177,11 @@ public class ActivityLogsController(ZKTecoDbContext db) : AuthenticatedControlle
             var parts = new List<string>();
             foreach (var c in changes.EnumerateArray())
             {
-                var head = $"{c.GetProperty("typeName").GetString()}{(c.TryGetProperty("label", out var l) && l.ValueKind == JsonValueKind.String ? " «" + l.GetString() + "»" : "")}";
+                var type = Str(c, "type") ?? Str(c, "typeName") ?? "";
+                var label = Str(c, "label");
+                var head = $"{ActivityLabels.Entity(type)}{(string.IsNullOrWhiteSpace(label) || ActivityLabels.IsGuid(label) ? "" : " «" + label + "»")}";
                 var fields = c.GetProperty("fields").EnumerateArray()
-                    .Select(f => $"{f.GetProperty("field").GetString()}: {Val(f, "old")} → {Val(f, "new")}")
+                    .Select(f => $"{ActivityLabels.Field(Str(f, "field"))}: {Val(f, "old")} → {Val(f, "new")}")
                     .ToList();
                 parts.Add(fields.Count == 0 ? head : $"{head} [{string.Join("; ", fields)}]");
             }
@@ -195,21 +195,85 @@ public class ActivityLogsController(ZKTecoDbContext db) : AuthenticatedControlle
     }
 
     static string Val(JsonElement f, string name) =>
-        f.TryGetProperty(name, out var v) && v.ValueKind == JsonValueKind.String ? v.GetString()! : "—";
+        f.TryGetProperty(name, out var v) && v.ValueKind == JsonValueKind.String ? ActivityLabels.Value(v.GetString())! : "—";
+
+    static string? Str(JsonElement e, string name) =>
+        e.TryGetProperty(name, out var v) && v.ValueKind == JsonValueKind.String ? v.GetString() : null;
+
+    /// <summary>Chi tiết đã Việt hóa: tên loại, tên trường, giá trị (áp dụng cả nhật ký cũ).</summary>
+    static object LocalizedDetails(string? json)
+    {
+        try
+        {
+            using var doc = JsonDocument.Parse(json ?? "{}");
+            var root = doc.RootElement;
+            var changes = new List<object>();
+            if (root.TryGetProperty("changes", out var arr) && arr.ValueKind == JsonValueKind.Array)
+            {
+                foreach (var c in arr.EnumerateArray())
+                {
+                    var type = Str(c, "type") ?? "";
+                    var label = Str(c, "label");
+                    var fields = c.TryGetProperty("fields", out var fs) && fs.ValueKind == JsonValueKind.Array
+                        ? fs.EnumerateArray().Select(f =>
+                        {
+                            var field = Str(f, "field") ?? "";
+                            var oldV = Str(f, "old");
+                            var newV = Str(f, "new");
+                            return new
+                            {
+                                field,
+                                fieldName = ActivityLabels.Field(field),
+                                old = ActivityLabels.Value(oldV),
+                                @new = ActivityLabels.Value(newV),
+                            };
+                        })
+                        // Thêm mới: bỏ các trường chỉ là mã nội bộ (vô nghĩa với người xem).
+                        .Where(f => !(f.old == null && f.@new != null && f.@new.StartsWith('#') && f.field.EndsWith("Id")))
+                        .ToList<object>()
+                        : [];
+                    changes.Add(new
+                    {
+                        type,
+                        typeName = ActivityLabels.Entity(type),
+                        id = Str(c, "id"),
+                        op = Str(c, "op"),
+                        label = ActivityLabels.IsGuid(label) ? null : label,
+                        fields,
+                    });
+                }
+            }
+            return new { source = Str(root, "source"), endpoint = Str(root, "endpoint"), changes };
+        }
+        catch (Exception)
+        {
+            return new { changes = Array.Empty<object>() };
+        }
+    }
 
     static LogRow ToRow(AuditLog a)
     {
         string? endpoint = null;
         var count = 0;
+        var entityName = a.EntityName;
         try
         {
             using var doc = JsonDocument.Parse(a.Details ?? "{}");
             if (doc.RootElement.TryGetProperty("endpoint", out var e)) endpoint = e.GetString();
-            if (doc.RootElement.TryGetProperty("changes", out var c)) count = c.GetArrayLength();
+            if (doc.RootElement.TryGetProperty("changes", out var c) && c.ValueKind == JsonValueKind.Array)
+            {
+                count = c.GetArrayLength();
+                // Dựng lại tóm tắt bằng tiếng Việt (nhật ký cũ lưu tên kỹ thuật).
+                var list = c.EnumerateArray().ToList();
+                var main = list.FirstOrDefault(x => Str(x, "op") == a.Action);
+                if (main.ValueKind == JsonValueKind.Undefined && list.Count > 0) main = list[0];
+                if (main.ValueKind == JsonValueKind.Object && Str(main, "type") is { } type)
+                    entityName = ActivityLabels.Summary(type, Str(main, "label"), count);
+            }
         }
         catch (JsonException) { }
-        return new LogRow(a.Id, a.Timestamp, a.UserId, a.UserName, a.UserEmail, a.UserRole,
-            a.EntityType, ActivityAuditFilter.ModuleLabel(a.EntityType), a.Action, a.EntityName, endpoint,
+        return new LogRow(a.Id, a.Timestamp, a.UserId, a.UserName, a.UserEmail, ActivityLabels.Role(a.UserRole),
+            a.EntityType, ActivityAuditFilter.ModuleLabel(a.EntityType), a.Action, entityName, endpoint,
             a.IpAddress, DeviceOf(a.UserAgent), count);
     }
 

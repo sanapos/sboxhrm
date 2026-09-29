@@ -102,6 +102,8 @@ public sealed class BranchContextMiddleware(RequestDelegate next)
             allowed = set.Count == 0 ? null : set;
         }
         ctx.AllowedBranchIds = allowed;
+        ctx.UserId = userId == Guid.Empty ? null : userId;
+        ctx.RestrictWrites = userId != Guid.Empty && !AllBranchRoles.Contains(role);
 
         bool Ok(Guid id) => ids.Contains(id) && (allowed == null || allowed.Contains(id));
 

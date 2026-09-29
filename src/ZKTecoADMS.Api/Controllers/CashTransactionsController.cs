@@ -31,7 +31,7 @@ public class CashTransactionsController(
     /// Lấy danh sách giao dịch thu chi
     /// </summary>
     [HttpGet]
-    [Authorize(Policy = PolicyNames.AtLeastManager)]
+    [Authorize(Policy = PolicyNames.AtLeastEmployee)]
     [RequireModulePermission("CashTransaction", ModulePermissionAction.View)]
     public async Task<ActionResult<AppResponse<PagedResult<CashTransactionDto>>>> GetTransactions(
         [FromQuery] int page = 1,
@@ -148,7 +148,7 @@ public class CashTransactionsController(
     /// Lấy chi tiết giao dịch
     /// </summary>
     [HttpGet("{id}")]
-    [Authorize(Policy = PolicyNames.AtLeastManager)]
+    [Authorize(Policy = PolicyNames.AtLeastEmployee)]
     [RequireModulePermission("CashTransaction", ModulePermissionAction.View)]
     public async Task<ActionResult<AppResponse<CashTransactionDto>>> GetTransaction(Guid id)
     {
@@ -201,7 +201,7 @@ public class CashTransactionsController(
     /// Tạo giao dịch mới
     /// </summary>
     [HttpPost]
-    [Authorize(Policy = PolicyNames.AtLeastManager)]
+    [Authorize(Policy = PolicyNames.AtLeastEmployee)]
     [RequireModulePermission("CashTransaction", ModulePermissionAction.Create)]
     public async Task<ActionResult<AppResponse<CashTransactionDto>>> CreateTransaction([FromBody] CreateCashTransactionDto request)
     {
@@ -306,7 +306,7 @@ public class CashTransactionsController(
     /// Cập nhật giao dịch
     /// </summary>
     [HttpPut("{id}")]
-    [Authorize(Policy = PolicyNames.AtLeastManager)]
+    [Authorize(Policy = PolicyNames.AtLeastEmployee)]
     [RequireModulePermission("CashTransaction", ModulePermissionAction.Edit)]
     public async Task<ActionResult<AppResponse<CashTransactionDto>>> UpdateTransaction(Guid id, [FromBody] UpdateCashTransactionDto request)
     {
@@ -400,7 +400,7 @@ public class CashTransactionsController(
     /// Cập nhật trạng thái giao dịch
     /// </summary>
     [HttpPut("{id}/status")]
-    [Authorize(Policy = PolicyNames.AtLeastManager)]
+    [Authorize(Policy = PolicyNames.AtLeastEmployee)]
     [RequireModulePermission("CashTransaction", ModulePermissionAction.Edit)]
     public async Task<ActionResult<AppResponse<CashTransactionDto>>> UpdateTransactionStatus(
         Guid id, 
@@ -508,7 +508,7 @@ public class CashTransactionsController(
     /// Xóa giao dịch (soft delete)
     /// </summary>
     [HttpDelete("{id}")]
-    [Authorize(Policy = PolicyNames.AtLeastManager)]
+    [Authorize(Policy = PolicyNames.AtLeastEmployee)]
     [RequireModulePermission("CashTransaction", ModulePermissionAction.Delete)]
     public async Task<ActionResult<AppResponse<bool>>> DeleteTransaction(Guid id)
     {
@@ -631,7 +631,7 @@ public class CashTransactionsController(
     /// Lấy tổng hợp thu chi
     /// </summary>
     [HttpGet("summary")]
-    [Authorize(Policy = PolicyNames.AtLeastManager)]
+    [Authorize(Policy = PolicyNames.AtLeastEmployee)]
     [RequireModulePermission("CashTransaction", ModulePermissionAction.View)]
     public async Task<ActionResult<AppResponse<CashTransactionSummaryDto>>> GetSummary(
         [FromQuery] DateTime? fromDate = null,
@@ -770,7 +770,7 @@ public class CashTransactionsController(
     /// Tạo VietQR URL từ thông tin thanh toán
     /// </summary>
     [HttpPost("vietqr/generate")]
-    [Authorize(Policy = PolicyNames.AtLeastManager)]
+    [Authorize(Policy = PolicyNames.AtLeastEmployee)]
     [RequireModulePermission("CashTransaction", ModulePermissionAction.Create)]
     public async Task<ActionResult<AppResponse<VietQRResponseDto>>> GenerateVietQR([FromBody] GenerateVietQRRequest request)
     {
@@ -862,7 +862,7 @@ public class CashTransactionsController(
     // ═══════════════════════════════════════════════════════════════════════════
 
     [HttpGet("fund-transfers")]
-    [Authorize(Policy = PolicyNames.AtLeastManager)]
+    [Authorize(Policy = PolicyNames.AtLeastEmployee)]
     [RequireModulePermission("CashTransaction", ModulePermissionAction.View)]
     public async Task<ActionResult<AppResponse<PagedResult<FundTransferDto>>>> GetFundTransfers(
         [FromQuery] int page = 1,
@@ -900,7 +900,7 @@ public class CashTransactionsController(
     }
 
     [HttpGet("fund-balances")]
-    [Authorize(Policy = PolicyNames.AtLeastManager)]
+    [Authorize(Policy = PolicyNames.AtLeastEmployee)]
     [RequireModulePermission("CashTransaction", ModulePermissionAction.View)]
     public async Task<ActionResult<AppResponse<List<FundBalanceDto>>>> GetFundBalances()
     {
@@ -910,7 +910,7 @@ public class CashTransactionsController(
     }
 
     [HttpPost("fund-transfers")]
-    [Authorize(Policy = PolicyNames.AtLeastManager)]
+    [Authorize(Policy = PolicyNames.AtLeastEmployee)]
     [RequireModulePermission("CashTransaction", ModulePermissionAction.Create)]
     public async Task<ActionResult<AppResponse<FundTransferDto>>> CreateFundTransfer(
         [FromBody] CreateFundTransferDto request)
@@ -977,7 +977,7 @@ public class CashTransactionsController(
     }
 
     [HttpDelete("fund-transfers/{id}")]
-    [Authorize(Policy = PolicyNames.AtLeastManager)]
+    [Authorize(Policy = PolicyNames.AtLeastEmployee)]
     [RequireModulePermission("CashTransaction", ModulePermissionAction.Delete)]
     public async Task<ActionResult<AppResponse<bool>>> DeleteFundTransfer(Guid id)
     {

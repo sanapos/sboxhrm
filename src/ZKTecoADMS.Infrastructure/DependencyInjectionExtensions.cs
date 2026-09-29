@@ -181,6 +181,9 @@ public static class DependencyInjectionExtensions
             options.AddPolicy(PolicyNames.AtLeastManager,
                     policy => policy.RequireRole(nameof(Roles.Admin), nameof(Roles.Director), nameof(Roles.Manager), nameof(Roles.SuperAdmin), nameof(Roles.Agent), nameof(Roles.DepartmentHead)));
             
+            options.AddPolicy(PolicyNames.ManagerOrAccountant,
+                    policy => policy.RequireRole(nameof(Roles.Admin), nameof(Roles.Director), nameof(Roles.Manager), nameof(Roles.SuperAdmin), nameof(Roles.Agent), nameof(Roles.DepartmentHead), nameof(Roles.Accountant)));
+
             options.AddPolicy(PolicyNames.AtLeastEmployee,
                 policy => policy.RequireRole(
                     nameof(Roles.Admin),
