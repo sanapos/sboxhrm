@@ -12,7 +12,8 @@ public static class PushDeviceConfigBuilder
         string attLogStamp,
         string operLogStamp = "9999",
         string bioDataStamp = "9999",
-        string photoStamp = "9999")
+        string photoStamp = "9999",
+        bool digitTransFlagOnly = false)
     {
         // Keep SBOX stamp names for sync, plus agap aliases (Stamp/OpStamp) + registry/ping flags.
         // PhotoStamp / BIOPHOTOStamp: BioTime ZAM70 re-upload uses PhotoStamp=0 (not QUERY BIODATA).
@@ -40,7 +41,8 @@ public static class PushDeviceConfigBuilder
                $"TransTimes=00:00;14:05\r\n" +
                $"TransInterval=1\r\n" +
                $"TransFlag=1111111111\r\n" +
-               $"TransFlag=AttLog\tOpLog\tEnrollUser\tChgUser\tEnrollFP\tChgFP\r\n" +
+               // LX35 đọc TransFlag bằng strspn (chỉ chữ số) — dòng dạng chữ phía sau có thể đè thành cấu hình mặc định.
+               (digitTransFlagOnly ? "" : $"TransFlag=AttLog\tOpLog\tEnrollUser\tChgUser\tEnrollFP\tChgFP\r\n") +
                $"Realtime=1\r\n" +
                $"SessionID={serialNumber}\r\n" +
                $"TimeZone=7\r\n" +

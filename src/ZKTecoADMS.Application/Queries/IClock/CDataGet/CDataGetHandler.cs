@@ -154,8 +154,10 @@ public class CDataGetHandler(
             sn, hasSyncUsersCommand, hasSyncAttendancesCommand, hasSyncFingerprintsCommand, ATTLOGStamp, operLogStamp, bioDataStamp, photoStamp);
 
         // Align with agap.top so SenseFace/ZAM polls /iclock/getrequest (AC_UNLOCK path).
+        var profile = (await deviceInfoRepository.GetSingleAsync(di => di.DeviceId == device.Id))?.EngineProfile;
         var response = PushDeviceConfigBuilder.BuildGetOptionResponse(
-            sn, ATTLOGStamp, operLogStamp, bioDataStamp, photoStamp);
+            sn, ATTLOGStamp, operLogStamp, bioDataStamp, photoStamp,
+            AdmsEngineProfiles.UsesDigitTransFlag(profile));
 
         // KHÔNG đánh dấu Success sớm cho SyncDeviceUsers/SyncAttendances — máy cần nhiều lần poll
         // với OPERLOGStamp=0 / ATTLOGStamp=0 cho đến khi POST dữ liệu (OperLogStrategy / PostAttendancesStrategy).

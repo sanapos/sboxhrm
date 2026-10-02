@@ -216,7 +216,25 @@ public class DeviceCapabilityService(
     {
         var info = await EnsureProfileAsync(deviceId, cancellationToken);
 
-        var pushLite = string.Equals(info.EngineProfile, AdmsEngineProfiles.PushLite, StringComparison.OrdinalIgnoreCase);
+        if (AdmsEngineProfiles.UsesCheckStampSync(info.EngineProfile))
+        {
+            // LX35: DATA QUERY luôn -1002; CHECK + Stamp=0 tải lại được (đã thử thật). CreateDeviceCmd gửi kèm CHECK.
+            switch (commandType)
+            {
+                case DeviceCommandTypes.SyncAttendances:
+                case DeviceCommandTypes.SyncDeviceUsers:
+                    return (AdmsEngineProfiles.StampSyncCommand, null);
+                case DeviceCommandTypes.SyncFingerprints:
+                    return (string.Empty, PushLiteNoFingerprintSync);
+                case DeviceCommandTypes.EnrollFingerprint:
+                    return (string.Empty, PushLiteNoRemoteEnroll);
+                case DeviceCommandTypes.EnrollFace:
+                    return (string.Empty, "Máy này (dòng LX35) không có nhận diện khuôn mặt.");
+                case DeviceCommandTypes.OpenDoor:
+                case DeviceCommandTypes.CloseDoor:
+                    return (string.Empty, "Máy này (dòng LX35) không có lệnh mở / đóng cửa từ xa.");
+            }
+        }
 
         if (!string.IsNullOrWhiteSpace(explicitCommand))
         {
@@ -224,10 +242,8 @@ public class DeviceCapabilityService(
             if (commandType == DeviceCommandTypes.SyncAttendances && info.SupportsAttendanceQuery == false
                 && ClockCommandBuilder.TryParseAttendanceQuery(explicitCommand, out _, out _))
             {
-                return pushLite
-                    ? (string.Empty, PushLiteNoAttendanceQuery)
-                    : (AdmsEngineProfiles.StampSyncCommand,
-                        "Máy không hỗ trợ DATA QUERY ATTLOG. Server dùng ATTLOGStamp=0 + realtime; log đã chấm vẫn tự đẩy lên.");
+                return (AdmsEngineProfiles.StampSyncCommand,
+                    "Máy không hỗ trợ DATA QUERY ATTLOG. Server dùng ATTLOGStamp=0 + realtime; log đã chấm vẫn tự đẩy lên.");
             }
 
             // Nút «Tải chấm công» dựng sẵn lệnh có chữ T — đổi định dạng theo máy.
@@ -292,8 +308,6 @@ public class DeviceCapabilityService(
             case DeviceCommandTypes.SyncDeviceUsers:
                 if (info.SupportsUserQuery == false)
                 {
-                    // LX35: firmware gửi Stamp=9999 cố định — chiêu Stamp=0 không tải được gì, báo thẳng.
-                    if (pushLite) return (string.Empty, PushLiteNoUserQuery);
                     return (AdmsEngineProfiles.StampSyncCommand,
                         "Máy không hỗ trợ DATA QUERY USERINFO. Server sẽ dùng Stamp/realtime; tải NV xuống máy bằng DATA UPDATE.");
                 }
@@ -305,7 +319,6 @@ public class DeviceCapabilityService(
                 // (flag đó từng bị set chung khi USERINFO -1002 → chặn nhầm tải công).
                 if (info.SupportsAttendanceQuery == false)
                 {
-                    if (pushLite) return (string.Empty, PushLiteNoAttendanceQuery);
                     return (AdmsEngineProfiles.StampSyncCommand,
                         "Máy không hỗ trợ DATA QUERY ATTLOG. Server dùng ATTLOGStamp=0 + realtime; log đã chấm vẫn tự đẩy lên.");
                 }
@@ -349,15 +362,14 @@ public class DeviceCapabilityService(
         }
     }
 
-    // Đã thử trên LX35 thật (SN 1313254900299, FW ZLM31-FXO1-3.1.8, Push 3.0.1): DATA QUERY USERINFO / ATTLOG
-    // đều trả -1002 (cả ngày dạng «T» lẫn có dấu cách). Máy chỉ tự gửi lượt chấm mới lên server.
-    internal const string PushLiteNoAttendanceQuery =
-        "Máy này (dòng LX35) không cho tải lại lịch sử chấm công từ xa. Lượt chấm mới tự gửi lên Sbox ngay khi nhân viên chấm "
-        + "(máy cần Online). Lượt chấm trước khi máy kết nối Sbox: bổ sung bằng điều chỉnh công.";
+    // Đã thử trên LX35 thật (SN 1313254900299, FW ZLM31-FXO1-3.1.8, Push 3.0.1) + ROM: không có ENROLL_FP;
+    // BIODATAStamp=0 + CHECK không làm máy gửi mẫu vân tay.
+    internal const string PushLiteNoRemoteEnroll =
+        "Máy này (dòng LX35) không hỗ trợ đăng ký vân tay từ xa. Đăng ký vân tay trực tiếp trên máy "
+        + "(Menu → Quản lý người dùng → chọn nhân viên → Vân tay).";
 
-    internal const string PushLiteNoUserQuery =
-        "Máy này (dòng LX35) không cho tải danh sách nhân viên từ máy về. Thêm nhân viên trên Sbox rồi đẩy xuống máy; "
-        + "nhân viên đã tạo trực tiếp trên máy cần khai lại mã chấm công tương ứng trên Sbox.";
+    internal const string PushLiteNoFingerprintSync =
+        "Máy này (dòng LX35) chưa gửi được mẫu vân tay về Sbox. Nhân viên đăng ký vân tay trực tiếp trên từng máy.";
 
     public async Task<DeviceCapabilityDto> GetCapabilityDtoAsync(Guid deviceId, CancellationToken cancellationToken = default)
     {
@@ -365,9 +377,11 @@ public class DeviceCapabilityService(
         var profile = info.EngineProfile ?? AdmsEngineProfiles.Default;
         var allowUserSync = info.SupportsUserQuery != false; // unknown = allow probe once
         var allowAttSync = info.SupportsAttendanceQuery != false;
-        var allowEnroll = info.SupportsEnrollFingerprint != false;
-        var allowFace = info.SupportsFaceUpdate == true;
-        var allowDoor = info.SupportsDoorControl != false;
+        // LX35: ROM không có ENROLL_FP / AC_UNLOCK, máy không camera — ẩn nút kể cả máy đã xếp nhóm trước bản này.
+        var pushLite = AdmsEngineProfiles.UsesCheckStampSync(profile);
+        var allowEnroll = !pushLite && info.SupportsEnrollFingerprint != false;
+        var allowFace = !pushLite && info.SupportsFaceUpdate == true;
+        var allowDoor = !pushLite && info.SupportsDoorControl != false;
 
         // UI: still show sync when PreferStampSync, but with different meaning (stamp/realtime)
         return new DeviceCapabilityDto(
@@ -387,7 +401,10 @@ public class DeviceCapabilityService(
             AllowEnrollFingerprintUi: allowEnroll,
             AllowEnrollFaceUi: allowFace,
             AllowDoorControlUi: allowDoor,
-            Notes: info.CapabilityNotes
+            Notes: pushLite
+                ? "Dòng LX35: tải chấm công / user bằng CHECK (máy gửi lại toàn bộ); thêm nhân viên từ Sbox xuống máy được; "
+                  + "vân tay đăng ký trực tiếp trên máy."
+                : info.CapabilityNotes
                 ?? (info.PreferStampSync
                     ? "Máy kiểu pull-deny: đẩy NV xuống + chấm realtime; không QUERY/ENROLL từ xa."
                     : null));

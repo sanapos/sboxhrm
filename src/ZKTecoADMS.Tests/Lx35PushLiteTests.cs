@@ -32,8 +32,9 @@ public class Lx35PushLiteTests
         AdmsEngineProfiles.ApplyProfileDefaults(info, AdmsEngineProfiles.PushLite);
         Assert.True(info.SupportsUserQuery);
         Assert.True(info.SupportsAttendanceQuery);
-        Assert.False(info.PreferStampSync);
-        Assert.Null(info.SupportsEnrollFingerprint);
+        // Thử thật + ROM: tải lại bằng Stamp=0 + CHECK; không có ENROLL_FP.
+        Assert.True(info.PreferStampSync);
+        Assert.False(info.SupportsEnrollFingerprint);
     }
 
     [Fact]

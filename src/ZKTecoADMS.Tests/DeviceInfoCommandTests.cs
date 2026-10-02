@@ -1,6 +1,7 @@
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Logging.Abstractions;
 using Xunit;
+using ZKTecoADMS.Application.Commands.DeviceCommands.CreateDeviceCmd;
 using ZKTecoADMS.Application.Commands.IClock.DeviceCmdCommand.Strategies;
 using ZKTecoADMS.Application.Constants;
 using ZKTecoADMS.Application.Interfaces;
@@ -64,7 +65,10 @@ public class DeviceInfoCommandTests
         Assert.Equal(AdmsEngineProfiles.PushLite, info.EngineProfile);
         Assert.True(info.SupportsUserQuery);
         Assert.True(info.SupportsAttendanceQuery);
-        Assert.False(info.PreferStampSync);
+        Assert.True(info.PreferStampSync);
+        Assert.False(info.SupportsEnrollFingerprint);
+        Assert.False(info.SupportsDoorControl);
+        Assert.True(AdmsEngineProfiles.UsesCheckStampSync(info.EngineProfile));
         Assert.True(AdmsEngineProfiles.UsesSpaceDateTime(info.EngineProfile));
         Assert.Contains("StartTime=2021-01-01 00:00:00", ClockCommandBuilder.BuildGetAttendanceCommand(
             new DateTime(2021, 1, 1), new DateTime(2026, 10, 2, 23, 59, 59), spaceSeparated: true));
@@ -77,7 +81,7 @@ public class DeviceInfoCommandTests
     }
 
     [Fact]
-    public async Task Lx35_rejecting_queries_stays_push_lite_and_fails_fast_with_clear_message()
+    public async Task Lx35_sync_queues_stamp_marker_plus_check_and_blocks_unsupported_commands()
     {
         var db = new ZKTecoDbContext(new DbContextOptionsBuilder<ZKTecoDbContext>()
             .UseInMemoryDatabase(Guid.NewGuid().ToString()).Options);
@@ -89,29 +93,60 @@ public class DeviceInfoCommandTests
             EngineProfile = AdmsEngineProfiles.PushLite, SupportsUserQuery = true, SupportsAttendanceQuery = true,
         });
         await db.SaveChangesAsync();
+        var tenant = new NoTenant();
+        var devices = new EfRepository<Device>(db, NullLogger<EfRepository<Device>>.Instance, tenant);
         var svc = new DeviceCapabilityService(
-            new EfRepository<Device>(db, NullLogger<EfRepository<Device>>.Instance, new NoTenant()),
-            new EfRepository<DeviceInfo>(db, NullLogger<EfRepository<DeviceInfo>>.Instance, new NoTenant()),
+            devices,
+            new EfRepository<DeviceInfo>(db, NullLogger<EfRepository<DeviceInfo>>.Instance, tenant),
             NullLogger<DeviceCapabilityService>.Instance);
+        var handler = new CreateDeviceCmdHandler(
+            devices,
+            new EfRepository<DeviceCommand>(db, NullLogger<EfRepository<DeviceCommand>>.Instance, tenant),
+            svc,
+            NullLogger<CreateDeviceCmdHandler>.Instance);
 
-        // Máy thật trả -1002 cho cả hai lệnh tải (02/10/2026)
+        // Máy thật trả -1002 cho DATA QUERY — nhóm máy vẫn giữ PushLite
         await svc.LearnFromCommandResultAsync(device.Id, DeviceCommandTypes.SyncDeviceUsers, -1002, "DATA");
-        await svc.LearnFromCommandResultAsync(device.Id, DeviceCommandTypes.SyncAttendances, -1002, "DATA");
-        var info = await db.DeviceInfos.AsNoTracking().SingleAsync();
-        Assert.Equal(AdmsEngineProfiles.PushLite, info.EngineProfile); // không bị đẩy về PullDeny
-        Assert.False(info.SupportsUserQuery);
-        Assert.False(info.SupportsAttendanceQuery);
+        Assert.Equal(AdmsEngineProfiles.PushLite, (await db.DeviceInfos.AsNoTracking().SingleAsync()).EngineProfile);
 
-        // Bấm lại: không gửi lệnh chắc chắn lỗi, trả câu báo rõ ràng
-        var explicitCmd = ClockCommandBuilder.BuildGetAttendanceCommand(new DateTime(2021, 1, 1), new DateTime(2026, 10, 2, 23, 59, 59));
-        var (att, attMsg) = await svc.ResolveCommandAsync(device.Id, DeviceCommandTypes.SyncAttendances, explicitCommand: explicitCmd);
-        Assert.Equal(string.Empty, att);
-        Assert.Contains("không cho tải lại lịch sử chấm công", attMsg);
-        var (usr, usrMsg) = await svc.ResolveCommandAsync(device.Id, DeviceCommandTypes.SyncDeviceUsers);
-        Assert.Equal(string.Empty, usr);
-        Assert.Contains("không cho tải danh sách nhân viên", usrMsg);
+        // Nút «Tải chấm công» (app gửi sẵn DATA QUERY ATTLOG có khoảng ngày) → đánh dấu Stamp + CHECK
+        var explicitCmd = ClockCommandBuilder.BuildGetAttendanceCommand(new DateTime(2021, 1, 1), new DateTime(2026, 10, 3, 23, 59, 59));
+        var att = await handler.Handle(new CreateDeviceCmdCommand(device.Id, (int)DeviceCommandTypes.SyncAttendances, 10, explicitCmd), default);
+        Assert.True(att.IsSuccess);
+        var cmds = await db.DeviceCommands.AsNoTracking().OrderBy(c => c.CreatedAt).ToListAsync();
+        Assert.Contains(cmds, c => c.CommandType == DeviceCommandTypes.SyncAttendances && AdmsEngineProfiles.IsStampSyncMarker(c.Command));
+        var check = Assert.Single(cmds, c => c.Command == "CHECK");
+        Assert.Equal(DeviceCommandTypes.GetDeviceInfo, check.CommandType);
+        // CHECK phải giao xuống máy, đánh dấu thì không
+        Assert.False(AdmsEngineProfiles.ShouldSkipDeviceDelivery(check.CommandType, check.Command));
+
+        // Tải user cũng vậy
+        await handler.Handle(new CreateDeviceCmdCommand(device.Id, (int)DeviceCommandTypes.SyncDeviceUsers, 10), default);
+        Assert.Equal(2, await db.DeviceCommands.CountAsync(c => c.Command == "CHECK"));
+
+        // Lệnh firmware không có: báo rõ, không tạo lệnh
+        var enroll = await handler.Handle(new CreateDeviceCmdCommand(device.Id, (int)DeviceCommandTypes.EnrollFingerprint, 10, null, "968315", 9), default);
+        Assert.False(enroll.IsSuccess);
+        Assert.Contains("trực tiếp trên máy", enroll.Message);
+        Assert.False((await handler.Handle(new CreateDeviceCmdCommand(device.Id, (int)DeviceCommandTypes.OpenDoor, 10), default)).IsSuccess);
+        var cap = await svc.GetCapabilityDtoAsync(device.Id);
+        Assert.False(cap.AllowEnrollFingerprintUi);
+        Assert.False(cap.AllowDoorControlUi);
+        Assert.False(cap.AllowEnrollFaceUi);
+        Assert.Equal(4, await db.DeviceCommands.CountAsync());
 
         // INFO vẫn chạy bình thường
         Assert.Equal("INFO", (await svc.ResolveCommandAsync(device.Id, DeviceCommandTypes.GetDeviceInfo)).Command);
+    }
+
+    [Fact]
+    public void Handshake_for_lx35_sends_digit_trans_flag_only()
+    {
+        var lx = PushDeviceConfigBuilder.BuildGetOptionResponse("1313254900299", "0", digitTransFlagOnly: true);
+        Assert.Contains("TransFlag=1111111111", lx);
+        Assert.DoesNotContain("TransFlag=AttLog", lx);
+        Assert.Contains("ATTLOGStamp=0", lx);
+        var other = PushDeviceConfigBuilder.BuildGetOptionResponse("0004521206093", "9999");
+        Assert.Contains("TransFlag=AttLog", other); // máy khác giữ nguyên
     }
 }

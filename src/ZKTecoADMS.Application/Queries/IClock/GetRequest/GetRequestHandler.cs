@@ -156,7 +156,9 @@ public class GetRequestHandler(
             "[GetRequest] Stamp config for {SN}: SyncUsers={Users} SyncAtt={Att} SyncBio={Bio} OPERLOGStamp={Op} ATTLOGStamp={AttStamp} BIODATAStamp={BioStamp} PhotoStamp={Photo}",
             sn, syncUsers, syncAtt, syncBio, operStamp, attStamp, bioStamp, photoStamp);
 
-        return PushDeviceConfigBuilder.BuildGetOptionResponse(sn, attStamp, operStamp, bioStamp, photoStamp);
+        var profile = (await deviceInfoRepository.GetSingleAsync(di => di.DeviceId == deviceId))?.EngineProfile;
+        return PushDeviceConfigBuilder.BuildGetOptionResponse(sn, attStamp, operStamp, bioStamp, photoStamp,
+            AdmsEngineProfiles.UsesDigitTransFlag(profile));
     }
 
     /// <summary>

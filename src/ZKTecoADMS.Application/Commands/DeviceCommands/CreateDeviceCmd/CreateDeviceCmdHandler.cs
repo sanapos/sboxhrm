@@ -79,6 +79,26 @@ public class CreateDeviceCmdHandler(
         var created = await deviceCmdRepository.AddAsync(command, cancellationToken);
         var dto = created.Adapt<DeviceCmdDto>();
 
+        // LX35 (PushLite) chỉ đọc Stamp khi bắt tay — CHECK buộc máy bắt tay lại để nhận ATTLOGStamp / OPERLOGStamp=0.
+        if (AdmsEngineProfiles.IsStampSyncMarker(commandStr)
+            && commandType is DeviceCommandTypes.SyncAttendances or DeviceCommandTypes.SyncDeviceUsers)
+        {
+            var capability = await capabilityService.GetCapabilityDtoAsync(device.Id, cancellationToken);
+            if (AdmsEngineProfiles.UsesCheckStampSync(capability.EngineProfile))
+            {
+                await deviceCmdRepository.AddAsync(new DeviceCommand
+                {
+                    DeviceId = device.Id,
+                    Command = "CHECK",
+                    Priority = request.Priority,
+                    // Không dùng Sync* (CHECK + Sync* là đánh dấu cũ, không giao xuống máy).
+                    CommandType = DeviceCommandTypes.GetDeviceInfo,
+                    Status = CommandStatus.Created,
+                }, cancellationToken);
+                logger.LogWarning("[CreateDeviceCmd] PushLite {Type}: queued CHECK after stamp marker", commandType);
+            }
+        }
+
         // Warning in Errors while IsSuccess=true so Message surfaces in clients without failing.
         return string.IsNullOrWhiteSpace(warning)
             ? AppResponse<DeviceCmdDto>.Success(dto)

@@ -1,3 +1,4 @@
+using ZKTecoADMS.Application.Constants;
 using Mapster;
 using ZKTecoADMS.Application.DTOs.Devices;
 using ZKTecoADMS.Application.Interfaces;
@@ -53,9 +54,11 @@ public class GetAllDevicesHandler(
                 dto.SupportsFaceUpdate = info.SupportsFaceUpdate;
                 dto.SupportsDoorControl = info.SupportsDoorControl;
                 dto.PreferStampSync = info.PreferStampSync;
-                dto.AllowEnrollFingerprintUi = info.SupportsEnrollFingerprint != false;
-                dto.AllowEnrollFaceUi = info.SupportsFaceUpdate == true;
-                dto.AllowDoorControlUi = info.SupportsDoorControl != false;
+                // LX35 (PushLite): ROM không có ENROLL_FP / AC_UNLOCK, không camera — ẩn kể cả cờ cũ chưa cập nhật.
+                var pushLite = AdmsEngineProfiles.UsesCheckStampSync(info.EngineProfile);
+                dto.AllowEnrollFingerprintUi = !pushLite && info.SupportsEnrollFingerprint != false;
+                dto.AllowEnrollFaceUi = !pushLite && info.SupportsFaceUpdate == true;
+                dto.AllowDoorControlUi = !pushLite && info.SupportsDoorControl != false;
                 dto.CapabilityNotes = info.CapabilityNotes;
             }
             return dto;

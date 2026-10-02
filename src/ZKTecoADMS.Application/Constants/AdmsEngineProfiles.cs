@@ -12,8 +12,11 @@ public static class AdmsEngineProfiles
     /// <summary>
     /// Máy push «lite» đời mới giá rẻ (LX35, chip Anyka AK37xx, PushVersion 3.0.x):
     /// ngày giờ dạng «yyyy-MM-dd HH:mm:ss» (không có T), không xử lý khối GET OPTION trong getrequest (luôn gửi Stamp=9999).
-    /// Đã thử trên máy thật (FW ZLM31-FXO1-3.1.8, Push 3.0.1, 02/10/2026): DATA QUERY USERINFO / ATTLOG trả -1002 —
-    /// chỉ nhận lượt chấm realtime và lệnh DATA UPDATE / INFO. Cờ Supports*Query vẫn để «thử một lần» cho firmware khác.
+    /// Đã thử trên máy thật (FW ZLM31-FXO1-3.1.8, Push 3.0.1, 02–03/10/2026) + đọc ROM LX35.bin:
+    /// - lệnh cấp đầu chỉ có CHECK / CLEAR / INFO / REBOOT / DATA / Pause / Resume (không ENROLL_FP, AC_UNLOCK, SET OPTION);
+    /// - DATA QUERY USERINFO / ATTLOG trả -1002 với mọi dạng tham số;
+    /// - CHECK làm máy bắt tay lại (GET cdata options=all) → đọc ATTLOGStamp/OPERLOGStamp=0 → gửi lại toàn bộ chấm công / user.
+    /// Vì vậy tải lại dữ liệu = lệnh đánh dấu __STAMP_SYNC__ + CHECK (xem <see cref="UsesCheckStampSync"/>).
     /// </summary>
     public const string PushLite = "PushLite";
 
@@ -22,6 +25,14 @@ public static class AdmsEngineProfiles
         string.IsNullOrWhiteSpace(firmware)
         || firmware.Trim().Equals("Unknown", StringComparison.OrdinalIgnoreCase)
         || firmware.StartsWith("PUSH v", StringComparison.OrdinalIgnoreCase);
+
+    /// <summary>Tải lại chấm công / user bằng __STAMP_SYNC__ + CHECK (máy bắt tay lại, nhận Stamp=0) thay cho DATA QUERY.</summary>
+    public static bool UsesCheckStampSync(string? profile) =>
+        string.Equals(profile, PushLite, StringComparison.OrdinalIgnoreCase);
+
+    /// <summary>Handshake chỉ gửi TransFlag dạng chuỗi số — firmware LX35 đọc bằng strspn (mặc định 1101101100).</summary>
+    public static bool UsesDigitTransFlag(string? profile) =>
+        string.Equals(profile, PushLite, StringComparison.OrdinalIgnoreCase);
 
     /// <summary>Lệnh DATA QUERY ATTLOG dùng dấu cách giữa ngày và giờ.</summary>
     public static bool UsesSpaceDateTime(string? profile) =>
@@ -183,9 +194,12 @@ public static class AdmsEngineProfiles
                 }
                 info.SupportsUserQuery ??= true;
                 info.SupportsAttendanceQuery ??= true;
-                info.SupportsFaceUpdate ??= false;
-                // Firmware gửi Stamp=9999 cố định — chiêu Stamp=0 không có tác dụng.
-                info.PreferStampSync = false;
+                // ROM không có ENROLL_FP / AC_UNLOCK; máy không có camera (FaceFunOn=0).
+                info.SupportsEnrollFingerprint = false;
+                info.SupportsFaceUpdate = false;
+                info.SupportsDoorControl = false;
+                // Stamp=0 chỉ có tác dụng khi máy bắt tay lại — server gửi kèm CHECK (UsesCheckStampSync).
+                info.PreferStampSync = true;
                 break;
         }
 
