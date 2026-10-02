@@ -240,6 +240,9 @@ class _PackageEditorPageState extends State<PackageEditorPage> {
   late final _sort = TextEditingController(text: '${p['sortOrder'] ?? 0}');
   late final _badge = TextEditingController(text: '${p['badge'] ?? ''}');
   late final _highlights = TextEditingController(text: '${p['highlights'] ?? ''}');
+  late final _retHour = TextEditingController(text: '${p['retentionRunHour'] ?? 3}');
+  late final _retAttendance = TextEditingController(text: '${p['attendanceRetentionMonths'] ?? 0}');
+  late final _retSaleOrders = TextEditingController(text: '${p['saleOrderRetentionMonths'] ?? 0}');
   late String _line = '${p['productLine'] ?? 'both'}';
   late bool _active = p['isActive'] != false;
   late bool _public = p['isPublic'] != false;
@@ -295,9 +298,9 @@ class _PackageEditorPageState extends State<PackageEditorPage> {
         'allowedModules': [for (final m in c.modules) if (_has(m.code)) m.code],
         'isActive': _active,
         'isPublic': _public,
-        'retentionRunHour': (p['retentionRunHour'] as num?)?.toInt() ?? 3,
-        'attendanceRetentionMonths': (p['attendanceRetentionMonths'] as num?)?.toInt() ?? 0,
-        'saleOrderRetentionMonths': (p['saleOrderRetentionMonths'] as num?)?.toInt() ?? 0,
+        'retentionRunHour': (_int(_retHour) ?? 3).clamp(0, 23),
+        'attendanceRetentionMonths': (_int(_retAttendance) ?? 0).clamp(0, 120),
+        'saleOrderRetentionMonths': (_int(_retSaleOrders) ?? 0).clamp(0, 120),
       };
 
   Future<void> _save() async {
@@ -483,6 +486,20 @@ class _PackageEditorPageState extends State<PackageEditorPage> {
           ]),
           SwitchListTile(dense: true, contentPadding: EdgeInsets.zero, value: _web, onChanged: (v) => setState(() => _web = v), title: Text(tr('Dùng trên web'))),
           SwitchListTile(dense: true, contentPadding: EdgeInsets.zero, value: _mobile, onChanged: (v) => setState(() => _mobile = v), title: Text(tr('Dùng trên điện thoại'))),
+        ]),
+      ),
+      const SizedBox(height: SboxSpace.md),
+      SboxCard(
+        title: 'Lưu trữ dữ liệu',
+        subtitle: 'Tự xoá dữ liệu cũ của cửa hàng dùng gói này · 0 = giữ mãi',
+        child: Column(children: [
+          Row(children: [
+            Expanded(child: _numField(_retAttendance, 'Chấm công giữ', suffix: 'tháng', helper: 'Tối đa 120')),
+            const SizedBox(width: SboxSpace.sm),
+            Expanded(child: _numField(_retSaleOrders, 'Đơn bán hàng giữ', suffix: 'tháng', helper: 'Tối đa 120')),
+          ]),
+          const SizedBox(height: SboxSpace.md),
+          _numField(_retHour, 'Giờ chạy dọn dữ liệu', suffix: 'giờ', helper: '0–23, nên chọn giờ vắng khách'),
         ]),
       ),
       const SizedBox(height: SboxSpace.md),

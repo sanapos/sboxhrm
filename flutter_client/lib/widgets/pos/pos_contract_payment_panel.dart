@@ -1,3 +1,5 @@
+import '../../utils/permission_navigation.dart';
+import '../../providers/auth_provider.dart';
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
 import 'package:provider/provider.dart';
@@ -12,6 +14,18 @@ import '../notification_overlay.dart';
 import 'pos_theme.dart';
 
 /// Hợp đồng: mốc tiến độ, đợt thanh toán, thu tiền (mỗi lần thu → phiếu thu quỹ), còn phải thu.
+
+/// Gói + vai trò có «Hợp đồng & thu tiền theo đợt» (PosContracts).
+bool canUsePosContracts(BuildContext context) {
+  final auth = context.read<AuthProvider>();
+  return PermissionNavigation.canAccessModule(
+    'PosContracts',
+    allowedModules: auth.user?.allowedModules,
+    perm: context.read<PermissionProvider>(),
+    role: auth.user?.role,
+  );
+}
+
 class PosContractPaymentPanel extends StatefulWidget {
   const PosContractPaymentPanel({
     super.key,

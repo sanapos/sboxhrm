@@ -1,3 +1,4 @@
+import '../../widgets/pos/pos_contract_payment_panel.dart' show canUsePosContracts;
 import 'dart:async';
 
 import 'package:flutter/material.dart';
@@ -495,6 +496,7 @@ class _PosQuoteListScreenState extends State<PosQuoteListScreen> {
                           },
                           icon: const Icon(Icons.insights_outlined),
                         ),
+                        if (canUsePosContracts(context))
                         IconButton(
                           tooltip: tr('Công nợ hợp đồng'),
                           onPressed: () async {

@@ -95,7 +95,7 @@ public static class PermissionPresetCatalog
     static readonly string[] PosSell =
     [
         "PosSell", "PosSellPriceEdit", "PosSellDiscount", "PosSellCancelPaid", "PosSaleOrders", "PosSaleReturns",
-        "PosCustomers", "PosWarranty", "PosBooking", "PosKds", "PosQrOrder", "PosCashierShift", "PosQuotes",
+        "PosCustomers", "PosWarranty", "PosBooking", "PosKds", "PosQrOrder", "PosCashierShift", "PosQuotes", "PosContracts",
     ];
     static readonly string[] PosStock =
     [
@@ -219,7 +219,7 @@ public static class PermissionPresetCatalog
     static IReadOnlyDictionary<string, Flags> PosAccountant() => new Builder()
         .Set(V, "Home", "Notification", "Dashboard")
         .Set(VX, PosReports).Set(new Flags(true, false, true, false, true, false), "HkdBooks")
-        .Set(VX, "PosSaleOrders").Set(V, "PosSaleReturns", "PosQuotes", "PosProducts", "PosViewCost")
+        .Set(VX, "PosSaleOrders").Set(V, "PosSaleReturns", "PosQuotes", "PosContracts", "PosProducts", "PosViewCost")
         .Set(Op, "PosCustomers", "PosPurchaseReceipts", "PosPurchaseReturns")
         .Set(new Flags(true, false, true, false, true, true), "PosEInvoice")
         .Set(F, "CashTransaction", "BankAccount")
@@ -258,7 +258,7 @@ public static class PermissionPresetCatalog
     /// <summary>Nhân viên kinh doanh (vai trò Nhân viên ở cửa hàng bán hàng): báo giá, khách hàng, tra hàng.</summary>
     static IReadOnlyDictionary<string, Flags> PosSales() => new Builder()
         .Set(V, "Home", "Notification")
-        .Set(Op, "PosQuotes", "PosCustomers")
+        .Set(Op, "PosQuotes", "PosContracts", "PosCustomers")
         .Set(V, "PosProducts", "PosWarranty", "PosSell")
         .Set(new Flags(true, true, true, false, false, false), "PosBooking")
         .Build();

@@ -115,6 +115,8 @@ class PermissionRoleCatalog {
       moduleCodes: [
         'AttendanceSummary',
         'AttendanceByShift',
+        'LateEarlyReport',
+        'TravelHoursReport',
         'Payslip',
         'Payroll',
         'AttendanceReport',
@@ -154,6 +156,7 @@ class PermissionRoleCatalog {
         'PosSellDiscount',
         'PosSellCancelPaid',
         'PosQuotes',
+        'PosContracts',
         'PosProducts',
         'PosViewCost',
         'PosSaleOrders',
@@ -243,7 +246,6 @@ class PermissionRoleCatalog {
         'SystemSettings',
         'NotificationSettings',
         'AIGemini',
-        'Settings',
       ],
     ),
     PermissionUiGroup(

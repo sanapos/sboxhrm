@@ -50,6 +50,11 @@ public class StorePackageModuleMiddleware
         ("/api/workschedules", "WorkSchedule"),
         ("/api/payroll", "Payroll"),
         ("/api/payslips", "Payslip"),
+        // Chốt lương / trả lương / file chuyển lương là việc của Bảng lương (Phiếu lương cá nhân luôn mở).
+        ("/api/payslips/finalize", "Payroll"),
+        ("/api/payslips/payment-info", "Payroll"),
+        ("/api/payslips/pay", "Payroll"),
+        ("/api/payslips/bank-export", "Payroll"),
         ("/api/bonuspenalties", "BonusPenalty"),
         ("/api/penaltytickets", "PenaltyTickets"),
         ("/api/advancerequests", "AdvanceRequests"),
@@ -210,6 +215,13 @@ public class StorePackageModuleMiddleware
         if (path.StartsWith("/api/pos/sales/", StringComparison.OrdinalIgnoreCase) &&
             path.Contains("/return", StringComparison.OrdinalIgnoreCase))
             return "PosSaleReturns";
+
+        // Hợp đồng & thu tiền theo đợt: /api/pos/quotes/{id}/contract|payments, /api/pos/quotes/receivables.
+        if (path.StartsWith("/api/pos/quotes/", StringComparison.OrdinalIgnoreCase) &&
+            (path.Contains("/contract", StringComparison.OrdinalIgnoreCase) ||
+             path.Contains("/payments", StringComparison.OrdinalIgnoreCase) ||
+             path.EndsWith("/receivables", StringComparison.OrdinalIgnoreCase)))
+            return "PosContracts";
 
         // Longer / more specific prefixes first (map order is not guaranteed to be path-length sorted).
         string? best = null;

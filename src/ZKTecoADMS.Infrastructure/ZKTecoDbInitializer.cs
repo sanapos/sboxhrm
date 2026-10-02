@@ -4196,6 +4196,8 @@ public class ZKTecoDbInitializer(
         ("PosSellCancelPaid", "PosSell", (v, c, e, d, x, a) => (v && a, false, false, false, false, a)),
         // Ai xem được Hàng hóa đều đang thấy giá vốn.
         ("PosViewCost", "PosProducts", (v, c, e, d, x, a) => (v, false, false, false, false, false)),
+        // Hợp đồng & thu tiền theo đợt tách khỏi Báo giá — ai đang dùng Báo giá giữ nguyên quyền.
+        ("PosContracts", "PosQuotes", (v, c, e, d, x, a) => (v, c, e, d, x, a)),
     ];
 
     /// <summary>Chức năng có nút / API xuất mới được kiểm quyền Xuất — cấp Xuất cho ai đang Xem (một lần).</summary>
@@ -4300,6 +4302,20 @@ IF NOT EXISTS (SELECT 1 FROM ""SboxDataMigrations"" WHERE ""Id"" = 'perm-export-
     FROM ""Permissions"" p WHERE p.""Id"" = dp.""PermissionId"" AND p.""Module"" IN (" + exportModules + @")
     AND dp.""CanView"" AND NOT dp.""CanExport"";
   INSERT INTO ""SboxDataMigrations"" (""Id"") VALUES ('perm-export-v1');
+END IF;
+END $$;");
+
+        // Một lần: tách «Hợp đồng & thu tiền theo đợt» khỏi «Báo giá» — gói / cửa hàng đang có Báo giá được thêm Hợp đồng.
+        await context.Database.ExecuteSqlRawAsync(
+            @"DO $$ BEGIN
+IF NOT EXISTS (SELECT 1 FROM ""SboxDataMigrations"" WHERE ""Id"" = 'pkg-pos-contracts-v1') THEN
+  UPDATE ""ServicePackages"" SET ""AllowedModules"" = (""AllowedModules""::jsonb || '[""PosContracts""]'::jsonb)::text
+    WHERE ""AllowedModules"" IS NOT NULL AND ""AllowedModules"" LIKE '[%'
+      AND ""AllowedModules""::jsonb @> '[""PosQuotes""]'::jsonb AND NOT (""AllowedModules""::jsonb @> '[""PosContracts""]'::jsonb);
+  UPDATE ""Stores"" SET ""ExtraModules"" = (""ExtraModules""::jsonb || '[""PosContracts""]'::jsonb)::text
+    WHERE ""ExtraModules"" IS NOT NULL AND ""ExtraModules"" LIKE '[%'
+      AND ""ExtraModules""::jsonb @> '[""PosQuotes""]'::jsonb AND NOT (""ExtraModules""::jsonb @> '[""PosContracts""]'::jsonb);
+  INSERT INTO ""SboxDataMigrations"" (""Id"") VALUES ('pkg-pos-contracts-v1');
 END IF;
 END $$;");
 

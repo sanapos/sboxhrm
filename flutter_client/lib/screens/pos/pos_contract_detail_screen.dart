@@ -252,12 +252,14 @@ class _PosContractDetailScreenState extends State<PosContractDetailScreen> {
                         ),
                       ),
                       const SizedBox(height: 14),
-                      // Tiến độ HĐ, đợt thanh toán, thu cọc / thu các đợt → phiếu thu quỹ
-                      PosContractPaymentPanel(
-                        quoteId: q.id,
-                        onChanged: _reloadQuiet,
-                      ),
-                      const SizedBox(height: 14),
+                      // Tiến độ HĐ, đợt thanh toán, thu cọc / thu các đợt → phiếu thu quỹ (gói có «Hợp đồng»).
+                      if (canUsePosContracts(context)) ...[
+                        PosContractPaymentPanel(
+                          quoteId: q.id,
+                          onChanged: _reloadQuiet,
+                        ),
+                        const SizedBox(height: 14),
+                      ],
                       _sectionHead(
                         'Hồ sơ liên quan',
                         Icons.folder_open_outlined,

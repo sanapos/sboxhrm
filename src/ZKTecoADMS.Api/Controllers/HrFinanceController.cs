@@ -1060,7 +1060,7 @@ public class HrFinanceController(
     /// </summary>
     [HttpGet("payroll-adjustments")]
     [Authorize(Policy = PolicyNames.AtLeastEmployee)]
-    [RequireAnyModulePermission(ModulePermissionAction.View, "Payroll", "PayrollSummary", "AdvanceRequests", "BonusPenalty", "Transaction")]
+    [RequireAnyModulePermission(ModulePermissionAction.View, "Payroll", "AdvanceRequests", "BonusPenalty", "Transaction")]
     public async Task<ActionResult<AppResponse<List<HrFinPayrollAdjDto>>>> PayrollAdjustments(
         [FromQuery] DateTime from, [FromQuery] DateTime to)
     {

@@ -68,7 +68,7 @@ public partial class PosQuotesController
         int StageCount);
 
     [HttpGet("{id:guid}/contract")]
-    [RequireModulePermission("PosQuotes", ModulePermissionAction.View)]
+    [RequireModulePermission("PosContracts", ModulePermissionAction.View)]
     public async Task<ActionResult<AppResponse<ContractView>>> GetContract(Guid id)
     {
         var storeId = RequiredStoreId;
@@ -80,7 +80,7 @@ public partial class PosQuotesController
     }
 
     [HttpPut("{id:guid}/contract")]
-    [RequireModulePermission("PosQuotes", ModulePermissionAction.Edit)]
+    [RequireModulePermission("PosContracts", ModulePermissionAction.Edit)]
     public async Task<ActionResult<AppResponse<ContractView>>> SaveContract(Guid id, [FromBody] ContractSaveDto dto)
     {
         var storeId = RequiredStoreId;
@@ -164,7 +164,7 @@ public partial class PosQuotesController
     }
 
     [HttpPost("{id:guid}/payments")]
-    [RequireModulePermission("PosQuotes", ModulePermissionAction.Edit)]
+    [RequireModulePermission("PosContracts", ModulePermissionAction.Edit)]
     public async Task<ActionResult<AppResponse<ContractView>>> AddContractPayment(
         Guid id, [FromBody] ContractPaymentInput dto)
     {
@@ -225,7 +225,7 @@ public partial class PosQuotesController
 
     /// <summary>Hủy lần thu: phiếu thu quỹ chuyển «Đã hủy», số đã thu của hợp đồng giảm tương ứng.</summary>
     [HttpDelete("{id:guid}/payments/{paymentId:guid}")]
-    [RequireModulePermission("PosQuotes", ModulePermissionAction.Delete)]
+    [RequireModulePermission("PosContracts", ModulePermissionAction.Delete)]
     public async Task<ActionResult<AppResponse<ContractView>>> CancelContractPayment(Guid id, Guid paymentId)
     {
         var storeId = RequiredStoreId;
@@ -262,7 +262,7 @@ public partial class PosQuotesController
 
     /// <summary>Công nợ hợp đồng: giá trị / đã thu / còn phải thu / quá hạn theo đợt.</summary>
     [HttpGet("receivables")]
-    [RequireModulePermission("PosQuotes", ModulePermissionAction.View)]
+    [RequireModulePermission("PosContracts", ModulePermissionAction.View)]
     public async Task<ActionResult<AppResponse<object>>> Receivables(
         [FromQuery] string? search,
         [FromQuery] string? filter)
