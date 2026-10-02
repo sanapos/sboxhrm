@@ -63,12 +63,16 @@ public static class AdmsEngineProfiles
             return AndroidVisibleLight;
         }
 
-        // LX35: Anyka AK37xx; khi chưa có platform thì nhận qua pushver=3.0.x ở handshake.
+        // LX35: Anyka AK37xx; khi chưa có platform thì nhận qua pushver=3.0.x ở handshake
+        // (INFO trả «PushVersion=Ver 3.0.1-20230519» — bỏ tiền tố «Ver»).
+        var pushVer = (pushVersion ?? string.Empty).Trim();
+        if (pushVer.StartsWith("Ver", StringComparison.OrdinalIgnoreCase))
+            pushVer = pushVer[3..].TrimStart(' ', '_', '.');
         if (p.Contains("AK37", StringComparison.OrdinalIgnoreCase)
             || p.Contains("AK39", StringComparison.OrdinalIgnoreCase)
             || (string.IsNullOrWhiteSpace(p)
                 && IsUnknownFirmware(firmware)
-                && (pushVersion ?? string.Empty).Trim().StartsWith("3.0", StringComparison.Ordinal)))
+                && pushVer.StartsWith("3.0", StringComparison.Ordinal)))
         {
             return PushLite;
         }
@@ -173,6 +177,8 @@ public static class AdmsEngineProfiles
                     if (info.SupportsUserQuery == false) info.SupportsUserQuery = null;
                     if (info.SupportsEnrollFingerprint == false) info.SupportsEnrollFingerprint = null;
                     if (info.SupportsDoorControl == false) info.SupportsDoorControl = null;
+                    // -1002 học được khi còn PullDeny là do gửi ngày dạng «T» — PushLite gửi dạng có dấu cách.
+                    if (info.SupportsAttendanceQuery == false) info.SupportsAttendanceQuery = null;
                 }
                 info.SupportsUserQuery ??= true;
                 info.SupportsAttendanceQuery ??= true;
