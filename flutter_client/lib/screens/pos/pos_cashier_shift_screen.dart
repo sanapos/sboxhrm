@@ -11,7 +11,7 @@ import '../../widgets/pos/pos_hub_scope.dart';
 import '../../widgets/pos/pos_numeric_keypad.dart';
 import '../../widgets/pos/pos_theme.dart';
 import '../../widgets/pos/pos_vnd_thousands_formatter.dart';
-import 'pos_sell_industry_settings_hub_screen.dart';
+import 'pos_sell_industry_settings_screen.dart';
 import 'package:zkteco_flutter_client/l10n/app_tr.dart';
 
 import '../../theme/sbox_tokens.dart';
@@ -616,7 +616,7 @@ class _PosCashierShiftScreenState extends State<PosCashierShiftScreen> {
           const SizedBox(height: 8),
           Text(
             tr(
-              'Tắt mặc định. Bật tại Thiết lập POS → Ngành hàng & chế độ bán → '
+              'Tắt mặc định. Bật tại Thiết lập SBOX → Ngành hàng & cách bán → '
               '«Ca thu ngân». Mỗi tài khoản thu ngân mở ca riêng. '
               'Mở lại Menu ⋮ → Ca thu ngân sau khi bật.',
             ),
@@ -630,7 +630,7 @@ class _PosCashierShiftScreenState extends State<PosCashierShiftScreen> {
                   builder: (_) => const PosHubScope(
                     embeddedInHub: false,
                     pushedSubPage: true,
-                    child: PosSellIndustrySettingsHubScreen(),
+                    child: PosSellIndustrySettingsScreen(section: 'profile'),
                   ),
                 ),
               );

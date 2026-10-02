@@ -203,7 +203,7 @@ class _PosAppSettingsScreenState extends State<PosAppSettingsScreen> {
                 ListTile(
                   leading:
                       const Icon(Icons.tune_outlined, color: PosTheme.kiotBlue),
-                  title: Text(tr('Thiết lập POS')),
+                  title: Text(tr('Thiết lập SBOX')),
                   subtitle: Text(tr('Cửa hàng, ngành hàng, máy in…')),
                   trailing: const Icon(Icons.chevron_right),
                   onTap: _openPosHub,

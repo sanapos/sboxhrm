@@ -277,7 +277,7 @@ class _PosStoreSettingsHubScreenState extends State<PosStoreSettingsHubScreen> {
         backgroundColor: HrmPageChrome.background,
         appBar: HrmPageChrome.appBar(
           context: context,
-          title: 'Thiết lập cửa hàng',
+          title: 'Thông tin cửa hàng',
         ),
         body: spinner,
       );
@@ -286,7 +286,7 @@ class _PosStoreSettingsHubScreenState extends State<PosStoreSettingsHubScreen> {
       backgroundColor: HrmPageChrome.background,
       appBar: HrmPageChrome.appBar(
         context: context,
-        title: 'Thiết lập cửa hàng',
+        title: 'Thông tin cửa hàng',
       ),
       body: ListView(
         padding: const EdgeInsets.fromLTRB(16, 12, 16, 32),

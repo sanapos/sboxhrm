@@ -616,7 +616,7 @@ class _PosCashierShiftScreenState extends State<PosCashierShiftScreen> {
           const SizedBox(height: 8),
           Text(
             tr(
-              'Tắt mặc định. Bật tại Thiết lập POS → Ngành hàng & chế độ bán → '
+              'Tắt mặc định. Bật tại Thiết lập SBOX → Ngành hàng & cách bán → '
               '«Ca thu ngân». Mỗi tài khoản thu ngân mở ca riêng. '
               'Mở lại Menu ⋮ → Ca thu ngân sau khi bật.',
             ),

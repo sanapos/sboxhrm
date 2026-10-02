@@ -330,7 +330,7 @@ class NavigationNotifier {
   static void goToSalarySettings() => goToModule('SalarySettings');
 
   static void goToNotificationSettings() {
-    SettingsHubScreen.pendingSubIndex.value = 21;
+    SettingsHubScreen.openCode('notifications');
     goToModule('SettingsHub');
   }
   static void goToBonusPenalty() => goToModule('BonusPenalty');
@@ -338,7 +338,7 @@ class NavigationNotifier {
   static void goToAttendanceByShift() => goTo(attendanceByShift);
   static void goToKpi() => goTo(kpi);
   static void goToDeviceSettings() {
-    SettingsHubScreen.pendingSubIndex.value = 12;
+    SettingsHubScreen.openCode('device');
     goToModule('SettingsHub');
   }
 

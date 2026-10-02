@@ -9174,7 +9174,7 @@ class _WorkScheduleScreenState extends State<WorkScheduleScreen>
   }
 
   void _showStaffingQuotaDialog() {
-    SettingsHubScreen.pendingSubIndex.value = 14;
+    SettingsHubScreen.openCode('staffing');
     NavigationNotifier.goTo(NavigationNotifier.settingsHub);
   }
 }

@@ -122,7 +122,7 @@ abstract final class MobileBottomNavCatalog {
     ),
     MobileBottomNavItemDef(
       id: 'SettingsHub',
-      label: 'Cài đặt',
+      label: 'Thiết lập SBOX',
       icon: Icons.settings_outlined,
       activeIcon: Icons.settings,
       moduleCode: 'SettingsHub',

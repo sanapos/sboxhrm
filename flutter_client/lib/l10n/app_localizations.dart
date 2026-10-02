@@ -513,7 +513,7 @@ class AppLocalizations {
       'communication': 'Truyền thông',
       'attendanceReport': 'Báo cáo chấm công',
       'attendanceReportSubtitle': 'Ngày, tháng, đi muộn, phòng ban',
-      'hrmSetup': 'Thiết lập Sbox',
+      'hrmSetup': 'Thiết lập SBOX',
       'settings': 'Cài đặt',
       'systemAdmin': 'Quản trị hệ thống',
       'licenseKeys': 'License Keys',
@@ -527,7 +527,7 @@ class AppLocalizations {
       'groupOperations': 'Quản lý Vận hành',
       'groupReports': 'Báo cáo',
       'groupAgent': 'Đại lý',
-      'groupSettings': 'Cài đặt',
+      'groupSettings': 'Hệ thống',
       'groupOther': 'Khác',
 
       // Settings screen
@@ -986,7 +986,7 @@ class AppLocalizations {
       'groupOperations': 'Operations',
       'groupReports': 'Reports',
       'groupAgent': 'Agent',
-      'groupSettings': 'Settings',
+      'groupSettings': 'System',
       'groupOther': 'Other',
 
       // Settings screen

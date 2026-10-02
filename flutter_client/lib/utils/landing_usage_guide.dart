@@ -1317,12 +1317,12 @@ class LandingUsageGuide {
     LandingUsageGuideStep(
       id: 'pos_setup',
       icon: Icons.storefront_rounded,
-      title: 'Thiết lập POS lần đầu',
+      title: 'Thiết lập SBOX lần đầu cho POS',
       desc:
           'Làm đúng thứ tự: ngành hàng → thông tin cửa hàng → hàng hóa → bàn (F&B) → máy in → bán thử.',
       bullets: [
-        'Bước 1 — Cài đặt (hub) → Ngành hàng & bán hàng: chọn retail / nhà hàng / salon / phòng…',
-        'Bước 2 — Cài đặt → Thiết lập cửa hàng: tên, địa chỉ, VAT, tài khoản VietQR (nếu thanh toán QR)',
+        'Bước 1 — Thiết lập SBOX → Ngành hàng & cách bán: chọn retail / nhà hàng / salon / phòng…',
+        'Bước 2 — Thiết lập SBOX → Thông tin cửa hàng: tên, địa chỉ, VAT, tài khoản VietQR (nếu thanh toán QR)',
         'Bước 3 — Menu Hàng hóa: danh mục + món/SP (mã, giá, đơn vị, ảnh)',
         'Bước 4 — F&B: Cài đặt → Quản lý bàn / phòng: khu vực, bàn, sức chứa',
         'Bước 5 — Cài đặt → Máy in + Mẫu in (xem bước Máy in bên dưới)',
@@ -1475,7 +1475,7 @@ class LandingUsageGuide {
         'Combo: trừ từng thành phần; bật «Quản lý tồn kho combo» nếu muốn trừ thêm chính combo. Món có định lượng: trừ nguyên liệu. Topping: trừ theo SL món × SL topping',
         'Bán theo ĐVT lớn (thùng, lốc): tự quy về ĐVT cơ bản. Hàng dịch vụ không trừ kho',
         'Hàng «Theo dõi lô / HSD»: bán / xuất lô hết hạn sớm nhất trước (FEFO)',
-        'Bán âm: Cài đặt → Ngành hàng & bán hàng → «Cho phép bán khi hết hàng / tồn âm». Tắt: chặn thêm món / thanh toán khi tồn khả dụng không đủ. Bật: vẫn bán, tồn có thể âm (hàng có lô: phần thiếu ghi không lô)',
+        'Bán âm: Thiết lập SBOX → Ngành hàng & cách bán → «Cho phép bán khi hết hàng / tồn âm». Tắt: chặn thêm món / thanh toán khi tồn khả dụng không đủ. Bật: vẫn bán, tồn có thể âm (hàng có lô: phần thiếu ghi không lô)',
         'Phiếu xuất hủy / nội bộ không được xuất quá tồn thực, và (khi tắt bán âm) không được lấy phần đang giữ chỗ cho bàn',
         '«Phiếu xuất kho / báo kho» in từ màn bán hàng chỉ là phiếu soạn hàng cho kho — KHÔNG trừ kho lần hai',
         'Hủy đơn đã thanh toán: hoàn đúng số lượng về kho (đúng lô). Đơn đã có trả hàng thì không hủy được — dùng Trả hàng bán',
@@ -1557,7 +1557,7 @@ class LandingUsageGuide {
       desc:
           'Đối soát tiền mặt, QR, công nợ trong ca trước khi giao ca. Nếu bật «Ca thu ngân» thì mỗi thu ngân mở / đóng ca riêng và phải có ca mở mới thanh toán được.',
       bullets: [
-        'Bật ca: Cài đặt → Ngành hàng & bán hàng → «Ca thu ngân (mở ca / đóng két)»',
+        'Bật ca: Thiết lập SBOX → Ngành hàng & cách bán → «Ca thu ngân (mở ca / đóng két)»',
         'Đầu ca: màn bán hàng → Menu ⋮ → Ca thu ngân → Mở ca (nhập tiền đầu ca)',
         'Cuối ca: thanh toán / trả hết bàn đang mở (F&B), rồi đóng ca và đếm két',
         'Tổng kết cuối ngày: Báo cáo POS → Tổng kết cuối ngày, chọn khoảng ca',

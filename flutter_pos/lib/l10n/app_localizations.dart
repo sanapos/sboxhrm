@@ -513,7 +513,7 @@ class AppLocalizations {
       'communication': 'Truyền thông',
       'attendanceReport': 'Báo cáo chấm công',
       'attendanceReportSubtitle': 'Ngày, tháng, đi muộn, phòng ban',
-      'hrmSetup': 'Thiết lập Sbox',
+      'hrmSetup': 'Thiết lập SBOX',
       'settings': 'Cài đặt',
       'systemAdmin': 'Quản trị hệ thống',
       'licenseKeys': 'License Keys',

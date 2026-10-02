@@ -10,13 +10,9 @@ import '../../services/api_service.dart';
 import '../../widgets/hrm_page_chrome.dart';
 import '../../widgets/pos/pos_hub_scope.dart';
 import '../../widgets/pos/pos_theme.dart';
-import 'pos_cancel_return_history_screen.dart';
 import 'pos_cancel_return_settings_screen.dart';
-import 'pos_customer_display_settings_screen.dart';
 import 'pos_qr_table_order_screen.dart';
-import 'pos_kds_screen.dart';
 import 'pos_loyalty_settings_screen.dart';
-import 'pos_resource_floor_screen.dart';
 import 'pos_sell_industry_settings_screen.dart';
 import 'package:sbox_pos/l10n/app_tr.dart';
 
@@ -38,12 +34,6 @@ class PosSellIndustrySettingsHubScreen extends StatefulWidget {
 class _PosSellIndustrySettingsHubScreenState
     extends State<PosSellIndustrySettingsHubScreen> {
   PosStoreSellSettingsDto? _settings;
-
-  bool get _showFloorManage {
-    final s = _settings;
-    if (s == null) return false;
-    return s.enableResources || s.showFloorPlan;
-  }
 
   @override
   void initState() {
@@ -104,7 +94,7 @@ class _PosSellIndustrySettingsHubScreenState
         _tile(
           context,
           icon: Icons.storefront_outlined,
-          title: 'Ngành hàng & chế độ bán',
+          title: 'Ngành hàng & cách bán',
           subtitle: _settings == null
               ? 'Bán lẻ, nhà hàng, salon… · ca thu ngân · khóa đơn tạm'
               : '${_settings!.sellProfile.label} · ca thu ngân · khóa đơn tạm · ${_settings!.sellProfile.featureHints.take(2).join(' · ')}',
@@ -127,27 +117,6 @@ class _PosSellIndustrySettingsHubScreenState
             const PosSellIndustrySettingsScreen(section: 'resources'),
           ),
         ),
-        // Thêm / sửa / xếp bàn cần quyền Sửa bán hàng (server chặn cùng mức).
-        if (_showFloorManage && perm.canEdit('PosSell'))
-          _tile(
-            context,
-            icon: Icons.map_outlined,
-            title: _settings?.sellProfile.usesFloorPlan == true
-                ? 'Quản lý ${_settings!.sellProfile.resourceNounPlural}'
-                : 'Quản lý bàn / phòng',
-            subtitle: _settings?.sellProfile.usesFloorPlan == true
-                ? 'Thêm sửa khu vực, ${_settings!.sellProfile.resourceNoun} trên sơ đồ'
-                : 'Thêm sửa khu vực, bàn ghế trên sơ đồ',
-            onTap: () => _open(
-              context,
-              PosResourceFloorScreen(
-                manageMode: true,
-                sellProfile: _settings?.sellProfile,
-                allowProvisionalBill:
-                    _settings?.allowProvisionalBill == true,
-              ),
-            ),
-          ),
         if (canMod('PosQrOrder'))
         _tile(
           context,
@@ -161,19 +130,6 @@ class _PosSellIndustrySettingsHubScreenState
             const PosQrTableOrderScreen(),
           ),
         ),
-        if (canMod('PosKds') &&
-            (_settings?.sellProfile.usesKitchenNotify == true ||
-                _settings?.enableQrTableOrder == true))
-          _tile(
-            context,
-            icon: Icons.kitchen_outlined,
-            title: 'Màn hình bếp (KDS)',
-            subtitle: 'Ticket theo bàn · đang làm / sẵn sàng / XONG · lọc trạm in',
-            onTap: () => _open(
-              context,
-              const PosKdsScreen(),
-            ),
-          ),
         _tile(
           context,
           icon: Icons.stars_outlined,
@@ -196,26 +152,6 @@ class _PosSellIndustrySettingsHubScreenState
           onTap: () => _open(
             context,
             const PosCancelReturnSettingsScreen(),
-          ),
-        ),
-        _tile(
-          context,
-          icon: Icons.history,
-          title: 'Lịch sử hủy / trả',
-          subtitle: 'Lọc thao tác, trước/sau tạm tính, nhân viên',
-          onTap: () => _open(
-            context,
-            const PosCancelReturnHistoryScreen(),
-          ),
-        ),
-        _tile(
-          context,
-          icon: Icons.tv_outlined,
-          title: 'Màn hình phụ (khách)',
-          subtitle: 'Ảnh / video trình chiếu · hóa đơn phụ',
-          onTap: () => _open(
-            context,
-            const PosCustomerDisplaySettingsScreen(),
           ),
         ),
       ],

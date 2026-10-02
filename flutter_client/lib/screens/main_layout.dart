@@ -1062,7 +1062,7 @@ class _MainLayoutState extends State<MainLayout> with WidgetsBindingObserver {
           onDismiss: onDismiss,
           onTap: () {
             onDismiss();
-            SettingsHubScreen.pendingSubIndex.value = 12;
+            SettingsHubScreen.openCode('device');
             _tryNavigateToIndex(NavigationNotifier.settingsHub);
           },
         ));
@@ -2122,8 +2122,8 @@ class _MainLayoutState extends State<MainLayout> with WidgetsBindingObserver {
     NavItem(
       icon: Icons.tune_outlined,
       activeIcon: Icons.tune,
-      label: 'Thiết lập Sbox',
-      subtitle: 'Thiết lập Sbox',
+      label: 'Thiết lập SBOX',
+      subtitle: 'Cấu hình cửa hàng',
       screen: const SettingsHubScreen(),
       group: 'Cài đặt',
       showInSidebar: true,
@@ -3671,20 +3671,21 @@ class _MainLayoutState extends State<MainLayout> with WidgetsBindingObserver {
             children: [
               const Icon(Icons.person_outline, size: 20),
               const SizedBox(width: 12),
-              Text(tr(AppLocalizations.of(context).personalInfo)),
+              Text(tr('Cài đặt')),
             ],
           ),
         ),
-        PopupMenuItem(
-          value: 'settings',
-          child: Row(
-            children: [
-              const Icon(Icons.settings_outlined, size: 20),
-              const SizedBox(width: 12),
-              Text(tr(AppLocalizations.of(context).settings)),
-            ],
+        if (_navItems.any((n) => n.moduleCode == 'SettingsHub'))
+          PopupMenuItem(
+            value: 'settings',
+            child: Row(
+              children: [
+                const Icon(Icons.tune_rounded, size: 20),
+                const SizedBox(width: 12),
+                Text(tr('Thiết lập SBOX')),
+              ],
+            ),
           ),
-        ),
         const PopupMenuDivider(),
         PopupMenuItem(
           value: 'logout',
@@ -4548,7 +4549,7 @@ class _HomeMenuScreenState extends State<_HomeMenuScreen> {
                     mainAxisSize: MainAxisSize.min,
                     children: [
                       IconButton(
-                        tooltip: tr('Cài đặt'),
+                        tooltip: tr('Thiết lập SBOX'),
                         onPressed: () {
                           final idx = widget.navItems.indexWhere(
                               (n) => n.moduleCode == 'SettingsHub');

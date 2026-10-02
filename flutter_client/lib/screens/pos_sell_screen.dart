@@ -89,7 +89,6 @@ import '../widgets/pos/pos_online_orders_toolbar_button.dart';
 import '../widgets/pos/pos_pending_warehouse_print_sheet.dart';
 import '../widgets/pos/pos_split_bill_sheet.dart';
 import '../widgets/pos/pos_sell_print_popover.dart';
-import '../widgets/pos/pos_sell_store_settings_dialog.dart';
 import '../widgets/pos/pos_sale_quick_notes_widgets.dart';
 import '../widgets/pos/pos_serial_capture_dialog.dart';
 import '../widgets/pos/pos_empty_cart_brand.dart';
@@ -11314,38 +11313,6 @@ class _PosSellScreenState extends State<PosSellScreen>
     }
   }
 
-  Future<void> _openStoreSettings() async {
-    final updated = await showPosSellStoreSettingsDialog(
-      context,
-      initial: _storeSettings,
-    );
-    if (updated == null || !mounted) return;
-    await updated.save();
-    setState(() {
-      _storeSettings = updated;
-      for (final t in _tabs) {
-        t.vatRate = updated.defaultVatRate;
-        t.vatExempt = false;
-        if (t.cart.isEmpty && t.draftOrderId == null) {
-          t.applyFeeDefaults(updated);
-        }
-      }
-      _syncPaidAmount();
-    });
-    await _loadPaymentSources();
-  }
-
-  double get _vietQrAmount => _resolveTransferPaymentQr()?.amount ?? 0;
-
-  String get _vietQrTransferNote =>
-      _resolveTransferPaymentQr()?.description ??
-      PosVietQrHelper.transferNote(
-        prefix: 'POS',
-        orderNo: (_tab.draftOrderNo ?? '').trim().isNotEmpty
-            ? _tab.draftOrderNo
-            : _tab.serviceResourceName,
-      );
-
   Widget _buildVietQrPaymentSection({
     bool compact = false,
     VoidCallback? onMutate,
@@ -11715,7 +11682,7 @@ class _PosSellScreenState extends State<PosSellScreen>
           child: ListTile(
             dense: true,
             leading: const Icon(Icons.settings_outlined, size: 20),
-            title: Text(tr('Thiết lập POS')),
+            title: Text(tr('Thiết lập SBOX')),
             subtitle: Text(tr('Cửa hàng, in, QR, KDS…'),
                 style: const TextStyle(fontSize: 11)),
             contentPadding: EdgeInsets.zero,
@@ -11807,10 +11774,7 @@ class _PosSellScreenState extends State<PosSellScreen>
         if (mounted) {
           await Navigator.of(context).push(
             MaterialPageRoute<void>(
-              builder: (_) => Scaffold(
-                appBar: AppBar(title: Text(tr('Cài đặt'))),
-                body: const SettingsScreen(),
-              ),
+              builder: (_) => const SettingsScreen(showAppBar: true),
             ),
           );
         }

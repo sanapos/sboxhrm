@@ -9,7 +9,6 @@ import 'package:provider/provider.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import '../l10n/app_localizations.dart';
 import '../providers/auth_provider.dart';
-import '../providers/permission_provider.dart';
 import '../providers/theme_provider.dart';
 import '../config/sbox_app_variant.dart';
 import '../services/api_service.dart';
@@ -19,8 +18,14 @@ import 'app_info_screen.dart';
 import 'package:zkteco_flutter_client/l10n/app_tr.dart';
 
 import '../theme/sbox_tokens.dart';
+/// «Cài đặt» — trang cá nhân dùng chung HRM và POS: hồ sơ, mật khẩu, giao diện, ngôn ngữ,
+/// thanh công cụ dưới, phiên bản, trợ giúp, đăng xuất, xóa tài khoản.
+/// Cấu hình cửa hàng nằm ở «Thiết lập SBOX» (dữ liệu mẫu → Tham số hệ thống).
 class SettingsScreen extends StatefulWidget {
-  const SettingsScreen({super.key});
+  const SettingsScreen({super.key, this.showAppBar = false});
+
+  /// Mở bằng Navigator.push (POS Thêm, menu màn bán) — tự vẽ thanh tiêu đề + nút quay lại.
+  final bool showAppBar;
 
   @override
   State<SettingsScreen> createState() => _SettingsScreenState();
@@ -28,8 +33,6 @@ class SettingsScreen extends StatefulWidget {
 
 class _SettingsScreenState extends State<SettingsScreen> {
   String _serverUrl = ApiService.baseUrl;
-  bool _isDeletingSampleData = false;
-  bool _isSeedingSampleData = false;
   String _appVersionLabel = '…';
 
   @override
@@ -59,18 +62,16 @@ class _SettingsScreenState extends State<SettingsScreen> {
   @override
   Widget build(BuildContext context) {
     final l = AppLocalizations.of(context);
-    final canManageData =
-        Provider.of<PermissionProvider>(context, listen: false)
-            .canEdit('SystemSettings');
     return Scaffold(
       backgroundColor: HrmPageChrome.background,
+      appBar: widget.showAppBar ? AppBar(title: Text(tr('Cài đặt'))) : null,
       body: SingleChildScrollView(
         padding: const EdgeInsets.all(16),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            Text(
-              tr(l.settingsTitle),
+            if (!widget.showAppBar) Text(
+              tr('Cài đặt'),
               style: const TextStyle(
                 fontSize: 24,
                 fontWeight: FontWeight.bold,
@@ -78,7 +79,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
             ),
             const SizedBox(height: 8),
             Text(
-              tr(l.settingsSubtitle),
+              tr('Tài khoản của bạn và cách ứng dụng hiển thị trên máy này. Cấu hình cửa hàng nằm ở Thiết lập SBOX.'),
               style: TextStyle(color: SboxColors.slate400),
             ),
             const SizedBox(height: 24),
@@ -153,80 +154,18 @@ class _SettingsScreenState extends State<SettingsScreen> {
                         '5 vị trí cố định — đổi thứ tự và chức năng hiển thị',
                     onTap: () => MobileBottomNavConfigSheet.show(context),
                   ),
+                // Máy chủ kết nối là thiết lập của máy này; app POS phát hành cố định máy chủ.
+                if (!SboxAppVariant.standalonePos)
+                  _buildSettingTile(
+                    context,
+                    icon: Icons.dns,
+                    title: l.serverConfig,
+                    subtitle: _serverUrl,
+                    onTap: () => _showServerDialog(context),
+                  ),
               ],
             ),
             const SizedBox(height: 24),
-
-            // Server settings — hidden on the public POS app (server is fixed at build).
-            if (!SboxAppVariant.standalonePos)
-            _buildSection(
-              context,
-              title: l.connection,
-              icon: Icons.cloud,
-              children: [
-                _buildSettingTile(
-                  context,
-                  icon: Icons.dns,
-                  title: l.serverConfig,
-                  subtitle: _serverUrl,
-                  onTap: () => _showServerDialog(context),
-                ),
-                _buildSettingTile(
-                  context,
-                  icon: Icons.sync,
-                  title: l.autoSync,
-                  subtitle: l.every5Minutes,
-                  onTap: () => _showSyncDialog(context),
-                ),
-              ],
-            ),
-            const SizedBox(height: 24),
-
-            // Data management
-            if (canManageData) ...[
-              _buildSection(
-                context,
-                title: l.dataManagement,
-                icon: Icons.storage,
-                children: [
-                  _buildSettingTile(
-                    context,
-                    icon: Icons.dataset,
-                    title: l.seedSampleData,
-                    subtitle: l.seedSampleDataDesc,
-                    trailing: _isSeedingSampleData
-                        ? const SizedBox(
-                            width: 24,
-                            height: 24,
-                            child:
-                                CircularProgressIndicator(strokeWidth: 2),
-                          )
-                        : null,
-                    onTap: _isSeedingSampleData
-                        ? null
-                        : () => _showSeedSampleDataDialog(context),
-                  ),
-                  _buildSettingTile(
-                    context,
-                    icon: Icons.delete_sweep,
-                    title: l.deleteSampleData,
-                    subtitle: l.deleteSampleDataDesc,
-                    trailing: _isDeletingSampleData
-                        ? const SizedBox(
-                            width: 24,
-                            height: 24,
-                            child:
-                                CircularProgressIndicator(strokeWidth: 2),
-                          )
-                        : null,
-                    onTap: _isDeletingSampleData
-                        ? null
-                        : () => _showDeleteSampleDataDialog(context),
-                  ),
-                ],
-              ),
-              const SizedBox(height: 24),
-            ],
 
             // About
             _buildSection(
@@ -488,23 +427,6 @@ class _SettingsScreenState extends State<SettingsScreen> {
     await showServerUrlDialog(context);
     if (!mounted) return;
     setState(() => _serverUrl = ApiService.baseUrl);
-  }
-
-  void _showSyncDialog(BuildContext context) {
-    final l = AppLocalizations.of(context);
-    showDialog(
-      context: context,
-      builder: (ctx) => ScrollableAlertDialog(
-        title: Text(tr(l.autoSync)),
-        content: Text(tr('Hệ thống tự động đồng bộ dữ liệu chấm công mỗi 5 phút.\nDữ liệu sẽ được cập nhật khi có kết nối mạng.')),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(ctx),
-            child: Text(tr('Đóng')),
-          ),
-        ],
-      ),
-    );
   }
 
   void _showEditProfileDialog(BuildContext context) {
@@ -858,154 +780,6 @@ class _SettingsScreenState extends State<SettingsScreen> {
         ],
       ),
     );
-  }
-
-  void _showSeedSampleDataDialog(BuildContext context) {
-    final l = AppLocalizations.of(context);
-    showDialog(
-      context: context,
-      builder: (context) => ScrollableAlertDialog(
-        title: Text(tr(l.seedSampleData)),
-        content: Text(tr(l.seedSampleDataConfirm)),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(context),
-            child: Text(tr(l.cancel)),
-          ),
-          ElevatedButton(
-            onPressed: () {
-              Navigator.pop(context);
-              _seedSampleData();
-            },
-            child: Text(tr(l.seedSampleData)),
-          ),
-        ],
-      ),
-    );
-  }
-
-  Future<void> _seedSampleData() async {
-    final authProvider = Provider.of<AuthProvider>(context, listen: false);
-    final storeId = authProvider.user?.storeId ?? '';
-
-    String storeIdentifier = storeId;
-    if (storeIdentifier.isEmpty) {
-      final prefs = await SharedPreferences.getInstance();
-      storeIdentifier = prefs.getString('saved_store_code') ?? '';
-    }
-
-    if (storeIdentifier.isEmpty) {
-      if (mounted) {
-        appNotification.showError(
-          title: 'Lỗi',
-          message: tr('Không tìm thấy mã cửa hàng. Vui lòng đăng nhập lại.'),
-        );
-      }
-      return;
-    }
-
-    setState(() => _isSeedingSampleData = true);
-    try {
-      final result = await ApiService().seedSampleData(storeIdentifier);
-      if (!mounted) return;
-      if (result['isSuccess'] == true) {
-        appNotification.showSuccess(
-          title: 'Thành công',
-          message: tr('Đã cài dữ liệu mẫu thành công!'),
-        );
-      } else {
-        appNotification.showError(
-          title: 'Lỗi',
-          message: result['message']?.toString() ?? 'Không thể cài dữ liệu mẫu',
-        );
-      }
-    } catch (e) {
-      if (mounted) {
-        appNotification.showError(
-          title: 'Lỗi',
-          message: tr('Không thể cài dữ liệu mẫu: $e'),
-        );
-      }
-    } finally {
-      if (mounted) setState(() => _isSeedingSampleData = false);
-    }
-  }
-
-  void _showDeleteSampleDataDialog(BuildContext context) {
-    final l = AppLocalizations.of(context);
-    showDialog(
-      context: context,
-      builder: (context) => ScrollableAlertDialog(
-        title: Text(tr(l.deleteSampleData)),
-        content: Text(tr(l.deleteSampleDataConfirm)),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(context),
-            child: Text(tr(l.cancel)),
-          ),
-          ElevatedButton(
-            onPressed: () {
-              Navigator.pop(context);
-              _deleteSampleData();
-            },
-            style: ElevatedButton.styleFrom(backgroundColor: Colors.red),
-            child: Text(tr(l.delete)),
-          ),
-        ],
-      ),
-    );
-  }
-
-  Future<void> _deleteSampleData() async {
-    // Try storeId from auth provider first, fallback to saved_store_code
-    final authProvider = Provider.of<AuthProvider>(context, listen: false);
-    final storeId = authProvider.user?.storeId ?? '';
-
-    String storeIdentifier = storeId;
-    if (storeIdentifier.isEmpty) {
-      final prefs = await SharedPreferences.getInstance();
-      storeIdentifier = prefs.getString('saved_store_code') ?? '';
-    }
-
-    if (storeIdentifier.isEmpty) {
-      if (mounted) {
-        appNotification.showError(
-          title: 'Lỗi',
-          message: tr('Không tìm thấy mã cửa hàng. Vui lòng đăng nhập lại.'),
-        );
-      }
-      return;
-    }
-
-    setState(() => _isDeletingSampleData = true);
-    try {
-      final result = await ApiService().deleteSampleData(storeIdentifier);
-      if (!mounted) return;
-      if (result['isSuccess'] == true) {
-        final data = result['data'];
-        final msg = data is Map
-            ? (data['message'] ?? 'Đã xóa dữ liệu mẫu')
-            : 'Đã xóa dữ liệu mẫu';
-        appNotification.showSuccess(
-          title: 'Thành công',
-          message: msg.toString(),
-        );
-      } else {
-        appNotification.showError(
-          title: 'Lỗi',
-          message: result['message']?.toString() ?? 'Không thể xóa dữ liệu mẫu',
-        );
-      }
-    } catch (e) {
-      if (mounted) {
-        appNotification.showError(
-          title: 'Lỗi',
-          message: tr('Không thể xóa dữ liệu mẫu: $e'),
-        );
-      }
-    } finally {
-      if (mounted) setState(() => _isDeletingSampleData = false);
-    }
   }
 
   void _showLogoutDialog(BuildContext context) {

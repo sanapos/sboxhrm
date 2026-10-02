@@ -11,6 +11,7 @@ import 'package:provider/provider.dart';
 
 import 'package:zkteco_flutter_client/app/app.dart';
 import 'package:zkteco_flutter_client/providers/auth_provider.dart';
+import 'package:zkteco_flutter_client/providers/permission_provider.dart';
 import 'package:zkteco_flutter_client/providers/theme_provider.dart';
 
 void main() {
@@ -21,6 +22,7 @@ void main() {
         providers: [
           ChangeNotifierProvider(create: (_) => ThemeProvider()),
           ChangeNotifierProvider(create: (_) => AuthProvider()),
+          ChangeNotifierProvider(create: (_) => PermissionProvider()),
         ],
         child: const ZKTecoApp(),
       ),

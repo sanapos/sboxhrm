@@ -3,7 +3,7 @@ import 'package:flutter/material.dart';
 import '../models/settings_hub_sidebar_config.dart';
 import '../widgets/hrm_page_chrome.dart';
 
-/// Định nghĩa một mục menu trong Thiết lập HRM.
+/// Định nghĩa một mục trong Thiết lập SBOX.
 class SettingsHubItemDef {
   const SettingsHubItemDef({
     required this.index,
@@ -13,6 +13,7 @@ class SettingsHubItemDef {
     required this.accent,
     required this.groupTitle,
     this.moduleCode,
+    this.altModuleCodes = const [],
   });
 
   final int index;
@@ -22,9 +23,12 @@ class SettingsHubItemDef {
   final Color accent;
   final String groupTitle;
   final String? moduleCode;
+
+  /// Mã quyền thay thế: có một trong các mã này cũng thấy mục (Máy in = thiết bị hoặc cloud).
+  final List<String> altModuleCodes;
 }
 
-/// Danh mục cố định các module Thiết lập HRM.
+/// Danh mục Thiết lập SBOX (cấu hình cửa hàng). Cài đặt cá nhân nằm ở «Cài đặt».
 class SettingsHubCatalog {
   SettingsHubCatalog._();
 
@@ -32,10 +36,10 @@ class SettingsHubCatalog {
     SettingsHubItemDef(
       index: 0,
       icon: Icons.schedule_send,
-      label: 'Thiết lập ca',
+      label: 'Ca làm việc',
       desc: 'Ca làm việc, vào sớm, đi trễ, về sớm, tăng ca',
       accent: HrmPageChrome.primaryNavy,
-      groupTitle: 'Chấm công & Ca',
+      groupTitle: 'Nhân sự & chấm công',
       moduleCode: 'ShiftSetup',
     ),
     SettingsHubItemDef(
@@ -44,7 +48,7 @@ class SettingsHubCatalog {
       label: 'Chấm công mobile',
       desc: 'Face ID, GPS, cấp quyền thiết bị, vùng chấm công',
       accent: HrmPageChrome.primaryNavy,
-      groupTitle: 'Chấm công & Ca',
+      groupTitle: 'Nhân sự & chấm công',
       moduleCode: 'MobileAttendance',
     ),
     SettingsHubItemDef(
@@ -53,7 +57,7 @@ class SettingsHubCatalog {
       label: 'Ngày lễ',
       desc: 'Ngày nghỉ lễ, hệ số công, cấu hình lịch nghỉ',
       accent: HrmPageChrome.primaryNavy,
-      groupTitle: 'Chấm công & Ca',
+      groupTitle: 'Nhân sự & chấm công',
       moduleCode: 'Holiday',
     ),
     SettingsHubItemDef(
@@ -62,7 +66,7 @@ class SettingsHubCatalog {
       label: 'Máy chấm công',
       desc: 'Kết nối, quản lý, điều khiển máy chấm công',
       accent: HrmPageChrome.primaryNavy,
-      groupTitle: 'Chấm công & Ca',
+      groupTitle: 'Nhân sự & chấm công',
       moduleCode: 'Device',
     ),
     SettingsHubItemDef(
@@ -71,7 +75,7 @@ class SettingsHubCatalog {
       label: 'Gateway WiFi',
       desc: 'Cài đặt mạch ESP32 nối máy chấm công cũ lên máy chủ',
       accent: HrmPageChrome.primaryNavy,
-      groupTitle: 'Chấm công & Ca',
+      groupTitle: 'Nhân sự & chấm công',
       moduleCode: 'Device',
     ),
     SettingsHubItemDef(
@@ -80,7 +84,7 @@ class SettingsHubCatalog {
       label: 'Định mức nhân sự',
       desc: 'Min/Max nhân sự theo ca, phòng ban, từng thứ T2–CN',
       accent: HrmPageChrome.primaryNavy,
-      groupTitle: 'Chấm công & Ca',
+      groupTitle: 'Nhân sự & chấm công',
       moduleCode: 'WorkSchedule',
     ),
     SettingsHubItemDef(
@@ -89,16 +93,16 @@ class SettingsHubCatalog {
       label: 'Phụ cấp',
       desc: 'Phụ cấp cố định, phụ cấp ngày công',
       accent: HrmPageChrome.primaryNavy,
-      groupTitle: 'Chính sách lương',
+      groupTitle: 'Lương & chính sách',
       moduleCode: 'Allowance',
     ),
     SettingsHubItemDef(
       index: 4,
       icon: Icons.gavel,
-      label: 'Phạt',
+      label: 'Mức phạt',
       desc: 'Đi trễ, về sớm, tái phạm, kỷ luật',
       accent: HrmPageChrome.primaryNavy,
-      groupTitle: 'Chính sách lương',
+      groupTitle: 'Lương & chính sách',
       moduleCode: 'PenaltySetup',
     ),
     SettingsHubItemDef(
@@ -107,7 +111,7 @@ class SettingsHubCatalog {
       label: 'Bảo hiểm',
       desc: 'BHXH, BHYT, BHTN, lương cơ sở',
       accent: HrmPageChrome.primaryNavy,
-      groupTitle: 'Chính sách lương',
+      groupTitle: 'Lương & chính sách',
       moduleCode: 'Insurance',
     ),
     SettingsHubItemDef(
@@ -116,7 +120,7 @@ class SettingsHubCatalog {
       label: 'Thuế TNCN',
       desc: 'Bậc thuế, giảm trừ gia cảnh',
       accent: HrmPageChrome.primaryNavy,
-      groupTitle: 'Chính sách lương',
+      groupTitle: 'Lương & chính sách',
       moduleCode: 'Tax',
     ),
     SettingsHubItemDef(
@@ -125,7 +129,7 @@ class SettingsHubCatalog {
       label: 'Lương sản phẩm',
       desc: 'Nhóm SP, sản phẩm, đơn giá theo bậc',
       accent: HrmPageChrome.primaryNavy,
-      groupTitle: 'Chính sách lương',
+      groupTitle: 'Lương & chính sách',
       moduleCode: 'ProductSalary',
     ),
     SettingsHubItemDef(
@@ -134,16 +138,16 @@ class SettingsHubCatalog {
       label: 'Thiết lập lương',
       desc: 'Bảng lương, tham số tính lương nhân viên',
       accent: HrmPageChrome.primaryNavy,
-      groupTitle: 'Chính sách lương',
+      groupTitle: 'Lương & chính sách',
       moduleCode: 'SalarySettings',
     ),
     SettingsHubItemDef(
       index: 7,
       icon: Icons.manage_accounts,
-      label: 'Tài khoản',
+      label: 'Tài khoản nhân viên',
       desc: 'Người dùng, kích hoạt, vai trò',
       accent: HrmPageChrome.primaryNavy,
-      groupTitle: 'Quản trị hệ thống',
+      groupTitle: 'Người dùng & bảo mật',
       moduleCode: 'UserManagement',
     ),
     SettingsHubItemDef(
@@ -152,16 +156,16 @@ class SettingsHubCatalog {
       label: 'Phân quyền',
       desc: 'Ma trận quyền, vai trò, module',
       accent: HrmPageChrome.primaryNavy,
-      groupTitle: 'Quản trị hệ thống',
+      groupTitle: 'Người dùng & bảo mật',
       moduleCode: 'Role',
     ),
     SettingsHubItemDef(
       index: 9,
       icon: Icons.settings_suggest,
-      label: 'Hệ thống',
+      label: 'Tham số hệ thống',
       desc: 'Giờ kết thúc ngày, tham số vận hành',
       accent: HrmPageChrome.primaryNavy,
-      groupTitle: 'Quản trị hệ thống',
+      groupTitle: 'Người dùng & bảo mật',
       moduleCode: 'SystemSettings',
     ),
     SettingsHubItemDef(
@@ -170,7 +174,7 @@ class SettingsHubCatalog {
       label: 'Chi nhánh',
       desc: 'Quản lý chi nhánh, cây chi nhánh, thống kê',
       accent: HrmPageChrome.primaryNavy,
-      groupTitle: 'Quản trị hệ thống',
+      groupTitle: 'Người dùng & bảo mật',
       moduleCode: 'Branch',
     ),
     SettingsHubItemDef(
@@ -179,7 +183,7 @@ class SettingsHubCatalog {
       label: 'Thiết bị truy cập',
       desc: 'Nhả điện thoại / web / POS chiếm slot gói dịch vụ',
       accent: HrmPageChrome.primaryNavy,
-      groupTitle: 'Quản trị hệ thống',
+      groupTitle: 'Người dùng & bảo mật',
       moduleCode: 'SettingsHub',
     ),
     SettingsHubItemDef(
@@ -188,34 +192,34 @@ class SettingsHubCatalog {
       label: 'Mẫu in',
       desc: 'Hóa đơn K58/K80, tem 50×30… — thiết kế mẫu in',
       accent: HrmPageChrome.primaryNavy,
-      groupTitle: 'Thiết lập POS',
+      groupTitle: 'Bán hàng, thanh toán & in',
       moduleCode: 'PosPrintTemplates',
     ),
     SettingsHubItemDef(
       index: 16,
       icon: Icons.storefront_outlined,
-      label: 'Ngành hàng & bán hàng',
+      label: 'Ngành hàng & cách bán',
       desc: 'Hồ sơ ngành, hủy/trả hàng',
       accent: HrmPageChrome.primaryNavy,
-      groupTitle: 'Thiết lập POS',
+      groupTitle: 'Bán hàng, thanh toán & in',
       moduleCode: 'SettingsHub',
     ),
     SettingsHubItemDef(
       index: 17,
       icon: Icons.store_outlined,
-      label: 'Thiết lập cửa hàng',
+      label: 'Thông tin cửa hàng',
       desc: 'Tên, địa chỉ, VAT, phụ thu, phí giao hàng',
       accent: HrmPageChrome.primaryNavy,
-      groupTitle: 'Thiết lập POS',
+      groupTitle: 'Bán hàng, thanh toán & in',
       moduleCode: 'SettingsHub',
     ),
     SettingsHubItemDef(
       index: 28,
       icon: Icons.account_balance_outlined,
-      label: 'Cổng thanh toán',
+      label: 'Tài khoản nhận tiền',
       desc: 'Bật/tắt VietQR, Tingee · tài khoản NH · token',
       accent: HrmPageChrome.primaryNavy,
-      groupTitle: 'Thiết lập POS',
+      groupTitle: 'Bán hàng, thanh toán & in',
       moduleCode: 'SettingsHub',
     ),
     SettingsHubItemDef(
@@ -224,7 +228,7 @@ class SettingsHubCatalog {
       label: 'Đơn vị giao hàng',
       desc: 'GHN, GHTK, SPX Express, Viettel Post, AhaMove — token, tạo vận đơn',
       accent: HrmPageChrome.primaryNavy,
-      groupTitle: 'Thiết lập POS',
+      groupTitle: 'Bán hàng, thanh toán & in',
       moduleCode: 'PosShipping',
     ),
     SettingsHubItemDef(
@@ -233,34 +237,26 @@ class SettingsHubCatalog {
       label: 'Hóa đơn điện tử',
       desc: 'Viettel / Easy / MISA / VNPT — xuất, xem lại, hủy, thay thế, email, báo cáo',
       accent: HrmPageChrome.primaryNavy,
-      groupTitle: 'Thiết lập POS',
+      groupTitle: 'Bán hàng, thanh toán & in',
       moduleCode: 'PosEInvoice',
     ),
     SettingsHubItemDef(
       index: 18,
-      icon: Icons.print,
-      label: 'Máy in (thiết bị)',
-      desc: 'In hoá đơn, Bluetooth/LAN/USB, tem ly',
+      icon: Icons.print_outlined,
+      label: 'Máy in',
+      desc: 'Máy in trên máy này (Bluetooth, LAN, USB) và máy in cloud qua Print Agent',
       accent: HrmPageChrome.primaryNavy,
-      groupTitle: 'Thiết lập POS',
+      groupTitle: 'Bán hàng, thanh toán & in',
       moduleCode: 'PosPrinters',
-    ),
-    SettingsHubItemDef(
-      index: 29,
-      icon: Icons.cloud_outlined,
-      label: 'Máy in cloud',
-      desc: 'Cloud / Print Agent — bật theo gói dịch vụ',
-      accent: HrmPageChrome.primaryNavy,
-      groupTitle: 'Thiết lập POS',
-      moduleCode: 'PosStorePrinters',
+      altModuleCodes: ['PosStorePrinters'],
     ),
     SettingsHubItemDef(
       index: 19,
       icon: Icons.table_restaurant_outlined,
-      label: 'Quản lý bàn / phòng',
+      label: 'Bàn / phòng',
       desc: 'Sơ đồ mặt bằng, tạo/sửa bàn ghế',
       accent: HrmPageChrome.primaryNavy,
-      groupTitle: 'Thiết lập POS',
+      groupTitle: 'Bán hàng, thanh toán & in',
       moduleCode: 'SettingsHub',
     ),
     SettingsHubItemDef(
@@ -269,34 +265,25 @@ class SettingsHubCatalog {
       label: 'Màn hình phụ',
       desc: 'Customer display, media khi bán',
       accent: HrmPageChrome.primaryNavy,
-      groupTitle: 'Thiết lập POS',
+      groupTitle: 'Bán hàng, thanh toán & in',
       moduleCode: 'PosCustomerDisplay',
-    ),
-    SettingsHubItemDef(
-      index: 24,
-      icon: Icons.people_outline,
-      label: 'Khách hàng POS',
-      desc: 'CRM khách, điểm, công nợ',
-      accent: HrmPageChrome.primaryNavy,
-      groupTitle: 'Thiết lập POS',
-      moduleCode: 'PosCustomers',
     ),
     SettingsHubItemDef(
       index: 11,
       icon: Icons.auto_awesome,
-      label: 'Thiết lập AI',
+      label: 'Trợ lý AI',
       desc: 'Gemini, bật/tắt AI',
       accent: HrmPageChrome.primaryNavy,
-      groupTitle: 'Tích hợp',
+      groupTitle: 'Tích hợp & thông báo',
       moduleCode: 'AIGemini',
     ),
     SettingsHubItemDef(
       index: 21,
       icon: Icons.notifications_active_outlined,
-      label: 'Thiết lập thông báo',
+      label: 'Thông báo',
       desc: 'Bật/tắt thông báo chấm công & công việc',
       accent: HrmPageChrome.primaryNavy,
-      groupTitle: 'Tích hợp',
+      groupTitle: 'Tích hợp & thông báo',
       moduleCode: 'NotificationSettings',
     ),
   ];
@@ -304,9 +291,15 @@ class SettingsHubCatalog {
   static List<int> get defaultOrder =>
       allItems.map((item) => item.index).toList();
 
+  /// Mã số cũ đã gộp vào mục khác (lối tắt / «mở gần đây» cũ vẫn mở đúng chỗ).
+  static const legacyIndex = {29: 18, 24: -1};
+
+  static int canonicalIndex(int index) => legacyIndex[index] ?? index;
+
   static SettingsHubItemDef? byIndex(int index) {
+    final i = canonicalIndex(index);
     for (final item in allItems) {
-      if (item.index == index) return item;
+      if (item.index == i) return item;
     }
     return null;
   }

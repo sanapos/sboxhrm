@@ -33,11 +33,13 @@ import 'penalty_settings_screen.dart';
 import 'pos/pos_customer_display_settings_screen.dart';
 import 'pos/pos_einvoice_settings_screen.dart';
 import 'pos/pos_payment_gateway_settings_screen.dart';
-import 'pos/pos_printer_settings_hub_screen.dart';
+import 'pos/pos_cancel_return_settings_screen.dart';
+import 'pos/pos_loyalty_settings_screen.dart';
+import 'pos/pos_printers_tabs_screen.dart';
+import 'pos/pos_qr_table_order_screen.dart';
 import 'pos/pos_resource_floor_screen.dart';
-import 'pos/pos_sell_industry_settings_hub_screen.dart';
+import 'pos/pos_sell_industry_settings_screen.dart';
 import 'pos/pos_shipping_settings_screen.dart';
-import 'pos/pos_store_printers_screen.dart';
 import 'pos/pos_store_settings_hub_screen.dart';
 import 'pos_print_templates_screen.dart';
 import 'product_salary_settings_screen.dart';
@@ -90,6 +92,15 @@ class SettingsHubScreen extends StatefulWidget {
 
   /// Mở thẳng một mục khi điều hướng tới Thiết lập (đặt giá trị kể cả khi đang ở Thiết lập).
   static final ValueNotifier<int?> pendingSubIndex = ValueNotifier<int?>(null);
+
+  /// Mở thẳng một mục theo mã chữ cố định (vd `printers`, `printTemplates`, `device`).
+  /// Gọi trước khi điều hướng tới Thiết lập SBOX. Trả về false nếu mã không tồn tại.
+  static bool openCode(String code) {
+    final item = SettingsHubCatalog.byCode(code);
+    if (item == null) return false;
+    pendingSubIndex.value = item.index;
+    return true;
+  }
 
   /// Quay lại từ trang con Thiết lập.
   static void goBack(BuildContext context) {
@@ -183,12 +194,18 @@ class _SettingsHubScreenState extends State<SettingsHubScreen> {
       final p = await SharedPreferences.getInstance();
       final list = p.getStringList(_recentKey) ?? const [];
       if (!mounted) return;
-      setState(() => _recent = list.map(int.tryParse).whereType<int>().toList());
+      setState(() => _recent = list
+          .map(int.tryParse)
+          .whereType<int>()
+          .map(SettingsHubCatalog.canonicalIndex)
+          .toSet()
+          .toList());
     } catch (_) {}
   }
 
   Future<void> _remember(int index) async {
-    _recent = [index, ..._recent.where((i) => i != index)].take(6).toList();
+    final i = SettingsHubCatalog.canonicalIndex(index);
+    _recent = [i, ..._recent.where((x) => x != i)].take(6).toList();
     try {
       final p = await SharedPreferences.getInstance();
       await p.setStringList(_recentKey, _recent.map((e) => '$e').toList());
@@ -222,7 +239,10 @@ class _SettingsHubScreenState extends State<SettingsHubScreen> {
 
   List<SettingsHubItemDef> _orderedHubItems() => SettingsHubCatalog.applyConfig(_permittedHubItems(), _sidebarConfig);
 
-  bool _isPermitted(int index) => _permittedHubItems().any((i) => i.index == index);
+  bool _isPermitted(int index) {
+    final i = SettingsHubCatalog.canonicalIndex(index);
+    return _permittedHubItems().any((x) => x.index == i);
+  }
 
   Future<void> _openSidebarConfigDialog() async {
     final permitted = _permittedHubItems();
@@ -329,11 +349,11 @@ class _SettingsHubScreenState extends State<SettingsHubScreen> {
       case 15:
         return const PosPrintTemplatesScreen(embeddedInSettings: true);
       case 16:
-        return const PosSellIndustrySettingsHubScreen(embeddedInSettings: true);
+        return const PosSellIndustrySettingsScreen(embeddedInSettings: true);
       case 17:
         return const PosStoreSettingsHubScreen();
       case 18:
-        return const PosPrinterSettingsHubScreen();
+        return const PosPrintersTabsScreen();
       case 19:
         return const PosResourceFloorScreen(manageMode: true, embedded: true, showAppBar: false);
       case 21:
@@ -349,11 +369,17 @@ class _SettingsHubScreenState extends State<SettingsHubScreen> {
       case 28:
         return const PosPaymentGatewaySettingsScreen();
       case 29:
-        return const PosStorePrintersScreen(embeddedInSettings: true);
+        return const PosPrintersTabsScreen(cloudFirst: true);
       case 30:
         return const StoreAccessDevicesScreen();
       case 31:
         return const AnnualLeavePolicyScreen();
+      case 32:
+        return const PosQrTableOrderScreen();
+      case 33:
+        return const PosLoyaltySettingsScreen();
+      case 34:
+        return const PosCancelReturnSettingsScreen();
       default:
         return const SizedBox();
     }
@@ -383,7 +409,7 @@ class _SettingsHubScreenState extends State<SettingsHubScreen> {
     return Scaffold(
       backgroundColor: PosTheme.background,
       appBar: AppBar(
-        title: Text(tr(sub == null ? 'Thiết lập' : (SettingsHubScreen.activeSubPageTitle ?? 'Thiết lập'))),
+        title: Text(tr(sub == null ? 'Thiết lập SBOX' : (SettingsHubScreen.activeSubPageTitle ?? 'Thiết lập SBOX'))),
         leading: IconButton(
           icon: const Icon(Icons.arrow_back),
           onPressed: sub == null ? () => Navigator.maybePop(context) : _requestClose,
@@ -443,7 +469,7 @@ class _SettingsHubScreenState extends State<SettingsHubScreen> {
                 _navTile(
                   icon: i.icon,
                   label: i.label,
-                  selected: _selectedIndex == i.index,
+                  selected: _selectedIndex != null && SettingsHubCatalog.canonicalIndex(_selectedIndex!) == i.index,
                   status: _healthOf(i)?['status']?.toString(),
                   onTap: () => _requestOpen(i.index),
                 ),
@@ -573,7 +599,7 @@ class _SettingsHubScreenState extends State<SettingsHubScreen> {
   Widget _header(bool wide) {
     final title = Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
       Text(tr('Thiết lập SBOX'), style: const TextStyle(fontSize: 22, fontWeight: FontWeight.w800, color: SboxColors.slate900)),
-      Text(tr('Cấu hình cửa hàng, nhân sự, bán hàng, thanh toán và thiết bị'), style: const TextStyle(color: SboxColors.slate500)),
+      Text(tr('Mọi cấu hình của cửa hàng: bán hàng, thanh toán, in ấn, nhân sự, lương, người dùng'), style: const TextStyle(color: SboxColors.slate500)),
     ]);
     final customize = _canCustomizeSidebar() && !wide
         ? IconButton(
@@ -698,7 +724,19 @@ class _SettingsHubScreenState extends State<SettingsHubScreen> {
     final bypassPackage = StoreRoleHelper.bypassesPackageFilter(authUser?.role);
     final permProvider = Provider.of<PermissionProvider>(context, listen: false);
     final allowedModules = authUser?.allowedModules;
+    bool allowed(String? code) =>
+        PermissionNavigation.isAllowedByPackageOrRole(
+          code,
+          allowedModules: allowedModules,
+          perm: permProvider,
+          bypassPackageFilter: bypassPackage,
+        ) &&
+        (code == null || permProvider.canViewExact(code));
     return items.where((item) {
+      // Mục có mã thay thế (Máy in = thiết bị hoặc cloud): đủ một mã là thấy; từng tab tự lọc quyền.
+      if (item.altModuleCodes.isNotEmpty) {
+        return [item.moduleCode, ...item.altModuleCodes].any(allowed);
+      }
       if (!PermissionNavigation.isAllowedByPackageOrRole(
         item.moduleCode,
         allowedModules: allowedModules,

@@ -174,7 +174,7 @@ public static class FeatureModuleCatalog
         new("HkdBooks", "Sổ thuế hộ kinh doanh", "Sổ sách thuế HKD (TT 152/2025)", CatSellReport, 156),
 
         // ══════════ THIẾT LẬP BÁN HÀNG ══════════
-        new("SettingsHub", "Trung tâm thiết lập", "Ngành hàng, thông tin cửa hàng, sơ đồ bàn, cổng chuyển khoản", CatSellSetup, 160),
+        new("SettingsHub", "Thiết lập SBOX", "Mở Thiết lập SBOX; thông tin cửa hàng, ngành hàng & cách bán, bàn / phòng, tích điểm, kiểm soát hủy / trả", CatSellSetup, 160),
         new("PosPrintTemplates", "Mẫu in", "Mẫu hóa đơn, phiếu bếp, tem", CatSellSetup, 161),
         new("PosPrinters", "Máy in thiết bị", "Bluetooth / LAN / USB trên máy này", CatSellSetup, 162),
         new("PosStorePrinters", "Máy in cloud", "Print Agent dùng chung cửa hàng", CatSellSetup, 163),
@@ -428,7 +428,7 @@ public static class FeatureModuleCatalog
     {
         "Dashboard" => "Tổng quan",
         "AIGemini" => "Thiết lập trí tuệ nhân tạo",
-        "SettingsHub" => "Thiết lập cửa hàng",
+        "SettingsHub" => "Thiết lập SBOX",
         _ => m.DisplayName,
     };
 

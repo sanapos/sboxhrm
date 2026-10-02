@@ -781,7 +781,7 @@ Future<WarehouseSlipPrintResult> printWarehouseSlipWithMethod({
           attempts: [
             WarehouseSlipPrinterAttempt(
               lines: order.lines,
-              errorMessage: 'Chưa bật máy in cục bộ trong Thiết lập in',
+              errorMessage: 'Chưa bật máy in cục bộ trong Thiết lập SBOX › Máy in',
               reason: PendingWarehousePrintReason.dispatchFailed,
             ),
           ],

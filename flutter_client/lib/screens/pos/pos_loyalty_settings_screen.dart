@@ -1,3 +1,4 @@
+import '../../widgets/hrm_page_chrome.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:intl/intl.dart';
@@ -125,7 +126,7 @@ class _PosLoyaltySettingsScreenState extends State<PosLoyaltySettingsScreen> {
 
     return Scaffold(
       backgroundColor: PosTheme.background,
-      appBar: AppBar(
+      appBar: HrmPageChrome.isHubBody(context) ? null : AppBar(
         title: Text(tr('Tích điểm & đổi điểm')),
         backgroundColor: PosTheme.kiotBlue,
         foregroundColor: Colors.white,
@@ -151,6 +152,15 @@ class _PosLoyaltySettingsScreenState extends State<PosLoyaltySettingsScreen> {
             ),
         ],
       ),
+      floatingActionButton: HrmPageChrome.isHubBody(context) && _settings != null
+          ? FloatingActionButton.extended(
+              onPressed: _saving ? null : _save,
+              icon: _saving
+                  ? const SizedBox(width: 18, height: 18, child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white))
+                  : const Icon(Icons.save_outlined),
+              label: Text(tr('Lưu')),
+            )
+          : null,
       body: body,
     );
   }

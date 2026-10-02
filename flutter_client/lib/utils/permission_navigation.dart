@@ -261,7 +261,7 @@ class PermissionNavigation {
       case 'Settings':
         return 'Cài đặt';
       case 'SettingsHub':
-        return 'Thiết lập POS';
+        return 'Thiết lập SBOX';
       default:
         return moduleCode;
     }

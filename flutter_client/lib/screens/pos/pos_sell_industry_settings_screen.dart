@@ -50,11 +50,11 @@ class _PosSellIndustrySettingsScreenState
   String get _title {
     final noun = _settings?.sellProfile.resourceNoun;
     return switch (widget.section) {
-      'profile' => 'Ngành hàng & chế độ bán',
+      'profile' => 'Ngành hàng & cách bán',
       'resources' => (noun != null && noun.isNotEmpty)
           ? '${noun[0].toUpperCase()}${noun.substring(1)} / tạm tính'
           : 'Tạm tính & tồn kho',
-      _ => 'Ngành hàng & bán hàng',
+      _ => 'Ngành hàng & cách bán',
     };
   }
 

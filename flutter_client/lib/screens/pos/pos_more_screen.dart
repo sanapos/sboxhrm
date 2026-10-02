@@ -35,24 +35,14 @@ import 'pos_qr_online_orders_screen.dart';
 import 'pos_kds_screen.dart';
 import 'pos_end_of_day_screen.dart';
 import 'pos_split_report_screens.dart';
-import 'pos_customer_display_settings_screen.dart';
 import 'pos_transfer_confirm_screen.dart';
-import 'pos_payment_gateway_settings_screen.dart';
-import 'pos_shipping_settings_screen.dart';
-import 'pos_store_printers_screen.dart';
-import 'pos_printer_settings_hub_screen.dart';
-import 'pos_einvoice_settings_screen.dart';
 import 'pos_einvoice_report_screen.dart';
 import '../pos_print_templates_screen.dart';
-import 'pos_sell_industry_settings_hub_screen.dart';
-import 'pos_store_settings_hub_screen.dart';
 import 'pos_vouchers_screen.dart';
 import '../settings_hub_screen.dart';
 import 'pos_quote_list_screen.dart';
-import 'pos_app_settings_screen.dart';
-import 'pos_accounts_screen.dart';
+import '../settings_screen.dart';
 import 'pos_gym_checkin_screen.dart';
-import 'pos_role_permissions_screen.dart';
 import 'package:zkteco_flutter_client/l10n/app_tr.dart';
 
 import '../../theme/sbox_tokens.dart';
@@ -179,6 +169,8 @@ class _PosMoreScreenState extends State<PosMoreScreen> {
                         'PosPurchaseReceipts', const WhAdaptivePurchaseReceiptList()),
                     _Item('Trả hàng nhập', Icons.undo_outlined, 'PosPurchaseReturns',
                         const WhAdaptivePurchaseReturnList()),
+                    _Item('Hóa đơn điện tử', Icons.receipt_long_outlined, 'PosEInvoice',
+                        const PosEInvoiceReportScreen()),
                     _Item('Cuối ngày', Icons.nightlight_round, 'PosReportEndOfDay',
                         const PosEndOfDayScreen()),
                     _Item('Ca thu ngân', Icons.account_balance_wallet_outlined, 'PosCashierShift',
@@ -241,122 +233,33 @@ class _PosMoreScreenState extends State<PosMoreScreen> {
                   ],
                 ),
                 const SizedBox(height: 12),
+                // Hai lối vào duy nhất: «Cài đặt» (của tôi) và «Thiết lập SBOX» (cấu hình cửa hàng).
                 Material(
                   color: Colors.white,
                   borderRadius: BorderRadius.circular(14),
-                  child: ListTile(
-                    leading: const Icon(Icons.settings_outlined,
-                        color: PosTheme.kiotBlue),
-                    title: Text(
-                      tr('Cài đặt'),
-                      style: const TextStyle(fontWeight: FontWeight.w700),
+                  child: Column(children: [
+                    ListTile(
+                      leading: const Icon(Icons.person_outline, color: PosTheme.kiotBlue),
+                      title: Text(tr('Cài đặt'), style: const TextStyle(fontWeight: FontWeight.w700)),
+                      subtitle: Text(tr('Hồ sơ, mật khẩu, giao diện, ngôn ngữ, phiên bản')),
+                      trailing: const Icon(Icons.chevron_right),
+                      onTap: () => Navigator.of(context).push(
+                        MaterialPageRoute<void>(builder: (_) => const SettingsScreen(showAppBar: true)),
+                      ),
                     ),
-                    subtitle: Text(
-                      tr('Phiên bản, ngôn ngữ, điều khoản, chính sách'),
-                    ),
-                    trailing: const Icon(Icons.chevron_right),
-                    onTap: () {
-                      Navigator.of(context).push(
-                        MaterialPageRoute<void>(
-                          builder: (_) => const PosAppSettingsScreen(),
+                    if (_canOpenSetup(perm)) ...[
+                      const Divider(height: 1),
+                      ListTile(
+                        leading: const Icon(Icons.tune_rounded, color: PosTheme.kiotBlue),
+                        title: Text(tr('Thiết lập SBOX'), style: const TextStyle(fontWeight: FontWeight.w700)),
+                        subtitle: Text(tr('Cửa hàng, bán hàng, thanh toán, máy in, người dùng')),
+                        trailing: const Icon(Icons.chevron_right),
+                        onTap: () => Navigator.of(context).push(
+                          MaterialPageRoute<void>(builder: (_) => const SettingsHubScreen()),
                         ),
-                      );
-                    },
-                  ),
-                ),
-                const SizedBox(height: 12),
-                _section(
-                  context,
-                  perm,
-                  title: 'Thiết lập POS',
-                  items: [
-                    _Item(
-                      'Thiết lập POS',
-                      Icons.settings_outlined,
-                      'SettingsHub',
-                      const SettingsHubScreen(),
-                      altModules: const [
-                        'PosPrinters',
-                        'PosStorePrinters',
-                        'PosPrintTemplates',
-                        'PosEInvoice',
-                        'PosShipping',
-                        'PosCustomerDisplay',
-                      ],
-                    ),
-                    _Item(
-                      'Ngành hàng',
-                      Icons.storefront_outlined,
-                      'SettingsHub',
-                      const PosSellIndustrySettingsHubScreen(),
-                    ),
-                    _Item(
-                      'Màn hình phụ',
-                      Icons.tv_outlined,
-                      'PosCustomerDisplay',
-                      const PosCustomerDisplaySettingsScreen(),
-                    ),
-                    _Item(
-                      'Cổng thanh toán CK',
-                      Icons.account_balance_outlined,
-                      'SettingsHub',
-                      const PosPaymentGatewaySettingsScreen(),
-                    ),
-                    _Item(
-                      'Đơn vị giao hàng',
-                      Icons.local_shipping_outlined,
-                      'PosShipping',
-                      const PosShippingSettingsScreen(),
-                    ),
-                    _Item(
-                      'Máy in (thiết bị)',
-                      Icons.print,
-                      'PosPrinters',
-                      const PosPrinterSettingsHubScreen(),
-                    ),
-                    _Item(
-                      'Máy in cloud',
-                      Icons.cloud_outlined,
-                      'PosStorePrinters',
-                      const PosStorePrintersScreen(),
-                    ),
-                    _Item(
-                      'Mẫu in',
-                      Icons.print_outlined,
-                      'PosPrintTemplates',
-                      const PosPrintTemplatesScreen(),
-                    ),
-                    _Item(
-                      'Hóa đơn điện tử',
-                      Icons.request_quote_outlined,
-                      'PosEInvoice',
-                      const PosEInvoiceSettingsScreen(),
-                    ),
-                    _Item(
-                      'Quản lý HĐĐT',
-                      Icons.receipt_long_outlined,
-                      'PosEInvoice',
-                      const PosEInvoiceReportScreen(),
-                    ),
-                    _Item(
-                      'Thiết lập cửa hàng',
-                      Icons.store_outlined,
-                      'SettingsHub',
-                      const PosStoreSettingsHubScreen(),
-                    ),
-                    _Item(
-                      'Tài khoản',
-                      Icons.manage_accounts_outlined,
-                      'UserManagement',
-                      const PosAccountsScreen(),
-                    ),
-                    _Item(
-                      'Phân quyền',
-                      Icons.security_outlined,
-                      'Role',
-                      const PosRolePermissionsScreen(),
-                    ),
-                  ],
+                      ),
+                    ],
+                  ]),
                 ),
                 if (PermissionNavigation.canAccessModule(
                   'PosSalesReport',
@@ -496,6 +399,23 @@ class _PosMoreScreenState extends State<PosMoreScreen> {
           .toList(),
     );
   }
+
+  /// Thiết lập SBOX: thấy khi có quyền ít nhất một mục cấu hình.
+  bool _canOpenSetup(PermissionProvider perm) => _canSeeItem(
+        perm,
+        const _Item('Thiết lập SBOX', Icons.tune_rounded, 'SettingsHub', SizedBox.shrink(), altModules: [
+          'PosPrinters',
+          'PosStorePrinters',
+          'PosPrintTemplates',
+          'PosEInvoice',
+          'PosShipping',
+          'PosCustomerDisplay',
+          'PosQrOrder',
+          'UserManagement',
+          'Role',
+        ]),
+        context.read<AuthProvider>(),
+      );
 
   static bool _canSeeItem(PermissionProvider perm, _Item item, AuthProvider auth) {
     if (!item.visible) return false;

@@ -593,11 +593,7 @@ class _AiAssistantSheetState extends State<AiAssistantSheet> {
         NavigationNotifier.goToModule('PosProducts');
         break;
       case 'nav_pos_printers':
-        final printers = SettingsHubCatalog.allItems
-            .where((e) => e.moduleCode == 'PosPrinters');
-        if (printers.isNotEmpty) {
-          SettingsHubScreen.pendingSubIndex.value = printers.first.index;
-        }
+        SettingsHubScreen.openCode('printers');
         NavigationNotifier.goTo(NavigationNotifier.settingsHub);
         break;
       default:

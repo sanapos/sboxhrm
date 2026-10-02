@@ -1472,7 +1472,7 @@ class _PosKdsScreenState extends State<PosKdsScreen> {
                   ),
                   PopupMenuItem(
                     value: 'pos_settings',
-                    child: Text(tr('Thiết lập POS')),
+                    child: Text(tr('Thiết lập SBOX')),
                   ),
                 ],
               ),

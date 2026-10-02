@@ -175,7 +175,7 @@ class PermissionRoleCatalog {
     ),
     PermissionUiGroup(
       id: 'pos_settings',
-      title: 'Thiết lập POS',
+      title: 'Thiết lập SBOX — bán hàng',
       description:
           'Tick từng phần cho Thu ngân / Thu chi: máy in, mẫu in, cửa hàng, HĐĐT…',
       icon: Icons.print_outlined,
@@ -225,7 +225,7 @@ class PermissionRoleCatalog {
     ),
     PermissionUiGroup(
       id: 'hrm_settings',
-      title: 'Thiết lập Sbox',
+      title: 'Thiết lập SBOX — nhân sự',
       description: 'Ca, ngày lễ, máy chấm công, phụ cấp, thuế, chi nhánh',
       icon: Icons.tune,
       color: SboxColors.slate500,

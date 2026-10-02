@@ -1,3 +1,4 @@
+import '../../widgets/hrm_page_chrome.dart';
 import 'package:flutter/material.dart';
 
 import '../../models/cancel_return_reason_config.dart';
@@ -84,7 +85,7 @@ class _PosCancelReturnSettingsScreenState
 
     return Scaffold(
       backgroundColor: PosTheme.background,
-      appBar: AppBar(
+      appBar: HrmPageChrome.isHubBody(context) ? null : AppBar(
         title: Text(tr('Kiểm soát hủy / trả')),
         backgroundColor: PosTheme.kiotBlue,
         foregroundColor: Colors.white,
@@ -103,7 +104,9 @@ class _PosCancelReturnSettingsScreenState
             ),
         ],
       ),
-      body: body,
+      body: HrmPageChrome.isHubBody(context) && _saving
+          ? Column(children: [const LinearProgressIndicator(minHeight: 2), Expanded(child: body)])
+          : body,
     );
   }
 

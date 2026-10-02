@@ -83,7 +83,7 @@ class _PosVietQrPaymentPanelState extends State<PosVietQrPaymentPanel> {
           borderRadius: BorderRadius.circular(10),
           border: Border.all(color: Colors.orange.shade200),
         ),
-        child: Text(tr('Chưa có tài khoản ngân hàng. Vào Thiết lập cửa hàng để thêm.'),
+        child: Text(tr('Chưa có tài khoản ngân hàng. Vào Thiết lập SBOX › Tài khoản nhận tiền để thêm.'),
           style: TextStyle(fontSize: 12),
         ),
       );

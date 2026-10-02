@@ -324,7 +324,7 @@ Future<PosSellPrintSettings?> showPosSellPrintPopover(
                           OutlinedButton(
                             onPressed: () {
                               Navigator.pop(ctx);
-                              SettingsHubScreen.pendingSubIndex.value = 15;
+                              SettingsHubScreen.openCode('printTemplates');
                               NavigationNotifier.goToModule('SettingsHub');
                             },
                             style: OutlinedButton.styleFrom(

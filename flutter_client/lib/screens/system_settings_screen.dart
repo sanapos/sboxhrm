@@ -7,6 +7,7 @@ import '../providers/permission_provider.dart';
 import '../services/api_service.dart';
 import '../utils/shift_records_calculator.dart';
 import '../widgets/sbox/sbox_ui.dart';
+import '../widgets/settings/sample_data_section.dart';
 import '../widgets/settings/settings_page.dart';
 
 /// Giá trị tham số hệ thống (AppSettings của cửa hàng).
@@ -239,6 +240,8 @@ class _SystemSettingsScreenState extends State<SystemSettingsScreen> {
         _dayEndSection(edit),
         _creditSection(edit),
         _approvalSection(edit),
+        // Dữ liệu mẫu (trước nằm ở «Cài đặt» cá nhân) — thao tác trên dữ liệu cả cửa hàng.
+        if (edit) const SampleDataSection(),
       ],
     );
   }

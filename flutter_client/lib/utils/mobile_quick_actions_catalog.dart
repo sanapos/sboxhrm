@@ -133,7 +133,7 @@ abstract final class MobileQuickActionsCatalog {
     ),
     MobileQuickActionDef(
       moduleCode: 'SettingsHub',
-      label: 'Cài đặt',
+      label: 'Thiết lập SBOX',
       icon: Icons.settings_outlined,
     ),
     MobileQuickActionDef(

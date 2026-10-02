@@ -14,7 +14,7 @@ const landingIndustrySteps = <LandingUsageGuideStep>[
         'Ngành hàng quyết định màn bán hàng hiện gì: sơ đồ bàn/ghế/phòng, tính giờ, gửi bếp, gói buổi, hoa hồng. '
         'Chọn đúng ngành trước khi nhập hàng hóa.',
     bullets: [
-      'Mở: Cài đặt → Ngành hàng & chế độ bán → Chọn ngành hàng → Đổi ngành (lưu ngay, bật sẵn cấu hình mặc định của ngành)',
+      'Mở: Thiết lập SBOX → Ngành hàng & cách bán → Chọn ngành hàng → Đổi ngành (lưu ngay, bật sẵn cấu hình mặc định của ngành)',
       'Bán lẻ / Siêu thị — quầy bán, quét mã vạch, cân điện tử, tồn kho. Không có sơ đồ bàn',
       'Nhà hàng / Cafe — sơ đồ bàn, thực đơn, gửi bếp / KDS, QR order tại bàn, hỏi số khách khi mở bàn',
       'Karaoke / Bi-a / Phòng giờ — sơ đồ phòng, tính tiền giờ theo block, gói giờ đếm ngược, tạm dừng / chốt giờ. Bắt buộc chọn phòng khi bán',
@@ -116,7 +116,7 @@ const landingIndustrySteps = <LandingUsageGuideStep>[
     desc:
         'Mỗi hàng hóa / dịch vụ / combo tự khai cách tính hoa hồng. Gói liệu trình chọn tính 1 lần khi bán hoặc tính cho người làm từng buổi.',
     bullets: [
-      'Bật: Cài đặt → Ngành hàng & chế độ bán → Hoa hồng nhân viên',
+      'Bật: Thiết lập SBOX → Ngành hàng & cách bán → Hoa hồng nhân viên',
       'Sản phẩm → mục «Hoa hồng nhân viên»: % trên doanh thu dòng / phần combo, Số tiền cố định / 1 lần, hoặc % trên giá niêm yết',
       '«1 lần khi bán»: hoa hồng ghi ngay khi thanh toán cho NV được chọn trên hóa đơn. Combo: tiền combo chia theo giá niêm yết từng thành phần, mỗi thành phần tính theo NV được chọn',
       '«Mỗi buổi làm»: lúc bán gói không cần chọn NV. Mỗi lần trừ buổi, NV làm buổi đó nhận hoa hồng; tiền 1 buổi = tiền bán gói (hoặc phần combo) ÷ số buổi',

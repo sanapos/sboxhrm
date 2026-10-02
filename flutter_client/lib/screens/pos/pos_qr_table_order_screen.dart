@@ -1,3 +1,4 @@
+import '../../widgets/hrm_page_chrome.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 
@@ -633,7 +634,7 @@ class _PosQrTableOrderScreenState extends State<PosQrTableOrderScreen> {
     final pushed = PosHubScope.pushedSubPageOf(context);
     return Scaffold(
       backgroundColor: SboxColors.slate100,
-      appBar: AppBar(
+      appBar: HrmPageChrome.isHubBody(context) ? null : AppBar(
         backgroundColor: PosTheme.kiotBlue,
         foregroundColor: Colors.white,
         automaticallyImplyLeading: pushed,

@@ -21,8 +21,7 @@ import 'pos/pos_sell_industry_settings_hub_screen.dart';
 import 'pos/pos_einvoice_settings_screen.dart';
 import 'pos/pos_shipping_settings_screen.dart';
 import 'pos/pos_store_settings_hub_screen.dart';
-import 'pos/pos_printer_settings_hub_screen.dart';
-import 'pos/pos_store_printers_screen.dart';
+import 'pos/pos_printers_tabs_screen.dart';
 import 'pos/pos_payment_gateway_settings_screen.dart';
 import 'pos/pos_resource_floor_screen.dart';
 import 'pos/pos_appointment_day_screen.dart';
@@ -286,9 +285,9 @@ class _SettingsHubScreenState extends State<SettingsHubScreen> {
       case 27:
         return const PosShippingSettingsScreen();
       case 18:
-        return const PosPrinterSettingsHubScreen();
+        return const PosPrintersTabsScreen();
       case 29:
-        return const PosStorePrintersScreen(embeddedInSettings: true);
+        return const PosPrintersTabsScreen(cloudFirst: true);
       case 19:
         return const PosResourceFloorScreen(
           manageMode: true,
@@ -320,7 +319,7 @@ class _SettingsHubScreenState extends State<SettingsHubScreen> {
       return Scaffold(
         backgroundColor: PosTheme.background,
         appBar: AppBar(
-          title: Text(tr(SettingsHubScreen.activeSubPageTitle ?? 'Thiết lập POS')),
+          title: Text(tr(SettingsHubScreen.activeSubPageTitle ?? 'Thiết lập SBOX')),
           backgroundColor: PosTheme.kiotBlue,
           foregroundColor: Colors.white,
           elevation: 0,
@@ -342,7 +341,7 @@ class _SettingsHubScreenState extends State<SettingsHubScreen> {
     return Scaffold(
       backgroundColor: PosTheme.background,
       appBar: AppBar(
-        title: Text(tr('Thiết lập POS')),
+        title: Text(tr('Thiết lập SBOX')),
         backgroundColor: PosTheme.kiotBlue,
         foregroundColor: Colors.white,
         elevation: 0,
@@ -457,7 +456,7 @@ class _SettingsHubScreenState extends State<SettingsHubScreen> {
                   ),
                 ),
                 Text(
-                  tr(user?.fullName ?? 'Thiết lập POS'),
+                  tr(user?.fullName ?? 'Thiết lập SBOX'),
                   style: const TextStyle(
                     fontSize: 18,
                     fontWeight: FontWeight.bold,
@@ -497,7 +496,18 @@ class _SettingsHubScreenState extends State<SettingsHubScreen> {
     final permProvider =
         Provider.of<PermissionProvider>(context, listen: false);
     final allowedModules = authUser?.allowedModules;
+    bool allowed(String? code) =>
+        PermissionNavigation.isAllowedByPackageOrRole(
+          code,
+          allowedModules: allowedModules,
+          perm: permProvider,
+          bypassPackageFilter: bypassPackage,
+        ) &&
+        (code == null || permProvider.canViewExact(code));
     return items.where((item) {
+      if (item.altModuleCodes.isNotEmpty) {
+        return [item.moduleCode, ...item.altModuleCodes].any(allowed);
+      }
       if (!PermissionNavigation.isAllowedByPackageOrRole(
         item.moduleCode,
         allowedModules: allowedModules,
