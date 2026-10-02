@@ -1,3 +1,4 @@
+using ZKTecoADMS.Application.Helpers;
 using Microsoft.AspNetCore.Identity;
 using ZKTecoADMS.Application.Commands.SalaryProfiles.AssignSalaryProfile.SalaryProfileStrategies;
 using ZKTecoADMS.Application.DTOs.Benefits;
@@ -40,7 +41,7 @@ public class AssignBenefitHandler(
         var targetEmploymentType = (int)benefit.RateType <= 1 
             ? (EmploymentType)(int)benefit.RateType 
             : EmploymentType.Monthly;
-        if (employee.EmploymentType != targetEmploymentType)
+        if (employee.EmploymentType != targetEmploymentType && request.EffectiveDate.Date <= BenefitTimeline.VnToday())
         {
             employee.EmploymentType = targetEmploymentType;
             await employeeRepository.UpdateAsync(employee, cancellationToken);
@@ -62,24 +63,37 @@ public class AssignBenefitHandler(
             return AppResponse<EmployeeBenefitDto>.Error("Failed to configure employee benefit");
         }
 
-        employeeBenefit.EffectiveDate = request.EffectiveDate;
+        // Lịch sử theo ngày hiệu lực: bản đang chạy kết thúc cuối ngày hôm trước,
+        // bản bắt đầu từ ngày đó trở đi bị thay thế. Không xóa dữ liệu bảng lương cũ.
+        var effective = request.EffectiveDate.Date;
+        employeeBenefit.EffectiveDate = effective;
+        employeeBenefit.EndDate = null;
         employeeBenefit.Notes = request.Notes;
 
-        await employeeBenefitRepository.AddAsync(employeeBenefit, cancellationToken);
+        var existing = await employeeBenefitRepository.GetAllAsync(
+            eb => eb.EmployeeId == request.EmployeeId,
+            cancellationToken: cancellationToken);
+        var plan = BenefitTimeline.PlanNewVersion(existing, effective);
 
-        var othersEmployeeBenefits = await employeeBenefitRepository.GetAllAsync(
-            eb => eb.EmployeeId == request.EmployeeId && eb.Id != employeeBenefit.Id && eb.IsActive,
-            cancellationToken: cancellationToken
-        );
-
-        // Deactivate other active benefits
-        foreach (var otherBenefit in othersEmployeeBenefits)
+        // Bản sau ngày hiệu lực đã lên lịch trước → bản mới kéo tới hết (sẽ không còn bản sau).
+        foreach (var r in plan.Replaced)
+            await employeeBenefitRepository.DeleteAsync(r, cancellationToken);
+        foreach (var e in plan.Ended)
         {
-            otherBenefit.IsActive = false;
-            otherBenefit.EndDate = DateTime.Now;
-            
-            await employeeBenefitRepository.UpdateAsync(otherBenefit, cancellationToken);
+            e.EndDate = BenefitTimeline.EndBefore(effective);
+            e.IsActive = e.EffectiveDate.Date <= BenefitTimeline.VnToday() && e.EndDate >= BenefitTimeline.VnToday();
+            await employeeBenefitRepository.UpdateAsync(e, cancellationToken);
         }
+
+        // Đổi lương không reset quỹ phép: giữ số phép còn lại của bản trước.
+        if (plan.Previous?.BalancedPaidLeaveDays != null)
+        {
+            employeeBenefit.BalancedPaidLeaveDays = plan.Previous.BalancedPaidLeaveDays;
+            employeeBenefit.BalancedUnpaidLeaveDays = plan.Previous.BalancedUnpaidLeaveDays ?? employeeBenefit.BalancedUnpaidLeaveDays;
+        }
+        employeeBenefit.IsActive = effective <= BenefitTimeline.VnToday();
+
+        await employeeBenefitRepository.AddAsync(employeeBenefit, cancellationToken);
 
         // Send notification to employee and admins
         try

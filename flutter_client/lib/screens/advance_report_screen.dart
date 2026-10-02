@@ -14,7 +14,8 @@ import 'package:zkteco_flutter_client/l10n/app_tr.dart';
 
 import '../theme/sbox_tokens.dart';
 import '../widgets/sbox/sbox_report.dart';
-import '../widgets/sbox/sbox_charts.dart';
+import '../widgets/sbox/sbox_charts.dart';
+import '../utils/branch_filter_helper.dart';
 const _theme = HrmPageChrome.primaryNavy;
 
 class AdvanceReportScreen extends StatefulWidget {
@@ -32,7 +33,7 @@ class _AdvanceReportScreenState extends State<AdvanceReportScreen> {
   String _datePreset = 'this_month';
   AdvanceRequestStatus? _statusFilter;
   String _empSearch = '';
-  String? _selectedBranchId;
+  String? _selectedBranchId = BranchFilterHelper.viewBranchId;
   String? _selectedDepartmentId;
   int _viewTab = 0;
   int _page = 1;
@@ -483,7 +484,7 @@ class _AdvanceReportScreenState extends State<AdvanceReportScreen> {
                       onClearFilters: _teamView
                           ? () => setState(() {
                                 _empSearch = '';
-                                _selectedBranchId = null;
+                                _selectedBranchId = BranchFilterHelper.viewBranchId;
                                 _selectedDepartmentId = null;
                               })
                           : null,

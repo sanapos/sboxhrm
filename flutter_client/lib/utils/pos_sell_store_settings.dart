@@ -199,14 +199,16 @@ class PosSellStoreSettings {
     }
 
     final vatRaw = prefs.getDouble(_kVatRate);
+    // Thuế theo server (hóa đơn, QR đều đọc ExtraJson.sellTax) — tránh máy mới hiện mặc định rồi lưu đè.
+    final serverTax = parseSellTax(extraJson);
     final fees = parseFees(extraJson);
     final vietQr = parseVietQr(extraJson);
     return PosSellStoreSettings(
       storeName: name.trim(),
       address: address.trim(),
       phone: phone.trim(),
-      taxMode: PosSellTaxMode.fromKey(prefs.getString(_kTaxMode)),
-      defaultVatRate: vatRaw ?? 8,
+      taxMode: serverTax?.$1 ?? PosSellTaxMode.fromKey(prefs.getString(_kTaxMode)),
+      defaultVatRate: serverTax?.$2 ?? vatRaw ?? 8,
       vietQrBankAccountId: vietQr?.bankAccountId ?? prefs.getString(_kVietQrBankId),
       showVietQrAtPayment:
           vietQr?.showAtPayment ?? prefs.getBool(_kShowVietQr) ?? true,

@@ -39,7 +39,7 @@ class _OvertimeScreenState extends State<OvertimeScreen>
   List<Map<String, dynamic>> _pendingOvertimes = [];
   Map<String, dynamic>? _statistics;
   List<Map<String, dynamic>> _employees = [];
-  String? _selectedBranchId;
+  String? _selectedBranchId = BranchFilterHelper.viewBranchId;
   List<Map<String, dynamic>> _branches = [];
 
   @override

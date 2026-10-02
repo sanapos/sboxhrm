@@ -24,6 +24,13 @@ public class PermissionManagementController(
     ZKTecoDbContext context,
     ILogger<PermissionManagementController> logger) : AuthenticatedControllerBase
 {
+    Task<bool> IsStoreOwnerAsync() =>
+        context.Stores.AnyAsync(s => s.Id == CurrentStoreId && s.OwnerId == CurrentUserId);
+
+    /// <summary>null = được sửa quyền của vai trò này (không tự nâng quyền mình / vai trò cao hơn).</summary>
+    async Task<string?> DenyRoleEditAsync(string roleName) =>
+        AccountRolePolicy.CanEditRole(CurrentUserRole, await IsStoreOwnerAsync(), roleName);
+
     private static readonly string[] SystemRoles =
         ["Admin", "Director", "Accountant", "DepartmentHead", "Manager", "Cashier", "Waiter", "Employee", "User"];
 
@@ -231,6 +238,8 @@ public class PermissionManagementController(
     [RequireModulePermission("Role", ModulePermissionAction.Delete)]
     public async Task<ActionResult<AppResponse<bool>>> DeleteRole(string roleName)
     {
+        if (await DenyRoleEditAsync(roleName) is { } denyDel)
+            return StatusCode(StatusCodes.Status403Forbidden, AppResponse<bool>.Error(denyDel));
         if (SystemRoles.Contains(roleName, StringComparer.OrdinalIgnoreCase))
         {
             return BadRequest(AppResponse<bool>.Error("Không thể xóa chức danh mặc định của hệ thống"));
@@ -289,6 +298,8 @@ public class PermissionManagementController(
         string roleName, 
         [FromBody] List<ModulePermissionRequest> request)
     {
+        if (await DenyRoleEditAsync(roleName) is { } denyEdit)
+            return StatusCode(StatusCodes.Status403Forbidden, AppResponse<bool>.Error(denyEdit));
         if (roleName.Equals("Admin", StringComparison.OrdinalIgnoreCase))
         {
             return BadRequest(AppResponse<bool>.Error("Không thể chỉnh sửa quyền của Admin"));
@@ -414,6 +425,8 @@ public class PermissionManagementController(
     [RequireModulePermission("Role", ModulePermissionAction.Edit)]
     public async Task<ActionResult<AppResponse<bool>>> ResetPermissions(string roleName)
     {
+        if (await DenyRoleEditAsync(roleName) is { } denyReset)
+            return StatusCode(StatusCodes.Status403Forbidden, AppResponse<bool>.Error(denyReset));
         if (roleName.Equals("Admin", StringComparison.OrdinalIgnoreCase))
         {
             return BadRequest(AppResponse<bool>.Error("Không thể reset quyền của Admin"));

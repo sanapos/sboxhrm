@@ -180,7 +180,7 @@ class AuditTabState extends State<AuditTab> {
                               style: TextStyle(fontSize: 13))),
                       ...actions.map((a) => DropdownMenuItem(
                           value: a,
-                          child: Text(tr('$a (${actionMap[a]})'),
+                          child: Text(tr('${auditActionLabel(a)} (${actionMap[a]})'),
                               style: const TextStyle(fontSize: 13)))),
                     ],
                     onChanged: (v) {
@@ -318,7 +318,7 @@ class AuditTabState extends State<AuditTab> {
           child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
             Text(tr(log['description'] ?? log['entityType'] ?? 'N/A'), style: const TextStyle(fontWeight: FontWeight.w600, fontSize: 14), maxLines: 1, overflow: TextOverflow.ellipsis),
             const SizedBox(height: 2),
-            Text(tr([action.toString(), log['userName'] ?? log['userEmail'] ?? ''].where((s) => s.isNotEmpty).join(' \u00b7 ')),
+            Text(tr([auditActionLabel(action.toString()), log['userName'] ?? log['userEmail'] ?? ''].where((s) => s.isNotEmpty).join(' \u00b7 ')),
               style: const TextStyle(color: SboxColors.slate500, fontSize: 12), maxLines: 1, overflow: TextOverflow.ellipsis),
           ]),
         ),
@@ -372,7 +372,7 @@ class AuditTabState extends State<AuditTab> {
                         fontSize: 13, fontWeight: FontWeight.w500)),
                 Row(children: [
                   AdminHelpers.statusChip(
-                      action.toString(), actionColor),
+                      auditActionLabel(action.toString()), actionColor),
                   if (log['userName'] != null ||
                       log['userEmail'] != null) ...[
                     const SizedBox(width: 6),
@@ -394,3 +394,31 @@ class AuditTabState extends State<AuditTab> {
     );
   }
 }
+
+/// Tên hành động nhật ký bằng tiếng Việt.
+String auditActionLabel(String action) => switch (action) {
+      'Login' => 'Đăng nhập',
+      'Logout' => 'Đăng xuất',
+      'LoginFailed' => 'Đăng nhập sai',
+      'Create' => 'Thêm mới',
+      'Update' => 'Cập nhật',
+      'Delete' => 'Xóa',
+      'StoreLocked' => 'Khóa cửa hàng',
+      'StoreUnlocked' => 'Mở khóa cửa hàng',
+      'StoreDataDeleted' => 'Xóa dữ liệu cửa hàng',
+      'LicenseGenerated' => 'Tạo key',
+      'LicenseActivated' => 'Kích hoạt key',
+      'LicenseRevoked' => 'Thu hồi key',
+      'SubscriptionExtended' => 'Gia hạn',
+      'DeviceClaimed' => 'Nhận thiết bị',
+      'DeviceReleased' => 'Gỡ thiết bị',
+      'DeviceCommandSent' => 'Gửi lệnh thiết bị',
+      'PasswordChanged' => 'Đổi mật khẩu',
+      'CredentialsUpdated' => 'Đặt lại thông tin đăng nhập',
+      'SuperAdminCreated' => 'Tạo Super Admin',
+      'AgentCreated' => 'Tạo đại lý',
+      'AgentLicenseAssigned' => 'Giao key cho đại lý',
+      'SettingsUpdated' => 'Đổi cài đặt',
+      'Impersonate' => 'Đăng nhập thay',
+      _ => action,
+    };

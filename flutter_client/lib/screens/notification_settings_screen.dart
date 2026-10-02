@@ -1,443 +1,193 @@
 import 'package:flutter/material.dart';
+
+import '../l10n/app_tr.dart';
 import '../services/api_service.dart';
 import '../services/notification_preferences_cache.dart';
-import '../utils/notification_category_utils.dart';
 import '../utils/notification_group_settings.dart';
-import '../widgets/notification_overlay.dart';
-import '../widgets/hrm_page_chrome.dart';
-import '../widgets/pos/pos_theme.dart';
 import '../widgets/notifications/push_settings_card.dart';
-import 'package:zkteco_flutter_client/l10n/app_tr.dart';
+import '../widgets/sbox/sbox_ui.dart';
+import '../widgets/settings/settings_page.dart';
 
-import '../theme/sbox_tokens.dart';
-class NotificationSettingsScreen extends StatefulWidget {
-  const NotificationSettingsScreen({super.key});
+/// Nhóm thông báo trên màn thiết lập (gom các mã loại thông báo của server).
+class NotifGroup {
+  const NotifGroup(this.title, this.desc, this.icon, this.codes);
+  final String title;
+  final String desc;
+  final IconData icon;
+  final List<String> codes;
 
-  @override
-  State<NotificationSettingsScreen> createState() =>
-      _NotificationSettingsScreenState();
+  static const all = <NotifGroup>[
+    NotifGroup('Chấm công & ca', 'Chấm công, chấm đi đường, máy chấm công, ca làm việc', Icons.fingerprint_rounded,
+        ['attendance', 'travel_attendance', 'device', 'shift']),
+    NotifGroup('Đơn từ & phê duyệt', 'Nghỉ phép, tăng ca, công tác, yêu cầu cần duyệt', Icons.approval_rounded,
+        ['leave', 'overtime', 'approval', 'business_trip']),
+    NotifGroup('Lương & tài chính', 'Phiếu lương, phiếu phạt, thu chi', Icons.payments_rounded, ['payroll', 'penalty', 'transaction']),
+    NotifGroup('Công việc & nội bộ', 'Công việc, KPI, bản tin nội bộ, nhân sự, suất ăn', Icons.task_alt_rounded,
+        ['task', 'kpi', 'internal_comm', 'hr', 'meal']),
+    NotifGroup('Bán hàng', 'Đơn hàng, nhập hàng, tồn kho thấp, đơn QR', Icons.point_of_sale_rounded, ['pos']),
+    NotifGroup('Hệ thống', 'Cảnh báo bảo mật (đổi tài khoản nhận tiền…), thông báo hệ thống', Icons.shield_outlined, ['system']),
+  ];
+
+  /// Nhóm của 1 mã; mã lạ cho vào «Hệ thống».
+  static NotifGroup of(String code) => all.firstWhere((g) => g.codes.contains(code), orElse: () => all.last);
 }
 
-class _NotificationSettingsScreenState
-    extends State<NotificationSettingsScreen> {
-  final _apiService = ApiService();
-  bool _isLoading = true;
-  bool _isSaving = false;
-  List<_PreferenceItem> _preferences = [];
-  bool _attendanceEnabled = true;
-  bool _workEnabled = true;
+class _Pref {
+  _Pref(this.code, this.name, this.desc, this.order, this.enabled);
+  final String code;
+  final String name;
+  final String desc;
+  final int order;
+  bool enabled;
+}
 
-  /// Nhóm chấm công: attendance, device
-  static final _attendanceCodes = NotificationCategoryUtils.attendanceGroupCodes;
-  /// Nhóm công việc: tất cả còn lại
-  List<_PreferenceItem> get _attendancePrefs =>
-      _preferences.where((p) => _attendanceCodes.contains(p.categoryCode)).toList();
-  List<_PreferenceItem> get _workPrefs =>
-      _preferences.where((p) => !_attendanceCodes.contains(p.categoryCode)).toList();
+/// Thiết lập thông báo của chính mình (mỗi người tự bật / tắt).
+class NotificationSettingsScreen extends StatefulWidget {
+  const NotificationSettingsScreen({super.key, this.showPushCard = true});
 
-  static const _bgColor = SboxColors.slate50;
-  static const _textDark = SboxColors.slate900;
-  static const _textMuted = SboxColors.slate500;
+  /// Thẻ cài đặt thông báo đẩy của máy này (ẩn trong test).
+  final bool showPushCard;
+
+  @override
+  State<NotificationSettingsScreen> createState() => _NotificationSettingsScreenState();
+}
+
+class _NotificationSettingsScreenState extends State<NotificationSettingsScreen> {
+  final _api = ApiService();
+  List<_Pref> _prefs = [];
+  Map<String, bool> _saved = {};
+  bool _loading = true;
+  bool _saving = false;
+  String? _error;
+
+  Map<String, bool> get _current => {for (final p in _prefs) p.code: p.enabled};
+  bool get _dirty => _current.toString() != _saved.toString();
 
   @override
   void initState() {
     super.initState();
-    WidgetsBinding.instance.addPostFrameCallback((_) => _loadPreferences());
+    _load();
   }
 
-  Future<void> _loadPreferences() async {
-    setState(() => _isLoading = true);
-    try {
-      final result = await _apiService.getNotificationPreferences();
-      if (result['isSuccess'] == true && result['data'] != null) {
-        final list = result['data'] as List;
-        setState(() {
-          _preferences = list
-              .map((e) => _PreferenceItem(
-                    categoryCode: e['categoryCode'] ?? '',
-                    displayName: e['categoryDisplayName'] ?? '',
-                    description: e['categoryDescription'] ?? '',
-                    icon: e['categoryIcon'] ?? 'notifications',
-                    displayOrder: e['displayOrder'] ?? 0,
-                    isEnabled: e['isEnabled'] ?? true,
-                  ))
-              .toList()
-            ..sort((a, b) => a.displayOrder.compareTo(b.displayOrder));
-          _syncGroupTogglesFromPreferences();
-        });
-        NotificationPreferencesCache.instance.applyFromPreferenceList(
-          list.map((e) => Map<String, dynamic>.from(e as Map)).toList(),
-        );
-        await NotificationGroupSettings.syncFromPreferenceList(
-          list.map((e) => Map<String, dynamic>.from(e as Map)),
-        );
-      }
-    } catch (e) {
-      debugPrint('Error loading notification preferences: $e');
-      _attendanceEnabled = await NotificationGroupSettings.isAttendanceEnabled();
-      _workEnabled = await NotificationGroupSettings.isWorkEnabled();
+  Future<void> _load() async {
+    setState(() {
+      _loading = true;
+      _error = null;
+    });
+    final r = await _api.getNotificationPreferences();
+    if (!mounted) return;
+    if (r['isSuccess'] == true && r['data'] is List) {
+      final list = (r['data'] as List).whereType<Map>().map((e) => Map<String, dynamic>.from(e)).toList();
+      setState(() {
+        _prefs = [
+          for (final e in list)
+            _Pref('${e['categoryCode'] ?? ''}', '${e['categoryDisplayName'] ?? ''}', '${e['categoryDescription'] ?? ''}',
+                (e['displayOrder'] as num?)?.toInt() ?? 0, e['isEnabled'] != false),
+        ]..sort((a, b) => a.order.compareTo(b.order));
+        _saved = _current;
+        _loading = false;
+      });
+      NotificationPreferencesCache.instance.applyFromPreferenceList(list);
+      await NotificationGroupSettings.syncFromPreferenceList(list);
+    } else {
+      setState(() {
+        _loading = false;
+        _error = r['message']?.toString() ?? 'Không tải được thiết lập thông báo';
+      });
     }
-    setState(() => _isLoading = false);
   }
 
-  void _syncGroupTogglesFromPreferences() {
-    _attendanceEnabled =
-        _attendancePrefs.isEmpty || _attendancePrefs.any((p) => p.isEnabled);
-    _workEnabled = _workPrefs.isEmpty || _workPrefs.any((p) => p.isEnabled);
+  Future<void> _save() async {
+    setState(() => _saving = true);
+    final prefs = [for (final p in _prefs) {'categoryCode': p.code, 'isEnabled': p.enabled}];
+    final r = await _api.updateNotificationPreferences(prefs);
+    if (!mounted) return;
+    setState(() => _saving = false);
+    if (r['isSuccess'] == true) {
+      NotificationPreferencesCache.instance.applyFromPreferenceList(prefs);
+      await NotificationGroupSettings.syncFromPreferenceList(prefs);
+      setState(() => _saved = _current);
+      _toast('Đã lưu thiết lập thông báo');
+    } else {
+      _toast(r['message']?.toString() ?? 'Không lưu được. Thông báo vẫn nhận như cũ.', error: true);
+    }
   }
 
-  Future<void> _savePreferences() async {
-    setState(() => _isSaving = true);
-    try {
-      final prefs = _preferences
-          .map((p) => {
-                'categoryCode': p.categoryCode,
-                'isEnabled': p.isEnabled,
-              })
-          .toList();
-      final result = await _apiService.updateNotificationPreferences(prefs);
-      if (result['isSuccess'] == true) {
-        NotificationPreferencesCache.instance.applyFromPreferenceList(prefs);
-        await NotificationGroupSettings.syncFromPreferenceList(prefs);
-        if (mounted) {
-          NotificationOverlayManager().showSuccess(
-            title: 'Thành công',
-            message: tr('Đã lưu thiết lập thông báo'),
-          );
+  void _toast(String m, {bool error = false}) => ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+        content: Text(tr(m)),
+        backgroundColor: error ? SboxColors.danger : null,
+        behavior: SnackBarBehavior.floating,
+      ));
+
+  void _setAll(bool v) => setState(() {
+        for (final p in _prefs) {
+          p.enabled = v;
         }
-      } else if (mounted) {
-        NotificationOverlayManager().showError(
-          title: 'Lưu thất bại',
-          message: result['message']?.toString() ??
-              'Không lưu được lên server. FCM vẫn có thể gửi thông báo.',
-        );
-      }
-    } catch (e) {
-      if (mounted) {
-        NotificationOverlayManager().showError(
-          title: 'Lưu thất bại',
-          message: tr('Không kết nối được server. Thiết lập chưa được áp dụng — FCM vẫn có thể gửi thông báo.'),
-        );
-      }
-    }
-    setState(() => _isSaving = false);
-  }
-
-  IconData _getIconData(String iconName) {
-    const iconMap = {
-      'fingerprint': Icons.fingerprint,
-      'event_busy': Icons.event_busy,
-      'more_time': Icons.more_time,
-      'payments': Icons.payments,
-      'task_alt': Icons.task_alt,
-      'approval': Icons.approval,
-      'router': Icons.router,
-      'people': Icons.people,
-      'settings': Icons.settings,
-      'notifications': Icons.notifications,
-      'trending_up': Icons.trending_up,
-      'campaign': Icons.campaign,
-    };
-    return iconMap[iconName] ?? Icons.notifications;
-  }
-
-  Color _getCategoryColor(String code) {
-    const colorMap = {
-      'attendance': HrmPageChrome.primaryNavy,
-      'leave': HrmPageChrome.primaryNavy,
-      'overtime': Color(0xFFF97316),
-      'payroll': HrmPageChrome.primaryNavy,
-      'task': HrmPageChrome.primaryNavy,
-      'approval': SboxColors.danger,
-      'device': HrmPageChrome.primaryNavy,
-      'hr': Color(0xFFEC4899),
-      'system': SboxColors.slate500,
-      'kpi': SboxColors.success,
-      'internal_comm': SboxColors.violet,
-    };
-    return colorMap[code] ?? HrmPageChrome.primaryNavy;
-  }
+      });
 
   @override
   Widget build(BuildContext context) {
-    return Scaffold(
-      backgroundColor: _bgColor,
-      body: _isLoading
-          ? const Center(child: CircularProgressIndicator())
-          : SingleChildScrollView(
-              padding: EdgeInsets.all(MediaQuery.sizeOf(context).width < 600 ? 14 : 28),
-              child: Center(
-               child: ConstrainedBox(
-                constraints: const BoxConstraints(maxWidth: 760),
-                child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  _buildHeader(),
-                  const SizedBox(height: 16),
-                  const PushSettingsCard(),
-                  const SizedBox(height: 16),
-                  // Nhóm 1: Thông báo chấm công
-                  _buildGroupCard(
-                    title: 'Thông báo chấm công',
-                    subtitle: 'Chấm công, đi đường, thiết bị kết nối/ngắt kết nối',
-                    icon: Icons.fingerprint,
-                    color: HrmPageChrome.primaryNavy,
-                    isEnabled: _attendanceEnabled,
-                    onToggle: (val) {
-                      setState(() {
-                        _attendanceEnabled = val;
-                        for (final p in _attendancePrefs) {
-                          p.isEnabled = val;
-                        }
-                      });
-                    },
-                    children: _attendancePrefs,
-                  ),
-                  const SizedBox(height: 16),
-                  // Nhóm 2: Thông báo công việc
-                  _buildGroupCard(
-                    title: 'Thông báo công việc',
-                    subtitle: 'Nghỉ phép, tăng ca, lương, KPI, phê duyệt, ...',
-                    icon: Icons.work_outline,
-                    color: HrmPageChrome.primaryNavy,
-                    isEnabled: _workEnabled,
-                    onToggle: (val) {
-                      setState(() {
-                        _workEnabled = val;
-                        for (final p in _workPrefs) {
-                          p.isEnabled = val;
-                        }
-                      });
-                    },
-                    children: _workPrefs,
-                  ),
-                  const SizedBox(height: 24),
-                  _buildSaveButton(),
-                ],
-              ),
-              ),
-              ),
-            ),
-    );
-  }
-
-  Widget _buildGroupCard({
-    required String title,
-    required String subtitle,
-    required IconData icon,
-    required Color color,
-    required bool isEnabled,
-    required ValueChanged<bool> onToggle,
-    required List<_PreferenceItem> children,
-  }) {
-    return Container(
-      decoration: BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.circular(14),
-        border: Border.all(
-          color: isEnabled ? color.withValues(alpha: 0.3) : SboxColors.slate200,
-        ),
-        boxShadow: [
-          BoxShadow(
-            color: isEnabled ? color.withValues(alpha: 0.08) : Colors.black.withValues(alpha: 0.04),
-            blurRadius: 12,
-            offset: const Offset(0, 4),
-          ),
-        ],
-      ),
-      child: Column(
-        children: [
-          // Group header with main toggle
-          Container(
-            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
-            decoration: BoxDecoration(
-              color: isEnabled ? color.withValues(alpha: 0.05) : const Color(0xFFF8F9FA),
-              borderRadius: const BorderRadius.vertical(top: Radius.circular(16)),
-            ),
-            child: Row(
-              children: [
-                Container(
-                  width: 44,
-                  height: 44,
-                  decoration: BoxDecoration(
-                    color: isEnabled ? color.withValues(alpha: 0.12) : SboxColors.slate200,
-                    borderRadius: BorderRadius.circular(14),
-                  ),
-                  child: Icon(icon, size: 24, color: isEnabled ? color : _textMuted),
-                ),
-                const SizedBox(width: 14),
-                Expanded(
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Text(
-                        tr(title),
-                        style: TextStyle(
-                          fontSize: 16,
-                          fontWeight: FontWeight.w700,
-                          color: isEnabled ? _textDark : _textMuted,
-                        ),
-                      ),
-                      const SizedBox(height: 2),
-                      Text(
-                        tr(subtitle),
-                        style: const TextStyle(fontSize: 12, color: _textMuted),
-                      ),
-                    ],
-                  ),
-                ),
-                Switch(
-                  value: isEnabled,
-                  onChanged: onToggle,
-                  activeThumbColor: color,
-                ),
-              ],
-            ),
-          ),
-          // Sub-categories
-          if (isEnabled && children.isNotEmpty) ...[
-            const Divider(height: 1, color: SboxColors.slate200),
-            Padding(
-              padding: const EdgeInsets.symmetric(vertical: 4),
-              child: Column(
-                children: children.map((item) => _buildSubPreferenceRow(item)).toList(),
-              ),
-            ),
+    final on = _prefs.where((p) => p.enabled).length;
+    return SettingsPage(
+      title: 'Thông báo',
+      subtitle: 'Chọn loại thông báo bạn muốn nhận — áp dụng cho tài khoản của bạn trên mọi thiết bị',
+      icon: Icons.notifications_active_outlined,
+      loading: _loading,
+      error: _error,
+      onRetry: _load,
+      dirty: _dirty,
+      saving: _saving,
+      onSave: _save,
+      onDiscard: () => setState(() {
+        for (final p in _prefs) {
+          p.enabled = _saved[p.code] ?? p.enabled;
+        }
+      }),
+      headerActions: [
+        PopupMenuButton<bool>(
+          tooltip: tr('Bật / tắt tất cả'),
+          icon: const Icon(Icons.more_vert_rounded),
+          onSelected: _setAll,
+          itemBuilder: (_) => [
+            PopupMenuItem(value: true, child: Text(tr('Bật tất cả'))),
+            PopupMenuItem(value: false, child: Text(tr('Tắt tất cả'))),
           ],
-        ],
-      ),
-    );
-  }
-
-  Widget _buildSubPreferenceRow(_PreferenceItem item) {
-    final color = _getCategoryColor(item.categoryCode);
-    return Padding(
-      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 6),
-      child: Row(
-        children: [
-          Container(
-            width: 32,
-            height: 32,
-            decoration: BoxDecoration(
-              color: item.isEnabled ? color.withValues(alpha: 0.1) : SboxColors.slate100,
-              borderRadius: BorderRadius.circular(10),
-            ),
-            child: Icon(
-              _getIconData(item.icon),
-              size: 16,
-              color: item.isEnabled ? color : _textMuted,
-            ),
-          ),
-          const SizedBox(width: 12),
-          Expanded(
-            child: Text(
-              tr(item.displayName),
-              style: TextStyle(
-                fontSize: 13,
-                fontWeight: FontWeight.w500,
-                color: item.isEnabled ? _textDark : _textMuted,
-              ),
-            ),
-          ),
-          Switch(
-            value: item.isEnabled,
-            onChanged: (val) {
-              setState(() => item.isEnabled = val);
-            },
-            activeThumbColor: color,
-            materialTapTargetSize: MaterialTapTargetSize.shrinkWrap,
-          ),
-        ],
-      ),
-    );
-  }
-
-  Widget _buildHeader() {
-    return Container(
-      padding: const EdgeInsets.all(16),
-      decoration: PosTheme.mobileCardDecoration(),
-      child: Row(
-        children: [
-          Container(
-            padding: const EdgeInsets.all(12),
-            decoration: BoxDecoration(
-              color: PosTheme.kiotBlueLight,
-              borderRadius: BorderRadius.circular(14),
-            ),
-            child: const Icon(Icons.notifications_active,
-                color: PosTheme.kiotBlue, size: 26),
-          ),
-          const SizedBox(width: 16),
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(
-                  tr('Thiết lập thông báo'),
-                  style: const TextStyle(
-                    color: PosTheme.textPrimary,
-                    fontSize: 18,
-                    fontWeight: FontWeight.w700,
-                  ),
-                ),
-                const SizedBox(height: 4),
-                Text(
-                  tr('Chọn cách nhận thông báo trên điện thoại và nhóm thông báo muốn nhận. Tắt nhóm nào sẽ không nhận thông báo loại đó.'),
-                  style: const TextStyle(
-                    color: PosTheme.textSecondary,
-                    fontSize: 13,
-                  ),
-                ),
-              ],
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-
-  Widget _buildSaveButton() {
-    return SizedBox(
-      width: double.infinity,
-      child: FilledButton.icon(
-        onPressed: _isSaving ? null : _savePreferences,
-        icon: _isSaving
-            ? const SizedBox(
-                width: 18,
-                height: 18,
-                child: CircularProgressIndicator(
-                    strokeWidth: 2, color: Colors.white),
-              )
-            : const Icon(Icons.save, size: 18),
-        label: Text(tr(_isSaving ? 'Đang lưu...' : 'Lưu thiết lập')),
-        style: ElevatedButton.styleFrom(
-          backgroundColor: HrmPageChrome.primaryNavy,
-          foregroundColor: Colors.white,
-          padding: const EdgeInsets.symmetric(vertical: 14),
-          shape:
-              RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
-          textStyle:
-              const TextStyle(fontSize: 16, fontWeight: FontWeight.w600),
         ),
-      ),
+      ],
+      children: [
+        if (widget.showPushCard) const PushSettingsCard(),
+        if (_prefs.isNotEmpty)
+          SettingsNote('Đang nhận $on/${_prefs.length} loại thông báo. Thông báo đã tắt vẫn xem được trong mục Thông báo của app, chỉ không đẩy lên điện thoại.',
+              icon: Icons.info_outline_rounded),
+        ...NotifGroup.all.map(_group).whereType<Widget>(),
+      ],
     );
   }
-}
 
-class _PreferenceItem {
-  final String categoryCode;
-  final String displayName;
-  final String description;
-  final String icon;
-  final int displayOrder;
-  bool isEnabled;
-
-  _PreferenceItem({
-    required this.categoryCode,
-    required this.displayName,
-    required this.description,
-    required this.icon,
-    required this.displayOrder,
-    required this.isEnabled,
-  });
+  Widget? _group(NotifGroup g) {
+    final items = _prefs.where((p) => NotifGroup.of(p.code) == g).toList();
+    if (items.isEmpty) return null;
+    final anyOn = items.any((p) => p.enabled);
+    return SettingsSection(
+      title: g.title,
+      subtitle: g.desc,
+      icon: g.icon,
+      trailing: Switch(
+        value: anyOn,
+        onChanged: (v) => setState(() {
+          for (final p in items) {
+            p.enabled = v;
+          }
+        }),
+      ),
+      children: [
+        for (var i = 0; i < items.length; i++)
+          SettingsTile(
+            label: items[i].name,
+            help: items[i].desc.isEmpty ? null : items[i].desc,
+            control: Switch(value: items[i].enabled, onChanged: (v) => setState(() => items[i].enabled = v)),
+          ),
+      ],
+    );
+  }
 }

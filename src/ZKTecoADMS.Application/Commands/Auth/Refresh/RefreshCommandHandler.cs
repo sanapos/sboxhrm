@@ -1,3 +1,4 @@
+using ZKTecoADMS.Application.Interfaces;
 using Microsoft.AspNetCore.Identity;
 using Microsoft.EntityFrameworkCore;
 using ZKTecoADMS.Application.DTOs.Auth;
@@ -10,7 +11,8 @@ public class RefreshCommandHandler(
     IRefreshTokenValidatorService tokenValidatorService,
     IAuthenticateService authenticateService,
     IRepository<UserRefreshToken> refreshTokenRepository,
-    UserManager<ApplicationUser> userManager
+    UserManager<ApplicationUser> userManager,
+    IStoreLicenseLimitService storeLicenseLimitService
     ) : ICommandHandler<RefreshCommand, AppResponse<AuthenticateResponse>>
 {
     public async Task<AppResponse<AuthenticateResponse>> Handle(RefreshCommand command, CancellationToken cancellationToken)
@@ -52,6 +54,14 @@ public class RefreshCommandHandler(
             (!user.Store.IsActive || StoreLicenseHelper.IsExpired(user.Store)))
         {
             return AppResponse<AuthenticateResponse>.Error(StoreLicenseHelper.ExpiredMessage);
+        }
+
+        // Thiết bị đã bị gỡ (Thiết lập › Thiết bị truy cập) → buộc đăng nhập lại để kiểm hạn mức gói.
+        if (user.StoreId is Guid storeId
+            && await storeLicenseLimitService.IsAccessDeviceReleasedAsync(storeId, command.DeviceKey, cancellationToken))
+        {
+            return AppResponse<AuthenticateResponse>.Error(
+                "Thiết bị này đã bị gỡ khỏi cửa hàng. Vui lòng đăng nhập lại.");
         }
 
         return await authenticateService.Authenticate(user, cancellationToken);

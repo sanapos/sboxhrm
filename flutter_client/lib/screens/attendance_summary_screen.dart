@@ -54,7 +54,7 @@ class _AttendanceSummaryScreenState extends State<AttendanceSummaryScreen> {
   List<Map<String, dynamic>> _shiftSalaryLevels = [];
   List<dynamic> _approvedLeaves = [];
   List<Map<String, dynamic>> _workSchedules = [];
-  String? _selectedBranchId;
+  String? _selectedBranchId = BranchFilterHelper.viewBranchId;
   String? _selectedDepartmentId;
   final _branchFilter = ReportBranchFilter();
   int _dayEndHour = 0;

@@ -32,7 +32,7 @@ class _ShiftRegistrationScreenState extends State<ShiftRegistrationScreen> {
   List<dynamic> _employees = [];
   List<Map<String, dynamic>> _workSchedules = [];
   List<Map<String, dynamic>> _pendingRegistrations = [];
-  String? _selectedBranchId;
+  String? _selectedBranchId = BranchFilterHelper.viewBranchId;
   List<Map<String, dynamic>> _branches = [];
 
   late DateTime _weekStart;
@@ -236,7 +236,7 @@ class _ShiftRegistrationScreenState extends State<ShiftRegistrationScreen> {
                     ),
                     if (_selectedBranchId != null)
                       InkWell(
-                        onTap: () => setState(() => _selectedBranchId = null),
+                        onTap: () => setState(() => _selectedBranchId = BranchFilterHelper.viewBranchId),
                         borderRadius: BorderRadius.circular(14),
                         child: const Padding(
                           padding: EdgeInsets.all(4),

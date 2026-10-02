@@ -44,8 +44,39 @@ public class CommPoll
     [JsonPropertyName("closesAt")] public DateTime? ClosesAt { get; set; }
 }
 
-/// <summary>Thông tin người xem để lọc bài theo đối tượng nhận.</summary>
-public sealed record CommViewer(Guid UserId, Guid? EmployeeId, Guid? BranchId, Guid? DepartmentId, string? Position, bool IsManager, string DisplayName);
+/// <summary>
+/// Thông tin người xem để lọc bài theo đối tượng nhận.
+/// IsManager = người kiểm duyệt (quyền Truyền thông «Duyệt» hoặc «Sửa»); CanCreate = quyền «Thêm» (đăng bài).
+/// </summary>
+public sealed record CommViewer(Guid UserId, Guid? EmployeeId, Guid? BranchId, Guid? DepartmentId, string? Position, bool IsManager, string DisplayName, bool CanCreate = true);
+
+/// <summary>Luật đăng / sửa bài — tách riêng để kiểm thử.</summary>
+public static class CommRules
+{
+    /// <summary>Kênh PostPolicy=1 chỉ người kiểm duyệt đăng; kênh mở cần quyền «Thêm».</summary>
+    public static bool CanPost(CommChannel c, CommViewer v) => v.IsManager || (v.CanCreate && c.PostPolicy == 0);
+
+    /// <summary>Trạng thái khi lưu bài chưa đăng: nháp / chờ duyệt / hẹn giờ / đã đăng.</summary>
+    public static CommunicationStatus TargetStatus(bool publish, DateTime? scheduledAt, CommChannel ch, CommViewer v, DateTime utcNow)
+    {
+        if (!publish) return CommunicationStatus.Draft;
+        if (!v.IsManager && ch.RequireApproval) return CommunicationStatus.PendingApproval;
+        if (scheduledAt.HasValue && scheduledAt > utcNow.AddMinutes(1)) return CommunicationStatus.Scheduled;
+        return CommunicationStatus.Published;
+    }
+
+    /// <summary>
+    /// Trạng thái sau khi sửa. Bài đã đăng do người không có quyền duyệt sửa trong kênh cần duyệt
+    /// (hoặc chuyển sang kênh cần duyệt) phải quay lại chờ duyệt — không lách duyệt bằng cách đăng rồi sửa.
+    /// </summary>
+    public static CommunicationStatus StatusAfterEdit(CommunicationStatus current, bool publish, DateTime? scheduledAt,
+        CommChannel ch, CommViewer v, DateTime utcNow)
+    {
+        if (current == CommunicationStatus.Published)
+            return !v.IsManager && ch.RequireApproval ? CommunicationStatus.PendingApproval : CommunicationStatus.Published;
+        return TargetStatus(publish, scheduledAt, ch, v, utcNow);
+    }
+}
 
 public static class CommV2Helper
 {

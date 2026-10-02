@@ -1252,3 +1252,137 @@ ALTER TABLE "MobileAttendanceSettings" ADD COLUMN IF NOT EXISTS "TrustedMinFaceS
 ALTER TABLE "MobileAttendanceSettings" ADD COLUMN IF NOT EXISTS "EvidenceRetentionDays" integer NOT NULL DEFAULT 30;
 UPDATE "MobileAttendanceRecords" SET "IsOutside" = true WHERE "IsOutside" = false AND "Status" = 'pending' AND "WifiBssid" IS NULL AND "DistanceFromLocation" IS NOT NULL AND "DistanceFromLocation" > 100;
 CREATE INDEX IF NOT EXISTS "IX_MobileAttendanceRecords_Store_Status_Punch" ON "MobileAttendanceRecords" ("StoreId", "Status", "PunchTime");
+-- Quản trị gói dịch vụ v2: giá, dòng sản phẩm, chức năng riêng theo cửa hàng
+ALTER TABLE "ServicePackages" ADD COLUMN IF NOT EXISTS "ProductLine" character varying(10) NOT NULL DEFAULT 'both';
+ALTER TABLE "ServicePackages" ADD COLUMN IF NOT EXISTS "MonthlyPrice" numeric(18,2) NULL;
+ALTER TABLE "ServicePackages" ADD COLUMN IF NOT EXISTS "YearlyPrice" numeric(18,2) NULL;
+ALTER TABLE "ServicePackages" ADD COLUMN IF NOT EXISTS "TrialDays" integer NOT NULL DEFAULT 0;
+ALTER TABLE "ServicePackages" ADD COLUMN IF NOT EXISTS "SortOrder" integer NOT NULL DEFAULT 0;
+ALTER TABLE "ServicePackages" ADD COLUMN IF NOT EXISTS "IsFeatured" boolean NOT NULL DEFAULT false;
+ALTER TABLE "ServicePackages" ADD COLUMN IF NOT EXISTS "Badge" character varying(40) NULL;
+ALTER TABLE "ServicePackages" ADD COLUMN IF NOT EXISTS "Highlights" text NULL;
+ALTER TABLE "Stores" ADD COLUMN IF NOT EXISTS "ExtraModules" text NULL;
+ALTER TABLE "Stores" ADD COLUMN IF NOT EXISTS "BlockedModules" text NULL;
+ALTER TABLE "Stores" ADD COLUMN IF NOT EXISTS "AdminNote" text NULL;
+CREATE TABLE IF NOT EXISTS "SchemaPatchMarkers" ("Key" character varying(100) NOT NULL PRIMARY KEY, "AppliedAt" timestamp without time zone NOT NULL DEFAULT NOW());
+-- Chạy 1 lần (đánh dấu pkg_modules_v2). Chấm công Mobile chuyển thành chức năng chọn theo gói: giữ nguyên cho gói đang có chấm công
+UPDATE "ServicePackages" SET "AllowedModules" = ("AllowedModules"::jsonb || '["MobileAttendance"]'::jsonb)::text WHERE "AllowedModules" LIKE '[%' AND "AllowedModules" LIKE '%Attendance%' AND "AllowedModules" NOT LIKE '%"MobileAttendance"%' AND NOT EXISTS (SELECT 1 FROM "SchemaPatchMarkers" WHERE "Key" = 'pkg_modules_v2');
+-- Trợ lý AI thành chức năng riêng: giữ nguyên cho mọi gói hiện có (Super Admin có thể bỏ tick)
+UPDATE "ServicePackages" SET "AllowedModules" = ("AllowedModules"::jsonb || '["AIAssistant"]'::jsonb)::text WHERE "AllowedModules" LIKE '[%' AND "AllowedModules" <> '[]' AND "AllowedModules" NOT LIKE '%"AIAssistant"%' AND NOT EXISTS (SELECT 1 FROM "SchemaPatchMarkers" WHERE "Key" = 'pkg_modules_v2');
+INSERT INTO "SchemaPatchMarkers" ("Key") VALUES ('pkg_modules_v2') ON CONFLICT ("Key") DO NOTHING;
+-- Đăng ký thiết bị chấm công: lưu lý do từ chối để nhân viên xem và đăng ký lại
+ALTER TABLE "AuthorizedMobileDevices" ADD COLUMN IF NOT EXISTS "RejectionReason" character varying(500) NULL;
+ALTER TABLE "AuthorizedMobileDevices" ADD COLUMN IF NOT EXISTS "RejectedAt" timestamp without time zone NULL;
+-- Quá trình công tác: khen thưởng, kỷ luật, điều chuyển / bổ nhiệm (gắn theo hồ sơ nhân viên)
+CREATE TABLE IF NOT EXISTS "EmployeeCareerRecords" (
+    "Id" uuid NOT NULL PRIMARY KEY,
+    "StoreId" uuid NOT NULL REFERENCES "Stores" ("Id") ON DELETE CASCADE,
+    "EmployeeId" uuid NOT NULL REFERENCES "Employees" ("Id") ON DELETE CASCADE,
+    "Kind" character varying(20) NOT NULL DEFAULT 'award',
+    "Title" character varying(500) NOT NULL DEFAULT '',
+    "Form" character varying(100) NULL,
+    "DecisionNumber" character varying(100) NULL,
+    "EffectiveDate" timestamp without time zone NOT NULL,
+    "EndDate" timestamp without time zone NULL,
+    "IssuedBy" character varying(200) NULL,
+    "Amount" numeric(18,2) NULL,
+    "Note" character varying(2000) NULL,
+    "AttachmentUrls" text NULL,
+    "OrgAssignmentId" uuid NULL,
+    "FromDepartment" character varying(200) NULL,
+    "ToDepartment" character varying(200) NULL,
+    "FromPosition" character varying(200) NULL,
+    "ToPosition" character varying(200) NULL,
+    "IsActive" boolean NOT NULL DEFAULT true,
+    "CreatedAt" timestamp without time zone NOT NULL DEFAULT NOW(),
+    "CreatedBy" text NULL,
+    "UpdatedAt" timestamp without time zone NULL,
+    "UpdatedBy" text NULL,
+    "LastModified" timestamp without time zone NULL,
+    "LastModifiedBy" text NULL,
+    "Deleted" timestamp without time zone NULL,
+    "DeletedBy" text NULL
+);
+CREATE INDEX IF NOT EXISTS "IX_EmployeeCareerRecords_Employee" ON "EmployeeCareerRecords" ("StoreId", "EmployeeId", "EffectiveDate");
+
+-- Phép năm: chính sách cửa hàng + sổ phép (điều chỉnh / chuyển phép / trả tiền).
+CREATE TABLE IF NOT EXISTS "AnnualLeavePolicies" (
+    "Id" uuid NOT NULL PRIMARY KEY,
+    "StoreId" uuid NOT NULL REFERENCES "Stores" ("Id") ON DELETE CASCADE,
+    "DefaultDays" numeric(6,2) NOT NULL DEFAULT 12,
+    "ApplyTo" character varying(20) NOT NULL DEFAULT 'monthly',
+    "SeniorityEveryYears" integer NOT NULL DEFAULT 5,
+    "SeniorityDays" numeric(6,2) NOT NULL DEFAULT 1,
+    "ProrateByMonths" boolean NOT NULL DEFAULT true,
+    "ProrateCutoffDay" integer NOT NULL DEFAULT 15,
+    "YearEndMode" character varying(20) NOT NULL DEFAULT 'carry',
+    "CarryMaxDays" numeric(6,2) NULL DEFAULT 12,
+    "CarryExpireMonth" integer NOT NULL DEFAULT 3,
+    "PayoutBasis" character varying(30) NOT NULL DEFAULT 'base',
+    "PayoutStandardDays" numeric(6,2) NOT NULL DEFAULT 26,
+    "CountWorkingDaysOnly" boolean NOT NULL DEFAULT true,
+    "AllowNegative" boolean NOT NULL DEFAULT false,
+    "IsActive" boolean NOT NULL DEFAULT true,
+    "CreatedAt" timestamp without time zone NOT NULL DEFAULT NOW(),
+    "CreatedBy" text NULL,
+    "UpdatedAt" timestamp without time zone NULL,
+    "UpdatedBy" text NULL,
+    "LastModified" timestamp without time zone NULL,
+    "LastModifiedBy" text NULL,
+    "Deleted" timestamp without time zone NULL,
+    "DeletedBy" text NULL
+);
+CREATE UNIQUE INDEX IF NOT EXISTS "UX_AnnualLeavePolicies_Store" ON "AnnualLeavePolicies" ("StoreId") WHERE "Deleted" IS NULL;
+
+CREATE TABLE IF NOT EXISTS "AnnualLeaveEntries" (
+    "Id" uuid NOT NULL PRIMARY KEY,
+    "StoreId" uuid NOT NULL REFERENCES "Stores" ("Id") ON DELETE CASCADE,
+    "EmployeeId" uuid NOT NULL REFERENCES "Employees" ("Id") ON DELETE CASCADE,
+    "Year" integer NOT NULL,
+    "Kind" character varying(20) NOT NULL DEFAULT 'adjust',
+    "Days" numeric(8,2) NOT NULL DEFAULT 0,
+    "Amount" numeric(18,2) NULL,
+    "DailyRate" numeric(18,2) NULL,
+    "PayrollMonth" timestamp without time zone NULL,
+    "Note" character varying(1000) NULL,
+    "IsActive" boolean NOT NULL DEFAULT true,
+    "CreatedAt" timestamp without time zone NOT NULL DEFAULT NOW(),
+    "CreatedBy" text NULL,
+    "UpdatedAt" timestamp without time zone NULL,
+    "UpdatedBy" text NULL,
+    "LastModified" timestamp without time zone NULL,
+    "LastModifiedBy" text NULL,
+    "Deleted" timestamp without time zone NULL,
+    "DeletedBy" text NULL
+);
+CREATE INDEX IF NOT EXISTS "IX_AnnualLeaveEntries_Employee" ON "AnnualLeaveEntries" ("StoreId", "EmployeeId", "Year");
+CREATE INDEX IF NOT EXISTS "IX_AnnualLeaveEntries_Payroll" ON "AnnualLeaveEntries" ("StoreId", "PayrollMonth");
+-- Truyền thông: mỗi người một cảm xúc / bài (dọn bản trùng trước khi tạo chỉ mục duy nhất), thích bình luận
+DELETE FROM "CommunicationReactions" r USING "CommunicationReactions" o
+WHERE r."CommunicationId" = o."CommunicationId" AND r."UserId" = o."UserId"
+  AND (r."CreatedAt" < o."CreatedAt" OR (r."CreatedAt" = o."CreatedAt" AND r."Id" < o."Id"));
+CREATE UNIQUE INDEX IF NOT EXISTS "IX_CommunicationReactions_Post_User" ON "CommunicationReactions" ("CommunicationId", "UserId");
+CREATE INDEX IF NOT EXISTS "IX_CommunicationComments_Post_Created" ON "CommunicationComments" ("CommunicationId", "CreatedAt");
+CREATE INDEX IF NOT EXISTS "IX_InternalCommunications_Store_Status_Published" ON "InternalCommunications" ("StoreId", "Status", "PublishedAt");
+CREATE TABLE IF NOT EXISTS "CommunicationCommentLikes" (
+    "Id" uuid NOT NULL PRIMARY KEY,
+    "StoreId" uuid NOT NULL,
+    "CommentId" uuid NOT NULL REFERENCES "CommunicationComments" ("Id") ON DELETE CASCADE,
+    "UserId" uuid NOT NULL,
+    "CreatedAt" timestamp without time zone NOT NULL DEFAULT NOW(),
+    "CreatedBy" text NULL,
+    "UpdatedAt" timestamp without time zone NULL,
+    "UpdatedBy" text NULL
+);
+CREATE UNIQUE INDEX IF NOT EXISTS "IX_CommunicationCommentLikes_Comment_User" ON "CommunicationCommentLikes" ("CommentId", "UserId");
+-- FCM: gắn token với mã thiết bị truy cập (thu hồi thiết bị → ngừng đẩy thông báo tới máy đó)
+ALTER TABLE "UserDeviceTokens" ADD COLUMN IF NOT EXISTS "DeviceKey" character varying(80) NULL;
+CREATE INDEX IF NOT EXISTS "IX_UserDeviceTokens_DeviceKey" ON "UserDeviceTokens" ("DeviceKey");
+-- Trả lương nhiều lần / nhiều phương thức: số đã trả trên phiếu lương
+ALTER TABLE "Payslips" ADD COLUMN IF NOT EXISTS "PaidAmount" numeric(18,2) NOT NULL DEFAULT 0;
+UPDATE "Payslips" SET "PaidAmount" = "NetSalary" WHERE "Status" = 3 AND "PaidAmount" = 0 AND "NetSalary" > 0;
+CREATE INDEX IF NOT EXISTS "IX_CashTransactions_Source" ON "CashTransactions" ("SourceType", "SourceId");
+UPDATE "CashTransactions" SET "SourceType" = 'payslip', "SourceId" = CAST(substring("InternalNote" from 'phiếu lương #([0-9a-fA-F-]{36})') AS uuid) WHERE "SourceId" IS NULL AND "InternalNote" ~ 'phiếu lương #[0-9a-fA-F-]{36}';
+-- Phụ cấp theo ngày / theo ca: điều kiện số giờ làm trong ca
+ALTER TABLE "Allowances" ADD COLUMN IF NOT EXISTS "MinWorkPercent" numeric(5,2) NULL;
+ALTER TABLE "Allowances" ADD COLUMN IF NOT EXISTS "MinWorkHours" numeric(5,2) NULL;

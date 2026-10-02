@@ -160,6 +160,9 @@ public class Payslip : AuditableEntity<Guid>
     /// </summary>
     public DateTime? PaidDate { get; set; }
 
+    /// <summary>Số tiền đã trả (tổng các phiếu chi lương đã hoàn thành — tiền mặt + chuyển khoản).</summary>
+    public decimal PaidAmount { get; set; }
+
     /// <summary>Phiếu chi thu/chi chờ thanh toán lương.</summary>
     public Guid? CashTransactionId { get; set; }
     public virtual CashTransaction? CashTransaction { get; set; }

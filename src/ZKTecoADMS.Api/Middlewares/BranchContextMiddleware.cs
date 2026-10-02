@@ -19,6 +19,7 @@ namespace ZKTecoADMS.Api.Middlewares;
 public sealed class BranchContextMiddleware(RequestDelegate next)
 {
     public const string HeaderName = "X-Branch-Id";
+    public const string AllBranchesValue = "all";
 
     private static readonly HashSet<string> AllBranchRoles = new(StringComparer.OrdinalIgnoreCase)
     {
@@ -107,16 +108,25 @@ public sealed class BranchContextMiddleware(RequestDelegate next)
 
         bool Ok(Guid id) => ids.Contains(id) && (allowed == null || allowed.Contains(id));
 
-        // Chi nhánh đang thao tác
-        Guid? current = null;
-        if (Guid.TryParse(http.Request.Headers[HeaderName].FirstOrDefault(), out var hdr) && Ok(hdr)) current = hdr;
+        // Chi nhánh đang thao tác. Header "all" = đang xem tất cả chi nhánh (ghi vẫn về chi nhánh mặc định).
+        var rawHeader = http.Request.Headers[HeaderName].FirstOrDefault();
+        Guid? current = Guid.TryParse(rawHeader, out var hdr) && Ok(hdr) ? hdr : null;
         current ??= ownBranch.HasValue && Ok(ownBranch.Value) ? ownBranch : null;
         current ??= allowed == null ? ctx.HeadquarterBranchId : allowed.FirstOrDefault();
         ctx.CurrentBranchId = current;
 
-        // Lọc báo cáo theo 1 chi nhánh
-        if (Guid.TryParse(http.Request.Query["branchId"].FirstOrDefault(), out var filter) && Ok(filter))
-            ctx.FilterBranchId = filter;
+        ctx.FilterBranchId = ResolveViewFilter(rawHeader, http.Request.Query["branchId"].FirstOrDefault(), Ok);
+    }
+
+    /// <summary>
+    /// Chi nhánh lọc dữ liệu XEM: ?branchId= (màn hình chỉ định) → chi nhánh đang chọn trên app (header) →
+    /// null (header "all"/trống = xem mọi chi nhánh được phép). Chi nhánh không được phép bị bỏ qua.
+    /// </summary>
+    public static Guid? ResolveViewFilter(string? header, string? queryBranchId, Func<Guid, bool> allowed)
+    {
+        if (Guid.TryParse(queryBranchId, out var q) && allowed(q)) return q;
+        if (string.Equals(header, AllBranchesValue, StringComparison.OrdinalIgnoreCase)) return null;
+        return Guid.TryParse(header, out var h) && allowed(h) ? h : null;
     }
 }
 

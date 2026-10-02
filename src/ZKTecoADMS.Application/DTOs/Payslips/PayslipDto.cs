@@ -46,6 +46,8 @@ public class PayslipDto
     public Guid? CashTransactionId { get; set; }
     public string? CashTransactionCode { get; set; }
     public bool IsPaid { get; set; }
+    public decimal PaidAmount { get; set; }
+    public decimal RemainingAmount { get; set; }
     public string PaymentStatus { get; set; } = "Chưa thanh toán";
     public string? Notes { get; set; }
     public DateTime CreatedAt { get; set; }

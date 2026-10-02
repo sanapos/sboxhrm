@@ -4,6 +4,7 @@ using Microsoft.EntityFrameworkCore;
 using ZKTecoADMS.Api.Authorization;
 using ZKTecoADMS.Api.Controllers.Base;
 using ZKTecoADMS.Api.Controllers.Filters;
+using ZKTecoADMS.Api.Services;
 using ZKTecoADMS.Api.Services.PaymentGateway;
 using ZKTecoADMS.Application.Constants;
 using ZKTecoADMS.Application.Models;
@@ -51,14 +52,19 @@ public class PosPaymentGatewayController(
         return Ok(AppResponse<PaymentGatewaySettingDto>.Success(dto));
     }
 
+    /// <summary>Cổng nhận tiền chuyển khoản: chỉ người có quyền sửa «Tài khoản ngân hàng».</summary>
     [HttpPut("settings")]
-    [RequireModulePermission("PosSell", ModulePermissionAction.Edit)]
+    [RequireModulePermission("BankAccount", ModulePermissionAction.Edit)]
     public async Task<ActionResult<AppResponse<PaymentGatewaySettingDto>>> UpsertSettings(
-        [FromBody] PaymentGatewaySettingUpsertRequest req, CancellationToken ct)
+        [FromBody] PaymentGatewaySettingUpsertRequest req, CancellationToken ct,
+        [FromServices] ZKTecoADMS.Application.Interfaces.ISystemNotificationService notifications)
     {
         if (!TryGetStoreId(out var storeId))
             return BadRequest(AppResponse<PaymentGatewaySettingDto>.Fail("Thiếu cửa hàng"));
         var dto = await gateway.UpsertSettingsAsync(storeId, req, CurrentUserEmail, ct);
+        await StoreOwnerNotifier.NotifyAsync(db, notifications, storeId, "Thay đổi cổng thanh toán",
+            $"Cấu hình nhận tiền chuyển khoản ({dto.DefaultTransferProvider}) được cập nhật — bởi {CurrentUserEmail ?? "không rõ"}",
+            "PaymentGateway", CurrentUserId);
         return Ok(AppResponse<PaymentGatewaySettingDto>.Success(dto));
     }
 

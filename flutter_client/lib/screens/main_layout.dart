@@ -87,7 +87,7 @@ import 'mobile_attendance_screen.dart';
 import '../utils/notification_display_utils.dart';
 import '../utils/notification_navigation.dart';
 import '../utils/pending_notification_launch.dart';
-import 'mobile_device_registration_screen.dart';
+import 'mobile_devices_v2/md_hub_screen.dart';
 import 'meal_tracking_screen.dart';
 import 'staff_map/staff_map_screen.dart';
 import 'shift_hub/shift_hub_screen.dart';
@@ -449,6 +449,11 @@ class _MainLayoutState extends State<MainLayout> with WidgetsBindingObserver {
     WidgetsBinding.instance.addPostFrameCallback((_) {
       _reportCurrentScreen();
       PendingNotificationLaunch.tryConsume();
+      // Liên kết «Sao chép liên kết» của bài truyền thông: /?comm=<id>
+      final commLink = kIsWeb ? Uri.base.queryParameters['comm'] : null;
+      if (commLink != null && commLink.isNotEmpty) {
+        navigateFromNotification(relatedEntityType: 'Communication', relatedEntityId: commLink, categoryCode: 'internal_comm');
+      }
       if (!kIsWeb) {
         AppPermissionService.promptEssentialPermissionsIfNeeded(context);
       }
@@ -1604,7 +1609,7 @@ class _MainLayoutState extends State<MainLayout> with WidgetsBindingObserver {
       activeIcon: Icons.app_registration,
       label: 'Đăng ký chấm công Mobile',
       subtitle: 'Đăng ký TB',
-      screen: const MobileDeviceRegistrationScreen(),
+      screen: const MobileDevicesHubScreen(),
       group: 'Chấm công',
       themeColor: HrmPageChrome.primaryNavy,
       moduleCode: 'MobileDeviceRegistration',
@@ -2622,6 +2627,7 @@ class _MainLayoutState extends State<MainLayout> with WidgetsBindingObserver {
         ),
         // Mobile: AI + thông báo đặt thẳng trên AppBar; action trang → FAB.
         actions: [
+          if (canUseAiAssistant(context))
           IconButton(
             visualDensity: VisualDensity.compact,
             icon: const Icon(Icons.auto_awesome, color: SboxColors.violet),
@@ -2653,6 +2659,7 @@ class _MainLayoutState extends State<MainLayout> with WidgetsBindingObserver {
       body: Column(
         children: [
           const AnnouncementBanner(),
+          if (!posHubFullscreen) const BranchViewStrip(),
           Expanded(
             child: _buildMobileBody(bottomStackOnly: posHubFullscreen),
           ),
@@ -3583,6 +3590,7 @@ class _MainLayoutState extends State<MainLayout> with WidgetsBindingObserver {
             ),
           ),
           const SizedBox(width: 4),
+          if (canUseAiAssistant(context))
           IconButton(
             icon: const Icon(Icons.auto_awesome, color: SboxColors.violet),
             onPressed: () => showAiAssistant(context),
@@ -5556,12 +5564,27 @@ class _DrawerBranchPicker extends StatelessWidget {
               leading: const Icon(Icons.storefront_rounded, color: SboxColors.brand700),
               title: Text(tr('Chi nhánh đang xem'),
                   style: const TextStyle(fontSize: 11.5, color: SboxColors.slate500, fontWeight: FontWeight.w600)),
-              subtitle: Text(tr(s.current?.name ?? 'Chọn chi nhánh'),
+              subtitle: Text(tr(s.currentLabel),
                   maxLines: 1,
                   overflow: TextOverflow.ellipsis,
                   style: const TextStyle(fontSize: 14.5, fontWeight: FontWeight.w800, color: SboxColors.brand700)),
               childrenPadding: const EdgeInsets.only(bottom: 6),
               children: [
+                ListTile(
+                  dense: true,
+                  visualDensity: VisualDensity.compact,
+                  leading: Icon(
+                    s.isAll ? Icons.radio_button_checked_rounded : Icons.radio_button_off_rounded,
+                    size: 20,
+                    color: s.isAll ? SboxColors.brand600 : SboxColors.slate400,
+                  ),
+                  title: Text(tr('Tất cả chi nhánh'),
+                      style: TextStyle(fontWeight: s.isAll ? FontWeight.w700 : FontWeight.w500, color: SboxColors.slate900)),
+                  onTap: () async {
+                    await s.select(BranchSession.allId);
+                    if (context.mounted) Navigator.of(context).maybePop();
+                  },
+                ),
                 for (final b in s.branches)
                   ListTile(
                     dense: true,

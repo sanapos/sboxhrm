@@ -25,7 +25,8 @@ import 'package:zkteco_flutter_client/l10n/app_tr.dart';
 
 import '../theme/sbox_tokens.dart';
 import '../widgets/sbox/sbox_report.dart';
-import '../widgets/sbox/sbox_charts.dart';
+import '../widgets/sbox/sbox_charts.dart';
+import '../utils/branch_filter_helper.dart';
 /// Brand blue shades — cùng tông, đậm/nhạt khác để phân biệt trễ / sớm.
 const _theme = HrmPageChrome.primaryNavy; // #0056B3
 const _lateColor = Color(0xFF00408A); // đậm hơn — đi trễ
@@ -55,7 +56,7 @@ class _LateEarlyReportScreenState extends State<LateEarlyReportScreen> {
   String _penaltyFilter = 'all';
   int _minMinutes = 1;
   String _empSearch = '';
-  String? _selectedBranchId;
+  String? _selectedBranchId = BranchFilterHelper.viewBranchId;
   String? _selectedDepartmentId;
   int _viewTab = 0; // 0 chi tiết, 1 theo NV
   int _page = 1;
@@ -1314,7 +1315,7 @@ class _LateEarlyReportScreenState extends State<LateEarlyReportScreen> {
                           onClearFilters: _teamView
                               ? () => setState(() {
                                     _empSearch = '';
-                                    _selectedBranchId = null;
+                                    _selectedBranchId = BranchFilterHelper.viewBranchId;
                                     _selectedDepartmentId = null;
                                     _kindFilter = 'all';
                                     _penaltyFilter = 'all';

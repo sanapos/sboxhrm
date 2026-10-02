@@ -21,7 +21,8 @@ public class FinalizePayrollHandler(
     IRepository<CashTransaction> cashTransactionRepository,
     IRepository<TransactionCategory> categoryRepository,
     IRepository<PayslipAttendanceSnapshot> snapshotRepository,
-    ISystemNotificationService notificationService
+    ISystemNotificationService notificationService,
+    IPayslipPaymentService paymentService
 ) : ICommandHandler<FinalizePayrollCommand, AppResponse<FinalizePayrollResultDto>>
 {
     public async Task<AppResponse<FinalizePayrollResultDto>> Handle(
@@ -82,6 +83,7 @@ public class FinalizePayrollHandler(
                     : item.Notes;
 
                 Payslip payslip;
+                var paidBefore = existing?.PaidAmount ?? 0;
                 if (existing != null)
                 {
                     existing.StoreId = command.StoreId;
@@ -117,15 +119,20 @@ public class FinalizePayrollHandler(
                     result.Created++;
                 }
 
-                await PayslipCashTransactionHelper.EnsureExpenseVoucherAsync(
-                    payslip,
-                    employee,
-                    command.StoreId,
-                    command.UserId,
-                    payslipRepository,
-                    cashTransactionRepository,
-                    categoryRepository,
-                    cancellationToken);
+                // Phiếu chi chờ = thực lĩnh − đã trả. Phiếu đã trả mà chốt lại tăng → phiếu chi bổ sung; giảm → báo trả thừa.
+                var state = await paymentService.SyncAsync(
+                    payslip.Id, command.StoreId, command.UserId, ensurePending: true, cancellationToken);
+                result.PayslipIds.Add(payslip.Id);
+                if (state != null && paidBefore > 0)
+                {
+                    var who = $"{employee.LastName} {employee.FirstName}".Trim();
+                    if (state.PaidAmount > state.NetSalary)
+                        result.Warnings.Add(
+                            $"{who}: đã trả {state.PaidAmount:N0}đ, thực lĩnh mới {state.NetSalary:N0}đ — trả thừa {state.PaidAmount - state.NetSalary:N0}đ, lập phiếu thu hoàn trong Thu chi.");
+                    else if (state.Remaining > 0)
+                        result.Warnings.Add(
+                            $"{who}: đã trả {state.PaidAmount:N0}đ, thực lĩnh mới {state.NetSalary:N0}đ — tạo phiếu chi bổ sung {state.Remaining:N0}đ.");
+                }
 
                 await PayslipAttendanceSnapshotHelper.SaveSnapshotAsync(
                     snapshotRepository,

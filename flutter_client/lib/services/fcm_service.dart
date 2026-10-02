@@ -174,28 +174,41 @@ class FcmService {
     }
   }
 
-  /// Call before logout to remove token binding for current user on the server.
+  /// Gọi khi đăng xuất (kể cả phiên hết hạn) và trước khi đăng nhập tài khoản khác:
+  /// gỡ token trên server (không cần access token) rồi hủy token ở Firebase,
+  /// để thông báo của người cũ không còn đổ về máy này.
   Future<void> unregisterForLogout() async {
     if (!_initialized) return;
+    final prefs = await SharedPreferences.getInstance();
     try {
-      final token = await FirebaseMessaging.instance.getToken();
-      final prefs = await SharedPreferences.getInstance();
+      final current = await FirebaseMessaging.instance.getToken().timeout(const Duration(seconds: 5));
+      final tokens = {
+        if (current != null && current.isNotEmpty) current,
+        if ((prefs.getString(_tokenStorageKey) ?? '').isNotEmpty) prefs.getString(_tokenStorageKey)!,
+      };
       final accessToken = prefs.getString('access_token');
-      if (token != null && accessToken != null) {
+      for (final token in tokens) {
         final url = Uri.parse(
           '${ApiService.baseUrl}/api/notifications/device-token?token=${Uri.encodeQueryComponent(token)}',
         );
         await http.delete(url, headers: {
-          'Authorization': 'Bearer $accessToken',
+          if (accessToken != null && accessToken.isNotEmpty) 'Authorization': 'Bearer $accessToken',
         }).timeout(const Duration(seconds: 5)).catchError((e) {
           debugPrint('FCM unregister request failed: $e');
           return http.Response('', 0);
         });
       }
-      await prefs.remove(_tokenStorageKey);
     } catch (e) {
       debugPrint('FcmService.unregisterForLogout failed: $e');
     }
+    try {
+      // Hủy hẳn token: nếu server còn sót bản ghi, lần gửi sau Firebase báo Unregistered và tự tắt.
+      // Lần đăng nhập sau máy nhận token mới.
+      await FirebaseMessaging.instance.deleteToken().timeout(const Duration(seconds: 8));
+    } catch (e) {
+      debugPrint('FCM deleteToken failed: $e');
+    }
+    await prefs.remove(_tokenStorageKey);
   }
 
   Future<void> _registerToken(String token) async {
@@ -206,9 +219,11 @@ class FcmService {
       return;
     }
     final platform = Platform.isIOS ? 'ios' : 'android';
+    final deviceKey = prefs.getString('sbox_access_device_key');
     final body = jsonEncode({
       'token': token,
       'platform': platform,
+      if (deviceKey != null && deviceKey.isNotEmpty) 'deviceKey': deviceKey,
     });
     final url = Uri.parse('${ApiService.baseUrl}/api/notifications/device-token');
     final res = await http.post(url, headers: {

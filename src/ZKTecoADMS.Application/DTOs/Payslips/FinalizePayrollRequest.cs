@@ -43,4 +43,8 @@ public class FinalizePayrollResultDto
     public int Updated { get; set; }
     public int Skipped { get; set; }
     public List<string> Errors { get; set; } = [];
+    /// <summary>Cảnh báo chênh lệch khi chốt lại phiếu đã trả (chi bổ sung / trả thừa).</summary>
+    public List<string> Warnings { get; set; } = [];
+    /// <summary>Phiếu lương vừa chốt — để mở «Trả lương» ngay.</summary>
+    public List<Guid> PayslipIds { get; set; } = [];
 }

@@ -3351,9 +3351,10 @@
         var hl = p.highlight === true;
         var ctaHref = p.contactOnly ? '#contact' : '/register';
         var ctaLabel = p.contactOnly ? 'Liên hệ tư vấn' : 'Đăng ký gói này';
+        if (p.registerHref && !p.contactOnly) ctaHref = p.registerHref;
         return (
           '<article class="price-card' + (hl ? ' highlight' : '') + '">' +
-            (hl ? '<span class="pc-badge">Phổ biến</span>' : '') +
+            (hl || p.badge ? '<span class="pc-badge">' + esc(p.badge || 'Phổ biến') + '</span>' : '') +
             '<h3>' + esc(p.name) + '</h3>' +
             '<p class="pc-desc">' + esc(p.desc || '') + '</p>' +
             '<div><span class="pc-price">' + esc(p.price || '') + '</span>' +
@@ -3415,12 +3416,53 @@
       }).join('');
     }
 
+    // Bảng giá lấy từ Gói dịch vụ (Super Admin) khi có gói đặt giá; không có thì dùng bảng giá CMS.
+    function money(v) {
+      return Math.round(Number(v)).toString().replace(/\B(?=(\d{3})+(?!\d))/g, '.') + 'đ';
+    }
+    function plansFromPackages(pkgs) {
+      var site = isPosSite() ? 'pos' : 'hrm';
+      var list = (pkgs || []).filter(function (p) {
+        var line = String(p.productLine || 'both');
+        var priced = p.monthlyPrice != null || p.yearlyPrice != null;
+        return priced && (line === site || line === 'both');
+      });
+      return list.map(function (p) {
+        var hasMonth = p.monthlyPrice != null;
+        var feats = (Array.isArray(p.highlights) && p.highlights.length)
+          ? p.highlights
+          : (Array.isArray(p.modules) ? p.modules.map(function (m) { return m.displayName || m.name; }) : []);
+        var limits = [];
+        if (p.maxUsers > 0) limits.push(p.maxUsers + ' tài khoản');
+        if (p.maxBranches > 0) limits.push(p.maxBranches + ' chi nhánh');
+        return {
+          name: p.name,
+          desc: p.description || limits.join(' · '),
+          price: hasMonth ? money(p.monthlyPrice) : money(p.yearlyPrice),
+          unit: hasMonth ? ('/tháng' + (p.yearlyPrice != null ? ' · ' + money(p.yearlyPrice) + '/năm' : '')) : '/năm',
+          features: (p.trialDays > 0 ? ['Dùng thử ' + p.trialDays + ' ngày'] : []).concat(feats),
+          highlight: p.isFeatured === true,
+          badge: p.badge || null,
+          registerHref: '/register?package=' + encodeURIComponent(p.id)
+        };
+      });
+    }
+
     apply({});
     fetch('/api/publicsettings', { headers: { 'Accept': 'application/json' } })
       .then(function (r) { return r.ok ? r.json() : null; })
       .then(function (body) {
         var data = body && (body.data || body);
         if (data) apply(data);
+      })
+      .catch(function () {})
+      .then(function () {
+        return fetch('/api/auth/publicservicepackages', { headers: { 'Accept': 'application/json' } });
+      })
+      .then(function (r) { return r && r.ok ? r.json() : null; })
+      .then(function (body) {
+        var plans = plansFromPackages(body && (body.data || body));
+        if (plans.length) renderPricing(plans);
       })
       .catch(function () {});
 

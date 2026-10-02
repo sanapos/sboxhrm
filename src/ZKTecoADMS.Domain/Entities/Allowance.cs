@@ -71,6 +71,15 @@ public class Allowance : AuditableEntity<Guid>
     /// Ca được hưởng khi loại là theo ca (JSON array id ShiftTemplate).
     /// </summary>
     public string? ShiftIds { get; set; }
+
+    /// <summary>
+    /// Điều kiện nhận (phụ cấp theo ngày / theo ca): phải làm trong khung ca ít nhất X% thời lượng ca
+    /// (vd 90: ca 5 tiếng cần 4,5 tiếng). Null = không theo %.
+    /// </summary>
+    public decimal? MinWorkPercent { get; set; }
+
+    /// <summary>Điều kiện nhận: phải làm trong khung ca ít nhất X giờ. Null = không theo giờ.</summary>
+    public decimal? MinWorkHours { get; set; }
     
     /// <summary>
     /// Cửa hàng sở hữu phụ cấp này

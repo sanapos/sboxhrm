@@ -1,1321 +1,427 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:provider/provider.dart';
+
+import '../l10n/app_tr.dart';
 import '../providers/permission_provider.dart';
 import '../services/api_service.dart';
-import '../utils/responsive_helper.dart';
-import '../widgets/hrm/hrm_settings_mobile_kit.dart';
-import '../widgets/hrm_page_chrome.dart';
-import '../widgets/notification_overlay.dart';
 import '../utils/shift_records_calculator.dart';
-import 'package:zkteco_flutter_client/l10n/app_tr.dart';
+import '../widgets/sbox/sbox_ui.dart';
+import '../widgets/settings/settings_page.dart';
 
-import '../theme/sbox_tokens.dart';
-/// Màn hình Thiết lập hệ thống
-/// - Giờ kết thúc ngày (day_end_time): mặc định 00:00:00
-/// - Số ngày công chuẩn (standard_work_days): mặc định 26
-/// - Số giờ công chuẩn/ngày (standard_work_hours): mặc định 8
-/// - Quy tắc làm tròn giờ công (rounding_rule): mặc định 'none'
-/// - Cho phép chấm công bù (allow_manual_correction): mặc định true
-/// - Ngày chốt công hàng tháng (payroll_cutoff_day): mặc định 25
+/// Giá trị tham số hệ thống (AppSettings của cửa hàng).
+class SystemParams {
+  SystemParams({
+    this.dayEnd = Duration.zero,
+    this.decimal = false,
+    this.minPercent = 80,
+    this.minHalfHours = 1,
+    this.allowCorrection = true,
+    this.correctionLevels = 1,
+    this.leaveLevels = 1,
+  });
+
+  /// Ranh giới ngày làm việc: chấm trước giờ này tính cho ngày hôm trước.
+  Duration dayEnd;
+  bool decimal;
+  double minPercent;
+  double minHalfHours;
+  bool allowCorrection;
+  int correctionLevels;
+  int leaveLevels;
+
+  SystemParams copy() => SystemParams(
+        dayEnd: dayEnd,
+        decimal: decimal,
+        minPercent: minPercent,
+        minHalfHours: minHalfHours,
+        allowCorrection: allowCorrection,
+        correctionLevels: correctionLevels,
+        leaveLevels: leaveLevels,
+      );
+
+  String get dayEndText =>
+      '${dayEnd.inHours.toString().padLeft(2, '0')}:${(dayEnd.inMinutes % 60).toString().padLeft(2, '0')}';
+
+  /// Lưu ý: «Quy tắc làm tròn» và «Ngày chốt công» không có trong danh sách — chưa được dùng khi tính công / lương.
+  Map<String, String> toSettings() => {
+        'day_end_time': '$dayEndText:00',
+        'decimal_work_day_enabled': '$decimal',
+        'min_work_day_percent': '$minPercent',
+        'min_half_day_hours': '$minHalfHours',
+        'allow_manual_correction': '$allowCorrection',
+        'attendance_approval_levels': '$correctionLevels',
+        'leave_approval_levels': '$leaveLevels',
+      };
+
+  static const descriptions = {
+    'day_end_time': 'Giờ kết thúc ngày làm việc',
+    'decimal_work_day_enabled': 'Tính công theo thập phân (0.1–1.0, tắt ngưỡng %)',
+    'min_work_day_percent': '% giờ chuẩn trong ngày để đủ 1 công (mặc định 80)',
+    'min_half_day_hours': 'Giờ tối thiểu để tính nửa công (mặc định 1)',
+    'allow_manual_correction': 'Cho phép chấm công bù',
+    'attendance_approval_levels': 'Số cấp phê duyệt yêu cầu chấm công',
+    'leave_approval_levels': 'Số cấp phê duyệt đơn nghỉ phép',
+  };
+
+  static SystemParams fromSettings(Map<String, String?> v) {
+    Duration end = Duration.zero;
+    final p = (v['day_end_time'] ?? '').split(':');
+    if (p.length >= 2) end = Duration(hours: int.tryParse(p[0]) ?? 0, minutes: int.tryParse(p[1]) ?? 0);
+    return SystemParams(
+      dayEnd: end,
+      decimal: parseDecimalWorkDayEnabled(appSettingValue: v['decimal_work_day_enabled']),
+      minPercent: parseMinWorkDayPercent(
+        percentAppSettingValue: v['min_work_day_percent'],
+        legacyHoursAppSettingValue: v['min_hours_for_work_day'],
+      ),
+      minHalfHours: parseMinHalfDayHours(appSettingValue: v['min_half_day_hours']),
+      allowCorrection: v['allow_manual_correction'] != 'false',
+      correctionLevels: (int.tryParse(v['attendance_approval_levels'] ?? '') ?? 1).clamp(1, 3),
+      leaveLevels: (int.tryParse(v['leave_approval_levels'] ?? '') ?? 1).clamp(1, 3),
+    );
+  }
+
+  String? validate() {
+    if (minPercent < 1 || minPercent > 100) return '% đủ 1 công phải từ 1 đến 100';
+    if (minHalfHours < 0 || minHalfHours > 24) return 'Giờ tối thiểu nửa công phải từ 0 đến 24';
+    return null;
+  }
+
+  @override
+  bool operator ==(Object other) => other is SystemParams && other.toSettings().toString() == toSettings().toString();
+
+  @override
+  int get hashCode => toSettings().toString().hashCode;
+}
+
+/// Tham số hệ thống: ranh giới ngày làm việc, cách tính công, chấm công bù, số cấp duyệt.
 class SystemSettingsScreen extends StatefulWidget {
-  const SystemSettingsScreen({super.key});
+  const SystemSettingsScreen({super.key, this.canEditOverride});
+
+  /// Bỏ qua kiểm quyền sửa (test).
+  final bool? canEditOverride;
 
   @override
   State<SystemSettingsScreen> createState() => _SystemSettingsScreenState();
 }
 
 class _SystemSettingsScreenState extends State<SystemSettingsScreen> {
-  PermissionProvider get _perm =>
-      Provider.of<PermissionProvider>(context, listen: false);
+  static const _keys = [
+    'day_end_time',
+    'decimal_work_day_enabled',
+    'min_work_day_percent',
+    'min_hours_for_work_day',
+    'min_half_day_hours',
+    'allow_manual_correction',
+    'attendance_approval_levels',
+    'leave_approval_levels',
+  ];
 
-  final ApiService _apiService = ApiService();
-  bool _isLoading = true;
-  bool _isSaving = false;
+  final _api = ApiService();
+  SystemParams _saved = SystemParams();
+  SystemParams _p = SystemParams();
+  bool _loading = true;
+  bool _saving = false;
+  String? _error;
+  late final TextEditingController _percent = TextEditingController();
+  late final TextEditingController _half = TextEditingController();
 
-  // Giờ kết thúc ngày
-  int _dayEndHour = 0;
-  int _dayEndMinute = 0;
-  int _dayEndSecond = 0;
-
-  // Số cấp phê duyệt chấm công (1, 2, 3)
-  int _approvalLevels = 1;
-
-  // Quy tắc làm tròn giờ công
-  String _roundingRule = 'none';
-
-  // Cho phép chấm công bù
-  bool _allowManualCorrection = true;
-
-  // Ngày chốt công hàng tháng
-  int _payrollCutoffDay = 25;
-
-  /// % giờ chuẩn trong ngày để đủ 1 công (mặc định 80). Chỉ dùng khi tắt thập phân.
-  double _minWorkDayPercent = 80;
-  final _minPercentController = TextEditingController(text: tr('80'));
-  /// Giờ tối thiểu để tính nửa công (mặc định 1h).
-  double _minHalfDayHours = 1;
-  final _minHalfDayController = TextEditingController(text: tr('1'));
-  bool _decimalWorkDayEnabled = false;
-
-  // Số cấp phê duyệt đơn nghỉ phép (1, 2, 3)
-  int _leaveApprovalLevels = 1;
+  bool get _canEdit {
+    if (widget.canEditOverride != null) return widget.canEditOverride!;
+    try {
+      return Provider.of<PermissionProvider>(context, listen: false).canEdit('SystemSettings');
+    } catch (_) {
+      return false;
+    }
+  }
 
   @override
   void initState() {
     super.initState();
-    WidgetsBinding.instance.addPostFrameCallback((_) => _loadSettings());
+    _load();
   }
 
   @override
   void dispose() {
-    _minPercentController.dispose();
-    _minHalfDayController.dispose();
+    _percent.dispose();
+    _half.dispose();
     super.dispose();
   }
 
-  Future<void> _loadSettings() async {
-    setState(() => _isLoading = true);
-    try {
-      // Load tất cả settings song song
-      final results = await Future.wait([
-        _apiService.getAppSetting('day_end_time'),
-        _apiService.getAppSetting('attendance_approval_levels'),
-        _apiService.getAppSetting('rounding_rule'),
-        _apiService.getAppSetting('allow_manual_correction'),
-        _apiService.getAppSetting('payroll_cutoff_day'),
-        _apiService.getAppSetting('leave_approval_levels'),
-        _apiService.getAppSetting('min_work_day_percent'),
-        _apiService.getAppSetting('decimal_work_day_enabled'),
-        _apiService.getAppSetting('min_hours_for_work_day'),
-        _apiService.getAppSetting('min_half_day_hours'),
-      ]);
+  String _num(double v) => v == v.roundToDouble() ? v.toInt().toString() : v.toString();
 
-      if (!mounted) return;
-
-      // day_end_time
-      if (results[0]['isSuccess'] == true && results[0]['data'] is Map) {
-        final data0 = results[0]['data'] as Map;
-        _parseDayEndTime(data0['value']?.toString() ?? '00:00:00');
-      }
-      // attendance_approval_levels
-      if (results[1]['isSuccess'] == true && results[1]['data'] is Map) {
-        final data1 = results[1]['data'] as Map;
-        _approvalLevels = int.tryParse(data1['value']?.toString() ?? '1') ?? 1;
-      }
-      // rounding_rule
-      if (results[2]['isSuccess'] == true && results[2]['data'] is Map) {
-        final data2 = results[2]['data'] as Map;
-        _roundingRule = data2['value']?.toString() ?? 'none';
-      }
-      // allow_manual_correction
-      if (results[3]['isSuccess'] == true && results[3]['data'] is Map) {
-        final data3 = results[3]['data'] as Map;
-        _allowManualCorrection = data3['value']?.toString() != 'false';
-      }
-      // payroll_cutoff_day
-      if (results[4]['isSuccess'] == true && results[4]['data'] is Map) {
-        final data4 = results[4]['data'] as Map;
-        _payrollCutoffDay =
-            int.tryParse(data4['value']?.toString() ?? '25') ?? 25;
-      }
-      // leave_approval_levels
-      if (results[5]['isSuccess'] == true && results[5]['data'] is Map) {
-        final data5 = results[5]['data'] as Map;
-        _leaveApprovalLevels =
-            int.tryParse(data5['value']?.toString() ?? '1') ?? 1;
-      }
-      final percentRaw = results[6]['isSuccess'] == true && results[6]['data'] is Map
-          ? (results[6]['data'] as Map)['value']?.toString()
-          : null;
-      final legacyHoursRaw =
-          results[8]['isSuccess'] == true && results[8]['data'] is Map
-              ? (results[8]['data'] as Map)['value']?.toString()
-              : null;
-      _minWorkDayPercent = parseMinWorkDayPercent(
-        percentAppSettingValue: percentRaw,
-        legacyHoursAppSettingValue: legacyHoursRaw,
-      );
-      _minPercentController.text = _minWorkDayPercent == _minWorkDayPercent.roundToDouble()
-          ? _minWorkDayPercent.toInt().toString()
-          : _minWorkDayPercent.toStringAsFixed(0);
-      if (results[7]['isSuccess'] == true && results[7]['data'] is Map) {
-        _decimalWorkDayEnabled = parseDecimalWorkDayEnabled(
-          appSettingValue:
-              (results[7]['data'] as Map)['value']?.toString(),
-        );
-      }
-      final halfRaw = results[9]['isSuccess'] == true && results[9]['data'] is Map
-          ? (results[9]['data'] as Map)['value']?.toString()
-          : null;
-      _minHalfDayHours = parseMinHalfDayHours(appSettingValue: halfRaw);
-      _minHalfDayController.text = _minHalfDayHours == _minHalfDayHours.roundToDouble()
-          ? _minHalfDayHours.toInt().toString()
-          : _minHalfDayHours.toStringAsFixed(1);
-    } catch (e) {
-      debugPrint('Error loading system settings: $e');
-      if (mounted) {
-        appNotification.showError(
-            title: 'Lỗi', message: tr('Không thể tải thiết lập hệ thống'));
-      }
-    }
-    if (mounted) setState(() => _isLoading = false);
+  void _fillControllers() {
+    _percent.text = _num(_p.minPercent);
+    _half.text = _num(_p.minHalfHours);
   }
 
-  void _parseDayEndTime(String value) {
-    final parts = value.split(':');
-    if (parts.length >= 2) {
-      _dayEndHour = int.tryParse(parts[0]) ?? 0;
-      _dayEndMinute = int.tryParse(parts[1]) ?? 0;
-      _dayEndSecond = parts.length >= 3 ? (int.tryParse(parts[2]) ?? 0) : 0;
+  Future<void> _load() async {
+    setState(() {
+      _loading = true;
+      _error = null;
+    });
+    final res = await Future.wait(_keys.map(_api.getAppSetting));
+    if (!mounted) return;
+    final values = <String, String?>{};
+    for (var i = 0; i < _keys.length; i++) {
+      final r = res[i];
+      if (r['isSuccess'] == true && r['data'] is Map) values[_keys[i]] = (r['data'] as Map)['value']?.toString();
     }
+    // Lỗi kết nối (có errorKind) ở mọi khóa → báo lỗi; khóa chưa có = dùng mặc định (cửa hàng mới).
+    final offline = res.every((r) => r['isSuccess'] != true && r['errorKind'] != null);
+    setState(() {
+      _loading = false;
+      if (offline) _error = res.first['message']?.toString();
+      _saved = SystemParams.fromSettings(values);
+      _p = _saved.copy();
+      _fillControllers();
+    });
   }
 
-  String get _dayEndTimeString =>
-      '${_dayEndHour.toString().padLeft(2, '0')}:${_dayEndMinute.toString().padLeft(2, '0')}:${_dayEndSecond.toString().padLeft(2, '0')}';
+  void _set(VoidCallback f) => setState(f);
 
-  Future<void> _saveSettings() async {
-    final percentText = _minPercentController.text.trim().replaceAll(',', '.');
-    final parsedPercent = percentText.isEmpty
-        ? 80.0
-        : (double.tryParse(percentText) ?? -1);
-    if (parsedPercent < 1 || parsedPercent > 100) {
-      appNotification.showError(
-        title: 'Lỗi',
-        message: tr('% đủ 1 công phải từ 1 đến 100 (mặc định 80)'),
-      );
+  Future<void> _save() async {
+    final err = _p.validate();
+    if (err != null) {
+      _toast(err, error: true);
       return;
     }
-    final halfText = _minHalfDayController.text.trim().replaceAll(',', '.');
-    final parsedHalf =
-        halfText.isEmpty ? 1.0 : (double.tryParse(halfText) ?? -1);
-    if (parsedHalf < 0 || parsedHalf > 24) {
-      appNotification.showError(
-        title: 'Lỗi',
-        message: tr('Giờ tối thiểu nửa công phải từ 0 đến 24 (mặc định 1)'),
-      );
-      return;
-    }
-    _minWorkDayPercent = parsedPercent;
-    _minHalfDayHours = parsedHalf;
-
-    setState(() => _isSaving = true);
-    try {
-      final results = await Future.wait([
-        _apiService.upsertAppSetting(
-          key: 'day_end_time',
-          value: _dayEndTimeString,
-          description: 'Giờ kết thúc ngày làm việc',
-        ),
-        _apiService.upsertAppSetting(
-          key: 'attendance_approval_levels',
-          value: _approvalLevels.toString(),
-          description: 'Số cấp phê duyệt yêu cầu chấm công',
-        ),
-        _apiService.upsertAppSetting(
-          key: 'rounding_rule',
-          value: _roundingRule,
-          description: 'Quy tắc làm tròn giờ công',
-        ),
-        _apiService.upsertAppSetting(
-          key: 'allow_manual_correction',
-          value: _allowManualCorrection.toString(),
-          description: 'Cho phép chấm công bù',
-        ),
-        _apiService.upsertAppSetting(
-          key: 'payroll_cutoff_day',
-          value: _payrollCutoffDay.toString(),
-          description: 'Ngày chốt công hàng tháng',
-        ),
-        _apiService.upsertAppSetting(
-          key: 'leave_approval_levels',
-          value: _leaveApprovalLevels.toString(),
-          description: 'Số cấp phê duyệt đơn nghỉ phép',
-        ),
-        _apiService.upsertAppSetting(
-          key: 'min_work_day_percent',
-          value: _minWorkDayPercent.toString(),
-          description: '% giờ chuẩn trong ngày để đủ 1 công (mặc định 80)',
-        ),
-        _apiService.upsertAppSetting(
-          key: 'min_half_day_hours',
-          value: _minHalfDayHours.toString(),
-          description: 'Giờ tối thiểu để tính nửa công (mặc định 1)',
-        ),
-        _apiService.upsertAppSetting(
-          key: 'decimal_work_day_enabled',
-          value: _decimalWorkDayEnabled.toString(),
-          description: 'Tính công theo thập phân (0.1–1.0, tắt ngưỡng %)',
-        ),
-      ]);
-
-      if (!mounted) return;
-
-      // Check if any save failed
-      final failed = results.where((r) => r['isSuccess'] != true).toList();
-      if (failed.isNotEmpty) {
-        debugPrint(
-            '❌ Save settings failed: ${failed.map((r) => r['message']).join(', ')}');
-        appNotification.showError(
-          title: 'Lỗi',
-          message: "Không thể lưu: ${failed.first['message'] ?? 'Lỗi không xác định'}",
-        );
-      } else {
-        appNotification.showSuccess(
-          title: 'Thành công',
-          message: tr('Đã lưu thiết lập hệ thống'),
-        );
-      }
-    } catch (e) {
-      if (mounted) {
-        appNotification.showError(
-          title: 'Lỗi',
-          message: tr('Không thể lưu: $e'),
-        );
-      }
-    }
-    if (mounted) setState(() => _isSaving = false);
-  }
-
-  Future<void> _pickTime() async {
-    final picked = await showTimePicker(
-      context: context,
-      initialTime: TimeOfDay(hour: _dayEndHour, minute: _dayEndMinute),
-      builder: (context, child) {
-        return MediaQuery(
-          data: MediaQuery.of(context).copyWith(alwaysUse24HourFormat: true),
-          child: child!,
-        );
-      },
-    );
-    if (picked != null) {
-      setState(() {
-        _dayEndHour = picked.hour;
-        _dayEndMinute = picked.minute;
-        _dayEndSecond = 0;
-      });
+    setState(() => _saving = true);
+    final changed = _p.toSettings().entries.where((e) => _saved.toSettings()[e.key] != e.value).toList();
+    final results = await Future.wait(changed.map((e) => _api.upsertAppSetting(
+          key: e.key,
+          value: e.value,
+          description: SystemParams.descriptions[e.key],
+        )));
+    if (!mounted) return;
+    setState(() => _saving = false);
+    final failed = results.where((r) => r['isSuccess'] != true).toList();
+    if (failed.isEmpty) {
+      setState(() => _saved = _p.copy());
+      _toast('Đã lưu tham số hệ thống');
+    } else {
+      _toast('Không lưu được: ${failed.first['message'] ?? 'lỗi không xác định'}', error: true);
     }
   }
+
+  void _toast(String m, {bool error = false}) => ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+        content: Text(tr(m)),
+        backgroundColor: error ? SboxColors.danger : null,
+        behavior: SnackBarBehavior.floating,
+      ));
 
   @override
   Widget build(BuildContext context) {
-    final saveButton = _perm.canEdit('SystemSettings')
-        ? FilledButton.icon(
-            onPressed: _isSaving ? null : _saveSettings,
-            icon: _isSaving
-                ? const SizedBox(
-                    width: 16,
-                    height: 16,
-                    child: CircularProgressIndicator(
-                        strokeWidth: 2, color: Colors.white),
-                  )
-                : const Icon(Icons.save, size: 18),
-            label: Text(tr('Lưu thiết lập')),
-            style: FilledButton.styleFrom(
-              backgroundColor: HrmPageChrome.primaryNavy,
-              padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 10),
-            ),
-          )
-        : const SizedBox.shrink();
-
-    return Scaffold(
-      backgroundColor: HrmPageChrome.scaffoldBackground(context),
-      appBar: HrmPageChrome.appBar(
-        context: context,
-        title: 'Thiết lập hệ thống',
-        actions: [
-          Padding(
-            padding: const EdgeInsets.only(right: 16),
-            child: saveButton,
-          ),
-        ],
-      ),
-      body: _isLoading
-          ? const Center(child: CircularProgressIndicator())
-          : SingleChildScrollView(
-              padding: HrmSettingsMobileKit.active(context)
-                  ? HrmSettingsMobileKit.pagePadding(context)
-                  : EdgeInsets.all(Responsive.isMobile(context) ? 12 : 24),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  if (HrmPageChrome.isEmbedded) ...[
-                    Align(
-                      alignment: Alignment.centerRight,
-                      child: saveButton,
-                    ),
-                    const SizedBox(height: 16),
-                  ],
-                  // Row 1: Giờ kết thúc ngày + Phê duyệt chấm công
-                  LayoutBuilder(
-                    builder: (context, constraints) {
-                      final colThreshold =
-                          HrmSettingsMobileKit.active(context) ? 360.0 : 900.0;
-                      if (constraints.maxWidth > colThreshold) {
-                        return Row(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            Expanded(child: _buildDayEndTimeCard()),
-                            const SizedBox(width: 20),
-                            Expanded(child: _buildApprovalCard()),
-                          ],
-                        );
-                      }
-                      return Column(
-                        children: [
-                          _buildDayEndTimeCard(),
-                          const SizedBox(height: 20),
-                          _buildApprovalCard(),
-                        ],
-                      );
-                    },
-                  ),
-                  const SizedBox(height: 20),
-                  // Row 1.5: Phê duyệt nghỉ phép
-                  _buildLeaveApprovalCard(),
-                  const SizedBox(height: 20),
-                  _buildMinHoursForWorkDayCard(),
-                  const SizedBox(height: 20),
-                  // Row 2: Quy tắc làm tròn + Chấm công bù + Ngày chốt công
-                  LayoutBuilder(
-                    builder: (context, constraints) {
-                      final colThreshold =
-                          HrmSettingsMobileKit.active(context) ? 360.0 : 900.0;
-                      if (constraints.maxWidth > colThreshold) {
-                        return Row(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            Expanded(child: _buildRoundingRuleCard()),
-                            const SizedBox(width: 20),
-                            Expanded(
-                                child: _buildManualCorrectionAndCutoffCard()),
-                          ],
-                        );
-                      }
-                      return Column(
-                        children: [
-                          _buildRoundingRuleCard(),
-                          const SizedBox(height: 20),
-                          _buildManualCorrectionAndCutoffCard(),
-                        ],
-                      );
-                    },
-                  ),
-                ],
-              ),
-            ),
-    );
-  }
-
-  // ══════════════════════════════════════════════════
-  // CARD: Giờ kết thúc ngày
-  // ══════════════════════════════════════════════════
-  Widget _buildDayEndTimeCard() {
-    return _buildSettingCard(
-      icon: Icons.access_time_filled,
-      iconColor: HrmPageChrome.primaryNavy,
-      title: 'Giờ kết thúc ngày',
-      subtitle: 'Thời điểm phân chia ngày chấm công',
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          // Time display + picker
-          Wrap(
-            spacing: 12,
-            runSpacing: 10,
-            crossAxisAlignment: WrapCrossAlignment.center,
-            children: [
-              InkWell(
-                onTap: _pickTime,
-                borderRadius: BorderRadius.circular(14),
-                child: Container(
-                  padding:
-                      const EdgeInsets.symmetric(horizontal: 24, vertical: 14),
-                  decoration: BoxDecoration(
-                    color: HrmPageChrome.primaryNavy.withValues(alpha: 0.05),
-                    borderRadius: BorderRadius.circular(14),
-                    border: Border.all(
-                        color: HrmPageChrome.primaryNavy.withValues(alpha: 0.2)),
-                  ),
-                  child: Row(
-                    mainAxisSize: MainAxisSize.min,
-                    children: [
-                      const Icon(Icons.schedule,
-                          color: HrmPageChrome.primaryNavy, size: 22),
-                      const SizedBox(width: 10),
-                      Text(
-                        tr(_dayEndTimeString),
-                        style: const TextStyle(
-                          fontSize: 28,
-                          fontWeight: FontWeight.bold,
-                          color: SboxColors.slate900,
-                          fontFamily: 'monospace',
-                          letterSpacing: 2,
-                        ),
-                      ),
-                    ],
-                  ),
-                ),
-              ),
-              OutlinedButton.icon(
-                onPressed: _pickTime,
-                icon: const Icon(Icons.edit, size: 15),
-                label: Text(tr('Đổi giờ')),
-                style: OutlinedButton.styleFrom(
-                  foregroundColor: HrmPageChrome.primaryNavy,
-                  side: const BorderSide(color: HrmPageChrome.primaryNavy),
-                  padding:
-                      const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
-                ),
-              ),
-            ],
-          ),
-          const SizedBox(height: 14),
-          // Quick presets
-          Text(tr('Chọn nhanh:'),
-              style: TextStyle(
-                  color: SboxColors.slate600,
-                  fontWeight: FontWeight.w600,
-                  fontSize: 12)),
-          const SizedBox(height: 6),
-          Wrap(
-            spacing: 6,
-            runSpacing: 6,
-            children: [
-              _buildPresetChip('00:00', 0, 0),
-              _buildPresetChip('02:00', 2, 0),
-              _buildPresetChip('04:00', 4, 0),
-              _buildPresetChip('05:00', 5, 0),
-              _buildPresetChip('06:00', 6, 0),
-            ],
-          ),
-          const SizedBox(height: 14),
-          // Info
-          _buildInfoBox(
-            'Nguồn duy nhất cho ranh giới ngày chấm công / báo cáo / phạt.\n'
-            '• Mặc định 00:00 — ngày chấm công = ngày lịch\n'
-            '• Đặt 06:00 → chấm công lúc 2h sáng tính cho ngày hôm trước (phù hợp ca đêm)\n'
-            '• Ca đêm chỉ cần chọn loại ca + hệ số lương; không cấu hình giờ cắt riêng trên ca',
-          ),
-        ],
-      ),
-    );
-  }
-
-  Widget _buildMinHoursForWorkDayCard() {
-    final thresholdEnabled = !_decimalWorkDayEnabled;
-    return _buildSettingCard(
-      icon: Icons.hourglass_bottom,
-      iconColor: HrmPageChrome.chip,
-      title: 'Quy tắc tính công',
-      subtitle: 'Theo tổng giờ làm trong ngày (không tính từng ca riêng)',
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          SwitchListTile(
-            contentPadding: EdgeInsets.zero,
-            title: Text(tr('Tính công theo thập phân'),
-              style: TextStyle(fontWeight: FontWeight.w600, fontSize: 14),
-            ),
-            subtitle: Text(tr('Bật: làm tròn gần 0.1 / 0.2 … 1.0 theo tỷ lệ giờ — tắt ngưỡng % đủ công / nửa công cố định'),
-              style: TextStyle(fontSize: 12),
-            ),
-            value: _decimalWorkDayEnabled,
-            activeColor: HrmPageChrome.primaryNavy,
-            onChanged: _perm.canEdit('SystemSettings')
-                ? (v) => setState(() => _decimalWorkDayEnabled = v)
-                : null,
-          ),
-          const Divider(height: 24),
-          TextField(
-            controller: _minHalfDayController,
-            enabled: _perm.canEdit('SystemSettings'),
-            keyboardType: const TextInputType.numberWithOptions(decimal: true),
-            decoration: InputDecoration(
-              labelText: tr('Giờ tối thiểu tính nửa công / có công'),
-              hintText: tr('VD: 1'),
-              suffixText: tr('giờ'),
-              helperText: tr('Dưới mức này (VD 0.5h) → 0 công. Mặc định 1 giờ. Áp dụng cả khi bật thập phân.'),
-              border: OutlineInputBorder(
-                borderRadius: BorderRadius.circular(10),
-              ),
-              contentPadding:
-                  const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
-            ),
-            onChanged: (_) => setState(() {}),
-          ),
-          const SizedBox(height: 8),
-          Wrap(
-            spacing: 6,
-            runSpacing: 6,
-            children: [
-              _buildMinHalfChip('0.5h', '0.5'),
-              _buildMinHalfChip('1h', '1'),
-              _buildMinHalfChip('1.5h', '1.5'),
-              _buildMinHalfChip('2h', '2'),
-              _buildMinHalfChip('3h', '3'),
-            ],
-          ),
-          const SizedBox(height: 16),
-          Opacity(
-            opacity: thresholdEnabled ? 1 : 0.45,
-            child: IgnorePointer(
-              ignoring: !thresholdEnabled,
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text(
-                    tr(thresholdEnabled
-                        ? '% đủ 1 công (chế độ ngưỡng)'
-                        : '% đủ 1 công (đã tắt — đang dùng thập phân)'),
-                    style: const TextStyle(
-                      fontWeight: FontWeight.w600,
-                      fontSize: 13,
-                      color: SboxColors.slate600,
-                    ),
-                  ),
-                  const SizedBox(height: 8),
-                  TextField(
-                    controller: _minPercentController,
-                    enabled: thresholdEnabled &&
-                        _perm.canEdit('SystemSettings'),
-                    keyboardType:
-                        const TextInputType.numberWithOptions(decimal: true),
-                    decoration: InputDecoration(
-                      labelText: tr('% đủ 1 công'),
-                      hintText: tr('VD: 80'),
-                      suffixText: tr('%'),
-                      helperText: tr(thresholdEnabled
-                          ? '≥ % giờ chuẩn NV → đủ 1 công; dưới đó (≥ min nửa công) → 0.5'
-                          : 'Không dùng khi bật thập phân'),
-                      border: OutlineInputBorder(
-                        borderRadius: BorderRadius.circular(10),
-                      ),
-                      contentPadding: const EdgeInsets.symmetric(
-                          horizontal: 14, vertical: 12),
-                    ),
-                    onChanged: (_) => setState(() {}),
-                  ),
-                  const SizedBox(height: 10),
-                  Wrap(
-                    spacing: 6,
-                    runSpacing: 6,
-                    children: [
-                      _buildMinPercentChip('50%', '50'),
-                      _buildMinPercentChip('60%', '60'),
-                      _buildMinPercentChip('70%', '70'),
-                      _buildMinPercentChip('80%', '80'),
-                      _buildMinPercentChip('90%', '90'),
-                      _buildMinPercentChip('100%', '100'),
-                    ],
-                  ),
-                ],
-              ),
-            ),
-          ),
-          const SizedBox(height: 14),
-          _buildInfoBox(
-            _decimalWorkDayEnabled
-                ? 'Đang bật thập phân:\n'
-                    '• Công = làm tròn (giờ làm ÷ giờ chuẩn NV) đến bậc 0.1 gần nhất.\n'
-                    '• VD: 3.6/8 ≈ 0.45 → 0.5 công; 7.2/8 = 0.9 → 0.9 công.\n'
-                    '• Dưới “giờ tối thiểu nửa công” → 0 (tránh 30 phút ra 0.1).\n'
-                    '• Ngưỡng % đủ công / nửa công cố định: tắt.'
-                : 'Đang dùng chế độ ngưỡng:\n'
-                    '• ≥ (giờ chuẩn × %) → 1 công.\n'
-                    '• ≥ giờ tối thiểu nửa công và dưới % → 0.5 công.\n'
-                    '• Dưới giờ tối thiểu nửa công → 0 công.\n'
-                    '• VD: chuẩn 8h, min nửa công 1h, 80% → ≥6.4h = đủ công; 1–6.4h = nửa công; dưới 1h = 0.',
-          ),
-        ],
-      ),
-    );
-  }
-
-  Widget _buildMinHalfChip(String label, String value) {
-    final selected = _minHalfDayController.text.trim() == value;
-    return ChoiceChip(
-      label: Text(tr(label)),
-      selected: selected,
-      onSelected: _perm.canEdit('SystemSettings')
-          ? (_) {
-              setState(() {
-                _minHalfDayController.text = value;
-                _minHalfDayHours = double.tryParse(value) ?? 1;
-              });
-            }
+    final edit = _canEdit;
+    return SettingsPage(
+      title: 'Tham số hệ thống',
+      subtitle: 'Ranh giới ngày làm việc, cách tính công, chấm công bù và quy trình duyệt',
+      icon: Icons.settings_suggest_outlined,
+      loading: _loading,
+      error: _error,
+      onRetry: _load,
+      dirty: _p != _saved,
+      saving: _saving,
+      onSave: _save,
+      onDiscard: () => _set(() {
+        _p = _saved.copy();
+        _fillControllers();
+      }),
+      onResetDefaults: edit
+          ? () => _set(() {
+                _p = SystemParams();
+                _fillControllers();
+              })
           : null,
-      selectedColor: HrmPageChrome.chip.withValues(alpha: 0.15),
-      labelStyle: TextStyle(
-        color: selected ? HrmPageChrome.chip : SboxColors.slate600,
-        fontWeight: selected ? FontWeight.w600 : FontWeight.normal,
-        fontSize: 12,
-      ),
+      children: [
+        if (!edit) const SettingsNote('Bạn chỉ có quyền xem. Liên hệ quản trị để thay đổi.', icon: Icons.lock_outline_rounded, tone: SboxTone.neutral),
+        _dayEndSection(edit),
+        _creditSection(edit),
+        _approvalSection(edit),
+      ],
     );
   }
 
-  Widget _buildMinPercentChip(String label, String value) {
-    final selected = _minPercentController.text.trim() == value;
-    return ChoiceChip(
-      label: Text(tr(label)),
-      selected: selected,
-      onSelected: _perm.canEdit('SystemSettings')
-          ? (_) {
-              setState(() {
-                _minPercentController.text = value;
-                _minWorkDayPercent = double.tryParse(value) ?? 80;
-              });
-            }
-          : null,
-      selectedColor: HrmPageChrome.primaryNavy.withValues(alpha: 0.15),
-      labelStyle: TextStyle(
-        color: selected ? HrmPageChrome.primaryNavy : SboxColors.slate600,
-        fontWeight: selected ? FontWeight.w600 : FontWeight.normal,
-        fontSize: 12,
-      ),
-    );
-  }
+  // ─── Ngày làm việc ─────────────────────────────────────────────
 
-  // ══════════════════════════════════════════════════
-  // CARD: Cài đặt phê duyệt chấm công
-  // ══════════════════════════════════════════════════
-  Widget _buildApprovalCard() {
-    return _buildSettingCard(
-      icon: Icons.approval,
-      iconColor: HrmPageChrome.primaryNavy,
-      title: 'Phê duyệt chấm công',
-      subtitle: 'Cài đặt quy trình phê duyệt yêu cầu sửa chấm công',
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Text(tr('Số cấp phê duyệt:'),
-            style: TextStyle(
-              color: SboxColors.slate600,
-              fontWeight: FontWeight.w600,
-              fontSize: 13,
-            ),
-          ),
-          const SizedBox(height: 10),
-          // Approval levels options
-          ..._approvalLevelOptions.map((opt) => _buildApprovalLevelOption(
-                value: opt['value'] as int,
-                label: opt['label'] as String,
-                desc: opt['desc'] as String,
-                icon: opt['icon'] as IconData,
-              )),
-          const SizedBox(height: 14),
-          _buildInfoBox(
-            '• 1 cấp: Quản lý trực tiếp duyệt → Hoàn tất\n'
-            '• 2 cấp: Quản lý trực tiếp → HR/Giám đốc duyệt\n'
-            '• 3 cấp: Quản lý trực tiếp → Trưởng phòng → HR/Giám đốc',
-          ),
-        ],
-      ),
-    );
-  }
-
-  List<Map<String, dynamic>> get _approvalLevelOptions => [
-        {
-          'value': 1,
-          'label': '1 cấp (Quản lý trực tiếp)',
-          'desc': 'Chỉ cần 1 người phê duyệt',
-          'icon': Icons.person,
-        },
-        {
-          'value': 2,
-          'label': '2 cấp (Quản lý + HR)',
-          'desc': 'Quản lý duyệt trước, sau đó HR duyệt',
-          'icon': Icons.people,
-        },
-        {
-          'value': 3,
-          'label': '3 cấp (Quản lý + Trưởng phòng + HR)',
-          'desc': 'Duyệt qua 3 cấp quản lý',
-          'icon': Icons.groups,
-        },
-      ];
-
-  Widget _buildApprovalLevelOption({
-    required int value,
-    required String label,
-    required String desc,
-    required IconData icon,
-  }) {
-    final isSelected = _approvalLevels == value;
-    return Padding(
-      padding: const EdgeInsets.only(bottom: 6),
-      child: InkWell(
-        onTap: () => setState(() => _approvalLevels = value),
-        borderRadius: BorderRadius.circular(10),
-        child: Container(
-          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
-          decoration: BoxDecoration(
-            color: isSelected
-                ? HrmPageChrome.primaryNavy.withValues(alpha: 0.08)
-                : Colors.transparent,
-            borderRadius: BorderRadius.circular(10),
-            border: Border.all(
-              color: isSelected
-                  ? HrmPageChrome.primaryNavy.withValues(alpha: 0.4)
-                  : SboxColors.slate200,
-            ),
-          ),
-          child: Row(
-            children: [
-              Icon(
-                isSelected
-                    ? Icons.radio_button_checked
-                    : Icons.radio_button_unchecked,
-                size: 20,
-                color:
-                    isSelected ? HrmPageChrome.primaryNavy : SboxColors.slate400,
+  Widget _dayEndSection(bool edit) {
+    final end = _p.dayEndText;
+    final night = _p.dayEnd > Duration.zero;
+    return SettingsSection(
+      title: 'Ngày làm việc kết thúc lúc',
+      subtitle: 'Dùng cho cửa hàng có ca đêm: lần chấm trước giờ này được tính cho ngày hôm trước',
+      icon: Icons.nightlight_round,
+      children: [
+        SettingsTile(
+          divider: false,
+          label: 'Giờ kết thúc ngày',
+          help: night ? 'Chấm công từ 00:00 đến trước $end tính cho ngày hôm trước' : 'Mặc định 00:00 — ngày tính theo lịch',
+          control: Wrap(spacing: 6, runSpacing: 6, crossAxisAlignment: WrapCrossAlignment.center, children: [
+            for (final h in const [0, 4, 6])
+              ChoiceChip(
+                label: Text('${h.toString().padLeft(2, '0')}:00'),
+                selected: _p.dayEnd == Duration(hours: h),
+                showCheckmark: false,
+                onSelected: edit ? (_) => _set(() => _p.dayEnd = Duration(hours: h)) : null,
               ),
-              const SizedBox(width: 10),
-              Icon(icon,
-                  size: 18,
-                  color: isSelected
-                      ? HrmPageChrome.primaryNavy
-                      : SboxColors.slate500),
-              const SizedBox(width: 8),
-              Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(
-                      tr(label),
-                      style: TextStyle(
-                        fontWeight:
-                            isSelected ? FontWeight.w600 : FontWeight.normal,
-                        fontSize: 13,
-                        color: SboxColors.slate900,
-                      ),
-                    ),
-                    Text(
-                      tr(desc),
-                      style:
-                          TextStyle(fontSize: 11, color: SboxColors.slate500),
-                    ),
-                  ],
-                ),
-              ),
-            ],
+            OutlinedButton.icon(
+              onPressed: edit
+                  ? () async {
+                      final t = await showTimePicker(
+                        context: context,
+                        initialTime: TimeOfDay(hour: _p.dayEnd.inHours, minute: _p.dayEnd.inMinutes % 60),
+                        builder: (ctx, child) =>
+                            MediaQuery(data: MediaQuery.of(ctx).copyWith(alwaysUse24HourFormat: true), child: child!),
+                      );
+                      if (t != null) _set(() => _p.dayEnd = Duration(hours: t.hour, minutes: t.minute));
+                    }
+                  : null,
+              icon: const Icon(Icons.schedule_rounded, size: 18),
+              label: Text(end),
+            ),
+          ]),
+        ),
+        SettingsNote(night
+            ? 'Ví dụ: ca từ 22:00 ngày 01 đến 06:00 ngày 02. Lần chấm ra lúc 05:50 (trước $end) vẫn tính cho ngày 01, đủ 1 cặp vào–ra.'
+            : 'Ví dụ: ca từ 22:00 đến 06:00 hôm sau. Với 00:00, lần chấm ra lúc 05:50 bị tính sang ngày hôm sau. Nếu có ca đêm, đặt khoảng 04:00–06:00.'),
+      ],
+    );
+  }
+
+  // ─── Cách tính công ────────────────────────────────────────────
+
+  Widget _creditSection(bool edit) {
+    InputDecoration dec(String suffix) => InputDecoration(
+          isDense: true,
+          suffixText: suffix,
+          border: OutlineInputBorder(borderRadius: BorderRadius.circular(10)),
+        );
+    final fmt = [FilteringTextInputFormatter.allow(RegExp(r'[0-9.,]'))];
+    return SettingsSection(
+      title: 'Cách tính công trong ngày',
+      subtitle: 'Từ số giờ làm thực tế so với giờ chuẩn 1 công của nhân viên (mặc định 8 giờ)',
+      icon: Icons.calculate_outlined,
+      children: [
+        SettingsTile(
+          divider: false,
+          label: 'Kiểu tính công',
+          control: SettingsSegment<bool>(
+            value: _p.decimal,
+            options: const [(false, 'Theo ngưỡng (1 / 0,5)'), (true, 'Thập phân (0,1 – 1)')],
+            onChanged: edit ? (v) => _set(() => _p.decimal = v) : (_) {},
           ),
         ),
-      ),
+        if (!_p.decimal)
+          SettingsTile(
+            label: 'Đủ 1 công khi làm từ',
+            help: 'Phần trăm giờ chuẩn. Dưới mức này nhưng trên mức nửa công thì được 0,5 công',
+            control: SizedBox(
+              width: 120,
+              child: TextField(
+                controller: _percent,
+                enabled: edit,
+                keyboardType: const TextInputType.numberWithOptions(decimal: true),
+                inputFormatters: fmt,
+                decoration: dec('%'),
+                onChanged: (v) => _set(() => _p.minPercent = double.tryParse(v.replaceAll(',', '.')) ?? -1),
+              ),
+            ),
+          ),
+        SettingsTile(
+          label: 'Không tính công nếu làm dưới',
+          help: _p.decimal ? 'Dưới mức này = 0 công, trên mức này làm tròn bậc 0,1' : 'Dưới mức này = 0 công',
+          control: SizedBox(
+            width: 120,
+            child: TextField(
+              controller: _half,
+              enabled: edit,
+              keyboardType: const TextInputType.numberWithOptions(decimal: true),
+              inputFormatters: fmt,
+              decoration: dec('giờ'),
+              onChanged: (v) => _set(() => _p.minHalfHours = double.tryParse(v.replaceAll(',', '.')) ?? -1),
+            ),
+          ),
+        ),
+        _creditPreview(),
+      ],
     );
   }
 
-  // ══════════════════════════════════════════════════
-  // SHARED WIDGETS
-  // ══════════════════════════════════════════════════
+  /// Bảng minh họa: số giờ làm → số công (giờ chuẩn 8h), cùng công thức với bảng công.
+  Widget _creditPreview() {
+    const hours = [0.5, 2.0, 4.0, 6.0, 6.5, 7.5, 8.0];
+    String credit(double h) {
+      if (_p.validate() != null) return '—';
+      final c = computeDayWorkCredit(
+        actualHours: h,
+        hoursPerWorkDay: 8,
+        minPercent: _p.minPercent,
+        decimalWorkDayEnabled: _p.decimal,
+        minHalfDayHours: _p.minHalfHours,
+      );
+      return c == c.roundToDouble() ? c.toInt().toString() : c.toString().replaceAll('.', ',');
+    }
 
-  Widget _buildSettingCard({
-    required IconData icon,
-    required Color iconColor,
-    required String title,
-    required String subtitle,
-    required Widget child,
-  }) {
+    String h(double v) => v == v.roundToDouble() ? '${v.toInt()}h' : '${v.toString().replaceAll('.', ',')}h';
     return Container(
-      decoration: BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.circular(14),
-        border: Border.all(color: SboxColors.slate200),
-        boxShadow: [
-          BoxShadow(
-            color: Colors.black.withValues(alpha: 0.04),
-            blurRadius: 8,
-            offset: const Offset(0, 2),
-          ),
-        ],
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          // Header
-          Container(
-            padding: const EdgeInsets.all(18),
-            decoration: const BoxDecoration(
-              color: SboxColors.slate50,
-              borderRadius: BorderRadius.vertical(top: Radius.circular(16)),
-              border: Border(bottom: BorderSide(color: SboxColors.slate200)),
-            ),
-            child: Row(
-              children: [
-                Container(
-                  padding: const EdgeInsets.all(8),
-                  decoration: BoxDecoration(
-                    color: iconColor.withValues(alpha: 0.1),
-                    borderRadius: BorderRadius.circular(10),
-                  ),
-                  child: Icon(icon, color: iconColor, size: 20),
-                ),
-                const SizedBox(width: 12),
-                Expanded(
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Text(tr(title),
-                          style: const TextStyle(
-                              color: SboxColors.slate900,
-                              fontWeight: FontWeight.bold,
-                              fontSize: 16)),
-                      const SizedBox(height: 2),
-                      Text(tr(subtitle),
-                          style: const TextStyle(
-                              color: SboxColors.slate500, fontSize: 12)),
-                    ],
-                  ),
-                ),
-              ],
-            ),
-          ),
-          // Content
-          Padding(
-            padding: const EdgeInsets.all(20),
-            child: child,
-          ),
-        ],
-      ),
-    );
-  }
-
-  Widget _buildInfoBox(String text) {
-    return Container(
+      margin: const EdgeInsets.only(top: 4, bottom: 10),
       padding: const EdgeInsets.all(12),
-      decoration: BoxDecoration(
-        color: SboxColors.warningSoft,
-        borderRadius: BorderRadius.circular(10),
-        border:
-            Border.all(color: const Color(0xFFFCD34D).withValues(alpha: 0.5)),
-      ),
-      child: Row(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          const Icon(Icons.info_outline, color: HrmPageChrome.chipLight, size: 16),
-          const SizedBox(width: 8),
-          Expanded(
-            child: Text(
-              tr(text),
-              style: TextStyle(
-                  color: Colors.brown.shade700, fontSize: 11, height: 1.5),
+      decoration: BoxDecoration(color: SboxColors.slate50, borderRadius: BorderRadius.circular(10), border: Border.all(color: SboxColors.border)),
+      child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+        Text(tr('Ví dụ với giờ chuẩn 8 giờ / công'), style: const TextStyle(fontSize: 12.5, fontWeight: FontWeight.w700, color: SboxColors.slate600)),
+        const SizedBox(height: 8),
+        Wrap(spacing: 8, runSpacing: 8, children: [
+          for (final x in hours)
+            Container(
+              padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+              decoration: BoxDecoration(color: Colors.white, borderRadius: BorderRadius.circular(8), border: Border.all(color: SboxColors.border)),
+              child: Column(children: [
+                Text(tr('Làm ${h(x)}'), style: const TextStyle(fontSize: 11.5, color: SboxColors.slate500)),
+                Text(tr('${credit(x)} công'), style: const TextStyle(fontWeight: FontWeight.w800, color: SboxColors.slate900)),
+              ]),
             ),
-          ),
-        ],
-      ),
+        ]),
+      ]),
     );
   }
 
-  Widget _buildPresetChip(String label, int hour, int minute) {
-    final isSelected = _dayEndHour == hour && _dayEndMinute == minute;
-    return ActionChip(
-      label: Text(tr(label)),
-      avatar: isSelected
-          ? const Icon(Icons.check_circle, size: 14, color: HrmPageChrome.primaryNavy)
-          : null,
-      backgroundColor: isSelected
-          ? HrmPageChrome.primaryNavy.withValues(alpha: 0.1)
-          : SboxColors.slate100,
-      labelStyle: TextStyle(
-        color: isSelected ? HrmPageChrome.primaryNavy : SboxColors.slate600,
-        fontWeight: isSelected ? FontWeight.w600 : FontWeight.normal,
-        fontFamily: 'monospace',
-        fontSize: 12,
-      ),
-      side: BorderSide(
-        color: isSelected
-            ? HrmPageChrome.primaryNavy.withValues(alpha: 0.3)
-            : SboxColors.slate300,
-      ),
-      onPressed: () {
-        setState(() {
-          _dayEndHour = hour;
-          _dayEndMinute = minute;
-          _dayEndSecond = 0;
-        });
-      },
+  // ─── Chấm công bù & duyệt ──────────────────────────────────────
+
+  Widget _approvalSection(bool edit) {
+    const levelText = {
+      1: 'Quản lý trực tiếp duyệt là xong',
+      2: 'Quản lý trực tiếp, sau đó quản lý cấp cao',
+      3: 'Quản lý trực tiếp, trưởng phòng, rồi quản trị',
+    };
+    Widget levels(int value, ValueChanged<int> onChanged) => SettingsSegment<int>(
+          value: value,
+          options: const [(1, '1 cấp'), (2, '2 cấp'), (3, '3 cấp')],
+          onChanged: edit ? onChanged : (_) {},
+        );
+    return SettingsSection(
+      title: 'Chấm công bù & quy trình duyệt',
+      subtitle: 'Áp dụng cho yêu cầu mới; yêu cầu đang chờ giữ quy trình lúc gửi',
+      icon: Icons.approval_outlined,
+      children: [
+        SettingsTile(
+          divider: false,
+          label: 'Cho phép xin sửa / bổ sung công',
+          help: _p.allowCorrection ? 'Nhân viên gửi yêu cầu bổ sung lần chấm bị thiếu' : 'Nhân viên không gửi được yêu cầu sửa công',
+          control: Switch(value: _p.allowCorrection, onChanged: edit ? (v) => _set(() => _p.allowCorrection = v) : null),
+        ),
+        if (_p.allowCorrection)
+          SettingsTile(
+            label: 'Duyệt yêu cầu sửa công',
+            help: levelText[_p.correctionLevels],
+            control: levels(_p.correctionLevels, (v) => _set(() => _p.correctionLevels = v)),
+          ),
+        SettingsTile(
+          label: 'Duyệt đơn nghỉ phép',
+          help: levelText[_p.leaveLevels],
+          control: levels(_p.leaveLevels, (v) => _set(() => _p.leaveLevels = v)),
+        ),
+      ],
     );
   }
-
-  // ══════════════════════════════════════════════════
-  // CARD: Quy tắc làm tròn giờ công
-  // ══════════════════════════════════════════════════
-  Widget _buildRoundingRuleCard() {
-    return _buildSettingCard(
-      icon: Icons.tune,
-      iconColor: HrmPageChrome.chipMid,
-      title: 'Làm tròn giờ công',
-      subtitle: 'Quy tắc làm tròn khi tính giờ công',
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          // Cảnh báo chưa áp dụng
-          Container(
-            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-            margin: const EdgeInsets.only(bottom: 14),
-            decoration: BoxDecoration(
-              color: SboxColors.warningSoft,
-              borderRadius: BorderRadius.circular(10),
-              border: Border.all(color: const Color(0xFFFED7AA)),
-            ),
-            child: Row(
-              children: [
-                const Icon(Icons.construction_outlined,
-                    color: HrmPageChrome.chipDark, size: 16),
-                const SizedBox(width: 8),
-                Expanded(
-                  child: Text(tr('Đặt được lưu, nhưng chưa áp dụng vào tính toán giờ công. Sẽ được kết nối vào engine tính lương.'),
-                    style: TextStyle(
-                        fontSize: 11,
-                        color: Colors.orange.shade800,
-                        height: 1.4),
-                  ),
-                ),
-              ],
-            ),
-          ),
-          ..._roundingRuleOptions.map((opt) {
-            final isSelected = _roundingRule == opt['value'];
-            return Padding(
-              padding: const EdgeInsets.only(bottom: 6),
-              child: InkWell(
-                onTap: () =>
-                    setState(() => _roundingRule = opt['value'] as String),
-                borderRadius: BorderRadius.circular(10),
-                child: Container(
-                  padding:
-                      const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
-                  decoration: BoxDecoration(
-                    color: isSelected
-                        ? HrmPageChrome.chipMid.withValues(alpha: 0.08)
-                        : Colors.transparent,
-                    borderRadius: BorderRadius.circular(10),
-                    border: Border.all(
-                      color: isSelected
-                          ? HrmPageChrome.chipMid.withValues(alpha: 0.4)
-                          : SboxColors.slate200,
-                    ),
-                  ),
-                  child: Row(
-                    children: [
-                      Icon(
-                        isSelected
-                            ? Icons.radio_button_checked
-                            : Icons.radio_button_unchecked,
-                        size: 20,
-                        color: isSelected
-                            ? HrmPageChrome.chipMid
-                            : SboxColors.slate400,
-                      ),
-                      const SizedBox(width: 10),
-                      Expanded(
-                        child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            Text(
-                              tr(opt['label'] as String),
-                              style: TextStyle(
-                                fontWeight: isSelected
-                                    ? FontWeight.w600
-                                    : FontWeight.normal,
-                                fontSize: 13,
-                                color: SboxColors.slate900,
-                              ),
-                            ),
-                            Text(
-                              tr(opt['desc'] as String),
-                              style: TextStyle(
-                                  fontSize: 11, color: SboxColors.slate500),
-                            ),
-                          ],
-                        ),
-                      ),
-                    ],
-                  ),
-                ),
-              ),
-            );
-          }),
-        ],
-      ),
-    );
-  }
-
-  List<Map<String, String>> get _roundingRuleOptions => [
-        {
-          'value': 'none',
-          'label': 'Không làm tròn',
-          'desc': 'Tính chính xác theo phút'
-        },
-        {
-          'value': 'round_up',
-          'label': 'Làm tròn lên',
-          'desc': 'Luôn làm tròn lên (có lợi cho nhân viên)'
-        },
-        {
-          'value': 'round_down',
-          'label': 'Làm tròn xuống',
-          'desc': 'Luôn làm tròn xuống'
-        },
-        {
-          'value': 'round_nearest',
-          'label': 'Làm tròn gần nhất',
-          'desc': 'Làm tròn đến 15 phút gần nhất'
-        },
-      ];
-
-  // ══════════════════════════════════════════════════
-  // CARD: Chấm công bù + Ngày chốt công
-  // ══════════════════════════════════════════════════
-  Widget _buildManualCorrectionAndCutoffCard() {
-    return _buildSettingCard(
-      icon: Icons.edit_calendar,
-      iconColor: HrmPageChrome.chipDark,
-      title: 'Chấm công bù & Chốt công',
-      subtitle: 'Quy tắc bổ sung và chu kỳ tính lương',
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          // Allow manual correction toggle
-          Row(
-            children: [
-              Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(tr('Cho phép chấm công bù'),
-                      style: TextStyle(
-                          fontWeight: FontWeight.w600,
-                          fontSize: 13,
-                          color: SboxColors.slate900),
-                    ),
-                    const SizedBox(height: 2),
-                    Text(tr('Nhân viên có thể yêu cầu bổ sung chấm công'),
-                      style:
-                          TextStyle(fontSize: 11, color: SboxColors.slate500),
-                    ),
-                  ],
-                ),
-              ),
-              Switch(
-                value: _allowManualCorrection,
-                onChanged: (v) => setState(() => _allowManualCorrection = v),
-                activeThumbColor: HrmPageChrome.primaryNavy,
-              ),
-            ],
-          ),
-          const Divider(height: 32),
-          // Payroll cutoff day
-          Text(tr('Ngày chốt công hàng tháng:'),
-            style: TextStyle(
-                fontWeight: FontWeight.w600,
-                fontSize: 13,
-                color: SboxColors.slate900),
-          ),
-          const SizedBox(height: 4),
-          Text(tr('Chấm công sẽ được chốt vào ngày này mỗi tháng'),
-            style: TextStyle(fontSize: 11, color: SboxColors.slate500),
-          ),
-          const SizedBox(height: 10),
-          Row(
-            children: [
-              Container(
-                padding:
-                    const EdgeInsets.symmetric(horizontal: 20, vertical: 14),
-                decoration: BoxDecoration(
-                  color: HrmPageChrome.chipDark.withValues(alpha: 0.05),
-                  borderRadius: BorderRadius.circular(14),
-                  border: Border.all(
-                      color: HrmPageChrome.chipDark.withValues(alpha: 0.2)),
-                ),
-                child: Text(tr('Ngày $_payrollCutoffDay'),
-                  style: const TextStyle(
-                    fontSize: 20,
-                    fontWeight: FontWeight.bold,
-                    color: SboxColors.slate900,
-                  ),
-                ),
-              ),
-              const SizedBox(width: 12),
-              Column(
-                children: [
-                  IconButton(
-                    onPressed: _payrollCutoffDay < 31
-                        ? () => setState(() => _payrollCutoffDay++)
-                        : null,
-                    icon: const Icon(Icons.add_circle_outline),
-                    color: HrmPageChrome.chipDark,
-                    iconSize: 20,
-                  ),
-                  IconButton(
-                    onPressed: _payrollCutoffDay > 1
-                        ? () => setState(() => _payrollCutoffDay--)
-                        : null,
-                    icon: const Icon(Icons.remove_circle_outline),
-                    color: HrmPageChrome.chipDark,
-                    iconSize: 20,
-                  ),
-                ],
-              ),
-            ],
-          ),
-          const SizedBox(height: 10),
-          Wrap(
-            spacing: 6,
-            runSpacing: 6,
-            children: [1, 15, 20, 25, 28]
-                .map((d) => ActionChip(
-                      label: Text(tr('Ngày $d')),
-                      backgroundColor: _payrollCutoffDay == d
-                          ? HrmPageChrome.chipDark.withValues(alpha: 0.1)
-                          : SboxColors.slate100,
-                      labelStyle: TextStyle(
-                        color: _payrollCutoffDay == d
-                            ? HrmPageChrome.chipDark
-                            : SboxColors.slate600,
-                        fontWeight: _payrollCutoffDay == d
-                            ? FontWeight.w600
-                            : FontWeight.normal,
-                        fontSize: 12,
-                      ),
-                      side: BorderSide(
-                        color: _payrollCutoffDay == d
-                            ? HrmPageChrome.chipDark.withValues(alpha: 0.3)
-                            : SboxColors.slate300,
-                      ),
-                      onPressed: () => setState(() => _payrollCutoffDay = d),
-                    ))
-                .toList(),
-          ),
-          const SizedBox(height: 14),
-          _buildInfoBox(
-            '• Ngày chốt công xác định chu kỳ tính lương\n'
-            '• VD: Ngày 25 → Chu kỳ từ 26/tháng trước đến 25/tháng này\n'
-            '• Ngày 1 → Chốt theo tháng lịch (1–31 mỗi tháng)\n'
-            '• Thiết lập này được lưu và sẽ được dùng khi module Tổng hợp lương được cập nhật',
-          ),
-        ],
-      ),
-    );
-  }
-
-  // ══════════════════════════════════════════════════
-  // CARD: Phê duyệt nghỉ phép
-  // ══════════════════════════════════════════════════
-  Widget _buildLeaveApprovalCard() {
-    return _buildSettingCard(
-      icon: Icons.event_busy,
-      iconColor: HrmPageChrome.chip,
-      title: 'Phê duyệt nghỉ phép',
-      subtitle: 'Cài đặt quy trình phê duyệt đơn nghỉ phép',
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Text(tr('Số cấp phê duyệt:'),
-            style: TextStyle(
-              color: SboxColors.slate600,
-              fontWeight: FontWeight.w600,
-              fontSize: 13,
-            ),
-          ),
-          const SizedBox(height: 10),
-          ..._leaveApprovalLevelOptions.map((opt) {
-            final value = opt['value'] as int;
-            final isSelected = _leaveApprovalLevels == value;
-            return Padding(
-              padding: const EdgeInsets.only(bottom: 6),
-              child: InkWell(
-                onTap: () => setState(() => _leaveApprovalLevels = value),
-                borderRadius: BorderRadius.circular(10),
-                child: Container(
-                  padding:
-                      const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
-                  decoration: BoxDecoration(
-                    color: isSelected
-                        ? HrmPageChrome.chip.withValues(alpha: 0.08)
-                        : Colors.transparent,
-                    borderRadius: BorderRadius.circular(10),
-                    border: Border.all(
-                      color: isSelected
-                          ? HrmPageChrome.chip.withValues(alpha: 0.4)
-                          : SboxColors.slate200,
-                    ),
-                  ),
-                  child: Row(
-                    children: [
-                      Icon(
-                        isSelected
-                            ? Icons.radio_button_checked
-                            : Icons.radio_button_unchecked,
-                        size: 20,
-                        color: isSelected
-                            ? HrmPageChrome.chip
-                            : SboxColors.slate400,
-                      ),
-                      const SizedBox(width: 10),
-                      Icon(opt['icon'] as IconData,
-                          size: 18,
-                          color: isSelected
-                              ? HrmPageChrome.chip
-                              : SboxColors.slate500),
-                      const SizedBox(width: 8),
-                      Expanded(
-                        child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            Text(
-                              tr(opt['label'] as String),
-                              style: TextStyle(
-                                fontWeight: isSelected
-                                    ? FontWeight.w600
-                                    : FontWeight.normal,
-                                fontSize: 13,
-                                color: SboxColors.slate900,
-                              ),
-                            ),
-                            Text(
-                              tr(opt['desc'] as String),
-                              style: TextStyle(
-                                  fontSize: 11, color: SboxColors.slate500),
-                            ),
-                          ],
-                        ),
-                      ),
-                    ],
-                  ),
-                ),
-              ),
-            );
-          }),
-          const SizedBox(height: 14),
-          _buildInfoBox(
-            '• 1 cấp: Quản lý trực tiếp duyệt → Hoàn tất\n'
-            '• 2 cấp: Quản lý trực tiếp → Quản lý cấp cao duyệt\n'
-            '• 3 cấp: Quản lý trực tiếp → Trưởng phòng → Admin duyệt\n'
-            '• Admin luôn nhận được thông báo tất cả đơn nghỉ phép',
-          ),
-        ],
-      ),
-    );
-  }
-
-  List<Map<String, dynamic>> get _leaveApprovalLevelOptions => [
-        {
-          'value': 1,
-          'label': '1 cấp (Quản lý trực tiếp)',
-          'desc': 'Chỉ quản lý trực tiếp phê duyệt',
-          'icon': Icons.person,
-        },
-        {
-          'value': 2,
-          'label': '2 cấp (Quản lý trực tiếp + Quản lý cấp cao)',
-          'desc': 'Quản lý trực tiếp duyệt, sau đó quản lý cấp cao duyệt',
-          'icon': Icons.people,
-        },
-        {
-          'value': 3,
-          'label': '3 cấp (Quản lý + Trưởng phòng + Admin)',
-          'desc': 'Duyệt qua 3 cấp quản lý',
-          'icon': Icons.groups,
-        },
-      ];
 }

@@ -137,8 +137,9 @@ public class BankAccountsController(ZKTecoDbContext context) : AuthenticatedCont
     /// </summary>
     [HttpPut("{id}")]
     [Authorize(Policy = PolicyNames.AtLeastEmployee)]
-    [RequireModulePermission("CashTransaction", ModulePermissionAction.Edit)]
-    public async Task<ActionResult<AppResponse<BankAccountDto>>> UpdateBankAccount(Guid id, [FromBody] UpdateBankAccountDto request)
+    [RequireModulePermission("BankAccount", ModulePermissionAction.Edit)]
+    public async Task<ActionResult<AppResponse<BankAccountDto>>> UpdateBankAccount(Guid id, [FromBody] UpdateBankAccountDto request,
+        [FromServices] ISystemNotificationService notifications)
     {
         var storeId = RequiredStoreId;
         var bankAccount = await context.BankAccounts.AsTracking().FirstOrDefaultAsync(x => x.Id == id && x.StoreId == storeId);
@@ -164,9 +165,14 @@ public class BankAccountsController(ZKTecoDbContext context) : AuthenticatedCont
         bankAccount.IsActive = request.IsActive;
         bankAccount.LastModified = DateTime.UtcNow;
 
+        var becameDefault = request.IsDefault && context.Entry(bankAccount).Property(x => x.IsDefault).IsModified;
         await context.SaveChangesAsync();
         if (bankAccount.IsDefault)
             await SyncTingeeReceiveAccountAsync(storeId, bankAccount.AccountNumber);
+        await NotifyMoneyAccountChangedAsync(notifications, storeId,
+            becameDefault
+                ? $"Tài khoản {bankAccount.AccountNumber} được đặt làm tài khoản nhận tiền mặc định"
+                : $"Tài khoản ngân hàng {bankAccount.AccountNumber} được cập nhật");
         return await GetBankAccount(id);
     }
 
@@ -176,7 +182,8 @@ public class BankAccountsController(ZKTecoDbContext context) : AuthenticatedCont
     [HttpPut("{id}/set-default")]
     [Authorize(Policy = PolicyNames.AtLeastEmployee)]
     [RequireModulePermission("BankAccount", ModulePermissionAction.Edit)]
-    public async Task<ActionResult<AppResponse<BankAccountDto>>> SetDefaultBankAccount(Guid id)
+    public async Task<ActionResult<AppResponse<BankAccountDto>>> SetDefaultBankAccount(Guid id,
+        [FromServices] ISystemNotificationService notifications)
     {
         var storeId = RequiredStoreId;
         var bankAccount = await context.BankAccounts.AsTracking().FirstOrDefaultAsync(x => x.Id == id && x.StoreId == storeId);
@@ -196,6 +203,8 @@ public class BankAccountsController(ZKTecoDbContext context) : AuthenticatedCont
 
         await context.SaveChangesAsync();
         await SyncTingeeReceiveAccountAsync(storeId, bankAccount.AccountNumber);
+        await NotifyMoneyAccountChangedAsync(notifications, storeId,
+            $"Tài khoản {bankAccount.AccountNumber} được đặt làm tài khoản nhận tiền mặc định");
         return await GetBankAccount(id);
     }
 
@@ -204,8 +213,9 @@ public class BankAccountsController(ZKTecoDbContext context) : AuthenticatedCont
     /// </summary>
     [HttpDelete("{id}")]
     [Authorize(Policy = PolicyNames.AtLeastEmployee)]
-    [RequireModulePermission("CashTransaction", ModulePermissionAction.Delete)]
-    public async Task<ActionResult<AppResponse<bool>>> DeleteBankAccount(Guid id)
+    [RequireModulePermission("BankAccount", ModulePermissionAction.Delete)]
+    public async Task<ActionResult<AppResponse<bool>>> DeleteBankAccount(Guid id,
+        [FromServices] ISystemNotificationService notifications)
     {
         var storeId = RequiredStoreId;
         var bankAccount = await context.BankAccounts.AsTracking().FirstOrDefaultAsync(x => x.Id == id && x.StoreId == storeId);
@@ -226,7 +236,15 @@ public class BankAccountsController(ZKTecoDbContext context) : AuthenticatedCont
         }
 
         await context.SaveChangesAsync();
+        await NotifyMoneyAccountChangedAsync(notifications, storeId, $"Tài khoản ngân hàng {bankAccount.AccountNumber} bị xóa / ngừng dùng");
         return Ok(AppResponse<bool>.Success(true));
+    }
+
+    /// <summary>Báo quản lý cửa hàng khi tài khoản nhận tiền thay đổi (chống đổi tài khoản trái phép).</summary>
+    private async Task NotifyMoneyAccountChangedAsync(ISystemNotificationService notifications, Guid storeId, string message)
+    {
+        await ZKTecoADMS.Api.Services.StoreOwnerNotifier.NotifyAsync(context, notifications, storeId,
+            "Thay đổi tài khoản nhận tiền", $"{message} — bởi {CurrentUserEmail ?? "không rõ"}", "BankAccount", CurrentUserId);
     }
 
     /// <summary>

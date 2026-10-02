@@ -202,7 +202,7 @@ class _AttendanceByShiftTabState extends State<AttendanceByShiftTab> {
       );
 
   bool get _showPunchBranchColumn =>
-      BranchFilterHelper.showBranchFilter(widget.branches);
+      BranchFilterHelper.hasMultipleBranches(widget.branches);
 
   int get _excelPunchStartCol => _showPunchBranchColumn ? 4 : 3;
 

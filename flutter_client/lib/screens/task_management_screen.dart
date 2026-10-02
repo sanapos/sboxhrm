@@ -99,7 +99,7 @@ class _TaskManagementScreenState extends State<TaskManagementScreen>
   bool _isMyTasks = false;
   bool _isOverdueFilter = false;
   bool _assignedByMeOnly = false;
-  String? _filterBranchId;
+  String? _filterBranchId = BranchFilterHelper.viewBranchId;
   List<Map<String, dynamic>> _branches = [];
 
   // ---------- selection ----------
@@ -729,7 +729,7 @@ class _TaskManagementScreenState extends State<TaskManagementScreen>
     if (_typeFilter != null) n++;
     if (_assigneeFilter != null) n++;
     if (_fromDate != null) n++;
-    if (_filterBranchId != null) n++;
+    if (_filterBranchId != BranchFilterHelper.viewBranchId) n++;
     if (_isMyTasks) n++;
     if (_isOverdueFilter) n++;
     if (_assignedByMeOnly) n++;
@@ -1483,7 +1483,7 @@ class _TaskManagementScreenState extends State<TaskManagementScreen>
       _isMyTasks = false;
       _isOverdueFilter = false;
       _assignedByMeOnly = false;
-      _filterBranchId = null;
+      _filterBranchId = BranchFilterHelper.viewBranchId;
     });
     _reloadScopedData();
   }

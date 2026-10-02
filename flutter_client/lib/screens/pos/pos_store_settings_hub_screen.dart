@@ -6,25 +6,25 @@ import 'package:flutter/material.dart';
 import 'package:image_picker/image_picker.dart';
 import 'package:provider/provider.dart';
 
+import '../../l10n/app_tr.dart';
 import '../../providers/permission_provider.dart';
 import '../../services/api_service.dart';
 import '../../utils/pos_commercial_profile_local.dart';
 import '../../utils/pos_sell_store_settings.dart';
-import '../../widgets/hrm_page_chrome.dart';
-import '../../widgets/notification_overlay.dart';
 import '../../widgets/pos/pos_commercial_company_fields.dart';
 import '../../widgets/pos/pos_sell_fee_defaults_fields.dart';
-import '../../widgets/pos/pos_theme.dart';
-import 'package:zkteco_flutter_client/l10n/app_tr.dart';
+import '../../widgets/sbox/sbox_ui.dart';
+import '../../widgets/settings/settings_page.dart';
 
-import '../../theme/sbox_tokens.dart';
-/// Thiết lập cửa hàng / VAT / phụ phí — dùng trong Settings hub.
+/// Thông tin cửa hàng: tên in hóa đơn, thông tin công ty (báo giá / hợp đồng), logo & con dấu,
+/// cách tính VAT, phụ thu & phí giao hàng, điều khoản. Thuế / phụ thu lưu trên server (đồng bộ mọi máy).
 class PosStoreSettingsHubScreen extends StatefulWidget {
-  const PosStoreSettingsHubScreen({super.key});
+  const PosStoreSettingsHubScreen({super.key, this.canEditOverride});
+
+  final bool? canEditOverride;
 
   @override
-  State<PosStoreSettingsHubScreen> createState() =>
-      _PosStoreSettingsHubScreenState();
+  State<PosStoreSettingsHubScreen> createState() => _PosStoreSettingsHubScreenState();
 }
 
 class _PosStoreSettingsHubScreenState extends State<PosStoreSettingsHubScreen> {
@@ -47,8 +47,14 @@ class _PosStoreSettingsHubScreenState extends State<PosStoreSettingsHubScreen> {
   final _surchargeDefaultCtrl = TextEditingController();
   final _deliveryDefaultCtrl = TextEditingController();
 
+  List<TextEditingController> get _ctrls => [
+        _nameCtrl, _addressCtrl, _phoneCtrl, _companyCtrl, _taxCtrl, _companyAddressCtrl, _companyPhoneCtrl,
+        _companyEmailCtrl, _bankNoCtrl, _bankNameCtrl, _bankHolderCtrl, _repCtrl, _titleCtrl, _termsCtrl,
+        _warrantyCtrl, _surchargeNameCtrl, _surchargeDefaultCtrl, _deliveryDefaultCtrl,
+      ];
+
   PosSellTaxMode _taxMode = PosSellTaxMode.includedInPrice;
-  double _vatRate = 10;
+  double _vatRate = 8;
   bool _enableSurcharge = false;
   bool _enableDeliveryFee = false;
   bool _surchargeIsPercent = false;
@@ -58,33 +64,50 @@ class _PosStoreSettingsHubScreenState extends State<PosStoreSettingsHubScreen> {
   Uint8List? _stampBytes;
   String _logoB64 = '';
   Uint8List? _logoBytes;
+  String _savedSnapshot = '';
+
+  bool get _canEdit {
+    if (widget.canEditOverride != null) return widget.canEditOverride!;
+    try {
+      return Provider.of<PermissionProvider>(context, listen: false).canEditPosSetup();
+    } catch (_) {
+      return false;
+    }
+  }
+
+  String get _snapshot => [
+        ..._ctrls.map((c) => c.text),
+        _taxMode.key,
+        _vatRate,
+        _enableSurcharge,
+        _enableDeliveryFee,
+        _surchargeIsPercent,
+        _stampB64.length,
+        _stampB64.hashCode,
+        _logoB64.length,
+        _logoB64.hashCode,
+      ].join('|');
+
+  bool get _dirty => !_loading && _snapshot != _savedSnapshot;
+
+  void _rebuild() {
+    if (mounted) setState(() {});
+  }
 
   @override
   void initState() {
     super.initState();
+    for (final c in _ctrls) {
+      c.addListener(_rebuild);
+    }
     unawaited(_load());
   }
 
   @override
   void dispose() {
-    _nameCtrl.dispose();
-    _addressCtrl.dispose();
-    _phoneCtrl.dispose();
-    _companyCtrl.dispose();
-    _taxCtrl.dispose();
-    _companyAddressCtrl.dispose();
-    _companyPhoneCtrl.dispose();
-    _companyEmailCtrl.dispose();
-    _bankNoCtrl.dispose();
-    _bankNameCtrl.dispose();
-    _bankHolderCtrl.dispose();
-    _repCtrl.dispose();
-    _titleCtrl.dispose();
-    _termsCtrl.dispose();
-    _warrantyCtrl.dispose();
-    _surchargeNameCtrl.dispose();
-    _surchargeDefaultCtrl.dispose();
-    _deliveryDefaultCtrl.dispose();
+    for (final c in _ctrls) {
+      c.dispose();
+    }
     super.dispose();
   }
 
@@ -100,31 +123,28 @@ class _PosStoreSettingsHubScreenState extends State<PosStoreSettingsHubScreen> {
     }
   }
 
+  void _toast(String m, {bool error = false}) => ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+        content: Text(tr(m)),
+        backgroundColor: error ? SboxColors.danger : null,
+        behavior: SnackBarBehavior.floating,
+      ));
+
   Future<void> _pickImage({bool logo = false}) async {
-    final file = await ImagePicker().pickImage(
-      source: ImageSource.gallery,
-      maxWidth: 640,
-      maxHeight: 640,
-      imageQuality: 92,
-    );
+    final file = await ImagePicker().pickImage(source: ImageSource.gallery, maxWidth: 640, maxHeight: 640, imageQuality: 92);
     if (file == null || !mounted) return;
     final bytes = await file.readAsBytes();
     if (!mounted) return;
     if (bytes.length > 700 * 1024) {
-      NotificationOverlayManager().showWarning(
-        title: 'Ảnh quá lớn',
-        message: tr('Ảnh cần dưới 700 KB.'),
-      );
+      _toast('Ảnh cần dưới 700 KB', error: true);
       return;
     }
-    final b64 = base64Encode(bytes);
     setState(() {
       if (logo) {
         _logoBytes = bytes;
-        _logoB64 = b64;
+        _logoB64 = base64Encode(bytes);
       } else {
         _stampBytes = bytes;
-        _stampB64 = b64;
+        _stampB64 = base64Encode(bytes);
       }
     });
   }
@@ -135,6 +155,13 @@ class _PosStoreSettingsHubScreenState extends State<PosStoreSettingsHubScreen> {
     final profileRes = await ApiService().getPosCommercialProfile();
     final local = await loadLocalCommercialProfile();
     if (!mounted) return;
+    Map<String, dynamic> m = const {};
+    if (profileRes['isSuccess'] == true && profileRes['data'] is Map) {
+      m = mergeCommercialProfile(Map<String, dynamic>.from(profileRes['data'] as Map), local);
+    } else if (local.isNotEmpty) {
+      m = local;
+    }
+    String t(String a) => (m[a] ?? m[a[0].toUpperCase() + a.substring(1)] ?? '').toString();
     setState(() {
       _nameCtrl.text = s.storeName;
       _addressCtrl.text = s.address;
@@ -145,64 +172,36 @@ class _PosStoreSettingsHubScreenState extends State<PosStoreSettingsHubScreen> {
       _enableDeliveryFee = s.enableDeliveryFee;
       _surchargeIsPercent = s.surchargeIsPercent;
       _surchargeNameCtrl.text = s.surchargeLabel;
-      _surchargeDefaultCtrl.text = s.surchargeDefault > 0
-          ? PosSellStoreSettings.formatAmount(s.surchargeDefault)
-          : '';
-      _deliveryDefaultCtrl.text = s.deliveryFeeDefault > 0
-          ? PosSellStoreSettings.formatAmount(s.deliveryFeeDefault)
-          : '';
-      if (profileRes['isSuccess'] == true && profileRes['data'] is Map) {
-        final remote = Map<String, dynamic>.from(profileRes['data'] as Map);
-        final m = mergeCommercialProfile(remote, local);
-        String t(String a, String b) => (m[a] ?? m[b] ?? '').toString();
-        _companyCtrl.text = t('companyName', 'CompanyName');
-        _taxCtrl.text = t('taxCode', 'TaxCode');
-        _companyAddressCtrl.text = t('address', 'Address');
-        _companyPhoneCtrl.text = t('phone', 'Phone');
-        _companyEmailCtrl.text = t('email', 'Email');
-        _bankNoCtrl.text = t('bankAccountNumber', 'BankAccountNumber');
-        _bankNameCtrl.text = t('bankName', 'BankName');
-        _bankHolderCtrl.text = t('bankAccountHolder', 'BankAccountHolder');
-        _repCtrl.text = t('legalRepresentative', 'LegalRepresentative');
-        _titleCtrl.text = t('legalTitle', 'LegalTitle');
-        if (_titleCtrl.text.trim().isEmpty) _titleCtrl.text = 'Giám đốc';
-        _stampB64 = t('stampPngBase64', 'StampPngBase64').trim();
-        _stampBytes = _decodeB64(_stampB64);
-        _logoB64 = t('logoPngBase64', 'LogoPngBase64').trim();
-        _logoBytes = _decodeB64(_logoB64);
-        _termsCtrl.text = t('defaultTerms', 'DefaultTerms');
-        _warrantyCtrl.text = t('warrantyPolicy', 'WarrantyPolicy');
-      } else if (local.isNotEmpty) {
-        String t(String a) => (local[a] ?? '').toString();
-        _companyCtrl.text = t('companyName');
-        _taxCtrl.text = t('taxCode');
-        _companyAddressCtrl.text = t('address');
-        _companyPhoneCtrl.text = t('phone');
-        _companyEmailCtrl.text = t('email');
-        _bankNoCtrl.text = t('bankAccountNumber');
-        _bankNameCtrl.text = t('bankName');
-        _bankHolderCtrl.text = t('bankAccountHolder');
-        _repCtrl.text = t('legalRepresentative');
-        _titleCtrl.text = t('legalTitle');
-        if (_titleCtrl.text.trim().isEmpty) _titleCtrl.text = 'Giám đốc';
-        _stampB64 = t('stampPngBase64');
-        _stampBytes = _decodeB64(_stampB64);
-        _logoB64 = t('logoPngBase64');
-        _logoBytes = _decodeB64(_logoB64);
-        _termsCtrl.text = t('defaultTerms');
-        _warrantyCtrl.text = t('warrantyPolicy');
-      }
+      _surchargeDefaultCtrl.text = s.surchargeDefault > 0 ? PosSellStoreSettings.formatAmount(s.surchargeDefault) : '';
+      _deliveryDefaultCtrl.text = s.deliveryFeeDefault > 0 ? PosSellStoreSettings.formatAmount(s.deliveryFeeDefault) : '';
+      _companyCtrl.text = t('companyName');
+      _taxCtrl.text = t('taxCode');
+      _companyAddressCtrl.text = t('address');
+      _companyPhoneCtrl.text = t('phone');
+      _companyEmailCtrl.text = t('email');
+      _bankNoCtrl.text = t('bankAccountNumber');
+      _bankNameCtrl.text = t('bankName');
+      _bankHolderCtrl.text = t('bankAccountHolder');
+      _repCtrl.text = t('legalRepresentative');
+      _titleCtrl.text = t('legalTitle').trim().isEmpty ? 'Giám đốc' : t('legalTitle');
+      _stampB64 = t('stampPngBase64').trim();
+      _stampBytes = _decodeB64(_stampB64);
+      _logoB64 = t('logoPngBase64').trim();
+      _logoBytes = _decodeB64(_logoB64);
+      _termsCtrl.text = t('defaultTerms');
+      _warrantyCtrl.text = t('warrantyPolicy');
       _loading = false;
+      _savedSnapshot = _snapshot;
     });
   }
 
   Future<void> _save() async {
-    final perm = Provider.of<PermissionProvider>(context, listen: false);
-    if (!perm.canEditPosSetup()) {
-      NotificationOverlayManager().showWarning(
-        title: 'Không có quyền sửa',
-        message: tr('Chỉ quản lý được lưu thiết lập cửa hàng.'),
-      );
+    if (!_canEdit) {
+      _toast('Chỉ quản lý được lưu thiết lập cửa hàng', error: true);
+      return;
+    }
+    if (_nameCtrl.text.trim().isEmpty) {
+      _toast('Nhập tên cửa hàng (in trên hóa đơn)', error: true);
       return;
     }
     setState(() => _saving = true);
@@ -219,12 +218,8 @@ class _PosStoreSettingsHubScreenState extends State<PosStoreSettingsHubScreen> {
       enableDeliveryFee: _enableDeliveryFee,
       surchargeLabel: _surchargeNameCtrl.text.trim(),
       surchargeIsPercent: _surchargeIsPercent,
-      surchargeDefault: PosSellStoreSettings.parseAmount(
-        _surchargeDefaultCtrl.text,
-      ),
-      deliveryFeeDefault: PosSellStoreSettings.parseAmount(
-        _deliveryDefaultCtrl.text,
-      ),
+      surchargeDefault: PosSellStoreSettings.parseAmount(_surchargeDefaultCtrl.text),
+      deliveryFeeDefault: PosSellStoreSettings.parseAmount(_deliveryDefaultCtrl.text),
     );
     await next.save();
     final profileBody = <String, dynamic>{
@@ -250,338 +245,182 @@ class _PosStoreSettingsHubScreenState extends State<PosStoreSettingsHubScreen> {
     setState(() => _saving = false);
     if (profileRes['isSuccess'] == true && profileRes['data'] is Map) {
       final saved = Map<String, dynamic>.from(profileRes['data'] as Map);
-      saved['clientSavedAt'] =
-          saved['updatedAt'] ?? saved['UpdatedAt'] ?? profileBody['clientSavedAt'];
+      saved['clientSavedAt'] = saved['updatedAt'] ?? saved['UpdatedAt'] ?? profileBody['clientSavedAt'];
       await saveLocalCommercialProfile(saved);
     }
+    if (!mounted) return;
     if (profileRes['isSuccess'] != true) {
-      NotificationOverlayManager().showWarning(
-        title: 'Đã lưu cửa hàng',
-        message: profileRes['message']?.toString() ??
-            tr('Thông tin công ty chưa lưu được — kiểm tra quyền.'),
-      );
+      _toast(profileRes['message']?.toString() ?? 'Đã lưu cửa hàng, nhưng thông tin công ty chưa lưu được — kiểm tra quyền', error: true);
       return;
     }
-    NotificationOverlayManager().showSuccess(
-      title: 'Đã lưu',
-      message: tr('Thiết lập cửa hàng và thông tin công ty đã cập nhật'),
-    );
+    setState(() => _savedSnapshot = _snapshot);
+    _toast('Đã lưu thông tin cửa hàng');
   }
+
+  InputDecoration _dec(String label, {String? hint}) => InputDecoration(
+        labelText: tr(label),
+        hintText: hint == null ? null : tr(hint),
+        isDense: true,
+        border: OutlineInputBorder(borderRadius: BorderRadius.circular(10)),
+      );
 
   @override
   Widget build(BuildContext context) {
-    if (_loading) {
-      const spinner = Center(child: CircularProgressIndicator());
-      if (HrmPageChrome.hideOuterChrome(context)) return spinner;
-      return Scaffold(
-        backgroundColor: HrmPageChrome.background,
-        appBar: HrmPageChrome.appBar(
-          context: context,
-          title: 'Thiết lập cửa hàng',
+    final edit = _canEdit;
+    return SettingsPage(
+      title: 'Thông tin cửa hàng',
+      subtitle: 'Tên in hóa đơn, thông tin công ty, logo, thuế VAT, phụ thu — đồng bộ mọi máy bán hàng',
+      icon: Icons.store_outlined,
+      loading: _loading,
+      dirty: _dirty,
+      saving: _saving,
+      onSave: _save,
+      onDiscard: _load,
+      children: [
+        if (!edit) const SettingsNote('Bạn chỉ có quyền xem. Cần quyền sửa «Trung tâm thiết lập».', icon: Icons.lock_outline_rounded, tone: SboxTone.neutral),
+        SettingsSection(
+          title: 'In trên hóa đơn bán hàng',
+          icon: Icons.receipt_long_outlined,
+          children: [
+            const SizedBox(height: 6),
+            TextField(controller: _nameCtrl, enabled: edit, decoration: _dec('Tên cửa hàng *', hint: 'VD: SBOX Coffee Quận 1')),
+            const SizedBox(height: 10),
+            TextField(controller: _addressCtrl, enabled: edit, decoration: _dec('Địa chỉ')),
+            const SizedBox(height: 10),
+            TextField(controller: _phoneCtrl, enabled: edit, keyboardType: TextInputType.phone, decoration: _dec('Số điện thoại')),
+            const SizedBox(height: 12),
+          ],
         ),
-        body: spinner,
-      );
-    }
-    return Scaffold(
-      backgroundColor: HrmPageChrome.background,
-      appBar: HrmPageChrome.appBar(
-        context: context,
-        title: 'Thiết lập cửa hàng',
-      ),
-      body: ListView(
-        padding: const EdgeInsets.fromLTRB(16, 12, 16, 32),
-        children: [
-          TextField(
-            controller: _nameCtrl,
-            decoration: InputDecoration(
-              labelText: tr('Tên cửa hàng'),
-              border: OutlineInputBorder(),
-            ),
-            textCapitalization: TextCapitalization.words,
-          ),
-          const SizedBox(height: 12),
-          TextField(
-            controller: _addressCtrl,
-            decoration: InputDecoration(
-              labelText: tr('Địa chỉ'),
-              border: OutlineInputBorder(),
-            ),
-            maxLines: 2,
-          ),
-          const SizedBox(height: 12),
-          TextField(
-            controller: _phoneCtrl,
-            keyboardType: TextInputType.phone,
-            decoration: InputDecoration(
-              labelText: tr('Số điện thoại'),
-              border: OutlineInputBorder(),
-            ),
-          ),
-          const SizedBox(height: 8),
-          Text(
-            tr('QR thanh toán tại quầy nằm ở Cổng thanh toán. TK in trên báo giá / hợp đồng điền ở khối công ty bên dưới.'),
-            style: TextStyle(fontSize: 12, color: SboxColors.slate600),
-          ),
-          const Divider(height: 28),
-          PosCommercialCompanyFields(
-            company: _companyCtrl,
-            tax: _taxCtrl,
-            address: _companyAddressCtrl,
-            phone: _companyPhoneCtrl,
-            email: _companyEmailCtrl,
-            bankNo: _bankNoCtrl,
-            bankName: _bankNameCtrl,
-            bankHolder: _bankHolderCtrl,
-            rep: _repCtrl,
-            title: _titleCtrl,
-            enabled:
-                context.watch<PermissionProvider>().canEditPosSetup(),
-          ),
-          const SizedBox(height: 14),
-          Text(
-            tr('Logo công ty'),
-            style: const TextStyle(fontSize: 14, fontWeight: FontWeight.w700),
-          ),
-          const SizedBox(height: 4),
-          Text(
-            tr('Ảnh này in ở góc đầu báo giá. JPG hoặc PNG, dưới 700 KB.'),
-            style: TextStyle(fontSize: 12, color: SboxColors.slate600),
-          ),
-          const SizedBox(height: 8),
-          Row(
-            children: [
-              Container(
-                width: 96,
-                height: 96,
-                alignment: Alignment.center,
-                decoration: BoxDecoration(
-                  color: Colors.white,
-                  borderRadius: BorderRadius.circular(10),
-                  border: Border.all(color: SboxColors.slate400),
-                ),
-                child: _logoBytes == null
-                    ? Icon(Icons.image_outlined,
-                        color: SboxColors.slate400, size: 36)
-                    : Padding(
-                        padding: const EdgeInsets.all(6),
-                        child: Image.memory(_logoBytes!, fit: BoxFit.contain),
-                      ),
+        SettingsSection(
+          title: 'Logo & con dấu',
+          subtitle: 'Logo in trên hóa đơn / báo giá; con dấu chèn vào báo giá, hợp đồng. Ảnh dưới 700 KB',
+          icon: Icons.image_outlined,
+          children: [
+            const SizedBox(height: 6),
+            Wrap(spacing: 16, runSpacing: 12, children: [
+              _imageBox('Logo', _logoBytes, edit, () => _pickImage(logo: true), () => setState(() {
+                    _logoB64 = '';
+                    _logoBytes = null;
+                  })),
+              _imageBox('Con dấu', _stampBytes, edit, () => _pickImage(), () => setState(() {
+                    _stampB64 = '';
+                    _stampBytes = null;
+                  })),
+            ]),
+            const SizedBox(height: 12),
+          ],
+        ),
+        SettingsSection(
+          title: 'Thuế VAT khi bán',
+          subtitle: 'Áp dụng cho mọi máy bán hàng và mã QR trên hóa đơn',
+          icon: Icons.percent_rounded,
+          children: [
+            for (final m in PosSellTaxMode.values)
+              ListTile(
+                contentPadding: EdgeInsets.zero,
+                enabled: edit,
+                onTap: () => setState(() => _taxMode = m),
+                leading: Icon(_taxMode == m ? Icons.radio_button_checked_rounded : Icons.radio_button_off_rounded,
+                    color: _taxMode == m ? SboxColors.brand600 : SboxColors.slate400),
+                title: Text(tr(m.label), style: const TextStyle(fontWeight: FontWeight.w600)),
               ),
-              const SizedBox(width: 12),
-              Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.stretch,
-                  children: [
-                    OutlinedButton.icon(
-                      onPressed: context
-                              .watch<PermissionProvider>()
-                              .canEditPosSetup()
-                          ? () => _pickImage(logo: true)
-                          : null,
-                      icon: const Icon(Icons.upload_file),
-                      label: Text(tr('Tải logo')),
-                    ),
-                    if (_logoBytes != null)
-                      TextButton(
-                        onPressed: context
-                                .watch<PermissionProvider>()
-                                .canEditPosSetup()
-                            ? () => setState(() {
-                                  _logoBytes = null;
-                                  _logoB64 = '';
-                                })
-                            : null,
-                        child: Text(tr('Gỡ logo')),
-                      ),
-                  ],
-                ),
+            SettingsTile(
+              label: 'Thuế suất mặc định',
+              help: _taxMode == PosSellTaxMode.includedInPrice ? 'Giá bán đã gồm thuế — dùng để tách thuế trên hóa đơn' : 'Cộng thêm vào giá khi bán',
+              control: SettingsSegment<double>(
+                value: [0.0, 5.0, 8.0, 10.0].contains(_vatRate) ? _vatRate : 8.0,
+                options: const [(0.0, '0%'), (5.0, '5%'), (8.0, '8%'), (10.0, '10%')],
+                onChanged: edit ? (v) => setState(() => _vatRate = v) : (_) {},
               ),
-            ],
-          ),
-          const SizedBox(height: 16),
-          Text(
-            tr('Con dấu công ty'),
-            style: const TextStyle(fontSize: 14, fontWeight: FontWeight.w700),
-          ),
-          const SizedBox(height: 4),
-          Text(
-            tr('Ảnh PNG nền trong suốt. Khi in báo giá, dấu tự treo lên chữ ký đại diện công ty.'),
-            style: TextStyle(fontSize: 12, color: SboxColors.slate600),
-          ),
-          const SizedBox(height: 8),
-          Row(
-            crossAxisAlignment: CrossAxisAlignment.center,
-            children: [
-              Container(
-                width: 96,
-                height: 96,
-                alignment: Alignment.center,
-                decoration: BoxDecoration(
-                  color: Colors.white,
-                  borderRadius: BorderRadius.circular(10),
-                  border: Border.all(color: SboxColors.slate400),
-                ),
-                child: _stampBytes == null
-                    ? Icon(Icons.verified_outlined,
-                        color: SboxColors.slate400, size: 36)
-                    : Padding(
-                        padding: const EdgeInsets.all(6),
-                        child: Image.memory(_stampBytes!, fit: BoxFit.contain),
-                      ),
-              ),
-              const SizedBox(width: 12),
-              Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.stretch,
-                  children: [
-                    OutlinedButton.icon(
-                      onPressed: context
-                              .watch<PermissionProvider>()
-                              .canEditPosSetup()
-                          ? () => _pickImage()
-                          : null,
-                      icon: const Icon(Icons.upload_file),
-                      label: Text(tr('Chọn ảnh con dấu')),
-                    ),
-                    if (_stampBytes != null)
-                      TextButton(
-                        onPressed: context
-                                .watch<PermissionProvider>()
-                                .canEditPosSetup()
-                            ? () => setState(() {
-                                  _stampBytes = null;
-                                  _stampB64 = '';
-                                })
-                            : null,
-                        child: Text(tr('Gỡ con dấu')),
-                      ),
-                  ],
-                ),
-              ),
-            ],
-          ),
-          const SizedBox(height: 16),
-          Text(tr('Điều khoản báo giá'),
-            style: const TextStyle(fontSize: 14, fontWeight: FontWeight.w700),
-          ),
-          const SizedBox(height: 4),
-          Text(
-            tr('In khi báo giá không có điều khoản riêng. Ghi chú trên phiếu vẫn là ghi chú của báo giá đó.'),
-            style: TextStyle(fontSize: 12, color: SboxColors.slate600),
-          ),
-          const SizedBox(height: 8),
-          TextField(
-            controller: _termsCtrl,
-            maxLines: 4,
-            decoration: const InputDecoration(
-              border: OutlineInputBorder(),
-              hintText: 'Hiệu lực, thanh toán, giao hàng…',
-            ),
-          ),
-          const SizedBox(height: 14),
-          Text(tr('Chính sách bảo hành'),
-            style: const TextStyle(fontSize: 14, fontWeight: FontWeight.w700),
-          ),
-          const SizedBox(height: 8),
-          TextField(
-            controller: _warrantyCtrl,
-            maxLines: 4,
-            decoration: const InputDecoration(
-              border: OutlineInputBorder(),
-              hintText: 'Thời gian và điều kiện bảo hành…',
-            ),
-          ),
-          const SizedBox(height: 16),
-          Text(tr('Phụ phí khi thanh toán'),
-            style: TextStyle(fontSize: 14, fontWeight: FontWeight.w700),
-          ),
-          const SizedBox(height: 4),
-          Text(
-            tr('Bật để thu ngân nhập trên màn thanh toán. Tắt thì không hiện.'),
-            style: TextStyle(fontSize: 12, color: SboxColors.slate600),
-          ),
-          SwitchListTile(
-            contentPadding: EdgeInsets.zero,
-            title: Text(tr('Bật phụ thu')),
-            subtitle: Text(tr('Đặt tên, mức cố định % hoặc tiền — tự nhảy khi tạo đơn'),
-              style: TextStyle(fontSize: 12),
-            ),
-            value: _enableSurcharge,
-            onChanged: (v) => setState(() => _enableSurcharge = v),
-          ),
-          SwitchListTile(
-            contentPadding: EdgeInsets.zero,
-            title: Text(tr('Bật phí giao hàng')),
-            subtitle: Text(tr('Có thể cài số tiền gợi ý mặc định tự nhảy'),
-              style: TextStyle(fontSize: 12),
-            ),
-            value: _enableDeliveryFee,
-            onChanged: (v) => setState(() => _enableDeliveryFee = v),
-          ),
-          PosSellFeeDefaultsFields(
-            enableSurcharge: _enableSurcharge,
-            enableDeliveryFee: _enableDeliveryFee,
-            surchargeNameCtrl: _surchargeNameCtrl,
-            surchargeDefaultCtrl: _surchargeDefaultCtrl,
-            deliveryDefaultCtrl: _deliveryDefaultCtrl,
-            surchargeIsPercent: _surchargeIsPercent,
-            onSurchargeMode: (v) => setState(() => _surchargeIsPercent = v),
-          ),
-          const Divider(height: 28),
-          Text(tr('Cách tính thuế VAT'),
-            style: TextStyle(fontSize: 14, fontWeight: FontWeight.w700),
-          ),
-          ...PosSellTaxMode.values.map(
-            (m) => RadioListTile<PosSellTaxMode>(
-              value: m,
-              groupValue: _taxMode,
-              dense: true,
-              contentPadding: EdgeInsets.zero,
-              title: Text(tr(m.label), style: const TextStyle(fontSize: 13)),
-              onChanged: (v) {
-                if (v != null) setState(() => _taxMode = v);
-              },
-            ),
-          ),
-          if (_taxMode != PosSellTaxMode.perItem) ...[
-            const SizedBox(height: 8),
-            DropdownButtonFormField<double>(
-              value: _vatRate,
-              decoration: InputDecoration(
-                labelText: tr('Thuế suất VAT (%)'),
-                border: OutlineInputBorder(),
-              ),
-              items: [
-                DropdownMenuItem(value: 0, child: Text(tr('0%'))),
-                DropdownMenuItem(value: 5, child: Text(tr('5%'))),
-                DropdownMenuItem(value: 8, child: Text(tr('8%'))),
-                DropdownMenuItem(value: 10, child: Text(tr('10%'))),
-              ],
-              onChanged: (v) {
-                if (v != null) setState(() => _vatRate = v);
-              },
             ),
           ],
-          const SizedBox(height: 24),
-          FilledButton(
-            style: FilledButton.styleFrom(
-              backgroundColor: PosTheme.kiotBlue,
-              minimumSize: const Size.fromHeight(48),
+        ),
+        SettingsSection(
+          title: 'Phụ thu & phí giao hàng',
+          subtitle: 'Bật thì ô nhập hiện trên màn thanh toán, có số gợi ý tự điền',
+          icon: Icons.add_card_outlined,
+          children: [
+            SettingsTile(
+              divider: false,
+              label: 'Phụ thu',
+              help: 'VD: phụ thu ngày lễ, phí dịch vụ — theo % hoặc số tiền',
+              control: Switch(value: _enableSurcharge, onChanged: edit ? (v) => setState(() => _enableSurcharge = v) : null),
             ),
-            onPressed: (_saving ||
-                    !context.watch<PermissionProvider>().canEditPosSetup())
-                ? null
-                : _save,
-            child: _saving
-                ? const SizedBox(
-                    width: 22,
-                    height: 22,
-                    child: CircularProgressIndicator(strokeWidth: 2),
-                  )
-                : Text(tr('Lưu thiết lập')),
-          ),
-        ],
-      ),
+            SettingsTile(
+              label: 'Phí giao hàng',
+              control: Switch(value: _enableDeliveryFee, onChanged: edit ? (v) => setState(() => _enableDeliveryFee = v) : null),
+            ),
+            PosSellFeeDefaultsFields(
+              enableSurcharge: _enableSurcharge,
+              enableDeliveryFee: _enableDeliveryFee,
+              surchargeNameCtrl: _surchargeNameCtrl,
+              surchargeDefaultCtrl: _surchargeDefaultCtrl,
+              deliveryDefaultCtrl: _deliveryDefaultCtrl,
+              surchargeIsPercent: _surchargeIsPercent,
+              onSurchargeMode: (v) => setState(() => _surchargeIsPercent = v),
+            ),
+            const SizedBox(height: 8),
+          ],
+        ),
+        SettingsSection(
+          title: 'Thông tin công ty',
+          subtitle: 'In trên báo giá, hợp đồng, hóa đơn điện tử. Tài khoản nhận tiền tại quầy (QR) đặt ở «Tài khoản nhận tiền»',
+          icon: Icons.business_outlined,
+          children: [
+            const SizedBox(height: 6),
+            PosCommercialCompanyFields(
+              company: _companyCtrl,
+              tax: _taxCtrl,
+              address: _companyAddressCtrl,
+              phone: _companyPhoneCtrl,
+              email: _companyEmailCtrl,
+              bankNo: _bankNoCtrl,
+              bankName: _bankNameCtrl,
+              bankHolder: _bankHolderCtrl,
+              rep: _repCtrl,
+              title: _titleCtrl,
+              enabled: edit,
+            ),
+            const SizedBox(height: 12),
+          ],
+        ),
+        SettingsSection(
+          title: 'Điều khoản mặc định',
+          icon: Icons.description_outlined,
+          children: [
+            const SizedBox(height: 6),
+            TextField(controller: _termsCtrl, enabled: edit, maxLines: 4, decoration: _dec('Điều khoản báo giá')),
+            const SizedBox(height: 10),
+            TextField(controller: _warrantyCtrl, enabled: edit, maxLines: 4, decoration: _dec('Chính sách bảo hành')),
+            const SizedBox(height: 12),
+          ],
+        ),
+      ],
     );
+  }
+
+  Widget _imageBox(String label, Uint8List? bytes, bool edit, VoidCallback onPick, VoidCallback onRemove) {
+    return Column(crossAxisAlignment: CrossAxisAlignment.start, mainAxisSize: MainAxisSize.min, children: [
+      Text(tr(label), style: const TextStyle(fontWeight: FontWeight.w700)),
+      const SizedBox(height: 6),
+      Container(
+        width: 140,
+        height: 140,
+        decoration: BoxDecoration(
+          color: SboxColors.slate50,
+          borderRadius: BorderRadius.circular(12),
+          border: Border.all(color: SboxColors.border),
+        ),
+        clipBehavior: Clip.antiAlias,
+        child: bytes == null
+            ? const Icon(Icons.add_photo_alternate_outlined, size: 36, color: SboxColors.slate400)
+            : Image.memory(bytes, fit: BoxFit.contain),
+      ),
+      if (edit)
+        Row(mainAxisSize: MainAxisSize.min, children: [
+          TextButton(onPressed: onPick, child: Text(tr(bytes == null ? 'Tải ảnh' : 'Đổi ảnh'))),
+          if (bytes != null) TextButton(onPressed: onRemove, child: Text(tr('Gỡ'), style: const TextStyle(color: SboxColors.danger))),
+        ]),
+    ]);
   }
 }

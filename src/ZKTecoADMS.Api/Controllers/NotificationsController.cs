@@ -1,3 +1,4 @@
+using ZKTecoADMS.Api.Services;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.SignalR;
 using Microsoft.EntityFrameworkCore;
@@ -300,6 +301,7 @@ public class NotificationsController(
         public string Platform { get; set; } = string.Empty;
         public string? DeviceName { get; set; }
         public string? AppVersion { get; set; }
+        public string? DeviceKey { get; set; }
     }
 
     [HttpPost("device-token")]
@@ -322,61 +324,28 @@ public class NotificationsController(
                 return Ok(AppResponse<bool>.Success(true));
         }
 
-        var existing = await db.UserDeviceTokens
-            .FirstOrDefaultAsync(t => t.Token == request.Token);
-
-        if (existing != null)
-        {
-            if (existing.UserId != userId)
-            {
-                _logger.LogWarning(
-                    "FCM token rebound: device token moved from user {OldUserId} to {NewUserId}",
-                    existing.UserId, userId);
-            }
-            // Rebind to current user (same device, different login) and re-enable.
-            existing.UserId = userId;
-            existing.Platform = request.Platform;
-            existing.DeviceName = request.DeviceName;
-            existing.AppVersion = request.AppVersion;
-            existing.IsDisabled = false;
-            existing.LastUsedAt = null;
-        }
-        else
-        {
-            db.UserDeviceTokens.Add(new UserDeviceToken
-            {
-                Id = Guid.NewGuid(),
-                UserId = userId,
-                Token = request.Token,
-                Platform = request.Platform,
-                DeviceName = request.DeviceName,
-                AppVersion = request.AppVersion,
-                IsDisabled = false,
-            });
-        }
-
-        // Giữ mọi máy của user. Token chết (gỡ app) sẽ bị Firebase Unregistered rồi disable khi gửi.
-        await db.SaveChangesAsync();
+        var previousOwner = await DeviceTokenRegistry.RegisterAsync(db, userId, request.Token, request.Platform,
+            request.DeviceName, request.AppVersion, request.DeviceKey);
+        if (previousOwner is Guid old && old != userId)
+            _logger.LogWarning("FCM token rebound: device token moved from user {OldUserId} to {NewUserId}", old, userId);
         return Ok(AppResponse<bool>.Success(true));
     }
 
+    /// <summary>
+    /// Gỡ token khi đăng xuất. Không cần đăng nhập: lúc phiên hết hạn app không còn access token hợp lệ,
+    /// mà máy giữ đúng token FCM chính là máy đó — gỡ chỉ làm máy ngừng nhận thông báo.
+    /// </summary>
     [HttpDelete("device-token")]
-    [Authorize(Policy = PolicyNames.AtLeastEmployee)]
+    [AllowAnonymous]
     public async Task<ActionResult<AppResponse<bool>>> UnregisterDeviceToken([FromQuery] string token)
     {
-        if (string.IsNullOrWhiteSpace(token))
+        if (string.IsNullOrWhiteSpace(token) || token.Length > 512)
         {
             return Ok(AppResponse<bool>.Error("Token is required"));
         }
 
-        var userId = CurrentUserId;
-        var existing = await db.UserDeviceTokens
-            .FirstOrDefaultAsync(t => t.Token == token && t.UserId == userId);
-        if (existing != null)
-        {
-            db.UserDeviceTokens.Remove(existing);
-            await db.SaveChangesAsync();
-        }
+        var removed = await db.UserDeviceTokens.Where(t => t.Token == token).ExecuteDeleteAsync();
+        if (removed > 0) _logger.LogInformation("FCM token unregistered on logout ({Count})", removed);
         return Ok(AppResponse<bool>.Success(true));
     }
 

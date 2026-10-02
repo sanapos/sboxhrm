@@ -13,7 +13,52 @@ class PermissionNavigation {
   };
 
   /// Gói không suy ra module con từ Bán hàng — Super Admin tick từng chức năng.
-  static const Map<String, List<String>> _packageAliases = <String, List<String>>{};
+  /// Mã chức năng dùng chung giữa gói POS và HRM: có một trong các mã thay thế là coi như có.
+  static const Map<String, List<String>> _packageAliases = <String, List<String>>{
+    // Tài khoản nhận tiền (VietQR / Tingee) cần cho cả bán hàng lẫn thu chi.
+    'BankAccount': ['PosSell', 'CashTransaction'],
+    // Thiết lập AI có khi gói có Trợ lý AI.
+    'AIGemini': ['AIAssistant'],
+  };
+
+  /// Mục trong Thiết lập Sbox / Thiết lập POS. Menu hub mở khi gói có một trong các mã này,
+  /// kể cả khi chưa tick riêng «Trung tâm thiết lập» (SettingsHub).
+  static const settingsMenuPackageModules = <String>[
+    'ShiftSetup',
+    'Holiday',
+    'Device',
+    'Allowance',
+    'PenaltySetup',
+    'Insurance',
+    'Tax',
+    'ProductSalary',
+    'SalarySettings',
+    'Branch',
+    'Geofence',
+    'SystemSettings',
+    'NotificationSettings',
+    'AIGemini',
+    'PosPrintTemplates',
+    'PosPrinters',
+    'PosStorePrinters',
+    'PosEInvoice',
+    'PosShipping',
+    'PosCustomerDisplay',
+  ];
+
+  static bool _allowedHas(List<String> allowed, String code) {
+    final needle = code.toLowerCase();
+    return allowed.any((m) => m.toLowerCase() == needle);
+  }
+
+  static bool packageOpensSettingsMenu(List<String>? allowedModules) {
+    if (allowedModules == null || allowedModules.isEmpty) return false;
+    if (_allowedHas(allowedModules, 'SettingsHub')) return true;
+    for (final code in settingsMenuPackageModules) {
+      if (_allowedHas(allowedModules, code)) return true;
+    }
+    return false;
+  }
 
   static bool canNavigate(PermissionProvider perm, String? moduleCode) {
     if (moduleCode == null || moduleCode.isEmpty) return true;
@@ -21,6 +66,12 @@ class PermissionNavigation {
       return true;
     }
     if (moduleCode == 'SettingsHub' && perm.canViewPosSetup()) return true;
+    if (moduleCode == 'SettingsHub') {
+      for (final code in settingsMenuPackageModules) {
+        if (code.startsWith('Pos')) continue;
+        if (perm.canView(code)) return true;
+      }
+    }
     if (perm.canViewNav(moduleCode)) return true;
     for (final alt in _viewAliases[moduleCode] ?? const []) {
       if (perm.canViewNav(alt)) return true;
@@ -50,6 +101,10 @@ class PermissionNavigation {
     for (final alt in _packageAliases[moduleCode] ?? const []) {
       final a = alt.toLowerCase();
       if (allowedModules.any((m) => m.toLowerCase() == a)) return true;
+    }
+    if (moduleCode == 'SettingsHub' &&
+        packageOpensSettingsMenu(allowedModules)) {
+      return true;
     }
     return false;
   }

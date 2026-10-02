@@ -1,10 +1,13 @@
 using System.Text.Json;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
+using Microsoft.AspNetCore.SignalR;
 using Microsoft.EntityFrameworkCore;
 using ZKTecoADMS.Api.Authorization;
 using ZKTecoADMS.Api.Controllers.Base;
+using ZKTecoADMS.Api.Hubs;
 using ZKTecoADMS.Api.Services;
+using ZKTecoADMS.Application.Authorization;
 using ZKTecoADMS.Application.Constants;
 using ZKTecoADMS.Application.Interfaces;
 using ZKTecoADMS.Application.Models;
@@ -101,6 +104,23 @@ public class CommPostDto
     public int? MyReaction { get; set; }
     public bool MySaved { get; set; }
     public bool CanEdit { get; set; }
+    /// <summary>Người xem có quyền kiểm duyệt (ghim, duyệt, xóa bài người khác)</summary>
+    public bool CanModerate { get; set; }
+    /// <summary>2 bình luận mới nhất (cũ → mới) để hiện ngay trên bảng tin</summary>
+    public List<CommCommentDto> LatestComments { get; set; } = new();
+}
+
+public class CommReactorDto
+{
+    public Guid UserId { get; set; }
+    public string Name { get; set; } = string.Empty;
+    public string? Avatar { get; set; }
+    public int Type { get; set; }
+}
+
+public class EditCommCommentDto
+{
+    public string Content { get; set; } = string.Empty;
 }
 
 public class SaveCommPostDto
@@ -161,6 +181,12 @@ public class CommCommentDto
     public Guid? ParentCommentId { get; set; }
     public DateTime CreatedAt { get; set; }
     public bool CanDelete { get; set; }
+    public bool CanEdit { get; set; }
+    public bool Edited { get; set; }
+    public DateTime? EditedAt { get; set; }
+    public int LikeCount { get; set; }
+    public bool MyLiked { get; set; }
+    public int ReplyCount { get; set; }
 }
 
 public class AddCommCommentDto
@@ -277,6 +303,8 @@ public class CommunicationV2Controller(
     IGeminiAiService gemini,
     IFileStorageService storage,
     ISystemNotificationService notifications,
+    IModulePermissionService permissions,
+    IHubContext<AttendanceHub> hub,
     ILogger<CommunicationV2Controller> logger) : AuthenticatedControllerBase
 {
     private const long MaxFileBytes = 20 * 1024 * 1024;
@@ -284,8 +312,22 @@ public class CommunicationV2Controller(
 
     // ─── Người xem ───────────────────────────────────────────────
 
+    private CommViewer? _viewer;
+
+    private Task<bool> HasCommAsync(ModulePermissionAction action) =>
+        permissions.HasPermissionAsync(CurrentUserId, CurrentUserRole, RequiredStoreId, "Communication", action);
+
+    /// <summary>
+    /// Người xem. Kiểm duyệt (ghim / duyệt / sửa, xóa bài người khác) theo quyền Truyền thông «Duyệt» hoặc «Sửa»;
+    /// đăng bài theo quyền «Thêm» — không dựa vào tên vai trò.
+    /// </summary>
     private async Task<CommViewer> ViewerAsync()
     {
+        if (_viewer != null) return _viewer;
+        var moderator = ModulePermissionDefaults.IsSuperRole(CurrentUserRole)
+                        || await HasCommAsync(ModulePermissionAction.Approve)
+                        || await HasCommAsync(ModulePermissionAction.Edit);
+        var canCreate = moderator || await HasCommAsync(ModulePermissionAction.Create);
         var emp = await TaskWorkflowHelper.GetEmployeeForUserAsync(db, RequiredStoreId, CurrentUserId);
         var user = await db.Users.AsNoTracking().Where(u => u.Id == CurrentUserId)
             .Select(u => new { u.FirstName, u.LastName, u.UserName }).FirstOrDefaultAsync();
@@ -293,11 +335,25 @@ public class CommunicationV2Controller(
             ? $"{emp.LastName} {emp.FirstName}".Trim()
             : $"{user?.LastName} {user?.FirstName}".Trim();
         if (string.IsNullOrWhiteSpace(name)) name = user?.UserName ?? CurrentUserEmail ?? "—";
-        return new CommViewer(CurrentUserId, emp?.Id, emp?.BranchId, emp?.DepartmentId, emp?.Position,
-            TaskWorkflowHelper.IsManagerOrAdmin(User), name);
+        return _viewer = new CommViewer(CurrentUserId, emp?.Id, emp?.BranchId, emp?.DepartmentId, emp?.Position,
+            moderator, name, canCreate);
     }
 
-    private static bool CanPost(CommChannel c, CommViewer v) => v.IsManager || c.PostPolicy == 0;
+    private static bool CanPost(CommChannel c, CommViewer v) => CommRules.CanPost(c, v);
+
+    private static string CannotPostMessage(CommChannel c, CommViewer v) => v.CanCreate
+        ? $"Chỉ người kiểm duyệt được đăng vào kênh «{c.Name}»"
+        : "Bạn chưa có quyền đăng bài (Phân quyền › Truyền thông › Thêm)";
+
+    /// <summary>Phát sự kiện realtime cho cả cửa hàng — chỉ gửi mã bài; máy khách tự tải lại theo quyền của mình.</summary>
+    private async Task BroadcastAsync(string evt, object payload)
+    {
+        try { await hub.Clients.Group($"store_{RequiredStoreId}").SendAsync(evt, payload); }
+        catch (Exception ex) { logger.LogDebug(ex, "Comm broadcast {Event} failed", evt); }
+    }
+
+    private Task PostChangedAsync(Guid id, string action, Guid? channelId = null) =>
+        BroadcastAsync("CommPostChanged", new { id, action, channelId, by = CurrentUserId });
 
     private async Task<Dictionary<Guid, CommChannel>> ChannelMapAsync() =>
         (await CommV2Helper.EnsureChannelsAsync(db, RequiredStoreId, CurrentUserEmail)).ToDictionary(c => c.Id);
@@ -320,12 +376,14 @@ public class CommunicationV2Controller(
         var v = await ViewerAsync();
         var map = await ChannelMapAsync();
         var now = DateTime.UtcNow;
+        // Chỉ đếm «chưa đọc» trong 90 ngày gần nhất — không quét toàn bộ lịch sử.
+        var since = now.AddDays(-90);
         var posts = await db.InternalCommunications.AsNoTracking()
-            .Where(p => p.StoreId == RequiredStoreId && p.Status == CommunicationStatus.Published)
+            .Where(p => p.StoreId == RequiredStoreId && p.Status == CommunicationStatus.Published && p.PublishedAt >= since)
             .Select(p => new { p.Id, p.ChannelId, p.Audience, p.AuthorId, p.Status, p.ExpiresAt })
             .ToListAsync();
         var readIds = (await db.CommunicationReads.AsNoTracking()
-            .Where(r => r.StoreId == RequiredStoreId && r.UserId == v.UserId)
+            .Where(r => r.StoreId == RequiredStoreId && r.UserId == v.UserId && r.FirstViewedAt >= since.AddDays(-30))
             .Select(r => r.CommunicationId).ToListAsync()).ToHashSet();
         var list = new List<CommChannelDto>();
         foreach (var c in map.Values.Where(c => c.IsActive).OrderBy(c => c.SortOrder).ThenBy(c => c.Name))
@@ -437,7 +495,8 @@ public class CommunicationV2Controller(
     [RequireModulePermission("Communication", ModulePermissionAction.View)]
     public async Task<ActionResult<AppResponse<PagedResult<CommPostDto>>>> Feed(
         [FromQuery] Guid? channelId = null, [FromQuery] string filter = "all", [FromQuery] string? search = null,
-        [FromQuery] int page = 1, [FromQuery] int pageSize = 15)
+        [FromQuery] int page = 1, [FromQuery] int pageSize = 15,
+        [FromQuery] Guid? authorId = null, [FromQuery] string? tag = null)
     {
         pageSize = Math.Clamp(pageSize, 1, 50);
         page = Math.Max(1, page);
@@ -446,6 +505,12 @@ public class CommunicationV2Controller(
         var now = DateTime.UtcNow;
         var q = db.InternalCommunications.AsNoTracking().Where(p => p.StoreId == RequiredStoreId);
         if (channelId.HasValue) q = q.Where(p => p.ChannelId == channelId);
+        if (authorId.HasValue) q = q.Where(p => p.AuthorId == authorId);
+        if (!string.IsNullOrWhiteSpace(tag))
+        {
+            var t = $"%{tag.Trim().TrimStart('#')}%";
+            q = q.Where(p => p.Tags != null && EF.Functions.ILike(p.Tags, t));
+        }
         if (!string.IsNullOrWhiteSpace(search))
         {
             var s = $"%{search.Trim()}%";
@@ -459,6 +524,10 @@ public class CommunicationV2Controller(
                 break;
             case "pending":
                 q = q.Where(p => p.Status == CommunicationStatus.PendingApproval);
+                break;
+            case "saved":
+                var savedIds = db.CommunicationBookmarks.Where(b => b.UserId == v.UserId).Select(b => b.CommunicationId);
+                q = q.Where(p => savedIds.Contains(p.Id) && p.Status == CommunicationStatus.Published);
                 break;
             case "events":
                 q = q.Where(p => p.EventAt != null && p.Status == CommunicationStatus.Published);
@@ -477,38 +546,49 @@ public class CommunicationV2Controller(
                                  (p.AuthorId == v.UserId && p.Status != CommunicationStatus.Archived));
                 break;
         }
-        var light = await q
-            .Select(p => new { p.Id, p.ChannelId, p.Audience, p.AuthorId, p.Status, p.ExpiresAt, p.IsPinned, p.PublishedAt, p.CreatedAt, p.RequireAck, p.Version, p.EventAt })
-            .ToListAsync();
-        HashSet<Guid>? saved = null;
-        if (filter == "saved")
-            saved = (await db.CommunicationBookmarks.AsNoTracking().Where(b => b.UserId == v.UserId).Select(b => b.CommunicationId).ToListAsync()).ToHashSet();
-        Dictionary<Guid, int>? ackVersions = null;
         if (filter == "required")
-            ackVersions = await db.CommunicationReads.AsNoTracking()
-                .Where(r => r.UserId == v.UserId && r.AcknowledgedAt != null)
-                .ToDictionaryAsync(r => r.CommunicationId, r => r.AckVersion);
+        {
+            var acked = db.CommunicationReads.Where(r => r.UserId == v.UserId && r.AcknowledgedAt != null);
+            q = q.Where(p => !acked.Any(r => r.CommunicationId == p.Id && r.AckVersion >= p.Version));
+        }
 
-        var visible = light.Where(p =>
+        // Sắp xếp trong DB; quyền xem theo đối tượng nhận (JSON) lọc trong bộ nhớ theo từng lô,
+        // dừng ngay khi đủ trang hiện tại + 1 bài để biết còn nữa hay không.
+        IOrderedQueryable<InternalCommunication> ordered = filter switch
+        {
+            "events" => q.OrderBy(p => p.EventAt < now ? 1 : 0).ThenBy(p => p.EventAt),
+            "all" => q.OrderByDescending(p => p.IsPinned).ThenByDescending(p => p.PublishedAt ?? p.CreatedAt),
+            _ => q.OrderByDescending(p => p.PublishedAt ?? p.CreatedAt),
+        };
+        var ordered2 = ordered.ThenByDescending(p => p.Id);
+        var need = page * pageSize + 1;
+        const int batch = 200;
+        var visibleIds = new List<Guid>();
+        var scanned = 0;
+        var exhausted = false;
+        while (visibleIds.Count < need)
+        {
+            var light = await ordered2.Skip(scanned).Take(batch)
+                .Select(p => new { p.Id, p.ChannelId, p.Audience, p.AuthorId, p.Status, p.ExpiresAt })
+                .ToListAsync();
+            scanned += light.Count;
+            foreach (var p in light)
             {
                 var ch = p.ChannelId.HasValue ? map.GetValueOrDefault(p.ChannelId.Value) : null;
                 var post = new InternalCommunication { AuthorId = p.AuthorId, Status = p.Status, ExpiresAt = p.ExpiresAt, Audience = p.Audience };
-                if (!Visible(post, ch, v, now)) return false;
-                if (saved != null && !saved.Contains(p.Id)) return false;
-                if (ackVersions != null && ackVersions.TryGetValue(p.Id, out var av) && av >= p.Version) return false;
-                return true;
-            })
-            .OrderByDescending(p => filter == "all" && p.IsPinned)
-            .ThenBy(p => filter == "events" ? (p.EventAt < now ? 1 : 0) : 0)
-            .ThenBy(p => filter == "events" ? (p.EventAt ?? DateTime.MaxValue) : DateTime.MinValue)
-            .ThenByDescending(p => p.PublishedAt ?? p.CreatedAt)
-            .ToList();
-        var ids = visible.Skip((page - 1) * pageSize).Take(pageSize).Select(p => p.Id).ToList();
+                if (Visible(post, ch, v, now)) visibleIds.Add(p.Id);
+            }
+            if (light.Count < batch) { exhausted = true; break; }
+            if (scanned >= 5000) break; // chặn quét quá sâu
+        }
+        var ids = visibleIds.Skip((page - 1) * pageSize).Take(pageSize).ToList();
         var items = await BuildDtosAsync(ids, v, map, withDelta: false);
+        var hasMore = visibleIds.Count > page * pageSize;
         return Ok(AppResponse<PagedResult<CommPostDto>>.Success(new PagedResult<CommPostDto>
         {
             Items = items,
-            TotalCount = visible.Count,
+            // Hết dữ liệu → tổng chính xác; còn nữa → tối thiểu (đủ để máy khách biết còn trang sau).
+            TotalCount = exhausted ? visibleIds.Count : Math.Max(visibleIds.Count, page * pageSize + 1),
             PageNumber = page,
             PageSize = pageSize,
         }));
@@ -522,6 +602,16 @@ public class CommunicationV2Controller(
             .Select(r => new { r.CommunicationId, r.UserId, r.ReactionType }).ToListAsync();
         var comments = await db.CommunicationComments.AsNoTracking().Where(c => ids.Contains(c.CommunicationId))
             .GroupBy(c => c.CommunicationId).Select(g => new { g.Key, N = g.Count() }).ToDictionaryAsync(x => x.Key, x => x.N);
+        // 2 bình luận gốc mới nhất mỗi bài (hiện ngay dưới bài như mạng xã hội).
+        var latestRaw = await db.CommunicationComments.AsNoTracking()
+            .Where(c => ids.Contains(c.CommunicationId) && c.ParentCommentId == null &&
+                        db.CommunicationComments.Count(o => o.CommunicationId == c.CommunicationId && o.ParentCommentId == null &&
+                                                            o.CreatedAt > c.CreatedAt) < 2)
+            .ToListAsync();
+        var latestDtos = await CommentDtosAsync(latestRaw, v);
+        var latestByPost = latestRaw.Zip(latestDtos)
+            .GroupBy(x => x.First.CommunicationId)
+            .ToDictionary(g => g.Key, g => g.Select(x => x.Second).OrderBy(x => x.CreatedAt).ToList());
         var reads = await db.CommunicationReads.AsNoTracking().Where(r => ids.Contains(r.CommunicationId))
             .Select(r => new { r.CommunicationId, r.UserId, r.AcknowledgedAt, r.AckVersion }).ToListAsync();
         var votes = await db.CommunicationPollVotes.AsNoTracking().Where(x => ids.Contains(x.CommunicationId))
@@ -617,6 +707,8 @@ public class CommunicationV2Controller(
                 MyReaction = pr.Where(r => r.UserId == v.UserId).Select(r => (int?)r.ReactionType).FirstOrDefault(),
                 MySaved = saved.Contains(id),
                 CanEdit = v.IsManager || p.AuthorId == v.UserId,
+                CanModerate = v.IsManager,
+                LatestComments = latestByPost.GetValueOrDefault(id) ?? new(),
             });
         }
         return result;
@@ -651,7 +743,8 @@ public class CommunicationV2Controller(
                 r.LastViewedAt = DateTime.UtcNow;
                 r.ViewCount++;
             }
-            p.ViewCount++;
+            // Lượt xem bài = số người đã xem — mở lại không cộng thêm.
+            if (r == null) p.ViewCount++;
             try { await db.SaveChangesAsync(); }
             catch (DbUpdateException) { db.ChangeTracker.Clear(); /* hai lượt mở cùng lúc — bỏ qua */ }
         }
@@ -725,13 +818,8 @@ public class CommunicationV2Controller(
     }
 
     /// <summary>Trạng thái sau khi lưu: nháp / chờ duyệt / hẹn giờ / đã đăng.</summary>
-    private static CommunicationStatus TargetStatus(SaveCommPostDto d, CommChannel ch, CommViewer v)
-    {
-        if (!d.Publish) return CommunicationStatus.Draft;
-        if (!v.IsManager && ch.RequireApproval) return CommunicationStatus.PendingApproval;
-        if (d.ScheduledAt.HasValue && d.ScheduledAt > DateTime.UtcNow.AddMinutes(1)) return CommunicationStatus.Scheduled;
-        return CommunicationStatus.Published;
-    }
+    private static CommunicationStatus TargetStatus(SaveCommPostDto d, CommChannel ch, CommViewer v) =>
+        CommRules.TargetStatus(d.Publish, d.ScheduledAt, ch, v, DateTime.UtcNow);
 
     [HttpPost("posts")]
     [RequireModulePermission("Communication", ModulePermissionAction.View)]
@@ -741,7 +829,7 @@ public class CommunicationV2Controller(
         var map = await ChannelMapAsync();
         var ch = d.ChannelId.HasValue ? map.GetValueOrDefault(d.ChannelId.Value) : map.Values.FirstOrDefault(c => c.Key == "feed");
         if (ch == null || !ch.IsActive) return Ok(AppResponse<CommPostDto>.Error("Chọn kênh đăng bài"));
-        if (!CanPost(ch, v)) return Ok(AppResponse<CommPostDto>.Error($"Chỉ quản lý được đăng vào kênh «{ch.Name}»"));
+        if (!CanPost(ch, v)) return Ok(AppResponse<CommPostDto>.Error(CannotPostMessage(ch, v)));
         var err = Validate(d);
         if (err != null) return Ok(AppResponse<CommPostDto>.Error(err));
 
@@ -774,6 +862,8 @@ public class CommunicationV2Controller(
             await NotifyAudienceAsync(p, ch, v.UserId, isUpdate: false);
         if (p.Status == CommunicationStatus.PendingApproval)
             await NotifyManagersAsync(p, $"{v.DisplayName} gửi bài chờ duyệt: {p.Title}");
+        if (p.Status is CommunicationStatus.Published or CommunicationStatus.PendingApproval)
+            await PostChangedAsync(p.Id, p.Status == CommunicationStatus.Published ? "created" : "pending", p.ChannelId);
         return await Get(p.Id, markRead: false);
     }
 
@@ -787,8 +877,12 @@ public class CommunicationV2Controller(
         if (p == null) return Ok(AppResponse<CommPostDto>.Error("Không tìm thấy bài viết"));
         if (!v.IsManager && p.AuthorId != v.UserId) return Ok(AppResponse<CommPostDto>.Error("Bạn không sửa được bài của người khác"));
         var ch = d.ChannelId.HasValue ? map.GetValueOrDefault(d.ChannelId.Value) : (p.ChannelId.HasValue ? map.GetValueOrDefault(p.ChannelId.Value) : null);
-        if (ch == null) return Ok(AppResponse<CommPostDto>.Error("Chọn kênh đăng bài"));
-        if (!CanPost(ch, v)) return Ok(AppResponse<CommPostDto>.Error($"Chỉ quản lý được đăng vào kênh «{ch.Name}»"));
+        if (ch == null || !ch.IsActive) return Ok(AppResponse<CommPostDto>.Error("Chọn kênh đăng bài"));
+        // Người kiểm duyệt sửa bài của người khác không cần quyền đăng vào kênh của bài đó.
+        var sameChannel = ch.Id == p.ChannelId;
+        if (!CanPost(ch, v) && !(v.IsManager || (sameChannel && p.AuthorId == v.UserId && v.CanCreate)))
+            return Ok(AppResponse<CommPostDto>.Error(CannotPostMessage(ch, v)));
+        if (p.Status == CommunicationStatus.Archived) return Ok(AppResponse<CommPostDto>.Error("Bài đã bị xóa"));
         var err = Validate(d);
         if (err != null) return Ok(AppResponse<CommPostDto>.Error(err));
 
@@ -806,9 +900,17 @@ public class CommunicationV2Controller(
                 .Where(x => x.CommunicationId == id && removed.Contains(x.OptionId)).ToListAsync());
 
         if (d.BumpVersion && wasPublished) p.Version++;
-        if (!wasPublished)
+        var newStatus = CommRules.StatusAfterEdit(p.Status, d.Publish, d.ScheduledAt, ch, v, DateTime.UtcNow);
+        var backToReview = wasPublished && newStatus == CommunicationStatus.PendingApproval;
+        if (backToReview)
         {
-            p.Status = TargetStatus(d, ch, v);
+            // Bài đã duyệt bị sửa trong kênh cần duyệt → ẩn khỏi bảng tin cho tới khi duyệt lại.
+            p.Status = CommunicationStatus.PendingApproval;
+            p.IsPinned = false;
+        }
+        else if (!wasPublished)
+        {
+            p.Status = newStatus;
             p.ScheduledAt = p.Status == CommunicationStatus.Scheduled ? d.ScheduledAt : null;
             if (p.Status == CommunicationStatus.Published) p.PublishedAt = DateTime.UtcNow;
         }
@@ -818,6 +920,12 @@ public class CommunicationV2Controller(
 
         if (p.Status == CommunicationStatus.Published && d.Notify && (!wasPublished || d.BumpVersion))
             await NotifyAudienceAsync(p, ch, v.UserId, isUpdate: wasPublished);
+        if (backToReview || (!wasPublished && p.Status == CommunicationStatus.PendingApproval))
+            await NotifyManagersAsync(p, backToReview
+                ? $"{v.DisplayName} sửa bài đã đăng, cần duyệt lại: {p.Title}"
+                : $"{v.DisplayName} gửi bài chờ duyệt: {p.Title}");
+        await PostChangedAsync(p.Id, backToReview ? "pending" : wasPublished ? "updated" :
+            p.Status == CommunicationStatus.Published ? "created" : "updated", p.ChannelId);
         return await Get(p.Id, markRead: false);
     }
 
@@ -835,14 +943,16 @@ public class CommunicationV2Controller(
         p.UpdatedAt = DateTime.UtcNow;
         p.UpdatedBy = CurrentUserEmail;
         await db.SaveChangesAsync();
+        await PostChangedAsync(p.Id, "deleted", p.ChannelId);
         return Ok(AppResponse<bool>.Success(true));
     }
 
     [HttpPost("posts/{id:guid}/approve")]
-    [Authorize(Policy = Application.Constants.PolicyNames.AtLeastManager)]
-    [RequireModulePermission("Communication", ModulePermissionAction.Edit)]
+    [RequireModulePermission("Communication", ModulePermissionAction.View)]
     public async Task<ActionResult<AppResponse<CommPostDto>>> Approve(Guid id, [FromQuery] bool approve = true)
     {
+        if (!(await ViewerAsync()).IsManager)
+            return Ok(AppResponse<CommPostDto>.Error("Cần quyền Truyền thông › Duyệt để duyệt bài"));
         var p = await db.InternalCommunications.AsTracking().FirstOrDefaultAsync(x => x.Id == id && x.StoreId == RequiredStoreId);
         if (p == null || p.Status != CommunicationStatus.PendingApproval) return Ok(AppResponse<CommPostDto>.Error("Bài không ở trạng thái chờ duyệt"));
         p.Status = approve ? CommunicationStatus.Published : CommunicationStatus.Rejected;
@@ -862,18 +972,22 @@ public class CommunicationV2Controller(
             var ch = p.ChannelId.HasValue ? map.GetValueOrDefault(p.ChannelId.Value) : null;
             await NotifyAudienceAsync(p, ch, p.AuthorId, isUpdate: false);
         }
+        await PostChangedAsync(p.Id, approve ? "created" : "rejected", p.ChannelId);
         return await Get(id, markRead: false);
     }
 
     [HttpPost("posts/{id:guid}/pin")]
-    [Authorize(Policy = Application.Constants.PolicyNames.AtLeastManager)]
-    [RequireModulePermission("Communication", ModulePermissionAction.Edit)]
+    [RequireModulePermission("Communication", ModulePermissionAction.View)]
     public async Task<ActionResult<AppResponse<bool>>> Pin(Guid id, [FromQuery] bool pinned = true)
     {
+        if (!(await ViewerAsync()).IsManager)
+            return Ok(AppResponse<bool>.Error("Cần quyền Truyền thông › Sửa để ghim bài"));
         var p = await db.InternalCommunications.AsTracking().FirstOrDefaultAsync(x => x.Id == id && x.StoreId == RequiredStoreId);
         if (p == null) return Ok(AppResponse<bool>.Error("Không tìm thấy bài viết"));
+        if (pinned && p.Status != CommunicationStatus.Published) return Ok(AppResponse<bool>.Error("Chỉ ghim được bài đã đăng"));
         p.IsPinned = pinned;
         await db.SaveChangesAsync();
+        await PostChangedAsync(p.Id, "updated", p.ChannelId);
         return Ok(AppResponse<bool>.Success(pinned));
     }
 
@@ -917,16 +1031,25 @@ public class CommunicationV2Controller(
         var (p, err) = await VisiblePostAsync(id, v);
         if (p == null) return Ok(AppResponse<int?>.Error(err!));
         if (!Enum.IsDefined(typeof(ReactionType), type)) return Ok(AppResponse<int?>.Error("Cảm xúc không hợp lệ"));
+        if (p.Status != CommunicationStatus.Published) return Ok(AppResponse<int?>.Error("Bài chưa được đăng"));
         var existing = await db.CommunicationReactions.AsTracking()
             .Where(r => r.CommunicationId == id && r.UserId == v.UserId).ToListAsync();
         int? mine = null;
-        if (existing.Count > 0 && existing.All(e => (int)e.ReactionType == type))
+        var mineRow = existing.FirstOrDefault();
+        // Bấm lại đúng cảm xúc đang chọn = bỏ; chọn cảm xúc khác = đổi (giữ một dòng / người).
+        if (mineRow != null && (int)mineRow.ReactionType == type)
         {
             db.CommunicationReactions.RemoveRange(existing);
         }
+        else if (mineRow != null)
+        {
+            mineRow.ReactionType = (ReactionType)type;
+            mineRow.UpdatedAt = DateTime.UtcNow;
+            db.CommunicationReactions.RemoveRange(existing.Skip(1));
+            mine = type;
+        }
         else
         {
-            db.CommunicationReactions.RemoveRange(existing);
             db.CommunicationReactions.Add(new CommunicationReaction
             {
                 Id = Guid.NewGuid(),
@@ -936,10 +1059,21 @@ public class CommunicationV2Controller(
             });
             mine = type;
         }
-        await db.SaveChangesAsync();
+        try
+        {
+            await db.SaveChangesAsync();
+        }
+        catch (DbUpdateException)
+        {
+            // Hai lần bấm cùng lúc — chỉ mục duy nhất giữ một dòng; trả về trạng thái hiện tại.
+            db.ChangeTracker.Clear();
+            mine = await db.CommunicationReactions.AsNoTracking().Where(r => r.CommunicationId == id && r.UserId == v.UserId)
+                .Select(r => (int?)r.ReactionType).FirstOrDefaultAsync();
+        }
+        var total = await db.CommunicationReactions.CountAsync(r => r.CommunicationId == id);
         var post = await db.InternalCommunications.AsTracking().FirstAsync(x => x.Id == id);
-        post.LikeCount = await db.CommunicationReactions.CountAsync(r => r.CommunicationId == id);
-        await db.SaveChangesAsync();
+        if (post.LikeCount != total) { post.LikeCount = total; await db.SaveChangesAsync(); }
+        await BroadcastAsync("CommReactionChanged", new { postId = id, total, by = v.UserId });
         return Ok(AppResponse<int?>.Success(mine));
     }
 
@@ -992,12 +1126,26 @@ public class CommunicationV2Controller(
         var (p, err) = await VisiblePostAsync(id, v);
         if (p == null) return Ok(AppResponse<List<CommCommentDto>>.Error(err!));
         var list = await db.CommunicationComments.AsNoTracking().Where(c => c.CommunicationId == id)
-            .OrderBy(c => c.CreatedAt).ToListAsync();
+            .OrderBy(c => c.CreatedAt).Take(1000).ToListAsync();
+        return Ok(AppResponse<List<CommCommentDto>>.Success(await CommentDtosAsync(list, v)));
+    }
+
+    /// <summary>Dựng DTO bình luận: ảnh đại diện, lượt thích, đã sửa, số phản hồi.</summary>
+    private async Task<List<CommCommentDto>> CommentDtosAsync(List<CommunicationComment> list, CommViewer v)
+    {
+        if (list.Count == 0) return new();
+        var ids = list.Select(c => c.Id).ToList();
         var userIds = list.Select(c => c.UserId).Distinct().ToList();
         var avatars = await db.Employees.AsNoTracking()
             .Where(e => e.StoreId == RequiredStoreId && e.ApplicationUserId != null && userIds.Contains(e.ApplicationUserId.Value))
             .Select(e => new { UserId = e.ApplicationUserId!.Value, e.PhotoUrl }).ToListAsync();
-        return Ok(AppResponse<List<CommCommentDto>>.Success(list.Select(c => new CommCommentDto
+        var likes = await db.CommunicationCommentLikes.AsNoTracking().Where(l => ids.Contains(l.CommentId))
+            .Select(l => new { l.CommentId, l.UserId }).ToListAsync();
+        var replies = await db.CommunicationComments.AsNoTracking()
+            .Where(c => c.ParentCommentId != null && ids.Contains(c.ParentCommentId.Value))
+            .GroupBy(c => c.ParentCommentId!.Value).Select(g => new { g.Key, N = g.Count() })
+            .ToDictionaryAsync(x => x.Key, x => x.N);
+        return list.Select(c => new CommCommentDto
         {
             Id = c.Id,
             UserId = c.UserId,
@@ -1007,28 +1155,39 @@ public class CommunicationV2Controller(
             ParentCommentId = c.ParentCommentId,
             CreatedAt = c.CreatedAt,
             CanDelete = v.IsManager || c.UserId == v.UserId,
-        }).ToList()));
+            CanEdit = c.UserId == v.UserId,
+            Edited = c.UpdatedAt.HasValue,
+            EditedAt = c.UpdatedAt,
+            LikeCount = likes.Count(l => l.CommentId == c.Id),
+            MyLiked = likes.Any(l => l.CommentId == c.Id && l.UserId == v.UserId),
+            ReplyCount = replies.GetValueOrDefault(c.Id),
+        }).ToList();
     }
 
     [HttpPost("posts/{id:guid}/comments")]
     [RequireModulePermission("Communication", ModulePermissionAction.View)]
-    public async Task<ActionResult<AppResponse<bool>>> AddComment(Guid id, [FromBody] AddCommCommentDto d)
+    public async Task<ActionResult<AppResponse<CommCommentDto>>> AddComment(Guid id, [FromBody] AddCommCommentDto d)
     {
         var v = await ViewerAsync();
         var (p, err) = await VisiblePostAsync(id, v);
-        if (p == null) return Ok(AppResponse<bool>.Error(err!));
-        if (!p.AllowComments) return Ok(AppResponse<bool>.Error("Bài viết đã tắt bình luận"));
+        if (p == null) return Ok(AppResponse<CommCommentDto>.Error(err!));
+        if (p.Status != CommunicationStatus.Published) return Ok(AppResponse<CommCommentDto>.Error("Bài chưa được đăng"));
+        if (!p.AllowComments) return Ok(AppResponse<CommCommentDto>.Error("Bài viết đã tắt bình luận"));
         var content = d.Content?.Trim() ?? string.Empty;
-        if (content.Length == 0) return Ok(AppResponse<bool>.Error("Nhập nội dung bình luận"));
+        if (content.Length == 0) return Ok(AppResponse<CommCommentDto>.Error("Nhập nội dung bình luận"));
         if (content.Length > 2000) content = content[..2000];
         Guid? parentUser = null;
         if (d.ParentCommentId.HasValue)
         {
-            parentUser = await db.CommunicationComments.AsNoTracking()
-                .Where(c => c.Id == d.ParentCommentId && c.CommunicationId == id).Select(c => (Guid?)c.UserId).FirstOrDefaultAsync();
-            if (parentUser == null) return Ok(AppResponse<bool>.Error("Bình luận gốc không tồn tại"));
+            var parent = await db.CommunicationComments.AsNoTracking()
+                .Where(c => c.Id == d.ParentCommentId && c.CommunicationId == id)
+                .Select(c => new { c.UserId, c.ParentCommentId }).FirstOrDefaultAsync();
+            if (parent == null) return Ok(AppResponse<CommCommentDto>.Error("Bình luận gốc không tồn tại"));
+            parentUser = parent.UserId;
+            // Chỉ 2 cấp: trả lời một phản hồi thì gắn vào bình luận gốc.
+            if (parent.ParentCommentId.HasValue) d.ParentCommentId = parent.ParentCommentId;
         }
-        db.CommunicationComments.Add(new CommunicationComment
+        var comment = new CommunicationComment
         {
             Id = Guid.NewGuid(),
             CommunicationId = id,
@@ -1036,8 +1195,10 @@ public class CommunicationV2Controller(
             UserName = v.DisplayName,
             Content = content,
             ParentCommentId = d.ParentCommentId,
-        });
+        };
+        db.CommunicationComments.Add(comment);
         await db.SaveChangesAsync();
+        await CommentChangedAsync(id, comment.Id, "added");
 
         // Thông báo: tác giả bài, người được trả lời, người được @nhắc tên (cùng cửa hàng).
         var targets = new Dictionary<Guid, string>();
@@ -1060,7 +1221,97 @@ public class CommunicationV2Controller(
             }
             catch { /* bỏ qua */ }
         }
-        return Ok(AppResponse<bool>.Success(true));
+        return Ok(AppResponse<CommCommentDto>.Success((await CommentDtosAsync(new() { comment }, v)).First()));
+    }
+
+    private async Task CommentChangedAsync(Guid postId, Guid commentId, string action)
+    {
+        var count = await db.CommunicationComments.CountAsync(c => c.CommunicationId == postId);
+        await BroadcastAsync("CommCommentChanged", new { postId, commentId, action, count, by = CurrentUserId });
+    }
+
+    [HttpPut("comments/{commentId:guid}")]
+    [RequireModulePermission("Communication", ModulePermissionAction.View)]
+    public async Task<ActionResult<AppResponse<CommCommentDto>>> EditComment(Guid commentId, [FromBody] EditCommCommentDto d)
+    {
+        var v = await ViewerAsync();
+        var c = await db.CommunicationComments.AsTracking()
+            .FirstOrDefaultAsync(x => x.Id == commentId && x.Communication!.StoreId == RequiredStoreId);
+        if (c == null) return Ok(AppResponse<CommCommentDto>.Error("Không tìm thấy bình luận"));
+        if (c.UserId != v.UserId) return Ok(AppResponse<CommCommentDto>.Error("Chỉ người viết được sửa bình luận"));
+        var content = d.Content?.Trim() ?? string.Empty;
+        if (content.Length == 0) return Ok(AppResponse<CommCommentDto>.Error("Nhập nội dung bình luận"));
+        if (content.Length > 2000) content = content[..2000];
+        if (content != c.Content)
+        {
+            c.Content = content;
+            c.UpdatedAt = DateTime.UtcNow;
+            c.UpdatedBy = CurrentUserEmail;
+            await db.SaveChangesAsync();
+            await CommentChangedAsync(c.CommunicationId, c.Id, "edited");
+        }
+        return Ok(AppResponse<CommCommentDto>.Success((await CommentDtosAsync(new() { c }, v)).First()));
+    }
+
+    /// <summary>Thích / bỏ thích bình luận. Trả về số lượt thích mới.</summary>
+    [HttpPost("comments/{commentId:guid}/like")]
+    [RequireModulePermission("Communication", ModulePermissionAction.View)]
+    public async Task<ActionResult<AppResponse<CommCommentDto>>> LikeComment(Guid commentId)
+    {
+        var v = await ViewerAsync();
+        var c = await db.CommunicationComments.AsTracking()
+            .FirstOrDefaultAsync(x => x.Id == commentId && x.Communication!.StoreId == RequiredStoreId);
+        if (c == null) return Ok(AppResponse<CommCommentDto>.Error("Không tìm thấy bình luận"));
+        var (p, err) = await VisiblePostAsync(c.CommunicationId, v);
+        if (p == null) return Ok(AppResponse<CommCommentDto>.Error(err!));
+        var mine = await db.CommunicationCommentLikes.AsTracking().FirstOrDefaultAsync(l => l.CommentId == commentId && l.UserId == v.UserId);
+        if (mine != null) db.CommunicationCommentLikes.Remove(mine);
+        else db.CommunicationCommentLikes.Add(new CommunicationCommentLike { Id = Guid.NewGuid(), StoreId = RequiredStoreId, CommentId = commentId, UserId = v.UserId });
+        try { await db.SaveChangesAsync(); }
+        catch (DbUpdateException) { db.ChangeTracker.Clear(); }
+        var n = await db.CommunicationCommentLikes.CountAsync(l => l.CommentId == commentId);
+        var tracked = await db.CommunicationComments.AsTracking().FirstAsync(x => x.Id == commentId);
+        if (tracked.LikeCount != n) { tracked.LikeCount = n; await db.SaveChangesAsync(); }
+        if (mine == null && c.UserId != v.UserId)
+        {
+            try
+            {
+                await notifications.CreateAndSendAsync(c.UserId, NotificationType.Info, "Truyền thông",
+                    $"{v.DisplayName} thích bình luận của bạn", relatedEntityId: c.CommunicationId, relatedEntityType: "Communication",
+                    fromUserId: v.UserId, categoryCode: "communication", storeId: RequiredStoreId);
+            }
+            catch { /* bỏ qua */ }
+        }
+        await BroadcastAsync("CommCommentChanged", new { postId = c.CommunicationId, commentId, action = "liked", by = v.UserId });
+        return Ok(AppResponse<CommCommentDto>.Success((await CommentDtosAsync(new() { tracked }, v)).First()));
+    }
+
+    /// <summary>Ai đã bày tỏ cảm xúc với bài (lọc theo loại nếu có).</summary>
+    [HttpGet("posts/{id:guid}/reactions")]
+    [RequireModulePermission("Communication", ModulePermissionAction.View)]
+    public async Task<ActionResult<AppResponse<List<CommReactorDto>>>> Reactors(Guid id, [FromQuery] int? type = null)
+    {
+        var v = await ViewerAsync();
+        var (p, err) = await VisiblePostAsync(id, v);
+        if (p == null) return Ok(AppResponse<List<CommReactorDto>>.Error(err!));
+        var q = db.CommunicationReactions.AsNoTracking().Where(r => r.CommunicationId == id);
+        if (type.HasValue) q = q.Where(r => (int)r.ReactionType == type.Value);
+        var rows = await q.OrderByDescending(r => r.UpdatedAt ?? r.CreatedAt).Take(500)
+            .Select(r => new { r.UserId, r.ReactionType }).ToListAsync();
+        var uids = rows.Select(r => r.UserId).Distinct().ToList();
+        var emps = await db.Employees.AsNoTracking()
+            .Where(e => e.StoreId == RequiredStoreId && e.ApplicationUserId != null && uids.Contains(e.ApplicationUserId.Value))
+            .Select(e => new { UserId = e.ApplicationUserId!.Value, e.LastName, e.FirstName, e.PhotoUrl }).ToListAsync();
+        var users = await db.Users.AsNoTracking().Where(u => uids.Contains(u.Id))
+            .Select(u => new { u.Id, u.LastName, u.FirstName, u.UserName }).ToListAsync();
+        return Ok(AppResponse<List<CommReactorDto>>.Success(rows.Select(r =>
+        {
+            var e = emps.FirstOrDefault(x => x.UserId == r.UserId);
+            var u = users.FirstOrDefault(x => x.Id == r.UserId);
+            var name = e != null ? $"{e.LastName} {e.FirstName}".Trim() : $"{u?.LastName} {u?.FirstName}".Trim();
+            if (string.IsNullOrWhiteSpace(name)) name = u?.UserName ?? "—";
+            return new CommReactorDto { UserId = r.UserId, Name = name, Avatar = e?.PhotoUrl, Type = (int)r.ReactionType };
+        }).ToList()));
     }
 
     [HttpDelete("comments/{commentId:guid}")]
@@ -1074,9 +1325,13 @@ public class CommunicationV2Controller(
         if (c == null) return Ok(AppResponse<bool>.Error("Không tìm thấy bình luận"));
         if (!v.IsManager && c.UserId != v.UserId) return Ok(AppResponse<bool>.Error("Bạn không xóa được bình luận này"));
         var replies = await db.CommunicationComments.AsTracking().Where(x => x.ParentCommentId == commentId).ToListAsync();
+        var gone = replies.Select(x => x.Id).Append(commentId).ToList();
+        db.CommunicationCommentLikes.RemoveRange(await db.CommunicationCommentLikes.AsTracking()
+            .Where(l => gone.Contains(l.CommentId)).ToListAsync());
         db.CommunicationComments.RemoveRange(replies);
         db.CommunicationComments.Remove(c);
         await db.SaveChangesAsync();
+        await CommentChangedAsync(c.CommunicationId, commentId, "deleted");
         return Ok(AppResponse<bool>.Success(true));
     }
 
@@ -1163,9 +1418,19 @@ public class CommunicationV2Controller(
     {
         try
         {
-            var managers = await db.Users.AsNoTracking()
-                .Where(u => u.StoreId == RequiredStoreId && (u.Role == "Admin" || u.Role == "Manager" || u.Role == "StoreOwner"))
-                .Select(u => u.Id).ToListAsync();
+            var candidates = await db.Users.AsNoTracking()
+                .Where(u => u.StoreId == RequiredStoreId && u.Role != null &&
+                            u.Role != "Employee" && u.Role != "User" && u.Role != "Waiter" && u.Role != "Cashier")
+                .Select(u => new { u.Id, u.Role }).Take(300).ToListAsync();
+            var managers = new List<Guid>();
+            foreach (var u in candidates)
+            {
+                if (u.Id == p.AuthorId) continue;
+                if (ModulePermissionDefaults.IsSuperRole(u.Role!)
+                    || await permissions.HasPermissionAsync(u.Id, u.Role!, RequiredStoreId, "Communication", ModulePermissionAction.Approve)
+                    || await permissions.HasPermissionAsync(u.Id, u.Role!, RequiredStoreId, "Communication", ModulePermissionAction.Edit))
+                    managers.Add(u.Id);
+            }
             if (managers.Count > 0)
                 await notifications.CreateAndSendToUsersAsync(managers, NotificationType.Info, "Bài chờ duyệt", message,
                     relatedEntityId: p.Id, relatedEntityType: "Communication", fromUserId: p.AuthorId,
@@ -1183,9 +1448,11 @@ public class CommunicationV2Controller(
         var v = await ViewerAsync();
         var map = await ChannelMapAsync();
         var now = DateTime.UtcNow;
+        var recent = now.AddDays(-180);
         var posts = await db.InternalCommunications.AsNoTracking()
             .Where(p => p.StoreId == RequiredStoreId && p.Status == CommunicationStatus.Published &&
-                        (p.RequireAck || p.Poll != null || p.EventAt != null))
+                        ((p.RequireAck && p.PublishedAt >= recent) || (p.Poll != null && p.PublishedAt >= recent) ||
+                         p.EventAt >= now.AddHours(-6)))
             .Select(p => new { p.Id, p.Title, p.ChannelId, p.Audience, p.AuthorId, p.Status, p.ExpiresAt, p.RequireAck, p.Version, p.AckDeadline, p.Poll, p.EventAt, p.EventLocation })
             .ToListAsync();
         var visible = posts.Where(p => Visible(new InternalCommunication { AuthorId = p.AuthorId, Status = p.Status, ExpiresAt = p.ExpiresAt, Audience = p.Audience },

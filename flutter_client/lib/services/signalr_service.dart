@@ -92,6 +92,7 @@ class SignalRService {
   final _deviceStatusController = StreamController<DeviceStatusNotification>.broadcast();
   final _connectionStateController = StreamController<bool>.broadcast();
   final _communicationController = StreamController<Map<String, dynamic>>.broadcast();
+  final _commFeedController = StreamController<Map<String, dynamic>>.broadcast();
   final _notificationReadController = StreamController<Map<String, dynamic>>.broadcast();
   final _printJobNewController = StreamController<Map<String, dynamic>>.broadcast();
   final _printAgentHeartbeatController =
@@ -123,6 +124,9 @@ class SignalRService {
 
   /// Stream of communication events (created, published, comment, reaction)
   Stream<Map<String, dynamic>> get onCommunicationEvent => _communicationController.stream;
+
+  /// Truyền thông v2: bài / bình luận / cảm xúc thay đổi ({event: post|comment|reaction, ...}).
+  Stream<Map<String, dynamic>> get onCommFeedEvent => _commFeedController.stream;
 
   /// POS print cloud: job mới trong hàng đợi
   Stream<Map<String, dynamic>> get onPrintJobNew => _printJobNewController.stream;
@@ -226,6 +230,9 @@ class SignalRService {
       _hubConnection!.on('CommunicationPublished', _handleCommunicationEvent);
       _hubConnection!.on('CommunicationCommentAdded', _handleCommunicationEvent);
       _hubConnection!.on('CommunicationReactionUpdated', _handleCommunicationEvent);
+      _hubConnection!.on('CommPostChanged', (a) => _handleCommFeed('post', a));
+      _hubConnection!.on('CommCommentChanged', (a) => _handleCommFeed('comment', a));
+      _hubConnection!.on('CommReactionChanged', (a) => _handleCommFeed('reaction', a));
       _hubConnection!.on('PrintJobNew', _handlePrintJobNew);
       _hubConnection!.on('PrintJobStatusChanged', _handlePrintJobStatusChanged);
       _hubConnection!.on('PrinterStatusChanged', _handlePrinterStatusChanged);
@@ -389,6 +396,15 @@ class SignalRService {
       _communicationController.add(data);
     } catch (e) {
       debugPrint('📡 Error parsing communication event: $e');
+    }
+  }
+
+  void _handleCommFeed(String event, List<Object?>? args) {
+    try {
+      if (args == null || args.isEmpty || args[0] is! Map) return;
+      _commFeedController.add({...Map<String, dynamic>.from(args[0] as Map), 'event': event});
+    } catch (e) {
+      debugPrint('📡 Error parsing comm feed event: $e');
     }
   }
 

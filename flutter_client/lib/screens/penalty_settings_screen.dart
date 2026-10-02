@@ -1,927 +1,320 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:provider/provider.dart';
+
+import '../l10n/app_tr.dart';
 import '../providers/permission_provider.dart';
 import '../services/api_service.dart';
-import '../utils/responsive_helper.dart';
-import '../utils/number_formatter.dart';
-import '../widgets/loading_widget.dart';
-import '../widgets/hrm/hrm_settings_mobile_kit.dart';
-import '../widgets/hrm_page_chrome.dart';
-import '../widgets/notification_overlay.dart';
-import 'package:zkteco_flutter_client/l10n/app_tr.dart';
+import '../widgets/sbox/sbox_ui.dart';
+import '../widgets/settings/settings_page.dart';
 
-import '../theme/sbox_tokens.dart';
+/// Một bậc phạt: từ [threshold] (phút hoặc lần) trở lên → [amount].
+class PenaltyTier {
+  PenaltyTier(this.threshold, this.amount);
+  int threshold;
+  double amount;
+}
+
+/// Mức phạt chấm công của cửa hàng — khớp cách server tạo phiếu phạt tự động.
+class PenaltyParams {
+  PenaltyParams({
+    List<PenaltyTier>? late,
+    List<PenaltyTier>? early,
+    List<PenaltyTier>? repeat,
+    this.forgot = 100000,
+    this.absent = 500000,
+    this.violation = 200000,
+    this.method = 'Salary',
+  })  : late = late ?? [PenaltyTier(15, 50000), PenaltyTier(30, 100000), PenaltyTier(60, 200000)],
+        early = early ?? [PenaltyTier(15, 50000), PenaltyTier(30, 100000), PenaltyTier(60, 200000)],
+        repeat = repeat ?? [PenaltyTier(3, 100000), PenaltyTier(5, 200000), PenaltyTier(10, 500000)];
+
+  List<PenaltyTier> late;
+  List<PenaltyTier> early;
+  List<PenaltyTier> repeat;
+  double forgot;
+  double absent;
+
+  /// Không dùng khi tạo phiếu tự động — giữ nguyên giá trị đã lưu.
+  double violation;
+  String method;
+
+  PenaltyParams copy() => PenaltyParams.fromJson(toJson());
+
+  static int _i(dynamic v, int f) => v is num ? v.toInt() : int.tryParse('$v') ?? f;
+  static double _d(dynamic v, double f) => v is num ? v.toDouble() : double.tryParse('$v') ?? f;
+
+  factory PenaltyParams.fromJson(Map<String, dynamic> j) {
+    final d = PenaltyParams();
+    List<PenaltyTier> tiers(String t, String a, List<PenaltyTier> def) =>
+        [for (var i = 0; i < 3; i++) PenaltyTier(_i(j['$t${i + 1}'], def[i].threshold), _d(j['$a${i + 1}'], def[i].amount))];
+    return PenaltyParams(
+      late: tiers('lateMinutes', 'latePenalty', d.late),
+      early: tiers('earlyMinutes', 'earlyPenalty', d.early),
+      repeat: tiers('repeatCount', 'repeatPenalty', d.repeat),
+      forgot: _d(j['forgotCheckPenalty'], d.forgot),
+      absent: _d(j['unauthorizedLeavePenalty'], d.absent),
+      violation: _d(j['violationPenalty'], d.violation),
+      method: j['collectionMethod']?.toString() == 'Cash' ? 'Cash' : 'Salary',
+    );
+  }
+
+  Map<String, dynamic> toJson() => {
+        for (var i = 0; i < 3; i++) ...{
+          'lateMinutes${i + 1}': late[i].threshold,
+          'latePenalty${i + 1}': late[i].amount,
+          'earlyMinutes${i + 1}': early[i].threshold,
+          'earlyPenalty${i + 1}': early[i].amount,
+          'repeatCount${i + 1}': repeat[i].threshold,
+          'repeatPenalty${i + 1}': repeat[i].amount,
+        },
+        'forgotCheckPenalty': forgot,
+        'unauthorizedLeavePenalty': absent,
+        'violationPenalty': violation,
+        'collectionMethod': method,
+      };
+
+  String get key => toJson().toString();
+
+  /// Bậc cao nhất đạt được (giống server: xét từ bậc 3 xuống).
+  static (int, double) tierOf(List<PenaltyTier> tiers, int value) {
+    for (var i = 2; i >= 0; i--) {
+      if (value >= tiers[i].threshold) return (i + 1, tiers[i].amount);
+    }
+    return (0, 0);
+  }
+
+  /// Phiếu phạt đi trễ [minutes] phút, là lần vi phạm thứ [nth] trong tháng (gộp trễ + về sớm).
+  ({int tier, double base, double surcharge}) lateTicket(int minutes, int nth) {
+    final (tier, base) = tierOf(late, minutes);
+    if (tier == 0) return (tier: 0, base: 0, surcharge: 0);
+    return (tier: tier, base: base, surcharge: tierOf(repeat, nth).$2);
+  }
+
+  String? validate() {
+    for (final (name, t) in [('Đi trễ', late), ('Về sớm', early), ('Tái phạm', repeat)]) {
+      if (t[0].threshold <= 0) return '$name: mốc bậc 1 phải lớn hơn 0';
+      if (!(t[0].threshold < t[1].threshold && t[1].threshold < t[2].threshold)) return '$name: mốc các bậc phải tăng dần';
+      if (t.any((x) => x.amount < 0)) return '$name: số tiền không được âm';
+    }
+    return null;
+  }
+}
+
+/// Mức phạt: đi trễ, về sớm theo bậc phút; tái phạm trong tháng; quên chấm, nghỉ không phép; cách thu.
 class PenaltySettingsScreen extends StatefulWidget {
-  const PenaltySettingsScreen({super.key});
+  const PenaltySettingsScreen({super.key, this.canEditOverride});
+
+  final bool? canEditOverride;
 
   @override
   State<PenaltySettingsScreen> createState() => _PenaltySettingsScreenState();
 }
 
 class _PenaltySettingsScreenState extends State<PenaltySettingsScreen> {
-  PermissionProvider get _perm =>
-      Provider.of<PermissionProvider>(context, listen: false);
+  final _api = ApiService();
+  PenaltyParams _saved = PenaltyParams();
+  PenaltyParams _p = PenaltyParams();
+  bool _loading = true;
+  bool _saving = false;
+  final Map<String, TextEditingController> _c = {};
+  int _tryMinutes = 20;
+  int _tryNth = 4;
 
-  final ApiService _apiService = ApiService();
-  final _scrollController = ScrollController();
-  bool _isLoading = true;
-  bool _isSaving = false;
+  bool get _canEdit {
+    if (widget.canEditOverride != null) return widget.canEditOverride!;
+    try {
+      return Provider.of<PermissionProvider>(context, listen: false).canEdit('PenaltySetup');
+    } catch (_) {
+      return false;
+    }
+  }
 
-  final _lateMinutes1Controller = TextEditingController();
-  final _latePenalty1Controller = TextEditingController();
-  final _lateMinutes2Controller = TextEditingController();
-  final _latePenalty2Controller = TextEditingController();
-  final _lateMinutes3Controller = TextEditingController();
-  final _latePenalty3Controller = TextEditingController();
-
-  final _earlyMinutes1Controller = TextEditingController();
-  final _earlyPenalty1Controller = TextEditingController();
-  final _earlyMinutes2Controller = TextEditingController();
-  final _earlyPenalty2Controller = TextEditingController();
-  final _earlyMinutes3Controller = TextEditingController();
-  final _earlyPenalty3Controller = TextEditingController();
-
-  final _repeatTimes1Controller = TextEditingController();
-  final _repeatPenalty1Controller = TextEditingController();
-  final _repeatTimes2Controller = TextEditingController();
-  final _repeatPenalty2Controller = TextEditingController();
-  final _repeatTimes3Controller = TextEditingController();
-  final _repeatPenalty3Controller = TextEditingController();
-
-  final _forgotCheckPenaltyController = TextEditingController();
-  final _unauthorizedAbsencePenaltyController = TextEditingController();
-  final _violationPenaltyController = TextEditingController();
-  /// Salary = trừ vào lương (không phiếu thu); Cash = thu tiền mặt từng lần (phiếu thu).
-  String _collectionMethod = 'Salary';
-
-  static const _bg = SboxColors.slate50;
-  static const _navy = HrmPageChrome.primaryNavy;
-  static const _border = SboxColors.slate200;
-  static const _muted = SboxColors.slate500;
+  TextEditingController _ctl(String k) => _c.putIfAbsent(k, TextEditingController.new);
 
   @override
   void initState() {
     super.initState();
-    _loadPenaltySettings();
+    _load();
   }
 
   @override
   void dispose() {
-    _scrollController.dispose();
-    _lateMinutes1Controller.dispose();
-    _latePenalty1Controller.dispose();
-    _lateMinutes2Controller.dispose();
-    _latePenalty2Controller.dispose();
-    _lateMinutes3Controller.dispose();
-    _latePenalty3Controller.dispose();
-    _earlyMinutes1Controller.dispose();
-    _earlyPenalty1Controller.dispose();
-    _earlyMinutes2Controller.dispose();
-    _earlyPenalty2Controller.dispose();
-    _earlyMinutes3Controller.dispose();
-    _earlyPenalty3Controller.dispose();
-    _repeatTimes1Controller.dispose();
-    _repeatPenalty1Controller.dispose();
-    _repeatTimes2Controller.dispose();
-    _repeatPenalty2Controller.dispose();
-    _repeatTimes3Controller.dispose();
-    _repeatPenalty3Controller.dispose();
-    _forgotCheckPenaltyController.dispose();
-    _unauthorizedAbsencePenaltyController.dispose();
-    _violationPenaltyController.dispose();
+    for (final c in _c.values) {
+      c.dispose();
+    }
     super.dispose();
   }
 
-  Future<void> _loadPenaltySettings() async {
-    setState(() => _isLoading = true);
-    try {
-      final response = await _apiService.getPenaltySettings();
-      final settings = (response['isSuccess'] == true &&
-              response['data'] is Map<String, dynamic>)
-          ? response['data'] as Map<String, dynamic>
-          : response;
-      if (response['isSuccess'] == true) {
-        _populateControllers(settings);
-      } else {
-        debugPrint('Penalty settings API not successful, using defaults');
+  void _fill() {
+    for (final (k, t) in [('late', _p.late), ('early', _p.early), ('repeat', _p.repeat)]) {
+      for (var i = 0; i < 3; i++) {
+        _ctl('$k${i}t').text = '${t[i].threshold}';
+        _ctl('$k${i}a').text = settingsMoney(t[i].amount);
       }
-    } catch (e) {
-      debugPrint('Error loading penalty settings: $e');
-      if (mounted) {
-        appNotification.showError(
-          title: 'Lỗi',
-          message: tr('Không thể tải thiết lập phạt, đang dùng giá trị mặc định'),
-        );
-      }
-    } finally {
-      if (mounted) setState(() => _isLoading = false);
     }
+    _ctl('forgot').text = settingsMoney(_p.forgot);
+    _ctl('absent').text = settingsMoney(_p.absent);
   }
 
-  void _populateControllers(Map<String, dynamic> settings) {
-    _lateMinutes1Controller.text = (settings['lateMinutes1'] ?? 15).toString();
-    _latePenalty1Controller.text = formatNumber(settings['latePenalty1'] ?? 50000);
-    _lateMinutes2Controller.text = (settings['lateMinutes2'] ?? 30).toString();
-    _latePenalty2Controller.text = formatNumber(settings['latePenalty2'] ?? 100000);
-    _lateMinutes3Controller.text = (settings['lateMinutes3'] ?? 60).toString();
-    _latePenalty3Controller.text = formatNumber(settings['latePenalty3'] ?? 200000);
-
-    _earlyMinutes1Controller.text = (settings['earlyMinutes1'] ?? 15).toString();
-    _earlyPenalty1Controller.text = formatNumber(settings['earlyPenalty1'] ?? 50000);
-    _earlyMinutes2Controller.text = (settings['earlyMinutes2'] ?? 30).toString();
-    _earlyPenalty2Controller.text = formatNumber(settings['earlyPenalty2'] ?? 100000);
-    _earlyMinutes3Controller.text = (settings['earlyMinutes3'] ?? 60).toString();
-    _earlyPenalty3Controller.text = formatNumber(settings['earlyPenalty3'] ?? 200000);
-
-    _repeatTimes1Controller.text = (settings['repeatCount1'] ?? 3).toString();
-    _repeatPenalty1Controller.text = formatNumber(settings['repeatPenalty1'] ?? 100000);
-    _repeatTimes2Controller.text = (settings['repeatCount2'] ?? 5).toString();
-    _repeatPenalty2Controller.text = formatNumber(settings['repeatPenalty2'] ?? 200000);
-    _repeatTimes3Controller.text = (settings['repeatCount3'] ?? 10).toString();
-    _repeatPenalty3Controller.text = formatNumber(settings['repeatPenalty3'] ?? 500000);
-
-    _forgotCheckPenaltyController.text =
-        formatNumber(settings['forgotCheckPenalty'] ?? 100000);
-    _unauthorizedAbsencePenaltyController.text =
-        formatNumber(settings['unauthorizedLeavePenalty'] ?? 500000);
-    _violationPenaltyController.text =
-        formatNumber(settings['violationPenalty'] ?? 200000);
-    _collectionMethod =
-        settings['collectionMethod']?.toString() == 'Cash' ? 'Cash' : 'Salary';
-  }
-
-  Future<void> _savePenaltySettings() async {
-    setState(() => _isSaving = true);
-    try {
-      final data = {
-        'lateMinutes1': int.tryParse(_lateMinutes1Controller.text) ?? 15,
-        'latePenalty1':
-            parseFormattedNumber(_latePenalty1Controller.text)?.toDouble() ?? 50000,
-        'lateMinutes2': int.tryParse(_lateMinutes2Controller.text) ?? 30,
-        'latePenalty2':
-            parseFormattedNumber(_latePenalty2Controller.text)?.toDouble() ?? 100000,
-        'lateMinutes3': int.tryParse(_lateMinutes3Controller.text) ?? 60,
-        'latePenalty3':
-            parseFormattedNumber(_latePenalty3Controller.text)?.toDouble() ?? 200000,
-        'earlyMinutes1': int.tryParse(_earlyMinutes1Controller.text) ?? 15,
-        'earlyPenalty1':
-            parseFormattedNumber(_earlyPenalty1Controller.text)?.toDouble() ?? 50000,
-        'earlyMinutes2': int.tryParse(_earlyMinutes2Controller.text) ?? 30,
-        'earlyPenalty2':
-            parseFormattedNumber(_earlyPenalty2Controller.text)?.toDouble() ?? 100000,
-        'earlyMinutes3': int.tryParse(_earlyMinutes3Controller.text) ?? 60,
-        'earlyPenalty3':
-            parseFormattedNumber(_earlyPenalty3Controller.text)?.toDouble() ?? 200000,
-        'repeatCount1': int.tryParse(_repeatTimes1Controller.text) ?? 3,
-        'repeatPenalty1':
-            parseFormattedNumber(_repeatPenalty1Controller.text)?.toDouble() ?? 100000,
-        'repeatCount2': int.tryParse(_repeatTimes2Controller.text) ?? 5,
-        'repeatPenalty2':
-            parseFormattedNumber(_repeatPenalty2Controller.text)?.toDouble() ?? 200000,
-        'repeatCount3': int.tryParse(_repeatTimes3Controller.text) ?? 10,
-        'repeatPenalty3':
-            parseFormattedNumber(_repeatPenalty3Controller.text)?.toDouble() ?? 500000,
-        'forgotCheckPenalty':
-            parseFormattedNumber(_forgotCheckPenaltyController.text)?.toDouble() ??
-                100000,
-        'unauthorizedLeavePenalty': parseFormattedNumber(
-                    _unauthorizedAbsencePenaltyController.text)
-                ?.toDouble() ??
-            500000,
-        'violationPenalty':
-            parseFormattedNumber(_violationPenaltyController.text)?.toDouble() ??
-                200000,
-        'collectionMethod': _collectionMethod,
-      };
-
-      final response = await _apiService.savePenaltySettings(data);
-      if (!mounted) return;
-      if (response['isSuccess'] == true) {
-        appNotification.showSuccess(
-          title: 'Thành công',
-          message: tr('Đã lưu thiết lập phạt'),
-        );
-      } else {
-        appNotification.showError(
-          title: 'Lỗi',
-          message: response['message'] ?? 'Lỗi khi lưu thiết lập',
-        );
-      }
-    } catch (e) {
-      debugPrint('Error saving penalty settings: $e');
-      if (mounted) {
-        appNotification.showError(
-          title: 'Lỗi',
-          message: tr('Không thể lưu thiết lập: $e'),
-        );
-      }
-    } finally {
-      if (mounted) setState(() => _isSaving = false);
-    }
-  }
-
-  void _scrollFieldIntoView(BuildContext fieldContext) {
-    WidgetsBinding.instance.addPostFrameCallback((_) {
-      if (!mounted) return;
-      Scrollable.ensureVisible(
-        fieldContext,
-        alignment: 0.25,
-        duration: const Duration(milliseconds: 220),
-        curve: Curves.easeOut,
-      );
+  Future<void> _load() async {
+    setState(() => _loading = true);
+    final r = await _api.getPenaltySettings();
+    if (!mounted) return;
+    setState(() {
+      _saved = r['isSuccess'] == true && r['data'] is Map ? PenaltyParams.fromJson(Map<String, dynamic>.from(r['data'] as Map)) : PenaltyParams();
+      _p = _saved.copy();
+      _fill();
+      _loading = false;
     });
   }
 
+  Future<void> _save() async {
+    final err = _p.validate();
+    if (err != null) {
+      _toast(err, error: true);
+      return;
+    }
+    setState(() => _saving = true);
+    final r = await _api.savePenaltySettings(_p.toJson());
+    if (!mounted) return;
+    setState(() => _saving = false);
+    if (r['isSuccess'] == true) {
+      setState(() => _saved = _p.copy());
+      _toast('Đã lưu mức phạt');
+    } else {
+      _toast(r['message']?.toString() ?? 'Không lưu được', error: true);
+    }
+  }
+
+  void _toast(String m, {bool error = false}) => ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+        content: Text(tr(m)),
+        backgroundColor: error ? SboxColors.danger : null,
+        behavior: SnackBarBehavior.floating,
+      ));
+
   @override
   Widget build(BuildContext context) {
-    if (_isLoading) {
-      return Scaffold(
-        backgroundColor: HrmPageChrome.scaffoldBackground(context),
-        body: const LoadingWidget(),
-      );
-    }
-
-    final isMobile = Responsive.isMobile(context);
-
-    return Scaffold(
-      backgroundColor: HrmPageChrome.scaffoldBackground(context),
-      resizeToAvoidBottomInset: true,
-      appBar: (!HrmPageChrome.isEmbedded && isMobile)
-          ? AppBar(
-              backgroundColor: Colors.white,
-              elevation: 0,
-              automaticallyImplyLeading: false,
-              title: Text(tr('Thiết lập Phạt'),
-                style: TextStyle(
-                  color: SboxColors.slate900,
-                  fontWeight: FontWeight.bold,
-                  fontSize: 18,
-                ),
-              ),
-            )
+    final edit = _canEdit;
+    final err = _p.validate();
+    return SettingsPage(
+      title: 'Mức phạt',
+      subtitle: 'Phiếu phạt được tạo tự động khi đồng bộ chấm công, quản lý duyệt trước khi trừ',
+      icon: Icons.gavel_outlined,
+      loading: _loading,
+      dirty: _p.key != _saved.key,
+      saving: _saving,
+      onSave: _save,
+      onDiscard: () => setState(() {
+        _p = _saved.copy();
+        _fill();
+      }),
+      onResetDefaults: edit
+          ? () => setState(() {
+                _p = PenaltyParams()..violation = _p.violation;
+                _fill();
+              })
           : null,
-      body: _buildScrollBody(context),
+      children: [
+        if (!edit) const SettingsNote('Bạn chỉ có quyền xem.', icon: Icons.lock_outline_rounded, tone: SboxTone.neutral),
+        if (err != null) SettingsNote(err, icon: Icons.error_outline_rounded, tone: SboxTone.danger),
+        _tierSection('Đi trễ', 'Tính từ sau giờ vào ca (đã trừ phút miễn trễ của ca)', Icons.directions_run_rounded, 'late', _p.late, 'phút', edit),
+        _tierSection('Về sớm', 'Tính trước giờ ra ca (đã trừ phút miễn về sớm của ca)', Icons.logout_rounded, 'early', _p.early, 'phút', edit),
+        _tierSection('Tái phạm trong tháng', 'Cộng thêm vào phiếu trễ / về sớm từ lần vi phạm thứ N trong tháng (gộp cả trễ và về sớm)',
+            Icons.repeat_rounded, 'repeat', _p.repeat, 'lần', edit),
+        _otherSection(edit),
+        _trySection(),
+      ],
     );
   }
 
-  Widget _buildScrollBody(BuildContext context) {
-    final pad = HrmSettingsMobileKit.active(context)
-        ? HrmSettingsMobileKit.pagePadding(context).left
-        : (Responsive.isMobile(context) ? 12.0 : 20.0);
-    final bottomInset = MediaQuery.viewInsetsOf(context).bottom;
+  Widget _tierSection(String title, String sub, IconData icon, String k, List<PenaltyTier> t, String unit, bool edit) {
+    return SettingsSection(
+      title: title,
+      subtitle: sub,
+      icon: icon,
+      children: [
+        for (var i = 0; i < 3; i++)
+          SettingsTile(
+            divider: i > 0,
+            label: 'Bậc ${i + 1}',
+            help: i < 2
+                ? 'Từ ${t[i].threshold} đến dưới ${t[i + 1].threshold} $unit'
+                : 'Từ ${t[i].threshold} $unit trở lên',
+            control: Row(mainAxisSize: MainAxisSize.min, children: [
+              SizedBox(
+                width: 96,
+                child: TextField(
+                  controller: _ctl('$k${i}t'),
+                  enabled: edit,
+                  textAlign: TextAlign.right,
+                  keyboardType: TextInputType.number,
+                  inputFormatters: [FilteringTextInputFormatter.digitsOnly, LengthLimitingTextInputFormatter(4)],
+                  decoration: InputDecoration(isDense: true, suffixText: unit, border: OutlineInputBorder(borderRadius: BorderRadius.circular(10))),
+                  onChanged: (v) => setState(() => t[i].threshold = int.tryParse(v) ?? 0),
+                ),
+              ),
+              const SizedBox(width: 8),
+              SettingsMoneyField(controller: _ctl('$k${i}a'), enabled: edit, width: 150, onChanged: (v) => setState(() => t[i].amount = v)),
+            ]),
+          ),
+      ],
+    );
+  }
 
-    // LayoutBuilder + SizedBox.expand: đảm bảo vùng cuộn có chiều cao cố định
-    // (tránh ColoredBox/IntrinsicHeight khiến có thanh cuộn nhưng không lăn được).
-    return LayoutBuilder(
-      builder: (context, constraints) {
-        return Scrollbar(
-          controller: _scrollController,
-          thumbVisibility: true,
-          interactive: true,
-          child: SingleChildScrollView(
-            controller: _scrollController,
-            primary: false,
-            physics: const AlwaysScrollableScrollPhysics(
-              parent: ClampingScrollPhysics(),
-            ),
-            padding:
-                EdgeInsets.fromLTRB(pad, pad, pad, pad + bottomInset + 24),
-            child: ConstrainedBox(
-              constraints: BoxConstraints(
-                minHeight: constraints.maxHeight > 0
-                    ? constraints.maxHeight - pad * 2
-                    : 0,
-              ),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.stretch,
-                children: [
-                  if (HrmPageChrome.isEmbedded) ...[
-                    _buildSaveSettingsButton(context),
-                    const SizedBox(height: 16),
-                  ] else ...[
-                    _buildTitleSection(context),
-                    const SizedBox(height: 16),
-                  ],
-                  _buildCardsLayout(context),
-                  if (!HrmPageChrome.isEmbedded) ...[
-                    const SizedBox(height: 16),
-                    _buildSaveSettingsButton(context),
-                  ],
-                ],
-              ),
+  Widget _otherSection(bool edit) => SettingsSection(
+        title: 'Vi phạm khác & cách thu',
+        icon: Icons.rule_rounded,
+        children: [
+          SettingsTile(
+            divider: false,
+            label: 'Quên chấm công',
+            help: 'Thiếu lần chấm vào hoặc ra trong ngày có lịch (0 = không phạt)',
+            control: SettingsMoneyField(controller: _ctl('forgot'), enabled: edit, onChanged: (v) => setState(() => _p.forgot = v)),
+          ),
+          SettingsTile(
+            label: 'Nghỉ không phép',
+            help: 'Có lịch làm nhưng không chấm công, không có đơn nghỉ (0 = không phạt)',
+            control: SettingsMoneyField(controller: _ctl('absent'), enabled: edit, onChanged: (v) => setState(() => _p.absent = v)),
+          ),
+          SettingsTile(
+            label: 'Cách thu tiền phạt',
+            help: _p.method == 'Cash' ? 'Nhân viên nộp tiền mặt, ghi vào sổ thu chi' : 'Trừ vào lương kỳ này sau khi phiếu được duyệt',
+            control: SettingsSegment<String>(
+              value: _p.method,
+              options: const [('Salary', 'Trừ lương'), ('Cash', 'Tiền mặt')],
+              onChanged: edit ? (v) => setState(() => _p.method = v) : (_) {},
             ),
           ),
-        );
-      },
-    );
-  }
-
-  /// Tối đa 2 cột trên tablet/desktop — phone luôn 1 cột full-width.
-  Widget _buildCardsLayout(BuildContext context) {
-    final w = MediaQuery.sizeOf(context).width;
-    final twoCols =
-        !HrmSettingsMobileKit.preferCardList(context) && w >= 900;
-    final gap = 16.0;
-
-    final cards = [
-      _buildCollectionMethodCard(),
-      _buildLatePenaltyCard(),
-      _buildEarlyLeavePenaltyCard(),
-      _buildRepeatOffensePenaltyCard(),
-      _buildOtherPenaltiesCard(),
-    ];
-
-    if (!twoCols) {
-      return Column(
-        children: [
-          for (var i = 0; i < cards.length; i++) ...[
-            if (i > 0) SizedBox(height: gap),
-            cards[i],
-          ],
         ],
       );
-    }
 
-    return Column(
-      children: [
-        Row(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Expanded(child: cards[0]),
-            SizedBox(width: gap),
-            Expanded(child: cards[1]),
-          ],
-        ),
-        SizedBox(height: gap),
-        Row(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Expanded(child: cards[2]),
-            SizedBox(width: gap),
-            Expanded(child: cards[3]),
-          ],
-        ),
-      ],
-    );
-  }
-
-  Widget _buildSaveSettingsButton(BuildContext context) {
-    if (!_perm.canEdit('PenaltySetup')) return const SizedBox.shrink();
-    final isNarrow = MediaQuery.sizeOf(context).width < 560;
-    return SizedBox(
-      width: isNarrow ? double.infinity : null,
-      child: FilledButton.icon(
-        onPressed: _isSaving ? null : _savePenaltySettings,
-        icon: _isSaving
-            ? const SizedBox(
-                width: 18,
-                height: 18,
-                child: CircularProgressIndicator(
-                  strokeWidth: 2,
-                  valueColor: AlwaysStoppedAnimation<Color>(Colors.white),
-                ),
-              )
-            : const Icon(Icons.save, size: 18),
-        label: Text(tr(_isSaving ? 'Đang lưu...' : 'Lưu thiết lập')),
-        style: FilledButton.styleFrom(
-          backgroundColor: HrmPageChrome.primaryNavy,
-          padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 14),
-        ),
-      ),
-    );
-  }
-
-  Widget _buildTitleSection(BuildContext context) {
-    final intro = Row(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        Container(
-          padding: const EdgeInsets.all(12),
-          decoration: BoxDecoration(
-            color: _navy.withValues(alpha: 0.1),
-            borderRadius: BorderRadius.circular(14),
-          ),
-          child: const Icon(Icons.gavel, color: _navy, size: 28),
-        ),
-        const SizedBox(width: 14),
-        Expanded(
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              if (!HrmPageChrome.isEmbedded)
-                Text(tr('Thiết lập Phạt'),
-                  style: TextStyle(
-                    color: _navy,
-                    fontSize: 20,
-                    fontWeight: FontWeight.bold,
-                  ),
-                ),
-              if (!HrmPageChrome.isEmbedded) const SizedBox(height: 4),
-              Text(tr('Cấu hình mức phạt đi trễ, về sớm, tái phạm và các vi phạm khác'),
-                maxLines: 3,
-                overflow: TextOverflow.ellipsis,
-                style: TextStyle(color: _muted, fontSize: 14, height: 1.45),
-              ),
-            ],
-          ),
-        ),
-      ],
-    );
-
-    return Container(
-      padding: const EdgeInsets.all(18),
-      decoration: BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.circular(14),
-        border: Border.all(color: _border),
-      ),
-      child: intro,
-    );
-  }
-
-  Widget _buildSectionCard({
-    required Widget header,
-    required List<Widget> children,
-  }) {
-    return Container(
-      decoration: BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.circular(14),
-        border: Border.all(color: _border),
-        boxShadow: [
-          BoxShadow(
-            color: Colors.black.withValues(alpha: 0.04),
-            blurRadius: 8,
-            offset: const Offset(0, 2),
-          ),
-        ],
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.stretch,
-        children: [
-          header,
-          const Divider(color: _border, height: 1),
-          ...children,
-        ],
-      ),
-    );
-  }
-
-  Widget _buildCardHeader({
-    required List<Color> gradient,
-    required IconData icon,
-    required String title,
-    required String subtitle,
-    Color? iconBg,
-    Color? iconColor,
-  }) {
-    return Padding(
-      padding: const EdgeInsets.all(16),
-      child: Row(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Container(
-            width: 48,
-            height: 48,
-            decoration: BoxDecoration(
-              gradient: iconBg == null
-                  ? LinearGradient(colors: gradient)
-                  : null,
-              color: iconBg,
-              borderRadius: BorderRadius.circular(10),
-            ),
-            child: Icon(icon, color: iconColor ?? Colors.white, size: 22),
-          ),
-          const SizedBox(width: 12),
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(
-                  tr(title),
-                  style: const TextStyle(
-                    fontSize: 16,
-                    fontWeight: FontWeight.bold,
-                    color: SboxColors.slate900,
-                  ),
-                ),
-                const SizedBox(height: 4),
-                Text(
-                  tr(subtitle),
-                  style: const TextStyle(fontSize: 12, color: _muted, height: 1.35),
-                ),
-              ],
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-
-  Widget _buildLatePenaltyCard() {
-    return _buildSectionCard(
-      header: _buildCardHeader(
-        gradient: const [SboxColors.danger, Color(0xFFF87171)],
-        icon: Icons.schedule,
-        title: 'Phạt đi trễ',
-        subtitle: 'Mức phạt theo số phút đi trễ',
-      ),
-      children: [
-        _buildPenaltyLevelRow(
-          level: 1,
-          thresholdLabel: 'Từ (phút)',
-          minutesController: _lateMinutes1Controller,
-          penaltyController: _latePenalty1Controller,
-        ),
-        _buildPenaltyLevelRow(
-          level: 2,
-          thresholdLabel: 'Từ (phút)',
-          minutesController: _lateMinutes2Controller,
-          penaltyController: _latePenalty2Controller,
-        ),
-        _buildPenaltyLevelRow(
-          level: 3,
-          thresholdLabel: 'Từ (phút)',
-          minutesController: _lateMinutes3Controller,
-          penaltyController: _latePenalty3Controller,
-          isLast: true,
-        ),
-      ],
-    );
-  }
-
-  Widget _buildEarlyLeavePenaltyCard() {
-    return _buildSectionCard(
-      header: _buildCardHeader(
-        gradient: const [HrmPageChrome.primaryNavy, Color(0xFF2D5F8B)],
-        icon: Icons.logout,
-        title: 'Phạt về sớm',
-        subtitle: 'Mức phạt theo số phút về sớm',
-      ),
-      children: [
-        _buildPenaltyLevelRow(
-          level: 1,
-          thresholdLabel: 'Từ (phút)',
-          minutesController: _earlyMinutes1Controller,
-          penaltyController: _earlyPenalty1Controller,
-        ),
-        _buildPenaltyLevelRow(
-          level: 2,
-          thresholdLabel: 'Từ (phút)',
-          minutesController: _earlyMinutes2Controller,
-          penaltyController: _earlyPenalty2Controller,
-        ),
-        _buildPenaltyLevelRow(
-          level: 3,
-          thresholdLabel: 'Từ (phút)',
-          minutesController: _earlyMinutes3Controller,
-          penaltyController: _earlyPenalty3Controller,
-          isLast: true,
-        ),
-      ],
-    );
-  }
-
-  Widget _buildRepeatOffensePenaltyCard() {
-    return _buildSectionCard(
-      header: _buildCardHeader(
-        gradient: const [SboxColors.warningSoft, SboxColors.warningSoft],
-        icon: Icons.refresh,
-        title: 'Phạt tái phạm',
-        subtitle: 'Phạt thêm khi vi phạm nhiều lần trong tháng',
-        iconBg: SboxColors.warningSoft,
-        iconColor: SboxColors.warning,
-      ),
-      children: [
-        _buildPenaltyLevelRow(
-          level: 1,
-          thresholdLabel: 'Từ (lần)',
-          minutesController: _repeatTimes1Controller,
-          penaltyController: _repeatPenalty1Controller,
-          isTimes: true,
-        ),
-        _buildPenaltyLevelRow(
-          level: 2,
-          thresholdLabel: 'Từ (lần)',
-          minutesController: _repeatTimes2Controller,
-          penaltyController: _repeatPenalty2Controller,
-          isTimes: true,
-        ),
-        _buildPenaltyLevelRow(
-          level: 3,
-          thresholdLabel: 'Từ (lần)',
-          minutesController: _repeatTimes3Controller,
-          penaltyController: _repeatPenalty3Controller,
-          isTimes: true,
-          isLast: true,
-        ),
-      ],
-    );
-  }
-
-  /// Trừ vào lương: tổng lương trừ phiếu phạt, không tạo phiếu thu.
-  /// Thu tiền mặt: mỗi phiếu duyệt tạo phiếu thu trong sổ quỹ, không trừ lương.
-  Widget _buildCollectionMethodCard() {
-    Widget option(String value, IconData icon, String title, String desc) {
-      final selected = _collectionMethod == value;
-      return InkWell(
-        onTap: () => setState(() => _collectionMethod = value),
-        child: Padding(
-          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
-          child: Row(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Icon(
-                selected ? Icons.radio_button_checked : Icons.radio_button_off,
-                color: selected ? _navy : SboxColors.slate500,
-                size: 22,
-              ),
-              const SizedBox(width: 12),
-              Icon(icon, color: _navy, size: 20),
-              const SizedBox(width: 10),
-              Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(tr(title),
-                        style: const TextStyle(
-                            fontWeight: FontWeight.w600, fontSize: 14)),
-                    const SizedBox(height: 2),
-                    Text(tr(desc),
-                        style: TextStyle(
-                            fontSize: 13, color: SboxColors.slate700)),
-                  ],
-                ),
-              ),
-            ],
-          ),
-        ),
-      );
-    }
-
-    return _buildSectionCard(
-      header: _buildCardHeader(
-        gradient: const [Color(0xFF0EA5E9), Color(0xFF6366F1)],
-        icon: Icons.payments_outlined,
-        title: 'Hình thức thu phạt',
-        subtitle: 'Áp dụng cho phiếu phạt duyệt từ nay — phiếu cũ giữ nguyên',
-      ),
-      children: [
-        option('Salary', Icons.account_balance_wallet_outlined, 'Trừ vào lương',
-            'Tổng lương trừ tiền các phiếu phạt đã duyệt. Không tạo phiếu thu.'),
-        const Divider(color: _border, height: 1),
-        option('Cash', Icons.receipt_long_outlined, 'Thu tiền mặt từng lần',
-            'Mỗi phiếu phạt duyệt tạo phiếu thu trong sổ quỹ. Không trừ lương.'),
-      ],
-    );
-  }
-
-  Widget _buildOtherPenaltiesCard() {
-    return _buildSectionCard(
-      header: _buildCardHeader(
-        gradient: const [SboxColors.danger, Color(0xFFF97316)],
-        icon: Icons.warning_amber_rounded,
-        title: 'Các loại phạt khác',
-        subtitle: 'Quên chấm công, nghỉ không phép, vi phạm nội quy',
-      ),
-      children: [
-        _buildOtherPenaltyRow(
-          icon: Icons.fingerprint,
-          iconColor: SboxColors.warning,
-          title: 'Quên chấm công',
-          description: 'Không chấm công vào hoặc ra',
-          controller: _forgotCheckPenaltyController,
-          suffix: 'đ / lần',
-        ),
-        _buildOtherPenaltyRow(
-          icon: Icons.event_busy,
-          iconColor: _navy,
-          title: 'Nghỉ không phép',
-          description: 'Nghỉ không xin phép hoặc không thông báo',
-          controller: _unauthorizedAbsencePenaltyController,
-          suffix: 'đ / ngày',
-        ),
-        _buildOtherPenaltyRow(
-          icon: Icons.rule,
-          iconColor: HrmPageChrome.primaryNavy,
-          title: 'Vi phạm quy định công ty',
-          description: 'Vi phạm các quy định nội bộ công ty',
-          controller: _violationPenaltyController,
-          suffix: 'đ / lần',
-          isLast: true,
-        ),
-      ],
-    );
-  }
-
-  Color _levelColor(int level) {
-    return level == 3 ? SboxColors.danger : _navy;
-  }
-
-  /// Mỗi mức: nhãn + 2 ô nhập full-width (hoặc 2 cột khi card đủ rộng).
-  Widget _buildPenaltyLevelRow({
-    required int level,
-    required String thresholdLabel,
-    required TextEditingController minutesController,
-    required TextEditingController penaltyController,
-    bool isTimes = false,
-    bool isLast = false,
-  }) {
-    final color = _levelColor(level);
-
-    return LayoutBuilder(
-      builder: (context, constraints) {
-        // Card full-width trên phone: ghép 2 ô một hàng khi đủ rộng (~340+).
-        final sideBySide = constraints.maxWidth >= 340;
-
-        Widget thresholdField = _labeledField(
-          context: context,
-          label: thresholdLabel,
-          controller: minutesController,
-          isMoney: false,
-          hint: isTimes ? '3' : '15',
+  Widget _trySection() {
+    final r = _p.validate() == null ? _p.lateTicket(_tryMinutes, _tryNth) : null;
+    Widget stepper(String label, int value, ValueChanged<int> set, {int step = 1, int min = 0}) => SettingsTile(
+          label: label,
+          control: Row(mainAxisSize: MainAxisSize.min, children: [
+            IconButton(onPressed: value - step >= min ? () => set(value - step) : null, icon: const Icon(Icons.remove_circle_outline)),
+            SizedBox(width: 40, child: Text('$value', textAlign: TextAlign.center, style: const TextStyle(fontWeight: FontWeight.w800, fontSize: 16))),
+            IconButton(onPressed: () => set(value + step), icon: const Icon(Icons.add_circle_outline)),
+          ]),
         );
-
-        Widget moneyField = _labeledField(
-          context: context,
-          label: 'Mức phạt (VNĐ)',
-          controller: penaltyController,
-          isMoney: true,
-          hint: '50.000',
-        );
-
-        final fields = sideBySide
-            ? Row(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Expanded(child: thresholdField),
-                  const SizedBox(width: 12),
-                  Expanded(flex: 2, child: moneyField),
-                ],
-              )
-            : Column(
-                crossAxisAlignment: CrossAxisAlignment.stretch,
-                children: [
-                  thresholdField,
-                  const SizedBox(height: 10),
-                  moneyField,
-                ],
-              );
-
-        return Container(
-          padding: const EdgeInsets.fromLTRB(16, 14, 16, 14),
-          decoration: BoxDecoration(
-            border: isLast
-                ? null
-                : const Border(bottom: BorderSide(color: SboxColors.slate100)),
-          ),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Container(
-                padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
-                decoration: BoxDecoration(
-                  color: color.withValues(alpha: 0.1),
-                  borderRadius: BorderRadius.circular(10),
-                ),
-                child: Text(tr('MỨC $level'),
-                  style: TextStyle(
-                    color: color,
-                    fontSize: 11,
-                    fontWeight: FontWeight.bold,
-                    letterSpacing: 0.4,
-                  ),
-                ),
-              ),
-              const SizedBox(height: 12),
-              fields,
-            ],
-          ),
-        );
-      },
-    );
-  }
-
-  Widget _buildOtherPenaltyRow({
-    required IconData icon,
-    required Color iconColor,
-    required String title,
-    required String description,
-    required TextEditingController controller,
-    required String suffix,
-    bool isLast = false,
-  }) {
-    return Container(
-      padding: const EdgeInsets.all(16),
-      decoration: BoxDecoration(
-        border: isLast
-            ? null
-            : const Border(bottom: BorderSide(color: SboxColors.slate100)),
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Row(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Container(
-                padding: const EdgeInsets.all(8),
-                decoration: BoxDecoration(
-                  color: iconColor.withValues(alpha: 0.1),
-                  borderRadius: BorderRadius.circular(10),
-                ),
-                child: Icon(icon, color: iconColor, size: 20),
-              ),
-              const SizedBox(width: 12),
-              Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(
-                      tr(title),
-                      style: const TextStyle(
-                        fontSize: 14,
-                        fontWeight: FontWeight.w600,
-                        color: SboxColors.slate900,
-                      ),
-                    ),
-                    const SizedBox(height: 4),
-                    Text(
-                      tr(description),
-                      style: const TextStyle(fontSize: 12, color: _muted, height: 1.35),
-                    ),
-                  ],
-                ),
-              ),
-            ],
-          ),
-          const SizedBox(height: 12),
-          Builder(
-            builder: (fieldContext) => _labeledField(
-              context: fieldContext,
-              label: 'Mức phạt — $suffix',
-              controller: controller,
-              isMoney: true,
-              hint: '100.000',
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-
-  Widget _labeledField({
-    required BuildContext context,
-    required String label,
-    required TextEditingController controller,
-    required bool isMoney,
-    String? hint,
-  }) {
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
+    return SettingsSection(
+      title: 'Tính thử',
+      subtitle: 'Một lần đi trễ sẽ bị phạt bao nhiêu',
+      icon: Icons.calculate_outlined,
       children: [
-        Text(
-          tr(label),
-          style: const TextStyle(
-            fontSize: 12,
-            fontWeight: FontWeight.w600,
-            color: _muted,
+        stepper('Số phút đi trễ', _tryMinutes, (v) => setState(() => _tryMinutes = v), step: 5),
+        stepper('Là lần vi phạm thứ mấy trong tháng', _tryNth, (v) => setState(() => _tryNth = v), min: 1),
+        if (r != null)
+          SettingsNote(
+            r.tier == 0
+                ? 'Chưa tới mốc bậc 1 (${_p.late[0].threshold} phút) — không tạo phiếu phạt.'
+                : 'Phiếu phạt bậc ${r.tier}: ${settingsMoney(r.base)} ₫'
+                    '${r.surcharge > 0 ? ' + tái phạm ${settingsMoney(r.surcharge)} ₫' : ''} = ${settingsMoney(r.base + r.surcharge)} ₫',
+            icon: Icons.receipt_long_rounded,
+            tone: r.tier == 0 ? SboxTone.neutral : SboxTone.warning,
           ),
-        ),
-        const SizedBox(height: 6),
-        TextField(
-          controller: controller,
-          keyboardType: TextInputType.number,
-          inputFormatters: isMoney ? [ThousandSeparatorFormatter()] : null,
-          scrollPadding: const EdgeInsets.only(bottom: 120),
-          onTap: () => _scrollFieldIntoView(context),
-          style: const TextStyle(
-            color: SboxColors.slate900,
-            fontWeight: FontWeight.w600,
-            fontSize: 16,
-          ),
-          decoration: InputDecoration(
-            hintText: trN(hint),
-            hintStyle: const TextStyle(color: SboxColors.slate400, fontSize: 14),
-            contentPadding:
-                const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
-            border: OutlineInputBorder(
-              borderRadius: BorderRadius.circular(10),
-              borderSide: const BorderSide(color: _border),
-            ),
-            enabledBorder: OutlineInputBorder(
-              borderRadius: BorderRadius.circular(10),
-              borderSide: const BorderSide(color: _border),
-            ),
-            focusedBorder: OutlineInputBorder(
-              borderRadius: BorderRadius.circular(10),
-              borderSide: const BorderSide(color: _navy, width: 2),
-            ),
-            filled: true,
-            fillColor: SboxColors.slate50,
-            isDense: true,
-          ),
-        ),
       ],
     );
   }

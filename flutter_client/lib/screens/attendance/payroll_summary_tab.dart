@@ -1,3 +1,4 @@
+import '../payroll_pay/payroll_pay_page.dart';
 import '../../widgets/attendance/punch_cells.dart';
 import 'dart:convert';
 import '../../utils/work_schedule_load_utils.dart';
@@ -347,6 +348,7 @@ class PayrollSummaryTabState extends State<PayrollSummaryTab> {
       PayrollColumn(key: 'allowanceFixed', label: 'PC cố định'),
       PayrollColumn(key: 'allowanceDaily', label: 'PC theo ngày'),
       PayrollColumn(key: 'allowanceShift', label: 'PC theo ca'),
+      PayrollColumn(key: 'allowanceQualified', label: 'Ngày/ca đủ ĐK PC'),
       PayrollColumn(key: 'totalAllowance', label: 'Tổng PC kỳ'),
       PayrollColumn(key: 'bonus', label: _l10n.bonusAmount),
       PayrollColumn(
@@ -359,6 +361,7 @@ class PayrollSummaryTabState extends State<PayrollSummaryTab> {
         label: 'Sản lượng',
         defaultVisible: false,
       ),
+      PayrollColumn(key: 'leavePayout', label: 'Tiền phép năm'),
       // Tổng lương trước các khoản trừ / thực nhận
       PayrollColumn(key: 'totalSalary', label: _l10n.totalSalary),
       PayrollColumn(
@@ -575,6 +578,52 @@ class PayrollSummaryTabState extends State<PayrollSummaryTab> {
     }
 
     return profileMap;
+  }
+
+  /// Dùng cho test: bảng lương đã tính (null khi đang tải).
+  @visibleForTesting
+  List<Map<String, dynamic>>? debugPayrollRows() => _isLoading ? null : _buildPayrollData();
+
+  /// Tiền phép năm trả trong kỳ (Phép năm › Trả tiền / Chốt năm): mã NV (thường) → số tiền.
+  Map<String, double> _leavePayouts = {};
+
+  Future<void> _loadLeavePayouts() async {
+    _leavePayouts = {};
+    final res = await _loadWithTimeout(
+      _apiService.getAnnualLeavePayouts(_fromDate, _toDate),
+      <String, dynamic>{},
+    );
+    if (res['isSuccess'] != true || res['data'] is! List) return;
+    for (final x in (res['data'] as List).whereType<Map>()) {
+      _leavePayouts[_normEmpId('${x['employeeId']}')] = _toDouble(x['amount']);
+    }
+  }
+
+  /// Lịch sử hồ sơ lương trong kỳ: mã NV (thường) → các đoạn.
+  Map<String, List<_SalarySeg>> _salaryTimeline = {};
+
+  Future<void> _loadSalaryTimeline() async {
+    _salaryTimeline = {};
+    final res = await _loadWithTimeout(
+      _apiService.getSalaryTimeline(_fromDate, _toDate),
+      <String, dynamic>{},
+    );
+    if (res['isSuccess'] != true || res['data'] is! List) return;
+    for (final t in (res['data'] as List).whereType<Map>()) {
+      final segs = <_SalarySeg>[];
+      for (final s in (t['segments'] as List? ?? const []).whereType<Map>()) {
+        final b = s['benefit'];
+        final from = DateTime.tryParse('${s['from']}');
+        final to = DateTime.tryParse('${s['to']}');
+        if (b is! Map || from == null || to == null) continue;
+        segs.add(_SalarySeg(
+          benefit: Map<String, dynamic>.from(b),
+          from: DateTime(from.year, from.month, from.day),
+          to: DateTime(to.year, to.month, to.day),
+        ));
+      }
+      if (segs.isNotEmpty) _salaryTimeline[_normEmpId('${t['employeeId']}')] = segs;
+    }
   }
 
   bool _isEmployeeRole(BuildContext context) {
@@ -821,6 +870,7 @@ class PayrollSummaryTabState extends State<PayrollSummaryTab> {
       _advanceRequests = _extractList(advResult['items'] ?? advResult['data']);
 
       _shifts = _extractList(results[5]);
+      _shiftById = null;
       _allowanceSettings = _extractList(results[6]);
       _holidays = _extractList(results[7]);
       _workSchedules = extractWorkScheduleItems(
@@ -947,6 +997,8 @@ class PayrollSummaryTabState extends State<PayrollSummaryTab> {
         _kpiPayrollAmounts = null;
       }
 
+      await _loadSalaryTimeline();
+      await _loadLeavePayouts();
       await _loadPeriodAttendances();
       await _loadTravelMobileRecords();
     } catch (e) {
@@ -1318,17 +1370,46 @@ class PayrollSummaryTabState extends State<PayrollSummaryTab> {
 
   /// Đọc phụ cấp từ danh mục — cùng thuật toán màn Thiết lập lương.
   /// PC cố định / theo ngày = mức cấu hình; Tổng PC kỳ = thực nhận theo công/giờ.
+  Map<String, Map<String, dynamic>>? _shiftById;
+
+  /// Ca đã chấm đủ → phút làm trong khung ca / thời lượng ca (cho điều kiện phụ cấp).
+  List<AllowanceWorkUnit> _allowanceUnits(List<DailyShiftPair> pairs) {
+    final byId = _shiftById ??= {
+      for (final s in _shifts)
+        if (s['id'] != null) '${s['id']}'.toLowerCase(): s,
+    };
+    final out = <AllowanceWorkUnit>[];
+    for (final p in pairs) {
+      final shift = p.shiftTemplateId == null ? null : byId[p.shiftTemplateId!.toLowerCase()];
+      final m = shiftWindowMinutes(p, shift);
+      if (m == null) continue;
+      out.add(AllowanceWorkUnit(
+        dayKey: AllowanceWorkUnit.keyOf(p.date),
+        shiftId: p.shiftTemplateId,
+        shiftName: p.shiftName,
+        workedMinutes: m.worked,
+        requiredMinutes: m.required,
+      ));
+    }
+    return out;
+  }
+
   ({
     double fixedAllowance,
     double dailyAllowanceRate,
     double hourlyAllowanceRate,
     double shiftAllowance,
+    double dailyAllowance,
+    double dailyDays,
+    int shiftCount,
+    List<String> misses,
     double total,
   }) _calcEmployeeAllowances({
     required String? employeeId,
-    required double workDays,
     required double totalWorkHours,
-    required Iterable<String?> workedShiftIds,
+    required List<DailyShiftPair> shiftPairs,
+    required Map<String, double> allowanceDays,
+    required int standardDayMinutes,
     required double shiftLevelAllowance,
   }) {
     final empId = employeeId ?? '';
@@ -1347,22 +1428,29 @@ class PayrollSummaryTabState extends State<PayrollSummaryTab> {
       employeeId: empId,
       allowanceType: 2,
     );
-    final shiftEarned = AllowanceCalculator.earnedForShifts(
+    // Theo ngày / theo ca: chỉ ngày / ca làm đủ thời gian trong ca (nếu khoản có điều kiện).
+    final earned = AllowanceCalculator.earnedWithRules(
       allowances: _allowanceSettings,
       employeeId: empId,
-      workedShiftIds: workedShiftIds,
+      units: _allowanceUnits(shiftPairs),
+      eligibleDays: allowanceDays,
+      standardDayMinutes: standardDayMinutes,
     );
 
     final total = shiftLevelAllowance +
         fixedTotal +
-        dailyRateTotal * workDays +
+        earned.daily +
         hourlyRateTotal * totalWorkHours +
-        shiftEarned;
+        earned.shift;
     return (
       fixedAllowance: fixedTotal,
       dailyAllowanceRate: dailyRateTotal,
       hourlyAllowanceRate: hourlyRateTotal,
-      shiftAllowance: shiftEarned,
+      shiftAllowance: earned.shift,
+      dailyAllowance: earned.daily,
+      dailyDays: earned.dailyDays,
+      shiftCount: earned.shiftCount,
+      misses: [for (final m in earned.misses) m.label],
       total: total,
     );
   }
@@ -1389,29 +1477,19 @@ class PayrollSummaryTabState extends State<PayrollSummaryTab> {
   }
 
   // ──────── Salary calculation per employee ────────
-  Map<String, dynamic> _calcEmployeePayroll(
-      String empCode, List<Attendance> empAttendances) {
-    final emp = _findEmployee(empCode);
-    final empName = emp?.fullName ?? empCode;
-
-    // Salary profile
-    Map<String, dynamic>? profile;
-    if (emp != null) {
-      final sp = _employeeSalaryProfiles
-          .where((e) =>
-              e['employeeId'] == emp.id ||
-              e['employeeCode'] == emp.employeeCode)
-          .firstOrNull;
-      profile = sp?['profile'] as Map<String, dynamic>?;
-    }
-
-    Map<String, dynamic>? benefit;
-    if (profile != null) {
-      final rawBenefit = profile['benefit'] ?? profile['Benefit'];
-      if (rawBenefit is Map) {
-        benefit = Map<String, dynamic>.from(rawBenefit);
-      }
-    }
+  /// Tiền lương của một đoạn [segFrom, segTo] theo một hồ sơ lương.
+  /// Kỳ lương có thay đổi lương giữa kỳ được tách nhiều đoạn rồi cộng lại.
+  _SegPay _calcSegmentPay({
+    required Employee? emp,
+    required String empCode,
+    required List<Attendance> empAttendances,
+    required Map<String, dynamic>? benefit,
+    required DateTime segFrom,
+    required DateTime segTo,
+    required double travelHours,
+    double? billableOverride,
+    bool wholePeriod = true,
+  }) {
     final double baseSalary = _benefitField(benefit, 'rate');
     final int rateType = _parseRateType(benefit?['rateType'] ?? benefit?['RateType']);
     final double completionSalary = _benefitField(benefit, 'completionSalary');
@@ -1477,11 +1555,19 @@ class PayrollSummaryTabState extends State<PayrollSummaryTab> {
     }
 
     // ═══ Chấm công: cùng nguồn & thuật toán tab "Tổng hợp theo ca" ═══
-    final shiftRecords = _shiftRecordsForEmployee(empCode);
+    final segStart = DateTime(segFrom.year, segFrom.month, segFrom.day);
+    final segEnd = DateTime(segTo.year, segTo.month, segTo.day);
+    final shiftRecords = wholePeriod
+        ? _shiftRecordsForEmployee(empCode)
+        : _shiftRecordsForEmployee(empCode).where((r) {
+          final d = DateTime(r.date.year, r.date.month, r.date.day);
+          return !d.isBefore(segStart) && !d.isAfter(segEnd);
+        })
+        .toList();
     final shiftPairs = computeDailyShiftPairs(
       attendances: empAttendances,
-      fromDate: _fromDate,
-      toDate: _toDate,
+      fromDate: segFrom,
+      toDate: segTo,
       shiftTemplates: _shifts,
       shiftSalaryLevels: _shiftSalaryLevels,
       salaryProfiles: _salaryProfilesForShiftCalc(),
@@ -1494,6 +1580,12 @@ class PayrollSummaryTabState extends State<PayrollSummaryTab> {
       standardDayHours: standardDayHours,
       shiftPairs: shiftPairs,
     );
+    // Phụ cấp theo ngày: ngày có công (bỏ ngày chỉ tăng ca), công gốc chưa nhân hệ số lễ/nghỉ.
+    final allowanceDays = <String, double>{
+      for (final r in shiftRecords)
+        if (r.baseWorkCount > 0 && !r.status.contains('Tăng ca ngày'))
+          AllowanceWorkUnit.keyOf(r.date): r.baseWorkCount.clamp(0, 1).toDouble(),
+    };
 
     final totalWorkHours = attStats.totalWorkHours;
     final standardHours = attStats.standardHours;
@@ -1525,8 +1617,8 @@ class PayrollSummaryTabState extends State<PayrollSummaryTab> {
         : DateTime(emp!.resignationDate!.year, emp.resignationDate!.month, emp.resignationDate!.day);
 
     // Count paid leave and absent days
-    for (var d = _fromDate;
-        !d.isAfter(_toDate);
+    for (var d = segFrom;
+        !d.isAfter(segTo);
         d = d.add(const Duration(days: 1))) {
       final key = DateFormat('yyyy-MM-dd').format(d);
       if (_isHoliday(d)) continue;
@@ -1616,7 +1708,7 @@ class PayrollSummaryTabState extends State<PayrollSummaryTab> {
       scheduleDayOffCount: scheduleOffCount,
     );
     final double standardWorkDays = resolvedStd.divisor;
-    double billableWorkDays = resolvedStd.billableWorkDays;
+    double billableWorkDays = billableOverride ?? resolvedStd.billableWorkDays;
 
     // "Nghỉ N ngày bất kỳ/tháng" (off-1..off-4): không có thứ nghỉ cố định nên
     // không tính "Tăng ca ngày nghỉ" theo ngày (xem sửa weeklyOffDays khi lưu).
@@ -1626,7 +1718,8 @@ class PayrollSummaryTabState extends State<PayrollSummaryTab> {
     // Chỉ áp dụng cho lương tháng (rateType==1) — nơi công chuẩn thực sự giới
     // hạn lương thường; lương ngày/giờ/ca đã trả đủ theo công thực tế nên
     // cộng thêm OT ở đây sẽ bị trả trùng.
-    if (rateType == 1 &&
+    if (wholePeriod &&
+        rateType == 1 &&
         const ['off-1', 'off-2', 'off-3', 'off-4'].contains(paidLeaveType) &&
         resolvedStd.mode == EmployeeStandardWorkMode.monthMinusPaidLeave &&
         workDays > standardWorkDays) {
@@ -1795,9 +1888,6 @@ class PayrollSummaryTabState extends State<PayrollSummaryTab> {
       if (otSalary < 0) otSalary = 0;
     }
 
-    final double travelHours = _showTravelPayrollColumns
-        ? _travelHoursForEmployee(emp)
-        : 0;
     final travelMode = parseTravelSalaryModeForEmployee(
       benefit: benefit,
     );
@@ -1815,14 +1905,184 @@ class PayrollSummaryTabState extends State<PayrollSummaryTab> {
       workHourlyFallback: hourlyRate,
     );
 
+
+    return _SegPay(
+      benefit: benefit,
+      from: segFrom,
+      to: segTo,
+      baseSalary: baseSalary,
+      rateType: rateType,
+      completionSalary: completionSalary,
+      socialInsType: socialInsType,
+      customInsuranceSalary: customInsuranceSalary,
+      hasHealthInsurance: hasHealthInsurance,
+      salaryTypeLabel: salaryTypeLabel,
+      shiftPairs: shiftPairs,
+      totalWorkHours: totalWorkHours,
+      standardHours: standardHours,
+      otHoursWeekday: otHoursWeekday,
+      otHoursWeekend: otHoursWeekend,
+      otHoursHoliday: otHoursHoliday,
+      workDays: workDays,
+      lateCount: lateCount,
+      lateMinutes: lateMinutes,
+      earlyCount: earlyCount,
+      earlyMinutes: earlyMinutes,
+      totalShifts: totalShifts,
+      overnightShifts: overnightShifts,
+      paidLeaveDays: paidLeaveDays,
+      absentDays: absentDays,
+      standardWorkDays: standardWorkDays,
+      billableWorkDays: billableWorkDays,
+      scheduleOffCount: scheduleOffCount,
+      paidLeaveType: paidLeaveType,
+      paidDayOff: paidDayOff,
+      workSalary: workSalary,
+      hourlyRate: hourlyRate,
+      shiftLevelAllowance: shiftLevelAllowance,
+      hourlyPaidHours: hourlyPaidHours,
+      completionSalaryEarned: completionSalaryEarned,
+      otSalary: otSalary,
+      travelHours: travelHours,
+      travelSalary: travelSalary,
+      allowanceDays: allowanceDays,
+      standardDayMinutes: (standardDayHours * 60).round(),
+    );
+  }
+
+  /// Các đoạn hồ sơ lương của nhân viên trong kỳ (từ server). Rỗng = dùng hồ sơ hiện hành.
+  List<_SalarySeg> _salarySegmentsFor(Employee? emp) {
+    if (emp == null) return const [];
+    return _salaryTimeline[_normEmpId(emp.id)] ?? const [];
+  }
+
+  Map<String, dynamic> _calcEmployeePayroll(
+      String empCode, List<Attendance> empAttendances) {
+    final emp = _findEmployee(empCode);
+    final empName = emp?.fullName ?? empCode;
+
+    // Salary profile
+    Map<String, dynamic>? profile;
+    if (emp != null) {
+      final sp = _employeeSalaryProfiles
+          .where((e) =>
+              e['employeeId'] == emp.id ||
+              e['employeeCode'] == emp.employeeCode)
+          .firstOrNull;
+      profile = sp?['profile'] as Map<String, dynamic>?;
+    }
+
+    Map<String, dynamic>? benefit;
+    if (profile != null) {
+      final rawBenefit = profile['benefit'] ?? profile['Benefit'];
+      if (rawBenefit is Map) {
+        benefit = Map<String, dynamic>.from(rawBenefit);
+      }
+    }
+    // ═══ Lương theo hồ sơ hiệu lực từng ngày (đổi lương giữa kỳ → tách đoạn) ═══
+    final travelHoursAll =
+        _showTravelPayrollColumns ? _travelHoursForEmployee(emp) : 0.0;
+    final segs = _salarySegmentsFor(emp);
+    late final _SegPay pay;
+    var parts = <_SegPay>[];
+    if (segs.length <= 1) {
+      pay = _calcSegmentPay(
+        emp: emp,
+        empCode: empCode,
+        empAttendances: empAttendances,
+        benefit: segs.isEmpty ? benefit : segs.first.benefit,
+        segFrom: _fromDate,
+        segTo: _toDate,
+        travelHours: travelHoursAll,
+      );
+      parts = [pay];
+    } else {
+      // Lượt 1: công thực tế từng đoạn → chia công tính lương cả tháng theo tỷ lệ công.
+      final raw = [
+        for (final sg in segs)
+          _calcSegmentPay(
+            emp: emp,
+            empCode: empCode,
+            empAttendances: empAttendances,
+            benefit: sg.benefit,
+            segFrom: sg.from,
+            segTo: sg.to,
+            travelHours: 0,
+            wholePeriod: false,
+          ),
+      ];
+      final rawTotal = raw.fold<double>(0, (a, p) => a + p.workDays);
+      final last = raw.last;
+      final billableAll = resolveStandardWorkDays(
+        benefit: last.benefit,
+        year: _fromDate.year,
+        month: _fromDate.month,
+        rawWorkDays: rawTotal,
+        paidLeaveType: last.paidLeaveType,
+        paidDayOff: last.paidDayOff,
+        scheduleDayOffCount: last.scheduleOffCount,
+      ).billableWorkDays;
+      final periodDays = _toDate.difference(_fromDate).inDays + 1;
+      for (var k = 0; k < segs.length; k++) {
+        final sg = segs[k];
+        final share = rawTotal > 0
+            ? raw[k].workDays / rawTotal
+            : (sg.to.difference(sg.from).inDays + 1) / (periodDays <= 0 ? 1 : periodDays);
+        parts.add(_calcSegmentPay(
+          emp: emp,
+          empCode: empCode,
+          empAttendances: empAttendances,
+          benefit: sg.benefit,
+          segFrom: sg.from,
+          segTo: sg.to,
+          travelHours: k == segs.length - 1 ? travelHoursAll : 0,
+          billableOverride: raw[k].rateType == 1 ? billableAll * share : null,
+          wholePeriod: false,
+        ));
+      }
+      pay = _SegPay.combine(parts);
+    }
+    benefit = pay.benefit;
+    final double baseSalary = pay.baseSalary;
+    final int rateType = pay.rateType;
+    final double completionSalary = pay.completionSalary;
+    final String socialInsType = pay.socialInsType;
+    final double customInsuranceSalary = pay.customInsuranceSalary;
+    final bool hasHealthInsurance = pay.hasHealthInsurance;
+    final String salaryTypeLabel = parts.length > 1
+        ? '${pay.salaryTypeLabel} (đổi lương ${DateFormat('dd/MM').format(parts.last.from)})'
+        : pay.salaryTypeLabel;
+    final shiftPairs = pay.shiftPairs;
+    final totalWorkHours = pay.totalWorkHours;
+    final standardHours = pay.standardHours;
+    final otHoursWeekday = pay.otHoursWeekday;
+    final otHoursWeekend = pay.otHoursWeekend;
+    final otHoursHoliday = pay.otHoursHoliday;
+    final workDays = pay.workDays;
+    final lateCount = pay.lateCount;
+    final lateMinutes = pay.lateMinutes;
+    final earlyCount = pay.earlyCount;
+    final earlyMinutes = pay.earlyMinutes;
+    final totalShifts = pay.totalShifts;
+    final overnightShifts = pay.overnightShifts;
+    final paidLeaveDays = pay.paidLeaveDays;
+    final absentDays = pay.absentDays;
+    final double standardWorkDays = pay.standardWorkDays;
+    final double workSalary = pay.workSalary;
+    final double shiftLevelAllowance = pay.shiftLevelAllowance;
+    final hourlyPaidHours = pay.hourlyPaidHours;
+    final double completionSalaryEarned = pay.completionSalaryEarned;
+    final double otSalary = pay.otSalary;
+    final double travelHours = pay.travelHours;
+    final double travelSalary = pay.travelSalary;
+
     // ═══ Allowances ═══
     final allowanceBreakdown = _calcEmployeeAllowances(
       employeeId: emp?.id,
-      workDays: workDays,
       totalWorkHours: totalWorkHours,
-      workedShiftIds: shiftPairs
-          .where((p) => p.checkOut != null)
-          .map((p) => p.shiftTemplateId),
+      shiftPairs: shiftPairs,
+      allowanceDays: pay.allowanceDays,
+      standardDayMinutes: pay.standardDayMinutes,
       shiftLevelAllowance: shiftLevelAllowance,
     );
     final totalAllowance = allowanceBreakdown.total;
@@ -1913,6 +2173,8 @@ class PayrollSummaryTabState extends State<PayrollSummaryTab> {
     final double salesAmount = _salesFor(emp);
     final double commissionAmount = _calculateCommission(salesAmount);
     final double productionAmount = _productionFor(emp, empCode);
+    final double leavePayout =
+        empId == null ? 0 : (_leavePayouts[_normEmpId(empId)] ?? 0);
 
     // ═══ Tax (PIT – Vietnamese progressive) ═══
     // Trước đây bỏ sót lương công tác, hoa hồng, KPI, lương sản phẩm → thu nhập chịu thuế bị thấp.
@@ -1924,7 +2186,8 @@ class PayrollSummaryTabState extends State<PayrollSummaryTab> {
         bonusTotal +
         commissionAmount +
         kpiSalaryAmount +
-        productionAmount;
+        productionAmount +
+        leavePayout;
     final double taxableIncome = grossIncome - totalInsurance;
     double pit = 0;
     final double personalDeduction =
@@ -1991,13 +2254,15 @@ class PayrollSummaryTabState extends State<PayrollSummaryTab> {
         bonusTotal +
         commissionAmount +
         kpiSalaryAmount +
-        productionAmount;
+        productionAmount +
+        leavePayout;
     final double netSalary = totalSalary - totalDeduction;
 
     // ═══ Salary by type ═══
-    final double dailySalary = rateType == 2 ? workSalary : 0;
-    final double shiftSalary = rateType == 3 ? workSalary : 0;
-    final double hourlySalary = rateType == 0 ? workSalary : 0;
+    double byKind(int k) => parts.where((p) => p.rateType == k).fold<double>(0, (a, p) => a + p.workSalary);
+    final double dailySalary = byKind(2);
+    final double shiftSalary = byKind(3);
+    final double hourlySalary = byKind(0);
     final double otTotalHours =
         otHoursWeekday + otHoursWeekend + otHoursHoliday;
 
@@ -2010,6 +2275,19 @@ class PayrollSummaryTabState extends State<PayrollSummaryTab> {
       'employeeUserId': emp?.applicationUserId ?? '',
       'employeeId': emp?.id ?? '',
       'salaryProfileId': salaryProfileId,
+      'salaryChanged': parts.length > 1,
+      'salarySegments': [
+        for (final p in parts)
+          {
+            'from': p.from.toIso8601String(),
+            'to': p.to.toIso8601String(),
+            'salaryType': p.salaryTypeLabel,
+            'rateType': p.rateType,
+            'baseSalary': p.baseSalary,
+            'workDays': p.workDays,
+            'workSalary': p.workSalary + p.completionSalaryEarned,
+          },
+      ],
       'department': emp?.department ?? '',
       'position': emp?.position ?? '',
       'salaryType': salaryTypeLabel,
@@ -2045,6 +2323,10 @@ class PayrollSummaryTabState extends State<PayrollSummaryTab> {
       'allowanceFixed': fixedAllowancePaid,
       'allowanceDaily': dailyAllowanceRate,
       'allowanceShift': allowanceBreakdown.shiftAllowance,
+      'allowanceDailyEarned': allowanceBreakdown.dailyAllowance,
+      'allowanceDays': allowanceBreakdown.dailyDays,
+      'allowanceShiftCount': allowanceBreakdown.shiftCount,
+      'allowanceMisses': allowanceBreakdown.misses,
       'mealAllowance': fixedAllowancePaid,
       'responsibilityAllowance': dailyAllowanceRate,
       'otherAllowance': 0,
@@ -2054,6 +2336,7 @@ class PayrollSummaryTabState extends State<PayrollSummaryTab> {
       'penaltyTransactions': penaltyTotal,
       'kpiSalary': kpiSalaryAmount,
       'productionAmount': productionAmount,
+      'leavePayout': leavePayout,
       'commission': commissionAmount,
       'latePenalty': latePenaltyTotal,
       'bhxh': totalInsurance,
@@ -2387,7 +2670,9 @@ class PayrollSummaryTabState extends State<PayrollSummaryTab> {
           'overtimeUnits': _toDouble(row['otTotalHours']),
           'baseSalary': _toDouble(row['baseSalary']),
           'overtimePay': _toDouble(row['otSalary']),
-          'bonus': _toDouble(row['bonus']),
+          // Tiền phép năm chưa nghỉ không có field riêng trên Payslip — gom vào thưởng.
+          'bonus': _toDouble(row['bonus']) + _toDouble(row['leavePayout']),
+          'leavePayout': _toDouble(row['leavePayout']),
           // Đoàn phí không có field riêng trên Payslip — gom vào deductions.
           'deductions': penalty + advance + unionFee,
           'allowances': _toDouble(row['totalAllowance']),
@@ -2439,6 +2724,9 @@ class PayrollSummaryTabState extends State<PayrollSummaryTab> {
             [];
         var msg = 'Chốt lương: $created mới, $updated cập nhật';
         if (skipCount > 0) msg += ', $skipCount bỏ qua';
+        final warnings = (data['warnings'] as List?)?.map((e) => '$e').toList() ?? const <String>[];
+        final payslipIds = (data['payslipIds'] as List?)?.map((e) => '$e').toList() ?? const <String>[];
+        if (warnings.isNotEmpty) msg += '\n${warnings.take(3).join('\n')}';
         if (skipped.isNotEmpty) {
           msg += '\n${skipped.length} NV thiếu hồ sơ/bảng lương (phía app)';
         }
@@ -2446,6 +2734,24 @@ class PayrollSummaryTabState extends State<PayrollSummaryTab> {
           msg += '\n${serverErrors.take(3).join('\n')}';
         }
         appNotification.showSuccess(title: 'Chốt lương', message: msg);
+        if (payslipIds.isNotEmpty && mounted) {
+          final payNow = await showDialog<bool>(
+            context: context,
+            builder: (ctx) => AlertDialog(
+              title: Text(tr('Đã chốt ${payslipIds.length} phiếu lương')),
+              content: Text(tr('Trả lương ngay? Có thể trả tiền mặt, chuyển khoản, kết hợp hoặc xuất file chuyển lương cho ngân hàng.')),
+              actions: [
+                TextButton(onPressed: () => Navigator.pop(ctx, false), child: Text(tr('Để sau'))),
+                FilledButton.icon(
+                  onPressed: () => Navigator.pop(ctx, true),
+                  icon: const Icon(Icons.payments_outlined),
+                  label: Text(tr('Trả lương')),
+                ),
+              ],
+            ),
+          );
+          if (payNow == true && mounted) await openPayrollPay(context, payslipIds);
+        }
       } else {
         final data = res['data'] as Map<String, dynamic>? ?? {};
         final serverErrors = (data['errors'] as List?)
@@ -3116,10 +3422,12 @@ class PayrollSummaryTabState extends State<PayrollSummaryTab> {
     'allowanceFixed': 'PC\ncố định',
     'allowanceDaily': 'PC\ntheo ngày',
     'allowanceShift': 'PC\ntheo ca',
+    'allowanceQualified': 'Ngày/ca\nđủ ĐK PC',
     'totalAllowance': 'Tổng\nPC',
     'bonus': 'Thưởng',
     'kpiSalary': 'Lương\nKPI',
     'productionAmount': 'Sản\nlượng',
+    'leavePayout': 'Tiền\nphép',
     'totalSalary': 'Tổng\nlương',
     'penalty': 'Phạt',
     'bhxh': 'BHXH',
@@ -5266,6 +5574,16 @@ class PayrollSummaryTabState extends State<PayrollSummaryTab> {
 
   String _formatCellValue(String key, Map<String, dynamic> row, int index) {
     switch (key) {
+      case 'allowanceQualified':
+        final days = (row['allowanceDays'] as num?)?.toDouble() ?? 0;
+        final shifts = (row['allowanceShiftCount'] as num?)?.toInt() ?? 0;
+        final miss = (row['allowanceMisses'] as List?)?.length ?? 0;
+        final d = days == days.roundToDouble() ? '${days.toInt()}' : days.toStringAsFixed(1);
+        return [
+          if (days > 0) '$d ngày',
+          if (shifts > 0) '$shifts ca',
+          if (miss > 0) '−$miss',
+        ].join(' · ');
       case _employeeSignColumnKey:
         return '';
       case 'stt':
@@ -5441,6 +5759,18 @@ class PayrollSummaryTabState extends State<PayrollSummaryTab> {
         final cellText = col.key == 'stt' && absoluteStt != null
             ? '$absoluteStt'
             : _formatCellValue(col.key, row, index);
+        final misses = col.key == 'allowanceQualified' ? (row['allowanceMisses'] as List?) : null;
+        if (misses != null && misses.isNotEmpty) {
+          return _payrollTableCell(
+            Tooltip(
+              message: '${tr('Không đủ thời gian làm trong ca')}:\n${misses.take(15).join('\n')}'
+                  '${misses.length > 15 ? '\n… +${misses.length - 15}' : ''}',
+              child: Text(tr(cellText),
+                  textAlign: TextAlign.center,
+                  style: const TextStyle(fontSize: 12, color: SboxColors.warningText, decoration: TextDecoration.underline)),
+            ),
+          );
+        }
         return _payrollTableCell(
           Text(
             tr(cellText),
@@ -5793,6 +6123,7 @@ class PayrollSummaryTabState extends State<PayrollSummaryTab> {
           ('kpiSalary', 'Lương KPI'),
           ('commission', 'Hoa hồng'),
           ('productionAmount', 'Lương sản phẩm'),
+          ('leavePayout', 'Tiền phép năm chưa nghỉ'),
         ])
           if (d(k, row) != 0) line(label, money(row[k])),
       ];
@@ -5815,6 +6146,10 @@ class PayrollSummaryTabState extends State<PayrollSummaryTab> {
         if (d('earlyCount', row) > 0) line('Về sớm', '${num1(d('earlyCount', row))} lần · ${num1(d('earlyMinutes', row))} phút'),
         if (absent > 0) line('Vắng', '${num1(absent)} ngày', color: SboxColors.danger),
         if (d('paidLeaveDays', row) > 0) line('Nghỉ hưởng lương', '${num1(d('paidLeaveDays', row))} ngày'),
+        if (d('allowanceDays', row) > 0 || d('allowanceShiftCount', row) > 0)
+          line('Đủ điều kiện phụ cấp', _formatCellValue('allowanceQualified', row, 0)),
+        for (final m in ((row['allowanceMisses'] as List?) ?? const []).take(10))
+          line('Không tính PC', '$m', color: SboxColors.warningText),
       ];
 
       return Theme(
@@ -6407,6 +6742,152 @@ class _SyncedListViewState extends State<_SyncedListView> {
         itemExtent: widget.itemExtent,
         itemBuilder: widget.itemBuilder,
       ),
+    );
+  }
+}
+
+/// Một đoạn hồ sơ lương trong kỳ.
+class _SalarySeg {
+  const _SalarySeg({required this.benefit, required this.from, required this.to});
+  final Map<String, dynamic> benefit;
+  final DateTime from;
+  final DateTime to;
+}
+
+/// Kết quả tính lương của một đoạn (một hồ sơ lương).
+class _SegPay {
+  _SegPay({
+    required this.benefit,
+    required this.from,
+    required this.to,
+    required this.baseSalary,
+    required this.rateType,
+    required this.completionSalary,
+    required this.socialInsType,
+    required this.customInsuranceSalary,
+    required this.hasHealthInsurance,
+    required this.salaryTypeLabel,
+    required this.shiftPairs,
+    required this.totalWorkHours,
+    required this.standardHours,
+    required this.otHoursWeekday,
+    required this.otHoursWeekend,
+    required this.otHoursHoliday,
+    required this.workDays,
+    required this.lateCount,
+    required this.lateMinutes,
+    required this.earlyCount,
+    required this.earlyMinutes,
+    required this.totalShifts,
+    required this.overnightShifts,
+    required this.paidLeaveDays,
+    required this.absentDays,
+    required this.standardWorkDays,
+    required this.billableWorkDays,
+    required this.scheduleOffCount,
+    required this.paidLeaveType,
+    required this.paidDayOff,
+    required this.workSalary,
+    required this.hourlyRate,
+    required this.shiftLevelAllowance,
+    required this.hourlyPaidHours,
+    required this.completionSalaryEarned,
+    required this.otSalary,
+    required this.travelHours,
+    required this.travelSalary,
+    this.allowanceDays = const {},
+    this.standardDayMinutes = 480,
+  });
+
+  final Map<String, dynamic>? benefit;
+  final DateTime from;
+  final DateTime to;
+  final double baseSalary;
+  final int rateType;
+  final double completionSalary;
+  final String socialInsType;
+  final double customInsuranceSalary;
+  final bool hasHealthInsurance;
+  final String salaryTypeLabel;
+  final List<DailyShiftPair> shiftPairs;
+  final double totalWorkHours;
+  final double standardHours;
+  final double otHoursWeekday;
+  final double otHoursWeekend;
+  final double otHoursHoliday;
+  final double workDays;
+  final int lateCount;
+  final int lateMinutes;
+  final int earlyCount;
+  final int earlyMinutes;
+  final int totalShifts;
+  final int overnightShifts;
+  final int paidLeaveDays;
+  final int absentDays;
+  final double standardWorkDays;
+  final double billableWorkDays;
+  final int? scheduleOffCount;
+  final String paidLeaveType;
+  final String paidDayOff;
+  final double workSalary;
+  final double hourlyRate;
+  final double shiftLevelAllowance;
+  final double hourlyPaidHours;
+  final double completionSalaryEarned;
+  final double otSalary;
+  final double travelHours;
+  final double travelSalary;
+  /// Ngày có công (yyyy-MM-dd → công gốc, chưa nhân hệ số lễ) — phụ cấp theo ngày.
+  final Map<String, double> allowanceDays;
+  /// Giờ chuẩn / ngày (phút) — thay thời lượng ca khi NV không có ca.
+  final int standardDayMinutes;
+
+  /// Cộng các đoạn; thông tin hồ sơ (loại lương, BHXH, công chuẩn) lấy theo đoạn cuối kỳ.
+  static _SegPay combine(List<_SegPay> p) {
+    final last = p.last;
+    double sum(double Function(_SegPay) f) => p.fold<double>(0, (a, x) => a + f(x));
+    int isum(int Function(_SegPay) f) => p.fold<int>(0, (a, x) => a + f(x));
+    return _SegPay(
+      benefit: last.benefit,
+      from: p.first.from,
+      to: last.to,
+      baseSalary: last.baseSalary,
+      rateType: last.rateType,
+      completionSalary: last.completionSalary,
+      socialInsType: last.socialInsType,
+      customInsuranceSalary: last.customInsuranceSalary,
+      hasHealthInsurance: last.hasHealthInsurance,
+      salaryTypeLabel: last.salaryTypeLabel,
+      shiftPairs: [for (final x in p) ...x.shiftPairs],
+      totalWorkHours: sum((x) => x.totalWorkHours),
+      standardHours: sum((x) => x.standardHours),
+      otHoursWeekday: sum((x) => x.otHoursWeekday),
+      otHoursWeekend: sum((x) => x.otHoursWeekend),
+      otHoursHoliday: sum((x) => x.otHoursHoliday),
+      workDays: sum((x) => x.workDays),
+      lateCount: isum((x) => x.lateCount),
+      lateMinutes: isum((x) => x.lateMinutes),
+      earlyCount: isum((x) => x.earlyCount),
+      earlyMinutes: isum((x) => x.earlyMinutes),
+      totalShifts: isum((x) => x.totalShifts),
+      overnightShifts: isum((x) => x.overnightShifts),
+      paidLeaveDays: isum((x) => x.paidLeaveDays),
+      absentDays: isum((x) => x.absentDays),
+      standardWorkDays: last.standardWorkDays,
+      billableWorkDays: sum((x) => x.billableWorkDays),
+      scheduleOffCount: last.scheduleOffCount,
+      paidLeaveType: last.paidLeaveType,
+      paidDayOff: last.paidDayOff,
+      workSalary: sum((x) => x.workSalary),
+      hourlyRate: last.hourlyRate,
+      shiftLevelAllowance: sum((x) => x.shiftLevelAllowance),
+      hourlyPaidHours: sum((x) => x.hourlyPaidHours),
+      completionSalaryEarned: sum((x) => x.completionSalaryEarned),
+      otSalary: sum((x) => x.otSalary),
+      travelHours: sum((x) => x.travelHours),
+      travelSalary: sum((x) => x.travelSalary),
+      allowanceDays: {for (final x in p) ...x.allowanceDays},
+      standardDayMinutes: last.standardDayMinutes,
     );
   }
 }

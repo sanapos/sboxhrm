@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_html/flutter_html.dart';
 import 'package:url_launcher/url_launcher.dart';
 
@@ -29,9 +30,13 @@ class CommContext {
     this.departments = const [],
     this.myName = '',
     this.myUserId,
-  });
+    bool? canManageChannels,
+  }) : canManageChannels = canManageChannels ?? isManager;
 
+  /// Người kiểm duyệt: quyền Truyền thông «Duyệt» hoặc «Sửa» (ghim, duyệt, đối tượng nhận, bắt buộc đọc).
   final bool isManager;
+  /// Quản lý kênh (cấp quản lý trở lên).
+  final bool canManageChannels;
   List<CommChannel> channels;
   final List<CommPerson> people;
   final List<({String id, String name})> branches;
@@ -189,28 +194,7 @@ class CommImageGrid extends StatelessWidget {
   final void Function(int index)? onRemove;
   final double height;
 
-  void _open(BuildContext context, int start) {
-    showDialog<void>(
-      context: context,
-      barrierColor: Colors.black87,
-      builder: (ctx) => Dialog.fullscreen(
-        backgroundColor: Colors.black,
-        child: Stack(children: [
-          PageView(
-            controller: PageController(initialPage: start),
-            children: [
-              for (final u in urls) InteractiveViewer(child: Center(child: Image.network(commUrl(u), fit: BoxFit.contain))),
-            ],
-          ),
-          Positioned(
-            top: 12,
-            right: 12,
-            child: IconButton(icon: const Icon(Icons.close, color: Colors.white), onPressed: () => Navigator.pop(ctx)),
-          ),
-        ]),
-      ),
-    );
-  }
+  void _open(BuildContext context, int start) => showCommGallery(context, urls, start);
 
   Widget _cell(BuildContext context, int i, {String? more}) {
     return GestureDetector(
@@ -261,4 +245,103 @@ class CommImageGrid extends StatelessWidget {
     }
     return ClipRRect(borderRadius: SboxRadius.mdAll, child: SizedBox(height: height, child: body));
   }
+}
+
+/// Xem ảnh toàn màn hình: vuốt / phím mũi tên, đếm ảnh, phóng to.
+Future<void> showCommGallery(BuildContext context, List<String> urls, int start) => showDialog<void>(
+      context: context,
+      barrierColor: Colors.black87,
+      builder: (_) => _CommGallery(urls: urls, start: start),
+    );
+
+class _CommGallery extends StatefulWidget {
+  const _CommGallery({required this.urls, required this.start});
+  final List<String> urls;
+  final int start;
+
+  @override
+  State<_CommGallery> createState() => _CommGalleryState();
+}
+
+class _CommGalleryState extends State<_CommGallery> {
+  late final _page = PageController(initialPage: widget.start);
+  late int _i = widget.start;
+
+  @override
+  void dispose() {
+    _page.dispose();
+    super.dispose();
+  }
+
+  void _go(int d) {
+    final n = (_i + d).clamp(0, widget.urls.length - 1);
+    if (n != _i) _page.animateToPage(n, duration: const Duration(milliseconds: 220), curve: Curves.easeOut);
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final many = widget.urls.length > 1;
+    Widget arrow(IconData icon, int d, bool enabled) => IconButton.filled(
+          style: IconButton.styleFrom(backgroundColor: Colors.white24, foregroundColor: Colors.white, disabledBackgroundColor: Colors.white10),
+          icon: Icon(icon),
+          onPressed: enabled ? () => _go(d) : null,
+        );
+    return CallbackShortcuts(
+      bindings: {
+        const SingleActivator(LogicalKeyboardKey.arrowLeft): () => _go(-1),
+        const SingleActivator(LogicalKeyboardKey.arrowRight): () => _go(1),
+        const SingleActivator(LogicalKeyboardKey.escape): () => Navigator.pop(context),
+      },
+      child: Focus(
+        autofocus: true,
+        child: Dialog.fullscreen(
+          backgroundColor: Colors.black,
+          child: Stack(children: [
+            PageView(
+              controller: _page,
+              onPageChanged: (i) => setState(() => _i = i),
+              children: [
+                for (final u in widget.urls)
+                  InteractiveViewer(
+                    maxScale: 5,
+                    child: Center(
+                      child: Image.network(commUrl(u), fit: BoxFit.contain,
+                          errorBuilder: (_, __, ___) => const Icon(Icons.broken_image_outlined, color: Colors.white54, size: 48)),
+                    ),
+                  ),
+              ],
+            ),
+            if (many)
+              Positioned(
+                top: 18,
+                left: 0,
+                right: 0,
+                child: Center(
+                  child: Container(
+                    padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
+                    decoration: BoxDecoration(color: Colors.black54, borderRadius: BorderRadius.circular(20)),
+                    child: Text('${_i + 1} / ${widget.urls.length}', style: const TextStyle(color: Colors.white, fontWeight: FontWeight.w600)),
+                  ),
+                ),
+              ),
+            if (many) Positioned(left: 12, top: 0, bottom: 0, child: Center(child: arrow(Icons.chevron_left_rounded, -1, _i > 0))),
+            if (many)
+              Positioned(right: 12, top: 0, bottom: 0, child: Center(child: arrow(Icons.chevron_right_rounded, 1, _i < widget.urls.length - 1))),
+            Positioned(
+              top: 12,
+              right: 12,
+              child: IconButton(tooltip: tr('Đóng'), icon: const Icon(Icons.close, color: Colors.white), onPressed: () => Navigator.pop(context)),
+            ),
+          ]),
+        ),
+      ),
+    );
+  }
+}
+
+/// Nội dung HTML dài (cần «Xem thêm»).
+bool commLongHtml(String html) {
+  final text = html.replaceAll(RegExp(r'<[^>]+>'), ' ').replaceAll(RegExp(r'\s+'), ' ').trim();
+  final blocks = RegExp(r'<(p|li|br|h\d|blockquote)', caseSensitive: false).allMatches(html).length;
+  return text.length > 320 || blocks > 6;
 }

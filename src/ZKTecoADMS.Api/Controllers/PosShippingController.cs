@@ -63,6 +63,10 @@ public class PosShippingController(
         if (!TryGetStoreId(out var storeId))
             return BadRequest(AppResponse<List<ShippingCarrierSettingDto>>.Fail("Thiếu cửa hàng"));
         var list = await shipping.ListSettingsAsync(storeId, ct);
+        // Mã bí mật webhook chỉ cho người sửa được cấu hình (thu ngân chỉ cần xem hãng đang bật).
+        if (!await CanEditShippingSettingsAsync(ct))
+            return Ok(AppResponse<List<ShippingCarrierSettingDto>>.Success(
+                list.Select(x => x with { WebhookSecret = null, WebhookUrl = null }).ToList()));
         // Link webhook đầy đủ (kèm mã bí mật) — chủ shop dán vào trang quản lý của hãng.
         var baseUrl = $"{Request.Scheme}://{Request.Host}/api/webhooks/shipping";
         list = list.Select(x => string.IsNullOrWhiteSpace(x.WebhookSecret)
@@ -83,10 +87,7 @@ public class PosShippingController(
                 CurrentUserId, CurrentUserRole, CurrentStoreId,
                 "PosShipping", ModulePermissionAction.Edit, ct))
             return true;
-        if (await permissionService.HasPermissionAsync(
-                CurrentUserId, CurrentUserRole, CurrentStoreId,
-                "PosSell", ModulePermissionAction.Edit, ct))
-            return true;
+        // Không cho «Sửa bán hàng» (thu ngân) đổi token hãng vận chuyển.
         return await permissionService.HasPermissionAsync(
             CurrentUserId, CurrentUserRole, CurrentStoreId,
             "SettingsHub", ModulePermissionAction.Edit, ct);

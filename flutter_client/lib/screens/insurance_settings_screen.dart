@@ -1,1387 +1,373 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
+
+import '../l10n/app_tr.dart';
 import '../providers/permission_provider.dart';
 import '../services/api_service.dart';
-import '../utils/responsive_helper.dart';
-import '../utils/number_formatter.dart';
-import '../widgets/app_button.dart';
-import '../widgets/app_responsive_dialog.dart';
-import '../widgets/loading_widget.dart';
-import '../widgets/hrm/hrm_settings_mobile_kit.dart';
-import '../widgets/hrm_page_chrome.dart';
-import '../widgets/pos/pos_theme.dart';
-import '../widgets/notification_overlay.dart';
-import 'package:zkteco_flutter_client/l10n/app_tr.dart';
-import '../theme/sbox_tokens.dart';
+import '../widgets/sbox/sbox_ui.dart';
+import '../widgets/settings/settings_page.dart';
+
+/// Mức đóng bảo hiểm của cửa hàng (một bản ghi / cửa hàng).
+class InsParams {
+  InsParams({
+    this.baseSalary = 2340000,
+    this.region = const [4960000, 4410000, 3860000, 3450000],
+    this.maxSalary = 46800000,
+    this.bhxh = (8, 17.5),
+    this.bhyt = (1.5, 3),
+    this.bhtn = (1, 1),
+    this.union = (1, 2),
+    this.defaultRegion = 1,
+  });
+
+  double baseSalary;
+  List<double> region;
+  double maxSalary;
+
+  /// (người lao động %, doanh nghiệp %)
+  (double, double) bhxh;
+  (double, double) bhyt;
+  (double, double) bhtn;
+  (double, double) union;
+  int defaultRegion;
+
+  /// Lương tối thiểu vùng áp dụng từ 01/01/2026 (I–IV).
+  static const region2026 = <double>[5310000, 4730000, 4140000, 3700000];
+
+  InsParams copy() => InsParams(
+        baseSalary: baseSalary,
+        region: [...region],
+        maxSalary: maxSalary,
+        bhxh: bhxh,
+        bhyt: bhyt,
+        bhtn: bhtn,
+        union: union,
+        defaultRegion: defaultRegion,
+      );
+
+  static double _d(dynamic v, double f) => v is num ? v.toDouble() : double.tryParse('$v') ?? f;
+
+  factory InsParams.fromJson(Map<String, dynamic> j) {
+    final d = InsParams();
+    return InsParams(
+      baseSalary: _d(j['baseSalary'], d.baseSalary),
+      region: [
+        _d(j['minSalaryRegion1'], d.region[0]),
+        _d(j['minSalaryRegion2'], d.region[1]),
+        _d(j['minSalaryRegion3'], d.region[2]),
+        _d(j['minSalaryRegion4'], d.region[3]),
+      ],
+      maxSalary: _d(j['maxInsuranceSalary'], d.maxSalary),
+      bhxh: (_d(j['bhxhEmployeeRate'], 8), _d(j['bhxhEmployerRate'], 17.5)),
+      bhyt: (_d(j['bhytEmployeeRate'], 1.5), _d(j['bhytEmployerRate'], 3)),
+      bhtn: (_d(j['bhtnEmployeeRate'], 1), _d(j['bhtnEmployerRate'], 1)),
+      union: (_d(j['unionFeeEmployeeRate'], 1), _d(j['unionFeeEmployerRate'], 2)),
+      defaultRegion: (j['defaultRegion'] as num?)?.toInt().clamp(1, 4) ?? 1,
+    );
+  }
+
+  Map<String, dynamic> toJson() => {
+        'baseSalary': baseSalary,
+        'minSalaryRegion1': region[0],
+        'minSalaryRegion2': region[1],
+        'minSalaryRegion3': region[2],
+        'minSalaryRegion4': region[3],
+        'maxInsuranceSalary': maxSalary,
+        'bhxhEmployeeRate': bhxh.$1,
+        'bhxhEmployerRate': bhxh.$2,
+        'bhytEmployeeRate': bhyt.$1,
+        'bhytEmployerRate': bhyt.$2,
+        'bhtnEmployeeRate': bhtn.$1,
+        'bhtnEmployerRate': bhtn.$2,
+        'unionFeeEmployeeRate': union.$1,
+        'unionFeeEmployerRate': union.$2,
+        'defaultRegion': defaultRegion,
+      };
+
+  String get key => toJson().toString();
+
+  double get employeeRate => bhxh.$1 + bhyt.$1 + bhtn.$1;
+  double get employerRate => bhxh.$2 + bhyt.$2 + bhtn.$2;
+
+  /// Tiền đóng trên mức lương [salary] (đã chặn trần) — cùng cách tính với bảng lương / tính thuế.
+  ({double capped, double employee, double employer, double unionEmployee, double unionEmployer}) compute(double salary) {
+    final capped = salary > maxSalary ? maxSalary : salary;
+    return (
+      capped: capped,
+      employee: capped * employeeRate / 100,
+      employer: capped * employerRate / 100,
+      unionEmployee: capped * union.$1 / 100,
+      unionEmployer: capped * union.$2 / 100,
+    );
+  }
+
+  String? validate() {
+    for (final r in [bhxh, bhyt, bhtn, union]) {
+      if (r.$1 < 0 || r.$1 > 50 || r.$2 < 0 || r.$2 > 50) return 'Tỷ lệ đóng phải từ 0 đến 50%';
+    }
+    if (baseSalary <= 0 || maxSalary <= 0) return 'Nhập lương cơ sở và mức trần';
+    if (region.any((r) => r <= 0)) return 'Nhập đủ lương tối thiểu 4 vùng';
+    return null;
+  }
+}
+
+/// Bảo hiểm: tỷ lệ đóng BHXH / BHYT / BHTN / công đoàn, lương cơ sở, lương tối thiểu vùng, ô tính thử.
 class InsuranceSettingsScreen extends StatefulWidget {
-  const InsuranceSettingsScreen({super.key});
+  const InsuranceSettingsScreen({super.key, this.canEditOverride});
+
+  final bool? canEditOverride;
 
   @override
   State<InsuranceSettingsScreen> createState() => _InsuranceSettingsScreenState();
 }
 
 class _InsuranceSettingsScreenState extends State<InsuranceSettingsScreen> {
-  PermissionProvider get _perm =>
-      Provider.of<PermissionProvider>(context, listen: false);
+  final _api = ApiService();
+  InsParams _saved = InsParams();
+  InsParams _p = InsParams();
+  bool _loading = true;
+  bool _saving = false;
+  final Map<String, TextEditingController> _c = {};
+  final _trySalary = TextEditingController(text: '10.000.000');
+  double _tryValue = 10000000;
 
-  final ApiService _apiService = ApiService();
-  final _scrollController = ScrollController();
-  bool _isLoading = true;
+  bool get _canEdit {
+    if (widget.canEditOverride != null) return widget.canEditOverride!;
+    try {
+      return Provider.of<PermissionProvider>(context, listen: false).canEdit('Insurance');
+    } catch (_) {
+      return false;
+    }
+  }
 
-  // Lương cơ sở & Tối thiểu vùng
-  final _baseSalaryController = TextEditingController(text: tr('2.340.000'));
-  final _regionISalaryController = TextEditingController(text: tr('4.960.000'));
-  final _regionIISalaryController = TextEditingController(text: tr('4.410.000'));
-  final _regionIIISalaryController = TextEditingController(text: tr('3.860.000'));
-  final _regionIVSalaryController = TextEditingController(text: tr('3.450.000'));
-  final _maxInsuranceSalaryController = TextEditingController(text: tr('46.800.000'));
-
-  // BHXH - Bảo hiểm xã hội
-  final _bhxhEmployeeController = TextEditingController(text: tr('8'));
-  final _bhxhEmployerController = TextEditingController(text: tr('17.5'));
-
-  // BHYT - Bảo hiểm y tế
-  final _bhytEmployeeController = TextEditingController(text: tr('1.5'));
-  final _bhytEmployerController = TextEditingController(text: tr('3'));
-
-  // BHTN - Bảo hiểm thất nghiệp
-  final _bhtnEmployeeController = TextEditingController(text: tr('1'));
-  final _bhtnEmployerController = TextEditingController(text: tr('1'));
-
-  // Công đoàn
-  final _unionEmployeeController = TextEditingController(text: tr('1'));
-  final _unionEmployerController = TextEditingController(text: tr('2'));
-
-  // Vùng công ty
-  int _companyRegion = 1;
+  TextEditingController _ctl(String k) => _c.putIfAbsent(k, TextEditingController.new);
 
   @override
   void initState() {
     super.initState();
-    _loadSettings();
-  }
-
-  bool _loadedFromServer = false;
-
-  Future<void> _loadSettings() async {
-    setState(() => _isLoading = true);
-    try {
-      // getInsuranceSettings() already returns the unwrapped data map (not AppResponse)
-      final settings = await _apiService.getInsuranceSettings();
-      if (settings.isEmpty) {
-        // API failed or returned empty — keep hardcoded defaults, don't allow accidental overwrite
-        _loadedFromServer = false;
-      } else {
-        _loadedFromServer = true;
-        setState(() {
-          _baseSalaryController.text = formatNumber(settings['baseSalary'] ?? 2340000);
-          _regionISalaryController.text = formatNumber(settings['minSalaryRegion1'] ?? 4960000);
-          _regionIISalaryController.text = formatNumber(settings['minSalaryRegion2'] ?? 4410000);
-          _regionIIISalaryController.text = formatNumber(settings['minSalaryRegion3'] ?? 3860000);
-          _regionIVSalaryController.text = formatNumber(settings['minSalaryRegion4'] ?? 3450000);
-          _maxInsuranceSalaryController.text = formatNumber(settings['maxInsuranceSalary'] ?? 46800000);
-          _bhxhEmployeeController.text = settings['bhxhEmployeeRate']?.toString() ?? '8';
-          _bhxhEmployerController.text = settings['bhxhEmployerRate']?.toString() ?? '17.5';
-          _bhytEmployeeController.text = settings['bhytEmployeeRate']?.toString() ?? '1.5';
-          _bhytEmployerController.text = settings['bhytEmployerRate']?.toString() ?? '3';
-          _bhtnEmployeeController.text = settings['bhtnEmployeeRate']?.toString() ?? '1';
-          _bhtnEmployerController.text = settings['bhtnEmployerRate']?.toString() ?? '1';
-          _unionEmployeeController.text = settings['unionFeeEmployeeRate']?.toString() ?? '1';
-          _unionEmployerController.text = settings['unionFeeEmployerRate']?.toString() ?? '2';
-          _companyRegion = settings['defaultRegion'] ?? 1;
-        });
-      }
-    } catch (e) {
-      _loadedFromServer = false;
-      debugPrint('Error loading insurance settings: $e');
-      if (mounted) {
-        appNotification.showError(
-          title: 'Lỗi tải dữ liệu',
-          message: tr('Không thể tải cài đặt bảo hiểm từ máy chủ. Đang hiển thị giá trị mặc định.'),
-        );
-      }
-    } finally {
-      setState(() => _isLoading = false);
-    }
-  }
-
-  Future<void> _saveSettings() async {
-    if (!_loadedFromServer) {
-      // Prevent accidental overwrite of saved settings with hardcoded defaults
-      final confirm = await AppResponsiveDialog.show<bool>(
-        context: context,
-        title: 'Cảnh báo',
-        icon: Icons.warning_amber_rounded,
-        iconColor: Colors.orange,
-        maxWidth: 420,
-        scrollable: false,
-        child: Text(
-          tr('Dữ liệu chưa được tải từ máy chủ. '
-          'Lưu có thể ghi đè thiết lập đã lưu bằng giá trị mặc định.\n\n'
-          'Bạn có chắc chắn muốn lưu không?'),
-          style: TextStyle(fontSize: 14, height: 1.5),
-        ),
-        actions: AppDialogActions(
-          onCancel: () => Navigator.pop(context, false),
-          onConfirm: () => Navigator.pop(context, true),
-          cancelLabel: 'Hủy',
-          confirmLabel: 'Vẫn lưu',
-          confirmVariant: AppButtonVariant.danger,
-        ),
-      );
-      if (confirm != true) return;
-    }
-
-    final settings = {
-      'baseSalary': parseFormattedNumber(_baseSalaryController.text)?.toDouble() ?? 2340000,
-      'minSalaryRegion1': parseFormattedNumber(_regionISalaryController.text)?.toDouble() ?? 4960000,
-      'minSalaryRegion2': parseFormattedNumber(_regionIISalaryController.text)?.toDouble() ?? 4410000,
-      'minSalaryRegion3': parseFormattedNumber(_regionIIISalaryController.text)?.toDouble() ?? 3860000,
-      'minSalaryRegion4': parseFormattedNumber(_regionIVSalaryController.text)?.toDouble() ?? 3450000,
-      'maxInsuranceSalary': parseFormattedNumber(_maxInsuranceSalaryController.text)?.toDouble() ?? 46800000,
-      'bhxhEmployeeRate': double.tryParse(_bhxhEmployeeController.text) ?? 8,
-      'bhxhEmployerRate': double.tryParse(_bhxhEmployerController.text) ?? 17.5,
-      'bhytEmployeeRate': double.tryParse(_bhytEmployeeController.text) ?? 1.5,
-      'bhytEmployerRate': double.tryParse(_bhytEmployerController.text) ?? 3,
-      'bhtnEmployeeRate': double.tryParse(_bhtnEmployeeController.text) ?? 1,
-      'bhtnEmployerRate': double.tryParse(_bhtnEmployerController.text) ?? 1,
-      'unionFeeEmployeeRate': double.tryParse(_unionEmployeeController.text) ?? 1,
-      'unionFeeEmployerRate': double.tryParse(_unionEmployerController.text) ?? 2,
-      'defaultRegion': _companyRegion,
-    };
-
-    try {
-      final response = await _apiService.saveInsuranceSettings(settings);
-      if (mounted) {
-        if (response['isSuccess'] == true) {
-          appNotification.showSuccess(title: 'Thành công', message: tr('Đã lưu thiết lập bảo hiểm'));
-        } else {
-          appNotification.showError(title: 'Lỗi', message: response['message'] ?? 'Lỗi khi lưu thiết lập');
-        }
-      }
-    } catch (e) {
-      if (mounted) {
-        appNotification.showError(title: 'Lỗi', message: tr('Lỗi: $e'));
-      }
-    }
+    _load();
   }
 
   @override
   void dispose() {
-    _scrollController.dispose();
-    _baseSalaryController.dispose();
-    _regionISalaryController.dispose();
-    _regionIISalaryController.dispose();
-    _regionIIISalaryController.dispose();
-    _regionIVSalaryController.dispose();
-    _maxInsuranceSalaryController.dispose();
-    _bhxhEmployeeController.dispose();
-    _bhxhEmployerController.dispose();
-    _bhytEmployeeController.dispose();
-    _bhytEmployerController.dispose();
-    _bhtnEmployeeController.dispose();
-    _bhtnEmployerController.dispose();
-    _unionEmployeeController.dispose();
-    _unionEmployerController.dispose();
+    for (final c in _c.values) {
+      c.dispose();
+    }
+    _trySalary.dispose();
     super.dispose();
   }
 
-  /// Desktop/web: xếp dọc khi màn hẹp hoặc thấp để tránh cắt nội dung dưới.
-  bool _useStackedCards(BuildContext context) {
-    final size = MediaQuery.sizeOf(context);
-    return size.width < 1200 || size.height < 900;
-  }
-
-  Widget _buildSaveSettingsButton() {
-    if (!_perm.canEdit('Insurance')) return const SizedBox.shrink();
-    return SizedBox(
-      width: double.infinity,
-      height: 50,
-      child: FilledButton.icon(
-        onPressed: _saveSettings,
-        icon: const Icon(Icons.save, size: 20),
-        label: Text(tr('Lưu thiết lập bảo hiểm'),
-          style: TextStyle(fontSize: 16, fontWeight: FontWeight.w600),
-        ),
-        style: FilledButton.styleFrom(
-          backgroundColor: HrmPageChrome.primaryNavy,
-          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
-        ),
-      ),
-    );
-  }
-
-  Widget _buildPageContent(BuildContext context) {
-    final size = MediaQuery.sizeOf(context);
-    // Hub embedded trên phone từng ép 2 cột (>=360) → card quá hẹp. Chỉ 2 cột từ tablet.
-    final embeddedTwoCol = HrmSettingsMobileKit.active(context) &&
-        !HrmSettingsMobileKit.preferCardList(context) &&
-        size.width >= 900;
-    final isWideScreen = !embeddedTwoCol && !_useStackedCards(context);
-    final isMediumScreen = !embeddedTwoCol &&
-        !isWideScreen &&
-        size.width >= 800 &&
-        size.width < 1200 &&
-        size.height >= 900;
-
-    if (_isLoading) {
-      return const LoadingWidget();
+  void _fill() {
+    _ctl('base').text = settingsMoney(_p.baseSalary);
+    _ctl('max').text = settingsMoney(_p.maxSalary);
+    for (var i = 0; i < 4; i++) {
+      _ctl('r$i').text = settingsMoney(_p.region[i]);
     }
-
-    final bottomInset = MediaQuery.viewInsetsOf(context).bottom;
-    final pad = HrmSettingsMobileKit.active(context)
-        ? HrmSettingsMobileKit.pagePadding(context)
-        : EdgeInsets.fromLTRB(
-            Responsive.isMobile(context) ? 12.0 : 24.0,
-            Responsive.isMobile(context) ? 12.0 : 16.0,
-            Responsive.isMobile(context) ? 12.0 : 24.0,
-            32 + bottomInset,
-          );
-    final padH = pad.left;
-    final padTop = pad.top;
-
-    return LayoutBuilder(
-      builder: (context, constraints) {
-        return Scrollbar(
-          controller: _scrollController,
-          thumbVisibility: true,
-          interactive: true,
-          child: SingleChildScrollView(
-            controller: _scrollController,
-            primary: false,
-            physics: const AlwaysScrollableScrollPhysics(
-              parent: ClampingScrollPhysics(),
-            ),
-            padding: HrmSettingsMobileKit.active(context)
-                ? EdgeInsets.fromLTRB(padH, padTop, padH, pad.bottom + bottomInset)
-                : EdgeInsets.fromLTRB(
-                    padH,
-                    padTop,
-                    padH,
-                    32 + bottomInset,
-                  ),
-            child: ConstrainedBox(
-              constraints: BoxConstraints(
-                minHeight: constraints.maxHeight > 0
-                    ? constraints.maxHeight - padTop - 32
-                    : 0,
-              ),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  if (HrmPageChrome.isEmbedded) ...[
-                    _buildSaveSettingsButton(),
-                    const SizedBox(height: 16),
-                  ],
-                  if (!HrmPageChrome.isEmbedded) ...[
-                    Row(
-                      children: [
-                        Container(
-                          padding: const EdgeInsets.all(8),
-                          decoration: BoxDecoration(
-                            color:
-                                SboxColors.slate500.withValues(alpha: 0.1),
-                            borderRadius: BorderRadius.circular(10),
-                          ),
-                          child: const Icon(Icons.settings,
-                              color: SboxColors.slate500, size: 20),
-                        ),
-                        const SizedBox(width: 12),
-                        Expanded(
-                          child: Column(
-                            crossAxisAlignment: CrossAxisAlignment.start,
-                            children: [
-                              Text(tr('Thiết lập Bảo hiểm xã hội'),
-                                style: TextStyle(
-                                  color: HrmPageChrome.primaryNavy,
-                                  fontSize: 20,
-                                  fontWeight: FontWeight.bold,
-                                ),
-                              ),
-                              Text(tr('Cấu hình tỷ lệ đóng BHXH, BHYT, BHTN và phí công đoàn'),
-                                maxLines: 2,
-                                overflow: TextOverflow.ellipsis,
-                                style: TextStyle(
-                                    color: SboxColors.slate500, fontSize: 13),
-                              ),
-                            ],
-                          ),
-                        ),
-                      ],
-                    ),
-                    const SizedBox(height: 24),
-                  ],
-
-                  // Row 1: Lương cơ sở, BHXH, BHYT
-                  if (embeddedTwoCol)
-                    Column(
-                      children: [
-                        Row(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            Expanded(child: _buildBaseSalaryCard()),
-                            const SizedBox(width: 12),
-                            Expanded(child: _buildBHXHCard()),
-                          ],
-                        ),
-                        const SizedBox(height: 12),
-                        Row(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            Expanded(child: _buildBHYTCard()),
-                            const SizedBox(width: 12),
-                            Expanded(child: _buildBHTNCard()),
-                          ],
-                        ),
-                        const SizedBox(height: 12),
-                        Row(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            Expanded(child: _buildUnionCard()),
-                            const SizedBox(width: 12),
-                            Expanded(child: _buildSummaryCard()),
-                          ],
-                        ),
-                      ],
-                    )
-                  else if (isWideScreen)
-                    Row(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Expanded(child: _buildBaseSalaryCard()),
-                        const SizedBox(width: 16),
-                        Expanded(child: _buildBHXHCard()),
-                        const SizedBox(width: 16),
-                        Expanded(child: _buildBHYTCard()),
-                      ],
-                    )
-                  else if (isMediumScreen)
-                    Column(
-                      children: [
-                        Row(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            Expanded(child: _buildBaseSalaryCard()),
-                            const SizedBox(width: 16),
-                            Expanded(child: _buildBHXHCard()),
-                          ],
-                        ),
-                        const SizedBox(height: 16),
-                        _buildBHYTCard(),
-                      ],
-                    )
-                  else
-                    Column(
-                      children: [
-                        _buildBaseSalaryCard(),
-                        const SizedBox(height: 16),
-                        _buildBHXHCard(),
-                        const SizedBox(height: 16),
-                        _buildBHYTCard(),
-                      ],
-                    ),
-
-                  const SizedBox(height: 16),
-
-                  // Row 2: BHTN, Công đoàn, Tổng kết
-                  if (!embeddedTwoCol) ...[
-                    if (isWideScreen)
-                      Row(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          Expanded(child: _buildBHTNCard()),
-                          const SizedBox(width: 16),
-                          Expanded(child: _buildUnionCard()),
-                          const SizedBox(width: 16),
-                          Expanded(child: _buildSummaryCard()),
-                        ],
-                      )
-                    else if (isMediumScreen)
-                      Column(
-                        children: [
-                          Row(
-                            crossAxisAlignment: CrossAxisAlignment.start,
-                            children: [
-                              Expanded(child: _buildBHTNCard()),
-                              const SizedBox(width: 16),
-                              Expanded(child: _buildUnionCard()),
-                            ],
-                          ),
-                          const SizedBox(height: 16),
-                          _buildSummaryCard(),
-                        ],
-                      )
-                    else
-                      Column(
-                        children: [
-                          _buildBHTNCard(),
-                          const SizedBox(height: 16),
-                          _buildUnionCard(),
-                          const SizedBox(height: 16),
-                          _buildSummaryCard(),
-                        ],
-                      ),
-                  ],
-
-                  if (!HrmPageChrome.isEmbedded) ...[
-                    const SizedBox(height: 24),
-                    _buildSaveSettingsButton(),
-                  ],
-                ],
-              ),
-            ),
-          ),
-        );
-      },
-    );
+    for (final (k, v) in [('bhxh', _p.bhxh), ('bhyt', _p.bhyt), ('bhtn', _p.bhtn), ('union', _p.union)]) {
+      _ctl('${k}E').text = settingsNum(v.$1);
+      _ctl('${k}C').text = settingsNum(v.$2);
+    }
   }
+
+  Future<void> _load() async {
+    setState(() => _loading = true);
+    final data = await _api.getInsuranceSettings();
+    if (!mounted) return;
+    setState(() {
+      _saved = InsParams.fromJson(Map<String, dynamic>.from(data));
+      _p = _saved.copy();
+      _fill();
+      _loading = false;
+    });
+  }
+
+  Future<void> _save() async {
+    final err = _p.validate();
+    if (err != null) {
+      _toast(err, error: true);
+      return;
+    }
+    setState(() => _saving = true);
+    final r = await _api.saveInsuranceSettings(_p.toJson());
+    if (!mounted) return;
+    setState(() => _saving = false);
+    if (r['isSuccess'] == true) {
+      setState(() => _saved = _p.copy());
+      _toast('Đã lưu mức đóng bảo hiểm');
+    } else {
+      _toast(r['message']?.toString() ?? 'Không lưu được', error: true);
+    }
+  }
+
+  void _toast(String m, {bool error = false}) => ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+        content: Text(tr(m)),
+        backgroundColor: error ? SboxColors.danger : null,
+        behavior: SnackBarBehavior.floating,
+      ));
 
   @override
   Widget build(BuildContext context) {
-    final isMobile = Responsive.isMobile(context);
-
-    return Scaffold(
-      backgroundColor: HrmPageChrome.scaffoldBackground(context),
-      resizeToAvoidBottomInset: true,
-      appBar: (!HrmPageChrome.isEmbedded && isMobile)
-          ? AppBar(
-              backgroundColor: Colors.white,
-              elevation: 0,
-              automaticallyImplyLeading: false,
-              title: Text(tr('Bảo hiểm xã hội'),
-                style: TextStyle(
-                  color: SboxColors.slate900,
-                  fontWeight: FontWeight.bold,
-                  fontSize: 18,
-                ),
-                overflow: TextOverflow.ellipsis,
-                maxLines: 1,
-              ),
-              actions: const [],
-            )
+    final edit = _canEdit;
+    return SettingsPage(
+      title: 'Bảo hiểm',
+      subtitle: 'Tỷ lệ đóng BHXH, BHYT, BHTN, công đoàn và các mức lương làm căn cứ',
+      icon: Icons.health_and_safety_outlined,
+      loading: _loading,
+      dirty: _p.key != _saved.key,
+      saving: _saving,
+      onSave: _save,
+      onDiscard: () => setState(() {
+        _p = _saved.copy();
+        _fill();
+      }),
+      onResetDefaults: edit
+          ? () => setState(() {
+                _p = InsParams();
+                _fill();
+              })
           : null,
-      body: _buildPageContent(context),
-    );
-  }
-
-  // Card Lương cơ sở & Tối thiểu vùng
-  Widget _buildBaseSalaryCard() {
-    return Container(
-      decoration: BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.circular(14),
-        boxShadow: [
-          BoxShadow(
-            color: Colors.black.withValues(alpha: 0.05),
-            blurRadius: 10,
-            offset: const Offset(0, 2),
-          ),
-        ],
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          // Header với icon
-          Padding(
-            padding: const EdgeInsets.all(20),
-            child: Row(
-              children: [
-                Container(
-                  width: Responsive.isMobile(context) ? 44 : 120,
-                  height: Responsive.isMobile(context) ? 44 : 45,
-                  decoration: BoxDecoration(
-                    color: PosTheme.kiotBlueLight,
-                    borderRadius: BorderRadius.circular(10),
-                  ),
-                  child: const Center(
-                    child: Icon(Icons.account_balance_wallet, color: PosTheme.kiotBlue, size: 24),
-                  ),
-                ),
-                const SizedBox(width: 16),
-                Expanded(
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Text(tr('Lương cơ sở & Tối thiểu vùng'),
-                        style: TextStyle(
-                          color: SboxColors.slate900,
-                          fontSize: 16,
-                          fontWeight: FontWeight.bold,
-                        ),
-                      ),
-                      Text(tr('Mức lương làm căn cứ tính bảo hiểm'),
-                        style: TextStyle(color: SboxColors.slate500, fontSize: 12),
-                      ),
-                    ],
-                  ),
-                ),
-              ],
-            ),
-          ),
-
-          // Content
-          Padding(
-            padding: const EdgeInsets.fromLTRB(20, 0, 20, 20),
-            child: Column(
-              children: [
-                _buildSalaryField(
-                  icon: Icons.foundation,
-                  label: 'Lương cơ sở',
-                  description: 'Mức lương cơ sở do nhà nước quy định (2024: 2.340.000đ)',
-                  controller: _baseSalaryController,
-                ),
-                const SizedBox(height: 16),
-                _buildSalaryField(
-                  icon: Icons.location_city,
-                  label: 'Lương tối thiểu Vùng I',
-                  description: 'TP.HCM, Hà Nội, Đà Nẵng, Hải Phòng...',
-                  controller: _regionISalaryController,
-                ),
-                const SizedBox(height: 16),
-                _buildSalaryField(
-                  icon: Icons.business,
-                  label: 'Lương tối thiểu Vùng II',
-                  description: 'Các quận/huyện còn lại thuộc tỉnh/TP lớn',
-                  controller: _regionIISalaryController,
-                ),
-                const SizedBox(height: 16),
-                _buildSalaryField(
-                  icon: Icons.apartment,
-                  label: 'Lương tối thiểu Vùng III',
-                  description: 'Các tỉnh còn lại',
-                  controller: _regionIIISalaryController,
-                ),
-                const SizedBox(height: 16),
-                _buildSalaryField(
-                  icon: Icons.home_work,
-                  label: 'Lương tối thiểu Vùng IV',
-                  description: 'Các huyện, xã vùng nông thôn',
-                  controller: _regionIVSalaryController,
-                ),
-                const SizedBox(height: 16),
-                _buildSalaryField(
-                  icon: Icons.trending_up,
-                  label: 'Mức trần đóng BHXH',
-                  description: 'Tối đa 20 lần lương cơ sở (46.800.000đ)',
-                  controller: _maxInsuranceSalaryController,
-                ),
-                const SizedBox(height: 16),
-                // Công ty thuộc vùng
-                if (Responsive.isMobile(context))
-                  Column(
-                    crossAxisAlignment: CrossAxisAlignment.stretch,
-                    children: [
-                      Row(
-                        children: [
-                          const Icon(Icons.map,
-                              color: SboxColors.slate500, size: 20),
-                          const SizedBox(width: 12),
-                          Expanded(
-                            child: Column(
-                              crossAxisAlignment: CrossAxisAlignment.start,
-                              children: [
-                                Text(tr('Công ty thuộc vùng'),
-                                    style: const TextStyle(
-                                        color: SboxColors.slate900,
-                                        fontWeight: FontWeight.w500,
-                                        fontSize: 14)),
-                                Text(
-                                    tr('Vùng lương tối thiểu áp dụng cho công ty'),
-                                    style: TextStyle(
-                                        color: SboxColors.slate500, fontSize: 11)),
-                              ],
-                            ),
-                          ),
-                        ],
-                      ),
-                      const SizedBox(height: 8),
-                      Container(
-                        height: 40,
-                        padding: const EdgeInsets.symmetric(horizontal: 12),
-                        decoration: BoxDecoration(
-                          color: SboxColors.slate50,
-                          borderRadius: BorderRadius.circular(10),
-                          border: Border.all(color: SboxColors.slate200),
-                        ),
-                        child: DropdownButtonHideUnderline(
-                          child: DropdownButton<int>(
-                            isExpanded: true,
-                            value: _companyRegion,
-                            style: const TextStyle(
-                                color: SboxColors.slate900,
-                                fontSize: 14,
-                                fontWeight: FontWeight.w600),
-                            items: [
-                              DropdownMenuItem(
-                                  value: 1, child: Text(tr('Vùng I'))),
-                              DropdownMenuItem(
-                                  value: 2, child: Text(tr('Vùng II'))),
-                              DropdownMenuItem(
-                                  value: 3, child: Text(tr('Vùng III'))),
-                              DropdownMenuItem(
-                                  value: 4, child: Text(tr('Vùng IV'))),
-                            ],
-                            onChanged: (v) {
-                              if (v != null) {
-                                setState(() => _companyRegion = v);
-                              }
-                            },
-                          ),
-                        ),
-                      ),
-                    ],
-                  )
-                else
-                Row(
-                  children: [
-                    const Icon(Icons.map, color: SboxColors.slate500, size: 20),
-                    const SizedBox(width: 12),
-                    Expanded(
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          Text(tr('Công ty thuộc vùng'), style: TextStyle(color: SboxColors.slate900, fontWeight: FontWeight.w500, fontSize: 14)),
-                          Text(tr('Vùng lương tối thiểu áp dụng cho công ty'), style: TextStyle(color: SboxColors.slate500, fontSize: 11)),
-                        ],
-                      ),
-                    ),
-                    const SizedBox(width: 12),
-                    Container(
-                      height: 40,
-                      padding: const EdgeInsets.symmetric(horizontal: 12),
-                      decoration: BoxDecoration(
-                        color: SboxColors.slate50,
-                        borderRadius: BorderRadius.circular(10),
-                        border: Border.all(color: SboxColors.slate200),
-                      ),
-                      child: DropdownButtonHideUnderline(
-                        child: DropdownButton<int>(
-                          value: _companyRegion,
-                          style: const TextStyle(color: SboxColors.slate900, fontSize: 14, fontWeight: FontWeight.w600),
-                          items: [
-                            DropdownMenuItem(value: 1, child: Text(tr('Vùng I'))),
-                            DropdownMenuItem(value: 2, child: Text(tr('Vùng II'))),
-                            DropdownMenuItem(value: 3, child: Text(tr('Vùng III'))),
-                            DropdownMenuItem(value: 4, child: Text(tr('Vùng IV'))),
-                          ],
-                          onChanged: (value) {
-                            if (value != null) setState(() => _companyRegion = value);
-                          },
-                        ),
-                      ),
-                    ),
-                  ],
-                ),
-              ],
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-
-  Widget _buildSalaryField({
-    required IconData icon,
-    required String label,
-    required String description,
-    required TextEditingController controller,
-  }) {
-    final isMobile = Responsive.isMobile(context);
-    final field = SizedBox(
-      width: isMobile ? double.infinity : 130,
-      height: 40,
-      child: TextField(
-        controller: controller,
-        textAlign: TextAlign.right,
-        style: const TextStyle(
-            color: SboxColors.slate900,
-            fontSize: 14,
-            fontWeight: FontWeight.w600),
-        keyboardType: TextInputType.number,
-        inputFormatters: [ThousandSeparatorFormatter()],
-        decoration: InputDecoration(
-          suffixText: tr('đ'),
-          suffixStyle: const TextStyle(color: SboxColors.slate500, fontSize: 12),
-          contentPadding:
-              const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-          enabledBorder: OutlineInputBorder(
-            borderRadius: BorderRadius.circular(10),
-            borderSide: const BorderSide(color: SboxColors.slate200),
-          ),
-          focusedBorder: OutlineInputBorder(
-            borderRadius: BorderRadius.circular(10),
-            borderSide:
-                const BorderSide(color: HrmPageChrome.primaryNavy, width: 2),
-          ),
-          filled: true,
-          fillColor: SboxColors.slate50,
-        ),
-        onChanged: (_) => setState(() {}),
-      ),
-    );
-
-    final labelBlock = Row(
-      crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        Icon(icon, color: SboxColors.slate500, size: 20),
-        const SizedBox(width: 12),
-        Expanded(
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Text(tr(label),
-                  style: const TextStyle(
-                      color: SboxColors.slate900,
-                      fontWeight: FontWeight.w500,
-                      fontSize: 14)),
-              Text(tr(description),
-                  style: TextStyle(color: SboxColors.slate500, fontSize: 11)),
-            ],
-          ),
-        ),
-      ],
-    );
-
-    if (isMobile) {
-      return Column(
-        crossAxisAlignment: CrossAxisAlignment.stretch,
-        children: [
-          labelBlock,
-          const SizedBox(height: 8),
-          field,
-        ],
-      );
-    }
-
-    return Row(
-      children: [
-        Icon(icon, color: SboxColors.slate500, size: 20),
-        const SizedBox(width: 12),
-        Expanded(
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Text(tr(label),
-                  style: const TextStyle(
-                      color: SboxColors.slate900,
-                      fontWeight: FontWeight.w500,
-                      fontSize: 14)),
-              Text(tr(description),
-                  style: TextStyle(color: SboxColors.slate500, fontSize: 11)),
-            ],
-          ),
-        ),
-        const SizedBox(width: 12),
-        field,
+        if (!edit) const SettingsNote('Bạn chỉ có quyền xem.', icon: Icons.lock_outline_rounded, tone: SboxTone.neutral),
+        const SettingsNote(
+            'Phiếu lương đã tạo giữ nguyên số đã tính. Bảng lương tính sau khi lưu dùng mức mới.',
+            icon: Icons.info_outline_rounded),
+        _ratesSection(edit),
+        _salarySection(edit),
+        _trySection(),
       ],
     );
   }
 
-  // Card BHXH
-  Widget _buildBHXHCard() {
-    final employeeRate = double.tryParse(_bhxhEmployeeController.text) ?? 0;
-    final employerRate = double.tryParse(_bhxhEmployerController.text) ?? 0;
-
-    return Container(
-      decoration: BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.circular(14),
-        boxShadow: [
-          BoxShadow(
-            color: Colors.black.withValues(alpha: 0.05),
-            blurRadius: 10,
-            offset: const Offset(0, 2),
-          ),
-        ],
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          // Header
-          Padding(
-            padding: const EdgeInsets.all(20),
-            child: Row(
-              children: [
-                Container(
-                  width: Responsive.isMobile(context) ? 44 : 120,
-                  height: Responsive.isMobile(context) ? 44 : 45,
-                  decoration: BoxDecoration(
-                    color: PosTheme.kiotBlueLight,
-                    borderRadius: BorderRadius.circular(10),
-                  ),
-                  child: const Center(
-                    child: Icon(Icons.health_and_safety, color: PosTheme.kiotBlue, size: 24),
-                  ),
-                ),
-                const SizedBox(width: 16),
-                Expanded(
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Text(tr('Bảo hiểm Xã hội (BHXH)'),
-                        style: TextStyle(
-                          color: SboxColors.slate900,
-                          fontSize: 16,
-                          fontWeight: FontWeight.bold,
-                        ),
-                      ),
-                      Text(tr('Tỷ lệ đóng BHXH người lao động và doanh nghiệp'),
-                        style: TextStyle(color: SboxColors.slate500, fontSize: 12),
-                      ),
-                    ],
-                  ),
-                ),
-              ],
+  Widget _ratesSection(bool edit) {
+    Widget row(String label, String k, (double, double) v, void Function((double, double)) set, {String? help}) => SettingsTile(
+          label: label,
+          help: help,
+          control: Row(mainAxisSize: MainAxisSize.min, children: [
+            SettingsPercentField(
+              controller: _ctl('${k}E'),
+              enabled: edit,
+              onChanged: (x) => setState(() => set((x ?? -1, v.$2))),
             ),
-          ),
-
-          // Content
-          Padding(
-            padding: const EdgeInsets.fromLTRB(20, 0, 20, 20),
-            child: Column(
-              children: [
-                _buildInsuranceRateField(
-                  label: 'Người lao động đóng',
-                  description: 'Trích từ lương NLĐ (thường 8%)',
-                  controller: _bhxhEmployeeController,
-                ),
-                const SizedBox(height: 16),
-                _buildInsuranceRateField(
-                  label: 'Doanh nghiệp đóng',
-                  description: 'DN đóng thêm cho NLĐ (thường 17.5%)',
-                  controller: _bhxhEmployerController,
-                ),
-                const SizedBox(height: 20),
-                _buildTotalBox('Tổng BHXH:', employeeRate + employerRate, HrmPageChrome.primaryNavy),
-              ],
+            const SizedBox(width: 8),
+            SettingsPercentField(
+              controller: _ctl('${k}C'),
+              enabled: edit,
+              onChanged: (x) => setState(() => set((v.$1, x ?? -1))),
             ),
-          ),
-        ],
-      ),
-    );
-  }
-
-  // Card BHYT
-  Widget _buildBHYTCard() {
-    final employeeRate = double.tryParse(_bhytEmployeeController.text) ?? 0;
-    final employerRate = double.tryParse(_bhytEmployerController.text) ?? 0;
-
-    return Container(
-      decoration: BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.circular(14),
-        boxShadow: [
-          BoxShadow(
-            color: Colors.black.withValues(alpha: 0.05),
-            blurRadius: 10,
-            offset: const Offset(0, 2),
-          ),
-        ],
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          // Header
-          Padding(
-            padding: const EdgeInsets.all(20),
-            child: Row(
-              children: [
-                Container(
-                  width: Responsive.isMobile(context) ? 44 : 120,
-                  height: Responsive.isMobile(context) ? 44 : 45,
-                  decoration: BoxDecoration(
-                    gradient: const LinearGradient(
-                      colors: [SboxColors.danger, Color(0xFFF87171)],
-                    ),
-                    borderRadius: BorderRadius.circular(10),
-                  ),
-                  child: const Center(
-                    child: Icon(Icons.local_hospital, color: Colors.white, size: 24),
-                  ),
-                ),
-                const SizedBox(width: 16),
-                Expanded(
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Text(tr('Bảo hiểm Y tế (BHYT)'),
-                        style: TextStyle(
-                          color: SboxColors.slate900,
-                          fontSize: 16,
-                          fontWeight: FontWeight.bold,
-                        ),
-                      ),
-                      Text(tr('Tỷ lệ đóng BHYT người lao động và doanh nghiệp'),
-                        style: TextStyle(color: SboxColors.slate500, fontSize: 12),
-                      ),
-                    ],
-                  ),
-                ),
-              ],
-            ),
-          ),
-
-          // Content
-          Padding(
-            padding: const EdgeInsets.fromLTRB(20, 0, 20, 20),
-            child: Column(
-              children: [
-                _buildInsuranceRateField(
-                  label: 'Người lao động đóng',
-                  description: 'Trích từ lương NLĐ (thường 1.5%)',
-                  controller: _bhytEmployeeController,
-                ),
-                const SizedBox(height: 16),
-                _buildInsuranceRateField(
-                  label: 'Doanh nghiệp đóng',
-                  description: 'DN đóng thêm cho NLĐ (thường 3%)',
-                  controller: _bhytEmployerController,
-                ),
-                const SizedBox(height: 20),
-                _buildTotalBox('Tổng BHYT:', employeeRate + employerRate, HrmPageChrome.primaryNavy),
-              ],
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-
-  // Card BHTN
-  Widget _buildBHTNCard() {
-    final employeeRate = double.tryParse(_bhtnEmployeeController.text) ?? 0;
-    final employerRate = double.tryParse(_bhtnEmployerController.text) ?? 0;
-    final total = employeeRate + employerRate;
-
-    return Container(
-      decoration: BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.circular(14),
-        boxShadow: [
-          BoxShadow(
-            color: Colors.black.withValues(alpha: 0.05),
-            blurRadius: 10,
-            offset: const Offset(0, 2),
-          ),
-        ],
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          // Header
-          Padding(
-            padding: const EdgeInsets.all(20),
-            child: Row(
-              children: [
-                Container(
-                  width: Responsive.isMobile(context) ? 44 : 120,
-                  height: Responsive.isMobile(context) ? 44 : 45,
-                  decoration: BoxDecoration(
-                    color: PosTheme.kiotBlueLight,
-                    borderRadius: BorderRadius.circular(10),
-                  ),
-                  child: const Center(
-                    child: Icon(Icons.work_off, color: PosTheme.kiotBlue, size: 24),
-                  ),
-                ),
-                const SizedBox(width: 16),
-                Expanded(
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Text(tr('Bảo hiểm Thất nghiệp (BHTN)'),
-                        style: TextStyle(
-                          color: SboxColors.slate900,
-                          fontSize: 16,
-                          fontWeight: FontWeight.bold,
-                        ),
-                      ),
-                      Text(tr('Tỷ lệ đóng BHTN người lao động và doanh nghiệp'),
-                        style: TextStyle(color: SboxColors.slate500, fontSize: 12),
-                      ),
-                    ],
-                  ),
-                ),
-              ],
-            ),
-          ),
-
-          // Content
-          Padding(
-            padding: const EdgeInsets.fromLTRB(20, 0, 20, 20),
-            child: Column(
-              children: [
-                _buildInsuranceRateField(
-                  label: 'Người lao động đóng',
-                  description: 'Trích từ lương NLĐ (thường 1%)',
-                  controller: _bhtnEmployeeController,
-                ),
-                const SizedBox(height: 16),
-                _buildInsuranceRateField(
-                  label: 'Doanh nghiệp đóng',
-                  description: 'DN đóng thêm cho NLĐ (thường 1%)',
-                  controller: _bhtnEmployerController,
-                ),
-                const SizedBox(height: 20),
-                _buildTotalBox('Tổng BHTN:', total, HrmPageChrome.primaryNavy),
-              ],
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-
-  // Card Công đoàn
-  Widget _buildUnionCard() {
-    final employeeRate = double.tryParse(_unionEmployeeController.text) ?? 0;
-    final employerRate = double.tryParse(_unionEmployerController.text) ?? 0;
-    final total = employeeRate + employerRate;
-
-    return Container(
-      decoration: BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.circular(14),
-        boxShadow: [
-          BoxShadow(
-            color: Colors.black.withValues(alpha: 0.05),
-            blurRadius: 10,
-            offset: const Offset(0, 2),
-          ),
-        ],
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          // Header
-          Padding(
-            padding: const EdgeInsets.all(20),
-            child: Row(
-              children: [
-                Container(
-                  width: Responsive.isMobile(context) ? 44 : 120,
-                  height: Responsive.isMobile(context) ? 44 : 45,
-                  decoration: BoxDecoration(
-                    gradient: const LinearGradient(
-                      colors: [SboxColors.warning, Color(0xFFFBBF24)],
-                    ),
-                    borderRadius: BorderRadius.circular(10),
-                  ),
-                  child: const Center(
-                    child: Icon(Icons.groups, color: Colors.white, size: 24),
-                  ),
-                ),
-                const SizedBox(width: 16),
-                Expanded(
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Text(tr('Phi Công đoàn'),
-                        style: TextStyle(
-                          color: SboxColors.slate900,
-                          fontSize: 16,
-                          fontWeight: FontWeight.bold,
-                        ),
-                      ),
-                      Text(tr('Phí công đoàn người lao động và kinh phí công đoàn'),
-                        style: TextStyle(color: SboxColors.slate500, fontSize: 12),
-                      ),
-                    ],
-                  ),
-                ),
-              ],
-            ),
-          ),
-
-          // Content
-          Padding(
-            padding: const EdgeInsets.fromLTRB(20, 0, 20, 20),
-            child: Column(
-              children: [
-                _buildInsuranceRateField(
-                  label: 'Đoàn phí (NLĐ đóng)',
-                  description: 'Đoàn viên đóng (thường 1% lương đóng BH)',
-                  controller: _unionEmployeeController,
-                ),
-                const SizedBox(height: 16),
-                _buildInsuranceRateField(
-                  label: 'Kinh phí công đoàn (DN đóng)',
-                  description: 'DN đóng (thường 2% quỹ lương)',
-                  controller: _unionEmployerController,
-                ),
-                const SizedBox(height: 20),
-                _buildTotalBox('Tổng Công đoàn:', total, HrmPageChrome.primaryNavy),
-              ],
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-
-  Widget _buildInsuranceRateField({
-    required String label,
-    required String description,
-    required TextEditingController controller,
-  }) {
-    final isMobile = Responsive.isMobile(context);
-    final rateField = SizedBox(
-      width: isMobile ? 96 : 90,
-      height: 40,
-      child: TextField(
-        controller: controller,
-        textAlign: TextAlign.right,
-        style: const TextStyle(
-            color: SboxColors.slate900,
-            fontSize: 14,
-            fontWeight: FontWeight.w600),
-        keyboardType: const TextInputType.numberWithOptions(decimal: true),
-        decoration: InputDecoration(
-          suffixText: tr('%'),
-          suffixStyle: const TextStyle(color: SboxColors.slate500, fontSize: 12),
-          contentPadding:
-              const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-          enabledBorder: OutlineInputBorder(
-            borderRadius: BorderRadius.circular(10),
-            borderSide: const BorderSide(color: SboxColors.slate200),
-          ),
-          focusedBorder: OutlineInputBorder(
-            borderRadius: BorderRadius.circular(10),
-            borderSide:
-                const BorderSide(color: HrmPageChrome.primaryNavy, width: 2),
-          ),
-          filled: true,
-          fillColor: SboxColors.slate50,
-        ),
-        onChanged: (_) => setState(() {}),
-      ),
-    );
-
-    if (isMobile) {
-      return Column(
-        crossAxisAlignment: CrossAxisAlignment.stretch,
-        children: [
-          Text(tr(label),
-              style: const TextStyle(
-                  color: SboxColors.slate900,
-                  fontWeight: FontWeight.w500,
-                  fontSize: 14)),
-          Text(tr(description),
-              style: TextStyle(color: SboxColors.slate500, fontSize: 11)),
-          const SizedBox(height: 8),
-          Row(
-            children: [
-              Text(tr('Tỷ lệ'),
-                  style: TextStyle(color: SboxColors.slate600, fontSize: 13)),
-              const Spacer(),
-              rateField,
-            ],
-          ),
-        ],
-      );
-    }
-
-    return Row(
+          ]),
+        );
+    return SettingsSection(
+      title: 'Tỷ lệ đóng',
+      subtitle: 'Cột trái: người lao động · cột phải: doanh nghiệp',
+      icon: Icons.percent_rounded,
       children: [
-        Expanded(
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Text(tr(label),
-                  style: const TextStyle(
-                      color: SboxColors.slate900,
-                      fontWeight: FontWeight.w500,
-                      fontSize: 14)),
-              Text(tr(description),
-                  style: TextStyle(color: SboxColors.slate500, fontSize: 11)),
-            ],
-          ),
-        ),
-        const SizedBox(width: 12),
-        rateField,
+        row('BHXH', 'bhxh', _p.bhxh, (v) => _p.bhxh = v, help: 'Bảo hiểm xã hội'),
+        row('BHYT', 'bhyt', _p.bhyt, (v) => _p.bhyt = v, help: 'Bảo hiểm y tế'),
+        row('BHTN', 'bhtn', _p.bhtn, (v) => _p.bhtn = v, help: 'Bảo hiểm thất nghiệp'),
+        row('Kinh phí công đoàn', 'union', _p.union, (v) => _p.union = v, help: 'Chỉ tính khi doanh nghiệp có tổ chức công đoàn'),
+        SettingsNote(
+            'Tổng bắt buộc: người lao động ${settingsNum(_p.employeeRate)}% · doanh nghiệp ${settingsNum(_p.employerRate)}% (chưa gồm công đoàn).',
+            icon: Icons.summarize_outlined,
+            tone: SboxTone.neutral),
       ],
     );
   }
 
-  Widget _buildTotalBox(String label, double value, Color color) {
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
-      decoration: BoxDecoration(
-        color: color.withValues(alpha: 0.05),
-        borderRadius: BorderRadius.circular(10),
-        border: Border.all(color: color.withValues(alpha: 0.2)),
-      ),
-      child: Row(
-        mainAxisAlignment: MainAxisAlignment.spaceBetween,
-        children: [
-          Text(
-            tr(label),
-            style: const TextStyle(
-              color: SboxColors.slate900,
-              fontSize: 14,
-              fontWeight: FontWeight.w500,
+  Widget _salarySection(bool edit) {
+    final outdated = _p.region[0] < InsParams.region2026[0];
+    return SettingsSection(
+      title: 'Mức lương làm căn cứ',
+      icon: Icons.account_balance_wallet_outlined,
+      children: [
+        SettingsTile(
+          divider: false,
+          label: 'Lương cơ sở',
+          help: 'Dùng để tính mức trần đóng bảo hiểm',
+          control: SettingsMoneyField(controller: _ctl('base'), enabled: edit, onChanged: (v) => setState(() => _p.baseSalary = v)),
+        ),
+        SettingsTile(
+          label: 'Mức trần lương đóng bảo hiểm',
+          help: 'Lương đóng vượt mức này chỉ tính bằng mức này. Thường bằng 20 × lương cơ sở = ${settingsMoney(_p.baseSalary * 20)} ₫',
+          control: SettingsMoneyField(controller: _ctl('max'), enabled: edit, onChanged: (v) => setState(() => _p.maxSalary = v)),
+        ),
+        SettingsTile(
+          label: 'Cửa hàng thuộc vùng',
+          help: 'Lương đóng bảo hiểm không được thấp hơn lương tối thiểu vùng',
+          control: SettingsSegment<int>(
+            value: _p.defaultRegion,
+            options: const [(1, 'I'), (2, 'II'), (3, 'III'), (4, 'IV')],
+            onChanged: edit ? (v) => setState(() => _p.defaultRegion = v) : (_) {},
+          ),
+        ),
+        for (var i = 0; i < 4; i++)
+          SettingsTile(
+            label: 'Lương tối thiểu vùng ${['I', 'II', 'III', 'IV'][i]}',
+            control: SettingsMoneyField(
+              controller: _ctl('r$i'),
+              enabled: edit,
+              onChanged: (v) => setState(() => _p.region[i] = v),
             ),
           ),
-          Text(
-            tr('${_formatRate(value)}%'),
-            style: TextStyle(
-              color: color,
-              fontSize: 18,
-              fontWeight: FontWeight.bold,
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-
-  String _formatRate(double value) {
-    if (value % 1 == 0) return value.toStringAsFixed(0);
-    return value.toStringAsFixed(1);
-  }
-
-  // Card Tổng kết
-  Widget _buildSummaryCard() {
-    final bhxhEmp = double.tryParse(_bhxhEmployeeController.text) ?? 0;
-    final bhytEmp = double.tryParse(_bhytEmployeeController.text) ?? 0;
-    final bhtnEmp = double.tryParse(_bhtnEmployeeController.text) ?? 0;
-    final unionEmp = double.tryParse(_unionEmployeeController.text) ?? 0;
-
-    final bhxhEmr = double.tryParse(_bhxhEmployerController.text) ?? 0;
-    final bhytEmr = double.tryParse(_bhytEmployerController.text) ?? 0;
-    final bhtnEmr = double.tryParse(_bhtnEmployerController.text) ?? 0;
-    final unionEmr = double.tryParse(_unionEmployerController.text) ?? 0;
-
-    final totalEmp = bhxhEmp + bhytEmp + bhtnEmp + unionEmp;
-    final totalEmr = bhxhEmr + bhytEmr + bhtnEmr + unionEmr;
-
-    return Container(
-      decoration: BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.circular(14),
-        boxShadow: [
-          BoxShadow(
-            color: Colors.black.withValues(alpha: 0.05),
-            blurRadius: 10,
-            offset: const Offset(0, 2),
-          ),
-        ],
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          // Header
-          Padding(
-            padding: const EdgeInsets.all(20),
-            child: Row(
-              children: [
-                Container(
-                  width: Responsive.isMobile(context) ? 44 : 120,
-                  height: Responsive.isMobile(context) ? 44 : 45,
-                  decoration: BoxDecoration(
-                    color: PosTheme.kiotBlueLight,
-                    borderRadius: BorderRadius.circular(10),
-                  ),
-                  child: const Center(
-                    child: Icon(Icons.summarize, color: PosTheme.kiotBlue, size: 24),
-                  ),
+        if (outdated && edit)
+          Container(
+            margin: const EdgeInsets.only(bottom: 10),
+            padding: const EdgeInsets.fromLTRB(12, 8, 8, 8),
+            decoration: BoxDecoration(color: SboxColors.warningSoft, borderRadius: BorderRadius.circular(10)),
+            child: Row(children: [
+              const Icon(Icons.update_rounded, color: SboxColors.warningText, size: 20),
+              const SizedBox(width: 8),
+              Expanded(
+                child: Text(
+                  tr('Lương tối thiểu vùng đang thấp hơn mức áp dụng từ 01/01/2026 '
+                      '(${InsParams.region2026.map(settingsMoney).join(' / ')}). Kiểm tra lại văn bản hiện hành trước khi cập nhật.'),
+                  style: const TextStyle(fontSize: 12.5, color: SboxColors.warningText),
                 ),
-                const SizedBox(width: 16),
-                Expanded(
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Text(tr('Tổng kết tỷ lệ đóng'),
-                        style: TextStyle(
-                          color: SboxColors.slate900,
-                          fontSize: 16,
-                          fontWeight: FontWeight.bold,
-                        ),
-                      ),
-                      Text(tr('Tổng hợp các khoản đóng bảo hiểm'),
-                        style: TextStyle(color: SboxColors.slate500, fontSize: 12),
-                      ),
-                    ],
-                  ),
-                ),
-              ],
-            ),
-          ),
-
-          // Summary Table
-          Padding(
-            padding: const EdgeInsets.fromLTRB(20, 0, 20, 20),
-            child: Container(
-              decoration: BoxDecoration(
-                borderRadius: BorderRadius.circular(14),
-                border: Border.all(color: SboxColors.slate200),
               ),
-              child: Column(
-                children: [
-                  // Table Header
-                  Container(
-                    padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
-                    decoration: const BoxDecoration(
-                      color: HrmPageChrome.primaryNavy,
-                      borderRadius: BorderRadius.only(
-                        topLeft: Radius.circular(11),
-                        topRight: Radius.circular(11),
-                      ),
-                    ),
-                    child: Row(
-                      children: [
-                        Expanded(flex: 3, child: Text(tr('Loại bảo hiểm'), style: TextStyle(color: Colors.white, fontWeight: FontWeight.w600, fontSize: 13))),
-                        Expanded(flex: 2, child: Text(tr('NLĐ đóng'), textAlign: TextAlign.center, style: TextStyle(color: Colors.white, fontWeight: FontWeight.w600, fontSize: 13))),
-                        Expanded(flex: 2, child: Text(tr('DN đóng'), textAlign: TextAlign.center, style: TextStyle(color: Colors.white, fontWeight: FontWeight.w600, fontSize: 13))),
-                        Expanded(flex: 2, child: Text(tr('Tổng'), textAlign: TextAlign.center, style: TextStyle(color: Colors.white, fontWeight: FontWeight.w600, fontSize: 13))),
-                      ],
-                    ),
-                  ),
-                  // Table Rows
-                  _buildSummaryRow('BHXH', bhxhEmp, bhxhEmr, false),
-                  _buildSummaryRow('BHYT', bhytEmp, bhytEmr, true),
-                  _buildSummaryRow('BHTN', bhtnEmp, bhtnEmr, false),
-                  _buildSummaryRow('Công đoàn', unionEmp, unionEmr, true),
-                  // Total Row
-                  Container(
-                    padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
-                    decoration: const BoxDecoration(
-                      color: SboxColors.slate100,
-                      borderRadius: BorderRadius.only(
-                        bottomLeft: Radius.circular(11),
-                        bottomRight: Radius.circular(11),
-                      ),
-                    ),
-                    child: Row(
-                      children: [
-                        Expanded(flex: 3, child: Text(tr('TỔNG CỘNG'), style: TextStyle(color: SboxColors.slate900, fontWeight: FontWeight.bold, fontSize: 13))),
-                        Expanded(flex: 2, child: Text(tr('${_formatRate(totalEmp)}%'), textAlign: TextAlign.center, style: const TextStyle(color: HrmPageChrome.primaryNavy, fontWeight: FontWeight.bold, fontSize: 13))),
-                        Expanded(flex: 2, child: Text(tr('${_formatRate(totalEmr)}%'), textAlign: TextAlign.center, style: const TextStyle(color: HrmPageChrome.primaryNavy, fontWeight: FontWeight.bold, fontSize: 13))),
-                        Expanded(flex: 2, child: Text(tr('${_formatRate(totalEmp + totalEmr)}%'), textAlign: TextAlign.center, style: const TextStyle(color: HrmPageChrome.primaryNavy, fontWeight: FontWeight.bold, fontSize: 13))),
-                      ],
-                    ),
-                  ),
-                ],
+              TextButton(
+                onPressed: () => setState(() {
+                  _p.region = [...InsParams.region2026];
+                  _fill();
+                }),
+                child: Text(tr('Dùng mức 2026')),
               ),
-            ),
+            ]),
           ),
-        ],
-      ),
+      ],
     );
   }
 
-  Widget _buildSummaryRow(String label, double empRate, double emrRate, bool isAlt) {
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
-      color: isAlt ? SboxColors.slate50 : Colors.white,
-      child: Row(
-        children: [
-          Expanded(flex: 3, child: Text(tr(label), style: const TextStyle(color: SboxColors.slate500, fontSize: 13))),
-          Expanded(flex: 2, child: Text(tr('${_formatRate(empRate)}%'), textAlign: TextAlign.center, style: const TextStyle(color: SboxColors.slate900, fontSize: 13))),
-          Expanded(flex: 2, child: Text(tr('${_formatRate(emrRate)}%'), textAlign: TextAlign.center, style: const TextStyle(color: SboxColors.slate900, fontSize: 13))),
-          Expanded(flex: 2, child: Text(tr('${_formatRate(empRate + emrRate)}%'), textAlign: TextAlign.center, style: const TextStyle(color: SboxColors.slate900, fontSize: 13))),
-        ],
-      ),
+  Widget _trySection() {
+    final r = _p.compute(_tryValue);
+    final minRegion = _p.region[_p.defaultRegion - 1];
+    Widget line(String k, double v, {bool strong = false, Color? color}) => Padding(
+          padding: const EdgeInsets.symmetric(vertical: 4),
+          child: Row(children: [
+            Expanded(child: Text(tr(k), style: TextStyle(color: SboxColors.slate600, fontWeight: strong ? FontWeight.w800 : FontWeight.w500))),
+            Text('${settingsMoney(v)} ₫', style: TextStyle(fontWeight: strong ? FontWeight.w800 : FontWeight.w600, color: color ?? SboxColors.slate900)),
+          ]),
+        );
+    return SettingsSection(
+      title: 'Tính thử',
+      subtitle: 'Nhập lương đóng bảo hiểm của một nhân viên',
+      icon: Icons.calculate_outlined,
+      children: [
+        SettingsTile(
+          divider: false,
+          label: 'Lương đóng bảo hiểm',
+          control: SettingsMoneyField(controller: _trySalary, onChanged: (v) => setState(() => _tryValue = v)),
+        ),
+        if (_tryValue > 0 && _tryValue < minRegion)
+          SettingsNote('Thấp hơn lương tối thiểu vùng ${['I', 'II', 'III', 'IV'][_p.defaultRegion - 1]} (${settingsMoney(minRegion)} ₫).',
+              icon: Icons.warning_amber_rounded, tone: SboxTone.warning),
+        if (_tryValue > _p.maxSalary)
+          SettingsNote('Vượt mức trần — chỉ tính trên ${settingsMoney(_p.maxSalary)} ₫.', icon: Icons.info_outline_rounded, tone: SboxTone.neutral),
+        line('Người lao động đóng (${settingsNum(_p.employeeRate)}%)', r.employee, strong: true, color: SboxColors.dangerText),
+        line('Doanh nghiệp đóng (${settingsNum(_p.employerRate)}%)', r.employer, strong: true),
+        line('Công đoàn — người lao động (${settingsNum(_p.union.$1)}%)', r.unionEmployee),
+        line('Công đoàn — doanh nghiệp (${settingsNum(_p.union.$2)}%)', r.unionEmployer),
+        line('Tổng chi phí doanh nghiệp', _tryValue + r.employer + r.unionEmployer),
+        const SizedBox(height: 8),
+      ],
     );
   }
 }

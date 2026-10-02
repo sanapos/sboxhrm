@@ -5,7 +5,7 @@ using FluentValidation;
 
 namespace ZKTecoADMS.Application.Commands.Auth.Refresh;
 
-public record RefreshCommand(string RefreshToken) : ICommand<AppResponse<AuthenticateResponse>>;
+public record RefreshCommand(string RefreshToken, string? DeviceKey = null) : ICommand<AppResponse<AuthenticateResponse>>;
 
 public class RefreshCommandValidator : AbstractValidator<RefreshCommand>
 {

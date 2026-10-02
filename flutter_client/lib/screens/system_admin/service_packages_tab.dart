@@ -73,6 +73,7 @@ class ServicePackagesTabState extends State<ServicePackagesTab> {
   /// Khớp PosPackageDefaults.SellModules (backend).
   /// PosKds, PosQuotes tick riêng — không gộp vào POS bán hàng.
   /// PosStorePrinters (Máy in cloud) không nằm preset — Super Admin tick từng gói.
+  /// SettingsHub luôn có: không có mã này thì cửa hàng không thấy menu Thiết lập Sbox.
   static const List<String> _posSellPreset = [
     'PosProducts',
     'PosSell',
@@ -104,6 +105,7 @@ class ServicePackagesTabState extends State<ServicePackagesTab> {
     'PosCashierShift',
     'PosPrinters',
     'PosShipping',
+    'SettingsHub',
   ];
 
   /// Khớp PosPackageDefaults.SellWarehouseModules / FullModules.
@@ -143,6 +145,7 @@ class ServicePackagesTabState extends State<ServicePackagesTab> {
     'PosCashierShift',
     'PosPrinters',
     'PosShipping',
+    'SettingsHub',
   ];
 
   static const List<String> _posFullPreset = _posSellWarehousePreset;

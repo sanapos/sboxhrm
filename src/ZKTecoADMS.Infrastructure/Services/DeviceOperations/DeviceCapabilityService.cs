@@ -21,7 +21,7 @@ public class DeviceCapabilityService(
 
         if (string.IsNullOrWhiteSpace(info.EngineProfile) || info.EngineProfile == AdmsEngineProfiles.Default)
         {
-            var profile = AdmsEngineProfiles.ResolveProfile(info.Platform, info.FirmwareVersion, device.SerialNumber);
+            var profile = AdmsEngineProfiles.ResolveProfile(info.Platform, info.FirmwareVersion, device.SerialNumber, info.PushVersion);
             AdmsEngineProfiles.ApplyProfileDefaults(info, profile);
             await deviceInfoRepository.AddOrUpdateAsync(info);
             logger.LogInformation(
@@ -31,7 +31,7 @@ public class DeviceCapabilityService(
         else
         {
             // Sửa PullDeny gắn nhầm (SN 131* + ZLM60/8300) → profile đúng.
-            var resolved = AdmsEngineProfiles.ResolveProfile(info.Platform, info.FirmwareVersion, device.SerialNumber);
+            var resolved = AdmsEngineProfiles.ResolveProfile(info.Platform, info.FirmwareVersion, device.SerialNumber, info.PushVersion);
             if (string.Equals(info.EngineProfile, AdmsEngineProfiles.PullDeny, StringComparison.OrdinalIgnoreCase)
                 && !string.Equals(resolved, AdmsEngineProfiles.PullDeny, StringComparison.OrdinalIgnoreCase))
             {
@@ -76,7 +76,7 @@ public class DeviceCapabilityService(
         if (!string.IsNullOrWhiteSpace(platform) && string.IsNullOrWhiteSpace(info.DevSupportData))
             info.DevSupportData = platform;
 
-        var profile = AdmsEngineProfiles.ResolveProfile(info.Platform, info.FirmwareVersion, device.SerialNumber);
+        var profile = AdmsEngineProfiles.ResolveProfile(info.Platform, info.FirmwareVersion, device.SerialNumber, info.PushVersion);
         // Do not overwrite a learned PullDeny with Default when SN pattern still says PullDeny.
         // Nhưng phải sửa PullDeny gắn nhầm (SN 131* + ZLM60/Ver6 → TftLegacy).
         if (string.IsNullOrWhiteSpace(info.EngineProfile)
@@ -157,7 +157,7 @@ public class DeviceCapabilityService(
             switch (commandType)
             {
                 case DeviceCommandTypes.SyncDeviceUsers
-                    when LooksLikeQuery(commandText, "USERINFO"):
+                    when !isStampCheck && (LooksLikeQuery(commandText, "USERINFO") || IsDataAck(commandText)):
                     if (info.SupportsUserQuery != true)
                     {
                         info.SupportsUserQuery = true;
@@ -165,7 +165,7 @@ public class DeviceCapabilityService(
                     }
                     break;
                 case DeviceCommandTypes.SyncAttendances
-                    when LooksLikeQuery(commandText, "ATTLOG"):
+                    when !isStampCheck && (LooksLikeQuery(commandText, "ATTLOG") || IsDataAck(commandText)):
                     if (info.SupportsAttendanceQuery != true)
                     {
                         info.SupportsAttendanceQuery = true;
@@ -215,7 +215,29 @@ public class DeviceCapabilityService(
 
         if (!string.IsNullOrWhiteSpace(explicitCommand))
         {
+            // Nút «Tải chấm công» dựng sẵn lệnh có chữ T — đổi định dạng theo máy.
+            if (commandType == DeviceCommandTypes.SyncAttendances
+                && ClockCommandBuilder.TryParseAttendanceQuery(explicitCommand, out var s, out var e))
+            {
+                return (ClockCommandBuilder.BuildGetAttendanceCommand(
+                    s, e, AdmsEngineProfiles.UsesSpaceDateTime(info.EngineProfile)), null);
+            }
             return (explicitCommand, null);
+        }
+
+        // Lỗi học được trên lệnh tải user / chấm công không khóa vĩnh viễn: sau 7 ngày thử lại một lần.
+        if (commandType is DeviceCommandTypes.SyncDeviceUsers or DeviceCommandTypes.SyncAttendances
+            && (info.SupportsUserQuery == false || info.SupportsAttendanceQuery == false)
+            && info.CapabilityUpdatedAt.HasValue
+            && info.CapabilityUpdatedAt.Value < DateTime.UtcNow.AddDays(-7))
+        {
+            if (commandType == DeviceCommandTypes.SyncDeviceUsers && info.SupportsUserQuery == false)
+                info.SupportsUserQuery = null;
+            if (commandType == DeviceCommandTypes.SyncAttendances && info.SupportsAttendanceQuery == false)
+                info.SupportsAttendanceQuery = null;
+            info.CapabilityUpdatedAt = DateTime.UtcNow;
+            info.CapabilityNotes = AppendNote(info.CapabilityNotes, $"[{DateTime.UtcNow:yyyy-MM-dd HH:mm}] retry {commandType} after 7 days");
+            await deviceInfoRepository.UpdateAsync(info, cancellationToken);
         }
 
         switch (commandType)
@@ -270,7 +292,8 @@ public class DeviceCapabilityService(
                         "Máy không hỗ trợ DATA QUERY ATTLOG. Server dùng ATTLOGStamp=0 + realtime; log đã chấm vẫn tự đẩy lên.");
                 }
 
-                return (ClockCommandBuilder.BuildGetAttendanceCommand(attStart, attEnd), null);
+                return (ClockCommandBuilder.BuildGetAttendanceCommand(
+                    attStart, attEnd, AdmsEngineProfiles.UsesSpaceDateTime(info.EngineProfile)), null);
 
             case DeviceCommandTypes.SyncFingerprints:
                 return (ClockCommandBuilder.BuildGetFingerprintsCommand(), null);
@@ -341,6 +364,10 @@ public class DeviceCapabilityService(
                     ? "Máy kiểu pull-deny: đẩy NV xuống + chấm realtime; không QUERY/ENROLL từ xa."
                     : null));
     }
+
+    /// <summary>Firmware ZK chỉ trả «CMD=DATA» cho mọi lệnh DATA UPDATE/QUERY/DELETE.</summary>
+    private static bool IsDataAck(string? command) =>
+        string.Equals(command?.Trim(), "DATA", StringComparison.OrdinalIgnoreCase);
 
     private static bool LooksLikeQuery(string? command, string table) =>
         !string.IsNullOrWhiteSpace(command)

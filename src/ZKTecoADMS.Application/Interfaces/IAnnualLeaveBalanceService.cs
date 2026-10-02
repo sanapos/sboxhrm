@@ -12,4 +12,6 @@ public interface IAnnualLeaveBalanceService
     Task<AppResponse<decimal>> TryApplyDeductionAsync(Leave leave, CancellationToken cancellationToken = default);
     /// <summary>Hoàn phép năm khi hủy duyệt / xóa đơn đã trừ.</summary>
     Task RestoreAsync(Leave leave, CancellationToken cancellationToken = default);
+    /// <summary>Kiểm tra đơn phép năm mới: null = đủ phép, ngược lại là lý do từ chối.</summary>
+    Task<string?> CheckRequestAsync(Leave leave, CancellationToken cancellationToken = default);
 }

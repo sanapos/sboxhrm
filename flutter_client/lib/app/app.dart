@@ -1,3 +1,4 @@
+import '../widgets/impersonation_banner.dart';
 import '../screens/design_system_showcase_screen.dart';
 import 'dart:ui' as ui;
 
@@ -132,7 +133,7 @@ class ZKTecoApp extends StatelessWidget {
                             child: PosTouchImeHost(
                               child: DefaultTextStyle(
                                 style: kDefaultVietnameseTextStyle,
-                                child: child!,
+                                child: ImpersonationBanner(child: child!),
                               ),
                             ),
                           ),

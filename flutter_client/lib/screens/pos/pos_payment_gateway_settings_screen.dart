@@ -55,8 +55,9 @@ class _PosPaymentGatewaySettingsScreenState
   Timer? _creditPurchasePollTimer;
   int _creditPurchasePollTry = 0;
 
+  /// Đổi tài khoản / cổng nhận tiền: đúng quyền server đòi («Tài khoản ngân hàng» – Sửa).
   bool get _canEdit =>
-      Provider.of<PermissionProvider>(context, listen: false).canEditPosSetup();
+      Provider.of<PermissionProvider>(context, listen: false).canEdit('BankAccount');
 
   @override
   void initState() {

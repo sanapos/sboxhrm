@@ -1,3 +1,4 @@
+using ZKTecoADMS.Application.Authorization;
 using Microsoft.AspNetCore.Identity;
 using Microsoft.EntityFrameworkCore;
 using ZKTecoADMS.Application.DTOs.Accounts;
@@ -46,8 +47,9 @@ public class BulkCreateEmployeeAccountsHandler(
             return AppResponse<BulkCreateEmployeeAccountsResult>.Error("Không tìm thấy quản lý.");
         }
 
-        var isManager = await userManager.IsInRoleAsync(manager, nameof(Roles.Manager));
-        var isAdmin = await userManager.IsInRoleAsync(manager, nameof(Roles.Admin));
+        // Quyền tạo đã kiểm ở API (UserManagement.Create + cấp vai trò); ở đây chỉ chặn tài khoản cấp thấp.
+        var isManager = AccountRolePolicy.RankOf(manager.Role) >= AccountRolePolicy.RankOf(nameof(Roles.DepartmentHead));
+        var isAdmin = false;
         if (!isManager && !isAdmin)
         {
             return AppResponse<BulkCreateEmployeeAccountsResult>.Error(

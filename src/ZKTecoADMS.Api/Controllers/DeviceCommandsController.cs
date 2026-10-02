@@ -1,3 +1,4 @@
+using ZKTecoADMS.Api.Authorization;
 using ZKTecoADMS.Application.Constants;
 using ZKTecoADMS.Application.Interfaces;
 using ZKTecoADMS.Domain.Enums;
@@ -19,12 +20,19 @@ namespace ZKTecoADMS.Api.Controllers;
 [Route("api/devices/{deviceId}/commands")]
 public class DeviceCommandsController(
     IMediator bus,
-    ILogger<DeviceCommandsController> logger
+    ILogger<DeviceCommandsController> logger,
+    ZKTecoDbContext dbContext
     ) : AuthenticatedControllerBase
 {
+    /// <summary>DeviceCommand không có StoreId — máy phải thuộc cửa hàng hiện tại (Devices có bộ lọc cửa hàng).</summary>
+    Task<bool> OwnsDeviceAsync(Guid deviceId) => dbContext.Devices.AnyAsync(d => d.Id == deviceId);
+
     [HttpGet]
+    [RequireAnyModulePermission(ModulePermissionAction.View, "Device", "DeviceUser", "Attendance")]
     public async Task<ActionResult<AppResponse<IEnumerable<DeviceCmdDto>>>> GetCommandsByDevice(Guid deviceId)
     {
+        if (!await OwnsDeviceAsync(deviceId))
+            return NotFound(AppResponse<IEnumerable<DeviceCmdDto>>.Fail("Không tìm thấy máy chấm công"));
         var query = new GetCommandsByDeviceQuery(deviceId);
         return Ok(await bus.Send(query));
     }
@@ -32,6 +40,8 @@ public class DeviceCommandsController(
     [HttpPost]
     public async Task<ActionResult<DeviceCmdDto>> CreateDeviceCommand(Guid deviceId, [FromBody] DeviceCmdRequest request)
     {
+        if (!await OwnsDeviceAsync(deviceId))
+            return NotFound(AppResponse<object>.Fail("Không tìm thấy máy chấm công"));
         // Lệnh đọc (đồng bộ) chỉ cần xem; lệnh sửa người dùng / vân tay / khuôn mặt cần Sửa người
         // dùng máy; lệnh xóa sạch / khởi động lại / mở cửa cần Sửa thiết bị.
         var (module, action) = RequiredPermissionFor((DeviceCommandTypes)request.CommandType);
@@ -82,8 +92,11 @@ public class DeviceCommandsController(
     };
 
     [HttpGet("pending")]
+    [RequireAnyModulePermission(ModulePermissionAction.View, "Device", "DeviceUser", "Attendance")]
     public async Task<ActionResult<AppResponse<IEnumerable<DeviceCommand>>>> GetPendingCommands(Guid deviceId)
     {
+        if (!await OwnsDeviceAsync(deviceId))
+            return NotFound(AppResponse<IEnumerable<DeviceCommand>>.Fail("Không tìm thấy máy chấm công"));
         var query = new GetPendingCmdQuery(deviceId);
 
         return Ok(await bus.Send(query));

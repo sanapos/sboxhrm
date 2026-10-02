@@ -8,7 +8,9 @@ import 'package:shared_preferences/shared_preferences.dart';
 import 'package:speech_to_text/speech_to_text.dart' as stt;
 import 'package:permission_handler/permission_handler.dart';
 
+import '../providers/auth_provider.dart';
 import '../providers/permission_provider.dart';
+import '../utils/store_role_helper.dart';
 import '../screens/landing_guide_screen.dart';
 import '../screens/settings_hub_screen.dart';
 import '../services/api_service.dart';
@@ -1211,6 +1213,15 @@ class _AiAssistantSheetState extends State<AiAssistantSheet> {
       ),
     );
   }
+}
+
+/// Gói dịch vụ có «Trợ lý AI» (Super Admin / đại lý luôn có).
+bool canUseAiAssistant(BuildContext context) {
+  final user = Provider.of<AuthProvider>(context, listen: false).user;
+  if (user == null) return false;
+  if (StoreRoleHelper.bypassesPackageFilter(user.role)) return true;
+  final mods = user.allowedModules ?? const <String>[];
+  return mods.any((m) => m.toLowerCase() == 'aiassistant');
 }
 
 Future<void> showAiAssistant(BuildContext context) {

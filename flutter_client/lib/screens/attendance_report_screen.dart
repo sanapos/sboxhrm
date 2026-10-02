@@ -21,7 +21,8 @@ import 'package:zkteco_flutter_client/l10n/app_tr.dart';
 
 import '../theme/sbox_tokens.dart';
 import '../widgets/sbox/sbox_report.dart';
-import '../widgets/sbox/sbox_charts.dart';
+import '../widgets/sbox/sbox_charts.dart';
+import '../utils/branch_filter_helper.dart';
 /// Màu chủ đạo kiểu KiotViet (xanh dương #0070F4 + xanh lá #00B63E).
 const _theme = PosTheme.kiotBlue;
 
@@ -56,7 +57,7 @@ class _AttendanceReportScreenState extends State<AttendanceReportScreen> {
   DateTime _to = DateTime.now();
   String _datePreset = 'this_month';
   String _empSearch = '';
-  String? _selectedBranchId;
+  String? _selectedBranchId = BranchFilterHelper.viewBranchId;
   String? _selectedDepartmentId;
   String? _selectedEmployeeId;
   int _page = 1;
@@ -1243,7 +1244,7 @@ class _AttendanceReportScreenState extends State<AttendanceReportScreen> {
                       onClearFilters: _teamView
                           ? () => setState(() {
                                 _empSearch = '';
-                                _selectedBranchId = null;
+                                _selectedBranchId = BranchFilterHelper.viewBranchId;
                                 _selectedDepartmentId = null;
                                 _selectedEmployeeId = null;
                                 _page = 1;

@@ -1912,7 +1912,9 @@ public class SystemAdminController : AuthenticatedControllerBase
             if (license == null)
                 return BadRequest(AppResponse<BatchAssignResult>.Fail("Không có key hợp lệ"));
                 
-            // Activate license for store
+            // Activate license for store — giữ key nguyên tử trước (chống kích hoạt trùng)
+            if (!await LicenseKeyClaim.TryClaimAsync(_dbContext, license.Id, request.StoreId))
+                return BadRequest(AppResponse<BatchAssignResult>.Fail(LicenseKeyClaim.AlreadyUsedMessage));
             license.IsUsed = true;
             license.StoreId = request.StoreId;
             license.ActivatedAt = DateTime.UtcNow;
@@ -2166,7 +2168,9 @@ public class SystemAdminController : AuthenticatedControllerBase
                     "Cửa hàng đã gia hạn tối đa 3 lần. Không thể kích hoạt thêm key."));
             }
 
-            // Activate license
+            // Activate license — giữ key nguyên tử trước (chống kích hoạt trùng)
+            if (!await LicenseKeyClaim.TryClaimAsync(_dbContext, license.Id, storeId))
+                return BadRequest(AppResponse<StoreDetailDto>.Fail(LicenseKeyClaim.AlreadyUsedMessage));
             license.IsUsed = true;
             license.StoreId = storeId;
             license.ActivatedAt = DateTime.UtcNow;

@@ -37,10 +37,15 @@ public class StorePackageModuleMiddleware
 
   private static readonly (string Prefix, string Module)[] RouteModuleMap =
     [
+        ("/api/ai/assistant", "AIAssistant"),
+        // Cấu hình / thử khóa AI: theo gói có Trợ lý AI (không bắt buộc gói Truyền thông nội bộ).
+        ("/api/communications/ai/config", "AIAssistant"),
+        ("/api/communications/ai/test", "AIAssistant"),
         ("/api/employees", "Employee"),
         ("/api/departments", "Department"),
         ("/api/deviceusers", "DeviceUser"),
         ("/api/leaves", "Leave"),
+        ("/api/annual-leave", "Leave"),
         ("/api/attendances", "Attendance"),
         ("/api/workschedules", "WorkSchedule"),
         ("/api/payroll", "Payroll"),
@@ -70,6 +75,7 @@ public class StorePackageModuleMiddleware
         ("/api/orgchart", "OrgChart"),
         ("/api/geofences", "Geofence"),
         ("/api/mobile-attendance", "MobileAttendance"),
+        ("/api/mobile-devices", "MobileAttendance"),
         ("/api/reports/attendance", "AttendanceReport"),
         ("/api/reports/attendance-analytics", "AttendanceReport"),
         ("/api/reports/finance", "CashReport"),

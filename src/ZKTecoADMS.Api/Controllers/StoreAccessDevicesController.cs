@@ -69,7 +69,7 @@ public class StoreAccessDevicesController(ZKTecoDbContext db) : AuthenticatedCon
 
         var items = rows.Select(r => new AccessDeviceDto(
             r.Id,
-            r.DeviceKey,
+            r.DeviceKey.Length <= 6 ? r.DeviceKey : "…" + r.DeviceKey[^6..],
             r.Platform,
             r.DeviceName,
             r.UserId,
@@ -102,6 +102,9 @@ public class StoreAccessDevicesController(ZKTecoDbContext db) : AuthenticatedCon
         row.DeletedBy = CurrentUserEmail ?? CurrentUserId.ToString();
         row.UpdatedAt = now;
         row.UpdatedBy = CurrentUserEmail;
+        // Máy bị thu hồi không nhận thông báo đẩy nữa.
+        var tokens = await db.UserDeviceTokens.AsTracking().Where(t => t.DeviceKey == row.DeviceKey).ToListAsync(ct);
+        if (tokens.Count > 0) db.UserDeviceTokens.RemoveRange(tokens);
         await db.SaveChangesAsync(ct);
 
         var (used, max, unlimited) = await StorePackageHelper.GetAccessDeviceQuotaAsync(db, storeId, ct);

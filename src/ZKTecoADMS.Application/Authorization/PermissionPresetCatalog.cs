@@ -187,8 +187,9 @@ public static class PermissionPresetCatalog
     /// <summary>Nhân viên: tự phục vụ — xem công / lương của mình, gửi đơn, chấm công mobile.</summary>
     static IReadOnlyDictionary<string, Flags> HrmEmployee() => new Builder()
         .Set(V, "Home", "Notification", "DashboardTodaySchedule", "DashboardInternalNews")
-        .Set(V, "Employee", "Attendance", "Payslip", "PenaltyTickets", "BonusPenalty", "Communication",
+        .Set(V, "Employee", "Attendance", "Payslip", "PenaltyTickets", "BonusPenalty",
             "MobileDeviceRegistration", "OrgChart")
+        .Set(Req, "Communication")
         .Set(Req, "Leave", "Overtime", "ShiftSwap", "AttendanceCorrection", "AttendanceApproval", "AdvanceRequests",
             "BusinessTripExpense", "MobileAttendance", "WorkSchedule", "Feedback", "Meal")
         .Set(VE, "Task")

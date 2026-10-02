@@ -30,6 +30,8 @@ import '../providers/auth_provider.dart';
 import '../utils/responsive_helper.dart';
 import '../utils/store_role_helper.dart';
 import '../services/api_service.dart';
+import '../services/branch_session.dart';
+import '../widgets/branch_switcher.dart';
 import '../services/customer_display_sync.dart';
 import '../services/pos_product_printer_service.dart';
 import '../services/pos_sell_catalog_cache.dart';
@@ -1229,6 +1231,12 @@ class _PosSellScreenState extends State<PosSellScreen>
   void initState() {
     super.initState();
     WidgetsBinding.instance.addObserver(this);
+    // Đang xem "Tất cả chi nhánh" → hỏi bán tại chi nhánh nào (đơn, kho, quỹ gắn chi nhánh đó).
+    if (BranchSession.instance.isAll) {
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (mounted && BranchSession.instance.isAll) BranchViewStrip.pick(context);
+      });
+    }
     _tabs.first.paymentLines
         .add(_SellPaymentLine(sourceKey: _PosPaymentSource.cashKey));
     HardwareKeyboard.instance.addHandler(_onKey);

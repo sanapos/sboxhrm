@@ -190,4 +190,52 @@ public class CommunicationV2Tests
         var pos = await CommV2Helper.AudienceEmployeesAsync(db, store, new CommAudience { All = false, Positions = { "bếp trưởng" } }, null);
         Assert.Equal("Trần Bình", pos.Single().Name);
     }
+
+    [Fact]
+    public void Posting_follows_permission_table()
+    {
+        var open = new CommChannel { PostPolicy = 0 };
+        var managersOnly = new CommChannel { PostPolicy = 1 };
+        var staff = new CommViewer(Guid.NewGuid(), null, null, null, null, false, "A", CanCreate: true);
+        var viewer = staff with { CanCreate = false };
+        var moderator = staff with { IsManager = true };
+        Assert.True(CommRules.CanPost(open, staff));
+        Assert.False(CommRules.CanPost(open, viewer));        // chỉ có quyền Xem → không đăng
+        Assert.False(CommRules.CanPost(managersOnly, staff));
+        Assert.True(CommRules.CanPost(managersOnly, moderator));
+    }
+
+    [Fact]
+    public void Editing_published_post_in_approval_channel_goes_back_to_review()
+    {
+        var now = DateTime.UtcNow;
+        var approval = new CommChannel { RequireApproval = true };
+        var free = new CommChannel();
+        var staff = new CommViewer(Guid.NewGuid(), null, null, null, null, false, "A");
+        var moderator = staff with { IsManager = true };
+
+        // Lách duyệt: bài đã duyệt bị nhân viên sửa → chờ duyệt lại.
+        Assert.Equal(CommunicationStatus.PendingApproval,
+            CommRules.StatusAfterEdit(CommunicationStatus.Published, true, null, approval, staff, now));
+        // Người kiểm duyệt sửa → vẫn đăng; kênh không cần duyệt → vẫn đăng.
+        Assert.Equal(CommunicationStatus.Published,
+            CommRules.StatusAfterEdit(CommunicationStatus.Published, true, null, approval, moderator, now));
+        Assert.Equal(CommunicationStatus.Published,
+            CommRules.StatusAfterEdit(CommunicationStatus.Published, true, null, free, staff, now));
+        // Bài nháp: theo luật đăng mới (hẹn giờ, nháp, chờ duyệt).
+        Assert.Equal(CommunicationStatus.Scheduled,
+            CommRules.StatusAfterEdit(CommunicationStatus.Draft, true, now.AddHours(2), free, staff, now));
+        Assert.Equal(CommunicationStatus.Draft,
+            CommRules.StatusAfterEdit(CommunicationStatus.Rejected, false, null, approval, staff, now));
+        Assert.Equal(CommunicationStatus.PendingApproval,
+            CommRules.StatusAfterEdit(CommunicationStatus.Rejected, true, null, approval, staff, now));
+    }
+
+    [Fact]
+    public void Employee_default_can_post_communication()
+    {
+        var (view, create, edit, _, _, approve) = ZKTecoADMS.Application.Authorization.ModulePermissionDefaults.Get("Employee", "Communication");
+        Assert.True(view && create);
+        Assert.False(edit || approve); // không kiểm duyệt
+    }
 }

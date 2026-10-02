@@ -70,11 +70,13 @@ String commDeltaToHtml(quill.Document doc) {
 
 /// Trình soạn bài: tiêu đề, định dạng, ảnh, tệp, bình chọn, sự kiện, đối tượng nhận, xác nhận đọc, hẹn giờ, AI.
 class CommEditorPage extends StatefulWidget {
-  const CommEditorPage({super.key, required this.ctx, this.post, this.initialChannelId, this.startWithAi = false});
+  const CommEditorPage({super.key, required this.ctx, this.post, this.initialChannelId, this.startWithAi = false, this.initialMode});
   final CommContext ctx;
   final CommPost? post;
   final String? initialChannelId;
   final bool startWithAi;
+  /// Mở sẵn: image (chọn ảnh) / file (chọn tài liệu) / poll (bật bình chọn).
+  final String? initialMode;
 
   @override
   State<CommEditorPage> createState() => _CommEditorPageState();
@@ -161,6 +163,17 @@ class _CommEditorPageState extends State<CommEditorPage> {
     if (_pollOpts.isEmpty) _pollOpts.addAll([TextEditingController(), TextEditingController()]);
     _showAi = widget.startWithAi;
     _ctrl.addListener(_onDocChanged);
+    if (p == null) {
+      switch (widget.initialMode) {
+        case 'poll':
+          _pollOn = true;
+        case 'image':
+        case 'file':
+          WidgetsBinding.instance.addPostFrameCallback((_) {
+            if (mounted) _addFiles(images: widget.initialMode == 'image');
+          });
+      }
+    }
   }
 
   void _loadContent(CommPost p) {

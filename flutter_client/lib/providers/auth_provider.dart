@@ -31,6 +31,56 @@ class AuthProvider extends ChangeNotifier {
   String? get error => _error;
   String get userRole => _user?.role ?? 'Employee';
 
+  // ─── Đăng nhập thay (Super Admin hỗ trợ khách) ───
+  static const _impBackupAccess = 'imp_backup_access';
+  static const _impBackupRefresh = 'imp_backup_refresh';
+  static const _impLabelKey = 'imp_label';
+  String? _impersonationLabel;
+
+  /// Đang đăng nhập thay một tài khoản cửa hàng.
+  bool get isImpersonating => _impersonationLabel != null;
+  String? get impersonationLabel => _impersonationLabel;
+
+  /// Chuyển sang phiên của người dùng [token] (không có refresh token); lưu phiên Super Admin để quay lại.
+  Future<bool> startImpersonation(String token, String label) async {
+    final current = await _apiService.readTokenPair();
+    if (current.access == null) return false;
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setString(_impBackupAccess, current.access!);
+    if (current.refresh != null) await prefs.setString(_impBackupRefresh, current.refresh!);
+    await prefs.setString(_impLabelKey, label);
+    await SessionReset.clearForAccountSwitch();
+    await _apiService.writeTokenPair(token, null);
+    _token = token;
+    _user = _decodeUserFromToken(token);
+    _impersonationLabel = label;
+    await _fetchAllowedModules(freshSession: true);
+    BranchSession.instance.load();
+    notifyListeners();
+    return _user != null;
+  }
+
+  /// Thoát đăng nhập thay, khôi phục phiên Super Admin.
+  Future<void> stopImpersonation() async {
+    final prefs = await SharedPreferences.getInstance();
+    final access = prefs.getString(_impBackupAccess);
+    final refresh = prefs.getString(_impBackupRefresh);
+    await prefs.remove(_impBackupAccess);
+    await prefs.remove(_impBackupRefresh);
+    await prefs.remove(_impLabelKey);
+    _impersonationLabel = null;
+    await SessionReset.clearForAccountSwitch();
+    BranchSession.instance.clear();
+    if (access == null) {
+      await logout();
+      return;
+    }
+    await _apiService.writeTokenPair(access, refresh);
+    _token = access;
+    _user = _decodeUserFromToken(access);
+    notifyListeners();
+  }
+
   final ApiService _apiService = ApiService();
   Completer<bool>? _refreshCompleter;
 
@@ -136,6 +186,11 @@ class AuthProvider extends ChangeNotifier {
     _sessionExpiredHandling = true;
     try {
       if (_token == null && _user == null) return;
+      if (isImpersonating) {
+        debugPrint('🚪 AuthProvider: Impersonation token expired → back to Super Admin');
+        await stopImpersonation();
+        return;
+      }
       debugPrint('🚪 AuthProvider: Session expired → auto logout');
       await logout();
     } finally {
@@ -194,6 +249,9 @@ class AuthProvider extends ChangeNotifier {
   Future<void> _restoreSession() async {
     final savedToken = await _apiService.getStoredToken();
     if (savedToken == null) return;
+    try {
+      _impersonationLabel = (await SharedPreferences.getInstance()).getString(_impLabelKey);
+    } catch (_) {}
 
     _token = savedToken;
     _user = _decodeUserFromToken(savedToken);
@@ -223,6 +281,8 @@ class AuthProvider extends ChangeNotifier {
     _fetchAllowedModules().then((_) {
       if (_user != null) notifyListeners();
     });
+    // Đăng nhập thay: không đăng ký nhận thông báo / gửi vị trí thay cho người dùng thật.
+    if (isImpersonating) return;
     GlobalLocationReporter.instance.startIfEligible(
       employeeId: _user?.employeeId ?? _user?.id,
     );
@@ -458,6 +518,9 @@ class AuthProvider extends ChangeNotifier {
       // Do NOT remove: saved_store_code, saved_email, admin_saved_email, remember_me, admin_remember_me
       await prefs.remove('saved_password');
       await prefs.remove('admin_saved_password');
+      await prefs.remove(_impBackupAccess);
+      await prefs.remove(_impBackupRefresh);
+      await prefs.remove(_impLabelKey);
     } catch (e) {
       debugPrint('Clear saved credentials error: $e');
     }
@@ -465,6 +528,7 @@ class AuthProvider extends ChangeNotifier {
     _token = null;
     _user = null;
     _error = null;
+    _impersonationLabel = null;
 
     _isLoading = false;
     notifyListeners();

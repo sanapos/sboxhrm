@@ -14,7 +14,8 @@ import 'package:zkteco_flutter_client/l10n/app_tr.dart';
 
 import '../theme/sbox_tokens.dart';
 import '../widgets/sbox/sbox_report.dart';
-import '../widgets/sbox/sbox_charts.dart';
+import '../widgets/sbox/sbox_charts.dart';
+import '../utils/branch_filter_helper.dart';
 const _theme = HrmPageChrome.primaryNavy;
 
 class BusinessTripReportScreen extends StatefulWidget {
@@ -34,7 +35,7 @@ class _BusinessTripReportScreenState extends State<BusinessTripReportScreen> {
   String _datePreset = 'this_month';
   int? _statusFilter;
   String _empSearch = '';
-  String? _selectedBranchId;
+  String? _selectedBranchId = BranchFilterHelper.viewBranchId;
   String? _selectedDepartmentId;
   String? _selectedCategoryKey; // categoryId or 'uncategorized'
   int _viewTab = 0;
@@ -622,7 +623,7 @@ class _BusinessTripReportScreenState extends State<BusinessTripReportScreen> {
                       onClearFilters: _teamView
                           ? () => setState(() {
                                 _empSearch = '';
-                                _selectedBranchId = null;
+                                _selectedBranchId = BranchFilterHelper.viewBranchId;
                                 _selectedDepartmentId = null;
                                 _statusFilter = null;
                                 _selectedCategoryKey = null;

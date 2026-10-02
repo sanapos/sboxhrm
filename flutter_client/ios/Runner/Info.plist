@@ -69,32 +69,26 @@
 		<string>UIInterfaceOrientationLandscapeRight</string>
 	</array>
 	<key>NSCameraUsageDescription</key>
-	<string>Ứng dụng cần quyền truy cập camera để chấm công bằng khuôn mặt</string>
+	<string>Camera dùng để chấm công bằng khuôn mặt và đăng ký khuôn mặt nhân viên (khi bạn bấm Chấm công / Đăng ký), quét mã vạch sản phẩm, chụp ảnh hàng hóa và ảnh hiện trường. Ứng dụng không quay video nền.</string>
 	<key>NSMicrophoneUsageDescription</key>
-	<string>Ứng dụng cần quyền truy cập microphone để bạn nói chuyện với Trợ lý ảo HRM bằng giọng nói</string>
+	<string>Micro chỉ dùng khi bạn bấm nút micro trong Trợ lý AI để hỏi bằng giọng nói. Ứng dụng không ghi âm nền.</string>
 	<key>NSSpeechRecognitionUsageDescription</key>
-	<string>Ứng dụng sử dụng nhận dạng giọng nói để chuyển lời nói của bạn thành văn bản khi chat với Trợ lý ảo HRM</string>
+	<string>Nhận dạng giọng nói chuyển câu hỏi bạn nói thành văn bản để gửi cho Trợ lý AI, chỉ khi bạn bấm nút micro.</string>
 	<key>NSPhotoLibraryUsageDescription</key>
-	<string>Ứng dụng cần quyền truy cập thư viện ảnh để chọn ảnh đại diện</string>
+	<string>Thư viện ảnh dùng để chọn ảnh đại diện, ảnh sản phẩm, logo cửa hàng hoặc chứng từ khi bạn chủ động chọn.</string>
 	<key>NSLocationWhenInUseUsageDescription</key>
-	<string>Ứng dụng cần quyền vị trí để xác nhận địa điểm chấm công</string>
-	<key>NSLocationAlwaysAndWhenInUseUsageDescription</key>
-	<string>Ứng dụng cần quyền vị trí để xác nhận địa điểm chấm công, kể cả khi chạy nền</string>
-	<key>NSLocationAlwaysUsageDescription</key>
-	<string>Ứng dụng cần quyền vị trí để xác nhận địa điểm chấm công, kể cả khi chạy nền</string>
+	<string>Vị trí chỉ được lấy lúc bạn bấm chấm công / check-in để xác nhận đang ở địa điểm làm việc, và khi bạn điền địa chỉ giao hàng. Ứng dụng không theo dõi vị trí liên tục hoặc khi chạy nền.</string>
 	<key>NSLocalNetworkUsageDescription</key>
-	<string>Ứng dụng cần truy cập mạng nội bộ (Local Network) để tìm gateway chấm công qua Bonjour/mDNS (sboxadms.local) và UDP trong cùng WiFi nhà. Hãy cho phép khi hệ thống hỏi.</string>
+	<string>Mạng nội bộ dùng để tìm và kết nối máy chấm công, máy in hóa đơn, màn hình bếp trong cùng WiFi cửa hàng.</string>
 	<key>NSBonjourServices</key>
 	<array>
 		<string>_sboxgw._tcp</string>
 		<string>_http._tcp</string>
 	</array>
-	<key>NSFaceIDUsageDescription</key>
-	<string>Ứng dụng sử dụng Face ID để xác thực</string>
 	<key>NSBluetoothAlwaysUsageDescription</key>
-	<string>Ứng dụng cần Bluetooth để cấu hình gateway chấm công và kết nối máy in nhiệt POS</string>
+	<string>Bluetooth dùng để kết nối máy in hóa đơn / máy in tem và cấu hình gateway chấm công.</string>
 	<key>NSBluetoothPeripheralUsageDescription</key>
-	<string>Ứng dụng cần Bluetooth để cấu hình gateway chấm công và kết nối máy in nhiệt POS</string>
+	<string>Bluetooth dùng để kết nối máy in hóa đơn / máy in tem và cấu hình gateway chấm công.</string>
 	<key>NSAppTransportSecurity</key>
 	<dict>
 		<key>NSAllowsLocalNetworking</key>

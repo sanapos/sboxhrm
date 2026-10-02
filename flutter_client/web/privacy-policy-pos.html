@@ -29,7 +29,7 @@
 <header>
   <h1>Chính sách quyền riêng tư</h1>
   <p>SBOX POS – Phần mềm bán hàng &amp; quản lý cửa hàng</p>
-  <p class="updated">Cập nhật lần cuối: 16/09/2026</p>
+  <p class="updated">Cập nhật lần cuối: 01/10/2026</p>
 </header>
 
 <div class="container">
@@ -46,11 +46,27 @@
     <ul>
       <li><span class="badge">Họ tên, email, số điện thoại</span> Định danh tài khoản thu ngân / quản lý</li>
       <li><span class="badge">Mã cửa hàng</span> Kết nối đúng dữ liệu shop trên máy chủ</li>
-      <li><span class="badge">Ảnh / camera</span> Ảnh món, mã vạch (khi người dùng chủ động dùng chức năng)</li>
-      <li><span class="badge">Vị trí (nếu bật)</span> Giao hàng / xác định cửa hàng — không theo dõi nền liên tục</li>
+      <li><span class="badge">Ảnh / camera</span> Ảnh món, mã vạch, chấm công khuôn mặt (khi người dùng chủ động dùng chức năng)</li>
+      <li><span class="badge">Vị trí</span> Chỉ lúc chấm công / check-in hoặc khi điền địa chỉ giao hàng — không theo dõi liên tục, không chạy nền</li>
+      <li><span class="badge">Khuôn mặt (module nhân sự)</span> Xác thực khi chấm công — xem mục 2a</li>
+      <li><span class="badge">Giọng nói (tùy chọn)</span> Khi bấm micro trong Trợ lý AI — xem mục 2b</li>
       <li><span class="badge">Token thiết bị</span> Thông báo đẩy đơn hàng, ca làm việc (FCM)</li>
       <li><span class="badge">Dữ liệu bán hàng</span> Đơn hàng, hóa đơn, kho, khách hàng của cửa hàng</li>
     </ul>
+  </div>
+
+  <div class="card">
+    <h2>2a. Chức năng nhân sự (HRM) trong SBOX POS</h2>
+    <p>Khi gói dịch vụ của cửa hàng có module nhân sự, SBOX POS có thêm: chấm công bằng điện thoại (khuôn mặt + vị trí), đăng ký khuôn mặt nhân viên, ca làm việc, nghỉ phép, bảng lương, công việc và truyền thông nội bộ. Các chức năng này do quản lý cửa hàng bật và chỉ hiển thị với tài khoản được phân quyền.</p>
+    <p><strong>Dữ liệu khuôn mặt:</strong> Ảnh khuôn mặt chỉ được chụp khi nhân viên chủ động bấm Chấm công hoặc khi quản lý đăng ký khuôn mặt cho nhân viên. Mẫu khuôn mặt dùng duy nhất để xác nhận đúng người khi chấm công; ảnh chụp lúc chấm công không lưu lại sau khi xác thực. Dữ liệu khuôn mặt <strong>không chia sẻ với bên thứ ba</strong> (kể cả dịch vụ AI), lưu trên máy chủ SBOX tại Việt Nam và bị xóa vĩnh viễn khi hồ sơ nhân viên hoặc đăng ký khuôn mặt bị xóa.</p>
+    <p><strong>Vị trí:</strong> Chỉ lấy tại thời điểm bấm chấm công / check-in để xác nhận đang ở địa điểm làm việc. <strong>Không theo dõi vị trí liên tục</strong>, không truy cập vị trí khi app chạy nền. Ảnh hiện trường khi chấm ngoài vị trí được giữ tối đa 30 ngày (mặc định) để quản lý đối chiếu rồi tự xóa.</p>
+    <p><em>When the store's plan includes HR modules, SBOX POS offers mobile attendance with face verification and location captured only at the moment of check-in. Face data is used solely for identity verification, never shared with third parties (including AI services), and deleted when the employee record is removed. The app does not track location continuously or in the background.</em></p>
+  </div>
+
+  <div class="card">
+    <h2>2b. Trợ lý AI &amp; giọng nói</h2>
+    <p>Trợ lý AI (nút ✨) trả lời câu hỏi về doanh thu, tồn kho, nhân sự của cửa hàng. Người dùng có thể gõ hoặc bấm nút micro để nói. Micro <strong>chỉ bật khi bạn bấm nút micro</strong>; giọng nói được chuyển thành văn bản bằng dịch vụ nhận dạng giọng nói của hệ điều hành (Apple / Google), ứng dụng không lưu bản ghi âm.</p>
+    <p>Nội dung câu hỏi (văn bản) và số liệu tổng hợp cần thiết được gửi tới Google Gemini để tạo câu trả lời. Không gửi mật khẩu, dữ liệu khuôn mặt hay thông tin thanh toán.</p>
   </div>
 
   <div class="card">
@@ -60,25 +76,31 @@
       <li>Tạo đơn, thanh toán, in hóa đơn / phiếu bếp</li>
       <li>Quản lý hàng hóa, tồn kho, khách hàng, ca và báo cáo</li>
       <li>Gửi thông báo đơn mới, cập nhật vận đơn khi cửa hàng bật tính năng liên quan</li>
+      <li>Chấm công, ca làm việc, bảng lương khi cửa hàng dùng module nhân sự</li>
+      <li>Trợ lý AI: trả lời câu hỏi kinh doanh / nhân sự, gợi ý mô tả món, đọc thực đơn từ ảnh</li>
     </ul>
   </div>
 
   <div class="card">
     <h2>4. Quyền truy cập thiết bị</h2>
-    <p><strong>Camera:</strong> Chỉ khi người dùng chủ động chụp ảnh món hoặc quét mã. Không ghi hình nền.</p>
-    <p><strong>Vị trí:</strong> Chỉ khi cửa hàng dùng giao hàng / định vị điểm bán và người dùng cấp quyền.</p>
+    <p><strong>Camera:</strong> Chỉ khi người dùng chủ động chụp ảnh món, quét mã hoặc chấm công / đăng ký khuôn mặt. Không ghi hình nền.</p>
+    <p><strong>Micro &amp; nhận dạng giọng nói:</strong> Chỉ khi bấm nút micro trong Trợ lý AI. Không ghi âm nền.</p>
+    <p><strong>Vị trí (khi dùng app):</strong> Lúc chấm công / check-in và khi điền địa chỉ giao hàng, sau khi người dùng cấp quyền. Không có quyền vị trí nền.</p>
+    <p><strong>Bluetooth / mạng nội bộ:</strong> Kết nối máy in hóa đơn, máy in tem, màn hình bếp trong cửa hàng.</p>
+    <p><strong>Thư viện ảnh:</strong> Chọn ảnh sản phẩm / logo cửa hàng khi người dùng chủ động chọn.</p>
     <p><strong>Thông báo đẩy:</strong> Firebase Cloud Messaging. Token bị xóa khi đăng xuất.</p>
   </div>
 
   <div class="card">
     <h2>5. Chia sẻ dữ liệu</h2>
     <p>Chúng tôi <strong>không bán</strong> dữ liệu cá nhân. Dữ liệu cửa hàng lưu trên máy chủ SBOX POS tại Việt Nam (<strong>sboxpos.com</strong>).</p>
-    <p>Bên thứ ba (khi cửa hàng chủ động bật): Firebase (thông báo), đối tác giao hàng / cổng thanh toán mà cửa hàng cấu hình. Không gửi dữ liệu sinh trắc học tới dịch vụ AI.</p>
+    <p>Bên thứ ba (khi cửa hàng chủ động bật): Firebase (thông báo), đối tác giao hàng / cổng thanh toán mà cửa hàng cấu hình. Google Gemini (Trợ lý AI — chỉ văn bản câu hỏi). Không gửi dữ liệu sinh trắc học tới dịch vụ AI.</p>
   </div>
 
   <div class="card">
-    <h2>6. Bảo mật dữ liệu</h2>
+    <h2>6. Bảo mật &amp; thời gian lưu trữ</h2>
     <p>Truyền HTTPS/TLS. Mật khẩu được băm. Quyền truy cập theo vai trò (thu ngân, quản lý, admin cửa hàng).</p>
+    <p>Dữ liệu bán hàng được lưu trong suốt thời gian cửa hàng sử dụng dịch vụ và theo quy định kế toán / hóa đơn của pháp luật Việt Nam. Khi tài khoản bị xóa, thông tin cá nhân của người dùng được xóa hoặc ẩn danh trong vòng 30 ngày, trừ dữ liệu phải lưu theo luật (hóa đơn điện tử, chứng từ).</p>
   </div>
 
   <div class="card">
@@ -87,7 +109,8 @@
       <li>Xem / sửa thông tin tài khoản trong app</li>
       <li>Thu hồi quyền camera / vị trí trong Cài đặt điện thoại</li>
       <li>Đăng xuất để vô hiệu hóa token thông báo</li>
-      <li>Yêu cầu xóa tài khoản / dữ liệu: email <strong>support@sboxhrm.com</strong> hoặc hotline dưới đây. Quản trị cửa hàng cũng có thể vô hiệu hóa nhân viên trên hệ thống.</li>
+      <li>Xóa tài khoản ngay trong ứng dụng: <strong>Thêm → Xóa tài khoản</strong> (nhập mật khẩu để xác nhận). Tài khoản bị xóa ngay, thông tin cá nhân được xóa khỏi hệ thống.</li>
+      <li>Hoặc yêu cầu xóa tài khoản / dữ liệu: email <strong>support@sboxhrm.com</strong> hoặc hotline dưới đây. Quản trị cửa hàng cũng có thể vô hiệu hóa nhân viên trên hệ thống.</li>
     </ul>
     <p><em>To request deletion of your SBOX POS account and associated personal data, email support@sboxhrm.com with your store code and login email. We process deletion requests for employer-provisioned accounts in coordination with the store administrator.</em></p>
   </div>
@@ -103,7 +126,7 @@
 </div>
 
 <footer>
-  <p><a href="https://sboxpos.com">← Về trang chủ SBOX POS</a></p>
+  <p><a href="https://sboxpos.com">← Về trang chủ SBOX POS</a> · <a href="/terms-pos.html">Điều khoản sử dụng</a></p>
   <p style="margin-top:8px">© 2026 SBOX POS · All rights reserved.</p>
 </footer>
 

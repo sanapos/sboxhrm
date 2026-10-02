@@ -118,9 +118,7 @@ class _PosShippingSettingsScreenState extends State<PosShippingSettingsScreen> {
 
   Future<bool> _save(_CarrierForm f, {bool silent = false}) async {
     final perm = Provider.of<PermissionProvider>(context, listen: false);
-    if (!perm.canEdit('PosShipping') &&
-        !perm.canEditPosSetup() &&
-        !perm.canEdit('PosSell')) {
+    if (!perm.canEdit('PosShipping') && !perm.canEditPosSetup()) {
       if (!silent) {
         NotificationOverlayManager().showWarning(
           title: 'Không có quyền sửa',
@@ -284,8 +282,7 @@ class _PosShippingSettingsScreenState extends State<PosShippingSettingsScreen> {
 
   bool get _canEdit =>
       context.watch<PermissionProvider>().canEdit('PosShipping') ||
-      context.watch<PermissionProvider>().canEditPosSetup() ||
-      context.watch<PermissionProvider>().canEdit('PosSell');
+      context.watch<PermissionProvider>().canEditPosSetup();
 
   @override
   Widget build(BuildContext context) {

@@ -41,6 +41,11 @@ public class LeavesController(IMediator mediator, IDataScopeService dataScopeSer
     [RequireModulePermission("Leave", ModulePermissionAction.View)]
     public async Task<ActionResult<AppResponse<AnnualLeaveBalanceDto>>> GetAnnualLeaveBalance(Guid employeeId)
     {
+        // Dưới cấp Trưởng phòng chỉ xem phép năm của chính mình.
+        if (ZKTecoADMS.Application.Authorization.AccountRolePolicy.RankOf(CurrentUserRole)
+                < ZKTecoADMS.Application.Authorization.AccountRolePolicy.RankOf(nameof(ZKTecoADMS.Domain.Enums.Roles.DepartmentHead))
+            && EmployeeId != employeeId)
+            return StatusCode(StatusCodes.Status403Forbidden, AppResponse<AnnualLeaveBalanceDto>.Fail("Chỉ xem được phép năm của bạn."));
         var result = await mediator.Send(new GetAnnualLeaveBalanceQuery(employeeId));
         return result.IsSuccess ? Ok(result) : BadRequest(result);
     }

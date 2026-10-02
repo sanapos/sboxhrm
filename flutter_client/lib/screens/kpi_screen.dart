@@ -65,7 +65,7 @@ class _KpiScreenState extends State<KpiScreen> with TickerProviderStateMixin {
   // --- Filters ---
   String? _filterDepartment;
   String? _filterEmployeeId;
-  String? _filterBranchId;
+  String? _filterBranchId = BranchFilterHelper.viewBranchId;
   List<Map<String, dynamic>> _branches = [];
 
   // --- Export ---
@@ -575,7 +575,7 @@ class _KpiScreenState extends State<KpiScreen> with TickerProviderStateMixin {
   }
 
   bool get _hasActiveFilters =>
-      _filterBranchId != null ||
+      _filterBranchId != BranchFilterHelper.viewBranchId ||
       _filterDepartment != null ||
       _filterEmployeeId != null;
 
@@ -599,7 +599,7 @@ class _KpiScreenState extends State<KpiScreen> with TickerProviderStateMixin {
 
   void _clearKpiFilters() {
     setState(() {
-      _filterBranchId = null;
+      _filterBranchId = BranchFilterHelper.viewBranchId;
       _filterDepartment = null;
       _filterEmployeeId = null;
     });

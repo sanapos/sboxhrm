@@ -1421,7 +1421,7 @@ public class CommunicationController(
     /// </summary>
     [HttpGet("ai/config")]
     [Authorize]
-    [RequireModulePermission("Communication", ModulePermissionAction.View)]
+    [RequireAnyModulePermission(ModulePermissionAction.View, "AIGemini", "Communication")]
     public async Task<IActionResult> GetGeminiConfig()
     {
         try
@@ -1480,7 +1480,7 @@ public class CommunicationController(
     /// </summary>
     [HttpPost("ai/config")]
     [Authorize]
-    [RequireModulePermission("Communication", ModulePermissionAction.Edit)]
+    [RequireModulePermission("AIGemini", ModulePermissionAction.Edit)]
     public async Task<IActionResult> UpdateGeminiConfig([FromBody] UpdateGeminiConfigDto dto)
     {
         try
@@ -1581,7 +1581,7 @@ public class CommunicationController(
     /// </summary>
     [HttpPost("ai/test")]
     [Authorize]
-    [RequireModulePermission("Communication", ModulePermissionAction.Create)]
+    [RequireModulePermission("AIGemini", ModulePermissionAction.Edit)]
     public async Task<IActionResult> TestGeminiConnection()
     {
         try

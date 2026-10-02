@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import '../widgets/delete_account_dialog.dart';
 import 'package:package_info_plus/package_info_plus.dart';
 import 'package:zkteco_flutter_client/widgets/app_responsive_dialog.dart';
 import '../utils/responsive_helper.dart';
@@ -290,6 +291,14 @@ class _SettingsScreenState extends State<SettingsScreen> {
                   side: const BorderSide(color: Colors.red),
                   padding: const EdgeInsets.symmetric(vertical: 16),
                 ),
+              ),
+            ),
+            const SizedBox(height: 8),
+            Center(
+              child: TextButton.icon(
+                onPressed: () => showDeleteAccountDialog(context),
+                icon: const Icon(Icons.person_remove_outlined, size: 18, color: Colors.red),
+                label: Text(tr('Xóa tài khoản'), style: const TextStyle(color: Colors.red)),
               ),
             ),
             const SizedBox(height: 32),

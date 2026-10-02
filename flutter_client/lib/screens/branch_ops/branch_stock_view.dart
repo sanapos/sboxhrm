@@ -36,7 +36,7 @@ class _BranchStockViewState extends State<BranchStockView> {
   @override
   void initState() {
     super.initState();
-    _branchId = widget.branchId ?? BranchSession.instance.currentId;
+    _branchId = widget.branchId ?? BranchSession.instance.writeBranchId;
     _load();
   }
 

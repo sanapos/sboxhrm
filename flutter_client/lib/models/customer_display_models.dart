@@ -1,3 +1,4 @@
+import 'dart:math';
 import 'dart:convert';
 
 /// Trạng thái đẩy sang màn hình phụ (khách).
@@ -326,16 +327,11 @@ class CustomerDisplayConfig {
   /// T1 native | Android Flutter | Window/browser.
   final CustomerDisplayTarget target;
 
+  /// Mã ngẫu nhiên an toàn (link xem không cần đăng nhập — không được đoán từ thời gian tạo).
   static String newViewerCode() {
     const chars = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789';
-    final r = DateTime.now().microsecondsSinceEpoch;
-    final buf = StringBuffer();
-    var x = r;
-    for (var i = 0; i < 8; i++) {
-      buf.write(chars[x % chars.length]);
-      x = (x ~/ chars.length) ^ (r >> (i * 3));
-    }
-    return buf.toString();
+    final rnd = Random.secure();
+    return List.generate(10, (_) => chars[rnd.nextInt(chars.length)]).join();
   }
 
   factory CustomerDisplayConfig.fromExtraJson(String? extraJson) {

@@ -102,3 +102,16 @@ public class CommunicationBookmark : Entity<Guid>
     [Required]
     public Guid UserId { get; set; }
 }
+
+/// <summary>Lượt thích bình luận (mỗi người một lượt).</summary>
+public class CommunicationCommentLike : Entity<Guid>
+{
+    [Required]
+    public Guid StoreId { get; set; }
+
+    [Required]
+    public Guid CommentId { get; set; }
+
+    [Required]
+    public Guid UserId { get; set; }
+}

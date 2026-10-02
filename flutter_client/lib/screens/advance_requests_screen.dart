@@ -54,7 +54,7 @@ class _AdvanceRequestsScreenState extends State<AdvanceRequestsScreen> {
   DateTime? _toDate;
   String _searchQuery = '';
   Employee? _selectedEmployee;
-  String? _selectedBranchId;
+  String? _selectedBranchId = BranchFilterHelper.viewBranchId;
   List<Map<String, dynamic>> _branches = [];
 
   // Sorting

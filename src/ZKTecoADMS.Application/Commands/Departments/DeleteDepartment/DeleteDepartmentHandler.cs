@@ -34,8 +34,11 @@ public class DeleteDepartmentHandler(
             }
 
             // Check if there are employees in this department
+            // Gồm cả nhân viên cũ chỉ lưu tên phòng ban dạng chữ.
+            var deptName = department.Name;
             var hasEmployees = await employeeRepository.ExistsAsync(
-                filter: e => e.DepartmentId == request.Id,
+                filter: e => e.DepartmentId == request.Id
+                    || (e.StoreId == request.StoreId && e.DepartmentId == null && e.Department == deptName),
                 cancellationToken: cancellationToken);
 
             if (hasEmployees)
@@ -43,7 +46,6 @@ public class DeleteDepartmentHandler(
                 return AppResponse<bool>.Error("Không thể xóa phòng ban có nhân viên. Vui lòng chuyển nhân viên sang phòng ban khác trước.");
             }
 
-            var deptName = department.Name;
             var deptCode = department.Code;
             await departmentRepository.DeleteAsync(department, cancellationToken);
 

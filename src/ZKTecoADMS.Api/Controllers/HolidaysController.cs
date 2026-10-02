@@ -21,26 +21,47 @@ public class HolidaysController(IRepository<Holiday> repository) : Authenticated
         var targetYear = year ?? DateTime.Now.Year;
         var storeId = RequiredStoreId;
         
-        // Filter by StoreId for multi-tenant data isolation
+        // Ngày lễ của năm + ngày lễ «lặp hằng năm» tạo ở năm trước (quy đổi sang năm đang xem).
         var holidays = await repository.GetAllAsync(
-            filter: h => h.StoreId == storeId && h.Date.Year == targetYear,
+            filter: h => h.StoreId == storeId && (h.Date.Year == targetYear || (h.IsRecurring && h.Date.Year < targetYear)),
             orderBy: q => q.OrderBy(h => h.Date));
-        
-        var dtos = holidays.Select(h => new HolidayDto
-        {
-            Id = h.Id,
-            Name = h.Name,
-            Date = h.Date,
-            Description = h.Description,
-            IsRecurring = h.IsRecurring,
-            Region = h.Region,
-            SalaryRate = h.SalaryRate,
-            Category = h.Category,
-            EmployeeIds = string.IsNullOrEmpty(h.EmployeeIds) ? null : JsonSerializer.Deserialize<List<string>>(h.EmployeeIds)
-        }).ToList();
-        
-        return Ok(AppResponse<List<HolidayDto>>.Success(dtos));
+
+        return Ok(AppResponse<List<HolidayDto>>.Success(ForYear(holidays, targetYear)));
     }
+
+    /// <summary>
+    /// Danh sách ngày lễ của [year]: bản ghi đúng năm + bản ghi lặp hằng năm của năm trước (đổi sang [year]).
+    /// Bỏ bản lặp nếu năm đó đã có ngày lễ cùng ngày; 29/02 lặp chỉ hiện ở năm nhuận.
+    /// </summary>
+    public static List<HolidayDto> ForYear(IEnumerable<Holiday> holidays, int year)
+    {
+        var list = holidays.ToList();
+        var exact = list.Where(h => h.Date.Year == year).ToList();
+        var taken = exact.Select(h => (h.Date.Month, h.Date.Day)).ToHashSet();
+        var result = exact.Select(h => ToDto(h, h.Date, false)).ToList();
+        foreach (var h in list.Where(h => h.IsRecurring && h.Date.Year < year).OrderByDescending(h => h.Date.Year))
+        {
+            if (h.Date.Month == 2 && h.Date.Day == 29 && !DateTime.IsLeapYear(year)) continue;
+            if (!taken.Add((h.Date.Month, h.Date.Day))) continue;
+            result.Add(ToDto(h, new DateTime(year, h.Date.Month, h.Date.Day, h.Date.Hour, h.Date.Minute, 0, h.Date.Kind), true));
+        }
+        return result.OrderBy(d => d.Date).ToList();
+    }
+
+    static HolidayDto ToDto(Holiday h, DateTime date, bool projected) => new()
+    {
+        Id = h.Id,
+        Name = h.Name,
+        Date = date,
+        Description = h.Description,
+        IsRecurring = h.IsRecurring,
+        Region = h.Region,
+        SalaryRate = h.SalaryRate,
+        Category = h.Category,
+        EmployeeIds = string.IsNullOrEmpty(h.EmployeeIds) ? null : JsonSerializer.Deserialize<List<string>>(h.EmployeeIds),
+        IsProjected = projected,
+        OriginYear = projected ? h.Date.Year : null,
+    };
 
     [HttpGet("{id}")]
     [Authorize(Policy = PolicyNames.AtLeastManager)]
@@ -176,6 +197,10 @@ public class HolidaysController(IRepository<Holiday> repository) : Authenticated
 
 public class HolidayDto
 {
+    /// <summary>Ngày lễ lặp hằng năm tạo ở năm khác, đã quy đổi sang năm đang xem.</summary>
+    public bool IsProjected { get; set; }
+    public int? OriginYear { get; set; }
+
     public Guid Id { get; set; }
     public string Name { get; set; } = string.Empty;
     public DateTime Date { get; set; }

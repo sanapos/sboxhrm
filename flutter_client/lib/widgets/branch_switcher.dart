@@ -22,17 +22,16 @@ class BranchSwitcher extends StatelessWidget {
       builder: (context, _) {
         final s = BranchSession.instance;
         if (!s.showSwitcher) return const SizedBox.shrink();
-        final cur = s.current;
         final fg = onDark ? Colors.white : SboxColors.brand700;
         return PopupMenuButton<String>(
-          tooltip: tr('Chi nhánh đang thao tác'),
+          tooltip: tr('Chi nhánh đang làm việc'),
           position: PopupMenuPosition.under,
           onSelected: (id) async {
             await s.select(id);
             if (!context.mounted) return;
             ScaffoldMessenger.maybeOf(context)?.showSnackBar(SnackBar(
               duration: const Duration(seconds: 2),
-              content: Text(tr('Đang thao tác tại: ${s.nameOf(id)}')),
+              content: Text(tr('Đang xem: ${s.nameOf(id)}')),
             ));
           },
           itemBuilder: (_) => [
@@ -42,6 +41,23 @@ class BranchSwitcher extends StatelessWidget {
               child: Text(tr('Chọn chi nhánh làm việc'),
                   style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w700, color: SboxColors.slate500)),
             ),
+            PopupMenuItem<String>(
+              value: BranchSession.allId,
+              child: Row(children: [
+                Icon(
+                  s.isAll ? Icons.radio_button_checked_rounded : Icons.radio_button_off_rounded,
+                  size: 18,
+                  color: s.isAll ? SboxColors.brand600 : SboxColors.slate400,
+                ),
+                const SizedBox(width: 10),
+                Expanded(
+                  child: Text(tr('Tất cả chi nhánh'),
+                      style: TextStyle(
+                          fontWeight: s.isAll ? FontWeight.w700 : FontWeight.w500, color: SboxColors.slate900)),
+                ),
+              ]),
+            ),
+            const PopupMenuDivider(height: 8),
             for (final b in s.branches)
               PopupMenuItem<String>(
                 value: b.id,
@@ -81,12 +97,12 @@ class BranchSwitcher extends StatelessWidget {
               border: Border.all(color: onDark ? Colors.white.withValues(alpha: 0.3) : SboxColors.brand200),
             ),
             child: Row(mainAxisSize: MainAxisSize.min, children: [
-              Icon(Icons.storefront_rounded, size: 17, color: fg),
+              Icon(s.isAll ? Icons.account_tree_rounded : Icons.storefront_rounded, size: 17, color: fg),
               const SizedBox(width: 6),
               ConstrainedBox(
                 constraints: BoxConstraints(maxWidth: compact ? 90 : 180),
                 child: Text(
-                  tr(cur?.name ?? 'Chọn chi nhánh'),
+                  tr(s.currentLabel),
                   maxLines: 1,
                   overflow: TextOverflow.ellipsis,
                   style: TextStyle(fontSize: 13, fontWeight: FontWeight.w700, color: fg),
@@ -95,6 +111,87 @@ class BranchSwitcher extends StatelessWidget {
               const SizedBox(width: 2),
               Icon(Icons.expand_more_rounded, size: 18, color: fg),
             ]),
+          ),
+        );
+      },
+    );
+  }
+}
+
+/// Dòng mảnh "Đang xem: Chi nhánh X · Đổi" (điện thoại) — mọi màn hình lọc theo chi nhánh này.
+/// Bấm "Đổi" mở danh sách chi nhánh (kèm "Tất cả chi nhánh").
+class BranchViewStrip extends StatelessWidget {
+  const BranchViewStrip({super.key});
+
+  static Future<void> pick(BuildContext context) async {
+    final s = BranchSession.instance;
+    final id = await showModalBottomSheet<String>(
+      context: context,
+      showDragHandle: true,
+      builder: (ctx) {
+        Widget tile(String id, String name, {bool hq = false}) {
+          final sel = id == s.currentId;
+          return ListTile(
+            leading: Icon(sel ? Icons.radio_button_checked_rounded : Icons.radio_button_off_rounded,
+                color: sel ? SboxColors.brand600 : SboxColors.slate400),
+            title: Text(tr(name), style: TextStyle(fontWeight: sel ? FontWeight.w700 : FontWeight.w500)),
+            trailing: hq
+                ? Text(tr('Trụ sở'),
+                    style: const TextStyle(fontSize: 11, color: SboxColors.brand700, fontWeight: FontWeight.w700))
+                : null,
+            onTap: () => Navigator.pop(ctx, id),
+          );
+        }
+
+        return SafeArea(
+          child: ListView(shrinkWrap: true, children: [
+            Padding(
+              padding: const EdgeInsets.fromLTRB(20, 0, 20, 8),
+              child: Text(tr('Chọn chi nhánh làm việc'),
+                  style: const TextStyle(fontSize: 16, fontWeight: FontWeight.w800)),
+            ),
+            tile(BranchSession.allId, 'Tất cả chi nhánh'),
+            const Divider(height: 1),
+            for (final b in s.branches) tile(b.id, b.name, hq: b.isHeadquarter),
+          ]),
+        );
+      },
+    );
+    if (id != null) await s.select(id);
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return ListenableBuilder(
+      listenable: BranchSession.instance,
+      builder: (context, _) {
+        final s = BranchSession.instance;
+        if (!s.showSwitcher) return const SizedBox.shrink();
+        return Material(
+          color: SboxColors.brand50,
+          child: InkWell(
+            onTap: () => pick(context),
+            child: Container(
+              height: 32,
+              padding: const EdgeInsets.symmetric(horizontal: 14),
+              decoration: const BoxDecoration(border: Border(bottom: BorderSide(color: SboxColors.brand200))),
+              child: Row(children: [
+                Icon(s.isAll ? Icons.account_tree_rounded : Icons.storefront_rounded,
+                    size: 15, color: SboxColors.brand700),
+                const SizedBox(width: 6),
+                Text(tr('Đang xem:'), style: const TextStyle(fontSize: 12.5, color: SboxColors.slate600)),
+                const SizedBox(width: 4),
+                Expanded(
+                  child: Text(tr(s.currentLabel),
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      style: const TextStyle(fontSize: 12.5, fontWeight: FontWeight.w800, color: SboxColors.brand700)),
+                ),
+                Text(tr('Đổi'),
+                    style: const TextStyle(fontSize: 12.5, fontWeight: FontWeight.w700, color: SboxColors.brand600)),
+                const Icon(Icons.expand_more_rounded, size: 16, color: SboxColors.brand600),
+              ]),
+            ),
           ),
         );
       },

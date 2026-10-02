@@ -327,6 +327,16 @@ class _RegisterScreenState extends State<RegisterScreen>
   }
 
   void _applyInitialPackageSelection() {
+    // Bảng giá trang chủ: /register?package=<id>
+    final qId = Uri.base.queryParameters['package']?.trim();
+    if (qId != null && qId.isNotEmpty && _servicePackages.any((p) => p.id == qId)) {
+      if (mounted) {
+        setState(() => _selectedServicePackageId = qId);
+      } else {
+        _selectedServicePackageId = qId;
+      }
+      return;
+    }
     if (_initialPackageName == null || _servicePackages.isEmpty) return;
     final normalizedTarget = _normalizePackageName(_initialPackageName!);
     final matched = _servicePackages
@@ -1730,7 +1740,34 @@ class _PublicServicePackage {
     required this.allowMobile,
     required this.allowedModules,
     required this.features,
+    this.monthlyPrice,
+    this.yearlyPrice,
+    this.trialDays = 0,
+    this.productLine = 'both',
+    this.badge,
   });
+
+  final double? monthlyPrice;
+  final double? yearlyPrice;
+  final int trialDays;
+  final String productLine;
+  final String? badge;
+
+  static String _vnd(double v) {
+    final s = v.round().toString();
+    final b = StringBuffer();
+    for (var i = 0; i < s.length; i++) {
+      if (i > 0 && (s.length - i) % 3 == 0) b.write('.');
+      b.write(s[i]);
+    }
+    return '$bđ';
+  }
+
+  String get priceText {
+    if (monthlyPrice == null && yearlyPrice == null) return 'Giá: liên hệ';
+    if (monthlyPrice == null) return '${_vnd(yearlyPrice!)}/năm';
+    return '${_vnd(monthlyPrice!)}/tháng${yearlyPrice != null ? ' · ${_vnd(yearlyPrice!)}/năm' : ''}';
+  }
 
   final String id;
   final String name;
@@ -1745,7 +1782,7 @@ class _PublicServicePackage {
   final List<String> allowedModules;
   final List<_PackageFeature> features;
 
-  String get displayLabel => '$name - $defaultDurationDays ngày';
+  String get displayLabel => '$name - ${monthlyPrice != null ? priceText : '$defaultDurationDays ngày'}';
 
   String get moduleSummary {
     if (features.isEmpty) return 'Chức năng cơ bản';
@@ -1764,7 +1801,8 @@ class _PublicServicePackage {
     ];
     if (!allowWeb) parts.add('không dùng web');
     if (!allowMobile) parts.add('không dùng mobile/POS');
-    return 'Dùng thử $defaultDurationDays ngày · ${parts.join(' · ')}';
+    final trial = trialDays > 0 ? trialDays : defaultDurationDays;
+    return '$priceText · Dùng thử $trial ngày · ${parts.join(' · ')}';
   }
 
   String get descriptionText {
@@ -1831,6 +1869,11 @@ class _PublicServicePackage {
       allowMobile: asBool(map['allowMobile']),
       allowedModules: modules,
       features: features,
+      monthlyPrice: (map['monthlyPrice'] as num?)?.toDouble(),
+      yearlyPrice: (map['yearlyPrice'] as num?)?.toDouble(),
+      trialDays: _toInt(map['trialDays']),
+      productLine: map['productLine']?.toString() ?? 'both',
+      badge: map['badge']?.toString(),
     );
   }
 

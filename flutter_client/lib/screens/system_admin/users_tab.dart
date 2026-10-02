@@ -1,3 +1,4 @@
+import 'v2/sa_user_security.dart';
 import 'package:flutter/material.dart';
 import 'package:zkteco_flutter_client/widgets/app_responsive_dialog.dart';
 import 'package:flutter/services.dart';
@@ -687,6 +688,9 @@ class UsersTabState extends State<UsersTab> {
                       _actionBtn(Icons.admin_panel_settings, 'Đổi quyền',
                           AdminHelpers.info,
                           () => _showChangeRoleDialog(user)),
+                      _actionBtn(Icons.shield_outlined, 'Bảo mật & hỗ trợ',
+                          AdminHelpers.primary,
+                          () => showSaUserSecurityDialog(context, user)),
                     ],
                     if (context.systemAdminCanDelete)
                       _actionBtn(Icons.delete_outline, 'Xóa TK',

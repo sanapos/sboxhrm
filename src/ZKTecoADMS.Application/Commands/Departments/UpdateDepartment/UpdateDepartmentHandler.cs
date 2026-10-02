@@ -83,6 +83,7 @@ public class UpdateDepartmentHandler(
             }
 
             // Update department
+            var oldName = department.Name;
             department.Code = request.Code;
             department.Name = request.Name;
             department.Description = request.Description;
@@ -98,6 +99,24 @@ public class UpdateDepartmentHandler(
             department.UpdatedAt = DateTime.UtcNow;
 
             await departmentRepository.UpdateAsync(department, cancellationToken);
+
+            // Hồ sơ nhân viên lưu cả tên phòng ban dạng chữ (báo cáo, bộ lọc dùng tên này) → đồng bộ khi đổi tên.
+            // Nhân viên cũ chỉ có tên chữ trùng tên cũ cũng được gắn vào phòng ban.
+            var newName = request.Name.Trim();
+            var staleEmployees = await employeeRepository.GetAllAsync(
+                filter: e => e.StoreId == request.StoreId
+                    && ((e.DepartmentId == department.Id && e.Department != newName)
+                        || (e.DepartmentId == null && e.Department == oldName)),
+                cancellationToken: cancellationToken);
+            if (staleEmployees.Count > 0)
+            {
+                foreach (var e in staleEmployees)
+                {
+                    e.DepartmentId = department.Id;
+                    e.Department = newName;
+                }
+                await employeeRepository.UpdateRangeAsync(staleEmployees, cancellationToken);
+            }
 
             try
             {

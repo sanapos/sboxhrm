@@ -303,7 +303,11 @@ class ApiService {
           .post(
             Uri.parse('$baseUrl/api/auth/refresh'),
             headers: {'Content-Type': 'application/json'},
-            body: json.encode({'refreshToken': refreshTk}),
+            body: json.encode({
+              'refreshToken': refreshTk,
+              // Thiết bị đã bị gỡ khỏi cửa hàng → server bắt đăng nhập lại.
+              'deviceKey': prefs.getString('sbox_access_device_key') ?? '',
+            }),
           )
           .timeout(const Duration(seconds: 10));
 
@@ -2508,6 +2512,180 @@ class ApiService {
     }
   }
 
+  // ==================== THIẾT LẬP: TÌNH TRẠNG ====================
+
+  /// Tình trạng từng mục Thiết lập: [{key, status: ok|todo|warn|info, text}].
+  Future<Map<String, dynamic>> getSettingsHealth() async {
+    try {
+      final r = await _retryOnUnauthorized(() => http
+          .get(Uri.parse('$baseUrl/api/settings-health'), headers: _headers)
+          .timeout(const Duration(seconds: 20)));
+      return _handleResponse(r);
+    } catch (e) {
+      return _connectionFailure(e);
+    }
+  }
+
+  // ==================== QUÁ TRÌNH CÔNG TÁC ====================
+
+  Future<Map<String, dynamic>> _careerSend(String method, String path, [Map<String, dynamic>? body]) async {
+    try {
+      final uri = Uri.parse('$baseUrl/api/employee-career/$path');
+      final r = await _retryOnUnauthorized(() => (switch (method) {
+            'POST' => http.post(uri, headers: _headers, body: json.encode(body ?? {})),
+            'PUT' => http.put(uri, headers: _headers, body: json.encode(body ?? {})),
+            'DELETE' => http.delete(uri, headers: _headers),
+            _ => http.get(uri, headers: _headers),
+          })
+              .timeout(const Duration(seconds: 25)));
+      return _handleResponse(r);
+    } catch (e) {
+      return _connectionFailure(e);
+    }
+  }
+
+  /// Dòng thời gian quá trình công tác + tóm tắt.
+  Future<Map<String, dynamic>> getEmployeeCareer(String employeeId) => _careerSend('GET', employeeId);
+
+  /// Thêm khen thưởng / kỷ luật (kind = award | discipline).
+  Future<Map<String, dynamic>> addCareerRecord(String employeeId, Map<String, dynamic> data) =>
+      _careerSend('POST', '$employeeId/records', data);
+
+  Future<Map<String, dynamic>> updateCareerRecord(String id, Map<String, dynamic> data) =>
+      _careerSend('PUT', 'records/$id', data);
+
+  Future<Map<String, dynamic>> deleteCareerRecord(String id) => _careerSend('DELETE', 'records/$id');
+
+  /// Điều chuyển / bổ nhiệm / thăng chức (kind = transfer | appointment | promotion).
+  Future<Map<String, dynamic>> moveEmployeeCareer(String employeeId, Map<String, dynamic> data) =>
+      _careerSend('POST', '$employeeId/move', data);
+
+  // ==================== PHÒNG BAN V2 ====================
+
+  Future<Map<String, dynamic>> _deptV2Get(String path, [Map<String, String>? q]) async {
+    try {
+      final uri = Uri.parse('$baseUrl/api/departments/v2/$path').replace(queryParameters: q);
+      final r = await _retryOnUnauthorized(() => http.get(uri, headers: _headers).timeout(const Duration(seconds: 25)));
+      return _handleResponse(r);
+    } catch (e) {
+      return _connectionFailure(e);
+    }
+  }
+
+  Future<Map<String, dynamic>> _deptV2Post(String path, Map<String, dynamic> body) async {
+    try {
+      final r = await _retryOnUnauthorized(() => http
+          .post(Uri.parse('$baseUrl/api/departments/v2/$path'), headers: _headers, body: json.encode(body))
+          .timeout(const Duration(seconds: 25)));
+      return _handleResponse(r);
+    } catch (e) {
+      return _connectionFailure(e);
+    }
+  }
+
+  /// Cây phòng ban + số nhân viên (theo chi nhánh đang xem), quản lý, chức vụ.
+  Future<Map<String, dynamic>> getDepartmentOverview() => _deptV2Get('overview');
+
+  /// Nhân viên của phòng ban ('none' = chưa có phòng ban).
+  Future<Map<String, dynamic>> getDepartmentMembers(String id, {bool includeChildren = false}) =>
+      _deptV2Get('$id/members', {'includeChildren': '$includeChildren'});
+
+  Future<Map<String, dynamic>> searchEmployeesForDepartment(String q) => _deptV2Get('employee-search', {'q': q});
+
+  /// Chuyển nhân viên sang phòng ban (null = bỏ phòng ban).
+  Future<Map<String, dynamic>> moveEmployeesToDepartment(List<String> employeeIds, String? targetDepartmentId) =>
+      _deptV2Post('move-employees', {'employeeIds': employeeIds, 'targetDepartmentId': targetDepartmentId});
+
+  /// Đổi phòng cha / thứ tự: [{id, parentId, sortOrder}].
+  Future<Map<String, dynamic>> reorderDepartments(List<Map<String, dynamic>> items) =>
+      _deptV2Post('reorder', {'items': items});
+
+  /// Xóa phòng ban, chuyển nhân viên còn lại sang [targetDepartmentId].
+  Future<Map<String, dynamic>> deleteDepartmentWithTransfer(String id, String? targetDepartmentId) =>
+      _deptV2Post('$id/delete', {'targetDepartmentId': targetDepartmentId});
+
+  // ==================== THIẾT BỊ CHẤM CÔNG MOBILE (QUẢN LÝ) ====================
+
+  Future<Map<String, dynamic>> _mdGet(String path) async {
+    try {
+      final r = await _retryOnUnauthorized(() => http
+          .get(Uri.parse('$baseUrl/api/mobile-devices/$path'), headers: _headers)
+          .timeout(const Duration(seconds: 25)));
+      return _handleResponse(r);
+    } catch (e) {
+      return _connectionFailure(e);
+    }
+  }
+
+  Future<Map<String, dynamic>> _mdPost(String path, Map<String, dynamic> body) async {
+    try {
+      final r = await _retryOnUnauthorized(() => http
+          .post(Uri.parse('$baseUrl/api/mobile-devices/$path'), headers: _headers, body: json.encode(body))
+          .timeout(const Duration(seconds: 25)));
+      return _handleResponse(r);
+    } catch (e) {
+      return _connectionFailure(e);
+    }
+  }
+
+  /// Cần duyệt: đăng ký mới + đổi máy (kèm ảnh khuôn mặt, địa điểm).
+  Future<Map<String, dynamic>> getMobileDeviceInbox() => _mdGet('inbox');
+
+  /// Máy đã cấp quyền (theo chi nhánh đang xem).
+  Future<Map<String, dynamic>> getMobileDevicesV2() => _mdGet('devices');
+
+  /// Nhân viên chưa có máy được duyệt.
+  Future<Map<String, dynamic>> getUnregisteredMobileEmployees() => _mdGet('unregistered');
+
+  /// Đổi quyền nhiều máy (trường không gửi = giữ nguyên).
+  Future<Map<String, dynamic>> bulkUpdateMobileDevices(List<String> ids, Map<String, bool> flags) =>
+      _mdPost('devices/bulk', {'ids': ids, ...flags});
+
+  Future<Map<String, dynamic>> remindMobileRegistration(List<String> employeeIds) =>
+      _mdPost('remind', {'employeeIds': employeeIds});
+
+  /// Nhân viên tự hủy đăng ký / đổi máy đang chờ duyệt.
+  Future<Map<String, dynamic>> cancelMyDeviceRequest({String? employeeId}) =>
+      _mdPost('my-request/cancel', {'employeeId': employeeId});
+
+  // ==================== CA MẪU V2 ====================
+
+  /// Mức sử dụng mọi ca: lịch, nhân viên, lương ca / phụ cấp đang gắn, có xóa được không.
+  Future<Map<String, dynamic>> getShiftTemplateUsage() async {
+    try {
+      final r = await _retryOnUnauthorized(() => http
+          .get(Uri.parse('$baseUrl/api/shifts/templates/usage'), headers: _headers)
+          .timeout(const Duration(seconds: 20)));
+      return _handleResponse(r);
+    } catch (e) {
+      return _connectionFailure(e);
+    }
+  }
+
+  Future<Map<String, dynamic>> duplicateShiftTemplate(String id) async {
+    try {
+      final r = await _retryOnUnauthorized(() => http
+          .post(Uri.parse('$baseUrl/api/shifts/templates/$id/duplicate'), headers: _headers)
+          .timeout(const Duration(seconds: 15)));
+      return _handleResponse(r);
+    } catch (e) {
+      return _connectionFailure(e);
+    }
+  }
+
+  /// Ngừng dùng / dùng lại ca (ẩn khỏi xếp ca mới, giữ lịch sử).
+  Future<Map<String, dynamic>> setShiftTemplateActive(String id, bool isActive) async {
+    try {
+      final r = await _retryOnUnauthorized(() => http
+          .patch(Uri.parse('$baseUrl/api/shifts/templates/$id/active'),
+              headers: _headers, body: json.encode({'isActive': isActive}))
+          .timeout(const Duration(seconds: 15)));
+      return _handleResponse(r);
+    } catch (e) {
+      return _connectionFailure(e);
+    }
+  }
+
   // ==================== SCHEDULE REGISTRATIONS ====================
 
   // Lấy danh sách đăng ký lịch
@@ -2872,6 +3050,90 @@ class ApiService {
   /// Hồ sơ lương của mọi NV trong cửa hàng — 1 request (thay cho gọi từng NV).
   /// Trả null khi lỗi (để màn gọi phân biệt «lỗi tải» với «chưa cấu hình»).
   /// Map: employeeId (chữ thường) → hồ sơ; NV chưa cấu hình không có trong map.
+  // ─── Phép năm ─────────────────────────────────────────────────
+
+  String _alDate(DateTime x) =>
+      '${x.year}-${x.month.toString().padLeft(2, '0')}-${x.day.toString().padLeft(2, '0')}';
+
+  Future<Map<String, dynamic>> _alGet(String path) async {
+    try {
+      final r = await http.get(Uri.parse('$baseUrl/api/annual-leave/$path'), headers: _headers).timeout(const Duration(seconds: 30));
+      return _handleResponse(r);
+    } catch (e) {
+      return _connectionFailure(e);
+    }
+  }
+
+  Future<Map<String, dynamic>> _alSend(String method, String path, [Object? body]) async {
+    try {
+      final uri = Uri.parse('$baseUrl/api/annual-leave/$path');
+      final enc = body == null ? null : jsonEncode(body);
+      final r = await (switch (method) {
+        'PUT' => http.put(uri, headers: _headers, body: enc),
+        'DELETE' => http.delete(uri, headers: _headers),
+        _ => http.post(uri, headers: _headers, body: enc),
+      })
+          .timeout(const Duration(seconds: 45));
+      return _handleResponse(r);
+    } catch (e) {
+      return _connectionFailure(e);
+    }
+  }
+
+  Future<Map<String, dynamic>> getAnnualLeavePolicy() => _alGet('policy');
+  Future<Map<String, dynamic>> saveAnnualLeavePolicy(Map<String, dynamic> p) => _alSend('PUT', 'policy', p);
+  Future<Map<String, dynamic>> getAnnualLeaveSummary(int year) => _alGet('summary?year=$year');
+  Future<Map<String, dynamic>> getAnnualLeaveDetail(String employeeId, int year) => _alGet('employees/$employeeId?year=$year');
+  Future<Map<String, dynamic>> countAnnualLeaveDays(String employeeId, DateTime start, DateTime end, bool half) =>
+      _alGet('count-days?employeeId=$employeeId&start=${_alDate(start)}&end=${_alDate(end)}&half=$half');
+  Future<Map<String, dynamic>> adjustAnnualLeave(String employeeId, int year, double days, String note) =>
+      _alSend('POST', 'entries', {'employeeId': employeeId, 'year': year, 'days': days, 'note': note});
+  Future<Map<String, dynamic>> deleteAnnualLeaveEntry(String id) => _alSend('DELETE', 'entries/$id');
+  Future<Map<String, dynamic>> payoutAnnualLeave(int year, List<Map<String, dynamic>> items, DateTime payrollMonth, {String? note}) =>
+      _alSend('POST', 'payout', {'year': year, 'items': items, 'payrollMonth': _alDate(payrollMonth), if (note != null) 'note': note});
+  Future<Map<String, dynamic>> closeAnnualLeaveYear(int year, {DateTime? payrollMonth, required bool apply}) =>
+      _alSend('POST', 'close-year', {'year': year, 'payrollMonth': payrollMonth == null ? null : _alDate(payrollMonth), 'apply': apply});
+  Future<Map<String, dynamic>> reopenAnnualLeaveYear(int year) => _alSend('POST', 'reopen-year/$year');
+  Future<Map<String, dynamic>> getAnnualLeavePayouts(DateTime from, DateTime to) =>
+      _alGet('payouts?from=${_alDate(from)}&to=${_alDate(to)}');
+
+  /// Các đoạn hồ sơ lương trong kỳ (đổi lương giữa kỳ → nhiều đoạn).
+  Future<Map<String, dynamic>> getSalaryTimeline(DateTime from, DateTime to) async {
+    try {
+      String d(DateTime x) => '${x.year}-${x.month.toString().padLeft(2, '0')}-${x.day.toString().padLeft(2, '0')}';
+      final response = await http
+          .get(Uri.parse('$baseUrl/api/benefits/timeline?from=${d(from)}&to=${d(to)}'), headers: _headers)
+          .timeout(const Duration(seconds: 30));
+      return _handleResponse(response);
+    } catch (e) {
+      return _connectionFailure(e);
+    }
+  }
+
+  /// Lịch sử thay đổi lương của một nhân viên.
+  Future<Map<String, dynamic>> getSalaryHistory(String employeeId) async {
+    try {
+      final response = await http
+          .get(Uri.parse('$baseUrl/api/benefits/employees/$employeeId/history'), headers: _headers)
+          .timeout(const Duration(seconds: 20));
+      return _handleResponse(response);
+    } catch (e) {
+      return _connectionFailure(e);
+    }
+  }
+
+  /// Hủy thay đổi lương chưa tới ngày áp dụng.
+  Future<Map<String, dynamic>> cancelSalaryVersion(String id) async {
+    try {
+      final response = await http
+          .delete(Uri.parse('$baseUrl/api/benefits/versions/$id'), headers: _headers)
+          .timeout(const Duration(seconds: 20));
+      return _handleResponse(response);
+    } catch (e) {
+      return _connectionFailure(e);
+    }
+  }
+
   Future<Map<String, Map<String, dynamic>>?> getEmployeeSalaryProfilesBulk() async {
     try {
       final response = await http
@@ -3591,6 +3853,18 @@ class ApiService {
     } catch (e) {
       debugPrint('Error getting accounts: $e');
       return [];
+    }
+  }
+
+  /// Vai trò mình được gán + cấp vai trò (GET /api/accounts/role-policy).
+  Future<Map<String, dynamic>> getAccountRolePolicy() async {
+    try {
+      final response = await _retryOnUnauthorized(() => http
+          .get(Uri.parse('$baseUrl/api/accounts/role-policy'), headers: _headers)
+          .timeout(const Duration(seconds: 10)));
+      return _handleResponse(response);
+    } catch (e) {
+      return _connectionFailure(e);
     }
   }
 
@@ -7200,6 +7474,16 @@ class ApiService {
     }
   }
 
+  /// Dữ liệu đang gắn với chi nhánh (xem trước khi xóa).
+  Future<Map<String, dynamic>> getBranchUsage(String id) async {
+    try {
+      final response = await http.get(Uri.parse('$baseUrl/api/branches/$id/usage'), headers: _headers);
+      return _handleResponse(response);
+    } catch (e) {
+      return _connectionFailure(e);
+    }
+  }
+
   Future<Map<String, dynamic>> getBranchPermissions(String branchId) async {
     try {
       final response = await http.get(
@@ -8267,11 +8551,14 @@ class ApiService {
 
   Future<Map<String, dynamic>> deleteCommChannel(String id) => _taskV2('DELETE', '$_commV2/channels/$id');
 
-  Future<Map<String, dynamic>> getCommFeed({String? channelId, String filter = 'all', String? search, int page = 1, int pageSize = 15}) =>
+  Future<Map<String, dynamic>> getCommFeed({String? channelId, String filter = 'all', String? search, int page = 1, int pageSize = 15,
+          String? authorId, String? tag}) =>
       _taskV2('GET', '$_commV2/feed', query: {
         if (channelId != null) 'channelId': channelId,
         'filter': filter,
         if (search != null && search.isNotEmpty) 'search': search,
+        if (authorId != null) 'authorId': authorId,
+        if (tag != null && tag.isNotEmpty) 'tag': tag,
         'page': '$page',
         'pageSize': '$pageSize',
       });
@@ -8312,6 +8599,14 @@ class ApiService {
 
   Future<Map<String, dynamic>> deleteCommComment(String commentId) => _taskV2('DELETE', '$_commV2/comments/$commentId');
 
+  Future<Map<String, dynamic>> editCommComment(String commentId, String content) =>
+      _taskV2('PUT', '$_commV2/comments/$commentId', body: {'content': content});
+
+  Future<Map<String, dynamic>> likeCommComment(String commentId) => _taskV2('POST', '$_commV2/comments/$commentId/like');
+
+  Future<Map<String, dynamic>> getCommReactors(String id, {int? type}) =>
+      _taskV2('GET', '$_commV2/posts/$id/reactions', query: {if (type != null) 'type': '$type'});
+
   Future<Map<String, dynamic>> getCommReaders(String id) => _taskV2('GET', '$_commV2/posts/$id/readers');
 
   Future<Map<String, dynamic>> remindCommReaders(String id) => _taskV2('POST', '$_commV2/posts/$id/remind');
@@ -8341,6 +8636,112 @@ class ApiService {
       return _connectionFailure(e);
     }
   }
+
+  // ─── Super Admin v2 ───────────────────────────────────────────
+  static const _sa2 = '/api/system-admin/v2';
+
+  Future<Map<String, dynamic>> saCatalog() => _taskV2('GET', '$_sa2/catalog');
+  Future<Map<String, dynamic>> saPackages() => _taskV2('GET', '$_sa2/packages');
+  Future<Map<String, dynamic>> saSavePackageCommercial(String id, Map<String, dynamic> data) =>
+      _taskV2('PUT', '$_sa2/packages/$id/commercial', body: data);
+  Future<Map<String, dynamic>> saPackageImpact(Map<String, dynamic> data) =>
+      _taskV2('POST', '$_sa2/packages/impact', body: data);
+  Future<Map<String, dynamic>> saStores({String? status, String? packageId, String? agentId, String? search, int page = 1, int pageSize = 50}) =>
+      _taskV2('GET', '$_sa2/stores', query: {
+        if (status != null && status.isNotEmpty) 'status': status,
+        if (packageId != null) 'packageId': packageId,
+        if (agentId != null) 'agentId': agentId,
+        if (search != null && search.trim().isNotEmpty) 'search': search.trim(),
+        'page': '$page',
+        'pageSize': '$pageSize',
+      });
+  Future<Map<String, dynamic>> saStoreModules(String id) => _taskV2('GET', '$_sa2/stores/$id/modules');
+  Future<Map<String, dynamic>> saSaveStoreModules(String id, Map<String, dynamic> data) =>
+      _taskV2('PUT', '$_sa2/stores/$id/modules', body: data);
+  Future<Map<String, dynamic>> saBulkStores(Map<String, dynamic> data) => _taskV2('POST', '$_sa2/stores/bulk', body: data);
+  Future<Map<String, dynamic>> saLicenseHistory(String id) => _taskV2('GET', '$_sa2/stores/$id/license-history');
+  Future<Map<String, dynamic>> saLicenses({String? status, String? packageId, String? agentId, String? search, int page = 1, int pageSize = 50}) =>
+      _taskV2('GET', '$_sa2/licenses', query: {
+        if (status != null && status.isNotEmpty) 'status': status,
+        if (packageId != null) 'packageId': packageId,
+        if (agentId != null) 'agentId': agentId,
+        if (search != null && search.trim().isNotEmpty) 'search': search.trim(),
+        'page': '$page',
+        'pageSize': '$pageSize',
+      });
+  Future<Map<String, dynamic>> saAgents() => _taskV2('GET', '$_sa2/agents');
+  Future<Map<String, dynamic>> saSystemStatus() => _taskV2('GET', '$_sa2/system-status');
+
+  // ══════════ Trả lương (tiền mặt / chuyển khoản / kết hợp, xuất file ngân hàng) ══════════
+
+  Future<Map<String, dynamic>> getPayslipPaymentInfo(List<String> ids) =>
+      _taskV2('POST', '/api/payslips/payment-info', body: {'ids': ids});
+
+  Future<Map<String, dynamic>> payPayslips(List<Map<String, dynamic>> items, {String? bankAccountId, DateTime? paidAt}) =>
+      _taskV2('POST', '/api/payslips/pay', body: {
+        'items': items,
+        if (bankAccountId != null) 'bankAccountId': bankAccountId,
+        if (paidAt != null) 'paidAt': paidAt.toUtc().toIso8601String(),
+      });
+
+  Future<Map<String, dynamic>> getPayrollBankTemplates() => _taskV2('GET', '/api/payslips/bank-export/templates');
+
+  /// File Excel chuyển lương hàng loạt theo mẫu ngân hàng. Null = lỗi.
+  Future<List<int>?> downloadPayrollBankFile(List<String> ids, String template) async {
+    try {
+      final r = await http.post(Uri.parse('$baseUrl/api/payslips/bank-export'),
+          headers: _headers, body: jsonEncode({'ids': ids, 'template': template}));
+      final type = r.headers['content-type'] ?? '';
+      return r.statusCode == 200 && !type.contains('json') ? r.bodyBytes : null;
+    } catch (_) {
+      return null;
+    }
+  }
+
+  /// Tải file CSV danh sách key (bản quyền) theo bộ lọc.
+  Future<List<int>?> downloadLicenseExport({bool? isUsed, String? agentId}) async {
+    try {
+      final uri = Uri.parse('$baseUrl/api/system-admin/licenses/export').replace(queryParameters: {
+        'format': 'csv',
+        if (isUsed != null) 'isUsed': '$isUsed',
+        if (agentId != null) 'agentId': agentId,
+      });
+      final r = await http.get(uri, headers: _headers);
+      return r.statusCode == 200 ? r.bodyBytes : null;
+    } catch (_) {
+      return null;
+    }
+  }
+
+  Future<Map<String, dynamic>> saUserSecurity(String id) => _taskV2('GET', '$_sa2/users/$id/security');
+  Future<Map<String, dynamic>> saResetPassword(String id) => _taskV2('POST', '$_sa2/users/$id/reset-password');
+  Future<Map<String, dynamic>> saUnlockUser(String id) => _taskV2('POST', '$_sa2/users/$id/unlock');
+  Future<Map<String, dynamic>> saRevokeSessions(String id) => _taskV2('POST', '$_sa2/users/$id/revoke-sessions');
+  Future<Map<String, dynamic>> saImpersonate(String id, String reason) =>
+      _taskV2('POST', '$_sa2/users/$id/impersonate', body: {'reason': reason});
+
+  /// Đọc cặp token hiện tại (dùng khi đăng nhập thay để khôi phục phiên Super Admin).
+  Future<({String? access, String? refresh})> readTokenPair() async {
+    final prefs = await SharedPreferences.getInstance();
+    return (access: prefs.getString(_tokenKey), refresh: prefs.getString(_refreshTokenKey));
+  }
+
+  Future<void> writeTokenPair(String access, String? refresh) async {
+    _token = access;
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setString(_tokenKey, access);
+    if (refresh == null) {
+      await prefs.remove(_refreshTokenKey);
+    } else {
+      await prefs.setString(_refreshTokenKey, refresh);
+    }
+  }
+
+  // ─── Tự xóa tài khoản (App Store 5.1.1(v)) ────────────────────
+  Future<Map<String, dynamic>> getAccountDeletionInfo() => _taskV2('GET', '/api/account/deletion-info');
+
+  Future<Map<String, dynamic>> deleteMyAccount(String password, {String? reason}) =>
+      _taskV2('POST', '/api/account/delete-me', body: {'password': password, 'reason': reason});
 
   // ─── Duyệt chấm công v2 ───────────────────────────────────────
   Future<Map<String, dynamic>> getAttendanceApprovalInbox({String? kind, String? risk, String? search, String? branchId}) =>

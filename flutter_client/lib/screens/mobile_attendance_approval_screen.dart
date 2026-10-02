@@ -43,7 +43,7 @@ class _MobileAttendanceApprovalScreenState
   List<MobileAttendanceRecord> _rejectedRecords = [];
   int _currentPage = 1;
   final int _pageSize = 20;
-  String? _selectedBranchId;
+  String? _selectedBranchId = BranchFilterHelper.viewBranchId;
   List<Map<String, dynamic>> _branches = [];
   List<Map<String, dynamic>> _employeesList = [];
 
@@ -1251,7 +1251,7 @@ class _MobileAttendanceApprovalScreenState
   }
 
   bool get _hasActiveFilters =>
-      _selectedBranchId != null ||
+      _selectedBranchId != BranchFilterHelper.viewBranchId ||
       _empSearch.trim().isNotEmpty ||
       _punchKindFilter != 'all' ||
       _filterFrom != null ||
@@ -1334,7 +1334,7 @@ class _MobileAttendanceApprovalScreenState
       _empSearch = '';
       _empSearchCtrl.clear();
       _punchKindFilter = 'all';
-      _selectedBranchId = null;
+      _selectedBranchId = BranchFilterHelper.viewBranchId;
       _filterFrom = null;
       _filterTo = null;
       _currentPage = 1;

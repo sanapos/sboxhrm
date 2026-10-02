@@ -1,938 +1,371 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:provider/provider.dart';
+
+import '../l10n/app_tr.dart';
 import '../providers/permission_provider.dart';
 import '../services/api_service.dart';
-import '../utils/responsive_helper.dart';
-import '../widgets/hrm/hrm_settings_mobile_kit.dart';
-import '../widgets/hrm_page_chrome.dart';
-import '../widgets/notification_overlay.dart';
-import '../widgets/pos/pos_theme.dart';
-import 'package:zkteco_flutter_client/l10n/app_tr.dart';
-import '../theme/sbox_tokens.dart';
+import '../widgets/sbox/sbox_ui.dart';
+import '../widgets/settings/settings_page.dart';
+
+/// Cấu hình Trợ lý AI (Gemini) của cửa hàng.
+class AiConfig {
+  AiConfig({this.enabled = false, this.model = 'gemini-2.5-flash', this.maxTokens = 2048, this.temperature = 0.7});
+
+  bool enabled;
+  String model;
+  int maxTokens;
+  double temperature;
+
+  AiConfig copy() => AiConfig(enabled: enabled, model: model, maxTokens: maxTokens, temperature: temperature);
+
+  String get key => '$enabled|$model|$maxTokens|${temperature.toStringAsFixed(1)}';
+
+  static const models = <(String, String, String)>[
+    ('gemini-2.5-flash', 'Gemini 2.5 Flash', 'Nhanh, tiết kiệm — khuyên dùng'),
+    ('gemini-2.5-pro', 'Gemini 2.5 Pro', 'Chất lượng cao, chậm hơn'),
+    ('gemini-2.0-flash', 'Gemini 2.0 Flash', 'Đời trước, ổn định'),
+    ('gemini-2.0-flash-lite', 'Gemini 2.0 Flash Lite', 'Siêu nhanh, câu trả lời ngắn'),
+  ];
+}
+
+/// Trợ lý AI: bật / tắt, khóa AI riêng của cửa hàng (nhiều khóa, tự chuyển khi hết lượt), mô hình, kiểm tra kết nối.
+/// Khóa luôn được che — server không bao giờ trả khóa thật.
 class AiSettingsScreen extends StatefulWidget {
-  const AiSettingsScreen({super.key});
+  const AiSettingsScreen({super.key, this.canEditOverride});
+
+  final bool? canEditOverride;
 
   @override
   State<AiSettingsScreen> createState() => _AiSettingsScreenState();
 }
 
 class _AiSettingsScreenState extends State<AiSettingsScreen> {
-  PermissionProvider get _perm =>
-      Provider.of<PermissionProvider>(context, listen: false);
+  final _api = ApiService();
+  final _newKey = TextEditingController();
+  final _tokens = TextEditingController();
+  AiConfig _saved = AiConfig();
+  AiConfig _c = AiConfig();
+  bool _configured = false;
+  List<String> _keys = const [];
+  Map<String, DateTime> _cooling = const {};
+  bool _append = true;
+  bool _obscure = true;
+  bool _loading = true;
+  bool _saving = false;
+  bool _testing = false;
+  String? _error;
+  (bool ok, String text)? _test;
 
-  final _apiService = ApiService();
+  bool get _canEdit {
+    if (widget.canEditOverride != null) return widget.canEditOverride!;
+    try {
+      return Provider.of<PermissionProvider>(context, listen: false).canEdit('AIGemini');
+    } catch (_) {
+      return false;
+    }
+  }
 
-  // Gemini
-  final _geminiApiKeyController = TextEditingController();
-  final _geminiModelController = TextEditingController();
-  final _geminiMaxTokensController = TextEditingController();
-  final _geminiTemperatureController = TextEditingController();
-  bool _geminiEnabled = false;
-  bool _geminiConfigured = false;
-  bool _geminiObscure = true;
-  String? _geminiMaskedKey;
-  /// Mọi khóa Gemini của cửa hàng (đã che) — khóa hết lượt tự chuyển sang khóa kế tiếp.
-  List<String> _geminiKeys = const [];
-  /// Khóa (đã che) đang tạm nghỉ vì hết lượt → giờ được dùng lại.
-  Map<String, DateTime> _geminiCooling = const {};
-  /// Khóa mới nhập được thêm vào danh sách (không thay các khóa cũ).
-  bool _appendKey = true;
-
-  bool _isLoading = true;
-  bool _isSaving = false;
-  bool _isTesting = false;
-  String? _testResult;
-  bool? _testSuccess;
+  bool get _dirty => _c.key != _saved.key || _newKey.text.trim().isNotEmpty;
 
   @override
   void initState() {
     super.initState();
-    WidgetsBinding.instance.addPostFrameCallback((_) => _loadAllConfigs());
+    _load();
   }
 
   @override
   void dispose() {
-    _geminiApiKeyController.dispose();
-    _geminiModelController.dispose();
-    _geminiMaxTokensController.dispose();
-    _geminiTemperatureController.dispose();
+    _newKey.dispose();
+    _tokens.dispose();
     super.dispose();
   }
 
-  Future<void> _loadAllConfigs() async {
-    setState(() => _isLoading = true);
-    try {
-      final gemini = await _apiService.getGeminiConfig();
-      if (gemini['isSuccess'] == true && gemini['data'] != null) {
-        final d = gemini['data'];
-        _geminiMaskedKey = d['apiKey'] ?? '';
-        _geminiKeys = ((d['apiKeys'] as List?) ?? const [])
-            .map((e) => e.toString())
-            .where((e) => e.isNotEmpty)
-            .toList();
-        _geminiCooling = {
+  Future<void> _load() async {
+    setState(() {
+      _loading = true;
+      _error = null;
+    });
+    final r = await _api.getGeminiConfig();
+    if (!mounted) return;
+    if (r['isSuccess'] == true && r['data'] is Map) {
+      final d = Map<String, dynamic>.from(r['data'] as Map);
+      setState(() {
+        _saved = AiConfig(
+          enabled: d['enabled'] == true,
+          model: (d['model'] ?? 'gemini-2.5-flash').toString(),
+          maxTokens: (d['maxOutputTokens'] as num?)?.toInt() ?? 2048,
+          temperature: ((d['temperature'] as num?)?.toDouble() ?? 0.7).clamp(0, 2),
+        );
+        _c = _saved.copy();
+        _tokens.text = '${_c.maxTokens}';
+        _configured = d['isConfigured'] == true;
+        _keys = [for (final k in (d['apiKeys'] as List? ?? const [])) if ('$k'.isNotEmpty) '$k'];
+        _cooling = {
           for (final st in ((d['keyStatus'] as List?) ?? const []).whereType<Map>())
-            if (DateTime.tryParse('${st['coolingUntil']}') != null)
-              st['key'].toString(): DateTime.parse('${st['coolingUntil']}').toLocal(),
+            if (DateTime.tryParse('${st['coolingUntil']}') != null) '${st['key']}': DateTime.parse('${st['coolingUntil']}').toLocal(),
         };
-        _geminiModelController.text = d['model'] ?? 'gemini-2.5-flash';
-        _geminiMaxTokensController.text =
-            (d['maxOutputTokens'] ?? 2048).toString();
-        _geminiTemperatureController.text =
-            (d['temperature'] ?? 0.7).toString();
-        _geminiConfigured = d['isConfigured'] ?? false;
-        _geminiEnabled = d['enabled'] ?? false;
-      }
-    } catch (e) {
-      debugPrint('Error loading AI configs: $e');
+        _loading = false;
+      });
+    } else {
+      setState(() {
+        _loading = false;
+        _error = r['message']?.toString() ?? 'Không tải được cấu hình AI';
+      });
     }
-    if (mounted) setState(() => _isLoading = false);
   }
 
-  Future<void> _toggleGemini(bool enabled) async {
-    setState(() => _isSaving = true);
-    try {
-      final result = await _apiService.updateGeminiConfig({'enabled': enabled});
-      if (result['isSuccess'] == true) {
-        setState(() => _geminiEnabled = enabled);
-      }
-    } catch (e) {
-      appNotification.showError(title: 'Lỗi', message: '$e');
+  void _toast(String m, {bool error = false}) => ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+        content: Text(tr(m)),
+        backgroundColor: error ? SboxColors.danger : null,
+        behavior: SnackBarBehavior.floating,
+      ));
+
+  Future<void> _save() async {
+    final key = _newKey.text.trim();
+    if (_c.enabled && !_configured && key.isEmpty) {
+      _toast('Nhập khóa AI trước khi bật trợ lý', error: true);
+      return;
     }
-    if (mounted) setState(() => _isSaving = false);
+    if (_c.maxTokens < 256 || _c.maxTokens > 8192) {
+      _toast('Độ dài tối đa phải từ 256 đến 8192', error: true);
+      return;
+    }
+    final data = <String, dynamic>{
+      'enabled': _c.enabled,
+      'model': _c.model,
+      'maxOutputTokens': _c.maxTokens,
+      'temperature': double.parse(_c.temperature.toStringAsFixed(1)),
+      if (key.isNotEmpty) 'apiKey': key,
+      if (key.isNotEmpty) 'appendApiKey': _append && _keys.isNotEmpty,
+    };
+    setState(() => _saving = true);
+    final r = await _api.updateGeminiConfig(data);
+    if (!mounted) return;
+    setState(() => _saving = false);
+    if (r['isSuccess'] == true) {
+      _newKey.clear();
+      _toast('Đã lưu cấu hình AI');
+      await _load();
+    } else {
+      _toast(r['message']?.toString() ?? 'Không lưu được', error: true);
+    }
   }
 
-  Future<void> _removeGeminiKey(String masked) async {
+  Future<void> _removeKey(String masked) async {
     final ok = await showDialog<bool>(
       context: context,
       builder: (ctx) => AlertDialog(
         title: Text(tr('Xóa khóa AI?')),
-        content: Text(masked),
+        content: Text(tr('Khóa $masked sẽ bị xóa khỏi cửa hàng.')),
         actions: [
           TextButton(onPressed: () => Navigator.pop(ctx, false), child: Text(tr('Hủy'))),
-          FilledButton(onPressed: () => Navigator.pop(ctx, true), child: Text(tr('Xóa'))),
+          FilledButton(
+            style: FilledButton.styleFrom(backgroundColor: SboxColors.danger),
+            onPressed: () => Navigator.pop(ctx, true),
+            child: Text(tr('Xóa')),
+          ),
         ],
       ),
     );
     if (ok != true) return;
-    setState(() => _isSaving = true);
-    final result = await _apiService.updateGeminiConfig({'removeApiKeys': [masked]});
+    final r = await _api.updateGeminiConfig({'removeApiKeys': [masked]});
     if (!mounted) return;
-    if (result['isSuccess'] == true) {
-      appNotification.showSuccess(title: 'Đã xóa', message: tr('Đã xóa khóa AI'));
-      await _loadAllConfigs();
+    if (r['isSuccess'] == true) {
+      _toast('Đã xóa khóa');
+      _load();
     } else {
-      appNotification.showError(
-          title: 'Lỗi', message: result['message']?.toString() ?? tr('Không xóa được khóa'));
+      _toast(r['message']?.toString() ?? 'Không xóa được khóa', error: true);
     }
-    if (mounted) setState(() => _isSaving = false);
   }
 
-  Future<void> _saveGeminiConfig() async {
-    setState(() => _isSaving = true);
-    try {
-      final data = <String, dynamic>{};
-      if (_geminiApiKeyController.text.isNotEmpty) {
-        data['apiKey'] = _geminiApiKeyController.text.trim();
-        data['appendApiKey'] = _appendKey && _geminiKeys.isNotEmpty;
-      }
-      if (_geminiModelController.text.isNotEmpty) {
-        data['model'] = _geminiModelController.text.trim();
-      }
-      final maxTokens = int.tryParse(_geminiMaxTokensController.text);
-      if (maxTokens != null) data['maxOutputTokens'] = maxTokens;
-      final temp = double.tryParse(_geminiTemperatureController.text);
-      if (temp != null) data['temperature'] = temp;
-      data['enabled'] = _geminiEnabled;
-
-      if (_geminiApiKeyController.text.isEmpty &&
-          !_geminiConfigured &&
-          data.length <= 2) {
-        appNotification.showWarning(
-            title: 'Chưa có API Key',
-            message: tr('Vui lòng nhập API Key để sử dụng Gemini'));
-        setState(() => _isSaving = false);
-        return;
-      }
-
-      final result = await _apiService.updateGeminiConfig(data);
-      if (result['isSuccess'] == true) {
-        appNotification.showSuccess(
-            title: 'Thành công', message: tr('Đã lưu cấu hình Gemini'));
-        _geminiApiKeyController.clear();
-        await _loadAllConfigs();
-      } else {
-        appNotification.showError(
-            title: 'Lỗi',
-            message: result['message'] ?? 'Không thể lưu cấu hình');
-      }
-    } catch (e) {
-      appNotification.showError(
-          title: 'Lỗi', message: tr('Không thể lưu cấu hình: $e'));
-    }
-    if (mounted) setState(() => _isSaving = false);
-  }
-
-  Future<void> _testConnection() async {
+  Future<void> _runTest() async {
     setState(() {
-      _isTesting = true;
-      _testResult = null;
-      _testSuccess = null;
+      _testing = true;
+      _test = null;
     });
-    try {
-      final result = await _apiService.testGeminiConnection();
-
-      if (result['isSuccess'] == true && result['data'] != null) {
-        final data = result['data'];
-        final isQuotaError = data['isQuotaError'] == true;
-        final success = data['success'] == true;
-        setState(() {
-          _testSuccess = success;
-          if (data['keys'] is List) {
-            // Nhiều khóa: kết quả từng khóa.
-            _testResult = '${data['message']}\n\n${(data['detail'] ?? '').toString().replaceAll(' · ', '\n')}';
-          } else if (success && !isQuotaError) {
-            _testResult =
-                '${data['message']}\n\nTiêu đề mẫu: ${data['sampleTitle']}';
-          } else if (isQuotaError) {
-            _testResult = '${data['message']}\n\n${data['detail'] ?? ''}';
-          } else {
-            _testResult = data['message'] ?? 'Kết nối thất bại';
-          }
-        });
-      } else {
-        setState(() {
-          _testSuccess = false;
-          _testResult = result['message'] ?? 'Không thể kiểm tra kết nối';
-        });
-      }
-    } catch (e) {
-      setState(() {
-        _testSuccess = false;
-        _testResult = 'Lỗi: $e';
-      });
-    }
-    if (mounted) setState(() => _isTesting = false);
+    final r = await _api.testGeminiConnection();
+    if (!mounted) return;
+    final d = r['data'] is Map ? Map<String, dynamic>.from(r['data'] as Map) : <String, dynamic>{};
+    final ok = r['isSuccess'] == true && d['success'] == true && d['isQuotaError'] != true;
+    final detail = (d['detail'] ?? (d['sampleTitle'] != null ? 'Câu trả lời mẫu: ${d['sampleTitle']}' : '')).toString().replaceAll(' · ', '\n');
+    setState(() {
+      _testing = false;
+      _test = (ok, '${d['message'] ?? r['message'] ?? (ok ? 'Kết nối thành công' : 'Kết nối thất bại')}${detail.isEmpty ? '' : '\n$detail'}');
+    });
   }
 
   @override
   Widget build(BuildContext context) {
-    return Scaffold(
-      backgroundColor: HrmPageChrome.scaffoldBackground(context),
-      appBar: HrmPageChrome.appBar(context: context, title: 'Thiết lập AI'),
-      body: _isLoading
-          ? const Center(child: CircularProgressIndicator())
-          : _buildProviderTab(
-              provider: 'gemini',
-              name: 'Google Gemini',
-              icon: Icons.auto_awesome,
-              gradientColors: [
-                PosTheme.kiotBlue,
-                SboxColors.brand700,
-              ],
-              enabled: _geminiEnabled,
-              configured: _geminiConfigured,
-              apiKeyController: _geminiApiKeyController,
-              modelController: _geminiModelController,
-              maxTokensController: _geminiMaxTokensController,
-              temperatureController: _geminiTemperatureController,
-              obscure: _geminiObscure,
-              maskedKey: _geminiMaskedKey,
-              onToggle: (v) => _toggleGemini(v),
-              onObscureToggle: () =>
-                  setState(() => _geminiObscure = !_geminiObscure),
-              onSave: _saveGeminiConfig,
-              onTest: () => _testConnection(),
-              modelItems: [
-                DropdownMenuItem(
-                    value: 'gemini-2.5-flash',
-                    child: Text(tr('Gemini 2.5 Flash (Nhanh, miễn phí)'))),
-                DropdownMenuItem(
-                    value: 'gemini-2.5-pro',
-                    child: Text(tr('Gemini 2.5 Pro (Chất lượng cao)'))),
-                DropdownMenuItem(
-                    value: 'gemini-2.0-flash', child: Text(tr('Gemini 2.0 Flash'))),
-                DropdownMenuItem(
-                    value: 'gemini-2.0-flash-lite',
-                    child: Text(tr('Gemini 2.0 Flash Lite (Siêu nhanh)'))),
-              ],
-              helpSteps: const [
-                _HelpStep(1, 'Truy cập Google AI Studio',
-                    'https://aistudio.google.com/apikey'),
-                _HelpStep(2, 'Đăng nhập bằng tài khoản Google', null),
-                _HelpStep(3, 'Nhấn "Create API Key" hoặc "Tạo API Key"', null),
-                _HelpStep(4, 'Copy API Key và dán vào ô phía trên', null),
-              ],
-              helpNote: 'Gemini API miễn phí với giới hạn 15 request/phút.',
-            ),
-    );
-  }
-
-  Widget _buildProviderTab({
-    required String provider,
-    required String name,
-    required IconData icon,
-    required List<Color> gradientColors,
-    required bool enabled,
-    required bool configured,
-    required TextEditingController apiKeyController,
-    required TextEditingController modelController,
-    required TextEditingController maxTokensController,
-    required TextEditingController temperatureController,
-    required bool obscure,
-    required String? maskedKey,
-    required ValueChanged<bool> onToggle,
-    required VoidCallback onObscureToggle,
-    required VoidCallback onSave,
-    required VoidCallback onTest,
-    required List<DropdownMenuItem<String>> modelItems,
-    required List<_HelpStep> helpSteps,
-    required String helpNote,
-  }) {
-    final isMobile = Responsive.isMobile(context);
-    return SingleChildScrollView(
-      padding: HrmSettingsMobileKit.active(context)
-          ? HrmSettingsMobileKit.pagePadding(context)
-          : EdgeInsets.all(isMobile ? 14 : 24),
-      child: Center(
-        child: ConstrainedBox(
-          constraints: const BoxConstraints(maxWidth: 700),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              // Header + Toggle
-              _buildProviderHeader(
-                  name, icon, gradientColors, enabled, onToggle),
-              const SizedBox(height: 24),
-
-              // Status
-              _buildStatusCard(enabled, configured, name),
-              const SizedBox(height: 24),
-
-              // Config sections (only show when enabled)
-              if (enabled) ...[
-                _buildApiKeySection(
-                    apiKeyController, maskedKey, obscure, onObscureToggle),
-                const SizedBox(height: 24),
-                _buildModelSettingsSection(modelController, maxTokensController,
-                    temperatureController, modelItems, isMobile),
-                const SizedBox(height: 24),
-                _buildTestSection(configured),
-                const SizedBox(height: 24),
-                _buildSaveButton(onSave),
-                const SizedBox(height: 32),
-              ],
-
-              // Help
-              _buildHelpSection(helpSteps, helpNote),
-            ],
-          ),
-        ),
-      ),
-    );
-  }
-
-  Widget _buildProviderHeader(String name, IconData icon,
-      List<Color> gradientColors, bool enabled, ValueChanged<bool> onToggle) {
-    final isMobile = Responsive.isMobile(context);
-    final accent = gradientColors.isNotEmpty
-        ? gradientColors.first
-        : PosTheme.kiotBlue;
-    return Row(
+    final edit = _canEdit;
+    return SettingsPage(
+      title: 'Trợ lý AI',
+      subtitle: 'Trợ lý trả lời, soạn nội dung, tóm tắt báo cáo bằng Gemini',
+      icon: Icons.auto_awesome_outlined,
+      loading: _loading,
+      error: _error,
+      onRetry: _load,
+      dirty: _dirty,
+      saving: _saving,
+      onSave: _save,
+      onDiscard: () => setState(() {
+        _c = _saved.copy();
+        _tokens.text = '${_c.maxTokens}';
+        _newKey.clear();
+      }),
       children: [
-        Container(
-          padding: EdgeInsets.all(isMobile ? 10 : 16),
-          decoration: BoxDecoration(
-            color: PosTheme.kiotBlueLight,
-            borderRadius: BorderRadius.circular(isMobile ? 12 : 16),
-          ),
-          child: Icon(icon, color: accent, size: isMobile ? 24 : 32),
-        ),
-        const SizedBox(width: 12),
-        Expanded(
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Text(tr(name),
-                  style: TextStyle(
-                      fontSize: isMobile ? 17 : 22,
-                      fontWeight: FontWeight.bold,
-                      color: PosTheme.textPrimary)),
-              const SizedBox(height: 4),
-              Text(tr('Tích hợp AI để tự động tạo nội dung'),
-                  style: TextStyle(
-                      color: SboxColors.slate600, fontSize: isMobile ? 12 : 14)),
-            ],
-          ),
-        ),
-        Column(
-          children: [
-            Switch(
-              value: enabled,
-              onChanged: _isSaving ? null : onToggle,
-              activeThumbColor: PosTheme.kiotBlue,
-            ),
-            Text(tr(enabled ? 'Đang bật' : 'Đang tắt'),
-                style: TextStyle(
-                    fontSize: 11,
-                    color: enabled ? SboxColors.success : SboxColors.slate500,
-                    fontWeight: FontWeight.w500)),
-          ],
-        ),
+        if (!edit) const SettingsNote('Bạn chỉ có quyền xem. Cần quyền «Thiết lập AI» để thay đổi.', icon: Icons.lock_outline_rounded, tone: SboxTone.neutral),
+        _statusSection(edit),
+        _keysSection(edit),
+        _modelSection(edit),
+        _testSection(),
       ],
     );
   }
 
-  Widget _buildStatusCard(bool enabled, bool configured, String name) {
-    Color bgColor, borderColor, textColor;
-    IconData statusIcon;
-    String title, subtitle;
-
-    if (!enabled) {
-      bgColor = SboxColors.slate100;
-      borderColor = SboxColors.slate200;
-      textColor = SboxColors.slate500;
-      statusIcon = Icons.power_settings_new;
-      title = '$name đang tắt';
-      subtitle = 'Bật công tắc phía trên để bắt đầu sử dụng';
-    } else if (!configured) {
-      bgColor = SboxColors.warningSoft;
-      borderColor = const Color(0xFFFED7AA);
-      textColor = const Color(0xFFF97316);
-      statusIcon = Icons.warning_amber_rounded;
-      title = 'Chưa cấu hình API Key';
-      subtitle = 'Nhập API Key để bắt đầu sử dụng $name';
-    } else {
-      bgColor = SboxColors.successSoft;
-      borderColor = const Color(0xFF86EFAC);
-      textColor = SboxColors.success;
-      statusIcon = Icons.check_circle;
-      title = '$name đã sẵn sàng';
-      subtitle = 'AI đang hoạt động và sẵn sàng tạo nội dung';
-    }
-
-    return Container(
-      padding: const EdgeInsets.all(16),
-      decoration: BoxDecoration(
-        color: bgColor,
-        borderRadius: BorderRadius.circular(14),
-        border: Border.all(color: borderColor),
-      ),
-      child: Row(
-        children: [
-          Icon(statusIcon, color: textColor, size: 24),
-          const SizedBox(width: 12),
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(tr(title),
-                    style: TextStyle(
-                        fontWeight: FontWeight.w600, color: textColor)),
-                const SizedBox(height: 2),
-                Text(tr(subtitle),
-                    style: TextStyle(fontSize: 13, color: SboxColors.slate600)),
-              ],
-            ),
-          ),
-        ],
-      ),
+  Widget _statusSection(bool edit) {
+    final (tone, text) = !_c.enabled
+        ? (SboxTone.neutral, 'Đang tắt — nhân viên không dùng được trợ lý AI')
+        : _keys.isNotEmpty
+            ? (SboxTone.success, 'Đang bật · dùng ${_keys.length} khóa riêng của cửa hàng')
+            : _configured
+                ? (SboxTone.brand, 'Đang bật · dùng khóa AI chung của hệ thống')
+                : (SboxTone.warning, 'Đang bật nhưng chưa có khóa AI');
+    return SettingsSection(
+      title: 'Trạng thái',
+      icon: Icons.power_settings_new_rounded,
+      trailing: Switch(value: _c.enabled, onChanged: edit ? (v) => setState(() => _c.enabled = v) : null),
+      children: [SettingsNote(text, icon: Icons.circle, tone: tone)],
     );
   }
 
-  Widget _buildApiKeySection(TextEditingController controller,
-      String? maskedKey, bool obscure, VoidCallback onObscureToggle) {
-    return _buildCard(
-      title: 'API Key',
-      icon: Icons.key,
-      iconColor: SboxColors.warning,
+  Widget _keysSection(bool edit) {
+    return SettingsSection(
+      title: 'Khóa AI riêng của cửa hàng',
+      subtitle: 'Không bắt buộc. Có nhiều khóa thì khóa hết lượt sẽ tự chuyển sang khóa kế tiếp, rồi tới khóa chung của hệ thống',
+      icon: Icons.key_rounded,
       children: [
-        if (_geminiKeys.isNotEmpty || (maskedKey != null && maskedKey.isNotEmpty)) ...[
-          for (final (i, k) in (_geminiKeys.isNotEmpty ? _geminiKeys : [maskedKey!]).indexed)
-            Container(
-              margin: const EdgeInsets.only(bottom: 6),
-              padding: const EdgeInsets.fromLTRB(12, 4, 4, 4),
-              decoration: BoxDecoration(
-                color: SboxColors.slate100,
-                borderRadius: BorderRadius.circular(10),
-              ),
-              child: Row(
-                children: [
-                  const Icon(Icons.lock, size: 16, color: SboxColors.slate500),
-                  const SizedBox(width: 8),
-                  Expanded(
-                    child: Text('${tr('Khóa')} ${i + 1}: $k',
-                        style: const TextStyle(
-                            fontFamily: 'monospace', fontSize: 13, color: SboxColors.slate600)),
-                  ),
-                  if (_geminiCooling[k] != null)
-                    Padding(
-                      padding: const EdgeInsets.only(left: 6),
-                      child: Text(
-                        tr('Hết lượt · nghỉ đến ${_geminiCooling[k]!.hour.toString().padLeft(2, '0')}:'
-                            '${_geminiCooling[k]!.minute.toString().padLeft(2, '0')}'),
-                        style: const TextStyle(fontSize: 12, color: Color(0xFFC2410C), fontWeight: FontWeight.w600),
-                      ),
-                    ),
-                  if (_geminiKeys.isNotEmpty)
-                    IconButton(
-                      tooltip: tr('Xóa khóa này'),
-                      onPressed: _isSaving ? null : () => _removeGeminiKey(k),
-                      icon: const Icon(Icons.close, size: 18, color: SboxColors.dangerText),
-                    ),
-                ],
-              ),
-            ),
-          Padding(
-            padding: const EdgeInsets.only(top: 2, bottom: 8),
-            child: Text(
-              tr('Có thể thêm nhiều khóa: khóa nào hết lượt (quota) hoặc lỗi sẽ tự chuyển sang khóa kế tiếp, '
-                  'hết khóa của cửa hàng thì dùng AI chung của hệ thống.'),
-              style: const TextStyle(fontSize: 12, color: SboxColors.slate500),
+        if (_keys.isEmpty)
+          const Padding(
+            padding: EdgeInsets.symmetric(vertical: 8),
+            child: Text('Chưa có khóa riêng.', style: TextStyle(color: SboxColors.slate500)),
+          ),
+        for (var i = 0; i < _keys.length; i++)
+          SettingsTile(
+            divider: i > 0,
+            label: 'Khóa ${i + 1}: ${_keys[i]}',
+            help: _cooling[_keys[i]] != null
+                ? 'Hết lượt — dùng lại lúc ${_cooling[_keys[i]]!.hour.toString().padLeft(2, '0')}:${_cooling[_keys[i]]!.minute.toString().padLeft(2, '0')}'
+                : 'Đang dùng được',
+            control: IconButton(
+              tooltip: tr('Xóa khóa'),
+              onPressed: edit ? () => _removeKey(_keys[i]) : null,
+              icon: const Icon(Icons.delete_outline_rounded, color: SboxColors.danger),
             ),
           ),
-          CheckboxListTile(
-            dense: true,
+        if (edit) ...[
+          const Divider(height: 20),
+          TextField(
+            controller: _newKey,
+            obscureText: _obscure,
+            onChanged: (_) => setState(() {}),
+            decoration: InputDecoration(
+              labelText: tr('Thêm khóa Gemini API'),
+              hintText: 'AIza…',
+              isDense: true,
+              border: OutlineInputBorder(borderRadius: BorderRadius.circular(10)),
+              suffixIcon: IconButton(
+                icon: Icon(_obscure ? Icons.visibility_outlined : Icons.visibility_off_outlined),
+                onPressed: () => setState(() => _obscure = !_obscure),
+              ),
+            ),
+          ),
+          if (_keys.isNotEmpty)
+            CheckboxListTile(
+              contentPadding: EdgeInsets.zero,
+              controlAffinity: ListTileControlAffinity.leading,
+              value: _append,
+              onChanged: (v) => setState(() => _append = v ?? true),
+              title: Text(tr('Thêm vào danh sách, giữ các khóa cũ')),
+              subtitle: Text(tr('Bỏ chọn để thay toàn bộ khóa cũ bằng khóa mới')),
+            ),
+          const SizedBox(height: 8),
+        ],
+      ],
+    );
+  }
+
+  Widget _modelSection(bool edit) {
+    return SettingsSection(
+      title: 'Mô hình & câu trả lời',
+      icon: Icons.tune_rounded,
+      children: [
+        for (final m in AiConfig.models)
+          ListTile(
             contentPadding: EdgeInsets.zero,
-            controlAffinity: ListTileControlAffinity.leading,
-            value: _appendKey,
-            onChanged: (v) => setState(() => _appendKey = v ?? true),
-            title: Text(tr('Thêm vào danh sách (giữ các khóa cũ)'),
-                style: const TextStyle(fontSize: 13)),
-            subtitle: Text(tr('Bỏ chọn để thay toàn bộ bằng khóa mới'),
-                style: const TextStyle(fontSize: 12)),
+            enabled: edit,
+            onTap: () => setState(() => _c.model = m.$1),
+            leading: Icon(
+              _c.model == m.$1 ? Icons.radio_button_checked_rounded : Icons.radio_button_off_rounded,
+              color: _c.model == m.$1 ? SboxColors.brand600 : SboxColors.slate400,
+            ),
+            title: Text(tr(m.$2), style: const TextStyle(fontWeight: FontWeight.w700)),
+            subtitle: Text(tr(m.$3)),
           ),
-          Text(tr('Nhập API Key mới (để trống nếu không đổi):'),
-              style: TextStyle(fontSize: 13, color: SboxColors.slate500)),
-          const SizedBox(height: 8),
-        ] else ...[
-          Text(tr('Nhập API Key:'),
-              style: TextStyle(fontSize: 13, color: SboxColors.slate500)),
-          const SizedBox(height: 8),
-        ],
-        TextFormField(
-          controller: controller,
-          // Nhiều dòng để dán nhiều key một lần (ô ẩn ký tự chỉ cho 1 dòng và sẽ dính các key vào nhau).
-          minLines: 2,
-          maxLines: 6,
-          keyboardType: TextInputType.multiline,
-          autocorrect: false,
-          enableSuggestions: false,
-          style: const TextStyle(fontFamily: 'monospace', fontSize: 13),
-          decoration: InputDecoration(
-            hintText: tr('AIza... — mỗi dòng một key (mỗi tài khoản Google một key)'),
-            prefixIcon: const Icon(Icons.vpn_key, size: 20),
-            filled: true,
-            fillColor: Colors.white,
-            border: OutlineInputBorder(
-                borderRadius: BorderRadius.circular(10),
-                borderSide: const BorderSide(color: SboxColors.slate200)),
-            enabledBorder: OutlineInputBorder(
-                borderRadius: BorderRadius.circular(10),
-                borderSide: const BorderSide(color: SboxColors.slate200)),
-            focusedBorder: OutlineInputBorder(
-                borderRadius: BorderRadius.circular(10),
-                borderSide:
-                    const BorderSide(color: Color(0xFF2D5F8B), width: 2)),
-            contentPadding:
-                const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
+        SettingsTile(
+          label: 'Độ sáng tạo: ${_c.temperature.toStringAsFixed(1)}',
+          help: _c.temperature <= 0.4
+              ? 'Chính xác, ít thay đổi — hợp tra cứu, báo cáo'
+              : _c.temperature <= 1.0
+                  ? 'Cân bằng — khuyên dùng'
+                  : 'Sáng tạo, đa dạng — hợp viết bài, ý tưởng',
+          control: SizedBox(
+            width: 240,
+            child: Slider(
+              value: _c.temperature,
+              min: 0,
+              max: 2,
+              divisions: 20,
+              onChanged: edit ? (v) => setState(() => _c.temperature = v) : null,
+            ),
+          ),
+        ),
+        SettingsTile(
+          label: 'Độ dài tối đa mỗi câu trả lời',
+          help: 'Đơn vị token (khoảng 3–4 ký tự). Mặc định 2048',
+          control: SizedBox(
+            width: 140,
+            child: TextField(
+              controller: _tokens,
+              enabled: edit,
+              keyboardType: TextInputType.number,
+              inputFormatters: [FilteringTextInputFormatter.digitsOnly, LengthLimitingTextInputFormatter(5)],
+              decoration: InputDecoration(isDense: true, border: OutlineInputBorder(borderRadius: BorderRadius.circular(10))),
+              onChanged: (v) => setState(() => _c.maxTokens = int.tryParse(v) ?? 0),
+            ),
           ),
         ),
       ],
     );
   }
 
-  Widget _buildModelSettingsSection(
-    TextEditingController modelController,
-    TextEditingController maxTokensController,
-    TextEditingController temperatureController,
-    List<DropdownMenuItem<String>> modelItems,
-    bool isMobile,
-  ) {
-    return _buildCard(
-      title: 'Cài đặt Model',
-      icon: Icons.tune,
-      iconColor: HrmPageChrome.primaryNavy,
-      children: [
-        Text(tr('Model'),
-            style: TextStyle(
-                fontSize: 13,
-                fontWeight: FontWeight.w500,
-                color: SboxColors.slate600)),
-        const SizedBox(height: 6),
-        DropdownButtonFormField<String>(
-          initialValue: modelItems.any((i) => i.value == modelController.text)
-              ? modelController.text
-              : modelItems.first.value,
-          items: modelItems,
-          onChanged: (val) {
-            if (val != null) modelController.text = val;
-          },
-          decoration: InputDecoration(
-            filled: true,
-            fillColor: Colors.white,
-            border: OutlineInputBorder(
-                borderRadius: BorderRadius.circular(10),
-                borderSide: const BorderSide(color: SboxColors.slate200)),
-            enabledBorder: OutlineInputBorder(
-                borderRadius: BorderRadius.circular(10),
-                borderSide: const BorderSide(color: SboxColors.slate200)),
-            contentPadding:
-                const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
-          ),
-        ),
-        const SizedBox(height: 16),
-        if (isMobile) ...[
-          Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Text(tr('Độ dài tối đa (tokens)'),
-                  style: TextStyle(
-                      fontSize: 13,
-                      fontWeight: FontWeight.w500,
-                      color: SboxColors.slate600)),
-              const SizedBox(height: 6),
-              TextFormField(
-                controller: maxTokensController,
-                keyboardType: TextInputType.number,
-                decoration: InputDecoration(
-                  hintText: tr('2048'),
-                  filled: true,
-                  fillColor: Colors.white,
-                  border: OutlineInputBorder(
-                      borderRadius: BorderRadius.circular(10),
-                      borderSide: const BorderSide(color: SboxColors.slate200)),
-                  enabledBorder: OutlineInputBorder(
-                      borderRadius: BorderRadius.circular(10),
-                      borderSide: const BorderSide(color: SboxColors.slate200)),
-                  contentPadding:
-                      const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
-                ),
-              ),
-            ],
-          ),
-          const SizedBox(height: 12),
-          Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Text(tr('Độ sáng tạo / Temperature (0.0 - 2.0)'),
-                  style: TextStyle(
-                      fontSize: 13,
-                      fontWeight: FontWeight.w500,
-                      color: SboxColors.slate600)),
-              const SizedBox(height: 6),
-              TextFormField(
-                controller: temperatureController,
-                keyboardType:
-                    const TextInputType.numberWithOptions(decimal: true),
-                decoration: InputDecoration(
-                  hintText: tr('0.7'),
-                  filled: true,
-                  fillColor: Colors.white,
-                  border: OutlineInputBorder(
-                      borderRadius: BorderRadius.circular(10),
-                      borderSide: const BorderSide(color: SboxColors.slate200)),
-                  enabledBorder: OutlineInputBorder(
-                      borderRadius: BorderRadius.circular(10),
-                      borderSide: const BorderSide(color: SboxColors.slate200)),
-                  contentPadding:
-                      const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
-                ),
-              ),
-            ],
-          ),
-        ] else
-          Row(
-            children: [
-              Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(tr('Độ dài tối đa (tokens)'),
-                        style: TextStyle(
-                            fontSize: 13,
-                            fontWeight: FontWeight.w500,
-                            color: SboxColors.slate600)),
-                    const SizedBox(height: 6),
-                    TextFormField(
-                      controller: maxTokensController,
-                      keyboardType: TextInputType.number,
-                      decoration: InputDecoration(
-                        hintText: tr('2048'),
-                        filled: true,
-                        fillColor: Colors.white,
-                        border: OutlineInputBorder(
-                            borderRadius: BorderRadius.circular(10),
-                            borderSide:
-                                const BorderSide(color: SboxColors.slate200)),
-                        enabledBorder: OutlineInputBorder(
-                            borderRadius: BorderRadius.circular(10),
-                            borderSide:
-                                const BorderSide(color: SboxColors.slate200)),
-                        contentPadding: const EdgeInsets.symmetric(
-                            horizontal: 16, vertical: 14),
-                      ),
-                    ),
-                  ],
-                ),
-              ),
-              const SizedBox(width: 16),
-              Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(tr('Độ sáng tạo / Temperature (0.0 - 2.0)'),
-                        style: TextStyle(
-                            fontSize: 13,
-                            fontWeight: FontWeight.w500,
-                            color: SboxColors.slate600)),
-                    const SizedBox(height: 6),
-                    TextFormField(
-                      controller: temperatureController,
-                      keyboardType:
-                          const TextInputType.numberWithOptions(decimal: true),
-                      decoration: InputDecoration(
-                        hintText: tr('0.7'),
-                        filled: true,
-                        fillColor: Colors.white,
-                        border: OutlineInputBorder(
-                            borderRadius: BorderRadius.circular(10),
-                            borderSide:
-                                const BorderSide(color: SboxColors.slate200)),
-                        enabledBorder: OutlineInputBorder(
-                            borderRadius: BorderRadius.circular(10),
-                            borderSide:
-                                const BorderSide(color: SboxColors.slate200)),
-                        contentPadding: const EdgeInsets.symmetric(
-                            horizontal: 16, vertical: 14),
-                      ),
-                    ),
-                  ],
-                ),
-              ),
-            ],
-          ),
-        const SizedBox(height: 8),
-        Text(tr('💡 Temperature thấp (0.1-0.3): chính xác, nhất quán. Cao (0.7-1.5): sáng tạo, đa dạng.'),
-          style: TextStyle(fontSize: 12, color: SboxColors.slate500),
-        ),
-      ],
-    );
-  }
-
-  Widget _buildTestSection(bool configured) {
-    return _buildCard(
+  Widget _testSection() {
+    final t = _test;
+    return SettingsSection(
       title: 'Kiểm tra kết nối',
-      icon: Icons.science,
-      iconColor: HrmPageChrome.primaryNavy,
+      subtitle: 'Gửi một câu hỏi thử bằng cấu hình đã lưu',
+      icon: Icons.wifi_tethering_rounded,
+      trailing: SboxButton.secondary(
+        label: 'Kiểm tra',
+        icon: Icons.play_arrow_rounded,
+        loading: _testing,
+        onPressed: _testing || _dirty ? null : _runTest,
+      ),
       children: [
-        Text(tr('Gửi yêu cầu thử để kiểm tra API Key và kết nối.'),
-          style: TextStyle(fontSize: 13, color: SboxColors.slate600),
-        ),
-        const SizedBox(height: 12),
-        SizedBox(
-          width: double.infinity,
-          child: OutlinedButton.icon(
-            onPressed: (_isTesting || !configured) ? null : _testConnection,
-            icon: _isTesting
-                ? const SizedBox(
-                    width: 18,
-                    height: 18,
-                    child: CircularProgressIndicator(strokeWidth: 2))
-                : const Icon(Icons.play_arrow),
-            label: Text(tr(_isTesting ? 'Đang kiểm tra...' : 'Kiểm tra kết nối')),
-            style: OutlinedButton.styleFrom(
-              foregroundColor: HrmPageChrome.primaryNavy,
-              side: const BorderSide(color: HrmPageChrome.primaryNavy),
-              padding: const EdgeInsets.symmetric(vertical: 14),
-              shape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(10)),
-            ),
-          ),
-        ),
-        if (_testResult != null) ...[
-          const SizedBox(height: 12),
-          Container(
-            width: double.infinity,
-            padding: const EdgeInsets.all(12),
-            decoration: BoxDecoration(
-              color: _testSuccess == true
-                  ? SboxColors.successSoft
-                  : SboxColors.dangerSoft,
-              borderRadius: BorderRadius.circular(10),
-              border: Border.all(
-                color: _testSuccess == true
-                    ? const Color(0xFF86EFAC)
-                    : const Color(0xFFFECACA),
-              ),
-            ),
-            child: Row(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Icon(
-                  _testSuccess == true ? Icons.check_circle : Icons.error,
-                  color: _testSuccess == true
-                      ? SboxColors.success
-                      : SboxColors.danger,
-                  size: 20,
-                ),
-                const SizedBox(width: 8),
-                Expanded(
-                  child: Text(
-                    tr(_testResult!),
-                    style: TextStyle(
-                      fontSize: 13,
-                      color: _testSuccess == true
-                          ? SboxColors.success
-                          : SboxColors.danger,
-                    ),
-                  ),
-                ),
-              ],
-            ),
-          ),
-        ],
+        if (_dirty) const SettingsNote('Lưu thay đổi trước khi kiểm tra.', icon: Icons.info_outline_rounded, tone: SboxTone.neutral),
+        if (t != null)
+          SettingsNote(t.$2, icon: t.$1 ? Icons.check_circle_rounded : Icons.error_outline_rounded, tone: t.$1 ? SboxTone.success : SboxTone.danger),
       ],
     );
   }
-
-  Widget _buildSaveButton(VoidCallback onSave) {
-    if (!_perm.canEdit('AIGemini')) return const SizedBox.shrink();
-    return SizedBox(
-      width: double.infinity,
-      height: 50,
-      child: FilledButton.icon(
-        onPressed: _isSaving ? null : onSave,
-        icon: _isSaving
-            ? const SizedBox(
-                width: 20,
-                height: 20,
-                child: CircularProgressIndicator(
-                    strokeWidth: 2, color: Colors.white))
-            : const Icon(Icons.save),
-        label: Text(
-          tr(_isSaving ? 'Đang lưu...' : 'Lưu cấu hình'),
-          style: const TextStyle(fontSize: 16, fontWeight: FontWeight.w600),
-        ),
-        style: FilledButton.styleFrom(
-          backgroundColor: HrmPageChrome.primaryNavy,
-          shape:
-              RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
-          elevation: 2,
-        ),
-      ),
-    );
-  }
-
-  Widget _buildHelpSection(List<_HelpStep> steps, String note) {
-    return _buildCard(
-      title: 'Hướng dẫn lấy API Key',
-      icon: Icons.help_outline,
-      iconColor: HrmPageChrome.primaryNavy,
-      children: [
-        ...steps.map((s) => _buildStep(s.number, s.title, s.subtitle)),
-        const SizedBox(height: 12),
-        Container(
-          padding: const EdgeInsets.all(12),
-          decoration: BoxDecoration(
-            color: SboxColors.brand50,
-            borderRadius: BorderRadius.circular(10),
-          ),
-          child: Row(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              const Icon(Icons.info, size: 18, color: HrmPageChrome.primaryNavy),
-              const SizedBox(width: 8),
-              Expanded(
-                child: Text(tr(note),
-                    style: TextStyle(fontSize: 13, color: SboxColors.slate700)),
-              ),
-            ],
-          ),
-        ),
-      ],
-    );
-  }
-
-  Widget _buildStep(int number, String title, String? subtitle) {
-    return Padding(
-      padding: const EdgeInsets.only(bottom: 10),
-      child: Row(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Container(
-            width: 26,
-            height: 26,
-            decoration: BoxDecoration(
-              color: const Color(0xFF2D5F8B),
-              borderRadius: BorderRadius.circular(13),
-            ),
-            child: Center(
-              child: Text(tr('$number'),
-                  style: const TextStyle(
-                      color: Colors.white,
-                      fontSize: 13,
-                      fontWeight: FontWeight.bold)),
-            ),
-          ),
-          const SizedBox(width: 10),
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(tr(title),
-                    style: const TextStyle(
-                        fontSize: 14, fontWeight: FontWeight.w500)),
-                if (subtitle != null)
-                  Text(tr(subtitle),
-                      style: TextStyle(fontSize: 12, color: SboxColors.brand600)),
-              ],
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-
-  Widget _buildCard({
-    required String title,
-    required IconData icon,
-    required Color iconColor,
-    required List<Widget> children,
-  }) {
-    return Container(
-      width: double.infinity,
-      padding: const EdgeInsets.all(20),
-      decoration: BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.circular(14),
-        border: Border.all(color: SboxColors.slate200),
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Row(
-            children: [
-              Icon(icon, color: iconColor, size: 22),
-              const SizedBox(width: 8),
-              Text(tr(title),
-                  style: const TextStyle(
-                      fontSize: 16,
-                      fontWeight: FontWeight.w600,
-                      color: SboxColors.slate900)),
-            ],
-          ),
-          const SizedBox(height: 16),
-          ...children,
-        ],
-      ),
-    );
-  }
-}
-
-class _HelpStep {
-  final int number;
-  final String title;
-  final String? subtitle;
-  const _HelpStep(this.number, this.title, this.subtitle);
 }

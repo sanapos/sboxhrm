@@ -1700,43 +1700,68 @@ class _BranchManagementScreenState extends State<BranchManagementScreen>
     }
   }
 
-  void _confirmDeleteBranch(Branch branch) {
-    showDialog(
+  /// Xem trước dữ liệu gắn với chi nhánh rồi mới cho xóa.
+  Future<void> _confirmDeleteBranch(Branch branch) async {
+    final usage = await _api.getBranchUsage(branch.id);
+    if (!mounted) return;
+    final u = usage['isSuccess'] == true && usage['data'] is Map
+        ? Map<String, dynamic>.from(usage['data'] as Map)
+        : <String, dynamic>{};
+    int n(String k) => (u[k] as num?)?.toInt() ?? 0;
+    final blocker = u['blocker']?.toString();
+    final lines = <String>[
+      if (n('employees') > 0) '${n('employees')} nhân viên sẽ không còn thuộc chi nhánh nào',
+      if (n('accounts') > 0) '${n('accounts')} quyền xem chi nhánh của tài khoản sẽ bị gỡ',
+      if (n('stockItems') > 0) 'Tồn kho của ${n('stockItems')} mặt hàng chuyển về trụ sở',
+      if (n('saleOrders') > 0) '${n('saleOrders')} hóa đơn bán hàng vẫn giữ trong báo cáo',
+    ];
+    final ok = await showDialog<bool>(
       context: context,
       builder: (ctx) => ScrollableAlertDialog(
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
-        title: Row(
-          children: [
-            Icon(Icons.warning_amber, color: Colors.red.shade400),
-            const SizedBox(width: 8),
-            Text(tr('Xác nhận xóa')),
+        title: Row(children: [
+          Icon(blocker != null ? Icons.block : Icons.warning_amber, color: Colors.red.shade400),
+          const SizedBox(width: 8),
+          Expanded(child: Text(tr(blocker != null ? 'Chưa xóa được' : 'Xóa chi nhánh "${branch.name}"?'))),
+        ]),
+        content: Column(mainAxisSize: MainAxisSize.min, crossAxisAlignment: CrossAxisAlignment.start, children: [
+          if (blocker != null)
+            Text(tr(blocker))
+          else ...[
+            if (lines.isEmpty) Text(tr('Chi nhánh chưa có dữ liệu nào.')),
+            for (final l in lines)
+              Padding(
+                padding: const EdgeInsets.only(bottom: 6),
+                child: Row(crossAxisAlignment: CrossAxisAlignment.start, children: [
+                  const Padding(padding: EdgeInsets.only(top: 6), child: Icon(Icons.circle, size: 6)),
+                  const SizedBox(width: 8),
+                  Expanded(child: Text(tr(l))),
+                ]),
+              ),
+            const SizedBox(height: 8),
+            Text(tr('Không hoàn tác được. Nếu chi nhánh chỉ tạm đóng cửa, nên dùng «Ngừng hoạt động».'),
+                style: TextStyle(color: SboxColors.slate500, fontSize: 13)),
           ],
-        ),
-        content: Text(tr('Bạn có chắc muốn xóa chi nhánh "${branch.name}" (${branch.code})?\n\nHành động này không thể hoàn tác.')),
+        ]),
         actions: [
-          TextButton(
-              onPressed: () => Navigator.pop(ctx), child: Text(tr('Hủy'))),
-          FilledButton(
-            style: FilledButton.styleFrom(backgroundColor: Colors.red),
-            onPressed: () async {
-              Navigator.pop(ctx);
-              final resp = await _api.deleteBranch(branch.id);
-              if (resp['isSuccess'] == true) {
-                appNotification.showSuccess(
-                    title: 'Đã xóa',
-                    message: tr('Chi nhánh "${branch.name}" đã được xóa.'));
-                _loadTabData(_currentTab);
-              } else {
-                appNotification.showError(
-                    title: 'Lỗi',
-                    message: resp['message']?.toString() ?? 'Có lỗi xảy ra');
-              }
-            },
-            child: Text(tr('Xóa')),
-          ),
+          TextButton(onPressed: () => Navigator.pop(ctx, false), child: Text(tr(blocker != null ? 'Đóng' : 'Hủy'))),
+          if (blocker == null)
+            FilledButton(
+              style: FilledButton.styleFrom(backgroundColor: Colors.red),
+              onPressed: () => Navigator.pop(ctx, true),
+              child: Text(tr('Xóa')),
+            ),
         ],
       ),
     );
+    if (ok != true || !mounted) return;
+    final resp = await _api.deleteBranch(branch.id);
+    if (resp['isSuccess'] == true) {
+      appNotification.showSuccess(title: 'Đã xóa', message: tr('Chi nhánh "${branch.name}" đã được xóa.'));
+      _loadTabData(_currentTab);
+    } else {
+      appNotification.showError(title: 'Lỗi', message: resp['message']?.toString() ?? 'Có lỗi xảy ra');
+    }
   }
 
   // ═══════════════════════════════════════════════════════════════

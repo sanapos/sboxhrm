@@ -241,7 +241,11 @@ class ApiService {
           .post(
             Uri.parse('$baseUrl/api/auth/refresh'),
             headers: {'Content-Type': 'application/json'},
-            body: json.encode({'refreshToken': refreshTk}),
+            body: json.encode({
+              'refreshToken': refreshTk,
+              // Thiết bị đã bị gỡ khỏi cửa hàng → server bắt đăng nhập lại.
+              'deviceKey': prefs.getString('sbox_access_device_key') ?? '',
+            }),
           )
           .timeout(const Duration(seconds: 10));
 

@@ -204,41 +204,13 @@ public static class CashTransactionLinkageHelper
         Guid storeId,
         CancellationToken cancellationToken)
     {
-        Payslip? payslip = await context.Payslips
-            .AsTracking()
-            .Include(p => p.Employee)
-            .FirstOrDefaultAsync(
-                p => p.CashTransactionId == cash.Id && p.StoreId == storeId,
-                cancellationToken);
-
-        if (payslip == null
-            && TryExtractTrailingGuid(cash.InternalNote, PayslipMarker, out var payslipId))
-        {
-            payslip = await context.Payslips
-                .AsTracking()
-                .Include(p => p.Employee)
-                .FirstOrDefaultAsync(p => p.Id == payslipId && p.StoreId == storeId, cancellationToken);
-        }
-
-        if (payslip == null)
-            return;
-
-        var wasPaid = payslip.Status == PayslipStatus.Paid;
-        if (payslip.CashTransactionId != cash.Id)
-        {
-            payslip.CashTransactionId = cash.Id;
-        }
-
-        if (!wasPaid)
-        {
-            payslip.Status = PayslipStatus.Paid;
-            payslip.PaidDate = cash.PaidDate ?? DateTime.UtcNow;
-            payslip.UpdatedAt = DateTime.UtcNow;
-            await context.SaveChangesAsync(cancellationToken);
-        }
+        // Phiếu lương «Đã trả» chỉ khi tổng phiếu chi hoàn thành đủ thực lĩnh (trả nhiều lần / nhiều phương thức).
+        var (payslip, becamePaid) = await PayslipPayments.SyncForVoucherAsync(
+            context, cash, storeId, performedByUserId, ensurePending: true, cancellationToken);
+        if (payslip == null || !becamePaid) return;
 
         var uid = payslip.EmployeeUserId ?? payslip.Employee?.ApplicationUserId;
-        if (!wasPaid && uid.HasValue && uid != performedByUserId)
+        if (uid.HasValue && uid != performedByUserId)
         {
             try
             {

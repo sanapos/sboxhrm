@@ -75,6 +75,10 @@ final _event = {
     'options': [{'id': 'o1', 'text': 'Team games trên biển', 'votes': 9}, {'id': 'o2', 'text': 'Gala dinner', 'votes': 6}, {'id': 'o3', 'text': 'Tự do tắm biển', 'votes': 2}],
   },
   'views': 40, 'reactionTotal': 24, 'reactions': {'0': 14, '1': 6, '2': 4}, 'comments': 8, 'myReaction': 2, 'canEdit': false,
+  'latestComments': [
+    {'id': 'c1', 'userId': 'u7', 'userName': 'Phạm Tú', 'content': 'Đăng ký team games nhé mọi người!', 'createdAt': _ago(3), 'likeCount': 4},
+    {'id': 'c2', 'userId': 'u8', 'userName': 'Lê Hà', 'content': 'Có cho mang người nhà không ạ?', 'createdAt': _ago(1), 'myLiked': true, 'likeCount': 1, 'edited': true},
+  ],
 };
 
 final _culture = {
@@ -105,11 +109,20 @@ final _client = MockClient((req) async {
   }
   if (p.endsWith('/posts/p1/comments')) {
     return _ok([
-      {'id': 'k1', 'userId': 'u5', 'userName': 'Lê Tú', 'content': 'Cho em hỏi ca đêm có áp dụng không ạ? @Phòng Nhân sự', 'createdAt': _ago(1)},
-      {'id': 'k2', 'userId': 'u1', 'userName': 'Phòng Nhân sự', 'content': 'Có em nhé, áp dụng mọi ca.', 'parentCommentId': 'k1', 'createdAt': _ago(0)},
+      {'id': 'k1', 'userId': 'u5', 'userName': 'Lê Tú', 'content': 'Cho em hỏi ca đêm có áp dụng không ạ? @Phòng Nhân sự', 'createdAt': _ago(1), 'likeCount': 3, 'replyCount': 2},
+      {'id': 'k2', 'userId': 'u1', 'userName': 'Phòng Nhân sự', 'content': 'Có em nhé, áp dụng mọi ca.', 'parentCommentId': 'k1', 'createdAt': _ago(0), 'canEdit': true, 'canDelete': true},
+      {'id': 'k3', 'userId': 'u6', 'userName': 'Ngô Bảo', 'content': 'Cảm ơn chị.', 'parentCommentId': 'k1', 'createdAt': _ago(0), 'myLiked': true, 'likeCount': 1},
+      {'id': 'k4', 'userId': 'u7', 'userName': 'Phạm Tú', 'content': 'Đã đọc và xác nhận.', 'createdAt': _ago(0)},
     ]);
   }
   if (p.endsWith('/posts/p1')) return _ok(_policy);
+  if (p.endsWith('/posts/p2/reactions')) {
+    return _ok([
+      {'userId': 'u7', 'name': 'Phạm Tú', 'type': 0},
+      {'userId': 'u8', 'name': 'Lê Hà', 'type': 1},
+      {'userId': 'u9', 'name': 'Ngô Bảo', 'type': 2},
+    ]);
+  }
   if (p.contains('/api/Employees')) return _ok([]);
   return http.Response(jsonEncode({'isSuccess': false, 'message': 'not mocked $p'}), 200);
 });
@@ -209,17 +222,51 @@ void main() {
     expect(find.text('Quy định chấm công và nghỉ phép 2026 (bản 3)'), findsOneWidget);
     expect(find.text('Tôi đã đọc và cam kết'), findsOneWidget);
     expect(find.text('Cần bạn xử lý'), findsOneWidget);
+    // Bình luận mới nhất + ô bình luận ngay dưới bài, «Bạn và N người khác».
+    expect(find.text('Xem tất cả 8 bình luận'), findsOneWidget);
+    expect(find.text('Có cho mang người nhà không ạ?'), findsOneWidget);
+    expect(find.text('Bạn và 23 người khác'), findsOneWidget);
+    expect(find.text('Giao diện cũ'), findsNothing);
+    expect(find.text('Liên kết'), findsWidgets);
   });
 
   testWidgets('Bảng tin — điện thoại', (t) async {
     await _pump(t, CommHubScreen(debugContext: _ctx), const Size(390, 844), 'comm_feed_mobile');
-    expect(find.textContaining('văn bản cần đọc và xác nhận'), findsOneWidget);
+    expect(find.text('Cần đọc, xác nhận'), findsOneWidget);
+    expect(find.text('Bài chờ duyệt'), findsOneWidget);
+    expect(find.byType(FloatingActionButton), findsOneWidget);
   });
 
   testWidgets('Chi tiết bài + bình luận — điện thoại', (t) async {
     await _pump(t, CommPostDetailPage(postId: 'p1', ctx: _ctx), const Size(390, 844), 'comm_detail_mobile');
     expect(find.text('Phạm vi áp dụng'), findsWidgets);
     expect(find.text('Trả lời'), findsWidgets);
+    // 2 phản hồi thu gọn dưới bình luận gốc.
+    expect(find.text('Xem 2 phản hồi'), findsOneWidget);
+    expect(find.text('Có em nhé, áp dụng mọi ca.'), findsNothing);
+  });
+
+  testWidgets('Chi tiết — mở phản hồi, sửa / thích bình luận', (t) async {
+    await _pump(t, CommPostDetailPage(postId: 'p1', ctx: _ctx), const Size(1280, 900), 'comm_detail_desktop', tall: false);
+    await http.runWithClient(() async {
+      await t.ensureVisible(find.text('Xem 2 phản hồi'));
+      await t.pump();
+      await t.tap(find.text('Xem 2 phản hồi'));
+      await t.pump();
+    }, () => _client);
+    expect(find.text('Có em nhé, áp dụng mọi ca.'), findsOneWidget);
+    expect(find.text('Sửa'), findsOneWidget);
+    expect(find.text('Đã thích'), findsOneWidget);
+  });
+
+  testWidgets('Nút cảm xúc: nhấn giữ hiện bảng chọn', (t) async {
+    await _pump(t, CommHubScreen(debugContext: _ctx), const Size(1280, 900), 'comm_reaction_picker', tall: false);
+    await t.ensureVisible(find.byType(CommReactionButton).first);
+    await t.pump();
+    await t.longPress(find.byType(CommReactionButton).first);
+    await t.pump();
+    expect(find.text('🎉'), findsWidgets);
+    expect(find.byTooltip('Ủng hộ'), findsWidgets);
   });
 
   testWidgets('Trình soạn thảo + Trợ lý AI — máy tính', (t) async {

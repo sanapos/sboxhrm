@@ -35,7 +35,7 @@ class _PayrollScreenState extends State<PayrollScreen> {
   bool _isLoading = true;
   int _selectedYear = DateTime.now().year;
   int _selectedMonth = DateTime.now().month;
-  String? _selectedBranchId;
+  String? _selectedBranchId = BranchFilterHelper.viewBranchId;
   List<Map<String, dynamic>> _branches = [];
   List<Map<String, dynamic>> _employeesList = [];
   bool _showOverviewPanel = true;
@@ -186,7 +186,7 @@ class _PayrollScreenState extends State<PayrollScreen> {
                 ),
                 if (_selectedBranchId != null)
                   InkWell(
-                    onTap: () => setState(() => _selectedBranchId = null),
+                    onTap: () => setState(() => _selectedBranchId = BranchFilterHelper.viewBranchId),
                     borderRadius: BorderRadius.circular(14),
                     child: const Padding(
                       padding: EdgeInsets.all(4),

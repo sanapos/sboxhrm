@@ -407,6 +407,38 @@ public class BranchController(
     /// <summary>
     /// Xóa chi nhánh (soft delete)
     /// </summary>
+    /// <summary>Dữ liệu đang gắn với chi nhánh — màn Chi nhánh hiện trước khi xóa / tạm ngưng.</summary>
+    [HttpGet("{id}/usage")]
+    [RequireModulePermission("Branch", ModulePermissionAction.View)]
+    public async Task<ActionResult<AppResponse<object>>> GetUsage(Guid id)
+    {
+        var branch = await dbContext.Branches.AsNoTracking().FirstOrDefaultAsync(b => b.Id == id && b.Deleted == null);
+        if (branch == null)
+            return NotFound(AppResponse<object>.Fail("Không tìm thấy chi nhánh"));
+
+        var employees = await dbContext.Set<Employee>().CountAsync(e => e.BranchId == id && e.Deleted == null);
+        var children = await dbContext.Branches.CountAsync(b => b.ParentBranchId == id && b.Deleted == null);
+        var accounts = await dbContext.BranchPermissions.CountAsync(p => p.BranchId == id && p.IsActive);
+        var saleOrders = await dbContext.PosSaleOrders.CountAsync(o => o.BranchId == id);
+        var stockItems = await dbContext.PosBranchStocks.CountAsync(s => s.BranchId == id && s.Qty != 0);
+        var openTransfers = await dbContext.PosStockTransfers.CountAsync(t =>
+            (t.FromBranchId == id || t.ToBranchId == id) &&
+            (t.Status == PosStockTransferStatus.Draft || t.Status == PosStockTransferStatus.Sent));
+
+        string? blocker = branch.IsHeadquarter ? "Đây là trụ sở — chọn chi nhánh khác làm trụ sở trước."
+            : children > 0 ? $"Còn {children} chi nhánh con — xóa hoặc chuyển chi nhánh con trước."
+            : openTransfers > 0 ? $"Còn {openTransfers} phiếu chuyển kho chưa hoàn tất."
+            : null;
+
+        return Ok(AppResponse<object>.Success(new
+        {
+            employees, children, accounts, saleOrders, stockItems, openTransfers,
+            isHeadquarter = branch.IsHeadquarter,
+            canDelete = blocker == null,
+            blocker,
+        }));
+    }
+
     [HttpDelete("{id}")]
     [Authorize(Policy = PolicyNames.AtLeastManager)]
     [RequireModulePermission("Branch", ModulePermissionAction.Delete)]
@@ -443,6 +475,12 @@ public class BranchController(
         foreach (var emp in linkedEmployees)
             emp.BranchId = null;
 
+        // Quyền xem chi nhánh đã xóa không còn ý nghĩa.
+        var perms = await dbContext.BranchPermissions.AsTracking()
+            .Where(p => p.BranchId == id)
+            .ToListAsync();
+        dbContext.BranchPermissions.RemoveRange(perms);
+
         branch.Deleted = DateTime.UtcNow;
         branch.DeletedBy = CurrentUserId.ToString();
         await dbContext.SaveChangesAsync();
@@ -467,6 +505,8 @@ public class BranchController(
 
         if (branch == null)
             return NotFound(AppResponse<BranchDto>.Fail("Không tìm thấy chi nhánh"));
+        if (branch.IsHeadquarter && branch.IsActive)
+            return BadRequest(AppResponse<BranchDto>.Fail("Không thể tạm ngưng trụ sở. Hãy chọn chi nhánh khác làm trụ sở trước."));
 
         branch.IsActive = !branch.IsActive;
         await dbContext.SaveChangesAsync();

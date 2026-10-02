@@ -1,3 +1,5 @@
+import '../../l10n/app_tr.dart';
+import '../../widgets/ai_assistant_sheet.dart';
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 
@@ -74,6 +76,14 @@ class _PosOverviewScreenState extends State<PosOverviewScreen> {
             PosMobileKiotHeader(
               title: 'Tổng quan',
               onRefresh: () async => setState(() => _reloadKey++),
+              trailing: [
+                if (canUseAiAssistant(context))
+                IconButton(
+                  icon: const Icon(Icons.auto_awesome, color: Color(0xFF7C3AED)),
+                  tooltip: tr('Trợ lý ảo AI'),
+                  onPressed: () => showAiAssistant(context),
+                ),
+              ],
             ),
           Expanded(
             child: canReport
@@ -104,6 +114,12 @@ class _PosOverviewScreenState extends State<PosOverviewScreen> {
     final canQr = canMod('PosQrOrder');
     final canKds = canMod('PosKds');
     final items = <PosMobileHubGridItem>[
+      if (canUseAiAssistant(context))
+      PosMobileHubGridItem(
+        label: 'Trợ lý AI',
+        icon: Icons.auto_awesome_outlined,
+        onTap: () => showAiAssistant(context),
+      ),
       if (canMod('PosSell'))
         PosMobileHubGridItem(
           label: 'Bán hàng',

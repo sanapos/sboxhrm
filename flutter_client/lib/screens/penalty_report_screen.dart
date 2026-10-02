@@ -15,7 +15,8 @@ import 'package:zkteco_flutter_client/l10n/app_tr.dart';
 
 import '../theme/sbox_tokens.dart';
 import '../widgets/sbox/sbox_report.dart';
-import '../widgets/sbox/sbox_charts.dart';
+import '../widgets/sbox/sbox_charts.dart';
+import '../utils/branch_filter_helper.dart';
 const _theme = HrmPageChrome.primaryNavy;
 const _accentDark = SboxColors.brand800;
 
@@ -34,7 +35,7 @@ class _PenaltyReportScreenState extends State<PenaltyReportScreen> {
   String _datePreset = 'this_month';
   String? _statusFilter;
   String _empSearch = '';
-  String? _selectedBranchId;
+  String? _selectedBranchId = BranchFilterHelper.viewBranchId;
   String? _selectedDepartmentId;
   int _viewTab = 0;
   int _page = 1;
@@ -450,7 +451,7 @@ class _PenaltyReportScreenState extends State<PenaltyReportScreen> {
                       onClearFilters: _teamView
                           ? () => setState(() {
                                 _empSearch = '';
-                                _selectedBranchId = null;
+                                _selectedBranchId = BranchFilterHelper.viewBranchId;
                                 _selectedDepartmentId = null;
                               })
                           : null,

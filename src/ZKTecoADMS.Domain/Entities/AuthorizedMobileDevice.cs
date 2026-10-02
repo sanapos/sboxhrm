@@ -70,4 +70,10 @@ public class AuthorizedMobileDevice : AuditableEntity<Guid>
 
     /// <summary>Bắt buộc nhập lý do khi chấm ngoài vị trí công ty</summary>
     public bool RequireOutsideReason { get; set; }
+
+    /// <summary>Lý do quản lý từ chối đăng ký (bản ghi bị xóa mềm để NV đăng ký lại).</summary>
+    [MaxLength(500)]
+    public string? RejectionReason { get; set; }
+
+    public DateTime? RejectedAt { get; set; }
 }

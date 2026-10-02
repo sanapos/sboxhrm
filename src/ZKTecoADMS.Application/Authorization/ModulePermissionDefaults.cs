@@ -170,8 +170,10 @@ public static class ModulePermissionDefaults
         // Hồ sơ / chấm công / lương phiếu / phạt của mình (API vẫn scope theo EmployeeId)
         "employee" or "attendance" or "attendancesummary" or "attendancebyshift"
             or "payslip" or "penaltytickets" or "bonuspenalty" or "mobiledeviceregistration"
-            or "communication"
             => (true, false, false, false, false, false),
+
+        // Truyền thông: xem + đăng bài / bình luận (kênh cần duyệt vẫn chờ quản lý duyệt)
+        "communication" => (true, true, false, false, false, false),
 
         // Đăng ký / yêu cầu
         "leave" or "overtime" or "shiftswap" or "advancerequests" or "businesstripexpense"

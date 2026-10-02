@@ -392,6 +392,11 @@ public class CashTransactionsController(
             }
             catch { /* best-effort */ }
         }
+        else if (wasPaid && !transaction.IsPaid)
+        {
+            try { await PayslipPayments.SyncForVoucherAsync(context, transaction, storeId, CurrentUserId, ensurePending: false); }
+            catch { /* best-effort */ }
+        }
 
         return await GetTransaction(id);
     }
@@ -476,6 +481,12 @@ public class CashTransactionsController(
                 await CashTransactionLinkageHelper.ApplyOnCashPaidAsync(
                     context, notificationService, transaction, CurrentUserId, storeId);
             }
+            catch { /* best-effort */ }
+        }
+        else if (wasPaid && !transaction.IsPaid)
+        {
+            // Hủy / bỏ thanh toán phiếu chi lương → phiếu lương về «chưa trả đủ».
+            try { await PayslipPayments.SyncForVoucherAsync(context, transaction, storeId, CurrentUserId, ensurePending: false); }
             catch { /* best-effort */ }
         }
 
@@ -603,26 +614,11 @@ public class CashTransactionsController(
             }
         }
 
-        // Phiếu chi lương → hoàn phiếu lương về đã chốt, chưa thanh toán
-        var linkedPayslip = await context.Payslips
-            .AsTracking()
-            .FirstOrDefaultAsync(p => p.CashTransactionId == transaction.Id && p.StoreId == storeId);
-        if (linkedPayslip == null && CashTransactionLinkageHelper.TryExtractTrailingGuid(
-                transaction.InternalNote, "phiếu lương #", out var payslipId))
-        {
-            linkedPayslip = await context.Payslips
-                .AsTracking()
-                .FirstOrDefaultAsync(p => p.Id == payslipId && p.StoreId == storeId);
-        }
-        if (linkedPayslip != null)
-        {
-            linkedPayslip.Status = PayslipStatus.Approved;
-            linkedPayslip.PaidDate = null;
-            linkedPayslip.CashTransactionId = null;
-            linkedPayslip.UpdatedAt = DateTime.UtcNow;
-        }
-
         await context.SaveChangesAsync();
+
+        // Phiếu chi lương → tính lại số đã trả của phiếu lương (phiếu đã xóa không còn tính).
+        try { await PayslipPayments.SyncForVoucherAsync(context, transaction, storeId, CurrentUserId, ensurePending: false); }
+        catch { /* best-effort */ }
 
         return Ok(AppResponse<bool>.Success(true));
     }

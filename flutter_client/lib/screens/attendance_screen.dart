@@ -91,7 +91,7 @@ class _AttendanceScreenState extends State<AttendanceScreen> {
   int? _attendanceServerTotalCount;
   int?
       _selectedVerifyType; // null = all, 0 = password, 1 = fingerprint, 2 = card, 15 = face
-  String? _selectedBranchId;
+  String? _selectedBranchId = BranchFilterHelper.viewBranchId;
   List<Map<String, dynamic>> _branches = [];
   List<Map<String, dynamic>> _employeesList = [];
 
@@ -2495,7 +2495,7 @@ class _AttendanceScreenState extends State<AttendanceScreen> {
         (_selectedDevices.isNotEmpty &&
             _selectedDevices.length != _devices.length) ||
         _selectedDatePreset != 'week' ||
-        _selectedBranchId != null;
+        _selectedBranchId != BranchFilterHelper.viewBranchId;
   }
 
   void _clearAttFilters() {
@@ -2503,7 +2503,7 @@ class _AttendanceScreenState extends State<AttendanceScreen> {
       _selectedVerifyType = null;
       _filterEmployeeCode = null;
       _searchPin = '';
-      _selectedBranchId = null;
+      _selectedBranchId = BranchFilterHelper.viewBranchId;
       _selectedDevices = _devices.map((d) => d.id).toList();
       _currentPage = 1;
     });
@@ -2840,7 +2840,7 @@ class _AttendanceScreenState extends State<AttendanceScreen> {
                 (
                   label: 'Tất cả chi nhánh',
                   onPick: () => setState(() {
-                    _selectedBranchId = null;
+                    _selectedBranchId = BranchFilterHelper.viewBranchId;
                     _currentPage = 1;
                   })
                 ),

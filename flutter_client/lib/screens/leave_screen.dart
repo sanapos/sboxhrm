@@ -1,4 +1,5 @@
 import 'dart:async';
+import 'annual_leave/al_screen.dart';
 import 'package:flutter/material.dart';
 import 'package:zkteco_flutter_client/widgets/app_responsive_dialog.dart';
 import '../widgets/hrm_page_chrome.dart';
@@ -61,7 +62,7 @@ class _LeaveScreenState extends State<LeaveScreen>
   String? _filterEmployeeId;
   String _filterTimePreset = 'all';
   DateTimeRange? _filterDateRange;
-  String? _filterBranchId;
+  String? _filterBranchId = BranchFilterHelper.viewBranchId;
   List<Map<String, dynamic>> _branches = [];
   int _currentPage = 1;
 
@@ -436,6 +437,13 @@ class _LeaveScreenState extends State<LeaveScreen>
 
     return RegisterPageTopActions(
       actions: [
+        HrmTopBarAction(
+          icon: Icons.beach_access_rounded,
+          label: 'Phép năm',
+          onPressed: () => Navigator.of(context).push(
+            MaterialPageRoute<void>(builder: (_) => const AnnualLeaveScreen()),
+          ),
+        ),
         HrmTopBarAction(
           icon: Icons.menu_book_rounded,
           label: 'Quy định nghỉ phép',
@@ -849,7 +857,7 @@ class _LeaveScreenState extends State<LeaveScreen>
       _filterEmployeeId = null;
       _filterTimePreset = 'all';
       _filterDateRange = null;
-      _filterBranchId = null;
+      _filterBranchId = BranchFilterHelper.viewBranchId;
       _currentPage = 1;
     });
   }
@@ -1044,7 +1052,7 @@ class _LeaveScreenState extends State<LeaveScreen>
         _filterStatus != null ||
         (_filterEmployeeId != null && _filterEmployeeId!.isNotEmpty) ||
         _filterDateRange != null ||
-        _filterBranchId != null ||
+        _filterBranchId != BranchFilterHelper.viewBranchId ||
         _filterTimePreset != 'all';
 
     final orderCount = (_isManager ? _allLeaves : _myLeaves).length;
@@ -1137,7 +1145,7 @@ class _LeaveScreenState extends State<LeaveScreen>
               title: 'Chi nhánh',
               options: [
                 (label: _l10n.all, onPick: () => setState(() {
-                      _filterBranchId = null;
+                      _filterBranchId = BranchFilterHelper.viewBranchId;
                       _currentPage = 1;
                     })),
                 ..._branches.map(

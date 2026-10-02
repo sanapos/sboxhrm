@@ -29,4 +29,7 @@ public class UserDeviceToken : Entity<Guid>
 
     /// <summary>True after Firebase reports the token as UNREGISTERED / INVALID_ARGUMENT.</summary>
     public bool IsDisabled { get; set; }
+
+    /// <summary>Mã thiết bị truy cập (StoreAccessDevice.DeviceKey) — thu hồi thiết bị thì xóa token của máy đó.</summary>
+    public string? DeviceKey { get; set; }
 }

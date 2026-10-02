@@ -1,3 +1,4 @@
+using ZKTecoADMS.Api.Authorization;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
@@ -16,6 +17,13 @@ namespace ZKTecoADMS.Api.Controllers;
 [Authorize]
 public class PermissionsController(ZKTecoDbContext context) : AuthenticatedControllerBase
 {
+    Task<bool> IsStoreOwnerAsync() =>
+        context.Stores.AnyAsync(s => s.Id == CurrentStoreId && s.OwnerId == CurrentUserId);
+
+    /// <summary>null = được sửa quyền của vai trò này (không tự nâng quyền mình / vai trò cao hơn).</summary>
+    async Task<string?> DenyRoleEditAsync(string roleName) =>
+        AccountRolePolicy.CanEditRole(CurrentUserRole, await IsStoreOwnerAsync(), roleName);
+
     /// <summary>Cửa hàng được thao tác: chỉ SuperAdmin chọn được cửa hàng khác (tránh ghi đè quyền cửa hàng người khác).</summary>
     Guid? ScopedStore(Guid? requested) =>
         CurrentUserRole.Equals("SuperAdmin", StringComparison.OrdinalIgnoreCase)
@@ -191,9 +199,12 @@ public class PermissionsController(ZKTecoDbContext context) : AuthenticatedContr
     /// </summary>
     [HttpPost("roles")]
     [Authorize(Policy = PolicyNames.AtLeastAdmin)]
+    [RequireModulePermission("Role", ModulePermissionAction.Edit)]
     public async Task<ActionResult<AppResponse<RolePermissionGroupDto>>> CreateOrUpdateRolePermissions(
         [FromBody] CreateRolePermissionRequest request)
     {
+        if (await DenyRoleEditAsync(request.RoleName) is { } deny)
+            return StatusCode(StatusCodes.Status403Forbidden, AppResponse<RolePermissionGroupDto>.Fail(deny));
         request.StoreId = ScopedStore(request.StoreId);
 
         // Xóa các quyền cũ của role này (nếu có)
@@ -234,10 +245,13 @@ public class PermissionsController(ZKTecoDbContext context) : AuthenticatedContr
     /// </summary>
     [HttpDelete("roles/{roleName}")]
     [Authorize(Policy = PolicyNames.AtLeastAdmin)]
+    [RequireModulePermission("Role", ModulePermissionAction.Delete)]
     public async Task<ActionResult<AppResponse<bool>>> DeleteRole(
         string roleName, 
         [FromQuery] Guid? storeId = null)
     {
+        if (await DenyRoleEditAsync(roleName) is { } deny)
+            return StatusCode(StatusCodes.Status403Forbidden, AppResponse<bool>.Fail(deny));
         storeId = ScopedStore(storeId);
 
         var permissions = await context.RolePermissions
@@ -344,6 +358,7 @@ public class PermissionsController(ZKTecoDbContext context) : AuthenticatedContr
     /// <summary>Áp dụng mẫu cho một hoặc nhiều vai trò của cửa hàng (ghi đè quyền hiện có của vai trò đó).</summary>
     [HttpPost("presets/apply")]
     [Authorize(Policy = PolicyNames.AtLeastAdmin)]
+    [RequireModulePermission("Role", ModulePermissionAction.Edit)]
     public async Task<ActionResult<AppResponse<object>>> ApplyPresets([FromBody] ApplyPresetsRequest request)
     {
         if (CurrentStoreId is not Guid storeId)
@@ -363,6 +378,8 @@ public class PermissionsController(ZKTecoDbContext context) : AuthenticatedContr
                 return BadRequest(AppResponse<object>.Fail($"Mẫu «{preset.Title}» dành cho vai trò {preset.RoleName}"));
             if (a.RoleName.Equals("Admin", StringComparison.OrdinalIgnoreCase))
                 continue; // chủ cửa hàng luôn toàn quyền
+            if (await DenyRoleEditAsync(a.RoleName) is { } deny)
+                return StatusCode(StatusCodes.Status403Forbidden, AppResponse<object>.Fail($"{a.RoleName}: {deny}"));
 
             var built = PermissionPresetCatalog.Build(preset.Id);
             var old = await context.RolePermissions.AsTracking()

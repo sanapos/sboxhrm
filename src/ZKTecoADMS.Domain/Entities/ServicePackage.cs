@@ -51,6 +51,32 @@ public class ServicePackage : Entity<Guid>
     /// </summary>
     public string DataRetentionJson { get; set; } = "{}";
 
+    // ─── Thông tin kinh doanh (v2) ───
+
+    /// <summary>pos / hrm / both</summary>
+    public string ProductLine { get; set; } = "both";
+
+    /// <summary>Giá theo tháng (VNĐ). null = liên hệ</summary>
+    public decimal? MonthlyPrice { get; set; }
+
+    /// <summary>Giá theo năm (VNĐ). null = không bán theo năm</summary>
+    public decimal? YearlyPrice { get; set; }
+
+    /// <summary>Số ngày dùng thử khi đăng ký gói này (0 = không dùng thử)</summary>
+    public int TrialDays { get; set; }
+
+    /// <summary>Thứ tự hiển thị trên bảng giá</summary>
+    public int SortOrder { get; set; }
+
+    /// <summary>Đánh dấu «Phổ biến» trên bảng giá</summary>
+    public bool IsFeatured { get; set; }
+
+    /// <summary>Nhãn ngắn (VD: «Tiết kiệm 20%»)</summary>
+    public string? Badge { get; set; }
+
+    /// <summary>Các dòng điểm nổi bật hiển thị trên bảng giá (mỗi dòng một ý)</summary>
+    public string? Highlights { get; set; }
+
     /// <summary>
     /// Stores đang sử dụng gói này
     /// </summary>

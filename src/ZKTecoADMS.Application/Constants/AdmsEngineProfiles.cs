@@ -10,6 +10,23 @@ public static class AdmsEngineProfiles
     public const string TftLegacy = "TftLegacy";
 
     /// <summary>
+    /// Máy push «lite» đời mới giá rẻ (LX35, chip Anyka AK37xx, PushVersion 3.0.x):
+    /// hỗ trợ DATA QUERY USERINFO / ATTLOG nhưng thời gian dạng «yyyy-MM-dd HH:mm:ss» (không có T),
+    /// không xử lý khối GET OPTION trả trong getrequest (luôn gửi Stamp=9999).
+    /// </summary>
+    public const string PushLite = "PushLite";
+
+    /// <summary>Firmware chưa biết (máy chưa gửi INFO/options).</summary>
+    public static bool IsUnknownFirmware(string? firmware) =>
+        string.IsNullOrWhiteSpace(firmware)
+        || firmware.Trim().Equals("Unknown", StringComparison.OrdinalIgnoreCase)
+        || firmware.StartsWith("PUSH v", StringComparison.OrdinalIgnoreCase);
+
+    /// <summary>Lệnh DATA QUERY ATTLOG dùng dấu cách giữa ngày và giờ.</summary>
+    public static bool UsesSpaceDateTime(string? profile) =>
+        string.Equals(profile, PushLite, StringComparison.OrdinalIgnoreCase);
+
+    /// <summary>
     /// Server-only stamp sync marker — MUST NOT be delivered to the device.
     /// CDataGet uses pending Sync* commands to set OPERLOG/ATTLOG Stamp=0.
     /// </summary>
@@ -26,7 +43,7 @@ public static class AdmsEngineProfiles
     public static bool ShouldSkipDeviceDelivery(DeviceCommandTypes commandType, string? command) =>
         IsStampSyncMarker(command) || IsLegacyStampCheck(commandType, command);
 
-    public static string ResolveProfile(string? platform, string? firmware, string? serialNumber)
+    public static string ResolveProfile(string? platform, string? firmware, string? serialNumber, string? pushVersion = null)
     {
         // Options/DeviceInfo đôi khi ghi Ver_6.60_Apr... thay vì "Ver 6.60 Apr..."
         static string Norm(string? s) =>
@@ -46,6 +63,16 @@ public static class AdmsEngineProfiles
             return AndroidVisibleLight;
         }
 
+        // LX35: Anyka AK37xx; khi chưa có platform thì nhận qua pushver=3.0.x ở handshake.
+        if (p.Contains("AK37", StringComparison.OrdinalIgnoreCase)
+            || p.Contains("AK39", StringComparison.OrdinalIgnoreCase)
+            || (string.IsNullOrWhiteSpace(p)
+                && IsUnknownFirmware(firmware)
+                && (pushVersion ?? string.Empty).Trim().StartsWith("3.0", StringComparison.Ordinal)))
+        {
+            return PushLite;
+        }
+
         // OEM fingerprint series (demo 131* ZLM31) often deny QUERY/ENROLL_FP.
         // Không áp cho máy TFT/ZLM60 Ver 6.x/8.x (vd. K30/8300) — vẫn đăng ký vân tay được.
         // SN 131* chỉ là heuristic OEM demo cũ; platform/firmware mới hơn phải thắng.
@@ -56,7 +83,9 @@ public static class AdmsEngineProfiles
             || fw.StartsWith("Ver 6.", StringComparison.OrdinalIgnoreCase)
             || fw.Contains("ZLM60", StringComparison.OrdinalIgnoreCase);
 
-        if (!string.IsNullOrWhiteSpace(serialNumber)
+        var identityKnown = !string.IsNullOrWhiteSpace(p) || !IsUnknownFirmware(firmware);
+        if (identityKnown
+            && !string.IsNullOrWhiteSpace(serialNumber)
             && serialNumber.StartsWith("131", StringComparison.Ordinal)
             && !fw.Contains("ZAM", StringComparison.OrdinalIgnoreCase)
             && !isLegacyTftOrZlm60)
@@ -136,6 +165,20 @@ public static class AdmsEngineProfiles
             case Linux:
                 info.SupportsUserQuery ??= true;
                 info.SupportsAttendanceQuery ??= true;
+                break;
+            case PushLite:
+                // Thoát PullDeny gắn nhầm theo SN: các cờ «false» do seed, không phải do máy từ chối.
+                if (string.Equals(previous, PullDeny, StringComparison.OrdinalIgnoreCase))
+                {
+                    if (info.SupportsUserQuery == false) info.SupportsUserQuery = null;
+                    if (info.SupportsEnrollFingerprint == false) info.SupportsEnrollFingerprint = null;
+                    if (info.SupportsDoorControl == false) info.SupportsDoorControl = null;
+                }
+                info.SupportsUserQuery ??= true;
+                info.SupportsAttendanceQuery ??= true;
+                info.SupportsFaceUpdate ??= false;
+                // Firmware gửi Stamp=9999 cố định — chiêu Stamp=0 không có tác dụng.
+                info.PreferStampSync = false;
                 break;
         }
 

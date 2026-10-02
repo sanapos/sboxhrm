@@ -130,11 +130,15 @@ public class HrFinanceController(
     private async Task<List<Emp>> EmployeesAsync()
     {
         var storeId = RequiredStoreId;
-        return await db.Employees.AsNoTracking()
+        var rows = await db.Employees.AsNoTracking()
             .Where(e => e.StoreId == storeId)
-            .Select(e => new Emp(e.Id, e.ApplicationUserId, (e.LastName + " " + e.FirstName).Trim(),
-                e.EmployeeCode, e.Department, e.PhotoUrl))
+            .Select(e => new { Emp = new Emp(e.Id, e.ApplicationUserId, (e.LastName + " " + e.FirstName).Trim(),
+                e.EmployeeCode, e.Department, e.PhotoUrl), e.BranchId })
             .ToListAsync();
+        // Chỉ nhân viên thuộc chi nhánh đang xem (bộ chọn chi nhánh trên đầu app).
+        var view = await BranchViewHelper.ViewBranchIdsAsync(HttpContext, db, storeId);
+        var hq = HttpContext.BranchContext()?.HeadquarterBranchId;
+        return rows.Where(r => BranchViewHelper.InView(view, r.BranchId, hq)).Select(r => r.Emp).ToList();
     }
 
     private static (DateTime from, DateTime to) MonthRange(int? year, int? month)

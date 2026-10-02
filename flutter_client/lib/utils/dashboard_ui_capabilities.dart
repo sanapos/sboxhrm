@@ -242,7 +242,7 @@ class DashboardUiCapabilities {
           (pkg('Payslip') && perm.canView('Payslip')),
       quickCommunication:
           pkg('Communication') && perm.canView('Communication'),
-      quickAi: pkg('AIGemini') && perm.canView('AIGemini'),
+      quickAi: pkg('AIAssistant'),
       insightLeave: insights,
       insightPending: insights && _pendingModules(perm),
       insightBirthday: insights && emp,

@@ -214,7 +214,7 @@ class _DeviceUsersScreenState extends State<DeviceUsersScreen> {
   bool _isLoading = true;
   bool _isExporting = false;
   String? _selectedDeviceId;
-  String? _selectedBranchId;
+  String? _selectedBranchId = BranchFilterHelper.viewBranchId;
   String? _selectedDepartmentId;
   String? _selectedEmployeeId;
   String _searchQuery = '';

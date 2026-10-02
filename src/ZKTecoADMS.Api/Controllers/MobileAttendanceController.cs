@@ -1,3 +1,4 @@
+using ZKTecoADMS.Application.Helpers;
 using Microsoft.AspNetCore.Authorization;
 
 
@@ -2831,6 +2832,18 @@ public partial class MobileAttendanceController : AuthenticatedControllerBase
 
 
 
+        // Lần bị từ chối gần nhất (30 ngày) — NV xem lý do rồi đăng ký lại.
+        object? lastRejection = null;
+        if (device == null)
+        {
+            var since = DateTime.UtcNow.AddDays(-30);
+            var rej = await _dbContext.AuthorizedMobileDevices.IgnoreQueryFilters().AsNoTracking()
+                .Where(d => d.StoreId == storeId && d.RejectedAt != null && d.RejectedAt >= since && empKeys.Contains(d.EmployeeId))
+                .OrderByDescending(d => d.RejectedAt)
+                .Select(d => new { d.DeviceName, d.RejectionReason, d.RejectedAt })
+                .FirstOrDefaultAsync();
+            if (rej != null) lastRejection = new { deviceName = rej.DeviceName, reason = rej.RejectionReason, rejectedAt = rej.RejectedAt };
+        }
         if (device == null)
 
 
@@ -2852,6 +2865,10 @@ public partial class MobileAttendanceController : AuthenticatedControllerBase
                 registeredOnOtherDevice = false,
 
                 trackLocation,
+
+                pending = false,
+
+                lastRejection,
 
             }));
 
@@ -2947,6 +2964,8 @@ public partial class MobileAttendanceController : AuthenticatedControllerBase
 
 
             registeredOnOtherDevice = hasCurrentDeviceId && !deviceMatchesCurrent,
+            // Đăng ký trên chính máy này đang chờ duyệt (app cũ bỏ qua trường này).
+            pending = deviceMatchesCurrent && !device.IsAuthorized,
 
 
             deviceId = device.DeviceId,
@@ -3135,6 +3154,8 @@ public partial class MobileAttendanceController : AuthenticatedControllerBase
 
 
             device.DeletedBy = CurrentUserEmail;
+            device.RejectionReason = string.IsNullOrWhiteSpace(request.RejectionReason) ? null : request.RejectionReason.Trim()[..Math.Min(500, request.RejectionReason.Trim().Length)];
+            device.RejectedAt = DateTime.UtcNow;
 
 
         }
@@ -3230,7 +3251,7 @@ public partial class MobileAttendanceController : AuthenticatedControllerBase
                         "Đăng ký thiết bị bị từ chối",
 
 
-                        $"Đăng ký thiết bị \"{device.DeviceName}\" không được duyệt. Vui lòng đăng ký lại trên app.",
+                        $"Đăng ký thiết bị \"{device.DeviceName}\" không được duyệt.{(string.IsNullOrWhiteSpace(device.RejectionReason) ? "" : $" Lý do: {device.RejectionReason}.")} Vui lòng đăng ký lại trên app.",
 
 
                         relatedEntityType: "AuthorizedMobileDevice",
@@ -9237,11 +9258,11 @@ public partial class MobileAttendanceController : AuthenticatedControllerBase
         if (employee == null) return state;
         if (state is not (AttendanceStates.CheckIn or AttendanceStates.CheckOut)) return state;
 
-        var mode = await _dbContext.EmployeeBenefits.AsNoTracking()
+        var versions = await _dbContext.EmployeeBenefits.AsNoTracking()
+            .Include(eb => eb.Benefit)
             .Where(eb => eb.EmployeeId == employee.Id && eb.Deleted == null)
-            .OrderByDescending(eb => eb.CreatedAt)
-            .Select(eb => eb.Benefit != null ? eb.Benefit.AttendanceMode : null)
-            .FirstOrDefaultAsync();
+            .ToListAsync();
+        var mode = BenefitTimeline.PickCurrent(versions, BenefitTimeline.VnToday())?.Benefit?.AttendanceMode;
         if (string.Equals(mode, "once", StringComparison.OrdinalIgnoreCase))
             return AttendanceStates.CheckIn;
         return state;

@@ -24,6 +24,10 @@ public class AttendanceEvidencePurgeBackgroundService(IServiceProvider sp, ILogg
                 var storage = scope.ServiceProvider.GetRequiredService<IFileStorageService>();
                 var n = await PurgeAsync(db, path => storage.DeleteAsync(path), DateTime.UtcNow, stoppingToken);
                 if (n > 0) logger.LogInformation("Purged evidence photos of {Count} mobile attendance records", n);
+                // Điều chuyển / bổ nhiệm hẹn ngày đã tới hiệu lực → cập nhật hồ sơ nhân viên.
+                var moved = await ZKTecoADMS.Infrastructure.Helpers.CareerMoveApplier.ApplyDueAsync(
+                    db, ZKTecoADMS.Infrastructure.Helpers.CareerMoveApplier.TodayVn, null, stoppingToken);
+                if (moved > 0) logger.LogInformation("Applied {Count} scheduled employee transfers", moved);
             }
             catch (Exception ex) { logger.LogError(ex, "Attendance evidence purge failed"); }
             await Task.Delay(TimeSpan.FromHours(6), stoppingToken);

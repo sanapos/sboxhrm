@@ -58,7 +58,9 @@ public class AllowancesController(IMediator mediator) : AuthenticatedControllerB
             request.StartDate,
             request.EndDate,
             request.EmployeeIds,
-            request.ShiftIds);
+            request.ShiftIds,
+            request.MinWorkPercent,
+            request.MinWorkHours);
         
         var result = await mediator.Send(command);
         return Ok(result);
@@ -84,7 +86,9 @@ public class AllowancesController(IMediator mediator) : AuthenticatedControllerB
             request.StartDate,
             request.EndDate,
             request.EmployeeIds,
-            request.ShiftIds);
+            request.ShiftIds,
+            request.MinWorkPercent,
+            request.MinWorkHours);
         
         var result = await mediator.Send(command);
         return Ok(result);

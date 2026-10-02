@@ -4302,6 +4302,20 @@ IF NOT EXISTS (SELECT 1 FROM ""SboxDataMigrations"" WHERE ""Id"" = 'perm-export-
   INSERT INTO ""SboxDataMigrations"" (""Id"") VALUES ('perm-export-v1');
 END IF;
 END $$;");
+
+        // Một lần: Truyền thông bắt đầu kiểm quyền «Thêm» khi đăng bài — ai đang Xem thì giữ quyền đăng như cũ.
+        await context.Database.ExecuteSqlRawAsync(
+            @"DO $$ BEGIN
+IF NOT EXISTS (SELECT 1 FROM ""SboxDataMigrations"" WHERE ""Id"" = 'perm-comm-create-v1') THEN
+  UPDATE ""RolePermissions"" rp SET ""CanCreate"" = true
+    FROM ""Permissions"" p WHERE p.""Id"" = rp.""PermissionId"" AND p.""Module"" = 'Communication'
+    AND rp.""CanView"" AND NOT rp.""CanCreate"";
+  UPDATE ""DepartmentPermissions"" dp SET ""CanCreate"" = true
+    FROM ""Permissions"" p WHERE p.""Id"" = dp.""PermissionId"" AND p.""Module"" = 'Communication'
+    AND dp.""CanView"" AND NOT dp.""CanCreate"";
+  INSERT INTO ""SboxDataMigrations"" (""Id"") VALUES ('perm-comm-create-v1');
+END IF;
+END $$;");
     }
 
     /// <summary>

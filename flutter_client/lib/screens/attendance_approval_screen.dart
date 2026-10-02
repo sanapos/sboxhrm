@@ -64,7 +64,7 @@ class _AttendanceApprovalScreenState extends State<AttendanceApprovalScreen>
   DateTime? _fromDate;
   DateTime? _toDate;
   bool _isExporting = false;
-  String? _selectedBranchId;
+  String? _selectedBranchId = BranchFilterHelper.viewBranchId;
   List<Map<String, dynamic>> _branches = [];
 
   List<Map<String, dynamic>> get _filteredRequests {
@@ -1618,7 +1618,7 @@ class _AttendanceApprovalScreenState extends State<AttendanceApprovalScreen>
         ),
         if (_selectedBranchId != null)
           InkWell(
-            onTap: () => setState(() => _selectedBranchId = null),
+            onTap: () => setState(() => _selectedBranchId = BranchFilterHelper.viewBranchId),
             child: const Padding(
                 padding: EdgeInsets.all(3),
                 child: Icon(Icons.close, size: 13, color: SboxColors.slate400)),

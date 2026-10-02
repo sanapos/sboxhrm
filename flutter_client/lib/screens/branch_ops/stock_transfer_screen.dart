@@ -385,7 +385,7 @@ class _CreateTransferPageState extends State<_CreateTransferPage> {
     // Kho đi mặc định: trụ sở (nếu kho đến là chi nhánh khác) hoặc chi nhánh đang thao tác.
     _from = (s.headquarterId != null && s.headquarterId != _to && s.branches.any((b) => b.id == s.headquarterId))
         ? s.headquarterId
-        : s.currentId;
+        : s.writeBranchId;
     if (_from == _to) {
       _from = s.branches.firstWhere((b) => b.id != _to, orElse: () => s.branches.first).id;
     }

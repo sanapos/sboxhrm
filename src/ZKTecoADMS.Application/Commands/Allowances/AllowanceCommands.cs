@@ -35,7 +35,9 @@ public record CreateAllowanceCommand(
     DateTime? StartDate,
     DateTime? EndDate,
     List<string>? EmployeeIds,
-    List<string>? ShiftIds) : ICommand<AppResponse<AllowanceDto>>;
+    List<string>? ShiftIds,
+    decimal? MinWorkPercent = null,
+    decimal? MinWorkHours = null) : ICommand<AppResponse<AllowanceDto>>;
 
 public class CreateAllowanceHandler(
     IRepository<Allowance> allowanceRepository,
@@ -61,7 +63,9 @@ public class CreateAllowanceHandler(
                 StartDate = request.StartDate,
                 EndDate = request.EndDate,
                 EmployeeIds = request.EmployeeIds != null && request.EmployeeIds.Count > 0 ? JsonSerializer.Serialize(request.EmployeeIds) : null,
-                ShiftIds = request.ShiftIds != null && request.ShiftIds.Count > 0 ? JsonSerializer.Serialize(request.ShiftIds) : null
+                ShiftIds = request.ShiftIds != null && request.ShiftIds.Count > 0 ? JsonSerializer.Serialize(request.ShiftIds) : null,
+                MinWorkPercent = AllowanceWorkRule.Percent(request.Type, request.MinWorkPercent),
+                MinWorkHours = AllowanceWorkRule.Hours(request.Type, request.MinWorkPercent, request.MinWorkHours),
             };
 
             var created = await allowanceRepository.AddAsync(allowance, cancellationToken);
@@ -110,7 +114,9 @@ public record UpdateAllowanceCommand(
     DateTime? StartDate,
     DateTime? EndDate,
     List<string>? EmployeeIds,
-    List<string>? ShiftIds) : ICommand<AppResponse<AllowanceDto>>;
+    List<string>? ShiftIds,
+    decimal? MinWorkPercent = null,
+    decimal? MinWorkHours = null) : ICommand<AppResponse<AllowanceDto>>;
 
 public class UpdateAllowanceHandler(
     IRepository<Allowance> allowanceRepository,
@@ -144,6 +150,8 @@ public class UpdateAllowanceHandler(
             allowance.EndDate = request.EndDate;
             allowance.EmployeeIds = request.EmployeeIds != null && request.EmployeeIds.Count > 0 ? JsonSerializer.Serialize(request.EmployeeIds) : null;
             allowance.ShiftIds = request.ShiftIds != null && request.ShiftIds.Count > 0 ? JsonSerializer.Serialize(request.ShiftIds) : null;
+            allowance.MinWorkPercent = AllowanceWorkRule.Percent(request.Type, request.MinWorkPercent);
+            allowance.MinWorkHours = AllowanceWorkRule.Hours(request.Type, request.MinWorkPercent, request.MinWorkHours);
 
             await allowanceRepository.UpdateAsync(allowance, cancellationToken);
             var dto = allowance.Adapt<AllowanceDto>();
@@ -222,4 +230,16 @@ public class DeleteAllowanceHandler(
             return AppResponse<bool>.Error(ex.Message);
         }
     }
+}
+
+/// <summary>Chuẩn hóa điều kiện nhận phụ cấp: chỉ cho loại theo ngày / theo ca; chọn % thì bỏ số giờ.</summary>
+public static class AllowanceWorkRule
+{
+    private static bool Applies(AllowanceType t) => t is AllowanceType.Daily or AllowanceType.PerShift;
+
+    public static decimal? Percent(AllowanceType type, decimal? percent) =>
+        Applies(type) && percent is > 0 ? Math.Min(100, Math.Round(percent.Value, 2)) : null;
+
+    public static decimal? Hours(AllowanceType type, decimal? percent, decimal? hours) =>
+        Applies(type) && percent is not > 0 && hours is > 0 ? Math.Min(24, Math.Round(hours.Value, 2)) : null;
 }

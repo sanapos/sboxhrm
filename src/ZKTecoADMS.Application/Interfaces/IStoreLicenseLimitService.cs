@@ -12,5 +12,7 @@ public interface IStoreLicenseLimitService
         string? deviceKey,
         string? deviceName,
         CancellationToken cancellationToken = default);
+    /// <summary>Thiết bị này đã bị gỡ khỏi danh sách thiết bị truy cập của cửa hàng.</summary>
+    Task<bool> IsAccessDeviceReleasedAsync(Guid storeId, string? deviceKey, CancellationToken cancellationToken = default);
     Task<bool> CanSendFcmAsync(Guid storeId, string? categoryCode, CancellationToken cancellationToken = default);
 }

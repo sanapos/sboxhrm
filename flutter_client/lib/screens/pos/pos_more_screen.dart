@@ -1,4 +1,6 @@
+import '../../widgets/ai_assistant_sheet.dart';
 import 'package:flutter/material.dart';
+import '../../widgets/delete_account_dialog.dart';
 import 'package:package_info_plus/package_info_plus.dart';
 import 'package:provider/provider.dart';
 
@@ -105,7 +107,17 @@ class _PosMoreScreenState extends State<PosMoreScreen> {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
-          const PosMobileKiotHeader(title: 'Nhiều hơn'),
+          PosMobileKiotHeader(
+            title: 'Nhiều hơn',
+            trailing: [
+              if (canUseAiAssistant(context))
+              IconButton(
+                icon: const Icon(Icons.auto_awesome, color: Color(0xFF7C3AED)),
+                tooltip: tr('Trợ lý ảo AI'),
+                onPressed: () => showAiAssistant(context),
+              ),
+            ],
+          ),
           Expanded(
             child: ListView(
               padding: const EdgeInsets.fromLTRB(12, 8, 12, 24),
@@ -379,6 +391,20 @@ class _PosMoreScreenState extends State<PosMoreScreen> {
                     ),
                   ),
                 ],
+                if (canUseAiAssistant(context)) ...[
+                const SizedBox(height: 12),
+                Material(
+                  color: Colors.white,
+                  borderRadius: BorderRadius.circular(14),
+                  child: ListTile(
+                    leading: const Icon(Icons.auto_awesome, color: Color(0xFF7C3AED)),
+                    title: Text(tr('Trợ lý AI'), style: const TextStyle(fontWeight: FontWeight.w700)),
+                    subtitle: Text(tr('Hỏi doanh thu, tồn kho, nhân sự — gõ hoặc nói bằng giọng')),
+                    trailing: const Icon(Icons.chevron_right),
+                    onTap: () => showAiAssistant(context),
+                  ),
+                ),
+                ],
                 const SizedBox(height: 16),
                 Material(
                   color: Colors.white,
@@ -394,6 +420,14 @@ class _PosMoreScreenState extends State<PosMoreScreen> {
                     ),
                     subtitle: Text(tr('Thoát tài khoản cửa hàng')),
                     onTap: () => showPosLogoutDialog(context),
+                  ),
+                ),
+                const SizedBox(height: 8),
+                Center(
+                  child: TextButton.icon(
+                    onPressed: () => showDeleteAccountDialog(context),
+                    icon: Icon(Icons.person_remove_outlined, size: 18, color: Colors.red.shade400),
+                    label: Text(tr('Xóa tài khoản'), style: TextStyle(color: Colors.red.shade400)),
                   ),
                 ),
                 const SizedBox(height: 12),

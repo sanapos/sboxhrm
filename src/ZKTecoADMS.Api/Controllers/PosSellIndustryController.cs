@@ -26,7 +26,8 @@ namespace ZKTecoADMS.Api.Controllers;
 public partial class PosSellIndustryController(
     ZKTecoDbContext db,
     IHubContext<AttendanceHub> hub,
-    ISystemNotificationService notifications) : AuthenticatedControllerBase
+    ISystemNotificationService notifications,
+    IModulePermissionService permissionService) : AuthenticatedControllerBase
 {
     void NotifyFloorChanged(
         Guid storeId,
@@ -119,7 +120,7 @@ public partial class PosSellIndustryController(
     }
 
     [HttpPut("sell-settings")]
-    [RequireAnyModulePermission(ModulePermissionAction.Edit, "PosSell", "PosProducts")]
+    [RequireAnyModulePermission(ModulePermissionAction.View, "PosSell", "SettingsHub")]
     public async Task<ActionResult<AppResponse<SellSettingsDto>>> SaveSellSettings(
         [FromBody] SellSettingsSaveDto dto)
     {
@@ -138,6 +139,7 @@ public partial class PosSellIndustryController(
         if (!TryParseSellProfile(dto.SellProfile, out var profile))
             return BadRequest(AppResponse<SellSettingsDto>.Fail(
                 $"Hồ sơ ngành không hợp lệ: {dto.SellProfile ?? "(null)"}"));
+        var before = SellSettingsAccess.Snapshot(s);
 
         // Preview cờ sau khi đổi — chặn tắt bàn khi còn phiên mở.
         var preview = new PosStoreSellSettings
@@ -196,11 +198,37 @@ public partial class PosSellIndustryController(
             }
         }
 
+        // Mỗi nhóm thiết lập cần quyền riêng (thu ngân không đổi được thuế / tên in hóa đơn…).
+        var denied = await FirstDeniedSellSectionAsync(SellSettingsAccess.ChangedSections(before, s));
+        if (denied != null)
+            return StatusCode(StatusCodes.Status403Forbidden, AppResponse<SellSettingsDto>.Fail(
+                $"Tài khoản không có quyền sửa {denied.Label}."));
+
         s.IsActive = true;
         s.UpdatedAt = DateTime.UtcNow;
         s.UpdatedBy = CurrentUserEmail;
         await db.SaveChangesAsync();
         return Ok(AppResponse<SellSettingsDto>.Success(MapSettings(s)));
+    }
+
+    async Task<SellSettingsAccess.Section?> FirstDeniedSellSectionAsync(IEnumerable<SellSettingsAccess.Section> sections)
+    {
+        var ct = HttpContext.RequestAborted;
+        foreach (var sec in sections)
+        {
+            var ok = false;
+            foreach (var module in sec.Modules)
+            foreach (var action in sec.Actions)
+            {
+                if (await permissionService.HasPermissionAsync(CurrentUserId, CurrentUserRole, CurrentStoreId, module, action, ct))
+                {
+                    ok = true;
+                    break;
+                }
+            }
+            if (!ok) return sec;
+        }
+        return null;
     }
 
     static void ApplySellSettingsFlags(

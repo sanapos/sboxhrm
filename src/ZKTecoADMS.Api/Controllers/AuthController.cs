@@ -69,7 +69,8 @@ public class AuthController(IMediator _bus, UserManager<ApplicationUser> _userMa
         var rows = await _dbContext.ServicePackages
             .AsNoTracking()
             .Where(p => p.IsActive && p.IsPublic)
-            .OrderBy(p => p.Name)
+            .OrderBy(p => p.SortOrder)
+            .ThenBy(p => p.Name)
             .ToListAsync(cancellationToken);
 
         var packages = rows.Select(p => new
@@ -88,7 +89,16 @@ public class AuthController(IMediator _bus, UserManager<ApplicationUser> _userMa
             AllowedFcmCategories = Infrastructure.Helpers.StorePackageHelper.DeserializeModules(p.AllowedFcmCategories),
             AllowedModules = Infrastructure.Helpers.StorePackageHelper.DeserializeModules(p.AllowedModules),
             Modules = FeatureModuleCatalog.DescribePublicModules(
-                Infrastructure.Helpers.StorePackageHelper.DeserializeModules(p.AllowedModules))
+                Infrastructure.Helpers.StorePackageHelper.DeserializeModules(p.AllowedModules)),
+            p.ProductLine,
+            p.MonthlyPrice,
+            p.YearlyPrice,
+            p.TrialDays,
+            p.IsFeatured,
+            p.Badge,
+            Highlights = string.IsNullOrWhiteSpace(p.Highlights)
+                ? new List<string>()
+                : p.Highlights.Split('\n', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries).ToList(),
         }).ToList();
 
         return Ok(AppResponse<object>.Success(packages));
@@ -99,7 +109,7 @@ public class AuthController(IMediator _bus, UserManager<ApplicationUser> _userMa
     [EnableRateLimiting("login")]
     public async Task<IActionResult> Refresh(RefreshRequest refreshRequest, CancellationToken cancellationToken = new())
     {
-       return Ok(await _bus.Send(new RefreshCommand(refreshRequest.RefreshToken), cancellationToken));
+       return Ok(await _bus.Send(new RefreshCommand(refreshRequest.RefreshToken, refreshRequest.DeviceKey), cancellationToken));
     }
 
     [HttpPost]

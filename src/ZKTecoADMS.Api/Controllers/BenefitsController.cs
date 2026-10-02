@@ -1,4 +1,6 @@
-﻿using Microsoft.AspNetCore.Authorization;
+﻿using ZKTecoADMS.Domain.Enums;
+using ZKTecoADMS.Application.Authorization;
+using Microsoft.AspNetCore.Authorization;
 using ZKTecoADMS.Api.Authorization;
 using ZKTecoADMS.Api.Controllers.Base;
 using ZKTecoADMS.Application.Constants;
@@ -18,7 +20,7 @@ namespace ZKTecoADMS.Api.Controllers;
 
 [ApiController]
 [Route("api/[controller]")]
-public class BenefitsController(IMediator mediator) : AuthenticatedControllerBase
+public partial class BenefitsController(IMediator mediator) : AuthenticatedControllerBase
 {
     /// <summary>
     /// Get all salary profiles
@@ -51,7 +53,7 @@ public class BenefitsController(IMediator mediator) : AuthenticatedControllerBas
     /// </summary>
     [HttpPost]
     [Authorize(Policy = PolicyNames.ManagerOrAccountant)]
-    [RequireAnyModulePermission(ModulePermissionAction.Create, "Benefit", "BonusPenalty")]
+    [RequireAnyModulePermission(ModulePermissionAction.Create, "SalarySettings", "Benefit")]
     public async Task<ActionResult<AppResponse<BenefitDto>>> CreateProfile([FromBody] CreateBenefitRequest request)
     {
         var command = request.Adapt<CreateBenefitCommand>();
@@ -66,7 +68,7 @@ public class BenefitsController(IMediator mediator) : AuthenticatedControllerBas
     /// </summary>
     [HttpPut("{id}")]
     [Authorize(Policy = PolicyNames.ManagerOrAccountant)]
-    [RequireAnyModulePermission(ModulePermissionAction.Edit, "Benefit", "BonusPenalty")]
+    [RequireAnyModulePermission(ModulePermissionAction.Edit, "SalarySettings", "Benefit")]
     public async Task<ActionResult<AppResponse<BenefitDto>>> UpdateProfile(Guid id, [FromBody] UpdateSalaryProfileRequest request)
     {
         var command = request.Adapt<UpdateBenefitCommand>();
@@ -82,7 +84,7 @@ public class BenefitsController(IMediator mediator) : AuthenticatedControllerBas
     /// </summary>
     [HttpDelete("{id}")]
     [Authorize(Policy = PolicyNames.ManagerOrAccountant)]
-    [RequireAnyModulePermission(ModulePermissionAction.Delete, "Benefit", "BonusPenalty")]
+    [RequireAnyModulePermission(ModulePermissionAction.Delete, "SalarySettings", "Benefit")]
     public async Task<ActionResult<AppResponse<bool>>> DeleteProfile(Guid id)
     {
         var command = new DeleteBenefitCommand(RequiredStoreId, id);
@@ -95,7 +97,7 @@ public class BenefitsController(IMediator mediator) : AuthenticatedControllerBas
     /// </summary>
     [HttpPost("assign")]
     [Authorize(Policy = PolicyNames.ManagerOrAccountant)]
-    [RequireAnyModulePermission(ModulePermissionAction.Create, "Benefit", "BonusPenalty")]
+    [RequireAnyModulePermission(ModulePermissionAction.Create, "SalarySettings", "Benefit")]
     public async Task<ActionResult<AppResponse<EmployeeBenefitDto>>> AssignEmployee([FromBody] AssignSalaryProfileRequest request)
     {
         var command = request.Adapt<AssignBenefitCommand>();
@@ -112,7 +114,8 @@ public class BenefitsController(IMediator mediator) : AuthenticatedControllerBas
     [RequireAnyModulePermission(ModulePermissionAction.View, "Benefit", "BonusPenalty", "Payroll")]
     public async Task<ActionResult<AppResponse<EmployeeBenefitDto>>> GetEmployeeBenefit(Guid employeeId)
     {
-        if (IsEmployee && !IsManager)
+        // Dưới cấp Trưởng phòng (Nhân viên, Thu ngân, Phục vụ…) chỉ xem lương của chính mình.
+        if (AccountRolePolicy.RankOf(CurrentUserRole) < AccountRolePolicy.RankOf(nameof(Roles.DepartmentHead)))
         {
             if (!EmployeeId.HasValue || EmployeeId.Value != employeeId)
                 return Forbid();

@@ -59,6 +59,10 @@ class _MobileDeviceRegistrationScreenState
 
   // Device change request
   String? _changeRequestReason;
+
+  /// Lần đăng ký bị từ chối gần nhất (lý do từ quản lý).
+  Map<String, dynamic>? _lastRejection;
+  bool _cancelling = false;
   StreamSubscription<Map<String, dynamic>>? _notificationSubscription;
 
   // Work locations for registration / device change
@@ -425,6 +429,8 @@ class _MobileDeviceRegistrationScreenState
         final registered = _parseApiBool(data['registered']);
         final approved = _parseApiBool(data['approved']);
         final registeredOnOther = _parseApiBool(data['registeredOnOtherDevice']);
+        final pendingHere = _parseApiBool(data['pending']);
+        _lastRejection = data['lastRejection'] is Map ? Map<String, dynamic>.from(data['lastRejection'] as Map) : null;
 
         if (registeredOnOther) {
           final changeReqResponse =
@@ -474,6 +480,13 @@ class _MobileDeviceRegistrationScreenState
                   : null;
             });
           }
+        } else if (pendingHere) {
+          // Đăng ký trên chính máy này đang chờ duyệt.
+          setState(() {
+            _status = _RegStatus.pending;
+            _registeredDeviceName = data['deviceName'];
+            _registeredAt = data['registeredAt'] != null ? DateTime.tryParse(data['registeredAt'].toString()) : null;
+          });
         } else if (!registered) {
           final changeReqResponse =
               await _apiService.getMyDeviceChangeRequest(employeeId: employeeId);
@@ -952,6 +965,10 @@ class _MobileDeviceRegistrationScreenState
                         ),
                       ]),
                     ),
+                    if (_lastRejection != null) ...[
+                      const SizedBox(height: 12),
+                      _buildRejectionCard(),
+                    ],
                     const SizedBox(height: 16),
                     _buildStepCard(
                       step: 1,
@@ -1185,6 +1202,123 @@ class _MobileDeviceRegistrationScreenState
     );
   }
 
+  /// Gửi → Chờ quản lý duyệt → Chấm công được.
+  Widget _buildRequestTimeline() {
+    Widget step(IconData icon, String title, String sub, Color color, {bool done = false, bool current = false}) => Row(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Container(
+              width: 30,
+              height: 30,
+              decoration: BoxDecoration(
+                color: done || current ? color : SboxColors.slate100,
+                shape: BoxShape.circle,
+              ),
+              child: Icon(done ? Icons.check_rounded : icon, size: 17, color: done || current ? Colors.white : SboxColors.slate400),
+            ),
+            const SizedBox(width: 12),
+            Expanded(
+              child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+                Text(tr(title),
+                    style: TextStyle(
+                        fontWeight: FontWeight.w700, color: done || current ? SboxColors.slate900 : SboxColors.slate400)),
+                Text(tr(sub), style: const TextStyle(fontSize: 12, color: SboxColors.slate500)),
+              ]),
+            ),
+          ],
+        );
+    return ConstrainedBox(
+      constraints: const BoxConstraints(maxWidth: 380),
+      child: Container(
+        padding: const EdgeInsets.all(16),
+        decoration: BoxDecoration(
+          color: Colors.white,
+          borderRadius: BorderRadius.circular(14),
+          border: Border.all(color: SboxColors.slate200),
+        ),
+        child: Column(children: [
+          step(Icons.send_rounded, 'Đã gửi yêu cầu',
+              _registeredAt != null ? 'Lúc ${_fmtDate(_registeredAt)}' : 'Thông tin máy và ảnh khuôn mặt', SboxColors.success,
+              done: true),
+          const SizedBox(height: 12),
+          step(Icons.hourglass_top_rounded, 'Chờ quản lý duyệt', 'Bạn sẽ nhận thông báo khi có kết quả', SboxColors.warning,
+              current: true),
+          const SizedBox(height: 12),
+          step(Icons.fingerprint_rounded, 'Chấm công trên điện thoại', 'Mở «Chấm công Mobile» sau khi được duyệt',
+              SboxColors.brand600),
+        ]),
+      ),
+    );
+  }
+
+  Widget _buildCancelRequestButton() => TextButton.icon(
+        onPressed: _cancelling ? null : _cancelMyRequest,
+        icon: _cancelling
+            ? const SizedBox(width: 16, height: 16, child: CircularProgressIndicator(strokeWidth: 2))
+            : const Icon(Icons.undo_rounded),
+        label: Text(tr('Hủy yêu cầu để gửi lại')),
+        style: TextButton.styleFrom(foregroundColor: SboxColors.danger),
+      );
+
+  Future<void> _cancelMyRequest() async {
+    final ok = await showDialog<bool>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: Text(tr('Hủy yêu cầu đang chờ?')),
+        content: Text(tr('Yêu cầu và ảnh khuôn mặt vừa gửi sẽ bị hủy. Bạn có thể đăng ký lại ngay.')),
+        actions: [
+          TextButton(onPressed: () => Navigator.pop(ctx, false), child: Text(tr('Không'))),
+          FilledButton(onPressed: () => Navigator.pop(ctx, true), child: Text(tr('Hủy yêu cầu'))),
+        ],
+      ),
+    );
+    if (ok != true || !mounted) return;
+    setState(() => _cancelling = true);
+    final user = Provider.of<AuthProvider>(context, listen: false).currentUser;
+    final r = await _apiService.cancelMyDeviceRequest(employeeId: user?.employeeId);
+    if (!mounted) return;
+    setState(() => _cancelling = false);
+    if (r['isSuccess'] == true) {
+      _capturedImages.clear();
+      _showSnackBar('Đã hủy yêu cầu. Bạn có thể đăng ký lại.');
+      await _checkRegistrationStatus();
+    } else {
+      _showSnackBar(r['message']?.toString() ?? 'Không hủy được yêu cầu', isError: true);
+    }
+  }
+
+  /// Thẻ báo lần đăng ký trước bị từ chối + lý do.
+  Widget _buildRejectionCard() {
+    final r = _lastRejection!;
+    final reason = r['reason']?.toString();
+    final at = DateTime.tryParse(r['rejectedAt']?.toString() ?? '');
+    return Container(
+      padding: const EdgeInsets.all(14),
+      decoration: BoxDecoration(
+        color: SboxColors.dangerSoft,
+        borderRadius: BorderRadius.circular(14),
+        border: Border.all(color: SboxColors.danger.withValues(alpha: 0.3)),
+      ),
+      child: Row(crossAxisAlignment: CrossAxisAlignment.start, children: [
+        const Icon(Icons.block_rounded, color: SboxColors.dangerText),
+        const SizedBox(width: 10),
+        Expanded(
+          child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+            Text(tr('Lần đăng ký trước chưa được duyệt${at != null ? ' (${_fmtDate(at.toLocal())})' : ''}'),
+                style: const TextStyle(fontWeight: FontWeight.w800, color: SboxColors.dangerText)),
+            const SizedBox(height: 4),
+            Text(
+              tr(reason == null || reason.isEmpty
+                  ? 'Quản lý không ghi lý do. Kiểm tra lại ảnh khuôn mặt rồi gửi lại.'
+                  : 'Lý do: $reason'),
+              style: const TextStyle(fontSize: 13, color: SboxColors.dangerText),
+            ),
+          ]),
+        ),
+      ]),
+    );
+  }
+
   Widget _buildPendingView() {
     return Center(
       child: Padding(
@@ -1235,7 +1369,11 @@ class _MobileDeviceRegistrationScreenState
                 ),
               ),
             ],
-            const SizedBox(height: 32),
+            const SizedBox(height: 24),
+            _buildRequestTimeline(),
+            const SizedBox(height: 24),
+            _buildCancelRequestButton(),
+            const SizedBox(height: 8),
             OutlinedButton.icon(
               onPressed: _checkRegistrationStatus,
               icon: const Icon(Icons.refresh),
@@ -1642,7 +1780,11 @@ class _MobileDeviceRegistrationScreenState
                 ),
               ),
             ],
-            const SizedBox(height: 32),
+            const SizedBox(height: 24),
+            _buildRequestTimeline(),
+            const SizedBox(height: 24),
+            _buildCancelRequestButton(),
+            const SizedBox(height: 8),
             OutlinedButton.icon(
               onPressed: _checkRegistrationStatus,
               icon: const Icon(Icons.refresh),

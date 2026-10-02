@@ -395,6 +395,8 @@ public partial class AgentController
                 "Cửa hàng đã gia hạn tối đa 3 lần. Không thể kích hoạt thêm key."));
         }
 
+        if (!await ZKTecoADMS.Infrastructure.Helpers.LicenseKeyClaim.TryClaimAsync(_dbContext, license.Id, storeId))
+            return BadRequest(AppResponse<StoreDetailDto>.Fail(ZKTecoADMS.Infrastructure.Helpers.LicenseKeyClaim.AlreadyUsedMessage));
         license.IsUsed = true;
         license.StoreId = storeId;
         license.ActivatedAt = DateTime.UtcNow;

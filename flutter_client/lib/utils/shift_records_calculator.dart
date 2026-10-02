@@ -277,6 +277,8 @@ class DailyShiftRecord {
   final String status;
   final Color statusColor;
   final double workCount;
+  /// Công trước khi nhân hệ số lễ/nghỉ — phụ cấp theo ngày tính trên công gốc.
+  final double baseWorkCount;
   /// Giờ công theo tên ca trong ngày (cùng nguồn với [workHours]).
   final Map<String, double> hoursByShiftName;
   /// Mọi ca đã làm trong ngày (kể cả đúng giờ, thiếu giờ ra, không khớp ca).
@@ -306,9 +308,11 @@ class DailyShiftRecord {
     required this.status,
     required this.statusColor,
     required this.workCount,
+    double? baseWorkCount,
     this.hoursByShiftName = const {},
     this.shiftItems = const [],
-  }) : baseWorkHours = baseWorkHours ?? workHours;
+  })  : baseWorkHours = baseWorkHours ?? workHours,
+        baseWorkCount = baseWorkCount ?? workCount;
 }
 
 void _addHoursByShiftName(
@@ -812,7 +816,7 @@ DateTime? inferAdminCheckInForOrphanOut({
 /// Loại ca từ thiết lập ca (`shiftType` trên ShiftTemplate).
 enum ShiftTemplateKind { administrative, overtime, overnight }
 
-/// Đọc shiftType — khớp với [shift_settings_screen._getShiftType].
+/// Đọc shiftType — khớp với [ShiftKind.parse] (shift_templates_v2/st_common.dart).
 ShiftTemplateKind parseShiftTemplateKind(Map<String, dynamic>? st) {
   if (st == null) return ShiftTemplateKind.administrative;
   final raw = (st['shiftType'] ?? '').toString().toLowerCase();
@@ -1654,6 +1658,7 @@ List<DailyShiftRecord> _computeFullDayRecordsForEmployee({
     final restDayHoursOnly =
         isRestDay && lookups.restDayOtHoursOnly(employeeCode);
     final baseWorkHours = workHours;
+    final baseWorkCount = workCount;
     if ((isRestDay || isHoliday) && workCount > 0) {
       if (isHoliday) {
         workCount *= holidayRate;
@@ -1733,6 +1738,7 @@ List<DailyShiftRecord> _computeFullDayRecordsForEmployee({
       workHours: workHours,
       decimalHours: workHours,
       baseWorkHours: baseWorkHours,
+      baseWorkCount: baseWorkCount,
       status: status,
       statusColor: statusColor,
       workCount: workCount,
@@ -1892,6 +1898,7 @@ List<DailyShiftRecord> computeDailyShiftRecords({
             lookups.employeeCodeToHolidayMultiplier[employeeCode] ?? 2.0;
         final restDayHoursOnly =
             isRestDay && lookups.restDayOtHoursOnly(employeeCode);
+        final baseWorkCount = workCount;
         if ((isRestDay || isHoliday) && workCount > 0) {
           if (isHoliday) {
             workCount *= holidayRate;
@@ -1944,6 +1951,7 @@ List<DailyShiftRecord> computeDailyShiftRecords({
           workHours: workHours,
           decimalHours: workHours,
           baseWorkHours: baseWorkHours,
+          baseWorkCount: baseWorkCount,
           status: status,
           statusColor: statusColor,
           workCount: workCount,
@@ -2303,6 +2311,7 @@ List<DailyShiftRecord> computeDailyShiftRecords({
           isRestDay && lookups.restDayOtHoursOnly(employeeCode);
 
       final baseWorkHours = totalWorkHours;
+      final baseWorkCount = totalWorkCount;
       if ((isRestDay || isHoliday) && totalWorkCount > 0) {
         if (isHoliday) {
           totalWorkCount *= holidayRate;
@@ -2395,6 +2404,7 @@ List<DailyShiftRecord> computeDailyShiftRecords({
         workHours: totalWorkHours,
         decimalHours: totalWorkHours,
         baseWorkHours: baseWorkHours,
+        baseWorkCount: baseWorkCount,
         status: status,
         statusColor: statusColor,
         workCount: totalWorkCount,
@@ -3177,4 +3187,32 @@ ShiftBasedPayrollTotals calcShiftBasedPayrollFromPairs({
     shiftAllowance: shiftAllowance,
     hourlyRate: hourlyRate,
   );
+}
+
+/// Phụ cấp có điều kiện: phút làm TRONG khung ca (không cộng giờ đến sớm / ở lại, đã trừ nghỉ giữa ca)
+/// và thời lượng ca hiệu lực. Ca không có giờ bắt đầu/kết thúc → giờ thực làm, [required] = null.
+/// Null nếu thiếu giờ vào/ra.
+({int worked, int? required})? shiftWindowMinutes(DailyShiftPair pair, Map<String, dynamic>? shift) {
+  final checkIn = pair.checkIn;
+  var checkOut = pair.checkOut;
+  if (checkIn == null || checkOut == null) return null;
+  if (!checkOut.isAfter(checkIn)) checkOut = checkOut.add(const Duration(days: 1));
+  final s = _parseTimeSpanToMinutes(shift?['startTime']?.toString());
+  final e = _parseTimeSpanToMinutes(shift?['endTime']?.toString());
+  if (shift == null || s < 0 || e < 0 || s == e) {
+    return (worked: checkOut.difference(checkIn).inMinutes, required: null);
+  }
+  final rawDur = e < s ? (24 * 60 - s) + e : e - s;
+  // Khung ca gần giờ vào nhất (ca qua đêm / chấm lệch ngày).
+  final day = DateTime(pair.date.year, pair.date.month, pair.date.day);
+  DateTime? start;
+  for (final d in [-1, 0, 1]) {
+    final c = day.add(Duration(days: d, minutes: s));
+    if (start == null || c.difference(checkIn).inMinutes.abs() < start.difference(checkIn).inMinutes.abs()) start = c;
+  }
+  final end = start!.add(Duration(minutes: rawDur));
+  final from = checkIn.isAfter(start) ? checkIn : start;
+  final to = checkOut.isBefore(end) ? checkOut : end;
+  final worked = to.isAfter(from) ? _netWorkedMinutesAfterLunch(punchIn: from, punchOut: to, shift: shift) : 0;
+  return (worked: worked, required: _effectiveShiftDurationMinutes(shift, rawDurationMin: rawDur));
 }

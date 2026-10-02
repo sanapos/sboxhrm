@@ -48,7 +48,7 @@ class _AttendanceByShiftScreenState extends State<AttendanceByShiftScreen> {
   List<Device> _devices = [];
   List<Map<String, dynamic>> _shiftTemplates = [];
   List<Map<String, dynamic>> _shiftSalaryLevels = [];
-  String? _selectedBranchId;
+  String? _selectedBranchId = BranchFilterHelper.viewBranchId;
   String? _selectedDepartmentId;
   final _branchFilter = ReportBranchFilter();
   List<Map<String, dynamic>> _salaryProfiles = [];

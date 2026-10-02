@@ -69,7 +69,7 @@ class _WorkScheduleScreenState extends State<WorkScheduleScreen>
   List<Map<String, dynamic>> _departments = [];
   List<Map<String, dynamic>> _branches = [];
   String? _selectedDepartment;
-  String? _selectedBranchId;
+  String? _selectedBranchId = BranchFilterHelper.viewBranchId;
   bool _isLoading = true;
   DateTime _selectedWeekStart = _getWeekStart(DateTime.now());
   bool _showOverviewPanel = true;
@@ -7987,7 +7987,7 @@ class _WorkScheduleScreenState extends State<WorkScheduleScreen>
 
   List<DataRow> _buildScheduleDesktopRows(
       List<Employee> employees, List<DateTime> days) {
-    if (!BranchFilterHelper.showBranchFilter(_branches)) {
+    if (!BranchFilterHelper.hasMultipleBranches(_branches)) {
       return _buildScheduleEmployeeRows(employees, days);
     }
     final primary = Theme.of(context).primaryColor;
@@ -8090,7 +8090,7 @@ class _WorkScheduleScreenState extends State<WorkScheduleScreen>
                 style: TextStyle(color: SboxColors.slate400))),
       );
     }
-    if (BranchFilterHelper.showBranchFilter(_branches)) {
+    if (BranchFilterHelper.hasMultipleBranches(_branches)) {
       final groups = _groupEmployeesByBranch(pageEmps);
       return Column(
         children: [
@@ -8485,7 +8485,7 @@ class _WorkScheduleScreenState extends State<WorkScheduleScreen>
 
   List<DataRow> _buildApprovedDesktopRows(
       List<Employee> employees, List<DateTime> days) {
-    if (!BranchFilterHelper.showBranchFilter(_branches)) {
+    if (!BranchFilterHelper.hasMultipleBranches(_branches)) {
       return _buildApprovedEmployeeRows(employees, days);
     }
     final primary = Theme.of(context).primaryColor;
@@ -8641,7 +8641,7 @@ class _WorkScheduleScreenState extends State<WorkScheduleScreen>
                 style: TextStyle(color: SboxColors.slate400))),
       );
     }
-    if (BranchFilterHelper.showBranchFilter(_branches)) {
+    if (BranchFilterHelper.hasMultipleBranches(_branches)) {
       final groups = _groupEmployeesByBranch(pageEmps);
       return Column(
         children: [

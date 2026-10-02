@@ -101,7 +101,14 @@ class _LeaveRequestFormDialogState extends State<LeaveRequestFormDialog> {
 
   double? _annualBalanceRemaining;
   double? _annualBalanceEntitlement;
+  double? _annualAvailable;
+  double _annualPending = 0;
+  bool _annualEligible = true;
   bool _loadingAnnualBalance = false;
+
+  /// Số ngày phép thật của đơn (server: bỏ ngày lễ, ngày nghỉ hằng tuần). Null = chưa đếm.
+  double? _serverDays;
+  String? _daysKey;
 
   bool get _isEditMode => widget.existingLeave != null;
   int get _totalSteps => _isEditMode ? 1 : 3;
@@ -117,9 +124,25 @@ class _LeaveRequestFormDialogState extends State<LeaveRequestFormDialog> {
   }
 
   double get _daysNeeded {
+    if (_serverDays != null) return _serverDays!;
     final d = _endDate.difference(_startDate).inDays + 1;
     final days = d < 1 ? 1 : d;
     return _isHalfShift ? days * 0.5 : days.toDouble();
+  }
+
+  /// Đếm lại số ngày phép khi đổi ngày / nửa ca / nhân viên.
+  void _refreshDaysIfNeeded() {
+    final emp = _selectedEmployeeId;
+    if (emp == null) return;
+    final key = '$emp|${_startDate.toIso8601String()}|${_endDate.toIso8601String()}|$_isHalfShift';
+    if (key == _daysKey) return;
+    _daysKey = key;
+    WidgetsBinding.instance.addPostFrameCallback((_) async {
+      final r = await widget.apiService.countAnnualLeaveDays(emp, _startDate, _endDate, _isHalfShift);
+      if (!mounted || _daysKey != key) return;
+      final d = r['data'];
+      setState(() => _serverDays = r['isSuccess'] == true && d is Map ? (d['days'] as num?)?.toDouble() : null);
+    });
   }
 
   Future<void> _loadAnnualBalance() async {
@@ -150,6 +173,9 @@ class _LeaveRequestFormDialogState extends State<LeaveRequestFormDialog> {
               (data['remainingDays'] as num?)?.toDouble();
           _annualBalanceEntitlement =
               (data['entitlementDays'] as num?)?.toDouble();
+          _annualAvailable = (data['availableDays'] as num?)?.toDouble();
+          _annualPending = (data['pendingDays'] as num?)?.toDouble() ?? 0;
+          _annualEligible = data['eligible'] != false;
         });
       } else {
         setState(() {
@@ -189,7 +215,18 @@ class _LeaveRequestFormDialogState extends State<LeaveRequestFormDialog> {
       );
     }
 
-    final remaining = _annualBalanceRemaining!;
+    _refreshDaysIfNeeded();
+    if (!_annualEligible) {
+      return Container(
+        margin: const EdgeInsets.only(bottom: 12),
+        padding: const EdgeInsets.all(12),
+        decoration: BoxDecoration(color: SboxColors.warningSoft, borderRadius: BorderRadius.circular(10)),
+        child: Text(tr('Nhân viên không thuộc diện hưởng phép năm theo chính sách cửa hàng — hãy chọn loại nghỉ khác.'),
+            style: TextStyle(fontSize: 13, color: SboxColors.warningText)),
+      );
+    }
+    // Sửa đơn: đơn này đã nằm trong «chờ duyệt» nên so với số còn lại; đơn mới so với số còn có thể xin.
+    final remaining = _isEditMode ? _annualBalanceRemaining! : (_annualAvailable ?? _annualBalanceRemaining!);
     final needed = _daysNeeded;
     final insufficient = needed > remaining;
 
@@ -236,8 +273,10 @@ class _LeaveRequestFormDialogState extends State<LeaveRequestFormDialog> {
           ),
           const SizedBox(height: 6),
           Text(tr('${tr('Đơn này cần: ')}${needed.toStringAsFixed(needed.truncateToDouble() == needed ? 0 : 1)} ngày'
-            '${_isHalfShift ? ' (nửa ca)' : ''}. '
-            '${insufficient ? 'Không đủ phép — không thể duyệt.' : 'Sẽ trừ khi duyệt xong.'}'),
+            '${_isHalfShift ? ' (nửa ca)' : ''}'
+            '${_serverDays != null ? ' làm việc (không tính ngày lễ, ngày nghỉ hằng tuần)' : ''}. '
+            '${!_isEditMode && _annualPending > 0 ? 'Đã trừ ${_annualPending.toStringAsFixed(_annualPending.truncateToDouble() == _annualPending ? 0 : 1)} ngày của đơn đang chờ duyệt. ' : ''}'
+            '${insufficient ? 'Không đủ phép — không thể gửi / duyệt.' : 'Tự trừ vào phép năm khi đơn được duyệt.'}'),
             style: TextStyle(
               fontSize: 12,
               color: insufficient

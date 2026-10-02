@@ -28,7 +28,9 @@ import 'system_admin/licenses_tab.dart';
 import 'system_admin/settings_tab.dart';
 import 'system_admin/database_tab.dart';
 import 'system_admin/audit_tab.dart';
-import 'system_admin/service_packages_tab.dart';
+import 'system_admin/v2/sa_packages_v2.dart';
+import 'system_admin/v2/sa_stores_v2.dart';
+import 'system_admin/v2/sa_ops_v2.dart';
 import 'system_admin/key_promotions_tab.dart';
 import 'system_admin/announcements_tab.dart';
 import 'system_admin/maintenance_tab.dart';
@@ -66,7 +68,7 @@ class _SystemAdminScreenState extends State<SystemAdminScreen>
   final _settingsKey = GlobalKey<SettingsTabState>();
   final _databaseKey = GlobalKey<DatabaseTabState>();
   final _auditKey = GlobalKey<AuditTabState>();
-  final _servicePackagesKey = GlobalKey<ServicePackagesTabState>();
+  final _servicePackagesKey = GlobalKey<PackagesV2TabState>();
   final _keyPromotionsKey = GlobalKey<KeyPromotionsTabState>();
   final _announcementsKey = GlobalKey<AnnouncementsTabState>();
   final _maintenanceKey = GlobalKey<MaintenanceTabState>();
@@ -90,21 +92,21 @@ class _SystemAdminScreenState extends State<SystemAdminScreen>
   static const _tabLabels = [
     'Tổng quan',
     'Cửa hàng',
-    'Người dùng',
+    'Tài khoản',
     'Thiết bị',
     'Đại lý',
-    'License',
-    'Cài đặt',
+    'Key kích hoạt',
+    'Tình trạng & cài đặt',
     'Database',
     'Nhật ký',
-    'Gói DV',
-    'KH Kích key',
-    'Thông báo',
+    'Gói dịch vụ',
+    'Khuyến mãi key',
+    'Thông báo hệ thống',
     'Bảo trì',
     'Marketing',
-    'Nội dung & Phản hồi',
+    'Trang nội dung & góp ý',
     'Lead tư vấn',
-    'Landing Page',
+    'Trang chủ (Landing)',
     'Catalog mẫu POS',
     'Lượt CK Tingee',
     'Máy chủ',
@@ -405,108 +407,69 @@ class _SystemAdminScreenState extends State<SystemAdminScreen>
     return [
       const AdminNavItem(
           index: 0, icon: Icons.dashboard, label: 'Tổng quan', group: 'Tổng quan'),
-      AdminNavItem(
-          index: 1,
-          icon: Icons.store,
-          label: 'Cửa hàng',
-          group: 'Quản lý',
-          count: _tabStoreCount()),
-      AdminNavItem(
-          index: 2,
-          icon: Icons.people,
-          label: 'Người dùng',
-          group: 'Quản lý',
-          count: _tabUserCount()),
-      AdminNavItem(
-          index: 3,
-          icon: Icons.router,
-          label: 'Thiết bị',
-          group: 'Quản lý',
-          count: _tabDeviceCount()),
-      AdminNavItem(
-          index: 4,
-          icon: Icons.support_agent,
-          label: 'Đại lý',
-          group: 'Quản lý',
-          count: _agentsKey.currentState?.agents.length),
-      AdminNavItem(
-          index: 5,
-          icon: Icons.vpn_key,
-          label: 'License',
-          group: 'Quản lý',
-          count: _tabLicenseCount()),
-      AdminNavItem(
-          index: 6,
-          icon: Icons.settings,
-          label: 'Cài đặt',
-          group: 'Hệ thống',
-          count: _settingsKey.currentState?.settings.length),
-      const AdminNavItem(
-          index: 7, icon: Icons.storage, label: 'Database', group: 'Hệ thống'),
-      const AdminNavItem(
-          index: 8, icon: Icons.history, label: 'Nhật ký', group: 'Hệ thống'),
-      AdminNavItem(
-          index: 9,
-          icon: Icons.inventory,
-          label: 'Gói DV',
-          group: 'Hệ thống',
-          count: _servicePackagesKey.currentState?.packages.length),
-      AdminNavItem(
-          index: 10,
-          icon: Icons.card_giftcard,
-          label: 'KH Kích key',
-          group: 'Hệ thống',
-          count: _keyPromotionsKey.currentState?.promotions.length),
-      AdminNavItem(
-          index: 11,
-          icon: Icons.campaign,
-          label: 'Thông báo',
-          group: 'Nội dung',
-          count: _announcementsKey.currentState?.announcements.length),
-      AdminNavItem(
-          index: 12,
-          icon: Icons.build_circle,
-          label: 'Bảo trì',
-          group: 'Nội dung',
-          count: _maintenanceKey.currentState?.windows.length),
-      AdminNavItem(
-          index: 13,
-          icon: Icons.local_offer,
-          label: 'Marketing',
-          group: 'Nội dung',
-          count: (_marketingKey.currentState?.templates.length ?? 0) +
-              (_marketingKey.currentState?.campaigns.length ?? 0)),
-      const AdminNavItem(
-          index: 14,
-          icon: Icons.description_outlined,
-          label: 'Nội dung & Phản hồi',
-          group: 'Nội dung'),
+      // ── Khách hàng
+      AdminNavItem(index: 1, icon: Icons.store, label: 'Cửa hàng', group: 'Khách hàng', count: _tabStoreCount()),
+      AdminNavItem(index: 2, icon: Icons.people, label: 'Tài khoản', group: 'Khách hàng', count: _tabUserCount()),
+      AdminNavItem(index: 3, icon: Icons.router, label: 'Thiết bị', group: 'Khách hàng', count: _tabDeviceCount()),
       AdminNavItem(
           index: 15,
           icon: Icons.support_agent_rounded,
           label: 'Lead tư vấn',
-          group: 'Nội dung',
+          group: 'Khách hàng',
           count: _consultationRequestsKey.currentState?.items.length),
-      const AdminNavItem(
-          index: 16,
-          icon: Icons.web_rounded,
-          label: 'Landing Page',
-          group: 'Nội dung'),
-      const AdminNavItem(
-          index: 17,
-          icon: Icons.restaurant_menu,
-          label: 'Catalog mẫu POS',
-          group: 'Nội dung'),
-      const AdminNavItem(
-          index: 18,
-          icon: Icons.account_balance_wallet,
-          label: 'Lượt CK Tingee',
-          group: 'Hệ thống'),
-      const AdminNavItem(
-          index: 19,
-          icon: Icons.dns,
-          label: 'Máy chủ',
-          group: 'Hệ thống'),
+      // ── Kinh doanh
+      AdminNavItem(
+          index: 9,
+          icon: Icons.inventory,
+          label: 'Gói dịch vụ',
+          group: 'Kinh doanh',
+          count: _servicePackagesKey.currentState?.packages.length),
+      AdminNavItem(index: 5, icon: Icons.vpn_key, label: 'Key kích hoạt', group: 'Kinh doanh', count: _tabLicenseCount()),
+      AdminNavItem(
+          index: 10,
+          icon: Icons.card_giftcard,
+          label: 'Khuyến mãi key',
+          group: 'Kinh doanh',
+          count: _keyPromotionsKey.currentState?.promotions.length),
+      AdminNavItem(
+          index: 4,
+          icon: Icons.handshake_outlined,
+          label: 'Đại lý',
+          group: 'Kinh doanh',
+          count: _agentsKey.currentState?.agents.length),
+      const AdminNavItem(index: 18, icon: Icons.account_balance_wallet, label: 'Lượt CK Tingee', group: 'Kinh doanh'),
+      // ── Trang chủ & nội dung
+      const AdminNavItem(index: 16, icon: Icons.web_rounded, label: 'Trang chủ (Landing)', group: 'Trang chủ & nội dung'),
+      const AdminNavItem(index: 14, icon: Icons.description_outlined, label: 'Trang nội dung & góp ý', group: 'Trang chủ & nội dung'),
+      AdminNavItem(
+          index: 11,
+          icon: Icons.campaign,
+          label: 'Thông báo hệ thống',
+          group: 'Trang chủ & nội dung',
+          count: _announcementsKey.currentState?.announcements.length),
+      AdminNavItem(
+          index: 13,
+          icon: Icons.local_offer,
+          label: 'Marketing',
+          group: 'Trang chủ & nội dung',
+          count: (_marketingKey.currentState?.templates.length ?? 0) + (_marketingKey.currentState?.campaigns.length ?? 0)),
+      const AdminNavItem(index: 17, icon: Icons.restaurant_menu, label: 'Catalog mẫu POS', group: 'Trang chủ & nội dung'),
+      // ── Hệ thống
+      AdminNavItem(
+          index: 6,
+          icon: Icons.monitor_heart_outlined,
+          label: 'Tình trạng & cài đặt',
+          group: 'Hệ thống',
+          count: _settingsKey.currentState?.settings.length),
+      AdminNavItem(
+          index: 12,
+          icon: Icons.build_circle,
+          label: 'Bảo trì',
+          group: 'Hệ thống',
+          count: _maintenanceKey.currentState?.windows.length),
+      const AdminNavItem(index: 19, icon: Icons.dns, label: 'Máy chủ', group: 'Hệ thống'),
+      const AdminNavItem(index: 7, icon: Icons.storage, label: 'Database', group: 'Hệ thống'),
+      const AdminNavItem(index: 8, icon: Icons.history, label: 'Nhật ký', group: 'Hệ thống'),
     ];
   }
 
@@ -537,7 +500,18 @@ class _SystemAdminScreenState extends State<SystemAdminScreen>
         body: Column(
           children: [
             mobile ? _buildMobileHeader(roleLabel) : _buildDesktopHeader(),
-            Expanded(child: _buildTabViews()),
+            Expanded(
+              child: mobile || widget.agentMode
+                  ? _buildTabViews()
+                  : Row(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
+                      _AdminSideNav(
+                        items: _navItems(),
+                        current: _tabController.index,
+                        onSelect: _navigateToTab,
+                      ),
+                      Expanded(child: _buildTabViews()),
+                    ]),
+            ),
           ],
         ),
       ),
@@ -580,17 +554,23 @@ class _SystemAdminScreenState extends State<SystemAdminScreen>
 
     return TabBarView(
       controller: _tabController,
+      physics: const NeverScrollableScrollPhysics(),
       children: [
         dashboard,
-        StoresTab(key: _storesKey),
+        StoresHubV2(legacy: StoresTab(key: _storesKey)),
         UsersTab(key: _usersKey),
         DevicesTab(key: _devicesKey, stores: _storesList),
-        AgentsTab(key: _agentsKey),
-        LicensesTab(key: _licensesKey),
-        SettingsTab(key: _settingsKey),
+        SaHubSwitch(views: [('Hiệu quả đại lý', const AgentsV2View()), ('Quản lý đại lý', AgentsTab(key: _agentsKey))]),
+        SaHubSwitch(views: [('Kho key', const KeysV2View()), ('Tạo / giao key', LicensesTab(key: _licensesKey))]),
+        SaHubSwitch(views: [
+          ('Tình trạng hệ thống', SystemStatusView(onNavigate: (t) => _navigateToTab(const {
+                'database': 7, 'server': 19, 'maintenance': 12, 'audit': 8, 'stores': 1, 'licenses': 5,
+              }[t] ?? 0))),
+          ('Tham số hệ thống', SettingsTab(key: _settingsKey)),
+        ]),
         DatabaseTab(key: _databaseKey, stores: _storesList),
         AuditTab(key: _auditKey),
-        ServicePackagesTab(key: _servicePackagesKey),
+        PackagesV2Tab(key: _servicePackagesKey),
         KeyPromotionsTab(key: _keyPromotionsKey),
         AnnouncementsTab(key: _announcementsKey),
         MaintenanceTab(key: _maintenanceKey),
@@ -749,7 +729,9 @@ class _SystemAdminScreenState extends State<SystemAdminScreen>
               _buildLogoutButton(),
             ],
           ),
-          const SizedBox(height: 16),
+          if (!widget.agentMode) const SizedBox(height: 16),
+          if (widget.agentMode) const SizedBox(height: 16),
+          if (widget.agentMode)
           TabBar(
             controller: _tabController,
             indicatorColor: Colors.white,
@@ -894,5 +876,61 @@ class _SystemAdminScreenState extends State<SystemAdminScreen>
     await auth.logout();
     if (!mounted) return;
     Navigator.of(context).pushNamedAndRemoveUntil('/admin', (_) => false);
+  }
+}
+
+/// Thanh điều hướng trái theo nhóm (Super Admin trên máy tính).
+class _AdminSideNav extends StatelessWidget {
+  const _AdminSideNav({required this.items, required this.current, required this.onSelect});
+  final List<AdminNavItem> items;
+  final int current;
+  final ValueChanged<int> onSelect;
+
+  @override
+  Widget build(BuildContext context) {
+    final children = <Widget>[];
+    String? group;
+    for (final it in items) {
+      if (it.group != group) {
+        group = it.group;
+        children.add(Padding(
+          padding: const EdgeInsets.fromLTRB(16, 14, 12, 4),
+          child: Text(tr(group).toUpperCase(),
+              style: const TextStyle(fontSize: 11, fontWeight: FontWeight.w700, letterSpacing: 0.6, color: SboxColors.slate400)),
+        ));
+      }
+      final sel = it.index == current;
+      children.add(Padding(
+        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 1),
+        child: Material(
+          color: sel ? SboxColors.brand50 : Colors.transparent,
+          borderRadius: BorderRadius.circular(8),
+          child: InkWell(
+            borderRadius: BorderRadius.circular(8),
+            onTap: () => onSelect(it.index),
+            child: Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 9),
+              child: Row(children: [
+                Icon(it.icon, size: 18, color: sel ? SboxColors.brand600 : SboxColors.slate500),
+                const SizedBox(width: 10),
+                Expanded(
+                  child: Text(tr(it.label),
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      style: TextStyle(fontSize: 13.5, fontWeight: sel ? FontWeight.w700 : FontWeight.w500, color: sel ? SboxColors.brand800 : SboxColors.slate700)),
+                ),
+                if ((it.count ?? 0) > 0)
+                  Text('${it.count}', style: const TextStyle(fontSize: 11.5, color: SboxColors.slate500, fontWeight: FontWeight.w600)),
+              ]),
+            ),
+          ),
+        ),
+      ));
+    }
+    return Container(
+      width: 236,
+      decoration: const BoxDecoration(color: SboxColors.white, border: Border(right: BorderSide(color: SboxColors.border))),
+      child: ListView(padding: const EdgeInsets.only(bottom: 16), children: children),
+    );
   }
 }

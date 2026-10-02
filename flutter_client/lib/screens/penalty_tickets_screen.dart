@@ -51,7 +51,7 @@ class _PenaltyTicketsScreenState extends State<PenaltyTicketsScreen> {
   DateTimeRange? _dateRange;
   String _datePreset =
       'this_month'; // today, yesterday, this_week, last_week, this_month, last_month, custom, all
-  String? _selectedBranchId;
+  String? _selectedBranchId = BranchFilterHelper.viewBranchId;
   List<Map<String, dynamic>> _branches = [];
 
   List<Map<String, dynamic>> get _filteredTickets {
@@ -1848,7 +1848,7 @@ class _PenaltyTicketsScreenState extends State<PenaltyTicketsScreen> {
                 ),
                 if (_selectedBranchId != null)
                   InkWell(
-                    onTap: () => setState(() => _selectedBranchId = null),
+                    onTap: () => setState(() => _selectedBranchId = BranchFilterHelper.viewBranchId),
                     child: const Padding(
                         padding: EdgeInsets.all(4),
                         child: Icon(Icons.close,

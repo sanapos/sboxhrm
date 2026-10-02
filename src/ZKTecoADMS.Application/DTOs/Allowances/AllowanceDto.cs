@@ -20,6 +20,10 @@ public class AllowanceDto
     public DateTime? EndDate { get; set; }
     public List<string>? EmployeeIds { get; set; }
     public List<string>? ShiftIds { get; set; }
+    /// <summary>Điều kiện nhận: % thời lượng ca tối thiểu (theo ngày / theo ca).</summary>
+    public decimal? MinWorkPercent { get; set; }
+    /// <summary>Điều kiện nhận: số giờ tối thiểu trong ca.</summary>
+    public decimal? MinWorkHours { get; set; }
 }
 
 public class CreateAllowanceDto
@@ -36,6 +40,10 @@ public class CreateAllowanceDto
     public DateTime? EndDate { get; set; }
     public List<string>? EmployeeIds { get; set; }
     public List<string>? ShiftIds { get; set; }
+    /// <summary>Điều kiện nhận: % thời lượng ca tối thiểu (theo ngày / theo ca).</summary>
+    public decimal? MinWorkPercent { get; set; }
+    /// <summary>Điều kiện nhận: số giờ tối thiểu trong ca.</summary>
+    public decimal? MinWorkHours { get; set; }
 }
 
 public class UpdateAllowanceDto
@@ -53,6 +61,10 @@ public class UpdateAllowanceDto
     public DateTime? EndDate { get; set; }
     public List<string>? EmployeeIds { get; set; }
     public List<string>? ShiftIds { get; set; }
+    /// <summary>Điều kiện nhận: % thời lượng ca tối thiểu (theo ngày / theo ca).</summary>
+    public decimal? MinWorkPercent { get; set; }
+    /// <summary>Điều kiện nhận: số giờ tối thiểu trong ca.</summary>
+    public decimal? MinWorkHours { get; set; }
 }
 
 public class AllowanceQueryParams

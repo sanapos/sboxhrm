@@ -713,12 +713,28 @@ class _PricingSubTabState extends State<_PricingSubTab> {
     if (_loading) return const Center(child: CircularProgressIndicator());
     return Column(
       children: [
+        Container(
+          margin: const EdgeInsets.fromLTRB(16, 12, 16, 0),
+          padding: const EdgeInsets.all(12),
+          decoration: BoxDecoration(color: const Color(0xFFE8F5FB), borderRadius: BorderRadius.circular(10)),
+          child: Row(children: [
+            const Icon(Icons.info_outline, color: Color(0xFF0F7BA8)),
+            const SizedBox(width: 8),
+            Expanded(
+              child: Text(
+                tr('Bảng giá trang chủ tự lấy từ «Gói dịch vụ» có đặt giá (đang bán, hiện trên đăng ký) — sboxpos.com hiện gói Bán hàng, '
+                    'trang HRM hiện gói Nhân sự. Danh sách bên dưới chỉ dùng khi chưa có gói nào đặt giá.'),
+                style: const TextStyle(fontSize: 13, color: Color(0xFF084B67)),
+              ),
+            ),
+          ]),
+        ),
         Padding(
           padding: const EdgeInsets.fromLTRB(16, 12, 16, 0),
           child: Row(
             children: [
               Expanded(
-                  child: Text(tr('Gói dịch vụ & Bảng giá'),
+                  child: Text(tr('Bảng giá dự phòng'),
                       style: TextStyle(
                           fontWeight: FontWeight.w700, fontSize: 16))),
               FilledButton.icon(

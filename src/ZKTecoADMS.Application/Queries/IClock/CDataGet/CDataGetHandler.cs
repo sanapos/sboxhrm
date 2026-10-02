@@ -12,6 +12,7 @@ public class CDataGetHandler(
     IRepository<Attendance> attendanceRepository,
     IRepository<DeviceInfo> deviceInfoRepository,
     IDeviceCmdService deviceCmdService,
+    IDeviceCapabilityService capabilityService,
     ILogger<CDataGetHandler> logger
     ) : IQueryHandler<CDataGetQuery, string>
 {
@@ -24,6 +25,18 @@ public class CDataGetHandler(
         if (device == null)
         {
             return ClockResponses.Fail;
+        }
+
+        // Ghi PushVersion từ handshake (máy LX35 không gửi INFO/options) → nhận đúng nhóm máy.
+        if (!string.IsNullOrWhiteSpace(request.PushVer))
+        {
+            var info = await deviceInfoRepository.GetSingleAsync(di => di.DeviceId == device.Id);
+            if (info != null && !string.Equals(info.PushVersion, request.PushVer, StringComparison.Ordinal))
+            {
+                await capabilityService.ApplyIdentityFromOptionsAsync(
+                    device.Id, null, null, request.PushVer, null, null, cancellationToken);
+                logger.LogInformation("[CDataGet] {SN} pushver={PushVer} recorded", sn, request.PushVer);
+            }
         }
 
         if(request.type != null && request.type == "time")

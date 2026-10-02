@@ -68,7 +68,7 @@ class _EmployeesScreenState extends State<EmployeesScreen> {
   final List<int> _pageSizeOptions = [20, 50, 100, 200];
   String _filterDepartment = 'Tất cả';
   String _filterStatus = 'Tất cả';
-  String? _filterBranchId;
+  String? _filterBranchId = BranchFilterHelper.viewBranchId;
   List<Map<String, dynamic>> _branches = [];
   final bool _groupByBranch = true;
 
@@ -1232,7 +1232,7 @@ class _EmployeesScreenState extends State<EmployeesScreen> {
         _quickFilter != null ||
         _filterDepartment != 'Tất cả' ||
         _filterStatus != 'Tất cả' ||
-        _filterBranchId != null;
+        _filterBranchId != BranchFilterHelper.viewBranchId;
   }
 
   void _clearEmpFilters() {
@@ -1241,7 +1241,7 @@ class _EmployeesScreenState extends State<EmployeesScreen> {
       _searchQuery = '';
       _filterDepartment = 'Tất cả';
       _filterStatus = 'Tất cả';
-      _filterBranchId = null;
+      _filterBranchId = BranchFilterHelper.viewBranchId;
       _applyFilters();
     });
   }
@@ -1487,7 +1487,7 @@ class _EmployeesScreenState extends State<EmployeesScreen> {
                 (
                   label: 'Tất cả chi nhánh',
                   onPick: () {
-                    _filterBranchId = null;
+                    _filterBranchId = BranchFilterHelper.viewBranchId;
                     _loadEmployees();
                   },
                 ),
@@ -1725,7 +1725,7 @@ class _EmployeesScreenState extends State<EmployeesScreen> {
           ),
         );
 
-    if (_groupByBranch && BranchFilterHelper.showBranchFilter(_branches)) {
+    if (_groupByBranch && BranchFilterHelper.hasMultipleBranches(_branches)) {
       final Map<String, List<Employee>> groupMap = {};
       for (final e in _filteredEmployees) {
         final key = e.branchId ?? '__none__';
@@ -1799,7 +1799,7 @@ class _EmployeesScreenState extends State<EmployeesScreen> {
     final endIndex = (startIndex + _pageSize).clamp(0, totalCount);
     final displayList =
         _filteredEmployees.sublist(startIndex.clamp(0, totalCount), endIndex);
-    final showBranchCol = BranchFilterHelper.showBranchFilter(_branches);
+    final showBranchCol = BranchFilterHelper.hasMultipleBranches(_branches);
 
     DataColumn col(String label, {double? width}) => DataColumn(
           label: SizedBox(

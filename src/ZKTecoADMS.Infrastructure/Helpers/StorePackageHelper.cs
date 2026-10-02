@@ -70,6 +70,57 @@ public static class StorePackageHelper
         }
     }
 
+    /// <summary>
+    /// App cũ chỉ hiện menu Thiết lập Sbox khi gói có mã SettingsHub.
+    /// Gói đã tick ca / máy in / mẫu in… thì coi như có SettingsHub khi trả my-modules.
+    /// </summary>
+    public static readonly string[] SettingsMenuModules =
+    [
+        "ShiftSetup",
+        "Holiday",
+        "Device",
+        "Allowance",
+        "PenaltySetup",
+        "Insurance",
+        "Tax",
+        "ProductSalary",
+        "SalarySettings",
+        "Branch",
+        "Geofence",
+        "SystemSettings",
+        "NotificationSettings",
+        "AIGemini",
+        "PosPrintTemplates",
+        "PosPrinters",
+        "PosStorePrinters",
+        "PosEInvoice",
+        "PosShipping",
+        "PosCustomerDisplay",
+    ];
+
+    public static List<string> WithSettingsHubMenu(List<string> modules)
+    {
+        if (modules.Count == 0) return modules;
+        if (modules.Contains("SettingsHub", StringComparer.OrdinalIgnoreCase)) return modules;
+        if (!modules.Any(m => SettingsMenuModules.Contains(m, StringComparer.OrdinalIgnoreCase)))
+            return modules;
+        var copy = new List<string>(modules) { "SettingsHub" };
+        return copy;
+    }
+
+    /// <summary>Gói + chức năng cấp thêm riêng − chức năng chặn riêng của cửa hàng.</summary>
+    public static List<string> ApplyStoreOverrides(Store store, List<string> packageModules)
+    {
+        var extra = DeserializeModules(store.ExtraModules);
+        var blocked = DeserializeModules(store.BlockedModules);
+        if (extra.Count == 0 && blocked.Count == 0) return packageModules;
+        var set = new List<string>(packageModules);
+        foreach (var e in extra)
+            if (!set.Contains(e, StringComparer.OrdinalIgnoreCase)) set.Add(e);
+        set.RemoveAll(m => blocked.Contains(m, StringComparer.OrdinalIgnoreCase));
+        return set;
+    }
+
     public static async Task<List<string>> ResolveAllowedModulesAsync(
         ZKTecoDbContext db,
         Guid storeId,
@@ -85,9 +136,9 @@ public static class StorePackageHelper
 
         if (store.ServicePackage != null)
         {
-            var modules = DeserializeModules(store.ServicePackage.AllowedModules);
+            var modules = ApplyStoreOverrides(store, DeserializeModules(store.ServicePackage.AllowedModules));
             return modules.Count > 0
-                ? modules
+                ? WithSettingsHubMenu(modules)
                 : FeatureModuleCatalog.SelfServiceModuleCodes.ToList();
         }
 
@@ -99,8 +150,8 @@ public static class StorePackageHelper
 
         if (trial != null)
         {
-            var trialModules = DeserializeModules(trial.AllowedModules);
-            if (trialModules.Count > 0) return trialModules;
+            var trialModules = ApplyStoreOverrides(store, DeserializeModules(trial.AllowedModules));
+            if (trialModules.Count > 0) return WithSettingsHubMenu(trialModules);
         }
 
         return FeatureModuleCatalog.SelfServiceModuleCodes.ToList();

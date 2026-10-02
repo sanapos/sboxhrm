@@ -195,7 +195,7 @@ class _AttendanceSummaryTabState extends State<AttendanceSummaryTab> {
       );
 
   bool get _showPunchBranchColumn =>
-      BranchFilterHelper.showBranchFilter(widget.branches);
+      BranchFilterHelper.hasMultipleBranches(widget.branches);
 
   // Sorting
   String _sortColumn = 'name';

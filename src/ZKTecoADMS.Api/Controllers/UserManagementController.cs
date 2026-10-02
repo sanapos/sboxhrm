@@ -1,3 +1,4 @@
+using ZKTecoADMS.Application.Authorization;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Identity;
 using Microsoft.AspNetCore.Mvc;
@@ -28,6 +29,21 @@ public class UserManagementController(
     ZKTecoDbContext context
 ) : AuthenticatedControllerBase
 {
+    Task<bool> IsStoreOwnerAsync(Guid userId) =>
+        context.Stores.AnyAsync(s => s.Id == RequiredStoreId && s.OwnerId == userId);
+
+    /// <summary>null = được quản lý tài khoản đích (theo cấp vai trò, chủ cửa hàng).</summary>
+    async Task<string?> DenyManageAsync(ApplicationUser target)
+    {
+        if (target.Id == CurrentUserId) return null;
+        return AccountRolePolicy.CanManage(
+            CurrentUserRole, await IsStoreOwnerAsync(CurrentUserId),
+            target.Role, await IsStoreOwnerAsync(target.Id));
+    }
+
+    Task RevokeSessionsAsync(Guid userId) =>
+        context.UserRefreshTokens.Where(rt => rt.ApplicationUserId == userId).ExecuteDeleteAsync();
+
     #region List Users
     
     /// <summary>
@@ -190,6 +206,11 @@ public class UserManagementController(
             return BadRequest(AppResponse<bool>.Error("Không thể thay đổi role của chính mình"));
         }
 
+        var deny = await DenyManageAsync(user)
+                   ?? AccountRolePolicy.CanAssign(CurrentUserRole, await IsStoreOwnerAsync(CurrentUserId), request.NewRole);
+        if (deny != null)
+            return StatusCode(StatusCodes.Status403Forbidden, AppResponse<bool>.Error(deny));
+
         // Kiểm tra role có tồn tại không
         if (!await roleManager.RoleExistsAsync(request.NewRole))
         {
@@ -215,6 +236,8 @@ public class UserManagementController(
             return BadRequest(AppResponse<bool>.Error(updateResult.Errors.Select(e => e.Description)));
         }
 
+        // Vai trò nằm trong token — đăng xuất để lần sau nhận vai trò mới.
+        await RevokeSessionsAsync(user.Id);
         return Ok(AppResponse<bool>.Success(true));
     }
 
@@ -227,6 +250,8 @@ public class UserManagementController(
     public async Task<ActionResult<AppResponse<List<string>>>> GetAvailableRoles()
     {
         var roles = await roleManager.Roles.Select(r => r.Name!).ToListAsync();
+        var isOwner = await IsStoreOwnerAsync(CurrentUserId);
+        roles = roles.Where(r => AccountRolePolicy.CanAssign(CurrentUserRole, isOwner, r) == null).ToList();
         return Ok(AppResponse<List<string>>.Success(roles));
     }
 
@@ -256,6 +281,9 @@ public class UserManagementController(
         {
             return BadRequest(AppResponse<bool>.Error("Không thể khóa tài khoản của chính mình"));
         }
+        var denyLock = await DenyManageAsync(user);
+        if (denyLock != null)
+            return StatusCode(StatusCodes.Status403Forbidden, AppResponse<bool>.Error(denyLock));
 
         // Thiết lập thời gian khóa
         var lockoutEnd = request.LockoutDays.HasValue 
@@ -284,6 +312,9 @@ public class UserManagementController(
         {
             return NotFound(AppResponse<bool>.Error("User not found"));
         }
+        var denyUnlock = await DenyManageAsync(user);
+        if (denyUnlock != null)
+            return StatusCode(StatusCodes.Status403Forbidden, AppResponse<bool>.Error(denyUnlock));
 
         await userManager.SetLockoutEndDateAsync(user, null);
         await userManager.ResetAccessFailedCountAsync(user);
@@ -311,6 +342,9 @@ public class UserManagementController(
         {
             return NotFound(AppResponse<string>.Error("User not found"));
         }
+        var denyReset = await DenyManageAsync(user);
+        if (denyReset != null)
+            return StatusCode(StatusCodes.Status403Forbidden, AppResponse<string>.Error(denyReset));
 
         // Generate password reset token
         var token = await userManager.GeneratePasswordResetTokenAsync(user);
@@ -324,6 +358,8 @@ public class UserManagementController(
 
         UserPasswordVisibility.RememberPassword(user, request.NewPassword);
         await userManager.UpdateAsync(user);
+        if (user.Id != CurrentUserId)
+            await RevokeSessionsAsync(user.Id);
 
         return Ok(AppResponse<string>.Success("Đã reset mật khẩu thành công"));
     }
@@ -349,6 +385,9 @@ public class UserManagementController(
         {
             return NotFound(AppResponse<UserDto>.Error("User not found"));
         }
+        var denyUpdate = await DenyManageAsync(user);
+        if (denyUpdate != null)
+            return StatusCode(StatusCodes.Status403Forbidden, AppResponse<UserDto>.Error(denyUpdate));
 
         // Update fields
         if (!string.IsNullOrEmpty(request.FirstName))
@@ -428,6 +467,9 @@ public class UserManagementController(
         {
             return BadRequest(AppResponse<bool>.Error("Không thể xóa tài khoản owner của cửa hàng"));
         }
+        var denyDelete = await DenyManageAsync(user);
+        if (denyDelete != null)
+            return StatusCode(StatusCodes.Status403Forbidden, AppResponse<bool>.Error(denyDelete));
 
         // Hard delete user
         var result = await userManager.DeleteAsync(user);

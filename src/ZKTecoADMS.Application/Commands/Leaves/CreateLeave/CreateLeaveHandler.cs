@@ -115,6 +115,11 @@ public class CreateLeaveHandler(
             };
             LeaveLegalDefaults.Apply(leave, request.SickLeaveMode);
 
+            // Phép năm: không cho gửi đơn vượt số phép còn có thể xin.
+            var annualError = await annualLeaveBalance.CheckRequestAsync(leave, cancellationToken);
+            if (annualError != null)
+                return AppResponse<LeaveDto>.Error(annualError);
+
             logger.LogWarning("[CreateLeave] Before AddAsync: leave.ShiftIds.Count={Count}, values={Values}",
                 leave.ShiftIds.Count, string.Join(",", leave.ShiftIds));
 

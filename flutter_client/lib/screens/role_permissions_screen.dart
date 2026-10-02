@@ -1045,7 +1045,15 @@ class _RolePermissionsScreenState extends State<RolePermissionsScreen> {
 
     setState(() => _isSaving = true);
     try {
-      await _apiService.saveRolePermissions(_selectedRolePermissions!);
+      final res = await _apiService.saveRolePermissions(_selectedRolePermissions!);
+      if (res['isSuccess'] != true) {
+        // Vd: không được sửa quyền vai trò ngang / cao hơn mình.
+        appNotification.showError(
+          title: 'Không lưu được',
+          message: res['message']?.toString() ?? 'Không thể lưu phân quyền',
+        );
+        return;
+      }
       appNotification.showSuccess(
         title: 'Thành công',
         message: 'Đã lưu phân quyền cho ${_selectedRolePermissions!['roleDisplayName']}',
@@ -1057,7 +1065,7 @@ class _RolePermissionsScreenState extends State<RolePermissionsScreen> {
         message: tr('Không thể lưu phân quyền: $e'),
       );
     } finally {
-      setState(() => _isSaving = false);
+      if (mounted) setState(() => _isSaving = false);
     }
   }
 

@@ -258,7 +258,9 @@ class CommPost {
         myAcked = j['myAcked'] == true,
         myReaction = j['myReaction'] == null ? null : _i(j['myReaction']),
         mySaved = j['mySaved'] == true,
-        canEdit = j['canEdit'] == true;
+        canEdit = j['canEdit'] == true,
+        canModerate = j['canModerate'] == true,
+        latestComments = _maps(j['latestComments']).map(CommComment.fromJson).toList();
 
   final String id;
   final String? channelId;
@@ -303,6 +305,9 @@ class CommPost {
   int? myReaction;
   bool mySaved;
   final bool canEdit;
+  final bool canModerate;
+  /// Bình luận mới nhất (cũ → mới) hiện ngay dưới bài.
+  final List<CommComment> latestComments;
 
   DateTime get when => publishedAt ?? createdAt;
   bool get urgent => priority >= 2;
@@ -320,16 +325,45 @@ class CommComment {
         content = '${j['content'] ?? ''}',
         parentCommentId = j['parentCommentId']?.toString(),
         createdAt = _dt(j['createdAt']) ?? DateTime.now(),
-        canDelete = j['canDelete'] == true;
+        canDelete = j['canDelete'] == true,
+        canEdit = j['canEdit'] == true,
+        edited = j['edited'] == true,
+        likeCount = _i(j['likeCount']),
+        myLiked = j['myLiked'] == true,
+        replyCount = _i(j['replyCount']);
 
   final String id;
   final String userId;
   final String? userName;
   final String? avatar;
-  final String content;
+  String content;
   final String? parentCommentId;
   final DateTime createdAt;
   final bool canDelete;
+  final bool canEdit;
+  bool edited;
+  int likeCount;
+  bool myLiked;
+  int replyCount;
+}
+
+/// Người đã bày tỏ cảm xúc.
+class CommReactor {
+  CommReactor.fromJson(Map<String, dynamic> j)
+      : userId = '${j['userId']}',
+        name = '${j['name'] ?? ''}',
+        avatar = j['avatar'],
+        type = _i(j['type']);
+  final String userId;
+  final String name;
+  final String? avatar;
+  final int type;
+}
+
+/// Liên kết mở thẳng một bài trong ứng dụng web.
+String commPostLink(String postId, {String? origin}) {
+  final o = (origin ?? '').isNotEmpty && origin != 'null' ? origin! : const String.fromEnvironment('SITE_URL', defaultValue: 'https://sboxhrm.com');
+  return '${o.replaceAll(RegExp(r'/+$'), '')}/?comm=$postId';
 }
 
 class CommBrief {

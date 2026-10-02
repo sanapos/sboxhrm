@@ -1,4 +1,5 @@
-﻿using Microsoft.AspNetCore.Authorization;
+﻿using ZKTecoADMS.Application.Helpers;
+using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
 using ZKTecoADMS.Api.Authorization;
@@ -862,12 +863,15 @@ public partial class KpiController(
 
             // Pre-load all employee benefits and existing salaries to avoid N+1
             var allEmployeeIds = employeeGroups.Select(g => g.Key).ToList();
-            var employeeBenefitsMap = await dbContext.EmployeeBenefits
+            var kpiToday = BenefitTimeline.VnToday();
+            var employeeBenefitsMap = (await dbContext.EmployeeBenefits
                 .Include(eb => eb.Benefit)
-                .Where(eb => allEmployeeIds.Contains(eb.EmployeeId) &&
-                    (eb.EndDate == null || eb.EndDate > DateTime.UtcNow))
+                .Where(eb => allEmployeeIds.Contains(eb.EmployeeId))
+                .ToListAsync())
                 .GroupBy(eb => eb.EmployeeId)
-                .ToDictionaryAsync(g => g.Key, g => g.First());
+                .Select(g => BenefitTimeline.PickCurrent(g, kpiToday))
+                .Where(eb => eb != null)
+                .ToDictionary(eb => eb!.EmployeeId, eb => eb!);
 
             var existingSalariesMap2 = await dbContext.KpiSalaries
                 .AsTracking()

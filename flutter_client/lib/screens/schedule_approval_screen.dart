@@ -69,7 +69,7 @@ class _ScheduleApprovalScreenState extends State<ScheduleApprovalScreen>
   List<Employee> _employees = [];
   List<Map<String, dynamic>> _staffingQuotas = [];
   bool _isLoading = true;
-  String? _selectedBranchId;
+  String? _selectedBranchId = BranchFilterHelper.viewBranchId;
   List<Map<String, dynamic>> _branches = [];
   final GlobalKey<ShiftSwapPanelState> _swapPanelKey = GlobalKey();
   int _swapPendingCount = 0;
@@ -831,7 +831,7 @@ class _ScheduleApprovalScreenState extends State<ScheduleApprovalScreen>
                       ),
                       if (_selectedBranchId != null)
                         InkWell(
-                          onTap: () => setState(() => _selectedBranchId = null),
+                          onTap: () => setState(() => _selectedBranchId = BranchFilterHelper.viewBranchId),
                           borderRadius: BorderRadius.circular(14),
                           child: const Padding(
                             padding: EdgeInsets.all(4),
@@ -942,7 +942,7 @@ class _ScheduleApprovalScreenState extends State<ScheduleApprovalScreen>
                           if (_selectedBranchId != null)
                             InkWell(
                               onTap: () =>
-                                  setState(() => _selectedBranchId = null),
+                                  setState(() => _selectedBranchId = BranchFilterHelper.viewBranchId),
                               borderRadius: BorderRadius.circular(14),
                               child: const Padding(
                                 padding: EdgeInsets.all(2),

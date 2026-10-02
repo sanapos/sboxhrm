@@ -174,6 +174,14 @@ public class AttendanceApprovalsController(
             });
         }
 
+        // Chỉ hiện yêu cầu của nhân viên thuộc chi nhánh đang xem (bộ chọn chi nhánh trên đầu app).
+        var view = await BranchViewHelper.ViewBranchIdsAsync(HttpContext, db, storeId);
+        if (view != null)
+        {
+            var hq = HttpContext.BranchContext()?.HeadquarterBranchId;
+            items = items.Where(i => BranchViewHelper.InView(view, i.BranchId, hq)).ToList();
+        }
+
         var counts = new
         {
             all = items.Count,

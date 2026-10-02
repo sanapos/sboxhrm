@@ -1,3 +1,4 @@
+using ZKTecoADMS.Application.Helpers;
 using Microsoft.EntityFrameworkCore;
 using ZKTecoADMS.Application.DTOs.Benefits;
 
@@ -20,14 +21,17 @@ public class GetEmployeeProfilesHandler(
         var employeeIds = employees.Select(e => e.Id).ToList();
         
         var employeeBenefits = await employeeBenefitRepository.GetAllWithIncludeAsync(
-            filter: e => employeeIds.Contains(e.EmployeeId) && e.EndDate == null,
+            filter: e => employeeIds.Contains(e.EmployeeId),
             includes: query => query.Include(q => q.Employee).Include(q => q.Benefit),
             cancellationToken: cancellationToken
         );
 
+        var today = BenefitTimeline.VnToday();
+        var byEmployee = employeeBenefits.GroupBy(eb => eb.EmployeeId).ToDictionary(g => g.Key, g => g.ToList());
         var employeeBenefitDtos = employees.Select(e => {
-            var benefit = employeeBenefits
-                .FirstOrDefault(eb => eb.EmployeeId == e.Id);
+            byEmployee.TryGetValue(e.Id, out var versions);
+            var benefit = versions == null ? null : BenefitTimeline.PickCurrent(versions, today);
+            var upcoming = versions == null ? null : BenefitTimeline.PickUpcoming(versions, today);
 
             if (benefit == null) {
                 benefit = new EmployeeBenefit
@@ -39,7 +43,9 @@ public class GetEmployeeProfilesHandler(
                 };
             }
 
-            return benefit.Adapt<EmployeeBenefitDto>();
+            var dto = benefit.Adapt<EmployeeBenefitDto>();
+            if (upcoming != null && upcoming.Id != benefit.Id) dto.Upcoming = upcoming.Adapt<EmployeeBenefitDto>();
+            return dto;
         });
 
         return AppResponse<IEnumerable<EmployeeBenefitDto>>.Success(employeeBenefitDtos);

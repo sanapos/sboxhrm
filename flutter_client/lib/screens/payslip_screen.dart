@@ -1,3 +1,4 @@
+import 'payroll_pay/payroll_pay_page.dart';
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
 import 'package:provider/provider.dart';
@@ -202,8 +203,17 @@ class _PayslipScreenState extends State<PayslipScreen> {
   Widget build(BuildContext context) {
     final isMobile = MediaQuery.of(context).size.width < 768;
     final list = _filteredPayslips;
+    final unpaidIds = _isManager
+        ? list.where((p) => !_isPaidSlip(p) && p['id'] != null).map((p) => '${p['id']}').toList()
+        : const <String>[];
     return RegisterPageTopActions(
       actions: [
+        if (unpaidIds.isNotEmpty)
+          HrmTopBarAction(
+            icon: Icons.payments_outlined,
+            label: 'Trả lương (${unpaidIds.length})',
+            onPressed: _isLoading ? null : () => _openPay(unpaidIds),
+          ),
         HrmTopBarAction(
           icon: Icons.refresh,
           label: 'Tải lại',
@@ -246,6 +256,12 @@ class _PayslipScreenState extends State<PayslipScreen> {
       ),
     ),
     );
+  }
+
+  /// Trả lương (tiền mặt / chuyển khoản / kết hợp, xuất file ngân hàng) rồi tải lại danh sách.
+  Future<void> _openPay(List<String> ids) async {
+    final changed = await openPayrollPay(context, ids);
+    if (changed == true && mounted) _loadData();
   }
 
   // ── Dashboard ──
@@ -668,6 +684,8 @@ class _PayslipScreenState extends State<PayslipScreen> {
     final paymentStatus = p['paymentStatus']?.toString() ??
         ((p['isPaid'] == true) ? 'Đã thanh toán' : 'Chưa thanh toán');
     final isPaid = p['isPaid'] == true || paymentStatus == 'Đã thanh toán';
+    final remaining = _num(p['remainingAmount']);
+    final partial = !isPaid && _num(p['paidAmount']) > 0;
 
     return Container(
       decoration: BoxDecoration(
@@ -786,6 +804,24 @@ class _PayslipScreenState extends State<PayslipScreen> {
                               fontWeight: FontWeight.bold,
                             ),
                           ),
+                          if (partial)
+                            Text(
+                              tr('Còn ${_formatCurrency(remaining)}'),
+                              style: const TextStyle(color: Colors.white70, fontSize: 12),
+                            ),
+                          if (_isManager && !isPaid && p['id'] != null) ...[
+                            const SizedBox(height: 6),
+                            FilledButton.tonalIcon(
+                              style: FilledButton.styleFrom(
+                                visualDensity: VisualDensity.compact,
+                                backgroundColor: Colors.white,
+                                foregroundColor: SboxColors.brand700,
+                              ),
+                              onPressed: () => _openPay(['${p['id']}']),
+                              icon: const Icon(Icons.payments_outlined, size: 16),
+                              label: Text(tr('Trả lương')),
+                            ),
+                          ],
                           const SizedBox(height: 4),
                           Icon(
                             expanded

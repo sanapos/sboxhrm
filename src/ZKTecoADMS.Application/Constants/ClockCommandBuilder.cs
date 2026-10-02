@@ -166,6 +166,27 @@ public static class ClockCommandBuilder
         return $"DATA UPDATE USERPIC PIN={pin}\tSize={jpegBytes.Length}\tContent={b64}";
     }
 
+    /// <summary>Đọc StartTime/EndTime từ lệnh DATA QUERY ATTLOG đã dựng sẵn (hai định dạng).</summary>
+    public static bool TryParseAttendanceQuery(string? command, out DateTime start, out DateTime end)
+    {
+        start = end = default;
+        if (string.IsNullOrWhiteSpace(command)
+            || !command.TrimStart().StartsWith("DATA QUERY ATTLOG", StringComparison.OrdinalIgnoreCase))
+            return false;
+        string? Field(string key)
+        {
+            var i = command.IndexOf(key + "=", StringComparison.OrdinalIgnoreCase);
+            if (i < 0) return null;
+            var v = command[(i + key.Length + 1)..];
+            var tab = v.IndexOf('\t');
+            return (tab >= 0 ? v[..tab] : v).Trim();
+        }
+        string[] fmts = ["yyyy-MM-ddTHH:mm:ss", "yyyy-MM-dd HH:mm:ss"];
+        var inv = System.Globalization.CultureInfo.InvariantCulture;
+        return DateTime.TryParseExact(Field("StartTime"), fmts, inv, System.Globalization.DateTimeStyles.None, out start)
+               && DateTime.TryParseExact(Field("EndTime"), fmts, inv, System.Globalization.DateTimeStyles.None, out end);
+    }
+
     public static DateTime VietnamEndOfToday()
     {
         var vnNow = DateTime.UtcNow.AddHours(7);
@@ -176,13 +197,15 @@ public static class ClockCommandBuilder
         BuildGetAttendanceCommand(DateTime.UtcNow.AddHours(7).AddYears(-5), VietnamEndOfToday());
 
     /// <summary>PUSH SDK §11.2 — time format YYYY-MM-DDThh:mm:ss.</summary>
-    public static string BuildGetAttendanceCommand(DateTime? startTime = null, DateTime? endTime = null)
+    public static string BuildGetAttendanceCommand(DateTime? startTime = null, DateTime? endTime = null, bool spaceSeparated = false)
     {
         var end = endTime ?? VietnamEndOfToday();
         var start = startTime ?? end.AddYears(-2);
 
-        var startTimeStr = start.ToString("yyyy-MM-ddTHH:mm:ss");
-        var endTimeStr = end.ToString("yyyy-MM-ddTHH:mm:ss");
+        // PushLite (LX35): firmware đọc «yyyy-MM-dd HH:mm:ss» như mọi chuỗi ngày giờ khác của nó.
+        var fmt = spaceSeparated ? "yyyy-MM-dd HH:mm:ss" : "yyyy-MM-ddTHH:mm:ss";
+        var startTimeStr = start.ToString(fmt, System.Globalization.CultureInfo.InvariantCulture);
+        var endTimeStr = end.ToString(fmt, System.Globalization.CultureInfo.InvariantCulture);
 
         return $"DATA QUERY ATTLOG StartTime={startTimeStr}\tEndTime={endTimeStr}";
     }

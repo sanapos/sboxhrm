@@ -48,7 +48,7 @@ class _BonusPenaltyScreenState extends State<BonusPenaltyScreen>
 
   // Bộ lọc nhân viên (tìm kiếm)
   String _searchQuery = '';
-  String? _selectedBranchId;
+  String? _selectedBranchId = BranchFilterHelper.viewBranchId;
   List<Map<String, dynamic>> _branches = [];
   final TextEditingController _searchController = TextEditingController();
 
@@ -557,7 +557,7 @@ class _BonusPenaltyScreenState extends State<BonusPenaltyScreen>
     return _datePreset != 'thisMonth' ||
         _filterType != 'all' ||
         _searchQuery.isNotEmpty ||
-        _selectedBranchId != null;
+        _selectedBranchId != BranchFilterHelper.viewBranchId;
   }
 
   Widget _buildFilterBar() {

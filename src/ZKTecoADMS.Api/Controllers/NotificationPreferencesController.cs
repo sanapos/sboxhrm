@@ -21,7 +21,7 @@ public class NotificationPreferencesController(
     /// </summary>
     [HttpGet("categories")]
     [Authorize(Policy = PolicyNames.AtLeastEmployee)]
-    [RequireModulePermission("NotificationSettings", ModulePermissionAction.View)]
+    // Thiết lập nhận thông báo của chính mình: không cần quyền «Thiết lập thông báo».
     public async Task<ActionResult<AppResponse<List<NotificationCategoryDto>>>> GetCategories()
     {
         var categories = await categoryRepository.GetAllAsync(
@@ -48,7 +48,7 @@ public class NotificationPreferencesController(
     /// </summary>
     [HttpGet]
     [Authorize(Policy = PolicyNames.AtLeastEmployee)]
-    [RequireModulePermission("NotificationSettings", ModulePermissionAction.View)]
+    // Thiết lập nhận thông báo của chính mình: không cần quyền «Thiết lập thông báo».
     public async Task<ActionResult<AppResponse<List<NotificationPreferenceDto>>>> GetPreferences()
     {
         var categories = await categoryRepository.GetAllAsync(
@@ -83,7 +83,7 @@ public class NotificationPreferencesController(
     /// </summary>
     [HttpPut]
     [Authorize(Policy = PolicyNames.AtLeastEmployee)]
-    [RequireModulePermission("NotificationSettings", ModulePermissionAction.Edit)]
+    // Thiết lập nhận thông báo của chính mình: không cần quyền «Thiết lập thông báo».
     public async Task<ActionResult<AppResponse<List<NotificationPreferenceDto>>>> UpdatePreferences(
         [FromBody] UpdateNotificationPreferencesRequest request)
     {

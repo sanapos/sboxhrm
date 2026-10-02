@@ -21,7 +21,8 @@ import 'package:zkteco_flutter_client/l10n/app_tr.dart';
 
 import '../theme/sbox_tokens.dart';
 import '../widgets/sbox/sbox_report.dart';
-import '../widgets/sbox/sbox_charts.dart';
+import '../widgets/sbox/sbox_charts.dart';
+import '../utils/branch_filter_helper.dart';
 const _theme = HrmPageChrome.primaryNavy;
 
 class _TravelTripRow {
@@ -99,7 +100,7 @@ class _TravelHoursReportScreenState extends State<TravelHoursReportScreen> {
   String _datePreset = 'this_month';
   String _statusFilter = 'all'; // all | complete | incomplete
   String _empSearch = '';
-  String? _selectedBranchId;
+  String? _selectedBranchId = BranchFilterHelper.viewBranchId;
   String? _selectedDepartmentId;
   int _viewTab = 0; // 0 chi tiết, 1 theo NV
   int _page = 1;
@@ -922,7 +923,7 @@ class _TravelHoursReportScreenState extends State<TravelHoursReportScreen> {
                           onClearFilters: _teamView
                               ? () => setState(() {
                                     _empSearch = '';
-                                    _selectedBranchId = null;
+                                    _selectedBranchId = BranchFilterHelper.viewBranchId;
                                     _selectedDepartmentId = null;
                                     _statusFilter = 'all';
                                     _page = 1;

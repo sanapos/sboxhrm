@@ -1,3 +1,4 @@
+using ZKTecoADMS.Application.Authorization;
 using Mapster;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Identity;
@@ -31,6 +32,42 @@ namespace ZKTecoADMS.Api.Controllers;
 [Route("api/[controller]")]
 public class AccountsController(IMediator mediator, UserManager<ApplicationUser> userManager, IDataScopeService dataScopeService, ZKTecoDbContext dbContext) : AuthenticatedControllerBase
 {
+    Task<bool> IsStoreOwnerAsync(Guid userId, CancellationToken ct) =>
+        dbContext.Stores.AnyAsync(s => s.Id == RequiredStoreId && s.OwnerId == userId, ct);
+
+    /// <summary>null = được quản lý tài khoản đích (theo cấp vai trò, chủ cửa hàng).</summary>
+    async Task<string?> DenyManageAsync(ApplicationUser target, CancellationToken ct)
+    {
+        if (target.Id == CurrentUserId) return null;
+        return AccountRolePolicy.CanManage(
+            CurrentUserRole, await IsStoreOwnerAsync(CurrentUserId, ct),
+            target.Role, await IsStoreOwnerAsync(target.Id, ct));
+    }
+
+    /// <summary>Đăng xuất mọi phiên của tài khoản (đổi vai trò / mật khẩu).</summary>
+    Task RevokeSessionsAsync(Guid userId, CancellationToken ct) =>
+        dbContext.UserRefreshTokens.Where(rt => rt.ApplicationUserId == userId).ExecuteDeleteAsync(ct);
+
+    /// <summary>Vai trò mình được gán cho tài khoản khác — màn Tài khoản dùng để lọc lựa chọn và khóa thao tác.</summary>
+    [HttpGet("role-policy")]
+    [Authorize(Policy = PolicyNames.AtLeastManager)]
+    [RequireModulePermission("UserManagement", ModulePermissionAction.View)]
+    public async Task<ActionResult<AppResponse<object>>> GetRolePolicy(CancellationToken cancellationToken)
+    {
+        var isOwner = await IsStoreOwnerAsync(CurrentUserId, cancellationToken);
+        var ownerId = await dbContext.Stores.Where(s => s.Id == RequiredStoreId)
+            .Select(s => s.OwnerId).FirstOrDefaultAsync(cancellationToken);
+        return Ok(AppResponse<object>.Success(new
+        {
+            isOwner,
+            ownerId,
+            myRole = CurrentUserRole,
+            assignableRoles = AccountRolePolicy.AssignableRoles(CurrentUserRole, isOwner)
+                .Where(r => !AccountRolePolicy.IsPlatformRole(r)).ToList(),
+            ranks = Enum.GetNames<Roles>().ToDictionary(r => r, AccountRolePolicy.RankOf),
+        }));
+    }
+
     [HttpGet]
     [Authorize(Policy = PolicyNames.AtLeastManager)]
     [RequireModulePermission("UserManagement", ModulePermissionAction.View)]
@@ -58,6 +95,9 @@ public class AccountsController(IMediator mediator, UserManager<ApplicationUser>
     [RequireModulePermission("UserManagement", ModulePermissionAction.Create)]
     public async Task<AppResponse<AccountDto>> CreateEmployeeAccount([FromBody] CreateEmployeeAccountRequest request, CancellationToken cancellationToken)
     {
+        var deny = AccountRolePolicy.CanAssign(CurrentUserRole, await IsStoreOwnerAsync(CurrentUserId, cancellationToken),
+            request.Role ?? nameof(Roles.Employee));
+        if (deny != null) return AppResponse<AccountDto>.Error(deny);
         var command = request.Adapt<CreateEmployeeAccountCommand>();
         command.ManagerId = CurrentUserId;
         
@@ -71,6 +111,9 @@ public class AccountsController(IMediator mediator, UserManager<ApplicationUser>
         [FromBody] BulkCreateEmployeeAccountsRequest request,
         CancellationToken cancellationToken)
     {
+        var deny = AccountRolePolicy.CanAssign(CurrentUserRole, await IsStoreOwnerAsync(CurrentUserId, cancellationToken),
+            string.IsNullOrWhiteSpace(request.Role) ? nameof(Roles.Employee) : request.Role.Trim());
+        if (deny != null) return AppResponse<BulkCreateEmployeeAccountsResult>.Error(deny);
         var command = new BulkCreateEmployeeAccountsCommand
         {
             EmployeeIds = request.EmployeeIds,
@@ -86,10 +129,33 @@ public class AccountsController(IMediator mediator, UserManager<ApplicationUser>
     [RequireModulePermission("UserManagement", ModulePermissionAction.Edit)]
     public async Task<AppResponse<bool>> UpdateEmployeeAccount(Guid userId, [FromBody] UpdateEmployeeAccountRequest request, CancellationToken cancellationToken)
     {
+        var target = await userManager.FindByIdAsync(userId.ToString());
+        if (target == null || target.StoreId != RequiredStoreId)
+            return AppResponse<bool>.Error("Không tìm thấy tài khoản.");
+        var deny = await DenyManageAsync(target, cancellationToken);
+        if (deny != null) return AppResponse<bool>.Error(deny);
+
+        var roleChanged = !string.IsNullOrWhiteSpace(request.Role)
+            && !string.Equals(request.Role, target.Role, StringComparison.OrdinalIgnoreCase);
+        if (roleChanged)
+        {
+            if (target.Id == CurrentUserId)
+                return AppResponse<bool>.Error("Không thể tự đổi vai trò của chính mình.");
+            deny = AccountRolePolicy.CanAssign(CurrentUserRole, await IsStoreOwnerAsync(CurrentUserId, cancellationToken), request.Role);
+            if (deny != null) return AppResponse<bool>.Error(deny);
+        }
+        else
+        {
+            request.Role = null; // giữ nguyên vai trò — không gỡ / gán lại Identity role
+        }
+
         var command = request.Adapt<UpdateEmployeeAccountCommand>();
         command.UserId = userId;
         command.StoreId = RequiredStoreId;
         var result = await mediator.Send(command, cancellationToken);
+        // Vai trò nằm trong token — đăng xuất để lần đăng nhập sau nhận vai trò mới.
+        if (result.IsSuccess && roleChanged)
+            await RevokeSessionsAsync(userId, cancellationToken);
 
         return result;
     }
@@ -186,6 +252,8 @@ public class AccountsController(IMediator mediator, UserManager<ApplicationUser>
         {
             return Ok(AppResponse<bool>.Error("Không thể xóa tài khoản của chính mình"));
         }
+        var denyDelete = await DenyManageAsync(user, cancellationToken);
+        if (denyDelete != null) return Ok(AppResponse<bool>.Error(denyDelete));
 
         var isOwner = await dbContext.Stores.AnyAsync(
             s => s.Id == RequiredStoreId && s.OwnerId == id,
@@ -247,6 +315,8 @@ public class AccountsController(IMediator mediator, UserManager<ApplicationUser>
         {
             return Ok(AppResponse<bool>.Error("Không thể thay đổi trạng thái tài khoản của chính mình"));
         }
+        var denyStatus = await DenyManageAsync(user, cancellationToken);
+        if (denyStatus != null) return Ok(AppResponse<bool>.Error(denyStatus));
 
         var isOwner = await dbContext.Stores.AnyAsync(
             s => s.Id == RequiredStoreId && s.OwnerId == id,
@@ -315,12 +385,19 @@ public class AccountsController(IMediator mediator, UserManager<ApplicationUser>
             return Ok(AppResponse<bool>.Error("Không tìm thấy tài khoản"));
         }
 
+        var denyReset = await DenyManageAsync(user, cancellationToken);
+        if (denyReset != null) return Ok(AppResponse<bool>.Error(denyReset));
+
         var token = await userManager.GeneratePasswordResetTokenAsync(user);
         var result = await userManager.ResetPasswordAsync(user, token, request.Password);
         if (!result.Succeeded)
         {
             return Ok(AppResponse<bool>.Error(result.Errors.Select(e => e.Description).ToList()));
         }
+
+        // Mật khẩu do người khác đặt lại → đăng xuất các phiên cũ của tài khoản đó.
+        if (user.Id != CurrentUserId)
+            await RevokeSessionsAsync(user.Id, cancellationToken);
 
         return Ok(AppResponse<bool>.Success(true));
     }
@@ -431,6 +508,8 @@ public class AccountsController(IMediator mediator, UserManager<ApplicationUser>
             .FirstOrDefaultAsync(u => u.Id == userId && u.StoreId == storeId);
         if (user == null)
             return NotFound(AppResponse<bool>.Error("Không tìm thấy tài khoản"));
+        var denyScope = await DenyManageAsync(user, HttpContext.RequestAborted);
+        if (denyScope != null) return Ok(AppResponse<bool>.Error(denyScope));
 
         var granter = CurrentUserId.ToString();
         var dataScopePermId = await EnsureDataScopePermissionIdAsync();

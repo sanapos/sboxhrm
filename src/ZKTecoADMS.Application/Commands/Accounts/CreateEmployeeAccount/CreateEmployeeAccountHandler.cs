@@ -1,3 +1,4 @@
+using ZKTecoADMS.Application.Authorization;
 using Microsoft.AspNetCore.Identity;
 using ZKTecoADMS.Application.DTOs.Commons;
 using ZKTecoADMS.Application.Helpers;
@@ -26,8 +27,9 @@ public class CreateEmployeeAccountHandler(
         }
 
         // Optionally: Verify the manager has at least Manager role
-        var isManager = await userManager.IsInRoleAsync(manager, nameof(Roles.Manager));
-        var isAdmin = await userManager.IsInRoleAsync(manager, nameof(Roles.Admin));
+        // Quyền tạo đã kiểm ở API (UserManagement.Create + cấp vai trò); ở đây chỉ chặn tài khoản cấp thấp.
+        var isManager = AccountRolePolicy.RankOf(manager.Role) >= AccountRolePolicy.RankOf(nameof(Roles.DepartmentHead));
+        var isAdmin = false;
         if (!isManager && !isAdmin)
         {
             return AppResponse<AccountDto>.Error("The specified user is not a manager or admin.");

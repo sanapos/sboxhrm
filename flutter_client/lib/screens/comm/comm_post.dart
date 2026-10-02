@@ -1,12 +1,26 @@
+import 'dart:async';
+
+import 'package:flutter/foundation.dart' show kIsWeb;
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 
 import '../../l10n/app_tr.dart';
 import '../../models/comm_v2.dart';
 import '../../services/api_service.dart';
+import '../../services/signalr_service.dart';
 import '../../widgets/sbox/sbox_ui.dart';
 import 'comm_common.dart';
 
-/// Thẻ bài trên bảng tin: tác giả, kênh, nội dung rút gọn, ảnh, tệp, bình chọn, sự kiện, xác nhận đọc, cảm xúc.
+/// Kết quả đóng trang chi tiết: bài đã cập nhật, bài bị xóa, hoặc cần tải lại.
+const commDetailDeleted = 'deleted';
+
+Future<void> commCopyLink(BuildContext context, CommPost p) async {
+  await Clipboard.setData(ClipboardData(text: commPostLink(p.id, origin: kIsWeb ? Uri.base.origin : null)));
+  if (context.mounted) commToast(context, 'Đã sao chép liên kết bài viết');
+}
+
+/// Thẻ bài trên bảng tin kiểu mạng xã hội: tác giả, kênh, nội dung «Xem thêm» tại chỗ, ảnh, tệp, bình chọn,
+/// sự kiện, xác nhận đọc, cảm xúc (rê chuột để chọn), 2 bình luận mới nhất và ô bình luận ngay dưới bài.
 class CommPostCard extends StatefulWidget {
   const CommPostCard({
     super.key,
@@ -14,17 +28,30 @@ class CommPostCard extends StatefulWidget {
     required this.ctx,
     required this.onOpen,
     required this.onChanged,
+    this.onRemoved,
     this.onEdit,
+    this.onAuthor,
+    this.onTag,
+    this.onChannel,
+    this.onCommentTap,
     this.expanded = false,
   });
 
   final CommPost post;
   final CommContext ctx;
+  /// Mở trang chi tiết (đủ bình luận).
   final VoidCallback onOpen;
-  /// Bài thay đổi (xóa / ghim / duyệt) → bảng tin tải lại.
+  /// Bài thay đổi trạng thái (duyệt / từ chối / ghim) → bảng tin tải lại.
   final VoidCallback onChanged;
+  /// Bài bị xóa → bỏ khỏi danh sách tại chỗ.
+  final VoidCallback? onRemoved;
   final VoidCallback? onEdit;
-  /// Trang chi tiết: hiện đủ nội dung.
+  final void Function(String authorId, String name)? onAuthor;
+  final void Function(String tag)? onTag;
+  final void Function(String channelId)? onChannel;
+  /// Trang chi tiết: bấm «Bình luận» chuyển tới ô nhập bên dưới.
+  final VoidCallback? onCommentTap;
+  /// Trang chi tiết: đủ nội dung, không có xem trước bình luận.
   final bool expanded;
 
   @override
@@ -33,26 +60,48 @@ class CommPostCard extends StatefulWidget {
 
 class _CommPostCardState extends State<CommPostCard> {
   final _api = ApiService();
+  final _comment = TextEditingController();
+  final _commentFocus = FocusNode();
   bool _busy = false;
+  bool _more = false;
+  bool _showBox = false;
+  bool _sending = false;
 
   CommPost get p => widget.post;
+  bool get _moderator => p.canModerate || widget.ctx.isManager;
+
+  @override
+  void dispose() {
+    _comment.dispose();
+    _commentFocus.dispose();
+    super.dispose();
+  }
+
+  // ─── Cảm xúc: cập nhật ngay, lỗi thì trả lại như cũ ─────────────
+
+  void _applyReaction(int? next) {
+    final before = p.myReaction;
+    if (before == next) return;
+    if (before != null) p.reactions[before] = ((p.reactions[before] ?? 1) - 1).clamp(0, 1 << 30);
+    if (next != null) p.reactions[next] = (p.reactions[next] ?? 0) + 1;
+    if (before == null && next != null) p.reactionTotal++;
+    if (before != null && next == null) p.reactionTotal--;
+    p.myReaction = next;
+  }
 
   Future<void> _react(int type) async {
     final before = p.myReaction;
-    setState(() {
-      if (before == type) {
-        p.myReaction = null;
-        p.reactionTotal--;
-        p.reactions[type] = (p.reactions[type] ?? 1) - 1;
-      } else {
-        if (before != null) p.reactions[before] = (p.reactions[before] ?? 1) - 1;
-        if (before == null) p.reactionTotal++;
-        p.myReaction = type;
-        p.reactions[type] = (p.reactions[type] ?? 0) + 1;
-      }
-    });
+    final next = before == type ? null : type;
+    setState(() => _applyReaction(next));
     final r = await _api.reactCommPost(p.id, type);
-    if (r['isSuccess'] != true && mounted) commToast(context, '${r['message']}', error: true);
+    if (!mounted) return;
+    if (r['isSuccess'] != true) {
+      setState(() => _applyReaction(before));
+      commToast(context, '${r['message'] ?? 'Không gửi được cảm xúc'}', error: true);
+    } else {
+      final server = r['data'] == null ? null : (r['data'] as num).toInt();
+      if (server != p.myReaction) setState(() => _applyReaction(server));
+    }
   }
 
   Future<void> _ack() async {
@@ -74,23 +123,43 @@ class _CommPostCardState extends State<CommPostCard> {
   Future<void> _vote(String optionId) async {
     final poll = p.poll!;
     if (poll.closed) return;
+    final prevVotes = [...poll.myVotes];
+    final prevCounts = {for (final o in poll.options) o.id: o.votes};
+    final prevVoters = poll.totalVoters;
     final next = poll.multiple
         ? (poll.myVotes.contains(optionId) ? (poll.myVotes.toList()..remove(optionId)) : [...poll.myVotes, optionId])
-        : [optionId];
+        : (poll.myVotes.length == 1 && poll.myVotes.first == optionId ? <String>[] : [optionId]);
+    setState(() {
+      for (final o in poll.options) {
+        if (poll.myVotes.contains(o.id)) o.votes--;
+        if (next.contains(o.id)) o.votes++;
+      }
+      if (prevVotes.isEmpty && next.isNotEmpty) poll.totalVoters++;
+      if (prevVotes.isNotEmpty && next.isEmpty) poll.totalVoters--;
+      poll.myVotes = next;
+    });
     final r = await _api.voteCommPoll(p.id, next);
+    if (!mounted || r['isSuccess'] == true) return;
+    setState(() {
+      for (final o in poll.options) {
+        o.votes = prevCounts[o.id] ?? o.votes;
+      }
+      poll.myVotes = prevVotes;
+      poll.totalVoters = prevVoters;
+    });
+    commToast(context, '${r['message']}', error: true);
+  }
+
+  Future<void> _toggleSave() async {
+    final before = p.mySaved;
+    setState(() => p.mySaved = !before);
+    final r = await _api.saveCommBookmark(p.id);
     if (!mounted) return;
     if (r['isSuccess'] == true) {
-      final wasVoter = poll.myVotes.isNotEmpty;
-      setState(() {
-        for (final o in poll.options) {
-          if (poll.myVotes.contains(o.id)) o.votes--;
-          if (next.contains(o.id)) o.votes++;
-        }
-        poll.myVotes = next;
-        if (!wasVoter && next.isNotEmpty) poll.totalVoters++;
-        if (wasVoter && next.isEmpty) poll.totalVoters--;
-      });
+      setState(() => p.mySaved = r['data'] == true);
+      commToast(context, p.mySaved ? 'Đã lưu bài' : 'Đã bỏ lưu');
     } else {
+      setState(() => p.mySaved = before);
       commToast(context, '${r['message']}', error: true);
     }
   }
@@ -99,34 +168,106 @@ class _CommPostCardState extends State<CommPostCard> {
     switch (v) {
       case 'edit':
         widget.onEdit?.call();
+      case 'link':
+        await commCopyLink(context, p);
       case 'pin':
-        await _api.pinCommPost(p.id, !p.isPinned);
-        widget.onChanged();
+        final r = await _api.pinCommPost(p.id, !p.isPinned);
+        if (!mounted) return;
+        if (r['isSuccess'] == true) {
+          commToast(context, p.isPinned ? 'Đã bỏ ghim' : 'Đã ghim lên đầu bảng tin');
+          widget.onChanged();
+        } else {
+          commToast(context, '${r['message']}', error: true);
+        }
       case 'readers':
         await showCommReaders(context, p);
       case 'save':
-        final r = await _api.saveCommBookmark(p.id);
-        if (r['isSuccess'] == true && mounted) {
-          setState(() => p.mySaved = r['data'] == true);
-          commToast(context, p.mySaved ? 'Đã lưu bài' : 'Đã bỏ lưu');
-        }
+        await _toggleSave();
       case 'approve':
       case 'reject':
         final r = await _api.approveCommPost(p.id, v == 'approve');
-        if (mounted) commToast(context, r['isSuccess'] == true ? (v == 'approve' ? 'Đã duyệt và đăng' : 'Đã từ chối') : '${r['message']}', error: r['isSuccess'] != true);
+        if (!mounted) return;
+        commToast(context, r['isSuccess'] == true ? (v == 'approve' ? 'Đã duyệt và đăng' : 'Đã từ chối') : '${r['message']}',
+            error: r['isSuccess'] != true);
         widget.onChanged();
       case 'delete':
-        final ok = await SboxDialogs.confirm(context, title: 'Xóa bài «${p.title}»?', message: 'Bài được chuyển vào lưu trữ, lịch sử xác nhận đọc vẫn giữ.', confirmLabel: 'Xóa', danger: true);
-        if (!ok) return;
-        await _api.deleteCommPost(p.id);
-        widget.onChanged();
+        final ok = await SboxDialogs.confirm(context,
+            title: 'Xóa bài «${p.title}»?',
+            message: 'Bài được chuyển vào lưu trữ, lịch sử xác nhận đọc vẫn giữ.',
+            confirmLabel: 'Xóa',
+            danger: true);
+        if (!ok || !mounted) return;
+        final r = await _api.deleteCommPost(p.id);
+        if (!mounted) return;
+        if (r['isSuccess'] == true) {
+          commToast(context, 'Đã xóa bài');
+          (widget.onRemoved ?? widget.onChanged)();
+        } else {
+          commToast(context, '${r['message']}', error: true);
+        }
     }
   }
 
+  // ─── Bình luận nhanh ngay dưới bài ──────────────────────────────
+
+  void _openBox() {
+    if (widget.onCommentTap != null) {
+      widget.onCommentTap!();
+      return;
+    }
+    setState(() => _showBox = true);
+    WidgetsBinding.instance.addPostFrameCallback((_) => _commentFocus.requestFocus());
+  }
+
+  Future<void> _sendComment() async {
+    final text = _comment.text.trim();
+    if (text.isEmpty || _sending) return;
+    setState(() => _sending = true);
+    final r = await _api.addCommComment(p.id, text);
+    if (!mounted) return;
+    setState(() => _sending = false);
+    if (r['isSuccess'] != true) {
+      commToast(context, '${r['message'] ?? 'Không gửi được bình luận'}', error: true);
+      return;
+    }
+    _comment.clear();
+    setState(() {
+      p.comments++;
+      if (r['data'] is Map) p.latestComments.add(CommComment.fromJson(Map<String, dynamic>.from(r['data'] as Map)));
+    });
+  }
+
+  Future<void> _likeComment(CommComment c) async {
+    final before = (c.myLiked, c.likeCount);
+    setState(() {
+      c.myLiked = !c.myLiked;
+      c.likeCount += c.myLiked ? 1 : -1;
+    });
+    final r = await _api.likeCommComment(c.id);
+    if (!mounted) return;
+    if (r['isSuccess'] == true && r['data'] is Map) {
+      final d = Map<String, dynamic>.from(r['data'] as Map);
+      setState(() {
+        c.myLiked = d['myLiked'] == true;
+        c.likeCount = (d['likeCount'] as num? ?? c.likeCount).toInt();
+      });
+    } else if (r['isSuccess'] != true) {
+      setState(() {
+        c.myLiked = before.$1;
+        c.likeCount = before.$2;
+      });
+    }
+  }
+
+  // ─── Giao diện ──────────────────────────────────────────────────
+
   @override
   Widget build(BuildContext context) {
-    final chColor = commColor(p.channelColor);
     final ackPending = p.requireAck && !p.myAcked && p.status == CommStatus.published;
+    final published = p.status == CommStatus.published;
+    final long = !widget.expanded && commLongHtml(p.contentHtml);
+    final preview = widget.expanded ? const <CommComment>[] : p.latestComments.where((c) => c.parentCommentId == null).toList();
+    final shown = preview.length > 2 ? preview.sublist(preview.length - 2) : preview;
     return Container(
       decoration: BoxDecoration(
         color: SboxColors.surface,
@@ -134,106 +275,38 @@ class _CommPostCardState extends State<CommPostCard> {
         border: Border.all(color: ackPending ? SboxColors.danger.withValues(alpha: 0.45) : SboxColors.border),
       ),
       child: Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
-        if (p.isPinned || p.status != CommStatus.published)
-          Container(
-            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 6),
-            decoration: BoxDecoration(
-              color: p.status == CommStatus.published ? SboxColors.brand50 : SboxColors.warningSoft,
-              borderRadius: const BorderRadius.vertical(top: Radius.circular(SboxRadius.lg)),
-            ),
-            child: Row(children: [
-              Icon(p.status == CommStatus.published ? Icons.push_pin_rounded : Icons.info_outline, size: 14,
-                  color: p.status == CommStatus.published ? SboxColors.brand700 : SboxColors.warningText),
-              const SizedBox(width: 6),
-              Text(
-                tr(switch (p.status) {
-                  CommStatus.draft => 'Bản nháp — chỉ bạn thấy',
-                  CommStatus.pendingApproval => 'Đang chờ quản lý duyệt',
-                  CommStatus.scheduled => 'Hẹn đăng ${p.scheduledAt == null ? '' : commTimeAgo(p.scheduledAt!)}',
-                  CommStatus.rejected => 'Bị từ chối',
-                  CommStatus.archived => 'Đã lưu trữ',
-                  _ => 'Bài được ghim',
-                }),
-                style: SboxType.captionStyle(p.status == CommStatus.published ? SboxColors.brand700 : SboxColors.warningText).copyWith(fontWeight: FontWeight.w600),
-              ),
-            ]),
-          ),
+        if (p.isPinned || !published) _statusBar(),
+        _header(),
         Padding(
-          padding: const EdgeInsets.fromLTRB(16, 14, 8, 0),
-          child: Row(crossAxisAlignment: CrossAxisAlignment.start, children: [
-            CommAvatar(name: p.authorName ?? '?', photo: p.authorAvatar, size: 42),
-            const SizedBox(width: 10),
-            Expanded(
-              child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-                Text(p.authorName ?? '—', style: SboxType.bodyStrong()),
-                const SizedBox(height: 2),
-                Wrap(spacing: 6, crossAxisAlignment: WrapCrossAlignment.center, children: [
-                  if (p.channelName != null)
-                    Container(
-                      padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 1),
-                      decoration: BoxDecoration(color: chColor.withValues(alpha: 0.12), borderRadius: SboxRadius.pillAll),
-                      child: Text(tr(p.channelName!), style: SboxType.captionStyle(chColor).copyWith(fontWeight: FontWeight.w600)),
-                    ),
-                  Text(commTimeAgo(p.when), style: SboxType.captionStyle()),
-                  if (p.audience != null && !p.audience!.isEveryone) const Icon(Icons.group_outlined, size: 14, color: SboxColors.slate400),
-                ]),
-              ]),
-            ),
-            if (p.urgent) const Padding(padding: EdgeInsets.only(right: 4, top: 4), child: SboxStatusChip(label: 'Quan trọng', tone: SboxTone.danger)),
-            PopupMenuButton<String>(
-              tooltip: tr('Thêm'),
-              onSelected: _menu,
-              itemBuilder: (_) => [
-                PopupMenuItem(value: 'save', child: ListTile(dense: true, leading: Icon(p.mySaved ? Icons.bookmark : Icons.bookmark_border), title: Text(tr(p.mySaved ? 'Bỏ lưu' : 'Lưu bài')))),
-                if (p.canEdit) PopupMenuItem(value: 'edit', child: ListTile(dense: true, leading: const Icon(Icons.edit_outlined), title: Text(tr('Sửa bài')))),
-                if (widget.ctx.isManager && p.status == CommStatus.published)
-                  PopupMenuItem(value: 'pin', child: ListTile(dense: true, leading: const Icon(Icons.push_pin_outlined), title: Text(tr(p.isPinned ? 'Bỏ ghim' : 'Ghim lên đầu')))),
-                if (p.canEdit && p.status == CommStatus.published)
-                  PopupMenuItem(value: 'readers', child: ListTile(dense: true, leading: const Icon(Icons.fact_check_outlined), title: Text(tr('Ai đã đọc')))),
-                if (widget.ctx.isManager && p.status == CommStatus.pendingApproval) ...[
-                  PopupMenuItem(value: 'approve', child: ListTile(dense: true, leading: const Icon(Icons.check_circle_outline), title: Text(tr('Duyệt và đăng')))),
-                  PopupMenuItem(value: 'reject', child: ListTile(dense: true, leading: const Icon(Icons.block_outlined), title: Text(tr('Từ chối')))),
-                ],
-                if (p.canEdit) PopupMenuItem(value: 'delete', child: ListTile(dense: true, leading: const Icon(Icons.delete_outline, color: SboxColors.danger), title: Text(tr('Xóa bài')))),
-              ],
-            ),
+          padding: const EdgeInsets.fromLTRB(16, 10, 16, 0),
+          child: Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
+            if (p.requireAck) _ackChips(),
+            if (p.title.isNotEmpty)
+              InkWell(
+                onTap: widget.expanded ? null : widget.onOpen,
+                child: Text(p.title, style: SboxType.titleStyle()),
+              ),
+            const SizedBox(height: 6),
+            if (widget.expanded || _more || !long)
+              CommHtml(html: p.contentHtml)
+            else ...[
+              CommHtml(html: p.contentHtml, maxLines: 6),
+              InkWell(
+                onTap: () => setState(() => _more = true),
+                child: Padding(
+                  padding: const EdgeInsets.symmetric(vertical: 2),
+                  child: Text(tr('Xem thêm'), style: SboxType.smallStyle(SboxColors.brand700).copyWith(fontWeight: FontWeight.w700)),
+                ),
+              ),
+            ],
           ]),
         ),
-        InkWell(
-          onTap: widget.expanded ? null : widget.onOpen,
-          child: Padding(
-            padding: const EdgeInsets.fromLTRB(16, 10, 16, 0),
-            child: Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
-              if (p.requireAck)
-                Padding(
-                  padding: const EdgeInsets.only(bottom: 6),
-                  child: Row(children: [
-                    SboxStatusChip(label: p.myAcked ? 'Bạn đã xác nhận' : 'Bắt buộc đọc', tone: p.myAcked ? SboxTone.success : SboxTone.danger, icon: Icons.verified_user_outlined),
-                    if (p.version > 1) ...[const SizedBox(width: 6), SboxStatusChip(label: 'Bản ${p.version}', tone: SboxTone.violet)],
-                    if (p.ackDeadline != null && !p.myAcked) ...[
-                      const SizedBox(width: 6),
-                      Text(tr('hạn ${p.ackDeadline!.day}/${p.ackDeadline!.month}'), style: SboxType.captionStyle(SboxColors.dangerText)),
-                    ],
-                  ]),
-                ),
-              if (p.title.isNotEmpty) Text(p.title, style: SboxType.titleStyle()),
-              const SizedBox(height: 6),
-              if (widget.expanded)
-                CommHtml(html: p.contentHtml)
-              else if ((p.summary ?? '').isNotEmpty)
-                Text(p.summary!, maxLines: 4, overflow: TextOverflow.ellipsis, style: SboxType.bodyStyle(SboxColors.textSecondary))
-              else
-                CommHtml(html: p.contentHtml, maxLines: 5),
-              if (!widget.expanded && p.contentHtml.length > 400)
-                Padding(
-                  padding: const EdgeInsets.only(top: 2),
-                  child: Text(tr('Xem thêm'), style: SboxType.smallStyle(SboxColors.brand700).copyWith(fontWeight: FontWeight.w600)),
-                ),
-            ]),
-          ),
-        ),
         if (p.eventAt != null) Padding(padding: const EdgeInsets.fromLTRB(16, 10, 16, 0), child: _eventBox()),
-        if (p.allImages.isNotEmpty) Padding(padding: const EdgeInsets.fromLTRB(16, 10, 16, 0), child: CommImageGrid(urls: p.allImages)),
+        if (p.allImages.isNotEmpty)
+          Padding(
+            padding: const EdgeInsets.fromLTRB(16, 10, 16, 0),
+            child: CommImageGrid(urls: p.allImages, height: p.allImages.length == 1 ? 320 : 260),
+          ),
         if (p.files.isNotEmpty)
           Padding(
             padding: const EdgeInsets.fromLTRB(16, 10, 16, 0),
@@ -245,91 +318,280 @@ class _CommPostCardState extends State<CommPostCard> {
         if (p.tagList.isNotEmpty)
           Padding(
             padding: const EdgeInsets.fromLTRB(16, 8, 16, 0),
-            child: Wrap(spacing: 6, children: [for (final t in p.tagList) Text('#$t', style: SboxType.captionStyle(SboxColors.brand700))]),
+            child: Wrap(spacing: 8, runSpacing: 4, children: [
+              for (final t in p.tagList)
+                InkWell(
+                  onTap: widget.onTag == null ? null : () => widget.onTag!(t),
+                  child: Text('#$t', style: SboxType.smallStyle(SboxColors.brand700).copyWith(fontWeight: FontWeight.w600)),
+                ),
+            ]),
           ),
-        if (p.requireAck && p.status == CommStatus.published) Padding(padding: const EdgeInsets.fromLTRB(16, 12, 16, 0), child: _ackBox()),
-        Padding(
-          padding: const EdgeInsets.fromLTRB(16, 10, 16, 4),
-          child: Row(children: [
-            if (p.reactionTotal > 0) ...[
-              Text(commReactions.where((r) => (p.reactions[r.$1] ?? 0) > 0).map((r) => r.$2).take(3).join(), style: const TextStyle(fontSize: 14)),
-              const SizedBox(width: 4),
-              Text('${p.reactionTotal}', style: SboxType.captionStyle()),
-            ],
-            const Spacer(),
-            if (p.comments > 0) Text(tr('${p.comments} bình luận'), style: SboxType.captionStyle()),
-            if (p.views > 0) ...[const SizedBox(width: 10), Text(tr('${p.views} lượt xem'), style: SboxType.captionStyle())],
-          ]),
-        ),
-        const Divider(height: 1, color: SboxColors.divider),
-        if (p.status == CommStatus.published)
-          Row(children: [
-            Expanded(child: _reactButton()),
-            Expanded(
-              child: TextButton.icon(
-                onPressed: p.allowComments ? widget.onOpen : null,
-                icon: const Icon(Icons.chat_bubble_outline_rounded, size: 19),
-                label: Text(tr('Bình luận')),
-                style: TextButton.styleFrom(foregroundColor: SboxColors.slate600),
-              ),
-            ),
-            Expanded(
-              child: TextButton.icon(
-                onPressed: () => _menu('save'),
-                icon: Icon(p.mySaved ? Icons.bookmark_rounded : Icons.bookmark_border_rounded, size: 19),
-                label: Text(tr(p.mySaved ? 'Đã lưu' : 'Lưu')),
-                style: TextButton.styleFrom(foregroundColor: p.mySaved ? SboxColors.brand700 : SboxColors.slate600),
-              ),
-            ),
-          ])
-        else
-          const SizedBox(height: 8),
+        if (p.requireAck && published) Padding(padding: const EdgeInsets.fromLTRB(16, 12, 16, 0), child: _ackBox()),
+        _statsRow(),
+        const Divider(height: 1, indent: 12, endIndent: 12, color: SboxColors.divider),
+        if (published) _actionRow() else const SizedBox(height: 8),
+        if (published && (shown.isNotEmpty || _showBox) && !widget.expanded) ...[
+          const Divider(height: 1, indent: 12, endIndent: 12, color: SboxColors.divider),
+          Padding(
+            padding: const EdgeInsets.fromLTRB(16, 8, 16, 10),
+            child: Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
+              if (p.comments > shown.length)
+                Align(
+                  alignment: Alignment.centerLeft,
+                  child: TextButton(
+                    style: TextButton.styleFrom(padding: EdgeInsets.zero, minimumSize: const Size(0, 30), foregroundColor: SboxColors.slate600),
+                    onPressed: widget.onOpen,
+                    child: Text(tr('Xem tất cả ${p.comments} bình luận'), style: const TextStyle(fontWeight: FontWeight.w600)),
+                  ),
+                ),
+              for (final c in shown)
+                CommCommentBubble(
+                  comment: c,
+                  compact: true,
+                  onLike: () => _likeComment(c),
+                  onReply: widget.onOpen,
+                ),
+              if (p.allowComments) _inlineBox(),
+            ]),
+          ),
+        ],
       ]),
     );
   }
 
-  Widget _reactButton() {
-    final mine = commReactions.where((r) => r.$1 == p.myReaction).firstOrNull;
-    return GestureDetector(
-      onLongPress: _pickReaction,
-      child: TextButton.icon(
-        onPressed: () => _react(p.myReaction ?? 0),
-        onLongPress: _pickReaction,
-        icon: mine == null ? const Icon(Icons.thumb_up_outlined, size: 19) : Text(mine.$2, style: const TextStyle(fontSize: 17)),
-        label: Text(tr(mine?.$3 ?? 'Thích')),
-        style: TextButton.styleFrom(foregroundColor: mine == null ? SboxColors.slate600 : SboxColors.brand700),
+  Widget _statusBar() {
+    final published = p.status == CommStatus.published;
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 6),
+      decoration: BoxDecoration(
+        color: published ? SboxColors.brand50 : SboxColors.warningSoft,
+        borderRadius: const BorderRadius.vertical(top: Radius.circular(SboxRadius.lg)),
       ),
+      child: Row(children: [
+        Icon(published ? Icons.push_pin_rounded : Icons.info_outline, size: 14, color: published ? SboxColors.brand700 : SboxColors.warningText),
+        const SizedBox(width: 6),
+        Expanded(
+          child: Text(
+            tr(switch (p.status) {
+              CommStatus.draft => 'Bản nháp — chỉ bạn thấy',
+              CommStatus.pendingApproval => 'Đang chờ duyệt — chỉ bạn và người kiểm duyệt thấy',
+              CommStatus.scheduled => 'Hẹn đăng ${p.scheduledAt == null ? '' : commTimeAgo(p.scheduledAt!)}',
+              CommStatus.rejected => 'Bị từ chối — sửa lại rồi gửi duyệt',
+              CommStatus.archived => 'Đã lưu trữ',
+              _ => 'Bài được ghim',
+            }),
+            style: SboxType.captionStyle(published ? SboxColors.brand700 : SboxColors.warningText).copyWith(fontWeight: FontWeight.w600),
+          ),
+        ),
+        if (_moderator && p.status == CommStatus.pendingApproval) ...[
+          TextButton(onPressed: () => _menu('reject'), child: Text(tr('Từ chối'))),
+          const SizedBox(width: 4),
+          FilledButton.tonal(onPressed: () => _menu('approve'), child: Text(tr('Duyệt'))),
+        ],
+      ]),
     );
   }
 
-  Future<void> _pickReaction() async {
-    final box = context.findRenderObject() as RenderBox?;
-    final pos = box?.localToGlobal(Offset.zero) ?? Offset.zero;
-    final picked = await showMenu<int>(
-      context: context,
-      position: RelativeRect.fromLTRB(pos.dx + 16, pos.dy + (box?.size.height ?? 0) - 90, pos.dx + 300, 0),
-      items: [
-        PopupMenuItem(
-          enabled: false,
-          child: Row(mainAxisSize: MainAxisSize.min, children: [
-            for (final r in commReactions)
-              InkWell(
-                onTap: () => Navigator.pop(context, r.$1),
-                child: Tooltip(message: tr(r.$3), child: Padding(padding: const EdgeInsets.all(6), child: Text(r.$2, style: const TextStyle(fontSize: 26)))),
+  Widget _header() {
+    final chColor = commColor(p.channelColor);
+    final author = p.authorName ?? '—';
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(16, 14, 6, 0),
+      child: Row(crossAxisAlignment: CrossAxisAlignment.start, children: [
+        InkWell(
+          customBorder: const CircleBorder(),
+          onTap: widget.onAuthor == null ? null : () => widget.onAuthor!(p.authorId, author),
+          child: CommAvatar(name: p.authorName ?? '?', photo: p.authorAvatar, size: 42),
+        ),
+        const SizedBox(width: 10),
+        Expanded(
+          child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+            InkWell(
+              onTap: widget.onAuthor == null ? null : () => widget.onAuthor!(p.authorId, author),
+              child: Text(author, style: SboxType.bodyStrong()),
+            ),
+            const SizedBox(height: 2),
+            Wrap(spacing: 6, runSpacing: 2, crossAxisAlignment: WrapCrossAlignment.center, children: [
+              if (p.channelName != null)
+                InkWell(
+                  borderRadius: SboxRadius.pillAll,
+                  onTap: widget.onChannel == null || p.channelId == null ? null : () => widget.onChannel!(p.channelId!),
+                  child: Container(
+                    padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 1),
+                    decoration: BoxDecoration(color: chColor.withValues(alpha: 0.12), borderRadius: SboxRadius.pillAll),
+                    child: Text(tr(p.channelName!), style: SboxType.captionStyle(chColor).copyWith(fontWeight: FontWeight.w600)),
+                  ),
+                ),
+              Tooltip(
+                message: '${p.when.day}/${p.when.month}/${p.when.year} ${p.when.hour.toString().padLeft(2, '0')}:${p.when.minute.toString().padLeft(2, '0')}',
+                child: Text(commTimeAgo(p.when), style: SboxType.captionStyle()),
               ),
+              if (p.audience != null && !p.audience!.isEveryone)
+                Tooltip(message: tr('Gửi cho một nhóm người'), child: const Icon(Icons.group_outlined, size: 14, color: SboxColors.slate400)),
+              if (p.isAiGenerated)
+                Tooltip(message: tr('Soạn với trợ lý AI'), child: const Icon(Icons.auto_awesome, size: 13, color: SboxColors.violet)),
+            ]),
           ]),
         ),
-      ],
+        if (p.urgent) const Padding(padding: EdgeInsets.only(right: 2, top: 4), child: SboxStatusChip(label: 'Quan trọng', tone: SboxTone.danger)),
+        PopupMenuButton<String>(
+          tooltip: tr('Thêm'),
+          icon: const Icon(Icons.more_horiz_rounded),
+          onSelected: _menu,
+          itemBuilder: (_) => [
+            _item('save', p.mySaved ? Icons.bookmark : Icons.bookmark_border, p.mySaved ? 'Bỏ lưu' : 'Lưu bài'),
+            if (p.status == CommStatus.published) _item('link', Icons.link_rounded, 'Sao chép liên kết'),
+            if (p.canEdit && widget.onEdit != null) _item('edit', Icons.edit_outlined, 'Sửa bài'),
+            if (_moderator && p.status == CommStatus.published) _item('pin', Icons.push_pin_outlined, p.isPinned ? 'Bỏ ghim' : 'Ghim lên đầu'),
+            if (p.canEdit && p.status == CommStatus.published) _item('readers', Icons.fact_check_outlined, 'Ai đã đọc'),
+            if (_moderator && p.status == CommStatus.pendingApproval) ...[
+              _item('approve', Icons.check_circle_outline, 'Duyệt và đăng'),
+              _item('reject', Icons.block_outlined, 'Từ chối'),
+            ],
+            if (p.canEdit) _item('delete', Icons.delete_outline, 'Xóa bài', danger: true),
+          ],
+        ),
+      ]),
     );
-    if (picked != null) _react(picked);
+  }
+
+  PopupMenuItem<String> _item(String v, IconData icon, String label, {bool danger = false}) => PopupMenuItem(
+        value: v,
+        child: Row(children: [
+          Icon(icon, size: 19, color: danger ? SboxColors.danger : SboxColors.slate600),
+          const SizedBox(width: 10),
+          Text(tr(label), style: TextStyle(color: danger ? SboxColors.danger : null)),
+        ]),
+      );
+
+  Widget _ackChips() => Padding(
+        padding: const EdgeInsets.only(bottom: 6),
+        child: Wrap(spacing: 6, runSpacing: 4, crossAxisAlignment: WrapCrossAlignment.center, children: [
+          SboxStatusChip(
+              label: p.myAcked ? 'Bạn đã xác nhận' : 'Bắt buộc đọc',
+              tone: p.myAcked ? SboxTone.success : SboxTone.danger,
+              icon: Icons.verified_user_outlined),
+          if (p.version > 1) SboxStatusChip(label: 'Bản ${p.version}', tone: SboxTone.violet),
+          if (p.ackDeadline != null && !p.myAcked)
+            Text(tr('hạn ${p.ackDeadline!.day}/${p.ackDeadline!.month}'), style: SboxType.captionStyle(SboxColors.dangerText)),
+        ]),
+      );
+
+  Widget _statsRow() {
+    final top = commReactions.where((r) => (p.reactions[r.$1] ?? 0) > 0).toList()
+      ..sort((a, b) => (p.reactions[b.$1] ?? 0).compareTo(p.reactions[a.$1] ?? 0));
+    final hasAny = p.reactionTotal > 0 || p.comments > 0 || p.views > 0;
+    if (!hasAny) return const SizedBox(height: 10);
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(16, 10, 16, 6),
+      child: Row(children: [
+        if (p.reactionTotal > 0)
+          InkWell(
+            borderRadius: SboxRadius.pillAll,
+            onTap: () => showCommReactors(context, p),
+            child: Padding(
+              padding: const EdgeInsets.symmetric(vertical: 2),
+              child: Row(mainAxisSize: MainAxisSize.min, children: [
+                Text(top.take(3).map((r) => r.$2).join(), style: const TextStyle(fontSize: 15)),
+                const SizedBox(width: 4),
+                Text(_reactionLabel(), style: SboxType.captionStyle()),
+              ]),
+            ),
+          ),
+        const Spacer(),
+        if (p.comments > 0)
+          InkWell(
+            onTap: widget.expanded ? widget.onCommentTap : widget.onOpen,
+            child: Text(tr('${p.comments} bình luận'), style: SboxType.captionStyle()),
+          ),
+        if (p.views > 0) ...[const SizedBox(width: 10), Text(tr('${p.views} lượt xem'), style: SboxType.captionStyle())],
+      ]),
+    );
+  }
+
+  /// «Bạn và 11 người khác» kiểu mạng xã hội.
+  String _reactionLabel() {
+    if (p.myReaction == null) return '${p.reactionTotal}';
+    final others = p.reactionTotal - 1;
+    return others <= 0 ? tr('Bạn') : tr('Bạn và $others người khác');
+  }
+
+  Widget _actionRow() {
+    Widget btn(IconData icon, String label, VoidCallback? onTap, {Color? color}) => Expanded(
+          child: TextButton.icon(
+            onPressed: onTap,
+            icon: Icon(icon, size: 19),
+            label: Text(tr(label), overflow: TextOverflow.ellipsis),
+            style: TextButton.styleFrom(foregroundColor: color ?? SboxColors.slate600, minimumSize: const Size(0, 42)),
+          ),
+        );
+    Widget icon(IconData i, String tip, VoidCallback onTap, {Color? color}) =>
+        IconButton(tooltip: tr(tip), icon: Icon(i, size: 20), color: color ?? SboxColors.slate600, onPressed: onTap);
+    return LayoutBuilder(builder: (context, c) {
+      // Điện thoại: Thích + Bình luận có chữ, Lưu / Liên kết chỉ biểu tượng.
+      final narrow = c.maxWidth < 460;
+      return Padding(
+        padding: const EdgeInsets.symmetric(horizontal: 4),
+        child: Row(children: [
+          Expanded(child: CommReactionButton(mine: p.myReaction, onReact: _react)),
+          btn(Icons.chat_bubble_outline_rounded, 'Bình luận', p.allowComments ? _openBox : null),
+          if (narrow) ...[
+            icon(p.mySaved ? Icons.bookmark_rounded : Icons.bookmark_border_rounded, p.mySaved ? 'Bỏ lưu' : 'Lưu bài', _toggleSave,
+                color: p.mySaved ? SboxColors.brand700 : null),
+            icon(Icons.link_rounded, 'Sao chép liên kết', () => commCopyLink(context, p)),
+          ] else ...[
+            btn(p.mySaved ? Icons.bookmark_rounded : Icons.bookmark_border_rounded, p.mySaved ? 'Đã lưu' : 'Lưu', _toggleSave,
+                color: p.mySaved ? SboxColors.brand700 : null),
+            btn(Icons.link_rounded, 'Liên kết', () => commCopyLink(context, p)),
+          ],
+        ]),
+      );
+    });
+  }
+
+  Widget _inlineBox() {
+    return Padding(
+      padding: const EdgeInsets.only(top: 6),
+      child: Row(crossAxisAlignment: CrossAxisAlignment.center, children: [
+        CommAvatar(name: widget.ctx.myName.isEmpty ? 'Tôi' : widget.ctx.myName, size: 30),
+        const SizedBox(width: 8),
+        Expanded(
+          child: TextField(
+            controller: _comment,
+            focusNode: _commentFocus,
+            minLines: 1,
+            maxLines: 4,
+            textInputAction: TextInputAction.send,
+            onSubmitted: (_) => _sendComment(),
+            decoration: InputDecoration(
+              isDense: true,
+              hintText: tr('Viết bình luận… (Enter để gửi)'),
+              filled: true,
+              fillColor: SboxColors.slate50,
+              contentPadding: const EdgeInsets.symmetric(horizontal: 14, vertical: 9),
+              border: OutlineInputBorder(borderRadius: BorderRadius.circular(20), borderSide: const BorderSide(color: SboxColors.border)),
+              enabledBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(20), borderSide: const BorderSide(color: SboxColors.border)),
+              suffixIcon: IconButton(
+                tooltip: tr('Gửi'),
+                icon: _sending
+                    ? const SizedBox(width: 16, height: 16, child: CircularProgressIndicator(strokeWidth: 2))
+                    : const Icon(Icons.send_rounded, size: 18, color: SboxColors.brand600),
+                onPressed: _sending ? null : _sendComment,
+              ),
+            ),
+          ),
+        ),
+      ]),
+    );
   }
 
   Widget _eventBox() {
     final d = p.eventAt!;
     const months = ['', 'Th1', 'Th2', 'Th3', 'Th4', 'Th5', 'Th6', 'Th7', 'Th8', 'Th9', 'Th10', 'Th11', 'Th12'];
+    final past = d.isBefore(DateTime.now());
     return Container(
       padding: const EdgeInsets.all(12),
-      decoration: BoxDecoration(color: SboxColors.warningSoft.withValues(alpha: 0.6), borderRadius: SboxRadius.mdAll),
+      decoration: BoxDecoration(color: (past ? SboxColors.slate100 : SboxColors.warningSoft).withValues(alpha: 0.6), borderRadius: SboxRadius.mdAll),
       child: Row(children: [
         Container(
           width: 52,
@@ -343,7 +605,8 @@ class _CommPostCardState extends State<CommPostCard> {
         const SizedBox(width: 12),
         Expanded(
           child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-            Text(tr('Sự kiện · ${d.hour.toString().padLeft(2, '0')}:${d.minute.toString().padLeft(2, '0')}'), style: SboxType.bodyStrong()),
+            Text(tr('${past ? 'Đã diễn ra' : 'Sự kiện'} · ${d.hour.toString().padLeft(2, '0')}:${d.minute.toString().padLeft(2, '0')}'),
+                style: SboxType.bodyStrong()),
             if ((p.eventLocation ?? '').isNotEmpty)
               Row(children: [
                 const Icon(Icons.place_outlined, size: 14, color: SboxColors.slate500),
@@ -374,13 +637,13 @@ class _CommPostCardState extends State<CommPostCard> {
             padding: const EdgeInsets.only(bottom: 6),
             child: InkWell(
               borderRadius: SboxRadius.mdAll,
-              onTap: poll.closed ? null : () => _vote(o.id),
+              onTap: poll.closed || p.status != CommStatus.published ? null : () => _vote(o.id),
               child: Stack(children: [
                 if (voted || poll.closed)
                   Positioned.fill(
                     child: FractionallySizedBox(
                       alignment: Alignment.centerLeft,
-                      widthFactor: total == 0 ? 0 : o.votes / total,
+                      widthFactor: total == 0 ? 0 : (o.votes / total).clamp(0.0, 1.0),
                       child: Container(
                         decoration: BoxDecoration(
                           color: poll.myVotes.contains(o.id) ? SboxColors.brand100 : SboxColors.slate100,
@@ -405,14 +668,15 @@ class _CommPostCardState extends State<CommPostCard> {
                     ),
                     const SizedBox(width: 8),
                     Expanded(child: Text(o.text, style: SboxType.smallStyle(SboxColors.text))),
-                    if (voted || poll.closed) Text('${total == 0 ? 0 : (o.votes * 100 / total).round()}% · ${o.votes}', style: SboxType.captionStyle()),
+                    if (voted || poll.closed)
+                      Text('${total == 0 ? 0 : (o.votes * 100 / total).round()}% · ${o.votes}', style: SboxType.captionStyle()),
                   ]),
                 ),
               ]),
             ),
           ),
         Text(
-          tr('${poll.totalVoters} người đã bình chọn${poll.multiple ? ' · chọn nhiều' : ''}${poll.closed ? ' · đã đóng' : ''}'),
+          tr('${poll.totalVoters} người đã bình chọn${poll.multiple ? ' · chọn nhiều' : ''}${poll.closed ? ' · đã đóng' : voted && !poll.multiple ? ' · bấm lại để bỏ chọn' : ''}'),
           style: SboxType.captionStyle(),
         ),
       ]),
@@ -428,17 +692,15 @@ class _CommPostCardState extends State<CommPostCard> {
         borderRadius: SboxRadius.mdAll,
       ),
       child: Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
-        Row(children: [
-          Expanded(
-            child: Text(
-              tr(p.myAcked ? 'Bạn đã đọc và xác nhận văn bản này' : 'Vui lòng đọc kỹ và xác nhận đã hiểu'),
-              style: SboxType.smallStyle(p.myAcked ? SboxColors.successText : SboxColors.dangerText).copyWith(fontWeight: FontWeight.w600),
-            ),
+        Wrap(spacing: 8, runSpacing: 8, crossAxisAlignment: WrapCrossAlignment.center, alignment: WrapAlignment.spaceBetween, children: [
+          Text(
+            tr(p.myAcked ? 'Bạn đã đọc và xác nhận văn bản này' : 'Vui lòng đọc kỹ và xác nhận đã hiểu'),
+            style: SboxType.smallStyle(p.myAcked ? SboxColors.successText : SboxColors.dangerText).copyWith(fontWeight: FontWeight.w600),
           ),
           if (!p.myAcked)
             SboxButton(label: 'Tôi đã đọc và cam kết', icon: Icons.check_rounded, size: SboxButtonSize.sm, loading: _busy, onPressed: _busy ? null : _ack),
         ]),
-        if (p.canEdit || widget.ctx.isManager) ...[
+        if (p.canEdit || _moderator) ...[
           const SizedBox(height: 8),
           ClipRRect(
             borderRadius: SboxRadius.pillAll,
@@ -458,6 +720,272 @@ class _CommPostCardState extends State<CommPostCard> {
       ]),
     );
   }
+}
+
+/// Nút «Thích»: bấm = thích / bỏ; rê chuột (máy tính) hoặc nhấn giữ (điện thoại) để chọn cảm xúc khác.
+class CommReactionButton extends StatefulWidget {
+  const CommReactionButton({super.key, required this.mine, required this.onReact});
+  final int? mine;
+  final void Function(int type) onReact;
+
+  @override
+  State<CommReactionButton> createState() => _CommReactionButtonState();
+}
+
+class _CommReactionButtonState extends State<CommReactionButton> {
+  final _link = LayerLink();
+  final _portal = OverlayPortalController();
+  Timer? _showT;
+  Timer? _hideT;
+  int? _hover;
+
+  @override
+  void dispose() {
+    _showT?.cancel();
+    _hideT?.cancel();
+    super.dispose();
+  }
+
+  void _enter() {
+    _hideT?.cancel();
+    _showT?.cancel();
+    _showT = Timer(const Duration(milliseconds: 450), () {
+      if (mounted && !_portal.isShowing) _portal.show();
+    });
+  }
+
+  void _exit() {
+    _showT?.cancel();
+    _hideT?.cancel();
+    _hideT = Timer(const Duration(milliseconds: 350), () {
+      if (mounted && _portal.isShowing) _portal.hide();
+    });
+  }
+
+  void _pick(int type) {
+    _showT?.cancel();
+    _hideT?.cancel();
+    if (_portal.isShowing) _portal.hide();
+    widget.onReact(type);
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final mine = commReactions.where((r) => r.$1 == widget.mine).firstOrNull;
+    return CompositedTransformTarget(
+      link: _link,
+      child: OverlayPortal(
+        controller: _portal,
+        overlayChildBuilder: (_) => Positioned(
+          left: 0,
+          top: 0,
+          child: CompositedTransformFollower(
+            link: _link,
+            showWhenUnlinked: false,
+            targetAnchor: Alignment.topLeft,
+            followerAnchor: Alignment.bottomLeft,
+            offset: const Offset(4, -4),
+            child: TapRegion(
+              onTapOutside: (_) => _portal.hide(),
+              child: MouseRegion(
+                onEnter: (_) => _hideT?.cancel(),
+                onExit: (_) => _exit(),
+                child: Material(
+                  elevation: 8,
+                  color: SboxColors.surface,
+                  shadowColor: Colors.black26,
+                  borderRadius: BorderRadius.circular(28),
+                  child: Padding(
+                    padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 4),
+                    child: Row(mainAxisSize: MainAxisSize.min, children: [
+                      for (final r in commReactions)
+                        Tooltip(
+                          message: tr(r.$3),
+                          child: MouseRegion(
+                            onEnter: (_) => setState(() => _hover = r.$1),
+                            onExit: (_) => setState(() => _hover = null),
+                            child: InkWell(
+                              customBorder: const CircleBorder(),
+                              onTap: () => _pick(r.$1),
+                              child: AnimatedScale(
+                                scale: _hover == r.$1 ? 1.35 : 1,
+                                duration: const Duration(milliseconds: 120),
+                                child: Padding(padding: const EdgeInsets.all(6), child: Text(r.$2, style: const TextStyle(fontSize: 26))),
+                              ),
+                            ),
+                          ),
+                        ),
+                    ]),
+                  ),
+                ),
+              ),
+            ),
+          ),
+        ),
+        child: MouseRegion(
+          onEnter: (_) => _enter(),
+          onExit: (_) => _exit(),
+          child: TextButton.icon(
+            onPressed: () => _pick(widget.mine ?? 0),
+            onLongPress: () {
+              _showT?.cancel();
+              _portal.show();
+            },
+            icon: mine == null ? const Icon(Icons.thumb_up_outlined, size: 19) : Text(mine.$2, style: const TextStyle(fontSize: 17)),
+            label: Text(tr(mine?.$3 ?? 'Thích'), overflow: TextOverflow.ellipsis),
+            style: TextButton.styleFrom(
+              foregroundColor: mine == null ? SboxColors.slate600 : SboxColors.brand700,
+              minimumSize: const Size(0, 42),
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+/// Bong bóng bình luận: tên, nội dung (tô @nhắc tên), thời gian, thích, trả lời, sửa / xóa.
+class CommCommentBubble extends StatelessWidget {
+  const CommCommentBubble({
+    super.key,
+    required this.comment,
+    this.onLike,
+    this.onReply,
+    this.onEdit,
+    this.onDelete,
+    this.compact = false,
+  });
+
+  final CommComment comment;
+  final VoidCallback? onLike;
+  final VoidCallback? onReply;
+  final VoidCallback? onEdit;
+  final VoidCallback? onDelete;
+  final bool compact;
+
+  @override
+  Widget build(BuildContext context) {
+    final c = comment;
+    final spans = <TextSpan>[];
+    final re = RegExp(r'@([^\s@][^@\n]{0,40}?)(?=\s|$)');
+    var last = 0;
+    for (final m in re.allMatches(c.content)) {
+      if (m.start > last) spans.add(TextSpan(text: c.content.substring(last, m.start)));
+      spans.add(TextSpan(text: m.group(0), style: const TextStyle(color: SboxColors.brand700, fontWeight: FontWeight.w600)));
+      last = m.end;
+    }
+    if (last < c.content.length) spans.add(TextSpan(text: c.content.substring(last)));
+    Widget action(String label, VoidCallback? onTap, {Color? color, FontWeight weight = FontWeight.w600}) => InkWell(
+          onTap: onTap,
+          child: Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 4),
+            child: Text(tr(label), style: SboxType.captionStyle(color ?? SboxColors.slate600).copyWith(fontWeight: weight)),
+          ),
+        );
+    return Padding(
+      padding: EdgeInsets.only(bottom: compact ? 6 : 8),
+      child: Row(crossAxisAlignment: CrossAxisAlignment.start, children: [
+        CommAvatar(name: c.userName ?? '?', photo: c.avatar, size: compact ? 30 : 34),
+        const SizedBox(width: 8),
+        Flexible(
+          child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+            Stack(clipBehavior: Clip.none, children: [
+              Container(
+                padding: const EdgeInsets.fromLTRB(12, 7, 12, 8),
+                decoration: BoxDecoration(color: SboxColors.slate100, borderRadius: BorderRadius.circular(16)),
+                child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+                  Text(c.userName ?? '—', style: SboxType.smallStyle(SboxColors.text).copyWith(fontWeight: FontWeight.w700)),
+                  const SizedBox(height: 1),
+                  Text.rich(TextSpan(children: spans), style: SboxType.bodyStyle()),
+                ]),
+              ),
+              if (c.likeCount > 0)
+                Positioned(
+                  right: -6,
+                  bottom: -8,
+                  child: Container(
+                    padding: const EdgeInsets.symmetric(horizontal: 5, vertical: 1),
+                    decoration: BoxDecoration(
+                      color: SboxColors.surface,
+                      borderRadius: SboxRadius.pillAll,
+                      boxShadow: const [BoxShadow(color: Colors.black12, blurRadius: 3)],
+                    ),
+                    child: Text('👍 ${c.likeCount}', style: const TextStyle(fontSize: 11)),
+                  ),
+                ),
+            ]),
+            Padding(
+              padding: const EdgeInsets.only(left: 6, top: 2),
+              child: Wrap(crossAxisAlignment: WrapCrossAlignment.center, children: [
+                Text(commTimeAgo(c.createdAt), style: SboxType.captionStyle()),
+                if (c.edited) Text(tr(' · đã sửa'), style: SboxType.captionStyle()),
+                if (onLike != null)
+                  action(c.myLiked ? 'Đã thích' : 'Thích', onLike, color: c.myLiked ? SboxColors.brand700 : null),
+                if (onReply != null) action('Trả lời', onReply),
+                if (onEdit != null && c.canEdit) action('Sửa', onEdit, weight: FontWeight.w500),
+                if (onDelete != null && c.canDelete) action('Xóa', onDelete, color: SboxColors.slate500, weight: FontWeight.w500),
+              ]),
+            ),
+          ]),
+        ),
+      ]),
+    );
+  }
+}
+
+/// Ai đã bày tỏ cảm xúc — chia tab theo loại.
+Future<void> showCommReactors(BuildContext context, CommPost p) async {
+  final api = ApiService();
+  final r = await api.getCommReactors(p.id);
+  if (!context.mounted) return;
+  if (r['isSuccess'] != true || r['data'] is! List) {
+    commToast(context, '${r['message'] ?? 'Không tải được'}', error: true);
+    return;
+  }
+  final all = (r['data'] as List).whereType<Map>().map((e) => CommReactor.fromJson(Map<String, dynamic>.from(e))).toList();
+  final types = commReactions.where((t) => all.any((x) => x.type == t.$1)).toList();
+  await showModalBottomSheet<void>(
+    context: context,
+    isScrollControlled: true,
+    showDragHandle: true,
+    constraints: const BoxConstraints(maxWidth: 520),
+    builder: (ctx) => DefaultTabController(
+      length: types.length + 1,
+      child: SizedBox(
+        height: MediaQuery.sizeOf(ctx).height * 0.6,
+        child: Column(children: [
+          TabBar(
+            isScrollable: true,
+            tabAlignment: TabAlignment.start,
+            tabs: [
+              Tab(text: tr('Tất cả ${all.length}')),
+              for (final t in types) Tab(text: '${t.$2} ${all.where((x) => x.type == t.$1).length}'),
+            ],
+          ),
+          Expanded(
+            child: TabBarView(children: [
+              for (final list in [all, for (final t in types) all.where((x) => x.type == t.$1).toList()])
+                ListView(padding: const EdgeInsets.symmetric(vertical: 8), children: [
+                  for (final x in list)
+                    ListTile(
+                      leading: Stack(clipBehavior: Clip.none, children: [
+                        CommAvatar(name: x.name, photo: x.avatar, size: 36),
+                        Positioned(
+                          right: -4,
+                          bottom: -4,
+                          child: Text(commReactions.firstWhere((t) => t.$1 == x.type, orElse: () => commReactions.first).$2,
+                              style: const TextStyle(fontSize: 14)),
+                        ),
+                      ]),
+                      title: Text(x.name),
+                    ),
+                ]),
+            ]),
+          ),
+        ]),
+      ),
+    ),
+  );
 }
 
 /// Danh sách đã đọc / đã xác nhận / chưa đọc + nút nhắc.
@@ -520,12 +1048,15 @@ Future<void> showCommReaders(BuildContext context, CommPost p) async {
   );
 }
 
-/// Trang chi tiết: đủ nội dung + bình luận (trả lời, @nhắc tên).
+/// Trang chi tiết: đủ nội dung + bình luận (thích, sửa, trả lời 2 cấp, @nhắc tên gợi ý khi gõ).
+/// Đóng trang trả về bài đã cập nhật để bảng tin thay tại chỗ (hoặc [commDetailDeleted]).
 class CommPostDetailPage extends StatefulWidget {
-  const CommPostDetailPage({super.key, required this.postId, required this.ctx, this.onEdit});
+  const CommPostDetailPage({super.key, required this.postId, required this.ctx, this.onEdit, this.focusComment = false});
   final String postId;
   final CommContext ctx;
   final Future<void> Function(CommPost post)? onEdit;
+  /// Mở xong thì đặt con trỏ vào ô bình luận.
+  final bool focusComment;
 
   @override
   State<CommPostDetailPage> createState() => _CommPostDetailPageState();
@@ -535,85 +1066,207 @@ class _CommPostDetailPageState extends State<CommPostDetailPage> {
   final _api = ApiService();
   final _input = TextEditingController();
   final _focus = FocusNode();
+  final _scroll = ScrollController();
   CommPost? _post;
   List<CommComment> _comments = [];
   bool _loading = true;
   bool _sending = false;
-  bool _changed = false;
+  Object? _result;
   CommComment? _replyTo;
   final Map<String, String> _mentions = {}; // tên → userId
+  final Set<String> _openThreads = {};
+  List<CommPerson> _suggest = const [];
+  StreamSubscription<Map<String, dynamic>>? _rt;
+  bool _firstLoad = true;
 
   @override
   void initState() {
     super.initState();
+    _input.addListener(_onTyping);
     _load();
+    _rt = SignalRService().onCommFeedEvent.listen((e) {
+      final id = '${e['postId'] ?? e['id'] ?? ''}';
+      if (id != widget.postId || '${e['by']}' == widget.ctx.myUserId) return;
+      if (e['event'] == 'post' && e['action'] == 'deleted') {
+        if (mounted) Navigator.of(context).pop(commDetailDeleted);
+        return;
+      }
+      _load();
+    });
   }
 
   @override
   void dispose() {
+    _rt?.cancel();
     _input.dispose();
     _focus.dispose();
+    _scroll.dispose();
     super.dispose();
   }
 
   Future<void> _load() async {
-    final r = await Future.wait([_api.getCommPost(widget.postId), _api.getCommComments(widget.postId)]);
+    // Chỉ lần mở đầu tính là đã xem; tải lại sau đó không cộng lượt xem.
+    final markRead = _firstLoad;
+    _firstLoad = false;
+    final r = await Future.wait([_api.getCommPost(widget.postId, markRead: markRead), _api.getCommComments(widget.postId)]);
     if (!mounted) return;
     setState(() {
       _loading = false;
-      _post = r[0]['data'] is Map ? CommPost.fromJson(Map<String, dynamic>.from(r[0]['data'] as Map)) : null;
-      _comments = r[1]['data'] is List
-          ? (r[1]['data'] as List).whereType<Map>().map((e) => CommComment.fromJson(Map<String, dynamic>.from(e))).toList()
-          : [];
+      if (r[0]['data'] is Map) _post = CommPost.fromJson(Map<String, dynamic>.from(r[0]['data'] as Map));
+      if (r[1]['data'] is List) {
+        _comments = (r[1]['data'] as List).whereType<Map>().map((e) => CommComment.fromJson(Map<String, dynamic>.from(e))).toList();
+      }
+      _post?.myRead = true;
     });
+    if (widget.focusComment && markRead) WidgetsBinding.instance.addPostFrameCallback((_) => _focusComposer());
   }
 
-  Future<void> _mention() async {
-    final people = widget.ctx.people.where((p) => p.userId != null).toList();
-    var q = '';
-    final picked = await showDialog<CommPerson>(
-      context: context,
-      builder: (ctx) => StatefulBuilder(
-        builder: (ctx, set) => AlertDialog(
-          title: Text(tr('Nhắc tên')),
-          content: SizedBox(
-            width: 380,
-            height: 420,
-            child: Column(children: [
-              TextField(autofocus: true, decoration: InputDecoration(prefixIcon: const Icon(Icons.search), hintText: tr('Tìm đồng nghiệp')), onChanged: (v) => set(() => q = v.trim().toLowerCase())),
-              Expanded(
-                child: ListView(children: [
-                  for (final p in people.where((p) => q.isEmpty || p.name.toLowerCase().contains(q)).take(50))
-                    ListTile(leading: CommAvatar(name: p.name, photo: p.photo, size: 32), title: Text(p.name), subtitle: p.position == null ? null : Text(p.position!), onTap: () => Navigator.pop(ctx, p)),
-                ]),
-              ),
-            ]),
-          ),
-        ),
-      ),
-    );
-    if (picked == null) return;
-    _mentions[picked.name] = picked.userId!;
-    final t = _input.text;
-    _input.text = '${t.isEmpty || t.endsWith(' ') ? t : '$t '}@${picked.name} ';
-    _input.selection = TextSelection.collapsed(offset: _input.text.length);
+  void _focusComposer() {
+    _focus.requestFocus();
+    if (_scroll.hasClients) {
+      _scroll.animateTo(_scroll.position.maxScrollExtent, duration: const Duration(milliseconds: 300), curve: Curves.easeOut);
+    }
+  }
+
+  /// Trả bài về bảng tin với số bình luận + 2 bình luận mới nhất đã cập nhật.
+  void _close() {
+    final p = _post;
+    if (_result == null && p != null) {
+      p.comments = _comments.length;
+      final roots = _comments.where((c) => c.parentCommentId == null).toList();
+      p.latestComments
+        ..clear()
+        ..addAll(roots.length > 2 ? roots.sublist(roots.length - 2) : roots);
+      _result = p;
+    }
+    Navigator.of(context).pop(_result);
+  }
+
+  // ─── @nhắc tên: gõ «@ten» hiện gợi ý ───────────────────────────
+
+  (int, String)? _mentionQuery() {
+    final sel = _input.selection;
+    if (!sel.isValid || !sel.isCollapsed) return null;
+    final before = _input.text.substring(0, sel.baseOffset);
+    final at = before.lastIndexOf('@');
+    if (at < 0 || (at > 0 && !RegExp(r'\s').hasMatch(before[at - 1]))) return null;
+    final q = before.substring(at + 1);
+    if (q.length > 30 || q.contains('\n')) return null;
+    return (at, q);
+  }
+
+  void _onTyping() {
+    final m = _mentionQuery();
+    final q = m?.$2.toLowerCase().trim();
+    final list = m == null
+        ? const <CommPerson>[]
+        : widget.ctx.people.where((p) => p.userId != null && (q!.isEmpty || p.name.toLowerCase().contains(q))).take(6).toList();
+    if (list.length != _suggest.length || !list.every(_suggest.contains)) setState(() => _suggest = list);
+  }
+
+  void _insertMention(CommPerson p) {
+    final m = _mentionQuery();
+    if (m == null) return;
+    final sel = _input.selection.baseOffset;
+    final text = _input.text;
+    final next = '${text.substring(0, m.$1)}@${p.name} ${text.substring(sel)}';
+    _mentions[p.name] = p.userId!;
+    _input.value = TextEditingValue(text: next, selection: TextSelection.collapsed(offset: m.$1 + p.name.length + 2));
+    setState(() => _suggest = const []);
     _focus.requestFocus();
   }
 
   Future<void> _send() async {
     final text = _input.text.trim();
-    if (text.isEmpty) return;
+    if (text.isEmpty || _sending) return;
     final mentionIds = _mentions.entries.where((e) => text.contains('@${e.key}')).map((e) => e.value).toList();
+    final parent = _replyTo?.parentCommentId ?? _replyTo?.id;
     setState(() => _sending = true);
-    final r = await _api.addCommComment(widget.postId, text, parentId: _replyTo?.parentCommentId ?? _replyTo?.id, mentionUserIds: mentionIds);
+    final r = await _api.addCommComment(widget.postId, text, parentId: parent, mentionUserIds: mentionIds);
     if (!mounted) return;
     setState(() => _sending = false);
-    if (r['isSuccess'] == true) {
-      _input.clear();
-      _mentions.clear();
+    if (r['isSuccess'] != true) {
+      commToast(context, '${r['message']}', error: true);
+      return;
+    }
+    _input.clear();
+    _mentions.clear();
+    setState(() {
+      if (r['data'] is Map) _comments.add(CommComment.fromJson(Map<String, dynamic>.from(r['data'] as Map)));
+      if (parent != null) {
+        _openThreads.add(parent);
+        for (final c in _comments.where((c) => c.id == parent)) {
+          c.replyCount++;
+        }
+      }
       _replyTo = null;
-      _changed = true;
-      _load();
+      _post?.comments = _comments.length;
+    });
+  }
+
+  Future<void> _like(CommComment c) async {
+    final before = (c.myLiked, c.likeCount);
+    setState(() {
+      c.myLiked = !c.myLiked;
+      c.likeCount += c.myLiked ? 1 : -1;
+    });
+    final r = await _api.likeCommComment(c.id);
+    if (!mounted || r['isSuccess'] == true) return;
+    setState(() {
+      c.myLiked = before.$1;
+      c.likeCount = before.$2;
+    });
+  }
+
+  Future<void> _edit(CommComment c) async {
+    final ctrl = TextEditingController(text: c.content);
+    final next = await showDialog<String>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: Text(tr('Sửa bình luận')),
+        content: SizedBox(
+          width: 440,
+          child: TextField(controller: ctrl, autofocus: true, minLines: 2, maxLines: 6, maxLength: 2000),
+        ),
+        actions: [
+          TextButton(onPressed: () => Navigator.pop(ctx), child: Text(tr('Hủy'))),
+          FilledButton(onPressed: () => Navigator.pop(ctx, ctrl.text.trim()), child: Text(tr('Lưu'))),
+        ],
+      ),
+    );
+    ctrl.dispose();
+    if (next == null || next.isEmpty || next == c.content || !mounted) return;
+    final before = c.content;
+    setState(() {
+      c.content = next;
+      c.edited = true;
+    });
+    final r = await _api.editCommComment(c.id, next);
+    if (!mounted || r['isSuccess'] == true) return;
+    setState(() => c.content = before);
+    commToast(context, '${r['message']}', error: true);
+  }
+
+  Future<void> _delete(CommComment c) async {
+    final replies = _comments.where((x) => x.parentCommentId == c.id).length;
+    final ok = await SboxDialogs.confirm(context,
+        title: 'Xóa bình luận?',
+        message: replies > 0 ? 'Các $replies phản hồi bên dưới cũng bị xóa.' : 'Không khôi phục được sau khi xóa.',
+        confirmLabel: 'Xóa',
+        danger: true);
+    if (!ok || !mounted) return;
+    final r = await _api.deleteCommComment(c.id);
+    if (!mounted) return;
+    if (r['isSuccess'] == true) {
+      setState(() {
+        _comments.removeWhere((x) => x.id == c.id || x.parentCommentId == c.id);
+        if (c.parentCommentId != null) {
+          for (final p in _comments.where((p) => p.id == c.parentCommentId)) {
+            p.replyCount = (p.replyCount - 1).clamp(0, 1 << 30);
+          }
+        }
+        _post?.comments = _comments.length;
+      });
     } else {
       commToast(context, '${r['message']}', error: true);
     }
@@ -626,15 +1279,19 @@ class _CommPostDetailPageState extends State<CommPostDetailPage> {
     return PopScope(
       canPop: false,
       onPopInvokedWithResult: (didPop, _) {
-        if (!didPop) Navigator.of(context).pop(_changed);
+        if (!didPop) _close();
       },
       child: Scaffold(
         backgroundColor: SboxColors.page,
         appBar: AppBar(
           backgroundColor: SboxColors.surface,
           surfaceTintColor: Colors.transparent,
-          leading: IconButton(icon: const Icon(Icons.arrow_back), onPressed: () => Navigator.of(context).pop(_changed)),
+          leading: IconButton(icon: const Icon(Icons.arrow_back), onPressed: _close),
           title: Text(tr(p?.channelName ?? 'Bài viết')),
+          actions: [
+            if (p != null && p.status == CommStatus.published)
+              IconButton(tooltip: tr('Sao chép liên kết'), icon: const Icon(Icons.link_rounded), onPressed: () => commCopyLink(context, p)),
+          ],
         ),
         body: _loading
             ? const SboxLoading()
@@ -642,7 +1299,7 @@ class _CommPostDetailPageState extends State<CommPostDetailPage> {
                 ? const SboxEmptyState(title: 'Không mở được bài viết', message: 'Bài đã bị xóa hoặc bạn không thuộc đối tượng nhận.')
                 : Column(children: [
                     Expanded(
-                      child: ListView(padding: const EdgeInsets.all(16), children: [
+                      child: ListView(controller: _scroll, padding: const EdgeInsets.all(16), children: [
                         Center(
                           child: ConstrainedBox(
                             constraints: const BoxConstraints(maxWidth: 760),
@@ -652,28 +1309,29 @@ class _CommPostDetailPageState extends State<CommPostDetailPage> {
                                 ctx: widget.ctx,
                                 expanded: true,
                                 onOpen: () {},
+                                onCommentTap: _focusComposer,
                                 onChanged: () {
-                                  _changed = true;
-                                  Navigator.of(context).pop(true);
+                                  _result = true;
+                                  _load();
+                                },
+                                onRemoved: () {
+                                  _result = commDetailDeleted;
+                                  Navigator.of(context).pop(commDetailDeleted);
                                 },
                                 onEdit: widget.onEdit == null
                                     ? null
                                     : () async {
                                         await widget.onEdit!(p);
-                                        _changed = true;
+                                        _result = true;
                                         _load();
                                       },
                               ),
                               const SizedBox(height: 16),
                               Text(tr('Bình luận (${_comments.length})'), style: SboxType.titleSmStyle()),
-                              const SizedBox(height: 8),
+                              const SizedBox(height: 10),
                               if (_comments.isEmpty)
                                 Text(tr(p.allowComments ? 'Hãy là người đầu tiên bình luận' : 'Bài viết đã tắt bình luận'), style: SboxType.smallStyle()),
-                              for (final c in roots) ...[
-                                _comment(c),
-                                for (final rep in _comments.where((x) => x.parentCommentId == c.id))
-                                  Padding(padding: const EdgeInsets.only(left: 44), child: _comment(rep)),
-                              ],
+                              for (final c in roots) ..._thread(c),
                             ]),
                           ),
                         ),
@@ -685,55 +1343,47 @@ class _CommPostDetailPageState extends State<CommPostDetailPage> {
     );
   }
 
-  Widget _comment(CommComment c) {
-    final spans = <TextSpan>[];
-    final re = RegExp(r'@([^\s@][^@\n]{0,40}?)(?=\s|$)');
-    var last = 0;
-    for (final m in re.allMatches(c.content)) {
-      if (m.start > last) spans.add(TextSpan(text: c.content.substring(last, m.start)));
-      spans.add(TextSpan(text: m.group(0), style: const TextStyle(color: SboxColors.brand700, fontWeight: FontWeight.w600)));
-      last = m.end;
+  List<Widget> _thread(CommComment c) {
+    final replies = _comments.where((x) => x.parentCommentId == c.id).toList();
+    final open = _openThreads.contains(c.id) || replies.length <= 1;
+    void reply(CommComment target) {
+      setState(() {
+        _replyTo = target;
+        _openThreads.add(c.id);
+      });
+      final name = target.userName;
+      if (name != null && name.isNotEmpty && target.userId != widget.ctx.myUserId && !_input.text.contains('@$name')) {
+        _mentions[name] = target.userId;
+        _input.text = '@$name ${_input.text}';
+        _input.selection = TextSelection.collapsed(offset: _input.text.length);
+      }
+      _focus.requestFocus();
     }
-    if (last < c.content.length) spans.add(TextSpan(text: c.content.substring(last)));
-    return Padding(
-      padding: const EdgeInsets.only(bottom: 10),
-      child: Row(crossAxisAlignment: CrossAxisAlignment.start, children: [
-        CommAvatar(name: c.userName ?? '?', photo: c.avatar, size: 34),
-        const SizedBox(width: 10),
-        Expanded(
-          child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-            Container(
-              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-              decoration: BoxDecoration(color: SboxColors.surface, borderRadius: SboxRadius.lgAll, border: Border.all(color: SboxColors.border)),
-              child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-                Text(c.userName ?? '—', style: SboxType.smallStyle(SboxColors.text).copyWith(fontWeight: FontWeight.w700)),
-                const SizedBox(height: 2),
-                Text.rich(TextSpan(children: spans), style: SboxType.bodyStyle()),
-              ]),
-            ),
-            Row(children: [
-              Text(commTimeAgo(c.createdAt), style: SboxType.captionStyle()),
-              TextButton(
-                onPressed: () {
-                  setState(() => _replyTo = c);
-                  _focus.requestFocus();
-                },
-                child: Text(tr('Trả lời')),
-              ),
-              if (c.canDelete)
-                TextButton(
-                  onPressed: () async {
-                    await _api.deleteCommComment(c.id);
-                    _changed = true;
-                    _load();
-                  },
-                  child: Text(tr('Xóa'), style: const TextStyle(color: SboxColors.slate500)),
-                ),
+
+    Widget bubble(CommComment x) => CommCommentBubble(
+          comment: x,
+          onLike: () => _like(x),
+          onReply: () => reply(x),
+          onEdit: () => _edit(x),
+          onDelete: () => _delete(x),
+        );
+    return [
+      bubble(c),
+      if (replies.isNotEmpty && !open)
+        Padding(
+          padding: const EdgeInsets.only(left: 44, bottom: 8),
+          child: InkWell(
+            onTap: () => setState(() => _openThreads.add(c.id)),
+            child: Row(mainAxisSize: MainAxisSize.min, children: [
+              const Icon(Icons.subdirectory_arrow_right_rounded, size: 18, color: SboxColors.slate500),
+              const SizedBox(width: 4),
+              Text(tr('Xem ${replies.length} phản hồi'), style: SboxType.smallStyle(SboxColors.slate600).copyWith(fontWeight: FontWeight.w700)),
             ]),
-          ]),
+          ),
         ),
-      ]),
-    );
+      if (open)
+        for (final rep in replies) Padding(padding: const EdgeInsets.only(left: 44), child: bubble(rep)),
+    ];
   }
 
   Widget _composer() {
@@ -744,32 +1394,65 @@ class _CommPostDetailPageState extends State<CommPostDetailPage> {
         top: false,
         child: Padding(
           padding: const EdgeInsets.fromLTRB(12, 8, 12, 8),
-          child: Column(mainAxisSize: MainAxisSize.min, crossAxisAlignment: CrossAxisAlignment.stretch, children: [
-            if (_replyTo != null)
-              Row(children: [
-                Expanded(child: Text(tr('Trả lời ${_replyTo!.userName ?? ''}'), style: SboxType.captionStyle())),
-                IconButton(icon: const Icon(Icons.close, size: 16), onPressed: () => setState(() => _replyTo = null)),
+          child: Center(
+            child: ConstrainedBox(
+              constraints: const BoxConstraints(maxWidth: 760),
+              child: Column(mainAxisSize: MainAxisSize.min, crossAxisAlignment: CrossAxisAlignment.stretch, children: [
+                if (_suggest.isNotEmpty)
+                  Container(
+                    margin: const EdgeInsets.only(bottom: 6),
+                    decoration: BoxDecoration(color: SboxColors.surface, borderRadius: SboxRadius.mdAll, border: Border.all(color: SboxColors.border)),
+                    child: Column(mainAxisSize: MainAxisSize.min, children: [
+                      for (final s in _suggest)
+                        ListTile(
+                          dense: true,
+                          leading: CommAvatar(name: s.name, photo: s.photo, size: 28),
+                          title: Text(s.name),
+                          subtitle: s.position == null ? null : Text(s.position!),
+                          onTap: () => _insertMention(s),
+                        ),
+                    ]),
+                  ),
+                if (_replyTo != null)
+                  Row(children: [
+                    const Icon(Icons.reply_rounded, size: 16, color: SboxColors.slate500),
+                    const SizedBox(width: 4),
+                    Expanded(child: Text(tr('Đang trả lời ${_replyTo!.userName ?? ''}'), style: SboxType.captionStyle())),
+                    IconButton(icon: const Icon(Icons.close, size: 16), onPressed: () => setState(() => _replyTo = null)),
+                  ]),
+                Row(children: [
+                  CommAvatar(name: widget.ctx.myName.isEmpty ? 'Tôi' : widget.ctx.myName, size: 32),
+                  const SizedBox(width: 8),
+                  Expanded(
+                    child: TextField(
+                      controller: _input,
+                      focusNode: _focus,
+                      minLines: 1,
+                      maxLines: 5,
+                      textInputAction: TextInputAction.send,
+                      onSubmitted: (_) => _suggest.isNotEmpty ? _insertMention(_suggest.first) : _send(),
+                      decoration: InputDecoration(
+                        hintText: tr('Viết bình luận… gõ @ để nhắc tên'),
+                        isDense: true,
+                        filled: true,
+                        fillColor: SboxColors.slate50,
+                        contentPadding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+                        border: OutlineInputBorder(borderRadius: BorderRadius.circular(20), borderSide: const BorderSide(color: SboxColors.border)),
+                        enabledBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(20), borderSide: const BorderSide(color: SboxColors.border)),
+                      ),
+                    ),
+                  ),
+                  IconButton(
+                    tooltip: tr('Gửi'),
+                    icon: _sending
+                        ? const SizedBox(width: 18, height: 18, child: CircularProgressIndicator(strokeWidth: 2))
+                        : const Icon(Icons.send_rounded, color: SboxColors.brand600),
+                    onPressed: _sending ? null : _send,
+                  ),
+                ]),
               ]),
-            Row(children: [
-              IconButton(tooltip: tr('Nhắc tên đồng nghiệp'), icon: const Icon(Icons.alternate_email_rounded), onPressed: _mention),
-              Expanded(
-                child: TextField(
-                  controller: _input,
-                  focusNode: _focus,
-                  minLines: 1,
-                  maxLines: 5,
-                  decoration: InputDecoration(hintText: tr('Viết bình luận…'), isDense: true),
-                ),
-              ),
-              IconButton(
-                tooltip: tr('Gửi'),
-                icon: _sending
-                    ? const SizedBox(width: 18, height: 18, child: CircularProgressIndicator(strokeWidth: 2))
-                    : const Icon(Icons.send_rounded, color: SboxColors.brand600),
-                onPressed: _sending ? null : _send,
-              ),
-            ]),
-          ]),
+            ),
+          ),
         ),
       ),
     );

@@ -326,10 +326,8 @@ class NavigationNotifier {
       goToPayroll();
     }
   }
-  static void goToSalarySettings() {
-    SettingsHubScreen.pendingSubIndex.value = 20;
-    goToModule('SettingsHub');
-  }
+  /// Thiết lập lương nằm ở nhóm Nhân sự (không còn trong Thiết lập).
+  static void goToSalarySettings() => goToModule('SalarySettings');
 
   static void goToNotificationSettings() {
     SettingsHubScreen.pendingSubIndex.value = 21;

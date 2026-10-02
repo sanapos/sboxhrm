@@ -19,5 +19,8 @@ public class EmployeeBenefitDto
     public decimal? BalancedPaidLeaveDays { get; set; }
     
     public decimal? BalancedUnpaidLeaveDays { get; set; }
+
+    /// <summary>Thay đổi lương đã lên lịch nhưng chưa tới ngày áp dụng (nếu có).</summary>
+    public EmployeeBenefitDto? Upcoming { get; set; }
     
 }

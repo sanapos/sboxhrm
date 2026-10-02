@@ -1,8 +1,19 @@
+import '../services/branch_session.dart';
+
 /// Helpers for branch-scoped filtering on the client (attendance logs, etc.).
 class BranchFilterHelper {
-  /// Chỉ hiện bộ lọc chi nhánh khi có từ 2 CN trở lên (1 CN thì ẩn mặc định).
+  /// Bộ lọc chi nhánh RIÊNG của từng màn hình. Khi cửa hàng dùng bộ chọn chi nhánh trên đầu app
+  /// (chi nhánh đang làm việc = chi nhánh đang xem) thì ẩn — mọi màn hình lọc theo bộ chọn chung.
   static bool showBranchFilter(Iterable? branches) =>
+      !BranchSession.instance.usesBranches && hasMultipleBranches(branches);
+
+  /// Có từ 2 chi nhánh trở lên — dùng cho cột / nhóm theo chi nhánh, ô chọn chi nhánh khi nhập liệu.
+  static bool hasMultipleBranches(Iterable? branches) =>
       branches != null && branches.length >= 2;
+
+  /// Chi nhánh mặc định cho bộ lọc của màn hình = chi nhánh đang xem trên bộ chọn chung
+  /// (null = tất cả / cửa hàng chưa dùng chi nhánh).
+  static String? get viewBranchId => BranchSession.instance.viewBranchId;
 
   /// Expands [rootBranchId] ?? to include all descendant branch IDs.
   static Set<String> expandBranchIds(

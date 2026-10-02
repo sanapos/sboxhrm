@@ -151,9 +151,13 @@ public class ZKTecoDbContext : IdentityDbContext<ApplicationUser, IdentityRole<G
     public DbSet<CommunicationReaction> CommunicationReactions => Set<CommunicationReaction>();
     public DbSet<CommChannel> CommChannels => Set<CommChannel>();
     public DbSet<HrFinanceSettings> HrFinanceSettings => Set<HrFinanceSettings>();
+    public DbSet<EmployeeCareerRecord> EmployeeCareerRecords => Set<EmployeeCareerRecord>();
+    public DbSet<AnnualLeavePolicy> AnnualLeavePolicies => Set<AnnualLeavePolicy>();
+    public DbSet<AnnualLeaveEntry> AnnualLeaveEntries => Set<AnnualLeaveEntry>();
     public DbSet<CommunicationRead> CommunicationReads => Set<CommunicationRead>();
     public DbSet<CommunicationPollVote> CommunicationPollVotes => Set<CommunicationPollVote>();
     public DbSet<CommunicationBookmark> CommunicationBookmarks => Set<CommunicationBookmark>();
+    public DbSet<CommunicationCommentLike> CommunicationCommentLikes => Set<CommunicationCommentLike>();
     public DbSet<ContentCategory> ContentCategories => Set<ContentCategory>();
     
     // KPI Management

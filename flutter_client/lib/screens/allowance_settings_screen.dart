@@ -1,2597 +1,593 @@
-import 'dart:math' as math;
-import 'package:flutter/foundation.dart' show kIsWeb;
+import 'dart:convert';
+
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
-import '../providers/permission_provider.dart';
-import 'package:zkteco_flutter_client/widgets/app_responsive_dialog.dart';
-import 'package:intl/intl.dart';
-import '../services/api_service.dart';
-import '../utils/responsive_helper.dart';
-import '../utils/number_formatter.dart';
-import '../widgets/hrm_mini_stat_chip.dart';
-import '../widgets/hrm_page_chrome.dart';
-import '../widgets/hrm/hrm_settings_mobile_kit.dart';
-import '../widgets/loading_widget.dart';
-import '../widgets/empty_state.dart';
-import '../widgets/notification_overlay.dart';
-import 'package:zkteco_flutter_client/l10n/app_tr.dart';
-import '../theme/sbox_tokens.dart';
-class AllowanceSettingsScreen extends StatefulWidget {
-  const AllowanceSettingsScreen({super.key});
 
-  @override
-  State<AllowanceSettingsScreen> createState() =>
-      _AllowanceSettingsScreenState();
+import '../l10n/app_tr.dart';
+import '../providers/permission_provider.dart';
+import '../services/api_service.dart';
+import '../utils/allowance_calculator.dart';
+import '../widgets/pos/pos_vnd_thousands_formatter.dart';
+import '../widgets/sbox/sbox_ui.dart';
+import '../widgets/settings/settings_page.dart';
+
+/// Kiểu phụ cấp (giá trị server: Fixed, Daily, Hourly, PerEvent, PerShift).
+enum AllowanceKind {
+  fixed('Fixed', 'Cố định hàng tháng', '/ tháng', Icons.calendar_month_rounded),
+  daily('Daily', 'Theo ngày công', '/ ngày công', Icons.today_rounded),
+  hourly('Hourly', 'Theo giờ làm', '/ giờ', Icons.schedule_rounded),
+  perEvent('PerEvent', 'Theo lần', '/ lần', Icons.flag_rounded),
+  perShift('PerShift', 'Theo ca đủ công', '/ ca', Icons.view_timeline_rounded);
+
+  const AllowanceKind(this.code, this.label, this.unit, this.icon);
+
+  /// Theo ngày / theo ca: có thể đặt điều kiện số giờ làm trong ca.
+  bool get supportsRule => this == AllowanceKind.daily || this == AllowanceKind.perShift;
+  final String code;
+  final String label;
+  final String unit;
+  final IconData icon;
+
+  static AllowanceKind parse(dynamic v) {
+    if (v is num) return AllowanceKind.values[v.toInt().clamp(0, 4)];
+    final s = '$v'.toLowerCase().replaceAll('_', '');
+    return AllowanceKind.values.firstWhere((k) => k.code.toLowerCase() == s || '${k.index}' == s, orElse: () => AllowanceKind.fixed);
+  }
 }
 
-class _AllowanceSettingsScreenState extends State<AllowanceSettingsScreen> {
-  PermissionProvider get _perm =>
-      Provider.of<PermissionProvider>(context, listen: false);
-
-  final ApiService _apiService = ApiService();
-  final _currencyFormat = NumberFormat('#,###', 'vi_VN');
-  List<Map<String, dynamic>> _allowances = [];
-  List<Map<String, dynamic>> _employees = [];
-  List<Map<String, dynamic>> _shifts = [];
-  bool _isLoading = true;
-  String _searchQuery = '';
-  String _selectedType = 'all';
-  @override
-  void initState() {
-    super.initState();
-    _loadAllowances();
-  }
-
-  Future<void> _loadAllowances() async {
-    setState(() => _isLoading = true);
-    try {
-      final results = await Future.wait([
-        _apiService.getAllowanceSettings(),
-        _apiService.getEmployeesForSelect(pageSize: 500),
-        _apiService.getShifts(),
-      ]);
-      setState(() {
-        _allowances = List<Map<String, dynamic>>.from(results[0]);
-        _employees = List<Map<String, dynamic>>.from(results[1]);
-        _shifts = (results[2] as List)
-            .whereType<Map>()
-            .map((e) => Map<String, dynamic>.from(e))
-            .toList();
-      });
-    } catch (e) {
-      debugPrint('Error loading allowances: $e');
-      if (mounted) {
-        appNotification.showError(
-          title: 'Lỗi',
-          message: tr('Không thể tải danh sách phụ cấp. Vui lòng thử lại.'),
-        );
-      }
-      setState(() {
-        _allowances = [];
-      });
-    } finally {
-      setState(() => _isLoading = false);
+class _Allowance {
+  _Allowance(this.m);
+  final Map<String, dynamic> m;
+  String get id => '${m['id']}';
+  String get name => '${m['name'] ?? ''}';
+  String? get code => m['code']?.toString();
+  AllowanceKind get kind => AllowanceKind.parse(m['type']);
+  double get amount => (m['amount'] as num?)?.toDouble() ?? 0;
+  bool get active => m['isActive'] != false;
+  bool get taxable => m['isTaxable'] != false;
+  bool get insurance => m['isInsuranceApplicable'] == true;
+  DateTime? get start => DateTime.tryParse('${m['startDate']}');
+  DateTime? get end => DateTime.tryParse('${m['endDate']}');
+  List<String> _list(String k) {
+    final v = m[k];
+    if (v is List) return [for (final x in v) '$x'];
+    if (v is String && v.isNotEmpty) {
+      try {
+        final d = jsonDecode(v);
+        if (d is List) return [for (final x in d) '$x'];
+      } catch (_) {}
     }
-  }
-
-  List<Map<String, dynamic>> get _filteredAllowances {
-    return _allowances.where((allowance) {
-      final matchesSearch = _searchQuery.isEmpty ||
-          (allowance['name']
-                  ?.toLowerCase()
-                  .contains(_searchQuery.toLowerCase()) ??
-              false);
-
-      bool matchesType = true;
-      if (_selectedType != 'all') {
-        final typeValue = _parseType(allowance['type']);
-        if (_selectedType == '0') {
-          matchesType = typeValue == 0;
-        } else if (_selectedType == '1') {
-          matchesType = typeValue == 1;
-        } else if (_selectedType == '2') {
-          matchesType = typeValue == 2;
-        } else if (_selectedType == '3') {
-          matchesType = typeValue == 3;
-        } else if (_selectedType == '4') {
-          matchesType = typeValue == 4;
-        }
-      }
-
-      return matchesSearch && matchesType;
-    }).toList();
-  }
-
-  int get _totalAllowances => _allowances.length;
-  int get _fixedAllowances =>
-      _allowances.where((a) => _parseType(a['type']) == 0).length;
-  int get _dailyAllowances =>
-      _allowances.where((a) => _parseType(a['type']) == 1).length;
-
-  void _clearFilters() {
-    setState(() {
-      _searchQuery = '';
-      _selectedType = 'all';
-    });
-  }
-
-  List<String> _parseEmployeeIds(dynamic value) {
-    if (value == null) return [];
-    if (value is List) return value.map((e) => e.toString()).toList();
     return [];
   }
 
-  String _shiftNamesLabel(Map<String, dynamic> allowance) {
-    final ids = _parseEmployeeIds(allowance['shiftIds']).toSet();
-    if (ids.isEmpty) return 'Chưa chọn ca';
-    final names = <String>[];
-    for (final shift in _shifts) {
-      final id = shift['id']?.toString() ?? '';
-      if (ids.contains(id)) {
-        final name = shift['name']?.toString() ?? '';
-        if (name.isNotEmpty) names.add(name);
-      }
+  List<String> get employeeIds => _list('employeeIds');
+  List<String> get shiftIds => _list('shiftIds');
+  double? get minWorkPercent => AllowanceCalculator.minWorkPercent(m);
+  double? get minWorkHours => AllowanceCalculator.minWorkHours(m);
+  bool get hasRule => kind.supportsRule && AllowanceCalculator.hasWorkRule(m);
+}
+
+/// Phụ cấp: danh sách theo kiểu, bật / tắt nhanh, chịu thuế / đóng BH, áp dụng cho ai, theo ca.
+class AllowanceSettingsScreen extends StatefulWidget {
+  const AllowanceSettingsScreen({super.key, this.canEditOverride});
+
+  final bool? canEditOverride;
+
+  @override
+  State<AllowanceSettingsScreen> createState() => _AllowanceSettingsScreenState();
+}
+
+class _AllowanceSettingsScreenState extends State<AllowanceSettingsScreen> {
+  final _api = ApiService();
+  List<_Allowance> _items = [];
+  List<Map<String, dynamic>> _employees = [];
+  List<Map<String, dynamic>> _shifts = [];
+  bool _loading = true;
+  AllowanceKind? _filter;
+
+  bool _can(String a) {
+    if (widget.canEditOverride != null) return widget.canEditOverride!;
+    try {
+      final p = Provider.of<PermissionProvider>(context, listen: false);
+      return a == 'create' ? p.canCreate('Allowance') : a == 'edit' ? p.canEdit('Allowance') : p.canDelete('Allowance');
+    } catch (_) {
+      return false;
     }
-    if (names.isEmpty) return '${ids.length} ca';
-    return names.join(', ');
-  }
-
-  /// API trả về enum `Type` dưới dạng String ("Fixed", "Daily", "Hourly",
-  /// "PerEvent") vì server cấu hình `JsonStringEnumConverter`.
-  /// Hand lại về int 0..3 để dùng cho dropdown / counters / icons.
-  int _parseType(dynamic value) {
-    if (value is int) return value;
-    if (value is num) return value.toInt();
-    if (value is String) {
-      switch (value.toLowerCase()) {
-        case 'fixed':
-        case '0':
-          return 0;
-        case 'daily':
-        case '1':
-          return 1;
-        case 'hourly':
-        case '2':
-          return 2;
-        case 'perevent':
-        case 'per_event':
-        case '3':
-          return 3;
-        case 'pershift':
-        case 'per_shift':
-        case '4':
-          return 4;
-      }
-    }
-    return 0;
-  }
-
-  num _parseAmount(dynamic value) {
-    if (value is num) return value;
-    if (value is String) return num.tryParse(value) ?? 0;
-    return 0;
-  }
-
-  List<Widget> _allowanceToolbarActions(BuildContext context) {
-    if (!_perm.canCreate('Allowance')) return [];
-    return Responsive.isMobile(context)
-        ? [
-            if (HrmSettingsMobileKit.active(context))
-              HrmSettingsAddButton(
-                label: 'Thêm',
-                compact: true,
-                onPressed: () => _showAllowanceDialog(),
-              )
-            else ...[
-                IconButton(
-                  tooltip: tr('Thêm phụ cấp'),
-                  icon: const Icon(Icons.add_circle_outline,
-                      color: HrmPageChrome.primaryNavy),
-                  onPressed: () => _showAllowanceDialog(),
-                ),
-                PopupMenuButton<String>(
-                  tooltip: tr('Thêm thao tác'),
-                  icon: const Icon(Icons.more_vert, color: SboxColors.slate500),
-                  onSelected: (value) {
-                    if (value == 'export') {
-                      appNotification.showInfo(
-                          title: 'Xuất dữ liệu',
-                          message: tr('Tính năng đang phát triển'));
-                    } else if (value == 'refresh') {
-                      _loadAllowances();
-                    }
-                  },
-                  itemBuilder: (_) => [
-                    PopupMenuItem(
-                      value: 'refresh',
-                      child: ListTile(
-                        dense: true,
-                        contentPadding: EdgeInsets.zero,
-                        leading: Icon(Icons.refresh, size: 20),
-                        title: Text(tr('Làm mới')),
-                      ),
-                    ),
-                    PopupMenuItem(
-                      value: 'export',
-                      child: ListTile(
-                        dense: true,
-                        contentPadding: EdgeInsets.zero,
-                        leading: Icon(Icons.download,
-                            size: 20, color: SboxColors.danger),
-                        title: Text(tr('Xuất dữ liệu')),
-                      ),
-                    ),
-                  ],
-                ),
-              ],
-          ]
-            : [
-                Container(
-                  margin: const EdgeInsets.only(right: 8),
-                  child: OutlinedButton.icon(
-                    onPressed: () => _showAllowanceDialog(),
-                    icon: const Icon(Icons.add, size: 16),
-                    label: Text(tr('Thêm PC')),
-                    style: OutlinedButton.styleFrom(
-                      foregroundColor: HrmPageChrome.primaryNavy,
-                      side: const BorderSide(color: HrmPageChrome.primaryNavy),
-                      shape: RoundedRectangleBorder(
-                          borderRadius: BorderRadius.circular(10)),
-                      padding: const EdgeInsets.symmetric(
-                          horizontal: 12, vertical: 8),
-                    ),
-                  ),
-                ),
-                Container(
-                  margin: const EdgeInsets.only(right: 16),
-                  child: OutlinedButton.icon(
-                    onPressed: () {
-                      appNotification.showInfo(
-                          title: 'Xuất dữ liệu',
-                          message: tr('Tính năng đang phát triển'));
-                    },
-                    icon: const Icon(Icons.download, size: 16),
-                    label: Text(tr('Xuất')),
-                    style: OutlinedButton.styleFrom(
-                      foregroundColor: SboxColors.danger,
-                      side: const BorderSide(color: SboxColors.danger),
-                      shape: RoundedRectangleBorder(
-                          borderRadius: BorderRadius.circular(10)),
-                      padding: const EdgeInsets.symmetric(
-                          horizontal: 12, vertical: 8),
-                    ),
-                  ),
-                ),
-              ];
   }
 
   @override
-  Widget build(BuildContext context) {
-    final toolbarActions = _allowanceToolbarActions(context);
-
-    return Scaffold(
-      backgroundColor: HrmPageChrome.scaffoldBackground(context),
-      appBar: HrmPageChrome.appBar(
-        context: context,
-        title: 'Thiết lập Phụ cấp',
-        actions: toolbarActions,
-      ),
-      body: _isLoading
-          ? const LoadingWidget()
-          : SingleChildScrollView(
-              padding: HrmSettingsMobileKit.active(context)
-                  ? HrmSettingsMobileKit.pagePadding(context)
-                  : EdgeInsets.all(Responsive.isMobile(context) ? 12 : 24),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  if (HrmSettingsMobileKit.active(context)) ...[
-                    HrmSettingsSearchToolbar(
-                      search: _buildAllowanceSearchField(),
-                      actions: toolbarActions,
-                    ),
-                    const SizedBox(height: 10),
-                  ] else if (HrmPageChrome.isEmbedded) ...[
-                    Row(
-                      mainAxisAlignment: MainAxisAlignment.end,
-                      children: toolbarActions,
-                    ),
-                    const SizedBox(height: 12),
-                  ],
-                  HrmPageChrome.horizontalStatCards(
-                    cards: [
-                      _buildStatCard(Icons.receipt_long, '$_totalAllowances',
-                          'Tổng phụ cấp', HrmPageChrome.primaryNavy),
-                      _buildStatCard(Icons.lock, '$_fixedAllowances', 'Cố định',
-                          HrmPageChrome.primaryNavy),
-                      _buildStatCard(Icons.calendar_today, '$_dailyAllowances',
-                          'Theo ngày', SboxColors.warning),
-                    ],
-                  ),
-                  const SizedBox(height: 16),
-
-                  // Filter bar
-                  if (HrmSettingsMobileKit.active(context))
-                    HrmSettingsFilterChips(
-                      options: const [
-                        HrmSettingsFilterChipOption(
-                            value: 'all', label: 'Tất cả'),
-                        HrmSettingsFilterChipOption(
-                            value: '0', label: 'Cố định'),
-                        HrmSettingsFilterChipOption(
-                            value: '1', label: 'Theo ngày'),
-                        HrmSettingsFilterChipOption(
-                            value: '4', label: 'Theo ca'),
-                      ],
-                      selected: _selectedType,
-                      onSelected: (v) => setState(() => _selectedType = v),
-                      onClear: _clearFilters,
-                    )
-                  else
-                    Container(
-                      padding: const EdgeInsets.all(16),
-                      decoration: BoxDecoration(
-                        color: Colors.white,
-                        borderRadius: BorderRadius.circular(14),
-                        boxShadow: [
-                          BoxShadow(
-                            color: Colors.black.withValues(alpha: 0.05),
-                            blurRadius: 10,
-                            offset: const Offset(0, 2),
-                          ),
-                        ],
-                      ),
-                      child: LayoutBuilder(
-                        builder: (context, constraints) {
-                          if (constraints.maxWidth >= 600) {
-                            return Row(
-                              children: [
-                                // Search input
-                                Expanded(
-                                  flex: 3,
-                                  child: SizedBox(
-                                    height: 44,
-                                    child: TextField(
-                                      style: const TextStyle(
-                                          color: SboxColors.slate900,
-                                          fontSize: 14),
-                                      decoration: InputDecoration(
-                                        hintText: tr('Tìm theo tên phụ cấp...'),
-                                        hintStyle: const TextStyle(
-                                            color: SboxColors.slate400,
-                                            fontSize: 14),
-                                        prefixIcon: const Icon(Icons.search,
-                                            color: SboxColors.slate400, size: 20),
-                                        contentPadding:
-                                            const EdgeInsets.symmetric(
-                                                horizontal: 16, vertical: 10),
-                                        filled: true,
-                                        fillColor: SboxColors.slate50,
-                                        border: OutlineInputBorder(
-                                          borderRadius:
-                                              BorderRadius.circular(10),
-                                          borderSide: const BorderSide(
-                                              color: SboxColors.slate200),
-                                        ),
-                                        enabledBorder: OutlineInputBorder(
-                                          borderRadius:
-                                              BorderRadius.circular(10),
-                                          borderSide: const BorderSide(
-                                              color: SboxColors.slate200),
-                                        ),
-                                        focusedBorder: OutlineInputBorder(
-                                          borderRadius:
-                                              BorderRadius.circular(10),
-                                          borderSide: const BorderSide(
-                                              color: HrmPageChrome.primaryNavy),
-                                        ),
-                                      ),
-                                      onChanged: (value) =>
-                                          setState(() => _searchQuery = value),
-                                    ),
-                                  ),
-                                ),
-                                const SizedBox(width: 16),
-                                // Type dropdown
-                                Expanded(
-                                  flex: 2,
-                                  child: SizedBox(
-                                    height: 44,
-                                    child: DropdownButtonFormField<String>(
-                                      initialValue: _selectedType,
-                                      dropdownColor: Colors.white,
-                                      icon:
-                                          const Icon(Icons.keyboard_arrow_down),
-                                      style: const TextStyle(
-                                          color: SboxColors.slate900,
-                                          fontSize: 14),
-                                      decoration: InputDecoration(
-                                        contentPadding:
-                                            const EdgeInsets.symmetric(
-                                                horizontal: 12, vertical: 10),
-                                        border: OutlineInputBorder(
-                                          borderRadius:
-                                              BorderRadius.circular(10),
-                                          borderSide: const BorderSide(
-                                              color: SboxColors.slate200),
-                                        ),
-                                        enabledBorder: OutlineInputBorder(
-                                          borderRadius:
-                                              BorderRadius.circular(10),
-                                          borderSide: const BorderSide(
-                                              color: SboxColors.slate200),
-                                        ),
-                                        focusedBorder: OutlineInputBorder(
-                                          borderRadius:
-                                              BorderRadius.circular(10),
-                                          borderSide: const BorderSide(
-                                              color: HrmPageChrome.primaryNavy),
-                                        ),
-                                        filled: true,
-                                        fillColor: Colors.white,
-                                        prefixIcon: Container(
-                                          padding: const EdgeInsets.all(8),
-                                          child: const Icon(Icons.circle,
-                                              size: 10,
-                                              color: Color(0xFFFBBF24)),
-                                        ),
-                                      ),
-                                      items: [
-                                        DropdownMenuItem(
-                                            value: 'all',
-                                            child: Text(tr('Tất cả loại'))),
-                                        DropdownMenuItem(
-                                            value: '0',
-                                            child:
-                                                Text(tr('Cố định (theo tháng)'))),
-                                        DropdownMenuItem(
-                                            value: '1',
-                                            child: Text(tr('Theo ngày'))),
-                                        DropdownMenuItem(
-                                            value: '4',
-                                            child: Text(tr('Theo ca làm việc'))),
-                                      ],
-                                      onChanged: (value) => setState(
-                                          () => _selectedType = value ?? 'all'),
-                                    ),
-                                  ),
-                                ),
-                                const SizedBox(width: 16),
-                                // Clear filter button
-                                OutlinedButton.icon(
-                                  onPressed: _clearFilters,
-                                  icon: const Icon(Icons.filter_alt_off,
-                                      size: 18),
-                                  label: Text(tr('Xóa lọc')),
-                                  style: OutlinedButton.styleFrom(
-                                    foregroundColor: SboxColors.slate500,
-                                    side: const BorderSide(
-                                        color: SboxColors.slate200),
-                                    padding: const EdgeInsets.symmetric(
-                                        horizontal: 16, vertical: 12),
-                                    shape: RoundedRectangleBorder(
-                                        borderRadius: BorderRadius.circular(10)),
-                                  ),
-                                ),
-                              ],
-                            );
-                          } else {
-                            return Column(
-                              children: [
-                                SizedBox(
-                                  height: 44,
-                                  child: TextField(
-                                    style: const TextStyle(
-                                        color: SboxColors.slate900, fontSize: 14),
-                                    decoration: InputDecoration(
-                                      hintText: tr('Tìm theo tên phụ cấp...'),
-                                      hintStyle: const TextStyle(
-                                          color: SboxColors.slate400,
-                                          fontSize: 14),
-                                      prefixIcon: const Icon(Icons.search,
-                                          color: SboxColors.slate400, size: 20),
-                                      contentPadding:
-                                          const EdgeInsets.symmetric(
-                                              horizontal: 16, vertical: 10),
-                                      filled: true,
-                                      fillColor: SboxColors.slate50,
-                                      border: OutlineInputBorder(
-                                        borderRadius: BorderRadius.circular(10),
-                                        borderSide: const BorderSide(
-                                            color: SboxColors.slate200),
-                                      ),
-                                      enabledBorder: OutlineInputBorder(
-                                        borderRadius: BorderRadius.circular(10),
-                                        borderSide: const BorderSide(
-                                            color: SboxColors.slate200),
-                                      ),
-                                      focusedBorder: OutlineInputBorder(
-                                        borderRadius: BorderRadius.circular(10),
-                                        borderSide: const BorderSide(
-                                            color: HrmPageChrome.primaryNavy),
-                                      ),
-                                    ),
-                                    onChanged: (value) =>
-                                        setState(() => _searchQuery = value),
-                                  ),
-                                ),
-                                const SizedBox(height: 12),
-                                Row(
-                                  children: [
-                                    Expanded(
-                                      child: SizedBox(
-                                        height: 44,
-                                        child: DropdownButtonFormField<String>(
-                                          initialValue: _selectedType,
-                                          dropdownColor: Colors.white,
-                                          icon: const Icon(
-                                              Icons.keyboard_arrow_down),
-                                          style: const TextStyle(
-                                              color: SboxColors.slate900,
-                                              fontSize: 14),
-                                          decoration: InputDecoration(
-                                            contentPadding:
-                                                const EdgeInsets.symmetric(
-                                                    horizontal: 12,
-                                                    vertical: 10),
-                                            border: OutlineInputBorder(
-                                              borderRadius:
-                                                  BorderRadius.circular(10),
-                                              borderSide: const BorderSide(
-                                                  color: SboxColors.slate200),
-                                            ),
-                                            enabledBorder: OutlineInputBorder(
-                                              borderRadius:
-                                                  BorderRadius.circular(10),
-                                              borderSide: const BorderSide(
-                                                  color: SboxColors.slate200),
-                                            ),
-                                            focusedBorder: OutlineInputBorder(
-                                              borderRadius:
-                                                  BorderRadius.circular(10),
-                                              borderSide: const BorderSide(
-                                                  color: HrmPageChrome.primaryNavy),
-                                            ),
-                                            filled: true,
-                                            fillColor: Colors.white,
-                                            prefixIcon: Container(
-                                              padding: const EdgeInsets.all(8),
-                                              child: const Icon(Icons.circle,
-                                                  size: 10,
-                                                  color: Color(0xFFFBBF24)),
-                                            ),
-                                          ),
-                                          items: [
-                                            DropdownMenuItem(
-                                                value: 'all',
-                                                child: Text(tr('Tất cả loại'))),
-                                            DropdownMenuItem(
-                                                value: '0',
-                                                child: Text(tr('Cố định (theo tháng)'))),
-                                            DropdownMenuItem(
-                                                value: '1',
-                                                child: Text(tr('Theo ngày'))),
-                                            DropdownMenuItem(
-                                                value: '4',
-                                                child:
-                                                    Text(tr('Theo ca làm việc'))),
-                                          ],
-                                          onChanged: (value) => setState(() =>
-                                              _selectedType = value ?? 'all'),
-                                        ),
-                                      ),
-                                    ),
-                                    const SizedBox(width: 12),
-                                    OutlinedButton.icon(
-                                      onPressed: _clearFilters,
-                                      icon: const Icon(Icons.filter_alt_off,
-                                          size: 18),
-                                      label: Text(tr('Xóa lọc')),
-                                      style: OutlinedButton.styleFrom(
-                                        foregroundColor:
-                                            SboxColors.slate500,
-                                        side: const BorderSide(
-                                            color: SboxColors.slate200),
-                                        padding: const EdgeInsets.symmetric(
-                                            horizontal: 16, vertical: 12),
-                                        shape: RoundedRectangleBorder(
-                                            borderRadius:
-                                                BorderRadius.circular(10)),
-                                      ),
-                                    ),
-                                  ],
-                                ),
-                              ],
-                            );
-                          }
-                        },
-                      ),
-                    ),
-                  if (!HrmSettingsMobileKit.active(context))
-                    const SizedBox(height: 24)
-                  else
-                    const SizedBox(height: 12),
-
-                  // Allowance cards grid
-                  _filteredAllowances.isEmpty
-                      ? const Center(
-                          child: EmptyState(
-                            icon: Icons.card_giftcard,
-                            title: 'Không tìm thấy phụ cấp',
-                            description:
-                                'Thử thay đổi bộ lọc hoặc thêm phụ cấp mới',
-                          ),
-                        )
-                      : LayoutBuilder(
-                          builder: (context, constraints) {
-                            final preferCards =
-                                HrmSettingsMobileKit.preferCardList(context) ||
-                                    constraints.maxWidth < 600;
-
-                            // Web rộng: bảng một dòng; phone/web hẹp: card list.
-                            if (kIsWeb && !preferCards) {
-                              return _buildAllowanceWebList();
-                            }
-
-                            if (preferCards) {
-                              return Column(
-                                children: List.generate(
-                                  _filteredAllowances.length,
-                                  (index) => Padding(
-                                    padding: const EdgeInsets.only(bottom: 10),
-                                    child: _buildAllowanceDeckItem(
-                                        _filteredAllowances[index]),
-                                  ),
-                                ),
-                              );
-                            }
-
-                            if (HrmSettingsMobileKit.active(context)) {
-                              return HrmSettingsEntityGrid(
-                                itemCount: _filteredAllowances.length,
-                                columns: 2,
-                                childAspectRatio: 0.95,
-                                itemBuilder: (ctx, index) =>
-                                    _buildAllowanceGridTile(
-                                        _filteredAllowances[index]),
-                              );
-                            }
-
-                            int crossAxisCount = 4;
-                            if (constraints.maxWidth < 900) {
-                              crossAxisCount = 2;
-                            } else if (constraints.maxWidth < 1200) {
-                              crossAxisCount = 3;
-                            }
-
-                            return GridView.builder(
-                              shrinkWrap: true,
-                              physics: const NeverScrollableScrollPhysics(),
-                              gridDelegate:
-                                  SliverGridDelegateWithFixedCrossAxisCount(
-                                crossAxisCount: crossAxisCount,
-                                mainAxisSpacing: 16,
-                                crossAxisSpacing: 16,
-                                childAspectRatio: 1.1,
-                              ),
-                              itemCount: _filteredAllowances.length,
-                              itemBuilder: (context, index) {
-                                return _buildAllowanceCard(
-                                    _filteredAllowances[index]);
-                              },
-                            );
-                          },
-                        ),
-                ],
-              ),
-            ),
-    );
+  void initState() {
+    super.initState();
+    _load();
   }
 
-  Widget _buildAllowanceSearchField() {
-    return TextField(
-      style: const TextStyle(color: SboxColors.slate900, fontSize: 14),
-      decoration: InputDecoration(
-        hintText: tr('Tìm theo tên phụ cấp...'),
-        hintStyle: const TextStyle(color: SboxColors.slate400, fontSize: 14),
-        prefixIcon:
-            const Icon(Icons.search, color: SboxColors.slate400, size: 20),
-        contentPadding:
-            const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
-        filled: true,
-        fillColor: Colors.white,
-        isDense: true,
-        border: OutlineInputBorder(
-          borderRadius: BorderRadius.circular(10),
-          borderSide: const BorderSide(color: SboxColors.slate200),
-        ),
-        enabledBorder: OutlineInputBorder(
-          borderRadius: BorderRadius.circular(10),
-          borderSide: const BorderSide(color: SboxColors.slate200),
-        ),
-        focusedBorder: OutlineInputBorder(
-          borderRadius: BorderRadius.circular(10),
-          borderSide: const BorderSide(color: HrmPageChrome.primaryNavy),
-        ),
-      ),
-      onChanged: (value) => setState(() => _searchQuery = value),
-    );
+  Future<void> _load() async {
+    setState(() => _loading = true);
+    final res = await Future.wait<List<dynamic>>([
+      _api.getAllowanceSettings(),
+      _api.getEmployeesForSelect(pageSize: 500),
+      _api.getShifts(),
+    ]);
+    if (!mounted) return;
+    setState(() {
+      _items = [for (final a in res[0].whereType<Map>()) _Allowance(Map<String, dynamic>.from(a))];
+      _employees = [for (final e in res[1].whereType<Map>()) Map<String, dynamic>.from(e)];
+      _shifts = [for (final s in res[2].whereType<Map>()) Map<String, dynamic>.from(s)];
+      _loading = false;
+    });
   }
 
-  Widget _buildAllowanceGridTile(Map<String, dynamic> allowance) {
-    final meta = _allowanceTypeMeta(allowance);
-    final isActive = allowance['isActive'] ?? true;
-    final amount = _parseAmount(allowance['amount']);
-    final empIds = _parseEmployeeIds(allowance['employeeIds']);
-    final empLabel = empIds.isEmpty
-        ? 'Tất cả NV'
-        : '${empIds.length} nhân viên';
+  void _toast(String m, {bool error = false}) => ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+        content: Text(tr(m)),
+        backgroundColor: error ? SboxColors.danger : null,
+        behavior: SnackBarBehavior.floating,
+      ));
 
-    return HrmSettingsEntityTile(
-      title: allowance['name']?.toString() ?? '',
-      subtitle: '${meta.label}: ${_currencyFormat.format(amount)}đ',
-      meta: empLabel,
-      icon: meta.icon,
-      iconColor: meta.color,
-      badge: isActive ? 'Bật' : 'Tắt',
-      badgeColor:
-          isActive ? SboxColors.success : SboxColors.slate500,
-      onTap: () => _showAllowanceDialog(allowance: allowance),
-      onMenuSelected: (v) {
-        if (v == 'edit') _showAllowanceDialog(allowance: allowance);
-        if (v == 'delete') _deleteAllowance(allowance);
-      },
-      menuItems: [
-        if (_perm.canEdit('Allowance'))
-          PopupMenuItem(value: 'edit', child: Text(tr('Xem / Sửa'))),
-        if (_perm.canDelete('Allowance'))
-          PopupMenuItem(value: 'delete', child: Text(tr('Xóa'))),
-      ],
-      onLongPress: _perm.canDelete('Allowance')
-          ? () => _deleteAllowance(allowance)
-          : null,
-    );
-  }
+  Map<String, dynamic> _payload(_Allowance a, {bool? active}) => {
+        'name': a.name,
+        'code': a.code,
+        'description': a.m['description'],
+        'type': a.kind.code,
+        'amount': a.amount,
+        'currency': 'VND',
+        'isTaxable': a.taxable,
+        'isInsuranceApplicable': a.insurance,
+        'isActive': active ?? a.active,
+        if (a.start != null) 'startDate': a.start!.toIso8601String(),
+        if (a.end != null) 'endDate': a.end!.toIso8601String(),
+        if (a.employeeIds.isNotEmpty) 'employeeIds': a.employeeIds,
+        if (a.kind == AllowanceKind.perShift) 'shiftIds': a.shiftIds,
+        if (a.minWorkPercent != null) 'minWorkPercent': a.minWorkPercent,
+        if (a.minWorkHours != null) 'minWorkHours': a.minWorkHours,
+      };
 
-  Widget _buildStatCard(
-      IconData icon, String value, String label, Color color) {
-    return HrmStatSummaryCard(
-      icon: icon,
-      value: value,
-      label: label,
-      color: color,
-    );
-  }
-
-  ({String label, IconData icon, Color color}) _allowanceTypeMeta(
-      Map<String, dynamic> allowance) {
-    final typeValue = _parseType(allowance['type']);
-    if (typeValue == 1) {
-      return (
-        label: 'Theo ngày',
-        icon: Icons.calendar_today_outlined,
-        color: SboxColors.warning
-      );
+  Future<void> _toggle(_Allowance a, bool v) async {
+    final r = await _api.updateAllowanceSetting(a.id, _payload(a, active: v));
+    if (!mounted) return;
+    if (r['isSuccess'] == true) {
+      setState(() => a.m['isActive'] = v);
+    } else {
+      _toast(r['message']?.toString() ?? 'Không cập nhật được', error: true);
     }
-    if (typeValue == 2) {
-      return (
-        label: 'Theo giờ',
-        icon: Icons.access_time,
-        color: HrmPageChrome.primaryNavy
-      );
-    }
-    if (typeValue == 3) {
-      return (
-        label: 'Theo sự kiện',
-        icon: Icons.event,
-        color: SboxColors.violet
-      );
-    }
-    if (typeValue == 4) {
-      return (
-        label: 'Theo ca',
-        icon: Icons.schedule,
-        color: const Color(0xFF0F766E)
-      );
-    }
-    return (
-      label: 'Cố định',
-      icon: Icons.lock_outline,
-      color: HrmPageChrome.primaryNavy
-    );
   }
 
-  Widget _buildAllowanceWebList() {
-    return Container(
-      decoration: BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.circular(14),
-        border: Border.all(color: SboxColors.slate200),
-      ),
-      clipBehavior: Clip.antiAlias,
-      child: Column(
-        children: [
-          _buildAllowanceWebListHeader(),
-          for (var i = 0; i < _filteredAllowances.length; i++) ...[
-            if (i > 0)
-              const Divider(height: 1, thickness: 1, color: SboxColors.slate200),
-            _buildAllowanceWebRow(_filteredAllowances[i]),
-          ],
-        ],
-      ),
-    );
-  }
-
-  Widget _buildAllowanceWebListHeader() {
-    TextStyle style = const TextStyle(
-      fontSize: 11,
-      fontWeight: FontWeight.w600,
-      color: SboxColors.slate500,
-      letterSpacing: 0.2,
-    );
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
-      color: SboxColors.slate50,
-      child: Row(
-        children: [
-          const SizedBox(width: 48),
-          Expanded(flex: 4, child: Text(tr('Phụ cấp'), style: style)),
-          Expanded(flex: 2, child: Text(tr('Loại'), style: style)),
-          Expanded(flex: 2, child: Text(tr('Giá trị'), style: style)),
-          SizedBox(width: 88, child: Text(tr('Trạng thái'), style: style)),
-          SizedBox(width: 88, child: Text(tr('Thao tác'), style: style)),
-        ],
-      ),
-    );
-  }
-
-  Widget _buildAllowanceWebRow(Map<String, dynamic> allowance) {
-    final meta = _allowanceTypeMeta(allowance);
-    final isActive = allowance['isActive'] ?? true;
-    final amount = _parseAmount(allowance['amount']);
-    final empIds = _parseEmployeeIds(allowance['employeeIds']);
-    final code = allowance['code']?.toString() ?? '';
-    final empLabel = empIds.isEmpty
-        ? 'Tất cả NV'
-        : '${empIds.length} nhân viên';
-
-    return Material(
-      color: Colors.white,
-      child: InkWell(
-        onTap: () => _showAllowanceDialog(allowance: allowance),
-        hoverColor: SboxColors.slate100,
-        child: Padding(
-          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
-          child: Row(
-            crossAxisAlignment: CrossAxisAlignment.center,
-            children: [
-              Container(
-                width: 40,
-                height: 40,
-                decoration: BoxDecoration(
-                  color: isActive
-                      ? meta.color.withValues(alpha: 0.12)
-                      : SboxColors.slate100,
-                  borderRadius: BorderRadius.circular(10),
-                ),
-                child: Icon(
-                  meta.icon,
-                  size: 20,
-                  color: isActive ? meta.color : SboxColors.slate400,
-                ),
-              ),
-              const SizedBox(width: 12),
-              Expanded(
-                flex: 4,
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(
-                      tr(allowance['name']?.toString() ?? ''),
-                      style: TextStyle(
-                        fontSize: 14,
-                        fontWeight: FontWeight.w600,
-                        color: isActive
-                            ? SboxColors.slate900
-                            : SboxColors.slate500,
-                      ),
-                      maxLines: 1,
-                      overflow: TextOverflow.ellipsis,
-                    ),
-                    const SizedBox(height: 2),
-                    Text(
-                      tr(code.isNotEmpty
-                          ? '$code · $empLabel${_parseType(allowance['type']) == 4 ? ' · ${_shiftNamesLabel(allowance)}' : ''}'
-                          : '$empLabel${_parseType(allowance['type']) == 4 ? ' · ${_shiftNamesLabel(allowance)}' : ''}'),
-                      style: const TextStyle(
-                          fontSize: 11, color: SboxColors.slate500),
-                      maxLines: 1,
-                      overflow: TextOverflow.ellipsis,
-                    ),
-                  ],
-                ),
-              ),
-              Expanded(
-                flex: 2,
-                child: Row(
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    Icon(meta.icon, size: 14, color: meta.color),
-                    const SizedBox(width: 4),
-                    Flexible(
-                      child: Text(
-                        tr(meta.label),
-                        style: TextStyle(
-                            fontSize: 12,
-                            fontWeight: FontWeight.w500,
-                            color: meta.color),
-                        maxLines: 1,
-                        overflow: TextOverflow.ellipsis,
-                      ),
-                    ),
-                  ],
-                ),
-              ),
-              Expanded(
-                flex: 2,
-                child: Text(tr('${_currencyFormat.format(amount)}đ'),
-                  style: const TextStyle(
-                    fontSize: 13,
-                    fontWeight: FontWeight.w700,
-                    color: SboxColors.slate900,
-                  ),
-                  maxLines: 1,
-                  overflow: TextOverflow.ellipsis,
-                ),
-              ),
-              SizedBox(
-                width: 88,
-                child: Align(
-                  alignment: Alignment.centerLeft,
-                  child: Container(
-                    padding:
-                        const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
-                    decoration: BoxDecoration(
-                      color: isActive
-                          ? SboxColors.successSoft
-                          : SboxColors.slate100,
-                      borderRadius: BorderRadius.circular(4),
-                    ),
-                    child: Text(
-                      tr(isActive ? 'Bật' : 'Tắt'),
-                      style: TextStyle(
-                        fontSize: 11,
-                        fontWeight: FontWeight.w600,
-                        color: isActive
-                            ? SboxColors.success
-                            : SboxColors.slate500,
-                      ),
-                    ),
-                  ),
-                ),
-              ),
-              SizedBox(
-                width: 88,
-                child: Row(
-                  mainAxisAlignment: MainAxisAlignment.end,
-                  children: [
-                    if (_perm.canEdit('Allowance'))
-                      IconButton(
-                        tooltip: tr('Sửa'),
-                        onPressed: () =>
-                            _showAllowanceDialog(allowance: allowance),
-                        icon: const Icon(Icons.edit_outlined, size: 18),
-                        color: HrmPageChrome.primaryNavy,
-                        visualDensity: VisualDensity.compact,
-                        constraints:
-                            const BoxConstraints(minWidth: 36, minHeight: 36),
-                      ),
-                    if (_perm.canDelete('Allowance'))
-                      IconButton(
-                        tooltip: tr('Xóa'),
-                        onPressed: () => _deleteAllowance(allowance),
-                        icon: const Icon(Icons.delete_outline, size: 18),
-                        color: SboxColors.danger,
-                        visualDensity: VisualDensity.compact,
-                        constraints:
-                            const BoxConstraints(minWidth: 36, minHeight: 36),
-                      ),
-                  ],
-                ),
-              ),
-            ],
-          ),
-        ),
-      ),
-    );
-  }
-
-  Widget _buildAllowanceDeckItem(Map<String, dynamic> allowance) {
-    final meta = _allowanceTypeMeta(allowance);
-    final typeLabel = meta.label;
-    final typeIcon = meta.icon;
-    final typeColor = meta.color;
-    final isActive = allowance['isActive'] ?? true;
-    final amount = _parseAmount(allowance['amount']);
-    final empIds = _parseEmployeeIds(allowance['employeeIds']);
-
-    return Card(
-      margin: EdgeInsets.zero,
-      elevation: 1,
-      color: Colors.white,
-      shape: RoundedRectangleBorder(
-        borderRadius: BorderRadius.circular(14),
-        side: const BorderSide(color: SboxColors.slate200),
-      ),
-      clipBehavior: Clip.antiAlias,
-      child: InkWell(
-        onTap: () {
-          debugPrint('[Allowance] tap card id=${allowance['id']}');
-          _showAllowanceDialog(allowance: allowance);
-        },
-        child: Padding(
-          padding: const EdgeInsets.fromLTRB(14, 12, 6, 12),
-          child: Row(
-            crossAxisAlignment: CrossAxisAlignment.center,
-            children: [
-              Container(
-                width: 44,
-                height: 44,
-                decoration: BoxDecoration(
-                  color: isActive
-                      ? typeColor.withValues(alpha: 0.12)
-                      : SboxColors.slate400.withValues(alpha: 0.1),
-                  borderRadius: BorderRadius.circular(10),
-                ),
-                child: Icon(
-                  typeIcon,
-                  color: isActive ? typeColor : SboxColors.slate400,
-                  size: 22,
-                ),
-              ),
-              const SizedBox(width: 12),
-              Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Row(
-                      children: [
-                        Expanded(
-                          child: Text(
-                            tr(allowance['name'] ?? ''),
-                            style: const TextStyle(
-                                fontSize: 16,
-                                fontWeight: FontWeight.w600,
-                                color: SboxColors.slate900),
-                            maxLines: 1,
-                            overflow: TextOverflow.ellipsis,
-                          ),
-                        ),
-                        const SizedBox(width: 6),
-                        Container(
-                          padding: const EdgeInsets.symmetric(
-                              horizontal: 6, vertical: 2),
-                          decoration: BoxDecoration(
-                            color: isActive
-                                ? SboxColors.successSoft
-                                : SboxColors.slate100,
-                            borderRadius: BorderRadius.circular(4),
-                          ),
-                          child: Text(
-                            tr(isActive ? 'Bật' : 'Tắt'),
-                            style: TextStyle(
-                                color: isActive
-                                    ? SboxColors.success
-                                    : SboxColors.slate500,
-                                fontSize: 10,
-                                fontWeight: FontWeight.w600),
-                          ),
-                        ),
-                      ],
-                    ),
-                    const SizedBox(height: 6),
-                    Row(
-                      children: [
-                        Icon(typeIcon, size: 12, color: typeColor),
-                        const SizedBox(width: 4),
-                        Text(
-                          tr(typeLabel),
-                          style: TextStyle(
-                              fontSize: 11,
-                              fontWeight: FontWeight.w500,
-                              color: typeColor),
-                        ),
-                        const SizedBox(width: 8),
-                        const Icon(Icons.payments_outlined,
-                            size: 12, color: SboxColors.slate500),
-                        const SizedBox(width: 3),
-                        Flexible(
-                          child: Text(tr('${_currencyFormat.format(amount)}đ'),
-                            style: const TextStyle(
-                                fontSize: 12,
-                                fontWeight: FontWeight.w600,
-                                color: SboxColors.slate900),
-                            maxLines: 1,
-                            overflow: TextOverflow.ellipsis,
-                          ),
-                        ),
-                      ],
-                    ),
-                    const SizedBox(height: 6),
-                    Row(
-                      children: [
-                        Icon(Icons.people_outline,
-                            size: 11, color: SboxColors.slate500),
-                        const SizedBox(width: 3),
-                        Text(
-                          tr(empIds.isEmpty
-                              ? 'Tất cả nhân viên'
-                              : '${empIds.length} nhân viên'),
-                          style:
-                              TextStyle(fontSize: 11, color: SboxColors.slate600),
-                        ),
-                        if (allowance['code'] != null &&
-                            allowance['code'].toString().isNotEmpty) ...[
-                          const SizedBox(width: 8),
-                          Text(tr('·'), style: TextStyle(color: SboxColors.slate400)),
-                          const SizedBox(width: 8),
-                          Flexible(
-                            child: Text(
-                              tr(allowance['code'].toString()),
-                              style: TextStyle(
-                                  fontSize: 11,
-                                  color: SboxColors.slate600,
-                                  fontFamily: 'monospace'),
-                              maxLines: 1,
-                              overflow: TextOverflow.ellipsis,
-                            ),
-                          ),
-                        ],
-                      ],
-                    ),
-                    const SizedBox(height: 8),
-                    if (!HrmSettingsMobileKit.active(context) &&
-                        (_perm.canEdit('Allowance') ||
-                            _perm.canDelete('Allowance')))
-                      Row(
-                        children: [
-                          if (_perm.canEdit('Allowance'))
-                            Expanded(
-                              child: OutlinedButton.icon(
-                                onPressed: () => _showAllowanceDialog(
-                                    allowance: allowance),
-                                icon: const Icon(Icons.edit_outlined, size: 14),
-                                label: Text(tr('Xem / Sửa'),
-                                    style: TextStyle(fontSize: 12)),
-                                style: OutlinedButton.styleFrom(
-                                  foregroundColor: HrmPageChrome.primaryNavy,
-                                  side: const BorderSide(
-                                      color: HrmPageChrome.primaryNavy),
-                                  padding: const EdgeInsets.symmetric(
-                                      vertical: 6, horizontal: 8),
-                                  minimumSize: const Size(0, 32),
-                                  tapTargetSize:
-                                      MaterialTapTargetSize.shrinkWrap,
-                                ),
-                              ),
-                            ),
-                          if (_perm.canEdit('Allowance') &&
-                              _perm.canDelete('Allowance'))
-                            const SizedBox(width: 8),
-                          if (_perm.canDelete('Allowance'))
-                            OutlinedButton.icon(
-                              onPressed: () => _deleteAllowance(allowance),
-                              icon:
-                                  const Icon(Icons.delete_outline, size: 14),
-                              label: Text(tr('Xoá'),
-                                  style: TextStyle(fontSize: 12)),
-                              style: OutlinedButton.styleFrom(
-                                foregroundColor: SboxColors.danger,
-                                side: const BorderSide(
-                                    color: SboxColors.danger),
-                                padding: const EdgeInsets.symmetric(
-                                    vertical: 6, horizontal: 12),
-                                minimumSize: const Size(0, 32),
-                                tapTargetSize: MaterialTapTargetSize.shrinkWrap,
-                              ),
-                            ),
-                        ],
-                      ),
-                  ],
-                ),
-              ),
-            ],
-          ),
-        ),
-      ),
-    );
-  }
-
-  Widget _buildAllowanceCard(Map<String, dynamic> allowance) {
-    final typeValue = _parseType(allowance['type']);
-    final isDaily = typeValue == 1;
-    final isHourly = typeValue == 2;
-    final isPerEvent = typeValue == 3;
-    final isPerShift = typeValue == 4;
-    final amount = _parseAmount(allowance['amount']);
-    final isActive = allowance['isActive'] ?? true;
-    final empIds = _parseEmployeeIds(allowance['employeeIds']);
-
-    String typeLabel = 'Cố định';
-    IconData typeIcon = Icons.lock_outline;
-    if (isDaily) {
-      typeLabel = 'Theo ngày';
-      typeIcon = Icons.calendar_today_outlined;
-    } else if (isHourly) {
-      typeLabel = 'Theo giờ';
-      typeIcon = Icons.access_time;
-    } else if (isPerEvent) {
-      typeLabel = 'Theo sự kiện';
-      typeIcon = Icons.event;
-    } else if (isPerShift) {
-      typeLabel = 'Theo ca';
-      typeIcon = Icons.schedule;
-    }
-
-    return Container(
-      decoration: BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.circular(14),
-        boxShadow: [
-          BoxShadow(
-            color: Colors.black.withValues(alpha: 0.05),
-            blurRadius: 10,
-            offset: const Offset(0, 2),
-          ),
-        ],
-        border: !isActive
-            ? Border.all(color: SboxColors.slate200, width: 1)
-            : null,
-      ),
-      child: Opacity(
-        opacity: isActive ? 1.0 : 0.6,
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            // Header with icon, name and status
-            Padding(
-              padding: const EdgeInsets.all(16),
-              child: Row(
-                children: [
-                  Container(
-                    padding: const EdgeInsets.all(10),
-                    decoration: BoxDecoration(
-                      color: isActive
-                          ? HrmPageChrome.primaryNavy.withValues(alpha: 0.1)
-                          : SboxColors.slate400.withValues(alpha: 0.1),
-                      borderRadius: BorderRadius.circular(10),
-                    ),
-                    child: Icon(
-                      Icons.receipt_long,
-                      color: isActive
-                          ? HrmPageChrome.primaryNavy
-                          : SboxColors.slate400,
-                      size: 22,
-                    ),
-                  ),
-                  const SizedBox(width: 12),
-                  Expanded(
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Row(
-                          children: [
-                            Expanded(
-                              child: Text(
-                                tr(allowance['name'] ?? ''),
-                                style: const TextStyle(
-                                  color: SboxColors.slate900,
-                                  fontSize: 16,
-                                  fontWeight: FontWeight.bold,
-                                ),
-                                overflow: TextOverflow.ellipsis,
-                              ),
-                            ),
-                            Container(
-                              padding: const EdgeInsets.symmetric(
-                                  horizontal: 6, vertical: 2),
-                              decoration: BoxDecoration(
-                                color: isActive
-                                    ? SboxColors.successSoft
-                                    : SboxColors.slate100,
-                                borderRadius: BorderRadius.circular(4),
-                              ),
-                              child: Text(
-                                tr(isActive ? 'Đang bật' : 'Đã tắt'),
-                                style: TextStyle(
-                                  color: isActive
-                                      ? SboxColors.success
-                                      : SboxColors.slate500,
-                                  fontSize: 10,
-                                  fontWeight: FontWeight.w500,
-                                ),
-                              ),
-                            ),
-                          ],
-                        ),
-                        if (allowance['code'] != null &&
-                            allowance['code'].toString().isNotEmpty)
-                          Container(
-                            margin: const EdgeInsets.only(top: 4),
-                            padding: const EdgeInsets.symmetric(
-                                horizontal: 6, vertical: 2),
-                            decoration: BoxDecoration(
-                              color: HrmPageChrome.primaryNavy
-                                  .withValues(alpha: 0.1),
-                              borderRadius: BorderRadius.circular(4),
-                            ),
-                            child: Text(tr('${tr('Mã: ')}${allowance['code']}'),
-                              style: const TextStyle(
-                                color: HrmPageChrome.primaryNavy,
-                                fontSize: 10,
-                                fontWeight: FontWeight.w500,
-                              ),
-                            ),
-                          ),
-                      ],
-                    ),
-                  ),
-                ],
-              ),
-            ),
-
-            // Type badge + Employee count
-            Padding(
-              padding: const EdgeInsets.symmetric(horizontal: 16),
-              child: Row(
-                children: [
-                  Icon(
-                    typeIcon,
-                    size: 14,
-                    color: SboxColors.slate500,
-                  ),
-                  const SizedBox(width: 4),
-                  Text(
-                    tr(typeValue == 4
-                        ? '$typeLabel · ${_shiftNamesLabel(allowance)}'
-                        : typeLabel),
-                    style: const TextStyle(
-                      color: SboxColors.slate500,
-                      fontSize: 12,
-                    ),
-                  ),
-                  const Spacer(),
-                  Icon(Icons.people, size: 13, color: SboxColors.slate400),
-                  const SizedBox(width: 3),
-                  Text(
-                    tr(empIds.isEmpty ? 'Tất cả' : '${empIds.length} NV'),
-                    style:
-                        const TextStyle(color: SboxColors.slate500, fontSize: 11),
-                  ),
-                ],
-              ),
-            ),
-
-            // Amount
-            Expanded(
-              child: Center(
-                child: Text(tr('${_currencyFormat.format(amount)} đ'),
-                  style: TextStyle(
-                    color: isActive
-                        ? HrmPageChrome.primaryNavy
-                        : SboxColors.slate400,
-                    fontSize: 22,
-                    fontWeight: FontWeight.bold,
-                  ),
-                ),
-              ),
-            ),
-
-            // Action buttons
-            Container(
-              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
-              decoration: const BoxDecoration(
-                border: Border(
-                  top: BorderSide(color: SboxColors.slate200),
-                ),
-              ),
-              child: Row(
-                mainAxisAlignment: MainAxisAlignment.center,
-                children: [
-                  if (_perm.canEdit('Allowance'))
-                    IconButton(
-                      onPressed: () =>
-                          _showAllowanceDialog(allowance: allowance),
-                      icon: const Icon(Icons.edit_outlined, size: 20),
-                      color: SboxColors.slate500,
-                      tooltip: tr('Sửa'),
-                    ),
-                  if (_perm.canDelete('Allowance'))
-                    IconButton(
-                      onPressed: () => _deleteAllowance(allowance),
-                      icon: const Icon(Icons.delete_outline, size: 20),
-                      color: SboxColors.slate500,
-                      tooltip: tr('Xóa'),
-                    ),
-                ],
-              ),
-            ),
-          ],
-        ),
-      ),
-    );
-  }
-
-  void _showAllowanceDialog({Map<String, dynamic>? allowance}) {
-    final isEditing = allowance != null;
-    final nameController =
-        TextEditingController(text: tr(allowance?['name'] ?? ''));
-    final codeController =
-        TextEditingController(text: tr(allowance?['code'] ?? ''));
-    final descriptionController =
-        TextEditingController(text: tr(allowance?['description'] ?? ''));
-    // Khởi tạo bằng chuỗi đã format hàng nghìn để khớp với
-    // ThousandSeparatorFormatter; tránh double "50000.0" bị strip dấu chấm
-    // thành "500000" khi user gõ phím đầu tiên.
-    final amountController = TextEditingController(
-      text: tr(formatNumber(_parseAmount(allowance?['amount']))),
-    );
-    int type = _parseType(allowance?['type']);
-    bool isActive = allowance?['isActive'] ?? true;
-    bool isTaxable = allowance?['isTaxable'] ?? true;
-    bool isInsuranceApplicable = allowance?['isInsuranceApplicable'] ?? false;
-    DateTime? startDate = allowance?['startDate'] != null
-        ? DateTime.tryParse(allowance!['startDate'])
-        : null;
-    DateTime? endDate = allowance?['endDate'] != null
-        ? DateTime.tryParse(allowance!['endDate'])
-        : null;
-    List<String> selectedEmployeeIds =
-        _parseEmployeeIds(allowance?['employeeIds']);
-    List<String> selectedShiftIds =
-        _parseEmployeeIds(allowance?['shiftIds']);
-
-    showDialog(
+  Future<void> _edit([_Allowance? a]) async {
+    final saved = await showDialog<bool>(
       context: context,
-      builder: (context) => StatefulBuilder(
-        builder: (context, setDialogState) {
-          final isMobile = Responsive.isMobile(context);
-
-          Future<void> onSave() async {
-            if (nameController.text.isEmpty || amountController.text.isEmpty) {
-              appNotification.showWarning(
-                  title: 'Thiếu thông tin',
-                  message: tr('Vui lòng điền tên và giá trị phụ cấp'));
-              return;
-            }
-            if (type == 4 && selectedShiftIds.isEmpty) {
-              appNotification.showWarning(
-                  title: 'Thiếu ca',
-                  message: tr('Phụ cấp theo ca cần chọn ít nhất một ca'));
-              return;
-            }
-
-            final data = {
-              'name': nameController.text,
-              'code':
-                  codeController.text.isNotEmpty ? codeController.text : null,
-              'description': descriptionController.text.isNotEmpty
-                  ? descriptionController.text
-                  : null,
-              // Gửi tên enum (string) để chắc chắn server parse đúng.
-              'type': const [
-                'Fixed',
-                'Daily',
-                'Hourly',
-                'PerEvent',
-                'PerShift'
-              ][type],
-              'amount':
-                  parseFormattedNumber(amountController.text)?.toDouble() ?? 0,
-              'currency': 'VND',
-              'isTaxable': isTaxable,
-              'isInsuranceApplicable': isInsuranceApplicable,
-              'isActive': isActive,
-              if (startDate != null) 'startDate': startDate!.toIso8601String(),
-              if (endDate != null) 'endDate': endDate!.toIso8601String(),
-              if (selectedEmployeeIds.isNotEmpty)
-                'employeeIds': selectedEmployeeIds,
-              if (type == 4) 'shiftIds': selectedShiftIds,
-            };
-
-            Navigator.pop(context);
-
-            try {
-              dynamic response;
-              if (isEditing) {
-                response = await _apiService.updateAllowanceSetting(
-                    allowance['id'].toString(), data);
-              } else {
-                response = await _apiService.createAllowanceSetting(data);
-              }
-              _loadAllowances();
-              if (mounted) {
-                if (response is Map && response['isSuccess'] == true) {
-                  appNotification.showSuccess(
-                    title: 'Thành công',
-                    message:
-                        isEditing ? 'Đã cập nhật phụ cấp' : 'Đã thêm phụ cấp',
-                  );
-                } else if (response is Map && response['isSuccess'] == false) {
-                  appNotification.showError(
-                    title: 'Lỗi',
-                    message: response['message'] ?? 'Lỗi khi lưu phụ cấp',
-                  );
-                } else {
-                  appNotification.showSuccess(
-                    title: 'Thành công',
-                    message:
-                        isEditing ? 'Đã cập nhật phụ cấp' : 'Đã thêm phụ cấp',
-                  );
-                }
-              }
-            } catch (e) {
-              if (mounted) {
-                appNotification.showError(title: 'Lỗi', message: tr('Lỗi: $e'));
-              }
-            }
-          }
-
-          final activeSwitch = Row(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              Text(
-                tr(isActive ? 'Đang bật' : 'Đã tắt'),
-                style: TextStyle(
-                  color: isActive
-                      ? HrmPageChrome.primaryNavy
-                      : SboxColors.slate400,
-                  fontSize: 12,
-                  fontWeight: FontWeight.w500,
-                ),
-              ),
-              const SizedBox(width: 8),
-              Switch(
-                value: isActive,
-                onChanged: (value) => setDialogState(() => isActive = value),
-                activeTrackColor: HrmPageChrome.primaryNavy,
-              ),
-            ],
-          );
-
-          final formContent = Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              // Row 1: Tên phụ cấp + Mã phụ cấp
-              Row(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Expanded(
-                    flex: 2,
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Row(
-                          children: [
-                            Text(tr('Tên phụ cấp'),
-                                style: TextStyle(
-                                    color: SboxColors.slate500, fontSize: 13)),
-                            Text(tr(' *'),
-                                style: TextStyle(color: SboxColors.danger)),
-                          ],
-                        ),
-                        const SizedBox(height: 6),
-                        TextField(
-                          controller: nameController,
-                          style: const TextStyle(
-                              color: SboxColors.slate900, fontSize: 14),
-                          decoration: InputDecoration(
-                            hintText: tr('Vd: Phụ cấp ăn trưa'),
-                            hintStyle: const TextStyle(
-                                color: SboxColors.slate400, fontSize: 13),
-                            contentPadding: const EdgeInsets.symmetric(
-                                horizontal: 12, vertical: 12),
-                            border: OutlineInputBorder(
-                              borderRadius: BorderRadius.circular(10),
-                              borderSide:
-                                  const BorderSide(color: SboxColors.slate200),
-                            ),
-                            enabledBorder: OutlineInputBorder(
-                              borderRadius: BorderRadius.circular(10),
-                              borderSide:
-                                  const BorderSide(color: SboxColors.slate200),
-                            ),
-                            focusedBorder: OutlineInputBorder(
-                              borderRadius: BorderRadius.circular(10),
-                              borderSide:
-                                  const BorderSide(color: HrmPageChrome.primaryNavy),
-                            ),
-                          ),
-                        ),
-                      ],
-                    ),
-                  ),
-                  const SizedBox(width: 16),
-                  Expanded(
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Text(tr('Mã phụ cấp'),
-                            style: TextStyle(
-                                color: SboxColors.slate500, fontSize: 13)),
-                        const SizedBox(height: 6),
-                        TextField(
-                          controller: codeController,
-                          style: const TextStyle(
-                              color: SboxColors.slate900, fontSize: 14),
-                          decoration: InputDecoration(
-                            hintText: tr('Vd: PC_AT'),
-                            hintStyle: const TextStyle(
-                                color: SboxColors.slate400, fontSize: 13),
-                            contentPadding: const EdgeInsets.symmetric(
-                                horizontal: 12, vertical: 12),
-                            border: OutlineInputBorder(
-                              borderRadius: BorderRadius.circular(10),
-                              borderSide:
-                                  const BorderSide(color: SboxColors.slate200),
-                            ),
-                            enabledBorder: OutlineInputBorder(
-                              borderRadius: BorderRadius.circular(10),
-                              borderSide:
-                                  const BorderSide(color: SboxColors.slate200),
-                            ),
-                            focusedBorder: OutlineInputBorder(
-                              borderRadius: BorderRadius.circular(10),
-                              borderSide:
-                                  const BorderSide(color: HrmPageChrome.primaryNavy),
-                            ),
-                          ),
-                        ),
-                      ],
-                    ),
-                  ),
-                ],
-              ),
-              const SizedBox(height: 16),
-
-              // Row 2: Loại phụ cấp + Giá trị
-              Row(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Expanded(
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Row(
-                          children: [
-                            Text(tr('Loại phụ cấp'),
-                                style: TextStyle(
-                                    color: SboxColors.slate500, fontSize: 13)),
-                            Text(tr(' *'),
-                                style: TextStyle(color: SboxColors.danger)),
-                          ],
-                        ),
-                        const SizedBox(height: 6),
-                        InputDecorator(
-                          decoration: InputDecoration(
-                            contentPadding: const EdgeInsets.symmetric(
-                                horizontal: 12, vertical: 6),
-                            border: OutlineInputBorder(
-                              borderRadius: BorderRadius.circular(10),
-                              borderSide:
-                                  const BorderSide(color: SboxColors.slate200),
-                            ),
-                            enabledBorder: OutlineInputBorder(
-                              borderRadius: BorderRadius.circular(10),
-                              borderSide:
-                                  const BorderSide(color: SboxColors.slate200),
-                            ),
-                            focusedBorder: OutlineInputBorder(
-                              borderRadius: BorderRadius.circular(10),
-                              borderSide:
-                                  const BorderSide(color: HrmPageChrome.primaryNavy),
-                            ),
-                          ),
-                          child: DropdownButtonHideUnderline(
-                            child: DropdownButton<int>(
-                              isExpanded: true,
-                              value: type,
-                              dropdownColor: Colors.white,
-                              style: const TextStyle(
-                                  color: SboxColors.slate900, fontSize: 14),
-                              items: [
-                                DropdownMenuItem(
-                                    value: 0,
-                                    child: Text(tr('Cố định (theo tháng)'))),
-                                DropdownMenuItem(
-                                    value: 1, child: Text(tr('Theo ngày công'))),
-                                DropdownMenuItem(
-                                    value: 4,
-                                    child: Text(tr('Theo ca làm việc'))),
-                              ],
-                              onChanged: (value) {
-                                if (value == null) return;
-                                setDialogState(() => type = value);
-                              },
-                            ),
-                          ),
-                        ),
-                      ],
-                    ),
-                  ),
-                  const SizedBox(width: 16),
-                  Expanded(
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Row(
-                          children: [
-                            Text(tr('Giá trị (VNĐ)'),
-                                style: TextStyle(
-                                    color: SboxColors.slate500, fontSize: 13)),
-                            Text(tr(' *'),
-                                style: TextStyle(color: SboxColors.danger)),
-                          ],
-                        ),
-                        const SizedBox(height: 6),
-                        TextField(
-                          controller: amountController,
-                          keyboardType: TextInputType.number,
-                          inputFormatters: [ThousandSeparatorFormatter()],
-                          style: const TextStyle(
-                              color: SboxColors.slate900, fontSize: 14),
-                          decoration: InputDecoration(
-                            hintText: tr('Vd: 500000'),
-                            hintStyle: const TextStyle(
-                                color: SboxColors.slate400, fontSize: 13),
-                            contentPadding: const EdgeInsets.symmetric(
-                                horizontal: 12, vertical: 12),
-                            border: OutlineInputBorder(
-                              borderRadius: BorderRadius.circular(10),
-                              borderSide:
-                                  const BorderSide(color: SboxColors.slate200),
-                            ),
-                            enabledBorder: OutlineInputBorder(
-                              borderRadius: BorderRadius.circular(10),
-                              borderSide:
-                                  const BorderSide(color: SboxColors.slate200),
-                            ),
-                            focusedBorder: OutlineInputBorder(
-                              borderRadius: BorderRadius.circular(10),
-                              borderSide:
-                                  const BorderSide(color: HrmPageChrome.primaryNavy),
-                            ),
-                          ),
-                        ),
-                      ],
-                    ),
-                  ),
-                ],
-              ),
-              if (type == 4) ...[
-                const SizedBox(height: 8),
-                Text(
-                  tr('Chọn ca được hưởng. Mỗi ca một mức. Lương kỳ = mức × số lần chấm đủ ca đó.'),
-                  style: const TextStyle(color: SboxColors.slate500, fontSize: 12),
-                ),
-                const SizedBox(height: 8),
-                if (_shifts.isEmpty)
-                  Text(
-                    tr('Chưa có ca. Tạo ca ở Thiết lập ca trước.'),
-                    style: const TextStyle(color: SboxColors.danger, fontSize: 12),
-                  )
-                else
-                  Wrap(
-                    spacing: 8,
-                    runSpacing: 8,
-                    children: [
-                      for (final shift in _shifts)
-                        FilterChip(
-                          label: Text(tr(shift['name']?.toString() ?? 'Ca')),
-                          selected: selectedShiftIds
-                              .contains(shift['id']?.toString()),
-                          onSelected: (on) {
-                            final id = shift['id']?.toString() ?? '';
-                            if (id.isEmpty) return;
-                            setDialogState(() {
-                              if (on) {
-                                selectedShiftIds = [...selectedShiftIds, id];
-                              } else {
-                                selectedShiftIds = selectedShiftIds
-                                    .where((e) => e != id)
-                                    .toList();
-                              }
-                            });
-                          },
-                        ),
-                    ],
-                  ),
-              ],
-              const SizedBox(height: 16),
-
-              // Row 3: Thời gian áp dụng
-              Row(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Expanded(
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Text(tr('Ngày bắt đầu'),
-                            style: TextStyle(
-                                color: SboxColors.slate500, fontSize: 13)),
-                        const SizedBox(height: 6),
-                        InkWell(
-                          onTap: () async {
-                            final date = await showDatePicker(
-                              context: context,
-                              initialDate: startDate ?? DateTime.now(),
-                              firstDate: DateTime(2020),
-                              lastDate: DateTime(2030),
-                            );
-                            if (date != null) {
-                              setDialogState(() => startDate = date);
-                            }
-                          },
-                          child: Container(
-                            padding: const EdgeInsets.symmetric(
-                                horizontal: 12, vertical: 14),
-                            decoration: BoxDecoration(
-                              border:
-                                  Border.all(color: SboxColors.slate200),
-                              borderRadius: BorderRadius.circular(10),
-                            ),
-                            child: Row(
-                              children: [
-                                const Icon(Icons.calendar_today,
-                                    size: 16, color: SboxColors.slate500),
-                                const SizedBox(width: 8),
-                                Text(
-                                  tr(startDate != null
-                                      ? DateFormat('dd/MM/yyyy')
-                                          .format(startDate!)
-                                      : 'Không giới hạn'),
-                                  style: TextStyle(
-                                    color: startDate != null
-                                        ? SboxColors.slate900
-                                        : SboxColors.slate400,
-                                    fontSize: 14,
-                                  ),
-                                ),
-                                const Spacer(),
-                                if (startDate != null)
-                                  GestureDetector(
-                                    onTap: () =>
-                                        setDialogState(() => startDate = null),
-                                    child: const Icon(Icons.close,
-                                        size: 16, color: SboxColors.slate400),
-                                  ),
-                              ],
-                            ),
-                          ),
-                        ),
-                      ],
-                    ),
-                  ),
-                  const SizedBox(width: 16),
-                  Expanded(
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Text(tr('Ngày kết thúc'),
-                            style: TextStyle(
-                                color: SboxColors.slate500, fontSize: 13)),
-                        const SizedBox(height: 6),
-                        InkWell(
-                          onTap: () async {
-                            final date = await showDatePicker(
-                              context: context,
-                              initialDate: endDate ??
-                                  DateTime.now().add(const Duration(days: 365)),
-                              firstDate: DateTime(2020),
-                              lastDate: DateTime(2030),
-                            );
-                            if (date != null) {
-                              setDialogState(() => endDate = date);
-                            }
-                          },
-                          child: Container(
-                            padding: const EdgeInsets.symmetric(
-                                horizontal: 12, vertical: 14),
-                            decoration: BoxDecoration(
-                              border:
-                                  Border.all(color: SboxColors.slate200),
-                              borderRadius: BorderRadius.circular(10),
-                            ),
-                            child: Row(
-                              children: [
-                                const Icon(Icons.calendar_today,
-                                    size: 16, color: SboxColors.slate500),
-                                const SizedBox(width: 8),
-                                Text(
-                                  tr(endDate != null
-                                      ? DateFormat('dd/MM/yyyy')
-                                          .format(endDate!)
-                                      : 'Không giới hạn'),
-                                  style: TextStyle(
-                                    color: endDate != null
-                                        ? SboxColors.slate900
-                                        : SboxColors.slate400,
-                                    fontSize: 14,
-                                  ),
-                                ),
-                                const Spacer(),
-                                if (endDate != null)
-                                  GestureDetector(
-                                    onTap: () =>
-                                        setDialogState(() => endDate = null),
-                                    child: const Icon(Icons.close,
-                                        size: 16, color: SboxColors.slate400),
-                                  ),
-                              ],
-                            ),
-                          ),
-                        ),
-                      ],
-                    ),
-                  ),
-                ],
-              ),
-              const SizedBox(height: 16),
-
-              // Mô tả
-              Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text(tr('Mô tả'),
-                      style: TextStyle(color: SboxColors.slate500, fontSize: 13)),
-                  const SizedBox(height: 6),
-                  TextField(
-                    controller: descriptionController,
-                    maxLines: 2,
-                    style:
-                        const TextStyle(color: SboxColors.slate900, fontSize: 14),
-                    decoration: InputDecoration(
-                      hintText: tr('Ghi chú về phụ cấp này...'),
-                      hintStyle: const TextStyle(
-                          color: SboxColors.slate400, fontSize: 13),
-                      contentPadding: const EdgeInsets.symmetric(
-                          horizontal: 12, vertical: 12),
-                      border: OutlineInputBorder(
-                        borderRadius: BorderRadius.circular(10),
-                        borderSide: const BorderSide(color: SboxColors.slate200),
-                      ),
-                      enabledBorder: OutlineInputBorder(
-                        borderRadius: BorderRadius.circular(10),
-                        borderSide: const BorderSide(color: SboxColors.slate200),
-                      ),
-                      focusedBorder: OutlineInputBorder(
-                        borderRadius: BorderRadius.circular(10),
-                        borderSide: const BorderSide(color: HrmPageChrome.primaryNavy),
-                      ),
-                    ),
-                  ),
-                ],
-              ),
-              const SizedBox(height: 16),
-
-              // Checkbox tính thuế
-              Container(
-                padding: const EdgeInsets.all(12),
-                decoration: BoxDecoration(
-                  color: SboxColors.slate50,
-                  borderRadius: BorderRadius.circular(10),
-                ),
-                child: Row(
-                  children: [
-                    Checkbox(
-                      value: isTaxable,
-                      onChanged: (value) =>
-                          setDialogState(() => isTaxable = value ?? true),
-                      activeColor: HrmPageChrome.primaryNavy,
-                    ),
-                    Text(tr('Tính thuế TNCN'),
-                        style:
-                            TextStyle(color: SboxColors.slate900, fontSize: 14)),
-                    const Spacer(),
-                    Container(
-                      padding: const EdgeInsets.symmetric(
-                          horizontal: 8, vertical: 4),
-                      decoration: BoxDecoration(
-                        color: isTaxable
-                            ? SboxColors.warningSoft
-                            : SboxColors.successSoft,
-                        borderRadius: BorderRadius.circular(4),
-                      ),
-                      child: Text(
-                        tr(isTaxable ? 'Có thuế' : 'Miễn thuế'),
-                        style: TextStyle(
-                          color: isTaxable
-                              ? SboxColors.warning
-                              : SboxColors.success,
-                          fontSize: 11,
-                          fontWeight: FontWeight.w500,
-                        ),
-                      ),
-                    ),
-                  ],
-                ),
-              ),
-              const SizedBox(height: 8),
-
-              // Checkbox tính bảo hiểm
-              Container(
-                padding: const EdgeInsets.all(12),
-                decoration: BoxDecoration(
-                  color: SboxColors.slate50,
-                  borderRadius: BorderRadius.circular(10),
-                ),
-                child: Row(
-                  children: [
-                    Checkbox(
-                      value: isInsuranceApplicable,
-                      onChanged: (value) => setDialogState(
-                          () => isInsuranceApplicable = value ?? false),
-                      activeColor: HrmPageChrome.primaryNavy,
-                    ),
-                    Text(tr('Tính bảo hiểm'),
-                        style:
-                            TextStyle(color: SboxColors.slate900, fontSize: 14)),
-                    const Spacer(),
-                    Container(
-                      padding: const EdgeInsets.symmetric(
-                          horizontal: 8, vertical: 4),
-                      decoration: BoxDecoration(
-                        color: isInsuranceApplicable
-                            ? SboxColors.warningSoft
-                            : SboxColors.successSoft,
-                        borderRadius: BorderRadius.circular(4),
-                      ),
-                      child: Text(
-                        tr(isInsuranceApplicable ? 'Có BH' : 'Miễn BH'),
-                        style: TextStyle(
-                          color: isInsuranceApplicable
-                              ? SboxColors.warning
-                              : SboxColors.success,
-                          fontSize: 11,
-                          fontWeight: FontWeight.w500,
-                        ),
-                      ),
-                    ),
-                  ],
-                ),
-              ),
-              const SizedBox(height: 16),
-
-              // Danh sách nhân viên áp dụng
-              Container(
-                padding: const EdgeInsets.all(12),
-                decoration: BoxDecoration(
-                  border: Border.all(color: SboxColors.slate200),
-                  borderRadius: BorderRadius.circular(10),
-                ),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Row(
-                      children: [
-                        const Icon(Icons.people,
-                            size: 18, color: SboxColors.slate500),
-                        const SizedBox(width: 8),
-                        Text(tr('Áp dụng cho'),
-                            style: TextStyle(
-                                color: SboxColors.slate900,
-                                fontSize: 14,
-                                fontWeight: FontWeight.w500)),
-                        const Spacer(),
-                        Container(
-                          padding: const EdgeInsets.symmetric(
-                              horizontal: 8, vertical: 4),
-                          decoration: BoxDecoration(
-                            color: selectedEmployeeIds.isEmpty
-                                ? SboxColors.successSoft
-                                : const Color(0xFFE0E7FF),
-                            borderRadius: BorderRadius.circular(4),
-                          ),
-                          child: Text(
-                            tr(selectedEmployeeIds.isEmpty
-                                ? 'Tất cả nhân viên'
-                                : '${selectedEmployeeIds.length} nhân viên'),
-                            style: TextStyle(
-                              color: selectedEmployeeIds.isEmpty
-                                  ? SboxColors.success
-                                  : HrmPageChrome.primaryNavy,
-                              fontSize: 11,
-                              fontWeight: FontWeight.w500,
-                            ),
-                          ),
-                        ),
-                      ],
-                    ),
-                    const SizedBox(height: 8),
-                    Text(
-                      tr(selectedEmployeeIds.isEmpty
-                          ? 'Phụ cấp này sẽ áp dụng cho tất cả nhân viên trong công ty'
-                          : 'Đã chọn ${selectedEmployeeIds.length} nhân viên cụ thể'),
-                      style: const TextStyle(
-                          color: SboxColors.slate500, fontSize: 12),
-                    ),
-                    const SizedBox(height: 8),
-                    OutlinedButton.icon(
-                      onPressed: () {
-                        _showEmployeeSelector(
-                          selectedIds: selectedEmployeeIds,
-                          onChanged: (ids) {
-                            setDialogState(() {
-                              selectedEmployeeIds = ids;
-                            });
-                          },
-                        );
-                      },
-                      icon: const Icon(Icons.person_add, size: 16),
-                      label: Text(tr('Chọn nhân viên')),
-                      style: OutlinedButton.styleFrom(
-                        foregroundColor: HrmPageChrome.primaryNavy,
-                        side: const BorderSide(color: HrmPageChrome.primaryNavy),
-                        padding: const EdgeInsets.symmetric(
-                            horizontal: 12, vertical: 8),
-                      ),
-                    ),
-                  ],
-                ),
-              ),
-            ],
-          );
-
-          if (isMobile) {
-            return Dialog.fullscreen(
-              child: Scaffold(
-                appBar: AppBar(
-                  title: Text(tr(isEditing ? 'Sửa phụ cấp' : 'Thêm phụ cấp')),
-                  leading: IconButton(
-                      icon: const Icon(Icons.close),
-                      onPressed: () => Navigator.pop(context)),
-                  actions: [
-                    activeSwitch,
-                    const SizedBox(width: 4),
-                    TextButton.icon(
-                      onPressed: onSave,
-                      icon: const Icon(Icons.save, size: 18),
-                      label: Text(tr(isEditing ? 'Cập nhật' : 'Lưu')),
-                    ),
-                  ],
-                ),
-                body: SingleChildScrollView(
-                  padding: const EdgeInsets.all(16),
-                  child: formContent,
-                ),
-              ),
-            );
-          }
-
-          return Dialog(
-            backgroundColor: Colors.white,
-            shape:
-                RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
-            insetPadding:
-                const EdgeInsets.symmetric(horizontal: 40, vertical: 24),
-            child: Container(
-              width: 650,
-              constraints: BoxConstraints(
-                  maxHeight: MediaQuery.of(context).size.height * 0.9),
-              child: Column(
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  // Header
-                  Container(
-                    padding: const EdgeInsets.fromLTRB(20, 16, 12, 12),
-                    decoration: const BoxDecoration(
-                      border:
-                          Border(bottom: BorderSide(color: SboxColors.slate200)),
-                    ),
-                    child: Row(
-                      children: [
-                        Icon(isEditing ? Icons.edit : Icons.add_circle,
-                            color: HrmPageChrome.primaryNavy, size: 22),
-                        const SizedBox(width: 10),
-                        Text(tr(isEditing ? 'Sửa phụ cấp' : 'Thêm phụ cấp'),
-                            style: const TextStyle(
-                                fontSize: 18,
-                                fontWeight: FontWeight.bold,
-                                color: SboxColors.slate900)),
-                        const Spacer(),
-                        activeSwitch,
-                        const SizedBox(width: 8),
-                        IconButton(
-                          onPressed: () => Navigator.pop(context),
-                          icon:
-                              const Icon(Icons.close, color: SboxColors.slate500),
-                        ),
-                      ],
-                    ),
-                  ),
-                  // Content
-                  Flexible(
-                    child: SingleChildScrollView(
-                      padding: const EdgeInsets.all(20),
-                      child: formContent,
-                    ),
-                  ),
-                  // Footer
-                  Container(
-                    padding: const EdgeInsets.all(20),
-                    decoration: const BoxDecoration(
-                      border: Border(top: BorderSide(color: SboxColors.slate200)),
-                    ),
-                    child: Row(
-                      mainAxisAlignment: MainAxisAlignment.end,
-                      children: [
-                        OutlinedButton(
-                          onPressed: () => Navigator.pop(context),
-                          style: OutlinedButton.styleFrom(
-                            foregroundColor: SboxColors.slate500,
-                            side: const BorderSide(color: SboxColors.slate200),
-                            padding: const EdgeInsets.symmetric(
-                                horizontal: 24, vertical: 12),
-                            shape: RoundedRectangleBorder(
-                                borderRadius: BorderRadius.circular(10)),
-                          ),
-                          child: Text(tr('Hủy')),
-                        ),
-                        const SizedBox(width: 12),
-                        FilledButton.icon(
-                          onPressed: onSave,
-                          icon: const Icon(Icons.save, size: 18),
-                          label: Text(tr(isEditing ? 'Cập nhật' : 'Thêm phụ cấp')),
-                          style: FilledButton.styleFrom(
-                            backgroundColor: HrmPageChrome.primaryNavy,
-                            padding: const EdgeInsets.symmetric(
-                                horizontal: 24, vertical: 12),
-                          ),
-                        ),
-                      ],
-                    ),
-                  ),
-                ],
-              ),
-            ),
-          );
-        },
-      ),
+      builder: (_) => _AllowanceEditor(item: a, employees: _employees, shifts: _shifts),
     );
+    if (saved == true) _load();
   }
 
-  void _showEmployeeSelector({
-    required List<String> selectedIds,
-    required Function(List<String>) onChanged,
-  }) {
-    final tempIds = List<String>.from(selectedIds);
-    String searchText = '';
-
-    showDialog(
+  Future<void> _delete(_Allowance a) async {
+    final ok = await showDialog<bool>(
       context: context,
-      builder: (ctx) => StatefulBuilder(
-        builder: (ctx, setDialogState) {
-          final filtered = searchText.isEmpty
-              ? _employees
-              : _employees.where((e) {
-                  final name = (e['fullName'] ?? e['name'] ?? '')
-                      .toString()
-                      .toLowerCase();
-                  final code =
-                      (e['employeeCode'] ?? '').toString().toLowerCase();
-                  return name.contains(searchText.toLowerCase()) ||
-                      code.contains(searchText.toLowerCase());
-                }).toList();
-
-          final isMobile = Responsive.isMobile(ctx);
-
-          void onConfirm() {
-            onChanged(tempIds);
-            Navigator.pop(ctx);
-          }
-
-          final searchField = Padding(
-            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-            child: TextField(
-              style: const TextStyle(fontSize: 13, color: SboxColors.slate900),
-              decoration: InputDecoration(
-                hintText: tr('Tìm nhân viên...'),
-                hintStyle:
-                    const TextStyle(color: SboxColors.slate400, fontSize: 13),
-                prefixIcon: const Icon(Icons.search,
-                    size: 18, color: SboxColors.slate400),
-                isDense: true,
-                contentPadding:
-                    const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
-                border: OutlineInputBorder(
-                    borderRadius: BorderRadius.circular(10),
-                    borderSide: const BorderSide(color: SboxColors.slate200)),
-                enabledBorder: OutlineInputBorder(
-                    borderRadius: BorderRadius.circular(10),
-                    borderSide: const BorderSide(color: SboxColors.slate200)),
-                focusedBorder: OutlineInputBorder(
-                    borderRadius: BorderRadius.circular(10),
-                    borderSide: const BorderSide(color: HrmPageChrome.primaryNavy)),
-              ),
-              onChanged: (v) => setDialogState(() => searchText = v),
-            ),
-          );
-
-          final selectAll = InkWell(
-            onTap: () {
-              setDialogState(() {
-                if (tempIds.length == _employees.length) {
-                  tempIds.clear();
-                } else {
-                  tempIds.clear();
-                  tempIds.addAll(_employees.map((e) => e['id'].toString()));
-                }
-              });
-            },
-            child: Container(
-              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
-              color: SboxColors.slate50,
-              child: Row(
-                children: [
-                  Icon(
-                      tempIds.length == _employees.length
-                          ? Icons.check_box
-                          : Icons.check_box_outline_blank,
-                      size: 20,
-                      color: HrmPageChrome.primaryNavy),
-                  const SizedBox(width: 10),
-                  Text(tr('Chọn tất cả (${tempIds.length}/${_employees.length})'),
-                      style: const TextStyle(
-                          fontSize: 13, fontWeight: FontWeight.w500)),
-                ],
-              ),
-            ),
-          );
-
-          final list = Expanded(
-            child: ListView.separated(
-              itemCount: filtered.length,
-              separatorBuilder: (_, __) =>
-                  const Divider(height: 24, color: SboxColors.slate200),
-              itemBuilder: (_, i) {
-                final emp = filtered[i];
-                final id = emp['id'].toString();
-                final checked = tempIds.contains(id);
-                final colors = [
-                  HrmPageChrome.primaryNavy,
-                  HrmPageChrome.primaryNavy,
-                  SboxColors.warning,
-                  HrmPageChrome.primaryNavy,
-                  SboxColors.danger
-                ];
-                final color = colors[i % colors.length];
-                return InkWell(
-                  onTap: () {
-                    setDialogState(() {
-                      if (checked) {
-                        tempIds.remove(id);
-                      } else {
-                        tempIds.add(id);
-                      }
-                    });
-                  },
-                  child: Padding(
-                    padding: const EdgeInsets.symmetric(
-                        horizontal: 16, vertical: 10),
-                    child: Row(
-                      children: [
-                        Icon(
-                            checked
-                                ? Icons.check_box
-                                : Icons.check_box_outline_blank,
-                            size: 20,
-                            color: checked
-                                ? HrmPageChrome.primaryNavy
-                                : SboxColors.slate400),
-                        const SizedBox(width: 10),
-                        CircleAvatar(
-                          radius: 14,
-                          backgroundColor: color.withValues(alpha: 0.15),
-                          child: Text(
-                              tr((emp['fullName'] ?? emp['name'] ?? '?')[0]),
-                              style: TextStyle(
-                                  fontSize: 11,
-                                  fontWeight: FontWeight.bold,
-                                  color: color)),
-                        ),
-                        const SizedBox(width: 10),
-                        Expanded(
-                          child: Column(
-                            crossAxisAlignment: CrossAxisAlignment.start,
-                            children: [
-                              Text(tr(emp['fullName'] ?? emp['name'] ?? ''),
-                                  style: const TextStyle(
-                                      fontSize: 13,
-                                      fontWeight: FontWeight.w500,
-                                      color: SboxColors.slate900)),
-                              Text(tr(emp['employeeCode'] ?? ''),
-                                  style: const TextStyle(
-                                      fontSize: 11, color: SboxColors.slate500)),
-                            ],
-                          ),
-                        ),
-                      ],
-                    ),
-                  ),
-                );
-              },
-            ),
-          );
-
-          if (isMobile) {
-            return Dialog.fullscreen(
-              child: Scaffold(
-                appBar: AppBar(
-                  title: Text(tr('Chọn nhân viên')),
-                  leading: IconButton(
-                      icon: const Icon(Icons.close),
-                      onPressed: () => Navigator.pop(ctx)),
-                  actions: [
-                    TextButton(
-                      onPressed: onConfirm,
-                      child: Text(tr('Xác nhận (${tempIds.length})')),
-                    ),
-                  ],
-                ),
-                body: Column(
-                  children: [
-                    searchField,
-                    selectAll,
-                    const Divider(height: 24),
-                    list
-                  ],
-                ),
-              ),
-            );
-          }
-
-          return Dialog(
-            backgroundColor: Colors.white,
-            insetPadding:
-                const EdgeInsets.symmetric(horizontal: 40, vertical: 24),
-            shape:
-                RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
-            child: SizedBox(
-              width: math.min(450, MediaQuery.of(ctx).size.width - 32),
-              height: 550,
-              child: Column(
-                children: [
-                  Container(
-                    padding: const EdgeInsets.fromLTRB(20, 16, 12, 12),
-                    decoration: const BoxDecoration(
-                        border: Border(
-                            bottom: BorderSide(color: SboxColors.slate200))),
-                    child: Row(
-                      children: [
-                        const Icon(Icons.people,
-                            color: HrmPageChrome.primaryNavy, size: 20),
-                        const SizedBox(width: 8),
-                        Expanded(
-                            child: Text(tr('Chọn nhân viên'),
-                                style: TextStyle(
-                                    fontSize: 16,
-                                    fontWeight: FontWeight.bold,
-                                    color: SboxColors.slate900))),
-                        IconButton(
-                            onPressed: () => Navigator.pop(ctx),
-                            icon: const Icon(Icons.close,
-                                color: SboxColors.slate500, size: 20)),
-                      ],
-                    ),
-                  ),
-                  searchField,
-                  selectAll,
-                  const Divider(height: 24),
-                  list,
-                  Container(
-                    padding: const EdgeInsets.all(16),
-                    decoration: const BoxDecoration(
-                        border:
-                            Border(top: BorderSide(color: SboxColors.slate200))),
-                    child: Row(
-                      mainAxisAlignment: MainAxisAlignment.end,
-                      children: [
-                        OutlinedButton(
-                          onPressed: () {
-                            onChanged([]);
-                            Navigator.pop(ctx);
-                          },
-                          style: OutlinedButton.styleFrom(
-                            foregroundColor: SboxColors.slate500,
-                            side: const BorderSide(color: SboxColors.slate200),
-                            shape: RoundedRectangleBorder(
-                                borderRadius: BorderRadius.circular(10)),
-                          ),
-                          child: Text(tr('Tất cả NV')),
-                        ),
-                        const SizedBox(width: 8),
-                        OutlinedButton(
-                          onPressed: () => Navigator.pop(ctx),
-                          style: OutlinedButton.styleFrom(
-                            foregroundColor: SboxColors.slate500,
-                            side: const BorderSide(color: SboxColors.slate200),
-                            shape: RoundedRectangleBorder(
-                                borderRadius: BorderRadius.circular(10)),
-                          ),
-                          child: Text(tr('Hủy')),
-                        ),
-                        const SizedBox(width: 12),
-                        FilledButton(
-                          onPressed: onConfirm,
-                          style: FilledButton.styleFrom(
-                            backgroundColor: HrmPageChrome.primaryNavy,
-                          ),
-                          child: Text(tr('Xác nhận (${tempIds.length})')),
-                        ),
-                      ],
-                    ),
-                  ),
-                ],
-              ),
-            ),
-          );
-        },
-      ),
-    );
-  }
-
-  void _deleteAllowance(Map<String, dynamic> allowance) {
-    showDialog(
-      context: context,
-      builder: (context) => ScrollableAlertDialog(
-        backgroundColor: Colors.white,
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
-        title: Text(tr('Xác nhận xóa'),
-            style: TextStyle(
-                color: SboxColors.slate900, fontWeight: FontWeight.bold)),
-        content: Text(tr('${tr('Bạn có chắc muốn xóa phụ cấp "')}${allowance['name']}"?'),
-          style: const TextStyle(color: SboxColors.slate500),
-        ),
+      builder: (ctx) => AlertDialog(
+        title: Text(tr('Xóa phụ cấp "${a.name}"?')),
+        content: Text(tr('Bảng lương đã chốt giữ nguyên. Muốn ngừng áp dụng mà giữ lịch sử, hãy tắt phụ cấp thay vì xóa.')),
         actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(context),
-            child:
-                Text(tr('Hủy'), style: TextStyle(color: SboxColors.slate500)),
-          ),
+          TextButton(onPressed: () => Navigator.pop(ctx, false), child: Text(tr('Hủy'))),
           FilledButton(
-            onPressed: () async {
-              Navigator.pop(context);
-              try {
-                final response = await _apiService
-                    .deleteAllowanceSetting(allowance['id'].toString());
-                _loadAllowances();
-                if (mounted) {
-                  if (response['isSuccess'] == true) {
-                    appNotification.showSuccess(
-                        title: 'Thành công', message: tr('Đã xóa phụ cấp'));
-                  } else if (response['isSuccess'] == false) {
-                    appNotification.showError(
-                        title: 'Lỗi',
-                        message: response['message'] ?? 'Lỗi khi xóa phụ cấp');
-                  } else {
-                    appNotification.showSuccess(
-                        title: 'Thành công', message: tr('Đã xóa phụ cấp'));
-                  }
-                }
-              } catch (e) {
-                if (mounted) {
-                  appNotification.showError(title: 'Lỗi', message: tr('Lỗi: $e'));
-                }
-              }
-            },
-            style: FilledButton.styleFrom(
-              backgroundColor: SboxColors.danger,
-            ),
+            style: FilledButton.styleFrom(backgroundColor: SboxColors.danger),
+            onPressed: () => Navigator.pop(ctx, true),
             child: Text(tr('Xóa')),
           ),
         ],
       ),
+    );
+    if (ok != true) return;
+    final r = await _api.deleteAllowanceSetting(a.id);
+    if (!mounted) return;
+    if (r['isSuccess'] == true) {
+      _load();
+    } else {
+      _toast(r['message']?.toString() ?? 'Không xóa được', error: true);
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final list = _items.where((a) => _filter == null || a.kind == _filter).toList()
+      ..sort((a, b) => a.active != b.active ? (a.active ? -1 : 1) : a.name.compareTo(b.name));
+    final monthly = _items.where((a) => a.active && a.kind == AllowanceKind.fixed && a.employeeIds.isEmpty).fold<double>(0, (s, a) => s + a.amount);
+    return SettingsPage(
+      title: 'Phụ cấp',
+      subtitle: 'Khoản cộng thêm vào lương: cố định, theo ngày công, theo giờ, theo lần, theo ca',
+      icon: Icons.card_giftcard_outlined,
+      loading: _loading,
+      headerActions: [
+        if (_can('create'))
+          Padding(
+            padding: const EdgeInsets.only(left: 8),
+            child: SboxButton(label: 'Thêm phụ cấp', icon: Icons.add, onPressed: () => _edit()),
+          ),
+      ],
+      children: [
+        if (_items.isNotEmpty)
+          SettingsNote(
+              '${_items.where((a) => a.active).length}/${_items.length} phụ cấp đang áp dụng. Phụ cấp cố định cho mọi nhân viên: ${settingsMoney(monthly)} ₫ / người / tháng.',
+              icon: Icons.summarize_outlined,
+              tone: SboxTone.neutral),
+        SingleChildScrollView(
+          scrollDirection: Axis.horizontal,
+          child: Row(children: [
+            Padding(
+              padding: const EdgeInsets.only(right: 8),
+              child: ChoiceChip(label: Text(tr('Tất cả (${_items.length})')), selected: _filter == null, showCheckmark: false, onSelected: (_) => setState(() => _filter = null)),
+            ),
+            for (final k in AllowanceKind.values)
+              if (_items.any((a) => a.kind == k))
+                Padding(
+                  padding: const EdgeInsets.only(right: 8),
+                  child: ChoiceChip(
+                    avatar: Icon(k.icon, size: 16),
+                    label: Text(tr('${k.label} (${_items.where((a) => a.kind == k).length})')),
+                    selected: _filter == k,
+                    showCheckmark: false,
+                    onSelected: (_) => setState(() => _filter = k),
+                  ),
+                ),
+          ]),
+        ),
+        if (_items.isEmpty)
+          SboxEmptyState(
+            icon: Icons.card_giftcard_outlined,
+            title: 'Chưa có phụ cấp',
+            message: 'Ví dụ: phụ cấp ăn trưa theo ngày công, xăng xe cố định, chuyên cần, ca đêm theo ca.',
+            action: _can('create') ? SboxButton(label: 'Thêm phụ cấp', icon: Icons.add, onPressed: () => _edit()) : null,
+          ),
+        for (final a in list) _card(a),
+      ],
+    );
+  }
+
+  Widget _card(_Allowance a) {
+    final shiftNames = a.kind == AllowanceKind.perShift
+        ? a.shiftIds.map((id) => _shifts.where((s) => '${s['id']}' == id).map((s) => '${s['name']}').firstOrNull).whereType<String>().join(', ')
+        : '';
+    String d(DateTime x) => '${x.day.toString().padLeft(2, '0')}/${x.month.toString().padLeft(2, '0')}/${x.year}';
+    return SboxCard(
+      onTap: _can('edit') ? () => _edit(a) : null,
+      padding: const EdgeInsets.fromLTRB(16, 12, 8, 12),
+      child: Row(children: [
+        Container(
+          width: 42,
+          height: 42,
+          decoration: BoxDecoration(color: a.active ? SboxColors.violetSoft : SboxColors.slate100, borderRadius: BorderRadius.circular(12)),
+          child: Icon(a.kind.icon, color: a.active ? SboxColors.violet : SboxColors.slate400),
+        ),
+        const SizedBox(width: 12),
+        Expanded(
+          child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+            Row(children: [
+              Flexible(
+                child: Text(tr(a.name),
+                    style: TextStyle(fontWeight: FontWeight.w800, fontSize: 15, color: a.active ? SboxColors.slate900 : SboxColors.slate400)),
+              ),
+              if ((a.code ?? '').isNotEmpty) ...[
+                const SizedBox(width: 6),
+                Text(a.code!, style: const TextStyle(fontSize: 12, color: SboxColors.slate400)),
+              ],
+            ]),
+            Text('${settingsMoney(a.amount)} ₫ ${tr(a.kind.unit)}',
+                style: const TextStyle(fontWeight: FontWeight.w700, color: SboxColors.slate700)),
+            const SizedBox(height: 6),
+            Wrap(spacing: 6, runSpacing: 4, children: [
+              SboxStatusChip(label: a.kind.label, icon: a.kind.icon, tone: SboxTone.violet),
+              SboxStatusChip(label: a.employeeIds.isEmpty ? 'Tất cả nhân viên' : '${a.employeeIds.length} nhân viên', icon: Icons.people_outline),
+              if (shiftNames.isNotEmpty) SboxStatusChip(label: 'Ca: $shiftNames', icon: Icons.schedule_rounded),
+              if (a.hasRule)
+                SboxStatusChip(
+                  label: a.minWorkPercent != null
+                      ? 'Làm từ ${settingsMoney(a.minWorkPercent!)}% ca'
+                      : 'Làm từ ${AllowanceCalculator.fmtMinutes((a.minWorkHours! * 60).round())}',
+                  icon: Icons.timer_outlined,
+                  tone: SboxTone.brand,
+                ),
+              if (a.taxable) const SboxStatusChip(label: 'Chịu thuế', tone: SboxTone.warning) else const SboxStatusChip(label: 'Miễn thuế', tone: SboxTone.success),
+              if (a.insurance) const SboxStatusChip(label: 'Tính đóng BH', tone: SboxTone.brand),
+              if (a.start != null || a.end != null)
+                SboxStatusChip(label: '${a.start != null ? 'từ ${d(a.start!)}' : ''}${a.end != null ? ' đến ${d(a.end!)}' : ''}'.trim(), icon: Icons.event_rounded),
+            ]),
+          ]),
+        ),
+        Column(mainAxisSize: MainAxisSize.min, children: [
+          Switch(value: a.active, onChanged: _can('edit') ? (v) => _toggle(a, v) : null),
+          if (_can('delete'))
+            IconButton(tooltip: tr('Xóa'), onPressed: () => _delete(a), icon: const Icon(Icons.delete_outline_rounded, color: SboxColors.slate400)),
+        ]),
+      ]),
+    );
+  }
+}
+
+class _AllowanceEditor extends StatefulWidget {
+  const _AllowanceEditor({required this.item, required this.employees, required this.shifts});
+  final _Allowance? item;
+  final List<Map<String, dynamic>> employees;
+  final List<Map<String, dynamic>> shifts;
+
+  @override
+  State<_AllowanceEditor> createState() => _AllowanceEditorState();
+}
+
+class _AllowanceEditorState extends State<_AllowanceEditor> {
+  final _api = ApiService();
+  late final _name = TextEditingController(text: widget.item?.name ?? '');
+  late final _code = TextEditingController(text: widget.item?.code ?? '');
+  late final _amount = TextEditingController(text: widget.item == null ? '' : settingsMoney(widget.item!.amount));
+  late final _desc = TextEditingController(text: '${widget.item?.m['description'] ?? ''}');
+  late AllowanceKind _kind = widget.item?.kind ?? AllowanceKind.fixed;
+  late bool _taxable = widget.item?.taxable ?? true;
+  late bool _insurance = widget.item?.insurance ?? false;
+  late DateTime? _start = widget.item?.start;
+  late DateTime? _end = widget.item?.end;
+  late final Set<String> _emps = {...?widget.item?.employeeIds};
+  late final Set<String> _shiftIds = {...?widget.item?.shiftIds};
+  late bool _all = _emps.isEmpty;
+  /// 0 = không điều kiện, 1 = % thời lượng ca, 2 = số giờ.
+  late int _ruleMode = widget.item?.minWorkPercent != null ? 1 : (widget.item?.minWorkHours != null ? 2 : 0);
+  late final _rulePct = TextEditingController(text: _fmtNum(widget.item?.minWorkPercent ?? 90));
+  late final _ruleHours = TextEditingController(text: _fmtNum(widget.item?.minWorkHours ?? 4.5));
+  String _q = '';
+
+  static String _fmtNum(double v) => v == v.roundToDouble() ? '${v.round()}' : '$v'.replaceAll('.', ',');
+  static double? _parseNum(String s) => double.tryParse(s.trim().replaceAll(',', '.'));
+
+  /// Điều kiện hiện tại dạng map để mô tả / kiểm tra.
+  Map<String, dynamic> get _ruleMap => {
+        if (_ruleMode == 1) 'minWorkPercent': _parseNum(_rulePct.text),
+        if (_ruleMode == 2) 'minWorkHours': _parseNum(_ruleHours.text),
+      };
+  bool _saving = false;
+
+  static const _quick = <(String, AllowanceKind, double, bool)>[
+    ('Ăn trưa', AllowanceKind.daily, 30000, false),
+    ('Xăng xe', AllowanceKind.fixed, 500000, true),
+    ('Điện thoại', AllowanceKind.fixed, 300000, true),
+    ('Chuyên cần', AllowanceKind.fixed, 500000, true),
+    ('Ca đêm', AllowanceKind.perShift, 50000, true),
+  ];
+
+  @override
+  void dispose() {
+    for (final c in [_name, _code, _amount, _desc, _rulePct, _ruleHours]) {
+      c.dispose();
+    }
+    super.dispose();
+  }
+
+  Future<void> _save() async {
+    final amount = PosVndThousandsFormatter.parse(_amount.text);
+    String? err;
+    if (_name.text.trim().isEmpty) err = 'Nhập tên phụ cấp';
+    if (amount <= 0) err ??= 'Nhập số tiền';
+    if (_kind == AllowanceKind.perShift && _shiftIds.isEmpty) err ??= 'Chọn ít nhất 1 ca được hưởng';
+    if (_kind.supportsRule && _ruleMode == 1) {
+      final p = _parseNum(_rulePct.text);
+      if (p == null || p <= 0 || p > 100) err ??= 'Nhập % thời lượng ca từ 1 đến 100';
+    }
+    if (_kind.supportsRule && _ruleMode == 2) {
+      final h = _parseNum(_ruleHours.text);
+      if (h == null || h <= 0 || h > 24) err ??= 'Nhập số giờ tối thiểu từ 0,5 đến 24';
+    }
+    if (!_all && _emps.isEmpty) err ??= 'Chọn nhân viên hoặc bật «Tất cả nhân viên»';
+    if (_start != null && _end != null && _end!.isBefore(_start!)) err ??= 'Ngày kết thúc phải sau ngày bắt đầu';
+    if (err != null) {
+      ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(tr(err))));
+      return;
+    }
+    setState(() => _saving = true);
+    final data = {
+      'name': _name.text.trim(),
+      'code': _code.text.trim().isEmpty ? null : _code.text.trim(),
+      'description': _desc.text.trim().isEmpty ? null : _desc.text.trim(),
+      'type': _kind.code,
+      'amount': amount,
+      'currency': 'VND',
+      'isTaxable': _taxable,
+      'isInsuranceApplicable': _insurance,
+      'isActive': widget.item?.active ?? true,
+      if (_start != null) 'startDate': _start!.toIso8601String(),
+      if (_end != null) 'endDate': _end!.toIso8601String(),
+      if (!_all) 'employeeIds': _emps.toList(),
+      if (_kind == AllowanceKind.perShift) 'shiftIds': _shiftIds.toList(),
+      'minWorkPercent': _kind.supportsRule && _ruleMode == 1 ? _parseNum(_rulePct.text) : null,
+      'minWorkHours': _kind.supportsRule && _ruleMode == 2 ? _parseNum(_ruleHours.text) : null,
+    };
+    final r = widget.item == null ? await _api.createAllowanceSetting(data) : await _api.updateAllowanceSetting(widget.item!.id, data);
+    if (!mounted) return;
+    setState(() => _saving = false);
+    if (r['isSuccess'] == true) {
+      Navigator.pop(context, true);
+    } else {
+      ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(tr('${r['message'] ?? 'Không lưu được'}'))));
+    }
+  }
+
+  Future<void> _pickDate(bool start) async {
+    final d = await showDatePicker(
+      context: context,
+      initialDate: (start ? _start : _end) ?? DateTime.now(),
+      firstDate: DateTime(2020),
+      lastDate: DateTime(2035),
+    );
+    if (d != null) setState(() => start ? _start = d : _end = d);
+  }
+
+  /// Điều kiện nhận: chỉ tính ngày / ca làm đủ thời gian trong khung ca.
+  List<Widget> _ruleSection() {
+    final ruleText = _ruleMode == 0 ? null : AllowanceCalculator.describeRule(_ruleMap);
+    return [
+      const SizedBox(height: 14),
+      Text(tr('Điều kiện nhận'), style: const TextStyle(fontWeight: FontWeight.w700)),
+      const SizedBox(height: 6),
+      SegmentedButton<int>(
+        segments: [
+          ButtonSegment(value: 0, label: Text(tr('Không điều kiện'))),
+          ButtonSegment(value: 1, label: Text(tr('% thời lượng ca'))),
+          ButtonSegment(value: 2, label: Text(tr('Số giờ tối thiểu'))),
+        ],
+        selected: {_ruleMode},
+        showSelectedIcon: false,
+        onSelectionChanged: (s) => setState(() => _ruleMode = s.first),
+      ),
+      if (_ruleMode == 1) ...[
+        const SizedBox(height: 10),
+        TextField(
+          controller: _rulePct,
+          keyboardType: const TextInputType.numberWithOptions(decimal: true),
+          onChanged: (_) => setState(() {}),
+          decoration: InputDecoration(labelText: tr('Làm tối thiểu'), suffixText: '% ca', isDense: true, border: const OutlineInputBorder()),
+        ),
+      ],
+      if (_ruleMode == 2) ...[
+        const SizedBox(height: 10),
+        TextField(
+          controller: _ruleHours,
+          keyboardType: const TextInputType.numberWithOptions(decimal: true),
+          onChanged: (_) => setState(() {}),
+          decoration: InputDecoration(labelText: tr('Làm tối thiểu'), suffixText: tr('giờ trong ca'), isDense: true, border: const OutlineInputBorder()),
+        ),
+      ],
+      const SizedBox(height: 6),
+      Text(
+        tr(ruleText == null
+            ? (_kind == AllowanceKind.daily
+                ? 'Mọi ngày có công đều được tính (nửa công = nửa phụ cấp).'
+                : 'Mọi ca có chấm vào và ra đều được tính.')
+            : '$ruleText. Chỉ tính thời gian trong khung ca, đã trừ nghỉ giữa ca — đến sớm / ở lại muộn không bù cho đi muộn / về sớm.'
+                '${_kind == AllowanceKind.daily ? ' Ngày làm nhiều ca: cộng thời gian các ca. Không có ca: so với giờ chuẩn / ngày trong hồ sơ lương.' : ''}'),
+        style: const TextStyle(fontSize: 12, color: SboxColors.slate500),
+      ),
+    ];
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    String nameOf(Map<String, dynamic> e) => ('${e['lastName'] ?? ''} ${e['firstName'] ?? ''}').trim().isEmpty
+        ? '${e['fullName'] ?? e['employeeCode'] ?? ''}'
+        : ('${e['lastName'] ?? ''} ${e['firstName'] ?? ''}').trim();
+    final q = _q.trim().toLowerCase();
+    final shown = widget.employees.where((e) => q.isEmpty || nameOf(e).toLowerCase().contains(q)).take(80).toList();
+    String d(DateTime? x) => x == null ? '—' : '${x.day.toString().padLeft(2, '0')}/${x.month.toString().padLeft(2, '0')}/${x.year}';
+    return AlertDialog(
+      title: Text(tr(widget.item == null ? 'Thêm phụ cấp' : 'Sửa phụ cấp')),
+      content: SizedBox(
+        width: 520,
+        child: SingleChildScrollView(
+          child: Column(mainAxisSize: MainAxisSize.min, crossAxisAlignment: CrossAxisAlignment.stretch, children: [
+            if (widget.item == null) ...[
+              Text(tr('Mẫu nhanh'), style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w700, color: SboxColors.slate500)),
+              const SizedBox(height: 6),
+              Wrap(spacing: 6, runSpacing: 6, children: [
+                for (final (n, k, amt, tax) in _quick)
+                  ActionChip(
+                    label: Text(tr(n)),
+                    onPressed: () => setState(() {
+                      _name.text = 'Phụ cấp ${n.toLowerCase()}';
+                      _kind = k;
+                      _amount.text = settingsMoney(amt);
+                      _taxable = tax;
+                    }),
+                  ),
+              ]),
+              const SizedBox(height: 12),
+            ],
+            Row(children: [
+              Expanded(
+                flex: 3,
+                child: TextField(controller: _name, decoration: InputDecoration(labelText: tr('Tên phụ cấp *'), isDense: true, border: const OutlineInputBorder())),
+              ),
+              const SizedBox(width: 8),
+              Expanded(
+                flex: 2,
+                child: TextField(controller: _code, decoration: InputDecoration(labelText: tr('Mã'), isDense: true, border: const OutlineInputBorder())),
+              ),
+            ]),
+            const SizedBox(height: 12),
+            DropdownButtonFormField<AllowanceKind>(
+              initialValue: _kind,
+              decoration: InputDecoration(labelText: tr('Cách tính'), isDense: true, border: const OutlineInputBorder()),
+              items: [for (final k in AllowanceKind.values) DropdownMenuItem(value: k, child: Text(tr(k.label)))],
+              onChanged: (v) => setState(() => _kind = v ?? _kind),
+            ),
+            const SizedBox(height: 12),
+            TextField(
+              controller: _amount,
+              keyboardType: TextInputType.number,
+              inputFormatters: [PosVndThousandsFormatter()],
+              decoration: InputDecoration(labelText: tr('Số tiền'), suffixText: '₫ ${tr(_kind.unit)}', isDense: true, border: const OutlineInputBorder()),
+            ),
+            if (_kind == AllowanceKind.perShift) ...[
+              const SizedBox(height: 12),
+              Text(tr('Ca được hưởng'), style: const TextStyle(fontWeight: FontWeight.w700)),
+              const SizedBox(height: 6),
+              Wrap(spacing: 6, runSpacing: 6, children: [
+                for (final s in widget.shifts)
+                  FilterChip(
+                    label: Text(tr('${s['name']}')),
+                    selected: _shiftIds.contains('${s['id']}'),
+                    onSelected: (v) => setState(() => v ? _shiftIds.add('${s['id']}') : _shiftIds.remove('${s['id']}')),
+                  ),
+              ]),
+            ],
+            if (_kind.supportsRule) ..._ruleSection(),
+            SwitchListTile(
+              contentPadding: EdgeInsets.zero,
+              value: _taxable,
+              onChanged: (v) => setState(() => _taxable = v),
+              title: Text(tr('Tính vào thu nhập chịu thuế TNCN')),
+              subtitle: Text(tr('Tắt với khoản được miễn thuế (vd ăn giữa ca trong mức quy định)')),
+            ),
+            SwitchListTile(
+              contentPadding: EdgeInsets.zero,
+              value: _insurance,
+              onChanged: (v) => setState(() => _insurance = v),
+              title: Text(tr('Tính vào lương đóng bảo hiểm')),
+            ),
+            Row(children: [
+              Expanded(child: OutlinedButton.icon(onPressed: () => _pickDate(true), icon: const Icon(Icons.event_rounded, size: 18), label: Text(tr('Từ ${d(_start)}')))),
+              const SizedBox(width: 8),
+              Expanded(child: OutlinedButton.icon(onPressed: () => _pickDate(false), icon: const Icon(Icons.event_busy_rounded, size: 18), label: Text(tr('Đến ${d(_end)}')))),
+              if (_start != null || _end != null)
+                IconButton(tooltip: tr('Bỏ thời hạn'), onPressed: () => setState(() => _start = _end = null), icon: const Icon(Icons.close_rounded)),
+            ]),
+            SwitchListTile(
+              contentPadding: EdgeInsets.zero,
+              value: _all,
+              onChanged: (v) => setState(() => _all = v),
+              title: Text(tr('Áp dụng cho tất cả nhân viên')),
+              subtitle: Text(tr(_all ? 'Tắt để chọn riêng nhân viên' : 'Đã chọn ${_emps.length} nhân viên')),
+            ),
+            if (!_all) ...[
+              TextField(
+                onChanged: (v) => setState(() => _q = v),
+                decoration: InputDecoration(prefixIcon: const Icon(Icons.search_rounded), hintText: tr('Tìm nhân viên'), isDense: true, border: const OutlineInputBorder()),
+              ),
+              SizedBox(
+                height: 200,
+                child: ListView(children: [
+                  for (final e in shown)
+                    CheckboxListTile(
+                      dense: true,
+                      value: _emps.contains('${e['id']}'),
+                      onChanged: (v) => setState(() => v == true ? _emps.add('${e['id']}') : _emps.remove('${e['id']}')),
+                      title: Text(tr(nameOf(e))),
+                      subtitle: Text(tr('${e['employeeCode'] ?? ''}')),
+                    ),
+                ]),
+              ),
+            ],
+            const SizedBox(height: 8),
+            TextField(controller: _desc, decoration: InputDecoration(labelText: tr('Ghi chú'), isDense: true, border: const OutlineInputBorder())),
+          ]),
+        ),
+      ),
+      actions: [
+        TextButton(onPressed: () => Navigator.pop(context, false), child: Text(tr('Hủy'))),
+        FilledButton(onPressed: _saving ? null : _save, child: Text(tr('Lưu'))),
+      ],
     );
   }
 }

@@ -1,1558 +1,559 @@
-﻿import 'dart:convert';
+import 'dart:convert';
+
 import 'package:file_picker/file_picker.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:provider/provider.dart';
 import 'package:url_launcher/url_launcher.dart';
-import '../providers/permission_provider.dart';
-import 'package:zkteco_flutter_client/widgets/app_responsive_dialog.dart';
-import '../services/api_service.dart';
-import '../utils/number_formatter.dart';
-import '../utils/pit_tax_utils.dart';
-import '../utils/responsive_helper.dart';
-import '../widgets/loading_widget.dart';
-import '../widgets/hrm/hrm_settings_mobile_kit.dart';
-import '../widgets/hrm_page_chrome.dart';
-import '../widgets/pos/pos_theme.dart';
-import '../widgets/notification_overlay.dart';
-import 'package:zkteco_flutter_client/l10n/app_tr.dart';
 
-import '../theme/sbox_tokens.dart';
+import '../l10n/app_tr.dart';
+import '../providers/permission_provider.dart';
+import '../services/api_service.dart';
+import '../utils/pit_tax_utils.dart';
+import '../widgets/pos/pos_vnd_thousands_formatter.dart';
+import '../widgets/sbox/sbox_ui.dart';
+import '../widgets/settings/settings_page.dart';
+import 'insurance_settings_screen.dart';
+
+/// Thiết lập thuế TNCN: giảm trừ + biểu lũy tiến 5 bậc (ngưỡng cộng dồn theo tháng).
+class TaxParams {
+  TaxParams({
+    this.personal = PitTaxDefaults.personalDeduction,
+    this.dependent = PitTaxDefaults.dependentDeduction,
+    List<double>? caps,
+    List<double>? rates,
+  })  : caps = caps ?? [PitTaxDefaults.bracket1Max, PitTaxDefaults.bracket2Max, PitTaxDefaults.bracket3Max, PitTaxDefaults.bracket4Max],
+        rates = rates ?? [PitTaxDefaults.rate1, PitTaxDefaults.rate2, PitTaxDefaults.rate3, PitTaxDefaults.rate4, PitTaxDefaults.rate5];
+
+  double personal;
+  double dependent;
+
+  /// Ngưỡng trên của bậc 1–4 (bậc 5 = phần trên ngưỡng 4).
+  List<double> caps;
+
+  /// Thuế suất bậc 1–5 (%).
+  List<double> rates;
+
+  TaxParams copy() => TaxParams(personal: personal, dependent: dependent, caps: [...caps], rates: [...rates]);
+
+  static double _d(dynamic v, double f) => v is num ? v.toDouble() : double.tryParse('$v') ?? f;
+
+  factory TaxParams.fromJson(Map<String, dynamic> j) {
+    final d = TaxParams();
+    return TaxParams(
+      personal: _d(j['personalDeduction'], d.personal),
+      dependent: _d(j['dependentDeduction'], d.dependent),
+      caps: [for (var i = 0; i < 4; i++) _d(j['taxBracket${i + 1}Max'], d.caps[i])],
+      rates: [
+        for (var i = 0; i < 4; i++) _d(j['taxRate${i + 1}'], d.rates[i]),
+        // Bậc 5: ưu tiên taxRate5, dữ liệu 7 bậc cũ lấy taxRate7.
+        _d(j['taxRate5'] ?? j['taxRate7'], d.rates[4]),
+      ],
+    );
+  }
+
+  /// Lưu dạng 5 bậc: ngưỡng 5, 6 trùng ngưỡng 4; thuế suất 6, 7 trùng bậc 5 (đúng định dạng màn cũ).
+  Map<String, dynamic> toJson() => {
+        'personalDeduction': personal,
+        'dependentDeduction': dependent,
+        for (var i = 0; i < 4; i++) 'taxBracket${i + 1}Max': caps[i],
+        for (var i = 0; i < 4; i++) 'taxRate${i + 1}': rates[i],
+        'taxBracket5Max': caps[3],
+        'taxRate5': rates[4],
+        'taxBracket6Max': caps[3],
+        'taxRate6': rates[4],
+        'taxRate7': rates[4],
+      };
+
+  String get key => toJson().toString();
+
+  String? validate() {
+    for (var i = 1; i < 4; i++) {
+      if (caps[i] <= caps[i - 1]) return 'Ngưỡng bậc ${i + 1} phải lớn hơn bậc $i';
+    }
+    if (caps[0] <= 0) return 'Ngưỡng bậc 1 phải lớn hơn 0';
+    if (rates.any((r) => r < 0 || r > 100)) return 'Thuế suất phải từ 0 đến 100%';
+    if (personal < 0 || dependent < 0) return 'Mức giảm trừ không được âm';
+    return null;
+  }
+
+  /// Tính thử cho 1 tháng — cùng công thức với bảng lương / server.
+  ({double insurance, double deduction, double taxable, double tax, double net}) compute({
+    required double gross,
+    required double insuranceSalary,
+    required int dependents,
+    required InsParams ins,
+  }) {
+    final insurance = ins.compute(insuranceSalary).employee;
+    final deduction = personal + dependent * dependents;
+    final taxable = (gross - insurance - deduction).clamp(0, double.infinity).toDouble();
+    final tax = calculateProgressivePit(taxable, toJson());
+    return (insurance: insurance, deduction: deduction, taxable: taxable, tax: tax, net: gross - insurance - tax);
+  }
+}
+
 class TaxSettingsScreen extends StatefulWidget {
-  const TaxSettingsScreen({super.key});
+  const TaxSettingsScreen({super.key, this.canEditOverride});
+
+  final bool? canEditOverride;
 
   @override
   State<TaxSettingsScreen> createState() => _TaxSettingsScreenState();
 }
 
 class _TaxSettingsScreenState extends State<TaxSettingsScreen> {
-  PermissionProvider get _perm =>
-      Provider.of<PermissionProvider>(context, listen: false);
+  final _api = ApiService();
+  TaxParams _saved = TaxParams();
+  TaxParams _p = TaxParams();
+  InsParams _ins = InsParams();
+  List<Map<String, dynamic>> _deps = [];
+  bool _loading = true;
+  bool _saving = false;
+  final Map<String, TextEditingController> _c = {};
+  double _gross = 25000000;
+  double _insSalary = 10000000;
+  int _dependents = 1;
+  String _depQuery = '';
 
-  final ApiService _apiService = ApiService();
-  bool _isLoading = true;
-  String _employeeSearch = '';
+  bool get _canEdit {
+    if (widget.canEditOverride != null) return widget.canEditOverride!;
+    try {
+      return Provider.of<PermissionProvider>(context, listen: false).canEdit('Tax');
+    } catch (_) {
+      return false;
+    }
+  }
 
-  // Personal deduction (Giảm trừ bản thân)
-  final _personalDeductionController = TextEditingController(
-      text: tr(formatNumber(PitTaxDefaults.personalDeduction)));
-
-  // Dependent deduction (Giảm trừ người phụ thuộc)
-  final _dependentDeductionController = TextEditingController(
-      text: tr(formatNumber(PitTaxDefaults.dependentDeduction)));
-
-  // Progressive tax brackets — 5 levels (2026)
-  final _bracket1AmountController = TextEditingController(
-      text: tr(formatNumber(PitTaxDefaults.bracket1Max)));
-  final _bracket1RateController =
-      TextEditingController(text: tr('${PitTaxDefaults.rate1.toInt()}'));
-  final _bracket2AmountController = TextEditingController(
-      text: tr(formatNumber(PitTaxDefaults.bracket2Max)));
-  final _bracket2RateController =
-      TextEditingController(text: tr('${PitTaxDefaults.rate2.toInt()}'));
-  final _bracket3AmountController = TextEditingController(
-      text: tr(formatNumber(PitTaxDefaults.bracket3Max)));
-  final _bracket3RateController =
-      TextEditingController(text: tr('${PitTaxDefaults.rate3.toInt()}'));
-  final _bracket4AmountController = TextEditingController(
-      text: tr(formatNumber(PitTaxDefaults.bracket4Max)));
-  final _bracket4RateController =
-      TextEditingController(text: tr('${PitTaxDefaults.rate4.toInt()}'));
-  final _bracket5RateController =
-      TextEditingController(text: tr('${PitTaxDefaults.rate5.toInt()}'));
-
-  // Employee tax deductions
-  List<Map<String, dynamic>> _employeeDeductions = [];
+  TextEditingController _ctl(String k, [String text = '']) => _c.putIfAbsent(k, () => TextEditingController(text: text));
 
   @override
   void initState() {
     super.initState();
-    _loadSettings();
-  }
-
-  Future<void> _loadSettings() async {
-    setState(() => _isLoading = true);
-
-    // Load tax settings
-    try {
-      final settings = await _apiService.getTaxSettings();
-      if (mounted) {
-        setState(() {
-          _personalDeductionController.text = formatNumber(
-              settings['personalDeduction'] ?? PitTaxDefaults.personalDeduction);
-          _dependentDeductionController.text = formatNumber(
-              settings['dependentDeduction'] ??
-                  PitTaxDefaults.dependentDeduction);
-          _bracket1AmountController.text = formatNumber(
-              settings['taxBracket1Max'] ?? PitTaxDefaults.bracket1Max);
-          _bracket1RateController.text =
-              settings['taxRate1']?.toString() ?? '${PitTaxDefaults.rate1.toInt()}';
-          _bracket2AmountController.text = formatNumber(
-              settings['taxBracket2Max'] ?? PitTaxDefaults.bracket2Max);
-          _bracket2RateController.text =
-              settings['taxRate2']?.toString() ?? '${PitTaxDefaults.rate2.toInt()}';
-          _bracket3AmountController.text = formatNumber(
-              settings['taxBracket3Max'] ?? PitTaxDefaults.bracket3Max);
-          _bracket3RateController.text =
-              settings['taxRate3']?.toString() ?? '${PitTaxDefaults.rate3.toInt()}';
-          _bracket4AmountController.text = formatNumber(
-              settings['taxBracket4Max'] ?? PitTaxDefaults.bracket4Max);
-          _bracket4RateController.text =
-              settings['taxRate4']?.toString() ?? '${PitTaxDefaults.rate4.toInt()}';          // Bậc 5 = trên bậc 4: ưu tiên taxRate5, fallback taxRate7 (schema cũ).
-          _bracket5RateController.text = (settings['taxRate5'] ??
-                  settings['taxRate7'] ??
-                  PitTaxDefaults.rate5)
-              .toString();
-        });
-      }
-    } catch (e) {
-      debugPrint('Error loading tax settings: $e');
-    }
-
-    // Load employee deductions independently
-    try {
-      final deductions = await _apiService.getEmployeeTaxDeductions();
-      debugPrint('Loaded ${deductions.length} employee deductions');
-      if (mounted) {
-        setState(() {
-          _employeeDeductions = deductions.map((e) => Map<String, dynamic>.from(e)).toList();
-        });
-      }
-    } catch (e) {
-      debugPrint('Error loading employee deductions: $e');
-    }
-
-    if (mounted) {
-      setState(() => _isLoading = false);
-    }
-  }
-
-  Future<void> _saveSettings() async {
-    final b4 = parseFormattedNumber(_bracket4AmountController.text)?.toDouble() ??
-        PitTaxDefaults.bracket4Max;
-    final r5 = double.tryParse(_bracket5RateController.text) ?? PitTaxDefaults.rate5;
-    final settings = {
-      'personalDeduction': parseFormattedNumber(_personalDeductionController.text)
-              ?.toDouble() ??
-          PitTaxDefaults.personalDeduction,
-      'dependentDeduction':
-          parseFormattedNumber(_dependentDeductionController.text)?.toDouble() ??
-              PitTaxDefaults.dependentDeduction,
-      'taxBracket1Max':
-          parseFormattedNumber(_bracket1AmountController.text)?.toDouble() ??
-              PitTaxDefaults.bracket1Max,
-      'taxRate1':
-          double.tryParse(_bracket1RateController.text) ?? PitTaxDefaults.rate1,
-      'taxBracket2Max':
-          parseFormattedNumber(_bracket2AmountController.text)?.toDouble() ??
-              PitTaxDefaults.bracket2Max,
-      'taxRate2':
-          double.tryParse(_bracket2RateController.text) ?? PitTaxDefaults.rate2,
-      'taxBracket3Max':
-          parseFormattedNumber(_bracket3AmountController.text)?.toDouble() ??
-              PitTaxDefaults.bracket3Max,
-      'taxRate3':
-          double.tryParse(_bracket3RateController.text) ?? PitTaxDefaults.rate3,
-      'taxBracket4Max': b4,
-      'taxRate4':
-          double.tryParse(_bracket4RateController.text) ?? PitTaxDefaults.rate4,
-      // Cột 5–7 schema cũ: không tạo thêm bậc — trùng ngưỡng bậc 4, suất = bậc 5.
-      'taxBracket5Max': b4,
-      'taxRate5': r5,
-      'taxBracket6Max': b4,
-      'taxRate6': r5,
-      'taxRate7': r5,
-    };
-
-    try {
-      final response = await _apiService.saveTaxSettings(settings);
-      if (mounted) {
-        if (response['isSuccess'] == true) {
-          appNotification.showSuccess(title: 'Thành công', message: tr('Đã lưu thiết lập thuế TNCN'));
-        } else {
-          appNotification.showError(title: 'Lỗi', message: response['message'] ?? 'Lỗi khi lưu thiết lập');
-        }
-      }
-    } catch (e) {
-      if (mounted) {
-        appNotification.showError(title: 'Lỗi', message: tr('Lỗi: $e'));
-      }
-    }
+    _ctl('gross', settingsMoney(_gross));
+    _ctl('insSalary', settingsMoney(_insSalary));
+    _load();
   }
 
   @override
   void dispose() {
-    _personalDeductionController.dispose();
-    _dependentDeductionController.dispose();
-    _bracket1AmountController.dispose();
-    _bracket1RateController.dispose();
-    _bracket2AmountController.dispose();
-    _bracket2RateController.dispose();
-    _bracket3AmountController.dispose();
-    _bracket3RateController.dispose();
-    _bracket4AmountController.dispose();
-    _bracket4RateController.dispose();
-    _bracket5RateController.dispose();
+    for (final c in _c.values) {
+      c.dispose();
+    }
     super.dispose();
   }
 
-  Widget _buildSaveSettingsButton() {
-    if (!_perm.canEdit('Tax')) return const SizedBox.shrink();
-    return SizedBox(
-      width: double.infinity,
-      height: 50,
-      child: FilledButton.icon(
-        onPressed: _saveSettings,
-        icon: const Icon(Icons.save, size: 20),
-        label: Text(tr('Lưu thiết lập thuế TNCN'),
-          style: TextStyle(fontSize: 16, fontWeight: FontWeight.w600),
-        ),
-        style: FilledButton.styleFrom(
-          backgroundColor: HrmPageChrome.primaryNavy,
-          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
-        ),
-      ),
-    );
+  void _fill() {
+    _ctl('personal').text = settingsMoney(_p.personal);
+    _ctl('dependent').text = settingsMoney(_p.dependent);
+    for (var i = 0; i < 4; i++) {
+      _ctl('cap$i').text = settingsMoney(_p.caps[i]);
+    }
+    for (var i = 0; i < 5; i++) {
+      _ctl('rate$i').text = settingsNum(_p.rates[i]);
+    }
   }
+
+  Future<void> _load() async {
+    setState(() => _loading = true);
+    final res = await Future.wait([_api.getTaxSettings(), _api.getInsuranceSettings()]);
+    List<dynamic> deps = const [];
+    try {
+      deps = await _api.getEmployeeTaxDeductions();
+    } catch (_) {}
+    if (!mounted) return;
+    setState(() {
+      _saved = TaxParams.fromJson(Map<String, dynamic>.from(res[0]));
+      _ins = InsParams.fromJson(Map<String, dynamic>.from(res[1]));
+      _p = _saved.copy();
+      _deps = [for (final d in deps.whereType<Map>()) Map<String, dynamic>.from(d)];
+      _fill();
+      _loading = false;
+    });
+  }
+
+  Future<void> _save() async {
+    final err = _p.validate();
+    if (err != null) {
+      _toast(err, error: true);
+      return;
+    }
+    setState(() => _saving = true);
+    final r = await _api.saveTaxSettings(_p.toJson());
+    if (!mounted) return;
+    setState(() => _saving = false);
+    if (r['isSuccess'] == true) {
+      setState(() => _saved = _p.copy());
+      _toast('Đã lưu thiết lập thuế TNCN');
+    } else {
+      _toast(r['message']?.toString() ?? 'Không lưu được', error: true);
+    }
+  }
+
+  void _toast(String m, {bool error = false}) => ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+        content: Text(tr(m)),
+        backgroundColor: error ? SboxColors.danger : null,
+        behavior: SnackBarBehavior.floating,
+      ));
 
   @override
   Widget build(BuildContext context) {
-    final screenWidth = MediaQuery.of(context).size.width;
-    final isWideScreen = screenWidth >= 1200;
-    final isMediumScreen = screenWidth >= 800 && screenWidth < 1200;
-
-    return Scaffold(
-      backgroundColor: HrmPageChrome.scaffoldBackground(context),
-      appBar: HrmPageChrome.appBar(context: context, title: 'Thuế TNCN'),
-      body: _isLoading
-          ? const LoadingWidget()
-          : SingleChildScrollView(
-              padding: HrmSettingsMobileKit.active(context)
-                  ? HrmSettingsMobileKit.pagePadding(context)
-                  : EdgeInsets.all(Responsive.isMobile(context) ? 12 : 24),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  if (HrmPageChrome.isEmbedded) ...[
-                    _buildSaveSettingsButton(),
-                    const SizedBox(height: 16),
-                  ],
-                  if (!HrmPageChrome.isEmbedded) ...[
-                    Row(
-                      children: [
-                        Container(
-                          padding: const EdgeInsets.all(8),
-                          decoration: BoxDecoration(
-                            color:
-                                SboxColors.slate500.withValues(alpha: 0.1),
-                            borderRadius: BorderRadius.circular(10),
-                          ),
-                          child: const Icon(Icons.receipt_long,
-                              color: SboxColors.slate500, size: 20),
-                        ),
-                        const SizedBox(width: 12),
-                        Expanded(
-                          child: Column(
-                            crossAxisAlignment: CrossAxisAlignment.start,
-                            children: [
-                              Text(tr('Thiết lập Thuế TNCN'),
-                                style: TextStyle(
-                                  color: HrmPageChrome.primaryNavy,
-                                  fontSize: 20,
-                                  fontWeight: FontWeight.bold,
-                                ),
-                              ),
-                              Text(tr('Cấu hình biểu thuế lũy tiến và giảm trừ gia cảnh theo Luật thuế TNCN sửa đổi 2026'),
-                                maxLines: 2,
-                                overflow: TextOverflow.ellipsis,
-                                style: TextStyle(
-                                    color: SboxColors.slate500, fontSize: 13),
-                              ),
-                            ],
-                          ),
-                        ),
-                      ],
-                    ),
-                    const SizedBox(height: 24),
-                  ],
-
-                  // Main content - 3 columns
-                  if (isWideScreen)
-                    Row(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Expanded(child: _buildDeductionCard()),
-                        const SizedBox(width: 16),
-                        Expanded(child: _buildTaxBracketsCard()),
-                        const SizedBox(width: 16),
-                        Expanded(child: _buildSummaryCard()),
-                      ],
-                    )
-                  else if (isMediumScreen)
-                    Column(
-                      children: [
-                        Row(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            Expanded(child: _buildDeductionCard()),
-                            const SizedBox(width: 16),
-                            Expanded(child: _buildTaxBracketsCard()),
-                          ],
-                        ),
-                        const SizedBox(height: 16),
-                        _buildSummaryCard(),
-                      ],
-                    )
-                  else
-                    Column(
-                      children: [
-                        _buildDeductionCard(),
-                        const SizedBox(height: 16),
-                        _buildTaxBracketsCard(),
-                        const SizedBox(height: 16),
-                        _buildSummaryCard(),
-                      ],
-                    ),
-
-                  if (!HrmPageChrome.isEmbedded) ...[
-                    const SizedBox(height: 24),
-                    _buildSaveSettingsButton(),
-                  ],
-
-                  const SizedBox(height: 32),
-
-                  // Employee Tax Deductions Table
-                  _buildEmployeeDeductionsCard(),
-                ],
-              ),
-            ),
+    final edit = _canEdit;
+    return SettingsPage(
+      title: 'Thuế thu nhập cá nhân',
+      subtitle: 'Giảm trừ gia cảnh, biểu thuế lũy tiến theo tháng, người phụ thuộc của nhân viên',
+      icon: Icons.receipt_long_outlined,
+      loading: _loading,
+      dirty: _p.key != _saved.key,
+      saving: _saving,
+      onSave: _save,
+      onDiscard: () => setState(() {
+        _p = _saved.copy();
+        _fill();
+      }),
+      onResetDefaults: edit
+          ? () => setState(() {
+                _p = TaxParams();
+                _fill();
+              })
+          : null,
+      children: [
+        if (!edit) const SettingsNote('Bạn chỉ có quyền xem.', icon: Icons.lock_outline_rounded, tone: SboxTone.neutral),
+        _deductionSection(edit),
+        _bracketSection(edit),
+        _trySection(),
+        _dependentsSection(edit),
+      ],
     );
   }
 
-  String _formatCurrency(dynamic value) {
-    final amount = (value is num) ? value.toDouble() : (double.tryParse(value?.toString() ?? '0') ?? 0);
-    if (amount == 0) return '0';
-    final parts = amount.toStringAsFixed(0).split('');
-    final buffer = StringBuffer();
-    for (var i = 0; i < parts.length; i++) {
-      if (i > 0 && (parts.length - i) % 3 == 0) buffer.write('.');
-      buffer.write(parts[i]);
-    }
-    return buffer.toString();
-  }
-
-  // Employee Tax Deductions — gọn: tìm + chỉnh NPT nhanh
-  List<Map<String, dynamic>> get _filteredEmployeeDeductions {
-    final q = _employeeSearch.trim().toLowerCase();
-    if (q.isEmpty) return _employeeDeductions;
-    return _employeeDeductions.where((e) {
-      final name = (e['employeeName'] ?? '').toString().toLowerCase();
-      final code = (e['employeeCode'] ?? '').toString().toLowerCase();
-      return name.contains(q) || code.contains(q);
-    }).toList();
-  }
-
-  Widget _buildEmployeeDeductionsCard() {
-    final personalDeduction = parseFormattedNumber(_personalDeductionController.text)
-            ?.toDouble() ??
-        PitTaxDefaults.personalDeduction;
-    final dependentDeductionRate =
-        parseFormattedNumber(_dependentDeductionController.text)?.toDouble() ??
-            PitTaxDefaults.dependentDeduction;
-    final filtered = _filteredEmployeeDeductions;
-
-    return Container(
-      decoration: BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.circular(14),
-        border: Border.all(color: SboxColors.slate200),
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
+  Widget _deductionSection(bool edit) => SettingsSection(
+        title: 'Giảm trừ gia cảnh (mỗi tháng)',
+        icon: Icons.family_restroom_rounded,
         children: [
-          Padding(
-            padding: const EdgeInsets.fromLTRB(16, 16, 16, 8),
-            child: Row(
-              children: [
-                const Icon(Icons.people_outline,
-                    color: HrmPageChrome.primaryNavy, size: 22),
-                const SizedBox(width: 10),
-                Expanded(
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Text(tr('Người phụ thuộc theo nhân viên'),
-                          style: const TextStyle(
-                              fontSize: 16, fontWeight: FontWeight.w700)),
-                      Text(
-                        tr('Chỉnh số NPT tại chỗ · bấm tên để sửa BH / miễn khác'),
-                        style: TextStyle(fontSize: 12, color: SboxColors.slate600),
-                      ),
-                    ],
-                  ),
-                ),
-                Text(tr('${filtered.length} NV'),
-                    style: const TextStyle(
-                        fontSize: 12, color: SboxColors.slate500)),
-              ],
-            ),
+          SettingsTile(
+            divider: false,
+            label: 'Bản thân người nộp thuế',
+            control: SettingsMoneyField(controller: _ctl('personal'), enabled: edit, onChanged: (v) => setState(() => _p.personal = v)),
           ),
-          Padding(
-            padding: const EdgeInsets.fromLTRB(16, 0, 16, 12),
-            child: TextField(
-              onChanged: (v) => setState(() => _employeeSearch = v),
-              decoration: InputDecoration(
-                hintText: tr('Tìm tên hoặc mã NV…'),
-                prefixIcon: const Icon(Icons.search, size: 20),
-                isDense: true,
-                filled: true,
-                fillColor: SboxColors.slate50,
-                border: OutlineInputBorder(
-                  borderRadius: BorderRadius.circular(10),
-                  borderSide: const BorderSide(color: SboxColors.slate200),
-                ),
-                enabledBorder: OutlineInputBorder(
-                  borderRadius: BorderRadius.circular(10),
-                  borderSide: const BorderSide(color: SboxColors.slate200),
-                ),
-              ),
-            ),
+          SettingsTile(
+            label: 'Mỗi người phụ thuộc',
+            control: SettingsMoneyField(controller: _ctl('dependent'), enabled: edit, onChanged: (v) => setState(() => _p.dependent = v)),
           ),
-          if (filtered.isEmpty)
-            Padding(
-              padding: const EdgeInsets.all(32),
-              child: Center(
-                child: Text(tr('Không có nhân viên'),
-                    style: const TextStyle(color: SboxColors.slate400)),
-              ),
-            )
-          else
-            ConstrainedBox(
-              constraints: const BoxConstraints(maxHeight: 420),
-              child: ListView.separated(
-                shrinkWrap: true,
-                padding: const EdgeInsets.fromLTRB(8, 0, 8, 12),
-                itemCount: filtered.length,
-                separatorBuilder: (_, __) =>
-                    const Divider(height: 1, color: SboxColors.slate100),
-                itemBuilder: (context, i) {
-                  final emp = filtered[i];
-                  final index = _employeeDeductions.indexOf(emp);
-                  final npt = (emp['numberOfDependents'] ?? 0) as int;
-                  final total = personalDeduction +
-                      npt * dependentDeductionRate +
-                      ((emp['mandatoryInsurance'] as num?)?.toDouble() ?? 0) +
-                      ((emp['otherExemptions'] as num?)?.toDouble() ?? 0);
-                  return ListTile(
-                    dense: true,
-                    contentPadding:
-                        const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
-                    onTap: () => _showEmployeeDeductionDialog(index),
-                    title: Text(tr(emp['employeeName']?.toString() ?? ''),
-                        style: const TextStyle(
-                            fontWeight: FontWeight.w600, fontSize: 13)),
-                    subtitle: Text(
-                      tr([
-                        emp['employeeCode']?.toString() ?? '',
-                        '$npt NPT',
-                        'GT ${_formatCurrency(total)}',
-                        if ((emp['dependentRegistrationFormUrl']
-                                    ?.toString() ??
-                                '')
-                            .isNotEmpty)
-                          'có phiếu',
-                        if (_parseDependentDocs(emp['dependentDocumentsJson'])
-                            .isNotEmpty)
-                          'có hồ sơ',
-                      ].where((s) => s.isNotEmpty).join(' · ')),
-                      style: const TextStyle(
-                          fontSize: 11, color: SboxColors.slate500),
-                    ),
-                    trailing: Row(
-                      mainAxisSize: MainAxisSize.min,
-                      children: [
-                        IconButton(
-                          visualDensity: VisualDensity.compact,
-                          tooltip: tr('Giảm NPT'),
-                          onPressed: !_perm.canEdit('Tax') || npt <= 0
-                              ? null
-                              : () => _saveInlineEdit(index,
-                                  numberOfDependents: npt - 1),
-                          icon: const Icon(Icons.remove_circle_outline,
-                              size: 20),
-                        ),
-                        SizedBox(
-                          width: 28,
-                          child: Text('$npt',
-                              textAlign: TextAlign.center,
-                              style: const TextStyle(
-                                  fontWeight: FontWeight.w700, fontSize: 14)),
-                        ),
-                        IconButton(
-                          visualDensity: VisualDensity.compact,
-                          tooltip: tr('Thêm NPT'),
-                          onPressed: !_perm.canEdit('Tax')
-                              ? null
-                              : () => _saveInlineEdit(index,
-                                  numberOfDependents: npt + 1),
-                          icon: const Icon(Icons.add_circle_outline, size: 20),
-                        ),
-                      ],
-                    ),
-                  );
-                },
-              ),
-            ),
         ],
-      ),
-    );
-  }
+      );
 
-  void _showEmployeeDeductionDialog(int index) {
-    final emp = _employeeDeductions[index];
-    final personalDeduction = parseFormattedNumber(_personalDeductionController.text)?.toDouble() ?? PitTaxDefaults.personalDeduction;
-    final dependentDeductionRate = parseFormattedNumber(_dependentDeductionController.text)?.toDouble() ?? PitTaxDefaults.dependentDeduction;
-
-    final numDependents = (emp['numberOfDependents'] ?? 0) as int;
-    final mandatoryIns = (emp['mandatoryInsurance'] is num)
-        ? (emp['mandatoryInsurance'] as num).toDouble()
-        : (double.tryParse(emp['mandatoryInsurance']?.toString() ?? '0') ?? 0);
-    final otherExempt = (emp['otherExemptions'] is num)
-        ? (emp['otherExemptions'] as num).toDouble()
-        : (double.tryParse(emp['otherExemptions']?.toString() ?? '0') ?? 0);
-
-    final nptCtrl = TextEditingController(text: tr('$numDependents'));
-    final insCtrl = TextEditingController(text: tr(mandatoryIns > 0 ? _formatCurrency(mandatoryIns) : '0'));
-    final otherCtrl = TextEditingController(text: tr(otherExempt > 0 ? _formatCurrency(otherExempt) : '0'));
-
-    var registrationUrl =
-        emp['dependentRegistrationFormUrl']?.toString() ?? '';
-    var documents = _parseDependentDocs(emp['dependentDocumentsJson']);
-    var uploading = false;
-
-    showDialog(
-      context: context,
-      builder: (ctx) {
-        return StatefulBuilder(builder: (ctx, setDialogState) {
-          final npt = int.tryParse(nptCtrl.text) ?? 0;
-          final ins = parseFormattedNumber(insCtrl.text)?.toDouble() ?? 0;
-          final other = parseFormattedNumber(otherCtrl.text)?.toDouble() ?? 0;
-          final depDeduction = npt * dependentDeductionRate;
-          final total = personalDeduction + depDeduction + ins + other;
-
-          Future<void> pickAndUpload({required bool isRegistration}) async {
-            final result = await FilePicker.platform.pickFiles(
-              type: FileType.custom,
-              allowedExtensions: const ['pdf', 'jpg', 'jpeg', 'png', 'webp'],
-              withData: true,
-            );
-            if (result == null || result.files.isEmpty) return;
-            final file = result.files.first;
-            final bytes = file.bytes;
-            if (bytes == null || bytes.isEmpty) {
-              appNotification.showError(
-                  title: 'Lỗi', message: tr('Không đọc được file'));
-              return;
-            }
-            setDialogState(() => uploading = true);
-            final up = await _apiService.uploadFile(
-              bytes,
-              file.name,
-              folder: 'tax/dependents',
-            );
-            setDialogState(() => uploading = false);
-            if (up['isSuccess'] != true) {
-              appNotification.showError(
-                  title: 'Lỗi',
-                  message: up['message']?.toString() ?? 'Upload thất bại');
-              return;
-            }
-            final data = up['data'];
-            final path = data is Map
-                ? (data['filePath'] ?? data['fileUrl'] ?? data['url'])
-                    ?.toString()
-                : null;
-            if (path == null || path.isEmpty) {
-              appNotification.showError(
-                  title: 'Lỗi', message: tr('Upload không trả về đường dẫn'));
-              return;
-            }
-            setDialogState(() {
-              if (isRegistration) {
-                registrationUrl = path;
-              } else {
-                documents = [
-                  ...documents,
-                  {
-                    'fileName': file.name,
-                    'url': path,
-                    'note': '',
-                    'uploadedAt': DateTime.now().toIso8601String(),
-                  },
-                ];
-              }
-            });
-          }
-
-          final isMobile = Responsive.isMobile(ctx);
-          return ScrollableAlertDialog(
-            insetPadding: isMobile ? EdgeInsets.zero : const EdgeInsets.symmetric(horizontal: 40, vertical: 24),
-            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(isMobile ? 0 : 16)),
-            title: Row(
-              children: [
-                Container(
-                  width: 36,
-                  height: 36,
-                  decoration: BoxDecoration(
-                    color: HrmPageChrome.primaryNavy.withValues(alpha: 0.1),
-                    borderRadius: BorderRadius.circular(10),
-                  ),
-                  child: const Icon(Icons.person, color: HrmPageChrome.primaryNavy, size: 20),
+  Widget _bracketSection(bool edit) {
+    String label(int i) => i == 0
+        ? 'Bậc 1: đến ${settingsMoney(_p.caps[0])}'
+        : i < 4
+            ? 'Bậc ${i + 1}: trên ${settingsMoney(_p.caps[i - 1])} đến ${settingsMoney(_p.caps[i])}'
+            : 'Bậc 5: trên ${settingsMoney(_p.caps[3])}';
+    return SettingsSection(
+      title: 'Biểu thuế lũy tiến',
+      subtitle: 'Thu nhập tính thuế mỗi tháng, tính cộng dồn từng phần theo bậc',
+      icon: Icons.stacked_bar_chart_rounded,
+      children: [
+        for (var i = 0; i < 5; i++)
+          SettingsTile(
+            divider: i > 0,
+            label: label(i),
+            control: Row(mainAxisSize: MainAxisSize.min, children: [
+              if (i < 4) ...[
+                SettingsMoneyField(
+                  controller: _ctl('cap$i'),
+                  enabled: edit,
+                  width: 160,
+                  onChanged: (v) => setState(() => _p.caps[i] = v),
                 ),
-                const SizedBox(width: 12),
-                Expanded(
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Text(tr(emp['employeeName'] ?? ''), style: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
-                      Text(tr(emp['employeeCode'] ?? ''), style: TextStyle(fontSize: 12, color: SboxColors.slate500)),
-                    ],
-                  ),
-                ),
+                const SizedBox(width: 8),
               ],
-            ),
-            content: SizedBox(
-              width: isMobile ? double.infinity : 440,
-              child: Column(
-                mainAxisSize: MainAxisSize.min,
-                crossAxisAlignment: CrossAxisAlignment.stretch,
-                children: [
-                  _dialogInfoRow('Giảm trừ bản thân', _formatCurrency(personalDeduction)),
-                  const Divider(height: 24),
-                  _dialogEditRow('Số người phụ thuộc', nptCtrl, setDialogState, isNumber: true),
-                  const SizedBox(height: 8),
-                  _dialogInfoRow('Giảm trừ NPT', _formatCurrency(depDeduction)),
-                  const Divider(height: 24),
-                  _dialogEditRow('BH bắt buộc', insCtrl, setDialogState),
-                  const SizedBox(height: 8),
-                  _dialogEditRow('Miễn thuế khác', otherCtrl, setDialogState),
-                  const Divider(height: 24),
-                  Text(tr('Phiếu đăng ký người phụ thuộc'),
-                      style: const TextStyle(
-                          fontSize: 13, fontWeight: FontWeight.w600)),
-                  const SizedBox(height: 6),
-                  if (registrationUrl.isNotEmpty)
-                    ListTile(
-                      dense: true,
-                      contentPadding: EdgeInsets.zero,
-                      leading: const Icon(Icons.description_outlined, size: 20),
-                      title: Text(tr('Đã có phiếu đăng ký'),
-                          style: const TextStyle(fontSize: 12)),
-                      trailing: Row(
-                        mainAxisSize: MainAxisSize.min,
-                        children: [
-                          IconButton(
-                            tooltip: tr('Xem'),
-                            icon: const Icon(Icons.open_in_new, size: 18),
-                            onPressed: () => _openUploadedPath(registrationUrl),
-                          ),
-                          IconButton(
-                            tooltip: tr('Xóa'),
-                            icon: const Icon(Icons.delete_outline, size: 18),
-                            onPressed: () =>
-                                setDialogState(() => registrationUrl = ''),
-                          ),
-                        ],
-                      ),
-                    ),
-                  OutlinedButton.icon(
-                    onPressed: uploading
-                        ? null
-                        : () => pickAndUpload(isRegistration: true),
-                    icon: const Icon(Icons.upload_file, size: 18),
-                    label: Text(tr(registrationUrl.isEmpty
-                        ? 'Tải phiếu đăng ký (PDF/ảnh)'
-                        : 'Đổi phiếu đăng ký')),
-                  ),
-                  const SizedBox(height: 12),
-                  Text(tr('Hồ sơ giấy tờ NPT'),
-                      style: const TextStyle(
-                          fontSize: 13, fontWeight: FontWeight.w600)),
-                  const SizedBox(height: 6),
-                  ...documents.asMap().entries.map((e) {
-                    final i = e.key;
-                    final doc = e.value;
-                    return ListTile(
-                      dense: true,
-                      contentPadding: EdgeInsets.zero,
-                      leading: const Icon(Icons.attach_file, size: 18),
-                      title: Text(tr(doc['fileName']?.toString() ?? 'Tài liệu'),
-                          style: const TextStyle(fontSize: 12),
-                          maxLines: 1,
-                          overflow: TextOverflow.ellipsis),
-                      trailing: Row(
-                        mainAxisSize: MainAxisSize.min,
-                        children: [
-                          IconButton(
-                            tooltip: tr('Xem'),
-                            icon: const Icon(Icons.open_in_new, size: 18),
-                            onPressed: () =>
-                                _openUploadedPath(doc['url']?.toString() ?? ''),
-                          ),
-                          IconButton(
-                            tooltip: tr('Xóa'),
-                            icon: const Icon(Icons.close, size: 18),
-                            onPressed: () => setDialogState(() {
-                              documents = [...documents]..removeAt(i);
-                            }),
-                          ),
-                        ],
-                      ),
-                    );
-                  }),
-                  OutlinedButton.icon(
-                    onPressed: uploading
-                        ? null
-                        : () => pickAndUpload(isRegistration: false),
-                    icon: const Icon(Icons.note_add_outlined, size: 18),
-                    label: Text(tr('Thêm giấy tờ NPT')),
-                  ),
-                  if (uploading) ...[
-                    const SizedBox(height: 8),
-                    const LinearProgressIndicator(minHeight: 2),
-                  ],
-                  const Divider(height: 24),
-                  Container(
-                    padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
-                    decoration: BoxDecoration(
-                      color: SboxColors.warningSoft,
-                      borderRadius: BorderRadius.circular(10),
-                      border: Border.all(color: SboxColors.warning.withValues(alpha: 0.3)),
-                    ),
-                    child: Row(
-                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                      children: [
-                        Text(tr('Tổng TN miễn thuế'), style: TextStyle(fontWeight: FontWeight.w600, fontSize: 14)),
-                        Text(tr('${_formatCurrency(total)} đ'),
-                          style: const TextStyle(color: SboxColors.warning, fontSize: 16, fontWeight: FontWeight.bold),
-                        ),
-                      ],
-                    ),
-                  ),
-                ],
+              SettingsPercentField(
+                controller: _ctl('rate$i'),
+                enabled: edit,
+                width: 90,
+                onChanged: (v) => setState(() => _p.rates[i] = v ?? -1),
               ),
-            ),
-            actions: [
-              TextButton(
-                onPressed: () => Navigator.pop(ctx),
-                child: Text(tr('Đóng')),
-              ),
-              FilledButton.icon(
-                onPressed: uploading
-                    ? null
-                    : () {
-                        Navigator.pop(ctx);
-                        _saveInlineEdit(
-                          index,
-                          numberOfDependents: int.tryParse(nptCtrl.text) ?? 0,
-                          mandatoryInsurance:
-                              parseFormattedNumber(insCtrl.text)?.toDouble() ??
-                                  0,
-                          otherExemptions:
-                              parseFormattedNumber(otherCtrl.text)?.toDouble() ??
-                                  0,
-                          registrationFormUrl: registrationUrl,
-                          documentsJson: jsonEncode(documents),
-                        );
-                      },
-                icon: const Icon(Icons.save, size: 18),
-                label: Text(tr('Lưu')),
-                style: FilledButton.styleFrom(backgroundColor: HrmPageChrome.primaryNavy),
-              ),
-            ],
-          );
-        });
-      },
+            ]),
+          ),
+        if (_p.validate() != null) SettingsNote(_p.validate()!, icon: Icons.error_outline_rounded, tone: SboxTone.danger),
+      ],
     );
   }
 
-  List<Map<String, dynamic>> _parseDependentDocs(dynamic raw) {
-    if (raw == null) return [];
+  Widget _trySection() {
+    final r = _p.validate() == null ? _p.compute(gross: _gross, insuranceSalary: _insSalary, dependents: _dependents, ins: _ins) : null;
+    Widget line(String k, double? v, {bool strong = false, Color? color, String sign = ''}) => Padding(
+          padding: const EdgeInsets.symmetric(vertical: 4),
+          child: Row(children: [
+            Expanded(child: Text(tr(k), style: TextStyle(color: SboxColors.slate600, fontWeight: strong ? FontWeight.w800 : FontWeight.w500))),
+            Text(v == null ? '—' : '$sign${settingsMoney(v)} ₫',
+                style: TextStyle(fontWeight: strong ? FontWeight.w800 : FontWeight.w600, color: color ?? SboxColors.slate900)),
+          ]),
+        );
+    return SettingsSection(
+      title: 'Tính thử thuế một tháng',
+      subtitle: 'Dùng mức đóng bảo hiểm hiện hành của cửa hàng',
+      icon: Icons.calculate_outlined,
+      children: [
+        SettingsTile(
+          divider: false,
+          label: 'Tổng thu nhập chịu thuế',
+          help: 'Lương, thưởng, phụ cấp chịu thuế',
+          control: SettingsMoneyField(controller: _ctl('gross'), onChanged: (v) => setState(() => _gross = v)),
+        ),
+        SettingsTile(
+          label: 'Lương đóng bảo hiểm',
+          control: SettingsMoneyField(controller: _ctl('insSalary'), onChanged: (v) => setState(() => _insSalary = v)),
+        ),
+        SettingsTile(
+          label: 'Số người phụ thuộc',
+          control: Row(mainAxisSize: MainAxisSize.min, children: [
+            IconButton(onPressed: _dependents > 0 ? () => setState(() => _dependents--) : null, icon: const Icon(Icons.remove_circle_outline)),
+            Text('$_dependents', style: const TextStyle(fontWeight: FontWeight.w800, fontSize: 16)),
+            IconButton(onPressed: () => setState(() => _dependents++), icon: const Icon(Icons.add_circle_outline)),
+          ]),
+        ),
+        const Divider(height: 16),
+        line('Bảo hiểm người lao động đóng', r?.insurance, sign: '−'),
+        line('Giảm trừ gia cảnh', r?.deduction, sign: '−'),
+        line('Thu nhập tính thuế', r?.taxable),
+        line('Thuế TNCN phải nộp', r?.tax, strong: true, color: SboxColors.dangerText),
+        line('Thực nhận', r?.net, strong: true, color: SboxColors.successText),
+        const SizedBox(height: 8),
+      ],
+    );
+  }
+
+  // ─── Người phụ thuộc theo nhân viên ───────────────────────────
+
+  Widget _dependentsSection(bool edit) {
+    final q = _depQuery.trim().toLowerCase();
+    final list = _deps
+        .where((d) => q.isEmpty || '${d['employeeName']} ${d['employeeCode']}'.toLowerCase().contains(q))
+        .toList()
+      ..sort((a, b) => ((b['numberOfDependents'] as num?) ?? 0).compareTo((a['numberOfDependents'] as num?) ?? 0));
+    final withDeps = _deps.where((d) => ((d['numberOfDependents'] as num?) ?? 0) > 0).length;
+    return SettingsSection(
+      title: 'Người phụ thuộc của nhân viên',
+      subtitle: '$withDeps/${_deps.length} nhân viên có đăng ký người phụ thuộc',
+      icon: Icons.people_alt_outlined,
+      children: [
+        TextField(
+          onChanged: (v) => setState(() => _depQuery = v),
+          decoration: InputDecoration(
+            isDense: true,
+            prefixIcon: const Icon(Icons.search_rounded, size: 20),
+            hintText: tr('Tìm nhân viên'),
+            border: OutlineInputBorder(borderRadius: BorderRadius.circular(10)),
+          ),
+        ),
+        const SizedBox(height: 4),
+        if (list.isEmpty)
+          const Padding(padding: EdgeInsets.all(16), child: Text('Chưa có nhân viên.', style: TextStyle(color: SboxColors.slate500))),
+        for (final d in list.take(60))
+          ListTile(
+            contentPadding: EdgeInsets.zero,
+            onTap: edit ? () => _editDependents(d) : null,
+            title: Text(tr('${d['employeeName'] ?? ''}'), style: const TextStyle(fontWeight: FontWeight.w700)),
+            subtitle: Text(tr('${d['employeeCode'] ?? ''}'
+                '${_docs(d).isNotEmpty || '${d['dependentRegistrationFormUrl'] ?? ''}'.isNotEmpty ? ' · có hồ sơ đính kèm' : ''}')),
+            trailing: Row(mainAxisSize: MainAxisSize.min, children: [
+              SboxStatusChip(
+                label: '${(d['numberOfDependents'] as num?) ?? 0} người phụ thuộc',
+                tone: ((d['numberOfDependents'] as num?) ?? 0) > 0 ? SboxTone.brand : SboxTone.neutral,
+              ),
+              if (edit) const Icon(Icons.chevron_right_rounded, color: SboxColors.slate400),
+            ]),
+          ),
+        if (list.length > 60)
+          Padding(
+            padding: const EdgeInsets.all(8),
+            child: Text(tr('Đang hiện 60/${list.length} — gõ tên để tìm'), style: const TextStyle(color: SboxColors.slate500)),
+          ),
+      ],
+    );
+  }
+
+  List<Map<String, dynamic>> _docs(Map<String, dynamic> d) {
     try {
-      final decoded = raw is String ? jsonDecode(raw) : raw;
-      if (decoded is! List) return [];
-      return decoded
-          .whereType<Map>()
-          .map((e) => Map<String, dynamic>.from(e))
-          .toList();
+      final raw = d['dependentDocumentsJson'];
+      final v = raw is String ? jsonDecode(raw) : raw;
+      return [if (v is List) for (final x in v.whereType<Map>()) Map<String, dynamic>.from(x)];
     } catch (_) {
       return [];
     }
   }
 
-  Future<void> _openUploadedPath(String path) async {
-    if (path.isEmpty) return;
-    final url = _apiService.getFileUrl(path);
-    final uri = Uri.tryParse(url);
-    if (uri == null) return;
-    await launchUrl(uri, mode: LaunchMode.externalApplication);
-  }
-
-  Widget _dialogInfoRow(String label, String value) {
-    return Row(
-      mainAxisAlignment: MainAxisAlignment.spaceBetween,
-      children: [
-        Text(tr(label), style: TextStyle(fontSize: 13, color: SboxColors.slate600)),
-        Text(tr('$value đ'), style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w500)),
-      ],
+  Future<void> _editDependents(Map<String, dynamic> d) async {
+    final saved = await showDialog<Map<String, dynamic>>(
+      context: context,
+      builder: (_) => _DependentsDialog(employee: d, docs: _docs(d), tax: _p),
     );
-  }
-
-  Widget _dialogEditRow(String label, TextEditingController ctrl, void Function(void Function()) setDialogState, {bool isNumber = false}) {
-    return Row(
-      children: [
-        Expanded(child: Text(tr(label), style: TextStyle(fontSize: 13, color: SboxColors.slate600))),
-        SizedBox(
-          width: 150,
-          child: TextField(
-            controller: ctrl,
-            keyboardType: TextInputType.number,
-            textAlign: TextAlign.right,
-            style: const TextStyle(fontSize: 13),
-            inputFormatters: isNumber ? null : [ThousandSeparatorFormatter()],
-            decoration: InputDecoration(
-              isDense: true,
-              contentPadding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
-              border: OutlineInputBorder(borderRadius: BorderRadius.circular(10)),
-              suffixText: tr(isNumber ? '' : 'đ'),
-              suffixStyle: TextStyle(fontSize: 12, color: SboxColors.slate400),
-            ),
-            onChanged: (_) => setDialogState(() {}),
-          ),
-        ),
-      ],
-    );
-  }
-
-  Future<void> _saveInlineEdit(
-    int index, {
-    int? numberOfDependents,
-    double? mandatoryInsurance,
-    double? otherExemptions,
-    String? registrationFormUrl,
-    String? documentsJson,
-  }) async {
-    final emp = _employeeDeductions[index];
-    final data = {
-      'employeeId': emp['employeeId'],
-      'numberOfDependents':
-          numberOfDependents ?? (emp['numberOfDependents'] ?? 0),
-      'mandatoryInsurance': mandatoryInsurance ??
-          ((emp['mandatoryInsurance'] is num)
-              ? (emp['mandatoryInsurance'] as num).toDouble()
-              : (double.tryParse(
-                      emp['mandatoryInsurance']?.toString() ?? '0') ??
-                  0)),
-      'otherExemptions': otherExemptions ??
-          ((emp['otherExemptions'] is num)
-              ? (emp['otherExemptions'] as num).toDouble()
-              : (double.tryParse(emp['otherExemptions']?.toString() ?? '0') ??
-                  0)),
-      'dependentRegistrationFormUrl': registrationFormUrl ??
-          emp['dependentRegistrationFormUrl']?.toString() ??
-          '',
-      'dependentDocumentsJson': documentsJson ??
-          emp['dependentDocumentsJson']?.toString() ??
-          '[]',
-    };
-    final result = await _apiService.saveEmployeeTaxDeduction(data);
-    if (result['isSuccess'] == true && mounted) {
-      appNotification.showSuccess(
-          title: 'Đã lưu', message: emp['employeeName'] ?? '');
-      setState(() {
-        _employeeDeductions[index]['numberOfDependents'] =
-            data['numberOfDependents'];
-        _employeeDeductions[index]['mandatoryInsurance'] =
-            data['mandatoryInsurance'];
-        _employeeDeductions[index]['otherExemptions'] = data['otherExemptions'];
-        _employeeDeductions[index]['dependentRegistrationFormUrl'] =
-            data['dependentRegistrationFormUrl'];
-        _employeeDeductions[index]['dependentDocumentsJson'] =
-            data['dependentDocumentsJson'];
-      });
-    } else if (mounted) {
-      appNotification.showError(
-          title: 'Lỗi', message: result['message'] ?? 'Không thể lưu');
+    if (saved == null) return;
+    final r = await _api.saveEmployeeTaxDeduction(saved);
+    if (!mounted) return;
+    if (r['isSuccess'] == true) {
+      setState(() => d.addAll(saved));
+      _toast('Đã lưu người phụ thuộc của ${d['employeeName'] ?? ''}');
+    } else {
+      _toast(r['message']?.toString() ?? 'Không lưu được', error: true);
     }
   }
+}
 
-  // Card Giảm trừ gia cảnh
-  Widget _buildDeductionCard() {
-    return Container(
-      decoration: BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.circular(14),
-        boxShadow: [
-          BoxShadow(
-            color: Colors.black.withValues(alpha: 0.05),
-            blurRadius: 10,
-            offset: const Offset(0, 2),
-          ),
-        ],
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          // Header
-          Padding(
-            padding: const EdgeInsets.all(20),
-            child: Row(
-              children: [
-                Container(
-                  width: Responsive.isMobile(context) ? 44 : 120,
-                  height: Responsive.isMobile(context) ? 44 : 45,
-                  decoration: BoxDecoration(
-                    color: PosTheme.kiotBlueLight,
-                    borderRadius: BorderRadius.circular(10),
-                  ),
-                  child: const Center(
-                    child: Icon(Icons.bar_chart, color: PosTheme.kiotBlue, size: 24),
-                  ),
-                ),
-                const SizedBox(width: 16),
-                Expanded(
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Text(tr('Giảm trừ gia cảnh'),
-                        style: TextStyle(
-                          color: SboxColors.slate900,
-                          fontSize: 16,
-                          fontWeight: FontWeight.bold,
-                        ),
-                      ),
-                      Text(tr('Mức giảm trừ bản thân và người phụ thuộc'),
-                        style: TextStyle(color: SboxColors.slate500, fontSize: 12),
-                      ),
-                    ],
-                  ),
-                ),
-              ],
-            ),
-          ),
+/// Sửa người phụ thuộc + giấy tờ của một nhân viên.
+class _DependentsDialog extends StatefulWidget {
+  const _DependentsDialog({required this.employee, required this.docs, required this.tax});
 
-          // Content
-          Padding(
-            padding: const EdgeInsets.fromLTRB(20, 0, 20, 20),
-            child: Column(
-              children: [
-                _buildDeductionField(
-                  icon: Icons.person,
-                  label: 'Giảm trừ bản thân',
-                  description: 'Mức giảm trừ cho người nộp thuế',
-                  controller: _personalDeductionController,
-                  suffix: 'đ/tháng',
-                ),
-                const SizedBox(height: 20),
-                _buildDeductionField(
-                  icon: Icons.supervisor_account,
-                  label: 'Giảm trừ người phụ thuộc',
-                  description: 'Mức giảm trừ cho mỗi người phụ thuộc',
-                  controller: _dependentDeductionController,
-                  suffix: 'đ/người/tháng',
-                ),
-              ],
-            ),
-          ),
-        ],
-      ),
-    );
+  final Map<String, dynamic> employee;
+  final List<Map<String, dynamic>> docs;
+  final TaxParams tax;
+
+  @override
+  State<_DependentsDialog> createState() => _DependentsDialogState();
+}
+
+class _DependentsDialogState extends State<_DependentsDialog> {
+  final _api = ApiService();
+  late int _count = ((widget.employee['numberOfDependents'] as num?) ?? 0).toInt();
+  late final _other = TextEditingController(
+      text: settingsMoney(((widget.employee['otherExemptions'] as num?) ?? 0).toDouble()));
+  late String _form = '${widget.employee['dependentRegistrationFormUrl'] ?? ''}';
+  late List<Map<String, dynamic>> _docs = [...widget.docs];
+  bool _uploading = false;
+
+  @override
+  void dispose() {
+    _other.dispose();
+    super.dispose();
   }
 
-  Widget _buildDeductionField({
-    required IconData icon,
-    required String label,
-    required String description,
-    required TextEditingController controller,
-    required String suffix,
-  }) {
-    final isMobile = Responsive.isMobile(context);
-    final field = SizedBox(
-      width: isMobile ? double.infinity : 130,
-      height: 40,
-      child: TextField(
-        controller: controller,
-        textAlign: TextAlign.right,
-        style: const TextStyle(
-            color: SboxColors.slate900,
-            fontSize: 14,
-            fontWeight: FontWeight.w600),
-        keyboardType: TextInputType.number,
-        inputFormatters: [ThousandSeparatorFormatter()],
-        decoration: InputDecoration(
-          suffixText: tr(suffix),
-          suffixStyle: const TextStyle(color: SboxColors.slate500, fontSize: 10),
-          contentPadding:
-              const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-          enabledBorder: OutlineInputBorder(
-            borderRadius: BorderRadius.circular(10),
-            borderSide: const BorderSide(color: SboxColors.slate200),
-          ),
-          focusedBorder: OutlineInputBorder(
-            borderRadius: BorderRadius.circular(10),
-            borderSide:
-                const BorderSide(color: HrmPageChrome.primaryNavy, width: 2),
-          ),
-          filled: true,
-          fillColor: SboxColors.slate50,
-        ),
-        onChanged: (_) => setState(() {}),
-      ),
+  Future<void> _upload({required bool form}) async {
+    final picked = await FilePicker.platform.pickFiles(
+      type: FileType.custom,
+      allowedExtensions: const ['pdf', 'jpg', 'jpeg', 'png', 'webp'],
+      withData: true,
     );
-
-    final labelBlock = Row(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        Icon(icon, color: SboxColors.slate500, size: 20),
-        const SizedBox(width: 12),
-        Expanded(
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Text(tr(label),
-                  style: const TextStyle(
-                      color: SboxColors.slate900,
-                      fontWeight: FontWeight.w500,
-                      fontSize: 14)),
-              const SizedBox(height: 2),
-              Text(tr(description),
-                  style: TextStyle(color: SboxColors.slate500, fontSize: 11)),
-            ],
-          ),
-        ),
-      ],
-    );
-
-    if (isMobile) {
-      return Column(
-        crossAxisAlignment: CrossAxisAlignment.stretch,
-        children: [
-          labelBlock,
-          const SizedBox(height: 10),
-          field,
-        ],
-      );
+    final f = picked?.files.firstOrNull;
+    if (f?.bytes == null) return;
+    setState(() => _uploading = true);
+    final up = await _api.uploadFile(f!.bytes!, f.name, folder: 'tax/dependents');
+    if (!mounted) return;
+    setState(() => _uploading = false);
+    final data = up['data'];
+    final path = data is Map ? (data['filePath'] ?? data['fileUrl'] ?? data['url'])?.toString() : null;
+    if (up['isSuccess'] != true || path == null || path.isEmpty) {
+      ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(tr('${up['message'] ?? 'Tải tệp thất bại'}'))));
+      return;
     }
-
-    return Row(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        Icon(icon, color: SboxColors.slate500, size: 20),
-        const SizedBox(width: 12),
-        Expanded(
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Text(tr(label),
-                  style: const TextStyle(
-                      color: SboxColors.slate900,
-                      fontWeight: FontWeight.w500,
-                      fontSize: 14)),
-              const SizedBox(height: 2),
-              Text(tr(description),
-                  style: TextStyle(color: SboxColors.slate500, fontSize: 11)),
-            ],
-          ),
-        ),
-        const SizedBox(width: 12),
-        field,
-      ],
-    );
+    setState(() {
+      if (form) {
+        _form = path;
+      } else {
+        _docs = [..._docs, {'fileName': f.name, 'url': path, 'note': '', 'uploadedAt': DateTime.now().toIso8601String()}];
+      }
+    });
   }
 
-  // Card Biểu thuế lũy tiến từng phần
-  Widget _buildTaxBracketsCard() {
-    return Container(
-      decoration: BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.circular(14),
-        boxShadow: [
-          BoxShadow(
-            color: Colors.black.withValues(alpha: 0.05),
-            blurRadius: 10,
-            offset: const Offset(0, 2),
-          ),
-        ],
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          // Header
-          Padding(
-            padding: const EdgeInsets.all(20),
-            child: Row(
-              children: [
-                Container(
-                  width: Responsive.isMobile(context) ? 44 : 120,
-                  height: Responsive.isMobile(context) ? 44 : 45,
-                  decoration: BoxDecoration(
-                    gradient: const LinearGradient(
-                      colors: [SboxColors.warning, Color(0xFFFBBF24)],
-                    ),
-                    borderRadius: BorderRadius.circular(10),
-                  ),
-                  child: const Center(
-                    child: Icon(Icons.trending_up, color: Colors.white, size: 24),
-                  ),
-                ),
-                const SizedBox(width: 16),
-                Expanded(
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Text(tr('Biểu thuế lũy tiến từng phần'),
-                        style: TextStyle(
-                          color: SboxColors.slate900,
-                          fontSize: 16,
-                          fontWeight: FontWeight.bold,
-                        ),
-                      ),
-                      Text(tr('5 bậc thuế theo Luật thuế TNCN 2026'),
-                        style: TextStyle(color: SboxColors.slate500, fontSize: 12),
-                      ),
-                    ],
-                  ),
-                ),
-              ],
-            ),
-          ),
-
-          // Content - Tax brackets
-          Padding(
-            padding: const EdgeInsets.fromLTRB(20, 0, 20, 20),
-            child: Column(
-              children: [
-                _buildBracketRow(1, 'Đến', _bracket1AmountController, _bracket1RateController),
-                const SizedBox(height: 12),
-                _buildBracketRow(2, 'Đến', _bracket2AmountController, _bracket2RateController),
-                const SizedBox(height: 12),
-                _buildBracketRow(3, 'Đến', _bracket3AmountController, _bracket3RateController),
-                const SizedBox(height: 12),
-                _buildBracketRow(4, 'Đến', _bracket4AmountController, _bracket4RateController),
-                const SizedBox(height: 12),
-                _buildBracketRowTop(),
-              ],
-            ),
-          ),
-        ],
-      ),
-    );
+  void _open(String path) {
+    final uri = Uri.tryParse(_api.getFileUrl(path));
+    if (uri != null) launchUrl(uri, mode: LaunchMode.externalApplication);
   }
 
-  Widget _buildBracketRow(int level, String prefix, TextEditingController amountController, TextEditingController rateController) {
-    final colors = [
-      HrmPageChrome.primaryNavy, // Bracket 1
-      HrmPageChrome.primaryNavy, // Bracket 2
-      SboxColors.warning, // Bracket 3
-      SboxColors.danger, // Bracket 4
-      SboxColors.violet, // Bracket 5
-      const Color(0xFFEC4899), // Bracket 6
-      HrmPageChrome.primaryNavy, // Bracket 7
-    ];
-    final color = colors[level - 1];
-    final rateGroup = _buildTaxRateGroup(color, rateController);
-    final isMobile = Responsive.isMobile(context);
-
-    final amountField = SizedBox(
-      width: isMobile ? double.infinity : 110,
-      height: 36,
-      child: TextField(
-        controller: amountController,
-        textAlign: TextAlign.right,
-        style: const TextStyle(
-            color: SboxColors.slate900,
-            fontSize: 13,
-            fontWeight: FontWeight.w600),
-        keyboardType: TextInputType.number,
-        inputFormatters: [ThousandSeparatorFormatter()],
-        decoration: InputDecoration(
-          suffixText: tr('đ'),
-          suffixStyle: const TextStyle(color: SboxColors.slate500, fontSize: 11),
-          contentPadding:
-              const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
-          enabledBorder: OutlineInputBorder(
-            borderRadius: BorderRadius.circular(6),
-            borderSide: const BorderSide(color: SboxColors.slate200),
-          ),
-          focusedBorder: OutlineInputBorder(
-            borderRadius: BorderRadius.circular(6),
-            borderSide: BorderSide(color: color, width: 2),
-          ),
-          filled: true,
-          fillColor: SboxColors.slate50,
-        ),
-        onChanged: (_) => setState(() {}),
-      ),
-    );
-
-    if (isMobile) {
-      return Column(
-        crossAxisAlignment: CrossAxisAlignment.stretch,
-        children: [
-          Row(
-            children: [
-              Container(
-                padding:
-                    const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
-                decoration: BoxDecoration(
-                  color: color,
-                  borderRadius: BorderRadius.circular(6),
-                ),
-                child: Text(
-                  tr('BẬC $level'),
-                  style: const TextStyle(
-                      color: Colors.white,
-                      fontWeight: FontWeight.bold,
-                      fontSize: 12),
-                ),
+  @override
+  Widget build(BuildContext context) {
+    final e = widget.employee;
+    final other = PosVndThousandsFormatter.parse(_other.text);
+    final total = widget.tax.personal + widget.tax.dependent * _count + other;
+    return AlertDialog(
+      title: Text(tr('${e['employeeName'] ?? ''} · ${e['employeeCode'] ?? ''}')),
+      content: SizedBox(
+        width: 460,
+        child: SingleChildScrollView(
+          child: Column(mainAxisSize: MainAxisSize.min, crossAxisAlignment: CrossAxisAlignment.stretch, children: [
+            Row(children: [
+              Expanded(child: Text(tr('Số người phụ thuộc'), style: const TextStyle(fontWeight: FontWeight.w700))),
+              IconButton(onPressed: _count > 0 ? () => setState(() => _count--) : null, icon: const Icon(Icons.remove_circle_outline)),
+              Text('$_count', style: const TextStyle(fontWeight: FontWeight.w800, fontSize: 18)),
+              IconButton(onPressed: () => setState(() => _count++), icon: const Icon(Icons.add_circle_outline)),
+            ]),
+            const SizedBox(height: 8),
+            TextField(
+              controller: _other,
+              keyboardType: TextInputType.number,
+              inputFormatters: [PosVndThousandsFormatter(), FilteringTextInputFormatter.deny(RegExp(r'-'))],
+              onChanged: (_) => setState(() {}),
+              decoration: InputDecoration(
+                labelText: tr('Khoản miễn thuế khác / tháng'),
+                suffixText: '₫',
+                isDense: true,
+                border: const OutlineInputBorder(),
               ),
-              const SizedBox(width: 8),
-              Text(tr(prefix),
-                  style: TextStyle(color: SboxColors.slate600, fontSize: 13)),
-            ],
-          ),
-          const SizedBox(height: 8),
-          amountField,
-          const SizedBox(height: 8),
-          rateGroup,
-        ],
-      );
-    }
-
-    return Wrap(
-      spacing: 8,
-      runSpacing: 8,
-      crossAxisAlignment: WrapCrossAlignment.center,
-      children: [
-        Container(
-          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
-          decoration: BoxDecoration(
-            color: color,
-            borderRadius: BorderRadius.circular(6),
-          ),
-          child: Text(tr('BẬC $level'),
-            style: const TextStyle(
-                color: Colors.white, fontWeight: FontWeight.bold, fontSize: 12),
-          ),
-        ),
-        Text(tr(prefix), style: TextStyle(color: SboxColors.slate600, fontSize: 13)),
-        SizedBox(width: 110, child: amountField),
-        rateGroup,
-      ],
-    );
-  }
-
-  /// «Thuế suất» + ô % luôn cùng một hàng (không tách khi wrap).
-  Widget _buildTaxRateGroup(Color color, TextEditingController rateController) {
-    final isMobile = Responsive.isMobile(context);
-    return Row(
-      mainAxisSize: isMobile ? MainAxisSize.max : MainAxisSize.min,
-      children: [
-        Text(tr('Thuế suất'),
-            style: TextStyle(color: SboxColors.slate600, fontSize: 13)),
-        if (isMobile) const Spacer() else const SizedBox(width: 8),
-        SizedBox(
-          width: 72,
-          height: 36,
-          child: TextField(
-            controller: rateController,
-            textAlign: TextAlign.center,
-            style: const TextStyle(
-                color: SboxColors.slate900,
-                fontSize: 13,
-                fontWeight: FontWeight.w600),
-            keyboardType: const TextInputType.numberWithOptions(decimal: true),
-            decoration: InputDecoration(
-              suffixText: tr('%'),
-              suffixStyle:
-                  const TextStyle(color: SboxColors.slate500, fontSize: 11),
-              contentPadding:
-                  const EdgeInsets.symmetric(horizontal: 8, vertical: 6),
-              enabledBorder: OutlineInputBorder(
-                borderRadius: BorderRadius.circular(6),
-                borderSide: const BorderSide(color: SboxColors.slate200),
-              ),
-              focusedBorder: OutlineInputBorder(
-                borderRadius: BorderRadius.circular(6),
-                borderSide: BorderSide(color: color, width: 2),
-              ),
-              filled: true,
-              fillColor: SboxColors.slate50,
             ),
-            onChanged: (_) => setState(() {}),
-          ),
+            const SizedBox(height: 12),
+            SettingsNote('Tổng giảm trừ mỗi tháng: ${settingsMoney(total)} ₫ (bản thân + ${settingsMoney(widget.tax.dependent * _count)} người phụ thuộc + khác)',
+                icon: Icons.summarize_outlined, tone: SboxTone.brand),
+            Text(tr('Phiếu đăng ký người phụ thuộc'), style: const TextStyle(fontWeight: FontWeight.w700)),
+            if (_form.isNotEmpty)
+              ListTile(
+                dense: true,
+                contentPadding: EdgeInsets.zero,
+                leading: const Icon(Icons.description_outlined),
+                title: Text(tr('Đã có phiếu đăng ký')),
+                trailing: Row(mainAxisSize: MainAxisSize.min, children: [
+                  IconButton(tooltip: tr('Xem'), onPressed: () => _open(_form), icon: const Icon(Icons.open_in_new, size: 18)),
+                  IconButton(tooltip: tr('Bỏ'), onPressed: () => setState(() => _form = ''), icon: const Icon(Icons.close, size: 18)),
+                ]),
+              ),
+            Align(
+              alignment: Alignment.centerLeft,
+              child: TextButton.icon(
+                onPressed: _uploading ? null : () => _upload(form: true),
+                icon: const Icon(Icons.upload_file, size: 18),
+                label: Text(tr(_form.isEmpty ? 'Tải phiếu đăng ký (PDF / ảnh)' : 'Đổi phiếu đăng ký')),
+              ),
+            ),
+            const SizedBox(height: 4),
+            Text(tr('Giấy tờ người phụ thuộc'), style: const TextStyle(fontWeight: FontWeight.w700)),
+            for (var i = 0; i < _docs.length; i++)
+              ListTile(
+                dense: true,
+                contentPadding: EdgeInsets.zero,
+                leading: const Icon(Icons.attach_file, size: 18),
+                title: Text('${_docs[i]['fileName'] ?? 'Tài liệu'}', maxLines: 1, overflow: TextOverflow.ellipsis),
+                trailing: Row(mainAxisSize: MainAxisSize.min, children: [
+                  IconButton(onPressed: () => _open('${_docs[i]['url'] ?? ''}'), icon: const Icon(Icons.open_in_new, size: 18)),
+                  IconButton(onPressed: () => setState(() => _docs = [..._docs]..removeAt(i)), icon: const Icon(Icons.close, size: 18)),
+                ]),
+              ),
+            Align(
+              alignment: Alignment.centerLeft,
+              child: TextButton.icon(
+                onPressed: _uploading ? null : () => _upload(form: false),
+                icon: const Icon(Icons.note_add_outlined, size: 18),
+                label: Text(tr('Thêm giấy tờ')),
+              ),
+            ),
+            if (_uploading) const LinearProgressIndicator(minHeight: 2),
+          ]),
+        ),
+      ),
+      actions: [
+        TextButton(onPressed: () => Navigator.pop(context), child: Text(tr('Hủy'))),
+        FilledButton(
+          onPressed: _uploading
+              ? null
+              : () => Navigator.pop(context, <String, dynamic>{
+                    'employeeId': e['employeeId'],
+                    'numberOfDependents': _count,
+                    'mandatoryInsurance': ((e['mandatoryInsurance'] as num?) ?? 0).toDouble(),
+                    'otherExemptions': other,
+                    'dependentRegistrationFormUrl': _form,
+                    'dependentDocumentsJson': jsonEncode(_docs),
+                  }),
+          child: Text(tr('Lưu')),
         ),
       ],
     );
-  }
-
-  Widget _buildBracketRowTop() {
-    const color = HrmPageChrome.primaryNavy;
-    final amount4 = parseFormattedNumber(_bracket4AmountController.text)
-            ?.toDouble() ??
-        PitTaxDefaults.bracket4Max;
-    final rateGroup = _buildTaxRateGroup(color, _bracket5RateController);
-    final isMobile = Responsive.isMobile(context);
-
-    final amountBox = Container(
-      width: isMobile ? double.infinity : 110,
-      height: 36,
-      alignment: Alignment.centerRight,
-      padding: const EdgeInsets.symmetric(horizontal: 10),
-      decoration: BoxDecoration(
-        color: SboxColors.slate100,
-        borderRadius: BorderRadius.circular(6),
-        border: Border.all(color: SboxColors.slate200),
-      ),
-      child: Text(
-        tr('${formatNumber(amount4)}đ'),
-        style: const TextStyle(
-            color: SboxColors.slate500,
-            fontSize: 13,
-            fontWeight: FontWeight.w500),
-      ),
-    );
-
-    if (isMobile) {
-      return Column(
-        crossAxisAlignment: CrossAxisAlignment.stretch,
-        children: [
-          Row(
-            children: [
-              Container(
-                padding:
-                    const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
-                decoration: BoxDecoration(
-                  color: color,
-                  borderRadius: BorderRadius.circular(6),
-                ),
-                child: Text(
-                  tr('BẬC 5'),
-                  style: const TextStyle(
-                      color: Colors.white,
-                      fontWeight: FontWeight.bold,
-                      fontSize: 12),
-                ),
-              ),
-              const SizedBox(width: 8),
-              Text(tr('Trên'),
-                  style: TextStyle(color: SboxColors.slate600, fontSize: 13)),
-            ],
-          ),
-          const SizedBox(height: 8),
-          amountBox,
-          const SizedBox(height: 8),
-          rateGroup,
-        ],
-      );
-    }
-
-    return Wrap(
-      spacing: 8,
-      runSpacing: 8,
-      crossAxisAlignment: WrapCrossAlignment.center,
-      children: [
-        Container(
-          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
-          decoration: BoxDecoration(
-            color: color,
-            borderRadius: BorderRadius.circular(6),
-          ),
-          child: Text(tr('BẬC 5'),
-            style: const TextStyle(
-                color: Colors.white, fontWeight: FontWeight.bold, fontSize: 12),
-          ),
-        ),
-        Text(tr('Trên'), style: TextStyle(color: SboxColors.slate600, fontSize: 13)),
-        amountBox,
-        rateGroup,
-      ],
-    );
-  }
-
-  // Card Bảng biểu thuế TNCN
-  Widget _buildSummaryCard() {
-    final amount1 = parseFormattedNumber(_bracket1AmountController.text)
-            ?.toDouble() ??
-        PitTaxDefaults.bracket1Max;
-    final amount2 = parseFormattedNumber(_bracket2AmountController.text)
-            ?.toDouble() ??
-        PitTaxDefaults.bracket2Max;
-    final amount3 = parseFormattedNumber(_bracket3AmountController.text)
-            ?.toDouble() ??
-        PitTaxDefaults.bracket3Max;
-    final amount4 = parseFormattedNumber(_bracket4AmountController.text)
-            ?.toDouble() ??
-        PitTaxDefaults.bracket4Max;
-    final rate1 =
-        double.tryParse(_bracket1RateController.text) ?? PitTaxDefaults.rate1;
-    final rate2 =
-        double.tryParse(_bracket2RateController.text) ?? PitTaxDefaults.rate2;
-    final rate3 =
-        double.tryParse(_bracket3RateController.text) ?? PitTaxDefaults.rate3;
-    final rate4 =
-        double.tryParse(_bracket4RateController.text) ?? PitTaxDefaults.rate4;
-    final rate5 =
-        double.tryParse(_bracket5RateController.text) ?? PitTaxDefaults.rate5;
-
-    return Container(
-      decoration: BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.circular(14),
-        boxShadow: [
-          BoxShadow(
-            color: Colors.black.withValues(alpha: 0.05),
-            blurRadius: 10,
-            offset: const Offset(0, 2),
-          ),
-        ],
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          // Header
-          Padding(
-            padding: const EdgeInsets.all(20),
-            child: Row(
-              children: [
-                Container(
-                  width: Responsive.isMobile(context) ? 44 : 120,
-                  height: Responsive.isMobile(context) ? 44 : 45,
-                  decoration: BoxDecoration(
-                    color: PosTheme.kiotBlueLight,
-                    borderRadius: BorderRadius.circular(10),
-                  ),
-                  child: const Center(
-                    child: Icon(Icons.table_chart, color: PosTheme.kiotBlue, size: 24),
-                  ),
-                ),
-                const SizedBox(width: 16),
-                Expanded(
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Text(tr('Bảng biểu thuế TNCN'),
-                        style: TextStyle(
-                          color: SboxColors.slate900,
-                          fontSize: 16,
-                          fontWeight: FontWeight.bold,
-                        ),
-                      ),
-                      Text(tr('Tóm tắt 5 bậc thuế lũy tiến'),
-                        style: TextStyle(color: SboxColors.slate500, fontSize: 12),
-                      ),
-                    ],
-                  ),
-                ),
-              ],
-            ),
-          ),
-
-          // Summary Table
-          Padding(
-            padding: const EdgeInsets.fromLTRB(20, 0, 20, 20),
-            child: Container(
-              decoration: BoxDecoration(
-                borderRadius: BorderRadius.circular(14),
-                border: Border.all(color: SboxColors.slate200),
-              ),
-              child: Column(
-                children: [
-                  // Table Header
-                  Container(
-                    padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
-                    decoration: const BoxDecoration(
-                      color: HrmPageChrome.primaryNavy,
-                      borderRadius: BorderRadius.only(
-                        topLeft: Radius.circular(11),
-                        topRight: Radius.circular(11),
-                      ),
-                    ),
-                    child: Row(
-                      children: [
-                        SizedBox(width: 40, child: Text(tr('Bậc'), style: TextStyle(color: Colors.white, fontWeight: FontWeight.w600, fontSize: 13))),
-                        Expanded(child: Text(tr('Thu nhập tính thuế/tháng'), style: TextStyle(color: Colors.white, fontWeight: FontWeight.w600, fontSize: 13))),
-                        SizedBox(width: 70, child: Text(tr('Thuế suất'), textAlign: TextAlign.right, style: TextStyle(color: Colors.white, fontWeight: FontWeight.w600, fontSize: 13))),
-                      ],
-                    ),
-                  ),
-                  // Table Rows
-                  _buildSummaryRow(1, 'Đến ${_formatMillion(amount1)} triệu', rate1, false),
-                  _buildSummaryRow(2, 'Trên ${_formatMillion(amount1)} - ${_formatMillion(amount2)} triệu', rate2, true),
-                  _buildSummaryRow(3, 'Trên ${_formatMillion(amount2)} - ${_formatMillion(amount3)} triệu', rate3, false),
-                  _buildSummaryRow(4, 'Trên ${_formatMillion(amount3)} - ${_formatMillion(amount4)} triệu', rate4, true),
-                  _buildSummaryRow(5, 'Trên ${_formatMillion(amount4)} triệu', rate5, false, isLast: true),
-                ],
-              ),
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-
-  Widget _buildSummaryRow(int level, String range, double rate, bool isAlt, {bool isLast = false}) {
-    final colors = [
-      HrmPageChrome.primaryNavy,
-      HrmPageChrome.primaryNavy,
-      SboxColors.warning,
-      SboxColors.danger,
-      SboxColors.violet,
-      const Color(0xFFEC4899),
-      HrmPageChrome.primaryNavy,
-    ];
-    final color = colors[level - 1];
-
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
-      decoration: BoxDecoration(
-        color: isAlt ? SboxColors.slate50 : Colors.white,
-        borderRadius: isLast
-            ? const BorderRadius.only(
-                bottomLeft: Radius.circular(11),
-                bottomRight: Radius.circular(11),
-              )
-            : null,
-      ),
-      child: Row(
-        children: [
-          Container(
-            width: 28,
-            height: 28,
-            decoration: BoxDecoration(
-              color: color.withValues(alpha: 0.15),
-              borderRadius: BorderRadius.circular(6),
-            ),
-            child: Center(
-              child: Text(
-                tr('$level'),
-                style: TextStyle(color: color, fontWeight: FontWeight.bold, fontSize: 12),
-              ),
-            ),
-          ),
-          const SizedBox(width: 12),
-          Expanded(
-            child: Text(tr(range), style: const TextStyle(color: SboxColors.slate500, fontSize: 13)),
-          ),
-          Text(
-            tr('${rate.toStringAsFixed(rate == rate.toInt() ? 0 : 1)}%'),
-            style: TextStyle(color: color, fontWeight: FontWeight.bold, fontSize: 14),
-          ),
-        ],
-      ),
-    );
-  }
-
-  String _formatMillion(double amount) {
-    return (amount / 1000000).toStringAsFixed(0);
   }
 }

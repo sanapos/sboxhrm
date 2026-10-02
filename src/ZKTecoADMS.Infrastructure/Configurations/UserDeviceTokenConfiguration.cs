@@ -21,6 +21,7 @@ public class UserDeviceTokenConfiguration : IEntityTypeConfiguration<UserDeviceT
 
         builder.Property(e => e.DeviceName).HasMaxLength(128);
         builder.Property(e => e.AppVersion).HasMaxLength(32);
+        builder.Property(e => e.DeviceKey).HasMaxLength(80);
 
         // A given FCM token is globally unique - re-registering the same token
         // (e.g. after re-login on the same device) updates the existing row.

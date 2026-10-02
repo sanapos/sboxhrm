@@ -1,10 +1,11 @@
 import 'package:flutter/material.dart';
+import '../../utils/pos_sell_store_settings.dart';
+import '../../widgets/sbox/sbox_ui.dart';
+import '../../widgets/settings/settings_page.dart';
 
 import '../../models/pos_einvoice.dart';
 import '../../services/api_service.dart';
-import '../../widgets/hrm_page_chrome.dart';
 import '../../widgets/notification_overlay.dart';
-import '../../widgets/pos/pos_theme.dart';
 import 'pos_einvoice_report_screen.dart';
 import 'package:zkteco_flutter_client/l10n/app_tr.dart';
 
@@ -48,6 +49,8 @@ class _PosEInvoiceSettingsScreenState extends State<PosEInvoiceSettingsScreen> {
   bool _obscurePass = true;
   /// Kết quả «Kiểm tra kết nối» — hiện ngay trên form (không chỉ toast).
   String? _testBanner;
+  /// Ảnh chụp lúc tải / lưu xong (null = chụp ở lần vẽ kế tiếp).
+  String? _saved;
   bool _testBannerOk = false;
 
   static const _defaultUrls = <String, String>{
@@ -60,6 +63,11 @@ class _PosEInvoiceSettingsScreenState extends State<PosEInvoiceSettingsScreen> {
   @override
   void initState() {
     super.initState();
+    for (final c in _ctrls) {
+      c.addListener(() {
+        if (mounted) setState(() {});
+      });
+    }
     _load();
   }
 
@@ -105,6 +113,7 @@ class _PosEInvoiceSettingsScreenState extends State<PosEInvoiceSettingsScreen> {
       _portalCtrl.text = s.portalUrl;
       _printQr = s.printQrOnReceipt;
     }
+    _saved = null;
     setState(() => _loading = false);
   }
 
@@ -430,214 +439,155 @@ class _PosEInvoiceSettingsScreenState extends State<PosEInvoiceSettingsScreen> {
             _dec('MST người bán', hint: '0100109106 hoặc 0100109106-001'),
       );
 
+  /// Ảnh chụp các giá trị để biết có thay đổi chưa lưu.
+  String get _snapshot => [
+        _enabled, _provider, _invoiceType, _askAtCheckout, _defaultIssue, _taxMode, _taxPercent, _signType, _printQr,
+        for (final c in _ctrls) c.text,
+      ].join('|');
+
+  List<TextEditingController> get _ctrls => [
+        _userCtrl, _passCtrl, _taxCtrl, _templateCtrl, _seriesCtrl, _urlCtrl, _appIdCtrl, _svcAccountCtrl, _svcPassCtrl, _portalCtrl,
+      ];
+
+  /// Lấy cách tính thuế theo «Thông tin cửa hàng» để hóa đơn điện tử khớp hóa đơn bán hàng.
+  Future<void> _syncTaxFromStore() async {
+    final s = await PosSellStoreSettings.load();
+    if (!mounted) return;
+    setState(() {
+      _taxMode = s.taxMode == PosSellTaxMode.includedInPrice ? 'included' : 'added';
+      _taxPercent = s.defaultVatRate;
+    });
+  }
+
   @override
   Widget build(BuildContext context) {
-    if (_loading) {
-      const spinner = Center(child: CircularProgressIndicator());
-      if (HrmPageChrome.hideOuterChrome(context)) return spinner;
-      return Scaffold(
-        backgroundColor: HrmPageChrome.background,
-        appBar: HrmPageChrome.appBar(
-          context: context,
-          title: 'Hóa đơn điện tử',
-        ),
-        body: spinner,
-      );
-    }
+    if (_saved == null && !_loading) _saved = _snapshot;
     final providerName = posEInvoiceProviderName(_provider);
-    return Scaffold(
-      backgroundColor: HrmPageChrome.background,
-      appBar: HrmPageChrome.appBar(
-        context: context,
-        title: 'Hóa đơn điện tử',
-      ),
-      body: ListView(
-        padding: const EdgeInsets.fromLTRB(16, 12, 16, 32),
-        children: [
-          SwitchListTile(
-            contentPadding: EdgeInsets.zero,
-            title: Text(tr('Bật xuất hóa đơn điện tử'),
-                style: const TextStyle(fontWeight: FontWeight.w700)),
-            subtitle: Text(tr(
-                'Khi thanh toán có thể chọn xuất HĐĐT. Đơn hàng hiện trạng thái xuất.')),
-            value: _enabled,
-            onChanged: (v) => setState(() => _enabled = v),
-          ),
-          ListTile(
-            contentPadding: EdgeInsets.zero,
-            leading: const Icon(Icons.receipt_long_outlined),
-            title: Text(tr('Quản lý hóa đơn điện tử')),
-            subtitle: Text(tr(
-                'Xem lại, gửi email, thay thế, hủy, đồng bộ, tải danh sách từ hãng, báo cáo')),
-            trailing: const Icon(Icons.chevron_right),
-            onTap: () {
-              Navigator.of(context).push(
-                MaterialPageRoute<void>(
-                  builder: (_) => const PosEInvoiceReportScreen(),
-                ),
-              );
-            },
-          ),
-          const SizedBox(height: 8),
-          DropdownButtonFormField<String>(
-            value: _provider,
-            decoration: _dec('Nhà cung cấp'),
-            items: [
-              for (final p in const ['Viettel', 'Easy', 'Misa', 'Vnpt'])
-                DropdownMenuItem(
-                    value: p, child: Text(tr(posEInvoiceProviderName(p)))),
-            ],
-            onChanged: (v) {
-              if (v != null) _onProviderChanged(v);
-            },
-          ),
-          const SizedBox(height: 16),
-          Text(tr('Khi thanh toán'),
-              style: const TextStyle(fontSize: 14, fontWeight: FontWeight.w700)),
-          SwitchListTile(
-            contentPadding: EdgeInsets.zero,
-            title: Text(tr('Hiện nút chọn xuất / không xuất lúc thanh toán')),
-            value: _askAtCheckout,
-            onChanged: (v) => setState(() => _askAtCheckout = v),
-          ),
-          SwitchListTile(
-            contentPadding: EdgeInsets.zero,
-            title: Text(tr('Mặc định xuất hóa đơn')),
-            subtitle: Text(tr(_askAtCheckout
-                ? 'Chip «Xuất HĐĐT» bật sẵn. Thu ngân vẫn tắt được.'
-                : 'Xuất tự động mọi đơn đã thanh toán, không hỏi thu ngân.')),
-            value: _defaultIssue,
-            onChanged: (v) => setState(() => _defaultIssue = v),
-          ),
-          SwitchListTile(
-            contentPadding: EdgeInsets.zero,
-            title: Text(tr('In mã HĐĐT + QR tra cứu trên hóa đơn bán hàng')),
-            subtitle: Text(tr(
-                'Bill in sau khi xuất HĐĐT có thêm: ký hiệu, số hóa đơn, mã CQT, '
-                'mã tra cứu và mã QR để khách quét tra cứu. '
-                'Mẫu in tự đặt có thể dùng biến {HDDT_So}, {HDDT_Ky_Hieu}, {HDDT_Ma_CQT}, {HDDT_Ma_Tra_Cuu}.')),
-            value: _printQr,
-            onChanged: (v) => setState(() => _printQr = v),
-          ),
-          const Divider(height: 28),
-          Text(tr('Tài khoản $providerName'),
-              style: const TextStyle(fontSize: 14, fontWeight: FontWeight.w700)),
-          const SizedBox(height: 8),
-          ..._providerFields(),
-          const SizedBox(height: 12),
-          TextField(
-            controller: _portalCtrl,
-            keyboardType: TextInputType.url,
-            decoration: _dec('Link trang quản lý HĐĐT của hãng (tùy chọn)',
-                hint: 'Để trống = trang mặc định của $providerName'),
-          ),
-          const SizedBox(height: 16),
-          Text(tr('Thuế suất khi xuất HĐĐT'),
-              style: const TextStyle(fontSize: 14, fontWeight: FontWeight.w700)),
-          const SizedBox(height: 8),
-          DropdownButtonFormField<String>(
-            value: _taxMode,
-            decoration: _dec('Cách tính giá trên POS'),
-            items: [
-              DropdownMenuItem(
-                  value: 'included',
-                  child: Text(tr('Giá đã gồm VAT (tách thuế khi xuất)'))),
-              DropdownMenuItem(
-                  value: 'added',
-                  child: Text(tr('Giá chưa VAT (cộng VAT trên đơn)'))),
-              DropdownMenuItem(
-                  value: 'none', child: Text(tr('Không thuế / HĐ bán hàng (-2)'))),
-            ],
-            onChanged: (v) {
-              if (v != null) setState(() => _taxMode = v);
-            },
-          ),
-          if (_taxMode != 'none') ...[
-            const SizedBox(height: 12),
-            DropdownButtonFormField<double>(
-              value: _taxPercent,
-              decoration: _dec('Thuế suất mặc định (%)'),
-              items: const [
-                DropdownMenuItem(value: 0, child: Text('0%')),
-                DropdownMenuItem(value: 5, child: Text('5%')),
-                DropdownMenuItem(value: 8, child: Text('8%')),
-                DropdownMenuItem(value: 10, child: Text('10%')),
-              ],
-              onChanged: (v) {
-                if (v != null) setState(() => _taxPercent = v);
-              },
-            ),
-          ],
-          const SizedBox(height: 20),
-          OutlinedButton.icon(
-            onPressed: _testing ? null : _test,
-            icon: _testing
-                ? const SizedBox(
-                    width: 18,
-                    height: 18,
-                    child: CircularProgressIndicator(strokeWidth: 2),
-                  )
-                : const Icon(Icons.wifi_tethering),
-            label: Text(tr('Kiểm tra kết nối $providerName')),
-          ),
-          _hint('Lưu cấu hình trước khi kiểm tra kết nối.'),
-          if (_testBanner != null) ...[
-            const SizedBox(height: 12),
-            Material(
-              color: _testBannerOk
-                  ? SboxColors.successSoft
-                  : SboxColors.dangerSoft,
-              borderRadius: BorderRadius.circular(10),
-              child: Padding(
-                padding: const EdgeInsets.all(12),
-                child: Row(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Icon(
-                      _testBannerOk
-                          ? Icons.check_circle_outline
-                          : Icons.error_outline,
-                      color: _testBannerOk
-                          ? SboxColors.success
-                          : SboxColors.danger,
-                      size: 22,
-                    ),
-                    const SizedBox(width: 10),
-                    Expanded(
-                      child: Text(
-                        tr(_testBanner!),
-                        style: TextStyle(
-                          fontSize: 14,
-                          height: 1.35,
-                          fontWeight: FontWeight.w600,
-                          color: _testBannerOk
-                              ? SboxColors.successText
-                              : SboxColors.dangerText,
-                        ),
-                      ),
-                    ),
-                  ],
-                ),
+    final dirty = !_loading && _saved != null && _snapshot != _saved;
+    return SettingsPage(
+      title: 'Hóa đơn điện tử',
+      subtitle: 'Kết nối Viettel, Easy, MISA, VNPT — xuất hóa đơn khi bán hàng',
+      icon: Icons.request_quote_outlined,
+      loading: _loading,
+      dirty: dirty,
+      saving: _saving,
+      onSave: _save,
+      onDiscard: () {
+        _saved = null;
+        _load();
+      },
+      headerActions: [
+        TextButton.icon(
+          onPressed: () => Navigator.of(context).push(MaterialPageRoute<void>(builder: (_) => const PosEInvoiceReportScreen())),
+          icon: const Icon(Icons.receipt_long_outlined, size: 18),
+          label: Text(tr('Quản lý hóa đơn')),
+        ),
+      ],
+      children: [
+        SettingsSection(
+          title: 'Xuất hóa đơn điện tử',
+          subtitle: 'Khi bật, thu ngân chọn xuất hoặc hệ thống tự xuất lúc thanh toán',
+          icon: Icons.power_settings_new_rounded,
+          trailing: Switch(value: _enabled, onChanged: (v) => setState(() => _enabled = v)),
+          children: [
+            SettingsTile(
+              divider: false,
+              label: 'Nhà cung cấp',
+              control: DropdownButton<String>(
+                value: _provider,
+                items: [
+                  for (final p in const ['Viettel', 'Easy', 'Misa', 'Vnpt'])
+                    DropdownMenuItem(value: p, child: Text(tr(posEInvoiceProviderName(p)))),
+                ],
+                onChanged: (v) {
+                  if (v != null) _onProviderChanged(v);
+                },
               ),
             ),
-          ],
-          const SizedBox(height: 12),
-          FilledButton(
-            style: FilledButton.styleFrom(
-              backgroundColor: PosTheme.kiotBlue,
-              minimumSize: const Size.fromHeight(48),
+            SettingsTile(
+              label: 'Hỏi thu ngân lúc thanh toán',
+              help: 'Hiện nút chọn xuất / không xuất hóa đơn',
+              control: Switch(value: _askAtCheckout, onChanged: (v) => setState(() => _askAtCheckout = v)),
             ),
-            onPressed: _saving ? null : _save,
-            child: _saving
-                ? const SizedBox(
-                    width: 22,
-                    height: 22,
-                    child: CircularProgressIndicator(strokeWidth: 2),
-                  )
-                : Text(tr('Lưu cấu hình')),
+            SettingsTile(
+              label: 'Mặc định xuất hóa đơn',
+              help: _askAtCheckout ? 'Nút «Xuất HĐĐT» bật sẵn, thu ngân vẫn tắt được' : 'Tự xuất mọi đơn đã thanh toán, không hỏi',
+              control: Switch(value: _defaultIssue, onChanged: (v) => setState(() => _defaultIssue = v)),
+            ),
+            SettingsTile(
+              label: 'In mã tra cứu + QR trên hóa đơn bán hàng',
+              help: 'Mẫu in tự đặt dùng biến {HDDT_So}, {HDDT_Ky_Hieu}, {HDDT_Ma_CQT}, {HDDT_Ma_Tra_Cuu}',
+              control: Switch(value: _printQr, onChanged: (v) => setState(() => _printQr = v)),
+            ),
+          ],
+        ),
+        SettingsSection(
+          title: 'Tài khoản $providerName',
+          subtitle: 'Mật khẩu không hiện lại sau khi lưu — để trống là giữ mật khẩu cũ',
+          icon: Icons.key_rounded,
+          children: [
+            const SizedBox(height: 8),
+            ..._providerFields(),
+            const SizedBox(height: 12),
+            TextField(
+              controller: _portalCtrl,
+              keyboardType: TextInputType.url,
+              decoration: _dec('Link trang quản lý của hãng (tùy chọn)', hint: 'Để trống = trang mặc định của $providerName'),
+            ),
+            const SizedBox(height: 12),
+          ],
+        ),
+        SettingsSection(
+          title: 'Thuế khi xuất hóa đơn',
+          subtitle: 'Nên khớp cách tính VAT ở «Thông tin cửa hàng» để hóa đơn điện tử giống hóa đơn bán hàng',
+          icon: Icons.percent_rounded,
+          trailing: TextButton(onPressed: _syncTaxFromStore, child: Text(tr('Lấy theo cửa hàng'))),
+          children: [
+            SettingsTile(
+              divider: false,
+              label: 'Giá trên POS',
+              control: DropdownButton<String>(
+                value: _taxMode,
+                items: [
+                  DropdownMenuItem(value: 'included', child: Text(tr('Đã gồm VAT (tách thuế)'))),
+                  DropdownMenuItem(value: 'added', child: Text(tr('Chưa VAT (cộng thuế)'))),
+                  DropdownMenuItem(value: 'none', child: Text(tr('Không thuế / HĐ bán hàng'))),
+                ],
+                onChanged: (v) {
+                  if (v != null) setState(() => _taxMode = v);
+                },
+              ),
+            ),
+            if (_taxMode != 'none')
+              SettingsTile(
+                label: 'Thuế suất mặc định',
+                control: SettingsSegment<double>(
+                  value: [0.0, 5.0, 8.0, 10.0].contains(_taxPercent) ? _taxPercent : 10.0,
+                  options: const [(0.0, '0%'), (5.0, '5%'), (8.0, '8%'), (10.0, '10%')],
+                  onChanged: (v) => setState(() => _taxPercent = v),
+                ),
+              ),
+          ],
+        ),
+        SettingsSection(
+          title: 'Kiểm tra kết nối',
+          subtitle: 'Chỉ xác thực tài khoản, không tạo hóa đơn',
+          icon: Icons.wifi_tethering_rounded,
+          trailing: SboxButton.secondary(
+            label: 'Kiểm tra',
+            icon: Icons.play_arrow_rounded,
+            loading: _testing,
+            onPressed: _testing || dirty ? null : _test,
           ),
-        ],
-      ),
+          children: [
+            if (dirty) const SettingsNote('Lưu thay đổi trước khi kiểm tra.', icon: Icons.info_outline_rounded, tone: SboxTone.neutral),
+            if (_testBanner != null)
+              SettingsNote(_testBanner!,
+                  icon: _testBannerOk ? Icons.check_circle_outline : Icons.error_outline,
+                  tone: _testBannerOk ? SboxTone.success : SboxTone.danger),
+          ],
+        ),
+      ],
     );
   }
 }

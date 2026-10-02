@@ -40,9 +40,15 @@ public static class PayslipDtoMapper
 
 
 
-        var isPaid = payslip.Status == PayslipStatus.Paid
+        // Phiếu cũ (trước khi có PaidAmount): một phiếu chi đã trả đủ thực lĩnh.
+        var legacyPaid = payslip.PaidAmount == 0 && cashTransaction is { IsPaid: true } &&
+                         cashTransaction.Amount >= payslip.NetSalary;
 
-                     || (cashTransaction?.IsPaid ?? false);
+        var isPaid = payslip.Status == PayslipStatus.Paid || legacyPaid;
+
+        var paidAmount = isPaid && payslip.PaidAmount == 0 ? payslip.NetSalary : payslip.PaidAmount;
+
+        var remaining = isPaid ? 0 : Math.Max(0, payslip.NetSalary - paidAmount);
 
 
 
@@ -134,7 +140,11 @@ public static class PayslipDtoMapper
 
             IsPaid = isPaid,
 
-            PaymentStatus = isPaid ? "Đã thanh toán" : "Chưa thanh toán",
+            PaidAmount = paidAmount,
+
+            RemainingAmount = remaining,
+
+            PaymentStatus = isPaid ? "Đã thanh toán" : paidAmount > 0 ? "Trả một phần" : "Chưa thanh toán",
 
             Notes = payslip.Notes,
 

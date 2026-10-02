@@ -144,7 +144,7 @@ class _ProductionOutputScreenState extends State<ProductionOutputScreen>
   String? _filterEmployeeId;
   String? _filterGroupId;
   String? _filterItemId;
-  String? _filterBranchId;
+  String? _filterBranchId = BranchFilterHelper.viewBranchId;
   List<Map<String, dynamic>> _branches = [];
   int _page = 1;
   final int _pageSize = 50;
@@ -324,14 +324,14 @@ class _ProductionOutputScreenState extends State<ProductionOutputScreen>
       _filterEmployeeId != null ||
       _filterGroupId != null ||
       _filterItemId != null ||
-      _filterBranchId != null;
+      _filterBranchId != BranchFilterHelper.viewBranchId;
 
   int get _activeFilterCount {
     var n = 0;
     if (_filterEmployeeId != null) n++;
     if (_filterGroupId != null) n++;
     if (_filterItemId != null) n++;
-    if (_filterBranchId != null) n++;
+    if (_filterBranchId != BranchFilterHelper.viewBranchId) n++;
     return n;
   }
 
@@ -427,7 +427,7 @@ class _ProductionOutputScreenState extends State<ProductionOutputScreen>
       _filterEmployeeId = null;
       _filterGroupId = null;
       _filterItemId = null;
-      _filterBranchId = null;
+      _filterBranchId = BranchFilterHelper.viewBranchId;
     });
     _reloadCurrentTab();
   }
