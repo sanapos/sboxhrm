@@ -11,8 +11,9 @@ public static class AdmsEngineProfiles
 
     /// <summary>
     /// Máy push «lite» đời mới giá rẻ (LX35, chip Anyka AK37xx, PushVersion 3.0.x):
-    /// hỗ trợ DATA QUERY USERINFO / ATTLOG nhưng thời gian dạng «yyyy-MM-dd HH:mm:ss» (không có T),
-    /// không xử lý khối GET OPTION trả trong getrequest (luôn gửi Stamp=9999).
+    /// ngày giờ dạng «yyyy-MM-dd HH:mm:ss» (không có T), không xử lý khối GET OPTION trong getrequest (luôn gửi Stamp=9999).
+    /// Đã thử trên máy thật (FW ZLM31-FXO1-3.1.8, Push 3.0.1, 02/10/2026): DATA QUERY USERINFO / ATTLOG trả -1002 —
+    /// chỉ nhận lượt chấm realtime và lệnh DATA UPDATE / INFO. Cờ Supports*Query vẫn để «thử một lần» cho firmware khác.
     /// </summary>
     public const string PushLite = "PushLite";
 

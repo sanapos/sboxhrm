@@ -1,7 +1,14 @@
+using Microsoft.EntityFrameworkCore;
+using Microsoft.Extensions.Logging.Abstractions;
 using Xunit;
 using ZKTecoADMS.Application.Commands.IClock.DeviceCmdCommand.Strategies;
 using ZKTecoADMS.Application.Constants;
+using ZKTecoADMS.Application.Interfaces;
 using ZKTecoADMS.Domain.Entities;
+using ZKTecoADMS.Domain.Enums;
+using ZKTecoADMS.Infrastructure;
+using ZKTecoADMS.Infrastructure.Repositories;
+using ZKTecoADMS.Infrastructure.Services.DeviceOperations;
 
 namespace ZKTecoADMS.Tests;
 
@@ -61,5 +68,50 @@ public class DeviceInfoCommandTests
         Assert.True(AdmsEngineProfiles.UsesSpaceDateTime(info.EngineProfile));
         Assert.Contains("StartTime=2021-01-01 00:00:00", ClockCommandBuilder.BuildGetAttendanceCommand(
             new DateTime(2021, 1, 1), new DateTime(2026, 10, 2, 23, 59, 59), spaceSeparated: true));
+    }
+
+    sealed class NoTenant : ITenantProvider
+    {
+        public Guid? StoreId => null;
+        public bool IsSuperAccess => true;
+    }
+
+    [Fact]
+    public async Task Lx35_rejecting_queries_stays_push_lite_and_fails_fast_with_clear_message()
+    {
+        var db = new ZKTecoDbContext(new DbContextOptionsBuilder<ZKTecoDbContext>()
+            .UseInMemoryDatabase(Guid.NewGuid().ToString()).Options);
+        var device = new Device { Id = Guid.NewGuid(), SerialNumber = "1313254900299", DeviceName = "LX35" };
+        db.Add(device);
+        db.Add(new DeviceInfo
+        {
+            Id = Guid.NewGuid(), DeviceId = device.Id, Platform = "AK3750WIFI_TFT", FirmwareVersion = "ZLM31-FXO1-3.1.8",
+            EngineProfile = AdmsEngineProfiles.PushLite, SupportsUserQuery = true, SupportsAttendanceQuery = true,
+        });
+        await db.SaveChangesAsync();
+        var svc = new DeviceCapabilityService(
+            new EfRepository<Device>(db, NullLogger<EfRepository<Device>>.Instance, new NoTenant()),
+            new EfRepository<DeviceInfo>(db, NullLogger<EfRepository<DeviceInfo>>.Instance, new NoTenant()),
+            NullLogger<DeviceCapabilityService>.Instance);
+
+        // Máy thật trả -1002 cho cả hai lệnh tải (02/10/2026)
+        await svc.LearnFromCommandResultAsync(device.Id, DeviceCommandTypes.SyncDeviceUsers, -1002, "DATA");
+        await svc.LearnFromCommandResultAsync(device.Id, DeviceCommandTypes.SyncAttendances, -1002, "DATA");
+        var info = await db.DeviceInfos.AsNoTracking().SingleAsync();
+        Assert.Equal(AdmsEngineProfiles.PushLite, info.EngineProfile); // không bị đẩy về PullDeny
+        Assert.False(info.SupportsUserQuery);
+        Assert.False(info.SupportsAttendanceQuery);
+
+        // Bấm lại: không gửi lệnh chắc chắn lỗi, trả câu báo rõ ràng
+        var explicitCmd = ClockCommandBuilder.BuildGetAttendanceCommand(new DateTime(2021, 1, 1), new DateTime(2026, 10, 2, 23, 59, 59));
+        var (att, attMsg) = await svc.ResolveCommandAsync(device.Id, DeviceCommandTypes.SyncAttendances, explicitCommand: explicitCmd);
+        Assert.Equal(string.Empty, att);
+        Assert.Contains("không cho tải lại lịch sử chấm công", attMsg);
+        var (usr, usrMsg) = await svc.ResolveCommandAsync(device.Id, DeviceCommandTypes.SyncDeviceUsers);
+        Assert.Equal(string.Empty, usr);
+        Assert.Contains("không cho tải danh sách nhân viên", usrMsg);
+
+        // INFO vẫn chạy bình thường
+        Assert.Equal("INFO", (await svc.ResolveCommandAsync(device.Id, DeviceCommandTypes.GetDeviceInfo)).Command);
     }
 }
