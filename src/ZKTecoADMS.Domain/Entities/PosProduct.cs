@@ -126,6 +126,15 @@ public class PosProduct : AuditableEntity<Guid>
     /// <summary>Hiện ô chiều cao khi nhập số lượng theo kích thước.</summary>
     public bool AllowAreaHeight { get; set; } = true;
 
+    /// <summary>Hàng gia công / sản xuất theo đơn (cửa nhôm kính, nội thất…): đo kích thước khi báo giá.</summary>
+    public bool IsMadeToOrder { get; set; }
+
+    /// <summary>Hàng gia công tính giá theo m²: giá bán = đơn giá / m²; mỗi bộ = rộng × cao (mm).</summary>
+    public bool PriceByArea { get; set; }
+
+    /// <summary>Giá tối thiểu mỗi bộ khi tính theo m² (bộ nhỏ vẫn tính tối thiểu).</summary>
+    public decimal? MinPricePerSet { get; set; }
+
     /// <summary>Theo dõi lô / HSD khi nhập hàng.</summary>
     public bool TrackExpiry { get; set; }
 

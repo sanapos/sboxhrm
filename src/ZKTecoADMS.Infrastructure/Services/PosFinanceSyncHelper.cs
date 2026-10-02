@@ -470,6 +470,54 @@ public static class PosFinanceSyncHelper
         db.CashTransactions.Add(cash);
     }
 
+    public const string QuoteContractPaymentMarker = "pos thu hđ #";
+
+    /// <summary>Phiếu thu quỹ cho lần thu tiền hợp đồng (cọc / các đợt). Chưa SaveChanges.</summary>
+    public static async Task<CashTransaction?> AddQuoteContractReceiptAsync(
+        ZKTecoDbContext db,
+        PosQuote quote,
+        PosQuotePayment payment,
+        string? stageTitle,
+        Guid createdByUserId,
+        CancellationToken cancellationToken = default)
+    {
+        if (payment.Amount <= 0) return null;
+        var category = await EnsureCategoryAsync(
+            db, quote.StoreId, CashTransactionType.Income, "Thu tiền hợp đồng",
+            "handshake", "#2563EB", cancellationToken);
+        if (category == null) return null;
+
+        var docNo = string.IsNullOrWhiteSpace(quote.ContractNo) ? quote.QuoteNo : quote.ContractNo;
+        var cash = new CashTransaction
+        {
+            Id = Guid.NewGuid(),
+            TransactionCode = await GenerateCodeAsync(db, quote.StoreId, CashTransactionType.Income, cancellationToken),
+            Type = CashTransactionType.Income,
+            CategoryId = category.Id,
+            Amount = payment.Amount,
+            TransactionDate = payment.PaidAt,
+            Description = $"Thu tiền HĐ {docNo}" +
+                          (string.IsNullOrWhiteSpace(stageTitle) ? "" : $" — {stageTitle}") +
+                          (string.IsNullOrWhiteSpace(quote.CustomerName) ? "" : $" — {quote.CustomerName}"),
+            PaymentMethod = ParsePaymentMethod(payment.PaymentMethod),
+            BankAccountId = payment.BankAccountId,
+            Status = CashTransactionStatus.Completed,
+            IsPaid = true,
+            PaidDate = payment.PaidAt,
+            ContactName = quote.CustomerName,
+            ContactPhone = quote.CustomerPhone,
+            CreatedByUserId = createdByUserId,
+            StoreId = quote.StoreId,
+            InternalNote = $"{QuoteContractPaymentMarker}{quote.Id}|{payment.Id}",
+            SourceType = "PosQuote",
+            SourceId = quote.Id,
+            IsActive = true,
+            CreatedAt = DateTime.UtcNow,
+        };
+        db.CashTransactions.Add(cash);
+        return cash;
+    }
+
     public static PaymentMethodType ParsePaymentMethod(string? method)
     {
         if (string.IsNullOrWhiteSpace(method)) return PaymentMethodType.Cash;

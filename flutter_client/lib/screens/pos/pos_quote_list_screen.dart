@@ -15,6 +15,7 @@ import '../../widgets/notification_overlay.dart';
 import '../../widgets/pos/pos_form_keyboard.dart';
 import '../../widgets/pos/pos_theme.dart';
 import 'pos_contract_detail_screen.dart';
+import 'pos_contract_receivables_screen.dart';
 import 'pos_quote_care_board_screen.dart';
 import 'pos_quote_composer_screen.dart';
 import 'pos_quote_editor_screen.dart';
@@ -493,6 +494,15 @@ class _PosQuoteListScreenState extends State<PosQuoteListScreen> {
                             if (mounted) await _reloadAll();
                           },
                           icon: const Icon(Icons.insights_outlined),
+                        ),
+                        IconButton(
+                          tooltip: tr('Công nợ hợp đồng'),
+                          onPressed: () async {
+                            await Navigator.of(context).push(MaterialPageRoute(
+                                builder: (_) => const PosContractReceivablesScreen()));
+                            if (mounted) await _reloadAll();
+                          },
+                          icon: const Icon(Icons.account_balance_wallet_outlined),
                         ),
                         if (canCreate && !narrow)
                           IconButton(

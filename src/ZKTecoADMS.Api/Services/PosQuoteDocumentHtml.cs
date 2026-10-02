@@ -151,6 +151,10 @@ public static class PosQuoteDocumentHtml
                 ["Chieu_Rong"] = DimCell(l.Width, l.LineNote, "Rộng"),
                 ["Chieu_Cao"] = DimCell(l.Height, l.LineNote, "Cao"),
                 ["Bao_Hanh"] = l.WarrantyMonths is > 0 ? l.WarrantyMonths + " tháng" : "",
+                // Hàng gia công theo m²: diện tích 1 bộ, tổng m², đơn giá / m²
+                ["Dien_Tich"] = l.AreaM2 is > 0 ? l.AreaM2.Value.ToString("0.###", vn) : "",
+                ["Tong_M2"] = l.AreaM2 is > 0 ? (l.AreaM2.Value * l.Qty).ToString("0.###", vn) : "",
+                ["Don_Gia_M2"] = l.PricePerM2 is > 0 ? l.PricePerM2.Value.ToString("#,##0", vn) : "",
                 ["Hinh_Anh"] = "",
             }).ToList();
     }

@@ -36,7 +36,10 @@ public partial class PosQuotesController(
         int SortOrder,
         decimal? Length = null,
         decimal? Width = null,
-        decimal? Height = null);
+        decimal? Height = null,
+        decimal? PricePerM2 = null,
+        decimal? AreaM2 = null,
+        decimal? MinPricePerSet = null);
 
     public record QuoteDto(
         Guid Id,
@@ -87,7 +90,10 @@ public partial class PosQuotesController(
         string? Id = null,
         decimal? Length = null,
         decimal? Width = null,
-        decimal? Height = null);
+        decimal? Height = null,
+        decimal? PricePerM2 = null,
+        decimal? AreaM2 = null,
+        decimal? MinPricePerSet = null);
 
     public record QuoteSaveDto(
         string? CustomerId,
@@ -364,6 +370,11 @@ public partial class PosQuotesController(
         if (issued)
             return BadRequest(AppResponse<object>.Fail(
                 "Báo giá đã xuất kho — hủy phiếu xuất kho trước khi xóa báo giá"));
+        var hasPayments = await dbContext.Set<PosQuotePayment>().AsNoTracking()
+            .AnyAsync(x => x.QuoteId == id && x.StoreId == storeId && x.Deleted == null);
+        if (hasPayments)
+            return BadRequest(AppResponse<object>.Fail(
+                "Hợp đồng đã thu tiền — hủy các lần thu (Hợp đồng & thu tiền) trước khi xóa báo giá"));
 
         var now = DateTime.UtcNow;
         var by = CurrentUserEmail;
@@ -500,7 +511,8 @@ public partial class PosQuotesController(
         foreach (var input in inputs)
         {
             var qty = input.Qty <= 0 ? 1 : input.Qty;
-            var price = Math.Max(0, input.UnitPrice);
+            var area = AreaPricing.Resolve(input);
+            var price = area?.SetPrice ?? Math.Max(0, input.UnitPrice);
             var disc = Math.Max(0, input.DiscountAmount);
             var vat = Math.Clamp(input.VatRate, 0, 100);
             var net = Math.Max(0, qty * price - disc);
@@ -523,6 +535,9 @@ public partial class PosQuotesController(
                 Width = PositiveDim(input.Width),
                 Height = PositiveDim(input.Height),
                 WarrantyMonths = input.WarrantyMonths,
+                PricePerM2 = area?.PricePerM2,
+                AreaM2 = area?.AreaM2,
+                MinPricePerSet = area?.MinPerSet,
                 SortOrder = sort++,
                 CreatedBy = CurrentUserEmail,
                 IsActive = true,
@@ -541,7 +556,8 @@ public partial class PosQuotesController(
         foreach (var input in inputs)
         {
             var qty = input.Qty <= 0 ? 1 : input.Qty;
-            var price = Math.Max(0, input.UnitPrice);
+            var area = AreaPricing.Resolve(input);
+            var price = area?.SetPrice ?? Math.Max(0, input.UnitPrice);
             var disc = Math.Max(0, input.DiscountAmount);
             var vat = Math.Clamp(input.VatRate, 0, 100);
             var net = Math.Max(0, qty * price - disc);
@@ -587,6 +603,9 @@ public partial class PosQuotesController(
                 line.Width = PositiveDim(input.Width);
                 line.Height = PositiveDim(input.Height);
                 line.WarrantyMonths = input.WarrantyMonths;
+                line.PricePerM2 = area?.PricePerM2;
+                line.AreaM2 = area?.AreaM2;
+                line.MinPricePerSet = area?.MinPerSet;
                 line.SortOrder = sort++;
                 line.UpdatedAt = DateTime.UtcNow;
                 line.UpdatedBy = CurrentUserEmail;
@@ -612,6 +631,9 @@ public partial class PosQuotesController(
                 Width = PositiveDim(input.Width),
                 Height = PositiveDim(input.Height),
                 WarrantyMonths = input.WarrantyMonths,
+                PricePerM2 = area?.PricePerM2,
+                AreaM2 = area?.AreaM2,
+                MinPricePerSet = area?.MinPerSet,
                 SortOrder = sort++,
                 CreatedBy = CurrentUserEmail,
                 IsActive = true,
@@ -847,7 +869,8 @@ public partial class PosQuotesController(
             .Select(l => new QuoteLineDto(
                 l.Id, l.ProductId, l.ProductCode, l.ProductName, l.UnitName,
                 l.Qty, l.UnitPrice, l.DiscountAmount, l.VatRate, l.LineTotal,
-                l.LineNote, l.WarrantyMonths, l.SortOrder, l.Length, l.Width, l.Height))
+                l.LineNote, l.WarrantyMonths, l.SortOrder, l.Length, l.Width, l.Height,
+                l.PricePerM2, l.AreaM2, l.MinPricePerSet))
             .ToList(),
         x.Documents.Where(d => d.Deleted == null)
             .OrderByDescending(d => d.IssuedAt)

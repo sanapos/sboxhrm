@@ -44,6 +44,15 @@ public class PosQuoteLine : AuditableEntity<Guid>
     /// <summary>Chiều cao khi bán theo diện tích.</summary>
     public decimal? Height { get; set; }
 
+    /// <summary>Hàng gia công tính theo m²: đơn giá / m². Khi có, UnitPrice = giá mỗi bộ, Qty = số bộ.</summary>
+    public decimal? PricePerM2 { get; set; }
+
+    /// <summary>Diện tích một bộ (m²) — từ rộng × cao mm hoặc nhập tay.</summary>
+    public decimal? AreaM2 { get; set; }
+
+    /// <summary>Giá tối thiểu mỗi bộ áp lúc lập báo giá.</summary>
+    public decimal? MinPricePerSet { get; set; }
+
     /// <summary>Số tháng bảo hành (sao chép từ hàng hóa khi lập BG).</summary>
     public int? WarrantyMonths { get; set; }
 

@@ -478,6 +478,12 @@ class PosProduct {
   final String? overtimeProductId;
   /// Báo trước khi hết gói (phút).
   final int timeAlertBeforeMinutes;
+  /// Hàng gia công / sản xuất theo đơn — báo giá nhập rộng × cao (mm) + số bộ.
+  final bool isMadeToOrder;
+  /// Hàng gia công tính giá theo m²: [basePrice] là đơn giá / m².
+  final bool priceByArea;
+  /// Giá tối thiểu mỗi bộ khi tính theo m².
+  final double? minPricePerSet;
   final bool isTopping;
   final bool allowToppings;
   /// Tự mở popup topping (nhóm) khi thêm món vào giỏ.
@@ -567,6 +573,9 @@ class PosProduct {
     this.timePackageMinutes = 0,
     this.overtimeProductId,
     this.timeAlertBeforeMinutes = 5,
+    this.isMadeToOrder = false,
+    this.priceByArea = false,
+    this.minPricePerSet,
     this.isTopping = false,
     this.allowToppings = false,
     this.autoOpenToppingPopup = true,
@@ -773,6 +782,14 @@ class PosProduct {
       overtimeProductId: (json['overtimeProductId'] ?? json['OvertimeProductId'])?.toString(),
       timeAlertBeforeMinutes:
           (json['timeAlertBeforeMinutes'] ?? json['TimeAlertBeforeMinutes'] as num?)?.toInt() ?? 5,
+      isMadeToOrder:
+          json['isMadeToOrder'] == true || json['IsMadeToOrder'] == true,
+      priceByArea: json['priceByArea'] == true || json['PriceByArea'] == true,
+      minPricePerSet: () {
+        final v = json['minPricePerSet'] ?? json['MinPricePerSet'];
+        final d = v is num ? v.toDouble() : double.tryParse('${v ?? ''}');
+        return d != null && d > 0 ? d : null;
+      }(),
       isTopping: json['isTopping'] == true || json['IsTopping'] == true,
       allowToppings:
           json['allowToppings'] == true || json['AllowToppings'] == true,
@@ -879,6 +896,9 @@ class PosProduct {
       'timePackageMinutes': timePackageMinutes,
       if (overtimeProductId != null) 'overtimeProductId': overtimeProductId,
       'timeAlertBeforeMinutes': timeAlertBeforeMinutes,
+      'isMadeToOrder': isMadeToOrder,
+      'priceByArea': priceByArea,
+      if (minPricePerSet != null) 'minPricePerSet': minPricePerSet,
       'isTopping': isTopping,
       'allowToppings': allowToppings && !isTopping,
       'autoOpenToppingPopup': autoOpenToppingPopup,
@@ -1015,6 +1035,9 @@ class PosProduct {
       commissionPercent: this.commissionPercent,
       commissionFixed: this.commissionFixed,
       commissionPerSession: this.commissionPerSession,
+      isMadeToOrder: this.isMadeToOrder,
+      priceByArea: this.priceByArea,
+      minPricePerSet: this.minPricePerSet,
       toppingOptions: this.toppingOptions,
       toppingGroupIds: this.toppingGroupIds,
       toppingGroups: this.toppingGroups,
@@ -1051,6 +1074,9 @@ class PosProduct {
         'allowAreaLength': areaLength,
         'allowAreaWidth': areaWidth,
         'allowAreaHeight': areaHeight,
+        'isMadeToOrder': isMadeToOrder,
+        'priceByArea': priceByArea,
+        'minPricePerSet': minPricePerSet,
         'variantCount': variantCount,
         'saleQuickNotes': saleQuickNotes,
         'isTopping': isTopping,

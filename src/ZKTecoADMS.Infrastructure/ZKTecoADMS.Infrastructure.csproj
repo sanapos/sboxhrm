@@ -32,7 +32,7 @@
   </ItemGroup>
 
     <ItemGroup>
-      <EmbeddedResource Include="SchemaPatches\EnsureCompleteSchema.sql" />
+      <EmbeddedResource Include="SchemaPatches\*.sql" />
     </ItemGroup>
 
     <ItemGroup>

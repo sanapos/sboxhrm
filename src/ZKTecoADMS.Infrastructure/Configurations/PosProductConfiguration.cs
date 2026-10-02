@@ -66,6 +66,7 @@ public class PosProductConfiguration : IEntityTypeConfiguration<PosProduct>
         builder.Property(x => x.SaleQuickNotesJson).HasMaxLength(4000);
         builder.Property(x => x.CostPrice).HasPrecision(18, 2);
         builder.Property(x => x.BasePrice).HasPrecision(18, 2);
+        builder.Property(x => x.MinPricePerSet).HasPrecision(18, 2);
         builder.Property(x => x.OpeningFee).HasPrecision(18, 2);
         builder.Property(x => x.VatRate).HasPrecision(5, 2);
         builder.Property(x => x.OnHandQty).HasPrecision(18, 4);
@@ -531,6 +532,8 @@ public class PosQuoteConfiguration : IEntityTypeConfiguration<PosQuote>
         builder.Property(x => x.DepositPercent).HasPrecision(5, 2);
         builder.Property(x => x.VatMode).HasMaxLength(20).HasDefaultValue("per_item");
         builder.Property(x => x.VatPercent).HasPrecision(5, 2);
+        builder.Property(x => x.ContractNo).HasMaxLength(50);
+        builder.Property(x => x.ContractNote).HasMaxLength(1000);
         builder.HasIndex(x => new { x.StoreId, x.QuoteNo }).IsUnique();
         builder.HasIndex(x => new { x.StoreId, x.Status });
         builder.HasIndex(x => new { x.StoreId, x.CommercialStage });
@@ -589,6 +592,9 @@ public class PosQuoteLineConfiguration : IEntityTypeConfiguration<PosQuoteLine>
         builder.Property(x => x.DiscountAmount).HasPrecision(18, 2);
         builder.Property(x => x.VatRate).HasPrecision(5, 2);
         builder.Property(x => x.LineTotal).HasPrecision(18, 2);
+        builder.Property(x => x.PricePerM2).HasPrecision(18, 2);
+        builder.Property(x => x.AreaM2).HasPrecision(18, 4);
+        builder.Property(x => x.MinPricePerSet).HasPrecision(18, 2);
         builder.HasOne(x => x.Store).WithMany().HasForeignKey(x => x.StoreId).OnDelete(DeleteBehavior.Cascade);
         builder.HasOne(x => x.Quote).WithMany(x => x.Lines).HasForeignKey(x => x.QuoteId).OnDelete(DeleteBehavior.Cascade);
         builder.HasOne(x => x.Product).WithMany().HasForeignKey(x => x.ProductId).OnDelete(DeleteBehavior.SetNull);

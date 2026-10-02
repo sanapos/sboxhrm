@@ -22,6 +22,7 @@ import '../../widgets/pos/pos_customer_form_dialog.dart';
 import '../../widgets/pos/pos_discount_editor_dialog.dart';
 import '../../widgets/pos/pos_empty_cart_brand.dart';
 import '../../widgets/pos/pos_qty_area_dialog.dart';
+import '../../widgets/pos/pos_made_to_order_line_dialog.dart';
 import '../../widgets/pos/pos_product_image.dart';
 import '../../widgets/pos/pos_product_unit_view.dart';
 import '../../widgets/pos/pos_quote_care_sheet.dart';
@@ -433,6 +434,10 @@ class _PosQuoteComposerScreenState extends State<PosQuoteComposerScreen> {
     final view = _viewForPick(views, pick);
     final unit = view?.label ?? pick.unitLabel ?? p.baseUnitName;
     final price = (view?.basePrice ?? 0) > 0 ? view!.basePrice : p.basePrice;
+    if (p.isMadeToOrder) {
+      unawaited(_addMadeToOrder(p, price, unit, views, view));
+      return;
+    }
     final i = _cart.indexWhere((c) =>
         c.line.productId == p.id && (c.line.unitName ?? '') == unit);
     if (i >= 0) {
@@ -464,6 +469,89 @@ class _PosQuoteComposerScreenState extends State<PosQuoteComposerScreen> {
     }
   }
 
+  /// Hàng gia công: mỗi lần chọn là một dòng mới (mỗi cửa một kích thước), nhập kích thước trước.
+  Future<void> _addMadeToOrder(
+    PosProduct p,
+    double price,
+    String unit,
+    List<PosProductUnitView> views,
+    PosProductUnitView? view,
+  ) async {
+    final byArea = p.priceByArea;
+    final result = await showMadeToOrderLineDialog(
+      context: context,
+      productName: p.name,
+      priceByArea: byArea,
+      pricePerM2: byArea ? price : null,
+      minPerSet: byArea ? p.minPricePerSet : null,
+    );
+    if (result == null || !mounted) return;
+    final row = _QLine(
+      line: PosQuoteLine(
+        productId: p.id,
+        productCode: view?.displayCode.isNotEmpty == true
+            ? view!.displayCode
+            : p.productCode,
+        productName: p.name,
+        unitName: byArea ? 'Bộ' : unit,
+        qty: result.sets,
+        unitPrice: result.setPrice ?? price,
+        vatRate: p.vatExempt ? 0 : p.vatRate,
+        warrantyMonths: p.warrantyMonths,
+      ),
+      product: p,
+      views: views,
+      viewKey: view?.viewKey,
+    );
+    _applyMadeToOrder(row, result);
+    setState(() => _cart.add(row));
+  }
+
+  /// Sửa kích thước / số bộ / giá m² của dòng hàng gia công.
+  Future<void> _promptMadeToOrder(_QLine row) async {
+    final line = row.line;
+    final byArea = line.isAreaPriced || row.product?.priceByArea == true;
+    final result = await showMadeToOrderLineDialog(
+      context: context,
+      productName: line.productName,
+      priceByArea: byArea,
+      widthMm: line.width,
+      heightMm: line.height,
+      sets: line.qty,
+      pricePerM2: line.pricePerM2 ?? (byArea ? row.product?.basePrice : null),
+      minPerSet: line.minPricePerSet ?? row.product?.minPricePerSet,
+    );
+    if (result == null || !mounted) return;
+    setState(() => _applyMadeToOrder(row, result));
+  }
+
+  void _applyMadeToOrder(_QLine row, MadeToOrderLineResult r) {
+    final line = row.line;
+    line.qty = r.sets;
+    line.width = r.widthMm;
+    line.height = r.heightMm;
+    if (r.setPrice != null) {
+      line.unitPrice = r.setPrice!;
+      line.pricePerM2 = r.pricePerM2;
+      line.areaM2 = r.areaM2 > 0 ? r.areaM2 : null;
+      line.minPricePerSet = r.minPerSet;
+      row.priceCtrl.text = _money.format(line.unitPrice);
+    }
+    row.noteCtrl.text = MadeToOrderPricing.mergeNote(
+      row.noteCtrl.text,
+      areaNote: r.areaNote,
+      priceNote: r.priceNote,
+    );
+    _applyNote(row);
+    if (row.discountIsPercent) {
+      line.discountAmount =
+          (row.lineGross * row.discountInput / 100).clamp(0, row.lineGross);
+    }
+  }
+
+  bool _isMadeToOrderRow(_QLine row) =>
+      row.line.isAreaPriced || row.product?.isMadeToOrder == true;
+
   void _removeRow(int i) {
     final row = _cart.removeAt(i);
     if (_expandedKey == _rowKey(row)) {
@@ -487,6 +575,10 @@ class _PosQuoteComposerScreenState extends State<PosQuoteComposerScreen> {
   Future<void> _promptLineQty(int i) async {
     if (i < 0 || i >= _cart.length || !mounted) return;
     final row = _cart[i];
+    if (_isMadeToOrderRow(row)) {
+      await _promptMadeToOrder(row);
+      return;
+    }
     var product = row.product;
     if (product != null) {
       product = await PosQtyRules.withFreshQtyFlags(_api, product);
@@ -620,6 +712,11 @@ class _PosQuoteComposerScreenState extends State<PosQuoteComposerScreen> {
           row.priceCtrl.text.replaceAll('.', '').replaceAll(',', ''),
         ) ??
         row.line.unitPrice;
+    if (row.line.isAreaPriced && price != row.line.unitPrice) {
+      row.line.pricePerM2 = null;
+      row.line.areaM2 = null;
+      row.line.minPricePerSet = null;
+    }
     row.line.unitPrice = price;
     final raw = double.tryParse(
           row.discountCtrl.text.replaceAll('.', '').replaceAll(',', ''),

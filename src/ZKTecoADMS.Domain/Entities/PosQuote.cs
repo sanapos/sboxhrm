@@ -84,7 +84,27 @@ public class PosQuote : AuditableEntity<Guid>
     /// <summary>Tiến độ HĐ / xuất kho / bàn giao / nghiệm thu. Không đụng PosSaleOrder.</summary>
     public PosQuoteCommercialStage CommercialStage { get; set; } = PosQuoteCommercialStage.None;
 
+    // ── Hợp đồng: số HĐ + các mốc tiến độ cam kết với khách
+    [MaxLength(50)]
+    public string? ContractNo { get; set; }
+
+    public DateTime? ContractSignedAt { get; set; }
+
+    /// <summary>Hạn xong sản xuất (hàng gia công).</summary>
+    public DateTime? ProductionDueAt { get; set; }
+
+    /// <summary>Hạn lắp đặt / giao hàng tại công trình.</summary>
+    public DateTime? InstallDueAt { get; set; }
+
+    /// <summary>Hạn bàn giao, nghiệm thu.</summary>
+    public DateTime? HandoverDueAt { get; set; }
+
+    [MaxLength(1000)]
+    public string? ContractNote { get; set; }
+
     public virtual ICollection<PosQuoteLine> Lines { get; set; } = [];
+    public virtual ICollection<PosQuotePaymentStage> PaymentStages { get; set; } = [];
+    public virtual ICollection<PosQuotePayment> Payments { get; set; } = [];
     public virtual ICollection<PosQuoteDocument> Documents { get; set; } = [];
     public virtual ICollection<PosQuoteActivity> Activities { get; set; } = [];
 }

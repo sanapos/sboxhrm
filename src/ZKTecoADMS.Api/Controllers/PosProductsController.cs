@@ -105,7 +105,10 @@ public partial class PosProductsController(
         int TimePackageMinutes = 0,
         Guid? OvertimeProductId = null,
         int TimeAlertBeforeMinutes = 5,
-        bool CommissionPerSession = false);
+        bool CommissionPerSession = false,
+        bool IsMadeToOrder = false,
+        bool PriceByArea = false,
+        decimal? MinPricePerSet = null);
 
     public record PosProductComboLineDto(
         Guid Id,
@@ -210,6 +213,9 @@ public partial class PosProductsController(
         Guid? OvertimeProductId = null,
         int TimeAlertBeforeMinutes = 5,
         bool CommissionPerSession = false,
+        bool IsMadeToOrder = false,
+        bool PriceByArea = false,
+        decimal? MinPricePerSet = null,
         // Tồn lúc mở form sửa — chỉ ghi tồn khi người dùng thực sự đổi ô tồn kho
         // (tránh ghi đè số tồn cũ lên lượt bán xảy ra trong lúc đang sửa hàng).
         decimal? OriginalOnHandQty = null);
@@ -395,6 +401,9 @@ public partial class PosProductsController(
                 p.OvertimeProductId,
                 p.TimeAlertBeforeMinutes,
                 p.CommissionPerSession,
+                p.IsMadeToOrder,
+                p.PriceByArea,
+                p.MinPricePerSet,
                 p.CreatedAt,
                 p.UpdatedAt,
                 p.DailySoldOutOn,
@@ -474,7 +483,10 @@ public partial class PosProductsController(
                 TimePackageMinutes: r.TimePackageMinutes,
                 OvertimeProductId: r.OvertimeProductId,
                 TimeAlertBeforeMinutes: r.TimeAlertBeforeMinutes,
-                CommissionPerSession: r.CommissionPerSession);
+                CommissionPerSession: r.CommissionPerSession,
+                IsMadeToOrder: r.IsMadeToOrder,
+                PriceByArea: r.PriceByArea,
+                MinPricePerSet: r.MinPricePerSet);
         }).ToList();
 
         if (stockoutFilter != PosStockoutFilter.All)
@@ -1002,6 +1014,9 @@ public partial class PosProductsController(
             AutoOpenToppingPopup = source.AutoOpenToppingPopup,
             ShowComboComponentsOnSell = source.ShowComboComponentsOnSell,
             ComboTrackStock = source.ComboTrackStock,
+            IsMadeToOrder = source.IsMadeToOrder,
+            PriceByArea = source.PriceByArea,
+            MinPricePerSet = source.MinPricePerSet,
             IsActive = true,
             CreatedBy = CurrentUserEmail,
         };
@@ -1273,7 +1288,10 @@ public partial class PosProductsController(
             ComboTrackStock: p.ComboTrackStock,
             AllowAreaLength: p.AllowAreaLength,
             AllowAreaWidth: p.AllowAreaWidth,
-            AllowAreaHeight: p.AllowAreaHeight);
+            AllowAreaHeight: p.AllowAreaHeight,
+            IsMadeToOrder: p.IsMadeToOrder,
+            PriceByArea: p.PriceByArea,
+            MinPricePerSet: p.MinPricePerSet);
     }
 
     private async Task<DateTime> ResolveStoreBusinessDateAsync(Guid storeId)
@@ -1548,6 +1566,12 @@ public partial class PosProductsController(
         entity.AllowAreaLength = length;
         entity.AllowAreaWidth = width;
         entity.AllowAreaHeight = height;
+
+        // Hàng gia công: chỉ hàng hóa / nguyên vật liệu; giá m² cần bật gia công.
+        entity.IsMadeToOrder = dto.IsMadeToOrder &&
+            dto.ProductType is PosProductType.Goods or PosProductType.Material;
+        entity.PriceByArea = entity.IsMadeToOrder && dto.PriceByArea;
+        entity.MinPricePerSet = entity.PriceByArea && dto.MinPricePerSet is > 0 ? dto.MinPricePerSet : null;
     }
 
     private static void NormalizeByProductType(PosProduct entity)

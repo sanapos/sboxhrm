@@ -19593,6 +19593,77 @@ class ApiService {
     }
   }
 
+  // ── Hợp đồng từ báo giá: mốc tiến độ, đợt thanh toán, thu tiền, công nợ
+  Future<Map<String, dynamic>> getPosQuoteContract(String id) async {
+    try {
+      final response = await http
+          .get(Uri.parse('$baseUrl/api/pos/quotes/$id/contract'), headers: _headers)
+          .timeout(const Duration(seconds: 30));
+      return _handleResponse(response);
+    } catch (e) {
+      return _connectionFailure(e);
+    }
+  }
+
+  Future<Map<String, dynamic>> savePosQuoteContract(
+      String id, Map<String, dynamic> body) async {
+    try {
+      final response = await http
+          .put(Uri.parse('$baseUrl/api/pos/quotes/$id/contract'),
+              headers: _headers, body: jsonEncode(body))
+          .timeout(const Duration(seconds: 30));
+      return _handleResponse(response);
+    } catch (e) {
+      return _connectionFailure(e);
+    }
+  }
+
+  Future<Map<String, dynamic>> addPosQuotePayment(
+      String id, Map<String, dynamic> body) async {
+    try {
+      final response = await http
+          .post(Uri.parse('$baseUrl/api/pos/quotes/$id/payments'),
+              headers: _headers, body: jsonEncode(body))
+          .timeout(const Duration(seconds: 30));
+      return _handleResponse(response);
+    } catch (e) {
+      return _connectionFailure(e);
+    }
+  }
+
+  Future<Map<String, dynamic>> cancelPosQuotePayment(
+      String id, String paymentId) async {
+    try {
+      final response = await http
+          .delete(Uri.parse('$baseUrl/api/pos/quotes/$id/payments/$paymentId'),
+              headers: _headers)
+          .timeout(const Duration(seconds: 30));
+      return _handleResponse(response);
+    } catch (e) {
+      return _connectionFailure(e);
+    }
+  }
+
+  Future<Map<String, dynamic>> getPosContractReceivables({
+    String? search,
+    String? filter,
+  }) async {
+    try {
+      final uri = Uri.parse('$baseUrl/api/pos/quotes/receivables').replace(
+        queryParameters: {
+          if (search != null && search.trim().isNotEmpty) 'search': search.trim(),
+          if (filter != null && filter.isNotEmpty) 'filter': filter,
+        },
+      );
+      final response = await http
+          .get(uri, headers: _headers)
+          .timeout(const Duration(seconds: 30));
+      return _handleResponse(response);
+    } catch (e) {
+      return _connectionFailure(e);
+    }
+  }
+
   Future<Map<String, dynamic>> lookupPosCommercialTax(String taxCode) async {
     try {
       final uri = Uri.parse('$baseUrl/api/pos/commercial-profile/tax-lookup')

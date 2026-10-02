@@ -21,6 +21,9 @@ class PosQuoteLine {
     this.height,
     this.warrantyMonths,
     this.sortOrder = 0,
+    this.pricePerM2,
+    this.areaM2,
+    this.minPricePerSet,
   });
 
   String id;
@@ -39,6 +42,16 @@ class PosQuoteLine {
   double? height;
   int? warrantyMonths;
   int sortOrder;
+
+  /// Hàng gia công tính theo m²: đơn giá / m². Khi có: [qty] = số bộ, [unitPrice] = giá mỗi bộ,
+  /// [width] × [height] tính bằng mm.
+  double? pricePerM2;
+  /// Diện tích một bộ (m²).
+  double? areaM2;
+  /// Giá tối thiểu mỗi bộ.
+  double? minPricePerSet;
+
+  bool get isAreaPriced => (pricePerM2 ?? 0) > 0;
 
   double get net => (qty * unitPrice - discountAmount).clamp(0, double.infinity);
 
@@ -77,6 +90,9 @@ class PosQuoteLine {
       height: dim(json['height'] ?? json['Height']) ?? fromNote.height,
       warrantyMonths: i(json['warrantyMonths'] ?? json['WarrantyMonths']),
       sortOrder: i(json['sortOrder'] ?? json['SortOrder']) ?? 0,
+      pricePerM2: dim(json['pricePerM2'] ?? json['PricePerM2']),
+      areaM2: dim(json['areaM2'] ?? json['AreaM2']),
+      minPricePerSet: dim(json['minPricePerSet'] ?? json['MinPricePerSet']),
     );
   }
 
@@ -107,6 +123,11 @@ class PosQuoteLine {
       'width': width,
       'height': height,
       if (warrantyMonths != null) 'warrantyMonths': warrantyMonths,
+      if (isAreaPriced) ...{
+        'pricePerM2': pricePerM2,
+        'areaM2': areaM2,
+        'minPricePerSet': minPricePerSet,
+      },
     };
   }
 }

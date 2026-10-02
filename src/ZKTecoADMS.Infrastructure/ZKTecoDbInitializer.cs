@@ -3506,6 +3506,8 @@ public class ZKTecoDbInitializer(
                     ('a0000001-0000-0000-0000-000000000012', 'pos', 'Bán hàng POS', 'Tồn kho thấp, đơn bán, nhập hàng', 'point_of_sale', 12, TRUE, TRUE, NOW())
                     ON CONFLICT DO NOTHING;
                 ");
+
+                await ApplyFeatureSchemaPatchesAsync();
             }
         }
         catch (Exception ex)
@@ -3540,15 +3542,40 @@ public class ZKTecoDbInitializer(
             """);
     }
 
+    private const string SchemaPatchPrefix = "ZKTecoADMS.Infrastructure.SchemaPatches.";
+    private const string CompleteSchemaResource = SchemaPatchPrefix + "EnsureCompleteSchema.sql";
+
     private async Task ApplyCompleteSchemaPatchAsync()
     {
-        await using var stream = typeof(ZKTecoDbInitializer).Assembly
-            .GetManifestResourceStream("ZKTecoADMS.Infrastructure.SchemaPatches.EnsureCompleteSchema.sql");
-        if (stream == null)
+        var asm = typeof(ZKTecoDbInitializer).Assembly;
+        if (!asm.GetManifestResourceNames().Contains(CompleteSchemaResource))
         {
             logger.LogWarning("EnsureCompleteSchema.sql embedded resource was not found.");
             return;
         }
+        await ApplySchemaResourceAsync(asm, CompleteSchemaResource);
+    }
+
+    /// <summary>
+    /// Các file SchemaPatches/*.sql khác (mỗi tính năng một file) — chạy cuối, sau khi đã tạo đủ bảng POS / HRM.
+    /// </summary>
+    private async Task ApplyFeatureSchemaPatchesAsync()
+    {
+        var asm = typeof(ZKTecoDbInitializer).Assembly;
+        var names = asm.GetManifestResourceNames()
+            .Where(n => n.StartsWith(SchemaPatchPrefix, StringComparison.Ordinal)
+                && n.EndsWith(".sql", StringComparison.Ordinal)
+                && n != CompleteSchemaResource)
+            .OrderBy(n => n, StringComparer.Ordinal)
+            .ToList();
+        foreach (var name in names)
+            await ApplySchemaResourceAsync(asm, name);
+    }
+
+    private async Task ApplySchemaResourceAsync(System.Reflection.Assembly asm, string resourceName)
+    {
+        await using var stream = asm.GetManifestResourceStream(resourceName);
+        if (stream == null) return;
 
         using var reader = new StreamReader(stream);
         var sql = await reader.ReadToEndAsync();
@@ -3562,7 +3589,7 @@ public class ZKTecoDbInitializer(
             }
             catch (Exception ex)
             {
-                logger.LogWarning(ex, "EnsureCompleteSchema statement skipped.");
+                logger.LogWarning(ex, "{Resource} statement skipped.", resourceName);
             }
         }
     }

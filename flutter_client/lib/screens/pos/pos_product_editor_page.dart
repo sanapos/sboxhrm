@@ -278,6 +278,11 @@ class _PosProductEditorPageState extends State<PosProductEditorPage>
   bool _requiresSerial = false;
   bool _allowDecimalQty = false;
   bool _allowAreaQty = false;
+  /// Hàng gia công (cửa nhôm kính, nội thất…): báo giá nhập rộng × cao + số bộ.
+  bool _madeToOrder = false;
+  /// Giá bán = đơn giá / m², có giá tối thiểu mỗi bộ.
+  bool _priceByArea = false;
+  late final TextEditingController _minPerSetCtrl;
   bool _areaLength = false;
   bool _areaWidth = false;
   bool _areaHeight = false;
@@ -534,6 +539,11 @@ class _PosProductEditorPageState extends State<PosProductEditorPage>
     _requiresSerial = p?.requiresSerial ?? false;
     _allowDecimalQty = p?.allowDecimalQty ?? false;
     _loadAreaAxes(p);
+    _madeToOrder = p?.isMadeToOrder ?? false;
+    _priceByArea = p?.priceByArea ?? false;
+    _minPerSetCtrl = TextEditingController(
+      text: (p?.minPricePerSet ?? 0) > 0 ? _fmtInputMoney(p!.minPricePerSet!) : '',
+    );
     _trackExpiry = p?.trackExpiry ?? false;
     _expiryWarningDaysCtrl = TextEditingController(
       text: tr('${p?.expiryWarningDays ?? 30}'),
@@ -719,6 +729,11 @@ class _PosProductEditorPageState extends State<PosProductEditorPage>
       _requiresSerial = data.requiresSerial;
       _allowDecimalQty = data.allowDecimalQty;
       _loadAreaAxes(data);
+      _madeToOrder = data.isMadeToOrder;
+      _priceByArea = data.priceByArea;
+      _minPerSetCtrl.text = (data.minPricePerSet ?? 0) > 0
+          ? _fmtInputMoney(data.minPricePerSet!)
+          : '';
       _trackExpiry = data.trackExpiry;
       _expiryWarningDaysCtrl.text = '${data.expiryWarningDays}';
       _serviceBillingMode =
@@ -911,6 +926,7 @@ class _PosProductEditorPageState extends State<PosProductEditorPage>
 
   @override
   void dispose() {
+    _minPerSetCtrl.dispose();
     _tabs.dispose();
     _codeCtrl.dispose();
     _barcodeCtrl.dispose();
@@ -1094,6 +1110,11 @@ class _PosProductEditorPageState extends State<PosProductEditorPage>
         'allowAreaLength': _areaLength,
         'allowAreaWidth': _areaWidth,
         'allowAreaHeight': _areaHeight,
+        'isMadeToOrder': _madeToOrder,
+        'priceByArea': _madeToOrder && _priceByArea,
+        'minPricePerSet': _madeToOrder && _priceByArea
+            ? (_parseNum(_minPerSetCtrl.text) > 0 ? _parseNum(_minPerSetCtrl.text) : null)
+            : null,
         'trackExpiry': _trackExpiry,
         'expiryWarningDays':
             int.tryParse(_expiryWarningDaysCtrl.text.trim()) ?? 30,
@@ -1969,6 +1990,7 @@ class _PosProductEditorPageState extends State<PosProductEditorPage>
           ),
           if (_isGoods) _retailQtyModeButtons(),
           if (_isGoods) _buildAreaAxesSection(),
+          if (_isGoods) _buildMadeToOrderSection(),
           _buildProductVatSection(),
           if (_showSection(PosProductEditorSection.staffCommission))
             _kvExpansion(
@@ -3200,6 +3222,57 @@ class _PosProductEditorPageState extends State<PosProductEditorPage>
             ),
           ],
         ),
+      ),
+    );
+  }
+
+  /// Hàng gia công: báo giá đo rộng × cao (mm) từng cửa, giá theo m² có tối thiểu mỗi bộ.
+  Widget _buildMadeToOrderSection() {
+    return _kvSection(
+      title: 'Hàng gia công',
+      subtitle: 'Sản xuất theo đơn (cửa nhôm kính, nội thất…): báo giá nhập kích thước từng bộ.',
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          SwitchListTile(
+            contentPadding: EdgeInsets.zero,
+            title: Text(tr('Là hàng gia công')),
+            subtitle: Text(
+              tr('Mỗi lần chọn trên báo giá là một dòng: rộng × cao (mm) + số bộ.'),
+              style: const TextStyle(fontSize: 12),
+            ),
+            value: _madeToOrder,
+            onChanged: (v) => setState(() {
+              _madeToOrder = v;
+              if (!v) _priceByArea = false;
+            }),
+          ),
+          if (_madeToOrder) ...[
+            SwitchListTile(
+              contentPadding: EdgeInsets.zero,
+              title: Text(tr('Tính giá theo m²')),
+              subtitle: Text(
+                tr('Giá bán ở trên là đơn giá / m². Giá 1 bộ = diện tích × đơn giá, không thấp hơn giá tối thiểu.'),
+                style: const TextStyle(fontSize: 12),
+              ),
+              value: _priceByArea,
+              onChanged: (v) => setState(() {
+                _priceByArea = v;
+                if (v && _unitCtrl.text.trim().isEmpty) _unitCtrl.text = 'm²';
+              }),
+            ),
+            if (_priceByArea)
+              TextField(
+                controller: _minPerSetCtrl,
+                keyboardType: TextInputType.number,
+                inputFormatters: [ThousandSeparatorFormatter()],
+                decoration: PosTheme.inputDecoration(
+                  label: 'Giá tối thiểu mỗi bộ',
+                  hint: 'VD: 1.500.000 — để trống nếu không áp',
+                ),
+              ),
+          ],
+        ],
       ),
     );
   }

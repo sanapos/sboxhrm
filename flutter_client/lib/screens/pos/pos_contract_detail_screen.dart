@@ -11,6 +11,7 @@ import '../../utils/pos_quote_export.dart';
 import '../../widgets/notification_overlay.dart';
 import 'pos_quote_document_wording_screen.dart';
 import '../../widgets/pos/pos_quote_care_sheet.dart';
+import '../../widgets/pos/pos_contract_payment_panel.dart';
 import '../../widgets/pos/pos_theme.dart';
 
 import '../../theme/sbox_tokens.dart';
@@ -72,6 +73,13 @@ class _PosContractDetailScreenState extends State<PosContractDetailScreen> {
       _loading = false;
       _quote = PosQuote.fromJson(Map<String, dynamic>.from(res['data'] as Map));
     });
+  }
+
+  /// Tải lại báo giá sau khi thu tiền / sửa đợt — không thay màn bằng vòng chờ.
+  Future<void> _reloadQuiet() async {
+    final res = await _api.getPosQuote(widget.quoteId);
+    if (!mounted || res['isSuccess'] != true || res['data'] is! Map) return;
+    setState(() => _quote = PosQuote.fromJson(Map<String, dynamic>.from(res['data'] as Map)));
   }
 
   Future<void> _openDoc(PosQuoteDocument d) async {
@@ -242,6 +250,12 @@ class _PosContractDetailScreenState extends State<PosContractDetailScreen> {
                             ],
                           ),
                         ),
+                      ),
+                      const SizedBox(height: 14),
+                      // Tiến độ HĐ, đợt thanh toán, thu cọc / thu các đợt → phiếu thu quỹ
+                      PosContractPaymentPanel(
+                        quoteId: q.id,
+                        onChanged: _reloadQuiet,
                       ),
                       const SizedBox(height: 14),
                       _sectionHead(
