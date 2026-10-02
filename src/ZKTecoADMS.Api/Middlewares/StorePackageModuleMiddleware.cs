@@ -220,6 +220,17 @@ public class StorePackageModuleMiddleware
         return best;
     }
 
+    /// <summary>Mã chức năng mở menu Thiết lập Sbox (khớp app: PermissionNavigation.settingsMenuPackageModules).</summary>
+    static readonly string[] SettingsMenuModules =
+    [
+        "SettingsHub", "ShiftSetup", "Holiday", "Device", "Allowance", "PenaltySetup", "Insurance", "Tax",
+        "ProductSalary", "SalarySettings", "Branch", "Geofence", "SystemSettings", "NotificationSettings", "AIGemini",
+        "PosPrintTemplates", "PosPrinters", "PosStorePrinters", "PosEInvoice", "PosShipping", "PosCustomerDisplay",
+    ];
+
+    static bool PackageOpensSettings(IReadOnlyList<string> allowed) =>
+        SettingsMenuModules.Any(m => allowed.Contains(m, StringComparer.OrdinalIgnoreCase));
+
     /// <summary>Gói chỉ có PosSell vẫn đọc catalog/mẫu in; trả hàng cũng mở nếu có PosSell.</summary>
     private static bool IsImplicitlyAllowed(
         string path, string method, string module, IReadOnlyList<string> allowed)
@@ -238,6 +249,20 @@ public class StorePackageModuleMiddleware
         if (module.Equals("PosStorePrinters", StringComparison.OrdinalIgnoreCase) &&
             (allowed.Contains("PosStorePrinters", StringComparer.OrdinalIgnoreCase) ||
              allowed.Contains("PosPrinters", StringComparer.OrdinalIgnoreCase)))
+            return true;
+
+        // Thiết lập Sbox có ở mọi gói: «Thông tin cửa hàng» (tên, logo, địa chỉ, hồ sơ công ty) dùng chung API
+        // /api/pos/sell-settings + /api/pos/commercial-profile — gói HRM (không có Bán hàng) vẫn phải mở được.
+        if (PackageOpensSettings(allowed) &&
+            (path.StartsWith("/api/pos/sell-settings", StringComparison.OrdinalIgnoreCase) ||
+             path.StartsWith("/api/pos/commercial-profile", StringComparison.OrdinalIgnoreCase)))
+            return true;
+
+        // «Tài khoản nhận tiền» (VietQR / Tingee) dùng cho cả thu chi, không chỉ bán hàng.
+        if ((allowed.Contains("CashTransaction", StringComparer.OrdinalIgnoreCase) ||
+             allowed.Contains("BankAccount", StringComparer.OrdinalIgnoreCase)) &&
+            (path.StartsWith("/api/pos/payment-gateway", StringComparison.OrdinalIgnoreCase) ||
+             path.StartsWith("/api/pos/sales/bank-accounts", StringComparison.OrdinalIgnoreCase)))
             return true;
 
         // POS A6: tạo thu ngân + phân quyền báo cáo (API /permission-management).
