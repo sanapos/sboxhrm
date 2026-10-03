@@ -397,6 +397,10 @@ public static class DependencyInjectionExtensions
             var initialiser = scope.ServiceProvider.GetRequiredService<ZKTecoDbInitializer>();
             await initialiser.InitialiseAsync();
             await initialiser.SeedAsync();
+            // Bài viết SEO mẫu (/bai-viet) — mỗi bài nạp một lần, Super Admin sửa / xóa thoải mái.
+            await Seo.SeoArticleSeeder.SeedAsync(
+                scope.ServiceProvider.GetRequiredService<ZKTecoDbContext>(),
+                scope.ServiceProvider.GetRequiredService<ILoggerFactory>().CreateLogger("SeoArticleSeeder"));
         }
         
         // Log ALL incoming requests — to diagnose new-gen ZKTeco devices using different paths

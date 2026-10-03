@@ -28,6 +28,7 @@ import 'system_admin/licenses_tab.dart';
 import 'system_admin/settings_tab.dart';
 import 'system_admin/database_tab.dart';
 import 'system_admin/audit_tab.dart';
+import 'system_admin/seo_articles_tab.dart';
 import 'system_admin/v2/sa_packages_v2.dart';
 import 'system_admin/v2/sa_stores_v2.dart';
 import 'system_admin/v2/sa_ops_v2.dart';
@@ -110,6 +111,7 @@ class _SystemAdminScreenState extends State<SystemAdminScreen>
     'Catalog mẫu POS',
     'Lượt CK Tingee',
     'Máy chủ',
+    'Bài viết SEO',
   ];
 
   static const _agentTabLabels = [
@@ -441,6 +443,7 @@ class _SystemAdminScreenState extends State<SystemAdminScreen>
       // ── Trang chủ & nội dung
       const AdminNavItem(index: 16, icon: Icons.web_rounded, label: 'Trang chủ (Landing)', group: 'Trang chủ & nội dung'),
       const AdminNavItem(index: 14, icon: Icons.description_outlined, label: 'Trang nội dung & góp ý', group: 'Trang chủ & nội dung'),
+      const AdminNavItem(index: 20, icon: Icons.article_outlined, label: 'Bài viết SEO', group: 'Trang chủ & nội dung'),
       AdminNavItem(
           index: 11,
           icon: Icons.campaign,
@@ -581,6 +584,7 @@ class _SystemAdminScreenState extends State<SystemAdminScreen>
         PosSampleCatalogTab(key: _posSampleCatalogKey),
         NotificationCreditsTab(key: _notificationCreditsKey),
         ServerOpsTab(key: _serverOpsKey),
+        const SeoArticlesTab(),
       ],
     );
   }
@@ -815,6 +819,7 @@ class _SystemAdminScreenState extends State<SystemAdminScreen>
                   icon: Icon(Icons.account_balance_wallet, size: 18),
                   text: tr('Lượt CK Tingee')),
               Tab(icon: Icon(Icons.dns, size: 18), text: tr('Máy chủ')),
+              Tab(icon: Icon(Icons.article_outlined, size: 18), text: tr('Bài viết SEO')),
             ],
           ),
         ],

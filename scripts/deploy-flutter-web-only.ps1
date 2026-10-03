@@ -59,6 +59,11 @@ function Publish-FlutterWeb {
     Write-Host "==> Building Flutter web for $Site (API_BASE_URL=$ApiUrl)..."
     Invoke-FlutterWebBuild -ClientDir "$RepoRoot\flutter_client" -ApiUrl $ApiUrl
     & (Join-Path $RepoRoot "scripts\patch-flutter-web-build.ps1") -WebDir "$RepoRoot\flutter_client\build\web"
+    # Trang chủ SEO riêng từng tên miền (meta / canonical / JSON-LD / robots / sitemap) — bot không chạy JS vẫn thấy đúng site.
+    $seoSite = if ($Site -eq "sboxpos") { "pos" } else { "hrm" }
+    $env:PYTHONIOENCODING = "utf-8"
+    python (Join-Path $RepoRoot "scripts\render-site-home.py") --site $seoSite --web-dir "$RepoRoot\flutter_client\build\web"
+    if ($LASTEXITCODE -ne 0) { throw "render-site-home.py failed" }
 
     $tarName = if ($Site -eq "sboxpos") { "flutter_web_sboxpos.tar.gz" } else { "flutter_web.tar.gz" }
     $tarPath = Join-Path $RepoRoot $tarName

@@ -10930,6 +10930,58 @@ class ApiService {
     }
   }
 
+  // ── Bài viết SEO (Super Admin) — /bai-viet trên sboxhrm.com / sboxpos.com
+  Future<Map<String, dynamic>> getSaArticles({String? site, String? search}) async {
+    try {
+      final q = <String, String>{
+        if (site != null && site.isNotEmpty) 'site': site,
+        if (search != null && search.trim().isNotEmpty) 'search': search.trim(),
+      };
+      final response = await http
+          .get(Uri.parse('$baseUrl/api/system-admin/articles').replace(queryParameters: q), headers: _headers)
+          .timeout(const Duration(seconds: 30));
+      return _handleResponse(response);
+    } catch (e) {
+      return _connectionFailure(e);
+    }
+  }
+
+  Future<Map<String, dynamic>> saveSaArticle(String? id, Map<String, dynamic> body) async {
+    try {
+      final uri = Uri.parse('$baseUrl/api/system-admin/articles${id == null ? '' : '/$id'}');
+      final response = await (id == null
+              ? http.post(uri, headers: _headers, body: jsonEncode(body))
+              : http.put(uri, headers: _headers, body: jsonEncode(body)))
+          .timeout(const Duration(seconds: 30));
+      return _handleResponse(response);
+    } catch (e) {
+      return _connectionFailure(e);
+    }
+  }
+
+  Future<Map<String, dynamic>> deleteSaArticle(String id) async {
+    try {
+      final response = await http
+          .delete(Uri.parse('$baseUrl/api/system-admin/articles/$id'), headers: _headers)
+          .timeout(const Duration(seconds: 30));
+      return _handleResponse(response);
+    } catch (e) {
+      return _connectionFailure(e);
+    }
+  }
+
+  Future<Map<String, dynamic>> previewSaArticle(String markdown) async {
+    try {
+      final response = await http
+          .post(Uri.parse('$baseUrl/api/system-admin/articles/preview'),
+              headers: _headers, body: jsonEncode({'contentMarkdown': markdown}))
+          .timeout(const Duration(seconds: 30));
+      return _handleResponse(response);
+    } catch (e) {
+      return _connectionFailure(e);
+    }
+  }
+
   // ── Nhật ký hệ thống (Super Admin): lọc tại server theo cửa hàng / tài khoản / thao tác
   Map<String, String> _saAuditQuery({
     String? storeId,
