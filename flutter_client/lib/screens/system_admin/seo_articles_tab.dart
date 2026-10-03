@@ -152,7 +152,8 @@ class SeoArticlesTabState extends State<SeoArticlesTab> {
                                     published ? SboxColors.success : SboxColors.slate500),
                                 if ((a['category'] ?? '').toString().isNotEmpty)
                                   Text('${a['category']}', style: const TextStyle(fontSize: 12)),
-                                Text('/bai-viet/${a['slug']}', style: const TextStyle(fontSize: 12, color: SboxColors.slate500)),
+                                if (a['pageType'] == 'feature') _badge(tr('Trang tính năng'), const Color(0xFF7C3AED)),
+                                Text('${a['pageType'] == 'feature' ? '/tinh-nang' : '/bai-viet'}/${a['slug']}', style: const TextStyle(fontSize: 12, color: SboxColors.slate500)),
                                 if (date != null) Text(dmy.format(date.toLocal()), style: const TextStyle(fontSize: 12)),
                                 Text(tr('${a['viewCount'] ?? 0} lượt xem · ${a['wordCount'] ?? 0} từ'),
                                     style: const TextStyle(fontSize: 12)),
@@ -197,6 +198,7 @@ class _ArticleEditor extends StatefulWidget {
 class _ArticleEditorState extends State<_ArticleEditor> {
   final _api = ApiService();
   late String _site;
+  late String _pageType;
   late bool _published;
   late final Map<String, TextEditingController> _c;
   bool _saving = false;
@@ -210,6 +212,7 @@ class _ArticleEditorState extends State<_ArticleEditor> {
     super.initState();
     final a = widget.item ?? const {};
     _site = '${a['site'] ?? widget.defaultSite}';
+    _pageType = a['pageType'] == 'feature' ? 'feature' : 'article';
     _published = a['isPublished'] == true;
     _checks = ((a['seoChecks'] as List?) ?? []).map((e) => '$e').toList();
     String v(String k) => (a[k] ?? '').toString();
@@ -243,6 +246,7 @@ class _ArticleEditorState extends State<_ArticleEditor> {
     setState(() => _saving = true);
     final res = await _api.saveSaArticle(_id, {
       'site': _site,
+      'pageType': _pageType,
       'title': _c['title']!.text,
       'slug': _c['slug']!.text,
       'metaTitle': _c['metaTitle']!.text,
@@ -330,7 +334,7 @@ class _ArticleEditorState extends State<_ArticleEditor> {
       child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
         Text(tr('Xem trước trên Google'), style: const TextStyle(fontSize: 12, color: SboxColors.slate500, fontWeight: FontWeight.w700)),
         const SizedBox(height: 6),
-        Text('https://$domain › bai-viet › $slug', style: const TextStyle(fontSize: 12, color: Color(0xFF202124))),
+        Text('https://$domain › ${_pageType == 'feature' ? 'tinh-nang' : 'bai-viet'} › $slug', style: const TextStyle(fontSize: 12, color: Color(0xFF202124))),
         Text(title.isEmpty ? tr('(chưa có tiêu đề)') : title,
             maxLines: 1, overflow: TextOverflow.ellipsis, style: const TextStyle(fontSize: 18, color: Color(0xFF1A0DAB))),
         Text(desc.isEmpty ? tr('(chưa có mô tả)') : desc,
@@ -357,6 +361,25 @@ class _ArticleEditorState extends State<_ArticleEditor> {
         Text(tr('Xuất bản')),
         Switch(value: _published, onChanged: (v) => setState(() => _published = v)),
       ]),
+      const SizedBox(height: 10),
+      SegmentedButton<String>(
+        segments: [
+          ButtonSegment(value: 'article', label: Text(tr('Bài viết')), icon: const Icon(Icons.article_outlined)),
+          ButtonSegment(value: 'feature', label: Text(tr('Trang tính năng')), icon: const Icon(Icons.web_outlined)),
+        ],
+        selected: {_pageType},
+        showSelectedIcon: false,
+        onSelectionChanged: (s) => setState(() => _pageType = s.first),
+      ),
+      Padding(
+        padding: const EdgeInsets.only(top: 4),
+        child: Text(
+          tr(_pageType == 'feature'
+              ? 'Trang giải pháp tại /tinh-nang/… — có nút dùng thử, form tư vấn. Mục «## Câu hỏi thường gặp» với các «### câu hỏi» tự thành FAQ trên Google.'
+              : 'Bài viết tại /bai-viet/… — mục «## Câu hỏi thường gặp» với các «### câu hỏi» tự thành FAQ trên Google.'),
+          style: const TextStyle(fontSize: 12, color: SboxColors.slate500),
+        ),
+      ),
       const SizedBox(height: 12),
       _field('title', 'Tiêu đề bài viết (H1)', hint: 'Có từ khóa chính, 50–70 ký tự'),
       _field('slug', 'Đường dẫn (slug)', hint: 'vd: cach-tinh-luong-theo-ngay-cong', helper: 'Để trống sẽ tự tạo từ tiêu đề. Không nên đổi sau khi đã xuất bản.'),

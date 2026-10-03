@@ -11,6 +11,7 @@ public class SeoArticleConfiguration : IEntityTypeConfiguration<SeoArticle>
         builder.ToTable("SeoArticles");
         builder.HasKey(x => x.Id);
         builder.Property(x => x.Site).IsRequired().HasMaxLength(10);
+        builder.Property(x => x.PageType).IsRequired().HasMaxLength(20).HasDefaultValue("article");
         builder.Property(x => x.Slug).IsRequired().HasMaxLength(200);
         builder.Property(x => x.Title).IsRequired().HasMaxLength(300);
         builder.Property(x => x.MetaTitle).HasMaxLength(300);

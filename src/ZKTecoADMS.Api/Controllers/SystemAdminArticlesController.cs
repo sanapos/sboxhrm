@@ -19,7 +19,7 @@ public class SystemAdminArticlesController(ZKTecoDbContext db) : AuthenticatedCo
     public record ArticleSaveDto(
         string Site, string Title, string? Slug, string? MetaTitle, string? MetaDescription, string? Keywords,
         string? Summary, string ContentMarkdown, string? CoverImageUrl, string? Category, string? AuthorName,
-        bool IsPublished, DateTime? PublishedAt, int SortOrder = 0);
+        bool IsPublished, DateTime? PublishedAt, int SortOrder = 0, string? PageType = null);
 
     public record PreviewDto(string? ContentMarkdown);
 
@@ -31,10 +31,10 @@ public class SystemAdminArticlesController(ZKTecoDbContext db) : AuthenticatedCo
         var plain = SeoMarkdown.PlainText(a.ContentMarkdown);
         return new
         {
-            a.Id, a.Site, a.Slug, a.Title, a.MetaTitle, a.MetaDescription, a.Keywords, a.Summary, a.ContentMarkdown,
+            a.Id, a.Site, a.PageType, a.Slug, a.Title, a.MetaTitle, a.MetaDescription, a.Keywords, a.Summary, a.ContentMarkdown,
             a.CoverImageUrl, a.Category, a.AuthorName, a.IsPublished, a.PublishedAt, a.SortOrder, a.ViewCount,
             a.CreatedAt, a.UpdatedAt,
-            url = SeoPages.ArticleUrl(site, a),
+            url = a.PageType == "feature" ? SeoPages.FeatureUrl(site, a) : SeoPages.ArticleUrl(site, a),
             wordCount = plain.Split(' ', StringSplitOptions.RemoveEmptyEntries).Length,
             seoChecks = Checks(a),
         };
@@ -143,6 +143,7 @@ public class SystemAdminArticlesController(ZKTecoDbContext db) : AuthenticatedCo
         }
 
         a.Site = site;
+        a.PageType = dto.PageType == "feature" ? "feature" : "article";
         a.Title = title.Length > 300 ? title[..300] : title;
         a.Slug = slug;
         a.MetaTitle = T(dto.MetaTitle, 300);

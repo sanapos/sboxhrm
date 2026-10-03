@@ -9,7 +9,7 @@ namespace ZKTecoADMS.Api.Seo;
 /// Dựng HTML phía server cho bài viết SEO (bot không cần chạy JavaScript): canonical theo tên miền,
 /// Open Graph, JSON-LD Article / BreadcrumbList / CollectionPage, mục lục, bài liên quan; sitemap + robots theo site.
 /// </summary>
-public static class SeoPages
+public static partial class SeoPages
 {
     public record SiteInfo(
         string Code, string Origin, string Brand, string Tagline, string Color, string ColorDark,
@@ -94,7 +94,7 @@ public static class SeoPages
         sb.Append("<link rel=\"icon\" type=\"image/png\" href=\"/favicon.png\">\n");
         foreach (var ld in jsonLd)
             sb.Append("<script type=\"application/ld+json\">").Append(Json(ld)).Append("</script>\n");
-        sb.Append("<style>").Append(Css(site)).Append("</style>\n</head>\n<body>\n");
+        sb.Append("<style>").Append(Css(site)).Append(LandingCss).Append("</style>\n</head>\n<body>\n");
         sb.Append(Header(site));
         return sb.ToString();
     }
@@ -140,14 +140,14 @@ footer{border-top:1px solid var(--b);background:var(--bg);padding:30px 0;margin-
     static string Header(SiteInfo s) => $"""
 <header class="top"><div class="wrap">
 <a class="logo" href="/"><img src="{s.Logo}" alt="{E(s.Brand)}" width="36" height="36"><span>{E(s.Brand)}</span></a>
-<nav class="menu" aria-label="Điều hướng"><a class="hide-m" href="/">Trang chủ</a><a href="/bai-viet">Bài viết</a>{(s.Code == "hrm" ? "<a class=\"hide-m\" href=\"/guide.html\">Hướng dẫn</a>" : "")}<a class="hide-m" href="/login-app">Đăng nhập</a><a class="btn" href="/register">Dùng thử miễn phí</a></nav>
+<nav class="menu" aria-label="Điều hướng"><a class="hide-m" href="/tinh-nang">Tính năng</a><a class="hide-m" href="/bang-gia">Bảng giá</a><a href="/bai-viet">Bài viết</a><a class="hide-m" href="/tai-lieu">Tài liệu</a><a class="hide-m" href="/login-app">Đăng nhập</a><a class="btn" href="/register">Dùng thử miễn phí</a></nav>
 </div></header>
 """;
 
     static string Footer(SiteInfo s) => $"""
 <footer><div class="wrap">
-<div><strong>{E(s.Brand)}</strong> — {E(s.Tagline)}<br>Hotline / Zalo: <a href="tel:+84973024042">0973 024 042</a></div>
-<div><a href="/">Trang chủ</a><a href="/bai-viet">Bài viết</a><a href="{s.Privacy}">Chính sách bảo mật</a>{(s.Terms == null ? "" : $"<a href=\"{s.Terms}\">Điều khoản</a>")}</div>
+<div><strong>{E(s.Brand)}</strong> — {E(s.Tagline)}<br>Hotline / Zalo: <a href="tel:+84973024042">0973 024 042</a> · Email: <a href="mailto:support@sboxhrm.com">support@sboxhrm.com</a><br>184 Nam Cao, Hòa Khánh, Đà Nẵng</div>
+<div><a href="/">Trang chủ</a><a href="/tinh-nang">Tính năng</a><a href="/bang-gia">Bảng giá</a><a href="/bai-viet">Bài viết</a><a href="/tai-lieu">Tài liệu</a><a href="{s.Privacy}">Chính sách bảo mật</a>{(s.Terms == null ? "" : $"<a href=\"{s.Terms}\">Điều khoản</a>")}</div>
 </div></footer>
 </body>
 </html>
@@ -164,6 +164,13 @@ footer{border-top:1px solid var(--b);background:var(--bg);padding:30px 0;margin-
         ["name"] = s.Brand,
         ["url"] = s.Origin + "/",
         ["logo"] = new Dictionary<string, object> { ["@type"] = "ImageObject", ["url"] = s.Origin + s.Logo },
+        ["email"] = "support@sboxhrm.com",
+        ["telephone"] = "+84-973-024-042",
+        ["address"] = new Dictionary<string, object>
+        {
+            ["@type"] = "PostalAddress", ["streetAddress"] = "184 Nam Cao", ["addressLocality"] = "Hòa Khánh",
+            ["addressRegion"] = "Đà Nẵng", ["addressCountry"] = "VN",
+        },
     };
 
     public static string ArticlePage(SiteInfo s, SeoArticle a, IReadOnlyList<SeoArticle> related)
@@ -204,7 +211,9 @@ footer{border-top:1px solid var(--b);background:var(--bg);padding:30px 0;margin-
             },
         };
 
-        var sb = new StringBuilder(Head(s, title, desc, url, image, "article", a.Keywords, [articleLd, crumbs]));
+        var ld = new List<object> { articleLd, crumbs };
+        if (FaqLd(Faq(a.ContentMarkdown)) is { } faqLd) ld.Add(faqLd);
+        var sb = new StringBuilder(Head(s, title, desc, url, image, "article", a.Keywords, ld));
         sb.Append("<main class=\"wrap\">\n");
         sb.Append($"<div class=\"crumb\"><a href=\"/\">Trang chủ</a> › <a href=\"/bai-viet\">Bài viết</a>{(string.IsNullOrWhiteSpace(a.Category) ? "" : $" › <a href=\"/bai-viet?chuyen-muc={Uri.EscapeDataString(a.Category!)}\">{E(a.Category)}</a>")}</div>\n");
         sb.Append("<div class=\"layout\">\n<article>\n");
@@ -331,8 +340,10 @@ footer{border-top:1px solid var(--b);background:var(--bg);padding:30px 0;margin-
         return sb.ToString();
     }
 
-    public static string Sitemap(SiteInfo s, IReadOnlyList<SeoArticle> articles)
+    public static string Sitemap(SiteInfo s, IReadOnlyList<SeoArticle> all)
     {
+        var articles = all.Where(a => a.PageType != "feature").ToList();
+        var features = all.Where(a => a.PageType == "feature").ToList();
         var sb = new StringBuilder("<?xml version=\"1.0\" encoding=\"UTF-8\"?>\n<urlset xmlns=\"http://www.sitemaps.org/schemas/sitemap/0.9\">\n");
         var latest = articles.Count == 0 ? DateTime.UtcNow : articles.Max(a => a.UpdatedAt ?? a.PublishedAt ?? a.CreatedAt);
         void Url(string loc, DateTime? mod, string freq, string prio)
@@ -343,6 +354,11 @@ footer{border-top:1px solid var(--b);background:var(--bg);padding:30px 0;margin-
         }
         Url(s.Origin + "/", DateTime.UtcNow, "weekly", "1.0");
         Url(s.Origin + "/bai-viet", latest, "daily", "0.9");
+        Url(s.Origin + "/tinh-nang", null, "weekly", "0.9");
+        foreach (var f in features)
+            Url(FeatureUrl(s, f), f.UpdatedAt ?? f.PublishedAt ?? f.CreatedAt, "monthly", "0.9");
+        Url(s.Origin + "/bang-gia", null, "monthly", "0.8");
+        Url(s.Origin + "/tai-lieu", null, "monthly", "0.7");
         if (s.Code == "hrm") Url(s.Origin + "/guide.html", null, "monthly", "0.7");
         foreach (var a in articles)
             Url(ArticleUrl(s, a), a.UpdatedAt ?? a.PublishedAt ?? a.CreatedAt, "monthly", "0.8");
@@ -356,6 +372,9 @@ footer{border-top:1px solid var(--b);background:var(--bg);padding:30px 0;margin-
 User-agent: *
 Allow: /
 Allow: /bai-viet
+Allow: /tinh-nang
+Allow: /bang-gia
+Allow: /tai-lieu
 Allow: /images/
 Allow: /icons/
 
@@ -374,6 +393,7 @@ Disallow: /flutter.js
 Disallow: /flutter_bootstrap.js
 Disallow: /canvaskit/
 Disallow: /o/
+Disallow: /tai-lieu/tai/
 
 Sitemap: {s.Origin}/sitemap.xml
 """;

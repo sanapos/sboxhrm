@@ -28,3 +28,6 @@ CREATE TABLE IF NOT EXISTS "SeoArticles" (
 );
 CREATE UNIQUE INDEX IF NOT EXISTS "IX_SeoArticles_Site_Slug" ON "SeoArticles" ("Site", "Slug");
 CREATE INDEX IF NOT EXISTS "IX_SeoArticles_Site_Published" ON "SeoArticles" ("Site", "IsPublished", "PublishedAt");
+
+-- Loại trang: article (/bai-viet) · feature (/tinh-nang)
+ALTER TABLE "SeoArticles" ADD COLUMN IF NOT EXISTS "PageType" character varying(20) NOT NULL DEFAULT 'article';

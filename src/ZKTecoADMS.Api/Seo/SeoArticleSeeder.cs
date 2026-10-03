@@ -14,7 +14,7 @@ public static class SeoArticleSeeder
 
     public record SeedArticle(
         string Site, string Slug, string Title, string? MetaTitle, string? MetaDescription, string? Keywords,
-        string? Summary, string? Category, string? Cover, int SortOrder, string Body);
+        string? Summary, string? Category, string? Cover, int SortOrder, string Body, string PageType = "article");
 
     public static async Task SeedAsync(ZKTecoDbContext db, ILogger logger, CancellationToken ct = default)
     {
@@ -43,6 +43,7 @@ public static class SeoArticleSeeder
                     {
                         Id = Guid.NewGuid(),
                         Site = seed.Site,
+                        PageType = seed.PageType,
                         Slug = seed.Slug,
                         Title = seed.Title,
                         MetaTitle = seed.MetaTitle,
@@ -94,6 +95,6 @@ public static class SeoArticleSeeder
         if (site is not ("hrm" or "pos") || slug == null || title == null) return null;
         return new SeedArticle(site, slug, title, G("metaTitle"), G("metaDescription"), G("keywords"),
             G("summary"), G("category"), G("cover"), int.TryParse(G("sortOrder"), out var so) ? so : 0,
-            t[(end + 5)..].Trim());
+            t[(end + 5)..].Trim(), G("type") == "feature" ? "feature" : "article");
     }
 }

@@ -10,6 +10,10 @@ public class SeoArticle : AuditableEntity<Guid>
     [MaxLength(10)]
     public string Site { get; set; } = "hrm";
 
+    /// <summary>article = bài viết (/bai-viet/{slug}) · feature = trang tính năng / giải pháp (/tinh-nang/{slug}).</summary>
+    [MaxLength(20)]
+    public string PageType { get; set; } = "article";
+
     [MaxLength(200)]
     public string Slug { get; set; } = string.Empty;
 
