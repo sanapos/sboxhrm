@@ -382,11 +382,6 @@ class _ProductionOutputScreenState extends State<ProductionOutputScreen>
     final canCreate = perm.canCreate('Production');
     final canExport = perm.canExport('Production');
     return [
-      HrmTopBarAction(
-        icon: Icons.refresh,
-        label: 'Tải lại',
-        onPressed: _reloadCurrentTab,
-      ),
       if (canExport)
         HrmTopBarAction(
           icon: Icons.file_download_outlined,

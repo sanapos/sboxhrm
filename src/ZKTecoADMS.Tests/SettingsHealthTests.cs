@@ -23,6 +23,7 @@ public class SettingsHealthTests
         Assert.Equal("todo", SettingsHealthController.Holiday(0, 0, 2026, 5).Status);
         Assert.Equal("warn", SettingsHealthController.Holiday(8, 0, 2026, 12).Status);     // cuối năm chưa có lịch lễ năm sau
         Assert.Equal("ok", SettingsHealthController.Holiday(8, 0, 2026, 6).Status);
+        Assert.Equal("todo", SettingsHealthController.Holiday(4, 0, 2026, 6).Status);      // quá ít → còn thiếu ngày lễ chuẩn
         Assert.Equal("warn", SettingsHealthController.Devices(3, 1).Status);
         Assert.Equal("info", SettingsHealthController.Devices(0, 0).Status);
         Assert.Equal("todo", SettingsHealthController.Payment(0, false).Status);
@@ -57,7 +58,7 @@ public class SettingsHealthTests
         var ok = Assert.IsType<OkObjectResult>((await ctl.Get()).Result);
         var items = ((AppResponse<List<SettingsHealthController.HealthItem>>)ok.Value!).Data!.ToDictionary(i => i.Key);
         Assert.Equal("todo", items["shift"].Status);
-        Assert.Equal("ok", items["holiday"].Status);
+        Assert.Equal("todo", items["holiday"].Status); // ngày lễ chung (StoreId null) không tính lương → không tính
         Assert.Equal("1/2 máy mất kết nối", items["device"].Text);
         Assert.Equal("todo", items["payment"].Status);
     }

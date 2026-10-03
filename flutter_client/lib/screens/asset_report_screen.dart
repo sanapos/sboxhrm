@@ -1,5 +1,4 @@
 import 'package:flutter/material.dart';
-import '../widgets/hrm_collapsible_overview.dart';
 import '../widgets/hrm_page_chrome.dart';
 import 'package:intl/intl.dart';
 import 'package:provider/provider.dart';
@@ -9,7 +8,6 @@ import '../utils/excel_report_builder.dart';
 import '../services/api_service.dart';
 import '../utils/file_saver.dart' as file_saver;
 import '../widgets/notification_overlay.dart';
-import '../widgets/page_top_actions.dart';
 import '../utils/asset_report_helpers.dart';
 import '../utils/report_screen_helpers.dart';
 import '../utils/responsive_helper.dart';
@@ -48,8 +46,6 @@ class _AssetReportScreenState extends State<AssetReportScreen>
   bool _onlyVariance = true;
   int _warrantyDays = 30;
   bool _includeExpiredWarranty = false;
-  bool _filtersExpanded = false;
-  bool _showOverviewPanel = true;
 
   bool _loading = false;
   Map<String, dynamic> _summary = {};
@@ -122,6 +118,7 @@ class _AssetReportScreenState extends State<AssetReportScreen>
   }
 
   Future<void> _loadTab(int index) async {
+    _sheetRefresh?.call();
     setState(() => _loading = true);
     try {
       switch (index) {
@@ -462,95 +459,198 @@ class _AssetReportScreenState extends State<AssetReportScreen>
 
   @override
   Widget build(BuildContext context) {
-    final canExport = context.watch<PermissionProvider>().canExport('AssetReport') ||
-        context.watch<PermissionProvider>().canExport('Asset');
+    final perm = context.watch<PermissionProvider>();
+    final canExport = perm.canExport('AssetReport') || perm.canExport('Asset');
 
-    return RegisterPageTopActions(
-      actions: [
-        if (canExport)
-          HrmTopBarAction(
-            icon: Icons.image_outlined,
-            label: 'Xuất PNG',
-            onPressed: _exportPng,
-            pinOnMobile: false,
-          ),
-        if (canExport && _tabs.index == 1)
-          HrmTopBarAction(
-            icon: Icons.download,
-            label: 'Xuất Excel',
-            onPressed: _exportRegister,
-          ),
-        HrmTopBarAction(
-          icon: Icons.refresh,
-          label: 'Tải lại',
-          onPressed: () => _loadTab(_tabs.index),
-        ),
-      ],
-      child: Scaffold(
+    return Scaffold(
       backgroundColor: HrmPageChrome.background,
-      body: Column(
-        children: [
-          Expanded(
-            child: _loading
-                ? const Center(
-                    child: CircularProgressIndicator(color: _theme))
-                : RepaintBoundary(
-                    key: _pngKey,
-                    child: !_useTableLayout
-                        ? _buildMobileBody()
-                        : Column(
-                            children: [
-                              _buildOverviewSection(),
-                              Material(
-                                color: Colors.white,
-                                child: TabBar(
-                                  controller: _tabs,
-                                  isScrollable: true,
-                                  labelColor: _theme,
-                                  unselectedLabelColor: SboxColors.slate600,
-                                  indicatorColor: _theme,
-                                  tabAlignment: TabAlignment.start,
-                                  tabs: [
-                                    Tab(text: tr('Tổng quan')),
-                                    Tab(text: tr('Danh mục')),
-                                    Tab(text: tr('Cấp phát')),
-                                    Tab(text: tr('Chuyển giao')),
-                                    Tab(text: tr('Nhập/xuất kho')),
-                                    Tab(text: tr('Kiểm kê CL')),
-                                    Tab(text: tr('Bảo hành')),
-                                  ],
-                                ),
-                              ),
-                              Expanded(
-                                child: TabBarView(
-                                  controller: _tabs,
-                                  children: [
-                                    _buildSummaryTab(),
-                                    _buildRegisterTab(),
-                                    _buildAssignmentsTab(),
-                                    _buildTransfersTab(),
-                                    _buildStockLedgerTab(),
-                                    _buildInventoryVarianceTab(),
-                                    _buildWarrantyTab(),
-                                  ],
-                                ),
-                              ),
+      body: _loading
+          ? const Center(child: CircularProgressIndicator(color: _theme))
+          : RepaintBoundary(
+              key: _pngKey,
+              child: !_useTableLayout
+                  ? _buildMobileBody(canExport)
+                  : Column(
+                      children: [
+                        Material(
+                          color: Colors.white,
+                          child: TabBar(
+                            controller: _tabs,
+                            isScrollable: true,
+                            labelColor: _theme,
+                            unselectedLabelColor: SboxColors.slate600,
+                            indicatorColor: _theme,
+                            tabAlignment: TabAlignment.start,
+                            tabs: [
+                              Tab(text: tr('Tổng quan')),
+                              Tab(text: tr('Danh mục')),
+                              Tab(text: tr('Cấp phát')),
+                              Tab(text: tr('Chuyển giao')),
+                              Tab(text: tr('Nhập/xuất kho')),
+                              Tab(text: tr('Kiểm kê CL')),
+                              Tab(text: tr('Bảo hành')),
                             ],
                           ),
-                  ),
-          ),
-        ],
-      ),
-    ),
+                        ),
+                        const Divider(height: 1, color: SboxColors.slate200),
+                        _buildToolbar(canExport),
+                        Expanded(
+                          child: TabBarView(
+                            controller: _tabs,
+                            children: [
+                              _buildSummaryTab(),
+                              _buildRegisterTab(),
+                              _buildAssignmentsTab(),
+                              _buildTransfersTab(),
+                              _buildStockLedgerTab(),
+                              _buildInventoryVarianceTab(),
+                              _buildWarrantyTab(),
+                            ],
+                          ),
+                        ),
+                      ],
+                    ),
+            ),
     );
   }
 
-  Widget _buildMobileBody() {
+  /// Ngăn lọc đang mở — gọi lại khi bộ lọc đổi để cập nhật giá trị hiển thị.
+  VoidCallback? _sheetRefresh;
+
+  bool get _tabHasFilters => _tabs.index != 0;
+  bool get _tabHasDate => _tabs.index == 3 || _tabs.index == 4 || _tabs.index == 5;
+
+  /// Một dòng gọn: Bộ lọc (n) · nhãn bộ lọc đang bật · Xuất. Tab Tổng quan không có bộ lọc (dashboard tự tải).
+  Widget _buildToolbar(bool canExport) {
+    final chips = _activeFilterChips();
+    return Container(
+      color: Colors.white,
+      padding: const EdgeInsets.fromLTRB(12, 8, 8, 8),
+      child: Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
+        Row(children: [
+          if (_tabHasFilters)
+            OutlinedButton.icon(
+              onPressed: _openFilterSheet,
+              icon: const Icon(Icons.tune_rounded, size: 18),
+              label: Text(_activeFilterCount == 0 ? tr('Bộ lọc') : tr('Bộ lọc ($_activeFilterCount)')),
+              style: OutlinedButton.styleFrom(visualDensity: VisualDensity.compact),
+            ),
+          if (_tabHasFilters && _activeFilterCount > 0)
+            TextButton(onPressed: _clearFilters, child: Text(tr('Xóa lọc'))),
+          const Spacer(),
+          if (canExport)
+            PopupMenuButton<String>(
+              tooltip: tr('Xuất báo cáo'),
+              onSelected: (v) => v == 'png' ? _exportPng() : _exportRegister(),
+              itemBuilder: (_) => [
+                PopupMenuItem(value: 'png', child: Text(tr('Xuất ảnh PNG'))),
+                if (_tabs.index == 1) PopupMenuItem(value: 'excel', child: Text(tr('Xuất Excel danh mục'))),
+              ],
+              child: Padding(
+                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 6),
+                child: Row(mainAxisSize: MainAxisSize.min, children: [
+                  const Icon(Icons.ios_share_rounded, size: 18, color: _theme),
+                  const SizedBox(width: 4),
+                  Text(tr('Xuất'), style: const TextStyle(color: _theme, fontWeight: FontWeight.w600)),
+                ]),
+              ),
+            ),
+        ]),
+        if (_tabHasDate) ...[
+          const SizedBox(height: 6),
+          ReportDateRangeFilterBar(
+            from: _from,
+            to: _to,
+            preset: _datePreset,
+            compact: !_useTableLayout,
+            onChanged: (f, t, p) {
+              setState(() {
+                _from = f;
+                _to = t;
+                _datePreset = p;
+              });
+              _loadTab(_tabs.index);
+            },
+          ),
+        ],
+        if (chips.isNotEmpty) ...[
+          const SizedBox(height: 6),
+          Wrap(spacing: 6, runSpacing: 6, children: chips),
+        ],
+      ]),
+    );
+  }
+
+  List<Widget> _activeFilterChips() {
+    if (!_tabHasFilters) return const [];
+    Widget chip(String label, VoidCallback onClear) => InputChip(
+          label: Text(tr(label), style: const TextStyle(fontSize: 12)),
+          onDeleted: () {
+            onClear();
+            _loadTab(_tabs.index);
+          },
+          visualDensity: VisualDensity.compact,
+        );
+    const statusNames = {0: 'Đang dùng', 5: 'Trong kho', 1: 'Bảo trì', 2: 'Hỏng'};
+    const typeNames = {0: 'Điện tử', 1: 'Nội thất', 2: 'Phương tiện', 3: 'Công cụ', 4: 'Máy móc', 5: 'Phần mềm', 6: 'Khác'};
+    final idx = _tabs.index;
+    final cat = _categories.where((c) => c['id']?.toString() == _categoryId).firstOrNull;
+    final inv = _inventories.where((c) => c['id']?.toString() == _inventoryId).firstOrNull;
+    return [
+      if (idx <= 2 && _statusFilter != null)
+        chip('Trạng thái: ${statusNames[_statusFilter] ?? _statusFilter}', () => setState(() => _statusFilter = null)),
+      if (idx <= 1 && _typeFilter != null)
+        chip('Loại: ${typeNames[_typeFilter] ?? _typeFilter}', () => setState(() => _typeFilter = null)),
+      if (idx <= 1 && _categoryId != null)
+        chip('Danh mục: ${cat?['name'] ?? '…'}', () => setState(() => _categoryId = null)),
+      if (idx == 1 && _search.isNotEmpty) chip('Tìm: $_search', () => setState(() => _search = '')),
+      if (idx == 2 && _department.isNotEmpty) chip('Phòng ban: $_department', () => setState(() => _department = '')),
+      if (idx == 4 && _stockTypeFilter != null)
+        chip(const {0: 'Nhập kho', 1: 'Xuất kho', 2: 'Điều chỉnh'}[_stockTypeFilter] ?? 'Loại GD', () => setState(() => _stockTypeFilter = null)),
+      if (idx == 5 && _inventoryId != null)
+        chip('Đợt: ${inv?['inventoryCode'] ?? '…'}', () => setState(() => _inventoryId = null)),
+    ];
+  }
+
+  Future<void> _openFilterSheet() async {
+    await showModalBottomSheet<void>(
+      context: context,
+      isScrollControlled: true,
+      showDragHandle: true,
+      builder: (ctx) => StatefulBuilder(builder: (ctx, setSheet) {
+        _sheetRefresh = () {
+          if (ctx.mounted) setSheet(() {});
+        };
+        return SafeArea(
+          child: Padding(
+            padding: EdgeInsets.fromLTRB(16, 0, 16, 16 + MediaQuery.viewInsetsOf(ctx).bottom),
+            child: Column(mainAxisSize: MainAxisSize.min, crossAxisAlignment: CrossAxisAlignment.stretch, children: [
+              Text(tr('Bộ lọc'), style: const TextStyle(fontSize: 17, fontWeight: FontWeight.w700)),
+              const SizedBox(height: 12),
+              ..._filterFieldsForTab(compact: true),
+              const SizedBox(height: 4),
+              Row(children: [
+                TextButton(
+                  onPressed: _activeFilterCount == 0 ? null : _clearFilters,
+                  child: Text(tr('Xóa lọc')),
+                ),
+                const Spacer(),
+                FilledButton(onPressed: () => Navigator.pop(ctx), child: Text(tr('Xong'))),
+              ]),
+            ]),
+          ),
+        );
+      }),
+    );
+    _sheetRefresh = null;
+  }
+
+  Widget _buildMobileBody(bool canExport) {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
         _buildMobileSectionChips(),
-        _buildMobileOverviewSection(),
+        _buildToolbar(canExport),
         Expanded(child: _buildActiveTabContent()),
       ],
     );
@@ -613,99 +713,6 @@ class _AssetReportScreenState extends State<AssetReportScreen>
       default:
         return const SizedBox.shrink();
     }
-  }
-
-  Widget _buildOverviewSection() {
-    return Container(
-      color: Colors.white,
-      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-      child: HrmCollapsibleOverview(
-        expanded: _showOverviewPanel,
-        onToggle: () =>
-            setState(() => _showOverviewPanel = !_showOverviewPanel),
-        // KPI tổng quan nằm trong dashboard tab «Tổng quan» — không lặp lại ở đây.
-        child: _buildFiltersContent(),
-      ),
-    );
-  }
-
-  Widget _buildMobileOverviewSection() {
-    final showDate =
-        _tabs.index == 3 || _tabs.index == 4 || _tabs.index == 5;
-    return Container(
-      color: Colors.white,
-      margin: const EdgeInsets.only(bottom: 1),
-      padding: const EdgeInsets.fromLTRB(12, 8, 12, 0),
-      child: HrmCollapsibleOverview(
-        expanded: _showOverviewPanel,
-        onToggle: () =>
-            setState(() => _showOverviewPanel = !_showOverviewPanel),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.stretch,
-          children: [
-            if (showDate) ...[
-              ReportDateRangeFilterBar(
-                from: _from,
-                to: _to,
-                preset: _datePreset,
-                compact: true,
-                onChanged: (f, t, p) {
-                  setState(() {
-                    _from = f;
-                    _to = t;
-                    _datePreset = p;
-                  });
-                  _loadTab(_tabs.index);
-                },
-              ),
-              const SizedBox(height: 8),
-            ],
-            ..._filterFieldsForTab(compact: true),
-            if (_activeFilterCount > 0)
-              Align(
-                alignment: Alignment.centerRight,
-                child: TextButton.icon(
-                  onPressed: _clearFilters,
-                  icon: const Icon(Icons.filter_alt_off, size: 16),
-                  label: Text(tr('Xóa lọc'), style: TextStyle(fontSize: 12)),
-                ),
-              ),
-          ],
-        ),
-      ),
-    );
-  }
-
-  Widget _buildFiltersContent() {
-    final showDate =
-        _tabs.index == 3 || _tabs.index == 4 || _tabs.index == 5;
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.stretch,
-      children: [
-        if (showDate) ...[
-          ReportDateRangeFilterBar(
-            from: _from,
-            to: _to,
-            preset: _datePreset,
-            onChanged: (f, t, p) {
-              setState(() {
-                _from = f;
-                _to = t;
-                _datePreset = p;
-              });
-              _loadTab(_tabs.index);
-            },
-          ),
-          const SizedBox(height: 8),
-        ],
-        Wrap(
-          spacing: 8,
-          runSpacing: 8,
-          crossAxisAlignment: WrapCrossAlignment.center,
-          children: _filterFieldsForTab(compact: false),
-        ),
-      ],
-    );
   }
 
   void _clearFilters() {

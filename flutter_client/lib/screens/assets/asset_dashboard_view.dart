@@ -6,6 +6,7 @@ import '../../models/asset.dart';
 import '../../services/api_service.dart';
 import '../../theme/sbox_tokens.dart';
 import '../../utils/asset_ui.dart';
+import '../../utils/navigation_notifier.dart';
 import '../../widgets/auth_cached_image.dart';
 import '../../widgets/sbox/sbox_charts.dart';
 
@@ -94,8 +95,19 @@ class _AssetDashboardViewState extends State<AssetDashboardView> {
             Text(tr('Chưa có tài sản nào'),
                 style: const TextStyle(fontSize: 16, fontWeight: FontWeight.w700)),
             const SizedBox(height: 4),
-            Text(tr('Thêm tài sản để xem tổng quan giá trị, khấu hao và phân bổ'),
-                style: const TextStyle(color: SboxColors.slate500)),
+            Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 24),
+              child: Text(tr('Thêm tài sản để xem tổng quan giá trị, khấu hao và phân bổ'),
+                  textAlign: TextAlign.center, style: const TextStyle(color: SboxColors.slate500)),
+            ),
+            if (widget.forReport) ...[
+              const SizedBox(height: 16),
+              FilledButton.icon(
+                onPressed: () => NavigationNotifier.navigateToModule.value = 'Asset',
+                icon: const Icon(Icons.add_rounded),
+                label: Text(tr('Thêm tài sản')),
+              ),
+            ],
           ],
         ),
       );

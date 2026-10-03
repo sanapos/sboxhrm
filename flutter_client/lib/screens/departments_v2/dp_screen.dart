@@ -201,7 +201,6 @@ class _DepartmentsV2ScreenState extends State<DepartmentsV2Screen> {
     final canCreate = _can('create');
     return RegisterPageTopActions(
       actions: [
-        HrmTopBarAction(icon: Icons.refresh_rounded, label: 'Làm mới', onPressed: _load),
         if (canCreate) HrmTopBarAction(icon: Icons.add, label: 'Thêm phòng ban', primary: true, showLabel: true, onPressed: () => _add()),
       ],
       child: Scaffold(

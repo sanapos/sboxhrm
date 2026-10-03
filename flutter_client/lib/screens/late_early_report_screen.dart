@@ -1184,11 +1184,6 @@ class _LateEarlyReportScreenState extends State<LateEarlyReportScreen> {
             label: 'Xuất Excel',
             onPressed: filtered.isEmpty ? null : _exportExcel,
           ),
-        HrmTopBarAction(
-          icon: Icons.refresh,
-          label: 'Tải lại',
-          onPressed: _load,
-        ),
       ],
       child: Theme(
         data: vietnameseThemeOverlay(context),

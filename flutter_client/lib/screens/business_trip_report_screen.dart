@@ -566,11 +566,6 @@ class _BusinessTripReportScreenState extends State<BusinessTripReportScreen> {
             label: 'Xuất Excel',
             onPressed: _pngExportEmpty ? null : _exportExcel,
           ),
-        HrmTopBarAction(
-          icon: Icons.refresh,
-          label: 'Tải lại',
-          onPressed: _load,
-        ),
       ],
       child: Scaffold(
         backgroundColor: HrmPageChrome.background,

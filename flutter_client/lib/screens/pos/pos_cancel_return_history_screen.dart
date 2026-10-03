@@ -387,11 +387,6 @@ class _PosCancelReturnHistoryScreenState
         foregroundColor: SboxColors.text,
         elevation: 0.5,
         actions: [
-          IconButton(
-            tooltip: tr('Tải lại'),
-            onPressed: _loading ? null : _load,
-            icon: const Icon(Icons.refresh),
-          ),
         ],
       ),
       body: RefreshIndicator(

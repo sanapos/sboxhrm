@@ -370,11 +370,6 @@ class _CashReportScreenState extends State<CashReportScreen> {
             label: 'Xuất Excel',
             onPressed: _filtered.isEmpty ? null : _exportExcel,
           ),
-        HrmTopBarAction(
-          icon: Icons.refresh,
-          label: 'Tải lại',
-          onPressed: _load,
-        ),
       ],
       child: Scaffold(
       backgroundColor: HrmPageChrome.background,

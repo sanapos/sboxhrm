@@ -339,11 +339,6 @@ class _ScheduleComplianceScreenState extends State<ScheduleComplianceScreen> {
             onPressed: result == null || _loading ? null : _export,
             icon: const Icon(Icons.table_view_outlined),
           ),
-          IconButton(
-            tooltip: tr('Tải lại'),
-            onPressed: _loading ? null : _load,
-            icon: const Icon(Icons.refresh),
-          ),
         ],
       ),
       body: RefreshIndicator(

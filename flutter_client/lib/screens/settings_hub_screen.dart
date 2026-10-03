@@ -718,6 +718,7 @@ class _SettingsHubScreenState extends State<SettingsHubScreen> {
         onTap: () => _openSubPage(i.index),
         child: Padding(
           padding: const EdgeInsets.fromLTRB(12, 10, 8, 10),
+          // Chỉ tên mục; trạng thái (xanh / vàng / đỏ) xuống hàng dưới — không cắt chữ «Tài …», «Máy chấm…».
           child: Row(children: [
             Container(
               width: 36,
@@ -728,13 +729,11 @@ class _SettingsHubScreenState extends State<SettingsHubScreen> {
             const SizedBox(width: 12),
             Expanded(
               child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-                Text(tr(i.label), maxLines: 1, overflow: TextOverflow.ellipsis,
+                Text(tr(i.label),
                     style: const TextStyle(fontWeight: FontWeight.w700, fontSize: 14.5, color: SboxColors.slate900)),
-                Text(tr(i.desc), maxLines: 1, overflow: TextOverflow.ellipsis,
-                    style: const TextStyle(fontSize: 12, color: SboxColors.slate500)),
+                if (chip != null) ...[const SizedBox(height: 5), chip],
               ]),
             ),
-            if (chip != null) ...[const SizedBox(width: 6), chip],
             const Icon(Icons.chevron_right_rounded, color: SboxColors.slate400),
           ]),
         ),
@@ -759,8 +758,6 @@ class _SettingsHubScreenState extends State<SettingsHubScreen> {
         Expanded(
           child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
             Text(tr(i.label), style: const TextStyle(fontWeight: FontWeight.w800, fontSize: 14.5, color: SboxColors.slate900)),
-            const SizedBox(height: 2),
-            Text(tr(i.desc), maxLines: 2, overflow: TextOverflow.ellipsis, style: const TextStyle(fontSize: 12.5, color: SboxColors.slate500)),
             if (chip != null) ...[const SizedBox(height: 8), chip],
           ]),
         ),

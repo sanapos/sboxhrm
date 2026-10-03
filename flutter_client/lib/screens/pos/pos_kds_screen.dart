@@ -1415,18 +1415,6 @@ class _PosKdsScreenState extends State<PosKdsScreen> {
                   color: _printOnDone ? _blue : _muted,
                 ),
               ),
-              IconButton(
-                tooltip: tr('Tải lại'),
-                onPressed: _loading ? null : () => _loadTickets(),
-                icon: _loading
-                    ? const SizedBox(
-                        width: 18,
-                        height: 18,
-                        child: CircularProgressIndicator(
-                            strokeWidth: 2, color: _muted),
-                      )
-                    : const Icon(Icons.refresh, color: _muted),
-              ),
               PopupMenuButton<String>(
                 tooltip: tr('Thêm'),
                 color: _sheet,

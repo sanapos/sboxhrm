@@ -75,7 +75,7 @@ class _ShiftHubScreenState extends State<ShiftHubScreen> with SingleTickerProvid
   @override
   Widget build(BuildContext context) {
     return RegisterPageTopActions(
-      actions: [HrmTopBarAction(icon: Icons.refresh_rounded, label: 'Làm mới', onPressed: _changed)],
+      actions: [],
       child: Scaffold(
         backgroundColor: HrmPageChrome.background,
         body: Column(children: [

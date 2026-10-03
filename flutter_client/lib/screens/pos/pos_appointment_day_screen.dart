@@ -1061,11 +1061,6 @@ class _PosAppointmentDayScreenState extends State<PosAppointmentDayScreen> {
             onPressed: _loading ? null : () => unawaited(_expireNoShows()),
             icon: const Icon(Icons.event_busy_outlined),
           ),
-          IconButton(
-            tooltip: tr('Tải lại'),
-            onPressed: _loading ? null : () => unawaited(_reload()),
-            icon: const Icon(Icons.refresh),
-          ),
         ],
       ),
       floatingActionButton: context.watch<PermissionProvider>().canCreate('PosBooking')

@@ -141,12 +141,6 @@ class AdminMobileListToolbar extends StatelessWidget {
               ],
               if (onRefresh != null) ...[
                 const SizedBox(width: 4),
-                IconButton(
-                  onPressed: onRefresh,
-                  icon: const Icon(Icons.refresh, size: 22),
-                  tooltip: tr('Tải lại'),
-                  visualDensity: VisualDensity.compact,
-                ),
               ],
             ],
           ),

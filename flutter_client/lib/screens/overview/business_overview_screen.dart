@@ -160,6 +160,34 @@ class _BusinessOverviewScreenState extends State<BusinessOverviewScreen> {
   Map<String, dynamic> get _rate =>
       _manager?['attendanceRate'] is Map ? Map<String, dynamic>.from(_manager!['attendanceRate'] as Map) : const {};
 
+  /// Chuyên cần hôm nay. Ưu tiên ca đã duyệt; cửa hàng không xếp ca duyệt (0 ca) → dùng dòng hôm nay
+  /// của biểu đồ chuyên cần (tính trên toàn bộ nhân viên) để ô số và biểu đồ khớp nhau.
+  /// checkedIn = đã chấm công vào (gồm cả người đi trễ).
+  ({int total, int checkedIn, int late, int absent, int leave}) get _today {
+    final shifts = _n(_rate['totalEmployeesWithShift']).round();
+    if (shifts > 0) {
+      final late = _n(_rate['lateEmployees']).round();
+      return (
+        total: shifts,
+        checkedIn: _n(_rate['presentEmployees']).round() + late,
+        late: late,
+        absent: _n(_rate['absentEmployees']).round(),
+        leave: _n(_rate['onLeaveEmployees']).round(),
+      );
+    }
+    final now = DateTime.now();
+    final key = '${now.year}-${now.month.toString().padLeft(2, '0')}-${now.day.toString().padLeft(2, '0')}';
+    final t = _trends.where((d) => '${d['date']}' == key).firstOrNull;
+    if (t == null) return (total: 0, checkedIn: 0, late: 0, absent: 0, leave: _n(_rate['onLeaveEmployees']).round());
+    return (
+      total: _n(t['total']).round(),
+      checkedIn: _n(t['present']).round(),
+      late: _n(t['late']).round(),
+      absent: _n(t['absent']).round(),
+      leave: _n(_rate['onLeaveEmployees']).round(),
+    );
+  }
+
   String _dayLabel(dynamic iso) {
     final d = DateTime.tryParse('${iso ?? ''}');
     if (d == null) return '';
@@ -192,23 +220,26 @@ class _BusinessOverviewScreenState extends State<BusinessOverviewScreen> {
   }
 
   List<SboxKpi> _hrmKpis() {
-    final total = _n(_rate['totalEmployeesWithShift']).round();
-    final present = _n(_rate['presentEmployees']).round();
-    final late = _n(_rate['lateEmployees']).round();
-    final absent = _n(_rate['absentEmployees']).round();
-    final leave = _n(_rate['onLeaveEmployees']).round();
+    final t = _today;
+    final rate = t.total > 0 ? t.checkedIn * 100 / t.total : 0.0;
+    final punctual = t.checkedIn > 0 ? (t.checkedIn - t.late) * 100 / t.checkedIn : 100.0;
     return [
-      SboxKpi(label: 'Có mặt hôm nay', value: '$present/$total', icon: Icons.how_to_reg_outlined, tone: SboxTone.success, note: 'Tỷ lệ ${SboxFmt.pct(_n(_rate['attendancePercentage']))}'),
-      SboxKpi(label: 'Đi trễ', value: '$late', icon: Icons.schedule_outlined, tone: SboxTone.warning, note: 'Đúng giờ ${SboxFmt.pct(_n(_rate['punctualityPercentage']))}'),
-      SboxKpi(label: 'Vắng không phép', value: '$absent', icon: Icons.person_off_outlined, tone: SboxTone.danger, note: 'Chưa chấm công vào'),
-      SboxKpi(label: 'Nghỉ phép', value: '$leave', icon: Icons.beach_access_outlined, tone: SboxTone.violet, note: 'Đơn đã duyệt'),
+      SboxKpi(
+          label: 'Có mặt hôm nay',
+          value: t.total > 0 ? '${t.checkedIn}/${t.total}' : '${t.checkedIn}',
+          icon: Icons.how_to_reg_outlined,
+          tone: SboxTone.success,
+          note: t.total > 0 ? 'Tỷ lệ ${SboxFmt.pct(rate)}' : 'Chưa có nhân viên'),
+      SboxKpi(label: 'Đi trễ', value: '${t.late}', icon: Icons.schedule_outlined, tone: SboxTone.warning, note: 'Đúng giờ ${SboxFmt.pct(punctual)}'),
+      SboxKpi(label: 'Vắng', value: '${t.absent}', icon: Icons.person_off_outlined, tone: SboxTone.danger, note: 'Chưa chấm công vào'),
+      SboxKpi(label: 'Nghỉ phép', value: '${t.leave}', icon: Icons.beach_access_outlined, tone: SboxTone.violet, note: 'Đơn đã duyệt'),
     ];
   }
 
   List<SboxKpi> _combinedKpis() {
     final pos = _posKpis();
     final hrm = _hrmKpis();
-    final present = _n(_rate['presentEmployees']);
+    final present = _today.checkedIn;
     final rev = _n(_sales?['totalRevenue']);
     return [
       pos[0],
@@ -271,10 +302,10 @@ class _BusinessOverviewScreenState extends State<BusinessOverviewScreen> {
       subtitle: 'Tình trạng đi làm',
       child: Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
         SboxRatioBar(parts: [
-          SboxSlice('Đúng giờ', (_n(_rate['presentEmployees']) - _n(_rate['lateEmployees'])).clamp(0, double.infinity).toDouble(), color: SboxColors.success),
-          SboxSlice('Trễ', _n(_rate['lateEmployees']), color: SboxColors.warning),
-          SboxSlice('Vắng', _n(_rate['absentEmployees']), color: SboxColors.danger),
-          SboxSlice('Nghỉ phép', _n(_rate['onLeaveEmployees']), color: SboxColors.violet),
+          SboxSlice('Đúng giờ', (_today.checkedIn - _today.late).clamp(0, 1 << 30).toDouble(), color: SboxColors.success),
+          SboxSlice('Trễ', _today.late.toDouble(), color: SboxColors.warning),
+          SboxSlice('Vắng', _today.absent.toDouble(), color: SboxColors.danger),
+          SboxSlice('Nghỉ phép', _today.leave.toDouble(), color: SboxColors.violet),
         ]),
         const SizedBox(height: SboxSpace.lg),
         Text(tr('Đi trễ nhiều nhất'), style: SboxType.captionStyle()),
@@ -458,7 +489,6 @@ class _BusinessOverviewScreenState extends State<BusinessOverviewScreen> {
       title: _title,
       subtitle: widget.mode == OverviewMode.hrm ? 'Chấm công, nghỉ phép và việc chờ duyệt' : 'Số liệu ${_period.label.toLowerCase()} so với ${_period.compareLabel}',
       actions: [
-        SboxIconButton(icon: Icons.refresh_rounded, tooltip: 'Làm mới', onPressed: _loading ? null : _load),
       ],
     );
     final filters = widget.mode == OverviewMode.hrm

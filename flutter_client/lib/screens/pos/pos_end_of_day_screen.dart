@@ -393,11 +393,6 @@ class _PosEndOfDayScreenState extends State<PosEndOfDayScreen> {
                   onPressed: _report == null ? null : _exportExcel,
                   icon: const Icon(Icons.file_download_outlined),
                 ),
-                IconButton(
-                  tooltip: tr('Tải lại'),
-                  onPressed: _loading ? null : _loadReport,
-                  icon: const Icon(Icons.refresh),
-                ),
               ],
             ),
       body: Column(

@@ -140,7 +140,6 @@ class _HrFinMyMoneyState extends State<HrFinMyMoney> {
           _load();
         }),
         const Spacer(),
-        SboxIconButton(icon: Icons.refresh_rounded, tooltip: 'Tải lại', onPressed: _load),
       ]),
       const SizedBox(height: SboxSpace.md),
       if (_loading && _ledger == null)

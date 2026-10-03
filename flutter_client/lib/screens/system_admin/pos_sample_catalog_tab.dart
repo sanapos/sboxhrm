@@ -964,11 +964,6 @@ class PosSampleCatalogTabState extends State<PosSampleCatalogTab> {
                 onPressed: _seed,
                 child: Text(tr('Seed / bổ sung')),
               ),
-              IconButton(
-                onPressed: loadData,
-                icon: const Icon(Icons.refresh),
-                tooltip: tr('Làm mới'),
-              ),
             ],
           ),
         ),

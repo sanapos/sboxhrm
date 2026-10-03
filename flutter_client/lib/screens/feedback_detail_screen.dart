@@ -346,7 +346,6 @@ class _FeedbackDetailScreenState extends State<FeedbackDetailScreen> {
           style: const TextStyle(fontWeight: FontWeight.w700),
         ),
         actions: [
-          IconButton(tooltip: tr('Làm mới'), onPressed: _load, icon: const Icon(Icons.refresh_rounded)),
         ],
       ),
       body: _loading

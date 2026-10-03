@@ -426,11 +426,6 @@ class _AdvanceReportScreenState extends State<AdvanceReportScreen> {
             label: 'Xuất Excel',
             onPressed: _filtered.isEmpty ? null : _exportExcel,
           ),
-        HrmTopBarAction(
-          icon: Icons.refresh,
-          label: 'Tải lại',
-          onPressed: _load,
-        ),
       ],
       child: Scaffold(
         backgroundColor: HrmPageChrome.background,

@@ -281,7 +281,6 @@ class _ActivityLogScreenState extends State<ActivityLogScreen> {
             ),
             Text(tr('Lưu 30 ngày gần nhất'), style: const TextStyle(fontSize: 12, color: SboxColors.slate400)),
             const SizedBox(width: 8),
-            IconButton(tooltip: tr('Tải lại'), onPressed: _loading ? null : _reload, icon: const Icon(Icons.refresh)),
             IconButton(
               tooltip: tr('Xuất Excel'),
               onPressed: _loading ? null : _export,

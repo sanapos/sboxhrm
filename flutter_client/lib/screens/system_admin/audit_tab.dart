@@ -457,7 +457,6 @@ class AuditTabState extends State<AuditTab> {
               visualDensity: VisualDensity.compact,
             ),
             const SizedBox(width: 4),
-            IconButton(tooltip: tr('Tải lại'), onPressed: _loading ? null : loadData, icon: const Icon(Icons.refresh)),
             IconButton(tooltip: tr('Xuất Excel'), onPressed: _loading ? null : _export, icon: const Icon(Icons.table_view_outlined)),
           ]),
           const SizedBox(height: 8),

@@ -998,11 +998,6 @@ class _ZkGatewayDetailScreenState extends State<ZkGatewayDetailScreen> {
             onPressed: _busy ? null : _rename,
             icon: const Icon(Icons.drive_file_rename_outline, size: 21),
           ),
-          IconButton(
-            tooltip: tr('Làm mới'),
-            onPressed: _busy ? null : () => _refresh(),
-            icon: const Icon(Icons.refresh, size: 21),
-          ),
         ],
       ),
       body: RefreshIndicator(

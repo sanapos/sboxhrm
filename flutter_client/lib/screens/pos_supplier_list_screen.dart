@@ -221,11 +221,6 @@ class _PosSupplierListScreenState extends State<PosSupplierListScreen> {
         foregroundColor: SboxColors.text,
         elevation: 0.5,
         actions: [
-          IconButton(
-            tooltip: tr('Tải lại'),
-            onPressed: _load,
-            icon: const Icon(Icons.refresh),
-          ),
           if (canCreate)
             IconButton(
               tooltip: tr('Thêm NCC'),

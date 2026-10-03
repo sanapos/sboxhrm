@@ -47,11 +47,6 @@ class _ShiftSwapScreenState extends State<ShiftSwapScreen> {
           label: 'Hướng dẫn',
           onPressed: () => _panelKey.currentState?.showFlowHelp(),
         ),
-        HrmTopBarAction(
-          icon: Icons.refresh,
-          label: 'Tải lại',
-          onPressed: () => _panelKey.currentState?.reload(),
-        ),
       ],
       child: Scaffold(
         backgroundColor: const Color(0xFFF0F4F8),

@@ -272,7 +272,6 @@ class _WorkTaskDetailPageState extends State<WorkTaskDetailPage> {
                   _load();
                 },
               ),
-            IconButton(tooltip: tr('Tải lại'), icon: const Icon(Icons.refresh_rounded), onPressed: _load),
           ],
         ),
         body: _loading

@@ -224,19 +224,31 @@ class _HolidaySettingsScreenState extends State<HolidaySettingsScreen> {
   static String _iso(DateTime d) => '${d.year}-${d.month.toString().padLeft(2, '0')}-${d.day.toString().padLeft(2, '0')}';
   static const _weekdays = ['Thứ Hai', 'Thứ Ba', 'Thứ Tư', 'Thứ Năm', 'Thứ Sáu', 'Thứ Bảy', 'Chủ nhật'];
 
+  /// Ngày âm lịch (Tết, Giỗ Tổ…) đặt «lặp hằng năm» theo ngày dương → năm sau sai ngày.
+  static bool _lunarName(String name) {
+    final n = name.toLowerCase();
+    return n.contains('tết nguyên đán') || n.contains('âl') || n.contains('âm lịch') || n.contains('giỗ tổ');
+  }
+
   @override
   Widget build(BuildContext context) {
     final now = DateTime.now();
-    final upcoming = _items.where((h) => !h.date.isBefore(DateTime(now.year, now.month, now.day))).firstOrNull;
+    final today = DateTime(now.year, now.month, now.day);
+    final upcoming = _items.where((h) => !h.date.isBefore(today)).firstOrNull;
     final missing = _loading ? const <(HolidayPreset, DateTime)>[] : _missingPresets;
     final byMonth = <int, List<_Holiday>>{};
     for (final h in _items) {
       (byMonth[h.date.month] ??= []).add(h);
     }
-    final days = _items.length;
+    final nameCount = <String, int>{};
+    for (final h in _items) {
+      final k = h.name.trim().toLowerCase();
+      nameCount[k] = (nameCount[k] ?? 0) + 1;
+    }
+    final paidDays = _items.where((h) => h.category == HolidayPreset.official || h.category == HolidayPreset.compensate).length;
     return SettingsPage(
       title: 'Ngày lễ',
-      subtitle: 'Ngày nghỉ lễ và hệ số lương khi đi làm ngày lễ — bảng công, bảng lương dùng danh sách này',
+      subtitle: 'Ngày nghỉ lễ và hệ số lương khi đi làm ngày lễ',
       icon: Icons.celebration_outlined,
       loading: _loading,
       headerActions: [
@@ -247,95 +259,158 @@ class _HolidaySettingsScreenState extends State<HolidaySettingsScreen> {
           ),
       ],
       children: [
-        SboxCard(
-          padding: const EdgeInsets.fromLTRB(8, 8, 16, 8),
-          child: Row(children: [
-            IconButton(onPressed: () => _goYear(-1), icon: const Icon(Icons.chevron_left_rounded)),
-            Text('$_year', style: const TextStyle(fontSize: 20, fontWeight: FontWeight.w800)),
-            IconButton(onPressed: () => _goYear(1), icon: const Icon(Icons.chevron_right_rounded)),
-            const SizedBox(width: 12),
-            Expanded(
-              child: Text(
-                tr('$days ngày lễ${upcoming != null && _year == now.year ? ' · sắp tới: ${upcoming.name} (${_dm(upcoming.date)})' : ''}'),
-                style: const TextStyle(color: SboxColors.slate600),
-              ),
-            ),
-          ]),
-        ),
-        if (missing.isNotEmpty && _can('create'))
-          Container(
-            padding: const EdgeInsets.fromLTRB(14, 10, 10, 10),
-            decoration: BoxDecoration(color: SboxColors.warningSoft, borderRadius: BorderRadius.circular(12)),
-            child: Row(children: [
-              const Icon(Icons.event_note_rounded, color: SboxColors.warningText),
-              const SizedBox(width: 10),
-              Expanded(
-                child: Text(tr('Năm $_year còn thiếu ${missing.length} ngày lễ chuẩn (${missing.take(3).map((e) => e.$1.name).join(', ')}${missing.length > 3 ? '…' : ''}).'),
-                    style: const TextStyle(color: SboxColors.warningText, fontWeight: FontWeight.w600)),
-              ),
-              SboxButton(label: 'Thêm ngày lễ chuẩn', icon: Icons.auto_fix_high_rounded, loading: _busy, onPressed: _busy ? null : _addPresets),
-            ]),
-          ),
-        if (_items.isEmpty)
+        _yearBar(paidDays, upcoming, now),
+        if (missing.isNotEmpty && _can('create')) _missingCard(missing),
+        if (_items.isEmpty && !_loading)
           SboxEmptyState(icon: Icons.event_busy_outlined, title: 'Chưa có ngày lễ năm $_year'),
         for (final e in byMonth.entries)
           SettingsSection(
             title: 'Tháng ${e.key}',
             icon: Icons.calendar_month_outlined,
             children: [
-              for (var i = 0; i < e.value.length; i++) _row(e.value[i], i > 0),
+              for (var i = 0; i < e.value.length; i++)
+                _row(e.value[i], i > 0, duplicate: (nameCount[e.value[i].name.trim().toLowerCase()] ?? 0) > 1),
             ],
           ),
       ],
     );
   }
 
-  Widget _row(_Holiday h, bool divider) {
+  Widget _yearBar(int paidDays, _Holiday? upcoming, DateTime now) {
+    final daysLeft = upcoming?.date.difference(DateTime(now.year, now.month, now.day)).inDays;
+    return SboxCard(
+      padding: const EdgeInsets.fromLTRB(6, 6, 14, 10),
+      child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+        Row(children: [
+          IconButton(onPressed: () => _goYear(-1), icon: const Icon(Icons.chevron_left_rounded), tooltip: tr('Năm trước')),
+          Text('$_year', style: const TextStyle(fontSize: 22, fontWeight: FontWeight.w800, color: SboxColors.slate900)),
+          IconButton(onPressed: () => _goYear(1), icon: const Icon(Icons.chevron_right_rounded), tooltip: tr('Năm sau')),
+          const Spacer(),
+          if (_year != now.year)
+            TextButton(
+              onPressed: () {
+                setState(() => _year = now.year);
+                _load();
+              },
+              child: Text(tr('Năm nay')),
+            ),
+        ]),
+        Padding(
+          padding: const EdgeInsets.only(left: 10),
+          child: Wrap(spacing: 8, runSpacing: 6, children: [
+            SboxStatusChip(label: '${_items.length} ngày lễ', tone: SboxTone.brand, icon: Icons.event_available_rounded),
+            if (paidDays > 0) SboxStatusChip(label: '$paidDays ngày nghỉ hưởng lương', tone: SboxTone.success),
+            if (upcoming != null && _year == now.year)
+              SboxStatusChip(
+                label: daysLeft == 0
+                    ? 'Hôm nay: ${upcoming.name}'
+                    : 'Sắp tới: ${upcoming.name} · ${_dm(upcoming.date)} (còn $daysLeft ngày)',
+                tone: SboxTone.warning,
+                icon: Icons.upcoming_rounded,
+              ),
+          ]),
+        ),
+      ]),
+    );
+  }
+
+  Widget _missingCard(List<(HolidayPreset, DateTime)> missing) {
+    return Container(
+      padding: const EdgeInsets.all(14),
+      decoration: BoxDecoration(
+        color: SboxColors.warningSoft,
+        borderRadius: BorderRadius.circular(14),
+        border: Border.all(color: SboxColors.warningText.withValues(alpha: 0.25)),
+      ),
+      child: Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
+        Row(crossAxisAlignment: CrossAxisAlignment.start, children: [
+          const Icon(Icons.event_note_rounded, color: SboxColors.warningText),
+          const SizedBox(width: 10),
+          Expanded(
+            child: Text(tr('Năm $_year còn thiếu ${missing.length} ngày lễ theo quy định'),
+                style: const TextStyle(color: SboxColors.warningText, fontWeight: FontWeight.w700, fontSize: 14.5)),
+          ),
+        ]),
+        const SizedBox(height: 10),
+        Wrap(spacing: 6, runSpacing: 6, children: [
+          for (final (p, d) in missing)
+            Container(
+              padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+              decoration: BoxDecoration(color: Colors.white.withValues(alpha: 0.7), borderRadius: BorderRadius.circular(8)),
+              child: Text('${_dm(d)} · ${tr(p.name)}', style: const TextStyle(fontSize: 12.5, color: SboxColors.slate700)),
+            ),
+        ]),
+        const SizedBox(height: 12),
+        SizedBox(
+          width: double.infinity,
+          child: SboxButton(
+            label: 'Thêm ${missing.length} ngày lễ chuẩn',
+            icon: Icons.auto_fix_high_rounded,
+            loading: _busy,
+            onPressed: _busy ? null : _addPresets,
+          ),
+        ),
+      ]),
+    );
+  }
+
+  Widget _row(_Holiday h, bool divider, {bool duplicate = false}) {
     final lunar = LunarConverter.solarToLunar(h.date);
     final weekend = h.date.weekday >= 6;
+    final official = h.category == HolidayPreset.official;
+    final accent = official ? SboxColors.dangerText : SboxColors.brand700;
+    final lunarRecurring = h.recurring && _lunarName(h.name);
+    final meta = [
+      _weekdays[h.date.weekday - 1],
+      'Lương x${settingsNum(h.rate)}',
+      if (h.recurring) h.projected ? 'Hằng năm (từ ${h.originYear})' : 'Hằng năm',
+      if (h.employeeIds.isNotEmpty) '${h.employeeIds.length} nhân viên',
+    ].join(' · ');
     return Column(children: [
       if (divider) const Divider(height: 1, color: SboxColors.divider),
       InkWell(
         onTap: _can('edit') ? () => _edit(h) : null,
         child: Padding(
           padding: const EdgeInsets.symmetric(vertical: 10),
-          child: Row(children: [
+          child: Row(crossAxisAlignment: CrossAxisAlignment.start, children: [
             Container(
-              width: 56,
+              width: 54,
               padding: const EdgeInsets.symmetric(vertical: 6),
               decoration: BoxDecoration(
-                color: h.category == HolidayPreset.official ? SboxColors.dangerSoft : SboxColors.brand50,
+                color: official ? SboxColors.dangerSoft : SboxColors.brand50,
                 borderRadius: BorderRadius.circular(10),
               ),
               child: Column(children: [
-                Text('${h.date.day}',
-                    style: TextStyle(
-                        fontSize: 20,
-                        fontWeight: FontWeight.w800,
-                        color: h.category == HolidayPreset.official ? SboxColors.dangerText : SboxColors.brand700)),
-                Text('ÂL ${lunar.day}/${lunar.month}', style: const TextStyle(fontSize: 10.5, color: SboxColors.slate500)),
+                Text('${h.date.day}', style: TextStyle(fontSize: 20, fontWeight: FontWeight.w800, color: accent, height: 1.1)),
+                Text('ÂL ${lunar.day}/${lunar.month}', style: const TextStyle(fontSize: 10, color: SboxColors.slate500)),
               ]),
             ),
             const SizedBox(width: 12),
             Expanded(
               child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-                Text(tr(h.name), style: const TextStyle(fontWeight: FontWeight.w700, fontSize: 14.5)),
-                const SizedBox(height: 4),
+                Text(tr(h.name), style: const TextStyle(fontWeight: FontWeight.w700, fontSize: 15, color: SboxColors.slate900)),
+                const SizedBox(height: 3),
+                Text(tr(meta), style: TextStyle(fontSize: 12.5, color: weekend ? SboxColors.warningText : SboxColors.slate500)),
+                const SizedBox(height: 6),
                 Wrap(spacing: 6, runSpacing: 4, children: [
-                  SboxStatusChip(label: _weekdays[h.date.weekday - 1], tone: weekend ? SboxTone.warning : SboxTone.neutral),
-                  SboxStatusChip(label: h.category, tone: h.category == HolidayPreset.official ? SboxTone.danger : SboxTone.brand),
-                  SboxStatusChip(label: 'Lương x${settingsNum(h.rate)}', tone: SboxTone.success),
-                  if (h.recurring)
-                    SboxStatusChip(label: h.projected ? 'Hằng năm (từ ${h.originYear})' : 'Hằng năm', icon: Icons.repeat_rounded),
-                  if (h.employeeIds.isNotEmpty) SboxStatusChip(label: '${h.employeeIds.length} nhân viên', icon: Icons.people_outline),
+                  SboxStatusChip(label: h.category, tone: official ? SboxTone.danger : SboxTone.brand),
+                  if (lunarRecurring)
+                    const SboxStatusChip(label: 'Ngày âm lịch không nên lặp hằng năm', tone: SboxTone.warning, icon: Icons.warning_amber_rounded),
+                  if (duplicate)
+                    const SboxStatusChip(label: 'Trùng tên trong năm', tone: SboxTone.warning, icon: Icons.content_copy_rounded),
                 ]),
               ]),
             ),
-            if (_can('delete'))
-              IconButton(
-                tooltip: tr('Xóa'),
-                onPressed: () => _delete(h),
-                icon: const Icon(Icons.delete_outline_rounded, color: SboxColors.slate400),
+            if (_can('edit') || _can('delete'))
+              PopupMenuButton<String>(
+                tooltip: tr('Thao tác'),
+                icon: const Icon(Icons.more_vert_rounded, color: SboxColors.slate400),
+                onSelected: (v) => v == 'delete' ? _delete(h) : _edit(h),
+                itemBuilder: (_) => [
+                  if (_can('edit')) PopupMenuItem(value: 'edit', child: Text(tr('Sửa'))),
+                  if (_can('delete'))
+                    PopupMenuItem(value: 'delete', child: Text(tr('Xóa'), style: const TextStyle(color: SboxColors.danger))),
+                ],
               ),
           ]),
         ),

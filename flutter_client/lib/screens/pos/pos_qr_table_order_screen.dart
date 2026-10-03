@@ -640,11 +640,6 @@ class _PosQrTableOrderScreenState extends State<PosQrTableOrderScreen> {
         automaticallyImplyLeading: pushed,
         title: Text(tr('QR order tại bàn')),
         actions: [
-          IconButton(
-            tooltip: tr('Tải lại'),
-            onPressed: _loading || _busy ? null : _load,
-            icon: const Icon(Icons.refresh),
-          ),
         ],
       ),
       body: _loading

@@ -160,11 +160,6 @@ class _PosQuoteCareBoardScreenState extends State<PosQuoteCareBoardScreen> {
       appBar: AppBar(
         title: Text(tr('Theo dõi chăm sóc khách')),
         actions: [
-          IconButton(
-            tooltip: tr('Tải lại'),
-            onPressed: _loading ? null : _load,
-            icon: const Icon(Icons.refresh),
-          ),
         ],
       ),
       body: RefreshIndicator(

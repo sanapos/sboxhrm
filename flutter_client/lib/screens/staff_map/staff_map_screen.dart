@@ -289,11 +289,6 @@ class _StaffMapScreenState extends State<StaffMapScreen> {
     final wide = MediaQuery.of(context).size.width >= 1000;
     return RegisterPageTopActions(
       actions: [
-        HrmTopBarAction(
-          icon: Icons.refresh_rounded,
-          label: 'Làm mới',
-          onPressed: () => _routeMode ? _loadRoute() : _loadLive(),
-        ),
       ],
       child: Scaffold(
         backgroundColor: HrmPageChrome.background,

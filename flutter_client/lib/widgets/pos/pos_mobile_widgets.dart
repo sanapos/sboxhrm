@@ -627,12 +627,6 @@ class PosMobileListHeader extends StatelessWidget {
                       child: const Icon(Icons.filter_list),
                     ),
                   ),
-                if (onRefresh != null)
-                  IconButton(
-                    onPressed: onRefresh,
-                    icon: const Icon(Icons.refresh),
-                    tooltip: tr('Tải lại'),
-                  ),
                 if (trailing != null) ...trailing!,
               ],
             );
@@ -716,11 +710,6 @@ class PosMobileListHeader extends StatelessWidget {
                     if (trailing != null) ...trailing!,
                     if (onRefresh != null) ...[
                       const SizedBox(width: 8),
-                      IconButton(
-                        onPressed: onRefresh,
-                        icon: const Icon(Icons.refresh),
-                        tooltip: tr('Tải lại'),
-                      ),
                     ],
                   ],
                 ),
@@ -1148,13 +1137,6 @@ class PosMobileKiotHeader extends StatelessWidget {
                 ConstrainedBox(
                   constraints: const BoxConstraints(maxWidth: 160),
                   child: filterChips!,
-                ),
-              if (onRefresh != null)
-                IconButton(
-                  visualDensity: VisualDensity.compact,
-                  onPressed: onRefresh,
-                  icon: const Icon(Icons.refresh),
-                  tooltip: tr('Làm mới'),
                 ),
               if (onSearch != null)
                 IconButton(

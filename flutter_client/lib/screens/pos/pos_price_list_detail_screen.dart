@@ -577,11 +577,6 @@ class _PosPriceListDetailScreenState extends State<PosPriceListDetailScreen> {
               onPressed: _removeSelected,
               icon: const Icon(Icons.delete_outline, color: Colors.red),
             ),
-          IconButton(
-            tooltip: tr('Tải lại'),
-            onPressed: _loading ? null : _loadAll,
-            icon: const Icon(Icons.refresh),
-          ),
         ],
       ),
       body: _loading

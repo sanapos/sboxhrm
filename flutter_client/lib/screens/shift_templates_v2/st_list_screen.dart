@@ -219,7 +219,6 @@ class _ShiftTemplatesV2ScreenState extends State<ShiftTemplatesV2Screen> {
     final canCreate = _can('create');
     return RegisterPageTopActions(
       actions: [
-        HrmTopBarAction(icon: Icons.refresh_rounded, label: 'Làm mới', onPressed: _load),
         if (canCreate)
           HrmTopBarAction(icon: Icons.add, label: 'Thêm ca', primary: true, showLabel: true, onPressed: () => _openEditor()),
       ],

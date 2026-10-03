@@ -83,7 +83,7 @@ class _MobileDevicesHubScreenState extends State<MobileDevicesHubScreen> with Si
           ]),
         );
     return RegisterPageTopActions(
-      actions: [HrmTopBarAction(icon: Icons.refresh_rounded, label: 'Làm mới', onPressed: _refresh)],
+      actions: [],
       child: Scaffold(
         backgroundColor: HrmPageChrome.background,
         body: Column(children: [

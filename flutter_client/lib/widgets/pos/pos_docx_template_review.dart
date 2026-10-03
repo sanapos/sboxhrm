@@ -1054,11 +1054,6 @@ class _DocxPdfTabState extends State<_DocxPdfTab> with AutomaticKeepAliveClientM
               Expanded(
                 child: Text(widget.hint, style: const TextStyle(fontSize: 13, color: SboxColors.warningText)),
               ),
-              IconButton(
-                tooltip: tr('Tải lại'),
-                onPressed: _loading ? null : _load,
-                icon: const Icon(Icons.refresh, size: 18),
-              ),
             ],
           ),
         ),

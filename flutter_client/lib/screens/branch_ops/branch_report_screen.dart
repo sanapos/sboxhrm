@@ -68,7 +68,6 @@ class _BranchReportScreenState extends State<BranchReportScreen> {
                 child: Text(tr('Báo cáo chi nhánh'),
                     style: const TextStyle(fontSize: 18, fontWeight: FontWeight.w800, color: SboxColors.slate900)),
               ),
-              IconButton(onPressed: _loading ? null : _load, icon: const Icon(Icons.refresh_rounded), tooltip: tr('Tải lại')),
             ]),
             const SizedBox(height: 8),
             BranchPeriodBar(

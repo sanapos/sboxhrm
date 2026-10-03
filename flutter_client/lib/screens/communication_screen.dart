@@ -395,17 +395,6 @@ class _CommunicationScreenState extends State<CommunicationScreen>
             primary: true,
             onPressed: () => _openCreateDialog(),
           ),
-        HrmTopBarAction(
-          icon: Icons.refresh,
-          label: 'Tải lại',
-          onPressed: () {
-            if (_tabController.index == 0) {
-              _loadStats();
-            } else {
-              _loadCommunications();
-            }
-          },
-        ),
       ],
       child: Scaffold(
       backgroundColor: SboxColors.slate50,

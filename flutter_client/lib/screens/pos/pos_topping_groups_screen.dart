@@ -313,11 +313,6 @@ class _PosToppingGroupsScreenState extends State<PosToppingGroupsScreen> {
         backgroundColor: PosTheme.kiotBlue,
         foregroundColor: Colors.white,
         actions: [
-          IconButton(
-            tooltip: tr('Tải lại'),
-            onPressed: _load,
-            icon: const Icon(Icons.refresh),
-          ),
         ],
       ),
       floatingActionButton: canCreate

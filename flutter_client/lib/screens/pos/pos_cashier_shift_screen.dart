@@ -260,11 +260,6 @@ class _PosCashierShiftScreenState extends State<PosCashierShiftScreen> {
         automaticallyImplyLeading: pushed,
         title: Text(tr('Ca thu ngân')),
         actions: [
-          IconButton(
-            tooltip: tr('Tải lại'),
-            onPressed: _loading || _busy ? null : _load,
-            icon: const Icon(Icons.refresh),
-          ),
         ],
       ),
       body: _loading

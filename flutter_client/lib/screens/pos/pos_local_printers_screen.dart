@@ -875,20 +875,6 @@ class _LocalPrinterEditorSheetState extends State<_LocalPrinterEditorSheet> {
                         ),
                       ),
                     ),
-                    IconButton(
-                      tooltip: tr('Làm mới'),
-                      onPressed: () async {
-                        await _refreshUsbDevices();
-                        if (ctx.mounted) (ctx as Element).markNeedsBuild();
-                      },
-                      icon: _usbScanning
-                          ? const SizedBox(
-                              width: 18,
-                              height: 18,
-                              child: CircularProgressIndicator(strokeWidth: 2),
-                            )
-                          : const Icon(Icons.refresh),
-                    ),
                   ],
                 ),
               ),

@@ -1171,11 +1171,6 @@ class _AttendanceReportScreenState extends State<AttendanceReportScreen> {
             label: 'Xuất Excel',
             onPressed: calEmps.isEmpty ? null : _exportExcel,
           ),
-        HrmTopBarAction(
-          icon: Icons.refresh,
-          label: 'Tải lại',
-          onPressed: _load,
-        ),
       ],
       child: Scaffold(
         backgroundColor: HrmPageChrome.background,

@@ -214,11 +214,6 @@ class _PayslipScreenState extends State<PayslipScreen> {
             label: 'Trả lương (${unpaidIds.length})',
             onPressed: _isLoading ? null : () => _openPay(unpaidIds),
           ),
-        HrmTopBarAction(
-          icon: Icons.refresh,
-          label: 'Tải lại',
-          onPressed: _isLoading ? null : _loadData,
-        ),
       ],
       child: Scaffold(
       backgroundColor: const Color(0xFFF0F4F8),

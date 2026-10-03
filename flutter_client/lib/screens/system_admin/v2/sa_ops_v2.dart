@@ -487,7 +487,7 @@ class _SystemStatusViewState extends State<SystemStatusView> {
           SboxPageHeader(
             title: 'Tình trạng hệ thống',
             subtitle: 'Phiên bản ${srv['version'] ?? '—'} · chạy ${srv['uptimeHours'] ?? 0} giờ · ${srv['machine'] ?? ''}',
-            actions: [SboxIconButton(icon: Icons.refresh, tooltip: 'Tải lại', onPressed: _load)],
+            actions: [],
           ),
           const SizedBox(height: SboxSpace.md),
           if (warnings.isEmpty)

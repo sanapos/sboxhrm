@@ -1602,11 +1602,6 @@ class _PosProductsScreenState extends State<PosProductsScreen> {
               onPressed: _scanSearch,
               icon: const Icon(Icons.qr_code_scanner),
             ),
-            IconButton(
-              tooltip: tr('Làm mới'),
-              onPressed: _loadAll,
-              icon: const Icon(Icons.refresh),
-            ),
           ],
         ),
       ),

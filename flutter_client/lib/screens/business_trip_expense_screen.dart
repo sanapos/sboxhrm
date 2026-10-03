@@ -508,11 +508,6 @@ class _BusinessTripExpenseScreenState extends State<BusinessTripExpenseScreen> {
           label: 'Loại chi phí',
           onPressed: _openCategories,
         ),
-        HrmTopBarAction(
-          icon: Icons.refresh,
-          label: 'Tải lại',
-          onPressed: _loading ? null : _load,
-        ),
       ],
       child: Scaffold(
       backgroundColor: HrmPageChrome.background,

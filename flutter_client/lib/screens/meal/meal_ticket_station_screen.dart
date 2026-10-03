@@ -363,11 +363,6 @@ class _MealTicketStationScreenState extends State<MealTicketStationScreen> {
               child: Text(tr('Phiếu hôm nay (${_today.length})'),
                   style: const TextStyle(color: Colors.white, fontWeight: FontWeight.w700)),
             ),
-            IconButton(
-              tooltip: tr('Làm mới'),
-              onPressed: _tick,
-              icon: const Icon(Icons.refresh_rounded, color: SboxColors.slate300),
-            ),
           ]),
         ),
         Expanded(

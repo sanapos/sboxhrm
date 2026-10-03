@@ -29,7 +29,10 @@ public class SettingsHealthController(ZKTecoDbContext db) : AuthenticatedControl
             ? new("holiday", "todo", $"Chưa có ngày lễ năm {year}")
             : month >= 11 && nextYear == 0
                 ? new("holiday", "warn", $"Chưa có ngày lễ năm {year + 1}")
-                : new("holiday", "ok", $"{thisYear} ngày lễ năm {year}");
+                // Lịch nghỉ lễ chuẩn Việt Nam ≥ 11 ngày; quá ít thường là thiếu Tết / Quốc khánh.
+                : thisYear < 8
+                    ? new("holiday", "todo", $"{thisYear} ngày lễ năm {year} — còn thiếu ngày lễ chuẩn")
+                    : new("holiday", "ok", $"{thisYear} ngày lễ năm {year}");
 
     public static HealthItem Devices(int total, int offline) =>
         total == 0
@@ -56,11 +59,12 @@ public class SettingsHealthController(ZKTecoDbContext db) : AuthenticatedControl
         var shifts = await db.ShiftTemplates.CountAsync(t => t.StoreId == storeId && t.IsActive);
         items.Add(Shift(shifts));
 
+        // Đếm giống màn Ngày lễ và bảng công: chỉ ngày lễ của cửa hàng (bản ghi StoreId = null không được tính lương),
+        // bản lặp hằng năm quy đổi sang năm đang xem, bỏ trùng ngày.
         var holidays = await db.Holidays.AsNoTracking()
-            .Where(h => h.StoreId == storeId || h.StoreId == null)
-            .Select(h => new { h.Date, h.IsRecurring })
+            .Where(h => h.StoreId == storeId && h.Date.Year <= y + 1)
             .ToListAsync();
-        items.Add(Holiday(holidays.Count(h => h.IsRecurring || h.Date.Year == y), holidays.Count(h => h.IsRecurring || h.Date.Year == y + 1),
+        items.Add(Holiday(HolidaysController.ForYear(holidays, y).Count, HolidaysController.ForYear(holidays, y + 1).Count,
             y, nowVn.Month));
 
         var since = DateTime.UtcNow.AddMinutes(-15);

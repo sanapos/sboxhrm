@@ -5145,11 +5145,6 @@ class PosResourceFloorScreenState extends State<PosResourceFloorScreen> {
                   onPressed: () => unawaited(_openAppointmentCalendar()),
                   icon: const Icon(Icons.calendar_month_outlined),
                 ),
-                IconButton(
-                  tooltip: tr('Tải lại'),
-                  onPressed: _reload,
-                  icon: const Icon(Icons.refresh),
-                ),
               ],
             )
           : null,

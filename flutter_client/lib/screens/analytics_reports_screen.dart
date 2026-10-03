@@ -479,7 +479,6 @@ class _AnalyticsReportViewerState extends State<AnalyticsReportViewer> {
             onPressed: _loading || _error != null ? null : _excel,
             icon: const Icon(Icons.table_view_outlined),
           ),
-          IconButton(tooltip: tr('Tải lại'), onPressed: _loading ? null : _load, icon: const Icon(Icons.refresh)),
         ],
       ),
       body: ListView(

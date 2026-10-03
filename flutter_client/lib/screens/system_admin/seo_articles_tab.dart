@@ -79,7 +79,6 @@ class SeoArticlesTabState extends State<SeoArticlesTab> {
                 child: Text(tr('Bài viết SEO'),
                     style: const TextStyle(fontSize: 18, fontWeight: FontWeight.w700, color: SboxColors.slate900)),
               ),
-              IconButton(tooltip: tr('Tải lại'), onPressed: loadData, icon: const Icon(Icons.refresh)),
               FilledButton.icon(onPressed: () => _open(), icon: const Icon(Icons.add), label: Text(tr('Viết bài'))),
             ]),
             const SizedBox(height: 4),

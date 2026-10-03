@@ -1394,11 +1394,6 @@ class _PosQrOnlineOrdersScreenState extends State<PosQrOnlineOrdersScreen> {
         automaticallyImplyLeading: pushed,
         title: Text(tr('Đơn online')),
         actions: [
-          IconButton(
-            tooltip: tr('Tải lại'),
-            onPressed: _loading || _busy ? null : _load,
-            icon: const Icon(Icons.refresh),
-          ),
         ],
       ),
       body: Column(

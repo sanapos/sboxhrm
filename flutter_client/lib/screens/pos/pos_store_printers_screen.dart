@@ -1316,11 +1316,6 @@ class _PosStorePrintersScreenState extends State<PosStorePrintersScreen> {
                     style: TextStyle(fontWeight: FontWeight.w600, fontSize: 13),
                   ),
                 ),
-                IconButton(
-                  tooltip: tr('Tải lại'),
-                  icon: const Icon(Icons.refresh, size: 18),
-                  onPressed: () => unawaited(_loadOnlineAgents()),
-                ),
               ],
             ),
             if (_multiAgent || _hasPrinterConflict)

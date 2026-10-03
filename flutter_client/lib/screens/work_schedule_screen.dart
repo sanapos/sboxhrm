@@ -613,11 +613,6 @@ class _WorkScheduleScreenState extends State<WorkScheduleScreen>
       label: 'Hướng dẫn',
       onPressed: _showScheduleGuide,
     ));
-    items.add(HrmTopBarAction(
-      icon: Icons.refresh,
-      label: 'Tải lại',
-      onPressed: _loadInitialData,
-    ));
     return items;
   }
 

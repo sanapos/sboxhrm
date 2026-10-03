@@ -191,7 +191,6 @@ class _FeedbackScreenState extends State<FeedbackScreen> with SingleTickerProvid
     final canCreate = Provider.of<PermissionProvider>(context, listen: false).canCreate('Feedback');
     return RegisterPageTopActions(
       actions: [
-        HrmTopBarAction(icon: Icons.refresh_rounded, label: 'Làm mới', onPressed: _reloadAll),
         if (canCreate && _tab() != 'report')
           HrmTopBarAction(
             icon: Icons.add_rounded,

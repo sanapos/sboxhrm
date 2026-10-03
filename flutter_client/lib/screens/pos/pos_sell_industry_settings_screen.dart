@@ -277,12 +277,6 @@ class _PosSellIndustrySettingsScreenState
                         width: 18,
                         height: 18,
                         child: CircularProgressIndicator(strokeWidth: 2),
-                      )
-                    else
-                      IconButton(
-                        tooltip: tr('Tải lại'),
-                        onPressed: _load,
-                        icon: const Icon(Icons.refresh),
                       ),
                   ],
                 ),
@@ -315,12 +309,6 @@ class _PosSellIndustrySettingsScreenState
                   ),
                 ),
               ),
-            )
-          else
-            IconButton(
-              tooltip: tr('Tải lại'),
-              onPressed: _load,
-              icon: const Icon(Icons.refresh),
             ),
         ],
       ),
