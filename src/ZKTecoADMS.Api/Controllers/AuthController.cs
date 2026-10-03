@@ -38,7 +38,9 @@ public class AuthController(IMediator _bus, UserManager<ApplicationUser> _userMa
             loginRequest.ClientPlatform,
             loginRequest.DeviceKey,
             loginRequest.DeviceName);
-        return await _bus.Send(command, cancellationToken);
+        var result = await _bus.Send(command, cancellationToken);
+        await AuditLoginAsync(loginRequest.StoreCode, loginRequest.UserName, result, cancellationToken);
+        return result;
     }
 
     /// <summary>
@@ -50,7 +52,67 @@ public class AuthController(IMediator _bus, UserManager<ApplicationUser> _userMa
     public async Task<ActionResult<AppResponse<AuthenticateResponse>>> AdminLogin([FromBody] AdminLoginRequest request, CancellationToken cancellationToken = new())
     {
         var command = new AdminLoginCommand(request.UserName, request.Password);
-        return await _bus.Send(command, cancellationToken);
+        var result = await _bus.Send(command, cancellationToken);
+        await AuditLoginAsync(null, request.UserName, result, cancellationToken);
+        return result;
+    }
+
+    /// <summary>
+    /// Nhật ký hệ thống (Super Admin): đăng nhập thành công / sai. Không ghi mật khẩu.
+    /// Không chặn đăng nhập nếu ghi lỗi.
+    /// </summary>
+    private async Task AuditLoginAsync(string? storeCode, string? userName, AppResponse<AuthenticateResponse> result, CancellationToken ct)
+    {
+        try
+        {
+            var login = (userName ?? "").Trim();
+            if (login.Length > 200) login = login[..200];
+            Store? store = null;
+            if (!string.IsNullOrWhiteSpace(storeCode))
+            {
+                var code = storeCode.Trim().ToLower();
+                store = await _dbContext.Stores.AsNoTracking().FirstOrDefaultAsync(s => s.Code.ToLower() == code, ct);
+            }
+            var user = string.IsNullOrEmpty(login)
+                ? null
+                : await _userManager.Users.AsNoTracking()
+                    .Where(u => (u.UserName == login || u.Email == login || u.PhoneNumber == login)
+                        && (store == null ? u.StoreId == null : u.StoreId == store.Id))
+                    .Select(u => new { u.Id, u.Email, FullName = (u.LastName + " " + u.FirstName).Trim(), u.Role })
+                    .FirstOrDefaultAsync(ct);
+            var ok = result.IsSuccess;
+            var forwarded = Request.Headers["X-Forwarded-For"].ToString().Split(',')[0].Trim();
+            var realIp = Request.Headers["X-Real-IP"].ToString();
+            _dbContext.AuditLogs.Add(new AuditLog
+            {
+                Id = Guid.NewGuid(),
+                Action = ok ? AuditActions.Login : AuditActions.LoginFailed,
+                EntityType = AuditEntityTypes.User,
+                EntityId = user?.Id.ToString(),
+                EntityName = user?.Email ?? login,
+                Details = ok
+                    ? (store == null ? "Đăng nhập trang quản trị" : $"Đăng nhập cửa hàng «{store.Code}»")
+                    : $"Đăng nhập thất bại{(store == null && !string.IsNullOrWhiteSpace(storeCode) ? $" — mã cửa hàng «{storeCode.Trim()}» không tồn tại" : "")}",
+                UserId = user?.Id,
+                UserEmail = user?.Email ?? login,
+                UserName = user?.FullName,
+                UserRole = user?.Role,
+                StoreId = store?.Id,
+                StoreName = store?.Name,
+                IpAddress = !string.IsNullOrWhiteSpace(forwarded) ? forwarded
+                    : !string.IsNullOrWhiteSpace(realIp) ? realIp
+                    : HttpContext.Connection.RemoteIpAddress?.ToString(),
+                UserAgent = Request.Headers.UserAgent.ToString(),
+                Timestamp = DateTime.UtcNow,
+                Status = ok ? "Success" : "Failed",
+                ErrorMessage = ok ? null : result.Message,
+            });
+            await _dbContext.SaveChangesAsync(ct);
+        }
+        catch
+        {
+            // Nhật ký không được làm hỏng đăng nhập.
+        }
     }
 
     [HttpPost]

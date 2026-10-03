@@ -159,7 +159,7 @@ public class ActivityLogsController(ZKTecoDbContext db) : AuthenticatedControlle
             $"lich-su-thao-tac-{DateTime.UtcNow.AddHours(7):yyyyMMdd-HHmm}.xlsx", user: User);
     }
 
-    static string ActionLabel(string action) => action switch
+    internal static string ActionLabel(string action) => action switch
     {
         "Create" => "Thêm",
         "Update" => "Sửa",
@@ -168,7 +168,7 @@ public class ActivityLogsController(ZKTecoDbContext db) : AuthenticatedControlle
     };
 
     /// <summary>«Tên trường: cũ → mới; …» cho file Excel.</summary>
-    static string ChangeText(string? details)
+    internal static string ChangeText(string? details)
     {
         try
         {
@@ -201,7 +201,7 @@ public class ActivityLogsController(ZKTecoDbContext db) : AuthenticatedControlle
         e.TryGetProperty(name, out var v) && v.ValueKind == JsonValueKind.String ? v.GetString() : null;
 
     /// <summary>Chi tiết đã Việt hóa: tên loại, tên trường, giá trị (áp dụng cả nhật ký cũ).</summary>
-    static object LocalizedDetails(string? json)
+    internal static object LocalizedDetails(string? json)
     {
         try
         {
@@ -251,7 +251,7 @@ public class ActivityLogsController(ZKTecoDbContext db) : AuthenticatedControlle
         }
     }
 
-    static LogRow ToRow(AuditLog a)
+    internal static LogRow ToRow(AuditLog a)
     {
         string? endpoint = null;
         var count = 0;
@@ -278,7 +278,7 @@ public class ActivityLogsController(ZKTecoDbContext db) : AuthenticatedControlle
     }
 
     /// <summary>Thiết bị ngắn gọn từ User-Agent: App Android / iOS / Trình duyệt Windows…</summary>
-    static string? DeviceOf(string? ua)
+    internal static string? DeviceOf(string? ua)
     {
         if (string.IsNullOrWhiteSpace(ua)) return null;
         var u = ua.ToLowerInvariant();

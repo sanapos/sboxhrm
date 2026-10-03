@@ -10930,6 +10930,102 @@ class ApiService {
     }
   }
 
+  // ── Nhật ký hệ thống (Super Admin): lọc tại server theo cửa hàng / tài khoản / thao tác
+  Map<String, String> _saAuditQuery({
+    String? storeId,
+    String? userId,
+    String? action,
+    String? kind,
+    String? module,
+    String? status,
+    DateTime? from,
+    DateTime? to,
+    String? search,
+  }) {
+    String d(DateTime x) =>
+        '${x.year.toString().padLeft(4, '0')}-${x.month.toString().padLeft(2, '0')}-${x.day.toString().padLeft(2, '0')}';
+    return {
+      if (storeId != null && storeId.isNotEmpty) 'storeId': storeId,
+      if (userId != null && userId.isNotEmpty) 'userId': userId,
+      if (action != null && action.isNotEmpty) 'action': action,
+      if (kind != null && kind.isNotEmpty) 'kind': kind,
+      if (module != null && module.isNotEmpty) 'module': module,
+      if (status != null && status.isNotEmpty) 'status': status,
+      if (from != null) 'from': d(from),
+      if (to != null) 'to': d(to),
+      if (search != null && search.trim().isNotEmpty) 'search': search.trim(),
+    };
+  }
+
+  Future<Map<String, dynamic>> getSaAuditLogs({
+    String? storeId,
+    String? userId,
+    String? action,
+    String? kind,
+    String? module,
+    String? status,
+    DateTime? from,
+    DateTime? to,
+    String? search,
+    int page = 1,
+    int pageSize = 50,
+  }) async {
+    try {
+      final q = _saAuditQuery(
+          storeId: storeId, userId: userId, action: action, kind: kind, module: module,
+          status: status, from: from, to: to, search: search)
+        ..['page'] = '$page'
+        ..['pageSize'] = '$pageSize';
+      final response = await http
+          .get(Uri.parse('$baseUrl/api/system-admin/audit').replace(queryParameters: q), headers: _headers)
+          .timeout(const Duration(seconds: 30));
+      return _handleResponse(response);
+    } catch (e) {
+      return _connectionFailure(e);
+    }
+  }
+
+  Future<Map<String, dynamic>> getSaAuditFilters({String? storeId, DateTime? from, DateTime? to}) async {
+    try {
+      final response = await http
+          .get(
+              Uri.parse('$baseUrl/api/system-admin/audit/filters')
+                  .replace(queryParameters: _saAuditQuery(storeId: storeId, from: from, to: to)),
+              headers: _headers)
+          .timeout(const Duration(seconds: 30));
+      return _handleResponse(response);
+    } catch (e) {
+      return _connectionFailure(e);
+    }
+  }
+
+  Future<Map<String, dynamic>> getSaAuditDetail(String id) async {
+    try {
+      final response = await http
+          .get(Uri.parse('$baseUrl/api/system-admin/audit/$id'), headers: _headers)
+          .timeout(const Duration(seconds: 30));
+      return _handleResponse(response);
+    } catch (e) {
+      return _connectionFailure(e);
+    }
+  }
+
+  Future<Map<String, dynamic>> downloadSaAuditExcel({
+    String? storeId,
+    String? userId,
+    String? action,
+    String? kind,
+    String? module,
+    String? status,
+    DateTime? from,
+    DateTime? to,
+    String? search,
+  }) =>
+      _getBinary(Uri.parse('$baseUrl/api/system-admin/audit/export').replace(
+          queryParameters: _saAuditQuery(
+              storeId: storeId, userId: userId, action: action, kind: kind, module: module,
+              status: status, from: from, to: to, search: search)));
+
   Future<Map<String, dynamic>> getAuditStats() async {
     try {
       final response = await http.get(
