@@ -183,8 +183,10 @@ class SboxKpiStrip extends StatelessWidget {
   Widget build(BuildContext context) {
     return LayoutBuilder(builder: (context, cons) {
       final w = cons.maxWidth;
+      // Điện thoại: chia cột sao cho không có thẻ lẻ rớt xuống hàng (3 số → 3 cột, 6 số → 2×3…).
+      final n = items.length;
       final cols = w < SboxBreakpoints.mobile
-          ? 2
+          ? (n <= 3 ? math.max(1, n) : (n.isEven ? 2 : (n % 3 == 0 ? 3 : 2)))
           : math.min(maxColumns, math.min(items.length, math.max(3, (w / 220).floor())));
       return SboxGrid(
         columns: cols,
@@ -219,7 +221,7 @@ class _KpiTile extends StatelessWidget {
             const SizedBox(width: SboxSpace.sm),
           ],
           Expanded(
-            child: Text(tr(k.label), maxLines: 1, overflow: TextOverflow.ellipsis, style: SboxType.smallStyle(SboxColors.textMuted)),
+            child: Text(tr(k.label), maxLines: compact ? 2 : 1, overflow: TextOverflow.ellipsis, style: SboxType.smallStyle(SboxColors.textMuted)),
           ),
         ]),
         SizedBox(height: compact ? SboxSpace.sm : SboxSpace.md),

@@ -330,26 +330,33 @@ class _SboxDataTableState<T> extends State<SboxDataTable<T>> {
                 ),
                 if (widget.rowActions != null) widget.rowActions!(r),
               ]),
-              const SizedBox(height: SboxSpace.xs),
-              for (final c in rest)
+              // Các cột còn lại: lưới 2 cột, nhãn nhỏ ở trên, giá trị ở dưới — nhãn dài không bị cắt «…».
+              if (rest.isNotEmpty)
                 Padding(
-                  padding: const EdgeInsets.only(top: 3),
-                  child: Row(crossAxisAlignment: CrossAxisAlignment.start, children: [
-                    SizedBox(
-                      width: 112,
-                      child: Text(tr(c.label), style: SboxType.captionStyle(), maxLines: 1, overflow: TextOverflow.ellipsis),
-                    ),
-                    Expanded(
-                      child: c.cell != null
-                          ? Align(alignment: Alignment.centerLeft, child: c.cell!(r))
-                          : Text(
-                              c.text!(r),
-                              maxLines: 2,
-                              overflow: TextOverflow.ellipsis,
-                              style: c.numeric ? SboxType.moneyStyle(size: SboxType.small) : SboxType.smallStyle(SboxColors.text),
-                            ),
-                    ),
-                  ]),
+                  padding: const EdgeInsets.only(top: SboxSpace.sm),
+                  child: LayoutBuilder(builder: (context, cons) {
+                    final half = (cons.maxWidth - SboxSpace.md) / 2;
+                    return Wrap(spacing: SboxSpace.md, runSpacing: SboxSpace.sm, children: [
+                      for (final c in rest)
+                        SizedBox(
+                          width: half,
+                          child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+                            Text(tr(c.label), style: SboxType.captionStyle(), maxLines: 2, overflow: TextOverflow.ellipsis),
+                            const SizedBox(height: 1),
+                            c.cell != null
+                                ? c.cell!(r)
+                                : Text(
+                                    c.text!(r),
+                                    maxLines: 2,
+                                    overflow: TextOverflow.ellipsis,
+                                    style: c.numeric
+                                        ? SboxType.moneyStyle(size: SboxType.small)
+                                        : SboxType.smallStyle(SboxColors.text),
+                                  ),
+                          ]),
+                        ),
+                    ]);
+                  }),
                 ),
             ]),
           ),

@@ -532,6 +532,8 @@ class SboxRankList extends StatelessWidget {
     this.color = SboxColors.brand500,
     this.maxItems = 5,
     this.emptyHeight = 120,
+    this.ascending = false,
+    this.maxValue,
   });
 
   final List<SboxSlice> items;
@@ -540,12 +542,20 @@ class SboxRankList extends StatelessWidget {
   final int maxItems;
   final double emptyHeight;
 
+  /// Xếp từ thấp lên (vd «chuyên cần thấp nhất») — giữ cả giá trị 0.
+  final bool ascending;
+
+  /// Mốc 100% của thanh (vd 100 cho tỷ lệ %); mặc định = giá trị lớn nhất.
+  final double? maxValue;
+
   @override
   Widget build(BuildContext context) {
-    final list = items.where((s) => s.value != 0).toList()..sort((a, b) => b.value.compareTo(a.value));
+    final list = items.where((s) => ascending || s.value != 0).toList()
+      ..sort((a, b) => ascending ? a.value.compareTo(b.value) : b.value.compareTo(a.value));
     final shown = list.take(maxItems).toList();
     if (shown.isEmpty) return _ChartEmpty(height: emptyHeight);
-    final top = shown.first.value <= 0 ? 1.0 : shown.first.value;
+    final peak = maxValue ?? shown.fold<double>(0, (a, e) => math.max(a, e.value.toDouble()));
+    final top = peak <= 0 ? 1.0 : peak;
     return Column(children: [
       for (var i = 0; i < shown.length; i++)
         Padding(

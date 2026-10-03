@@ -9,7 +9,6 @@ import '../utils/file_saver.dart';
 import '../widgets/hrm_page_chrome.dart';
 import '../widgets/notification_overlay.dart';
 
-import '../theme/sbox_tokens.dart';
 import '../widgets/sbox/sbox_ui.dart';
 /// Kiểu tham số kỳ của báo cáo.
 enum _PeriodKind { range, month, year, none }
@@ -286,7 +285,8 @@ const _words = <String, String>{
 
 String _label(String key) {
   final k = _labels[key] ?? _labels[key.isEmpty ? key : key[0].toLowerCase() + key.substring(1)];
-  if (k != null) return k;
+  // Giá trị % đã có ký hiệu «%» → nhãn bỏ « (%)» cho gọn.
+  if (k != null) return k.replaceAll(' (%)', '');
   // Dự phòng: tách camelCase và dịch từng từ.
   final parts = key
       .replaceAllMapped(RegExp(r'([a-z0-9])([A-Z])'), (m) => '${m[1]} ${m[2]}')
@@ -315,6 +315,28 @@ const _valueVi = <String, String>{
 };
 
 bool _isScalar(dynamic v) => v == null || v is num || v is String || v is bool;
+
+/// Cột dùng làm tên dòng (biểu đồ xếp hạng, cột đầu bảng) — tên người / vật, không dùng mã.
+const _nameKeys = [
+  'employeeName', 'approverName', 'fullName', 'guestName', 'customerName', 'productName', 'assetName',
+  'categoryName', 'shiftName', 'name', 'title', 'department', 'type', 'status',
+];
+
+/// Cột mã — gộp dưới tên (dòng phụ), không làm cột riêng / nhãn biểu đồ.
+const _codeKeys = {'employeeCode', 'productCode', 'assetCode', 'categoryCode', 'code', 'pin', 'caseCode'};
+
+/// Số liệu chính để xếp hạng, theo thứ tự ưu tiên (số giống nhau cho mọi dòng như «ngày công chuẩn» không xếp hạng).
+const _rankKeys = [
+  'complianceRate', 'outstandingDebt', 'totalOutstanding', 'paidRemaining', 'usagePercent', 'totalScore',
+  'avgCompletion', 'avgScore', 'totalQuantity', 'totalAmount', 'totalVisits', 'totalPunches', 'totalRequested',
+  'avgResponseHours', 'ticketCount', 'totalCases', 'balanceAmount', 'currentValue', 'gap', 'count', 'total',
+];
+
+/// Số liệu tổng không cần hiện thành thẻ (đã có ở tiêu đề kỳ).
+const _hiddenScalars = {'year', 'month', 'page', 'pageSize', 'periodId', 'totalCount'};
+
+/// Tỷ lệ % — xếp hạng thêm chiều «thấp nhất», thanh tính trên mốc 100.
+bool _isPercentKey(String k) => RegExp('rate|percent', caseSensitive: false).hasMatch(k);
 
 class _AnalyticsReportViewer extends StatefulWidget {
   final _ReportSpec spec;
@@ -422,7 +444,7 @@ class _AnalyticsReportViewerState extends State<_AnalyticsReportViewer> {
   String _fmt(String key, dynamic v) {
     if (v == null) return '';
     if (v is bool) return v ? tr('Có') : tr('Không');
-    if (v is num) return _num.format(v);
+    if (v is num) return _isPercentKey(key) ? '${_num.format(v)}%' : _num.format(v);
     final s = v.toString();
     final vi = _valueVi[s.trim().toLowerCase()];
     if (vi != null) return vi;
@@ -439,7 +461,9 @@ class _AnalyticsReportViewerState extends State<_AnalyticsReportViewer> {
 
   @override
   Widget build(BuildContext context) {
-    final scalars = _data.entries.where((e) => _isScalar(e.value) && e.key != 'from' && e.key != 'to').toList();
+    final scalars = _data.entries
+        .where((e) => _isScalar(e.value) && e.key != 'from' && e.key != 'to' && !_hiddenScalars.contains(e.key))
+        .toList();
     final blocks = _data.entries.where((e) => e.value is Map).toList();
     final lists = _data.entries.where((e) => e.value is List && (e.value as List).isNotEmpty).toList();
     return Scaffold(
@@ -458,20 +482,29 @@ class _AnalyticsReportViewerState extends State<_AnalyticsReportViewer> {
       body: ListView(
         padding: const EdgeInsets.fromLTRB(12, 12, 12, 24),
         children: [
-          if (widget.spec.period != _PeriodKind.none)
-            Align(
-              alignment: Alignment.centerLeft,
-              child: OutlinedButton.icon(
-                onPressed: _loading ? null : _pickPeriod,
-                icon: const Icon(Icons.date_range, size: 18),
-                label: Text(tr(_periodLabel)),
-              ),
+          Row(children: [
+            Expanded(
+              child: Text(tr(widget.spec.subtitle),
+                  maxLines: 2, overflow: TextOverflow.ellipsis, style: SboxType.captionStyle()),
             ),
+            if (widget.spec.period != _PeriodKind.none) ...[
+              const SizedBox(width: 8),
+              OutlinedButton.icon(
+                style: OutlinedButton.styleFrom(
+                  visualDensity: VisualDensity.compact,
+                  padding: const EdgeInsets.symmetric(horizontal: 10),
+                ),
+                onPressed: _loading ? null : _pickPeriod,
+                icon: const Icon(Icons.date_range, size: 16),
+                label: Text(tr(_periodLabel), style: const TextStyle(fontSize: 12.5)),
+              ),
+            ],
+          ]),
           const SizedBox(height: 10),
           if (_loading)
             const Padding(padding: EdgeInsets.all(40), child: Center(child: CircularProgressIndicator()))
           else if (_error != null)
-            Text(_error!, style: const TextStyle(color: Colors.red))
+            SboxEmptyState(icon: Icons.cloud_off_rounded, title: 'Không tải được báo cáo', message: _error)
           else ...[
             if (scalars.isNotEmpty)
               Padding(
@@ -487,8 +520,8 @@ class _AnalyticsReportViewerState extends State<_AnalyticsReportViewer> {
               ),
             if (lists.isNotEmpty) ...[
               for (final c in [
-                for (final l in lists.take(2)) _autoChart(l.key, (l.value as List).whereType<Map>().toList()),
-              ].whereType<Widget>())
+                for (final l in lists.take(2)) ..._autoCharts(l.key, (l.value as List).whereType<Map>().toList()),
+              ])
                 Padding(padding: const EdgeInsets.only(bottom: 10), child: c),
             ],
             for (final b in blocks)
@@ -520,104 +553,135 @@ class _AnalyticsReportViewerState extends State<_AnalyticsReportViewer> {
     );
   }
 
-  Widget _kpis(List<MapEntry<String, dynamic>> items, {String? title}) => Card(
-        elevation: 0,
-        margin: const EdgeInsets.only(bottom: 8),
-        child: Padding(
-          padding: const EdgeInsets.all(12),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              if (title != null)
-                Padding(
-                  padding: const EdgeInsets.only(bottom: 6),
-                  child: Text(tr(title), style: const TextStyle(fontWeight: FontWeight.w700)),
-                ),
-              Wrap(
-                spacing: 18,
-                runSpacing: 8,
-                children: [
-                  for (final e in items)
-                    Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      mainAxisSize: MainAxisSize.min,
-                      children: [
-                        Text(tr(_label(e.key)), style: TextStyle(fontSize: 12, color: SboxColors.slate700)),
-                        Text(_fmt(e.key, e.value),
-                            style: const TextStyle(fontWeight: FontWeight.w700, color: HrmPageChrome.primaryNavy)),
-                      ],
-                    ),
-                ],
-              ),
-            ],
-          ),
-        ),
+  Widget _kpis(List<MapEntry<String, dynamic>> items, {String? title}) => Padding(
+        padding: const EdgeInsets.only(bottom: 10),
+        child: Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
+          if (title != null)
+            Padding(
+              padding: const EdgeInsets.fromLTRB(4, 4, 4, 8),
+              child: Text(tr(title), style: SboxType.titleSmStyle()),
+            ),
+          SboxKpiStrip(items: [
+            for (final e in items) SboxKpi(label: _label(e.key), value: _fmt(e.key, e.value)),
+          ]),
+        ]),
       );
-
-  static const _valueHints = ['revenue', 'amount', 'total', 'salary', 'net', 'profit', 'hours', 'value', 'count', 'qty', 'days'];
 
   bool _isDateText(dynamic v) => v is String && RegExp(r'^\d{4}-\d{2}-\d{2}').hasMatch(v);
 
-  /// Tự chọn biểu đồ cho một danh sách: có cột ngày → cột theo ngày; có cột tên → xếp hạng top 10.
-  Widget? _autoChart(String key, List<Map> rows) {
-    if (rows.length < 2) return null;
-    final sample = rows.take(30).toList();
-    final keys = <String>[];
-    for (final r in sample) {
-      for (final k in r.keys) {
-        if (!keys.contains('$k') && !'$k'.toLowerCase().endsWith('id')) keys.add('$k');
-      }
+  /// Tên hiển thị của 1 dòng: tên người / vật; trống thì mới dùng mã.
+  String? _nameKey(List<Map> rows) {
+    for (final k in _nameKeys) {
+      if (rows.take(20).any((r) => '${r[k] ?? ''}'.trim().isNotEmpty)) return k;
     }
+    return null;
+  }
+
+  String? _codeKey(List<Map> rows) =>
+      _codeKeys.where((k) => rows.take(20).any((r) => '${r[k] ?? ''}'.trim().isNotEmpty)).firstOrNull;
+
+  String _rowName(Map r, String? nameKey, String? codeKey) {
+    final n = nameKey == null ? '' : '${r[nameKey] ?? ''}'.trim();
+    if (n.isNotEmpty) return n;
+    final c = codeKey == null ? '' : '${r[codeKey] ?? ''}'.trim();
+    return c.isEmpty ? '—' : c;
+  }
+
+  /// Tự chọn biểu đồ cho một danh sách:
+  /// có cột ngày → số lượt theo ngày; có tên → xếp hạng theo số liệu chính (tỷ lệ % thêm «thấp nhất»).
+  List<Widget> _autoCharts(String key, List<Map> rows) {
+    if (rows.length < 2) return const [];
+    final sample = rows.take(30).toList();
+    final keys = <String>{for (final r in sample) for (final k in r.keys) '$k'}
+        .where((k) => !k.toLowerCase().endsWith('id'))
+        .toList();
     bool mostly(String k, bool Function(dynamic) f) => sample.where((r) => f(r[k])).length >= sample.length * 0.7;
     final nums = keys.where((k) => mostly(k, (v) => v is num && v is! bool)).toList();
-    if (nums.isEmpty) return null;
-    String? pickValue() {
-      for (final h in _valueHints) {
-        final m = nums.where((k) => k.toLowerCase().contains(h));
-        if (m.isNotEmpty) return m.first;
-      }
-      return nums.first;
-    }
-
-    final valueKey = pickValue()!;
+    // Bỏ số giống hệt nhau ở mọi dòng (vd ngày công chuẩn) — xếp hạng vô nghĩa.
+    bool varies(String k) => rows.map((r) => r[k]).toSet().length > 1;
     final dateKey = keys.where((k) => mostly(k, _isDateText)).firstOrNull;
-    final labelKey = keys.where((k) => mostly(k, (v) => v is String && !_isDateText(v) && '$v'.isNotEmpty)).firstOrNull;
-    double val(Map r) => (r[valueKey] as num?)?.toDouble() ?? 0;
-    final money = RegExp('revenue|amount|salary|profit|net|total|value|price|cost', caseSensitive: false).hasMatch(valueKey);
-    String fmtV(num? v) => money ? SboxFmt.money(v) : SboxFmt.number(v);
+    final nameKey = _nameKey(rows);
+    final codeKey = _codeKey(rows);
 
-    if (dateKey != null && rows.length <= 62) {
-      final sorted = [...rows]..sort((a, b) => '${a[dateKey]}'.compareTo('${b[dateKey]}'));
-      return SboxChartCard(
-        title: '${tr(_label(valueKey))} theo ${tr(_label(dateKey)).toLowerCase()}',
-        subtitle: tr(_label(key)),
-        child: SboxBarChart(
-          valueFormat: fmtV,
-          axisFormat: (v) => SboxFmt.compact(v),
-          labels: [for (final r in sorted) sboxDayLabel(r[dateKey])],
-          series: [SboxSeries(name: _label(valueKey), values: [for (final r in sorted) val(r)])],
+    // Danh sách từng sự việc theo ngày (vắng, bất thường…) → đếm lượt mỗi ngày.
+    if (dateKey != null) {
+      final byDay = <String, double>{};
+      for (final r in rows) {
+        final d = '${r[dateKey]}'.substring(0, 10);
+        byDay[d] = (byDay[d] ?? 0) + 1;
+      }
+      if (byDay.length < 2 || byDay.length > 62) return const [];
+      final days = byDay.keys.toList()..sort();
+      return [
+        SboxChartCard(
+          title: 'Số lượt theo ${tr(_label(dateKey)).toLowerCase()}',
+          subtitle: key == 'items' ? tr(widget.spec.subtitle) : tr(_label(key)),
+          child: SboxBarChart(
+            valueFormat: SboxFmt.number,
+            axisFormat: (v) => SboxFmt.compact(v),
+            labels: [for (final d in days) sboxDayLabel(d)],
+            series: [SboxSeries(name: 'Số lượt', values: [for (final d in days) byDay[d]!])],
+          ),
         ),
-      );
+      ];
     }
-    if (labelKey == null) return null;
-    return SboxChartCard(
-      title: 'Top ${tr(_label(valueKey)).toLowerCase()}',
-      subtitle: tr(_label(key)),
-      child: SboxRankList(
-        maxItems: 10,
-        valueFormat: fmtV,
-        items: [for (final r in rows) SboxSlice('${r[labelKey] ?? '—'}', val(r))],
-      ),
-    );
+    if (nameKey == null) return const [];
+    final candidates = nums.where(varies).toList();
+    if (candidates.isEmpty) return const [];
+    final valueKey = _rankKeys.firstWhere(candidates.contains, orElse: () => candidates.first);
+    final percent = _isPercentKey(valueKey);
+    final money = !percent && RegExp('revenue|amount|salary|profit|net|debt|outstanding|charge|value|price|cost', caseSensitive: false).hasMatch(valueKey);
+    String fmtV(num? v) => percent ? '${SboxFmt.number(v)}%' : (money ? SboxFmt.money(v) : SboxFmt.number(v));
+    final label = tr(_label(valueKey));
+    // «Chi tiết» (khóa items) không nói gì — dùng mô tả báo cáo.
+    final sub = key == 'items' ? tr(widget.spec.subtitle) : tr(_label(key));
+    // Ít dòng: 1 bảng xếp hạng là đủ; nhiều dòng + tỷ lệ %: thêm «thấp nhất» để thấy ai cần nhắc.
+    final both = percent && rows.length > 10;
+    final slices = [
+      for (final r in rows)
+        SboxSlice(_rowName(r, nameKey, codeKey), (r[valueKey] as num?)?.toDouble() ?? 0,
+            caption: nameKey == 'department' ? null : ('${r['department'] ?? ''}'.trim().isEmpty ? null : '${r['department']}')),
+    ];
+    Widget card(String title, {bool low = false}) => SboxChartCard(
+          title: title,
+          subtitle: sub,
+          child: SboxRankList(
+            maxItems: 10,
+            ascending: low,
+            maxValue: percent ? 100 : null,
+            color: low ? SboxColors.danger : SboxColors.brand500,
+            valueFormat: fmtV,
+            items: slices,
+          ),
+        );
+    return [
+      card(both ? '$label — cao nhất' : 'Xếp hạng ${label.isEmpty ? '' : label[0].toLowerCase() + label.substring(1)}'),
+      if (both) card('$label — thấp nhất', low: true),
+    ];
   }
 
   Widget _table(String key, List<Map> rows) {
+    final nameKey = _nameKey(rows);
+    final codeKey = _codeKey(rows);
+    final hasDept = nameKey != 'department' && rows.take(20).any((r) => '${r['department'] ?? ''}'.trim().isNotEmpty);
     final cols = <String>[];
     for (final r in rows.take(20)) {
       for (final e in r.entries) {
         final k = '${e.key}';
+        if (k == nameKey || k == codeKey || (hasDept && k == 'department')) continue;
         if (_isScalar(e.value) && !cols.contains(k) && !k.toLowerCase().endsWith('id')) cols.add(k);
       }
+    }
+    // Cột số giống hệt nhau ở mọi dòng (vd «Ngày công chuẩn» = 26) đã có ở thẻ trên — bỏ khỏi bảng.
+    if (rows.length > 2) {
+      cols.removeWhere((c) => rows.every((r) => r[c] is num) && rows.map((r) => r[c]).toSet().length == 1);
+    }
+    // Số liệu chính lên trước để điện thoại (chỉ hiện 3 cột) thấy ngay.
+    final rank = _rankKeys.where(cols.contains).firstOrNull;
+    if (rank != null) {
+      cols
+        ..remove(rank)
+        ..insert(0, rank);
     }
     final visible = _search.isEmpty
         ? rows
@@ -637,10 +701,31 @@ class _AnalyticsReportViewerState extends State<_AnalyticsReportViewer> {
             pageSize: 20,
             emptyTitle: 'Không có dòng phù hợp',
             columns: [
+              if (nameKey != null || codeKey != null)
+                SboxColumn<Map>(
+                  label: _label(nameKey ?? codeKey!),
+                  primary: true,
+                  flex: 2,
+                  minWidth: 180,
+                  text: (r) => _rowName(r, nameKey, codeKey),
+                  cell: (r) {
+                    final sub = [
+                      if (codeKey != null && nameKey != null) '${r[codeKey] ?? ''}'.trim(),
+                      if (hasDept) '${r['department'] ?? ''}'.trim(),
+                    ].where((x) => x.isNotEmpty).join(' · ');
+                    return Column(crossAxisAlignment: CrossAxisAlignment.start, mainAxisSize: MainAxisSize.min, children: [
+                      Text(tr(_rowName(r, nameKey, codeKey)),
+                          maxLines: 1, overflow: TextOverflow.ellipsis, style: SboxType.bodyStrong()),
+                      if (sub.isNotEmpty)
+                        Text(tr(sub), maxLines: 1, overflow: TextOverflow.ellipsis, style: SboxType.captionStyle()),
+                    ]);
+                  },
+                  sortValue: (r) => _rowName(r, nameKey, codeKey) as Comparable<Object?>,
+                ),
               for (var i = 0; i < cols.length; i++)
                 SboxColumn<Map>(
                   label: _label(cols[i]),
-                  primary: i == 0,
+                  primary: nameKey == null && codeKey == null && i == 0,
                   numeric: numericCol(cols[i]),
                   minWidth: 110,
                   hideOnMobile: i >= 4,
