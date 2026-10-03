@@ -60,6 +60,12 @@ Lưu ý: trên máy này `-1002` **không có nghĩa là máy không làm gì** 
 
 ## 4. Còn mở
 
+- **Giả thuyết cổng chặn (2 phiên cùng đồng ý, chưa chứng minh 100%)**: INFO báo `IsSupportFileSyncData=0`. Mọi lệnh **không**
+  cần máy gửi file kết quả (CLEAR DATA, DATA UPDATE USERINFO, INFO, CHECK) đều chạy; mọi lệnh **cần** gửi file kết quả qua
+  `SendCmdExecFile2Server` (DATA QUERY *, ENROLL_FP) đều trả -1002 ngay. Module ADMS trong ROM (~0xa0000, `NOT SUPPORT %d` ở 0xa611c)
+  là mã định vị lại nên không dò tham chiếu tĩnh được. Cờ này máy tự báo trong INFO, nhiều khả năng do bản build quyết định, không
+  phải option server ghi được. Gửi `IsSupportFileSyncData=1` lúc bắt tay chưa thử, khả năng thành công thấp, cần người dùng quyết.
+
 - **Vân tay**: không gửi được mẫu vân tay từ LX35 lên server, nên không sao chép vân tay sang máy khác được.
   Có thể thử thêm: `TransFlag` với thứ tự bit khác, hoặc `DATA QUERY FINGERTMP PIN=<pin>` (QUERY khác đều -1002, nhiều khả năng cũng vậy).
 - **Xóa toàn bộ user**: `CLEAR ALL USERINFO` không chạy, `CLEAR DATA` xóa cả chấm công. Server (commit sau `53d05116`) chặn nút
