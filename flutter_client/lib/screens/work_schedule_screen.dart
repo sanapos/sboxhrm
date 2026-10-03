@@ -6433,7 +6433,7 @@ class _WorkScheduleScreenState extends State<WorkScheduleScreen>
                   isDayOff = value;
                   if (value) selectedShiftIds.clear();
                 }),
-                activeThumbColor: HrmPageChrome.primaryNavy,
+
               ),
               if (isDayOff) ...[
                 const SizedBox(height: 8),

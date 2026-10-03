@@ -2259,7 +2259,8 @@ class _RolePermissionsScreenState extends State<RolePermissionsScreen> {
 
     return HrmSettingsEntityTile(
       title: role['roleDisplayName'] ?? roleName,
-      meta: '$moduleCount module',
+      subtitle: defaultRoles.contains(roleName) ? 'Chức danh mặc định' : 'Chức danh tự tạo',
+      meta: '$moduleCount chức năng được xem',
       icon: _getRoleIcon(roleName),
       iconColor: _getRoleColor(roleName),
       onTap: () => _selectRole(roleName),

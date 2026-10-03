@@ -303,13 +303,24 @@ class HrmSettingsEntityGrid extends StatelessWidget {
             ? columns.clamp(2, 3)
             : 1);
     if (cols <= 1) {
-      return Column(
-        children: [
-          for (var i = 0; i < itemCount; i++) ...[
-            if (i > 0) SizedBox(height: spacing),
-            itemBuilder(context, i),
-          ],
-        ],
+      // Điện thoại: 1 khung chung, các dòng ngăn bằng đường kẻ (không mỗi mục 1 thẻ viền riêng).
+      return Container(
+        decoration: BoxDecoration(
+          color: Colors.white,
+          borderRadius: BorderRadius.circular(14),
+          border: Border.all(color: PosTheme.border),
+        ),
+        clipBehavior: Clip.antiAlias,
+        child: _GroupedEntityScope(
+          child: Column(
+            children: [
+              for (var i = 0; i < itemCount; i++) ...[
+                if (i > 0) const Divider(height: 1, indent: 64, color: SboxColors.divider),
+                itemBuilder(context, i),
+              ],
+            ],
+          ),
+        ),
       );
     }
     return SafeFixedGrid(
@@ -321,6 +332,16 @@ class HrmSettingsEntityGrid extends StatelessWidget {
       itemBuilder: itemBuilder,
     );
   }
+}
+
+/// Đánh dấu tile nằm trong khung chung (bỏ viền / bo góc riêng của từng tile).
+class _GroupedEntityScope extends InheritedWidget {
+  const _GroupedEntityScope({required super.child});
+
+  static bool of(BuildContext context) => context.dependOnInheritedWidgetOfExactType<_GroupedEntityScope>() != null;
+
+  @override
+  bool updateShouldNotify(_GroupedEntityScope oldWidget) => false;
 }
 
 /// Thẻ entity — layout hàng (card list) ổn định cả 1 cột lẫn lưới.
@@ -356,10 +377,11 @@ class HrmSettingsEntityTile extends StatelessWidget {
   Widget build(BuildContext context) {
     final ic = iconColor ?? PosTheme.kiotBlue;
     final list = HrmSettingsMobileKit.preferCardList(context);
+    final grouped = _GroupedEntityScope.of(context);
     return Material(
       color: Colors.white,
-      borderRadius: BorderRadius.circular(10),
-      elevation: list ? 0.5 : 0,
+      borderRadius: grouped ? null : BorderRadius.circular(10),
+      elevation: list && !grouped ? 0.5 : 0,
       shadowColor: Colors.black26,
       child: InkWell(
         borderRadius: BorderRadius.circular(10),
@@ -370,10 +392,12 @@ class HrmSettingsEntityTile extends StatelessWidget {
             horizontal: list ? 12 : 10,
             vertical: list ? 12 : 10,
           ),
-          decoration: BoxDecoration(
-            borderRadius: BorderRadius.circular(10),
-            border: Border.all(color: PosTheme.border),
-          ),
+          decoration: grouped
+              ? null
+              : BoxDecoration(
+                  borderRadius: BorderRadius.circular(10),
+                  border: Border.all(color: PosTheme.border),
+                ),
           child: Row(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [

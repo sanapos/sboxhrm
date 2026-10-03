@@ -3484,7 +3484,7 @@ class _CreateEditDialogState extends State<_CreateEditDialog> {
                 value: _isPinned,
                 onChanged: (v) => setState(() => _isPinned = v),
                 contentPadding: EdgeInsets.zero,
-                activeThumbColor: HrmPageChrome.primaryNavy,
+
               ),
               if (!_isEditing)
                 SwitchListTile(
@@ -3495,7 +3495,7 @@ class _CreateEditDialogState extends State<_CreateEditDialog> {
                   value: _publishImmediately,
                   onChanged: (v) => setState(() => _publishImmediately = v),
                   contentPadding: EdgeInsets.zero,
-                  activeThumbColor: HrmPageChrome.primaryNavy,
+
                 ),
               const Divider(height: 32),
               // AI Section - only show when at least one provider is enabled

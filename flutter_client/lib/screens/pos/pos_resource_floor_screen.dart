@@ -1,5 +1,5 @@
 import 'dart:async';
-
+
 import '../../utils/notification_sound.dart';
 import '../../widgets/pos/pos_package_timer.dart';
 import 'package:flutter/material.dart';
@@ -4867,12 +4867,12 @@ class PosResourceFloorScreenState extends State<PosResourceFloorScreen> {
                                     label: Text(tr('Sắp nhóm'),
                                         style: TextStyle(
                                             fontWeight: FontWeight.w600,
-                                            fontSize: 14)),
+                                            fontSize: 13)),
                                     onPressed: () =>
                                         unawaited(_manageAreas()),
                                     padding: const EdgeInsets.symmetric(
-                                        horizontal: 10, vertical: 10),
-                                    visualDensity: VisualDensity.standard,
+                                        horizontal: 4, vertical: 4),
+                                    visualDensity: VisualDensity.compact,
                                   ),
                                   const SizedBox(width: 4),
                                   ActionChip(
@@ -4881,12 +4881,12 @@ class PosResourceFloorScreenState extends State<PosResourceFloorScreen> {
                                     label: Text(tr('Tạo nhanh'),
                                         style: TextStyle(
                                             fontWeight: FontWeight.w600,
-                                            fontSize: 14)),
+                                            fontSize: 13)),
                                     onPressed: () => unawaited(
                                         _showQuickCreateTables()),
                                     padding: const EdgeInsets.symmetric(
-                                        horizontal: 10, vertical: 10),
-                                    visualDensity: VisualDensity.standard,
+                                        horizontal: 4, vertical: 4),
+                                    visualDensity: VisualDensity.compact,
                                   ),
                                 ],
                               ),
@@ -4942,24 +4942,46 @@ class PosResourceFloorScreenState extends State<PosResourceFloorScreen> {
                       ),
                     ),
                   // Chú thích màu — quản lý đầy đủ; bán hàng chỉ nhắc khi có bàn đặt.
+                  // Chú thích màu + hướng dẫn (ⓘ) chung 1 hàng — không thêm dòng chữ nhỏ bên dưới.
                   if (widget.manageMode)
-                    const Padding(
-                      padding: EdgeInsets.fromLTRB(12, 0, 12, 4),
-                      child: Wrap(
-                        spacing: 8,
-                        runSpacing: 4,
-                        children: [
-                          _LegendDot(color: SboxColors.slate300, label: 'Trống'),
-                          _LegendDot(
-                              color: PosTheme.kiotBlue, label: 'Đang dùng'),
-                          _LegendDot(
-                              color: Color(0xFFEA580C), label: 'Tạm tính'),
-                          _LegendDot(
-                              color: SboxColors.slate400, label: 'Chưa gọi'),
-                          _LegendDot(
-                              color: Color(0xFF0284C7), label: 'Đã đặt'),
-                        ],
-                      ),
+                    Padding(
+                      padding: const EdgeInsets.fromLTRB(12, 2, 4, 2),
+                      child: Row(children: [
+                        const Expanded(
+                          child: FittedBox(
+                            fit: BoxFit.scaleDown,
+                            alignment: Alignment.centerLeft,
+                            child: Row(children: [
+                              _LegendDot(color: SboxColors.slate300, label: 'Trống'),
+                              SizedBox(width: 10),
+                              _LegendDot(color: PosTheme.kiotBlue, label: 'Đang dùng'),
+                              SizedBox(width: 10),
+                              _LegendDot(color: Color(0xFFEA580C), label: 'Tạm tính'),
+                              SizedBox(width: 10),
+                              _LegendDot(color: SboxColors.slate400, label: 'Chưa gọi'),
+                              SizedBox(width: 10),
+                              _LegendDot(color: Color(0xFF0284C7), label: 'Đã đặt'),
+                            ]),
+                          ),
+                        ),
+                        if (!_layoutEdit)
+                          IconButton(
+                            visualDensity: VisualDensity.compact,
+                            tooltip: tr('Hướng dẫn'),
+                            icon: const Icon(Icons.info_outline_rounded, size: 20, color: SboxColors.slate500),
+                            onPressed: () => showDialog<void>(
+                              context: context,
+                              builder: (ctx) => AlertDialog(
+                                title: Text(tr('Quản lý bàn / phòng')),
+                                content: Text(tr('• Chạm vào bàn để sửa hoặc xóa.\n'
+                                    '• Giữ lâu tên nhóm để đổi tên.\n'
+                                    '• «Sắp nhóm» để kéo đổi thứ tự nhóm.\n'
+                                    '• «Tạo nhanh» để thêm nhiều bàn một lần.')),
+                                actions: [TextButton(onPressed: () => Navigator.pop(ctx), child: Text(tr('Đã hiểu')))],
+                              ),
+                            ),
+                          ),
+                      ]),
                     )
                   else if (_reservedTableCount > 0)
                     Padding(
@@ -4988,14 +5010,6 @@ class PosResourceFloorScreenState extends State<PosResourceFloorScreen> {
                     Padding(
                       padding: EdgeInsets.fromLTRB(12, 0, 12, 4),
                       child: Text(tr('Kéo bàn — thả ra dính ô (cách nhau 16px), rồi Lưu.'),
-                        style: TextStyle(
-                            fontSize: 12, color: PosTheme.textSecondary),
-                      ),
-                    )
-                  else if (widget.manageMode)
-                    Padding(
-                      padding: EdgeInsets.fromLTRB(12, 0, 12, 4),
-                      child: Text(tr('Chạm bàn → Sửa/Xóa · giữ nhóm → đổi tên · «Sắp nhóm» để kéo thứ tự.'),
                         style: TextStyle(
                             fontSize: 12, color: PosTheme.textSecondary),
                       ),
@@ -5588,7 +5602,7 @@ class _LegendDot extends StatelessWidget {
         ),
         const SizedBox(width: 4),
         Text(tr(label),
-            style: const TextStyle(fontSize: 10, color: PosTheme.textSecondary)),
+            style: const TextStyle(fontSize: 11.5, color: PosTheme.textSecondary)),
       ],
     );
   }

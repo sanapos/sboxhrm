@@ -387,7 +387,7 @@ class _MobileAttendanceSettingsScreenState extends State<MobileAttendanceSetting
         toolbarHeight: embedded ? 0 : kToolbarHeight,
         title: embedded
             ? null
-            : Text(tr('Chấm Công Mobile'),
+            : Text(tr('Chấm công Mobile'),
                 style: TextStyle(
                   color: SboxColors.slate900,
                   fontWeight: FontWeight.bold,
@@ -395,14 +395,28 @@ class _MobileAttendanceSettingsScreenState extends State<MobileAttendanceSetting
               ),
         bottom: TabBar(
           controller: _tabController,
-          isScrollable: true,
+          labelPadding: const EdgeInsets.symmetric(horizontal: 4),
           labelColor: HrmPageChrome.primaryNavy,
           unselectedLabelColor: SboxColors.slate500,
           indicatorColor: HrmPageChrome.primaryNavy,
+          labelStyle: const TextStyle(fontWeight: FontWeight.w700, fontSize: 13.5),
           tabs: [
-            Tab(icon: Icon(Icons.settings), text: tr('Cài đặt')),
-            Tab(icon: Icon(Icons.location_on), text: tr('Vị trí')),
-            Tab(icon: Icon(Icons.phone_android), text: tr('Thiết bị')),
+            for (final t in const [
+              (Icons.tune_rounded, 'Cài đặt'),
+              (Icons.location_on_outlined, 'Vị trí'),
+              (Icons.phone_android_rounded, 'Thiết bị'),
+            ])
+              Tab(
+                height: 44,
+                child: FittedBox(
+                  fit: BoxFit.scaleDown,
+                  child: Row(mainAxisSize: MainAxisSize.min, children: [
+                    Icon(t.$1, size: 18),
+                    const SizedBox(width: 6),
+                    Text(tr(t.$2)),
+                  ]),
+                ),
+              ),
           ],
         ),
       ),
@@ -444,6 +458,34 @@ class _MobileAttendanceSettingsScreenState extends State<MobileAttendanceSetting
       children: [
         LayoutBuilder(builder: (context, c) {
           final cols = c.maxWidth >= 620 ? 3 : 1;
+          if (cols == 1) {
+            Widget row(IconData icon, String title, String desc, bool v, ValueChanged<bool> on, {bool first = false}) =>
+                Column(children: [
+                  if (!first) const Divider(height: 1, color: SboxColors.divider),
+                  Padding(
+                    padding: const EdgeInsets.symmetric(vertical: 8),
+                    child: Row(children: [
+                      Icon(icon, size: 22, color: v ? HrmPageChrome.primaryNavy : SboxColors.slate400),
+                      const SizedBox(width: 12),
+                      Expanded(
+                        child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+                          Text(tr(title), style: const TextStyle(fontWeight: FontWeight.w700, color: SboxColors.slate900)),
+                          Text(tr(desc), style: const TextStyle(fontSize: 12, color: SboxColors.slate500)),
+                        ]),
+                      ),
+                      Switch(value: v, onChanged: canEdit ? on : null),
+                    ]),
+                  ),
+                ]);
+            return Column(children: [
+              row(Icons.face_retouching_natural, 'Khuôn mặt', 'So khớp với ảnh đã đăng ký', _settings.enableFaceId,
+                  (v) => _updateSettings(_settings.copyWith(enableFaceId: v)), first: true),
+              row(Icons.location_on_outlined, 'Vị trí GPS', 'Phải ở trong bán kính điểm chấm công', _settings.enableGps,
+                  (v) => _updateSettings(_settings.copyWith(enableGps: v))),
+              row(Icons.wifi_rounded, 'Wi-Fi công ty', 'Kết nối Wi-Fi đã khai báo ở điểm chấm', _settings.enableWifi,
+                  (v) => _updateSettings(_settings.copyWith(enableWifi: v))),
+            ]);
+          }
           final w = (c.maxWidth - (cols - 1) * 10) / cols;
           return Wrap(spacing: 10, runSpacing: 10, children: [
             SizedBox(
@@ -500,12 +542,12 @@ class _MobileAttendanceSettingsScreenState extends State<MobileAttendanceSetting
               ButtonSegment(
                 value: 'any',
                 icon: const Icon(Icons.looks_one_outlined, size: 18),
-                label: Text(tr('Chỉ cần đạt 1')),
+                label: FittedBox(fit: BoxFit.scaleDown, child: Text(tr('Chỉ cần đạt 1'), maxLines: 1)),
               ),
               ButtonSegment(
                 value: 'all',
                 icon: const Icon(Icons.done_all_rounded, size: 18),
-                label: Text(tr('Phải đạt tất cả')),
+                label: FittedBox(fit: BoxFit.scaleDown, child: Text(tr('Phải đạt tất cả'), maxLines: 1)),
               ),
             ],
             selected: {_settings.verificationMode == 'any' ? 'any' : 'all'},
@@ -612,30 +654,33 @@ class _MobileAttendanceSettingsScreenState extends State<MobileAttendanceSetting
           },
         ),
         const SizedBox(height: 4),
-        Text(tr('Chống chấm trùng'), style: const TextStyle(fontWeight: FontWeight.w600, color: SboxColors.slate900)),
-        const SizedBox(height: 6),
-        Wrap(spacing: 6, runSpacing: 6, children: [
-          for (final m in const [0, 1, 3, 5, 10, 15, 30])
-            ChoiceChip(
-              visualDensity: VisualDensity.compact,
-              label: Text(tr(m == 0 ? 'Tắt' : '$m phút')),
-              selected: _settings.minPunchIntervalMinutes == m,
-              onSelected: canEdit
-                  ? (_) => _updateSettings(_settings.copyWith(minPunchIntervalMinutes: m))
-                  : null,
-            ),
+        Row(children: [
+          Expanded(
+            child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+              Text(tr('Chống chấm trùng'), style: const TextStyle(fontWeight: FontWeight.w600, color: SboxColors.slate900)),
+              const SizedBox(height: 2),
+              Text(
+                tr(_settings.minPunchIntervalMinutes == 0
+                    ? 'Cho phép chấm liên tục'
+                    : 'Từ chối 2 lần chấm cách nhau dưới ${_settings.minPunchIntervalMinutes} phút'),
+                style: const TextStyle(fontSize: 12.5, color: SboxColors.slate500),
+              ),
+            ]),
+          ),
+          const SizedBox(width: 12),
+          DropdownButton<int>(
+            value: const [0, 1, 3, 5, 10, 15, 30].contains(_settings.minPunchIntervalMinutes) ? _settings.minPunchIntervalMinutes : 0,
+            underline: const SizedBox.shrink(),
+            items: [
+              for (final m in const [0, 1, 3, 5, 10, 15, 30])
+                DropdownMenuItem(value: m, child: Text(tr(m == 0 ? 'Tắt' : '$m phút'))),
+            ],
+            onChanged: canEdit ? (m) => _updateSettings(_settings.copyWith(minPunchIntervalMinutes: m ?? 0)) : null,
+          ),
         ]),
-        const SizedBox(height: 6),
-        Text(
-          tr(_settings.minPunchIntervalMinutes == 0
-              ? 'Cho phép chấm liên tục.'
-              : 'Hai lần chấm cách nhau dưới ${_settings.minPunchIntervalMinutes} phút sẽ bị từ chối.'),
-          style: const TextStyle(fontSize: 12.5, color: SboxColors.slate500),
-        ),
         const SizedBox(height: 12),
         _settingsHint(
-          'Chấm ngoài vị trí công ty: lượt «tin cậy» (gần, khuôn mặt khớp cao) được tự duyệt, còn lại chờ duyệt. '
-          'Ngưỡng tin cậy và lý do bắt buộc chỉnh ở Duyệt chấm công → Thiết lập, hoặc từng máy ở tab Thiết bị.',
+          'Chấm ngoài công ty: lượt tin cậy tự duyệt, còn lại chờ duyệt — chỉnh ngưỡng ở Duyệt chấm công → Cài đặt duyệt.',
           tone: SboxColors.brand600,
           icon: Icons.info_outline_rounded,
         ),
@@ -673,7 +718,7 @@ class _MobileAttendanceSettingsScreenState extends State<MobileAttendanceSetting
           ),
         ),
       ),
-      if (canEdit) _settingsSaveBar(),
+      if (canEdit && (_settingsDirty || _isSaving)) _settingsSaveBar(),
     ]);
   }
 
@@ -692,31 +737,28 @@ class _MobileAttendanceSettingsScreenState extends State<MobileAttendanceSetting
       _settings.autoApproveInRange ? 'tự duyệt tại công ty' : 'mọi lượt chờ duyệt',
       if (_settings.requirePhotoProof) 'ảnh hiện trường khi ở ngoài',
     ];
+    final none = names.isEmpty;
     return Container(
-      padding: const EdgeInsets.all(16),
+      padding: const EdgeInsets.fromLTRB(14, 12, 14, 12),
       decoration: BoxDecoration(
-        gradient: const LinearGradient(colors: [HrmPageChrome.primaryNavy, SboxColors.brand600]),
-        borderRadius: BorderRadius.circular(16),
+        color: none ? SboxColors.dangerSoft : SboxColors.brand50,
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(color: none ? SboxColors.danger.withValues(alpha: 0.3) : SboxColors.brand100),
       ),
-      child: Row(children: [
-        Container(
-          width: 48,
-          height: 48,
-          decoration: BoxDecoration(color: Colors.white.withValues(alpha: 0.16), borderRadius: BorderRadius.circular(14)),
-          child: const Icon(Icons.phonelink_lock_rounded, color: Colors.white),
-        ),
-        const SizedBox(width: 14),
+      child: Row(crossAxisAlignment: CrossAxisAlignment.start, children: [
+        Icon(none ? Icons.lock_open_rounded : Icons.phonelink_lock_rounded,
+            size: 22, color: none ? SboxColors.danger : SboxColors.brand700),
+        const SizedBox(width: 10),
         Expanded(
           child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
             Text(
-              tr(names.isEmpty
+              tr(none
                   ? 'Chấm công không cần xác thực'
                   : 'Chấm bằng ${names.join(_settings.verificationMode == 'any' && names.length > 1 ? ' hoặc ' : ' + ')}'),
-              style: const TextStyle(color: Colors.white, fontSize: 16, fontWeight: FontWeight.w800),
+              style: TextStyle(fontSize: 14.5, fontWeight: FontWeight.w800, color: none ? SboxColors.dangerText : SboxColors.brand800),
             ),
-            const SizedBox(height: 4),
-            Text(tr(rules.join(' · ')),
-                style: TextStyle(color: Colors.white.withValues(alpha: 0.85), fontSize: 12.5, height: 1.35)),
+            const SizedBox(height: 2),
+            Text(tr(rules.join(' · ')), style: const TextStyle(fontSize: 12, height: 1.35, color: SboxColors.slate600)),
           ]),
         ),
       ]),
@@ -833,7 +875,7 @@ class _MobileAttendanceSettingsScreenState extends State<MobileAttendanceSetting
               Text(tr(desc), style: const TextStyle(fontSize: 11.5, color: SboxColors.slate500)),
             ]),
           ),
-          Switch(value: value, onChanged: enabled ? onChanged : null, activeThumbColor: HrmPageChrome.primaryNavy),
+          Switch(value: value, onChanged: enabled ? onChanged : null),
         ]),
       ),
     );
@@ -856,7 +898,7 @@ class _MobileAttendanceSettingsScreenState extends State<MobileAttendanceSetting
             Text(tr(subtitle), style: const TextStyle(fontSize: 12.5, color: SboxColors.slate500)),
           ]),
         ),
-        Switch(value: value, onChanged: enabled ? onChanged : null, activeThumbColor: HrmPageChrome.primaryNavy),
+        Switch(value: value, onChanged: enabled ? onChanged : null),
       ]),
     );
   }
@@ -1004,8 +1046,13 @@ class _MobileAttendanceSettingsScreenState extends State<MobileAttendanceSetting
       ),
       child: TextField(
         decoration: InputDecoration(
-          hintText: tr('Tìm kiếm vị trí...'),
+          hintText: tr('Tìm vị trí'),
+          // Không lồng viền / nền của theme vào khung ngoài (tránh 2 lớp viền).
           border: InputBorder.none,
+          enabledBorder: InputBorder.none,
+          focusedBorder: InputBorder.none,
+          filled: false,
+          isDense: true,
           icon: Icon(Icons.search, color: SboxColors.slate500),
         ),
         onChanged: (value) => setState(() => _locationSearchQuery = value),
@@ -1200,20 +1247,13 @@ class _MobileAttendanceSettingsScreenState extends State<MobileAttendanceSetting
                       ],
                     ),
                   ),
-                  if (location.isActive)
+                  // Đang hoạt động là mặc định — chỉ đánh dấu khi tạm ngưng (nhường chỗ cho tên vị trí).
+                  if (!location.isActive)
                     Container(
-                      padding: const EdgeInsets.symmetric(
-                          horizontal: 8, vertical: 3),
-                      decoration: BoxDecoration(
-                        color:
-                            HrmPageChrome.primaryNavy.withValues(alpha: 0.1),
-                        borderRadius: BorderRadius.circular(6),
-                      ),
-                      child: Text(tr('Hoạt động'),
-                          style: TextStyle(
-                              fontSize: 11,
-                              fontWeight: FontWeight.w600,
-                              color: HrmPageChrome.primaryNavy)),
+                      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+                      decoration: BoxDecoration(color: SboxColors.slate100, borderRadius: BorderRadius.circular(6)),
+                      child: Text(tr('Tạm ngưng'),
+                          style: const TextStyle(fontSize: 11, fontWeight: FontWeight.w600, color: SboxColors.slate500)),
                     ),
                   const SizedBox(width: 4),
                   const Icon(Icons.chevron_right,
@@ -1573,8 +1613,12 @@ class _MobileAttendanceSettingsScreenState extends State<MobileAttendanceSetting
       child: TextField(
         controller: _deviceSearchController,
         decoration: InputDecoration(
-          hintText: tr('Tìm kiếm theo nhân viên, tên máy...'),
+          hintText: tr('Tìm nhân viên, tên máy'),
           border: InputBorder.none,
+          enabledBorder: InputBorder.none,
+          focusedBorder: InputBorder.none,
+          filled: false,
+          isDense: true,
           icon: const Icon(Icons.search, color: SboxColors.slate500),
           suffixIcon: _deviceSearchQuery.isNotEmpty
               ? IconButton(
@@ -1935,7 +1979,7 @@ class _MobileAttendanceSettingsScreenState extends State<MobileAttendanceSetting
               Switch(
                 value: device.isAuthorized,
                 onChanged: (v) => _toggleDeviceAuthorization(device, v),
-                activeThumbColor: HrmPageChrome.primaryNavy,
+
                 materialTapTargetSize: MaterialTapTargetSize.shrinkWrap,
               ),
           ],

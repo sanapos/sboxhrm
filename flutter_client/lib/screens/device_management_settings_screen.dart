@@ -987,6 +987,8 @@ class _DeviceManagementSettingsScreenState extends State<DeviceManagementSetting
   }
 
   Widget _buildOverviewSection() {
+    // Điện thoại: nút lọc đã có số lượng (Tất cả / Online / Offline) — không lặp 3 ô số liệu, không khung gập.
+    if (Responsive.isMobile(context)) return _buildToolbar();
     return HrmCollapsibleOverview(
       expanded: _showOverviewPanel,
       onToggle: () =>
@@ -1025,7 +1027,7 @@ class _DeviceManagementSettingsScreenState extends State<DeviceManagementSetting
     final searchField = TextField(
       onChanged: (v) => setState(() => _searchQuery = v),
       decoration: InputDecoration(
-        hintText: tr('Tìm theo tên, SN, vị trí, IP...'),
+        hintText: tr('Tìm tên máy, SN, vị trí, IP'),
         prefixIcon: const Icon(Icons.search, size: 20),
         filled: true,
         fillColor: Colors.white,

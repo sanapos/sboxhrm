@@ -155,11 +155,25 @@ class _BranchManagementScreenState extends State<BranchManagementScreen>
                 maxLines: 1),
         bottom: TabBar(
           controller: _tabController,
+          labelPadding: const EdgeInsets.symmetric(horizontal: 4),
           isScrollable: false,
           tabs: [
-            Tab(icon: Icon(Icons.list_alt), text: tr('Danh sách')),
-            Tab(icon: Icon(Icons.account_tree), text: tr('Sơ đồ')),
-            Tab(icon: Icon(Icons.analytics), text: tr('Thống kê')),
+            for (final t in const [
+              (Icons.list_alt_rounded, 'Danh sách'),
+              (Icons.account_tree_outlined, 'Sơ đồ'),
+              (Icons.insights_rounded, 'Thống kê'),
+            ])
+              Tab(
+                height: 44,
+                child: FittedBox(
+                  fit: BoxFit.scaleDown,
+                  child: Row(mainAxisSize: MainAxisSize.min, children: [
+                    Icon(t.$1, size: 18),
+                    const SizedBox(width: 6),
+                    Text(tr(t.$2)),
+                  ]),
+                ),
+              ),
           ],
         ),
       ),
@@ -280,8 +294,10 @@ class _BranchManagementScreenState extends State<BranchManagementScreen>
                       ),
             ],
           ),
+          // Điện thoại: ô tìm + lọc hiện thẳng (không khung gập «Tổng quan & bộ lọc» tốn thêm 1 hàng).
           HrmCollapsibleOverview(
-            expanded: _showOverviewPanel,
+            expanded: _showOverviewPanel || Responsive.isMobile(context),
+            showHeader: !Responsive.isMobile(context),
             onToggle: () =>
                 setState(() => _showOverviewPanel = !_showOverviewPanel),
             child: Row(
@@ -444,13 +460,20 @@ class _BranchManagementScreenState extends State<BranchManagementScreen>
 
     return HrmSettingsEntityTile(
       title: branch.name,
-      subtitle: branch.code,
-      meta: '${branch.employeeCount} NV',
+      // Dòng phụ: địa chỉ + quản lý; dòng nhỏ: mã · số NV · giờ mở cửa.
+      subtitle: [
+        if (branch.fullAddress.isNotEmpty) branch.fullAddress,
+        if ((branch.managerName ?? '').isNotEmpty) 'QL: ${branch.managerName}',
+      ].join(' · ').ifEmpty('Chưa có địa chỉ'),
+      meta: [
+        if (branch.code.isNotEmpty) branch.code,
+        '${branch.employeeCount} nhân viên',
+        if ((branch.openTime ?? '').isNotEmpty) '${branch.openTime}–${branch.closeTime ?? ''}',
+      ].join(' · '),
       icon: branch.isHeadquarter ? Icons.domain : Icons.business,
       iconColor: color,
-      badge: branch.isHeadquarter
-          ? 'Trụ sở'
-          : (isActive ? 'Hoạt động' : 'Ngừng HĐ'),
+      // Hoạt động là mặc định — chỉ gắn nhãn Trụ sở / Ngừng.
+      badge: branch.isHeadquarter ? 'Trụ sở' : (isActive ? null : 'Ngừng'),
       badgeColor: branch.isHeadquarter
           ? Colors.amber.shade700
           : (isActive ? Colors.green : Colors.red),
@@ -1798,4 +1821,8 @@ class _BranchManagementScreenState extends State<BranchManagementScreen>
       ),
     );
   }
+}
+
+extension on String {
+  String ifEmpty(String fallback) => isEmpty ? fallback : this;
 }

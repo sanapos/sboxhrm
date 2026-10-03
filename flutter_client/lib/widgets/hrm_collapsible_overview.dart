@@ -14,8 +14,11 @@ class HrmCollapsibleOverview extends StatelessWidget {
     this.title = 'Tổng quan & bộ lọc',
     this.subtitle,
     this.trailing,
+    this.showHeader = true,
   });
 
+  /// false: chỉ hiện nội dung (vd điện thoại, bộ lọc ngắn — không cần thanh gập / mở).
+  final bool showHeader;
   final bool expanded;
   final VoidCallback onToggle;
   final Widget child;
@@ -25,6 +28,7 @@ class HrmCollapsibleOverview extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    if (!showHeader) return child;
     final accent = PosTheme.kiotBlue;
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
