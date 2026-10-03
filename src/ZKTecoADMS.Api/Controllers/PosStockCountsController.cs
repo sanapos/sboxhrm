@@ -487,6 +487,7 @@ public class PosStockCountsController(ZKTecoDbContext dbContext) : Authenticated
                             QtyChange = -alloc.Qty,
                             QtyAfter = qtyAfter,
                             UnitCost = alloc.UnitCost,
+                            LineAmount = alloc.Qty * alloc.UnitCost,
                             ReferenceNo = count.CountNo,
                             StockCountId = count.Id,
                             Note = $"Kiểm kê: lúc đếm {line.SystemQty:N2} → thực tế {counted:N2} (tồn lúc cân {liveSystem:N2} → {liveSystem + diff:N2})",
@@ -498,11 +499,13 @@ public class PosStockCountsController(ZKTecoDbContext dbContext) : Authenticated
                 else
                 {
                     Guid? lotId = null;
+                    // Hàng thừa nhập theo giá vốn dòng kiểm kê (hoặc giá vốn hiện tại) — ghi giá trị lên thẻ kho.
+                    var surplusCost = line.CostPrice > 0 ? line.CostPrice : p.CostPrice;
                     if (p.TrackExpiry || Math.Abs(txChangeBase) > 0)
                     {
                         var lot = PosStockLotHelper.CreateLotFromCountAdjust(
                             storeId, p.Id, variant?.Id, txChangeBase,
-                            line.CostPrice > 0 ? line.CostPrice : p.CostPrice,
+                            surplusCost,
                             count.CountNo, CurrentUserEmail);
                         dbContext.PosStockLots.Add(lot);
                         lotId = lot.Id;
@@ -517,6 +520,8 @@ public class PosStockCountsController(ZKTecoDbContext dbContext) : Authenticated
                         TransactionType = PosStockTransactionType.Adjust,
                         QtyChange = txChangeBase,
                         QtyAfter = qtyAfter,
+                        UnitCost = surplusCost,
+                        LineAmount = txChangeBase * surplusCost,
                         ReferenceNo = count.CountNo,
                         StockCountId = count.Id,
                         Note = $"Kiểm kê: lúc đếm {line.SystemQty:N2} → thực tế {counted:N2} (tồn lúc cân {liveSystem:N2} → {liveSystem + diff:N2})",

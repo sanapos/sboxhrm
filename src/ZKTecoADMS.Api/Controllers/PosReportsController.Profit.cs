@@ -43,29 +43,13 @@ public partial class PosReportsController
             .Select(o => o.Id)
             .ToListAsync();
 
-        var rawLines = await dbContext.PosSaleOrderLines.AsNoTracking()
-            .Where(l => l.StoreId == storeId && l.Deleted == null &&
-                        orderIds.Contains(l.SaleOrderId))
-            .Select(l => new
-            {
-                l.ProductId,
-                l.ProductName,
-                l.Qty,
-                l.LineTotal,
-                l.DiscountAmount,
-                l.ToppingsJson,
-            })
-            .ToListAsync();
-        var expanded = PosReportLineExpand.Aggregate(rawLines.Select(l =>
-            new PosReportLineExpand.LineIn(
-                l.ProductId, l.ProductName, l.Qty, l.LineTotal, l.DiscountAmount, l.ToppingsJson, null)));
+        // Dòng bán thuần (trừ hàng trả, phân bổ giảm giá đơn, SL đơn vị cơ bản) — tổng khớp doanh thu đơn.
+        var expanded = PosReportLineExpand.Aggregate(await LoadSaleLinesForExpandAsync(storeId, orderIds));
         var allowedIds = (await productScope.Select(p => p.Id).ToListAsync()).ToHashSet();
-        expanded = expanded.Where(x => allowedIds.Contains(x.ProductId)).ToList();
+        // Giá vốn thuần theo món bán (thành phần combo / NVL định lượng quy về món, đã trừ hàng trả).
+        var cogsByProduct = await PosReportMoney.CogsByProductAsync(dbContext, storeId, orderIds);
 
-        var metaIds = expanded.Select(x => x.ProductId)
-            .Concat(rawLines.Select(x => x.ProductId))
-            .Distinct()
-            .ToList();
+        var metaIds = expanded.Select(x => x.ProductId).Concat(cogsByProduct.Keys).Distinct().ToList();
         var productMeta = metaIds.Count == 0
             ? []
             : await dbContext.PosProducts.AsNoTracking()
@@ -82,44 +66,7 @@ public partial class PosReportsController
                 })
                 .ToListAsync();
         var metaMap = productMeta.ToDictionary(p => p.Id);
-
-        var cogsTx = orderIds.Count == 0
-            ? new Dictionary<Guid, decimal>()
-            : await dbContext.PosStockTransactions.AsNoTracking()
-                .Where(t => t.StoreId == storeId && t.Deleted == null &&
-                            t.TransactionType == PosStockTransactionType.Sale &&
-                            t.SaleOrderId != null && orderIds.Contains(t.SaleOrderId.Value))
-                .GroupBy(t => t.ProductId)
-                .Select(g => new { ProductId = g.Key, Cogs = g.Sum(x => x.LineAmount ?? 0) })
-                .ToDictionaryAsync(x => x.ProductId, x => x.Cogs);
-
-        var comboIds = rawLines
-            .Where(x => metaMap.TryGetValue(x.ProductId, out var m) && m.ProductType == PosProductType.Combo)
-            .Select(x => x.ProductId)
-            .Distinct()
-            .ToList();
-        var recipes = comboIds.Count == 0
-            ? []
-            : await dbContext.PosProductComboLines.AsNoTracking()
-                .Where(c => c.StoreId == storeId && c.Deleted == null &&
-                            comboIds.Contains(c.ComboProductId))
-                .Select(c => new { c.ComboProductId, c.ComponentProductId, c.Qty })
-                .ToListAsync();
-        var componentIds = recipes.Select(r => r.ComponentProductId).Distinct().ToList();
-        var componentCost = componentIds.Count == 0
-            ? new Dictionary<Guid, decimal>()
-            : await dbContext.PosProducts.AsNoTracking()
-                .Where(p => componentIds.Contains(p.Id))
-                .ToDictionaryAsync(p => p.Id, p => p.CostPrice);
-
-        var comboCogsByProduct = rawLines
-            .Where(x => metaMap.TryGetValue(x.ProductId, out var m) && m.ProductType == PosProductType.Combo)
-            .GroupBy(x => x.ProductId)
-            .ToDictionary(
-                g => g.Key,
-                g => g.Sum(line => recipes
-                    .Where(r => r.ComboProductId == line.ProductId)
-                    .Sum(r => r.Qty * line.Qty * componentCost.GetValueOrDefault(r.ComponentProductId))));
+        expanded = expanded.Where(x => allowedIds.Contains(x.ProductId)).ToList();
 
         var categoryIds = productMeta.Where(x => x.CategoryId.HasValue).Select(x => x.CategoryId!.Value).Distinct().ToList();
         var categoryNames = categoryIds.Count == 0
@@ -135,15 +82,7 @@ public partial class PosReportsController
                 var revenue = x.Revenue;
                 var qty = x.Qty;
                 var type = first?.ProductType ?? PosProductType.Goods;
-                var cogs = type == PosProductType.Combo
-                    ? comboCogsByProduct.GetValueOrDefault(x.ProductId)
-                    : cogsTx.GetValueOrDefault(x.ProductId);
-                // Dịch vụ / món không ghi tx kho: ước COGS = CostPrice × SL (tránh LN 100% ảo).
-                if (cogs == 0 && qty > 0 && first != null && first.CostPrice > 0
-                    && (type == PosProductType.Service || !cogsTx.ContainsKey(x.ProductId)))
-                {
-                    cogs = first.CostPrice * qty;
-                }
+                var cogs = cogsByProduct.GetValueOrDefault(x.ProductId);
                 var profit = revenue - cogs;
                 return new
                 {
@@ -166,9 +105,11 @@ public partial class PosReportsController
             .Take(limit)
             .ToList();
 
-        // Topping trừ kho nhưng không có dòng HĐ riêng — vẫn hiện COGS / cộng vào tổng.
+        // Hàng có giá vốn nhưng không có doanh thu riêng (vd topping tặng) — vẫn hiện giá vốn / cộng vào tổng.
         var listedIds = items.Select(x => x.productId).ToHashSet();
-        var extraIds = cogsTx.Keys.Where(id => !listedIds.Contains(id)).ToList();
+        var extraIds = cogsByProduct
+            .Where(kv => kv.Value != 0 && !listedIds.Contains(kv.Key) && allowedIds.Contains(kv.Key))
+            .Select(kv => kv.Key).ToList();
         if (extraIds.Count > 0)
         {
             var extraProducts = await dbContext.PosProducts.AsNoTracking()
@@ -185,7 +126,7 @@ public partial class PosReportsController
                 .ToDictionaryAsync(x => x.ProductId, x => x.Qty);
             foreach (var p in extraProducts)
             {
-                var extraCogs = cogsTx.GetValueOrDefault(p.Id);
+                var extraCogs = cogsByProduct.GetValueOrDefault(p.Id);
                 var qty = extraQty.GetValueOrDefault(p.Id);
                 items.Add(new
                 {
@@ -252,15 +193,7 @@ public partial class PosReportsController
             .ToListAsync();
 
         var orderIds = orders.Select(o => o.Id).ToList();
-        var cogsByOrder = orderIds.Count == 0
-            ? new Dictionary<Guid, decimal>()
-            : await dbContext.PosStockTransactions.AsNoTracking()
-                .Where(t => t.StoreId == storeId && t.Deleted == null &&
-                            t.TransactionType == PosStockTransactionType.Sale &&
-                            t.SaleOrderId != null && orderIds.Contains(t.SaleOrderId.Value))
-                .GroupBy(t => t.SaleOrderId!.Value)
-                .Select(g => new { OrderId = g.Key, Cogs = g.Sum(x => x.LineAmount ?? 0) })
-                .ToDictionaryAsync(x => x.OrderId, x => x.Cogs);
+        var cogsByOrder = await PosReportMoney.CogsByOrderAsync(dbContext, storeId, orderIds);
 
         object items;
         if (dim == "channel")
@@ -299,15 +232,7 @@ public partial class PosReportsController
                     .Where(c => catIds.Contains(c.Id))
                     .ToDictionaryAsync(c => c.Id, c => c.Name);
 
-            var cogsByProduct = orderIds.Count == 0
-                ? new Dictionary<Guid, decimal>()
-                : await dbContext.PosStockTransactions.AsNoTracking()
-                    .Where(t => t.StoreId == storeId && t.Deleted == null &&
-                                t.TransactionType == PosStockTransactionType.Sale &&
-                                t.SaleOrderId != null && orderIds.Contains(t.SaleOrderId.Value))
-                    .GroupBy(t => t.ProductId)
-                    .Select(g => new { ProductId = g.Key, Cogs = g.Sum(x => x.LineAmount ?? 0) })
-                    .ToDictionaryAsync(x => x.ProductId, x => x.Cogs);
+            var cogsByProduct = await PosReportMoney.CogsByProductAsync(dbContext, storeId, orderIds);
 
             var lineOrderMap = orderIds.Count == 0
                 ? new Dictionary<Guid, List<Guid>>()
@@ -371,9 +296,8 @@ public partial class PosReportsController
         var today = DateTime.UtcNow.Date;
         var filter = (mode ?? "all").Trim().ToLowerInvariant();
 
-        var products = await dbContext.PosProducts.AsNoTracking()
-            .Where(p => p.StoreId == storeId && p.Deleted == null && p.IsActive &&
-                        p.ProductType != PosProductType.Service)
+        var products = await StockTracked(dbContext.PosProducts.AsNoTracking()
+                .Where(p => p.StoreId == storeId && p.Deleted == null && p.IsActive))
             .Select(p => new
             {
                 p.Id,
@@ -398,6 +322,25 @@ public partial class PosReportsController
         var sold = PosReportLineExpand.Aggregate(
             await LoadSaleLinesForExpandAsync(storeId, healthOrderIds));
         var soldMap = sold.ToDictionary(x => x.ProductId);
+        // Lượng tiêu hao thực theo thẻ kho (đơn vị cơ bản): gồm NVL định lượng, thành phần combo, topping —
+        // trước đây chỉ đếm dòng hóa đơn nên NVL / thành phần luôn bị xếp «tồn chết». Trừ hàng khách trả.
+        var consumed = healthOrderIds.Count == 0
+            ? []
+            : await dbContext.PosStockTransactions.AsNoTracking()
+                .Where(t => t.StoreId == storeId && t.Deleted == null && t.IsActive &&
+                            t.SaleOrderId != null && healthOrderIds.Contains(t.SaleOrderId.Value) &&
+                            (t.TransactionType == PosStockTransactionType.Sale ||
+                             (t.TransactionType == PosStockTransactionType.Return &&
+                              (t.Note == null || (!t.Note.StartsWith("Hủy đơn") && !t.Note.StartsWith("Hủy trả hàng"))))))
+                .GroupBy(t => t.ProductId)
+                .Select(g => new
+                {
+                    ProductId = g.Key,
+                    Qty = g.Sum(x => -x.QtyChange),
+                    LastAt = g.Where(x => x.TransactionType == PosStockTransactionType.Sale).Max(x => (DateTime?)x.CreatedAt),
+                })
+                .ToListAsync();
+        var consumedMap = consumed.ToDictionary(x => x.ProductId);
 
         var lastIn = await dbContext.PosStockReceiptLines.AsNoTracking()
             .Where(l => l.StoreId == storeId && l.Deleted == null &&
@@ -417,9 +360,11 @@ public partial class PosReportsController
         var rows = products.Select(p =>
         {
             soldMap.TryGetValue(p.Id, out var s);
+            consumedMap.TryGetValue(p.Id, out var c);
             lastInMap.TryGetValue(p.Id, out var inbound);
-            var qtySold = s?.Qty ?? 0;
-            var lastSold = s?.LastSoldAt;
+            var qtySold = Math.Max(s?.Qty ?? 0, c?.Qty ?? 0);
+            DateTime? lastSold = s?.LastSoldAt;
+            if (c?.LastAt is { } lastTx && (lastSold == null || lastTx > lastSold)) lastSold = lastTx;
             var daysIdle = lastSold.HasValue
                 ? (int)(today - lastSold.Value.Date).TotalDays
                 : (int?)null;
@@ -514,15 +459,7 @@ public partial class PosReportsController
             .ToListAsync();
 
         var orderIds = orders.Select(o => o.Id).ToList();
-        var cogsByOrder = orderIds.Count == 0
-            ? new Dictionary<Guid, decimal>()
-            : await dbContext.PosStockTransactions.AsNoTracking()
-                .Where(t => t.StoreId == storeId && t.Deleted == null &&
-                            t.TransactionType == PosStockTransactionType.Sale &&
-                            t.SaleOrderId != null && orderIds.Contains(t.SaleOrderId.Value))
-                .GroupBy(t => t.SaleOrderId!.Value)
-                .Select(g => new { OrderId = g.Key, Cogs = g.Sum(x => x.LineAmount ?? 0) })
-                .ToDictionaryAsync(x => x.OrderId, x => x.Cogs);
+        var cogsByOrder = await PosReportMoney.CogsByOrderAsync(dbContext, storeId, orderIds);
 
         var customerIds = orders.Where(o => o.CustomerId.HasValue).Select(o => o.CustomerId!.Value).Distinct().ToList();
         var customers = customerIds.Count == 0

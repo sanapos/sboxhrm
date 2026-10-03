@@ -1,5 +1,6 @@
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
+using ZKTecoADMS.Api.Controllers.Reports;
 using Microsoft.EntityFrameworkCore;
 using ZKTecoADMS.Api.Authorization;
 using ZKTecoADMS.Api.Controllers.Base;
@@ -401,7 +402,7 @@ public class BranchOperationsController(ZKTecoDbContext db, IBranchContext branc
             .Where(o => o.StoreId == storeId && o.Deleted == null && o.IsActive && o.Status == PosSaleOrderStatus.Completed &&
                         (o.SaleDate ?? o.CreatedAt) >= fromUtc && (o.SaleDate ?? o.CreatedAt) < toUtc &&
                         ids.Contains(o.BranchId ?? hq))
-            .Select(o => new { B = o.BranchId ?? hq, At = o.SaleDate ?? o.CreatedAt, Net = o.Total - o.VatAmount })
+            .Select(o => new { B = o.BranchId ?? hq, At = o.SaleDate ?? o.CreatedAt, Net = o.Total })
             .ToListAsync();
         var days = new List<DateTime>();
         for (var d = fromVn.Date; d <= toVn.Date; d = d.AddDays(1)) days.Add(d);
@@ -444,17 +445,10 @@ public class BranchOperationsController(ZKTecoDbContext db, IBranchContext branc
             .Where(o => o.StoreId == storeId && o.Deleted == null && o.IsActive && o.Status == PosSaleOrderStatus.Completed &&
                         (o.SaleDate ?? o.CreatedAt) >= fromUtc && (o.SaleDate ?? o.CreatedAt) < toUtc &&
                         (o.BranchId ?? hq) == branchId)
-            .Select(o => new { o.Id, At = o.SaleDate ?? o.CreatedAt, Net = o.Total - o.VatAmount, o.SoldBy })
+            .Select(o => new { o.Id, At = o.SaleDate ?? o.CreatedAt, Net = o.Total, o.SoldBy })
             .ToListAsync();
         var orderIds = orders.Select(o => o.Id).ToList();
-        var cogsByOrder = orderIds.Count == 0
-            ? new Dictionary<Guid, decimal>()
-            : await db.PosStockTransactions.AsNoTracking()
-                .Where(t => t.StoreId == storeId && t.Deleted == null && t.TransactionType == PosStockTransactionType.Sale &&
-                            t.SaleOrderId != null && orderIds.Contains(t.SaleOrderId.Value))
-                .GroupBy(t => t.SaleOrderId!.Value)
-                .Select(g => new { g.Key, Cogs = g.Sum(x => x.LineAmount ?? 0) })
-                .ToDictionaryAsync(x => x.Key, x => x.Cogs);
+        var cogsByOrder = await PosReportMoney.CogsByOrderAsync(db, storeId, orderIds);
         var daily = new List<object>();
         for (var d = fromVn.Date; d <= toVn.Date; d = d.AddDays(1))
         {
@@ -549,17 +543,10 @@ public class BranchOperationsController(ZKTecoDbContext db, IBranchContext branc
             .Where(o => o.StoreId == storeId && o.Deleted == null && o.IsActive && o.Status == PosSaleOrderStatus.Completed &&
                         (o.SaleDate ?? o.CreatedAt) >= fromUtc && (o.SaleDate ?? o.CreatedAt) < toUtc &&
                         ids.Contains(o.BranchId ?? hq))
-            .Select(o => new { o.Id, B = o.BranchId ?? hq, Net = o.Total - o.VatAmount })
+            .Select(o => new { o.Id, B = o.BranchId ?? hq, Net = o.Total })
             .ToListAsync();
         var orderIds = orders.Select(o => o.Id).ToList();
-        var cogs = orderIds.Count == 0
-            ? new Dictionary<Guid, decimal>()
-            : (await db.PosStockTransactions.AsNoTracking()
-                .Where(t => t.StoreId == storeId && t.Deleted == null && t.TransactionType == PosStockTransactionType.Sale &&
-                            t.SaleOrderId != null && orderIds.Contains(t.SaleOrderId.Value))
-                .Select(t => new { OrderId = t.SaleOrderId!.Value, Amount = t.LineAmount ?? 0 })
-                .ToListAsync())
-                .GroupBy(x => x.OrderId).ToDictionary(g => g.Key, g => g.Sum(x => x.Amount));
+        var cogs = await PosReportMoney.CogsByOrderAsync(db, storeId, orderIds);
         var orderBranch = orders.ToDictionary(o => o.Id, o => o.B);
 
         var cash = await db.CashTransactions.AsNoTracking()

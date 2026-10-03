@@ -15,7 +15,11 @@ internal static class PosReportLineExpand
         decimal LineTotal,
         decimal DiscountAmount,
         string? ToppingsJson,
-        DateTime? SoldAt);
+        DateTime? SoldAt,
+        // Tỷ lệ tiền thực thu (giảm giá đơn / voucher / điểm) — nhân vào doanh thu món + topping.
+        decimal RevenueFactor = 1m,
+        // 1 ĐVT bán = QtyRate đơn vị cơ bản (Thùng = 24) — SL món cộng theo đơn vị cơ bản.
+        decimal QtyRate = 1m);
 
     public sealed record ProductAgg(
         Guid ProductId,
@@ -53,17 +57,21 @@ internal static class PosReportLineExpand
             var extra = picks.Sum(p => p.UnitPrice * p.Qty * l.Qty);
             if (extra < 0) extra = 0;
             if (extra > l.LineTotal) extra = l.LineTotal;
-            Add(l.ProductId, l.ProductName, l.Qty, l.LineTotal - extra, l.DiscountAmount, l.SoldAt);
+            var f = l.RevenueFactor;
+            Add(l.ProductId, l.ProductName, l.Qty * (l.QtyRate > 0 ? l.QtyRate : 1), (l.LineTotal - extra) * f, l.DiscountAmount, l.SoldAt);
             foreach (var p in picks)
             {
                 var tQty = p.Qty * l.Qty;
                 if (tQty <= 0) continue;
                 var name = string.IsNullOrWhiteSpace(p.Name) ? "Topping" : p.Name;
-                Add(p.ProductId, name, tQty, p.UnitPrice * tQty, 0, l.SoldAt);
+                Add(p.ProductId, name, tQty, p.UnitPrice * tQty * f, 0, l.SoldAt);
             }
         }
 
-        return map.Values.OrderByDescending(x => x.Revenue).ToList();
+        // Phân bổ giảm giá đơn tạo số lẻ — làm tròn 2 chữ số (đồng) khi trả kết quả.
+        return map.Values
+            .Select(x => x with { Revenue = Math.Round(x.Revenue, 2, MidpointRounding.AwayFromZero) })
+            .OrderByDescending(x => x.Revenue).ToList();
     }
 
     static DateTime? Max(DateTime? a, DateTime? b)

@@ -1,4 +1,5 @@
 using Microsoft.AspNetCore.Mvc;
+using ZKTecoADMS.Api.Controllers.Reports;
 using Microsoft.EntityFrameworkCore;
 using ZKTecoADMS.Api.Authorization;
 using ZKTecoADMS.Api.Controllers.Base;
@@ -244,36 +245,54 @@ public partial class PosReportsController
                         && (o.SaleDate ?? o.CreatedAt) >= fromDt
                         && (o.SaleDate ?? o.CreatedAt) < toDt));
 
-        // ── Doanh thu: tổng HĐ (đã trừ giảm giá, gồm VAT) − hoàn trả khách − VAT phải nộp.
-        var grossSales = await orders.SumAsync(o => (decimal?)o.Total) ?? 0;
+        // ── Doanh thu thuần = Σ Total đơn hoàn thành trong kỳ. Total đã trừ giảm giá / voucher / điểm và
+        // hàng khách trả (trả hàng giảm Total của đơn gốc), CHƯA gồm VAT (VAT lưu riêng) → không trừ thêm
+        // hoàn trả hay VAT (trước đây trừ cả hai → doanh thu thuần thấp hơn thực tế).
+        var revenue = await orders.SumAsync(o => (decimal?)o.Total) ?? 0;
         var vat = await orders.SumAsync(o => (decimal?)o.VatAmount) ?? 0;
-        var discount = await orders.SumAsync(o => (decimal?)(o.Discount + o.VoucherDiscount)) ?? 0;
+        var discount = await orders.SumAsync(o => (decimal?)(o.Discount + o.VoucherDiscount + o.PointsDiscount)) ?? 0;
         var orderCount = await orders.CountAsync();
         var orderIds = await orders.Select(o => o.Id).ToListAsync();
-        // Hoàn trả trong kỳ (theo đơn người xem được) — cùng cách báo cáo doanh thu.
-        var refunds = await SumPeriodSaleRefundsAsync(storeId, fromDt, toDt,
-            IsManager ? null : orderIds);
-        var revenue = grossSales - refunds - vat;
+        var returnedByOrder = await PosSaleReturnLedger.ReturnedByOrderAsync(dbContext, storeId, orderIds);
+        // Hàng trả của các đơn trong kỳ (trình bày: tiền hàng trước trả − hàng trả = doanh thu thuần).
+        var refunds = returnedByOrder.Values.Sum(x => x.Refund);
+        var grossSales = revenue + refunds;
 
-        // ── Giá vốn: phiếu kho bán (gồm topping không có dòng HĐ riêng) − giá vốn hàng khách trả lại.
-        var saleCost = orderIds.Count == 0
-            ? 0m
-            : await dbContext.PosStockTransactions.AsNoTracking()
-                .Where(t => t.StoreId == storeId && t.Deleted == null
-                            && t.TransactionType == PosStockTransactionType.Sale
-                            && t.SaleOrderId != null && orderIds.Contains(t.SaleOrderId.Value))
-                .SumAsync(t => (decimal?)(t.LineAmount ?? 0)) ?? 0;
-        var returnQ = dbContext.PosStockTransactions.AsNoTracking()
-            .Where(t => t.StoreId == storeId && t.Deleted == null && t.IsActive
-                        && t.TransactionType == PosStockTransactionType.Return
-                        && t.CreatedAt >= fromDt && t.CreatedAt < toDt
-                        && (t.Note == null || !t.Note.StartsWith("Hủy đơn"))
-                        && (t.Note == null || !t.Note.StartsWith("Hủy trả hàng")));
-        if (!IsManager)
-            returnQ = returnQ.Where(t => t.SaleOrderId != null && orderIds.Contains(t.SaleOrderId.Value));
-        var returnedCost = await returnQ.SumAsync(t => (decimal?)(t.QtyChange * (t.UnitCost ?? 0))) ?? 0;
-        var cogs = saleCost - returnedCost;
+        // ── Giá vốn thuần của các đơn: giá vốn khi bán (gồm dịch vụ, topping) − giá vốn hàng khách trả.
+        var cogsByOrder = await PosReportMoney.CogsByOrderAsync(dbContext, storeId, orderIds);
+        var cogs = cogsByOrder.Values.Sum();
+        var returnedCost = returnedByOrder.Values.Sum(x => x.Cost);
+        var saleCost = cogs + returnedCost;
         var gross = revenue - cogs;
+
+        // ── Hao hụt kho trong kỳ: xuất hủy, xuất dùng nội bộ, xuất khác, chênh lệch kiểm kê (thiếu − thừa)
+        // — trước đây không vào kết quả kinh doanh. Chỉ quản lý xem (không gắn với đơn của nhân viên).
+        decimal damageCost = 0, internalUseCost = 0, otherIssueCost = 0, countLossCost = 0;
+        if (IsManager)
+        {
+            var issueRows = await dbContext.PosStockTransactions.AsNoTracking()
+                .Where(t => t.StoreId == storeId && t.Deleted == null && t.IsActive &&
+                            t.StockIssueId != null &&
+                            t.CreatedAt >= fromDt && t.CreatedAt < toDt)
+                .Select(t => new
+                {
+                    t.StockIssue!.Kind,
+                    t.StockIssue.QuoteId,
+                    // Xuất (SL âm) = chi phí; hủy phiếu xuất (SL dương) = trừ lại.
+                    Amount = -t.QtyChange * (t.UnitCost ?? 0),
+                })
+                .ToListAsync();
+            // Phiếu xuất theo báo giá thương mại là bán ngoài hóa đơn — không tính hao hụt.
+            damageCost = issueRows.Where(r => r.Kind == PosStockIssueKind.Damage).Sum(r => r.Amount);
+            internalUseCost = issueRows.Where(r => r.Kind == PosStockIssueKind.InternalUse).Sum(r => r.Amount);
+            otherIssueCost = issueRows.Where(r => r.Kind == PosStockIssueKind.Generic && r.QuoteId == null).Sum(r => r.Amount);
+            countLossCost = await dbContext.PosStockTransactions.AsNoTracking()
+                .Where(t => t.StoreId == storeId && t.Deleted == null && t.IsActive &&
+                            t.StockCountId != null && t.TransactionType == PosStockTransactionType.Adjust &&
+                            t.CreatedAt >= fromDt && t.CreatedAt < toDt)
+                .SumAsync(t => (decimal?)(-t.QtyChange * (t.UnitCost ?? 0))) ?? 0;
+        }
+        var inventoryLoss = damageCost + internalUseCost + otherIssueCost + countLossCost;
 
         // ── Thu / chi khác từ sổ quỹ (phiếu đã hoàn thành). Loại các khoản không phải lãi / lỗ:
         // tiền bán hàng & thu nợ khách (đã nằm trong doanh thu), nhập hàng (đã nằm trong giá vốn),
@@ -315,7 +334,7 @@ public partial class PosReportsController
             .Select(r => new { type = r.Type.ToString(), category = r.Category ?? "", amount = r.Amount, count = r.Count })
             .ToList();
 
-        var net = gross - expense + otherIncome;
+        var net = gross - inventoryLoss - expense + otherIncome;
         return Ok(AppResponse<object>.Success(new
         {
             from = fromVn.Date,
@@ -330,6 +349,11 @@ public partial class PosReportsController
             returnedCost,
             cogs,
             grossProfit = gross,
+            damageCost,
+            internalUseCost,
+            otherIssueCost,
+            countLossCost,
+            inventoryLoss,
             expenses = expense,
             tripAdvanceRefunds = tripRefundAmount,
             otherIncome,
@@ -342,12 +366,15 @@ public partial class PosReportsController
             // Dòng báo cáo KQKD theo thứ tự trình bày.
             lines = new object[]
             {
-                new { code = "01", label = "Tổng tiền hóa đơn (đã trừ giảm giá)", amount = grossSales },
-                new { code = "02", label = "Hoàn trả khách", amount = -refunds },
-                new { code = "03", label = "Thuế GTGT phải nộp", amount = -vat },
+                new { code = "01", label = "Tiền hàng bán (đã trừ giảm giá, chưa VAT)", amount = grossSales },
+                new { code = "02", label = "Hàng khách trả lại", amount = -refunds },
                 new { code = "10", label = "Doanh thu thuần", amount = revenue },
                 new { code = "11", label = "Giá vốn hàng bán", amount = -cogs },
                 new { code = "20", label = "Lợi nhuận gộp", amount = gross },
+                new { code = "15", label = "Xuất hủy hàng", amount = -damageCost },
+                new { code = "16", label = "Xuất dùng nội bộ", amount = -internalUseCost },
+                new { code = "17", label = "Xuất kho khác", amount = -otherIssueCost },
+                new { code = "18", label = "Chênh lệch kiểm kê (thiếu − thừa)", amount = -countLossCost },
                 new { code = "21", label = "Chi phí hoạt động (sổ quỹ)", amount = -expense },
                 new { code = "22", label = "Thu nhập khác", amount = otherIncome },
                 new { code = "50", label = "Lợi nhuận thuần", amount = net },

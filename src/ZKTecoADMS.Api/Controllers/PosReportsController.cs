@@ -107,23 +107,9 @@ public partial class PosReportsController(
             })
             .ToList();
 
-        var totalCogs = orderIds.Count == 0
-            ? 0m
-            : await dbContext.PosStockTransactions.AsNoTracking()
-                .Where(t => t.StoreId == storeId && t.Deleted == null &&
-                            t.TransactionType == PosStockTransactionType.Sale &&
-                            t.SaleOrderId != null && orderIds.Contains(t.SaleOrderId.Value))
-                .SumAsync(t => (decimal?)(t.LineAmount ?? 0)) ?? 0;
-
-        var cogsByOrder = orderIds.Count == 0
-            ? new Dictionary<Guid, decimal>()
-            : await dbContext.PosStockTransactions.AsNoTracking()
-                .Where(t => t.StoreId == storeId && t.Deleted == null &&
-                            t.TransactionType == PosStockTransactionType.Sale &&
-                            t.SaleOrderId != null && orderIds.Contains(t.SaleOrderId.Value))
-                .GroupBy(t => t.SaleOrderId!.Value)
-                .Select(g => new { OrderId = g.Key, Cogs = g.Sum(x => x.LineAmount ?? 0) })
-                .ToDictionaryAsync(x => x.OrderId, x => x.Cogs);
+        // Giá vốn thuần: đã trừ hàng khách trả, gồm giá vốn món dịch vụ.
+        var cogsByOrder = await PosReportMoney.CogsByOrderAsync(dbContext, storeId, orderIds);
+        var totalCogs = cogsByOrder.Values.Sum();
 
         var orderRows = await orders
             .Select(o => new { o.Id, BizAt = o.SaleDate ?? o.CreatedAt, o.Total })
@@ -514,7 +500,7 @@ public partial class PosReportsController(
             })
             .ToList();
 
-        var stockScope = ApplyGoodsInventoryFilter(productScope, inventoryStatus);
+        var stockScope = StockTracked(ApplyGoodsInventoryFilter(productScope, inventoryStatus));
         var topByStockValue = await stockScope
             .OrderByDescending(p => p.OnHandQty * p.CostPrice)
             .Take(limit)
@@ -534,14 +520,16 @@ public partial class PosReportsController(
             .ToListAsync();
 
         var stockRows = await stockScope
-            .Select(p => new { p.OnHandQty, p.CostPrice, p.MinStockQty })
+            .Select(p => new { p.Id, p.OnHandQty, p.CostPrice, p.MinStockQty })
             .ToListAsync();
+        var inventoryValue = await InventoryValueAsync(dbContext, storeId,
+            stockRows.Select(p => (p.Id, p.OnHandQty, p.CostPrice)).ToList());
 
         return Ok(AppResponse<object>.Success(new
         {
             from = fromDt,
             to = toDt.AddDays(-1),
-            inventoryValue = stockRows.Sum(p => p.OnHandQty * p.CostPrice),
+            inventoryValue,
             productCount = stockRows.Count,
             totalOnHandQty = stockRows.Sum(p => p.OnHandQty),
             outOfStockCount = stockRows.Count(p => p.OnHandQty <= 0),
@@ -581,17 +569,12 @@ public partial class PosReportsController(
             var discount = await q.SumAsync(o => (decimal?)o.Discount) ?? 0;
             var count = await q.CountAsync();
             var ids = await q.Select(o => o.Id).ToListAsync();
-            var cogs = ids.Count == 0
-                ? 0m
-                : await dbContext.PosStockTransactions.AsNoTracking()
-                    .Where(t => t.StoreId == storeId && t.Deleted == null &&
-                                t.TransactionType == PosStockTransactionType.Sale &&
-                                t.SaleOrderId != null && ids.Contains(t.SaleOrderId.Value))
-                    .SumAsync(t => (decimal?)(t.LineAmount ?? 0)) ?? 0;
+            var cogs = (await PosReportMoney.CogsByOrderAsync(dbContext, storeId, ids)).Values.Sum();
             var refund = await SumPeriodSaleRefundsAsync(
                 storeId, start, end, IsManager ? null : ids);
-            // Doanh thu chưa VAT (Total đã gồm VAT) — revenueInclVat = revenue + vat mới đúng.
-            return (revenue - vat, vat, cogs, count, discount, refund);
+            // Total = tiền hàng đã trừ giảm giá và hàng trả, CHƯA gồm VAT (VAT lưu riêng ở VatAmount).
+            // Tiền hoàn chỉ để xem — Total đã giảm khi trả hàng, không trừ thêm.
+            return (revenue, vat, cogs, count, discount, refund);
         }
 
         var current = await PeriodAsync(fromDt, toDt);
@@ -672,9 +655,9 @@ public partial class PosReportsController(
                 revenueInclVat = current.revenue + current.vat,
                 refund = current.refund,
                 cogs = current.cogs,
-                profit = current.revenue - current.refund - current.cogs,
+                profit = current.revenue - current.cogs,
                 marginPct = current.revenue > 0
-                    ? Math.Round((current.revenue - current.refund - current.cogs) / current.revenue * 100, 1)
+                    ? Math.Round((current.revenue - current.cogs) / current.revenue * 100, 1)
                     : 0m,
                 orderCount = current.orders,
                 avgOrderValue = current.orders > 0
@@ -689,7 +672,7 @@ public partial class PosReportsController(
                 revenueInclVat = previous.revenue + previous.vat,
                 refund = previous.refund,
                 cogs = previous.cogs,
-                profit = previous.revenue - previous.refund - previous.cogs,
+                profit = previous.revenue - previous.cogs,
                 orderCount = previous.orders,
                 avgOrderValue = previous.orders > 0
                     ? Math.Round(previous.revenue / previous.orders, 0)
@@ -698,7 +681,7 @@ public partial class PosReportsController(
             yearAgo = new
             {
                 revenue = yearAgo.revenue,
-                profit = yearAgo.revenue - yearAgo.refund - yearAgo.cogs,
+                profit = yearAgo.revenue - yearAgo.cogs,
                 orderCount = yearAgo.orders,
             },
             changePct = new
@@ -721,9 +704,8 @@ public partial class PosReportsController(
     private static async Task<(int totalSkus, decimal totalQty, decimal inventoryValue, int outOfStock, int belowMin)>
         GetStockSummaryCoreAsync(ZKTecoDbContext db, Guid storeId)
     {
-        var products = await db.PosProducts.AsNoTracking()
-            .Where(p => p.StoreId == storeId && p.Deleted == null && p.IsActive &&
-                        p.ProductType != PosProductType.Service)
+        var products = await StockTracked(db.PosProducts.AsNoTracking()
+                .Where(p => p.StoreId == storeId && p.Deleted == null && p.IsActive))
             .Select(p => new { p.Id, p.OnHandQty, p.CostPrice, p.MinStockQty })
             .ToListAsync();
 
@@ -751,6 +733,29 @@ public partial class PosReportsController(
             parentValue + variantValue,
             products.Count(p => p.OnHandQty <= 0),
             products.Count(p => p.MinStockQty > 0 && p.OnHandQty < p.MinStockQty && p.OnHandQty > 0));
+    }
+
+    /// <summary>Hàng có theo dõi tồn: hàng hóa, NVL, topping, combo bật quản lý tồn gói (dịch vụ / combo theo
+    /// thành phần không có tồn riêng → không tính «hết hàng»).</summary>
+    static IQueryable<PosProduct> StockTracked(IQueryable<PosProduct> q) =>
+        q.Where(p => p.ProductType == PosProductType.Goods || p.ProductType == PosProductType.Material ||
+                     p.ProductType == PosProductType.Topping ||
+                     (p.ProductType == PosProductType.Combo && p.ComboTrackStock));
+
+    /// <summary>Giá trị tồn: hàng có biến thể riêng tính theo tồn × giá vốn từng biến thể (giống báo cáo tồn kho).</summary>
+    static async Task<decimal> InventoryValueAsync(ZKTecoDbContext db, Guid storeId,
+        IReadOnlyCollection<(Guid Id, decimal OnHandQty, decimal CostPrice)> products)
+    {
+        if (products.Count == 0) return 0;
+        var ids = products.Select(p => p.Id).ToList();
+        var variants = await db.PosProductVariants.AsNoTracking()
+            .Where(v => v.StoreId == storeId && v.Deleted == null && v.IsActive && ids.Contains(v.ProductId))
+            .Select(v => new { v.ProductId, v.AttributeJson, v.OnHandQty, v.CostPrice })
+            .ToListAsync();
+        var distinct = variants.Where(v => !PosVariantStockHelper.IsUnitOnlyVariant(v.AttributeJson))
+            .Select(v => v.ProductId).ToHashSet();
+        return products.Where(p => !distinct.Contains(p.Id)).Sum(p => p.OnHandQty * p.CostPrice) +
+               variants.Where(v => distinct.Contains(v.ProductId)).Sum(v => v.OnHandQty * v.CostPrice);
     }
 
     private Task<(int totalSkus, decimal totalQty, decimal inventoryValue, int outOfStock, int belowMin)>
@@ -790,9 +795,8 @@ public partial class PosReportsController(
         page = Math.Max(page, 1);
         pageSize = Math.Clamp(pageSize, 1, 200);
 
-        var query = dbContext.PosProducts.AsNoTracking()
-            .Where(p => p.StoreId == storeId && p.Deleted == null && p.IsActive &&
-                        p.ProductType != PosProductType.Service);
+        var query = StockTracked(dbContext.PosProducts.AsNoTracking()
+            .Where(p => p.StoreId == storeId && p.Deleted == null && p.IsActive));
 
         if (!string.IsNullOrWhiteSpace(search))
         {
@@ -970,9 +974,8 @@ public partial class PosReportsController(
     public async Task<IActionResult> ExportStockExcel([FromQuery] string? search)
     {
         var storeId = RequiredStoreId;
-        var query = dbContext.PosProducts.AsNoTracking()
-            .Where(p => p.StoreId == storeId && p.Deleted == null && p.IsActive &&
-                        p.ProductType != PosProductType.Service);
+        var query = StockTracked(dbContext.PosProducts.AsNoTracking()
+            .Where(p => p.StoreId == storeId && p.Deleted == null && p.IsActive));
         if (!string.IsNullOrWhiteSpace(search))
         {
             var s = search.Trim().ToLower();
@@ -1084,14 +1087,15 @@ public partial class PosReportsController(
         var canceledTotal = await canceledQuery.SumAsync(o => (decimal?)o.Total) ?? 0;
 
         var orderIds = await completedQuery.Select(o => o.Id).ToListAsync();
-        var refundTotal = orderIds.Count == 0
-            ? 0m
-            : await dbContext.PosStockTransactions.AsNoTracking()
-                .Where(t => t.StoreId == storeId && t.Deleted == null &&
-                            t.SaleOrderId != null && orderIds.Contains(t.SaleOrderId.Value) &&
-                            t.TransactionType == PosStockTransactionType.Return &&
-                            (t.Note == null || !t.Note.StartsWith("Hủy đơn")))
-                .SumAsync(t => (decimal?)(t.LineAmount ?? 0)) ?? 0;
+        // Tiền hoàn trả khách trong ngày (theo ngày trả, mọi đơn của người xem) — chỉ để đối chiếu két;
+        // doanh thu (netSales = Total) đã giảm khi trả hàng nên không trừ thêm.
+        var viewerOrderIds = string.IsNullOrWhiteSpace(effectiveStaff) && !effectiveEmployeeId.HasValue
+            ? null
+            : await ApplyStaffFilter(
+                    dbContext.PosSaleOrders.AsNoTracking().Where(o => o.StoreId == storeId && o.Deleted == null),
+                    effectiveStaff, effectiveEmployeeId, filter)
+                .Select(o => o.Id).ToListAsync();
+        var refundTotal = await SumPeriodSaleRefundsAsync(storeId, fromDt, toDt, viewerOrderIds);
 
         var lineDiscountTotal = orderIds.Count == 0
             ? 0m
@@ -1215,16 +1219,9 @@ public partial class PosReportsController(
                 })
                 .ToListAsync();
 
-            var returnedMap = orderIds.Count == 0
-                ? new Dictionary<Guid, decimal>()
-                : await dbContext.PosStockTransactions.AsNoTracking()
-                    .Where(t => t.StoreId == storeId && t.Deleted == null &&
-                                t.SaleOrderId != null && orderIds.Contains(t.SaleOrderId.Value) &&
-                                t.TransactionType == PosStockTransactionType.Return &&
-                                (t.Note == null || !t.Note.StartsWith("Hủy đơn")))
-                    .GroupBy(t => t.SaleOrderId!.Value)
-                    .Select(g => new { OrderId = g.Key, Amount = g.Sum(x => x.LineAmount ?? 0) })
-                    .ToDictionaryAsync(x => x.OrderId, x => x.Amount);
+            // Tiền đã hoàn của đơn (sổ trả hàng; phiếu cũ không cộng trùng combo, bỏ phiếu đã hủy).
+            var returnedMap = (await PosSaleReturnLedger.ReturnedByOrderAsync(dbContext, storeId, orderIds))
+                .ToDictionary(x => x.Key, x => x.Value.Refund);
 
             transactions = txRows.Select(t =>
             {
@@ -1295,7 +1292,8 @@ public partial class PosReportsController(
             payableTotal,
             netSales,
             refundTotal,
-            totalAfterRefund = Math.Max(0, netSales - refundTotal),
+            // Total đã trừ hàng trả → «sau hoàn trả» chính là doanh thu thuần (trước đây trừ hai lần).
+            totalAfterRefund = netSales,
             canceledCount,
             canceledTotal,
             cashTotal,
@@ -1534,34 +1532,10 @@ public partial class PosReportsController(
     /// Hoàn trả khách (giá bán) trong kỳ — phiếu Return còn hiệu lực, loại "Hủy đơn" / "Hủy trả hàng".
     /// Combo ghi LineAmount đủ trên mỗi NVL nên gộp theo phiếu + ghi chú.
     /// </summary>
-    async Task<decimal> SumPeriodSaleRefundsAsync(
-        Guid storeId, DateTime fromDt, DateTime toDt, IReadOnlyCollection<Guid>? restrictOrderIds = null)
-    {
-        if (restrictOrderIds != null && restrictOrderIds.Count == 0) return 0;
-        var q = dbContext.PosStockTransactions.AsNoTracking()
-            .Where(t => t.StoreId == storeId && t.Deleted == null && t.IsActive
-                        && t.TransactionType == PosStockTransactionType.Return
-                        && t.CreatedAt >= fromDt && t.CreatedAt < toDt
-                        && (t.Note == null || !t.Note.StartsWith("Hủy đơn"))
-                        && (t.Note == null || !t.Note.StartsWith("Hủy trả hàng")));
-        if (restrictOrderIds != null)
-            q = q.Where(t => t.SaleOrderId != null && restrictOrderIds.Contains(t.SaleOrderId.Value));
-        var txs = await q
-            .Select(t => new { t.ReferenceNo, t.ProductId, t.VariantId, t.LineAmount, t.Note })
-            .ToListAsync();
-
-        decimal total = 0;
-        foreach (var slip in txs.GroupBy(t => t.ReferenceNo ?? t.ProductId.ToString()))
-        {
-            var combo = slip.Where(x =>
-                x.Note != null && x.Note.Contains("hoàn combo", StringComparison.OrdinalIgnoreCase)).ToList();
-            var other = slip.Where(x =>
-                x.Note == null || !x.Note.Contains("hoàn combo", StringComparison.OrdinalIgnoreCase)).ToList();
-            total += combo.GroupBy(x => x.Note).Sum(g => g.Max(x => x.LineAmount ?? 0));
-            total += other.GroupBy(x => new { x.ProductId, x.VariantId }).Sum(g => g.Max(x => x.LineAmount ?? 0));
-        }
-        return total;
-    }
+    /// <summary>Tiền hoàn theo ngày trả (thông tin) — sổ trả hàng; phiếu cũ suy từ thẻ kho không cộng trùng combo.</summary>
+    Task<decimal> SumPeriodSaleRefundsAsync(
+        Guid storeId, DateTime fromDt, DateTime toDt, IReadOnlyCollection<Guid>? restrictOrderIds = null) =>
+        PosSaleReturnLedger.SumRefundsByReturnDateAsync(dbContext, storeId, fromDt, toDt, restrictOrderIds);
 
     static IQueryable<PosProduct> ApplyGoodsProductScope(
         IQueryable<PosProduct> query,
@@ -1649,28 +1623,10 @@ public partial class PosReportsController(
         return ApplyStaffFilter(query, CurrentUserEmail, EmployeeId, filter);
     }
 
-    private async Task<List<PosReportLineExpand.LineIn>> LoadSaleLinesForExpandAsync(
-        Guid storeId, IReadOnlyCollection<Guid> orderIds)
-    {
-        if (orderIds.Count == 0) return [];
-        var rows = await dbContext.PosSaleOrderLines.AsNoTracking()
-            .Where(l => l.StoreId == storeId && l.Deleted == null &&
-                        orderIds.Contains(l.SaleOrderId))
-            .Select(l => new
-            {
-                l.ProductId,
-                l.ProductName,
-                l.Qty,
-                l.LineTotal,
-                l.DiscountAmount,
-                l.ToppingsJson,
-                SoldAt = (DateTime?)(l.SaleOrder!.SaleDate ?? l.SaleOrder.CreatedAt),
-            })
-            .ToListAsync();
-        return rows.Select(l => new PosReportLineExpand.LineIn(
-            l.ProductId, l.ProductName, l.Qty, l.LineTotal, l.DiscountAmount, l.ToppingsJson, l.SoldAt))
-            .ToList();
-    }
+    /// <summary>Dòng bán thuần: trừ hàng khách trả, phân bổ giảm giá đơn / voucher / điểm, SL theo đơn vị cơ bản.</summary>
+    private Task<List<PosReportLineExpand.LineIn>> LoadSaleLinesForExpandAsync(
+        Guid storeId, IReadOnlyCollection<Guid> orderIds) =>
+        PosReportMoney.NetLinesAsync(dbContext, storeId, orderIds);
 
     internal static Guid? ParseSaleOrderIdFromMarker(string? note)
     {

@@ -2530,7 +2530,8 @@ class _PosPnlReportScreenState extends State<PosPnlReportScreen> {
         SboxKpi(label: 'Doanh thu', value: SboxFmt.money(_n(_data?['revenue'])), icon: Icons.payments_outlined,
             note: '${_n(_data?['orderCount']).toInt()} hóa đơn'),
         SboxKpi(label: 'Lợi nhuận gộp', value: SboxFmt.money(_n(_data?['grossProfit'])), icon: Icons.trending_up_rounded, tone: SboxTone.success),
-        SboxKpi(label: 'Chi phí', value: SboxFmt.money(_n(_data?['expenses'])), icon: Icons.money_off_csred_outlined, tone: SboxTone.warning),
+        SboxKpi(label: 'Chi phí', value: SboxFmt.money(_n(_data?['expenses']) + _n(_data?['inventoryLoss'])), icon: Icons.money_off_csred_outlined, tone: SboxTone.warning,
+            note: _n(_data?['inventoryLoss']) != 0 ? 'Gồm hao hụt kho ${SboxFmt.money(_n(_data?['inventoryLoss']))}' : null),
         SboxKpi(label: 'Lợi nhuận ròng', value: SboxFmt.money(net), icon: Icons.savings_outlined, tone: net < 0 ? SboxTone.danger : SboxTone.success,
             note: 'Biên ${SboxFmt.pct(_n(_data?['marginPct']))}'),
       ],
@@ -2539,12 +2540,13 @@ class _PosPnlReportScreenState extends State<PosPnlReportScreen> {
           title: 'Từ doanh thu đến lợi nhuận ròng',
           subtitle: _time.displayLabel,
           child: SboxBarChart(
-            labels: const ['Doanh thu', 'Giá vốn', 'LN gộp', 'Chi phí', 'Thu khác', 'LN ròng'],
+            labels: const ['Doanh thu', 'Giá vốn', 'LN gộp', 'Hao hụt kho', 'Chi phí', 'Thu khác', 'LN ròng'],
             series: [
               SboxSeries(name: 'Số tiền', values: [
                 _n(_data?['revenue']),
                 _n(_data?['cogs']),
                 _n(_data?['grossProfit']),
+                _n(_data?['inventoryLoss']),
                 _n(_data?['expenses']),
                 _n(_data?['otherIncome']),
                 net,
@@ -2676,7 +2678,7 @@ class _PosPnlReportScreenState extends State<PosPnlReportScreen> {
                 if ((_data?['lines'] as List?)?.isNotEmpty == true)
                   PosReportCard(
                     title: 'Báo cáo kết quả kinh doanh',
-                    subtitle: 'Doanh thu thuần = tổng HĐ − hoàn trả − VAT',
+                    subtitle: 'Doanh thu thuần = tiền hàng (chưa VAT) − hàng khách trả',
                     child: Column(
                       children: [
                         for (final l in (_data!['lines'] as List).whereType<Map>())

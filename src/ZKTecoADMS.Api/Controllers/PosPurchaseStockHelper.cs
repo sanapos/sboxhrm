@@ -33,6 +33,24 @@ internal static class PosPurchaseStockHelper
         return cost > 0 ? Math.Round(cost, 4) : currentCost;
     }
 
+    /// <summary>
+    /// Đơn giá nhập thực của từng dòng (theo ĐVT dòng): (SL × đơn giá − CK dòng − phần CK phiếu phân bổ theo giá trị) ÷ SL.
+    /// Giá vốn bình quân và giá trị nhập trên thẻ kho dùng giá này (trước đây dùng đơn giá chưa trừ chiết khấu).
+    /// </summary>
+    public static Dictionary<Guid, decimal> NetUnitCosts(PosStockReceipt receipt, IReadOnlyCollection<PosStockReceiptLine> lines)
+    {
+        var nets = lines.ToDictionary(l => l.Id, l => CalcLineTotal(l.Qty, l.CostPrice, l.DiscountAmount));
+        var sum = nets.Values.Sum();
+        var receiptDiscount = Math.Clamp(receipt.DiscountAmount, 0, sum);
+        return lines.ToDictionary(l => l.Id, l =>
+        {
+            if (l.Qty <= 0) return l.CostPrice;
+            var net = nets[l.Id];
+            var alloc = sum > 0 ? receiptDiscount * net / sum : 0;
+            return Math.Max(0, (net - alloc) / l.Qty);
+        });
+    }
+
     public static async Task ApplyReceiptStockAsync(
         ZKTecoDbContext db,
         Guid storeId,
@@ -54,10 +72,12 @@ internal static class PosPurchaseStockHelper
                 .Where(v => variantIds.Contains(v.Id) && v.StoreId == storeId && v.Deleted == null && v.IsActive)
                 .ToDictionaryAsync(v => v.Id);
 
+        var netUnit = NetUnitCosts(receipt, lines);
         var touchedProducts = new HashSet<Guid>();
         foreach (var line in lines)
         {
             if (!products.TryGetValue(line.ProductId, out var p)) continue;
+            var unitPrice = netUnit.GetValueOrDefault(line.Id, line.CostPrice);
             PosProductVariant? variant = null;
             if (line.VariantId.HasValue)
                 variants.TryGetValue(line.VariantId.Value, out variant);
@@ -76,15 +96,16 @@ internal static class PosPurchaseStockHelper
                     if (PosVariantStockHelper.IsUnitOnlyVariant(variant.AttributeJson))
                     {
                         var rate = PosVariantStockHelper.ParseConversionRate(variant.AttributeJson);
-                        var costPerBase = rate > 0 ? line.CostPrice / rate : line.CostPrice;
+                        var costPerBase = rate > 0 ? unitPrice / rate : unitPrice;
                         p.CostPrice = WeightedAverageCost(p.OnHandQty - txQtyChange, p.CostPrice, txQtyChange, costPerBase);
                         unitCost = costPerBase;
                     }
                     else
                     {
                         variant.CostPrice = WeightedAverageCost(
-                            variant.OnHandQty - line.Qty, variant.CostPrice, line.Qty, line.CostPrice);
-                        unitCost = variant.CostPrice;
+                            variant.OnHandQty - line.Qty, variant.CostPrice, line.Qty, unitPrice);
+                        // Giá nhập lô này (không phải bình quân sau nhập).
+                        unitCost = txQtyChange != 0 ? unitPrice * line.Qty / txQtyChange : unitPrice;
                     }
                 }
                 variant.UpdatedAt = DateTime.UtcNow;
@@ -92,7 +113,7 @@ internal static class PosPurchaseStockHelper
                 p.UpdatedAt = DateTime.UtcNow;
                 p.UpdatedBy = createdBy;
                 touchedProducts.Add(p.Id);
-                lineAmount = txQtyChange * (unitCost ?? line.CostPrice);
+                lineAmount = unitPrice * line.Qty;
             }
             else
             {
@@ -100,14 +121,15 @@ internal static class PosPurchaseStockHelper
                 if (line.CostPrice > 0)
                 {
                     p.CostPrice = WeightedAverageCost(
-                        p.OnHandQty - line.Qty, p.CostPrice, line.Qty, line.CostPrice);
-                    unitCost = p.CostPrice;
+                        p.OnHandQty - line.Qty, p.CostPrice, line.Qty, unitPrice);
+                    // Thẻ kho ghi giá nhập của lô này (trước đây ghi giá vốn bình quân sau nhập → giá trị nhập sai).
+                    unitCost = unitPrice;
                 }
                 p.UpdatedAt = DateTime.UtcNow;
                 p.UpdatedBy = createdBy;
                 qtyAfter = p.OnHandQty;
                 txQtyChange = line.Qty;
-                lineAmount = line.Qty * (unitCost ?? line.CostPrice);
+                lineAmount = line.Qty * unitPrice;
             }
 
             if (PosStockLotHelper.ShouldTrackLot(p, line))
@@ -167,10 +189,12 @@ internal static class PosPurchaseStockHelper
                 .Where(v => variantIds.Contains(v.Id) && v.StoreId == storeId && v.Deleted == null && v.IsActive)
                 .ToDictionaryAsync(v => v.Id);
 
+        var netUnit = NetUnitCosts(receipt, lines);
         var touchedProducts = new HashSet<Guid>();
         foreach (var line in lines)
         {
             if (!products.TryGetValue(line.ProductId, out var p)) continue;
+            var unitPrice = netUnit.GetValueOrDefault(line.Id, line.CostPrice);
             PosProductVariant? variant = null;
             if (line.VariantId.HasValue)
                 variants.TryGetValue(line.VariantId.Value, out variant);
@@ -195,7 +219,7 @@ internal static class PosPurchaseStockHelper
                     if (PosVariantStockHelper.IsUnitOnlyVariant(variant.AttributeJson))
                     {
                         var rate = PosVariantStockHelper.ParseConversionRate(variant.AttributeJson);
-                        var costPerBase = rate > 0 ? line.CostPrice / rate : line.CostPrice;
+                        var costPerBase = rate > 0 ? unitPrice / rate : unitPrice;
                         var oldCost = p.CostPrice;
                         p.CostPrice = ReverseWeightedAverageCost(p.OnHandQty, p.CostPrice, txQtyChange, costPerBase);
                         PosStockRecording.RecordCostChangeIfChanged(
@@ -204,7 +228,7 @@ internal static class PosPurchaseStockHelper
                     else
                     {
                         variant.CostPrice = ReverseWeightedAverageCost(
-                            variant.OnHandQty, variant.CostPrice, line.Qty, line.CostPrice);
+                            variant.OnHandQty, variant.CostPrice, line.Qty, unitPrice);
                     }
                 }
                 qtyAfter = PosVariantStockHelper.ApplyStockDelta(p, variant, line.Qty, add: false);
@@ -222,7 +246,7 @@ internal static class PosPurchaseStockHelper
                 {
                     // Trả giá vốn bình quân về như trước khi nhập phiếu này.
                     var oldCost = p.CostPrice;
-                    p.CostPrice = ReverseWeightedAverageCost(p.OnHandQty, p.CostPrice, line.Qty, line.CostPrice);
+                    p.CostPrice = ReverseWeightedAverageCost(p.OnHandQty, p.CostPrice, line.Qty, unitPrice);
                     PosStockRecording.RecordCostChangeIfChanged(
                         db, storeId, p.Id, null, p.OnHandQty - line.Qty, oldCost, p.CostPrice, createdBy);
                 }
@@ -242,6 +266,8 @@ internal static class PosPurchaseStockHelper
                 TransactionType = PosStockTransactionType.StockOut,
                 QtyChange = -txQtyChange,
                 QtyAfter = qtyAfter,
+                UnitCost = txQtyChange != 0 ? unitPrice * line.Qty / txQtyChange : unitPrice,
+                LineAmount = unitPrice * line.Qty,
                 ReferenceNo = receipt.ReceiptNo,
                 StockReceiptId = receipt.Id,
                 Note = $"Hủy phiếu nhập: {receipt.ReceiptNo}",
@@ -363,6 +389,8 @@ internal static class PosPurchaseStockHelper
                 LotId = tx.LotId,
                 TransactionType = PosStockTransactionType.Adjust,
                 QtyChange = reverse,
+                UnitCost = tx.UnitCost,
+                LineAmount = tx.UnitCost.HasValue ? reverse * tx.UnitCost.Value : null,
                 QtyAfter = qtyAfter,
                 ReferenceNo = count.CountNo,
                 StockCountId = count.Id,
@@ -975,6 +1003,9 @@ internal static class PosPurchaseStockHelper
                 TransactionType = PosStockTransactionType.StockIn,
                 QtyChange = txQtyChange,
                 QtyAfter = qtyAfter,
+                // Giá vốn theo dòng phiếu (quy về đơn vị cơ bản) — để báo cáo trừ lại giá trị hàng xuất.
+                UnitCost = txQtyChange != 0 ? line.CostPrice * line.Qty / txQtyChange : line.CostPrice,
+                LineAmount = line.CostPrice * line.Qty,
                 ReferenceNo = issue.IssueNo,
                 StockIssueId = issue.Id,
                 Note = $"Hủy phiếu: {noteFallback} {issue.IssueNo}",

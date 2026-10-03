@@ -518,6 +518,9 @@ public class PosStockController(ZKTecoDbContext dbContext) : AuthenticatedContro
 
 
 
+    /// <summary>Chỉ bật lại khi cần chạy công cụ cũ (mặc định tắt).</summary>
+    internal static bool AllowLegacyStockReceipt { get; set; }
+
     [HttpPost("receipts")]
 
     [RequireModulePermission("PosProducts", ModulePermissionAction.Edit)]
@@ -527,6 +530,12 @@ public class PosStockController(ZKTecoDbContext dbContext) : AuthenticatedContro
         [FromBody] CreateStockReceiptDto dto)
 
     {
+
+        // Luồng nhập cũ: ghi đè giá vốn bằng giá nhập cuối (không bình quân) và sai ĐVT quy đổi.
+        // App đã dùng «Nhập hàng» (api/pos/purchase/receipts) — khóa để không làm sai giá vốn.
+        if (!AllowLegacyStockReceipt)
+            return StatusCode(StatusCodes.Status410Gone, AppResponse<StockReceiptDto>.Fail(
+                "Chức năng nhập kho cũ đã ngừng — dùng «Nhập hàng» để giá vốn bình quân được tính đúng"));
 
         var storeId = RequiredStoreId;
 
