@@ -1288,6 +1288,8 @@ class _PosKdsScreenState extends State<PosKdsScreen> {
 
   Widget _buildHeader(bool pushed, List<_KdsAgg> aggs) {
     final lateN = _lateCount;
+    // Điện thoại: thanh đầu gọn — ẩn đồng hồ, nút toàn màn hình / đọc món / máy in vào menu «⋯» (tránh tràn hàng).
+    final narrow = MediaQuery.sizeOf(context).width < 600;
     return Material(
       color: _bar,
       elevation: 0,
@@ -1308,21 +1310,23 @@ class _PosKdsScreenState extends State<PosKdsScreen> {
                   onPressed: () => Navigator.of(context).maybePop(),
                   icon: const Icon(Icons.arrow_back, color: _ink),
                 ),
-              const Icon(Icons.soup_kitchen, color: _blue, size: 28),
+              Icon(Icons.soup_kitchen, color: _blue, size: narrow ? 22 : 28),
+              if (!narrow) ...[
               const SizedBox(width: 8),
               Text(
                 tr('BẾP'),
-                style: const TextStyle(
+                style: TextStyle(
                   color: _blue,
                   fontWeight: FontWeight.w700,
-                  fontSize: 26,
+                  fontSize: narrow ? 18 : 26,
                   letterSpacing: 0.4,
                   height: 1,
                 ),
               ),
-              const SizedBox(width: 12),
-              _viewToggle(),
-              const SizedBox(width: 16),
+              ],
+              SizedBox(width: narrow ? 8 : 12),
+              _viewToggle(compact: narrow),
+              SizedBox(width: narrow ? 8 : 16),
               Expanded(
                 child: SingleChildScrollView(
                   scrollDirection: Axis.horizontal,
@@ -1355,6 +1359,7 @@ class _PosKdsScreenState extends State<PosKdsScreen> {
                   ),
                 ),
               ),
+              if (!narrow)
               Column(
                 crossAxisAlignment: CrossAxisAlignment.end,
                 children: [
@@ -1387,6 +1392,7 @@ class _PosKdsScreenState extends State<PosKdsScreen> {
                       style: const TextStyle(
                           color: _chipOn, fontWeight: FontWeight.w700)),
                 ),
+              if (!narrow) ...[
               IconButton(
                 tooltip: tr(_isKdsFullscreen
                     ? 'Thu nhỏ'
@@ -1415,6 +1421,7 @@ class _PosKdsScreenState extends State<PosKdsScreen> {
                   color: _printOnDone ? _blue : _muted,
                 ),
               ),
+              ],
               PopupMenuButton<String>(
                 tooltip: tr('Thêm'),
                 color: _sheet,
@@ -1431,6 +1438,8 @@ class _PosKdsScreenState extends State<PosKdsScreen> {
                             builder: (_) => const SettingsHubScreen()),
                       );
                     }
+                  } else if (v == 'kds_print') {
+                    unawaited(_openKdsPrintSettings());
                   } else if (v == 'voice_toggle') {
                     _toggleVoice();
                   } else if (v == 'voice_settings') {
@@ -1457,6 +1466,10 @@ class _PosKdsScreenState extends State<PosKdsScreen> {
                   PopupMenuItem(
                     value: 'voice_settings',
                     child: Text(tr('Chọn giọng và tốc độ')),
+                  ),
+                  PopupMenuItem(
+                    value: 'kds_print',
+                    child: Text(tr('Máy in KDS')),
                   ),
                   PopupMenuItem(
                     value: 'pos_settings',
@@ -1507,7 +1520,7 @@ class _PosKdsScreenState extends State<PosKdsScreen> {
     );
   }
 
-  Widget _viewToggle() {
+  Widget _viewToggle({bool compact = false}) {
     Widget tab(String label, _KdsView v) {
       final on = _view == v;
       return InkWell(
@@ -1515,7 +1528,7 @@ class _PosKdsScreenState extends State<PosKdsScreen> {
         borderRadius: BorderRadius.circular(10),
         child: AnimatedContainer(
           duration: const Duration(milliseconds: 160),
-          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 9),
+          padding: EdgeInsets.symmetric(horizontal: compact ? 10 : 16, vertical: compact ? 7 : 9),
           decoration: BoxDecoration(
             color: on ? _chipOn : Colors.transparent,
             borderRadius: BorderRadius.circular(10),
@@ -1525,7 +1538,7 @@ class _PosKdsScreenState extends State<PosKdsScreen> {
             style: TextStyle(
               color: on ? Colors.white : _ink,
               fontWeight: FontWeight.w700,
-              fontSize: 14,
+              fontSize: compact ? 13 : 14,
             ),
           ),
         ),

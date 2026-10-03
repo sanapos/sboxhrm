@@ -47,12 +47,16 @@ class PosPurchaseFilterPanel extends StatelessWidget {
 
       ),
 
-      child: SingleChildScrollView(
+      child: Material(
+        // Nền trắng nằm trên Material để ô chọn (ListTile) hiện được hiệu ứng chọn / rê chuột.
+        type: MaterialType.transparency,
+        child: SingleChildScrollView(
 
         padding: const EdgeInsets.all(12),
 
         child: child,
 
+      ),
       ),
 
     );

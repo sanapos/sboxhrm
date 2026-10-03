@@ -604,11 +604,11 @@ class _PosStockCountListScreenState extends State<PosStockCountListScreen> {
             hoverColor: c.status == 'Cancelled'
                 ? Colors.red.shade50
                 : SboxColors.slate100,
-            child: Container(
-              color: posDocRowBackground(
-                  c.status == 'InProgress' ? 'InProgress' : c.status),
+            child: Container(
               padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
               decoration: BoxDecoration(
+                color: posDocRowBackground(
+                  c.status == 'InProgress' ? 'InProgress' : c.status),
                 border: Border(
                   bottom: BorderSide(
                       color: expanded ? SboxColors.slate200 : Colors.transparent),

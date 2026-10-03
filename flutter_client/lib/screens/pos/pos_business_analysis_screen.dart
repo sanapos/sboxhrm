@@ -73,14 +73,21 @@ class _PosBusinessAnalysisScreenState extends State<PosBusinessAnalysisScreen> {
           const SizedBox(height: 6),
           Text(
             tr(money ? _moneyFmt.format(value) : '${value.toStringAsFixed(0)}${suffix ?? ''}'),
+            maxLines: 1,
+            overflow: TextOverflow.ellipsis,
             style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
           ),
           const SizedBox(height: 4),
           Row(
             children: [
               Icon(up ? Icons.arrow_upward : Icons.arrow_downward, size: 14, color: changeColor),
-              Text(tr('${_pctFmt.format(changePct.abs())}% so với kỳ trước'),
-                style: TextStyle(fontSize: 11, color: changeColor),
+              // Thẻ 2 cột trên điện thoại hẹp — chữ xuống dòng thay vì tràn khung.
+              Expanded(
+                child: Text(tr('${_pctFmt.format(changePct.abs())}% so với kỳ trước'),
+                  maxLines: 2,
+                  overflow: TextOverflow.ellipsis,
+                  style: TextStyle(fontSize: 11, color: changeColor),
+                ),
               ),
             ],
           ),

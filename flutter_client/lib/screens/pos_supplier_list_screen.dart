@@ -220,14 +220,7 @@ class _PosSupplierListScreenState extends State<PosSupplierListScreen> {
         backgroundColor: Colors.white,
         foregroundColor: SboxColors.text,
         elevation: 0.5,
-        actions: [
-          if (canCreate)
-            IconButton(
-              tooltip: tr('Thêm NCC'),
-              onPressed: () => _addOrEdit(),
-              icon: const Icon(Icons.add),
-            ),
-        ],
+        // «+ Thêm NCC» đã ở nút nổi — không lặp dấu + trên thanh tiêu đề.
       ),
       body: Column(
         children: [

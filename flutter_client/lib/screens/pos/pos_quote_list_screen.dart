@@ -1,3 +1,4 @@
+import '../../widgets/sbox/sbox_ui.dart';
 import '../../widgets/pos/pos_contract_payment_panel.dart' show canUsePosContracts;
 import 'dart:async';
 
@@ -452,40 +453,41 @@ class _PosQuoteListScreenState extends State<PosQuoteListScreen> {
                     child: Row(
                       children: [
                         Expanded(
-                          child: FittedBox(
-                      fit: BoxFit.scaleDown,
-                      alignment: Alignment.centerLeft,
-                      child: SegmentedButton<int>(
-                      segments: [
-                        ButtonSegment(
-                            value: 0,
-                            label: Text(tr('Báo giá')),
-                            icon: const Icon(Icons.request_quote_outlined,
-                                size: 18)),
-                        ButtonSegment(
-                            value: 1,
-                            label: Text(tr('Hợp đồng')),
-                            icon: const Icon(Icons.handshake_outlined,
-                                size: 18)),
-                        ButtonSegment(
-                            value: 2,
-                            label: Text(tr('Đề nghị TT')),
-                            icon: const Icon(Icons.payments_outlined,
-                                size: 18)),
-                        ButtonSegment(
-                            value: 3,
-                            label: Text(tr('Nghiệm thu')),
-                            icon: const Icon(Icons.fact_check_outlined,
-                                size: 18)),
-                      ],
-                      selected: {_tab},
-                      onSelectionChanged: (s) {
-                        setState(() => _tab = s.first);
-                        _reloadAll();
-                      },
-                      showSelectedIcon: false,
-                    ),
-                          ),
+                          child: Builder(builder: (context) {
+                            // Điện thoại: 4 tab chia đều, chỉ chữ (bỏ biểu tượng) — trước đây cả cụm bị thu nhỏ còn ~9px.
+                            final phone = MediaQuery.sizeOf(context).width < 600;
+                            const tabs = [
+                              (0, 'Báo giá', Icons.request_quote_outlined),
+                              (1, 'Hợp đồng', Icons.handshake_outlined),
+                              (2, 'Đề nghị TT', Icons.payments_outlined),
+                              (3, 'Nghiệm thu', Icons.fact_check_outlined),
+                            ];
+                            final seg = SegmentedButton<int>(
+                              segments: [
+                                for (final t in tabs)
+                                  ButtonSegment(
+                                    value: t.$1,
+                                    label: FittedBox(fit: BoxFit.scaleDown, child: Text(tr(t.$2), maxLines: 1)),
+                                    icon: phone ? null : Icon(t.$3, size: 18),
+                                  ),
+                              ],
+                              selected: {_tab},
+                              onSelectionChanged: (s) {
+                                setState(() => _tab = s.first);
+                                _reloadAll();
+                              },
+                              showSelectedIcon: false,
+                              style: phone
+                                  ? const ButtonStyle(
+                                      visualDensity: VisualDensity.compact,
+                                      padding: WidgetStatePropertyAll(EdgeInsets.symmetric(horizontal: 4)),
+                                    )
+                                  : null,
+                            );
+                            return phone
+                                ? SizedBox(width: double.infinity, child: seg)
+                                : FittedBox(fit: BoxFit.scaleDown, alignment: Alignment.centerLeft, child: seg);
+                          }),
                         ),
                         IconButton(
                           tooltip: tr('Theo dõi chăm sóc khách'),
@@ -775,22 +777,11 @@ class _PosQuoteListScreenState extends State<PosQuoteListScreen> {
     if (_loading) return const Center(child: CircularProgressIndicator());
     if (_error != null) return Center(child: Text(_error!));
     if (_items.isEmpty) {
-      return Center(
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            Text(tr(
-                'Chưa có báo giá — chọn hàng hóa / dịch vụ rồi nhập khách.')),
-            if (canCreate) ...[
-              const SizedBox(height: 12),
-              IconButton.filled(
-                tooltip: tr('Thêm báo giá'),
-                onPressed: _openComposer,
-                icon: const Icon(Icons.add),
-              ),
-            ],
-          ],
-        ),
+      // Nút «+ Báo giá» đã ở nút nổi — màn trống chỉ hướng dẫn, căn giữa.
+      return const SboxEmptyState(
+        icon: Icons.request_quote_outlined,
+        title: 'Chưa có báo giá',
+        message: 'Bấm + để chọn hàng hóa / dịch vụ rồi nhập thông tin khách.',
       );
     }
     return RefreshIndicator(

@@ -288,12 +288,26 @@ class ApiService {
 
   // Lưu refresh token
   Future<void> saveRefreshToken(String refreshToken) async {
+    _refreshFailedAt = null; // phiên mới — bỏ thời gian nghỉ sau lần làm mới hỏng
     final prefs = await SharedPreferences.getInstance();
     await prefs.setString(_refreshTokenKey, refreshToken);
   }
 
-  // Refresh access token using refresh token
-  Future<Map<String, dynamic>?> refreshToken() async {
+  // ── Làm mới đăng nhập: 1 lượt dùng chung (ApiService tạo nhiều nơi nên dùng static) ──
+  static Future<Map<String, dynamic>?>? _refreshInFlight;
+  static DateTime? _refreshFailedAt;
+
+  /// Làm mới access token. Nhiều yêu cầu 401 cùng lúc chỉ gọi server 1 lần; mã làm mới hỏng / hết hạn
+  /// thì xóa (không gửi lại mãi — trước đây 1 máy gửi ~10 lần/giây); lỗi mạng thì nghỉ 30 giây.
+  Future<Map<String, dynamic>?> refreshToken() {
+    final failedAt = _refreshFailedAt;
+    if (failedAt != null && DateTime.now().difference(failedAt) < const Duration(seconds: 30)) {
+      return Future.value(null);
+    }
+    return _refreshInFlight ??= _refreshTokenOnce().whenComplete(() => _refreshInFlight = null);
+  }
+
+  Future<Map<String, dynamic>?> _refreshTokenOnce() async {
     try {
       final prefs = await SharedPreferences.getInstance();
       final refreshTk = prefs.getString(_refreshTokenKey);
@@ -326,6 +340,7 @@ class ApiService {
             if (data['refreshToken'] != null) {
               await saveRefreshToken(data['refreshToken']);
             }
+            _refreshFailedAt = null;
             return data;
           }
           if (_isLicenseExpiredResponse(response, normalized)) {
@@ -336,9 +351,15 @@ class ApiService {
           }
         }
       }
+      // Server từ chối mã làm mới (hết hạn / sai / bị thu hồi) → bỏ mã, chờ đăng nhập lại.
+      if (response.statusCode == 400 || response.statusCode == 401 || response.statusCode == 403 ||
+          (response.statusCode >= 200 && response.statusCode < 300)) {
+        await prefs.remove(_refreshTokenKey);
+      }
     } catch (e) {
       debugPrint('❌ ApiService: Refresh token error: $e');
     }
+    _refreshFailedAt = DateTime.now();
     return null;
   }
 

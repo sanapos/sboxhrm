@@ -423,10 +423,12 @@ public static class AiAssistantContextBuilder
                 .Select(du => new { du.Id, EmpId = du.EmployeeId!.Value })
                 .ToListAsync(ct);
             var duEmpMap = duToEmp.ToDictionary(x => x.Id, x => x.EmpId);
+            // EF không dịch được Dictionary.ContainsKey sang SQL (lỗi 500) — dùng danh sách Id.
+            var duIds = duEmpMap.Keys.ToList();
 
             foreach (var log in await db.AttendanceLogs.AsNoTracking()
                          .Where(a => a.AttendanceTime >= todayQueryStart && a.AttendanceTime < todayQueryEnd
-                                     && ((a.EmployeeId.HasValue && duEmpMap.ContainsKey(a.EmployeeId.Value))
+                                     && ((a.EmployeeId.HasValue && duIds.Contains(a.EmployeeId.Value))
                                          || rosterCodes.Contains(a.PIN)))
                          .Select(a => new { a.EmployeeId, a.PIN })
                          .ToListAsync(ct))
