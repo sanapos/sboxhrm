@@ -233,9 +233,6 @@ public class DeviceCapabilityService(
                 case DeviceCommandTypes.OpenDoor:
                 case DeviceCommandTypes.CloseDoor:
                     return (string.Empty, "Máy này (dòng LX35) không có lệnh mở / đóng cửa từ xa.");
-                case DeviceCommandTypes.ClearDeviceUsers:
-                    // Thử thật 03/10: CLEAR ALL USERINFO → -1002, user vẫn còn; CLEAR DATA xóa cả user + vân tay + chấm công.
-                    return (string.Empty, PushLiteNoClearUsers);
             }
         }
 
@@ -370,10 +367,6 @@ public class DeviceCapabilityService(
     internal const string PushLiteNoRemoteEnroll =
         "Máy này (dòng LX35) không hỗ trợ đăng ký vân tay từ xa. Đăng ký vân tay trực tiếp trên máy "
         + "(Menu → Quản lý người dùng → chọn nhân viên → Vân tay).";
-
-    internal const string PushLiteNoClearUsers =
-        "Máy này (dòng LX35) không có lệnh xóa riêng toàn bộ nhân viên. Xóa từng nhân viên khỏi máy, "
-        + "hoặc dùng «Xóa toàn bộ dữ liệu» — lệnh đó xóa cả nhân viên, vân tay và chấm công trên máy (chấm công đã lên Sbox vẫn giữ).";
 
     internal const string PushLiteNoFingerprintSync =
         "Máy này (dòng LX35) chưa gửi được mẫu vân tay về Sbox. Nhân viên đăng ký vân tay trực tiếp trên từng máy.";

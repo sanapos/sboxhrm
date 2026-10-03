@@ -103,7 +103,8 @@ public class DeviceInfoCommandTests
             devices,
             new EfRepository<DeviceCommand>(db, NullLogger<EfRepository<DeviceCommand>>.Instance, tenant),
             svc,
-            NullLogger<CreateDeviceCmdHandler>.Instance);
+            NullLogger<CreateDeviceCmdHandler>.Instance,
+            new EfRepository<DeviceUser>(db, NullLogger<EfRepository<DeviceUser>>.Instance, tenant));
 
         // Máy thật trả -1002 cho DATA QUERY — nhóm máy vẫn giữ PushLite
         await svc.LearnFromCommandResultAsync(device.Id, DeviceCommandTypes.SyncDeviceUsers, -1002, "DATA");
@@ -129,17 +130,27 @@ public class DeviceInfoCommandTests
         Assert.False(enroll.IsSuccess);
         Assert.Contains("trực tiếp trên máy", enroll.Message);
         Assert.False((await handler.Handle(new CreateDeviceCmdCommand(device.Id, (int)DeviceCommandTypes.OpenDoor, 10), default)).IsSuccess);
-        // CLEAR ALL USERINFO: máy trả -1002 (thử thật) → không gửi, báo cách khác
+        // «Xóa toàn bộ user»: CLEAR ALL USERINFO trả -1002 (thử thật) → xóa từng người bằng DATA DELETE USERINFO
+        var none = await handler.Handle(new CreateDeviceCmdCommand(device.Id, (int)DeviceCommandTypes.ClearDeviceUsers, 10), default);
+        Assert.False(none.IsSuccess); // chưa có danh sách nhân viên → bảo Tải user trước
+        db.AddRange(
+            new DeviceUser { Id = Guid.NewGuid(), DeviceId = device.Id, Pin = "968315", Name = "Le Van Tho" },
+            new DeviceUser { Id = Guid.NewGuid(), DeviceId = device.Id, Pin = "868", Name = "868" });
+        await db.SaveChangesAsync();
         var clearUsers = await handler.Handle(new CreateDeviceCmdCommand(device.Id, (int)DeviceCommandTypes.ClearDeviceUsers, 10), default);
-        Assert.False(clearUsers.IsSuccess);
-        Assert.Contains("xóa cả nhân viên, vân tay và chấm công", clearUsers.Message);
+        Assert.True(clearUsers.IsSuccess);
+        var deletes = await db.DeviceCommands.AsNoTracking().Where(c => c.CommandType == DeviceCommandTypes.DeleteDeviceUser).ToListAsync();
+        Assert.Equal(2, deletes.Count);
+        Assert.Contains(deletes, c => c.Command == "DATA DELETE USERINFO PIN=968315");
+        Assert.All(deletes, c => Assert.NotEqual(Guid.Empty, c.ObjectReferenceId));
+        Assert.DoesNotContain(await db.DeviceCommands.AsNoTracking().ToListAsync(), c => c.Command.Contains("CLEAR ALL USERINFO"));
         // CLEAR DATA vẫn gửi bình thường (máy nhận, xóa hết)
         Assert.Equal("CLEAR DATA", (await svc.ResolveCommandAsync(device.Id, DeviceCommandTypes.ClearData)).Command);
         var cap = await svc.GetCapabilityDtoAsync(device.Id);
         Assert.False(cap.AllowEnrollFingerprintUi);
         Assert.False(cap.AllowDoorControlUi);
         Assert.False(cap.AllowEnrollFaceUi);
-        Assert.Equal(4, await db.DeviceCommands.CountAsync());
+        Assert.Equal(6, await db.DeviceCommands.CountAsync()); // 2 đánh dấu + 2 CHECK + 2 xóa NV
 
         // INFO vẫn chạy bình thường
         Assert.Equal("INFO", (await svc.ResolveCommandAsync(device.Id, DeviceCommandTypes.GetDeviceInfo)).Command);

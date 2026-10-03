@@ -12,7 +12,8 @@ public class CreateDeviceCmdHandler(
     IRepository<Device> deviceRepository,
     IRepository<DeviceCommand> deviceCmdRepository,
     IDeviceCapabilityService capabilityService,
-    ILogger<CreateDeviceCmdHandler> logger) : ICommandHandler<CreateDeviceCmdCommand, AppResponse<DeviceCmdDto>>
+    ILogger<CreateDeviceCmdHandler> logger,
+    IRepository<DeviceUser> deviceUserRepository) : ICommandHandler<CreateDeviceCmdCommand, AppResponse<DeviceCmdDto>>
 {
     public async Task<AppResponse<DeviceCmdDto>> Handle(CreateDeviceCmdCommand request, CancellationToken cancellationToken)
     {
@@ -34,6 +35,14 @@ public class CreateDeviceCmdHandler(
         {
             attEnd = ClockCommandBuilder.VietnamEndOfToday();
             attStart = DateTime.UtcNow.AddHours(7).AddYears(-5);
+        }
+
+        // LX35 (PushLite): CLEAR ALL USERINFO trả -1002, CLEAR DATA xóa cả chấm công — xóa từng nhân viên (đã thử thật).
+        if (commandType == DeviceCommandTypes.ClearDeviceUsers)
+        {
+            var capability = await capabilityService.GetCapabilityDtoAsync(device.Id, cancellationToken);
+            if (AdmsEngineProfiles.UsesCheckStampSync(capability.EngineProfile))
+                return await QueuePerUserDeletesAsync(device.Id, request.Priority, cancellationToken);
         }
 
         var (commandStr, warning) = await capabilityService.ResolveCommandAsync(
@@ -103,6 +112,37 @@ public class CreateDeviceCmdHandler(
         return string.IsNullOrWhiteSpace(warning)
             ? AppResponse<DeviceCmdDto>.Success(dto)
             : AppResponse<DeviceCmdDto>.Create(true, dto, [warning]);
+    }
+
+    /// <summary>Một lệnh DATA DELETE USERINFO cho mỗi nhân viên server biết trên máy; xóa xong DeleteUserStrategy bỏ bản ghi trên server.</summary>
+    private async Task<AppResponse<DeviceCmdDto>> QueuePerUserDeletesAsync(
+        Guid deviceId, int priority, CancellationToken cancellationToken)
+    {
+        var users = await deviceUserRepository.GetAllAsync(u => u.DeviceId == deviceId, cancellationToken: cancellationToken);
+        if (users.Count == 0)
+        {
+            return AppResponse<DeviceCmdDto>.Fail(
+                "Sbox chưa có danh sách nhân viên của máy này. Bấm «Tải user» trước, rồi xóa.");
+        }
+
+        DeviceCommand? first = null;
+        foreach (var user in users)
+        {
+            var created = await deviceCmdRepository.AddAsync(new DeviceCommand
+            {
+                DeviceId = deviceId,
+                Command = ClockCommandBuilder.BuildDeleteEmployeeCommand(user.Pin),
+                Priority = priority,
+                CommandType = DeviceCommandTypes.DeleteDeviceUser,
+                ObjectReferenceId = user.Id,
+                Status = CommandStatus.Created,
+            }, cancellationToken);
+            first ??= created;
+        }
+
+        logger.LogWarning("[CreateDeviceCmd] PushLite ClearDeviceUsers → {Count} lệnh DATA DELETE USERINFO", users.Count);
+        return AppResponse<DeviceCmdDto>.Create(true, first!.Adapt<DeviceCmdDto>(),
+            [$"Đã xếp lệnh xóa {users.Count} nhân viên khỏi máy (dòng LX35 xóa từng người). Vân tay của họ trên máy cũng bị xóa."]);
     }
 
     private async Task CancelStaleSyncAttendanceCommandsAsync(Guid deviceId, CancellationToken cancellationToken)
