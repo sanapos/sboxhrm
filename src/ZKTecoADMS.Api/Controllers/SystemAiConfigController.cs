@@ -36,7 +36,7 @@ public class SystemAiConfigController(
             apiKeys = (cfg?.ApiKeys ?? []).Select(GeminiKeyPool.Mask).ToList(),
             keyStatus = GeminiKeyPool.Status(cfg?.ApiKeys ?? []),
             keyCount = cfg?.ApiKeys.Count ?? 0,
-            model = cfg?.Model ?? "gemini-2.5-flash",
+            model = cfg?.Model ?? "gemini-flash-latest",
             maxOutputTokens = cfg?.MaxOutputTokens ?? 8192,
             temperature = cfg?.Temperature ?? 0.7,
             enabled = cfg?.Enabled ?? false,

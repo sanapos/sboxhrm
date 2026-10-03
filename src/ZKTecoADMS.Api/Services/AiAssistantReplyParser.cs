@@ -54,6 +54,22 @@ public static class AiAssistantReplyParser
             cStart = ci;
         }
 
+        // [[OPEN:MãChứcNăng]] — mở màn bất kỳ trong ĐƯỜNG DẪN MENU (khi không có thẻ ACTION riêng).
+        var oStart = 0;
+        while (true)
+        {
+            var oi = cleaned.IndexOf("[[OPEN:", oStart, StringComparison.Ordinal);
+            if (oi < 0) break;
+            var oj = cleaned.IndexOf("]]", oi, StringComparison.Ordinal);
+            if (oj < 0) break;
+            var code = cleaned.Substring(oi + 7, oj - (oi + 7)).Trim();
+            if (AiAssistantMenuMap.Paths.ContainsKey(code)
+                && (isSuperUser || (permMap.TryGetValue(code, out var mp) && mp.CanView)))
+                actions.Add("open:" + code);
+            cleaned = cleaned.Remove(oi, oj - oi + 2);
+            oStart = oi;
+        }
+
         var gStart = 0;
         while (true)
         {
@@ -72,7 +88,7 @@ public static class AiAssistantReplyParser
             guides.Add(suggestedGuides[0]);
 
         actions = actions
-            .Where(a => AiAssistantPermissionRules.CanAction(a, permMap, isSuperUser))
+            .Where(a => a.StartsWith("open:", StringComparison.Ordinal) || AiAssistantPermissionRules.CanAction(a, permMap, isSuperUser))
             .Distinct()
             .ToList();
         creates = creates.Distinct().ToList();

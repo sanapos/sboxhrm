@@ -15,7 +15,8 @@ class SystemAiConfigCard extends StatefulWidget {
 }
 
 class _SystemAiConfigCardState extends State<SystemAiConfigCard> {
-  static const _models = ['gemini-2.5-flash', 'gemini-2.5-pro', 'gemini-2.5-flash-lite'];
+  // Khóa tạo mới không còn dùng được 2.5 Flash (Google 404) — để model «mới nhất» lên đầu.
+  static const _models = ['gemini-flash-latest', 'gemini-3.8-flash', 'gemini-pro-latest', 'gemini-flash-lite-latest', 'gemini-2.5-flash'];
 
   final _api = ApiService();
   final _keyCtrl = TextEditingController();

@@ -96,8 +96,15 @@ public class AiAssistantController(
                 }
             }
 
+            // Đường dẫn menu đúng tên trên app — chỉ các mục người hỏi được xem.
+            var menuPaths = AiAssistantMenuMap.Paths
+                .Where(kv => isSuperUser || (permMap.TryGetValue(kv.Key, out var mp) && mp.CanView))
+                .Select(kv => $"{kv.Value} [{kv.Key}]")
+                .Distinct()
+                .OrderBy(p => p, StringComparer.Ordinal)
+                .ToList();
             var systemPrompt = AiAssistantPromptBuilder.Build(
-                contextText, allowedActions, allowedCreates, suggestedGuides);
+                contextText, allowedActions, allowedCreates, suggestedGuides, menuPaths);
             logger.LogInformation(
                 "AI assistant context for {UserId}: {Length} chars, digest: {Digest}",
                 CurrentUserId,

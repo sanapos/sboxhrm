@@ -53,6 +53,11 @@ public static class AiAssistantQueryTools
                 await AppendPenaltySummaryAsync(db, storeId, buf, ct);
             }
 
+            if (LooksLikeSales(q) && (CanView(perms, "PosSalesReport", isSuperUser) || CanView(perms, "PosReportRevenue", isSuperUser)))
+            {
+                await AppendPosSalesAsync(db, storeId, buf, ct);
+            }
+
             if (LooksLikeTeamToday(q) && CanTeamSnapshot(perms, isSuperUser, role))
             {
                 buf.AppendLine();
@@ -99,6 +104,60 @@ public static class AiAssistantQueryTools
 
     private static bool LooksLikePenalty(string q) =>
         q.Contains("phiếu phạt") || q.Contains("phạt") || q.Contains("penalty");
+
+    private static bool LooksLikeSales(string q) =>
+        q.Contains("doanh thu") || q.Contains("doanh số") || q.Contains("bán được") || q.Contains("bán hàng")
+        || q.Contains("đơn hàng") || q.Contains("hóa đơn") || q.Contains("bán chạy") || q.Contains("công nợ")
+        || q.Contains("khách nợ") || q.Contains("revenue") || q.Contains("bao nhiêu đơn");
+
+    /// <summary>Bán hàng: hôm nay / hôm qua / tháng này, top món hôm nay, công nợ khách — đơn đã hoàn thành.</summary>
+    private static async Task AppendPosSalesAsync(ZKTecoDbContext db, Guid storeId, StringBuilder buf, CancellationToken ct)
+    {
+        var nowVn = AiAssistantVnTime.NowVn();
+        var todayVn = nowVn.Date;
+        var monthVn = new DateTime(todayVn.Year, todayVn.Month, 1);
+        DateTime U(DateTime vn) => vn.AddHours(-AiAssistantVnTime.OffsetHours);
+        var fromUtc = U(monthVn < todayVn.AddDays(-1) ? monthVn : todayVn.AddDays(-1)); // đủ cả hôm qua lẫn đầu tháng
+        var orders = await db.PosSaleOrders.AsNoTracking()
+            .Where(o => o.StoreId == storeId && o.Deleted == null && o.IsActive && o.Status == PosSaleOrderStatus.Completed
+                        && (o.SaleDate ?? o.CreatedAt) >= fromUtc)
+            .Select(o => new { o.Id, At = o.SaleDate ?? o.CreatedAt, o.Total, o.PaidAmount, o.CustomerName })
+            .ToListAsync(ct);
+        var withVn = orders.Select(o => new { o.Id, Day = o.At.AddHours(AiAssistantVnTime.OffsetHours).Date, o.Total, Debt = o.Total - o.PaidAmount, o.CustomerName }).ToList();
+        string Money(decimal v) => v.ToString("#,##0", System.Globalization.CultureInfo.GetCultureInfo("vi-VN")) + "đ";
+        void Line(string label, IEnumerable<decimal> totals)
+        {
+            var list = totals.ToList();
+            buf.AppendLine($"- {label}: {list.Count} đơn · {Money(list.Sum())}" + (list.Count > 0 ? $" · TB {Money(list.Sum() / list.Count)}/đơn" : ""));
+        }
+        buf.AppendLine();
+        buf.AppendLine($"=== BÁN HÀNG (đơn đã hoàn thành, giờ VN — cập nhật {nowVn:HH:mm dd/MM}) ===");
+        Line("Hôm nay", withVn.Where(o => o.Day == todayVn).Select(o => o.Total));
+        Line("Hôm qua", withVn.Where(o => o.Day == todayVn.AddDays(-1)).Select(o => o.Total));
+        Line($"Tháng {todayVn:MM/yyyy}", withVn.Where(o => o.Day >= monthVn).Select(o => o.Total));
+
+        var todayIds = withVn.Where(o => o.Day == todayVn).Select(o => o.Id).ToList();
+        if (todayIds.Count > 0)
+        {
+            var top = await db.PosSaleOrderLines.AsNoTracking()
+                .Where(l => todayIds.Contains(l.SaleOrderId))
+                .GroupBy(l => l.ProductName)
+                .Select(g => new { Name = g.Key, Qty = g.Sum(x => x.Qty), Amount = g.Sum(x => x.LineTotal) })
+                .OrderByDescending(x => x.Amount)
+                .Take(5)
+                .ToListAsync(ct);
+            if (top.Count > 0)
+                buf.AppendLine("- Bán chạy hôm nay: " + string.Join("; ", top.Select(t => $"{t.Name} ×{t.Qty:0.##} ({Money(t.Amount)})")));
+        }
+
+        var debts = withVn.Where(o => o.Day >= monthVn && o.Debt > 0).ToList();
+        buf.AppendLine(debts.Count == 0
+            ? "- Công nợ khách tháng này: không có đơn còn nợ"
+            : $"- Công nợ khách tháng này: {debts.Count} đơn còn nợ · {Money(debts.Sum(d => d.Debt))}"
+              + " (nhiều nhất: " + string.Join(", ", debts.GroupBy(d => string.IsNullOrWhiteSpace(d.CustomerName) ? "Khách lẻ" : d.CustomerName!)
+                  .Select(g => new { g.Key, V = g.Sum(x => x.Debt) }).OrderByDescending(x => x.V).Take(3).Select(x => $"{x.Key} {Money(x.V)}")) + ")");
+        buf.AppendLine("- Xem chi tiết: Bán hàng › Báo cáo (Doanh thu, Hàng bán chạy, Công nợ).");
+    }
 
     private static bool LooksLikeTeamToday(string q) =>
         q.Contains("ai vắng") || q.Contains("ai đi trễ") || q.Contains("nhân sự hôm nay")

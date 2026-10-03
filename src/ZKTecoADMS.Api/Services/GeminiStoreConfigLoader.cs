@@ -76,7 +76,7 @@ public static class GeminiStoreConfigLoader
         {
             ApiKey = keys[0],
             ApiKeys = keys,
-            Model = map.GetValueOrDefault("gemini_model") ?? "gemini-2.5-flash",
+            Model = map.GetValueOrDefault("gemini_model") ?? "gemini-flash-latest",
             MaxOutputTokens = int.TryParse(map.GetValueOrDefault("gemini_max_tokens"), out var t) ? t : 2048,
             Temperature = double.TryParse(
                 map.GetValueOrDefault("gemini_temperature"),

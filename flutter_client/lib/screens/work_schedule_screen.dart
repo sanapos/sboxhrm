@@ -535,7 +535,7 @@ class _WorkScheduleScreenState extends State<WorkScheduleScreen>
         icon: Icons.assignment_turned_in,
         label: 'Duyệt lịch làm việc',
         onPressed: () =>
-            NavigationNotifier.goTo(NavigationNotifier.scheduleApproval),
+            NavigationNotifier.goToScheduleApproval(),
       ));
     }
     if (!_isEmployee) {
@@ -912,7 +912,7 @@ class _WorkScheduleScreenState extends State<WorkScheduleScreen>
             compact: true,
             onTapDetail: () {
               NavigationNotifier.scheduleApprovalTab.value = 3;
-              NavigationNotifier.goTo(NavigationNotifier.scheduleApproval);
+              NavigationNotifier.goToScheduleApproval();
             },
           ),
         ),
@@ -9170,6 +9170,6 @@ class _WorkScheduleScreenState extends State<WorkScheduleScreen>
 
   void _showStaffingQuotaDialog() {
     SettingsHubScreen.openCode('staffing');
-    NavigationNotifier.goTo(NavigationNotifier.settingsHub);
+    NavigationNotifier.goToModule('SettingsHub');
   }
 }

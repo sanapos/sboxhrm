@@ -3,6 +3,8 @@ import 'package:flutter/foundation.dart' show kIsWeb, defaultTargetPlatform, Tar
 import 'package:flutter/material.dart';
 import 'package:zkteco_flutter_client/widgets/app_responsive_dialog.dart';
 import 'package:flutter_tts/flutter_tts.dart';
+import '../utils/vi_speech_text.dart';
+import '../utils/permission_navigation.dart';
 import 'package:provider/provider.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:speech_to_text/speech_to_text.dart' as stt;
@@ -142,9 +144,11 @@ class _AiAssistantSheetState extends State<AiAssistantSheet> {
         } catch (_) {}
       }
       await _tts.setLanguage('vi-VN');
-      await _tts.setSpeechRate(0.42);
+      // Tốc độ / cao độ tự nhiên: iOS 0.5 = bình thường, Android / web 1.0 = bình thường (hơi chậm cho dễ nghe).
+      final ios = !kIsWeb && defaultTargetPlatform == TargetPlatform.iOS;
+      await _tts.setSpeechRate(kIsWeb ? 0.95 : (ios ? 0.5 : 0.92));
       await _tts.setVolume(1.0);
-      await _tts.setPitch(1.12);
+      await _tts.setPitch(1.0);
       if (!kIsWeb) {
         await _tts.awaitSpeakCompletion(true);
         try {
@@ -177,20 +181,18 @@ class _AiAssistantSheetState extends State<AiAssistantSheet> {
         final loc = locale.toLowerCase();
         if (!loc.startsWith('vi')) continue;
         final n = name.toLowerCase();
-        // Giọng mạng/neural hay mất, đọc đều không nghỉ.
-        if (n.contains('network') ||
-            n.contains('server') ||
-            n.contains('wavenet') ||
-            n.contains('-x-gft-')) {
-          continue;
-        }
+        final q = (e['quality'] ?? '').toString().toLowerCase();
+        // Ưu tiên giọng chất lượng cao (iOS Premium / Enhanced, giọng neural / mạng của Google) — đọc có ngữ điệu;
+        // giọng nén «compact» / cài sẵn cơ bản đọc đều như robot. Giọng mạng cần Internet (trợ lý vốn đã cần).
         var s = 10;
-        if (n.contains('local') && !n.contains('server')) s += 25;
-        if (n.contains('vif') || n.contains('female') || n.contains('nữ')) {
-          s += 12;
-        }
-        if (n.contains('natural') && n.contains('local')) s += 6;
-        if (n.contains('vid') || n.contains('male')) s -= 4;
+        if (n.contains('premium') || q.contains('premium')) s += 60;
+        if (n.contains('enhanced') || q.contains('enhanced')) s += 45;
+        if (n.contains('neural') || n.contains('natural') || n.contains('wavenet')) s += 35;
+        if (n.contains('network')) s += 25;
+        if (n.contains('local')) s += 10;
+        if (n.contains('compact')) s -= 10;
+        if (n.contains('-x-gft-')) s -= 20;
+        if (n.contains('vif') || n.contains('female') || n.contains('nữ') || n.contains('linh')) s += 8;
         if (s > bestScore) {
           bestScore = s;
           bestName = name;
@@ -217,37 +219,39 @@ class _AiAssistantSheetState extends State<AiAssistantSheet> {
   String _plainForSpeech(String raw) {
     var t = raw
         .replaceAll(RegExp(r'\[\[(?:ACTION|CREATE|GUIDE):[^\]]*\]\]'), ' ')
+        .replaceAll(RegExp(r'[*#_`]'), ' ')
         .replaceAll(RegExp(r'[🎂🎉🎁⚠️❌✅📅🕐📝📖•·]'), ' ')
         .replaceAll(RegExp(r'[\u{1F300}-\u{1FAFF}]', unicode: true), ' ')
         .replaceAll(RegExp(r'\s+'), ' ')
         .trim();
-    return t;
+    // Tiền, giờ, ngày, %, chữ viết tắt → chữ đọc tự nhiên (không đọc «một chấm năm trăm…», «en vê»).
+    return ViSpeechText.normalize(t);
   }
 
   List<String> _splitForSpeech(String raw) {
     final plain = _plainForSpeech(raw);
     if (plain.isEmpty) return const [];
     final parts = plain
-        .split(RegExp(r'(?<=[.!?…])\s+|\n+|;\s+|:\s+|•\s*'))
+        .split(RegExp(r'(?<=[.!?…])\s+|\n+|•\s*'))
         .map((s) => s.trim())
         .where((s) => s.isNotEmpty)
         .toList();
     if (parts.isEmpty) return [plain];
     final out = <String>[];
     for (final p in parts) {
-      if (p.length <= 90) {
+      if (p.length <= 220) {
         out.add(p);
         continue;
       }
-      final words = p.split(' ');
+      // Câu rất dài: chia ở dấu phẩy / chấm phẩy, gom lại đến ~200 ký tự.
       var buf = StringBuffer();
-      for (final w in words) {
-        if (buf.length + w.length > 80 && buf.isNotEmpty) {
+      for (final seg in p.split(RegExp(r'(?<=[,;])\s+'))) {
+        if (buf.length + seg.length > 200 && buf.isNotEmpty) {
           out.add(buf.toString().trim());
           buf = StringBuffer();
         }
         if (buf.isNotEmpty) buf.write(' ');
-        buf.write(w);
+        buf.write(seg);
       }
       final rest = buf.toString().trim();
       if (rest.isNotEmpty) out.add(rest);
@@ -255,11 +259,11 @@ class _AiAssistantSheetState extends State<AiAssistantSheet> {
     return out;
   }
 
+  // Nghỉ ngắn giữa các câu (giọng máy đã tự ngắt ở dấu phẩy) — nghỉ dài làm câu rời rạc.
   int _pauseMs(String chunk) {
-    if (chunk.endsWith('?') || chunk.endsWith('!')) return 520;
-    if (chunk.endsWith('.') || chunk.endsWith('…')) return 420;
-    if (chunk.endsWith(':') || chunk.endsWith(';')) return 360;
-    return 280;
+    if (chunk.endsWith('?') || chunk.endsWith('!')) return 260;
+    if (chunk.endsWith('.') || chunk.endsWith('…')) return 200;
+    return 140;
   }
 
   Future<void> _speakReply(String raw) async {
@@ -453,6 +457,16 @@ class _AiAssistantSheetState extends State<AiAssistantSheet> {
 
   void _handleAction(String action) {
     final perm = Provider.of<PermissionProvider>(context, listen: false);
+    if (action.startsWith('open:')) {
+      final code = action.substring(5);
+      if (!perm.canView(code)) {
+        NotificationOverlayManager().showError(title: 'Không có quyền', message: 'Tài khoản không có quyền xem mục này.');
+        return;
+      }
+      Navigator.of(context).pop();
+      NavigationNotifier.goToModule(code);
+      return;
+    }
     if (!AiAssistantPermissions.canAction(action, perm)) {
       NotificationOverlayManager().showError(
         title: 'Không có quyền',
@@ -493,7 +507,7 @@ class _AiAssistantSheetState extends State<AiAssistantSheet> {
         NavigationNotifier.goToPayslip();
         break;
       case 'nav_feedback':
-        NavigationNotifier.goTo(NavigationNotifier.feedback);
+        NavigationNotifier.goToModule('Feedback');
         break;
       case 'nav_feedback_create':
         NavigationNotifier.goToFeedbackCreate();
@@ -515,10 +529,10 @@ class _AiAssistantSheetState extends State<AiAssistantSheet> {
         break;
       case 'nav_field_checkin':
       case 'nav_field_checkin_create':
-        NavigationNotifier.goTo(NavigationNotifier.fieldCheckIn);
+        NavigationNotifier.goToModule('FieldCheckIn');
         break;
       case 'nav_meal':
-        NavigationNotifier.goTo(NavigationNotifier.meals);
+        NavigationNotifier.goToModule('Meal');
         break;
       case 'nav_meal_register':
         NavigationNotifier.goToMealRegister();
@@ -594,7 +608,7 @@ class _AiAssistantSheetState extends State<AiAssistantSheet> {
         break;
       case 'nav_pos_printers':
         SettingsHubScreen.openCode('printers');
-        NavigationNotifier.goTo(NavigationNotifier.settingsHub);
+        NavigationNotifier.goToModule('SettingsHub');
         break;
       default:
         NotificationOverlayManager()
@@ -735,7 +749,7 @@ class _AiAssistantSheetState extends State<AiAssistantSheet> {
           NavigationNotifier.goToShiftSwapCreate();
           break;
         case 'field_assignment':
-          NavigationNotifier.goTo(NavigationNotifier.fieldCheckIn);
+          NavigationNotifier.goToModule('FieldCheckIn');
           break;
         case 'business_trip':
           NavigationNotifier.goToBusinessTripCreate();
@@ -795,6 +809,9 @@ class _AiAssistantSheetState extends State<AiAssistantSheet> {
   }
 
   (String, IconData) _actionLabelIcon(String action) {
+    if (action.startsWith('open:')) {
+      return ('Mở ${PermissionNavigation.label(action.substring(5))}', Icons.open_in_new_rounded);
+    }
     switch (action) {
       case 'nav_leave':
         return ('Xem nghỉ phép', Icons.beach_access_rounded);

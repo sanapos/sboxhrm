@@ -52,9 +52,47 @@ public sealed class TenantScopedGeminiAiService : IGeminiAiService
             GeminiStoreConfigLoader.Apply(_inner, off); // đang tắt — giữ cấu hình để báo "đang tắt"
     }
 
-    private void UseKey((string Key, GeminiConfig Config) entry) =>
-        _inner.UpdateConfig(entry.Key, entry.Config.Model, entry.Config.MaxOutputTokens,
+    private void UseKey((string Key, GeminiConfig Config) entry, string? model = null) =>
+        _inner.UpdateConfig(entry.Key, model ?? entry.Config.Model, entry.Config.MaxOutputTokens,
             entry.Config.Temperature, entry.Config.Enabled);
+
+    /// <summary>
+    /// Model dự phòng khi Google báo model đã chọn không còn cho khóa này (404 — tài khoản mới không
+    /// được dùng model cũ) hoặc đang quá tải (503). Thử trên cùng khóa trước khi chuyển khóa.
+    /// </summary>
+    internal static readonly string[] FallbackModels = ["gemini-flash-latest", "gemini-3.5-flash"];
+
+    internal static bool IsModelUnavailable(AiApiException ex) => ex.StatusCode is 404 or 503;
+
+    /// <summary>Gọi trên 1 khóa: model đã chọn, lỗi model / quá tải thì thử các model dự phòng.</summary>
+    private async Task<T> CallOnKeyAsync<T>((string Key, GeminiConfig Config) entry, Func<Task<T>> call)
+    {
+        UseKey(entry);
+        try
+        {
+            return await call();
+        }
+        catch (AiApiException ex) when (IsModelUnavailable(ex))
+        {
+            AiApiException last = ex;
+            foreach (var model in FallbackModels.Where(m => !string.Equals(m, entry.Config.Model, StringComparison.OrdinalIgnoreCase)))
+            {
+                UseKey(entry, model);
+                try
+                {
+                    var r = await call();
+                    _logger.LogInformation("Gemini key {Mask}: model {Model} không dùng được ({Status}) — đã chạy bằng {Fallback}",
+                        GeminiKeyPool.Mask(entry.Key), entry.Config.Model, ex.StatusCode, model);
+                    return r;
+                }
+                catch (AiApiException e2) when (IsModelUnavailable(e2))
+                {
+                    last = e2;
+                }
+            }
+            throw last;
+        }
+    }
 
     /// <summary>
     /// Gọi AI lần lượt qua các khóa: khóa hết lượt (429) nghỉ 15 phút, khóa sai / hết hạn nghỉ 6 giờ,
@@ -63,10 +101,12 @@ public sealed class TenantScopedGeminiAiService : IGeminiAiService
     private async Task<T> WithFailoverAsync<T>(Func<Task<T>> call)
     {
         EnsureInitialized();
-        if (_manualOverride || _chain.Count <= 1)
+        if (_manualOverride || _chain.Count == 0)
+            return await call();
+        if (_chain.Count == 1)
         {
-            try { return await call(); }
-            catch (AiApiException ex) when (_chain.Count == 1 && (ex.IsQuotaError || ex.IsAuthError))
+            try { return await CallOnKeyAsync(_chain[0], call); }
+            catch (AiApiException ex) when (ex.IsQuotaError || ex.IsAuthError)
             {
                 GeminiKeyPool.MarkExhausted(_chain[0].Key,
                     ex.IsQuotaError ? TimeSpan.FromMinutes(15) : TimeSpan.FromHours(6));
@@ -76,17 +116,19 @@ public sealed class TenantScopedGeminiAiService : IGeminiAiService
         AiApiException? last = null;
         foreach (var i in GeminiKeyPool.OrderForUse(_chain.Select(c => c.Key).ToList()))
         {
-            UseKey(_chain[i]);
             try
             {
-                return await call();
+                return await CallOnKeyAsync(_chain[i], call);
             }
-            catch (AiApiException ex) when (ex.IsQuotaError || ex.IsAuthError)
+            catch (AiApiException ex) when (ex.IsQuotaError || ex.IsAuthError || IsModelUnavailable(ex))
             {
-                GeminiKeyPool.MarkExhausted(_chain[i].Key,
-                    ex.IsQuotaError ? TimeSpan.FromMinutes(15) : TimeSpan.FromHours(6));
+                // Hết lượt / sai khóa: cho nghỉ. Model không dùng được (đã thử dự phòng) / quá tải: chuyển khóa, không phạt.
+                if (ex.IsQuotaError || ex.IsAuthError)
+                    GeminiKeyPool.MarkExhausted(_chain[i].Key,
+                        ex.IsQuotaError ? TimeSpan.FromMinutes(15) : TimeSpan.FromHours(6));
                 _logger.LogWarning("Gemini key #{Index} ({Mask}) {Reason} — chuyển khóa kế tiếp",
-                    i + 1, GeminiKeyPool.Mask(_chain[i].Key), ex.IsQuotaError ? "hết lượt" : "không hợp lệ");
+                    i + 1, GeminiKeyPool.Mask(_chain[i].Key),
+                    ex.IsQuotaError ? "hết lượt" : ex.IsAuthError ? "không hợp lệ" : $"model không dùng được ({ex.StatusCode})");
                 last = ex;
             }
         }

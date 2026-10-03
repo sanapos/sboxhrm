@@ -1063,7 +1063,7 @@ class _MainLayoutState extends State<MainLayout> with WidgetsBindingObserver {
           onTap: () {
             onDismiss();
             SettingsHubScreen.openCode('device');
-            _tryNavigateToIndex(NavigationNotifier.settingsHub);
+            NavigationNotifier.goToModule('SettingsHub');
           },
         ));
   }

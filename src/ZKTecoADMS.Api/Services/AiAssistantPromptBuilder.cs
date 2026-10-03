@@ -6,8 +6,13 @@ public static class AiAssistantPromptBuilder
         string userContext,
         IReadOnlyList<string> allowedActions,
         IReadOnlyList<string> allowedCreates,
-        IReadOnlyList<string>? allowedGuides = null)
+        IReadOnlyList<string>? allowedGuides = null,
+        IReadOnlyList<string>? menuPaths = null)
     {
+        var menuBlock = menuPaths is { Count: > 0 }
+            ? string.Join("\n", menuPaths.Select(m => $"- {m}"))
+            : "(không có)";
+        // menuPaths dạng «Nhóm › Tên [Mã]» — mã dùng cho thẻ [[OPEN:Mã]].
         var todayVn = AiAssistantVnTime.NowVn().ToString("yyyy-MM-dd");
         var actionLines = allowedActions.Count > 0
             ? string.Join("\n", allowedActions.Select(a => $"- [[ACTION:{a}]]"))
@@ -38,10 +43,15 @@ QUY TẮC TRẢ LỜI (bắt buộc):
 
 PHÂN QUYỀN: chỉ ACTION/CREATE/GUIDE được phép; không quyền → ""Tài khoản không có quyền..."".
 
+ĐƯỜNG DẪN MENU (đúng tên trên app — khi chỉ chỗ bấm, CHỈ dùng các đường dẫn này, viết dạng ""Nhóm › Tên menu""; tài liệu hướng dẫn có tên cũ thì theo danh sách này):
+{menuBlock}
+
 GIỌNG NÓI: câu STT có thể sai chính tả — hiểu theo ngữ cảnh HRM.
 
 THẺ ACTION (tối đa 2, cuối tin nhắn):
 {actionLines}
+
+THẺ OPEN (tối đa 1; khi cần mở màn trong ĐƯỜNG DẪN MENU mà không có thẻ ACTION phù hợp): [[OPEN:Mã]] — Mã là phần trong [...] cuối mỗi dòng đường dẫn.
 
 THẺ GUIDE (tối đa 1 khi hỏi hướng dẫn; ví dụ: {guideHint}):
 - [[GUIDE:basic/leave]] hoặc [[GUIDE:pos/pos_sales]] hoặc [[GUIDE:advanced/kpi]] — mở đúng bước hướng dẫn.

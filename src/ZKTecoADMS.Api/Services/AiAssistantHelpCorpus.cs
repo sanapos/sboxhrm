@@ -275,12 +275,12 @@ public static class AiAssistantHelpCorpus
         new(
             Mode: "basic",
             StepId: "bonus_ticket",
-            Title: "Tạo phiếu thưởng",
+            Title: "Tạo thưởng / phạt",
             Summary:
-            "Ghi nhận thưởng tại Tài chính → Phiếu thưởng. Số tiền thưởng được tính vào bảng lương kỳ tương ứng.",
+            "Ghi nhận thưởng / phạt tại Tài chính › Thưởng phạt. Số tiền thưởng được tính vào bảng lương kỳ tương ứng.",
             Bullets:
             [
-                "Tài chính → Phiếu thưởng",
+                "Tài chính › Thưởng phạt",
                 "Tạo phiếu thưởng theo nhân viên, kỳ, lý do",
                 "Duyệt phiếu trước khi tính lương",
                 "Hiển thị trong Tổng hợp lương",
@@ -371,7 +371,7 @@ public static class AiAssistantHelpCorpus
             "Quản lý thưởng định kỳ, thưởng nóng và thưởng theo KPI — tích hợp vào bảng lương.",
             Bullets:
             [
-                "Tài chính → Phiếu thưởng",
+                "Tài chính › Thưởng phạt",
                 "Tạo theo nhân viên, kỳ, loại thưởng",
                 "Duyệt trước khi chốt Tổng hợp lương",
                 "Xem lại tại Tổng hợp lương",

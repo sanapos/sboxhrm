@@ -73,6 +73,8 @@ class NavigationNotifier {
   static final ValueNotifier<bool> feedbackPreferInbox =
       ValueNotifier<bool>(false);
 
+  // ⚠ Số thứ tự menu CHỈ ĐÚNG cho 0–11. Từ 12 trở đi đã lệch (chèn «Đi trễ / Về sớm», «Báo cáo đi đường»
+  // vào giữa danh sách) — luôn dùng goToModule('<mã chức năng>') thay vì goTo(<hằng số>).
   static const int home = 0;
   static const int notifications = 1;
   static const int dashboard = 2;
@@ -236,7 +238,7 @@ class NavigationNotifier {
 
   static void goToFeedbackCreate() {
     pendingAiOpenCreate.value = 'feedback';
-    goTo(feedback);
+    goToModule('Feedback');
   }
 
   static void goToShiftSwapCreate() {
@@ -257,7 +259,7 @@ class NavigationNotifier {
 
   static void goToMealRegister() {
     pendingAiOpenCreate.value = 'meal';
-    goTo(meals);
+    goToModule('Meal');
   }
 
   static void goToAttendanceCorrectionCreate() {
@@ -307,14 +309,14 @@ class NavigationNotifier {
   static void goToEmployees() => goToModule('Employee');
   static void goToDepartments() => goTo(departments);
   static void goToTaskManagement() => goToModule('Task');
-  static void goToAssetManagement() => goTo(assetManagement);
+  static void goToAssetManagement() => goToModule('Asset');
   static void goToCashTransaction({String? highlightId}) {
     notificationHighlightId.value =
         (highlightId != null && highlightId.isNotEmpty) ? highlightId : null;
-    goTo(cashTransaction);
+    goToModule('CashTransaction');
   }
-  static void goToCommunication() => goTo(communication);
-  static void goToPayroll() => goTo(payroll);
+  static void goToCommunication() => goToModule('Communication');
+  static void goToPayroll() => goToModule('Payroll');
   static void goToPayslip() => goToModule('Payslip');
   static void goToShiftSwap() => goToModule('ShiftSwap');
 
@@ -336,7 +338,7 @@ class NavigationNotifier {
   static void goToBonusPenalty() => goToModule('BonusPenalty');
   static void goToAttendanceSummary() => goTo(attendanceSummary);
   static void goToAttendanceByShift() => goTo(attendanceByShift);
-  static void goToKpi() => goTo(kpi);
+  static void goToKpi() => goToModule('KPI');
   static void goToDeviceSettings() {
     SettingsHubScreen.openCode('device');
     goToModule('SettingsHub');

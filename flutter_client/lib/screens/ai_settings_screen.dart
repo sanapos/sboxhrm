@@ -10,7 +10,7 @@ import '../widgets/settings/settings_page.dart';
 
 /// Cấu hình Trợ lý AI (Gemini) của cửa hàng.
 class AiConfig {
-  AiConfig({this.enabled = false, this.model = 'gemini-2.5-flash', this.maxTokens = 2048, this.temperature = 0.7});
+  AiConfig({this.enabled = false, this.model = 'gemini-flash-latest', this.maxTokens = 2048, this.temperature = 0.7});
 
   bool enabled;
   String model;
@@ -22,10 +22,12 @@ class AiConfig {
   String get key => '$enabled|$model|$maxTokens|${temperature.toStringAsFixed(1)}';
 
   static const models = <(String, String, String)>[
-    ('gemini-2.5-flash', 'Gemini 2.5 Flash', 'Nhanh, tiết kiệm — khuyên dùng'),
-    ('gemini-2.5-pro', 'Gemini 2.5 Pro', 'Chất lượng cao, chậm hơn'),
-    ('gemini-2.0-flash', 'Gemini 2.0 Flash', 'Đời trước, ổn định'),
-    ('gemini-2.0-flash-lite', 'Gemini 2.0 Flash Lite', 'Siêu nhanh, câu trả lời ngắn'),
+    // Khóa tạo mới không còn dùng được 2.5 Flash (Google trả 404) — mặc định model luôn mới nhất.
+    ('gemini-flash-latest', 'Gemini Flash (mới nhất)', 'Nhanh, tiết kiệm, tự lên bản mới — khuyên dùng'),
+    ('gemini-3.8-flash', 'Gemini 3.8 Flash', 'Bản Flash mới, cố định phiên bản'),
+    ('gemini-pro-latest', 'Gemini Pro (mới nhất)', 'Chất lượng cao, chậm hơn'),
+    ('gemini-flash-lite-latest', 'Gemini Flash Lite (mới nhất)', 'Siêu nhanh, câu trả lời ngắn'),
+    ('gemini-2.5-flash', 'Gemini 2.5 Flash (cũ)', 'Chỉ khóa tạo trước đây còn dùng được'),
   ];
 }
 
@@ -93,7 +95,7 @@ class _AiSettingsScreenState extends State<AiSettingsScreen> {
       setState(() {
         _saved = AiConfig(
           enabled: d['enabled'] == true,
-          model: (d['model'] ?? 'gemini-2.5-flash').toString(),
+          model: (d['model'] ?? 'gemini-flash-latest').toString(),
           maxTokens: (d['maxOutputTokens'] as num?)?.toInt() ?? 2048,
           temperature: ((d['temperature'] as num?)?.toDouble() ?? 0.7).clamp(0, 2),
         );

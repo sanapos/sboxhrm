@@ -45,7 +45,7 @@ public class GeminiConfig
     public string ApiKey { get; set; } = string.Empty;
     /// <summary>Mọi khóa đã cấu hình (khóa đầu = <see cref="ApiKey"/>); hết lượt thì chuyển khóa kế.</summary>
     public List<string> ApiKeys { get; set; } = [];
-    public string Model { get; set; } = "gemini-2.5-flash";
+    public string Model { get; set; } = "gemini-flash-latest";
     public int MaxOutputTokens { get; set; } = 2048;
     public double Temperature { get; set; } = 0.7;
     public bool Enabled { get; set; } = true;
@@ -81,7 +81,7 @@ public class GeminiAiService : IGeminiAiService
         
         var section = configuration.GetSection("GeminiAi");
         _apiKey = section["ApiKey"] ?? "";
-        _model = section["Model"] ?? "gemini-2.5-flash";
+        _model = section["Model"] ?? "gemini-flash-latest";
         _maxOutputTokens = int.TryParse(section["MaxOutputTokens"], out var t) ? t : 2048;
         _temperature = double.TryParse(section["Temperature"], out var temp) ? temp : 0.7;
         _enabled = !bool.TryParse(section["Enabled"], out var e) || e; // default true for backwards compat

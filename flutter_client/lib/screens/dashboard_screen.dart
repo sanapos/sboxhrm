@@ -2021,7 +2021,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
             NavigationNotifier.goToShiftSwap();
           } else {
             NavigationNotifier.scheduleApprovalTab.value = 3;
-            NavigationNotifier.goTo(NavigationNotifier.scheduleApproval);
+            NavigationNotifier.goToScheduleApproval();
           }
         }),
       if (caps.quickPayroll)

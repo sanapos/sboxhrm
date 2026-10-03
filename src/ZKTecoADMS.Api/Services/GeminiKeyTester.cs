@@ -12,16 +12,38 @@ public static class GeminiKeyTester
         var keys = cfg.ApiKeys.Count > 0 ? cfg.ApiKeys : [cfg.ApiKey];
         for (var i = 0; i < keys.Count; i++)
         {
-            var gemini = new GeminiAiService(configuration, logger);
-            gemini.UpdateConfig(keys[i], cfg.Model, 1024, cfg.Temperature, true);
+            // Model đã chọn trước; Google báo model không còn cho khóa này (404) / quá tải (503) → thử model dự phòng.
+            var models = new[] { cfg.Model }
+                .Concat(TenantScopedGeminiAiService.FallbackModels.Where(m => !string.Equals(m, cfg.Model, StringComparison.OrdinalIgnoreCase)))
+                .ToList();
             try
             {
-                await gemini.GenerateJsonAsync(
-                    "Bạn là bộ kiểm tra kết nối. Chỉ trả JSON.",
-                    "Trả về {\"ok\": true}",
-                    maxTokens: 256,
-                    cancellationToken: ct);
-                results.Add(new(i + 1, GeminiKeyPool.Mask(keys[i]), "ok", "Hoạt động"));
+                string? usedModel = null;
+                AiApiException? modelErr = null;
+                foreach (var model in models)
+                {
+                    var gemini = new GeminiAiService(configuration, logger);
+                    gemini.UpdateConfig(keys[i], model, 1024, cfg.Temperature, true);
+                    try
+                    {
+                        await gemini.GenerateJsonAsync(
+                            "Bạn là bộ kiểm tra kết nối. Chỉ trả JSON.",
+                            "Trả về {\"ok\": true}",
+                            maxTokens: 256,
+                            cancellationToken: ct);
+                        usedModel = model;
+                        break;
+                    }
+                    catch (AiApiException ex) when (ex.StatusCode is 404 or 503)
+                    {
+                        modelErr = ex;
+                    }
+                }
+                if (usedModel == null) throw modelErr!;
+                results.Add(new(i + 1, GeminiKeyPool.Mask(keys[i]), "ok",
+                    string.Equals(usedModel, cfg.Model, StringComparison.OrdinalIgnoreCase)
+                        ? "Hoạt động"
+                        : $"Hoạt động bằng {usedModel} (khóa này không dùng được {cfg.Model} — nên đổi model)"));
             }
             catch (AiApiException ex) when (ex.IsQuotaError)
             {
