@@ -576,11 +576,16 @@ class _SettingsHubScreenState extends State<SettingsHubScreen> {
         final meta = SettingsHubCatalog.groupOf(g.title);
         children.addAll([
           Padding(
-            padding: const EdgeInsets.fromLTRB(2, 8, 0, 8),
+            padding: EdgeInsets.fromLTRB(wide ? 2 : 6, wide ? 8 : 10, 0, wide ? 8 : 6),
             child: Row(children: [
-              Icon(meta.icon, size: 18, color: meta.color),
+              Icon(meta.icon, size: wide ? 18 : 15, color: meta.color),
               const SizedBox(width: 8),
-              Text(tr(g.title), style: const TextStyle(fontSize: 15, fontWeight: FontWeight.w800, color: SboxColors.slate800)),
+              Text(wide ? tr(g.title) : tr(g.title).toUpperCase(),
+                  style: TextStyle(
+                      fontSize: wide ? 15 : 12,
+                      letterSpacing: wide ? 0 : 0.4,
+                      fontWeight: FontWeight.w800,
+                      color: wide ? SboxColors.slate800 : SboxColors.slate500)),
             ]),
           ),
           _grid(g.items, wide),
@@ -611,11 +616,7 @@ class _SettingsHubScreenState extends State<SettingsHubScreen> {
     if (wide) {
       return Row(children: [Expanded(child: title), SizedBox(width: 420, child: _searchField())]);
     }
-    return Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
-      Row(children: [Expanded(child: title), if (customize != null) customize]),
-      const SizedBox(height: 10),
-      _searchField(),
-    ]);
+    return Row(children: [Expanded(child: _searchField(dense: true)), if (customize != null) customize]);
   }
 
   /// «Việc cần làm»: mục chưa cấu hình / cần chú ý + tiến độ.
@@ -685,9 +686,61 @@ class _SettingsHubScreenState extends State<SettingsHubScreen> {
 
   Widget _grid(List<SettingsHubItemDef> items, bool wide) => LayoutBuilder(builder: (context, box) {
         final cols = box.maxWidth >= 1000 ? 3 : (box.maxWidth >= 620 ? 2 : 1);
+        if (cols == 1) return _groupList(items);
         final w = (box.maxWidth - (cols - 1) * 12) / cols;
         return Wrap(spacing: 12, runSpacing: 12, children: [for (final i in items) SizedBox(width: w, child: _card(i))]);
       });
+
+  /// Điện thoại: các mục của 1 nhóm nằm chung 1 khung, mỗi mục 1 dòng gọn (kiểu cài đặt điện thoại).
+  Widget _groupList(List<SettingsHubItemDef> items) {
+    return Container(
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(14),
+        border: Border.all(color: SboxColors.slate200),
+      ),
+      clipBehavior: Clip.antiAlias,
+      child: Column(children: [
+        for (var k = 0; k < items.length; k++) ...[
+          if (k > 0) const Divider(height: 1, indent: 60, color: SboxColors.divider),
+          _row(items[k]),
+        ],
+      ]),
+    );
+  }
+
+  Widget _row(SettingsHubItemDef i) {
+    final g = SettingsHubCatalog.groupOf(i.groupTitle);
+    final chip = _statusChip(i);
+    return Material(
+      color: Colors.white,
+      child: InkWell(
+        onTap: () => _openSubPage(i.index),
+        child: Padding(
+          padding: const EdgeInsets.fromLTRB(12, 10, 8, 10),
+          child: Row(children: [
+            Container(
+              width: 36,
+              height: 36,
+              decoration: BoxDecoration(color: g.color.withValues(alpha: 0.12), borderRadius: BorderRadius.circular(10)),
+              child: Icon(i.icon, color: g.color, size: 20),
+            ),
+            const SizedBox(width: 12),
+            Expanded(
+              child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+                Text(tr(i.label), maxLines: 1, overflow: TextOverflow.ellipsis,
+                    style: const TextStyle(fontWeight: FontWeight.w700, fontSize: 14.5, color: SboxColors.slate900)),
+                Text(tr(i.desc), maxLines: 1, overflow: TextOverflow.ellipsis,
+                    style: const TextStyle(fontSize: 12, color: SboxColors.slate500)),
+              ]),
+            ),
+            if (chip != null) ...[const SizedBox(width: 6), chip],
+            const Icon(Icons.chevron_right_rounded, color: SboxColors.slate400),
+          ]),
+        ),
+      ),
+    );
+  }
 
   Widget _card(SettingsHubItemDef i) {
     final g = SettingsHubCatalog.groupOf(i.groupTitle);

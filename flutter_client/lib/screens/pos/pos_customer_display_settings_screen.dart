@@ -1,3 +1,5 @@
+import '../../widgets/settings/settings_page.dart';
+import '../../widgets/sbox/sbox_ui.dart';
 import 'dart:typed_data';
 
 import 'package:cached_network_image/cached_network_image.dart';
@@ -286,7 +288,12 @@ class _PosCustomerDisplaySettingsScreenState
     final body = _loading
         ? const Center(child: CircularProgressIndicator())
         : _error != null
-            ? Center(child: Text(tr(_error!)))
+            ? SboxEmptyState(
+                icon: Icons.cloud_off_rounded,
+                title: 'Không tải được thiết lập',
+                message: _error,
+                action: SboxButton.secondary(label: 'Thử lại', icon: Icons.refresh_rounded, onPressed: _load),
+              )
             : _buildBody();
 
     if (HrmPageChrome.hideOuterChrome(context)) {
@@ -335,28 +342,13 @@ class _PosCustomerDisplaySettingsScreenState
           style: TextStyle(fontSize: 13, color: SboxColors.slate700),
         ),
         const SizedBox(height: 12),
-        Container(
-          padding: const EdgeInsets.all(12),
-          decoration: BoxDecoration(
-            color: SboxColors.brand50,
-            borderRadius: BorderRadius.circular(10),
-            border: Border.all(color: SboxColors.brand100),
-          ),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Text(tr('Kích thước chuẩn trình chiếu'),
-                  style: const TextStyle(
-                      fontWeight: FontWeight.w700, fontSize: 13)),
-              const SizedBox(height: 6),
-              Text(
-                tr('• Ảnh: ${CustomerDisplayMediaSpec.recommendedImage}\n'
-                    '• Video: ${CustomerDisplayMediaSpec.recommendedVideo}\n'
-                    '• ${CustomerDisplayMediaSpec.layoutNote}'),
-                style: TextStyle(fontSize: 12, color: SboxColors.slate800, height: 1.35),
-              ),
-            ],
-          ),
+        SettingsHelp(
+          summary: 'Kích thước ảnh / video chuẩn',
+          steps: [
+            'Ảnh: ${CustomerDisplayMediaSpec.recommendedImage}',
+            'Video: ${CustomerDisplayMediaSpec.recommendedVideo}',
+            CustomerDisplayMediaSpec.layoutNote,
+          ],
         ),
         const SizedBox(height: 12),
         ListTile(

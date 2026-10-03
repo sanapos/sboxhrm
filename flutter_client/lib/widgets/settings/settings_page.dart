@@ -132,8 +132,9 @@ class _SettingsPageState extends State<SettingsPage> {
       );
     } else {
       final iconOnlyActions = widget.headerActions.every((w) => w is IconButton || w is PopupMenuButton);
+      // Điện thoại: tên trang đã ở thanh trên — không lặp tiêu đề / biểu tượng, chỉ mô tả ngắn + nút.
       final header = Row(crossAxisAlignment: CrossAxisAlignment.start, children: [
-        if (widget.icon != null) ...[
+        if (widget.icon != null && !narrow) ...[
           Container(
             width: 44,
             height: 44,
@@ -144,9 +145,10 @@ class _SettingsPageState extends State<SettingsPage> {
         ],
         Expanded(
           child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-            Text(tr(widget.title), style: const TextStyle(fontSize: 20, fontWeight: FontWeight.w800, color: SboxColors.slate900)),
+            if (!narrow)
+              Text(tr(widget.title), style: const TextStyle(fontSize: 20, fontWeight: FontWeight.w800, color: SboxColors.slate900)),
             if (widget.subtitle != null)
-              Text(tr(widget.subtitle!), style: const TextStyle(color: SboxColors.slate500)),
+              Text(tr(widget.subtitle!), style: TextStyle(color: SboxColors.slate500, fontSize: narrow ? 12.5 : null)),
             // Điện thoại: nút có chữ xuống dưới tiêu đề, không bóp tiêu đề thành cột hẹp.
             if (narrow && !iconOnlyActions && widget.headerActions.isNotEmpty)
               Padding(
@@ -422,4 +424,84 @@ String settingsMoney(num v) => PosVndThousandsFormatter.format(v).isEmpty ? '0' 
 String settingsNum(num v) {
   final d = v.toDouble();
   return d == d.roundToDouble() ? d.toInt().toString() : d.toString().replaceAll('.', ',');
+}
+
+/// Hướng dẫn gập / mở — thay khối chữ dài đầu trang (mặc định gập, 1 dòng tóm tắt).
+class SettingsHelp extends StatelessWidget {
+  const SettingsHelp({super.key, required this.summary, required this.steps, this.initiallyExpanded = false});
+
+  final String summary;
+  final List<String> steps;
+  final bool initiallyExpanded;
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      decoration: BoxDecoration(color: SboxColors.brand50, borderRadius: BorderRadius.circular(12)),
+      child: Theme(
+        data: Theme.of(context).copyWith(dividerColor: Colors.transparent),
+        child: ExpansionTile(
+          initiallyExpanded: initiallyExpanded,
+          dense: true,
+          tilePadding: const EdgeInsets.symmetric(horizontal: 12),
+          childrenPadding: const EdgeInsets.fromLTRB(12, 0, 12, 12),
+          leading: const Icon(Icons.lightbulb_outline_rounded, size: 20, color: SboxColors.brand700),
+          title: Text(tr(summary), style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w600, color: SboxColors.brand800)),
+          children: [
+            for (var i = 0; i < steps.length; i++)
+              Padding(
+                padding: const EdgeInsets.only(bottom: 6),
+                child: Row(crossAxisAlignment: CrossAxisAlignment.start, children: [
+                  Container(
+                    width: 20,
+                    height: 20,
+                    alignment: Alignment.center,
+                    decoration: const BoxDecoration(color: Colors.white, shape: BoxShape.circle),
+                    child: Text('${i + 1}', style: const TextStyle(fontSize: 11, fontWeight: FontWeight.w800, color: SboxColors.brand700)),
+                  ),
+                  const SizedBox(width: 8),
+                  Expanded(child: Text(tr(steps[i]), style: const TextStyle(fontSize: 12.5, height: 1.4, color: SboxColors.slate700))),
+                ]),
+              ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+/// Dòng mở sang màn khác trong 1 khối thiết lập (lịch sử, danh sách…).
+class SettingsLinkTile extends StatelessWidget {
+  const SettingsLinkTile({super.key, required this.icon, required this.label, required this.onTap, this.help, this.divider = true});
+
+  final IconData icon;
+  final String label;
+  final String? help;
+  final VoidCallback onTap;
+  final bool divider;
+
+  @override
+  Widget build(BuildContext context) {
+    return Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
+      if (divider) const Divider(height: 1, color: SboxColors.divider),
+      InkWell(
+        onTap: onTap,
+        child: Padding(
+          padding: const EdgeInsets.symmetric(vertical: 12),
+          child: Row(children: [
+            Icon(icon, size: 20, color: SboxColors.brand600),
+            const SizedBox(width: 12),
+            Expanded(
+              child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+                Text(tr(label), style: const TextStyle(fontWeight: FontWeight.w700, color: SboxColors.slate800)),
+                if (help != null)
+                  Text(tr(help!), style: const TextStyle(fontSize: 12.5, color: SboxColors.slate500)),
+              ]),
+            ),
+            const Icon(Icons.chevron_right_rounded, color: SboxColors.slate400),
+          ]),
+        ),
+      ),
+    ]);
+  }
 }

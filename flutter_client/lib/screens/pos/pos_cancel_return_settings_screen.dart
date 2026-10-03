@@ -6,11 +6,10 @@ import '../../models/pos_sell_industry.dart';
 import '../../services/api_service.dart';
 import '../../utils/pos_sell_settings_helper.dart';
 import '../../widgets/notification_overlay.dart';
-import '../../widgets/pos/pos_theme.dart';
+import '../../widgets/settings/settings_page.dart';
 import 'pos_cancel_return_history_screen.dart';
 import 'package:zkteco_flutter_client/l10n/app_tr.dart';
 
-import '../../theme/sbox_tokens.dart';
 /// Thiết lập kiểm soát lý do hủy / trả + lối vào lịch sử.
 class PosCancelReturnSettingsScreen extends StatefulWidget {
   const PosCancelReturnSettingsScreen({super.key});
@@ -77,77 +76,45 @@ class _PosCancelReturnSettingsScreenState
 
   @override
   Widget build(BuildContext context) {
-    final body = _loading
-        ? const Center(child: CircularProgressIndicator())
-        : _error != null
-            ? Center(child: Text(tr(_error!)))
-            : _buildBody();
-
-    return Scaffold(
-      backgroundColor: PosTheme.background,
-      appBar: HrmPageChrome.isHubBody(context) ? null : AppBar(
-        title: Text(tr('Kiểm soát hủy / trả')),
-        backgroundColor: PosTheme.kiotBlue,
-        foregroundColor: Colors.white,
-        actions: [
-          if (_saving)
-            const Padding(
-              padding: EdgeInsets.only(right: 16),
-              child: Center(
-                child: SizedBox(
-                  width: 20,
-                  height: 20,
-                  child: CircularProgressIndicator(
-                      strokeWidth: 2, color: Colors.white),
-                ),
+    final cfg = CancelReturnReasonConfig.fromExtraJson(_settings?.extraJson);
+    final page = SettingsPage(
+      title: 'Kiểm soát hủy / trả',
+      subtitle: 'Bắt buộc lý do khi hủy / trả, xem lại lịch sử để chống gian lận',
+      icon: Icons.rule_folder_outlined,
+      loading: _loading,
+      error: _error,
+      onRetry: _load,
+      saving: _saving,
+      children: [
+        SettingsSection(
+          title: 'Lý do hủy / trả',
+          subtitle: 'Hủy món đã báo bếp luôn hỏi lý do (thao tác sai, khách yêu cầu, nhập tùy ý)',
+          icon: Icons.fact_check_outlined,
+          children: [
+            SettingsTile(
+              label: 'Bắt buộc chọn lý do',
+              help: 'Áp dụng cả hủy đơn đã hoàn thành và trả hàng',
+              control: Switch(
+                value: cfg.enabled,
+                onChanged: _saving ? null : (v) => _patchCfg((c) => c.copyWith(enabled: v)),
               ),
             ),
-        ],
-      ),
-      body: HrmPageChrome.isHubBody(context) && _saving
-          ? Column(children: [const LinearProgressIndicator(minHeight: 2), Expanded(child: body)])
-          : body,
-    );
-  }
-
-  Widget _buildBody() {
-    final cfg = CancelReturnReasonConfig.fromExtraJson(_settings?.extraJson);
-    return ListView(
-      padding: const EdgeInsets.all(16),
-      children: [
-        Text(
-          tr('Hủy món đã báo bếp luôn hỏi lý do (Thao tác sai / Khách yêu cầu / nhập tùy ý). '
-              'Bật thêm thì hủy đơn hoàn thành và trả hàng cũng phải chọn lý do.'),
-          style: TextStyle(fontSize: 13, color: SboxColors.slate700),
-        ),
-        const SizedBox(height: 12),
-        SwitchListTile(
-          contentPadding: EdgeInsets.zero,
-          title: Text(tr('Bắt buộc chọn lý do hủy / trả')),
-          subtitle: Text(
-              tr('Áp dụng hủy đơn hoàn thành và trả hàng (hủy món bếp luôn bắt buộc)')),
-          value: cfg.enabled,
-          onChanged: _saving
-              ? null
-              : (v) => _patchCfg((c) => c.copyWith(enabled: v)),
-        ),
-        const Divider(height: 28),
-        ListTile(
-          contentPadding: EdgeInsets.zero,
-          leading: const Icon(Icons.history, color: PosTheme.kiotBlue),
-          title: Text(tr('Lịch sử hủy / trả')),
-          subtitle: Text(
-              tr('Lọc thao tác, trước/sau tạm tính, nhân viên, thời gian')),
-          trailing: const Icon(Icons.chevron_right),
-          onTap: () {
-            Navigator.of(context).push(
-              MaterialPageRoute(
-                builder: (_) => const PosCancelReturnHistoryScreen(),
+            SettingsLinkTile(
+              icon: Icons.history_rounded,
+              label: 'Lịch sử hủy / trả',
+              help: 'Lọc theo thao tác, nhân viên, thời gian; xem trước / sau tạm tính',
+              onTap: () => Navigator.of(context).push(
+                MaterialPageRoute(builder: (_) => const PosCancelReturnHistoryScreen()),
               ),
-            );
-          },
+            ),
+          ],
         ),
       ],
+    );
+    if (HrmPageChrome.isHubBody(context)) return page;
+    return Scaffold(
+      appBar: AppBar(title: Text(tr('Kiểm soát hủy / trả'))),
+      body: page,
     );
   }
 }

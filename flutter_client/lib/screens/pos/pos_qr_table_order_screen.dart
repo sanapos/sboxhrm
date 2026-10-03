@@ -741,9 +741,7 @@ class _PosQrTableOrderScreenState extends State<PosQrTableOrderScreen> {
             const SizedBox(height: 4),
             Text(
               tr(
-                'Hiện khi khách mở link QR bàn hoặc đặt online: logo, tên quán, SĐT, địa chỉ. '
-                'Ảnh quảng cáo: ảnh đầu làm nền trang, tất cả ảnh hiện popup (đóng là mất trong phiên). '
-                'Cuối trang có dòng «Phần mềm SBOX POS».',
+                'Logo, tên quán, SĐT, địa chỉ hiện khi khách mở QR. Ảnh quảng cáo: ảnh đầu làm nền, các ảnh hiện popup.',
               ),
               style: TextStyle(color: SboxColors.slate700, height: 1.35, fontSize: 13),
             ),
@@ -867,8 +865,7 @@ class _PosQrTableOrderScreenState extends State<PosQrTableOrderScreen> {
             SwitchListTile(
               title: Text(tr('Đặt hàng online ngoài cửa hàng')),
               subtitle: Text(tr(
-                'QR riêng cho khách ngoài quán. Khách nhập họ tên, SĐT, địa chỉ '
-                'và xem liên hệ quán (gọi / Zalo) trên trang đặt hàng.',
+                'QR riêng cho khách ngoài quán — khách nhập tên, SĐT, địa chỉ để đặt.',
               )),
               value: _enableOnline,
               onChanged: _busy ? null : (v) => _setOnline(v),
@@ -1046,8 +1043,7 @@ class _PosQrTableOrderScreenState extends State<PosQrTableOrderScreen> {
             const SizedBox(height: 8),
             Text(
               tr(
-                'Tắt mặc định. Bật để in QR dán bàn: khách chọn món (kể cả topping / biến thể) trên điện thoại. '
-                'Máy POS đọc loa khi có đơn. Thanh toán vẫn tại quầy.',
+                'In QR dán bàn: khách tự gọi món trên điện thoại, máy POS đọc loa khi có đơn, thanh toán tại quầy.',
               ),
               style: TextStyle(color: SboxColors.slate700, height: 1.4),
             ),

@@ -15,6 +15,7 @@ import '../../widgets/notification_overlay.dart';
 import '../../widgets/pos/pos_bank_account_form_dialog.dart';
 import '../../widgets/pos/pos_theme.dart';
 import '../../widgets/pos/tingee_bank_attach_panel.dart';
+import '../../widgets/settings/settings_page.dart';
 import 'package:zkteco_flutter_client/l10n/app_tr.dart';
 
 import '../../theme/sbox_tokens.dart';
@@ -450,44 +451,34 @@ class _PosPaymentGatewaySettingsScreenState
                 onPressed: () => Navigator.maybePop(context),
               ),
             ),
-      body: _loading
-          ? const Center(child: CircularProgressIndicator())
-          : ListView(
-              padding: const EdgeInsets.all(16),
-              children: [
-                _noteCard(
-                  icon: Icons.info_outline,
-                  color: SboxColors.brandSwatch,
-                  title: 'Cách hoạt động',
-                  body:
-                      '1. Tài khoản ngân hàng cửa hàng: tiền về STK này.\n'
-                      '2. Tingee: khách quét QR số VA (bán hàng, QR bàn, đơn online). CK xong Sbox tự xác nhận đơn, báo đã thanh toán, tắt QR.\n'
-                      '3. Nút VietQR thường (không Tingee) không tự báo có tiền — thu ngân bấm Thanh toán.',
-                ),
-                const SizedBox(height: 16),
-                Text(tr('1. Tài khoản ngân hàng cửa hàng'),
-                    style: const TextStyle(
-                        fontWeight: FontWeight.w700, fontSize: 16)),
-                const SizedBox(height: 4),
-                Text(
-                  tr('STK thật nhận tiền. Dùng khi bấm VietQR (không tự báo có tiền).'),
-                  style: TextStyle(fontSize: 12, color: SboxColors.slate700),
-                ),
-                const SizedBox(height: 8),
-                _bankCard(),
-                const SizedBox(height: 20),
-                Text(tr('2. Tự báo có tiền (Tingee)'),
-                    style: const TextStyle(
-                        fontWeight: FontWeight.w700, fontSize: 16)),
-                const SizedBox(height: 4),
-                Text(
-                  tr('Bật để màn bán hiện QR VA. Khách CK đúng số VA → đơn tự xong, QR tự tắt.'),
-                  style: TextStyle(fontSize: 12, color: SboxColors.slate700),
-                ),
-                const SizedBox(height: 8),
-                _tingeeCard(),
-              ],
-            ),
+      body: SettingsPage(
+        title: 'Tài khoản nhận tiền',
+        subtitle: 'Số tài khoản ngân hàng nhận tiền và tự báo có tiền khi khách chuyển khoản',
+        icon: Icons.account_balance_outlined,
+        loading: _loading,
+        children: [
+          const SettingsHelp(
+            summary: 'Cách hoạt động',
+            steps: [
+              'Tài khoản ngân hàng cửa hàng: tiền khách chuyển về số tài khoản này.',
+              'Tingee: khách quét QR số tài khoản ảo (bán hàng, QR bàn, đơn online). Chuyển khoản xong, SBOX tự xác nhận đơn, báo đã thanh toán, tắt QR.',
+              'Nút VietQR thường (không Tingee) không tự báo có tiền — thu ngân bấm Thanh toán sau khi kiểm tra.',
+            ],
+          ),
+          SettingsSection(
+            title: 'Tài khoản ngân hàng cửa hàng',
+            subtitle: 'Số tài khoản thật nhận tiền — dùng khi bấm VietQR',
+            icon: Icons.account_balance_rounded,
+            children: [const SizedBox(height: 4), _bankCard(), const SizedBox(height: 8)],
+          ),
+          SettingsSection(
+            title: 'Tự báo có tiền (Tingee)',
+            subtitle: 'Màn bán hiện QR riêng; khách chuyển đúng số → đơn tự xong, QR tự tắt',
+            icon: Icons.bolt_rounded,
+            children: [const SizedBox(height: 4), _tingeeCard(), const SizedBox(height: 8)],
+          ),
+        ],
+      ),
     );
   }
 

@@ -8,10 +8,9 @@ import '../../services/api_service.dart';
 import '../../utils/pos_loyalty_rates.dart';
 import '../../utils/pos_sell_settings_helper.dart';
 import '../../widgets/notification_overlay.dart';
-import '../../widgets/pos/pos_theme.dart';
+import '../../widgets/settings/settings_page.dart';
 import 'package:zkteco_flutter_client/l10n/app_tr.dart';
 
-import '../../theme/sbox_tokens.dart';
 /// Cấu hình tích điểm / đổi điểm theo cửa hàng.
 class PosLoyaltySettingsScreen extends StatefulWidget {
   const PosLoyaltySettingsScreen({super.key});
@@ -116,162 +115,116 @@ class _PosLoyaltySettingsScreenState extends State<PosLoyaltySettingsScreen> {
     }
   }
 
-  @override
-  Widget build(BuildContext context) {
-    final body = _loading
-        ? const Center(child: CircularProgressIndicator())
-        : _error != null
-            ? Center(child: Text(tr(_error!)))
-            : _buildBody();
-
-    return Scaffold(
-      backgroundColor: PosTheme.background,
-      appBar: HrmPageChrome.isHubBody(context) ? null : AppBar(
-        title: Text(tr('Tích điểm & đổi điểm')),
-        backgroundColor: PosTheme.kiotBlue,
-        foregroundColor: Colors.white,
-        actions: [
-          if (_saving)
-            const Padding(
-              padding: EdgeInsets.only(right: 16),
-              child: Center(
-                child: SizedBox(
-                  width: 20,
-                  height: 20,
-                  child: CircularProgressIndicator(
-                      strokeWidth: 2, color: Colors.white),
-                ),
-              ),
-            )
-          else
-            TextButton(
-              onPressed: _settings == null ? null : _save,
-              child: Text(tr('Lưu'),
-                  style: const TextStyle(
-                      color: Colors.white, fontWeight: FontWeight.w700)),
-            ),
-        ],
-      ),
-      floatingActionButton: HrmPageChrome.isHubBody(context) && _settings != null
-          ? FloatingActionButton.extended(
-              onPressed: _saving ? null : _save,
-              icon: _saving
-                  ? const SizedBox(width: 18, height: 18, child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white))
-                  : const Icon(Icons.save_outlined),
-              label: Text(tr('Lưu')),
-            )
-          : null,
-      body: body,
-    );
+  /// Có thay đổi chưa lưu (hiện thanh Lưu / Bỏ thay đổi ở dưới).
+  bool get _dirty {
+    final s = _settings;
+    if (s == null) return false;
+    return _enabled != s.loyaltyEnabled ||
+        _parseMoney(_earnCtrl.text) != s.loyaltyEarnPerAmount ||
+        _parseMoney(_redeemCtrl.text) != s.loyaltyRedeemValue ||
+        _maxPct != s.loyaltyMaxRedeemPercent.clamp(1, 100);
   }
 
-  Widget _buildBody() {
+  void _discard() {
+    final s = _settings;
+    if (s == null) return;
+    setState(() {
+      _enabled = s.loyaltyEnabled;
+      _earnCtrl.text = _fmtNum(s.loyaltyEarnPerAmount);
+      _redeemCtrl.text = _fmtNum(s.loyaltyRedeemValue);
+      _maxPct = s.loyaltyMaxRedeemPercent.clamp(1, 100);
+    });
+  }
+
+  Widget _numField(TextEditingController c, String suffix, String hint) => SizedBox(
+        width: 140,
+        child: TextField(
+          controller: c,
+          enabled: _enabled && !_saving,
+          textAlign: TextAlign.right,
+          keyboardType: TextInputType.number,
+          inputFormatters: [FilteringTextInputFormatter.digitsOnly],
+          decoration: InputDecoration(
+            hintText: hint,
+            suffixText: tr(suffix),
+            isDense: true,
+            border: OutlineInputBorder(borderRadius: BorderRadius.circular(10)),
+          ),
+          onChanged: (_) => setState(() {}),
+        ),
+      );
+
+  @override
+  Widget build(BuildContext context) {
     final rates = _previewRates;
     const sample = 100000.0;
     final earnPts = rates.earnPoints(sample);
     final redeemDong = earnPts * rates.redeemValue;
     final pctBack = sample > 0 ? (redeemDong / sample * 100) : 0.0;
-
-    return ListView(
-      padding: const EdgeInsets.all(16),
+    final page = SettingsPage(
+      title: 'Tích điểm & đổi điểm',
+      subtitle: 'Tỷ lệ riêng của cửa hàng — máy chủ dùng đúng số này khi thanh toán, thu ngân không đổi tay được',
+      icon: Icons.stars_outlined,
+      loading: _loading,
+      error: _error,
+      onRetry: _load,
+      dirty: _dirty,
+      saving: _saving,
+      onSave: _save,
+      onDiscard: _discard,
       children: [
-        Text(
-          tr('Mỗi cửa hàng tự chọn tỷ lệ. Server dùng đúng số này lúc thanh toán — thu ngân không thể đổi tay.'),
-          style: TextStyle(fontSize: 13, color: SboxColors.slate700),
-        ),
-        const SizedBox(height: 8),
-        SwitchListTile(
-          contentPadding: EdgeInsets.zero,
-          title: Text(tr('Bật tích điểm / đổi điểm')),
-          subtitle: Text(tr(
-              'Tắt: khách lẻ và khách CRM đều không cộng điểm, ô đổi điểm ẩn.')),
-          value: _enabled,
-          onChanged: _saving
-              ? null
-              : (v) => setState(() => _enabled = v),
-        ),
-        const Divider(height: 28),
-        Text(tr('Mỗi bao nhiêu đồng được 1 điểm'),
-            style: const TextStyle(fontWeight: FontWeight.w600)),
-        const SizedBox(height: 6),
-        TextField(
-          controller: _earnCtrl,
-          enabled: _enabled && !_saving,
-          keyboardType: TextInputType.number,
-          inputFormatters: [FilteringTextInputFormatter.digitsOnly],
-          decoration: InputDecoration(
-            hintText: '10000',
-            suffixText: tr('đ / 1 điểm'),
-            border: OutlineInputBorder(borderRadius: BorderRadius.circular(10)),
-            isDense: true,
-          ),
-          onChanged: (_) => setState(() {}),
-        ),
-        const SizedBox(height: 4),
-        Text(
-          tr('0 = không tích điểm. Mặc định 10.000đ → 1 điểm.'),
-          style: TextStyle(fontSize: 12, color: SboxColors.slate600),
-        ),
-        const SizedBox(height: 16),
-        Text(tr('1 điểm đổi được bao nhiêu đồng'),
-            style: const TextStyle(fontWeight: FontWeight.w600)),
-        const SizedBox(height: 6),
-        TextField(
-          controller: _redeemCtrl,
-          enabled: _enabled && !_saving,
-          keyboardType: TextInputType.number,
-          inputFormatters: [FilteringTextInputFormatter.digitsOnly],
-          decoration: InputDecoration(
-            hintText: '100',
-            suffixText: tr('đ'),
-            border: OutlineInputBorder(borderRadius: BorderRadius.circular(10)),
-            isDense: true,
-          ),
-          onChanged: (_) => setState(() {}),
-        ),
-        const SizedBox(height: 4),
-        Text(
-          tr('0 = không cho đổi điểm. Mặc định 1 điểm = 100đ.'),
-          style: TextStyle(fontSize: 12, color: SboxColors.slate600),
-        ),
-        const SizedBox(height: 16),
-        Text(
-          tr('Đổi điểm tối đa ${_maxPct.toStringAsFixed(0)}% giá trị đơn (sau voucher)'),
-          style: const TextStyle(fontWeight: FontWeight.w600),
-        ),
-        Slider(
-          value: _maxPct,
-          min: 10,
-          max: 100,
-          divisions: 18,
-          label: '${_maxPct.toStringAsFixed(0)}%',
-          onChanged: !_enabled || _saving
-              ? null
-              : (v) => setState(() => _maxPct = v.roundToDouble()),
-        ),
-        const SizedBox(height: 8),
-        Material(
-          color: SboxColors.brand50,
-          borderRadius: BorderRadius.circular(10),
-          child: Padding(
-            padding: const EdgeInsets.all(12),
-            child: Text(
-              !rates.enabled
-                  ? tr('Chương trình đang tắt.')
-                  : tr(
-                      'Ví dụ đơn ${_money.format(sample)}đ: tích ${earnPts.toStringAsFixed(0)} điểm'
-                      '${rates.canRedeem && earnPts > 0 ? ' · đổi lại giảm ${_money.format(redeemDong)}đ (~${pctBack.toStringAsFixed(1)}%)' : ''}.'),
-              style: TextStyle(fontSize: 13, color: SboxColors.brand900),
+        SettingsSection(
+          title: 'Chương trình',
+          icon: Icons.loyalty_outlined,
+          children: [
+            SettingsTile(
+              label: 'Bật tích điểm / đổi điểm',
+              help: 'Tắt: không cộng điểm cho khách, ẩn ô đổi điểm khi thanh toán',
+              divider: false,
+              control: Switch(value: _enabled, onChanged: _saving ? null : (v) => setState(() => _enabled = v)),
             ),
-          ),
+          ],
         ),
-        const SizedBox(height: 20),
-        FilledButton.icon(
-          onPressed: _saving || _settings == null ? null : _save,
-          icon: const Icon(Icons.save),
-          label: Text(tr('Lưu')),
+        SettingsSection(
+          title: 'Tỷ lệ',
+          icon: Icons.percent_rounded,
+          children: [
+            SettingsTile(
+              label: 'Tích 1 điểm cho mỗi',
+              help: '0 = không tích điểm · mặc định 10.000đ',
+              divider: false,
+              control: _numField(_earnCtrl, 'đ', '10000'),
+            ),
+            SettingsTile(
+              label: '1 điểm đổi được',
+              help: '0 = không cho đổi điểm · mặc định 100đ',
+              control: _numField(_redeemCtrl, 'đ', '100'),
+            ),
+            SettingsTile(
+              label: 'Đổi điểm tối đa ${_maxPct.toStringAsFixed(0)}% giá trị đơn',
+              help: 'Tính sau khi trừ voucher',
+              inline: false,
+              control: Slider(
+                value: _maxPct,
+                min: 10,
+                max: 100,
+                divisions: 18,
+                label: '${_maxPct.toStringAsFixed(0)}%',
+                onChanged: !_enabled || _saving ? null : (v) => setState(() => _maxPct = v.roundToDouble()),
+              ),
+            ),
+            SettingsNote(
+              !rates.enabled
+                  ? 'Chương trình đang tắt.'
+                  : 'Ví dụ đơn ${_money.format(sample)}đ: tích ${earnPts.toStringAsFixed(0)} điểm'
+                      '${rates.canRedeem && earnPts > 0 ? ' · đổi lại giảm ${_money.format(redeemDong)}đ (~${pctBack.toStringAsFixed(1)}%)' : ''}.',
+              icon: Icons.calculate_outlined,
+            ),
+          ],
         ),
       ],
     );
+    if (HrmPageChrome.isHubBody(context)) return page;
+    return Scaffold(appBar: AppBar(title: Text(tr('Tích điểm & đổi điểm'))), body: page);
   }
 }

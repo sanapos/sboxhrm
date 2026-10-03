@@ -1,3 +1,4 @@
+import '../widgets/settings/settings_page.dart';
 import 'dart:math' as math;
 import 'dart:async';
 import 'package:flutter/material.dart';
@@ -973,45 +974,15 @@ class _DeviceManagementSettingsScreenState extends State<DeviceManagementSetting
     );
   }
 
+  /// Hướng dẫn nối máy — gập sẵn, 1 dòng (không chiếm nửa màn hình mỗi lần mở).
   Widget _buildSetupGuideCard() {
-    return Container(
-      width: double.infinity,
-      padding: const EdgeInsets.all(16),
-      decoration: BoxDecoration(
-        color: SboxColors.brand50,
-        borderRadius: BorderRadius.circular(14),
-        border: Border.all(color: SboxColors.brand100),
-      ),
-      child: Row(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          const Icon(Icons.info_outline, color: SboxColors.brand600, size: 22),
-          const SizedBox(width: 12),
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(tr('Hướng dẫn cấu hình máy chấm công'),
-                  style: TextStyle(
-                    fontWeight: FontWeight.w700,
-                    fontSize: 14,
-                    color: SboxColors.brand900,
-                  ),
-                ),
-                SizedBox(height: 6),
-                Text(
-                  tr(DeviceSetupGuide.summary),
-                  style: TextStyle(
-                    fontSize: 13,
-                    height: 1.45,
-                    color: SboxColors.brand800,
-                  ),
-                ),
-              ],
-            ),
-          ),
-        ],
-      ),
+    return const SettingsHelp(
+      summary: 'Cách kết nối máy chấm công',
+      steps: [
+        'Trên máy ZKTeco vào ${DeviceSetupGuide.menuPath}.',
+        'Nhập Địa chỉ máy chủ: ${DeviceSetupGuide.serverHost} · Port: ${DeviceSetupGuide.serverPort}.',
+        'Máy tự xuất hiện trong danh sách bên dưới sau ít phút.',
+      ],
     );
   }
 

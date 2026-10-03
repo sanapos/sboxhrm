@@ -82,14 +82,14 @@ class _ProductSalarySettingsScreenState
     final addActions = _perm.canCreate('ProductSalary')
         ? [
             HrmSettingsAddButton(
-              label: 'Nhóm SP',
+              label: 'Thêm nhóm',
               compact: embeddedMobile,
               icon: Icons.create_new_folder_outlined,
               onPressed: _showAddGroupDialog,
             ),
             if (!embeddedMobile) const SizedBox(width: 8),
             HrmSettingsAddButton(
-              label: embeddedMobile ? 'SP' : 'Thêm sản phẩm',
+              label: 'Thêm sản phẩm',
               compact: embeddedMobile,
               icon: Icons.add_box_outlined,
               onPressed: () {

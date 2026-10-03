@@ -8,6 +8,7 @@ import 'package:url_launcher/url_launcher.dart';
 import '../../providers/permission_provider.dart';
 import '../../services/api_service.dart';
 import '../../widgets/hrm_page_chrome.dart';
+import '../../widgets/settings/settings_page.dart';
 import '../../widgets/notification_overlay.dart';
 import '../../widgets/pos/pos_theme.dart';
 import '../../widgets/pos/vn_admin_address_fields.dart';
@@ -301,39 +302,26 @@ class _PosShippingSettingsScreenState extends State<PosShippingSettingsScreen> {
           ),
         ],
       ),
-      body: _loading
-          ? const Center(child: CircularProgressIndicator())
-          : ListView(
-              padding: const EdgeInsets.fromLTRB(12, 10, 12, 28),
-              children: [
-                if (!canEdit)
-                  Padding(
-                    padding: const EdgeInsets.only(bottom: 8),
-                    child: Text(
-                      tr('Chỉ xem — không có quyền sửa.'),
-                      style: TextStyle(
-                          color: Colors.orange.shade900, fontSize: 12),
-                    ),
-                  ),
-                Text(
-                  tr(
-                    'Bật hãng → dán API Token → địa chỉ lấy hàng đủ '
-                    '(số nhà, phường, tỉnh) → Lưu. '
-                    'GHN: thêm ShopId · GHTK: Partner code · AhaMove: tọa độ nếu cần.',
-                  ),
-                  style: TextStyle(
-                    fontSize: 12,
-                    height: 1.35,
-                    color: SboxColors.slate700,
-                  ),
-                ),
-                const SizedBox(height: 10),
-                for (final f in _forms) ...[
-                  _carrierCard(f, canEdit),
-                  const SizedBox(height: 10),
-                ],
-              ],
-            ),
+      body: SettingsPage(
+        title: 'Đơn vị giao hàng',
+        subtitle: canEdit
+            ? 'Kết nối hãng vận chuyển để tạo vận đơn, tính phí và theo dõi hành trình'
+            : 'Chỉ xem — bạn không có quyền sửa',
+        icon: Icons.local_shipping_outlined,
+        loading: _loading,
+        children: [
+          const SettingsHelp(
+            summary: 'Cách kết nối một hãng',
+            steps: [
+              'Bật hãng cần dùng.',
+              'Dán API Token lấy từ trang quản lý của hãng (GHN thêm ShopId · GHTK thêm Partner code).',
+              'Điền đủ địa chỉ lấy hàng: số nhà, phường, tỉnh (AhaMove cần thêm tọa độ nếu có).',
+              'Bấm Lưu, rồi «Thử kết nối» để kiểm tra phí giao.',
+            ],
+          ),
+          for (final f in _forms) _carrierCard(f, canEdit),
+        ],
+      ),
     );
   }
 

@@ -56,16 +56,18 @@ class HrmSettingsAddButton extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     if (compact) {
-      return IconButton.filledTonal(
+      // Nút gọn vẫn có chữ («+ Thêm mới») — dấu «+» trơ trọi khó hiểu.
+      return FilledButton.tonalIcon(
         onPressed: onPressed,
-        icon: Icon(icon, size: 20),
-        style: IconButton.styleFrom(
+        icon: Icon(icon, size: 18),
+        label: Text(tr(label), style: const TextStyle(fontWeight: FontWeight.w700, fontSize: 13)),
+        style: FilledButton.styleFrom(
           backgroundColor: PosTheme.kiotBlueLight,
           foregroundColor: PosTheme.kiotBlue,
-          minimumSize: const Size(40, 40),
-          padding: EdgeInsets.zero,
+          minimumSize: const Size(0, 38),
+          padding: const EdgeInsets.symmetric(horizontal: 12),
+          visualDensity: VisualDensity.compact,
         ),
-        tooltip: tr(label),
       );
     }
     return TextButton.icon(
