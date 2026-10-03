@@ -194,12 +194,10 @@ public static class AdmsEngineProfiles
                 }
                 info.SupportsUserQuery ??= true;
                 info.SupportsAttendanceQuery ??= true;
-                // ROM LX35 CÓ ENROLL_FP + màn hình đăng ký (đã dịch ngược xác nhận) — cho phép thử
-                // đăng ký vân tay từ xa; chỉ khóa nếu máy trả lỗi thật từ lệnh ĐÚNG
-                // (OVERWRITE=1 + PIN đã tồn tại). -1002 là mã từ chối CHUNG, không phải "thiếu tính năng".
-                info.SupportsEnrollFingerprint ??= true;
-                info.SupportsFaceUpdate = false;    // máy không có camera (FaceFunOn=0)
-                info.SupportsDoorControl = false;   // ROM không có AC_UNLOCK
+                // ROM không có ENROLL_FP / AC_UNLOCK; máy không có camera (FaceFunOn=0).
+                info.SupportsEnrollFingerprint = false;
+                info.SupportsFaceUpdate = false;
+                info.SupportsDoorControl = false;
                 // Stamp=0 chỉ có tác dụng khi máy bắt tay lại — server gửi kèm CHECK (UsesCheckStampSync).
                 info.PreferStampSync = true;
                 break;

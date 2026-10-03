@@ -136,11 +136,7 @@ public class DeviceCapabilityService(
                     break;
                 case DeviceCommandTypes.EnrollFingerprint:
                 case DeviceCommandTypes.EnrollFace:
-                    // PushLite (LX35): ROM CÓ ENROLL_FP (đã dịch ngược). -1002 ở đây là từ chối CHUNG
-                    // (sai tham số: OVERWRITE=0, hoặc PIN chưa tồn tại) — KHÔNG khóa tính năng,
-                    // để lệnh ĐÚNG còn cơ hội chạy và học lại khi Return=0.
-                    if (!string.Equals(info.EngineProfile, AdmsEngineProfiles.PushLite, StringComparison.OrdinalIgnoreCase)
-                        && info.SupportsEnrollFingerprint != false)
+                    if (info.SupportsEnrollFingerprint != false)
                     {
                         info.SupportsEnrollFingerprint = false;
                         changed = true;
@@ -231,14 +227,7 @@ public class DeviceCapabilityService(
                 case DeviceCommandTypes.SyncFingerprints:
                     return (string.Empty, PushLiteNoFingerprintSync);
                 case DeviceCommandTypes.EnrollFingerprint:
-                    // ROM LX35 CÓ ENROLL_FP — chỉ chặn khi đã học false từ lệnh ĐÚNG; còn lại gửi thật.
-                    if (info.SupportsEnrollFingerprint == false)
-                        return (string.Empty, PushLiteNoRemoteEnroll);
-                    if (string.IsNullOrWhiteSpace(pin))
-                        return ("NOT IMPLEMENTED", null);
-                    // Builder mặc định OVERWRITE=1, RETRY=3 (ROM yêu cầu OVERWRITE∈{1,2});
-                    // LƯU Ý: user PIN phải đã tồn tại trên máy trước khi enroll (ROM: "fingerprint user not exsit").
-                    return (ClockCommandBuilder.BuildEnrollFingerprintCommand(pin, fingerIndex ?? 0), null);
+                    return (string.Empty, PushLiteNoRemoteEnroll);
                 case DeviceCommandTypes.EnrollFace:
                     return (string.Empty, "Máy này (dòng LX35) không có nhận diện khuôn mặt.");
                 case DeviceCommandTypes.OpenDoor:
