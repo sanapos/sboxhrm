@@ -27,7 +27,8 @@ tài liệu đó lấy từ chuỗi ký tự trong firmware, mà lệnh có tên
 | `CLEAR DATA` | 0 | ⚠️ **Xóa sạch**: user 4→0, vân tay 4→0, **chấm công 5→0** |
 | `CLEAR ALL USERINFO` (máy có 1 user) | -1002, user vẫn còn | ❌ Lúc máy trống trả 0, nhưng đó là kết quả giả |
 | `CLEAR LOG` | Máy không trả lời (lệnh kẹt ở trạng thái «đã gửi») | ? Chưa rõ |
-| `DATA DELETE USERINFO PIN=…` | Chưa thử (bị chặn quyền) | ? Có trong ROM |
+| `DATA DELETE USERINFO PIN=9001` | 0, UserCount 1→0 | ✅ Dùng cho «Xóa toàn bộ user» |
+| Handshake gửi thêm `IsSupportFileSyncData=1` + CHECK | Máy vẫn báo `IsSupportFileSyncData=0`, DATA QUERY USERINFO vẫn -1002 | ❌ Cờ do firmware cố định, không đưa vào code |
 
 Lưu ý: trên máy này `-1002` **không có nghĩa là máy không làm gì** (CHECK trả -1002 nhưng vẫn bắt tay lại). Phải nhìn dữ liệu máy gửi lên.
 
@@ -68,10 +69,13 @@ Lưu ý: trên máy này `-1002` **không có nghĩa là máy không làm gì** 
 
 - **Vân tay**: không gửi được mẫu vân tay từ LX35 lên server, nên không sao chép vân tay sang máy khác được.
   Có thể thử thêm: `TransFlag` với thứ tự bit khác, hoặc `DATA QUERY FINGERTMP PIN=<pin>` (QUERY khác đều -1002, nhiều khả năng cũng vậy).
-- **Xóa toàn bộ user**: `CLEAR ALL USERINFO` không chạy, `CLEAR DATA` xóa cả chấm công. Server (commit sau `53d05116`) chặn nút
-  «Xóa toàn bộ user» trên LX35 kèm hướng dẫn. Hướng tốt hơn: xóa từng user bằng `DATA DELETE USERINFO PIN=…`, cần thử trước.
+- **Xóa toàn bộ user** (đã làm, `9e7b2f66`): `CLEAR ALL USERINFO` không chạy, `CLEAR DATA` xóa cả chấm công, nên với PushLite
+  `CreateDeviceCmdHandler` tạo một lệnh `DATA DELETE USERINFO PIN=…` (DeleteDeviceUser, ObjectReferenceId = DeviceUser.Id)
+  cho mỗi nhân viên Sbox biết trên máy. Chưa có danh sách thì bảo «Tải user» trước. Chưa thử bấm thật từ app.
 - **`CLEAR LOG`**: máy không trả lời. Cần thử lại khi máy có lượt chấm (03/10 máy đang trống).
-- Máy test hiện còn 1 user test PIN 9001 «Test Clear» (do thử `CLEAR ALL USERINFO`). Xóa đi hoặc đẩy lại nhân viên từ Sbox.
+- Máy test sau khi thử (03/10): đã xóa user test 9001, đẩy lại 4 nhân viên từ Sbox (968315, 2, 968314, 868). **Vân tay và
+  lượt chấm cũ trên máy đã mất do `CLEAR DATA`** (lượt chấm đã lên Sbox vẫn còn). Lệnh `CLEAR LOG` treo đã đóng ở trạng thái Failed.
+- Script thử nhanh trên server demo: `/root/lx35_send.sh "<LỆNH>" <CommandType>` (chỉ gửi tới đúng máy test, chờ và in kết quả).
 - Server **103.133.225.67** chưa có bản LX35 (build 02/10 15:29).
 
 ## 5. Cách thử lệnh tay (cần người dùng cho phép, ghi vào CSDL production)
