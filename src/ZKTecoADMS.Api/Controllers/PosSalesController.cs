@@ -463,6 +463,7 @@ public partial class PosSalesController(
             .Where(t => keySet.Contains((t.ReferenceNo!, t.SaleOrderId!.Value)))
             .ToList();
 
+        var ledgerAmounts = await ReturnSlipAmountsAsync(storeId, pageKeys.Select(k => k.SaleOrderId!.Value).Distinct().ToList());
         var items = pageKeys.Select(k =>
         {
             var g = pageTxs
@@ -472,9 +473,9 @@ public partial class PosSalesController(
             var isVoided = !k.HasActive || voidedSet.Contains(returnNo);
             var first = g.OrderByDescending(x => x.CreatedAt).First();
             ParseReturnNote(first.Note, out var pm, out var cleanNote);
-            var amount = isVoided
-                ? g.Sum(x => x.LineAmount ?? 0)
-                : g.Where(x => x.IsActive).Sum(x => x.LineAmount ?? 0);
+            var amount = ledgerAmounts.TryGetValue((k.SaleOrderId!.Value, returnNo), out var la)
+                ? la
+                : PosSaleReturnLedger.LegacySlipRefund(isVoided ? g : g.Where(x => x.IsActive));
             return new SaleReturnListItemDto(
                 returnNo,
                 k.SaleOrderId!.Value,
@@ -1536,6 +1537,21 @@ public partial class PosSalesController(
         await using var tx = await dbContext.Database.BeginTransactionAsync();
         try
         {
+            // Giành trạng thái trước (khóa dòng đơn tới khi commit): 2 lần bấm hủy cùng lúc / 2 máy —
+            // yêu cầu sau chờ rồi thấy đơn đã hủy → dừng, không hoàn kho / tiền / điểm lần hai.
+            var claimed = await dbContext.PosSaleOrders
+                .Where(o => o.Id == id && o.StoreId == storeId && o.Deleted == null &&
+                            o.Status == PosSaleOrderStatus.Completed)
+                .ExecuteUpdateAsync(setters => setters
+                    .SetProperty(o => o.Status, PosSaleOrderStatus.Cancelled)
+                    .SetProperty(o => o.UpdatedAt, DateTime.UtcNow)
+                    .SetProperty(o => o.UpdatedBy, CurrentUserEmail));
+            if (claimed == 0)
+            {
+                await tx.RollbackAsync();
+                return BadRequest(AppResponse<SaleOrderDto>.Fail("Đơn đã hủy"));
+            }
+
             var stockFullyReversed =
                 await PosSaleStockHelper.IsSaleStockFullyReversedAsync(dbContext, storeId, order);
             if (!stockFullyReversed)
@@ -1573,26 +1589,6 @@ public partial class PosSalesController(
 
             await dbContext.SaveChangesAsync();
 
-            // ExecuteUpdate trực tiếp — change tracker đôi khi không flush Status (đơn kho đã hoàn nhưng vẫn Completed).
-            var statusUpdated = await dbContext.PosSaleOrders
-                .Where(o => o.Id == id && o.StoreId == storeId && o.Deleted == null &&
-                            o.Status == PosSaleOrderStatus.Completed)
-                .ExecuteUpdateAsync(setters => setters
-                    .SetProperty(o => o.Status, PosSaleOrderStatus.Cancelled)
-                    .SetProperty(o => o.UpdatedAt, DateTime.UtcNow)
-                    .SetProperty(o => o.UpdatedBy, CurrentUserEmail));
-
-            if (statusUpdated == 0)
-            {
-                var alreadyCancelled = await dbContext.PosSaleOrders.AsNoTracking()
-                    .AnyAsync(o => o.Id == id && o.StoreId == storeId && o.Deleted == null &&
-                                   o.Status == PosSaleOrderStatus.Cancelled);
-                if (!alreadyCancelled)
-                {
-                    await tx.RollbackAsync();
-                    return BadRequest(AppResponse<SaleOrderDto>.Fail("Không lưu được trạng thái hủy — vui lòng thử lại"));
-                }
-            }
 
             // Audit hủy đơn (lý do / trước-sau tạm tính / ai hủy).
             var afterProv = false;
@@ -1887,6 +1883,7 @@ public partial class PosSalesController(
             .ToListAsync();
         var voidedSet = voidedReturnNos.ToHashSet(StringComparer.OrdinalIgnoreCase);
 
+        var ledgerAmounts = await ReturnSlipAmountsAsync(storeId, [id]);
         var groups = txs.GroupBy(t => t.ReferenceNo ?? t.Id.ToString());
         var items = groups.Select(g =>
         {
@@ -1896,9 +1893,9 @@ public partial class PosSalesController(
             ParseReturnNote(first.Note, out var pm, out var cleanNote);
             return new SaleReturnSummaryDto(
                 returnNo,
-                isVoided
-                    ? g.Sum(x => x.LineAmount ?? 0)
-                    : g.Where(x => x.IsActive).Sum(x => x.LineAmount ?? 0),
+                ledgerAmounts.TryGetValue((id, returnNo), out var la)
+                    ? la
+                    : PosSaleReturnLedger.LegacySlipRefund(isVoided ? g : g.Where(x => x.IsActive)),
                 first.CreatedAt,
                 cleanNote,
                 first.CreatedBy,
@@ -1938,10 +1935,12 @@ public partial class PosSalesController(
         if (order.Status != PosSaleOrderStatus.Completed)
             return BadRequest(AppResponse<object>.Fail("Chỉ trả hàng trên đơn đã hoàn thành"));
 
-        // GetReturnedQtyByLineAsync quy đổi QtyChange (lưu ở đơn vị cơ bản với biến thể ĐVT quy đổi)
-        // trở lại đơn vị bán — bắt buộc để so sánh đúng với saleLine.Qty (luôn ở đơn vị bán) khi
-        // kiểm tra "trả vượt số đã bán" dưới đây.
-        var returnedMap = await GetReturnedQtyByLineAsync(storeId, id);
+        // «Đã trả» theo từng dòng hóa đơn (đơn vị bán) — sổ trả hàng, đủ mọi loại hàng
+        // (hàng hóa, dịch vụ, combo, món định lượng); phiếu cũ suy từ thẻ kho.
+        var orderLines = order.Lines.Where(l => l.Deleted == null).OrderBy(l => l.CreatedAt).ToList();
+        var returnedByLine = await PosSaleReturnLedger.ReturnedQtyByLineAsync(dbContext, storeId, [id]);
+        var refundFactor = PosSaleReturnLedger.RefundFactor(order, orderLines);
+        var unitRates = await PosSaleStockHelper.LoadUnitConversionRatesAsync(dbContext, orderLines.Select(l => l.UnitId));
 
         var productIds = dto.Lines.Select(l => l.ProductId).Distinct().ToList();
         var products = await dbContext.PosProducts
@@ -1982,7 +1981,7 @@ public partial class PosSalesController(
             .SelectMany(v => v.Select(x => x.ComponentProductId))
             .Concat(recipeLinesMap.Values.SelectMany(v => v.Select(x => x.ComponentProductId)))
             .Distinct()
-            .Where(id => !products.ContainsKey(id)).ToList();
+            .Where(cid => !products.ContainsKey(cid)).ToList();
         if (comboComponentIds.Count > 0)
         {
             var extra = await dbContext.PosProducts.AsTracking()
@@ -1991,27 +1990,40 @@ public partial class PosSalesController(
             foreach (var p in extra) products[p.Id] = p;
         }
 
+        // Phân bổ SL trả vào các dòng cùng hàng (đơn có thể có 2 dòng cùng món, giá khác nhau).
+        var allocations = new List<(PosSaleOrderLine Line, decimal Qty)>();
+        var allocatedByLine = new Dictionary<Guid, decimal>();
         foreach (var line in dto.Lines)
         {
             if (line.Qty <= 0)
                 return BadRequest(AppResponse<object>.Fail("Số lượng trả phải > 0"));
             if (!products.TryGetValue(line.ProductId, out var p))
                 return BadRequest(AppResponse<object>.Fail("Hàng hóa không hợp lệ"));
+            if (line.VariantId.HasValue &&
+                (!variants.TryGetValue(line.VariantId.Value, out var variant) || variant.ProductId != p.Id))
+                return BadRequest(AppResponse<object>.Fail("Biến thể không hợp lệ"));
 
-            var saleLine = order.Lines.FirstOrDefault(l =>
-                l.ProductId == line.ProductId && l.VariantId == line.VariantId);
-            if (saleLine == null)
+            var candidates = orderLines.Where(l => l.ProductId == line.ProductId && l.VariantId == line.VariantId).ToList();
+            if (candidates.Count == 0)
                 return BadRequest(AppResponse<object>.Fail($"Hàng không có trong đơn: {p.Name}"));
 
-            var alreadyReturned = returnedMap.GetValueOrDefault((line.ProductId, line.VariantId));
-            if (line.Qty + alreadyReturned > saleLine.Qty)
+            decimal Room(PosSaleOrderLine l) =>
+                l.Qty - returnedByLine.GetValueOrDefault(l.Id) - allocatedByLine.GetValueOrDefault(l.Id);
+            var sold = candidates.Sum(l => l.Qty);
+            var available = candidates.Sum(Room);
+            if (line.Qty > available + 0.0001m)
                 return BadRequest(AppResponse<object>.Fail(
-                    $"Trả vượt số đã bán: {saleLine.ProductName} (đã bán {saleLine.Qty}, đã trả {alreadyReturned})"));
+                    $"Trả vượt số đã bán: {candidates[0].ProductName} (đã bán {sold:0.##}, đã trả {sold - available - candidates.Sum(l => allocatedByLine.GetValueOrDefault(l.Id)):0.##})"));
 
-            if (line.VariantId.HasValue)
+            var remaining = line.Qty;
+            foreach (var l in candidates)
             {
-                if (!variants.TryGetValue(line.VariantId.Value, out var variant) || variant.ProductId != p.Id)
-                    return BadRequest(AppResponse<object>.Fail("Biến thể không hợp lệ"));
+                if (remaining <= 0) break;
+                var take = Math.Min(Room(l), remaining);
+                if (take <= 0) continue;
+                allocations.Add((l, take));
+                allocatedByLine[l.Id] = allocatedByLine.GetValueOrDefault(l.Id) + take;
+                remaining -= take;
             }
         }
 
@@ -2026,71 +2038,114 @@ public partial class PosSalesController(
         await using var tx = await dbContext.Database.BeginTransactionAsync(IsolationLevel.RepeatableRead);
         try
         {
-        foreach (var line in dto.Lines)
-        {
-            var p = products[line.ProductId];
-            var saleLine = order.Lines.First(l =>
-                l.ProductId == line.ProductId && l.VariantId == line.VariantId);
-            PosProductVariant? variant = null;
-            if (line.VariantId.HasValue)
-                variants.TryGetValue(line.VariantId.Value, out variant);
+        // Giá vốn dịch vụ đã ghi lúc bán (đơn cũ chưa ghi → giá vốn hiện tại, cùng cách báo cáo ước tính).
+        var serviceUnitCost = await dbContext.PosStockTransactions.AsNoTracking()
+            .Where(t => t.SaleOrderId == order.Id && t.StoreId == storeId && t.Deleted == null &&
+                        t.TransactionType == PosStockTransactionType.Sale && t.Note == PosSaleStockHelper.ServiceCostNote)
+            .GroupBy(t => t.ProductId)
+            .Select(g => new { ProductId = g.Key, Unit = g.Max(x => x.UnitCost ?? 0) })
+            .ToDictionaryAsync(x => x.ProductId, x => x.Unit);
 
-            var lineRefund = PosSaleStockHelper.LineUnitRefund(saleLine) * line.Qty;
+        foreach (var (saleLine, qty) in allocations)
+        {
+            var p = products[saleLine.ProductId];
+            PosProductVariant? variant = null;
+            if (saleLine.VariantId.HasValue)
+                variants.TryGetValue(saleLine.VariantId.Value, out variant);
+
+            var lineRefund = Math.Round(PosSaleReturnLedger.LineUnitRefund(saleLine, refundFactor) * qty, 0,
+                MidpointRounding.AwayFromZero);
+            // SL cơ bản để cộng kho (bán theo Thùng / Lốc → quy đổi như lúc trừ kho khi bán).
+            var baseQty = variant != null ? qty : PosSaleStockHelper.QtyInBase(qty, saleLine.UnitId, unitRates);
+            var baseNote = BuildReturnNote(dto.Note, refundMethod, order.OrderNo);
+            decimal cost = 0;
 
             if (recipeLinesMap.TryGetValue(p.Id, out var recipeLines) && recipeLines.Count > 0)
             {
-                var recipeNote = BuildReturnNote(dto.Note, refundMethod, order.OrderNo) +
-                                 $" — hoàn định lượng: {p.Name}";
+                var recipeNote = $"{baseNote} — {PosSaleReturnLedger.RecipeReturnMarker} {p.Name}";
+                var first = true;
                 foreach (var cl in recipeLines)
                 {
                     if (!products.TryGetValue(cl.ComponentProductId, out var comp)) continue;
-                    var restore = cl.Qty * line.Qty;
-                    await PosSaleStockHelper.ApplyComboReturnComponentAsync(
-                        dbContext, storeId, order, comp, restore, lineRefund,
+                    // Tiền hoàn chỉ ghi trên thẻ kho của thành phần đầu tiên (không nhân theo số thành phần).
+                    cost += await PosSaleStockHelper.ApplyComboReturnComponentAsync(
+                        dbContext, storeId, order, comp, cl.Qty * baseQty, first ? lineRefund : 0,
                         returnNo, recipeNote, CurrentUserEmail);
+                    first = false;
                 }
-                refundTotal += lineRefund;
-                continue;
             }
-
-            if (p.ProductType == PosProductType.Service)
+            else if (p.ProductType == PosProductType.Service)
             {
-                refundTotal += lineRefund;
-                warrantyReturns.Add((line.ProductId, line.VariantId, line.Qty));
-                continue;
+                var unitCost = serviceUnitCost.TryGetValue(p.Id, out var unit) ? unit : p.CostPrice;
+                cost = qty * unitCost;
+                // Dòng thẻ kho SL 0 — để phiếu trả chỉ có dịch vụ vẫn hiện trong danh sách / hủy được.
+                dbContext.PosStockTransactions.Add(new PosStockTransaction
+                {
+                    Id = Guid.NewGuid(),
+                    StoreId = storeId,
+                    ProductId = p.Id,
+                    TransactionType = PosStockTransactionType.Return,
+                    QtyChange = 0,
+                    QtyAfter = p.OnHandQty,
+                    UnitCost = unitCost,
+                    LineAmount = lineRefund,
+                    ReferenceNo = returnNo,
+                    SaleOrderId = order.Id,
+                    Note = baseNote,
+                    IsActive = true,
+                    CreatedBy = CurrentUserEmail,
+                });
+                warrantyReturns.Add((saleLine.ProductId, saleLine.VariantId, qty));
             }
-
-            if (p.ProductType == PosProductType.Combo &&
-                comboLinesMap.TryGetValue(p.Id, out var comboLines))
+            else if (p.ProductType == PosProductType.Combo &&
+                     comboLinesMap.TryGetValue(p.Id, out var comboLines))
             {
-                var comboNote = BuildReturnNote(dto.Note, refundMethod, order.OrderNo) +
-                                $" — hoàn combo: {p.Name}";
+                var comboNote = $"{baseNote} — {PosSaleReturnLedger.ComboReturnMarker} {p.Name}";
+                var first = true;
                 foreach (var cl in comboLines)
                 {
                     if (!products.TryGetValue(cl.ComponentProductId, out var comp)) continue;
                     if (!PosProductTypeRules.TracksInventory(comp.ProductType)) continue;
-                    var restore = cl.Qty * line.Qty;
-                    await PosSaleStockHelper.ApplyComboReturnComponentAsync(
-                        dbContext, storeId, order, comp, restore, lineRefund,
+                    cost += await PosSaleStockHelper.ApplyComboReturnComponentAsync(
+                        dbContext, storeId, order, comp, cl.Qty * baseQty, first ? lineRefund : 0,
                         returnNo, comboNote, CurrentUserEmail);
+                    first = false;
                 }
                 if (p.ComboTrackStock)
                 {
-                    await PosSaleStockHelper.ApplyComboReturnComponentAsync(
-                        dbContext, storeId, order, p, line.Qty, lineRefund,
+                    cost += await PosSaleStockHelper.ApplyComboReturnComponentAsync(
+                        dbContext, storeId, order, p, baseQty, first ? lineRefund : 0,
                         returnNo, comboNote, CurrentUserEmail);
                 }
-                refundTotal += lineRefund;
-                continue;
+            }
+            else
+            {
+                cost = await PosSaleStockHelper.ApplySaleReturnLineAsync(
+                    dbContext, storeId, order, p, variant, baseQty, lineRefund,
+                    returnNo, baseNote, CurrentUserEmail, touchedProducts);
+                warrantyReturns.Add((saleLine.ProductId, saleLine.VariantId, qty));
             }
 
-            await PosSaleStockHelper.ApplySaleReturnLineAsync(
-                dbContext, storeId, order, p, variant, line.Qty, lineRefund,
-                returnNo, BuildReturnNote(dto.Note, refundMethod, order.OrderNo),
-                CurrentUserEmail, touchedProducts);
+            // Topping gắn món: cộng lại kho theo SL trả.
+            cost += await PosSaleStockHelper.ApplyToppingReturnAsync(
+                dbContext, storeId, order, saleLine, qty, returnNo, baseNote, CurrentUserEmail);
 
+            dbContext.PosSaleReturnLines.Add(new PosSaleReturnLine
+            {
+                Id = Guid.NewGuid(),
+                StoreId = storeId,
+                SaleOrderId = order.Id,
+                SaleOrderLineId = saleLine.Id,
+                ReturnNo = returnNo,
+                ProductId = saleLine.ProductId,
+                VariantId = saleLine.VariantId,
+                Qty = qty,
+                RefundAmount = lineRefund,
+                CostAmount = cost,
+                IsActive = true,
+                CreatedBy = CurrentUserEmail,
+            });
             refundTotal += lineRefund;
-            warrantyReturns.Add((line.ProductId, line.VariantId, line.Qty));
         }
 
         foreach (var pid in touchedProducts)
@@ -2265,71 +2320,45 @@ public partial class PosSalesController(
             cleanNote = null;
     }
 
-    private async Task<Dictionary<Guid, decimal>> GetReturnedAmountsAsync(Guid storeId, List<Guid> orderIds)
+    /// <summary>Tiền hoàn từng phiếu (sổ trả hàng, kể cả phiếu đã hủy — để hiển thị số tiền gốc).</summary>
+    private async Task<Dictionary<(Guid OrderId, string ReturnNo), decimal>> ReturnSlipAmountsAsync(
+        Guid storeId, List<Guid> orderIds)
     {
-        if (orderIds.Count == 0) return new Dictionary<Guid, decimal>();
-        var rows = await dbContext.PosStockTransactions.AsNoTracking()
-            .Where(t => t.SaleOrderId != null && orderIds.Contains(t.SaleOrderId.Value) &&
-                        t.StoreId == storeId && t.Deleted == null && t.IsActive &&
-                        t.TransactionType == PosStockTransactionType.Return &&
-                        (t.Note == null || (!t.Note.StartsWith("Hủy đơn") && !t.Note.StartsWith("Hủy trả hàng"))))
-            .GroupBy(t => t.SaleOrderId!.Value)
-            .Select(g => new
-            {
-                OrderId = g.Key,
-                Amount = g.Sum(x => x.LineAmount ?? 0),
-            })
+        if (orderIds.Count == 0) return new();
+        var rows = await dbContext.PosSaleReturnLines.AsNoTracking()
+            .Where(r => r.StoreId == storeId && r.Deleted == null && orderIds.Contains(r.SaleOrderId))
+            .GroupBy(r => new { r.SaleOrderId, r.ReturnNo })
+            .Select(g => new { g.Key.SaleOrderId, g.Key.ReturnNo, Amount = g.Sum(x => x.RefundAmount) })
             .ToListAsync();
-        return rows.ToDictionary(x => x.OrderId, x => x.Amount);
+        return rows.ToDictionary(x => (x.SaleOrderId, x.ReturnNo), x => x.Amount);
     }
 
+    /// <summary>Tiền đã hoàn theo đơn (sổ trả hàng; phiếu cũ suy từ thẻ kho, combo không cộng trùng).</summary>
+    private async Task<Dictionary<Guid, decimal>> GetReturnedAmountsAsync(Guid storeId, List<Guid> orderIds) =>
+        (await PosSaleReturnLedger.ReturnedByOrderAsync(dbContext, storeId, orderIds))
+            .ToDictionary(x => x.Key, x => x.Value.Refund);
+
+    /// <summary>Đã trả theo (hàng, biến thể) của đơn — đơn vị bán, mọi loại hàng (kể cả dịch vụ / combo).</summary>
     private async Task<Dictionary<(Guid ProductId, Guid? VariantId), decimal>> GetReturnedQtyByLineAsync(
-        Guid storeId, Guid orderId)
-    {
-        var rows = await dbContext.PosStockTransactions.AsNoTracking()
-            .Where(t => t.SaleOrderId == orderId && t.StoreId == storeId && t.Deleted == null &&
-                        t.IsActive &&
-                        t.TransactionType == PosStockTransactionType.Return &&
-                        (t.Note == null || (!t.Note.StartsWith("Hủy đơn") && !t.Note.StartsWith("Hủy trả hàng"))))
-            .Select(t => new { t.ProductId, t.VariantId, t.QtyChange })
-            .ToListAsync();
-        if (rows.Count == 0) return new();
-
-        var variantRates = await GetVariantAttributeJsonMapAsync(
-            rows.Where(r => r.VariantId.HasValue).Select(r => r.VariantId!.Value));
-        return rows.GroupBy(x => new { x.ProductId, x.VariantId })
-            .ToDictionary(
-                g => (g.Key.ProductId, g.Key.VariantId),
-                g => g.Sum(x => PosVariantStockHelper.ToSaleUnitQty(
-                    x.QtyChange, x.VariantId.HasValue ? variantRates.GetValueOrDefault(x.VariantId.Value) : null)));
-    }
+        Guid storeId, Guid orderId) =>
+        (await GetReturnedQtyByOrdersAsync(storeId, [orderId])).GetValueOrDefault(orderId) ?? new();
 
     private async Task<Dictionary<Guid, Dictionary<(Guid ProductId, Guid? VariantId), decimal>>>
         GetReturnedQtyByOrdersAsync(Guid storeId, List<Guid> orderIds)
     {
-        if (orderIds.Count == 0)
+        var byLine = await PosSaleReturnLedger.ReturnedQtyByLineAsync(dbContext, storeId, orderIds);
+        if (byLine.Count == 0)
             return new Dictionary<Guid, Dictionary<(Guid ProductId, Guid? VariantId), decimal>>();
-
-        var rows = await dbContext.PosStockTransactions.AsNoTracking()
-            .Where(t => t.SaleOrderId != null && orderIds.Contains(t.SaleOrderId.Value) &&
-                        t.StoreId == storeId && t.Deleted == null && t.IsActive &&
-                        t.TransactionType == PosStockTransactionType.Return &&
-                        (t.Note == null || (!t.Note.StartsWith("Hủy đơn") && !t.Note.StartsWith("Hủy trả hàng"))))
-            .Select(t => new { OrderId = t.SaleOrderId!.Value, t.ProductId, t.VariantId, t.QtyChange })
+        var lineIds = byLine.Keys.ToList();
+        var lines = await dbContext.PosSaleOrderLines.AsNoTracking()
+            .Where(l => lineIds.Contains(l.Id))
+            .Select(l => new { l.Id, l.SaleOrderId, l.ProductId, l.VariantId })
             .ToListAsync();
-        if (rows.Count == 0)
-            return new Dictionary<Guid, Dictionary<(Guid ProductId, Guid? VariantId), decimal>>();
-
-        var variantRates = await GetVariantAttributeJsonMapAsync(
-            rows.Where(r => r.VariantId.HasValue).Select(r => r.VariantId!.Value));
-        return rows.GroupBy(x => x.OrderId)
+        return lines.GroupBy(l => l.SaleOrderId)
             .ToDictionary(
                 g => g.Key,
-                g => g.GroupBy(x => new { x.ProductId, x.VariantId })
-                    .ToDictionary(
-                        gg => (gg.Key.ProductId, gg.Key.VariantId),
-                        gg => gg.Sum(x => PosVariantStockHelper.ToSaleUnitQty(
-                            x.QtyChange, x.VariantId.HasValue ? variantRates.GetValueOrDefault(x.VariantId.Value) : null))));
+                g => g.GroupBy(l => (l.ProductId, l.VariantId))
+                    .ToDictionary(gg => gg.Key, gg => gg.Sum(l => byLine.GetValueOrDefault(l.Id))));
     }
 
     /// <summary>

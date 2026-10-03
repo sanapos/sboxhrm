@@ -1058,6 +1058,7 @@ public class PosQrTableOrderController(
                 "Đơn đã kết thúc — không đổi trạng thái nữa"));
 
         var now = DateTime.UtcNow;
+        Microsoft.EntityFrameworkCore.Storage.IDbContextTransaction? cancelTx = null;
         order.DeliveryStatus = next;
         order.UpdatedAt = now;
         order.UpdatedBy = CurrentUserEmail;
@@ -1081,6 +1082,13 @@ public class PosQrTableOrderController(
             else if (order.Status == PosSaleOrderStatus.Completed)
             {
                 // Đã thanh toán / trừ kho — hủy online phải hoàn kho + gỡ DT như Hủy hóa đơn.
+                // Giành trạng thái trong transaction: 2 yêu cầu hủy cùng lúc không hoàn kho / tiền hai lần.
+                cancelTx = await db.Database.BeginTransactionAsync();
+                if (!await PosSaleStockHelper.ClaimCancelAsync(db, storeId, order.Id, CurrentUserEmail))
+                {
+                    await cancelTx.RollbackAsync();
+                    return BadRequest(AppResponse<object>.Fail("Đơn đã hủy"));
+                }
                 var stockFullyReversed =
                     await PosSaleStockHelper.IsSaleStockFullyReversedAsync(db, storeId, order);
                 if (!stockFullyReversed)
@@ -1175,6 +1183,11 @@ public class PosQrTableOrderController(
         }
 
         await db.SaveChangesAsync();
+        if (cancelTx != null)
+        {
+            await cancelTx.CommitAsync();
+            await cancelTx.DisposeAsync();
+        }
         PosFloorRealtimeHelper.Notify(hub, storeId, "qrOnlineStatus",
             orderId: order.Id, tableName: "Online",
             message: $"{order.OrderNo} · {QrOnlineOrderStatuses.Label(next)}");
@@ -1295,6 +1308,12 @@ public class PosQrTableOrderController(
         // Hybrid: DeliveryStatus=cancelled nhưng Status vẫn Completed → hoàn kho/DT trước.
         if (order.Status == PosSaleOrderStatus.Completed)
         {
+            await using var cancelTx = await db.Database.BeginTransactionAsync();
+            if (!await PosSaleStockHelper.ClaimCancelAsync(db, storeId, order.Id, CurrentUserEmail))
+            {
+                await cancelTx.RollbackAsync();
+                return BadRequest(AppResponse<object>.Fail("Đơn đang được hủy / xóa ở nơi khác — tải lại danh sách"));
+            }
             var stockFullyReversed =
                 await PosSaleStockHelper.IsSaleStockFullyReversedAsync(db, storeId, order);
             if (!stockFullyReversed)
@@ -1331,6 +1350,7 @@ public class PosQrTableOrderController(
             order.UpdatedAt = now;
             order.UpdatedBy = CurrentUserEmail;
             await db.SaveChangesAsync();
+            await cancelTx.CommitAsync();
         }
 
         var deleted = await db.PosSaleOrders

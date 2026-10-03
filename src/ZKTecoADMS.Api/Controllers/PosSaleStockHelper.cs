@@ -175,6 +175,9 @@ internal static class PosSaleStockHelper
 
     public static string VoidReturnNotePrefix(string returnNo) => $"Hủy trả hàng: {returnNo}";
 
+    /// <summary>Ghi chú thẻ kho giá vốn món dịch vụ (SL 0).</summary>
+    public const string ServiceCostNote = "Giá vốn dịch vụ";
+
     public static bool IsCustomerReturnTx(PosStockTransaction t) =>
         t.TransactionType == PosStockTransactionType.Return &&
         t.IsActive &&
@@ -208,6 +211,19 @@ internal static class PosSaleStockHelper
             .SumAsync(t => t.QtyChange);
         return restoredTotal >= saleTotal - 0.0001m;
     }
+
+    /// <summary>
+    /// Giành quyền hủy đơn đã hoàn thành (Completed → Cancelled, khóa dòng tới khi commit transaction đang mở).
+    /// false = đơn đã bị hủy bởi yêu cầu khác → không hoàn kho / tiền lần hai.
+    /// </summary>
+    public static async Task<bool> ClaimCancelAsync(ZKTecoDbContext db, Guid storeId, Guid orderId, string? user) =>
+        await db.PosSaleOrders
+            .Where(o => o.Id == orderId && o.StoreId == storeId && o.Deleted == null &&
+                        o.Status == PosSaleOrderStatus.Completed)
+            .ExecuteUpdateAsync(setters => setters
+                .SetProperty(o => o.Status, PosSaleOrderStatus.Cancelled)
+                .SetProperty(o => o.UpdatedAt, DateTime.UtcNow)
+                .SetProperty(o => o.UpdatedBy, user)) > 0;
 
     /// <returns>true nếu đã hoàn kho (đủ số lượng); false nếu đơn chưa có giao dịch Sale.</returns>
     public static async Task<bool> ReverseSaleOrderAsync(
@@ -357,6 +373,20 @@ internal static class PosSaleStockHelper
         if (debtReduction > 0)
             customer.CurrentDebt = Math.Max(0, customer.CurrentDebt - debtReduction);
         customer.UpdatedAt = DateTime.UtcNow;
+    }
+
+    /// <summary>Giá vốn bình quân lúc bán của hàng trong đơn (hoàn đúng giá đã ghi khi bán, không lấy giá vốn hiện tại).</summary>
+    static async Task<decimal> SaleUnitCostAsync(
+        ZKTecoDbContext db, Guid storeId, Guid orderId, Guid productId, Guid? variantId, decimal fallback)
+    {
+        var agg = await db.PosStockTransactions.AsNoTracking()
+            .Where(t => t.SaleOrderId == orderId && t.StoreId == storeId && t.ProductId == productId &&
+                        t.VariantId == variantId && t.Deleted == null && t.IsActive &&
+                        t.TransactionType == PosStockTransactionType.Sale && t.QtyChange < 0)
+            .GroupBy(_ => 1)
+            .Select(g => new { Qty = g.Sum(x => -x.QtyChange), Amount = g.Sum(x => x.LineAmount ?? 0) })
+            .FirstOrDefaultAsync();
+        return agg != null && agg.Qty > 0 ? agg.Amount / agg.Qty : fallback;
     }
 
     private static decimal ResolveUnitCost(PosProduct product, PosProductVariant? variant)
@@ -845,7 +875,26 @@ internal static class PosSaleStockHelper
             }
             else if (p.ProductType == PosProductType.Service)
             {
-                // Dịch vụ: không trừ tồn, không ghi transaction kho.
+                // Dịch vụ: không trừ tồn — chỉ ghi giá vốn (SL 0) để báo cáo lãi lỗ tính đúng giá vốn món.
+                if (p.CostPrice > 0)
+                {
+                    db.PosStockTransactions.Add(new PosStockTransaction
+                    {
+                        Id = Guid.NewGuid(),
+                        StoreId = storeId,
+                        ProductId = p.Id,
+                        TransactionType = PosStockTransactionType.Sale,
+                        QtyChange = 0,
+                        QtyAfter = p.OnHandQty,
+                        UnitCost = p.CostPrice,
+                        LineAmount = Math.Round(p.CostPrice * line.Qty, 4),
+                        ReferenceNo = order.OrderNo,
+                        SaleOrderId = order.Id,
+                        Note = ServiceCostNote,
+                        IsActive = true,
+                        CreatedBy = createdBy,
+                    });
+                }
             }
             else
             {
@@ -868,7 +917,9 @@ internal static class PosSaleStockHelper
             await PosVariantStockHelper.SyncParentStockFromVariantsAsync(db, plan.Products[pid]);
     }
 
-    public static async Task ApplySaleReturnLineAsync(
+    /// <param name="returnQty">Biến thể: SL theo ĐVT biến thể; không biến thể: SL đơn vị cơ bản (đã quy đổi ĐVT bán).</param>
+    /// <returns>Giá vốn hàng trả (cộng lại kho).</returns>
+    public static async Task<decimal> ApplySaleReturnLineAsync(
         ZKTecoDbContext db,
         Guid storeId,
         PosSaleOrder order,
@@ -905,7 +956,7 @@ internal static class PosSaleStockHelper
 
         var lotRestores = await PosStockLotHelper.PlanReturnLotRestoreAsync(
             db, storeId, order.Id, product.Id, variant?.Id, txChange,
-            ResolveUnitCost(product, variant));
+            await SaleUnitCostAsync(db, storeId, order.Id, product.Id, variant?.Id, ResolveUnitCost(product, variant)));
         await PosStockLotHelper.ApplyReturnLotRestoreAsync(db, storeId, lotRestores, createdBy);
 
         var firstAlloc = true;
@@ -931,9 +982,10 @@ internal static class PosSaleStockHelper
             });
             firstAlloc = false;
         }
+        return lotRestores.Sum(a => a.Qty * a.UnitCost);
     }
 
-    public static async Task ApplyComboReturnComponentAsync(
+    public static async Task<decimal> ApplyComboReturnComponentAsync(
         ZKTecoDbContext db,
         Guid storeId,
         PosSaleOrder order,
@@ -949,7 +1001,8 @@ internal static class PosSaleStockHelper
         component.UpdatedBy = createdBy;
 
         var lotRestores = await PosStockLotHelper.PlanReturnLotRestoreAsync(
-            db, storeId, order.Id, component.Id, null, restoreQty, component.CostPrice);
+            db, storeId, order.Id, component.Id, null, restoreQty,
+            await SaleUnitCostAsync(db, storeId, order.Id, component.Id, null, component.CostPrice));
         await PosStockLotHelper.ApplyReturnLotRestoreAsync(db, storeId, lotRestores, createdBy);
 
         var firstComboAlloc = true;
@@ -974,14 +1027,39 @@ internal static class PosSaleStockHelper
             });
             firstComboAlloc = false;
         }
+        return lotRestores.Sum(a => a.Qty * a.UnitCost);
     }
 
-    public static Task<bool> HasReturnBeenVoidedAsync(
-        ZKTecoDbContext db, Guid storeId, Guid orderId, string returnNo) =>
-        db.PosStockTransactions.AsNoTracking().AnyAsync(t =>
+    /// <summary>Hoàn topping gắn dòng khi trả món (SL topping = SL trả × SL topping trên dòng).</summary>
+    public static async Task<decimal> ApplyToppingReturnAsync(
+        ZKTecoDbContext db, Guid storeId, PosSaleOrder order, PosSaleOrderLine line, decimal returnQty,
+        string returnNo, string note, string? createdBy)
+    {
+        decimal cost = 0;
+        foreach (var pick in ParseToppingPicks(line.ToppingsJson))
+        {
+            var topping = await db.PosProducts.AsTracking()
+                .FirstOrDefaultAsync(p => p.Id == pick.ProductId && p.StoreId == storeId && p.Deleted == null);
+            if (topping == null || topping.ProductType == PosProductType.Service) continue;
+            cost += await ApplyComboReturnComponentAsync(
+                db, storeId, order, topping, returnQty * pick.Qty, 0, returnNo, $"{note} — topping", createdBy);
+        }
+        return cost;
+    }
+
+    public static async Task<bool> HasReturnBeenVoidedAsync(
+        ZKTecoDbContext db, Guid storeId, Guid orderId, string returnNo)
+    {
+        var ledger = await db.PosSaleReturnLines.AsNoTracking()
+            .Where(r => r.SaleOrderId == orderId && r.StoreId == storeId && r.Deleted == null && r.ReturnNo == returnNo)
+            .Select(r => r.IsVoided)
+            .ToListAsync();
+        if (ledger.Count > 0) return ledger.All(v => v);
+        return await db.PosStockTransactions.AsNoTracking().AnyAsync(t =>
             t.SaleOrderId == orderId && t.StoreId == storeId && t.Deleted == null &&
             t.ReferenceNo == returnNo &&
             t.Note != null && t.Note.StartsWith(VoidReturnNotePrefix(returnNo)));
+    }
 
     /// <summary>Hủy phiếu trả hàng bán — trừ lại kho, hoàn tác tiền trên đơn.</summary>
     public static async Task<(decimal RefundReversed, List<(Guid ProductId, Guid? VariantId, decimal Qty)> WarrantyLines, string? Error)>
@@ -1007,12 +1085,24 @@ internal static class PosSaleStockHelper
                         (t.Note == null || !t.Note.StartsWith("Hủy đơn")))
             .ToListAsync();
 
-        if (txs.Count == 0)
+        var ledgerRows = await db.PosSaleReturnLines.AsTracking()
+            .Where(r => r.SaleOrderId == order.Id && r.StoreId == storeId && r.Deleted == null &&
+                        r.ReturnNo == returnNo && !r.IsVoided)
+            .ToListAsync();
+        if (txs.Count == 0 && ledgerRows.Count == 0)
             return (0, [], "Không tìm thấy phiếu trả hoặc đã hủy");
 
-        var refundTotal = txs
-            .GroupBy(t => new { t.ProductId, t.VariantId })
-            .Sum(g => g.Max(t => t.LineAmount ?? 0));
+        // Sổ trả hàng là nguồn tiền hoàn; phiếu cũ: thẻ kho (combo / định lượng ghi trùng theo thành phần → lấy 1 lần).
+        var refundTotal = ledgerRows.Count > 0
+            ? ledgerRows.Sum(r => r.RefundAmount)
+            : PosSaleReturnLedger.LegacySlipRefund(txs);
+        foreach (var r in ledgerRows)
+        {
+            r.IsVoided = true;
+            r.VoidedAt = DateTime.UtcNow;
+            r.UpdatedAt = DateTime.UtcNow;
+            r.UpdatedBy = createdBy;
+        }
 
         var productIds = txs.Select(t => t.ProductId).Distinct().ToList();
         var products = await db.PosProducts

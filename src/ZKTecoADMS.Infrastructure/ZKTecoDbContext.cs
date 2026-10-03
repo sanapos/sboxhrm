@@ -293,6 +293,7 @@ public class ZKTecoDbContext : IdentityDbContext<ApplicationUser, IdentityRole<G
     public DbSet<PosResourceReservation> PosResourceReservations => Set<PosResourceReservation>();
     public DbSet<PosKitchenVoidSlip> PosKitchenVoidSlips => Set<PosKitchenVoidSlip>();
     public DbSet<PosCancelReturnAudit> PosCancelReturnAudits => Set<PosCancelReturnAudit>();
+    public DbSet<PosSaleReturnLine> PosSaleReturnLines => Set<PosSaleReturnLine>();
     public DbSet<PosCustomerSessionBalance> PosCustomerSessionBalances => Set<PosCustomerSessionBalance>();
     public DbSet<PosCustomerSessionTransaction> PosCustomerSessionTransactions => Set<PosCustomerSessionTransaction>();
     public DbSet<PosPaymentGatewaySetting> PosPaymentGatewaySettings => Set<PosPaymentGatewaySetting>();
