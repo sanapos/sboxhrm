@@ -16,6 +16,7 @@ Dùng: python scripts/render-site-home.py --site hrm|pos --web-dir flutter_clien
 import argparse
 import json
 import pathlib
+import re
 import sys
 
 from bs4 import BeautifulSoup
@@ -26,7 +27,7 @@ SITES = {
         "brand": "SBOX HRM",
         "title": "Phần mềm chấm công, tính lương & quản lý nhân sự | SBOX HRM",
         "description": "Chấm công khuôn mặt AI, máy ZKTeco ADMS, xếp ca và tính lương, BHXH, thuế TNCN tự động cho doanh nghiệp Việt Nam. Dùng thử miễn phí, không cần thẻ — đăng ký ngay!",
-        "keywords": "phần mềm chấm công, phần mềm tính lương, chấm công khuôn mặt, chấm công ZKTeco, phần mềm bảng lương, quản lý ca làm việc, phần mềm quản lý nhân sự, HRM Việt Nam, SBOX HRM, ADMS",
+        "keywords": "phần mềm chấm công, phần mềm tính lương, chấm công khuôn mặt, chấm công ZKTeco, lắp đặt máy chấm công, máy chấm công vân tay, máy chấm công khuôn mặt, máy chấm công giá tốt, miễn phí lắp đặt máy chấm công, chấm công qua điện thoại, phần mềm bảng lương, quản lý ca làm việc, phần mềm quản lý nhân sự, HRM Việt Nam, SBOX HRM, ADMS",
         "og_image": "https://sboxhrm.com/images/landing/screenshot-01.jpg",
         "og_image_alt": "Giao diện SBOX HRM – phần mềm quản lý nhân sự và chấm công",
         "theme": "#0C56D0",
@@ -164,6 +165,17 @@ SOLUTIONS_SECTION = """
 </section>
 """
 
+LOCAL_SECTION = """
+<section id="lap-dat" class="site-local" style="padding:56px 20px;background:#fff">
+  <div style="max-width:1120px;margin:0 auto">
+    <h2 class="section-title">Lắp đặt máy chấm công vân tay, khuôn mặt toàn quốc</h2>
+    <p style="color:#475569;margin:6px 0 8px">Cung cấp máy chấm công ZKTeco giá tốt, <strong>miễn phí lắp đặt</strong> tận nơi và <strong>tặng phần mềm chấm công</strong> SBOX HRM khi mua máy — hoặc chấm công qua điện thoại không cần mua máy.</p>
+    <p style="margin:0 0 18px"><a href="/lap-dat-may-cham-cong" style="font-weight:700">Xem dịch vụ lắp đặt & nhận báo giá →</a></p>
+    {groups}
+  </div>
+</section>
+"""
+
 SOLUTION_CARD = (
     '<a href="/tinh-nang/{slug}" style="display:block;border:1px solid #e2e8f0;border-radius:14px;padding:18px 20px;'
     'background:#fff;text-decoration:none;color:#0f172a"><h3 style="margin:0 0 6px;font-size:18px;color:{color}">{title}</h3>'
@@ -177,6 +189,7 @@ Allow: /bai-viet
 Allow: /tinh-nang
 Allow: /bang-gia
 Allow: /tai-lieu
+Allow: /lap-dat-may-cham-cong
 Allow: /images/
 Allow: /icons/
 
@@ -207,11 +220,22 @@ def sitemap(site, cfg):
     urls += [(o + "/tinh-nang/" + slug, "monthly", "0.9") for slug, _, _ in cfg["solutions"]]
     urls += [(o + "/bang-gia", "monthly", "0.8"), (o + "/tai-lieu", "monthly", "0.7")]
     if site == "hrm":
+        urls += [(o + "/lap-dat-may-cham-cong", "monthly", "0.8")]
+        urls += [(o + "/lap-dat-may-cham-cong/" + slug, "monthly", "0.7") for slug, _, _ in provinces()]
+    if site == "hrm":
         urls += [(o + "/guide.html", "monthly", "0.7"), (o + "/privacy-policy.html", "yearly", "0.3")]
     else:
         urls += [(o + "/privacy-policy-pos.html", "yearly", "0.3"), (o + "/terms-pos.html", "yearly", "0.3")]
     rows = "\n".join(f"  <url><loc>{u}</loc><changefreq>{f}</changefreq><priority>{p}</priority></url>" for u, f, p in urls)
     return f'<?xml version="1.0" encoding="UTF-8"?>\n<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">\n{rows}\n</urlset>\n'
+
+
+def provinces():
+    """Đọc danh sách tỉnh từ SeoLocal.cs (một nguồn duy nhất cho trang /lap-dat-may-cham-cong)."""
+    cs = pathlib.Path(__file__).resolve().parent.parent / "src" / "ZKTecoADMS.Api" / "Seo" / "SeoLocal.cs"
+    if not cs.exists():
+        return []
+    return re.findall(r'new\("([a-z0-9-]+)", "([^"]+)", "([^"]+)", \[', cs.read_text(encoding="utf-8"))
 
 
 def esc(t):
@@ -338,6 +362,22 @@ def render(site, web_dir):
         features.insert_after(solutions)
     elif faq is not None:
         faq.insert_before(solutions)
+
+    # HRM: liên kết tới 34 trang lắp đặt máy chấm công theo tỉnh (bot đọc được).
+    prov = provinces() if site == "hrm" else []
+    if prov:
+        regions = {}
+        for slug, name, region in prov:
+            regions.setdefault(region, []).append((slug, name))
+        groups = "".join(
+            f'<p style="margin:0 0 10px;line-height:1.9"><strong>{esc(r)}:</strong> '
+            + " · ".join(f'<a href="/lap-dat-may-cham-cong/{sl}" style="color:#334155">Máy chấm công {esc(n)}</a>' for sl, n in items)
+            + "</p>"
+            for r, items in regions.items())
+        local = BeautifulSoup(LOCAL_SECTION.format(groups=groups), "html.parser")
+        anchor = soup.find(id="giai-phap")
+        if anchor is not None:
+            anchor.insert_after(local)
 
     h1 = [h.get_text(" ", strip=True) for h in soup.find_all("h1")]
     home.write_text(str(soup), encoding="utf-8")

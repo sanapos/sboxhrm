@@ -178,4 +178,46 @@ public class SeoLandingTests
         var file = Assert.IsType<FileContentResult>(ctl.Download("mau-bang-luong-excel-2026"));
         Assert.Equal("mau-bang-luong-2026.xlsx", file.FileDownloadName);
     }
+
+    [Fact]
+    public void Local_pages_cover_34_provinces_with_unique_content()
+    {
+        Assert.Equal(34, SeoPages.Provinces.Count);
+        Assert.Equal(34, SeoPages.Provinces.Select(p => p.Slug).Distinct().Count());
+        Assert.Equal(34, SeoPages.Provinces.Select(p => p.Profile).Distinct().Count());
+        // 23 tỉnh/thành hình thành từ sáp nhập, 11 giữ nguyên
+        Assert.Equal(23, SeoPages.Provinces.Count(p => p.Old.Length > 0));
+        foreach (var p in SeoPages.Provinces)
+        {
+            Assert.Equal(p.Slug, SeoMarkdown.Slugify(p.Slug));
+            var html = SeoPages.LocalPage(p);
+            Assert.Equal(1, html.Split("<h1>").Length - 1);
+            Assert.Contains($"https://sboxhrm.com/lap-dat-may-cham-cong/{p.Slug}", html);
+            Assert.Contains("\"@type\":\"FAQPage\"", html);
+            Assert.Contains("\"@type\":\"Service\"", html);
+            Assert.Contains("miễn phí lắp đặt", html);
+            Assert.DoesNotContain("nhà phân phối chính hãng", html);
+            foreach (var o in p.Old) Assert.Contains(o, html);
+            var title = System.Text.RegularExpressions.Regex.Match(html, "<title>(.*?)</title>").Groups[1].Value;
+            Assert.InRange(title.Length, 30, 70);
+            var desc = System.Text.RegularExpressions.Regex.Match(html, "name=\"description\" content=\"(.*?)\"").Groups[1].Value;
+            Assert.InRange(desc.Length, 100, 170);
+        }
+        var hub = SeoPages.LocalHubPage();
+        Assert.Equal(34, System.Text.RegularExpressions.Regex.Matches(hub, "href=\"/lap-dat-may-cham-cong/[a-z0-9-]+\"").Count);
+    }
+
+    [Fact]
+    public async Task Local_routes_only_on_hrm_and_in_sitemap()
+    {
+        var db = Db();
+        Assert.Equal(200, Assert.IsType<ContentResult>(Ctl(db, "sboxhrm.com").Local("da-nang")).StatusCode);
+        Assert.Equal(404, Assert.IsType<ContentResult>(Ctl(db, "sboxhrm.com").Local("khong-co")).StatusCode);
+        Assert.Equal("https://sboxhrm.com/lap-dat-may-cham-cong/da-nang",
+            Assert.IsType<RedirectResult>(Ctl(db, "sboxpos.com").Local("da-nang")).Url);
+        var hrm = Assert.IsType<ContentResult>(await Ctl(db, "sboxhrm.com").Sitemap());
+        Assert.Contains("https://sboxhrm.com/lap-dat-may-cham-cong/ho-chi-minh", hrm.Content);
+        var pos = Assert.IsType<ContentResult>(await Ctl(db, "sboxpos.com").Sitemap());
+        Assert.DoesNotContain("lap-dat-may-cham-cong", pos.Content);
+    }
 }

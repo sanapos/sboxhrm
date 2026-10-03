@@ -147,7 +147,7 @@ footer{border-top:1px solid var(--b);background:var(--bg);padding:30px 0;margin-
     static string Footer(SiteInfo s) => $"""
 <footer><div class="wrap">
 <div><strong>{E(s.Brand)}</strong> — {E(s.Tagline)}<br>Hotline / Zalo: <a href="tel:+84973024042">0973 024 042</a> · Email: <a href="mailto:support@sboxhrm.com">support@sboxhrm.com</a><br>184 Nam Cao, Hòa Khánh, Đà Nẵng</div>
-<div><a href="/">Trang chủ</a><a href="/tinh-nang">Tính năng</a><a href="/bang-gia">Bảng giá</a><a href="/bai-viet">Bài viết</a><a href="/tai-lieu">Tài liệu</a><a href="{s.Privacy}">Chính sách bảo mật</a>{(s.Terms == null ? "" : $"<a href=\"{s.Terms}\">Điều khoản</a>")}</div>
+<div><a href="/">Trang chủ</a><a href="/tinh-nang">Tính năng</a><a href="/bang-gia">Bảng giá</a><a href="/bai-viet">Bài viết</a><a href="/tai-lieu">Tài liệu</a>{(s.Code == "hrm" ? "<a href=\"/lap-dat-may-cham-cong\">Lắp đặt máy chấm công</a>" : "")}<a href="{s.Privacy}">Chính sách bảo mật</a>{(s.Terms == null ? "" : $"<a href=\"{s.Terms}\">Điều khoản</a>")}</div>
 </div></footer>
 </body>
 </html>
@@ -359,6 +359,11 @@ footer{border-top:1px solid var(--b);background:var(--bg);padding:30px 0;margin-
             Url(FeatureUrl(s, f), f.UpdatedAt ?? f.PublishedAt ?? f.CreatedAt, "monthly", "0.9");
         Url(s.Origin + "/bang-gia", null, "monthly", "0.8");
         Url(s.Origin + "/tai-lieu", null, "monthly", "0.7");
+        if (s.Code == "hrm")
+        {
+            Url(s.Origin + "/lap-dat-may-cham-cong", null, "monthly", "0.8");
+            foreach (var p in Provinces) Url($"{s.Origin}/lap-dat-may-cham-cong/{p.Slug}", null, "monthly", "0.7");
+        }
         if (s.Code == "hrm") Url(s.Origin + "/guide.html", null, "monthly", "0.7");
         foreach (var a in articles)
             Url(ArticleUrl(s, a), a.UpdatedAt ?? a.PublishedAt ?? a.CreatedAt, "monthly", "0.8");
@@ -375,6 +380,7 @@ Allow: /bai-viet
 Allow: /tinh-nang
 Allow: /bang-gia
 Allow: /tai-lieu
+Allow: /lap-dat-may-cham-cong
 Allow: /images/
 Allow: /icons/
 

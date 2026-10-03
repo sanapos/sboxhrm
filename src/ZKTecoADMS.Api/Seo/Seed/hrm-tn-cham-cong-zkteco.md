@@ -66,6 +66,8 @@ Nếu máy của bạn không có ADMS, có thể chuyển sang [chấm công b�
 
 Xem thêm hướng dẫn chi tiết: [Kết nối máy chấm công ZKTeco qua Internet](/bai-viet/ket-noi-may-cham-cong-zkteco-qua-internet).
 
+Chưa có máy? SBOX cung cấp máy chấm công vân tay, khuôn mặt ZKTeco giá tốt, **miễn phí lắp đặt tận nơi** trên toàn quốc và **tặng phần mềm chấm công** khi mua máy — xem [lắp đặt máy chấm công tại 34 tỉnh thành](/lap-dat-may-cham-cong).
+
 ## Câu hỏi thường gặp
 
 ### Phần mềm có tương thích với tất cả máy chấm công ZKTeco không?

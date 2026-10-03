@@ -156,6 +156,21 @@ public class PublicSeoController(ZKTecoDbContext db) : ControllerBase
         return Html(SeoPages.PricingPage(s, plans));
     }
 
+    /// <summary>Lắp đặt máy chấm công theo tỉnh — chỉ trên sboxhrm.com (sboxpos chuyển hướng sang).</summary>
+    [HttpGet("/lap-dat-may-cham-cong")]
+    public IActionResult LocalHub() => Site.Code == "pos"
+        ? RedirectPermanent(SeoPages.Hrm.Origin + "/lap-dat-may-cham-cong")
+        : Html(SeoPages.LocalHubPage(), cacheSeconds: 600);
+
+    [HttpGet("/lap-dat-may-cham-cong/{slug}")]
+    public IActionResult Local(string slug)
+    {
+        var p = SeoPages.FindProvince(slug ?? "");
+        if (p == null) return Html(SeoPages.NotFoundPage(SeoPages.Hrm), 404, 60);
+        if (Site.Code == "pos") return RedirectPermanent($"{SeoPages.Hrm.Origin}/lap-dat-may-cham-cong/{p.Slug}");
+        return Html(SeoPages.LocalPage(p), cacheSeconds: 600);
+    }
+
     [HttpGet("/tai-lieu")]
     public IActionResult Resources() => Html(SeoPages.ResourcesPage(Site), cacheSeconds: 600);
 
