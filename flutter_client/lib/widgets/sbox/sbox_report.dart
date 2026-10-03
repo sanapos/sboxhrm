@@ -174,6 +174,46 @@ class SboxKpi {
 }
 
 /// Dải KPI: điện thoại 2 cột, máy tính bảng 3, máy tính tối đa 6.
+/// Hàng số liệu gọn cho điện thoại: 3–4 số trên 1 hàng, không lẻ thẻ / không cuộn ngang.
+class SboxStatRow extends StatelessWidget {
+  const SboxStatRow({super.key, required this.items});
+  final List<SboxKpi> items;
+
+  @override
+  Widget build(BuildContext context) {
+    return Row(crossAxisAlignment: CrossAxisAlignment.start, children: [
+      for (var i = 0; i < items.length; i++) ...[
+        if (i > 0) const SizedBox(width: SboxSpace.sm),
+        Expanded(
+          child: Material(
+            color: SboxColors.surface,
+            shape: RoundedRectangleBorder(borderRadius: SboxRadius.mdAll, side: const BorderSide(color: SboxColors.border)),
+            child: InkWell(
+              customBorder: RoundedRectangleBorder(borderRadius: SboxRadius.mdAll),
+              onTap: items[i].onTap,
+              child: Padding(
+                padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
+                child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+                  FittedBox(
+                    fit: BoxFit.scaleDown,
+                    alignment: Alignment.centerLeft,
+                    child: Text(items[i].value,
+                        style: TextStyle(fontSize: 18, fontWeight: FontWeight.w800, color: items[i].tone.solid)),
+                  ),
+                  Text(tr(items[i].label),
+                      maxLines: 2,
+                      overflow: TextOverflow.ellipsis,
+                      style: const TextStyle(fontSize: 11, height: 1.2, color: SboxColors.textMuted)),
+                ]),
+              ),
+            ),
+          ),
+        ),
+      ],
+    ]);
+  }
+}
+
 class SboxKpiStrip extends StatelessWidget {
   const SboxKpiStrip({super.key, required this.items, this.maxColumns = 6});
   final List<SboxKpi> items;

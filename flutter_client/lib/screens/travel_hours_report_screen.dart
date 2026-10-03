@@ -822,14 +822,6 @@ class _TravelHoursReportScreenState extends State<TravelHoursReportScreen> {
         data: vietnameseThemeOverlay(context),
         child: Scaffold(
           backgroundColor: HrmPageChrome.background,
-          floatingActionButton: canSupplement && isMobile
-              ? FloatingActionButton.extended(
-                  onPressed: _showSupplementDialog,
-                  backgroundColor: _theme,
-                  icon: const Icon(Icons.add_road),
-                  label: Text(tr('Thêm đi đường')),
-                )
-              : null,
           body: Column(
             children: [
               Expanded(

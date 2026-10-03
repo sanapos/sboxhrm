@@ -225,13 +225,6 @@ class _ShiftTemplatesV2ScreenState extends State<ShiftTemplatesV2Screen> {
       ],
       child: Scaffold(
         backgroundColor: HrmPageChrome.background,
-        floatingActionButton: canCreate && !wide
-            ? FloatingActionButton.extended(
-                onPressed: () => _openEditor(),
-                icon: const Icon(Icons.add),
-                label: Text(tr('Thêm ca')),
-              )
-            : null,
         body: _loading
             ? const SboxLoading(message: 'Đang tải ca làm việc…')
             : RefreshIndicator(
@@ -276,26 +269,10 @@ class _ShiftTemplatesV2ScreenState extends State<ShiftTemplatesV2Screen> {
     ];
     if (!wide) {
       // Điện thoại: 3 số trên 1 hàng (không cuộn ngang, không cắt thẻ).
-      Widget mini(String label, String value, SboxTone tone) => Expanded(
-            child: Container(
-              padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
-              decoration: BoxDecoration(
-                color: Colors.white,
-                borderRadius: BorderRadius.circular(12),
-                border: Border.all(color: SboxColors.slate200),
-              ),
-              child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-                Text(value, style: TextStyle(fontSize: 18, fontWeight: FontWeight.w800, color: tone.fg)),
-                Text(tr(label), maxLines: 2, style: const TextStyle(fontSize: 11, color: SboxColors.slate500, height: 1.2)),
-              ]),
-            ),
-          );
-      return Row(crossAxisAlignment: CrossAxisAlignment.start, children: [
-        mini('Ca đang dùng', '$active/${_shifts.length}', SboxTone.brand),
-        const SizedBox(width: 8),
-        mini('Có lịch sắp tới', '$used', SboxTone.success),
-        const SizedBox(width: 8),
-        mini('Lượt NV đã xếp', '$emps', SboxTone.violet),
+      return SboxStatRow(items: [
+        SboxKpi(label: 'Ca đang dùng', value: '$active/${_shifts.length}'),
+        SboxKpi(label: 'Có lịch sắp tới', value: '$used', tone: SboxTone.success),
+        SboxKpi(label: 'Lượt NV đã xếp', value: '$emps', tone: SboxTone.violet),
       ]);
     }
     return Row(children: [
@@ -348,10 +325,40 @@ class _ShiftTemplatesV2ScreenState extends State<ShiftTemplatesV2Screen> {
         Expanded(child: chips),
       ]);
     }
-    return Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
-      search,
-      const SizedBox(height: 10),
-      SingleChildScrollView(scrollDirection: Axis.horizontal, child: chips),
+    // Điện thoại: ô tìm + nút lọc trên 1 hàng — đủ 5 lựa chọn trong menu (không khuất ngoài màn hình).
+    final on = _filter != _Filter.all;
+    return Row(children: [
+      Expanded(child: search),
+      const SizedBox(width: 8),
+      PopupMenuButton<_Filter>(
+        tooltip: tr('Lọc ca'),
+        initialValue: _filter,
+        onSelected: (f) => setState(() => _filter = f),
+        itemBuilder: (_) => [
+          for (final f in _Filter.values)
+            CheckedPopupMenuItem(value: f, checked: _filter == f, child: Text(tr(label(f)))),
+        ],
+        child: Container(
+          height: 44,
+          padding: const EdgeInsets.symmetric(horizontal: 12),
+          decoration: BoxDecoration(
+            color: on ? SboxColors.brand50 : Colors.white,
+            borderRadius: BorderRadius.circular(12),
+            border: Border.all(color: on ? SboxColors.brand200 : SboxColors.slate200),
+          ),
+          child: Row(mainAxisSize: MainAxisSize.min, children: [
+            Icon(Icons.tune_rounded, size: 18, color: on ? SboxColors.brand700 : SboxColors.slate600),
+            const SizedBox(width: 6),
+            ConstrainedBox(
+              constraints: const BoxConstraints(maxWidth: 96),
+              child: Text(tr(on ? label(_filter) : 'Lọc'),
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: TextStyle(fontSize: 13, fontWeight: FontWeight.w600, color: on ? SboxColors.brand700 : SboxColors.slate700)),
+            ),
+          ]),
+        ),
+      ),
     ]);
   }
 

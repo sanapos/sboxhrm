@@ -159,7 +159,7 @@ class PermissionNavigation {
       case 'MobileAttendanceApproval':
         return 'Duyệt chấm công Mobile';
       case 'BonusPenalty':
-        return 'Phiếu thưởng';
+        return 'Thưởng phạt';
       case 'AdvanceRequests':
         return 'Ứng lương';
       case 'BusinessTripExpense':

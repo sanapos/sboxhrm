@@ -277,6 +277,9 @@ void main() {
 
   testWidgets('Trình soạn thảo — điện thoại', (t) async {
     await _pump(t, CommEditorPage(ctx: _ctx), const Size(390, 844), 'comm_editor_mobile');
-    expect(find.text('Word / PDF / Excel'), findsOneWidget);
+    expect(find.text('Tài liệu'), findsWidgets);
+    // Điện thoại: Lưu nháp / Đăng ở thanh dưới, thanh trên chỉ còn biểu tượng (không đè nút quay về).
+    expect(find.text('Đăng bài'), findsOneWidget);
+    expect(find.byTooltip('Xem trước'), findsOneWidget);
   });
 }

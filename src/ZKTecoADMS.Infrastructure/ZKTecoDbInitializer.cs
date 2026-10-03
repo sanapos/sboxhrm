@@ -4198,6 +4198,10 @@ public class ZKTecoDbInitializer(
         ("PosViewCost", "PosProducts", (v, c, e, d, x, a) => (v, false, false, false, false, false)),
         // Hợp đồng & thu tiền theo đợt tách khỏi Báo giá — ai đang dùng Báo giá giữ nguyên quyền.
         ("PosContracts", "PosQuotes", (v, c, e, d, x, a) => (v, c, e, d, x, a)),
+        // Báo cáo phân tích tách khỏi Báo cáo chấm công; sổ khách / thẻ tập tách khỏi báo cáo POS chung.
+        ("HrAnalyticsReport", "AttendanceReport", (v, c, e, d, x, a) => (v, false, false, false, x, false)),
+        ("PosReportStayGuests", "PosSalesReport", (v, c, e, d, x, a) => (v, false, false, false, x, false)),
+        ("PosReportSessionExpiry", "PosSalesReport", (v, c, e, d, x, a) => (v, false, false, false, x, false)),
     ];
 
     /// <summary>Chức năng có nút / API xuất mới được kiểm quyền Xuất — cấp Xuất cho ai đang Xem (một lần).</summary>
@@ -4302,6 +4306,27 @@ IF NOT EXISTS (SELECT 1 FROM ""SboxDataMigrations"" WHERE ""Id"" = 'perm-export-
     FROM ""Permissions"" p WHERE p.""Id"" = dp.""PermissionId"" AND p.""Module"" IN (" + exportModules + @")
     AND dp.""CanView"" AND NOT dp.""CanExport"";
   INSERT INTO ""SboxDataMigrations"" (""Id"") VALUES ('perm-export-v1');
+END IF;
+END $$;");
+
+        // Một lần: tách báo cáo phân tích nhân sự / sổ khách lưu trú / thẻ tập thành chức năng gói riêng —
+        // gói / cửa hàng đang thấy các báo cáo này (qua Báo cáo chấm công / Bán hàng) giữ nguyên.
+        await context.Database.ExecuteSqlRawAsync(
+            @"DO $$ BEGIN
+IF NOT EXISTS (SELECT 1 FROM ""SboxDataMigrations"" WHERE ""Id"" = 'pkg-report-split-v1') THEN
+  UPDATE ""ServicePackages"" SET ""AllowedModules"" = (""AllowedModules""::jsonb || '[""HrAnalyticsReport""]'::jsonb)::text
+    WHERE ""AllowedModules"" IS NOT NULL AND ""AllowedModules"" LIKE '[%'
+      AND ""AllowedModules""::jsonb ? 'AttendanceReport' AND NOT (""AllowedModules""::jsonb ? 'HrAnalyticsReport');
+  UPDATE ""ServicePackages"" SET ""AllowedModules"" = (""AllowedModules""::jsonb || '[""PosReportStayGuests"",""PosReportSessionExpiry""]'::jsonb)::text
+    WHERE ""AllowedModules"" IS NOT NULL AND ""AllowedModules"" LIKE '[%'
+      AND ""AllowedModules""::jsonb ? 'PosSell' AND NOT (""AllowedModules""::jsonb ? 'PosReportStayGuests');
+  UPDATE ""Stores"" SET ""ExtraModules"" = (""ExtraModules""::jsonb || '[""HrAnalyticsReport""]'::jsonb)::text
+    WHERE ""ExtraModules"" IS NOT NULL AND ""ExtraModules"" LIKE '[%'
+      AND ""ExtraModules""::jsonb ? 'AttendanceReport' AND NOT (""ExtraModules""::jsonb ? 'HrAnalyticsReport');
+  UPDATE ""Stores"" SET ""ExtraModules"" = (""ExtraModules""::jsonb || '[""PosReportStayGuests"",""PosReportSessionExpiry""]'::jsonb)::text
+    WHERE ""ExtraModules"" IS NOT NULL AND ""ExtraModules"" LIKE '[%'
+      AND ""ExtraModules""::jsonb ? 'PosSell' AND NOT (""ExtraModules""::jsonb ? 'PosReportStayGuests');
+  INSERT INTO ""SboxDataMigrations"" (""Id"") VALUES ('pkg-report-split-v1');
 END IF;
 END $$;");
 

@@ -887,11 +887,11 @@ class LandingUsageGuide {
     const LandingUsageGuideStep(
       id: 'bonus_ticket',
       icon: Icons.card_giftcard_rounded,
-      title: 'Phiếu thưởng',
+      title: 'Thưởng phạt',
       desc:
           'Ghi nhận thưởng nóng, thưởng định kỳ hoặc thưởng theo thành tích để cộng vào bảng lương kỳ tương ứng.',
       bullets: [
-        'Tài chính → Phiếu thưởng → Tạo phiếu',
+        'Tài chính → Thưởng phạt → Tạo thưởng / phạt',
         'Chọn nhân viên, số tiền, kỳ áp dụng, lý do',
         'Duyệt phiếu trước khi chốt Tổng hợp lương',
         'Kiểm tra dòng thưởng trên bảng lương / phiếu lương NV',
@@ -1114,7 +1114,7 @@ class LandingUsageGuide {
         'Tạo chỉ tiêu, đơn vị đo, trọng số, mức đạt',
         'Giao KPI theo nhân viên hoặc phòng ban / kỳ đánh giá',
         'Nhập kết quả thực tế định kỳ',
-        'Dùng kết quả để tạo Phiếu thưởng hoặc đánh giá',
+        'Dùng kết quả để tạo thưởng hoặc đánh giá',
       ],
       tip: 'Gắn KPI rõ ràng với phiếu thưởng để tránh thưởng tay trùng với KPI.',
       accent: SboxColors.success,
@@ -1126,7 +1126,7 @@ class LandingUsageGuide {
       desc:
           'Quản lý các loại thưởng định kỳ, thưởng nóng và thưởng theo KPI — luôn duyệt trước khi chốt lương.',
       bullets: [
-        'Tài chính → Phiếu thưởng',
+        'Tài chính → Thưởng phạt',
         'Phân loại thưởng rõ ràng (nóng / tháng / KPI) trong lý do phiếu',
         'Duyệt trước khi chạy Tổng hợp lương',
         'Đối chiếu trên phiếu lương nhân viên',

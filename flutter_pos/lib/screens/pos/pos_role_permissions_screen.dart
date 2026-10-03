@@ -66,6 +66,8 @@ class _PosRolePermissionsScreenState extends State<PosRolePermissionsScreen> {
     (code: 'PosReportPnl', label: 'Kết quả KD', group: 'Báo cáo'),
     (code: 'PosReportVoucher', label: 'Voucher', group: 'Báo cáo'),
     (code: 'HkdBooks', label: 'Thuế hộ kinh doanh', group: 'Báo cáo'),
+    (code: 'PosReportStayGuests', label: 'Sổ khách lưu trú', group: 'Báo cáo'),
+    (code: 'PosReportSessionExpiry', label: 'Thẻ tập sắp hết hạn', group: 'Báo cáo'),
   ];
 
   @override

@@ -844,7 +844,7 @@ class _AiAssistantSheetState extends State<AiAssistantSheet> {
       case 'nav_cash':
         return ('Giao dịch quỹ', Icons.account_balance_rounded);
       case 'nav_bonus_penalty':
-        return ('Phiếu thưởng', Icons.workspace_premium_rounded);
+        return ('Thưởng phạt', Icons.workspace_premium_rounded);
       case 'nav_employees':
         return ('Nhân viên', Icons.people_rounded);
       case 'nav_departments':

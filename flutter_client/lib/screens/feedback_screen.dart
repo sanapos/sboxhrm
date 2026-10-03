@@ -9,7 +9,6 @@ import '../providers/permission_provider.dart';
 import '../services/api_service.dart';
 import '../theme/sbox_tokens.dart';
 import '../utils/navigation_notifier.dart';
-import '../utils/responsive_helper.dart';
 import '../widgets/hrm_page_chrome.dart';
 import '../widgets/page_top_actions.dart';
 import 'feedback/feedback_compose_sheet.dart';
@@ -189,12 +188,11 @@ class _FeedbackScreenState extends State<FeedbackScreen> with SingleTickerProvid
 
   @override
   Widget build(BuildContext context) {
-    final isMobile = Responsive.isMobile(context);
     final canCreate = Provider.of<PermissionProvider>(context, listen: false).canCreate('Feedback');
     return RegisterPageTopActions(
       actions: [
         HrmTopBarAction(icon: Icons.refresh_rounded, label: 'Làm mới', onPressed: _reloadAll),
-        if (canCreate && !isMobile)
+        if (canCreate && _tab() != 'report')
           HrmTopBarAction(
             icon: Icons.add_rounded,
             label: 'Gửi kiến nghị',
@@ -205,13 +203,6 @@ class _FeedbackScreenState extends State<FeedbackScreen> with SingleTickerProvid
       ],
       child: Scaffold(
         backgroundColor: HrmPageChrome.background,
-        floatingActionButton: canCreate && isMobile && _tab() != 'report'
-            ? FloatingActionButton.extended(
-                onPressed: _compose,
-                icon: const Icon(Icons.edit_rounded),
-                label: Text(tr('Gửi kiến nghị')),
-              )
-            : null,
         body: Column(children: [
           if (_tabs.length > 1)
             Material(

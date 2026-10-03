@@ -10,11 +10,8 @@ import '../../providers/auth_provider.dart';
 import '../../services/api_service.dart';
 import '../../utils/store_role_helper.dart';
 import '../../widgets/sbox/sbox_ui.dart';
-import '../advance_requests_screen.dart';
-import '../bonus_penalty_screen.dart';
 import '../business_trip_expense_screen.dart';
 import '../cash_transaction_screen.dart';
-import '../penalty_tickets_screen.dart';
 import 'hr_fin_actions.dart';
 import 'hr_fin_common.dart';
 import 'hr_fin_ledger.dart';
@@ -491,10 +488,7 @@ class _HrFinanceHubScreenState extends State<HrFinanceHubScreen> {
         }).toList();
     double sum(bool Function(HrFinItem) f) => all.where(f).fold(0, (a, b) => a + b.amount);
     return Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
-      _monthRow(trailing: [
-        SboxButton.ghost(label: 'Giao diện cũ', icon: Icons.history_rounded, size: SboxButtonSize.sm,
-            onPressed: () => _openLegacy(const AdvanceRequestsScreen(), 'Ứng lương (giao diện cũ)')),
-      ]),
+      _monthRow(),
       const SizedBox(height: SboxSpace.md),
       SboxKpiStrip(maxColumns: 4, items: [
         SboxKpi(label: 'Chờ duyệt', value: hrFinMoney(sum((i) => i.action == 'approve')), icon: Icons.hourglass_top_rounded, tone: SboxTone.warning,
@@ -536,12 +530,7 @@ class _HrFinanceHubScreenState extends State<HrFinanceHubScreen> {
       byReason[k] = (byReason[k] ?? 0) + i.amount;
     }
     return Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
-      _monthRow(trailing: [
-        SboxButton.ghost(label: 'Phiếu thưởng cũ', icon: Icons.history_rounded, size: SboxButtonSize.sm,
-            onPressed: () => _openLegacy(const BonusPenaltyScreen(), 'Thưởng / phạt (giao diện cũ)')),
-        SboxButton.ghost(label: 'Phiếu phạt cũ', icon: Icons.history_rounded, size: SboxButtonSize.sm,
-            onPressed: () => _openLegacy(const PenaltyTicketsScreen(), 'Phiếu phạt (giao diện cũ)')),
-      ]),
+      _monthRow(),
       const SizedBox(height: SboxSpace.md),
       SboxKpiStrip(maxColumns: 4, items: [
         SboxKpi(label: 'Thưởng đã duyệt', value: hrFinMoney(sum((i) => i.kind == 'bonus')), icon: Icons.card_giftcard_outlined, tone: SboxTone.success),

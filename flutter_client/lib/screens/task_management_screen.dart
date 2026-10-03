@@ -704,17 +704,6 @@ class _TaskManagementScreenState extends State<TaskManagementScreen>
             ),
           ],
         ),
-        floatingActionButton: showMobileDetail
-            ? null
-            : Provider.of<PermissionProvider>(context, listen: false)
-                    .canCreate('Task')
-                ? FloatingActionButton(
-                    onPressed: _showCreateDialog,
-                    backgroundColor: _taskPrimary,
-                    foregroundColor: Colors.white,
-                    child: Icon(isMobile ? Icons.add : Icons.add_task),
-                  )
-                : null,
       ),
     );
   }

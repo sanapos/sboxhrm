@@ -378,6 +378,9 @@ class _RolePermissionsScreenState extends State<RolePermissionsScreen> {
     'Payslip': {'canView', 'canExport'},
     // ── BÁO CÁO ──
     'AttendanceReport': {'canView', 'canExport'},
+    'HrAnalyticsReport': {'canView', 'canExport'},
+    'PosReportStayGuests': {'canView', 'canExport'},
+    'PosReportSessionExpiry': {'canView', 'canExport'},
     // ── TÀI CHÍNH ──
     'BonusPenalty': {
       'canView',

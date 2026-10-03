@@ -367,6 +367,7 @@ class _CommEditorPageState extends State<CommEditorPage> {
   @override
   Widget build(BuildContext context) {
     final wide = MediaQuery.sizeOf(context).width >= 1100;
+    final phone = MediaQuery.sizeOf(context).width < 600;
     final publishLabel = _channel?.requireApproval == true && !widget.ctx.isManager
         ? 'Gửi duyệt'
         : (_scheduledAt != null ? 'Hẹn giờ đăng' : (_wasPublished ? 'Cập nhật' : 'Đăng bài'));
@@ -379,33 +380,79 @@ class _CommEditorPageState extends State<CommEditorPage> {
         appBar: AppBar(
           backgroundColor: SboxColors.surface,
           surfaceTintColor: Colors.transparent,
-          title: Text(tr(_editing ? 'Sửa bài viết' : 'Tạo bài viết')),
-          actions: [
-            TextButton.icon(
-              onPressed: () => setState(() => _preview = !_preview),
-              icon: Icon(_preview ? Icons.edit_outlined : Icons.visibility_outlined),
-              label: Text(tr(_preview ? 'Soạn tiếp' : 'Xem trước')),
-            ),
-            if (!wide)
-              IconButton(
-                tooltip: tr('Trợ lý AI'),
-                icon: const Icon(Icons.auto_awesome, color: SboxColors.violet),
-                onPressed: _openAiSheet,
-              ),
-            if (!_wasPublished)
-              TextButton(onPressed: _saving ? null : () => _save(publish: false), child: Text(tr('Lưu nháp'))),
-            Padding(
-              padding: const EdgeInsets.only(right: 12, left: 4),
-              child: SboxButton(
-                label: publishLabel,
-                icon: Icons.send_rounded,
-                size: SboxButtonSize.sm,
-                loading: _saving,
-                onPressed: _saving ? null : () => _save(publish: true),
-              ),
-            ),
-          ],
+          title: Text(tr(_editing ? 'Sửa bài viết' : 'Tạo bài viết'), maxLines: 1, overflow: TextOverflow.ellipsis),
+          actions: phone
+              ? [
+                  IconButton(
+                    tooltip: tr(_preview ? 'Soạn tiếp' : 'Xem trước'),
+                    onPressed: () => setState(() => _preview = !_preview),
+                    icon: Icon(_preview ? Icons.edit_outlined : Icons.visibility_outlined),
+                  ),
+                  IconButton(
+                    tooltip: tr('Trợ lý AI'),
+                    icon: const Icon(Icons.auto_awesome, color: SboxColors.violet),
+                    onPressed: _openAiSheet,
+                  ),
+                  const SizedBox(width: 4),
+                ]
+              : [
+                  TextButton.icon(
+                    onPressed: () => setState(() => _preview = !_preview),
+                    icon: Icon(_preview ? Icons.edit_outlined : Icons.visibility_outlined),
+                    label: Text(tr(_preview ? 'Soạn tiếp' : 'Xem trước')),
+                  ),
+                  if (!wide)
+                    IconButton(
+                      tooltip: tr('Trợ lý AI'),
+                      icon: const Icon(Icons.auto_awesome, color: SboxColors.violet),
+                      onPressed: _openAiSheet,
+                    ),
+                  if (!_wasPublished)
+                    TextButton(onPressed: _saving ? null : () => _save(publish: false), child: Text(tr('Lưu nháp'))),
+                  Padding(
+                    padding: const EdgeInsets.only(right: 12, left: 4),
+                    child: SboxButton(
+                      label: publishLabel,
+                      icon: Icons.send_rounded,
+                      size: SboxButtonSize.sm,
+                      loading: _saving,
+                      onPressed: _saving ? null : () => _save(publish: true),
+                    ),
+                  ),
+                ],
         ),
+        bottomNavigationBar: phone
+            ? SafeArea(
+                top: false,
+                child: Container(
+                  padding: const EdgeInsets.fromLTRB(12, 8, 12, 8),
+                  decoration: const BoxDecoration(
+                    color: SboxColors.surface,
+                    border: Border(top: BorderSide(color: SboxColors.border)),
+                  ),
+                  child: Row(children: [
+                    if (!_wasPublished) ...[
+                      Expanded(
+                        child: SboxButton.secondary(
+                          label: 'Lưu nháp',
+                          onPressed: _saving ? null : () => _save(publish: false),
+                        ),
+                      ),
+                      const SizedBox(width: 8),
+                    ],
+                    Expanded(
+                      flex: 2,
+                      child: SboxButton(
+                        label: publishLabel,
+                        icon: Icons.send_rounded,
+                        loading: _saving,
+                        onPressed: _saving ? null : () => _save(publish: true),
+                      ),
+                    ),
+                  ]),
+                ),
+              )
+            : null,
         body: Row(crossAxisAlignment: CrossAxisAlignment.start, children: [
           Expanded(
             child: _preview
@@ -580,27 +627,44 @@ class _CommEditorPageState extends State<CommEditorPage> {
   }
 
   Widget _mediaSection() {
-    Widget chip(IconData icon, String label, Color color, VoidCallback onTap, {bool active = false}) => Padding(
-          padding: const EdgeInsets.only(right: 8, bottom: 8),
-          child: ActionChip(
-            avatar: Icon(icon, size: 18, color: color),
-            label: Text(tr(label)),
-            backgroundColor: active ? color.withValues(alpha: 0.12) : SboxColors.surface,
-            side: BorderSide(color: active ? color : SboxColors.border),
-            onPressed: _uploading ? null : onTap,
+    Widget chip(IconData icon, String label, Color color, VoidCallback onTap, {bool active = false}) => Expanded(
+          child: Material(
+            color: active ? color.withValues(alpha: 0.12) : SboxColors.surface,
+            shape: RoundedRectangleBorder(
+              borderRadius: SboxRadius.mdAll,
+              side: BorderSide(color: active ? color : SboxColors.border),
+            ),
+            child: InkWell(
+              customBorder: RoundedRectangleBorder(borderRadius: SboxRadius.mdAll),
+              onTap: _uploading ? null : onTap,
+              child: Padding(
+                padding: const EdgeInsets.symmetric(vertical: 8, horizontal: 4),
+                child: Column(mainAxisSize: MainAxisSize.min, children: [
+                  Icon(icon, size: 20, color: color),
+                  const SizedBox(height: 2),
+                  FittedBox(
+                    fit: BoxFit.scaleDown,
+                    child: Text(tr(label), maxLines: 1, style: SboxType.captionStyle(SboxColors.text).copyWith(fontWeight: FontWeight.w600)),
+                  ),
+                ]),
+              ),
+            ),
           ),
         );
     return Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
-      Wrap(children: [
+      Row(children: [
         chip(Icons.photo_library_outlined, 'Ảnh', SboxColors.success, () => _addFiles(images: true)),
-        chip(Icons.attach_file_rounded, 'Word / PDF / Excel', SboxColors.brand600, () => _addFiles(images: false)),
+        const SizedBox(width: 8),
+        chip(Icons.attach_file_rounded, 'Tài liệu', SboxColors.brand600, () => _addFiles(images: false)),
+        const SizedBox(width: 8),
         chip(Icons.poll_outlined, 'Bình chọn', SboxColors.warning, () => setState(() => _pollOn = !_pollOn), active: _pollOn),
+        const SizedBox(width: 8),
         chip(Icons.event_outlined, 'Sự kiện', SboxColors.danger, () => setState(() {
               _eventOn = !_eventOn;
               _eventAt ??= DateTime.now().add(const Duration(days: 1));
             }), active: _eventOn),
-        if (_uploading) const Padding(padding: EdgeInsets.all(8), child: SizedBox(width: 18, height: 18, child: CircularProgressIndicator(strokeWidth: 2))),
       ]),
+      if (_uploading) const Padding(padding: EdgeInsets.only(top: 8), child: LinearProgressIndicator(minHeight: 2)),
       if (_images.isNotEmpty) ...[
         const SizedBox(height: 4),
         CommImageGrid(urls: _images, height: 200, onRemove: (i) => setState(() => _images.removeAt(i))),
@@ -706,20 +770,35 @@ class _CommEditorPageState extends State<CommEditorPage> {
               title: Text(tr('Lưu thành phiên bản mới (bản ${widget.post!.version + 1})')),
               subtitle: Text(tr('Mọi người phải đọc và xác nhận lại')),
             ),
-          ListTile(
-            contentPadding: EdgeInsets.zero,
-            leading: const Icon(Icons.flag_outlined),
-            title: Text(tr('Mức độ')),
-            trailing: SegmentedButton<int>(
-              showSelectedIcon: false,
-              segments: [
-                ButtonSegment(value: 1, label: Text(tr('Thường'))),
-                ButtonSegment(value: 2, label: Text(tr('Quan trọng'))),
-                ButtonSegment(value: 3, label: Text(tr('Khẩn'))),
-              ],
-              selected: {_priority.clamp(1, 3)},
-              onSelectionChanged: (s) => setState(() => _priority = s.first),
-            ),
+          Padding(
+            padding: const EdgeInsets.symmetric(vertical: 8),
+            child: Row(crossAxisAlignment: CrossAxisAlignment.start, children: [
+              const Padding(padding: EdgeInsets.only(top: 6), child: Icon(Icons.flag_outlined, color: SboxColors.slate600)),
+              const SizedBox(width: 16),
+              Expanded(
+                child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+                  Padding(padding: const EdgeInsets.only(top: 6), child: Text(tr('Mức độ'), style: SboxType.bodyStyle())),
+                  const SizedBox(height: 6),
+                  // 3 ô chia đều cả hàng dưới nhãn — đủ chỗ cho «Quan trọng», không tràn / rớt hàng.
+                  SizedBox(
+                    width: double.infinity,
+                    child: SegmentedButton<int>(
+                      showSelectedIcon: false,
+                      style: const ButtonStyle(visualDensity: VisualDensity.compact),
+                      segments: [
+                        for (final o in const [(1, 'Thường'), (2, 'Quan trọng'), (3, 'Khẩn')])
+                          ButtonSegment(
+                            value: o.$1,
+                            label: FittedBox(fit: BoxFit.scaleDown, child: Text(tr(o.$2), maxLines: 1, softWrap: false)),
+                          ),
+                      ],
+                      selected: {_priority.clamp(1, 3)},
+                      onSelectionChanged: (s) => setState(() => _priority = s.first),
+                    ),
+                  ),
+                ]),
+              ),
+            ]),
           ),
           SwitchListTile(
             contentPadding: EdgeInsets.zero,

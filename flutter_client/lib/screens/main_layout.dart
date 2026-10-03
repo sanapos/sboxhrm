@@ -1639,9 +1639,9 @@ class _MainLayoutState extends State<MainLayout> with WidgetsBindingObserver {
     NavItem(
       icon: Icons.card_giftcard_outlined,
       activeIcon: Icons.card_giftcard,
-      label: 'Phiếu thưởng',
-      subtitle: 'Thưởng',
-      screen: const HrFinanceHubScreen(initialTab: HrFinTab.rewards, initialRewardKind: 'bonus'),
+      label: 'Thưởng phạt',
+      subtitle: 'Thưởng, phạt thủ công',
+      screen: const HrFinanceHubScreen(initialTab: HrFinTab.rewards),
       group: 'Tài chính',
       showInSidebar: true,
       themeColor: HrmPageChrome.primaryNavy,
@@ -2197,7 +2197,7 @@ class _MainLayoutState extends State<MainLayout> with WidgetsBindingObserver {
       screen: const AnalyticsReportsScreen(),
       group: 'Báo cáo nhân sự',
       themeColor: HrmPageChrome.primaryNavy,
-      moduleCode: 'AttendanceReport',
+      moduleCode: 'HrAnalyticsReport',
     ),
     NavItem(
       icon: Icons.fingerprint,

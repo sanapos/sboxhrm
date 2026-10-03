@@ -60,7 +60,14 @@ class _MobileDevicesHubScreenState extends State<MobileDevicesHubScreen> with Si
     final myPhone = widget.myPhone ?? const MobileDeviceRegistrationScreen();
     if (!_manager) return myPhone;
     final narrow = MediaQuery.of(context).size.width < 700;
-    Tab tab(IconData icon, String label, [int badge = 0]) => Tab(
+    // Điện thoại: biểu tượng trên, chữ ngắn dưới — 4 tab chia đều, không cắt chữ.
+    Tab tab(IconData icon, String label, [int badge = 0]) => narrow
+        ? Tab(
+            height: 52,
+            icon: Badge(isLabelVisible: badge > 0, label: Text('$badge'), child: Icon(icon, size: 20)),
+            child: FittedBox(fit: BoxFit.scaleDown, child: Text(tr(label), maxLines: 1, style: const TextStyle(fontSize: 12))),
+          )
+        : Tab(
           child: Row(mainAxisSize: MainAxisSize.min, children: [
             Icon(icon, size: 18),
             const SizedBox(width: 6),
@@ -84,8 +91,8 @@ class _MobileDevicesHubScreenState extends State<MobileDevicesHubScreen> with Si
             color: Colors.white,
             child: TabBar(
               controller: _tabs,
-              isScrollable: narrow,
-              tabAlignment: narrow ? TabAlignment.start : null,
+              isScrollable: false,
+              labelPadding: narrow ? const EdgeInsets.symmetric(horizontal: 2) : null,
               labelColor: SboxColors.brand700,
               unselectedLabelColor: SboxColors.slate500,
               indicatorColor: SboxColors.brand600,
@@ -93,9 +100,9 @@ class _MobileDevicesHubScreenState extends State<MobileDevicesHubScreen> with Si
               labelStyle: const TextStyle(fontWeight: FontWeight.w700),
               tabs: [
                 tab(Icons.fact_check_rounded, 'Cần duyệt', _pending),
-                tab(Icons.verified_user_rounded, 'Đã cấp quyền'),
+                tab(Icons.verified_user_rounded, narrow ? 'Đã cấp' : 'Đã cấp quyền'),
                 tab(Icons.person_off_outlined, 'Chưa đăng ký'),
-                tab(Icons.smartphone_rounded, 'Điện thoại của tôi'),
+                tab(Icons.smartphone_rounded, narrow ? 'Máy của tôi' : 'Điện thoại của tôi'),
               ],
             ),
           ),

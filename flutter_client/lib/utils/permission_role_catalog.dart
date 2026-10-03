@@ -120,6 +120,7 @@ class PermissionRoleCatalog {
         'Payslip',
         'Payroll',
         'AttendanceReport',
+        'HrAnalyticsReport',
         'LeaveReport',
         'CashReport',
         'HkdBooks',

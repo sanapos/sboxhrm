@@ -352,7 +352,7 @@ class HrFinActions {
         ? const ['Hoàn thành xuất sắc', 'Doanh số vượt chỉ tiêu', 'Chuyên cần', 'Khách hàng khen']
         : const ['Vi phạm nội quy', 'Làm hỏng tài sản', 'Thiếu hụt quỹ', 'Không đồng phục'];
     final done = await hrFinDialog<bool>(context,
-        title: 'Tạo phiếu thưởng / phạt',
+        title: 'Tạo thưởng / phạt',
         width: 560,
         body: (ctx, setS) {
           final isPenalty = t == 'Penalty';

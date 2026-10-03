@@ -395,15 +395,9 @@ class _ProductionOutputScreenState extends State<ProductionOutputScreen>
         ),
       if (canCreate)
         HrmTopBarAction(
-          icon: Icons.table_chart_outlined,
-          label: 'Import Excel',
-          onPressed: _showExcelImportDialog,
-        ),
-      if (canCreate)
-        HrmTopBarAction(
-          icon: Icons.cloud_download_outlined,
-          label: 'Đồng bộ Google Sheet',
-          onPressed: _showGSheetSyncDialog,
+          icon: Icons.upload_file_outlined,
+          label: 'Nhập dữ liệu',
+          onPressed: _pickImportSource,
         ),
       if (canCreate)
         HrmTopBarAction(
@@ -422,6 +416,36 @@ class _ProductionOutputScreenState extends State<ProductionOutputScreen>
     ];
   }
 
+  /// 1 nút «Nhập dữ liệu»: chọn Excel hoặc Google Sheet (thay 2 nút riêng trên thanh chức năng).
+  Future<void> _pickImportSource() async {
+    final v = await showModalBottomSheet<String>(
+      context: context,
+      showDragHandle: true,
+      builder: (ctx) => SafeArea(
+        child: Column(mainAxisSize: MainAxisSize.min, children: [
+          ListTile(
+            leading: const Icon(Icons.table_chart_outlined, color: SboxColors.success),
+            title: Text(tr('Từ file Excel')),
+            subtitle: Text(tr('Tải file mẫu, điền sản lượng rồi nhập')),
+            onTap: () => Navigator.pop(ctx, 'excel'),
+          ),
+          ListTile(
+            leading: const Icon(Icons.cloud_download_outlined, color: SboxColors.brand600),
+            title: Text(tr('Từ Google Sheet')),
+            subtitle: Text(tr('Lấy sản lượng từ các tab ngày trong Sheet')),
+            onTap: () => Navigator.pop(ctx, 'gsheet'),
+          ),
+        ]),
+      ),
+    );
+    if (!mounted || v == null) return;
+    if (v == 'excel') {
+      _showExcelImportDialog();
+    } else {
+      _showGSheetSyncDialog();
+    }
+  }
+
   void _clearFilters() {
     setState(() {
       _filterEmployeeId = null;
@@ -432,8 +456,126 @@ class _ProductionOutputScreenState extends State<ProductionOutputScreen>
     _reloadCurrentTab();
   }
 
+  static const _presetLabels = <String, String>{
+    'today': 'Hôm nay',
+    'yesterday': 'Hôm qua',
+    'this_week': 'Tuần này',
+    'last_week': 'Tuần trước',
+    'this_month': 'Tháng này',
+    'last_month': 'Tháng trước',
+    'custom': 'Tùy chọn',
+  };
+
+  Future<void> _applyPreset(String v) async {
+    if (v == 'custom') {
+      final picked = await showDateRangePicker(
+        context: context,
+        firstDate: DateTime(2020),
+        lastDate: DateTime.now().add(const Duration(days: 365)),
+        initialDateRange: DateTimeRange(start: _fromDate, end: _toDate),
+        locale: appUiLocale(),
+      );
+      if (picked == null) return;
+      setState(() {
+        _fromDate = picked.start;
+        _toDate = picked.end;
+        _datePreset = 'custom';
+      });
+    } else {
+      final r = ReportDateRangePresets.resolve(v);
+      setState(() {
+        _fromDate = r.from;
+        _toDate = r.to;
+        _datePreset = v;
+      });
+    }
+    _reloadCurrentTab();
+  }
+
+  /// Điện thoại: 1 nút «Tháng này · 01/10 – 03/10» mở danh sách kỳ — thay ô Kỳ + ô ngày (tràn hàng).
+  Widget _mobilePeriodButton() {
+    final fmt = DateFormat('dd/MM');
+    return OutlinedButton(
+      style: OutlinedButton.styleFrom(
+        foregroundColor: SboxColors.slate900,
+        backgroundColor: Colors.white,
+        side: const BorderSide(color: SboxColors.slate200),
+        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+      ),
+      onPressed: () async {
+        final v = await showModalBottomSheet<String>(
+          context: context,
+          showDragHandle: true,
+          builder: (ctx) => SafeArea(
+            child: ListView(shrinkWrap: true, children: [
+              for (final e in _presetLabels.entries)
+                ListTile(
+                  leading: Icon(e.key == _datePreset ? Icons.radio_button_checked_rounded : Icons.radio_button_off_rounded,
+                      color: e.key == _datePreset ? _accent : SboxColors.slate400),
+                  title: Text(tr(e.value)),
+                  onTap: () => Navigator.pop(ctx, e.key),
+                ),
+            ]),
+          ),
+        );
+        if (v != null) await _applyPreset(v);
+      },
+      child: Row(children: [
+        const Icon(Icons.date_range_rounded, size: 16, color: SboxColors.slate500),
+        const SizedBox(width: 6),
+        Expanded(
+          child: Text(
+            '${tr(_presetLabels[_datePreset] ?? 'Tùy chọn')} · ${fmt.format(_fromDate)} – ${fmt.format(_toDate)}',
+            maxLines: 1,
+            overflow: TextOverflow.ellipsis,
+            style: const TextStyle(fontSize: 12.5, fontWeight: FontWeight.w600),
+          ),
+        ),
+        const Icon(Icons.expand_more_rounded, size: 18, color: SboxColors.slate500),
+      ]),
+    );
+  }
+
   Widget _buildToolbarRow() {
     final isMobile = Responsive.isMobile(context);
+    final filterBtn = OutlinedButton.icon(
+      onPressed: _showFilterSheet,
+      icon: Badge(
+        isLabelVisible: _activeFilterCount > 0,
+        label: Text(tr('$_activeFilterCount'), style: const TextStyle(fontSize: 10)),
+        child: const Icon(Icons.tune, size: 16),
+      ),
+      label: Text(tr('Lọc'), style: const TextStyle(fontSize: 12)),
+      style: OutlinedButton.styleFrom(
+        foregroundColor: _accent,
+        backgroundColor: Colors.white,
+        visualDensity: VisualDensity.compact,
+        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+      ),
+    );
+    if (isMobile) {
+      return Container(
+        decoration: const BoxDecoration(
+          color: Colors.white,
+          border: Border(bottom: BorderSide(color: SboxColors.slate200)),
+        ),
+        padding: const EdgeInsets.fromLTRB(10, 6, 6, 6),
+        child: Row(children: [
+          Expanded(child: _mobilePeriodButton()),
+          const SizedBox(width: 8),
+          filterBtn,
+          if (_hasActiveFilters)
+            IconButton(
+              tooltip: tr('Xóa bộ lọc'),
+              onPressed: _clearFilters,
+              icon: const Icon(Icons.filter_alt_off, size: 18),
+              visualDensity: VisualDensity.compact,
+            ),
+        ]),
+      );
+    }
     final toolbarContent = Row(
       crossAxisAlignment: CrossAxisAlignment.center,
       children: [

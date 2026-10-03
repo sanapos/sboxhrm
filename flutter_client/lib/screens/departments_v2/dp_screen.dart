@@ -206,9 +206,6 @@ class _DepartmentsV2ScreenState extends State<DepartmentsV2Screen> {
       ],
       child: Scaffold(
         backgroundColor: HrmPageChrome.background,
-        floatingActionButton: canCreate && !wide && !_chart
-            ? FloatingActionButton.extended(onPressed: () => _add(), icon: const Icon(Icons.add), label: Text(tr('Thêm phòng ban')))
-            : null,
         body: _loading
             ? const SboxLoading(message: 'Đang tải phòng ban…')
             : _error != null

@@ -504,7 +504,7 @@ class AppLocalizations {
       'scheduleApproval': 'Duyệt lịch làm việc',
       'payrollSummary': 'Tổng hợp lương',
       'employeePayroll': 'Bảng lương nhân viên',
-      'bonusPenalty': 'Phiếu thưởng',
+      'bonusPenalty': 'Thưởng phạt',
       'salaryAdvance': 'Ứng lương',
       'advanceManagement': 'Quản lý ứng lương',
       'incomeExpense': 'Thu chi',

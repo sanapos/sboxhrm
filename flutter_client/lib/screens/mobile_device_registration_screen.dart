@@ -199,6 +199,10 @@ class _MobileDeviceRegistrationScreenState
         if (preselectIds != null) {
           preselect.addAll(preselectIds.where((e) => e.isNotEmpty));
         }
+        if (preselect.isEmpty && list.length == 1) {
+          final only = list.first['id']?.toString() ?? '';
+          if (only.isNotEmpty) preselect.add(only);
+        }
         setState(() {
           _registrationLocations = list;
           _selectedLocationIds
@@ -243,12 +247,23 @@ class _MobileDeviceRegistrationScreenState
     return _buildStepCard(
       step: step,
       title: 'Vị trí chấm công',
-      subtitle: _selectedLocationIds.isEmpty
-          ? 'Chọn ít nhất 1 vị trí'
-          : 'Đã chọn ${_selectedLocationIds.length} vị trí',
+      subtitle: _registrationLocations.length == 1
+          ? 'Tự chọn — cửa hàng có 1 vị trí'
+          : (_selectedLocationIds.isEmpty ? 'Chọn ít nhất 1 vị trí' : 'Đã chọn ${_selectedLocationIds.length} vị trí'),
       icon: Icons.location_on_outlined,
       isCompleted: _hasValidLocationSelection,
-      child: Column(
+      child: _registrationLocations.length == 1 && !_loadingLocations && _locationsError == null
+          ? Row(children: [
+              const Icon(Icons.check_circle, size: 18, color: SboxColors.success),
+              const SizedBox(width: 8),
+              Expanded(
+                child: Text(
+                  tr('Chấm công tại: ${_registrationLocations.first['name'] ?? 'Vị trí'}'),
+                  style: const TextStyle(fontSize: 13.5, fontWeight: FontWeight.w600, color: SboxColors.slate900),
+                ),
+              ),
+            ])
+          : Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Text(
@@ -958,9 +973,8 @@ class _MobileDeviceRegistrationScreenState
                           padding: const EdgeInsets.symmetric(vertical: 10),
                           decoration: BoxDecoration(color: Colors.white, borderRadius: BorderRadius.circular(12)),
                           child: Row(children: [
-                            _stepDot(1, 'Thiết bị', _deviceId.isNotEmpty, false),
-                            _stepDot(2, 'Vị trí', locDone, !locDone),
-                            _stepDot(3, 'Khuôn mặt', faceDone, locDone && !faceDone),
+                            _stepDot(1, 'Vị trí', locDone, !locDone),
+                            _stepDot(2, 'Khuôn mặt', faceDone, locDone && !faceDone),
                           ]),
                         ),
                       ]),
@@ -969,34 +983,30 @@ class _MobileDeviceRegistrationScreenState
                       const SizedBox(height: 12),
                       _buildRejectionCard(),
                     ],
-                    const SizedBox(height: 16),
-                    _buildStepCard(
-                      step: 1,
-                      title: 'Điện thoại này',
-                      subtitle: '$_deviceName · $_osVersion',
-                      icon: Icons.smartphone,
-                      isCompleted: _deviceId.isNotEmpty,
-                      child: Theme(
-                        data: Theme.of(context).copyWith(dividerColor: Colors.transparent),
-                        child: ExpansionTile(
-                          tilePadding: EdgeInsets.zero,
-                          childrenPadding: EdgeInsets.zero,
-                          title: Text(tr('Chi tiết kỹ thuật'),
-                              style: const TextStyle(fontSize: 13, color: SboxColors.slate600)),
-                          children: [
-                            _buildInfoRow(Icons.phone_android, 'Dòng máy', _deviceModel),
-                            _buildInfoRow(Icons.fingerprint, 'Mã thiết bị',
-                                _deviceId.length > 20 ? '${_deviceId.substring(0, 20)}…' : _deviceId),
-                            _buildInfoRow(Icons.router, 'Wi-Fi (BSSID)', _wifiBssid ?? 'Chưa kết nối Wi-Fi'),
-                          ],
-                        ),
+                    const SizedBox(height: 10),
+                    // Máy tự nhận — chỉ hiện 1 dòng, chi tiết kỹ thuật mở khi cần.
+                    Theme(
+                      data: Theme.of(context).copyWith(dividerColor: Colors.transparent),
+                      child: ExpansionTile(
+                        tilePadding: const EdgeInsets.symmetric(horizontal: 4),
+                        childrenPadding: const EdgeInsets.symmetric(horizontal: 4),
+                        leading: const Icon(Icons.smartphone, color: SboxColors.slate500),
+                        title: Text(tr('Điện thoại: $_deviceName · $_osVersion'),
+                            maxLines: 1, overflow: TextOverflow.ellipsis,
+                            style: const TextStyle(fontSize: 13, color: SboxColors.slate700)),
+                        children: [
+                          _buildInfoRow(Icons.phone_android, 'Dòng máy', _deviceModel),
+                          _buildInfoRow(Icons.fingerprint, 'Mã thiết bị',
+                              _deviceId.length > 20 ? '${_deviceId.substring(0, 20)}…' : _deviceId),
+                          _buildInfoRow(Icons.router, 'Wi-Fi (BSSID)', _wifiBssid ?? 'Chưa kết nối Wi-Fi'),
+                        ],
                       ),
                     ),
-                    const SizedBox(height: 14),
-                    _buildLocationPicker(step: 2),
+                    const SizedBox(height: 6),
+                    _buildLocationPicker(step: 1),
                     const SizedBox(height: 14),
                     _buildStepCard(
-                      step: 3,
+                      step: 2,
                       title: 'Chụp khuôn mặt',
                       subtitle: faceDone ? 'Đã chụp đủ 5 góc' : 'Chụp 5 góc: thẳng, trái, phải, trên, dưới',
                       icon: Icons.face_retouching_natural,

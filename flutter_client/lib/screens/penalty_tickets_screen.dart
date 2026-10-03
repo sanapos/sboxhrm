@@ -1375,13 +1375,6 @@ class _PenaltyTicketsScreenState extends State<PenaltyTicketsScreen> {
       actions: _buildTopActions(isMobile, canCreateTicket),
       child: Scaffold(
       backgroundColor: SboxColors.slate50,
-      floatingActionButton: isMobile && canCreateTicket
-          ? FloatingActionButton(
-              onPressed: () => _showTicketDialog(),
-              backgroundColor: HrmPageChrome.primaryNavy,
-              child: const Icon(Icons.add, color: Colors.white),
-            )
-          : null,
       body: HrmPushedScreenShell.maybeWrap(
         context,
         title: 'Phiếu phạt',

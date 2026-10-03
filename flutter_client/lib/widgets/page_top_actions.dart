@@ -288,7 +288,34 @@ class PageTopActionsFab extends StatelessWidget {
         final hrm = acts.whereType<HrmTopBarAction>().toList(growable: false);
         if (hrm.isEmpty) return const SizedBox.shrink();
 
-        // 1 action primary → FAB chạy thẳng; nhiều action → mở danh sách.
+        // Có thao tác chính (vd «Thêm ca») → nút có chữ; thao tác phụ gom vào nút nhỏ phía trên.
+        final primary = hrm.where((a) => a.primary && a.onPressed != null).firstOrNull;
+        if (primary != null) {
+          final rest = hrm.where((a) => !identical(a, primary)).toList(growable: false);
+          return Column(mainAxisSize: MainAxisSize.min, crossAxisAlignment: CrossAxisAlignment.end, children: [
+            if (rest.isNotEmpty) ...[
+              FloatingActionButton.small(
+                heroTag: 'page_top_actions_more',
+                tooltip: tr('Thao tác khác'),
+                backgroundColor: Colors.white,
+                foregroundColor: PosTheme.kiotBlue,
+                onPressed: () => showPageTopActionsSheet(context, rest),
+                child: const Icon(Icons.more_horiz_rounded),
+              ),
+              const SizedBox(height: 10),
+            ],
+            FloatingActionButton.extended(
+              heroTag: 'page_top_actions_fab',
+              backgroundColor: PosTheme.kiotBlue,
+              foregroundColor: Colors.white,
+              onPressed: primary.onPressed,
+              icon: Icon(primary.icon),
+              label: Text(tr(primary.label)),
+            ),
+          ]);
+        }
+
+        // 1 action → FAB chạy thẳng; nhiều action → mở danh sách.
         if (hrm.length == 1) {
           final only = hrm.first;
           return FloatingActionButton(

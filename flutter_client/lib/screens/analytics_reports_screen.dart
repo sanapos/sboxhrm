@@ -13,37 +13,42 @@ import '../widgets/sbox/sbox_ui.dart';
 /// Kiểu tham số kỳ của báo cáo.
 enum _PeriodKind { range, month, year, none }
 
-class _ReportSpec {
+class AnalyticsReportSpec {
   final String group;
   final String title;
   final String subtitle;
   final String path;
   final _PeriodKind period;
   final List<String> modules; // cần quyền Xem ít nhất một module
-  const _ReportSpec(this.group, this.title, this.subtitle, this.path, this.period, this.modules);
+  const AnalyticsReportSpec(this.group, this.title, this.subtitle, this.path, this.period, this.modules);
+
+  /// Báo cáo ngành (mở từ Báo cáo POS, không thuộc báo cáo nhân sự).
+  static const stayGuests = AnalyticsReportSpec('Khách sạn', 'Sổ khách lưu trú', 'Khách ở trong kỳ — xuất Excel khai báo tạm trú',
+      '/api/pos/stay-guests/register', _PeriodKind.range, ['PosReportStayGuests']);
+  static const sessionExpiry = AnalyticsReportSpec('Gym / Spa', 'Thẻ tập & gói buổi sắp hết hạn',
+      'Sắp hết hạn 7 ngày, hết hạn 30 ngày, còn ≤ 2 buổi — gọi nhắc gia hạn', '/api/pos/session-balances/expiring',
+      _PeriodKind.none, ['PosReportSessionExpiry']);
 }
 
 const _attendanceModules = ['AttendanceReport', 'AttendanceSummary', 'AttendanceByShift', 'Attendance'];
 
-/// Các báo cáo phân tích có sẵn trên máy chủ nhưng trước đây chưa có màn xem.
-const _reports = <_ReportSpec>[
-  _ReportSpec('Chấm công', 'Tỷ lệ chuyên cần', 'Theo nhân viên trong tháng', '/api/reports/attendance-analytics/compliance', _PeriodKind.month, _attendanceModules),
-  _ReportSpec('Chấm công', 'Vắng không phép', 'Từng ngày vắng không có đơn', '/api/reports/attendance-analytics/absence', _PeriodKind.range, _attendanceModules),
-  _ReportSpec('Chấm công', 'Có lịch nhưng không chấm công', 'Theo ngày xếp lịch', '/api/reports/attendance-analytics/no-show', _PeriodKind.range, _attendanceModules),
-  _ReportSpec('Chấm công', 'Chấm công bất thường', 'Quá sớm, quá muộn, chấm nhiều lần', '/api/reports/attendance-analytics/anomalies', _PeriodKind.range, _attendanceModules),
-  _ReportSpec('Chấm công', 'Công tác / check-in điểm', 'Tổng hợp lượt check-in ngoài', '/api/reports/attendance-analytics/field-summary', _PeriodKind.range, _attendanceModules),
-  _ReportSpec('Chấm công', 'Chấm công Mobile / WiFi', 'Mức dùng chấm công điện thoại', '/api/reports/attendance-analytics/mobile-usage', _PeriodKind.range, _attendanceModules),
-  _ReportSpec('Nghỉ phép & ca', 'Số ngày phép còn lại', 'Theo nhân viên trong năm', '/api/reports/leave-shift/leave-balance', _PeriodKind.year, ['LeaveReport']),
-  _ReportSpec('Nghỉ phép & ca', 'Thời gian duyệt đơn phép', 'Người duyệt nhanh / chậm', '/api/reports/leave-shift/leave-approval-sla', _PeriodKind.range, ['LeaveReport']),
-  _ReportSpec('Nghỉ phép & ca', 'Độ phủ ca theo định mức', 'Thiếu / đủ / vượt người mỗi ca', '/api/reports/leave-shift/shift-coverage', _PeriodKind.range, ['LeaveReport', 'WorkSchedule']),
-  _ReportSpec('Nghỉ phép & ca', 'Tần suất đổi ca', 'Theo nhân viên', '/api/reports/leave-shift/shift-swaps', _PeriodKind.range, ['LeaveReport']),
-  _ReportSpec('Hiệu suất', 'Tổng hợp KPI', 'Theo nhân viên và phòng ban', '/api/reports/performance/kpi-summary', _PeriodKind.month, ['KPI']),
-  _ReportSpec('Hiệu suất', 'Sản lượng', 'Theo nhân viên và sản phẩm', '/api/reports/performance/production-output', _PeriodKind.range, ['KPI']),
-  _ReportSpec('Hiệu suất', 'Tài sản đang giao', 'Theo trạng thái và người giữ', '/api/reports/performance/asset-assignment', _PeriodKind.none, ['KPI']),
-  _ReportSpec('Tổng hợp', 'Báo cáo điều hành tháng', 'Nhân sự, chấm công, chi phí trong tháng', '/api/reports/executive/monthly-summary', _PeriodKind.month, ['Report']),
-  _ReportSpec('Khách sạn', 'Sổ khách lưu trú', 'Khách ở trong kỳ — xuất Excel khai báo tạm trú', '/api/pos/stay-guests/register', _PeriodKind.range, ['PosSell']),
-  _ReportSpec('Gym / Spa', 'Thẻ tập & gói buổi sắp hết hạn', 'Sắp hết hạn 7 ngày, hết hạn 30 ngày, còn ≤ 2 buổi — gọi nhắc gia hạn', '/api/pos/session-balances/expiring', _PeriodKind.none, ['PosSell']),
-  _ReportSpec('Tài chính nhân sự', 'Nợ tiền cơm', 'Theo nhân viên', '/api/reports/finance/meal-debt', _PeriodKind.range, ['Meal']),
+/// Báo cáo phân tích nhân sự (chức năng gói «HrAnalyticsReport»). Báo cáo ngành bán hàng ở Báo cáo POS.
+const _reports = <AnalyticsReportSpec>[
+  AnalyticsReportSpec('Chấm công', 'Tỷ lệ chuyên cần', 'Theo nhân viên trong tháng', '/api/reports/attendance-analytics/compliance', _PeriodKind.month, _attendanceModules),
+  AnalyticsReportSpec('Chấm công', 'Vắng không phép', 'Từng ngày vắng không có đơn', '/api/reports/attendance-analytics/absence', _PeriodKind.range, _attendanceModules),
+  AnalyticsReportSpec('Chấm công', 'Có lịch nhưng không chấm công', 'Theo ngày xếp lịch', '/api/reports/attendance-analytics/no-show', _PeriodKind.range, _attendanceModules),
+  AnalyticsReportSpec('Chấm công', 'Chấm công bất thường', 'Quá sớm, quá muộn, chấm nhiều lần', '/api/reports/attendance-analytics/anomalies', _PeriodKind.range, _attendanceModules),
+  AnalyticsReportSpec('Chấm công', 'Công tác / check-in điểm', 'Tổng hợp lượt check-in ngoài', '/api/reports/attendance-analytics/field-summary', _PeriodKind.range, _attendanceModules),
+  AnalyticsReportSpec('Chấm công', 'Chấm công Mobile / WiFi', 'Mức dùng chấm công điện thoại', '/api/reports/attendance-analytics/mobile-usage', _PeriodKind.range, _attendanceModules),
+  AnalyticsReportSpec('Nghỉ phép & ca', 'Số ngày phép còn lại', 'Theo nhân viên trong năm', '/api/reports/leave-shift/leave-balance', _PeriodKind.year, ['LeaveReport']),
+  AnalyticsReportSpec('Nghỉ phép & ca', 'Thời gian duyệt đơn phép', 'Người duyệt nhanh / chậm', '/api/reports/leave-shift/leave-approval-sla', _PeriodKind.range, ['LeaveReport']),
+  AnalyticsReportSpec('Nghỉ phép & ca', 'Độ phủ ca theo định mức', 'Thiếu / đủ / vượt người mỗi ca', '/api/reports/leave-shift/shift-coverage', _PeriodKind.range, ['LeaveReport', 'WorkSchedule']),
+  AnalyticsReportSpec('Nghỉ phép & ca', 'Tần suất đổi ca', 'Theo nhân viên', '/api/reports/leave-shift/shift-swaps', _PeriodKind.range, ['LeaveReport']),
+  AnalyticsReportSpec('Hiệu suất', 'Tổng hợp KPI', 'Theo nhân viên và phòng ban', '/api/reports/performance/kpi-summary', _PeriodKind.month, ['KPI']),
+  AnalyticsReportSpec('Hiệu suất', 'Sản lượng', 'Theo nhân viên và sản phẩm', '/api/reports/performance/production-output', _PeriodKind.range, ['KPI']),
+  AnalyticsReportSpec('Hiệu suất', 'Tài sản đang giao', 'Theo trạng thái và người giữ', '/api/reports/performance/asset-assignment', _PeriodKind.none, ['KPI']),
+  AnalyticsReportSpec('Tổng hợp', 'Báo cáo điều hành tháng', 'Nhân sự, chấm công, chi phí trong tháng', '/api/reports/executive/monthly-summary', _PeriodKind.month, ['Report']),
+  AnalyticsReportSpec('Tài chính nhân sự', 'Nợ tiền cơm', 'Theo nhân viên', '/api/reports/finance/meal-debt', _PeriodKind.range, ['Meal']),
 ];
 
 /// Icon + màu theo nhóm báo cáo.
@@ -52,8 +57,6 @@ const _groupStyle = <String, (IconData, Color)>{
   'Nghỉ phép & ca': (Icons.event_available_rounded, SboxColors.violet),
   'Hiệu suất': (Icons.trending_up_rounded, SboxColors.success),
   'Tổng hợp': (Icons.dashboard_rounded, HrmPageChrome.primaryNavy),
-  'Khách sạn': (Icons.hotel_rounded, SboxColors.info),
-  'Gym / Spa': (Icons.fitness_center_rounded, SboxColors.warning),
   'Tài chính nhân sự': (Icons.account_balance_wallet_rounded, SboxColors.danger),
 };
 
@@ -76,7 +79,7 @@ class _AnalyticsReportsScreenState extends State<AnalyticsReportsScreen> {
         .where((r) => r.modules.any(perm.canView))
         .where((r) => q.isEmpty || '${r.title} ${r.subtitle} ${r.group}'.toLowerCase().contains(q))
         .toList();
-    final groups = <String, List<_ReportSpec>>{};
+    final groups = <String, List<AnalyticsReportSpec>>{};
     for (final r in visible) {
       groups.putIfAbsent(r.group, () => []).add(r);
     }
@@ -129,14 +132,14 @@ class _AnalyticsReportsScreenState extends State<AnalyticsReportsScreen> {
     );
   }
 
-  Widget _reportTile(BuildContext context, _ReportSpec r) {
+  Widget _reportTile(BuildContext context, AnalyticsReportSpec r) {
     final color = _groupStyle[r.group]?.$2 ?? HrmPageChrome.primaryNavy;
     return Material(
       color: Colors.white,
       borderRadius: BorderRadius.circular(12),
       child: InkWell(
         borderRadius: BorderRadius.circular(12),
-        onTap: () => Navigator.of(context).push(MaterialPageRoute(builder: (_) => _AnalyticsReportViewer(spec: r))),
+        onTap: () => Navigator.of(context).push(MaterialPageRoute(builder: (_) => AnalyticsReportViewer(spec: r))),
         child: Container(
           padding: const EdgeInsets.all(12),
           decoration: BoxDecoration(
@@ -338,15 +341,15 @@ const _hiddenScalars = {'year', 'month', 'page', 'pageSize', 'periodId', 'totalC
 /// Tỷ lệ % — xếp hạng thêm chiều «thấp nhất», thanh tính trên mốc 100.
 bool _isPercentKey(String k) => RegExp('rate|percent', caseSensitive: false).hasMatch(k);
 
-class _AnalyticsReportViewer extends StatefulWidget {
-  final _ReportSpec spec;
-  const _AnalyticsReportViewer({required this.spec});
+class AnalyticsReportViewer extends StatefulWidget {
+  final AnalyticsReportSpec spec;
+  const AnalyticsReportViewer({super.key, required this.spec});
 
   @override
-  State<_AnalyticsReportViewer> createState() => _AnalyticsReportViewerState();
+  State<AnalyticsReportViewer> createState() => _AnalyticsReportViewerState();
 }
 
-class _AnalyticsReportViewerState extends State<_AnalyticsReportViewer> {
+class _AnalyticsReportViewerState extends State<AnalyticsReportViewer> {
   final _api = ApiService();
   final _dateFmt = DateFormat('dd/MM/yyyy');
   final _num = NumberFormat('#,##0.##', 'vi_VN');
@@ -426,7 +429,7 @@ class _AnalyticsReportViewerState extends State<_AnalyticsReportViewer> {
       };
 
   Future<void> _excel() async {
-    if (!ensureCanExport(context, 'AttendanceReport')) return;
+    if (!ensureCanExport(context, widget.spec.modules.first)) return;
     final res = await _api.downloadAnalyticsReportExcel(widget.spec.path, _params);
     if (!mounted) return;
     if (res['isSuccess'] != true) {

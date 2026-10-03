@@ -430,6 +430,64 @@ class _CommHubScreenState extends State<CommHubScreen> {
       const SizedBox(height: 10),
       _composerBox(ctx, compact: compact),
       const SizedBox(height: 12),
+      // Điện thoại: 1 nút lọc (đủ mọi lựa chọn trong menu) + ô tìm rộng — không cắt chữ «Bắt buộc đọc».
+      if (compact)
+        Row(children: [
+          PopupMenuButton<String>(
+            tooltip: tr('Lọc bài'),
+            initialValue: _filter,
+            onSelected: _setFilter,
+            itemBuilder: (_) => [
+              for (final f in filters)
+                PopupMenuItem(
+                  value: f.$1,
+                  child: Row(children: [
+                    Icon(f.$3, size: 18, color: _filter == f.$1 ? SboxColors.brand600 : SboxColors.slate500),
+                    const SizedBox(width: 10),
+                    Text(tr(f.$2), style: TextStyle(fontWeight: _filter == f.$1 ? FontWeight.w700 : FontWeight.w500)),
+                  ]),
+                ),
+            ],
+            child: Builder(builder: (_) {
+              final cur = filters.firstWhere((f) => f.$1 == _filter, orElse: () => filters.first);
+              final on = cur.$1 != 'all';
+              return Container(
+                height: 38,
+                padding: const EdgeInsets.symmetric(horizontal: 10),
+                decoration: BoxDecoration(
+                  color: on ? SboxColors.brand50 : SboxColors.surface,
+                  borderRadius: SboxRadius.pillAll,
+                  border: Border.all(color: on ? SboxColors.brand200 : SboxColors.border),
+                ),
+                child: Row(mainAxisSize: MainAxisSize.min, children: [
+                  Icon(cur.$3, size: 17, color: on ? SboxColors.brand700 : SboxColors.slate600),
+                  const SizedBox(width: 6),
+                  ConstrainedBox(
+                    constraints: const BoxConstraints(maxWidth: 110),
+                    child: Text(tr(cur.$2), maxLines: 1, overflow: TextOverflow.ellipsis,
+                        style: SboxType.smallStyle(on ? SboxColors.brand700 : SboxColors.textSecondary).copyWith(fontWeight: FontWeight.w600)),
+                  ),
+                  const Icon(Icons.expand_more_rounded, size: 18, color: SboxColors.slate500),
+                ]),
+              );
+            }),
+          ),
+          const SizedBox(width: 8),
+          Expanded(
+            child: SizedBox(
+              height: 38,
+              child: TextField(
+                controller: _search,
+                decoration: InputDecoration(isDense: true, prefixIcon: const Icon(Icons.search, size: 18), hintText: tr('Tìm bài'), contentPadding: const EdgeInsets.symmetric(vertical: 8)),
+                onChanged: (_) {
+                  _debounce?.cancel();
+                  _debounce = Timer(const Duration(milliseconds: 400), _reload);
+                },
+              ),
+            ),
+          ),
+        ])
+      else
       Row(children: [
         Expanded(
           child: SizedBox(
@@ -641,10 +699,20 @@ class _CommHubScreenState extends State<CommHubScreen> {
   Widget _composerBox(CommContext ctx, {bool compact = false}) {
     final canPost = ctx.channels.any((c) => c.canPost);
     if (!canPost) return const SizedBox.shrink();
-    Widget action(IconData icon, String label, Color color, VoidCallback onTap) => TextButton.icon(
-          onPressed: onTap,
-          icon: Icon(icon, size: 19, color: color),
-          label: Text(tr(label), style: SboxType.smallStyle(SboxColors.textSecondary).copyWith(fontWeight: FontWeight.w600)),
+    // 4 nút chia đều 1 hàng (chữ tự thu nhỏ) — nút AI không rớt xuống hàng riêng.
+    Widget action(IconData icon, String label, Color color, VoidCallback onTap) => Expanded(
+          child: TextButton(
+            onPressed: onTap,
+            style: TextButton.styleFrom(padding: const EdgeInsets.symmetric(horizontal: 2, vertical: 8)),
+            child: FittedBox(
+              fit: BoxFit.scaleDown,
+              child: Row(mainAxisSize: MainAxisSize.min, children: [
+                Icon(icon, size: 19, color: color),
+                const SizedBox(width: 5),
+                Text(tr(label), maxLines: 1, style: SboxType.smallStyle(SboxColors.textSecondary).copyWith(fontWeight: FontWeight.w600)),
+              ]),
+            ),
+          ),
         );
     return Container(
       padding: const EdgeInsets.fromLTRB(14, 12, 14, 6),
@@ -666,7 +734,7 @@ class _CommHubScreenState extends State<CommHubScreen> {
           ),
         ]),
         const SizedBox(height: 4),
-        Wrap(alignment: WrapAlignment.spaceAround, children: [
+        Row(children: [
           action(Icons.photo_library_outlined, 'Ảnh', SboxColors.success, () => _compose(mode: 'image')),
           action(Icons.description_outlined, compact ? 'Tệp' : 'Word / PDF / Excel', SboxColors.brand600, () => _compose(mode: 'file')),
           action(Icons.poll_outlined, 'Bình chọn', SboxColors.warning, () => _compose(mode: 'poll')),

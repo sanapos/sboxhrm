@@ -5,7 +5,6 @@ import 'package:flutter/material.dart';
 import '../../l10n/app_tr.dart';
 import '../../services/api_service.dart';
 import '../../widgets/sbox/sbox_ui.dart';
-import '../attendance_approval_screen.dart';
 import 'aa_common.dart';
 import 'aa_detail.dart';
 
@@ -170,15 +169,6 @@ class _AttendanceApprovalHubScreenState extends State<AttendanceApprovalHubScree
     _load();
   }
 
-  void _openLegacy() {
-    Navigator.of(context).push(MaterialPageRoute(
-      builder: (_) => Scaffold(
-        appBar: AppBar(title: Text(tr('Duyệt chấm công (giao diện cũ)'))),
-        body: const AttendanceApprovalScreen(),
-      ),
-    ));
-  }
-
   // ─── Khung ────────────────────────────────────────────────────
 
   @override
@@ -190,22 +180,27 @@ class _AttendanceApprovalHubScreenState extends State<AttendanceApprovalHubScree
       _active = _items.first;
     }
 
+    final phone = w < 600;
+    final trustedBtn = _counts.c('trusted') > 0 && !_settingsTab
+        ? SboxButton(
+            label: 'Duyệt ${_counts.c('trusted')} bản tin cậy',
+            icon: Icons.verified_outlined,
+            loading: _bulkBusy,
+            expand: phone,
+            onPressed: _bulkBusy ? null : _approveTrusted,
+          )
+        : null;
     final header = Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
-      SboxPageHeader(
-        title: 'Duyệt chấm công',
-        subtitle: 'Chấm công Mobile ngoài vị trí · yêu cầu sửa / bổ sung công',
-        actions: [
-          if (_counts.c('trusted') > 0 && !_settingsTab)
-            SboxButton(
-              label: 'Duyệt ${_counts.c('trusted')} bản tin cậy',
-              icon: Icons.verified_outlined,
-              loading: _bulkBusy,
-              onPressed: _bulkBusy ? null : _approveTrusted,
-            ),
-          SboxButton.ghost(label: 'Giao diện cũ', icon: Icons.history_rounded, onPressed: _openLegacy),
-        ],
-      ),
-      const SizedBox(height: SboxSpace.md),
+      // Điện thoại: tên trang đã có trên thanh trên — không lặp tiêu đề, chỉ giữ nút duyệt nhanh.
+      if (!phone)
+        SboxPageHeader(
+          title: 'Duyệt chấm công',
+          subtitle: 'Chấm công Mobile ngoài vị trí · yêu cầu sửa / bổ sung công',
+          actions: [if (trustedBtn != null) trustedBtn],
+        )
+      else if (trustedBtn != null)
+        trustedBtn,
+      if (!phone || trustedBtn != null) const SizedBox(height: SboxSpace.md),
       Row(children: [
         _Pill(label: 'Cần duyệt', icon: Icons.fact_check_outlined, selected: !_settingsTab, badge: _counts.c('all'), onTap: () {
           setState(() => _settingsTab = false);
@@ -226,7 +221,14 @@ class _AttendanceApprovalHubScreenState extends State<AttendanceApprovalHubScree
 
     final decided = (_stats['approved'] ?? 0) + (_stats['auto_approved'] ?? 0) + (_stats['rejected'] ?? 0);
     final autoPct = decided == 0 ? null : ((_stats['auto_approved'] ?? 0) * 100 / decided).round();
-    final kpis = SboxKpiStrip(maxColumns: 5, items: [
+    final kpis = phone
+        ? SboxStatRow(items: [
+            SboxKpi(label: 'Chờ duyệt', value: '${_counts.c('all')}'),
+            SboxKpi(label: 'Ngoài vị trí', value: '${_counts.c('outside')}'),
+            SboxKpi(label: 'Rủi ro cao', value: '${_counts.c('high')}', tone: SboxTone.danger),
+            SboxKpi(label: 'Quá 24 giờ', value: '${_counts.c('overdue')}', tone: SboxTone.warning),
+          ])
+        : SboxKpiStrip(maxColumns: 5, items: [
       SboxKpi(label: 'Chờ duyệt', value: '${_counts.c('all')}', icon: Icons.inbox_outlined, note: '${_counts.c('correction')} yêu cầu sửa công'),
       SboxKpi(label: 'Chấm ngoài vị trí', value: '${_counts.c('outside')}', icon: Icons.wrong_location_outlined, tone: SboxTone.brand),
       SboxKpi(label: 'Tin cậy', value: '${_counts.c('trusted')}', icon: Icons.verified_outlined, tone: SboxTone.success, note: 'Có thể duyệt nhanh'),
@@ -242,10 +244,11 @@ class _AttendanceApprovalHubScreenState extends State<AttendanceApprovalHubScree
     final filters = Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
       _Segment(
         value: _kind,
+        fill: phone,
         options: {
           '': 'Tất cả (${_counts.c('all')})',
-          'mobile': 'Chấm Mobile (${_counts.c('mobile')})',
-          'correction': 'Sửa / bổ sung công (${_counts.c('correction')})',
+          'mobile': '${phone ? 'Mobile' : 'Chấm Mobile'} (${_counts.c('mobile')})',
+          'correction': '${phone ? 'Sửa công' : 'Sửa / bổ sung công'} (${_counts.c('correction')})',
         },
         onChanged: (v) {
           setState(() => _kind = v);
@@ -257,7 +260,8 @@ class _AttendanceApprovalHubScreenState extends State<AttendanceApprovalHubScree
         Expanded(
           child: _Segment(
             value: _risk,
-            options: const {'': 'Mọi mức', 'trusted': 'Tin cậy', 'review': 'Cần xem', 'high': 'Rủi ro cao'},
+            fill: phone,
+            options: {'': 'Mọi mức', 'trusted': 'Tin cậy', 'review': 'Cần xem', 'high': phone ? 'Rủi ro' : 'Rủi ro cao'},
             onChanged: (v) {
               setState(() => _risk = v);
               _load();
@@ -444,13 +448,45 @@ class _Pill extends StatelessWidget {
 }
 
 class _Segment extends StatelessWidget {
-  const _Segment({required this.value, required this.options, required this.onChanged});
+  const _Segment({required this.value, required this.options, required this.onChanged, this.fill = false});
   final String value;
   final Map<String, String> options;
   final ValueChanged<String> onChanged;
 
+  /// Điện thoại: các lựa chọn chia đều 1 hàng, chữ tự thu nhỏ (không cuộn ngang, không bị cắt).
+  final bool fill;
+
   @override
   Widget build(BuildContext context) {
+    if (fill) {
+      return Row(children: [
+        for (final e in options.entries) ...[
+          if (e.key != options.keys.first) const SizedBox(width: SboxSpace.xs),
+          Expanded(
+            child: Material(
+              color: e.key == value ? SboxColors.brand50 : SboxColors.white,
+              shape: StadiumBorder(side: BorderSide(color: e.key == value ? SboxColors.brand300 : SboxColors.border)),
+              child: InkWell(
+                customBorder: const StadiumBorder(),
+                onTap: () => onChanged(e.key),
+                child: Padding(
+                  padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 8),
+                  child: Center(
+                    child: FittedBox(
+                      fit: BoxFit.scaleDown,
+                      child: Text(tr(e.value),
+                          maxLines: 1,
+                          style: SboxType.smallStyle(e.key == value ? SboxColors.brand700 : SboxColors.textSecondary)
+                              .copyWith(fontWeight: e.key == value ? FontWeight.w600 : FontWeight.w500)),
+                    ),
+                  ),
+                ),
+              ),
+            ),
+          ),
+        ],
+      ]);
+    }
     return SingleChildScrollView(
       scrollDirection: Axis.horizontal,
       child: Row(children: [

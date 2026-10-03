@@ -251,11 +251,6 @@ class _KpiScreenState extends State<KpiScreen> with TickerProviderStateMixin {
         label: 'Bộ lọc',
         onPressed: _showFilterSheet,
       ),
-      HrmTopBarAction(
-        icon: Icons.refresh_rounded,
-        label: 'Tải lại',
-        onPressed: _loading ? null : () => _loadData(),
-      ),
       if (_kpiCycleAction() case final cycle?)
         HrmTopBarAction(
           icon: cycle.icon,
@@ -267,6 +262,7 @@ class _KpiScreenState extends State<KpiScreen> with TickerProviderStateMixin {
           HrmTopBarAction(
             icon: Icons.person_add_rounded,
             label: 'Giao chỉ tiêu',
+            primary: true,
             onPressed: _isPeriodOpen
                 ? _showAddTargetDialog
                 : () => _requireOpenPeriod(),
@@ -283,13 +279,6 @@ class _KpiScreenState extends State<KpiScreen> with TickerProviderStateMixin {
           label: 'Nhập Excel',
           onPressed: _isPeriodOpen
               ? _importExcelActuals
-              : () => _requireOpenPeriod(),
-        ),
-        HrmTopBarAction(
-          icon: Icons.cloud_upload_outlined,
-          label: 'Ghi Google Sheet',
-          onPressed: _isPeriodOpen
-              ? _writeTargetsToGSheet
               : () => _requireOpenPeriod(),
         ),
       ],
@@ -412,15 +401,16 @@ class _KpiScreenState extends State<KpiScreen> with TickerProviderStateMixin {
         periodStatus >= 0 ? _periodStatusLabel(periodStatus) : '';
     final tabBar = TabBar(
       controller: _tabCtrl,
-      isScrollable: true,
-      tabAlignment: TabAlignment.start,
+      // Điện thoại: 5 tab chia đều 1 hàng (không cuộn, không cắt chữ); máy tính: theo độ dài chữ.
+      isScrollable: !isMobile,
+      tabAlignment: isMobile ? TabAlignment.fill : TabAlignment.start,
       labelColor: _accent,
       unselectedLabelColor: HrmPageChrome.textMuted,
       indicatorColor: _accent,
       indicatorWeight: 2,
       indicatorSize: TabBarIndicatorSize.label,
       padding: EdgeInsets.zero,
-      labelPadding: EdgeInsets.symmetric(horizontal: isMobile ? 8 : 12),
+      labelPadding: EdgeInsets.symmetric(horizontal: isMobile ? 2 : 12),
       labelStyle: TextStyle(
           fontWeight: FontWeight.w600, fontSize: isMobile ? 12 : 13),
       unselectedLabelStyle: TextStyle(
@@ -428,7 +418,7 @@ class _KpiScreenState extends State<KpiScreen> with TickerProviderStateMixin {
       tabs: [
         Tab(height: isMobile ? 36 : 42, text: tr('Tổng quan')),
         Tab(height: isMobile ? 36 : 42, text: tr('Chỉ tiêu')),
-        Tab(height: isMobile ? 36 : 42, text: tr('Lương KPI')),
+        Tab(height: isMobile ? 36 : 42, text: tr(isMobile ? 'Lương' : 'Lương KPI')),
         Tab(height: isMobile ? 36 : 42, text: tr('Báo cáo')),
         Tab(height: isMobile ? 36 : 42, text: tr('Thiết lập')),
       ],
@@ -441,7 +431,22 @@ class _KpiScreenState extends State<KpiScreen> with TickerProviderStateMixin {
           border: Border(bottom: BorderSide(color: SboxColors.slate200)),
         ),
         padding: EdgeInsets.only(left: isMobile ? 8 : 12, right: 4),
-        child: Row(
+        child: isMobile
+            ? Column(mainAxisSize: MainAxisSize.min, children: [
+                // Điện thoại: chu kỳ 1 hàng riêng, tab bên dưới.
+                Padding(
+                  padding: const EdgeInsets.fromLTRB(4, 6, 4, 2),
+                  child: Row(children: [
+                    Expanded(child: _buildPeriodSelector(isMobile)),
+                    if (statusLabel.isNotEmpty) ...[
+                      const SizedBox(width: 6),
+                      _buildStatusBadge(statusLabel, periodStatus, compact: true),
+                    ],
+                  ]),
+                ),
+                SizedBox(height: 36, child: tabBar),
+              ])
+            : Row(
           children: [
             ConstrainedBox(
               constraints: BoxConstraints(
@@ -2770,70 +2775,23 @@ class _KpiScreenState extends State<KpiScreen> with TickerProviderStateMixin {
 
   List<Widget> _buildTargetsTabHeaders(ThemeData theme,
       List<Map<String, dynamic>> filtered, bool isMobile, ButtonStyle btnStyle) {
-    final perm = Provider.of<PermissionProvider>(context, listen: false);
     final hPad = isMobile ? 12.0 : 16.0;
     return [
-      if (!isMobile)
+      // Thao tác (giao chỉ tiêu, cập nhật doanh số, nhập Excel, xuất) ở thanh chức năng — không lặp lại ở đây.
+      if (!_isPeriodOpen)
         Padding(
-          padding: EdgeInsets.fromLTRB(hPad, 10, hPad, 4),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              _sectionLabel('Thao tác chỉ tiêu',
-                  subtitle: _isPeriodOpen
-                      ? 'Chu kỳ đang mở — có thể giao và cập nhật doanh số'
-                      : 'Chu kỳ đã khóa — chỉ xem, không sửa'),
-              Wrap(
-                spacing: 8,
-                runSpacing: 8,
-                children: [
-                  FilledButton.icon(
-                    onPressed: perm.canCreate('KPI')
-                        ? (_isPeriodOpen
-                            ? _showAddTargetDialog
-                            : () => _requireOpenPeriod())
-                        : null,
-                    icon: const Icon(Icons.person_add_rounded, size: 18),
-                    label: Text(tr('Giao chỉ tiêu')),
-                    style: FilledButton.styleFrom(
-                      backgroundColor: _accent,
-                      visualDensity: VisualDensity.compact,
-                    ),
-                  ),
-                  OutlinedButton.icon(
-                    onPressed: _isPeriodOpen
-                        ? _showBatchUpdateDialog
-                        : () => _requireOpenPeriod(),
-                    icon: const Icon(Icons.edit_note_outlined, size: 18),
-                    label: Text(tr('Cập nhật doanh số')),
-                    style: btnStyle,
-                  ),
-                  OutlinedButton.icon(
-                    onPressed: _isPeriodOpen
-                        ? _importExcelActuals
-                        : () => _requireOpenPeriod(),
-                    icon: const Icon(Icons.upload_file_outlined, size: 18),
-                    label: Text(tr('Nhập Excel')),
-                    style: btnStyle,
-                  ),
-                  OutlinedButton.icon(
-                    onPressed: _isPeriodOpen
-                        ? _writeTargetsToGSheet
-                        : () => _requireOpenPeriod(),
-                    icon: const Icon(Icons.cloud_upload_outlined, size: 18),
-                    label: Text(tr('Ghi Google Sheet')),
-                    style: btnStyle,
-                  ),
-                ],
+          padding: EdgeInsets.fromLTRB(hPad, 10, hPad, 0),
+          child: Container(
+            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+            decoration: BoxDecoration(color: SboxColors.warningSoft, borderRadius: BorderRadius.circular(10)),
+            child: Row(children: [
+              const Icon(Icons.lock_outline_rounded, size: 16, color: SboxColors.warningText),
+              const SizedBox(width: 8),
+              Expanded(
+                child: Text(tr('Chu kỳ đã khóa — chỉ xem, không sửa'),
+                    style: const TextStyle(fontSize: 12.5, color: SboxColors.warningText)),
               ),
-              const SizedBox(height: 8),
-              _buildExportButtons(
-                onExcel: _isExporting ? null : _exportTargetsExcel,
-                onPng: _isExporting
-                    ? null
-                    : _exportTargetsPng,
-              ),
-            ],
+            ]),
           ),
         ),
       if (_hasActiveFilters) _buildActiveFilterBanner(),
@@ -5422,10 +5380,15 @@ class _KpiScreenState extends State<KpiScreen> with TickerProviderStateMixin {
             Wrap(spacing: 8, children: [
               FilledButton.icon(
                 onPressed: _syncFromGoogleSheet,
-                icon: const Icon(Icons.sync, size: 16),
-                label:
-                    Text(tr('Đếng b? ngay'), style: TextStyle(fontSize: 12)),
+                icon: const Icon(Icons.cloud_download_outlined, size: 16),
+                label: Text(tr('Lấy từ Sheet'), style: const TextStyle(fontSize: 12)),
                 style: FilledButton.styleFrom(backgroundColor: _green),
+              ),
+              TextButton.icon(
+                onPressed: _isPeriodOpen ? _writeTargetsToGSheet : () => _requireOpenPeriod(),
+                icon: const Icon(Icons.cloud_upload_outlined, size: 16),
+                label: Text(tr('Ghi chỉ tiêu lên Sheet'), style: const TextStyle(fontSize: 12)),
+                style: TextButton.styleFrom(foregroundColor: _accent),
               ),
               TextButton.icon(
                 onPressed: () => _showBatchEditCellDialog(),

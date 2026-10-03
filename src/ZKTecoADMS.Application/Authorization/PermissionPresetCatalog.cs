@@ -76,8 +76,8 @@ public static class PermissionPresetCatalog
     static readonly string[] HrReports =
     [
         "AttendanceSummary", "AttendanceByShift", "LateEarlyReport", "TravelHoursReport", "Payslip", "Payroll",
-        "AttendanceReport", "LeaveReport", "CashReport", "PenaltyReport", "AdvanceReport", "BusinessTripReport",
-        "AssetReport",
+        "AttendanceReport", "HrAnalyticsReport", "LeaveReport", "CashReport", "PenaltyReport", "AdvanceReport",
+        "BusinessTripReport", "AssetReport",
     ];
     static readonly string[] Finance =
         ["BonusPenalty", "PenaltyTickets", "AdvanceRequests", "BusinessTripExpense", "CashTransaction", "BankAccount"];
@@ -107,7 +107,7 @@ public static class PermissionPresetCatalog
         "PosSalesReport", "PosReportRevenue", "PosReportSoldGoods", "PosReportStock", "PosReportPurchases",
         "PosReportPayment", "PosReportDebt", "PosReportExpiry", "PosReportProfit", "PosReportExpense",
         "PosReportEndOfDay", "PosReportStaffRevenue", "PosReportStaffCommission", "PosReportCashbook",
-        "PosReportPnl", "PosReportVoucher", "HkdBooks",
+        "PosReportPnl", "PosReportVoucher", "HkdBooks", "PosReportStayGuests", "PosReportSessionExpiry",
     ];
     static readonly string[] PosSettings =
         ["PosPrintTemplates", "PosPrinters", "PosStorePrinters", "PosEInvoice", "PosShipping", "PosCustomerDisplay"];
@@ -163,7 +163,7 @@ public static class PermissionPresetCatalog
         .Set(new Flags(true, false, false, false, false, true), "MobileDeviceRegistration")
         .Set(VX, "Attendance").Set(Mg, "WorkSchedule").Set(V, "DeviceUser").Set(Req, "MobileAttendance")
         .Set(VX, "AttendanceSummary", "AttendanceByShift", "LateEarlyReport", "TravelHoursReport", "AttendanceReport",
-            "LeaveReport", "PenaltyReport")
+            "HrAnalyticsReport", "LeaveReport", "PenaltyReport")
         .Set(V, "Payslip")
         .Set(new Flags(true, true, true, false, true, true), "PenaltyTickets")
         .Set(V, "BonusPenalty").Set(Appr, "AdvanceRequests")

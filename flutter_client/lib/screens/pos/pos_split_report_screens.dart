@@ -16,6 +16,7 @@ import '../../utils/pos_report_export.dart';
 import '../../utils/pos_report_open.dart';
 import '../../widgets/pos/reports/pos_goods_filter_sheet.dart';
 import '../../widgets/pos/reports/pos_report_widgets.dart';
+import '../analytics_reports_screen.dart';
 import '../pos_reports_screen.dart';
 import 'pos_end_of_day_screen.dart';
 import 'pos_einvoice_report_screen.dart';
@@ -68,6 +69,8 @@ class PosReportsHubScreen extends StatelessWidget {
       (label: 'Sức khỏe kho', subtitle: 'Cháy / chậm / chết tồn', icon: Icons.inventory_2_outlined, module: 'PosReportStock', screen: const PosStockHealthReportScreen()),
       (label: 'Hóa đơn điện tử', subtitle: 'Xuất, xem lại PDF, gửi, thay thế, hủy, đồng bộ, tải từ hãng', icon: Icons.request_quote_outlined, module: 'PosEInvoice', screen: const PosEInvoiceReportScreen()),
       (label: 'Thuế hộ kinh doanh', subtitle: 'Dưới 1 tỷ / 1–3 tỷ / trên 3 tỷ', icon: Icons.request_quote_outlined, module: 'HkdBooks', screen: const PosHkdBooksScreen()),
+      (label: 'Sổ khách lưu trú', subtitle: 'Khai báo tạm trú', icon: Icons.hotel_outlined, module: 'PosReportStayGuests', screen: const AnalyticsReportViewer(spec: AnalyticsReportSpec.stayGuests)),
+      (label: 'Thẻ tập sắp hết hạn', subtitle: 'Gym / spa — nhắc gia hạn', icon: Icons.fitness_center_outlined, module: 'PosReportSessionExpiry', screen: const AnalyticsReportViewer(spec: AnalyticsReportSpec.sessionExpiry)),
     ].where((item) => PermissionNavigation.canAccessModule(
           item.module,
           allowedModules: auth.user?.allowedModules,

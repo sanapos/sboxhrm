@@ -458,15 +458,6 @@ class _BusinessOverviewScreenState extends State<BusinessOverviewScreen> {
       title: _title,
       subtitle: widget.mode == OverviewMode.hrm ? 'Chấm công, nghỉ phép và việc chờ duyệt' : 'Số liệu ${_period.label.toLowerCase()} so với ${_period.compareLabel}',
       actions: [
-        if (widget.showLegacyLink)
-          SboxButton.ghost(
-            label: 'Giao diện cũ',
-            icon: Icons.dashboard_customize_outlined,
-            size: SboxButtonSize.sm,
-            onPressed: () => Navigator.of(context).push(MaterialPageRoute<void>(
-              builder: (_) => Scaffold(appBar: AppBar(title: Text(tr('Tổng quan (giao diện cũ)'))), body: const DashboardScreen()),
-            )),
-          ),
         SboxIconButton(icon: Icons.refresh_rounded, tooltip: 'Làm mới', onPressed: _loading ? null : _load),
       ],
     );

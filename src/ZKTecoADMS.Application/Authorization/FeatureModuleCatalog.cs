@@ -106,10 +106,11 @@ public static class FeatureModuleCatalog
         new("BusinessTripReport", "Báo cáo công tác phí", "Ứng và quyết toán công tác", CatPayroll, 60),
         new("CashReport", "Báo cáo thu chi", "Thống kê thu chi", CatPayroll, 61),
         new("AssetReport", "Báo cáo tài sản", "Cấp phát, chuyển giao tài sản", CatPayroll, 62),
+        new("HrAnalyticsReport", "Báo cáo phân tích nhân sự", "Chuyên cần, vắng, bất thường, phép, KPI, sản lượng, điều hành tháng", CatPayroll, 63),
 
         // ══════════ TÀI CHÍNH NHÂN SỰ ══════════
         new("AdvanceRequests", "Ứng lương", "Xin ứng, hạn mức, trả góp, chi ứng — trong Tài chính nhân sự", CatHrFinance, 70),
-        new("BonusPenalty", "Thưởng / phạt", "Phiếu thưởng, phạt thủ công, khiếu nại — trong Tài chính nhân sự", CatHrFinance, 71),
+        new("BonusPenalty", "Thưởng phạt", "Thưởng, phạt thủ công, khiếu nại — trong Tài chính nhân sự", CatHrFinance, 71),
         new("PenaltyTickets", "Phiếu phạt chấm công", "Phiếu phạt tự động đi trễ / về sớm / quên chấm", CatHrFinance, 72),
         new("CashTransaction", "Thu chi", "Sổ quỹ thu chi — trong Tài chính nhân sự", CatHrFinance, 73),
         new("BankAccount", "Tài khoản ngân hàng", "Tài khoản nhận / chi tiền", CatHrFinance, 74),
@@ -173,6 +174,8 @@ public static class FeatureModuleCatalog
         new("PosReportExpense", "Chi phí", "Phiếu chi theo nhóm", CatSellReport, 154),
         new("PosReportVoucher", "Mã giảm giá", "Voucher đã dùng", CatSellReport, 155),
         new("HkdBooks", "Sổ thuế hộ kinh doanh", "Sổ sách thuế HKD (TT 152/2025)", CatSellReport, 156),
+        new("PosReportStayGuests", "Sổ khách lưu trú", "Khách sạn / nhà nghỉ: khách ở trong kỳ, xuất khai báo tạm trú", CatSellReport, 157),
+        new("PosReportSessionExpiry", "Thẻ tập & gói buổi sắp hết hạn", "Gym / spa: sắp hết hạn, hết buổi — gọi nhắc gia hạn", CatSellReport, 158),
 
         // ══════════ THIẾT LẬP BÁN HÀNG ══════════
         new("SettingsHub", "Thiết lập SBOX", "Mở Thiết lập SBOX; thông tin cửa hàng, ngành hàng & cách bán, bàn / phòng, tích điểm, kiểm soát hủy / trả", CatSellSetup, 160),
@@ -259,6 +262,8 @@ public static class FeatureModuleCatalog
             ["PosReportDebt"] = ["PosSalesReport", "PosCustomers"],
             ["PosReportExpense"] = ["PosSalesReport"],
             ["PosReportVoucher"] = ["PosSalesReport"],
+            ["PosReportStayGuests"] = ["PosSalesReport"],
+            ["PosReportSessionExpiry"] = ["PosSalesReport"],
             ["HkdBooks"] = ["PosSell"],
             // Nhân sự
             ["DeviceUser"] = ["Device"],
@@ -281,6 +286,7 @@ public static class FeatureModuleCatalog
             ["AttendanceByShift"] = ["Attendance"],
             ["LateEarlyReport"] = ["Attendance"],
             ["AttendanceReport"] = ["Attendance"],
+            ["HrAnalyticsReport"] = ["Attendance"],
             ["Payroll"] = ["AttendanceSummary"],
             ["PenaltyTickets"] = ["Attendance"],
             ["PenaltyReport"] = ["PenaltyTickets"],
@@ -370,7 +376,7 @@ public static class FeatureModuleCatalog
         "DashboardRealtimeAttendance", "DashboardAbsent", "DashboardLateEarly", "Employee", "Department", "Attendance",
         "DeviceUser", "Device", "MobileAttendance", "MobileDeviceRegistration", "Geofence", "WorkSchedule", "ScheduleApproval",
         "ShiftSwap", "Leave", "Overtime", "AttendanceCorrection", "AttendanceApproval", "MobileAttendanceApproval",
-        "AttendanceSummary", "AttendanceByShift", "Payroll", "Payslip", "LateEarlyReport", "AttendanceReport", "LeaveReport",
+        "AttendanceSummary", "AttendanceByShift", "Payroll", "Payslip", "LateEarlyReport", "AttendanceReport", "HrAnalyticsReport", "LeaveReport",
         "ShiftSetup", "Holiday", "SalarySettings", "Allowance", "PenaltySetup", "PenaltyTickets", "Insurance", "Tax",
         "NotificationSettings", "UserManagement", "Role",
     ];

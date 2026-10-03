@@ -75,6 +75,8 @@ class PermissionModuleLabels {
     'PosReportPnl': 'Kết quả kinh doanh',
     'PosReportVoucher': 'Báo cáo voucher',
     'HkdBooks': 'Thuế hộ kinh doanh',
+    'PosReportStayGuests': 'Sổ khách lưu trú',
+    'PosReportSessionExpiry': 'Thẻ tập sắp hết hạn',
     'PosBooking': 'Đặt bàn / lịch hẹn',
     'PosCustomers': 'Khách hàng POS',
     'PosWarranty': 'Bảo hành POS',
@@ -87,7 +89,7 @@ class PermissionModuleLabels {
     'PosStorePrinters': 'Máy in cloud',
     'PosShipping': 'Đơn vị giao hàng',
     // Tài chính
-    'BonusPenalty': 'Phiếu thưởng',
+    'BonusPenalty': 'Thưởng phạt',
     'PenaltyTickets': 'Phiếu phạt',
     'AdvanceRequests': 'Ứng lương',
     'BusinessTripExpense': 'Công tác phí',
@@ -102,6 +104,7 @@ class PermissionModuleLabels {
     'Feedback': 'Phản ánh / Ý kiến',
     // Báo cáo
     'AttendanceReport': 'Báo cáo chấm công',
+    'HrAnalyticsReport': 'Báo cáo phân tích nhân sự',
     'LeaveReport': 'Báo cáo nghỉ phép',
     'CashReport': 'Báo cáo thu chi',
     'PenaltyReport': 'Báo cáo phạt',
