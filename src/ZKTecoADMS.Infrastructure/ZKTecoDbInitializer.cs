@@ -90,6 +90,21 @@ public class ZKTecoDbInitializer(
                     logger.LogError(areaQtyEx, "Could not add PosProducts.AllowAreaQty");
                 }
 
+                try
+                {
+                    // LX35/PushLite từng bị học SupportsEnrollFingerprint=false do test sai tham số
+                    // (OVERWRITE=0 + PIN chưa tồn tại). Dịch ngược ROM xác nhận máy CÓ ENROLL_FP, nên mở
+                    // lại một lần để lệnh ĐÚNG được giao và học lại. An toàn khi chạy lại: sau khi học true
+                    // sẽ không còn khớp "= false", và learning đã chặn -1002 ghi lại false cho PushLite.
+                    await context.Database.ExecuteSqlRawAsync(
+                        "UPDATE \"DeviceInfos\" SET \"SupportsEnrollFingerprint\" = NULL " +
+                        "WHERE \"EngineProfile\" = 'PushLite' AND \"SupportsEnrollFingerprint\" = false;");
+                }
+                catch (Exception enrollResetEx)
+                {
+                    logger.LogError(enrollResetEx, "Could not reset PushLite enroll flag");
+                }
+
                 await context.Database.ExecuteSqlRawAsync(
                     "ALTER TABLE \"Employees\" ADD COLUMN IF NOT EXISTS \"DirectManagerEmployeeId\" uuid NULL;");
 
