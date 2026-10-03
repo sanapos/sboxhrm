@@ -131,6 +131,7 @@ class _SettingsPageState extends State<SettingsPage> {
         action: widget.onRetry == null ? null : SboxButton.secondary(label: 'Thử lại', icon: Icons.refresh_rounded, onPressed: widget.onRetry),
       );
     } else {
+      final iconOnlyActions = widget.headerActions.every((w) => w is IconButton || w is PopupMenuButton);
       final header = Row(crossAxisAlignment: CrossAxisAlignment.start, children: [
         if (widget.icon != null) ...[
           Container(
@@ -146,9 +147,15 @@ class _SettingsPageState extends State<SettingsPage> {
             Text(tr(widget.title), style: const TextStyle(fontSize: 20, fontWeight: FontWeight.w800, color: SboxColors.slate900)),
             if (widget.subtitle != null)
               Text(tr(widget.subtitle!), style: const TextStyle(color: SboxColors.slate500)),
+            // Điện thoại: nút có chữ xuống dưới tiêu đề, không bóp tiêu đề thành cột hẹp.
+            if (narrow && !iconOnlyActions && widget.headerActions.isNotEmpty)
+              Padding(
+                padding: const EdgeInsets.only(top: 6),
+                child: Wrap(spacing: 4, runSpacing: 4, children: widget.headerActions),
+              ),
           ]),
         ),
-        ...widget.headerActions,
+        if (!narrow || iconOnlyActions) ...widget.headerActions,
         if (widget.onResetDefaults != null)
           narrow
               ? IconButton(tooltip: tr('Khôi phục mặc định'), onPressed: _confirmReset, icon: const Icon(Icons.restart_alt_rounded))
@@ -273,18 +280,33 @@ class SettingsSection extends StatelessWidget {
   }
 }
 
-/// Một dòng thiết lập: nhãn + giải thích bên trái, ô điều khiển bên phải (điện thoại: xuống dòng).
+/// Một dòng thiết lập: nhãn + giải thích bên trái, ô điều khiển bên phải.
+/// Điện thoại: công tắc / ô nhỏ vẫn cùng hàng; chỉ ô rộng (ô nhập, nút chọn nhiều giá trị) mới xuống dòng.
 class SettingsTile extends StatelessWidget {
-  const SettingsTile({super.key, required this.label, required this.control, this.help, this.divider = true});
+  const SettingsTile({super.key, required this.label, required this.control, this.help, this.divider = true, this.inline});
 
   final String label;
   final String? help;
   final Widget control;
   final bool divider;
 
+  /// Ép cùng hàng (true) / xuống dòng (false) trên điện thoại; mặc định tự đoán theo loại ô.
+  final bool? inline;
+
+  static bool isCompact(Widget w) =>
+      w is Switch ||
+      w is Checkbox ||
+      w is Radio ||
+      w is IconButton ||
+      w is Icon ||
+      w is Text ||
+      w is PopupMenuButton ||
+      (w is SizedBox && w.width != null && w.width! <= 150) ||
+      (w is SettingsMoneyField && w.width <= 150);
+
   @override
   Widget build(BuildContext context) {
-    final narrow = MediaQuery.of(context).size.width < 640;
+    final narrow = MediaQuery.of(context).size.width < 640 && !(inline ?? isCompact(control));
     final text = Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
       Text(tr(label), style: const TextStyle(fontWeight: FontWeight.w700, color: SboxColors.slate800)),
       if (help != null)
@@ -298,7 +320,7 @@ class SettingsTile extends StatelessWidget {
       Padding(
         padding: const EdgeInsets.symmetric(vertical: 12),
         child: narrow
-            ? Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [text, const SizedBox(height: 8), control])
+            ? Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [text, const SizedBox(height: 8), Align(alignment: Alignment.centerLeft, child: control)])
             : Row(children: [Expanded(child: text), const SizedBox(width: 16), control]),
       ),
     ]);
@@ -337,7 +359,11 @@ class SettingsSegment<T> extends StatelessWidget {
   @override
   Widget build(BuildContext context) => SegmentedButton<T>(
         showSelectedIcon: false,
-        segments: [for (final o in options) ButtonSegment(value: o.$1, label: Text(tr(o.$2)))],
+        // Điện thoại: chữ tự thu nhỏ để mọi lựa chọn nằm trên 1 hàng (không cắt «…»).
+        segments: [
+          for (final o in options)
+            ButtonSegment(value: o.$1, label: FittedBox(fit: BoxFit.scaleDown, child: Text(tr(o.$2), maxLines: 1, softWrap: false))),
+        ],
         selected: {value},
         onSelectionChanged: (s) => onChanged(s.first),
       );

@@ -2,8 +2,9 @@ import 'package:flutter/material.dart';
 import 'package:zkteco_flutter_client/l10n/app_tr.dart';
 
 import '../../services/api_service.dart';
-import '../../theme/sbox_tokens.dart';
 import '../notification_overlay.dart';
+import '../sbox/sbox_ui.dart';
+import '../settings/settings_page.dart';
 
 /// Thẻ "Đẩy lên điện thoại": bật/tắt đẩy, giờ yên lặng (không chuông), cho phép thông báo khẩn, gửi thử.
 class PushSettingsCard extends StatefulWidget {
@@ -127,145 +128,88 @@ class _PushSettingsCardState extends State<PushSettingsCard> {
     _save();
   }
 
+  void _toggle(VoidCallback change) {
+    if (_saving) return;
+    setState(change);
+    _save();
+  }
+
   @override
   Widget build(BuildContext context) {
-    return Container(
-      decoration: BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.circular(14),
-        border: Border.all(color: SboxColors.slate200),
-      ),
-      child: _loading
-          ? const Padding(
-              padding: EdgeInsets.all(24),
-              child: Center(child: SizedBox(width: 22, height: 22, child: CircularProgressIndicator(strokeWidth: 2))),
-            )
-          : Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
-              // Tiêu đề + trạng thái thiết bị
-              Padding(
-                padding: const EdgeInsets.fromLTRB(16, 14, 8, 10),
-                child: Row(children: [
-                  Container(
-                    width: 44,
-                    height: 44,
-                    decoration: BoxDecoration(
-                      color: SboxColors.brand50,
-                      borderRadius: BorderRadius.circular(12),
-                    ),
-                    child: const Icon(Icons.phone_iphone_rounded, color: SboxColors.brand500),
-                  ),
-                  const SizedBox(width: 12),
-                  Expanded(
-                    child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-                      Text(tr('Đẩy lên điện thoại'),
-                          style: const TextStyle(fontSize: 16, fontWeight: FontWeight.w700, color: SboxColors.slate900)),
-                      const SizedBox(height: 2),
-                      Text(
-                        tr(_devices == 0
-                            ? 'Chưa có điện thoại nào nhận — mở app SBOX trên điện thoại và cho phép thông báo'
-                            : '$_devices thiết bị đang nhận thông báo'),
-                        style: TextStyle(
-                            fontSize: 12, color: _devices == 0 ? SboxColors.warningText : SboxColors.slate500),
-                      ),
-                    ]),
-                  ),
-                  Switch(
-                    value: _pushEnabled,
-                    onChanged: _saving
-                        ? null
-                        : (v) {
-                            setState(() => _pushEnabled = v);
-                            _save();
-                          },
-                  ),
-                ]),
+    if (_loading) {
+      return const SboxCard(
+        child: Center(child: SizedBox(width: 22, height: 22, child: CircularProgressIndicator(strokeWidth: 2))),
+      );
+    }
+    return SettingsSection(
+      title: 'Đẩy lên điện thoại',
+      subtitle: _devices == 0
+          ? 'Chưa có điện thoại nào nhận — mở app SBOX trên điện thoại và cho phép thông báo'
+          : '$_devices thiết bị đang nhận · tự lưu khi thay đổi',
+      icon: Icons.phone_iphone_rounded,
+      trailing: Switch(value: _pushEnabled, onChanged: _saving ? null : (v) => _toggle(() => _pushEnabled = v)),
+      children: [
+        if (!_storeAllowsPush)
+          _banner(Icons.info_outline_rounded, SboxColors.warningSoft, SboxColors.warningText,
+              'Gói dịch vụ của cửa hàng chưa bật thông báo đẩy — thông báo vẫn hiện trong app.'),
+        if (_pushEnabled) ...[
+          SettingsTile(
+            label: 'Giờ yên lặng',
+            help: _quietEnabled
+                ? 'Từ ${_fmt(_quietStart)} đến ${_fmt(_quietEnd)} không chuông, không rung${_inQuietNow ? ' · đang yên lặng' : ''}'
+                : 'Tắt chuông thông báo vào giờ nghỉ',
+            control: Switch(value: _quietEnabled, onChanged: _saving ? null : (v) => _toggle(() => _quietEnabled = v)),
+          ),
+          if (_quietEnabled) ...[
+            Row(children: [
+              Expanded(child: _timeBox('Bắt đầu', _quietStart, () => _pick(true))),
+              const Padding(
+                padding: EdgeInsets.symmetric(horizontal: 8),
+                child: Icon(Icons.arrow_forward_rounded, size: 18, color: SboxColors.slate400),
               ),
-              if (!_storeAllowsPush)
-                _banner(Icons.info_outline_rounded, SboxColors.warningSoft, SboxColors.warningText,
-                    'Gói dịch vụ của cửa hàng chưa bật thông báo đẩy — thông báo vẫn hiện trong app.'),
-              if (_pushEnabled) ...[
-                const Divider(height: 1, color: SboxColors.slate200),
-                SwitchListTile(
-                  value: _quietEnabled,
-                  onChanged: _saving
-                      ? null
-                      : (v) {
-                          setState(() => _quietEnabled = v);
-                          _save();
-                        },
-                  secondary: Icon(Icons.bedtime_rounded,
-                      color: _quietEnabled ? SboxColors.violet : SboxColors.slate400),
-                  title: Text(tr('Giờ yên lặng'), style: const TextStyle(fontWeight: FontWeight.w600, fontSize: 14)),
-                  subtitle: Text(
-                    tr(_quietEnabled
-                        ? 'Từ ${_fmt(_quietStart)} đến ${_fmt(_quietEnd)} thông báo đến không chuông, không rung${_inQuietNow ? ' · đang yên lặng' : ''}'
-                        : 'Tắt chuông thông báo vào giờ nghỉ'),
-                    style: const TextStyle(fontSize: 12),
-                  ),
-                ),
-                if (_quietEnabled)
-                  Padding(
-                    padding: const EdgeInsets.fromLTRB(16, 0, 16, 8),
-                    child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-                      Row(children: [
-                        Expanded(child: _timeBox('Bắt đầu', _quietStart, () => _pick(true))),
-                        const Padding(
-                          padding: EdgeInsets.symmetric(horizontal: 8),
-                          child: Icon(Icons.arrow_forward_rounded, size: 18, color: SboxColors.slate400),
-                        ),
-                        Expanded(child: _timeBox('Kết thúc', _quietEnd, () => _pick(false))),
-                      ]),
-                      const SizedBox(height: 8),
-                      Wrap(spacing: 6, runSpacing: 6, children: [
-                        _presetChip('Ban đêm 22:00–07:00', const TimeOfDay(hour: 22, minute: 0),
-                            const TimeOfDay(hour: 7, minute: 0)),
-                        _presetChip('Nghỉ trưa 12:00–13:30', const TimeOfDay(hour: 12, minute: 0),
-                            const TimeOfDay(hour: 13, minute: 30)),
-                        _presetChip('Đêm muộn 23:00–06:00', const TimeOfDay(hour: 23, minute: 0),
-                            const TimeOfDay(hour: 6, minute: 0)),
-                      ]),
-                      CheckboxListTile(
-                        contentPadding: EdgeInsets.zero,
-                        dense: true,
-                        controlAffinity: ListTileControlAffinity.leading,
-                        value: _allowUrgent,
-                        onChanged: (v) {
-                          setState(() => _allowUrgent = v ?? true);
-                          _save();
-                        },
-                        title: Text(tr('Thông báo khẩn vẫn đổ chuông'),
-                            style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w600)),
-                        subtitle: Text(tr('Cần duyệt, cảnh báo, lỗi thiết bị'), style: const TextStyle(fontSize: 11.5)),
-                      ),
-                    ]),
-                  ),
-              ],
-              const Divider(height: 1, color: SboxColors.slate200),
-              Padding(
-                padding: const EdgeInsets.fromLTRB(12, 6, 12, 6),
-                child: Row(children: [
-                  if (_saving) ...[
-                    const SizedBox(width: 14, height: 14, child: CircularProgressIndicator(strokeWidth: 1.6)),
-                    const SizedBox(width: 8),
-                    Text(tr('Đang lưu…'), style: const TextStyle(fontSize: 12, color: SboxColors.slate500)),
-                  ] else
-                    Text(tr('Tự lưu khi thay đổi'), style: const TextStyle(fontSize: 12, color: SboxColors.slate400)),
-                  const Spacer(),
-                  TextButton.icon(
-                    onPressed: _testing ? null : _test,
-                    icon: _testing
-                        ? const SizedBox(width: 14, height: 14, child: CircularProgressIndicator(strokeWidth: 1.6))
-                        : const Icon(Icons.send_to_mobile_rounded, size: 18),
-                    label: Text(tr('Gửi thử cho tôi')),
-                  ),
-                ]),
-              ),
+              Expanded(child: _timeBox('Kết thúc', _quietEnd, () => _pick(false))),
             ]),
+            const SizedBox(height: 8),
+            // Mẫu nhanh: 1 hàng, cuộn ngang nếu máy hẹp — không rớt dòng lẻ.
+            SingleChildScrollView(
+              scrollDirection: Axis.horizontal,
+              child: Row(children: [
+                _presetChip('Ban đêm 22:00–07:00', const TimeOfDay(hour: 22, minute: 0), const TimeOfDay(hour: 7, minute: 0)),
+                const SizedBox(width: 6),
+                _presetChip('Nghỉ trưa 12:00–13:30', const TimeOfDay(hour: 12, minute: 0), const TimeOfDay(hour: 13, minute: 30)),
+                const SizedBox(width: 6),
+                _presetChip('Đêm muộn 23:00–06:00', const TimeOfDay(hour: 23, minute: 0), const TimeOfDay(hour: 6, minute: 0)),
+              ]),
+            ),
+            SettingsTile(
+              label: 'Thông báo khẩn vẫn đổ chuông',
+              help: 'Cần duyệt, cảnh báo, lỗi thiết bị',
+              control: Switch(value: _allowUrgent, onChanged: _saving ? null : (v) => _toggle(() => _allowUrgent = v)),
+            ),
+          ],
+        ],
+        const Divider(height: 1, color: SboxColors.divider),
+        Row(children: [
+          if (_saving) ...[
+            const SizedBox(width: 14, height: 14, child: CircularProgressIndicator(strokeWidth: 1.6)),
+            const SizedBox(width: 8),
+            Text(tr('Đang lưu…'), style: const TextStyle(fontSize: 12, color: SboxColors.slate500)),
+          ],
+          const Spacer(),
+          TextButton.icon(
+            onPressed: _testing ? null : _test,
+            icon: _testing
+                ? const SizedBox(width: 14, height: 14, child: CircularProgressIndicator(strokeWidth: 1.6))
+                : const Icon(Icons.send_to_mobile_rounded, size: 18),
+            label: Text(tr('Gửi thử cho tôi')),
+          ),
+        ]),
+      ],
     );
   }
 
   Widget _banner(IconData icon, Color bg, Color fg, String text) => Container(
-        margin: const EdgeInsets.fromLTRB(16, 0, 16, 12),
+        margin: const EdgeInsets.only(bottom: 10),
         padding: const EdgeInsets.all(10),
         decoration: BoxDecoration(color: bg, borderRadius: BorderRadius.circular(10)),
         child: Row(children: [

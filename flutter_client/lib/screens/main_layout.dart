@@ -2659,7 +2659,6 @@ class _MainLayoutState extends State<MainLayout> with WidgetsBindingObserver {
       body: Column(
         children: [
           const AnnouncementBanner(),
-          if (!posHubFullscreen) const BranchViewStrip(),
           Expanded(
             child: _buildMobileBody(bottomStackOnly: posHubFullscreen),
           ),

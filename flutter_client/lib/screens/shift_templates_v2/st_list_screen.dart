@@ -275,15 +275,28 @@ class _ShiftTemplatesV2ScreenState extends State<ShiftTemplatesV2Screen> {
       SboxMetricCard(label: 'Lượt NV đã xếp ca', value: '$emps', icon: Icons.groups_rounded, tone: SboxTone.violet),
     ];
     if (!wide) {
-      return SizedBox(
-        height: 92,
-        child: ListView.separated(
-          scrollDirection: Axis.horizontal,
-          itemCount: cards.length,
-          separatorBuilder: (_, __) => const SizedBox(width: 10),
-          itemBuilder: (_, i) => SizedBox(width: 190, child: cards[i]),
-        ),
-      );
+      // Điện thoại: 3 số trên 1 hàng (không cuộn ngang, không cắt thẻ).
+      Widget mini(String label, String value, SboxTone tone) => Expanded(
+            child: Container(
+              padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
+              decoration: BoxDecoration(
+                color: Colors.white,
+                borderRadius: BorderRadius.circular(12),
+                border: Border.all(color: SboxColors.slate200),
+              ),
+              child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+                Text(value, style: TextStyle(fontSize: 18, fontWeight: FontWeight.w800, color: tone.fg)),
+                Text(tr(label), maxLines: 2, style: const TextStyle(fontSize: 11, color: SboxColors.slate500, height: 1.2)),
+              ]),
+            ),
+          );
+      return Row(crossAxisAlignment: CrossAxisAlignment.start, children: [
+        mini('Ca đang dùng', '$active/${_shifts.length}', SboxTone.brand),
+        const SizedBox(width: 8),
+        mini('Có lịch sắp tới', '$used', SboxTone.success),
+        const SizedBox(width: 8),
+        mini('Lượt NV đã xếp', '$emps', SboxTone.violet),
+      ]);
     }
     return Row(children: [
       for (var i = 0; i < cards.length; i++) ...[

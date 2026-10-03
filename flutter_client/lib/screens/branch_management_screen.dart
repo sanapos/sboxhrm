@@ -155,10 +155,10 @@ class _BranchManagementScreenState extends State<BranchManagementScreen>
                 maxLines: 1),
         bottom: TabBar(
           controller: _tabController,
-          isScrollable: true,
+          isScrollable: false,
           tabs: [
             Tab(icon: Icon(Icons.list_alt), text: tr('Danh sách')),
-            Tab(icon: Icon(Icons.account_tree), text: tr('Cây chi nhánh')),
+            Tab(icon: Icon(Icons.account_tree), text: tr('Sơ đồ')),
             Tab(icon: Icon(Icons.analytics), text: tr('Thống kê')),
           ],
         ),
@@ -291,7 +291,7 @@ class _BranchManagementScreenState extends State<BranchManagementScreen>
                     height: 40,
                     child: TextField(
                       decoration: InputDecoration(
-                        hintText: tr('Tìm kiếm chi nhánh...'),
+                        hintText: tr('Tìm'),
                         prefixIcon: const Icon(Icons.search, size: 20),
                         border: OutlineInputBorder(
                             borderRadius: BorderRadius.circular(10)),
@@ -308,7 +308,8 @@ class _BranchManagementScreenState extends State<BranchManagementScreen>
                 ),
                 const SizedBox(width: 8),
                 FilterChip(
-                  label: Text(tr('Đang hoạt động')),
+                  visualDensity: VisualDensity.compact,
+                  label: Text(tr('Hoạt động')),
                   selected: _filterActive == true,
                   onSelected: (v) {
                     setState(() => _filterActive = v ? true : null);
@@ -317,7 +318,8 @@ class _BranchManagementScreenState extends State<BranchManagementScreen>
                 ),
                 const SizedBox(width: 4),
                 FilterChip(
-                  label: Text(tr('Ngừng HĐ')),
+                  visualDensity: VisualDensity.compact,
+                  label: Text(tr('Ngừng')),
                   selected: _filterActive == false,
                   onSelected: (v) {
                     setState(() => _filterActive = v ? false : null);

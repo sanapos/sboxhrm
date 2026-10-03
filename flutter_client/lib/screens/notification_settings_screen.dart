@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 
 import '../l10n/app_tr.dart';
@@ -18,12 +20,12 @@ class NotifGroup {
 
   static const all = <NotifGroup>[
     NotifGroup('Chấm công & ca', 'Chấm công, chấm đi đường, máy chấm công, ca làm việc', Icons.fingerprint_rounded,
-        ['attendance', 'travel_attendance', 'device', 'shift']),
+        ['attendance', 'mobile_attendance', 'travel_attendance', 'device', 'shift']),
     NotifGroup('Đơn từ & phê duyệt', 'Nghỉ phép, tăng ca, công tác, yêu cầu cần duyệt', Icons.approval_rounded,
         ['leave', 'overtime', 'approval', 'business_trip']),
     NotifGroup('Lương & tài chính', 'Phiếu lương, phiếu phạt, thu chi', Icons.payments_rounded, ['payroll', 'penalty', 'transaction']),
     NotifGroup('Công việc & nội bộ', 'Công việc, KPI, bản tin nội bộ, nhân sự, suất ăn', Icons.task_alt_rounded,
-        ['task', 'kpi', 'internal_comm', 'hr', 'meal']),
+        ['task', 'kpi', 'internal_comm', 'communication', 'feedback', 'hr', 'meal']),
     NotifGroup('Bán hàng', 'Đơn hàng, nhập hàng, tồn kho thấp, đơn QR', Icons.point_of_sale_rounded, ['pos']),
     NotifGroup('Hệ thống', 'Cảnh báo bảo mật (đổi tài khoản nhận tiền…), thông báo hệ thống', Icons.shield_outlined, ['system']),
   ];
@@ -57,11 +59,17 @@ class _NotificationSettingsScreenState extends State<NotificationSettingsScreen>
   List<_Pref> _prefs = [];
   Map<String, bool> _saved = {};
   bool _loading = true;
-  bool _saving = false;
   String? _error;
+  Timer? _debounce;
 
   Map<String, bool> get _current => {for (final p in _prefs) p.code: p.enabled};
-  bool get _dirty => _current.toString() != _saved.toString();
+
+  @override
+  void dispose() {
+    _debounce?.cancel();
+    if (_current.toString() != _saved.toString()) _save(quiet: true);
+    super.dispose();
+  }
 
   @override
   void initState() {
@@ -97,18 +105,28 @@ class _NotificationSettingsScreenState extends State<NotificationSettingsScreen>
     }
   }
 
-  Future<void> _save() async {
-    setState(() => _saving = true);
-    final prefs = [for (final p in _prefs) {'categoryCode': p.code, 'isEnabled': p.enabled}];
+  /// Bật / tắt là tự lưu (như thẻ «Đẩy lên điện thoại») — gom các lần bấm liền nhau thành 1 lần gửi.
+  void _changed(VoidCallback change) {
+    setState(change);
+    _debounce?.cancel();
+    _debounce = Timer(const Duration(milliseconds: 700), _save);
+  }
+
+  Future<void> _save({bool quiet = false}) async {
+    final snapshot = _current;
+    final prefs = [for (final e in snapshot.entries) {'categoryCode': e.key, 'isEnabled': e.value}];
     final r = await _api.updateNotificationPreferences(prefs);
-    if (!mounted) return;
-    setState(() => _saving = false);
     if (r['isSuccess'] == true) {
+      _saved = snapshot;
       NotificationPreferencesCache.instance.applyFromPreferenceList(prefs);
       await NotificationGroupSettings.syncFromPreferenceList(prefs);
-      setState(() => _saved = _current);
-      _toast('Đã lưu thiết lập thông báo');
-    } else {
+    } else if (!quiet && mounted) {
+      // Lưu hỏng: trả công tắc về như đã lưu để không hiểu nhầm.
+      setState(() {
+        for (final p in _prefs) {
+          p.enabled = _saved[p.code] ?? p.enabled;
+        }
+      });
       _toast(r['message']?.toString() ?? 'Không lưu được. Thông báo vẫn nhận như cũ.', error: true);
     }
   }
@@ -119,7 +137,7 @@ class _NotificationSettingsScreenState extends State<NotificationSettingsScreen>
         behavior: SnackBarBehavior.floating,
       ));
 
-  void _setAll(bool v) => setState(() {
+  void _setAll(bool v) => _changed(() {
         for (final p in _prefs) {
           p.enabled = v;
         }
@@ -135,14 +153,6 @@ class _NotificationSettingsScreenState extends State<NotificationSettingsScreen>
       loading: _loading,
       error: _error,
       onRetry: _load,
-      dirty: _dirty,
-      saving: _saving,
-      onSave: _save,
-      onDiscard: () => setState(() {
-        for (final p in _prefs) {
-          p.enabled = _saved[p.code] ?? p.enabled;
-        }
-      }),
       headerActions: [
         PopupMenuButton<bool>(
           tooltip: tr('Bật / tắt tất cả'),
@@ -157,7 +167,7 @@ class _NotificationSettingsScreenState extends State<NotificationSettingsScreen>
       children: [
         if (widget.showPushCard) const PushSettingsCard(),
         if (_prefs.isNotEmpty)
-          SettingsNote('Đang nhận $on/${_prefs.length} loại thông báo. Thông báo đã tắt vẫn xem được trong mục Thông báo của app, chỉ không đẩy lên điện thoại.',
+          SettingsNote('Đang nhận $on/${_prefs.length} loại · tự lưu khi bật / tắt. Loại đã tắt vẫn xem được trong mục Thông báo, chỉ không đẩy lên điện thoại.',
               icon: Icons.info_outline_rounded),
         ...NotifGroup.all.map(_group).whereType<Widget>(),
       ],
@@ -167,14 +177,14 @@ class _NotificationSettingsScreenState extends State<NotificationSettingsScreen>
   Widget? _group(NotifGroup g) {
     final items = _prefs.where((p) => NotifGroup.of(p.code) == g).toList();
     if (items.isEmpty) return null;
-    final anyOn = items.any((p) => p.enabled);
+    final onCount = items.where((p) => p.enabled).length;
     return SettingsSection(
       title: g.title,
-      subtitle: g.desc,
+      subtitle: '$onCount/${items.length} đang bật',
       icon: g.icon,
       trailing: Switch(
-        value: anyOn,
-        onChanged: (v) => setState(() {
+        value: onCount > 0,
+        onChanged: (v) => _changed(() {
           for (final p in items) {
             p.enabled = v;
           }
@@ -185,7 +195,7 @@ class _NotificationSettingsScreenState extends State<NotificationSettingsScreen>
           SettingsTile(
             label: items[i].name,
             help: items[i].desc.isEmpty ? null : items[i].desc,
-            control: Switch(value: items[i].enabled, onChanged: (v) => setState(() => items[i].enabled = v)),
+            control: Switch(value: items[i].enabled, onChanged: (v) => _changed(() => items[i].enabled = v)),
           ),
       ],
     );
