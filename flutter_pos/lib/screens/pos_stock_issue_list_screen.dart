@@ -606,10 +606,10 @@ class _PosStockIssueListScreenState extends State<PosStockIssueListScreen> {
             hoverColor: doc.status == 'Cancelled'
                 ? Colors.red.shade50
                 : SboxColors.slate100,
-            child: Container(
-              color: posDocRowBackground(doc.status),
+            child: Container(
               padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
               decoration: BoxDecoration(
+                color: posDocRowBackground(doc.status),
                 border: Border(
                   bottom: BorderSide(
                       color: expanded

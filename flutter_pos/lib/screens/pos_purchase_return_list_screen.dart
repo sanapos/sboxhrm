@@ -646,10 +646,10 @@ class _PosPurchaseReturnListScreenState extends State<PosPurchaseReturnListScree
             hoverColor: r.status == 'Cancelled'
                 ? Colors.red.shade50
                 : SboxColors.slate100,
-            child: Container(
-              color: posDocRowBackground(r.status),
+            child: Container(
               padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
               decoration: BoxDecoration(
+                color: posDocRowBackground(r.status),
                 border: Border(
                   bottom: BorderSide(
                       color: expanded ? SboxColors.slate200 : Colors.transparent),

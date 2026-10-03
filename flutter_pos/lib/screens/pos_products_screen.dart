@@ -2426,10 +2426,10 @@ class _PosProductsScreenState extends State<PosProductsScreen> {
   }
 
   Widget _buildPagination() {
-    return Container(
-      color: Colors.white,
+    return Container(
       padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
-      decoration: const BoxDecoration(
+      decoration: BoxDecoration(
+        color: Colors.white,
         border: Border(top: BorderSide(color: PosTheme.border)),
       ),
       child: Row(
