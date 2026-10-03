@@ -21,6 +21,8 @@ public static class SeoArticleSeeder
         try
         {
             var asm = typeof(SeoArticleSeeder).Assembly;
+            if (!asm.GetManifestResourceNames().Any(n => n.StartsWith(Prefix, StringComparison.Ordinal)))
+                logger.LogWarning("SEO seed: không có bài nhúng trong bản build (kiểm tra src/.dockerignore cho Seo/Seed/*.md)");
             foreach (var name in asm.GetManifestResourceNames().Where(n => n.StartsWith(Prefix, StringComparison.Ordinal)).Order())
             {
                 await using var stream = asm.GetManifestResourceStream(name);
