@@ -24,7 +24,10 @@ tài liệu đó lấy từ chuỗi ký tự trong firmware, mà lệnh có tên
 | Handshake chỉ gửi `TransFlag=1111111111` (bỏ dòng dạng chữ) + đăng ký vân tay trên máy | Không có mẫu vân tay gửi lên | ❌ |
 | Chấm công trên máy | Gửi lên ngay (realtime) | ✅ |
 | Thêm user trực tiếp trên máy | Tự gửi lên server sau khoảng 2 phút (OPERLOG) | ✅ |
-| `CLEAR DATA` / `CLEAR LOG` / `CLEAR ALL USERINFO` | **Chưa thử** (lệnh xóa) | ? |
+| `CLEAR DATA` | 0 | ⚠️ **Xóa sạch**: user 4→0, vân tay 4→0, **chấm công 5→0** |
+| `CLEAR ALL USERINFO` (máy có 1 user) | -1002, user vẫn còn | ❌ Lúc máy trống trả 0, nhưng đó là kết quả giả |
+| `CLEAR LOG` | Máy không trả lời (lệnh kẹt ở trạng thái «đã gửi») | ? Chưa rõ |
+| `DATA DELETE USERINFO PIN=…` | Chưa thử (bị chặn quyền) | ? Có trong ROM |
 
 Lưu ý: trên máy này `-1002` **không có nghĩa là máy không làm gì** (CHECK trả -1002 nhưng vẫn bắt tay lại). Phải nhìn dữ liệu máy gửi lên.
 
@@ -59,8 +62,10 @@ Lưu ý: trên máy này `-1002` **không có nghĩa là máy không làm gì** 
 
 - **Vân tay**: không gửi được mẫu vân tay từ LX35 lên server, nên không sao chép vân tay sang máy khác được.
   Có thể thử thêm: `TransFlag` với thứ tự bit khác, hoặc `DATA QUERY FINGERTMP PIN=<pin>` (QUERY khác đều -1002, nhiều khả năng cũng vậy).
-- **`CLEAR DATA`**: ROM không có `CLEAR ALL USERINFO` (server đang gửi cho nút «Xóa toàn bộ user»), nên trên LX35 nút này
-  có thể không tác dụng. Cần thử `CLEAR DATA` trên máy không có dữ liệu thật để biết nó xóa user hay xóa hết, rồi mới đổi.
+- **Xóa toàn bộ user**: `CLEAR ALL USERINFO` không chạy, `CLEAR DATA` xóa cả chấm công. Server (commit sau `53d05116`) chặn nút
+  «Xóa toàn bộ user» trên LX35 kèm hướng dẫn. Hướng tốt hơn: xóa từng user bằng `DATA DELETE USERINFO PIN=…`, cần thử trước.
+- **`CLEAR LOG`**: máy không trả lời. Cần thử lại khi máy có lượt chấm (03/10 máy đang trống).
+- Máy test hiện còn 1 user test PIN 9001 «Test Clear» (do thử `CLEAR ALL USERINFO`). Xóa đi hoặc đẩy lại nhân viên từ Sbox.
 - Server **103.133.225.67** chưa có bản LX35 (build 02/10 15:29).
 
 ## 5. Cách thử lệnh tay (cần người dùng cho phép, ghi vào CSDL production)

@@ -129,6 +129,12 @@ public class DeviceInfoCommandTests
         Assert.False(enroll.IsSuccess);
         Assert.Contains("trực tiếp trên máy", enroll.Message);
         Assert.False((await handler.Handle(new CreateDeviceCmdCommand(device.Id, (int)DeviceCommandTypes.OpenDoor, 10), default)).IsSuccess);
+        // CLEAR ALL USERINFO: máy trả -1002 (thử thật) → không gửi, báo cách khác
+        var clearUsers = await handler.Handle(new CreateDeviceCmdCommand(device.Id, (int)DeviceCommandTypes.ClearDeviceUsers, 10), default);
+        Assert.False(clearUsers.IsSuccess);
+        Assert.Contains("xóa cả nhân viên, vân tay và chấm công", clearUsers.Message);
+        // CLEAR DATA vẫn gửi bình thường (máy nhận, xóa hết)
+        Assert.Equal("CLEAR DATA", (await svc.ResolveCommandAsync(device.Id, DeviceCommandTypes.ClearData)).Command);
         var cap = await svc.GetCapabilityDtoAsync(device.Id);
         Assert.False(cap.AllowEnrollFingerprintUi);
         Assert.False(cap.AllowDoorControlUi);
