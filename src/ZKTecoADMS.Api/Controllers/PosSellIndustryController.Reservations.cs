@@ -155,21 +155,26 @@ public partial class PosSellIndustryController
             if ((toD - fromD).TotalDays > 62) toD = fromD.AddDays(62);
             var fromUtc = DateTime.SpecifyKind(fromD.AddHours(-7), DateTimeKind.Utc);
             var toUtc = DateTime.SpecifyKind(toD.AddDays(1).AddHours(-7), DateTimeKind.Utc);
-            q = q.Where(x =>
-                x.ReservedAt < toUtc && (x.ReservedUntil ?? x.ReservedAt) >= fromUtc);
+            q = q.Where(x => x.DurationMinutes > 0
+                ? x.ReservedAt < toUtc && (x.ReservedUntil ?? x.ReservedAt) >= fromUtc
+                : (x.ReservedUntil ?? x.ReservedAt) >= fromUtc && (x.ReservedUntil ?? x.ReservedAt) < toUtc);
         }
         else if (day.HasValue)
         {
-            var d = day.Value.Kind == DateTimeKind.Unspecified
-                ? DateTime.SpecifyKind(day.Value.Date, DateTimeKind.Utc)
-                : day.Value.ToUniversalTime().Date;
+            // App gửi ngày lịch (00:00 UTC của ngày đó) → cắt theo ngày VN (UTC+7),
+            // trước đây cắt theo UTC nên lịch 0h–7h sáng rơi sang ngày hôm trước.
+            var cal = day.Value.Date;
+            var d = DateTime.SpecifyKind(cal.AddHours(-7), DateTimeKind.Utc);
             var next = d.AddDays(1);
             // Slot giao ngày: bắt đầu trong ngày, hoặc kết thúc trong ngày, hoặc bao trùm cả ngày.
-            q = q.Where(x =>
-                (x.ReservedAt < next && (x.ReservedUntil ?? x.ReservedAt) >= d));
+            q = q.Where(x => x.DurationMinutes > 0
+                ? x.ReservedAt < next && (x.ReservedUntil ?? x.ReservedAt) >= d
+                : (x.ReservedUntil ?? x.ReservedAt) >= d && (x.ReservedUntil ?? x.ReservedAt) < next);
         }
 
-        var list = await q.OrderBy(x => x.ReservedAt).ToListAsync();
+        var list = (await q.ToListAsync())
+            .OrderBy(x => IsHoldBooking(x) ? HoldArrival(x) : x.ReservedAt)
+            .ToList();
         return Ok(AppResponse<List<ReservationDto>>.Success(
             await MapReservationsWithOrdersAsync(storeId, list)));
     }
@@ -210,12 +215,14 @@ public partial class PosSellIndustryController
 
         var rows = await db.PosResourceReservations.AsNoTracking()
             .Where(x => x.StoreId == storeId
-                && x.ReservedAt < toUtc
-                && (x.ReservedUntil ?? x.ReservedAt) >= fromUtc
+                && (x.DurationMinutes > 0
+                    ? x.ReservedAt < toUtc && (x.ReservedUntil ?? x.ReservedAt) >= fromUtc
+                    : (x.ReservedUntil ?? x.ReservedAt) >= fromUtc && (x.ReservedUntil ?? x.ReservedAt) < toUtc)
                 && (x.Deleted == null || x.Status != PosResourceReservationStatus.Booked))
             .Select(x => new
             {
-                x.ReservedAt,
+                // Giữ chỗ: tính vào ngày khách đến (như danh sách lịch), không phải ngày bấm đặt.
+                ReservedAt = x.DurationMinutes > 0 ? x.ReservedAt : (x.ReservedUntil ?? x.ReservedAt),
                 x.Status,
                 x.DepositPaid,
                 x.DepositStatus,
@@ -1318,8 +1325,10 @@ public partial class PosSellIndustryController
             x.Phone,
             x.CustomerId,
             x.GuestCount,
-            x.ReservedAt,
-            x.ReservedUntil,
+            // Đặt bàn giữ chỗ (không thời lượng): DB lưu ReservedAt = lúc bấm đặt, ReservedUntil = giờ khách đến.
+            // Mọi màn hiểu ReservedAt là giờ đến → trả giờ đến (lúc đặt xem ở CreatedAt).
+            IsHoldBooking(x) ? HoldArrival(x) : x.ReservedAt,
+            IsHoldBooking(x) ? null : x.ReservedUntil,
             x.Status.ToString(),
             x.Note,
             preCount,
@@ -1436,6 +1445,11 @@ public partial class PosSellIndustryController
         return classic.OrderByDescending(b => b.ReservedAt).FirstOrDefault()
             ?? timed.OrderByDescending(b => b.ReservedAt).FirstOrDefault();
     }
+
+    /// <summary>Đặt bàn giữ chỗ kiểu nhà hàng: không thời lượng, giữ bàn từ lúc đặt tới giờ khách đến.</summary>
+    internal static bool IsHoldBooking(PosResourceReservation b) => b.DurationMinutes is null or <= 0;
+
+    internal static DateTime HoldArrival(PosResourceReservation b) => b.ReservedUntil ?? b.ReservedAt;
 
     internal static DateTime FloorBookingEnd(PosResourceReservation b)
     {

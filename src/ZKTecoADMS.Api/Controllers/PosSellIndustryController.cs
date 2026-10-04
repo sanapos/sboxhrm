@@ -1015,8 +1015,9 @@ public partial class PosSellIndustryController(
                 r.LayoutX, r.LayoutY, r.LayoutW, r.LayoutH,
                 booking?.Id, booking?.CustomerName, booking?.Phone,
                 booking?.GuestCount ?? 0, preOrderCount,
-                booking?.ReservedAt,
-                booking?.ReservedUntil,
+                // Giữ chỗ: hiện giờ khách đến (không phải lúc bấm đặt) — sơ đồ coi ReservedAt là giờ đến.
+                booking == null ? null : (IsHoldBooking(booking) ? HoldArrival(booking) : booking.ReservedAt),
+                booking == null || IsHoldBooking(booking) ? null : booking.ReservedUntil,
                 lockedByDeviceId, lockedByDeviceName, lockedByDisplayName, lockExpiresAt,
                 tableSessionOpen, hasParkedBill,
                 sess?.AccumulatedPauseMinutes ?? 0,

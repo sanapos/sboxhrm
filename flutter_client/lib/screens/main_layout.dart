@@ -112,6 +112,13 @@ import 'pos/pos_mobile_hub_screen.dart';
 import 'pos/pos_qr_menu_screen.dart';
 import 'pos/pos_qr_online_orders_screen.dart';
 import 'pos/pos_kds_screen.dart';
+import 'pos/pos_customer_display_settings_screen.dart';
+import 'pos/pos_printer_settings_hub_screen.dart';
+import 'pos/pos_store_printers_screen.dart';
+import 'pos/pos_transfer_confirm_screen.dart';
+import 'pos/pos_cashier_shift_screen.dart';
+import 'pos/pos_price_lists_screen.dart';
+import 'pos/pos_vouchers_screen.dart';
 import 'shift_swap_screen.dart';
 import '../utils/permission_navigation.dart';
 import '../utils/responsive_helper.dart';
@@ -384,6 +391,7 @@ class _MainLayoutState extends State<MainLayout> with WidgetsBindingObserver {
             keywords: [_navItems[i].label, _navItems[i].moduleCode ?? ''],
             onSelect: () => _tryNavigateToIndex(i),
           ),
+      ..._posExtraCommandItems(),
     ];
     _paletteOpen = true;
     try {
@@ -391,6 +399,38 @@ class _MainLayoutState extends State<MainLayout> with WidgetsBindingObserver {
     } finally {
       _paletteOpen = false;
     }
+  }
+
+  /// Màn POS chỉ mở từ menu «Nhiều hơn» / màn Bán hàng (không nằm trên thanh điều hướng)
+  /// — đưa vào ô tìm chức năng để gõ «voucher», «máy in», «ca thu ngân»… là ra.
+  List<SboxCommandItem> _posExtraCommandItems() {
+    final perm = Provider.of<PermissionProvider>(context, listen: false);
+    final known = {for (final i in _visibleNavIndices()) _navItems[i].label.toLowerCase()};
+    final defs = <(String, IconData, String, List<String>, Widget Function())>[
+      ('Voucher', Icons.confirmation_number_outlined, 'PosProducts', ['mã giảm giá', 'khuyến mãi'], () => const PosVouchersScreen()),
+      ('Bảng giá', Icons.price_change_outlined, 'PosProducts', ['giá bán', 'price list'], () => const PosPriceListsScreen()),
+      ('Ca thu ngân', Icons.account_balance_wallet_outlined, 'PosCashierShift', ['giao ca', 'mở ca', 'chốt ca'], () => const PosCashierShiftScreen()),
+      ('Xác nhận chuyển khoản', Icons.payments_outlined, 'PosSell', ['ck', 'vietqr'], () => const PosTransferConfirmScreen()),
+      ('Lịch sử hủy / trả', Icons.history, 'PosSell', ['hủy đơn', 'trả hàng'], () => const PosCancelReturnHistoryScreen()),
+      ('Đơn online', Icons.delivery_dining_outlined, 'PosQrOrder', ['đặt online', 'giao hàng'], () => const PosQrOnlineOrdersScreen()),
+      // Màn hai tab chỉ dành cho Thiết lập SBOX (hub vẽ tiêu đề); mở riêng thì dùng từng màn có thanh tiêu đề.
+      ('Máy in', Icons.print_outlined, 'PosPrinters', ['in hóa đơn', 'in bếp', 'máy in bill', 'thiết lập in'], () => const PosPrinterSettingsHubScreen()),
+      ('Máy in cloud', Icons.cloud_outlined, 'PosStorePrinters', ['print agent', 'in từ xa'], () => const PosStorePrintersScreen()),
+      ('Màn hình khách', Icons.monitor_outlined, 'PosCustomerDisplay', ['màn hình phụ', 'customer display'], () => const PosCustomerDisplaySettingsScreen()),
+    ];
+    return [
+      for (final d in defs)
+        if (!known.contains(d.$1.toLowerCase()) && PermissionNavigation.canNavigate(perm, d.$3))
+          SboxCommandItem(
+            label: d.$1,
+            icon: d.$2,
+            group: 'POS / Bán hàng',
+            keywords: [...d.$4, d.$3],
+            onSelect: () => Navigator.of(context).push(
+              MaterialPageRoute(builder: (_) => PosHubScope.pushed(child: d.$5())),
+            ),
+          ),
+    ];
   }
 
   // Popup queue: show one popup at a time to prevent overlap

@@ -4538,8 +4538,11 @@ class PosResourceFloorScreenState extends State<PosResourceFloorScreen> {
       return '${DateFormat('HH:mm').format(start)}–${DateFormat('HH:mm').format(end)}';
     }
     final arrival = _reservationArrivalLocal(r);
-    if (arrival != null) return DateFormat('HH:mm').format(arrival);
-    return '';
+    if (arrival == null) return '';
+    // Khách đến hôm khác → ghi kèm ngày (tránh hiểu nhầm là hôm nay).
+    return DateUtils.isSameDay(arrival, DateTime.now())
+        ? DateFormat('HH:mm').format(arrival)
+        : DateFormat('dd/MM HH:mm').format(arrival);
   }
 
   bool _reservationIsUpcoming(PosServiceResourceDto r) {
