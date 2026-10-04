@@ -312,7 +312,7 @@ public class ZKTecoDbContext : IdentityDbContext<ApplicationUser, IdentityRole<G
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
         base.OnModelCreating(modelBuilder);
-        VnSearch.Register(modelBuilder);
+        VnSearchEf.Register(modelBuilder);
         
         // Apply entity-specific configurations first
         modelBuilder.ApplyConfigurationsFromAssembly(Assembly.GetExecutingAssembly());

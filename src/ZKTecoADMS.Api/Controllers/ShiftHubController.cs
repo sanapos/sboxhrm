@@ -162,8 +162,8 @@ public class ShiftHubController(ZKTecoDbContext db, IMediator mediator, IDataSco
         if (!string.IsNullOrWhiteSpace(department)) empQ = empQ.Where(e => e.Department == department);
         if (!string.IsNullOrWhiteSpace(search))
         {
-            var k = search.Trim().ToLower();
-            empQ = empQ.Where(e => (e.LastName + " " + e.FirstName).ToLower().Contains(k) || e.EmployeeCode.ToLower().Contains(k));
+            var k = VnSearch.FoldText(search);
+            empQ = empQ.Where(e => VnSearch.Fold(e.LastName + " " + e.FirstName).Contains(k) || VnSearch.Fold(e.EmployeeCode).Contains(k));
         }
         var emps = await empQ.OrderBy(e => e.Department).ThenBy(e => e.FirstName)
             .Select(e => new { e.Id, e.ApplicationUserId, Name = (e.LastName + " " + e.FirstName).Trim(), e.EmployeeCode, e.Department, e.Position, e.PhotoUrl })

@@ -1,24 +1,21 @@
-using System.Linq.Expressions;
 using System.Text;
-using Microsoft.EntityFrameworkCore;
-using Microsoft.EntityFrameworkCore.Query.SqlExpressions;
 
-namespace ZKTecoADMS.Infrastructure;
+namespace ZKTecoADMS.Application.Helpers;
 
 /// <summary>
 /// Tìm kiếm tiếng Việt không phân biệt dấu / hoa thường: «binh» khớp «Bình», «banh mi» khớp «Bánh mì».
 /// <see cref="Fold"/> chạy được cả trong LINQ-to-SQL (dịch thành <c>translate(lower(x), …)</c>, không cần extension)
-/// lẫn trong bộ nhớ.
+/// lẫn trong bộ nhớ (đăng ký dịch SQL ở Infrastructure.VnSearchEf).
 /// </summary>
 public static class VnSearch
 {
-    const string From = "àáạảãâầấậẩẫăằắặẳẵèéẹẻẽêềếệểễìíịỉĩòóọỏõôồốộổỗơờớợởỡùúụủũưừứựửữỳýỵỷỹđ"
+    public const string From = "àáạảãâầấậẩẫăằắặẳẵèéẹẻẽêềếệểễìíịỉĩòóọỏõôồốộổỗơờớợởỡùúụủũưừứựửữỳýỵỷỹđ"
                       + "ÀÁẠẢÃÂẦẤẬẨẪĂẰẮẶẲẴÈÉẸẺẼÊỀẾỆỂỄÌÍỊỈĨÒÓỌỎÕÔỒỐỘỔỖƠỜỚỢỞỠÙÚỤỦŨƯỪỨỰỬỮỲÝỴỶỸĐ";
-    const string To = "aaaaaaaaaaaaaaaaaeeeeeeeeeeeiiiiiooooooooooooooooouuuuuuuuuuuyyyyyd"
+    public const string To = "aaaaaaaaaaaaaaaaaeeeeeeeeeeeiiiiiooooooooooooooooouuuuuuuuuuuyyyyyd"
                     + "aaaaaaaaaaaaaaaaaeeeeeeeeeeeiiiiiooooooooooooooooouuuuuuuuuuuyyyyyd";
 
     /// <summary>Dấu tổ hợp (bàn phím gõ tách dấu) — SQL translate bỏ hẳn các ký tự này.</summary>
-    const string Combining = "̛̣̀́̃̉̂̆";
+    public const string Combining = "̛̣̀́̃̉̂̆";
 
     static readonly Dictionary<char, char> Map = BuildMap();
 
@@ -46,22 +43,4 @@ public static class VnSearch
 
     /// <summary>Chuẩn hóa từ khóa người dùng gõ (trim + bỏ dấu + thường).</summary>
     public static string FoldText(string? text) => Fold(text?.Trim());
-
-    internal static void Register(ModelBuilder modelBuilder)
-    {
-        var method = typeof(VnSearch).GetMethod(nameof(Fold), [typeof(string)])!;
-        modelBuilder.HasDbFunction(method).HasTranslation(args =>
-        {
-            var arg = args[0];
-            var tm = arg.TypeMapping;
-            var lower = new SqlFunctionExpression("lower", [arg], nullable: true, argumentsPropagateNullability: [true], typeof(string), tm);
-            return new SqlFunctionExpression(
-                "translate",
-                [lower, new SqlConstantExpression(Expression.Constant(From + Combining), tm), new SqlConstantExpression(Expression.Constant(To), tm)],
-                nullable: true,
-                argumentsPropagateNullability: [true, false, false],
-                typeof(string),
-                tm);
-        });
-    }
 }

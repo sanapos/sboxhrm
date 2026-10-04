@@ -1,3 +1,4 @@
+using ZKTecoADMS.Application.Helpers;
 using Microsoft.EntityFrameworkCore;
 using ZKTecoADMS.Application.DTOs.Meals;
 using ZKTecoADMS.Application.Interfaces;
@@ -12,7 +13,7 @@ public class GetMealRecordsHandler(
     public async Task<AppResponse<PagedResult<MealRecordDto>>> Handle(GetMealRecordsQuery request, CancellationToken cancellationToken)
     {
         var date = request.Date.Date;
-        var term = request.SearchTerm?.Trim();
+        var term = VnSearch.FoldText(request.SearchTerm);
 
         var pagedResult = await repository.GetPagedResultWithIncludesAsync(
             request.PaginationRequest,
@@ -21,8 +22,8 @@ public class GetMealRecordsHandler(
                          (!request.MealSessionId.HasValue || r.MealSessionId == request.MealSessionId.Value) &&
                          (string.IsNullOrEmpty(term) ||
                           (r.EmployeeUser != null &&
-                           ((r.EmployeeUser.FirstName + " " + r.EmployeeUser.LastName).Contains(term) ||
-                            (r.EmployeeUser.LastName + " " + r.EmployeeUser.FirstName).Contains(term))) ||
+                           (VnSearch.Fold(r.EmployeeUser.FirstName + " " + r.EmployeeUser.LastName).Contains(term) ||
+                            VnSearch.Fold(r.EmployeeUser.LastName + " " + r.EmployeeUser.FirstName).Contains(term))) ||
                           (r.PIN != null && r.PIN.Contains(term))),
             includes: q => q.Include(r => r.EmployeeUser).Include(r => r.MealSession).Include(r => r.Device),
             cancellationToken: cancellationToken);

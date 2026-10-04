@@ -1,3 +1,4 @@
+using ZKTecoADMS.Application.Helpers;
 using MediatR;
 using ZKTecoADMS.Application.DTOs.Employees;
 using ZKTecoADMS.Application.Interfaces;
@@ -13,6 +14,7 @@ public class GetEmployeesHandler(
     public async Task<AppResponse<PagedResult<EmployeeDto>>> Handle(GetEmployeesQuery request, CancellationToken cancellationToken)
     {
         var subordinateIds = request.SubordinateEmployeeIds;
+        var term = VnSearch.FoldText(request.SearchTerm);
 
         var pagedResult = await employeeRepository.GetPagedResultWithProjectionAsync(
             request.PaginationRequest,
@@ -21,12 +23,13 @@ public class GetEmployeesHandler(
                     (request.BranchIds == null || request.BranchIds.Count == 0
                         || !e.BranchId.HasValue
                         || request.BranchIds.Contains(e.BranchId.Value)) &&
-                    (string.IsNullOrEmpty(request.SearchTerm) || 
-                    e.EmployeeCode.Contains(request.SearchTerm) ||
-                    e.FirstName.Contains(request.SearchTerm) ||
-                    e.LastName.Contains(request.SearchTerm) ||
-                    (e.PersonalEmail != null && e.PersonalEmail.Contains(request.SearchTerm)) ||
-                    (e.CompanyEmail != null && e.CompanyEmail.Contains(request.SearchTerm))) && 
+                    // Không dấu + không phân biệt hoa thường; tìm được cả họ tên đầy đủ («nguyen van a»).
+                    (term == "" ||
+                    VnSearch.Fold(e.EmployeeCode).Contains(term) ||
+                    VnSearch.Fold(e.LastName + " " + e.FirstName).Contains(term) ||
+                    VnSearch.Fold(e.FirstName + " " + e.LastName).Contains(term) ||
+                    (e.PersonalEmail != null && VnSearch.Fold(e.PersonalEmail).Contains(term)) ||
+                    (e.CompanyEmail != null && VnSearch.Fold(e.CompanyEmail).Contains(term))) &&  
                     (string.IsNullOrEmpty(request.EmploymentType) || (int)e.EmploymentType == int.Parse(request.EmploymentType)) &&
                     (string.IsNullOrEmpty(request.WorkStatus) || (int)e.WorkStatus == int.Parse(request.WorkStatus)) &&
                     (!request.ExcludeResigned || e.WorkStatus != EmployeeWorkStatus.Resigned),

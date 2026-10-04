@@ -1,3 +1,4 @@
+using ZKTecoADMS.Application.Helpers;
 using System.Text.Json;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
@@ -199,8 +200,8 @@ public class AttendanceApprovalsController(
         if (branchId.HasValue) q = q.Where(i => i.BranchId == branchId);
         if (!string.IsNullOrWhiteSpace(search))
         {
-            var s = search.Trim().ToLowerInvariant();
-            q = q.Where(i => i.EmployeeName.ToLowerInvariant().Contains(s) || (i.EmployeeCode ?? "").ToLowerInvariant().Contains(s));
+            var s = VnSearch.FoldText(search);
+            q = q.Where(i => VnSearch.Fold(i.EmployeeName).Contains(s) || VnSearch.Fold(i.EmployeeCode).Contains(s));
         }
         var list = q.OrderBy(i => i.RiskLevel == MobilePunchRiskScorer.High ? 0 : i.Overdue ? 1 : 2)
             .ThenByDescending(i => i.Time).ToList();

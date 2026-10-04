@@ -1,3 +1,4 @@
+using ZKTecoADMS.Application.Helpers;
 using System.Text.Json;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
@@ -171,10 +172,10 @@ public class DepartmentsV2Controller(ZKTecoDbContext db) : AuthenticatedControll
     public async Task<ActionResult<AppResponse<object>>> EmployeeSearch([FromQuery] string? q)
     {
         var storeId = RequiredStoreId;
-        var term = (q ?? "").Trim().ToLower();
+        var term = VnSearch.FoldText(q);
         var rows = await db.Employees.AsNoTracking()
             .Where(e => e.StoreId == storeId && e.WorkStatus != EmployeeWorkStatus.Resigned)
-            .Where(e => term == "" || (e.LastName + " " + e.FirstName).ToLower().Contains(term) || e.EmployeeCode.ToLower().Contains(term))
+            .Where(e => term == "" || VnSearch.Fold(e.LastName + " " + e.FirstName).Contains(term) || VnSearch.Fold(e.EmployeeCode).Contains(term))
             .OrderBy(e => e.FirstName)
             .Take(30)
             .Select(e => new

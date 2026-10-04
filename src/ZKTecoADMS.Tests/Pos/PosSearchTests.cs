@@ -1,3 +1,4 @@
+using ZKTecoADMS.Application.Helpers;
 using Microsoft.EntityFrameworkCore;
 using Xunit;
 using ZKTecoADMS.Domain.Entities;
