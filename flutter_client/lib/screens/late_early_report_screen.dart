@@ -1217,10 +1217,11 @@ class _LateEarlyReportScreenState extends State<LateEarlyReportScreen> {
                                         color: SboxColors.slate700))),
                                 const SizedBox(width: 8),
                                 SizedBox(
-                                  width: 88,
+                                  width: 104,
                                   child: DropdownButtonFormField<int>(
                                     value: _minMinutes,
                                     isDense: true,
+                                    isExpanded: true,
                                     decoration: const InputDecoration(
                                       isDense: true,
                                       contentPadding: EdgeInsets.symmetric(

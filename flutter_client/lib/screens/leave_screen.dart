@@ -1219,7 +1219,10 @@ class _LeaveScreenState extends State<LeaveScreen>
   }) {
     if (leaves.isEmpty) {
       final emptyContent = Center(
-        child: Column(
+        child: SingleChildScrollView(
+          padding: const EdgeInsets.symmetric(vertical: 16),
+          child: Column(
+          mainAxisSize: MainAxisSize.min,
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
             Icon(Icons.event_busy_outlined, size: 72, color: SboxColors.slate300),
@@ -1249,6 +1252,7 @@ class _LeaveScreenState extends State<LeaveScreen>
               ),
             ],
           ],
+        ),
         ),
       );
       if (Responsive.isMobile(context)) {

@@ -146,7 +146,7 @@ class _AssetManagementScreenState extends State<AssetManagementScreen> {
   }
 
   Future<void> _loadTransfers() async {
-    final result = await _apiService.getAssetTransfers(page: 1, pageSize: 50);
+    final result = await _apiService.getAssetTransfers(page: 1, pageSize: 500);
     if (result['isSuccess'] == true && result['data'] != null) {
       final data = result['data'];
       if (mounted) {
@@ -158,7 +158,7 @@ class _AssetManagementScreenState extends State<AssetManagementScreen> {
   }
 
   Future<void> _loadInventories() async {
-    final result = await _apiService.getAssetInventories(page: 1, pageSize: 50);
+    final result = await _apiService.getAssetInventories(page: 1, pageSize: 500);
     if (result['isSuccess'] == true && result['data'] != null) {
       final data = result['data'];
       if (mounted) {
@@ -182,7 +182,7 @@ class _AssetManagementScreenState extends State<AssetManagementScreen> {
 
   Future<void> _loadStockTransactions({int? typeFilter, String? search}) async {
     final result = await _apiService.getStockTransactions(
-      page: 1, pageSize: 100,
+      page: 1, pageSize: 500, // tab không phân trang — trước chỉ lấy 100 phiếu mới nhất
       transactionType: typeFilter,
       search: search,
     );

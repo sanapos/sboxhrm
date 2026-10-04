@@ -25,8 +25,9 @@ class EmptyState extends StatelessWidget {
   Widget build(BuildContext context) {
     final effectiveIconColor = iconColor ?? SboxColors.slate600;
 
+    // Vùng thấp (màn ngang, khung nhỏ trên máy tính): nội dung cuộn được thay vì tràn đáy.
     return Center(
-      child: Padding(
+      child: SingleChildScrollView(
         padding: const EdgeInsets.all(32),
         child: Column(
           mainAxisAlignment: MainAxisAlignment.center,

@@ -1042,13 +1042,19 @@ class _TaskManagementScreenState extends State<TaskManagementScreen>
             ? IconButton(
                 icon: const Icon(Icons.clear, size: 18),
                 onPressed: () {
-                  setState(() => _search = null);
+                  setState(() {
+                    _search = null;
+                    _page = 1; // tìm mới → về trang 1
+                  });
                   _loadTasks();
                 })
             : null,
       ),
       onSubmitted: (v) {
-        setState(() => _search = v.isEmpty ? null : v);
+        setState(() {
+          _search = v.isEmpty ? null : v;
+          _page = 1; // tìm mới → về trang 1 (trước giữ trang cũ → kết quả trống)
+        });
         _loadTasks();
       },
     );

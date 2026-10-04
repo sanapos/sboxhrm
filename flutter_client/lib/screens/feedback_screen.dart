@@ -216,7 +216,7 @@ class _FeedbackScreenState extends State<FeedbackScreen> with SingleTickerProvid
                 tabs: [
                   for (final t in _tabs)
                     Tab(
-                      child: Row(mainAxisSize: MainAxisSize.min, children: [
+                      child: FittedBox(fit: BoxFit.scaleDown, child: Row(mainAxisSize: MainAxisSize.min, children: [
                         Icon(switch (t) {
                           'mine' => Icons.outbox_rounded,
                           'inbox' => Icons.inbox_rounded,
@@ -230,7 +230,7 @@ class _FeedbackScreenState extends State<FeedbackScreen> with SingleTickerProvid
                               FeedbackUi.n(_counts['overdue']) > 0 ? SboxColors.danger : SboxColors.brand600,
                               solid: true),
                         ],
-                      ]),
+                      ])),
                     ),
                 ],
               ),

@@ -98,7 +98,10 @@ class _SboxDataTableState<T> extends State<SboxDataTable<T>> {
   @override
   void didUpdateWidget(covariant SboxDataTable<T> old) {
     super.didUpdateWidget(old);
-    if (old.rows.length != widget.rows.length) _page = 1;
+    // Lọc / tải lại → về trang 1; thêm / xóa đúng 1 dòng (sửa tại chỗ) → giữ trang đang xem
+    // (trước đây xóa 1 dòng ở trang 3 bị nhảy về trang 1). Trang vượt quá số trang được kẹp lúc build.
+    final diff = (old.rows.length - widget.rows.length).abs();
+    if (diff > 1) _page = 1;
   }
 
   @override
@@ -133,6 +136,7 @@ class _SboxDataTableState<T> extends State<SboxDataTable<T>> {
         _sortCol = i;
         _asc = true;
       }
+      _page = 1; // thứ tự đổi → xem lại từ đầu
     });
   }
 

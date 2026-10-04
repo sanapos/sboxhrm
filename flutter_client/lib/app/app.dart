@@ -1,3 +1,4 @@
+import 'sbox_scroll_behavior.dart';
 import '../widgets/impersonation_banner.dart';
 import '../screens/design_system_showcase_screen.dart';
 import 'dart:ui' as ui;
@@ -81,6 +82,7 @@ class ZKTecoApp extends StatelessWidget {
         return MaterialApp(
           title: SboxAppVariant.materialAppTitle,
           debugShowCheckedModeBanner: false,
+          scrollBehavior: const SboxScrollBehavior(),
           theme: themeProvider.lightTheme,
           darkTheme: themeProvider.darkTheme,
           themeMode:

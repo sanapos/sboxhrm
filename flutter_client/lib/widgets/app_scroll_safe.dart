@@ -115,7 +115,7 @@ class AppScrollSafe extends StatelessWidget {
 
 /// Bọc một [DataTable]/bảng rộng để cuộn được cả NGANG và DỌC kèm thanh cuộn.
 /// Dùng thay cho `SingleChildScrollView` đơn lẻ quanh bảng (hay bị cắt cột).
-class AppTableScroll extends StatelessWidget {
+class AppTableScroll extends StatefulWidget {
   const AppTableScroll({
     super.key,
     required this.child,
@@ -128,34 +128,52 @@ class AppTableScroll extends StatelessWidget {
   final double? minWidth;
 
   @override
-  Widget build(BuildContext context) {
-    final vController = ScrollController();
-    final hController = ScrollController();
+  State<AppTableScroll> createState() => _AppTableScrollState();
+}
 
+/// Bảng cuộn 2 chiều.
+/// - Bộ điều khiển giữ trong State (trước tạo lại mỗi lần build → bảng nhảy về đầu khi màn vẽ lại).
+/// - Cả 2 thanh cuộn bám khung nhìn: thanh ngang luôn ở đáy khung (trước nằm cuối bảng — bảng dài phải
+///   cuộn xuống hết mới thấy, tưởng không kéo ngang được).
+class _AppTableScrollState extends State<AppTableScroll> {
+  final _v = ScrollController();
+  final _h = ScrollController();
+
+  @override
+  void dispose() {
+    _v.dispose();
+    _h.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
     return LayoutBuilder(
       builder: (context, constraints) {
         // Bề rộng khả dụng (hữu hạn) để bảng giãn hết trên màn rộng.
         final avail = constraints.maxWidth.isFinite ? constraints.maxWidth : 0.0;
-        final floor = minWidth ?? 0;
+        final floor = widget.minWidth ?? 0;
         final target = avail > floor ? avail : floor;
 
         return Scrollbar(
-          controller: vController,
+          controller: _v,
           thumbVisibility: true,
-          child: SingleChildScrollView(
-            controller: vController,
-            scrollDirection: Axis.vertical,
-            padding: padding,
-            child: Scrollbar(
-              controller: hController,
-              thumbVisibility: true,
-              notificationPredicate: (n) => n.depth == 0,
+          notificationPredicate: (n) => n.depth == 0,
+          child: Scrollbar(
+            controller: _h,
+            thumbVisibility: true,
+            // Cuộn ngang nằm 1 cấp bên trong cuộn dọc.
+            notificationPredicate: (n) => n.depth == 1,
+            child: SingleChildScrollView(
+              controller: _v,
+              scrollDirection: Axis.vertical,
+              padding: widget.padding,
               child: SingleChildScrollView(
-                controller: hController,
+                controller: _h,
                 scrollDirection: Axis.horizontal,
                 child: ConstrainedBox(
                   constraints: BoxConstraints(minWidth: target),
-                  child: child,
+                  child: widget.child,
                 ),
               ),
             ),
