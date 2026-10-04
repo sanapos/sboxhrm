@@ -255,8 +255,10 @@ class _PosCashierShiftScreenState extends State<PosCashierShiftScreen> {
     return Scaffold(
       backgroundColor: SboxColors.slate100,
       appBar: AppBar(
-        backgroundColor: PosTheme.kiotBlue,
-        foregroundColor: Colors.white,
+        backgroundColor: Colors.white,
+        surfaceTintColor: Colors.white,
+        elevation: 0.5,
+        foregroundColor: SboxColors.text,
         automaticallyImplyLeading: pushed,
         title: Text(tr('Ca thu ngân')),
         actions: [

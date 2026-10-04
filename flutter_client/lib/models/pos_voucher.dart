@@ -1,3 +1,4 @@
+import '../utils/api_datetime.dart';
 class PosVoucher {
   final String id;
   final String code;
@@ -29,16 +30,17 @@ class PosVoucher {
     this.isActive = true,
   });
 
+  /// Máy chủ: Percent = 0, Fixed = 1 (JSON trả tên enum).
   bool get isPercent =>
       discountType.toLowerCase() == 'percent' ||
-      discountType == '1';
+      discountType == '0';
 
   factory PosVoucher.fromJson(Map<String, dynamic> json) {
     double n(dynamic v) => v is num ? v.toDouble() : double.tryParse('$v') ?? 0;
     int i(dynamic v) => v is num ? v.toInt() : int.tryParse('$v') ?? 0;
     DateTime? dt(dynamic v) {
       if (v == null) return null;
-      return DateTime.tryParse(v.toString());
+      return parseApiUtcDateTime(v);
     }
 
     return PosVoucher(
@@ -65,7 +67,7 @@ class PosVoucher {
   Map<String, dynamic> toSaveBody() => {
         'code': code,
         'name': name,
-        'discountType': isPercent ? 1 : 0,
+        'discountType': isPercent ? 0 : 1,
         'discountValue': discountValue,
         'minOrderAmount': minOrderAmount,
         if (maxDiscountAmount != null) 'maxDiscountAmount': maxDiscountAmount,

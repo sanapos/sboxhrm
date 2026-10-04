@@ -635,8 +635,10 @@ class _PosQrTableOrderScreenState extends State<PosQrTableOrderScreen> {
     return Scaffold(
       backgroundColor: SboxColors.slate100,
       appBar: HrmPageChrome.isHubBody(context) ? null : AppBar(
-        backgroundColor: PosTheme.kiotBlue,
-        foregroundColor: Colors.white,
+        backgroundColor: Colors.white,
+        surfaceTintColor: Colors.white,
+        elevation: 0.5,
+        foregroundColor: SboxColors.text,
         automaticallyImplyLeading: pushed,
         title: Text(tr('QR order tại bàn')),
         actions: [

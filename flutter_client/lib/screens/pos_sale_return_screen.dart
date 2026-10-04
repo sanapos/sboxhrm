@@ -363,13 +363,15 @@ class _PosSaleReturnScreenState extends State<PosSaleReturnScreen> {
       backgroundColor: PosTheme.background,
       appBar: AppBar(
         title: Text(tr(_order != null ? 'Trả hàng · ${_order!.orderNo}' : 'Trả hàng bán')),
-        backgroundColor: _kiotBlue,
-        foregroundColor: Colors.white,
+        backgroundColor: Colors.white,
+        surfaceTintColor: Colors.white,
+        elevation: 0.5,
+        foregroundColor: SboxColors.text,
         actions: [
           TextButton.icon(
             onPressed: _pickOrder,
-            icon: const Icon(Icons.receipt_long, color: Colors.white, size: 18),
-            label: Text(tr('Đổi HĐ'), style: TextStyle(color: Colors.white)),
+            icon: const Icon(Icons.receipt_long, color: SboxColors.primary, size: 18),
+            label: Text(tr('Đổi HĐ'), style: TextStyle(color: SboxColors.primary)),
           ),
         ],
       ),

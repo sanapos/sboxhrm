@@ -1280,8 +1280,10 @@ class _PosPrintTemplatesScreenState extends State<PosPrintTemplatesScreen> {
             ? null
             : AppBar(
                 title: Text(_editing ? tr('Sửa mẫu in') : tr('Mẫu in')),
-                backgroundColor: PosTheme.kiotBlue,
-                foregroundColor: Colors.white,
+                backgroundColor: Colors.white,
+        surfaceTintColor: Colors.white,
+        elevation: 0.5,
+                foregroundColor: SboxColors.text,
                 leading: IconButton(
                   icon: const Icon(Icons.arrow_back),
                   tooltip: tr('Quay lại'),
@@ -1292,7 +1294,7 @@ class _PosPrintTemplatesScreenState extends State<PosPrintTemplatesScreen> {
                         TextButton(
                           onPressed: _saving || _selected == null || !_canEditTpl ? null : _save,
                           child: Text(_dirty ? tr('Lưu*') : tr('Lưu'),
-                              style: const TextStyle(color: Colors.white, fontWeight: FontWeight.w700)),
+                              style: const TextStyle(color: SboxColors.primary, fontWeight: FontWeight.w700)),
                         ),
                       ]
                     : null,

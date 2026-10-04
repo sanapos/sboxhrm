@@ -521,8 +521,10 @@ class _PosProductPrinterAssignmentScreenState
       backgroundColor: PosTheme.background,
       appBar: AppBar(
         title: Text(tr('Gán sản phẩm cho máy in')),
-        backgroundColor: PosTheme.kiotBlue,
-        foregroundColor: Colors.white,
+        backgroundColor: Colors.white,
+        surfaceTintColor: Colors.white,
+        elevation: 0.5,
+        foregroundColor: SboxColors.text,
         leading: IconButton(
           icon: const Icon(Icons.arrow_back),
           tooltip: tr('Quay lại'),

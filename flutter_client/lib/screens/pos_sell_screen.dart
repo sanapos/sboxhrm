@@ -5611,11 +5611,18 @@ class _PosSellScreenState extends State<PosSellScreen>
     _SellCartLine? focusLine;
     setState(() {
       if (mergeIfSame) {
+        // Chỉ gộp vào dòng «trơn»: dòng có ghi chú / serial / đang tính giờ giữ riêng.
+        // Phần đã gửi bếp vẫn đúng nhờ kitchenSentQty (bếp chỉ nhận phần mới).
         final idx = _tab.cart.indexWhere((l) =>
             l.product.id == p.id &&
             l.variantId == view.variantId &&
             l.unitId == view.unitId &&
-            l.toppings.isEmpty);
+            l.toppings.isEmpty &&
+            (l.lineNote ?? '').trim().isEmpty &&
+            l.selectedQuickNotes.isEmpty &&
+            l.serialNumbers.isEmpty &&
+            l.timerStartedAt == null &&
+            l.kitchenCancelPendingQty == 0);
         if (idx >= 0) {
           if (!_validateStockForAdd(p, view, addQty: addQty)) return;
           _tab.cart[idx].qty += addQty;
@@ -15790,7 +15797,8 @@ class _PosSellScreenState extends State<PosSellScreen>
         storeId: _storeId,
         priceOverrides: overrides,
         allowNegativeStock: _allowNegativeStock,
-        onPick: _addPick,
+        // Bấm lại cùng món → tăng số lượng (như điện thoại / quét mã), không tạo dòng trùng.
+        onPick: (pick) => _addPick(pick, mergeIfSame: true),
         onSetQty: (product, qty, {areaNote}) {
           unawaited(_applyCatalogAreaQty(product, qty, areaNote: areaNote));
         },

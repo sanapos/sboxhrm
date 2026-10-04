@@ -60,93 +60,180 @@ class _PosVouchersScreenState extends State<PosVouchersScreen> {
   }
 
   Future<void> _openEditor([PosVoucher? existing]) async {
-    final codeCtrl = TextEditingController(text: tr(existing?.code ?? ''));
-    final nameCtrl = TextEditingController(text: tr(existing?.name ?? ''));
-    final valueCtrl = TextEditingController(
-      text: tr(existing != null ? existing.discountValue.toStringAsFixed(0) : ''),
-    );
-    final minCtrl = TextEditingController(
-      text: tr(existing != null ? existing.minOrderAmount.toStringAsFixed(0) : '0'),
-    );
+    String num0(double? v) => v == null ? '' : v.toStringAsFixed(v == v.roundToDouble() ? 0 : 2);
+    final codeCtrl = TextEditingController(text: existing?.code ?? '');
+    final nameCtrl = TextEditingController(text: existing?.name ?? '');
+    final valueCtrl = TextEditingController(text: num0(existing?.discountValue));
+    final minCtrl = TextEditingController(text: existing != null ? num0(existing.minOrderAmount) : '0');
+    final maxDiscCtrl = TextEditingController(text: num0(existing?.maxDiscountAmount));
+    final maxUsesCtrl = TextEditingController(text: existing?.maxUses?.toString() ?? '');
     var isPercent = existing?.isPercent ?? false;
     var isActive = existing?.isActive ?? true;
+    DateTime? from = existing?.validFrom?.toLocal();
+    DateTime? to = existing?.validTo?.toLocal();
+    final dayFmt = DateFormat('dd/MM/yyyy');
+    String? error;
 
     final ok = await showDialog<bool>(
       context: context,
       builder: (ctx) => StatefulBuilder(
-        builder: (ctx, setDlg) => AlertDialog(
-          title: Text(tr(existing == null ? 'Thêm voucher' : 'Sửa voucher')),
-          content: SingleChildScrollView(
-            child: Column(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                TextField(
-                  controller: codeCtrl,
-                  decoration: InputDecoration(labelText: tr('Mã voucher *')),
-                  textCapitalization: TextCapitalization.characters,
-                ),
-                TextField(
-                  controller: nameCtrl,
-                  decoration: InputDecoration(labelText: tr('Tên')),
-                ),
-                const SizedBox(height: 8),
-                SegmentedButton<bool>(
-                  segments: [
-                    ButtonSegment(value: false, label: Text(tr('Giảm tiền'))),
-                    ButtonSegment(value: true, label: Text(tr('Giảm %'))),
+        builder: (ctx, setDlg) {
+          Future<void> pickRange() async {
+            final now = DateTime.now();
+            final r = await showDateRangePicker(
+              context: ctx,
+              firstDate: DateTime(now.year - 2),
+              lastDate: DateTime(now.year + 5),
+              initialDateRange: from != null && to != null ? DateTimeRange(start: from!, end: to!) : null,
+            );
+            if (r != null) setDlg(() {
+              from = r.start;
+              to = r.end;
+            });
+          }
+
+          return AlertDialog(
+            title: Text(tr(existing == null ? 'Thêm voucher' : 'Sửa voucher')),
+            content: SizedBox(
+              width: 420,
+              child: SingleChildScrollView(
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  crossAxisAlignment: CrossAxisAlignment.stretch,
+                  children: [
+                    TextField(
+                      controller: codeCtrl,
+                      decoration: InputDecoration(labelText: tr('Mã voucher *')),
+                      textCapitalization: TextCapitalization.characters,
+                    ),
+                    TextField(controller: nameCtrl, decoration: InputDecoration(labelText: tr('Tên chương trình'))),
+                    const SizedBox(height: 12),
+                    SegmentedButton<bool>(
+                      segments: [
+                        ButtonSegment(value: false, label: Text(tr('Giảm tiền'))),
+                        ButtonSegment(value: true, label: Text(tr('Giảm %'))),
+                      ],
+                      selected: {isPercent},
+                      onSelectionChanged: (v) => setDlg(() => isPercent = v.first),
+                    ),
+                    Row(children: [
+                      Expanded(
+                        child: TextField(
+                          controller: valueCtrl,
+                          keyboardType: TextInputType.number,
+                          decoration: InputDecoration(
+                            labelText: tr(isPercent ? 'Phần trăm giảm *' : 'Số tiền giảm *'),
+                            suffixText: isPercent ? '%' : 'đ',
+                          ),
+                        ),
+                      ),
+                      if (isPercent) ...[
+                        const SizedBox(width: 12),
+                        Expanded(
+                          child: TextField(
+                            controller: maxDiscCtrl,
+                            keyboardType: TextInputType.number,
+                            decoration: InputDecoration(labelText: tr('Giảm tối đa'), suffixText: 'đ', hintText: tr('Không giới hạn')),
+                          ),
+                        ),
+                      ],
+                    ]),
+                    Row(children: [
+                      Expanded(
+                        child: TextField(
+                          controller: minCtrl,
+                          keyboardType: TextInputType.number,
+                          decoration: InputDecoration(labelText: tr('Đơn tối thiểu'), suffixText: 'đ'),
+                        ),
+                      ),
+                      const SizedBox(width: 12),
+                      Expanded(
+                        child: TextField(
+                          controller: maxUsesCtrl,
+                          keyboardType: TextInputType.number,
+                          decoration: InputDecoration(labelText: tr('Số lượt tối đa'), hintText: tr('Không giới hạn')),
+                        ),
+                      ),
+                    ]),
+                    const SizedBox(height: 12),
+                    InkWell(
+                      onTap: pickRange,
+                      child: InputDecorator(
+                        decoration: InputDecoration(
+                          labelText: tr('Thời gian hiệu lực'),
+                          suffixIcon: from == null
+                              ? const Icon(Icons.date_range_outlined)
+                              : IconButton(
+                                  tooltip: tr('Không giới hạn'),
+                                  icon: const Icon(Icons.clear),
+                                  onPressed: () => setDlg(() {
+                                    from = null;
+                                    to = null;
+                                  }),
+                                ),
+                        ),
+                        child: Text(from == null || to == null
+                            ? tr('Không giới hạn')
+                            : '${dayFmt.format(from!)} – ${dayFmt.format(to!)}'),
+                      ),
+                    ),
+                    SwitchListTile(
+                      contentPadding: EdgeInsets.zero,
+                      title: Text(tr('Đang hoạt động')),
+                      value: isActive,
+                      onChanged: (v) => setDlg(() => isActive = v),
+                    ),
+                    if (error != null)
+                      Text(tr(error!), style: SboxType.smallStyle(SboxColors.dangerText)),
                   ],
-                  selected: {isPercent},
-                  onSelectionChanged: (s) => setDlg(() => isPercent = s.first),
                 ),
-                TextField(
-                  controller: valueCtrl,
-                  keyboardType: TextInputType.number,
-                  decoration: InputDecoration(
-                    labelText: tr(isPercent ? 'Phần trăm' : 'Số tiền giảm'),
-                  ),
-                ),
-                TextField(
-                  controller: minCtrl,
-                  keyboardType: TextInputType.number,
-                  decoration: InputDecoration(labelText: tr('Đơn tối thiểu')),
-                ),
-                SwitchListTile(
-                  contentPadding: EdgeInsets.zero,
-                  title: Text(tr('Đang hoạt động')),
-                  value: isActive,
-                  onChanged: (v) => setDlg(() => isActive = v),
-                ),
-              ],
+              ),
             ),
-          ),
-          actions: [
-            TextButton(onPressed: () => Navigator.pop(ctx, false), child: Text(tr('Huỷ'))),
-            FilledButton(onPressed: () => Navigator.pop(ctx, true), child: Text(tr('Lưu'))),
-          ],
-        ),
+            actions: [
+              TextButton(onPressed: () => Navigator.pop(ctx, false), child: Text(tr('Huỷ'))),
+              FilledButton(
+                onPressed: () {
+                  final value = (isPercent
+                          ? double.tryParse(valueCtrl.text.trim().replaceAll(',', '.'))
+                          : double.tryParse(valueCtrl.text.replaceAll(',', '').replaceAll('.', ''))) ??
+                      0;
+                  if (codeCtrl.text.trim().isEmpty) return setDlg(() => error = 'Nhập mã voucher');
+                  if (value <= 0) return setDlg(() => error = 'Mức giảm phải lớn hơn 0');
+                  if (isPercent && value > 100) return setDlg(() => error = 'Giảm % không quá 100');
+                  Navigator.pop(ctx, true);
+                },
+                child: Text(tr('Lưu')),
+              ),
+            ],
+          );
+        },
       ),
     );
 
-    if (ok != true) {
-      codeCtrl.dispose();
-      nameCtrl.dispose();
-      valueCtrl.dispose();
-      minCtrl.dispose();
-      return;
+    double? parseMoney(TextEditingController c) {
+      final t = c.text.replaceAll(',', '').replaceAll('.', '').trim();
+      return t.isEmpty ? null : double.tryParse(t);
     }
 
-    final body = {
+    final body = <String, dynamic>{
       'code': codeCtrl.text.trim(),
       'name': nameCtrl.text.trim().isEmpty ? null : nameCtrl.text.trim(),
-      'discountType': isPercent ? 1 : 0,
-      'discountValue': double.tryParse(valueCtrl.text.replaceAll(',', '')) ?? 0,
-      'minOrderAmount': double.tryParse(minCtrl.text.replaceAll(',', '')) ?? 0,
+      // Máy chủ: Percent = 0, Fixed = 1 (trước đây gửi ngược → «giảm 10%» lưu thành giảm 10đ).
+      'discountType': isPercent ? 0 : 1,
+      'discountValue': (isPercent ? double.tryParse(valueCtrl.text.trim().replaceAll(',', '.')) : parseMoney(valueCtrl)) ?? 0,
+      'minOrderAmount': parseMoney(minCtrl) ?? 0,
+      // Gửi đủ các trường — trước đây sửa voucher làm mất hạn dùng / số lượt / giảm tối đa.
+      'maxDiscountAmount': isPercent ? parseMoney(maxDiscCtrl) : null,
+      'validFrom': from == null ? null : DateTime(from!.year, from!.month, from!.day).toUtc().toIso8601String(),
+      'validTo': to == null ? null : DateTime(to!.year, to!.month, to!.day, 23, 59, 59).toUtc().toIso8601String(),
+      'maxUses': int.tryParse(maxUsesCtrl.text.trim()),
+      'customerId': existing?.customerId,
       'isActive': isActive,
     };
-    codeCtrl.dispose();
-    nameCtrl.dispose();
-    valueCtrl.dispose();
-    minCtrl.dispose();
+    for (final c in [codeCtrl, nameCtrl, valueCtrl, minCtrl, maxDiscCtrl, maxUsesCtrl]) {
+      c.dispose();
+    }
+    if (ok != true) return;
 
     final res = existing == null
         ? await _api.createPosVoucher(body)
@@ -182,6 +269,15 @@ class _PosVouchersScreenState extends State<PosVouchersScreen> {
     String day(DateTime? d) => d == null ? '—' : DateFormat('dd/MM/yyyy').format(d.toLocal());
     return Scaffold(
       backgroundColor: SboxColors.page,
+      appBar: Navigator.of(context).canPop()
+          ? AppBar(
+              title: Text(tr('Voucher')),
+              backgroundColor: Colors.white,
+              foregroundColor: SboxColors.text,
+              surfaceTintColor: Colors.white,
+              elevation: 0.5,
+            )
+          : null,
       body: SboxReportLayout(
         onRefresh: _load,
         filters: SboxFilterBar(

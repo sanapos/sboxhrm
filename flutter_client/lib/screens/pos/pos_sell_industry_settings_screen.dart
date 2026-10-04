@@ -293,8 +293,10 @@ class _PosSellIndustrySettingsScreenState
       backgroundColor: PosTheme.background,
       appBar: AppBar(
         title: Text(tr(_title)),
-        backgroundColor: PosTheme.kiotBlue,
-        foregroundColor: Colors.white,
+        backgroundColor: Colors.white,
+        surfaceTintColor: Colors.white,
+        elevation: 0.5,
+        foregroundColor: SboxColors.text,
         actions: [
           if (_saving)
             const Padding(
@@ -305,7 +307,7 @@ class _PosSellIndustrySettingsScreenState
                   height: 20,
                   child: CircularProgressIndicator(
                     strokeWidth: 2,
-                    color: Colors.white,
+                    color: SboxColors.primary,
                   ),
                 ),
               ),
