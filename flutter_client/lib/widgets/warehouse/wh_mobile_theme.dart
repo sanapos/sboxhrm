@@ -178,7 +178,7 @@ abstract final class WhMobileTheme {
         _ => warning,
       };
 
-  static String statusLabel(String status, {String draftLabel = 'Nháp'}) =>
+  static String statusLabel(String status, {String draftLabel = 'Phiếu tạm'}) =>
       switch (status) {
         'Completed' => 'Hoàn thành',
         'Cancelled' => 'Đã hủy',

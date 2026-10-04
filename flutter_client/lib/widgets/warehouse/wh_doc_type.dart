@@ -62,7 +62,7 @@ extension WhDocTypeX on WhDocType {
 
   String get draftStatusLabel => switch (this) {
         WhDocType.stockCount => 'Đang kiểm',
-        _ => 'Nháp',
+        _ => 'Phiếu tạm', // cùng tên với bản máy tính
       };
 
   String get completeLabel => switch (this) {

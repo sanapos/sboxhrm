@@ -118,13 +118,13 @@ class _WhGlassAppBar extends StatelessWidget {
   }
 }
 
-/// Thanh hành động cố định dưới cùng — Lưu nháp + Hoàn thành.
+/// Thanh hành động cố định dưới cùng — Lưu tạm + Hoàn thành.
 class WhMobileBottomBar extends StatelessWidget {
   const WhMobileBottomBar({
     super.key,
     this.onSaveDraft,
     this.onComplete,
-    this.saveDraftLabel = 'Lưu nháp',
+    this.saveDraftLabel = 'Lưu tạm',
     this.completeLabel = 'Hoàn thành',
     this.loading = false,
     this.readOnly = false,
@@ -200,7 +200,7 @@ class WhMobileBottomBar extends StatelessWidget {
 }
 
 class WhStatusPill extends StatelessWidget {
-  const WhStatusPill({super.key, required this.status, this.draftLabel = 'Nháp'});
+  const WhStatusPill({super.key, required this.status, this.draftLabel = 'Phiếu tạm'});
 
   final String status;
   final String draftLabel;
@@ -273,7 +273,7 @@ class WhDocListTile extends StatelessWidget {
     required this.meta,
     this.subtitle,
     this.onTap,
-    this.draftLabel = 'Nháp',
+    this.draftLabel = 'Phiếu tạm',
   });
 
   final String docNo;

@@ -112,6 +112,7 @@ import 'pos/pos_mobile_hub_screen.dart';
 import 'pos/pos_qr_menu_screen.dart';
 import 'pos/pos_qr_online_orders_screen.dart';
 import 'pos/pos_kds_screen.dart';
+import 'pos/pos_topping_groups_screen.dart';
 import 'pos/pos_customer_display_settings_screen.dart';
 import 'pos/pos_printer_settings_hub_screen.dart';
 import 'pos/pos_store_printers_screen.dart';
@@ -409,6 +410,7 @@ class _MainLayoutState extends State<MainLayout> with WidgetsBindingObserver {
     final defs = <(String, IconData, String, List<String>, Widget Function())>[
       ('Voucher', Icons.confirmation_number_outlined, 'PosProducts', ['mã giảm giá', 'khuyến mãi'], () => const PosVouchersScreen()),
       ('Bảng giá', Icons.price_change_outlined, 'PosProducts', ['giá bán', 'price list'], () => const PosPriceListsScreen()),
+      ('Nhóm topping', Icons.local_cafe_outlined, 'PosProducts', ['topping', 'món thêm'], () => const PosToppingGroupsScreen()),
       ('Ca thu ngân', Icons.account_balance_wallet_outlined, 'PosCashierShift', ['giao ca', 'mở ca', 'chốt ca'], () => const PosCashierShiftScreen()),
       ('Xác nhận chuyển khoản', Icons.payments_outlined, 'PosSell', ['ck', 'vietqr'], () => const PosTransferConfirmScreen()),
       ('Lịch sử hủy / trả', Icons.history, 'PosSell', ['hủy đơn', 'trả hàng'], () => const PosCancelReturnHistoryScreen()),

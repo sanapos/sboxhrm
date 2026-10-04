@@ -1,6 +1,8 @@
 import 'dart:async';
 
 import 'package:flutter/material.dart';
+import '../../widgets/pos/pos_list_filters.dart';
+import '../../widgets/sbox/sbox_ui.dart';
 import 'package:intl/intl.dart';
 
 import '../../services/api_service.dart';
@@ -53,6 +55,7 @@ class _PosCancelReturnHistoryScreenState
   @override
   void dispose() {
     _actorCtrl.dispose();
+    _debounce?.cancel();
     _searchCtrl.dispose();
     super.dispose();
   }
@@ -272,110 +275,95 @@ class _PosCancelReturnHistoryScreenState
   }
 
   Widget _filters() {
-    Widget chip(String label, bool selected, VoidCallback onTap) => Padding(
-          padding: const EdgeInsets.only(right: 6),
-          child: ChoiceChip(
-            label: Text(tr(label), style: const TextStyle(fontSize: 12.5)),
-            selected: selected,
-            visualDensity: VisualDensity.compact,
-            onSelected: (_) => onTap(),
-          ),
-        );
     final spanDays = DateTime(_to.year, _to.month, _to.day).difference(DateTime(_from.year, _from.month, _from.day)).inDays + 1;
-    final isToday = spanDays == 1 && DateUtils.isSameDay(_to, DateTime.now());
-    return Material(
-      color: Colors.white,
-      child: Padding(
-        padding: const EdgeInsets.fromLTRB(12, 10, 12, 10),
-        child: Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
-          SingleChildScrollView(
-            scrollDirection: Axis.horizontal,
-            child: Row(children: [
-              chip('Hôm nay', isToday, () => _setRange(1)),
-              chip('7 ngày', spanDays == 7 && DateUtils.isSameDay(_to, DateTime.now()), () => _setRange(7)),
-              chip('30 ngày', spanDays == 30 && DateUtils.isSameDay(_to, DateTime.now()), () => _setRange(30)),
-              OutlinedButton.icon(
-                onPressed: () async {
-                  final r = await showDateRangePicker(
-                    context: context,
-                    firstDate: DateTime(2024),
-                    lastDate: DateTime.now().add(const Duration(days: 1)),
-                    initialDateRange: DateTimeRange(start: _from, end: _to),
-                  );
-                  if (r == null) return;
-                  setState(() {
-                    _from = r.start;
-                    _to = r.end;
-                  });
-                  unawaited(_load());
-                },
-                style: OutlinedButton.styleFrom(visualDensity: VisualDensity.compact),
-                icon: const Icon(Icons.date_range, size: 16),
-                label: Text('${_dayFmt.format(_from)} – ${_dayFmt.format(_to)}', style: const TextStyle(fontSize: 12.5)),
-              ),
-            ]),
+    final endsToday = DateUtils.isSameDay(_to, DateTime.now());
+    final rangeKey = !endsToday
+        ? 'custom'
+        : spanDays == 1
+            ? '1'
+            : spanDays == 7
+                ? '7'
+                : spanDays == 30
+                    ? '30'
+                    : 'custom';
+    // Một hàng kiểu HRM: tìm · thời gian · thao tác · tạm tính · lọc thêm (người hủy) — không còn nút «Lọc».
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(12, 12, 12, 8),
+      child: SboxFilterBar(
+        searchHint: 'Mã đơn / bàn / lý do',
+        searchController: _searchCtrl,
+        onSearch: (_) {
+          _debounce?.cancel();
+          _debounce = Timer(const Duration(milliseconds: 400), () => unawaited(_load()));
+        },
+        filters: [
+          SboxFilterChip<String>(
+            label: 'Thời gian',
+            value: rangeKey,
+            options: {
+              '1': 'Hôm nay',
+              '7': '7 ngày',
+              '30': '30 ngày',
+              'custom': rangeKey == 'custom' ? '${_dayFmt.format(_from)} – ${_dayFmt.format(_to)}' : 'Chọn ngày…',
+            },
+            onChanged: (v) async {
+              if (v != 'custom') return _setRange(int.parse(v));
+              final r = await showDateRangePicker(
+                context: context,
+                firstDate: DateTime(2024),
+                lastDate: DateTime.now().add(const Duration(days: 1)),
+                initialDateRange: DateTimeRange(start: _from, end: _to),
+              );
+              if (r == null) return;
+              setState(() {
+                _from = r.start;
+                _to = r.end;
+              });
+              unawaited(_load());
+            },
           ),
-          const SizedBox(height: 8),
-          SingleChildScrollView(
-            scrollDirection: Axis.horizontal,
-            child: Row(children: [
-              chip('Mọi thao tác', _action == _ActionFilter.all, () => _quickAction(_ActionFilter.all)),
-              chip('Hủy món bếp', _action == _ActionFilter.kitchenVoid, () => _quickAction(_ActionFilter.kitchenVoid)),
-              chip('Hủy đơn', _action == _ActionFilter.saleCancel, () => _quickAction(_ActionFilter.saleCancel)),
-              chip('Trả hàng', _action == _ActionFilter.saleReturn, () => _quickAction(_ActionFilter.saleReturn)),
-              const SizedBox(width: 6),
-              chip('Trước + sau tạm tính', _phase == _BillPhaseFilter.all, () {
-                setState(() => _phase = _BillPhaseFilter.all);
-                unawaited(_load());
-              }),
-              chip('Chỉ sau tạm tính', _phase == _BillPhaseFilter.after, () {
-                setState(() => _phase = _BillPhaseFilter.after);
-                unawaited(_load());
-              }),
-              chip('Chỉ trước tạm tính', _phase == _BillPhaseFilter.before, () {
-                setState(() => _phase = _BillPhaseFilter.before);
-                unawaited(_load());
-              }),
-            ]),
+          SboxFilterChip<_ActionFilter>(
+            label: 'Thao tác',
+            value: _action,
+            options: const {
+              _ActionFilter.all: 'Tất cả',
+              _ActionFilter.kitchenVoid: 'Hủy món bếp',
+              _ActionFilter.saleCancel: 'Hủy đơn',
+              _ActionFilter.saleReturn: 'Trả hàng',
+            },
+            onChanged: (v) {
+              setState(() => _action = v);
+              unawaited(_load());
+            },
           ),
-          const SizedBox(height: 8),
-          Row(children: [
-            Expanded(
-              child: TextField(
-                controller: _actorCtrl,
-                decoration: InputDecoration(
-                  hintText: tr('Người hủy'),
-                  prefixIcon: const Icon(Icons.person_search_outlined, size: 18),
-                  isDense: true,
-                  border: const OutlineInputBorder(),
-                ),
-                onSubmitted: (_) => _load(),
-              ),
-            ),
-            const SizedBox(width: 8),
-            Expanded(
-              child: TextField(
-                controller: _searchCtrl,
-                decoration: InputDecoration(
-                  hintText: tr('Mã đơn / bàn / lý do'),
-                  prefixIcon: const Icon(Icons.search, size: 18),
-                  isDense: true,
-                  border: const OutlineInputBorder(),
-                ),
-                onSubmitted: (_) => _load(),
-              ),
-            ),
-            const SizedBox(width: 4),
-            FilledButton(
-              onPressed: _load,
-              style: FilledButton.styleFrom(visualDensity: VisualDensity.compact),
-              child: Text(tr('Lọc')),
-            ),
-          ]),
-        ]),
+          SboxFilterChip<_BillPhaseFilter>(
+            label: 'Tạm tính',
+            value: _phase,
+            options: const {
+              _BillPhaseFilter.all: 'Trước + sau',
+              _BillPhaseFilter.after: 'Chỉ sau tạm tính',
+              _BillPhaseFilter.before: 'Chỉ trước tạm tính',
+            },
+            onChanged: (v) {
+              setState(() => _phase = v);
+              unawaited(_load());
+            },
+          ),
+          PosMoreFiltersButton(
+            activeCount: _actorCtrl.text.trim().isEmpty ? 0 : 1,
+            onApply: () => unawaited(_load()),
+            onClear: () {
+              _actorCtrl.clear();
+              unawaited(_load());
+            },
+            fields: () => [PosFilterField(label: 'Người hủy / trả', controller: _actorCtrl, hint: 'Tên hoặc email nhân viên')],
+          ),
+        ],
       ),
     );
   }
+
+  Timer? _debounce;
 
   @override
   Widget build(BuildContext context) {
