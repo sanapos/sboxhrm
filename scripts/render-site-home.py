@@ -25,9 +25,10 @@ SITES = {
     "hrm": {
         "origin": "https://sboxhrm.com",
         "brand": "SBOX HRM",
+        # Giữ khớp homeSeo() trong flutter_client/web/site-seo.js (JS ghi đè meta lúc chạy).
         "title": "Phần mềm chấm công, tính lương & quản lý nhân sự | SBOX HRM",
-        "description": "Chấm công khuôn mặt AI, máy ZKTeco ADMS, xếp ca và tính lương, BHXH, thuế TNCN tự động cho doanh nghiệp Việt Nam. Dùng thử miễn phí, không cần thẻ — đăng ký ngay!",
-        "keywords": "phần mềm chấm công, phần mềm tính lương, chấm công khuôn mặt, chấm công ZKTeco, lắp đặt máy chấm công, máy chấm công vân tay, máy chấm công khuôn mặt, máy chấm công giá tốt, miễn phí lắp đặt máy chấm công, chấm công qua điện thoại, phần mềm bảng lương, quản lý ca làm việc, phần mềm quản lý nhân sự, HRM Việt Nam, SBOX HRM, ADMS",
+        "description": "Phần mềm chấm công khuôn mặt, GPS, WiFi và máy ZKTeco; xếp ca, tính lương, BHXH, thuế TNCN tự động cho nhà hàng, chuỗi cửa hàng, nhà máy. Dùng thử miễn phí!",
+        "keywords": "phần mềm chấm công, phần mềm tính lương, phần mềm quản lý nhân sự, phần mềm HRM, phần mềm chấm công miễn phí, app chấm công, chấm công khuôn mặt, chấm công qua điện thoại, chấm công GPS, chấm công WiFi, chấm công online, chấm công ZKTeco, máy chấm công khuôn mặt, máy chấm công vân tay, lắp đặt máy chấm công, phần mềm bảng lương, lương sản phẩm, lương theo ca, quản lý ca làm việc, nghỉ phép online, BHXH, thuế TNCN, phần mềm nhân sự nhà hàng, chuỗi cửa hàng, nhà máy, doanh nghiệp vừa và nhỏ, HRM Việt Nam, SBOX HRM, ADMS",
         "og_image": "https://sboxhrm.com/images/landing/screenshot-01.jpg",
         "og_image_alt": "Giao diện SBOX HRM – phần mềm quản lý nhân sự và chấm công",
         "theme": "#0C56D0",
@@ -54,6 +55,14 @@ SITES = {
              "Không. Máy chấm công vẫn lưu bản ghi khi mất mạng và tự gửi bù lên SBOX khi có mạng lại."),
             ("Chấm công bằng điện thoại có chống được chấm công hộ không?",
              "Có. Mỗi lần chấm được xác minh khuôn mặt, vị trí GPS hoặc WiFi cửa hàng và đúng điện thoại đã được quản lý duyệt; ảnh chấm công được lưu để đối chiếu."),
+            ("Phần mềm chấm công SBOX HRM có miễn phí không?",
+             "Đăng ký là dùng thử miễn phí ngay, không cần thẻ thanh toán — chấm công, xếp ca và bảng lương trên dữ liệu thật. Khi dùng chính thức, chọn gói theo số nhân viên tại trang Bảng giá."),
+            ("Có chấm công bằng GPS, WiFi trên điện thoại không cần máy chấm công không?",
+             "Có. App chấm công SBOX HRM (Android, iOS) cho phép chấm công online bằng khuôn mặt kèm vị trí GPS hoặc WiFi của chi nhánh — phù hợp cửa hàng nhỏ, nhân viên thị trường, công trình."),
+            ("Tính được lương theo ca, lương sản phẩm và tăng ca không?",
+             "Được. Bảng lương tự tính theo ngày công, giờ công, lương theo ca, lương sản phẩm theo sản lượng, tăng ca, ngày lễ, phụ cấp, thưởng phạt, BHXH và thuế TNCN."),
+            ("Quản lý chuỗi nhiều chi nhánh, cửa hàng được không?",
+             "Được. Mỗi chi nhánh có ca, vị trí chấm công và quản lý riêng; chủ doanh nghiệp xem bảng công, bảng lương tập trung của cả chuỗi nhà hàng, cửa hàng hoặc nhà máy."),
             ("Có xuất bảng công, bảng lương ra Excel không?",
              "Có. Bảng công, bảng lương, phiếu lương và các báo cáo đều xuất được Excel để gửi kế toán hoặc lưu trữ."),
         ],
@@ -155,7 +164,7 @@ SOLUTIONS_SECTION = """
   <div style="max-width:1120px;margin:0 auto">
     <h2 class="section-title">{title}</h2>
     <p style="color:#475569;margin:6px 0 24px">{sub}</p>
-    <div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(300px,1fr));gap:16px">{cards}</div>
+    <div class="sol-grid" style="display:grid;grid-template-columns:repeat(auto-fill,minmax(300px,1fr));gap:16px">{cards}</div>
     <p style="margin-top:22px"><a href="/tinh-nang" style="font-weight:700">Xem tất cả tính năng →</a> &nbsp;·&nbsp; <a href="/bang-gia" style="font-weight:700">Bảng giá →</a></p>
     <div style="margin-top:34px;border-radius:16px;padding:22px 24px;background:#fff;border:1px solid #e2e8f0;display:flex;flex-wrap:wrap;gap:16px;align-items:center;justify-content:space-between">
       <div><strong style="font-size:18px">{res_title}</strong><div style="color:#475569;margin-top:4px">{res_items}</div></div>
@@ -171,7 +180,9 @@ LOCAL_SECTION = """
     <h2 class="section-title">Lắp đặt máy chấm công vân tay, khuôn mặt toàn quốc</h2>
     <p style="color:#475569;margin:6px 0 8px">Cung cấp máy chấm công ZKTeco giá tốt, <strong>miễn phí lắp đặt</strong> tận nơi và <strong>tặng phần mềm chấm công</strong> SBOX HRM khi mua máy — hoặc chấm công qua điện thoại không cần mua máy.</p>
     <p style="margin:0 0 18px"><a href="/lap-dat-may-cham-cong" style="font-weight:700">Xem dịch vụ lắp đặt & nhận báo giá →</a></p>
+    <details class="local-more desk-open"><summary>Xem 34 tỉnh, thành có lắp đặt tận nơi</summary>
     {groups}
+    </details>
   </div>
 </section>
 """

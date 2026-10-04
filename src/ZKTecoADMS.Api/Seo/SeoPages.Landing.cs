@@ -209,9 +209,12 @@ document.querySelectorAll('form.lead-form').forEach(function (f) {
             Crumbs(s, ("Trang chủ", s.Origin + "/"), ("Tính năng", url)),
             App(s, desc, features.Select(f => f.Title)),
         };
-        var sb = new StringBuilder(Head(s, title, desc, url, s.Origin + s.DefaultImage, "website", null, ld));
+        var kw = s.Code == "hrm"
+            ? "phần mềm chấm công, phần mềm tính lương, phần mềm quản lý nhân sự, phần mềm HRM, app chấm công, chấm công khuôn mặt, chấm công GPS, chấm công WiFi, chấm công ZKTeco, xếp ca, nghỉ phép online, lương sản phẩm, BHXH, thuế TNCN"
+            : null;
+        var sb = new StringBuilder(Head(s, title, desc, url, s.Origin + s.DefaultImage, "website", kw, ld));
         sb.Append("<section class=\"hero\"><div class=\"wrap\"><div class=\"crumb\" style=\"margin-top:0\"><a href=\"/\">Trang chủ</a> › Tính năng</div>");
-        sb.Append($"<h1>{(s.Code == "hrm" ? "Tính năng SBOX HRM" : "Tính năng SBOX POS")}</h1><p>{E(desc)}</p>");
+        sb.Append($"<h1>{(s.Code == "hrm" ? "Tính năng phần mềm chấm công, tính lương &amp; quản lý nhân sự SBOX HRM" : "Tính năng SBOX POS")}</h1><p>{E(desc)}</p>");
         sb.Append("<div class=\"lp-actions\" style=\"margin-top:16px\"><a class=\"btn\" href=\"/register\">Dùng thử miễn phí</a><a class=\"btn ghost\" href=\"/bang-gia\">Xem bảng giá</a></div></div></section>\n");
         sb.Append("<main class=\"wrap\">\n<div class=\"feat-grid\">\n");
         foreach (var f in features)
@@ -327,9 +330,12 @@ document.querySelectorAll('form.lead-form').forEach(function (f) {
         var ld = new List<object> { app, Crumbs(s, ("Trang chủ", s.Origin + "/"), ("Bảng giá", url)) };
         if (FaqLd(faq) is { } faqLd) ld.Add(faqLd);
 
-        var sb = new StringBuilder(Head(s, title, desc, url, s.Origin + s.DefaultImage, "website", null, ld));
+        var kw = s.Code == "hrm"
+            ? "bảng giá phần mềm chấm công, giá phần mềm tính lương, giá phần mềm quản lý nhân sự, phần mềm chấm công miễn phí, giá máy chấm công, SBOX HRM"
+            : null;
+        var sb = new StringBuilder(Head(s, title, desc, url, s.Origin + s.DefaultImage, "website", kw, ld));
         sb.Append("<section class=\"hero\"><div class=\"wrap\"><div class=\"crumb\" style=\"margin-top:0\"><a href=\"/\">Trang chủ</a> › Bảng giá</div>");
-        sb.Append($"<h1>Bảng giá {E(s.Brand)}</h1><p>{E(desc)}</p></div></section>\n<main class=\"wrap\">\n");
+        sb.Append($"<h1>{(s.Code == "hrm" ? "Bảng giá phần mềm chấm công, tính lương SBOX HRM" : "Bảng giá " + E(s.Brand))}</h1><p>{E(desc)}</p></div></section>\n<main class=\"wrap\">\n");
         if (plans.Count == 0) sb.Append("<p style=\"margin:30px 0\">Bảng giá đang được cập nhật — vui lòng để lại số điện thoại để nhận báo giá.</p>");
         sb.Append("<div class=\"plans\">\n");
         foreach (var p in plans)

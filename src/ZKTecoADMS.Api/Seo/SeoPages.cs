@@ -134,7 +134,14 @@ aside .box{border:1px solid var(--b);border-radius:14px;padding:18px;margin-bott
 .pager{display:flex;gap:8px;justify-content:center;margin:0 0 50px}.pager a,.pager span{padding:8px 14px;border:1px solid var(--b);border-radius:10px;text-decoration:none}.pager span{background:var(--c);color:#fff;border-color:var(--c)}
 .related{list-style:none;padding:0;margin:0}.related li{margin:0 0 12px;font-size:15px;line-height:1.45}.related a{text-decoration:none;color:var(--t);font-weight:600}.related a:hover{color:var(--c)}
 footer{border-top:1px solid var(--b);background:var(--bg);padding:30px 0;margin-top:30px;font-size:14px;color:var(--m)}footer .wrap{display:flex;gap:24px;flex-wrap:wrap;justify-content:space-between}footer a{color:var(--m);margin-right:14px}
-@media(max-width:900px){.layout{grid-template-columns:1fr}aside{order:2}nav.menu a.hide-m{display:none}body{font-size:16px} }
+.mbar{display:none}
+@media(max-width:900px){.layout{grid-template-columns:1fr}aside{order:2}body{font-size:16px;padding-bottom:72px}
+header.top .wrap{flex-wrap:wrap;height:auto;padding-top:10px;gap:8px}
+nav.menu{order:3;width:100%;margin:0 -20px;padding:0 20px 10px;flex-wrap:nowrap;overflow-x:auto;gap:8px;scrollbar-width:none}nav.menu::-webkit-scrollbar{display:none}
+nav.menu a{flex:0 0 auto;font-size:14px;padding:6px 12px;border:1px solid var(--b);border-radius:999px;background:var(--bg)}nav.menu a.btn{display:none}
+.mbar{display:flex;gap:10px;position:fixed;left:0;right:0;bottom:0;z-index:20;padding:10px 14px calc(10px + env(safe-area-inset-bottom));background:#fff;border-top:1px solid var(--b);box-shadow:0 -6px 20px rgba(15,23,42,.06)}
+.mbar a{flex:1;text-align:center;padding:12px 10px;border-radius:12px;font-weight:700;text-decoration:none;font-size:15px}.mbar .call{border:1.5px solid var(--c);color:var(--c)}.mbar .btn{padding:12px 10px}
+.hero{padding:22px 0 20px}.cards{gap:16px;grid-template-columns:1fr}.cta{padding:20px}footer .wrap{flex-direction:column;gap:12px}footer a{display:inline-block;margin:4px 14px 4px 0} }
 """;
 
     static string Header(SiteInfo s) => $"""
@@ -149,6 +156,7 @@ footer{border-top:1px solid var(--b);background:var(--bg);padding:30px 0;margin-
 <div><strong>{E(s.Brand)}</strong> — {E(s.Tagline)}<br>Hotline / Zalo: <a href="tel:+84973024042">0973 024 042</a> · Email: <a href="mailto:support@sboxhrm.com">support@sboxhrm.com</a><br>184 Nam Cao, Hòa Khánh, Đà Nẵng</div>
 <div><a href="/">Trang chủ</a><a href="/tinh-nang">Tính năng</a><a href="/bang-gia">Bảng giá</a><a href="/bai-viet">Bài viết</a><a href="/tai-lieu">Tài liệu</a>{(s.Code == "hrm" ? "<a href=\"/lap-dat-may-cham-cong\">Lắp đặt máy chấm công</a>" : "")}<a href="{s.Privacy}">Chính sách bảo mật</a>{(s.Terms == null ? "" : $"<a href=\"{s.Terms}\">Điều khoản</a>")}</div>
 </div></footer>
+<div class="mbar"><a class="call" href="tel:+84973024042">Gọi 0973 024 042</a><a class="btn" href="/register">Dùng thử miễn phí</a></div>
 </body>
 </html>
 """;
