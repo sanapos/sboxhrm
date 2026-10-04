@@ -224,7 +224,9 @@ public partial class PosReportsController
             .Where(x => x.StoreId == storeId);
         query = byCreated
             ? query.Where(x => x.CreatedAt >= fromDt && x.CreatedAt < toDt)
-            : query.Where(x => x.ReservedAt >= fromDt && x.ReservedAt < toDt);
+            // Giờ khách dùng bàn: đặt giữ chỗ (không thời lượng) lưu giờ đến ở ReservedUntil.
+            : query.Where(x => (x.DurationMinutes > 0 ? x.ReservedAt : (x.ReservedUntil ?? x.ReservedAt)) >= fromDt
+                            && (x.DurationMinutes > 0 ? x.ReservedAt : (x.ReservedUntil ?? x.ReservedAt)) < toDt);
 
         if (!string.IsNullOrWhiteSpace(status) &&
             Enum.TryParse<PosResourceReservationStatus>(status, true, out var st))
@@ -232,14 +234,14 @@ public partial class PosReportsController
 
         var ordered = byCreated
             ? query.OrderByDescending(x => x.CreatedAt)
-            : query.OrderByDescending(x => x.ReservedAt);
+            : query.OrderByDescending(x => x.DurationMinutes > 0 ? x.ReservedAt : (x.ReservedUntil ?? x.ReservedAt));
 
         var rows = await ordered
             .Select(x => new
             {
                 x.Id,
-                x.ReservedAt,
-                x.ReservedUntil,
+                ReservedAt = x.DurationMinutes > 0 ? x.ReservedAt : (x.ReservedUntil ?? x.ReservedAt),
+                ReservedUntil = x.DurationMinutes > 0 ? x.ReservedUntil : null,
                 x.CreatedAt,
                 x.GuestCount,
                 x.CustomerName,

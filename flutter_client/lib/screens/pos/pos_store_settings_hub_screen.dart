@@ -162,10 +162,22 @@ class _PosStoreSettingsHubScreenState extends State<PosStoreSettingsHubScreen> {
       m = local;
     }
     String t(String a) => (m[a] ?? m[a[0].toUpperCase() + a.substring(1)] ?? '').toString();
+    // Cửa hàng mới chưa lưu thông tin in → điền sẵn tên / địa chỉ / SĐT lúc đăng ký (chủ quán bấm Lưu để dùng).
+    var regName = '', regAddress = '', regPhone = '';
+    if (s.storeName.trim().isEmpty || s.address.trim().isEmpty || s.phone.trim().isEmpty) {
+      final reg = await ApiService().getPosQrOrderTables();
+      if (!mounted) return;
+      if (reg['isSuccess'] == true && reg['data'] is Map) {
+        final d = reg['data'] as Map;
+        regName = '${d['storeName'] ?? ''}'.trim();
+        regAddress = '${d['storeAddress'] ?? ''}'.trim();
+        regPhone = '${d['storePhone'] ?? ''}'.trim();
+      }
+    }
     setState(() {
-      _nameCtrl.text = s.storeName;
-      _addressCtrl.text = s.address;
-      _phoneCtrl.text = s.phone;
+      _nameCtrl.text = s.storeName.trim().isNotEmpty ? s.storeName : regName;
+      _addressCtrl.text = s.address.trim().isNotEmpty ? s.address : regAddress;
+      _phoneCtrl.text = s.phone.trim().isNotEmpty ? s.phone : regPhone;
       _taxMode = s.taxMode;
       _vatRate = s.defaultVatRate;
       _enableSurcharge = s.enableSurcharge;
