@@ -1579,13 +1579,9 @@ class _PosKdsScreenState extends State<PosKdsScreen> {
       color: _bar,
       child: Padding(
         padding: const EdgeInsets.fromLTRB(16, 0, 16, 12),
-        child: Row(
-          children: [
-            Expanded(
-              child: SingleChildScrollView(
-                scrollDirection: Axis.horizontal,
-                child: Row(
-                  children: [
+        // Điện thoại: một hàng cuộn duy nhất (trước đây 2 vùng cuộn chia nửa màn → chữ «Đang…» bị cắt).
+        child: LayoutBuilder(builder: (context, c) {
+          final leftChips = <Widget>[
                     label('${tr('Trạng thái')}:'),
                     _toneChip(tr('Tất cả'), null, _blue, _blueSoft),
                     _toneChip(tr('Đang làm'), 'cooking', _blue, _blueSoft),
@@ -1595,16 +1591,8 @@ class _PosKdsScreenState extends State<PosKdsScreen> {
                     label('${tr('Máy in')}:'),
                     _stationChip(null, tr('Tất cả')),
                     for (final s in _stations) _stationChip(s.id, s.name),
-                  ],
-                ),
-              ),
-            ),
-            const SizedBox(width: 8),
-            Flexible(
-              child: SingleChildScrollView(
-                scrollDirection: Axis.horizontal,
-                child: Row(
-                  children: [
+          ];
+          final rightChips = <Widget>[
                     _filterChip(
                       _newestFirst ? tr('Mới nhất') : tr('Lâu nhất'),
                       !_newestFirst,
@@ -1636,12 +1624,31 @@ class _PosKdsScreenState extends State<PosKdsScreen> {
                         });
                       },
                     ),
-                  ],
+          ];
+          if (c.maxWidth < 700) {
+            return SingleChildScrollView(
+              scrollDirection: Axis.horizontal,
+              child: Row(children: [...leftChips, const SizedBox(width: 8), ...rightChips]),
+            );
+          }
+          return Row(
+            children: [
+              Expanded(
+                child: SingleChildScrollView(
+                  scrollDirection: Axis.horizontal,
+                  child: Row(children: leftChips),
                 ),
               ),
-            ),
-          ],
-        ),
+              const SizedBox(width: 8),
+              Flexible(
+                child: SingleChildScrollView(
+                  scrollDirection: Axis.horizontal,
+                  child: Row(children: rightChips),
+                ),
+              ),
+            ],
+          );
+        }),
       ),
     );
   }

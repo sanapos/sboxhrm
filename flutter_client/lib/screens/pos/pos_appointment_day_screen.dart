@@ -10,6 +10,7 @@ import '../../models/pos_product.dart';
 import '../../models/pos_sell_industry.dart';
 import '../../services/api_service.dart';
 import '../../utils/safe_navigator.dart';
+import '../../widgets/hrm_page_chrome.dart';
 import '../../widgets/notification_overlay.dart';
 import '../../widgets/pos/pos_deposit_payment_picker.dart';
 import '../../widgets/pos/pos_theme.dart';
@@ -137,6 +138,11 @@ class _PosAppointmentDayScreenState extends State<PosAppointmentDayScreen> {
       .fold(0.0, (s, e) => s + e.depositPaid);
   double get _expectedRevenueSum =>
       _items.fold(0.0, (s, e) => s + e.expectedRevenue);
+  /// Cọc của khách không đến — cửa hàng giữ lại (thu nhập), không còn «đang giữ».
+  double get _depositForfeitedSum => _items
+      .where((e) => e.depositStatus.toLowerCase() == 'forfeited')
+      .fold(0.0, (s, e) => s + e.depositPaid);
+
 
   bool get _useRoomGrid =>
       _profile == PosSellProfile.hotel ||
@@ -1036,33 +1042,50 @@ class _PosAppointmentDayScreenState extends State<PosAppointmentDayScreen> {
       );
     }
 
-    return Scaffold(
-      backgroundColor: SboxColors.slate50,
-      appBar: AppBar(
-        title: Text(tr(_calendarTitle)),
-        actions: [
-          IconButton(
-            tooltip: tr(_showMonth ? 'Lịch ngày' : 'Lịch tháng'),
-            onPressed: _loading ? null : () => unawaited(_toggleMonthView()),
-            icon: Icon(_showMonth
-                ? Icons.view_agenda_outlined
-                : Icons.calendar_month),
-          ),
+    // Trong khung chính thanh trên đã có tiêu đề — không vẽ thêm «Lịch đặt bàn»; các nút chuyển xuống hàng ngày.
+    final hideTitle = HrmPageChrome.hideInPageTitle(context);
+    final headerActions = <Widget>[
+      IconButton(
+        tooltip: tr(_showMonth ? 'Xem theo ngày' : 'Xem theo tháng'),
+        onPressed: _loading ? null : () => unawaited(_toggleMonthView()),
+        icon: Icon(_showMonth ? Icons.view_agenda_outlined : Icons.calendar_month),
+      ),
+      PopupMenuButton<String>(
+        tooltip: tr('Thao tác khác'),
+        icon: const Icon(Icons.more_vert),
+        onSelected: (v) {
+          if (v == 'grid') setState(() => _showGrid = !_showGrid);
+          if (v == 'noshow') unawaited(_expireNoShows());
+        },
+        itemBuilder: (_) => [
           if (_useRoomGrid)
-            IconButton(
-              tooltip: tr(_showGrid ? 'Danh sách' : 'Lịch chỗ'),
-              onPressed: () => setState(() => _showGrid = !_showGrid),
-              icon: Icon(_showGrid
-                  ? Icons.view_list_outlined
-                  : Icons.grid_view_outlined),
+            PopupMenuItem(
+              value: 'grid',
+              child: ListTile(
+                dense: true,
+                leading: Icon(_showGrid ? Icons.view_list_outlined : Icons.grid_view_outlined),
+                title: Text(tr(_showGrid ? 'Xem dạng danh sách' : 'Xem lịch theo bàn / phòng')),
+              ),
             ),
-          IconButton(
-            tooltip: tr('Quét khách không đến'),
-            onPressed: _loading ? null : () => unawaited(_expireNoShows()),
-            icon: const Icon(Icons.event_busy_outlined),
+          PopupMenuItem(
+            value: 'noshow',
+            child: ListTile(
+              dense: true,
+              leading: const Icon(Icons.event_busy_outlined),
+              title: Text(tr('Đánh dấu khách không đến (quá giờ)')),
+            ),
           ),
         ],
       ),
+    ];
+    return Scaffold(
+      backgroundColor: SboxColors.slate50,
+      appBar: hideTitle
+          ? null
+          : AppBar(
+              title: Text(tr(_calendarTitle)),
+              actions: headerActions,
+            ),
       floatingActionButton: context.watch<PermissionProvider>().canCreate('PosBooking')
           ? FloatingActionButton.extended(
               onPressed: _resources.isEmpty
@@ -1098,7 +1121,7 @@ class _PosAppointmentDayScreenState extends State<PosAppointmentDayScreen> {
                               tr(_showMonth
                                   ? DateFormat('MMMM yyyy', 'vi_VN')
                                       .format(_month)
-                                  : DateFormat('EEEE, dd/MM/yyyy', 'vi_VN')
+                                  : DateFormat(hideTitle ? 'EEE, dd/MM/yyyy' : 'EEEE, dd/MM/yyyy', 'vi_VN')
                                       .format(_day)),
                               textAlign: TextAlign.center,
                               style: const TextStyle(
@@ -1114,6 +1137,7 @@ class _PosAppointmentDayScreenState extends State<PosAppointmentDayScreen> {
                             _showMonth ? _shiftMonth(1) : _shiftDay(1)),
                         icon: const Icon(Icons.chevron_right),
                       ),
+                      if (hideTitle) ...headerActions,
                     ],
                   ),
                   if (!_showMonth)
@@ -1184,26 +1208,37 @@ class _PosAppointmentDayScreenState extends State<PosAppointmentDayScreen> {
                       color: SboxColors.brand50,
                       borderRadius: BorderRadius.circular(10),
                     ),
-                    child: Row(
+                    // Số liệu CÙNG phạm vi đang xem (ngày / tháng) — trước đây số lịch theo ngày nhưng cọc /
+                    // tạm tính lại cộng cả 7 ngày, cọc mất của khách không đến không hiện.
+                    child: Wrap(
+                      spacing: 14,
+                      runSpacing: 4,
+                      crossAxisAlignment: WrapCrossAlignment.center,
                       children: [
-                        Expanded(
-                          child: Text(
-                            tr('${_showMonth ? _bookedCount : (_pipelineBooked ?? _bookedCount)} đặt'),
-                            style: const TextStyle(
-                                fontWeight: FontWeight.w700, fontSize: 13),
+                        Text(
+                          tr(_items.isEmpty
+                              ? 'Chưa có lịch'
+                              : [
+                                  '${_items.where((e) => !e.isCancelled).length} lịch',
+                                  if (_bookedCount > 0) '$_bookedCount chưa đến',
+                                  if (_items.any((e) => e.isSeated)) '${_items.where((e) => e.isSeated).length} đã nhận bàn',
+                                  if (_items.any((e) => e.isNoShow)) '${_items.where((e) => e.isNoShow).length} không đến',
+                                ].join(' · ')),
+                          style: const TextStyle(fontWeight: FontWeight.w700, fontSize: 13),
+                        ),
+                        Text(
+                          tr('Cọc đang giữ ${_moneyFmt.format(_depositHeldSum)}đ'),
+                          style: const TextStyle(fontSize: 12.5),
+                        ),
+                        if (_depositForfeitedSum > 0)
+                          Text(
+                            tr('Cọc mất (không đến) ${_moneyFmt.format(_depositForfeitedSum)}đ'),
+                            style: const TextStyle(fontSize: 12.5, color: Color(0xFFC2410C), fontWeight: FontWeight.w600),
                           ),
-                        ),
                         Text(
-                          tr(
-                              'Cọc ${_moneyFmt.format(_pipelineDeposit ?? _depositHeldSum)}đ'),
-                          style: const TextStyle(fontSize: 12),
-                        ),
-                        const SizedBox(width: 12),
-                        Text(
-                          tr(
-                              'Tạm tính ${_moneyFmt.format(_pipelineExpected ?? _expectedRevenueSum)}đ'),
+                          tr('Tạm tính ${_moneyFmt.format(_expectedRevenueSum)}đ'),
                           style: const TextStyle(
-                            fontSize: 12,
+                            fontSize: 12.5,
                             fontWeight: FontWeight.w700,
                             color: Color(0xFF0F766E),
                           ),
@@ -1211,14 +1246,13 @@ class _PosAppointmentDayScreenState extends State<PosAppointmentDayScreen> {
                       ],
                     ),
                   ),
-                  if (_upcomingBooked > 0)
+                  if (!_showMonth && _upcomingBooked > 0)
                     Padding(
-                      padding: const EdgeInsets.only(top: 6),
+                      padding: const EdgeInsets.only(top: 6, left: 4),
                       child: Align(
                         alignment: Alignment.centerLeft,
                         child: Text(
-                          tr(
-                              'Đã nhận $_upcomingBooked lịch dùng trong 7 ngày tới — mở đúng ngày trên lịch để chuẩn bị bàn. Cọc thu hôm đặt vào két ngày thu.'),
+                          tr('6 ngày tiếp theo còn $_upcomingBooked lịch chờ đến'),
                           style: TextStyle(
                             fontSize: 12,
                             color: PosTheme.textSecondary,
@@ -1232,13 +1266,13 @@ class _PosAppointmentDayScreenState extends State<PosAppointmentDayScreen> {
                     child: Row(
                       children: [
                         filterChip('all', 'Tất cả (${_items.length})'),
-                        filterChip('booked', 'Đặt ($_bookedCount)'),
+                        filterChip('booked', 'Chưa đến ($_bookedCount)'),
                         filterChip(
                             'seated',
-                            'Đã dùng (${_items.where((e) => e.isSeated).length})'),
+                            'Đã nhận bàn (${_items.where((e) => e.isSeated).length})'),
                         filterChip(
                             'cancelled',
-                            'Hủy (${_items.where((e) => e.isCancelled).length})'),
+                            'Đã hủy (${_items.where((e) => e.isCancelled).length})'),
                         filterChip(
                             'noshow',
                             'Không đến (${_items.where((e) => e.isNoShow).length})'),
@@ -1483,9 +1517,13 @@ class _PosAppointmentDayScreenState extends State<PosAppointmentDayScreen> {
                                                     if (b.preOrderValue > 0)
                                                       'Món ${_moneyFmt.format(b.preOrderValue)}đ',
                                                   ].join(' · ')),
-                                                  style: const TextStyle(
+                                                  style: TextStyle(
                                                     fontSize: 12,
-                                                    color: Color(0xFF0F766E),
+                                                    color: b.depositStatus.toLowerCase() == 'forfeited'
+                                                        ? const Color(0xFFC2410C)
+                                                        : b.depositStatus.toLowerCase() == 'refunded'
+                                                            ? SboxColors.slate500
+                                                            : const Color(0xFF0F766E),
                                                     fontWeight:
                                                         FontWeight.w600,
                                                   ),

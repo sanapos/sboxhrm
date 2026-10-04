@@ -323,9 +323,26 @@ class _PosVouchersScreenState extends State<PosVouchersScreen> {
                 label: 'Giảm',
                 numeric: true,
                 minWidth: 110,
-                text: (v) => v.isPercent
-                    ? '${v.discountValue.toStringAsFixed(0)}%${v.maxDiscountAmount != null && v.maxDiscountAmount! > 0 ? ' (≤ ${SboxFmt.money(v.maxDiscountAmount!)})' : ''}'
-                    : SboxFmt.money(v.discountValue),
+                // Voucher cũ lưu nhầm kiểu giảm (vd «giảm 50.000%») → báo đỏ để sửa lại.
+                cell: (v) {
+                  final wrong = v.isPercent && v.discountValue > 100;
+                  return Tooltip(
+                    message: wrong ? tr('Sai kiểu giảm: % không thể quá 100 — bấm để sửa thành «Giảm tiền»') : '',
+                    child: Text(
+                      wrong
+                          ? tr('${v.discountValue.toStringAsFixed(0)}% ⚠ sai kiểu')
+                          : v.isPercent
+                              ? '${v.discountValue.toStringAsFixed(0)}%${v.maxDiscountAmount != null && v.maxDiscountAmount! > 0 ? ' (≤ ${SboxFmt.money(v.maxDiscountAmount!)})' : ''}'
+                              : SboxFmt.money(v.discountValue),
+                      textAlign: TextAlign.right,
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      style: wrong
+                          ? const TextStyle(color: SboxColors.dangerText, fontWeight: FontWeight.w700)
+                          : const TextStyle(fontWeight: FontWeight.w600),
+                    ),
+                  );
+                },
               ),
               SboxColumn(label: 'Đơn tối thiểu', numeric: true, minWidth: 120, hideOnMobile: true,
                   text: (v) => v.minOrderAmount > 0 ? SboxFmt.money(v.minOrderAmount) : '—'),

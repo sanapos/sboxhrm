@@ -45,4 +45,15 @@ public class PosVoucherTests(PosPgFixture fx) : PosFlowTestBase(fx)
         // Lượt thứ hai (vẫn khách lẻ) phải bị chặn — trước đây khách lẻ không bị đếm lượt.
         Assert.NotNull(await SellWithVoucher());
     }
+
+    [Fact]
+    public void Khong_cho_luu_voucher_giam_phan_tram_qua_100()
+    {
+        PosVouchersController.VoucherSaveDto Dto(PosVoucherDiscountType t, decimal v) =>
+            new("X", null, t, v, 0, null, null, null, null, null);
+        Assert.NotNull(PosVouchersController.ValidateValue(Dto(PosVoucherDiscountType.Percent, 50000)));
+        Assert.NotNull(PosVouchersController.ValidateValue(Dto(PosVoucherDiscountType.Fixed, 0)));
+        Assert.Null(PosVouchersController.ValidateValue(Dto(PosVoucherDiscountType.Percent, 10)));
+        Assert.Null(PosVouchersController.ValidateValue(Dto(PosVoucherDiscountType.Fixed, 50000)));
+    }
 }

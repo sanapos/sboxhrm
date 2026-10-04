@@ -31,9 +31,9 @@ extension WhDocTypeX on WhDocType {
   String get createLabel => switch (this) {
         WhDocType.purchaseReceipt => 'Tạo phiếu nhập',
         WhDocType.purchaseReturn => 'Tạo phiếu trả',
-        WhDocType.stockCount => 'Tạo phiếu KK',
-        WhDocType.damageIssue => 'Tạo phiếu XH',
-        WhDocType.internalUseIssue => 'Tạo phiếu XDNB',
+        WhDocType.stockCount => 'Tạo phiếu kiểm',
+        WhDocType.damageIssue => 'Tạo phiếu hủy',
+        WhDocType.internalUseIssue => 'Tạo phiếu xuất dùng',
       };
 
   IconData get icon => switch (this) {

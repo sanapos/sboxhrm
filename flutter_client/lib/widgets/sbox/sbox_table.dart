@@ -311,56 +311,86 @@ class _SboxDataTableState<T> extends State<SboxDataTable<T>> {
   }
 
   // ── Dạng thẻ (điện thoại) ──
+  /// Thẻ điện thoại gọn (kiểu danh sách KiotViet):
+  /// - hàng 1: cột chính (tên / mã) + số tiền đầu tiên bên phải
+  /// - hàng 2: các cột chữ nối « · » (bỏ ô trống)
+  /// - hàng 3: nhãn trạng thái / nút + các cột số còn lại dạng «Nhãn giá trị»
+  /// Trước đây mọi cột thành lưới «nhãn trên / giá trị dưới» 2 cột → mỗi thẻ cao 4–6 dòng.
   Widget _buildCards(List<T> rows) {
     final cols = widget.columns.where((c) => !c.hideOnMobile).toList();
     final primary = cols.firstWhere((c) => c.primary, orElse: () => cols.first);
     final rest = cols.where((c) => !identical(c, primary)).toList();
+    final numeric = rest.where((c) => c.numeric).toList();
+    final lead = numeric.isNotEmpty ? numeric.first : null;
+    final texts = rest.where((c) => !c.numeric && c.cell == null).toList();
+    final widgetsCols = rest.where((c) => !c.numeric && c.cell != null).toList();
+    final otherNums = numeric.skip(1).toList();
+    bool blank(String v) => v.trim().isEmpty || v.trim() == '—' || v.trim() == '-';
+
     return Column(children: [
       for (final r in rows)
         InkWell(
           onTap: widget.onRowTap == null ? null : () => widget.onRowTap!(r),
           child: Container(
-            padding: const EdgeInsets.all(SboxSpace.md),
+            padding: const EdgeInsets.fromLTRB(SboxSpace.md, 10, SboxSpace.md, 10),
             decoration: BoxDecoration(
               color: r == widget.selectedRow ? SboxColors.brand50 : SboxColors.surface,
               border: const Border(bottom: BorderSide(color: SboxColors.divider)),
             ),
-            child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-              Row(children: [
+            child: Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
+              Row(crossAxisAlignment: CrossAxisAlignment.start, children: [
                 Expanded(
                   child: primary.cell != null
                       ? primary.cell!(r)
                       : Text(primary.text!(r), style: SboxType.bodyStrong(), maxLines: 2, overflow: TextOverflow.ellipsis),
                 ),
+                if (lead != null) ...[
+                  const SizedBox(width: SboxSpace.sm),
+                  DefaultTextStyle.merge(
+                    style: const TextStyle(fontWeight: FontWeight.w700),
+                    child: lead.cell != null
+                        ? lead.cell!(r)
+                        : Text(lead.text!(r), maxLines: 1, style: SboxType.moneyStyle(size: SboxType.body)),
+                  ),
+                ],
                 if (widget.rowActions != null) widget.rowActions!(r),
               ]),
-              // Các cột còn lại: lưới 2 cột, nhãn nhỏ ở trên, giá trị ở dưới — nhãn dài không bị cắt «…».
-              if (rest.isNotEmpty)
+              Builder(builder: (context) {
+                final parts = [
+                  for (final c in texts)
+                    if (!blank(c.text!(r))) c.text!(r),
+                ];
+                if (parts.isEmpty) return const SizedBox.shrink();
+                return Padding(
+                  padding: const EdgeInsets.only(top: 3),
+                  child: Text(
+                    parts.join(' · '),
+                    maxLines: 2,
+                    overflow: TextOverflow.ellipsis,
+                    style: SboxType.smallStyle(SboxColors.textSecondary),
+                  ),
+                );
+              }),
+              if (widgetsCols.isNotEmpty || otherNums.isNotEmpty)
                 Padding(
-                  padding: const EdgeInsets.only(top: SboxSpace.sm),
-                  child: LayoutBuilder(builder: (context, cons) {
-                    final half = (cons.maxWidth - SboxSpace.md) / 2;
-                    return Wrap(spacing: SboxSpace.md, runSpacing: SboxSpace.sm, children: [
-                      for (final c in rest)
-                        SizedBox(
-                          width: half,
-                          child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-                            Text(tr(c.label), style: SboxType.captionStyle(), maxLines: 2, overflow: TextOverflow.ellipsis),
-                            const SizedBox(height: 1),
-                            c.cell != null
-                                ? c.cell!(r)
-                                : Text(
-                                    c.text!(r),
-                                    maxLines: 2,
-                                    overflow: TextOverflow.ellipsis,
-                                    style: c.numeric
-                                        ? SboxType.moneyStyle(size: SboxType.small)
-                                        : SboxType.smallStyle(SboxColors.text),
-                                  ),
-                          ]),
-                        ),
-                    ]);
-                  }),
+                  padding: const EdgeInsets.only(top: 6),
+                  child: Wrap(
+                    spacing: SboxSpace.md,
+                    runSpacing: 4,
+                    crossAxisAlignment: WrapCrossAlignment.center,
+                    children: [
+                      for (final c in widgetsCols) c.cell!(r),
+                      for (final c in otherNums)
+                        Row(mainAxisSize: MainAxisSize.min, children: [
+                          Text('${tr(c.label)} ', style: SboxType.captionStyle()),
+                          c.cell != null
+                              ? c.cell!(r)
+                              : Text(c.text!(r),
+                                  maxLines: 1,
+                                  style: SboxType.moneyStyle(size: SboxType.small)),
+                        ]),
+                    ],
+                  ),
                 ),
             ]),
           ),

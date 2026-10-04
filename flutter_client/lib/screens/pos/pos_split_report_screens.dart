@@ -122,7 +122,7 @@ class PosReportsHubScreen extends StatelessWidget {
                 : header,
           Expanded(
             child: ListView(
-              padding: const EdgeInsets.fromLTRB(20, 20, 20, 28),
+              padding: const EdgeInsets.fromLTRB(14, 14, 14, 28),
               children: [
                 _PosReportsHubSection(items: items),
               ],
@@ -134,7 +134,23 @@ class PosReportsHubScreen extends StatelessWidget {
   }
 }
 
-class _PosReportsHubSection extends StatelessWidget {
+/// Nhóm báo cáo: 23 báo cáo xếp theo việc cần xem (bán hàng / tiền / kho / nhân viên / ngành) —
+/// trước đây là một danh sách dài thẻ cao, phải cuộn mãi mới thấy báo cáo cần.
+const _hubGroups = <(String, IconData, List<String>)>[
+  ('Bán hàng', Icons.point_of_sale_outlined, [
+    'Doanh thu', 'Hàng hóa bán ra', 'Bán theo khách', 'Phương thức thanh toán', 'Tổng kết cuối ngày',
+    'Voucher', 'Đặt bàn & cọc', 'Vận chuyển', 'Hóa đơn điện tử',
+  ]),
+  ('Tài chính', Icons.account_balance_wallet_outlined, [
+    'Kết quả kinh doanh', 'Lợi nhuận', 'Chi phí', 'Sổ quỹ', 'Công nợ', 'Thuế hộ kinh doanh',
+  ]),
+  ('Hàng hóa & kho', Icons.inventory_2_outlined, [
+    'Tồn kho', 'Sức khỏe kho', 'Hàng sắp hết hạn', 'Báo cáo nhập hàng',
+  ]),
+  ('Nhân viên', Icons.badge_outlined, ['Doanh thu theo nhân viên', 'Hoa hồng nhân viên']),
+];
+
+class _PosReportsHubSection extends StatefulWidget {
   const _PosReportsHubSection({required this.items});
 
   final List<
@@ -147,112 +163,114 @@ class _PosReportsHubSection extends StatelessWidget {
       })> items;
 
   @override
+  State<_PosReportsHubSection> createState() => _PosReportsHubSectionState();
+}
+
+class _PosReportsHubSectionState extends State<_PosReportsHubSection> {
+  String _q = '';
+
+  @override
   Widget build(BuildContext context) {
-    const color = PosTheme.kiotBlue;
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.stretch,
-      children: [
-        Row(
-          children: [
-            Container(
-              width: 36,
-              height: 36,
-              decoration: BoxDecoration(
-                gradient: LinearGradient(
-                  begin: Alignment.topLeft,
-                  end: Alignment.bottomRight,
-                  colors: [color, color.withOpacity(0.72)],
-                ),
+    final q = SboxCommandPalette.fold(_q.trim());
+    final items = widget.items
+        .where((i) => q.isEmpty ||
+            SboxCommandPalette.fold(i.label).contains(q) ||
+            SboxCommandPalette.fold(i.subtitle).contains(q))
+        .toList();
+    final used = <String>{};
+    final groups = <(String, IconData, List<dynamic>)>[];
+    for (final g in _hubGroups) {
+      final list = [for (final l in g.$3) ...items.where((i) => i.label == l)];
+      used.addAll(list.map((i) => i.label));
+      if (list.isNotEmpty) groups.add((g.$1, g.$2, list));
+    }
+    final rest = items.where((i) => !used.contains(i.label)).toList();
+    if (rest.isNotEmpty) groups.add(('Theo ngành', Icons.storefront_outlined, rest));
+
+    return LayoutBuilder(builder: (context, c) {
+      final cols = c.maxWidth >= 1100 ? 3 : (c.maxWidth >= 680 ? 2 : 1);
+      return Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          TextField(
+            decoration: InputDecoration(
+              prefixIcon: const Icon(Icons.search),
+              hintText: tr('Tìm báo cáo (doanh thu, tồn kho, công nợ…)'),
+              isDense: true,
+              filled: true,
+              fillColor: Colors.white,
+              border: OutlineInputBorder(
                 borderRadius: BorderRadius.circular(10),
-                boxShadow: [
-                  BoxShadow(
-                    color: color.withOpacity(0.22),
-                    blurRadius: 10,
-                    offset: const Offset(0, 4),
-                  ),
-                ],
+                borderSide: const BorderSide(color: SboxColors.slate200),
               ),
-              child: const Icon(Icons.assessment, size: 18, color: Colors.white),
-            ),
-            const SizedBox(width: 12),
-            Expanded(
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text(
-                    tr('Báo cáo'),
-                    style: const TextStyle(
-                      fontSize: 16,
-                      fontWeight: FontWeight.w700,
-                      color: PosReportsHubScreen._ink,
-                      letterSpacing: -0.3,
-                    ),
-                  ),
-                  const SizedBox(height: 2),
-                  Text(
-                    tr('Phân tích số liệu'),
-                    style: const TextStyle(
-                      fontSize: 12,
-                      color: PosReportsHubScreen._muted,
-                    ),
-                  ),
-                ],
+              enabledBorder: OutlineInputBorder(
+                borderRadius: BorderRadius.circular(10),
+                borderSide: const BorderSide(color: SboxColors.slate200),
               ),
             ),
-            Container(
-              padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-              decoration: BoxDecoration(
-                color: color.withOpacity(0.08),
-                borderRadius: BorderRadius.circular(14),
-              ),
-              child: Text(
-                '${items.length}',
-                style: const TextStyle(
-                  fontSize: 12,
-                  fontWeight: FontWeight.w700,
-                  color: color,
+            onChanged: (v) => setState(() => _q = v),
+          ),
+          const SizedBox(height: 14),
+          if (groups.isEmpty)
+            Padding(
+              padding: const EdgeInsets.all(32),
+              child: Center(child: Text(tr('Không tìm thấy báo cáo'), style: const TextStyle(color: SboxColors.slate600))),
+            ),
+          for (final g in groups) ...[
+            Padding(
+              padding: const EdgeInsets.fromLTRB(4, 4, 4, 8),
+              child: Row(children: [
+                Icon(g.$2, size: 18, color: PosTheme.kiotBlue),
+                const SizedBox(width: 8),
+                Text(tr(g.$1),
+                    style: const TextStyle(fontSize: 15, fontWeight: FontWeight.w700, color: PosReportsHubScreen._ink)),
+                const SizedBox(width: 6),
+                Text('${g.$3.length}', style: const TextStyle(fontSize: 12, color: PosReportsHubScreen._muted)),
+              ]),
+            ),
+            if (cols == 1)
+              Container(
+                margin: const EdgeInsets.only(bottom: 16),
+                decoration: BoxDecoration(
+                  color: Colors.white,
+                  borderRadius: BorderRadius.circular(14),
+                  border: Border.all(color: const Color(0xFFE8ECF0)),
+                ),
+                clipBehavior: Clip.antiAlias,
+                child: Column(children: [
+                  for (var i = 0; i < g.$3.length; i++) ...[
+                    if (i > 0) const Divider(height: 1, indent: 60, color: Color(0xFFEEF1F4)),
+                    _PosReportHubCard(item: g.$3[i], flat: true),
+                  ],
+                ]),
+              )
+            else
+              Padding(
+                padding: const EdgeInsets.only(bottom: 18),
+                child: Wrap(
+                  spacing: 12,
+                  runSpacing: 12,
+                  children: [
+                    for (final item in g.$3)
+                      SizedBox(
+                        width: (c.maxWidth - (cols - 1) * 12) / cols,
+                        child: _PosReportHubCard(item: item),
+                      ),
+                  ],
                 ),
               ),
-            ),
           ],
-        ),
-        const SizedBox(height: 16),
-        LayoutBuilder(
-          builder: (context, constraints) {
-            final w = constraints.maxWidth;
-            final cols = w >= 1100 ? 3 : (w >= 640 ? 2 : 1);
-            final gap = 12.0;
-            if (cols == 1) {
-              return Column(
-                children: [
-                  for (final item in items)
-                    Padding(
-                      padding: const EdgeInsets.only(bottom: 10),
-                      child: _PosReportHubCard(item: item),
-                    ),
-                ],
-              );
-            }
-            return Wrap(
-              spacing: gap,
-              runSpacing: gap,
-              children: [
-                for (final item in items)
-                  SizedBox(
-                    width: (w - (cols - 1) * gap) / cols,
-                    child: _PosReportHubCard(item: item),
-                  ),
-              ],
-            );
-          },
-        ),
-      ],
-    );
+        ],
+      );
+    });
   }
 }
 
 class _PosReportHubCard extends StatelessWidget {
-  const _PosReportHubCard({required this.item});
+  const _PosReportHubCard({required this.item, this.flat = false});
+
+  /// Điện thoại: dòng phẳng trong khung nhóm (không bóng / viền riêng).
+  final bool flat;
 
   final ({
     String label,
@@ -281,8 +299,8 @@ class _PosReportHubCard extends StatelessWidget {
           );
         },
         child: Ink(
-          padding: const EdgeInsets.fromLTRB(16, 16, 14, 16),
-          decoration: BoxDecoration(
+          padding: flat ? const EdgeInsets.fromLTRB(14, 10, 12, 10) : const EdgeInsets.fromLTRB(16, 16, 14, 16),
+          decoration: flat ? const BoxDecoration(color: Colors.white) : BoxDecoration(
             color: Colors.white,
             borderRadius: BorderRadius.circular(14),
             border: Border.all(color: const Color(0xFFE8ECF0)),
@@ -302,8 +320,8 @@ class _PosReportHubCard extends StatelessWidget {
           child: Row(
             children: [
               Container(
-                width: 44,
-                height: 44,
+                width: flat ? 36 : 44,
+                height: flat ? 36 : 44,
                 decoration: BoxDecoration(
                   gradient: LinearGradient(
                     begin: Alignment.topLeft,

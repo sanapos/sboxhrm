@@ -73,6 +73,18 @@ public class PosVouchersController(ZKTecoDbContext dbContext) : AuthenticatedCon
         }));
     }
 
+    /// <summary>
+    /// Giảm % phải trong (0, 100]; giảm tiền phải &gt; 0. Trước đây app gửi nhầm kiểu giảm nên có voucher
+    /// «giảm 50.000%» → máy chủ cắt bằng giá trị đơn = miễn phí cả đơn.
+    /// </summary>
+    internal static string? ValidateValue(VoucherSaveDto dto)
+    {
+        if (dto.DiscountValue <= 0) return "Giá trị giảm phải lớn hơn 0";
+        if (dto.DiscountType == PosVoucherDiscountType.Percent && dto.DiscountValue > 100)
+            return "Giảm theo % không được quá 100% — muốn giảm số tiền thì chọn «Giảm tiền»";
+        return null;
+    }
+
     [HttpPost]
     [RequireModulePermission("PosProducts", ModulePermissionAction.Create)]
     public async Task<ActionResult<AppResponse<VoucherDto>>> Create([FromBody] VoucherSaveDto dto)
@@ -82,6 +94,8 @@ public class PosVouchersController(ZKTecoDbContext dbContext) : AuthenticatedCon
         if (code.Length == 0) return BadRequest(AppResponse<VoucherDto>.Fail("Mã voucher không được trống"));
         if (await dbContext.PosVouchers.AnyAsync(v => v.StoreId == storeId && v.Code == code && v.Deleted == null))
             return BadRequest(AppResponse<VoucherDto>.Fail("Mã voucher đã tồn tại"));
+        if (ValidateValue(dto) is string valueError)
+            return BadRequest(AppResponse<VoucherDto>.Fail(valueError));
 
         var v = new PosVoucher
         {
@@ -116,6 +130,8 @@ public class PosVouchersController(ZKTecoDbContext dbContext) : AuthenticatedCon
         if (code.Length == 0) return BadRequest(AppResponse<VoucherDto>.Fail("Mã voucher không được trống"));
         if (code != v.Code && await dbContext.PosVouchers.AnyAsync(x => x.StoreId == storeId && x.Code == code && x.Id != id && x.Deleted == null))
             return BadRequest(AppResponse<VoucherDto>.Fail("Mã voucher đã tồn tại"));
+        if (ValidateValue(dto) is string valueError)
+            return BadRequest(AppResponse<VoucherDto>.Fail(valueError));
 
         v.Code = code;
         v.Name = dto.Name?.Trim();

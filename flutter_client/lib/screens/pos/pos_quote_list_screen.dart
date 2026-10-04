@@ -419,6 +419,12 @@ class _PosQuoteListScreenState extends State<PosQuoteListScreen> {
     await _reloadAll();
   }
 
+  Future<void> _openSide(String which) async {
+    await Navigator.of(context).push(MaterialPageRoute(
+        builder: (_) => which == 'care' ? const PosQuoteCareBoardScreen() : const PosContractReceivablesScreen()));
+    if (mounted) await _reloadAll();
+  }
+
   @override
   Widget build(BuildContext context) {
     final perm = context.watch<PermissionProvider>();
@@ -484,25 +490,39 @@ class _PosQuoteListScreenState extends State<PosQuoteListScreen> {
                                 : FittedBox(fit: BoxFit.scaleDown, alignment: Alignment.centerLeft, child: seg);
                           }),
                         ),
-                        IconButton(
-                          tooltip: tr('Theo dõi chăm sóc khách'),
-                          onPressed: () async {
-                            await Navigator.of(context).push(MaterialPageRoute(
-                                builder: (_) => const PosQuoteCareBoardScreen()));
-                            if (mounted) await _reloadAll();
-                          },
-                          icon: const Icon(Icons.insights_outlined),
-                        ),
-                        if (canUsePosContracts(context))
-                        IconButton(
-                          tooltip: tr('Công nợ hợp đồng'),
-                          onPressed: () async {
-                            await Navigator.of(context).push(MaterialPageRoute(
-                                builder: (_) => const PosContractReceivablesScreen()));
-                            if (mounted) await _reloadAll();
-                          },
-                          icon: const Icon(Icons.account_balance_wallet_outlined),
-                        ),
+                        // Điện thoại: 2 nút biểu tượng không nhãn → gom vào «⋯» có chữ, nhường chỗ cho 4 tab.
+                        if (MediaQuery.sizeOf(context).width < 600)
+                          PopupMenuButton<String>(
+                            tooltip: tr('Thêm'),
+                            icon: const Icon(Icons.more_vert),
+                            onSelected: (v) => unawaited(_openSide(v)),
+                            itemBuilder: (_) => [
+                              PopupMenuItem(
+                                value: 'care',
+                                child: ListTile(dense: true, leading: const Icon(Icons.insights_outlined),
+                                    title: Text(tr('Theo dõi chăm sóc khách'))),
+                              ),
+                              if (canUsePosContracts(context))
+                                PopupMenuItem(
+                                  value: 'debt',
+                                  child: ListTile(dense: true, leading: const Icon(Icons.account_balance_wallet_outlined),
+                                      title: Text(tr('Công nợ hợp đồng'))),
+                                ),
+                            ],
+                          )
+                        else ...[
+                          IconButton(
+                            tooltip: tr('Theo dõi chăm sóc khách'),
+                            onPressed: () => unawaited(_openSide('care')),
+                            icon: const Icon(Icons.insights_outlined),
+                          ),
+                          if (canUsePosContracts(context))
+                            IconButton(
+                              tooltip: tr('Công nợ hợp đồng'),
+                              onPressed: () => unawaited(_openSide('debt')),
+                              icon: const Icon(Icons.account_balance_wallet_outlined),
+                            ),
+                        ],
                       ],
                     ),
                   ),

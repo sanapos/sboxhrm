@@ -71,7 +71,8 @@ public static class PosCustomerFinanceHelper
                 $"Đơn tối thiểu {_fmt(voucher.MinOrderAmount)} để dùng voucher");
 
         decimal discount = voucher.DiscountType == PosVoucherDiscountType.Percent
-            ? Math.Round(orderAmountBeforeVoucher * voucher.DiscountValue / 100m, 0)
+            // Chặn % > 100 (dữ liệu cũ lưu nhầm kiểu giảm) — không bao giờ giảm quá giá trị đơn theo %.
+            ? Math.Round(orderAmountBeforeVoucher * Math.Min(voucher.DiscountValue, 100m) / 100m, 0)
             : voucher.DiscountValue;
         if (voucher.MaxDiscountAmount.HasValue)
             discount = Math.Min(discount, voucher.MaxDiscountAmount.Value);

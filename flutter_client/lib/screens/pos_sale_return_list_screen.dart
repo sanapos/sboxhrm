@@ -197,10 +197,22 @@ class _PosSaleReturnListScreenState extends State<PosSaleReturnListScreen> {
               rowActions: canReturn
                   ? (r) => r.isVoided
                       ? const SizedBox.shrink()
-                      : IconButton(
-                          tooltip: tr('Hủy phiếu trả'),
-                          icon: const Icon(Icons.cancel_outlined, size: 18, color: SboxColors.dangerText),
-                          onPressed: () => _voidReturn(r),
+                      // Nút ⊗ đỏ không nhãn dễ bấm nhầm / không hiểu → menu «⋯» có chữ rõ.
+                      : PopupMenuButton<String>(
+                          tooltip: tr('Thao tác'),
+                          icon: const Icon(Icons.more_horiz, size: 20, color: SboxColors.slate500),
+                          onSelected: (v) {
+                            if (v == 'open') _openReturn(r);
+                            if (v == 'void') _voidReturn(r);
+                          },
+                          itemBuilder: (_) => [
+                            PopupMenuItem(value: 'open', child: Text(tr('Xem phiếu trả'))),
+                            PopupMenuItem(
+                              value: 'void',
+                              child: Text(tr('Hủy phiếu trả (trừ lại kho đã nhập trả)'),
+                                  style: const TextStyle(color: SboxColors.dangerText)),
+                            ),
+                          ],
                         )
                   : null,
               columns: [

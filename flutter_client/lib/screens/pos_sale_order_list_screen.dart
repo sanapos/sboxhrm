@@ -1238,9 +1238,9 @@ class _PosSaleOrderListScreenState extends State<PosSaleOrderListScreen> {
                 ),
               ),
               Text(
-                tr(dayReturn > 0
-                    ? 'Thuần ${_moneyFmt.format(dayNet)} · Trả ${_moneyFmt.format(dayReturn)}'
-                    : 'Tổng ngày: ${_moneyFmt.format(dayNet)} đ'),
+                // Cùng một cách ghi cho mọi ngày: số thu thuần, có trả hàng thì ghi thêm phần đã trừ.
+                tr('${_moneyFmt.format(dayNet)} đ'
+                    '${dayReturn > 0 ? ' · đã trừ trả ${_moneyFmt.format(dayReturn)} đ' : ''}'),
                 style: const TextStyle(
                   fontSize: 12,
                   fontWeight: FontWeight.w700,

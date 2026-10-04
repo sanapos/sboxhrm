@@ -9,6 +9,7 @@ import '../../widgets/pos/pos_hub_scope.dart';
 import '../../widgets/warehouse/wh_doc_type.dart';
 import '../../widgets/warehouse/wh_mobile_components.dart';
 import '../../widgets/warehouse/wh_mobile_doc_service.dart';
+import '../../theme/sbox_tokens.dart';
 import '../../widgets/warehouse/wh_mobile_theme.dart';
 import 'wh_mobile_detail_screen.dart';
 import 'wh_mobile_editor_router.dart';
@@ -116,7 +117,8 @@ class _WhMobileDocListScreenState extends State<WhMobileDocListScreen> {
       floatingAction: canEdit
           ? FloatingActionButton.extended(
               onPressed: _openCreate,
-              backgroundColor: _type.accentColor,
+              // Mọi loại phiếu cùng màu nút chính của app (trước đây xanh lá / tím / đỏ / cam lẫn lộn).
+              backgroundColor: SboxColors.brand600,
               elevation: 0,
               icon: const Icon(Icons.add_rounded, color: Colors.white),
               label: Text(tr(_type.createLabel),
