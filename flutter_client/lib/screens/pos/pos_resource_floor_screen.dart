@@ -1,4 +1,5 @@
 import 'dart:async';
+import '../../utils/api_datetime.dart';
 
 import '../../utils/notification_sound.dart';
 import '../../widgets/pos/pos_package_timer.dart';
@@ -631,10 +632,10 @@ class PosResourceFloorScreenState extends State<PosResourceFloorScreen> {
     final expRaw = data['lockExpiresAt'] ?? data['LockExpiresAt'];
     final atRaw = data['lockedAt'] ?? data['LockedAt'];
     final exp = expRaw != null
-        ? DateTime.tryParse(expRaw.toString())?.toUtc()
+        ? parseApiUtcDateTime(expRaw.toString())?.toUtc()
         : null;
     final at =
-        atRaw != null ? DateTime.tryParse(atRaw.toString())?.toUtc() : null;
+        atRaw != null ? parseApiUtcDateTime(atRaw.toString())?.toUtc() : null;
     final now = DateTime.now().toUtc();
     var sessionOpen = false;
     if (isLocked && exp != null && exp.isAfter(now)) {
@@ -803,8 +804,9 @@ class PosResourceFloorScreenState extends State<PosResourceFloorScreen> {
   }) async {
     bool current() => mounted && gen == _openGen;
     if (r.showReservedOnFloor) {
-      await _showReservedActions(r);
-      return;
+      // Lịch đặt còn xa (ngoài khung giữ 60′) → cho mở bàn khách vãng lai, lịch đặt vẫn giữ.
+      final walkIn = await _showReservedActions(r, allowWalkIn: true);
+      if (!walkIn || !current()) return;
     }
 
     // Đang dùng / tạm rời / holding → vào lại đơn.
@@ -987,7 +989,21 @@ class PosResourceFloorScreenState extends State<PosResourceFloorScreen> {
     ));
   }
 
-  Future<void> _showReservedActions(PosServiceResourceDto r) async {
+  static String _depositStatusVi(String s) => switch (s.toLowerCase()) {
+        'held' => 'đang giữ',
+        'applied' => 'đã trừ vào hóa đơn',
+        'refunded' => 'đã hoàn',
+        'forfeited' => 'mất cọc',
+        'none' => 'chưa thu',
+        _ => s,
+      };
+
+  /// Trả về true khi thu ngân chọn «Khách vãng lai» (mở bàn bình thường, giữ lịch đặt).
+  Future<bool> _showReservedActions(PosServiceResourceDto r, {bool allowWalkIn = false}) async {
+    final arrival = _reservationArrivalLocal(r);
+    final canWalkIn = allowWalkIn &&
+        arrival != null &&
+        arrival.isAfter(DateTime.now().add(const Duration(minutes: 60)));
     final depositHeld = (r.reservationDepositStatus ?? '').toLowerCase() == 'held' &&
         r.reservationDepositPaid > 0;
     final tableLabel =
@@ -1004,7 +1020,7 @@ class PosResourceFloorScreenState extends State<PosResourceFloorScreen> {
         '${r.reservationPreOrderCount} món đặt trước',
       if (r.reservationDepositPaid > 0)
         'Cọc ${_moneyFmt.format(r.reservationDepositPaid)}đ'
-            '${r.reservationDepositStatus != null ? ' (${r.reservationDepositStatus})' : ''}',
+            '${r.reservationDepositStatus != null ? ' (${_depositStatusVi(r.reservationDepositStatus!)})' : ''}',
     ].join(' · ');
     final action = await showDialog<String>(
       context: context,
@@ -1022,6 +1038,11 @@ class PosResourceFloorScreenState extends State<PosResourceFloorScreen> {
               onPressed: () => Navigator.pop(ctx, 'deposit'),
               child: Text(tr('Thu cọc')),
             ),
+          if (canWalkIn)
+            OutlinedButton(
+              onPressed: () => Navigator.pop(ctx, 'walkin'),
+              child: Text(tr('Khách vãng lai')),
+            ),
           FilledButton(
             onPressed: () => Navigator.pop(ctx, 'seat'),
             child: Text(tr('Nhận bàn')),
@@ -1029,14 +1050,15 @@ class PosResourceFloorScreenState extends State<PosResourceFloorScreen> {
         ],
       ),
     );
-    if (action == null || !mounted) return;
+    if (action == null || !mounted) return false;
+    if (action == 'walkin') return true;
     if (action == 'deposit') {
       await _collectDepositForResource(r);
-      return;
+      return false;
     }
     if (action == 'cancel') {
       final rid = r.reservationId;
-      if (rid == null || rid.isEmpty) return;
+      if (rid == null || rid.isEmpty) return false;
       var refund = false;
       var forfeit = true;
       if (depositHeld) {
@@ -1060,7 +1082,7 @@ class PosResourceFloorScreenState extends State<PosResourceFloorScreen> {
             ],
           ),
         );
-        if (choice == null) return;
+        if (choice == null) return false;
         refund = choice == 'refund';
         forfeit = choice == 'forfeit';
       }
@@ -1069,7 +1091,7 @@ class PosResourceFloorScreenState extends State<PosResourceFloorScreen> {
         forfeitDeposit: forfeit,
         refundDeposit: refund,
       );
-      if (!mounted) return;
+      if (!mounted) return false;
       if (res['isSuccess'] == true) {
         NotificationOverlayManager().showSuccess(
           title: 'Đã hủy đặt',
@@ -1082,19 +1104,19 @@ class PosResourceFloorScreenState extends State<PosResourceFloorScreen> {
           message: res['message']?.toString() ?? 'Không hủy được',
         );
       }
-      return;
+      return false;
     }
     if (action == 'seat') {
       final rid = r.reservationId;
-      if (rid == null || rid.isEmpty) return;
+      if (rid == null || rid.isEmpty) return false;
       final res = await _api.seatPosResourceReservation(rid);
-      if (!mounted) return;
+      if (!mounted) return false;
       if (res['isSuccess'] != true) {
         NotificationOverlayManager().showError(
           title: 'Không nhận bàn',
           message: res['message']?.toString() ?? 'Lỗi',
         );
-        return;
+        return false;
       }
       final data = res['data'] as Map? ?? {};
       _emitSelect(_tableSelectPayload(
@@ -1116,6 +1138,7 @@ class PosResourceFloorScreenState extends State<PosResourceFloorScreen> {
         },
       ));
     }
+    return false;
   }
 
   Future<void> _collectDepositForResource(PosServiceResourceDto r) async {
@@ -2327,8 +2350,8 @@ class PosResourceFloorScreenState extends State<PosResourceFloorScreen> {
           productId: e['productId']?.toString(),
           sentBefore: (e['sentBefore'] as num?)?.toDouble(),
           lineKey: e['lineId']?.toString(),
-          calledAt: DateTime.tryParse(e['calledAt']?.toString() ?? '') ??
-              DateTime.tryParse(e['sentAt']?.toString() ?? '') ??
+          calledAt: parseApiUtcDateTime(e['calledAt']?.toString() ?? '') ??
+              parseApiUtcDateTime(e['sentAt']?.toString() ?? '') ??
               DateTime.now(),
         ));
       }

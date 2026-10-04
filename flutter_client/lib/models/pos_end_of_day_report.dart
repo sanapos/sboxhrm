@@ -1,3 +1,4 @@
+import '../utils/api_datetime.dart';
 class PosEndOfDayProduct {
   final String productId;
   final String productName;
@@ -60,7 +61,7 @@ class PosEndOfDayOffDayOrder {
         orderNo: json['orderNo']?.toString() ?? '',
         draftedOn: DateTime.tryParse(json['draftedOn']?.toString() ?? ''),
         orderNoDate: DateTime.tryParse(json['orderNoDate']?.toString() ?? ''),
-        saleDate: DateTime.tryParse(json['saleDate']?.toString() ?? ''),
+        saleDate: parseApiUtcDateTime(json['saleDate']?.toString() ?? ''),
         total: _num(json['total']),
       );
 
@@ -106,8 +107,8 @@ class PosEndOfDayTransaction {
 
   factory PosEndOfDayTransaction.fromJson(Map<String, dynamic> json) => PosEndOfDayTransaction(
         orderNo: json['orderNo']?.toString() ?? '',
-        createdAt: DateTime.tryParse(json['createdAt']?.toString() ?? '') ?? DateTime.now(),
-        draftedAt: DateTime.tryParse(json['draftedAt']?.toString() ?? ''),
+        createdAt: parseApiUtcDateTime(json['createdAt']?.toString() ?? '') ?? DateTime.now(),
+        draftedAt: parseApiUtcDateTime(json['draftedAt']?.toString() ?? ''),
         closedOffDay: json['closedOffDay'] == true,
         note: json['note']?.toString(),
         qty: _num(json['qty']),

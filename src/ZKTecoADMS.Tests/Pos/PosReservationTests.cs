@@ -84,4 +84,58 @@ public class PosReservationTests(PosPgFixture fx) : PosFlowTestBase(fx)
         Assert.Empty(Data(await ctl.ListReservations(day: DateTime.SpecifyKind(vnToday, DateTimeKind.Utc))));
         Assert.Single(Data(await ctl.ListReservations(day: DateTime.SpecifyKind(vnToday.AddDays(1), DateTimeKind.Utc))));
     }
+
+    static PosResourceReservation Hold(DateTime bookedAtUtc, DateTime arrivalUtc) => new()
+    {
+        Id = Guid.NewGuid(), CustomerName = "K", ReservedAt = bookedAtUtc, ReservedUntil = arrivalUtc,
+        Status = PosResourceReservationStatus.Booked,
+    };
+
+    [Fact]
+    public void Khach_vang_lai_ngoai_khung_giu_khong_lam_mat_lich_dat()
+    {
+        var now = DateTime.UtcNow;
+        var b = Hold(now, now.AddHours(6)); // đặt bàn 6 tiếng nữa
+        // Mở bàn cho khách vãng lai bây giờ → KHÔNG được coi là khách đặt đã đến (trước đây xóa mất lịch).
+        Assert.False(PosSellIndustryController.ReservationConflictsWithLiveSession(b, now, now));
+        // Mở bàn trong khung giữ (30′ trước giờ đến) → đúng là khách đặt tới.
+        Assert.True(PosSellIndustryController.ReservationConflictsWithLiveSession(b, now.AddHours(5.5), now.AddHours(5.5)));
+    }
+
+    [Fact]
+    public void So_do_ban_chi_hien_lich_giu_cho_trong_ngay()
+    {
+        var now = DateTime.UtcNow;
+        var tomorrow = DateTime.SpecifyKind(now.AddHours(7).Date.AddDays(1).AddHours(19 - 7), DateTimeKind.Utc);
+        Assert.Null(PosSellIndustryController.PickFloorBooking([Hold(now, tomorrow)], now));
+        var soon = Hold(now, now.AddMinutes(30));
+        Assert.Same(soon, PosSellIndustryController.PickFloorBooking([Hold(now, tomorrow), soon], now));
+    }
+
+    [Fact]
+    public async Task Mot_ban_nhan_nhieu_lich_khac_gio_nhung_chan_lich_sat_gio()
+    {
+        if (NoDb) return;
+        var store = await Fx.NewStoreAsync();
+        Guid resId;
+        await using (var db = Fx.NewDb())
+        {
+            var area = new PosServiceArea { Id = Guid.NewGuid(), StoreId = store, Name = "T1", IsActive = true };
+            var res = new PosServiceResource { Id = Guid.NewGuid(), StoreId = store, AreaId = area.Id, Code = "B1", Name = "Bàn 1", IsActive = true };
+            db.PosServiceAreas.Add(area); db.PosServiceResources.Add(res);
+            await db.SaveChangesAsync();
+            resId = res.Id;
+        }
+        var day = DateTime.UtcNow.AddHours(7).Date.AddDays(2);
+        DateTime Vn(int h) => DateTime.SpecifyKind(day.AddHours(h - 7), DateTimeKind.Utc);
+        async Task<string?> Book(int hour)
+        {
+            await using var db = Fx.NewDb();
+            var ctl = PosPgFixture.As(new PosSellIndustryController(db, null!, null!, null!), store);
+            return Error(await ctl.CreateReservation(new PosSellIndustryController.CreateReservationDto(resId, $"Khách {hour}h", ReservedUntil: Vn(hour))));
+        }
+        Assert.Null(await Book(11));      // trưa
+        Assert.Null(await Book(19));      // tối cùng bàn — trước đây bị chặn «Bàn đã có đặt trước»
+        Assert.NotNull(await Book(20));   // sát lịch 19h → chặn
+    }
 }

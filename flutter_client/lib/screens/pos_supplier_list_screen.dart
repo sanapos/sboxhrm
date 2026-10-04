@@ -1,4 +1,5 @@
 import 'dart:async';
+import '../utils/api_datetime.dart';
 
 import 'package:flutter/material.dart';
 import '../widgets/sbox/sbox_ui.dart';
@@ -176,7 +177,7 @@ class _PosSupplierListScreenState extends State<PosSupplierListScreen> {
                               (m['status'] ?? m['Status'] ?? '').toString();
                           final dateRaw = m['date'] ?? m['Date'];
                           final date = dateRaw != null
-                              ? DateTime.tryParse(dateRaw.toString())
+                              ? parseApiUtcDateTime(dateRaw.toString())
                               : null;
                           final isReturn = type.toLowerCase().contains('return');
                           return ListTile(

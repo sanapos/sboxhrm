@@ -1,4 +1,5 @@
 import 'dart:async';
+import '../utils/api_datetime.dart';
 
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
@@ -1047,7 +1048,7 @@ class _ReturnHistory {
       returnNo: (json['returnNo'] ?? json['ReturnNo'] ?? '').toString(),
       refundAmount: n(json['refundAmount'] ?? json['RefundAmount']),
       createdAt: json['createdAt'] != null
-          ? DateTime.tryParse(json['createdAt'].toString())
+          ? parseApiUtcDateTime(json['createdAt'].toString())
           : null,
       isVoided: json['isVoided'] == true || json['IsVoided'] == true,
     );

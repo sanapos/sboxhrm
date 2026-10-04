@@ -899,16 +899,18 @@ public partial class PosSalesController
                             order.Total, loyaltyRatesComplete);
                         await PosCustomerFinanceHelper.ApplyPointsOnSaleCompleteAsync(
                             dbContext, storeId, order, saleCustomer, CurrentUserEmail);
-                        if (order.VoucherId.HasValue)
-                        {
-                            var vch = await dbContext.PosVouchers.AsTracking()
-                                .FirstOrDefaultAsync(v => v.Id == order.VoucherId && v.StoreId == storeId);
-                            if (vch != null)
-                            {
-                                vch.UsedCount += 1;
-                                vch.UpdatedAt = DateTime.UtcNow;
-                            }
-                        }
+                    }
+                }
+                // Lượt dùng voucher tính cho mọi đơn — trước đây chỉ cộng khi có khách hàng nên khách lẻ
+                // dùng voucher giới hạn lượt không bao giờ hết lượt (còn hủy đơn thì vẫn trừ).
+                if (order.VoucherId.HasValue)
+                {
+                    var vch = await dbContext.PosVouchers.AsTracking()
+                        .FirstOrDefaultAsync(v => v.Id == order.VoucherId && v.StoreId == storeId);
+                    if (vch != null)
+                    {
+                        vch.UsedCount += 1;
+                        vch.UpdatedAt = DateTime.UtcNow;
                     }
                 }
                 await PosSellIndustryController.GrantSessionPacksOnSaleCompleteAsync(
@@ -1699,12 +1701,13 @@ public partial class PosSalesController
                 {
                     await PosCustomerFinanceHelper.ApplyPointsOnSaleCompleteAsync(
                         dbContext, storeId, order, saleCustomer, CurrentUserEmail);
-                    if (appliedVoucher != null)
-                    {
-                        appliedVoucher.UsedCount += 1;
-                        appliedVoucher.UpdatedAt = DateTime.UtcNow;
-                    }
                 }
+            }
+            // Lượt dùng voucher tính cho mọi đơn (kể cả khách lẻ).
+            if (appliedVoucher != null)
+            {
+                appliedVoucher.UsedCount += 1;
+                appliedVoucher.UpdatedAt = DateTime.UtcNow;
             }
             await PosSellIndustryController.GrantSessionPacksOnSaleCompleteAsync(
                 dbContext, storeId, order, lines, CurrentUserEmail);

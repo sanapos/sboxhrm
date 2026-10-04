@@ -91,4 +91,7 @@
     </Content>
   </ItemGroup>
 
+  <ItemGroup>
+    <InternalsVisibleTo Include="ZKTecoADMS.Tests" />
+  </ItemGroup>
 </Project>

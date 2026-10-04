@@ -1,3 +1,4 @@
+import '../utils/api_datetime.dart';
 class PosPrintTemplate {
   const PosPrintTemplate({
     required this.id,
@@ -53,9 +54,9 @@ class PosPrintTemplate {
         sortOrder: (json['sortOrder'] as num?)?.toInt() ?? 0,
         sourceCatalogId: (json['sourceCatalogId'] ?? json['SourceCatalogId'])
             ?.toString(),
-        createdAt: DateTime.tryParse(
+        createdAt: parseApiUtcDateTime(
             '${json['createdAt'] ?? json['CreatedAt'] ?? ''}'),
-        updatedAt: DateTime.tryParse(
+        updatedAt: parseApiUtcDateTime(
             '${json['updatedAt'] ?? json['UpdatedAt'] ?? ''}'),
         isDocx: json['isDocx'] == true || json['IsDocx'] == true,
       );

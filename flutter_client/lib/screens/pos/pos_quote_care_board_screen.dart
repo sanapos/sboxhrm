@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import '../../utils/api_datetime.dart';
 import 'package:intl/intl.dart';
 import '../../l10n/app_tr.dart';
 import '../../models/pos_quote.dart';
@@ -29,12 +30,12 @@ class _CareItem {
         previousScore = (j['previousScore'] as num?)?.toInt(),
         trend = (j['trend'] as num?)?.toInt() ?? 0,
         band = '${j['band'] ?? 'none'}',
-        lastContactAt = DateTime.tryParse('${j['lastContactAt'] ?? ''}'),
+        lastContactAt = parseApiUtcDateTime('${j['lastContactAt'] ?? ''}'),
         lastContactKind = j['lastContactKind'] as String?,
         lastContent = j['lastContent'] as String?,
         daysSinceContact = (j['daysSinceContact'] as num?)?.toInt(),
         stale = j['stale'] == true,
-        nextFollowUpAt = DateTime.tryParse('${j['nextFollowUpAt'] ?? ''}'),
+        nextFollowUpAt = parseApiUtcDateTime('${j['nextFollowUpAt'] ?? ''}'),
         followUp = '${j['followUp'] ?? 'none'}',
         contactCount = (j['contactCount'] as num?)?.toInt() ?? 0,
         ownerName = j['ownerName'] as String?,

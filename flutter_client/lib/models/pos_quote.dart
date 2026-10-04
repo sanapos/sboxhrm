@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import '../utils/api_datetime.dart';
 
 import '../utils/pos_area_dims.dart';
 
@@ -160,7 +161,7 @@ class PosQuoteDocument {
   factory PosQuoteDocument.fromJson(Map<String, dynamic> json) {
     DateTime? d(dynamic v) {
       if (v == null) return null;
-      return DateTime.tryParse(v.toString());
+      return parseApiUtcDateTime(v.toString());
     }
 
     return PosQuoteDocument(
@@ -317,7 +318,7 @@ class PosQuote {
     double n(dynamic v) => v is num ? v.toDouble() : double.tryParse('$v') ?? 0;
     DateTime? d(dynamic v) {
       if (v == null) return null;
-      return DateTime.tryParse(v.toString());
+      return parseApiUtcDateTime(v.toString());
     }
 
     final rawLines = json['lines'] ?? json['Lines'];
@@ -481,7 +482,7 @@ class PosQuoteActivity {
   factory PosQuoteActivity.fromJson(Map<String, dynamic> json) {
     DateTime? d(dynamic v) {
       if (v == null) return null;
-      return DateTime.tryParse(v.toString());
+      return parseApiUtcDateTime(v.toString());
     }
 
     return PosQuoteActivity(

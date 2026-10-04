@@ -1,4 +1,5 @@
 import 'dart:async';
+import '../utils/api_datetime.dart';
 import '../widgets/pos/pos_package_timer.dart';
 import '../utils/pos_scale_barcode.dart';
 import 'dart:convert';
@@ -6203,7 +6204,7 @@ class _PosSellScreenState extends State<PosSellScreen>
     if (!isLocked) return false;
     final expRaw = data['lockExpiresAt'] ?? data['LockExpiresAt'];
     if (expRaw != null) {
-      final exp = DateTime.tryParse(expRaw.toString())?.toUtc();
+      final exp = parseApiUtcDateTime(expRaw.toString())?.toUtc();
       if (exp != null && exp.isBefore(DateTime.now().toUtc())) return false;
     }
     return true;
@@ -6227,7 +6228,7 @@ class _PosSellScreenState extends State<PosSellScreen>
     if (!_isLockLive(data) || !_isLockedByAnotherDevice(data)) return false;
     final atRaw = data!['lockedAt'] ?? data['LockedAt'];
     if (atRaw != null) {
-      final at = DateTime.tryParse(atRaw.toString())?.toUtc();
+      final at = parseApiUtcDateTime(atRaw.toString())?.toUtc();
       if (at != null) {
         return DateTime.now().toUtc().difference(at).inSeconds < 45;
       }

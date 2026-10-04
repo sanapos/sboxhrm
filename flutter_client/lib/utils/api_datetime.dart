@@ -59,6 +59,8 @@ DateTime? parseApiUtcDateTime(dynamic value) {
   }
   final raw = value.toString().trim();
   if (raw.isEmpty) return null;
+  // Chỉ có ngày (sinh nhật, hạn dùng…) — giữ đúng ngày lịch, không đổi múi giờ.
+  if (RegExp(r'^\d{4}-\d{2}-\d{2}$').hasMatch(raw)) return DateTime.tryParse(raw);
   final hasTz = raw.endsWith('Z') ||
       raw.contains('+') ||
       RegExp(r'-\d{2}:\d{2}$').hasMatch(raw);

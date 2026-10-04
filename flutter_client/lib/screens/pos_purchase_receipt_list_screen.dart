@@ -1,4 +1,5 @@
 import 'dart:async';
+import '../utils/api_datetime.dart';
 
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
@@ -957,7 +958,7 @@ class _PosPurchaseReceiptListScreenState
           ..._payments.map((p) {
             final paidAt = p['paidAt'] ?? p['PaidAt'];
             final dt =
-                paidAt != null ? DateTime.tryParse(paidAt.toString()) : null;
+                paidAt != null ? parseApiUtcDateTime(paidAt.toString()) : null;
             return ListTile(
               dense: true,
               contentPadding: EdgeInsets.zero,

@@ -1,4 +1,5 @@
 import 'dart:async';
+import '../../utils/api_datetime.dart';
 
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
@@ -257,7 +258,7 @@ class _PosEInvoiceProviderListScreenState
   }
 
   String _fmtDate(dynamic v) {
-    final d = v == null ? null : DateTime.tryParse(v.toString());
+    final d = v == null ? null : parseApiUtcDateTime(v.toString());
     return d == null ? '' : _dateFmt.format(d.toLocal());
   }
 

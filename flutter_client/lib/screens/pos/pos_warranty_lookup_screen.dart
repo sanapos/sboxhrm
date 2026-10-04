@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import '../../utils/api_datetime.dart';
 import 'package:intl/intl.dart';
 
 import '../../services/api_service.dart';
@@ -178,7 +179,7 @@ class _PosWarrantyLookupScreenState extends State<PosWarrantyLookupScreen> {
 
   Widget _warrantyCard(Map<String, dynamic> r) {
     final expiry = DateTime.tryParse('${r['warrantyExpiry'] ?? r['WarrantyExpiry'] ?? ''}');
-    final saleDate = DateTime.tryParse('${r['saleDate'] ?? r['SaleDate'] ?? ''}');
+    final saleDate = parseApiUtcDateTime('${r['saleDate'] ?? r['SaleDate'] ?? ''}');
     final status = (r['status'] ?? r['Status'] ?? 'Active').toString();
     final months = (r['warrantyMonths'] ?? r['WarrantyMonths'] as num?)?.toInt() ?? 0;
     final now = DateTime.now();

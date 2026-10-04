@@ -1,4 +1,5 @@
 import 'dart:async';
+import '../../utils/api_datetime.dart';
 
 import 'package:flutter/material.dart';
 import '../../widgets/pos/pos_list_filters.dart';
@@ -209,7 +210,7 @@ class _PosCancelReturnHistoryScreenState
     final byReason = <String, double>{};
     for (final m in _items) {
       final t = m['actionType']?.toString() ?? '';
-      final occ = DateTime.tryParse(m['occurredAt']?.toString() ?? '')?.toLocal();
+      final occ = parseApiUtcDateTime(m['occurredAt']?.toString() ?? '')?.toLocal();
       final amount = (m['amount'] as num?)?.toDouble() ?? 0;
       if (occ != null) {
         final k = DateTime(occ.year, occ.month, occ.day);
@@ -420,7 +421,7 @@ class _PosCancelReturnHistoryScreenState
   Widget _tile(Map<String, dynamic> m) {
     final action = m['actionType']?.toString();
     final after = m['afterProvisionalBill'] == true;
-    final occurred = DateTime.tryParse(m['occurredAt']?.toString() ?? '');
+    final occurred = parseApiUtcDateTime(m['occurredAt']?.toString() ?? '');
     final amount = (m['amount'] as num?)?.toDouble() ?? 0;
     final qty = (m['qty'] as num?)?.toDouble() ?? 0;
     final product = m['productName']?.toString() ?? '';

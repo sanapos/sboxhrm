@@ -1,3 +1,4 @@
+import '../utils/api_datetime.dart';
 class PosStorePrinter {
   const PosStorePrinter({
     required this.id,
@@ -150,7 +151,7 @@ class PosStorePrinter {
             (json['healthStatus'] ?? json['HealthStatus'])?.toString() ??
                 'Unknown',
         lastSeenAt: json['lastSeenAt'] != null || json['LastSeenAt'] != null
-            ? DateTime.tryParse(
+            ? parseApiUtcDateTime(
                 (json['lastSeenAt'] ?? json['LastSeenAt']).toString())
             : null,
         lastErrorMessage:

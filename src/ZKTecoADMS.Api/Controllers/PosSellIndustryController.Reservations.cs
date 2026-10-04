@@ -435,7 +435,9 @@ public partial class PosSellIndustryController
             s.ResourceId == dto.ResourceId
             && (s.Status == PosResourceSessionStatus.Open || s.Status == PosResourceSessionStatus.Paused)
             && s.Deleted == null);
-        if (live && (!isTimed || (slotStart <= now && slotEnd > now)))
+        var myWin = BookingWindow(isTimed ? duration : null, slotStart, slotEnd);
+        // Bàn đang có khách: chỉ chặn khi khung của lịch mới bắt đầu ngay (đặt bàn tối nay khi trưa đang có khách vẫn được).
+        if (live && myWin.Start <= now && myWin.End > now)
             return BadRequest(AppResponse<object>.Fail("Bàn đang mở — không đặt trước được"));
 
         var booked = await db.PosResourceReservations.AsNoTracking()
@@ -444,24 +446,17 @@ public partial class PosSellIndustryController
             .Select(x => new { x.ReservedAt, x.ReservedUntil, x.DurationMinutes })
             .ToListAsync();
 
-        if (isTimed)
         {
+            // Một bàn nhận nhiều lịch miễn khung bận không chồng nhau (giữ chỗ: ±60′/3h quanh giờ đến).
             var overlap = booked.Any(x =>
             {
-                var otherTimed = x.DurationMinutes is > 0;
-                if (!otherTimed) return true; // classic hold chặn mọi slot
-                var oStart = x.ReservedAt;
-                var oEnd = x.ReservedUntil ?? oStart.AddMinutes(x.DurationMinutes ?? 60);
-                return slotStart < oEnd && oStart < slotEnd!.Value;
+                var w = BookingWindow(x.DurationMinutes, x.ReservedAt, x.ReservedUntil);
+                return myWin.Start < w.End && w.Start < myWin.End;
             });
             if (overlap)
-                return BadRequest(AppResponse<object>.Fail(
-                    "Khung giờ trùng đặt trước khác trên bàn/ghế này"));
-        }
-        else if (booked.Count > 0)
-        {
-            return BadRequest(AppResponse<object>.Fail(
-                "Bàn đã có đặt trước — hủy hoặc nhận bàn trước"));
+                return BadRequest(AppResponse<object>.Fail(isTimed
+                    ? "Khung giờ trùng đặt trước khác trên bàn/ghế này"
+                    : $"Bàn đã có lịch đặt gần giờ này — mỗi lịch giữ bàn từ {HoldBeforeMinutes} phút trước giờ đến tới khoảng {HoldDiningMinutes / 60} tiếng sau"));
         }
 
         if (isTimed && dto.AssignedEmployeeId.HasValue)
@@ -682,7 +677,9 @@ public partial class PosSellIndustryController
             s.ResourceId == dto.ResourceId
             && (s.Status == PosResourceSessionStatus.Open || s.Status == PosResourceSessionStatus.Paused)
             && s.Deleted == null);
-        if (live && (!isTimed || (slotStart <= now && slotEnd > now)))
+        var myWin = BookingWindow(isTimed ? duration : null, slotStart, slotEnd);
+        // Bàn đang có khách: chỉ chặn khi khung của lịch mới bắt đầu ngay (đặt bàn tối nay khi trưa đang có khách vẫn được).
+        if (live && myWin.Start <= now && myWin.End > now)
             return BadRequest(AppResponse<object>.Fail("Bàn đang mở — không đổi sang khung giờ đang diễn ra"));
 
         var booked = await db.PosResourceReservations.AsNoTracking()
@@ -692,24 +689,17 @@ public partial class PosSellIndustryController
             .Select(x => new { x.ReservedAt, x.ReservedUntil, x.DurationMinutes })
             .ToListAsync();
 
-        if (isTimed)
         {
+            // Một bàn nhận nhiều lịch miễn khung bận không chồng nhau (giữ chỗ: ±60′/3h quanh giờ đến).
             var overlap = booked.Any(x =>
             {
-                var otherTimed = x.DurationMinutes is > 0;
-                if (!otherTimed) return true;
-                var oStart = x.ReservedAt;
-                var oEnd = x.ReservedUntil ?? oStart.AddMinutes(x.DurationMinutes ?? 60);
-                return slotStart < oEnd && oStart < slotEnd!.Value;
+                var w = BookingWindow(x.DurationMinutes, x.ReservedAt, x.ReservedUntil);
+                return myWin.Start < w.End && w.Start < myWin.End;
             });
             if (overlap)
-                return BadRequest(AppResponse<object>.Fail(
-                    "Khung giờ trùng đặt trước khác trên bàn/ghế này"));
-        }
-        else if (booked.Count > 0)
-        {
-            return BadRequest(AppResponse<object>.Fail(
-                "Bàn đã có đặt trước — hủy hoặc nhận bàn trước"));
+                return BadRequest(AppResponse<object>.Fail(isTimed
+                    ? "Khung giờ trùng đặt trước khác trên bàn/ghế này"
+                    : $"Bàn đã có lịch đặt gần giờ này — mỗi lịch giữ bàn từ {HoldBeforeMinutes} phút trước giờ đến tới khoảng {HoldDiningMinutes / 60} tiếng sau"));
         }
 
         if (isTimed && dto.AssignedEmployeeId.HasValue)
@@ -1442,9 +1432,40 @@ public partial class PosSellIndustryController
             .FirstOrDefault();
         if (upcoming != null) return upcoming;
 
-        return classic.OrderByDescending(b => b.ReservedAt).FirstOrDefault()
-            ?? timed.OrderByDescending(b => b.ReservedAt).FirstOrDefault();
+        // Giữ chỗ: lịch gần nhất trong ngày (đang trong khung giữ / sắp đến hôm nay / quá giờ chưa xử lý).
+        // Lịch ngày khác không chiếm ô bàn hôm nay.
+        var endOfToday = DateTime.SpecifyKind(nowUtc.AddHours(7).Date.AddDays(1).AddHours(-7), DateTimeKind.Utc);
+        var holdToday = classic
+            .Where(b => HoldArrival(b) < endOfToday)
+            .OrderBy(b => Math.Abs((HoldArrival(b) - nowUtc).TotalMinutes))
+            .FirstOrDefault();
+        if (holdToday != null) return holdToday;
+        return timed.OrderByDescending(b => b.ReservedAt).FirstOrDefault();
     }
+
+    /// <summary>Đặt bàn nhà hàng giữ bàn từ bao nhiêu phút trước giờ khách đến.</summary>
+    internal const int HoldBeforeMinutes = 60;
+    /// <summary>Thời gian một lượt ăn ước tính — khoảng cách tối thiểu giữa hai lịch giữ chỗ cùng bàn.</summary>
+    internal const int HoldDiningMinutes = 180;
+
+    /// <summary>
+    /// Khung bàn bị chiếm bởi một lịch: có thời lượng → [bắt đầu, kết thúc];
+    /// giữ chỗ (nhà hàng) → [giờ đến − 60′, giờ đến + 3h] (không còn giữ bàn từ lúc bấm đặt tới lúc đến).
+    /// </summary>
+    internal static (DateTime Start, DateTime End) BookingWindow(int? durationMinutes, DateTime reservedAt, DateTime? reservedUntil)
+    {
+        if (durationMinutes is > 0)
+        {
+            var end = reservedUntil ?? reservedAt.AddMinutes(durationMinutes.Value);
+            if (end <= reservedAt) end = reservedAt.AddMinutes(durationMinutes.Value);
+            return (reservedAt, end);
+        }
+        var arrival = reservedUntil ?? reservedAt;
+        return (arrival.AddMinutes(-HoldBeforeMinutes), arrival.AddMinutes(HoldDiningMinutes));
+    }
+
+    internal static (DateTime Start, DateTime End) BookingWindow(PosResourceReservation b) =>
+        BookingWindow(b.DurationMinutes, b.ReservedAt, b.ReservedUntil);
 
     /// <summary>Đặt bàn giữ chỗ kiểu nhà hàng: không thời lượng, giữ bàn từ lúc đặt tới giờ khách đến.</summary>
     internal static bool IsHoldBooking(PosResourceReservation b) => b.DurationMinutes is null or <= 0;
@@ -1468,7 +1489,10 @@ public partial class PosSellIndustryController
     {
         var now = nowUtc ?? DateTime.UtcNow;
         if (b.DurationMinutes is null or <= 0)
-            return sessionStartedAt >= b.ReservedAt.AddMinutes(-1);
+        {
+            var w = BookingWindow(b);
+            return sessionStartedAt >= w.Start && sessionStartedAt < w.End;
+        }
 
         var end = b.ReservedUntil ?? b.ReservedAt.AddMinutes(b.DurationMinutes.Value);
         // Phiên mở trong khung slot, hoặc slot đang/đã bắt đầu và phiên sau lúc bắt đầu slot.

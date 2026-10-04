@@ -1,4 +1,5 @@
 import 'dart:async';
+import '../utils/api_datetime.dart';
 import 'dart:typed_data';
 
 import 'package:flutter/material.dart';
@@ -1926,7 +1927,7 @@ class _PosSaleOrderListScreenState extends State<PosSaleOrderListScreen> {
     return Column(
       children: _payments.map((p) {
         final paidAt = p['paidAt'] ?? p['PaidAt'];
-        final dt = paidAt != null ? DateTime.tryParse(paidAt.toString()) : null;
+        final dt = paidAt != null ? parseApiUtcDateTime(paidAt.toString()) : null;
         return ListTile(
           dense: true,
           contentPadding: EdgeInsets.zero,

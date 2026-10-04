@@ -1,6 +1,8 @@
 /// Hợp đồng từ báo giá: mốc tiến độ, đợt thanh toán, các lần thu (API /api/pos/quotes/{id}/contract).
 library;
 
+import '../utils/api_datetime.dart';
+
 double _n(dynamic v) => v is num ? v.toDouble() : double.tryParse('${v ?? ''}') ?? 0;
 
 double? _nn(dynamic v) {
@@ -12,7 +14,7 @@ double? _nn(dynamic v) {
 DateTime? _d(dynamic v) {
   final s = v?.toString().trim() ?? '';
   if (s.isEmpty) return null;
-  return DateTime.tryParse(s);
+  return parseApiUtcDateTime(s);
 }
 
 String? _s(dynamic v) {

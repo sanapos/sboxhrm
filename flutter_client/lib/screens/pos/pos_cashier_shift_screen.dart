@@ -1,6 +1,7 @@
 import 'dart:async';
 
 import 'package:flutter/material.dart';
+import '../../utils/api_datetime.dart';
 import 'package:intl/intl.dart';
 import 'package:provider/provider.dart';
 
@@ -990,9 +991,7 @@ class _ShiftSnap {
         v is num ? v.toDouble() : double.tryParse('$v') ?? 0;
     DateTime? d(dynamic v) {
       if (v == null) return null;
-      final parsed = DateTime.tryParse(v.toString());
-      if (parsed == null) return null;
-      return parsed.isUtc ? parsed.toLocal() : parsed;
+      return parseApiUtcDateTime(v);
     }
 
     return _ShiftSnap(
