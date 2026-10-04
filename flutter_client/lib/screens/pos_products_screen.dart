@@ -35,6 +35,7 @@ import '../widgets/pos/pos_unit_chip_selector.dart';
 import '../utils/pos_product_type_picker.dart';
 import '../utils/pos_purchase_product_lookup.dart';
 import '../widgets/pos/pos_hub_scope.dart';
+import 'pos/pos_price_lists_screen.dart';
 import '../widgets/pos/pos_product_image.dart';
 import '../utils/navigation_notifier.dart';
 import 'pos/pos_product_detail_screen.dart';
@@ -1271,6 +1272,9 @@ class _PosProductsScreenState extends State<PosProductsScreen> {
                           } else if (v == 'create_hub' &&
                               perm.canCreate('PosProducts')) {
                             _openTypeHub(perm, title: 'Tạo hoặc nhập theo loại');
+                          } else if (v == 'price_lists') {
+                            Navigator.of(context).push(MaterialPageRoute(
+                                builder: (_) => PosHubScope.pushed(child: const PosPriceListsScreen())));
                           } else if (v == 'topping_groups') {
                             Navigator.of(context).push(
                               MaterialPageRoute(
@@ -1294,6 +1298,9 @@ class _PosProductsScreenState extends State<PosProductsScreen> {
                                 value: 'create_hub',
                                 child: Text(tr('Tạo / nhập theo loại'))),
                           ],
+                          PopupMenuItem(
+                              value: 'price_lists',
+                              child: Text(tr('Bảng giá (giá sỉ / VIP / theo kỳ)'))),
                           PopupMenuItem(
                               value: 'topping_groups',
                               child: Text(tr('Nhóm topping'))),
@@ -1453,6 +1460,9 @@ class _PosProductsScreenState extends State<PosProductsScreen> {
                 _openAiMenuImport();
               case 'topping_groups':
                 Navigator.of(context).push(MaterialPageRoute(builder: (_) => const PosToppingGroupsScreen()));
+              case 'price_lists':
+                await Navigator.of(context).push(MaterialPageRoute(
+                    builder: (_) => PosHubScope.pushed(child: const PosPriceListsScreen())));
               case 'columns':
                 _showColumnPicker();
               case 'scan':
@@ -1475,6 +1485,7 @@ class _PosProductsScreenState extends State<PosProductsScreen> {
               _menuItem('ai_menu', Icons.auto_awesome_outlined, 'Quét ảnh menu bằng AI'),
               const PopupMenuDivider(),
             ],
+            _menuItem('price_lists', Icons.price_change_outlined, 'Bảng giá (giá sỉ / VIP / theo kỳ)'),
             _menuItem('topping_groups', Icons.local_cafe_outlined, 'Nhóm topping'),
             if (canManage) ...[
               _menuItem('m_category', Icons.folder_outlined, 'Quản lý nhóm hàng'),

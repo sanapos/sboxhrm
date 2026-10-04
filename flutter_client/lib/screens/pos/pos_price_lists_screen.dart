@@ -238,15 +238,34 @@ class _PosPriceListsScreenState extends State<PosPriceListsScreen> {
     return Scaffold(
       backgroundColor: PosTheme.background,
       floatingActionButton: canEdit
-          ? FloatingActionButton(
+          ? FloatingActionButton.extended(
               onPressed: _createList,
-              child: const Icon(Icons.add),
+              icon: const Icon(Icons.add),
+              label: Text(tr('Thêm bảng giá')),
             )
           : null,
       body: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
           const PosMobileKiotHeader(title: 'Bảng giá'),
+          // Giải thích ngắn: bảng giá để làm gì và chọn ở đâu khi bán.
+          Container(
+            margin: const EdgeInsets.fromLTRB(12, 10, 12, 2),
+            padding: const EdgeInsets.fromLTRB(12, 10, 12, 10),
+            decoration: BoxDecoration(color: SboxColors.infoSoft, borderRadius: BorderRadius.circular(10)),
+            child: Row(crossAxisAlignment: CrossAxisAlignment.start, children: [
+              const Icon(Icons.info_outline, size: 18, color: SboxColors.infoText),
+              const SizedBox(width: 8),
+              Expanded(
+                child: Text(
+                  tr('Bảng giá = giá bán riêng cho một nhóm khách hoặc một khoảng thời gian (giá sỉ, giá VIP, '
+                      'giá khuyến mãi theo ngày…). Hàng không có trong bảng vẫn bán giá gốc. Khi bán, chọn bảng '
+                      'giá ở ô «Bảng giá» trên màn Bán hàng; bảng «Mặc định» tự áp khi mở hóa đơn mới.'),
+                  style: const TextStyle(fontSize: 12.5, color: SboxColors.infoText, height: 1.35),
+                ),
+              ),
+            ]),
+          ),
           Expanded(
             child: _loading
                 ? const Center(child: CircularProgressIndicator())

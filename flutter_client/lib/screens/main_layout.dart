@@ -849,6 +849,17 @@ class _MainLayoutState extends State<MainLayout> with WidgetsBindingObserver {
       }
       return false;
     }
+    if (_navItems[index].openAsPage) {
+      final screen = _navItems[index].screen;
+      // Sau khung hình: nơi gọi (ngăn «Thêm», truy cập nhanh) còn đóng ngăn kéo bằng Navigator.pop.
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (!mounted) return;
+        Navigator.of(context).push(
+          MaterialPageRoute<void>(builder: (_) => PosHubScope.pushed(child: screen)),
+        );
+      });
+      return true;
+    }
     _navigateToIndex(index);
     return true;
   }
@@ -2274,6 +2285,32 @@ class _MainLayoutState extends State<MainLayout> with WidgetsBindingObserver {
       showInSidebar: false,
       themeColor: HrmPageChrome.primaryNavy,
       moduleCode: 'PosSell',
+    ),
+    // Thiết lập giá / khuyến mãi — trước đây chỉ mở được từ tab «Nhiều hơn» của POS (điện thoại không còn tab đó)
+    // hoặc ô tìm chức năng, nên chủ cửa hàng không thấy chỗ tạo bảng giá dù màn Bán hàng có ô chọn bảng giá.
+    NavItem(
+      icon: Icons.price_change_outlined,
+      activeIcon: Icons.price_change,
+      label: 'Bảng giá',
+      subtitle: 'Giá sỉ / VIP / theo kỳ',
+      screen: const PosPriceListsScreen(),
+      group: 'POS',
+      showInSidebar: false,
+      themeColor: HrmPageChrome.primaryNavy,
+      moduleCode: 'PosProducts',
+      openAsPage: true,
+    ),
+    NavItem(
+      icon: Icons.confirmation_number_outlined,
+      activeIcon: Icons.confirmation_number,
+      label: 'Voucher',
+      subtitle: 'Mã giảm giá',
+      screen: const PosVouchersScreen(),
+      group: 'POS',
+      showInSidebar: false,
+      themeColor: HrmPageChrome.primaryNavy,
+      moduleCode: 'PosProducts',
+      openAsPage: true,
     ),
     NavItem(
       icon: Icons.history_outlined,
@@ -4025,6 +4062,9 @@ class NavItem {
   final Color? themeColor;
   final String? requiredRole;
   final String? moduleCode;
+  /// Mở thành trang riêng (thanh tiêu đề + nút ← của chính màn) thay vì thay nội dung khung chính —
+  /// cho màn thiết lập phụ (Bảng giá, Voucher…) vốn chỉ mở từ «Nhiều hơn» của POS.
+  final bool openAsPage;
 
   NavItem({
     required this.icon,
@@ -4040,6 +4080,7 @@ class NavItem {
     this.themeColor,
     this.requiredRole,
     this.moduleCode,
+    this.openAsPage = false,
   });
 
   /// Get localized label based on moduleCode

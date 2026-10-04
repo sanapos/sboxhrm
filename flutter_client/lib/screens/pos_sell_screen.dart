@@ -96,6 +96,7 @@ import '../widgets/pos/pos_empty_cart_brand.dart';
 import '../widgets/pos/pos_theme.dart';
 import '../widgets/pos/pos_line_staff_assign_sheet.dart';
 import '../widgets/pos/pos_hub_scope.dart';
+import 'pos/pos_price_lists_screen.dart';
 import 'pos/pos_kds_screen.dart';
 import 'pos/pos_qr_table_order_screen.dart';
 import 'pos/pos_qr_online_orders_screen.dart';
@@ -17328,12 +17329,41 @@ class _PosSellScreenState extends State<PosSellScreen>
         child: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
+            // Tiêu đề + lối vào thiết lập: trước đây chỉ chọn được, không biết tạo / sửa bảng giá ở đâu.
             Padding(
-              padding: EdgeInsets.all(16),
-              child: Text(tr('Chọn bảng giá'),
-                style: TextStyle(fontSize: 18, fontWeight: FontWeight.w600),
-              ),
+              padding: const EdgeInsets.fromLTRB(16, 8, 8, 0),
+              child: Row(children: [
+                Expanded(
+                  child: Text(tr('Chọn bảng giá'),
+                    style: const TextStyle(fontSize: 18, fontWeight: FontWeight.w600),
+                  ),
+                ),
+                if (Provider.of<PermissionProvider>(context, listen: false).canEdit('PosProducts'))
+                  TextButton.icon(
+                    onPressed: () async {
+                      Navigator.pop(ctx);
+                      await Navigator.of(context).push(MaterialPageRoute<void>(
+                          builder: (_) => PosHubScope.pushed(child: const PosPriceListsScreen())));
+                      if (!mounted) return;
+                      _priceOverrideCache.clear();
+                      await _loadPriceLists();
+                      if (mounted) setState(() {});
+                    },
+                    icon: const Icon(Icons.settings_outlined, size: 18),
+                    label: Text(tr('Thiết lập bảng giá')),
+                  ),
+              ]),
             ),
+            if (_priceLists.length <= 1)
+              Padding(
+                padding: const EdgeInsets.fromLTRB(16, 0, 16, 4),
+                child: Text(
+                  tr('Tạo thêm bảng giá (giá sỉ, giá VIP, giá khuyến mãi theo ngày…) ở «Thiết lập bảng giá» '
+                      'hoặc Trang chủ → POS → Bảng giá.'),
+                  style: const TextStyle(fontSize: 12.5, color: PosTheme.textSecondary),
+                ),
+              ),
+            const SizedBox(height: 4),
             ...options.map(
               (pl) {
                 final bits = <String>[
