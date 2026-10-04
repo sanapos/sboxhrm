@@ -6,6 +6,7 @@ import 'package:provider/provider.dart';
 import '../../models/pos_customer.dart';
 import '../../providers/permission_provider.dart';
 import '../../services/api_service.dart';
+import '../../utils/api_datetime.dart';
 import '../../widgets/notification_overlay.dart';
 import '../../widgets/pos/pos_customer_debt_collect_dialog.dart';
 import '../../widgets/pos/pos_customer_form_dialog.dart';
@@ -245,7 +246,7 @@ class _PosCustomerDetailScreenState extends State<_PosCustomerDetailScreen> {
       (v as List? ?? []).whereType<Map>().map((e) => Map<String, dynamic>.from(e)).toList();
   static double _d(dynamic v) => v is num ? v.toDouble() : double.tryParse('${v ?? ''}') ?? 0;
   static String _date(dynamic v) {
-    final d = DateTime.tryParse('${v ?? ''}')?.toLocal();
+    final d = parseApiUtcDateTime(v);
     if (d == null) return '—';
     String two(int n) => n.toString().padLeft(2, '0');
     return '${two(d.day)}/${two(d.month)}/${d.year} ${two(d.hour)}:${two(d.minute)}';
@@ -320,7 +321,7 @@ class _PosCustomerDetailScreenState extends State<_PosCustomerDetailScreen> {
 
     return Scaffold(
       backgroundColor: SboxColors.page,
-      appBar: AppBar(title: Text(tr(c.name), maxLines: 1, overflow: TextOverflow.ellipsis)),
+      appBar: AppBar(title: Text(tr('Chi tiết khách hàng'))),
       body: SboxReportLayout(
         onRefresh: () async {
           await _reloadCustomer();
@@ -429,7 +430,7 @@ class _PosCustomerDetailScreenState extends State<_PosCustomerDetailScreen> {
                           label: 'Hạn dùng',
                           minWidth: 140,
                           cell: (b) {
-                            final exp = DateTime.tryParse('${b['expiresAt'] ?? ''}')?.toLocal();
+                            final exp = parseApiUtcDateTime(b['expiresAt']);
                             if (exp == null) return const Text('—');
                             final expired = exp.isBefore(DateTime.now());
                             return Align(

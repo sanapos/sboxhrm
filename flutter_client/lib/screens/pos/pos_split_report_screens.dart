@@ -1,6 +1,7 @@
 import 'dart:async';
 
 import 'package:flutter/material.dart';
+import '../../utils/api_datetime.dart';
 import 'package:intl/intl.dart';
 import 'package:provider/provider.dart';
 
@@ -371,11 +372,8 @@ const _payColors = <Color>[
 
 double _n(dynamic v) => v is num ? v.toDouble() : double.tryParse('$v') ?? 0;
 
-DateTime? _parseDate(dynamic v) {
-  if (v == null) return null;
-  if (v is DateTime) return v;
-  return DateTime.tryParse(v.toString());
-}
+/// Giờ từ API là UTC (thường thiếu «Z») → đổi sang giờ máy; trước đây đọc như giờ địa phương nên lệch 7 tiếng.
+DateTime? _parseDate(dynamic v) => parseApiUtcDateTime(v);
 
 List<Map<String, dynamic>> _maps(dynamic raw) => ((raw as List?) ?? [])
     .whereType<Map>()

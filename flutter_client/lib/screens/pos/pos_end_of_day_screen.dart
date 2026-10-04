@@ -2,6 +2,7 @@ import 'dart:async';
 import '../../utils/export_permission_guard.dart';
 
 import 'package:flutter/material.dart';
+import '../../utils/api_datetime.dart';
 import 'package:intl/intl.dart';
 import 'package:provider/provider.dart';
 
@@ -615,8 +616,8 @@ class _PosEndOfDayScreenState extends State<PosEndOfDayScreen> {
                     padding: const EdgeInsets.only(bottom: 6),
                     child: Text(
                       () {
-                        final openedAt = DateTime.tryParse('${s['openedAt'] ?? ''}');
-                        final closedAt = DateTime.tryParse('${s['closedAt'] ?? ''}');
+                        final openedAt = parseApiUtcDateTime(s['openedAt']);
+                        final closedAt = parseApiUtcDateTime(s['closedAt']);
                         final oLocal = openedAt == null
                             ? null
                             : (openedAt.isUtc ? openedAt.toLocal() : openedAt);

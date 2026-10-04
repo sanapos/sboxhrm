@@ -1,6 +1,7 @@
 import 'dart:async';
 
 import 'package:flutter/material.dart';
+import '../../utils/api_datetime.dart';
 import 'package:intl/intl.dart';
 
 import '../../services/api_service.dart';
@@ -66,7 +67,7 @@ class _PosShippingReportScreenState extends State<PosShippingReportScreen> {
 
   String _t(dynamic iso) {
     if (iso == null) return '—';
-    final d = DateTime.tryParse('$iso');
+    final d = parseApiUtcDateTime(iso);
     if (d == null) return '—';
     return _dt.format((d.isUtc ? d : DateTime.utc(d.year, d.month, d.day, d.hour, d.minute)).toLocal());
   }

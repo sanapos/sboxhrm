@@ -4,6 +4,7 @@ import 'package:provider/provider.dart';
 import '../../../providers/permission_provider.dart';
 import 'package:intl/intl.dart';
 
+import '../../../utils/api_datetime.dart';
 import '../../../utils/media_query_safe_padding.dart';
 import '../../../utils/pos_kiot_time_range.dart';
 import '../pos_list_filters.dart';
@@ -1043,9 +1044,7 @@ class PosReportInvoiceList extends StatelessWidget {
     final sold = (e['soldBy'] ?? e['SoldBy'] ?? e['createdBy'] ?? '').toString();
     final totalAmt = _num(e['total'] ?? e['Total']);
     final paid = _num(e['paidAmount'] ?? e['PaidAmount']);
-    final dt = DateTime.tryParse(
-          '${e['saleDate'] ?? e['SaleDate'] ?? e['createdAt'] ?? e['CreatedAt'] ?? ''}',
-        )?.toLocal();
+    final dt = parseApiUtcDateTime(e['saleDate'] ?? e['SaleDate'] ?? e['createdAt'] ?? e['CreatedAt']);
     return InkWell(
       onTap: () => onOpen(e),
       child: Padding(

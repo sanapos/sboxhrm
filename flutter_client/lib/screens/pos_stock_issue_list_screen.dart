@@ -486,7 +486,7 @@ class _PosStockIssueListScreenState extends State<PosStockIssueListScreen> {
               flex: 2,
               child: Text(tr('Tổng giá trị'), style: h, textAlign: TextAlign.right)),
           SizedBox(
-              width: 110,
+              width: 136,
               child: Text(tr('Trạng thái'), style: h, textAlign: TextAlign.right)),
         ],
       ),
@@ -598,7 +598,7 @@ class _PosStockIssueListScreenState extends State<PosStockIssueListScreen> {
                         textAlign: TextAlign.right),
                   ),
                   SizedBox(
-                    width: 110,
+                    width: 136,
                     child: Align(
                       alignment: Alignment.centerRight,
                       child: stockIssueStatusChip(doc.status),

@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import '../../utils/api_datetime.dart';
 import 'package:intl/intl.dart';
 
 import '../../services/api_service.dart';
@@ -160,8 +161,8 @@ class _PosStockHealthReportScreenState extends State<PosStockHealthReportScreen>
   }
 
   Widget _row(Map<String, dynamic> r) {
-    final lastSold = DateTime.tryParse('${r['lastSoldAt'] ?? ''}');
-    final lastIn = DateTime.tryParse('${r['lastInboundAt'] ?? ''}');
+    final lastSold = parseApiUtcDateTime(r['lastSoldAt']);
+    final lastIn = parseApiUtcDateTime(r['lastInboundAt']);
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [

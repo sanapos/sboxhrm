@@ -487,7 +487,7 @@ class _PosStockCountListScreenState extends State<PosStockCountListScreen> {
           Expanded(
               flex: 2,
               child: Text(tr('Tổng chênh lệch'), style: h, textAlign: TextAlign.right)),
-          SizedBox(width: 110, child: Text(tr('Trạng thái'), style: h, textAlign: TextAlign.right)),
+          SizedBox(width: 136, child: Text(tr('Trạng thái'), style: h, textAlign: TextAlign.right)),
         ],
       ),
     );
@@ -611,7 +611,7 @@ class _PosStockCountListScreenState extends State<PosStockCountListScreen> {
                     ),
                   ),
                   SizedBox(
-                    width: 110,
+                    width: 136,
                     child: Align(
                       alignment: Alignment.centerRight,
                       child: stockCountStatusChip(c.status),

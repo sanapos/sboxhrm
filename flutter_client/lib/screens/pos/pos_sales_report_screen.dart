@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import '../../utils/api_datetime.dart';
 import 'package:intl/intl.dart';
 
 import '../../services/api_service.dart';
@@ -88,7 +89,7 @@ class _PosSalesReportScreenState extends State<PosSalesReportScreen> {
   DateTime? _parseDate(dynamic v) {
     if (v == null) return null;
     if (v is DateTime) return v;
-    return DateTime.tryParse(v.toString());
+    return parseApiUtcDateTime(v);
   }
 
   @override

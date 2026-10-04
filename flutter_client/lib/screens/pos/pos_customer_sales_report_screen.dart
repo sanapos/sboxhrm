@@ -1,6 +1,7 @@
 import 'dart:async';
 
 import 'package:flutter/material.dart';
+import '../../utils/api_datetime.dart';
 import 'package:intl/intl.dart';
 
 import '../../services/api_service.dart';
@@ -190,7 +191,7 @@ class _PosCustomerSalesReportScreenState extends State<PosCustomerSalesReportScr
   }
 
   Widget _row(Map<String, dynamic> r) {
-    final last = DateTime.tryParse('${r['lastPurchaseAt'] ?? ''}');
+    final last = parseApiUtcDateTime(r['lastPurchaseAt']);
     final isNew = r['isNew'] == true;
     final cid = '${r['customerId'] ?? r['id'] ?? ''}';
     return InkWell(

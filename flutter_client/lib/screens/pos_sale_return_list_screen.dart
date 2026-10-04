@@ -6,6 +6,7 @@ import 'package:provider/provider.dart';
 
 import '../providers/permission_provider.dart';
 import '../services/api_service.dart';
+import '../utils/api_datetime.dart';
 import '../screens/main_layout.dart' show ScreenRefreshNotifier;
 import '../widgets/notification_overlay.dart';
 import '../utils/pos_kiot_time_range.dart';
@@ -214,7 +215,7 @@ class _PosSaleReturnListScreenState extends State<PosSaleReturnListScreen> {
                           .copyWith(fontWeight: SboxType.semibold)),
                 ),
                 SboxColumn(label: 'Hóa đơn', minWidth: 130, text: (r) => r.orderNo),
-                SboxColumn(label: 'Thời gian', minWidth: 140, text: (r) => r.createdAt != null ? _dateFmt.format(r.createdAt!.toLocal()) : '—'),
+                SboxColumn(label: 'Thời gian', minWidth: 140, text: (r) => r.createdAt != null ? _dateFmt.format(r.createdAt!) : '—'),
                 SboxColumn(label: 'Khách hàng', flex: 2, minWidth: 160, text: (r) => r.customerName ?? 'Khách lẻ'),
                 SboxColumn(label: 'Hoàn qua', minWidth: 120, hideOnMobile: true, text: (r) => r.refundPaymentMethod ?? '—'),
                 SboxColumn(
@@ -285,9 +286,7 @@ class _ReturnRow {
       refundAmount: n(j['refundAmount'] ?? j['RefundAmount']),
       refundPaymentMethod: j['refundPaymentMethod']?.toString() ??
           j['RefundPaymentMethod']?.toString(),
-      createdAt: j['createdAt'] != null
-          ? DateTime.tryParse(j['createdAt'].toString())
-          : null,
+      createdAt: parseApiUtcDateTime(j['createdAt']),
       customerName: j['customerName']?.toString() ?? j['CustomerName']?.toString(),
       isVoided: j['isVoided'] == true || j['IsVoided'] == true,
     );

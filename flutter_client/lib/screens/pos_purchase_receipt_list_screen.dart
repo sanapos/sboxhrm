@@ -586,7 +586,7 @@ class _PosPurchaseReceiptListScreenState
           Expanded(
               flex: 2,
               child: Text(tr('Cần trả NCC'), style: h, textAlign: TextAlign.right)),
-          SizedBox(width: 100, child: Text(tr('Trạng thái'), style: h, textAlign: TextAlign.right)),
+          SizedBox(width: 136, child: Text(tr('Trạng thái'), style: h, textAlign: TextAlign.right)),
         ],
       ),
     );
@@ -688,7 +688,7 @@ class _PosPurchaseReceiptListScreenState
                         textAlign: TextAlign.right),
                   ),
                   SizedBox(
-                    width: 100,
+                    width: 136,
                     child: Align(
                       alignment: Alignment.centerRight,
                       child: purchaseStatusChip(r.status),

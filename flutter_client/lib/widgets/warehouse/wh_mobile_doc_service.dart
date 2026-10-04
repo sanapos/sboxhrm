@@ -129,9 +129,12 @@ class WhMobileDocService {
               id: c.id,
               docNo: c.countNo,
               status: c.status,
-              amount: c.totalDiffValue.abs(),
+              // Tiền chênh lệch có dấu (âm = thiếu) — trước đây bỏ dấu nên không biết thừa hay thiếu.
+              amount: c.totalDiffValue,
               lineCount: c.lineCount,
-              subtitle: c.name,
+              subtitle: c.totalDiffQty == 0
+                  ? c.name
+                  : '${c.name} · lệch ${c.totalDiffQty > 0 ? '+' : ''}${c.totalDiffQty.toStringAsFixed(c.totalDiffQty == c.totalDiffQty.roundToDouble() ? 0 : 2)}',
               meta: '${c.checkedCount}/${c.lineCount} đã kiểm · ${formatDate(c.createdAt)}',
               createdAt: c.createdAt,
               createdBy: c.createdBy,

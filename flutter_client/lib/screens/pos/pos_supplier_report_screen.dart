@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import '../../utils/api_datetime.dart';
 import 'package:intl/intl.dart';
 
 import '../../services/api_service.dart';
@@ -277,7 +278,7 @@ class _PosSupplierReportScreenState extends State<PosSupplierReportScreen> {
   }
 
   String _fmtDate(dynamic v) {
-    final d = DateTime.tryParse('$v');
+    final d = parseApiUtcDateTime(v);
     return d == null ? '' : _dateFmt.format(d);
   }
 }

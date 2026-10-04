@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import '../../utils/api_datetime.dart';
 import 'package:intl/intl.dart';
 
 import '../../services/api_service.dart';
@@ -185,8 +186,8 @@ class _PosReservationReportScreenState extends State<PosReservationReportScreen>
   }
 
   Widget _row(Map<String, dynamic> r) {
-    final at = DateTime.tryParse('${r['reservedAt'] ?? ''}');
-    final created = DateTime.tryParse('${r['createdAt'] ?? ''}');
+    final at = parseApiUtcDateTime(r['reservedAt']);
+    final created = parseApiUtcDateTime(r['createdAt']);
     final occ = (r['occasionLabel'] ?? '').toString();
     final req = (r['specialRequest'] ?? '').toString();
     final note = (r['note'] ?? '').toString();

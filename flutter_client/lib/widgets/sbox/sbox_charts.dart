@@ -124,10 +124,23 @@ Widget _bottomLabel(List<String> labels, double v, {required int maxLabels}) {
   final i = v.round();
   if ((v - i).abs() > 0.01 || i < 0 || i >= labels.length) return const SizedBox.shrink();
   final step = math.max(1, (labels.length / maxLabels).ceil());
-  if (i % step != 0 && i != labels.length - 1) return const SizedBox.shrink();
+  // Nhãn cuối chỉ ép hiện khi không sát nhãn trước (tránh hai nhãn đè nhau).
+  final lastFar = i == labels.length - 1 && (labels.length - 1) % step >= (step / 2).ceil();
+  if (i % step != 0 && !lastFar) return const SizedBox.shrink();
+  // Tên dài (tên hàng) không tràn sang cột bên cạnh: giới hạn trong ô, cắt «…», di chuột xem đủ.
   return Padding(
     padding: const EdgeInsets.only(top: 6),
-    child: Text(labels[i], style: const TextStyle(fontSize: 10, color: SboxChartColors.axis, height: 1)),
+    child: Tooltip(
+      message: labels[i],
+      child: SizedBox(
+        width: 54.0 * step,
+        child: Text(labels[i],
+            maxLines: 1,
+            overflow: TextOverflow.ellipsis,
+            textAlign: TextAlign.center,
+            style: const TextStyle(fontSize: 10, color: SboxChartColors.axis, height: 1)),
+      ),
+    ),
   );
 }
 
