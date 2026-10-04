@@ -856,7 +856,17 @@ class _MainLayoutState extends State<MainLayout> with WidgetsBindingObserver {
   bool _keepScreenAlive(int index) {
     if (index == 0) return true;
     if (index < 0 || index >= _navItems.length) return true;
-    return _navItems[index].moduleCode == 'PosSell';
+    return _screenModuleCode(index) == 'PosSell';
+  }
+
+  /// Mã module của MÀN đang mở. Nhiều màn dùng chung mã quyền (Kho chi nhánh / Chuyển kho = PosProducts,
+  /// Check-in hội viên = PosSell): chỉ màn chính của mã đó mới được coi là module (mở hub POS,
+  /// ẩn khung, sáng ô thanh dưới) — màn phụ mở đúng màn của nó trong khung thường.
+  String? _screenModuleCode(int index) {
+    if (index < 0 || index >= _navItems.length) return null;
+    final code = _navItems[index].moduleCode;
+    if (code == null) return null;
+    return _navIndexForModule(code) == index ? code : null;
   }
 
   void _bumpModuleVisit(int index) {
@@ -2369,7 +2379,7 @@ class _MainLayoutState extends State<MainLayout> with WidgetsBindingObserver {
 
   // Desktop Layout với Navigation Rail mở rộng
   Widget _buildDesktopLayout() {
-    final moduleCode = _navItems[_selectedIndex].moduleCode;
+    final moduleCode = _screenModuleCode(_selectedIndex);
     return ValueListenableBuilder<bool>(
       valueListenable: SystemUiInsetMode.immersive,
       builder: (context, immersive, _) {
@@ -2429,7 +2439,7 @@ class _MainLayoutState extends State<MainLayout> with WidgetsBindingObserver {
 
   // Tablet Layout với Navigation Rail thu gọn
   Widget _buildTabletLayout() {
-    final moduleCode = _navItems[_selectedIndex].moduleCode;
+    final moduleCode = _screenModuleCode(_selectedIndex);
     return ValueListenableBuilder<bool>(
       valueListenable: SystemUiInsetMode.immersive,
       builder: (context, immersive, _) {
@@ -2614,7 +2624,7 @@ class _MainLayoutState extends State<MainLayout> with WidgetsBindingObserver {
   // Mobile Layout với Bottom Navigation
   Widget _buildMobileLayout() {
     final l = AppLocalizations.of(context);
-    final moduleCode = _navItems[_selectedIndex].moduleCode;
+    final moduleCode = _screenModuleCode(_selectedIndex);
     return ValueListenableBuilder<bool>(
       valueListenable: SystemUiInsetMode.immersive,
       builder: (context, immersive, _) {
@@ -2652,6 +2662,25 @@ class _MainLayoutState extends State<MainLayout> with WidgetsBindingObserver {
             key: const ValueKey('pos_mobile_hub'),
             initialTab: PosHubModules.tabIndexForModule(moduleCode),
             restoreLastTab: false,
+            // Giữ nguyên thanh dưới của app (Trang chủ · … · Thêm) — không đổi sang bộ ô POS khác kiểu.
+            bottomBarBuilder: (ctx, currentModule, switchTab) =>
+                _buildModernBottomNav(
+              _bottomNavSlotIndexForModule(currentModule),
+              l,
+              onModuleTap: (code) {
+                if (PosHubModules.isPrimary(code)) {
+                  switchTab(PosHubModules.tabIndexForModule(code));
+                }
+                _navigateToModule(code);
+              },
+              onMore: () {
+                // Ngăn «Thêm» thuộc khung chính: về Trang chủ rồi mở ngăn.
+                _tryNavigateToIndex(0);
+                WidgetsBinding.instance.addPostFrameCallback((_) {
+                  if (mounted) _mobileScaffoldKey.currentState?.openDrawer();
+                });
+              },
+            ),
           ),
           shellChromeVisible: false,
         ),
@@ -2675,10 +2704,15 @@ class _MainLayoutState extends State<MainLayout> with WidgetsBindingObserver {
             .textTheme
             .headlineLarge
             ?.copyWith(fontSize: 18),
-        title: Text(
-          tr(_settingsHubTitle(l)),
-          overflow: TextOverflow.ellipsis,
-          maxLines: 1,
+        // Tiêu đề dài (Nhập hàng NCC, Trả hàng nhập…) thu nhỏ cho vừa thay vì cắt «Nhập hàng N…».
+        title: FittedBox(
+          fit: BoxFit.scaleDown,
+          alignment: Alignment.centerLeft,
+          child: Text(
+            tr(_settingsHubTitle(l)),
+            maxLines: 1,
+            softWrap: false,
+          ),
         ),
         // Mobile: AI + thông báo đặt thẳng trên AppBar; action trang → FAB.
         actions: [
@@ -2762,7 +2796,7 @@ class _MainLayoutState extends State<MainLayout> with WidgetsBindingObserver {
     final handler = NavigationNotifier.posHandleSystemBack;
     if (handler != null && await handler()) return;
     if (inPosHub ||
-        PosHubModules.isPrimary(_navItems[_selectedIndex].moduleCode)) {
+        PosHubModules.isPrimary(_screenModuleCode(_selectedIndex))) {
       NavigationNotifier.leavePosHubToAppHome();
       return;
     }
@@ -3027,7 +3061,12 @@ class _MainLayoutState extends State<MainLayout> with WidgetsBindingObserver {
     return _mobileNavLabel(def.moduleCode ?? def.id, l);
   }
 
-  Widget _buildModernBottomNav(int selectedSlotIndex, AppLocalizations l) {
+  Widget _buildModernBottomNav(
+    int selectedSlotIndex,
+    AppLocalizations l, {
+    ValueChanged<String>? onModuleTap,
+    VoidCallback? onMore,
+  }) {
     final theme = Theme.of(context);
     final primaryColor = theme.colorScheme.primary;
     final isDark = theme.brightness == Brightness.dark;
@@ -3077,8 +3116,8 @@ class _MainLayoutState extends State<MainLayout> with WidgetsBindingObserver {
                     isSelected: isSelected,
                     selectedColor: primaryColor,
                     unselectedColor: unselectedColor,
-                    onTap: () =>
-                        _mobileScaffoldKey.currentState?.openDrawer(),
+                    onTap: onMore ??
+                        () => _mobileScaffoldKey.currentState?.openDrawer(),
                   ),
                 );
               }
@@ -3090,7 +3129,7 @@ class _MainLayoutState extends State<MainLayout> with WidgetsBindingObserver {
                   isSelected: isSelected,
                   selectedColor: primaryColor,
                   unselectedColor: unselectedColor,
-                  onTap: () => _navigateToModule(def!.moduleCode!),
+                  onTap: () => (onModuleTap ?? _navigateToModule)(def!.moduleCode!),
                 ),
               );
             }),

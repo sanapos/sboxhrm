@@ -286,39 +286,57 @@ class WhDocListTile extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    // Mã phiếu + số tiền một hàng; NCC / số dòng · ngày + trạng thái hàng dưới — không bẻ mã phiếu
+    // khi chữ hệ thống phóng to (trước đây «PN00 / 0015»).
     return WhGlassCard(
       margin: const EdgeInsets.only(bottom: WhMobileTheme.gap),
+      padding: const EdgeInsets.fromLTRB(16, 12, 16, 12),
       onTap: onTap,
-      child: Row(
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Row(
-                  children: [
-                    Expanded(
-                      child: Text(tr(docNo), style: WhMobileTheme.titleMedium),
-                    ),
-                    WhStatusPill(status: status, draftLabel: draftLabel),
-                  ],
-                ),
-                if (subtitle != null) ...[
-                  const SizedBox(height: 4),
-                  Text(tr(subtitle!), style: WhMobileTheme.caption),
-                ],
-                const SizedBox(height: 6),
-                Text(tr(meta), style: WhMobileTheme.caption),
-              ],
-            ),
-          ),
-          const SizedBox(width: 12),
-          Column(
-            crossAxisAlignment: CrossAxisAlignment.end,
+          Row(
             children: [
-              Text(tr(amountLabel), style: WhMobileTheme.money),
-              const SizedBox(height: 4),
-              Icon(Icons.chevron_right_rounded, color: WhMobileTheme.textTertiary, size: 22),
+              Expanded(
+                child: Text(
+                  tr(docNo),
+                  style: WhMobileTheme.titleMedium.copyWith(fontSize: 16),
+                  maxLines: 1,
+                  softWrap: false,
+                  overflow: TextOverflow.ellipsis,
+                ),
+              ),
+              const SizedBox(width: 10),
+              Text(
+                tr(amountLabel),
+                style: WhMobileTheme.money.copyWith(fontSize: 16),
+                maxLines: 1,
+                softWrap: false,
+              ),
+            ],
+          ),
+          if (subtitle != null && subtitle!.trim().isNotEmpty) ...[
+            const SizedBox(height: 4),
+            Text(
+              tr(subtitle!),
+              style: WhMobileTheme.caption,
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
+            ),
+          ],
+          const SizedBox(height: 6),
+          Row(
+            children: [
+              Expanded(
+                child: Text(
+                  tr(meta),
+                  style: WhMobileTheme.caption,
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                ),
+              ),
+              const SizedBox(width: 8),
+              WhStatusPill(status: status, draftLabel: draftLabel),
             ],
           ),
         ],

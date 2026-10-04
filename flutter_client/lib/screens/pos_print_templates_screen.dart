@@ -1384,10 +1384,10 @@ class _PosPrintTemplatesScreenState extends State<PosPrintTemplatesScreen> {
     final grid = cards.isEmpty
         ? Center(child: Text(tr('Chưa có mẫu in cho loại phiếu này')))
         : GridView.extent(
-            padding: const EdgeInsets.fromLTRB(20, 12, 20, 24),
+            padding: mobile ? const EdgeInsets.fromLTRB(12, 8, 12, 24) : const EdgeInsets.fromLTRB(20, 12, 20, 24),
             maxCrossAxisExtent: mobile ? 220 : 250,
-            mainAxisSpacing: 18,
-            crossAxisSpacing: 18,
+            mainAxisSpacing: mobile ? 12 : 18,
+            crossAxisSpacing: mobile ? 12 : 18,
             childAspectRatio: mobile ? .6 : .64,
             children: cards,
           );

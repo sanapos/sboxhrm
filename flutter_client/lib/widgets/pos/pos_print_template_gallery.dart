@@ -319,8 +319,17 @@ class PosPrintTemplateCard extends StatefulWidget {
 class _PosPrintTemplateCardState extends State<PosPrintTemplateCard> {
   bool _hover = false;
 
+  static Widget _oneLine(String text) => FittedBox(
+        fit: BoxFit.scaleDown,
+        child: Text(text, maxLines: 1, softWrap: false),
+      );
+
   @override
-  Widget build(BuildContext context) {
+  Widget build(BuildContext context) => LayoutBuilder(
+        builder: (context, c) => _build(context, narrow: c.maxWidth < 200),
+      );
+
+  Widget _build(BuildContext context, {required bool narrow}) {
     final t = widget.template;
     final updated = t.updatedAt ?? t.createdAt;
     return MouseRegion(
@@ -387,15 +396,15 @@ class _PosPrintTemplateCardState extends State<PosPrintTemplateCard> {
                     Expanded(
                       child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
                         Text(tr(posPrintCleanName(t.name)),
-                            maxLines: 1,
+                            maxLines: 2,
                             overflow: TextOverflow.ellipsis,
                             style: const TextStyle(fontWeight: FontWeight.w700, fontSize: 14, color: SboxColors.slate900)),
                         const SizedBox(height: 2),
                         Text(
                           updated == null
                               ? PosPrintPaperSizes.displayLabel(t.paperSize)
-                              : tr('Cập nhật ${updated.toLocal().day.toString().padLeft(2, '0')}/'
-                                  '${updated.toLocal().month.toString().padLeft(2, '0')}/${updated.toLocal().year}'),
+                              : '${narrow ? '' : tr('Cập nhật ')}${updated.toLocal().day.toString().padLeft(2, '0')}/'
+                                  '${updated.toLocal().month.toString().padLeft(2, '0')}/${updated.toLocal().year}',
                           maxLines: 1,
                           overflow: TextOverflow.ellipsis,
                           style: const TextStyle(fontSize: 12, color: SboxColors.slate400),
@@ -404,6 +413,7 @@ class _PosPrintTemplateCardState extends State<PosPrintTemplateCard> {
                     ),
                     PopupMenuButton<String>(
                       tooltip: tr('Thao tác khác'),
+                      padding: EdgeInsets.zero,
                       icon: const Icon(Icons.more_vert, color: SboxColors.slate500),
                       onSelected: (v) => switch (v) {
                         'edit' => widget.onEdit(),
@@ -426,31 +436,41 @@ class _PosPrintTemplateCardState extends State<PosPrintTemplateCard> {
                 ),
                 const Divider(height: 1, color: SboxColors.slate100),
                 Padding(
-                  padding: const EdgeInsets.fromLTRB(8, 6, 8, 8),
+                  padding: const EdgeInsets.fromLTRB(6, 6, 8, 8),
+                  // Thẻ hẹp (2 cột trên điện thoại): «Sửa» thành nút biểu tượng, nút chính một dòng —
+                  // trước đây «Sửa» bị bẻ «Sử / a», «Dùng mẫu này» thành «Dù…».
                   child: Row(children: [
                     if (widget.canEdit)
-                      Expanded(
-                        child: TextButton.icon(
-                          onPressed: widget.onEdit,
-                          icon: const Icon(Icons.edit_outlined, size: 16),
-                          label: Text(tr('Sửa')),
-                        ),
-                      ),
+                      narrow
+                          ? IconButton(
+                              onPressed: widget.onEdit,
+                              tooltip: tr('Sửa'),
+                              visualDensity: VisualDensity.compact,
+                              icon: const Icon(Icons.edit_outlined, size: 20, color: SboxColors.brand600),
+                            )
+                          : Expanded(
+                              child: TextButton.icon(
+                                onPressed: widget.onEdit,
+                                icon: const Icon(Icons.edit_outlined, size: 16),
+                                label: Text(tr('Sửa'), maxLines: 1, softWrap: false),
+                              ),
+                            ),
                     Expanded(
                       child: t.isDefault
                           ? TextButton.icon(
                               onPressed: widget.onTestPrint,
                               icon: const Icon(Icons.print_outlined, size: 16),
-                              label: Text(tr('In thử')),
+                              label: _oneLine(tr('In thử')),
                             )
                           : FilledButton(
                               onPressed: widget.canEdit ? widget.onUse : null,
                               style: FilledButton.styleFrom(
                                 backgroundColor: _green,
                                 visualDensity: VisualDensity.compact,
+                                padding: const EdgeInsets.symmetric(horizontal: 8),
                                 shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
                               ),
-                              child: Text(tr('Dùng mẫu này'), maxLines: 1, overflow: TextOverflow.ellipsis),
+                              child: _oneLine(tr(narrow ? 'Dùng mẫu' : 'Dùng mẫu này')),
                             ),
                     ),
                   ]),

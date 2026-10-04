@@ -219,7 +219,11 @@ class PosMobileHubSectionGrid extends StatelessWidget {
             crossAxisCount: cols,
             spacing: roomy ? 8 : 4,
             runSpacing: roomy ? 8 : 4,
-            childAspectRatio: roomy ? 1.05 : 0.92,
+            // Chiều cao theo nội dung (biểu tượng + 2 dòng chữ, có tính cỡ chữ máy) — trước đây
+            // theo tỉ lệ ô vuông nên điện thoại bị thừa nửa ô trống, trang chủ dài lê thê.
+            itemHeight: roomy
+                ? 60 + 30 * MediaQuery.textScalerOf(context).scale(1)
+                : 52 + 27 * MediaQuery.textScalerOf(context).scale(1),
             itemCount: items.length,
             itemBuilder: (context, index) => _PosMobileHubGridTile(
               item: items[index],

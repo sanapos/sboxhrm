@@ -30,11 +30,20 @@ class PosMobileHubScreen extends StatefulWidget {
     super.key,
     this.initialTab = 2,
     this.restoreLastTab = true,
+    this.bottomBarBuilder,
   });
 
   final int initialTab;
   /// App POS độc lập: nhớ tab lần trước. HRM trang chủ: false — tôn trọng module đã chọn.
   final bool restoreLastTab;
+
+  /// Mở từ khung chính (HRM + POS): dùng đúng thanh dưới của app thay cho bộ ô POS riêng.
+  /// Nhận mã module đang hiện và hàm đổi tab hub.
+  final Widget Function(
+    BuildContext context,
+    String currentModuleCode,
+    ValueChanged<int> switchTab,
+  )? bottomBarBuilder;
 
   @override
   State<PosMobileHubScreen> createState() => PosMobileHubScreenState();
@@ -379,7 +388,9 @@ class PosMobileHubScreenState extends State<PosMobileHubScreen> {
       ),
       bottomNavigationBar: useVerticalRail || sellFullscreen
           ? null
-          : SafeArea(top: false, child: _buildBottomNavBar(perm, layout)),
+          : widget.bottomBarBuilder != null
+              ? widget.bottomBarBuilder!(context, _moduleForTab(_tab), _switchTab)
+              : SafeArea(top: false, child: _buildBottomNavBar(perm, layout)),
     );
   }
 

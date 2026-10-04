@@ -8,6 +8,7 @@ import '../../services/api_service.dart';
 import '../../services/branch_session.dart';
 import '../../theme/sbox_tokens.dart';
 import '../../widgets/notification_overlay.dart';
+import '../../widgets/hrm_page_chrome.dart';
 import 'branch_ops_ui.dart';
 
 final _dt = DateFormat('HH:mm dd/MM');
@@ -135,7 +136,8 @@ class _StockTransferScreenState extends State<StockTransferScreen> {
     }
     return Scaffold(
       backgroundColor: SboxColors.slate50,
-      appBar: AppBar(title: Text(tr('Chuyển kho chi nhánh'))),
+      // Trong khung chính thanh trên đã có tiêu đề — không lặp.
+      appBar: HrmPageChrome.hideInPageTitle(context) ? null : AppBar(title: Text(tr('Chuyển kho chi nhánh'))),
       floatingActionButton: fab,
       body: list,
     );

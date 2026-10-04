@@ -6,6 +6,7 @@ import 'package:intl/intl.dart';
 import '../../l10n/app_tr.dart';
 import '../../services/api_service.dart';
 import '../../utils/file_saver.dart';
+import '../../widgets/hrm_page_chrome.dart';
 import '../../widgets/notification_overlay.dart';
 import '../../widgets/pos/pos_theme.dart';
 
@@ -31,13 +32,18 @@ class _PosGymCheckInScreenState extends State<PosGymCheckInScreen> with SingleTi
 
   @override
   Widget build(BuildContext context) {
+    // Trong khung chính thanh trên đã ghi tiêu đề — chỉ giữ hàng tab.
+    final hideTitle = HrmPageChrome.hideInPageTitle(context);
     return Scaffold(
       backgroundColor: PosTheme.background,
       appBar: AppBar(
-        title: Text(tr('Check-in hội viên')),
+        toolbarHeight: hideTitle ? 0 : kToolbarHeight,
+        automaticallyImplyLeading: !hideTitle,
+        title: hideTitle ? null : Text(tr('Check-in hội viên')),
         bottom: TabBar(
           controller: _tabs,
           isScrollable: true,
+          tabAlignment: TabAlignment.start,
           tabs: [
             Tab(text: tr('Lượt tập')),
             Tab(text: tr('Hội viên trên máy')),

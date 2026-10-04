@@ -8,6 +8,7 @@ import '../../services/branch_session.dart';
 import '../../theme/sbox_tokens.dart';
 import '../../widgets/sbox/sbox_basics.dart' show SboxTone;
 import '../../widgets/sbox/sbox_report.dart';
+import '../../widgets/hrm_page_chrome.dart';
 import 'branch_ops_ui.dart';
 import 'stock_transfer_screen.dart';
 
@@ -249,7 +250,8 @@ class _BranchStockViewState extends State<BranchStockView> {
     if (widget.embedded) return body;
     return Scaffold(
       backgroundColor: SboxColors.slate50,
-      appBar: AppBar(title: Text(tr('Kho chi nhánh'))),
+      // Trong khung chính thanh trên đã có tiêu đề — không lặp.
+      appBar: HrmPageChrome.hideInPageTitle(context) ? null : AppBar(title: Text(tr('Kho chi nhánh'))),
       body: body,
     );
   }
