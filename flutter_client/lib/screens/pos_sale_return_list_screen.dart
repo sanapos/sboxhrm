@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
 import 'package:provider/provider.dart';
@@ -6,12 +8,12 @@ import '../providers/permission_provider.dart';
 import '../services/api_service.dart';
 import '../screens/main_layout.dart' show ScreenRefreshNotifier;
 import '../widgets/notification_overlay.dart';
-import '../widgets/pos/pos_mobile_widgets.dart';
-import '../widgets/pos/pos_theme.dart';
+import '../utils/pos_kiot_time_range.dart';
+import '../widgets/pos/pos_list_filters.dart';
+import '../widgets/sbox/sbox_ui.dart';
 import 'pos_sale_return_screen.dart';
 import 'package:zkteco_flutter_client/l10n/app_tr.dart';
 
-import '../theme/sbox_tokens.dart';
 /// Danh sách phiếu trả hàng bán.
 class PosSaleReturnListScreen extends StatefulWidget {
   const PosSaleReturnListScreen({super.key});
@@ -23,7 +25,6 @@ class PosSaleReturnListScreen extends StatefulWidget {
 class _PosSaleReturnListScreenState extends State<PosSaleReturnListScreen> {
   final _api = ApiService();
   final _searchCtrl = TextEditingController();
-  final _moneyFmt = NumberFormat('#,##0', 'vi_VN');
   final _dateFmt = DateFormat('dd/MM/yyyy HH:mm', 'vi_VN');
 
   bool _loading = true;
@@ -31,6 +32,8 @@ class _PosSaleReturnListScreenState extends State<PosSaleReturnListScreen> {
   int _total = 0;
   int _page = 1;
   static const _pageSize = 40;
+  PosKiotTimeFilterState _timeFilter = PosKiotTimeFilterState.thisMonth();
+  Timer? _debounce;
 
   @override
   void initState() {
@@ -40,6 +43,7 @@ class _PosSaleReturnListScreenState extends State<PosSaleReturnListScreen> {
 
   @override
   void dispose() {
+    _debounce?.cancel();
     _searchCtrl.dispose();
     super.dispose();
   }
@@ -48,6 +52,8 @@ class _PosSaleReturnListScreenState extends State<PosSaleReturnListScreen> {
     setState(() => _loading = true);
     final res = await _api.getPosSaleReturnHistory(
       search: _searchCtrl.text,
+      from: _timeFilter.from,
+      to: _timeFilter.to,
       page: _page,
       pageSize: _pageSize,
     );
@@ -120,6 +126,22 @@ class _PosSaleReturnListScreenState extends State<PosSaleReturnListScreen> {
     }
   }
 
+  Future<void> _newReturn() async {
+    await Navigator.push(
+      context,
+      MaterialPageRoute(builder: (_) => const PosSaleReturnScreen()),
+    );
+    if (mounted) await _load();
+  }
+
+  void _onSearchChanged(String _) {
+    _debounce?.cancel();
+    _debounce = Timer(const Duration(milliseconds: 400), () {
+      _page = 1;
+      _load();
+    });
+  }
+
   @override
   Widget build(BuildContext context) {
     final perm = Provider.of<PermissionProvider>(context);
@@ -129,213 +151,105 @@ class _PosSaleReturnListScreenState extends State<PosSaleReturnListScreen> {
     if (!perm.canView('PosSaleReturns') &&
         !perm.canView('PosSell') &&
         !perm.canView('PosProducts')) {
-      return Scaffold(
-        body: Center(child: Text(tr('Không có quyền xem trả hàng'))),
+      return const Scaffold(
+        body: SboxEmptyState(icon: Icons.lock_outline, title: 'Không có quyền xem trả hàng'),
       );
     }
 
-    final mobile = posUseMobileList(context);
-    final pages = (_total / _pageSize).ceil().clamp(1, 9999);
+    TextStyle? struck(_ReturnRow r) =>
+        r.isVoided ? const TextStyle(decoration: TextDecoration.lineThrough, color: SboxColors.textMuted) : null;
 
     return Scaffold(
-      backgroundColor: PosTheme.background,
-      appBar: AppBar(
-        title: Text(tr('Danh sách trả hàng')),
-        backgroundColor: PosTheme.kiotBlue,
-        foregroundColor: Colors.white,
-        actions: [
-          IconButton(onPressed: _load, icon: const Icon(Icons.refresh)),
-        ],
-      ),
-      floatingActionButton: canReturn
-          ? FloatingActionButton.extended(
-              onPressed: () async {
-                await Navigator.push(
-                  context,
-                  MaterialPageRoute(builder: (_) => const PosSaleReturnScreen()),
-                );
-                if (mounted) await _load();
+      backgroundColor: SboxColors.page,
+      body: SboxReportLayout(
+        onRefresh: _load,
+        filters: SboxFilterBar(
+          searchHint: 'Tìm mã trả, mã HĐ, tên khách…',
+          searchController: _searchCtrl,
+          onSearch: _onSearchChanged,
+          filters: [
+            PosTimeRangeChip(
+              state: _timeFilter,
+              onChanged: (v) {
+                setState(() {
+                  _timeFilter = v;
+                  _page = 1;
+                });
+                _load();
               },
-              backgroundColor: PosTheme.kiotBlue,
-              icon: const Icon(Icons.add),
-              label: Text(tr('Trả hàng mới')),
-            )
-          : null,
-      body: Column(
-        children: [
-          Padding(
-            padding: const EdgeInsets.fromLTRB(12, 12, 12, 0),
-            child: Row(
-              children: [
-                Expanded(
-                  child: TextField(
-                    controller: _searchCtrl,
-                    decoration: InputDecoration(
-                      isDense: true,
-                      hintText: tr('Tìm mã trả, HĐ, khách…'),
-                      prefixIcon: const Icon(Icons.search, size: 20),
-                      border: OutlineInputBorder(
-                        borderRadius: BorderRadius.circular(10),
-                      ),
-                    ),
-                    onSubmitted: (_) {
-                      _page = 1;
-                      _load();
-                    },
-                  ),
+            ),
+          ],
+          actions: [
+            if (canReturn) SboxButton(label: 'Trả hàng mới', icon: Icons.add, onPressed: _newReturn),
+          ],
+        ),
+        table: SboxCard(
+          padding: EdgeInsets.zero,
+          child: Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
+            SboxDataTable<_ReturnRow>(
+              loading: _loading,
+              paginate: false,
+              rows: _items,
+              onRowTap: _openReturn,
+              emptyTitle: 'Chưa có phiếu trả hàng',
+              emptyMessage: 'Đổi khoảng thời gian, hoặc bấm « Trả hàng mới » để tạo phiếu trả.',
+              rowActions: canReturn
+                  ? (r) => r.isVoided
+                      ? const SizedBox.shrink()
+                      : IconButton(
+                          tooltip: tr('Hủy phiếu trả'),
+                          icon: const Icon(Icons.cancel_outlined, size: 18, color: SboxColors.dangerText),
+                          onPressed: () => _voidReturn(r),
+                        )
+                  : null,
+              columns: [
+                SboxColumn(
+                  label: 'Mã trả',
+                  primary: true,
+                  minWidth: 140,
+                  cell: (r) => Text(r.returnNo,
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      style: (struck(r) ?? const TextStyle(color: SboxColors.primary))
+                          .copyWith(fontWeight: SboxType.semibold)),
                 ),
-                const SizedBox(width: 8),
-                IconButton(
-                  onPressed: () {
-                    _page = 1;
-                    _load();
-                  },
-                  icon: const Icon(Icons.search),
+                SboxColumn(label: 'Hóa đơn', minWidth: 130, text: (r) => r.orderNo),
+                SboxColumn(label: 'Thời gian', minWidth: 140, text: (r) => r.createdAt != null ? _dateFmt.format(r.createdAt!.toLocal()) : '—'),
+                SboxColumn(label: 'Khách hàng', flex: 2, minWidth: 160, text: (r) => r.customerName ?? 'Khách lẻ'),
+                SboxColumn(label: 'Hoàn qua', minWidth: 120, hideOnMobile: true, text: (r) => r.refundPaymentMethod ?? '—'),
+                SboxColumn(
+                  label: 'Tiền hoàn',
+                  numeric: true,
+                  minWidth: 120,
+                  cell: (r) => Text(SboxFmt.money(r.refundAmount),
+                      textAlign: TextAlign.right,
+                      style: (struck(r) ?? const TextStyle()).copyWith(fontWeight: SboxType.semibold)),
+                ),
+                SboxColumn(
+                  label: 'Trạng thái',
+                  minWidth: 110,
+                  cell: (r) => Align(
+                    alignment: Alignment.centerLeft,
+                    child: SboxStatusChip(
+                      label: r.isVoided ? 'Đã hủy' : 'Đã trả',
+                      tone: r.isVoided ? SboxTone.neutral : SboxTone.success,
+                    ),
+                  ),
                 ),
               ],
             ),
-          ),
-          Padding(
-            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
-            child: Align(
-              alignment: Alignment.centerLeft,
-              child: Text(tr('$_total phiếu trả hàng'),
-                style: const TextStyle(
-                  fontSize: 12,
-                  color: PosTheme.textSecondary,
-                ),
+            if (_total > _pageSize)
+              SboxPager(
+                page: _page,
+                pageSize: _pageSize,
+                total: _total,
+                onPage: (p) {
+                  setState(() => _page = p);
+                  _load();
+                },
               ),
-            ),
-          ),
-          Expanded(
-            child: _loading
-                ? const Center(child: CircularProgressIndicator())
-                : _items.isEmpty
-                    ? Center(child: Text(tr('Chưa có phiếu trả hàng')))
-                    : ListView.separated(
-                        padding: const EdgeInsets.all(12),
-                        itemCount: _items.length,
-                        separatorBuilder: (_, __) => const SizedBox(height: 8),
-                        itemBuilder: (_, i) {
-                          final r = _items[i];
-                          return Material(
-                            color: Colors.white,
-                            borderRadius: BorderRadius.circular(10),
-                            child: InkWell(
-                              borderRadius: BorderRadius.circular(10),
-                              onTap: () => _openReturn(r),
-                              child: Padding(
-                                padding: EdgeInsets.all(mobile ? 12 : 14),
-                                child: Column(
-                                  crossAxisAlignment: CrossAxisAlignment.start,
-                                  children: [
-                                    Row(
-                                      children: [
-                                        Expanded(
-                                          child: Text(
-                                            tr(r.returnNo),
-                                            style: TextStyle(
-                                              fontWeight: FontWeight.w700,
-                                              color: r.isVoided
-                                                  ? PosTheme.textSecondary
-                                                  : PosTheme.kiotBlue,
-                                              decoration: r.isVoided
-                                                  ? TextDecoration.lineThrough
-                                                  : null,
-                                            ),
-                                          ),
-                                        ),
-                                        if (r.isVoided)
-                                          Container(
-                                            padding: const EdgeInsets.symmetric(
-                                                horizontal: 6, vertical: 2),
-                                            decoration: BoxDecoration(
-                                              color: SboxColors.slate200,
-                                              borderRadius:
-                                                  BorderRadius.circular(4),
-                                            ),
-                                            child: Text(tr('Đã hủy'),
-                                                style: TextStyle(fontSize: 10)),
-                                          )
-                                        else if (canReturn)
-                                          IconButton(
-                                            visualDensity:
-                                                VisualDensity.compact,
-                                            padding: EdgeInsets.zero,
-                                            constraints: const BoxConstraints(
-                                                minWidth: 32, minHeight: 32),
-                                            tooltip: tr('Hủy phiếu trả'),
-                                            icon: const Icon(
-                                                Icons.cancel_outlined,
-                                                size: 18,
-                                                color: Colors.red),
-                                            onPressed: () => _voidReturn(r),
-                                          ),
-                                        Text(
-                                          tr(_moneyFmt.format(r.refundAmount)),
-                                          style: TextStyle(
-                                            fontWeight: FontWeight.bold,
-                                            fontSize: 16,
-                                            color: r.isVoided
-                                                ? PosTheme.textSecondary
-                                                : null,
-                                            decoration: r.isVoided
-                                                ? TextDecoration.lineThrough
-                                                : null,
-                                          ),
-                                        ),
-                                      ],
-                                    ),
-                                    const SizedBox(height: 4),
-                                    Text(tr('${tr('HĐ ')}${r.orderNo} · ${r.customerName ?? 'Khách lẻ'}'),
-                                      style: const TextStyle(fontSize: 12),
-                                    ),
-                                    const SizedBox(height: 2),
-                                    Text(
-                                      tr('${r.createdAt != null ? _dateFmt.format(r.createdAt!.toLocal()) : '—'}'
-                                      '${r.refundPaymentMethod != null ? ' · ${r.refundPaymentMethod}' : ''}'),
-                                      style: const TextStyle(
-                                        fontSize: 11,
-                                        color: PosTheme.textSecondary,
-                                      ),
-                                    ),
-                                  ],
-                                ),
-                              ),
-                            ),
-                          );
-                        },
-                      ),
-          ),
-          if (_total > _pageSize)
-            Padding(
-              padding: const EdgeInsets.all(8),
-              child: Row(
-                mainAxisAlignment: MainAxisAlignment.center,
-                children: [
-                  IconButton(
-                    onPressed: _page <= 1
-                        ? null
-                        : () {
-                            _page--;
-                            _load();
-                          },
-                    icon: const Icon(Icons.chevron_left),
-                  ),
-                  Text(tr('Trang $_page / $pages')),
-                  IconButton(
-                    onPressed: _page >= pages
-                        ? null
-                        : () {
-                            _page++;
-                            _load();
-                          },
-                    icon: const Icon(Icons.chevron_right),
-                  ),
-                ],
-              ),
-            ),
-        ],
+          ]),
+        ),
       ),
     );
   }

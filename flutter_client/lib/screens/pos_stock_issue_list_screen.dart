@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
 import 'package:provider/provider.dart';
@@ -8,22 +10,20 @@ import '../services/api_service.dart';
 import '../screens/main_layout.dart' show ScreenRefreshNotifier;
 import '../utils/pos_doc_status.dart';
 import '../utils/pos_mutation_result.dart';
-import '../widgets/hrm_page_chrome.dart';
 import '../widgets/loading_widget.dart';
 import '../widgets/notification_overlay.dart';
 import '../utils/pos_kiot_time_range.dart';
-import '../widgets/pos/pos_kiot_time_filter.dart';
+import '../widgets/pos/pos_list_filters.dart';
+import '../widgets/sbox/sbox_ui.dart';
 import '../utils/responsive_helper.dart';
 import '../widgets/pos/pos_mobile_widgets.dart';
 import '../widgets/pos/pos_module_toolbar.dart';
-import '../widgets/pos/pos_purchase_toolbar.dart';
 import '../widgets/pos/pos_stock_issue_config.dart';
 import '../widgets/pos/pos_stock_issue_helpers.dart';
 import '../widgets/pos/pos_theme.dart';
 import 'pos_stock_issue_editor_screen.dart';
 import 'package:zkteco_flutter_client/l10n/app_tr.dart';
 
-import '../theme/sbox_tokens.dart';
 const _blue = SboxColors.brand600;
 
 class PosStockIssueListScreen extends StatefulWidget {
@@ -67,6 +67,7 @@ class _PosStockIssueListScreenState extends State<PosStockIssueListScreen> {
 
   @override
   void dispose() {
+    _debounce?.cancel();
     _searchCtrl.dispose();
     _createdByCtrl.dispose();
     super.dispose();
@@ -173,17 +174,6 @@ class _PosStockIssueListScreenState extends State<PosStockIssueListScreen> {
       ),
     );
     if (mounted) _load(page: _page);
-  }
-
-  void _toggleStatus(String status, bool? v) {
-    setState(() {
-      if (v == true) {
-        _statusFilter.add(status);
-      } else {
-        _statusFilter.remove(status);
-      }
-    });
-    _load();
   }
 
   void _onTimeFilterChanged(PosKiotTimeFilterState s) {
@@ -345,145 +335,92 @@ class _PosStockIssueListScreenState extends State<PosStockIssueListScreen> {
 
   String _fmtQty(double v) => _qtyFmt.format(v);
 
-  int get _activeFilterCount {
-    var n = 0;
-    if (_createdByCtrl.text.trim().isNotEmpty) n++;
-    if (_statusFilter.length < 3) n++;
-    return n;
+  Timer? _debounce;
+
+  void _onSearchChanged(String _) {
+    _debounce?.cancel();
+    _debounce = Timer(const Duration(milliseconds: 400), () => _load());
   }
 
-  Widget _buildFilterPanel() {
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.stretch,
-      children: [
-        purchaseFilterSection(
-          'Trạng thái',
-          Column(
-            children: [
-              CheckboxListTile(
-                dense: true,
-                contentPadding: EdgeInsets.zero,
-                title: Text(tr('Phiếu tạm'), style: TextStyle(fontSize: 13)),
-                value: _statusFilter.contains('Draft'),
-                activeColor: _blue,
-                onChanged: (v) => _toggleStatus('Draft', v),
-              ),
-              CheckboxListTile(
-                dense: true,
-                contentPadding: EdgeInsets.zero,
-                title: Text(tr('Hoàn thành'), style: TextStyle(fontSize: 13)),
-                value: _statusFilter.contains('Completed'),
-                activeColor: _blue,
-                onChanged: (v) => _toggleStatus('Completed', v),
-              ),
-              CheckboxListTile(
-                dense: true,
-                contentPadding: EdgeInsets.zero,
-                title: Text(tr('Đã hủy'), style: TextStyle(fontSize: 13)),
-                value: _statusFilter.contains('Cancelled'),
-                activeColor: _blue,
-                onChanged: (v) => _toggleStatus('Cancelled', v),
-              ),
-            ],
-          ),
+  int get _moreFilterCount => [_createdByCtrl].where((c) => c.text.trim().isNotEmpty).length;
+
+  Widget _buildFilterBar(bool canEdit) {
+    return SboxFilterBar(
+      searchHint: _config.searchHint,
+      searchController: _searchCtrl,
+      onSearch: _onSearchChanged,
+      filters: [
+        PosMultiChip(
+          label: 'Trạng thái',
+          options: const {'Draft': 'Phiếu tạm', 'Completed': 'Hoàn thành', 'Cancelled': 'Đã hủy'},
+          selected: _statusFilter,
+          onChanged: (v) {
+            setState(() => _statusFilter
+              ..clear()
+              ..addAll(v));
+            _load();
+          },
         ),
-        purchaseFilterSection(
-          'Thời gian',
-          PosKiotTimeFilter(state: _timeFilter, onChanged: _onTimeFilterChanged),
-        ),
-        purchaseFilterSection(
-          'Người tạo',
-          TextField(
-            controller: _createdByCtrl,
-            decoration: InputDecoration(
-              hintText: tr('Chọn người tạo…'),
-              isDense: true,
-              border: OutlineInputBorder(),
-              contentPadding: EdgeInsets.symmetric(horizontal: 8, vertical: 8),
-            ),
-            style: const TextStyle(fontSize: 12),
-            onSubmitted: (_) => _load(),
-          ),
-        ),
-        FilledButton(
-          onPressed: () => _load(),
-          style: FilledButton.styleFrom(backgroundColor: _blue),
-          child: Text(tr('Áp dụng lọc'), style: TextStyle(fontSize: 12)),
+        PosTimeRangeChip(state: _timeFilter, onChanged: _onTimeFilterChanged),
+        PosMoreFiltersButton(
+          activeCount: _moreFilterCount,
+          onApply: () => _load(),
+          onClear: () {
+            _createdByCtrl.clear();
+            _load();
+          },
+          fields: () => [
+            PosFilterField(label: 'Người tạo', controller: _createdByCtrl, hint: 'Tên người tạo'),
+          ],
         ),
       ],
+      actions: [
+        if (canEdit) SboxButton(label: _config.createButtonLabel, icon: Icons.add, onPressed: () => _openEditor()),
+      ],
     );
-  }
-
-  void _openFilters() {
-    showPosMobileFilterSheet(context, child: _buildFilterPanel());
   }
 
   @override
   Widget build(BuildContext context) {
     final perm = Provider.of<PermissionProvider>(context);
     if (!perm.canView(_config.moduleCode) && !perm.canView('PosProducts')) {
-      return Scaffold(
-          body: Center(child: Text(tr('Không có quyền xem ${_config.title}'))));
+      return Scaffold(body: Center(child: Text(tr('Không có quyền xem ${_config.title}'))));
     }
     final canEdit = perm.canEdit(_config.moduleCode);
+    final mobile = posUseMobileList(context);
 
     return Scaffold(
-      backgroundColor: HrmPageChrome.background,
+      backgroundColor: SboxColors.page,
       body: posMobileSafeBody(
         context,
         Column(
-        children: [
-          PosModuleToolbar(activeModule: _config.activeModule),
-          PosMobileListHeader(
-            icon: _config.icon,
-            title: _config.title,
-            onCreate: canEdit ? () => _openEditor() : null,
-            createLabel: _config.createButtonLabel,
-            onRefresh: () => _load(page: _page),
-            onOpenFilters: posUseMobileList(context) ? _openFilters : null,
-            activeFilterCount: _activeFilterCount,
-          ),
-          Expanded(
-            child: PosResponsiveFilterLayout(
-              filterPanel: PosPurchaseFilterPanel(child: _buildFilterPanel()),
-              child: Column(
-                children: [
-                  Padding(
-                    padding: EdgeInsets.fromLTRB(
-                        12, posUseMobileList(context) ? 8 : 10, 12, 0),
-                    child: TextField(
-                      controller: _searchCtrl,
-                      decoration: InputDecoration(
-                        hintText: tr(_config.searchHint),
-                        prefixIcon: const Icon(Icons.search, size: 20),
-                        border: const OutlineInputBorder(),
-                        isDense: true,
-                        filled: true,
-                        fillColor: Colors.white,
-                      ),
-                      onSubmitted: (_) => _load(),
-                    ),
-                  ),
-                  Expanded(
-                    child: _loading
-                        ? const LoadingWidget()
-                        : _items.isEmpty
-                            ? Center(
-                                child: Text(tr('Chưa có phiếu ${_config.title}')))
-                            : Column(
-                                crossAxisAlignment: CrossAxisAlignment.stretch,
-                                children: [
-                                  _buildTableHeader(),
-                                  Expanded(child: _buildList(canEdit)),
-                                ],
-                              ),
-                  ),
-                  _buildPager(),
-                ],
+          children: [
+            PosModuleToolbar(activeModule: _config.activeModule),
+            Padding(
+              padding: EdgeInsets.fromLTRB(mobile ? 12 : 24, mobile ? 12 : 20, mobile ? 12 : 24, 0),
+              child: _buildFilterBar(canEdit),
+            ),
+            Expanded(
+              child: Padding(
+                padding: EdgeInsets.symmetric(horizontal: mobile ? 0 : 12),
+                child: _loading
+                    ? const LoadingWidget()
+                    : _items.isEmpty
+                        ? SboxEmptyState(
+                            icon: Icons.inventory_2_outlined,
+                            title: 'Chưa có phiếu ${_config.title}',
+                            message: 'Đổi bộ lọc thời gian / trạng thái, hoặc tạo phiếu mới.')
+                        : Column(
+                            crossAxisAlignment: CrossAxisAlignment.stretch,
+                            children: [
+                              _buildTableHeader(),
+                              Expanded(child: _buildList(canEdit)),
+                            ],
+                          ),
               ),
             ),
-          ),
-        ],
+            _buildPager(),
+          ],
         ),
       ),
     );
@@ -606,7 +543,8 @@ class _PosStockIssueListScreenState extends State<PosStockIssueListScreen> {
             hoverColor: doc.status == 'Cancelled'
                 ? Colors.red.shade50
                 : SboxColors.slate100,
-            child: Container(
+            child: Container(
+
               padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
               decoration: BoxDecoration(
                 color: posDocRowBackground(doc.status),

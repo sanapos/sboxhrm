@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
 import 'package:provider/provider.dart';
@@ -10,13 +12,13 @@ import '../services/api_service.dart';
 import '../utils/pos_doc_status.dart';
 import '../utils/pos_mutation_result.dart';
 import '../utils/pos_purchase_receipt_print.dart';
-import '../widgets/hrm_page_chrome.dart';
 import '../screens/main_layout.dart' show ScreenRefreshNotifier;
 import '../widgets/loading_widget.dart';
 import '../widgets/notification_overlay.dart';
 import '../widgets/pos/pos_barcode_label_dialog.dart';
 import '../utils/pos_kiot_time_range.dart';
-import '../widgets/pos/pos_kiot_time_filter.dart';
+import '../widgets/pos/pos_list_filters.dart';
+import '../widgets/sbox/sbox_ui.dart';
 import '../utils/responsive_helper.dart';
 import '../widgets/pos/pos_mobile_widgets.dart';
 import '../widgets/pos/pos_module_toolbar.dart';
@@ -26,7 +28,6 @@ import '../widgets/pos/pos_supplier_debt_pay_dialog.dart';
 import 'pos_purchase_receipt_editor_screen.dart';
 import 'package:zkteco_flutter_client/l10n/app_tr.dart';
 
-import '../theme/sbox_tokens.dart';
 const _blue = SboxColors.brand600;
 
 class PosPurchaseReceiptListScreen extends StatefulWidget {
@@ -90,6 +91,7 @@ class _PosPurchaseReceiptListScreenState
     _createdByCtrl.dispose();
     _importedByCtrl.dispose();
     _invoiceNoCtrl.dispose();
+    _debounce?.cancel();
     super.dispose();
   }
 
@@ -226,17 +228,6 @@ class _PosPurchaseReceiptListScreenState
       ),
     );
     if (mounted) _load(page: _page);
-  }
-
-  void _toggleStatus(String status, bool? v) {
-    setState(() {
-      if (v == true) {
-        _statusFilter.add(status);
-      } else {
-        _statusFilter.remove(status);
-      }
-    });
-    _load();
   }
 
   void _onTimeFilterChanged(PosKiotTimeFilterState s) {
@@ -430,142 +421,66 @@ class _PosPurchaseReceiptListScreenState
     return gt - r.paidAmount;
   }
 
-  int get _activeFilterCount {
-    var n = 0;
-    if (_supplierId != null) n++;
-    if (_createdByCtrl.text.trim().isNotEmpty) n++;
-    if (_importedByCtrl.text.trim().isNotEmpty) n++;
-    if (_invoiceNoCtrl.text.trim().isNotEmpty) n++;
-    if (_statusFilter.length < 3) n++;
-    return n;
+  Timer? _debounce;
+
+  void _onSearchChanged(String _) {
+    _debounce?.cancel();
+    _debounce = Timer(const Duration(milliseconds: 400), () => _load());
   }
 
-  Widget _buildFilterPanel() {
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.stretch,
-      children: [
-        purchaseFilterSection(
-          'Trạng thái',
-          Column(
-            children: [
-              CheckboxListTile(
-                dense: true,
-                contentPadding: EdgeInsets.zero,
-                title: Text(tr('Phiếu tạm'), style: TextStyle(fontSize: 13)),
-                value: _statusFilter.contains('Draft'),
-                activeColor: _blue,
-                onChanged: (v) => _toggleStatus('Draft', v),
-              ),
-              CheckboxListTile(
-                dense: true,
-                contentPadding: EdgeInsets.zero,
-                title: Text(tr('Đã nhập hàng'), style: TextStyle(fontSize: 13)),
-                value: _statusFilter.contains('Completed'),
-                activeColor: _blue,
-                onChanged: (v) => _toggleStatus('Completed', v),
-              ),
-              CheckboxListTile(
-                dense: true,
-                contentPadding: EdgeInsets.zero,
-                title: Text(tr('Đã hủy'), style: TextStyle(fontSize: 13)),
-                value: _statusFilter.contains('Cancelled'),
-                activeColor: _blue,
-                onChanged: (v) => _toggleStatus('Cancelled', v),
-              ),
-            ],
-          ),
+  void _clearMoreFilters() {
+    _createdByCtrl.clear();
+    _importedByCtrl.clear();
+    _invoiceNoCtrl.clear();
+    _load();
+  }
+
+  int get _moreFilterCount => [_createdByCtrl, _importedByCtrl, _invoiceNoCtrl]
+      .where((c) => c.text.trim().isNotEmpty)
+      .length;
+
+  Widget _buildFilterBar(bool canEdit) {
+    return SboxFilterBar(
+      searchHint: 'Tìm mã phiếu nhập, ghi chú…',
+      searchController: _searchCtrl,
+      onSearch: _onSearchChanged,
+      filters: [
+        PosMultiChip(
+          label: 'Trạng thái',
+          options: const {'Draft': 'Phiếu tạm', 'Completed': 'Đã nhập hàng', 'Cancelled': 'Đã hủy'},
+          selected: _statusFilter,
+          onChanged: (v) {
+            setState(() => _statusFilter
+              ..clear()
+              ..addAll(v));
+            _load();
+          },
         ),
-        purchaseFilterSection(
-          'Thời gian',
-          PosKiotTimeFilter(
-            state: _timeFilter,
-            onChanged: _onTimeFilterChanged,
-          ),
+        PosTimeRangeChip(state: _timeFilter, onChanged: _onTimeFilterChanged),
+        PosPickChip(
+          label: 'NCC',
+          value: _supplierId,
+          options: {for (final s in _suppliers) s.id: s.name},
+          onChanged: (v) {
+            setState(() => _supplierId = v);
+            _load();
+          },
         ),
-        purchaseFilterSection(
-          'Nhà cung cấp',
-          DropdownButtonFormField<String?>(
-            isDense: true,
-            value: _supplierId,
-            decoration: const InputDecoration(
-              isDense: true,
-              border: OutlineInputBorder(),
-              contentPadding: EdgeInsets.symmetric(horizontal: 8, vertical: 8),
-            ),
-            hint: Text(tr('Tất cả NCC'), style: TextStyle(fontSize: 12)),
-            items: [
-              DropdownMenuItem<String?>(
-                value: null,
-                child: Text(tr('Tất cả NCC'), style: TextStyle(fontSize: 12)),
-              ),
-              ..._suppliers.map(
-                (s) => DropdownMenuItem<String?>(
-                  value: s.id,
-                  child: Text(tr(s.name),
-                      style: const TextStyle(fontSize: 12),
-                      overflow: TextOverflow.ellipsis),
-                ),
-              ),
-            ],
-            onChanged: (v) {
-              setState(() => _supplierId = v);
-              _load();
-            },
-          ),
-        ),
-        purchaseFilterSection(
-          'Người tạo',
-          TextField(
-            controller: _createdByCtrl,
-            decoration: InputDecoration(
-              hintText: tr('Chọn người tạo…'),
-              isDense: true,
-              border: OutlineInputBorder(),
-              contentPadding: EdgeInsets.symmetric(horizontal: 8, vertical: 8),
-            ),
-            style: const TextStyle(fontSize: 12),
-            onSubmitted: (_) => _load(),
-          ),
-        ),
-        purchaseFilterSection(
-          'Số hóa đơn đầu vào',
-          TextField(
-            controller: _invoiceNoCtrl,
-            decoration: InputDecoration(
-              hintText: tr('Số HĐ đầu vào…'),
-              isDense: true,
-              border: OutlineInputBorder(),
-              contentPadding: EdgeInsets.symmetric(horizontal: 8, vertical: 8),
-            ),
-            style: const TextStyle(fontSize: 12),
-            onSubmitted: (_) => _load(),
-          ),
-        ),
-        purchaseFilterSection(
-          'Người nhập',
-          TextField(
-            controller: _importedByCtrl,
-            decoration: InputDecoration(
-              hintText: tr('Chọn người nhập…'),
-              isDense: true,
-              border: OutlineInputBorder(),
-              contentPadding: EdgeInsets.symmetric(horizontal: 8, vertical: 8),
-            ),
-            style: const TextStyle(fontSize: 12),
-            onSubmitted: (_) => _load(),
-          ),
-        ),
-        FilledButton(
-          onPressed: () => _load(),
-          style: FilledButton.styleFrom(backgroundColor: _blue),
-          child: Text(tr('Áp dụng lọc'), style: TextStyle(fontSize: 12)),
+        PosMoreFiltersButton(
+          activeCount: _moreFilterCount,
+          onApply: () => _load(),
+          onClear: _clearMoreFilters,
+          fields: () => [
+            PosFilterField(label: 'Người tạo', controller: _createdByCtrl, hint: 'Tên người tạo'),
+            PosFilterField(label: 'Người nhập', controller: _importedByCtrl, hint: 'Tên người nhập'),
+            PosFilterField(label: 'Số hóa đơn đầu vào', controller: _invoiceNoCtrl, hint: 'Số HĐ đầu vào'),
+          ],
         ),
       ],
+      actions: [
+        if (canEdit) SboxButton(label: 'Tạo phiếu nhập', icon: Icons.add, onPressed: () => _openEditor()),
+      ],
     );
-  }
-
-  void _openFilters() {
-    showPosMobileFilterSheet(context, child: _buildFilterPanel());
   }
 
   @override
@@ -576,64 +491,40 @@ class _PosPurchaseReceiptListScreenState
           body: Center(child: Text(tr('Không có quyền xem nhập hàng'))));
     }
     final canEdit = perm.canEdit('PosPurchaseReceipts');
+    final mobile = posUseMobileList(context);
 
     return Scaffold(
-      backgroundColor: HrmPageChrome.background,
+      backgroundColor: SboxColors.page,
       body: posMobileSafeBody(
         context,
         Column(
-        children: [
-          const PosModuleToolbar(activeModule: 'PosPurchaseReceipts'),
-          PosMobileListHeader(
-            icon: Icons.shopping_cart,
-            title: 'Nhập hàng NCC',
-            onCreate: canEdit ? () => _openEditor() : null,
-            createLabel: 'Tạo phiếu nhập',
-            onRefresh: () => _load(page: _page),
-            onOpenFilters: posUseMobileList(context) ? _openFilters : null,
-            activeFilterCount: _activeFilterCount,
-          ),
-          Expanded(
-            child: PosResponsiveFilterLayout(
-              filterPanel: PosPurchaseFilterPanel(child: _buildFilterPanel()),
-              child: Column(
-                children: [
-                  Padding(
-                    padding: EdgeInsets.fromLTRB(
-                        12, posUseMobileList(context) ? 8 : 10, 12, 0),
-                    child: TextField(
-                      controller: _searchCtrl,
-                      decoration: InputDecoration(
-                        hintText: tr('Tìm mã phiếu nhập, ghi chú…'),
-                        prefixIcon: Icon(Icons.search, size: 20),
-                        border: OutlineInputBorder(),
-                        isDense: true,
-                        filled: true,
-                        fillColor: Colors.white,
-                      ),
-                      onSubmitted: (_) => _load(),
-                    ),
-                  ),
-                  Expanded(
-                    child: _loading
-                        ? const LoadingWidget()
-                        : _items.isEmpty
-                            ? Center(
-                                child: Text(tr('Chưa có phiếu nhập hàng')))
-                            : Column(
-                                crossAxisAlignment: CrossAxisAlignment.stretch,
-                                children: [
-                                  _buildTableHeader(),
-                                  Expanded(child: _buildList(canEdit)),
-                                ],
-                              ),
-                  ),
-                  _buildPager(),
-                ],
+          children: [
+            const PosModuleToolbar(activeModule: 'PosPurchaseReceipts'),
+            Padding(
+              padding: EdgeInsets.fromLTRB(mobile ? 12 : 24, mobile ? 12 : 20, mobile ? 12 : 24, 0),
+              child: _buildFilterBar(canEdit),
+            ),
+            Expanded(
+              child: Padding(
+                padding: EdgeInsets.symmetric(horizontal: mobile ? 0 : 12),
+                child: _loading
+                    ? const LoadingWidget()
+                    : _items.isEmpty
+                        ? const SboxEmptyState(
+                            icon: Icons.inventory_2_outlined,
+                            title: 'Chưa có phiếu nhập hàng',
+                            message: 'Đổi bộ lọc thời gian / trạng thái, hoặc tạo phiếu nhập mới.')
+                        : Column(
+                            crossAxisAlignment: CrossAxisAlignment.stretch,
+                            children: [
+                              _buildTableHeader(),
+                              Expanded(child: _buildList(canEdit)),
+                            ],
+                          ),
               ),
             ),
-          ),
-        ],
+            _buildPager(),
+          ],
         ),
       ),
     );
@@ -749,7 +640,8 @@ class _PosPurchaseReceiptListScreenState
             hoverColor: r.status == 'Cancelled'
                 ? Colors.red.shade50
                 : SboxColors.slate100,
-            child: Container(
+            child: Container(
+
               padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
               decoration: BoxDecoration(
                 color: posDocRowBackground(r.status),

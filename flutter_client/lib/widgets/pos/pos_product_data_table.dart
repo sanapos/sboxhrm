@@ -106,7 +106,7 @@ class PosProductDataTable extends StatelessWidget {
   static const _fixedWidth = <PosProductTableColumn, double>{
     PosProductTableColumn.select: 42,
     PosProductTableColumn.star: 36,
-    PosProductTableColumn.image: 72,
+    PosProductTableColumn.image: 56,
     PosProductTableColumn.actions: 36,
   };
 
@@ -119,10 +119,10 @@ class PosProductDataTable extends StatelessWidget {
     PosProductTableColumn.price: 2,
     PosProductTableColumn.cost: 2,
     PosProductTableColumn.brand: 2,
-    PosProductTableColumn.stock: 1,
+    PosProductTableColumn.stock: 2,
     PosProductTableColumn.location: 2,
     PosProductTableColumn.reserved: 1,
-    PosProductTableColumn.createdAt: 2,
+    PosProductTableColumn.createdAt: 3,
     PosProductTableColumn.stockout: 2,
   };
 

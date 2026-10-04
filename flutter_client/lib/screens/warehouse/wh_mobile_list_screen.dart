@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 
@@ -43,6 +45,7 @@ class _WhMobileDocListScreenState extends State<WhMobileDocListScreen> {
   int _total = 0;
   int _page = 1;
   String _statusFilter = 'all';
+  Timer? _debounce;
 
   WhDocType get _type => widget.docType;
 
@@ -61,6 +64,7 @@ class _WhMobileDocListScreenState extends State<WhMobileDocListScreen> {
 
   @override
   void dispose() {
+    _debounce?.cancel();
     _searchCtrl.dispose();
     super.dispose();
   }
@@ -108,13 +112,7 @@ class _WhMobileDocListScreenState extends State<WhMobileDocListScreen> {
     return WhMobileScaffold(
       title: _type.listTitle,
       subtitle: '$_total phiếu',
-      actions: [
-        IconButton(
-          icon: const Icon(Icons.refresh_rounded),
-          color: WhMobileTheme.primary,
-          onPressed: _loading ? null : () => _load(page: _page),
-        ),
-      ],
+      showAppBar: PosHubScope.pushedSubPageOf(context),
       floatingAction: canEdit
           ? FloatingActionButton.extended(
               onPressed: _openCreate,
@@ -139,7 +137,10 @@ class _WhMobileDocListScreenState extends State<WhMobileDocListScreen> {
               controller: _searchCtrl,
               hint: 'Tìm mã phiếu, ghi chú…',
               onSubmitted: (_) => _load(),
-              onChanged: (_) {},
+              onChanged: (_) {
+                _debounce?.cancel();
+                _debounce = Timer(const Duration(milliseconds: 400), () => _load());
+              },
             ),
           ),
           const SizedBox(height: 10),

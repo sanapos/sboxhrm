@@ -19,8 +19,11 @@ class WhMobileScaffold extends StatelessWidget {
     this.bottomBar,
     this.floatingAction,
     this.extendBodyBehindAppBar = false,
+    this.showAppBar = true,
   });
 
+  /// false khi màn nằm trong MainLayout (thanh trên đã có tiêu đề) — tránh tiêu đề lặp.
+  final bool showAppBar;
   final String title;
   final String? subtitle;
   final Widget? leading;
@@ -42,13 +45,14 @@ class WhMobileScaffold extends StatelessWidget {
         body: Column(
           crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
-            _WhGlassAppBar(
-              title: title,
-              subtitle: subtitle,
-              leading: leading,
-              actions: actions,
-              topPadding: top,
-            ),
+            if (showAppBar)
+              _WhGlassAppBar(
+                title: title,
+                subtitle: subtitle,
+                leading: leading,
+                actions: actions,
+                topPadding: top,
+              ),
             Expanded(child: body),
             if (bottomBar != null) bottomBar!,
           ],

@@ -1,4 +1,6 @@
 import '../services/branch_session.dart';
+import '../utils/module_deep_link_stub.dart'
+    if (dart.library.html) '../utils/module_deep_link_web.dart' as module_deep_link;
 import '../widgets/branch_switcher.dart';
 import 'dart:async';
 import 'activity_log_screen.dart';
@@ -445,6 +447,15 @@ class _MainLayoutState extends State<MainLayout> with WidgetsBindingObserver {
     SettingsHubScreen.chromeEpoch.addListener(_onEmbeddedChromeChanged);
     TaskManagementScreen.chromeEpoch.addListener(_onEmbeddedChromeChanged);
     PosKdsAlert.uiOpen.addListener(_onKdsUiChanged);
+
+    // Link mở thẳng chức năng: /#/m/<Mã chức năng> (vd #/m/PosProducts) — lúc mở và khi đổi hash.
+    module_deep_link.listenModuleDeepLink((code) {
+      if (mounted) NavigationNotifier.navigateToModule.value = code;
+    });
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      final deepModule = module_deep_link.currentModuleDeepLink();
+      if (deepModule != null && mounted) NavigationNotifier.navigateToModule.value = deepModule;
+    });
 
     WidgetsBinding.instance.addPostFrameCallback((_) {
       _reportCurrentScreen();

@@ -201,6 +201,8 @@ class PosPurchaseReceipt {
   final DateTime? createdAt;
   final String? createdBy;
   final List<PosPurchaseLine> lines;
+  /// Số dòng hàng — danh sách chỉ trả lineCount, không kèm lines.
+  final int lineCount;
 
   PosPurchaseReceipt({
     required this.id,
@@ -226,6 +228,7 @@ class PosPurchaseReceipt {
     this.createdAt,
     this.createdBy,
     this.lines = const [],
+    this.lineCount = 0,
   });
 
   factory PosPurchaseReceipt.fromJson(Map<String, dynamic> json) {
@@ -257,6 +260,8 @@ class PosPurchaseReceipt {
               ?.map((e) => PosPurchaseLine.fromJson(e as Map<String, dynamic>))
               .toList() ??
           [],
+      lineCount: ((json['lineCount'] ?? json['LineCount']) as num?)?.toInt() ??
+          (((json['lines'] ?? json['Lines']) as List?)?.length ?? 0),
     );
   }
 
@@ -284,6 +289,8 @@ class PosPurchaseReturn {
   final String? createdBy;
   final String? returnedBy;
   final List<PosPurchaseLine> lines;
+  /// Số dòng hàng — danh sách chỉ trả lineCount, không kèm lines.
+  final int lineCount;
 
   PosPurchaseReturn({
     required this.id,
@@ -302,6 +309,7 @@ class PosPurchaseReturn {
     this.createdBy,
     this.returnedBy,
     this.lines = const [],
+    this.lineCount = 0,
   });
 
   factory PosPurchaseReturn.fromJson(Map<String, dynamic> json) {
@@ -326,6 +334,8 @@ class PosPurchaseReturn {
               ?.map((e) => PosPurchaseLine.fromJson(e as Map<String, dynamic>))
               .toList() ??
           [],
+      lineCount: ((json['lineCount'] ?? json['LineCount']) as num?)?.toInt() ??
+          (((json['lines'] ?? json['Lines']) as List?)?.length ?? 0),
     );
   }
 

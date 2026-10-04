@@ -471,16 +471,26 @@ class SboxFilterBar extends StatelessWidget {
     return LayoutBuilder(builder: (context, c) {
       final narrow = c.maxWidth < 720;
       if (narrow) {
+        // Điện thoại: nút chính (một nút) đứng cạnh ô tìm; bộ lọc một hàng cuộn ngang
+        // — không để bộ lọc xếp nhiều dòng đẩy danh sách xuống.
+        final inline = actions.length == 1;
+        final scrollItems = [...filters, if (!inline) ...actions];
         return Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
-          search,
-          if (filters.isNotEmpty || actions.isNotEmpty) ...[
+          inline ? Row(children: [Expanded(child: search), const SizedBox(width: SboxSpace.sm), actions.first]) : search,
+          if (scrollItems.isNotEmpty) ...[
             const SizedBox(height: SboxSpace.sm),
-            Wrap(spacing: SboxSpace.sm, runSpacing: SboxSpace.sm, children: [...filters, ...actions]),
+            SingleChildScrollView(
+              scrollDirection: Axis.horizontal,
+              child: Row(children: [
+                for (final w in scrollItems) ...[w, const SizedBox(width: SboxSpace.sm)],
+              ]),
+            ),
           ],
         ]);
       }
       return Row(children: [
-        SizedBox(width: math.min(360, c.maxWidth * 0.4), child: search),
+        // Nhiều bộ lọc → ô tìm hẹp lại để cả hàng không phải xuống dòng.
+        SizedBox(width: math.min(filters.length >= 4 ? 280 : 360, c.maxWidth * (filters.length >= 4 ? 0.26 : 0.4)), child: search),
         const SizedBox(width: SboxSpace.sm),
         Expanded(child: Wrap(spacing: SboxSpace.sm, runSpacing: SboxSpace.sm, children: filters)),
         if (actions.isNotEmpty) ...[

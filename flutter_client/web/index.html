@@ -353,6 +353,9 @@
     // Deep link hướng dẫn: hash cũ → query (Zalo/messenger thường cắt phần sau #)
     (function () {
       var hash = (location.hash || '').replace(/^#\/?/, '');
+      // Link mở thẳng chức năng: /#/m/<Mã> — lưu lại trước khi bộ định tuyến Flutter xóa hash.
+      var mm = /^m\/([A-Za-z0-9_]+)$/.exec(hash);
+      if (mm) { try { sessionStorage.setItem('sbox_module', mm[1]); } catch (e) {} }
       var hm = /^guide\/(basic|advanced)\/([a-z0-9_]+)$/.exec(hash);
       if (hm) {
         location.replace('/?guide=' + encodeURIComponent(hm[1]) + '&step=' + encodeURIComponent(hm[2]));

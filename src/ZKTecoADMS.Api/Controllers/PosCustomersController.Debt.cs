@@ -4,6 +4,7 @@ using ZKTecoADMS.Api.Authorization;
 using ZKTecoADMS.Application.Constants;
 using ZKTecoADMS.Application.Models;
 using ZKTecoADMS.Domain.Entities;
+using ZKTecoADMS.Domain.Enums;
 using ZKTecoADMS.Infrastructure.Services;
 
 namespace ZKTecoADMS.Api.Controllers;
@@ -115,7 +116,11 @@ public partial class PosCustomersController
                 o.Status,
                 o.Total,
                 o.PaidAmount,
-                BalanceDue = o.Total - o.PaidAmount,
+                // Phải thu = tiền hàng + VAT + phụ thu + phí giao (trước đây quên VAT… → nợ âm); đơn hủy không nợ.
+                PayableTotal = o.Total + o.VatAmount + o.SurchargeAmount + o.DeliveryFee,
+                BalanceDue = o.Status == PosSaleOrderStatus.Cancelled
+                    ? 0
+                    : o.Total + o.VatAmount + o.SurchargeAmount + o.DeliveryFee - o.PaidAmount,
                 o.SaleDate,
                 o.CreatedAt,
             })

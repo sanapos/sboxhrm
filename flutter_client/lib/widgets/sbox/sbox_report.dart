@@ -231,16 +231,18 @@ class SboxKpiStrip extends StatelessWidget {
       return SboxGrid(
         columns: cols,
         spacing: w < SboxBreakpoints.mobile ? SboxSpace.sm : SboxSpace.md,
-        children: [for (final k in items) _KpiTile(k: k, compact: w < SboxBreakpoints.mobile)],
+        // Điện thoại 3 cột: bỏ biểu tượng để nhãn đủ chỗ, không xuống dòng.
+        children: [for (final k in items) _KpiTile(k: k, compact: w < SboxBreakpoints.mobile, showIcon: !(w < SboxBreakpoints.mobile && cols >= 3))],
       );
     });
   }
 }
 
 class _KpiTile extends StatelessWidget {
-  const _KpiTile({required this.k, required this.compact});
+  const _KpiTile({required this.k, required this.compact, this.showIcon = true});
   final SboxKpi k;
   final bool compact;
+  final bool showIcon;
 
   @override
   Widget build(BuildContext context) {
@@ -251,7 +253,7 @@ class _KpiTile extends StatelessWidget {
       padding: EdgeInsets.all(compact ? SboxSpace.md : SboxSpace.lg),
       child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
         Row(children: [
-          if (k.icon != null) ...[
+          if (k.icon != null && showIcon) ...[
             Container(
               width: compact ? 26 : 30,
               height: compact ? 26 : 30,

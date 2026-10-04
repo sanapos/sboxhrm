@@ -397,6 +397,8 @@ public partial class PosSalesController(
     [RequireModulePermission("PosSaleReturns", ModulePermissionAction.View)]
     public async Task<ActionResult<AppResponse<object>>> ListReturnHistory(
         [FromQuery] string? search,
+        [FromQuery] DateTime? from = null,
+        [FromQuery] DateTime? to = null,
         [FromQuery] int page = 1,
         [FromQuery] int pageSize = 50)
     {
@@ -419,6 +421,16 @@ public partial class PosSalesController(
                 (t.SaleOrder != null && t.SaleOrder.OrderNo.ToLower().Contains(s)) ||
                 (t.SaleOrder != null && t.SaleOrder.CustomerName != null &&
                  t.SaleOrder.CustomerName.ToLower().Contains(s)));
+        }
+        if (from.HasValue || to.HasValue)
+        {
+            // Lọc theo ngày trả (UTC+7, theo giờ cắt ngày của cửa hàng) — như danh sách hóa đơn.
+            var dayStart = await dbContext.PosStoreSellSettings.AsNoTracking()
+                .Where(x => x.StoreId == storeId && x.Deleted == null)
+                .Select(x => (int?)x.ReportDayStartHour)
+                .FirstOrDefaultAsync() ?? 0;
+            var (fromUtc, toUtc, _, _) = Reports.ReportHelpers.PosBusinessRange(from, to, Math.Clamp(dayStart, 0, 23));
+            baseFilter = baseFilter.Where(t => t.CreatedAt >= fromUtc && t.CreatedAt < toUtc);
         }
 
         var voidedReturnNos = await dbContext.PosStockTransactions.AsNoTracking()
@@ -482,7 +494,8 @@ public partial class PosSalesController(
                 first.SaleOrder?.OrderNo ?? "",
                 amount,
                 pm,
-                k.MaxCreatedAt,
+                // Max() trong GROUP BY trả DateTime không có Kind → JSON thiếu «Z», máy khách hiển thị lệch 7 giờ.
+                DateTime.SpecifyKind(k.MaxCreatedAt, DateTimeKind.Utc),
                 cleanNote,
                 first.CreatedBy,
                 first.SaleOrder?.CustomerName,
