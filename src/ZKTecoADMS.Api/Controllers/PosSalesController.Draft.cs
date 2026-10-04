@@ -1338,16 +1338,12 @@ public partial class PosSalesController
         }
         else
         {
-            var saleDay = (complete ? saleAt : (order.SaleDate ?? now)).Date;
+            // Ngày bán theo giờ VN (giờ lưu là UTC) — bảng giá theo ngày áp đúng cả 0h–7h sáng.
+            var saleDay = (complete ? saleAt : (order.SaleDate ?? now)).AddHours(7).Date;
             var candidates = await dbContext.PosPriceLists.AsNoTracking()
                 .Where(x => x.StoreId == storeId && x.Deleted == null && x.IsActive)
-                .OrderByDescending(x => x.IsDefault).ThenBy(x => x.SortOrder)
                 .ToListAsync();
-            var defaultPl = candidates.FirstOrDefault(x =>
-                x.IsDefault && PosPriceListResolver.IsApplicableOn(x, saleDay));
-            defaultPl ??= candidates.FirstOrDefault(x =>
-                !x.ValidFrom.HasValue && !x.ValidTo.HasValue);
-            defaultPl ??= candidates.FirstOrDefault(x => PosPriceListResolver.IsApplicableOn(x, saleDay));
+            var defaultPl = PosPriceListResolver.PickDefault(candidates, saleDay);
             if (defaultPl != null)
             {
                 order.PriceListId = defaultPl.Id;

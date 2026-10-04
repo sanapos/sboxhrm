@@ -1435,8 +1435,9 @@ public partial class PosSellIndustryController
         // Giữ chỗ: lịch gần nhất trong ngày (đang trong khung giữ / sắp đến hôm nay / quá giờ chưa xử lý).
         // Lịch ngày khác không chiếm ô bàn hôm nay.
         var endOfToday = DateTime.SpecifyKind(nowUtc.AddHours(7).Date.AddDays(1).AddHours(-7), DateTimeKind.Utc);
+        // Hoặc khung giữ đã bắt đầu (khách đến 00:15 → 23:15 hôm trước bàn đã phải hiện «đặt trước»).
         var holdToday = classic
-            .Where(b => HoldArrival(b) < endOfToday)
+            .Where(b => HoldArrival(b) < endOfToday || BookingWindow(b).Start <= nowUtc)
             .OrderBy(b => Math.Abs((HoldArrival(b) - nowUtc).TotalMinutes))
             .FirstOrDefault();
         if (holdToday != null) return holdToday;

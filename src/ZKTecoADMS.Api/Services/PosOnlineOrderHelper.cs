@@ -167,7 +167,11 @@ public static class PosOnlineOrderHelper
             await PosSaleStockHelper.UpdateCustomerOnSaleCompleteAsync(db, storeId, order);
             if (closeTableSession)
                 await CloseOpenTableSessionAsync(db, storeId, order, userEmail, ct);
-            await PosFinanceSyncHelper.SyncSaleOnCompleteAsync(db, order, Guid.Empty);
+            // Phiếu thu sổ quỹ cần người tạo có thật (khóa ngoại) — trước đây truyền Guid.Empty nên hoàn tất
+            // đơn online (COD / tự thanh toán / Tingee) nổ lỗi, hoặc đơn hoàn tất mà sổ quỹ không có phiếu thu.
+            var actorId = await ResolveActorIdAsync(db, storeId, userEmail, ct);
+            if (actorId != Guid.Empty)
+                await PosFinanceSyncHelper.SyncSaleOnCompleteAsync(db, order, actorId);
             PosKitchenKdsHelper.CloseOpenOnPaid(order.Lines);
             await db.SaveChangesAsync(ct);
             await tx.CommitAsync(ct);
@@ -184,6 +188,31 @@ public static class PosOnlineOrderHelper
             await tx.RollbackAsync(ct);
             throw;
         }
+    }
+
+    /// <summary>Người ghi phiếu thu: nhân viên đang thao tác (theo email) → chủ cửa hàng → tài khoản đầu tiên của cửa hàng.</summary>
+    internal static async Task<Guid> ResolveActorIdAsync(
+        ZKTecoDbContext db, Guid storeId, string? userEmail, CancellationToken ct)
+    {
+        if (!string.IsNullOrWhiteSpace(userEmail) && userEmail.Contains('@'))
+        {
+            var email = userEmail.Trim().ToUpperInvariant();
+            var byEmail = await db.Users.AsNoTracking()
+                .Where(u => u.NormalizedEmail == email)
+                .Select(u => (Guid?)u.Id)
+                .FirstOrDefaultAsync(ct);
+            if (byEmail is Guid id) return id;
+        }
+        var owner = await db.Stores.AsNoTracking()
+            .Where(s => s.Id == storeId)
+            .Select(s => s.OwnerId)
+            .FirstOrDefaultAsync(ct);
+        if (owner is Guid o && o != Guid.Empty) return o;
+        return await db.Users.AsNoTracking()
+            .Where(u => u.StoreId == storeId)
+            .OrderBy(u => u.CreatedAt)
+            .Select(u => u.Id)
+            .FirstOrDefaultAsync(ct);
     }
 
     static async Task CloseOpenTableSessionAsync(

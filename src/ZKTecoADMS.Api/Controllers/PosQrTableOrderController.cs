@@ -185,6 +185,9 @@ public class PosQrTableOrderController(
         var storeId = store.Id;
         var useCustomMenu = PosQrMenuService.UseCustomMenu(settings.ExtraJson);
         var menuMap = await qrMenu.LoadMapAsync(storeId);
+        // Cùng bảng giá với thu ngân: khi thu ngân mở đơn để tính tiền, bảng giá mặc định được áp lại —
+        // nếu QR lấy giá khác thì khách đặt một giá, trả một giá.
+        var (defaultPriceList, priceOverrides) = await PosPriceListResolver.LoadDefaultForTodayAsync(db, storeId);
         var productIds = rawItems.Select(i => i.ProductId).Distinct().ToList();
         var products = await db.PosProducts.AsNoTracking()
             .Include(x => x.Category)
@@ -283,11 +286,12 @@ public class PosQrTableOrderController(
             }
 
             var qty = Math.Min(20, item.Qty);
-            var unitPrice = variant != null
-                ? PosQrMenuService.ResolveVariantPrice(p, variant, menuItem)
-                : unit != null
-                    ? PosQrMenuService.ResolveUnitPrice(p, unit, menuItem)
-                    : PosQrMenuService.ResolveProductPrice(p, menuItem);
+            var unitPrice = PosPriceListResolver.ResolvePrice(priceOverrides, p.Id, variant?.Id, unit?.Id)
+                ?? (variant != null
+                    ? PosQrMenuService.ResolveVariantPrice(p, variant, menuItem)
+                    : unit != null
+                        ? PosQrMenuService.ResolveUnitPrice(p, unit, menuItem)
+                        : PosQrMenuService.ResolveProductPrice(p, menuItem));
             if (!settings.AllowNegativeStock && p.ProductType == PosProductType.Goods)
             {
                 var avail = variant != null
@@ -322,7 +326,7 @@ public class PosQrTableOrderController(
             .ToList();
 
         if (isOnline)
-            return await SubmitOnlineAsync(store, settings, items, dto, token, reqId);
+            return await SubmitOnlineAsync(store, settings, items, dto, token, reqId, defaultPriceList);
 
         var lockOpts = QrOrderLockHelper.Parse(settings.ExtraJson);
         // Xác nhận đơn (mặc định tắt): ghi món nhưng không tự in / đánh dấu bếp.
@@ -380,6 +384,8 @@ public class PosQrTableOrderController(
                         ServiceStartedAt = now,
                         SaleDate = now,
                         SalesChannel = "QR bàn",
+                        PriceListId = defaultPriceList?.Id,
+                        PriceListName = defaultPriceList?.Name,
                         IsActive = true,
                         CreatedBy = "QR khách",
                         CreatedAt = now,
@@ -407,6 +413,7 @@ public class PosQrTableOrderController(
                     var existing = order.Lines.FirstOrDefault(l => l.Deleted == null
                         && l.ProductId == p.Id
                         && l.VariantId == item.Variant?.Id
+                        && l.UnitId == item.Unit?.Id
                         && string.Equals(CanonicalToppingsJsonRaw(l.ToppingsJson) ?? "", item.ToppingsJson ?? "", StringComparison.Ordinal)
                         && string.Equals((l.LineNote ?? "").Trim(), item.Note ?? "", StringComparison.Ordinal));
                     if (existing != null)
@@ -440,8 +447,9 @@ public class PosQrTableOrderController(
                         CreatedBy = "QR khách",
                         CreatedAt = now,
                     };
+                    // Add() đã tự gắn dòng vào order.Lines (EF fix-up) — thêm tay lần nữa làm danh sách có dòng 2 lần:
+                    // tổng đơn nhân đôi (khách QR / Tingee bị đòi gấp đôi), tự hoàn tất trừ kho 2 lần.
                     db.PosSaleOrderLines.Add(line);
-                    order.Lines.Add(line);
                     added.Add((line, item.Qty, p));
                 }
 
@@ -474,7 +482,7 @@ public class PosQrTableOrderController(
 
                 await db.SaveChangesAsync();
 
-                var subTotal = order.Lines.Where(l => l.Deleted == null).Sum(l => l.LineTotal);
+                var subTotal = order.Lines.Where(l => l.Deleted == null).DistinctBy(l => l.Id).Sum(l => l.LineTotal);
                 var total = Math.Max(0, subTotal - order.Discount);
                 order.SubTotal = subTotal;
                 order.Total = total;
@@ -1125,7 +1133,21 @@ public class PosQrTableOrderController(
         }
 
         if (next == QrOnlineOrderStatuses.Delivered)
+        {
             order.DeliveryDate ??= now;
+            // Giao thành công mà đơn còn nháp (chưa bấm Thanh toán) → hoàn tất như COD: trừ kho, nhả giữ chỗ,
+            // ghi doanh thu. Trước đây đơn treo nháp mãi: hàng đã giao nhưng không có doanh thu, kho bị giữ,
+            // và không hủy được nữa vì «Giao thành công» là trạng thái cuối.
+            if (order.Status == PosSaleOrderStatus.Draft)
+            {
+                var (done, doneErr) = await PosOnlineOrderHelper.TryCompleteAsCodAsync(
+                    db, storeId, order, CurrentUserEmail, HttpContext.RequestAborted);
+                if (!done)
+                    return BadRequest(AppResponse<object>.Fail(
+                        $"Chưa hoàn tất được đơn: {doneErr ?? "lỗi không rõ"} — bấm «Thanh toán» để thu tiền trước"));
+                eInvoiceAuto.Enqueue(storeId, order.Id);
+            }
+        }
 
         var printJobs = 0;
         // Luồng mới: pending → preparing (= «Xác nhận đơn»). Giữ pending → confirmed (cũ).
@@ -1543,7 +1565,8 @@ public class PosQrTableOrderController(
         List<ResolvedQrLine> items,
         QrOrderSubmitDto? dto,
         string token,
-        string reqId)
+        string reqId,
+        PosPriceList? defaultPriceList)
     {
         var name = (dto?.GuestName ?? "").Trim();
         var phone = (dto?.GuestPhone ?? "").Trim();
@@ -1617,6 +1640,8 @@ public class PosQrTableOrderController(
                     Note = note,
                     SaleDate = now,
                     SalesChannel = "QR online",
+                    PriceListId = defaultPriceList?.Id,
+                    PriceListName = defaultPriceList?.Name,
                     IsActive = true,
                     CreatedBy = "QR online",
                     CreatedAt = now,
@@ -1645,8 +1670,9 @@ public class PosQrTableOrderController(
                         CreatedBy = "QR online",
                         CreatedAt = now,
                     };
+                    // Add() đã tự gắn dòng vào order.Lines (EF fix-up) — thêm tay lần nữa làm danh sách có dòng 2 lần:
+                    // tổng đơn nhân đôi (khách QR / Tingee bị đòi gấp đôi), tự hoàn tất trừ kho 2 lần.
                     db.PosSaleOrderLines.Add(line);
-                    order.Lines.Add(line);
                     added.Add((line, item.Qty, p));
                 }
 
@@ -1665,7 +1691,7 @@ public class PosQrTableOrderController(
                 }
 
                 await db.SaveChangesAsync();
-                var subTotal = order.Lines.Where(l => l.Deleted == null).Sum(l => l.LineTotal);
+                var subTotal = order.Lines.Where(l => l.Deleted == null).DistinctBy(l => l.Id).Sum(l => l.LineTotal);
                 order.SubTotal = subTotal;
                 order.Total = Math.Max(0, subTotal - order.Discount);
                 order.LockVersion = 1;
@@ -1865,6 +1891,7 @@ public class PosQrTableOrderController(
     {
         var useCustomMenu = PosQrMenuService.UseCustomMenu(settings.ExtraJson);
         var menuMap = await qrMenu.LoadMapAsync(store.Id);
+        var (_, menuPriceOverrides) = await PosPriceListResolver.LoadDefaultForTodayAsync(db, store.Id);
 
         var products = await db.PosProducts.AsNoTracking()
             .Include(p => p.Category)
@@ -2077,7 +2104,8 @@ public class PosQrTableOrderController(
                     && exposeUnits.Count == 0
                     && (p.OnHandQty - p.ReservedQty) <= 0);
                 var storePrice = p.BasePrice;
-                var displayPrice = PosQrMenuService.ResolveProductPrice(p, menuItem);
+                var displayPrice = PosPriceListResolver.ResolvePrice(menuPriceOverrides, p.Id, null, null)
+                    ?? PosQrMenuService.ResolveProductPrice(p, menuItem);
                 return new
                 {
                     id = p.Id,
@@ -2092,14 +2120,19 @@ public class PosQrTableOrderController(
                     {
                         id = v.Id,
                         name = v.Name,
-                        price = PosQrMenuService.ResolveVariantPrice(p, v, menuItem),
-                        soldOut = !settings.AllowNegativeStock && v.OnHandQty <= 0,
+                        price = PosPriceListResolver.ResolvePrice(menuPriceOverrides, p.Id, v.Id, null)
+                            ?? PosQrMenuService.ResolveVariantPrice(p, v, menuItem),
+                        // Chỉ hàng hóa có tồn mới «hết hàng» theo kho (dịch vụ / đồ pha chế không theo tồn) — khớp lúc gửi món.
+                        soldOut = !settings.AllowNegativeStock
+                            && p.ProductType == PosProductType.Goods
+                            && v.OnHandQty <= 0,
                     }),
                     units = exposeUnits.Select(u => new
                     {
                         id = u.Id,
                         name = u.UnitName,
-                        price = PosQrMenuService.ResolveUnitPrice(p, u, menuItem),
+                        price = PosPriceListResolver.ResolvePrice(menuPriceOverrides, p.Id, null, u.Id)
+                            ?? PosQrMenuService.ResolveUnitPrice(p, u, menuItem),
                         soldOut = !settings.AllowNegativeStock
                             && p.ProductType == PosProductType.Goods
                             && QrUnitAvailQty(p, u) <= 0,

@@ -50,6 +50,32 @@ public static class PosPriceListResolver
             .ToDictionary(g => g.Key, g => g.Last().Price);
     }
 
+    /// <summary>
+    /// Bảng giá tự áp khi hóa đơn không chọn bảng: «Mặc định» còn hiệu lực → bảng không giới hạn ngày →
+    /// bảng bất kỳ còn hiệu lực. Dùng chung cho thu ngân và QR bàn / online để cùng một giá.
+    /// </summary>
+    public static PosPriceList? PickDefault(IEnumerable<PosPriceList> activeLists, DateTime day)
+    {
+        var candidates = activeLists
+            .OrderByDescending(x => x.IsDefault).ThenBy(x => x.SortOrder)
+            .ToList();
+        return candidates.FirstOrDefault(x => x.IsDefault && IsApplicableOn(x, day))
+            ?? candidates.FirstOrDefault(x => !x.ValidFrom.HasValue && !x.ValidTo.HasValue)
+            ?? candidates.FirstOrDefault(x => IsApplicableOn(x, day));
+    }
+
+    /// <summary>Bảng giá mặc định hôm nay (giờ VN) + bảng giá đã nạp — null nếu cửa hàng chưa có bảng giá.</summary>
+    public static async Task<(PosPriceList? List, Dictionary<string, decimal> Overrides)> LoadDefaultForTodayAsync(
+        ZKTecoDbContext db, Guid storeId, CancellationToken ct = default)
+    {
+        var lists = await db.PosPriceLists.AsNoTracking()
+            .Where(x => x.StoreId == storeId && x.Deleted == null && x.IsActive)
+            .ToListAsync(ct);
+        var pick = PickDefault(lists, DateTime.UtcNow.AddHours(7).Date);
+        if (pick == null) return (null, new Dictionary<string, decimal>());
+        return (pick, await LoadOverridesAsync(db, storeId, pick.Id, ct));
+    }
+
     /// <summary>True nếu bảng giá áp dụng cho ngày hóa đơn (theo ValidFrom/ValidTo).</summary>
     public static bool IsApplicableOn(PosPriceList list, DateTime day)
     {
