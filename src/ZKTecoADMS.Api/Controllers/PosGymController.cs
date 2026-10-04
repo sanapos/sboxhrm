@@ -52,10 +52,11 @@ public class PosGymController(ZKTecoDbContext db, IMediator bus, IGymCheckInServ
             .Where(m => m.StoreId == storeId && m.Deleted == null);
         if (!string.IsNullOrWhiteSpace(search))
         {
-            var s = search.Trim().ToLower();
-            q = q.Where(m => m.Pin.Contains(s)
-                || (m.Customer != null && (m.Customer.Name.ToLower().Contains(s)
-                    || (m.Customer.Phone != null && m.Customer.Phone.Contains(s)))));
+            var raw = search.Trim();
+            var s = VnSearch.FoldText(raw); // không dấu: «hoa» khớp «Hòa»
+            q = q.Where(m => m.Pin.Contains(raw)
+                || (m.Customer != null && (VnSearch.Fold(m.Customer.Name).Contains(s)
+                    || (m.Customer.Phone != null && m.Customer.Phone.Contains(raw)))));
         }
         var rows = await q
             .OrderByDescending(m => m.CreatedAt)
@@ -290,6 +291,9 @@ public class PosGymController(ZKTecoDbContext db, IMediator bus, IGymCheckInServ
                     ? "Không giới hạn" : $"{p.RemainingSessions}",
                 expiresAt = p?.ExpiresAt is DateTime e ? ReportHelpers.ToVn(e).ToString("dd/MM/yyyy") : "",
                 customerId = g.Key,
+                expiringSoon = p == null
+                    || (p.ExpiresAt is DateTime ex && ex - DateTime.UtcNow < TimeSpan.FromDays(7))
+                    || (!PosCustomerSessionBalance.IsUnlimitedCount(p.TotalSessions) && p.RemainingSessions <= 2),
             };
         }).OrderByDescending(x => x.visits).ToList();
 
@@ -329,6 +333,12 @@ public class PosGymController(ZKTecoDbContext db, IMediator bus, IGymCheckInServ
             totalVisits = raw.Count,
             members = rows.Count,
             totalHours = Math.Round(raw.Where(x => x.DurationMinutes > 0).Sum(x => x.DurationMinutes!.Value) / 60.0, 1),
+            avgMinutes = raw.Any(x => x.DurationMinutes > 0)
+                ? (int)Math.Round(raw.Where(x => x.DurationMinutes > 0).Average(x => x.DurationMinutes!.Value))
+                : 0,
+            warnings = raw.Count(x => x.Status != "Ok"),
+            // Hội viên sắp hết hạn / hết buổi (≤ 7 ngày hoặc ≤ 2 buổi) — để nhắc gia hạn.
+            expiring = rows.Count(x => x.expiringSoon),
             items = rows,
         }));
     }
