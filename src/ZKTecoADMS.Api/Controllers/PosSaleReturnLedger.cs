@@ -188,6 +188,34 @@ internal static class PosSaleReturnLedger
         return result;
     }
 
+    /// <summary>
+    /// Từng phiếu trả trong kỳ (theo ngày trả) với tiền hàng trả (cùng nghĩa với Total đơn — chưa VAT)
+    /// — cho sổ ghi theo chứng từ: đơn ghi đủ ngày bán, phiếu trả ghi âm ngày trả.
+    /// </summary>
+    public static async Task<List<(Guid OrderId, string ReturnNo, DateTime ReturnedAt, decimal Refund)>> RefundSlipsByReturnDateAsync(
+        ZKTecoDbContext db, Guid storeId, DateTime fromUtc, DateTime toUtc)
+    {
+        var rows = (await db.PosSaleReturnLines.AsNoTracking()
+                .Where(r => r.StoreId == storeId && r.Deleted == null && !r.IsVoided &&
+                            r.CreatedAt >= fromUtc && r.CreatedAt < toUtc)
+                .GroupBy(r => new { r.SaleOrderId, r.ReturnNo })
+                .Select(g => new { g.Key.SaleOrderId, g.Key.ReturnNo, At = g.Min(x => x.CreatedAt), Refund = g.Sum(x => x.RefundAmount) })
+                .ToListAsync())
+            .Select(r => (r.SaleOrderId, r.ReturnNo, DateTime.SpecifyKind(r.At, DateTimeKind.Utc), r.Refund))
+            .ToList();
+
+        var txs = await CustomerReturnTx(db, storeId)
+            .Where(t => t.SaleOrderId != null && t.CreatedAt >= fromUtc && t.CreatedAt < toUtc)
+            .ToListAsync();
+        if (txs.Count == 0) return rows;
+        var known = await LedgerSlipsAsync(db, storeId, txs.Select(t => t.SaleOrderId!.Value).Distinct().ToList());
+        foreach (var slip in txs
+                     .Where(t => !known.Contains((t.SaleOrderId!.Value, t.ReferenceNo ?? "")))
+                     .GroupBy(t => (t.SaleOrderId!.Value, t.ReferenceNo ?? t.Id.ToString())))
+            rows.Add((slip.Key.Item1, slip.Key.Item2, DateTime.SpecifyKind(slip.Min(x => x.CreatedAt), DateTimeKind.Utc), LegacySlipRefund(slip)));
+        return rows;
+    }
+
     /// <summary>Tiền hoàn theo ngày trả (thông tin dòng tiền) — không trừ thêm vào doanh thu (Total đơn đã giảm khi trả).</summary>
     public static async Task<decimal> SumRefundsByReturnDateAsync(
         ZKTecoDbContext db, Guid storeId, DateTime fromUtc, DateTime toUtc, IReadOnlyCollection<Guid>? restrictOrderIds = null)

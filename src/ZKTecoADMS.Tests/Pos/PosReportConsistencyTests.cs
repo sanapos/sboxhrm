@@ -1,5 +1,6 @@
 using Microsoft.AspNetCore.Mvc;
 using Xunit;
+using ZKTecoADMS.Api.Controllers;
 using ZKTecoADMS.Application.Models;
 using ZKTecoADMS.Domain.Enums;
 
@@ -148,5 +149,45 @@ public class PosReportConsistencyTests(PosPgFixture fx) : PosFlowTestBase(fx)
         Assert.Equal(121000m, N(e, "netSales"));
         Assert.Equal(9000m, N(e, "refundTotal"));
         Assert.Equal(121000m, N(e, "totalAfterRefund"));
+    }
+
+    [Fact]
+    public async Task So_thue_hkd_ghi_ban_du_va_tra_hang_am_mot_lan()
+    {
+        if (NoDb) return;
+        var (store, _, _, _) = await SeedAsync();
+        var today = DateTime.UtcNow.AddHours(7).Date;
+        await using var db = Fx.NewDb();
+        var ctl = PosPgFixture.As(new HkdBooksController(db), store);
+        var res = (OkObjectResult)await ctl.PreviewBook("S2a", today, today);
+        var dto = ((AppResponse<ZKTecoADMS.Application.DTOs.Hkd.HkdBookPreviewDto>)res.Value!).Data!;
+        // Đơn A ghi đủ 90.000 lúc bán, đơn B 40.000, phiếu trả −9.000 → cộng sổ = doanh thu thuần 121.000 (trước đây trừ hai lần = 112.000).
+        Assert.Equal(121000m, dto.Summary.First(x => x.Label.Contains("doanh thu", StringComparison.OrdinalIgnoreCase)).Value);
+        Assert.Equal(3, dto.RowCount);
+    }
+
+    [Fact]
+    public async Task Bao_cao_chi_phi_khong_tinh_hoan_tra_khach()
+    {
+        if (NoDb) return;
+        var (store, _, _, _) = await SeedAsync();
+        var (from, to) = Range();
+        await using var db = Fx.NewDb();
+        var e = D(await Reports(db, store).GetExpenseSummary(from, to));
+        Assert.Equal(0m, N(e, "total"));
+        Assert.Equal(9000m, N(e, "excludedTotal"));
+    }
+
+    [Fact]
+    public async Task Ban_theo_khach_khong_dem_khach_le_la_mot_khach()
+    {
+        if (NoDb) return;
+        var (store, _, _, _) = await SeedAsync();
+        var (from, to) = Range();
+        await using var db = Fx.NewDb();
+        var c = D(await Reports(db, store).GetCustomerSales(from, to, null));
+        Assert.Equal(0m, N(c, "customerCount"));
+        Assert.Equal(121000m, N(c, "walkInRevenue"));
+        Assert.Equal(121000m, N(c, "totalRevenue"));
     }
 }

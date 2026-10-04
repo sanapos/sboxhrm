@@ -510,19 +510,24 @@ public partial class PosReportsController
                 x.customerCode.ToLowerInvariant().Contains(s));
         }
 
-        var items = grouped
+        var all = grouped.ToList();
+        var items = all
             .OrderByDescending(x => x.revenue)
             .Take(limit)
             .ToList();
+        // Khách lẻ (đơn không gắn khách) không phải «một khách» — không đếm vào số khách / khách cũ.
+        var walkIn = all.Where(x => x.customerId == null).ToList();
 
         return Ok(AppResponse<object>.Success(new
         {
             from = fromVn.Date,
             to = toVnEx.AddDays(-1).Date,
-            customerCount = items.Count,
-            newCustomerCount = items.Count(x => x.isNew),
-            totalRevenue = items.Sum(x => x.revenue),
-            totalProfit = items.Sum(x => x.profit),
+            customerCount = all.Count(x => x.customerId != null),
+            newCustomerCount = all.Count(x => x.customerId != null && x.isNew),
+            totalRevenue = all.Sum(x => x.revenue),
+            totalProfit = all.Sum(x => x.profit),
+            walkInRevenue = walkIn.Sum(x => x.revenue),
+            walkInOrders = walkIn.Sum(x => x.orderCount),
             items,
         }));
     }

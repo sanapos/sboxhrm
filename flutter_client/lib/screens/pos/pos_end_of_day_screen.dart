@@ -22,8 +22,9 @@ import '../../widgets/notification_overlay.dart';
 import '../../widgets/pos/pos_hub_scope.dart';
 import '../../widgets/pos/pos_mobile_widgets.dart';
 import '../../widgets/pos/pos_theme.dart';
+import '../../widgets/pos/pos_list_filters.dart';
+import '../../widgets/sbox/sbox_ui.dart';
 import 'package:zkteco_flutter_client/l10n/app_tr.dart';
-import 'package:zkteco_flutter_client/l10n/app_ui_locale.dart';
 
 import '../../theme/sbox_tokens.dart';
 const _kiotBlue = PosTheme.kiotBlue;
@@ -249,35 +250,6 @@ class _PosEndOfDayScreenState extends State<PosEndOfDayScreen> {
     }
   }
 
-  Future<void> _applyPreset(PosKiotTimePreset preset) async {
-    setState(() => _time = PosKiotTimeFilterState(preset: preset, isCustom: false));
-    await _loadStaff();
-    await _loadReport();
-  }
-
-  Future<void> _pickCustomRange() async {
-    final now = DateTime.now();
-    final picked = await showDateRangePicker(
-      context: context,
-      firstDate: DateTime(2020),
-      lastDate: now.add(const Duration(days: 365)),
-      initialDateRange: DateTimeRange(
-        start: _time.customFrom ?? now,
-        end: _time.customTo ?? now,
-      ),
-      locale: appUiLocale(),
-      helpText: 'Chọn khoảng thời gian',
-    );
-    if (picked == null || !mounted) return;
-    setState(() => _time = PosKiotTimeFilterState(
-          isCustom: true,
-          customFrom: picked.start,
-          customTo: picked.end,
-        ));
-    await _loadStaff();
-    await _loadReport();
-  }
-
   Future<void> _exportExcel() async {
     if (!ensureCanExport(context, 'PosReportEndOfDay')) return;
     final r = _report;
@@ -374,26 +346,12 @@ class _PosEndOfDayScreenState extends State<PosEndOfDayScreen> {
       appBar: hideAppBar
           ? null
           : AppBar(
-              backgroundColor: _kiotBlue,
-              foregroundColor: Colors.white,
+              backgroundColor: Colors.white,
+              foregroundColor: SboxColors.text,
+              surfaceTintColor: Colors.white,
+              elevation: 0,
               automaticallyImplyLeading: showBack,
               title: Text(tr('Tổng kết cuối ngày')),
-              actions: [
-                IconButton(
-                  tooltip: tr('Xuất PNG'),
-                  onPressed: _report == null ? null : () => PosReportExport.png(
-                    context: context,
-                    key: _pngKey,
-                    filePrefix: 'POS_CuoiNgay',
-                  ),
-                  icon: const Icon(Icons.image_outlined),
-                ),
-                IconButton(
-                  tooltip: tr('Xuất Excel'),
-                  onPressed: _report == null ? null : _exportExcel,
-                  icon: const Icon(Icons.file_download_outlined),
-                ),
-              ],
             ),
       body: Column(
         children: [
@@ -407,26 +365,84 @@ class _PosEndOfDayScreenState extends State<PosEndOfDayScreen> {
   }
 
   Widget _buildToolbar() {
+    String staffLabel(PosEndOfDayStaff st) => st.displayName;
     final filters = Wrap(
-          spacing: 12,
+          spacing: 8,
           runSpacing: 8,
           crossAxisAlignment: WrapCrossAlignment.center,
           children: [
-            IconButton(
-              tooltip: tr('Xuất PNG'),
-              onPressed: _report == null
-                  ? null
-                  : () => PosReportExport.png(
-                        context: context,
-                        key: _pngKey,
-                        filePrefix: 'POS_CuoiNgay',
-                      ),
-              icon: const Icon(Icons.image_outlined),
+            PosTimeRangeChip(
+              label: 'Kỳ',
+              state: _time,
+              onChanged: (v) async {
+                setState(() => _time = v);
+                await _loadStaff();
+                await _loadReport();
+              },
             ),
-            IconButton(
-              tooltip: tr('Xuất Excel'),
-              onPressed: _report == null ? null : _exportExcel,
-              icon: const Icon(Icons.file_download_outlined),
+            if (_canPickStaff) ...[
+              PosPickChip(
+                label: 'Nhân viên',
+                value: _selectedStaffKey,
+                allLabel: 'Tất cả nhân viên',
+                options: {
+                  for (final st in _staff)
+                    if (_staffKey(st) != null) _staffKey(st)!: staffLabel(st),
+                },
+                onChanged: (v) async {
+                  if (_loading) return;
+                  setState(() => _selectedStaffKey = v);
+                  await _loadReport();
+                },
+              ),
+              SboxFilterChip<String>(
+                label: 'Lọc theo',
+                value: _filterBy,
+                options: const {'soldBy': 'Người bán', 'soldByEmployee': 'NV (hồ sơ)', 'createdBy': 'Người tạo'},
+                onChanged: (v) async {
+                  if (_loading) return;
+                  setState(() {
+                    _filterBy = v;
+                    _selectedStaffKey = null;
+                  });
+                  await _loadStaff();
+                  await _loadReport();
+                },
+              ),
+            ] else
+              PosChipFrame(label: '', value: 'Chỉ ${_selfAccountLabel()}', icon: Icons.person_outline),
+            FilterChip(
+              label: Text(tr(_sellSettings?.overnightReportEnabled == true
+                  ? 'Qua đêm ${_sellSettings!.reportDayStartHour.toString().padLeft(2, '0')}:00'
+                  : 'Cắt ngày lúc 0:00')),
+              selected: _sellSettings?.overnightReportEnabled == true,
+              onSelected: (_loading || _savingOvernight || !_canPickStaff)
+                  ? null
+                  : (v) => unawaited(_setOvernight(v)),
+            ),
+            if (_sellSettings?.overnightReportEnabled == true && _canPickStaff)
+              SboxFilterChip<int>(
+                label: 'Giờ cắt',
+                value: (_sellSettings!.reportDayStartHour).clamp(1, 12),
+                options: {for (var h = 1; h <= 12; h++) h: '${h.toString().padLeft(2, '0')}:00'},
+                onChanged: (v) {
+                  if (_loading || _savingOvernight) return;
+                  unawaited(_setOvernight(true, hour: v));
+                },
+              ),
+            SboxFilterChip<PosEndOfDayPrintFormat>(
+              label: 'Mẫu in',
+              value: _format,
+              options: const {
+                PosEndOfDayPrintFormat.bill58: 'Bill K58',
+                PosEndOfDayPrintFormat.bill80: 'Bill K80',
+                PosEndOfDayPrintFormat.a4: 'Khổ A4',
+              },
+              onChanged: (v) async {
+                if (_loading) return;
+                setState(() => _format = v);
+                if (v == PosEndOfDayPrintFormat.a4) await _loadReport();
+              },
             ),
             IconButton(
               tooltip: tr('Hóa đơn gốc'),
@@ -436,139 +452,19 @@ class _PosEndOfDayScreenState extends State<PosEndOfDayScreen> {
                 to: _time.to,
                 soldBy: _report?.staffName,
               )),
-              icon: const Icon(Icons.receipt_long_outlined),
+              icon: const Icon(Icons.receipt_long_outlined, color: SboxColors.slate600),
             ),
-            if (_canPickStaff) ...[
-              SizedBox(
-                width: 220,
-                child: DropdownButtonFormField<String?>(
-                  value: _selectedStaffKey,
-                  decoration: InputDecoration(
-                    labelText: tr('Nhân viên'),
-                    isDense: true,
-                    border: OutlineInputBorder(),
-                    contentPadding: EdgeInsets.symmetric(horizontal: 10, vertical: 8),
-                  ),
-                  items: [
-                    DropdownMenuItem<String?>(
-                      value: null,
-                      child: Text(tr('Tất cả nhân viên')),
-                    ),
-                    ..._staff.map((s) => DropdownMenuItem<String?>(
-                          value: _staffKey(s),
-                          child: Text(tr(s.displayName), overflow: TextOverflow.ellipsis),
-                        )),
-                  ],
-                  onChanged: _loading
-                      ? null
-                      : (v) async {
-                          setState(() => _selectedStaffKey = v);
-                          await _loadReport();
-                        },
-                ),
-              ),
-              SizedBox(
-                width: 160,
-                child: DropdownButtonFormField<String>(
-                  value: _filterBy,
-                  decoration: InputDecoration(
-                    labelText: tr('Lọc theo'),
-                    isDense: true,
-                    border: OutlineInputBorder(),
-                    contentPadding: EdgeInsets.symmetric(horizontal: 10, vertical: 8),
-                  ),
-                  items: [
-                    DropdownMenuItem(value: 'soldBy', child: Text(tr('Người bán'))),
-                    DropdownMenuItem(
-                        value: 'soldByEmployee', child: Text(tr('NV (hồ sơ)'))),
-                    DropdownMenuItem(value: 'createdBy', child: Text(tr('Người tạo'))),
-                  ],
-                  onChanged: _loading
-                      ? null
-                      : (v) async {
-                          if (v == null) return;
-                          setState(() {
-                            _filterBy = v;
-                            _selectedStaffKey = null;
-                          });
-                          await _loadStaff();
-                          await _loadReport();
-                        },
-                ),
-              ),
-            ] else
-              Chip(
-                avatar: const Icon(Icons.person_outline, size: 18),
-                label: Text(tr('Chỉ ${_selfAccountLabel()}')),
-              ),
-            FilterChip(
-              label: Text(tr(_sellSettings?.overnightReportEnabled == true
-                  ? 'Qua đêm ${_sellSettings!.reportDayStartHour.toString().padLeft(2, '0')}:00'
-                  : 'UTC+7 (nửa đêm)')),
-              selected: _sellSettings?.overnightReportEnabled == true,
-              onSelected: (_loading || _savingOvernight || !_canPickStaff)
+            IconButton(
+              tooltip: tr('Xuất PNG'),
+              onPressed: _report == null
                   ? null
-                  : (v) => unawaited(_setOvernight(v)),
+                  : () => PosReportExport.png(context: context, key: _pngKey, filePrefix: 'POS_CuoiNgay'),
+              icon: const Icon(Icons.image_outlined, color: SboxColors.slate600),
             ),
-            if (_sellSettings?.overnightReportEnabled == true && _canPickStaff)
-              SizedBox(
-                width: 120,
-                child: DropdownButtonFormField<int>(
-                  value: (_sellSettings!.reportDayStartHour).clamp(1, 12),
-                  decoration: InputDecoration(
-                    labelText: tr('Giờ cắt'),
-                    isDense: true,
-                    border: OutlineInputBorder(),
-                    contentPadding:
-                        EdgeInsets.symmetric(horizontal: 10, vertical: 8),
-                  ),
-                  items: [
-                    for (var h = 1; h <= 12; h++)
-                      DropdownMenuItem(
-                        value: h,
-                        child: Text('${h.toString().padLeft(2, '0')}:00'),
-                      ),
-                  ],
-                  onChanged: (_loading || _savingOvernight)
-                      ? null
-                      : (v) {
-                          if (v == null) return;
-                          unawaited(_setOvernight(true, hour: v));
-                        },
-                ),
-              ),
-            SizedBox(
-              width: 150,
-              child: DropdownButtonFormField<PosEndOfDayPrintFormat>(
-                value: _format,
-                decoration: InputDecoration(
-                  labelText: tr('Mẫu in'),
-                  isDense: true,
-                  border: OutlineInputBorder(),
-                  contentPadding: EdgeInsets.symmetric(horizontal: 10, vertical: 8),
-                ),
-                items: [
-                  DropdownMenuItem(
-                    value: PosEndOfDayPrintFormat.bill58,
-                    child: Text(tr('Bill K58')),
-                  ),
-                  DropdownMenuItem(
-                    value: PosEndOfDayPrintFormat.bill80,
-                    child: Text(tr('Bill K80')),
-                  ),
-                  DropdownMenuItem(
-                    value: PosEndOfDayPrintFormat.a4,
-                    child: Text(tr('Khổ A4')),
-                  ),
-                ],
-                onChanged: _loading
-                    ? null
-                    : (v) async {
-                        if (v == null) return;
-                        setState(() => _format = v);
-                        if (v == PosEndOfDayPrintFormat.a4) await _loadReport();
-                      },
-              ),
+            IconButton(
+              tooltip: tr('Xuất Excel'),
+              onPressed: _report == null ? null : _exportExcel,
+              icon: const Icon(Icons.file_download_outlined, color: SboxColors.slate600),
             ),
           ],
     );
@@ -1026,21 +922,6 @@ class _PosEndOfDayScreenState extends State<PosEndOfDayScreen> {
             mainAxisSize: MainAxisSize.min,
             crossAxisAlignment: CrossAxisAlignment.stretch,
             children: [
-              SingleChildScrollView(
-                scrollDirection: Axis.horizontal,
-                child: Row(
-                  children: [
-                    _presetChip('Hôm nay', PosKiotTimePreset.today),
-                    _presetChip('Hôm qua', PosKiotTimePreset.yesterday),
-                    _presetChip('7 ngày', PosKiotTimePreset.last7Days),
-                    TextButton(
-                      onPressed: _pickCustomRange,
-                      child: Text(tr('Khác')),
-                    ),
-                  ],
-                ),
-              ),
-              const SizedBox(height: 6),
               Row(
                 children: [
                   Checkbox(
@@ -1073,18 +954,6 @@ class _PosEndOfDayScreenState extends State<PosEndOfDayScreen> {
           ),
         ),
       ),
-    );
-  }
-
-  Widget _presetChip(String label, PosKiotTimePreset preset) {
-    final active = !_time.isCustom && _time.preset == preset;
-    return TextButton(
-      style: TextButton.styleFrom(
-        foregroundColor: active ? _kiotBlue : PosTheme.textPrimary,
-        backgroundColor: active ? PosTheme.kiotBlueLight : null,
-      ),
-      onPressed: _loading ? null : () => _applyPreset(preset),
-      child: Text(tr(label), style: TextStyle(fontWeight: active ? FontWeight.w600 : null)),
     );
   }
 

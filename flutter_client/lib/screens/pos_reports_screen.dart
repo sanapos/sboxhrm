@@ -14,7 +14,6 @@ import '../widgets/hrm_page_chrome.dart';
 import '../widgets/notification_overlay.dart';
 import '../widgets/pos/pos_hub_scope.dart';
 import '../widgets/pos/pos_kiot_time_filter.dart';
-import '../utils/responsive_helper.dart';
 import '../widgets/pos/pos_mobile_widgets.dart';
 import '../widgets/pos/pos_module_toolbar.dart';
 import '../widgets/pos/pos_theme.dart';
@@ -67,7 +66,6 @@ class _PosReportsScreenState extends State<PosReportsScreen>
   int _lotPage = 1;
   String? _lotFilter;
   String? _stockFilter;
-  bool _stockFilterOpen = false;
   bool _salesFilterOpen = false;
   static const _stockPageSize = 30;
 
@@ -106,6 +104,7 @@ class _PosReportsScreenState extends State<PosReportsScreen>
   void dispose() {
     _tabs.removeListener(_onTabChanged);
     _tabs.dispose();
+    _stockDebounce?.cancel();
     _stockSearchCtrl.dispose();
     super.dispose();
   }
@@ -486,245 +485,113 @@ class _PosReportsScreenState extends State<PosReportsScreen>
     );
   }
 
-  String get _stockFilterSubtitle {
-    final f = switch (_stockFilter) {
-      'BelowMin' => 'Dưới min',
-      'OutOfStock' => 'Hết hàng',
-      'AboveMax' => 'Trên max',
-      _ => 'Tất cả',
-    };
-    final s = _stockSummary;
-    if (s == null) return f;
-    return '$f · SKU ${s['totalSkus'] ?? 0} · Tồn ${s['totalQty'] ?? 0}';
+
+
+  Timer? _stockDebounce;
+
+  void _onStockSearch(String _, VoidCallback reload) {
+    _stockDebounce?.cancel();
+    _stockDebounce = Timer(const Duration(milliseconds: 400), reload);
   }
 
+  Widget _exportButtons({required VoidCallback? onExcel, required VoidCallback onPng}) => Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          SboxButton.secondary(label: 'Excel', icon: Icons.download_outlined, onPressed: onExcel),
+          const SizedBox(width: SboxSpace.sm),
+          SboxButton.secondary(label: 'PNG', icon: Icons.image_outlined, onPressed: onPng),
+        ],
+      );
+
+  Widget _reportPager({required int page, required int pages, required int total, required String label, required ValueChanged<int> onPage}) {
+    if (pages <= 1) return const SizedBox.shrink();
+    if (posUseMobileList(context)) {
+      return PosMobilePager(total: total, page: page, pageSize: _stockPageSize, label: label, onPageChanged: onPage);
+    }
+    return SboxPager(page: page, pageSize: _stockPageSize, total: total, onPage: onPage);
+  }
+
+  /// Tồn kho: một hàng lọc kiểu HRM (tìm · tình trạng · Excel/PNG), số liệu + bảng — không còn nút «Lọc» và hàng chip tổng lặp số liệu.
   Widget _buildStockTab(bool canExport) {
     final totalPages = (_stockTotal / _stockPageSize).ceil().clamp(1, 9999);
     final mobile = posUseMobileList(context);
     return Column(
       children: [
         Padding(
-          padding: const EdgeInsets.fromLTRB(12, 12, 12, 0),
-          child: mobile
-              ? Column(
-                  crossAxisAlignment: CrossAxisAlignment.stretch,
-                  children: [
-                    TextField(
-                      controller: _stockSearchCtrl,
-                      decoration: InputDecoration(
-                        hintText: tr('Tìm hàng hóa'),
-                        prefixIcon: Icon(Icons.search, size: 20),
-                        border: OutlineInputBorder(),
-                        isDense: true,
-                      ),
-                      onSubmitted: (_) => _loadStock(),
-                    ),
-                    const SizedBox(height: 8),
-                    PosFilterCollapse(
-                      expanded: _stockFilterOpen,
-                      onToggle: () =>
-                          setState(() => _stockFilterOpen = !_stockFilterOpen),
-                      title: 'Bộ lọc & tổng quan',
-                      subtitle: _stockFilterSubtitle,
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.stretch,
-                        children: [
-                    Wrap(
-                      spacing: 8,
-                      children: [
-                        FilterChip(
-                          label: Text(tr('Tất cả')),
-                          selected: _stockFilter == null,
-                          onSelected: (_) {
-                            setState(() => _stockFilter = null);
-                            _loadStock();
-                          },
-                        ),
-                        FilterChip(
-                          label: Text(tr('Dưới min')),
-                          selected: _stockFilter == 'BelowMin',
-                          onSelected: (_) {
-                            setState(() => _stockFilter = 'BelowMin');
-                            _loadStock();
-                          },
-                        ),
-                        FilterChip(
-                          label: Text(tr('Hết hàng')),
-                          selected: _stockFilter == 'OutOfStock',
-                          onSelected: (_) {
-                            setState(() => _stockFilter = 'OutOfStock');
-                            _loadStock();
-                          },
-                        ),
-                        FilterChip(
-                          label: Text(tr('Trên max')),
-                          selected: _stockFilter == 'AboveMax',
-                          onSelected: (_) {
-                            setState(() => _stockFilter = 'AboveMax');
-                            _loadStock();
-                          },
-                        ),
-                      ],
-                    ),
-                    const SizedBox(height: 8),
-                    Row(
-                      children: [
-                        Expanded(
-                          child: FilledButton(
-                            style: FilledButton.styleFrom(
-                                backgroundColor: _kiotBlue),
-                            onPressed: _loadingStock ? null : () => _loadStock(),
-                            child: Text(tr('Lọc')),
-                          ),
-                        ),
-                        if (canExport) ...[
-                          const SizedBox(width: 8),
-                          OutlinedButton(
-                            onPressed: _exporting ? null : _exportStock,
-                            child: const Icon(Icons.download),
-                          ),
-                          const SizedBox(width: 8),
-                          OutlinedButton(
-                            onPressed: () => PosReportExport.png(
-                              context: context,
-                              key: _stockPngKey,
-                              filePrefix: 'POS_TonKho',
-                            ),
-                            child: const Icon(Icons.image_outlined),
-                          ),
-                        ],
-                      ],
-                    ),
-                    if (_stockSummary != null) ...[
-                      const SizedBox(height: 8),
-                      Wrap(
-                        spacing: 8,
-                        runSpacing: 8,
-                        children: [
-                          _chip('SKU', '${_stockSummary!['totalSkus'] ?? 0}'),
-                          _chip('Tồn', '${_stockSummary!['totalQty'] ?? 0}'),
-                          _chip('Giá trị', _moneyFmt.format(_num(_stockSummary!['inventoryValue']))),
-                          _chip('Hết hàng', '${_stockSummary!['outOfStock'] ?? 0}'),
-                        ],
-                      ),
-                    ],
-                        ],
-                      ),
-                    ),
-                  ],
-                )
-              : SingleChildScrollView(
-                  scrollDirection: Axis.horizontal,
-                  child: Row(
-                    children: [
-                      SizedBox(
-                        width: 360,
-                        child: TextField(
-                          controller: _stockSearchCtrl,
-                          decoration: InputDecoration(
-                            hintText: tr('Tìm hàng hóa'),
-                            prefixIcon: Icon(Icons.search, size: 20),
-                            border: OutlineInputBorder(),
-                            isDense: true,
-                          ),
-                          onSubmitted: (_) => _loadStock(),
-                        ),
-                      ),
-                      const SizedBox(width: 8),
-                      FilledButton(
-                        style:
-                            FilledButton.styleFrom(backgroundColor: _kiotBlue),
-                        onPressed:
-                            _loadingStock ? null : () => _loadStock(),
-                        child: Text(tr('Lọc')),
-                      ),
-                      if (canExport) ...[
-                        const SizedBox(width: 8),
-                        OutlinedButton.icon(
-                          onPressed: _exporting ? null : _exportStock,
-                          icon: const Icon(Icons.download, size: 18),
-                          label: Text(tr('Excel')),
-                        ),
-                        const SizedBox(width: 8),
-                        OutlinedButton.icon(
-                          onPressed: () => PosReportExport.png(
-                            context: context,
-                            key: _stockPngKey,
-                            filePrefix: 'POS_TonKho',
-                          ),
-                          icon: const Icon(Icons.image_outlined, size: 18),
-                          label: Text(tr('PNG')),
-                        ),
-                      ],
-                    ],
-                  ),
+          padding: EdgeInsets.fromLTRB(mobile ? 12 : 16, 12, mobile ? 12 : 16, 4),
+          child: SboxFilterBar(
+            searchHint: 'Tìm hàng hóa',
+            searchController: _stockSearchCtrl,
+            onSearch: (v) => _onStockSearch(v, () => _loadStock()),
+            filters: [
+              SboxFilterChip<String>(
+                label: 'Tình trạng',
+                value: _stockFilter ?? 'all',
+                options: const {'all': 'Tất cả', 'BelowMin': 'Dưới tối thiểu', 'OutOfStock': 'Hết hàng', 'AboveMax': 'Vượt tối đa'},
+                onChanged: (v) {
+                  setState(() => _stockFilter = v == 'all' ? null : v);
+                  _loadStock();
+                },
+              ),
+            ],
+            actions: [
+              if (canExport)
+                _exportButtons(
+                  onExcel: _exporting ? null : _exportStock,
+                  onPng: () => PosReportExport.png(context: context, key: _stockPngKey, filePrefix: 'POS_TonKho'),
                 ),
-        ),
-        if (_stockSummary != null && !mobile)
-          Padding(
-            padding: const EdgeInsets.all(12),
-            child: Wrap(
-              spacing: 16,
-              runSpacing: 8,
-              children: [
-                _chip('SKU', '${_stockSummary!['totalSkus'] ?? 0}'),
-                _chip('Tồn', '${_stockSummary!['totalQty'] ?? 0}'),
-                _chip('Giá trị', _moneyFmt.format(_num(_stockSummary!['inventoryValue']))),
-                _chip('Hết hàng', '${_stockSummary!['outOfStock'] ?? 0}'),
-              ],
-            ),
+            ],
           ),
+        ),
         Expanded(
           child: _loadingStock
               ? const Center(child: CircularProgressIndicator(color: _kiotBlue))
               : RepaintBoundary(
                   key: _stockPngKey,
-                  child: ListView.builder(
-                  padding: const EdgeInsets.symmetric(horizontal: 8),
-                  itemCount: _stockProducts.length + 1,
-                  itemBuilder: (_, i) {
-                    if (i == 0) return _stockInsight();
-                    final p = _stockProducts[i - 1];
-                    if (mobile) {
-                      return Container(
-                        margin: const EdgeInsets.only(bottom: 8),
-                        decoration: PosTheme.mobileCardDecoration(),
-                        child: ListTile(
-                          title: Text(tr(p['name']?.toString() ?? '')),
-                          subtitle: Text(
-                              tr('${p['productCode']} · Tồn: ${p['onHandQty']}')),
-                          trailing: Text(
-                            tr(_moneyFmt.format(_num(p['stockValue']))),
-                            style: const TextStyle(fontWeight: FontWeight.w600),
-                          ),
+                  child: ListView(
+                    padding: EdgeInsets.fromLTRB(mobile ? 8 : 12, 8, mobile ? 8 : 12, 16),
+                    children: [
+                      _stockInsight(),
+                      SboxCard(
+                        padding: EdgeInsets.zero,
+                        child: SboxDataTable<Map<String, dynamic>>(
+                          rows: _stockProducts.map((e) => Map<String, dynamic>.from(e as Map)).toList(),
+                          paginate: false,
+                          emptyTitle: 'Không có hàng trong bộ lọc',
+                          columns: [
+                            SboxColumn(
+                              label: 'Hàng hóa',
+                              primary: true,
+                              flex: 3,
+                              minWidth: 220,
+                              cell: (p) => Column(crossAxisAlignment: CrossAxisAlignment.start, mainAxisSize: MainAxisSize.min, children: [
+                                Text('${p['name'] ?? ''}', maxLines: 1, overflow: TextOverflow.ellipsis,
+                                    style: SboxType.bodyStyle().copyWith(fontWeight: SboxType.semibold)),
+                                Text('${p['productCode'] ?? ''}', style: SboxType.smallStyle(SboxColors.textMuted)),
+                              ]),
+                            ),
+                            SboxColumn(
+                              label: 'Tồn',
+                              numeric: true,
+                              minWidth: 90,
+                              cell: (p) {
+                                final q = _num(p['onHandQty']);
+                                return Text(SboxFmt.number(q),
+                                    textAlign: TextAlign.right,
+                                    style: q <= 0 ? SboxType.bodyStyle(SboxColors.dangerText) : SboxType.bodyStyle());
+                              },
+                              sortValue: (p) => _num(p['onHandQty']),
+                            ),
+                            SboxColumn(label: 'Giá trị tồn', numeric: true, minWidth: 130,
+                                text: (p) => SboxFmt.money(_num(p['stockValue'])), sortValue: (p) => _num(p['stockValue'])),
+                          ],
                         ),
-                      );
-                    }
-                    return ListTile(
-                      title: Text(tr(p['name']?.toString() ?? '')),
-                      subtitle: Text(
-                          tr('${p['productCode']} · Tồn: ${p['onHandQty']}')),
-                      trailing: Text(tr(_moneyFmt.format(_num(p['stockValue'])))),
-                    );
-                  },
-                ),
+                      ),
+                    ],
                   ),
+                ),
         ),
-        if (totalPages > 1)
-          mobile
-              ? PosMobilePager(
-                  total: _stockTotal,
-                  page: _stockPage,
-                  pageSize: _stockPageSize,
-                  label: 'SKU',
-                  onPageChanged: (p) => _loadStock(page: p),
-                )
-              : Padding(
-                  padding: const EdgeInsets.symmetric(vertical: 8),
-                  child: Center(
-                    child: SboxPagerNav(page: _stockPage, pages: totalPages, onPage: (p) => _loadStock(page: p)),
-                  ),
-                ),
+        _reportPager(page: _stockPage, pages: totalPages, total: _stockTotal, label: 'SKU', onPage: (p) => _loadStock(page: p)),
       ],
     );
   }
@@ -822,195 +689,110 @@ class _PosReportsScreenState extends State<PosReportsScreen>
     );
   }
 
+  /// Hạn dùng theo lô: cùng khuôn với Tồn kho.
   Widget _buildLotsTab() {
     final totalPages = (_lotTotal / _stockPageSize).ceil().clamp(1, 9999);
     final mobile = posUseMobileList(context);
     final dateFmt = DateFormat('dd/MM/yyyy', 'vi_VN');
 
-    Color statusColor(String? status) => switch (status) {
-          'expired' => SboxColors.danger,
-          'expiring' => SboxColors.warning,
-          _ => SboxColors.slate500,
+    SboxTone statusTone(String? status) => switch (status) {
+          'expired' => SboxTone.danger,
+          'expiring' => SboxTone.warning,
+          _ => SboxTone.success,
         };
 
     String statusLabel(String? status) => switch (status) {
           'expired' => 'Hết HSD',
           'expiring' => 'Sắp hết',
-          _ => 'OK',
+          _ => 'Còn hạn',
         };
 
     return Column(
       children: [
         Padding(
-          padding: const EdgeInsets.fromLTRB(12, 12, 12, 0),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.stretch,
-            children: [
-              TextField(
-                controller: _stockSearchCtrl,
-                decoration: InputDecoration(
-                  hintText: tr('Tìm hàng / mã lô'),
-                  prefixIcon: Icon(Icons.search, size: 20),
-                  border: OutlineInputBorder(),
-                  isDense: true,
-                ),
-                onSubmitted: (_) => _loadLots(),
+          padding: EdgeInsets.fromLTRB(mobile ? 12 : 16, 12, mobile ? 12 : 16, 4),
+          child: SboxFilterBar(
+            searchHint: 'Tìm hàng / mã lô',
+            searchController: _stockSearchCtrl,
+            onSearch: (v) => _onStockSearch(v, () => _loadLots()),
+            filters: [
+              SboxFilterChip<String>(
+                label: 'Hạn dùng',
+                value: _lotFilter ?? 'all',
+                options: const {'all': 'Tất cả', 'expiring': 'Sắp hết HSD', 'expired': 'Đã hết HSD'},
+                onChanged: (v) {
+                  setState(() => _lotFilter = v == 'all' ? null : v);
+                  _loadLots();
+                },
               ),
-              const SizedBox(height: 8),
-              Wrap(
-                spacing: 8,
-                children: [
-                  FilterChip(
-                    label: Text(tr('Tất cả')),
-                    selected: _lotFilter == null,
-                    onSelected: (_) {
-                      setState(() => _lotFilter = null);
-                      _loadLots();
-                    },
-                  ),
-                  FilterChip(
-                    label: Text(tr('Sắp hết HSD')),
-                    selected: _lotFilter == 'expiring',
-                    onSelected: (_) {
-                      setState(() => _lotFilter = 'expiring');
-                      _loadLots();
-                    },
-                  ),
-                  FilterChip(
-                    label: Text(tr('Đã hết HSD')),
-                    selected: _lotFilter == 'expired',
-                    onSelected: (_) {
-                      setState(() => _lotFilter = 'expired');
-                      _loadLots();
-                    },
-                  ),
-                  FilledButton(
-                    style: FilledButton.styleFrom(backgroundColor: _kiotBlue),
-                    onPressed: _loadingStock ? null : () => _loadLots(),
-                    child: Text(tr('Lọc')),
-                  ),
-                  OutlinedButton.icon(
-                    onPressed: _exportLots,
-                    icon: const Icon(Icons.download, size: 18),
-                    label: Text(tr('Excel')),
-                  ),
-                  OutlinedButton.icon(
-                    onPressed: () => PosReportExport.png(
-                      context: context,
-                      key: _lotPngKey,
-                      filePrefix: 'POS_LoHSD',
-                    ),
-                    icon: const Icon(Icons.image_outlined, size: 18),
-                    label: Text(tr('PNG')),
-                  ),
-                ],
+            ],
+            actions: [
+              _exportButtons(
+                onExcel: _exportLots,
+                onPng: () => PosReportExport.png(context: context, key: _lotPngKey, filePrefix: 'POS_LoHSD'),
               ),
             ],
           ),
         ),
-        if (_lotSummary != null)
-          Padding(
-            padding: const EdgeInsets.all(12),
-            child: Wrap(
-              spacing: 16,
-              runSpacing: 8,
-              children: [
-                _chip('Lô active', '${_lotSummary!['activeLotCount'] ?? 0}'),
-                _chip('SL lô', '${_lotSummary!['totalLotQty'] ?? 0}'),
-                _chip('Giá trị', _moneyFmt.format(_num(_lotSummary!['lotInventoryValue']))),
-                _chip('Sắp hết', '${_lotSummary!['expiringSoonLotCount'] ?? 0}'),
-                _chip('Hết HSD', '${_lotSummary!['expiredLotCount'] ?? 0}'),
-              ],
-            ),
-          ),
         Expanded(
           child: _loadingStock
               ? const Center(child: CircularProgressIndicator(color: _kiotBlue))
               : RepaintBoundary(
                   key: _lotPngKey,
-                  child: ListView.builder(
-                  padding: const EdgeInsets.symmetric(horizontal: 8),
-                  itemCount: _lotItems.length + 1,
-                  itemBuilder: (_, i) {
-                    if (i == 0) return _lotInsight();
-                    final l = _lotItems[i - 1];
-                    final status = l['status']?.toString();
-                    final expiryRaw = l['expiryDate'] ?? l['ExpiryDate'];
-                    final expiry = expiryRaw != null
-                        ? DateTime.tryParse(expiryRaw.toString())?.toLocal()
-                        : null;
-                    final days = (l['daysUntilExpiry'] ?? l['DaysUntilExpiry'] as num?)?.toInt();
-                    final subtitle = [
-                      if (l['lotNo'] != null && l['lotNo'].toString().isNotEmpty)
-                        'Lô: ${l['lotNo']}',
-                      if (expiry != null) 'HSD: ${dateFmt.format(expiry)}',
-                      if (days != null) 'Còn $days ngày',
-                      'SL: ${l['qtyOnHand'] ?? l['QtyOnHand']}',
-                    ].join(' · ');
-
-                    final tile = ListTile(
-                      title: Text(tr(l['productName']?.toString() ?? '')),
-                      subtitle: Text(tr(subtitle)),
-                      trailing: Column(
-                        mainAxisAlignment: MainAxisAlignment.center,
-                        crossAxisAlignment: CrossAxisAlignment.end,
-                        children: [
-                          Text(
-                            tr(_moneyFmt.format(_num(l['stockValue'] ?? l['StockValue']))),
-                            style: const TextStyle(fontWeight: FontWeight.w600),
-                          ),
-                          Text(
-                            tr(statusLabel(status)),
-                            style: TextStyle(
-                              fontSize: 11,
-                              color: statusColor(status),
-                              fontWeight: FontWeight.w600,
-                            ),
-                          ),
-                        ],
-                      ),
-                    );
-
-                    if (mobile) {
-                      return Container(
-                        margin: const EdgeInsets.only(bottom: 8),
-                        decoration: PosTheme.mobileCardDecoration(),
-                        child: tile,
-                      );
-                    }
-                    return tile;
-                  },
-                ),
-                  ),
-        ),
-        if (totalPages > 1)
-          mobile
-              ? PosMobilePager(
-                  total: _lotTotal,
-                  page: _lotPage,
-                  pageSize: _stockPageSize,
-                  label: 'Lô',
-                  onPageChanged: (p) => _loadLots(page: p),
-                )
-              : Padding(
-                  padding: const EdgeInsets.all(8),
-                  child: Row(
-                    mainAxisAlignment: MainAxisAlignment.center,
+                  child: ListView(
+                    padding: EdgeInsets.fromLTRB(mobile ? 8 : 12, 8, mobile ? 8 : 12, 16),
                     children: [
-                      IconButton(
-                        onPressed: _lotPage > 1 ? () => _loadLots(page: _lotPage - 1) : null,
-                        icon: const Icon(Icons.chevron_left),
-                      ),
-                      Text(tr('$_lotPage / $totalPages')),
-                      IconButton(
-                        onPressed: _lotPage < totalPages
-                            ? () => _loadLots(page: _lotPage + 1)
-                            : null,
-                        icon: const Icon(Icons.chevron_right),
+                      _lotInsight(),
+                      SboxCard(
+                        padding: EdgeInsets.zero,
+                        child: SboxDataTable<Map<String, dynamic>>(
+                          rows: _lotItems.map((e) => Map<String, dynamic>.from(e as Map)).toList(),
+                          paginate: false,
+                          emptyTitle: 'Chưa có lô hàng theo dõi hạn dùng',
+                          columns: [
+                            SboxColumn(
+                              label: 'Hàng / lô',
+                              primary: true,
+                              flex: 3,
+                              minWidth: 220,
+                              cell: (l) => Column(crossAxisAlignment: CrossAxisAlignment.start, mainAxisSize: MainAxisSize.min, children: [
+                                Text('${l['productName'] ?? ''}', maxLines: 1, overflow: TextOverflow.ellipsis,
+                                    style: SboxType.bodyStyle().copyWith(fontWeight: SboxType.semibold)),
+                                if ('${l['lotNo'] ?? ''}'.isNotEmpty)
+                                  Text('Lô ${l['lotNo']}', style: SboxType.smallStyle(SboxColors.textMuted)),
+                              ]),
+                            ),
+                            SboxColumn(
+                              label: 'HSD',
+                              minWidth: 110,
+                              text: (l) {
+                                final raw = l['expiryDate'] ?? l['ExpiryDate'];
+                                final d = raw == null ? null : DateTime.tryParse('$raw')?.toLocal();
+                                return d == null ? '—' : dateFmt.format(d);
+                              },
+                            ),
+                            SboxColumn(label: 'Còn (ngày)', numeric: true, minWidth: 90, hideOnMobile: true,
+                                text: (l) => '${l['daysUntilExpiry'] ?? l['DaysUntilExpiry'] ?? '—'}'),
+                            SboxColumn(label: 'SL', numeric: true, minWidth: 80,
+                                text: (l) => SboxFmt.number(_num(l['qtyOnHand'] ?? l['QtyOnHand']))),
+                            SboxColumn(label: 'Giá trị', numeric: true, minWidth: 120,
+                                text: (l) => SboxFmt.money(_num(l['stockValue'] ?? l['StockValue']))),
+                            SboxColumn(
+                              label: 'Trạng thái',
+                              minWidth: 110,
+                              cell: (l) => Align(
+                                alignment: Alignment.centerLeft,
+                                child: SboxStatusChip(label: statusLabel('${l['status']}'), tone: statusTone('${l['status']}')),
+                              ),
+                            ),
+                          ],
+                        ),
                       ),
                     ],
                   ),
                 ),
+        ),
+        _reportPager(page: _lotPage, pages: totalPages, total: _lotTotal, label: 'Lô', onPage: (p) => _loadLots(page: p)),
       ],
     );
   }
@@ -1047,7 +829,4 @@ class _PosReportsScreenState extends State<PosReportsScreen>
         ),
       );
 
-  Widget _chip(String label, String value) => Chip(
-        label: Text(tr('$label: $value'), style: const TextStyle(fontSize: 12)),
-      );
 }

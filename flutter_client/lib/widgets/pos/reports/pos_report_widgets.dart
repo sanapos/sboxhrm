@@ -6,7 +6,7 @@ import 'package:intl/intl.dart';
 
 import '../../../utils/media_query_safe_padding.dart';
 import '../../../utils/pos_kiot_time_range.dart';
-import '../pos_kiot_time_filter.dart';
+import '../pos_list_filters.dart';
 import '../pos_mobile_widgets.dart';
 import '../pos_theme.dart';
 import 'package:zkteco_flutter_client/l10n/app_tr.dart';
@@ -190,12 +190,21 @@ class PosReportMobileScaffold extends StatelessWidget {
         canExport = true; // màn nhúng / test không có PermissionProvider — giữ như cũ
       }
     }
+    final narrow = MediaQuery.sizeOf(context).width < 600;
+    final timeChip = PosTimeRangeChip(state: time, onChanged: onTimeChanged);
+    Widget action(String tip, IconData icon, VoidCallback? onTap) => IconButton(
+          tooltip: tr(tip),
+          icon: Icon(icon, color: _muted, size: 22),
+          onPressed: onTap,
+        );
+    // Một hàng (desktop): ← Tiêu đề · Thời gian ▾ · PNG · Excel · Lọc — thay khối chọn kỳ 3 dòng cũ.
     final header = Material(
       color: Colors.white,
       child: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
           SizedBox(
-            height: 48,
+            height: 56,
             child: Row(
               children: [
                 IconButton(
@@ -203,59 +212,37 @@ class PosReportMobileScaffold extends StatelessWidget {
                   onPressed: () => Navigator.maybePop(context),
                 ),
                 Expanded(
-                  child: FittedBox(
-                    fit: BoxFit.scaleDown,
-                    alignment: Alignment.centerLeft,
-                    child: Text(
-                      tr(title),
-                      maxLines: 1,
-                      style: const TextStyle(
-                        fontSize: 18,
-                        fontWeight: FontWeight.w700,
-                        color: _ink,
-                        letterSpacing: -0.3,
-                      ),
+                  child: Text(
+                    tr(title),
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    style: const TextStyle(
+                      fontSize: 18,
+                      fontWeight: FontWeight.w700,
+                      color: _ink,
+                      letterSpacing: -0.3,
                     ),
                   ),
                 ),
-                if (onExportPng != null && canExport)
-                  IconButton(
-                    tooltip: tr('Xuất PNG'),
-                    icon: const Icon(Icons.image_outlined, color: _muted),
-                    onPressed: onExportPng,
-                  ),
-                if (onExportExcel != null && canExport)
-                  IconButton(
-                    tooltip: tr('Xuất Excel'),
-                    icon: const Icon(Icons.file_download_outlined, color: _muted),
-                    onPressed: onExportExcel,
-                  ),
-                if (onFilterTap != null)
-                  IconButton(
-                    tooltip: tr('Bộ lọc'),
-                    icon: const Icon(Icons.filter_alt_outlined, color: _muted),
-                    onPressed: onFilterTap,
-                  ),
+                if (showTimeFilter && !narrow) ...[timeChip, const SizedBox(width: 8)],
+                if (onExportPng != null && canExport) action('Xuất PNG', Icons.image_outlined, onExportPng),
+                if (onExportExcel != null && canExport) action('Xuất Excel', Icons.file_download_outlined, onExportExcel),
+                if (onFilterTap != null) action('Bộ lọc', Icons.filter_alt_outlined, onFilterTap),
+                const SizedBox(width: 8),
               ],
             ),
           ),
-          if (showTimeFilter)
-            Material(
-              color: Colors.white,
-              child: Padding(
-                padding: const EdgeInsets.fromLTRB(12, 0, 12, 10),
-                child: PosKiotTimeFilter(
-                  state: time,
-                  dense: true,
-                  onChanged: onTimeChanged,
-                ),
-              ),
+          if (showTimeFilter && narrow)
+            Padding(
+              padding: const EdgeInsets.fromLTRB(12, 0, 12, 10),
+              child: Align(alignment: Alignment.centerLeft, child: timeChip),
             ),
           if (filterBar != null)
             Padding(
               padding: const EdgeInsets.fromLTRB(12, 0, 12, 10),
               child: filterBar,
             ),
+          const Divider(height: 1, color: SboxColors.slate200),
         ],
       ),
     );

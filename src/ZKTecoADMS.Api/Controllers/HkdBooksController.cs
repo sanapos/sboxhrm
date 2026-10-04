@@ -1398,32 +1398,42 @@ public class HkdBooksController(ZKTecoDbContext dbContext) : AuthenticatedContro
     private const string CustomerRefundCategory = "Trả hàng khách";
 
     /// <summary>
-    /// Đơn bán hoàn thành trong kỳ + mỗi phiếu chi trả hàng khách thành một dòng âm
-    /// «Hàng bán bị trả lại» — sổ doanh thu và S2c cộng ra doanh thu thuần.
+    /// Sổ theo chứng từ: đơn bán hoàn thành trong kỳ ghi đủ tiền lúc bán (Total + phần đã trả sau đó),
+    /// mỗi phiếu trả trong kỳ thành một dòng âm «Hàng bán bị trả lại» theo ngày trả.
+    /// Trước đây Total (đã giảm khi trả) cộng thêm dòng âm phiếu chi → trả hàng bị trừ hai lần,
+    /// và trả hàng tháng sau làm đổi số tháng đã kê khai.
     /// </summary>
     private async Task<List<PosSaleOrder>> LoadCompletedOrdersAsync(Guid storeId, DateTime fromDt, DateTime toDt)
     {
         var orders = await CompletedOrdersQuery(storeId, fromDt, toDt).ToListAsync();
-        var refunds = await dbContext.CashTransactions.AsNoTracking()
-            .Where(t => t.StoreId == storeId && t.Deleted == null && t.IsActive
-                        && t.Status == CashTransactionStatus.Completed
-                        && t.Type == CashTransactionType.Expense
-                        && t.Category.Name == CustomerRefundCategory
-                        && t.TransactionDate >= fromDt && t.TransactionDate < toDt)
-            .Select(t => new { t.TransactionCode, t.TransactionDate, t.Amount, t.Description, t.ContactName })
-            .ToListAsync();
-        foreach (var r in refunds)
+        var returned = await PosSaleReturnLedger.ReturnedByOrderAsync(dbContext, storeId, orders.Select(o => o.Id).ToList());
+        foreach (var o in orders)
+            if (returned.TryGetValue(o.Id, out var r) && r.Refund > 0)
+                o.Total = Math.Round(o.Total + r.Refund, 2);
+
+        var slips = await PosSaleReturnLedger.RefundSlipsByReturnDateAsync(dbContext, storeId, fromDt, toDt);
+        if (slips.Count > 0)
         {
-            orders.Add(new PosSaleOrder
+            var ids = slips.Select(x => x.OrderId).Distinct().ToList();
+            var src = await dbContext.PosSaleOrders.AsNoTracking()
+                .Where(o => ids.Contains(o.Id))
+                .Select(o => new { o.Id, o.OrderNo, o.CustomerName, o.PaymentMethod })
+                .ToDictionaryAsync(o => o.Id);
+            foreach (var slip in slips.Where(x => x.Refund > 0))
             {
-                OrderNo = r.TransactionCode,
-                SaleDate = r.TransactionDate,
-                CreatedAt = r.TransactionDate,
-                Total = -Math.Abs(r.Amount),
-                CustomerName = r.ContactName,
-                Note = string.IsNullOrWhiteSpace(r.Description) ? null : r.Description,
-                Status = PosSaleOrderStatus.Completed,
-            });
+                var o = src.GetValueOrDefault(slip.OrderId);
+                orders.Add(new PosSaleOrder
+                {
+                    OrderNo = slip.ReturnNo,
+                    SaleDate = slip.ReturnedAt,
+                    CreatedAt = slip.ReturnedAt,
+                    Total = -Math.Round(slip.Refund, 2),
+                    CustomerName = o?.CustomerName,
+                    PaymentMethod = o?.PaymentMethod ?? "",
+                    Note = o == null ? null : $"HĐ {o.OrderNo}",
+                    Status = PosSaleOrderStatus.Completed,
+                });
+            }
         }
         return orders.OrderBy(o => o.SaleDate ?? o.CreatedAt).ToList();
     }

@@ -154,6 +154,14 @@ public partial class PosReportsController
         if (!IsManager)
             txs = txs.Where(c => c.CreatedBy == CurrentUserEmail || c.CreatedByUserId == CurrentUserId);
 
+        // Như KQKD: tiền nhập hàng (vào giá vốn), hoàn tiền trả hàng (giảm doanh thu), hoàn cọc
+        // không phải chi phí hoạt động — tách riêng để hai báo cáo khớp nhau.
+        var nonCost = txs.Where(c => c.Category != null &&
+            (c.Category.Name == "Nhập hàng" || c.Category.Name == "Trả hàng khách" || c.Category.Name == "Hoàn cọc đặt chỗ"));
+        var excludedTotal = await nonCost.SumAsync(c => (decimal?)c.Amount) ?? 0;
+        txs = txs.Where(c => c.Category == null ||
+            (c.Category.Name != "Nhập hàng" && c.Category.Name != "Trả hàng khách" && c.Category.Name != "Hoàn cọc đặt chỗ"));
+
         var total = await txs.SumAsync(c => (decimal?)c.Amount) ?? 0;
         var byCategory = await txs
             .GroupBy(c => c.Category != null ? c.Category.Name : "Khác")
@@ -181,6 +189,7 @@ public partial class PosReportsController
             to = toVnEx.AddDays(-1).Date,
             total,
             count = await txs.CountAsync(),
+            excludedTotal,
             byCategory,
             items
         }));

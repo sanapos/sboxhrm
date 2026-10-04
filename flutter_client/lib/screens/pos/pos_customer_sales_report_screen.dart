@@ -71,13 +71,22 @@ class _PosCustomerSalesReportScreenState extends State<PosCustomerSalesReportScr
     final newCount = items.where((r) => r['isNew'] == true).length;
     final newRev = items.where((r) => r['isNew'] == true).fold<double>(0, (a, r) => a + _n(r['revenue']));
     final custCount = _n(_data?['customerCount'] ?? items.length);
+    // Khách lẻ (đơn không gắn khách) tách riêng — không tính là «khách cũ», không chia vào DT TB / khách.
+    final walkInRev = _n(_data?['walkInRevenue']);
+    final namedRev = rev - walkInRev;
+    final oldRev = items.where((r) => r['customerId'] != null && r['isNew'] != true).fold<double>(0, (a, r) => a + _n(r['revenue']));
     final insight = SboxInsightPanel(
       kpis: [
         SboxKpi(label: 'Doanh thu từ khách', value: SboxFmt.money(rev), icon: Icons.payments_outlined, note: _time.displayLabel),
         SboxKpi(label: 'Lợi nhuận', value: SboxFmt.money(_n(_data?['totalProfit'])), icon: Icons.trending_up_rounded, tone: SboxTone.success),
         SboxKpi(label: 'Khách mua', value: SboxFmt.number(custCount), icon: Icons.people_outline, tone: SboxTone.violet,
             note: '${SboxFmt.number(_n(_data?['newCustomerCount']))} khách mới'),
-        SboxKpi(label: 'DT TB / khách', value: SboxFmt.money(custCount > 0 ? rev / custCount : 0), icon: Icons.person_outline, tone: SboxTone.neutral),
+        SboxKpi(
+            label: 'DT TB / khách',
+            value: SboxFmt.money(custCount > 0 ? namedRev / custCount : 0),
+            icon: Icons.person_outline,
+            tone: SboxTone.neutral,
+            note: walkInRev > 0 ? 'Khách lẻ ${SboxFmt.money(walkInRev)}' : null),
       ],
       charts: [
         SboxChartCard(
@@ -87,11 +96,12 @@ class _PosCustomerSalesReportScreenState extends State<PosCustomerSalesReportScr
           ]),
         ),
         SboxChartCard(
-          title: 'Khách mới và khách cũ',
-          subtitle: 'Theo doanh thu trong danh sách',
+          title: 'Khách mới, khách cũ, khách lẻ',
+          subtitle: 'Theo doanh thu',
           child: SboxDonutChart(slices: [
-            SboxSlice('Khách cũ', items.fold<double>(0, (a, r) => a + _n(r['revenue'])) - newRev),
+            SboxSlice('Khách cũ', oldRev),
             SboxSlice('Khách mới ($newCount)', newRev, color: SboxColors.success),
+            if (walkInRev > 0) SboxSlice('Khách lẻ', walkInRev, color: SboxColors.slate400),
           ]),
         ),
       ],

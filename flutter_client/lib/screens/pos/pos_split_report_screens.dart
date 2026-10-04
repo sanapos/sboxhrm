@@ -112,9 +112,11 @@ class PosReportsHubScreen extends StatelessWidget {
       color: _pageBg,
       child: Column(
         children: [
-          posNeedsTopSafeArea(context)
-              ? SafeArea(bottom: false, child: header)
-              : header,
+          // Nằm trong khung chính (thanh trên đã ghi «Báo cáo POS») → không lặp tiêu đề.
+          if (Navigator.of(context).canPop())
+            posNeedsTopSafeArea(context)
+                ? SafeArea(bottom: false, child: header)
+                : header,
           Expanded(
             child: ListView(
               padding: const EdgeInsets.fromLTRB(20, 20, 20, 28),
@@ -1910,7 +1912,15 @@ class _PosExpenseReportScreenState extends State<PosExpenseReportScreen> {
     final dayCount = expDay.labels.isEmpty ? 0 : expDay.labels.length;
     final insight = SboxInsightPanel(
       kpis: [
-        SboxKpi(label: 'Tổng chi', value: SboxFmt.money(totalExp), icon: Icons.money_off_csred_outlined, tone: SboxTone.danger, note: _time.displayLabel),
+        SboxKpi(
+            label: 'Tổng chi phí',
+            value: SboxFmt.money(totalExp),
+            icon: Icons.money_off_csred_outlined,
+            tone: SboxTone.danger,
+            // Tiền nhập hàng / hoàn trả khách / hoàn cọc không phải chi phí (khớp KQKD) — ghi rõ để khỏi thắc mắc.
+            note: _n(_data?['excludedTotal']) > 0
+                ? 'Không tính ${SboxFmt.money(_n(_data?['excludedTotal']))} nhập hàng / hoàn trả'
+                : _time.displayLabel),
         SboxKpi(label: 'Số phiếu chi', value: SboxFmt.number(_n(_data?['count'])), icon: Icons.receipt_outlined, tone: SboxTone.neutral),
         SboxKpi(
             label: 'Khoản chi lớn nhất',
