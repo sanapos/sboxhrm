@@ -1,4 +1,7 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
+import '../widgets/sbox/sbox_ui.dart';
 import '../providers/permission_provider.dart';
 import 'package:provider/provider.dart';
 import 'package:intl/intl.dart';
@@ -6,7 +9,6 @@ import 'package:intl/intl.dart';
 import '../models/pos_purchase.dart';
 import '../services/api_service.dart';
 import '../widgets/hrm_page_chrome.dart';
-import '../widgets/loading_widget.dart';
 import '../widgets/notification_overlay.dart';
 import '../widgets/pos/pos_supplier_form_dialog.dart';
 import '../widgets/pos/pos_theme.dart';
@@ -41,6 +43,7 @@ class _PosSupplierListScreenState extends State<PosSupplierListScreen> {
 
   @override
   void dispose() {
+    _debounce?.cancel();
     _searchCtrl.dispose();
     super.dispose();
   }
@@ -206,6 +209,8 @@ class _PosSupplierListScreenState extends State<PosSupplierListScreen> {
     );
   }
 
+  Timer? _debounce;
+
   @override
   Widget build(BuildContext context) {
     // Nhà cung cấp thuộc module Hàng hóa (API /pos/purchase/suppliers).
@@ -213,180 +218,132 @@ class _PosSupplierListScreenState extends State<PosSupplierListScreen> {
     final canCreate = perm.canCreate('PosProducts');
     final canEdit = perm.canEdit('PosProducts');
     final canDelete = perm.canDelete('PosProducts');
+    final indebted = _items.where((x) => x.currentDebt > 0).length;
     return Scaffold(
-      backgroundColor: PosTheme.background,
-      appBar: AppBar(
-        title: Text(tr('Nhà cung cấp')),
-        backgroundColor: Colors.white,
-        foregroundColor: SboxColors.text,
-        elevation: 0.5,
-        // «+ Thêm NCC» đã ở nút nổi — không lặp dấu + trên thanh tiêu đề.
-      ),
-      body: Column(
-        children: [
-          Material(
-            color: Colors.white,
-            child: Padding(
-              padding: const EdgeInsets.fromLTRB(12, 10, 12, 8),
-              child: Column(
-                children: [
-                  TextField(
-                    controller: _searchCtrl,
-                    decoration: InputDecoration(
-                      hintText: tr('Tìm mã, tên, SĐT…'),
-                      prefixIcon: const Icon(Icons.search, size: 20),
-                      isDense: true,
-                      border: OutlineInputBorder(
-                          borderRadius: BorderRadius.circular(10)),
-                      suffixIcon: IconButton(
-                        icon: const Icon(Icons.search),
-                        onPressed: _load,
-                      ),
-                    ),
-                    onSubmitted: (_) => _load(),
-                  ),
-                  const SizedBox(height: 8),
-                  Row(
-                    children: [
-                      FilterChip(
-                        label: Text(tr('Đang hoạt động')),
-                        selected: _activeOnly,
-                        onSelected: (v) {
-                          setState(() => _activeOnly = v);
-                          _load();
-                        },
-                      ),
-                      const Spacer(),
-                      Text(
-                        tr('$_total NCC · Nợ ${_moneyFmt.format(_sumDebt)}'),
-                        style: const TextStyle(
-                          fontSize: 12,
-                          color: PosTheme.textSecondary,
-                          fontWeight: FontWeight.w600,
-                        ),
-                      ),
-                    ],
-                  ),
-                  Align(
-                    alignment: Alignment.centerLeft,
-                    child: Text(
-                      tr('Tổng mua: ${_moneyFmt.format(_sumPurchase)}đ'),
-                      style: const TextStyle(
-                          fontSize: 12, color: PosTheme.textSecondary),
-                    ),
-                  ),
-                ],
-              ),
+      backgroundColor: SboxColors.page,
+      // Trong khung chính thanh trên đã ghi tên màn — chỉ hiện thanh riêng khi mở thành trang con.
+      appBar: HrmPageChrome.hideInPageTitle(context)
+          ? null
+          : AppBar(
+              title: Text(tr('Nhà cung cấp')),
+              backgroundColor: Colors.white,
+              foregroundColor: SboxColors.text,
+              surfaceTintColor: Colors.white,
+              elevation: 0.5,
             ),
-          ),
-          Expanded(
-            child: _loading
-                ? const Center(child: LoadingWidget())
-                : _items.isEmpty
-                    ? Center(
-                        child: Column(
-                          mainAxisSize: MainAxisSize.min,
-                          children: [
-                            Text(tr('Chưa có nhà cung cấp'),
-                                style: const TextStyle(
-                                    color: PosTheme.textSecondary)),
-                            const SizedBox(height: 12),
-                            if (canCreate)
-                              FilledButton.icon(
-                                onPressed: () => _addOrEdit(),
-                                icon: const Icon(Icons.add_business_outlined),
-                                label: Text(tr('Thêm NCC')),
-                              ),
-                          ],
-                        ),
-                      )
-                    : ListView.separated(
-                        itemCount: _items.length,
-                        separatorBuilder: (_, __) => const Divider(height: 1),
-                        itemBuilder: (ctx, i) {
-                          final s = _items[i];
-                          return ListTile(
-                            tileColor: Colors.white,
-                            leading: CircleAvatar(
-                              backgroundColor: s.isActive
-                                  ? PosTheme.kiotBlueLight
-                                  : SboxColors.slate200,
-                              child: Text(
-                                s.name.isNotEmpty
-                                    ? s.name[0].toUpperCase()
-                                    : '?',
-                                style: TextStyle(
-                                  fontWeight: FontWeight.w700,
-                                  color: s.isActive
-                                      ? PosTheme.kiotBlue
-                                      : SboxColors.slate500,
-                                ),
-                              ),
-                            ),
-                            title: Text(
-                              tr(s.name),
-                              style: TextStyle(
-                                fontWeight: FontWeight.w600,
-                                color: s.isActive
-                                    ? null
-                                    : PosTheme.textSecondary,
-                              ),
-                            ),
-                            subtitle: Text(tr(
-                                '${s.supplierCode}'
-                                '${s.phone != null && s.phone!.isNotEmpty ? ' · ${s.phone}' : ''}'
-                                '${s.currentDebt > 0 ? ' · Nợ ${_moneyFmt.format(s.currentDebt)}' : ''}')),
-                            trailing: PopupMenuButton<String>(
-                              onSelected: (a) async {
-                                switch (a) {
-                                  case 'edit':
-                                    await _addOrEdit(existing: s);
-                                  case 'history':
-                                    await _showHistory(s);
-                                  case 'toggle':
-                                    await _toggleActive(s);
-                                  case 'delete':
-                                    await _delete(s);
-                                }
-                              },
-                              itemBuilder: (_) => [
-                                if (canEdit)
-                                  PopupMenuItem(
-                                      value: 'edit',
-                                      child: Text(tr('Sửa'))),
-                                PopupMenuItem(
-                                    value: 'history',
-                                    child: Text(tr('Lịch sử'))),
-                                if (canEdit)
-                                  PopupMenuItem(
-                                    value: 'toggle',
-                                    child: Text(tr(s.isActive
-                                        ? 'Ngừng hoạt động'
-                                        : 'Kích hoạt')),
-                                  ),
-                                if (canDelete)
-                                  PopupMenuItem(
-                                      value: 'delete',
-                                      child: Text(tr('Xóa'),
-                                          style: const TextStyle(
-                                              color: Colors.red))),
-                              ],
-                            ),
-                            onTap: () => _showHistory(s),
-                          );
-                        },
-                      ),
+      body: SboxReportLayout(
+        onRefresh: _load,
+        filters: SboxFilterBar(
+          searchHint: 'Tìm mã, tên, SĐT…',
+          searchController: _searchCtrl,
+          onSearch: (_) {
+            _debounce?.cancel();
+            _debounce = Timer(const Duration(milliseconds: 400), _load);
+          },
+          filters: [
+            SboxFilterChip<bool>(
+              label: 'Trạng thái',
+              value: _activeOnly,
+              options: const {true: 'Đang hoạt động', false: 'Tất cả'},
+              onChanged: (v) {
+                setState(() => _activeOnly = v);
+                _load();
+              },
+            ),
+          ],
+          actions: [
+            if (canCreate) SboxButton(label: 'Thêm NCC', icon: Icons.add_business_outlined, onPressed: () => _addOrEdit()),
+          ],
+        ),
+        kpis: [
+          SboxKpi(label: 'Nhà cung cấp', value: SboxFmt.number(_total), icon: Icons.local_shipping_outlined),
+          SboxKpi(label: 'Tổng mua', value: SboxFmt.money(_sumPurchase), icon: Icons.shopping_cart_outlined, tone: SboxTone.brand),
+          SboxKpi(
+            label: 'Đang nợ NCC',
+            value: SboxFmt.money(_sumDebt),
+            icon: Icons.account_balance_wallet_outlined,
+            tone: _sumDebt > 0 ? SboxTone.danger : SboxTone.neutral,
+            note: indebted > 0 ? '$indebted nhà cung cấp' : null,
           ),
         ],
+        maxKpiColumns: 3,
+        table: SboxCard(
+          padding: EdgeInsets.zero,
+          child: SboxDataTable<PosSupplierFull>(
+            loading: _loading,
+            rows: _items,
+            pageSize: 50,
+            onRowTap: _showHistory,
+            emptyTitle: 'Chưa có nhà cung cấp',
+            emptyMessage: canCreate ? 'Thêm NCC để theo dõi nhập hàng và công nợ.' : null,
+            rowActions: (s) => PopupMenuButton<String>(
+              tooltip: tr('Thao tác'),
+              icon: const Icon(Icons.more_horiz, color: SboxColors.slate500),
+              onSelected: (a) async {
+                switch (a) {
+                  case 'edit':
+                    await _addOrEdit(existing: s);
+                  case 'history':
+                    await _showHistory(s);
+                  case 'toggle':
+                    await _toggleActive(s);
+                  case 'delete':
+                    await _delete(s);
+                }
+              },
+              itemBuilder: (_) => [
+                if (canEdit) PopupMenuItem(value: 'edit', child: Text(tr('Sửa'))),
+                PopupMenuItem(value: 'history', child: Text(tr('Lịch sử nhập / trả'))),
+                if (canEdit)
+                  PopupMenuItem(value: 'toggle', child: Text(tr(s.isActive ? 'Ngừng hoạt động' : 'Kích hoạt'))),
+                if (canDelete)
+                  PopupMenuItem(value: 'delete', child: Text(tr('Xóa'), style: const TextStyle(color: Colors.red))),
+              ],
+            ),
+            columns: [
+              SboxColumn(
+                label: 'Nhà cung cấp',
+                primary: true,
+                flex: 3,
+                minWidth: 220,
+                cell: (s) => Column(crossAxisAlignment: CrossAxisAlignment.start, mainAxisSize: MainAxisSize.min, children: [
+                  Text(s.name,
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      style: (s.isActive ? SboxType.bodyStyle() : SboxType.bodyStyle(SboxColors.textMuted)).copyWith(fontWeight: SboxType.semibold)),
+                  Text(s.supplierCode, style: SboxType.smallStyle(SboxColors.textMuted)),
+                ]),
+                sortValue: (s) => s.name.toLowerCase(),
+              ),
+              SboxColumn(label: 'Điện thoại', minWidth: 130, text: (s) => (s.phone ?? '').isEmpty ? '—' : s.phone!),
+              SboxColumn(label: 'Tổng mua', numeric: true, minWidth: 130, text: (s) => SboxFmt.money(s.totalPurchase), sortValue: (s) => s.totalPurchase),
+              SboxColumn(
+                label: 'Công nợ',
+                numeric: true,
+                minWidth: 120,
+                cell: (s) => Text(s.currentDebt > 0 ? SboxFmt.money(s.currentDebt) : '—',
+                    textAlign: TextAlign.right,
+                    style: s.currentDebt > 0
+                        ? SboxType.bodyStyle(SboxColors.dangerText).copyWith(fontWeight: SboxType.semibold)
+                        : SboxType.bodyStyle(SboxColors.textMuted)),
+                sortValue: (s) => s.currentDebt,
+              ),
+              SboxColumn(
+                label: 'Trạng thái',
+                minWidth: 120,
+                hideOnMobile: true,
+                cell: (s) => Align(
+                  alignment: Alignment.centerLeft,
+                  child: SboxStatusChip(
+                    label: s.isActive ? 'Hoạt động' : 'Ngừng',
+                    tone: s.isActive ? SboxTone.success : SboxTone.neutral,
+                  ),
+                ),
+              ),
+            ],
+          ),
+        ),
       ),
-      floatingActionButton: canCreate
-          ? FloatingActionButton.extended(
-              onPressed: () => _addOrEdit(),
-              backgroundColor: HrmPageChrome.primaryNavy,
-              icon: const Icon(Icons.add),
-              label: Text(tr('Thêm NCC')),
-            )
-          : null,
     );
   }
 }

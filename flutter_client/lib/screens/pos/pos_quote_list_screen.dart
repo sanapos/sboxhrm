@@ -3,6 +3,7 @@ import '../../widgets/pos/pos_contract_payment_panel.dart' show canUsePosContrac
 import 'dart:async';
 
 import 'package:flutter/material.dart';
+import '../../widgets/pos/pos_list_filters.dart';
 import 'package:intl/intl.dart';
 import 'package:provider/provider.dart';
 
@@ -77,6 +78,7 @@ class _PosQuoteListScreenState extends State<PosQuoteListScreen> {
 
   @override
   void dispose() {
+    _searchDebounce?.cancel();
     _search.dispose();
     super.dispose();
   }
@@ -429,16 +431,9 @@ class _PosQuoteListScreenState extends State<PosQuoteListScreen> {
     final canCreate = perm.canCreate('PosQuotes') || perm.canEdit('PosQuotes');
     final canEdit = perm.canEdit('PosQuotes');
     final canDelete = perm.canDelete('PosQuotes');
-    final narrow = MediaQuery.sizeOf(context).width < 720;
+
     return Scaffold(
       backgroundColor: PosTheme.background,
-      floatingActionButton: canCreate && _tab == 0
-          ? FloatingActionButton(
-              onPressed: _openComposer,
-              tooltip: tr('Thêm báo giá'),
-              child: const Icon(Icons.add),
-            )
-          : null,
       body: Column(
         children: [
           Material(
@@ -508,12 +503,6 @@ class _PosQuoteListScreenState extends State<PosQuoteListScreen> {
                           },
                           icon: const Icon(Icons.account_balance_wallet_outlined),
                         ),
-                        if (canCreate && !narrow)
-                          IconButton(
-                            tooltip: tr('Thêm báo giá'),
-                            onPressed: _openComposer,
-                            icon: const Icon(Icons.add),
-                          ),
                       ],
                     ),
                   ),
@@ -522,63 +511,8 @@ class _PosQuoteListScreenState extends State<PosQuoteListScreen> {
             ),
           ),
           Padding(
-            padding: const EdgeInsets.fromLTRB(12, 6, 12, 0),
-            child: Column(
-              children: [
-                Row(
-                  children: [
-                Expanded(
-                  child: SizedBox(
-                  height: 40,
-                  child: TextField(
-                    controller: _search,
-                    onTap: posShowSoftKeyboardOnFieldTap,
-                    style: const TextStyle(fontSize: 14),
-                    decoration: InputDecoration(
-                      isDense: true,
-                      hintText: switch (_tab) {
-                        1 => tr('Số HĐ / khách'),
-                        2 => tr('Số ĐN / khách'),
-                        3 => tr('Số NT / khách'),
-                        _ => tr('Số BG / khách'),
-                      },
-                      prefixIcon: const Icon(Icons.search, size: 18),
-                      filled: true,
-                      fillColor: Colors.white,
-                      contentPadding: const EdgeInsets.symmetric(vertical: 0),
-                      border: OutlineInputBorder(
-                        borderRadius: BorderRadius.circular(20),
-                      ),
-                    ),
-                    onSubmitted: (_) => _reloadAll(),
-                  ),
-                ),
-                ),
-                if (_canViewAll)
-                  PopupMenuButton<String>(
-                    tooltip: tr('Nhân viên'),
-                    icon: Icon(
-                      Icons.badge_outlined,
-                      color: _employeeId == null
-                          ? SboxColors.slate700
-                          : PosTheme.kiotBlue,
-                    ),
-                    onSelected: (v) {
-                      setState(() => _employeeId = v.isEmpty ? null : v);
-                      _reloadAll();
-                    },
-                    itemBuilder: (_) => [
-                      PopupMenuItem(value: '', child: Text(tr('Tất cả NV'))),
-                      for (final e in _employees)
-                        PopupMenuItem(value: e.id, child: Text(e.label)),
-                    ],
-                  ),
-                  ],
-                ),
-                const SizedBox(height: 4),
-                _compactFilters(),
-              ],
-            ),
+            padding: EdgeInsets.fromLTRB(12, 10, 12, 0),
+            child: _filterBar(canCreate),
           ),
           const SizedBox(height: 8),
           Expanded(
@@ -614,83 +548,64 @@ class _PosQuoteListScreenState extends State<PosQuoteListScreen> {
         _ => 'Quote',
       };
 
-  Widget _compactFilters() {
+  Timer? _searchDebounce;
+
+  /// Một hàng kiểu HRM: tìm · thời gian · trạng thái · nhân viên · Thêm báo giá.
+  Widget _filterBar(bool canCreate) {
     final customLabel = _period == 'custom' && _from != null && _to != null
         ? '${DateFormat('dd/MM').format(_from!)}–${DateFormat('dd/MM').format(_to!)}'
-        : tr('Chọn ngày');
-    return Row(
-      children: [
-        Expanded(
-          child: DropdownButtonFormField<String>(
-            value: _period,
-            isExpanded: true,
-            isDense: true,
-            decoration: const InputDecoration(
-              isDense: true,
-              labelText: 'Thời gian',
-              border: OutlineInputBorder(),
-              contentPadding: EdgeInsets.symmetric(horizontal: 10, vertical: 8),
-            ),
-            items: [
-              DropdownMenuItem(value: 'all', child: Text(tr('Tất cả'))),
-              DropdownMenuItem(value: 'today', child: Text(tr('Hôm nay'))),
-              DropdownMenuItem(value: '7d', child: Text(tr('7 ngày'))),
-              DropdownMenuItem(value: 'month', child: Text(tr('Tháng này'))),
-              DropdownMenuItem(value: 'custom', child: Text(customLabel)),
-            ],
+        : 'Chọn ngày…';
+    return SboxFilterBar(
+      searchHint: switch (_tab) {
+        1 => 'Số HĐ / khách',
+        2 => 'Số ĐN / khách',
+        3 => 'Số NT / khách',
+        _ => 'Số BG / khách',
+      },
+      searchController: _search,
+      onSearch: (_) {
+        _searchDebounce?.cancel();
+        _searchDebounce = Timer(const Duration(milliseconds: 400), _reloadAll);
+      },
+      filters: [
+        SboxFilterChip<String>(
+          label: 'Thời gian',
+          value: _period,
+          options: {'all': 'Tất cả', 'today': 'Hôm nay', '7d': '7 ngày', 'month': 'Tháng này', 'custom': customLabel},
+          onChanged: (v) {
+            if (v == 'custom') {
+              _pickCustomRange();
+              return;
+            }
+            _applyPeriod(v);
+          },
+        ),
+        if (_tab == 0)
+          PosPickChip(
+            label: 'Trạng thái',
+            value: _status,
+            options: {
+              for (final st in const ['Draft', 'Sent', 'Revised', 'Accepted', 'Rejected', 'Expired', 'Cancelled'])
+                st: PosQuote.statusLabel(st),
+            },
             onChanged: (v) {
-              if (v == null) return;
-              if (v == 'custom') {
-                _pickCustomRange();
-                return;
-              }
-              _applyPeriod(v);
+              setState(() => _status = v);
+              _reloadAll();
             },
           ),
-        ),
-        if (_tab == 0) ...[
-          const SizedBox(width: 8),
-          Expanded(
-            child: DropdownButtonFormField<String?>(
-              value: _status,
-              isExpanded: true,
-              isDense: true,
-              decoration: const InputDecoration(
-                isDense: true,
-                labelText: 'Trạng thái',
-                border: OutlineInputBorder(),
-                contentPadding:
-                    EdgeInsets.symmetric(horizontal: 10, vertical: 8),
-              ),
-              items: [
-                DropdownMenuItem(value: null, child: Text(tr('Tất cả'))),
-                for (final s in const [
-                  'Draft',
-                  'Sent',
-                  'Revised',
-                  'Accepted',
-                  'Rejected',
-                  'Expired',
-                  'Cancelled',
-                ])
-                  DropdownMenuItem(
-                    value: s,
-                    child: Text(
-                      PosQuote.statusLabel(s),
-                      style: TextStyle(
-                        color: PosQuote.statusColor(s),
-                        fontWeight: FontWeight.w700,
-                      ),
-                    ),
-                  ),
-              ],
-              onChanged: (v) {
-                setState(() => _status = v);
-                _reloadAll();
-              },
-            ),
+        if (_canViewAll && _employees.isNotEmpty)
+          PosPickChip(
+            label: 'Nhân viên',
+            value: _employeeId,
+            options: {for (final e in _employees) e.id: e.label},
+            onChanged: (v) {
+              setState(() => _employeeId = v);
+              _reloadAll();
+            },
           ),
-        ],
+      ],
+      actions: [
+        if (canCreate && _tab == 0) SboxButton(label: 'Thêm báo giá', icon: Icons.add, onPressed: _openComposer),
       ],
     );
   }
@@ -781,7 +696,7 @@ class _PosQuoteListScreenState extends State<PosQuoteListScreen> {
       return const SboxEmptyState(
         icon: Icons.request_quote_outlined,
         title: 'Chưa có báo giá',
-        message: 'Bấm + để chọn hàng hóa / dịch vụ rồi nhập thông tin khách.',
+        message: 'Bấm «Thêm báo giá» để chọn hàng hóa / dịch vụ rồi nhập thông tin khách.',
       );
     }
     return RefreshIndicator(

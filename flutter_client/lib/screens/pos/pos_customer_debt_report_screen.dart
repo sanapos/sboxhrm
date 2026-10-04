@@ -1,16 +1,12 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
-import 'package:intl/intl.dart';
 
 import '../../services/api_service.dart';
 import '../../widgets/notification_overlay.dart';
-import '../../widgets/pos/pos_mobile_widgets.dart';
-import '../../widgets/pos/pos_theme.dart';
-import '../../widgets/pos/reports/pos_report_widgets.dart';
-import 'package:zkteco_flutter_client/l10n/app_tr.dart';
 
 import '../../theme/sbox_tokens.dart';
-import '../../widgets/sbox/sbox_report.dart';
-import '../../widgets/sbox/sbox_charts.dart';
+import '../../widgets/sbox/sbox_ui.dart';
 class PosCustomerDebtReportScreen extends StatefulWidget {
   const PosCustomerDebtReportScreen({super.key});
 
@@ -22,7 +18,6 @@ class PosCustomerDebtReportScreen extends StatefulWidget {
 class _PosCustomerDebtReportScreenState extends State<PosCustomerDebtReportScreen> {
   final _api = ApiService();
   final _searchCtrl = TextEditingController();
-  final _moneyFmt = NumberFormat('#,##0', 'vi_VN');
   bool _loading = true;
   double _sumDebt = 0;
   double _sum0 = 0;
@@ -41,6 +36,7 @@ class _PosCustomerDebtReportScreenState extends State<PosCustomerDebtReportScree
 
   @override
   void dispose() {
+    _debounce?.cancel();
     _searchCtrl.dispose();
     super.dispose();
   }
@@ -82,207 +78,94 @@ class _PosCustomerDebtReportScreenState extends State<PosCustomerDebtReportScree
 
   double _n(dynamic v) => v is num ? v.toDouble() : double.tryParse('$v') ?? 0;
 
+  Timer? _debounce;
+
   @override
   Widget build(BuildContext context) {
-    return ColoredBox(
-      color: PosTheme.background,
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.stretch,
-        children: [
-          const PosMobileKiotHeader(title: 'Báo cáo công nợ KH'),
-          Padding(
-            padding: const EdgeInsets.fromLTRB(12, 8, 12, 0),
-            child: Row(
-              children: [
-                Expanded(
-                  child: TextField(
-                    controller: _searchCtrl,
-                    decoration: PosTheme.inputDecoration(label: 'Tìm khách hàng'),
-                    onSubmitted: (_) => _load(),
-                  ),
-                ),
-                const SizedBox(width: 8),
-                IconButton.filled(onPressed: _load, icon: const Icon(Icons.refresh)),
+    Widget money(double v, {bool strong = false, Color? color}) => Text(
+          v > 0 ? SboxFmt.money(v) : '—',
+          textAlign: TextAlign.right,
+          style: (v <= 0
+                  ? SboxType.bodyStyle(SboxColors.textMuted)
+                  : (color != null ? SboxType.bodyStyle(color) : SboxType.bodyStyle()))
+              .copyWith(fontWeight: strong ? SboxType.semibold : null),
+        );
+    return Scaffold(
+      backgroundColor: SboxColors.page,
+      body: SboxReportLayout(
+        onRefresh: _load,
+        filters: SboxFilterBar(
+          searchHint: 'Tìm khách hàng',
+          searchController: _searchCtrl,
+          onSearch: (_) {
+            _debounce?.cancel();
+            _debounce = Timer(const Duration(milliseconds: 400), _load);
+          },
+          filters: [
+            SboxFilterChip<bool>(
+              label: 'Hiển thị',
+              value: _includeZero,
+              options: const {false: 'Khách còn nợ', true: 'Gồm khách nợ 0'},
+              onChanged: (v) {
+                setState(() => _includeZero = v);
+                _load();
+              },
+            ),
+          ],
+        ),
+        kpis: [
+          SboxKpi(label: 'Tổng nợ phải thu', value: SboxFmt.money(_sumDebt), icon: Icons.account_balance_wallet_outlined, tone: SboxTone.danger),
+          SboxKpi(label: 'Khách còn nợ', value: SboxFmt.number(_totalCustomers), icon: Icons.people_outline, tone: SboxTone.violet),
+          SboxKpi(label: 'Nợ 0–30 ngày', value: SboxFmt.money(_sum0), icon: Icons.schedule_outlined, tone: SboxTone.success),
+          SboxKpi(label: 'Quá 90 ngày', value: SboxFmt.money(_sum90), icon: Icons.warning_amber_rounded, tone: SboxTone.warning, note: 'Cần thu hồi gấp'),
+        ],
+        charts: [
+          SboxChartCard(
+            title: 'Tuổi nợ khách hàng',
+            child: SboxBarChart(
+              labels: const ['0–30 ngày', '31–60 ngày', '61–90 ngày', '> 90 ngày'],
+              series: [
+                SboxSeries(name: 'Khách nợ', color: SboxColors.danger, values: [_sum0, _sum31, _sum61, _sum90]),
               ],
             ),
           ),
-          Padding(
-            padding: const EdgeInsets.fromLTRB(12, 4, 12, 0),
-            child: Align(
-              alignment: Alignment.centerLeft,
-              child: FilterChip(
-                label: Text(tr('Gồm khách nợ 0')),
-                selected: _includeZero,
-                onSelected: (v) {
-                  setState(() => _includeZero = v);
-                  _load();
-                },
-              ),
+          SboxChartCard(
+            title: 'Khách nợ nhiều nhất',
+            child: SboxRankList(
+              color: SboxColors.danger,
+              items: [for (final r in _items) SboxSlice(r['name']?.toString() ?? '—', _n(r['currentDebt']))],
             ),
-          ),
-          Padding(
-            padding: const EdgeInsets.all(12),
-            child: Container(
-              decoration: PosTheme.mobileCardDecoration(),
-              padding: const EdgeInsets.all(16),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Row(
-                    children: [
-                      Expanded(
-                        child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            Text(tr('$_totalCustomers khách còn nợ'),
-                                style: const TextStyle(color: PosTheme.textSecondary)),
-                            PosReportMoneyLabel(
-                              _sumDebt,
-                              fontSize: 20,
-                              maxWidth: 280,
-                              align: Alignment.centerLeft,
-                              color: const Color(0xFF2B3437),
-                            ),
-                          ],
-                        ),
-                      ),
-                      const Icon(Icons.account_balance_wallet_outlined,
-                          size: 36, color: PosTheme.kiotBlue),
-                    ],
-                  ),
-                  const SizedBox(height: 12),
-                  Wrap(
-                    spacing: 8,
-                    runSpacing: 8,
-                    children: [
-                      _agingChip('0–30', _sum0, SboxColors.successText),
-                      _agingChip('31–60', _sum31, const Color(0xFFCA8A04)),
-                      _agingChip('61–90', _sum61, Colors.orange.shade800),
-                      _agingChip('>90', _sum90, Colors.red.shade700),
-                    ],
-                  ),
-                ],
-              ),
-            ),
-          ),
-          Expanded(
-            child: _loading
-                ? const Center(child: CircularProgressIndicator())
-                : RefreshIndicator(
-                    onRefresh: _load,
-                    child: ListView.separated(
-                      padding: const EdgeInsets.fromLTRB(12, 0, 12, 24),
-                      itemCount: _items.length + 1,
-                      separatorBuilder: (_, __) => const SizedBox(height: 8),
-                      itemBuilder: (_, i) {
-                        if (i == 0) {
-                          return SboxInsightPanel(
-                            bottomGap: 0,
-                            charts: [
-                              SboxChartCard(
-                                title: 'Tuổi nợ khách hàng',
-                                child: SboxBarChart(
-                                  labels: const ['0–30 ngày', '31–60 ngày', '61–90 ngày', '> 90 ngày'],
-                                  series: [
-                                    SboxSeries(
-                                        name: 'Khách nợ',
-                                        color: SboxColors.danger,
-                                        values: [_sum0, _sum31, _sum61, _sum90].map((v) => _n(v).toDouble()).toList()),
-                                  ],
-                                ),
-                              ),
-                              SboxChartCard(
-                                title: 'Khách nợ nhiều nhất',
-                                child: SboxRankList(
-                                  color: SboxColors.danger,
-                                  items: [for (final r in _items) SboxSlice(r['name']?.toString() ?? '—', _n(r['currentDebt']).toDouble())],
-                                ),
-                              ),
-                            ],
-                          );
-                        }
-                        final row = _items[i - 1];
-                        final debt = _n(row['currentDebt']);
-                        final openDebt = _n(row['openOrderDebt']);
-                        final d0 = _n(row['debt0To30']);
-                        final d31 = _n(row['debt31To60']);
-                        final d61 = _n(row['debt61To90']);
-                        final d90 = _n(row['debtOver90']);
-                        return Material(
-                          color: Colors.white,
-                          borderRadius: BorderRadius.circular(10),
-                          child: Padding(
-                            padding: const EdgeInsets.all(14),
-                            child: Column(
-                              crossAxisAlignment: CrossAxisAlignment.start,
-                              children: [
-                                Text(
-                                  tr(row['name']?.toString() ?? '—'),
-                                  style: const TextStyle(fontWeight: FontWeight.w600, fontSize: 16),
-                                ),
-                                if (row['phone'] != null)
-                                  Text(
-                                    tr(row['phone'].toString()),
-                                    style: const TextStyle(
-                                        fontSize: 12, color: PosTheme.textSecondary),
-                                  ),
-                                const SizedBox(height: 8),
-                                Row(
-                                  children: [
-                                    Expanded(
-                                      child: Text(
-                                        tr('Tổng nợ: ${posReportMoney(debt)}'),
-                                        maxLines: 1,
-                                        overflow: TextOverflow.ellipsis,
-                                        style: const TextStyle(
-                                          color: Color(0xFF2B3437),
-                                          fontWeight: FontWeight.w700,
-                                          fontSize: 13,
-                                        ),
-                                      ),
-                                    ),
-                                    if (openDebt > 0)
-                                      Text(tr('Nợ đơn mở: ${_moneyFmt.format(openDebt)}'),
-                                        style: const TextStyle(fontSize: 11),
-                                      ),
-                                  ],
-                                ),
-                                if (d0 + d31 + d61 + d90 > 0) ...[
-                                  const SizedBox(height: 8),
-                                  Wrap(
-                                    spacing: 6,
-                                    runSpacing: 4,
-                                    children: [
-                                      if (d0 > 0) _agingChip('0–30', d0, SboxColors.successText),
-                                      if (d31 > 0) _agingChip('31–60', d31, const Color(0xFFCA8A04)),
-                                      if (d61 > 0) _agingChip('61–90', d61, Colors.orange.shade800),
-                                      if (d90 > 0) _agingChip('>90', d90, Colors.red.shade700),
-                                    ],
-                                  ),
-                                ],
-                              ],
-                            ),
-                          ),
-                        );
-                      },
-                    ),
-                  ),
           ),
         ],
-      ),
-    );
-  }
-
-  Widget _agingChip(String label, double amount, Color color) {
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-      decoration: BoxDecoration(
-        color: color.withOpacity(0.12),
-        borderRadius: BorderRadius.circular(6),
-      ),
-      child: Text(
-        '$label: ${posReportMoney(amount)}',
-        style: TextStyle(fontSize: 11, color: color, fontWeight: FontWeight.w600),
+        table: SboxCard(
+          padding: EdgeInsets.zero,
+          child: SboxDataTable<Map<String, dynamic>>(
+            loading: _loading,
+            rows: _items,
+            pageSize: 50,
+            emptyTitle: 'Không có khách còn nợ',
+            columns: [
+              SboxColumn(
+                label: 'Khách hàng',
+                primary: true,
+                flex: 3,
+                minWidth: 200,
+                cell: (r) => Column(crossAxisAlignment: CrossAxisAlignment.start, mainAxisSize: MainAxisSize.min, children: [
+                  Text('${r['name'] ?? '—'}', maxLines: 1, overflow: TextOverflow.ellipsis,
+                      style: SboxType.bodyStyle().copyWith(fontWeight: SboxType.semibold)),
+                  if (r['phone'] != null) Text('${r['phone']}', style: SboxType.smallStyle(SboxColors.textMuted)),
+                ]),
+              ),
+              SboxColumn(label: 'Nợ hiện tại', numeric: true, minWidth: 130,
+                  cell: (r) => money(_n(r['currentDebt']), strong: true, color: SboxColors.dangerText), sortValue: (r) => _n(r['currentDebt'])),
+              SboxColumn(label: '0–30 ngày', numeric: true, minWidth: 110, hideOnMobile: true, cell: (r) => money(_n(r['debt0To30']))),
+              SboxColumn(label: '31–60', numeric: true, minWidth: 110, hideOnMobile: true, cell: (r) => money(_n(r['debt31To60']))),
+              SboxColumn(label: '61–90', numeric: true, minWidth: 110, hideOnMobile: true, cell: (r) => money(_n(r['debt61To90']))),
+              SboxColumn(label: '> 90 ngày', numeric: true, minWidth: 110,
+                  cell: (r) => money(_n(r['debtOver90']), color: SboxColors.dangerText), sortValue: (r) => _n(r['debtOver90'])),
+            ],
+          ),
+        ),
       ),
     );
   }
