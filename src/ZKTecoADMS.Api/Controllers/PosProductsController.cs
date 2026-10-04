@@ -259,11 +259,11 @@ public partial class PosProductsController(
 
         if (!string.IsNullOrWhiteSpace(search))
         {
-            var s = search.Trim().ToLower();
+            var s = VnSearch.FoldText(search); // không dấu: «binh» khớp «Bình»
             query = query.Where(p =>
-                p.Name.ToLower().Contains(s) ||
-                p.ProductCode.ToLower().Contains(s) ||
-                (p.Barcode != null && p.Barcode.ToLower().Contains(s)));
+                VnSearch.Fold(p.Name).Contains(s) ||
+                VnSearch.Fold(p.ProductCode).Contains(s) ||
+                (p.Barcode != null && VnSearch.Fold(p.Barcode).Contains(s)));
         }
 
         if (categoryId.HasValue)

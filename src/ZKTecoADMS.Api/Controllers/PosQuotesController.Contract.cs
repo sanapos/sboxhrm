@@ -1,3 +1,4 @@
+using ZKTecoADMS.Infrastructure;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
 using ZKTecoADMS.Api.Authorization;
@@ -278,11 +279,11 @@ public partial class PosQuotesController
                     || payQ.Any(p => p.QuoteId == x.Id))));
         if (!string.IsNullOrWhiteSpace(search))
         {
-            var s = search.Trim().ToLower();
+            var s = VnSearch.FoldText(search); // không dấu: «binh» khớp «Bình»
             q = q.Where(x =>
-                x.QuoteNo.ToLower().Contains(s) ||
-                (x.ContractNo != null && x.ContractNo.ToLower().Contains(s)) ||
-                (x.CustomerName != null && x.CustomerName.ToLower().Contains(s)) ||
+                VnSearch.Fold(x.QuoteNo).Contains(s) ||
+                (x.ContractNo != null && VnSearch.Fold(x.ContractNo).Contains(s)) ||
+                (x.CustomerName != null && VnSearch.Fold(x.CustomerName).Contains(s)) ||
                 (x.CustomerPhone != null && x.CustomerPhone.Contains(s)));
         }
         var quotes = await q.OrderByDescending(x => x.ContractSignedAt ?? x.CreatedAt).Take(500).ToListAsync();

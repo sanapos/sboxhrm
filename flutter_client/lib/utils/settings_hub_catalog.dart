@@ -1,3 +1,4 @@
+import '../widgets/sbox/sbox_command_palette.dart';
 import 'package:flutter/material.dart';
 
 import '../config/sbox_app_variant.dart';
@@ -288,10 +289,14 @@ class SettingsHubCatalog {
 
   /// Tìm theo tên, mô tả, nhóm, từ khóa (không phân biệt hoa thường).
   static List<SettingsHubItemDef> search(List<SettingsHubItemDef> items, String query) {
-    final q = query.trim().toLowerCase();
+    // Bỏ dấu cả hai phía: gõ «may in», «phan quyen», «cua hang» (không dấu) vẫn ra.
+    final q = SboxCommandPalette.fold(query.trim());
     if (q.isEmpty) return items;
     final words = q.split(RegExp(r'\s+'));
-    return items.where((i) => words.every(i.searchText.contains)).toList();
+    return items.where((i) {
+      final hay = SboxCommandPalette.fold(i.searchText);
+      return words.every(hay.contains);
+    }).toList();
   }
 
   /// Áp dụng cấu hình tùy chỉnh lên danh sách đã lọc quyền.

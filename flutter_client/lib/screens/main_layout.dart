@@ -112,6 +112,7 @@ import 'pos/pos_mobile_hub_screen.dart';
 import 'pos/pos_qr_menu_screen.dart';
 import 'pos/pos_qr_online_orders_screen.dart';
 import 'pos/pos_kds_screen.dart';
+import 'pos/pos_kitchen_void_list_screen.dart';
 import 'pos/pos_topping_groups_screen.dart';
 import 'pos/pos_customer_display_settings_screen.dart';
 import 'pos/pos_printer_settings_hub_screen.dart';
@@ -414,6 +415,7 @@ class _MainLayoutState extends State<MainLayout> with WidgetsBindingObserver {
       ('Ca thu ngân', Icons.account_balance_wallet_outlined, 'PosCashierShift', ['giao ca', 'mở ca', 'chốt ca'], () => const PosCashierShiftScreen()),
       ('Xác nhận chuyển khoản', Icons.payments_outlined, 'PosSell', ['ck', 'vietqr'], () => const PosTransferConfirmScreen()),
       ('Lịch sử hủy / trả', Icons.history, 'PosSell', ['hủy đơn', 'trả hàng'], () => const PosCancelReturnHistoryScreen()),
+      ('Phiếu hủy bếp', Icons.no_meals_outlined, 'PosKds', ['hủy món', 'hủy bếp', 'kitchen void'], () => const PosKitchenVoidListScreen()),
       ('Đơn online', Icons.delivery_dining_outlined, 'PosQrOrder', ['đặt online', 'giao hàng'], () => const PosQrOnlineOrdersScreen()),
       // Màn hai tab chỉ dành cho Thiết lập SBOX (hub vẽ tiêu đề); mở riêng thì dùng từng màn có thanh tiêu đề.
       ('Máy in', Icons.print_outlined, 'PosPrinters', ['in hóa đơn', 'in bếp', 'máy in bill', 'thiết lập in'], () => const PosPrinterSettingsHubScreen()),

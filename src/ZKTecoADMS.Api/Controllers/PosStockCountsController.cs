@@ -102,10 +102,10 @@ public class PosStockCountsController(ZKTecoDbContext dbContext) : Authenticated
 
         if (!string.IsNullOrWhiteSpace(search))
         {
-            var s = search.Trim().ToLower();
-            query = query.Where(c => c.CountNo.ToLower().Contains(s) ||
-                                     c.Name.ToLower().Contains(s) ||
-                                     (c.Note != null && c.Note.ToLower().Contains(s)));
+            var s = VnSearch.FoldText(search); // không dấu: «binh» khớp «Bình»
+            query = query.Where(c => VnSearch.Fold(c.CountNo).Contains(s) ||
+                                     VnSearch.Fold(c.Name).Contains(s) ||
+                                     (c.Note != null && VnSearch.Fold(c.Note).Contains(s)));
         }
         if (!string.IsNullOrWhiteSpace(statuses))
         {

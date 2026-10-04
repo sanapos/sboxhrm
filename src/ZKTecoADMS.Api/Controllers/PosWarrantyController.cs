@@ -130,13 +130,13 @@ public class PosWarrantyController(ZKTecoDbContext dbContext) : AuthenticatedCon
 
         if (!string.IsNullOrWhiteSpace(search))
         {
-            var s = search.Trim().ToLower();
+            var s = VnSearch.FoldText(search); // không dấu: «binh» khớp «Bình»
             q = q.Where(r =>
-                r.SerialNumber.ToLower().Contains(s) ||
-                (r.Imei != null && r.Imei.ToLower().Contains(s)) ||
-                (r.Product != null && r.Product.Name.ToLower().Contains(s)) ||
-                (r.SaleOrder != null && r.SaleOrder.OrderNo.ToLower().Contains(s)) ||
-                (r.Customer != null && r.Customer.Name.ToLower().Contains(s)));
+                VnSearch.Fold(r.SerialNumber).Contains(s) ||
+                (r.Imei != null && VnSearch.Fold(r.Imei).Contains(s)) ||
+                (r.Product != null && VnSearch.Fold(r.Product.Name).Contains(s)) ||
+                (r.SaleOrder != null && VnSearch.Fold(r.SaleOrder.OrderNo).Contains(s)) ||
+                (r.Customer != null && VnSearch.Fold(r.Customer.Name).Contains(s)));
         }
 
         if (!string.IsNullOrWhiteSpace(status) &&

@@ -1,3 +1,4 @@
+using ZKTecoADMS.Infrastructure;
 using ZKTecoADMS.Application.Services;
 using ClosedXML.Excel;
 using Microsoft.AspNetCore.Mvc;
@@ -1030,9 +1031,9 @@ public partial class PosSalesController
 
         if (!string.IsNullOrWhiteSpace(search))
         {
-            var s = search.Trim().ToLower();
-            query = query.Where(o => o.OrderNo.ToLower().Contains(s) ||
-                                     (o.CustomerName != null && o.CustomerName.ToLower().Contains(s)));
+            var s = VnSearch.FoldText(search); // không dấu: «binh» khớp «Bình»
+            query = query.Where(o => VnSearch.Fold(o.OrderNo).Contains(s) ||
+                                     (o.CustomerName != null && VnSearch.Fold(o.CustomerName).Contains(s)));
         }
         if (!string.IsNullOrWhiteSpace(statuses))
         {

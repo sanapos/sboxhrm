@@ -87,9 +87,9 @@ public class PosPurchaseReceiptsController(
 
         if (!string.IsNullOrWhiteSpace(search))
         {
-            var s = search.Trim().ToLower();
-            query = query.Where(r => r.ReceiptNo.ToLower().Contains(s) ||
-                                     (r.Note != null && r.Note.ToLower().Contains(s)));
+            var s = VnSearch.FoldText(search); // không dấu: «binh» khớp «Bình»
+            query = query.Where(r => VnSearch.Fold(r.ReceiptNo).Contains(s) ||
+                                     (r.Note != null && VnSearch.Fold(r.Note).Contains(s)));
         }
         if (!string.IsNullOrWhiteSpace(statuses))
         {

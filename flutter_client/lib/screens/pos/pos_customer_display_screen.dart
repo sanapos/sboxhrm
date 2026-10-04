@@ -258,32 +258,28 @@ class _PosCustomerDisplayScreenState extends State<PosCustomerDisplayScreen> {
           );
     return Scaffold(
       backgroundColor: _billBg,
-      body: Stack(
-        fit: StackFit.expand,
+      // Thông báo chờ máy thu ngân nằm trên cùng, đẩy nội dung xuống — trước đây nổi đè lên tiêu đề hóa đơn.
+      body: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
-          body,
           if (_awaitingRemote && (_remoteStatus ?? '').isNotEmpty)
-            Positioned(
-              left: 12,
-              right: 12,
-              top: 12,
-              child: Material(
-                color: const Color(0xEE1E3A8A),
-                borderRadius: BorderRadius.circular(10),
+            Material(
+              color: const Color(0xFF1E3A8A),
+              child: SafeArea(
+                bottom: false,
                 child: Padding(
                   padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
                   child: Text(
                     _remoteStatus!,
                     textAlign: TextAlign.center,
-                    style: const TextStyle(
-                      color: Colors.white,
-                      fontSize: 13,
-                      fontWeight: FontWeight.w600,
-                    ),
+                    maxLines: 2,
+                    overflow: TextOverflow.ellipsis,
+                    style: const TextStyle(color: Colors.white, fontSize: 13, fontWeight: FontWeight.w600),
                   ),
                 ),
               ),
             ),
+          Expanded(child: body),
         ],
       ),
     );

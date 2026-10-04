@@ -134,10 +134,10 @@ public partial class PosQuotesController(
             .Where(x => x.StoreId == storeId && x.Deleted == null));
         if (!string.IsNullOrWhiteSpace(search))
         {
-            var s = search.Trim().ToLower();
+            var s = VnSearch.FoldText(search); // không dấu: «binh» khớp «Bình»
             q = q.Where(x =>
-                x.QuoteNo.ToLower().Contains(s) ||
-                (x.CustomerName != null && x.CustomerName.ToLower().Contains(s)) ||
+                VnSearch.Fold(x.QuoteNo).Contains(s) ||
+                (x.CustomerName != null && VnSearch.Fold(x.CustomerName).Contains(s)) ||
                 (x.CustomerPhone != null && x.CustomerPhone.Contains(s)));
         }
         if (!string.IsNullOrWhiteSpace(status) &&

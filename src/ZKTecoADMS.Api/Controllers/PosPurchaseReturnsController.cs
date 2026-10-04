@@ -68,8 +68,8 @@ public class PosPurchaseReturnsController(ZKTecoDbContext dbContext) : Authentic
 
         if (!string.IsNullOrWhiteSpace(search))
         {
-            var s = search.Trim().ToLower();
-            query = query.Where(r => r.ReturnNo.ToLower().Contains(s));
+            var s = VnSearch.FoldText(search); // không dấu: «binh» khớp «Bình»
+            query = query.Where(r => VnSearch.Fold(r.ReturnNo).Contains(s));
         }
         if (!string.IsNullOrWhiteSpace(statuses))
         {

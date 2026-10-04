@@ -415,12 +415,12 @@ public partial class PosSalesController(
 
         if (!string.IsNullOrWhiteSpace(search))
         {
-            var s = search.Trim().ToLower();
+            var s = VnSearch.FoldText(search); // không dấu: «binh» khớp «Bình»
             baseFilter = baseFilter.Where(t =>
-                t.ReferenceNo!.ToLower().Contains(s) ||
-                (t.SaleOrder != null && t.SaleOrder.OrderNo.ToLower().Contains(s)) ||
+                VnSearch.Fold(t.ReferenceNo).Contains(s) ||
+                (t.SaleOrder != null && VnSearch.Fold(t.SaleOrder.OrderNo).Contains(s)) ||
                 (t.SaleOrder != null && t.SaleOrder.CustomerName != null &&
-                 t.SaleOrder.CustomerName.ToLower().Contains(s)));
+                 VnSearch.Fold(t.SaleOrder.CustomerName).Contains(s)));
         }
         if (from.HasValue || to.HasValue)
         {
@@ -525,11 +525,11 @@ public partial class PosSalesController(
 
         if (!string.IsNullOrWhiteSpace(search))
         {
-            var s = search.Trim().ToLower();
+            var s = VnSearch.FoldText(search); // không dấu: «binh» khớp «Bình»
             query = query.Where(p =>
-                p.Name.ToLower().Contains(s) ||
-                p.ProductCode.ToLower().Contains(s) ||
-                (p.Barcode != null && p.Barcode.ToLower().Contains(s)));
+                VnSearch.Fold(p.Name).Contains(s) ||
+                VnSearch.Fold(p.ProductCode).Contains(s) ||
+                (p.Barcode != null && VnSearch.Fold(p.Barcode).Contains(s)));
         }
 
         if (categoryId.HasValue)
@@ -1390,10 +1390,10 @@ public partial class PosSalesController(
 
         if (!string.IsNullOrWhiteSpace(search))
         {
-            var s = search.Trim().ToLower();
-            query = query.Where(o => o.OrderNo.ToLower().Contains(s) ||
-                                     (o.CustomerName != null && o.CustomerName.ToLower().Contains(s)) ||
-                                     (o.VoucherCode != null && o.VoucherCode.ToLower().Contains(s)));
+            var s = VnSearch.FoldText(search); // không dấu: «binh» khớp «Bình»
+            query = query.Where(o => VnSearch.Fold(o.OrderNo).Contains(s) ||
+                                     (o.CustomerName != null && VnSearch.Fold(o.CustomerName).Contains(s)) ||
+                                     (o.VoucherCode != null && VnSearch.Fold(o.VoucherCode).Contains(s)));
         }
         if (!string.IsNullOrWhiteSpace(statuses))
         {

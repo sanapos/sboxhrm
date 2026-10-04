@@ -194,15 +194,15 @@ public class PosStockIssueKiotController(ZKTecoDbContext dbContext) : Authentica
 
         {
 
-            var s = search.Trim().ToLower();
+            var s = VnSearch.FoldText(search); // không dấu: «binh» khớp «Bình»
 
-            query = query.Where(i => i.IssueNo.ToLower().Contains(s) ||
+            query = query.Where(i => VnSearch.Fold(i.IssueNo).Contains(s) ||
 
-                                     (i.Note != null && i.Note.ToLower().Contains(s)) ||
+                                     (i.Note != null && VnSearch.Fold(i.Note).Contains(s)) ||
 
-                                     (i.CategoryName != null && i.CategoryName.ToLower().Contains(s)) ||
+                                     (i.CategoryName != null && VnSearch.Fold(i.CategoryName).Contains(s)) ||
 
-                                     (i.RecipientName != null && i.RecipientName.ToLower().Contains(s)));
+                                     (i.RecipientName != null && VnSearch.Fold(i.RecipientName).Contains(s)));
 
         }
 

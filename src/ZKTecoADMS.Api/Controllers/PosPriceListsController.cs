@@ -173,9 +173,9 @@ public class PosPriceListsController(ZKTecoDbContext dbContext) : AuthenticatedC
 
         if (!string.IsNullOrWhiteSpace(search))
         {
-            var s = search.Trim().ToLower();
+            var s = VnSearch.FoldText(search); // không dấu: «binh» khớp «Bình»
             q = q.Where(x => x.Product != null &&
-                (x.Product.Name.ToLower().Contains(s) || x.Product.ProductCode.ToLower().Contains(s)));
+                (VnSearch.Fold(x.Product.Name).Contains(s) || VnSearch.Fold(x.Product.ProductCode).Contains(s)));
         }
 
         var items = await q
