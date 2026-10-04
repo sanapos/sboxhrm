@@ -1613,7 +1613,7 @@
 
       .platform-card { min-height: 0; padding: 20px 18px; }
       .platform-card .pf-sub { flex: 0 0 auto; }
-      .tools-under { display: none; }
+      .tools-grid { grid-template-columns: 1fr; }
       .model-card { padding: 16px; }
 
       .support-faq, .support-contact { padding: 20px 16px 18px; border-radius: 16px; }
@@ -2435,7 +2435,7 @@
           <li>Thông báo đẩy realtime</li>
           <li>APK nội bộ khi cần</li>
         </ul>
-        <a class="pf-cta" href="#downloads">Tải APK mới nhất</a>
+        <a class="pf-cta" id="pf-apk" href="#downloads">Tải APK mới nhất</a>
         <div class="pf-note">Hoặc <a href="https://play.google.com/store/apps/details?id=sbox.sana.vn" target="_blank" rel="noopener noreferrer">Google Play (HRM)</a></div>
       </article>
       <article class="platform-card">
@@ -2581,7 +2581,7 @@
         <h5>Truy cập</h5>
         <a href="/login-app">Đăng nhập Web</a>
         <a href="/register">Đăng ký</a>
-        <a href="https://play.google.com/store/apps/details?id=sbox.sana.vn" target="_blank" rel="noopener noreferrer">Google Play</a>
+        <a id="footer-android" href="https://play.google.com/store/apps/details?id=sbox.sana.vn" target="_blank" rel="noopener noreferrer">Google Play</a>
         <a href="#contact">iOS / TestFlight</a>
       </div>
     </div>
@@ -3045,6 +3045,7 @@
       }
       window.__landingDownloads = downloads.slice();
       renderDownloads(window.__landingDownloads);
+      if (!isPosSite()) enrichHrmAndroidDownload();
       if (isPosSite()) {
         applySiteVariant();
         applyContact(data);
@@ -3054,6 +3055,7 @@
         });
         enrichPosAndroidDownload();
         enrichPrintAgentDownload();
+        wirePosAndroidLinks();
       } else {
         applyHero(data);
         applyFeatures((parseJsonArray(data && data.landingFeaturesJson, []) || []).filter(function (it) {
@@ -3127,6 +3129,53 @@
         .catch(function () {});
     }
 
+    /** APK SBOX HRM (Android) — đọc downloads/sbox-hrm-release.json; nút APK thẻ Android trỏ thẳng file. */
+    function enrichHrmAndroidDownload() {
+      var apk = '/downloads/sbox-hrm.apk';
+      var btn = document.getElementById('pf-apk');
+      if (btn) btn.href = apk;
+      var card = {
+        title: 'APK SBOX HRM (Android)',
+        desc: 'Cài thủ công khi không dùng được Google Play — chấm công, duyệt đơn, phiếu lương',
+        version: 'Android',
+        badge: 'APK',
+        platform: 'android',
+        url: apk
+      };
+      function isHrmApk(it) {
+        return String(it.url || '').indexOf('sbox-hrm') >= 0 ||
+          String(it.title || '').toLowerCase().indexOf('sbox hrm') >= 0;
+      }
+      patchDownloadCard(isHrmApk, card);
+      fetch('/downloads/sbox-hrm-release.json', { headers: { 'Accept': 'application/json' }, cache: 'no-store' })
+        .then(function (r) { return r.ok ? r.json() : null; })
+        .then(function (data) {
+          if (!data || !data.versionName) return;
+          var path = data.apkPath || apk;
+          var published = formatVnDate(data.publishedAt);
+          card.version = 'v' + data.versionName + (data.versionCode ? ' (' + data.versionCode + ')' : '') +
+            (published ? ' · Xuất bản ' + published : '');
+          card.url = path;
+          if (btn) btn.href = path;
+          patchDownloadCard(isHrmApk, card);
+        })
+        .catch(function () {});
+    }
+
+    /** POS: thẻ Android / chân trang trỏ APK SBOX POS (POS chưa có trên Google Play). */
+    function wirePosAndroidLinks() {
+      var apk = '/api/app/pos-android-apk';
+      var btn = document.getElementById('pf-apk');
+      if (btn) { btn.href = apk; btn.textContent = 'Tải APK SBOX POS'; }
+      var f = document.getElementById('footer-android');
+      if (f) {
+        f.href = apk;
+        f.textContent = 'Tải APK SBOX POS';
+        f.removeAttribute('target');
+        f.removeAttribute('rel');
+      }
+    }
+
     /** Gắn link + phiên bản Print Agent Windows. */
     function enrichPrintAgentDownload() {
       fetch('/api/app/print-agent-release', { headers: { 'Accept': 'application/json' } })
@@ -3137,7 +3186,7 @@
           var ver = data.versionName || data.VersionName;
           var code = data.versionCode || data.VersionCode || '';
           var published = formatVnDate(data.publishedAt || data.PublishedAt);
-          var url = data.downloadUrl || data.DownloadUrl || '/downloads/sbox-print-agent.exe';
+          var url = data.downloadUrl || data.DownloadUrl || PRINT_AGENT_URL;
           try {
             var u = new URL(url, window.location.origin);
             if (u.origin === window.location.origin) url = u.pathname + u.search;
@@ -3497,6 +3546,9 @@
       }
     ];
 
+    // File Print Agent chỉ có trên máy chủ sboxhrm.com (sboxpos.com trả 404).
+    var PRINT_AGENT_URL = 'https://sboxhrm.com/api/app/print-agent-windows';
+
     var FALLBACK_DOWNLOADS = [
       {
         title: 'APK Android mới nhất',
@@ -3512,7 +3564,7 @@
         version: 'v1.3.4 · Xuất bản 08/08/2026',
         badge: 'Windows',
         platform: 'windows',
-        url: '/downloads/sbox-print-agent.exe'
+        url: PRINT_AGENT_URL
       },
       {
         title: 'Driver USB ZKTeco',
@@ -3600,7 +3652,11 @@
       if (!grid) return;
       grid.innerHTML = items.map(function (d) {
         var href = d.url || '#contact';
+        // Print Agent cũ lưu /downloads/sbox-print-agent.exe: sboxpos.com không có file → dùng bản trên sboxhrm.com.
+        if (/sbox-print-agent\.exe$|print-agent-windows$/.test(href) && location.hostname.indexOf('sboxhrm') < 0) href = PRINT_AGENT_URL;
         var external = href.indexOf('http') === 0;
+        var isFile = /\.(apk|exe|zip|msi)$|\/api\/app\/[a-z-]+$/i.test(href);
+        var label = href.charAt(0) === '#' ? 'Liên hệ nhận file' : 'Tải xuống';
         return (
           '<article class="tool-card">' +
             '<span class="tc-badge">' + esc(d.badge || d.platform || 'File') + '</span>' +
@@ -3608,8 +3664,8 @@
             '<p>' + esc(d.desc || '') + '</p>' +
             '<div class="tc-ver">' + esc(d.version || '') + '</div>' +
             '<a href="' + esc(href) + '"' +
-              (external ? ' target="_blank" rel="noopener noreferrer"' : '') +
-            '>Tải xuống</a>' +
+              (external && !isFile ? ' target="_blank" rel="noopener noreferrer"' : '') +
+            '>' + label + '</a>' +
           '</article>'
         );
       }).join('');
