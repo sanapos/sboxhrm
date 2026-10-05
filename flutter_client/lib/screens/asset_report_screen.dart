@@ -8,6 +8,7 @@ import '../utils/excel_report_builder.dart';
 import '../services/api_service.dart';
 import '../utils/file_saver.dart' as file_saver;
 import '../widgets/notification_overlay.dart';
+import '../widgets/page_top_actions.dart';
 import '../utils/asset_report_helpers.dart';
 import '../utils/report_screen_helpers.dart';
 import '../utils/responsive_helper.dart';
@@ -462,7 +463,24 @@ class _AssetReportScreenState extends State<AssetReportScreen>
     final perm = context.watch<PermissionProvider>();
     final canExport = perm.canExport('AssetReport') || perm.canExport('Asset');
 
-    return Scaffold(
+    // Xuất ảnh / Excel đăng ký vào thao tác chung: điện thoại → nút nổi góc dưới phải; máy tính → thanh trên.
+    // Trước đây nút «Xuất» nằm lẻ trên một thanh riêng (tab Tổng quan chỉ có mỗi nút này).
+    return RegisterPageTopActions(
+      actions: [
+        if (canExport && _tabs.index == 1)
+          HrmTopBarAction(
+            icon: Icons.file_download_outlined,
+            label: 'Xuất Excel danh mục',
+            onPressed: _exportRegister,
+          ),
+        if (canExport)
+          HrmTopBarAction(
+            icon: Icons.image_outlined,
+            label: 'Xuất ảnh PNG',
+            onPressed: _exportPng,
+          ),
+      ],
+      child: Scaffold(
       backgroundColor: HrmPageChrome.background,
       body: _loading
           ? const Center(child: CircularProgressIndicator(color: _theme))
@@ -511,6 +529,7 @@ class _AssetReportScreenState extends State<AssetReportScreen>
                       ],
                     ),
             ),
+      ),
     );
   }
 
@@ -523,6 +542,8 @@ class _AssetReportScreenState extends State<AssetReportScreen>
   /// Một dòng gọn: Bộ lọc (n) · nhãn bộ lọc đang bật · Xuất. Tab Tổng quan không có bộ lọc (dashboard tự tải).
   Widget _buildToolbar(bool canExport) {
     final chips = _activeFilterChips();
+    // Không còn gì để lọc (tab Tổng quan) → không vẽ thanh trống.
+    if (!_tabHasFilters && !_tabHasDate && chips.isEmpty) return const SizedBox.shrink();
     return Container(
       color: Colors.white,
       padding: const EdgeInsets.fromLTRB(12, 8, 8, 8),
@@ -537,24 +558,6 @@ class _AssetReportScreenState extends State<AssetReportScreen>
             ),
           if (_tabHasFilters && _activeFilterCount > 0)
             TextButton(onPressed: _clearFilters, child: Text(tr('Xóa lọc'))),
-          const Spacer(),
-          if (canExport)
-            PopupMenuButton<String>(
-              tooltip: tr('Xuất báo cáo'),
-              onSelected: (v) => v == 'png' ? _exportPng() : _exportRegister(),
-              itemBuilder: (_) => [
-                PopupMenuItem(value: 'png', child: Text(tr('Xuất ảnh PNG'))),
-                if (_tabs.index == 1) PopupMenuItem(value: 'excel', child: Text(tr('Xuất Excel danh mục'))),
-              ],
-              child: Padding(
-                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 6),
-                child: Row(mainAxisSize: MainAxisSize.min, children: [
-                  const Icon(Icons.ios_share_rounded, size: 18, color: _theme),
-                  const SizedBox(width: 4),
-                  Text(tr('Xuất'), style: const TextStyle(color: _theme, fontWeight: FontWeight.w600)),
-                ]),
-              ),
-            ),
         ]),
         if (_tabHasDate) ...[
           const SizedBox(height: 6),

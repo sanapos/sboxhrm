@@ -5,6 +5,9 @@ import 'package:flutter/material.dart';
 import '../../l10n/app_tr.dart';
 import '../../theme/sbox_tokens.dart';
 import 'sbox_basics.dart';
+import '../../utils/responsive_helper.dart';
+import '../hrm_page_chrome.dart';
+import '../page_top_actions.dart';
 
 /// Cột của [SboxDataTable].
 class SboxColumn<T> {
@@ -505,22 +508,27 @@ class SboxFilterBar extends StatelessWidget {
     return LayoutBuilder(builder: (context, c) {
       final narrow = c.maxWidth < 720;
       if (narrow) {
-        // Điện thoại: nút chính (một nút) đứng cạnh ô tìm; bộ lọc một hàng cuộn ngang
-        // — không để bộ lọc xếp nhiều dòng đẩy danh sách xuống.
-        final inline = actions.length == 1;
-        final scrollItems = [...filters, if (!inline) ...actions];
-        return Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
-          inline ? Row(children: [Expanded(child: search), const SizedBox(width: SboxSpace.sm), actions.first]) : search,
-          if (scrollItems.isNotEmpty) ...[
-            const SizedBox(height: SboxSpace.sm),
-            SingleChildScrollView(
-              scrollDirection: Axis.horizontal,
-              child: Row(children: [
-                for (final w in scrollItems) ...[w, const SizedBox(width: SboxSpace.sm)],
-              ]),
-            ),
+        // Điện thoại trong khung chính: nút SboxButton (Thêm… / Xuất…) gom vào nút nổi góc dưới phải
+        // của app — đúng quy ước mọi màn. Màn mở thành trang riêng (không có nút nổi chung) giữ như cũ.
+        final toFab = Responsive.isMobile(context) && HrmPageChrome.hideInPageTitle(context)
+            ? actions.whereType<SboxButton>().toList()
+            : const <SboxButton>[];
+        final rest = actions.where((w) => !toFab.contains(w)).toList();
+        final bar = _narrowBar(search, rest);
+        if (toFab.isEmpty) return bar;
+        return RegisterPageTopActions(
+          actions: [
+            for (final b in toFab)
+              HrmTopBarAction(
+                icon: b.icon ?? Icons.add,
+                label: b.label,
+                onPressed: b.loading ? null : b.onPressed,
+                primary: b.kind == SboxButtonKind.primary,
+                showLabel: b.kind == SboxButtonKind.primary,
+              ),
           ],
-        ]);
+          child: bar,
+        );
       }
       return Row(children: [
         // Nhiều bộ lọc → ô tìm hẹp lại để cả hàng không phải xuống dòng.
@@ -533,6 +541,25 @@ class SboxFilterBar extends StatelessWidget {
         ],
       ]);
     });
+  }
+
+  /// Điện thoại: nút chính (một nút) đứng cạnh ô tìm; bộ lọc một hàng cuộn ngang
+  /// — không để bộ lọc xếp nhiều dòng đẩy danh sách xuống.
+  Widget _narrowBar(Widget search, List<Widget> actions) {
+    final inline = actions.length == 1;
+    final scrollItems = [...filters, if (!inline) ...actions];
+    return Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
+      inline ? Row(children: [Expanded(child: search), const SizedBox(width: SboxSpace.sm), actions.first]) : search,
+      if (scrollItems.isNotEmpty) ...[
+        const SizedBox(height: SboxSpace.sm),
+        SingleChildScrollView(
+          scrollDirection: Axis.horizontal,
+          child: Row(children: [
+            for (final w in scrollItems) ...[w, const SizedBox(width: SboxSpace.sm)],
+          ]),
+        ),
+      ],
+    ]);
   }
 }
 

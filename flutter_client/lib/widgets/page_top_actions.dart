@@ -11,18 +11,27 @@ class PageTopActions extends ChangeNotifier {
   PageTopActions._();
   static final PageTopActions instance = PageTopActions._();
 
-  List<Widget> _actions = const [];
-  List<Widget> get actions => _actions;
+  /// Mỗi nơi đăng ký (trang, thanh lọc…) giữ phần của mình; [actions] là gộp theo thứ tự đăng ký.
+  final Map<Object, List<Widget>> _byOwner = {};
+  static final Object _defaultOwner = Object();
 
-  void setActions(List<Widget> actions) {
-    _actions = List<Widget>.unmodifiable(actions);
-    notifyListeners();
+  List<Widget> get actions => List<Widget>.unmodifiable([for (final l in _byOwner.values) ...l]);
+
+  void setActions(List<Widget> actions, {Object? owner}) {
+    final key = owner ?? _defaultOwner;
+    if (actions.isEmpty) {
+      if (_byOwner.remove(key) != null) notifyListeners();
+      return;
+    }
+    _byOwner[key] = List<Widget>.unmodifiable(actions);
+    // Đăng ký trong lúc dựng khung hình → báo sau khung hình (tránh setState trong build).
+    WidgetsBinding.instance.addPostFrameCallback((_) => notifyListeners());
   }
 
-  void clear() {
-    if (_actions.isEmpty) return;
-    _actions = const [];
-    notifyListeners();
+  void clear({Object? owner}) {
+    final key = owner ?? _defaultOwner;
+    if (_byOwner.remove(key) == null) return;
+    WidgetsBinding.instance.addPostFrameCallback((_) => notifyListeners());
   }
 }
 
@@ -45,18 +54,18 @@ class _RegisterPageTopActionsState extends State<RegisterPageTopActions> {
   @override
   void initState() {
     super.initState();
-    PageTopActions.instance.setActions(widget.actions);
+    PageTopActions.instance.setActions(widget.actions, owner: this);
   }
 
   @override
   void didUpdateWidget(covariant RegisterPageTopActions oldWidget) {
     super.didUpdateWidget(oldWidget);
-    PageTopActions.instance.setActions(widget.actions);
+    PageTopActions.instance.setActions(widget.actions, owner: this);
   }
 
   @override
   void dispose() {
-    PageTopActions.instance.clear();
+    PageTopActions.instance.clear(owner: this);
     super.dispose();
   }
 

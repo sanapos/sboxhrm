@@ -6,9 +6,8 @@ import 'package:zkteco_flutter_client/l10n/app_tr.dart';
 import '../../services/api_service.dart';
 import '../../services/branch_session.dart';
 import '../../theme/sbox_tokens.dart';
-import '../../widgets/sbox/sbox_basics.dart' show SboxTone;
-import '../../widgets/sbox/sbox_report.dart';
 import '../../widgets/hrm_page_chrome.dart';
+import '../../widgets/page_top_actions.dart';
 import 'branch_ops_ui.dart';
 import 'stock_transfer_screen.dart';
 
@@ -184,15 +183,21 @@ class _BranchStockViewState extends State<BranchStockView> {
             ),
           ]),
           const SizedBox(height: 8),
+          // Lọc + số đếm ngay trên nút (trước đây thêm 4 ô KPI cao chiếm nửa màn điện thoại).
           SingleChildScrollView(
             scrollDirection: Axis.horizontal,
             child: Row(children: [
-              for (final f in const [('', 'Tất cả'), ('instock', 'Còn hàng'), ('low', 'Sắp hết'), ('out', 'Hết hàng')])
+              for (final f in [
+                ('', 'Tất cả', ''),
+                ('instock', 'Còn hàng', ''),
+                ('low', 'Sắp hết', _loading ? '' : ' (${bQty(_data['lowStock'])})'),
+                ('out', 'Hết hàng', _loading ? '' : ' (${bQty(_data['outOfStock'])})'),
+              ])
                 Padding(
                   padding: const EdgeInsets.only(right: 6),
                   child: ChoiceChip(
                     visualDensity: VisualDensity.compact,
-                    label: Text(tr(f.$2)),
+                    label: Text(tr('${f.$2}${f.$3}')),
                     selected: _filter == f.$1,
                     onSelected: (_) {
                       setState(() => _filter = f.$1);
@@ -208,36 +213,24 @@ class _BranchStockViewState extends State<BranchStockView> {
           else if (_error != null)
             BranchBox(child: Text(tr(_error!)))
           else ...[
-            SboxKpiStrip(maxColumns: 4, items: [
-              SboxKpi(
-                label: 'Giá trị tồn',
-                value: bMoneyShort(_data['totalValue']),
-                icon: Icons.inventory_2_outlined,
-                tone: SboxTone.brand,
-                note: '${bQty(_data['totalCount'])} mặt hàng',
-              ),
-              SboxKpi(label: 'Tổng số lượng', value: bQty(_data['totalQty']), icon: Icons.numbers_rounded, tone: SboxTone.neutral),
-              SboxKpi(
-                label: 'Sắp hết',
-                value: bQty(_data['lowStock']),
-                icon: Icons.warning_amber_rounded,
-                tone: bNum(_data['lowStock']) > 0 ? SboxTone.warning : SboxTone.success,
-                onTap: () {
-                  setState(() => _filter = 'low');
-                  _load();
-                },
-              ),
-              SboxKpi(
-                label: 'Hết hàng',
-                value: bQty(_data['outOfStock']),
-                icon: Icons.remove_shopping_cart_outlined,
-                tone: bNum(_data['outOfStock']) > 0 ? SboxTone.danger : SboxTone.success,
-                onTap: () {
-                  setState(() => _filter = 'out');
-                  _load();
-                },
-              ),
-            ]),
+            Container(
+              padding: const EdgeInsets.fromLTRB(12, 10, 12, 10),
+              decoration: BoxDecoration(color: SboxColors.brand50, borderRadius: BorderRadius.circular(12)),
+              child: Row(children: [
+                const Icon(Icons.inventory_2_outlined, size: 18, color: SboxColors.brand700),
+                const SizedBox(width: 8),
+                Expanded(
+                  child: Text(
+                    tr('${bQty(_data['totalCount'])} mặt hàng · ${bQty(_data['totalQty'])} đơn vị'),
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    style: const TextStyle(fontSize: 13, color: SboxColors.slate700),
+                  ),
+                ),
+                Text(tr('Giá trị ${bMoneyShort(_data['totalValue'])}'),
+                    style: const TextStyle(fontWeight: FontWeight.w800, color: SboxColors.brand800)),
+              ]),
+            ),
             const SizedBox(height: 10),
             if (_items.isEmpty)
               BranchBox(child: Center(child: Text(tr('Không có hàng phù hợp'))))
@@ -248,12 +241,39 @@ class _BranchStockViewState extends State<BranchStockView> {
       ),
     );
     if (widget.embedded) return body;
-    return Scaffold(
+    final inShell = HrmPageChrome.hideInPageTitle(context);
+    final scaffold = Scaffold(
       backgroundColor: SboxColors.slate50,
       // Trong khung chính thanh trên đã có tiêu đề — không lặp.
-      appBar: HrmPageChrome.hideInPageTitle(context) ? null : AppBar(title: Text(tr('Kho chi nhánh'))),
+      appBar: inShell ? null : AppBar(title: Text(tr('Kho chi nhánh'))),
+      // Mở thành trang riêng: tự có nút nổi; trong khung chính dùng nút nổi chung (RegisterPageTopActions).
+      floatingActionButton: inShell
+          ? null
+          : FloatingActionButton.extended(
+              onPressed: _openTransfers,
+              icon: const Icon(Icons.local_shipping_outlined),
+              label: Text(tr('Chuyển kho')),
+            ),
       body: body,
     );
+    if (!inShell) return scaffold;
+    return RegisterPageTopActions(
+      actions: [
+        HrmTopBarAction(
+          icon: Icons.local_shipping_outlined,
+          label: 'Chuyển kho',
+          primary: true,
+          showLabel: true,
+          onPressed: _openTransfers,
+        ),
+        HrmTopBarAction(icon: Icons.refresh, label: 'Làm mới', onPressed: _load),
+      ],
+      child: scaffold,
+    );
+  }
+
+  void _openTransfers() {
+    Navigator.of(context).push(MaterialPageRoute(builder: (_) => const StockTransferScreen()));
   }
 
   Widget _row(Map<String, dynamic> it) {
@@ -278,10 +298,16 @@ class _BranchStockViewState extends State<BranchStockView> {
         ),
         title: Text(it['name']?.toString() ?? '',
             maxLines: 1, overflow: TextOverflow.ellipsis, style: const TextStyle(fontWeight: FontWeight.w700)),
+        // Mã + tối thiểu một dòng; «cả cửa hàng» chỉ hiện khi khác tồn chi nhánh (nhiều chi nhánh).
         subtitle: Text(
-          tr('${it['productCode'] ?? ''} · cả cửa hàng ${bQty(it['totalQty'])}${min > 0 ? ' · tối thiểu ${bQty(min)}' : ''}'),
-          maxLines: 1,
+          tr([
+            '${it['productCode'] ?? ''}',
+            if (min > 0) 'tối thiểu ${bQty(min)}',
+            if (bNum(it['totalQty']) != qty) 'cả cửa hàng ${bQty(it['totalQty'])}',
+          ].where((x) => x.trim().isNotEmpty).join(' · ')),
+          maxLines: 2,
           overflow: TextOverflow.ellipsis,
+          style: const TextStyle(fontSize: 12.5, color: SboxColors.slate500),
         ),
         trailing: Column(mainAxisAlignment: MainAxisAlignment.center, crossAxisAlignment: CrossAxisAlignment.end, children: [
           Text('${bQty(qty)} ${it['unit'] ?? ''}', style: TextStyle(fontWeight: FontWeight.w800, color: color)),

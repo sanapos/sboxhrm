@@ -115,7 +115,7 @@ public static partial class ActivityLabels
     {
         ["Name"] = "Tên", ["FullName"] = "Họ tên", ["FirstName"] = "Tên", ["LastName"] = "Họ", ["Code"] = "Mã",
         ["Barcode"] = "Mã vạch", ["Sku"] = "Mã SKU", ["Price"] = "Giá", ["BasePrice"] = "Giá bán", ["SalePrice"] = "Giá bán",
-        ["CostPrice"] = "Giá vốn", ["UnitPrice"] = "Đơn giá", ["Qty"] = "Số lượng", ["Quantity"] = "Số lượng",
+        ["CostPrice"] = "Giá vốn", ["UnitPrice"] = "Đơn giá", ["Qty"] = "Số lượng", ["Quantity"] = "Số lượng", ["QtyChange"] = "Số lượng thay đổi", ["QtyAfter"] = "Tồn sau", ["QtyBefore"] = "Tồn trước", ["UnitCost"] = "Giá vốn đơn vị", ["LineAmount"] = "Giá trị dòng", ["ReferenceNo"] = "Số chứng từ", ["TransactionType"] = "Loại giao dịch", ["ReservedQty"] = "Số lượng giữ chỗ",
         ["OnHandQty"] = "Tồn kho", ["OnHand"] = "Tồn kho", ["StockQuantity"] = "Tồn kho", ["MinStockQty"] = "Tồn tối thiểu",
         ["Total"] = "Tổng tiền", ["SubTotal"] = "Tiền hàng", ["Discount"] = "Giảm giá", ["DiscountAmount"] = "Giảm giá",
         ["DiscountPercent"] = "Giảm giá (%)", ["PaidAmount"] = "Đã trả", ["Amount"] = "Số tiền", ["BalanceDue"] = "Còn nợ",
@@ -178,7 +178,7 @@ public static partial class ActivityLabels
 
     static readonly Dictionary<string, string> WordMap = new(StringComparer.OrdinalIgnoreCase)
     {
-        ["id"] = "", ["is"] = "", ["has"] = "có", ["can"] = "được", ["allow"] = "cho phép", ["enable"] = "bật", ["enabled"] = "bật",
+        ["id"] = "", ["is"] = "", ["change"] = "thay đổi", ["reference"] = "chứng từ", ["ref"] = "chứng từ", ["transaction"] = "giao dịch", ["balance"] = "số dư", ["movement"] = "biến động", ["lot"] = "lô", ["serial"] = "seri", ["reserved"] = "giữ chỗ", ["kitchen"] = "bếp", ["sent"] = "đã gửi", ["has"] = "có", ["can"] = "được", ["allow"] = "cho phép", ["enable"] = "bật", ["enabled"] = "bật",
         ["require"] = "bắt buộc", ["required"] = "bắt buộc", ["auto"] = "tự động", ["max"] = "tối đa", ["min"] = "tối thiểu",
         ["total"] = "tổng", ["count"] = "số lượng", ["qty"] = "số lượng", ["amount"] = "số tiền", ["price"] = "giá",
         ["name"] = "tên", ["code"] = "mã", ["no"] = "số", ["number"] = "số", ["date"] = "ngày", ["time"] = "giờ", ["at"] = "lúc",

@@ -9,6 +9,7 @@ import '../../services/branch_session.dart';
 import '../../theme/sbox_tokens.dart';
 import '../../widgets/notification_overlay.dart';
 import '../../widgets/hrm_page_chrome.dart';
+import '../../widgets/page_top_actions.dart';
 import 'branch_ops_ui.dart';
 
 final _dt = DateFormat('HH:mm dd/MM');
@@ -134,12 +135,28 @@ class _StockTransferScreenState extends State<StockTransferScreen> {
     if (widget.embedded) {
       return Stack(children: [list, Positioned(right: 0, bottom: 12, child: fab)]);
     }
-    return Scaffold(
+    final inShell = HrmPageChrome.hideInPageTitle(context);
+    final scaffold = Scaffold(
       backgroundColor: SboxColors.slate50,
       // Trong khung chính thanh trên đã có tiêu đề — không lặp.
-      appBar: HrmPageChrome.hideInPageTitle(context) ? null : AppBar(title: Text(tr('Chuyển kho chi nhánh'))),
-      floatingActionButton: fab,
+      appBar: inShell ? null : AppBar(title: Text(tr('Chuyển kho chi nhánh'))),
+      floatingActionButton: inShell ? null : fab,
       body: list,
+    );
+    if (!inShell) return scaffold;
+    // Trong khung chính: dùng nút nổi chung của app (điện thoại) / thanh trên (máy tính).
+    return RegisterPageTopActions(
+      actions: [
+        HrmTopBarAction(
+          icon: Icons.add,
+          label: 'Tạo phiếu chuyển',
+          primary: true,
+          showLabel: true,
+          onPressed: () => _openCreate(),
+        ),
+        HrmTopBarAction(icon: Icons.refresh, label: 'Làm mới', onPressed: _load),
+      ],
+      child: scaffold,
     );
   }
 

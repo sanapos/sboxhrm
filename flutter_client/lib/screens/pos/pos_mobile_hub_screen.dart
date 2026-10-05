@@ -12,6 +12,7 @@ import '../../utils/mobile_bottom_nav_catalog.dart';
 import '../../utils/navigation_notifier.dart';
 import '../../utils/permission_navigation.dart';
 import '../../widgets/mobile_bottom_nav_config_sheet.dart';
+import '../../widgets/page_top_actions.dart';
 import '../../widgets/pos/pos_hub_nav_rail.dart';
 import '../../widgets/pos/pos_hub_scope.dart';
 import '../../widgets/pos/pos_theme.dart';
@@ -359,6 +360,8 @@ class PosMobileHubScreenState extends State<PosMobileHubScreen> {
 
     return Scaffold(
       backgroundColor: PosTheme.background,
+      // Nút nổi chung góc dưới phải: thao tác các tab (Xuất Excel, Thêm…) đăng ký qua RegisterPageTopActions.
+      floatingActionButton: sellFullscreen ? null : const PageTopActionsFab(),
       body: SafeArea(
         // padAwaySystemBars đã chừa status bar — SafeArea top chồng tạo khe xám.
         top: false,
