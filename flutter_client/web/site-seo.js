@@ -25,7 +25,7 @@
         brand: 'SBOX POS',
         title: 'Phần mềm POS bán hàng, quản lý cửa hàng & kho | SBOX POS',
         description: 'Phần mềm POS bán hàng SBOX: bán tại quầy, sơ đồ bàn, in hóa đơn nhiệt và phiếu bếp, quản lý kho, báo cáo doanh thu realtime. POS đa ngành — dùng thử miễn phí trên web và máy POS Android.',
-        keywords: 'phần mềm POS, phần mềm bán hàng, POS đa ngành, POS F&B, POS nhà hàng, POS cà phê, POS bán lẻ, quản lý cửa hàng, sơ đồ bàn, in hóa đơn nhiệt, phiếu bếp, quản lý kho, báo cáo doanh thu, SBOX POS, máy POS Android',
+        keywords: 'phần mềm POS, phần mềm bán hàng, POS đa ngành, POS F&B, POS nhà hàng, POS cà phê, POS bán lẻ, quản lý cửa hàng, sơ đồ bàn, in hóa đơn nhiệt, phiếu bếp, quản lý kho, báo cáo doanh thu, phần mềm quản lý siêu thị mini, phần mềm khuyến mãi, chương trình khuyến mãi, mua X tặng Y, in tem mã vạch, tem cân điện tử, bán hàng theo cân, quản lý hạn sử dụng, cảnh báo tồn kho, bảng giá sỉ lẻ, SBOX POS, máy POS Android',
         ogImage: origin + '/images/landing/pos/sbox-pos-og.jpg?v=3',
         ogImageAlt: 'SBOX POS – phần mềm bán hàng trên máy POS, tablet và web',
         themeColor: '#2E7D32'
