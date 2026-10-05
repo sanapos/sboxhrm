@@ -13,6 +13,8 @@ public class GetEmployeeMealSummaryHandler(
     public async Task<AppResponse<List<EmployeeMealSummaryDto>>> Handle(
         GetEmployeeMealSummaryQuery request, CancellationToken cancellationToken)
     {
+        // NV chưa gắn chi nhánh = trụ sở.
+        var includeUnassigned = request.BranchId.HasValue && request.BranchId == request.HeadquarterId;
         var from = request.FromDate.Date;
         var to = request.ToDate.Date;
 
@@ -23,7 +25,8 @@ public class GetEmployeeMealSummaryHandler(
                          (!request.BranchId.HasValue ||
                           (r.EmployeeUser != null &&
                            r.EmployeeUser.Employee != null &&
-                           r.EmployeeUser.Employee.BranchId == request.BranchId.Value)),
+                           (r.EmployeeUser.Employee.BranchId == request.BranchId.Value
+                            || (includeUnassigned && r.EmployeeUser.Employee.BranchId == null)))),
             includes: q => q.Include(r => r.EmployeeUser)
                 .ThenInclude(u => u!.Employee)
                 .Include(r => r.MealSession),

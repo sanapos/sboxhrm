@@ -197,7 +197,12 @@ public class AttendanceApprovalsController(
         IEnumerable<AttendanceApprovalItemDto> q = items;
         if (kind is "mobile" or "correction") q = q.Where(i => i.Kind == kind);
         if (!string.IsNullOrWhiteSpace(risk)) q = q.Where(i => i.RiskLevel == risk);
-        if (branchId.HasValue) q = q.Where(i => i.BranchId == branchId);
+        if (branchId.HasValue)
+        {
+            // Nhân viên chưa gắn chi nhánh = trụ sở (cùng quy ước BranchQueryHelper).
+            var hq = await BranchQueryHelper.HeadquarterIdAsync(db, storeId);
+            q = q.Where(i => (i.BranchId ?? hq) == branchId);
+        }
         if (!string.IsNullOrWhiteSpace(search))
         {
             var s = VnSearch.FoldText(search);

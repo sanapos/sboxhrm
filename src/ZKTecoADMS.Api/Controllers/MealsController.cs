@@ -219,7 +219,8 @@ public class MealsController(
         [FromQuery] Guid? employeeUserId,
         [FromQuery] Guid? branchId = null)
     {
-        var query = new GetEmployeeMealSummaryQuery(RequiredStoreId, from, to, employeeUserId, branchId);
+        var hq = branchId.HasValue ? HttpContext.BranchContext()?.HeadquarterBranchId : null;
+        var query = new GetEmployeeMealSummaryQuery(RequiredStoreId, from, to, employeeUserId, branchId, hq);
         var result = await mediator.Send(query);
         return Ok(result);
     }

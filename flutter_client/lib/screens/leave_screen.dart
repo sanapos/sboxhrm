@@ -357,8 +357,9 @@ class _LeaveScreenState extends State<LeaveScreen>
           (e) => e['id']?.toString() == empId,
           orElse: () => <String, dynamic>{},
         );
+        // NV chưa gắn chi nhánh = trụ sở (BranchFilterHelper.branchMatches).
         if ((emp as Map).isEmpty ||
-            emp['branchId']?.toString() != _filterBranchId) {
+            !BranchFilterHelper.inBranch(emp['branchId']?.toString(), _filterBranchId)) {
           return false;
         }
       }

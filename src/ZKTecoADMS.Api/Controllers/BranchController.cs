@@ -67,6 +67,9 @@ public class BranchController(
         if (isActive.HasValue)
             query = query.Where(b => b.IsActive == isActive.Value);
 
+        // NV chưa gắn chi nhánh = trụ sở — đếm vào trụ sở (cùng quy ước BranchQueryHelper).
+        var hq = storeId.HasValue ? await BranchQueryHelper.HeadquarterIdAsync(dbContext, storeId.Value) : null;
+
         var branches = await query
             .OrderBy(b => b.SortOrder).ThenBy(b => b.Name)
             .Select(b => new BranchDto
@@ -96,7 +99,8 @@ public class BranchController(
                 MaxEmployees = b.MaxEmployees,
                 IsActive = b.IsActive,
                 EmployeeCount = dbContext.Set<Employee>()
-                    .Count(e => e.BranchId == b.Id && e.Deleted == null),
+                    .Count(e => e.Deleted == null && (e.BranchId == b.Id
+                        || (hq == b.Id && e.BranchId == null && e.StoreId == b.StoreId))),
                 CreatedAt = b.CreatedAt,
             })
             .ToListAsync();
@@ -223,8 +227,10 @@ public class BranchController(
             return NotFound(AppResponse<BranchDto>.Fail("Không tìm thấy chi nhánh"));
 
         var dto = MapToDto(branch);
+        var hqId = branch.StoreId.HasValue ? await BranchQueryHelper.HeadquarterIdAsync(dbContext, branch.StoreId.Value) : null;
         dto.EmployeeCount = await dbContext.Set<Employee>()
-            .CountAsync(e => e.BranchId == id && e.Deleted == null);
+            .CountAsync(e => e.Deleted == null && (e.BranchId == id
+                || (hqId == id && e.BranchId == null && e.StoreId == branch.StoreId)));
         return Ok(AppResponse<BranchDto>.Success(dto));
     }
 

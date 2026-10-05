@@ -10,5 +10,7 @@ public record GetEmployeeMealSummaryQuery(
     DateTime FromDate,
     DateTime ToDate,
     Guid? EmployeeUserId,
-    Guid? BranchId = null
+    Guid? BranchId = null,
+    /// <summary>Trụ sở: lọc trụ sở thì tính cả NV chưa gắn chi nhánh.</summary>
+    Guid? HeadquarterId = null
 ) : IQuery<AppResponse<List<EmployeeMealSummaryDto>>>;

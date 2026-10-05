@@ -335,7 +335,10 @@ public class CommunicationV2Controller(
             ? $"{emp.LastName} {emp.FirstName}".Trim()
             : $"{user?.LastName} {user?.FirstName}".Trim();
         if (string.IsNullOrWhiteSpace(name)) name = user?.UserName ?? CurrentUserEmail ?? "—";
-        return _viewer = new CommViewer(CurrentUserId, emp?.Id, emp?.BranchId, emp?.DepartmentId, emp?.Position,
+        // NV chưa gắn chi nhánh = trụ sở: vẫn thấy kênh / bài gửi cho trụ sở.
+        var branchId = emp == null ? null
+            : emp.BranchId ?? await ZKTecoADMS.Infrastructure.Services.BranchQueryHelper.HeadquarterIdAsync(db, RequiredStoreId);
+        return _viewer = new CommViewer(CurrentUserId, emp?.Id, branchId, emp?.DepartmentId, emp?.Position,
             moderator, name, canCreate);
     }
 

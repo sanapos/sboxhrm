@@ -130,14 +130,19 @@ public static class CommV2Helper
     {
         var q = db.Employees.AsNoTracking().Where(e => e.StoreId == storeId && e.Deleted == null &&
                                                        e.WorkStatus != EmployeeWorkStatus.Resigned);
-        if (channel?.BranchId != null) q = q.Where(e => e.BranchId == channel.BranchId);
+        // NV chưa gắn chi nhánh = trụ sở.
+        var hq = channel?.BranchId != null || a.BranchIds.Count > 0
+            ? await ZKTecoADMS.Infrastructure.Services.BranchQueryHelper.HeadquarterIdAsync(db, storeId)
+            : null;
+        if (channel?.BranchId != null)
+            q = q.Where(e => e.BranchId == channel.BranchId || (e.BranchId == null && channel.BranchId == hq));
         if (channel?.DepartmentId != null) q = q.Where(e => e.DepartmentId == channel.DepartmentId);
         var list = await q.Select(e => new { e.Id, e.ApplicationUserId, e.LastName, e.FirstName, e.BranchId, e.DepartmentId, e.Position })
             .ToListAsync(ct);
         return list
             .Where(e => a.IsEveryone ||
                         a.EmployeeIds.Contains(e.Id) ||
-                        (e.BranchId.HasValue && a.BranchIds.Contains(e.BranchId.Value)) ||
+                        ((e.BranchId ?? hq) is Guid eb && a.BranchIds.Contains(eb)) ||
                         (e.DepartmentId.HasValue && a.DepartmentIds.Contains(e.DepartmentId.Value)) ||
                         (!string.IsNullOrWhiteSpace(e.Position) &&
                          a.Positions.Any(p => string.Equals(p.Trim(), e.Position!.Trim(), StringComparison.OrdinalIgnoreCase))))
