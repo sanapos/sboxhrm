@@ -1,3 +1,4 @@
+import 'pos_promotions_screen.dart';
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 
@@ -268,6 +269,8 @@ class _PosMoreScreenState extends State<PosMoreScreen> {
                     _Item('Voucher', Icons.confirmation_number_outlined, 'PosProducts',
                         const PosVouchersScreen(),
                         altModules: const ['PosSell']),
+                    _Item('Khuyến mãi', Icons.local_offer_outlined, 'PosProducts',
+                        const PosPromotionsScreen()),
                   ],
                 ),
                 const SizedBox(height: 12),

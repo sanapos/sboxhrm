@@ -167,7 +167,9 @@ public partial class PosSalesController(
         decimal DeliveryFee = 0,
         DateTime? SaleDate = null,
         /// <summary>Mã chống trùng do máy bán sinh; gửi lại cùng mã → trả đơn đã tạo.</summary>
-        string? ClientRequestId = null);
+        string? ClientRequestId = null,
+        /// <summary>Khuyến mãi máy bán đã áp (tiền giảm đã nằm trong giảm dòng / Discount).</summary>
+        string? PromotionsJson = null);
 
     public record EInvoiceBuyerDto(
         string? Name = null,
@@ -216,7 +218,8 @@ public partial class PosSalesController(
         EInvoiceBuyerDto? EInvoiceBuyer = null,
         decimal SurchargeAmount = 0,
         decimal DeliveryFee = 0,
-        DateTime? SaleDate = null);
+        DateTime? SaleDate = null,
+        string? PromotionsJson = null);
 
     public record SaleOrderDto(
         Guid Id,
@@ -305,7 +308,8 @@ public partial class PosSalesController(
         string? DeliveryLabelUrl = null,
         string? EInvoiceLookupUrl = null,
         string? EInvoiceSellerTaxCode = null,
-        bool EInvoicePrintOnReceipt = false);
+        bool EInvoicePrintOnReceipt = false,
+        string? PromotionsJson = null);
 
     public record SaleOrderSummaryDto(
         Guid Id,
@@ -2590,7 +2594,10 @@ public partial class PosSalesController(
             order.DeliveryTrackingCode,
             order.DeliveryCarrierOrderId,
             order.DeliveryCarrierCode,
-            order.DeliveryLabelUrl);
+            order.DeliveryLabelUrl)
+        {
+            PromotionsJson = order.PromotionsJson,
+        };
     }
 
     private static SaleOrderSummaryDto MapSummary(

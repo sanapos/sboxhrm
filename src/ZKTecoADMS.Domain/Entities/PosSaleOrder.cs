@@ -142,6 +142,12 @@ public class PosSaleOrder : AuditableEntity<Guid>, IBranchScoped
 
     public decimal VoucherDiscount { get; set; }
 
+    /// <summary>Khuyến mãi tự áp ở màn bán: {"applied":[{id,name,amount}],"lines":{khóa dòng: tiền},"bill":tiền}.</summary>
+    public string? PromotionsJson { get; set; }
+
+    /// <summary>Tổng tiền giảm do khuyến mãi (đã nằm trong giảm dòng / giảm hóa đơn).</summary>
+    public decimal PromotionDiscount { get; set; }
+
     public decimal PointsRedeemed { get; set; }
 
     public decimal PointsDiscount { get; set; }

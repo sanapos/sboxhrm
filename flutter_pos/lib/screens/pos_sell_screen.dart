@@ -1,6 +1,7 @@
 import 'dart:async';
 import '../widgets/pos/pos_package_timer.dart';
 import '../utils/pos_scale_barcode.dart';
+import '../utils/pos_promotion_engine.dart';
 import 'dart:convert';
 import 'dart:math' as math;
 
@@ -381,13 +382,24 @@ class _SellCartLine {
 
   bool get kitchenFullySent => kitchenPendingQty <= 0 && qty > 0;
 
-  double get discountAmount {
+  /// Khuyến mãi tự áp (tính lại mỗi lần giỏ đổi) — cộng vào chiết khấu dòng gửi server.
+  double promoDiscount = 0;
+  String? promoLabel;
+
+  /// Chiết khấu tay của thu ngân.
+  double get manualDiscountAmount {
     if (discountInput <= 0) return 0;
     if (discountIsPercent) {
       return (lineGross * discountInput / 100).clamp(0, lineGross);
     }
     return discountInput.clamp(0, lineGross);
   }
+
+  double get discountAmount =>
+      (manualDiscountAmount + promoDiscount).clamp(0, lineGross).toDouble();
+
+  /// Khóa dòng lưu trong PromotionsJson của đơn.
+  String get promoSaveKey => '${product.id}|${variantId ?? ''}|${unitId ?? ''}';
 
   double get lineTotal => lineGross - discountAmount;
 }
@@ -476,6 +488,9 @@ class _SellInvoiceTab {
   bool discountIsPercent = false;
   double discountInput = 0;
   double discount = 0;
+  /// Kết quả khuyến mãi gần nhất (giảm hóa đơn + gợi ý hàng tặng + JSON lưu đơn).
+  PosPromoResult? promo;
+  double get promoBillDiscount => promo?.billDiscount ?? 0;
   bool surchargeIsPercent = false;
   double surchargeInput = 0;
   double surchargeAmount = 0;
@@ -685,11 +700,10 @@ class _SellInvoiceTab {
   }
 
   void applyDiscount(double baseAfterLineDiscount) {
-    if (discountIsPercent) {
-      discount = (baseAfterLineDiscount * discountInput / 100).clamp(0, baseAfterLineDiscount);
-    } else {
-      discount = discountInput.clamp(0, baseAfterLineDiscount);
-    }
+    final manual = discountIsPercent
+        ? baseAfterLineDiscount * discountInput / 100
+        : discountInput;
+    discount = (manual + promoBillDiscount).clamp(0, baseAfterLineDiscount).toDouble();
   }
 
   void applySurcharge(double baseAfterDiscount) {
@@ -838,6 +852,9 @@ class _PosSellScreenState extends State<PosSellScreen>
   bool _canPickSeller = false;
   String? _defaultSellerEmployeeId;
   List<PosPriceList> _priceLists = [];
+  /// Khuyến mãi đang hiệu lực hôm nay (khung giờ / thứ xét lúc tính).
+  List<PosPromotion> _promotions = [];
+  Timer? _promotionsTimer;
   final Map<String, Map<String, double>> _priceOverrideCache = {};
   int _expiringLotCount = 0;
   int _expiredLotCount = 0;
@@ -1249,6 +1266,9 @@ class _PosSellScreenState extends State<PosSellScreen>
     });
     ScreenRefreshNotifier.posSellStockPatch.addListener(_syncCartStockFromPatch);
     ScreenRefreshNotifier.posPriceLists.addListener(_onPriceListsChanged);
+    unawaited(_loadPromotions());
+    // Nạp lại định kỳ: chương trình mới / hàng cận hạn đổi trong ngày.
+    _promotionsTimer = Timer.periodic(const Duration(minutes: 10), (_) => unawaited(_loadPromotions()));
     ScreenRefreshNotifier.posSellIndustry.addListener(_onSellIndustryChanged);
     NavigationNotifier.posHandleSystemBack = _onSystemBack;
     _floorRealtime.start((_) {
@@ -1800,6 +1820,70 @@ class _PosSellScreenState extends State<PosSellScreen>
     }
   }
 
+  Future<void> _loadPromotions() async {
+    final res = await _api.getPosPromotions(activeOnly: true);
+    if (!mounted || res['isSuccess'] != true || res['data'] is! List) return;
+    setState(() {
+      _promotions = (res['data'] as List)
+          .map((e) => PosPromotion.fromJson(Map<String, dynamic>.from(e as Map)))
+          .toList();
+    });
+  }
+
+  /// Tính khuyến mãi cho hóa đơn: gán tiền giảm từng dòng + giảm hóa đơn (không đụng giảm tay).
+  void _applyPromotionsFor(_SellInvoiceTab tab) {
+    if (_promotions.isEmpty) {
+      if (tab.promo == null && tab.cart.every((c) => c.promoDiscount == 0)) return;
+      for (final c in tab.cart) {
+        c.promoDiscount = 0;
+        c.promoLabel = null;
+      }
+      tab.promo = null;
+    } else {
+      final result = computePosPromotions(
+        promotions: _promotions,
+        now: DateTime.now(),
+        hasCustomer: tab.customer != null,
+        lines: [
+          for (final c in tab.cart)
+            PosPromoLine(
+              key: '${c.rowId}',
+              productId: c.product.id,
+              categoryId: c.product.categoryId,
+              hasBarcode: (c.variant?.barcode ?? c.product.barcode ?? '').trim().isNotEmpty,
+              qty: c.qty,
+              gross: c.lineGross,
+              manualDiscount: c.manualDiscountAmount,
+            ),
+        ],
+      );
+      for (final c in tab.cart) {
+        c.promoDiscount = result.lineDiscount['${c.rowId}'] ?? 0;
+        final labels = result.lineLabels['${c.rowId}'];
+        c.promoLabel = labels == null || labels.isEmpty ? null : labels.join(', ');
+      }
+      tab.promo = result.isEmpty ? null : result;
+    }
+    final gross = tab.cart.fold<double>(0, (a, c) => a + c.lineGross);
+    final lineDisc = tab.cart.fold<double>(0, (a, c) => a + c.discountAmount);
+    tab.applyDiscount((gross - lineDisc).clamp(0, double.infinity).toDouble());
+  }
+
+  /// JSON khuyến mãi lưu vào đơn.
+  String? _promotionsJsonFor(_SellInvoiceTab tab) =>
+      tab.promo?.toOrderJson({for (final c in tab.cart) '${c.rowId}': c.promoSaveKey});
+
+  /// Thêm hàng tặng / mua kèm được gợi ý vào giỏ.
+  Future<void> _addPromoSuggestion(PosPromoSuggestion s) async {
+    final res = await _api.getPosProduct(s.productId);
+    if (!mounted || res['isSuccess'] != true || res['data'] is! Map) {
+      NotificationOverlayManager().showError(title: 'Không thêm được', message: s.productName);
+      return;
+    }
+    final p = PosProduct.fromJson(Map<String, dynamic>.from(res['data'] as Map));
+    await _addPick(PosPurchaseLookupPick(product: p), mergeIfSame: true, addQty: s.qty);
+  }
+
   void _onPriceListsChanged() {
     _cachedDesktopProductPane = null;
     _cachedProductPaneSig = null;
@@ -1941,6 +2025,7 @@ class _PosSellScreenState extends State<PosSellScreen>
     }
     ScreenRefreshNotifier.posSellStockPatch.removeListener(_syncCartStockFromPatch);
     ScreenRefreshNotifier.posPriceLists.removeListener(_onPriceListsChanged);
+    _promotionsTimer?.cancel();
     ScreenRefreshNotifier.posSellIndustry.removeListener(_onSellIndustryChanged);
     HardwareKeyboard.instance.removeHandler(_onKey);
     _tabScrollCtrl.dispose();
@@ -5426,9 +5511,91 @@ class _PosSellScreenState extends State<PosSellScreen>
   double get _lineDiscountTotal =>
       _tab.cart.fold(0.0, (a, c) => a + c.discountAmount);
 
+  double get _manualLineDiscountTotal =>
+      _tab.cart.fold(0.0, (a, c) => a + c.manualDiscountAmount);
+
+  /// Dòng «Khuyến mãi» + gợi ý hàng tặng / mua kèm ở khung tổng tiền.
+  List<Widget> _promoSummaryWidgets() {
+    final r = _tab.promo;
+    if (r == null) return const [];
+    final linePromo = _tab.cart.fold<double>(0, (a, c) => a + c.promoDiscount);
+    final total = linePromo + r.billDiscount;
+    return [
+      if (total > 0) ...[
+        const SizedBox(height: 2),
+        Row(children: [
+          Icon(Icons.local_offer_outlined, size: 14, color: Colors.green.shade800),
+          const SizedBox(width: 4),
+          Expanded(
+            child: Text(
+              tr('Khuyến mãi: ${r.applied.map((a) => a.name).join(', ')}'),
+              maxLines: 2,
+              overflow: TextOverflow.ellipsis,
+              style: TextStyle(fontSize: 12, color: Colors.green.shade800),
+            ),
+          ),
+          Text('-${_moneyFmt.format(total)}',
+              style: TextStyle(fontSize: 12, fontWeight: FontWeight.w700, color: Colors.green.shade800)),
+        ]),
+      ],
+      for (final s in r.suggestions)
+        Padding(
+          padding: const EdgeInsets.only(top: 4),
+          child: Material(
+            color: Colors.amber.shade50,
+            borderRadius: BorderRadius.circular(8),
+            child: InkWell(
+              borderRadius: BorderRadius.circular(8),
+              onTap: () => _addPromoSuggestion(s),
+              child: Padding(
+                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 6),
+                child: Row(children: [
+                  Icon(Icons.card_giftcard, size: 16, color: Colors.amber.shade900),
+                  const SizedBox(width: 6),
+                  Expanded(
+                    child: Text(tr('${s.text} (${s.promotionName})'),
+                        style: TextStyle(fontSize: 12, color: Colors.amber.shade900)),
+                  ),
+                  Text(tr('Thêm'),
+                      style: TextStyle(
+                          fontSize: 12, fontWeight: FontWeight.w700, color: Colors.amber.shade900)),
+                ]),
+              ),
+            ),
+          ),
+        ),
+    ];
+  }
+
+  /// Khuyến mãi đã lưu trên đơn: {"lines":{khóa: tiền},"bill":tiền}.
+  Map<String, dynamic>? _parsePromoSaved(String? json) {
+    if (json == null || json.trim().isEmpty) return null;
+    try {
+      final m = jsonDecode(json);
+      return m is Map ? Map<String, dynamic>.from(m) : null;
+    } catch (_) {
+      return null;
+    }
+  }
+
+  /// Chiết khấu dòng lưu trên server gồm cả khuyến mãi → tách lấy phần giảm tay (khuyến mãi tự tính lại).
+  /// Nhiều dòng cùng khóa: trừ dần phần khuyến mãi còn lại.
+  double _manualPartOfSavedDiscount(Map<String, dynamic>? saved, String productId,
+      String? variantId, String? unitId, double saved_) {
+    final lines = saved?['lines'];
+    if (lines is! Map) return saved_;
+    final key = '$productId|${variantId ?? ''}|${unitId ?? ''}';
+    final left = (lines[key] as num?)?.toDouble() ?? 0;
+    if (left <= 0) return saved_;
+    final take = left < saved_ ? left : saved_;
+    lines[key] = left - take;
+    return saved_ - take;
+  }
+
   double get _afterLineDiscount => (_subTotal - _lineDiscountTotal).clamp(0, double.infinity);
 
   void _recalcTotals({bool publishDisplay = true}) {
+    _applyPromotionsFor(_tab);
     _tab.applyDiscount(_afterLineDiscount);
     final afterOrderDiscount =
         (_afterLineDiscount - _tab.discount).clamp(0.0, double.infinity).toDouble();
@@ -7433,6 +7600,7 @@ class _PosSellScreenState extends State<PosSellScreen>
       }
     }
 
+    final promoSaved = _parsePromoSaved(order.promotionsJson);
     final cartLines = <_SellCartLine>[];
     for (final line in order.lines) {
       if (line.productId.isEmpty) continue;
@@ -7471,7 +7639,8 @@ class _PosSellScreenState extends State<PosSellScreen>
         unitViews: views,
         qty: line.qty,
         lineNote: line.lineNote,
-        discountInput: line.discountAmount,
+        discountInput: _manualPartOfSavedDiscount(promoSaved, line.productId,
+            line.variantId, view.unitId, line.discountAmount),
         discountIsPercent: false,
         vatRate: p.vatExempt ? 0 : p.vatRate,
         vatExempt: p.vatExempt,
@@ -7552,12 +7721,14 @@ class _PosSellScreenState extends State<PosSellScreen>
       } else if (order.lockedByDisplayName != null) {
         tab.lockedByLabel = order.lockBadgeLabel;
       }
+      final billPromo = (promoSaved?['bill'] as num?)?.toDouble() ?? 0;
+      final manualBill = (order.discount - billPromo).clamp(0.0, double.infinity).toDouble();
       tab.discount = order.discount;
-      tab.discountInput = order.discount;
+      tab.discountInput = manualBill;
       tab.discountIsPercent = false;
-      tab._discountCtrl.text = order.discount == order.discount.roundToDouble()
-          ? order.discount.toStringAsFixed(0)
-          : order.discount.toStringAsFixed(2);
+      tab._discountCtrl.text = manualBill == manualBill.roundToDouble()
+          ? manualBill.toStringAsFixed(0)
+          : manualBill.toStringAsFixed(2);
       tab.surchargeIsPercent = false;
       tab.surchargeInput = order.surchargeAmount;
       tab.surchargeAmount = order.surchargeAmount;
@@ -9579,6 +9750,7 @@ class _PosSellScreenState extends State<PosSellScreen>
     _SellInvoiceTab tab, {
     required bool complete,
   }) {
+    _applyPromotionsFor(tab);
     final paid = complete ? _effectivePaidAmountFor(tab) : 0.0;
     final paymentLines = complete
         ? tab.paymentLines.where((p) => p.amount > 0).toList()
@@ -9652,6 +9824,7 @@ class _PosSellScreenState extends State<PosSellScreen>
         return line;
       }).toList(),
       'discount': tab.discount,
+      'promotionsJson': _promotionsJsonFor(tab),
       'surchargeAmount':
           _storeSettings.enableSurcharge ? tab.surchargeAmount : 0,
       'deliveryFee': _storeSettings.enableDeliveryFee ? tab.deliveryFee : 0,
@@ -12198,6 +12371,8 @@ class _PosSellScreenState extends State<PosSellScreen>
 
   @override
   Widget build(BuildContext context) {
+    // Khung giờ khuyến mãi bắt đầu / kết thúc hoặc giỏ đổi → tính lại trước khi vẽ tổng tiền.
+    if (_tabs.isNotEmpty) _applyPromotionsFor(_tab);
     final perm = Provider.of<PermissionProvider>(context);
     // Chưa load quyền → spinner (không khóa màn xám «không có quyền»).
     if (!perm.isLoaded && perm.isLoading) {
@@ -13115,10 +13290,18 @@ class _PosSellScreenState extends State<PosSellScreen>
     }
     final timerWidget = _lineTimerWidget(line);
     if (timerWidget != null) meta.add(timerWidget);
-    if (!priceExpanded && line.discountAmount > 0) {
+    if (!priceExpanded && line.manualDiscountAmount > 0) {
       meta.add(Text(
-        tr('CK: -${_moneyFmt.format(line.discountAmount)}'),
+        tr('CK: -${_moneyFmt.format(line.manualDiscountAmount)}'),
         style: TextStyle(fontSize: 12, height: 1.25, color: Colors.red.shade700),
+      ));
+    }
+    if (line.promoDiscount > 0) {
+      meta.add(Text(
+        tr('KM ${line.promoLabel ?? ''}: -${_moneyFmt.format(line.promoDiscount)}'),
+        maxLines: 1,
+        overflow: TextOverflow.ellipsis,
+        style: TextStyle(fontSize: 12, height: 1.25, color: Colors.green.shade800, fontWeight: FontWeight.w600),
       ));
     }
 
@@ -13961,10 +14144,11 @@ class _PosSellScreenState extends State<PosSellScreen>
         ],
         const SizedBox(height: 6),
         _summaryRow('Tổng tiền hàng (${_tab.cart.length})', _moneyFmt.format(_subTotal)),
-        if (_lineDiscountTotal > 0) ...[
+        if (_manualLineDiscountTotal > 0) ...[
           const SizedBox(height: 2),
-          _summaryRow('Chiết khấu SP', '-${_moneyFmt.format(_lineDiscountTotal)}'),
+          _summaryRow('Chiết khấu SP', '-${_moneyFmt.format(_manualLineDiscountTotal)}'),
         ],
+        ..._promoSummaryWidgets(),
         const SizedBox(height: 6),
         Row(
           crossAxisAlignment: CrossAxisAlignment.center,
@@ -17556,11 +17740,17 @@ class _PosSellScreenState extends State<PosSellScreen>
                   spacing: 6,
                   runSpacing: 2,
                   children: [
-                    if (hasDiscount)
+                    if (line.manualDiscountAmount > 0)
                       Text(
-                        tr('CK -${_moneyFmt.format(line.discountAmount)}'),
+                        tr('CK -${_moneyFmt.format(line.manualDiscountAmount)}'),
                         style:
                             TextStyle(fontSize: 12, color: Colors.red.shade700),
+                      ),
+                    if (line.promoDiscount > 0)
+                      Text(
+                        tr('KM ${line.promoLabel ?? ''} -${_moneyFmt.format(line.promoDiscount)}'),
+                        style: TextStyle(
+                            fontSize: 12, color: Colors.green.shade800, fontWeight: FontWeight.w600),
                       ),
                     if (hasNote)
                       Text(

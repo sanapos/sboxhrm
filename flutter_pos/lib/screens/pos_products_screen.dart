@@ -19,6 +19,7 @@ import '../widgets/notification_overlay.dart';
 import '../widgets/pos/pos_barcode_label_dialog.dart';
 import '../widgets/pos/pos_scale_label_dialog.dart';
 import 'pos/pos_reorder_suggestions_screen.dart';
+import 'pos/pos_promotions_screen.dart';
 import '../widgets/pos/pos_catalog_manage.dart';
 import '../widgets/pos/pos_product_column_prefs.dart';
 import '../widgets/pos/pos_module_toolbar.dart';
@@ -1362,6 +1363,9 @@ class _PosProductsScreenState extends State<PosProductsScreen> {
                             _showColumnPicker();
                           } else if (v == 'scan') {
                             _scanSearch();
+                          } else if (v == 'promotions') {
+                            Navigator.of(context).push(MaterialPageRoute(
+                                builder: (_) => const PosPromotionsScreen()));
                           } else if (v == 'scale_label') {
                             // ignore: discarded_futures
                             showPosScaleLabelDialog(context);
@@ -1429,6 +1433,9 @@ class _PosProductsScreenState extends State<PosProductsScreen> {
                               value: 'columns', child: Text(tr('Hiển thị cột'))),
                           PopupMenuItem(
                               value: 'scan', child: Text(tr('Quét mã vạch'))),
+                          PopupMenuItem(
+                              value: 'promotions',
+                              child: Text(tr('Khuyến mãi (giờ vàng, mua X tặng Y…)'))),
                           PopupMenuItem(
                               value: 'scale_label',
                               child: Text(tr('Cân & in tem hàng cân'))),

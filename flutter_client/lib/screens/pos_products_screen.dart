@@ -20,6 +20,7 @@ import '../widgets/notification_overlay.dart';
 import '../widgets/pos/pos_barcode_label_dialog.dart';
 import '../widgets/pos/pos_scale_label_dialog.dart';
 import 'pos/pos_reorder_suggestions_screen.dart';
+import 'pos/pos_promotions_screen.dart';
 import '../widgets/pos/pos_catalog_manage.dart';
 import '../widgets/pos/pos_product_column_prefs.dart';
 import '../widgets/pos/pos_module_toolbar.dart';
@@ -1302,6 +1303,9 @@ class _PosProductsScreenState extends State<PosProductsScreen> {
                           } else if (v == 'create_hub' &&
                               perm.canCreate('PosProducts')) {
                             _openTypeHub(perm, title: 'Tạo hoặc nhập theo loại');
+                          } else if (v == 'promotions') {
+                            Navigator.of(context).push(MaterialPageRoute(
+                                builder: (_) => const PosPromotionsScreen()));
                           } else if (v == 'scale_label') {
                             // ignore: discarded_futures
                             showPosScaleLabelDialog(context);
@@ -1337,6 +1341,9 @@ class _PosProductsScreenState extends State<PosProductsScreen> {
                           PopupMenuItem(
                               value: 'price_lists',
                               child: Text(tr('Bảng giá (giá sỉ / VIP / theo kỳ)'))),
+                          PopupMenuItem(
+                              value: 'promotions',
+                              child: Text(tr('Khuyến mãi (giờ vàng, mua X tặng Y…)'))),
                           PopupMenuItem(
                               value: 'scale_label',
                               child: Text(tr('Cân & in tem hàng cân'))),
@@ -1509,6 +1516,9 @@ class _PosProductsScreenState extends State<PosProductsScreen> {
                 _showColumnPicker();
               case 'scan':
                 _scanSearch();
+              case 'promotions':
+                await Navigator.of(context)
+                    .push(MaterialPageRoute(builder: (_) => const PosPromotionsScreen()));
               case 'scale_label':
                 await showPosScaleLabelDialog(context);
               case 'reorder':
@@ -1533,6 +1543,7 @@ class _PosProductsScreenState extends State<PosProductsScreen> {
               const PopupMenuDivider(),
             ],
             _menuItem('price_lists', Icons.price_change_outlined, 'Bảng giá (giá sỉ / VIP / theo kỳ)'),
+            _menuItem('promotions', Icons.local_offer_outlined, 'Khuyến mãi (giờ vàng, mua X tặng Y…)'),
             _menuItem('scale_label', Icons.scale_outlined, 'Cân & in tem hàng cân'),
             _menuItem('reorder', Icons.production_quantity_limits, 'Hàng cần nhập thêm'),
             _menuItem('topping_groups', Icons.local_cafe_outlined, 'Nhóm topping'),

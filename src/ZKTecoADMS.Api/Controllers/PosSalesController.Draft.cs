@@ -160,7 +160,8 @@ public partial class PosSalesController
             dto.ServiceResourceId, dto.ResourceSessionId, dto.ServiceStartedAt, dto.ServiceEndedAt,
             dto.ExpectedLockVersion, dto.DeviceId, dto.DeviceName, dto.InvoiceSlot,
             dto.VatAmount, dto.IssueEInvoice, dto.EInvoiceBuyer,
-            dto.SurchargeAmount, dto.DeliveryFee, dto.SaleDate);
+            dto.SurchargeAmount, dto.DeliveryFee, dto.SaleDate,
+            PromotionsJson: dto.PromotionsJson);
 
         // Thanh toán: RepeatableRead + retry serialization/unique (giống CreateSale) —
         // tránh 500 «lỗi hệ thống» khi autosave/máy khác tranh chấp tồn hoặc mã HD/phiếu thu.
@@ -1356,6 +1357,7 @@ public partial class PosSalesController
                     : dto.PriceListName.Trim();
             }
         }
+        (order.PromotionsJson, order.PromotionDiscount) = PosPromotionsController.Sanitize(dto.PromotionsJson);
         order.UpdatedAt = DateTime.UtcNow;
         order.UpdatedBy = CurrentUserEmail;
 

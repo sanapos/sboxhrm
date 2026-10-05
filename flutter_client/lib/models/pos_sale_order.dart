@@ -209,6 +209,8 @@ class PosSaleOrder {
   final String? priceListId;
   final String? priceListName;
   final String? voucherCode;
+  /// Khuyến mãi tự áp đã lưu trên đơn (để mở lại đơn tạm không cộng trùng tiền giảm).
+  final String? promotionsJson;
   final double voucherDiscount;
   final double pointsRedeemed;
   final double pointsDiscount;
@@ -292,6 +294,7 @@ class PosSaleOrder {
     this.priceListId,
     this.priceListName,
     this.voucherCode,
+    this.promotionsJson,
     this.voucherDiscount = 0,
     this.pointsRedeemed = 0,
     this.pointsDiscount = 0,
@@ -378,6 +381,7 @@ class PosSaleOrder {
         priceListId: priceListId,
         priceListName: priceListName,
         voucherCode: voucherCode,
+        promotionsJson: promotionsJson,
         voucherDiscount: voucherDiscount,
         pointsRedeemed: pointsRedeemed,
         pointsDiscount: pointsDiscount,
@@ -524,6 +528,7 @@ class PosSaleOrder {
       priceListId: (json['priceListId'] ?? json['PriceListId'])?.toString(),
       priceListName: json['priceListName'] ?? json['PriceListName'] as String?,
       voucherCode: json['voucherCode'] ?? json['VoucherCode'] as String?,
+      promotionsJson: (json['promotionsJson'] ?? json['PromotionsJson']) as String?,
       voucherDiscount: n(json['voucherDiscount'] ?? json['VoucherDiscount']),
       pointsRedeemed: n(json['pointsRedeemed'] ?? json['PointsRedeemed']),
       pointsDiscount: n(json['pointsDiscount'] ?? json['PointsDiscount']),

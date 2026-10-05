@@ -15913,6 +15913,55 @@ class ApiService {
     }
   }
 
+  // ── Khuyến mãi tự áp ở màn bán ──
+  Future<Map<String, dynamic>> getPosPromotions({bool activeOnly = false}) async {
+    try {
+      final response = await http
+          .get(Uri.parse('$baseUrl/api/pos/promotions${activeOnly ? '/active' : ''}'), headers: _headers)
+          .timeout(const Duration(seconds: 30));
+      return _handleResponse(response);
+    } catch (e) {
+      return _connectionFailure(e);
+    }
+  }
+
+  Future<Map<String, dynamic>> savePosPromotion(String? id, Map<String, dynamic> body) async {
+    try {
+      final uri = Uri.parse('$baseUrl/api/pos/promotions${id == null ? '' : '/$id'}');
+      final response = await (id == null
+              ? http.post(uri, headers: _headers, body: jsonEncode(body))
+              : http.put(uri, headers: _headers, body: jsonEncode(body)))
+          .timeout(const Duration(seconds: 30));
+      return _handleResponse(response);
+    } catch (e) {
+      return _connectionFailure(e);
+    }
+  }
+
+  Future<Map<String, dynamic>> deletePosPromotion(String id) async {
+    try {
+      final response = await http
+          .delete(Uri.parse('$baseUrl/api/pos/promotions/$id'), headers: _headers)
+          .timeout(const Duration(seconds: 30));
+      return _handleResponse(response);
+    } catch (e) {
+      return _connectionFailure(e);
+    }
+  }
+
+  Future<Map<String, dynamic>> getPosPromotionReport(DateTime from, DateTime to) async {
+    String d(DateTime x) =>
+        '${x.year}-${x.month.toString().padLeft(2, '0')}-${x.day.toString().padLeft(2, '0')}';
+    try {
+      final response = await http
+          .get(Uri.parse('$baseUrl/api/pos/promotions/report?from=${d(from)}&to=${d(to)}'), headers: _headers)
+          .timeout(const Duration(seconds: 30));
+      return _handleResponse(response);
+    } catch (e) {
+      return _connectionFailure(e);
+    }
+  }
+
   /// Gán PLU tem cân cho hàng (trả PLU sẵn có nếu đã gán).
   Future<Map<String, dynamic>> assignPosProductScalePlu(String productId) async {
     try {

@@ -121,6 +121,7 @@ import 'pos/pos_transfer_confirm_screen.dart';
 import 'pos/pos_cashier_shift_screen.dart';
 import 'pos/pos_price_lists_screen.dart';
 import 'pos/pos_vouchers_screen.dart';
+import 'pos/pos_promotions_screen.dart';
 import 'shift_swap_screen.dart';
 import '../utils/permission_navigation.dart';
 import '../utils/responsive_helper.dart';
@@ -409,7 +410,8 @@ class _MainLayoutState extends State<MainLayout> with WidgetsBindingObserver {
     final perm = Provider.of<PermissionProvider>(context, listen: false);
     final known = {for (final i in _visibleNavIndices()) _navItems[i].label.toLowerCase()};
     final defs = <(String, IconData, String, List<String>, Widget Function())>[
-      ('Voucher', Icons.confirmation_number_outlined, 'PosProducts', ['mã giảm giá', 'khuyến mãi'], () => const PosVouchersScreen()),
+      ('Voucher', Icons.confirmation_number_outlined, 'PosProducts', ['mã giảm giá'], () => const PosVouchersScreen()),
+      ('Khuyến mãi', Icons.local_offer_outlined, 'PosProducts', ['giờ vàng', 'mua x tặng y', 'đồng giá', 'combo', 'giảm giá'], () => const PosPromotionsScreen()),
       ('Bảng giá', Icons.price_change_outlined, 'PosProducts', ['giá bán', 'price list'], () => const PosPriceListsScreen()),
       ('Nhóm topping', Icons.local_cafe_outlined, 'PosProducts', ['topping', 'món thêm'], () => const PosToppingGroupsScreen()),
       ('Ca thu ngân', Icons.account_balance_wallet_outlined, 'PosCashierShift', ['giao ca', 'mở ca', 'chốt ca'], () => const PosCashierShiftScreen()),
