@@ -39,6 +39,14 @@ public static class CashSourceBackfill
         var linked = 0;
         var branched = 0;
         var penaltyCodes = new Dictionary<(Guid?, string), Guid?>();
+        // Chứng từ nhân sự chỉ một phiếu hiệu lực (UX_CashTransactions_HrmSource) → phiếu trùng giữ nguyên, không gắn.
+        var hrmTaken = (await db.CashTransactions.IgnoreQueryFilters().AsNoTracking()
+                .Where(c => c.SourceId != null && c.IsActive && c.Deleted == null)
+                .Select(c => new { c.StoreId, c.SourceType, c.SourceId })
+                .ToListAsync(ct))
+            .Where(c => IsUniqueSource(c.SourceType))
+            .Select(c => (c.StoreId, c.SourceType!, c.SourceId!.Value))
+            .ToHashSet();
         foreach (var c in rows)
         {
             var src = CashSources.Resolve(c.SourceType, c.SourceId, c.InternalNote);
@@ -61,6 +69,13 @@ public static class CashSourceBackfill
             }
 
             var info = await CashSourceResolver.ResolveAsync(db, c.StoreId, src.Value.Type, src.Value.Id, ct);
+            var isNewLink = c.SourceType == null || c.SourceType == CashSources.Manual || c.SourceId != src.Value.Id;
+            if (isNewLink && IsUniqueSource(info.Type) && c.IsActive && c.Deleted == null
+                && !hrmTaken.Add((c.StoreId, info.Type, src.Value.Id)))
+            {
+                c.EmployeeId ??= info.EmployeeId;
+                continue;
+            }
             if (c.SourceType == null || c.SourceType == CashSources.Manual) linked++;
             c.SourceType = info.Type;
             c.SourceId = src.Value.Id;
@@ -74,4 +89,6 @@ public static class CashSourceBackfill
         await db.SaveChangesAsync(ct);
         return (linked, branched, rows.Count);
     }
+
+    static bool IsUniqueSource(string? type) => type == CashSources.Payslip || CashSources.IsHrmPayable(type);
 }

@@ -1235,7 +1235,9 @@ UPDATE "CashTransactions" c SET "SourceType" = 'trip_settlement', "SourceId" = s
 UPDATE "CashTransactions" c SET "EmployeeId" = a."EmployeeId" FROM "AdvanceRequests" a WHERE c."SourceType" = 'advance' AND c."SourceId" = a."Id" AND c."EmployeeId" IS NULL;
 UPDATE "CashTransactions" c SET "EmployeeId" = p."EmployeeId" FROM "PaymentTransactions" p WHERE c."SourceType" = 'reward' AND c."SourceId" = p."Id" AND c."EmployeeId" IS NULL;
 UPDATE "PaymentTransactions" SET "Source" = 'manual' WHERE "Source" IS NULL AND "Type" IN ('Bonus', 'Penalty');
-CREATE UNIQUE INDEX IF NOT EXISTS "UX_CashTransactions_Source" ON "CashTransactions" ("StoreId", "SourceType", "SourceId") WHERE "SourceId" IS NOT NULL AND "IsActive" = true AND "Deleted" IS NULL;
+-- Một phiếu / chứng từ nhân sự. Chứng từ POS (đơn nhiều lần thu, trả hàng nhiều lần, HĐ thu theo đợt) được nhiều phiếu.
+DROP INDEX IF EXISTS "UX_CashTransactions_Source";
+CREATE UNIQUE INDEX IF NOT EXISTS "UX_CashTransactions_HrmSource" ON "CashTransactions" ("StoreId", "SourceType", "SourceId") WHERE "SourceId" IS NOT NULL AND "IsActive" = true AND "Deleted" IS NULL AND "SourceType" IN ('payslip', 'advance', 'reward', 'penalty_ticket', 'trip_advance', 'trip_settlement', 'trip_refund');
 CREATE INDEX IF NOT EXISTS "IX_CashTransactions_Store_Employee" ON "CashTransactions" ("StoreId", "EmployeeId") WHERE "EmployeeId" IS NOT NULL;
 -- Duyệt chấm công v2: chấm điểm rủi ro, lý do ngoài vị trí, tự duyệt tin cậy, hạn giữ ảnh bằng chứng
 ALTER TABLE "MobileAttendanceRecords" ADD COLUMN IF NOT EXISTS "IsOutside" boolean NOT NULL DEFAULT false;

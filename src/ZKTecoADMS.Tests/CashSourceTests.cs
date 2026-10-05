@@ -136,4 +136,28 @@ public class CashSourceTests
         var m = await db.CashTransactions.AsNoTracking().FirstAsync(c => c.Id == manual.Id);
         Assert.Equal(CashSources.Manual, m.SourceType);
     }
+    [Fact]
+    public async Task Chuyen_du_lieu_cu_khong_gan_trung_chung_tu_nhan_su_nhung_cho_nhieu_phieu_ban_hang()
+    {
+        var db = NewDb();
+        var store = Guid.NewGuid();
+        var adv = new AdvanceRequest { Id = Guid.NewGuid(), StoreId = store, Amount = 500_000 };
+        var order = new PosSaleOrder { Id = Guid.NewGuid(), StoreId = store, OrderNo = "HD3" };
+        db.AddRange(adv, order);
+        await db.SaveChangesAsync();
+        var a1 = Cash(store, $"Tự động tạo từ yêu cầu ứng lương #{adv.Id}", CashTransactionType.Expense);
+        var a2 = Cash(store, $"Tự động tạo từ yêu cầu ứng lương #{adv.Id}", CashTransactionType.Expense);
+        var s1 = Cash(store, $"{PosFinanceSyncHelper.SaleMarker}{order.Id}|0");
+        var s2 = Cash(store, $"{PosFinanceSyncHelper.SaleMarker}{order.Id}|1");
+        db.CashTransactions.AddRange(a1, a2, s1, s2);
+        await db.SaveChangesAsync();
+        foreach (var c in new[] { a1, a2, s1, s2 }) { c.SourceType = null; c.SourceId = null; }
+        await db.SaveChangesAsync();
+
+        await CashSourceBackfill.ApplyAsync(db);
+
+        var all = await db.CashTransactions.AsNoTracking().ToListAsync();
+        Assert.Equal(1, all.Count(c => c.SourceType == CashSources.Advance && c.SourceId == adv.Id));
+        Assert.Equal(2, all.Count(c => c.SourceType == CashSources.PosSale && c.SourceId == order.Id));
+    }
 }
