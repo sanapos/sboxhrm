@@ -499,6 +499,7 @@ class _RolePermissionsScreenState extends State<RolePermissionsScreen> {
       'canDelete',
     },
     'PosSaleOrders': {'canView', 'canEdit', 'canDelete', 'canExport'},
+    'PosPromotions': {'canView', 'canCreate', 'canEdit', 'canDelete'},
     'PosQuotes': {
       'canView',
       'canCreate',

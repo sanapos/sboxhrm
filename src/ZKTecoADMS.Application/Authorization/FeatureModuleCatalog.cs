@@ -142,6 +142,7 @@ public static class FeatureModuleCatalog
         new("PosKds", "Màn hình bếp (KDS)", "Phiếu chế biến, báo món xong", CatSell, 108),
         new("PosWarranty", "Bảo hành", "Tra cứu, phiếu bảo hành", CatSell, 109),
         new("PosQuotes", "Báo giá", "Báo giá thương mại, không trừ kho", CatSell, 110),
+        new("PosPromotions", "Khuyến mãi tự động", "Giờ vàng, mua X tặng Y, mua nhiều giảm, đồng giá, giảm theo hóa đơn, hàng cận hạn — báo cáo hiệu quả", CatSell, 112),
         new("PosContracts", "Hợp đồng & thu tiền theo đợt", "Hợp đồng từ báo giá, đợt thanh toán, thu tiền, công nợ hợp đồng", CatSell, 111),
         // Quyền con — đi theo Bán hàng / Hàng hóa, không chọn theo gói.
         new("PosSellPriceEdit", "Sửa giá khi bán", "Đổi đơn giá tay trên màn bán", CatSell, 120, false),
@@ -235,6 +236,7 @@ public static class FeatureModuleCatalog
             ["PosWarranty"] = ["PosSell"],
             ["PosQuotes"] = ["PosProducts"],
             ["PosContracts"] = ["PosQuotes"],
+            ["PosPromotions"] = ["PosProducts"],
             ["PosCustomerDisplay"] = ["PosSell"],
             ["PosEInvoice"] = ["PosSell"],
             ["PosShipping"] = ["PosSell"],
@@ -390,9 +392,9 @@ public static class FeatureModuleCatalog
             return
             [
                 new("pos_basic", "POS bán hàng", "Bán hàng, khách hàng, báo cáo, in ấn, hóa đơn điện tử, giao hàng", "pos", WithDependencies(PosSellCore)),
-                new("pos_warehouse", "POS bán hàng + kho", "Thêm nhập hàng, kiểm kho, xuất hủy", "pos", WithDependencies(PosSellCore.Concat(PosWarehouse))),
+                new("pos_warehouse", "POS bán hàng + kho", "Thêm nhập hàng, kiểm kho, xuất hủy, khuyến mãi tự động", "pos", WithDependencies(PosSellCore.Concat(PosWarehouse).Concat(["PosPromotions"]))),
                 new("pos_full", "POS đầy đủ", "Thêm bếp KDS, báo giá, hợp đồng, máy in cloud, sổ thuế HKD, chi nhánh, Trợ lý AI",
-                    "pos", WithDependencies(PosSellCore.Concat(PosWarehouse).Concat(["PosKds", "PosQuotes", "PosContracts", "PosStorePrinters", "HkdBooks", "Branch", "AIAssistant", "AIGemini", "SystemSettings"]))),
+                    "pos", WithDependencies(PosSellCore.Concat(PosWarehouse).Concat(["PosPromotions", "PosKds", "PosQuotes", "PosContracts", "PosStorePrinters", "HkdBooks", "Branch", "AIAssistant", "AIGemini", "SystemSettings"]))),
                 new("hrm_basic", "HRM chấm công & lương", "Hồ sơ, chấm công máy + mobile, lịch ca, nghỉ phép, bảng lương", "hrm", WithDependencies(HrmCore)),
                 new("hrm_full", "HRM đầy đủ", "Thêm tài chính nhân sự, công việc, truyền thông, suất ăn, tài sản, KPI, AI", "hrm", WithDependencies(hrmAll)),
                 new("all", "Trọn bộ POS + HRM", "Tất cả chức năng", "both", all),

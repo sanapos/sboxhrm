@@ -112,6 +112,8 @@ public class StorePackageModuleMiddleware
         ("/api/pos/cashier-shifts", "PosCashierShift"),
         ("/api/pos/einvoice", "PosEInvoice"),
         ("/api/pos/vouchers", "PosProducts"),
+        // Khuyến mãi theo gói: gói không có → màn bán không nhận chương trình (/active bị chặn).
+        ("/api/pos/promotions", "PosPromotions"),
         ("/api/pos/warranty", "PosSell"),
         ("/api/pos/topping-groups", "PosProducts"),
         // Báo cáo POS — path → module tách; sibling được phép qua IsImplicitlyAllowed.

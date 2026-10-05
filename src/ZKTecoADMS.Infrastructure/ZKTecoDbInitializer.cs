@@ -4108,6 +4108,7 @@ public class ZKTecoDbInitializer(
         ["PosSellDiscount"] = Guid.Parse("11111111-1111-1111-1111-111111111127"),
         ["PosSellCancelPaid"] = Guid.Parse("11111111-1111-1111-1111-111111111128"),
         ["PosViewCost"] = Guid.Parse("11111111-1111-1111-1111-111111111129"),
+        ["PosPromotions"] = Guid.Parse("11111111-1111-1111-1111-111111111141"),
     };
 
     private async Task SeedPermissionModulesAsync()
@@ -4198,6 +4199,8 @@ public class ZKTecoDbInitializer(
         ("PosViewCost", "PosProducts", (v, c, e, d, x, a) => (v, false, false, false, false, false)),
         // Hợp đồng & thu tiền theo đợt tách khỏi Báo giá — ai đang dùng Báo giá giữ nguyên quyền.
         ("PosContracts", "PosQuotes", (v, c, e, d, x, a) => (v, c, e, d, x, a)),
+        // Khuyến mãi tự động (2026-10) — ai quản lý Hàng hóa (vd đang tạo voucher, bảng giá) được quản lý khuyến mãi.
+        ("PosPromotions", "PosProducts", (v, c, e, d, x, a) => (v, c, e, d, false, false)),
         // Báo cáo phân tích tách khỏi Báo cáo chấm công; sổ khách / thẻ tập tách khỏi báo cáo POS chung.
         ("HrAnalyticsReport", "AttendanceReport", (v, c, e, d, x, a) => (v, false, false, false, x, false)),
         ("PosReportStayGuests", "PosSalesReport", (v, c, e, d, x, a) => (v, false, false, false, x, false)),
@@ -4341,6 +4344,21 @@ IF NOT EXISTS (SELECT 1 FROM ""SboxDataMigrations"" WHERE ""Id"" = 'pkg-pos-cont
     WHERE ""ExtraModules"" IS NOT NULL AND ""ExtraModules"" LIKE '[%'
       AND ""ExtraModules""::jsonb @> '[""PosQuotes""]'::jsonb AND NOT (""ExtraModules""::jsonb @> '[""PosContracts""]'::jsonb);
   INSERT INTO ""SboxDataMigrations"" (""Id"") VALUES ('pkg-pos-contracts-v1');
+END IF;
+END $$;");
+
+        // Một lần: chức năng mới «Khuyến mãi tự động» — gói / cửa hàng đang bán hàng (có Hàng hóa) được bật sẵn;
+        // Super Admin bỏ tick ở gói nào không muốn cho dùng.
+        await context.Database.ExecuteSqlRawAsync(
+            @"DO $$ BEGIN
+IF NOT EXISTS (SELECT 1 FROM ""SboxDataMigrations"" WHERE ""Id"" = 'pkg-pos-promotions-v1') THEN
+  UPDATE ""ServicePackages"" SET ""AllowedModules"" = (""AllowedModules""::jsonb || '[""PosPromotions""]'::jsonb)::text
+    WHERE ""AllowedModules"" IS NOT NULL AND ""AllowedModules"" LIKE '[%'
+      AND ""AllowedModules""::jsonb @> '[""PosProducts""]'::jsonb AND NOT (""AllowedModules""::jsonb @> '[""PosPromotions""]'::jsonb);
+  UPDATE ""Stores"" SET ""ExtraModules"" = (""ExtraModules""::jsonb || '[""PosPromotions""]'::jsonb)::text
+    WHERE ""ExtraModules"" IS NOT NULL AND ""ExtraModules"" LIKE '[%'
+      AND ""ExtraModules""::jsonb @> '[""PosProducts""]'::jsonb AND NOT (""ExtraModules""::jsonb @> '[""PosPromotions""]'::jsonb);
+  INSERT INTO ""SboxDataMigrations"" (""Id"") VALUES ('pkg-pos-promotions-v1');
 END IF;
 END $$;");
 

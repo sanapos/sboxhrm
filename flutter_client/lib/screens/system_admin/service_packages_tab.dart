@@ -111,6 +111,7 @@ class ServicePackagesTabState extends State<ServicePackagesTab> {
   /// Khớp PosPackageDefaults.SellWarehouseModules / FullModules.
   static const List<String> _posSellWarehousePreset = [
     'PosProducts',
+    'PosPromotions',
     'PosSell',
     'PosPrintTemplates',
     'PosSaleOrders',

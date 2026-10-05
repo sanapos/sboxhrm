@@ -83,6 +83,7 @@ public static class PosPackageDefaults
         "PosStockCounts",
         "PosDamageIssues",
         "PosInternalUseIssues",
+        "PosPromotions",
         "PosSalesReport",
         ..ReportModules,
         "PosCustomers",

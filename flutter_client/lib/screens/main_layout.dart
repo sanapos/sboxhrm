@@ -411,7 +411,7 @@ class _MainLayoutState extends State<MainLayout> with WidgetsBindingObserver {
     final known = {for (final i in _visibleNavIndices()) _navItems[i].label.toLowerCase()};
     final defs = <(String, IconData, String, List<String>, Widget Function())>[
       ('Voucher', Icons.confirmation_number_outlined, 'PosProducts', ['mã giảm giá'], () => const PosVouchersScreen()),
-      ('Khuyến mãi', Icons.local_offer_outlined, 'PosProducts', ['giờ vàng', 'mua x tặng y', 'đồng giá', 'combo', 'giảm giá'], () => const PosPromotionsScreen()),
+      ('Khuyến mãi', Icons.local_offer_outlined, 'PosPromotions', ['giờ vàng', 'mua x tặng y', 'đồng giá', 'combo', 'giảm giá'], () => const PosPromotionsScreen()),
       ('Bảng giá', Icons.price_change_outlined, 'PosProducts', ['giá bán', 'price list'], () => const PosPriceListsScreen()),
       ('Nhóm topping', Icons.local_cafe_outlined, 'PosProducts', ['topping', 'món thêm'], () => const PosToppingGroupsScreen()),
       ('Ca thu ngân', Icons.account_balance_wallet_outlined, 'PosCashierShift', ['giao ca', 'mở ca', 'chốt ca'], () => const PosCashierShiftScreen()),

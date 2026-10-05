@@ -100,7 +100,7 @@ public static class PermissionPresetCatalog
     static readonly string[] PosStock =
     [
         "PosProducts", "PosViewCost", "PosPurchaseReceipts", "PosPurchaseReturns", "PosStockCounts",
-        "PosDamageIssues", "PosInternalUseIssues",
+        "PosDamageIssues", "PosInternalUseIssues", "PosPromotions",
     ];
     static readonly string[] PosReports =
     [
@@ -219,7 +219,7 @@ public static class PermissionPresetCatalog
     static IReadOnlyDictionary<string, Flags> PosAccountant() => new Builder()
         .Set(V, "Home", "Notification", "Dashboard")
         .Set(VX, PosReports).Set(new Flags(true, false, true, false, true, false), "HkdBooks")
-        .Set(VX, "PosSaleOrders").Set(V, "PosSaleReturns", "PosQuotes", "PosContracts", "PosProducts", "PosViewCost")
+        .Set(VX, "PosSaleOrders").Set(V, "PosSaleReturns", "PosQuotes", "PosContracts", "PosProducts", "PosViewCost", "PosPromotions")
         .Set(Op, "PosCustomers", "PosPurchaseReceipts", "PosPurchaseReturns")
         .Set(new Flags(true, false, true, false, true, true), "PosEInvoice")
         .Set(F, "CashTransaction", "BankAccount")

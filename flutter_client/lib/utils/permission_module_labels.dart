@@ -52,6 +52,7 @@ class PermissionModuleLabels {
     'PosSaleOrders': 'Đơn hàng POS',
     'PosQuotes': 'Báo giá',
     'PosContracts': 'Hợp đồng & thu tiền theo đợt',
+    'PosPromotions': 'Khuyến mãi tự động',
     'PosSaleReturns': 'Trả hàng bán',
     'PosPurchaseReceipts': 'Nhập hàng NCC',
     'PosPurchaseReturns': 'Trả hàng nhập',

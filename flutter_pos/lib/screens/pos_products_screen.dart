@@ -1433,12 +1433,15 @@ class _PosProductsScreenState extends State<PosProductsScreen> {
                               value: 'columns', child: Text(tr('Hiển thị cột'))),
                           PopupMenuItem(
                               value: 'scan', child: Text(tr('Quét mã vạch'))),
+                          if (perm.canView('PosPromotions'))
                           PopupMenuItem(
                               value: 'promotions',
                               child: Text(tr('Khuyến mãi (giờ vàng, mua X tặng Y…)'))),
+                          if (perm.canEdit('PosProducts'))
                           PopupMenuItem(
                               value: 'scale_label',
                               child: Text(tr('Cân & in tem hàng cân'))),
+                          if (perm.canView('PosReportStock'))
                           PopupMenuItem(
                               value: 'reorder',
                               child: Text(tr('Hàng cần nhập thêm'))),

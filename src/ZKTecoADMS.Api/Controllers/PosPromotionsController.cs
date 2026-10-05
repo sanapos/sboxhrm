@@ -44,7 +44,7 @@ public class PosPromotionsController(ZKTecoDbContext dbContext) : AuthenticatedC
         p.TimeFromMinutes, p.TimeToMinutes, p.MembersOnly, p.ConfigJson, p.Note, p.IsActive, p.CreatedAt, resolved);
 
     [HttpGet]
-    [RequireModulePermission("PosProducts", ModulePermissionAction.View)]
+    [RequireModulePermission("PosPromotions", ModulePermissionAction.View)]
     public async Task<ActionResult<AppResponse<List<PromotionDto>>>> List()
     {
         var storeId = RequiredStoreId;
@@ -137,7 +137,7 @@ public class PosPromotionsController(ZKTecoDbContext dbContext) : AuthenticatedC
     }
 
     [HttpPost]
-    [RequireModulePermission("PosProducts", ModulePermissionAction.Create)]
+    [RequireModulePermission("PosPromotions", ModulePermissionAction.Create)]
     public async Task<ActionResult<AppResponse<PromotionDto>>> Create([FromBody] PromotionSaveDto dto)
     {
         var err = Validate(dto);
@@ -150,7 +150,7 @@ public class PosPromotionsController(ZKTecoDbContext dbContext) : AuthenticatedC
     }
 
     [HttpPut("{id:guid}")]
-    [RequireModulePermission("PosProducts", ModulePermissionAction.Edit)]
+    [RequireModulePermission("PosPromotions", ModulePermissionAction.Edit)]
     public async Task<ActionResult<AppResponse<PromotionDto>>> Update(Guid id, [FromBody] PromotionSaveDto dto)
     {
         var err = Validate(dto);
@@ -167,7 +167,7 @@ public class PosPromotionsController(ZKTecoDbContext dbContext) : AuthenticatedC
     }
 
     [HttpDelete("{id:guid}")]
-    [RequireModulePermission("PosProducts", ModulePermissionAction.Delete)]
+    [RequireModulePermission("PosPromotions", ModulePermissionAction.Delete)]
     public async Task<ActionResult<AppResponse<bool>>> Delete(Guid id)
     {
         var storeId = RequiredStoreId;
@@ -183,7 +183,7 @@ public class PosPromotionsController(ZKTecoDbContext dbContext) : AuthenticatedC
 
     /// <summary>Hiệu quả: số hóa đơn, tiền giảm, doanh thu các hóa đơn có áp từng chương trình (hóa đơn hoàn thành, theo ngày bán VN).</summary>
     [HttpGet("report")]
-    [RequireModulePermission("PosProducts", ModulePermissionAction.View)]
+    [RequireModulePermission("PosPromotions", ModulePermissionAction.View)]
     public async Task<ActionResult<AppResponse<object>>> Report([FromQuery] DateTime? from, [FromQuery] DateTime? to)
     {
         var storeId = RequiredStoreId;

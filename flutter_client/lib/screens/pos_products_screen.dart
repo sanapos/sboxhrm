@@ -1341,12 +1341,15 @@ class _PosProductsScreenState extends State<PosProductsScreen> {
                           PopupMenuItem(
                               value: 'price_lists',
                               child: Text(tr('Bảng giá (giá sỉ / VIP / theo kỳ)'))),
+                          if (perm.canView('PosPromotions'))
                           PopupMenuItem(
                               value: 'promotions',
                               child: Text(tr('Khuyến mãi (giờ vàng, mua X tặng Y…)'))),
+                          if (perm.canEdit('PosProducts'))
                           PopupMenuItem(
                               value: 'scale_label',
                               child: Text(tr('Cân & in tem hàng cân'))),
+                          if (perm.canView('PosReportStock'))
                           PopupMenuItem(
                               value: 'reorder',
                               child: Text(tr('Hàng cần nhập thêm'))),
@@ -1543,9 +1546,12 @@ class _PosProductsScreenState extends State<PosProductsScreen> {
               const PopupMenuDivider(),
             ],
             _menuItem('price_lists', Icons.price_change_outlined, 'Bảng giá (giá sỉ / VIP / theo kỳ)'),
-            _menuItem('promotions', Icons.local_offer_outlined, 'Khuyến mãi (giờ vàng, mua X tặng Y…)'),
-            _menuItem('scale_label', Icons.scale_outlined, 'Cân & in tem hàng cân'),
-            _menuItem('reorder', Icons.production_quantity_limits, 'Hàng cần nhập thêm'),
+            if (perm.canView('PosPromotions'))
+              _menuItem('promotions', Icons.local_offer_outlined, 'Khuyến mãi (giờ vàng, mua X tặng Y…)'),
+            if (perm.canEdit('PosProducts'))
+              _menuItem('scale_label', Icons.scale_outlined, 'Cân & in tem hàng cân'),
+            if (perm.canView('PosReportStock'))
+              _menuItem('reorder', Icons.production_quantity_limits, 'Hàng cần nhập thêm'),
             _menuItem('topping_groups', Icons.local_cafe_outlined, 'Nhóm topping'),
             if (canManage) ...[
               _menuItem('m_category', Icons.folder_outlined, 'Quản lý nhóm hàng'),

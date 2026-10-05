@@ -83,7 +83,7 @@ class _PosPromotionsScreenState extends State<PosPromotionsScreen> {
   @override
   Widget build(BuildContext context) {
     final perm = Provider.of<PermissionProvider>(context);
-    final canEdit = perm.canEdit('PosProducts') || perm.canCreate('PosProducts');
+    final canEdit = perm.canEdit('PosPromotions') || perm.canCreate('PosPromotions');
     final now = DateTime.now();
     return Scaffold(
       appBar: AppBar(

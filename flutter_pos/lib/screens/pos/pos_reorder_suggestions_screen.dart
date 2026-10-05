@@ -1,7 +1,9 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:intl/intl.dart';
+import 'package:provider/provider.dart';
 
+import '../../providers/permission_provider.dart';
 import '../../services/api_service.dart';
 import '../../widgets/notification_overlay.dart';
 import '../../widgets/pos/pos_theme.dart';
@@ -131,6 +133,8 @@ class _PosReorderSuggestionsScreenState extends State<PosReorderSuggestionsScree
 
   @override
   Widget build(BuildContext context) {
+    final canCreateReceipt =
+        Provider.of<PermissionProvider>(context).canCreate('PosPurchaseReceipts');
     final selected = _rows.where((r) => r.selected).toList();
     final total = selected.fold<double>(0, (s, r) => s + r.qty * r.cost);
     return Scaffold(
@@ -180,7 +184,7 @@ class _PosReorderSuggestionsScreenState extends State<PosReorderSuggestionsScree
                     ),
                     FilledButton.icon(
                       style: PosTheme.filledButtonStyle,
-                      onPressed: selected.isEmpty || _creating ? null : _createDrafts,
+                      onPressed: !canCreateReceipt || selected.isEmpty || _creating ? null : _createDrafts,
                       icon: _creating
                           ? const SizedBox(
                               width: 16, height: 16, child: CircularProgressIndicator(strokeWidth: 2))

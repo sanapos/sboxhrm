@@ -269,7 +269,7 @@ class _PosMoreScreenState extends State<PosMoreScreen> {
                     _Item('Voucher', Icons.confirmation_number_outlined, 'PosProducts',
                         const PosVouchersScreen(),
                         altModules: const ['PosSell']),
-                    _Item('Khuyến mãi', Icons.local_offer_outlined, 'PosProducts',
+                    _Item('Khuyến mãi', Icons.local_offer_outlined, 'PosPromotions',
                         const PosPromotionsScreen()),
                   ],
                 ),

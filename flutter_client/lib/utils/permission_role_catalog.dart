@@ -159,6 +159,7 @@ class PermissionRoleCatalog {
         'PosQuotes',
         'PosContracts',
         'PosProducts',
+        'PosPromotions',
         'PosViewCost',
         'PosSaleOrders',
         'PosSaleReturns',
