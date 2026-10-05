@@ -11463,6 +11463,60 @@ class ApiService {
     }
   }
 
+  /// Xác nhận phiếu Trợ lý ảo đề xuất → server gọi API thật bằng phiên của người dùng.
+  Future<Map<String, dynamic>> confirmAiAction(String id) async {
+    try {
+      final r = await http.post(Uri.parse('$baseUrl/api/ai/assistant/actions/$id/confirm'), headers: _headers);
+      return _handleResponse(r);
+    } catch (e) {
+      return _connectionFailure(e);
+    }
+  }
+
+  Future<void> discardAiAction(String id) async {
+    try {
+      await http.post(Uri.parse('$baseUrl/api/ai/assistant/actions/$id/discard'), headers: _headers);
+    } catch (_) {}
+  }
+
+  /// Ghi âm → chữ bằng Gemini (có từ vựng cửa hàng). null = không dùng được (chưa bật AI / hết lượt) → dùng nhận dạng của máy.
+  Future<String?> aiTranscribe(List<int> audio, String mimeType) async {
+    try {
+      final request = http.MultipartRequest('POST', Uri.parse('$baseUrl/api/ai/assistant/transcribe'));
+      if (_token != null) request.headers['Authorization'] = 'Bearer $_token';
+      final branch = currentBranchId;
+      if (branch != null && branch.isNotEmpty) request.headers['X-Branch-Id'] = branch;
+      final parts = mimeType.split(';').first.split('/');
+      request.files.add(http.MultipartFile.fromBytes(
+        'audio',
+        audio,
+        filename: 'voice.${parts.length > 1 ? parts[1] : 'webm'}',
+        contentType: MediaType(parts.first, parts.length > 1 ? parts[1] : 'webm'),
+      ));
+      final streamed = await request.send().timeout(const Duration(seconds: 40));
+      final r = await http.Response.fromStream(streamed);
+      if (r.statusCode != 200) return null;
+      final body = json.decode(utf8.decode(r.bodyBytes)) as Map<String, dynamic>;
+      return body['isSuccess'] == true ? (body['data'] as String? ?? '') : null;
+    } catch (_) {
+      return null;
+    }
+  }
+
+  /// Đọc câu trả lời bằng giọng Gemini TTS → WAV. null = lỗi / hết lượt → đọc bằng giọng của máy.
+  Future<Uint8List?> aiSpeak(String text, {String? voice}) async {
+    try {
+      final r = await http
+          .post(Uri.parse('$baseUrl/api/ai/assistant/speak'),
+              headers: _headers, body: json.encode({'text': text, if (voice != null) 'voice': voice}))
+          .timeout(const Duration(seconds: 45));
+      final type = r.headers['content-type'] ?? '';
+      return r.statusCode == 200 && type.contains('audio') ? r.bodyBytes : null;
+    } catch (_) {
+      return null;
+    }
+  }
+
   Future<Map<String, dynamic>> getGeminiConfig() async {
     try {
       final response = await http.get(

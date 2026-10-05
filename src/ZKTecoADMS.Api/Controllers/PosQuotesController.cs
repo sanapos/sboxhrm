@@ -141,9 +141,6 @@ public partial class PosQuotesController(
                 (x.CustomerName != null && VnSearch.Fold(x.CustomerName).Contains(s)) ||
                 (x.CustomerPhone != null && x.CustomerPhone.Contains(s)));
         }
-        if (!string.IsNullOrWhiteSpace(status) &&
-            Enum.TryParse<PosQuoteStatus>(status, true, out var st))
-            q = q.Where(x => x.Status == st);
         if (!string.IsNullOrWhiteSpace(commercialStage))
         {
             var stageRaw = commercialStage.Trim();
@@ -161,6 +158,12 @@ public partial class PosQuotesController(
             q = q.Where(x => x.QuotedByEmployeeId == employeeId);
         if (from.HasValue) q = q.Where(x => x.CreatedAt >= from.Value);
         if (to.HasValue) q = q.Where(x => x.CreatedAt <= to.Value);
+        // Đếm theo trạng thái trước khi lọc trạng thái — thanh «Nháp · Đã gửi · Chấp nhận…» trên danh sách.
+        var statusCounts = (await q.GroupBy(x => x.Status).Select(g => new { g.Key, N = g.Count() }).ToListAsync())
+            .ToDictionary(x => x.Key.ToString(), x => x.N);
+        if (!string.IsNullOrWhiteSpace(status) &&
+            Enum.TryParse<PosQuoteStatus>(status, true, out var st))
+            q = q.Where(x => x.Status == st);
         var total = await q.CountAsync();
         var rows = await q.OrderByDescending(x => x.CreatedAt)
             .Skip((page - 1) * pageSize).Take(pageSize)
@@ -173,6 +176,7 @@ public partial class PosQuotesController(
             page,
             pageSize,
             canViewAll = CanViewAllQuotes,
+            statusCounts,
             items,
         }));
     }

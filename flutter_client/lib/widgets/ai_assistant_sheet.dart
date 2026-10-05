@@ -1,4 +1,7 @@
 import 'dart:async';
+import 'dart:typed_data';
+import 'package:audioplayers/audioplayers.dart';
+import 'package:record/record.dart';
 import 'package:flutter/foundation.dart' show kIsWeb, defaultTargetPlatform, TargetPlatform;
 import 'package:flutter/material.dart';
 import 'package:zkteco_flutter_client/widgets/app_responsive_dialog.dart';
@@ -34,11 +37,39 @@ class _ChatMsg {
   final List<String> guides;
   /// Báo cáo trợ lý đã xem để trả lời (tên hiển thị).
   final List<String> reports;
+  /// Phiếu trợ lý đã dựng sẵn — chờ người dùng bấm Xác nhận.
+  final List<_PendingAction> pending;
+
   _ChatMsg(this.role, this.content,
       {this.actions = const [],
       this.creates = const [],
       this.guides = const [],
-      this.reports = const []});
+      this.reports = const [],
+      this.pending = const []});
+}
+
+class _PendingAction {
+  _PendingAction.fromJson(Map<String, dynamic> j)
+      : id = (j['id'] ?? '').toString(),
+        kind = (j['kind'] ?? '').toString(),
+        title = (j['title'] ?? 'Phiếu').toString(),
+        lines = ((j['lines'] as List?) ?? [])
+            .whereType<Map>()
+            .map((l) => ((l['label'] ?? '').toString(), (l['value'] ?? '').toString()))
+            .toList(),
+        warnings = ((j['warnings'] as List?) ?? []).map((e) => e.toString()).toList(),
+        openModule = j['openModule']?.toString();
+
+  final String id;
+  final String kind;
+  final String title;
+  final List<(String, String)> lines;
+  final List<String> warnings;
+  final String? openModule;
+
+  /// pending | running | done | failed | discarded
+  String state = 'pending';
+  String? result;
 }
 
 class AiAssistantSheet extends StatefulWidget {
@@ -65,6 +96,30 @@ class _AiAssistantSheetState extends State<AiAssistantSheet> {
   int _speakGen = 0;
   String _partialTranscript = '';
 
+  // Giọng nói bằng AI (Gemini): ghi âm → chép lời có từ vựng cửa hàng; đọc bằng giọng người thật.
+  static const _kAiVoiceKey = 'ai_assistant_ai_voice_v1';
+  static const _kVoiceNameKey = 'ai_assistant_voice_name_v1';
+  static const _voices = [
+    ('Aoede', 'Nữ — nhẹ nhàng, tự nhiên'),
+    ('Kore', 'Nữ — rõ ràng, chắc'),
+    ('Leda', 'Nữ — trẻ trung'),
+    ('Sulafat', 'Nữ — ấm áp'),
+    ('Charon', 'Nam — trầm, điềm đạm'),
+    ('Puck', 'Nam — vui vẻ'),
+    ('Orus', 'Nam — chắc chắn'),
+    ('Iapetus', 'Nam — rõ ràng'),
+  ];
+  final _recorder = AudioRecorder();
+  final _player = AudioPlayer();
+  StreamSubscription<Uint8List>? _recSub;
+  final _recBuf = BytesBuilder(copy: false);
+  Timer? _recTimer;
+  int _recSecs = 0;
+  bool _recording = false;
+  bool _transcribing = false;
+  bool _aiVoice = true;
+  String _voiceName = 'Aoede';
+
   static const _kAiConsentKey = 'ai_assistant_consent_v1';
   bool _consentChecked = false;
   bool _consentGiven = false;
@@ -74,8 +129,12 @@ class _AiAssistantSheetState extends State<AiAssistantSheet> {
     super.initState();
     _initTts();
     _initStt();
+    _loadVoicePrefs();
+    _player.onPlayerComplete.listen((_) {
+      if (mounted) setState(() => _ttsSpeaking = false);
+    });
     _messages.add(_ChatMsg('assistant',
-        'Xin chào! Tôi là Trợ lý ảo của cửa hàng. Tôi đọc báo cáo bán hàng và nhân sự (theo quyền của bạn) để trả lời và phân tích: doanh thu, lợi nhuận, hàng bán chạy, tồn kho, công nợ, chấm công, đi trễ, nghỉ phép, lương… Bấm micro, gõ câu hỏi hoặc chọn gợi ý bên dưới.'));
+        'Xin chào! Tôi là Trợ lý ảo của cửa hàng. Tôi đọc báo cáo bán hàng và nhân sự (theo quyền của bạn) để trả lời và phân tích: doanh thu, lợi nhuận, hàng bán chạy, tồn kho, công nợ, chấm công, đi trễ, nghỉ phép, lương… Tôi cũng lập / sửa phiếu theo lời bạn (phiếu thu chi, phạt, thưởng, ứng lương, tăng ca, bổ sung chấm công, hóa đơn bán) — bạn chỉ cần kiểm tra rồi bấm Xác nhận. Bấm micro, gõ câu hỏi hoặc chọn gợi ý bên dưới.'));
     if (!kIsWeb) {
       _checkAiConsent();
     } else {
@@ -131,6 +190,127 @@ class _AiAssistantSheetState extends State<AiAssistantSheet> {
         ],
       ),
     );
+  }
+
+  Future<void> _loadVoicePrefs() async {
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      if (!mounted) return;
+      setState(() {
+        _aiVoice = prefs.getBool(_kAiVoiceKey) ?? true;
+        _voiceName = prefs.getString(_kVoiceNameKey) ?? 'Aoede';
+      });
+    } catch (_) {}
+  }
+
+  Future<void> _saveVoicePrefs() async {
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      await prefs.setBool(_kAiVoiceKey, _aiVoice);
+      await prefs.setString(_kVoiceNameKey, _voiceName);
+    } catch (_) {}
+  }
+
+  /// Ghi âm PCM 16 kHz (chạy cả web lẫn điện thoại) → WAV gửi Gemini chép lời.
+  Future<bool> _startRecording() async {
+    try {
+      if (!await _recorder.hasPermission()) return false;
+      _recBuf.clear();
+      final stream = await _recorder.startStream(const RecordConfig(
+        encoder: AudioEncoder.pcm16bits,
+        sampleRate: 16000,
+        numChannels: 1,
+        echoCancel: true,
+        noiseSuppress: true,
+        autoGain: true,
+      ));
+      _recSub = stream.listen(_recBuf.add);
+      _recSecs = 0;
+      _recTimer?.cancel();
+      _recTimer = Timer.periodic(const Duration(seconds: 1), (t) {
+        if (!mounted) return;
+        setState(() => _recSecs++);
+        if (_recSecs >= 60) _stopRecordingAndTranscribe();
+      });
+      setState(() => _recording = true);
+      return true;
+    } catch (_) {
+      return false;
+    }
+  }
+
+  static Uint8List _wav(Uint8List pcm, int rate) {
+    final b = ByteData(44);
+    void str(int o, String v) {
+      for (var i = 0; i < v.length; i++) {
+        b.setUint8(o + i, v.codeUnitAt(i));
+      }
+    }
+
+    str(0, 'RIFF');
+    b.setUint32(4, 36 + pcm.length, Endian.little);
+    str(8, 'WAVEfmt ');
+    b.setUint32(16, 16, Endian.little);
+    b.setUint16(20, 1, Endian.little);
+    b.setUint16(22, 1, Endian.little);
+    b.setUint32(24, rate, Endian.little);
+    b.setUint32(28, rate * 2, Endian.little);
+    b.setUint16(32, 2, Endian.little);
+    b.setUint16(34, 16, Endian.little);
+    str(36, 'data');
+    b.setUint32(40, pcm.length, Endian.little);
+    return Uint8List.fromList([...b.buffer.asUint8List(), ...pcm]);
+  }
+
+  Future<void> _stopRecordingAndTranscribe() async {
+    if (!_recording) return;
+    _recTimer?.cancel();
+    try {
+      await _recorder.stop();
+    } catch (_) {}
+    await _recSub?.cancel();
+    _recSub = null;
+    final pcm = _recBuf.takeBytes();
+    if (!mounted) return;
+    setState(() {
+      _recording = false;
+      _transcribing = true;
+    });
+    // < 0,4 giây = bấm nhầm.
+    if (pcm.length < 16000 * 2 * 0.4) {
+      setState(() => _transcribing = false);
+      return;
+    }
+    final text = await _api.aiTranscribe(_wav(pcm, 16000), 'audio/wav');
+    if (!mounted) return;
+    setState(() => _transcribing = false);
+    if (text == null) {
+      // AI chưa bật / hết lượt — lần sau dùng nhận dạng của máy.
+      setState(() => _aiVoice = false);
+      NotificationOverlayManager().showWarning(
+        title: 'Chưa nhận được giọng nói qua AI',
+        message: tr('Chuyển sang nhận dạng giọng nói của máy — bấm micro và nói lại.'),
+      );
+      return;
+    }
+    if (text.trim().isEmpty) {
+      NotificationOverlayManager().showWarning(
+          title: 'Chưa nghe rõ', message: tr('Bạn nói lại gần micro hơn nhé.'));
+      return;
+    }
+    _inputCtrl.text = text.trim();
+    _send();
+  }
+
+  Future<void> _stopSpeaking() async {
+    _speakGen++;
+    try {
+      await _player.stop();
+    } catch (_) {}
+    try {
+      await _tts.stop();
+    } catch (_) {}
+    if (mounted) setState(() => _ttsSpeaking = false);
   }
 
   Future<void> _initTts() async {
@@ -274,6 +454,23 @@ class _AiAssistantSheetState extends State<AiAssistantSheet> {
     final chunks = _splitForSpeech(raw);
     if (chunks.isEmpty) return;
     final gen = ++_speakGen;
+    if (_aiVoice) {
+      // Giọng Gemini: đọc liền mạch, có ngữ điệu. Lỗi / hết lượt → giọng của máy bên dưới.
+      var text = chunks.join(' ');
+      if (text.length > 1200) text = '${text.substring(0, 1200)}…';
+      final wav = await _api.aiSpeak(text, voice: _voiceName);
+      if (!mounted || gen != _speakGen || !_ttsEnabled) return;
+      if (wav != null) {
+        try {
+          await _player.stop();
+          setState(() => _ttsSpeaking = true);
+          await _player.play(BytesSource(wav, mimeType: 'audio/wav'));
+          return;
+        } catch (_) {
+          if (mounted) setState(() => _ttsSpeaking = false);
+        }
+      }
+    }
     try {
       await _tts.stop();
     } catch (_) {}
@@ -316,10 +513,21 @@ class _AiAssistantSheetState extends State<AiAssistantSheet> {
     _scrollCtrl.dispose();
     _tts.stop();
     if (_isListening) _stt.stop();
+    _recTimer?.cancel();
+    _recSub?.cancel();
+    _recorder.dispose();
+    _player.dispose();
     super.dispose();
   }
 
   Future<void> _toggleListening() async {
+    if (_transcribing) return;
+    if (_ttsSpeaking) await _stopSpeaking();
+    if (_recording) {
+      await _stopRecordingAndTranscribe();
+      return;
+    }
+    if (_aiVoice && !_isListening && await _startRecording()) return;
     if (!_sttReady) {
       NotificationOverlayManager().showWarning(
           title: 'Micro chưa sẵn sàng',
@@ -424,14 +632,17 @@ class _AiAssistantSheetState extends State<AiAssistantSheet> {
         final reports = ((data?['reports'] as List?) ?? [])
             .map((e) => e.toString())
             .toList();
+        final pending = ((data?['pendingActions'] as List?) ?? [])
+            .whereType<Map>()
+            .map((e) => _PendingAction.fromJson(Map<String, dynamic>.from(e)))
+            .toList();
         setState(() {
           _messages.add(_ChatMsg('assistant', reply,
-              actions: actions, creates: creates, guides: guides, reports: reports));
+              actions: actions, creates: creates, guides: guides, reports: reports, pending: pending));
         });
         _scrollToBottom();
-        if (_ttsEnabled && reply.isNotEmpty) {
-          await _speakReply(reply);
-        }
+        // Không chờ đọc xong — tắt «Đang suy nghĩ…» ngay, giọng đọc tải song song.
+        if (_ttsEnabled && reply.isNotEmpty) unawaited(_speakReply(reply));
       } else {
         final msg = (result['message'] as String?) ?? 'Lỗi trợ lý ảo';
         setState(() {
@@ -684,11 +895,12 @@ class _AiAssistantSheetState extends State<AiAssistantSheet> {
         final time = params['time'];
         final reason = params['reason'] ?? 'Quên chấm công';
         final actionStr = params['action'] ?? 'add';
+        // CorrectionAction trên server: Add = 0, Edit = 1, Delete = 2.
         final actionInt = actionStr == 'edit'
-            ? 0
+            ? 1
             : actionStr == 'delete'
                 ? 2
-                : 1;
+                : 0;
 
         if (date == null || time == null) {
           setState(() {
@@ -989,16 +1201,52 @@ class _AiAssistantSheetState extends State<AiAssistantSheet> {
               ],
             ),
           ),
+          if (_ttsSpeaking)
+            IconButton(
+              tooltip: tr('Dừng đọc'),
+              onPressed: _stopSpeaking,
+              icon: const Icon(Icons.stop_circle_outlined, color: SboxColors.violet),
+            ),
           IconButton(
             tooltip: tr(_ttsEnabled ? 'Tắt đọc' : 'Bật đọc'),
             onPressed: () async {
-              _speakGen++;
-              if (_ttsEnabled && _ttsSpeaking) await _tts.stop();
+              if (_ttsEnabled) await _stopSpeaking();
               setState(() => _ttsEnabled = !_ttsEnabled);
             },
             icon: Icon(_ttsEnabled
                 ? Icons.volume_up_rounded
                 : Icons.volume_off_rounded),
+          ),
+          PopupMenuButton<String>(
+            tooltip: tr('Giọng nói'),
+            icon: const Icon(Icons.record_voice_over_outlined),
+            onSelected: (v) async {
+              if (v == 'ai') {
+                setState(() => _aiVoice = !_aiVoice);
+              } else {
+                setState(() {
+                  _voiceName = v;
+                  _aiVoice = true;
+                  _ttsEnabled = true;
+                });
+                unawaited(_speakReply('Xin chào, tôi là trợ lý ảo của cửa hàng.'));
+              }
+              await _saveVoicePrefs();
+            },
+            itemBuilder: (_) => [
+              CheckedPopupMenuItem(
+                value: 'ai',
+                checked: _aiVoice,
+                child: Text(tr('Giọng AI tự nhiên (nghe & đọc)')),
+              ),
+              const PopupMenuDivider(),
+              for (final v in _voices)
+                CheckedPopupMenuItem(
+                  value: v.$1,
+                  checked: _aiVoice && _voiceName == v.$1,
+                  child: Text(tr(v.$2)),
+                ),
+            ],
           ),
           IconButton(
             tooltip: tr('Đóng'),
@@ -1049,10 +1297,17 @@ class _AiAssistantSheetState extends State<AiAssistantSheet> {
     }
     if (perm.canView('LeaveReport')) out.add('Tình hình nghỉ phép tháng này');
     if (perm.canView('Payslip')) out.add('Tổng quỹ lương tháng trước theo phòng ban');
+    final analytics = out.length;
+    // Thao tác thêm / sửa bằng lời (trợ lý dựng phiếu, người dùng bấm Xác nhận).
+    if (perm.canCreate('CashTransaction')) out.add('Tạo phiếu chi 350k tiền điện');
+    if (perm.canCreate('PenaltyTickets')) out.add('Phạt An 50k vì đi trễ hôm nay');
+    if (perm.canCreate('PosSell')) out.add('Bán 2 Coca cho khách lẻ, trả tiền mặt');
+    if (perm.canCreate('AdvanceRequests')) out.add('Ứng lương 2 triệu tiền viện phí');
     if (out.isEmpty) {
       out.addAll(['Tôi còn bao nhiêu ngày phép?', 'Hôm nay tôi chấm công chưa?']);
     }
-    return out.take(6).toList();
+    // 4 câu phân tích + tối đa 3 câu ra lệnh (để người dùng biết trợ lý lập phiếu được).
+    return [...out.take(analytics).take(4), ...out.skip(analytics).take(3)];
   }
 
   Widget _buildSuggestions() {
@@ -1124,6 +1379,10 @@ class _AiAssistantSheetState extends State<AiAssistantSheet> {
                 ),
               ],
             ),
+          ],
+          for (final a in m.pending) ...[
+            const SizedBox(height: 10),
+            _actionCard(a),
           ],
           if (m.actions.isNotEmpty) ...[
             const SizedBox(height: 8),
@@ -1242,6 +1501,129 @@ class _AiAssistantSheetState extends State<AiAssistantSheet> {
     );
   }
 
+  Future<void> _confirmAction(_PendingAction a) async {
+    setState(() => a.state = 'running');
+    final res = await _api.confirmAiAction(a.id);
+    if (!mounted) return;
+    final ok = res['isSuccess'] == true;
+    final data = res['data'] is Map ? Map<String, dynamic>.from(res['data'] as Map) : const <String, dynamic>{};
+    setState(() {
+      a.state = ok ? 'done' : 'failed';
+      a.result = ok
+          ? (data['message']?.toString() ?? 'Đã lưu')
+          : (res['message']?.toString() ?? 'Không thực hiện được');
+    });
+    if (ok && _ttsEnabled) unawaited(_speakReply(a.result!));
+  }
+
+  Widget _actionCard(_PendingAction a) {
+    final (Color tone, IconData icon) = switch (a.kind) {
+      'penalty' || 'update_penalty' => (SboxColors.danger, Icons.gavel_rounded),
+      'reward' || 'update_reward' => (SboxColors.success, Icons.emoji_events_outlined),
+      'advance' => (const Color(0xFFB45309), Icons.payments_outlined),
+      'cash' || 'update_cash' => (const Color(0xFF0369A1), Icons.account_balance_wallet_outlined),
+      'sale' => (PosTheme.kiotBlue, Icons.receipt_long_outlined),
+      'overtime' => (SboxColors.violet, Icons.more_time_rounded),
+      _ => (SboxColors.violet, Icons.fact_check_outlined),
+    };
+    return Container(
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(color: tone.withValues(alpha: 0.35)),
+      ),
+      padding: const EdgeInsets.fromLTRB(12, 10, 12, 10),
+      child: Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
+        Row(children: [
+          Icon(icon, size: 18, color: tone),
+          const SizedBox(width: 6),
+          Expanded(
+            child: Text(tr(a.title),
+                style: TextStyle(fontSize: 14, fontWeight: FontWeight.w700, color: tone)),
+          ),
+          if (a.state == 'pending')
+            Text(tr('Chờ xác nhận'), style: const TextStyle(fontSize: 11, color: SboxColors.slate500)),
+        ]),
+        const SizedBox(height: 6),
+        for (final (label, value) in a.lines)
+          Padding(
+            padding: const EdgeInsets.symmetric(vertical: 2),
+            child: Row(crossAxisAlignment: CrossAxisAlignment.start, children: [
+              SizedBox(
+                width: 108,
+                child: Text(tr(label), style: const TextStyle(fontSize: 12, color: SboxColors.slate500)),
+              ),
+              Expanded(
+                child: Text(tr(value),
+                    style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w600, color: SboxColors.slate900)),
+              ),
+            ]),
+          ),
+        for (final w in a.warnings)
+          Padding(
+            padding: const EdgeInsets.only(top: 4),
+            child: Row(children: [
+              const Icon(Icons.warning_amber_rounded, size: 14, color: Color(0xFFB45309)),
+              const SizedBox(width: 4),
+              Expanded(child: Text(tr(w), style: const TextStyle(fontSize: 12, color: Color(0xFFB45309)))),
+            ]),
+          ),
+        const SizedBox(height: 8),
+        switch (a.state) {
+          'running' => const Row(children: [
+              SizedBox(width: 16, height: 16, child: CircularProgressIndicator(strokeWidth: 2)),
+              SizedBox(width: 8),
+              Text('Đang lưu…', style: TextStyle(fontSize: 12)),
+            ]),
+          'done' => Row(children: [
+              const Icon(Icons.check_circle, size: 18, color: SboxColors.success),
+              const SizedBox(width: 6),
+              Expanded(
+                child: Text(tr(a.result ?? 'Đã lưu'),
+                    style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w600, color: SboxColors.success)),
+              ),
+              if (a.openModule != null)
+                TextButton(
+                  onPressed: () {
+                    Navigator.of(context).pop();
+                    NavigationNotifier.goToModule(a.openModule!);
+                  },
+                  child: Text(tr('Mở')),
+                ),
+            ]),
+          'discarded' => Text(tr('Đã bỏ phiếu này'),
+              style: const TextStyle(fontSize: 12, color: SboxColors.slate500)),
+          _ => Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
+              if (a.state == 'failed')
+                Padding(
+                  padding: const EdgeInsets.only(bottom: 6),
+                  child: Text('❌ ${tr(a.result ?? '')}',
+                      style: const TextStyle(fontSize: 12, color: SboxColors.danger)),
+                ),
+              Row(children: [
+                Expanded(
+                  child: FilledButton.icon(
+                    onPressed: () => _confirmAction(a),
+                    style: FilledButton.styleFrom(backgroundColor: tone),
+                    icon: const Icon(Icons.check, size: 18),
+                    label: Text(tr(a.state == 'failed' ? 'Thử lại' : 'Xác nhận')),
+                  ),
+                ),
+                const SizedBox(width: 8),
+                TextButton(
+                  onPressed: () {
+                    unawaited(_api.discardAiAction(a.id));
+                    setState(() => a.state = 'discarded');
+                  },
+                  child: Text(tr('Bỏ')),
+                ),
+              ]),
+            ]),
+        },
+      ]),
+    );
+  }
+
   Widget _buildInputBar() {
     return SafeArea(
       top: false,
@@ -1255,12 +1637,14 @@ class _AiAssistantSheetState extends State<AiAssistantSheet> {
           crossAxisAlignment: CrossAxisAlignment.end,
           children: [
             IconButton(
-              tooltip: tr(_isListening ? 'Dừng ghi âm' : 'Nói'),
-              onPressed: _toggleListening,
-              icon: Icon(
-                _isListening ? Icons.mic : Icons.mic_none_rounded,
-                color: _isListening ? Colors.red : SboxColors.violet,
-              ),
+              tooltip: tr(_isListening || _recording ? 'Dừng & gửi' : 'Nói'),
+              onPressed: _transcribing ? null : _toggleListening,
+              icon: _transcribing
+                  ? const SizedBox(width: 20, height: 20, child: CircularProgressIndicator(strokeWidth: 2))
+                  : Icon(
+                      _isListening || _recording ? Icons.stop_circle_rounded : Icons.mic_none_rounded,
+                      color: _isListening || _recording ? Colors.red : SboxColors.violet,
+                    ),
             ),
             Expanded(
               child: TextField(
@@ -1272,9 +1656,13 @@ class _AiAssistantSheetState extends State<AiAssistantSheet> {
                 onSubmitted: (_) => _send(),
                 onTapOutside: (_) => _dismissKeyboard(),
                 decoration: InputDecoration(
-                  hintText: tr(_isListening
-                      ? 'Đang nghe...'
-                      : 'Hỏi trợ lý (VD: "Còn bao nhiêu phép?")'),
+                  hintText: tr(_recording
+                      ? 'Đang nghe ${_recSecs}s — nói xong bấm ■ để gửi'
+                      : _transcribing
+                          ? 'Đang chép lời…'
+                          : _isListening
+                              ? 'Đang nghe...'
+                              : 'Hỏi hoặc ra lệnh (VD: "Phạt An 50k đi trễ")'),
                   filled: true,
                   fillColor: SboxColors.slate50,
                   border: OutlineInputBorder(

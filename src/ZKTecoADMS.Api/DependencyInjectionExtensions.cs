@@ -225,6 +225,8 @@ public static class DependencyInjectionExtensions
         // Gemini AI: per-store config from AppSettings (scoped per request)
         services.AddScoped<TenantScopedGeminiAiService>();
         services.AddScoped<IGeminiAiService>(sp => sp.GetRequiredService<TenantScopedGeminiAiService>());
+        services.AddScoped<AiAssistantActions>();
+        services.AddScoped<AiVoiceService>();
         services.AddScoped<AiAssistantAgent>();
         services.AddScoped<PosAiMenuService>();
         services.AddScoped<PosDocxTemplateAiService>();

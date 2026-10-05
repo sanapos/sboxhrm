@@ -13,6 +13,7 @@ import 'pos_quote_document_wording_screen.dart';
 import '../../widgets/pos/pos_quote_care_sheet.dart';
 import '../../widgets/pos/pos_contract_payment_panel.dart';
 import '../../widgets/pos/pos_theme.dart';
+import 'pos_quote_detail_screen.dart' show PosQuoteFlow, PosQuoteProgress;
 
 import '../../theme/sbox_tokens.dart';
 /// Chi tiết hợp đồng: tạm ứng + biên bản nghiệm thu.
@@ -193,40 +194,64 @@ class _PosContractDetailScreenState extends State<PosContractDetailScreen> {
                   child: ListView(
                     padding: const EdgeInsets.fromLTRB(12, 12, 12, 28),
                     children: [
-                      Material(
-                        color: Colors.white,
-                        borderRadius: BorderRadius.circular(10),
+                      Container(
+                        decoration: BoxDecoration(
+                          color: Colors.white,
+                          borderRadius: BorderRadius.circular(14),
+                          border: Border.all(color: SboxColors.slate200),
+                        ),
                         child: Padding(
                           padding: const EdgeInsets.all(14),
                           child: Column(
                             crossAxisAlignment: CrossAxisAlignment.start,
                             children: [
-                              Text(
-                                contract?.title ?? tr('Hợp đồng'),
-                                style: const TextStyle(
-                                    fontWeight: FontWeight.w700, fontSize: 16),
-                              ),
-                              const SizedBox(height: 4),
-                              Text(
-                                [
-                                  q.quoteNo,
-                                  q.customerName ?? '',
-                                  '${_money.format(q.total)} đ',
-                                  PosQuote.stageLabel(q.commercialStage),
-                                ].where((e) => e.isNotEmpty).join(' · '),
-                                style: TextStyle(
-                                    color: SboxColors.slate700, fontSize: 13),
-                              ),
-                              if (q.depositAmount > 0) ...[
-                                const SizedBox(height: 8),
-                                Text(
-                                  tr(
-                                      'Cọc: ${_money.format(q.depositAmount)} đ${q.depositPercent != null ? ' (${q.depositPercent!.round()}%)' : ''}'),
-                                  style: const TextStyle(
-                                      color: PosTheme.kiotBlue,
-                                      fontWeight: FontWeight.w600),
+                              Row(children: [
+                                Container(
+                                  padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 3),
+                                  decoration: BoxDecoration(
+                                    color: SboxColors.success.withValues(alpha: 0.12),
+                                    borderRadius: BorderRadius.circular(20),
+                                  ),
+                                  child: Text(tr(PosQuote.stageLabel(q.commercialStage)),
+                                      style: const TextStyle(
+                                          fontSize: 12, fontWeight: FontWeight.w700, color: SboxColors.success)),
                                 ),
-                              ],
+                                const Spacer(),
+                                Text(tr('Từ báo giá ${q.quoteNo}'),
+                                    style: const TextStyle(fontSize: 12, color: SboxColors.slate500)),
+                              ]),
+                              const SizedBox(height: 10),
+                              Text(
+                                tr(contract?.title ?? 'Hợp đồng'),
+                                style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w700, color: SboxColors.slate600),
+                              ),
+                              const SizedBox(height: 2),
+                              Text(
+                                tr((q.customerName ?? '').trim().isEmpty ? 'Khách lẻ' : q.customerName!.trim()),
+                                style: const TextStyle(fontSize: 18, fontWeight: FontWeight.w700, color: SboxColors.slate900),
+                              ),
+                              const SizedBox(height: 10),
+                              Row(crossAxisAlignment: CrossAxisAlignment.end, children: [
+                                Expanded(
+                                  child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+                                    Text(tr('Giá trị hợp đồng'),
+                                        style: const TextStyle(fontSize: 12, color: SboxColors.slate500)),
+                                    Text(tr('${_money.format(q.total)} đ'),
+                                        style: const TextStyle(
+                                            fontSize: 22, fontWeight: FontWeight.w800, color: PosTheme.kiotBlue)),
+                                  ]),
+                                ),
+                                if (q.depositAmount > 0)
+                                  Column(crossAxisAlignment: CrossAxisAlignment.end, children: [
+                                    Text(tr('Cọc'), style: const TextStyle(fontSize: 12, color: SboxColors.slate500)),
+                                    Text(
+                                      tr('${_money.format(q.depositAmount)} đ${q.depositPercent != null ? ' (${q.depositPercent!.round()}%)' : ''}'),
+                                      style: const TextStyle(fontSize: 14, fontWeight: FontWeight.w700),
+                                    ),
+                                  ]),
+                              ]),
+                              const SizedBox(height: 14),
+                              PosQuoteProgress(done: PosQuoteFlow.doneCount(q), stopped: PosQuoteFlow.isStopped(q)),
                               const SizedBox(height: 12),
                               SizedBox(
                                 width: double.infinity,

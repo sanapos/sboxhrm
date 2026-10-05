@@ -14,22 +14,26 @@ Widget buildPosHtmlPreview(String htmlDocument, {bool? a4Paper}) {
           t.contains('báo giá') ||
           t.contains('hợp đồng'));
   if (!a4) return _PosHtmlIframe(html: htmlDocument);
+  // Trang A4 794px: màn hẹp (điện thoại) thu nhỏ vừa bề ngang — iframe nuốt thao tác cuộn ngang.
   return ColoredBox(
     color: SboxColors.slate200,
-    child: Scrollbar(
-      thumbVisibility: true,
-      child: SingleChildScrollView(
+    child: LayoutBuilder(builder: (context, c) {
+      const pageW = 794.0, pageH = 1123.0;
+      final scale = ((c.maxWidth - 16) / pageW).clamp(0.3, 1.0);
+      return Scrollbar(
+        thumbVisibility: true,
         child: SingleChildScrollView(
-          scrollDirection: Axis.horizontal,
           padding: const EdgeInsets.all(8),
-          child: SizedBox(
-            width: 794,
-            height: 1123,
-            child: _PosHtmlIframe(html: htmlDocument),
+          child: Center(
+            child: SizedBox(
+              width: pageW * scale,
+              height: pageH * scale,
+              child: _PosHtmlIframe(html: htmlDocument, scale: scale, pageWidth: pageW, pageHeight: pageH),
+            ),
           ),
         ),
-      ),
-    ),
+      );
+    }),
   );
 }
 
@@ -49,9 +53,13 @@ Future<void> printPosHtmlDocument(String htmlDocument) async {
 }
 
 class _PosHtmlIframe extends StatefulWidget {
-  const _PosHtmlIframe({required this.html});
+  const _PosHtmlIframe({required this.html, this.scale = 1, this.pageWidth, this.pageHeight});
 
   final String html;
+  /// < 1: iframe giữ khổ trang thật, thu nhỏ bằng CSS transform.
+  final double scale;
+  final double? pageWidth;
+  final double? pageHeight;
 
   @override
   State<_PosHtmlIframe> createState() => _PosHtmlIframeState();
@@ -70,6 +78,13 @@ class _PosHtmlIframeState extends State<_PosHtmlIframe> {
         ..style.width = '100%'
         ..style.height = '100%'
         ..srcdoc = widget.html.toJS;
+      if (widget.scale < 1 && widget.pageWidth != null && widget.pageHeight != null) {
+        iframe.style
+          ..width = '${widget.pageWidth}px'
+          ..height = '${widget.pageHeight}px'
+          ..transformOrigin = '0 0'
+          ..transform = 'scale(${widget.scale})';
+      }
       return iframe;
     });
   }

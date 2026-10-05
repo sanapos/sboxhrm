@@ -19,6 +19,7 @@ public sealed class AiAssistantAgent(
     ZKTecoDbContext db,
     IGeminiAiService gemini,
     IHttpContextAccessor http,
+    AiAssistantActions actions,
     ILogger<AiAssistantAgent> logger)
 {
     const int MaxRounds = 6;
@@ -32,7 +33,21 @@ public sealed class AiAssistantAgent(
     })
     { Timeout = TimeSpan.FromSeconds(60) };
 
-    public sealed record Result(string Reply, List<string> ReportsUsed);
+    public sealed record Result(string Reply, List<string> ReportsUsed, List<AiAssistantActions.Pending> Proposed);
+
+    /// <summary>Câu muốn thêm / sửa chứng từ — đi qua agent (có công cụ đề xuất phiếu).</summary>
+    public static bool LooksLikeWrite(string query)
+    {
+        var q = " " + (query ?? "").ToLowerInvariant() + " ";
+        string[] keys =
+        [
+            " tạo ", " thêm ", " lập ", " ghi ", " sửa ", " đổi ", "cập nhật", "điều chỉnh", "phạt", "thưởng", " ứng ",
+            "tăng ca", "làm thêm giờ", "quên chấm", "bổ sung công", "chấm bù", "phiếu thu", "phiếu chi", "chi tiền", "thu tiền",
+            "bán cho", "lên đơn", "tạo đơn", "xuất hóa đơn", "lập hóa đơn", "ghi nợ",
+        ];
+        // «Bán 2 Coca cho…», «Bán cho chị Lan…» — câu mở đầu bằng «bán» là lệnh lập hóa đơn.
+        return keys.Any(q.Contains) || q.StartsWith(" bán ", StringComparison.Ordinal);
+    }
 
     /// <summary>Câu hỏi phân tích / số liệu tổng hợp — đi thẳng qua agent thay vì bot rule.</summary>
     public static bool LooksAnalytical(string query)
@@ -59,12 +74,19 @@ public sealed class AiAssistantAgent(
         Guid storeId,
         IReadOnlyDictionary<string, ModulePermissionDto> perms,
         bool isSuperUser,
-        CancellationToken ct)
+        CancellationToken ct,
+        Guid? userId = null,
+        string userRole = "")
     {
         var packageModules = await Infrastructure.Helpers.StorePackageHelper.ResolveAllowedModulesAsync(db, storeId, ct);
         var reports = AiAssistantReportCatalog.Allowed(perms, isSuperUser, packageModules);
-        var tools = BuildTools(reports);
-        var system = systemPrompt + "\n\n" + AnalystInstructions(reports);
+        var actx = userId is Guid uid
+            ? new AiAssistantActions.Ctx(storeId, uid, userRole, perms, isSuperUser, packageModules)
+            : null;
+        var actionDecls = actx == null ? [] : actions.ToolDeclarations(actx);
+        var tools = BuildTools(reports, actionDecls);
+        var system = systemPrompt + "\n\n" + AnalystInstructions(reports) + "\n" + AiAssistantActions.Instructions(actionDecls.Count > 0);
+        var proposed = new List<AiAssistantActions.Pending>();
 
         var contents = new List<object>();
         foreach (var (role, content) in turns)
@@ -75,6 +97,8 @@ public sealed class AiAssistantAgent(
 
         var used = new List<string>();
         var calls = 0;
+        string? model = null;
+        var nudged = false;
         for (var round = 0; round < MaxRounds; round++)
         {
             var body = new
@@ -87,13 +111,20 @@ public sealed class AiAssistantAgent(
             JsonElement content;
             try
             {
-                content = await gemini.GenerateContentRawAsync(body, ct);
+                content = await gemini.GenerateContentRawAsync(body, ct, model);
             }
             catch (AiApiException ex) when (ex.StatusCode == 503)
             {
                 // Google quá tải thường chỉ vài giây — thử lại một lần.
                 await Task.Delay(2000, ct);
-                content = await gemini.GenerateContentRawAsync(body, ct);
+                content = await gemini.GenerateContentRawAsync(body, ct, model);
+            }
+            catch (AiApiException ex) when (ex.IsQuotaError && model == null)
+            {
+                // Khóa miễn phí hết lượt model chính — Flash Lite có hạn mức riêng, chạy tiếp các lượt sau bằng nó.
+                logger.LogInformation("AI agent: quota on default model → {Model}", GeminiModels.FlashLite);
+                model = GeminiModels.FlashLite;
+                content = await gemini.GenerateContentRawAsync(body, ct, model);
             }
             var parts = content.TryGetProperty("parts", out var ps) && ps.ValueKind == JsonValueKind.Array
                 ? ps.EnumerateArray().ToList()
@@ -105,8 +136,19 @@ public sealed class AiAssistantAgent(
                     .Where(p => !(p.TryGetProperty("thought", out var t) && t.ValueKind == JsonValueKind.True))
                     .Where(p => p.TryGetProperty("text", out _))
                     .Select(p => p.GetProperty("text").GetString() ?? "")).Trim();
+                // Model nói đã lập phiếu / mời xác nhận nhưng chưa gọi công cụ đề xuất → không có thẻ: bắt gọi thật.
+                if (fnCalls.Count == 0 && actx != null && proposed.Count == 0 && !nudged && actionDecls.Count > 0
+                    && ClaimsProposal(text))
+                {
+                    nudged = true;
+                    contents.Add(content);
+                    contents.Add(new { role = "user", parts = new[] { new { text =
+                        "Bạn CHƯA gọi công cụ propose_* nên người dùng không thấy thẻ xác nhận. Gọi đúng công cụ ngay "
+                        + "(tra find_* trước nếu cần id); thiếu thông tin thì hỏi lại, KHÔNG nói đã lập." } } });
+                    continue;
+                }
                 if (text.Length > 0 || fnCalls.Count == 0)
-                    return new Result(PlainText(text), used);
+                    return new Result(PlainText(text), used, proposed);
                 // Hết lượt gọi công cụ mà model vẫn đòi gọi — yêu cầu trả lời bằng số liệu đã có.
                 contents.Add(content);
                 contents.Add(new { role = "user", parts = new[] { new { text = "Đã đủ số liệu — hãy trả lời ngay, không gọi thêm công cụ." } } });
@@ -129,6 +171,7 @@ public sealed class AiAssistantAgent(
                     {
                         "run_report" => await RunReportAsync(args, reports, used, ct),
                         "store_overview" => await StoreOverviewAsync(storeId, perms, isSuperUser, packageModules, ct),
+                        _ when actx != null && actions.Handles(name) => await actions.HandleAsync(name, args, actx, proposed, ct),
                         _ => new { error = $"Không có công cụ {name}" },
                     };
                 }
@@ -142,12 +185,19 @@ public sealed class AiAssistantAgent(
             contents.Add(new { role = "user", parts = responses });
         }
 
-        return new Result("Câu hỏi cần quá nhiều báo cáo — bạn hỏi cụ thể hơn (một chỉ số, một khoảng thời gian) nhé.", used);
+        return new Result("Câu hỏi cần quá nhiều báo cáo — bạn hỏi cụ thể hơn (một chỉ số, một khoảng thời gian) nhé.", used, proposed);
+    }
+
+    static bool ClaimsProposal(string text)
+    {
+        var t = text.ToLowerInvariant();
+        return t.Contains("xác nhận") || t.Contains("đã lập") || t.Contains("đã tạo") || t.Contains("bản nháp")
+               || t.Contains("thẻ bên dưới") || t.Contains("đã chuẩn bị");
     }
 
     // ─── Công cụ ─────────────────────────────────────────────────────
 
-    static object[] BuildTools(IReadOnlyList<AiAssistantReportCatalog.Report> reports)
+    static object[] BuildTools(IReadOnlyList<AiAssistantReportCatalog.Report> reports, List<object>? extra = null)
     {
         var decls = new List<object>
         {
@@ -187,6 +237,7 @@ public sealed class AiAssistantAgent(
                 },
             });
         }
+        if (extra != null) decls.AddRange(extra);
         return [new { functionDeclarations = decls }];
     }
 

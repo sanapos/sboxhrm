@@ -165,8 +165,16 @@ public sealed class TenantScopedGeminiAiService : IGeminiAiService
     /// Gọi AI lần lượt qua các khóa: khóa hết lượt (429) nghỉ 15 phút, khóa sai / hết hạn nghỉ 6 giờ,
     /// rồi thử khóa kế tiếp. Lỗi khác (nội dung, mạng, model) trả ngay.
     /// </summary>
-    private async Task<T> WithFailoverAsync<T>(Func<Task<T>> call)
+    /// <summary>Hết lượt: nghỉ khóa với model đang gọi. Khóa sai / hết hạn: nghỉ cho mọi model.</summary>
+    private static void MarkCooling(string key, bool auth, Func<string, string> pk, TimeSpan duration)
     {
+        GeminiKeyPool.MarkExhausted(pk(key), duration);
+        if (auth) GeminiKeyPool.MarkExhausted(key, duration);
+    }
+
+    private async Task<T> WithFailoverAsync<T>(Func<Task<T>> call, string? poolTag = null)
+    {
+        string Pk(string key) => poolTag == null ? key : key + "#" + poolTag;
         EnsureInitialized();
         if (!_manualOverride && _chain.Count == 0 && SharedBlocked)
             throw new InvalidOperationException(NoOwnKeyMessage);
@@ -177,13 +185,13 @@ public sealed class TenantScopedGeminiAiService : IGeminiAiService
             try { return await CallOnKeyAsync(_chain[0], call); }
             catch (AiApiException ex) when (ex.IsQuotaError || ex.IsAuthError)
             {
-                GeminiKeyPool.MarkExhausted(_chain[0].Key,
+                MarkCooling(_chain[0].Key, ex.IsAuthError, Pk,
                     ex.IsQuotaError ? TimeSpan.FromMinutes(15) : TimeSpan.FromHours(6));
                 throw;
             }
         }
         AiApiException? last = null;
-        foreach (var i in GeminiKeyPool.OrderForUse(_chain.Select(c => c.Key).ToList()))
+        foreach (var i in GeminiKeyPool.OrderForUse(_chain.Select(c => Pk(c.Key)).ToList()))
         {
             try
             {
@@ -193,7 +201,7 @@ public sealed class TenantScopedGeminiAiService : IGeminiAiService
             {
                 // Hết lượt / sai khóa: cho nghỉ. Model không dùng được (đã thử dự phòng) / quá tải: chuyển khóa, không phạt.
                 if (ex.IsQuotaError || ex.IsAuthError)
-                    GeminiKeyPool.MarkExhausted(_chain[i].Key,
+                    MarkCooling(_chain[i].Key, ex.IsAuthError, Pk,
                         ex.IsQuotaError ? TimeSpan.FromMinutes(15) : TimeSpan.FromHours(6));
                 _logger.LogWarning("Gemini key #{Index} ({Mask}) {Reason} — chuyển khóa kế tiếp",
                     i + 1, GeminiKeyPool.Mask(_chain[i].Key),
@@ -283,9 +291,10 @@ public sealed class TenantScopedGeminiAiService : IGeminiAiService
         return WithFailoverAsync(() => _inner.GenerateAssistantChatAsync(systemPrompt, messages, maxTokens, cancellationToken));
     }
 
-    public Task<System.Text.Json.JsonElement> GenerateContentRawAsync(object requestBody, CancellationToken cancellationToken = default)
+    public Task<System.Text.Json.JsonElement> GenerateContentRawAsync(object requestBody, CancellationToken cancellationToken = default, string? model = null)
     {
-        return WithFailoverAsync(() => _inner.GenerateContentRawAsync(requestBody, cancellationToken));
+        // Model chỉ định (TTS, Flash Lite dự phòng): hạn mức Google tính riêng từng model → hết lượt chỉ cho nghỉ khóa với model đó.
+        return WithFailoverAsync(() => _inner.GenerateContentRawAsync(requestBody, cancellationToken, model), model);
     }
 }
 

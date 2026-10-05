@@ -76,6 +76,9 @@ class PosSaleOrderReceiptView extends StatelessWidget {
 
 
 
+    // Màn hẹp (điện thoại): bảng 7 cột chiếm hết chỗ cột «Mặt hàng» → dòng hàng 2 tầng.
+    return LayoutBuilder(builder: (context, c) {
+    final compact = c.maxWidth < 480;
     return Material(
 
       color: Colors.white,
@@ -108,7 +111,7 @@ class PosSaleOrderReceiptView extends StatelessWidget {
 
           else ...[
 
-            _cartHeader(),
+            if (compact) _cartHeaderCompact() else _cartHeader(),
 
             ...List.generate(order.lines.length, (i) {
 
@@ -124,7 +127,9 @@ class PosSaleOrderReceiptView extends StatelessWidget {
 
                     const Divider(height: 1, indent: 12, endIndent: 12, color: PosTheme.border),
 
-                  _cartRow(line, index, money, qtyFmt),
+                  compact
+                      ? _cartRowCompact(line, index, money, qtyFmt)
+                      : _cartRow(line, index, money, qtyFmt),
 
                 ],
 
@@ -249,7 +254,7 @@ class PosSaleOrderReceiptView extends StatelessWidget {
       ),
 
     );
-
+    });
   }
 
 
@@ -501,6 +506,74 @@ class PosSaleOrderReceiptView extends StatelessWidget {
   }
 
 
+
+  Widget _cartHeaderCompact() {
+    const hdr = TextStyle(fontSize: 11, fontWeight: FontWeight.w600, color: PosTheme.textSecondary);
+    return Container(
+      height: _hdrH,
+      padding: const EdgeInsets.symmetric(horizontal: _sidePadding),
+      decoration: const BoxDecoration(
+        color: SboxColors.slate50,
+        border: Border(bottom: BorderSide(color: PosTheme.border)),
+      ),
+      child: Row(children: [
+        Expanded(child: Text(tr('Mặt hàng'), style: hdr)),
+        Text(tr('Thành tiền'), style: hdr),
+      ]),
+    );
+  }
+
+  Widget _cartRowCompact(PosSaleOrderLine line, int index, NumberFormat money, NumberFormat qtyFmt) {
+    final unit = (line.unitName ?? '').trim();
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(_sidePadding, 8, _sidePadding, 8),
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          SizedBox(
+            width: 22,
+            child: Text(tr('$index.'), style: const TextStyle(fontSize: 12, color: PosTheme.textSecondary)),
+          ),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  tr(line.productName),
+                  maxLines: 2,
+                  overflow: TextOverflow.ellipsis,
+                  style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w600),
+                ),
+                const SizedBox(height: 2),
+                Text(
+                  tr('${qtyFmt.format(line.qty)}${unit.isEmpty ? '' : ' $unit'} × ${money.format(line.unitPrice)}'),
+                  style: const TextStyle(fontSize: 12, color: PosTheme.textSecondary),
+                ),
+                if (line.lineNote != null && line.lineNote!.trim().isNotEmpty)
+                  Text(tr('↳ ${line.lineNote!.trim()}'),
+                      maxLines: 2,
+                      overflow: TextOverflow.ellipsis,
+                      style: const TextStyle(fontSize: 11, color: _blue)),
+                if (line.discountAmount > 0)
+                  Text(tr('CK: -${money.format(line.discountAmount)}'),
+                      style: TextStyle(fontSize: 11, color: Colors.red.shade700)),
+                if (line.serialNumbers.isNotEmpty)
+                  Text(tr('Seri: ${line.serialNumbers.join(', ')}'),
+                      maxLines: 2,
+                      overflow: TextOverflow.ellipsis,
+                      style: const TextStyle(fontSize: 11, color: SboxColors.success)),
+              ],
+            ),
+          ),
+          const SizedBox(width: 8),
+          Text(
+            tr(money.format(line.lineTotal)),
+            style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w700),
+          ),
+        ],
+      ),
+    );
+  }
 
   Widget _cartRow(
 

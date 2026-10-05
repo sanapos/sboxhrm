@@ -20,8 +20,60 @@ public class AiAssistantController(
     IModulePermissionService modulePermissionService,
     IGeminiAiService geminiAiService,
     AiAssistantAgent agent,
+    AiAssistantActions actions,
+    AiVoiceService voice,
     ILogger<AiAssistantController> logger) : AuthenticatedControllerBase
 {
+    public sealed record SpeakRequest(string Text, string? Voice);
+
+    /// <summary>Ghi âm → chữ (Gemini nghe, có từ vựng cửa hàng). 409 = cửa hàng chưa có AI → app dùng nhận dạng của máy.</summary>
+    [HttpPost("transcribe")]
+    [RequestSizeLimit(12 * 1024 * 1024)]
+    public async Task<IActionResult> Transcribe(IFormFile audio, CancellationToken ct)
+    {
+        if (audio == null || audio.Length == 0) return BadRequest(AppResponse<string>.Fail("Chưa có ghi âm"));
+        if (!geminiAiService.IsConfigured || !geminiAiService.IsEnabled)
+            return StatusCode(409, AppResponse<string>.Fail("Cửa hàng chưa bật AI"));
+        await using var ms = new MemoryStream();
+        await audio.CopyToAsync(ms, ct);
+        try
+        {
+            var text = await voice.TranscribeAsync(ms.ToArray(), audio.ContentType, RequiredStoreId, ct);
+            return Ok(AppResponse<string>.Success(text));
+        }
+        catch (AiApiException ex)
+        {
+            logger.LogWarning(ex, "AI transcribe failed");
+            return StatusCode(ex.IsQuotaError ? 429 : 502, AppResponse<string>.Fail(ex.Message));
+        }
+    }
+
+    /// <summary>Đọc câu trả lời bằng giọng Gemini TTS → audio/wav. Lỗi → app đọc bằng giọng của máy.</summary>
+    [HttpPost("speak")]
+    public async Task<IActionResult> Speak([FromBody] SpeakRequest dto, CancellationToken ct)
+    {
+        if (string.IsNullOrWhiteSpace(dto?.Text)) return BadRequest(AppResponse<string>.Fail("Thiếu nội dung"));
+        if (!geminiAiService.IsConfigured || !geminiAiService.IsEnabled)
+            return StatusCode(409, AppResponse<string>.Fail("Cửa hàng chưa bật AI"));
+        try
+        {
+            var wav = await voice.SpeakAsync(dto.Text, dto.Voice, ct);
+            return File(wav, "audio/wav");
+        }
+        catch (AiApiException ex)
+        {
+            logger.LogWarning(ex, "AI TTS failed");
+            return StatusCode(ex.IsQuotaError ? 429 : 502, AppResponse<string>.Fail(ex.Message));
+        }
+    }
+
+    [HttpGet("voices")]
+    public IActionResult VoiceList() => Ok(AppResponse<object>.Success(new
+    {
+        defaultVoice = AiVoiceService.DefaultVoice,
+        voices = AiVoiceService.Voices.Select(v => new { id = v.Key, label = v.Value }),
+    }));
+
     public class ChatMessage
     {
         public string Role { get; set; } = "user"; // "user" | "assistant"
@@ -45,6 +97,29 @@ public class AiAssistantController(
         public List<string> Guides { get; set; } = new();
         /// <summary>Báo cáo trợ lý đã xem để trả lời (tên hiển thị).</summary>
         public List<string> Reports { get; set; } = new();
+        /// <summary>Phiếu trợ lý đã dựng sẵn — chờ người dùng bấm Xác nhận.</summary>
+        public List<PendingActionDto> PendingActions { get; set; } = new();
+    }
+
+    public sealed record PendingActionDto(
+        string Id, string Kind, string Title, List<AiAssistantActions.Line> Lines, List<string> Warnings, string? OpenModule);
+
+    public sealed record ActionResultDto(bool Ok, string Message, string? DocNo, string? OpenModule);
+
+    /// <summary>Người dùng xác nhận phiếu trợ lý đề xuất → gọi API thật của app bằng phiên của họ.</summary>
+    [HttpPost("actions/{id}/confirm")]
+    public async Task<IActionResult> ConfirmAction(string id, CancellationToken ct)
+    {
+        var r = await actions.ExecuteAsync(id, CurrentUserId, RequiredStoreId, ct);
+        var dto = new ActionResultDto(r.Ok, r.Message, r.DocNo, r.OpenModule);
+        return Ok(r.Ok ? AppResponse<ActionResultDto>.Success(dto) : AppResponse<ActionResultDto>.Fail(r.Message));
+    }
+
+    [HttpPost("actions/{id}/discard")]
+    public IActionResult DiscardAction(string id)
+    {
+        actions.Discard(id, CurrentUserId, RequiredStoreId);
+        return Ok(AppResponse<bool>.Success(true));
     }
 
     /// <summary>
@@ -145,13 +220,16 @@ public class AiAssistantController(
 
             var geminiOk = geminiAiService.IsConfigured && geminiAiService.IsEnabled;
             // Câu hỏi phân tích / báo cáo → đi thẳng agent (gọi báo cáo thật); câu cá nhân đơn giản → bot rule (nhanh, không tốn lượt).
-            var analytical = geminiOk && AiAssistantAgent.LooksAnalytical(lastUserMessage.Content);
+            // Thêm / sửa phiếu bằng lời → agent có công cụ đề xuất (bot rule chỉ mở form).
+            var analytical = geminiOk && (AiAssistantAgent.LooksAnalytical(lastUserMessage.Content)
+                                          || AiAssistantAgent.LooksLikeWrite(lastUserMessage.Content));
             var rule = analytical
                 ? new AiAssistantRuleResult(false, "")
                 : AiAssistantRuleBot.Build(
                     lastUserMessage.Content, contextText, helpHits,
                     allowedActions, allowedCreates, includeFallback: !geminiOk);
             var reportsUsed = new List<string>();
+            var proposed = new List<AiAssistantActions.Pending>();
             logger.LogInformation("AI chat route: gemini={GeminiOk} analytical={Analytical} rule={Rule}",
                 geminiOk, analytical, rule.Matched);
 
@@ -175,9 +253,10 @@ public class AiAssistantController(
                 try
                 {
                     var result = await agent.RunAsync(
-                        systemPrompt, chatTurns, RequiredStoreId, permMap, isSuperUser, ct);
+                        systemPrompt, chatTurns, RequiredStoreId, permMap, isSuperUser, ct, CurrentUserId, role);
                     reply = result.Reply;
                     reportsUsed = result.ReportsUsed;
+                    proposed = result.Proposed;
                     usedProvider = "gemini";
                 }
                 catch (Exception gemEx) when (gemEx is not OperationCanceledException)
@@ -210,9 +289,13 @@ public class AiAssistantController(
                 Reply = parsed.Text,
                 Provider = usedProvider,
                 Actions = parsed.Actions,
-                Creates = parsed.Creates,
                 Guides = parsed.Guides,
                 Reports = reportsUsed.Distinct().Select(AiAssistantReportCatalog.TitleOf).ToList(),
+                PendingActions = proposed
+                    .Select(p => new PendingActionDto(p.Id, p.Kind, p.Title, p.Lines, p.Warnings, p.OpenModule))
+                    .ToList(),
+                // Đã có thẻ xác nhận thì bỏ thẻ CREATE cũ (tránh hai nút cho cùng một phiếu).
+                Creates = proposed.Count > 0 ? new List<string>() : parsed.Creates,
             }));
         }
         catch (Exception ex)

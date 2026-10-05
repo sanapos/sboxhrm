@@ -350,9 +350,10 @@ public partial class PosSalesController(
         DateTime? EInvoiceEmailSentAt = null,
         string? EInvoiceKind = null);
 
+    /// <param name="Kind">sale = thu khi bán · deposit = cọc đặt chỗ trừ vào đơn · debt = thu nợ sau.</param>
     public record SalePaymentDto(
         string PaymentNo, decimal Amount, string PaymentMethod,
-        DateTime PaidAt, string? Note, string? CreatedBy);
+        DateTime PaidAt, string? Note, string? CreatedBy, string Kind = "sale");
 
     public record SaleReturnSummaryDto(
         string ReturnNo, decimal RefundAmount, DateTime CreatedAt, string? Note, string? CreatedBy,
@@ -1463,6 +1464,9 @@ public partial class PosSalesController(
                 && !o.OrderNo.ToUpper().StartsWith("TMP")));
 
         var total = await query.CountAsync();
+        // Tổng tiền HĐ hoàn thành theo đúng bộ lọc đang xem (thẻ tóm tắt danh sách).
+        var completedTotal = await query.Where(o => o.Status == PosSaleOrderStatus.Completed)
+            .SumAsync(o => (decimal?)o.Total) ?? 0m;
         var rows = await query
             .Include(o => o.Lines)
             .OrderByDescending(o => o.SaleDate ?? o.CreatedAt)
@@ -1482,7 +1486,7 @@ public partial class PosSalesController(
             return MapSummary(o, returned, o.Lines.Count, qtyByLine, CurrentUserId);
         }).ToList();
 
-        return Ok(AppResponse<object>.Success(new { total, page, pageSize, items }));
+        return Ok(AppResponse<object>.Success(new { total, page, pageSize, completedTotal, items }));
     }
 
     [HttpGet("{id:guid}")]
@@ -1874,9 +1878,26 @@ public partial class PosSalesController(
                     order.SaleDate ?? order.CreatedAt,
                     $"Thanh toán đơn {order.OrderNo}", order.CreatedBy));
             }
+
+            var deposits = await dbContext.PosResourceReservations.AsNoTracking()
+                .Where(r => r.StoreId == storeId && r.DepositAppliedOrderId == order.Id && r.DepositPaid > 0)
+                .Select(r => new { r.DepositPaid, r.DepositPaymentMethod, r.DepositPaidAt, r.CreatedAt })
+                .ToListAsync();
+            items.AddRange(deposits.Select(r => new SalePaymentDto(
+                "Cọc", r.DepositPaid, r.DepositPaymentMethod ?? "Tiền mặt", r.DepositPaidAt ?? r.CreatedAt,
+                "Tiền cọc đặt chỗ trừ vào đơn", null, "deposit")));
         }
 
-        return Ok(AppResponse<List<SalePaymentDto>>.Success(items));
+        // Thu nợ sau bán (khách trả dần) — kể cả đơn chưa hoàn tất thanh toán.
+        var debts = await dbContext.PosCustomerPayments.AsNoTracking()
+            .Where(p => p.StoreId == storeId && p.SaleOrderId == order.Id && p.Deleted == null)
+            .OrderBy(p => p.PaidAt)
+            .Select(p => new { p.PaymentNo, p.Amount, p.PaymentMethod, p.PaidAt, p.Note, p.CreatedBy })
+            .ToListAsync();
+        items.AddRange(debts.Select(p => new SalePaymentDto(
+            p.PaymentNo, p.Amount, p.PaymentMethod, p.PaidAt, p.Note ?? "Thu nợ", p.CreatedBy, "debt")));
+
+        return Ok(AppResponse<List<SalePaymentDto>>.Success(items.OrderBy(i => i.PaidAt).ToList()));
     }
 
     [HttpGet("{id:guid}/returns")]

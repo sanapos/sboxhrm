@@ -35,7 +35,7 @@ public interface IGeminiAiService
     /// generateContent với thân request tùy ý (systemInstruction + contents + tools — function calling).
     /// Trả về <c>candidates[0].content</c> (role model, parts: text / functionCall), đã Clone.
     /// </summary>
-    Task<JsonElement> GenerateContentRawAsync(object requestBody, CancellationToken cancellationToken = default);
+    Task<JsonElement> GenerateContentRawAsync(object requestBody, CancellationToken cancellationToken = default, string? model = null);
     bool IsConfigured { get; }
     bool IsEnabled { get; }
     void UpdateConfig(string? apiKey, string? model = null, int? maxTokens = null, double? temperature = null, bool? enabled = null);
@@ -469,14 +469,14 @@ Hãy viết trực tiếp nội dung, KHÔNG bọc trong JSON hay markdown code 
         return string.Empty;
     }
 
-    public async Task<JsonElement> GenerateContentRawAsync(object requestBody, CancellationToken cancellationToken = default)
+    public async Task<JsonElement> GenerateContentRawAsync(object requestBody, CancellationToken cancellationToken = default, string? model = null)
     {
         if (!IsConfigured)
             throw new InvalidOperationException("Gemini API key chưa được cấu hình.");
         if (!IsEnabled)
             throw new InvalidOperationException("Gemini AI chưa được bật.");
 
-        var url = $"https://generativelanguage.googleapis.com/v1beta/models/{_model}:generateContent?key={_apiKey}";
+        var url = $"https://generativelanguage.googleapis.com/v1beta/models/{model ?? _model}:generateContent?key={_apiKey}";
         var json = requestBody as string ?? JsonSerializer.Serialize(requestBody, new JsonSerializerOptions
         {
             PropertyNamingPolicy = JsonNamingPolicy.CamelCase,

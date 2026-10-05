@@ -21,6 +21,7 @@ import 'pos_contract_detail_screen.dart';
 import 'pos_contract_receivables_screen.dart';
 import 'pos_quote_care_board_screen.dart';
 import 'pos_quote_composer_screen.dart';
+import 'pos_quote_detail_screen.dart';
 import 'pos_quote_editor_screen.dart';
 
 import '../../theme/sbox_tokens.dart';
@@ -52,6 +53,9 @@ class _PosQuoteListScreenState extends State<PosQuoteListScreen> {
   bool _canViewAll = false;
   late int _tab = widget.initialTab.clamp(0, 3);
   List<PosQuote> _items = [];
+  /// Số báo giá theo trạng thái (lần tải không lọc trạng thái).
+  Map<String, int> _statusCounts = {};
+  int _allCount = 0;
   final Map<String, int> _careScores = {};
   List<PosQuote> _contracts = [];
   List<PosQuote> _payments = [];
@@ -149,6 +153,11 @@ class _PosQuoteListScreenState extends State<PosQuoteListScreen> {
           .whereType<Map>()
           .map((e) => PosQuote.fromJson(Map<String, dynamic>.from(e)))
           .toList();
+      final counts = data is Map ? data['statusCounts'] : null;
+      if (counts is Map) {
+        _statusCounts = {for (final e in counts.entries) e.key.toString(): (e.value as num).toInt()};
+        _allCount = _statusCounts.values.fold(0, (a, b) => a + b);
+      }
     });
     final missingApiScore = raw.whereType<Map>().every((e) =>
         !e.containsKey('potentialScore') && !e.containsKey('PotentialScore'));
@@ -318,6 +327,16 @@ class _PosQuoteListScreenState extends State<PosQuoteListScreen> {
     if (mounted) await _reloadAll();
   }
 
+  /// Bấm thẻ báo giá → màn tổng quan (tiến độ + bước tiếp theo).
+  Future<void> _openDetail(PosQuote q) async {
+    hidePosSoftKeyboard(alsoAfterMs: 0);
+    FocusManager.instance.primaryFocus?.unfocus();
+    await Navigator.of(context).push<bool>(
+      MaterialPageRoute(builder: (_) => PosQuoteDetailScreen(quoteId: q.id)),
+    );
+    if (mounted) await _reloadAll();
+  }
+
   Future<void> _openDocs(PosQuote q) async {
     hidePosSoftKeyboard(alsoAfterMs: 0);
     await Navigator.of(context).push<bool>(
@@ -453,43 +472,7 @@ class _PosQuoteListScreenState extends State<PosQuoteListScreen> {
                     padding: const EdgeInsets.fromLTRB(0, 4, 8, 10),
                     child: Row(
                       children: [
-                        Expanded(
-                          child: Builder(builder: (context) {
-                            // Điện thoại: 4 tab chia đều, chỉ chữ (bỏ biểu tượng) — trước đây cả cụm bị thu nhỏ còn ~9px.
-                            final phone = MediaQuery.sizeOf(context).width < 600;
-                            const tabs = [
-                              (0, 'Báo giá', Icons.request_quote_outlined),
-                              (1, 'Hợp đồng', Icons.handshake_outlined),
-                              (2, 'Đề nghị TT', Icons.payments_outlined),
-                              (3, 'Nghiệm thu', Icons.fact_check_outlined),
-                            ];
-                            final seg = SegmentedButton<int>(
-                              segments: [
-                                for (final t in tabs)
-                                  ButtonSegment(
-                                    value: t.$1,
-                                    label: FittedBox(fit: BoxFit.scaleDown, child: Text(tr(t.$2), maxLines: 1)),
-                                    icon: phone ? null : Icon(t.$3, size: 18),
-                                  ),
-                              ],
-                              selected: {_tab},
-                              onSelectionChanged: (s) {
-                                setState(() => _tab = s.first);
-                                _reloadAll();
-                              },
-                              showSelectedIcon: false,
-                              style: phone
-                                  ? const ButtonStyle(
-                                      visualDensity: VisualDensity.compact,
-                                      padding: WidgetStatePropertyAll(EdgeInsets.symmetric(horizontal: 4)),
-                                    )
-                                  : null,
-                            );
-                            return phone
-                                ? SizedBox(width: double.infinity, child: seg)
-                                : FittedBox(fit: BoxFit.scaleDown, alignment: Alignment.centerLeft, child: seg);
-                          }),
-                        ),
+                        Expanded(child: _tabsBar()),
                         // Điện thoại: 2 nút biểu tượng không nhãn → gom vào «⋯» có chữ, nhường chỗ cho 4 tab.
                         if (MediaQuery.sizeOf(context).width < 600)
                           PopupMenuButton<String>(
@@ -534,6 +517,7 @@ class _PosQuoteListScreenState extends State<PosQuoteListScreen> {
             padding: EdgeInsets.fromLTRB(12, 10, 12, 0),
             child: _filterBar(canCreate),
           ),
+          if (_tab == 0) _statusStrip(),
           const SizedBox(height: 8),
           Expanded(
             child: switch (_tab) {
@@ -600,19 +584,6 @@ class _PosQuoteListScreenState extends State<PosQuoteListScreen> {
             _applyPeriod(v);
           },
         ),
-        if (_tab == 0)
-          PosPickChip(
-            label: 'Trạng thái',
-            value: _status,
-            options: {
-              for (final st in const ['Draft', 'Sent', 'Revised', 'Accepted', 'Rejected', 'Expired', 'Cancelled'])
-                st: PosQuote.statusLabel(st),
-            },
-            onChanged: (v) {
-              setState(() => _status = v);
-              _reloadAll();
-            },
-          ),
         if (_canViewAll && _employees.isNotEmpty)
           PosPickChip(
             label: 'Nhân viên',
@@ -675,39 +646,6 @@ class _PosQuoteListScreenState extends State<PosQuoteListScreen> {
     }
   }
 
-  Widget _coloredQuoteNo(PosQuote q, String rest) {
-    return Text.rich(
-      TextSpan(
-        children: [
-          TextSpan(
-            text: q.quoteNo,
-            style: TextStyle(
-              fontWeight: FontWeight.w700,
-              color: PosQuote.statusColor(q.status),
-            ),
-          ),
-          TextSpan(
-            text: rest.isEmpty ? '' : ' · $rest',
-            style: const TextStyle(
-              fontWeight: FontWeight.w700,
-              color: SboxColors.slate900,
-            ),
-          ),
-          if (_shownScore(q) != null)
-            TextSpan(
-              text: '  ·  TN ${_shownScore(q)}/10',
-              style: TextStyle(
-                fontWeight: FontWeight.w700,
-                color: PosQuoteActivity.scoreColor(_shownScore(q)!),
-              ),
-            ),
-        ],
-      ),
-      maxLines: 2,
-      overflow: TextOverflow.ellipsis,
-    );
-  }
-
   Widget _quoteList(bool canCreate, bool canEdit, bool canDelete) {
     if (_loading) return const Center(child: CircularProgressIndicator());
     if (_error != null) return Center(child: Text(_error!));
@@ -721,12 +659,7 @@ class _PosQuoteListScreenState extends State<PosQuoteListScreen> {
     }
     return RefreshIndicator(
       onRefresh: _reloadAll,
-      child: ListView.separated(
-        padding: const EdgeInsets.fromLTRB(12, 0, 12, 88),
-        itemCount: _items.length,
-        separatorBuilder: (_, __) => const SizedBox(height: 8),
-        itemBuilder: (_, i) => _quoteCard(_items[i], canEdit, canDelete),
-      ),
+      child: _cardList(_items.length, (i) => _quoteCard(_items[i], canEdit, canDelete)),
     );
   }
 
@@ -738,32 +671,11 @@ class _PosQuoteListScreenState extends State<PosQuoteListScreen> {
     }
     return RefreshIndicator(
       onRefresh: _reloadAll,
-      child: ListView.separated(
-        padding: const EdgeInsets.fromLTRB(12, 0, 12, 88),
-        itemCount: rows.length,
-        separatorBuilder: (_, __) => const SizedBox(height: 8),
-        itemBuilder: (_, i) {
+      child: _cardList(
+        rows.length,
+        (i) {
           final q = rows[i];
-          return Material(
-            color: Colors.white,
-            borderRadius: BorderRadius.circular(10),
-            child: ListTile(
-              title: _coloredQuoteNo(
-                q,
-                q.customerName ?? '',
-              ),
-              subtitle: Text(
-                [
-                  PosQuote.stageLabel(q.commercialStage),
-                  '${_money.format(q.total)} đ',
-                  if ((q.customerAddress ?? '').trim().isNotEmpty)
-                    q.customerAddress!.trim(),
-                ].join(' · '),
-                maxLines: 2,
-                overflow: TextOverflow.ellipsis,
-              ),
-              onTap: () => _openContract(q),
-              trailing: PopupMenuButton<String>(
+          return _modernCard(q, onTap: () => _openContract(q), menu: PopupMenuButton<String>(
                 tooltip: tr('Thao tác'),
                 onSelected: (v) async {
                   switch (v) {
@@ -811,53 +723,14 @@ class _PosQuoteListScreenState extends State<PosQuoteListScreen> {
                   ],
                   ..._shareMenu(),
                 ],
-              ),
-            ),
-          );
+              ));
         },
       ),
     );
   }
 
   Widget _quoteCard(PosQuote q, bool canEdit, bool canDelete) {
-    final until = q.validUntil;
-    return Material(
-      color: Colors.white,
-      borderRadius: BorderRadius.circular(10),
-      child: ListTile(
-        title: _coloredQuoteNo(
-          q,
-          q.customerName?.isNotEmpty == true
-              ? q.customerName!
-              : 'Chưa chọn khách',
-        ),
-        subtitle: Text.rich(
-          TextSpan(
-            style: TextStyle(color: SboxColors.slate800, fontSize: 13),
-            children: [
-              TextSpan(
-                text: PosQuote.statusLabel(q.status),
-                style: TextStyle(
-                  color: PosQuote.statusColor(q.status),
-                  fontWeight: FontWeight.w700,
-                ),
-              ),
-              TextSpan(
-                text: [
-                  if (q.status == 'Accepted')
-                    PosQuote.stageLabel(q.commercialStage),
-                  if (until != null)
-                    'Hạn ${DateFormat('dd/MM/yyyy').format(until.toLocal())}',
-                  '${_money.format(q.total)} đ',
-                  if ((q.customerAddress ?? '').trim().isNotEmpty)
-                    q.customerAddress!.trim(),
-                ].map((e) => '  ·  $e').join(),
-              ),
-            ],
-          ),
-        ),
-        onTap: () => _openEditor(q),
-        trailing: PopupMenuButton<String>(
+    return _modernCard(q, onTap: () => _openDetail(q), menu: PopupMenuButton<String>(
           tooltip: tr('Thao tác'),
           onSelected: (v) async {
             switch (v) {
@@ -891,7 +764,8 @@ class _PosQuoteListScreenState extends State<PosQuoteListScreen> {
                 value: 'edit',
                 child: Text(tr('Sửa báo giá')),
               ),
-            if (canEdit)
+            // Hợp đồng chỉ lập được sau khi khách chốt (máy chủ chặn báo giá chưa chấp nhận).
+            if (canEdit && q.status == 'Accepted')
               PopupMenuItem(
                 value: 'contract',
                 child: Text(q.commercialStage == 'None' ||
@@ -899,7 +773,8 @@ class _PosQuoteListScreenState extends State<PosQuoteListScreen> {
                     ? tr('Tạo hợp đồng')
                     : tr('Mở hợp đồng')),
               ),
-            if (canEdit)
+            if (canEdit && q.status == 'Accepted' &&
+                (q.commercialStage == 'None' || q.commercialStage == 'Accepted'))
               PopupMenuItem(
                 value: 'package',
                 child: Text(tr('Tạo trọn bộ hồ sơ')),
@@ -916,6 +791,246 @@ class _PosQuoteListScreenState extends State<PosQuoteListScreen> {
                     style: TextStyle(color: Colors.red.shade700)),
               ),
           ],
+        ));
+  }
+
+  /// Điện thoại: danh sách dọc; màn rộng: lưới thẻ 2–3 cột.
+  Widget _cardList(int count, Widget Function(int i) item) {
+    return LayoutBuilder(builder: (context, c) {
+      const pad = EdgeInsets.fromLTRB(12, 0, 12, 88);
+      if (c.maxWidth < 760) {
+        return ListView.separated(
+          padding: pad,
+          physics: const AlwaysScrollableScrollPhysics(),
+          itemCount: count,
+          separatorBuilder: (_, __) => const SizedBox(height: 8),
+          itemBuilder: (_, i) => item(i),
+        );
+      }
+      return GridView.builder(
+        padding: pad,
+        physics: const AlwaysScrollableScrollPhysics(),
+        gridDelegate: const SliverGridDelegateWithMaxCrossAxisExtent(
+          maxCrossAxisExtent: 480,
+          mainAxisExtent: 156,
+          crossAxisSpacing: 10,
+          mainAxisSpacing: 10,
+        ),
+        itemCount: count,
+        itemBuilder: (_, i) => item(i),
+      );
+    });
+  }
+
+  static const _tabDefs = [
+    (0, 'Báo giá', Icons.request_quote_outlined),
+    (1, 'Hợp đồng', Icons.handshake_outlined),
+    (2, 'Đề nghị TT', Icons.payments_outlined),
+    (3, 'Nghiệm thu', Icons.fact_check_outlined),
+  ];
+
+  /// Tab gạch chân, cuộn ngang trên điện thoại (thay SegmentedButton bị bóp chữ).
+  Widget _tabsBar() {
+    return SizedBox(
+      height: 40,
+      child: ListView(
+        scrollDirection: Axis.horizontal,
+        children: [
+          for (final t in _tabDefs)
+            InkWell(
+              borderRadius: BorderRadius.circular(8),
+              onTap: () {
+                if (_tab == t.$1) return;
+                setState(() => _tab = t.$1);
+                _reloadAll();
+              },
+              child: Container(
+                padding: const EdgeInsets.symmetric(horizontal: 12),
+                decoration: BoxDecoration(
+                  border: Border(
+                    bottom: BorderSide(
+                      color: _tab == t.$1 ? PosTheme.kiotBlue : Colors.transparent,
+                      width: 2.5,
+                    ),
+                  ),
+                ),
+                child: Row(mainAxisSize: MainAxisSize.min, children: [
+                  Icon(t.$3, size: 17, color: _tab == t.$1 ? PosTheme.kiotBlue : SboxColors.slate500),
+                  const SizedBox(width: 6),
+                  Text(
+                    tr(t.$2),
+                    style: TextStyle(
+                      fontSize: 14,
+                      fontWeight: _tab == t.$1 ? FontWeight.w700 : FontWeight.w500,
+                      color: _tab == t.$1 ? PosTheme.kiotBlue : SboxColors.slate600,
+                    ),
+                  ),
+                ]),
+              ),
+            ),
+        ],
+      ),
+    );
+  }
+
+  /// Thanh trạng thái có đếm — bấm để lọc (thay ô «Trạng thái»).
+  Widget _statusStrip() {
+    const order = ['Draft', 'Sent', 'Revised', 'Accepted', 'Rejected', 'Expired', 'Cancelled'];
+    Widget chip(String? value, String label, int n, Color color) {
+      final sel = _status == value;
+      return Padding(
+        padding: const EdgeInsets.only(right: 6),
+        child: ChoiceChip(
+          visualDensity: VisualDensity.compact,
+          showCheckmark: false,
+          selected: sel,
+          selectedColor: color.withValues(alpha: 0.14),
+          side: BorderSide(color: sel ? color : SboxColors.slate200),
+          label: Row(mainAxisSize: MainAxisSize.min, children: [
+            Text(tr(label),
+                style: TextStyle(
+                    fontSize: 12,
+                    fontWeight: sel ? FontWeight.w700 : FontWeight.w500,
+                    color: sel ? color : SboxColors.slate700)),
+            const SizedBox(width: 5),
+            Container(
+              padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 1),
+              decoration: BoxDecoration(
+                color: sel ? color : SboxColors.slate100,
+                borderRadius: BorderRadius.circular(10),
+              ),
+              child: Text('$n',
+                  style: TextStyle(
+                      fontSize: 11, fontWeight: FontWeight.w700, color: sel ? Colors.white : SboxColors.slate600)),
+            ),
+          ]),
+          onSelected: (_) {
+            setState(() => _status = sel ? null : value);
+            _reloadAll();
+          },
+        ),
+      );
+    }
+
+    return SizedBox(
+      height: 44,
+      child: ListView(
+        scrollDirection: Axis.horizontal,
+        padding: const EdgeInsets.fromLTRB(12, 8, 12, 0),
+        children: [
+          chip(null, 'Tất cả', _allCount, PosTheme.kiotBlue),
+          for (final st in order)
+            if ((_statusCounts[st] ?? 0) > 0 || _status == st)
+              chip(st, PosQuote.statusLabel(st), _statusCounts[st] ?? 0, PosQuote.statusColor(st)),
+        ],
+      ),
+    );
+  }
+
+  /// Thẻ báo giá / hợp đồng: số + trạng thái, khách, tổng tiền, hạn, thanh tiến độ, bước tiếp theo.
+  Widget _modernCard(PosQuote q, {required VoidCallback onTap, required Widget menu}) {
+    final done = PosQuoteFlow.doneCount(q);
+    final stopped = PosQuoteFlow.isStopped(q);
+    final validity = PosQuoteFlow.validity(q);
+    final next = PosQuoteFlow.nextLabel(q);
+    final score = _shownScore(q);
+    final name = (q.customerName ?? '').trim();
+    final statusColor = PosQuote.statusColor(q.status);
+    final statusText =
+        q.status == 'Accepted' ? PosQuote.stageLabel(q.commercialStage) : PosQuote.statusLabel(q.status);
+    final date = q.issuedAt ?? q.createdAt;
+    return Material(
+      color: Colors.white,
+      borderRadius: BorderRadius.circular(14),
+      child: InkWell(
+        borderRadius: BorderRadius.circular(14),
+        onTap: onTap,
+        child: Container(
+          decoration: BoxDecoration(
+            borderRadius: BorderRadius.circular(14),
+            border: Border.all(color: SboxColors.slate200),
+          ),
+          padding: const EdgeInsets.fromLTRB(14, 8, 4, 12),
+          child: Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
+            Row(children: [
+              Expanded(
+                child: Text(q.quoteNo,
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w600, color: SboxColors.slate500)),
+              ),
+              Container(
+                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
+                decoration: BoxDecoration(
+                  color: statusColor.withValues(alpha: 0.12),
+                  borderRadius: BorderRadius.circular(20),
+                ),
+                child: Text(tr(statusText),
+                    style: TextStyle(fontSize: 11, fontWeight: FontWeight.w700, color: statusColor)),
+              ),
+              SizedBox(width: 40, height: 34, child: menu),
+            ]),
+            Padding(
+              padding: const EdgeInsets.only(right: 10),
+              child: Row(children: [
+                Expanded(
+                  child: Text(tr(name.isEmpty ? 'Khách lẻ' : name),
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      style: const TextStyle(fontSize: 15, fontWeight: FontWeight.w700, color: SboxColors.slate900)),
+                ),
+                if (score != null)
+                  Text(tr('TN $score/10'),
+                      style: TextStyle(
+                          fontSize: 11, fontWeight: FontWeight.w700, color: PosQuoteActivity.scoreColor(score))),
+              ]),
+            ),
+            const SizedBox(height: 6),
+            Padding(
+              padding: const EdgeInsets.only(right: 10),
+              child: Row(crossAxisAlignment: CrossAxisAlignment.end, children: [
+                Text(tr('${_money.format(q.total)} đ'),
+                    style: const TextStyle(fontSize: 16, fontWeight: FontWeight.w800, color: PosTheme.kiotBlue)),
+                const Spacer(),
+                if (validity != null)
+                  Text(tr(validity.$1),
+                      style: TextStyle(fontSize: 12, fontWeight: FontWeight.w600, color: validity.$2))
+                else if (date != null)
+                  Text(DateFormat('dd/MM/yyyy').format(date.toLocal()),
+                      style: const TextStyle(fontSize: 12, color: SboxColors.slate500)),
+              ]),
+            ),
+            const SizedBox(height: 10),
+            Padding(
+              padding: const EdgeInsets.only(right: 10),
+              child: Row(children: [
+                for (var i = 0; i < PosQuoteFlow.steps.length; i++) ...[
+                  if (i > 0) const SizedBox(width: 3),
+                  Expanded(
+                    child: Container(
+                      height: 4,
+                      decoration: BoxDecoration(
+                        borderRadius: BorderRadius.circular(2),
+                        color: i < done
+                            ? (stopped ? SboxColors.slate400 : SboxColors.success)
+                            : SboxColors.slate200,
+                      ),
+                    ),
+                  ),
+                ],
+              ]),
+            ),
+            if (next != null || stopped) ...[
+              const SizedBox(height: 6),
+              Text(
+                tr(stopped ? 'Đã dừng · ${PosQuote.statusLabel(q.status)}' : 'Tiếp theo: $next'),
+                style: TextStyle(
+                    fontSize: 12,
+                    color: stopped ? SboxColors.slate500 : PosTheme.kiotBlue,
+                    fontWeight: FontWeight.w600),
+              ),
+            ],
+          ]),
         ),
       ),
     );

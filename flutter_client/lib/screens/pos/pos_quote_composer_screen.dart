@@ -26,6 +26,7 @@ import '../../widgets/pos/pos_made_to_order_line_dialog.dart';
 import '../../widgets/pos/pos_product_image.dart';
 import '../../widgets/pos/pos_product_unit_view.dart';
 import '../../widgets/pos/pos_quote_care_sheet.dart';
+import 'pos_quote_detail_screen.dart';
 import 'pos_quote_document_wording_screen.dart';
 import '../../widgets/pos/pos_sale_quick_notes_widgets.dart';
 import '../../widgets/pos/pos_sell_product_grid.dart';
@@ -1073,8 +1074,21 @@ class _PosQuoteComposerScreenState extends State<PosQuoteComposerScreen> {
     );
   }
 
-  Future<void> _save() =>
-      _saveQuote(printAfter: true, popAfter: false);
+  /// Lưu + in. Báo giá mới → mở màn tổng quan (bước tiếp: phát hành / khách chốt / hợp đồng);
+  /// sửa báo giá → quay về màn trước.
+  Future<void> _save() async {
+    final wasNew = !_isEdit && _savedQuoteId == null;
+    final q = await _saveQuote(printAfter: true, popAfter: false);
+    if (q == null || !mounted) return;
+    if (wasNew) {
+      await Navigator.of(context).pushReplacement(
+        MaterialPageRoute<bool>(builder: (_) => PosQuoteDetailScreen(quoteId: q.id)),
+        result: true,
+      );
+    } else {
+      Navigator.of(context).pop(true);
+    }
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -2289,7 +2303,8 @@ class _PosQuoteComposerScreenState extends State<PosQuoteComposerScreen> {
         ]),
         if (showRate) ...[
           const SizedBox(height: 10),
-          Row(children: [
+          // Wrap: điện thoại hẹp không đủ một hàng (10% / ô nhập bị tràn).
+          Wrap(spacing: 4, runSpacing: 6, crossAxisAlignment: WrapCrossAlignment.center, children: [
             Text(tr('Thuế suất'), style: const TextStyle(fontSize: 13)),
             const SizedBox(width: 8),
             for (final r in const [0.0, 5.0, 8.0, 10.0])

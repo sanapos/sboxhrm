@@ -41,4 +41,14 @@ public class GeminiKeyPoolTests
         Assert.True(GeminiKeyPool.IsCoolingDown(keys[0]));
         Assert.False(GeminiKeyPool.IsCoolingDown(keys[1]));
     }
+    [Fact]
+    public void Het_luot_mot_model_khong_lam_nghi_khoa_cho_model_khac()
+    {
+        var a = "AIzaKEYAxxxxxxxxxxxxxxxxxxxxxxxxxxxx" + Guid.NewGuid().ToString("N")[..4];
+        var b = "AIzaKEYBxxxxxxxxxxxxxxxxxxxxxxxxxxxx" + Guid.NewGuid().ToString("N")[..4];
+        // Khóa A hết lượt giọng đọc (TTS) → lời gọi TTS thử khóa B trước, chat vẫn dùng khóa A.
+        GeminiKeyPool.MarkExhausted(a + "#gemini-tts", TimeSpan.FromMinutes(5));
+        Assert.Equal([1, 0], GeminiKeyPool.OrderForUse([a + "#gemini-tts", b + "#gemini-tts"]));
+        Assert.Equal([0, 1], GeminiKeyPool.OrderForUse([a, b]));
+    }
 }
