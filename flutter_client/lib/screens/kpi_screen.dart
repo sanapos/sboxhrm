@@ -545,7 +545,7 @@ class _KpiScreenState extends State<KpiScreen> with TickerProviderStateMixin {
   Set<String> get _branchEmpIds {
     if (_filterBranchId == null) return {};
     return _employees
-        .where((e) => e['branchId']?.toString() == _filterBranchId)
+        .where((e) => BranchFilterHelper.inBranch(e['branchId']?.toString(), _filterBranchId))
         .map((e) => e['id']?.toString() ?? '')
         .toSet();
   }

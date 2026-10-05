@@ -149,9 +149,15 @@ public class DataScopeService(ZKTecoDbContext context) : IDataScopeService
         var managedBranchIds = await GetManagedBranchIdsAsync(userId, storeId);
         if (managedBranchIds.Count > 0)
         {
+            // NV cũ chưa gắn chi nhánh = thuộc trụ sở (cùng quy ước chứng từ POS) — quản lý trụ sở phải thấy,
+            // trước đây bị loại hết khỏi phạm vi.
+            var hq = BranchStockService.ResolveHeadquarter(
+                await BranchStockService.GetStoreBranchesAsync(context, storeId));
+            var includeUnassigned = hq.HasValue && managedBranchIds.Contains(hq.Value);
             var branchEmployees = await context.Employees
-                .Where(e => e.StoreId == storeId && e.BranchId.HasValue &&
-                            managedBranchIds.Contains(e.BranchId.Value))
+                .Where(e => e.StoreId == storeId &&
+                            ((e.BranchId.HasValue && managedBranchIds.Contains(e.BranchId.Value))
+                             || (includeUnassigned && !e.BranchId.HasValue)))
                 .Select(e => e.Id)
                 .ToListAsync();
             foreach (var id in branchEmployees)

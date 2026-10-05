@@ -296,7 +296,7 @@ class _AdvanceRequestsScreenState extends State<AdvanceRequestsScreen> {
     var list = _allRequests;
     if (_selectedBranchId != null) {
       final branchCodes = _employees
-          .where((e) => e.branchId == _selectedBranchId)
+          .where((e) => BranchFilterHelper.inBranch(e.branchId, _selectedBranchId))
           .map((e) => e.employeeCode)
           .toSet();
       list = list.where((r) => branchCodes.contains(r.employeeCode)).toList();

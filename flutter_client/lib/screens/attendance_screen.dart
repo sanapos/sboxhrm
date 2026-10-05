@@ -2398,11 +2398,22 @@ class _AttendanceScreenState extends State<AttendanceScreen> {
     if (_selectedBranchId != null) {
       final branchIds = BranchFilterHelper.expandBranchIds(_selectedBranchId!, _branches);
       final branchCodes = _employeesList
-          .where((e) => branchIds.contains(e['branchId']?.toString()))
+          .where((e) => BranchFilterHelper.branchMatches(e['branchId']?.toString(), branchIds))
           .map((e) => e['employeeCode']?.toString() ?? '')
           .where((c) => c.isNotEmpty)
           .toSet();
-      result = result.where((a) => branchCodes.contains(a.employeeId)).toList();
+      // Lượt chấm của PIN chưa liên kết nhân viên (máy chấm công cũ / chưa gán) → tính cho trụ sở,
+      // trước đây bị lọc mất hết khi chọn chi nhánh nên «chấm công thô không thấy gì».
+      final allCodes = _employeesList
+          .map((e) => e['employeeCode']?.toString() ?? '')
+          .where((c) => c.isNotEmpty)
+          .toSet();
+      final showUnlinked = BranchFilterHelper.branchMatches(null, branchIds);
+      result = result
+          .where((a) =>
+              branchCodes.contains(a.employeeId) ||
+              (showUnlinked && !allCodes.contains(a.employeeId)))
+          .toList();
     }
 
     // Filter by verify type

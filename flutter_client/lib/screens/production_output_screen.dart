@@ -865,7 +865,7 @@ class _ProductionOutputScreenState extends State<ProductionOutputScreen>
           final sheetEmployees = branchId == null
               ? _employees
               : _employees
-                  .where((e) => e['branchId']?.toString() == branchId)
+                  .where((e) => BranchFilterHelper.inBranch(e['branchId']?.toString(), branchId))
                   .toList();
           final sheetItems = groupId == null
               ? _items

@@ -57,7 +57,7 @@ class _PenaltyTicketsScreenState extends State<PenaltyTicketsScreen> {
   List<Map<String, dynamic>> get _filteredTickets {
     if (_selectedBranchId == null) return _tickets;
     final ids = _employees
-        .where((e) => e['branchId']?.toString() == _selectedBranchId)
+        .where((e) => BranchFilterHelper.inBranch(e['branchId']?.toString(), _selectedBranchId))
         .map((e) => e['id']?.toString() ?? '')
         .toSet();
     return _tickets

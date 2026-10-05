@@ -130,7 +130,8 @@ public class ReportsController(
                         if (allowed.Count == 0)
                             query = query.Where(_ => false);
                         else
-                            query = BranchQueryHelper.FilterByBranchIds(query, allowed);
+                            query = BranchQueryHelper.FilterByBranchIds(query, allowed,
+                                await BranchQueryHelper.HeadquarterIdAsync(dbContext, storeId));
                     }
                 }
             }

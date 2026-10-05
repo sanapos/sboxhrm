@@ -259,7 +259,7 @@ class _BonusPenaltyScreenState extends State<BonusPenaltyScreen>
     var list = _transactions;
     if (_selectedBranchId != null) {
       final branchCodes = _employees
-          .where((e) => e['branchId']?.toString() == _selectedBranchId)
+          .where((e) => BranchFilterHelper.inBranch(e['branchId']?.toString(), _selectedBranchId))
           .map((e) => e['employeeCode']?.toString() ?? '')
           .toSet();
       list = list

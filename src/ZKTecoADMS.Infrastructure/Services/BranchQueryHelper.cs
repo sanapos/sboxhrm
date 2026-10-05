@@ -47,13 +47,25 @@ public static class BranchQueryHelper
         return result;
     }
 
+    /// <summary>
+    /// Lọc NV theo chi nhánh. NV cũ chưa gắn chi nhánh = thuộc trụ sở (cùng quy ước chứng từ POS):
+    /// truyền <paramref name="headquarterId"/> thì NV chưa gắn được tính khi bộ lọc có trụ sở.
+    /// Trước đây NV chưa gắn bị loại khỏi mọi báo cáo / tổng quan / KPI khi chọn chi nhánh.
+    /// </summary>
     public static IQueryable<Employee> FilterByBranchIds(
         IQueryable<Employee> query,
-        HashSet<Guid>? branchIds)
+        HashSet<Guid>? branchIds,
+        Guid? headquarterId = null)
     {
         if (branchIds == null || branchIds.Count == 0) return query;
-        return query.Where(e => e.BranchId.HasValue && branchIds.Contains(e.BranchId.Value));
+        var includeUnassigned = headquarterId.HasValue && branchIds.Contains(headquarterId.Value);
+        return query.Where(e => (e.BranchId.HasValue && branchIds.Contains(e.BranchId.Value))
+                                || (includeUnassigned && !e.BranchId.HasValue));
     }
+
+    /// <summary>Trụ sở của cửa hàng (null khi chưa dùng chi nhánh).</summary>
+    public static async Task<Guid?> HeadquarterIdAsync(ZKTecoDbContext db, Guid storeId) =>
+        BranchStockService.ResolveHeadquarter(await BranchStockService.GetStoreBranchesAsync(db, storeId));
 
     public static async Task<IQueryable<Employee>> ApplyBranchFilterAsync(
         IQueryable<Employee> query,
@@ -64,7 +76,7 @@ public static class BranchQueryHelper
     {
         if (!branchId.HasValue) return query;
         var ids = await GetBranchIdsIncludingChildrenAsync(db, storeId, branchId.Value, includeChildBranches);
-        return FilterByBranchIds(query, ids);
+        return FilterByBranchIds(query, ids, await HeadquarterIdAsync(db, storeId));
     }
 
     /// <summary>Employee + application-user ids for branch-scoped dashboard stats.</summary>

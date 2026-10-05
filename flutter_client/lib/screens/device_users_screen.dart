@@ -837,7 +837,7 @@ class _DeviceUsersScreenState extends State<DeviceUsersScreen> {
     final branchIds = _selectedBranchIds;
     if (branchIds != null) {
       list = list
-          .where((e) => e.branchId != null && branchIds.contains(e.branchId))
+          .where((e) => BranchFilterHelper.branchMatches(e.branchId, branchIds))
           .toList();
     }
     final deptIds = _selectedDepartmentIds;
@@ -862,7 +862,7 @@ class _DeviceUsersScreenState extends State<DeviceUsersScreen> {
     if (branchIds != null) {
       list = list.where((u) {
         final emp = _employeeOf(u);
-        return emp?.branchId != null && branchIds.contains(emp!.branchId);
+        return emp != null && BranchFilterHelper.branchMatches(emp.branchId, branchIds);
       }).toList();
     }
     final deptIds = _selectedDepartmentIds;

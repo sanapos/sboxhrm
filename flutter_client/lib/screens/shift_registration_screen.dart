@@ -62,7 +62,7 @@ class _ShiftRegistrationScreenState extends State<ShiftRegistrationScreen> {
   List<dynamic> get _filteredEmployeesByBranch {
     if (_selectedBranchId == null) return _employees;
     return _employees
-        .where((e) => e['branchId']?.toString() == _selectedBranchId)
+        .where((e) => BranchFilterHelper.inBranch(e['branchId']?.toString(), _selectedBranchId))
         .toList();
   }
 

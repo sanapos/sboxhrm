@@ -1,3 +1,4 @@
+import '../../utils/branch_filter_helper.dart';
 import '../payroll_pay/payroll_pay_page.dart';
 import '../../widgets/attendance/punch_cells.dart';
 import 'dart:convert';
@@ -2439,7 +2440,7 @@ class PayrollSummaryTabState extends State<PayrollSummaryTab> {
     // Filter employees by branch if specified
     final employees = widget.branchId == null
         ? _employees
-        : _employees.where((e) => e.branchId == widget.branchId).toList();
+        : _employees.where((e) => BranchFilterHelper.inBranch(e.branchId, widget.branchId)).toList();
     final branchCodes = widget.branchId == null
         ? null
         : employees.map((e) => e.employeeCode).toSet();
@@ -2514,7 +2515,7 @@ class PayrollSummaryTabState extends State<PayrollSummaryTab> {
 
   List<Employee> _employeesInBranch() {
     if (widget.branchId == null) return _employees;
-    return _employees.where((e) => e.branchId == widget.branchId).toList();
+    return _employees.where((e) => BranchFilterHelper.inBranch(e.branchId, widget.branchId)).toList();
   }
 
   List<String> _availableDepartments() {

@@ -70,7 +70,7 @@ class _AttendanceApprovalScreenState extends State<AttendanceApprovalScreen>
   List<Map<String, dynamic>> get _filteredRequests {
     if (_selectedBranchId == null) return _requests;
     final ids = _employees
-        .where((e) => e['branchId']?.toString() == _selectedBranchId)
+        .where((e) => BranchFilterHelper.inBranch(e['branchId']?.toString(), _selectedBranchId))
         .map((e) => e['id']?.toString() ?? '')
         .toSet();
     return _requests

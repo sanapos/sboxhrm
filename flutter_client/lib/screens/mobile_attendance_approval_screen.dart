@@ -61,13 +61,13 @@ class _MobileAttendanceApprovalScreenState
     var list = source;
     if (_selectedBranchId != null) {
       final ids = _employeesList
-          .where((e) => e['branchId']?.toString() == _selectedBranchId)
+          .where((e) => BranchFilterHelper.inBranch(e['branchId']?.toString(), _selectedBranchId))
           .map((e) => e['id']?.toString() ?? '')
           .where((id) => id.isNotEmpty)
           .toSet();
       // Also match applicationUserId
       final userIds = _employeesList
-          .where((e) => e['branchId']?.toString() == _selectedBranchId)
+          .where((e) => BranchFilterHelper.inBranch(e['branchId']?.toString(), _selectedBranchId))
           .expand((e) => [
                 e['id']?.toString() ?? '',
                 e['applicationUserId']?.toString() ?? '',

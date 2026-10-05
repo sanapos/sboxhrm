@@ -15,6 +15,23 @@ class BranchFilterHelper {
   /// (null = tất cả / cửa hàng chưa dùng chi nhánh).
   static String? get viewBranchId => BranchSession.instance.viewBranchId;
 
+  /// Dữ liệu cũ chưa gắn chi nhánh (nhân viên, chấm công, đơn từ…) được tính là của **trụ sở**
+  /// — cùng quy ước với chứng từ POS phía máy chủ. Trước đây so sánh bằng nhau nên khi đang xem một
+  /// chi nhánh (kể cả trụ sở), mọi nhân viên / chấm công cũ chưa gắn chi nhánh biến mất khỏi danh sách.
+  /// Cửa hàng chưa có trụ sở → coi như khớp (không giấu dữ liệu).
+  static bool branchMatches(String? itemBranchId, Set<String> branchIds) {
+    final bid = itemBranchId?.trim();
+    if (bid == null || bid.isEmpty || bid == 'null') {
+      final hq = BranchSession.instance.headquarterId;
+      return hq == null || hq.isEmpty || branchIds.contains(hq);
+    }
+    return branchIds.contains(bid);
+  }
+
+  /// [selectedBranchId] null = tất cả.
+  static bool inBranch(String? itemBranchId, String? selectedBranchId) =>
+      selectedBranchId == null || selectedBranchId.isEmpty || branchMatches(itemBranchId, {selectedBranchId});
+
   /// Expands [rootBranchId] ?? to include all descendant branch IDs.
   static Set<String> expandBranchIds(
     String rootBranchId,
@@ -49,10 +66,7 @@ class BranchFilterHelper {
     Set<String> branchIds,
   ) {
     return employees
-        .where((e) {
-          final bid = e['branchId']?.toString();
-          return bid != null && bid.isNotEmpty && branchIds.contains(bid);
-        })
+        .where((e) => branchMatches(e['branchId']?.toString(), branchIds))
         .map((e) => e['employeeCode']?.toString() ?? '')
         .where((c) => c.isNotEmpty)
         .toSet();
@@ -67,8 +81,7 @@ class BranchFilterHelper {
     for (final raw in employees) {
       if (raw is! Map) continue;
       final m = Map<String, dynamic>.from(raw as Map);
-      final bid = m['branchId']?.toString();
-      if (bid == null || !branchIds.contains(bid)) continue;
+      if (!branchMatches(m['branchId']?.toString(), branchIds)) continue;
       final id = m['id']?.toString();
       final userId = m['applicationUserId']?.toString();
       if (id != null && id.isNotEmpty) keys.add(id);

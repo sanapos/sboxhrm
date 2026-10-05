@@ -480,8 +480,10 @@ public class BranchOperationsController(ZKTecoDbContext db, IBranchContext branc
             .Where(p => p.MinStockQty > 0 && p.qty < p.MinStockQty)
             .OrderBy(p => p.qty).Take(15).ToList();
 
+        var isHq = await BranchQueryHelper.HeadquarterIdAsync(db, storeId) == branchId;
         var employees = await db.Employees.AsNoTracking()
-            .Where(e => e.StoreId == storeId && e.Deleted == null && e.BranchId == branchId && e.WorkStatus != EmployeeWorkStatus.Resigned)
+            .Where(e => e.StoreId == storeId && e.Deleted == null && e.WorkStatus != EmployeeWorkStatus.Resigned
+                && (e.BranchId == branchId || (isHq && e.BranchId == null))) // NV chưa gắn chi nhánh = trụ sở
             .Select(e => new { e.Id, name = (e.LastName + " " + e.FirstName).Trim(), e.Position, e.Department, e.PhotoUrl })
             .OrderBy(e => e.name).ToListAsync();
         var transfers = await db.PosStockTransfers.AsNoTracking().Include(t => t.Lines)

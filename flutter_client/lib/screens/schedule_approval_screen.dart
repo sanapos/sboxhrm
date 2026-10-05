@@ -447,7 +447,7 @@ class _ScheduleApprovalScreenState extends State<ScheduleApprovalScreen>
     if (_selectedBranchId != null) {
       list = list
           .where((r) =>
-              _findEmployee(r.employeeUserId).branchId == _selectedBranchId)
+              BranchFilterHelper.inBranch(_findEmployee(r.employeeUserId).branchId, _selectedBranchId))
           .toList();
     }
     list.sort((a, b) {
@@ -2364,7 +2364,7 @@ class _ScheduleApprovalScreenState extends State<ScheduleApprovalScreen>
   // ==================== TAB 2: PHÂN BỔ NHÂN VIÊN ====================
   List<Employee> get _filteredEmployees {
     if (_selectedBranchId == null) return _employees;
-    return _employees.where((e) => e.branchId == _selectedBranchId).toList();
+    return _employees.where((e) => BranchFilterHelper.inBranch(e.branchId, _selectedBranchId)).toList();
   }
 
   // Compute employees who have NO registrations and NO schedules for selected week

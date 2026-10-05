@@ -1410,7 +1410,7 @@ class _TaskManagementScreenState extends State<TaskManagementScreen>
                       _loadTasks();
                     }),
                 ...(_filterBranchId != null
-                        ? _employees.where((e) => e.branchId == _filterBranchId)
+                        ? _employees.where((e) => BranchFilterHelper.inBranch(e.branchId, _filterBranchId))
                         : _employees.cast<Employee>())
                     .map((e) => ListTile(
                           title: Text(tr(e.fullName)),
