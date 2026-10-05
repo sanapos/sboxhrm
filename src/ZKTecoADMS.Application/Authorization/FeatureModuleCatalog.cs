@@ -35,6 +35,9 @@ public static class FeatureModuleCatalog
     public const string CatHrFinance = "Tài chính nhân sự";
     public const string CatOperations = "Vận hành";
     public const string CatAi = "Trí tuệ nhân tạo";
+
+    /// <summary>Chức năng gói: được dùng khóa AI chung của SBOX (không phải quyền vai trò).</summary>
+    public const string SharedAiModule = "AISharedKey";
     public const string CatSell = "Bán hàng";
     public const string CatWarehouse = "Kho hàng";
     public const string CatSellReport = "Báo cáo bán hàng";
@@ -127,8 +130,10 @@ public static class FeatureModuleCatalog
         new("FieldCheckIn", "Bản đồ nhân sự", "Vị trí lúc chấm công / check-in và lộ trình trong ca trên bản đồ", CatOperations, 87),
 
         // ══════════ TRÍ TUỆ NHÂN TẠO ══════════
-        new("AIAssistant", "Trợ lý AI", "Hỏi đáp doanh thu, tồn kho, nhân sự — gõ hoặc nói bằng giọng", CatAi, 90),
+        new("AIAssistant", "Trợ lý ảo", "Hỏi đáp & phân tích báo cáo bán hàng, nhân sự của cửa hàng — gõ hoặc nói bằng giọng", CatAi, 90),
         new("AIGemini", "Thiết lập AI", "Model, tham số AI của cửa hàng", CatAi, 91),
+        // Cấp theo gói (không phân quyền vai trò): mặc định cửa hàng chỉ dùng khóa AI riêng của mình.
+        new("AISharedKey", "Dùng AI chung SBOX", "Cho dùng khóa AI chung của hệ thống khi cửa hàng chưa có / hết lượt khóa riêng (trợ lý ảo, viết bài, mẫu hợp đồng – báo giá, AI thêm menu)", CatAi, 92),
 
         // ══════════ BÁN HÀNG ══════════
         new("PosSell", "Bán hàng", "Order, tạm tính, thanh toán", CatSell, 100),

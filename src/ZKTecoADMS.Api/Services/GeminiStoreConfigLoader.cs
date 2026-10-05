@@ -76,7 +76,7 @@ public static class GeminiStoreConfigLoader
         {
             ApiKey = keys[0],
             ApiKeys = keys,
-            Model = map.GetValueOrDefault("gemini_model") ?? "gemini-flash-latest",
+            Model = GeminiModels.Normalize(map.GetValueOrDefault("gemini_model")),
             MaxOutputTokens = int.TryParse(map.GetValueOrDefault("gemini_max_tokens"), out var t) ? t : 2048,
             Temperature = double.TryParse(
                 map.GetValueOrDefault("gemini_temperature"),
@@ -86,6 +86,7 @@ public static class GeminiStoreConfigLoader
                 ? temp
                 : 0.7,
             Enabled = enabled,
+            IsPlatform = storeId == null,
         };
     }
 

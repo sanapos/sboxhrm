@@ -97,6 +97,8 @@ class _RolePermissionsScreenState extends State<RolePermissionsScreen> {
   /// Chỉ hiện module thuộc gói dịch vụ cửa hàng (giống sidebar).
   bool _isModuleInServicePackage(String? module) {
     if (module == null || module.isEmpty) return false;
+    // Dùng AI chung SBOX: cấp theo gói dịch vụ, không phân cho vai trò.
+    if (module == 'AISharedKey') return false;
     if (_alwaysShowInPermissionUi.contains(module)) return true;
     final auth = Provider.of<AuthProvider>(context, listen: false);
     if (StoreRoleHelper.bypassesPackageFilter(auth.userRole)) return true;

@@ -21,14 +21,14 @@ class AiConfig {
 
   String get key => '$enabled|$model|$maxTokens|${temperature.toStringAsFixed(1)}';
 
+  /// Chỉ giữ bản «mới nhất» (khớp GeminiModels trên server) — bản cũ / cố định phiên bản tự chuyển sang Flash.
   static const models = <(String, String, String)>[
-    // Khóa tạo mới không còn dùng được 2.5 Flash (Google trả 404) — mặc định model luôn mới nhất.
-    ('gemini-flash-latest', 'Gemini Flash (mới nhất)', 'Nhanh, tiết kiệm, tự lên bản mới — khuyên dùng'),
-    ('gemini-3.8-flash', 'Gemini 3.8 Flash', 'Bản Flash mới, cố định phiên bản'),
-    ('gemini-pro-latest', 'Gemini Pro (mới nhất)', 'Chất lượng cao, chậm hơn'),
-    ('gemini-flash-lite-latest', 'Gemini Flash Lite (mới nhất)', 'Siêu nhanh, câu trả lời ngắn'),
-    ('gemini-2.5-flash', 'Gemini 2.5 Flash (cũ)', 'Chỉ khóa tạo trước đây còn dùng được'),
+    ('gemini-flash-latest', 'Gemini Flash (mới nhất)', 'Phân tích, trả lời, soạn nội dung — khuyên dùng'),
+    ('gemini-flash-lite-latest', 'Gemini Flash Lite (mới nhất)', 'Siêu nhanh, tiết kiệm lượt, câu trả lời ngắn'),
   ];
+
+  static String normalize(String? m) =>
+      models.any((x) => x.$1 == m) ? m! : models.first.$1;
 }
 
 /// Trợ lý AI: bật / tắt, khóa AI riêng của cửa hàng (nhiều khóa, tự chuyển khi hết lượt), mô hình, kiểm tra kết nối.
@@ -58,6 +58,9 @@ class _AiSettingsScreenState extends State<AiSettingsScreen> {
   bool _testing = false;
   String? _error;
   (bool ok, String text)? _test;
+  /// Gói có «Dùng AI chung SBOX» / hệ thống có khóa chung đang bật.
+  bool _sharedAllowed = false;
+  bool _sharedAvailable = false;
 
   bool get _canEdit {
     if (widget.canEditOverride != null) return widget.canEditOverride!;
@@ -95,13 +98,15 @@ class _AiSettingsScreenState extends State<AiSettingsScreen> {
       setState(() {
         _saved = AiConfig(
           enabled: d['enabled'] == true,
-          model: (d['model'] ?? 'gemini-flash-latest').toString(),
+          model: AiConfig.normalize(d['model']?.toString()),
           maxTokens: (d['maxOutputTokens'] as num?)?.toInt() ?? 2048,
           temperature: ((d['temperature'] as num?)?.toDouble() ?? 0.7).clamp(0, 2),
         );
         _c = _saved.copy();
         _tokens.text = '${_c.maxTokens}';
         _configured = d['isConfigured'] == true;
+        _sharedAllowed = d['sharedAllowed'] == true;
+        _sharedAvailable = d['sharedAvailable'] == true;
         _keys = [for (final k in (d['apiKeys'] as List? ?? const [])) if ('$k'.isNotEmpty) '$k'];
         _cooling = {
           for (final st in ((d['keyStatus'] as List?) ?? const []).whereType<Map>())
@@ -124,7 +129,8 @@ class _AiSettingsScreenState extends State<AiSettingsScreen> {
       ));
 
   Future<void> _save() async {
-    final key = _newKey.text.trim();
+    final added = _pendingKeys();
+    final key = added.join('\n');
     if (_c.enabled && !_configured && key.isEmpty) {
       _toast('Nhập khóa AI trước khi bật trợ lý', error: true);
       return;
@@ -147,7 +153,7 @@ class _AiSettingsScreenState extends State<AiSettingsScreen> {
     setState(() => _saving = false);
     if (r['isSuccess'] == true) {
       _newKey.clear();
-      _toast('Đã lưu cấu hình AI');
+      _toast(added.isEmpty ? 'Đã lưu cấu hình AI' : 'Đã lưu · thêm ${added.length} khóa AI');
       await _load();
     } else {
       _toast(r['message']?.toString() ?? 'Không lưu được', error: true);
@@ -226,25 +232,57 @@ class _AiSettingsScreenState extends State<AiSettingsScreen> {
   }
 
   Widget _statusSection(bool edit) {
+    final shared = _sharedAllowed && _sharedAvailable;
     final (tone, text) = !_c.enabled
         ? (SboxTone.neutral, 'Đang tắt — nhân viên không dùng được trợ lý AI')
         : _keys.isNotEmpty
-            ? (SboxTone.success, 'Đang bật · dùng ${_keys.length} khóa riêng của cửa hàng')
-            : _configured
-                ? (SboxTone.brand, 'Đang bật · dùng khóa AI chung của hệ thống')
-                : (SboxTone.warning, 'Đang bật nhưng chưa có khóa AI');
+            ? (SboxTone.success,
+                'Đang bật · dùng ${_keys.length} khóa riêng của cửa hàng${shared ? ' · hết lượt sẽ dùng khóa AI chung SBOX' : ''}')
+            : shared
+                ? (SboxTone.brand, 'Đang bật · dùng khóa AI chung SBOX (gói có «Dùng AI chung SBOX»)')
+                : (SboxTone.warning, 'Chưa có khóa AI riêng — trợ lý ảo chỉ trả lời dữ liệu cá nhân và hướng dẫn, viết bài dùng mẫu soạn sẵn');
     return SettingsSection(
       title: 'Trạng thái',
       icon: Icons.power_settings_new_rounded,
       trailing: Switch(value: _c.enabled, onChanged: edit ? (v) => setState(() => _c.enabled = v) : null),
-      children: [SettingsNote(text, icon: Icons.circle, tone: tone)],
+      children: [
+        SettingsNote(text, icon: Icons.circle, tone: tone),
+        if (!_sharedAllowed && _sharedAvailable)
+          const SettingsNote(
+            'Mặc định cửa hàng dùng khóa AI riêng. Khóa AI chung SBOX chỉ dùng cho tạo mẫu hợp đồng / báo giá và AI thêm menu; '
+            'trợ lý ảo, viết bài dùng khóa chung khi gói dịch vụ có «Dùng AI chung SBOX».',
+            icon: Icons.info_outline_rounded,
+            tone: SboxTone.neutral,
+          ),
+      ],
     );
+  }
+
+  /// Khóa đang nhập (tách như server: dòng / dấu phẩy / chấm phẩy / khoảng trắng; bỏ trùng, bỏ chuỗi ngắn).
+  List<String> _pendingKeys() {
+    final out = <String>[];
+    for (final k in _newKey.text.split(RegExp(r'[\s,;]+'))) {
+      final t = k.trim();
+      if (t.length >= 8 && !t.contains('*') && !out.contains(t)) out.add(t);
+    }
+    return out;
+  }
+
+  /// «AIza…abcd» — khớp mặt nạ khóa đã lưu (4 ký tự đầu + 4 ký tự cuối).
+  static bool _sameMasked(String key, String masked) =>
+      masked.length >= 8 && key.startsWith(masked.substring(0, 4)) && key.endsWith(masked.substring(masked.length - 4));
+
+  String _newKeyHint() {
+    final keys = _pendingKeys();
+    if (keys.isEmpty) return 'Dán một hoặc nhiều khóa — nhiều khóa thì hết lượt khóa này tự chuyển khóa kế';
+    final dup = keys.where((k) => _keys.any((m) => _sameMasked(k, m))).length;
+    return 'Nhận ${keys.length} khóa mới${dup > 0 ? ' · $dup khóa có vẻ đã có' : ''} — bấm Lưu để thêm';
   }
 
   Widget _keysSection(bool edit) {
     return SettingsSection(
       title: 'Khóa AI riêng của cửa hàng',
-      subtitle: 'Không bắt buộc. Có nhiều khóa thì khóa hết lượt sẽ tự chuyển sang khóa kế tiếp, rồi tới khóa chung của hệ thống',
+      subtitle: 'Ưu tiên dùng trước. Có nhiều khóa thì khóa hết lượt sẽ tự chuyển sang khóa kế tiếp, rồi tới khóa chung SBOX (nếu gói cho phép)',
       icon: Icons.key_rounded,
       children: [
         if (_keys.isEmpty)
@@ -269,14 +307,20 @@ class _AiSettingsScreenState extends State<AiSettingsScreen> {
           const Divider(height: 20),
           TextField(
             controller: _newKey,
+            // Che khóa: một dòng (dán nhiều khóa cách nhau dấu phẩy / khoảng trắng); bỏ che: mỗi dòng một khóa.
             obscureText: _obscure,
+            minLines: 1,
+            maxLines: _obscure ? 1 : 6,
+            keyboardType: _obscure ? TextInputType.visiblePassword : TextInputType.multiline,
             onChanged: (_) => setState(() {}),
             decoration: InputDecoration(
-              labelText: tr('Thêm khóa Gemini API'),
-              hintText: 'AIza…',
+              labelText: tr('Thêm khóa Gemini API (một hoặc nhiều khóa)'),
+              hintText: 'AIza…, AIza…',
+              helperText: tr(_newKeyHint()),
               isDense: true,
               border: OutlineInputBorder(borderRadius: BorderRadius.circular(10)),
               suffixIcon: IconButton(
+                tooltip: tr(_obscure ? 'Hiện khóa — nhập mỗi dòng một khóa' : 'Che khóa'),
                 icon: Icon(_obscure ? Icons.visibility_outlined : Icons.visibility_off_outlined),
                 onPressed: () => setState(() => _obscure = !_obscure),
               ),

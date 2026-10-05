@@ -44,6 +44,7 @@ class ServicePackagesTabState extends State<ServicePackagesTab> {
       final results = await Future.wait([
         _apiService.getServicePackages(),
         _apiService.getAvailableModules(),
+        _apiService.saCatalog(),
       ]);
       if (!mounted) return;
       if (results[0]['isSuccess'] == true) {
@@ -53,6 +54,21 @@ class ServicePackagesTabState extends State<ServicePackagesTab> {
       if (results[1]['isSuccess'] == true) {
         _availableModules =
             List<Map<String, dynamic>>.from(results[1]['data'] ?? []);
+      }
+      final cat = results[2]['data'];
+      if (results[2]['isSuccess'] == true && cat is Map) {
+        _requires = {
+          for (final m in (cat['modules'] as List? ?? const []).whereType<Map>())
+            '${m['code']}': [for (final r in (m['requires'] as List? ?? const [])) '$r'],
+        };
+        _presets = [
+          for (final p in (cat['presets'] as List? ?? const []).whereType<Map>())
+            (
+              name: '${p['name']}',
+              productLine: '${p['productLine']}',
+              modules: [for (final m in (p['modules'] as List? ?? const [])) '$m'],
+            ),
+        ];
       }
     } catch (e) {
       debugPrint('ServicePackagesTab error: $e');
@@ -70,86 +86,34 @@ class ServicePackagesTabState extends State<ServicePackagesTab> {
     return grouped;
   }
 
-  /// Khớp PosPackageDefaults.SellModules (backend).
-  /// PosKds, PosQuotes tick riêng — không gộp vào POS bán hàng.
-  /// PosStorePrinters (Máy in cloud) không nằm preset — Super Admin tick từng gói.
-  /// SettingsHub luôn có: không có mã này thì cửa hàng không thấy menu Thiết lập Sbox.
-  static const List<String> _posSellPreset = [
-    'PosProducts',
-    'PosSell',
-    'PosPrintTemplates',
-    'PosSaleOrders',
-    'PosSaleReturns',
-    'PosSalesReport',
-    'PosReportRevenue',
-    'PosReportSoldGoods',
-    'PosReportStock',
-    'PosReportPurchases',
-    'PosReportPayment',
-    'PosReportDebt',
-    'PosReportExpiry',
-    'PosReportProfit',
-    'PosReportExpense',
-    'PosReportEndOfDay',
-    'PosReportStaffRevenue',
-    'PosReportStaffCommission',
-    'PosReportCashbook',
-    'PosReportPnl',
-    'PosReportVoucher',
-    'PosCustomers',
-    'PosBooking',
-    'PosWarranty',
-    'PosCustomerDisplay',
-    'PosEInvoice',
-    'PosQrOrder',
-    'PosCashierShift',
-    'PosPrinters',
-    'PosShipping',
-    'SettingsHub',
-  ];
+  /// Mẫu gói + chức năng cần có lấy từ máy chủ (FeatureModuleCatalog) — không giữ danh sách riêng ở app.
+  List<({String name, String productLine, List<String> modules})> _presets = [];
+  Map<String, List<String>> _requires = {};
 
-  /// Khớp PosPackageDefaults.SellWarehouseModules / FullModules.
-  static const List<String> _posSellWarehousePreset = [
-    'PosProducts',
-    'PosPromotions',
-    'PosSell',
-    'PosPrintTemplates',
-    'PosSaleOrders',
-    'PosSaleReturns',
-    'PosPurchaseReceipts',
-    'PosPurchaseReturns',
-    'PosStockCounts',
-    'PosDamageIssues',
-    'PosInternalUseIssues',
-    'PosSalesReport',
-    'PosReportRevenue',
-    'PosReportSoldGoods',
-    'PosReportStock',
-    'PosReportPurchases',
-    'PosReportPayment',
-    'PosReportDebt',
-    'PosReportExpiry',
-    'PosReportProfit',
-    'PosReportExpense',
-    'PosReportEndOfDay',
-    'PosReportStaffRevenue',
-    'PosReportStaffCommission',
-    'PosReportCashbook',
-    'PosReportPnl',
-    'PosReportVoucher',
-    'PosCustomers',
-    'PosBooking',
-    'PosWarranty',
-    'PosCustomerDisplay',
-    'PosEInvoice',
-    'PosQrOrder',
-    'PosCashierShift',
-    'PosPrinters',
-    'PosShipping',
-    'SettingsHub',
-  ];
+  /// Thêm đệ quy chức năng cần có (vd Hợp đồng → Báo giá → Hàng hóa).
+  Set<String> _withDependencies(Set<String> selected) {
+    final out = {...selected};
+    final queue = [...selected];
+    while (queue.isNotEmpty) {
+      for (final r in _requires[queue.removeLast()] ?? const <String>[]) {
+        if (out.add(r)) queue.add(r);
+      }
+    }
+    return out;
+  }
 
-  static const List<String> _posFullPreset = _posSellWarehousePreset;
+  /// Bỏ chức năng thì bỏ luôn chức năng phụ thuộc vào nó.
+  Set<String> _dependentsOf(String code) {
+    final out = <String>{};
+    final queue = [code];
+    while (queue.isNotEmpty) {
+      final c = queue.removeLast();
+      for (final e in _requires.entries) {
+        if (e.value.contains(c) && out.add(e.key)) queue.add(e.key);
+      }
+    }
+    return out;
+  }
 
   static const List<(String, String)> _fcmCategories = [
     ('attendance', 'Chấm công'),
@@ -280,12 +244,13 @@ class ServicePackagesTabState extends State<ServicePackagesTab> {
     Set<String> selectedModules, {
     required String label,
     required List<String> codes,
+    bool replacePos = true,
   }) {
     final available = _availableModules
         .map((m) => m['code']?.toString() ?? '')
         .where((c) => c.isNotEmpty)
         .toSet();
-    final apply = codes.where(available.contains).toList();
+    final apply = _withDependencies(codes.toSet()).where(available.contains).toList();
     final active = apply.isNotEmpty && apply.every(selectedModules.contains);
     return ActionChip(
       label: Text(tr(label), style: const TextStyle(fontSize: 12)),
@@ -298,8 +263,8 @@ class ServicePackagesTabState extends State<ServicePackagesTab> {
           ? null
           : () {
               setDialogState(() {
-                // Chỉ thay nhóm POS — giữ module HRM đã chọn.
-                selectedModules.removeWhere((c) => c.startsWith('Pos'));
+                // Mẫu gói: chỉ thay nhóm POS — giữ module HRM đã chọn. Chip lẻ (KDS, Báo giá) chỉ thêm.
+                if (replacePos) selectedModules.removeWhere((c) => c.startsWith('Pos'));
                 selectedModules.addAll(apply);
               });
             },
@@ -1009,35 +974,27 @@ class ServicePackagesTabState extends State<ServicePackagesTab> {
                       spacing: 6,
                       runSpacing: 6,
                       children: [
-                        _posPresetChip(
-                          setDialogState,
-                          selectedModules,
-                          label: 'POS bán hàng',
-                          codes: _posSellPreset,
-                        ),
-                        _posPresetChip(
-                          setDialogState,
-                          selectedModules,
-                          label: 'POS + kho',
-                          codes: _posSellWarehousePreset,
-                        ),
-                        _posPresetChip(
-                          setDialogState,
-                          selectedModules,
-                          label: 'POS đầy đủ',
-                          codes: _posFullPreset,
-                        ),
+                        // Mẫu gói POS lấy từ máy chủ — cùng nguồn với giao diện quản trị mới.
+                        for (final p in _presets.where((p) => p.productLine == 'pos'))
+                          _posPresetChip(
+                            setDialogState,
+                            selectedModules,
+                            label: p.name,
+                            codes: p.modules,
+                          ),
                         _posPresetChip(
                           setDialogState,
                           selectedModules,
                           label: 'KDS (bếp)',
                           codes: const ['PosKds'],
+                          replacePos: false,
                         ),
                         _posPresetChip(
                           setDialogState,
                           selectedModules,
-                          label: 'Báo giá',
-                          codes: const ['PosQuotes'],
+                          label: 'Báo giá + hợp đồng',
+                          codes: const ['PosQuotes', 'PosContracts'],
+                          replacePos: false,
                         ),
                       ],
                     ),
@@ -1128,10 +1085,13 @@ class ServicePackagesTabState extends State<ServicePackagesTab> {
                                       activeColor: AdminHelpers.primary,
                                       onChanged: (v) {
                                         setDialogState(() {
+                                          // Kéo theo chức năng cần có / bỏ chức năng phụ thuộc.
                                           if (v == true) {
-                                            selectedModules.add(code);
+                                            selectedModules.addAll(_withDependencies({code}));
                                           } else {
-                                            selectedModules.remove(code);
+                                            selectedModules
+                                              ..remove(code)
+                                              ..removeAll(_dependentsOf(code));
                                           }
                                         });
                                       },

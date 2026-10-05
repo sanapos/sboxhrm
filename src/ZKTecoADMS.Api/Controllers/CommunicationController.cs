@@ -22,6 +22,8 @@ using ZKTecoADMS.Domain.Enums;
 using ZKTecoADMS.Api.Services;
 using ZKTecoADMS.Application.Interfaces;
 using ZKTecoADMS.Infrastructure;
+using ZKTecoADMS.Infrastructure.Helpers;
+using ZKTecoADMS.Application.Authorization;
 
 namespace ZKTecoADMS.Api.Controllers;
 
@@ -867,7 +869,7 @@ public class CommunicationController(
 
             if (!useGemini || !geminiAiService.IsConfigured || !geminiAiService.IsEnabled)
             {
-                await WriteSseEvent("error", "Gemini AI chưa được bật hoặc chưa cấu hình API key");
+                await WriteSseEvent("error", TenantScopedGeminiAiService.NotReadyMessage(geminiAiService));
                 return;
             }
 
@@ -1444,14 +1446,22 @@ public class CommunicationController(
                 ?? (bool.TryParse(enabledRaw, out var e) ? e : runtime.Enabled);
 
             var keyList = GeminiKeyPool.Parse(geminiSettings.GetValueOrDefault("gemini_api_key"));
+            // Khóa AI chung SBOX: chỉ khi gói có «Dùng AI chung SBOX» (mẫu hợp đồng / báo giá, AI thêm menu luôn được).
+            var sharedAllowed = (await StorePackageHelper.ResolveAllowedModulesAsync(dbContext, storeId))
+                .Contains(FeatureModuleCatalog.SharedAiModule, StringComparer.OrdinalIgnoreCase);
+            var platformCfg = await GeminiStoreConfigLoader.LoadPlatformAsync(dbContext);
             var config = new
             {
+                sharedAllowed,
+                sharedAvailable = platformCfg is { Enabled: true, IsConfigured: true },
+                ownKeyCount = keyList.Count,
                 apiKey = MaskApiKey(GeminiKeyPool.Parse(apiKeyRaw).FirstOrDefault() ?? ""),
                 // Mọi khóa của cửa hàng (che) — hết lượt khóa này tự chuyển khóa kế, rồi tới khóa AI chung.
                 apiKeys = keyList.Select(GeminiKeyPool.Mask).ToList(),
                 keyStatus = GeminiKeyPool.Status(keyList),
                 keyCount = keyList.Count,
-                model = geminiSettings.GetValueOrDefault("gemini_model") ?? dbConfig?.Model ?? runtime.Model,
+                model = GeminiModels.Normalize(geminiSettings.GetValueOrDefault("gemini_model") ?? dbConfig?.Model ?? runtime.Model),
+                models = GeminiModels.Supported,
                 maxOutputTokens = int.TryParse(geminiSettings.GetValueOrDefault("gemini_max_tokens"), out var t)
                     ? t
                     : dbConfig?.MaxOutputTokens ?? runtime.MaxOutputTokens,
@@ -1490,7 +1500,7 @@ public class CommunicationController(
             var settings = new Dictionary<string, string?>
             {
                 { "gemini_api_key", dto.ApiKey },
-                { "gemini_model", dto.Model },
+                { "gemini_model", string.IsNullOrWhiteSpace(dto.Model) ? null : GeminiModels.Normalize(dto.Model) },
                 { "gemini_max_tokens", dto.MaxOutputTokens?.ToString() },
                 { "gemini_temperature", dto.Temperature?.ToString(System.Globalization.CultureInfo.InvariantCulture) },
                 { "gemini_enabled", dto.Enabled?.ToString() }
@@ -1588,7 +1598,7 @@ public class CommunicationController(
         {
             if (!geminiAiService.IsConfigured || !geminiAiService.IsEnabled)
             {
-                return Ok(AppResponse<object>.Fail("Gemini AI chưa được bật hoặc chưa cấu hình API Key"));
+                return Ok(AppResponse<object>.Fail(TenantScopedGeminiAiService.NotReadyMessage(geminiAiService)));
             }
 
             // Nhiều khóa riêng của cửa hàng → kiểm tra từng khóa, báo khóa nào dùng được.

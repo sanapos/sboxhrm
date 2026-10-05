@@ -32,10 +32,13 @@ class _ChatMsg {
   final List<String> actions;
   final List<String> creates;
   final List<String> guides;
+  /// Báo cáo trợ lý đã xem để trả lời (tên hiển thị).
+  final List<String> reports;
   _ChatMsg(this.role, this.content,
       {this.actions = const [],
       this.creates = const [],
-      this.guides = const []});
+      this.guides = const [],
+      this.reports = const []});
 }
 
 class AiAssistantSheet extends StatefulWidget {
@@ -72,7 +75,7 @@ class _AiAssistantSheetState extends State<AiAssistantSheet> {
     _initTts();
     _initStt();
     _messages.add(_ChatMsg('assistant',
-        'Xin chào! Tôi trả lời phép, chấm công, lương và hướng dẫn từ dữ liệu HRM — không cần Gemini. Gemini chỉ dùng khi hỏi câu mở. Bấm micro hoặc gõ tin nhắn.'));
+        'Xin chào! Tôi là Trợ lý ảo của cửa hàng. Tôi đọc báo cáo bán hàng và nhân sự (theo quyền của bạn) để trả lời và phân tích: doanh thu, lợi nhuận, hàng bán chạy, tồn kho, công nợ, chấm công, đi trễ, nghỉ phép, lương… Bấm micro, gõ câu hỏi hoặc chọn gợi ý bên dưới.'));
     if (!kIsWeb) {
       _checkAiConsent();
     } else {
@@ -101,7 +104,7 @@ class _AiAssistantSheetState extends State<AiAssistantSheet> {
       context: context,
       barrierDismissible: false,
       builder: (ctx) => ScrollableAlertDialog(
-        title: Text(tr('Trợ lý AI – Thông tin quyền riêng tư')),
+        title: Text(tr('Trợ lý ảo – Thông tin quyền riêng tư')),
         content: Text(
           tr('Khi sử dụng trợ lý AI, nội dung câu hỏi và dữ liệu nhân sự liên quan (ca làm việc, phép, chấm công) '
           'sẽ được gửi đến máy chủ của chúng tôi và xử lý bằng Google Gemini AI để tạo phản hồi.\n\n'
@@ -418,16 +421,19 @@ class _AiAssistantSheetState extends State<AiAssistantSheet> {
         final guides = ((data?['guides'] as List?) ?? [])
             .map((e) => e.toString())
             .toList();
+        final reports = ((data?['reports'] as List?) ?? [])
+            .map((e) => e.toString())
+            .toList();
         setState(() {
           _messages.add(_ChatMsg('assistant', reply,
-              actions: actions, creates: creates, guides: guides));
+              actions: actions, creates: creates, guides: guides, reports: reports));
         });
         _scrollToBottom();
         if (_ttsEnabled && reply.isNotEmpty) {
           await _speakReply(reply);
         }
       } else {
-        final msg = (result['message'] as String?) ?? 'Lỗi trợ lý AI';
+        final msg = (result['message'] as String?) ?? 'Lỗi trợ lý ảo';
         setState(() {
           _messages.add(_ChatMsg('assistant', '⚠️ $msg'));
         });
@@ -975,10 +981,10 @@ class _AiAssistantSheetState extends State<AiAssistantSheet> {
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Text(tr('Trợ lý ảo HRM'),
+                Text(tr('Trợ lý ảo'),
                     style:
                         TextStyle(fontSize: 16, fontWeight: FontWeight.w600)),
-                Text(tr('Hỗ trợ nghỉ phép, lịch làm, chấm công, lương'),
+                Text(tr('Phân tích bán hàng, nhân sự từ dữ liệu cửa hàng'),
                     style: TextStyle(fontSize: 11, color: SboxColors.slate500)),
               ],
             ),
@@ -1012,8 +1018,66 @@ class _AiAssistantSheetState extends State<AiAssistantSheet> {
       itemCount: _messages.length + (_isSending ? 1 : 0),
       itemBuilder: (context, i) {
         if (i >= _messages.length) return _buildTypingBubble();
+        // Mới mở: lời chào + câu hỏi gợi ý theo quyền.
+        if (i == 0 && _messages.length == 1) {
+          return Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [_buildBubble(_messages[0]), _buildSuggestions()],
+          );
+        }
         return _buildBubble(_messages[i]);
       },
+    );
+  }
+
+  /// Câu hỏi mẫu — chỉ hiện nhóm người dùng có quyền xem báo cáo.
+  List<String> _suggestionList() {
+    final perm = Provider.of<PermissionProvider>(context, listen: false);
+    final out = <String>[];
+    if (perm.canView('PosSalesReport') || perm.canView('PosReportRevenue')) {
+      out.addAll([
+        'Phân tích doanh thu tháng này so với tháng trước',
+        'Ngày nào trong tuần bán được nhiều nhất?',
+      ]);
+    }
+    if (perm.canView('PosReportSoldGoods')) out.add('Top 10 món bán chạy 7 ngày qua');
+    if (perm.canView('PosReportProfit')) out.add('Nhóm hàng nào lãi nhiều nhất tháng này?');
+    if (perm.canView('PosProducts')) out.add('Hàng nào tồn lâu không bán được?');
+    if (perm.canView('PosReportDebt')) out.add('Khách nào đang nợ nhiều nhất?');
+    if (perm.canView('AttendanceReport') || perm.canView('Attendance')) {
+      out.add('Ai đi trễ nhiều nhất tháng này?');
+    }
+    if (perm.canView('LeaveReport')) out.add('Tình hình nghỉ phép tháng này');
+    if (perm.canView('Payslip')) out.add('Tổng quỹ lương tháng trước theo phòng ban');
+    if (out.isEmpty) {
+      out.addAll(['Tôi còn bao nhiêu ngày phép?', 'Hôm nay tôi chấm công chưa?']);
+    }
+    return out.take(6).toList();
+  }
+
+  Widget _buildSuggestions() {
+    final items = _suggestionList();
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 8),
+      child: Wrap(
+        spacing: 6,
+        runSpacing: 6,
+        children: [
+          for (final q in items)
+            ActionChip(
+              avatar: const Icon(Icons.insights_rounded, size: 16, color: SboxColors.violet),
+              label: Text(tr(q), style: const TextStyle(fontSize: 12)),
+              backgroundColor: Colors.white,
+              side: const BorderSide(color: Color(0xFFDDD6FE)),
+              onPressed: _isSending
+                  ? null
+                  : () {
+                      _inputCtrl.text = q;
+                      _send();
+                    },
+            ),
+        ],
+      ),
     );
   }
 
@@ -1045,6 +1109,22 @@ class _AiAssistantSheetState extends State<AiAssistantSheet> {
               height: 1.45,
             ),
           ),
+          if (m.reports.isNotEmpty) ...[
+            const SizedBox(height: 6),
+            Row(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                const Icon(Icons.bar_chart_rounded, size: 14, color: SboxColors.slate500),
+                const SizedBox(width: 4),
+                Flexible(
+                  child: Text(
+                    '${tr('Đã xem báo cáo')}: ${m.reports.map(tr).join(', ')}',
+                    style: const TextStyle(fontSize: 11, color: SboxColors.slate500),
+                  ),
+                ),
+              ],
+            ),
+          ],
           if (m.actions.isNotEmpty) ...[
             const SizedBox(height: 8),
             Builder(builder: (ctx) {

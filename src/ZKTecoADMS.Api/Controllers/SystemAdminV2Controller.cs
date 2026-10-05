@@ -333,15 +333,29 @@ public class SystemAdminV2Controller(
     {
         var s = await db.Stores.AsTracking().FirstOrDefaultAsync(x => x.Id == id);
         if (s == null) return Ok(AppResponse<bool>.Fail("Không tìm thấy cửa hàng"));
+        await StorePermissionSyncHelper.EnsureBaselineAsync(db, [id]);
         var valid = FeatureModuleCatalog.AllCodes;
         var extra = dto.Extra.Where(valid.Contains).Distinct(StringComparer.OrdinalIgnoreCase).ToList();
         var blocked = dto.Blocked.Where(valid.Contains).Distinct(StringComparer.OrdinalIgnoreCase)
             .Where(b => !extra.Contains(b, StringComparer.OrdinalIgnoreCase)).ToList();
+        // Chức năng cấp thêm kéo theo chức năng cần có (vd Hợp đồng → Báo giá) nếu gói chưa có.
+        var pkgMods = Modules(await db.ServicePackages.AsNoTracking()
+            .Where(p => p.Id == s.ServicePackageId).Select(p => p.AllowedModules).FirstOrDefaultAsync());
+        var effective = pkgMods.Concat(extra)
+            .Where(m => !blocked.Contains(m, StringComparer.OrdinalIgnoreCase))
+            .ToHashSet(StringComparer.OrdinalIgnoreCase);
+        foreach (var dep in FeatureModuleCatalog.WithDependencies(extra).Where(d => !effective.Contains(d)))
+        {
+            extra.Add(dep);
+            blocked.RemoveAll(b => b.Equals(dep, StringComparison.OrdinalIgnoreCase));
+        }
         s.ExtraModules = extra.Count == 0 ? null : JsonSerializer.Serialize(extra);
         s.BlockedModules = blocked.Count == 0 ? null : JsonSerializer.Serialize(blocked);
         s.AdminNote = string.IsNullOrWhiteSpace(dto.AdminNote) ? null : dto.AdminNote.Trim();
         s.UpdatedAt = DateTime.UtcNow;
         await db.SaveChangesAsync();
+        // Chức năng cấp thêm → cấp quyền vai trò theo mẫu.
+        await StorePermissionSyncHelper.SyncAsync(db, id);
         await AuditAsync(AuditActions.Update, AuditEntityTypes.Store, id.ToString(), s.Name,
             $"Chức năng riêng: thêm [{string.Join(", ", extra)}], chặn [{string.Join(", ", blocked)}]", id);
         return Ok(AppResponse<bool>.Success(true));
@@ -367,6 +381,7 @@ public class SystemAdminV2Controller(
             case "assign-package":
                 pkg = req.PackageId.HasValue ? await db.ServicePackages.FirstOrDefaultAsync(p => p.Id == req.PackageId) : null;
                 if (pkg == null) return Ok(AppResponse<object>.Fail("Chọn gói dịch vụ"));
+                await StorePermissionSyncHelper.EnsureBaselineAsync(db, ids);
                 foreach (var s in stores)
                 {
                     s.ServicePackageId = pkg.Id;
@@ -397,6 +412,9 @@ public class SystemAdminV2Controller(
                 return Ok(AppResponse<object>.Fail("Thao tác không hỗ trợ"));
         }
         await db.SaveChangesAsync();
+        if (pkg != null)
+            foreach (var s in stores)
+                await StorePermissionSyncHelper.SyncAsync(db, s.Id);
         var action = req.Action switch
         {
             "extend" => AuditActions.SubscriptionExtended,

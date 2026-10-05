@@ -15,8 +15,8 @@ class SystemAiConfigCard extends StatefulWidget {
 }
 
 class _SystemAiConfigCardState extends State<SystemAiConfigCard> {
-  // Khóa tạo mới không còn dùng được 2.5 Flash (Google 404) — để model «mới nhất» lên đầu.
-  static const _models = ['gemini-flash-latest', 'gemini-3.8-flash', 'gemini-pro-latest', 'gemini-flash-lite-latest', 'gemini-2.5-flash'];
+  // Chỉ bản «mới nhất» (khớp GeminiModels trên server) — model cũ đã lưu tự về Flash.
+  static const _models = ['gemini-flash-latest', 'gemini-flash-lite-latest'];
 
   final _api = ApiService();
   final _keyCtrl = TextEditingController();
@@ -57,7 +57,7 @@ class _SystemAiConfigCardState extends State<SystemAiConfigCard> {
           st['key'].toString(): DateTime.parse(st['coolingUntil'].toString()).toLocal(),
     };
     final m = (d['model'] ?? '').toString();
-    _model = m.isEmpty ? _models.first : m;
+    _model = _models.contains(m) ? m : _models.first;
     _enabled = d['enabled'] == true;
     _configured = d['isConfigured'] == true;
   }

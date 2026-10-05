@@ -3610,6 +3610,10 @@ public class ZKTecoDbInitializer(
             await SeedServicePackagesAsync();
             // Không gọi PatchPosReportPackageModulesAsync — bỏ tick báo cáo phải được giữ.
             await context.SaveChangesAsync();
+            // Mốc chức năng mỗi cửa hàng — sửa gói sau này biết chức năng nào mới để cấp quyền vai trò.
+            var baselined = await StorePermissionSyncHelper.EnsureBaselineAsync(context);
+            if (baselined > 0)
+                logger.LogInformation("Permission package baseline set for {Count} stores", baselined);
 
             try
             {

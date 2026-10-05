@@ -1264,6 +1264,8 @@ ALTER TABLE "ServicePackages" ADD COLUMN IF NOT EXISTS "Highlights" text NULL;
 ALTER TABLE "Stores" ADD COLUMN IF NOT EXISTS "ExtraModules" text NULL;
 ALTER TABLE "Stores" ADD COLUMN IF NOT EXISTS "BlockedModules" text NULL;
 ALTER TABLE "Stores" ADD COLUMN IF NOT EXISTS "AdminNote" text NULL;
+-- Chức năng đã cấp quyền vai trò lần gần nhất — phát hiện chức năng mới thêm vào gói (StorePermissionSyncHelper).
+ALTER TABLE "Stores" ADD COLUMN IF NOT EXISTS "PermissionSyncedModules" text NULL;
 CREATE TABLE IF NOT EXISTS "SchemaPatchMarkers" ("Key" character varying(100) NOT NULL PRIMARY KEY, "AppliedAt" timestamp without time zone NOT NULL DEFAULT NOW());
 -- Chạy 1 lần (đánh dấu pkg_modules_v2). Chấm công Mobile chuyển thành chức năng chọn theo gói: giữ nguyên cho gói đang có chấm công
 UPDATE "ServicePackages" SET "AllowedModules" = ("AllowedModules"::jsonb || '["MobileAttendance"]'::jsonb)::text WHERE "AllowedModules" LIKE '[%' AND "AllowedModules" LIKE '%Attendance%' AND "AllowedModules" NOT LIKE '%"MobileAttendance"%' AND NOT EXISTS (SELECT 1 FROM "SchemaPatchMarkers" WHERE "Key" = 'pkg_modules_v2');

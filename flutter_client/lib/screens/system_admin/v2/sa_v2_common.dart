@@ -89,6 +89,19 @@ class SaCatalog {
     }
     return set;
   }
+
+  /// Chức năng (đệ quy) cần [code] — bỏ [code] thì bỏ luôn các chức năng này.
+  Set<String> dependentsOf(String code) {
+    final out = <String>{};
+    final queue = [code.toLowerCase()];
+    while (queue.isNotEmpty) {
+      final c = queue.removeLast();
+      for (final m in modules) {
+        if (m.requires.any((r) => r.toLowerCase() == c) && out.add(m.code)) queue.add(m.code.toLowerCase());
+      }
+    }
+    return out;
+  }
 }
 
 String saProductLineLabel(String? v) => switch (v) {

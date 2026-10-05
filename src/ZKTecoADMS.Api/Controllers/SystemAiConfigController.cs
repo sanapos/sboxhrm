@@ -36,7 +36,8 @@ public class SystemAiConfigController(
             apiKeys = (cfg?.ApiKeys ?? []).Select(GeminiKeyPool.Mask).ToList(),
             keyStatus = GeminiKeyPool.Status(cfg?.ApiKeys ?? []),
             keyCount = cfg?.ApiKeys.Count ?? 0,
-            model = cfg?.Model ?? "gemini-flash-latest",
+            model = GeminiModels.Normalize(cfg?.Model),
+            models = GeminiModels.Supported,
             maxOutputTokens = cfg?.MaxOutputTokens ?? 8192,
             temperature = cfg?.Temperature ?? 0.7,
             enabled = cfg?.Enabled ?? false,
@@ -51,7 +52,7 @@ public class SystemAiConfigController(
         var values = new Dictionary<string, string?>
         {
             ["gemini_api_key"] = null, // gộp nhiều khóa bên dưới (thêm / thay / xóa)
-            ["gemini_model"] = string.IsNullOrWhiteSpace(dto.Model) ? null : dto.Model.Trim(),
+            ["gemini_model"] = string.IsNullOrWhiteSpace(dto.Model) ? null : GeminiModels.Normalize(dto.Model),
             ["gemini_max_tokens"] = dto.MaxOutputTokens?.ToString(),
             ["gemini_temperature"] = dto.Temperature?.ToString(System.Globalization.CultureInfo.InvariantCulture),
             ["gemini_enabled"] = dto.Enabled?.ToString(),

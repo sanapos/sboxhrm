@@ -1906,6 +1906,27 @@ class _MainLayoutState extends State<MainLayout> with WidgetsBindingObserver {
       themeColor: HrmPageChrome.primaryNavy,
       moduleCode: 'PosPrintTemplates',
     ),
+    // Gói có Hợp đồng / Khuyến mãi phải có lối vào riêng — trước đây chỉ nằm sâu trong Báo giá / Hàng hóa.
+    NavItem(
+      icon: Icons.handshake_outlined,
+      activeIcon: Icons.handshake,
+      label: 'Hợp đồng',
+      subtitle: 'Thu tiền theo đợt',
+      screen: const PosQuoteListScreen(initialTab: 1),
+      group: 'POS',
+      themeColor: HrmPageChrome.primaryNavy,
+      moduleCode: 'PosContracts',
+    ),
+    NavItem(
+      icon: Icons.local_offer_outlined,
+      activeIcon: Icons.local_offer,
+      label: 'Khuyến mãi',
+      subtitle: 'Tự động áp khi bán',
+      screen: const PosPromotionsScreen(),
+      group: 'POS',
+      themeColor: HrmPageChrome.primaryNavy,
+      moduleCode: 'PosPromotions',
+    ),
     NavItem(
       icon: Icons.kitchen_outlined,
       activeIcon: Icons.kitchen,
@@ -2760,7 +2781,7 @@ class _MainLayoutState extends State<MainLayout> with WidgetsBindingObserver {
             visualDensity: VisualDensity.compact,
             icon: const Icon(Icons.auto_awesome, color: SboxColors.violet),
             onPressed: () => showAiAssistant(context),
-            tooltip: tr('Trợ lý ảo AI'),
+            tooltip: tr('Trợ lý ảo'),
           ),
           ValueListenableBuilder<int>(
             valueListenable: _unreadNotificationsCount,
@@ -3726,7 +3747,7 @@ class _MainLayoutState extends State<MainLayout> with WidgetsBindingObserver {
           IconButton(
             icon: const Icon(Icons.auto_awesome, color: SboxColors.violet),
             onPressed: () => showAiAssistant(context),
-            tooltip: tr('Trợ lý ảo AI'),
+            tooltip: tr('Trợ lý ảo'),
           ),
           ValueListenableBuilder<int>(
             valueListenable: _unreadNotificationsCount,
@@ -4213,11 +4234,45 @@ class _HomeMenuScreen extends StatefulWidget {
     'Chấm công',
     'Tài chính',
     'Quản lý Vận hành',
-    'POS',
+    ...posHomeGroups,
     'Báo cáo kinh doanh',
     'Báo cáo nhân sự',
     'Cài đặt',
   ];
+
+  /// Trang chủ: nhóm «Bán hàng, kho» (~25 ô) tách thành các khối nhỏ theo công việc.
+  /// Menu trái vẫn giữ một nhóm POS.
+  static const posHomeGroups = [
+    'Bán hàng',
+    'Thương mại',
+    'Khách hàng & khuyến mãi',
+    'Hàng hóa & kho',
+  ];
+
+  static const _posHomeGroupByLabel = {
+    'Bán hàng': 'Bán hàng',
+    'Đơn hàng': 'Bán hàng',
+    'Trả hàng bán': 'Bán hàng',
+    'Màn hình bếp (KDS)': 'Bán hàng',
+    'Menu QR / Online': 'Bán hàng',
+    'Đơn online': 'Bán hàng',
+    'Đặt lịch': 'Bán hàng',
+    'Check-in hội viên': 'Bán hàng',
+    'Báo giá': 'Thương mại',
+    'Mẫu in báo giá': 'Thương mại',
+    'Hợp đồng': 'Thương mại',
+    'Khách hàng POS': 'Khách hàng & khuyến mãi',
+    'Bảo hành POS': 'Khách hàng & khuyến mãi',
+    'Khuyến mãi': 'Khách hàng & khuyến mãi',
+    'Voucher': 'Khách hàng & khuyến mãi',
+  };
+
+  /// Nhóm hiển thị trên Trang chủ (POS chia nhỏ; còn lại hàng hóa / kho).
+  static String homeGroupOf(NavItem item) {
+    final group = item.group.isEmpty ? 'Khác' : item.group;
+    if (group != 'POS') return group;
+    return _posHomeGroupByLabel[item.label] ?? 'Hàng hóa & kho';
+  }
 
   static const _groupIcons = {
     'Hồ sơ nhân sự': Icons.people,
@@ -4225,6 +4280,10 @@ class _HomeMenuScreen extends StatefulWidget {
     'Tài chính': Icons.account_balance,
     'Quản lý Vận hành': Icons.business_center,
     'POS': Icons.point_of_sale,
+    'Bán hàng': Icons.point_of_sale,
+    'Thương mại': Icons.request_quote,
+    'Khách hàng & khuyến mãi': Icons.loyalty,
+    'Hàng hóa & kho': Icons.inventory_2,
     'Báo cáo kinh doanh': Icons.insights_rounded,
     'Báo cáo nhân sự': Icons.assessment,
     'Cài đặt': Icons.settings,
@@ -4236,6 +4295,10 @@ class _HomeMenuScreen extends StatefulWidget {
     'Tài chính': HrmPageChrome.primaryNavy,
     'Quản lý Vận hành': HrmPageChrome.primaryNavy,
     'POS': HrmPageChrome.primaryNavy,
+    'Bán hàng': HrmPageChrome.primaryNavy,
+    'Thương mại': HrmPageChrome.primaryNavy,
+    'Khách hàng & khuyến mãi': HrmPageChrome.primaryNavy,
+    'Hàng hóa & kho': HrmPageChrome.primaryNavy,
     'Báo cáo kinh doanh': HrmPageChrome.primaryNavy,
     'Báo cáo nhân sự': HrmPageChrome.primaryNavy,
     'Cài đặt': HrmPageChrome.primaryNavy,
@@ -4247,6 +4310,10 @@ class _HomeMenuScreen extends StatefulWidget {
     'Tài chính': 'Lương, thưởng, ứng',
     'Quản lý Vận hành': 'KPI, truyền thông',
     'POS': 'Bán hàng, kho',
+    'Bán hàng': 'Thu ngân, đơn hàng, bếp, đặt lịch',
+    'Thương mại': 'Báo giá, hợp đồng',
+    'Khách hàng & khuyến mãi': 'Khách hàng, bảo hành, khuyến mãi, voucher',
+    'Hàng hóa & kho': 'Hàng hóa, nhập hàng, kiểm kho',
     'Báo cáo kinh doanh': 'Doanh thu, hủy trả, thu chi',
     'Báo cáo nhân sự': 'Chấm công, lương, nghỉ phép',
     'Cài đặt': 'Cấu hình hệ thống',
@@ -4308,46 +4375,6 @@ class _HomeMenuScreenState extends State<_HomeMenuScreen> {
     }
     if (user.email.isNotEmpty) return user.email;
     return 'Chi nhánh';
-  }
-
-  Widget _buildQuoteShortcutGrid(BuildContext context) {
-    final auth = Provider.of<AuthProvider>(context, listen: false);
-    final perm = Provider.of<PermissionProvider>(context, listen: false);
-    bool can(String code) => PermissionNavigation.canAccessModule(
-          code,
-          allowedModules: auth.user?.allowedModules,
-          perm: perm,
-          role: auth.user?.role,
-        );
-    void open(String code) {
-      if (widget.onModuleTap != null) {
-        widget.onModuleTap!(code);
-        return;
-      }
-      final idx = widget.navItems.indexWhere((n) => n.moduleCode == code);
-      if (idx >= 0) widget.onItemTap(idx);
-    }
-
-    final items = <PosMobileHubGridItem>[
-      if (can('PosQuotes'))
-        PosMobileHubGridItem(
-          label: 'Báo giá',
-          icon: Icons.request_quote_outlined,
-          onTap: () => open('PosQuotes'),
-        ),
-      if (can('PosQuotes') && can('PosPrintTemplates'))
-        PosMobileHubGridItem(
-          label: 'Mẫu in báo giá',
-          icon: Icons.article_outlined,
-          onTap: () => open('PosPrintTemplates'),
-        ),
-    ];
-    if (items.isEmpty) return const SizedBox.shrink();
-
-    return PosMobileHubSectionGrid(
-      title: 'Thương mại',
-      items: items,
-    );
   }
 
   Widget _buildMobileQuickActionsGrid(BuildContext context) {
@@ -4450,8 +4477,6 @@ class _HomeMenuScreenState extends State<_HomeMenuScreen> {
                 ),
               ),
               const SizedBox(height: 12),
-              RepaintBoundary(child: _buildQuoteShortcutGrid(context)),
-              const SizedBox(height: 12),
               RepaintBoundary(child: _buildMobileQuickActionsGrid(context)),
             ]),
           ),
@@ -4551,7 +4576,7 @@ class _HomeMenuScreenState extends State<_HomeMenuScreen> {
           )) {
         continue;
       }
-      final group = item.group.isEmpty ? 'Khác' : item.group;
+      final group = _HomeMenuScreen.homeGroupOf(item);
       groupedItems.putIfAbsent(group, () => []);
       groupedItems[group]!.add(MapEntry(i, item));
     }

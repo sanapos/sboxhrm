@@ -168,7 +168,8 @@ public sealed class PosDocxTemplateAiService(IGeminiAiService gemini)
             prompt.Append(p.Id).Append(" | ").Append(p.InTable ? "bảng" : "-").Append(" | ").Append(text).Append('\n');
         }
 
-        var json = await gemini.GenerateJsonAsync(SystemPrompt, prompt.ToString(), null, 32768, ct);
+        // Mẫu hợp đồng / báo giá: mọi cửa hàng được dùng khóa AI chung (ưu tiên khóa riêng).
+        var json = await gemini.AllowSharedKey().GenerateJsonAsync(SystemPrompt, prompt.ToString(), null, 32768, ct);
         return Validate(json, paragraphs);
     }
 

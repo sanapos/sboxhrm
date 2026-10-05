@@ -10,7 +10,7 @@ using ZKTecoADMS.Infrastructure;
 namespace ZKTecoADMS.Api.Controllers;
 
 /// <summary>
-/// Trợ lý ảo: bot rule (dữ liệu HRM + hướng dẫn) và Gemini (câu hỏi mở).
+/// Trợ lý ảo: bot rule (dữ liệu cá nhân + hướng dẫn) và Gemini có công cụ báo cáo POS / HRM (phân tích).
 /// </summary>
 [ApiController]
 [Route("api/ai/assistant")]
@@ -19,6 +19,7 @@ public class AiAssistantController(
     ZKTecoDbContext db,
     IModulePermissionService modulePermissionService,
     IGeminiAiService geminiAiService,
+    AiAssistantAgent agent,
     ILogger<AiAssistantController> logger) : AuthenticatedControllerBase
 {
     public class ChatMessage
@@ -42,6 +43,8 @@ public class AiAssistantController(
         public List<string> Creates { get; set; } = new();
         /// <summary>Guide deep links: "basic/leave", "advanced/kpi".</summary>
         public List<string> Guides { get; set; } = new();
+        /// <summary>Báo cáo trợ lý đã xem để trả lời (tên hiển thị).</summary>
+        public List<string> Reports { get; set; } = new();
     }
 
     /// <summary>
@@ -141,13 +144,28 @@ public class AiAssistantController(
             }
 
             var geminiOk = geminiAiService.IsConfigured && geminiAiService.IsEnabled;
-            var rule = AiAssistantRuleBot.Build(
-                lastUserMessage.Content, contextText, helpHits,
-                allowedActions, allowedCreates, includeFallback: !geminiOk);
+            // Câu hỏi phân tích / báo cáo → đi thẳng agent (gọi báo cáo thật); câu cá nhân đơn giản → bot rule (nhanh, không tốn lượt).
+            var analytical = geminiOk && AiAssistantAgent.LooksAnalytical(lastUserMessage.Content);
+            var rule = analytical
+                ? new AiAssistantRuleResult(false, "")
+                : AiAssistantRuleBot.Build(
+                    lastUserMessage.Content, contextText, helpHits,
+                    allowedActions, allowedCreates, includeFallback: !geminiOk);
+            var reportsUsed = new List<string>();
+            logger.LogInformation("AI chat route: gemini={GeminiOk} analytical={Analytical} rule={Rule}",
+                geminiOk, analytical, rule.Matched);
 
             string reply;
             string usedProvider;
-            if (rule.Matched)
+            if (!geminiOk && AiAssistantAgent.LooksAnalytical(lastUserMessage.Content)
+                && geminiAiService is TenantScopedGeminiAiService { SharedBlocked: true })
+            {
+                // Câu phân tích cần AI: cửa hàng chưa có khóa riêng, gói không cho dùng khóa chung.
+                reply = "Trợ lý ảo trả lời được dữ liệu cá nhân và hướng dẫn. Để phân tích báo cáo bán hàng / nhân sự: "
+                        + TenantScopedGeminiAiService.NoOwnKeyMessage;
+                usedProvider = "sbox";
+            }
+            else if (rule.Matched)
             {
                 reply = rule.Reply;
                 usedProvider = "sbox";
@@ -156,18 +174,31 @@ public class AiAssistantController(
             {
                 try
                 {
-                    reply = await geminiAiService.GenerateAssistantChatAsync(
-                        systemPrompt, chatTurns, 2048, ct);
+                    var result = await agent.RunAsync(
+                        systemPrompt, chatTurns, RequiredStoreId, permMap, isSuperUser, ct);
+                    reply = result.Reply;
+                    reportsUsed = result.ReportsUsed;
                     usedProvider = "gemini";
                 }
-                catch (Exception gemEx)
+                catch (Exception gemEx) when (gemEx is not OperationCanceledException)
                 {
                     logger.LogWarning(gemEx, "Gemini failed — falling back to rule bot");
-                    rule = AiAssistantRuleBot.Build(
-                        lastUserMessage.Content, contextText, helpHits,
-                        allowedActions, allowedCreates, includeFallback: true);
-                    reply = rule.Reply;
                     usedProvider = "sbox";
+                    if (analytical)
+                    {
+                        // Bot rule không phân tích được — báo rõ thay vì trả lời lạc đề.
+                        var why = gemEx is AiApiException { IsQuotaError: true }
+                            ? "Trợ lý ảo đang hết lượt phân tích (giới hạn của khóa AI)."
+                            : "Máy chủ AI đang bận.";
+                        reply = why + " Bạn thử lại sau khoảng 1 phút, hoặc mở trực tiếp màn Báo cáo để xem số liệu.";
+                    }
+                    else
+                    {
+                        rule = AiAssistantRuleBot.Build(
+                            lastUserMessage.Content, contextText, helpHits,
+                            allowedActions, allowedCreates, includeFallback: true);
+                        reply = rule.Reply;
+                    }
                 }
             }
 
@@ -180,13 +211,14 @@ public class AiAssistantController(
                 Provider = usedProvider,
                 Actions = parsed.Actions,
                 Creates = parsed.Creates,
-                Guides = parsed.Guides
+                Guides = parsed.Guides,
+                Reports = reportsUsed.Distinct().Select(AiAssistantReportCatalog.TitleOf).ToList(),
             }));
         }
         catch (Exception ex)
         {
             logger.LogError(ex, "AI Assistant chat failed");
-            return StatusCode(500, AppResponse<ChatResponse>.Fail("Lỗi trợ lý AI: " + ex.Message));
+            return StatusCode(500, AppResponse<ChatResponse>.Fail("Lỗi trợ lý ảo: " + ex.Message));
         }
     }
 

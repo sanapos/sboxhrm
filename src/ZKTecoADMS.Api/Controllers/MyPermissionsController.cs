@@ -6,6 +6,7 @@ using ZKTecoADMS.Application.Authorization;
 using ZKTecoADMS.Application.DTOs.Permissions;
 using ZKTecoADMS.Application.Models;
 using ZKTecoADMS.Infrastructure;
+using ZKTecoADMS.Infrastructure.Helpers;
 
 namespace ZKTecoADMS.Api.Controllers;
 
@@ -16,7 +17,7 @@ namespace ZKTecoADMS.Api.Controllers;
 [ApiController]
 [Route("api/permission-management")]
 [Authorize]
-public class MyPermissionsController(ZKTecoDbContext context) : AuthenticatedControllerBase
+public class MyPermissionsController(ZKTecoDbContext context, ILogger<MyPermissionsController> logger) : AuthenticatedControllerBase
 {
     /// <summary>
     /// Lấy quyền hiệu lực của user hiện tại (role + department permissions)
@@ -26,6 +27,21 @@ public class MyPermissionsController(ZKTecoDbContext context) : AuthenticatedCon
     {
         var roleClaim = User.FindFirst(System.Security.Claims.ClaimTypes.Role)?.Value ?? "";
         var storeId = CurrentStoreId;
+
+        // Gói vừa được thêm chức năng → cấp quyền vai trò theo mẫu (chạy khi có thay đổi).
+        if (storeId.HasValue)
+        {
+            try
+            {
+                await StorePermissionSyncHelper.SyncAsync(context, storeId.Value, HttpContext.RequestAborted);
+            }
+            catch (DbUpdateException ex)
+            {
+                // Hai yêu cầu đồng bộ cùng lúc — lần sau sẽ đồng bộ lại.
+                logger.LogWarning(ex, "Permission package sync failed for store {StoreId}", storeId);
+                context.ChangeTracker.Clear();
+            }
+        }
 
         // SuperAdmin/Agent/Admin có toàn quyền
         if (ModulePermissionDefaults.IsSuperRole(roleClaim))

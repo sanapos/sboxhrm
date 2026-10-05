@@ -66,7 +66,8 @@ public sealed class PosAiMenuService(ZKTecoDbContext db, IGeminiAiService gemini
             prompt.Append(i).Append(" | ").Append(catalog[i].Name).Append(" | ").Append(catalog[i].CategoryName).Append('\n');
         if (catalog.Count == 0) prompt.Append("(trống — catalogIndex luôn null)\n");
 
-        var json = await gemini.GenerateJsonAsync(SystemPrompt, prompt.ToString(), images, 32768, ct);
+        // AI thêm menu: mọi cửa hàng được dùng khóa AI chung (ưu tiên khóa riêng).
+        var json = await gemini.AllowSharedKey().GenerateJsonAsync(SystemPrompt, prompt.ToString(), images, 32768, ct);
         var raw = Parse(json);
 
         var existing = await db.PosProducts.AsNoTracking()

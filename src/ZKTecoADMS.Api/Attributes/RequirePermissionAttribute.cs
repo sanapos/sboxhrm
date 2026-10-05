@@ -72,8 +72,9 @@ public class RequirePermissionAttribute : Attribute, IAsyncAuthorizationFilter
             }
         }
 
-        // Admin có toàn quyền role trong cửa hàng (đã qua kiểm tra gói ở trên)
-        if (roleClaim is "Admin")
+        // Admin / Giám đốc toàn quyền role trong cửa hàng (đã qua kiểm tra gói ở trên) —
+        // khớp my-permissions, ModulePermissionService và app (StoreRoleHelper.isFullAccess).
+        if (ModulePermissionDefaults.IsSuperRole(roleClaim))
         {
             return;
         }

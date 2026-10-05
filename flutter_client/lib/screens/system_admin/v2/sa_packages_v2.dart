@@ -259,11 +259,16 @@ class _PackageEditorPageState extends State<PackageEditorPage> {
   SaCatalog get c => widget.catalog;
 
   bool _has(String code) => _mods.any((m) => m.toLowerCase() == code.toLowerCase());
+  /// Tick kéo theo chức năng cần có; bỏ tick bỏ luôn chức năng phụ thuộc (vd bỏ Báo giá → bỏ Hợp đồng).
   void _toggle(String code, bool on) => setState(() {
         if (on) {
-          _mods.add(code);
+          final all = c.withDependencies({..._mods, code});
+          _mods
+            ..clear()
+            ..addAll(all);
         } else {
-          _mods.removeWhere((m) => m.toLowerCase() == code.toLowerCase());
+          final drop = {code.toLowerCase(), for (final d in c.dependentsOf(code)) d.toLowerCase()};
+          _mods.removeWhere((m) => drop.contains(m.toLowerCase()));
         }
       });
 
@@ -305,15 +310,16 @@ class _PackageEditorPageState extends State<PackageEditorPage> {
 
   Future<void> _save() async {
     if (_name.text.trim().isEmpty) return saToast(context, 'Nhập tên gói', error: true);
-    final payload = _payload();
-    final missing = c.missing(_mods);
-    if (missing.isNotEmpty) {
-      final go = await SboxDialogs.confirm(context,
-          title: 'Còn ${missing.length} chức năng thiếu phụ thuộc',
-          message: 'Ví dụ: «${c.nameOf(missing.first.$1)}» cần «${c.nameOf(missing.first.$2)}». Vẫn lưu?',
-          confirmLabel: 'Vẫn lưu');
-      if (!go || !mounted) return;
+    // Chức năng cần có được thêm bắt buộc (máy chủ cũng tự thêm khi lưu).
+    if (c.missing(_mods).isNotEmpty) {
+      final all = c.withDependencies(_mods);
+      final added = all.length - _mods.length;
+      setState(() => _mods
+        ..clear()
+        ..addAll(all));
+      saToast(context, 'Đã tự thêm $added chức năng cần có');
     }
+    final payload = _payload();
     if (_isEdit && ((p['stores'] as num?) ?? 0) > 0) {
       final r = await widget.api.saPackageImpact({
         'packageId': p['id'],

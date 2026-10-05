@@ -84,7 +84,7 @@ Chúng tôi **không** dùng dữ liệu của bạn để quảng cáo và **kh
 ## 6. Quyền truy cập trên thiết bị
 
 - **Camera**: chụp khuôn mặt khi chấm công, quét mã vạch, chụp ảnh hàng hóa — chỉ khi bạn chủ động dùng.
-- **Micro**: chỉ khi bạn bấm nút micro trong Trợ lý AI; giọng nói được chuyển thành chữ bằng dịch vụ của hệ điều hành, ứng dụng không lưu bản ghi âm.
+- **Micro**: chỉ khi bạn bấm nút micro trong Trợ lý ảo; giọng nói được chuyển thành chữ bằng dịch vụ của hệ điều hành, ứng dụng không lưu bản ghi âm.
 - **Vị trí**: như mục 5.
 - **Bluetooth / mạng nội bộ**: kết nối máy in hóa đơn, máy in tem, màn hình bếp, máy chấm công.
 - **Thư viện ảnh**: chọn ảnh sản phẩm, logo, đính kèm — khi bạn chủ động chọn.
@@ -97,7 +97,7 @@ Bạn có thể thu hồi từng quyền bất kỳ lúc nào trong phần Cài 
 Dữ liệu chỉ được chia sẻ khi cần để vận hành dịch vụ, hoặc khi doanh nghiệp / cửa hàng chủ động bật kết nối:
 
 - **Firebase (Google)**: gửi thông báo đẩy.
-- **Google Gemini**: khi bạn dùng Trợ lý AI — chỉ gửi nội dung câu hỏi và số liệu tổng hợp cần để trả lời. **Không** gửi mật khẩu, dữ liệu khuôn mặt, sinh trắc học hay thông tin thanh toán.
+- **Google Gemini**: khi bạn dùng Trợ lý ảo — chỉ gửi nội dung câu hỏi và số liệu tổng hợp cần để trả lời. **Không** gửi mật khẩu, dữ liệu khuôn mặt, sinh trắc học hay thông tin thanh toán.
 - **Đơn vị vận chuyển, cổng thanh toán, nhà cung cấp hóa đơn điện tử, ngân hàng (xác nhận chuyển khoản)**: chỉ những thông tin cần cho giao dịch đó, khi cửa hàng bật tính năng.
 - **Cơ quan nhà nước có thẩm quyền**: khi pháp luật yêu cầu.
 

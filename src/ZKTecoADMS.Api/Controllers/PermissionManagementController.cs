@@ -465,6 +465,8 @@ public class PermissionManagementController(
         if (module.Equals("UserManagement", StringComparison.OrdinalIgnoreCase)) return true;
         // Không hiện trên ma trận chức danh — dùng cho gán phạm vi CN/PB.
         if (module.Equals("DataScope", StringComparison.OrdinalIgnoreCase)) return false;
+        // Quyền theo gói (khóa AI chung), không phân cho vai trò.
+        if (module.Equals(FeatureModuleCatalog.SharedAiModule, StringComparison.OrdinalIgnoreCase)) return false;
         return allowed.Contains(module);
     }
 

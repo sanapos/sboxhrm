@@ -181,6 +181,8 @@ class _PosMoreScreenState extends State<PosMoreScreen> {
                   items: [
                     _Item('Báo giá', Icons.request_quote_outlined, 'PosQuotes',
                         const PosQuoteListScreen()),
+                    _Item('Hợp đồng', Icons.handshake_outlined, 'PosContracts',
+                        const PosQuoteListScreen(initialTab: 1)),
                     _Item('Mẫu in báo giá', Icons.article_outlined,
                         'PosPrintTemplates',
                         const PosPrintTemplatesScreen(

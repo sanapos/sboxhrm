@@ -31,6 +31,11 @@ public interface IGeminiAiService
         IReadOnlyList<AiFilePart>? files = null,
         int maxTokens = 16384,
         CancellationToken cancellationToken = default);
+    /// <summary>
+    /// generateContent với thân request tùy ý (systemInstruction + contents + tools — function calling).
+    /// Trả về <c>candidates[0].content</c> (role model, parts: text / functionCall), đã Clone.
+    /// </summary>
+    Task<JsonElement> GenerateContentRawAsync(object requestBody, CancellationToken cancellationToken = default);
     bool IsConfigured { get; }
     bool IsEnabled { get; }
     void UpdateConfig(string? apiKey, string? model = null, int? maxTokens = null, double? temperature = null, bool? enabled = null);
@@ -48,6 +53,8 @@ public class GeminiConfig
     public string Model { get; set; } = "gemini-flash-latest";
     public int MaxOutputTokens { get; set; } = 2048;
     public double Temperature { get; set; } = 0.7;
+    /// <summary>Khóa AI chung của SBOX (AppSettings StoreId = null), không phải khóa riêng cửa hàng.</summary>
+    public bool IsPlatform { get; set; }
     public bool Enabled { get; set; } = true;
     public bool IsConfigured => !string.IsNullOrWhiteSpace(ApiKey);
 }
@@ -460,6 +467,42 @@ Hãy viết trực tiếp nội dung, KHÔNG bọc trong JSON hay markdown code 
         }
 
         return string.Empty;
+    }
+
+    public async Task<JsonElement> GenerateContentRawAsync(object requestBody, CancellationToken cancellationToken = default)
+    {
+        if (!IsConfigured)
+            throw new InvalidOperationException("Gemini API key chưa được cấu hình.");
+        if (!IsEnabled)
+            throw new InvalidOperationException("Gemini AI chưa được bật.");
+
+        var url = $"https://generativelanguage.googleapis.com/v1beta/models/{_model}:generateContent?key={_apiKey}";
+        var json = requestBody as string ?? JsonSerializer.Serialize(requestBody, new JsonSerializerOptions
+        {
+            PropertyNamingPolicy = JsonNamingPolicy.CamelCase,
+            DefaultIgnoreCondition = JsonIgnoreCondition.WhenWritingNull,
+        });
+        using var request = new HttpRequestMessage(HttpMethod.Post, url)
+        {
+            Content = new StringContent(json, Encoding.UTF8, "application/json")
+        };
+        var response = await _httpClient.SendAsync(request, cancellationToken);
+        var responseBody = await response.Content.ReadAsStringAsync(cancellationToken);
+        if (!response.IsSuccessStatusCode)
+        {
+            _logger.LogError("Gemini raw generate error {StatusCode}: {Body}", response.StatusCode, responseBody);
+            throw new AiApiException(ParseGeminiError(response.StatusCode, responseBody), (int)response.StatusCode);
+        }
+
+        using var doc = JsonDocument.Parse(responseBody);
+        if (!doc.RootElement.TryGetProperty("candidates", out var cands) || cands.GetArrayLength() == 0
+            || !cands[0].TryGetProperty("content", out var content))
+        {
+            // Bị chặn an toàn / không có ứng viên — trả nội dung rỗng để vòng gọi xử lý.
+            using var empty = JsonDocument.Parse("""{"role":"model","parts":[]}""");
+            return empty.RootElement.Clone();
+        }
+        return content.Clone();
     }
 
     public async IAsyncEnumerable<string> StreamGenerateCommunicationContentAsync(

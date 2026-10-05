@@ -104,7 +104,7 @@ class _PosMoreScreenState extends State<PosMoreScreen> {
               if (canUseAiAssistant(context))
               IconButton(
                 icon: const Icon(Icons.auto_awesome, color: Color(0xFF7C3AED)),
-                tooltip: tr('Trợ lý ảo AI'),
+                tooltip: tr('Trợ lý ảo'),
                 onPressed: () => showAiAssistant(context),
               ),
             ],
@@ -139,6 +139,8 @@ class _PosMoreScreenState extends State<PosMoreScreen> {
                   items: [
                     _Item('Báo giá', Icons.request_quote_outlined, 'PosQuotes',
                         const PosQuoteListScreen()),
+                    _Item('Hợp đồng', Icons.handshake_outlined, 'PosContracts',
+                        const PosQuoteListScreen(initialTab: 1)),
                     _Item('Mẫu in báo giá', Icons.article_outlined,
                         'PosPrintTemplates',
                         const PosPrintTemplatesScreen(
@@ -304,8 +306,8 @@ class _PosMoreScreenState extends State<PosMoreScreen> {
                   borderRadius: BorderRadius.circular(14),
                   child: ListTile(
                     leading: const Icon(Icons.auto_awesome, color: Color(0xFF7C3AED)),
-                    title: Text(tr('Trợ lý AI'), style: const TextStyle(fontWeight: FontWeight.w700)),
-                    subtitle: Text(tr('Hỏi doanh thu, tồn kho, nhân sự — gõ hoặc nói bằng giọng')),
+                    title: Text(tr('Trợ lý ảo'), style: const TextStyle(fontWeight: FontWeight.w700)),
+                    subtitle: Text(tr('Hỏi & phân tích doanh thu, lợi nhuận, tồn kho, nhân sự')),
                     trailing: const Icon(Icons.chevron_right),
                     onTap: () => showAiAssistant(context),
                   ),

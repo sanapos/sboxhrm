@@ -80,7 +80,7 @@ class _PosOverviewScreenState extends State<PosOverviewScreen> {
                 if (canUseAiAssistant(context))
                 IconButton(
                   icon: const Icon(Icons.auto_awesome, color: Color(0xFF7C3AED)),
-                  tooltip: tr('Trợ lý ảo AI'),
+                  tooltip: tr('Trợ lý ảo'),
                   onPressed: () => showAiAssistant(context),
                 ),
               ],
@@ -116,7 +116,7 @@ class _PosOverviewScreenState extends State<PosOverviewScreen> {
     final items = <PosMobileHubGridItem>[
       if (canUseAiAssistant(context))
       PosMobileHubGridItem(
-        label: 'Trợ lý AI',
+        label: 'Trợ lý ảo',
         icon: Icons.auto_awesome_outlined,
         onTap: () => showAiAssistant(context),
       ),

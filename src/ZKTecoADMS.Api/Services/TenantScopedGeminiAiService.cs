@@ -11,6 +11,7 @@ public sealed class TenantScopedGeminiAiService : IGeminiAiService
     private readonly GeminiAiService _inner;
     private readonly ZKTecoDbContext _db;
     private readonly ITenantProvider _tenant;
+    private readonly IHttpContextAccessor _http;
     private readonly ILogger<GeminiAiService> _logger;
     private bool _initialized;
     /// <summary>Khóa + cấu hình theo thứ ưu tiên: khóa của cửa hàng rồi khóa dùng chung (Super Admin).</summary>
@@ -21,11 +22,13 @@ public sealed class TenantScopedGeminiAiService : IGeminiAiService
         IConfiguration configuration,
         ILogger<GeminiAiService> logger,
         ZKTecoDbContext db,
-        ITenantProvider tenant)
+        ITenantProvider tenant,
+        IHttpContextAccessor http)
     {
         _inner = new GeminiAiService(configuration, logger);
         _db = db;
         _tenant = tenant;
+        _http = http;
         _logger = logger;
     }
 
@@ -33,11 +36,18 @@ public sealed class TenantScopedGeminiAiService : IGeminiAiService
     {
         if (_initialized) return;
         _initialized = true;
-        // Khóa riêng của cửa hàng trước, sau đó khóa AI chung của Super Admin (dự phòng khi hết lượt).
-        var store = _tenant.StoreId is Guid sid
+        // Khóa riêng của cửa hàng trước. Khóa AI chung của SBOX chỉ khi gói có «Dùng AI chung SBOX»
+        // (Super Admin / đại lý không thuộc cửa hàng luôn dùng khóa chung).
+        var storeId = CurrentStoreId();
+        var store = storeId is Guid sid
             ? GeminiStoreConfigLoader.LoadFromDbAsync(_db, sid).GetAwaiter().GetResult()
             : null;
         var platform = GeminiStoreConfigLoader.LoadPlatformAsync(_db).GetAwaiter().GetResult();
+        if (storeId is Guid s2 && platform != null && !_alwaysShared && !SharedAllowed(s2))
+        {
+            platform = null;
+            SharedBlocked = true;
+        }
         foreach (var cfg in new[] { store, platform })
         {
             if (cfg == null || !cfg.Enabled) continue;
@@ -52,6 +62,63 @@ public sealed class TenantScopedGeminiAiService : IGeminiAiService
             GeminiStoreConfigLoader.Apply(_inner, off); // đang tắt — giữ cấu hình để báo "đang tắt"
     }
 
+    /// <summary>
+    /// Cửa hàng của người gọi. ITenantProvider có thể được tạo trong lúc xác thực JWT (OnTokenValidated dùng DbContext)
+    /// khi request chưa có User → StoreId null; đọc thẳng claim để khóa AI riêng của cửa hàng vẫn được dùng.
+    /// </summary>
+    private Guid? CurrentStoreId()
+    {
+        if (_tenant.StoreId is Guid sid) return sid;
+        var user = _http.HttpContext?.User;
+        if (user?.Identity?.IsAuthenticated != true) return null;
+        return Guid.TryParse(user.FindFirst(Application.Constants.ClaimTypeNames.StoreId)?.Value, out var id) ? id : null;
+    }
+
+    /// <summary>Gói (hoặc chức năng cấp riêng) của cửa hàng cho dùng khóa AI chung của SBOX.</summary>
+    private bool SharedAllowed(Guid storeId) =>
+        Infrastructure.Helpers.StorePackageHelper.ResolveAllowedModulesAsync(_db, storeId).GetAwaiter().GetResult()
+            .Contains(Application.Authorization.FeatureModuleCatalog.SharedAiModule, StringComparer.OrdinalIgnoreCase);
+
+    private bool _alwaysShared;
+
+    /// <summary>
+    /// Tính năng mọi cửa hàng được dùng khóa AI chung (mẫu hợp đồng / báo giá, AI thêm menu) — vẫn ưu tiên khóa riêng.
+    /// </summary>
+    public void AllowSharedKeyForThisFeature()
+    {
+        if (_alwaysShared) return;
+        _alwaysShared = true;
+        if (!_initialized) return;
+        _initialized = false;
+        _chain.Clear();
+        SharedBlocked = false;
+    }
+
+    /// <summary>Có khóa AI chung nhưng gói của cửa hàng không cho dùng.</summary>
+    public bool SharedBlocked { get; private set; }
+
+    /// <summary>Cửa hàng đang chạy bằng khóa AI chung (không có khóa riêng dùng được).</summary>
+    public bool UsingSharedKey
+    {
+        get
+        {
+            EnsureInitialized();
+            var current = _inner.GetCurrentConfig().ApiKey;
+            return !string.IsNullOrEmpty(current) && _chain.Any(c => c.Key == current && c.Config.IsPlatform);
+        }
+    }
+
+    /// <summary>Câu báo khi chưa gọi được AI (chưa có khóa riêng và gói không cho dùng khóa chung, hoặc chưa cấu hình).</summary>
+    public static string NotReadyMessage(IGeminiAiService service) =>
+        service is TenantScopedGeminiAiService { SharedBlocked: true } t && !t.IsConfigured
+            ? NoOwnKeyMessage
+            : "Gemini AI chưa được bật hoặc chưa cấu hình API key";
+
+    /// <summary>Lý do không gọi được AI — hiện cho người dùng.</summary>
+    public const string NoOwnKeyMessage =
+        "Cửa hàng chưa có khóa AI riêng. Vào Thiết lập SBOX › Trợ lý AI để nhập khóa Gemini của cửa hàng, "
+        + "hoặc liên hệ SBOX nâng cấp gói có «Dùng AI chung SBOX».";
+
     private void UseKey((string Key, GeminiConfig Config) entry, string? model = null) =>
         _inner.UpdateConfig(entry.Key, model ?? entry.Config.Model, entry.Config.MaxOutputTokens,
             entry.Config.Temperature, entry.Config.Enabled);
@@ -60,7 +127,7 @@ public sealed class TenantScopedGeminiAiService : IGeminiAiService
     /// Model dự phòng khi Google báo model đã chọn không còn cho khóa này (404 — tài khoản mới không
     /// được dùng model cũ) hoặc đang quá tải (503). Thử trên cùng khóa trước khi chuyển khóa.
     /// </summary>
-    internal static readonly string[] FallbackModels = ["gemini-flash-latest", "gemini-3.5-flash"];
+    internal static readonly string[] FallbackModels = [GeminiModels.Flash, GeminiModels.FlashLite];
 
     internal static bool IsModelUnavailable(AiApiException ex) => ex.StatusCode is 404 or 503;
 
@@ -101,6 +168,8 @@ public sealed class TenantScopedGeminiAiService : IGeminiAiService
     private async Task<T> WithFailoverAsync<T>(Func<Task<T>> call)
     {
         EnsureInitialized();
+        if (!_manualOverride && _chain.Count == 0 && SharedBlocked)
+            throw new InvalidOperationException(NoOwnKeyMessage);
         if (_manualOverride || _chain.Count == 0)
             return await call();
         if (_chain.Count == 1)
@@ -212,5 +281,20 @@ public sealed class TenantScopedGeminiAiService : IGeminiAiService
         CancellationToken cancellationToken = default)
     {
         return WithFailoverAsync(() => _inner.GenerateAssistantChatAsync(systemPrompt, messages, maxTokens, cancellationToken));
+    }
+
+    public Task<System.Text.Json.JsonElement> GenerateContentRawAsync(object requestBody, CancellationToken cancellationToken = default)
+    {
+        return WithFailoverAsync(() => _inner.GenerateContentRawAsync(requestBody, cancellationToken));
+    }
+}
+
+public static class GeminiSharedKeyExtensions
+{
+    /// <summary>Cho tính năng này dùng khóa AI chung dù gói không có «Dùng AI chung SBOX» (vẫn ưu tiên khóa riêng).</summary>
+    public static IGeminiAiService AllowSharedKey(this IGeminiAiService service)
+    {
+        (service as TenantScopedGeminiAiService)?.AllowSharedKeyForThisFeature();
+        return service;
     }
 }

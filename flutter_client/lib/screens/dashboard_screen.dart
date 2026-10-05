@@ -1579,8 +1579,8 @@ class _DashboardScreenState extends State<DashboardScreen> {
                   backgroundColor: HrmPageChrome.chipSoft,
                   foregroundColor: Colors.white,
                   icon: const Icon(Icons.auto_awesome_rounded),
-                  label: Text(tr('Trợ lý AI')),
-                  tooltip: tr('Mở trợ lý ảo HRM'),
+                  label: Text(tr('Trợ lý ảo')),
+                  tooltip: tr('Mở trợ lý ảo'),
                 )
               : null,
         );
@@ -2040,7 +2040,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
             PosTheme.kiotBlue,
             () => NavigationNotifier.goToCommunication()),
       if (caps.quickAi)
-        _QuickAction(Icons.auto_awesome_rounded, 'Trợ lý AI',
+        _QuickAction(Icons.auto_awesome_rounded, 'Trợ lý ảo',
             PosTheme.kiotBlue, () => showAiAssistant(context)),
     ];
 

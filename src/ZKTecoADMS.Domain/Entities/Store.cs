@@ -77,6 +77,9 @@ public class Store : Entity<Guid>
     /// <summary>JSON mảng mã chức năng chặn riêng cho cửa hàng (dù gói có)</summary>
     public string? BlockedModules { get; set; }
 
+    /// <summary>JSON mảng mã chức năng đã cấp quyền vai trò lần gần nhất (StorePermissionSyncHelper)</summary>
+    public string? PermissionSyncedModules { get; set; }
+
     /// <summary>Ghi chú nội bộ của Super Admin về cửa hàng</summary>
     public string? AdminNote { get; set; }
 }

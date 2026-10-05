@@ -4545,7 +4545,13 @@ public class SystemAdminController : AuthenticatedControllerBase
         package.AllowFcm = allowFcm;
         package.AllowedFcmCategories = System.Text.Json.JsonSerializer.Serialize(
             StorePackageHelper.NormalizeFcmCategories(fcmCategories));
-        package.AllowedModules = System.Text.Json.JsonSerializer.Serialize(modules);
+        // Bắt buộc chức năng cần có (vd Hợp đồng cần Báo giá) — thiếu thì chức năng con không có lối vào.
+        modules ??= [];
+        var withDeps = modules
+            .Concat(FeatureModuleCatalog.WithDependencies(modules))
+            .Distinct(StringComparer.OrdinalIgnoreCase)
+            .ToList();
+        package.AllowedModules = System.Text.Json.JsonSerializer.Serialize(withDeps);
     }
 
     private static void ApplyRetention(ServicePackage package, int runHour, int attendanceMonths, int saleOrderMonths)
@@ -4644,6 +4650,9 @@ public class SystemAdminController : AuthenticatedControllerBase
             if (package == null)
                 return NotFound(AppResponse<ServicePackageDto>.Fail("Service package not found"));
 
+            // Mốc chức năng cũ trước khi sửa — chức năng mới thêm vào gói sẽ được cấp quyền vai trò.
+            await StorePermissionSyncHelper.EnsureBaselineAsync(_dbContext, package.Stores.Select(s => s.Id));
+
             package.Name = request.Name;
             package.Description = request.Description;
             package.DefaultDurationDays = request.DefaultDurationDays;
@@ -4667,9 +4676,13 @@ public class SystemAdminController : AuthenticatedControllerBase
 
             await _dbContext.SaveChangesAsync();
 
+            var granted = await StorePermissionSyncHelper.SyncPackageStoresAsync(_dbContext, package.Id);
+
             _logger.LogInformation(
                 "SuperAdmin {UserId} updated service package {PackageId} and synced limits to {StoreCount} stores",
                 CurrentUserId, id, package.Stores.Count);
+            if (granted > 0)
+                _logger.LogInformation("Package {PackageId}: granted {Count} role permission rows for new modules", id, granted);
 
             var dto = MapPackage(package);
 
