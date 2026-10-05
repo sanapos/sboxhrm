@@ -17531,6 +17531,30 @@ class ApiService {
     }
   }
 
+  /// Gán PLU tem cân cho hàng (trả PLU sẵn có nếu đã gán).
+  Future<Map<String, dynamic>> assignPosProductScalePlu(String productId) async {
+    try {
+      final response = await http
+          .post(Uri.parse('$baseUrl/api/pos/products/$productId/scale-plu'), headers: _headers)
+          .timeout(const Duration(seconds: 30));
+      return _handleResponse(response);
+    } catch (e) {
+      return _connectionFailure(e);
+    }
+  }
+
+  /// Hàng cần nhập thêm (tồn ≤ tối thiểu) + số lượng gợi ý theo NCC.
+  Future<Map<String, dynamic>> getPosReorderSuggestions() async {
+    try {
+      final response = await http
+          .get(Uri.parse('$baseUrl/api/pos/reports/stock/reorder-suggestions'), headers: _headers)
+          .timeout(const Duration(seconds: 30));
+      return _handleResponse(response);
+    } catch (e) {
+      return _connectionFailure(e);
+    }
+  }
+
   /// Sao chép bảng giá (kèm điều chỉnh %, làm tròn) → bảng mới.
   Future<Map<String, dynamic>> copyPosPriceList(
       String id, Map<String, dynamic> body) async {

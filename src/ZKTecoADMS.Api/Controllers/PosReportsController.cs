@@ -843,6 +843,48 @@ public partial class PosReportsController(
         return Ok(AppResponse<object>.Success(new { total, page, pageSize, items }));
     }
 
+    /// <summary>
+    /// Hàng cần nhập thêm: tồn ≤ tồn tối thiểu. Gợi ý nhập = tồn tối đa − tồn (chưa đặt tồn tối đa → 2 × tối thiểu − tồn),
+    /// kèm nhà cung cấp mặc định + giá vốn để tạo phiếu nhập nháp theo từng NCC.
+    /// </summary>
+    [HttpGet("stock/reorder-suggestions")]
+    [RequireModulePermission("PosReportStock", ModulePermissionAction.View)]
+    public async Task<ActionResult<AppResponse<object>>> GetReorderSuggestions()
+    {
+        var storeId = RequiredStoreId;
+        var tracked = new[] { PosProductType.Goods, PosProductType.Material };
+        var rows = await dbContext.PosProducts.AsNoTracking()
+            .Where(p => p.StoreId == storeId && p.Deleted == null && p.IsActive &&
+                        tracked.Contains(p.ProductType) && p.MinStockQty > 0 && p.OnHandQty <= p.MinStockQty)
+            .Select(p => new
+            {
+                p.Id, p.ProductCode, p.Name, p.BaseUnitName, p.OnHandQty, p.MinStockQty, p.MaxStockQty,
+                p.CostPrice, p.SupplierId, SupplierName = p.Supplier != null ? p.Supplier.Name : null,
+            })
+            .OrderBy(p => p.SupplierName).ThenBy(p => p.OnHandQty)
+            .ToListAsync();
+        var items = rows.Select(p =>
+        {
+            var target = p.MaxStockQty > p.MinStockQty ? p.MaxStockQty : p.MinStockQty * 2;
+            var suggest = Math.Max(Math.Ceiling(target - Math.Max(p.OnHandQty, 0)), 1);
+            return new
+            {
+                productId = p.Id, productCode = p.ProductCode, name = p.Name, unitName = p.BaseUnitName,
+                onHand = p.OnHandQty, minStock = p.MinStockQty, maxStock = p.MaxStockQty,
+                suggestQty = suggest, costPrice = p.CostPrice, amount = suggest * p.CostPrice,
+                supplierId = p.SupplierId, supplierName = p.SupplierName,
+                outOfStock = p.OnHandQty <= 0,
+            };
+        }).ToList();
+        return Ok(AppResponse<object>.Success(new
+        {
+            count = items.Count,
+            outOfStock = items.Count(i => i.outOfStock),
+            totalAmount = items.Sum(i => i.amount),
+            items,
+        }));
+    }
+
     [HttpGet("stock/lots/summary")]
     [RequireModulePermission("PosReportExpiry", ModulePermissionAction.View)]
     public async Task<ActionResult<AppResponse<object>>> GetStockLotsSummary()

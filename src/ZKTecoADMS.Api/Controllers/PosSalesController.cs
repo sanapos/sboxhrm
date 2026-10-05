@@ -924,6 +924,8 @@ public partial class PosSalesController(
 
         var c = code.Trim();
         var cLower = c.ToLower();
+        // Mã PLU tem cân: chỉ số, so khớp không tính số 0 đầu.
+        var pluKey = PosProductsController.NormalizePlu(c);
 
         var variant = await dbContext.PosProductVariants
             .AsNoTracking()
@@ -961,7 +963,10 @@ public partial class PosSalesController(
             .AsNoTracking()
             .Where(p => p.StoreId == storeId && p.Deleted == null && p.IsActive && p.IsDirectSale)
             .Where(p => p.ProductCode.ToLower() == cLower ||
-                        (p.Barcode != null && p.Barcode.ToLower() == cLower))
+                        (p.Barcode != null && p.Barcode.ToLower() == cLower) ||
+                        (pluKey != null && p.ScalePlu == pluKey))
+            // Khớp mã hàng / mã vạch trước, PLU tem cân sau.
+            .OrderBy(p => p.ProductCode.ToLower() == cLower || (p.Barcode != null && p.Barcode.ToLower() == cLower) ? 0 : 1)
             .Select(p => new
             {
                 p.Id,

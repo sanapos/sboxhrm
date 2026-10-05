@@ -102,6 +102,42 @@ class PosScaleBarcodeConfig {
     return PosScaleBarcode(plu, raw / div, isWeight);
   }
 
+  /// Số chữ số phần giá trị (13 − 2 đầu mã − PLU − 1 số kiểm tra).
+  int get valueDigits => 10 - pluDigits;
+
+  /// Giá trị lớn nhất mã cân chứa được (vd 5 số, 3 lẻ → 99,999 kg).
+  double get maxValue {
+    var div = 1;
+    for (var i = 0; i < decimals; i++) {
+      div *= 10;
+    }
+    var max = 1;
+    for (var i = 0; i < valueDigits; i++) {
+      max *= 10;
+    }
+    return (max - 1) / div;
+  }
+
+  /// Tạo mã cân EAN-13 (ngược với [decode]): đầu mã đầu tiên + PLU + giá trị + số kiểm tra.
+  /// null khi PLU dài quá / giá trị vượt sức chứa.
+  String? encode(String plu, double value) {
+    final p = plu.replaceFirst(RegExp(r'^0+'), '');
+    if (p.isEmpty || p.length > pluDigits || !RegExp(r'^\d+$').hasMatch(p)) return null;
+    var mul = 1;
+    for (var i = 0; i < decimals; i++) {
+      mul *= 10;
+    }
+    final raw = (value * mul).round();
+    if (raw <= 0 || value > maxValue + 1e-9) return null;
+    final prefix = prefixes.firstWhere((x) => x.length == 2, orElse: () => '20');
+    final body = '$prefix${p.padLeft(pluDigits, '0')}${raw.toString().padLeft(valueDigits, '0')}';
+    var sum = 0;
+    for (var i = 0; i < 12; i++) {
+      sum += (body.codeUnitAt(i) - 48) * (i.isEven ? 1 : 3);
+    }
+    return '$body${(10 - sum % 10) % 10}';
+  }
+
   static bool _validEan13(String c) {
     var sum = 0;
     for (var i = 0; i < 12; i++) {

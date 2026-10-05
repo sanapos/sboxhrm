@@ -17,6 +17,8 @@ import '../widgets/empty_state.dart';
 import '../widgets/loading_widget.dart';
 import '../widgets/notification_overlay.dart';
 import '../widgets/pos/pos_barcode_label_dialog.dart';
+import '../widgets/pos/pos_scale_label_dialog.dart';
+import 'pos/pos_reorder_suggestions_screen.dart';
 import '../widgets/pos/pos_catalog_manage.dart';
 import '../widgets/pos/pos_product_column_prefs.dart';
 import '../widgets/pos/pos_module_toolbar.dart';
@@ -555,6 +557,34 @@ class _PosProductsScreenState extends State<PosProductsScreen> {
   }
 
   Future<void> _printLabel(PosProduct p) async {
+    if (p.allowDecimalQty) {
+      final kind = await showModalBottomSheet<String>(
+        context: context,
+        builder: (ctx) => SafeArea(
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              ListTile(
+                leading: const Icon(Icons.scale_outlined),
+                title: Text(tr('Cân & in tem theo khối lượng')),
+                subtitle: Text(tr('Mỗi gói một tem: khối lượng, thành tiền, HSD')),
+                onTap: () => Navigator.pop(ctx, 'scale'),
+              ),
+              ListTile(
+                leading: const Icon(Icons.qr_code),
+                title: Text(tr('Tem mã vạch thường')),
+                onTap: () => Navigator.pop(ctx, 'plain'),
+              ),
+            ],
+          ),
+        ),
+      );
+      if (!mounted || kind == null) return;
+      if (kind == 'scale') {
+        await showPosScaleLabelDialog(context, product: p);
+        return;
+      }
+    }
     await showPosBarcodeLabelDialog(context, [p]);
   }
 
@@ -1332,6 +1362,12 @@ class _PosProductsScreenState extends State<PosProductsScreen> {
                             _showColumnPicker();
                           } else if (v == 'scan') {
                             _scanSearch();
+                          } else if (v == 'scale_label') {
+                            // ignore: discarded_futures
+                            showPosScaleLabelDialog(context);
+                          } else if (v == 'reorder') {
+                            Navigator.of(context).push(MaterialPageRoute(
+                                builder: (_) => const PosReorderSuggestionsScreen()));
                           } else if (v == 'export' && perm.canExport('PosProducts')) {
                             _exportExcel(perm);
                           } else if (v == 'import' && perm.canCreate('PosProducts')) {
@@ -1393,6 +1429,12 @@ class _PosProductsScreenState extends State<PosProductsScreen> {
                               value: 'columns', child: Text(tr('Hiển thị cột'))),
                           PopupMenuItem(
                               value: 'scan', child: Text(tr('Quét mã vạch'))),
+                          PopupMenuItem(
+                              value: 'scale_label',
+                              child: Text(tr('Cân & in tem hàng cân'))),
+                          PopupMenuItem(
+                              value: 'reorder',
+                              child: Text(tr('Hàng cần nhập thêm'))),
                           if (perm.canExport('PosProducts'))
                             PopupMenuItem(
                                 value: 'export', child: Text(tr('Xuất file'))),

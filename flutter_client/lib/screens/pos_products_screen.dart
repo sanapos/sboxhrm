@@ -18,6 +18,8 @@ import '../widgets/empty_state.dart';
 import '../widgets/loading_widget.dart';
 import '../widgets/notification_overlay.dart';
 import '../widgets/pos/pos_barcode_label_dialog.dart';
+import '../widgets/pos/pos_scale_label_dialog.dart';
+import 'pos/pos_reorder_suggestions_screen.dart';
 import '../widgets/pos/pos_catalog_manage.dart';
 import '../widgets/pos/pos_product_column_prefs.dart';
 import '../widgets/pos/pos_module_toolbar.dart';
@@ -560,6 +562,34 @@ class _PosProductsScreenState extends State<PosProductsScreen> {
   }
 
   Future<void> _printLabel(PosProduct p) async {
+    if (p.allowDecimalQty) {
+      final kind = await showModalBottomSheet<String>(
+        context: context,
+        builder: (ctx) => SafeArea(
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              ListTile(
+                leading: const Icon(Icons.scale_outlined),
+                title: Text(tr('Cân & in tem theo khối lượng')),
+                subtitle: Text(tr('Mỗi gói một tem: khối lượng, thành tiền, HSD')),
+                onTap: () => Navigator.pop(ctx, 'scale'),
+              ),
+              ListTile(
+                leading: const Icon(Icons.qr_code),
+                title: Text(tr('Tem mã vạch thường')),
+                onTap: () => Navigator.pop(ctx, 'plain'),
+              ),
+            ],
+          ),
+        ),
+      );
+      if (!mounted || kind == null) return;
+      if (kind == 'scale') {
+        await showPosScaleLabelDialog(context, product: p);
+        return;
+      }
+    }
     await showPosBarcodeLabelDialog(context, [p]);
   }
 
@@ -1272,6 +1302,12 @@ class _PosProductsScreenState extends State<PosProductsScreen> {
                           } else if (v == 'create_hub' &&
                               perm.canCreate('PosProducts')) {
                             _openTypeHub(perm, title: 'Tạo hoặc nhập theo loại');
+                          } else if (v == 'scale_label') {
+                            // ignore: discarded_futures
+                            showPosScaleLabelDialog(context);
+                          } else if (v == 'reorder') {
+                            Navigator.of(context).push(MaterialPageRoute(
+                                builder: (_) => const PosReorderSuggestionsScreen()));
                           } else if (v == 'price_lists') {
                             Navigator.of(context).push(MaterialPageRoute(
                                 builder: (_) => PosHubScope.pushed(child: const PosPriceListsScreen())));
@@ -1301,6 +1337,12 @@ class _PosProductsScreenState extends State<PosProductsScreen> {
                           PopupMenuItem(
                               value: 'price_lists',
                               child: Text(tr('Bảng giá (giá sỉ / VIP / theo kỳ)'))),
+                          PopupMenuItem(
+                              value: 'scale_label',
+                              child: Text(tr('Cân & in tem hàng cân'))),
+                          PopupMenuItem(
+                              value: 'reorder',
+                              child: Text(tr('Hàng cần nhập thêm'))),
                           PopupMenuItem(
                               value: 'topping_groups',
                               child: Text(tr('Nhóm topping'))),
@@ -1467,6 +1509,11 @@ class _PosProductsScreenState extends State<PosProductsScreen> {
                 _showColumnPicker();
               case 'scan':
                 _scanSearch();
+              case 'scale_label':
+                await showPosScaleLabelDialog(context);
+              case 'reorder':
+                await Navigator.of(context).push(
+                    MaterialPageRoute(builder: (_) => const PosReorderSuggestionsScreen()));
               case 'm_category':
                 _manageCatalog(PosCatalogKind.category);
               case 'm_supplier':
@@ -1486,6 +1533,8 @@ class _PosProductsScreenState extends State<PosProductsScreen> {
               const PopupMenuDivider(),
             ],
             _menuItem('price_lists', Icons.price_change_outlined, 'Bảng giá (giá sỉ / VIP / theo kỳ)'),
+            _menuItem('scale_label', Icons.scale_outlined, 'Cân & in tem hàng cân'),
+            _menuItem('reorder', Icons.production_quantity_limits, 'Hàng cần nhập thêm'),
             _menuItem('topping_groups', Icons.local_cafe_outlined, 'Nhóm topping'),
             if (canManage) ...[
               _menuItem('m_category', Icons.folder_outlined, 'Quản lý nhóm hàng'),

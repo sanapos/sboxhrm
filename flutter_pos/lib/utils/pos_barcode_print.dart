@@ -384,6 +384,7 @@ pw.Widget _labelWidget(
     PosBarcodeCodeField.productCode => p.productCode,
   };
 
+  final detail = posLabelDetail[p];
   final t = opts.template;
   final small = t.labelHeightMm <= 22;
   final nameSize = small ? 4.8 : 7.0;
@@ -431,9 +432,20 @@ pw.Widget _labelWidget(
         textAlign: pw.TextAlign.center,
       ),
     ),
+    if (detail != null && detail.isNotEmpty)
+      pw.Padding(
+        padding: const pw.EdgeInsets.only(bottom: 0.5),
+        child: pw.Text(
+          detail,
+          maxLines: 2,
+          overflow: pw.TextOverflow.clip,
+          style: pw.TextStyle(font: font, fontSize: metaSize * 0.9),
+          textAlign: pw.TextAlign.center,
+        ),
+      ),
     pw.Center(
       child: pw.BarcodeWidget(
-        barcode: Barcode.code128(),
+        barcode: posBarcodeSymbology(code),
         data: code,
         width: barcodeW,
         height: barcodeH,
@@ -511,4 +523,26 @@ Future<void> exportPosBarcodeLabelsExcel(
     'TemMaHang_${DateFormat('yyyyMMdd_HHmmss').format(DateTime.now())}.xlsx',
     'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
   );
+}
+
+/// Dòng chi tiết in thêm dưới tên trên tem (vd tem cân: «0,450 kg × 150.000đ/kg · HSD 08/10»).
+/// Gắn theo đối tượng hàng (tem cân dùng hàng tạm), không đổi model.
+final posLabelDetail = Expando<String>('posLabelDetail');
+
+/// EAN-13 / EAN-8 khi mã đúng chuẩn (mã vạch siêu thị, tem cân), còn lại Code128.
+Barcode posBarcodeSymbology(String data) {
+  bool validEan(String c) {
+    var sum = 0;
+    final n = c.length - 1;
+    for (var i = 0; i < n; i++) {
+      final d = c.codeUnitAt(n - 1 - i) - 48;
+      sum += i.isEven ? d * 3 : d;
+    }
+    return (10 - sum % 10) % 10 == c.codeUnitAt(n) - 48;
+  }
+
+  final isDigits = RegExp(r'^\d+$').hasMatch(data);
+  if (isDigits && data.length == 13 && validEan(data)) return Barcode.ean13(drawEndChar: false);
+  if (isDigits && data.length == 8 && validEan(data)) return Barcode.ean8();
+  return Barcode.code128();
 }

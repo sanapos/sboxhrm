@@ -20,12 +20,15 @@ class PosLabelRenderItem {
     required this.code,
     this.priceText,
     this.storeName,
+    this.detailText,
   });
 
   final String name;
   final String code;
   final String? priceText;
   final String? storeName;
+  /// Dòng phụ dưới tên (tem cân: khối lượng × đơn giá, HSD).
+  final String? detailText;
 }
 
 /// Render nhãn tem mã thành ảnh đen trắng (dots).
@@ -68,6 +71,7 @@ class PosLabelRenderer {
       code: code,
       priceText: priceText,
       storeName: store?.trim().isNotEmpty == true ? store!.trim() : null,
+      detailText: posLabelDetail[p],
     );
   }
 
@@ -181,6 +185,7 @@ class PosLabelRenderer {
     canvas.clipRect(bounds);
     // Chừa chỗ mã + giá phía dưới trước khi tính chiều cao barcode.
     final footerBudget = (small ? 14.0 : (wide ? 22.0 : 16.0)) +
+        (item.detailText != null ? (small ? 10.0 : 14.0) : 0) +
         (item.priceText != null ? (small ? 12.0 : (wide ? 18.0 : 14.0)) : 0) +
         pad +
         4;
@@ -219,6 +224,21 @@ class PosLabelRenderer {
       maxHeight: small ? 32 : 44,
     );
     y += 3;
+
+    if (item.detailText != null && item.detailText!.isNotEmpty) {
+      y += await _drawText(
+        canvas,
+        item.detailText!,
+        contentLeft,
+        y,
+        innerW,
+        fontSize: small ? 9.0 : (wide ? 13.0 : 11.0),
+        maxLines: small ? 1 : 2,
+        center: true,
+        maxHeight: small ? 12 : 30,
+      );
+      y += 2;
+    }
 
     final remaining = maxY - y - footerBudget;
     final barcodeH = remaining
@@ -379,8 +399,8 @@ class PosLabelRenderer {
   static void _drawBarcode(ui.Canvas canvas, String data, ui.Rect rect) {
     if (data.isEmpty || rect.height < 8 || rect.width < 8) return;
     try {
-      final bc = Barcode.code128();
-      final elements = bc.make(data, width: rect.width, height: rect.height);
+      final bc = posBarcodeSymbology(data);
+      final elements = bc.make(data, width: rect.width, height: rect.height, drawText: false);
       final paint = ui.Paint()..color = const ui.Color(0xFF000000);
       for (final e in elements) {
         if (e is BarcodeBar && e.black) {

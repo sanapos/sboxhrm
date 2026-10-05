@@ -108,7 +108,9 @@ public partial class PosProductsController(
         bool CommissionPerSession = false,
         bool IsMadeToOrder = false,
         bool PriceByArea = false,
-        decimal? MinPricePerSet = null);
+        decimal? MinPricePerSet = null,
+        string? ScalePlu = null,
+        int? PackShelfLifeDays = null);
 
     public record PosProductComboLineDto(
         Guid Id,
@@ -216,6 +218,8 @@ public partial class PosProductsController(
         bool IsMadeToOrder = false,
         bool PriceByArea = false,
         decimal? MinPricePerSet = null,
+        string? ScalePlu = null,
+        int? PackShelfLifeDays = null,
         // Tồn lúc mở form sửa — chỉ ghi tồn khi người dùng thực sự đổi ô tồn kho
         // (tránh ghi đè số tồn cũ lên lượt bán xảy ra trong lúc đang sửa hàng).
         decimal? OriginalOnHandQty = null);
@@ -404,6 +408,8 @@ public partial class PosProductsController(
                 p.IsMadeToOrder,
                 p.PriceByArea,
                 p.MinPricePerSet,
+                p.ScalePlu,
+                p.PackShelfLifeDays,
                 p.CreatedAt,
                 p.UpdatedAt,
                 p.DailySoldOutOn,
@@ -486,7 +492,9 @@ public partial class PosProductsController(
                 CommissionPerSession: r.CommissionPerSession,
                 IsMadeToOrder: r.IsMadeToOrder,
                 PriceByArea: r.PriceByArea,
-                MinPricePerSet: r.MinPricePerSet);
+                MinPricePerSet: r.MinPricePerSet,
+                ScalePlu: r.ScalePlu,
+                PackShelfLifeDays: r.PackShelfLifeDays);
         }).ToList();
 
         if (stockoutFilter != PosStockoutFilter.All)
@@ -1017,6 +1025,7 @@ public partial class PosProductsController(
             IsMadeToOrder = source.IsMadeToOrder,
             PriceByArea = source.PriceByArea,
             MinPricePerSet = source.MinPricePerSet,
+            PackShelfLifeDays = source.PackShelfLifeDays,
             IsActive = true,
             CreatedBy = CurrentUserEmail,
         };
@@ -1291,7 +1300,9 @@ public partial class PosProductsController(
             AllowAreaHeight: p.AllowAreaHeight,
             IsMadeToOrder: p.IsMadeToOrder,
             PriceByArea: p.PriceByArea,
-            MinPricePerSet: p.MinPricePerSet);
+            MinPricePerSet: p.MinPricePerSet,
+            ScalePlu: p.ScalePlu,
+            PackShelfLifeDays: p.PackShelfLifeDays);
     }
 
     private async Task<DateTime> ResolveStoreBusinessDateAsync(Guid storeId)
@@ -1572,6 +1583,45 @@ public partial class PosProductsController(
             dto.ProductType is PosProductType.Goods or PosProductType.Material;
         entity.PriceByArea = entity.IsMadeToOrder && dto.PriceByArea;
         entity.MinPricePerSet = entity.PriceByArea && dto.MinPricePerSet is > 0 ? dto.MinPricePerSet : null;
+
+        entity.ScalePlu = NormalizePlu(dto.ScalePlu);
+        entity.PackShelfLifeDays = dto.PackShelfLifeDays is > 0 and <= 3650 ? dto.PackShelfLifeDays : null;
+    }
+
+    /// <summary>PLU chỉ gồm số, bỏ số 0 đầu ("00123" → "123"); rỗng / không hợp lệ → null.</summary>
+    internal static string? NormalizePlu(string? plu)
+    {
+        var s = (plu ?? "").Trim();
+        if (s.Length == 0 || s.Length > 6 || !s.All(char.IsAsciiDigit)) return null;
+        s = s.TrimStart('0');
+        return s.Length == 0 ? null : s;
+    }
+
+    /// <summary>Gán PLU tem cân cho hàng chưa có (số nhỏ nhất chưa dùng trong cửa hàng). Trả PLU hiện có nếu đã gán.</summary>
+    [HttpPost("{id:guid}/scale-plu")]
+    [RequireModulePermission("PosProducts", ModulePermissionAction.Edit)]
+    public async Task<ActionResult<AppResponse<object>>> AssignScalePlu(Guid id)
+    {
+        var storeId = RequiredStoreId;
+        var p = await dbContext.PosProducts.AsTracking()
+            .FirstOrDefaultAsync(x => x.Id == id && x.StoreId == storeId && x.Deleted == null);
+        if (p == null) return NotFound(AppResponse<object>.Fail("Không tìm thấy hàng hóa"));
+        if (string.IsNullOrEmpty(p.ScalePlu))
+        {
+            var used = (await dbContext.PosProducts.AsNoTracking()
+                    .Where(x => x.StoreId == storeId && x.Deleted == null && x.ScalePlu != null)
+                    .Select(x => x.ScalePlu!)
+                    .ToListAsync())
+                .Select(s => int.TryParse(s, out var n) ? n : 0)
+                .ToHashSet();
+            var next = 1;
+            while (used.Contains(next)) next++;
+            p.ScalePlu = next.ToString();
+            p.UpdatedAt = DateTime.UtcNow;
+            p.UpdatedBy = CurrentUserEmail;
+            await dbContext.SaveChangesAsync();
+        }
+        return Ok(AppResponse<object>.Success(new { scalePlu = p.ScalePlu }));
     }
 
     private static void NormalizeByProductType(PosProduct entity)

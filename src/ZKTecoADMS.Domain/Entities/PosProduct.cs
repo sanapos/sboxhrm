@@ -141,6 +141,13 @@ public class PosProduct : AuditableEntity<Guid>
     /// <summary>Số ngày cảnh báo trước HSD (mặc định 30).</summary>
     public int ExpiryWarningDays { get; set; } = 30;
 
+    /// <summary>Mã PLU in trong tem cân (EAN-13 đầu 20–29), lưu không có số 0 đầu. Null = chưa gán.</summary>
+    [MaxLength(10)]
+    public string? ScalePlu { get; set; }
+
+    /// <summary>Hàng cân / đóng gói tại quầy: số ngày dùng được kể từ ngày đóng gói (in HSD trên tem).</summary>
+    public int? PackShelfLifeDays { get; set; }
+
     /// <summary>Cách tính tiền dịch vụ (chỉ áp dụng ProductType = Service).</summary>
     public PosServiceBillingMode ServiceBillingMode { get; set; } = PosServiceBillingMode.Flat;
 

@@ -462,6 +462,10 @@ class PosProduct {
   final bool areaHeight;
   final bool trackExpiry;
   final int expiryWarningDays;
+  /// Mã PLU in trong tem cân (EAN-13 đầu 20–29); null = chưa gán.
+  final String? scalePlu;
+  /// Hàng cân / đóng gói tại quầy: số ngày dùng được kể từ ngày đóng gói.
+  final int? packShelfLifeDays;
   final String serviceBillingMode;
   final int? minBillMinutes;
   final int? billRoundMinutes;
@@ -554,6 +558,8 @@ class PosProduct {
     this.areaHeight = true,
     this.trackExpiry = false,
     this.expiryWarningDays = 30,
+    this.scalePlu,
+    this.packShelfLifeDays,
     this.serviceBillingMode = 'Flat',
     this.minBillMinutes,
     this.billRoundMinutes,
@@ -741,6 +747,8 @@ class PosProduct {
       trackExpiry: json['trackExpiry'] == true || json['TrackExpiry'] == true,
       expiryWarningDays:
           (json['expiryWarningDays'] ?? json['ExpiryWarningDays'] as num?)?.toInt() ?? 30,
+      scalePlu: (json['scalePlu'] ?? json['ScalePlu'])?.toString(),
+      packShelfLifeDays: (json['packShelfLifeDays'] ?? json['PackShelfLifeDays'] as num?)?.toInt(),
       serviceBillingMode:
           (json['serviceBillingMode'] ?? json['ServiceBillingMode'] ?? 'Flat')
               .toString(),
@@ -865,6 +873,8 @@ class PosProduct {
       'allowAreaHeight': areaHeight,
       if (trackExpiry) 'trackExpiry': true,
       if (trackExpiry) 'expiryWarningDays': expiryWarningDays,
+      'scalePlu': scalePlu,
+      'packShelfLifeDays': packShelfLifeDays,
       'serviceBillingMode': serviceBillingMode,
       if (minBillMinutes != null) 'minBillMinutes': minBillMinutes,
       if (billRoundMinutes != null) 'billRoundMinutes': billRoundMinutes,
@@ -903,6 +913,7 @@ class PosProduct {
       productType == PosProductType.goods && (requiresSerial || hasWarranty);
 
   PosProduct copyWith({
+    String? scalePlu,
     String? id,
     String? productCode,
     String? barcode,
@@ -986,6 +997,8 @@ class PosProduct {
       areaWidth: areaWidth ?? this.areaWidth,
       areaHeight: areaHeight ?? this.areaHeight,
       trackExpiry: this.trackExpiry,
+      scalePlu: scalePlu ?? this.scalePlu,
+      packShelfLifeDays: this.packShelfLifeDays,
       warrantyMonths: this.warrantyMonths,
       units: units ?? this.units,
       variants: variants ?? this.variants,

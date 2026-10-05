@@ -255,6 +255,7 @@ public static class DependencyInjectionExtensions
         services.AddHostedService<RenewalStaleCleanupBackgroundService>();
         services.AddHostedService<MaintenanceNotifierBackgroundService>();
         services.AddHostedService<BirthdayNotifierBackgroundService>();
+        services.AddHostedService<PosStockAlertBackgroundService>();
         services.AddSingleton<ServerMetricsState>();
         services.AddSingleton<ServerOpsService>();
         services.AddHostedService<ServerMetricsBackgroundService>();

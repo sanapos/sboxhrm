@@ -275,6 +275,8 @@ class _PosProductEditorPageState extends State<PosProductEditorPage>
   bool _vatExempt = false;
   late final TextEditingController _warrantyMonthsCtrl;
   late final TextEditingController _expiryWarningDaysCtrl;
+  late final TextEditingController _scalePluCtrl;
+  late final TextEditingController _packShelfLifeCtrl;
   bool _requiresSerial = false;
   bool _allowDecimalQty = false;
   bool _allowAreaQty = false;
@@ -545,6 +547,9 @@ class _PosProductEditorPageState extends State<PosProductEditorPage>
       text: (p?.minPricePerSet ?? 0) > 0 ? _fmtInputMoney(p!.minPricePerSet!) : '',
     );
     _trackExpiry = p?.trackExpiry ?? false;
+    _scalePluCtrl = TextEditingController(text: p?.scalePlu ?? '');
+    _packShelfLifeCtrl = TextEditingController(
+        text: (p?.packShelfLifeDays ?? 0) > 0 ? '${p!.packShelfLifeDays}' : '');
     _expiryWarningDaysCtrl = TextEditingController(
       text: tr('${p?.expiryWarningDays ?? 30}'),
     );
@@ -736,6 +741,9 @@ class _PosProductEditorPageState extends State<PosProductEditorPage>
           : '';
       _trackExpiry = data.trackExpiry;
       _expiryWarningDaysCtrl.text = '${data.expiryWarningDays}';
+      _scalePluCtrl.text = data.scalePlu ?? '';
+      _packShelfLifeCtrl.text =
+          (data.packShelfLifeDays ?? 0) > 0 ? '${data.packShelfLifeDays}' : '';
       _serviceBillingMode =
           PosServiceBillingMode.parse(data.serviceBillingMode);
       _minBillMinutesCtrl.text =
@@ -946,6 +954,8 @@ class _PosProductEditorPageState extends State<PosProductEditorPage>
     _unitCtrl.dispose();
     _warrantyMonthsCtrl.dispose();
     _expiryWarningDaysCtrl.dispose();
+    _scalePluCtrl.dispose();
+    _packShelfLifeCtrl.dispose();
     _minBillMinutesCtrl.dispose();
     _billRoundMinutesCtrl.dispose();
     _graceMinutesCtrl.dispose();
@@ -1118,6 +1128,8 @@ class _PosProductEditorPageState extends State<PosProductEditorPage>
         'trackExpiry': _trackExpiry,
         'expiryWarningDays':
             int.tryParse(_expiryWarningDaysCtrl.text.trim()) ?? 30,
+        'scalePlu': _scalePluCtrl.text.trim().isEmpty ? null : _scalePluCtrl.text.trim(),
+        'packShelfLifeDays': int.tryParse(_packShelfLifeCtrl.text.trim()),
         'attributes': _attributeSchemaForSave(),
       },
       if (_isService) ...{
@@ -3361,6 +3373,42 @@ class _PosProductEditorPageState extends State<PosProductEditorPage>
                 label: 'Cảnh báo trước HSD (ngày)',
                 hint: 'Mặc định 30',
               ),
+            ),
+          ],
+          if (_allowDecimalQty) ...[
+            const SizedBox(height: 12),
+            Text(tr('Tem cân tại quầy (rau, thịt, cá… bán theo kg / mét)'),
+                style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w600)),
+            const SizedBox(height: 6),
+            Row(
+              children: [
+                Expanded(
+                  child: TextField(
+                    controller: _scalePluCtrl,
+                    keyboardType: TextInputType.number,
+                    inputFormatters: [
+                      FilteringTextInputFormatter.digitsOnly,
+                      LengthLimitingTextInputFormatter(6),
+                    ],
+                    decoration: PosTheme.inputDecoration(
+                      label: 'Mã PLU',
+                      hint: 'Trống = tự gán khi in tem',
+                    ),
+                  ),
+                ),
+                const SizedBox(width: 10),
+                Expanded(
+                  child: TextField(
+                    controller: _packShelfLifeCtrl,
+                    keyboardType: TextInputType.number,
+                    inputFormatters: [FilteringTextInputFormatter.digitsOnly],
+                    decoration: PosTheme.inputDecoration(
+                      label: 'Dùng trong (ngày)',
+                      hint: 'Từ ngày đóng gói',
+                    ),
+                  ),
+                ),
+              ],
             ),
           ],
         ],

@@ -305,7 +305,7 @@ internal static class PosNotificationHelper
         return ids.ToList();
     }
 
-    private static async Task<List<Guid>> GetPosManagerUserIdsAsync(
+    internal static async Task<List<Guid>> GetPosManagerUserIdsAsync(
         ZKTecoDbContext db,
         Guid storeId,
         CancellationToken cancellationToken)

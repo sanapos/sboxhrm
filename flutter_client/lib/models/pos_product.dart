@@ -484,6 +484,10 @@ class PosProduct {
   final bool priceByArea;
   /// Giá tối thiểu mỗi bộ khi tính theo m².
   final double? minPricePerSet;
+  /// Mã PLU in trong tem cân (EAN-13 đầu 20–29); null = chưa gán.
+  final String? scalePlu;
+  /// Hàng cân / đóng gói tại quầy: số ngày dùng được kể từ ngày đóng gói.
+  final int? packShelfLifeDays;
   final bool isTopping;
   final bool allowToppings;
   /// Tự mở popup topping (nhóm) khi thêm món vào giỏ.
@@ -576,6 +580,8 @@ class PosProduct {
     this.isMadeToOrder = false,
     this.priceByArea = false,
     this.minPricePerSet,
+    this.scalePlu,
+    this.packShelfLifeDays,
     this.isTopping = false,
     this.allowToppings = false,
     this.autoOpenToppingPopup = true,
@@ -790,6 +796,8 @@ class PosProduct {
         final d = v is num ? v.toDouble() : double.tryParse('${v ?? ''}');
         return d != null && d > 0 ? d : null;
       }(),
+      scalePlu: (json['scalePlu'] ?? json['ScalePlu'])?.toString(),
+      packShelfLifeDays: (json['packShelfLifeDays'] ?? json['PackShelfLifeDays'] as num?)?.toInt(),
       isTopping: json['isTopping'] == true || json['IsTopping'] == true,
       allowToppings:
           json['allowToppings'] == true || json['AllowToppings'] == true,
@@ -899,6 +907,8 @@ class PosProduct {
       'isMadeToOrder': isMadeToOrder,
       'priceByArea': priceByArea,
       if (minPricePerSet != null) 'minPricePerSet': minPricePerSet,
+      'scalePlu': scalePlu,
+      'packShelfLifeDays': packShelfLifeDays,
       'isTopping': isTopping,
       'allowToppings': allowToppings && !isTopping,
       'autoOpenToppingPopup': autoOpenToppingPopup,
@@ -923,6 +933,7 @@ class PosProduct {
       productType == PosProductType.goods && (requiresSerial || hasWarranty);
 
   PosProduct copyWith({
+    String? scalePlu,
     String? id,
     String? productCode,
     String? barcode,
@@ -1038,6 +1049,8 @@ class PosProduct {
       isMadeToOrder: this.isMadeToOrder,
       priceByArea: this.priceByArea,
       minPricePerSet: this.minPricePerSet,
+      scalePlu: scalePlu ?? this.scalePlu,
+      packShelfLifeDays: this.packShelfLifeDays,
       toppingOptions: this.toppingOptions,
       toppingGroupIds: this.toppingGroupIds,
       toppingGroups: this.toppingGroups,
@@ -1077,6 +1090,8 @@ class PosProduct {
         'isMadeToOrder': isMadeToOrder,
         'priceByArea': priceByArea,
         'minPricePerSet': minPricePerSet,
+        'scalePlu': scalePlu,
+        'packShelfLifeDays': packShelfLifeDays,
         'variantCount': variantCount,
         'saleQuickNotes': saleQuickNotes,
         'isTopping': isTopping,

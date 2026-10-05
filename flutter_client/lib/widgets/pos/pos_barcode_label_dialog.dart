@@ -49,7 +49,8 @@ class _PosBarcodeLabelDialogState extends State<_PosBarcodeLabelDialog> {
   late final TextEditingController _copiesCtrl;
   late final TextEditingController _lanHostCtrl;
   late final TextEditingController _lanPortCtrl;
-  PosBarcodeCodeField _codeField = PosBarcodeCodeField.productCode;
+  // Hàng có sẵn mã vạch (EAN) in đúng mã vạch; chưa có thì in mã hàng.
+  PosBarcodeCodeField _codeField = PosBarcodeCodeField.barcode;
   PosBarcodePriceMode _priceMode = PosBarcodePriceMode.withVnd;
   PosBarcodeUnitMode _unitMode = PosBarcodeUnitMode.withoutUnit;
   PosBarcodeStoreMode _storeMode = PosBarcodeStoreMode.withoutStore;
