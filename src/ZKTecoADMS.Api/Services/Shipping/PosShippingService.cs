@@ -30,10 +30,43 @@ internal static class AhamoveWebhookHelper
         return s;
     }
 
+    /// <summary>
+    /// Trạng thái thật của đơn: AhaMove giữ status = COMPLETED cả khi giao thất bại — thất bại nằm ở
+    /// path[i].status = FAILED (i &gt; 0) và sub_status = IN_RETURN (đang hoàn) / RETURNED (đã hoàn về shop).
+    /// </summary>
+    public static string? EffectiveStatus(System.Text.Json.JsonElement root)
+    {
+        static string? Str(System.Text.Json.JsonElement e, string key) =>
+            e.ValueKind == System.Text.Json.JsonValueKind.Object && e.TryGetProperty(key, out var v)
+            && v.ValueKind == System.Text.Json.JsonValueKind.String ? v.GetString() : null;
+
+        var status = Str(root, "status");
+        if (Normalize(status) != "COMPLETED") return status;
+        var sub = Normalize(Str(root, "sub_status"));
+        if (sub == "RETURNED") return "RETURNED";
+        if (sub == "IN RETURN") return "IN RETURN";
+        if (root.TryGetProperty("path", out var path) && path.ValueKind == System.Text.Json.JsonValueKind.Array)
+        {
+            var i = 0;
+            foreach (var stop in path.EnumerateArray())
+                if (i++ > 0 && Normalize(Str(stop, "status")) == "FAILED")
+                    return "FAILED";
+        }
+        return status;
+    }
+
+    /// <summary>Đơn nhiều điểm giao: AhaMove gửi mã điểm «24ABCD-1» — mã đơn gốc là phần trước «-số».</summary>
+    public static string? BaseOrderId(string? id)
+    {
+        var s = (id ?? "").Trim();
+        var dash = s.LastIndexOf('-');
+        return dash > 0 && dash < s.Length - 1 && s[(dash + 1)..].All(char.IsDigit) ? s[..dash] : null;
+    }
+
     public static string? MapOnlineStatus(string? status) => Normalize(status) switch
     {
         "COMPLETED" => QrOnlineOrderStatuses.Delivered,
-        "CANCELLED" or "FAILED" or "RETURNED" => QrOnlineOrderStatuses.Cancelled,
+        "CANCELLED" or "FAILED" or "RETURNED" or "IN RETURN" => QrOnlineOrderStatuses.Cancelled,
         "IDLE" or "ASSIGNING" or "ACCEPTED" or "CONFIRMING" or "IN PROCESS"
             or "PICKING" or "BOARDING" => QrOnlineOrderStatuses.Shipping,
         _ => string.IsNullOrWhiteSpace(status) ? null : QrOnlineOrderStatuses.Shipping,
@@ -51,7 +84,8 @@ internal static class AhamoveWebhookHelper
         "COMPLETED" => "Đã giao",
         "CANCELLED" => "Đã hủy",
         "FAILED" => "Giao thất bại",
-        "RETURNED" => "Hoàn hàng",
+        "IN RETURN" => "Đang hoàn hàng về shop",
+        "RETURNED" => "Đã hoàn hàng về shop",
         _ => string.IsNullOrWhiteSpace(status) ? "AhaMove" : status.Trim(),
     };
 }
@@ -959,12 +993,16 @@ public partial class PosShippingService(
         string? userEmail, CancellationToken ct)
     {
         string? labelUrl = null;
+        // StatusName là nhãn tiếng Việt — quy đổi trạng thái cần mã gốc của AhaMove (COMPLETED, FAILED…).
+        string? rawStatus = null;
         if (!string.IsNullOrWhiteSpace(tracking.RawJson))
         {
             try
             {
                 using var doc = JsonDocument.Parse(tracking.RawJson);
                 var root = doc.RootElement;
+                var orderEl = root.TryGetProperty("order", out var o0) && o0.ValueKind == JsonValueKind.Object ? o0 : root;
+                rawStatus = AhamoveWebhookHelper.EffectiveStatus(orderEl);
                 if (root.TryGetProperty("shared_link", out var sl) && sl.ValueKind == JsonValueKind.String)
                     labelUrl = sl.GetString();
                 else if (root.TryGetProperty("order", out var ord) &&
@@ -978,8 +1016,9 @@ public partial class PosShippingService(
             await db.PosSaleOrders.Where(o => o.Id == orderId)
                 .ExecuteUpdateAsync(s => s.SetProperty(o => o.DeliveryLabelUrl, labelUrl), ct);
         }
+        var status = rawStatus ?? tracking.StatusName;
         await ApplyShipmentStatusAsync(orderId, ShippingCarrierCodes.Ahamove,
-            ShipmentStatus.FromAhamove(tracking.StatusName), AhamoveWebhookHelper.DisplayName(tracking.StatusName),
+            ShipmentStatus.FromAhamove(status), AhamoveWebhookHelper.DisplayName(status),
             null, "sync", userEmail, ct);
     }
 

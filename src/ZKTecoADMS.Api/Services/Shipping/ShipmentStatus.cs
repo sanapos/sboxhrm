@@ -158,6 +158,7 @@ public static class ShipmentStatus
             "IN PROCESS" => Delivering,
             "COMPLETED" => Delivered,
             "FAILED" => DeliveryFailed,
+            "IN RETURN" => Returning,
             "RETURNED" => Returned,
             "CANCELLED" => Cancelled,
             _ => null,

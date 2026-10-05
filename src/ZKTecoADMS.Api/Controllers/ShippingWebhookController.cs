@@ -227,12 +227,26 @@ public class ShippingWebhookController(
                 ? cc.GetString()
                 : root.TryGetProperty("reason", out var rs) && rs.ValueKind == JsonValueKind.String ? rs.GetString() : null;
 
-            var hash = Request.Query["hash"].FirstOrDefault();
-            if (!await shipping.AuthorizeWebhookAsync(carrier, tracking, null, hash,
-                    Request.Headers.Authorization.ToString(), ct))
-                return Unauthorized(new { ok = false, message = "Unauthorized" });
+            string? baseId = null;
+            if (string.Equals(carrier, ShippingCarrierCodes.Ahamove, StringComparison.OrdinalIgnoreCase))
+            {
+                // Giao thất bại / hoàn hàng: status vẫn COMPLETED — đọc path[].status + sub_status.
+                status = AhamoveWebhookHelper.EffectiveStatus(root) ?? status;
+                // Đơn nhiều điểm giao: «24ABCD-1» → đơn gốc «24ABCD».
+                baseId = AhamoveWebhookHelper.BaseOrderId(tracking);
+            }
 
-            var ok = await shipping.ApplyWebhookStatusAsync(carrier, tracking, tracking, status, ct, reason);
+            var hash = Request.Query["hash"].FirstOrDefault();
+            var authHeader = Request.Headers.Authorization.ToString();
+            var lookup = tracking;
+            if (!await shipping.AuthorizeWebhookAsync(carrier, tracking, null, hash, authHeader, ct))
+            {
+                if (baseId == null || !await shipping.AuthorizeWebhookAsync(carrier, baseId, null, hash, authHeader, ct))
+                    return Unauthorized(new { ok = false, message = "Unauthorized" });
+                lookup = baseId;
+            }
+
+            var ok = await shipping.ApplyWebhookStatusAsync(carrier, lookup, lookup, status, ct, reason);
             return Ok(new { ok });
         }
         catch (Exception ex)

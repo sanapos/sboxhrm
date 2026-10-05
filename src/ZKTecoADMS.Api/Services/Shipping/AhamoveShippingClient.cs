@@ -530,7 +530,9 @@ public class AhamoveShippingClient(IHttpClientFactory httpClientFactory, ILogger
         }
 
         var (useGroup, serviceCode) = ResolveService(extra, request.ServiceCode);
-        var pay = ShippingFeePayer.ShopPaysCarrier(request.ShipFeePayer) ? "BALANCE" : "CASH";
+        // Shop trả cước: trừ ví AhaMove (BALANCE). Khách trả: người nhận trả tiền ship cho tài xế
+        // (CASH_BY_RECIPIENT) — «CASH» là NGƯỜI GỬI trả tiền mặt lúc lấy hàng.
+        var pay = ShippingFeePayer.ShopPaysCarrier(request.ShipFeePayer) ? "BALANCE" : "CASH_BY_RECIPIENT";
 
         var payload = new Dictionary<string, object?>
         {
@@ -700,7 +702,8 @@ public class AhamoveShippingClient(IHttpClientFactory httpClientFactory, ILogger
             var root = doc.RootElement;
             if (root.TryGetProperty("order", out var nested) && nested.ValueKind == JsonValueKind.Object)
                 root = nested;
-            var status = ReadStatus(root);
+            // Giao thất bại / hoàn hàng vẫn có status COMPLETED — xem path[].status + sub_status.
+            var status = AhamoveWebhookHelper.EffectiveStatus(root) ?? ReadStatus(root);
             if (string.IsNullOrWhiteSpace(status) &&
                 root.TryGetProperty("title", out _))
                 return new(false, CarrierCode, Message: ReadError(root, raw), RawJson: raw);
