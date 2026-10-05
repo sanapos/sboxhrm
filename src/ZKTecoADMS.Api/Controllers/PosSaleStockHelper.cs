@@ -441,7 +441,7 @@ internal static class PosSaleStockHelper
 
         var (allocations, lotErr) = await PosStockLotHelper.AllocateFefoAsync(
             db, storeId, product.Id, variantId, baseDeduct, product, createdBy,
-            allowShortfall: plan.AllowNegativeStock);
+            allowShortfall: plan.AllowNegativeStock, skipExpired: true);
         if (lotErr != null)
             throw new InvalidOperationException(lotErr);
 
@@ -483,7 +483,7 @@ internal static class PosSaleStockHelper
         component.UpdatedBy = createdBy;
 
         var (allocations, lotErr) = await PosStockLotHelper.AllocateFefoAsync(
-            db, storeId, component.Id, null, deduct, component, createdBy, allowShortfall);
+            db, storeId, component.Id, null, deduct, component, createdBy, allowShortfall, skipExpired: true);
         if (lotErr != null)
             throw new InvalidOperationException(lotErr);
 

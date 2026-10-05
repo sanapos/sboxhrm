@@ -17531,6 +17531,23 @@ class ApiService {
     }
   }
 
+  /// Sao chép bảng giá (kèm điều chỉnh %, làm tròn) → bảng mới.
+  Future<Map<String, dynamic>> copyPosPriceList(
+      String id, Map<String, dynamic> body) async {
+    try {
+      final response = await http
+          .post(
+            Uri.parse('$baseUrl/api/pos/price-lists/$id/copy'),
+            headers: _headers,
+            body: jsonEncode(body),
+          )
+          .timeout(const Duration(seconds: 60));
+      return _handleResponse(response);
+    } catch (e) {
+      return _connectionFailure(e);
+    }
+  }
+
   Future<Map<String, dynamic>> updatePosPriceList(
       String id, Map<String, dynamic> body) async {
     try {

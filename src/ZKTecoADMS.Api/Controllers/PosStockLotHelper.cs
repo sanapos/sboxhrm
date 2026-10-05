@@ -27,6 +27,10 @@ internal static class PosStockLotHelper
         return await query.SumAsync(l => (decimal?)l.QtyOnHand) ?? 0;
     }
 
+    /// <summary>Mốc «hôm nay» theo giờ VN (UTC+7) — lô có HSD trước mốc này là đã hết hạn.</summary>
+    public static DateTime ExpiryCutoffUtc() =>
+        DateTime.SpecifyKind(DateTime.UtcNow.AddHours(7).Date, DateTimeKind.Utc);
+
     /// <summary>
     /// Phân bổ FEFO — lô gần hết hạn trước.
     /// Trừ tồn lô bằng UPDATE atomic (WHERE QtyOnHand &gt;= take) để tránh race khi nhiều máy bán cùng lúc.
@@ -39,7 +43,8 @@ internal static class PosStockLotHelper
         decimal qtyNeeded,
         PosProduct product,
         string? updatedBy,
-        bool allowShortfall = false)
+        bool allowShortfall = false,
+        bool skipExpired = false)
     {
         // allowShortfall: bán âm kho / kiểm kê — phần thiếu lô ghi «không lô» (giá vốn hiện tại)
         // thay vì chặn giao dịch (trước đây bán âm hàng có HSD bị lỗi hệ thống).
@@ -53,11 +58,14 @@ internal static class PosStockLotHelper
         if (!product.TrackExpiry && !hasActiveLots)
             return ([new LotAllocation(null, qtyNeeded, product.CostPrice)], null);
 
+        // Bán hàng: bỏ qua lô đã quá HSD (trước đây FEFO lấy lô hết hạn ra bán đầu tiên).
+        var todayVn = ExpiryCutoffUtc();
         // Snapshot FEFO — không trừ trên entity tracked (tránh oversell khi 2 transaction cùng đọc).
         var lotSnapshots = await db.PosStockLots.AsNoTracking()
             .Where(l => l.StoreId == storeId && l.ProductId == productId &&
                         l.Deleted == null && l.IsActive &&
                         l.Status == PosStockLotStatus.Active && l.QtyOnHand > 0 &&
+                        (!skipExpired || l.ExpiryDate == null || l.ExpiryDate >= todayVn) &&
                         (variantId.HasValue ? l.VariantId == variantId : l.VariantId == null))
             .OrderBy(l => l.ExpiryDate ?? DateTime.MaxValue)
             .ThenBy(l => l.CreatedAt)
@@ -76,7 +84,20 @@ internal static class PosStockLotHelper
         }
 
         if (product.TrackExpiry && remaining > 0 && !allowShortfall)
+        {
+            if (skipExpired)
+            {
+                var expiredQty = await db.PosStockLots.AsNoTracking()
+                    .Where(l => l.StoreId == storeId && l.ProductId == productId && l.Deleted == null &&
+                                l.IsActive && l.Status == PosStockLotStatus.Active && l.QtyOnHand > 0 &&
+                                l.ExpiryDate != null && l.ExpiryDate < todayVn &&
+                                (variantId.HasValue ? l.VariantId == variantId : l.VariantId == null))
+                    .SumAsync(l => (decimal?)l.QtyOnHand) ?? 0;
+                if (expiredQty > 0)
+                    return (null, $"{product.Name}: {expiredQty:0.###} đã quá hạn sử dụng, không bán được (còn hạn thiếu {remaining:0.###}). Xuất hủy lô hết hạn ở Kho → Xuất kho.");
+            }
             return (null, $"Không đủ tồn lô/HSD: {product.Name} (thiếu {remaining})");
+        }
 
         var allocations = new List<LotAllocation>();
         var now = DateTime.UtcNow;

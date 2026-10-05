@@ -81,6 +81,132 @@ class _PosPriceListsScreenState extends State<PosPriceListsScreen> {
     }
   }
 
+  /// Sao chép: tên mới, điều chỉnh ±% so với bảng gốc, làm tròn, khoảng ngày áp dụng.
+  Future<void> _copyList(PosPriceList pl) async {
+    final nameCtrl = TextEditingController(text: '${pl.name} (bản sao)');
+    final pctCtrl = TextEditingController(text: '0');
+    var roundTo = 0;
+    DateTime? from;
+    DateTime? to;
+    final body = await showDialog<Map<String, dynamic>>(
+      context: context,
+      builder: (ctx) => StatefulBuilder(
+        builder: (ctx, setD) {
+          Future<void> pick(bool isFrom) async {
+            final now = DateTime.now();
+            final d = await showDatePicker(
+              context: ctx,
+              initialDate: (isFrom ? from : to) ?? now,
+              firstDate: DateTime(now.year - 1),
+              lastDate: DateTime(now.year + 5),
+            );
+            if (d != null) setD(() => isFrom ? from = d : to = d);
+          }
+
+          return AlertDialog(
+            title: Text(tr('Sao chép bảng giá «${pl.name}»')),
+            content: SizedBox(
+              width: 420,
+              child: SingleChildScrollView(
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  crossAxisAlignment: CrossAxisAlignment.stretch,
+                  children: [
+                    TextField(
+                      controller: nameCtrl,
+                      decoration: PosTheme.inputDecoration(label: 'Tên bảng giá mới'),
+                    ),
+                    const SizedBox(height: 12),
+                    TextField(
+                      controller: pctCtrl,
+                      keyboardType: const TextInputType.numberWithOptions(signed: true, decimal: true),
+                      decoration: PosTheme.inputDecoration(
+                        label: 'Điều chỉnh giá (%)',
+                        hint: '-10 = giảm 10%, 5 = tăng 5%, 0 = giữ nguyên',
+                      ),
+                    ),
+                    const SizedBox(height: 12),
+                    DropdownButtonFormField<int>(
+                      initialValue: roundTo,
+                      isExpanded: true,
+                      decoration: PosTheme.inputDecoration(label: 'Làm tròn giá'),
+                      items: [
+                        DropdownMenuItem(value: 0, child: Text(tr('Không làm tròn'))),
+                        DropdownMenuItem(value: 100, child: Text(tr('Tròn 100đ'))),
+                        DropdownMenuItem(value: 500, child: Text(tr('Tròn 500đ'))),
+                        DropdownMenuItem(value: 1000, child: Text(tr('Tròn 1.000đ'))),
+                      ],
+                      onChanged: (v) => setD(() => roundTo = v ?? 0),
+                    ),
+                    const SizedBox(height: 12),
+                    Row(
+                      children: [
+                        Expanded(
+                          child: OutlinedButton.icon(
+                            onPressed: () => pick(true),
+                            icon: const Icon(Icons.event, size: 16),
+                            label: Text(from == null ? tr('Từ ngày') : _dateFmt.format(from!)),
+                          ),
+                        ),
+                        const SizedBox(width: 8),
+                        Expanded(
+                          child: OutlinedButton.icon(
+                            onPressed: () => pick(false),
+                            icon: const Icon(Icons.event, size: 16),
+                            label: Text(to == null ? tr('Đến ngày') : _dateFmt.format(to!)),
+                          ),
+                        ),
+                      ],
+                    ),
+                    const SizedBox(height: 6),
+                    Text(
+                      tr('Để trống ngày = áp dụng mọi ngày. Bảng mới không đặt làm mặc định.'),
+                      style: const TextStyle(fontSize: 12, color: PosTheme.textSecondary),
+                    ),
+                  ],
+                ),
+              ),
+            ),
+            actions: [
+              TextButton(onPressed: () => Navigator.pop(ctx), child: Text(tr('Huỷ'))),
+              FilledButton(
+                style: PosTheme.filledButtonStyle,
+                onPressed: () {
+                  final pct = double.tryParse(pctCtrl.text.trim().replaceAll(',', '.')) ?? 0;
+                  Navigator.pop(ctx, {
+                    'name': nameCtrl.text.trim(),
+                    'adjustPercent': pct,
+                    'roundTo': roundTo,
+                    'validFrom': from == null ? null : DateFormat('yyyy-MM-dd').format(from!),
+                    'validTo': to == null ? null : DateFormat('yyyy-MM-dd').format(to!),
+                  });
+                },
+                child: Text(tr('Sao chép')),
+              ),
+            ],
+          );
+        },
+      ),
+    );
+    nameCtrl.dispose();
+    pctCtrl.dispose();
+    if (body == null) return;
+    final res = await _api.copyPosPriceList(pl.id, body);
+    if (!mounted) return;
+    if (res['isSuccess'] == true) {
+      await _load();
+      NotificationOverlayManager().showSuccess(
+        title: 'Đã sao chép',
+        message: tr('${res['data']?['itemCount'] ?? 0} mức giá → ${res['data']?['name'] ?? ''}'),
+      );
+    } else {
+      NotificationOverlayManager().showError(
+        title: 'Lỗi',
+        message: res['message']?.toString() ?? 'Không sao chép được',
+      );
+    }
+  }
+
   Future<void> _editList(PosPriceList pl) async {
     final result = await _showPriceListEditor(existing: pl);
     if (result == null) return;
@@ -312,6 +438,16 @@ class _PosPriceListsScreenState extends State<PosPriceListsScreen> {
                                       ],
                                     ),
                                   ),
+                                  if (canEdit)
+                                    IconButton(
+                                      tooltip: tr('Sao chép bảng giá'),
+                                      onPressed: () => _copyList(pl),
+                                      icon: const Icon(
+                                        Icons.copy_all_outlined,
+                                        size: 20,
+                                        color: PosTheme.textSecondary,
+                                      ),
+                                    ),
                                   if (canEdit)
                                     IconButton(
                                       tooltip: tr('Cài mặc định / ngày'),

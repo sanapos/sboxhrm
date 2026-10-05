@@ -91,7 +91,7 @@ public class BranchOperationsController(ZKTecoDbContext db, IBranchContext branc
         {
             "instock" => rows.Where(r => r.Qty > 0).ToList(),
             "out" => rows.Where(r => r.Qty <= 0).ToList(),
-            "low" => rows.Where(r => r.MinStockQty > 0 && r.Qty < r.MinStockQty).ToList(),
+            "low" => rows.Where(r => PosStockAlertHelper.IsLowStock(r.Qty, r.MinStockQty)).ToList(),
             _ => rows,
         };
         rows = rows.OrderByDescending(r => r.StockValue).ThenBy(r => r.Name).ToList();
@@ -104,7 +104,7 @@ public class BranchOperationsController(ZKTecoDbContext db, IBranchContext branc
             totalQty = rows.Sum(r => r.Qty),
             totalValue = rows.Sum(r => r.StockValue),
             outOfStock = rows.Count(r => r.Qty <= 0),
-            lowStock = rows.Count(r => r.MinStockQty > 0 && r.Qty < r.MinStockQty && r.Qty > 0),
+            lowStock = rows.Count(r => PosStockAlertHelper.IsLowStock(r.Qty, r.MinStockQty)),
             items = rows.Skip((page - 1) * pageSize).Take(pageSize).ToList(),
         }));
     }

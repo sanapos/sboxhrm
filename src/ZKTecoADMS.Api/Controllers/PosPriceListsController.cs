@@ -29,6 +29,9 @@ public class PosPriceListsController(ZKTecoDbContext dbContext) : AuthenticatedC
     public record PriceListItemInput(Guid ProductId, Guid? VariantId, Guid? UnitId, decimal Price);
     public record PriceListItemBulkDto(List<PriceListItemInput> Items);
     public record ResolvedPriceDto(Guid ProductId, Guid? VariantId, Guid? UnitId, decimal Price);
+    /// <summary>Sao chép bảng giá: AdjustPercent −10 = giảm 10%, +5 = tăng 5%; RoundTo 0 / 100 / 500 / 1000.</summary>
+    public record PriceListCopyDto(string Name, decimal AdjustPercent, decimal RoundTo,
+        DateTime? ValidFrom, DateTime? ValidTo);
 
     /// <summary>Danh sách bảng giá — thu ngân PosSell cũng cần đọc khi bán.</summary>
     [HttpGet]
@@ -188,6 +191,69 @@ public class PosPriceListsController(ZKTecoDbContext dbContext) : AuthenticatedC
                 x.Unit != null ? x.Unit.UnitName : null))
             .ToListAsync();
         return Ok(AppResponse<List<PriceListItemDto>>.Success(items));
+    }
+
+    [HttpPost("{id:guid}/copy")]
+    [RequireModulePermission("PosProducts", ModulePermissionAction.Create)]
+    public async Task<ActionResult<AppResponse<PriceListDto>>> Copy(Guid id, [FromBody] PriceListCopyDto dto)
+    {
+        var storeId = RequiredStoreId;
+        var source = await dbContext.PosPriceLists.AsNoTracking()
+            .FirstOrDefaultAsync(x => x.Id == id && x.StoreId == storeId && x.Deleted == null);
+        if (source == null)
+            return NotFound(AppResponse<PriceListDto>.Fail("Không tìm thấy bảng giá"));
+        var name = dto.Name?.Trim() ?? "";
+        if (string.IsNullOrEmpty(name))
+            name = $"{source.Name} (bản sao)";
+        if (dto.AdjustPercent < -100 || dto.AdjustPercent > 1000)
+            return BadRequest(AppResponse<PriceListDto>.Fail("Mức điều chỉnh % không hợp lệ"));
+
+        var maxSort = await dbContext.PosPriceLists.Where(x => x.StoreId == storeId && x.Deleted == null)
+            .MaxAsync(x => (int?)x.SortOrder) ?? 0;
+        var entity = new PosPriceList
+        {
+            Id = Guid.NewGuid(),
+            StoreId = storeId,
+            Name = name,
+            IsDefault = false,
+            IsActive = true,
+            SortOrder = maxSort + 1,
+            ValidFrom = NormalizeDate(dto.ValidFrom),
+            ValidTo = NormalizeDate(dto.ValidTo),
+            CreatedBy = CurrentUserEmail,
+        };
+        dbContext.PosPriceLists.Add(entity);
+
+        var items = await dbContext.PosPriceListItems.AsNoTracking()
+            .Where(i => i.PriceListId == id && i.StoreId == storeId && i.Deleted == null && i.IsActive)
+            .ToListAsync();
+        foreach (var i in items)
+        {
+            dbContext.PosPriceListItems.Add(new PosPriceListItem
+            {
+                Id = Guid.NewGuid(),
+                StoreId = storeId,
+                PriceListId = entity.Id,
+                ProductId = i.ProductId,
+                VariantId = i.VariantId,
+                UnitId = i.UnitId,
+                Price = AdjustPrice(i.Price, dto.AdjustPercent, dto.RoundTo),
+                IsActive = true,
+                CreatedBy = CurrentUserEmail,
+            });
+        }
+        await dbContext.SaveChangesAsync();
+        return Ok(AppResponse<PriceListDto>.Success(
+            new PriceListDto(entity.Id, entity.Name, entity.IsDefault, entity.IsActive, entity.SortOrder, items.Count,
+                entity.ValidFrom, entity.ValidTo)));
+    }
+
+    internal static decimal AdjustPrice(decimal price, decimal adjustPercent, decimal roundTo)
+    {
+        var p = price * (100 + adjustPercent) / 100m;
+        if (roundTo > 0) p = Math.Round(p / roundTo, MidpointRounding.AwayFromZero) * roundTo;
+        else p = Math.Round(p, 0, MidpointRounding.AwayFromZero);
+        return Math.Max(0, p);
     }
 
     [HttpPut("{id:guid}/items")]

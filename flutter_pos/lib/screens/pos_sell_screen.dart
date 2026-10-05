@@ -8498,7 +8498,14 @@ class _PosSellScreenState extends State<PosSellScreen>
         pick = await lookupOrPickPosProduct(context, _api, noZeros);
       }
       if (!mounted || pick == null) return;
-      final price = pick.product.basePrice;
+      // Tem ghi thành tiền → chia theo giá của bảng giá đang chọn (trước dùng giá gốc → sai khối lượng).
+      final price = resolvePosPriceListPrice(
+            _currentPriceOverrides,
+            productId: pick.product.id,
+            variantId: pick.variantId,
+            unitId: pick.unitId,
+          ) ??
+          pick.product.basePrice;
       final qty = scale.isWeight
           ? scale.value
           : (price > 0 ? double.parse((scale.value / price).toStringAsFixed(3)) : 1.0);

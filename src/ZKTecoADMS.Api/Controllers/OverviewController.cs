@@ -59,10 +59,10 @@ public class OverviewController(ZKTecoDbContext db) : AuthenticatedControllerBas
             .CountAsync(p => p.StoreId == storeId && p.Deleted == null && p.IsActive
                              && trackedTypes.Contains(p.ProductType)
                              && p.MinStockQty > 0 && p.OnHandQty > 0 && p.OnHandQty <= p.MinStockQty, ct);
-        var expirySoon = nowUtc.AddDays(30);
-        var nearExpiry = await db.PosStockLots.AsNoTracking()
-            .CountAsync(l => l.StoreId == storeId && l.Deleted == null && l.QtyOnHand > 0
-                             && l.ExpiryDate != null && l.ExpiryDate <= expirySoon, ct);
+        // Theo «số ngày cảnh báo HSD» của từng hàng; lô đã hết hạn tách riêng (trước: cứng 30 ngày, gộp cả lô hết hạn).
+        var expiryLots = await PosStockAlertHelper.ExpiryLotsAsync(db, storeId, ct);
+        var expiredLots = expiryLots.Count(l => l.Expired);
+        var nearExpiry = expiryLots.Count - expiredLots;
         var onlinePending = await db.PosSaleOrders.AsNoTracking()
             .CountAsync(o => o.StoreId == storeId && o.Deleted == null
                              && o.SalesChannel == QrOnlineOrderStatuses.Channel
@@ -79,7 +79,8 @@ public class OverviewController(ZKTecoDbContext db) : AuthenticatedControllerBas
                              && o.DeliveryCodAmount > 0 && o.DeliveryCodSettledAt == null, ct);
         items.Add(new("outOfStock", "pos", "Hàng đã hết", outOfStock, "danger", "PosProducts"));
         items.Add(new("lowStock", "pos", "Hàng dưới tồn tối thiểu", lowStock, "warning", "PosProducts"));
-        items.Add(new("nearExpiry", "pos", "Lô hàng hết hạn trong 30 ngày", nearExpiry, "warning", "PosReportExpiry"));
+        items.Add(new("expiredLots", "pos", "Lô hàng đã hết hạn (cần xuất hủy)", expiredLots, "danger", "PosReportExpiry"));
+        items.Add(new("nearExpiry", "pos", "Lô hàng sắp hết hạn", nearExpiry, "warning", "PosReportExpiry"));
         items.Add(new("onlinePending", "pos", "Đơn online chờ xác nhận", onlinePending, "danger", "PosQrOrder"));
         items.Add(new("shippingIssue", "pos", "Vận đơn giao thất bại / hoàn hàng", shipIssues, "danger", "PosShipping"));
         items.Add(new("codPending", "pos", "Đơn COD chưa đối soát", codPending, "info", "PosShipping"));
