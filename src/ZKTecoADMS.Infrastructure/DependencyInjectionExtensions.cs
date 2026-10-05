@@ -56,6 +56,7 @@ public static class DependencyInjectionExtensions
         services.AddScoped<ActivityAuditInterceptor>();
         services.AddScoped<ZKTecoADMS.Application.Interfaces.IBranchContext, ZKTecoADMS.Application.Interfaces.BranchContext>();
         services.AddScoped<BranchStockInterceptor>();
+        services.AddSingleton<CashSourceInterceptor>();
         services.AddDbContext<ZKTecoDbContext>((sp, options) =>
         {
             var auditableInterceptor = sp.GetRequiredService<AuditableEntityInterceptor>();
@@ -68,6 +69,8 @@ public static class DependencyInjectionExtensions
                     builder.CommandTimeout(120);
                 })
                 .AddInterceptors(auditableInterceptor, sp.GetRequiredService<ActivityAuditInterceptor>(),
+                    // Phiếu thu / chi: gắn nguồn + chi nhánh chứng từ gốc trước khi gán chi nhánh mặc định.
+                    sp.GetRequiredService<CashSourceInterceptor>(),
                     sp.GetRequiredService<BranchStockInterceptor>())
                 .UseQueryTrackingBehavior(QueryTrackingBehavior.NoTracking);
         });

@@ -165,6 +165,16 @@ class CashTransaction {
   final String? tags;
   final DateTime? lastModified;
 
+  /// Nguồn chứng từ (pos_sale, payslip, advance… · manual = lập tay).
+  final String? sourceType;
+  final String? sourceId;
+  /// Tên chứng từ gốc («Đơn bán hàng», «Phiếu lương»…).
+  final String sourceLabel;
+  /// Phiếu tự sinh: số tiền / loại / danh mục / ngày theo chứng từ gốc.
+  final bool isLinked;
+  /// Phiếu bán hàng: không xóa / bỏ thanh toán ở Thu chi — hủy ở chứng từ gốc.
+  final bool isPosLinked;
+
   CashTransaction({
     required this.id,
     required this.transactionCode,
@@ -192,6 +202,11 @@ class CashTransaction {
     this.internalNote,
     this.tags,
     this.lastModified,
+    this.sourceType,
+    this.sourceId,
+    this.sourceLabel = '',
+    this.isLinked = false,
+    this.isPosLinked = false,
   });
 
   CashTransactionStatus get displayStatus =>
@@ -216,7 +231,7 @@ class CashTransaction {
       bankAccountName: json['bankAccountName'],
       status: resolveCashTransactionStatus(json),
       contactName: json['contactName'],
-      contactPhone: json['contactphone'],
+      contactPhone: json['contactPhone'] ?? json['contactphone'],
       paymentReference: json['paymentReference'],
       receiptImageUrl: json['receiptImageUrl'],
       vietQRUrl: json['vietQRUrl'],
@@ -227,6 +242,11 @@ class CashTransaction {
       internalNote: json['internalNote'],
       tags: json['tags'],
       lastModified: json['lastModified'] != null ? DateTime.parse(json['lastModified']) : null,
+      sourceType: json['sourceType']?.toString(),
+      sourceId: json['sourceId']?.toString(),
+      sourceLabel: json['sourceLabel']?.toString() ?? '',
+      isLinked: json['isLinked'] == true,
+      isPosLinked: json['isPosLinked'] == true,
     );
   }
 

@@ -8131,6 +8131,21 @@ class ApiService {
     }
   }
 
+  /// Đối soát sổ quỹ ↔ chứng từ gốc (phiếu mất liên kết, đơn hủy còn phiếu, đơn thu thiếu / thừa phiếu).
+  Future<Map<String, dynamic>> getCashReconcile({DateTime? fromDate, DateTime? toDate}) async {
+    try {
+      final params = <String, String>{
+        if (fromDate != null) 'fromDate': fromDate.toIso8601String().substring(0, 10),
+        if (toDate != null) 'toDate': toDate.toIso8601String().substring(0, 10),
+      };
+      final uri = Uri.parse('$baseUrl/api/cashtransactions/reconcile')
+          .replace(queryParameters: params.isNotEmpty ? params : null);
+      return _handleResponse(await _get(uri));
+    } catch (e) {
+      return _connectionFailure(e);
+    }
+  }
+
   // ==================== TRANSACTION CATEGORIES ====================
   Future<Map<String, dynamic>> getTransactionCategories() async {
     try {

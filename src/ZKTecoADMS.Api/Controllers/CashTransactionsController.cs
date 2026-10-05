@@ -9,6 +9,7 @@ using ZKTecoADMS.Application.DTOs.Commons;
 using ZKTecoADMS.Application.DTOs.Transactions;
 using ZKTecoADMS.Application.Interfaces;
 using ZKTecoADMS.Application.Models;
+using ZKTecoADMS.Application.Services;
 using ZKTecoADMS.Domain.Entities;
 using ZKTecoADMS.Domain.Enums;
 using ZKTecoADMS.Infrastructure;
@@ -126,6 +127,8 @@ public class CashTransactionsController(
                 CreatedByUserName = x.CreatedByUser.UserName ?? "",
                 InternalNote = x.InternalNote,
                 Tags = x.Tags,
+                SourceType = x.SourceType,
+                SourceId = x.SourceId,
                 LastModified = x.LastModified
             })
             .ToListAsync();
@@ -186,6 +189,8 @@ public class CashTransactionsController(
                 CreatedByUserName = x.CreatedByUser.UserName ?? "",
                 InternalNote = x.InternalNote,
                 Tags = x.Tags,
+                SourceType = x.SourceType,
+                SourceId = x.SourceId,
                 LastModified = x.LastModified
             })
             .FirstOrDefaultAsync();
@@ -264,6 +269,8 @@ public class CashTransactionsController(
             CreatedByUserId = CurrentUserId,
             InternalNote = request.InternalNote,
             Tags = request.Tags,
+            // Phiếu lập tay — không suy nguồn từ ghi chú (ghi chú người dùng gõ có thể trùng chuỗi đánh dấu).
+            SourceType = CashSources.Manual,
             IsActive = true,
             StoreId = storeId
         };
@@ -330,6 +337,20 @@ public class CashTransactionsController(
         if (category.Type != request.Type)
             return BadRequest(AppResponse<CashTransactionDto>.Error("Danh mục không khớp với loại giao dịch"));
 
+        // Phiếu tự sinh từ chứng từ: số tiền / loại / danh mục / ngày theo chứng từ gốc — sửa ở chứng từ đó.
+        var source = CashSources.Resolve(transaction.SourceType, transaction.SourceId, transaction.InternalNote);
+        if (source != null)
+        {
+            var label = CashSources.Label(source.Value.Type);
+            if (transaction.Type != request.Type || transaction.Amount != request.Amount
+                || transaction.CategoryId != request.CategoryId)
+                return Conflict(AppResponse<CashTransactionDto>.Error(
+                    $"Phiếu tự động từ «{label}»: số tiền, loại, danh mục đi theo chứng từ gốc — hãy sửa ở chứng từ đó."));
+            if (CashSources.IsPos(source.Value.Type) && request.IsPaid != transaction.IsPaid)
+                return Conflict(AppResponse<CashTransactionDto>.Error(
+                    $"Phiếu tự động từ «{label}»: trạng thái thu / chi theo chứng từ bán hàng — hủy / trả hàng ở chứng từ gốc."));
+        }
+
         // Generate VietQR URL if using VietQR payment
         string? vietQrUrl = transaction.VietQRUrl;
         if (request.PaymentMethod == PaymentMethodType.VietQR && request.BankAccountId.HasValue)
@@ -350,7 +371,8 @@ public class CashTransactionsController(
         transaction.Type = request.Type;
         transaction.CategoryId = request.CategoryId;
         transaction.Amount = request.Amount;
-        transaction.TransactionDate = request.TransactionDate;
+        // Ngày của phiếu tự sinh theo chứng từ gốc (báo cáo theo ngày) — giữ nguyên.
+        if (source == null) transaction.TransactionDate = request.TransactionDate;
         transaction.Description = request.Description;
         transaction.PaymentMethod = request.PaymentMethod;
         transaction.BankAccountId = request.BankAccountId;
@@ -359,7 +381,8 @@ public class CashTransactionsController(
         transaction.PaymentReference = request.PaymentReference;
         transaction.ReceiptImageUrl = request.ReceiptImageUrl;
         transaction.VietQRUrl = vietQrUrl;
-        transaction.InternalNote = request.InternalNote;
+        // Ghi chú của phiếu tự sinh chứa mã liên kết cũ — giữ nguyên.
+        if (source == null) transaction.InternalNote = request.InternalNote;
         transaction.Tags = request.Tags;
         transaction.LastModified = DateTime.UtcNow;
 
@@ -394,11 +417,33 @@ public class CashTransactionsController(
         }
         else if (wasPaid && !transaction.IsPaid)
         {
-            try { await PayslipPayments.SyncForVoucherAsync(context, transaction, storeId, CurrentUserId, ensurePending: false); }
-            catch { /* best-effort */ }
+            await RevertSourceAsync(transaction, storeId, deleting: false);
         }
 
         return await GetTransaction(id);
+    }
+
+    /// <summary>?branchId= (kèm chi nhánh con) theo chi nhánh trên phiếu; không truyền → phạm vi chi nhánh của người xem.</summary>
+    private async Task<IQueryable<CashTransaction>> ScopeByBranchAsync(
+        IQueryable<CashTransaction> query, Guid storeId, Guid? branchId, bool includeChildBranches)
+    {
+        if (branchId is not Guid bid) return query.ApplyBranchScope(HttpContext.BranchContext());
+        var ids = (await BranchQueryHelper.GetBranchIdsIncludingChildrenAsync(context, storeId, bid, includeChildBranches)).ToList();
+        var hq = await BranchQueryHelper.HeadquarterIdAsync(context, storeId) ?? Guid.Empty;
+        return query.Where(x => ids.Contains(x.BranchId ?? hq));
+    }
+
+    /// <summary>Phiếu bị bỏ thanh toán / hủy / xóa → chứng từ gốc về «chưa thanh toán» (lương, ứng, công tác, thưởng phạt).</summary>
+    private async Task RevertSourceAsync(CashTransaction transaction, Guid storeId, bool deleting)
+    {
+        try
+        {
+            await CashSourceRevert.RevertPaidAsync(context, transaction, storeId, deleting);
+            await context.SaveChangesAsync();
+        }
+        catch { /* best-effort */ }
+        try { await PayslipPayments.SyncForVoucherAsync(context, transaction, storeId, CurrentUserId, ensurePending: false); }
+        catch { /* best-effort */ }
     }
 
     /// <summary>
@@ -420,6 +465,12 @@ public class CashTransactionsController(
 
         if (transaction == null)
             return NotFound(AppResponse<CashTransactionDto>.Error("Không tìm thấy giao dịch"));
+
+        var statusSource = CashSources.Resolve(transaction.SourceType, transaction.SourceId, transaction.InternalNote);
+        if (statusSource != null && CashSources.IsPos(statusSource.Value.Type)
+            && (request.Status != CashTransactionStatus.Completed || request.IsPaid == false))
+            return Conflict(AppResponse<CashTransactionDto>.Error(
+                $"Phiếu tự động từ «{CashSources.Label(statusSource.Value.Type)}»: hủy / trả hàng ở chứng từ gốc."));
 
         var wasPaid = transaction.IsPaid;
         transaction.Status = request.Status;
@@ -485,9 +536,8 @@ public class CashTransactionsController(
         }
         else if (wasPaid && !transaction.IsPaid)
         {
-            // Hủy / bỏ thanh toán phiếu chi lương → phiếu lương về «chưa trả đủ».
-            try { await PayslipPayments.SyncForVoucherAsync(context, transaction, storeId, CurrentUserId, ensurePending: false); }
-            catch { /* best-effort */ }
+            // Hủy / bỏ thanh toán → lương, ứng, công tác, thưởng phạt về «chưa thanh toán».
+            await RevertSourceAsync(transaction, storeId, deleting: false);
         }
 
         // Notify the creator if someone else changes the status
@@ -533,92 +583,20 @@ public class CashTransactionsController(
         if (transaction == null)
             return NotFound(AppResponse<bool>.Error("Không tìm thấy giao dịch"));
 
+        // Phiếu tự sinh từ chứng từ bán hàng: tiền theo chứng từ — hủy đơn / trả hàng / hủy phiếu ở chứng từ gốc,
+        // xóa phiếu quỹ sẽ làm sổ quỹ lệch chứng từ (đơn vẫn «đã thu», công nợ vẫn giảm…).
+        var source = CashSources.Resolve(transaction.SourceType, transaction.SourceId, transaction.InternalNote);
+        if (source != null && CashSources.IsPos(source.Value.Type))
+            return Conflict(AppResponse<bool>.Error(
+                $"Phiếu tự động từ «{CashSources.Label(source.Value.Type)}» — hủy ở chứng từ gốc, không xóa phiếu quỹ."));
+
         transaction.IsActive = false;
         transaction.Deleted = DateTime.UtcNow;
         transaction.DeletedBy = CurrentUserId.ToString();
-
-        // Phiếu chi ứng lương → hoàn trạng thái chờ thanh toán
-        if (CashTransactionLinkageHelper.TryExtractTrailingGuid(
-                transaction.InternalNote, "yêu cầu ứng lương #", out var advanceId)
-            || CashTransactionLinkageHelper.TryExtractTrailingGuid(
-                transaction.InternalNote, "thanh toán ứng lương #", out advanceId))
-        {
-            var advance = await context.AdvanceRequests.FindAsync(advanceId);
-            if (advance != null && advance.IsPaid)
-            {
-                advance.IsPaid = false;
-                advance.PaidDate = null;
-                advance.PaymentMethod = null;
-                advance.UpdatedAt = DateTime.UtcNow;
-            }
-        }
-
-        // Ứng công tác → hoàn chi ứng
-        if (CashTransactionLinkageHelper.TryExtractTrailingGuid(
-                transaction.InternalNote, "ứng công tác #", out var tripAdvanceId))
-        {
-            var tripAdvance = await context.BusinessTripAdvanceClaims
-                .AsTracking()
-                .Include(a => a.Case)
-                .FirstOrDefaultAsync(a => a.Id == tripAdvanceId && a.StoreId == storeId);
-            if (tripAdvance != null && tripAdvance.IsPaid)
-            {
-                tripAdvance.IsPaid = false;
-                tripAdvance.PaidDate = null;
-                tripAdvance.PaymentMethod = null;
-                tripAdvance.CashTransactionId = null;
-                tripAdvance.UpdatedAt = DateTime.UtcNow;
-                if (tripAdvance.Case != null
-                    && tripAdvance.Case.Status == BusinessTripCaseStatus.AdvancePaid)
-                {
-                    tripAdvance.Case.Status = BusinessTripCaseStatus.AdvanceApproved;
-                    tripAdvance.Case.UpdatedAt = DateTime.UtcNow;
-                }
-            }
-        }
-
-        // Chi bù / thu hoàn công tác → mở lại Settling
-        if (CashTransactionLinkageHelper.TryExtractTrailingGuid(
-                transaction.InternalNote, "quyết toán công tác phí #", out var settlementId)
-            || CashTransactionLinkageHelper.TryExtractTrailingGuid(
-                transaction.InternalNote, "thu hoàn ứng công tác #", out settlementId))
-        {
-            var settlement = await context.BusinessTripSettlementClaims
-                .AsTracking()
-                .Include(s => s.Case)
-                .FirstOrDefaultAsync(s => s.Id == settlementId && s.StoreId == storeId);
-            if (settlement != null && settlement.IsExtraPaid)
-            {
-                settlement.IsExtraPaid = false;
-                settlement.ExtraPaidDate = null;
-                settlement.ExtraPaymentMethod = null;
-                settlement.UpdatedAt = DateTime.UtcNow;
-                if (settlement.Case != null
-                    && settlement.Case.Status == BusinessTripCaseStatus.Closed)
-                {
-                    settlement.Case.Status = BusinessTripCaseStatus.Settling;
-                    settlement.Case.UpdatedAt = DateTime.UtcNow;
-                }
-            }
-        }
-
-        // Phiếu thu/chi thưởng/phạt → bỏ đánh dấu đã thanh toán trên PaymentTransaction
-        if (CashTransactionLinkageHelper.TryExtractTrailingGuid(
-                transaction.InternalNote, "phiếu thưởng/phạt #", out var paymentTxId))
-        {
-            var paymentTx = await context.PaymentTransactions.FindAsync(paymentTxId);
-            if (paymentTx != null && !string.IsNullOrEmpty(paymentTx.PaymentMethod))
-            {
-                paymentTx.PaymentMethod = null;
-                paymentTx.UpdatedAt = DateTime.UtcNow;
-            }
-        }
-
         await context.SaveChangesAsync();
 
-        // Phiếu chi lương → tính lại số đã trả của phiếu lương (phiếu đã xóa không còn tính).
-        try { await PayslipPayments.SyncForVoucherAsync(context, transaction, storeId, CurrentUserId, ensurePending: false); }
-        catch { /* best-effort */ }
+        // Ứng lương / công tác / thưởng phạt / phiếu phạt về «chưa thanh toán»; phiếu lương tính lại số đã trả.
+        await RevertSourceAsync(transaction, storeId, deleting: true);
 
         return Ok(AppResponse<bool>.Success(true));
     }
@@ -653,20 +631,9 @@ public class CashTransactionsController(
                         x.TransactionDate <= effectiveTo)
             .AsQueryable();
 
-        var branchScope = await BranchQueryHelper.ResolveEmployeeScopeAsync(
-            context, storeId, branchId, includeChildBranches);
-        if (branchScope != null)
-        {
-            if (branchScope.ApplicationUserIds.Count == 0)
-            {
-                return Ok(AppResponse<CashTransactionSummaryDto>.Success(new CashTransactionSummaryDto
-                {
-                    FromDate = fromDate,
-                    ToDate = toDate
-                }));
-            }
-            query = query.Where(x => branchScope.ApplicationUserIds.Contains(x.CreatedByUserId));
-        }
+        // Chi nhánh của khoản tiền = chi nhánh ghi trên phiếu (chưa ghi = trụ sở) — cùng quy ước với danh sách
+        // Thu chi và sổ quỹ bán hàng. Trước đây lọc theo chi nhánh của người lập phiếu → 2 màn ra 2 con số.
+        query = await ScopeByBranchAsync(query, storeId, branchId, includeChildBranches);
 
         var transactions = await query.ToListAsync();
 
@@ -729,8 +696,7 @@ public class CashTransactionsController(
                 && (x.Status == CashTransactionStatus.Pending
                     || x.Status == CashTransactionStatus.WaitingPayment));
 
-        if (branchScope != null)
-            pendingQuery = pendingQuery.Where(x => branchScope.ApplicationUserIds.Contains(x.CreatedByUserId));
+        pendingQuery = await ScopeByBranchAsync(pendingQuery, storeId, branchId, includeChildBranches);
 
         var pendingList = await pendingQuery.ToListAsync();
         var pendingIncome = pendingList.Where(x => x.Type == CashTransactionType.Income).ToList();

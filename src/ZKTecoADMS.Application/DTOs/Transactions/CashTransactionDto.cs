@@ -52,6 +52,15 @@ public record CashTransactionDto
     public string? Tags { get; init; }
     public DateTime? CreatedAt { get; init; }
     public DateTime? LastModified { get; init; }
+
+    /// <summary>Nguồn chứng từ (CashSources) — null / «manual» = phiếu lập tay.</summary>
+    public string? SourceType { get; init; }
+    public Guid? SourceId { get; init; }
+    /// <summary>Phiếu tự sinh từ chứng từ: số tiền / loại / danh mục / ngày theo chứng từ gốc.</summary>
+    public bool IsLinked => ZKTecoADMS.Application.Services.CashSources.IsLinked(SourceType);
+    /// <summary>Phiếu bán hàng: không xóa / bỏ thanh toán ở Thu chi — hủy ở chứng từ gốc.</summary>
+    public bool IsPosLinked => ZKTecoADMS.Application.Services.CashSources.IsPos(SourceType);
+    public string SourceLabel => ZKTecoADMS.Application.Services.CashSources.Label(SourceType);
 }
 
 /// <summary>

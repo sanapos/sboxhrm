@@ -457,11 +457,20 @@ class _CashTransactionScreenState extends State<CashTransactionScreen> {
   }
 
   Future<void> _deleteTransaction(CashTransaction transaction) async {
+    if (transaction.isPosLinked) {
+      appNotification.showWarning(
+        title: 'Phiếu tự động',
+        message: tr('Phiếu từ «${transaction.sourceLabel}» — hủy đơn / trả hàng / hủy phiếu ở chứng từ gốc, không xóa ở Thu chi.'),
+      );
+      return;
+    }
     final confirmed = await showDialog<bool>(
       context: context,
       builder: (context) => ScrollableAlertDialog(
         title: Text(tr('Xác nhận xóa')),
-        content: Text(tr('Bạn có chắc muốn xóa giao dịch "${transaction.transactionCode}"?')),
+        content: Text(tr(transaction.isLinked
+            ? 'Xóa phiếu "${transaction.transactionCode}"? «${transaction.sourceLabel}» liên kết sẽ trở về chưa thanh toán.'
+            : 'Bạn có chắc muốn xóa giao dịch "${transaction.transactionCode}"?')),
         actions: [
           AppDialogActions.delete(
             onCancel: () => Navigator.pop(context, false),
@@ -481,8 +490,101 @@ class _CashTransactionScreenState extends State<CashTransactionScreen> {
         _loadTransactions();
         _loadSummary();
         _loadInlineSummary();
+      } else if (mounted) {
+        appNotification.showError(title: 'Không xóa được', message: tr(result['message']?.toString() ?? 'Có lỗi xảy ra'));
       }
     }
+  }
+
+  /// Đối soát sổ quỹ với chứng từ gốc (tháng hiện tại, chi nhánh đang xem).
+  Future<void> _showReconcile() async {
+    final now = DateTime.now();
+    var from = DateTime(now.year, now.month, 1);
+    var to = now;
+    Map<String, dynamic>? data;
+    String? error;
+    var loading = true;
+    Future<void> load(StateSetter setD) async {
+      setD(() { loading = true; error = null; });
+      final r = await _apiService.getCashReconcile(fromDate: from, toDate: to);
+      setD(() {
+        loading = false;
+        if (r['isSuccess'] == true && r['data'] is Map) {
+          data = Map<String, dynamic>.from(r['data'] as Map);
+        } else {
+          error = r['message']?.toString() ?? 'Không tải được';
+        }
+      });
+    }
+
+    if (!mounted) return;
+    var started = false;
+    await showDialog<void>(
+      context: context,
+      builder: (ctx) => StatefulBuilder(builder: (ctx, setD) {
+        if (!started) { started = true; load(setD); }
+        final issues = ((data?['issues'] as List?) ?? const []).whereType<Map>().toList();
+        return ScrollableAlertDialog(
+          title: Text(tr('Đối soát sổ quỹ ↔ chứng từ')),
+          content: SizedBox(
+            width: 640,
+            child: Column(mainAxisSize: MainAxisSize.min, crossAxisAlignment: CrossAxisAlignment.start, children: [
+              Row(children: [
+                Expanded(child: Text(tr('Kỳ: ${_dateFormat.format(from)} – ${_dateFormat.format(to)}'),
+                    style: const TextStyle(fontWeight: FontWeight.w600))),
+                TextButton.icon(
+                  icon: const Icon(Icons.date_range, size: 18),
+                  label: Text(tr('Đổi kỳ')),
+                  onPressed: () async {
+                    final range = await showDateRangePicker(
+                      context: ctx, firstDate: DateTime(2020), lastDate: DateTime.now(),
+                      initialDateRange: DateTimeRange(start: from, end: to));
+                    if (range == null) return;
+                    from = range.start; to = range.end;
+                    await load(setD);
+                  },
+                ),
+              ]),
+              const SizedBox(height: 8),
+              if (loading) const Padding(padding: EdgeInsets.all(24), child: Center(child: CircularProgressIndicator()))
+              else if (error != null) Text(tr(error!), style: const TextStyle(color: Colors.red))
+              else ...[
+                Text(tr('Đã xét ${data?['checkedVouchers'] ?? 0} phiếu, ${data?['checkedOrders'] ?? 0} đơn bán.'),
+                    style: TextStyle(color: SboxColors.slate600, fontSize: 12)),
+                const SizedBox(height: 8),
+                if (issues.isEmpty)
+                  Row(children: [
+                    const Icon(Icons.check_circle, color: Colors.green),
+                    const SizedBox(width: 8),
+                    Expanded(child: Text(tr('Sổ quỹ khớp chứng từ — không có chênh lệch.'))),
+                  ])
+                else
+                  ...issues.map((i) {
+                    final kind = i['kind']?.toString() ?? '';
+                    final serious = kind != 'unlinked';
+                    final ref = [
+                      if ((i['cashCode'] ?? '').toString().isNotEmpty) i['cashCode'],
+                      if ((i['documentNo'] ?? '').toString().isNotEmpty) i['documentNo'],
+                      if ((i['sourceLabel'] ?? '').toString().isNotEmpty) i['sourceLabel'],
+                    ].join(' · ');
+                    return ListTile(
+                      dense: true,
+                      contentPadding: EdgeInsets.zero,
+                      leading: Icon(serious ? Icons.error_outline : Icons.help_outline,
+                          color: serious ? Colors.red : Colors.orange),
+                      title: Text(tr(i['message']?.toString() ?? '')),
+                      subtitle: Text(tr(ref)),
+                      trailing: Text(_currencyFormat.format((i['amount'] as num?) ?? 0),
+                          style: const TextStyle(fontWeight: FontWeight.w600)),
+                    );
+                  }),
+              ],
+            ]),
+          ),
+          actions: [TextButton(onPressed: () => Navigator.pop(ctx), child: Text(tr('Đóng')))],
+        );
+      }),
+    );
   }
 
   List<Widget> _buildTopActions() {
@@ -502,6 +604,12 @@ class _CashTransactionScreenState extends State<CashTransactionScreen> {
         label: 'Tài khoản',
         onPressed: _showBankAccountManagement,
       ),
+      if (!isTransferMode)
+        HrmTopBarAction(
+          icon: Icons.fact_check_outlined,
+          label: 'Đối soát',
+          onPressed: _showReconcile,
+        ),
       if (!isTransferMode && canExport)
         HrmTopBarAction(
           icon: Icons.file_download_outlined,
@@ -1867,7 +1975,8 @@ class _CashTransactionScreenState extends State<CashTransactionScreen> {
               Text(tr(transaction.description), style: const TextStyle(fontWeight: FontWeight.w600, fontSize: 14), maxLines: 1, overflow: TextOverflow.ellipsis),
               const SizedBox(height: 2),
               Text(
-                tr([transaction.transactionCode, transaction.categoryName, DateFormat('dd/MM/yyyy').format(transaction.transactionDate)].join(' · ')),
+                tr([transaction.transactionCode, transaction.categoryName, DateFormat('dd/MM/yyyy').format(transaction.transactionDate),
+                  if (transaction.isLinked) '🔗 ${transaction.sourceLabel}'].join(' · ')),
                 style: const TextStyle(color: SboxColors.slate500, fontSize: 12),
                 maxLines: 1, overflow: TextOverflow.ellipsis,
               ),
@@ -1927,7 +2036,8 @@ class _CashTransactionScreenState extends State<CashTransactionScreen> {
                       ),
                       const SizedBox(height: 2),
                       Text(
-                        tr('${transaction.transactionCode} • ${transaction.categoryName}'),
+                        tr('${transaction.transactionCode} • ${transaction.categoryName}'
+                            '${transaction.isLinked ? ' • 🔗 ${transaction.sourceLabel}' : ''}'),
                         style: TextStyle(
                           color: SboxColors.slate600,
                           fontSize: 12,
@@ -2721,6 +2831,11 @@ class _TransactionFormDialogState extends State<_TransactionFormDialog> {
   List<TransactionCategory> get _filteredCategories =>
       widget.categories.where((c) => c.type == _type).toList();
 
+  /// Phiếu tự sinh từ chứng từ: loại / danh mục / số tiền / ngày / ghi chú liên kết theo chứng từ gốc.
+  bool get _locked => widget.transaction?.isLinked == true;
+  /// Phiếu bán hàng: trạng thái thu / chi cũng theo chứng từ (hủy / trả hàng ở POS).
+  bool get _posLocked => widget.transaction?.isPosLinked == true;
+
   Future<void> _save() async {
     if (!_formKey.currentState!.validate()) return;
     if (_categoryId == null) {
@@ -2747,7 +2862,7 @@ class _TransactionFormDialogState extends State<_TransactionFormDialog> {
       if (_bankAccountId != null) 'bankAccountId': _bankAccountId,
       if (_contactNameController.text.isNotEmpty) 'contactName': _contactNameController.text,
       if (_contactPhoneController.text.isNotEmpty) 'contactPhone': _contactPhoneController.text,
-      if (_noteController.text.isNotEmpty) 'internalNote': _noteController.text,
+      if (!_locked && _noteController.text.isNotEmpty) 'internalNote': _noteController.text,
       'isPaid': _isPaid,
     };
 
@@ -2783,8 +2898,34 @@ class _TransactionFormDialogState extends State<_TransactionFormDialog> {
         mainAxisSize: MainAxisSize.min,
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
+          if (_locked) ...[
+            Container(
+              padding: const EdgeInsets.all(12),
+              decoration: BoxDecoration(
+                color: const Color(0xFFEFF6FF),
+                borderRadius: BorderRadius.circular(10),
+                border: Border.all(color: const Color(0xFFBFDBFE)),
+              ),
+              child: Row(children: [
+                const Icon(Icons.link_rounded, color: Color(0xFF1D4ED8), size: 20),
+                const SizedBox(width: 8),
+                Expanded(
+                  child: Text(
+                    tr('Phiếu tự động từ «${widget.transaction!.sourceLabel}» — số tiền, loại, danh mục, ngày theo chứng từ gốc'
+                        '${_posLocked ? '; hủy / trả hàng ở màn bán hàng' : ''}.'),
+                    style: const TextStyle(fontSize: 12.5, color: Color(0xFF1E3A8A)),
+                  ),
+                ),
+              ]),
+            ),
+            const SizedBox(height: 16),
+          ],
           // Transaction type toggle
-          SegmentedButton<CashTransactionType>(
+          IgnorePointer(
+            ignoring: _locked,
+            child: Opacity(
+              opacity: _locked ? 0.6 : 1,
+              child: SegmentedButton<CashTransactionType>(
                   segments: CashTransactionType.values
                       .map((t) => ButtonSegment(
                             value: t,
@@ -2805,6 +2946,8 @@ class _TransactionFormDialogState extends State<_TransactionFormDialog> {
                     _categoryId = null;
                   }),
                 ),
+            ),
+          ),
                 const SizedBox(height: 16),
 
                 // Category dropdown
@@ -2817,7 +2960,7 @@ class _TransactionFormDialogState extends State<_TransactionFormDialog> {
                   items: _filteredCategories
                       .map((c) => DropdownMenuItem(value: c.id, child: Text(tr(c.name))))
                       .toList(),
-                  onChanged: (v) => setState(() => _categoryId = v),
+                  onChanged: _locked ? null : (v) => setState(() => _categoryId = v),
                   validator: (v) => v == null ? 'Chọn danh mục' : null,
                 ),
                 const SizedBox(height: 16),
@@ -2825,6 +2968,7 @@ class _TransactionFormDialogState extends State<_TransactionFormDialog> {
                 // Amount
                 TextFormField(
                   controller: _amountController,
+                  readOnly: _locked,
                   decoration: InputDecoration(
                     labelText: tr('Số tiền *'),
                     prefixIcon: Icon(Icons.attach_money),
@@ -2862,7 +3006,7 @@ class _TransactionFormDialogState extends State<_TransactionFormDialog> {
                   leading: const Icon(Icons.calendar_today),
                   title: Text(tr('Ngày giao dịch')),
                   subtitle: Text(tr(DateFormat('dd/MM/yyyy').format(_transactionDate))),
-                  onTap: () async {
+                  onTap: _locked ? null : () async {
                     final date = await showDatePicker(
                       context: context,
                       initialDate: _transactionDate,
@@ -2932,8 +3076,9 @@ class _TransactionFormDialogState extends State<_TransactionFormDialog> {
                 const SizedBox(height: 12),
                 TextFormField(
                   controller: _noteController,
+                  readOnly: _locked,
                   decoration: InputDecoration(
-                    labelText: tr('Ghi chú nội bộ'),
+                    labelText: tr(_locked ? 'Ghi chú hệ thống (liên kết chứng từ)' : 'Ghi chú nội bộ'),
                     prefixIcon: Icon(Icons.note),
                     border: OutlineInputBorder(),
                   ),
@@ -2946,7 +3091,7 @@ class _TransactionFormDialogState extends State<_TransactionFormDialog> {
                   contentPadding: EdgeInsets.zero,
                   title: Text(tr('Đã thanh toán')),
                   value: _isPaid,
-                  onChanged: (v) => setState(() => _isPaid = v),
+                  onChanged: _posLocked ? null : (v) => setState(() => _isPaid = v),
                 ),
               ],
             ),

@@ -3614,6 +3614,9 @@ public class ZKTecoDbInitializer(
             var baselined = await StorePermissionSyncHelper.EnsureBaselineAsync(context);
             if (baselined > 0)
                 logger.LogInformation("Permission package baseline set for {Count} stores", baselined);
+            // Một lần: phiếu thu / chi cũ → nguồn chuẩn + chi nhánh của chứng từ gốc.
+            try { await ZKTecoADMS.Infrastructure.Services.CashSourceBackfill.RunAsync(context, logger); }
+            catch (Exception ex) { logger.LogWarning(ex, "Cash source backfill failed — sẽ thử lại lần khởi động sau"); }
 
             try
             {

@@ -626,7 +626,9 @@ public class FinanceAnalyticsController(
                 .Include(x => x.CreatedByUser)
                 .Where(x => x.StoreId == storeId && x.IsActive && x.Deleted == null
                     && x.TransactionDate >= rangeStart
-                    && x.TransactionDate < rangeEndExclusive);
+                    && x.TransactionDate < rangeEndExclusive)
+                // Chi nhánh đang xem / được phép (phiếu chưa gắn chi nhánh = trụ sở), như màn Thu chi.
+                .ApplyBranchScope(HttpContext.BranchContext());
 
             if (type.HasValue)
                 query = query.Where(x => x.Type == type.Value);
