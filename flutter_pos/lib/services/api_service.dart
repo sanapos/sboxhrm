@@ -9949,6 +9949,19 @@ class ApiService {
     }
   }
 
+  /// Lịch sử mua của khách (đơn + từng món + tổng hợp theo mặt hàng) — màn bán hàng tra nhanh.
+  Future<Map<String, dynamic>> getPosCustomerPurchaseHistory(String customerId, {String? search, int days = 365}) async {
+    try {
+      final q = <String, String>{'days': '$days', if (search != null && search.trim().isNotEmpty) 'search': search.trim()};
+      final r = await http.get(
+          Uri.parse('$baseUrl/api/pos/customers/$customerId/purchase-history').replace(queryParameters: q),
+          headers: _headers);
+      return _handleResponse(r);
+    } catch (e) {
+      return _connectionFailure(e);
+    }
+  }
+
   Future<Map<String, dynamic>> getGeminiConfig() async {
     try {
       final response = await http.get(
@@ -19715,6 +19728,44 @@ class ApiService {
           .replace(queryParameters: q);
       final response =
           await http.get(uri, headers: _headers).timeout(const Duration(seconds: 30));
+      return _handleResponse(response);
+    } catch (e) {
+      return _connectionFailure(e);
+    }
+  }
+
+  /// Hàng đợi in toàn cửa hàng: lệnh chờ / kẹt / lỗi của mọi máy + tình trạng máy in & Agent.
+  Future<Map<String, dynamic>> getPosPrintQueue({bool includeCompleted = false, int hours = 24}) async {
+    try {
+      final uri = Uri.parse('$baseUrl/api/pos/print-jobs/queue').replace(queryParameters: {
+        'includeCompleted': '$includeCompleted',
+        'hours': '$hours',
+      });
+      final response = await http.get(uri, headers: _headers).timeout(const Duration(seconds: 20));
+      return _handleResponse(response);
+    } catch (e) {
+      return _connectionFailure(e);
+    }
+  }
+
+  /// In lại lệnh lỗi / treo; [printerId] khác = chuyển sang máy in đó.
+  Future<Map<String, dynamic>> retryPosPrintJob(String jobId, {String? printerId}) async {
+    try {
+      final response = await http
+          .post(Uri.parse('$baseUrl/api/pos/print-jobs/$jobId/retry'),
+              headers: _headers, body: jsonEncode({if (printerId != null) 'printerId': printerId}))
+          .timeout(const Duration(seconds: 20));
+      return _handleResponse(response);
+    } catch (e) {
+      return _connectionFailure(e);
+    }
+  }
+
+  Future<Map<String, dynamic>> cancelPosPrintJob(String jobId) async {
+    try {
+      final response = await http
+          .post(Uri.parse('$baseUrl/api/pos/print-jobs/$jobId/cancel'), headers: _headers, body: '{}')
+          .timeout(const Duration(seconds: 20));
       return _handleResponse(response);
     } catch (e) {
       return _connectionFailure(e);

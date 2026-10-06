@@ -184,7 +184,7 @@ public class PosSupplierConfiguration : IEntityTypeConfiguration<PosSupplier>
         builder.Property(x => x.Note).HasMaxLength(1000);
         builder.Property(x => x.TotalPurchase).HasPrecision(18, 2);
         builder.Property(x => x.CurrentDebt).HasPrecision(18, 2);
-        builder.HasIndex(x => new { x.StoreId, x.SupplierCode }).IsUnique();
+        builder.HasIndex(x => new { x.StoreId, x.SupplierCode }).IsUnique().HasFilter("\"Deleted\" IS NULL");
         builder.HasIndex(x => new { x.StoreId, x.Name });
         builder.HasOne(x => x.Store).WithMany().HasForeignKey(x => x.StoreId).OnDelete(DeleteBehavior.Cascade);
         builder.HasOne(x => x.Group).WithMany(x => x.Suppliers).HasForeignKey(x => x.GroupId).OnDelete(DeleteBehavior.SetNull);
@@ -226,7 +226,7 @@ public class PosCustomerConfiguration : IEntityTypeConfiguration<PosCustomer>
         builder.Property(x => x.TotalPurchase).HasPrecision(18, 2);
         builder.Property(x => x.CurrentDebt).HasPrecision(18, 2);
         builder.Property(x => x.PointBalance).HasPrecision(18, 2);
-        builder.HasIndex(x => new { x.StoreId, x.CustomerCode }).IsUnique();
+        builder.HasIndex(x => new { x.StoreId, x.CustomerCode }).IsUnique().HasFilter("\"Deleted\" IS NULL");
         builder.HasIndex(x => new { x.StoreId, x.Name });
         builder.HasOne(x => x.Store).WithMany().HasForeignKey(x => x.StoreId).OnDelete(DeleteBehavior.Cascade);
     }
@@ -615,7 +615,7 @@ public class PosStockIssueConfiguration : IEntityTypeConfiguration<PosStockIssue
         builder.Property(x => x.CategoryName).HasMaxLength(100);
         builder.Property(x => x.RecipientName).HasMaxLength(200);
         builder.Property(x => x.IssuedBy).HasMaxLength(200);
-        builder.HasIndex(x => new { x.StoreId, x.IssueNo }).IsUnique();
+        builder.HasIndex(x => new { x.StoreId, x.IssueNo }).IsUnique().HasFilter("\"Deleted\" IS NULL");
         builder.HasIndex(x => new { x.StoreId, x.Kind, x.Status });
         builder.HasIndex(x => x.QuoteId);
         builder.HasOne(x => x.Store).WithMany().HasForeignKey(x => x.StoreId).OnDelete(DeleteBehavior.Cascade);
@@ -650,7 +650,7 @@ public class PosStockCountConfiguration : IEntityTypeConfiguration<PosStockCount
         builder.Property(x => x.CountNo).IsRequired().HasMaxLength(30);
         builder.Property(x => x.Name).IsRequired().HasMaxLength(200);
         builder.Property(x => x.Note).HasMaxLength(500);
-        builder.HasIndex(x => new { x.StoreId, x.CountNo }).IsUnique();
+        builder.HasIndex(x => new { x.StoreId, x.CountNo }).IsUnique().HasFilter("\"Deleted\" IS NULL");
         builder.HasOne(x => x.Store).WithMany().HasForeignKey(x => x.StoreId).OnDelete(DeleteBehavior.Cascade);
     }
 }
@@ -686,7 +686,7 @@ public class PosPurchaseReturnConfiguration : IEntityTypeConfiguration<PosPurcha
         builder.Property(x => x.RefundDue).HasPrecision(18, 2);
         builder.Property(x => x.RefundReceived).HasPrecision(18, 2);
         builder.Property(x => x.ReturnedBy).HasMaxLength(200);
-        builder.HasIndex(x => new { x.StoreId, x.ReturnNo }).IsUnique();
+        builder.HasIndex(x => new { x.StoreId, x.ReturnNo }).IsUnique().HasFilter("\"Deleted\" IS NULL");
         builder.HasOne(x => x.Store).WithMany().HasForeignKey(x => x.StoreId).OnDelete(DeleteBehavior.Cascade);
         builder.HasOne(x => x.Supplier).WithMany(x => x.Returns).HasForeignKey(x => x.SupplierId).OnDelete(DeleteBehavior.SetNull);
         builder.HasOne(x => x.SourceReceipt).WithMany().HasForeignKey(x => x.SourceReceiptId).OnDelete(DeleteBehavior.SetNull);

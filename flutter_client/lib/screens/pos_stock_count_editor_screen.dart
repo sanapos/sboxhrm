@@ -1,3 +1,4 @@
+import '../widgets/pos/pos_unit_qty_convert.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:intl/intl.dart';
@@ -536,6 +537,17 @@ class _PosStockCountEditorScreenState extends State<PosStockCountEditorScreen> {
           icon: const Icon(Icons.add, size: 18, color: _blue),
           onPressed: () => _adjustCounted(l, 1),
         ),
+        if (l.variantId == null)
+          PosUnitConvertButton(
+            api: _api,
+            compact: true,
+            productId: l.productId,
+            productName: l.productName,
+            baseUnit: l.unitName,
+            onQty: (v) {
+              setState(() => l.countedCtrl.text = v == v.roundToDouble() ? v.toStringAsFixed(0) : v.toString());
+            },
+          ),
       ],
     );
   }

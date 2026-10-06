@@ -15,6 +15,7 @@ import '../../services/api_service.dart';
 import '../../utils/pos_quote_commercial.dart';
 import '../../utils/pos_quote_export.dart';
 import '../../widgets/notification_overlay.dart';
+import '../../widgets/page_top_actions.dart';
 import '../../widgets/pos/pos_form_keyboard.dart';
 import '../../widgets/pos/pos_theme.dart';
 import 'pos_contract_detail_screen.dart';
@@ -355,8 +356,24 @@ class _PosQuoteListScreenState extends State<PosQuoteListScreen> {
     if (mounted) await _reloadAll();
   }
 
+  /// Báo giá chưa chốt → ghi nhận khách chốt trước (máy chủ chỉ lập HĐ từ báo giá đã chấp nhận).
+  Future<PosQuote?> _acceptedQuote(PosQuote q) async {
+    if (!await PosQuoteFlow.ensureAccepted(context, q)) return null;
+    if (q.status == 'Accepted') return q;
+    final res = await ApiService().getPosQuote(q.id);
+    return res['isSuccess'] == true && res['data'] is Map
+        ? PosQuote.fromJson(Map<String, dynamic>.from(res['data'] as Map))
+        : q;
+  }
+
   Future<void> _createContract(PosQuote q) async {
     hidePosSoftKeyboard(alsoAfterMs: 0);
+    final accepted = await _acceptedQuote(q);
+    if (accepted == null || !mounted) {
+      if (mounted) await _reloadAll();
+      return;
+    }
+    q = accepted;
     final doc = await createPosQuoteCommercialDoc(
       context,
       quote: q,
@@ -369,6 +386,12 @@ class _PosQuoteListScreenState extends State<PosQuoteListScreen> {
 
   Future<void> _createPackage(PosQuote q) async {
     hidePosSoftKeyboard(alsoAfterMs: 0);
+    final accepted = await _acceptedQuote(q);
+    if (accepted == null || !mounted) {
+      if (mounted) await _reloadAll();
+      return;
+    }
+    q = accepted;
     final ok = await createPosQuoteCommercialPackage(context, quote: q);
     if (!mounted) return;
     await _reloadAll();
@@ -514,8 +537,9 @@ class _PosQuoteListScreenState extends State<PosQuoteListScreen> {
             ),
           ),
           Padding(
-            padding: EdgeInsets.fromLTRB(12, 10, 12, 0),
-            child: _filterBar(canCreate),
+            padding: const EdgeInsets.fromLTRB(12, 10, 12, 0),
+            // Điện thoại: một hàng (ô tìm + nút Lọc) thay vì ô tìm / thời gian / nhân viên xếp chồng nhiều hàng.
+            child: MediaQuery.sizeOf(context).width < 600 ? _phoneFilterRow(canCreate) : _filterBar(canCreate),
           ),
           if (_tab == 0) _statusStrip(),
           const SizedBox(height: 8),
@@ -601,23 +625,6 @@ class _PosQuoteListScreenState extends State<PosQuoteListScreen> {
     );
   }
 
-  List<PopupMenuEntry<String>> _shareMenu() => [
-        const PopupMenuDivider(),
-        PopupMenuItem(value: 'print', child: Text(tr('In'))),
-        PopupMenuItem(value: 'excel', child: Text(tr('Xuất Excel'))),
-        PopupMenuItem(value: 'word', child: Text(tr('Xuất Word'))),
-        PopupMenuItem(value: 'pdf', child: Text(tr('Xuất PDF'))),
-        PopupMenuItem(value: 'png', child: Text(tr('Xuất ảnh PNG'))),
-        PopupMenuItem(value: 'email', child: Text(tr('Gửi Email'))),
-        const PopupMenuDivider(),
-        PopupMenuItem(value: 'call', child: Text(tr('Gọi khách'))),
-        PopupMenuItem(value: 'zaloCall', child: Text(tr('Gọi Zalo'))),
-        PopupMenuItem(value: 'facebookLink', child: Text(tr('Link Facebook'))),
-        PopupMenuItem(value: 'zalo', child: Text(tr('Chia sẻ Zalo'))),
-        PopupMenuItem(value: 'facebook', child: Text(tr('Chia sẻ Facebook'))),
-        PopupMenuItem(value: 'care', child: Text(tr('Lịch CSKH'))),
-      ];
-
   int? _shownScore(PosQuote q) => q.potentialScore ?? _careScores[q.id];
 
   Future<void> _hydratePotentialFromCare() async {
@@ -675,123 +682,14 @@ class _PosQuoteListScreenState extends State<PosQuoteListScreen> {
         rows.length,
         (i) {
           final q = rows[i];
-          return _modernCard(q, onTap: () => _openContract(q), menu: PopupMenuButton<String>(
-                tooltip: tr('Thao tác'),
-                onSelected: (v) async {
-                  switch (v) {
-                    case 'open':
-                      await _openContract(q);
-                    case 'package':
-                      await _createPackage(q);
-                    case 'payment':
-                      await _createKind(q, 'PaymentRequest');
-                    case 'handover':
-                      await _createKind(q, 'Handover');
-                    case 'acceptance':
-                      await _createKind(q, 'Acceptance');
-                    default:
-                      await PosQuoteExport.run(
-                        context,
-                        quote: q,
-                        action: v,
-                        documentType: _docType,
-                      );
-                  }
-                },
-                itemBuilder: (_) => [
-                  PopupMenuItem(
-                    value: 'open',
-                    child: Text(tr('Mở hồ sơ')),
-                  ),
-                  if (canEdit) ...[
-                    PopupMenuItem(
-                      value: 'package',
-                      child: Text(tr('Tạo trọn bộ hồ sơ')),
-                    ),
-                    PopupMenuItem(
-                      value: 'payment',
-                      child: Text(tr('Tạo đề nghị TT')),
-                    ),
-                    PopupMenuItem(
-                      value: 'handover',
-                      child: Text(tr('Tạo bàn giao')),
-                    ),
-                    PopupMenuItem(
-                      value: 'acceptance',
-                      child: Text(tr('Tạo nghiệm thu')),
-                    ),
-                  ],
-                  ..._shareMenu(),
-                ],
-              ));
+          return _modernCard(q, onTap: () => _openContract(q), menu: _moreButton(q, stage: true));
         },
       ),
     );
   }
 
   Widget _quoteCard(PosQuote q, bool canEdit, bool canDelete) {
-    return _modernCard(q, onTap: () => _openDetail(q), menu: PopupMenuButton<String>(
-          tooltip: tr('Thao tác'),
-          onSelected: (v) async {
-            switch (v) {
-              case 'edit':
-                await _openEditor(q);
-              case 'contract':
-                if (q.commercialStage == 'None' ||
-                    q.commercialStage == 'Accepted') {
-                  await _createContract(q);
-                } else {
-                  await _openContract(q);
-                }
-              case 'package':
-                await _createPackage(q);
-              case 'docs':
-                await _openDocs(q);
-              case 'delete':
-                await _delete(q);
-              default:
-                await PosQuoteExport.run(
-                  context,
-                  quote: q,
-                  action: v,
-                  documentType: 'Quote',
-                );
-            }
-          },
-          itemBuilder: (_) => [
-            if (canEdit && !q.isLocked)
-              PopupMenuItem(
-                value: 'edit',
-                child: Text(tr('Sửa báo giá')),
-              ),
-            // Hợp đồng chỉ lập được sau khi khách chốt (máy chủ chặn báo giá chưa chấp nhận).
-            if (canEdit && q.status == 'Accepted')
-              PopupMenuItem(
-                value: 'contract',
-                child: Text(q.commercialStage == 'None' ||
-                        q.commercialStage == 'Accepted'
-                    ? tr('Tạo hợp đồng')
-                    : tr('Mở hợp đồng')),
-              ),
-            if (canEdit && q.status == 'Accepted' &&
-                (q.commercialStage == 'None' || q.commercialStage == 'Accepted'))
-              PopupMenuItem(
-                value: 'package',
-                child: Text(tr('Tạo trọn bộ hồ sơ')),
-              ),
-            PopupMenuItem(
-              value: 'docs',
-              child: Text(tr('Hồ sơ HĐ / nghiệm thu')),
-            ),
-            ..._shareMenu(),
-            if (canDelete && q.canDelete)
-              PopupMenuItem(
-                value: 'delete',
-                child: Text(tr('Xóa báo giá'),
-                    style: TextStyle(color: Colors.red.shade700)),
-              ),
-          ],
-        ));
+    return _modernCard(q, onTap: () => _openDetail(q), menu: _moreButton(q, stage: false));
   }
 
   /// Điện thoại: danh sách dọc; màn rộng: lưới thẻ 2–3 cột.
@@ -1034,5 +932,338 @@ class _PosQuoteListScreenState extends State<PosQuoteListScreen> {
         ),
       ),
     );
+  }
+
+  int get _quoteFilterCount => (_period != 'all' ? 1 : 0) + (_employeeId != null ? 1 : 0);
+
+  String get _periodLabel => switch (_period) {
+        'today' => 'Hôm nay',
+        '7d' => '7 ngày',
+        'month' => 'Tháng này',
+        'custom' when _from != null && _to != null =>
+          '${DateFormat('dd/MM').format(_from!)}–${DateFormat('dd/MM').format(_to!)}',
+        _ => 'Tất cả',
+      };
+
+  Widget _phoneFilterRow(bool canCreate) {
+    final n = _quoteFilterCount;
+    final row = Row(children: [
+      Expanded(
+        child: SizedBox(
+          height: 40,
+          child: TextField(
+            controller: _search,
+            textInputAction: TextInputAction.search,
+            style: const TextStyle(fontSize: 14),
+            onChanged: (_) {
+              _searchDebounce?.cancel();
+              _searchDebounce = Timer(const Duration(milliseconds: 400), _reloadAll);
+            },
+            decoration: InputDecoration(
+              isDense: true,
+              hintText: tr(switch (_tab) {
+                1 => 'Số HĐ / khách',
+                2 => 'Số ĐN / khách',
+                3 => 'Số NT / khách',
+                _ => 'Số BG / khách',
+              }),
+              prefixIcon: const Icon(Icons.search, size: 20),
+              contentPadding: EdgeInsets.zero,
+              filled: true,
+              fillColor: Colors.white,
+              border: OutlineInputBorder(
+                borderRadius: BorderRadius.circular(10),
+                borderSide: const BorderSide(color: SboxColors.slate200),
+              ),
+              enabledBorder: OutlineInputBorder(
+                borderRadius: BorderRadius.circular(10),
+                borderSide: const BorderSide(color: SboxColors.slate200),
+              ),
+            ),
+          ),
+        ),
+      ),
+      const SizedBox(width: 8),
+      SizedBox(
+        height: 40,
+        child: OutlinedButton.icon(
+          onPressed: _openQuoteFilterSheet,
+          style: OutlinedButton.styleFrom(
+            padding: const EdgeInsets.symmetric(horizontal: 10),
+            backgroundColor: n > 0 ? SboxColors.brand50 : Colors.white,
+            side: BorderSide(color: n > 0 ? PosTheme.kiotBlue : SboxColors.slate200),
+            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+          ),
+          icon: const Icon(Icons.tune, size: 18),
+          label: Text(tr(n > 0 ? _periodLabel : 'Lọc'), maxLines: 1),
+        ),
+      ),
+    ]);
+    if (!(canCreate && _tab == 0)) return row;
+    // Nút «Thêm báo giá» vào nút nổi chung của app (như SboxFilterBar trên điện thoại).
+    return RegisterPageTopActions(
+      actions: [
+        HrmTopBarAction(icon: Icons.add, label: 'Thêm báo giá', onPressed: _openComposer, primary: true, showLabel: true),
+      ],
+      child: row,
+    );
+  }
+
+  Future<void> _openQuoteFilterSheet() async {
+    await showModalBottomSheet<void>(
+      context: context,
+      isScrollControlled: true,
+      backgroundColor: Colors.white,
+      shape: const RoundedRectangleBorder(borderRadius: BorderRadius.vertical(top: Radius.circular(16))),
+      builder: (ctx) => StatefulBuilder(builder: (ctx, setSheet) {
+        Widget title(String t) => Padding(
+              padding: const EdgeInsets.fromLTRB(16, 14, 16, 8),
+              child: Text(tr(t), style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w700)),
+            );
+        return SafeArea(
+          child: ConstrainedBox(
+            constraints: BoxConstraints(maxHeight: MediaQuery.sizeOf(ctx).height * 0.8),
+            child: SingleChildScrollView(
+              child: Column(crossAxisAlignment: CrossAxisAlignment.stretch, mainAxisSize: MainAxisSize.min, children: [
+                Padding(
+                  padding: const EdgeInsets.fromLTRB(16, 12, 4, 0),
+                  child: Row(children: [
+                    Expanded(
+                      child: Text(tr('Lọc'), style: const TextStyle(fontSize: 16, fontWeight: FontWeight.w700)),
+                    ),
+                    TextButton(
+                      onPressed: () {
+                        setState(() => _employeeId = null);
+                        _applyPeriod('all');
+                        setSheet(() {});
+                      },
+                      child: Text(tr('Đặt lại')),
+                    ),
+                    IconButton(onPressed: () => Navigator.pop(ctx), icon: const Icon(Icons.close)),
+                  ]),
+                ),
+                title('Thời gian'),
+                Padding(
+                  padding: const EdgeInsets.symmetric(horizontal: 16),
+                  child: Wrap(spacing: 8, runSpacing: 8, children: [
+                    for (final e in const {'all': 'Tất cả', 'today': 'Hôm nay', '7d': '7 ngày', 'month': 'Tháng này'}.entries)
+                      ChoiceChip(
+                        label: Text(tr(e.value)),
+                        selected: _period == e.key,
+                        onSelected: (_) {
+                          _applyPeriod(e.key);
+                          setSheet(() {});
+                        },
+                      ),
+                    ChoiceChip(
+                      label: Text(tr(_period == 'custom' ? _periodLabel : 'Chọn ngày…')),
+                      selected: _period == 'custom',
+                      onSelected: (_) async {
+                        await _pickCustomRange();
+                        setSheet(() {});
+                      },
+                    ),
+                  ]),
+                ),
+                if (_canViewAll && _employees.isNotEmpty) ...[
+                  title('Nhân viên báo giá'),
+                  Padding(
+                    padding: const EdgeInsets.symmetric(horizontal: 16),
+                    child: DropdownButtonFormField<String?>(
+                      initialValue: _employeeId,
+                      isExpanded: true,
+                      decoration: const InputDecoration(isDense: true, border: OutlineInputBorder()),
+                      items: [
+                        DropdownMenuItem<String?>(value: null, child: Text(tr('Tất cả nhân viên'))),
+                        for (final e in _employees) DropdownMenuItem<String?>(value: e.id, child: Text(e.label)),
+                      ],
+                      onChanged: (v) {
+                        setState(() => _employeeId = v);
+                        setSheet(() {});
+                        _reloadAll();
+                      },
+                    ),
+                  ),
+                ],
+                Padding(
+                  padding: const EdgeInsets.fromLTRB(16, 20, 16, 12),
+                  child: FilledButton(
+                    onPressed: () => Navigator.pop(ctx),
+                    style: FilledButton.styleFrom(minimumSize: const Size.fromHeight(44)),
+                    child: Text(tr('Xem kết quả')),
+                  ),
+                ),
+              ]),
+            ),
+          ),
+        );
+      }),
+    );
+  }
+
+  Widget _moreButton(PosQuote q, {required bool stage}) => IconButton(
+        tooltip: tr('Thao tác'),
+        padding: EdgeInsets.zero,
+        icon: const Icon(Icons.more_vert, size: 20),
+        onPressed: () => _showQuoteActions(q, stage: stage),
+      );
+
+  /// Bảng thao tác chia nhóm (thay menu 16 dòng): hồ sơ · gửi khách · liên hệ · xóa.
+  Future<void> _showQuoteActions(PosQuote q, {required bool stage}) async {
+    final perm = context.read<PermissionProvider>();
+    final canEdit = perm.canEdit('PosQuotes');
+    final canDelete = perm.canDelete('PosQuotes');
+    final stopped = PosQuoteFlow.isStopped(q);
+    final hasContract = q.status == 'Accepted' && q.commercialStage != 'None' && q.commercialStage != 'Accepted';
+    final docType = stage ? _docType : 'Quote';
+
+    final picked = await showModalBottomSheet<String>(
+      context: context,
+      isScrollControlled: true,
+      backgroundColor: Colors.white,
+      shape: const RoundedRectangleBorder(borderRadius: BorderRadius.vertical(top: Radius.circular(16))),
+      builder: (ctx) {
+        Widget tile(String value, IconData icon, String label, {Color? color}) => InkWell(
+              borderRadius: BorderRadius.circular(12),
+              onTap: () => Navigator.pop(ctx, value),
+              child: Padding(
+                padding: const EdgeInsets.symmetric(vertical: 8),
+                child: Column(mainAxisSize: MainAxisSize.min, children: [
+                  Container(
+                    width: 44,
+                    height: 44,
+                    decoration: BoxDecoration(
+                      color: (color ?? PosTheme.kiotBlue).withValues(alpha: 0.10),
+                      borderRadius: BorderRadius.circular(12),
+                    ),
+                    child: Icon(icon, size: 22, color: color ?? PosTheme.kiotBlue),
+                  ),
+                  const SizedBox(height: 6),
+                  Text(tr(label),
+                      textAlign: TextAlign.center,
+                      maxLines: 2,
+                      style: const TextStyle(fontSize: 11.5, height: 1.2, color: SboxColors.slate700)),
+                ]),
+              ),
+            );
+        Widget section(String title, List<Widget> tiles) => tiles.isEmpty
+            ? const SizedBox.shrink()
+            : Padding(
+                padding: const EdgeInsets.fromLTRB(12, 10, 12, 0),
+                child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+                  Padding(
+                    padding: const EdgeInsets.only(left: 4, bottom: 2),
+                    child: Text(tr(title),
+                        style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w700, color: SboxColors.slate500)),
+                  ),
+                  GridView.count(
+                    crossAxisCount: 4,
+                    shrinkWrap: true,
+                    physics: const NeverScrollableScrollPhysics(),
+                    childAspectRatio: 0.95,
+                    children: tiles,
+                  ),
+                ]),
+              );
+
+        final docs = <Widget>[
+          tile('detail', Icons.timeline, 'Tổng quan & tiến độ'),
+          if (canEdit && !q.isLocked && !stage) tile('edit', Icons.edit_outlined, 'Sửa hàng hóa'),
+          if (canEdit && !stopped)
+            hasContract
+                ? tile('contract', Icons.handshake_outlined, 'Mở hợp đồng')
+                : tile('contract', Icons.handshake_outlined, q.status == 'Accepted' ? 'Lập hợp đồng' : 'Khách chốt & lập HĐ'),
+          if (canEdit && !stopped && !hasContract) tile('package', Icons.folder_copy_outlined, 'Trọn bộ hồ sơ'),
+          if (stage && canEdit) ...[
+            tile('payment', Icons.payments_outlined, 'Đề nghị TT'),
+            tile('handover', Icons.local_shipping_outlined, 'Bàn giao'),
+            tile('acceptance', Icons.fact_check_outlined, 'Nghiệm thu'),
+          ],
+          tile('docs', Icons.edit_note_outlined, 'Lời văn chứng từ'),
+        ];
+        final send = <Widget>[
+          tile('print', Icons.print_outlined, 'In'),
+          tile('pdf', Icons.picture_as_pdf_outlined, 'PDF'),
+          tile('word', Icons.description_outlined, 'Word'),
+          tile('excel', Icons.table_chart_outlined, 'Excel'),
+          tile('png', Icons.image_outlined, 'Ảnh PNG'),
+          tile('email', Icons.email_outlined, 'Email'),
+          tile('zalo', Icons.chat_outlined, 'Gửi Zalo'),
+          tile('facebook', Icons.facebook, 'Facebook'),
+        ];
+        final contact = <Widget>[
+          tile('call', Icons.call_outlined, 'Gọi khách'),
+          tile('zaloCall', Icons.phone_in_talk_outlined, 'Gọi Zalo'),
+          tile('facebookLink', Icons.link, 'Link Facebook'),
+          tile('care', Icons.event_note_outlined, 'Lịch CSKH'),
+        ];
+        final name = (q.customerName ?? '').trim();
+        return SafeArea(
+          child: ConstrainedBox(
+            constraints: BoxConstraints(maxHeight: MediaQuery.sizeOf(ctx).height * 0.88),
+            child: SingleChildScrollView(
+              child: Column(crossAxisAlignment: CrossAxisAlignment.stretch, mainAxisSize: MainAxisSize.min, children: [
+                Padding(
+                  padding: const EdgeInsets.fromLTRB(16, 14, 8, 4),
+                  child: Row(children: [
+                    Expanded(
+                      child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+                        Text(q.quoteNo, style: const TextStyle(fontSize: 12, color: SboxColors.slate500)),
+                        Text(tr(name.isEmpty ? 'Khách lẻ' : name),
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
+                            style: const TextStyle(fontSize: 16, fontWeight: FontWeight.w700)),
+                        Text(tr('${_money.format(q.total)} đ · ${q.status == 'Accepted' ? PosQuote.stageLabel(q.commercialStage) : PosQuote.statusLabel(q.status)}'),
+                            style: const TextStyle(fontSize: 12, color: SboxColors.slate600)),
+                      ]),
+                    ),
+                    IconButton(onPressed: () => Navigator.pop(ctx), icon: const Icon(Icons.close)),
+                  ]),
+                ),
+                const Divider(height: 8),
+                section('Hồ sơ', docs),
+                section('Gửi cho khách', send),
+                section('Liên hệ', contact),
+                if (canDelete && q.canDelete && !stage)
+                  Padding(
+                    padding: const EdgeInsets.fromLTRB(16, 4, 16, 8),
+                    child: TextButton.icon(
+                      onPressed: () => Navigator.pop(ctx, 'delete'),
+                      style: TextButton.styleFrom(foregroundColor: SboxColors.danger),
+                      icon: const Icon(Icons.delete_outline, size: 18),
+                      label: Text(tr('Xóa báo giá')),
+                    ),
+                  )
+                else
+                  const SizedBox(height: 12),
+              ]),
+            ),
+          ),
+        );
+      },
+    );
+    if (picked == null || !mounted) return;
+    switch (picked) {
+      case 'detail':
+        await _openDetail(q);
+      case 'edit':
+        await _openEditor(q);
+      case 'contract':
+        hasContract ? await _openContract(q) : await _createContract(q);
+      case 'package':
+        await _createPackage(q);
+      case 'payment':
+        await _createKind(q, 'PaymentRequest');
+      case 'handover':
+        await _createKind(q, 'Handover');
+      case 'acceptance':
+        await _createKind(q, 'Acceptance');
+      case 'docs':
+        await _openDocs(q);
+      case 'delete':
+        await _delete(q);
+      default:
+        await PosQuoteExport.run(context, quote: q, action: picked, documentType: docType);
+    }
   }
 }

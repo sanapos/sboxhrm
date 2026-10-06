@@ -1,4 +1,5 @@
-﻿import 'package:flutter/material.dart';
+﻿import '../../../widgets/pos/pos_unit_qty_convert.dart';
+import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
 
 import '../../../models/pos_stock_count.dart';
@@ -31,9 +32,12 @@ class _CountLine {
     required this.name,
     this.code,
     this.unit,
+    this.variantId,
     this.systemQty = 0,
     double? countedQty,
   }) : countedQty = countedQty;
+
+  final String? variantId;
 
   final String lineId;
   final String productId;
@@ -97,6 +101,7 @@ class _WhMobileStockCountEditorState extends State<WhMobileStockCountEditor> {
             name: l.productName,
             code: l.productCode,
             unit: l.unitName,
+            variantId: l.variantId,
             systemQty: l.systemQty,
             countedQty: l.countedQty,
           )));
@@ -307,6 +312,17 @@ class _WhMobileStockCountEditorState extends State<WhMobileStockCountEditor> {
                             readOnly: _readOnly,
                             onChanged: (v) => setState(() => l.countedQty = v),
                           ),
+                          if (!_readOnly && l.variantId == null)
+                            Align(
+                              alignment: Alignment.centerRight,
+                              child: PosUnitConvertButton(
+                                api: _api,
+                                productId: l.productId,
+                                productName: l.name,
+                                baseUnit: l.unit ?? '',
+                                onQty: (v) => setState(() => l.countedQty = v),
+                              ),
+                            ),
                         ],
                       ),
                       trailing: l.diff != 0

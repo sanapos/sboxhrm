@@ -1,3 +1,4 @@
+using ZKTecoADMS.Application.Helpers;
 using Microsoft.EntityFrameworkCore;
 using ZKTecoADMS.Domain.Entities;
 using ZKTecoADMS.Domain.Enums;
@@ -128,7 +129,7 @@ public static class PenaltyTicketFinanceHelper
             Type = CashTransactionType.Income,
             CategoryId = category.Id,
             Amount = ticket.Amount,
-            TransactionDate = DateTime.UtcNow,
+            TransactionDate = VnTimeHelper.NowVn(),
             Description = $"Thu phạt {typeText} - NV {employeeName} - Ngày {ticket.ViolationDate:dd/MM/yyyy} - {ticket.TicketCode}",
             PaymentMethod = PaymentMethodType.Cash,
             Status = CashTransactionStatus.Pending,

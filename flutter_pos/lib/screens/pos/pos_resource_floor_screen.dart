@@ -1,5 +1,6 @@
 import 'dart:async';
-
+
+
 import '../../utils/notification_sound.dart';
 import '../../widgets/pos/pos_package_timer.dart';
 import 'package:flutter/material.dart';
@@ -153,6 +154,9 @@ class PosResourceFloorScreenState extends State<PosResourceFloorScreen> {
   bool _reloadQueued = false;
   DateTime? _lastSuccessfulReloadAt;
   PosSellProfile? _loadedSellProfile;
+
+  /// «bàn» / «ghế» / «phòng» theo ngành (bán lẻ, gym không có sơ đồ → «bàn»).
+  String get _resNoun => _sellProfile.resourceNoun.isEmpty ? 'bàn' : _sellProfile.resourceNoun;
 
   PosSellProfile get _sellProfile =>
       widget.sellProfile ?? _loadedSellProfile ?? PosSellProfile.restaurant;
@@ -3140,7 +3144,7 @@ class PosResourceFloorScreenState extends State<PosResourceFloorScreen> {
     } else {
       NotificationOverlayManager().showError(
         title: 'Trả bàn chưa xong',
-        message: tr('Được $done · lỗi $fail. Thử lại bàn còn món.'),
+        message: tr('Được $done · lỗi $fail. Thử lại ${_resNoun} còn món.'),
       );
     }
     await _reload();
@@ -3655,7 +3659,7 @@ class PosResourceFloorScreenState extends State<PosResourceFloorScreen> {
                     if (preview.isNotEmpty) ...[
                       const SizedBox(height: 14),
                       Text(
-                        tr('Sẽ tạo ${preview.length} bàn'),
+                        tr('Sẽ tạo ${preview.length} ${_resNoun}'),
                         style: const TextStyle(
                             fontWeight: FontWeight.w700, fontSize: 13),
                       ),
@@ -3782,14 +3786,14 @@ class PosResourceFloorScreenState extends State<PosResourceFloorScreen> {
     if (created > 0) {
       NotificationOverlayManager().showSuccess(
         title: 'Đã tạo bàn nhanh',
-        message: tr('$created bàn trong «${targetArea.name}»'),
+        message: tr('$created ${_resNoun} trong «${targetArea.name}»'),
       );
     }
     if (created < preview.length) {
       NotificationOverlayManager().showError(
         title: 'Tạo chưa đủ',
         message: lastErr ??
-            tr('Chỉ tạo được $created/${preview.length} bàn'),
+            tr('Chỉ tạo được $created/${preview.length} ${_resNoun}'),
       );
     }
   }
@@ -4749,7 +4753,7 @@ class PosResourceFloorScreenState extends State<PosResourceFloorScreen> {
               ),
             ),
           ),
-          Text(tr('${_moneyFmt.format(money)}đ · $open/$total bàn'),
+          Text(tr('${_moneyFmt.format(money)}đ · $open/$total ${_resNoun}'),
             style: const TextStyle(
               fontSize: 13,
               fontWeight: FontWeight.w600,
@@ -4974,7 +4978,7 @@ class PosResourceFloorScreenState extends State<PosResourceFloorScreen> {
                               label: 'Sắp đến'),
                           const Spacer(),
                           Text(
-                            tr('$_reservedTableCount bàn đặt'),
+                            tr('$_reservedTableCount ${_resNoun} đặt'),
                             style: const TextStyle(
                               fontSize: 11,
                               fontWeight: FontWeight.w700,

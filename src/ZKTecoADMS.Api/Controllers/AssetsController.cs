@@ -1,3 +1,4 @@
+using ZKTecoADMS.Application.Helpers;
 ﻿using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
@@ -1246,7 +1247,7 @@ public class AssetsController(ZKTecoDbContext context) : AuthenticatedController
                 PerformedById = CurrentUserId,
                 Notes = $"Tồn kho: {item.ExpectedQuantity} → Thực tế: {item.ActualQuantity.Value} (chênh lệch: {(diff > 0 ? "+" : "")}{diff})",
                 StoreId = RequiredStoreId,
-                TransactionDate = DateTime.UtcNow
+                TransactionDate = VnTimeHelper.NowVn()
             });
         }
 
@@ -1344,7 +1345,7 @@ public class AssetsController(ZKTecoDbContext context) : AuthenticatedController
             PerformedById = CurrentUserId,
             Notes = request.Notes,
             StoreId = RequiredStoreId,
-            TransactionDate = DateTime.UtcNow
+            TransactionDate = VnTimeHelper.NowVn()
         };
 
         _context.StockTransactions.Add(transaction);
@@ -1385,7 +1386,7 @@ public class AssetsController(ZKTecoDbContext context) : AuthenticatedController
             PerformedById = CurrentUserId,
             Notes = request.Notes,
             StoreId = RequiredStoreId,
-            TransactionDate = DateTime.UtcNow
+            TransactionDate = VnTimeHelper.NowVn()
         };
 
         _context.StockTransactions.Add(transaction);

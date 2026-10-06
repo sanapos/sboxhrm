@@ -242,6 +242,10 @@ public partial class PosPrintersController(
         var existing = await FindSamePhysicalPrinterAsync(storeId, dto);
         if (existing != null)
         {
+            // Cùng IP:cổng / USB / BT = cùng một máy in thật → cập nhật máy đó (không tạo bản trùng).
+            // Báo rõ cho người dùng: trước đây đổi tên âm thầm (VD «Bếp» thành «Quầy bar», món gán bếp in ra tên mới).
+            var oldName = existing.Name;
+            var wasDeleted = existing.Deleted != null;
             ApplySave(existing, dto, CurrentUserId.ToString());
             await db.SaveChangesAsync();
             await dispatch.EnsureDefaultRoutesAsync(storeId);
@@ -250,7 +254,12 @@ public partial class PosPrintersController(
                 .Where(r => r.PrinterId == existing.Id && r.Deleted == null && r.IsActive)
                 .Select(r => r.DocumentType.ToString())
                 .ToListAsync();
-            return Ok(AppResponse<object>.Success(ToDto(existing, types, 1)));
+            var mergeMsg = wasDeleted
+                ? $"Khôi phục máy in đã xóa cùng địa chỉ (trước đây tên «{oldName}»)."
+                : string.Equals(oldName, existing.Name, StringComparison.OrdinalIgnoreCase)
+                    ? $"Máy in «{oldName}» đã có cùng địa chỉ — đã cập nhật thiết lập."
+                    : $"Trùng địa chỉ với máy in «{oldName}» — đã đổi tên thành «{existing.Name}» thay vì tạo máy mới. Một máy in thật có thể nhận cả món bếp và bar: gán thêm món vào máy này.";
+            return Ok(AppResponse<object>.Create(true, ToDto(existing, types, 1), [mergeMsg]));
         }
 
         var entity = MapNew(dto, storeId, CurrentUserId.ToString());
@@ -317,6 +326,17 @@ public partial class PosPrintersController(
 
         if (affected == 0)
             return NotFound(AppResponse<object>.Fail("Không tìm thấy máy in"));
+
+        // Lệnh chưa in của máy vừa xóa → hủy (trước đây nằm «Chờ in» mãi → phiếu treo không bao giờ hết).
+        await db.PosPrintJobs
+            .Where(j => j.PrinterId == id && j.StoreId == storeId && j.Deleted == null
+                && (j.Status == PosPrintJobStatus.Queued || j.Status == PosPrintJobStatus.Claimed))
+            .ExecuteUpdateAsync(s => s
+                .SetProperty(j => j.Status, PosPrintJobStatus.Cancelled)
+                .SetProperty(j => j.ErrorCode, "PRINTER_DELETED")
+                .SetProperty(j => j.ErrorMessage, "Máy in đã bị xóa")
+                .SetProperty(j => j.CompletedAt, now)
+                .SetProperty(j => j.UpdatedAt, now));
 
         // Gỡ route chứng từ gắn máy.
         await db.PosPrinterDocumentRoutes

@@ -79,6 +79,9 @@ public class PosStoreSellSettings : AuditableEntity<Guid>
     /// <summary>Tối đa % giá trị đơn (sau voucher) được trả bằng điểm. 1–100, mặc định 100.</summary>
     public decimal LoyaltyMaxRedeemPercent { get; set; } = 100m;
 
+    /// <summary>Trả hàng: hoàn lại điểm khách đã đổi trên đơn theo tỷ lệ hàng trả. Tắt = điểm đã đổi coi như đã dùng.</summary>
+    public bool LoyaltyRefundRedeemOnReturn { get; set; }
+
     /// <summary>Bật gán nhân viên làm dịch vụ / thành phần combo để tính hoa hồng.</summary>
     public bool EnableStaffCommission { get; set; }
 

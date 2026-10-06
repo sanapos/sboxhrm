@@ -427,6 +427,9 @@ class _PosProductDetailScreenState extends State<PosProductDetailScreen> {
         if (!isService) _detailRow('Mã vạch', p.barcode ?? 'Chưa có'),
         _detailRow('Giá vốn', _moneyFmt.format(p.costPrice)),
         _detailRow('Giá bán', _moneyFmt.format(p.basePrice)),
+        if ((p.loyaltyPercent ?? 0) > 0)
+          _detailRow('Tích lũy cho khách',
+              '${p.loyaltyPercent!.toStringAsFixed(p.loyaltyPercent! % 1 == 0 ? 0 : 1)}% (≈ ${_moneyFmt.format((p.basePrice * p.loyaltyPercent! / 100).round())}đ)'),
         if (tracksStock)
           _detailRow('Tồn kho', _moneyFmt.format(p.onHandQty)),
         if (tracksStock) ...[

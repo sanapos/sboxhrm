@@ -69,7 +69,28 @@ class _PosProductEditorSectionsDialogState
                   ),
                 ],
               ),
-              const SizedBox(height: 8),
+              const SizedBox(height: 12),
+              Text(tr('Theo ngành hàng'),
+                  style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w600)),
+              const SizedBox(height: 6),
+              Wrap(
+                spacing: 6,
+                runSpacing: 6,
+                children: [
+                  for (final p in PosProductIndustryPreset.values)
+                    Tooltip(
+                      message: tr(p.hint),
+                      child: ChoiceChip(
+                        label: Text(tr(p.label), style: const TextStyle(fontSize: 12)),
+                        selected: _selected.length == p.sections.length && _selected.containsAll(p.sections),
+                        selectedColor: PosTheme.kiotBlue.withValues(alpha: 0.15),
+                        visualDensity: VisualDensity.compact,
+                        onSelected: (_) => setState(() => _selected = {...p.sections}),
+                      ),
+                    ),
+                ],
+              ),
+              const Divider(height: 20),
               ...PosProductEditorSection.values.map((s) {
                 final on = _selected.contains(s);
                 return CheckboxListTile(

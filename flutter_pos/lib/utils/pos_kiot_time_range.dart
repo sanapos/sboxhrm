@@ -1,5 +1,17 @@
 import 'lunar_converter.dart';
 
+/// Giờ cắt ngày kinh doanh qua đêm của cửa hàng (Thiết lập SBOX › «Qua đêm»), 0 = nửa đêm.
+/// Gán mỗi khi tải / lưu sell-settings — «Hôm nay / Hôm qua / Tuần này…» tính theo NGÀY KINH DOANH:
+/// quán mở tới 3h sáng, giờ cắt 4h → lúc 01:30 bấm «Hôm nay» vẫn là ca tối đang bán (không phải ngày mới trống).
+int posBusinessDayStartHour = 0;
+
+/// Ngày kinh doanh của thời điểm [at] (mặc định bây giờ) theo [posBusinessDayStartHour].
+DateTime posBusinessToday([DateTime? at]) {
+  final h = posBusinessDayStartHour.clamp(0, 23);
+  final n = (at ?? DateTime.now()).subtract(Duration(hours: h));
+  return DateTime(n.year, n.month, n.day);
+}
+
 /// Preset khoảng thời gian kiểu KiotViet.
 enum PosKiotTimePreset {
   allTime,
@@ -115,7 +127,8 @@ DateTime _endOfDay(DateTime d) => DateTime(d.year, d.month, d.day, 23, 59, 59);
 
 (DateTime?, DateTime?) resolvePosKiotTimePreset(PosKiotTimePreset preset,
     [DateTime? now]) {
-  final n = now ?? DateTime.now();
+  // Lùi theo giờ cắt qua đêm → «hôm nay» = ngày kinh doanh đang chạy.
+  final n = (now ?? DateTime.now()).subtract(Duration(hours: posBusinessDayStartHour.clamp(0, 23)));
   final today = _startOfDay(n);
 
   switch (preset) {

@@ -110,7 +110,8 @@ public partial class PosProductsController(
         bool PriceByArea = false,
         decimal? MinPricePerSet = null,
         string? ScalePlu = null,
-        int? PackShelfLifeDays = null);
+        int? PackShelfLifeDays = null,
+        decimal? LoyaltyPercent = null);
 
     public record PosProductComboLineDto(
         Guid Id,
@@ -222,7 +223,8 @@ public partial class PosProductsController(
         int? PackShelfLifeDays = null,
         // Tồn lúc mở form sửa — chỉ ghi tồn khi người dùng thực sự đổi ô tồn kho
         // (tránh ghi đè số tồn cũ lên lượt bán xảy ra trong lúc đang sửa hàng).
-        decimal? OriginalOnHandQty = null);
+        decimal? OriginalOnHandQty = null,
+        decimal? LoyaltyPercent = null);
 
     public record PosProductAttributeInput(Guid? AttributeId, string? AttributeName, string Value);
 
@@ -410,6 +412,7 @@ public partial class PosProductsController(
                 p.MinPricePerSet,
                 p.ScalePlu,
                 p.PackShelfLifeDays,
+                p.LoyaltyPercent,
                 p.CreatedAt,
                 p.UpdatedAt,
                 p.DailySoldOutOn,
@@ -494,7 +497,8 @@ public partial class PosProductsController(
                 PriceByArea: r.PriceByArea,
                 MinPricePerSet: r.MinPricePerSet,
                 ScalePlu: r.ScalePlu,
-                PackShelfLifeDays: r.PackShelfLifeDays);
+                PackShelfLifeDays: r.PackShelfLifeDays,
+                LoyaltyPercent: r.LoyaltyPercent);
         }).ToList();
 
         if (stockoutFilter != PosStockoutFilter.All)
@@ -1026,6 +1030,7 @@ public partial class PosProductsController(
             PriceByArea = source.PriceByArea,
             MinPricePerSet = source.MinPricePerSet,
             PackShelfLifeDays = source.PackShelfLifeDays,
+            LoyaltyPercent = source.LoyaltyPercent,
             IsActive = true,
             CreatedBy = CurrentUserEmail,
         };
@@ -1302,7 +1307,8 @@ public partial class PosProductsController(
             PriceByArea: p.PriceByArea,
             MinPricePerSet: p.MinPricePerSet,
             ScalePlu: p.ScalePlu,
-            PackShelfLifeDays: p.PackShelfLifeDays);
+            PackShelfLifeDays: p.PackShelfLifeDays,
+            LoyaltyPercent: p.LoyaltyPercent);
     }
 
     private async Task<DateTime> ResolveStoreBusinessDateAsync(Guid storeId)
@@ -1586,6 +1592,7 @@ public partial class PosProductsController(
 
         entity.ScalePlu = NormalizePlu(dto.ScalePlu);
         entity.PackShelfLifeDays = dto.PackShelfLifeDays is > 0 and <= 3650 ? dto.PackShelfLifeDays : null;
+        entity.LoyaltyPercent = dto.LoyaltyPercent is > 0 and <= 100 ? Math.Round(dto.LoyaltyPercent.Value, 2) : null;
     }
 
     /// <summary>PLU chỉ gồm số, bỏ số 0 đầu ("00123" → "123"); rỗng / không hợp lệ → null.</summary>

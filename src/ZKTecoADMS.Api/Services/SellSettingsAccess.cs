@@ -60,6 +60,7 @@ public static class SellSettingsAccess
         LoyaltyEarnPerAmount = s.LoyaltyEarnPerAmount,
         LoyaltyRedeemValue = s.LoyaltyRedeemValue,
         LoyaltyMaxRedeemPercent = s.LoyaltyMaxRedeemPercent,
+        LoyaltyRefundRedeemOnReturn = s.LoyaltyRefundRedeemOnReturn,
         EnableStaffCommission = s.EnableStaffCommission,
         RequireStaffOnService = s.RequireStaffOnService,
         ExtraJson = s.ExtraJson,
@@ -90,6 +91,7 @@ public static class SellSettingsAccess
             || before.LoyaltyEarnPerAmount != after.LoyaltyEarnPerAmount
             || before.LoyaltyRedeemValue != after.LoyaltyRedeemValue
             || before.LoyaltyMaxRedeemPercent != after.LoyaltyMaxRedeemPercent
+            || before.LoyaltyRefundRedeemOnReturn != after.LoyaltyRefundRedeemOnReturn
             || before.EnableStaffCommission != after.EnableStaffCommission
             || before.RequireStaffOnService != after.RequireStaffOnService)
             Add(Store);

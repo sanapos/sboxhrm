@@ -22,6 +22,16 @@ internal static class ReportHelpers
     /// <summary>Chấm công máy/mobile — giá trị DB đã là giờ tường VN.</summary>
     public static DateTime AttendanceToVn(DateTime punch) => VnTimeHelper.AttendanceWallClock(punch);
 
+    /// <summary>
+    /// Ngày công của một lượt chấm theo giờ chốt ngày (AppSettings day_end_time): chấm trước giờ chốt thuộc hôm trước
+    /// → ca 22:00→06:00 có giờ vào, giờ ra cùng một ngày công. dayEnd = 0 → ngày lịch.
+    /// </summary>
+    public static DateTime AttendanceWorkDate(DateTime punch, TimeSpan dayEnd)
+    {
+        var wall = VnTimeHelper.AttendanceWallClock(punch);
+        return dayEnd > TimeSpan.Zero && wall.TimeOfDay < dayEnd ? wall.Date.AddDays(-1) : wall.Date;
+    }
+
     /// <summary>VN-day window for attendance wall-clock columns [queryStart, queryEnd).</summary>
     public static (DateTime dateLocal, DateTime queryStart, DateTime queryEnd) AttendanceDayRange(DateTime? date)
     {

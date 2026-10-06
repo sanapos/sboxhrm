@@ -108,6 +108,53 @@ public static class PosCustomerFinanceHelper
         return (discount, pointsToRedeem, null);
     }
 
+    /// <summary>Một dòng hàng để tính điểm: thành tiền dòng + % tích lũy riêng của hàng (null = mức chung).</summary>
+    public readonly record struct EarnLine(decimal LineTotal, decimal? LoyaltyPercent);
+
+    /// <summary>
+    /// Điểm tích của đơn khi có hàng tích theo %: tiền dòng được chia lại theo tổng đơn thực trả (đã trừ giảm đơn,
+    /// voucher, đổi điểm — không vượt thành tiền dòng). Dòng có % → tích (tiền × %) quy ra điểm theo giá trị 1 điểm
+    /// (VD 100.000đ × 20% = 20.000đ = 200 điểm khi 1 điểm = 100đ). Dòng không có % → mức chung (X đồng = 1 điểm).
+    /// </summary>
+    public static decimal CalcPointsEarn(decimal orderTotal, IReadOnlyCollection<EarnLine> lines, PosLoyaltyRates rates)
+    {
+        if (!rates.Enabled || orderTotal <= 0) return 0;
+        if (!lines.Any(l => l.LoyaltyPercent is > 0)) return CalcPointsEarn(orderTotal, rates);
+        var sum = lines.Sum(l => Math.Max(0, l.LineTotal));
+        if (sum <= 0) return 0;
+        var ratio = Math.Min(1m, orderTotal / sum);
+        decimal percentMoney = 0, rest = 0;
+        foreach (var l in lines)
+        {
+            var net = Math.Max(0, l.LineTotal) * ratio;
+            if (l.LoyaltyPercent is > 0) percentMoney += net * Math.Min(100m, l.LoyaltyPercent.Value) / 100m;
+            else rest += net;
+        }
+        var points = rates.RedeemValue > 0 ? Math.Floor(percentMoney / rates.RedeemValue) : 0;
+        if (rates.CanEarn) points += Math.Floor(rest / rates.EarnPerAmount);
+        return points;
+    }
+
+    /// <summary>Dòng tính điểm của đơn (đọc % tích lũy của hàng).</summary>
+    public static async Task<List<EarnLine>> EarnLinesAsync(ZKTecoDbContext db, Guid storeId, PosSaleOrder order)
+    {
+        List<(Guid ProductId, decimal LineTotal)> lines;
+        if (order.Lines.Count > 0)
+            lines = order.Lines.Where(l => l.Deleted == null).Select(l => (l.ProductId, l.LineTotal)).ToList();
+        else
+            lines = (await db.PosSaleOrderLines.AsNoTracking()
+                    .Where(l => l.SaleOrderId == order.Id && l.Deleted == null)
+                    .Select(l => new { l.ProductId, l.LineTotal })
+                    .ToListAsync())
+                .Select(x => (x.ProductId, x.LineTotal)).ToList();
+        var ids = lines.Select(l => l.ProductId).Distinct().ToList();
+        var pct = await db.PosProducts.AsNoTracking()
+            .Where(p => p.StoreId == storeId && ids.Contains(p.Id) && p.LoyaltyPercent != null)
+            .Select(p => new { p.Id, p.LoyaltyPercent })
+            .ToDictionaryAsync(p => p.Id, p => p.LoyaltyPercent);
+        return lines.Select(l => new EarnLine(l.LineTotal, pct.GetValueOrDefault(l.ProductId))).ToList();
+    }
+
     public static decimal CalcPointsEarn(decimal netTotalAfterRedeem, PosLoyaltyRates? rates = null)
     {
         var r = rates ?? PosLoyaltyRates.Defaults;
@@ -187,9 +234,13 @@ public static class PosCustomerFinanceHelper
                 CreatedBy = updatedBy,
             });
         }
-        if (order.PointsRedeemed > 0)
+        // Phần điểm đã hoàn khi trả hàng trước đó thì không hoàn lần nữa.
+        var redeemLeft = order.PointsRedeemed > 0
+            ? Math.Max(0, order.PointsRedeemed - await RedeemRefundedAsync(db, storeId, order.Id))
+            : 0;
+        if (redeemLeft > 0)
         {
-            customer.PointBalance += order.PointsRedeemed;
+            customer.PointBalance += redeemLeft;
             db.PosCustomerPointTransactions.Add(new PosCustomerPointTransaction
             {
                 Id = Guid.NewGuid(),
@@ -197,7 +248,7 @@ public static class PosCustomerFinanceHelper
                 CustomerId = customer.Id,
                 SaleOrderId = order.Id,
                 TransactionType = PosCustomerPointType.Adjust,
-                Points = order.PointsRedeemed,
+                Points = redeemLeft,
                 BalanceAfter = customer.PointBalance,
                 Note = $"Hoàn điểm đổi đơn {order.OrderNo}",
                 IsActive = true,
@@ -207,9 +258,20 @@ public static class PosCustomerFinanceHelper
         customer.UpdatedAt = DateTime.UtcNow;
     }
 
+    /// <summary>Đầu ghi chú giao dịch «hoàn điểm đã đổi khi trả hàng» — dùng để cộng dồn / hủy theo phiếu trả.</summary>
+    public const string RedeemRefundNotePrefix = "Hoàn điểm đã đổi do trả hàng ";
+
+    /// <summary>Tổng điểm đã đổi trên đơn đã được hoàn lại qua các phiếu trả (còn hiệu lực).</summary>
+    public static async Task<decimal> RedeemRefundedAsync(ZKTecoDbContext db, Guid storeId, Guid orderId) =>
+        await db.PosCustomerPointTransactions.AsNoTracking()
+            .Where(t => t.StoreId == storeId && t.SaleOrderId == orderId && t.IsActive && t.Deleted == null
+                        && t.Note != null && t.Note.StartsWith(RedeemRefundNotePrefix))
+            .SumAsync(t => (decimal?)t.Points) ?? 0;
+
     /// <summary>
-    /// Điều chỉnh điểm tích khi trả hàng: thu hồi điểm theo tỷ lệ doanh thu còn lại.
-    /// Điểm đã đổi (redeem) giữ nguyên — đã trừ tiền lúc bán.
+    /// Điều chỉnh điểm khi trả hàng: thu hồi điểm đã tích theo tỷ lệ doanh thu trả lại.
+    /// Nếu cửa hàng bật «Hoàn điểm đã đổi khi trả hàng»: hoàn lại phần điểm khách đã đổi trên đơn theo cùng tỷ lệ
+    /// (trả hết đơn → hoàn hết). Tắt: điểm đã đổi coi như đã dùng (đã trừ tiền lúc bán).
     /// </summary>
     public static async Task AdjustPointsOnReturnAsync(
         ZKTecoDbContext db,
@@ -217,41 +279,71 @@ public static class PosCustomerFinanceHelper
         PosSaleOrder order,
         decimal refundTotal,
         decimal totalBeforeRefund,
-        string updatedBy)
+        string updatedBy,
+        string? returnNo = null)
     {
-        if (!order.CustomerId.HasValue || refundTotal <= 0 || order.PointsEarned <= 0)
-            return;
-        if (totalBeforeRefund <= 0) return;
+        if (!order.CustomerId.HasValue || refundTotal <= 0 || totalBeforeRefund <= 0) return;
+        var ratio = Math.Min(1m, refundTotal / totalBeforeRefund);
+
+        var revoke = order.PointsEarned > 0 ? Math.Min(order.PointsEarned, Math.Floor(order.PointsEarned * ratio)) : 0;
+
+        decimal refundRedeem = 0;
+        if (order.PointsRedeemed > 0)
+        {
+            var refundOn = await db.PosStoreSellSettings.AsNoTracking()
+                .Where(x => x.StoreId == storeId && x.Deleted == null)
+                .Select(x => x.LoyaltyRefundRedeemOnReturn)
+                .FirstOrDefaultAsync();
+            if (refundOn)
+            {
+                var left = Math.Max(0, order.PointsRedeemed - await RedeemRefundedAsync(db, storeId, order.Id));
+                refundRedeem = ratio >= 1m ? left : Math.Min(left, Math.Floor(left * ratio));
+            }
+        }
+        if (revoke <= 0 && refundRedeem <= 0) return;
 
         var customer = await db.PosCustomers.AsTracking()
             .FirstOrDefaultAsync(c => c.Id == order.CustomerId && c.StoreId == storeId && c.Deleted == null);
         if (customer == null) return;
 
-        var ratio = Math.Min(1m, refundTotal / totalBeforeRefund);
-        var revoke = Math.Floor(order.PointsEarned * ratio);
-        if (revoke <= 0) return;
-
-        // Không thu hồi quá số điểm còn ghi trên đơn.
-        revoke = Math.Min(revoke, order.PointsEarned);
-        customer.PointBalance = Math.Max(0, customer.PointBalance - revoke);
-        order.PointsEarned = Math.Max(0, order.PointsEarned - revoke);
+        if (revoke > 0)
+        {
+            customer.PointBalance = Math.Max(0, customer.PointBalance - revoke);
+            order.PointsEarned = Math.Max(0, order.PointsEarned - revoke);
+            db.PosCustomerPointTransactions.Add(new PosCustomerPointTransaction
+            {
+                Id = Guid.NewGuid(),
+                StoreId = storeId,
+                CustomerId = customer.Id,
+                SaleOrderId = order.Id,
+                TransactionType = PosCustomerPointType.Adjust,
+                Points = -revoke,
+                BalanceAfter = customer.PointBalance,
+                Note = $"Thu hồi điểm do trả hàng đơn {order.OrderNo}",
+                IsActive = true,
+                CreatedBy = updatedBy,
+            });
+        }
+        if (refundRedeem > 0)
+        {
+            customer.PointBalance += refundRedeem;
+            db.PosCustomerPointTransactions.Add(new PosCustomerPointTransaction
+            {
+                Id = Guid.NewGuid(),
+                StoreId = storeId,
+                CustomerId = customer.Id,
+                SaleOrderId = order.Id,
+                TransactionType = PosCustomerPointType.Adjust,
+                Points = refundRedeem,
+                BalanceAfter = customer.PointBalance,
+                Note = $"{RedeemRefundNotePrefix}{returnNo ?? ""} · đơn {order.OrderNo}",
+                IsActive = true,
+                CreatedBy = updatedBy,
+            });
+        }
         order.UpdatedAt = DateTime.UtcNow;
         order.UpdatedBy = updatedBy;
         customer.UpdatedAt = DateTime.UtcNow;
-
-        db.PosCustomerPointTransactions.Add(new PosCustomerPointTransaction
-        {
-            Id = Guid.NewGuid(),
-            StoreId = storeId,
-            CustomerId = customer.Id,
-            SaleOrderId = order.Id,
-            TransactionType = PosCustomerPointType.Adjust,
-            Points = -revoke,
-            BalanceAfter = customer.PointBalance,
-            Note = $"Thu hồi điểm do trả hàng đơn {order.OrderNo}",
-            IsActive = true,
-            CreatedBy = updatedBy,
-        });
     }
 
     /// <summary>Hoàn lại điểm đã thu hồi khi hủy phiếu trả.</summary>
@@ -261,16 +353,52 @@ public static class PosCustomerFinanceHelper
         PosSaleOrder order,
         decimal refundReversed,
         decimal totalAfterVoid,
-        string updatedBy)
+        string updatedBy,
+        string? returnNo = null)
     {
         if (!order.CustomerId.HasValue || refundReversed <= 0) return;
+
+        // Hủy phiếu trả → thu lại phần điểm đã đổi từng được hoàn theo phiếu đó.
+        if (!string.IsNullOrWhiteSpace(returnNo))
+        {
+            var marker = $"{RedeemRefundNotePrefix}{returnNo} ";
+            var refunds = await db.PosCustomerPointTransactions.AsTracking()
+                .Where(t => t.StoreId == storeId && t.SaleOrderId == order.Id && t.IsActive && t.Deleted == null
+                            && t.Note != null && t.Note.StartsWith(marker))
+                .ToListAsync();
+            if (refunds.Count > 0)
+            {
+                var cust = await db.PosCustomers.AsTracking()
+                    .FirstOrDefaultAsync(c => c.Id == order.CustomerId && c.StoreId == storeId && c.Deleted == null);
+                var back = refunds.Sum(t => t.Points);
+                foreach (var t in refunds) t.IsActive = false;
+                if (cust != null && back > 0)
+                {
+                    cust.PointBalance = Math.Max(0, cust.PointBalance - back);
+                    cust.UpdatedAt = DateTime.UtcNow;
+                    db.PosCustomerPointTransactions.Add(new PosCustomerPointTransaction
+                    {
+                        Id = Guid.NewGuid(),
+                        StoreId = storeId,
+                        CustomerId = cust.Id,
+                        SaleOrderId = order.Id,
+                        TransactionType = PosCustomerPointType.Adjust,
+                        Points = -back,
+                        BalanceAfter = cust.PointBalance,
+                        Note = $"Thu lại điểm đã hoàn do hủy trả {returnNo} · đơn {order.OrderNo}",
+                        IsActive = true,
+                        CreatedBy = updatedBy,
+                    });
+                }
+            }
+        }
         var totalBeforeVoid = totalAfterVoid - refundReversed;
         if (totalBeforeVoid < 0) totalBeforeVoid = 0;
 
         // Tính lại điểm đáng có theo Total sau khi void return + tỷ lệ cửa hàng hiện tại.
         var settings = await db.PosStoreSellSettings.AsNoTracking()
             .FirstOrDefaultAsync(x => x.StoreId == storeId && x.Deleted == null);
-        var targetEarned = CalcPointsEarn(order.Total, PosLoyaltyRates.From(settings));
+        var targetEarned = CalcPointsEarn(order.Total, await EarnLinesAsync(db, storeId, order), PosLoyaltyRates.From(settings));
         var delta = targetEarned - order.PointsEarned;
         if (delta == 0) return;
 

@@ -1,6 +1,7 @@
 /// Hồ sơ ngành + khu vực/bàn/phòng + phiên + gói buổi.
 library;
 
+import '../utils/pos_kiot_time_range.dart';
 import 'dart:convert';
 
 enum PosSellProfile {
@@ -369,6 +370,7 @@ class PosStoreSellSettingsDto {
     this.loyaltyEarnPerAmount = 10000,
     this.loyaltyRedeemValue = 100,
     this.loyaltyMaxRedeemPercent = 100,
+    this.loyaltyRefundRedeemOnReturn = false,
     this.enableStaffCommission = false,
     this.requireStaffOnService = false,
   });
@@ -441,12 +443,21 @@ class PosStoreSellSettingsDto {
   final double loyaltyRedeemValue;
   /// Tối đa % đơn (sau voucher) được trả bằng điểm.
   final double loyaltyMaxRedeemPercent;
+  /// Trả hàng: hoàn lại điểm khách đã đổi trên đơn theo tỷ lệ hàng trả.
+  final bool loyaltyRefundRedeemOnReturn;
   /// Gán NV làm dịch vụ / thành phần combo để tính hoa hồng.
   final bool enableStaffCommission;
   /// Bắt buộc chọn NV trên dịch vụ khi thanh toán.
   final bool requireStaffOnService;
 
-  factory PosStoreSellSettingsDto.fromJson(Map<String, dynamic> json) =>
+  /// Đọc thiết lập bán của cửa hàng đang đăng nhập — đồng thời cập nhật giờ cắt ngày qua đêm cho bộ lọc thời gian.
+  factory PosStoreSellSettingsDto.fromJson(Map<String, dynamic> json) {
+    final dto = PosStoreSellSettingsDto._fromJson(json);
+    posBusinessDayStartHour = dto.reportDayStartHour.clamp(0, 23);
+    return dto;
+  }
+
+  factory PosStoreSellSettingsDto._fromJson(Map<String, dynamic> json) =>
       PosStoreSellSettingsDto(
         id: (json['id'] ?? json['Id'] ?? '').toString(),
         sellProfile: PosSellProfile.parse(
@@ -502,6 +513,8 @@ class PosStoreSellSettingsDto {
               100);
           return v.clamp(1, 100).toDouble();
         }(),
+        loyaltyRefundRedeemOnReturn: json['loyaltyRefundRedeemOnReturn'] == true ||
+            json['LoyaltyRefundRedeemOnReturn'] == true,
         enableStaffCommission: json['enableStaffCommission'] == true ||
             json['EnableStaffCommission'] == true,
         requireStaffOnService: json['requireStaffOnService'] == true ||
@@ -538,6 +551,7 @@ class PosStoreSellSettingsDto {
       'loyaltyEarnPerAmount': loyaltyEarnPerAmount,
       'loyaltyRedeemValue': loyaltyRedeemValue,
       'loyaltyMaxRedeemPercent': loyaltyMaxRedeemPercent.clamp(1, 100),
+      'loyaltyRefundRedeemOnReturn': loyaltyRefundRedeemOnReturn,
       'enableStaffCommission': enableStaffCommission,
       'requireStaffOnService': requireStaffOnService,
       'applyProfileDefaults': applyProfileDefaults,
@@ -647,6 +661,7 @@ class PosStoreSellSettingsDto {
     double? loyaltyEarnPerAmount,
     double? loyaltyRedeemValue,
     double? loyaltyMaxRedeemPercent,
+    bool? loyaltyRefundRedeemOnReturn,
     bool? enableStaffCommission,
     bool? requireStaffOnService,
   }) =>
@@ -681,6 +696,8 @@ class PosStoreSellSettingsDto {
         loyaltyRedeemValue: loyaltyRedeemValue ?? this.loyaltyRedeemValue,
         loyaltyMaxRedeemPercent:
             loyaltyMaxRedeemPercent ?? this.loyaltyMaxRedeemPercent,
+        loyaltyRefundRedeemOnReturn:
+            loyaltyRefundRedeemOnReturn ?? this.loyaltyRefundRedeemOnReturn,
         enableStaffCommission:
             enableStaffCommission ?? this.enableStaffCommission,
         requireStaffOnService:

@@ -146,8 +146,13 @@ public static class AiAssistantContextBuilder
                     if (weekLogs.Count > 0)
                     {
                         buf.AppendLine();
-                        buf.AppendLine("=== CHẤM CÔNG 7 NGÀY GẦN NHẤT (giờ VN) ===");
-                        foreach (var g in weekLogs.GroupBy(l => AiAssistantVnTime.AttendanceToVn(l.AttendanceTime).Date)
+                        // Gom theo NGÀY CÔNG (giờ chốt day_end_time) — ca 22:00→06:00 hiện là một ngày.
+                        var dayEnd = await ZKTecoADMS.Infrastructure.Helpers.AppSettingsOperationalHelper
+                            .ResolveDayEndTimeAsync(db, storeId, ct) ?? TimeSpan.Zero;
+                        buf.AppendLine(dayEnd > TimeSpan.Zero
+                            ? $"=== CHẤM CÔNG 7 NGÀY GẦN NHẤT (giờ VN · ngày công chốt lúc {dayEnd.Hours:00}:{dayEnd.Minutes:00}) ==="
+                            : "=== CHẤM CÔNG 7 NGÀY GẦN NHẤT (giờ VN) ===");
+                        foreach (var g in weekLogs.GroupBy(l => Controllers.Reports.ReportHelpers.AttendanceWorkDate(l.AttendanceTime, dayEnd))
                                      .OrderByDescending(x => x.Key)
                                      .Take(7))
                         {

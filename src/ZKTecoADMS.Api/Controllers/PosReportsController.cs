@@ -45,7 +45,11 @@ public partial class PosReportsController(
         var totalRevenue = await orders.SumAsync(o => o.Total);
         var totalVat = await orders.SumAsync(o => o.VatAmount);
         var totalPaid = await orders.SumAsync(o => o.PaidAmount);
-        var totalDiscount = await orders.SumAsync(o => o.Discount);
+        // Giảm giá = giảm từng dòng + giảm cả đơn + voucher + đổi điểm (doanh thu đã trừ đủ các khoản này).
+        var totalDiscount = await orders.SumAsync(o => o.Discount + o.VoucherDiscount + o.PointsDiscount)
+            + await dbContext.PosSaleOrderLines.AsNoTracking()
+                .Where(l => orders.Select(o => o.Id).Contains(l.SaleOrderId) && l.Deleted == null)
+                .SumAsync(l => l.DiscountAmount);
         var orderCount = await orders.CountAsync();
         var totalRefund = await SumPeriodSaleRefundsAsync(
             storeId, fromDt, toDt, IsManager ? null : orderIds);
@@ -89,11 +93,6 @@ public partial class PosReportsController(
                 .ToListAsync();
         }
 
-        var byDay = await orders
-            .GroupBy(o => (o.SaleDate ?? o.CreatedAt).Date)
-            .Select(g => new { date = g.Key, total = g.Sum(x => x.Total), count = g.Count() })
-            .OrderBy(x => x.date)
-            .ToListAsync();
 
         var topProducts = PosReportLineExpand
             .Aggregate(await LoadSaleLinesForExpandAsync(storeId, orderIds))
@@ -111,12 +110,22 @@ public partial class PosReportsController(
         var cogsByOrder = await PosReportMoney.CogsByOrderAsync(dbContext, storeId, orderIds);
         var totalCogs = cogsByOrder.Values.Sum();
 
-        var orderRows = await orders
-            .Select(o => new { o.Id, BizAt = o.SaleDate ?? o.CreatedAt, o.Total })
-            .ToListAsync();
+        // Cột ngày = NGÀY KINH DOANH VN: giờ bán (UTC trong DB) → giờ VN → lùi theo giờ cắt qua đêm.
+        // Trước đây gom theo ngày UTC → đơn 00:00–06:59 sáng (và phần qua đêm) rơi sang cột ngày hôm trước.
+        var orderRows = (await orders
+                .Select(o => new { o.Id, BizAt = o.SaleDate ?? o.CreatedAt, o.Total })
+                .ToListAsync())
+            .Select(o => new { o.Id, o.BizAt, o.Total, BizDate = VnTimeHelper.ResolveBusinessDate(VnTimeHelper.UtcToVn(o.BizAt), hour) })
+            .ToList();
+
+        var byDay = orderRows
+            .GroupBy(o => o.BizDate)
+            .Select(g => new { date = g.Key, total = g.Sum(x => x.Total), count = g.Count() })
+            .OrderBy(x => x.date)
+            .ToList();
 
         var profitByDay = orderRows
-            .GroupBy(o => o.BizAt.Date)
+            .GroupBy(o => o.BizDate)
             .Select(g =>
             {
                 var revenue = g.Sum(x => x.Total);

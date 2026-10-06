@@ -1303,6 +1303,8 @@ class _AiAssistantSheetState extends State<AiAssistantSheet> {
     if (perm.canCreate('PenaltyTickets')) out.add('Phạt An 50k vì đi trễ hôm nay');
     if (perm.canCreate('PosSell')) out.add('Bán 2 Coca cho khách lẻ, trả tiền mặt');
     if (perm.canCreate('AdvanceRequests')) out.add('Ứng lương 2 triệu tiền viện phí');
+    if (perm.canEdit('PosPurchaseReceipts')) out.add('Nhập 24 lon Coca giá 9 nghìn');
+    if (perm.canCreate('PosPromotions')) out.add('Khuyến mãi giảm 10% hóa đơn từ 500k cuối tuần');
     if (out.isEmpty) {
       out.addAll(['Tôi còn bao nhiêu ngày phép?', 'Hôm nay tôi chấm công chưa?']);
     }
@@ -1524,6 +1526,14 @@ class _AiAssistantSheetState extends State<AiAssistantSheet> {
       'cash' || 'update_cash' => (const Color(0xFF0369A1), Icons.account_balance_wallet_outlined),
       'sale' => (PosTheme.kiotBlue, Icons.receipt_long_outlined),
       'overtime' => (SboxColors.violet, Icons.more_time_rounded),
+      'product' => (PosTheme.kiotBlue, Icons.inventory_2_outlined),
+      'purchase_receipt' => (const Color(0xFF0F766E), Icons.move_to_inbox_outlined),
+      'stock_count' => (const Color(0xFF0369A1), Icons.fact_check_outlined),
+      'damage_issue' => (SboxColors.danger, Icons.delete_sweep_outlined),
+      'internal_use' => (const Color(0xFFB45309), Icons.outbox_outlined),
+      'customer_return' || 'purchase_return' => (const Color(0xFFC2410C), Icons.assignment_return_outlined),
+      'voucher' => (SboxColors.violet, Icons.confirmation_number_outlined),
+      'promotion' => (const Color(0xFFDB2777), Icons.local_offer_outlined),
       _ => (SboxColors.violet, Icons.fact_check_outlined),
     };
     return Container(

@@ -51,6 +51,27 @@ internal static class PosPurchaseStockHelper
         });
     }
 
+    /// <summary>
+    /// ĐVT quy đổi khai trong bảng đơn vị của hàng (VD Thùng = 24 Lon) — tra theo tên ĐVT trên dòng phiếu
+    /// khi dòng không chọn biến thể ĐVT. Không khớp → 1 (đơn vị cơ bản).
+    /// </summary>
+    public static async Task<Dictionary<(Guid ProductId, string Unit), decimal>> LoadUnitRatesByNameAsync(
+        ZKTecoDbContext db, IEnumerable<Guid> productIds)
+    {
+        var ids = productIds.Distinct().ToList();
+        var rows = await db.PosProductUnits.AsNoTracking()
+            .Where(u => ids.Contains(u.ProductId) && u.Deleted == null && !u.IsBaseUnit && u.ConversionRate > 0)
+            .Select(u => new { u.ProductId, u.UnitName, u.ConversionRate })
+            .ToListAsync();
+        var map = new Dictionary<(Guid, string), decimal>();
+        foreach (var r in rows)
+            map.TryAdd((r.ProductId, r.UnitName.Trim().ToLowerInvariant()), r.ConversionRate);
+        return map;
+    }
+
+    public static decimal UnitRate(Dictionary<(Guid ProductId, string Unit), decimal> rates, Guid productId, string? unitName) =>
+        !string.IsNullOrWhiteSpace(unitName) && rates.TryGetValue((productId, unitName.Trim().ToLowerInvariant()), out var r) ? r : 1m;
+
     public static async Task ApplyReceiptStockAsync(
         ZKTecoDbContext db,
         Guid storeId,
@@ -73,6 +94,7 @@ internal static class PosPurchaseStockHelper
                 .ToDictionaryAsync(v => v.Id);
 
         var netUnit = NetUnitCosts(receipt, lines);
+        var unitRates = await LoadUnitRatesByNameAsync(db, productIds);
         var touchedProducts = new HashSet<Guid>();
         foreach (var line in lines)
         {
@@ -117,18 +139,22 @@ internal static class PosPurchaseStockHelper
             }
             else
             {
-                p.OnHandQty += line.Qty;
+                // Nhập theo ĐVT quy đổi (VD 2 Thùng × 24) → tồn / giá vốn tính theo đơn vị cơ bản.
+                var rate = UnitRate(unitRates, p.Id, line.UnitName);
+                var baseQty = line.Qty * rate;
+                var costPerBase = unitPrice / rate;
+                p.OnHandQty += baseQty;
                 if (line.CostPrice > 0)
                 {
                     p.CostPrice = WeightedAverageCost(
-                        p.OnHandQty - line.Qty, p.CostPrice, line.Qty, unitPrice);
+                        p.OnHandQty - baseQty, p.CostPrice, baseQty, costPerBase);
                     // Thẻ kho ghi giá nhập của lô này (trước đây ghi giá vốn bình quân sau nhập → giá trị nhập sai).
-                    unitCost = unitPrice;
+                    unitCost = costPerBase;
                 }
                 p.UpdatedAt = DateTime.UtcNow;
                 p.UpdatedBy = createdBy;
                 qtyAfter = p.OnHandQty;
-                txQtyChange = line.Qty;
+                txQtyChange = baseQty;
                 lineAmount = line.Qty * unitPrice;
             }
 
@@ -190,6 +216,7 @@ internal static class PosPurchaseStockHelper
                 .ToDictionaryAsync(v => v.Id);
 
         var netUnit = NetUnitCosts(receipt, lines);
+        var unitRates = await LoadUnitRatesByNameAsync(db, productIds);
         var touchedProducts = new HashSet<Guid>();
         foreach (var line in lines)
         {
@@ -240,21 +267,23 @@ internal static class PosPurchaseStockHelper
             }
             else
             {
-                if (p.OnHandQty < line.Qty)
+                var rate = UnitRate(unitRates, p.Id, line.UnitName);
+                var baseQty = line.Qty * rate;
+                if (p.OnHandQty < baseQty)
                     throw new InvalidOperationException($"Không đủ tồn để hủy phiếu: {line.ProductName}");
                 if (line.CostPrice > 0)
                 {
                     // Trả giá vốn bình quân về như trước khi nhập phiếu này.
                     var oldCost = p.CostPrice;
-                    p.CostPrice = ReverseWeightedAverageCost(p.OnHandQty, p.CostPrice, line.Qty, unitPrice);
+                    p.CostPrice = ReverseWeightedAverageCost(p.OnHandQty, p.CostPrice, baseQty, unitPrice / rate);
                     PosStockRecording.RecordCostChangeIfChanged(
-                        db, storeId, p.Id, null, p.OnHandQty - line.Qty, oldCost, p.CostPrice, createdBy);
+                        db, storeId, p.Id, null, p.OnHandQty - baseQty, oldCost, p.CostPrice, createdBy);
                 }
-                p.OnHandQty -= line.Qty;
+                p.OnHandQty -= baseQty;
                 p.UpdatedAt = DateTime.UtcNow;
                 p.UpdatedBy = createdBy;
                 qtyAfter = p.OnHandQty;
-                txQtyChange = line.Qty;
+                txQtyChange = baseQty;
             }
 
             db.PosStockTransactions.Add(new PosStockTransaction
@@ -425,6 +454,7 @@ internal static class PosPurchaseStockHelper
                 .Where(v => variantIds.Contains(v.Id) && v.StoreId == storeId && v.Deleted == null)
                 .ToDictionaryAsync(v => v.Id);
 
+        var unitRates = await LoadUnitRatesByNameAsync(db, productIds);
         var touchedProducts = new HashSet<Guid>();
         foreach (var line in lines)
         {
@@ -435,7 +465,7 @@ internal static class PosPurchaseStockHelper
 
             var baseDeduct = variant != null
                 ? PosVariantStockHelper.StockDeltaInBase(variant, line.Qty)
-                : line.Qty;
+                : line.Qty * UnitRate(unitRates, p.Id, line.UnitName);
 
             if (p.TrackExpiry)
             {
@@ -467,9 +497,9 @@ internal static class PosPurchaseStockHelper
             }
             else
             {
-                if (p.OnHandQty < line.Qty)
+                if (p.OnHandQty < baseDeduct)
                     throw new InvalidOperationException($"Không đủ tồn: {line.ProductName}");
-                p.OnHandQty -= line.Qty;
+                p.OnHandQty -= baseDeduct;
                 p.UpdatedAt = DateTime.UtcNow;
                 p.UpdatedBy = createdBy;
                 qtyAfter = p.OnHandQty;
@@ -737,6 +767,7 @@ internal static class PosPurchaseStockHelper
                 .Where(v => variantIds.Contains(v.Id) && v.StoreId == storeId && v.Deleted == null && v.IsActive)
                 .ToDictionaryAsync(v => v.Id);
 
+        var unitRates = await LoadUnitRatesByNameAsync(db, products.Keys);
         var touchedProducts = new HashSet<Guid>();
         var note = issue.Note?.Trim() ?? noteFallback;
         var allowNegative = await db.PosStoreSellSettings.AsNoTracking()
@@ -752,11 +783,13 @@ internal static class PosPurchaseStockHelper
 
             // Không bán âm: phiếu xuất không được lấy phần tồn đang giữ chỗ cho bàn / đơn tạm
             // (nếu không, lúc bàn đó thanh toán mới báo thiếu hàng).
+            // Dòng xuất theo ĐVT quy đổi (bảng đơn vị, không phải biến thể) → đổi ra đơn vị cơ bản.
+            var lineQty = variant != null ? line.Qty : line.Qty * UnitRate(unitRates, p.Id, line.UnitName);
             if (!allowNegative && p.ReservedQty > 0)
             {
                 var baseQty = variant != null
                     ? PosVariantStockHelper.StockDeltaInBase(variant, line.Qty)
-                    : line.Qty;
+                    : lineQty;
                 var available = p.OnHandQty - p.ReservedQty;
                 if (available < baseQty)
                     throw new InvalidOperationException(
@@ -766,7 +799,7 @@ internal static class PosPurchaseStockHelper
             }
 
             await ApplyFefoIssueLineAsync(
-                db, storeId, issue, p, variant, line.Qty, line.ProductName, note, createdBy, touchedProducts);
+                db, storeId, issue, p, variant, lineQty, line.ProductName, note, createdBy, touchedProducts);
         }
 
         foreach (var pid in touchedProducts)

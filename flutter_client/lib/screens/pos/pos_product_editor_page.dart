@@ -1,3 +1,4 @@
+import '../../widgets/pos/pos_unit_qty_convert.dart';
 import 'dart:async';
 import 'dart:convert';
 import 'dart:typed_data';
@@ -259,6 +260,7 @@ class _PosProductEditorPageState extends State<PosProductEditorPage>
   String _commissionMode = 'None';
   bool _commissionPerSession = false;
   late final TextEditingController _commissionPercentCtrl;
+  late final TextEditingController _loyaltyPercentCtrl;
   late final TextEditingController _commissionFixedCtrl;
   List<PosProductToppingOption> _toppingOptions = [];
   List<String> _toppingGroupIds = [];
@@ -432,10 +434,22 @@ class _PosProductEditorPageState extends State<PosProductEditorPage>
   }
 
   Future<void> _loadEditorSectionPrefs() async {
-    final sections = await loadPosProductEditorSections();
+    // Chưa tùy chỉnh → bộ mục gợi ý theo ngành của cửa hàng (bán lẻ: mã vạch, ĐVT, NCC…; spa: gói buổi, hoa hồng…).
+    var sections = await loadSavedPosProductEditorSections();
+    if (sections == null) {
+      var profile = PosSellProfile.retail;
+      try {
+        final res = await _api.getPosSellSettings();
+        if (res['isSuccess'] == true && res['data'] is Map) {
+          profile = PosStoreSellSettingsDto.fromJson(Map<String, dynamic>.from(res['data'] as Map)).sellProfile;
+        }
+      } catch (_) {}
+      sections = {...PosProductIndustryPreset.forProfile(profile).sections};
+    }
     if (!mounted) return;
+    final resolved = sections;
     setState(() {
-      _editorSections = sections;
+      _editorSections = resolved;
       _editorPrefsLoaded = true;
       _syncTabController();
     });
@@ -485,6 +499,7 @@ class _PosProductEditorPageState extends State<PosProductEditorPage>
     _comboTrackStock = p?.comboTrackStock ?? false;
     _commissionMode = p?.commissionMode ?? 'None';
     _commissionPerSession = p?.commissionPerSession ?? false;
+    _loyaltyPercentCtrl = TextEditingController(text: _fmtPercent(p?.loyaltyPercent));
     _commissionPercentCtrl = TextEditingController(
         text: tr(_fmtInputMoney(p?.commissionPercent ?? 0)));
     _commissionFixedCtrl = TextEditingController(
@@ -721,6 +736,7 @@ class _PosProductEditorPageState extends State<PosProductEditorPage>
       _commissionMode = data.commissionMode;
       _commissionPerSession = data.commissionPerSession;
       _commissionPercentCtrl.text = _fmtInputMoney(data.commissionPercent);
+      _loyaltyPercentCtrl.text = _fmtPercent(data.loyaltyPercent);
       _commissionFixedCtrl.text = _fmtInputMoney(data.commissionFixed);
       _toppingOptions =
           List<PosProductToppingOption>.from(data.toppingOptions);
@@ -904,6 +920,7 @@ class _PosProductEditorPageState extends State<PosProductEditorPage>
         await _api.deletePosProductUnit(productId, e.key);
       }
     }
+    invalidatePosConversionUnits(productId);
 
     final syncVariants = _variants
         .map((v) => {
@@ -942,6 +959,7 @@ class _PosProductEditorPageState extends State<PosProductEditorPage>
     _costCtrl.dispose();
     _priceCtrl.dispose();
     _commissionPercentCtrl.dispose();
+    _loyaltyPercentCtrl.dispose();
     _commissionFixedCtrl.dispose();
     _stockCtrl.dispose();
     _minStockCtrl.dispose();
@@ -974,6 +992,60 @@ class _PosProductEditorPageState extends State<PosProductEditorPage>
 
   double _parseNum(String s) =>
       parseFormattedNumber(s)?.toDouble() ?? 0;
+
+  static String _fmtPercent(double? v) {
+    if (v == null || v <= 0) return '';
+    return v == v.roundToDouble() ? v.toStringAsFixed(0) : v.toString();
+  }
+
+  /// % tích điểm riêng của hàng (0 < x ≤ 100); trống / 0 = theo mức chung cửa hàng.
+  double? get _loyaltyPercentValue {
+    final v = double.tryParse(_loyaltyPercentCtrl.text.trim().replaceAll(',', '.'));
+    if (v == null || v <= 0) return null;
+    return v > 100 ? 100 : v;
+  }
+
+  /// Ô «% tích lũy cho khách»: VD hộp thịt 100.000đ, 20% → khách được 20.000đ vào ví điểm,
+  /// lần sau dùng trừ vào đơn mới. Tính trên tiền thực trả của dòng (sau giảm giá / voucher).
+  Widget _buildLoyaltyPercentField() {
+    return Padding(
+      padding: const EdgeInsets.only(top: 12),
+      child: AnimatedBuilder(
+        animation: Listenable.merge([_loyaltyPercentCtrl, _priceCtrl]),
+        builder: (context, _) {
+          final pct = _loyaltyPercentValue;
+          final price = _parseNum(_priceCtrl.text);
+          final earn = pct == null ? 0.0 : (price * pct / 100).roundToDouble();
+          return Column(
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              TextField(
+                controller: _loyaltyPercentCtrl,
+                keyboardType: const TextInputType.numberWithOptions(decimal: true),
+                inputFormatters: [FilteringTextInputFormatter.allow(RegExp(r'[0-9.,]'))],
+                decoration: PosTheme.inputDecoration(
+                  label: '% tích lũy cho khách',
+                  hint: 'Để trống = tích theo mức chung của cửa hàng',
+                ).copyWith(
+                  suffixText: '%',
+                  prefixIcon: const Icon(Icons.loyalty_outlined, size: 20),
+                ),
+              ),
+              const SizedBox(height: 4),
+              Text(
+                pct == null
+                    ? tr('Khách mua món này được tích điểm theo cài đặt chung (Thiết lập SBOX › Tích điểm).')
+                    : price > 0
+                        ? tr('Bán ${_fmtInputMoney(price)}đ → khách tích ${_fmtInputMoney(earn)}đ vào ví điểm, lần sau trừ vào đơn mới.')
+                        : tr('Khách được tích ${_fmtPercent(pct)}% tiền thực trả của món này vào ví điểm.'),
+                style: TextStyle(fontSize: 12, color: pct == null ? Colors.black54 : Colors.green.shade700),
+              ),
+            ],
+          );
+        },
+      ),
+    );
+  }
 
   Future<void> _pickImage() async {
     final picked = await pickSingleImageWithCamera(context);
@@ -1068,6 +1140,7 @@ class _PosProductEditorPageState extends State<PosProductEditorPage>
       'commissionPercent': _parseNum(_commissionPercentCtrl.text),
       'commissionFixed': _parseNum(_commissionFixedCtrl.text),
       'commissionPerSession': _commissionPerSession,
+      'loyaltyPercent': _loyaltyPercentValue,
       'toppings': (_allowToppings && !_isTopping)
           ? _toppingOptions
               .map((t) => {
@@ -1977,7 +2050,10 @@ class _PosProductEditorPageState extends State<PosProductEditorPage>
                 ),
           _kvSection(
             title: 'Giá vốn, giá bán',
-            child: Row(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              children: [
+            Row(
               children: [
                 Expanded(
                   child: TextField(
@@ -1998,6 +2074,9 @@ class _PosProductEditorPageState extends State<PosProductEditorPage>
                     decoration: PosTheme.inputDecoration(label: 'Giá bán'),
                   ),
                 ),
+              ],
+            ),
+            _buildLoyaltyPercentField(),
               ],
             ),
           ),
@@ -2412,6 +2491,7 @@ class _PosProductEditorPageState extends State<PosProductEditorPage>
                     ),
                   ],
                 ),
+                _buildLoyaltyPercentField(),
                 _buildProductVatSection(),
               ],
             ),
@@ -3808,6 +3888,7 @@ class _PosProductEditorPageState extends State<PosProductEditorPage>
       'commissionPercent': _parseNum(_commissionPercentCtrl.text),
       'commissionFixed': _parseNum(_commissionFixedCtrl.text),
       'commissionPerSession': _commissionPerSession,
+      'loyaltyPercent': _loyaltyPercentValue,
         'toppings': (_allowToppings && !_isTopping)
             ? _toppingOptions
                 .map((t) => {

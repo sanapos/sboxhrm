@@ -32,6 +32,9 @@ public class GetEmployeeDashboardHandler(
 {
     private const int VnOffsetHours = 7;
 
+    /// <summary>Biên lấy lượt chấm quanh khung ca (vào sớm / ra muộn tối đa).</summary>
+    private const int PunchWindowHours = 4;
+
     private static readonly string[] ActiveMobileStatuses =
         ["pending", "approved", "auto_approved"];
 
@@ -199,17 +202,14 @@ public class GetEmployeeDashboardHandler(
                 deviceUserIds, startLocal, rangeEndExclusive, period, cancellationToken);
         }
 
-        var attendances = await attendanceRepository.GetAllAsync(
+        // Lấy dư 1 ngày cuối kỳ: ca đêm ngày cuối (22:00→06:00) có giờ ra sang sáng hôm sau.
+        var attendances = (await attendanceRepository.GetAllAsync(
             filter: a => a.EmployeeId != null
                 && deviceUserIds.Contains(a.EmployeeId.Value)
-                && a.AttendanceTime >= startLocal
-                && a.AttendanceTime < rangeEndExclusive,
+                && a.AttendanceTime >= startLocal.AddHours(-PunchWindowHours)
+                && a.AttendanceTime < rangeEndExclusive.AddDays(1),
             orderBy: q => q.OrderBy(a => a.AttendanceTime),
-            cancellationToken: cancellationToken);
-
-        var attendanceByDate = attendances
-            .GroupBy(a => a.AttendanceTime.Date)
-            .ToDictionary(g => g.Key, g => g.OrderBy(a => a.AttendanceTime).ToList());
+            cancellationToken: cancellationToken)).ToList();
 
         var presentDays = 0;
         var lateCheckIns = 0;
@@ -219,8 +219,16 @@ public class GetEmployeeDashboardHandler(
 
         foreach (var shift in shifts)
         {
-            var shiftDate = shift.StartTime.Date;
-            if (!attendanceByDate.TryGetValue(shiftDate, out var dayPunches) || dayPunches.Count == 0)
+            // Lượt chấm thuộc ca = trong khung [vào ca − 4h, ra ca + 4h] (Shift.Start/End là ngày-giờ đầy đủ)
+            // → ca qua đêm có giờ vào hôm trước, giờ ra sáng hôm sau vẫn ghép đúng một ca
+            //   (trước đây gom theo ngày lịch của giờ vào → mất giờ ra, tính về sớm / 0 giờ làm).
+            var winFrom = shift.StartTime.AddHours(-PunchWindowHours);
+            var winTo = shift.EndTime.AddHours(PunchWindowHours);
+            var dayPunches = attendances
+                .Where(a => a.AttendanceTime >= winFrom && a.AttendanceTime <= winTo)
+                .OrderBy(a => a.AttendanceTime)
+                .ToList();
+            if (dayPunches.Count == 0)
                 continue;
 
             presentDays++;

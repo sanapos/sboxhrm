@@ -1,3 +1,4 @@
+import '../widgets/pos/pos_unit_qty_convert.dart';
 import 'dart:async';
 
 import 'package:flutter/material.dart';
@@ -666,6 +667,18 @@ class _PosStockIssueEditorScreenState extends State<PosStockIssueEditorScreen> {
           icon: const Icon(Icons.add, size: 18, color: _blue),
           onPressed: () => _adjustQty(l, 1),
         ),
+        if (l.variantId == null)
+          PosUnitConvertButton(
+            api: _api,
+            compact: true,
+            productId: l.productId,
+            productName: l.productName,
+            baseUnit: l.unitName,
+            onQty: (v) {
+              setState(() => l.qtyCtrl.text = v == v.roundToDouble() ? v.toStringAsFixed(0) : v.toString());
+              _onLineFieldChanged();
+            },
+          ),
       ],
     );
   }

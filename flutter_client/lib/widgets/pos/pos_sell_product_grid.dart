@@ -714,17 +714,24 @@ class PosSellProductGridState extends State<PosSellProductGrid> {
   double _qtyInCart(String productId) =>
       widget.cartQtyByProductId[productId] ?? 0;
 
+  /// Thứ tự «món đã chọn lên đầu» chốt lúc danh sách được tải / tìm — bấm thêm món không làm cả danh sách
+  /// nhảy chỗ (trước đây món vừa bấm bay lên đầu → lần bấm kế tiếp trúng món khác).
+  List<PosProduct>? _pinSource;
+  Map<String, int> _pinOrder = const {};
+
   List<PosProduct> get _sortedSellListProducts {
     // SP đã chọn nổi lên đầu theo thứ tự đặt (món chọn trước xếp trước).
     // Món tạm khóa luôn xuống cuối menu.
-    if (widget.cartQtyByProductId.isEmpty) {
-      return _withSoldOutLast(_products);
+    if (!identical(_pinSource, _products)) {
+      _pinSource = _products;
+      final snap = <String, int>{};
+      var i = 0;
+      for (final e in widget.cartQtyByProductId.entries) {
+        if (e.value > 0) snap[e.key] = i++;
+      }
+      _pinOrder = snap;
     }
-    final order = <String, int>{};
-    var i = 0;
-    for (final e in widget.cartQtyByProductId.entries) {
-      if (e.value > 0) order[e.key] = i++;
-    }
+    final order = _pinOrder;
     if (order.isEmpty) return _withSoldOutLast(_products);
     final list = List<PosProduct>.from(_products);
     list.sort((a, b) {

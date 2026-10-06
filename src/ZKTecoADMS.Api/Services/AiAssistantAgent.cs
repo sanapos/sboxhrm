@@ -44,6 +44,8 @@ public sealed class AiAssistantAgent(
             " tạo ", " thêm ", " lập ", " ghi ", " sửa ", " đổi ", "cập nhật", "điều chỉnh", "phạt", "thưởng", " ứng ",
             "tăng ca", "làm thêm giờ", "quên chấm", "bổ sung công", "chấm bù", "phiếu thu", "phiếu chi", "chi tiền", "thu tiền",
             "bán cho", "lên đơn", "tạo đơn", "xuất hóa đơn", "lập hóa đơn", "ghi nợ",
+            "nhập kho", "nhập hàng", "kiểm kho", "kiểm kê", "xuất hủy", "hủy hàng", "dùng nội bộ", "xuất dùng",
+            "trả hàng", "trả lại", "voucher", "mã giảm", "khuyến mãi", "khuyến mại", "giảm giá", "mua 1 tặng", "tặng 1",
         ];
         // «Bán 2 Coca cho…», «Bán cho chị Lan…» — câu mở đầu bằng «bán» là lệnh lập hóa đơn.
         return keys.Any(q.Contains) || q.StartsWith(" bán ", StringComparison.Ordinal);

@@ -1,3 +1,4 @@
+import '../../../widgets/pos/pos_unit_qty_convert.dart';
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
 
@@ -344,6 +345,17 @@ class _WhMobilePurchaseReceiptEditorState extends State<WhMobilePurchaseReceiptE
                             readOnly: _readOnly,
                             onChanged: (v) => setState(() => l.qty = v),
                           ),
+                          if (!_readOnly && l.variantId == null)
+                            Align(
+                              alignment: Alignment.centerRight,
+                              child: PosUnitConvertButton(
+                                api: _api,
+                                productId: l.productId,
+                                productName: l.name,
+                                baseUnit: l.unit ?? '',
+                                onQty: (v) => setState(() => l.qty = v),
+                              ),
+                            ),
                           const SizedBox(height: 10),
                           InkWell(
                             onTap: _readOnly

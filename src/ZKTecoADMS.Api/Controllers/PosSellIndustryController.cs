@@ -29,6 +29,9 @@ public partial class PosSellIndustryController(
     ISystemNotificationService notifications,
     IModulePermissionService permissionService) : AuthenticatedControllerBase
 {
+    /// <summary>Kiểu tính giờ/phút/block/ngày — dùng trong truy vấn EF (không gọi IsTimed trong LINQ).</summary>
+    static readonly PosServiceBillingMode[] timedModes = PosServiceBillingHelper.TimedModes;
+
     void NotifyFloorChanged(
         Guid storeId,
         string reason,
@@ -71,7 +74,8 @@ public partial class PosSellIndustryController(
         decimal LoyaltyRedeemValue = 100,
         decimal LoyaltyMaxRedeemPercent = 100,
         bool EnableStaffCommission = false,
-        bool RequireStaffOnService = false);
+        bool RequireStaffOnService = false,
+        bool LoyaltyRefundRedeemOnReturn = false);
 
     public record SellSettingsSaveDto(
         string? SellProfile = null,
@@ -98,7 +102,8 @@ public partial class PosSellIndustryController(
         decimal? LoyaltyRedeemValue = null,
         decimal? LoyaltyMaxRedeemPercent = null,
         bool? EnableStaffCommission = null,
-        bool? RequireStaffOnService = null);
+        bool? RequireStaffOnService = null,
+        bool? LoyaltyRefundRedeemOnReturn = null);
 
     [HttpGet("sell-settings")]
     [RequireModulePermission("PosSell", ModulePermissionAction.View)]
@@ -190,7 +195,7 @@ public partial class PosSellIndustryController(
                 var ok = await db.PosProducts.AnyAsync(p =>
                     p.Id == pid && p.StoreId == storeId && p.Deleted == null
                     && p.ProductType == PosProductType.Service
-                    && PosServiceBillingHelper.IsTimed(p.ServiceBillingMode));
+                    && timedModes.Contains(p.ServiceBillingMode));
                 if (!ok)
                     return BadRequest(AppResponse<SellSettingsDto>.Fail(
                         "SP tính giờ mặc định không hợp lệ (cần dịch vụ theo giờ/phút/block/ngày)"));
@@ -290,6 +295,8 @@ public partial class PosSellIndustryController(
             s.LoyaltyRedeemValue = Math.Max(0, dto.LoyaltyRedeemValue.Value);
         if (dto.LoyaltyMaxRedeemPercent.HasValue)
             s.LoyaltyMaxRedeemPercent = Math.Clamp(dto.LoyaltyMaxRedeemPercent.Value, 1, 100);
+        if (dto.LoyaltyRefundRedeemOnReturn.HasValue)
+            s.LoyaltyRefundRedeemOnReturn = dto.LoyaltyRefundRedeemOnReturn.Value;
         if (dto.EnableStaffCommission.HasValue)
             s.EnableStaffCommission = dto.EnableStaffCommission.Value;
         if (dto.RequireStaffOnService.HasValue)
@@ -363,7 +370,7 @@ public partial class PosSellIndustryController(
         Math.Clamp(s.ReportDayStartHour, 0, 23),
         s.DefaultHourlyProductId, s.ExtraJson,
         s.LoyaltyEnabled, s.LoyaltyEarnPerAmount, s.LoyaltyRedeemValue, s.LoyaltyMaxRedeemPercent,
-        s.EnableStaffCommission, s.RequireStaffOnService);
+        s.EnableStaffCommission, s.RequireStaffOnService, s.LoyaltyRefundRedeemOnReturn);
 
     // ── Areas / resources ─────────────────────────────────────────────────────
 
@@ -1071,7 +1078,7 @@ public partial class PosSellIndustryController(
             var productOk = await db.PosProducts.AnyAsync(p =>
                 p.Id == defaultServiceProductId && p.StoreId == storeId && p.Deleted == null
                 && p.ProductType == PosProductType.Service
-                && PosServiceBillingHelper.IsTimed(p.ServiceBillingMode));
+                && timedModes.Contains(p.ServiceBillingMode));
             if (!productOk)
                 return BadRequest(AppResponse<object>.Fail(
                     "SP tính giờ của bàn không hợp lệ (cần dịch vụ theo giờ/phút/block/ngày)"));
@@ -1143,7 +1150,7 @@ public partial class PosSellIndustryController(
             var productOk = await db.PosProducts.AnyAsync(p =>
                 p.Id == defaultServiceProductId && p.StoreId == storeId && p.Deleted == null
                 && p.ProductType == PosProductType.Service
-                && PosServiceBillingHelper.IsTimed(p.ServiceBillingMode));
+                && timedModes.Contains(p.ServiceBillingMode));
             if (!productOk)
                 return BadRequest(AppResponse<object>.Fail(
                     "SP tính giờ của bàn không hợp lệ (cần dịch vụ theo giờ/phút/block/ngày)"));
@@ -1590,14 +1597,14 @@ public partial class PosSellIndustryController(
             var hasTimed = await db.PosProducts.AsNoTracking().AnyAsync(p =>
                 lineProductIds.Contains(p.Id)
                 && p.ProductType == PosProductType.Service
-                && PosServiceBillingHelper.IsTimed(p.ServiceBillingMode));
+                && timedModes.Contains(p.ServiceBillingMode));
             if (hasTimed) return;
         }
 
         var product = await db.PosProducts.AsNoTracking().FirstOrDefaultAsync(p =>
             p.Id == productId && p.StoreId == storeId && p.Deleted == null && p.IsActive
             && p.ProductType == PosProductType.Service
-            && PosServiceBillingHelper.IsTimed(p.ServiceBillingMode));
+            && timedModes.Contains(p.ServiceBillingMode));
         if (product == null) return;
 
         var unitPrice = product.BasePrice;

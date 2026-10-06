@@ -452,6 +452,8 @@ class PosProduct {
   final double? sellableQty;
   final int? warrantyMonths;
   final bool requiresSerial;
+  /// % giá trị dòng (sau giảm giá) tích vào điểm cho khách — VD 20% hộp thịt 100k = 20.000đ. null = theo mức chung cửa hàng.
+  final double? loyaltyPercent;
   final bool allowDecimalQty;
   final bool allowAreaQty;
   /// Hiện ô chiều dài khi nhập số lượng theo kích thước.
@@ -551,6 +553,7 @@ class PosProduct {
     this.sellableQty,
     this.warrantyMonths,
     this.requiresSerial = false,
+    this.loyaltyPercent,
     this.allowDecimalQty = false,
     this.allowAreaQty = false,
     this.areaLength = true,
@@ -737,6 +740,9 @@ class PosProduct {
           : null,
       requiresSerial:
           json['requiresSerial'] == true || json['RequiresSerial'] == true,
+      loyaltyPercent: (json['loyaltyPercent'] ?? json['LoyaltyPercent']) is num
+          ? ((json['loyaltyPercent'] ?? json['LoyaltyPercent']) as num).toDouble()
+          : null,
       allowDecimalQty:
           json['allowDecimalQty'] == true || json['AllowDecimalQty'] == true,
       allowAreaQty:
@@ -866,6 +872,7 @@ class PosProduct {
       if (attributes != null) 'attributes': attributes,
       if (warrantyMonths != null && warrantyMonths! > 0) 'warrantyMonths': warrantyMonths,
       if (requiresSerial) 'requiresSerial': true,
+      'loyaltyPercent': (loyaltyPercent ?? 0) > 0 ? loyaltyPercent : null,
       if (allowDecimalQty) 'allowDecimalQty': true,
       if (allowAreaQty) 'allowAreaQty': true,
       'allowAreaLength': areaLength,
@@ -991,6 +998,7 @@ class PosProduct {
       sortOrder: sortOrder ?? this.sortOrder,
       isDailySoldOut: isDailySoldOut ?? this.isDailySoldOut,
       requiresSerial: this.requiresSerial,
+      loyaltyPercent: loyaltyPercent,
       allowDecimalQty: allowDecimalQty ?? this.allowDecimalQty,
       allowAreaQty: allowAreaQty ?? this.allowAreaQty,
       areaLength: areaLength ?? this.areaLength,
@@ -1059,6 +1067,7 @@ class PosProduct {
         'isFavorite': isFavorite,
         'isDailySoldOut': isDailySoldOut,
         'requiresSerial': requiresSerial,
+        if (loyaltyPercent != null) 'loyaltyPercent': loyaltyPercent,
         'allowDecimalQty': allowDecimalQty,
         'allowAreaQty': allowAreaQty,
         'allowAreaLength': areaLength,

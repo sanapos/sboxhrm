@@ -276,6 +276,9 @@ class _PosProductExpansionPanelState extends State<PosProductExpansionPanel> {
                         ? widget.moneyFmt.format(displayCost)
                         : '—'),
                     _infoCell('Giá bán', widget.moneyFmt.format(displayPrice)),
+                    if ((_p.loyaltyPercent ?? 0) > 0)
+                      _infoCell('Tích lũy cho khách',
+                          '${_p.loyaltyPercent!.toStringAsFixed(_p.loyaltyPercent! % 1 == 0 ? 0 : 1)}% (≈ ${widget.moneyFmt.format((displayPrice * _p.loyaltyPercent! / 100).round())}đ)'),
                     if (tracksStock)
                       _infoCell('Tồn kho', widget.moneyFmt.format(displayStock)),
                     if (tracksStock) _infoCell('Trọng lượng', weightStr),

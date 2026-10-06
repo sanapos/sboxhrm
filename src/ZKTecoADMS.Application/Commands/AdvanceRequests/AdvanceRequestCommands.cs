@@ -1,3 +1,4 @@
+using ZKTecoADMS.Application.Helpers;
 using Microsoft.AspNetCore.Identity;
 using Microsoft.EntityFrameworkCore;
 using ZKTecoADMS.Application.DTOs.AdvanceRequests;
@@ -756,7 +757,7 @@ public class PayAdvanceRequestHandler(
                     Type = "AdvancePayment",
                     ForMonth = advanceRequest.ForMonth,
                     ForYear = advanceRequest.ForYear,
-                    TransactionDate = DateTime.UtcNow,
+                    TransactionDate = VnTimeHelper.NowVn(),
                     Amount = payoutAmount,
                     Description = $"Thanh toán ứng lương ({paymentMethodLabel}) - {employeeName}",
                     PaymentMethod = paymentMethodLabel,

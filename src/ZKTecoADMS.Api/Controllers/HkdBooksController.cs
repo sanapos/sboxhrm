@@ -6,6 +6,7 @@ using ZKTecoADMS.Api.Authorization;
 using ZKTecoADMS.Api.Controllers.Base;
 using ZKTecoADMS.Application.Constants;
 using ZKTecoADMS.Application.DTOs.Hkd;
+using ZKTecoADMS.Application.Helpers;
 using ZKTecoADMS.Application.Models;
 using ZKTecoADMS.Domain.Entities;
 using ZKTecoADMS.Domain.Enums;
@@ -158,15 +159,14 @@ public class HkdBooksController(ZKTecoDbContext dbContext) : AuthenticatedContro
 
         var orders = await LoadCompletedOrdersAsync(storeId, fromDt, toDt);
 
-        var expenses = await dbContext.CashTransactions.AsNoTracking()
+        var expenses = await CashInPeriod(dbContext.CashTransactions.AsNoTracking(), fromDt, toDt)
             .Include(t => t.Category)
             .Where(t => t.StoreId == storeId
                         && t.Deleted == null
                         && t.Status == CashTransactionStatus.Completed
                         && t.Type == CashTransactionType.Expense
                         && !NonCostCashCategories.Contains(t.Category.Name)
-                        && t.TransactionDate >= fromDt
-                        && t.TransactionDate < toDt)
+)
             .OrderBy(t => t.TransactionDate)
             .ThenBy(t => t.TransactionCode)
             .ToListAsync();
@@ -276,12 +276,11 @@ public class HkdBooksController(ZKTecoDbContext dbContext) : AuthenticatedContro
         var (fromDt, toDt, periodLabel) = ResolvePeriod(from, to);
         var profile = await LoadProfileAsync(storeId);
 
-        var txs = await dbContext.CashTransactions.AsNoTracking()
+        var txs = await CashInPeriod(dbContext.CashTransactions.AsNoTracking(), fromDt, toDt)
             .Where(t => t.StoreId == storeId
                         && t.Deleted == null
                         && t.Status == CashTransactionStatus.Completed
-                        && t.TransactionDate >= fromDt
-                        && t.TransactionDate < toDt)
+)
             .OrderBy(t => t.TransactionDate)
             .ThenBy(t => t.TransactionCode)
             .ToListAsync();
@@ -327,7 +326,7 @@ public class HkdBooksController(ZKTecoDbContext dbContext) : AuthenticatedContro
         foreach (var o in orders)
         {
             ws.Cell(row, 1).Value = idx++;
-            ws.Cell(row, 2).Value = (o.SaleDate ?? o.CreatedAt).ToString("dd/MM/yyyy");
+            ws.Cell(row, 2).Value = VnDay(o.SaleDate ?? o.CreatedAt);
             ws.Cell(row, 3).Value = BuildRevenueDescription(o, profile.Industry);
             ws.Cell(row, 4).Value = o.Total;
             ws.Cell(row, 4).Style.NumberFormat.Format = "#,##0";
@@ -386,7 +385,7 @@ public class HkdBooksController(ZKTecoDbContext dbContext) : AuthenticatedContro
             var linePit = RoundMoney(o.Total * (decimal)(profile.PitPercent / 100.0));
             ws.Cell(row, 1).Value = idx++;
             ws.Cell(row, 2).Value = o.OrderNo;
-            ws.Cell(row, 3).Value = (o.SaleDate ?? o.CreatedAt).ToString("dd/MM/yyyy");
+            ws.Cell(row, 3).Value = VnDay(o.SaleDate ?? o.CreatedAt);
             ws.Cell(row, 4).Value = BuildRevenueDescription(o, profile.Industry);
             ws.Cell(row, 5).Value = o.Total;
             ws.Cell(row, 5).Style.NumberFormat.Format = "#,##0";
@@ -452,7 +451,7 @@ public class HkdBooksController(ZKTecoDbContext dbContext) : AuthenticatedContro
             var lineVat = RoundMoney(o.Total * (decimal)(profile.VatPercent / 100.0));
             ws.Cell(row, 1).Value = idx++;
             ws.Cell(row, 2).Value = o.OrderNo;
-            ws.Cell(row, 3).Value = (o.SaleDate ?? o.CreatedAt).ToString("dd/MM/yyyy");
+            ws.Cell(row, 3).Value = VnDay(o.SaleDate ?? o.CreatedAt);
             ws.Cell(row, 4).Value = BuildRevenueDescription(o, profile.Industry);
             ws.Cell(row, 5).Value = o.Total;
             ws.Cell(row, 5).Style.NumberFormat.Format = "#,##0";
@@ -518,7 +517,7 @@ public class HkdBooksController(ZKTecoDbContext dbContext) : AuthenticatedContro
         foreach (var o in orders)
         {
             rows.Add((
-                o.SaleDate ?? o.CreatedAt,
+                VnTimeHelper.UtcToVn(o.SaleDate ?? o.CreatedAt),
                 o.OrderNo,
                 BuildRevenueDescription(o, profile.Industry),
                 "Doanh thu",
@@ -536,7 +535,7 @@ public class HkdBooksController(ZKTecoDbContext dbContext) : AuthenticatedContro
         }
         foreach (var r in receipts)
         {
-            var when = r.ImportDate ?? r.CreatedAt;
+            var when = VnTimeHelper.UtcToVn(r.ImportDate ?? r.CreatedAt);
             var supplier = r.Supplier?.Name;
             var desc = string.IsNullOrWhiteSpace(supplier)
                 ? "Nhập hàng / mua hàng"
@@ -689,7 +688,7 @@ public class HkdBooksController(ZKTecoDbContext dbContext) : AuthenticatedContro
 
                     ws.Cell(row, 1).Value = idx++;
                     ws.Cell(row, 2).Value = t.ReferenceNo ?? StockTxnLabel(t.TransactionType);
-                    ws.Cell(row, 3).Value = t.CreatedAt.ToString("dd/MM/yyyy");
+                    ws.Cell(row, 3).Value = VnDay(t.CreatedAt);
                     ws.Cell(row, 4).Value = BuildStockDescription(t);
                     ws.Cell(row, 5).Value = product.Unit;
                     ws.Cell(row, 6).Value = price;
@@ -882,7 +881,7 @@ public class HkdBooksController(ZKTecoDbContext dbContext) : AuthenticatedContro
                 {
                     ["stt"] = idx++,
                     ["code"] = o.OrderNo,
-                    ["date"] = o.SaleAt.ToString("dd/MM/yyyy"),
+                    ["date"] = VnDay(o.SaleAt),
                     ["description"] = o.Desc,
                     ["amount"] = o.Total,
                     ["vat"] = RoundMoney(o.Total * (decimal)(profile.VatPercent / 100.0)),
@@ -918,7 +917,7 @@ public class HkdBooksController(ZKTecoDbContext dbContext) : AuthenticatedContro
                 {
                     ["stt"] = idx++,
                     ["code"] = o.OrderNo,
-                    ["date"] = o.SaleAt.ToString("dd/MM/yyyy"),
+                    ["date"] = VnDay(o.SaleAt),
                     ["description"] = o.Desc,
                     ["amount"] = o.Total,
                     ["vat"] = RoundMoney(o.Total * (decimal)(profile.VatPercent / 100.0)),
@@ -947,7 +946,7 @@ public class HkdBooksController(ZKTecoDbContext dbContext) : AuthenticatedContro
             dto.Rows.Add(new Dictionary<string, object?>
             {
                 ["stt"] = i++,
-                ["date"] = o.SaleAt.ToString("dd/MM/yyyy"),
+                ["date"] = VnDay(o.SaleAt),
                 ["description"] = o.Desc,
                 ["amount"] = o.Total,
             });
@@ -960,14 +959,13 @@ public class HkdBooksController(ZKTecoDbContext dbContext) : AuthenticatedContro
         HkdProfile profile, string periodLabel)
     {
         var allOrders = await LoadCompletedOrdersAsync(storeId, fromDt, toDt);
-        var expenseQuery = dbContext.CashTransactions.AsNoTracking()
+        var expenseQuery = CashInPeriod(dbContext.CashTransactions.AsNoTracking(), fromDt, toDt)
             .Where(t => t.StoreId == storeId
                         && t.Deleted == null
                         && t.Status == CashTransactionStatus.Completed
                         && t.Type == CashTransactionType.Expense
                         && !NonCostCashCategories.Contains(t.Category.Name)
-                        && t.TransactionDate >= fromDt
-                        && t.TransactionDate < toDt);
+);
         var receiptQuery = dbContext.PosStockReceipts.AsNoTracking()
             .Where(r => r.StoreId == storeId
                         && r.Deleted == null
@@ -1005,6 +1003,8 @@ public class HkdBooksController(ZKTecoDbContext dbContext) : AuthenticatedContro
             .Select(t => new
             {
                 t.TransactionDate,
+                t.CreatedAt,
+                t.SourceType,
                 t.TransactionCode,
                 t.Description,
                 t.ContactName,
@@ -1029,7 +1029,7 @@ public class HkdBooksController(ZKTecoDbContext dbContext) : AuthenticatedContro
         foreach (var o in orderSlice)
         {
             rows.Add((
-                o.SaleAt,
+                VnTimeHelper.UtcToVn(o.SaleAt),
                 o.OrderNo,
                 o.Desc,
                 o.Total < 0 ? "Giảm doanh thu (trả hàng)" : "Doanh thu",
@@ -1052,7 +1052,7 @@ public class HkdBooksController(ZKTecoDbContext dbContext) : AuthenticatedContro
                 : $"Nhập hàng — {r.SupplierName}";
             if (!string.IsNullOrWhiteSpace(r.Note))
                 desc = $"{desc} — {r.Note}";
-            rows.Add((r.When, r.ReceiptNo, desc, "Chi phí (nhập hàng)", r.Amount));
+            rows.Add((VnTimeHelper.UtcToVn(r.When), r.ReceiptNo, desc, "Chi phí (nhập hàng)", r.Amount));
         }
         rows = rows.OrderBy(x => x.Date).ThenBy(x => x.Code).Take(PreviewRowLimit).ToList();
         var truncated = rowCount > rows.Count;
@@ -1245,7 +1245,7 @@ public class HkdBooksController(ZKTecoDbContext dbContext) : AuthenticatedContro
                         ["sku"] = product.Code,
                         ["productName"] = product.Name,
                         ["code"] = t.ReferenceNo ?? StockTxnLabel(t.TransactionType),
-                        ["date"] = t.CreatedAt.ToString("dd/MM/yyyy"),
+                        ["date"] = VnDay(t.CreatedAt),
                         ["description"] = BuildStockDescription(t),
                         ["unit"] = product.Unit,
                         ["price"] = price,
@@ -1296,12 +1296,11 @@ public class HkdBooksController(ZKTecoDbContext dbContext) : AuthenticatedContro
         Guid storeId, DateTime fromDt, DateTime toDt,
         HkdProfile profile, string periodLabel)
     {
-        var query = dbContext.CashTransactions.AsNoTracking()
+        var query = CashInPeriod(dbContext.CashTransactions.AsNoTracking(), fromDt, toDt)
             .Where(t => t.StoreId == storeId
                         && t.Deleted == null
                         && t.Status == CashTransactionStatus.Completed
-                        && t.TransactionDate >= fromDt
-                        && t.TransactionDate < toDt);
+);
         var count = await query.CountAsync();
         var totalIn = count == 0
             ? 0
@@ -1318,6 +1317,8 @@ public class HkdBooksController(ZKTecoDbContext dbContext) : AuthenticatedContro
             {
                 t.TransactionCode,
                 t.TransactionDate,
+                t.CreatedAt,
+                t.SourceType,
                 t.ContactName,
                 t.Description,
                 t.Type,
@@ -1501,11 +1502,24 @@ public class HkdBooksController(ZKTecoDbContext dbContext) : AuthenticatedContro
         }
     }
 
+    /// <summary>
+    /// Ngày ghi sổ = ngày lịch VN. Giờ bán / thu chi / nhập hàng lưu UTC — in thẳng .ToString() khiến đơn
+    /// 00:00–06:59 sáng ghi sang ngày hôm trước (đơn sáng mùng 1 rơi về cuối tháng trước trên sổ thuế).
+    /// </summary>
+    /// <summary>
+    /// TransactionDate giờ luôn là giờ VN local → lọc theo ngày lịch VN trực tiếp.
+    /// </summary>
+    private static IQueryable<CashTransaction> CashInPeriod(IQueryable<CashTransaction> q, DateTime fromUtc, DateTime toUtc) =>
+        q.Where(t => t.TransactionDate >= fromUtc.AddHours(7) && t.TransactionDate < toUtc.AddHours(7));
+
+    private static string VnDay(DateTime utc) =>
+        VnTimeHelper.UtcToVn(utc).ToString("dd/MM/yyyy");
+
     private static (DateTime fromDt, DateTime toDt, string periodLabel) ResolvePeriod(
         DateTime? from, DateTime? to)
     {
         // Sổ HKD: ngày lịch VN → cửa sổ UTC+7 (không qua đêm; giờ cắt = 0).
-        var vnNow = ZKTecoADMS.Application.Helpers.VnTimeHelper.NowVn().Date;
+        var vnNow = VnTimeHelper.NowVn().Date;
         var monthStart = new DateTime(vnNow.Year, vnNow.Month, 1);
         var (fromUtc, toUtc, fromVn, toVnEx) =
             ZKTecoADMS.Api.Controllers.Reports.ReportHelpers.PosBusinessRange(

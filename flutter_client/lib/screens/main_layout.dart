@@ -1,3 +1,4 @@
+import '../utils/pos_sell_settings_helper.dart';
 import '../services/branch_session.dart';
 import '../utils/module_deep_link_stub.dart'
     if (dart.library.html) '../utils/module_deep_link_web.dart' as module_deep_link;
@@ -481,6 +482,8 @@ class _MainLayoutState extends State<MainLayout> with WidgetsBindingObserver {
     _loadPermissions();
     _loadSidebarPreference();
     unawaited(_restoreLastNavIndex());
+    // Giờ cắt ngày qua đêm cho bộ lọc «Hôm nay / Hôm qua…» ở mọi màn báo cáo POS (lỗi quyền / HRM-only thì bỏ qua).
+    unawaited(PosSellSettingsHelper(ApiService()).load().catchError((_) => (settings: null, error: null)));
     MobileBottomNavPrefs.loadAll();
     MobileBottomNavPrefs.revision.addListener(_onMobileNavPrefsChanged);
     MobileQuickActionsPrefs.revision.addListener(_onMobileNavPrefsChanged);

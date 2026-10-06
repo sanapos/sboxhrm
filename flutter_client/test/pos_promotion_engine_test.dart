@@ -37,6 +37,19 @@ void main() {
     expect(p.isLiveAt(DateTime(2026, 10, 5, 23, 0)), isFalse); // T2
   });
 
+  test('Khung qua đêm: phần sau 0h tính theo ngày bắt đầu khung (CN 22h–2h → 01:00 sáng T2 vẫn áp)', () {
+    final p = PosPromotion(
+      id: 'p', name: 'Đêm CN', type: PosPromotionTypes.timeDiscount,
+      daysOfWeekMask: 1 << 6, // chỉ Chủ nhật
+      timeFromMinutes: 22 * 60, timeToMinutes: 2 * 60,
+      validTo: DateTime(2026, 10, 4), // chương trình kết thúc ngày CN 04/10
+      config: {'percent': 10},
+    );
+    expect(p.isLiveAt(DateTime(2026, 10, 5, 1, 0)), isTrue); // 01:00 sáng T2 = đêm CN
+    expect(p.isLiveAt(DateTime(2026, 10, 5, 2, 30)), isFalse); // hết khung
+    expect(p.isLiveAt(DateTime(2026, 10, 4, 1, 0)), isFalse); // 01:00 sáng CN = đêm T7 → không áp
+  });
+
   test('Mua từ 5 giảm 20% theo bậc', () {
     final p = PosPromotion(id: 'q', name: 'Mua nhiều', type: PosPromotionTypes.qtyDiscount, config: {
       'tiers': [{'minQty': 3, 'percent': 10}, {'minQty': 5, 'percent': 20}],

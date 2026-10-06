@@ -1,3 +1,4 @@
+import 'pos_print_queue_screen.dart';
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 
@@ -31,6 +32,8 @@ class PosPrintersTabsScreen extends StatelessWidget {
     final tabs = <(String, IconData, Widget)>[
       if (device) ('Trên máy này', Icons.print_outlined, const PosPrinterSettingsHubScreen()),
       if (cloud) ('Máy in cloud', Icons.cloud_outlined, const PosStorePrintersScreen(embeddedInSettings: true)),
+      // Lệnh in của mọi máy trong cửa hàng: chờ / treo / lỗi → In lại, chuyển máy in, hủy.
+      if (device || cloud) ('Hàng đợi in', Icons.queue_outlined, const PosPrintQueueScreen(embedded: true)),
     ];
     if (tabs.isEmpty) {
       return const SboxEmptyState(

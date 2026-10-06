@@ -66,6 +66,11 @@ class _EditorLine {
   final String baseUnitName;
   String? variantId;
   List<PosProductVariant> variants;
+  /// ĐVT quy đổi trong bảng đơn vị của hàng (VD Thùng = 24 Lon) — nhập theo thùng, server đổi ra lon.
+  List<PosProductUnit> extraUnits = const [];
+  String? extraUnitId;
+  /// Giá vốn / đơn vị cơ bản — để gợi ý giá nhập khi đổi ĐVT.
+  double baseCost = 0;
   final TextEditingController qtyCtrl;
   final TextEditingController costCtrl;
   final TextEditingController discountCtrl;
@@ -108,7 +113,7 @@ class _EditorLine {
         lineNoteCtrl = TextEditingController(text: tr(lineNote ?? '')),
         lotNoCtrl = TextEditingController(text: tr(lotNo ?? ''));
 
-  String get lineKey => '$productId:${variantId ?? 'base'}';
+  String get lineKey => '$productId:${variantId ?? extraUnitId ?? 'base'}';
 
   PosProduct get _productStub => PosProduct(
         id: productId,
@@ -121,10 +126,20 @@ class _EditorLine {
       );
 
   List<PosProductUnitView> get unitViews =>
-      buildPosProductUnitViews(_productStub, variants);
+      buildPosProductUnitViews(_productStub, variants, extraUnits: extraUnits);
+
+  PosProductUnit? get _extraUnit =>
+      extraUnitId == null ? null : extraUnits.where((u) => u.id == extraUnitId).firstOrNull;
+
+  String get selectedViewKey {
+    final views = unitViews;
+    if (extraUnitId != null) return 'u:$extraUnitId';
+    return (views.where((v) => v.variantId == variantId && v.unitId == null).firstOrNull ?? views.first).viewKey;
+  }
 
   String get unitName =>
-      unitViews.where((v) => v.variantId == variantId).firstOrNull?.label ??
+      _extraUnit?.unitName ??
+      unitViews.where((v) => v.variantId == variantId && v.unitId == null).firstOrNull?.label ??
       baseUnitName;
 
   double get grossCost =>
@@ -756,6 +771,28 @@ class _PosPurchaseReceiptEditorScreenState
       trackExpiry: p.trackExpiry,
       allowDecimalQty: p.allowDecimalQty,
     );
+    line.baseCost = p.costPrice;
+    if (p.productType == PosProductType.goods || p.productType == PosProductType.material) {
+      final uRes = await _api.getPosProductUnits(p.id);
+      if (uRes['isSuccess'] == true && uRes['data'] is List) {
+        line.extraUnits = [
+          for (final e in uRes['data'] as List)
+            if (e is Map)
+              PosProductUnit.fromJson(Map<String, dynamic>.from(e)),
+        ]
+            .where((u) => !u.isBaseUnit && u.conversionRate > 0 && u.conversionRate != 1)
+            // Mọi ĐVT quy đổi đều nhập được (kể cả ĐVT không bán trực tiếp, VD chỉ nhập theo thùng).
+            .map((u) => PosProductUnit(
+                  id: u.id,
+                  unitName: u.unitName,
+                  conversionRate: u.conversionRate,
+                  basePrice: u.basePrice,
+                  isDirectSale: true,
+                  isBaseUnit: false,
+                ))
+            .toList();
+      }
+    }
     if (preselectVariantId != null && variants.isNotEmpty) {
       final v = variants.where((x) => x.id == preselectVariantId).firstOrNull;
       if (v != null) {
@@ -1581,22 +1618,33 @@ class _PosPurchaseReceiptEditorScreenState
       return Text(tr(l.unitName), style: const TextStyle(fontSize: 13));
     }
     return DropdownButtonHideUnderline(
-      child: DropdownButton<String?>(
-        value: l.variantId,
+      child: DropdownButton<String>(
+        value: l.selectedViewKey,
         isDense: true,
         isExpanded: true,
         items: views
-            .map((v) => DropdownMenuItem<String?>(
-                  value: v.variantId,
+            .map((v) => DropdownMenuItem<String>(
+                  value: v.viewKey,
                   child: Text(tr(v.label), style: const TextStyle(fontSize: 13)),
                 ))
             .toList(),
-        onChanged: (vid) {
+        onChanged: (key) {
+          final view = views.where((x) => x.viewKey == key).firstOrNull;
+          if (view == null) return;
           setState(() {
-            l.variantId = vid;
-            final view = views.where((x) => x.variantId == vid).firstOrNull;
-            if (view != null) {
-              l.costCtrl.text = view.costPrice.toStringAsFixed(0);
+            final extra = view.unitId == null
+                ? null
+                : l.extraUnits.where((u) => u.id == view.unitId).firstOrNull;
+            if (extra != null) {
+              // Thùng = 24 lon → giá nhập gợi ý = giá vốn lon × 24.
+              l.extraUnitId = extra.id;
+              l.variantId = null;
+              l.costCtrl.text = (l.baseCost * extra.conversionRate).toStringAsFixed(0);
+            } else {
+              l.extraUnitId = null;
+              l.variantId = view.variantId;
+              l.costCtrl.text =
+                  (view.variantId != null ? view.costPrice : l.baseCost).toStringAsFixed(0);
             }
           });
         },

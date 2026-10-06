@@ -180,6 +180,10 @@ public partial class PosReportsController
                         p.PaidAt >= fromDt && p.PaidAt < toDt &&
                         (!supplierId.HasValue || p.SupplierId == supplierId))
             .SumAsync(p => (decimal?)p.Amount) ?? 0;
+        // Phiếu nhập không chọn NCC: tiền trả ngay chỉ ghi sổ quỹ (không có bản ghi thanh toán NCC) — vẫn là đã trả.
+        if (!supplierId.HasValue)
+            paidInPeriod += await receiptQ.Where(r => r.SupplierId == null)
+                .SumAsync(r => (decimal?)r.PaidAmount) ?? 0;
 
         return Ok(AppResponse<object>.Success(new
         {

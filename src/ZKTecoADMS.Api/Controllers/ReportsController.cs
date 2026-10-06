@@ -50,20 +50,27 @@ public class ReportsController(
     }
 
     /// <summary>
-    /// Build a VN (UTC+7) day range for querying UTC-stored timestamps.
-    /// Returns (targetLocal, utcStart, utcEnd) where utcStart..utcEnd represents
-    /// the VN working day [dayEnd, next-dayEnd). When <paramref name="date"/> is null, uses today (VN).
-    /// dayEnd comes from AppSettings day_end_time (sole source of truth).
+    /// Khung NGÀY CÔNG X = [X + day_end_time, X+1 + day_end_time) theo giờ tường VN — cùng mặt số với
+    /// AttendanceLogs.AttendanceTime (máy ZKTeco gửi giờ máy, chấm công mobile quy về giờ VN; xem VnTimeHelper.AttendanceWallClock).
+    /// Trước đây trừ 7h như cột UTC → khung 17:00 hôm trước → 17:00 hôm nay: mất giờ ra buổi chiều, ca đêm.
     /// </summary>
-    private static (DateTime targetLocal, DateTime utcStart, DateTime utcEnd) VnDayRange(DateTime? date, TimeSpan? dayEndTime = null)
+    private static (DateTime targetLocal, DateTime wallStart, DateTime wallEnd) VnDayRange(DateTime? date, TimeSpan? dayEndTime = null)
     {
-        var targetLocal = (date ?? DateTime.UtcNow.AddHours(7)).Date;
-        // Working day X = [X + day_end_time, X+1 + day_end_time).
+        var targetLocal = (date ?? VnTimeHelper.NowVn()).Date;
         var cutoff = dayEndTime ?? TimeSpan.Zero;
-        var utcStart = targetLocal.Add(cutoff).AddHours(-7);
-        var utcEnd = utcStart.AddDays(1);
-        return (targetLocal, utcStart, utcEnd);
+        var wallStart = targetLocal.Add(cutoff);
+        return (targetLocal, wallStart, wallStart.AddDays(1));
     }
+
+    /// <summary>Ngày công của 1 lượt chấm: trước giờ chốt ngày (day_end_time) → thuộc ngày hôm trước (ca qua đêm).</summary>
+    private static DateTime WorkDate(DateTime attendanceTime, TimeSpan dayEnd)
+    {
+        var wall = VnTimeHelper.AttendanceWallClock(attendanceTime);
+        return dayEnd > TimeSpan.Zero && wall.TimeOfDay < dayEnd ? wall.Date.AddDays(-1) : wall.Date;
+    }
+
+    private async Task<TimeSpan> DayEndAsync(Guid storeId) =>
+        await AppSettingsOperationalHelper.ResolveDayEndTimeAsync(dbContext, storeId) ?? TimeSpan.Zero;
 
     private async Task<IQueryable<Employee>> FilterEmployeesQueryAsync(
         IQueryable<Employee> query,
@@ -793,8 +800,10 @@ public class ReportsController(
             // VN calendar month boundaries (local) + UTC query window.
             var startDate = new DateTime(targetYear, targetMonth, 1);
             var endDate = startDate.AddMonths(1).AddDays(-1);
-            var utcStart = startDate.AddHours(-7);
-            var utcEnd = startDate.AddMonths(1).AddHours(-7);
+            // Giờ tường VN + giờ chốt ngày công (ca đêm 22h→6h của ngày cuối tháng vẫn thuộc tháng này).
+            var dayEnd = await DayEndAsync(storeId);
+            var utcStart = startDate.Add(dayEnd);
+            var utcEnd = startDate.AddMonths(1).Add(dayEnd);
 
             var employeesQuery = dbContext.Employees
                 .Where(e => e.StoreId == storeId && e.Deleted == null);
@@ -808,7 +817,7 @@ public class ReportsController(
             var pinToEmployeeId = await BuildPinToEmployeeIdMapAsync(employees);
             var allPins = pinToEmployeeId.Keys.ToList();
 
-            // AttendanceLogs stored in UTC — filter by VN-month UTC range.
+            // AttendanceLogs = giờ tường VN — lọc theo tháng ngày công.
             var rawAttendances = await dbContext.AttendanceLogs
                 .Where(a => a.Device != null && a.Device.StoreId == storeId
                     && a.AttendanceTime >= utcStart
@@ -819,7 +828,13 @@ public class ReportsController(
 
             // Project once to VN-local time so all Date/TimeOfDay compares are correct.
             var attendances = rawAttendances
-                .Select(a => new { a.PIN, VnTime = VnTimeHelper.AttendanceWallClock(a.AttendanceTime), a.AttendanceState })
+                .Select(a => new
+                {
+                    a.PIN,
+                    VnTime = VnTimeHelper.AttendanceWallClock(a.AttendanceTime),
+                    WorkDay = WorkDate(a.AttendanceTime, dayEnd),
+                    a.AttendanceState,
+                })
                 .ToList();
 
             // Build attendance lookup by PIN for O(1) access
@@ -876,8 +891,9 @@ public class ReportsController(
                 .GroupBy(eb => eb.EmployeeId)
                 .ToDictionary(g => g.Key, g => g.First().Benefit);
 
-            // Default late threshold: 8:30 AM
-            var lateThreshold = new TimeSpan(8, 30, 0);
+            // Đi muộn theo CA được gán của từng NV (trước đây ngưỡng cố định 08:30 → ca chiều / ca đêm bị tính muộn oan).
+            var shiftResolver = await Reports.ShiftAssignmentResolver.LoadAsync(
+                dbContext, storeId, employees.Select(e => e.Id).ToList());
 
             foreach (var employee in employees)
             {
@@ -891,15 +907,15 @@ public class ReportsController(
 
                 // Count working days attended (VN-local dates)
                 var daysPresent = empAttendances
-                    .Select(a => a.VnTime.Date)
+                    .Select(a => a.WorkDay)
                     .Distinct()
                     .Count();
 
                 // Count late arrivals using VN local TimeOfDay
                 var lateDays = empAttendances
                     .Where(a => a.AttendanceState == AttendanceStates.CheckIn)
-                    .GroupBy(a => a.VnTime.Date)
-                    .Count(g => g.OrderBy(a => a.VnTime).First().VnTime.TimeOfDay > lateThreshold);
+                    .GroupBy(a => a.WorkDay)
+                    .Count(g => shiftResolver.LateMinutes(employee.Id, g.OrderBy(a => a.VnTime).First().VnTime.TimeOfDay) > 0);
 
                 // Count leave days for this employee
                 var leaveDays = 0;
@@ -910,9 +926,9 @@ public class ReportsController(
                     leaveDays += (int)(leaveEnd - leaveStart).TotalDays + 1;
                 }
 
-                // Calculate total worked minutes — group by VN date, diff in VN times
+                // Giờ làm — gom theo NGÀY CÔNG (ca 22:00→06:00: vào và ra cùng một ngày công).
                 var totalWorkedMinutes = 0;
-                var groupedByDate = empAttendances.GroupBy(a => a.VnTime.Date);
+                var groupedByDate = empAttendances.GroupBy(a => a.WorkDay);
                 foreach (var dayGroup in groupedByDate)
                 {
                     var dayCheckIn = dayGroup.Where(a => a.AttendanceState == AttendanceStates.CheckIn)
@@ -1280,10 +1296,15 @@ public class ReportsController(
                 }
             }
 
+            // Kỳ ngày công [start + giờ chốt, end+1 + giờ chốt) theo giờ tường VN (trước đây <= end+1 00:00 và gom ngày lịch).
+            var dayEnd = await DayEndAsync(storeId);
+            var lateEarlyFrom = start.Date.Add(dayEnd);
+            var lateEarlyTo = end.Date.AddDays(1).Add(dayEnd);
+
             var attendances = await dbContext.AttendanceLogs
                 .Where(a => a.Device != null && a.Device.StoreId == storeId
-                    && a.AttendanceTime >= start
-                    && a.AttendanceTime <= end.AddDays(1)
+                    && a.AttendanceTime >= lateEarlyFrom
+                    && a.AttendanceTime < lateEarlyTo
                     && employeePins.Contains(a.PIN))
                 .Select(a => new { a.PIN, a.AttendanceTime, a.AttendanceState })
                 .ToListAsync();
@@ -1314,7 +1335,8 @@ public class ReportsController(
                     ? assignedIds!.Where(id => shiftById.ContainsKey(id)).Select(id => shiftById[id]).ToList()
                     : shiftTemplates;
 
-                var groupedByDate = empAttendances.GroupBy(a => a.AttendanceTime.Date);
+                // Gom theo NGÀY CÔNG: ca 22:00→06:00 có giờ vào và giờ ra cùng một ngày.
+                var groupedByDate = empAttendances.GroupBy(a => WorkDate(a.AttendanceTime, dayEnd));
                 var lateCount = 0;
                 var earlyCount = 0;
                 var lateMins = 0;
@@ -1471,9 +1493,10 @@ public class ReportsController(
             var pinToEmployeeId = await BuildPinToEmployeeIdMapAsync(employees);
             var allPins = pinToEmployeeId.Keys.ToList();
 
-            // UTC window for VN calendar month (same as monthly report).
-            var utcStart = startDate.AddHours(-7);
-            var utcEnd = startDate.AddMonths(1).AddHours(-7);
+            // Tháng ngày công theo giờ tường VN + giờ chốt ngày (giống báo cáo tháng).
+            var dayEnd = await DayEndAsync(storeId);
+            var utcStart = startDate.Add(dayEnd);
+            var utcEnd = startDate.AddMonths(1).Add(dayEnd);
 
             var attendances = await dbContext.AttendanceLogs
                 .Where(a => a.Device != null && a.Device.StoreId == storeId 
@@ -1527,7 +1550,7 @@ public class ReportsController(
                     var empAtts = PinsForEmployee(pinToEmployeeId, emp.Id)
                         .SelectMany(pin => attendanceByPin[pin])
                         .ToList();
-                    var groupedByDate = empAtts.GroupBy(a => VnTimeHelper.AttendanceWallClock(a.AttendanceTime).Date);
+                    var groupedByDate = empAtts.GroupBy(a => WorkDate(a.AttendanceTime, dayEnd));
 
                     foreach (var dayGroup in groupedByDate)
                     {
@@ -1631,8 +1654,10 @@ public class ReportsController(
             var pinToEmployeeId = await BuildPinToEmployeeIdMapAsync(employees);
             var employeePins = pinToEmployeeId.Keys.ToList();
 
-            var utcStart = start.AddHours(-7);
-            var utcEnd = end.AddDays(1).AddHours(-7);
+            // Giờ tường VN + giờ chốt ngày công (ca đêm ngày cuối kỳ không bị cắt mất giờ ra).
+            var dayEnd = await DayEndAsync(storeId);
+            var utcStart = start.Add(dayEnd);
+            var utcEnd = end.AddDays(1).Add(dayEnd);
             var attendances = await dbContext.AttendanceLogs
                 .Where(a => a.Device != null && a.Device.StoreId == storeId
                     && a.AttendanceTime >= utcStart

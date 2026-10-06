@@ -32,6 +32,7 @@ class _PosLoyaltySettingsScreenState extends State<PosLoyaltySettingsScreen> {
   final _earnCtrl = TextEditingController();
   final _redeemCtrl = TextEditingController();
   double _maxPct = 100;
+  bool _refundRedeem = false;
   final _money = NumberFormat('#,###', 'vi_VN');
 
   @override
@@ -64,6 +65,7 @@ class _PosLoyaltySettingsScreenState extends State<PosLoyaltySettingsScreen> {
         _earnCtrl.text = _fmtNum(s.loyaltyEarnPerAmount);
         _redeemCtrl.text = _fmtNum(s.loyaltyRedeemValue);
         _maxPct = s.loyaltyMaxRedeemPercent.clamp(1, 100);
+        _refundRedeem = s.loyaltyRefundRedeemOnReturn;
       }
     });
   }
@@ -97,6 +99,7 @@ class _PosLoyaltySettingsScreenState extends State<PosLoyaltySettingsScreen> {
         loyaltyEarnPerAmount: earn,
         loyaltyRedeemValue: redeem,
         loyaltyMaxRedeemPercent: _maxPct,
+        loyaltyRefundRedeemOnReturn: _refundRedeem,
       ),
     );
     if (!mounted) return;
@@ -238,6 +241,15 @@ class _PosLoyaltySettingsScreenState extends State<PosLoyaltySettingsScreen> {
           onChanged: !_enabled || _saving
               ? null
               : (v) => setState(() => _maxPct = v.roundToDouble()),
+        ),
+        SwitchListTile(
+          contentPadding: EdgeInsets.zero,
+          value: _refundRedeem,
+          title: Text(tr('Hoàn điểm đã đổi khi khách trả hàng'),
+              style: const TextStyle(fontWeight: FontWeight.w600)),
+          subtitle: Text(tr('Bật: trả hàng → hoàn điểm theo tỷ lệ hàng trả (trả hết đơn → hoàn hết). '
+              'Tắt: điểm đã đổi coi như đã dùng.')),
+          onChanged: !_enabled || _saving ? null : (v) => setState(() => _refundRedeem = v),
         ),
         const SizedBox(height: 8),
         Material(

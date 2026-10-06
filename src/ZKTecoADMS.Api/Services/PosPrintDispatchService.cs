@@ -24,6 +24,10 @@ public interface IPosPrintDispatchService
     Task RegisterAgentHeartbeatAsync(Guid storeId, string deviceId, string? deviceName, string? employeeName, string? userId, IEnumerable<Guid> printerIds, string? appVersion, IEnumerable<Guid>? onlinePrinterIds = null, CancellationToken ct = default);
     Task MarkAgentOfflineAsync(Guid storeId, string deviceId, bool forceStop = true, CancellationToken ct = default);
     Task SetPrinterHealthAsync(Guid printerId, PosPrinterHealthStatus status, string? errorMessage, CancellationToken ct = default);
+    /// <summary>In lại / chuyển máy in khác cho lệnh lỗi, bị hủy hoặc treo (đưa về «Chờ in», làm mới hạn).</summary>
+    Task<PosPrintJob?> RetryJobAsync(Guid storeId, Guid jobId, Guid? printerId, string? by, CancellationToken ct = default);
+    /// <summary>Hủy lệnh chưa in xong (thu ngân bỏ phiếu treo).</summary>
+    Task<PosPrintJob?> CancelJobAsync(Guid storeId, Guid jobId, string? by, CancellationToken ct = default);
 }
 
 public record EnqueuePrintJobRequest(
@@ -1055,6 +1059,39 @@ public class PosPrintDispatchService(
                 .SetProperty(a => a.AssignedPrinterIdsJson, "[]")
                 .SetProperty(a => a.UpdatedAt, DateTime.UtcNow), ct);
 
+        // Lệnh Agent này đã nhận nhưng CHƯA bắt đầu in → trả về hàng chờ ngay cho máy khác
+        // (trước đây kẹt «Đã nhận» ~90 giây tới lượt thu hồi). Lệnh đang in dở giữ nguyên — tránh in trùng.
+        var heldIds = await db.PosPrintJobs.AsNoTracking()
+            .Where(j => j.AgentId == agent.Id && j.Deleted == null && j.Status == PosPrintJobStatus.Claimed)
+            .Select(j => j.Id)
+            .ToListAsync(ct);
+        if (heldIds.Count > 0)
+        {
+            var nowRq = DateTime.UtcNow;
+            await db.PosPrintJobs
+                .Where(j => heldIds.Contains(j.Id) && j.Status == PosPrintJobStatus.Claimed && j.AgentId == agent.Id)
+                .ExecuteUpdateAsync(s => s
+                    .SetProperty(j => j.Status, PosPrintJobStatus.Queued)
+                    .SetProperty(j => j.AgentId, (Guid?)null)
+                    .SetProperty(j => j.ClaimedAt, (DateTime?)null)
+                    .SetProperty(j => j.ErrorCode, "AGENT_OFFLINE")
+                    .SetProperty(j => j.ErrorMessage, "Máy Agent tắt — trả lệnh về hàng chờ")
+                    .SetProperty(j => j.UpdatedAt, nowRq), ct);
+            foreach (var jid in heldIds)
+            {
+                try
+                {
+                    var j = await db.PosPrintJobs.AsNoTracking().FirstAsync(x => x.Id == jid, ct);
+                    var pr = await db.PosStorePrinters.AsNoTracking().FirstOrDefaultAsync(p => p.Id == j.PrinterId, ct);
+                    if (pr != null) await BroadcastJobAsync("PrintJobStatusChanged", j, pr, ct);
+                }
+                catch (Exception ex)
+                {
+                    logger.LogWarning(ex, "Broadcast requeue after agent offline failed for job {JobId}", jid);
+                }
+            }
+        }
+
         await hubContext.Clients.Group(StoreGroup(storeId)).SendAsync("PrinterAgentHeartbeat", new
         {
             agentId = agent.Id,
@@ -1069,6 +1106,68 @@ public class PosPrintDispatchService(
             printerIds = Array.Empty<Guid>(),
             at = DateTime.UtcNow,
         }, ct);
+    }
+
+    public async Task<PosPrintJob?> RetryJobAsync(
+        Guid storeId, Guid jobId, Guid? printerId, string? by, CancellationToken ct = default)
+    {
+        var job = await db.PosPrintJobs.AsNoTracking()
+            .FirstOrDefaultAsync(j => j.Id == jobId && j.StoreId == storeId && j.Deleted == null, ct);
+        if (job == null) return null;
+        // Đang in thật → không giật lại (tránh ra 2 tờ). Đã in xong vẫn cho «In lại» (in thêm bản).
+        if (job.Status == PosPrintJobStatus.Printing)
+            throw new InvalidOperationException("Lệnh đang in — đợi máy in xong rồi mới in lại");
+        var targetId = printerId ?? job.PrinterId;
+        var printer = await db.PosStorePrinters.AsNoTracking()
+            .FirstOrDefaultAsync(p => p.Id == targetId && p.StoreId == storeId && p.Deleted == null && p.IsActive, ct)
+            ?? throw new InvalidOperationException("Máy in không còn hoạt động — chọn máy in khác");
+        var now = DateTime.UtcNow;
+        await db.PosPrintJobs
+            .Where(j => j.Id == jobId && j.Status != PosPrintJobStatus.Printing)
+            .ExecuteUpdateAsync(s => s
+                .SetProperty(j => j.Status, PosPrintJobStatus.Queued)
+                .SetProperty(j => j.PrinterId, printer.Id)
+                .SetProperty(j => j.AgentId, (Guid?)null)
+                .SetProperty(j => j.ClaimedAt, (DateTime?)null)
+                .SetProperty(j => j.StartedAt, (DateTime?)null)
+                .SetProperty(j => j.CompletedAt, (DateTime?)null)
+                .SetProperty(j => j.ErrorCode, (string?)null)
+                .SetProperty(j => j.ErrorMessage, (string?)null)
+                .SetProperty(j => j.AttemptCount, 0)
+                .SetProperty(j => j.ExpiresAt, now.Add(JobTtl))
+                .SetProperty(j => j.UpdatedAt, now)
+                .SetProperty(j => j.UpdatedBy, by), ct);
+        var fresh = await db.PosPrintJobs.AsNoTracking().FirstAsync(j => j.Id == jobId, ct);
+        try { await BroadcastJobAsync("PrintJobNew", fresh, printer, ct); }
+        catch (Exception ex) { logger.LogWarning(ex, "Broadcast retry failed for job {JobId}", jobId); }
+        return fresh;
+    }
+
+    public async Task<PosPrintJob?> CancelJobAsync(Guid storeId, Guid jobId, string? by, CancellationToken ct = default)
+    {
+        var now = DateTime.UtcNow;
+        var n = await db.PosPrintJobs
+            .Where(j => j.Id == jobId && j.StoreId == storeId && j.Deleted == null
+                && j.Status != PosPrintJobStatus.Completed && j.Status != PosPrintJobStatus.Printing)
+            .ExecuteUpdateAsync(s => s
+                .SetProperty(j => j.Status, PosPrintJobStatus.Cancelled)
+                .SetProperty(j => j.ErrorCode, "USER_CANCELLED")
+                .SetProperty(j => j.ErrorMessage, "Đã hủy trên hàng đợi in")
+                .SetProperty(j => j.CompletedAt, now)
+                .SetProperty(j => j.UpdatedAt, now)
+                .SetProperty(j => j.UpdatedBy, by), ct);
+        var job = await db.PosPrintJobs.AsNoTracking().FirstOrDefaultAsync(j => j.Id == jobId && j.StoreId == storeId, ct);
+        if (job == null) return null;
+        if (n == 0 && job.Status != PosPrintJobStatus.Cancelled)
+            throw new InvalidOperationException(job.Status == PosPrintJobStatus.Printing
+                ? "Lệnh đang in — không hủy được" : "Lệnh đã in xong");
+        var printer = await db.PosStorePrinters.IgnoreQueryFilters().AsNoTracking().FirstOrDefaultAsync(p => p.Id == job.PrinterId, ct);
+        if (printer != null)
+        {
+            try { await BroadcastJobAsync("PrintJobStatusChanged", job, printer, ct); }
+            catch (Exception ex) { logger.LogWarning(ex, "Broadcast cancel failed for job {JobId}", jobId); }
+        }
+        return job;
     }
 
     public async Task SetPrinterHealthAsync(Guid printerId, PosPrinterHealthStatus status, string? errorMessage, CancellationToken ct = default)
@@ -1200,6 +1299,21 @@ public class PosPrintDispatchService(
             && now - last < ReclaimThrottle)
             return;
         _lastReclaimAt[storeId] = now;
+
+        // Lệnh mồ côi: máy in đã xóa / ngừng dùng, hoặc quá hạn mà chưa ai in → hủy (khỏi hiện phiếu treo mãi).
+        var orphanPrinterIds = await db.PosStorePrinters.IgnoreQueryFilters().AsNoTracking()
+            .Where(p => p.StoreId == storeId && (p.Deleted != null || !p.IsActive))
+            .Select(p => p.Id)
+            .ToListAsync(ct);
+        await db.PosPrintJobs
+            .Where(j => j.StoreId == storeId && j.Deleted == null && j.Status == PosPrintJobStatus.Queued
+                && (orphanPrinterIds.Contains(j.PrinterId) || j.ExpiresAt <= now))
+            .ExecuteUpdateAsync(s => s
+                .SetProperty(j => j.Status, PosPrintJobStatus.Cancelled)
+                .SetProperty(j => j.ErrorCode, j => j.ExpiresAt <= now ? "EXPIRED" : "PRINTER_DELETED")
+                .SetProperty(j => j.ErrorMessage, j => j.ExpiresAt <= now ? "Quá hạn chưa có máy in nhận" : "Máy in đã bị xóa / ngừng dùng")
+                .SetProperty(j => j.CompletedAt, now)
+                .SetProperty(j => j.UpdatedAt, now), ct);
 
         // Đã thử quá nhiều lần → hủy thay vì Queued lại (chống in trùng liên tục).
         var cancelledIds = new List<Guid>();

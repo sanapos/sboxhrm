@@ -1,3 +1,4 @@
+using ZKTecoADMS.Application.Helpers;
 using Microsoft.EntityFrameworkCore;
 using ZKTecoADMS.Domain.Enums;
 using ZKTecoADMS.Infrastructure;
@@ -152,7 +153,7 @@ public class PenaltyAutoApproveBackgroundService : BackgroundService
             Type = CashTransactionType.Income,
             CategoryId = category.Id,
             Amount = Math.Abs(penalty.Amount),
-            TransactionDate = DateTime.UtcNow,
+            TransactionDate = VnTimeHelper.NowVn(),
             Description = $"Thu phạt - NV {employeeName} - {penalty.Description}",
             PaymentMethod = PaymentMethodType.Cash,
             Status = CashTransactionStatus.Pending,

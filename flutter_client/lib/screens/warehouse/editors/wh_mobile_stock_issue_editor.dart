@@ -1,3 +1,4 @@
+import '../../../widgets/pos/pos_unit_qty_convert.dart';
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
 
@@ -38,11 +39,13 @@ class _Line {
     required this.name,
     this.code,
     this.unit,
+    this.variantId,
     double qty = 1,
     double cost = 0,
   })  : qty = qty,
         cost = cost;
 
+  final String? variantId;
   final String lineId;
   final String productId;
   final String name;
@@ -108,6 +111,7 @@ class _WhMobileStockIssueEditorState extends State<WhMobileStockIssueEditor> {
             name: l.productName,
             code: l.productCode,
             unit: l.unitName,
+            variantId: l.variantId,
             qty: l.qty > 0 ? l.qty : 1,
             cost: l.costPrice,
           )));
@@ -362,11 +366,27 @@ class _WhMobileStockIssueEditorState extends State<WhMobileStockIssueEditor> {
                             unit: l.unit,
                             readOnly: _readOnly,
                             onRemove: () => _removeLine(l),
-                            child: WhQtyStepper(
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.stretch,
+                              children: [
+                                WhQtyStepper(
                               label: _config.qtyColumnLabel,
                               value: l.qty,
                               readOnly: _readOnly,
                               onChanged: (v) => setState(() => l.qty = v),
+                            ),
+                                if (!_readOnly && l.variantId == null)
+                                  Align(
+                                    alignment: Alignment.centerRight,
+                                    child: PosUnitConvertButton(
+                                      api: _api,
+                                      productId: l.productId,
+                                      productName: l.name,
+                                      baseUnit: l.unit ?? '',
+                                      onQty: (v) => setState(() => l.qty = v),
+                                    ),
+                                  ),
+                              ],
                             ),
                             trailing: Text(
                               tr(_moneyFmt.format(l.qty * l.cost)),

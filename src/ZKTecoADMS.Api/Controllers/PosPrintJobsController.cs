@@ -15,7 +15,7 @@ namespace ZKTecoADMS.Api.Controllers;
 [ApiController]
 [Route("api/pos/print-jobs")]
 [Authorize]
-public class PosPrintJobsController(
+public partial class PosPrintJobsController(
     ZKTecoDbContext db,
     IPosPrintDispatchService dispatch) : AuthenticatedControllerBase
 {

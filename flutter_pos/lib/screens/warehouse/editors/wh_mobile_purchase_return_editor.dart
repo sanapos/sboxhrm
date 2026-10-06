@@ -1,4 +1,5 @@
-﻿import 'package:flutter/material.dart';
+﻿import '../../../widgets/pos/pos_unit_qty_convert.dart';
+import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
 
 import '../../../models/pos_purchase.dart';
@@ -285,11 +286,27 @@ class _WhMobilePurchaseReturnEditorState extends State<WhMobilePurchaseReturnEdi
                     onRemove: _readOnly
                         ? null
                         : () => setState(() => _lines.removeAt(i)),
-                    child: WhQtyStepper(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.stretch,
+                      children: [
+                        WhQtyStepper(
                       label: 'SL trả',
                       value: l.qty,
                       readOnly: _readOnly,
                       onChanged: (v) => setState(() => l.qty = v),
+                    ),
+                        if (!_readOnly && l.variantId == null)
+                          Align(
+                            alignment: Alignment.centerRight,
+                            child: PosUnitConvertButton(
+                              api: _api,
+                              productId: l.productId,
+                              productName: l.name,
+                              baseUnit: l.unit ?? '',
+                              onQty: (v) => setState(() => l.qty = v),
+                            ),
+                          ),
+                      ],
                     ),
                     trailing: Text(
                       tr(_moneyFmt.format(l.qty * l.cost)),

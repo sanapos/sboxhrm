@@ -775,6 +775,10 @@ public partial class PosSalesController
 
         var sellSettingsComplete = await dbContext.PosStoreSellSettings.AsNoTracking()
             .FirstOrDefaultAsync(s => s.StoreId == storeId && s.Deleted == null);
+        // Đơn có dịch vụ tính giờ (karaoke / bi-a / KS) hoàn thành từ màn Đơn hàng: tính lại giờ tới lúc thanh toán
+        // (trước đây dùng SL lưu lúc mở bàn → 0 giờ báo lỗi «Số lượng không hợp lệ» hoặc thu thiếu tiền giờ).
+        if (await RecalcTimedLinesOnCompleteAsync(storeId, order, sellSettingsComplete))
+            await dbContext.SaveChangesAsync();
         var allowNegComplete = sellSettingsComplete?.AllowNegativeStock == true;
         var loyaltyRatesComplete = PosCustomerFinanceHelper.ResolveRates(sellSettingsComplete);
         // Draft cũ chỉ có UnitName — resolve UnitId để quy đổi tồn đúng.
@@ -897,7 +901,10 @@ public partial class PosSalesController
                     if (saleCustomer != null)
                     {
                         order.PointsEarned = PosCustomerFinanceHelper.CalcPointsEarn(
-                            order.Total, loyaltyRatesComplete);
+                            order.Total,
+                            order.Lines.Select(l => new PosCustomerFinanceHelper.EarnLine(
+                                l.LineTotal, products.TryGetValue(l.ProductId, out var lp) ? lp.LoyaltyPercent : null)).ToList(),
+                            loyaltyRatesComplete);
                         await PosCustomerFinanceHelper.ApplyPointsOnSaleCompleteAsync(
                             dbContext, storeId, order, saleCustomer, CurrentUserEmail);
                     }
@@ -995,6 +1002,77 @@ public partial class PosSalesController
         NotifyFloorChanged(storeId, "saleCompleted",
             orderId: order.Id, resourceId: order.ServiceResourceId);
         return Ok(AppResponse<SaleOrderDto>.Success(mapped));
+    }
+
+    /// <summary>
+    /// Tính lại SL / thành tiền các dòng dịch vụ tính giờ tới thời điểm thanh toán — cùng công thức lúc lưu đơn
+    /// (phút dùng − tạm dừng, tối thiểu, làm tròn, miễn phí đầu giờ, phí mở + phút đã gồm, đêm KS).
+    /// Trả về true nếu có dòng thay đổi.
+    /// </summary>
+    async Task<bool> RecalcTimedLinesOnCompleteAsync(Guid storeId, PosSaleOrder order, PosStoreSellSettings? sellSettings)
+    {
+        var timedModes = PosServiceBillingHelper.TimedModes;
+        var ids = order.Lines.Where(l => l.Deleted == null).Select(l => l.ProductId).Distinct().ToList();
+        var timed = await dbContext.PosProducts.AsNoTracking()
+            .Where(p => ids.Contains(p.Id) && p.StoreId == storeId && p.ProductType == PosProductType.Service
+                        && timedModes.Contains(p.ServiceBillingMode))
+            .ToDictionaryAsync(p => p.Id);
+        if (timed.Count == 0) return false;
+
+        PosResourceSession? session = null;
+        if (order.ResourceSessionId.HasValue)
+            session = await dbContext.PosResourceSessions.AsTracking()
+                .FirstOrDefaultAsync(x => x.Id == order.ResourceSessionId && x.StoreId == storeId && x.Deleted == null);
+        else if (order.SplitFromOrderId == null && order.ServiceResourceId.HasValue)
+            session = await dbContext.PosResourceSessions.AsTracking()
+                .Where(x => x.ResourceId == order.ServiceResourceId && x.StoreId == storeId && x.Deleted == null
+                            && (x.Status == PosResourceSessionStatus.Open || x.Status == PosResourceSessionStatus.Paused))
+                .OrderByDescending(x => x.StartedAt)
+                .FirstOrDefaultAsync();
+        var now = DateTime.UtcNow;
+        if (session != null) PosServiceBillingHelper.FinalizeOpenPause(session, now);
+        var sessionPause = session?.AccumulatedPauseMinutes ?? 0;
+        var hotelPolicy = HotelStayPolicy.Parse(sellSettings?.ExtraJson);
+
+        var changed = false;
+        foreach (var line in order.Lines.Where(l => l.Deleted == null))
+        {
+            if (!timed.TryGetValue(line.ProductId, out var p)) continue;
+            var started = line.ServiceStartedAt ?? order.ServiceStartedAt ?? now;
+            var ended = line.ServiceEndedAt ?? now;
+            var elapsed = PosServiceBillingHelper.CalcElapsedMinutes(
+                started, ended, sessionPause + Math.Max(0, line.ServicePauseMinutes), line.ServicePausedAt);
+            var billable = PosServiceBillingHelper.CalcBillableMinutes(
+                elapsed, p.ServiceBillingMode, p.MinBillMinutes, p.BillRoundMinutes, p.GraceMinutes, p.RoundAfterMinutes);
+            var included = p.OpeningMinutes is > 0 ? p.OpeningMinutes.Value : 0;
+            var extra = Math.Max(0, billable - included);
+            var qty = extra <= 0
+                ? 0
+                : PosServiceBillingHelper.CalcBillableQty(p.ServiceBillingMode, extra, extra, p.BillRoundMinutes);
+            if (p.ServiceBillingMode == PosServiceBillingMode.PerDay && hotelPolicy.NightMode)
+                qty = PosHotelNightMath.Nights(started, ended, hotelPolicy);
+            var gross = p.OpeningFee + line.UnitPrice * qty;
+            var lineTotal = gross - Math.Max(0, Math.Min(line.DiscountAmount, gross));
+            var delta = lineTotal - line.LineTotal;
+
+            line.ServiceStartedAt = started;
+            line.ServiceEndedAt = ended;
+            line.ServicePausedAt = null;
+            line.DurationMinutes = elapsed;
+            line.BillableMinutes = billable;
+            if (line.Qty == qty && delta == 0) continue;
+            line.Qty = qty;
+            line.LineTotal = lineTotal;
+            order.SubTotal += delta;
+            order.Total = Math.Max(0, order.Total + delta);
+            changed = true;
+        }
+        if (changed)
+        {
+            order.UpdatedAt = now;
+            order.UpdatedBy = CurrentUserEmail;
+        }
+        return changed;
     }
 
     private static List<SaleLineDto> BuildCompleteSaleLineDtos(
@@ -1627,7 +1705,11 @@ public partial class PosSalesController
         order.SurchargeAmount = Math.Max(0, dto.SurchargeAmount);
         order.DeliveryFee = Math.Max(0, dto.DeliveryFee);
         order.PointsEarned = complete && dto.CustomerId.HasValue
-            ? PosCustomerFinanceHelper.CalcPointsEarn(order.Total, loyaltyRates)
+            ? PosCustomerFinanceHelper.CalcPointsEarn(
+                order.Total,
+                lines.Select(l => new PosCustomerFinanceHelper.EarnLine(
+                    l.LineTotal, products.TryGetValue(l.ProductId, out var ep) ? ep.LoyaltyPercent : null)).ToList(),
+                loyaltyRates)
             : 0;
 
         var seatedDeposit = 0m;
@@ -1655,6 +1737,20 @@ public partial class PosSalesController
                 string.IsNullOrWhiteSpace(dto.PaymentMethod) ? "Tiền mặt" : dto.PaymentMethod.Trim()));
         }
 
+        // Khách đưa thừa (màn bán gửi «khách đưa», tiền thối lại cho khách): chỉ ghi nhận đúng số phải trả —
+        // không thu thừa vào sổ quỹ / không làm âm công nợ. Đơn có cọc giữ logic cũ bên dưới.
+        if (seatedDeposit <= 0 && paymentInputs.Count > 0)
+        {
+            var over = paymentInputs.Sum(p => p.Amount) - Math.Max(0m, order.PayableTotal);
+            for (var i = paymentInputs.Count - 1; i >= 0 && over > 0.005m; i--)
+            {
+                var cut = Math.Min(over, paymentInputs[i].Amount);
+                paymentInputs[i] = paymentInputs[i] with { Amount = paymentInputs[i].Amount - cut };
+                over -= cut;
+            }
+            paymentInputs.RemoveAll(p => p.Amount <= 0.005m);
+        }
+
         var paySum = paymentInputs.Sum(p => p.Amount);
         if (paymentInputs.Count > 0)
         {
@@ -1665,7 +1761,9 @@ public partial class PosSalesController
         }
         else
         {
-            order.PaidAmount = Math.Max(dto.PaidAmount, seatedDeposit);
+            order.PaidAmount = seatedDeposit > 0
+                ? Math.Max(dto.PaidAmount, seatedDeposit)
+                : Math.Min(Math.Max(0m, dto.PaidAmount), Math.Max(0m, order.PayableTotal));
         }
 
         var paymentSync = paymentInputs

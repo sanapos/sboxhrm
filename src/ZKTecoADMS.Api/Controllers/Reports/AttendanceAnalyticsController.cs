@@ -1,3 +1,4 @@
+using ZKTecoADMS.Infrastructure.Helpers;
 using ClosedXML.Excel;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
@@ -28,6 +29,28 @@ public class AttendanceAnalyticsController(
     // 1. COMPLIANCE — Tỷ lệ chuyên cần theo nhân viên/tháng
     // GET /api/reports/attendance-analytics/compliance?year=&month=&department=&employeeCode=&format=
     // ═════════════════════════════════════════════════════════════════════
+    /// <summary>
+    /// PIN máy chấm công → mã nhân viên. Thường PIN = mã NV, nhưng PIN có thể khác (trùng mã, sửa tay, máy có sẵn người dùng)
+    /// → trước đây NV đó bị coi là không chấm công trong chuyên cần / vắng / bất thường. Mã NV luôn tự ánh xạ chính nó.
+    /// </summary>
+    async Task<Dictionary<string, string>> PinToEmployeeCodeAsync(
+        IEnumerable<(Guid Id, string Code)> employees, CancellationToken ct)
+    {
+        var list = employees.Where(e => !string.IsNullOrWhiteSpace(e.Code)).ToList();
+        var codeById = list.GroupBy(e => e.Id).ToDictionary(g => g.Key, g => g.First().Code);
+        var ids = codeById.Keys.ToList();
+        var map = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
+        foreach (var e in list) map.TryAdd(e.Code, e.Code);
+        var deviceUsers = await db.DeviceUsers.AsNoTracking()
+            .Where(du => du.EmployeeId.HasValue && ids.Contains(du.EmployeeId.Value) && du.Deleted == null)
+            .Select(du => new { du.Pin, EmployeeId = du.EmployeeId!.Value })
+            .ToListAsync(ct);
+        foreach (var du in deviceUsers)
+            if (!string.IsNullOrWhiteSpace(du.Pin) && codeById.TryGetValue(du.EmployeeId, out var code))
+                map.TryAdd(du.Pin.Trim(), code);
+        return map;
+    }
+
     [HttpGet("compliance")]
     [RequireAnyModulePermission(ModulePermissionAction.View, "AttendanceReport", "AttendanceSummary", "AttendanceByShift", "Attendance")]
     public async Task<IActionResult> GetCompliance(
@@ -45,6 +68,8 @@ public class AttendanceAnalyticsController(
             var m = month ?? now.Month;
             var (startLocal, endLocal, utcStart, utcEnd) = ReportHelpers.AttendanceMonthRange(y, m);
             var storeId = RequiredStoreId;
+            // Giờ chốt ngày công — ca qua đêm không bị tách 2 ngày (ra 06:05 sáng sau vẫn thuộc ngày vào ca).
+            var dayEnd = await AppSettingsOperationalHelper.ResolveDayEndTimeAsync(db, storeId) ?? TimeSpan.Zero;
 
             var empQ = db.Employees.Where(e => e.StoreId == storeId && e.Deleted == null);
             if (!string.IsNullOrWhiteSpace(department))
@@ -56,28 +81,31 @@ public class AttendanceAnalyticsController(
                 .Select(e => new { e.Id, e.EmployeeCode, e.FirstName, e.LastName, e.Department, e.JoinDate, e.ResignationDate })
                 .ToListAsync(ct);
 
-            var pins = employees.Select(e => e.EmployeeCode).ToList();
+            var pinToCode = await PinToEmployeeCodeAsync(employees.Select(e => (e.Id, e.EmployeeCode)), ct);
+            var pins = pinToCode.Keys.ToList();
 
-            var rawAtt = await db.AttendanceLogs
+            var rawAtt = (await db.AttendanceLogs
                 .Where(a => a.Device != null && a.Device.StoreId == storeId
-                    && a.AttendanceTime >= utcStart && a.AttendanceTime < utcEnd
+                    && a.AttendanceTime >= utcStart + dayEnd && a.AttendanceTime < utcEnd + dayEnd
                     && pins.Contains(a.PIN))
                 .Select(a => new { a.PIN, a.AttendanceTime, a.AttendanceState })
-                .ToListAsync(ct);
+                .ToListAsync(ct))
+                .Select(a => new { PIN = pinToCode.GetValueOrDefault(a.PIN, a.PIN), a.AttendanceTime, a.AttendanceState })
+                .ToList();
 
             var attByPin = rawAtt
-                .Select(a => new { a.PIN, VnDate = ReportHelpers.AttendanceToVn(a.AttendanceTime).Date, a.AttendanceState })
+                .Select(a => new { a.PIN, VnDate = ReportHelpers.AttendanceWorkDate(a.AttendanceTime, dayEnd), a.AttendanceState })
                 .ToLookup(a => a.PIN);
 
             // Mobile punches as fallback (face/GPS check-ins)
             var empCodeSet = pins.ToHashSet();
             var mobileAtt = await db.MobileAttendanceRecords
-                .Where(m => m.StoreId == storeId && m.PunchTime >= utcStart && m.PunchTime < utcEnd)
+                .Where(m => m.StoreId == storeId && m.PunchTime >= utcStart + dayEnd && m.PunchTime < utcEnd + dayEnd)
                 .Select(m => new { m.OdooEmployeeId, m.PunchTime })
                 .ToListAsync(ct);
             var mobileByCode = mobileAtt
                 .Where(m => empCodeSet.Contains(m.OdooEmployeeId))
-                .Select(m => new { m.OdooEmployeeId, VnDate = ReportHelpers.AttendanceToVn(m.PunchTime).Date })
+                .Select(m => new { m.OdooEmployeeId, VnDate = ReportHelpers.AttendanceWorkDate(m.PunchTime, dayEnd) })
                 .ToLookup(m => m.OdooEmployeeId);
 
             var holidays = (await db.Holidays
@@ -108,13 +136,13 @@ public class AttendanceAnalyticsController(
                 .ToListAsync(ct);
             var leavesByUser = leaves.ToLookup(l => l.EmployeeUserId);
 
-            var lateThreshold = new TimeSpan(8, 30, 0);
+            var shiftResolver = await ShiftAssignmentResolver.LoadAsync(db, storeId, employees.Select(e => e.Id).ToList(), ct);
 
             // Precompute: earliest check-in per (PIN, date) in VN local → late detection.
             var earliestCheckInByPinDate = rawAtt
                 .Where(a => a.AttendanceState == AttendanceStates.CheckIn)
                 .Select(a => new { a.PIN, Vn = ReportHelpers.AttendanceToVn(a.AttendanceTime) })
-                .GroupBy(a => new { a.PIN, Date = a.Vn.Date })
+                .GroupBy(a => new { a.PIN, Date = ReportHelpers.AttendanceWorkDate(a.Vn, dayEnd) })
                 .ToDictionary(g => g.Key, g => g.Min(x => x.Vn));
 
             var items = new List<ComplianceItemDto>();
@@ -124,9 +152,10 @@ public class AttendanceAnalyticsController(
                     .Concat(mobileByCode[e.EmployeeCode].Select(m => m.VnDate))
                     .Distinct().ToHashSet();
 
+                // Đi muộn theo ca được gán (chưa tạo ca nào → ngưỡng cũ 08:30).
                 var lateDays = earliestCheckInByPinDate
                     .Where(kv => kv.Key.PIN == e.EmployeeCode)
-                    .Count(kv => kv.Value.TimeOfDay > lateThreshold);
+                    .Count(kv => shiftResolver.LateMinutes(e.Id, kv.Value.TimeOfDay) > 0);
 
                 int leaveDays = 0;
                 if (empToUser.TryGetValue(e.Id, out var uid))
@@ -235,6 +264,8 @@ public class AttendanceAnalyticsController(
         {
             var (fromLocal, toLocal, utcStart, utcEnd) = ReportHelpers.AttendanceVnRange(from, to);
             var storeId = RequiredStoreId;
+            // Giờ chốt ngày công — ca qua đêm không bị tách 2 ngày (ra 06:05 sáng sau vẫn thuộc ngày vào ca).
+            var dayEnd = await AppSettingsOperationalHelper.ResolveDayEndTimeAsync(db, storeId) ?? TimeSpan.Zero;
 
             var empQ = db.Employees.Where(e => e.StoreId == storeId && e.Deleted == null
                 && e.WorkStatus == EmployeeWorkStatus.Active);
@@ -245,26 +276,29 @@ public class AttendanceAnalyticsController(
                 .Select(e => new { e.Id, e.EmployeeCode, e.FirstName, e.LastName, e.Department, e.ApplicationUserId, e.JoinDate })
                 .ToListAsync(ct);
 
-            var pins = employees.Select(e => e.EmployeeCode).ToList();
+            var pinToCode = await PinToEmployeeCodeAsync(employees.Select(e => (e.Id, e.EmployeeCode)), ct);
+            var pins = pinToCode.Keys.ToList();
             var userIds = employees.Where(e => e.ApplicationUserId.HasValue)
                 .Select(e => e.ApplicationUserId!.Value).ToList();
 
-            var attDates = await db.AttendanceLogs
+            var attDates = (await db.AttendanceLogs
                 .Where(a => a.Device != null && a.Device.StoreId == storeId
-                    && a.AttendanceTime >= utcStart && a.AttendanceTime < utcEnd
+                    && a.AttendanceTime >= utcStart + dayEnd && a.AttendanceTime < utcEnd + dayEnd
                     && pins.Contains(a.PIN))
                 .Select(a => new { a.PIN, a.AttendanceTime })
-                .ToListAsync(ct);
-            var attByPinDate = attDates.Select(a => new { a.PIN, Dt = ReportHelpers.AttendanceToVn(a.AttendanceTime).Date })
+                .ToListAsync(ct))
+                .Select(a => new { PIN = pinToCode.GetValueOrDefault(a.PIN, a.PIN), a.AttendanceTime })
+                .ToList();
+            var attByPinDate = attDates.Select(a => new { a.PIN, Dt = ReportHelpers.AttendanceWorkDate(a.AttendanceTime, dayEnd) })
                 .Distinct().ToHashSet();
 
             var mobileDates = await db.MobileAttendanceRecords
                 .Where(m => m.StoreId == storeId
-                    && m.PunchTime >= utcStart && m.PunchTime < utcEnd
+                    && m.PunchTime >= utcStart + dayEnd && m.PunchTime < utcEnd + dayEnd
                     && pins.Contains(m.OdooEmployeeId))
                 .Select(m => new { m.OdooEmployeeId, m.PunchTime })
                 .ToListAsync(ct);
-            var mobileByPinDate = mobileDates.Select(m => new { PIN = m.OdooEmployeeId, Dt = ReportHelpers.AttendanceToVn(m.PunchTime).Date })
+            var mobileByPinDate = mobileDates.Select(m => new { PIN = m.OdooEmployeeId, Dt = ReportHelpers.AttendanceWorkDate(m.PunchTime, dayEnd) })
                 .Distinct().ToHashSet();
 
             var holidays = (await db.Holidays
@@ -373,6 +407,8 @@ public class AttendanceAnalyticsController(
         {
             var (fromLocal, toLocal, utcStart, utcEnd) = ReportHelpers.AttendanceVnRange(from, to);
             var storeId = RequiredStoreId;
+            // Giờ chốt ngày công — ca qua đêm không bị tách 2 ngày (ra 06:05 sáng sau vẫn thuộc ngày vào ca).
+            var dayEnd = await AppSettingsOperationalHelper.ResolveDayEndTimeAsync(db, storeId) ?? TimeSpan.Zero;
 
             var empQ = db.Employees.Where(e => e.StoreId == storeId && e.Deleted == null);
             if (!string.IsNullOrWhiteSpace(department))
@@ -408,21 +444,21 @@ public class AttendanceAnalyticsController(
 
             var attDates = (await db.AttendanceLogs
                 .Where(a => a.Device != null && a.Device.StoreId == storeId
-                    && a.AttendanceTime >= utcStart && a.AttendanceTime < utcEnd
+                    && a.AttendanceTime >= utcStart + dayEnd && a.AttendanceTime < utcEnd + dayEnd
                     && (devicePins.Contains(a.PIN)
                         || (a.Employee != null && a.Employee.EmployeeId != null && empIds.Contains(a.Employee.EmployeeId!.Value))))
                 .Select(a => new { a.PIN, DeviceEmpId = a.Employee != null ? a.Employee.EmployeeId : null, a.AttendanceTime })
                 .ToListAsync(ct))
                 .Select(a => (EmpId: a.DeviceEmpId ?? pinToEmp.GetValueOrDefault(a.PIN),
-                    Date: ReportHelpers.AttendanceToVn(a.AttendanceTime).Date))
+                    Date: ReportHelpers.AttendanceWorkDate(a.AttendanceTime, dayEnd)))
                 .Where(a => a.EmpId != Guid.Empty)
                 .Distinct().ToHashSet();
 
             var mobileDates = (await db.MobileAttendanceRecords
-                .Where(m => m.StoreId == storeId && m.PunchTime >= utcStart && m.PunchTime < utcEnd
+                .Where(m => m.StoreId == storeId && m.PunchTime >= utcStart + dayEnd && m.PunchTime < utcEnd + dayEnd
                     && pins.Contains(m.OdooEmployeeId))
                 .Select(m => new { m.OdooEmployeeId, m.PunchTime }).ToListAsync(ct))
-                .Select(m => (Pin: m.OdooEmployeeId, Date: ReportHelpers.AttendanceToVn(m.PunchTime).Date))
+                .Select(m => (Pin: m.OdooEmployeeId, Date: ReportHelpers.AttendanceWorkDate(m.PunchTime, dayEnd)))
                 .Distinct().ToHashSet();
 
             var leaves = await db.Leaves
@@ -514,6 +550,8 @@ public class AttendanceAnalyticsController(
         {
             var (fromLocal, toLocal, utcStart, utcEnd) = ReportHelpers.AttendanceVnRange(from, to);
             var storeId = RequiredStoreId;
+            // Giờ chốt ngày công — ca qua đêm không bị tách 2 ngày (ra 06:05 sáng sau vẫn thuộc ngày vào ca).
+            var dayEnd = await AppSettingsOperationalHelper.ResolveDayEndTimeAsync(db, storeId) ?? TimeSpan.Zero;
 
             var empQ = db.Employees.Where(e => e.StoreId == storeId && e.Deleted == null);
             if (!string.IsNullOrWhiteSpace(department))
@@ -522,21 +560,27 @@ public class AttendanceAnalyticsController(
             var employees = await empQ
                 .Select(e => new { e.Id, e.EmployeeCode, e.FirstName, e.LastName, e.Department })
                 .ToListAsync(ct);
-            var pins = employees.Select(e => e.EmployeeCode).ToHashSet();
+            var pinToCode = await PinToEmployeeCodeAsync(employees.Select(e => (e.Id, e.EmployeeCode)), ct);
+            var pins = pinToCode.Keys.ToList();
 
-            var raw = await db.AttendanceLogs
+            var raw = (await db.AttendanceLogs
                 .Where(a => a.Device != null && a.Device.StoreId == storeId
-                    && a.AttendanceTime >= utcStart && a.AttendanceTime < utcEnd
+                    && a.AttendanceTime >= utcStart + dayEnd && a.AttendanceTime < utcEnd + dayEnd
                     && pins.Contains(a.PIN))
                 .Select(a => new { a.PIN, a.AttendanceTime, a.AttendanceState })
-                .ToListAsync(ct);
+                .ToListAsync(ct))
+                .Select(a => new { PIN = pinToCode.GetValueOrDefault(a.PIN, a.PIN), a.AttendanceTime, a.AttendanceState })
+                .ToList();
 
             var vnPunches = raw.Select(a => new { a.PIN, Vn = ReportHelpers.AttendanceToVn(a.AttendanceTime), a.AttendanceState }).ToList();
-            var byEmpDay = vnPunches.GroupBy(p => new { p.PIN, Date = p.Vn.Date });
+            var byEmpDay = vnPunches.GroupBy(p => new { p.PIN, Date = ReportHelpers.AttendanceWorkDate(p.Vn, dayEnd) });
 
             var items = new List<AnomalyItemDto>();
+            // Giờ chuẩn = giờ của ca khớp nhất (ca chiều / ca đêm không bị coi là «đến sớm / về muộn bất thường»).
+            // Cửa hàng chưa tạo ca → 08:30–18:00 như trước.
             var standardStart = new TimeSpan(8, 30, 0);
             var standardEnd = new TimeSpan(18, 0, 0);
+            var shiftResolver = await ShiftAssignmentResolver.LoadAsync(db, storeId, employees.Select(e => e.Id).ToList(), ct);
 
             foreach (var g in byEmpDay)
             {
@@ -550,13 +594,23 @@ public class AttendanceAnalyticsController(
                 if (list.Count > maxPunchesPerDay)
                     issues.Add($"Chấm công {list.Count} lần (quá {maxPunchesPerDay})");
 
-                var firstTime = first.TimeOfDay;
-                if (firstTime < standardStart && (standardStart - firstTime).TotalMinutes >= earlyArrivalMinutes)
-                    issues.Add($"Đến sớm bất thường {(int)(standardStart - firstTime).TotalMinutes} phút");
-
-                var lastTime = last.TimeOfDay;
-                if (lastTime > standardEnd && (lastTime - standardEnd).TotalMinutes >= lateDepartureMinutes)
-                    issues.Add($"Ra về muộn bất thường {(int)(lastTime - standardEnd).TotalMinutes} phút");
+                var shift = shiftResolver.BestShift(emp.Id, first.TimeOfDay, list.Count > 1 ? last.TimeOfDay : null);
+                if (shiftResolver.HasShifts && shift == null)
+                    issues.Add("Giờ chấm không khớp ca nào được gán");
+                else
+                {
+                    var sStart = shift?.StartTime ?? standardStart;
+                    var sEnd = shift?.EndTime ?? standardEnd;
+                    var startDt = g.Key.Date + sStart;
+                    var endDt = g.Key.Date + sEnd;
+                    if (sEnd <= sStart) endDt = endDt.AddDays(1); // ca qua đêm
+                    var earlyMin = (int)(startDt - first).TotalMinutes;
+                    if (earlyMin >= earlyArrivalMinutes)
+                        issues.Add($"Đến sớm bất thường {earlyMin} phút{(shift != null ? $" (ca {shift.Name})" : "")}");
+                    var lateOutMin = (int)(last - endDt).TotalMinutes;
+                    if (list.Count > 1 && lateOutMin >= lateDepartureMinutes)
+                        issues.Add($"Ra về muộn bất thường {lateOutMin} phút{(shift != null ? $" (ca {shift.Name})" : "")}");
+                }
 
                 if (issues.Count == 0) continue;
 

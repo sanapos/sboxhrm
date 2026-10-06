@@ -1,3 +1,4 @@
+using ZKTecoADMS.Infrastructure.Helpers;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
@@ -65,13 +66,17 @@ public class ExecutiveReportsController(
                 ? Math.Round(resigned / ((headStart + headEnd) / 2.0) * 100, 2) : 0;
 
             // ── B. Attendance ────────────────────────────────────────────
+            // Ngày công theo giờ chốt ngày (ca qua đêm = 1 ngày công, không tính 2).
+            var dayEnd = await AppSettingsOperationalHelper.ResolveDayEndTimeAsync(db, storeId) ?? TimeSpan.Zero;
+            // AttendanceTime = giờ tường VN → khung tháng theo giờ VN (VnMonthRange là khung UTC cho cột CreatedAt…).
+            var (_, _, attFrom, attTo) = ReportHelpers.AttendanceMonthRange(y, m);
             var punches = await db.AttendanceLogs.IgnoreQueryFilters()
                 .Where(a => a.Device != null && a.Device.StoreId == storeId
-                    && a.AttendanceTime >= fromUtc && a.AttendanceTime < toUtc)
+                    && a.AttendanceTime >= attFrom + dayEnd && a.AttendanceTime < attTo + dayEnd)
                 .Select(a => new { a.PIN, a.AttendanceTime })
                 .ToListAsync(ct);
             var uniqueDays = punches
-                .GroupBy(p => new { p.PIN, Day = ReportHelpers.AttendanceToVn(p.AttendanceTime).Date })
+                .GroupBy(p => new { p.PIN, Day = ReportHelpers.AttendanceWorkDate(p.AttendanceTime, dayEnd) })
                 .Count();
             var totalPunches = punches.Count;
 

@@ -148,6 +148,12 @@ public class PosProduct : AuditableEntity<Guid>
     /// <summary>Hàng cân / đóng gói tại quầy: số ngày dùng được kể từ ngày đóng gói (in HSD trên tem).</summary>
     public int? PackShelfLifeDays { get; set; }
 
+    /// <summary>
+    /// Tích điểm theo % giá trị dòng hàng (sau giảm giá đơn): VD 20 → mua 100.000đ được tích 20.000đ (quy ra điểm theo
+    /// giá trị 1 điểm của cửa hàng). Null / 0 = dùng mức tích chung của cửa hàng.
+    /// </summary>
+    public decimal? LoyaltyPercent { get; set; }
+
     /// <summary>Cách tính tiền dịch vụ (chỉ áp dụng ProductType = Service).</summary>
     public PosServiceBillingMode ServiceBillingMode { get; set; } = PosServiceBillingMode.Flat;
 

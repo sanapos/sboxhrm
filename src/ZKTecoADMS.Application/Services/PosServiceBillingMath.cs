@@ -52,6 +52,14 @@ public static class PosServiceBillingMath
         return CeilingMinutes((end - start) - pause);
     }
 
+    /// <summary>Các kiểu tính theo thời gian — dùng trong truy vấn EF (<c>TimedModes.Contains(p.ServiceBillingMode)</c>);
+    /// gọi <see cref="IsTimed"/> trong LINQ-to-SQL sẽ lỗi «could not be translated».</summary>
+    public static readonly PosServiceBillingMode[] TimedModes =
+    [
+        PosServiceBillingMode.PerHour, PosServiceBillingMode.PerMinute,
+        PosServiceBillingMode.PerBlock, PosServiceBillingMode.PerDay,
+    ];
+
     public static bool IsTimed(PosServiceBillingMode mode) =>
         mode is PosServiceBillingMode.PerHour
             or PosServiceBillingMode.PerMinute

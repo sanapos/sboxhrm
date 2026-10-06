@@ -27,6 +27,9 @@ public static class PosServiceBillingHelper
 
     public static bool IsTimed(PosServiceBillingMode mode) => PosServiceBillingMath.IsTimed(mode);
 
+    /// <summary>Dùng trong truy vấn EF thay cho <see cref="IsTimed"/>.</summary>
+    public static PosServiceBillingMode[] TimedModes => PosServiceBillingMath.TimedModes;
+
     public static int CalcBillableMinutes(
         int elapsedMinutes,
         PosServiceBillingMode mode,

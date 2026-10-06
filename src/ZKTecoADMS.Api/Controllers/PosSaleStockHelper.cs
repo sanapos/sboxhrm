@@ -690,9 +690,15 @@ internal static class PosSaleStockHelper
         {
             if (!products.TryGetValue(line.ProductId, out var p))
                 return (null, $"Hàng hóa không hợp lệ: {line.ProductId}");
+            // Dịch vụ tính giờ: SL do hệ thống tính từ phút dùng (1,75 giờ; 0 giờ khi còn trong phút miễn / đã gồm phí mở)
+            // → không áp quy tắc SL nguyên và không trừ kho.
+            var timedService = p.ProductType == PosProductType.Service && PosServiceBillingHelper.IsTimed(p.ServiceBillingMode);
             if (line.Qty <= 0)
+            {
+                if (timedService) continue;
                 return (null, $"Số lượng không hợp lệ: {p.Name}");
-            var qtyRuleErr = PosQtyRules.ValidateLineQty(p, line.Qty, "Bán hàng");
+            }
+            var qtyRuleErr = timedService ? null : PosQtyRules.ValidateLineQty(p, line.Qty, "Bán hàng");
             if (qtyRuleErr != null)
                 return (null, qtyRuleErr);
 

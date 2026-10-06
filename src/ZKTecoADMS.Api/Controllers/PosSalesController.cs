@@ -2208,7 +2208,7 @@ public partial class PosSalesController(
 
         await PosSaleStockHelper.UpdateCustomerOnReturnAsync(dbContext, storeId, order, refundTotal);
         await PosCustomerFinanceHelper.AdjustPointsOnReturnAsync(
-            dbContext, storeId, order, refundTotal, totalBeforeRefund, CurrentUserEmail);
+            dbContext, storeId, order, refundTotal, totalBeforeRefund, CurrentUserEmail, returnNo);
         await PosFinanceSyncHelper.SyncCustomerReturnAsync(
             dbContext, order, returnNo, refundTotal, refundMethod, CurrentUserId);
         await PosSaleWarrantyHelper.MarkReturnedAsync(
@@ -2314,7 +2314,7 @@ public partial class PosSalesController(
 
         await PosSaleStockHelper.ReverseCustomerOnReturnVoidAsync(dbContext, storeId, order, refundReversed);
         await PosCustomerFinanceHelper.RestorePointsOnReturnVoidAsync(
-            dbContext, storeId, order, refundReversed, order.Total, CurrentUserEmail);
+            dbContext, storeId, order, refundReversed, order.Total, CurrentUserEmail, returnNo);
         await PosFinanceSyncHelper.ReverseCustomerReturnAsync(dbContext, order, returnNo);
         await PosSaleWarrantyHelper.UnmarkReturnedAsync(
             dbContext, storeId, order.Id, warrantyLines, CurrentUserEmail);

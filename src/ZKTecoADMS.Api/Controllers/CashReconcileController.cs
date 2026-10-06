@@ -31,13 +31,15 @@ public class CashReconcileController(ZKTecoDbContext db) : AuthenticatedControll
     {
         var storeId = RequiredStoreId;
         var nowVn = DateTime.UtcNow.AddHours(7);
-        var from = (fromDate ?? new DateTime(nowVn.Year, nowVn.Month, 1)).Date.AddHours(-7);
-        var to = (toDate ?? nowVn).Date.AddDays(1).AddHours(-7);
+        var fromVn = (fromDate ?? new DateTime(nowVn.Year, nowVn.Month, 1)).Date;
+        var toVn = (toDate ?? nowVn).Date.AddDays(1);
+        var from = fromVn.AddHours(-7);
+        var to = toVn.AddHours(-7);
         var issues = new List<Issue>();
 
         var cash = await db.CashTransactions.AsNoTracking()
             .Where(c => c.StoreId == storeId && c.IsActive && c.Deleted == null
-                        && c.TransactionDate >= from && c.TransactionDate < to)
+                        && c.TransactionDate >= fromVn && c.TransactionDate < toVn)
             .ApplyBranchScope(HttpContext.BranchContext())
             .Select(c => new { c.Id, c.TransactionCode, c.Type, c.Amount, c.TransactionDate, c.Description,
                 c.SourceType, c.SourceId, c.InternalNote, c.Status })
@@ -81,6 +83,22 @@ public class CashReconcileController(ZKTecoDbContext db) : AuthenticatedControll
             .GroupBy(c => c.SourceId!.Value)
             .Select(g => new { Id = g.Key, Sum = g.Sum(x => x.Type == CashTransactionType.Income ? x.Amount : -x.Amount) })
             .ToDictionaryAsync(x => x.Id, x => x.Sum, ct);
+        // Thu nợ sau bán gắn với đơn (phiếu «pos thu nợ kh») cũng là tiền của đơn đó.
+        var debtPays = await db.PosCustomerPayments.AsNoTracking()
+            .Where(p => p.StoreId == storeId && p.Deleted == null && p.SaleOrderId != null && completedIds.Contains(p.SaleOrderId.Value))
+            .Select(p => new { p.Id, OrderId = p.SaleOrderId!.Value })
+            .ToListAsync(ct);
+        var debtPayIds = debtPays.Select(p => p.Id).ToList();
+        var debtCash = await db.CashTransactions.AsNoTracking()
+            .Where(c => c.StoreId == storeId && c.IsActive && c.Deleted == null && c.Status != CashTransactionStatus.Cancelled
+                        && c.SourceType == CashSources.PosCustomerPayment && c.SourceId != null && debtPayIds.Contains(c.SourceId.Value))
+            .Select(c => new { Id = c.SourceId!.Value, c.Amount })
+            .ToListAsync(ct);
+        foreach (var dc in debtCash)
+        {
+            var oid = debtPays.First(p => p.Id == dc.Id).OrderId;
+            receiptSums[oid] = receiptSums.GetValueOrDefault(oid) + dc.Amount;
+        }
         var deposits = await db.PosResourceReservations.AsNoTracking()
             .Where(r => r.StoreId == storeId && r.DepositAppliedOrderId != null && completedIds.Contains(r.DepositAppliedOrderId.Value))
             .GroupBy(r => r.DepositAppliedOrderId!.Value)

@@ -130,14 +130,18 @@ class PosPromotion {
   bool isLiveAt(DateTime now, {bool hasCustomer = false}) {
     if (!isActive) return false;
     if (membersOnly && !hasCustomer) return false;
-    final day = DateTime(now.year, now.month, now.day);
-    if (validFrom != null && day.isBefore(DateTime(validFrom!.year, validFrom!.month, validFrom!.day))) return false;
-    if (validTo != null && day.isAfter(DateTime(validTo!.year, validTo!.month, validTo!.day))) return false;
-    if (daysOfWeekMask != 0 && (daysOfWeekMask & (1 << (now.weekday - 1))) == 0) return false;
     final from = timeFromMinutes;
     final to = timeToMinutes;
+    final m = now.hour * 60 + now.minute;
+    // Khung giờ vắt qua nửa đêm (VD 22:00–02:00): phần sau 0h thuộc ngày bắt đầu khung
+    // → «Thứ 6 22:00–02:00» vẫn áp lúc 01:00 sáng thứ 7; hạn chương trình cũng tính theo ngày đó.
+    final overnightTail = from != null && to != null && from > to && m < to;
+    final ref = overnightTail ? now.subtract(const Duration(days: 1)) : now;
+    final day = DateTime(ref.year, ref.month, ref.day);
+    if (validFrom != null && day.isBefore(DateTime(validFrom!.year, validFrom!.month, validFrom!.day))) return false;
+    if (validTo != null && day.isAfter(DateTime(validTo!.year, validTo!.month, validTo!.day))) return false;
+    if (daysOfWeekMask != 0 && (daysOfWeekMask & (1 << (ref.weekday - 1))) == 0) return false;
     if (from != null && to != null && from != to) {
-      final m = now.hour * 60 + now.minute;
       final inside = from < to ? (m >= from && m < to) : (m >= from || m < to);
       if (!inside) return false;
     }

@@ -32,6 +32,30 @@ class PosLoyaltyRates {
     );
   }
 
+  /// Như server CalcPointsEarn: dòng có % tích lũy riêng → (tiền thực trả × %) ÷ giá trị 1 điểm;
+  /// dòng còn lại theo mức chung. Tiền dòng chia lại theo tỷ lệ tổng đơn (sau giảm đơn / voucher / đổi điểm).
+  double earnPointsForLines(num netTotalAfterRedeem, List<({double lineTotal, double? percent})> lines) {
+    final net = netTotalAfterRedeem.toDouble();
+    if (!enabled || net <= 0) return 0;
+    if (!lines.any((l) => (l.percent ?? 0) > 0)) return earnPoints(net);
+    final sum = lines.fold<double>(0, (a, l) => a + (l.lineTotal > 0 ? l.lineTotal : 0));
+    if (sum <= 0) return 0;
+    final ratio = net / sum < 1 ? net / sum : 1.0;
+    var percentMoney = 0.0, rest = 0.0;
+    for (final l in lines) {
+      final v = (l.lineTotal > 0 ? l.lineTotal : 0) * ratio;
+      final p = l.percent ?? 0;
+      if (p > 0) {
+        percentMoney += v * (p > 100 ? 100 : p) / 100;
+      } else {
+        rest += v;
+      }
+    }
+    var pts = redeemValue > 0 ? (percentMoney / redeemValue).floorToDouble() : 0.0;
+    if (canEarn) pts += (rest / earnPerAmount).floorToDouble();
+    return pts;
+  }
+
   double earnPoints(num netTotalAfterRedeem) {
     final net = netTotalAfterRedeem.toDouble();
     if (!canEarn || net <= 0) return 0;

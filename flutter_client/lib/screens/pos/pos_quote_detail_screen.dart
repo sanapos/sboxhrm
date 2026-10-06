@@ -52,6 +52,50 @@ class PosQuoteFlow {
     };
   }
 
+  /// Lập hợp đồng khi báo giá chưa chốt: hỏi xác nhận → phát hành (nếu nháp) → ghi nhận khách chốt.
+  /// Máy chủ chỉ cho lập hợp đồng từ báo giá đã chấp nhận. Trả true khi báo giá đã ở trạng thái chấp nhận.
+  static Future<bool> ensureAccepted(BuildContext context, PosQuote q) async {
+    if (q.status == 'Accepted') return true;
+    if (isStopped(q)) {
+      NotificationOverlayManager().showError(
+          title: 'Không lập được hợp đồng', message: tr('Báo giá đã ${PosQuote.statusLabel(q.status).toLowerCase()}.'));
+      return false;
+    }
+    if (!context.read<PermissionProvider>().canApprove('PosQuotes')) {
+      NotificationOverlayManager().showError(
+          title: 'Cần quyền duyệt báo giá',
+          message: tr('Lập hợp đồng cần ghi nhận khách đã chốt báo giá — nhờ quản lý thao tác.'));
+      return false;
+    }
+    final ok = await showDialog<bool>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: Text(tr('Khách đã chốt báo giá?')),
+        content: Text(tr('Báo giá ${q.quoteNo} sẽ được ghi nhận ${q.status == 'Draft' ? 'đã gửi khách và ' : ''}'
+            'khách chấp nhận (khóa sửa báo giá), sau đó lập hợp đồng.')),
+        actions: [
+          TextButton(onPressed: () => Navigator.pop(ctx, false), child: Text(tr('Hủy'))),
+          FilledButton(onPressed: () => Navigator.pop(ctx, true), child: Text(tr('Khách chốt & lập HĐ'))),
+        ],
+      ),
+    );
+    if (ok != true) return false;
+    final api = ApiService();
+    if (q.status == 'Draft') {
+      final r = await api.sendPosQuote(q.id);
+      if (r['isSuccess'] != true) {
+        NotificationOverlayManager().showError(title: 'Chưa phát hành được', message: r['message']?.toString() ?? '');
+        return false;
+      }
+    }
+    final r = await api.acceptPosQuote(q.id);
+    if (r['isSuccess'] != true) {
+      NotificationOverlayManager().showError(title: 'Chưa ghi nhận khách chốt', message: r['message']?.toString() ?? '');
+      return false;
+    }
+    return true;
+  }
+
   /// «Còn N ngày» / «Hết hạn» — chỉ khi báo giá còn chờ khách.
   static (String, Color)? validity(PosQuote q) {
     final until = q.validUntil;
@@ -407,6 +451,7 @@ class _PosQuoteDetailScreenState extends State<PosQuoteDetailScreen> {
           }
         }));
         actions.add(secondary('Sửa hàng hóa / giá', Icons.edit_outlined, _editItems));
+        if (canApprove) actions.add(secondary('Khách chốt & lập HĐ', Icons.handshake_outlined, _acceptAndContract));
       }
       if (q.status == 'Revised' && canApprove) {
         actions.add(secondary('Khách chốt', Icons.verified_outlined, () => _accept(q)));
@@ -423,6 +468,7 @@ class _PosQuoteDetailScreenState extends State<PosQuoteDetailScreen> {
       } else {
         hint += ' (Cần quyền duyệt báo giá để chốt.)';
       }
+      if (canEdit && canApprove) actions.add(secondary('Khách chốt & lập HĐ', Icons.handshake_outlined, _acceptAndContract));
       if (canEdit) actions.add(secondary('Sửa (tạo bản sửa)', Icons.edit_outlined, _editItems));
     } else {
       // Đã chốt — hồ sơ thương mại.
@@ -505,6 +551,16 @@ class _PosQuoteDetailScreenState extends State<PosQuoteDetailScreen> {
         ],
       ]),
     );
+  }
+
+  Future<void> _acceptAndContract() async {
+    final q = _q;
+    if (q == null) return;
+    if (!await PosQuoteFlow.ensureAccepted(context, q)) return;
+    _changed = true;
+    await _load();
+    if (!mounted) return;
+    await _createDoc('Contract');
   }
 
   Future<void> _accept(PosQuote q) async {

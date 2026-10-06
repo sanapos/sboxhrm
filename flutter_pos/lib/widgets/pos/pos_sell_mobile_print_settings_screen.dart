@@ -1,3 +1,4 @@
+import '../../screens/pos/pos_print_queue_screen.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/foundation.dart';
 import 'package:provider/provider.dart';
@@ -548,6 +549,13 @@ class _PosSellMobilePrintSettingsScreenState
                     icon: const Icon(Icons.cloud_outlined),
                   ),
                 IconButton(
+                  tooltip: tr('Hàng đợi in (mọi máy)'),
+                  onPressed: () {
+                    _openOverlay<void>(const PosPrintQueueScreen());
+                  },
+                  icon: const Icon(Icons.queue_outlined),
+                ),
+                IconButton(
                   tooltip: tr('Lưu'),
                   onPressed: _loading ? null : _save,
                   icon: const Icon(Icons.save_outlined),
@@ -578,6 +586,13 @@ class _PosSellMobilePrintSettingsScreenState
                           icon: const Icon(Icons.cloud_outlined, size: 18),
                           label: Text(tr('Máy in cloud')),
                         ),
+                      OutlinedButton.icon(
+                        onPressed: () {
+                          _openOverlay<void>(const PosPrintQueueScreen());
+                        },
+                        icon: const Icon(Icons.queue_outlined, size: 18),
+                        label: Text(tr('Hàng đợi in')),
+                      ),
                       FilledButton(
                         onPressed: _loading ? null : _save,
                         child: Text(tr('Lưu')),

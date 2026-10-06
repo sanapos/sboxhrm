@@ -1056,9 +1056,18 @@ class _PosStorePrintersScreenState extends State<PosStorePrintersScreen> {
         Map<String, dynamic>.from(res['data'] as Map),
       );
       if (created.id.isNotEmpty) {
+        // Server gộp vào máy in sẵn có cùng địa chỉ → thay dòng cũ, không thêm trùng.
         setState(() {
-          _printers = [..._printers, created];
+          _printers = [
+            for (final p in _printers)
+              if (p.id != created.id) p,
+            created,
+          ];
         });
+        final note = res['message']?.toString() ?? '';
+        if (note.isNotEmpty) {
+          NotificationOverlayManager().showWarning(title: 'Máy in trùng địa chỉ', message: tr(note));
+        }
         if ((local.storePrinterId ?? '').trim().isEmpty) {
           await _linkLocalToStorePrinter(local, created.id);
         }
@@ -2075,6 +2084,10 @@ class _PrinterEditorSheetState extends State<_PrinterEditorSheet> {
       }
       if (res['isSuccess'] == true && res['data'] is Map) {
         if (!mounted) return;
+        final note = res['message']?.toString() ?? '';
+        if (note.isNotEmpty) {
+          NotificationOverlayManager().showWarning(title: 'Máy in trùng địa chỉ', message: tr(note));
+        }
         Navigator.pop(
           context,
           PosStorePrinter.fromJson(res['data'] as Map<String, dynamic>),

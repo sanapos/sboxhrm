@@ -40,7 +40,19 @@ public sealed class AiAssistantActions(
     /// <summary>Thao tác đã dựng xong, chờ người dùng xác nhận (giữ 30 phút trong bộ nhớ).</summary>
     public sealed record Pending(
         string Id, Guid UserId, Guid StoreId, string Kind, string Title, List<Line> Lines,
-        string Method, string Path, string? Body, string? OpenModule, List<string> Warnings);
+        string Method, string Path, string? Body, string? OpenModule, List<string> Warnings)
+    {
+        /// <summary>Phiếu kho nhiều bước (tạo → thêm dòng → số lượng → hoàn tất). Null = một lời gọi.</summary>
+        public List<Step>? Steps { get; init; }
+        /// <summary>Số lượng theo hàng cho bước điền dòng (LinesFrom).</summary>
+        public Dictionary<Guid, decimal>? LineQty { get; init; }
+    }
+
+    /// <summary>
+    /// Một bước gọi API. Path có «{id}» = id phiếu tạo ở bước đầu. LinesFrom = "qty" | "counted": thân dựng từ
+    /// danh sách dòng bước trước trả về (lineId theo hàng) + <see cref="Pending.LineQty"/>.
+    /// </summary>
+    public sealed record Step(string Method, string Path, string? Body, string? LinesFrom = null);
 
     public sealed record Ctx(
         Guid StoreId, Guid UserId, string Role,
@@ -159,6 +171,110 @@ public sealed class AiAssistantActions(
                 ["discount"] = ("NUMBER", "Giảm giá cả đơn VNĐ"),
                 ["note"] = ("STRING", "Ghi chú"),
             }, ["items"]),
+
+        // ── Hàng hóa / kho / khuyến mãi ──
+        new("propose_product", "PosProducts", 'C', false,
+            "Thêm HÀNG HÓA / DỊCH VỤ mới vào danh mục.",
+            new()
+            {
+                ["name"] = ("STRING", "Tên hàng"),
+                ["price"] = ("NUMBER", "Giá bán VNĐ"),
+                ["cost"] = ("NUMBER", "Giá vốn VNĐ"),
+                ["unit"] = ("STRING", "Đơn vị tính (Cái, Lon, Kg, Ly…)"),
+                ["category"] = ("STRING", "Tên nhóm hàng (chưa có thì tạo mới)"),
+                ["type"] = ("STRING", "goods (hàng hóa, có tồn kho) | service (dịch vụ)"),
+                ["stock"] = ("NUMBER", "Tồn kho ban đầu"),
+                ["barcode"] = ("STRING", "Mã vạch"),
+            }, ["name", "price"]),
+        new("propose_purchase_receipt", "PosPurchaseReceipts", 'E', false,
+            "Lập PHIẾU NHẬP KHO (nhập hàng từ nhà cung cấp) và hoàn thành — cộng tồn kho, ghi công nợ / chi tiền.",
+            new()
+            {
+                ["supplier_id"] = ("STRING", "Id nhà cung cấp (find_suppliers) — bỏ trống nếu không rõ"),
+                ["items"] = ("ARRAY", "Hàng nhập {product_id, qty, price = giá nhập (bỏ trống = giá vốn hiện tại)}"),
+                ["paid"] = ("STRING", "full (trả đủ) | none (ghi nợ NCC) | số tiền đã trả"),
+                ["method"] = ("STRING", "cash | bank"),
+                ["note"] = ("STRING", "Ghi chú"),
+            }, ["items"]),
+        new("propose_stock_count", "PosStockCounts", 'E', false,
+            "Lập PHIẾU KIỂM KHO với số đếm thực tế và hoàn thành — chênh lệch được cân bằng vào tồn kho.",
+            new()
+            {
+                ["items"] = ("ARRAY", "Hàng đã đếm {product_id, qty = số lượng ĐẾM THỰC TẾ}"),
+                ["note"] = ("STRING", "Ghi chú"),
+            }, ["items"]),
+        new("propose_damage_issue", "PosDamageIssues", 'E', false,
+            "Lập PHIẾU XUẤT HỦY (hàng hỏng, vỡ, hết hạn) và hoàn thành — trừ tồn kho.",
+            new()
+            {
+                ["items"] = ("ARRAY", "Hàng hủy {product_id, qty}"),
+                ["reason"] = ("STRING", "Lý do hủy"),
+            }, ["items"]),
+        new("propose_internal_use", "PosInternalUseIssues", 'E', false,
+            "Lập PHIẾU XUẤT DÙNG NỘI BỘ (dùng cho cửa hàng, nhân viên) và hoàn thành — trừ tồn kho.",
+            new()
+            {
+                ["items"] = ("ARRAY", "Hàng xuất dùng {product_id, qty}"),
+                ["recipient"] = ("STRING", "Người / bộ phận nhận"),
+                ["reason"] = ("STRING", "Mục đích sử dụng"),
+            }, ["items"]),
+        new("propose_customer_return", "PosSaleReturns", 'A', false,
+            "KHÁCH TRẢ HÀNG theo hóa đơn: nhập lại kho + hoàn tiền. Tìm hóa đơn bằng find_orders.",
+            new()
+            {
+                ["order_id"] = ("STRING", "Id hóa đơn (find_orders)"),
+                ["items"] = ("ARRAY", "Hàng trả {product_id, qty} — bỏ trống = trả cả hóa đơn"),
+                ["refund_method"] = ("STRING", "cash | bank"),
+                ["reason"] = ("STRING", "Lý do trả"),
+            }, ["order_id"]),
+        new("propose_purchase_return", "PosPurchaseReturns", 'E', false,
+            "TRẢ HÀNG NHÀ CUNG CẤP và hoàn thành — trừ tồn kho, giảm công nợ / thu tiền NCC hoàn.",
+            new()
+            {
+                ["supplier_id"] = ("STRING", "Id nhà cung cấp (find_suppliers)"),
+                ["items"] = ("ARRAY", "Hàng trả {product_id, qty, price = giá trả (bỏ trống = giá vốn)}"),
+                ["refund"] = ("NUMBER", "Tiền NCC hoàn lại ngay (0 = trừ công nợ)"),
+                ["note"] = ("STRING", "Lý do / ghi chú"),
+            }, ["items"]),
+        new("propose_voucher", "PosProducts", 'C', false,
+            "Tạo MÃ GIẢM GIÁ (voucher) dùng ở màn bán.",
+            new()
+            {
+                ["code"] = ("STRING", "Mã voucher (viết liền, VD: TET2027) — bỏ trống = tự sinh"),
+                ["name"] = ("STRING", "Tên chương trình"),
+                ["kind"] = ("STRING", "percent (giảm %) | fixed (giảm tiền)"),
+                ["value"] = ("NUMBER", "Số % hoặc số tiền giảm"),
+                ["min_order"] = ("NUMBER", "Đơn tối thiểu VNĐ"),
+                ["max_discount"] = ("NUMBER", "Giảm tối đa VNĐ (với giảm %)"),
+                ["from"] = ("STRING", "Từ ngày yyyy-MM-dd"),
+                ["to"] = ("STRING", "Đến ngày yyyy-MM-dd"),
+                ["max_uses"] = ("INTEGER", "Số lượt dùng tối đa"),
+            }, ["kind", "value"]),
+        new("propose_promotion", "PosPromotions", 'C', false,
+            "Tạo CHƯƠNG TRÌNH KHUYẾN MÃI tự áp ở màn bán.",
+            new()
+            {
+                ["name"] = ("STRING", "Tên chương trình"),
+                ["type"] = ("STRING", "bill_discount (giảm theo tổng hóa đơn) | time_discount (giảm % / giảm tiền mỗi món, có thể theo khung giờ) | qty_discount (mua nhiều giảm %) | buy_x_get_y (mua X tặng Y) | combo_price (đồng giá combo N món)"),
+                ["percent"] = ("NUMBER", "% giảm (bill_discount / time_discount / qty_discount)"),
+                ["amount"] = ("NUMBER", "Số tiền giảm (bill_discount: giảm cả hóa đơn; time_discount: giảm mỗi món)"),
+                ["min_bill"] = ("NUMBER", "Hóa đơn tối thiểu (bill_discount)"),
+                ["max_discount"] = ("NUMBER", "Giảm tối đa (bill_discount)"),
+                ["min_qty"] = ("NUMBER", "Mua từ bao nhiêu (qty_discount)"),
+                ["buy_qty"] = ("INTEGER", "Mua X (buy_x_get_y)"),
+                ["get_qty"] = ("INTEGER", "Tặng Y (buy_x_get_y)"),
+                ["gift_product_id"] = ("STRING", "Hàng tặng (buy_x_get_y) — bỏ trống = tặng chính hàng đó"),
+                ["combo_qty"] = ("INTEGER", "Số món combo (combo_price)"),
+                ["combo_price"] = ("NUMBER", "Giá đồng giá combo (combo_price)"),
+                ["product_ids"] = ("STRING", "Id hàng áp dụng, cách nhau dấu phẩy (find_products) — bỏ trống = mọi hàng"),
+                ["category"] = ("STRING", "Hoặc tên nhóm hàng áp dụng"),
+                ["from"] = ("STRING", "Từ ngày yyyy-MM-dd"),
+                ["to"] = ("STRING", "Đến ngày yyyy-MM-dd"),
+                ["time_from"] = ("STRING", "Khung giờ từ HH:mm (giờ vàng)"),
+                ["time_to"] = ("STRING", "Khung giờ đến HH:mm"),
+                ["weekdays"] = ("STRING", "Thứ áp dụng, VD \"2,3,4\" (2 = Thứ Hai … 8 = Chủ nhật) — bỏ trống = mọi ngày"),
+                ["members_only"] = ("BOOLEAN", "Chỉ khách thành viên"),
+            }, ["name", "type"]),
     ];
 
     bool Can(Ctx c, string module, char need)
@@ -167,7 +283,7 @@ public sealed class AiAssistantActions(
         if (c.Package is { Count: > 0 } pkg && !pkg.Contains(module, StringComparer.OrdinalIgnoreCase)) return false;
         if (c.IsSuper) return true;
         if (!c.Perms.TryGetValue(module, out var p)) return false;
-        return need == 'E' ? p.CanEdit : p.CanCreate;
+        return need switch { 'E' => p.CanEdit, 'A' => p.CanApprove, _ => p.CanCreate };
     }
 
     bool IsManager(Ctx c) => c.IsSuper || ManagerRoles.Contains(c.Role, StringComparer.OrdinalIgnoreCase);
@@ -191,6 +307,21 @@ public sealed class AiAssistantActions(
             decls.Add(Fn("find_customers", "Tìm khách hàng theo tên / SĐT.",
                 new() { ["query"] = ("STRING", "Tên / SĐT") }, ["query"]));
         }
+        if (allowed.Any(d => d.Name is "propose_product" or "propose_purchase_receipt" or "propose_stock_count"
+                or "propose_damage_issue" or "propose_internal_use" or "propose_purchase_return" or "propose_promotion"
+                or "propose_customer_return")
+            && !decls.Any(x => x.GetType().GetProperty("name")?.GetValue(x) as string == "find_products"))
+            decls.Add(Fn("find_products", "Tìm hàng hóa / dịch vụ theo tên / mã / mã vạch → id, giá bán, giá vốn, đơn vị, tồn.",
+                new() { ["query"] = ("STRING", "Tên / mã hàng") }, ["query"]));
+        if (allowed.Any(d => d.Name is "propose_promotion" or "propose_product"))
+            decls.Add(Fn("find_categories", "Danh sách nhóm hàng của cửa hàng (tên chính xác để áp khuyến mãi / xếp hàng mới).",
+                new(), []));
+        if (allowed.Any(d => d.Name is "propose_purchase_receipt" or "propose_purchase_return"))
+            decls.Add(Fn("find_suppliers", "Tìm nhà cung cấp theo tên / SĐT.",
+                new() { ["query"] = ("STRING", "Tên / SĐT nhà cung cấp") }, ["query"]));
+        if (allowed.Any(d => d.Name == "propose_customer_return"))
+            decls.Add(Fn("find_orders", "Tìm hóa đơn bán (để trả hàng) theo mã HĐ / tên / SĐT khách, trong 60 ngày.",
+                new() { ["query"] = ("STRING", "Mã hóa đơn / khách") }, ["query"]));
         if (allowed.Any(d => d.Module == "CashTransaction"))
             decls.Add(Fn("find_cash_categories", "Danh mục thu / chi của cửa hàng.",
                 new() { ["direction"] = ("STRING", "income | expense") }, []));
@@ -239,20 +370,26 @@ public sealed class AiAssistantActions(
 
     public static string Instructions(bool any) => !any ? "" : """
         === THÊM / SỬA CHỨNG TỪ ===
-        - Người dùng muốn tạo / sửa phiếu (ứng lương, phạt, thưởng, thu chi, tăng ca, bổ sung chấm công, hóa đơn bán…):
+        - Người dùng muốn tạo / sửa phiếu (ứng lương, phạt, thưởng, thu chi, tăng ca, bổ sung chấm công, hóa đơn bán,
+          hàng hóa mới, nhập kho, kiểm kho, xuất hủy, dùng nội bộ, khách trả hàng, trả hàng NCC, voucher, khuyến mãi…):
           dùng công cụ propose_* tương ứng (KHÔNG dùng thẻ [[CREATE:...]] cho các loại này).
         - Nhắc tên người / hàng / khách → gọi find_employees / find_products / find_customers trước để lấy id.
           Nhiều kết quả trùng tên → hỏi lại người dùng chọn ai, KHÔNG tự chọn.
         - Thiếu thông tin bắt buộc (số tiền, ngày, giờ, người…) → hỏi lại ngắn gọn, chưa gọi propose_*.
         - Có thể đề xuất nhiều phiếu một lượt (vd phạt 3 người) — mỗi phiếu một lời gọi propose_*.
         - Sau khi đề xuất: tóm tắt 1–2 câu và nhắc người dùng bấm «Xác nhận» trên thẻ. TUYỆT ĐỐI không nói "đã tạo".
+        - Phiếu kho có nhiều mặt hàng: tra find_products cho TỪNG hàng rồi gọi propose_* MỘT lần với đủ danh sách items.
+        - Khuyến mãi nhắc nhóm hàng («đồ uống», «món nướng»…) → gọi find_categories rồi truyền category đúng tên;
+          nhắc từng món → find_products rồi truyền product_ids. Chỉ để trống khi người dùng nói áp cho MỌI hàng.
+        - Kiểm kho: qty là số ĐẾM THỰC TẾ (không phải số chênh lệch). Khách trả hàng: tra find_orders để lấy order_id.
         - Quy đổi lời nói: "năm trăm nghìn / năm trăm k / 500k" = 500000; "1 triệu rưỡi" = 1500000; "chiều nay 5 giờ" = 17:00.
         """;
 
     // ─── Xử lý lời gọi công cụ ─────────────────────────────────────
 
     public bool Handles(string tool) => tool is "find_employees" or "find_products" or "find_customers"
-        or "find_cash_categories" or "find_records" || tool.StartsWith("propose_", StringComparison.Ordinal);
+        or "find_cash_categories" or "find_records" or "find_suppliers" or "find_orders" or "find_categories"
+        || tool.StartsWith("propose_", StringComparison.Ordinal);
 
     public async Task<object> HandleAsync(string tool, JsonElement args, Ctx c, List<Pending> proposed, CancellationToken ct)
     {
@@ -264,6 +401,14 @@ public sealed class AiAssistantActions(
             case "find_customers": return await FindCustomersAsync(c, S(a, "query"), ct);
             case "find_cash_categories": return await CashCategoriesAsync(c, S(a, "direction"), ct);
             case "find_records": return await FindRecordsAsync(c, a, ct);
+            case "find_suppliers": return await FindSuppliersAsync(c, S(a, "query"), ct);
+            case "find_orders": return await FindOrdersAsync(c, S(a, "query"), ct);
+            case "find_categories":
+                return new
+                {
+                    nhom_hang = await db.PosProductCategories.AsNoTracking().Where(x => x.StoreId == c.StoreId)
+                        .OrderBy(x => x.Name).Select(x => x.Name).Take(200).ToListAsync(ct),
+                };
         }
 
         var def = AllowedDefs(c).FirstOrDefault(d => d.Name == tool);
@@ -286,6 +431,15 @@ public sealed class AiAssistantActions(
                 "propose_overtime" => await OvertimeAsync(c, a, ct),
                 "propose_attendance_fix" => await AttendanceFixAsync(c, a, ct),
                 "propose_sale_order" => await SaleAsync(c, a, ct),
+                "propose_product" => ProductProposal(c, a),
+                "propose_purchase_receipt" => await PurchaseReceiptAsync(c, a, ct),
+                "propose_stock_count" => await StockCountAsync(c, a, ct),
+                "propose_damage_issue" => await StockIssueAsync(c, a, "damage", ct),
+                "propose_internal_use" => await StockIssueAsync(c, a, "internal-use", ct),
+                "propose_customer_return" => await CustomerReturnAsync(c, a, ct),
+                "propose_purchase_return" => await PurchaseReturnAsync(c, a, ct),
+                "propose_voucher" => VoucherProposal(c, a),
+                "propose_promotion" => await PromotionAsync(c, a, ct),
                 _ => null,
             };
         }
@@ -350,7 +504,7 @@ public sealed class AiAssistantActions(
         var raw = query!.Trim();
         var rows = await db.PosProducts.AsNoTracking()
             .Where(p => p.StoreId == c.StoreId && p.Deleted == null && p.IsActive)
-            .Select(p => new { p.Id, p.ProductCode, p.Barcode, p.Name, p.BasePrice, p.BaseUnitName, p.OnHandQty, p.ProductType })
+            .Select(p => new { p.Id, p.ProductCode, p.Barcode, p.Name, p.BasePrice, p.CostPrice, p.BaseUnitName, p.OnHandQty, p.ProductType })
             .ToListAsync(ct);
         var list = rows
             .Select(p => (p, s: p.ProductCode.Equals(raw, StringComparison.OrdinalIgnoreCase) || p.Barcode == raw
@@ -360,7 +514,8 @@ public sealed class AiAssistantActions(
             .Take(8)
             .Select(x => new
             {
-                id = x.p.Id, ma = x.p.ProductCode, ten = x.p.Name, gia_ban = x.p.BasePrice, don_vi = x.p.BaseUnitName,
+                id = x.p.Id, ma = x.p.ProductCode, ten = x.p.Name, gia_ban = x.p.BasePrice, gia_von = x.p.CostPrice,
+                don_vi = x.p.BaseUnitName,
                 ton = x.p.ProductType == PosProductType.Goods ? x.p.OnHandQty : (decimal?)null,
             })
             .ToList();
@@ -787,6 +942,460 @@ public sealed class AiAssistantActions(
         }, "PosSaleOrders", warnings);
     }
 
+    // ─── Hàng hóa / kho / khuyến mãi ───────────────────────────────
+
+    async Task<object> FindSuppliersAsync(Ctx c, string? query, CancellationToken ct)
+    {
+        var q = VnSearch.FoldText(query);
+        if (q.Length == 0) return new { error = "Thiếu tên nhà cung cấp" };
+        var rows = await db.PosSuppliers.AsNoTracking()
+            .Where(x => x.StoreId == c.StoreId && x.Deleted == null)
+            .Select(x => new { x.Id, x.Name, x.Phone })
+            .ToListAsync(ct);
+        var list = rows.Select(x => (x, s: Score(VnSearch.Fold(x.Name), q))).Where(t => t.s > 0)
+            .OrderByDescending(t => t.s).Take(8)
+            .Select(t => new { id = t.x.Id, ten = t.x.Name, sdt = t.x.Phone }).ToList();
+        return list.Count == 0 ? new { ket_qua = "Không có nhà cung cấp khớp — có thể bỏ trống supplier_id" } : new { ket_qua = list };
+    }
+
+    async Task<object> FindOrdersAsync(Ctx c, string? query, CancellationToken ct)
+    {
+        var raw = (query ?? "").Trim();
+        var q = VnSearch.FoldText(raw);
+        var since = DateTime.UtcNow.AddDays(-60);
+        var rows = await db.PosSaleOrders.AsNoTracking()
+            .Where(o => o.StoreId == c.StoreId && o.Deleted == null && o.Status == PosSaleOrderStatus.Completed
+                        && (o.SaleDate ?? o.CreatedAt) >= since)
+            .OrderByDescending(o => o.SaleDate ?? o.CreatedAt).Take(400)
+            .Select(o => new { o.Id, o.OrderNo, o.CustomerName, o.Total, At = o.SaleDate ?? o.CreatedAt,
+                Lines = o.Lines.Select(l => new { l.ProductId, l.ProductName, l.Qty }).ToList() })
+            .ToListAsync(ct);
+        var list = rows
+            .Where(o => q.Length == 0 || o.OrderNo.Contains(raw, StringComparison.OrdinalIgnoreCase)
+                        || VnSearch.Fold(o.CustomerName ?? "").Contains(q))
+            .Take(6)
+            .Select(o => new
+            {
+                id = o.Id, ma = o.OrderNo, khach = o.CustomerName ?? "Khách lẻ", tong = o.Total,
+                ngay = o.At.AddHours(7).ToString("dd/MM HH:mm"),
+                hang = o.Lines.Select(l => new { product_id = l.ProductId, ten = l.ProductName, sl = l.Qty }),
+            }).ToList();
+        return list.Count == 0 ? new { ket_qua = "Không tìm thấy hóa đơn hoàn thành khớp trong 60 ngày" } : new { ket_qua = list };
+    }
+
+    sealed record ItemReq(Guid Id, decimal Qty, decimal? Price);
+
+    static List<ItemReq> Items(Dictionary<string, object?> a, bool required = true)
+    {
+        if (a.GetValueOrDefault("items") is not JsonElement items || items.ValueKind != JsonValueKind.Array || items.GetArrayLength() == 0)
+            return required ? throw new ActionError("Chưa có mặt hàng.") : [];
+        return items.EnumerateArray().Select(i => new ItemReq(
+            i.TryGetProperty("product_id", out var p) && Guid.TryParse(p.GetString(), out var g) ? g : Guid.Empty,
+            i.TryGetProperty("qty", out var q) && q.TryGetDecimal(out var qd) ? qd : 1m,
+            i.TryGetProperty("price", out var pr) && pr.TryGetDecimal(out var pd) ? pd : null)).ToList();
+    }
+
+    sealed record Prod(Guid Id, string Name, string Unit, decimal Price, decimal Cost, decimal OnHand, bool Goods);
+
+    async Task<Dictionary<Guid, Prod>> ProductsAsync(Ctx c, IEnumerable<Guid> ids, CancellationToken ct)
+    {
+        var list = ids.Distinct().ToList();
+        var map = await db.PosProducts.AsNoTracking()
+            .Where(p => p.StoreId == c.StoreId && p.Deleted == null && list.Contains(p.Id))
+            .Select(p => new Prod(p.Id, p.Name, p.BaseUnitName, p.BasePrice, p.CostPrice, p.OnHandQty, p.ProductType == PosProductType.Goods))
+            .ToDictionaryAsync(p => p.Id, ct);
+        if (list.Any(id => !map.ContainsKey(id)))
+            throw new ActionError("Có mặt hàng không tìm thấy — dùng find_products lấy đúng id.");
+        return map;
+    }
+
+    Pending ProductProposal(Ctx c, Dictionary<string, object?> a)
+    {
+        var name = S(a, "name") ?? throw new ActionError("Thiếu tên hàng.");
+        var price = ParseMoney(S(a, "price")) ?? throw new ActionError("Giá bán không hợp lệ.");
+        var cost = ParseMoney(S(a, "cost")) ?? 0;
+        var service = (S(a, "type") ?? "").ToLowerInvariant().StartsWith("serv") || (S(a, "type") ?? "").Contains("dịch vụ");
+        var stock = service ? 0 : ParseMoney(S(a, "stock")) ?? 0;
+        var unit = S(a, "unit") ?? (service ? "Lần" : "Cái");
+        return New(c, "product", service ? "Dịch vụ mới" : "Hàng hóa mới",
+        [
+            new("Tên", name), new("Giá bán", Vnd(price)),
+            .. cost > 0 ? new[] { new Line("Giá vốn", Vnd(cost)) } : [],
+            new("Đơn vị", unit),
+            .. S(a, "category") is { } cat ? new[] { new Line("Nhóm hàng", cat) } : [],
+            .. stock > 0 ? new[] { new Line("Tồn ban đầu", $"{stock:0.##} {unit}") } : [],
+            .. S(a, "barcode") is { } bc ? new[] { new Line("Mã vạch", bc) } : [],
+        ], "POST", "/api/pos/products/quick", new
+        {
+            name, basePrice = price, costPrice = cost, onHandQty = stock, baseUnitName = unit,
+            categoryName = S(a, "category"), barcode = S(a, "barcode"),
+            productType = service ? (int)PosProductType.Service : (int)PosProductType.Goods,
+        }, "PosProducts");
+    }
+
+    (decimal paid, string label) PaidOf(Dictionary<string, object?> a, decimal total)
+    {
+        var raw = (S(a, "paid") ?? "full").Trim().ToLowerInvariant();
+        var paid = raw is "full" or "đủ" or "" ? total : raw is "none" or "nợ" or "0" ? 0m : ParseMoney(raw) ?? total;
+        paid = Math.Min(paid, total);
+        var m = Method(S(a, "method"));
+        var ml = m == PaymentMethodType.BankTransfer ? "Chuyển khoản" : "Tiền mặt";
+        return (paid, paid >= total ? $"Trả đủ — {ml}" : paid <= 0 ? "Ghi nợ nhà cung cấp" : $"Trả {Vnd(paid)} ({ml}), nợ {Vnd(total - paid)}");
+    }
+
+    async Task<string?> SupplierNameAsync(Ctx c, Guid? id, CancellationToken ct) => id is Guid sid
+        ? await db.PosSuppliers.AsNoTracking().Where(x => x.Id == sid && x.StoreId == c.StoreId).Select(x => x.Name).FirstOrDefaultAsync(ct)
+          ?? throw new ActionError("Không tìm thấy nhà cung cấp — dùng find_suppliers.")
+        : null;
+
+    async Task<Pending> PurchaseReceiptAsync(Ctx c, Dictionary<string, object?> a, CancellationToken ct)
+    {
+        var items = Items(a);
+        var prods = await ProductsAsync(c, items.Select(i => i.Id), ct);
+        var supplierId = G(a, "supplier_id");
+        var supplier = await SupplierNameAsync(c, supplierId, ct);
+        var lines = new List<Line>();
+        var body = new List<object>();
+        decimal total = 0;
+        foreach (var i in items)
+        {
+            var pr = prods[i.Id];
+            if (i.Qty <= 0) throw new ActionError($"Số lượng {pr.Name} không hợp lệ.");
+            var cost = i.Price ?? pr.Cost;
+            total += cost * i.Qty;
+            lines.Add(new($"{i.Qty:0.##} {pr.Unit} {pr.Name}", $"{Vnd(cost)} × {i.Qty:0.##} = {Vnd(cost * i.Qty)}"));
+            body.Add(new { productId = pr.Id, qty = i.Qty, costPrice = cost, discountAmount = 0, vatRate = 0, vatIncluded = true, vatExempt = false, unitName = pr.Unit });
+        }
+        var (paid, paidLabel) = PaidOf(a, total);
+        lines.Add(new("Tổng tiền nhập", Vnd(total)));
+        lines.Add(new("Nhà cung cấp", supplier ?? "—"));
+        lines.Add(new("Thanh toán", paidLabel));
+        var warnings = new List<string>();
+        if (paid < total && supplierId == null) warnings.Add("Ghi nợ nhưng chưa chọn nhà cung cấp.");
+        return New(c, "purchase_receipt", "Phiếu nhập kho", lines, "POST", "/api/pos/purchase/receipts", new
+        {
+            supplierId, note = S(a, "note") ?? "Tạo bằng Trợ lý ảo", discountAmount = 0, discountIsPercent = false, discountInput = 0,
+            paidAmount = paid, complete = true,
+            paymentMethod = Method(S(a, "method")) == PaymentMethodType.BankTransfer ? "Chuyển khoản" : "Tiền mặt",
+            lines = body,
+        }, "PosPurchaseReceipts", warnings);
+    }
+
+    async Task<Pending> StockCountAsync(Ctx c, Dictionary<string, object?> a, CancellationToken ct)
+    {
+        var items = Items(a);
+        var prods = await ProductsAsync(c, items.Select(i => i.Id), ct);
+        var lines = new List<Line>();
+        var qty = new Dictionary<Guid, decimal>();
+        foreach (var i in items)
+        {
+            var pr = prods[i.Id];
+            if (i.Qty < 0) throw new ActionError($"Số đếm {pr.Name} không hợp lệ.");
+            qty[pr.Id] = i.Qty;
+            var diff = i.Qty - pr.OnHand;
+            lines.Add(new(pr.Name, $"máy {pr.OnHand:0.##} → đếm {i.Qty:0.##} ({(diff >= 0 ? "+" : "")}{diff:0.##})"));
+        }
+        var note = S(a, "note") ?? "Kiểm kho bằng Trợ lý ảo";
+        return New(c, "stock_count", "Phiếu kiểm kho", lines, "POST", "/api/pos/stock/counts", null, "PosStockCounts")
+            with
+            {
+                Steps =
+                [
+                    new("POST", "/api/pos/stock/counts", JsonSerializer.Serialize(new { name = note, note, seedAllProducts = false }, Json)),
+                    new("POST", "/api/pos/stock/counts/{id}/lines/add", JsonSerializer.Serialize(qty.Keys.Select(id => new { productId = id }), Json)),
+                    new("PUT", "/api/pos/stock/counts/{id}/lines", null, "counted"),
+                    new("POST", "/api/pos/stock/counts/{id}/complete", null),
+                ],
+                LineQty = qty,
+            };
+    }
+
+    async Task<Pending> StockIssueAsync(Ctx c, Dictionary<string, object?> a, string kind, CancellationToken ct)
+    {
+        var items = Items(a);
+        var prods = await ProductsAsync(c, items.Select(i => i.Id), ct);
+        var damage = kind == "damage";
+        var lines = new List<Line>();
+        var warnings = new List<string>();
+        var qty = new Dictionary<Guid, decimal>();
+        decimal value = 0;
+        foreach (var i in items)
+        {
+            var pr = prods[i.Id];
+            if (i.Qty <= 0) throw new ActionError($"Số lượng {pr.Name} không hợp lệ.");
+            qty[pr.Id] = qty.GetValueOrDefault(pr.Id) + i.Qty;
+            value += pr.Cost * i.Qty;
+            lines.Add(new($"{i.Qty:0.##} {pr.Unit} {pr.Name}", Vnd(pr.Cost * i.Qty)));
+            if (pr.Goods && pr.OnHand < i.Qty) warnings.Add($"{pr.Name}: tồn {pr.OnHand:0.##}, xuất {i.Qty:0.##}");
+        }
+        lines.Add(new("Giá trị (giá vốn)", Vnd(value)));
+        var reason = S(a, "reason") ?? (damage ? "Hàng hỏng" : "Dùng nội bộ");
+        lines.Add(new(damage ? "Lý do" : "Mục đích", reason));
+        if (!damage && S(a, "recipient") is { } who) lines.Add(new("Người nhận", who));
+        var basePath = $"/api/pos/stock/{kind}";
+        return New(c, damage ? "damage_issue" : "internal_use", damage ? "Phiếu xuất hủy" : "Phiếu xuất dùng nội bộ",
+                lines, "POST", basePath, null, damage ? "PosDamageIssues" : "PosInternalUseIssues", warnings)
+            with
+            {
+                Steps =
+                [
+                    new("POST", basePath, null),
+                    new("POST", basePath + "/{id}/lines/add", JsonSerializer.Serialize(qty.Keys.Select(id => new { productId = id }), Json)),
+                    new("PUT", basePath + "/{id}/lines", null, "qty"),
+                    new("PUT", basePath + "/{id}", JsonSerializer.Serialize(new { note = reason, recipientName = S(a, "recipient") }, Json)),
+                    new("POST", basePath + "/{id}/complete", null),
+                ],
+                LineQty = qty,
+            };
+    }
+
+    async Task<Pending> CustomerReturnAsync(Ctx c, Dictionary<string, object?> a, CancellationToken ct)
+    {
+        var orderId = G(a, "order_id") ?? throw new ActionError("Thiếu hóa đơn — dùng find_orders.");
+        var order = await db.PosSaleOrders.AsNoTracking()
+            .Where(o => o.Id == orderId && o.StoreId == c.StoreId && o.Deleted == null)
+            .Select(o => new { o.OrderNo, o.Status, o.CustomerName, Lines = o.Lines.Select(l => new { l.ProductId, l.ProductName, l.Qty, l.UnitPrice, l.LineTotal }).ToList() })
+            .FirstOrDefaultAsync(ct) ?? throw new ActionError("Không tìm thấy hóa đơn.");
+        if (order.Status != PosSaleOrderStatus.Completed) throw new ActionError("Chỉ trả hàng hóa đơn đã hoàn thành.");
+        var items = Items(a, required: false);
+        var picks = items.Count == 0
+            ? order.Lines.GroupBy(l => l.ProductId).Select(g => new ItemReq(g.Key, g.Sum(x => x.Qty), null)).ToList()
+            : items;
+        var lines = new List<Line> { new("Hóa đơn", $"{order.OrderNo} · {order.CustomerName ?? "Khách lẻ"}") };
+        decimal refund = 0;
+        foreach (var i in picks)
+        {
+            var ol = order.Lines.Where(l => l.ProductId == i.Id).ToList();
+            if (ol.Count == 0) throw new ActionError("Có mặt hàng không thuộc hóa đơn này.");
+            var sold = ol.Sum(x => x.Qty);
+            if (i.Qty <= 0 || i.Qty > sold) throw new ActionError($"{ol[0].ProductName}: trả tối đa {sold:0.##}.");
+            var unit = sold > 0 ? ol.Sum(x => x.LineTotal) / sold : ol[0].UnitPrice;
+            refund += unit * i.Qty;
+            lines.Add(new($"Trả {i.Qty:0.##} {ol[0].ProductName}", Vnd(unit * i.Qty)));
+        }
+        var method = Method(S(a, "refund_method")) == PaymentMethodType.BankTransfer ? "Chuyển khoản" : "Tiền mặt";
+        lines.Add(new("Hoàn tiền (ước tính)", $"{Vnd(refund)} — {method}"));
+        return New(c, "customer_return", "Phiếu khách trả hàng", lines, "POST", $"/api/pos/sales/{orderId}/return", new
+        {
+            lines = picks.Select(i => new { productId = i.Id, qty = i.Qty }),
+            note = S(a, "reason") ?? "Trả hàng (Trợ lý ảo)", refundPaymentMethod = method, reason = S(a, "reason"),
+        }, "PosSaleReturns");
+    }
+
+    async Task<Pending> PurchaseReturnAsync(Ctx c, Dictionary<string, object?> a, CancellationToken ct)
+    {
+        var items = Items(a);
+        var prods = await ProductsAsync(c, items.Select(i => i.Id), ct);
+        var supplierId = G(a, "supplier_id");
+        var supplier = await SupplierNameAsync(c, supplierId, ct);
+        var lines = new List<Line>();
+        var body = new List<object>();
+        decimal total = 0;
+        foreach (var i in items)
+        {
+            var pr = prods[i.Id];
+            if (i.Qty <= 0) throw new ActionError($"Số lượng {pr.Name} không hợp lệ.");
+            var cost = i.Price ?? pr.Cost;
+            total += cost * i.Qty;
+            lines.Add(new($"Trả {i.Qty:0.##} {pr.Unit} {pr.Name}", Vnd(cost * i.Qty)));
+            body.Add(new { productId = pr.Id, qty = i.Qty, costPrice = cost, discountAmount = 0, unitName = pr.Unit });
+        }
+        var refund = Math.Min(ParseMoney(S(a, "refund")) ?? 0, total);
+        lines.Add(new("Giá trị trả", Vnd(total)));
+        lines.Add(new("Nhà cung cấp", supplier ?? "—"));
+        lines.Add(new("NCC hoàn tiền", refund > 0 ? Vnd(refund) : "Trừ vào công nợ"));
+        return New(c, "purchase_return", "Trả hàng nhà cung cấp", lines, "POST", "/api/pos/purchase/returns", new
+        {
+            supplierId, note = S(a, "note") ?? "Trả hàng NCC (Trợ lý ảo)", discountAmount = 0, refundReceived = refund,
+            complete = true, lines = body,
+        }, "PosPurchaseReturns");
+    }
+
+    Pending VoucherProposal(Ctx c, Dictionary<string, object?> a)
+    {
+        var percent = (S(a, "kind") ?? "percent").ToLowerInvariant().StartsWith("p");
+        var value = ParseMoney(S(a, "value")) ?? throw new ActionError("Thiếu mức giảm.");
+        if (percent && (value <= 0 || value > 100)) throw new ActionError("Giảm % phải từ 1 đến 100.");
+        var code = (S(a, "code") ?? "").ToUpperInvariant().Replace(" ", "");
+        if (code.Length == 0) code = "SB" + Guid.NewGuid().ToString("N")[..6].ToUpperInvariant();
+        var from = D(a, "from");
+        var to = D(a, "to");
+        var minOrder = ParseMoney(S(a, "min_order")) ?? 0;
+        var maxDiscount = ParseMoney(S(a, "max_discount"));
+        return New(c, "voucher", "Mã giảm giá", [
+            new("Mã", code), new("Tên", S(a, "name") ?? code),
+            new("Mức giảm", percent ? $"{value:0.##}%" + (maxDiscount is decimal md ? $" (tối đa {Vnd(md)})" : "") : Vnd(value)),
+            .. minOrder > 0 ? new[] { new Line("Đơn từ", Vnd(minOrder)) } : [],
+            new("Hiệu lực", (from is DateTime f ? f.ToString("dd/MM/yyyy") : "ngay") + " → " + (to is DateTime t ? t.ToString("dd/MM/yyyy") : "không giới hạn")),
+            .. I(a, "max_uses") is int mu ? new[] { new Line("Số lượt", $"{mu}") } : [],
+        ], "POST", "/api/pos/vouchers", new
+        {
+            code, name = S(a, "name") ?? code, discountType = percent ? (int)PosVoucherDiscountType.Percent : (int)PosVoucherDiscountType.Fixed,
+            discountValue = value, minOrderAmount = minOrder, maxDiscountAmount = maxDiscount,
+            validFrom = from?.ToString("yyyy-MM-dd"), validTo = to?.ToString("yyyy-MM-dd"), maxUses = I(a, "max_uses"), isActive = true,
+        }, "PosVouchers");
+    }
+
+    async Task<Pending> PromotionAsync(Ctx c, Dictionary<string, object?> a, CancellationToken ct)
+    {
+        var type = (S(a, "type") ?? "").Trim().ToLowerInvariant();
+        string[] supported = ["bill_discount", "time_discount", "qty_discount", "buy_x_get_y", "combo_price"];
+        if (!supported.Contains(type)) throw new ActionError("type phải là: " + string.Join(", ", supported));
+        var name = S(a, "name") ?? throw new ActionError("Thiếu tên chương trình.");
+        var cfg = new JsonObject();
+        var lines = new List<Line> { new("Tên", name) };
+        var percent = ParseMoney(S(a, "percent"));
+        var amount = ParseMoney(S(a, "amount"));
+        switch (type)
+        {
+            case "bill_discount":
+                if (percent == null && amount == null) throw new ActionError("Thiếu % hoặc số tiền giảm.");
+                var minBill = ParseMoney(S(a, "min_bill")) ?? 0;
+                cfg["minBill"] = minBill;
+                if (percent != null) cfg["billPercent"] = percent; else cfg["billAmount"] = amount;
+                if (ParseMoney(S(a, "max_discount")) is decimal mx) cfg["maxDiscount"] = mx;
+                lines.Add(new("Ưu đãi", (percent != null ? $"Giảm {percent:0.##}% hóa đơn" : $"Giảm {Vnd(amount!.Value)} hóa đơn")
+                                       + (minBill > 0 ? $" từ {Vnd(minBill)}" : "")));
+                break;
+            case "time_discount":
+                if (percent == null && amount == null) throw new ActionError("Thiếu % hoặc số tiền giảm mỗi món.");
+                if (percent != null) cfg["percent"] = percent; else cfg["amountPerUnit"] = amount;
+                lines.Add(new("Ưu đãi", percent != null ? $"Giảm {percent:0.##}% mỗi món" : $"Giảm {Vnd(amount!.Value)} mỗi món"));
+                break;
+            case "qty_discount":
+                var minQty = ParseMoney(S(a, "min_qty")) ?? throw new ActionError("Thiếu số lượng tối thiểu.");
+                if (percent == null) throw new ActionError("Thiếu % giảm.");
+                cfg["tiers"] = new JsonArray(new JsonObject { ["minQty"] = minQty, ["percent"] = percent });
+                lines.Add(new("Ưu đãi", $"Mua từ {minQty:0.##} giảm {percent:0.##}%"));
+                break;
+            case "buy_x_get_y":
+                var buy = I(a, "buy_qty") ?? 1;
+                var get = I(a, "get_qty") ?? 1;
+                cfg["buyQty"] = buy;
+                cfg["getQty"] = get;
+                cfg["giftPercent"] = 100;
+                var gift = "cùng loại";
+                if (G(a, "gift_product_id") is Guid gid)
+                {
+                    var gp = (await ProductsAsync(c, [gid], ct))[gid];
+                    cfg["giftProductId"] = gid.ToString();
+                    cfg["giftProductName"] = gp.Name;
+                    gift = gp.Name;
+                }
+                lines.Add(new("Ưu đãi", $"Mua {buy} tặng {get} ({gift})"));
+                break;
+            case "combo_price":
+                var n = I(a, "combo_qty") ?? throw new ActionError("Thiếu số món combo.");
+                var price = ParseMoney(S(a, "combo_price")) ?? throw new ActionError("Thiếu giá combo.");
+                cfg["comboQty"] = n;
+                cfg["comboPrice"] = price;
+                lines.Add(new("Ưu đãi", $"Combo {n} món đồng giá {Vnd(price)}"));
+                break;
+        }
+
+        // Phạm vi áp dụng.
+        var target = new JsonObject { ["scope"] = "all" };
+        var scopeLabel = "Mọi hàng";
+        var ids = (S(a, "product_ids") ?? "").Split(',', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries)
+            .Select(x => Guid.TryParse(x, out var g) ? g : Guid.Empty).Where(g => g != Guid.Empty).ToList();
+        if (ids.Count > 0)
+        {
+            var prods = await ProductsAsync(c, ids, ct);
+            target["scope"] = "products";
+            target["products"] = new JsonArray(prods.Values.Select(pr => (JsonNode)new JsonObject { ["id"] = pr.Id.ToString(), ["name"] = pr.Name }).ToArray());
+            scopeLabel = string.Join(", ", prods.Values.Select(pr => pr.Name));
+        }
+        else if (S(a, "category") is { } catName)
+        {
+            var cats = await db.PosProductCategories.AsNoTracking().Where(x => x.StoreId == c.StoreId)
+                .Select(x => new { x.Id, x.Name }).ToListAsync(ct);
+            var qf = VnSearch.FoldText(catName);
+            var hit = cats.Select(x => (x, s: Score(VnSearch.Fold(x.Name), qf))).Where(x => x.s > 0).OrderByDescending(x => x.s).FirstOrDefault();
+            if (hit.s == 0) throw new ActionError($"Không có nhóm hàng «{catName}».");
+            target["scope"] = "categories";
+            target["categoryIds"] = new JsonArray(JsonValue.Create(hit.x.Id.ToString()));
+            scopeLabel = "Nhóm " + hit.x.Name;
+        }
+        if (type != "bill_discount") cfg["target"] = target;
+        if (type != "bill_discount") lines.Add(new("Áp dụng", scopeLabel));
+
+        int? Minutes(string k) => T(a, k) is TimeSpan ts ? (int)ts.TotalMinutes : null;
+        var tf = Minutes("time_from");
+        var tt = Minutes("time_to");
+        var mask = 0;
+        foreach (var d in (S(a, "weekdays") ?? "").Split(',', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries))
+            if (int.TryParse(d, out var wd) && wd is >= 2 and <= 8) mask |= 1 << (wd - 2);
+        var from = D(a, "from");
+        var to = D(a, "to");
+        if (tf != null && tt != null) lines.Add(new("Khung giờ", $"{tf / 60:00}:{tf % 60:00} – {tt / 60:00}:{tt % 60:00}"));
+        if (mask != 0)
+            lines.Add(new("Ngày trong tuần", string.Join(", ", Enumerable.Range(0, 7).Where(i => (mask & (1 << i)) != 0).Select(i => i == 6 ? "CN" : $"T{i + 2}"))));
+        lines.Add(new("Thời gian", (from is DateTime f ? f.ToString("dd/MM/yyyy") : "ngay") + " → " + (to is DateTime t2 ? t2.ToString("dd/MM/yyyy") : "không giới hạn")));
+        var members = S(a, "members_only") is { } mo && (mo == "true" || mo == "1");
+        if (members) lines.Add(new("Đối tượng", "Chỉ khách thành viên"));
+        return New(c, "promotion", "Chương trình khuyến mãi", lines, "POST", "/api/pos/promotions", new
+        {
+            name, type, priority = 0, stackable = false,
+            validFrom = from?.ToString("yyyy-MM-dd"), validTo = to?.ToString("yyyy-MM-dd"),
+            daysOfWeekMask = mask, timeFromMinutes = tf, timeToMinutes = tt, membersOnly = members,
+            configJson = cfg.ToJsonString(), note = "Tạo bằng Trợ lý ảo", isActive = true,
+        }, "PosPromotions");
+    }
+
+    /// <summary>Phiếu kho nhiều bước: id phiếu từ bước đầu; bước điền dòng ghép lineId theo hàng.</summary>
+    async Task<ExecResult> ExecuteStepsAsync(Pending p, HttpContext ctx, CancellationToken ct)
+    {
+        string? docId = null;
+        JsonNode? lastData = null;
+        string? docNo = null;
+        foreach (var step in p.Steps!)
+        {
+            var path = step.Path.Replace("{id}", docId ?? "");
+            var body = step.Body;
+            if (step.LinesFrom != null)
+            {
+                var lineList = new JsonArray();
+                foreach (var l in lastData?["lines"]?.AsArray() ?? [])
+                {
+                    if (l?["productId"]?.ToString() is not { } pid || !Guid.TryParse(pid, out var g)
+                        || p.LineQty?.TryGetValue(g, out var q) != true) continue;
+                    var o = new JsonObject { ["lineId"] = l["id"]?.ToString() };
+                    if (step.LinesFrom == "counted") { o["countedQty"] = q; o["isChecked"] = true; }
+                    else o["qty"] = q;
+                    lineList.Add(o);
+                }
+                body = new JsonObject { ["lines"] = lineList }.ToJsonString();
+            }
+            using var req = new HttpRequestMessage(new HttpMethod(step.Method), $"http://127.0.0.1:{ctx.Connection.LocalPort}{path}");
+            if (body != null) req.Content = new StringContent(body, Encoding.UTF8, "application/json");
+            else if (step.Method is "POST" or "PUT") req.Content = new StringContent("{}", Encoding.UTF8, "application/json");
+            if (AuthenticationHeaderValue.TryParse(ctx.Request.Headers.Authorization.ToString(), out var auth))
+                req.Headers.Authorization = auth;
+            var branch = ctx.Request.Headers["X-Branch-Id"].ToString();
+            if (!string.IsNullOrWhiteSpace(branch)) req.Headers.TryAddWithoutValidation("X-Branch-Id", branch);
+            req.Headers.TryAddWithoutValidation("X-Sbox-Ai-Assistant", "1");
+            using var resp = await Loopback.SendAsync(req, ct);
+            var text = await resp.Content.ReadAsStringAsync(ct);
+            logger.LogInformation("AI action {Kind} step {Method} {Path} → {Status}", p.Kind, step.Method, path, (int)resp.StatusCode);
+            JsonNode? node = null;
+            try { node = JsonNode.Parse(text); } catch (JsonException) { }
+            var ok = resp.IsSuccessStatusCode && (node?["isSuccess"] is not JsonValue v || !v.TryGetValue<bool>(out var s2) || s2);
+            if (!ok)
+            {
+                var msg = (int)resp.StatusCode is 401 or 403
+                    ? "Tài khoản không có quyền thực hiện thao tác này."
+                    : node?["message"]?.ToString() is { Length: > 0 } m ? m : $"Không thực hiện được ({(int)resp.StatusCode}).";
+                // Phiếu đã tạo dở (nháp) vẫn nằm ở màn tương ứng — báo để người dùng xử lý tiếp.
+                return new(false, docId == null ? msg : $"{msg} Phiếu nháp đã tạo — mở màn {p.Title.ToLower(Vi)} để hoàn tất.", null, p.OpenModule);
+            }
+            lastData = node?["data"];
+            docId ??= lastData?["id"]?.ToString();
+            foreach (var k in new[] { "issueNo", "countNo", "code", "documentNo" })
+                if (lastData?[k] is JsonValue dv && dv.ToString() is { Length: > 0 } dn) { docNo = dn; break; }
+        }
+        return new(true, $"Đã tạo và hoàn thành {p.Title.ToLower(Vi)}{(docNo != null ? " " + docNo : "")}.", docNo, p.OpenModule);
+    }
+
     // ─── Xác nhận / thực thi ───────────────────────────────────────
 
     static string Key(string id) => "ai-action:" + id;
@@ -804,6 +1413,8 @@ public sealed class AiAssistantActions(
         cache.Remove(Key(id));
 
         var ctx = http.HttpContext ?? throw new InvalidOperationException("Không có phiên làm việc");
+        if (p.Steps is { Count: > 0 })
+            return await ExecuteStepsAsync(p, ctx, ct);
         var url = $"http://127.0.0.1:{ctx.Connection.LocalPort}{p.Path}";
         using var req = new HttpRequestMessage(new HttpMethod(p.Method), url);
         var payload = p.Body;
@@ -838,7 +1449,7 @@ public sealed class AiAssistantActions(
         }
         var data = node?["data"];
         string? docNo = null;
-        foreach (var k in new[] { "orderNo", "ticketCode", "transactionCode", "requestCode", "code", "documentNo" })
+        foreach (var k in new[] { "returnNo", "receiptNo", "ticketCode", "transactionCode", "requestCode", "orderNo", "code", "documentNo" })
             if (data?[k] is JsonValue dv && dv.ToString() is { Length: > 0 } dn) { docNo = dn; break; }
         var done = p.Title.StartsWith("Sửa ", StringComparison.Ordinal)
             ? "Đã " + p.Title.ToLower(Vi)

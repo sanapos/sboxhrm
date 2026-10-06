@@ -32,6 +32,7 @@ class _PosLoyaltySettingsScreenState extends State<PosLoyaltySettingsScreen> {
   final _earnCtrl = TextEditingController();
   final _redeemCtrl = TextEditingController();
   double _maxPct = 100;
+  bool _refundRedeem = false;
   final _money = NumberFormat('#,###', 'vi_VN');
 
   @override
@@ -64,6 +65,7 @@ class _PosLoyaltySettingsScreenState extends State<PosLoyaltySettingsScreen> {
         _earnCtrl.text = _fmtNum(s.loyaltyEarnPerAmount);
         _redeemCtrl.text = _fmtNum(s.loyaltyRedeemValue);
         _maxPct = s.loyaltyMaxRedeemPercent.clamp(1, 100);
+        _refundRedeem = s.loyaltyRefundRedeemOnReturn;
       }
     });
   }
@@ -97,6 +99,7 @@ class _PosLoyaltySettingsScreenState extends State<PosLoyaltySettingsScreen> {
         loyaltyEarnPerAmount: earn,
         loyaltyRedeemValue: redeem,
         loyaltyMaxRedeemPercent: _maxPct,
+        loyaltyRefundRedeemOnReturn: _refundRedeem,
       ),
     );
     if (!mounted) return;
@@ -122,7 +125,8 @@ class _PosLoyaltySettingsScreenState extends State<PosLoyaltySettingsScreen> {
     return _enabled != s.loyaltyEnabled ||
         _parseMoney(_earnCtrl.text) != s.loyaltyEarnPerAmount ||
         _parseMoney(_redeemCtrl.text) != s.loyaltyRedeemValue ||
-        _maxPct != s.loyaltyMaxRedeemPercent.clamp(1, 100);
+        _maxPct != s.loyaltyMaxRedeemPercent.clamp(1, 100) ||
+        _refundRedeem != s.loyaltyRefundRedeemOnReturn;
   }
 
   void _discard() {
@@ -133,6 +137,7 @@ class _PosLoyaltySettingsScreenState extends State<PosLoyaltySettingsScreen> {
       _earnCtrl.text = _fmtNum(s.loyaltyEarnPerAmount);
       _redeemCtrl.text = _fmtNum(s.loyaltyRedeemValue);
       _maxPct = s.loyaltyMaxRedeemPercent.clamp(1, 100);
+      _refundRedeem = s.loyaltyRefundRedeemOnReturn;
     });
   }
 
@@ -211,6 +216,15 @@ class _PosLoyaltySettingsScreenState extends State<PosLoyaltySettingsScreen> {
                 divisions: 18,
                 label: '${_maxPct.toStringAsFixed(0)}%',
                 onChanged: !_enabled || _saving ? null : (v) => setState(() => _maxPct = v.roundToDouble()),
+              ),
+            ),
+            SettingsTile(
+              label: 'Hoàn điểm đã đổi khi khách trả hàng',
+              help: 'Bật: đơn có dùng điểm, khách trả hàng → hoàn lại điểm theo tỷ lệ hàng trả (trả hết đơn → hoàn hết). '
+                  'Tắt: điểm đã đổi coi như đã dùng, chỉ hoàn tiền khách đã trả.',
+              control: Switch(
+                value: _refundRedeem,
+                onChanged: !_enabled || _saving ? null : (v) => setState(() => _refundRedeem = v),
               ),
             ),
             SettingsNote(

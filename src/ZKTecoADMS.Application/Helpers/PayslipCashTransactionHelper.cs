@@ -1,3 +1,4 @@
+using ZKTecoADMS.Application.Helpers;
 using ZKTecoADMS.Domain.Entities;
 using ZKTecoADMS.Domain.Enums;
 using ZKTecoADMS.Domain.Repositories;
@@ -54,7 +55,7 @@ public static class PayslipCashTransactionHelper
                 cash.Amount = payslip.NetSalary;
                 cash.Description = description;
                 cash.ContactName = employeeName;
-                cash.TransactionDate = DateTime.UtcNow;
+                cash.TransactionDate = VnTimeHelper.NowVn();
                 cash.UpdatedAt = DateTime.UtcNow;
                 await cashTransactionRepository.UpdateAsync(cash, cancellationToken);
             }

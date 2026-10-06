@@ -433,7 +433,7 @@ public class PayBusinessTripSettlementExtraHandler(
                 Type = CashTransactionType.Expense,
                 CategoryId = category.Id,
                 Amount = settlement.BalanceAmount,
-                TransactionDate = DateTime.UtcNow,
+                TransactionDate = VnTimeHelper.NowVn(),
                 Description = $"Chi bù công tác phí ({methodLabel}) - {empName}",
                 PaymentMethod = method,
                 Status = CashTransactionStatus.Completed,

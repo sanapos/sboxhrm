@@ -1,3 +1,4 @@
+import '../widgets/pos/pos_customer_purchase_history_sheet.dart';
 import 'dart:async';
 import '../widgets/pos/pos_package_timer.dart';
 import '../utils/pos_scale_barcode.dart';
@@ -98,6 +99,7 @@ import '../widgets/pos/pos_hub_scope.dart';
 import '../widgets/pos/pos_mobile_widgets.dart';
 import '../widgets/pos/pos_numeric_keypad.dart';
 import '../widgets/pos/pos_qty_area_dialog.dart';
+import 'pos/pos_print_queue_screen.dart';
 import 'pos/pos_app_settings_screen.dart';
 import 'pos/pos_end_of_day_screen.dart';
 import 'pos/pos_split_report_screens.dart';
@@ -1245,6 +1247,7 @@ class _PosSellScreenState extends State<PosSellScreen>
   void initState() {
     super.initState();
     WidgetsBinding.instance.addObserver(this);
+    _startStorePrintPoll();
     _tabs.first.paymentLines
         .add(_SellPaymentLine(sourceKey: _PosPaymentSource.cashKey));
     HardwareKeyboard.instance.addHandler(_onKey);
@@ -1981,6 +1984,7 @@ class _PosSellScreenState extends State<PosSellScreen>
 
   @override
   void dispose() {
+    _storePrintPollTimer?.cancel();
     if (identical(NavigationNotifier.posHandleSystemBack, _onSystemBack)) {
       NavigationNotifier.posHandleSystemBack = null;
     }
@@ -2256,7 +2260,12 @@ class _PosSellScreenState extends State<PosSellScreen>
 
   String _lineCountText([int? n]) {
     final c = n ?? _tab.cart.length;
-    return '$c ${_sellProfile.lineUnit}';
+    // Ngành dịch vụ (spa, karaoke, KS) mà giỏ có cả hàng hóa (nước, đồ ăn) → «mục», không gọi tất cả là «dịch vụ».
+    final unit = _sellProfile.lineUnit == 'dịch vụ' &&
+            _tab.cart.any((l) => l.product.productType != PosProductType.service)
+        ? 'mục'
+        : _sellProfile.lineUnit;
+    return '$c $unit';
   }
 
   /// true = đang xem sơ đồ (chưa vào bàn).
@@ -5059,6 +5068,25 @@ class _PosSellScreenState extends State<PosSellScreen>
       if (!mounted) return;
       _refreshTimedLineQtys();
     });
+  }
+
+  /// Tra lại khách đã mua gì, giá bao nhiêu (theo đơn / theo mặt hàng); bấm «Thêm vào đơn» để bán lại món đó.
+  Future<void> _openPurchaseHistory(PosCustomer c) async {
+    await showPosCustomerPurchaseHistory(
+      context,
+      customerId: c.id,
+      customerName: c.name,
+      phone: c.phone,
+      onAddProduct: (productId) async {
+        final res = await _api.getPosProduct(productId);
+        if (!mounted || res['isSuccess'] != true || res['data'] is! Map) {
+          NotificationOverlayManager().showError(title: 'Không thêm được', message: tr('Hàng không còn trong danh mục'));
+          return;
+        }
+        final p = PosProduct.fromJson(Map<String, dynamic>.from(res['data'] as Map));
+        await _addPick(PosPurchaseLookupPick(product: p), mergeIfSame: true);
+      },
+    );
   }
 
   Future<void> _openSessionRedeem() async {
@@ -11385,13 +11413,38 @@ class _PosSellScreenState extends State<PosSellScreen>
       _failedKitchenPrints.length +
       _failedCupPrints.length;
 
+  /// Lệnh in lỗi / treo của CẢ CỬA HÀNG (mọi máy gửi) — hiện trên nút «In treo» để thu ngân biết
+  /// cả khi phiếu bếp gửi từ điện thoại phục vụ không in được.
+  int _storePrintProblems = 0;
+  Timer? _storePrintPollTimer;
+
+  void _startStorePrintPoll() {
+    Future<void> tick() async {
+      final res = await _api.getPosPrintQueue();
+      if (!mounted || res['isSuccess'] != true || res['data'] is! Map) return;
+      final n = ((res['data'] as Map)['problemCount'] as num?)?.toInt() ?? 0;
+      if (n != _storePrintProblems) setState(() => _storePrintProblems = n);
+    }
+    unawaited(tick());
+    _storePrintPollTimer = Timer.periodic(const Duration(seconds: 30), (_) => unawaited(tick()));
+  }
+
+  Future<void> _startStorePrintPollOnce() async {
+    final res = await _api.getPosPrintQueue();
+    if (!mounted || res['isSuccess'] != true || res['data'] is! Map) return;
+    setState(() => _storePrintProblems = ((res['data'] as Map)['problemCount'] as num?)?.toInt() ?? 0);
+  }
+
+  /// Số hiện trên nút: phiếu treo của máy này hoặc lệnh lỗi của cả cửa hàng (lấy số lớn hơn).
+  int get _printBadgeCount =>
+      _pendingPrintCount > _storePrintProblems ? _pendingPrintCount : _storePrintProblems;
+
   Future<void> _openPendingPrintQueue() async {
     if (_openingPendingPrintQueue) return;
     if (_pendingPrintCount == 0) {
-      NotificationOverlayManager().showInfo(
-        title: 'Không có phiếu treo',
-        message: tr('Tất cả phiếu in đã thành công'),
-      );
+      // Máy này không có phiếu treo → mở hàng đợi in toàn cửa hàng (lệnh từ máy khác, in lại / chuyển máy).
+      await PosPrintQueueScreen.open(context);
+      if (mounted) _startStorePrintPollOnce();
       return;
     }
     _openingPendingPrintQueue = true;
@@ -12923,7 +12976,7 @@ class _PosSellScreenState extends State<PosSellScreen>
               if (_buildOnlineOrdersToolbarButton() != null)
                 _buildOnlineOrdersToolbarButton()!,
               _buildSystemNotificationButton(),
-              if (_pendingPrintCount > 0)
+              if (_printBadgeCount > 0)
                 Padding(
                   padding: const EdgeInsets.only(left: 2, right: 2),
                   child: TextButton.icon(
@@ -12937,7 +12990,7 @@ class _PosSellScreenState extends State<PosSellScreen>
                     ),
                     icon: const Icon(Icons.print_disabled_outlined, size: 18),
                     label: Text(
-                      tr('In treo ($_pendingPrintCount)'),
+                      tr('In treo ($_printBadgeCount)'),
                       style: const TextStyle(
                           fontWeight: FontWeight.w700, fontSize: 13),
                     ),
@@ -12945,7 +12998,7 @@ class _PosSellScreenState extends State<PosSellScreen>
                 )
               else
                 PosPendingPrintIconButton(
-                  pendingCount: _pendingPrintCount,
+                  pendingCount: _printBadgeCount,
                   onTap: _openPendingPrintQueue,
                 ),
               IconButton(
@@ -13175,7 +13228,7 @@ class _PosSellScreenState extends State<PosSellScreen>
         border: Border(bottom: BorderSide(color: PosTheme.border)),
       ),
       child: Text(
-        tr('${_sellProfile.catalogColumnLabel} · ${_tab.cart.length} món'),
+        tr('${_sellProfile.catalogColumnLabel} · ${_lineCountText()}'),
         maxLines: 1,
         overflow: TextOverflow.ellipsis,
         style: const TextStyle(
@@ -14061,7 +14114,16 @@ class _PosSellScreenState extends State<PosSellScreen>
               ),
               if (_tab.customer != null)
                 IconButton(
-                  tooltip: tr('Lịch sử mua / gói buổi'),
+                  tooltip: tr('Lịch sử mua hàng'),
+                  visualDensity: VisualDensity.compact,
+                  padding: EdgeInsets.zero,
+                  constraints: const BoxConstraints(minWidth: 32, minHeight: 32),
+                  icon: const Icon(Icons.receipt_long_outlined, size: 20, color: _kiotBlue),
+                  onPressed: () => _openPurchaseHistory(_tab.customer!),
+                ),
+              if (_tab.customer != null)
+                IconButton(
+                  tooltip: tr('Gói buổi / dịch vụ'),
                   visualDensity: VisualDensity.compact,
                   padding: EdgeInsets.zero,
                   constraints: const BoxConstraints(minWidth: 32, minHeight: 32),
@@ -14097,6 +14159,12 @@ class _PosSellScreenState extends State<PosSellScreen>
                                 .where((e) => e != null && e.isNotEmpty)
                                 .join(' · ')),
                             style: const TextStyle(fontSize: 11),
+                          ),
+                          trailing: IconButton(
+                            tooltip: tr('Lịch sử mua hàng'),
+                            visualDensity: VisualDensity.compact,
+                            icon: const Icon(Icons.receipt_long_outlined, size: 18, color: _kiotBlue),
+                            onPressed: () => _openPurchaseHistory(c),
                           ),
                           onTap: () => _selectCustomer(c),
                         ))
@@ -14511,16 +14579,21 @@ class _PosSellScreenState extends State<PosSellScreen>
               '-${_moneyFmt.format(_tab.pointsDiscount)}',
             ),
           ),
-        if (_tab.customer != null && _loyaltyRates.canEarn) ...[
+        if (_tab.customer != null && _loyaltyRates.enabled) ...[
           Builder(builder: (_) {
             final after = (_total - _tab.voucherDiscount - _tab.pointsDiscount)
                 .clamp(0.0, double.infinity);
-            final pts = _loyaltyRates.earnPoints(after);
+            final pts = _loyaltyRates.earnPointsForLines(after, [
+              for (final l in _tab.cart) (lineTotal: l.lineTotal, percent: l.product.loyaltyPercent),
+            ]);
             if (pts <= 0) return const SizedBox.shrink();
+            final hasPct = _tab.cart.any((l) => (l.product.loyaltyPercent ?? 0) > 0);
             return Padding(
               padding: const EdgeInsets.only(top: 4),
               child: Text(
-                tr('Sẽ tích ${pts.toStringAsFixed(0)} điểm (mỗi ${_moneyFmt.format(_loyaltyRates.earnPerAmount)}đ → 1 điểm)'),
+                hasPct
+                    ? tr('Sẽ tích ${pts.toStringAsFixed(0)} điểm ≈ ${_moneyFmt.format(pts * _loyaltyRates.redeemValue)}đ cho lần mua sau')
+                    : tr('Sẽ tích ${pts.toStringAsFixed(0)} điểm (mỗi ${_moneyFmt.format(_loyaltyRates.earnPerAmount)}đ → 1 điểm)'),
                 style: const TextStyle(fontSize: 11, color: SboxColors.success),
               ),
             );
@@ -16136,7 +16209,7 @@ class _PosSellScreenState extends State<PosSellScreen>
                   _buildOnlineOrdersToolbarButton(labeled: !compact) != null)
                 _buildOnlineOrdersToolbarButton(labeled: !compact)!,
               _buildSystemNotificationButton(),
-              if (_pendingPrintCount > 0)
+              if (_printBadgeCount > 0)
                 Padding(
                   padding: const EdgeInsets.only(left: 2, right: 2),
                   child: TextButton.icon(
@@ -16150,7 +16223,7 @@ class _PosSellScreenState extends State<PosSellScreen>
                     ),
                     icon: const Icon(Icons.print_disabled_outlined, size: 18),
                     label: Text(
-                      tr('In treo ($_pendingPrintCount)'),
+                      tr('In treo ($_printBadgeCount)'),
                       style: const TextStyle(
                           fontWeight: FontWeight.w700, fontSize: 12),
                     ),
@@ -16158,7 +16231,7 @@ class _PosSellScreenState extends State<PosSellScreen>
                 )
               else
                 PosPendingPrintIconButton(
-                  pendingCount: _pendingPrintCount,
+                  pendingCount: _printBadgeCount,
                   onTap: _openPendingPrintQueue,
                   iconColor: Colors.white,
                   compact: true,
@@ -16724,7 +16797,7 @@ class _PosSellScreenState extends State<PosSellScreen>
                 _buildSystemNotificationButton(
                   iconColor: PosTheme.textPrimary,
                 ),
-                if (_pendingPrintCount > 0)
+                if (_printBadgeCount > 0)
                   Padding(
                     padding: const EdgeInsets.only(left: 2, right: 2),
                     child: TextButton.icon(
@@ -16738,7 +16811,7 @@ class _PosSellScreenState extends State<PosSellScreen>
                       ),
                       icon: const Icon(Icons.print_disabled_outlined, size: 18),
                       label: Text(
-                        tr('In treo ($_pendingPrintCount)'),
+                        tr('In treo ($_printBadgeCount)'),
                         style: const TextStyle(
                             fontWeight: FontWeight.w700, fontSize: 12),
                       ),
@@ -16746,7 +16819,7 @@ class _PosSellScreenState extends State<PosSellScreen>
                   )
                 else
                   PosPendingPrintIconButton(
-                    pendingCount: _pendingPrintCount,
+                    pendingCount: _printBadgeCount,
                     onTap: _openPendingPrintQueue,
                     iconColor: PosTheme.textPrimary,
                     compact: true,
@@ -17383,6 +17456,12 @@ class _PosSellScreenState extends State<PosSellScreen>
                                   .where((e) => e != null && e.isNotEmpty)
                                   .join(' · ')),
                             ),
+                            trailing: TextButton.icon(
+                              onPressed: () => _openPurchaseHistory(c),
+                              style: TextButton.styleFrom(visualDensity: VisualDensity.compact),
+                              icon: const Icon(Icons.receipt_long_outlined, size: 18),
+                              label: Text(tr('Lịch sử mua')),
+                            ),
                             onTap: () {
                               _selectCustomer(c);
                               Navigator.pop(ctx);
@@ -17563,6 +17642,15 @@ class _PosSellScreenState extends State<PosSellScreen>
                                   setPay(() {});
                                 },
                         ),
+                        if (_tab.customer != null)
+                          Align(
+                            alignment: Alignment.centerRight,
+                            child: TextButton.icon(
+                              onPressed: () => _openPurchaseHistory(_tab.customer!),
+                              icon: const Icon(Icons.receipt_long_outlined, size: 18),
+                              label: Text(tr('Lịch sử mua hàng của khách')),
+                            ),
+                          ),
                         const SizedBox(height: 8),
                         _buildMobilePaymentActionTile(
                           icon: Icons.sell_outlined,
