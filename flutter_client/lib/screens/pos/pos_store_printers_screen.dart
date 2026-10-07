@@ -1561,7 +1561,7 @@ class _PosStorePrintersScreenState extends State<PosStorePrintersScreen> {
                   title: Text(p.name,
                       style: const TextStyle(fontSize: 13)),
                   subtitle: Text(
-                    p.connectionType.name.toUpperCase(),
+                    p.connectionType.toUpperCase(),
                     style:
                         TextStyle(fontSize: 11, color: PosTheme.textSecondary),
                   ),
