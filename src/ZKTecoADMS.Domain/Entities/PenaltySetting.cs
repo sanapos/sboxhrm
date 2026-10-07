@@ -122,6 +122,12 @@ public class PenaltySetting : AuditableEntity<Guid>
     public decimal ViolationPenalty { get; set; } = 200000;
 
     /// <summary>
+    /// Số giờ sau kết ca tự duyệt phiếu phạt (0 = tắt tự duyệt, mặc định 2 giờ).
+    /// Nếu nhân viên không gửi yêu cầu hủy / khiếu nại trong thời gian này, phiếu sẽ tự duyệt.
+    /// </summary>
+    public int AutoApproveHoursAfterShift { get; set; } = 2;
+
+    /// <summary>
     /// Hình thức thu phạt khi duyệt phiếu: <see cref="PenaltyCollectionMethods.Salary"/> (trừ vào lương,
     /// không tạo phiếu thu) hoặc <see cref="PenaltyCollectionMethods.Cash"/> (thu tiền mặt từng lần → phiếu thu).
     /// </summary>

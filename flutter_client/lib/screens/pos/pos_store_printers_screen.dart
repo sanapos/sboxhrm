@@ -192,6 +192,15 @@ class _PosStorePrintersScreenState extends State<PosStorePrintersScreen> {
         return covered || mine;
       }).toList();
 
+  /// Máy cloud tồn tại nhưng không Agent nào nhận — "mồ côi".
+  List<PosStorePrinter> get _orphanCloudPrinters => _printers.where((p) {
+        if (!p.isCloudAgentPrinter) return false;
+        final covered = _onlineAgents.any((a) => a.coversPrinter(p.id));
+        final mine =
+            _agent.enabled && _agent.assignedPrinterIds.contains(p.id);
+        return !covered && !mine;
+      }).toList();
+
   /// Thêm/sửa máy cửa hàng: quyền module, không khóa theo công tắc Agent.
   bool get _canManageCloudPrinters => true;
 
@@ -940,6 +949,7 @@ class _PosStorePrintersScreenState extends State<PosStorePrintersScreen> {
                   _agentCard(),
                   const SizedBox(height: 12),
                   _printersSection(),
+                  _orphanPrintersSection(),
                 ],
               ),
             ),
@@ -1513,6 +1523,87 @@ class _PosStorePrintersScreenState extends State<PosStorePrintersScreen> {
         ),
       ),
     );
+  }
+
+  Widget _orphanPrintersSection() {
+    final orphans = _orphanCloudPrinters;
+    if (orphans.isEmpty) return const SizedBox.shrink();
+    return Card(
+      child: Padding(
+        padding: const EdgeInsets.all(14),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Row(children: [
+              Icon(Icons.warning_amber_rounded,
+                  size: 18, color: Colors.orange.shade700),
+              const SizedBox(width: 6),
+              Expanded(
+                child: Text(
+                  tr('Máy in chưa có Agent (${orphans.length})'),
+                  style: TextStyle(
+                      fontWeight: FontWeight.bold,
+                      fontSize: 14,
+                      color: Colors.orange.shade800),
+                ),
+              ),
+            ]),
+            const SizedBox(height: 4),
+            Text(
+              tr('Máy in đã đăng ký nhưng không Agent nào đang nhận. '
+                  'Gán Agent hoặc xóa để tránh nhầm lẫn.'),
+              style: TextStyle(fontSize: 11, color: PosTheme.textSecondary),
+            ),
+            const SizedBox(height: 8),
+            ...orphans.map((p) => ListTile(
+                  dense: true,
+                  leading: Icon(_connectionIcon(p), size: 20),
+                  title: Text(p.name,
+                      style: const TextStyle(fontSize: 13)),
+                  subtitle: Text(
+                    p.connectionType.name.toUpperCase(),
+                    style:
+                        TextStyle(fontSize: 11, color: PosTheme.textSecondary),
+                  ),
+                  trailing: IconButton(
+                    icon: const Icon(Icons.delete_outline,
+                        color: Colors.red, size: 20),
+                    tooltip: tr('Xóa máy in'),
+                    onPressed: () => _deleteOrphanPrinter(p),
+                  ),
+                )),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Future<void> _deleteOrphanPrinter(PosStorePrinter p) async {
+    final yes = await showDialog<bool>(
+      context: context,
+      builder: (c) => AlertDialog(
+        title: Text(tr('Xóa máy in?')),
+        content: Text(tr('${p.name}\n\nMáy in này chưa có Agent nhận, xóa sẽ không ảnh hưởng hoạt động in.')),
+        actions: [
+          TextButton(
+              onPressed: () => Navigator.pop(c, false),
+              child: Text(tr('Hủy'))),
+          FilledButton(
+              onPressed: () => Navigator.pop(c, true),
+              style: FilledButton.styleFrom(backgroundColor: Colors.red),
+              child: Text(tr('Xóa'))),
+        ],
+      ),
+    );
+    if (yes != true || !mounted) return;
+    final res = await _api.deletePosStorePrinter(p.id);
+    if (!mounted) return;
+    if (res['isSuccess'] == true) {
+      setState(() {
+        _printers.removeWhere((x) => x.id == p.id);
+        _routes.removeWhere((x) => x.printerId == p.id);
+      });
+    }
   }
 
   IconData _connectionIcon(PosStorePrinter p) {

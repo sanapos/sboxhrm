@@ -25,6 +25,7 @@ class PenaltyParams {
     this.absent = 500000,
     this.violation = 200000,
     this.method = 'Salary',
+    this.autoApproveHours = 2,
   })  : late = late ?? [PenaltyTier(15, 50000), PenaltyTier(30, 100000), PenaltyTier(60, 200000)],
         early = early ?? [PenaltyTier(15, 50000), PenaltyTier(30, 100000), PenaltyTier(60, 200000)],
         repeat = repeat ?? [PenaltyTier(3, 100000), PenaltyTier(5, 200000), PenaltyTier(10, 500000)];
@@ -38,6 +39,7 @@ class PenaltyParams {
   /// Không dùng khi tạo phiếu tự động — giữ nguyên giá trị đã lưu.
   double violation;
   String method;
+  int autoApproveHours;
 
   PenaltyParams copy() => PenaltyParams.fromJson(toJson());
 
@@ -56,6 +58,7 @@ class PenaltyParams {
       absent: _d(j['unauthorizedLeavePenalty'], d.absent),
       violation: _d(j['violationPenalty'], d.violation),
       method: j['collectionMethod']?.toString() == 'Cash' ? 'Cash' : 'Salary',
+      autoApproveHours: _i(j['autoApproveHoursAfterShift'], 2),
     );
   }
 
@@ -72,6 +75,7 @@ class PenaltyParams {
         'unauthorizedLeavePenalty': absent,
         'violationPenalty': violation,
         'collectionMethod': method,
+        'autoApproveHoursAfterShift': autoApproveHours,
       };
 
   String get key => toJson().toString();
@@ -285,6 +289,30 @@ class _PenaltySettingsScreenState extends State<PenaltySettingsScreen> {
               options: const [('Salary', 'Trừ lương'), ('Cash', 'Tiền mặt')],
               onChanged: edit ? (v) => setState(() => _p.method = v) : (_) {},
             ),
+          ),
+          SettingsTile(
+            label: 'Tự duyệt phạt sau kết ca',
+            help: _p.autoApproveHours <= 0
+                ? 'Tắt — chờ quản lý duyệt thủ công'
+                : 'Sau kết ca ${_p.autoApproveHours} giờ, nếu NV chưa khiếu nại → tự duyệt phạt',
+            control: Row(mainAxisSize: MainAxisSize.min, children: [
+              IconButton(
+                onPressed: edit && _p.autoApproveHours > 0 ? () => setState(() => _p.autoApproveHours--) : null,
+                icon: const Icon(Icons.remove_circle_outline),
+              ),
+              SizedBox(
+                width: 48,
+                child: Text(
+                  _p.autoApproveHours <= 0 ? 'Tắt' : '${_p.autoApproveHours}h',
+                  textAlign: TextAlign.center,
+                  style: const TextStyle(fontWeight: FontWeight.w800, fontSize: 16),
+                ),
+              ),
+              IconButton(
+                onPressed: edit && _p.autoApproveHours < 72 ? () => setState(() => _p.autoApproveHours++) : null,
+                icon: const Icon(Icons.add_circle_outline),
+              ),
+            ]),
           ),
         ],
       );

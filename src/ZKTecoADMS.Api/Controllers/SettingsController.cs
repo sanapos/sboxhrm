@@ -263,6 +263,7 @@ public class SettingsController(IMediator mediator, ZKTecoDbContext dbContext) :
             request.ForgotCheckPenalty,
             request.UnauthorizedLeavePenalty,
             request.ViolationPenalty,
+            request.AutoApproveHoursAfterShift,
             request.CollectionMethod);
         
         var result = await mediator.Send(command);

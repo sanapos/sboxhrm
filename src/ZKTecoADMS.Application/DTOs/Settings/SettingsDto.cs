@@ -33,6 +33,8 @@ public class PenaltySettingDto
     public decimal ForgotCheckPenalty { get; set; }
     public decimal UnauthorizedLeavePenalty { get; set; }
     public decimal ViolationPenalty { get; set; }
+    /// <summary>Số giờ sau kết ca tự duyệt phiếu phạt (0 = tắt).</summary>
+    public int AutoApproveHoursAfterShift { get; set; }
     /// <summary>Salary = trừ vào lương; Cash = thu tiền mặt từng lần (tạo phiếu thu).</summary>
     public string CollectionMethod { get; set; } = "Salary";
 
@@ -68,6 +70,8 @@ public class UpdatePenaltySettingDto
     public decimal ForgotCheckPenalty { get; set; }
     public decimal UnauthorizedLeavePenalty { get; set; }
     public decimal ViolationPenalty { get; set; }
+    /// <summary>Số giờ sau kết ca tự duyệt (null = giữ nguyên, 0 = tắt).</summary>
+    public int? AutoApproveHoursAfterShift { get; set; }
     /// <summary>Salary / Cash — null = giữ nguyên (app cũ không gửi).</summary>
     public string? CollectionMethod { get; set; }
 }

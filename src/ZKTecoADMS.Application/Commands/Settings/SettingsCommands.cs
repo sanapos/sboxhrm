@@ -49,6 +49,7 @@ public record UpdatePenaltySettingsCommand(
     decimal ForgotCheckPenalty,
     decimal UnauthorizedLeavePenalty,
     decimal ViolationPenalty,
+    int? AutoApproveHoursAfterShift = null,
     string? CollectionMethod = null) : ICommand<AppResponse<PenaltySettingDto>>;
 
 public class UpdatePenaltySettingsHandler(
@@ -91,6 +92,8 @@ public class UpdatePenaltySettingsHandler(
             settings.ForgotCheckPenalty = request.ForgotCheckPenalty;
             settings.UnauthorizedLeavePenalty = request.UnauthorizedLeavePenalty;
             settings.ViolationPenalty = request.ViolationPenalty;
+            if (request.AutoApproveHoursAfterShift.HasValue)
+                settings.AutoApproveHoursAfterShift = Math.Max(0, request.AutoApproveHoursAfterShift.Value);
             if (request.CollectionMethod != null)
                 settings.CollectionMethod = PenaltyCollectionMethods.Normalize(request.CollectionMethod);
 
