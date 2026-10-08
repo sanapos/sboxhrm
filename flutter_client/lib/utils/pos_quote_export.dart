@@ -141,6 +141,22 @@ class PosQuoteExport {
         return;
       }
     }
+    final server = await posQuoteServerDocumentHtml(
+      quoteId,
+      PosPrintDocumentTypes.quote,
+      includeImages: includeImages,
+      includeStamp: includeStamp,
+    );
+    if (server != null) {
+      if (!context.mounted) return;
+      await showPosHtmlPrintDialog(
+        context,
+        title: 'BÁO GIÁ $quoteNo',
+        htmlDocument: server,
+        a4Paper: true,
+      );
+      return;
+    }
     if (quote != null && quote.lines.isNotEmpty) {
       final html = bindPosQuotePrintHtmlLocal(
         quote,
@@ -368,6 +384,13 @@ class PosQuoteExport {
   }) async {
     final saved = posQuoteSavedWordingHtml(quote.documents, documentType);
     if (saved != null) return saved;
+    final server = await posQuoteServerDocumentHtml(
+      quote.id,
+      documentType,
+      includeStamp: includeStamp,
+      docNo: docNo ?? docNoOf(quote, documentType),
+    );
+    if (server != null) return server;
     final profile = await _profile();
     if (documentType == PosPrintDocumentTypes.quote) {
       return bindPosQuotePrintHtmlLocal(

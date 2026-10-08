@@ -20151,6 +20151,8 @@ class ApiService {
     String kind, {
     String? note,
     bool includeImages = false,
+    bool includeStamp = true,
+    String? docNo,
   }) async {
     try {
       final response = await http
@@ -20161,6 +20163,8 @@ class ApiService {
               'kind': kind,
               'note': note,
               'includeImages': includeImages,
+              'includeStamp': includeStamp,
+              if (docNo != null && docNo.isNotEmpty) 'docNo': docNo,
             }),
           )
           .timeout(const Duration(seconds: 30));
@@ -20942,9 +20946,12 @@ class ApiService {
   }
 
   /// PDF xem trước mẫu Word: view = original (file gốc) / fields (trường tô màu) / sample (in thử).
-  Future<Map<String, dynamic>> getPosDocxTemplatePreview(String id, String view) => _getBinary(
-      Uri.parse('$baseUrl/api/pos/print-templates/docx/$id/preview')
-          .replace(queryParameters: {'view': view}),
+  /// [quoteId]: in thử với một báo giá thật (đợt thanh toán, số đã thu…).
+  Future<Map<String, dynamic>> getPosDocxTemplatePreview(String id, String view, {String? quoteId}) => _getBinary(
+      Uri.parse('$baseUrl/api/pos/print-templates/docx/$id/preview').replace(queryParameters: {
+        'view': view,
+        if (quoteId != null && quoteId.isNotEmpty) 'quoteId': quoteId,
+      }),
       timeout: const Duration(seconds: 120));
 
   Future<Map<String, dynamic>> replacePosDocxTemplate(

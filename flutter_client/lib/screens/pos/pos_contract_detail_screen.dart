@@ -97,6 +97,24 @@ class _PosContractDetailScreenState extends State<PosContractDetailScreen> {
       await printPosQuoteSlip(context, quoteId: q.id, quote: q);
       return;
     }
+    if (q != null && type.isNotEmpty) {
+      final server = await posQuoteServerDocumentHtml(
+        q.id,
+        type,
+        docNo: d.docNo,
+        api: _api,
+      );
+      if (!mounted) return;
+      if (server != null) {
+        await showPosHtmlPrintDialog(
+          context,
+          title: d.title.isEmpty ? d.docNo : d.title,
+          htmlDocument: server,
+          a4Paper: true,
+        );
+        return;
+      }
+    }
     if (q != null && type.isNotEmpty && q.lines.isNotEmpty) {
       Map<String, dynamic>? profile;
       try {

@@ -1,0 +1,48 @@
+<div style="font-family:'Times New Roman',Times,serif;font-size:13px;line-height:1.4;color:#000">
+  <table style="width:100%;border-collapse:collapse"><tr>
+    <td style="width:42%;vertical-align:top;text-align:center;padding:0">
+      <div style="font-weight:bold;text-transform:uppercase">{Ten_Cong_Ty}</div>
+      <div>Số: {So_Chung_Tu}</div>
+    </td>
+    <td style="width:58%;vertical-align:top;text-align:center;padding:0;line-height:1.3">
+      <div style="font-weight:bold">CỘNG HÒA XÃ HỘI CHỦ NGHĨA VIỆT NAM</div>
+      <div style="font-weight:bold">Độc lập - Tự do - Hạnh phúc</div>
+      <div style="border-top:1px solid #000;width:170px;margin:4px auto 4px"></div>
+      <div><i>Ngày {Ngay_So} tháng {Thang} năm {Nam}</i></div>
+    </td>
+  </tr></table>
+  <h2 style="text-align:center;font-size:18px;margin:16px 0 8px">BIÊN BẢN BÀN GIAO HÀNG HÓA / CÔNG TRÌNH</h2>
+  <p style="margin:4px 0"><!--IF:So_Hop_Dong-->- Căn cứ hợp đồng số <b>{So_Hop_Dong}</b><!--IF:Ngay_Hop_Dong--> ký ngày {Ngay_Hop_Dong}<!--ENDIF:Ngay_Hop_Dong-->;<!--ENDIF:So_Hop_Dong--><!--IFNOT:So_Hop_Dong-->- Căn cứ báo giá số <b>{Ma_Bao_Gia}</b>;<!--ENDIFNOT:So_Hop_Dong--></p>
+  <p style="margin:4px 0">Hôm nay, ngày {Ngay}<!--IF:Dia_Diem_Thi_Cong--> tại {Dia_Diem_Thi_Cong}<!--ENDIF:Dia_Diem_Thi_Cong-->, chúng tôi gồm:</p>
+  <div><b>BÊN GIAO (Bên B): {Ten_Cong_Ty}</b></div>
+  <div>&nbsp;&nbsp;Đại diện: {Nguoi_Dai_Dien_Cua_Hang} — Chức vụ: {Chuc_Vu_Cua_Hang}<!--IF:Dien_Thoai_Cong_Ty--> — ĐT: {Dien_Thoai_Cong_Ty}<!--ENDIF:Dien_Thoai_Cong_Ty--></div>
+  <div><b>BÊN NHẬN (Bên A): {Ben_A_Ten}</b></div>
+  <div>&nbsp;&nbsp;Đại diện: {Nguoi_Dai_Dien_Khach}<!--IF:Chuc_Vu_Khach--> — Chức vụ: {Chuc_Vu_Khach}<!--ENDIF:Chuc_Vu_Khach--><!--IF:SDT--> — ĐT: {SDT}<!--ENDIF:SDT--></div>
+  <p style="margin:8px 0 2px">Bên giao đã bàn giao cho bên nhận các hàng hóa / hạng mục sau:</p>
+  <table style="width:100%;border-collapse:collapse;margin:4px 0;font-size:12px">
+    <thead><tr style="background:#f1f5f9">
+      <th style="border:1px solid #000;padding:5px 3px;width:5%">STT</th>
+      <th style="border:1px solid #000;padding:5px 4px;text-align:left">Hàng hóa / hạng mục</th>
+      <th style="border:1px solid #000;padding:5px 3px;width:8%">ĐVT</th>
+      <th style="border:1px solid #000;padding:5px 3px;width:9%">Số lượng</th>
+      <!--IF:Co_Bao_Hanh_Dong--><th style="border:1px solid #000;padding:5px 3px;width:10%">Bảo hành</th><!--ENDIF:Co_Bao_Hanh_Dong-->
+      <th style="border:1px solid #000;padding:5px 3px;width:16%">Tình trạng</th>
+    </tr></thead>
+    <tbody><!--BEGIN_ITEMS--><tr>
+      <td style="border:1px solid #000;padding:4px 3px;text-align:center;vertical-align:top">{STT}</td>
+      <td style="border:1px solid #000;padding:4px 4px;vertical-align:top">{Ten_Hang_Hoa}</td>
+      <td style="border:1px solid #000;padding:4px 3px;text-align:center;vertical-align:top">{Don_Vi_Tinh}</td>
+      <td style="border:1px solid #000;padding:4px 3px;text-align:center;vertical-align:top">{So_Luong}</td>
+      <!--IF:Co_Bao_Hanh_Dong--><td style="border:1px solid #000;padding:4px 3px;text-align:center;vertical-align:top">{Bao_Hanh}</td><!--ENDIF:Co_Bao_Hanh_Dong-->
+      <td style="border:1px solid #000;padding:4px 3px;text-align:center;vertical-align:top">Mới, hoạt động tốt</td>
+    </tr><!--END_ITEMS--></tbody>
+  </table>
+  <div>Kèm theo: hướng dẫn sử dụng, phiếu bảo hành (nếu có).</div>
+  <div>Bên nhận đã kiểm tra, đồng ý nhận bàn giao. Kể từ thời điểm ký biên bản, bên nhận chịu trách nhiệm quản lý, sử dụng.</div>
+  <!--IF:Ghi_Chu--><div style="white-space:pre-line">Ghi chú: {Ghi_Chu}</div><!--ENDIF:Ghi_Chu-->
+  <div>Biên bản lập thành 02 bản có giá trị như nhau, mỗi bên giữ 01 bản.</div>
+  <table style="width:100%;margin-top:18px;border-collapse:collapse;page-break-inside:avoid"><tr>
+    <td style="width:50%;text-align:center;vertical-align:top"><b>BÊN NHẬN</b><br/><i>(Ký, ghi rõ họ tên)</i><div style="height:84px"></div><b>{Nguoi_Dai_Dien_Khach}</b></td>
+    <td style="width:50%;text-align:center;vertical-align:top"><b>BÊN GIAO</b><br/><i>(Ký, ghi rõ họ tên, đóng dấu)</i><div style="min-height:84px">{Con_Dau}</div><b>{Nguoi_Dai_Dien_Cua_Hang}</b></td>
+  </tr></table>
+</div>

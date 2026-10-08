@@ -1,3 +1,5 @@
+import 'dart:convert';
+
 import 'package:intl/intl.dart';
 
 import '../models/pos_print_template.dart';
@@ -62,6 +64,8 @@ const _defaultItemTable =
 
 /// Mẫu Word / soạn thảo hay mất comment hoặc để sẵn 1 dòng mẫu (Aquafina).
 String ensurePosPrintItemLoop(String html) {
+  // Mẫu chứng từ không có bảng hàng (vd. đề nghị thanh toán) — không tự chèn bảng.
+  if (html.contains('<!--NO_ITEMS-->')) return html;
   if (_itemLoopIsUsable(html)) return html;
   // Comment nằm ở chú thích import — không phải vòng bảng thật.
   html = html.replaceAll(_itemBegin, '').replaceAll(_itemEnd, '');
@@ -155,14 +159,54 @@ String _tokenizeProductRow(String tr) {
   });
 }
 
+/// Token giữ lại khi in chứng từ thật ([fillSamples] = false) — còn lại là số liệu mẫu, xóa trắng.
+const _realDocKeys = <String>{
+  'Ten_Cua_Hang',
+  'Ten_Cong_Ty',
+  'Dia_Chi_Chi_Nhanh',
+  'Dia_Chi_Cong_Ty',
+  'Dien_Thoai_Chi_Nhanh',
+  'Dien_Thoai_Cong_Ty',
+  'Con_Dau',
+  'Logo',
+  'Dong_Email',
+  'Tieu_De_In',
+  'Chuc_Vu_Cua_Hang',
+  'Chu_Tai_Khoan_Cua_Hang',
+};
+
 /// Dữ liệu mẫu để xem trước mẫu in.
+///
+/// [fillSamples] = false: dùng làm nền cho chứng từ thật — chỉ giữ thông tin cửa hàng
+/// thật (hồ sơ thương mại), mọi số liệu mẫu (MST/TK khách, người đại diện, cọc…) để trống
+/// để không lọt dữ liệu giả lên báo giá / hợp đồng.
 Map<String, String> posPrintSampleData({
   String documentType = PosPrintDocumentTypes.saleInvoice,
   String? storeName,
   String? storeAddress,
   String? storePhone,
   Map<String, dynamic>? commercialProfile,
+  bool fillSamples = true,
 }) {
+  if (!fillSamples) {
+    final sample = posPrintSampleData(
+      documentType: documentType,
+      storeName: storeName,
+      storeAddress: storeAddress,
+      storePhone: storePhone,
+      commercialProfile: commercialProfile,
+    );
+    final profileData = posPrintCommercialProfileData(commercialProfile);
+    const placeholders = {'Địa chỉ cửa hàng', '0900000000'};
+    return {
+      for (final e in sample.entries)
+        e.key: profileData.containsKey(e.key)
+            ? profileData[e.key]!
+            : (_realDocKeys.contains(e.key) && !placeholders.contains(e.value)
+                ? e.value
+                : ''),
+    };
+  }
   final money = NumberFormat('#,##0', 'vi_VN');
   final profileData = posPrintCommercialProfileData(commercialProfile);
   final shop = (storeName ?? '').trim();
@@ -222,7 +266,7 @@ Map<String, String> posPrintSampleData({
     'Ma_Bao_Gia': 'BG000012',
     'So_Chung_Tu': 'BG000012',
     'Han_Bao_Gia': '05/10/2026',
-    'Dieu_Khoan': 'Báo giá có hiệu lực 15 ngày. Thanh toán 50% khi đặt hàng.',
+    'Dieu_Khoan': 'Báo giá có hiệu lực 15 ngày.',
     'Bao_Hanh': '12 tháng',
     'So_Hop_Dong': 'HD0926/2026/NT-TLP',
     'Ngay_Hop_Dong': '16/09/2026',
@@ -251,8 +295,56 @@ Map<String, String> posPrintSampleData({
     'Chuc_Vu_Khach': 'Giám đốc',
     'Tam_Ung': money.format(15252500),
     'Con_Lai_Hop_Dong': money.format(15252500),
-    'Ky_Han_Thi_Cong': '07 – 10 ngày làm việc',
-    'Ky_Han_Thanh_Toan': '10 ngày kể từ ký HĐ',
+    'Ky_Han_Thi_Cong': 'hoàn thành trước ngày 25/10/2026',
+    'Ky_Han_Thanh_Toan': 'theo tiến độ các đợt tại Điều 2',
+    'Ngay_So': '28',
+    'Thang': '06',
+    'Nam': '2026',
+    'Ngay_HD_So': '16',
+    'Thang_HD': '09',
+    'Nam_HD': '2026',
+    'Ben_A_Ten': 'Công ty TNHH Đồ gỗ Nghĩa Tín',
+    'Email_Khach_Hang': '',
+    'Thue_Suat': '8%',
+    'Cach_Tinh_VAT': 'Giá đã cộng thuế GTGT 8%.',
+    'Gia_Tri_Truoc_VAT': money.format(28245370),
+    'Tien_Coc': money.format(9151500),
+    'Phan_Tram_Coc': '30',
+    'Coc_Tinh_Tren': 'tổng giá trị',
+    'Tien_Coc_Bang_Chu': vietnameseMoneyInWords(9151500),
+    'Con_Lai_Bang_Chu': vietnameseMoneyInWords(21353500),
+    'Da_Thanh_Toan': money.format(9151500),
+    'Da_Thanh_Toan_Hien': money.format(9151500),
+    'Con_Phai_Thu': money.format(21353500),
+    'Con_Phai_Thu_Bang_Chu': vietnameseMoneyInWords(21353500),
+    'De_Nghi_Dot': 'Giao hàng',
+    'De_Nghi_So_Tien': money.format(15252500),
+    'De_Nghi_Bang_Chu': vietnameseMoneyInWords(15252500),
+    'Co_Dot_Thanh_Toan': '1',
+    posPrintStagesKey: jsonEncode([
+      {
+        'Dot_STT': '1', 'Dot_Ten': 'Đặt cọc ký hợp đồng', 'Dot_Phan_Tram': '30%',
+        'Dot_So_Tien': money.format(9151500), 'Dot_Han': '16/09/2026',
+        'Dot_Da_Thu': money.format(9151500), 'Dot_Con_Lai': '0', 'Dot_Ghi_Chu': '',
+      },
+      {
+        'Dot_STT': '2', 'Dot_Ten': 'Giao hàng', 'Dot_Phan_Tram': '50%',
+        'Dot_So_Tien': money.format(15252500), 'Dot_Han': '',
+        'Dot_Da_Thu': '0', 'Dot_Con_Lai': money.format(15252500), 'Dot_Ghi_Chu': '',
+      },
+      {
+        'Dot_STT': '3', 'Dot_Ten': 'Nghiệm thu bàn giao', 'Dot_Phan_Tram': '20%',
+        'Dot_So_Tien': money.format(6101000), 'Dot_Han': '',
+        'Dot_Da_Thu': '0', 'Dot_Con_Lai': money.format(6101000), 'Dot_Ghi_Chu': '',
+      },
+    ]),
+    'Ngay_San_Xuat': '',
+    'Ngay_Lap_Dat': '',
+    'Ngay_Ban_Giao': '25/10/2026',
+    'Ton_Tai': 'Không có.',
+    'Dia_Diem_Ky': '',
+    'Co_Bao_Hanh_Dong': '1',
+    'Co_Anh': '',
     'Ten_Ban': 'Bàn 05',
     'Ma_Hang': 'TS-TRA-DAO',
     'Ma_Vach': '8934567890123',
@@ -437,6 +529,72 @@ String _replacePrintToken(String row, String key, String value) {
   return row.replaceAll('{$key}', value);
 }
 
+/// Danh sách đợt thanh toán (JSON mảng object chuỗi) trong dữ liệu chứng từ — trùng API.
+const posPrintStagesKey = '_Dot_Thanh_Toan';
+const _stageBegin = '<!--BEGIN_STAGES-->';
+const _stageEnd = '<!--END_STAGES-->';
+final _ifRe = RegExp(r'<!--IF:([A-Za-z0-9_]+)-->([\s\S]*?)<!--ENDIF:\1-->');
+final _ifNotRe = RegExp(r'<!--IFNOT:([A-Za-z0-9_]+)-->([\s\S]*?)<!--ENDIFNOT:\1-->');
+final _zeroNumberRe = RegExp(r'^[\s0.,]*(đ|VNĐ|VND|%)?\s*$', caseSensitive: false);
+
+/// Trường «có dữ liệu»: khác rỗng và không phải số 0 (0 / 0 đ / 0%).
+bool posPrintHasValue(String? v) {
+  final t = (v ?? '').trim();
+  if (t.isEmpty) return false;
+  return !(RegExp(r'\d').hasMatch(t) && _zeroNumberRe.hasMatch(t));
+}
+
+/// `<!--IF:Truong-->…<!--ENDIF:Truong-->` chỉ in khi trường có dữ liệu;
+/// `<!--IFNOT:Truong-->…<!--ENDIFNOT:Truong-->` chỉ in khi trường trống.
+String applyPosPrintConditionals(String html, Map<String, String> data) {
+  for (var pass = 0; pass < 12; pass++) {
+    final before = html;
+    html = html.replaceAllMapped(
+      _ifRe,
+      (m) => posPrintHasValue(data[m.group(1)]) ? m.group(2)! : '',
+    );
+    html = html.replaceAllMapped(
+      _ifNotRe,
+      (m) => posPrintHasValue(data[m.group(1)]) ? '' : m.group(2)!,
+    );
+    if (before == html) break;
+  }
+  return html;
+}
+
+String _escapeHtml(String v) => v
+    .replaceAll('&', '&amp;')
+    .replaceAll('<', '&lt;')
+    .replaceAll('>', '&gt;')
+    .replaceAll('"', '&quot;');
+
+String _expandStages(String html, Map<String, String> data) {
+  final begin = html.indexOf(_stageBegin);
+  final end = html.indexOf(_stageEnd);
+  if (begin < 0 || end <= begin) return html;
+  final block = html.substring(begin + _stageBegin.length, end);
+  final sb = StringBuffer();
+  final raw = data[posPrintStagesKey];
+  if (raw != null && raw.trim().isNotEmpty) {
+    try {
+      final rows = jsonDecode(raw);
+      if (rows is List) {
+        for (final row in rows) {
+          if (row is! Map) continue;
+          var line = block;
+          row.forEach((k, v) {
+            line = line.replaceAll('{$k}', _escapeHtml('${v ?? ''}'));
+          });
+          sb.write(line);
+        }
+      }
+    } on FormatException {
+      // JSON hỏng — bỏ bảng đợt.
+    }
+  }
+  return html.replaceRange(begin, end + _stageEnd.length, sb.toString());
+}
+
 /// Render HTML mẫu in — thay token + lặp khối dòng hàng.
 ///
 /// [wrapDocument] = false khi nhúng vào iframe soạn thảo (đã có html/body).
@@ -448,6 +606,7 @@ String renderPosPrintTemplateHtml(
   String paperSize = 'K80',
 }) {
   var html = ensurePosPrintItemLoop(templateHtml);
+  html = _expandStages(html, data);
   final begin = html.indexOf(_itemBegin);
   final end = html.indexOf(_itemEnd);
   if (begin >= 0 && end > begin) {
@@ -472,7 +631,9 @@ String renderPosPrintTemplateHtml(
     html = html.replaceRange(begin, end + _itemEnd.length, rendered.toString());
   }
 
+  html = applyPosPrintConditionals(html, data);
   for (final e in data.entries) {
+    if (e.key == posPrintStagesKey) continue;
     html = html.replaceAll('{${e.key}}', e.value);
   }
   html = _dropZeroInvoiceDiscountRow(html, data['Chiet_Khau_Hoa_Don']);

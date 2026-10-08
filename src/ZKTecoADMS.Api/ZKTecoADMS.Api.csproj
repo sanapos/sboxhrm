@@ -38,6 +38,7 @@
     <EmbeddedResource Include="wwwroot\qr-order.html" LogicalName="Sbox.QrOrder.html" />
     <EmbeddedResource Include="wwwroot\data\vn-admin-units.json" LogicalName="Sbox.VnAdminUnits.json" />
     <EmbeddedResource Include="Seo\Seed\*.md" LogicalName="Sbox.SeoSeed.%(Filename).md" />
+    <EmbeddedResource Include="PrintTemplates\A4\*.html" LogicalName="Sbox.A4.%(Filename).html" />
     <Content Update="wwwroot\qr-order.html">
       <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
       <CopyToPublishDirectory>PreserveNewest</CopyToPublishDirectory>

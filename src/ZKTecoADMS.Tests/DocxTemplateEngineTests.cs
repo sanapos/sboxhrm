@@ -29,6 +29,11 @@ public class DocxTemplateEngineTests
             Row("", "Tổng cộng", "23.000.000") +
             "</w:tbl>" +
             P("Ghi chú: ……………");
+        return DocxOf(body);
+    }
+
+    static byte[] DocxOf(string body)
+    {
         var xml = $"<?xml version=\"1.0\" encoding=\"UTF-8\"?><w:document xmlns:w=\"{Ns}\"><w:body>{body}</w:body></w:document>";
         using var ms = new MemoryStream();
         using (var zip = new ZipArchive(ms, ZipArchiveMode.Create, true))
@@ -231,6 +236,61 @@ public class DocxTemplateEngineTests
     }
 
     [Fact]
+    public void Stage_rows_repeat_per_payment_stage_and_vanish_without_stages()
+    {
+        var docx = DocxOf(
+            P("Thanh toán theo các đợt:") +
+            "<w:tbl>" +
+            Row("Đợt", "Nội dung", "Số tiền") +
+            Row("1", "Đặt cọc", "30.000.000") +
+            Row("2", "Giao hàng", "50.000.000") +
+            "</w:tbl>" +
+            P("Còn phải thanh toán: 70.000.000 đồng"));
+        var paras = DocxTemplateEngine.ExtractParagraphs(docx);
+        string Id(string text) => paras.First(x => x.Text == text).Id;
+        var json = $$"""
+            {"replacements":[{"id":"{{Id("Còn phải thanh toán: 70.000.000 đồng")}}","find":"70.000.000 đồng","field":"Con_Phai_Thu"}],
+             "stageRow":[{"id":"{{Id("1")}}","find":"1","field":"Dot_STT"},{"id":"{{Id("Đặt cọc")}}","find":"Đặt cọc","field":"Dot_Ten"},
+                         {"id":"{{Id("30.000.000")}}","find":"30.000.000","field":"Dot_So_Tien"}],
+             "extraStageRowIds":["{{Id("Giao hàng")}}"]}
+            """;
+        var analysis = PosDocxTemplateAiService.Validate(json, paras);
+        Assert.Contains(analysis.Replacements, r => r.Field == "Con_Phai_Thu" && r.Find == "70.000.000");
+        Assert.Empty(analysis.Warnings);
+        var (tpl, _) = DocxTemplateEngine.ApplyReplacements(docx, analysis.Replacements, analysis.RemoveRowParagraphIds);
+        Assert.DoesNotContain("Giao hàng", Texts(tpl));
+
+        var stages = System.Text.Json.JsonSerializer.Serialize(new[]
+        {
+            new Dictionary<string, string> { ["Dot_STT"] = "1", ["Dot_Ten"] = "Cọc", ["Dot_So_Tien"] = "31.104.000" },
+            new Dictionary<string, string> { ["Dot_STT"] = "2", ["Dot_Ten"] = "Lắp đặt", ["Dot_So_Tien"] = "51.840.000" },
+            new Dictionary<string, string> { ["Dot_STT"] = "3", ["Dot_Ten"] = "Nghiệm thu", ["Dot_So_Tien"] = "20.736.000" },
+        });
+        var out1 = Texts(DocxTemplateEngine.Render(tpl,
+            new Dictionary<string, string> { [PosPrintTemplateHtmlRenderer.StagesKey] = stages, ["Con_Phai_Thu"] = "72.576.000" }, []));
+        Assert.Equal(["Đợt", "Nội dung", "Số tiền", "1", "Cọc", "31.104.000", "2", "Lắp đặt", "51.840.000", "3", "Nghiệm thu", "20.736.000"],
+            out1.Skip(1).Take(12).ToList());
+        Assert.Contains("Còn phải thanh toán: 72.576.000 đồng", out1);
+
+        var out2 = Texts(DocxTemplateEngine.Render(tpl, new Dictionary<string, string>(), []));
+        Assert.DoesNotContain("{Dot_Ten}", out2);
+        Assert.Equal(["Thanh toán theo các đợt:", "Đợt", "Nội dung", "Số tiền"], out2.Take(4).ToList()); // không đợt → bỏ dòng mẫu
+    }
+
+    [Fact]
+    public void Validate_warns_about_unmapped_money_and_blanks()
+    {
+        var paras = new List<DocxParagraph>
+        {
+            new("document:0", "Giá trị hợp đồng: 103.680.000 VNĐ", false),
+            new("document:1", "Đại diện bên A: ……………", false),
+        };
+        var a = PosDocxTemplateAiService.Validate("""{"replacements":[]}""", paras);
+        Assert.Contains(a.Warnings, w => w.Contains("103.680.000"));
+        Assert.Contains(a.Warnings, w => w.Contains("chỗ trống"));
+    }
+
+    [Fact]
     public void Sample_data_fills_every_catalog_field()
     {
         var (data, lines) = DocxTemplateEngine.SampleData();
@@ -238,6 +298,7 @@ public class DocxTemplateEngineTests
             Assert.True(data.ContainsKey(key), key);
         foreach (var key in PosDocxTemplateAiService.LineFields.Keys)
             Assert.True(lines[0].ContainsKey(key), key);
+        Assert.Contains("Dot_So_Tien", data[PosPrintTemplateHtmlRenderer.StagesKey]);
     }
 
     [Fact]

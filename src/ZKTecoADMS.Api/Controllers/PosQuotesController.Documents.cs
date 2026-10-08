@@ -24,7 +24,7 @@ public partial class PosQuotesController
         Guid? StockIssueId,
         string? StockIssueNo);
 
-    public record CreateQuoteDocumentDto(string Kind, string? Note, bool IncludeImages = false);
+    public record CreateQuoteDocumentDto(string Kind, string? Note, bool IncludeImages = false, bool IncludeStamp = true, string? DocNo = null);
 
     public record UpdateQuoteDocumentWordingDto(string? HtmlContent, bool Restore = false);
 
@@ -59,8 +59,8 @@ public partial class PosQuotesController
         if (quote == null || !OwnsOrManages(quote))
             return NotFound(AppResponse<object>.Fail("Không tìm thấy báo giá"));
         var html = await PosQuoteDocumentHtml.BuildAsync(
-            dbContext, quote, kind, quote.QuoteNo, dto.Note,
-            dto.IncludeImages, webHostEnvironment.ContentRootPath);
+            dbContext, quote, kind, string.IsNullOrWhiteSpace(dto.DocNo) ? quote.QuoteNo : dto.DocNo.Trim(), dto.Note,
+            dto.IncludeImages, webHostEnvironment.ContentRootPath, dto.IncludeStamp);
         return Ok(AppResponse<object>.Success(new
         {
             kind = kind.ToString(),

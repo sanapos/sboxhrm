@@ -854,7 +854,7 @@ class _DocxReviewPageState extends State<_DocxReviewPage> {
                         templateId: widget.templateId,
                         view: 'fields',
                         version: _previewVersion,
-                        hint: tr('Chỗ tô vàng = dữ liệu động của chứng từ; tô xanh = dòng hàng (lặp theo số mặt hàng). '
+                        hint: tr('Chỗ tô vàng = dữ liệu động của chứng từ; tô xanh = dòng hàng (lặp theo số mặt hàng); xanh lá = đợt thanh toán (lặp theo số đợt). '
                             'Sai / thiếu: sửa ở tab «Trường đã gắn» rồi Lưu.'),
                       ),
                       _DocxPdfTab(
@@ -863,6 +863,7 @@ class _DocxReviewPageState extends State<_DocxReviewPage> {
                         templateId: widget.templateId,
                         view: 'sample',
                         version: _previewVersion,
+                        allowQuote: true,
                         hint: tr('Mẫu điền dữ liệu giả (2 dòng hàng) — đúng như khi xuất PDF báo giá / hợp đồng.'),
                       ),
                       _buildFieldList(),
@@ -986,6 +987,7 @@ class _DocxPdfTab extends StatefulWidget {
     required this.view,
     required this.version,
     required this.hint,
+    this.allowQuote = false,
   });
 
   final ApiService api;
@@ -993,6 +995,9 @@ class _DocxPdfTab extends StatefulWidget {
   final String view;
   final int version;
   final String hint;
+
+  /// Cho chọn một báo giá thật để in thử thay cho dữ liệu giả.
+  final bool allowQuote;
 
   @override
   State<_DocxPdfTab> createState() => _DocxPdfTabState();
@@ -1003,9 +1008,45 @@ class _DocxPdfTabState extends State<_DocxPdfTab> with AutomaticKeepAliveClientM
   String? _error;
   bool _loading = false;
   int _loadedVersion = -1;
+  String? _quoteId;
+  String? _quoteNo;
 
   @override
   bool get wantKeepAlive => true;
+
+  Future<void> _pickQuote() async {
+    final res = await widget.api.getPosQuotes(pageSize: 40);
+    if (!mounted) return;
+    final data = res['data'];
+    final raw = data is Map ? (data['items'] as List? ?? []) : <dynamic>[];
+    final quotes = raw.whereType<Map>().map((e) => Map<String, dynamic>.from(e)).toList();
+    if (quotes.isEmpty) {
+      NotificationOverlayManager().showWarning(title: 'Chưa có báo giá', message: tr('Cửa hàng chưa có báo giá nào để in thử'));
+      return;
+    }
+    String s(Map<String, dynamic> m, String a, String b) => (m[a] ?? m[b] ?? '').toString();
+    final picked = await showDialog<Map<String, dynamic>?>(
+      context: context,
+      builder: (ctx) => SimpleDialog(
+        title: Text(tr('In thử với báo giá')),
+        children: [
+          SimpleDialogOption(
+            onPressed: () => Navigator.pop(ctx, <String, dynamic>{}),
+            child: Text(tr('Dữ liệu mẫu (giả)'), style: const TextStyle(fontStyle: FontStyle.italic)),
+          ),
+          for (final q in quotes)
+            SimpleDialogOption(
+              onPressed: () => Navigator.pop(ctx, q),
+              child: Text('${s(q, 'quoteNo', 'QuoteNo')} — ${s(q, 'customerName', 'CustomerName')}'),
+            ),
+        ],
+      ),
+    );
+    if (picked == null || !mounted) return;
+    _quoteId = picked.isEmpty ? null : s(picked, 'id', 'Id');
+    _quoteNo = picked.isEmpty ? null : s(picked, 'quoteNo', 'QuoteNo');
+    _load();
+  }
 
   @override
   void initState() {
@@ -1025,7 +1066,7 @@ class _DocxPdfTabState extends State<_DocxPdfTab> with AutomaticKeepAliveClientM
       _loading = true;
       _error = null;
     });
-    final res = await widget.api.getPosDocxTemplatePreview(widget.templateId, widget.view);
+    final res = await widget.api.getPosDocxTemplatePreview(widget.templateId, widget.view, quoteId: _quoteId);
     if (!mounted) return;
     setState(() {
       _loading = false;
@@ -1052,8 +1093,16 @@ class _DocxPdfTabState extends State<_DocxPdfTab> with AutomaticKeepAliveClientM
               const Icon(Icons.info_outline, size: 16, color: SboxColors.warningText),
               const SizedBox(width: 8),
               Expanded(
-                child: Text(widget.hint, style: const TextStyle(fontSize: 13, color: SboxColors.warningText)),
+                child: Text(
+                    _quoteNo == null ? widget.hint : tr('Đang in thử với báo giá $_quoteNo (dữ liệu thật).'),
+                    style: const TextStyle(fontSize: 13, color: SboxColors.warningText)),
               ),
+              if (widget.allowQuote)
+                TextButton.icon(
+                  onPressed: _loading ? null : _pickQuote,
+                  icon: const Icon(Icons.request_quote_outlined, size: 18),
+                  label: Text(tr('Báo giá thật')),
+                ),
               IconButton(
                 tooltip: tr('Tải lại'),
                 onPressed: _loading ? null : _load,

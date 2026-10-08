@@ -168,7 +168,7 @@ public class PosDocxTemplatesController(
         try
         {
             var html = DocxHtmlRenderer.Render(original, ranges, stored.RemoveRowParagraphIds.ToHashSet(), FieldLabels(),
-                PosDocxTemplateAiService.LineFields.Keys.ToHashSet());
+                PosDocxTemplateAiService.LineFields.Keys.Concat(PosDocxTemplateAiService.StageFields.Keys).ToHashSet());
             return Ok(AppResponse<object>.Success(new { html }));
         }
         catch (Exception ex) when (ex is InvalidOperationException or InvalidDataException or System.Xml.XmlException)
@@ -265,10 +265,12 @@ public class PosDocxTemplatesController(
     /// </summary>
     [HttpGet("{id:guid}/preview")]
     [RequireModulePermission("PosPrintTemplates", ModulePermissionAction.View)]
-    public async Task<IActionResult> Preview(Guid id, [FromQuery] string view = "fields", CancellationToken ct = default)
+    public async Task<IActionResult> Preview(Guid id, [FromQuery] string view = "fields",
+        [FromQuery] Guid? quoteId = null, CancellationToken ct = default)
     {
         var t = await FindAsync(id, ct);
         if (t == null) return NotFound(AppResponse<object>.Fail("Không tìm thấy mẫu Word"));
+        if (quoteId is { } qid) return await PreviewWithQuoteAsync(t, qid, ct);
         view = view is "original" or "sample" ? view : "fields";
         var source = view == "original" ? OrigPath(t) : TemplatePath(t);
         if (!System.IO.File.Exists(source))
@@ -301,6 +303,31 @@ public class PosDocxTemplatesController(
             }
         }
         return File(await System.IO.File.ReadAllBytesAsync(cache, ct), "application/pdf", $"{t.Name}-{view}.pdf");
+    }
+
+    /// <summary>In thử mẫu Word với một báo giá thật của cửa hàng (đủ đợt thanh toán, số đã thu…) — không lưu cache.</summary>
+    async Task<IActionResult> PreviewWithQuoteAsync(PosPrintTemplate t, Guid quoteId, CancellationToken ct)
+    {
+        var quote = await db.PosQuotes.AsNoTracking().Include(x => x.Lines)
+            .FirstOrDefaultAsync(x => x.Id == quoteId && x.StoreId == t.StoreId && x.Deleted == null, ct);
+        if (quote == null) return NotFound(AppResponse<object>.Fail("Không tìm thấy báo giá"));
+        var path = TemplatePath(t);
+        if (!System.IO.File.Exists(path))
+            return NotFound(AppResponse<object>.Fail("Thiếu file mẫu trên máy chủ — tải lại file Word."));
+        var kind = PosPrintDocumentTypes.IsCommercial(t.DocumentType) ? KindOf(t.DocumentType) : PosQuoteDocumentKind.Quote;
+        var (data, lines) = await PosQuoteDocumentHtml.BuildFieldsAsync(
+            db, quote, kind, quote.QuoteNo, quote.Note, quote.IncludeImages, env.ContentRootPath);
+        var docx = DocxTemplateEngine.Render(await System.IO.File.ReadAllBytesAsync(path, ct), data,
+            lines.Cast<IReadOnlyDictionary<string, string>>().ToList());
+        try
+        {
+            var converter = HttpContext.RequestServices.GetRequiredService<OfficePdfConverter>();
+            return File(await converter.ToPdfAsync(docx, ".docx", ct), "application/pdf", $"{t.Name}-{quote.QuoteNo}.pdf");
+        }
+        catch (InvalidOperationException ex)
+        {
+            return BadRequest(AppResponse<object>.Fail(ex.Message));
+        }
     }
 
     public sealed record RenderRequest(
@@ -354,6 +381,7 @@ public class PosDocxTemplatesController(
     {
         var labels = new Dictionary<string, string>();
         foreach (var (k, v) in PosDocxTemplateAiService.LineFields) labels[k] = v;
+        foreach (var (k, v) in PosDocxTemplateAiService.StageFields) labels[k] = v;
         foreach (var (k, v) in PosDocxTemplateAiService.DocumentFields) labels[k] = v;
         return labels;
     }

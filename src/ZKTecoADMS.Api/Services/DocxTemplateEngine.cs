@@ -39,6 +39,24 @@ public static class DocxTemplateEngine
         "Chiet_Khau", "Thanh_Tien", "Chieu_Dai", "Chieu_Rong", "Chieu_Cao", "Hinh_Anh",
     ];
 
+    /// <summary>Trường của đợt thanh toán — w:tr chứa trường này là dòng đợt mẫu (nhân bản theo số đợt).</summary>
+    static readonly HashSet<string> StageRowKeys =
+        ["Dot_STT", "Dot_Ten", "Dot_Phan_Tram", "Dot_So_Tien", "Dot_Han", "Dot_Da_Thu", "Dot_Con_Lai"];
+
+    static List<Dictionary<string, string>> StagesOf(IReadOnlyDictionary<string, string> data)
+    {
+        if (!data.TryGetValue(PosPrintTemplateHtmlRenderer.StagesKey, out var json) || string.IsNullOrWhiteSpace(json))
+            return [];
+        try
+        {
+            return System.Text.Json.JsonSerializer.Deserialize<List<Dictionary<string, string>>>(json) ?? [];
+        }
+        catch (System.Text.Json.JsonException)
+        {
+            return [];
+        }
+    }
+
     // ─── Đọc ────────────────────────────────────────────────────────────
 
     public static List<DocxParagraph> ExtractParagraphs(byte[] docx)
@@ -93,7 +111,8 @@ public static class DocxTemplateEngine
             }
             // Dòng hàng mẫu: ô không gắn trường là dữ liệu mẫu cũ → để trống (không lặp theo mọi dòng).
             foreach (var tr in doc.Descendants(W + "tr")
-                         .Where(tr => TokensIn(tr).Any(ItemRowKeys.Contains) && !tr.Ancestors(W + "tr").Any()))
+                         .Where(tr => TokensIn(tr).Any(k => ItemRowKeys.Contains(k) || StageRowKeys.Contains(k))
+                                      && !tr.Ancestors(W + "tr").Any()))
             {
                 foreach (var tc in tr.Elements(W + "tc"))
                 {
@@ -135,6 +154,25 @@ public static class DocxTemplateEngine
             };
             foreach (var p in doc.Descendants(W + "p").ToList())
                 NormalizeTokens(p);
+
+            // Bảng đợt thanh toán: nhân bản theo số đợt thật (không có đợt → bỏ dòng mẫu).
+            var stages = StagesOf(data);
+            var stageRows = doc.Descendants(W + "tr")
+                .Where(tr => TokensIn(tr).Any(StageRowKeys.Contains))
+                .Where(tr => !tr.Ancestors(W + "tr").Any())
+                .ToList();
+            foreach (var tr in stageRows)
+            {
+                var anchor = tr;
+                foreach (var st in stages)
+                {
+                    var clone = new XElement(tr);
+                    FillTokens(clone, key => st.TryGetValue(key, out var v) ? v : data.GetValueOrDefault(key), sink);
+                    anchor.AddAfterSelf(clone);
+                    anchor = clone;
+                }
+                tr.Remove();
+            }
 
             // Dòng hàng: w:tr (không lồng) có trường riêng của dòng hàng. Không dùng Ghi_Chu / Bao_Hanh
             // để nhận diện — hai trường này cũng là trường chung (bảng bố cục sẽ bị nhân bản nhầm).
@@ -589,7 +627,8 @@ public static class DocxTemplateEngine
                     if (m.Index > last) pieces.Add(MakeRun(rPr, t.Value[last..m.Index], null));
                     var key = m.Groups[1].Value;
                     var label = labels.TryGetValue(key, out var l) ? ShortLabel(l) : key;
-                    pieces.Add(MakeRun(rPr, $"[{label}]", ItemRowKeys.Contains(key) ? "cyan" : "yellow"));
+                    pieces.Add(MakeRun(rPr, $"[{label}]",
+                        ItemRowKeys.Contains(key) ? "cyan" : StageRowKeys.Contains(key) ? "green" : "yellow"));
                     last = m.Index + m.Length;
                 }
                 if (last < t.Value.Length) pieces.Add(MakeRun(rPr, t.Value[last..], null));
@@ -708,6 +747,30 @@ public static class DocxTemplateEngine
             ["Khach_Thanh_Toan"] = "24.500.000",
             ["Tien_Thua"] = "200.000",
             ["Con_Lai"] = "0",
+            ["Ngay_So"] = DateTime.UtcNow.AddHours(7).ToString("dd"),
+            ["Thang"] = DateTime.UtcNow.AddHours(7).ToString("MM"),
+            ["Nam"] = DateTime.UtcNow.AddHours(7).ToString("yyyy"),
+            ["Ngay_HD_So"] = DateTime.UtcNow.AddHours(7).ToString("dd"),
+            ["Thang_HD"] = DateTime.UtcNow.AddHours(7).ToString("MM"),
+            ["Nam_HD"] = DateTime.UtcNow.AddHours(7).ToString("yyyy"),
+            ["Ben_A_Ten"] = "CÔNG TY CỔ PHẦN MINH AN",
+            ["Email_Khach_Hang"] = "minhan@example.vn",
+            ["Thue_Suat"] = "8%",
+            ["Cach_Tinh_VAT"] = "Giá đã cộng thuế GTGT 8%.",
+            ["Da_Thanh_Toan"] = "7.290.000",
+            ["Con_Phai_Thu"] = "17.010.000",
+            ["Con_Phai_Thu_Bang_Chu"] = "Mười bảy triệu không trăm mười nghìn đồng",
+            ["De_Nghi_Dot"] = "Đợt 2 – Giao hàng",
+            ["De_Nghi_So_Tien"] = "12.150.000",
+            ["De_Nghi_Bang_Chu"] = "Mười hai triệu một trăm năm mươi nghìn đồng",
+            ["Ngay_Lap_Dat"] = DateTime.UtcNow.AddHours(7).AddDays(10).ToString("dd/MM/yyyy"),
+            ["Ngay_Ban_Giao"] = DateTime.UtcNow.AddHours(7).AddDays(15).ToString("dd/MM/yyyy"),
+            [PosPrintTemplateHtmlRenderer.StagesKey] = System.Text.Json.JsonSerializer.Serialize(new[]
+            {
+                new Dictionary<string, string> { ["Dot_STT"] = "1", ["Dot_Ten"] = "Đặt cọc ký hợp đồng", ["Dot_Phan_Tram"] = "30%", ["Dot_So_Tien"] = "7.290.000", ["Dot_Han"] = "", ["Dot_Da_Thu"] = "7.290.000", ["Dot_Con_Lai"] = "0" },
+                new Dictionary<string, string> { ["Dot_STT"] = "2", ["Dot_Ten"] = "Giao hàng", ["Dot_Phan_Tram"] = "50%", ["Dot_So_Tien"] = "12.150.000", ["Dot_Han"] = "", ["Dot_Da_Thu"] = "0", ["Dot_Con_Lai"] = "12.150.000" },
+                new Dictionary<string, string> { ["Dot_STT"] = "3", ["Dot_Ten"] = "Nghiệm thu bàn giao", ["Dot_Phan_Tram"] = "20%", ["Dot_So_Tien"] = "4.860.000", ["Dot_Han"] = "", ["Dot_Da_Thu"] = "0", ["Dot_Con_Lai"] = "4.860.000" },
+            }),
             ["Logo"] = SampleImage(0x1E, 0x40, 0xAF, 360, 160),
             ["Con_Dau"] = SampleImage(0xDC, 0x26, 0x26, 300, 300),
         };

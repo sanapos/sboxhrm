@@ -237,8 +237,16 @@ class PosPrintTemplateThumb extends StatelessWidget {
             height: 1123,
             color: Colors.white,
             padding: const EdgeInsets.all(40),
-            child: buildPosRenderedHtml(stripPosHtmlDocumentShell(html),
-                a4Width: true, shrinkWrap: true, pageWidth: 714),
+            // Chứng từ dài hơn 1 trang (hợp đồng) — chỉ hiện trang đầu, cắt phần dư.
+            child: ClipRect(
+              child: OverflowBox(
+                alignment: Alignment.topCenter,
+                minHeight: 0,
+                maxHeight: double.infinity,
+                child: buildPosRenderedHtml(stripPosHtmlDocumentShell(html),
+                    a4Width: true, shrinkWrap: true, pageWidth: 714),
+              ),
+            ),
           ),
         ),
       );

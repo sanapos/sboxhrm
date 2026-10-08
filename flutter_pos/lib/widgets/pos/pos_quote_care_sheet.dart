@@ -117,6 +117,26 @@ Future<void> printPosQuoteSlip(
       return;
     }
   }
+  // Báo giá đã lưu: lấy từ máy chủ — đủ đợt thanh toán, số HĐ, số đã thu, mẫu của cửa hàng.
+  if (lines == null) {
+    final server = await posQuoteServerDocumentHtml(
+      quoteId,
+      PosPrintDocumentTypes.quote,
+      includeImages: includeImages,
+      includeStamp: includeStamp,
+      api: api,
+    );
+    if (server != null) {
+      if (!context.mounted) return;
+      await showPosHtmlPrintDialog(
+        context,
+        title: title,
+        htmlDocument: server,
+        a4Paper: true,
+      );
+      return;
+    }
+  }
   if (q != null && useLines.isNotEmpty) {
     Map<String, dynamic>? profile;
     try {
@@ -198,6 +218,39 @@ Future<void> printPosQuoteSlip(
   );
 }
 
+/// Chứng từ dựng trên máy chủ (đủ đợt thanh toán / số HĐ / đã thu / mẫu của cửa hàng),
+/// bọc lại khổ + lề giống trình soạn mẫu. null khi offline / lỗi — dùng bản cục bộ.
+Future<String?> posQuoteServerDocumentHtml(
+  String quoteId,
+  String kind, {
+  bool includeImages = false,
+  bool includeStamp = true,
+  String? docNo,
+  ApiService? api,
+}) async {
+  if (quoteId.isEmpty) return null;
+  try {
+    final res = await (api ?? ApiService()).previewPosQuoteDocument(
+      quoteId,
+      kind,
+      includeImages: includeImages,
+      includeStamp: includeStamp,
+      docNo: docNo,
+    );
+    if (res['isSuccess'] != true || res['data'] is! Map) return null;
+    final data = res['data'] as Map;
+    final html = (data['htmlContent'] ?? data['HtmlContent'] ?? '').toString();
+    if (html.trim().isEmpty || html.contains('XEM TRƯỚC')) return null;
+    final body = RegExp(r'<body[^>]*>([\s\S]*)</body>', caseSensitive: false)
+            .firstMatch(html)
+            ?.group(1) ??
+        html;
+    return wrapPosPrintHtmlDocument(body, paperSize: PosPrintPaperSizes.a4);
+  } catch (_) {
+    return null;
+  }
+}
+
 String bindPosQuotePrintHtmlLocal(
   PosQuote q,
   List<PosQuoteLine> lineItems, {
@@ -214,8 +267,11 @@ String bindPosQuotePrintHtmlLocal(
     storeName: storeName,
     storeAddress: storeAddress,
     storePhone: storePhone,
+    fillSamples: false,
   );
+  final items = renderedLines ?? _quoteLineItems(lineItems);
   data.addAll(_quoteHeaderData(q, lineItems, profile: commercialProfile));
+  data.addAll(_lineFlags(items));
   if (!includeStamp) {
     data['Con_Dau'] = '<div style="height:48px"></div>';
   }
@@ -235,7 +291,7 @@ String bindPosQuotePrintHtmlLocal(
       paperSize: PosPrintPaperSizes.a4,
     ),
     data: data,
-    lineItems: renderedLines ?? _quoteLineItems(lineItems),
+    lineItems: items,
     wrapDocument: true,
     paperSize: PosPrintPaperSizes.a4,
   );
@@ -259,33 +315,16 @@ String bindPosCommercialPrintHtmlLocal(
     storeName: storeName,
     storeAddress: storeAddress,
     storePhone: storePhone,
+    fillSamples: false,
   );
+  final items = _quoteLineItems(lines);
   data.addAll(_quoteHeaderData(q, lines, profile: commercialProfile));
-  final money = NumberFormat('#,##0', 'vi_VN');
-  final total = (lines.fold<double>(0, (a, l) => a + _quoteLineAmount(l)) -
-          q.discount)
-      .clamp(0.0, double.infinity);
-  final deposit = q.depositAmount > 0
-      ? q.depositAmount
-      : (q.depositPercent != null && q.depositPercent! > 0
-          ? total * q.depositPercent! / 100
-          : total * 0.5);
-  final day = DateFormat('dd/MM/yyyy').format(DateTime.now());
+  data.addAll(_lineFlags(items));
   final no = (docNo == null || docNo.isEmpty) ? q.quoteNo : docNo;
   data.addAll({
-    'Ma_Bao_Gia': q.quoteNo,
+    'Tieu_De_In': PosPrintDocumentTypes.all[documentType] ?? 'Chứng từ',
     'So_Chung_Tu': no,
-    'So_Hop_Dong': documentType == PosPrintDocumentTypes.contract ? no : q.quoteNo,
-    'Ngay_Hop_Dong': day,
-    'Ngay': day,
-    'Dia_Diem_Thi_Cong': q.customerAddress ?? '',
-    'Ten_Cong_Ty_Khach': q.customerName ?? '',
-    'Nguoi_Dai_Dien_Khach': q.customerName ?? '',
-    'Tam_Ung': money.format(deposit),
-    'Tien_Coc': money.format(deposit),
-    'Con_Lai_Hop_Dong': money.format((total - deposit).clamp(0, double.infinity)),
-    'Ky_Han_Thi_Cong': 'Theo thỏa thuận',
-    'Ky_Han_Thanh_Toan': '10 ngày kể từ ký hợp đồng',
+    'So_Hop_Dong': documentType == PosPrintDocumentTypes.contract ? no : '',
   });
   if (!includeStamp) {
     data['Con_Dau'] = '<div style="height:48px"></div>';
@@ -306,7 +345,7 @@ String bindPosCommercialPrintHtmlLocal(
       paperSize: PosPrintPaperSizes.a4,
     ),
     data: data,
-    lineItems: _quoteLineItems(lines),
+    lineItems: items,
     wrapDocument: true,
     paperSize: PosPrintPaperSizes.a4,
   );
@@ -433,8 +472,47 @@ Map<String, String> _quoteHeaderData(
   final months = use.any((l) => (l.warrantyMonths ?? 0) > 0)
       ? '${use.where((l) => (l.warrantyMonths ?? 0) > 0).map((l) => l.warrantyMonths).first} tháng'
       : '';
+  // Cọc: số tiền hoặc % đã nhập trên báo giá — không tự gán 50%.
+  final pct = q.depositPercent ?? 0;
+  final deposit = q.depositAmount > 0
+      ? q.depositAmount
+      : (pct > 0 ? (total * pct / 100).roundToDouble() : 0.0);
+  final remain = (total - deposit).clamp(0.0, double.infinity).toDouble();
+  final pctText = pct > 0
+      ? (pct == pct.roundToDouble() ? pct.toStringAsFixed(0) : pct.toStringAsFixed(1))
+      : '';
+  String two(int v) => v.toString().padLeft(2, '0');
+  final customer = (q.customerName ?? '').trim();
+  final request = deposit > 0 ? deposit : total;
   return {
     'Tieu_De_In': 'BÁO GIÁ',
+    'PaperSize': 'A4',
+    'Ngay_So': two(now.day),
+    'Thang': two(now.month),
+    'Nam': '${now.year}',
+    'Ngay_HD_So': two(now.day),
+    'Thang_HD': two(now.month),
+    'Nam_HD': '${now.year}',
+    'Ngay_Hop_Dong': day.format(now),
+    'Ben_A_Ten': customer,
+    'Nguoi_Dai_Dien_Khach': customer,
+    'Dia_Diem_Thi_Cong': q.customerAddress ?? '',
+    'Tam_Ung': deposit > 0 ? money.format(deposit) : '',
+    'Tien_Coc': deposit > 0 ? money.format(deposit) : '',
+    'Phan_Tram_Coc': pctText,
+    'Coc_Tinh_Tren': pctText.isEmpty ? '' : 'tổng giá trị',
+    'Tien_Coc_Bang_Chu':
+        deposit > 0 ? vietnameseMoneyInWords(deposit.round()) : '',
+    'Con_Lai_Hop_Dong': money.format(remain),
+    'Con_Lai_Bang_Chu': vietnameseMoneyInWords(remain.round()),
+    'Da_Thanh_Toan': '',
+    'Da_Thanh_Toan_Hien': '0',
+    'Con_Phai_Thu': money.format(total),
+    'Con_Phai_Thu_Bang_Chu': vietnameseMoneyInWords(total.round()),
+    'De_Nghi_Dot': deposit > 0 ? 'Tạm ứng / đặt cọc' : 'Thanh toán',
+    'De_Nghi_So_Tien': money.format(request),
+    'De_Nghi_Bang_Chu': vietnameseMoneyInWords(request.round()),
+    'Ton_Tai': 'Không có.',
     'Ma_Don_Hang': q.quoteNo,
     'Ma_Bao_Gia': q.quoteNo,
     'So_Chung_Tu': q.quoteNo,
@@ -463,9 +541,17 @@ Map<String, String> _quoteHeaderData(
         : (use.length == 1
             ? use.first.productName
             : '${use.first.productName} +${use.length - 1}'),
-    'Bao_Hanh': policy.isNotEmpty ? policy : (months.isNotEmpty ? months : '12 tháng'),
+    'Bao_Hanh': policy.isNotEmpty ? policy : months,
   };
 }
+
+/// Cột Hình ảnh / Bảo hành chỉ hiện khi có dòng dùng tới (khối IF trong mẫu).
+Map<String, String> _lineFlags(List<Map<String, String>> items) => {
+      'Co_Anh':
+          items.any((l) => (l['Hinh_Anh'] ?? '').trim().isNotEmpty) ? '1' : '',
+      'Co_Bao_Hanh_Dong':
+          items.any((l) => (l['Bao_Hanh'] ?? '').trim().isNotEmpty) ? '1' : '',
+    };
 
 Future<List<Map<String, String>>> _quoteLineItemsWithImages(
   ApiService api,

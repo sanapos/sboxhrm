@@ -50,10 +50,76 @@ public static class PosPrintTemplateHtmlRenderer
 
     static bool IsRawHtmlToken(string key) =>
         key.Equals("Hinh_Anh", StringComparison.Ordinal)
-        || key.Equals("Con_Dau", StringComparison.Ordinal);
+        || key.Equals("Con_Dau", StringComparison.Ordinal)
+        || key.Equals("Logo", StringComparison.Ordinal);
+
+    const string StageBegin = "<!--BEGIN_STAGES-->";
+    const string StageEnd = "<!--END_STAGES-->";
+    /// <summary>Danh sách đợt thanh toán (JSON mảng các object chuỗi) đặt trong dữ liệu chứng từ.</summary>
+    public const string StagesKey = "_Dot_Thanh_Toan";
+
+    static readonly Regex IfRe = new(
+        @"<!--IF:([A-Za-z0-9_]+)-->([\s\S]*?)<!--ENDIF:\1-->", RegexOptions.Compiled);
+    static readonly Regex IfNotRe = new(
+        @"<!--IFNOT:([A-Za-z0-9_]+)-->([\s\S]*?)<!--ENDIFNOT:\1-->", RegexOptions.Compiled);
+    static readonly Regex ZeroNumberRe = new(
+        @"^[\s0.,]*(đ|VNĐ|VND|%)?\s*$", RegexOptions.Compiled | RegexOptions.IgnoreCase);
+
+    /// <summary>Trường «có dữ liệu»: khác rỗng và không phải số 0 (0 / 0 đ / 0%).</summary>
+    public static bool HasValue(string? v)
+    {
+        if (string.IsNullOrWhiteSpace(v)) return false;
+        var t = v.Trim();
+        return !(t.Any(char.IsDigit) && ZeroNumberRe.IsMatch(t));
+    }
+
+    /// <summary>
+    /// Khối điều kiện trong mẫu: &lt;!--IF:Truong--&gt;…&lt;!--ENDIF:Truong--&gt; chỉ in khi trường có dữ liệu;
+    /// &lt;!--IFNOT:Truong--&gt;…&lt;!--ENDIFNOT:Truong--&gt; chỉ in khi trường trống. Lồng được các trường khác nhau.
+    /// </summary>
+    public static string ApplyConditionals(string html, IReadOnlyDictionary<string, string> data)
+    {
+        for (var pass = 0; pass < 12; pass++)
+        {
+            var before = html;
+            html = IfRe.Replace(html, m => HasValue(data.GetValueOrDefault(m.Groups[1].Value)) ? m.Groups[2].Value : "");
+            html = IfNotRe.Replace(html, m => HasValue(data.GetValueOrDefault(m.Groups[1].Value)) ? "" : m.Groups[2].Value);
+            if (ReferenceEquals(before, html) || before == html) break;
+        }
+        return html;
+    }
+
+    static string ExpandStages(string html, IReadOnlyDictionary<string, string> data)
+    {
+        var begin = html.IndexOf(StageBegin, StringComparison.Ordinal);
+        var end = html.IndexOf(StageEnd, StringComparison.Ordinal);
+        if (begin < 0 || end <= begin) return html;
+        var block = html[(begin + StageBegin.Length)..end];
+        var sb = new StringBuilder();
+        if (data.TryGetValue(StagesKey, out var json) && !string.IsNullOrWhiteSpace(json))
+        {
+            try
+            {
+                var rows = System.Text.Json.JsonSerializer.Deserialize<List<Dictionary<string, string>>>(json) ?? [];
+                foreach (var row in rows)
+                {
+                    var line = block;
+                    foreach (var (k, v) in row)
+                        line = line.Replace("{" + k + "}", Enc(v), StringComparison.Ordinal);
+                    sb.Append(line);
+                }
+            }
+            catch (System.Text.Json.JsonException) { }
+        }
+        return html[..begin] + sb + html[(end + StageEnd.Length)..];
+    }
 
     static string EncodeToken(string key, string value) =>
-        IsRawHtmlToken(key) ? value : WebUtility.HtmlEncode(value);
+        IsRawHtmlToken(key) ? value : Enc(value);
+
+    /// <summary>Chỉ thoát ký tự HTML đặc biệt — giữ nguyên chữ có dấu (HTML chứng từ dễ đọc / sửa câu chữ).</summary>
+    static string Enc(string? v) => (v ?? "")
+        .Replace("&", "&amp;").Replace("<", "&lt;").Replace(">", "&gt;").Replace("\"", "&quot;");
 
     public static string Render(
         string templateHtml,
@@ -61,6 +127,7 @@ public static class PosPrintTemplateHtmlRenderer
         IReadOnlyList<IReadOnlyDictionary<string, string>> lineItems)
     {
         var html = EnsureItemLoop(templateHtml ?? "");
+        html = ExpandStages(html, data);
         var begin = html.IndexOf(ItemBegin, StringComparison.Ordinal);
         var end = html.IndexOf(ItemEnd, StringComparison.Ordinal);
         if (begin >= 0 && end > begin)
@@ -79,6 +146,7 @@ public static class PosPrintTemplateHtmlRenderer
             html = html[..begin] + sb + html[(end + ItemEnd.Length)..];
         }
 
+        html = ApplyConditionals(html, data);
         foreach (var (k, v) in data)
             html = html.Replace("{" + k + "}", EncodeToken(k, v), StringComparison.Ordinal);
 
@@ -163,6 +231,8 @@ public static class PosPrintTemplateHtmlRenderer
     public static string EnsureItemLoop(string html)
     {
         if (string.IsNullOrEmpty(html)) return html;
+        // Mẫu chứng từ không có bảng hàng (vd. đề nghị thanh toán) — không tự chèn bảng.
+        if (html.Contains("<!--NO_ITEMS-->", StringComparison.Ordinal)) return html;
         if (html.Contains(ItemBegin, StringComparison.Ordinal) &&
             html.Contains(ItemEnd, StringComparison.Ordinal) &&
             ItemLoopIsUsable(html))
