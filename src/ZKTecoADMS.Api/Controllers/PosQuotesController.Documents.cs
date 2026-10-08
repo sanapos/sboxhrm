@@ -127,6 +127,8 @@ public partial class PosQuotesController
         if (!CanMutateOwn(quote))
             return StatusCode(403, AppResponse<QuoteDocumentDto>.Fail(
                 "Không có quyền lập chứng từ trên báo giá của nhân viên khác"));
+        if (IsStopped(quote) && kind != PosQuoteDocumentKind.Quote)
+            return BadRequest(AppResponse<QuoteDocumentDto>.Fail(StoppedMessage(quote)));
         if (quote.Status != PosQuoteStatus.Accepted && kind != PosQuoteDocumentKind.Quote)
             PromoteAccepted(quote);
 
@@ -223,6 +225,8 @@ public partial class PosQuotesController
         if (!CanMutateOwn(quote))
             return StatusCode(403, AppResponse<QuoteDocumentDto>.Fail(
                 "Không có quyền xuất kho trên báo giá của nhân viên khác"));
+        if (IsStopped(quote))
+            return BadRequest(AppResponse<QuoteDocumentDto>.Fail(StoppedMessage(quote)));
         if (quote.Status != PosQuoteStatus.Accepted)
             PromoteAccepted(quote);
 
@@ -341,6 +345,17 @@ public partial class PosQuotesController
             return null;
         });
     }
+
+    /// Báo giá đã dừng (từ chối / hủy / hết hạn) — không lập chứng từ, không tự «hồi sinh» thành đã chốt.
+    static bool IsStopped(PosQuote quote) =>
+        quote.Status is PosQuoteStatus.Rejected or PosQuoteStatus.Cancelled or PosQuoteStatus.Expired;
+
+    static string StoppedMessage(PosQuote quote) => quote.Status switch
+    {
+        PosQuoteStatus.Rejected => "Khách đã từ chối báo giá này — tạo báo giá mới để lập chứng từ",
+        PosQuoteStatus.Expired => "Báo giá đã hết hạn — tạo báo giá mới để lập chứng từ",
+        _ => "Báo giá đã hủy — không lập chứng từ được",
+    };
 
     void PromoteAccepted(PosQuote quote)
     {

@@ -532,11 +532,12 @@ Map<String, String> _quoteHeaderData(
   final months = use.any((l) => (l.warrantyMonths ?? 0) > 0)
       ? '${use.where((l) => (l.warrantyMonths ?? 0) > 0).map((l) => l.warrantyMonths).first} tháng'
       : '';
-  // Cọc: số tiền hoặc % đã nhập trên báo giá — không tự gán 50%.
+  // Cọc: số tiền hoặc % đã nhập trên báo giá (% tính trên giá trị trước VAT — khớp màn soạn và máy chủ).
+  // Không tự gán 50%.
   final pct = q.depositPercent ?? 0;
   final deposit = q.depositAmount > 0
       ? q.depositAmount
-      : (pct > 0 ? (total * pct / 100).roundToDouble() : 0.0);
+      : (pct > 0 ? (t.preVat * pct / 100).roundToDouble() : 0.0);
   final remain = (total - deposit).clamp(0.0, double.infinity).toDouble();
   final pctText = pct > 0
       ? (pct == pct.roundToDouble() ? pct.toStringAsFixed(0) : pct.toStringAsFixed(1))
@@ -560,7 +561,7 @@ Map<String, String> _quoteHeaderData(
     'Tam_Ung': deposit > 0 ? money.format(deposit) : '',
     'Tien_Coc': deposit > 0 ? money.format(deposit) : '',
     'Phan_Tram_Coc': pctText,
-    'Coc_Tinh_Tren': pctText.isEmpty ? '' : 'tổng giá trị',
+    'Coc_Tinh_Tren': pctText.isEmpty ? '' : 'giá trị trước VAT',
     'Tien_Coc_Bang_Chu':
         deposit > 0 ? vietnameseMoneyInWords(deposit.round()) : '',
     'Con_Lai_Hop_Dong': money.format(remain),

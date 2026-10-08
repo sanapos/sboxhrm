@@ -455,6 +455,11 @@ class _PosQuoteDetailScreenState extends State<PosQuoteDetailScreen> {
       }
       if (q.status == 'Revised' && canApprove) {
         actions.add(secondary('Khách chốt', Icons.verified_outlined, () => _accept(q)));
+        actions.add(secondary('Khách từ chối', Icons.close, () async {
+          if (await _confirm('Khách từ chối?', 'Đánh dấu ${q.quoteNo} bị từ chối.', ok: 'Từ chối', danger: true)) {
+            await _run(() => _api.rejectPosQuote(q.id), 'Đã ghi nhận từ chối');
+          }
+        }, color: SboxColors.danger));
       }
     } else if (q.status == 'Sent') {
       hint = 'Đã gửi khách — chờ khách phản hồi. Khi khách đồng ý, bấm «Khách chốt» để lập hợp đồng.';

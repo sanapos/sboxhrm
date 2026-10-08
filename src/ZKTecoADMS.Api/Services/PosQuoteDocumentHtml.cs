@@ -416,6 +416,8 @@ public static class PosQuoteDocumentHtml
             ["Dien_Thoai_Chi_Nhanh"] = companyPhone,
             ["Dien_Thoai_Cong_Ty"] = companyPhone,
             ["Email_Cua_Hang"] = storeEmail,
+            // Mẫu cũ của cửa hàng (soạn trên app) dùng dòng email dựng sẵn.
+            ["Dong_Email"] = string.IsNullOrWhiteSpace(storeEmail) ? "" : "Email: " + storeEmail.Trim(),
             ["MST_Cua_Hang"] = storeTaxCode,
             ["MST_Cong_Ty"] = storeTaxCode,
             ["Tai_Khoan_Cua_Hang"] = storeBankNo,
