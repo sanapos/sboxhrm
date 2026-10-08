@@ -22,11 +22,22 @@ public partial class PosQuotesController
         DateTime? IssuedAt,
         string? IssuedBy,
         Guid? StockIssueId,
-        string? StockIssueNo);
+        string? StockIssueNo,
+        Guid? PrintTemplateId = null,
+        bool IsCustomWording = false,
+        DateTime? WordingUpdatedAt = null,
+        string? WordingUpdatedBy = null);
 
-    public record CreateQuoteDocumentDto(string Kind, string? Note, bool IncludeImages = false, bool IncludeStamp = true, string? DocNo = null);
+    /// <param name="DocId">Xem trước đúng một chứng từ đã lập (lời văn sửa riêng / mẫu chọn riêng).</param>
+    /// <param name="TemplateId">Mẫu in dùng thử / chọn khi lập chứng từ (chỉ cho chứng từ đó).</param>
+    public record CreateQuoteDocumentDto(string Kind, string? Note, bool IncludeImages = false, bool IncludeStamp = true,
+        string? DocNo = null, Guid? DocId = null, Guid? TemplateId = null);
 
     public record UpdateQuoteDocumentWordingDto(string? HtmlContent, bool Restore = false);
+
+    public record SetDocumentTemplateDto(Guid? TemplateId);
+
+    public record DocumentRevisionDto(Guid Id, DateTime CreatedAt, string? CreatedBy, string Reason, bool IsCustomWording, Guid? PrintTemplateId);
 
     const string DocWordingMark = "<!--SBOX_DOC_WORDING-->";
 
@@ -37,13 +48,12 @@ public partial class PosQuotesController
         var storeId = RequiredStoreId;
         if (!await QuoteAccessible(storeId, id))
             return NotFound(AppResponse<object>.Fail("Không tìm thấy báo giá"));
-        var items = await dbContext.PosQuoteDocuments.AsNoTracking()
+        var items = (await dbContext.PosQuoteDocuments.AsNoTracking()
             .Where(d => d.QuoteId == id && d.StoreId == storeId && d.Deleted == null)
             .OrderByDescending(d => d.IssuedAt)
-            .Select(d => new QuoteDocumentDto(
-                d.Id, d.Kind.ToString(), d.DocNo, d.Title, d.HtmlContent, d.Note,
-                d.IssuedAt, d.IssuedBy, d.StockIssueId, null))
-            .ToListAsync();
+            .ToListAsync())
+            .Select(d => MapDoc(d))
+            .ToList();
         return Ok(AppResponse<object>.Success(new { items }));
     }
 
@@ -58,14 +68,48 @@ public partial class PosQuotesController
         var quote = await LoadQuote(storeId, id);
         if (quote == null || !OwnsOrManages(quote))
             return NotFound(AppResponse<object>.Fail("Không tìm thấy báo giá"));
-        var html = await PosQuoteDocumentHtml.BuildAsync(
-            dbContext, quote, kind, string.IsNullOrWhiteSpace(dto.DocNo) ? quote.QuoteNo : dto.DocNo.Trim(), dto.Note,
-            dto.IncludeImages, webHostEnvironment.ContentRootPath, dto.IncludeStamp);
+        PosQuoteDocument? doc = null;
+        if (dto.DocId is Guid did)
+        {
+            doc = await dbContext.PosQuoteDocuments.AsNoTracking()
+                .FirstOrDefaultAsync(d => d.Id == did && d.QuoteId == id && d.StoreId == storeId && d.Deleted == null);
+            if (doc == null) return NotFound(AppResponse<object>.Fail("Không tìm thấy chứng từ"));
+        }
+        else if (kind == PosQuoteDocumentKind.Quote && dto.TemplateId == null)
+        {
+            // Báo giá: bản đã sửa lời văn riêng (nếu có) là bản in của báo giá.
+            doc = await dbContext.PosQuoteDocuments.AsNoTracking()
+                .Where(d => d.QuoteId == id && d.StoreId == storeId && d.Deleted == null
+                            && d.Kind == PosQuoteDocumentKind.Quote && d.IsCustomWording)
+                .OrderByDescending(d => d.WordingUpdatedAt)
+                .FirstOrDefaultAsync();
+        }
+        string html;
+        var stale = false;
+        if (doc != null && dto.TemplateId == null)
+        {
+            (html, stale) = await PosQuoteDocumentHtml.RenderDocumentAsync(
+                dbContext, quote, doc, dto.IncludeStamp, dto.IncludeImages, webHostEnvironment.ContentRootPath);
+            kind = doc.Kind;
+        }
+        else
+        {
+            html = await PosQuoteDocumentHtml.BuildAsync(
+                dbContext, quote, kind,
+                doc?.DocNo ?? (string.IsNullOrWhiteSpace(dto.DocNo) ? quote.QuoteNo : dto.DocNo.Trim()),
+                doc?.Note ?? dto.Note,
+                dto.IncludeImages, webHostEnvironment.ContentRootPath, dto.IncludeStamp,
+                dto.TemplateId ?? doc?.PrintTemplateId);
+        }
         return Ok(AppResponse<object>.Success(new
         {
             kind = kind.ToString(),
             title = PosQuoteDocumentHtml.TitleOf(kind),
             htmlContent = html,
+            docId = doc?.Id,
+            isCustomWording = doc?.IsCustomWording == true && dto.TemplateId == null,
+            isStale = stale,
+            printTemplateId = dto.TemplateId ?? doc?.PrintTemplateId,
         }));
     }
 
@@ -87,6 +131,7 @@ public partial class PosQuotesController
             PromoteAccepted(quote);
 
         var docNo = await NextDocNoAsync(storeId, kind);
+        var templateId = await ValidTemplateIdAsync(storeId, kind, dto.TemplateId);
         var doc = new PosQuoteDocument
         {
             Id = Guid.NewGuid(),
@@ -97,7 +142,8 @@ public partial class PosQuotesController
             Title = PosQuoteDocumentHtml.TitleOf(kind),
             HtmlContent = await PosQuoteDocumentHtml.BuildAsync(
                 dbContext, quote, kind, docNo, dto.Note,
-                dto.IncludeImages, webHostEnvironment.ContentRootPath),
+                dto.IncludeImages, webHostEnvironment.ContentRootPath, templateId: templateId),
+            PrintTemplateId = templateId,
             Note = dto.Note?.Trim(),
             IssuedAt = DateTime.UtcNow,
             IssuedBy = CurrentUserEmail,
@@ -133,9 +179,12 @@ public partial class PosQuotesController
 
         if (dto.Restore)
         {
+            AddRevision(doc, "restore");
             doc.HtmlContent = await PosQuoteDocumentHtml.BuildAsync(
                 dbContext, quote, doc.Kind, doc.DocNo, doc.Note,
-                includeImages: false, webHostEnvironment.ContentRootPath);
+                includeImages: false, webHostEnvironment.ContentRootPath, templateId: doc.PrintTemplateId);
+            doc.IsCustomWording = false;
+            doc.SourceHash = null;
         }
         else
         {
@@ -144,12 +193,17 @@ public partial class PosQuotesController
                 return BadRequest(AppResponse<QuoteDocumentDto>.Fail("Nội dung trống"));
             if (html.Length > 4_000_000)
                 return BadRequest(AppResponse<QuoteDocumentDto>.Fail("Nội dung quá dài"));
-            html = Regex.Replace(
-                html, @"<script\b[^>]*>[\s\S]*?</script>", "", RegexOptions.IgnoreCase);
+            // Người khác trong cửa hàng mở bản in này trên web — bỏ script, on*=, khung, URL ngoài.
+            html = OfficePdfConverter.SanitizeHtml(html);
             if (!html.Contains(DocWordingMark, StringComparison.Ordinal))
                 html = DocWordingMark + "\n" + html;
+            AddRevision(doc, "wording");
             doc.HtmlContent = html;
+            doc.IsCustomWording = true;
+            doc.SourceHash = await PosQuoteDocumentHtml.SourceHashAsync(dbContext, quote, doc.Kind, doc.DocNo, doc.Note);
         }
+        doc.WordingUpdatedAt = DateTime.UtcNow;
+        doc.WordingUpdatedBy = CurrentUserEmail;
 
         doc.UpdatedAt = DateTime.UtcNow;
         doc.UpdatedBy = CurrentUserEmail;
@@ -370,5 +424,135 @@ public partial class PosQuotesController
 
     static QuoteDocumentDto MapDoc(PosQuoteDocument d, string? issueNo = null) => new(
         d.Id, d.Kind.ToString(), d.DocNo, d.Title, d.HtmlContent, d.Note,
-        d.IssuedAt, d.IssuedBy, d.StockIssueId, issueNo);
+        d.IssuedAt, d.IssuedBy, d.StockIssueId, issueNo,
+        d.PrintTemplateId, d.IsCustomWording, d.WordingUpdatedAt, d.WordingUpdatedBy);
+
+    /// <summary>Lưu nội dung hiện tại vào lịch sử trước khi thay.</summary>
+    void AddRevision(PosQuoteDocument doc, string reason)
+    {
+        if (string.IsNullOrWhiteSpace(doc.HtmlContent)) return;
+        dbContext.PosQuoteDocumentRevisions.Add(new PosQuoteDocumentRevision
+        {
+            Id = Guid.NewGuid(),
+            StoreId = doc.StoreId,
+            DocumentId = doc.Id,
+            HtmlContent = doc.HtmlContent,
+            IsCustomWording = doc.IsCustomWording,
+            PrintTemplateId = doc.PrintTemplateId,
+            Reason = reason,
+            CreatedBy = CurrentUserEmail,
+            IsActive = true,
+        });
+    }
+
+    /// <summary>Mẫu (HTML hoặc Word) cùng cửa hàng, cùng loại chứng từ — không hợp lệ → null.</summary>
+    async Task<Guid?> ValidTemplateIdAsync(Guid storeId, PosQuoteDocumentKind kind, Guid? templateId)
+    {
+        if (templateId is not Guid tid) return null;
+        var docType = PosQuoteDocumentHtml.PrintDocumentTypeOf(kind);
+        var ok = await dbContext.PosPrintTemplates.AsNoTracking()
+            .AnyAsync(t => t.Id == tid && t.StoreId == storeId && t.Deleted == null && t.DocumentType == docType);
+        return ok ? tid : null;
+    }
+
+    async Task<(PosQuote? Quote, PosQuoteDocument? Doc, ActionResult? Error)> LoadDocForEditAsync(Guid id, Guid docId)
+    {
+        var storeId = RequiredStoreId;
+        var quote = await LoadQuote(storeId, id, track: true);
+        if (quote == null || !OwnsOrManages(quote))
+            return (null, null, NotFound(AppResponse<object>.Fail("Không tìm thấy báo giá")));
+        if (!CanMutateOwn(quote))
+            return (null, null, StatusCode(403, AppResponse<object>.Fail("Không có quyền sửa chứng từ trên báo giá của nhân viên khác")));
+        var doc = await dbContext.PosQuoteDocuments.AsTracking()
+            .FirstOrDefaultAsync(d => d.Id == docId && d.QuoteId == id && d.StoreId == storeId && d.Deleted == null);
+        if (doc == null) return (null, null, NotFound(AppResponse<object>.Fail("Không tìm thấy chứng từ")));
+        return (quote, doc, null);
+    }
+
+    /// <summary>
+    /// Chọn mẫu in riêng cho MỘT chứng từ (null = theo báo giá / mặc định cửa hàng). Mẫu chung không đổi.
+    /// Chứng từ đã sửa lời văn giữ nguyên lời văn (mẫu áp dụng khi «Khôi phục theo mẫu»).
+    /// </summary>
+    [HttpPut("{id:guid}/documents/{docId:guid}/template")]
+    [RequireModulePermission("PosQuotes", ModulePermissionAction.Edit)]
+    public async Task<ActionResult> SetDocumentTemplate(Guid id, Guid docId, [FromBody] SetDocumentTemplateDto dto)
+    {
+        var (quote, doc, error) = await LoadDocForEditAsync(id, docId);
+        if (error != null) return error;
+        var tid = await ValidTemplateIdAsync(doc!.StoreId, doc.Kind, dto.TemplateId);
+        if (dto.TemplateId != null && tid == null)
+            return BadRequest(AppResponse<object>.Fail("Mẫu không thuộc loại chứng từ này"));
+        if (doc.PrintTemplateId != tid)
+        {
+            AddRevision(doc, "template");
+            doc.PrintTemplateId = tid;
+            if (!doc.IsCustomWording)
+                doc.HtmlContent = await PosQuoteDocumentHtml.BuildAsync(
+                    dbContext, quote!, doc.Kind, doc.DocNo, doc.Note,
+                    includeImages: false, webHostEnvironment.ContentRootPath, templateId: tid);
+            doc.UpdatedAt = DateTime.UtcNow;
+            doc.UpdatedBy = CurrentUserEmail;
+            await dbContext.SaveChangesAsync();
+        }
+        return Ok(AppResponse<QuoteDocumentDto>.Success(MapDoc(doc)));
+    }
+
+    /// <summary>Lịch sử nội dung một chứng từ (mới nhất trước).</summary>
+    [HttpGet("{id:guid}/documents/{docId:guid}/revisions")]
+    [RequireModulePermission("PosQuotes", ModulePermissionAction.View)]
+    public async Task<ActionResult<AppResponse<object>>> ListDocumentRevisions(Guid id, Guid docId)
+    {
+        var storeId = RequiredStoreId;
+        if (!await QuoteAccessible(storeId, id))
+            return NotFound(AppResponse<object>.Fail("Không tìm thấy báo giá"));
+        var owns = await dbContext.PosQuoteDocuments.AsNoTracking()
+            .AnyAsync(d => d.Id == docId && d.QuoteId == id && d.StoreId == storeId && d.Deleted == null);
+        if (!owns) return NotFound(AppResponse<object>.Fail("Không tìm thấy chứng từ"));
+        var items = await dbContext.PosQuoteDocumentRevisions.AsNoTracking()
+            .Where(r => r.DocumentId == docId && r.StoreId == storeId && r.Deleted == null)
+            .OrderByDescending(r => r.CreatedAt)
+            .Take(50)
+            .Select(r => new DocumentRevisionDto(r.Id, r.CreatedAt, r.CreatedBy, r.Reason, r.IsCustomWording, r.PrintTemplateId))
+            .ToListAsync();
+        return Ok(AppResponse<object>.Success(new { items }));
+    }
+
+    /// <summary>Nội dung một bản trong lịch sử (xem trước khi quay lại).</summary>
+    [HttpGet("{id:guid}/documents/{docId:guid}/revisions/{revId:guid}")]
+    [RequireModulePermission("PosQuotes", ModulePermissionAction.View)]
+    public async Task<ActionResult<AppResponse<object>>> GetDocumentRevision(Guid id, Guid docId, Guid revId)
+    {
+        var storeId = RequiredStoreId;
+        if (!await QuoteAccessible(storeId, id))
+            return NotFound(AppResponse<object>.Fail("Không tìm thấy báo giá"));
+        var rev = await dbContext.PosQuoteDocumentRevisions.AsNoTracking()
+            .FirstOrDefaultAsync(r => r.Id == revId && r.DocumentId == docId && r.StoreId == storeId && r.Deleted == null);
+        if (rev == null) return NotFound(AppResponse<object>.Fail("Không tìm thấy bản lưu"));
+        return Ok(AppResponse<object>.Success(new { rev.Id, rev.HtmlContent, rev.IsCustomWording, rev.PrintTemplateId, rev.Reason, rev.CreatedAt }));
+    }
+
+    /// <summary>Quay lại một bản trong lịch sử (bản hiện tại được lưu vào lịch sử trước).</summary>
+    [HttpPost("{id:guid}/documents/{docId:guid}/revisions/{revId:guid}/restore")]
+    [RequireModulePermission("PosQuotes", ModulePermissionAction.Edit)]
+    public async Task<ActionResult> RestoreDocumentRevision(Guid id, Guid docId, Guid revId)
+    {
+        var (quote, doc, error) = await LoadDocForEditAsync(id, docId);
+        if (error != null) return error;
+        var rev = await dbContext.PosQuoteDocumentRevisions.AsNoTracking()
+            .FirstOrDefaultAsync(r => r.Id == revId && r.DocumentId == docId && r.StoreId == doc!.StoreId && r.Deleted == null);
+        if (rev == null) return NotFound(AppResponse<object>.Fail("Không tìm thấy bản lưu"));
+        AddRevision(doc!, "revert");
+        doc!.HtmlContent = rev.HtmlContent;
+        doc.IsCustomWording = rev.IsCustomWording;
+        doc.PrintTemplateId = rev.PrintTemplateId;
+        doc.SourceHash = rev.IsCustomWording
+            ? await PosQuoteDocumentHtml.SourceHashAsync(dbContext, quote!, doc.Kind, doc.DocNo, doc.Note)
+            : null;
+        doc.WordingUpdatedAt = DateTime.UtcNow;
+        doc.WordingUpdatedBy = CurrentUserEmail;
+        doc.UpdatedAt = DateTime.UtcNow;
+        doc.UpdatedBy = CurrentUserEmail;
+        await dbContext.SaveChangesAsync();
+        return Ok(AppResponse<QuoteDocumentDto>.Success(MapDoc(doc)));
+    }
 }

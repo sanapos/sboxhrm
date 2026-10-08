@@ -34,7 +34,20 @@ public class PosQuoteDocument : AuditableEntity<Guid>
     [MaxLength(200)]
     public string? IssuedBy { get; set; }
 
+    /// <summary>Mẫu in chọn riêng cho chứng từ này (HTML hoặc Word) — null = theo báo giá / mặc định cửa hàng.</summary>
     public Guid? PrintTemplateId { get; set; }
+
+    /// <summary>Đã sửa lời văn riêng — in đúng <see cref="HtmlContent"/>, không dựng lại từ mẫu.</summary>
+    public bool IsCustomWording { get; set; }
+
+    public DateTime? WordingUpdatedAt { get; set; }
+
+    [MaxLength(200)]
+    public string? WordingUpdatedBy { get; set; }
+
+    /// <summary>Dấu số liệu báo giá lúc sửa lời văn — khác hiện tại = bản sửa đã cũ.</summary>
+    [MaxLength(64)]
+    public string? SourceHash { get; set; }
 
     /// <summary>Phiếu xuất kho thật (nếu đã trừ tồn) — không phải đơn bán.</summary>
     public Guid? StockIssueId { get; set; }

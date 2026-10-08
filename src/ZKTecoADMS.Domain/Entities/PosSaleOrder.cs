@@ -83,6 +83,13 @@ public class PosSaleOrder : AuditableEntity<Guid>, IBranchScoped
     [MaxLength(500)]
     public string? DeliveryLabelUrl { get; set; }
 
+    /// <summary>Mẫu in nhớ riêng cho hóa đơn này (in lại dùng mẫu này) — null = theo thiết lập máy in.</summary>
+    public Guid? PrintTemplateId { get; set; }
+
+    /// <summary>Ghi chú in riêng trên hóa đơn này (lời cảm ơn, điều kiện đổi trả…) — không đổi số liệu bán.</summary>
+    [MaxLength(1000)]
+    public string? PrintNote { get; set; }
+
     // ── Vận chuyển chuẩn hóa (mọi hãng) ──
     /// <summary>Mã trạng thái chuẩn ShipmentStatus (created, delivering, delivery_failed, returned…).</summary>
     [MaxLength(30)] public string? DeliveryStatusCode { get; set; }

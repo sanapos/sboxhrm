@@ -145,6 +145,10 @@ class PosQuoteDocument {
     this.issuedBy,
     this.stockIssueId,
     this.stockIssueNo,
+    this.printTemplateId,
+    this.isCustomWording = false,
+    this.wordingUpdatedAt,
+    this.wordingUpdatedBy,
   });
 
   final String id;
@@ -157,6 +161,14 @@ class PosQuoteDocument {
   final String? issuedBy;
   final String? stockIssueId;
   final String? stockIssueNo;
+
+  /// Mẫu in chọn riêng cho chứng từ này (null = theo báo giá / mặc định cửa hàng).
+  final String? printTemplateId;
+
+  /// Đã sửa lời văn riêng — in đúng nội dung đã sửa.
+  final bool isCustomWording;
+  final DateTime? wordingUpdatedAt;
+  final String? wordingUpdatedBy;
 
   factory PosQuoteDocument.fromJson(Map<String, dynamic> json) {
     DateTime? d(dynamic v) {
@@ -175,6 +187,13 @@ class PosQuoteDocument {
       issuedBy: (json['issuedBy'] ?? json['IssuedBy'])?.toString(),
       stockIssueId: (json['stockIssueId'] ?? json['StockIssueId'])?.toString(),
       stockIssueNo: (json['stockIssueNo'] ?? json['StockIssueNo'])?.toString(),
+      printTemplateId: (json['printTemplateId'] ?? json['PrintTemplateId'])?.toString(),
+      isCustomWording: (json['isCustomWording'] ?? json['IsCustomWording']) == true ||
+          (json['htmlContent'] ?? json['HtmlContent'] ?? '')
+              .toString()
+              .contains('<!--SBOX_DOC_WORDING-->'),
+      wordingUpdatedAt: d(json['wordingUpdatedAt'] ?? json['WordingUpdatedAt']),
+      wordingUpdatedBy: (json['wordingUpdatedBy'] ?? json['WordingUpdatedBy'])?.toString(),
     );
   }
 

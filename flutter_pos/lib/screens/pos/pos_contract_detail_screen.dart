@@ -10,6 +10,8 @@ import '../../utils/pos_quote_commercial.dart';
 import '../../utils/pos_quote_export.dart';
 import '../../widgets/notification_overlay.dart';
 import '../../widgets/pos/pos_quote_care_sheet.dart';
+import '../../widgets/pos/pos_quote_document_tools.dart';
+import 'pos_quote_document_wording_screen.dart';
 import '../../widgets/pos/pos_theme.dart';
 
 import '../../theme/sbox_tokens.dart';
@@ -88,22 +90,57 @@ class _PosContractDetailScreenState extends State<PosContractDetailScreen> {
       return;
     }
     if (q != null && type.isNotEmpty) {
-      final server = await posQuoteServerDocumentHtml(
+      // Đúng chứng từ này: lời văn sửa riêng hoặc mẫu chọn riêng + số liệu mới nhất.
+      final server = await posQuoteServerDocument(
         q.id,
         type,
-        docNo: d.docNo,
+        docId: d.id,
         api: _api,
       );
       if (!mounted) return;
       if (server != null) {
+        if (server.isStale) {
+          final choice = await askPosQuoteStaleWording(context, d.docNo);
+          if (!mounted || choice == null) return;
+          if (choice == 'edit') {
+            await _editWording(d);
+            return;
+          }
+          if (choice == 'refresh') {
+            final res = await _api.updatePosQuoteDocumentWording(q.id, d.id, restore: true);
+            if (!mounted) return;
+            if (res['isSuccess'] == true) {
+              await _load();
+              if (!mounted) return;
+              final fresh = _quote?.documents.where((x) => x.id == d.id).firstOrNull;
+              await _openDoc(fresh ?? d);
+            } else {
+              NotificationOverlayManager().showError(
+                title: 'Chưa cập nhật được',
+                message: res['message']?.toString() ?? d.docNo,
+              );
+            }
+            return;
+          }
+        }
         await showPosHtmlPrintDialog(
           context,
           title: d.title.isEmpty ? d.docNo : d.title,
-          htmlDocument: server,
+          htmlDocument: server.html,
           a4Paper: true,
         );
         return;
       }
+    }
+    // Mất mạng: lời văn đã sửa riêng của chứng từ này (đã tải sẵn) — không dựng lại đè mất.
+    if (d.isCustomWording && d.htmlContent.trim().isNotEmpty) {
+      await showPosHtmlPrintDialog(
+        context,
+        title: d.title.isEmpty ? d.docNo : d.title,
+        htmlDocument: d.htmlContent,
+        a4Paper: true,
+      );
+      return;
     }
     if (q != null && type.isNotEmpty && q.lines.isNotEmpty) {
       Map<String, dynamic>? profile;
@@ -340,6 +377,26 @@ class _PosContractDetailScreenState extends State<PosContractDetailScreen> {
     );
   }
 
+  Future<void> _editWording(PosQuoteDocument d) async {
+    final q = _quote;
+    if (q == null || d.htmlContent.trim().isEmpty) return;
+    final changed = await Navigator.of(context).push<bool>(
+      MaterialPageRoute(
+        builder: (_) => PosQuoteDocumentWordingScreen(quoteId: q.id, document: d),
+      ),
+    );
+    if (changed == true) await _load();
+  }
+
+  Widget _docBadge(String text, Color color) => Container(
+        padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+        decoration: BoxDecoration(
+          color: color.withValues(alpha: .1),
+          borderRadius: BorderRadius.circular(4),
+        ),
+        child: Text(text, style: TextStyle(fontSize: 11, color: color, fontWeight: FontWeight.w600)),
+      );
+
   Widget _docTile(PosQuoteDocument d) {
     return Padding(
       padding: const EdgeInsets.only(bottom: 8),
@@ -351,11 +408,27 @@ class _PosContractDetailScreenState extends State<PosContractDetailScreen> {
             '${d.docNo} · ${d.title}',
             style: const TextStyle(fontWeight: FontWeight.w700, fontSize: 14),
           ),
-          subtitle: Text([
-            PosQuoteDocument.kindLabel(d.kind),
-            if (d.issuedAt != null)
-              DateFormat('dd/MM/yyyy HH:mm').format(d.issuedAt!.toLocal()),
-          ].join(' · ')),
+          subtitle: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text([
+                PosQuoteDocument.kindLabel(d.kind),
+                if (d.issuedAt != null)
+                  DateFormat('dd/MM/yyyy HH:mm').format(d.issuedAt!.toLocal()),
+              ].join(' · ')),
+              if (d.isCustomWording || d.printTemplateId != null)
+                Padding(
+                  padding: const EdgeInsets.only(top: 4),
+                  child: Wrap(
+                    spacing: 6,
+                    children: [
+                      if (d.isCustomWording) _docBadge(tr('Đã sửa lời riêng'), Colors.orange.shade800),
+                      if (d.printTemplateId != null) _docBadge(tr('Mẫu riêng'), Colors.indigo),
+                    ],
+                  ),
+                ),
+            ],
+          ),
           onTap: () => _openDoc(d),
           trailing: PopupMenuButton<String>(
             tooltip: tr('Thao tác'),
@@ -366,14 +439,36 @@ class _PosContractDetailScreenState extends State<PosContractDetailScreen> {
                 await _openDoc(d);
                 return;
               }
+              if (v == 'wording') {
+                await _editWording(d);
+                return;
+              }
+              if (v == 'template') {
+                if (await pickPosQuoteDocumentTemplate(context, quoteId: q.id, doc: d, api: _api)) await _load();
+                return;
+              }
+              if (v == 'history') {
+                if (await showPosQuoteDocumentHistory(context, quoteId: q.id, doc: d, api: _api)) await _load();
+                return;
+              }
+              if (v == 'restore') {
+                if (await restorePosQuoteDocumentToTemplate(context, quoteId: q.id, doc: d, api: _api)) await _load();
+                return;
+              }
               await PosQuoteExport.run(
                 context,
                 quote: q,
                 action: v,
                 documentType: d.kind,
+                docId: d.id,
               );
             },
             itemBuilder: (_) => [
+              PopupMenuItem(value: 'wording', child: Text(tr('Sửa lời riêng'))),
+              PopupMenuItem(value: 'template', child: Text(tr('Chọn mẫu cho chứng từ này'))),
+              if (d.isCustomWording)
+                PopupMenuItem(value: 'restore', child: Text(tr('Khôi phục theo mẫu'))),
+              PopupMenuItem(value: 'history', child: Text(tr('Lịch sử nội dung'))),
               PopupMenuItem(value: 'open', child: Text(tr('Xem / in'))),
               const PopupMenuDivider(),
               PopupMenuItem(value: 'print', child: Text(tr('In'))),

@@ -15,6 +15,7 @@ import '../services/api_service.dart';
 import '../utils/file_saver.dart';
 import '../models/pos_print_template.dart';
 import '../utils/pos_html_print.dart';
+import '../utils/pos_print_template_loader.dart';
 import '../utils/pos_quote_document_wording.dart';
 import '../widgets/notification_overlay.dart';
 import '../widgets/pos/pos_quote_care_sheet.dart';
@@ -358,21 +359,44 @@ class PosQuoteExport {
     return null;
   }
 
+  static PosQuoteDocument? docById(PosQuote quote, String? docId) {
+    if (docId == null || docId.isEmpty) return null;
+    for (final d in quote.documents) {
+      if (d.id == docId) return d;
+    }
+    return null;
+  }
+
+  /// [docId]: đúng một chứng từ đã lập (lời văn sửa riêng / mẫu chọn riêng của chứng từ đó).
   static Future<String> renderHtml(
     PosQuote quote, {
     required String documentType,
     String? docNo,
+    String? docId,
     bool includeStamp = true,
   }) async {
-    final saved = posQuoteSavedWordingHtml(quote.documents, documentType);
-    if (saved != null) return saved;
-    final server = await posQuoteServerDocumentHtml(
+    // Chỉ có số chứng từ (danh sách báo giá) → tìm đúng chứng từ để in lời văn / mẫu riêng của nó.
+    if ((docId == null || docId.isEmpty) && docNo != null && documentType != PosPrintDocumentTypes.quote) {
+      docId = quote.documents
+          .where((d) => d.kind == documentType && d.docNo == docNo)
+          .firstOrNull
+          ?.id;
+    }
+    final server = await posQuoteServerDocument(
       quote.id,
       documentType,
       includeStamp: includeStamp,
       docNo: docNo ?? docNoOf(quote, documentType),
+      docId: docId,
     );
-    if (server != null) return server;
+    if (server != null) {
+      posQuoteWarnIfStale(server);
+      return server.html;
+    }
+    // Offline: lời văn sửa riêng đã tải về của đúng chứng từ này.
+    final saved = posQuoteSavedWordingHtml(quote.documents, documentType,
+        docId: docId, docNo: docId == null ? docNo : null);
+    if (saved != null) return saved;
     final profile = await _profile();
     if (documentType == PosPrintDocumentTypes.quote) {
       return bindPosQuotePrintHtmlLocal(
@@ -389,6 +413,26 @@ class PosQuoteExport {
       includeStamp: includeStamp,
       commercialProfile: profile,
     );
+  }
+
+  /// Xuất Word / PDF bằng mẫu Word? Chứng từ đã sửa lời văn riêng → luôn bản HTML đã sửa;
+  /// chứng từ chọn mẫu riêng → theo loại mẫu đó; còn lại → cửa hàng có mẫu Word đang bật.
+  static Future<bool> _usesWordTemplate(PosQuote quote, String documentType, String? docId) async {
+    final doc = docById(quote, docId);
+    if (doc != null && doc.isCustomWording) return false;
+    if (doc == null && documentType == PosPrintDocumentTypes.quote &&
+        posQuoteSavedWordingHtml(quote.documents, documentType) != null) {
+      return false;
+    }
+    final picked = doc?.printTemplateId;
+    if (picked != null && picked.isNotEmpty) {
+      try {
+        final list = await loadPosPrintTemplates(ApiService(), documentType);
+        final t = list.where((x) => x.id == picked).firstOrNull;
+        if (t != null) return t.isDocx;
+      } catch (_) {}
+    }
+    return hasDocxTemplate(documentType);
   }
 
   static final _docxTemplateCache = <String, (bool, DateTime)>{};
@@ -413,8 +457,9 @@ class PosQuoteExport {
     required PosQuote quote,
     required String documentType,
     required bool pdf,
+    String? docId,
   }) async {
-    final no = docNoOf(quote, documentType) ?? quote.quoteNo;
+    final no = docById(quote, docId)?.docNo ?? docNoOf(quote, documentType) ?? quote.quoteNo;
     NotificationOverlayManager().showInfo(
       title: pdf ? 'Đang tạo PDF…' : 'Đang tạo Word…',
       message: tr('Điền dữ liệu vào mẫu Word của cửa hàng'),
@@ -422,6 +467,7 @@ class PosQuoteExport {
     final res = await ApiService().exportPosQuoteFile(
       quote.id,
       kind: documentType,
+      docId: docId,
       format: pdf ? 'pdf' : 'docx',
     );
     if (!context.mounted) return;
@@ -482,12 +528,14 @@ class PosQuoteExport {
     required PosQuote quote,
     required String action,
     String documentType = PosPrintDocumentTypes.quote,
+    String? docId,
   }) async {
     // Có mẫu Word giữ bố cục → Word / PDF lấy từ mẫu đó (không hỏi con dấu HTML).
-    if ((action == 'word' || action == 'pdf') && await hasDocxTemplate(documentType)) {
+    if ((action == 'word' || action == 'pdf') &&
+        await _usesWordTemplate(quote, documentType, docId)) {
       if (!context.mounted) return;
       await exportFromWordTemplate(context,
-          quote: quote, documentType: documentType, pdf: action == 'pdf');
+          quote: quote, documentType: documentType, pdf: action == 'pdf', docId: docId);
       return;
     }
     final needsStamp = action == 'print' ||
@@ -505,11 +553,12 @@ class PosQuoteExport {
     }
     final full = await ensureLines(quote);
     if (!context.mounted) return;
-    final no = docNoOf(full, documentType) ?? full.quoteNo;
+    final no = docById(full, docId)?.docNo ?? docNoOf(full, documentType) ?? full.quoteNo;
     Future<String> html() => renderHtml(
           full,
           documentType: documentType,
           docNo: no,
+          docId: docId,
           includeStamp: stamp,
         );
     switch (action) {

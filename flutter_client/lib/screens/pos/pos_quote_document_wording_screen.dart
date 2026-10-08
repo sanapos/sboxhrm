@@ -43,8 +43,20 @@ class _PosQuoteDocumentWordingScreenState
 
   Future<void> _prepare() async {
     var source = widget.document.htmlContent;
-    if (widget.document.kind == 'Quote' &&
-        !posQuoteDocWordingIsCustom(source)) {
+    final custom = widget.document.isCustomWording || posQuoteDocWordingIsCustom(source);
+    // Chưa sửa riêng: bắt đầu từ bản in hiện tại của đúng chứng từ này (số liệu mới nhất + mẫu đã chọn),
+    // không phải bản chụp lúc lập.
+    String? live;
+    if (!custom) {
+      live = await posQuoteServerDocumentHtml(
+        widget.quoteId,
+        widget.document.kind,
+        docId: widget.document.id.isEmpty ? null : widget.document.id,
+        api: _api,
+      );
+      if (live != null) source = live;
+    }
+    if (live == null && widget.document.kind == 'Quote' && !custom) {
       try {
         final res = await _api.getPosQuote(widget.quoteId);
         if (res['isSuccess'] == true && res['data'] is Map) {

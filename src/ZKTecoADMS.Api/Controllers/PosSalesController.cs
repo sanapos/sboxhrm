@@ -309,7 +309,9 @@ public partial class PosSalesController(
         string? EInvoiceLookupUrl = null,
         string? EInvoiceSellerTaxCode = null,
         bool EInvoicePrintOnReceipt = false,
-        string? PromotionsJson = null);
+        string? PromotionsJson = null,
+        Guid? PrintTemplateId = null,
+        string? PrintNote = null);
 
     public record SaleOrderSummaryDto(
         Guid Id,
@@ -1528,6 +1530,44 @@ public partial class PosSalesController(
         return Ok(AppResponse<SaleOrderDto>.Success(await MapOrderAsync(storeId, order)));
     }
 
+    /// <param name="PrintTemplateId">Mẫu nhớ riêng cho hóa đơn (null + ClearTemplate = bỏ, dùng thiết lập máy in).</param>
+    public record SalePrintSettingsDto(Guid? PrintTemplateId, string? PrintNote, bool ClearTemplate = false);
+
+    /// <summary>
+    /// Mẫu in nhớ riêng + ghi chú in cho MỘT hóa đơn. Không đổi số liệu bán, không đụng mẫu chung.
+    /// </summary>
+    [HttpPut("{id:guid}/print-settings")]
+    [RequireModulePermission("PosSell", ModulePermissionAction.View)]
+    public async Task<ActionResult<AppResponse<SaleOrderDto>>> SetPrintSettings(Guid id, [FromBody] SalePrintSettingsDto dto)
+    {
+        var storeId = RequiredStoreId;
+        var order = await dbContext.PosSaleOrders.AsTracking()
+            .Include(o => o.Lines)
+            .FirstOrDefaultAsync(o => o.Id == id && o.StoreId == storeId && o.Deleted == null);
+        if (order == null)
+            return NotFound(AppResponse<SaleOrderDto>.Fail("Không tìm thấy đơn hàng"));
+        if (dto.PrintTemplateId is Guid tid)
+        {
+            var ok = await dbContext.PosPrintTemplates.AsNoTracking()
+                .AnyAsync(t => t.Id == tid && t.StoreId == storeId && t.Deleted == null);
+            if (!ok) return BadRequest(AppResponse<SaleOrderDto>.Fail("Mẫu in không tồn tại"));
+            order.PrintTemplateId = tid;
+        }
+        else if (dto.ClearTemplate)
+        {
+            order.PrintTemplateId = null;
+        }
+        if (dto.PrintNote != null)
+        {
+            var note = dto.PrintNote.Trim();
+            order.PrintNote = note.Length == 0 ? null : (note.Length > 1000 ? note[..1000] : note);
+        }
+        order.UpdatedAt = DateTime.UtcNow;
+        order.UpdatedBy = CurrentUserEmail;
+        await dbContext.SaveChangesAsync();
+        return Ok(AppResponse<SaleOrderDto>.Success(await MapOrderAsync(storeId, order)));
+    }
+
     public record CancelSaleDto(string? Reason = null, string? DetailNote = null, string? DeviceName = null);
 
     [HttpPost("{id:guid}/cancel")]
@@ -2618,6 +2658,8 @@ public partial class PosSalesController(
             order.DeliveryLabelUrl)
         {
             PromotionsJson = order.PromotionsJson,
+            PrintTemplateId = order.PrintTemplateId,
+            PrintNote = order.PrintNote,
         };
     }
 

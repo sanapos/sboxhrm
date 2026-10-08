@@ -32,6 +32,7 @@ import '../widgets/pos/pos_module_toolbar.dart';
 import '../widgets/pos/pos_purchase_toolbar.dart';
 import '../widgets/pos/pos_sale_order_helpers.dart';
 import '../widgets/pos/pos_sale_order_receipt_view.dart';
+import '../widgets/pos/pos_sale_print_options.dart';
 import '../widgets/pos/pos_theme.dart';
 import 'pos_sale_order_editor_screen.dart';
 import 'pos_sale_return_screen.dart';
@@ -307,7 +308,22 @@ class _PosSaleOrderListScreenState extends State<PosSaleOrderListScreen> {
     _load();
   }
 
-  Future<void> _printOrder(PosSaleOrder o) async {
+  /// Tùy chọn in riêng hóa đơn: mẫu khác (lần này / nhớ), ghi chú in riêng.
+  Future<void> _printOptions(PosSaleOrder o) async {
+    var order = o;
+    final res = await _api.getPosSale(o.id);
+    if (res['isSuccess'] == true && res['data'] is Map) {
+      order = PosSaleOrder.fromJson(Map<String, dynamic>.from(res['data'] as Map));
+    }
+    if (!mounted) return;
+    await showPosSalePrintOptions(
+      context,
+      order: order,
+      onPrint: (picked) => _printOrder(picked, templateOverride: picked.printTemplateId),
+    );
+  }
+
+  Future<void> _printOrder(PosSaleOrder o, {String? templateOverride}) async {
     PosSaleOrder order = o;
     if (order.lines.isEmpty) {
       final res = await _api.getPosSale(o.id);
@@ -316,6 +332,9 @@ class _PosSaleOrderListScreenState extends State<PosSaleOrderListScreen> {
       }
     }
     if (!mounted) return;
+    if (templateOverride != null) {
+      order = order.copyWithPrintContext(printTemplateIdOverride: templateOverride);
+    }
     final printSettings = await PosSellPrintSettings.load();
     final store = await PosPrintStoreInfo.load();
     if (!mounted) return;
@@ -1561,6 +1580,10 @@ class _PosSaleOrderListScreenState extends State<PosSaleOrderListScreen> {
         label: _printBtnLabel(o),
         filled: true,
         onPressed: () => run(() => _printOrder(o)),
+      ));
+      btns.add(_compactOrderBtn(
+        label: 'Tùy chọn in',
+        onPressed: () => run(() => _printOptions(o)),
       ));
     }
     if (canEdit && o.status == 'Draft') {

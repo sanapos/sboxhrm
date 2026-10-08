@@ -334,12 +334,23 @@ class PosSaleOrder {
     this.eInvoiceLookupUrl,
     this.eInvoiceSellerTaxCode,
     this.eInvoicePrintOnReceipt = false,
+    this.printTemplateId,
+    this.printNote,
   });
 
+  /// Mẫu in nhớ riêng cho hóa đơn này (in lại dùng mẫu này).
+  final String? printTemplateId;
+
+  /// Ghi chú in riêng của hóa đơn (in kèm ghi chú đơn).
+  final String? printNote;
+
+  /// [noteOverride] / [printTemplateIdOverride]: chỉ cho lần in (không lưu).
   PosSaleOrder copyWithPrintContext({
     int? printCount,
     int? dailyOrderIndex,
     double? dailySalesTotal,
+    String? noteOverride,
+    String? printTemplateIdOverride,
   }) =>
       PosSaleOrder(
         id: id,
@@ -373,7 +384,9 @@ class PosSaleOrder {
         deliveryCarrierOrderId: deliveryCarrierOrderId,
         deliveryCarrierCode: deliveryCarrierCode,
         deliveryLabelUrl: deliveryLabelUrl,
-        note: note,
+        note: noteOverride ?? note,
+        printTemplateId: printTemplateIdOverride ?? printTemplateId,
+        printNote: printNote,
         saleDate: saleDate,
         soldBy: soldBy,
         soldByEmployeeId: soldByEmployeeId,
@@ -529,6 +542,8 @@ class PosSaleOrder {
       priceListName: json['priceListName'] ?? json['PriceListName'] as String?,
       voucherCode: json['voucherCode'] ?? json['VoucherCode'] as String?,
       promotionsJson: (json['promotionsJson'] ?? json['PromotionsJson']) as String?,
+      printTemplateId: (json['printTemplateId'] ?? json['PrintTemplateId'])?.toString(),
+      printNote: (json['printNote'] ?? json['PrintNote'])?.toString(),
       voucherDiscount: n(json['voucherDiscount'] ?? json['VoucherDiscount']),
       pointsRedeemed: n(json['pointsRedeemed'] ?? json['PointsRedeemed']),
       pointsDiscount: n(json['pointsDiscount'] ?? json['PointsDiscount']),

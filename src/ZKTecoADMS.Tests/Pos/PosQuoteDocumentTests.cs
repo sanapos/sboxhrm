@@ -120,6 +120,99 @@ public class PosQuoteDocumentTests(PosPgFixture fx) : PosFlowTestBase(fx)
     }
 
     [Fact]
+    public async Task Chung_tu_sua_rieng_giu_loi_van_bao_cu_khi_so_lieu_doi_va_bo_dau()
+    {
+        if (NoDb) return;
+        var (store, q) = await SeedAsync(withStages: true);
+        Guid docId;
+        await using (var db = Fx.NewDb())
+        {
+            var quote = await db.PosQuotes.Include(x => x.Lines).FirstAsync(x => x.Id == q);
+            var doc = new PosQuoteDocument
+            {
+                Id = Guid.NewGuid(), StoreId = store, QuoteId = q, Kind = PosQuoteDocumentKind.PaymentRequest, DocNo = "DN01",
+                IsCustomWording = true, IsActive = true,
+                HtmlContent = "<p>ĐỀ NGHỊ RIÊNG đợt 2</p><img data-sbox=\"stamp\" src=\"data:image/png;base64,AAAA\"/>",
+                SourceHash = await PosQuoteDocumentHtml.SourceHashAsync(db, quote, PosQuoteDocumentKind.PaymentRequest, "DN01", null),
+            };
+            db.PosQuoteDocuments.Add(doc);
+            await db.SaveChangesAsync();
+            docId = doc.Id;
+        }
+        await using (var db = Fx.NewDb())
+        {
+            var quote = await db.PosQuotes.Include(x => x.Lines).FirstAsync(x => x.Id == q);
+            var doc = await db.PosQuoteDocuments.FirstAsync(x => x.Id == docId);
+            var (html, stale) = await PosQuoteDocumentHtml.RenderDocumentAsync(db, quote, doc);
+            Assert.Contains("ĐỀ NGHỊ RIÊNG đợt 2", html);
+            Assert.False(stale);
+            var (noStamp, _) = await PosQuoteDocumentHtml.RenderDocumentAsync(db, quote, doc, includeStamp: false);
+            Assert.DoesNotContain("data-sbox", noStamp);
+        }
+        await using (var db = Fx.NewDb())
+        {
+            // Thu thêm tiền → số liệu đổi → bản sửa riêng báo cũ (vẫn in lời văn đã sửa).
+            db.Set<PosQuotePayment>().Add(new PosQuotePayment { Id = Guid.NewGuid(), StoreId = store, QuoteId = q, Amount = 31_104_000, IsActive = true });
+            await db.SaveChangesAsync();
+        }
+        await using (var db = Fx.NewDb())
+        {
+            var quote = await db.PosQuotes.Include(x => x.Lines).FirstAsync(x => x.Id == q);
+            var doc = await db.PosQuoteDocuments.FirstAsync(x => x.Id == docId);
+            var (html, stale) = await PosQuoteDocumentHtml.RenderDocumentAsync(db, quote, doc);
+            Assert.True(stale);
+            Assert.Contains("ĐỀ NGHỊ RIÊNG đợt 2", html);
+        }
+    }
+
+    [Fact]
+    public async Task Mau_chon_rieng_cho_chung_tu_khong_doi_mau_chung()
+    {
+        if (NoDb) return;
+        var (store, q) = await SeedAsync(withStages: false);
+        var own = Guid.NewGuid();
+        await using (var db = Fx.NewDb())
+        {
+            db.PosPrintTemplates.Add(new PosPrintTemplate
+            {
+                Id = own, StoreId = store, Name = "HĐ mẫu riêng", DocumentType = PosPrintDocumentType.Contract,
+                PaperSize = PosPrintPaperSize.A4, IsActive = true,
+                HtmlContent = "<!--POS_A4_V9--><div>HỢP ĐỒNG MẪU RIÊNG {So_Hop_Dong}</div>",
+            });
+            db.PosPrintTemplates.Add(new PosPrintTemplate
+            {
+                Id = Guid.NewGuid(), StoreId = store, Name = "HĐ mẫu chung", DocumentType = PosPrintDocumentType.Contract,
+                PaperSize = PosPrintPaperSize.A4, IsActive = true, IsDefault = true,
+                HtmlContent = "<!--POS_A4_V9--><div>HỢP ĐỒNG MẪU CHUNG {So_Hop_Dong}</div>",
+            });
+            await db.SaveChangesAsync();
+        }
+        await using (var db = Fx.NewDb())
+        {
+            var quote = await db.PosQuotes.Include(x => x.Lines).FirstAsync(x => x.Id == q);
+            var doc = new PosQuoteDocument { Id = Guid.NewGuid(), StoreId = store, QuoteId = q, Kind = PosQuoteDocumentKind.Contract, DocNo = "HD02", PrintTemplateId = own };
+            var (picked, _) = await PosQuoteDocumentHtml.RenderDocumentAsync(db, quote, doc);
+            Assert.Contains("HỢP ĐỒNG MẪU RIÊNG HĐ 25/2026/SANA", picked);
+            // Chứng từ khác cùng loại (không chọn mẫu) → vẫn mẫu mặc định của cửa hàng.
+            var other = await PosQuoteDocumentHtml.BuildAsync(db, quote, PosQuoteDocumentKind.Contract, "HD03", null);
+            Assert.DoesNotContain("MẪU RIÊNG", other);
+            Assert.Contains("HỢP ĐỒNG MẪU CHUNG", other);
+        }
+    }
+
+    [Fact]
+    public void Loi_van_luu_bo_ma_doc()
+    {
+        var html = OfficePdfConverter.SanitizeHtml(
+            "<p onclick=\"x()\">A</p><img src=\"x\" onerror=\"alert(1)\"/><iframe src=\"https://e.vn\"></iframe><a href=\"javascript:alert(1)\">b</a>");
+        Assert.DoesNotContain("onclick", html);
+        Assert.DoesNotContain("onerror", html);
+        Assert.DoesNotContain("iframe", html);
+        Assert.DoesNotContain("javascript:", html);
+        Assert.Contains(">A</p>", html);
+    }
+
+    [Fact]
     public void Khoi_dieu_kien_IF_IFNOT_long_nhau()
     {
         var data = new Dictionary<string, string> { ["A"] = "x", ["B"] = "0", ["C"] = "Theo thỏa thuận" };

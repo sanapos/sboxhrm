@@ -18383,6 +18383,8 @@ class ApiService {
     bool includeImages = false,
     bool includeStamp = true,
     String? docNo,
+    String? docId,
+    String? templateId,
   }) async {
     try {
       final response = await http
@@ -18395,6 +18397,85 @@ class ApiService {
               'includeImages': includeImages,
               'includeStamp': includeStamp,
               if (docNo != null && docNo.isNotEmpty) 'docNo': docNo,
+              if (docId != null && docId.isNotEmpty) 'docId': docId,
+              if (templateId != null && templateId.isNotEmpty) 'templateId': templateId,
+            }),
+          )
+          .timeout(const Duration(seconds: 30));
+      return _handleResponse(response);
+    } catch (e) {
+      return _connectionFailure(e);
+    }
+  }
+
+  /// Chọn mẫu in riêng cho một chứng từ (null = theo báo giá / mặc định cửa hàng).
+  Future<Map<String, dynamic>> setPosQuoteDocumentTemplate(
+      String quoteId, String docId, String? templateId) async {
+    try {
+      final response = await http
+          .put(
+            Uri.parse('$baseUrl/api/pos/quotes/$quoteId/documents/$docId/template'),
+            headers: _headers,
+            body: jsonEncode({'templateId': templateId}),
+          )
+          .timeout(const Duration(seconds: 30));
+      return _handleResponse(response);
+    } catch (e) {
+      return _connectionFailure(e);
+    }
+  }
+
+  /// Lịch sử nội dung một chứng từ (mới nhất trước).
+  Future<Map<String, dynamic>> getPosQuoteDocumentRevisions(String quoteId, String docId) async {
+    try {
+      final response = await http
+          .get(Uri.parse('$baseUrl/api/pos/quotes/$quoteId/documents/$docId/revisions'), headers: _headers)
+          .timeout(const Duration(seconds: 30));
+      return _handleResponse(response);
+    } catch (e) {
+      return _connectionFailure(e);
+    }
+  }
+
+  Future<Map<String, dynamic>> getPosQuoteDocumentRevision(String quoteId, String docId, String revId) async {
+    try {
+      final response = await http
+          .get(Uri.parse('$baseUrl/api/pos/quotes/$quoteId/documents/$docId/revisions/$revId'), headers: _headers)
+          .timeout(const Duration(seconds: 30));
+      return _handleResponse(response);
+    } catch (e) {
+      return _connectionFailure(e);
+    }
+  }
+
+  Future<Map<String, dynamic>> restorePosQuoteDocumentRevision(String quoteId, String docId, String revId) async {
+    try {
+      final response = await http
+          .post(Uri.parse('$baseUrl/api/pos/quotes/$quoteId/documents/$docId/revisions/$revId/restore'),
+              headers: _headers)
+          .timeout(const Duration(seconds: 30));
+      return _handleResponse(response);
+    } catch (e) {
+      return _connectionFailure(e);
+    }
+  }
+
+  /// Mẫu in nhớ riêng + ghi chú in cho một hóa đơn bán (không đổi số liệu bán).
+  Future<Map<String, dynamic>> setPosSalePrintSettings(
+    String orderId, {
+    String? printTemplateId,
+    bool clearTemplate = false,
+    String? printNote,
+  }) async {
+    try {
+      final response = await http
+          .put(
+            Uri.parse('$baseUrl/api/pos/sales/$orderId/print-settings'),
+            headers: _headers,
+            body: jsonEncode({
+              'printTemplateId': printTemplateId,
+              'clearTemplate': clearTemplate,
+              'printNote': printNote,
             }),
           )
           .timeout(const Duration(seconds: 30));

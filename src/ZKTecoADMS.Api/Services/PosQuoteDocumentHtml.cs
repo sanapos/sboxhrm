@@ -1,4 +1,6 @@
 using System.Globalization;
+using System.Security.Cryptography;
+using System.Text;
 using System.Text.RegularExpressions;
 using Microsoft.EntityFrameworkCore;
 using ZKTecoADMS.Domain.Entities;
@@ -49,10 +51,11 @@ public static class PosQuoteDocumentHtml
         string? extraNote,
         bool includeImages = false,
         string? contentRootPath = null,
-        bool includeStamp = true)
+        bool includeStamp = true,
+        Guid? templateId = null)
     {
         var docType = PrintDocumentTypeOf(kind);
-        var templateHtml = await ResolveTemplateHtmlAsync(db, quote, docType);
+        var templateHtml = await ResolveTemplateHtmlAsync(db, quote, docType, templateId);
         var (data, lines) = await BuildFieldsAsync(db, quote, kind, docNo, extraNote, includeImages, contentRootPath);
         if (!includeStamp) data["Con_Dau"] = "<div style=\"height:48px\"></div>";
         return PosPrintTemplateHtmlRenderer.Render(templateHtml, data, lines);
@@ -122,7 +125,7 @@ public static class PosQuoteDocumentHtml
             s = s[(comma + 1)..].Trim();
         s = s.Replace(" ", "").Replace("\r", "").Replace("\n", "");
         if (s.Length < 32) return "<div style=\"height:64px\"></div>";
-        return "<img src=\"data:image/png;base64," + s +
+        return "<img data-sbox=\"stamp\" src=\"data:image/png;base64," + s +
                "\" alt=\"\" width=\"112\" height=\"112\" style=\"width:112px;height:112px;object-fit:contain;display:inline-block;vertical-align:middle\"/>";
     }
 
@@ -168,11 +171,16 @@ public static class PosQuoteDocumentHtml
             }).ToList();
     }
 
+    /// <summary>
+    /// Mẫu HTML: mẫu chọn riêng cho chứng từ → mẫu chọn trên báo giá → mẫu mặc định cửa hàng → mẫu chuẩn hệ thống.
+    /// Chỉ nhận mẫu cùng loại chứng từ, cùng cửa hàng.
+    /// </summary>
     static async Task<string> ResolveTemplateHtmlAsync(
-        ZKTecoDbContext db, PosQuote quote, PosPrintDocumentType docType)
+        ZKTecoDbContext db, PosQuote quote, PosPrintDocumentType docType, Guid? documentTemplateId = null)
     {
-        if (quote.PrintTemplateId is Guid tid)
+        foreach (var id in new[] { documentTemplateId, quote.PrintTemplateId })
         {
+            if (id is not Guid tid) continue;
             var picked = await db.PosPrintTemplates.AsNoTracking()
                 .Where(t => t.Id == tid && t.StoreId == quote.StoreId && t.Deleted == null
                             && t.DocumentType == docType)
@@ -210,6 +218,60 @@ public static class PosQuoteDocumentHtml
         if (!t.StartsWith("<", StringComparison.Ordinal) || t.StartsWith("{", StringComparison.Ordinal))
             return false;
         return Regex.IsMatch(t, @"<!--POS_A4_V(?:[8-9]|\d{2,})", RegexOptions.IgnoreCase);
+    }
+
+    /// <summary>Trường đổi theo giờ in (ngày lập, giờ, ảnh) — không tính vào dấu số liệu.</summary>
+    static readonly HashSet<string> VolatileKeys =
+    [
+        "Ngay", "Ngay_So", "Thang", "Nam", "Gio", "Ngay_HD_So", "Thang_HD", "Nam_HD",
+        "Con_Dau", "Logo", "Hinh_Anh", "Co_Anh",
+    ];
+
+    /// <summary>
+    /// Dấu (SHA-256) số liệu báo giá dùng cho chứng từ: khách, dòng hàng, tiền, đợt, đã thu, điều khoản…
+    /// Lưu lúc sửa lời văn; khác dấu hiện tại → bản sửa riêng đã cũ so với báo giá.
+    /// </summary>
+    public static async Task<string> SourceHashAsync(
+        ZKTecoDbContext db, PosQuote quote, PosQuoteDocumentKind kind, string docNo, string? note)
+    {
+        var (data, lines) = await BuildFieldsAsync(db, quote, kind, docNo, note);
+        var sb = new StringBuilder();
+        foreach (var (k, v) in data.Where(kv => !VolatileKeys.Contains(kv.Key)).OrderBy(kv => kv.Key, StringComparer.Ordinal))
+            sb.Append(k).Append('=').Append(v).Append('\n');
+        foreach (var l in lines)
+        {
+            foreach (var (k, v) in l.Where(kv => !VolatileKeys.Contains(kv.Key)).OrderBy(kv => kv.Key, StringComparer.Ordinal))
+                sb.Append(k).Append('=').Append(v).Append(';');
+            sb.Append('\n');
+        }
+        return Convert.ToHexString(SHA256.HashData(Encoding.UTF8.GetBytes(sb.ToString())));
+    }
+
+    static readonly Regex StampImgRe = new(
+        @"<img\b(?=[^>]*(?:data-sbox=[""']stamp[""']|width=[""']112[""'][^>]*height=[""']112[""']))[^>]*>",
+        RegexOptions.IgnoreCase | RegexOptions.Compiled);
+
+    /// <summary>Bỏ ảnh con dấu khỏi bản đã sửa lời văn (in «không dấu»), giữ chỗ trống ký tên.</summary>
+    public static string StripStamp(string html) =>
+        StampImgRe.Replace(html ?? "", "<div style=\"height:48px\"></div>");
+
+    /// <summary>
+    /// Nội dung in của MỘT chứng từ đã lập: lời văn sửa riêng (giữ nguyên) → nếu không thì dựng lại từ số liệu
+    /// hiện tại với mẫu chọn riêng của chứng từ. <c>IsStale</c> = bản sửa riêng không còn khớp số liệu báo giá.
+    /// </summary>
+    public static async Task<(string Html, bool IsStale)> RenderDocumentAsync(
+        ZKTecoDbContext db, PosQuote quote, PosQuoteDocument doc,
+        bool includeStamp = true, bool includeImages = false, string? contentRootPath = null)
+    {
+        if (doc.IsCustomWording && !string.IsNullOrWhiteSpace(doc.HtmlContent))
+        {
+            var stale = doc.SourceHash != null
+                && doc.SourceHash != await SourceHashAsync(db, quote, doc.Kind, doc.DocNo, doc.Note);
+            return (includeStamp ? doc.HtmlContent : StripStamp(doc.HtmlContent), stale);
+        }
+        var html = await BuildAsync(db, quote, doc.Kind, doc.DocNo, doc.Note,
+            includeImages, contentRootPath, includeStamp, doc.PrintTemplateId);
+        return (html, false);
     }
 
     static string FirstText(params string?[] values)

@@ -4,6 +4,8 @@ import 'package:zkteco_flutter_client/models/pos_print_template.dart';
 import 'package:zkteco_flutter_client/models/pos_quote.dart';
 import 'package:zkteco_flutter_client/utils/pos_print_template_defaults.dart';
 import 'package:zkteco_flutter_client/utils/pos_print_template_renderer.dart';
+import 'package:zkteco_flutter_client/models/pos_sale_order.dart';
+import 'package:zkteco_flutter_client/utils/pos_quote_document_wording.dart';
 import 'package:zkteco_flutter_client/widgets/pos/pos_quote_care_sheet.dart';
 
 PosQuote _quote({double deposit = 0, double? pct}) => PosQuote(
@@ -94,5 +96,48 @@ void main() {
     final html = bindPosQuotePrintHtmlLocal(_quote(pct: 30), _quote().lines);
     expect(html, contains('600.000'));
     expect(html, isNot(contains('4100543367')));
+  });
+
+  test('Lời văn sửa riêng lấy đúng chứng từ, không lẫn chứng từ cùng loại', () {
+    PosQuoteDocument doc(String id, String no, String kind, {bool custom = false, String html = ''}) =>
+        PosQuoteDocument.fromJson({
+          'id': id,
+          'kind': kind,
+          'docNo': no,
+          'title': kind,
+          'htmlContent': html,
+          'isCustomWording': custom,
+        });
+    final docs = [
+      doc('a', 'DN01', 'PaymentRequest', custom: true, html: '<p>ĐỢT 2 SỬA RIÊNG</p>'),
+      doc('b', 'DN02', 'PaymentRequest', html: '<p>đợt 3 theo mẫu</p>'),
+      doc('q', 'BG01', 'Quote', custom: true, html: '<!--SBOX_DOC_WORDING--><p>BG riêng</p>'),
+    ];
+    expect(posQuoteSavedWordingHtml(docs, 'PaymentRequest', docId: 'a'), contains('ĐỢT 2'));
+    expect(posQuoteSavedWordingHtml(docs, 'PaymentRequest', docId: 'b'), isNull);
+    expect(posQuoteSavedWordingHtml(docs, 'PaymentRequest', docNo: 'DN02'), isNull);
+    // Không chỉ rõ chứng từ → chỉ áp cho báo giá, không đoán bừa đề nghị TT.
+    expect(posQuoteSavedWordingHtml(docs, 'PaymentRequest'), isNull);
+    expect(posQuoteSavedWordingHtml(docs, 'Quote'), contains('BG riêng'));
+    // Cờ cũ bằng comment vẫn nhận.
+    expect(doc('x', 'X', 'Contract', html: '<!--SBOX_DOC_WORDING--><p>x</p>').isCustomWording, isTrue);
+  });
+
+  test('Hóa đơn đọc mẫu nhớ riêng / ghi chú in; ghi đè chỉ cho lần in', () {
+    final o = PosSaleOrder.fromJson({
+      'id': 'o1',
+      'orderNo': 'HD0001',
+      'status': 'Completed',
+      'note': 'Giao chiều',
+      'printTemplateId': 't1',
+      'printNote': 'Đổi trả 7 ngày',
+      'lines': [],
+    });
+    expect(o.printTemplateId, 't1');
+    expect(o.printNote, 'Đổi trả 7 ngày');
+    final once = o.copyWithPrintContext(printTemplateIdOverride: 't2', noteOverride: 'Giao chiều\nĐổi trả 7 ngày');
+    expect(once.printTemplateId, 't2');
+    expect(once.note, contains('Đổi trả'));
+    expect(o.printTemplateId, 't1');
   });
 }

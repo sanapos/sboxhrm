@@ -119,7 +119,7 @@ Future<void> printPosQuoteSlip(
   }
   // Báo giá đã lưu: lấy từ máy chủ — đủ đợt thanh toán, số HĐ, số đã thu, mẫu của cửa hàng.
   if (lines == null) {
-    final server = await posQuoteServerDocumentHtml(
+    final server = await posQuoteServerDocument(
       quoteId,
       PosPrintDocumentTypes.quote,
       includeImages: includeImages,
@@ -128,10 +128,11 @@ Future<void> printPosQuoteSlip(
     );
     if (server != null) {
       if (!context.mounted) return;
+      posQuoteWarnIfStale(server);
       await showPosHtmlPrintDialog(
         context,
         title: title,
-        htmlDocument: server,
+        htmlDocument: server.html,
         a4Paper: true,
       );
       return;
@@ -218,14 +219,36 @@ Future<void> printPosQuoteSlip(
   );
 }
 
-/// Chứng từ dựng trên máy chủ (đủ đợt thanh toán / số HĐ / đã thu / mẫu của cửa hàng),
-/// bọc lại khổ + lề giống trình soạn mẫu. null khi offline / lỗi — dùng bản cục bộ.
-Future<String?> posQuoteServerDocumentHtml(
+/// Bản in một chứng từ do máy chủ dựng.
+class PosQuoteServerDoc {
+  const PosQuoteServerDoc({
+    required this.html,
+    this.isCustomWording = false,
+    this.isStale = false,
+    this.docId,
+  });
+
+  final String html;
+
+  /// In đúng lời văn đã sửa riêng của chứng từ.
+  final bool isCustomWording;
+
+  /// Lời văn sửa riêng không còn khớp số liệu báo giá (giá, dòng hàng, đã thu… đã đổi sau khi sửa).
+  final bool isStale;
+  final String? docId;
+}
+
+/// Chứng từ dựng trên máy chủ: [docId] → đúng chứng từ đó (lời văn sửa riêng / mẫu chọn riêng);
+/// không có → số liệu hiện tại + mẫu ([templateId] / mẫu báo giá / mặc định). Bọc lại khổ + lề
+/// giống trình soạn mẫu. null khi offline / lỗi — dùng bản cục bộ.
+Future<PosQuoteServerDoc?> posQuoteServerDocument(
   String quoteId,
   String kind, {
   bool includeImages = false,
   bool includeStamp = true,
   String? docNo,
+  String? docId,
+  String? templateId,
   ApiService? api,
 }) async {
   if (quoteId.isEmpty) return null;
@@ -236,6 +259,8 @@ Future<String?> posQuoteServerDocumentHtml(
       includeImages: includeImages,
       includeStamp: includeStamp,
       docNo: docNo,
+      docId: docId,
+      templateId: templateId,
     );
     if (res['isSuccess'] != true || res['data'] is! Map) return null;
     final data = res['data'] as Map;
@@ -245,10 +270,47 @@ Future<String?> posQuoteServerDocumentHtml(
             .firstMatch(html)
             ?.group(1) ??
         html;
-    return wrapPosPrintHtmlDocument(body, paperSize: PosPrintPaperSizes.a4);
+    return PosQuoteServerDoc(
+      html: wrapPosPrintHtmlDocument(body, paperSize: PosPrintPaperSizes.a4),
+      isCustomWording: data['isCustomWording'] == true,
+      isStale: data['isStale'] == true,
+      docId: data['docId']?.toString(),
+    );
   } catch (_) {
     return null;
   }
+}
+
+Future<String?> posQuoteServerDocumentHtml(
+  String quoteId,
+  String kind, {
+  bool includeImages = false,
+  bool includeStamp = true,
+  String? docNo,
+  String? docId,
+  String? templateId,
+  ApiService? api,
+}) async =>
+    (await posQuoteServerDocument(
+      quoteId,
+      kind,
+      includeImages: includeImages,
+      includeStamp: includeStamp,
+      docNo: docNo,
+      docId: docId,
+      templateId: templateId,
+      api: api,
+    ))
+        ?.html;
+
+/// Nhắc khi bản sửa lời văn riêng đã cũ so với số liệu báo giá.
+void posQuoteWarnIfStale(PosQuoteServerDoc doc) {
+  if (!doc.isStale) return;
+  NotificationOverlayManager().showWarning(
+    title: 'Lời văn sửa riêng đã cũ',
+    message: tr('Báo giá đã đổi (giá, dòng hàng hoặc tiền đã thu) sau khi sửa lời văn — '
+        'bản in vẫn giữ nội dung đã sửa. Vào «Lịch sử / Khôi phục theo mẫu» để cập nhật.'),
+  );
 }
 
 String bindPosQuotePrintHtmlLocal(

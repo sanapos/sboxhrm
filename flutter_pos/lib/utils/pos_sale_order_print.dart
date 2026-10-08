@@ -387,7 +387,18 @@ Future<bool> printPosSaleOrder({
   PosStorePrinter? overridePrinter,
   PosPrintHangCallback? onCloudHang,
 }) async {
-  final printOrder = await _resolvePrintOrder(order);
+  var printOrder = await _resolvePrintOrder(order);
+  // Hóa đơn có mẫu nhớ riêng / mẫu chọn cho lần in này → thắng mẫu của thiết lập máy in.
+  String? nz(String? v) => (v == null || v.isEmpty) ? null : v;
+  templateId = nz(order.printTemplateId) ?? nz(printOrder.printTemplateId) ?? templateId;
+  // Ghi chú in riêng của hóa đơn: in kèm ghi chú đơn (không đổi số liệu bán).
+  final printNote = (order.printNote ?? printOrder.printNote ?? '').trim();
+  if (printNote.isNotEmpty) {
+    final base = (printOrder.note ?? '').trim();
+    printOrder = printOrder.copyWithPrintContext(
+      noteOverride: base.isEmpty ? printNote : '$base\n$printNote',
+    );
+  }
   // Tự gắn VietQR khi bật «In mã VietQR» — kể cả in từ danh sách đơn (caller quên truyền URL).
   var effectiveVietQr = vietQrImageUrl;
   if (effectiveVietQr == null || effectiveVietQr.isEmpty) {
