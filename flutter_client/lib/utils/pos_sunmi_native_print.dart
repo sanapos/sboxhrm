@@ -427,6 +427,7 @@ class PosSunmiNativePrint {
             frameInsetMm: output.frameInsetMm,
             frameMarginMm: output.frameMarginMm,
             trailingFeedLines: 0,
+            sidePaddingMm: output.sidePaddingMm,
           );
           batch.clear();
           if (png != null) {

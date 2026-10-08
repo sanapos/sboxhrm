@@ -23,6 +23,14 @@ class PosReceiptImageLine {
     this.right = false,
     this.fontSize = 22,
     this.isDivider = false,
+    this.spaceBefore = 0,
+    this.spaceAfter = 0,
+    this.indentLeft = 0,
+    this.indentRight = 0,
+    this.imageBytes,
+    this.imageWidthFrac = 0.6,
+    this.minHeight = 0,
+    this.sourceBlockIndex,
   });
 
   final String text;
@@ -40,6 +48,19 @@ class PosReceiptImageLine {
   final double fontSize;
   /// Vẽ đường kẻ ngang đặc bằng chiều rộng giấy (không dùng ===== / -----).
   final bool isDivider;
+  /// Khoảng trống trên / dưới và thụt lề trái / phải — đơn vị điểm in (dot).
+  final double spaceBefore;
+  final double spaceAfter;
+  final double indentLeft;
+  final double indentRight;
+  /// Ảnh (PNG) vẽ thay cho chữ — logo / ảnh trong mẫu.
+  final Uint8List? imageBytes;
+  /// Chiều rộng ảnh theo phần khổ nội dung (0.1–1).
+  final double imageWidthFrac;
+  /// Chiều cao tối thiểu (dot) — khoảng trống của khối «Cách dòng».
+  final double minHeight;
+  /// Khối mẫu tạo ra dòng này (xem trước bấm chọn khối).
+  final int? sourceBlockIndex;
 
   bool get hasSaleColumns =>
       colQty != null || colPrice != null || colTotal != null;
@@ -88,6 +109,7 @@ class PosThermalBitmapEncoder {
     double frameInsetMm = 2.5,
     double frameMarginMm = 1.5,
     int trailingFeedLines = 0,
+    double? sidePaddingMm,
   }) async {
     final image = await _renderReceiptImage(
       lines,
@@ -97,6 +119,7 @@ class PosThermalBitmapEncoder {
       frameInsetMm: frameInsetMm,
       frameMarginMm: frameMarginMm,
       trailingFeedLines: trailingFeedLines,
+      sidePaddingMm: sidePaddingMm,
     );
     if (image == null) return null;
     final trimmed = await _trimTrailingWhite(image, keepPx: 0);
@@ -104,6 +127,37 @@ class PosThermalBitmapEncoder {
     final bd = await trimmed.toByteData(format: ui.ImageByteFormat.png);
     trimmed.dispose();
     return bd?.buffer.asUint8List();
+  }
+
+  /// Xem trước đúng bản in: PNG khổ [paperDots] + vị trí (top, height — đơn vị điểm in) của từng dòng.
+  static Future<({Uint8List png, int width, int height, List<({int line, double top, double height})> rows})?>
+      receiptPreview(
+    List<PosReceiptImageLine> lines, {
+    required int paperDots,
+    double lineGap = 3,
+    PosPrintFrameStyle frameStyle = PosPrintFrameStyle.none,
+    double frameInsetMm = 2.5,
+    double frameMarginMm = 1.5,
+    double? sidePaddingMm,
+  }) async {
+    final rows = <({int line, double top, double height})>[];
+    final image = await _renderReceiptImage(
+      lines,
+      paperDots: paperDots,
+      lineGap: lineGap,
+      frameStyle: frameStyle,
+      frameInsetMm: frameInsetMm,
+      frameMarginMm: frameMarginMm,
+      sidePaddingMm: sidePaddingMm,
+      rowsOut: rows,
+    );
+    if (image == null) return null;
+    final w = image.width;
+    final h = image.height;
+    final bd = await image.toByteData(format: ui.ImageByteFormat.png);
+    image.dispose();
+    if (bd == null) return null;
+    return (png: bd.buffer.asUint8List(), width: w, height: h, rows: rows);
   }
 
   /// Render toàn bộ hóa đơn thành một ảnh bitmap (ổn định nhất cho Zywell/LAN/BT).
@@ -116,6 +170,7 @@ class PosThermalBitmapEncoder {
     double frameMarginMm = 1.5,
     bool initPrinter = true,
     int keepPx = 1,
+    double? sidePaddingMm,
   }) async {
     final image = await _renderReceiptImage(
       lines,
@@ -124,6 +179,7 @@ class PosThermalBitmapEncoder {
       frameStyle: frameStyle,
       frameInsetMm: frameInsetMm,
       frameMarginMm: frameMarginMm,
+      sidePaddingMm: sidePaddingMm,
     );
     if (image == null) return null;
     var work = await _trimTrailingWhite(image, keepPx: keepPx);
@@ -212,8 +268,8 @@ class PosThermalBitmapEncoder {
     final qtyW = anyQty ? measure('SL', k58 ? 56.0 : 44.0, k58 ? 80.0 : 80.0) : 0.0;
     var priceW = 0.0;
     var totalW = 0.0;
-    final capPrice = k58 ? 160.0 : 268.0;
-    final capTotal = k58 ? 168.0 : 288.0;
+    final capPrice = contentW * 0.30;
+    final capTotal = contentW * 0.32;
     if (anyPrice) {
       priceW = k58 ? 80.0 : 80.0;
       if (saleLines.isEmpty) {
@@ -307,6 +363,18 @@ class PosThermalBitmapEncoder {
     canvas.restore();
   }
 
+  /// Thu nhỏ cỡ chữ cho vừa ô (số tiền dài không bị cắt).
+  static TextPainter _fitInSlot(String text, TextStyle style, double slotW, TextAlign align) {
+    var tp = _tp(text, style: style, maxWidth: 100000, align: align, maxLines: 1, ellipsis: false);
+    if (tp.width <= slotW || text.isEmpty) {
+      return _tp(text, style: style, maxWidth: slotW, align: align, maxLines: 1, ellipsis: false);
+    }
+    final k = (slotW / tp.width).clamp(0.6, 1.0);
+    final smaller = style.copyWith(fontSize: (style.fontSize ?? 20) * k);
+    tp = _tp(text, style: smaller, maxWidth: slotW, align: align, maxLines: 1, ellipsis: false);
+    return tp;
+  }
+
   static Future<ui.Image?> _renderReceiptImage(
     List<PosReceiptImageLine> lines, {
     required int paperDots,
@@ -315,80 +383,114 @@ class PosThermalBitmapEncoder {
     double frameInsetMm = 2.5,
     double frameMarginMm = 1.5,
     int trailingFeedLines = 0,
+    double? sidePaddingMm,
+    List<({int line, double top, double height})>? rowsOut,
   }) async {
     if (lines.isEmpty) return null;
     await ensureFont();
 
-    final scale = 2;
+    const scale = 2;
     final renderW = paperDots * scale;
     final framed = frameStyle != PosPrintFrameStyle.none;
     final mm = paperDots <= 384 ? 58.0 : 80.0;
-    final margin = framed
-        ? (paperDots / mm * frameMarginMm.clamp(0.5, 8.0) * scale)
-        : 0.0;
-    final inset = framed
-        ? (paperDots / mm * frameInsetMm.clamp(1.0, 12.0) * scale)
-        : 0.0;
-    final pad = framed ? (margin + inset) : (8.0 * scale);
+    final dotsPerMm = paperDots / mm;
+    final margin = framed ? (dotsPerMm * frameMarginMm.clamp(0.5, 8.0) * scale) : 0.0;
+    final inset = framed ? (dotsPerMm * frameInsetMm.clamp(1.0, 12.0) * scale) : 0.0;
+    final side = sidePaddingMm == null
+        ? 8.0 * scale
+        : dotsPerMm * sidePaddingMm.clamp(0.0, 15.0) * scale;
+    final pad = framed ? (margin + inset) : side;
     final contentW = renderW - pad * 2;
     final saleColLines = lines.where((l) => l.hasSaleColumns).toList();
-    final painters = <TextPainter?>[];
-    var totalH = 0.0;
 
-    for (final line in lines) {
+    // Ảnh nhúng: giải mã trước (đo chiều cao).
+    final images = <int, ui.Image>{};
+    for (var i = 0; i < lines.length; i++) {
+      final b = lines[i].imageBytes;
+      if (b == null || b.isEmpty) continue;
+      try {
+        final codec = await ui.instantiateImageCodec(b);
+        images[i] = (await codec.getNextFrame()).image;
+      } catch (_) {}
+    }
+
+    // Bố cục một dòng: trả chiều cao phần nội dung; [paint] = null chỉ đo.
+    double layoutLine(int i, Canvas? canvas, double y) {
+      final line = lines[i];
+      final left = pad + line.indentLeft * scale;
+      final width = (contentW - (line.indentLeft + line.indentRight) * scale).clamp(40.0, contentW);
+      final img = images[i];
+      if (img != null) {
+        final w = (width * line.imageWidthFrac.clamp(0.1, 1.0)).clamp(8.0, width);
+        final h = w * img.height / img.width;
+        if (canvas != null) {
+          final x = line.center
+              ? left + (width - w) / 2
+              : line.right
+                  ? left + width - w
+                  : left;
+          canvas.drawImageRect(
+            img,
+            Rect.fromLTWH(0, 0, img.width.toDouble(), img.height.toDouble()),
+            Rect.fromLTWH(x, y, w, h),
+            Paint()..filterQuality = FilterQuality.high,
+          );
+        }
+        return h + lineGap * scale;
+      }
       if (line.isDivider) {
-        painters.add(null);
-        totalH += 6.0 * scale;
-        continue;
+        if (canvas != null) {
+          final ruleH = 3.0 * scale;
+          final top = y + (6.0 * scale - ruleH) / 2;
+          canvas.drawRect(Rect.fromLTWH(left, top, width, ruleH), Paint()..color = const Color(0xFF000000));
+        }
+        return 6.0 * scale;
       }
-      final style = _thermalStyle(
-        fontSize: line.fontSize * scale,
-        bold: line.bold,
-      );
+      final style = _thermalStyle(fontSize: line.fontSize * scale, bold: line.bold);
       if (line.hasSaleColumns) {
-        final cols = _saleColWidths(
-          contentW,
-          style: style,
-          saleLines: saleColLines,
-        );
-        final nameTp = _tp(
-          line.text,
-          style: style,
-          maxWidth: cols.nameW,
-          maxLines: 2,
-        );
-        painters.add(nameTp);
-        totalH += nameTp.height + lineGap * scale;
-        continue;
+        final cols = _saleColWidths(width, style: style, saleLines: saleColLines);
+        final nameTp = _tp(line.text, style: style, maxWidth: cols.nameW, maxLines: 2);
+        if (canvas != null) {
+          nameTp.paint(canvas, Offset(left, y));
+          var x = left + cols.nameW + cols.gap;
+          void slot(String? v, double w, TextAlign a) {
+            if (w <= 0) return;
+            final tp = _fitInSlot(v ?? '', style, w, TextAlign.right);
+            _paintInSlot(canvas, tp, slotLeft: x, slotW: w, y: y, align: a);
+            x += w + cols.gap;
+          }
+          slot(line.colQty, cols.qtyW, TextAlign.center);
+          slot(line.colPrice, cols.priceW, TextAlign.right);
+          slot(line.colTotal, cols.totalW, TextAlign.right);
+        }
+        return nameTp.height + lineGap * scale;
       }
-      if ((line.rightText ?? '').trim().isNotEmpty) {
+      final right = (line.rightText ?? '').trim();
+      if (right.isNotEmpty) {
         final slots = _pairSlotWidths(
-          contentW: contentW,
+          contentW: width,
           style: style,
           left: line.text,
-          right: line.rightText!.trim(),
+          right: right,
           rightFrac: line.rightSlotFrac,
         );
-        final leftTp = _tp(
-          line.text,
-          style: style,
-          maxWidth: slots.leftW,
-          maxLines: 2,
-        );
-        painters.add(leftTp);
-        totalH += leftTp.height + lineGap * scale;
-        continue;
+        final leftTp = _tp(line.text, style: style, maxWidth: slots.leftW, maxLines: 2);
+        final rightTp = _fitInSlot(right, style, slots.rightW, TextAlign.right);
+        if (canvas != null) {
+          leftTp.paint(canvas, Offset(left, y));
+          _paintInSlot(canvas, rightTp,
+              slotLeft: left + slots.leftW + slots.gap, slotW: slots.rightW, y: y, align: TextAlign.right);
+        }
+        final h = leftTp.height > rightTp.height ? leftTp.height : rightTp.height;
+        return h + lineGap * scale;
       }
       if (line.text.trim().isEmpty) {
-        painters.add(null);
-        totalH += 4.0 * scale;
-        continue;
+        return 4.0 * scale;
       }
-
       final tp = _tp(
         line.text,
         style: style,
-        maxWidth: contentW,
+        maxWidth: width,
         align: line.center
             ? TextAlign.center
             : line.right
@@ -396,13 +498,27 @@ class PosThermalBitmapEncoder {
                 : TextAlign.left,
         maxLines: 4,
       );
-
-      if (tp.height <= 0) {
-        painters.add(null);
-        continue;
+      if (tp.height <= 0) return 0;
+      if (canvas != null) {
+        final x = tp.textAlign == TextAlign.center
+            ? left + ((width - tp.width) / 2).clamp(0.0, width)
+            : tp.textAlign == TextAlign.right
+                ? left + (width - tp.width).clamp(0.0, width)
+                : left;
+        tp.paint(canvas, Offset(x, y));
       }
-      painters.add(tp);
-      totalH += tp.height + lineGap * scale;
+      return tp.height + lineGap * scale;
+    }
+
+    double rowHeight(int i, double content) {
+      final l = lines[i];
+      final h = content < l.minHeight * scale ? l.minHeight * scale : content;
+      return (l.spaceBefore + l.spaceAfter) * scale + h;
+    }
+
+    var totalH = 0.0;
+    for (var i = 0; i < lines.length; i++) {
+      totalH += rowHeight(i, layoutLine(i, null, 0));
     }
 
     final trail = trailingFeedLines.clamp(0, 40) * 16.0;
@@ -415,148 +531,16 @@ class PosThermalBitmapEncoder {
     );
 
     var y = framed ? pad : 0.0;
-    for (var i = 0; i < painters.length; i++) {
-      final line = lines[i];
-      if (line.isDivider) {
-        final ruleH = 3.0 * scale;
-        final top = y + (6.0 * scale - ruleH) / 2;
-        canvas.drawRect(
-          Rect.fromLTWH(pad, top, contentW, ruleH),
-          Paint()..color = const Color(0xFF000000),
-        );
-        y += 6.0 * scale;
-        continue;
-      }
-      final style = _thermalStyle(
-        fontSize: line.fontSize * scale,
-        bold: line.bold,
-      );
-      if (line.hasSaleColumns) {
-        final cols = _saleColWidths(
-          contentW,
-          style: style,
-          saleLines: saleColLines,
-        );
-        final nameTp = _tp(
-          line.text,
-          style: style,
-          maxWidth: cols.nameW,
-          maxLines: 2,
-        );
-        final qtyTp = _tp(
-          line.colQty ?? '',
-          style: style,
-          maxWidth: cols.qtyW,
-          align: TextAlign.right,
-          maxLines: 1,
-          ellipsis: false,
-        );
-        final priceTp = _tp(
-          line.colPrice ?? '',
-          style: style,
-          maxWidth: cols.priceW,
-          align: TextAlign.right,
-          maxLines: 1,
-          ellipsis: false,
-        );
-        final totalTp = _tp(
-          line.colTotal ?? '',
-          style: style,
-          maxWidth: cols.totalW,
-          align: TextAlign.right,
-          maxLines: 1,
-          ellipsis: false,
-        );
-        nameTp.paint(canvas, Offset(pad, y));
-        var x = pad + cols.nameW + cols.gap;
-        if (cols.qtyW > 0) {
-          _paintInSlot(
-            canvas,
-            qtyTp,
-            slotLeft: x,
-            slotW: cols.qtyW,
-            y: y,
-            align: TextAlign.center,
-          );
-          x += cols.qtyW + cols.gap;
-        }
-        if (cols.priceW > 0) {
-          _paintInSlot(
-            canvas,
-            priceTp,
-            slotLeft: x,
-            slotW: cols.priceW,
-            y: y,
-            align: TextAlign.right,
-          );
-          x += cols.priceW + cols.gap;
-        }
-        if (cols.totalW > 0) {
-          _paintInSlot(
-            canvas,
-            totalTp,
-            slotLeft: x,
-            slotW: cols.totalW,
-            y: y,
-            align: TextAlign.right,
-          );
-        }
-        y += nameTp.height + lineGap * scale;
-        continue;
-      }
-      final right = (line.rightText ?? '').trim();
-      if (right.isNotEmpty) {
-        final slots = _pairSlotWidths(
-          contentW: contentW,
-          style: style,
-          left: line.text,
-          right: right,
-          rightFrac: line.rightSlotFrac,
-        );
-        final leftTp = _tp(line.text, style: style, maxWidth: slots.leftW, maxLines: 2);
-        final rightTp = _tp(
-          right,
-          style: style,
-          maxWidth: slots.rightW,
-          align: TextAlign.right,
-          maxLines: 1,
-          ellipsis: false,
-        );
-        leftTp.paint(canvas, Offset(pad, y));
-        _paintInSlot(
-          canvas,
-          rightTp,
-          slotLeft: pad + slots.leftW + slots.gap,
-          slotW: slots.rightW,
-          y: y,
-          align: TextAlign.right,
-        );
-        y += (leftTp.height > rightTp.height ? leftTp.height : rightTp.height) +
-            lineGap * scale;
-        continue;
-      }
-      final tp = painters[i];
-      if (tp == null) {
-        y += 4.0 * scale;
-        continue;
-      }
-      final x = tp.textAlign == TextAlign.center
-          ? pad + ((contentW - tp.width) / 2).clamp(0.0, contentW)
-          : tp.textAlign == TextAlign.right
-              ? pad + (contentW - tp.width).clamp(0.0, contentW)
-              : pad;
-      tp.paint(canvas, Offset(x, y));
-      y += tp.height + lineGap * scale;
+    for (var i = 0; i < lines.length; i++) {
+      final top = y;
+      final content = layoutLine(i, canvas, y + lines[i].spaceBefore * scale);
+      y += rowHeight(i, content);
+      rowsOut?.add((line: i, top: top / scale, height: (y - top) / scale));
     }
 
     if (framed) {
       final stroke = 2.2 * scale;
-      final rect = Rect.fromLTWH(
-        margin,
-        margin,
-        renderW - margin * 2,
-        hHi - margin * 2,
-      );
+      final rect = Rect.fromLTWH(margin, margin, renderW - margin * 2, hHi - margin * 2);
       final rrect = frameStyle == PosPrintFrameStyle.rounded
           ? RRect.fromRectAndRadius(rect, Radius.circular(10.0 * scale))
           : RRect.fromRectAndRadius(rect, Radius.zero);
@@ -567,6 +551,9 @@ class PosThermalBitmapEncoder {
           ..style = PaintingStyle.stroke
           ..strokeWidth = stroke,
       );
+    }
+    for (final img in images.values) {
+      img.dispose();
     }
 
     final picture = recorder.endRecording();

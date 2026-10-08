@@ -11,6 +11,8 @@ import '../../utils/pos_print_template_v2_codec.dart';
 import '../../utils/pos_print_template_v2_presets.dart';
 import '../../utils/responsive_helper.dart';
 import '../../widgets/pos/pos_print_template_preview.dart';
+import 'pos_print_exact_preview.dart';
+import 'pos_print_template_tools.dart';
 import '../../widgets/pos/pos_theme.dart';
 import 'package:zkteco_flutter_client/l10n/app_tr.dart';
 
@@ -46,6 +48,11 @@ class _PosPrintTemplateV2EditorState extends State<PosPrintTemplateV2Editor>
   TabController? _mobileTabs;
   /// desktop: 0 = trực quan, 1 = mã nguồn
   int _desktopMode = 0;
+  /// Lịch sử chỉnh sửa (hoàn tác / làm lại) — tối đa 60 bước.
+  final List<PosPrintTemplateV2> _undo = [];
+  final List<PosPrintTemplateV2> _redo = [];
+  /// Thu phóng khung xem trước (1 = vừa khung).
+  double _zoom = 1.0;
 
   PosPrintTemplateV2 get _tpl => widget.template;
 
@@ -71,7 +78,54 @@ class _PosPrintTemplateV2EditorState extends State<PosPrintTemplateV2Editor>
     super.dispose();
   }
 
-  void _update(PosPrintTemplateV2 t) => widget.onChanged(t);
+  void _update(PosPrintTemplateV2 t) {
+    if (t.encode() == _tpl.encode()) return;
+    _undo.add(_tpl);
+    if (_undo.length > 60) _undo.removeAt(0);
+    _redo.clear();
+    widget.onChanged(t);
+  }
+
+  void _undoEdit() {
+    if (_undo.isEmpty || widget.readOnly) return;
+    _redo.add(_tpl);
+    final prev = _undo.removeLast();
+    widget.onChanged(prev);
+    setState(() => _selectedIndex = _selectedIndex.clamp(0, (prev.blocks.length - 1).clamp(0, 999)));
+  }
+
+  void _redoEdit() {
+    if (_redo.isEmpty || widget.readOnly) return;
+    _undo.add(_tpl);
+    final next = _redo.removeLast();
+    widget.onChanged(next);
+    setState(() => _selectedIndex = _selectedIndex.clamp(0, (next.blocks.length - 1).clamp(0, 999)));
+  }
+
+  void _duplicateBlock(int i) {
+    if (i < 0 || i >= _tpl.blocks.length) return;
+    final blocks = List<PosPrintBlock>.from(_tpl.blocks)..insert(i + 1, _tpl.blocks[i]);
+    _update(_tpl.copyWith(blocks: blocks));
+    setState(() => _selectedIndex = i + 1);
+  }
+
+  /// Thanh công cụ định dạng cho khối đang chọn.
+  Widget _formatToolbar(int i) {
+    final blocks = _tpl.blocks;
+    if (blocks.isEmpty) return const SizedBox.shrink();
+    final idx = i.clamp(0, blocks.length - 1);
+    return PosPrintFormatToolbar(
+      block: blocks[idx],
+      readOnly: widget.readOnly,
+      onChanged: (b) => _updateBlock(idx, b),
+      onUndo: _undo.isEmpty ? null : _undoEdit,
+      onRedo: _redo.isEmpty ? null : _redoEdit,
+      onMoveUp: idx > 0 ? () => _moveBlock(idx, -1) : null,
+      onMoveDown: idx < blocks.length - 1 ? () => _moveBlock(idx, 1) : null,
+      onDuplicate: () => _duplicateBlock(idx),
+      onDelete: blocks.length > 1 ? () => _removeBlock(idx) : null,
+    );
+  }
 
   void _selectBlock(int i, {bool openProperties = false}) {
     setState(() => _selectedIndex = i.clamp(0, _tpl.blocks.length - 1));
@@ -154,6 +208,10 @@ class _PosPrintTemplateV2EditorState extends State<PosPrintTemplateV2Editor>
           barcodeHeight: 60,
           barcodeShowText: true,
         ),
+      PosPrintBlockType.image => const PosPrintBlock(
+          type: PosPrintBlockType.image,
+          style: PosPrintTextStyle(align: PosPrintTextAlign.center),
+        ),
     };
     final nextIndex = _tpl.blocks.length;
     _update(_tpl.copyWith(blocks: [..._tpl.blocks, block]));
@@ -206,10 +264,15 @@ class _PosPrintTemplateV2EditorState extends State<PosPrintTemplateV2Editor>
 
   @override
   Widget build(BuildContext context) {
-    if (_isCompact(context)) {
-      return _buildMobileShell(context);
-    }
-    return _buildDesktopLayout(context);
+    final body = _isCompact(context) ? _buildMobileShell(context) : _buildDesktopLayout(context);
+    return CallbackShortcuts(
+      bindings: {
+        const SingleActivator(LogicalKeyboardKey.keyZ, control: true): _undoEdit,
+        const SingleActivator(LogicalKeyboardKey.keyY, control: true): _redoEdit,
+        const SingleActivator(LogicalKeyboardKey.keyZ, control: true, shift: true): _redoEdit,
+      },
+      child: Focus(autofocus: true, child: body),
+    );
   }
 
   Widget _buildMobileShell(BuildContext context) {
@@ -451,6 +514,8 @@ class _PosPrintTemplateV2EditorState extends State<PosPrintTemplateV2Editor>
           ),
         ),
         const Divider(height: 1),
+        _formatToolbar(i),
+        const Divider(height: 1),
         Expanded(
           child: _BlockPropertiesPanel(
             key: ValueKey('block_props_${i}_${sel.type.name}'),
@@ -504,6 +569,7 @@ class _PosPrintTemplateV2EditorState extends State<PosPrintTemplateV2Editor>
       ('Tổng tiền', PosPrintBlockType.totals),
       ('Mã VietQR', PosPrintBlockType.vietQr),
       ('Mã vạch', PosPrintBlockType.barcode),
+      ('Ảnh / logo', PosPrintBlockType.image),
       ('Khoảng trống', PosPrintBlockType.spacer),
     ];
 
@@ -640,6 +706,8 @@ class _PosPrintTemplateV2EditorState extends State<PosPrintTemplateV2Editor>
                                     _addChip('Tổng', PosPrintBlockType.totals),
                                     _addChip('QR', PosPrintBlockType.vietQr),
                                     _addChip('Barcode', PosPrintBlockType.barcode),
+                                    _addChip('Ảnh', PosPrintBlockType.image),
+                                    _addChip('Khoảng trống', PosPrintBlockType.spacer),
                                   ],
                                 ),
                               ),
@@ -677,6 +745,8 @@ class _PosPrintTemplateV2EditorState extends State<PosPrintTemplateV2Editor>
                                       ],
                                     ),
                                   ),
+                                  const Divider(height: 1),
+                                  _formatToolbar(_selectedIndex),
                                   const Divider(height: 1),
                                   Expanded(
                                     child: _BlockPropertiesPanel(
@@ -904,6 +974,17 @@ class _PosPrintTemplateV2EditorState extends State<PosPrintTemplateV2Editor>
             ],
           );
 
+    final isLabelPaper = PosPrintPaperSizes.isLabelSize(_tpl.paperSize);
+    final sidePad = _tpl.frameStyle != PosPrintFrameStyle.none || isLabelPaper
+        ? const SizedBox.shrink()
+        : frameGapSlider(
+            label: 'Lề trái / phải nội dung',
+            value: (_tpl.sidePaddingMm ?? 1.1).clamp(0.0, 10.0),
+            min: 0.0,
+            max: 10.0,
+            onChanged: (v) => _update(_tpl.copyWith(sidePaddingMm: double.parse(v.toStringAsFixed(1)))),
+          );
+
     final restoreBtn = !widget.readOnly
         ? OutlinedButton.icon(
             onPressed: () {
@@ -938,6 +1019,7 @@ class _PosPrintTemplateV2EditorState extends State<PosPrintTemplateV2Editor>
                   const SizedBox(height: 8),
                   frameField,
                   frameGaps,
+                  sidePad,
                   if (restoreBtn != null) ...[
                     const SizedBox(height: 8),
                     restoreBtn,
@@ -961,6 +1043,7 @@ class _PosPrintTemplateV2EditorState extends State<PosPrintTemplateV2Editor>
                     ],
                   ),
                   frameGaps,
+                  sidePad,
                 ],
               ),
       ),
@@ -982,6 +1065,25 @@ class _PosPrintTemplateV2EditorState extends State<PosPrintTemplateV2Editor>
               child: Row(
                 children: [
                   Text(tr('Xem trước'), style: TextStyle(fontWeight: FontWeight.w600)),
+                  const SizedBox(width: 8),
+                  if (posPrintHasExactPreview(_tpl.paperSize)) ...[
+                    IconButton(
+                      tooltip: tr('Thu nhỏ'),
+                      visualDensity: VisualDensity.compact,
+                      onPressed: _zoom <= 0.6 ? null : () => setState(() => _zoom = (_zoom - 0.2).clamp(0.6, 3.0)),
+                      icon: const Icon(Icons.zoom_out, size: 18),
+                    ),
+                    InkWell(
+                      onTap: () => setState(() => _zoom = 1.0),
+                      child: Text('${(_zoom * 100).round()}%', style: const TextStyle(fontSize: 12)),
+                    ),
+                    IconButton(
+                      tooltip: tr('Phóng to'),
+                      visualDensity: VisualDensity.compact,
+                      onPressed: _zoom >= 3.0 ? null : () => setState(() => _zoom = (_zoom + 0.2).clamp(0.6, 3.0)),
+                      icon: const Icon(Icons.zoom_in, size: 18),
+                    ),
+                  ],
                   const Spacer(),
                   Flexible(
                     child: Text(
@@ -1005,11 +1107,19 @@ class _PosPrintTemplateV2EditorState extends State<PosPrintTemplateV2Editor>
                 ),
                 child: ClipRRect(
                   borderRadius: BorderRadius.circular(compact ? 8 : 0),
-                  child: buildPosPrintTemplatePreview(
-                    _tpl,
-                    selectedBlockIndex: _selectedIndex,
-                    onSelectBlock: widget.readOnly ? null : _selectBlock,
-                  ),
+                  child: posPrintHasExactPreview(_tpl.paperSize)
+                      // Ảnh in thật — cùng bộ vẽ gửi máy in (khớp cỡ chữ, cột, lề, khung).
+                      ? PosPrintExactPreview(
+                          template: _tpl,
+                          zoom: _zoom,
+                          selectedBlockIndex: _selectedIndex,
+                          onSelectBlock: widget.readOnly ? null : _selectBlock,
+                        )
+                      : buildPosPrintTemplatePreview(
+                          _tpl,
+                          selectedBlockIndex: _selectedIndex,
+                          onSelectBlock: widget.readOnly ? null : _selectBlock,
+                        ),
                 ),
               ),
             ),
@@ -1054,7 +1164,7 @@ class _PosPrintTemplateV2EditorState extends State<PosPrintTemplateV2Editor>
   }
 
   static String _blockLabel(PosPrintBlock b) => switch (b.type) {
-        PosPrintBlockType.text => b.text ?? 'Văn bản',
+        PosPrintBlockType.text => (b.text ?? '').trim().isEmpty ? 'Dòng trống' : b.text!,
         PosPrintBlockType.field => '{${b.field ?? '?'}}',
         PosPrintBlockType.pair => '${b.leftField} | ${b.rightField}',
         PosPrintBlockType.divider => '━━━',
@@ -1065,11 +1175,20 @@ class _PosPrintTemplateV2EditorState extends State<PosPrintTemplateV2Editor>
         PosPrintBlockType.spacer => 'Khoảng trống',
         PosPrintBlockType.vietQr => 'VietQR',
         PosPrintBlockType.barcode => 'Barcode {${b.field ?? 'Ma_Vach'}}',
+        PosPrintBlockType.image => b.imageData == null ? 'Ảnh (chưa chọn)' : 'Ảnh / logo',
       };
 
   static String _blockMeta(PosPrintBlock b) {
     if (b.type == PosPrintBlockType.barcode) {
       return 'Cao ${b.barcodeHeight} · ${b.barcodeShowText ? 'Hiện chữ' : 'Ẩn chữ'}';
+    }
+    if (b.type == PosPrintBlockType.image) {
+      final a = switch (b.style.align) {
+        PosPrintTextAlign.center => 'Giữa',
+        PosPrintTextAlign.right => 'Phải',
+        _ => 'Trái',
+      };
+      return 'Rộng ${b.imageWidthPct}% · $a';
     }
     final align = switch (b.style.align) {
       PosPrintTextAlign.center => 'Giữa',
@@ -1090,6 +1209,7 @@ class _PosPrintTemplateV2EditorState extends State<PosPrintTemplateV2Editor>
         PosPrintBlockType.spacer => Icons.space_bar,
         PosPrintBlockType.vietQr => Icons.qr_code_2,
         PosPrintBlockType.barcode => Icons.view_week,
+        PosPrintBlockType.image => Icons.image_outlined,
       };
 }
 
@@ -1865,9 +1985,19 @@ class _BlockPropertiesPanelState extends State<_BlockPropertiesPanel> {
                 : (v) => onChanged(block.copyWith(qrShowAmount: v)),
           ),
         ],
+        if (block.type == PosPrintBlockType.image) ...[
+          const SizedBox(height: 12),
+          PosPrintImageBlockEditor(
+            block: block,
+            paperSize: widget.paperSize,
+            readOnly: readOnly,
+            onChanged: onChanged,
+          ),
+        ],
         if (block.type != PosPrintBlockType.divider &&
             block.type != PosPrintBlockType.vietQr &&
             block.type != PosPrintBlockType.barcode &&
+            block.type != PosPrintBlockType.image &&
             block.type != PosPrintBlockType.spacer) ...[
           const SizedBox(height: 16),
           if (block.type == PosPrintBlockType.lineItems ||
@@ -1886,14 +2016,32 @@ class _BlockPropertiesPanelState extends State<_BlockPropertiesPanel> {
               ? 'Cỡ chữ hàng hóa: ${block.style.fontSize.toInt()}'
               : 'Cỡ chữ: ${block.style.fontSize.toInt()}')),
           Slider(
-            value: block.style.fontSize.clamp(14, 48),
-            min: 14,
-            max: 48,
-            divisions: 17,
+            value: block.style.fontSize.clamp(kPosPrintMinFont, kPosPrintMaxFont),
+            min: kPosPrintMinFont,
+            max: kPosPrintMaxFont,
+            divisions: ((kPosPrintMaxFont - kPosPrintMinFont) / 2).round(),
             label: block.style.fontSize.toInt().toString(),
             onChanged: readOnly
                 ? null
-                : (v) => onChanged(block.copyWith(style: block.style.copyWith(fontSize: v))),
+                : (v) => onChanged(block.copyWith(style: block.style.copyWith(fontSize: v.roundToDouble()))),
+          ),
+          Wrap(spacing: 6, runSpacing: 6, children: [
+            for (final p in kPosPrintFontPresets)
+              ChoiceChip(
+                label: Text(tr('${p.$1} ${p.$2.toInt()}'), style: const TextStyle(fontSize: 12)),
+                selected: block.style.fontSize == p.$2,
+                onSelected: readOnly
+                    ? null
+                    : (_) => onChanged(block.copyWith(style: block.style.copyWith(fontSize: p.$2))),
+              ),
+          ]),
+          SwitchListTile(
+            contentPadding: EdgeInsets.zero,
+            title: Text(tr('In chữ HOA')),
+            value: block.style.uppercase,
+            onChanged: readOnly
+                ? null
+                : (v) => onChanged(block.copyWith(style: block.style.copyWith(uppercase: v))),
           ),
           SwitchListTile(
             contentPadding: EdgeInsets.zero,
@@ -1947,6 +2095,28 @@ class _BlockPropertiesPanelState extends State<_BlockPropertiesPanel> {
           Text(
             tr('Đường kẻ ngang đặc, bằng chiều rộng khổ giấy (không dùng =====).'),
             style: TextStyle(fontSize: 12, color: SboxColors.slate700),
+          ),
+        ],
+        if (block.type == PosPrintBlockType.spacer) ...[
+          const SizedBox(height: 12),
+          Text(tr('Chiều cao khoảng trống: ${(block.height / posPrintDotsPerMm(widget.paperSize)).toStringAsFixed(1)} mm')),
+          Slider(
+            value: block.height.clamp(4, 160),
+            min: 4,
+            max: 160,
+            divisions: 39,
+            onChanged: readOnly ? null : (v) => onChanged(block.copyWith(height: v.roundToDouble())),
+          ),
+        ],
+        if (block.type != PosPrintBlockType.vietQr &&
+            block.type != PosPrintBlockType.barcode &&
+            block.type != PosPrintBlockType.spacer) ...[
+          const Divider(height: 28),
+          PosPrintLayoutEditor(
+            block: block,
+            paperSize: widget.paperSize,
+            readOnly: readOnly,
+            onChanged: onChanged,
           ),
         ],
         const SizedBox(height: 24),
@@ -2090,6 +2260,7 @@ class _BlockPropertiesPanelState extends State<_BlockPropertiesPanel> {
         PosPrintBlockType.totals => 'Khối tổng tiền',
         PosPrintBlockType.spacer => 'Khoảng trống',
         PosPrintBlockType.vietQr => 'Mã VietQR thanh toán',
+        PosPrintBlockType.image => 'Ảnh / logo',
         PosPrintBlockType.barcode => 'Mã vạch (barcode)',
       };
 }

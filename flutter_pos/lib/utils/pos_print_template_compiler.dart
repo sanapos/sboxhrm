@@ -1,3 +1,6 @@
+import 'dart:convert';
+import 'dart:typed_data';
+
 import '../models/pos_print_template.dart';
 import '../models/pos_print_template_v2.dart';
 import 'pos_einvoice_qr.dart';
@@ -6,6 +9,40 @@ import 'pos_receipt_layout.dart';
 import 'pos_table_label.dart';
 import 'pos_thermal_bitmap.dart';
 import 'package:sbox_pos/l10n/app_tr.dart';
+
+/// Khoảng trống / thụt lề của một bước in (điểm in), lấy từ kiểu khối.
+class PosPrintStepLayout {
+  const PosPrintStepLayout({
+    this.spaceBefore = 0,
+    this.spaceAfter = 0,
+    this.indentLeft = 0,
+    this.indentRight = 0,
+    this.minHeight = 0,
+  });
+
+  final double spaceBefore;
+  final double spaceAfter;
+  final double indentLeft;
+  final double indentRight;
+  final double minHeight;
+}
+
+/// Khối ảnh / logo đã biên dịch.
+class PosPrintCompiledImage {
+  const PosPrintCompiledImage({
+    required this.bytes,
+    this.widthFrac = 0.6,
+    this.align = PosPrintTextAlign.center,
+    this.layout,
+    this.sourceBlockIndex,
+  });
+
+  final Uint8List bytes;
+  final double widthFrac;
+  final PosPrintTextAlign align;
+  final PosPrintStepLayout? layout;
+  final int? sourceBlockIndex;
+}
 
 /// Một dòng in Sunmi / bitmap sau biên dịch.
 class PosPrintCompiledLine {
@@ -18,8 +55,10 @@ class PosPrintCompiledLine {
     this.isDivider = false,
     this.dividerEquals = false,
     this.sourceBlockIndex,
+    this.layout,
   });
 
+  final PosPrintStepLayout? layout;
   final String text;
   final double fontSize;
   final bool bold;
@@ -47,8 +86,10 @@ class PosPrintCompiledPair {
     this.fontSize = 24,
     this.bold = false,
     this.sourceBlockIndex,
+    this.layout,
   });
 
+  final PosPrintStepLayout? layout;
   final String left;
   final String right;
   final double fontSize;
@@ -69,8 +110,10 @@ class PosPrintCompiledSaleRow {
     this.showPrice = true,
     this.showTotal = true,
     this.sourceBlockIndex,
+    this.layout,
   });
 
+  final PosPrintStepLayout? layout;
   final String name;
   final String qty;
   final String price;
@@ -128,8 +171,11 @@ class PosPrintCompiledOutput {
     this.frameStyle = PosPrintFrameStyle.none,
     this.frameInsetMm = 2.5,
     this.frameMarginMm = 1.5,
+    this.sidePaddingMm,
   });
 
+  /// Lề trái/phải nội dung (mm) — null = mặc định máy.
+  final double? sidePaddingMm;
   /// Xen kẽ dòng chữ và cặp nhãn-giá trị theo thứ tự in.
   final List<Object> steps;
   final String html;
@@ -154,12 +200,44 @@ class PosPrintCompiledOutput {
 }
 
 PosReceiptImageLine? compiledStepToImageLine(Object step) {
+  const none = PosPrintStepLayout();
+  if (step is PosPrintCompiledImage) {
+    final l = step.layout ?? none;
+    return PosReceiptImageLine(
+      text: '',
+      imageBytes: step.bytes,
+      imageWidthFrac: step.widthFrac,
+      center: step.align == PosPrintTextAlign.center,
+      right: step.align == PosPrintTextAlign.right,
+      spaceBefore: l.spaceBefore,
+      spaceAfter: l.spaceAfter,
+      indentLeft: l.indentLeft,
+      indentRight: l.indentRight,
+      sourceBlockIndex: step.sourceBlockIndex,
+    );
+  }
   if (step is PosPrintCompiledLine) {
+    final l = step.layout ?? none;
     if (step.isDivider) {
-      return const PosReceiptImageLine(text: '', isDivider: true);
+      return PosReceiptImageLine(
+        text: '',
+        isDivider: true,
+        spaceBefore: l.spaceBefore,
+        spaceAfter: l.spaceAfter,
+        indentLeft: l.indentLeft,
+        indentRight: l.indentRight,
+        sourceBlockIndex: step.sourceBlockIndex,
+      );
     }
     if (step.text.trim().isEmpty) {
-      return const PosReceiptImageLine(text: '', fontSize: 10);
+      return PosReceiptImageLine(
+        text: '',
+        fontSize: 10,
+        spaceBefore: l.spaceBefore,
+        spaceAfter: l.spaceAfter,
+        minHeight: l.minHeight,
+        sourceBlockIndex: step.sourceBlockIndex,
+      );
     }
     return PosReceiptImageLine(
       text: step.text,
@@ -167,9 +245,15 @@ PosReceiptImageLine? compiledStepToImageLine(Object step) {
       bold: step.bold,
       center: step.center,
       right: step.right,
+      spaceBefore: l.spaceBefore,
+      spaceAfter: l.spaceAfter,
+      indentLeft: l.indentLeft,
+      indentRight: l.indentRight,
+      sourceBlockIndex: step.sourceBlockIndex,
     );
   }
   if (step is PosPrintCompiledPair) {
+    final l = step.layout ?? none;
     final right = step.right.trim();
     return PosReceiptImageLine(
       text: step.left,
@@ -177,14 +261,25 @@ PosReceiptImageLine? compiledStepToImageLine(Object step) {
       rightSlotFrac: PosPrintTemplateCompiler.pairRightSlotFrac(right),
       fontSize: designedThermalFontSize(step.fontSize),
       bold: step.bold,
+      spaceBefore: l.spaceBefore,
+      spaceAfter: l.spaceAfter,
+      indentLeft: l.indentLeft,
+      indentRight: l.indentRight,
+      sourceBlockIndex: step.sourceBlockIndex,
     );
   }
   if (step is PosPrintCompiledSaleRow) {
+    final l = step.layout ?? none;
     if (step.nameOnly) {
       return PosReceiptImageLine(
         text: step.name,
         fontSize: designedThermalFontSize(step.fontSize),
         bold: step.bold,
+        spaceBefore: l.spaceBefore,
+        spaceAfter: l.spaceAfter,
+        indentLeft: l.indentLeft,
+        indentRight: l.indentRight,
+        sourceBlockIndex: step.sourceBlockIndex,
       );
     }
     if (step.showQty && !step.showPrice && !step.showTotal) {
@@ -194,6 +289,11 @@ PosReceiptImageLine? compiledStepToImageLine(Object step) {
         rightSlotFrac: PosPrintTemplateCompiler.pairRightSlotFrac(step.qty),
         fontSize: designedThermalFontSize(step.fontSize),
         bold: step.bold,
+        spaceBefore: l.spaceBefore,
+        spaceAfter: l.spaceAfter,
+        indentLeft: l.indentLeft,
+        indentRight: l.indentRight,
+        sourceBlockIndex: step.sourceBlockIndex,
       );
     }
     return PosReceiptImageLine(
@@ -203,13 +303,127 @@ PosReceiptImageLine? compiledStepToImageLine(Object step) {
       colTotal: step.showTotal ? step.total : null,
       fontSize: designedThermalFontSize(step.fontSize),
       bold: step.bold,
+      spaceBefore: l.spaceBefore,
+      spaceAfter: l.spaceAfter,
+      indentLeft: l.indentLeft,
+      indentRight: l.indentRight,
+      sourceBlockIndex: step.sourceBlockIndex,
     );
   }
   return null;
 }
 
+/// Gắn khoảng trống / thụt lề / chữ HOA của từng khối vào các bước in của khối đó
+/// (khoảng trên = bước đầu, khoảng dưới = bước cuối, thụt lề = mọi bước).
+List<Object> applyPosPrintBlockLayout(List<Object> steps, List<PosPrintBlock> blocks) {
+  int? idx(Object s) => switch (s) {
+        PosPrintCompiledLine x => x.sourceBlockIndex,
+        PosPrintCompiledPair x => x.sourceBlockIndex,
+        PosPrintCompiledSaleRow x => x.sourceBlockIndex,
+        PosPrintCompiledImage x => x.sourceBlockIndex,
+        _ => null,
+      };
+  final first = <int, int>{};
+  final last = <int, int>{};
+  for (var i = 0; i < steps.length; i++) {
+    final b = idx(steps[i]);
+    if (b == null) continue;
+    first.putIfAbsent(b, () => i);
+    last[b] = i;
+  }
+  final out = List<Object>.from(steps);
+  for (var i = 0; i < out.length; i++) {
+    final bi = idx(out[i]);
+    if (bi == null || bi < 0 || bi >= blocks.length) continue;
+    final block = blocks[bi];
+    final st = block.style;
+    final spacer = block.type == PosPrintBlockType.spacer;
+    if (!st.hasLayout && !st.uppercase && !spacer) continue;
+    final layout = PosPrintStepLayout(
+      spaceBefore: first[bi] == i ? st.spaceBefore : 0,
+      spaceAfter: last[bi] == i ? st.spaceAfter : 0,
+      indentLeft: st.indentLeft,
+      indentRight: st.indentRight,
+      minHeight: spacer ? block.height.clamp(0.0, 400.0) : 0,
+    );
+    String up(String v) => st.uppercase ? v.toUpperCase() : v;
+    final s = out[i];
+    out[i] = switch (s) {
+      PosPrintCompiledLine x => PosPrintCompiledLine(
+          text: x.isDivider ? x.text : up(x.text),
+          fontSize: x.fontSize,
+          bold: x.bold,
+          center: x.center,
+          right: x.right,
+          isDivider: x.isDivider,
+          dividerEquals: x.dividerEquals,
+          sourceBlockIndex: x.sourceBlockIndex,
+          layout: layout,
+        ),
+      PosPrintCompiledPair x => PosPrintCompiledPair(
+          left: up(x.left),
+          right: up(x.right),
+          fontSize: x.fontSize,
+          bold: x.bold,
+          sourceBlockIndex: x.sourceBlockIndex,
+          layout: layout,
+        ),
+      PosPrintCompiledSaleRow x => PosPrintCompiledSaleRow(
+          name: up(x.name),
+          qty: x.qty,
+          price: x.price,
+          total: x.total,
+          fontSize: x.fontSize,
+          bold: x.bold,
+          showQty: x.showQty,
+          showPrice: x.showPrice,
+          showTotal: x.showTotal,
+          sourceBlockIndex: x.sourceBlockIndex,
+          layout: layout,
+        ),
+      PosPrintCompiledImage x => PosPrintCompiledImage(
+          bytes: x.bytes,
+          widthFrac: x.widthFrac,
+          align: x.align,
+          sourceBlockIndex: x.sourceBlockIndex,
+          layout: layout,
+        ),
+      _ => s,
+    };
+  }
+  return out;
+}
+
+/// Giải mã ảnh base64 của khối ảnh (rỗng / hỏng → null).
+Uint8List? decodePosPrintImageData(String? data) {
+  if (data == null || data.trim().isEmpty) return null;
+  try {
+    final raw = data.contains(',') ? data.substring(data.indexOf(',') + 1) : data;
+    return base64Decode(raw.trim());
+  } catch (_) {
+    return null;
+  }
+}
+
 /// Cỡ chữ in = cỡ trên trang chỉnh sửa (14–48). Không kẹp xuống 24px.
 double designedThermalFontSize(double fontSize) => fontSize.clamp(12.0, 64.0);
+
+/// Mẫu nhiệt / tem: cỡ chữ, khoảng cách trong mẫu là ĐIỂM IN (K80 = 576 điểm / 80 mm).
+/// HTML trước đây ghi thẳng «px» → chữ to gần gấp đôi so với bản in; đổi sang mm cho đúng tỉ lệ.
+String thermalHtmlToMm(String html, String paperSize) {
+  if (paperSize == PosPrintPaperSizes.a4 || paperSize == PosPrintPaperSizes.a5) return html;
+  final widthMm = PosPrintPaperSizes.widthMm(paperSize);
+  final dots = PosPrintPaperSizes.isLabelSize(paperSize)
+      ? widthMm * 203 / 25.4
+      : (widthMm <= 58 ? 384.0 : 576.0);
+  final k = widthMm / dots;
+  return html
+      .replaceAllMapped(RegExp(r'(\d+(?:\.\d+)?)px'), (m) {
+        final v = double.parse(m.group(1)!) * k;
+        return '${v.toStringAsFixed(2)}mm';
+      })
+      .replaceFirst('font-family:Arial,sans-serif;', "font-family:'Be Vietnam Pro',Arial,sans-serif;line-height:1.28;");
+}
 
 /// Biên dịch mẫu V2 → HTML preview + dòng in nhiệt/Sunmi.
 abstract final class PosPrintTemplateCompiler {
@@ -483,12 +697,39 @@ abstract final class PosPrintTemplateCompiler {
             'margin:${frameMargin}mm;padding:${framePad}mm;box-sizing:border-box;'
         : '';
     htmlBuf.write(
-      '<div style="width:${width}mm;font-family:Arial,sans-serif;color:#000;$frameCss">',
+      '<div style="width:${width}mm;font-family:Arial,sans-serif;color:#000;$frameCss'
+      '${!framed && template.sidePaddingMm != null ? 'padding:0 ${template.sidePaddingMm}mm;' : ''}">',
     );
     var skipNextKhu = false;
     for (var bi = 0; bi < working.blocks.length; bi++) {
       final block = working.blocks[bi];
+      final st = block.style;
+      final wrapHtml = st.hasLayout || st.uppercase;
+      if (wrapHtml) {
+        htmlBuf.write('<div style="'
+            '${st.spaceBefore > 0 ? 'margin-top:${st.spaceBefore}px;' : ''}'
+            '${st.spaceAfter > 0 ? 'margin-bottom:${st.spaceAfter}px;' : ''}'
+            '${st.indentLeft > 0 ? 'padding-left:${st.indentLeft}px;' : ''}'
+            '${st.indentRight > 0 ? 'padding-right:${st.indentRight}px;' : ''}'
+            '${st.uppercase ? 'text-transform:uppercase;' : ''}">');
+      }
+      // try/finally: các nhánh dùng `continue` vẫn đóng thẻ bao khối.
+      try {
       switch (block.type) {
+        case PosPrintBlockType.image:
+          final bytes = decodePosPrintImageData(block.imageData);
+          if (bytes != null) {
+            steps.add(PosPrintCompiledImage(
+              bytes: bytes,
+              widthFrac: block.imageWidthPct.clamp(10, 100) / 100,
+              align: block.style.align,
+              sourceBlockIndex: bi,
+            ));
+            final a = block.style.align.name;
+            htmlBuf.write('<div style="text-align:$a;margin:2px 0">'
+                '<img src="data:image/png;base64,${base64Encode(bytes)}" '
+                'style="width:${block.imageWidthPct.clamp(10, 100)}%;height:auto"></div>');
+          }
         case PosPrintBlockType.text:
           if (isKitchenLabel && _isQtyOnlyToken(block.text ?? '')) {
             continue;
@@ -947,6 +1188,9 @@ abstract final class PosPrintTemplateCompiler {
             );
           }
       }
+      } finally {
+        if (wrapHtml) htmlBuf.write('</div>');
+      }
     }
 
     if (isSaleDoc) {
@@ -954,13 +1198,17 @@ abstract final class PosPrintTemplateCompiler {
     }
 
     htmlBuf.write('</div>');
-    final html = wrapPosPrintHtmlDocument(htmlBuf.toString(), paperSize: template.paperSize);
+    final html = wrapPosPrintHtmlDocument(
+      thermalHtmlToMm(htmlBuf.toString(), template.paperSize),
+      paperSize: template.paperSize,
+    );
     return PosPrintCompiledOutput(
-      steps: steps,
+      steps: applyPosPrintBlockLayout(steps, working.blocks),
       html: html,
       frameStyle: template.frameStyle,
       frameInsetMm: template.frameInsetMm,
       frameMarginMm: template.frameMarginMm,
+      sidePaddingMm: template.sidePaddingMm,
     );
   }
 

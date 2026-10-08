@@ -760,15 +760,56 @@ class PosLabelRenderer {
       ui.Paint()..color = const ui.Color(0xFFFFFFFF),
     );
     var y = top;
-    final contentLeft = left;
-    final innerW = (w - left - right).clamp(40.0, w.toDouble());
+    final baseLeft = left;
+    final baseInnerW = (w - left - right).clamp(40.0, w.toDouble());
     final maxY = h - bottom;
     canvas.save();
-    canvas.clipRect(ui.Rect.fromLTWH(contentLeft, top, innerW, (maxY - top).clamp(1, h.toDouble())));
+    canvas.clipRect(ui.Rect.fromLTWH(baseLeft, top, baseInnerW, (maxY - top).clamp(1, h.toDouble())));
+    // Khoảng cách / thụt lề trong mẫu là điểm in — tem cùng hệ số với cỡ chữ (×0.72).
+    final layoutK = 0.72 * scale;
 
     for (final step in output.steps) {
       if (y >= maxY - 4) break;
+      final lay = switch (step) {
+        PosPrintCompiledLine x => x.layout,
+        PosPrintCompiledPair x => x.layout,
+        PosPrintCompiledSaleRow x => x.layout,
+        PosPrintCompiledImage x => x.layout,
+        _ => null,
+      };
+      y += (lay?.spaceBefore ?? 0) * layoutK;
+      final indL = (lay?.indentLeft ?? 0) * layoutK;
+      final indR = (lay?.indentRight ?? 0) * layoutK;
+      final contentLeft = baseLeft + indL;
+      final innerW = (baseInnerW - indL - indR).clamp(30.0, baseInnerW);
       final remain = maxY - y;
+      if (step is PosPrintCompiledImage) {
+        try {
+          final codec = await ui.instantiateImageCodec(step.bytes);
+          final img = (await codec.getNextFrame()).image;
+          var iw = innerW * step.widthFrac.clamp(0.1, 1.0);
+          var ih = iw * img.height / img.width;
+          if (ih > remain) {
+            ih = remain;
+            iw = ih * img.width / img.height;
+          }
+          final x = step.align == PosPrintTextAlign.center
+              ? contentLeft + (innerW - iw) / 2
+              : step.align == PosPrintTextAlign.right
+                  ? contentLeft + innerW - iw
+                  : contentLeft;
+          canvas.drawImageRect(
+            img,
+            ui.Rect.fromLTWH(0, 0, img.width.toDouble(), img.height.toDouble()),
+            ui.Rect.fromLTWH(x, y, iw, ih),
+            ui.Paint()..filterQuality = ui.FilterQuality.high,
+          );
+          img.dispose();
+          y += ih + 2;
+        } catch (_) {}
+        y += (lay?.spaceAfter ?? 0) * layoutK;
+        continue;
+      }
       if (step is PosPrintCompiledLine) {
         if (step.isDivider) {
           canvas.drawRect(
@@ -779,7 +820,9 @@ class PosLabelRenderer {
           continue;
         }
         if (step.text.trim().isEmpty) {
-          y += 3;
+          final minH = (lay?.minHeight ?? 0) * layoutK;
+          y += minH > 3 ? minH : 3;
+          y += (lay?.spaceAfter ?? 0) * layoutK;
           continue;
         }
         final fs = (step.fontSize * 0.72 * scale).clamp(11.0, 32.0);
@@ -962,6 +1005,7 @@ class PosLabelRenderer {
           }
         }
       }
+      y += (lay?.spaceAfter ?? 0) * layoutK;
     }
     canvas.restore();
 

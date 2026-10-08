@@ -234,6 +234,8 @@ enum PosPrintBlockType {
   vietQr,
   /// Mã vạch CODE128 từ token (Ma_Vach / Ma_Hang…).
   barcode,
+  /// Ảnh / logo (PNG đen trắng nhúng trong mẫu).
+  image,
 }
 
 /// Vị trí khối VietQR so với phần tổng cộng (editor tự sắp xếp lại khối).
@@ -260,31 +262,62 @@ class PosPrintTextStyle {
     this.fontSize = 24,
     this.bold = false,
     this.align = PosPrintTextAlign.left,
+    this.uppercase = false,
+    this.spaceBefore = 0,
+    this.spaceAfter = 0,
+    this.indentLeft = 0,
+    this.indentRight = 0,
   });
 
   final double fontSize;
   final bool bold;
   final PosPrintTextAlign align;
+  /// In chữ HOA.
+  final bool uppercase;
+  /// Khoảng trống trên / dưới khối (điểm in — K80 576 điểm = 80 mm, 1 mm ≈ 7,2 điểm).
+  final double spaceBefore;
+  final double spaceAfter;
+  /// Thụt lề trái / phải (điểm in).
+  final double indentLeft;
+  final double indentRight;
+
+  bool get hasLayout => spaceBefore > 0 || spaceAfter > 0 || indentLeft > 0 || indentRight > 0;
 
   PosPrintTextStyle copyWith({
     double? fontSize,
     bool? bold,
     PosPrintTextAlign? align,
+    bool? uppercase,
+    double? spaceBefore,
+    double? spaceAfter,
+    double? indentLeft,
+    double? indentRight,
   }) =>
       PosPrintTextStyle(
         fontSize: fontSize ?? this.fontSize,
         bold: bold ?? this.bold,
         align: align ?? this.align,
+        uppercase: uppercase ?? this.uppercase,
+        spaceBefore: spaceBefore ?? this.spaceBefore,
+        spaceAfter: spaceAfter ?? this.spaceAfter,
+        indentLeft: indentLeft ?? this.indentLeft,
+        indentRight: indentRight ?? this.indentRight,
       );
 
   Map<String, dynamic> toJson() => {
         'fontSize': fontSize,
         'bold': bold,
         'align': align.name,
+        if (uppercase) 'uppercase': true,
+        if (spaceBefore > 0) 'spaceBefore': spaceBefore,
+        if (spaceAfter > 0) 'spaceAfter': spaceAfter,
+        if (indentLeft > 0) 'indentLeft': indentLeft,
+        if (indentRight > 0) 'indentRight': indentRight,
       };
 
   factory PosPrintTextStyle.fromJson(Map<String, dynamic>? json) {
     if (json == null) return const PosPrintTextStyle();
+    double d(String k) => ((json[k] as num?)?.toDouble() ?? 0).clamp(0.0, 400.0);
     return PosPrintTextStyle(
       fontSize: (json['fontSize'] as num?)?.toDouble() ?? 24,
       bold: json['bold'] == true,
@@ -292,6 +325,11 @@ class PosPrintTextStyle {
         (e) => e.name == json['align'],
         orElse: () => PosPrintTextAlign.left,
       ),
+      uppercase: json['uppercase'] == true,
+      spaceBefore: d('spaceBefore'),
+      spaceAfter: d('spaceAfter'),
+      indentLeft: d('indentLeft'),
+      indentRight: d('indentRight'),
     );
   }
 }
@@ -319,6 +357,8 @@ class PosPrintBlock {
     this.qrPlacement = PosPrintQrPlacement.belowTotals,
     this.barcodeHeight = 60,
     this.barcodeShowText = true,
+    this.imageData,
+    this.imageWidthPct = 60,
   });
 
   final PosPrintBlockType type;
@@ -352,6 +392,10 @@ class PosPrintBlock {
   final int barcodeHeight;
   /// In chữ mã dưới barcode.
   final bool barcodeShowText;
+  /// Ảnh PNG (base64) của khối ảnh — đã chuyển đen trắng, thu về khổ giấy.
+  final String? imageData;
+  /// Chiều rộng ảnh theo % khổ in (10–100).
+  final int imageWidthPct;
 
   /// `lineItems` có danh sách cột tùy chọn (khối «Tên hàng»).
   bool get usesCustomLineFields =>
@@ -411,6 +455,8 @@ class PosPrintBlock {
     PosPrintQrPlacement? qrPlacement,
     int? barcodeHeight,
     bool? barcodeShowText,
+    String? imageData,
+    int? imageWidthPct,
   }) =>
       PosPrintBlock(
         type: type ?? this.type,
@@ -434,6 +480,8 @@ class PosPrintBlock {
         qrPlacement: qrPlacement ?? this.qrPlacement,
         barcodeHeight: barcodeHeight ?? this.barcodeHeight,
         barcodeShowText: barcodeShowText ?? this.barcodeShowText,
+        imageData: imageData ?? this.imageData,
+        imageWidthPct: imageWidthPct ?? this.imageWidthPct,
       );
 
   Map<String, dynamic> toJson() => {
@@ -462,6 +510,10 @@ class PosPrintBlock {
         if (type == PosPrintBlockType.barcode) ...{
           'barcodeHeight': barcodeHeight,
           'barcodeShowText': barcodeShowText,
+        },
+        if (type == PosPrintBlockType.image) ...{
+          if (imageData != null) 'imageData': imageData,
+          'imageWidthPct': imageWidthPct,
         },
       };
 
@@ -513,6 +565,8 @@ class PosPrintBlock {
           (json['barcodeHeight'] is num ? (json['barcodeHeight'] as num).toInt() : null) ??
               60,
       barcodeShowText: json['barcodeShowText'] != false,
+      imageData: json['imageData']?.toString(),
+      imageWidthPct: ((json['imageWidthPct'] as num?)?.toInt() ?? 60).clamp(10, 100),
     );
   }
 }
@@ -529,6 +583,7 @@ class PosPrintTemplateV2 {
     this.frameStyle = PosPrintFrameStyle.none,
     this.frameInsetMm = 2.5,
     this.frameMarginMm = 1.5,
+    this.sidePaddingMm,
   });
 
   final int version;
@@ -543,6 +598,8 @@ class PosPrintTemplateV2 {
   final double frameInsetMm;
   /// Khoảng cách từ mép giấy tới viền khung (mm).
   final double frameMarginMm;
+  /// Lề trái/phải nội dung (mm, không khung). Null = mặc định của máy (≈ 1 mm).
+  final double? sidePaddingMm;
 
   PosPrintTemplateV2 copyWith({
     String? paperSize,
@@ -553,6 +610,8 @@ class PosPrintTemplateV2 {
     PosPrintFrameStyle? frameStyle,
     double? frameInsetMm,
     double? frameMarginMm,
+    double? sidePaddingMm,
+    bool clearSidePadding = false,
   }) =>
       PosPrintTemplateV2(
         version: version,
@@ -564,6 +623,7 @@ class PosPrintTemplateV2 {
         frameStyle: frameStyle ?? this.frameStyle,
         frameInsetMm: frameInsetMm ?? this.frameInsetMm,
         frameMarginMm: frameMarginMm ?? this.frameMarginMm,
+        sidePaddingMm: clearSidePadding ? null : (sidePaddingMm ?? this.sidePaddingMm),
       );
 
   Map<String, dynamic> toJson() => {
@@ -575,6 +635,7 @@ class PosPrintTemplateV2 {
         if (frameStyle != PosPrintFrameStyle.none) 'frameStyle': frameStyle.name,
         if (frameStyle != PosPrintFrameStyle.none) 'frameInsetMm': frameInsetMm,
         if (frameStyle != PosPrintFrameStyle.none) 'frameMarginMm': frameMarginMm,
+        if (sidePaddingMm != null) 'sidePaddingMm': sidePaddingMm,
         'blocks': blocks.map((b) => b.toJson()).toList(),
       };
 
@@ -591,6 +652,7 @@ class PosPrintTemplateV2 {
         ),
         frameInsetMm: (json['frameInsetMm'] as num?)?.toDouble() ?? 2.5,
         frameMarginMm: (json['frameMarginMm'] as num?)?.toDouble() ?? 1.5,
+        sidePaddingMm: (json['sidePaddingMm'] as num?)?.toDouble().clamp(0.0, 15.0),
         blocks: ((json['blocks'] as List?) ?? [])
             .map((e) => PosPrintBlock.fromJson(e as Map<String, dynamic>))
             .toList(),

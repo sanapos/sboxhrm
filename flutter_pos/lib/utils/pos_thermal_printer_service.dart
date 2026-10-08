@@ -287,6 +287,7 @@ class PosThermalPrinterService {
     b._frameStyle = output.frameStyle;
     b._frameInsetMm = output.frameInsetMm;
     b._frameMarginMm = output.frameMarginMm;
+    b._sidePaddingMm = output.sidePaddingMm;
     for (final step in output.steps) {
       if (step is PosPrintCompiledQr) {
         if (b._useImageBatch) await b.flushImageBatch();
@@ -324,6 +325,18 @@ class PosThermalPrinterService {
       if (b._useImageBatch) {
         final img = compiledStepToImageLine(step);
         if (img != null) b.queueReceiptImageLine(img);
+        continue;
+      }
+
+      if (step is PosPrintCompiledImage) {
+        final dots = PosThermalBitmapEncoder.paperDots(settings.paperWidthMm);
+        final raster = await PosThermalBitmapEncoder.receiptToRaster(
+          [compiledStepToImageLine(step)!],
+          paperDots: dots,
+          sidePaddingMm: output.sidePaddingMm,
+          initPrinter: false,
+        );
+        if (raster != null) b.appendRaw(raster);
         continue;
       }
 
@@ -962,6 +975,9 @@ class _EscPosBuilder {
 
   double _frameMarginMm = 1.5;
 
+  /// Lề trái/phải nội dung của mẫu (mm) — null = mặc định.
+  double? _sidePaddingMm;
+
   double get _bodyFontSize => _settings.paperWidthMm <= 58 ? 20.0 : 22.0;
 
 
@@ -1108,6 +1124,7 @@ class _EscPosBuilder {
       frameStyle: _frameStyle,
       frameInsetMm: _frameInsetMm,
       frameMarginMm: _frameMarginMm,
+      sidePaddingMm: _sidePaddingMm,
     );
     _imageLines.clear();
     if (raster != null && PosThermalBitmapEncoder.rasterHasInk(raster)) {
@@ -1237,6 +1254,7 @@ class _EscPosBuilder {
         frameStyle: _frameStyle,
         frameInsetMm: _frameInsetMm,
         frameMarginMm: _frameMarginMm,
+        sidePaddingMm: _sidePaddingMm,
       );
       if (raster != null && PosThermalBitmapEncoder.rasterHasInk(raster)) {
         _add(raster);
