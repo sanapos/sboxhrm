@@ -43,13 +43,32 @@ Future<bool> showRegisterShiftSheet(
   required List<Map<String, dynamic>> templates,
   required List<Map<String, dynamic>> slots,
   String? currentShiftId,
+  bool hasShiftToday = false,
+  bool isDayOffToday = false,
 }) async {
-  final ok = await _sheet(context, _RegisterSheet(date: date, templates: templates, slots: slots, currentShiftId: currentShiftId));
+  final ok = await _sheet(
+      context,
+      _RegisterSheet(
+          date: date,
+          templates: templates,
+          slots: slots,
+          currentShiftId: currentShiftId,
+          hasShiftToday: hasShiftToday,
+          isDayOffToday: isDayOffToday));
   return ok == true;
 }
 
 class _RegisterSheet extends StatefulWidget {
-  const _RegisterSheet({required this.date, required this.templates, required this.slots, this.currentShiftId});
+  const _RegisterSheet({
+    required this.date,
+    required this.templates,
+    required this.slots,
+    this.currentShiftId,
+    this.hasShiftToday = false,
+    this.isDayOffToday = false,
+  });
+  final bool hasShiftToday;
+  final bool isDayOffToday;
   final DateTime date;
   final List<Map<String, dynamic>> templates;
   final List<Map<String, dynamic>> slots;
@@ -110,6 +129,29 @@ class _RegisterSheetState extends State<_RegisterSheet> {
               }),
             ),
           ),
+          if ((_dayOff && widget.hasShiftToday) || (!_dayOff && _shiftId != null && widget.isDayOffToday))
+            Padding(
+              padding: const EdgeInsets.fromLTRB(16, 12, 16, 0),
+              child: Container(
+                padding: const EdgeInsets.all(10),
+                decoration: BoxDecoration(
+                  color: SboxColors.warning.withValues(alpha: 0.10),
+                  borderRadius: BorderRadius.circular(10),
+                ),
+                child: Row(crossAxisAlignment: CrossAxisAlignment.start, children: [
+                  const Icon(Icons.info_outline_rounded, size: 18, color: SboxColors.warning),
+                  const SizedBox(width: 8),
+                  Expanded(
+                    child: Text(
+                      tr(_dayOff
+                          ? 'Bạn đang có ca trong ngày này — quản lý cần gỡ ca trước khi duyệt đăng ký nghỉ.'
+                          : 'Ngày này đang được đánh dấu nghỉ — quản lý cần gỡ ngày nghỉ trước khi duyệt đăng ký ca.'),
+                      style: const TextStyle(fontSize: 12.5, color: SboxColors.slate700),
+                    ),
+                  ),
+                ]),
+              ),
+            ),
           Padding(
             padding: const EdgeInsets.fromLTRB(16, 12, 16, 0),
             child: TextField(

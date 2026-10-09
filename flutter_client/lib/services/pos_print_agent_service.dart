@@ -24,6 +24,7 @@ import '../utils/pos_sell_store_settings.dart';
 import '../utils/pos_print_template_renderer.dart';
 import '../utils/pos_receipt_layout.dart';
 import '../utils/pos_printer_transport.dart';
+import '../utils/pos_printer_peripheral.dart';
 import '../utils/pos_store_printer_mapper.dart';
 import '../utils/pos_sunmi_native_print.dart';
 import '../utils/pos_thermal_printer_settings.dart';
@@ -49,7 +50,17 @@ class PosPrintAgentService {
   String? _agentId;
   String? _deviceId;
   bool _running = false;
+  /// Đang gửi 1 yêu cầu claim (claim luôn tuần tự → danh sách máy bận luôn đúng).
   bool _claimInFlight = false;
+  /// Job đang in (song song theo máy in, tối đa [_maxWorkers]).
+  int _workers = 0;
+  static const _maxWorkers = 3;
+  /// Máy in đang có job chạy trên Agent này — claim kế tiếp bỏ qua (server giao máy khác).
+  final _busyPrinterIds = <String>{};
+  /// «In xong» chưa báo được lên server (mất mạng) — gửi lại ở mỗi nhịp heartbeat.
+  final Map<String, DateTime> _pendingCompletes = {};
+  static const _pendingCompletesKey = 'pos_print_agent_pending_completes';
+  DateTime? _lastTimerClaimAt;
   List<PosStorePrinter> _printers = [];
   final _activeJobIds = <String>{};
   final _notifiedReceiveJobIds = <String>{};
@@ -119,6 +130,7 @@ class PosPrintAgentService {
       _deviceId = await PosPrintOrchestrator.stableDeviceId();
       _running = true;
       await _loadSettledJobIds();
+      await _loadPendingCompletes();
 
       await _waitForSignalR();
       await _signalR.joinPrintAgentGroup(storeId);
@@ -127,8 +139,19 @@ class PosPrintAgentService {
       // Heartbeat 12s ? server stale 90s; Oppo th?y Agent online ?n d?nh hon.
       _heartbeatTimer =
           Timer.periodic(const Duration(seconds: 12), (_) => _register());
-      _claimTimer =
-          Timer.periodic(const Duration(seconds: 2), (_) => _scheduleClaim());
+      // Lệnh mới đến qua SignalR (PrintJobNew) ⇒ claim ngay. Timer chỉ là dự phòng:
+      // hub đang nối → 10s/lần; mất hub → 2s/lần. Trước đây 2s cố định trên mọi
+      // máy Agent ⇒ server bị hỏi liên tục cả khi cửa hàng không in gì.
+      _claimTimer = Timer.periodic(const Duration(seconds: 2), (_) {
+        final now = DateTime.now();
+        final every = _signalR.isConnected
+            ? const Duration(seconds: 10)
+            : const Duration(seconds: 2);
+        final last = _lastTimerClaimAt;
+        if (last != null && now.difference(last) < every) return;
+        _lastTimerClaimAt = now;
+        _scheduleClaim();
+      });
       await _jobNewSub?.cancel();
       _jobNewSub = _signalR.onPrintJobNew.listen((_) => _scheduleClaim());
       await _forceStopSub?.cancel();
@@ -218,6 +241,7 @@ class PosPrintAgentService {
 
   Future<void> _register({bool refreshPrinters = false}) async {
     if (!_running || _storeId == null) return;
+    unawaited(_flushPendingCompletes());
     // Ch?ng b?o register (UI/heartbeat) ? t?i thi?u 8s gi?a 2 l?n tr? khi refresh m?y in.
     final now = DateTime.now();
     if (!refreshPrinters &&
@@ -383,15 +407,31 @@ class PosPrintAgentService {
     _claimDebounce = Timer(const Duration(milliseconds: 80), _tryClaim);
   }
 
+  /// PrintJobNew đến lúc đang claim dở / đủ worker → nhớ lại, claim tiếp khi rảnh
+  /// (không thì job mới phải đợi timer dự phòng 10s).
+  bool _claimRequested = false;
+
   Future<void> _tryClaim() async {
-    if (!_running || _claimsPaused || _claimInFlight || _agentId == null) return;
+    if (!_running || _claimsPaused || _agentId == null) return;
+    if (_claimInFlight || _workers >= _maxWorkers) {
+      _claimRequested = true;
+      return;
+    }
+    _claimRequested = false;
     _claimInFlight = true;
+    var workerStarted = false;
+    /// Server vừa giao job (kể cả job phải nhả) → có thể còn job khác: claim tiếp ngay.
+    var gotJob = false;
+    String? busyPrinterId;
     // Job đã nhận nhưng chưa chốt. Lỗi bất ngờ (mất mạng lúc markPrinting, lỗi
     // cổng in…) mà bỏ qua thì job nằm Claimed tới khi server hủy STUCK — phiếu
     // bếp mất mà thu ngân không hề biết.
     String? claimedJobId;
     try {
-      final res = await _api.claimPosPrintJob(_agentId!);
+      final res = await _api.claimPosPrintJob(
+        _agentId!,
+        excludePrinterIds: _busyPrinterIds.toList(),
+      );
       if (res['isSuccess'] != true) return;
       final raw = res['data'];
       if (raw == null) return;
@@ -400,18 +440,15 @@ class PosPrintAgentService {
 
       final jobId = data['jobId']?.toString() ?? data['JobId']?.toString() ?? '';
       if (jobId.isEmpty) return;
+      gotJob = true;
 
       // ??/dang x? l? job n?y ? KH?NG fail (tr?nh b?o ?kh?ng in du?c?
       // trong khi l?n claim d?u d? in ra gi?y, r?i reclaim/claim l?i).
       if (_settledJobIds.contains(jobId)) {
         // App ch?/Agent claim l?i job d? in: complete tr?n server d? kh?ng
         // reclaim ? Queued ? in l?i phi?u b?p khi in h?a don sau.
-        debugPrint('Print Agent: job $jobId d? settle ? complete l?i tr?n server');
-        try {
-          await _api.completePosPrintJob(jobId, _agentId!);
-        } catch (e) {
-          debugPrint('Print Agent: complete tr?ng job $jobId: $e');
-        }
+        debugPrint('Print Agent: job $jobId đã in xong — báo lại «in xong» lên server');
+        await _reportComplete(jobId);
         return;
       }
       if (_activeJobIds.contains(jobId)) {
@@ -461,6 +498,15 @@ class PosPrintAgentService {
 
       _activeJobIds.add(jobId);
       claimedJobId = jobId;
+      // Từ đây job thuộc 1 «worker»: nhả khóa claim để Agent nhận tiếp job của máy in khác
+      // trong lúc máy này đang in (trước đây Agent xử lý tuần tự mọi máy in — tem chậm chặn
+      // cả phiếu bếp).
+      busyPrinterId = printerId.toLowerCase();
+      _busyPrinterIds.add(busyPrinterId);
+      _workers++;
+      workerStarted = true;
+      _claimInFlight = false;
+      if (_running && !_claimsPaused && _workers < _maxWorkers) _scheduleClaim();
       if (_activeJobIds.length > 50) {
         _activeJobIds.remove(_activeJobIds.first);
       }
@@ -546,10 +592,88 @@ class PosPrintAgentService {
       debugPrint('Print Agent claim error: $e');
       await _failAbandonedJob(claimedJobId, e);
     } finally {
-      _claimInFlight = false;
-      // X? h?ng d?i ngay ? kh?ng ch? timer 3s.
-      if (_running && !_claimsPaused) _scheduleClaim();
+      if (workerStarted) {
+        _workers--;
+        if (busyPrinterId != null) _busyPrinterIds.remove(busyPrinterId);
+      } else {
+        _claimInFlight = false;
+      }
+      // Vừa có job → xả tiếp hàng đợi ngay. Hàng đợi trống / lỗi mạng → KHÔNG claim lại liền
+      // (trước đây hỏi server liên tục ~80ms/lần kể cả lúc không có gì in); lệnh mới đến qua
+      // SignalR PrintJobNew, dự phòng bằng timer (10s khi nối realtime, 2s khi mất).
+      if (_running && !_claimsPaused && (workerStarted || gotJob || _claimRequested)) {
+        _scheduleClaim();
+      }
     }
+  }
+
+  /// Báo «in xong» chắc chắn: thử 3 lần (0 / 1s / 3s). Mất mạng → cất lại, gửi ở heartbeat.
+  /// Trước đây gọi 1 lần không kiểm tra → server hủy STUCK → máy gửi báo lỗi → in lại 2 phiếu.
+  Future<void> _reportComplete(String jobId) async {
+    final agentId = _agentId;
+    if (agentId == null) return;
+    for (final wait in const [0, 1000, 3000]) {
+      if (wait > 0) await Future<void>.delayed(Duration(milliseconds: wait));
+      try {
+        final res = await _api.completePosPrintJob(jobId, agentId);
+        if (res['isSuccess'] == true) {
+          _pendingCompletes.remove(jobId);
+          unawaited(_persistPendingCompletes());
+          return;
+        }
+        final code = res['statusCode'];
+        // Server từ chối hẳn (404: job đã được «In lại» / hủy tay) → không thử nữa.
+        // 401/403/5xx/mất mạng → cất lại gửi sau.
+        if (code == 404 || code == 409) {
+          _pendingCompletes.remove(jobId);
+          unawaited(_persistPendingCompletes());
+          return;
+        }
+      } catch (_) {}
+    }
+    _pendingCompletes[jobId] = DateTime.now();
+    unawaited(_persistPendingCompletes());
+  }
+
+  /// Gửi lại các «in xong» còn treo (giữ tối đa 30 phút).
+  Future<void> _flushPendingCompletes() async {
+    if (_pendingCompletes.isEmpty || _agentId == null) return;
+    final now = DateTime.now();
+    _pendingCompletes.removeWhere(
+        (_, at) => now.difference(at) > const Duration(minutes: 30));
+    for (final id in _pendingCompletes.keys.toList()) {
+      try {
+        final res = await _api.completePosPrintJob(id, _agentId!);
+        final code = res['statusCode'];
+        if (res['isSuccess'] == true || code == 404 || code == 409) {
+          _pendingCompletes.remove(id);
+        }
+      } catch (_) {}
+    }
+    unawaited(_persistPendingCompletes());
+  }
+
+  Future<void> _persistPendingCompletes() async {
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      await prefs.setStringList(_pendingCompletesKey, [
+        for (final e in _pendingCompletes.entries)
+          '${e.key}|${e.value.millisecondsSinceEpoch}',
+      ]);
+    } catch (_) {}
+  }
+
+  Future<void> _loadPendingCompletes() async {
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      for (final raw in prefs.getStringList(_pendingCompletesKey) ?? const <String>[]) {
+        final i = raw.indexOf('|');
+        if (i <= 0) continue;
+        final ms = int.tryParse(raw.substring(i + 1));
+        if (ms == null) continue;
+        _pendingCompletes[raw.substring(0, i)] = DateTime.fromMillisecondsSinceEpoch(ms);
+      }
+    } catch (_) {}
   }
 
   /// Báo hỏng job đã nhận nhưng chưa in xong, để máy gửi thấy lỗi ngay thay vì
@@ -768,6 +892,13 @@ class PosPrintAgentService {
           copies: copies,
           vatIncludedInPrice: vatIncludedInPrice,
         );
+        // Máy gửi đã xét tiền mặt / in lại → chỉ mở két khi được yêu cầu.
+        if (ok && !warehouseSlip) {
+          await PosPrinterPeripheral.afterSunmiNativePrint(
+            settings,
+            openDrawer: map['openCashDrawer'] == true,
+          );
+        }
       } catch (e) {
         await _api.failPosPrintJob(
           jobId,
@@ -1144,7 +1275,7 @@ class PosPrintAgentService {
 
     if (ok) {
       _markJobSettled(jobId);
-      await _api.completePosPrintJob(jobId, _agentId!);
+      await _reportComplete(jobId);
       await _api.reportPosPrinterHealth(printer.id, status: 'Online');
       NotificationOverlayManager().showSuccess(
         title: 'In xong',

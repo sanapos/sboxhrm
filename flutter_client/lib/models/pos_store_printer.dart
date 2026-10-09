@@ -18,6 +18,8 @@ class PosStorePrinter {
     this.openCashDrawer = false,
     this.openDrawerCashOnly = true,
     this.beepOnPrint = false,
+    this.cashDrawerPin = 0,
+    this.kitchenCopyAll = false,
     this.isDefault = false,
     this.requiresAgent = false,
     this.isDeviceLocal = false,
@@ -48,6 +50,11 @@ class PosStorePrinter {
   final bool openCashDrawer;
   final bool openDrawerCashOnly;
   final bool beepOnPrint;
+  /// Chân xung mở két ESC p: 0 = chân 2 (phổ biến), 1 = chân 5.
+  final int cashDrawerPin;
+
+  /// Phiếu tổng: nhận bản sao mọi món báo bếp (ngoài máy đã gán món).
+  final bool kitchenCopyAll;
   final bool isDefault;
   final bool requiresAgent;
   /// Máy in nội bộ trên thiết bị POS (không gán cho Print Agent).
@@ -140,6 +147,9 @@ class PosStorePrinter {
         openDrawerCashOnly: json['openDrawerCashOnly'] != false &&
             json['OpenDrawerCashOnly'] != false,
         beepOnPrint: _jsonBool(json['beepOnPrint'] ?? json['BeepOnPrint']),
+        cashDrawerPin: ((json['cashDrawerPin'] ?? json['CashDrawerPin']) as num?)?.toInt() == 1 ? 1 : 0,
+        kitchenCopyAll:
+            _jsonBool(json['kitchenCopyAll'] ?? json['KitchenCopyAll']),
         isDefault: _jsonBool(json['isDefault'] ?? json['IsDefault']),
         requiresAgent:
             _jsonBool(json['requiresAgent'] ?? json['RequiresAgent']),
@@ -187,6 +197,8 @@ class PosStorePrinter {
         'openCashDrawer': openCashDrawer,
         'openDrawerCashOnly': openDrawerCashOnly,
         'beepOnPrint': beepOnPrint,
+        'cashDrawerPin': cashDrawerPin,
+        'kitchenCopyAll': kitchenCopyAll,
         'isDefault': isDefault,
         'sortOrder': sortOrder,
         'isActive': isActive,

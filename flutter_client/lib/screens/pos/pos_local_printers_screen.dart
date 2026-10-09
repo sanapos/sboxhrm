@@ -7,6 +7,7 @@ import 'package:flutter/material.dart';
 
 import '../../services/api_service.dart';
 import '../../services/pos_product_printer_service.dart';
+import '../../utils/pos_printer_transport.dart';
 import '../../utils/pos_barcode_print.dart';
 import '../../utils/pos_label_printer_service.dart';
 import '../../utils/pos_label_printer_settings.dart';
@@ -539,6 +540,7 @@ class _LocalPrinterEditorSheetState extends State<_LocalPrinterEditorSheet> {
   late bool _openCashDrawer;
   late bool _openDrawerCashOnly;
   late bool _beepOnPrint;
+  late int _cashDrawerPin;
   late bool _cutPerItem;
   late PosLabelPrinterProtocol _labelProtocol;
   late String _labelTemplateId;
@@ -559,6 +561,7 @@ class _LocalPrinterEditorSheetState extends State<_LocalPrinterEditorSheet> {
   String? _usbStableId;
   String? _usbDisplayLabel;
   bool _isSunmi = false;
+  bool _isImin = false;
   bool _testing = false;
   List<Map<String, String>> _btDevices = [];
   List<PosUsbDevice> _usbDevices = [];
@@ -600,6 +603,7 @@ class _LocalPrinterEditorSheetState extends State<_LocalPrinterEditorSheet> {
     _openCashDrawer = i?.openCashDrawer ?? false;
     _openDrawerCashOnly = i?.openDrawerCashOnly ?? true;
     _beepOnPrint = i?.beepOnPrint ?? false;
+    _cashDrawerPin = i?.cashDrawerPin ?? 0;
     _cutPerItem = i?.cutPerItem ?? false;
     _labelProtocol = i?.labelProtocol ?? PosLabelPrinterProtocol.tspl;
     _labelTemplateId = i?.labelTemplateId ?? 'roll_1_50x30';
@@ -624,6 +628,9 @@ class _LocalPrinterEditorSheetState extends State<_LocalPrinterEditorSheet> {
     }
     PosThermalPrinterService.isSunmiDevice().then((v) {
       if (mounted) setState(() => _isSunmi = v);
+    });
+    PosPrinterTransport.isIminDevice().then((v) {
+      if (mounted) setState(() => _isImin = v);
     });
     if (_type == PosThermalConnectionType.usb) {
       unawaited(_refreshUsbDevices(selectSaved: true));
@@ -1011,6 +1018,7 @@ class _LocalPrinterEditorSheetState extends State<_LocalPrinterEditorSheet> {
       openCashDrawer: !_isLabel && _openCashDrawer,
       openDrawerCashOnly: _openDrawerCashOnly,
       beepOnPrint: !_isLabel && _beepOnPrint,
+      cashDrawerPin: _cashDrawerPin,
       labelProtocol: _labelProtocol,
       labelTemplateId: _labelTemplateId,
       labelGapMm: _labelGapMm,
@@ -1202,6 +1210,16 @@ class _LocalPrinterEditorSheetState extends State<_LocalPrinterEditorSheet> {
                 }
               },
             ),
+            if (_isImin) ...[
+              const SizedBox(height: 8),
+              Text(
+                tr('Máy iMin: máy in trong nối qua USB nội bộ — chọn kết nối USB rồi chọn máy in trong danh sách. Dòng M2-202/203/Pro (SPI) chưa hỗ trợ.'),
+                style: TextStyle(
+                  fontSize: 12,
+                  color: Theme.of(context).colorScheme.onSurfaceVariant,
+                ),
+              ),
+            ],
             if (_type == PosThermalConnectionType.lan) ...[
               const SizedBox(height: 10),
               OutlinedButton.icon(
@@ -1565,6 +1583,20 @@ class _LocalPrinterEditorSheetState extends State<_LocalPrinterEditorSheet> {
                   title: Text(tr('Chỉ mở két với tiền mặt')),
                   value: _openDrawerCashOnly,
                   onChanged: (v) => setState(() => _openDrawerCashOnly = v),
+                ),
+              if (_openCashDrawer)
+                ListTile(
+                  contentPadding: EdgeInsets.zero,
+                  title: Text(tr('Chân mở két')),
+                  subtitle: Text(tr('Két không bật thì thử đổi chân')),
+                  trailing: DropdownButton<int>(
+                    value: _cashDrawerPin,
+                    items: [
+                      DropdownMenuItem(value: 0, child: Text(tr('Chân 2 (phổ biến)'))),
+                      DropdownMenuItem(value: 1, child: Text(tr('Chân 5'))),
+                    ],
+                    onChanged: (v) => setState(() => _cashDrawerPin = v ?? 0),
+                  ),
                 ),
               SwitchListTile(
                 contentPadding: EdgeInsets.zero,

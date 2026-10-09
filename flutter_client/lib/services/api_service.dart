@@ -4383,6 +4383,75 @@ class ApiService {
     }
   }
 
+  /// Các đợt thông báo đã gửi cho nhân viên (kèm số người đã đọc).
+  Future<Map<String, dynamic>> getSentNotifications({int page = 1}) async {
+    try {
+      final r = await http
+          .get(Uri.parse('$baseUrl/api/notification-center/sent?page=$page&pageSize=20'), headers: _headers)
+          .timeout(const Duration(seconds: 20));
+      return _handleResponse(r);
+    } catch (e) {
+      return _connectionFailure(e);
+    }
+  }
+
+  Future<Map<String, dynamic>> getSentNotificationDetail(String batchId) async {
+    try {
+      final r = await http
+          .get(Uri.parse('$baseUrl/api/notification-center/sent/$batchId'), headers: _headers)
+          .timeout(const Duration(seconds: 20));
+      return _handleResponse(r);
+    } catch (e) {
+      return _connectionFailure(e);
+    }
+  }
+
+  /// Thu hồi: xóa thông báo của những người chưa đọc trong đợt này.
+  Future<Map<String, dynamic>> recallSentNotification(String batchId) async {
+    try {
+      final r = await http
+          .post(Uri.parse('$baseUrl/api/notification-center/sent/$batchId/recall'), headers: _headers, body: '{}')
+          .timeout(const Duration(seconds: 30));
+      return _handleResponse(r);
+    } catch (e) {
+      return _connectionFailure(e);
+    }
+  }
+
+  Future<Map<String, dynamic>> getScheduledNotifications() async {
+    try {
+      final r = await http
+          .get(Uri.parse('$baseUrl/api/notification-center/scheduled'), headers: _headers)
+          .timeout(const Duration(seconds: 20));
+      return _handleResponse(r);
+    } catch (e) {
+      return _connectionFailure(e);
+    }
+  }
+
+  Future<Map<String, dynamic>> cancelScheduledNotification(String id) async {
+    try {
+      final r = await http
+          .delete(Uri.parse('$baseUrl/api/notification-center/scheduled/$id'), headers: _headers)
+          .timeout(const Duration(seconds: 20));
+      return _handleResponse(r);
+    } catch (e) {
+      return _connectionFailure(e);
+    }
+  }
+
+  /// Nhắc lại những người chưa đọc đợt thông báo này.
+  Future<Map<String, dynamic>> remindUnreadNotification(String batchId) async {
+    try {
+      final r = await http
+          .post(Uri.parse('$baseUrl/api/notification-center/sent/$batchId/remind'), headers: _headers, body: '{}')
+          .timeout(const Duration(seconds: 30));
+      return _handleResponse(r);
+    } catch (e) {
+      return _connectionFailure(e);
+    }
+  }
+
   Future<Map<String, dynamic>> markNotificationAsRead(String id) async {
     try {
       final response = await http
@@ -17236,11 +17305,15 @@ class ApiService {
     bool categoryIncludeChildren = true,
     int page = 1,
     int pageSize = 48,
+    /// Chỉ lấy món đổi sau mốc này (giờ server) — kèm removedIds + sellableTotal.
+    DateTime? updatedSince,
   }) async {
     try {
       final params = <String, String>{
         'page': page.clamp(1, 9999).toString(),
-        'pageSize': pageSize.clamp(1, 100).toString(),
+        'pageSize': pageSize.clamp(1, updatedSince != null ? 500 : 100).toString(),
+        if (updatedSince != null)
+          'updatedSince': updatedSince.toUtc().toIso8601String(),
       };
       if (categoryIncludeChildren) {
         params['categoryIncludeChildren'] = 'true';
@@ -19780,6 +19853,181 @@ class ApiService {
     }
   }
 
+  Future<Map<String, dynamic>> getPosSerialCounts() async {
+    try {
+      final response = await http
+          .get(Uri.parse('$baseUrl/api/pos/serial-counts?pageSize=50'), headers: _headers)
+          .timeout(const Duration(seconds: 60));
+      return _handleResponse(response);
+    } catch (e) {
+      return _connectionFailure(e);
+    }
+  }
+
+  Future<Map<String, dynamic>> getPosSerialCount(String id) async {
+    try {
+      final response = await http
+          .get(Uri.parse('$baseUrl/api/pos/serial-counts/$id'), headers: _headers)
+          .timeout(const Duration(seconds: 60));
+      return _handleResponse(response);
+    } catch (e) {
+      return _connectionFailure(e);
+    }
+  }
+
+  Future<Map<String, dynamic>> createPosSerialCount(String name, String source) async {
+    try {
+      final response = await http
+          .post(Uri.parse('$baseUrl/api/pos/serial-counts'), headers: _headers, body: jsonEncode({'name': name, 'source': source}))
+          .timeout(const Duration(seconds: 60));
+      return _handleResponse(response);
+    } catch (e) {
+      return _connectionFailure(e);
+    }
+  }
+
+  Future<Map<String, dynamic>> scanPosSerialCount(String id, List<String> codes, String deviceName) async {
+    try {
+      final response = await http
+          .post(Uri.parse('$baseUrl/api/pos/serial-counts/$id/scan'), headers: _headers, body: jsonEncode({'codes': codes, 'deviceName': deviceName}))
+          .timeout(const Duration(seconds: 60));
+      return _handleResponse(response);
+    } catch (e) {
+      return _connectionFailure(e);
+    }
+  }
+
+  Future<Map<String, dynamic>> completePosSerialCount(String id, bool markMissing, bool adjustStock, String? note) async {
+    try {
+      final response = await http
+          .post(Uri.parse('$baseUrl/api/pos/serial-counts/$id/complete'), headers: _headers, body: jsonEncode({'markMissing': markMissing, 'adjustStock': adjustStock, 'note': note}))
+          .timeout(const Duration(seconds: 60));
+      return _handleResponse(response);
+    } catch (e) {
+      return _connectionFailure(e);
+    }
+  }
+
+  Future<Map<String, dynamic>> cancelPosSerialCount(String id) async {
+    try {
+      final response = await http
+          .post(Uri.parse('$baseUrl/api/pos/serial-counts/$id/cancel'), headers: _headers, body: jsonEncode({}))
+          .timeout(const Duration(seconds: 60));
+      return _handleResponse(response);
+    } catch (e) {
+      return _connectionFailure(e);
+    }
+  }
+
+  Future<Map<String, dynamic>> bindPosSerialTags(List<Map<String, String>> items) async {
+    try {
+      final response = await http
+          .post(Uri.parse('$baseUrl/api/pos/serial-counts/bind-tags'), headers: _headers, body: jsonEncode({'items': items}))
+          .timeout(const Duration(seconds: 60));
+      return _handleResponse(response);
+    } catch (e) {
+      return _connectionFailure(e);
+    }
+  }
+
+  Future<Map<String, dynamic>> getPosStockReconcile() async {
+    try {
+      final response = await http
+          .get(Uri.parse('$baseUrl/api/pos/stock/reconcile'), headers: _headers)
+          .timeout(const Duration(seconds: 90));
+      return _handleResponse(response);
+    } catch (e) {
+      return _connectionFailure(e);
+    }
+  }
+
+  Future<Map<String, dynamic>> fixPosReservedStock() async {
+    try {
+      final response = await http
+          .post(Uri.parse('$baseUrl/api/pos/stock/reconcile/fix-reserved'), headers: _headers, body: '{}')
+          .timeout(const Duration(seconds: 90));
+      return _handleResponse(response);
+    } catch (e) {
+      return _connectionFailure(e);
+    }
+  }
+
+  /// Seri đang trong kho của một mặt hàng (gợi ý khi bán / trả NCC).
+  Future<Map<String, dynamic>> getPosSerialsAvailable(String productId, {String? q}) async {
+    try {
+      final uri = Uri.parse('$baseUrl/api/pos/serials/available').replace(queryParameters: {
+        'productId': productId,
+        if (q != null && q.trim().isNotEmpty) 'q': q.trim(),
+      });
+      final response = await http.get(uri, headers: _headers).timeout(const Duration(seconds: 30));
+      return _handleResponse(response);
+    } catch (e) {
+      return _connectionFailure(e);
+    }
+  }
+
+  Future<Map<String, dynamic>> getPosWarrantyClaims(String registrationId) async {
+    try {
+      final response = await http
+          .get(Uri.parse('$baseUrl/api/pos/warranty/$registrationId/claims'), headers: _headers)
+          .timeout(const Duration(seconds: 30));
+      return _handleResponse(response);
+    } catch (e) {
+      return _connectionFailure(e);
+    }
+  }
+
+  Future<Map<String, dynamic>> getPosWarrantyOpenClaims() async {
+    try {
+      final response = await http
+          .get(Uri.parse('$baseUrl/api/pos/warranty/claims/open'), headers: _headers)
+          .timeout(const Duration(seconds: 30));
+      return _handleResponse(response);
+    } catch (e) {
+      return _connectionFailure(e);
+    }
+  }
+
+  Future<Map<String, dynamic>> createPosWarrantyClaim(
+      String registrationId, String claimType, String description) async {
+    try {
+      final response = await http
+          .post(Uri.parse('$baseUrl/api/pos/warranty/$registrationId/claims'),
+              headers: _headers, body: jsonEncode({'claimType': claimType, 'description': description}))
+          .timeout(const Duration(seconds: 30));
+      return _handleResponse(response);
+    } catch (e) {
+      return _connectionFailure(e);
+    }
+  }
+
+  Future<Map<String, dynamic>> updatePosWarrantyClaim(
+      String claimId, String status, String? resolution) async {
+    try {
+      final response = await http
+          .post(Uri.parse('$baseUrl/api/pos/warranty/claims/$claimId'),
+              headers: _headers, body: jsonEncode({'status': status, 'resolution': resolution}))
+          .timeout(const Duration(seconds: 30));
+      return _handleResponse(response);
+    } catch (e) {
+      return _connectionFailure(e);
+    }
+  }
+
+  Future<Map<String, dynamic>> replacePosWarrantySerial(
+      String registrationId, String newSerial, String? newImei, String description) async {
+    try {
+      final response = await http
+          .post(Uri.parse('$baseUrl/api/pos/warranty/$registrationId/replace'),
+              headers: _headers,
+              body: jsonEncode({'newSerial': newSerial, 'newImei': newImei, 'description': description}))
+          .timeout(const Duration(seconds: 30));
+      return _handleResponse(response);
+    } catch (e) {
+      return _connectionFailure(e);
+    }
+  }
+
   Future<Map<String, dynamic>> getPosWarrantyExpiring({
     int days = 30,
     bool includeExpired = false,
@@ -20272,6 +20520,7 @@ class ApiService {
     String kind, {
     String? note,
     bool includeImages = false,
+    Map<String, List<String>>? serials,
   }) async {
     try {
       final response = await http
@@ -20282,6 +20531,7 @@ class ApiService {
               'kind': kind,
               'note': note,
               'includeImages': includeImages,
+              if (serials != null && serials.isNotEmpty) 'serials': serials,
             }),
           )
           .timeout(const Duration(seconds: 30));
@@ -20316,10 +20566,55 @@ class ApiService {
     }
   }
 
+  /// Dòng báo giá cần chọn seri trước khi xuất kho.
+  Future<Map<String, dynamic>> getPosQuoteStockIssueSerialNeeds(String id) async {
+    // Dòng cần chọn seri khi lập bàn giao / nghiệm thu.
+    try {
+      final response = await http
+          .get(Uri.parse('$baseUrl/api/pos/quotes/$id/handover/serial-needs'), headers: _headers)
+          .timeout(const Duration(seconds: 30));
+      return _handleResponse(response);
+    } catch (e) {
+      return _connectionFailure(e);
+    }
+  }
+
+  Future<Map<String, dynamic>> getPosSerialLedger({
+    String? search,
+    String? status,
+    int page = 1,
+    int pageSize = 50,
+  }) async {
+    try {
+      final uri = Uri.parse('$baseUrl/api/pos/serials').replace(queryParameters: {
+        if (search != null && search.trim().isNotEmpty) 'search': search.trim(),
+        if (status != null && status.isNotEmpty) 'status': status,
+        'page': '$page',
+        'pageSize': '$pageSize',
+      });
+      final response = await http.get(uri, headers: _headers).timeout(const Duration(seconds: 30));
+      return _handleResponse(response);
+    } catch (e) {
+      return _connectionFailure(e);
+    }
+  }
+
+  Future<Map<String, dynamic>> getPosSerialDetail(String id) async {
+    try {
+      final response = await http
+          .get(Uri.parse('$baseUrl/api/pos/serials/$id'), headers: _headers)
+          .timeout(const Duration(seconds: 30));
+      return _handleResponse(response);
+    } catch (e) {
+      return _connectionFailure(e);
+    }
+  }
+
   Future<Map<String, dynamic>> createPosQuoteStockIssue(
     String id, {
     String? note,
     bool includeImages = false,
+    Map<String, List<String>>? serials,
   }) async {
     try {
       final response = await http
@@ -20330,6 +20625,7 @@ class ApiService {
               'kind': 'StockIssue',
               'note': note,
               'includeImages': includeImages,
+              if (serials != null && serials.isNotEmpty) 'serials': serials,
             }),
           )
           .timeout(const Duration(seconds: 30));
@@ -21794,11 +22090,18 @@ class ApiService {
     }
   }
 
-  Future<Map<String, dynamic>> claimPosPrintJob(String agentId) async {
+  Future<Map<String, dynamic>> claimPosPrintJob(
+    String agentId, {
+    /// Máy in đang bận trên chính Agent — server giao job của máy in khác (in song song).
+    Iterable<String> excludePrinterIds = const [],
+  }) async {
     try {
+      final ex = excludePrinterIds.where((e) => e.trim().isNotEmpty).join(',');
+      final uri = Uri.parse('$baseUrl/api/pos/print-jobs/agents/$agentId/claim')
+          .replace(queryParameters: ex.isEmpty ? null : {'excludePrinterIds': ex});
       final response = await http
           .post(
-            Uri.parse('$baseUrl/api/pos/print-jobs/agents/$agentId/claim'),
+            uri,
             headers: _headers,
           )
           .timeout(const Duration(seconds: 25));
@@ -23209,16 +23512,46 @@ class ApiService {
     }
   }
 
+  /// Gán chi nhánh cho bàn QR (ids trống = mọi bàn). branchId trống = trụ sở.
+  Future<Map<String, dynamic>> setPosQrTablesBranch({String? branchId, List<String>? ids}) async {
+    try {
+      final response = await http
+          .post(
+            Uri.parse('$baseUrl/api/pos/qr-order/tables/branch'),
+            headers: _headers,
+            body: jsonEncode({
+              'branchId': branchId ?? '00000000-0000-0000-0000-000000000000',
+              if (ids != null && ids.isNotEmpty) 'ids': ids,
+            }),
+          )
+          .timeout(const Duration(seconds: 20));
+      return _handleResponse(response);
+    } catch (e) {
+      return _connectionFailure(e);
+    }
+  }
+
   Future<Map<String, dynamic>> setPosQrOrderOnline({
     required bool enabled,
     bool rotate = false,
+    String? branchId,
+    double? minOrder,
+    double? shipFee,
+    double? freeShipFrom,
   }) async {
     try {
       final response = await http
           .post(
             Uri.parse('$baseUrl/api/pos/qr-order/online'),
             headers: _headers,
-            body: jsonEncode({'enabled': enabled, 'rotate': rotate}),
+            body: jsonEncode({
+              'enabled': enabled,
+              'rotate': rotate,
+              if (branchId != null) 'branchId': branchId.isEmpty ? '00000000-0000-0000-0000-000000000000' : branchId,
+              if (minOrder != null) 'minOrder': minOrder,
+              if (shipFee != null) 'shipFee': shipFee,
+              if (freeShipFrom != null) 'freeShipFrom': freeShipFrom,
+            }),
           )
           .timeout(const Duration(seconds: 20));
       return _handleResponse(response);

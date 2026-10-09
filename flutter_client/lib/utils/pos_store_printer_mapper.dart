@@ -57,6 +57,7 @@ PosThermalPrinterSettings toThermalSettings(PosStorePrinter printer) {
     openCashDrawer: printer.openCashDrawer,
     openDrawerCashOnly: printer.openDrawerCashOnly,
     beepOnPrint: printer.beepOnPrint,
+    cashDrawerPin: printer.cashDrawerPin,
   );
 }
 
@@ -130,6 +131,7 @@ Map<String, dynamic> thermalToPrinterSaveJson(
     'openCashDrawer': s.openCashDrawer,
     'openDrawerCashOnly': s.openDrawerCashOnly,
     'beepOnPrint': s.beepOnPrint,
+    'cashDrawerPin': s.cashDrawerPin,
     'isDefault': isDefault,
     'sortOrder': sortOrder,
     'isActive': true,

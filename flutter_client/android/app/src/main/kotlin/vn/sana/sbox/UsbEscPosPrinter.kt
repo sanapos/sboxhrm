@@ -19,8 +19,8 @@ import io.flutter.plugin.common.MethodCall
 import io.flutter.plugin.common.MethodChannel
 
 /**
- * USB ESC/POS: liá»‡t kÃª cá»•ng, xin quyá»n, ghi bulk OUT.
- * Má»—i mÃ¡y (vid:pid:serial) má»Ÿ/Ä‘Ã³ng riÃªng â€” khÃ´ng dÃ¹ng 1 káº¿t ná»‘i global Ä‘á»ƒ trÃ¡nh Ä‘Ã¡ nhau.
+ * USB ESC/POS: liệt kê cổng, xin quyền, ghi bulk OUT.
+ * Mỗi máy (vid:pid:serial) mở/đóng riêng — không dùng 1 kết nối global để tránh đá nhau.
  */
 object UsbEscPosPrinter {
     const val CHANNEL = "com.sboxhrm/usb_printer"
@@ -114,7 +114,7 @@ object UsbEscPosPrinter {
             "requestPermission" -> {
                 val device = findDevice(activity, call)
                 if (device == null) {
-                    result.error("USB_NOT_FOUND", "KhÃ´ng tÃ¬m tháº¥y thiáº¿t bá»‹ USB", null)
+                    result.error("USB_NOT_FOUND", "Không tìm thấy thiết bị USB", null)
                     return
                 }
                 requestPermission(activity, device) { granted ->
@@ -124,7 +124,7 @@ object UsbEscPosPrinter {
             "writeBytes" -> {
                 val bytes = call.argument<ByteArray>("bytes")
                 if (bytes == null || bytes.isEmpty()) {
-                    result.error("USB_ARGS", "bytes rá»—ng", null)
+                    result.error("USB_ARGS", "bytes rỗng", null)
                     return
                 }
                 Thread {
@@ -242,7 +242,9 @@ object UsbEscPosPrinter {
         return when (vendorId) {
             0x0FE6, 0x2D84 -> named("HPRT")
             0x28E9 -> named("Zywell")
-            0x0416, 0x0483, 0x1FC9 -> named("Xprinter")
+            // 0x0416 (Winbond), 0x0483 (STMicro), 0x1FC9 (NXP) là chip USB dùng chung của
+            // nhiều hãng (Xprinter, Rongta, Gprinter…) — không đoán hãng, chỉ ghi tên máy.
+            0x0416, 0x0483, 0x1FC9 -> if (p.isNotBlank()) p else "ESC/POS USB"
             0x04B8 -> named("Epson")
             0x0525, 0x2730 -> named("Sunmi")
             else -> when {
@@ -274,7 +276,7 @@ object UsbEscPosPrinter {
         val serial = call.argument<String>("serialNumber")?.trim()
         val stableId = call.argument<String>("stableId")?.trim()
 
-        // 1) deviceName = Ä‘á»‹nh danh cá»•ng duy nháº¥t khi nhiá»u mÃ¡y USB cÃ¹ng model.
+        // 1) deviceName = định danh cổng duy nhất khi nhiều máy USB cùng model.
         if (!deviceName.isNullOrEmpty()) {
             devices.firstOrNull { it.deviceName == deviceName }?.let { return it }
         }
@@ -289,7 +291,7 @@ object UsbEscPosPrinter {
             }
         }
 
-        // 2) stableId chá»‰ dÃ¹ng khi cÃ³ serial â€” khÃ´ng gÃ¡n mÃ¡y cÃ²n láº¡i cÃ¹ng VID/PID.
+        // 2) stableId chỉ dùng khi có serial — không gán máy còn lại cùng VID/PID.
         if (!stableId.isNullOrEmpty()) {
             val parts = stableId.split(":")
             if (parts.size >= 2) {
@@ -305,7 +307,7 @@ object UsbEscPosPrinter {
             }
         }
 
-        // 3) vendorId+productId chá»‰ khi cÃ³ serial.
+        // 3) vendorId+productId chỉ khi có serial.
         if (vendorId != null && productId != null && !serial.isNullOrEmpty()) {
             return devices.singleOrNull {
                 it.vendorId == vendorId &&
@@ -362,7 +364,7 @@ object UsbEscPosPrinter {
         val device = findDevice(ctx, call) ?: return false
         val usb = usbManager(ctx)
         if (!usb.hasPermission(device)) {
-            // KhÃ´ng block UI thread â€” caller nÃªn requestPermission trÆ°á»›c.
+            // Không block UI thread — caller nên requestPermission trước.
             var granted = false
             val latch = java.util.concurrent.CountDownLatch(1)
             mainHandler.post {
@@ -400,8 +402,8 @@ object UsbEscPosPrinter {
     }
 
     /**
-     * Online = Ä‘Ãºng thiáº¿t bá»‹ cÃ²n trong bus + open/claim Ä‘Æ°á»£c.
-     * KhÃ´ng ghi DLE/ESC (trÃ¡nh nhiá»…u khi nhiá»u mÃ¡y USB; nhiá»u mÃ¡y táº¯t nguá»“n váº«n nháº­n lá»‡nh).
+     * Online = đúng thiết bị còn trong bus + open/claim được.
+     * Không ghi DLE/ESC (tránh nhiễu khi nhiều máy USB; nhiều máy tắt nguồn vẫn nhận lệnh).
      */
     private fun probeDevice(ctx: Context, call: MethodCall): Boolean {
         val device = findDevice(ctx, call) ?: return false
@@ -432,7 +434,7 @@ object UsbEscPosPrinter {
     }
 
     private fun findBulkOut(device: UsbDevice): Pair<UsbInterface, UsbEndpoint>? {
-        // Æ¯u tiÃªn interface printer (class 7), rá»“i bulk OUT báº¥t ká»³.
+        // Ưu tiên interface printer (class 7), rồi bulk OUT bất kỳ.
         val printerIfaces = ArrayList<UsbInterface>()
         val otherIfaces = ArrayList<UsbInterface>()
         for (i in 0 until device.interfaceCount) {

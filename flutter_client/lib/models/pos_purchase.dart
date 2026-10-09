@@ -109,6 +109,8 @@ class PosPurchaseLine {
   final DateTime? expiryDate;
   final bool trackExpiry;
   final bool allowDecimalQty;
+  final bool requiresSerial;
+  final List<String> serialNumbers;
 
   PosPurchaseLine({
     this.id,
@@ -131,6 +133,8 @@ class PosPurchaseLine {
     this.expiryDate,
     this.trackExpiry = false,
     this.allowDecimalQty = false,
+    this.requiresSerial = false,
+    this.serialNumbers = const [],
   });
 
   factory PosPurchaseLine.fromJson(Map<String, dynamic> json) {
@@ -157,6 +161,10 @@ class PosPurchaseLine {
       trackExpiry: json['trackExpiry'] == true || json['TrackExpiry'] == true,
       allowDecimalQty:
           json['allowDecimalQty'] == true || json['AllowDecimalQty'] == true,
+      requiresSerial: json['requiresSerial'] == true || json['RequiresSerial'] == true,
+      serialNumbers: [
+        for (final s in (json['serialNumbers'] ?? json['SerialNumbers'] ?? const []) as List) s.toString(),
+      ],
     );
   }
 
@@ -172,6 +180,7 @@ class PosPurchaseLine {
         if (unitName != null) 'unitName': unitName,
         if (lineNote != null) 'lineNote': lineNote,
         if (lotNo != null && lotNo!.isNotEmpty) 'lotNo': lotNo,
+        if (serialNumbers.isNotEmpty) 'serialNumbers': serialNumbers,
         if (manufactureDate != null) 'manufactureDate': manufactureDate!.toUtc().toIso8601String(),
         if (expiryDate != null) 'expiryDate': expiryDate!.toUtc().toIso8601String(),
       };

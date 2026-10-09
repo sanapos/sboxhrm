@@ -28,6 +28,15 @@ class _Item {
   final DateTime? createdAt;
   final DateTime? sortDate;
   String get key => '$kind:$id';
+
+  /// Đăng ký / đổi ca của ngày đã qua: không còn ý nghĩa xếp lịch (đổi ca quá hạn không thể duyệt).
+  bool get overdue {
+    if (kind != 'reg' && kind != 'swap') return false;
+    final d = sortDate;
+    if (d == null) return false;
+    final now = DateTime.now();
+    return d.isBefore(DateTime(now.year, now.month, now.day));
+  }
 }
 
 /// Hộp «Cần duyệt» chung: đăng ký ca, đơn nghỉ, đổi ca (đồng nghiệp đã đồng ý), ca theo giờ.
@@ -70,6 +79,8 @@ class _ApprovalInboxViewState extends State<ApprovalInboxView> {
         if (x is Map) Map<String, dynamic>.from(x),
     ];
   }
+
+  DateTime? _minDate(DateTime? a, DateTime? b) => a == null ? b : (b == null ? a : (a.isBefore(b) ? a : b));
 
   DateTime? _dt(dynamic v) => v == null ? null : DateTime.tryParse(v.toString());
   String _d(dynamic v) {
@@ -128,7 +139,7 @@ class _ApprovalInboxViewState extends State<ApprovalInboxView> {
         when: '${s['requesterShiftName']} ${_d(s['requesterDate'])} ⇄ ${s['targetShiftName']} ${_d(s['targetDate'])}',
         detail: (s['reason']?.toString() ?? '').isEmpty ? 'Đồng nghiệp đã đồng ý' : 'Lý do: ${s['reason']} · đồng nghiệp đã đồng ý',
         createdAt: _dt(s['createdAt']),
-        sortDate: _dt(s['requesterDate']),
+        sortDate: _minDate(_dt(s['requesterDate']), _dt(s['targetDate'])),
       ));
     }
     for (final s in _list(res[3])) {
@@ -300,6 +311,10 @@ class _ApprovalInboxViewState extends State<ApprovalInboxView> {
               child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
                 Row(children: [
                   ShiftUi.pill(label, color, icon: icon),
+                  if (i.overdue) ...[
+                    const SizedBox(width: 4),
+                    ShiftUi.pill('Quá hạn', SboxColors.danger, icon: Icons.history_toggle_off_rounded),
+                  ],
                   const SizedBox(width: 6),
                   Expanded(
                     child: Text(i.name, maxLines: 1, overflow: TextOverflow.ellipsis,
@@ -318,7 +333,7 @@ class _ApprovalInboxViewState extends State<ApprovalInboxView> {
             Column(children: [
               IconButton.filledTonal(
                 tooltip: tr('Duyệt'),
-                onPressed: _busy ? null : () => _process([i], true),
+                onPressed: _busy || (i.kind == 'swap' && i.overdue) ? null : () => _process([i], true),
                 icon: const Icon(Icons.check_rounded, color: SboxColors.success),
               ),
               IconButton(

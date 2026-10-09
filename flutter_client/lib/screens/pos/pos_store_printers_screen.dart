@@ -207,13 +207,6 @@ class _PosStorePrintersScreenState extends State<PosStorePrintersScreen> {
   bool _agentCoversPrinter(String printerId) =>
       _onlineAgents.any((a) => a.coversPrinter(printerId));
 
-  String? _agentNameForPrinter(String printerId) {
-    for (final a in _onlineAgents) {
-      if (a.coversPrinter(printerId)) return a.displayTitle;
-    }
-    return null;
-  }
-
   @override
   void dispose() {
     _agentPoll?.cancel();
@@ -1056,6 +1049,7 @@ class _PosStorePrintersScreenState extends State<PosStorePrintersScreen> {
       'openCashDrawer': !local.isLabel && local.openCashDrawer,
       'openDrawerCashOnly': local.openDrawerCashOnly,
       'beepOnPrint': !local.isLabel && local.beepOnPrint,
+      'cashDrawerPin': local.cashDrawerPin,
       'isDefault': false,
       'sortOrder': 0,
       'isActive': true,
@@ -1245,61 +1239,14 @@ class _PosStorePrintersScreenState extends State<PosStorePrintersScreen> {
                   style: const TextStyle(fontSize: 11, color: Colors.orange),
                 ),
               ),
-            if (agentPrinters.isNotEmpty) ...[
-              const SizedBox(height: 10),
-              Text(
-                tr('Máy in Agent đang nhận lệnh'),
-                style: const TextStyle(fontWeight: FontWeight.w600, fontSize: 12),
+            if (agentPrinters.isNotEmpty)
+              Padding(
+                padding: const EdgeInsets.only(top: 6),
+                child: Text(
+                  tr('Đang nhận ${agentPrinters.length} máy in — xem chi tiết ở bảng bên dưới'),
+                  style: const TextStyle(fontSize: 12, color: Color(0xFF0284C7)),
+                ),
               ),
-              const SizedBox(height: 6),
-              Wrap(
-                spacing: 6,
-                runSpacing: 4,
-                children: agentPrinters.map((p) {
-                  return FilterChip(
-                    avatar: const Icon(
-                      Icons.cloud_outlined,
-                      size: 16,
-                      color: Colors.white,
-                    ),
-                    label: Text(
-                      tr(p.name),
-                      style: const TextStyle(
-                        fontSize: 11,
-                        color: Colors.white,
-                      ),
-                    ),
-                    selected: true,
-                    selectedColor: const Color(0xFF0284C7),
-                    checkmarkColor: Colors.white,
-                    backgroundColor: const Color(0xFFE0F2FE),
-                    side: const BorderSide(color: Color(0xFF7DD3FC)),
-                    onSelected: (v) async {
-                      if (v) return;
-                      var ids = List<String>.from(_agent.assignedPrinterIds)
-                        ..remove(p.id);
-                      _agent = _agent.copyWith(
-                        assignedPrinterIds: ids,
-                        accountLabel: _accountLabelForHeartbeat(),
-                      );
-                      await _agent.save();
-                      setState(() {});
-                      final storeId =
-                          Provider.of<AuthProvider>(context, listen: false)
-                              .user
-                              ?.storeId;
-                      if (_agent.enabled &&
-                          storeId != null &&
-                          storeId.isNotEmpty) {
-                        await PosPrintAgentService.instance
-                            .ensureRunning(storeId, forceReregister: true);
-                        await _loadOnlineAgents(silent: true);
-                      }
-                    },
-                  );
-                }).toList(),
-              ),
-            ],
             if (_agent.enabled && _agent.assignedPrinterIds.isEmpty)
               Padding(
                 padding: EdgeInsets.only(top: 6),
@@ -1618,7 +1565,6 @@ class _PosStorePrintersScreenState extends State<PosStorePrintersScreen> {
     final locallyReady = _readyPrinterIds.contains(p.id);
     final locallyLost = _lostPrinterIds.contains(p.id);
     final viaAgent = _agentCoversPrinter(p.id);
-    final agentTitle = _agentNameForPrinter(p.id);
     final mine =
         _agent.enabled && _agent.assignedPrinterIds.contains(p.id);
     final ready = locallyReady || (viaAgent && !locallyLost && p.isOnline);
@@ -1630,23 +1576,15 @@ class _PosStorePrintersScreenState extends State<PosStorePrintersScreen> {
     final statusText = locallyLost
         ? 'Mất kết nối'
         : locallyReady
-            ? 'Sẵn sàng · nội bộ'
+            ? 'Sẵn sàng'
             : (viaAgent && p.isOnline)
-                ? 'Online · Agent${agentTitle != null ? ' ($agentTitle)' : ''}'
+                ? 'Online'
                 : (p.healthStatus == 'Offline'
                     ? 'Mất kết nối'
                     : 'Chưa có Agent');
     final isAgentCloud = !p.isDeviceLocal;
-    final sourceLabel = p.isDeviceLocal ? 'Nội bộ' : 'Agent';
-    final sameName = _printers
-        .where((x) =>
-            x.name.trim().toLowerCase() == p.name.trim().toLowerCase())
-        .length;
-    final displayName =
-        sameName > 1 ? '${p.name} ($sourceLabel)' : p.name;
-    final kind = p.isDeviceLocal
-        ? 'Nội bộ'
-        : (p.isLabelPrinter ? 'Tem nhãn · Agent' : 'Agent / cloud');
+    final displayName = p.name;
+    final kind = p.isLabelPrinter ? 'Tem nhãn' : p.connectionType;
     final avatarBg = ready
         ? SboxColors.successSoft
         : (locallyLost
@@ -1688,7 +1626,7 @@ class _PosStorePrintersScreenState extends State<PosStorePrintersScreen> {
             ),
           ),
           subtitle: Text(
-            tr('$kind · ${p.connectionType} · $statusText'),
+            tr('$kind · $statusText'),
             style: TextStyle(
               fontSize: 11,
               color: ready
@@ -1707,12 +1645,6 @@ class _PosStorePrintersScreenState extends State<PosStorePrintersScreen> {
                     height: 14,
                     child: CircularProgressIndicator(strokeWidth: 2),
                   ),
-                ),
-              if (isAgentCloud)
-                const Padding(
-                  padding: EdgeInsets.only(right: 6),
-                  child: Icon(Icons.cloud_queue,
-                      size: 16, color: Color(0xFF0284C7)),
                 ),
               Tooltip(
                 message: statusText,
@@ -1925,7 +1857,9 @@ class _PrinterEditorSheetState extends State<_PrinterEditorSheet> {
   bool _openCashDrawer = false;
   bool _openDrawerCashOnly = true;
   bool _beepOnPrint = false;
+  int _cashDrawerPin = 0;
   bool _cutPerItem = false;
+  bool _kitchenCopyAll = false;
   bool _saving = false;
   bool _isSunmi = false;
   List<Map<String, String>> _btDevices = [];
@@ -1975,7 +1909,9 @@ class _PrinterEditorSheetState extends State<_PrinterEditorSheet> {
       _openCashDrawer = e.openCashDrawer;
       _openDrawerCashOnly = e.openDrawerCashOnly;
       _beepOnPrint = e.beepOnPrint;
+      _cashDrawerPin = e.cashDrawerPin;
       _cutPerItem = e.cutPerItem;
+      _kitchenCopyAll = e.kitchenCopyAll;
     }
     PosThermalPrinterService.isSunmiDevice().then((v) {
       if (mounted) setState(() => _isSunmi = v);
@@ -2160,9 +2096,11 @@ class _PrinterEditorSheetState extends State<_PrinterEditorSheet> {
         'feedBeforeCut': _isLabel ? _gapMm : _feedBeforeCut,
         'partialCut': !_isLabel,
         'cutPerItem': !_isLabel && _cutPerItem,
+        'kitchenCopyAll': !_isLabel && _kitchenCopyAll,
         'openCashDrawer': !_isLabel && _openCashDrawer,
         'openDrawerCashOnly': _openDrawerCashOnly,
         'beepOnPrint': !_isLabel && _beepOnPrint,
+        'cashDrawerPin': _cashDrawerPin,
         'isDefault': _isDefault,
         'sortOrder': 0,
         'isActive': true,
@@ -2461,6 +2399,14 @@ class _PrinterEditorSheetState extends State<_PrinterEditorSheet> {
               ),
               SwitchListTile(
                 contentPadding: EdgeInsets.zero,
+                title: Text(tr('Phiếu tổng (nhận mọi món báo bếp)')),
+                subtitle: Text(tr(
+                    'In thêm bản sao tất cả món, kể cả món đã gán máy khác — dùng cho quầy điều phối / thu ngân')),
+                value: _kitchenCopyAll,
+                onChanged: (v) => setState(() => _kitchenCopyAll = v),
+              ),
+              SwitchListTile(
+                contentPadding: EdgeInsets.zero,
                 title: Text(tr('Mở két tiền khi in hóa đơn')),
                 subtitle: Text(tr('ESC p / SunmiDrawer — két gắn cổng RJ11 máy in')),
                 value: _openCashDrawer,
@@ -2472,6 +2418,20 @@ class _PrinterEditorSheetState extends State<_PrinterEditorSheet> {
                   title: Text(tr('Chỉ mở két với tiền mặt')),
                   value: _openDrawerCashOnly,
                   onChanged: (v) => setState(() => _openDrawerCashOnly = v),
+                ),
+              if (_openCashDrawer)
+                ListTile(
+                  contentPadding: EdgeInsets.zero,
+                  title: Text(tr('Chân mở két')),
+                  subtitle: Text(tr('Két không bật thì thử đổi chân')),
+                  trailing: DropdownButton<int>(
+                    value: _cashDrawerPin,
+                    items: [
+                      DropdownMenuItem(value: 0, child: Text(tr('Chân 2 (phổ biến)'))),
+                      DropdownMenuItem(value: 1, child: Text(tr('Chân 5'))),
+                    ],
+                    onChanged: (v) => setState(() => _cashDrawerPin = v ?? 0),
+                  ),
                 ),
               SwitchListTile(
                 contentPadding: EdgeInsets.zero,

@@ -262,7 +262,7 @@ class _ScheduleApprovalScreenState extends State<ScheduleApprovalScreen>
       final fromDate = _selectedWeekStart;
       final toDate = _selectedWeekStart.add(const Duration(days: 6));
       final result = await _apiService.getScheduleRegistrations(
-        pageSize: 200,
+        pageSize: 500,
         fromDate: fromDate,
         toDate: toDate,
       );
@@ -3407,20 +3407,33 @@ class _ScheduleApprovalScreenState extends State<ScheduleApprovalScreen>
     if (confirmed != true) return;
     setState(() => _isLoading = true);
     try {
+      var ok = 0;
+      String? lastError;
       for (var reg in regs) {
-        await _apiService.undoScheduleRegistrationApproval(reg.id);
+        final r = await _apiService.undoScheduleRegistrationApproval(reg.id);
+        if (r['isSuccess'] == true) {
+          ok++;
+        } else {
+          lastError = r['message']?.toString();
+        }
       }
       if (mounted) {
-        appNotification.showSuccess(
-            title: 'Hoàn duyệt hàng loạt',
-            message: tr('Đã hoàn duyệt ${regs.length} đăng ký'));
+        if (ok == regs.length) {
+          appNotification.showSuccess(
+              title: 'Hoàn duyệt hàng loạt',
+              message: tr('Đã hoàn duyệt ${regs.length} đăng ký'));
+        } else {
+          appNotification.showWarning(
+              title: 'Hoàn duyệt một phần',
+              message: tr('Thành công $ok/${regs.length}${lastError == null ? '' : ' — $lastError'}'));
+        }
       }
       await _loadSchedules();
       await _loadRegistrations();
     } catch (e) {
       if (mounted) appNotification.showError(title: 'Lỗi', message: '$e');
     } finally {
-      setState(() => _isLoading = false);
+      if (mounted) setState(() => _isLoading = false);
     }
   }
 
@@ -3433,19 +3446,32 @@ class _ScheduleApprovalScreenState extends State<ScheduleApprovalScreen>
     if (confirmed != true) return;
     setState(() => _isLoading = true);
     try {
+      var ok = 0;
+      String? lastError;
       for (var reg in regs) {
-        await _apiService.deleteScheduleRegistration(reg.id);
+        final r = await _apiService.deleteScheduleRegistration(reg.id);
+        if (r['isSuccess'] == true) {
+          ok++;
+        } else {
+          lastError = r['message']?.toString();
+        }
       }
       if (mounted) {
-        appNotification.showSuccess(
-            title: 'Xóa hàng loạt', message: tr('Đã xóa ${regs.length} đăng ký'));
+        if (ok == regs.length) {
+          appNotification.showSuccess(
+              title: 'Xóa hàng loạt', message: tr('Đã xóa ${regs.length} đăng ký'));
+        } else {
+          appNotification.showWarning(
+              title: 'Xóa một phần',
+              message: tr('Thành công $ok/${regs.length}${lastError == null ? '' : ' — $lastError'}'));
+        }
       }
       await _loadSchedules();
       await _loadRegistrations();
     } catch (e) {
       if (mounted) appNotification.showError(title: 'Lỗi', message: '$e');
     } finally {
-      setState(() => _isLoading = false);
+      if (mounted) setState(() => _isLoading = false);
     }
   }
 

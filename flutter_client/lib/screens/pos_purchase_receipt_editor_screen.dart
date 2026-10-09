@@ -28,6 +28,7 @@ import '../widgets/pos_barcode_scanner.dart';
 import 'main_layout.dart' show ScreenRefreshNotifier;
 import 'pos/pos_product_editor_page.dart';
 import 'package:zkteco_flutter_client/l10n/app_tr.dart';
+import '../widgets/pos/pos_serial_list_dialog.dart';
 
 import '../theme/sbox_tokens.dart';
 const _blue = SboxColors.brand600;
@@ -81,6 +82,9 @@ class _EditorLine {
   bool costIncludesVat;
   bool trackExpiry;
   bool allowDecimalQty;
+  /// Hàng bắt buộc seri: phải nhập đủ seri từng máy khi nhập kho.
+  bool requiresSerial;
+  List<String> serials;
   DateTime? manufactureDate;
   DateTime? expiryDate;
 
@@ -101,11 +105,14 @@ class _EditorLine {
     this.costIncludesVat = false,
     this.trackExpiry = false,
     this.allowDecimalQty = false,
+    this.requiresSerial = false,
+    List<String>? serials,
     this.manufactureDate,
     this.expiryDate,
     String? lineNote,
     String? lotNo,
-  })  : qtyCtrl = TextEditingController(
+  })  : serials = serials ?? <String>[],
+        qtyCtrl = TextEditingController(
           text: tr(PosQtyRules.format(qty, allowDecimal: allowDecimalQty)),
         ),
         costCtrl = TextEditingController(text: tr(cost.toStringAsFixed(0))),
@@ -123,6 +130,7 @@ class _EditorLine {
         variantCount: variants.length,
         allowDecimalQty: allowDecimalQty,
         trackExpiry: trackExpiry,
+        requiresSerial: requiresSerial,
       );
 
   List<PosProductUnitView> get unitViews =>
@@ -173,6 +181,7 @@ class _EditorLine {
         'unitName': unitName,
         if (lineNoteCtrl.text.trim().isNotEmpty) 'lineNote': lineNoteCtrl.text.trim(),
         if (lotNoCtrl.text.trim().isNotEmpty) 'lotNo': lotNoCtrl.text.trim(),
+        if (requiresSerial && serials.isNotEmpty) 'serialNumbers': serials,
         if (manufactureDate != null)
           'manufactureDate': DateTime.utc(
             manufactureDate!.year,
@@ -312,6 +321,8 @@ class _PosPurchaseReceiptEditorScreenState
         lineNote: ln.lineNote,
         trackExpiry: ln.trackExpiry,
         allowDecimalQty: ln.allowDecimalQty,
+        requiresSerial: ln.requiresSerial,
+        serials: List<String>.from(ln.serialNumbers),
         lotNo: ln.lotNo,
         manufactureDate: ln.manufactureDate?.toLocal(),
         expiryDate: ln.expiryDate?.toLocal(),
@@ -770,6 +781,7 @@ class _PosPurchaseReceiptEditorScreenState
       cost: p.costPrice,
       trackExpiry: p.trackExpiry,
       allowDecimalQty: p.allowDecimalQty,
+      requiresSerial: p.requiresSerial,
     );
     line.baseCost = p.costPrice;
     if (p.productType == PosProductType.goods || p.productType == PosProductType.material) {
@@ -860,6 +872,9 @@ class _PosPurchaseReceiptEditorScreenState
       if (l.trackExpiry && l.expiryDate == null) {
         return '«${l.productName}» bắt buộc nhập HSD';
       }
+      if (l.requiresSerial && l.serials.length != qty.round()) {
+        return '«${l.productName}» cần nhập đủ ${qty.round()} seri (đang có ${l.serials.length})';
+      }
       if (l.manufactureDate != null &&
           l.expiryDate != null &&
           l.manufactureDate!.isAfter(l.expiryDate!)) {
@@ -890,7 +905,42 @@ class _PosPurchaseReceiptEditorScreenState
     });
   }
 
-  Widget _buildLotExpiryFields(_EditorLine l) {
+  Future<void> _editSerials(_EditorLine l) async {
+    final qty = (double.tryParse(l.qtyCtrl.text.replaceAll(',', '.').replaceAll(' ', '')) ?? 0).round();
+    final r = await showPosSerialListDialog(
+      context,
+      productName: l.productName,
+      qty: qty,
+      initial: l.serials,
+      readOnly: _readOnly,
+    );
+    if (r != null && mounted) setState(() => l.serials = r);
+  }
+
+  /// Hàng bắt buộc seri: nút nhập / xem seri + trạng thái đủ-thiếu so với số lượng.
+  Widget _buildSerialField(_EditorLine l) {
+    if (!l.requiresSerial) return const SizedBox.shrink();
+    final qty = (double.tryParse(l.qtyCtrl.text.replaceAll(',', '.').replaceAll(' ', '')) ?? 0).round();
+    final ok = l.serials.length == qty && qty > 0;
+    return Padding(
+      padding: const EdgeInsets.only(top: 6),
+      child: OutlinedButton.icon(
+        onPressed: () => _editSerials(l),
+        icon: Icon(Icons.qr_code_scanner_rounded, size: 14, color: ok ? Colors.green : Colors.orange),
+        label: Text(
+          tr('Seri ${l.serials.length}/$qty${ok ? '' : ' *'}'),
+          style: TextStyle(fontSize: 12, color: ok ? null : Colors.orange.shade800),
+        ),
+      ),
+    );
+  }
+
+  Widget _buildLotExpiryFields(_EditorLine l) => Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [_buildSerialField(l), _buildLotExpiryFieldsCore(l)],
+      );
+
+  Widget _buildLotExpiryFieldsCore(_EditorLine l) {
     if (!l.trackExpiry &&
         l.lotNoCtrl.text.isEmpty &&
         l.manufactureDate == null &&

@@ -106,6 +106,7 @@ class PosLocalPrinterProfile {
     this.openCashDrawer = false,
     this.openDrawerCashOnly = true,
     this.beepOnPrint = false,
+    this.cashDrawerPin = 0,
     this.labelProtocol = PosLabelPrinterProtocol.tspl,
     this.labelTemplateId = 'roll_1_50x30',
     this.labelDpi = 203,
@@ -146,6 +147,8 @@ class PosLocalPrinterProfile {
   final bool openCashDrawer;
   final bool openDrawerCashOnly;
   final bool beepOnPrint;
+  /// Chân xung mở két ESC p: 0 = chân 2 (phổ biến), 1 = chân 5.
+  final int cashDrawerPin;
   final PosLabelPrinterProtocol labelProtocol;
   final String labelTemplateId;
   final int labelDpi;
@@ -187,6 +190,7 @@ class PosLocalPrinterProfile {
         openCashDrawer: openCashDrawer,
         openDrawerCashOnly: openDrawerCashOnly,
         beepOnPrint: beepOnPrint,
+        cashDrawerPin: cashDrawerPin,
       );
 
   PosLabelPrinterSettings toLabelSettings() => PosLabelPrinterSettings(
@@ -237,6 +241,7 @@ class PosLocalPrinterProfile {
     bool? openCashDrawer,
     bool? openDrawerCashOnly,
     bool? beepOnPrint,
+    int? cashDrawerPin,
     PosLabelPrinterProtocol? labelProtocol,
     String? labelTemplateId,
     int? labelDpi,
@@ -278,6 +283,7 @@ class PosLocalPrinterProfile {
         openCashDrawer: openCashDrawer ?? this.openCashDrawer,
         openDrawerCashOnly: openDrawerCashOnly ?? this.openDrawerCashOnly,
         beepOnPrint: beepOnPrint ?? this.beepOnPrint,
+        cashDrawerPin: cashDrawerPin ?? this.cashDrawerPin,
         labelProtocol: labelProtocol ?? this.labelProtocol,
         labelTemplateId: labelTemplateId ?? this.labelTemplateId,
         labelDpi: labelDpi ?? this.labelDpi,
@@ -318,6 +324,7 @@ class PosLocalPrinterProfile {
         'openCashDrawer': openCashDrawer,
         'openDrawerCashOnly': openDrawerCashOnly,
         'beepOnPrint': beepOnPrint,
+        'cashDrawerPin': cashDrawerPin,
         'labelProtocol': labelProtocol.key,
         'labelTemplateId': labelTemplateId,
         'labelDpi': labelDpi,
@@ -386,6 +393,7 @@ class PosLocalPrinterProfile {
       openCashDrawer: json['openCashDrawer'] == true,
       openDrawerCashOnly: json['openDrawerCashOnly'] != false,
       beepOnPrint: json['beepOnPrint'] == true,
+      cashDrawerPin: (json['cashDrawerPin'] as num?)?.toInt() == 1 ? 1 : 0,
       labelProtocol:
           PosLabelPrinterProtocol.fromKey(json['labelProtocol']?.toString()),
       labelTemplateId: json['labelTemplateId']?.toString() ??
@@ -442,6 +450,7 @@ class PosLocalPrinterProfile {
         openCashDrawer: s.openCashDrawer,
         openDrawerCashOnly: s.openDrawerCashOnly,
         beepOnPrint: s.beepOnPrint,
+        cashDrawerPin: s.cashDrawerPin,
       );
 
   factory PosLocalPrinterProfile.fromLabelLegacy(PosLabelPrinterSettings s) =>
@@ -772,6 +781,7 @@ class PosLocalPrintersStore {
         'openCashDrawer': !p.isLabel && p.openCashDrawer,
         'openDrawerCashOnly': p.openDrawerCashOnly,
         'beepOnPrint': !p.isLabel && p.beepOnPrint,
+        'cashDrawerPin': p.cashDrawerPin,
         'isActive': p.enabled,
         'documentTypes': p.roles.toList(),
       });

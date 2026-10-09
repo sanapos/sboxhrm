@@ -12,6 +12,8 @@ class PosStockIssueLine {
   final double costPrice;
   final double lineTotal;
   final String? lineNote;
+  final bool requiresSerial;
+  final List<String> serialNumbers;
 
   PosStockIssueLine({
     required this.id,
@@ -24,6 +26,8 @@ class PosStockIssueLine {
     this.costPrice = 0,
     this.lineTotal = 0,
     this.lineNote,
+    this.requiresSerial = false,
+    this.serialNumbers = const [],
   });
 
   factory PosStockIssueLine.fromJson(Map<String, dynamic> json) {
@@ -41,6 +45,10 @@ class PosStockIssueLine {
       costPrice: cost,
       lineTotal: n(json['lineTotal'] ?? json['LineTotal'] ?? qty * cost),
       lineNote: json['lineNote'] ?? json['LineNote'] as String?,
+      requiresSerial: json['requiresSerial'] == true || json['RequiresSerial'] == true,
+      serialNumbers: [
+        for (final s in (json['serialNumbers'] ?? json['SerialNumbers'] ?? const []) as List) s.toString(),
+      ],
     );
   }
 }

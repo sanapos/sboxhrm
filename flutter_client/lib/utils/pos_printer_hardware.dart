@@ -141,7 +141,7 @@ class PosPrinterHardware {
       return (
         devices: devices,
         hint: Platform.isIOS
-            ? 'Chưa có máy in Bluetooth đã ghép. Vào Cài đặt → Bluetooth → Ghép máy in → quay lại bấm làm mới.'
+            ? 'Chưa thấy máy in Bluetooth. iPhone/iPad chỉ nối được máy in Bluetooth BLE (4.0+); máy in Bluetooth thường (Classic/SPP) không dùng được trên iOS — hãy dùng LAN/WiFi.'
             : 'Chưa có máy in Bluetooth đã ghép. Vào Cài đặt Bluetooth → Ghép máy in (PIN thường 0000/1234) → quay lại bấm làm mới. Hoặc nhập MAC thủ công.',
       );
     }

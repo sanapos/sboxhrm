@@ -23,6 +23,7 @@ import '../widgets/pos/pos_theme.dart';
 import '../widgets/pos_barcode_scanner.dart';
 import '../screens/main_layout.dart' show ScreenRefreshNotifier;
 import 'package:zkteco_flutter_client/l10n/app_tr.dart';
+import '../widgets/pos/pos_serial_list_dialog.dart';
 
 import '../theme/sbox_tokens.dart';
 const _blue = SboxColors.brand600;
@@ -39,6 +40,8 @@ class _ReturnLine {
   final TextEditingController returnPriceCtrl;
   final TextEditingController discountCtrl;
   final TextEditingController lineNoteCtrl;
+  bool requiresSerial;
+  List<String> serials;
 
   _ReturnLine({
     required this.productId,
@@ -52,7 +55,10 @@ class _ReturnLine {
     double returnPrice = 0,
     double discount = 0,
     String? lineNote,
-  })  : qtyCtrl = TextEditingController(text: tr(qty.toStringAsFixed(0))),
+    this.requiresSerial = false,
+    List<String>? serials,
+  })  : serials = serials ?? <String>[],
+        qtyCtrl = TextEditingController(text: tr(qty.toStringAsFixed(0))),
         returnPriceCtrl = TextEditingController(text: tr(returnPrice.toStringAsFixed(0))),
         discountCtrl = TextEditingController(text: tr(discount.toStringAsFixed(0))),
         lineNoteCtrl = TextEditingController(text: tr(lineNote ?? ''));
@@ -89,6 +95,7 @@ class _ReturnLine {
         'discountAmount': double.tryParse(discountCtrl.text.replaceAll(',', '')) ?? 0,
         'unitName': unitName,
         if (lineNoteCtrl.text.trim().isNotEmpty) 'lineNote': lineNoteCtrl.text.trim(),
+        if (requiresSerial && serials.isNotEmpty) 'serialNumbers': serials,
       };
 
   void dispose() {
@@ -221,6 +228,8 @@ class _PosPurchaseReturnEditorScreenState
         returnPrice: ln.costPrice,
         discount: ln.discountAmount,
         lineNote: ln.lineNote,
+        requiresSerial: ln.requiresSerial,
+        serials: List<String>.from(ln.serialNumbers),
       );
       _loadVariantsForLine(line);
       _lines.add(line);
@@ -332,6 +341,7 @@ class _PosPurchaseReturnEditorScreenState
       variants: variants,
       qty: addQty,
       returnPrice: cost,
+      requiresSerial: pick.product.requiresSerial,
     );
     await _loadVariantsForLine(line);
     setState(() => _lines.add(line));
@@ -402,6 +412,18 @@ class _PosPurchaseReturnEditorScreenState
         message: tr('Chọn hoặc thêm nhà cung cấp trước khi lưu'),
       );
       return;
+    }
+    if (complete) {
+      for (final l in _lines) {
+        final qty = (double.tryParse(l.qtyCtrl.text.replaceAll(',', '.').replaceAll(' ', '')) ?? 0).round();
+        if (l.requiresSerial && l.serials.isNotEmpty && l.serials.length != qty) {
+          NotificationOverlayManager().showWarning(
+            title: 'Thiếu seri',
+            message: tr('«${l.productName}» cần chọn đủ $qty seri máy trả (đang có ${l.serials.length})'),
+          );
+          return;
+        }
+      }
     }
     setState(() => _saving = true);
     final body = _buildBody(complete: complete);
@@ -600,6 +622,41 @@ class _PosPurchaseReturnEditorScreenState
     );
   }
 
+  Future<void> _editSerials(_ReturnLine l) async {
+    final qty = (double.tryParse(l.qtyCtrl.text.replaceAll(',', '.').replaceAll(' ', '')) ?? 0).round();
+    final r = await showPosSerialListDialog(
+      context,
+      productName: l.productName,
+      qty: qty,
+      initial: l.serials,
+      readOnly: _readOnly,
+      hint: 'Seri máy trả nhà cung cấp — mỗi seri một dòng',
+      loadSuggestions: () async {
+        final res = await _api.getPosSerialsAvailable(l.productId);
+        final items = (res['data'] as Map?)?['items'];
+        return items is List ? items.map((e) => e.toString()).toList() : <String>[];
+      },
+    );
+    if (r != null && mounted) setState(() => l.serials = r);
+  }
+
+  Widget _serialButton(_ReturnLine l) {
+    final qty = (double.tryParse(l.qtyCtrl.text.replaceAll(',', '.').replaceAll(' ', '')) ?? 0).round();
+    final ok = l.serials.length == qty && qty > 0;
+    return Padding(
+      padding: const EdgeInsets.only(top: 4),
+      child: OutlinedButton.icon(
+        onPressed: () => _editSerials(l),
+        icon: Icon(Icons.qr_code_scanner_rounded, size: 14, color: ok ? Colors.green : Colors.orange),
+        label: Text(
+          tr('Seri ${l.serials.length}/$qty${ok ? '' : ' *'}'),
+          style: TextStyle(fontSize: 12, color: ok ? null : Colors.orange.shade800),
+        ),
+        style: OutlinedButton.styleFrom(visualDensity: VisualDensity.compact),
+      ),
+    );
+  }
+
   Widget _unitCell(_ReturnLine l) {
     if (_readOnly || l.unitViews.length <= 1) {
       return Text(tr(l.unitName), style: const TextStyle(fontSize: 13));
@@ -719,6 +776,7 @@ class _PosPurchaseReturnEditorScreenState
                                 ],
                               ),
                             ),
+                          if (l.requiresSerial) _serialButton(l),
                         ],
                       ),
                       4,

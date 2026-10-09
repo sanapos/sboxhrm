@@ -412,7 +412,8 @@ class BankAccount {
     var url = 'https://img.vietqr.io/image/$bankCode-$accountNumber-$vietQRTemplate.png';
     final params = <String>[];
     if (amount != null && amount > 0) {
-      params.add('amount=${amount.toInt()}');
+      // Làm tròn (không cắt): 32.399,7đ hiển thị 32.400đ thì QR cũng phải đòi 32.400đ.
+      params.add('amount=${amount.round()}');
     }
     if (description != null && description.isNotEmpty) {
       params.add('addInfo=${Uri.encodeComponent(description)}');

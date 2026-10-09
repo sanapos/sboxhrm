@@ -13,6 +13,7 @@ import '../../widgets/pos/pos_hub_scope.dart';
 import '../../widgets/pos/pos_theme.dart';
 import 'package:zkteco_flutter_client/l10n/app_tr.dart';
 import 'pos_qr_online_orders_screen.dart';
+import '../../services/branch_session.dart';
 
 import '../../theme/sbox_tokens.dart';
 /// In / quản lý QR order tại bàn. Tắt mặc định trong thiết lập ngành hàng.
@@ -34,6 +35,10 @@ class _PosQrTableOrderScreenState extends State<PosQrTableOrderScreen> {
   bool _requireOrderConfirmation = false;
   bool _geoConfigured = false;
   bool _enableOnline = false;
+  double _onlineMinOrder = 0;
+  double _onlineShipFee = 0;
+  double _onlineFreeShipFrom = 0;
+  String _onlineBranchId = '';
   bool _onlineAutoConfirm = false;
   bool _onlineAutoPrintKitchen = false;
   bool _onlineAutoPay = false;
@@ -105,6 +110,11 @@ class _PosQrTableOrderScreenState extends State<PosQrTableOrderScreen> {
           data['geoConfigured'] == true || data['GeoConfigured'] == true;
       _enableOnline =
           data['enableOnline'] == true || data['EnableOnline'] == true;
+      double dn(dynamic v) => v is num ? v.toDouble() : double.tryParse('$v') ?? 0;
+      _onlineMinOrder = dn(data['onlineMinOrder']);
+      _onlineShipFee = dn(data['onlineShipFee']);
+      _onlineFreeShipFrom = dn(data['onlineFreeShipFrom']);
+      _onlineBranchId = (data['onlineBranchId'] ?? '').toString();
       _onlineAutoConfirm = data['onlineAutoConfirm'] == true ||
           data['OnlineAutoConfirm'] == true;
       _onlineAutoPrintKitchen = data['onlineAutoPrintKitchen'] == true ||
@@ -210,6 +220,114 @@ class _PosQrTableOrderScreenState extends State<PosQrTableOrderScreen> {
       return;
     }
     setState(() => _autoPrint = value);
+  }
+
+  String _money(double v) => v.round().toString().replaceAllMapped(RegExp(r'\B(?=(\d{3})+(?!\d))'), (m) => '.');
+
+  Future<void> _editOnlineRules() async {
+    final minCtl = TextEditingController(text: _onlineMinOrder > 0 ? _onlineMinOrder.round().toString() : '');
+    final feeCtl = TextEditingController(text: _onlineShipFee > 0 ? _onlineShipFee.round().toString() : '');
+    final freeCtl = TextEditingController(text: _onlineFreeShipFrom > 0 ? _onlineFreeShipFrom.round().toString() : '');
+    var branch = _onlineBranchId;
+    final branches = BranchSession.instance.branches;
+    final ok = await showDialog<bool>(
+      context: context,
+      builder: (ctx) => StatefulBuilder(
+        builder: (ctx, setD) => AlertDialog(
+          title: Text(tr('Quy tắc đơn online')),
+          content: SizedBox(
+            width: 420,
+            child: SingleChildScrollView(
+              child: Column(mainAxisSize: MainAxisSize.min, children: [
+                TextField(
+                  controller: minCtl,
+                  keyboardType: TextInputType.number,
+                  decoration: InputDecoration(labelText: tr('Đơn tối thiểu (đ) — để trống: không giới hạn')),
+                ),
+                TextField(
+                  controller: feeCtl,
+                  keyboardType: TextInputType.number,
+                  decoration: InputDecoration(labelText: tr('Phí giao hàng thu khách (đ)')),
+                ),
+                TextField(
+                  controller: freeCtl,
+                  keyboardType: TextInputType.number,
+                  decoration: InputDecoration(labelText: tr('Miễn phí giao từ (đ) — để trống: không miễn')),
+                ),
+                if (BranchSession.instance.usesBranches && branches.isNotEmpty) ...[
+                  const SizedBox(height: 12),
+                  DropdownButtonFormField<String>(
+                    value: branches.any((b) => b.id == branch) ? branch : '',
+                    decoration: InputDecoration(labelText: tr('Chi nhánh nhận đơn online')),
+                    items: [
+                      DropdownMenuItem(value: '', child: Text(tr('Trụ sở'))),
+                      for (final b in branches.where((b) => !b.isHeadquarter))
+                        DropdownMenuItem(value: b.id, child: Text(b.name)),
+                    ],
+                    onChanged: (v) => setD(() => branch = v ?? ''),
+                  ),
+                ],
+              ]),
+            ),
+          ),
+          actions: [
+            TextButton(onPressed: () => Navigator.pop(ctx, false), child: Text(tr('Huỷ'))),
+            FilledButton(onPressed: () => Navigator.pop(ctx, true), child: Text(tr('Lưu'))),
+          ],
+        ),
+      ),
+    );
+    double n(String s) => double.tryParse(s.replaceAll('.', '').replaceAll(',', '').trim()) ?? 0;
+    final minV = n(minCtl.text), feeV = n(feeCtl.text), freeV = n(freeCtl.text);
+    minCtl.dispose();
+    feeCtl.dispose();
+    freeCtl.dispose();
+    if (ok != true) return;
+    setState(() => _busy = true);
+    final res = await _api.setPosQrOrderOnline(
+      enabled: true,
+      branchId: branch,
+      minOrder: minV,
+      shipFee: feeV,
+      freeShipFrom: freeV,
+    );
+    if (!mounted) return;
+    setState(() => _busy = false);
+    if (res['isSuccess'] != true) {
+      NotificationOverlayManager()
+          .showError(title: 'Không lưu được', message: res['message']?.toString() ?? 'Thử lại');
+      return;
+    }
+    await _load();
+  }
+
+  Future<void> _assignTablesBranch() async {
+    final branches = BranchSession.instance.branches;
+    String? pick = await showDialog<String>(
+      context: context,
+      builder: (ctx) => SimpleDialog(
+        title: Text(tr('Gán TẤT CẢ bàn QR cho chi nhánh')),
+        children: [
+          for (final b in branches)
+            SimpleDialogOption(
+              onPressed: () => Navigator.pop(ctx, b.isHeadquarter ? '' : b.id),
+              child: Text(b.isHeadquarter ? '${b.name} (trụ sở)' : b.name),
+            ),
+        ],
+      ),
+    );
+    if (pick == null || !mounted) return;
+    setState(() => _busy = true);
+    final res = await _api.setPosQrTablesBranch(branchId: pick.isEmpty ? null : pick);
+    if (!mounted) return;
+    setState(() => _busy = false);
+    if (res['isSuccess'] == true) {
+      NotificationOverlayManager().showSuccess(
+          title: 'Chi nhánh bàn', message: tr('Đã gán ${(res['data'] as Map?)?['updated'] ?? 0} bàn — đơn QR sẽ ghi về chi nhánh này'));
+    } else {
+      NotificationOverlayManager()
+          .showError(title: 'Không lưu được', message: res['message']?.toString() ?? 'Thử lại');
+    }
   }
 
   Future<void> _setOnline(bool value, {bool rotate = false}) async {
@@ -868,6 +986,24 @@ class _PosQrTableOrderScreenState extends State<PosQrTableOrderScreen> {
               onChanged: _busy ? null : (v) => _setOnline(v),
             ),
             if (_enableOnline) ...[
+              ListTile(
+                leading: const Icon(Icons.rule_rounded),
+                title: Text(tr('Quy tắc đơn online')),
+                subtitle: Text(tr(
+                    'Tối thiểu ${_onlineMinOrder > 0 ? '${_money(_onlineMinOrder)}đ' : 'không'} · '
+                    'Phí giao ${_onlineShipFee > 0 ? '${_money(_onlineShipFee)}đ' : 'miễn phí'}'
+                    '${_onlineFreeShipFrom > 0 ? ' · miễn từ ${_money(_onlineFreeShipFrom)}đ' : ''}')),
+                trailing: const Icon(Icons.chevron_right_rounded),
+                onTap: _busy ? null : _editOnlineRules,
+              ),
+              if (BranchSession.instance.usesBranches)
+                ListTile(
+                  leading: const Icon(Icons.store_mall_directory_outlined),
+                  title: Text(tr('Chi nhánh của các bàn QR')),
+                  subtitle: Text(tr('Đơn khách gọi tại bàn ghi về chi nhánh được gán (mặc định: trụ sở)')),
+                  trailing: const Icon(Icons.chevron_right_rounded),
+                  onTap: _busy ? null : _assignTablesBranch,
+                ),
               SwitchListTile(
                 title: Text(tr('Tự xác nhận đơn online')),
                 subtitle: Text(tr(

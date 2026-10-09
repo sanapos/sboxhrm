@@ -10,6 +10,7 @@ import '../../../widgets/notification_overlay.dart';
 import '../../../widgets/pos/pos_purchase_product_search_bar.dart';
 import '../../../widgets/pos/pos_supplier_form_dialog.dart';
 import '../../../widgets/pos_barcode_scanner.dart';
+import '../../../widgets/pos/pos_serial_list_dialog.dart';
 import '../../../widgets/warehouse/wh_mobile_components.dart';
 import '../../../widgets/warehouse/wh_mobile_theme.dart';
 import '../../main_layout.dart' show ScreenRefreshNotifier;
@@ -34,8 +35,14 @@ class _Line {
     this.variantId,
     double qty = 1,
     double cost = 0,
+    this.requiresSerial = false,
+    List<String>? serials,
   })  : qty = qty,
-        cost = cost;
+        cost = cost,
+        serials = serials ?? <String>[];
+
+  final bool requiresSerial;
+  List<String> serials;
 
   final String productId;
   final String? variantId;
@@ -50,6 +57,7 @@ class _Line {
         if (variantId != null) 'variantId': variantId,
         'qty': qty,
         'costPrice': cost,
+        if (requiresSerial && serials.isNotEmpty) 'serialNumbers': serials,
       };
 }
 
@@ -104,6 +112,8 @@ class _WhMobilePurchaseReturnEditorState extends State<WhMobilePurchaseReturnEdi
                 unit: l.unitName,
                 qty: l.qty,
                 cost: l.costPrice,
+                requiresSerial: l.requiresSerial,
+                serials: List<String>.from(l.serialNumbers),
               )));
       }
     }
@@ -150,9 +160,43 @@ class _WhMobilePurchaseReturnEditorState extends State<WhMobilePurchaseReturnEdi
         unit: pick.unitLabel ?? pick.product.baseUnitName,
         qty: addQty,
         cost: pick.product.costPrice,
+        requiresSerial: pick.product.requiresSerial,
       ));
     });
   }
+
+  Future<void> _editSerials(_Line l, {bool suggest = false}) async {
+    final r = await showPosSerialListDialog(
+      context,
+      productName: l.name,
+      qty: l.qty.round(),
+      initial: l.serials,
+      readOnly: _readOnly,
+      scanOne: () => scanBarcodeWithCamera(context),
+      loadSuggestions: suggest
+          ? () async {
+              final res = await _api.getPosSerialsAvailable(l.productId);
+              final items = (res['data'] as Map?)?['items'];
+              return items is List ? items.map((e) => e.toString()).toList() : <String>[];
+            }
+          : null,
+    );
+    if (r != null && mounted) setState(() => l.serials = r);
+  }
+
+  Widget _serialButton(_Line l, {bool suggest = false}) {
+    final ok = l.serials.length == l.qty.round() && l.qty > 0;
+    return Padding(
+      padding: const EdgeInsets.only(top: 10),
+      child: OutlinedButton.icon(
+        onPressed: () => _editSerials(l, suggest: suggest),
+        icon: Icon(Icons.qr_code_scanner_rounded, size: 18, color: ok ? Colors.green : Colors.orange),
+        label: Text(tr('Seri ${l.serials.length}/${l.qty.round()}${ok ? '' : ' *'}')),
+        style: OutlinedButton.styleFrom(minimumSize: const Size.fromHeight(44)),
+      ),
+    );
+  }
+
 
   Future<void> _scan() async {
     final code = await scanBarcodeWithCamera(context);
@@ -177,6 +221,17 @@ class _WhMobilePurchaseReturnEditorState extends State<WhMobilePurchaseReturnEdi
     if (_lines.isEmpty) {
       NotificationOverlayManager().showWarning(title: 'Phiếu trống', message: tr('Thêm hàng cần trả'));
       return;
+    }
+    if (complete) {
+      for (final l in _lines) {
+        if (l.requiresSerial && l.serials.isNotEmpty && l.serials.length != l.qty.round()) {
+          NotificationOverlayManager().showWarning(
+            title: 'Thiếu seri',
+            message: tr('«${l.name}» cần chọn đủ ${l.qty.round()} seri máy trả (đang có ${l.serials.length})'),
+          );
+          return;
+        }
+      }
     }
     setState(() => _saving = true);
     Map<String, dynamic> res;
@@ -306,6 +361,7 @@ class _WhMobilePurchaseReturnEditorState extends State<WhMobilePurchaseReturnEdi
                               onQty: (v) => setState(() => l.qty = v),
                             ),
                           ),
+                        if (l.requiresSerial) _serialButton(l, suggest: true),
                       ],
                     ),
                     trailing: Text(

@@ -1,4 +1,5 @@
 import 'dart:async';
+import 'dart:convert';
 import '../../utils/api_datetime.dart';
 
 import '../../utils/notification_sound.dart';
@@ -6,6 +7,7 @@ import '../../widgets/pos/pos_package_timer.dart';
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
 import 'package:provider/provider.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 
 import '../../models/pos_customer.dart';
 import '../../models/pos_product.dart';
@@ -15,6 +17,7 @@ import '../../widgets/pos/pos_split_bill_sheet.dart';
 import '../../providers/auth_provider.dart';
 import '../../providers/permission_provider.dart';
 import '../../services/api_service.dart';
+import '../../services/signalr_service.dart';
 import '../../utils/permission_navigation.dart';
 import '../../utils/pos_owner_password_gate.dart';
 import '../../utils/pos_device_identity.dart';
@@ -153,6 +156,14 @@ class PosResourceFloorScreenState extends State<PosResourceFloorScreen> {
   bool _reloadInFlight = false;
   bool _reloadQueued = false;
   DateTime? _lastSuccessfulReloadAt;
+
+  /// Đã có dữ liệu sống từ server (bản lưu trên máy chỉ để hiện sơ đồ ngay).
+  bool _liveLoaded = false;
+  StreamSubscription<bool>? _connSub;
+  AppLifecycleListener? _lifecycle;
+  Completer<void>? _liveWaiter;
+  int _silentReloads = 0;
+  bool _areasStale = false;
   PosSellProfile? _loadedSellProfile;
 
   /// «bàn» / «ghế» / «phòng» theo ngành (bán lẻ, gym không có sơ đồ → «bàn»).
@@ -193,6 +204,8 @@ class PosResourceFloorScreenState extends State<PosResourceFloorScreen> {
     // Luôn đọc cài đặt ngành: cần cờ tính tiền giờ kể cả khi đã truyền sẵn ngành.
     unawaited(_loadSellProfile());
     unawaited(_loadDeviceId());
+    // Hiện sơ đồ đã lưu trên máy ngay (tên / vị trí bàn) — trạng thái cập nhật sau vài trăm ms.
+    unawaited(_restoreFloorCache());
     _reload();
     // Bán hàng: poll 8–12s làm fallback; SignalR PosFloorChanged reload tức thì.
     // manageMode giữ autoRefreshSeconds (mặc định 20).
@@ -205,17 +218,36 @@ class PosResourceFloorScreenState extends State<PosResourceFloorScreen> {
       _poll = Timer.periodic(
         Duration(seconds: pollSec),
         (_) {
-          if (mounted && !_layoutEdit && widget.paneActive) {
-            _reload(silent: true);
+          if (!mounted || _layoutEdit || !widget.paneActive) return;
+          // Đang nối realtime (PosFloorChanged báo ngay khi bàn đổi) → poll dự phòng 30s.
+          final last = _lastSuccessfulReloadAt;
+          if (!widget.manageMode &&
+              SignalRService().isConnected &&
+              last != null &&
+              DateTime.now().difference(last) < const Duration(seconds: 30)) {
+            return;
           }
+          _reload(silent: true);
         },
       );
     }
-    _floorRealtime.start((_) {
+    _floorRealtime.start((event) {
+      final reason = PosSyncReasons.of(event);
+      if (PosSyncReasons.notFloor.contains(reason)) return;
+      if (reason == 'layoutchanged') _areasStale = true;
       // heal khi có sự kiện realtime — tránh ghost Occupied đến khi mở lại app.
       if (mounted && !_layoutEdit && widget.paneActive) {
         _reload(silent: true, heal: true);
       }
+    });
+    // Nối lại realtime / mở lại app → có thể lỡ sự kiện: tải lại ngay.
+    _connSub = SignalRService().onConnectionStateChanged.listen((connected) {
+      if (connected && mounted && !_layoutEdit && widget.paneActive) {
+        _reload(silent: true, heal: true);
+      }
+    });
+    _lifecycle = AppLifecycleListener(onResume: () {
+      if (mounted && !_layoutEdit && widget.paneActive) _reload(silent: true, heal: true);
     });
     // Đồng hồ bàn: 15s đủ (hiển thị phút); bàn có gói giờ đếm ngược → cập nhật mỗi giây + báo hết giờ.
     var tick = 0;
@@ -228,6 +260,65 @@ class PosResourceFloorScreenState extends State<PosResourceFloorScreen> {
         setState(() {});
       }
     });
+  }
+
+  void _markLive() {
+    _liveLoaded = true;
+    final w = _liveWaiter;
+    _liveWaiter = null;
+    if (w != null && !w.isCompleted) w.complete();
+  }
+
+  Future<void> _waitLive() async {
+    if (_liveLoaded) return;
+    final w = _liveWaiter ??= Completer<void>();
+    await w.future.timeout(const Duration(seconds: 6), onTimeout: () {});
+  }
+
+  String _floorCacheKey() {
+    final sid = Provider.of<AuthProvider>(context, listen: false).user?.storeId ?? '';
+    return sid.isEmpty ? '' : 'pos_floor_cache_v1_$sid';
+  }
+
+  /// Lưu sơ đồ (khu + bàn) để lần mở sau hiện ngay. Trạng thái trong bản lưu chỉ để hiển thị.
+  Future<void> _saveFloorCache(List? areasRaw, List resourcesRaw) async {
+    try {
+      final key = _floorCacheKey();
+      if (key.isEmpty) return;
+      final prefs = await SharedPreferences.getInstance();
+      Object? areas = areasRaw;
+      if (areas == null) {
+        final old = prefs.getString(key);
+        areas = old == null ? null : (jsonDecode(old) as Map)['areas'];
+      }
+      if (areas == null) return;
+      await prefs.setString(key, jsonEncode({'areas': areas, 'resources': resourcesRaw}));
+    } catch (_) {}
+  }
+
+  Future<void> _restoreFloorCache() async {
+    try {
+      final key = _floorCacheKey();
+      if (key.isEmpty) return;
+      final prefs = await SharedPreferences.getInstance();
+      final raw = prefs.getString(key);
+      if (raw == null || !mounted || _liveLoaded || _resources.isNotEmpty) return;
+      final m = jsonDecode(raw) as Map;
+      final areas = ((m['areas'] as List?) ?? const [])
+          .whereType<Map>()
+          .map((e) => PosServiceAreaDto.fromJson(Map<String, dynamic>.from(e)))
+          .toList();
+      final resources = ((m['resources'] as List?) ?? const [])
+          .whereType<Map>()
+          .map((e) => PosServiceResourceDto.fromJson(Map<String, dynamic>.from(e)))
+          .toList();
+      if (resources.isEmpty || !mounted || _liveLoaded) return;
+      setState(() {
+        _areas = areas;
+        _resources = resources.map(_patchResourceFlags).toList();
+        _loading = false;
+      });
+    } catch (_) {}
   }
 
   /// Đã báo (bàn|mốc hết giờ|giai đoạn) — mỗi mốc chỉ báo 1 lần trên máy này.
@@ -486,6 +577,8 @@ class PosResourceFloorScreenState extends State<PosResourceFloorScreen> {
     _poll?.cancel();
     _clock?.cancel();
     _floorRealtime.dispose();
+    _connSub?.cancel();
+    _lifecycle?.dispose();
     super.dispose();
   }
 
@@ -512,14 +605,21 @@ class PosResourceFloorScreenState extends State<PosResourceFloorScreen> {
     try {
       if (!silent) {
         setState(() {
-          _loading = true;
+          // Đã có sơ đồ (bản lưu / lần trước) → không che bằng vòng xoay.
+          _loading = _resources.isEmpty;
           _error = null;
         });
       }
-      final areaRes = await _api.getPosServiceAreas();
-      final resRes = await _api.getPosServiceResources(
-        heal: heal ?? !silent,
-      );
+      // Khu vực hầu như không đổi: tải khi mở / khi có bàn thuộc khu chưa biết / mỗi 6 lần poll.
+      final needAreas = !silent || _areas.isEmpty || _areasStale || (++_silentReloads % 6 == 0);
+      final results = await Future.wait([
+        needAreas
+            ? _api.getPosServiceAreas()
+            : Future.value(<String, dynamic>{'isSuccess': true, 'data': null}),
+        _api.getPosServiceResources(heal: heal ?? !silent),
+      ]);
+      final areaRes = results[0];
+      final resRes = results[1];
       if (!mounted) return;
       if (areaRes['isSuccess'] != true || resRes['isSuccess'] != true) {
         if (!silent) {
@@ -538,14 +638,26 @@ class PosResourceFloorScreenState extends State<PosResourceFloorScreen> {
               PosServiceResourceDto.fromJson(Map<String, dynamic>.from(e)))
           .toList();
       _reconcileOptimisticFlags(rawResources);
-      _areas = ((areaRes['data'] as List?) ?? [])
-          .whereType<Map>()
-          .map((e) => PosServiceAreaDto.fromJson(Map<String, dynamic>.from(e)))
-          .toList();
+      if (areaRes['data'] is List) {
+        _areas = (areaRes['data'] as List)
+            .whereType<Map>()
+            .map((e) => PosServiceAreaDto.fromJson(Map<String, dynamic>.from(e)))
+            .toList();
+        _areasStale = false;
+      }
+      final knownAreas = {for (final a in _areas) a.id};
+      if (rawResources.any((r) => r.areaId.isNotEmpty && !knownAreas.contains(r.areaId))) {
+        _areasStale = true; // khu mới → lần sau tải lại khu vực
+      }
       _resources = rawResources.map(_patchResourceFlags).toList();
       _loading = false;
       _error = null;
       _lastSuccessfulReloadAt = DateTime.now();
+      _markLive();
+      unawaited(_saveFloorCache(
+        areaRes['data'] is List ? areaRes['data'] as List : null,
+        resRes['data'] as List? ?? const [],
+      ));
       // Đang mở bàn: đừng rebuild lưới — mất gesture, đơ lần bấm tiếp.
       if (_openingResourceId == null) {
         setState(() {});
@@ -791,6 +903,14 @@ class PosResourceFloorScreenState extends State<PosResourceFloorScreen> {
     PosServiceResourceDto r, {
     bool skipHoldingPrompt = false,
   }) async {
+    if (!_liveLoaded) {
+      // Sơ đồ đang hiện bản lưu: đợi trạng thái thật (bàn có thể vừa có khách ở máy khác).
+      await _waitLive();
+      if (!mounted || !_liveLoaded) return;
+      final fresh = _resources.where((x) => x.id == r.id).firstOrNull;
+      if (fresh == null) return;
+      r = fresh;
+    }
     final gen = ++_openGen;
     _openingResourceId = r.id;
     try {

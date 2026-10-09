@@ -6643,6 +6643,8 @@ class _WorkScheduleScreenState extends State<WorkScheduleScreen>
     try {
       int successCount = 0;
       int failCount = 0;
+      String? lastError;
+      final failedRegs = <Object>{};
       for (final reg in _pendingRegistrations) {
         final shiftId = reg['shiftId'];
         final result = await _apiService.createScheduleRegistration({
@@ -6658,6 +6660,8 @@ class _WorkScheduleScreenState extends State<WorkScheduleScreen>
           successCount++;
         } else {
           failCount++;
+          failedRegs.add(reg);
+          lastError = result['message']?.toString();
           debugPrint('❌ Failed to create registration: ${result['message']}');
         }
       }
@@ -6671,13 +6675,14 @@ class _WorkScheduleScreenState extends State<WorkScheduleScreen>
         } else {
           appNotification.showError(
             title: 'Đăng ký không hoàn tất',
-            message: tr('Thành công: $successCount, Thất bại: $failCount'),
+            message: tr('Thành công: $successCount, Thất bại: $failCount${lastError == null ? '' : ' — $lastError'}. Các đăng ký lỗi được giữ lại để bạn sửa.'),
           );
         }
       }
 
+      // Chỉ bỏ các đăng ký đã gửi được; đăng ký lỗi giữ lại để sửa / gửi lại.
       setState(() {
-        _pendingRegistrations.clear();
+        _pendingRegistrations.removeWhere((r) => !failedRegs.contains(r));
       });
 
       await _loadSchedules();
@@ -6690,7 +6695,7 @@ class _WorkScheduleScreenState extends State<WorkScheduleScreen>
         );
       }
     } finally {
-      setState(() => _isLoading = false);
+      if (mounted) setState(() => _isLoading = false);
     }
   }
 

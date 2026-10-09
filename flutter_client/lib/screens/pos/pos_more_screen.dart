@@ -1,3 +1,6 @@
+import 'pos_stock_reconcile_screen.dart';
+import 'pos_serial_ledger_screen.dart';
+import 'pos_serial_count_screen.dart';
 import 'pos_promotions_screen.dart';
 import '../../widgets/ai_assistant_sheet.dart';
 import 'package:flutter/material.dart';
@@ -214,6 +217,12 @@ class _PosMoreScreenState extends State<PosMoreScreen> {
                         const PosWarrantyLookupScreen()),
                     _Item('Kiểm kho', Icons.fact_check_outlined, 'PosStockCounts',
                         const WhAdaptiveStockCountList()),
+                    _Item('Kiểm kho theo mã', Icons.qr_code_scanner_rounded, 'PosStockCounts',
+                        const PosSerialCountScreen()),
+                    _Item('Sổ seri máy', Icons.confirmation_number_outlined, 'PosProducts',
+                        const PosSerialLedgerScreen()),
+                    _Item('Đối soát kho', Icons.rule_folder_outlined, 'PosStockCounts',
+                        const PosStockReconcileScreen()),
                     _Item('Xuất hủy', Icons.delete_forever_outlined,
                         'PosDamageIssues', const WhAdaptiveDamageIssueList()),
                     _Item('Dùng nội bộ', Icons.build_outlined,

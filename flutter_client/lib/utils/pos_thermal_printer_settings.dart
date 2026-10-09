@@ -11,7 +11,10 @@ enum PosThermalPrinterBrand {
   epson('epson', 'Epson'),
   sunmi('sunmi', 'Sunmi'),
   hprt('hprt', 'HPRT'),
-  rp80('rp80', 'RP80 / Rongta');
+  rp80('rp80', 'RP80 / Rongta'),
+  /// Máy in kim (Epson TM-U220…) hay dùng ở bếp: không in được ảnh raster / QR / barcode,
+  /// khổ 76mm ~40 ký tự. Chỉ in chữ (mặc định không dấu).
+  impact('impact', 'Máy in kim (TM-U220…)');
 
   const PosThermalPrinterBrand(this.key, this.label);
   final String key;
@@ -119,6 +122,7 @@ class PosThermalPrinterSettings {
     this.openCashDrawer = false,
     this.openDrawerCashOnly = true,
     this.beepOnPrint = false,
+    this.cashDrawerPin = 0,
     this.compactCutFeed = false,
   });
 
@@ -151,6 +155,8 @@ class PosThermalPrinterSettings {
 
   /// Gửi lệnh bip loa máy in khi in.
   final bool beepOnPrint;
+  /// Chân xung mở két ESC p: 0 = chân 2 (phổ biến), 1 = chân 5.
+  final int cashDrawerPin;
 
   /// Phiếu bếp: bỏ sàn feed USB/Sunmi (5–8 dòng) — chỉ 2–3 dòng trước cắt.
   final bool compactCutFeed;
@@ -171,6 +177,7 @@ class PosThermalPrinterSettings {
   static const _kOpenDrawer = 'pos_thermal_open_cash_drawer';
   static const _kOpenDrawerCashOnly = 'pos_thermal_open_drawer_cash_only';
   static const _kBeepOnPrint = 'pos_thermal_beep_on_print';
+  static const _kCashDrawerPin = 'pos_thermal_cash_drawer_pin';
 
   int get paperWidthMm {
     final p = paperSize.trim().toUpperCase();
@@ -180,8 +187,16 @@ class PosThermalPrinterSettings {
     return 80;
   }
 
+  bool get isImpact => printerBrand == PosThermalPrinterBrand.impact;
+
   /// Chế độ in chữ thực tế sau khi áp dụng auto + hãng máy.
   PosThermalTextMode get resolvedTextMode {
+    // Máy kim không in được ảnh → auto/ảnh đều chuyển sang chữ không dấu.
+    if (isImpact &&
+        (textMode == PosThermalTextMode.auto ||
+            textMode == PosThermalTextMode.image)) {
+      return PosThermalTextMode.ascii;
+    }
     if (textMode != PosThermalTextMode.auto) return textMode;
     switch (printerBrand) {
       case PosThermalPrinterBrand.zywell:
@@ -191,9 +206,12 @@ class PosThermalPrinterSettings {
       case PosThermalPrinterBrand.generic:
         return PosThermalTextMode.image;
       case PosThermalPrinterBrand.epson:
-        return PosThermalTextMode.utf8;
+        // Nhiều đời TM-T82/T88 không có font tiếng Việt UTF-8 → in ảnh cho chắc.
+        return PosThermalTextMode.image;
       case PosThermalPrinterBrand.sunmi:
         return PosThermalTextMode.utf8;
+      case PosThermalPrinterBrand.impact:
+        return PosThermalTextMode.ascii;
     }
   }
 
@@ -223,6 +241,8 @@ class PosThermalPrinterSettings {
         return n;
       case PosThermalPrinterBrand.epson:
         return n < 3 ? 3 : n;
+      case PosThermalPrinterBrand.impact:
+        return n < 4 ? 4 : n;
     }
   }
 
@@ -244,6 +264,7 @@ class PosThermalPrinterSettings {
     bool? openCashDrawer,
     bool? openDrawerCashOnly,
     bool? beepOnPrint,
+    int? cashDrawerPin,
     bool? compactCutFeed,
     bool clearBluetooth = false,
     bool clearLan = false,
@@ -269,6 +290,7 @@ class PosThermalPrinterSettings {
         openCashDrawer: openCashDrawer ?? this.openCashDrawer,
         openDrawerCashOnly: openDrawerCashOnly ?? this.openDrawerCashOnly,
         beepOnPrint: beepOnPrint ?? this.beepOnPrint,
+        cashDrawerPin: cashDrawerPin ?? this.cashDrawerPin,
         compactCutFeed: compactCutFeed ?? this.compactCutFeed,
       );
 
@@ -305,6 +327,7 @@ class PosThermalPrinterSettings {
       openCashDrawer: prefs.getBool(_kOpenDrawer) ?? false,
       openDrawerCashOnly: prefs.getBool(_kOpenDrawerCashOnly) ?? true,
       beepOnPrint: prefs.getBool(_kBeepOnPrint) ?? false,
+      cashDrawerPin: prefs.getInt(_kCashDrawerPin) ?? 0,
     );
   }
 
@@ -342,5 +365,6 @@ class PosThermalPrinterSettings {
     await prefs.setBool(_kOpenDrawer, openCashDrawer);
     await prefs.setBool(_kOpenDrawerCashOnly, openDrawerCashOnly);
     await prefs.setBool(_kBeepOnPrint, beepOnPrint);
+    await prefs.setInt(_kCashDrawerPin, cashDrawerPin);
   }
 }

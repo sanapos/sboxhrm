@@ -15,11 +15,25 @@ class PosSellCatalogSnapshot {
     required this.items,
     required this.cachedAt,
     this.catalogVersion,
+    this.complete = false,
+    this.syncedAt,
+    this.fullSyncedAt,
   });
 
   final List<PosProduct> items;
   final DateTime cachedAt;
   final DateTime? catalogVersion;
+
+  /// Đã có ĐỦ danh mục (đồng bộ hết các trang) — mới được tìm / lọc trên máy và
+  /// đồng bộ phần thay đổi. Bản cũ (chỉ trang 1) = false → tải lại đủ.
+  final bool complete;
+
+  /// Mốc giờ server của lần đồng bộ gần nhất — gửi lại làm updatedSince.
+  final DateTime? syncedAt;
+
+  /// Lần tải lại toàn bộ gần nhất (đơn vị tính / topping / combo đổi không cập nhật
+  /// updatedAt của món → tải lại toàn bộ định kỳ cho chắc).
+  final DateTime? fullSyncedAt;
 
   bool get isFresh =>
       DateTime.now().difference(cachedAt) < PosSellCatalogCache.ttl;
@@ -30,10 +44,16 @@ class _CatalogDecodeResult {
   const _CatalogDecodeResult({
     required this.itemMaps,
     this.catalogVersionIso,
+    this.complete = false,
+    this.syncedAtIso,
+    this.fullSyncedAtIso,
   });
 
   final List<Map<String, dynamic>> itemMaps;
   final String? catalogVersionIso;
+  final bool complete;
+  final String? syncedAtIso;
+  final String? fullSyncedAtIso;
 }
 
 _CatalogDecodeResult _decodeCatalogIsolate(String raw) {
@@ -50,6 +70,9 @@ _CatalogDecodeResult _decodeCatalogIsolate(String raw) {
   return _CatalogDecodeResult(
     itemMaps: itemMaps,
     catalogVersionIso: versionRaw?.toString(),
+    complete: root['complete'] == true,
+    syncedAtIso: root['syncedAt']?.toString(),
+    fullSyncedAtIso: root['fullSyncedAt']?.toString(),
   );
 }
 
@@ -72,7 +95,11 @@ class PosSellCatalogCache {
   PosSellCatalogCache._();
   static final PosSellCatalogCache instance = PosSellCatalogCache._();
 
-  static const ttl = Duration(minutes: 20);
+  /// Sau mốc này hỏi server phần thay đổi (nhẹ: thường vài món). Danh mục vẫn hiện ngay.
+  static const ttl = Duration(minutes: 2);
+
+  /// Tải lại toàn bộ định kỳ.
+  static const fullSyncEvery = Duration(hours: 6);
   static const _metaPrefix = 'pos_sell_catalog_v1_';
   static const _diskDebounce = Duration(milliseconds: 700);
 
@@ -95,11 +122,7 @@ class PosSellCatalogCache {
     if (_memory != null && _memoryStoreId == storeId) {
       final unique = uniquePosProductsById(_memory!.items);
       if (unique.length != _memory!.items.length) {
-        _memory = PosSellCatalogSnapshot(
-          items: unique,
-          cachedAt: _memory!.cachedAt,
-          catalogVersion: _memory!.catalogVersion,
-        );
+        _memory = _copy(_memory!, items: unique);
         _scheduleDiskWrite(storeId);
       }
       return _memory;
@@ -133,6 +156,10 @@ class PosSellCatalogCache {
         items: unique,
         cachedAt: DateTime.fromMillisecondsSinceEpoch(cachedAtMs),
         catalogVersion: catalogVersion,
+        complete: decoded.complete,
+        syncedAt: decoded.syncedAtIso == null ? null : DateTime.tryParse(decoded.syncedAtIso!),
+        fullSyncedAt:
+            decoded.fullSyncedAtIso == null ? null : DateTime.tryParse(decoded.fullSyncedAtIso!),
       );
       if (unique.length != items.length) {
         _scheduleDiskWrite(storeId);
@@ -149,19 +176,41 @@ class PosSellCatalogCache {
     return !snap.isFresh;
   }
 
+  PosSellCatalogSnapshot _copy(
+    PosSellCatalogSnapshot s, {
+    List<PosProduct>? items,
+    DateTime? cachedAt,
+  }) =>
+      PosSellCatalogSnapshot(
+        items: items ?? s.items,
+        cachedAt: cachedAt ?? s.cachedAt,
+        catalogVersion: s.catalogVersion,
+        complete: s.complete,
+        syncedAt: s.syncedAt,
+        fullSyncedAt: s.fullSyncedAt,
+      );
+
   /// Cập nhật memory + ghi đĩa (debounce) — không chặn UI.
+  /// [complete]/[syncedAt]/[fullSyncedAt] = null → giữ giá trị cũ (patch tồn không làm mất cờ).
   Future<void> write(
     String storeId, {
     required List<PosProduct> items,
     DateTime? catalogVersion,
+    bool? complete,
+    DateTime? syncedAt,
+    DateTime? fullSyncedAt,
   }) async {
     if (storeId.isEmpty) return;
+    final prev = _memoryStoreId == storeId ? _memory : null;
     _lastStoreId = storeId;
     _memoryStoreId = storeId;
     _memory = PosSellCatalogSnapshot(
       items: uniquePosProductsById(items),
       cachedAt: DateTime.now(),
-      catalogVersion: catalogVersion ?? _memory?.catalogVersion,
+      catalogVersion: catalogVersion ?? prev?.catalogVersion,
+      complete: complete ?? prev?.complete ?? false,
+      syncedAt: syncedAt ?? prev?.syncedAt,
+      fullSyncedAt: fullSyncedAt ?? prev?.fullSyncedAt,
     );
     _scheduleDiskWrite(storeId);
   }
@@ -187,11 +236,7 @@ class PosSellCatalogCache {
       changed = true;
     }
     if (!changed) return;
-    _memory = PosSellCatalogSnapshot(
-      items: next,
-      cachedAt: _memory!.cachedAt,
-      catalogVersion: _memory!.catalogVersion,
-    );
+    _memory = _copy(_memory!, items: next);
     _scheduleDiskWrite(storeId);
   }
 
@@ -211,6 +256,9 @@ class PosSellCatalogCache {
       final itemMaps = snap.items.map((p) => p.toSellCacheJson()).toList();
       final payload = await compute(_encodeCatalogIsolate, {
         'catalogVersion': snap.catalogVersion?.toUtc().toIso8601String(),
+        'complete': snap.complete,
+        'syncedAt': snap.syncedAt?.toUtc().toIso8601String(),
+        'fullSyncedAt': snap.fullSyncedAt?.toUtc().toIso8601String(),
         'items': itemMaps,
       });
       if (gen != _diskWriteGen) return;

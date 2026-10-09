@@ -234,6 +234,48 @@ class _PosSaleReturnScreenState extends State<PosSaleReturnScreen> {
     }
   }
 
+  /// Chọn đúng [need] seri máy khách trả lại; null nếu huỷ.
+  Future<List<String>?> _pickSerials(String name, List<String> serials, int need) {
+    final picked = <String>{};
+    return showDialog<List<String>>(
+      context: context,
+      builder: (ctx) => StatefulBuilder(
+        builder: (ctx, setD) => AlertDialog(
+          title: Text(tr('Chọn seri máy trả — $name')),
+          content: SizedBox(
+            width: 420,
+            child: SingleChildScrollView(
+              child: Column(mainAxisSize: MainAxisSize.min, children: [
+                Text(tr('Chọn đúng $need máy (đã chọn ${picked.length}). Chỉ máy được chọn bị huỷ bảo hành.'),
+                    style: const TextStyle(fontSize: 12)),
+                for (final s in serials)
+                  CheckboxListTile(
+                    dense: true,
+                    value: picked.contains(s),
+                    title: Text(s),
+                    onChanged: (v) => setD(() {
+                      if (v == true) {
+                        if (picked.length < need) picked.add(s);
+                      } else {
+                        picked.remove(s);
+                      }
+                    }),
+                  ),
+              ]),
+            ),
+          ),
+          actions: [
+            TextButton(onPressed: () => Navigator.pop(ctx), child: Text(tr('Huỷ'))),
+            FilledButton(
+              onPressed: picked.length == need ? () => Navigator.pop(ctx, picked.toList()) : null,
+              child: Text(tr('Xác nhận')),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
   Future<void> _submit() async {
     final order = _order;
     if (order == null) return;
@@ -249,10 +291,18 @@ class _PosSaleReturnScreenState extends State<PosSaleReturnScreen> {
         );
         return;
       }
+      // Hàng có seri: trả một phần số máy → phải chọn đúng máy khách trả (bảo hành theo seri).
+      List<String>? pickedSerials;
+      final active = rl.activeSerials;
+      if (active.isNotEmpty && qty.round() < active.length) {
+        pickedSerials = await _pickSerials(rl.line.productName, active, qty.round());
+        if (pickedSerials == null) return;
+      }
       bodyLines.add({
         'productId': rl.line.productId,
         'qty': qty,
         if (rl.line.variantId != null) 'variantId': rl.line.variantId,
+        if (pickedSerials != null) 'serialNumbers': pickedSerials,
       });
     }
     if (bodyLines.isEmpty) {
@@ -1027,6 +1077,13 @@ class _ReturnLine {
 
   double get maxReturnable =>
       (line.qty - line.returnedQty).clamp(0, line.qty);
+
+  /// Seri còn bảo hành (bỏ các seri đã trả / hủy — nhãn dạng «SN (IMEI: x) [Returned]»).
+  List<String> get activeSerials => [
+        for (final s in line.serialNumbers)
+          if (!s.contains(' [') && !s.startsWith('AUTO-'))
+            (s.contains(' (IMEI:') ? s.substring(0, s.indexOf(' (IMEI:')) : s).trim(),
+      ];
 }
 
 class _ReturnHistory {

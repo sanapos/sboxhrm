@@ -115,7 +115,12 @@ class PosVietQrHelper {
       preferredId: preferredAccountId,
     );
     if (account == null) return null;
-    final amount = order.total > 0 ? order.total : order.paidAmount;
+    // Tổng phải trả gồm VAT + phụ thu + phí giao (order.total chỉ là tiền hàng);
+    // đơn còn nợ → QR đòi đúng phần còn lại.
+    final payable = order.total + order.vatAmount + order.surchargeAmount + order.deliveryFee;
+    final amount = order.balanceDue > 0.5
+        ? order.balanceDue
+        : (payable > 0 ? payable : order.paidAmount);
     return qrImageUrl(
       account: account,
       amount: amount,

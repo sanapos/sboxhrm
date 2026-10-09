@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'dart:io' show Platform, Socket;
 
 import 'package:device_info_plus/device_info_plus.dart';
@@ -7,7 +8,6 @@ import 'package:sunmi_printer_plus/sunmi_printer_plus.dart';
 
 import 'pos_thermal_printer_settings.dart';
 import 'pos_thermal_bitmap.dart';
-import 'pos_printer_peripheral.dart';
 import 'pos_usb_printer.dart';
 
 /// Gửi byte thô tới máy in qua Bluetooth / LAN / USB / Sunmi.
@@ -19,8 +19,75 @@ class PosPrinterTransport {
   static const _btChunkDelayLarge = Duration(milliseconds: 70);
   static const _btSettleDelay = Duration(milliseconds: 600);
 
+  static bool? _isSunmiCache;
+  static bool? _sunmiCutterCache;
+
+  /// Hàng đợi tuần tự theo cổng: hai lệnh in cùng lúc (hóa đơn + tem ly / báo bếp)
+  /// không giành nhau một kết nối. Bluetooth dùng chung 1 hàng vì plugin chỉ giữ
+  /// 1 kết nối toàn app — máy BT thứ hai mở kết nối sẽ cắt ngang máy đang in.
+  static final Map<String, Future<void>> _portTails = {};
+
+  static Future<T> _serialized<T>(String key, Future<T> Function() task) {
+    final prev = _portTails[key] ?? Future<void>.value();
+    final run = prev.catchError((_) {}).then((_) => task());
+    final tail = run.then<void>((_) {}, onError: (_) {});
+    _portTails[key] = tail;
+    tail.whenComplete(() {
+      if (identical(_portTails[key], tail)) _portTails.remove(key);
+    });
+    return run;
+  }
+
+  static String _portKey(
+    PosThermalConnectionType type, {
+    String? lanHost,
+    int lanPort = 9100,
+    String? usbDeviceName,
+    String? usbStableId,
+  }) {
+    switch (type) {
+      case PosThermalConnectionType.bluetooth:
+        return 'bt';
+      case PosThermalConnectionType.sunmi:
+        return 'sunmi';
+      case PosThermalConnectionType.lan:
+        return 'lan:${(lanHost ?? '').trim().toLowerCase()}:$lanPort';
+      case PosThermalConnectionType.usb:
+        final id = (usbStableId ?? '').trim().isNotEmpty
+            ? usbStableId!.trim()
+            : (usbDeviceName ?? '').split('|').first.trim();
+        return 'usb:$id';
+    }
+  }
+
+  static bool? _isIminCache;
+
+  /// Máy POS iMin (D1/D4/Swan/M2…). Phần lớn đời máy nối máy in trong qua USB nội bộ
+  /// (SDK iMin dùng kết nối USB, trừ M2-202/203/Pro dùng SPI) ⇒ in bằng cổng USB của app.
+  static Future<bool> isIminDevice() async {
+    if (kIsWeb || !Platform.isAndroid) return false;
+    final cached = _isIminCache;
+    if (cached != null) return cached;
+    var v = false;
+    try {
+      final info = await DeviceInfoPlugin().androidInfo;
+      final s = '${info.brand} ${info.manufacturer}'.toLowerCase();
+      v = s.contains('imin');
+    } catch (_) {}
+    _isIminCache = v;
+    return v;
+  }
+
   static Future<bool> isSunmiDevice() async {
     if (kIsWeb || !Platform.isAndroid) return false;
+    final cached = _isSunmiCache;
+    if (cached != null) return cached;
+    final v = await _detectSunmi();
+    _isSunmiCache = v;
+    return v;
+  }
+
+  static Future<bool> _detectSunmi() async {
     try {
       final info = await DeviceInfoPlugin().androidInfo;
       final brand = info.brand.toLowerCase();
@@ -39,6 +106,14 @@ class PosPrinterTransport {
   /// Handheld (V2s/V2/V1…) in trong máy — không có dao cắt, chỉ xé tay.
   static Future<bool> sunmiHasAutoCutter() async {
     if (kIsWeb || !Platform.isAndroid) return false;
+    final cached = _sunmiCutterCache;
+    if (cached != null) return cached;
+    final v = await _detectSunmiCutter();
+    _sunmiCutterCache = v;
+    return v;
+  }
+
+  static Future<bool> _detectSunmiCutter() async {
     try {
       final info = await DeviceInfoPlugin().androidInfo;
       final m =
@@ -119,6 +194,41 @@ class PosPrinterTransport {
     int sunmiFeedLines = 0,
   }) async {
     if (kIsWeb) return false;
+    final key = _portKey(
+      connectionType,
+      lanHost: lanHost,
+      lanPort: lanPort,
+      usbDeviceName: usbDeviceName,
+      usbStableId: usbStableId,
+    );
+    return _serialized(key, () => _sendNow(
+          connectionType: connectionType,
+          bluetoothAddress: bluetoothAddress,
+          lanHost: lanHost,
+          lanPort: lanPort,
+          usbDeviceName: usbDeviceName,
+          usbStableId: usbStableId,
+          usbVendorId: usbVendorId,
+          usbProductId: usbProductId,
+          usbSerial: usbSerial,
+          bytes: bytes,
+          sunmiFeedLines: sunmiFeedLines,
+        ));
+  }
+
+  static Future<bool> _sendNow({
+    required PosThermalConnectionType connectionType,
+    String? bluetoothAddress,
+    String? lanHost,
+    int lanPort = 9100,
+    String? usbDeviceName,
+    String? usbStableId,
+    int? usbVendorId,
+    int? usbProductId,
+    String? usbSerial,
+    required List<int> bytes,
+    int sunmiFeedLines = 0,
+  }) async {
     switch (connectionType) {
       case PosThermalConnectionType.lan:
         return _sendLan(lanHost, lanPort, bytes);
@@ -238,15 +348,60 @@ class PosPrinterTransport {
     return false;
   }
 
+  /// Lỗi gần nhất của máy LAN (vd. hết giấy) — để màn hình báo rõ lý do.
+  static String? lastLanError;
+
+  /// DLE EOT 4 (trạng thái cảm biến giấy). Máy trả 1 byte dạng 0b0xx1xx10:
+  /// bit 5–6 = hết giấy. Máy không trả lời trong 600ms ⇒ coi như không rõ, vẫn in.
+  static Future<({bool paperOut, StreamSubscription<List<int>>? sub})>
+      _lanPaperStatus(Socket socket) async {
+    final got = Completer<int?>();
+    StreamSubscription<List<int>>? sub;
+    try {
+      sub = socket.listen(
+        (d) {
+          if (!got.isCompleted && d.isNotEmpty) got.complete(d.first);
+        },
+        onError: (_) {
+          if (!got.isCompleted) got.complete(null);
+        },
+        onDone: () {
+          if (!got.isCompleted) got.complete(null);
+        },
+        cancelOnError: false,
+      );
+      socket.add(const [0x10, 0x04, 0x04]);
+      await socket.flush();
+      final b = await got.future
+          .timeout(const Duration(milliseconds: 600), onTimeout: () => null);
+      // Byte trạng thái hợp lệ: bit1=1, bit4=1, bit0=0, bit7=0.
+      final valid = b != null && (b & 0x93) == 0x12;
+      return (paperOut: valid && (b & 0x60) == 0x60, sub: sub);
+    } catch (e) {
+      debugPrint('LAN status query: $e');
+      return (paperOut: false, sub: sub);
+    }
+  }
+
   static Future<bool> _sendLan(String? host, int port, List<int> bytes) async {
     final h = host?.trim();
     if (h == null || h.isEmpty) return false;
     try {
       final socket = await Socket.connect(h, port, timeout: const Duration(seconds: 8));
+      final status = await _lanPaperStatus(socket);
+      if (status.paperOut) {
+        debugPrint('LAN print blocked: máy in $h báo HẾT GIẤY');
+        lastLanError = 'Máy in $h hết giấy';
+        await status.sub?.cancel();
+        socket.destroy();
+        return false;
+      }
       socket.add(bytes);
       await socket.flush();
       await Future<void>.delayed(const Duration(milliseconds: 200));
       await socket.close();
+      await status.sub?.cancel();
+      lastLanError = null;
       return true;
     } catch (e) {
       debugPrint('LAN print failed: $e');
@@ -298,6 +453,31 @@ class PosPrinterTransport {
       break;
     }
     out.addAll(kept);
+    return out;
+  }
+
+  static bool _isDrawerKickAt(List<int> b, int i) =>
+      i >= 0 &&
+      i + 5 <= b.length &&
+      b[i] == 0x1B &&
+      b[i + 1] == 0x70 &&
+      (b[i + 2] == 0x00 || b[i + 2] == 0x01 || b[i + 2] == 0x30 || b[i + 2] == 0x31);
+
+  /// Có lệnh mở két ESC p trong 24 byte cuối (sau cắt / bip).
+  static bool hasTrailingDrawerKick(List<int> bytes) {
+    final start = bytes.length > 24 ? bytes.length - 24 : 0;
+    for (var i = start; i + 5 <= bytes.length; i++) {
+      if (_isDrawerKickAt(bytes, i)) return true;
+    }
+    return false;
+  }
+
+  static List<int> removeTrailingDrawerKick(List<int> bytes) {
+    final out = List<int>.from(bytes);
+    final start = out.length > 24 ? out.length - 24 : 0;
+    for (var i = out.length - 5; i >= start; i--) {
+      if (_isDrawerKickAt(out, i)) out.removeRange(i, i + 5);
+    }
     return out;
   }
 
@@ -387,7 +567,9 @@ class PosPrinterTransport {
 
       // Shim map printEscPos → printRawData (sunmi_printer_plus 2.x AIDL).
       // Strip GS V — cắt bằng cutPaper sau khi đẩy giấy.
-      final payload = stripTrailingCut(bytes);
+      // ESC p cuối payload → bỏ khỏi lệnh in, mở bằng SunmiDrawer (tránh bật két 2 lần).
+      final openDrawer = hasTrailingDrawerKick(bytes);
+      final payload = removeTrailingDrawerKick(stripTrailingCut(bytes));
       final feed = feedLines.clamp(0, 40);
       final hasCutter = await sunmiHasAutoCutter();
 
@@ -408,23 +590,7 @@ class PosPrinterTransport {
       if (hasCutter) {
         await finishSunmiSlip(feedLines: feed);
       }
-      // Bổ sung API mở két nếu payload có ESC p (strip không xóa lệnh này).
-      final drawerSig = PosPrinterPeripheral.openDrawerEscPos();
-      final tail = bytes.length > 24 ? bytes.sublist(bytes.length - 24) : bytes;
-      var openDrawer = false;
-      for (var i = 0; i <= tail.length - drawerSig.length; i++) {
-        var match = true;
-        for (var j = 0; j < drawerSig.length; j++) {
-          if (tail[i + j] != drawerSig[j]) {
-            match = false;
-            break;
-          }
-        }
-        if (match) {
-          openDrawer = true;
-          break;
-        }
-      }
+      // Mở két bằng API Sunmi nếu payload có ESC p (đã gỡ khỏi payload ở trên).
       if (openDrawer) {
         try {
           await SunmiDrawer.openDrawer();

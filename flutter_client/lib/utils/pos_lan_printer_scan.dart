@@ -196,6 +196,9 @@ class PosLanPrinterScan {
     if (t.contains('hprt') || t.contains('tp80') || t.contains('pos80')) {
       return PosThermalPrinterBrand.hprt;
     }
+    if (t.contains('tm-u') || t.contains('tmu2') || t.contains('impact')) {
+      return PosThermalPrinterBrand.impact;
+    }
     if (t.contains('epson') || t.contains('tm-')) {
       return PosThermalPrinterBrand.epson;
     }

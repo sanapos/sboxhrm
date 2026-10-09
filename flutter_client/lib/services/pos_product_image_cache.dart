@@ -14,8 +14,9 @@ class PosProductImageCacheManager {
       PosProductImageCacheManager._();
 
   static const _cacheName = 'posProductImageCache';
-  /// Sunmi / máy yếu (V2s 3GB): giữ ít ảnh full-bytes trong RAM.
-  static const _maxMemoryEntries = 48;
+  /// Bytes nén (JPEG ~30–120KB/ảnh) trong RAM — 160 ảnh ≈ 5–15MB, đủ cuộn qua lại
+  /// thực đơn không phải đọc lại đĩa. Ảnh đã giải mã do ImageCache của Flutter giữ riêng.
+  static const _maxMemoryEntries = 160;
   /// Giới hạn HTTP ảnh song song toàn app.
   static const _maxConcurrentHttp = 2;
 
@@ -26,10 +27,26 @@ class PosProductImageCacheManager {
   late final CacheManager manager = CacheManager(
     Config(
       _cacheName,
-      stalePeriod: const Duration(days: 30),
-      maxNrOfCacheObjects: 400,
+      stalePeriod: const Duration(days: 60),
+      // Thực đơn lớn (siêu thị / tạp hóa) vượt 400 món → ảnh bị xóa rồi tải lại liên tục.
+      maxNrOfCacheObjects: 3000,
     ),
   );
+
+  /// Phiên bản ảnh: ảnh tải lên luôn có tên file mới (GUID) nên chính đường dẫn là phiên bản.
+  /// KHÔNG dùng updatedAt của sản phẩm — mỗi lần bán trừ tồn server cập nhật updatedAt
+  /// ⇒ ảnh bị coi là mới và tải lại sau mỗi đơn. Chỉ khi không có đường dẫn mới dùng updatedAt.
+  static int imageEpoch({String? imageUrl, DateTime? updatedAt}) {
+    final u = (imageUrl ?? '').trim();
+    if (u.isEmpty) return updatedAt?.millisecondsSinceEpoch ?? 0;
+    // FNV-1a 32-bit — ổn định giữa các lần chạy (String.hashCode không đảm bảo).
+    var h = 0x811c9dc5;
+    for (final c in u.codeUnits) {
+      h ^= c;
+      h = (h * 0x01000193) & 0xFFFFFFFF;
+    }
+    return h;
+  }
 
   static String cacheKey({
     String? productId,
@@ -166,14 +183,13 @@ class PosProductImageCacheManager {
       if ((imageUrl ?? '').trim().isNotEmpty) imageUrl!.trim(),
       ApiService.posProductImagePath(productId),
     ];
-    final epoch = updatedAt?.millisecondsSinceEpoch ?? 0;
+    final epoch = imageEpoch(imageUrl: imageUrl, updatedAt: updatedAt);
     final headers = <String, String>{...?api.imageAuthHeaders};
     for (final path in paths) {
       final url = api.getFileUrl(path);
       if (url.isEmpty) continue;
       final key = cacheKey(
         productId: productId,
-        updatedAt: updatedAt,
         path: path,
         cacheEpoch: epoch,
       );

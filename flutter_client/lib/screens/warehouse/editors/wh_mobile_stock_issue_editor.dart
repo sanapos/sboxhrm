@@ -12,6 +12,7 @@ import '../../../widgets/notification_overlay.dart';
 import '../../../widgets/pos/pos_purchase_product_search_bar.dart';
 import '../../../widgets/pos/pos_stock_issue_config.dart';
 import '../../../widgets/pos_barcode_scanner.dart';
+import '../../../widgets/pos/pos_serial_list_dialog.dart';
 import '../../../widgets/warehouse/wh_doc_type.dart';
 import '../../../widgets/warehouse/wh_mobile_components.dart';
 import '../../../widgets/warehouse/wh_mobile_theme.dart';
@@ -42,8 +43,14 @@ class _Line {
     this.variantId,
     double qty = 1,
     double cost = 0,
+    this.requiresSerial = false,
+    List<String>? serials,
   })  : qty = qty,
-        cost = cost;
+        cost = cost,
+        serials = serials ?? <String>[];
+
+  final bool requiresSerial;
+  List<String> serials;
 
   final String? variantId;
   final String lineId;
@@ -114,6 +121,8 @@ class _WhMobileStockIssueEditorState extends State<WhMobileStockIssueEditor> {
             variantId: l.variantId,
             qty: l.qty > 0 ? l.qty : 1,
             cost: l.costPrice,
+            requiresSerial: l.requiresSerial,
+            serials: List<String>.from(l.serialNumbers),
           )));
   }
 
@@ -205,6 +214,7 @@ class _WhMobileStockIssueEditorState extends State<WhMobileStockIssueEditor> {
                   'lineId': l.lineId,
                   'qty': l.qty,
                   'costPrice': l.cost,
+                  if (l.requiresSerial) 'serialNumbers': l.serials,
                 })
             .toList(),
       );
@@ -223,6 +233,38 @@ class _WhMobileStockIssueEditorState extends State<WhMobileStockIssueEditor> {
       return false;
     }
     return true;
+  }
+
+  Future<void> _editSerials(_Line l) async {
+    final r = await showPosSerialListDialog(
+      context,
+      productName: l.name,
+      qty: l.qty.round(),
+      initial: l.serials,
+      readOnly: _readOnly,
+      hint: 'Chọn / quét seri máy xuất — để trống: hệ thống lấy theo thứ tự nhập',
+      scanOne: () => scanBarcodeWithCamera(context),
+      loadSuggestions: () async {
+        final res = await _api.getPosSerialsAvailable(l.productId);
+        final items = (res['data'] as Map?)?['items'];
+        return items is List ? items.map((e) => e.toString()).toList() : <String>[];
+      },
+    );
+    if (r != null && mounted) setState(() => l.serials = r);
+  }
+
+  Widget _serialButton(_Line l) {
+    final n = l.qty.round();
+    final ok = l.serials.isEmpty || l.serials.length == n;
+    return Padding(
+      padding: const EdgeInsets.only(top: 10),
+      child: OutlinedButton.icon(
+        onPressed: () => _editSerials(l),
+        icon: Icon(Icons.qr_code_scanner_rounded, size: 18, color: ok ? Colors.green : Colors.orange),
+        label: Text(tr(l.serials.isEmpty ? 'Chọn seri (tự lấy theo thứ tự nhập)' : 'Seri ${l.serials.length}/$n')),
+        style: OutlinedButton.styleFrom(minimumSize: const Size.fromHeight(44)),
+      ),
+    );
   }
 
   Future<void> _saveDraft() async {
@@ -386,6 +428,7 @@ class _WhMobileStockIssueEditorState extends State<WhMobileStockIssueEditor> {
                                       onQty: (v) => setState(() => l.qty = v),
                                     ),
                                   ),
+                                if (l.requiresSerial) _serialButton(l),
                               ],
                             ),
                             trailing: Text(

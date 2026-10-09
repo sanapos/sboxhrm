@@ -131,6 +131,8 @@ class _PosKdsScreenState extends State<PosKdsScreen> {
       if (!mounted) return;
       final reason =
           (event['reason'] ?? event['Reason'] ?? '').toString().toLowerCase();
+      // Hàng hóa / HĐ quầy / thiết lập không đổi vé bếp.
+      if (PosSyncReasons.notFloor.contains(reason)) return;
       final msg = (event['message'] ?? event['Message'])?.toString();
       unawaited(_loadTickets(
         silent: true,

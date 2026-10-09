@@ -396,6 +396,8 @@ class _ScheduleBoardViewState extends State<ScheduleBoardView> {
             const Positioned(right: 2, top: 2, child: Icon(Icons.circle, size: 8, color: SboxColors.warning)),
           if (leave != null && leave['status'] == 'Pending')
             const Positioned(right: 2, bottom: 2, child: Icon(Icons.beach_access_rounded, size: 12, color: SboxColors.warning)),
+          if (ShiftUi.n(c?['moreShifts']) > 0)
+            Positioned(left: 2, bottom: 2, child: ShiftUi.pill('+${ShiftUi.n(c?['moreShifts']).toInt()} ca', SboxColors.brand600, solid: true)),
           if (c?['swapPending'] == true)
             const Positioned(left: 2, top: 2, child: Icon(Icons.swap_horiz_rounded, size: 12, color: SboxColors.violet)),
         ]),
@@ -537,6 +539,11 @@ class _ScheduleBoardViewState extends State<ScheduleBoardView> {
     final reg = c?['registration'] as Map?;
     final leave = c?['leave'] as Map?;
     final scheduleId = c?['scheduleId']?.toString();
+    // Ô có nhiều ca: chạm một ca = thêm / bỏ ca đó (thay vì thay thế ca duy nhất).
+    final items = _rows(c?['items']);
+    final shiftItems = items.where((x) => x['isDayOff'] != true && x['shiftId'] != null).toList();
+    final multi = shiftItems.length > 1;
+    bool hasShift(Map<String, dynamic> t) => shiftItems.any((x) => x['shiftId'].toString() == t['id'].toString());
     final action = await showModalBottomSheet<String>(
       context: context,
       showDragHandle: true,
@@ -582,14 +589,15 @@ class _ScheduleBoardViewState extends State<ScheduleBoardView> {
               ),
             Padding(
               padding: const EdgeInsets.fromLTRB(20, 8, 20, 6),
-              child: Text(tr('Xếp ca'), style: const TextStyle(fontWeight: FontWeight.w800)),
+              child: Text(tr(multi ? 'Xếp ca (nhiều ca trong ngày — chạm để thêm / bỏ)' : 'Xếp ca'),
+                  style: const TextStyle(fontWeight: FontWeight.w800)),
             ),
             for (final t in _templates)
               ListTile(
                 leading: CircleAvatar(radius: 8, backgroundColor: ShiftUi.shiftColor(ShiftUi.n(t['colorIndex']).toInt())),
                 title: Text('${t['name']}'),
                 subtitle: Text('${t['start']} – ${t['end']}'),
-                trailing: c?['shiftId']?.toString() == t['id'].toString() ? const Icon(Icons.check_rounded, color: SboxColors.success) : null,
+                trailing: hasShift(t) ? const Icon(Icons.check_rounded, color: SboxColors.success) : null,
                 onTap: () => Navigator.pop(ctx, 'shift:${t['id']}'),
               ),
             ListTile(
@@ -601,7 +609,7 @@ class _ScheduleBoardViewState extends State<ScheduleBoardView> {
             if (scheduleId != null)
               ListTile(
                 leading: const Icon(Icons.delete_outline_rounded, color: SboxColors.danger),
-                title: Text(tr('Xoá lịch ngày này'), style: const TextStyle(color: SboxColors.danger)),
+                title: Text(tr(multi ? 'Xoá tất cả ca ngày này' : 'Xoá lịch ngày này'), style: const TextStyle(color: SboxColors.danger)),
                 onTap: () => Navigator.pop(ctx, 'clear'),
               ),
             const SizedBox(height: 12),
@@ -619,11 +627,34 @@ class _ScheduleBoardViewState extends State<ScheduleBoardView> {
       await _run(_api.approveScheduleRegistration(reg!['id'].toString(), {'isApproved': false, 'rejectionReason': reason}),
           'Đã từ chối đăng ký');
     } else if (action == 'clear') {
-      await _run(_api.deleteWorkSchedule(scheduleId!), 'Đã xoá lịch');
+      final ids = items.map((x) => x['scheduleId'].toString()).toList();
+      if (ids.isEmpty) ids.add(scheduleId!);
+      for (final id in ids.take(ids.length - 1)) {
+        await _api.deleteWorkSchedule(id);
+      }
+      await _run(_api.deleteWorkSchedule(ids.last), 'Đã xoá lịch');
     } else {
       final dayOff = action == 'dayoff';
       final shiftId = dayOff ? null : action.substring(6);
       final body = {'shiftId': shiftId, 'isDayOff': dayOff};
+      if (multi) {
+        if (dayOff) {
+          // Đặt ngày nghỉ: gỡ các ca còn lại, đổi dòng đầu thành ngày nghỉ.
+          for (final x in shiftItems.skip(1)) {
+            await _api.deleteWorkSchedule(x['scheduleId'].toString());
+          }
+          await _run(_api.updateWorkSchedule(shiftItems.first['scheduleId'].toString(), body), 'Đã xếp ngày nghỉ');
+        } else {
+          final existing = shiftItems.where((x) => x['shiftId'].toString() == shiftId).firstOrNull;
+          await _run(
+            existing != null
+                ? _api.deleteWorkSchedule(existing['scheduleId'].toString())
+                : _api.createWorkSchedule({...body, 'employeeUserId': e['id'], 'date': day}),
+            existing != null ? 'Đã bỏ ca' : 'Đã thêm ca',
+          );
+        }
+        return;
+      }
       await _run(
         scheduleId != null
             ? _api.updateWorkSchedule(scheduleId, body)
@@ -692,14 +723,17 @@ class _ScheduleBoardViewState extends State<ScheduleBoardView> {
         final newDay = ShiftUi.key(ShiftUi.parse(entry.key)!.add(const Duration(days: 7)));
         final existing = ((curEmps[e['id'].toString()]?['cells'] as Map?) ?? const {})[newDay] as Map?;
         if (existing?['scheduleId'] != null) continue;
-        final r = await _api.createWorkSchedule({
-          'employeeUserId': e['id'],
-          'date': newDay,
-          'shiftId': c['shiftId'],
-          'isDayOff': c['isDayOff'] == true,
-          'note': c['note'],
-        });
-        r['isSuccess'] == true ? created++ : failed++;
+        final srcItems = _rows(c['items']);
+        for (final it in srcItems.isEmpty ? [Map<String, dynamic>.from(c)] : srcItems) {
+          final r = await _api.createWorkSchedule({
+            'employeeUserId': e['id'],
+            'date': newDay,
+            'shiftId': it['shiftId'],
+            'isDayOff': it['isDayOff'] == true,
+            'note': c['note'],
+          });
+          r['isSuccess'] == true ? created++ : failed++;
+        }
       }
     }
     if (!mounted) return;

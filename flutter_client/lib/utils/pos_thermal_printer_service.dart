@@ -291,6 +291,15 @@ class PosThermalPrinterService {
     for (final step in output.steps) {
       if (step is PosPrintCompiledQr) {
         if (b._useImageBatch) await b.flushImageBatch();
+        if (settings.isImpact) {
+          // Máy kim không in ảnh QR — chỉ in chú thích / số tiền.
+          b.center();
+          if (step.caption.trim().isNotEmpty) await b.line(step.caption.trim());
+          if (step.amountText != null && step.amountText!.trim().isNotEmpty) {
+            await b.line('${step.amountText!.trim()} đ');
+          }
+          continue;
+        }
         b.center();
         if (step.title != null && step.title!.trim().isNotEmpty) {
           await b.line(step.title!.trim());
@@ -329,6 +338,7 @@ class PosThermalPrinterService {
       }
 
       if (step is PosPrintCompiledImage) {
+        if (settings.isImpact) continue; // máy kim không in ảnh (logo…)
         final dots = PosThermalBitmapEncoder.paperDots(settings.paperWidthMm);
         final raster = await PosThermalBitmapEncoder.receiptToRaster(
           [compiledStepToImageLine(step)!],
@@ -343,10 +353,7 @@ class PosThermalPrinterService {
       if (step is PosPrintCompiledLine) {
         final line = step;
         if (line.isDivider) {
-          b.left();
-          b.appendRaw(PosThermalBitmapEncoder.horizontalRuleEscPos(
-            paperDots: PosThermalBitmapEncoder.paperDots(settings.paperWidthMm),
-          ));
+          await b.separator();
           continue;
         }
         if (line.center) {
@@ -759,7 +766,9 @@ class PosThermalPrinterService {
 
     }
 
-    if (vietQrImageUrl != null && vietQrImageUrl.isNotEmpty) {
+    if (vietQrImageUrl != null &&
+        vietQrImageUrl.isNotEmpty &&
+        !settings.isImpact) {
 
       b.feed(1);
 
@@ -982,7 +991,11 @@ class _EscPosBuilder {
 
 
 
-  int get maxChars => _settings.paperWidthMm <= 58 ? 32 : 48;
+  int get maxChars => _settings.isImpact
+      ? (_settings.paperWidthMm <= 58 ? 30 : 40)
+      : (_settings.paperWidthMm <= 58 ? 32 : 48);
+
+  bool get _isImpact => _settings.isImpact;
 
 
 
@@ -1027,7 +1040,8 @@ class _EscPosBuilder {
     }
 
     // GS W — đặt độ rộng vùng in (80mm = 576 dots) để máy K80 không in như K58.
-    if (b._settings.paperWidthMm > 58) {
+    // Máy kim không hiểu GS W (in ra ký tự rác) → bỏ.
+    if (b._settings.paperWidthMm > 58 && !b._settings.isImpact) {
       b._add([0x1D, 0x57, 0x40, 0x02]);
     }
 
@@ -1057,6 +1071,11 @@ class _EscPosBuilder {
       return;
     }
     center();
+    if (_isImpact) {
+      // Máy kim không in barcode → in mã dạng chữ.
+      _add([...code.codeUnits.where((c) => c >= 32 && c <= 126), 0x0A]);
+      return;
+    }
     final h = height.clamp(1, 255);
     _add([0x1D, 0x68, h]); // GS h n
     _add([0x1D, 0x48, showText ? 0x02 : 0x00]); // GS H n — dưới / không
@@ -1229,6 +1248,10 @@ class _EscPosBuilder {
       return;
     }
     left();
+    if (_isImpact) {
+      _add([...List.filled(maxChars, 0x2D), 0x0A]);
+      return;
+    }
     appendRaw(PosThermalBitmapEncoder.horizontalRuleEscPos(
       paperDots: _paperDots,
     ));

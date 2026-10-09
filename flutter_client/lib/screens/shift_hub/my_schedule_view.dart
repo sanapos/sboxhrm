@@ -279,6 +279,17 @@ class _MyScheduleViewState extends State<MyScheduleView> {
               if (!past) _menu(d, date, s, tp, reg),
             ]),
           ),
+          // Ngày có nhiều ca: hiện thêm các ca còn lại.
+          for (final x in _rows(d['schedules']).skip(1).where((x) => x['isDayOff'] != true && x['shiftId'] != null))
+            Padding(
+              padding: const EdgeInsets.fromLTRB(14, 0, 14, 8),
+              child: _line(
+                Icons.schedule_rounded,
+                _tpl(x['shiftId'])?['name']?.toString() ?? 'Ca làm',
+                '${x['start']} – ${x['end']}',
+                ShiftUi.shiftColor(ShiftUi.n(_tpl(x['shiftId'])?['colorIndex']).toInt()),
+              ),
+            ),
           if (reg != null || leaves.any((l) => l['status'] != 'Approved') || swaps.isNotEmpty)
             Padding(
               padding: const EdgeInsets.fromLTRB(14, 0, 14, 12),
@@ -320,15 +331,31 @@ class _MyScheduleViewState extends State<MyScheduleView> {
 
   Widget _menu(Map<String, dynamic> d, DateTime date, Map? s, Map<String, dynamic>? tp, Map? reg) {
     final hasShift = s != null && s['isDayOff'] != true && s['shiftId'] != null;
+    final extraShifts = _rows(d['schedules']).skip(1).where((x) => x['isDayOff'] != true && x['shiftId'] != null).toList();
     return PopupMenuButton<String>(
       tooltip: tr('Thao tác'),
       icon: const Icon(Icons.more_vert_rounded, color: SboxColors.slate500),
       onSelected: (v) async {
         var changed = false;
+        if (v.startsWith('swap:')) {
+          final x = extraShifts[int.parse(v.substring(5))];
+          final xt = _tpl(x['shiftId']);
+          changed = await showSwapRequestSheet(context,
+              myDate: date,
+              myShiftId: x['shiftId'].toString(),
+              myShiftLabel: '${xt?['name'] ?? ''} ${x['start']}–${x['end']}');
+          if (changed) _changed();
+          return;
+        }
         switch (v) {
           case 'register':
             changed = await showRegisterShiftSheet(context,
-                date: date, templates: _templates, slots: _rows(d['slots']), currentShiftId: s?['shiftId']?.toString());
+                date: date,
+                templates: _templates,
+                slots: _rows(d['slots']),
+                currentShiftId: s?['shiftId']?.toString(),
+                hasShiftToday: hasShift,
+                isDayOffToday: s?['isDayOff'] == true);
           case 'leave':
             changed = await showLeaveRequestSheet(context,
                 date: date,
@@ -363,6 +390,15 @@ class _MyScheduleViewState extends State<MyScheduleView> {
           PopupMenuItem(
             value: 'swap',
             child: ListTile(dense: true, leading: const Icon(Icons.swap_horiz_rounded), title: Text(tr('Đổi ca với đồng nghiệp'))),
+          ),
+        for (var i = 0; i < extraShifts.length; i++)
+          PopupMenuItem(
+            value: 'swap:$i',
+            child: ListTile(
+              dense: true,
+              leading: const Icon(Icons.swap_horiz_rounded),
+              title: Text(tr('Đổi ${_tpl(extraShifts[i]['shiftId'])?['name'] ?? 'ca'} với đồng nghiệp')),
+            ),
           ),
         if (reg != null && reg['status'] == 'Pending')
           PopupMenuItem(

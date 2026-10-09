@@ -1,3 +1,5 @@
+import '../../widgets/pos_barcode_scanner.dart';
+import '../../widgets/pos/pos_serial_list_dialog.dart';
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
 import 'package:provider/provider.dart';
@@ -405,10 +407,55 @@ class _PosQuoteEditorScreenState extends State<PosQuoteEditorScreen> {
     );
   }
 
+  /// Bàn giao / nghiệm thu: chọn đúng máy giao khách cho hàng bắt buộc seri. Trả về null nếu người dùng huỷ.
+  Future<Map<String, List<String>>?> _pickQuoteSerials() async {
+    final res = await _api.getPosQuoteStockIssueSerialNeeds(widget.quoteId!);
+    final raw = (res['data'] as Map?)?['items'];
+    final needs = raw is List ? raw.whereType<Map>().toList() : <Map>[];
+    final out = <String, List<String>>{};
+    for (final n in needs) {
+      final qty = (n['qty'] as num?)?.round() ?? 0;
+      final productId = n['productId']?.toString() ?? '';
+      var initial = const <String>[];
+      while (true) {
+        if (!mounted) return null;
+        final r = await showPosSerialListDialog(
+          context,
+          productName: n['productName']?.toString() ?? '',
+          qty: qty,
+          initial: initial,
+          hint: 'Chọn / quét seri máy giao khách — mỗi seri một dòng',
+          scanOne: () => scanBarcodeWithCamera(context),
+          loadSuggestions: () async {
+            final a = await _api.getPosSerialsAvailable(productId);
+            final items = (a['data'] as Map?)?['items'];
+            return items is List ? items.map((e) => e.toString()).toList() : <String>[];
+          },
+        );
+        if (r == null) return null;
+        if (r.length == qty) {
+          out[n['lineId'].toString()] = r;
+          break;
+        }
+        initial = r;
+        NotificationOverlayManager().showWarning(
+          title: 'Thiếu seri',
+          message: tr('Cần chọn đủ $qty seri (đang có ${r.length})'),
+        );
+      }
+    }
+    return out;
+  }
+
   Future<void> _createKind(String kind) async {
     if (widget.quoteId == null) return;
     final note = await _askNote(PosQuoteDocument.kindLabel(kind));
     if (note == null || !mounted) return;
+    Map<String, List<String>>? serials;
+    if (kind == 'Handover' || kind == 'Acceptance') {
+      serials = await _pickQuoteSerials();
+      if (serials == null || !mounted) return;
+    }
     setState(() => _saving = true);
     final res = kind == 'StockIssue'
         ? await _api.createPosQuoteStockIssue(
@@ -421,6 +468,7 @@ class _PosQuoteEditorScreenState extends State<PosQuoteEditorScreen> {
             kind,
             note: note,
             includeImages: _includeImages,
+            serials: serials,
           );
     if (!mounted) return;
     setState(() => _saving = false);

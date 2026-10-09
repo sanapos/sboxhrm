@@ -2,11 +2,13 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 
 import '../../models/pos_product.dart';
+import '../../services/api_service.dart';
 import 'pos_theme.dart';
 import 'package:zkteco_flutter_client/l10n/app_tr.dart';
 
 class PosSerialLineInput {
   PosSerialLineInput({
+    required this.productId,
     required this.rowId,
     required this.productName,
     required this.qty,
@@ -14,6 +16,7 @@ class PosSerialLineInput {
     this.imeiControllers = const [],
   });
 
+  final String productId;
   final int rowId;
   final String productName;
   final int qty;
@@ -41,6 +44,7 @@ Future<Map<int, ({List<String> serials, List<String> imeis})>?> showPosSerialCap
     if (count <= 0) continue;
     inputs.add(
       PosSerialLineInput(
+        productId: line.product.id,
         rowId: line.rowId,
         productName: line.displayName,
         qty: count,
@@ -74,6 +78,32 @@ class _PosSerialCaptureDialog extends StatefulWidget {
 
 class _PosSerialCaptureDialogState extends State<_PosSerialCaptureDialog> {
   String? _error;
+  /// productId → seri đang trong kho (gợi ý, chỉ có khi cửa hàng đã nhập seri vào kho).
+  final Map<String, List<String>> _stock = {};
+
+  @override
+  void initState() {
+    super.initState();
+    for (final line in widget.inputs) {
+      ApiService().getPosSerialsAvailable(line.productId).then((res) {
+        final items = (res['data'] as Map?)?['items'];
+        if (!mounted || items is! List || items.isEmpty) return;
+        setState(() => _stock[line.productId] = items.map((e) => e.toString()).toList());
+      });
+    }
+  }
+
+  void _pick(PosSerialLineInput line, String sn) {
+    for (final c in line.controllers) {
+      if (c.text.trim().toUpperCase() == sn) return;
+    }
+    for (final c in line.controllers) {
+      if (c.text.trim().isEmpty) {
+        setState(() => c.text = sn);
+        return;
+      }
+    }
+  }
 
   void _submit() {
     final result = <int, ({List<String> serials, List<String> imeis})>{};
@@ -151,6 +181,18 @@ class _PosSerialCaptureDialogState extends State<_PosSerialCaptureDialog> {
             tr('${line.productName} × ${line.qty}'),
             style: const TextStyle(fontWeight: FontWeight.w600, fontSize: 13),
           ),
+          if ((_stock[line.productId] ?? const []).isNotEmpty) ...[
+            const SizedBox(height: 6),
+            Text(tr('Trong kho (chạm để chọn):'), style: const TextStyle(fontSize: 11, color: Colors.black54)),
+            Wrap(spacing: 6, runSpacing: 4, children: [
+              for (final sn in _stock[line.productId]!.take(12))
+                ActionChip(
+                  label: Text(sn, style: const TextStyle(fontSize: 11)),
+                  visualDensity: VisualDensity.compact,
+                  onPressed: () => _pick(line, sn),
+                ),
+            ]),
+          ],
           const SizedBox(height: 8),
           ...List.generate(line.qty, (i) {
             return Padding(

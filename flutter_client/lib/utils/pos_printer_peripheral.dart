@@ -2,6 +2,7 @@ import 'package:flutter/foundation.dart';
 import 'package:sunmi_printer_plus/sunmi_printer_plus.dart';
 
 import '../models/pos_sale_order.dart';
+import 'pos_printer_transport.dart';
 import 'pos_thermal_printer_settings.dart';
 
 /// Lệnh ngoại vi máy in nhiệt: bip + mở két (ESC/POS / Sunmi).
@@ -14,8 +15,9 @@ abstract final class PosPrinterPeripheral {
         durationUnits.clamp(1, 9),
       ];
 
-  /// ESC p m t1 t2 — xung mở két (pin 2).
-  static List<int> openDrawerEscPos() => [0x1B, 0x70, 0x00, 0x19, 0xFA];
+  /// ESC p m t1 t2 — xung mở két. [pin] 0 = chân 2 (phổ biến), 1 = chân 5.
+  static List<int> openDrawerEscPos({int pin = 0}) =>
+      [0x1B, 0x70, pin == 1 ? 0x01 : 0x00, 0x19, 0xFA];
 
   static bool isCashPaymentMethod(String? method) {
     final m = (method ?? '').trim().toLowerCase();
@@ -58,7 +60,7 @@ abstract final class PosPrinterPeripheral {
       bytes.addAll(beepEscPos());
     }
     if (openDrawer) {
-      bytes.addAll(openDrawerEscPos());
+      bytes.addAll(openDrawerEscPos(pin: settings.cashDrawerPin));
     }
   }
 
@@ -92,6 +94,8 @@ abstract final class PosPrinterPeripheral {
   /// Mở két thủ công từ menu bán hàng — không phụ thuộc tiền mặt / cash-only.
   static Future<bool> kickDrawerManual() async {
     if (kIsWeb) return false;
+    // Máy khác hãng: plugin Sunmi có thể im lặng không lỗi ⇒ báo «đã mở» sai.
+    if (!await PosPrinterTransport.isSunmiDevice()) return false;
     try {
       await SunmiDrawer.openDrawer();
       return true;

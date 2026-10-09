@@ -21,6 +21,7 @@ import '../widgets/pos/pos_stock_issue_config.dart';
 import '../widgets/pos/pos_stock_issue_helpers.dart';
 import '../widgets/pos/pos_theme.dart';
 import '../widgets/pos_barcode_scanner.dart';
+import '../widgets/pos/pos_serial_list_dialog.dart';
 import '../screens/main_layout.dart' show ScreenRefreshNotifier;
 import 'package:zkteco_flutter_client/l10n/app_tr.dart';
 
@@ -36,6 +37,8 @@ class _IssueLine {
   final String unitName;
   final TextEditingController qtyCtrl;
   final TextEditingController costCtrl;
+  final bool requiresSerial;
+  List<String> serials;
 
   _IssueLine({
     required this.lineId,
@@ -46,7 +49,10 @@ class _IssueLine {
     this.unitName = 'Cái',
     double qty = 0,
     double costPrice = 0,
-  })  : qtyCtrl = TextEditingController(
+    this.requiresSerial = false,
+    List<String>? serials,
+  })  : serials = serials ?? <String>[],
+        qtyCtrl = TextEditingController(
             text: tr(qty == qty.roundToDouble()
                 ? qty.toStringAsFixed(0)
                 : qty.toStringAsFixed(2))),
@@ -60,6 +66,7 @@ class _IssueLine {
         'lineId': lineId,
         'qty': qty,
         'costPrice': costPrice,
+        if (requiresSerial) 'serialNumbers': serials,
       };
 
   void dispose() {
@@ -77,6 +84,8 @@ class _IssueLine {
       productCode: ln.productCode,
       productName: ln.productName,
       unitName: ln.unitName ?? 'Cái',
+      requiresSerial: ln.requiresSerial,
+      serials: List<String>.from(ln.serialNumbers),
       qty: qty,
       costPrice: ln.costPrice,
     );
@@ -443,7 +452,52 @@ class _PosStockIssueEditorScreenState extends State<PosStockIssueEditorScreen> {
     _onLineFieldChanged();
   }
 
+
+  Future<void> _editSerials(_IssueLine l) async {
+    final r = await showPosSerialListDialog(
+      context,
+      productName: l.productName,
+      qty: l.qty.round(),
+      initial: l.serials,
+      readOnly: _readOnly,
+      hint: 'Chọn / quét seri máy xuất — để trống: hệ thống lấy theo thứ tự nhập',
+      scanOne: () => scanBarcodeWithCamera(context),
+      loadSuggestions: () async {
+        final res = await _api.getPosSerialsAvailable(l.productId);
+        final items = (res['data'] as Map?)?['items'];
+        return items is List ? items.map((e) => e.toString()).toList() : <String>[];
+      },
+    );
+    if (r != null && mounted) setState(() => l.serials = r);
+  }
+
+  Widget _serialButton(_IssueLine l) {
+    final n = l.qty.round();
+    final label = l.serials.isEmpty
+        ? 'Chọn seri (tự lấy theo thứ tự nhập)'
+        : 'Seri ${l.serials.length}/$n';
+    final ok = l.serials.isEmpty || l.serials.length == n;
+    return Padding(
+      padding: const EdgeInsets.only(top: 4),
+      child: OutlinedButton.icon(
+        onPressed: () => _editSerials(l),
+        icon: Icon(Icons.qr_code_scanner_rounded, size: 14, color: ok ? Colors.green : Colors.orange),
+        label: Text(tr(label), style: TextStyle(fontSize: 12, color: ok ? null : Colors.orange.shade800)),
+        style: OutlinedButton.styleFrom(visualDensity: VisualDensity.compact),
+      ),
+    );
+  }
+
   Future<bool> _saveLinesAndHeader() async {
+    for (final l in _lines) {
+      if (l.requiresSerial && l.serials.isNotEmpty && l.serials.length != l.qty.round()) {
+        NotificationOverlayManager().showWarning(
+          title: 'Thiếu seri',
+          message: tr('«${l.productName}» cần chọn đủ ${l.qty.round()} seri (đang có ${l.serials.length})'),
+        );
+        return false;
+      }
+    }
     if ((_issueId == null || _issueId!.isEmpty) && _lines.isEmpty) {
       return false;
     }
@@ -767,9 +821,15 @@ class _PosStockIssueEditorScreenState extends State<PosStockIssueEditorScreen> {
                                   style: const TextStyle(fontSize: 13, color: _blue)),
                               2),
                           dataCell(
-                              Text(tr(l.productName),
-                                  style: const TextStyle(
-                                      fontSize: 13, fontWeight: FontWeight.w500)),
+                              Column(
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                children: [
+                                  Text(tr(l.productName),
+                                      style: const TextStyle(
+                                          fontSize: 13, fontWeight: FontWeight.w500)),
+                                  if (l.requiresSerial) _serialButton(l),
+                                ],
+                              ),
                               4),
                           dataCell(Text(tr(l.unitName), style: const TextStyle(fontSize: 13)), 1),
                           dataCell(_qtyCell(l), 3),
@@ -832,6 +892,7 @@ class _PosStockIssueEditorScreenState extends State<PosStockIssueEditorScreen> {
             _qtyCell(l),
             const SizedBox(height: 8),
             _costCell(l),
+            if (l.requiresSerial) _serialButton(l),
             const SizedBox(height: 6),
             Text(tr('Thành tiền: ${_moneyFmt.format(l.lineTotal)} đ'),
               style: const TextStyle(fontWeight: FontWeight.w600),

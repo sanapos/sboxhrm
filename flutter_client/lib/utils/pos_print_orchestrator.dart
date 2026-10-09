@@ -25,6 +25,7 @@ import 'pos_print_template_runtime.dart';
 import 'pos_sell_store_settings.dart';
 import 'pos_printer_readiness.dart';
 import 'pos_printer_transport.dart';
+import 'pos_printer_peripheral.dart';
 import 'pos_store_printer_mapper.dart';
 import 'pos_sunmi_native_print.dart';
 import 'pos_thermal_printer_service.dart';
@@ -1017,6 +1018,9 @@ class PosPrintOrchestrator {
     PosPrintHangCallback? onHang,
     Duration hangAfter = hangAfterDefault,
     bool? vatIncludedInPrice,
+    /// Có mở két cho máy này không (tiền mặt, không phải in lại…). Máy ESC/POS đã
+    /// gắn ESC p trong [buildEscPos]; Sunmi in native cần biết để gọi SunmiDrawer.
+    bool Function(PosStorePrinter printer)? shouldKickDrawer,
   }) async {
     if (!skipDedup &&
         PosPrintDedup.shouldSkip(
@@ -1088,6 +1092,12 @@ class PosPrintOrchestrator {
             showFeedback: false,
             successTitle: successTitle,
           );
+          if (ok) {
+            await PosPrinterPeripheral.afterSunmiNativePrint(
+              toThermalSettings(printer),
+              openDrawer: shouldKickDrawer?.call(printer) ?? false,
+            );
+          }
         } else if (printer.isSunmi) {
           // A7/web → Agent Sunmi: JSON native. EscPosBase64 bị Agent từ chối
           // (UNSUPPORTED_ON_SUNMI) — máy «nhận lệnh» nhưng không ra giấy.
@@ -1107,6 +1117,7 @@ class PosPrintOrchestrator {
             onHang: onHang,
             hangAfter: hangAfter,
             vatIncludedInPrice: vatIncludedInPrice,
+            openCashDrawer: shouldKickDrawer?.call(printer) ?? false,
           );
         } else {
           final bytes = await buildEscPos(printer);
@@ -1263,6 +1274,7 @@ class PosPrintOrchestrator {
     PosPrintHangCallback? onHang,
     Duration hangAfter = hangAfterDefault,
     bool? vatIncludedInPrice,
+    bool openCashDrawer = false,
   }) async {
     // Gửi kèm full order — Agent in native giống Oppo, không phụ thuộc getPosSale.
     final included = vatIncludedInPrice ??
@@ -1277,6 +1289,7 @@ class PosPrintOrchestrator {
       'mergeSameItems': mergeSameItems,
       'documentTitle': documentTitle,
       'vatIncludedInPrice': included,
+      if (openCashDrawer) 'openCashDrawer': true,
     });
     final res = await _api.createPosPrintJob(
       documentType: PosCloudDocumentTypes.saleInvoice,

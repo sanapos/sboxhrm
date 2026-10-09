@@ -50,6 +50,8 @@ import '../utils/pos_topping_format.dart';
 import '../utils/pos_print_config_session.dart';
 import '../utils/pos_print_orchestrator.dart';
 import '../utils/pos_printer_peripheral.dart';
+import '../utils/pos_store_printer_mapper.dart';
+import '../utils/pos_printer_transport.dart';
 import '../utils/pos_sale_order_print.dart';
 import '../utils/pos_sell_print_settings.dart';
 import '../utils/pos_sell_stock_patch.dart';
@@ -360,11 +362,12 @@ class _SellCartLine {
   String get lineKey => '${product.id}|$activeViewKey';
 
   double get maxQty => activeView.onHandQty;
+  /// Thành tiền dòng — làm tròn đến đồng (hàng cân 0,333kg… không để số lẻ). Khớp server.
   double get lineGross {
     final extra = (unitPrice + toppingExtraPerUnit) * qty;
-    if (!product.isTimedService) return extra;
+    if (!product.isTimedService) return extra.roundToDouble();
     final fee = product.openingFee;
-    return (fee < 0 ? 0.0 : fee) + extra;
+    return ((fee < 0 ? 0.0 : fee) + extra).roundToDouble();
   }
 
   /// Ghi chú phiếu bếp / màn khách: mỗi topping 1 dòng, rồi ghi chú món.
@@ -394,7 +397,7 @@ class _SellCartLine {
   double get manualDiscountAmount {
     if (discountInput <= 0) return 0;
     if (discountIsPercent) {
-      return (lineGross * discountInput / 100).clamp(0, lineGross);
+      return (lineGross * discountInput / 100).roundToDouble().clamp(0, lineGross);
     }
     return discountInput.clamp(0, lineGross);
   }
@@ -705,14 +708,15 @@ class _SellInvoiceTab {
 
   void applyDiscount(double baseAfterLineDiscount) {
     final manual = discountIsPercent
-        ? baseAfterLineDiscount * discountInput / 100
+        ? (baseAfterLineDiscount * discountInput / 100).roundToDouble()
         : discountInput;
     discount = (manual + promoBillDiscount).clamp(0, baseAfterLineDiscount).toDouble();
   }
 
   void applySurcharge(double baseAfterDiscount) {
     if (surchargeIsPercent) {
-      surchargeAmount = (baseAfterDiscount * surchargeInput / 100).clamp(0, double.infinity);
+      surchargeAmount =
+          (baseAfterDiscount * surchargeInput / 100).roundToDouble().clamp(0, double.infinity);
     } else {
       surchargeAmount = surchargeInput.clamp(0, double.infinity);
     }
@@ -1284,12 +1288,24 @@ class _PosSellScreenState extends State<PosSellScreen>
     _promotionsTimer = Timer.periodic(const Duration(minutes: 10), (_) => unawaited(_loadPromotions()));
     ScreenRefreshNotifier.posSellIndustry.addListener(_onSellIndustryChanged);
     NavigationNotifier.posHandleSystemBack = _onSystemBack;
-    _floorRealtime.start((_) {
+    _floorRealtime.start((event) {
       if (!mounted) return;
+      final reason = PosSyncReasons.of(event);
+      if (reason == 'settingschanged') {
+        _onSellIndustryChanged();
+        return;
+      }
+      // Chỉ đồng bộ HĐ khi sự kiện đụng tới đơn / bàn đang mở trên máy này
+      // (trước đây mọi sự kiện bàn nào cũng kéo mọi máy gọi invoice-slots + chi tiết đơn).
+      if (!_floorEventTouchesMyTabs(event, reason)) return;
       _draftSyncDebounce?.cancel();
       _draftSyncDebounce = Timer(const Duration(milliseconds: 350), () {
         if (mounted) unawaited(_syncHeldDraftTabs());
       });
+    });
+    // Mất kết nối realtime rồi nối lại → có thể đã lỡ sự kiện: đồng bộ ngay.
+    _signalRConnSub = SignalRService().onConnectionStateChanged.listen((connected) {
+      if (connected && mounted) unawaited(_syncHeldDraftTabs());
     });
     _qrOnlineSignalSub = SignalRService().onPosFloorChanged.listen((event) {
       final reason =
@@ -1316,6 +1332,26 @@ class _PosSellScreenState extends State<PosSellScreen>
     unawaited(_bootstrapSellScreen());
   }
 
+  StreamSubscription<bool>? _signalRConnSub;
+
+  bool _floorEventTouchesMyTabs(Map<String, dynamic> event, String reason) {
+    if (reason == 'catalogchanged') return false;
+    final orderId = PosSyncReasons.id(event, 'orderId');
+    final resourceId = PosSyncReasons.id(event, 'resourceId');
+    if (orderId == null && resourceId == null) {
+      // Sự kiện chung (sơ đồ, đặt bàn, bếp…) không đổi HĐ đang mở trên máy này.
+      return PosSyncReasons.floorOps.contains(reason);
+    }
+    for (final t in _tabs) {
+      if (orderId != null && (t.draftOrderId ?? '').toLowerCase() == orderId) return true;
+      if (resourceId != null && (t.serviceResourceId ?? '').toLowerCase() == resourceId) {
+        return true;
+      }
+    }
+    // Đơn quầy mới / HĐ dùng chung đổi trên máy khác, hoặc chuyển / gộp bàn sang bàn của mình.
+    return reason == 'slotsaved' || PosSyncReasons.floorOps.contains(reason);
+  }
+
   void _onNotificationsRefreshNotifier() {
     if (mounted) unawaited(_refreshSystemUnreadNotifications());
   }
@@ -1334,6 +1370,8 @@ class _PosSellScreenState extends State<PosSellScreen>
   @override
   void didChangeAppLifecycleState(AppLifecycleState state) {
     if (state == AppLifecycleState.resumed && mounted) {
+      // Mở lại app: HĐ có thể đã đổi ở máy khác trong lúc chạy nền.
+      unawaited(_syncHeldDraftTabs());
       unawaited(_refreshSystemUnreadNotifications());
       if (_qrOnlineFeatureEnabled) {
         unawaited(_refreshQrOnlinePending());
@@ -2015,6 +2053,7 @@ class _PosSellScreenState extends State<PosSellScreen>
     _floorActiveTotals.dispose();
     _stopDraftLockHeartbeat();
     _floorRealtime.dispose();
+    _signalRConnSub?.cancel();
     WidgetsBinding.instance.removeObserver(this);
     _qrOnlineSignalSub?.cancel();
     _notifSignalSub?.cancel();
@@ -8177,6 +8216,37 @@ class _PosSellScreenState extends State<PosSellScreen>
   }) async {
     _notifyLockConflict(res, title: title);
     await _reconcileDraftTabAgainstServer(_tab);
+    _maybeSuggestDraftLock();
+  }
+
+  bool _draftLockHintShown = false;
+
+  /// HĐ quầy dùng chung giữa các máy: chưa bật «Khóa HĐ khi nhiều máy» mà 2 máy cùng sửa 1 HĐ
+  /// → gợi ý (1 lần / phiên, chỉ người được sửa thiết lập). Không tự đổi thiết lập cửa hàng.
+  void _maybeSuggestDraftLock() {
+    if (_draftLockHintShown || !mounted) return;
+    if (_industrySettings?.enableMultiDeviceDraftLock == true) return;
+    if (_tab.isTableBound) return;
+    final perm = Provider.of<PermissionProvider>(context, listen: false);
+    if (!perm.canEditPosSetup()) return;
+    _draftLockHintShown = true;
+    unawaited(showDialog<void>(
+      context: context,
+      useRootNavigator: true,
+      builder: (ctx) => AlertDialog(
+        title: Text(tr('Nhiều máy cùng sửa một hóa đơn')),
+        content: Text(tr(
+            'Hóa đơn quầy dùng chung giữa các máy bán. Để 2 máy không sửa đè nhau, bật '
+            '«Khóa đơn tạm đa máy» trong Thiết lập SBOX → Bán hàng. '
+            'Khi bật, hóa đơn đang mở ở máy này sẽ báo «đang được mở» trên máy khác.')),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(ctx),
+            child: Text(tr('Đã hiểu')),
+          ),
+        ],
+      ),
+    ));
   }
 
   Future<Map<String, PosProduct>> _resolveDraftProducts(
@@ -10132,22 +10202,38 @@ class _PosSellScreenState extends State<PosSellScreen>
   }
 
   Future<void> _openCashDrawerManual() async {
-    final sunmi = await PosPrinterPeripheral.kickDrawerManual();
-    final sent = await PosPrintOrchestrator.instance.dispatchEscPosToAll(
-      documentType: PosPrintDocumentTypes.saleInvoice,
-      buildBytes: (_) async => PosPrinterPeripheral.openDrawerEscPos(),
-      skipDedup: true,
-      showFeedback: false,
-      copies: 1,
-    );
+    // Một đường duy nhất: két nối máy Sunmi trong → API Sunmi; còn lại → ESC p tới
+    // đúng máy hóa đơn. Trước đây gọi cả hai ⇒ Sunmi bật két 2–3 lần, máy khác
+    // hãng lại báo «đã mở» dù không gửi được.
+    final orch = PosPrintOrchestrator.instance;
+    await orch.refreshConfig();
+    final bill = orch.resolvePrinter(PosPrintDocumentTypes.saleInvoice);
+    final onSunmi = await PosPrinterTransport.isSunmiDevice();
+    var ok = false;
+    if (onSunmi && (bill == null || bill.isSunmi)) {
+      ok = await PosPrinterPeripheral.kickDrawerManual();
+    } else if (bill != null) {
+      ok = await orch.dispatchEscPos(
+        documentType: PosPrintDocumentTypes.saleInvoice,
+        bytes: PosPrinterPeripheral.openDrawerEscPos(
+          pin: toThermalSettings(bill).cashDrawerPin,
+        ),
+        printerId: bill.id,
+        skipDedup: true,
+        showFeedback: false,
+        acceptClaimedAsSuccess: false,
+      );
+    }
     if (!mounted) return;
-    if (sunmi || sent) {
+    if (ok) {
       NotificationOverlayManager()
           .showSuccess(title: 'Két', message: tr('Đã gửi lệnh mở két'));
     } else {
       NotificationOverlayManager().showError(
         title: 'Két',
-        message: tr('Không mở được két — kiểm tra máy in hóa đơn / két RJ11'),
+        message: bill == null && !onSunmi
+            ? tr('Chưa cài máy in hóa đơn — két mở qua cổng RJ11 của máy in')
+            : tr('Không mở được két — kiểm tra máy in hóa đơn / két RJ11'),
       );
     }
   }

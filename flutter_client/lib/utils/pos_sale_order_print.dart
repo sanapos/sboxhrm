@@ -440,6 +440,18 @@ Future<bool> printPosSaleOrder({
   final hasOverride = overridePrinter != null ||
       (overridePrinterId ?? '').trim().isNotEmpty;
 
+  // Cùng điều kiện mở két với bản ESC/POS bên dưới — dùng cho máy Sunmi in native.
+  bool kickDrawerFor(PosStorePrinter printer) {
+    final isProvisional = (documentTitle ?? '').toUpperCase().contains('TẠM');
+    final allowKick = openCashDrawer ?? !printOrder.isReprint;
+    return !isProvisional &&
+        allowKick &&
+        PosPrinterPeripheral.shouldOpenDrawerForOrder(
+          toThermalSettings(printer),
+          printOrder,
+        );
+  }
+
   // In lại chọn máy: bỏ máy nội bộ mặc định — gửi đúng máy đã chọn (cloud/Agent).
   if (hasOverride) {
     await PosPrintOrchestrator.instance.refreshConfig(force: true);
@@ -474,6 +486,7 @@ Future<bool> printPosSaleOrder({
       documentTitle: documentTitle,
       vatIncludedInPrice: effectiveIncluded,
       overridePrinter: target,
+      shouldKickDrawer: kickDrawerFor,
       buildEscPos: (printer) async {
         var settings = toThermalSettings(printer);
         final tpl = await _resolveSalePrintTemplate(
@@ -641,6 +654,7 @@ Future<bool> printPosSaleOrder({
       overridePrinterId: overridePrinterId,
       overridePrinter: overridePrinter,
       onHang: onCloudHang,
+      shouldKickDrawer: kickDrawerFor,
       buildEscPos: (printer) async {
         var settings = toThermalSettings(printer);
         final tpl = await _resolveSalePrintTemplate(

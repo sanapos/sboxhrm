@@ -35,18 +35,19 @@ class PosSellTax {
         return 0;
       case PosSellTaxMode.orderTotal:
         if (orderVatExempt || orderVatRate <= 0) return 0;
-        return netTotal * orderVatRate / 100;
+        return (netTotal * orderVatRate / 100).roundToDouble();
       case PosSellTaxMode.perItem:
         if (lines.isEmpty) return 0;
         final gross =
             lines.fold<double>(0, (a, l) => a + l.lineTotal.clamp(0, double.infinity));
         if (gross <= 0) return 0;
         final ratio = (netTotal / gross).clamp(0.0, 1.0);
+        // Làm tròn tổng VAT đến đồng (không để số lẻ trên hóa đơn / QR).
         return lines.fold<double>(0, (a, l) {
           if (l.vatExempt || l.vatRate <= 0 || l.lineTotal <= 0) return a;
           final taxable = l.lineTotal * ratio;
           return a + taxable * l.vatRate / 100;
-        });
+        }).roundToDouble();
     }
   }
 

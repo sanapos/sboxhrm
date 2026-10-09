@@ -31,35 +31,34 @@ class PosLabelPrinterService {
         .map((p) => PosLabelRenderer.fromProduct(p, options, _money))
         .toList();
 
+    // Mỗi tem chỉ vẽ 1 lần; số bản in giao cho máy (TSPL PRINT n / ZPL ^PQ n) —
+    // trước đây vẽ + gửi lại nguyên ảnh cho từng bản ⇒ 50 tem qua Bluetooth rất chậm.
     if (template.cols > 1 && !template.isSheet) {
-      for (var c = 0; c < copies; c++) {
-        for (var i = 0; i < items.length; i += template.cols) {
-          final chunk = items.sublist(
-            i,
-            (i + template.cols > items.length) ? items.length : i + template.cols,
-          );
-          final raster = await PosLabelRenderer.renderRow(
-            items: chunk,
-            template: template,
-            dpi: dpi,
-            contentInsetLeftMm: settings.shiftRightMm,
-          );
-          jobs.add(_bytesForRaster(settings, template, raster, rowMode: true));
-        }
+      for (var i = 0; i < items.length; i += template.cols) {
+        final chunk = items.sublist(
+          i,
+          (i + template.cols > items.length) ? items.length : i + template.cols,
+        );
+        final raster = await PosLabelRenderer.renderRow(
+          items: chunk,
+          template: template,
+          dpi: dpi,
+          contentInsetLeftMm: settings.shiftRightMm,
+        );
+        jobs.add(_bytesForRaster(settings, template, raster,
+            rowMode: true, copies: copies));
       }
       return jobs;
     }
 
     for (final item in items) {
-      for (var c = 0; c < copies; c++) {
-        final raster = await PosLabelRenderer.renderSingle(
-          item: item,
-          template: template,
-          dpi: dpi,
-          contentInsetLeftMm: settings.shiftRightMm,
-        );
-        jobs.add(_bytesForRaster(settings, template, raster));
-      }
+      final raster = await PosLabelRenderer.renderSingle(
+        item: item,
+        template: template,
+        dpi: dpi,
+        contentInsetLeftMm: settings.shiftRightMm,
+      );
+      jobs.add(_bytesForRaster(settings, template, raster, copies: copies));
     }
     return jobs;
   }
@@ -69,26 +68,69 @@ class PosLabelPrinterService {
     PosBarcodeLabelTemplate template,
     ({Uint8List raster, int widthPx, int heightPx}) raster, {
     bool rowMode = false,
+    int copies = 1,
   }) {
-    if (settings.protocol == PosLabelPrinterProtocol.tspl) {
-      return _buildTsplJob(
-        widthMm: rowMode ? template.rollPageWidthMm : template.labelWidthMm,
-        heightMm: template.labelHeightMm,
-        gapMm: settings.gapMm,
-        // Lề trái đã render trong raster — không lệch BITMAP thêm.
-        shiftRightMm: 0,
-        dpi: settings.dpi,
-        raster: raster.raster,
-        widthPx: raster.widthPx,
-        heightPx: raster.heightPx,
-      );
+    final widthMm = rowMode ? template.rollPageWidthMm : template.labelWidthMm;
+    switch (settings.protocol) {
+      case PosLabelPrinterProtocol.tspl:
+        return _buildTsplJob(
+          widthMm: widthMm,
+          heightMm: template.labelHeightMm,
+          gapMm: settings.gapMm,
+          // Lề trái đã render trong raster — không lệch BITMAP thêm.
+          shiftRightMm: 0,
+          dpi: settings.dpi,
+          raster: raster.raster,
+          widthPx: raster.widthPx,
+          heightPx: raster.heightPx,
+          copies: copies,
+        );
+      case PosLabelPrinterProtocol.zpl:
+        return _buildZplJob(
+          widthPx: raster.widthPx,
+          heightPx: raster.heightPx,
+          raster: raster.raster,
+          copies: copies,
+        );
+      case PosLabelPrinterProtocol.escpos:
+        final one = _buildEscPosLabelJob(
+          raster: raster.raster,
+          widthPx: raster.widthPx,
+          heightPx: raster.heightPx,
+          feedLines: rowMode ? 2 : 3,
+        );
+        return [for (var c = 0; c < copies.clamp(1, 5000); c++) ...one];
     }
-    return _buildEscPosLabelJob(
-      raster: raster.raster,
-      widthPx: raster.widthPx,
-      heightPx: raster.heightPx,
-      feedLines: rowMode ? 2 : 3,
-    );
+  }
+
+  /// ZPL: ảnh tem dạng ^GFA (hex, bit 1 = đen — cùng chiều ESC/POS), ^PQ = số bản.
+  static List<int> _buildZplJob({
+    required int widthPx,
+    required int heightPx,
+    required Uint8List raster,
+    int copies = 1,
+  }) {
+    final bytesPerRow = (widthPx + 7) ~/ 8;
+    final total = bytesPerRow * heightPx;
+    final hex = StringBuffer();
+    const digits = '0123456789ABCDEF';
+    for (var i = 0; i < total && i < raster.length; i++) {
+      final v = raster[i];
+      hex
+        ..write(digits[v >> 4])
+        ..write(digits[v & 0x0F]);
+    }
+    final zpl = StringBuffer()
+      ..write('^XA')
+      ..write('^PW$widthPx')
+      ..write('^LL$heightPx')
+      ..write('^LH0,0')
+      ..write('^FO0,0^GFA,$total,$total,$bytesPerRow,')
+      ..write(hex.toString())
+      ..write('^FS')
+      ..write('^PQ${copies.clamp(1, 5000)}')
+      ..write('^XZ\r\n');
+    return ascii.encode(zpl.toString());
   }
 
   static Future<bool> printLabels(
@@ -206,25 +248,32 @@ class PosLabelPrinterService {
   }) {
     final jobs = <List<int>>[];
     for (final r in rasters) {
-      jobs.add(
-        settings.protocol == PosLabelPrinterProtocol.tspl
-            ? _buildTsplJob(
-                widthMm: widthMm,
-                heightMm: heightMm,
-                gapMm: settings.gapMm,
-                shiftRightMm: 0, // đã inset trong raster cup
-                dpi: settings.dpi,
-                raster: r.raster,
-                widthPx: r.widthPx,
-                heightPx: r.heightPx,
-              )
-            : _buildEscPosLabelJob(
-                raster: r.raster,
-                widthPx: r.widthPx,
-                heightPx: r.heightPx,
-                feedLines: 2,
-              ),
-      );
+      switch (settings.protocol) {
+        case PosLabelPrinterProtocol.tspl:
+          jobs.add(_buildTsplJob(
+            widthMm: widthMm,
+            heightMm: heightMm,
+            gapMm: settings.gapMm,
+            shiftRightMm: 0, // đã inset trong raster cup
+            dpi: settings.dpi,
+            raster: r.raster,
+            widthPx: r.widthPx,
+            heightPx: r.heightPx,
+          ));
+        case PosLabelPrinterProtocol.zpl:
+          jobs.add(_buildZplJob(
+            widthPx: r.widthPx,
+            heightPx: r.heightPx,
+            raster: r.raster,
+          ));
+        case PosLabelPrinterProtocol.escpos:
+          jobs.add(_buildEscPosLabelJob(
+            raster: r.raster,
+            widthPx: r.widthPx,
+            heightPx: r.heightPx,
+            feedLines: 2,
+          ));
+      }
     }
     return jobs;
   }
@@ -249,6 +298,7 @@ class PosLabelPrinterService {
     required int heightPx,
     double shiftRightMm = 0,
     int dpi = 203,
+    int copies = 1,
   }) {
     final bytesPerRow = (widthPx + 7) ~/ 8;
     // TSPL BITMAP: bit 0 = in đen, bit 1 = trắng — ngược ESC/POS (1 = đen).
@@ -270,7 +320,7 @@ class PosLabelPrinterService {
     return [
       ...utf8.encode(header.toString()),
       ...tsplRaster,
-      ...utf8.encode('\r\nPRINT 1,1\r\n'),
+      ...utf8.encode('\r\nPRINT ${copies.clamp(1, 5000)},1\r\n'),
     ];
   }
 

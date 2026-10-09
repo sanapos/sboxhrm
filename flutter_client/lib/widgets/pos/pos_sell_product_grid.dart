@@ -16,6 +16,9 @@ import '../../utils/pos_owner_password_gate.dart';
 import '../../utils/pos_qty_rules.dart';
 import '../../utils/pos_sell_stock_patch.dart';
 import '../../utils/pos_sell_unit_views.dart';
+import '../../utils/vn_search.dart';
+import '../../utils/pos_floor_realtime.dart';
+import '../../services/signalr_service.dart';
 import 'pos_catalog_sort_sheet.dart';
 import 'pos_form_keyboard.dart';
 import 'pos_h_scroll_chip_row.dart';
@@ -219,6 +222,14 @@ class PosSellProductGridState extends State<PosSellProductGrid> {
     _loadCategories();
     _gridScroll.addListener(_onScrollNearEnd);
     _loadProducts();
+    // Hàng / giá / tồn đổi ở máy khác → đồng bộ phần thay đổi (gom 1,5s), không đợi 2 phút.
+    _catalogEventSub = SignalRService().onPosFloorChanged.listen((event) {
+      if (PosSyncReasons.catalog.contains(PosSyncReasons.of(event))) _scheduleCatalogDelta();
+    });
+    _catalogConnSub = SignalRService().onConnectionStateChanged.listen((connected) {
+      if (connected) _scheduleCatalogDelta();
+    });
+    _catalogLifecycle = AppLifecycleListener(onResume: _scheduleCatalogDelta);
     WidgetsBinding.instance.addPostFrameCallback((_) {
       if (!mounted) return;
       _onStockPatch();
@@ -234,6 +245,11 @@ class PosSellProductGridState extends State<PosSellProductGrid> {
     ScreenRefreshNotifier.posSellStockPatch.removeListener(_onStockPatch);
     _searchDebounce?.cancel();
     _imagePrefetchDebounce?.cancel();
+    _imageWarmupTimer?.cancel();
+    _catalogDeltaTimer?.cancel();
+    _catalogEventSub?.cancel();
+    _catalogConnSub?.cancel();
+    _catalogLifecycle?.dispose();
     _categoryScroll.dispose();
     _gridScroll.dispose();
     _searchCtrl.dispose();
@@ -307,7 +323,7 @@ class PosSellProductGridState extends State<PosSellProductGrid> {
       }
     });
     final storeId = widget.storeId?.trim();
-    if (storeId != null && storeId.isNotEmpty && !_hasActiveFilter) {
+    if (storeId != null && storeId.isNotEmpty) {
       PosSellCatalogCache.instance.patchMemoryProducts(
         storeId,
         ids,
@@ -370,7 +386,7 @@ class PosSellProductGridState extends State<PosSellProductGrid> {
       final next = raw.trim();
       if (next == _searchQuery) return;
       _searchQuery = next;
-      unawaited(_loadProducts(forceNetwork: true));
+      unawaited(_loadProducts());
     });
   }
 
@@ -437,6 +453,25 @@ class PosSellProductGridState extends State<PosSellProductGrid> {
     _hasMore = true;
     _loadingMore = false;
 
+    // Đã có đủ danh mục trên máy → tìm / lọc nhóm ngay, không chờ mạng.
+    if (!forceNetwork && _hasActiveFilter && storeId.isNotEmpty) {
+      final snap = await PosSellCatalogCache.instance.read(storeId);
+      if (gen != _loadGen || !mounted) return;
+      if (snap != null && snap.complete && snap.items.isNotEmpty) {
+        final filtered = _filterLocal(snap.items);
+        setState(() {
+          _allProducts = filtered;
+          _products = List<PosProduct>.from(filtered);
+          _serverTotal = filtered.length;
+          _loading = false;
+          _loadError = null;
+          _hasMore = false;
+        });
+        _prefetchPageUnitViews();
+        return;
+      }
+    }
+
     if (!forceNetwork && !_hasActiveFilter && storeId.isNotEmpty) {
       final cached = await PosSellCatalogCache.instance.read(storeId);
       if (cached != null && cached.items.isNotEmpty && gen == _loadGen) {
@@ -447,15 +482,18 @@ class PosSellProductGridState extends State<PosSellProductGrid> {
           _products = List<PosProduct>.from(unique);
           _serverTotal = unique.length;
           _loading = false;
+          _loadError = null;
           // Snapshot cache = đủ catalog; không loadMore page 1 chồng lên.
           _hasMore = false;
         });
         _prefetchPageUnitViews();
-        // Cache còn nóng → không gọi API catalog (tránh decode/write lại trên UI).
-        if (!await PosSellCatalogCache.instance.shouldSync(storeId)) {
-          return;
+        if (!cached.complete) {
+          // Bản lưu cũ chỉ có trang đầu → tải đủ ở nền (vẫn hiện bản cũ).
+          unawaited(_syncFullCatalog(storeId));
+        } else if (!cached.isFresh) {
+          unawaited(_revalidateCatalog(storeId, cached));
         }
-        _hasMore = true;
+        return;
       }
     }
 
@@ -463,6 +501,209 @@ class PosSellProductGridState extends State<PosSellProductGrid> {
       setState(() => _loading = true);
     }
     await _fetchCatalogPage(storeId, reset: true, gen: gen);
+    // Hiện trang đầu cho nhanh, đồng thời tải đủ danh mục ở nền để lần sau mở là có ngay.
+    if (storeId.isNotEmpty && !_hasActiveFilter) {
+      unawaited(_syncFullCatalog(storeId));
+    }
+  }
+
+  /// Lọc giống server: tên / mã / mã vạch không dấu + nhóm hàng (kèm nhóm con).
+  List<PosProduct> _filterLocal(List<PosProduct> items) {
+    final q = vnFold(_searchQuery.trim());
+    final cat = (_categoryId ?? '').trim();
+    Set<String>? catIds;
+    if (cat.isNotEmpty) {
+      catIds = {cat.toLowerCase()};
+      var grew = true;
+      while (grew) {
+        grew = false;
+        for (final c in _categories) {
+          final parent = (c.parentId ?? '').toLowerCase();
+          if (parent.isNotEmpty && catIds.contains(parent) && catIds.add(c.id.toLowerCase())) {
+            grew = true;
+          }
+        }
+      }
+    }
+    return [
+      for (final p in items)
+        if ((catIds == null || catIds.contains((p.categoryId ?? '').toLowerCase())) &&
+            (q.isEmpty ||
+                vnFold(p.name).contains(q) ||
+                vnFold(p.productCode).contains(q) ||
+                vnFold(p.barcode ?? '').contains(q)))
+          p,
+    ];
+  }
+
+  bool _fullSyncRunning = false;
+  StreamSubscription<Map<String, dynamic>>? _catalogEventSub;
+  StreamSubscription<bool>? _catalogConnSub;
+  AppLifecycleListener? _catalogLifecycle;
+  Timer? _catalogDeltaTimer;
+
+  void _scheduleCatalogDelta() {
+    _catalogDeltaTimer?.cancel();
+    _catalogDeltaTimer = Timer(const Duration(milliseconds: 1500), () async {
+      if (!mounted) return;
+      final storeId = widget.storeId?.trim() ?? '';
+      if (storeId.isEmpty) return;
+      final snap = await PosSellCatalogCache.instance.read(storeId);
+      if (!mounted) return;
+      if (snap == null || !snap.complete) {
+        await _syncFullCatalog(storeId);
+      } else {
+        await _revalidateCatalog(storeId, snap);
+      }
+    });
+  }
+
+  /// Tải ĐỦ danh mục (mọi trang) rồi mới ghi cache — trước đây ghi đè cache bằng trang 1
+  /// (48 món) ⇒ lần mở sau chỉ còn 48 món, không tải thêm.
+  Future<void> _syncFullCatalog(String storeId) async {
+    if (_fullSyncRunning || storeId.isEmpty) return;
+    _fullSyncRunning = true;
+    try {
+      const size = 100;
+      final all = <PosProduct>[];
+      DateTime? version;
+      DateTime? serverTime;
+      var total = 0;
+      for (var page = 1; page <= 200; page++) {
+        final res = await widget.api.getPosSellProducts(page: page, pageSize: size);
+        if (res['isSuccess'] != true || res['data'] is! Map) return; // giữ bản cũ
+        final data = res['data'] as Map<String, dynamic>;
+        if (page == 1) {
+          total = (data['total'] as num?)?.toInt() ?? 0;
+          version = DateTime.tryParse('${data['catalogVersion'] ?? ''}');
+          serverTime = DateTime.tryParse('${data['serverTime'] ?? ''}');
+        }
+        final raw = data['items'] as List? ?? const [];
+        for (final e in raw) {
+          if (e is! Map) continue;
+          try {
+            all.add(applyComboSellableToProduct(
+              PosProduct.fromJson(Map<String, dynamic>.from(e)),
+            ));
+          } catch (_) {}
+        }
+        if (raw.length < size || all.length >= total) break;
+      }
+      final unique = uniquePosProductsById(all);
+      await PosSellCatalogCache.instance.write(
+        storeId,
+        items: unique,
+        catalogVersion: version,
+        complete: true,
+        syncedAt: serverTime,
+        fullSyncedAt: DateTime.now(),
+      );
+      _applyFreshCatalog(unique);
+    } catch (_) {
+      // Lỗi mạng: giữ bản đang có, lần sau thử lại.
+    } finally {
+      _fullSyncRunning = false;
+    }
+  }
+
+  /// Chỉ hỏi phần thay đổi từ lần đồng bộ trước (thường vài món): sửa / thêm / xóa.
+  Future<void> _revalidateCatalog(String storeId, PosSellCatalogSnapshot snap) async {
+    final since = snap.syncedAt;
+    final full = snap.fullSyncedAt;
+    if (since == null ||
+        full == null ||
+        DateTime.now().difference(full) > PosSellCatalogCache.fullSyncEvery) {
+      await _syncFullCatalog(storeId);
+      return;
+    }
+    if (_fullSyncRunning) return;
+    try {
+      final res = await widget.api.getPosSellProducts(
+        page: 1,
+        pageSize: 500,
+        // Lùi 5 giây: tránh sót món ghi đúng lúc server chụp mốc.
+        updatedSince: since.subtract(const Duration(seconds: 5)),
+      );
+      if (res['isSuccess'] != true || res['data'] is! Map) return;
+      final data = res['data'] as Map<String, dynamic>;
+      final raw = data['items'] as List? ?? const [];
+      if (raw.length >= 500) {
+        await _syncFullCatalog(storeId);
+        return;
+      }
+      final removed = {
+        for (final id in (data['removedIds'] as List? ?? const [])) '$id'.toLowerCase(),
+      };
+      final changed = <String, PosProduct>{};
+      for (final e in raw) {
+        if (e is! Map) continue;
+        try {
+          final p = applyComboSellableToProduct(
+            PosProduct.fromJson(Map<String, dynamic>.from(e)),
+          );
+          changed[p.id.toLowerCase()] = p;
+        } catch (_) {}
+      }
+      final current = (await PosSellCatalogCache.instance.read(storeId))?.items ?? snap.items;
+      final merged = <PosProduct>[];
+      for (final p in current) {
+        final key = p.id.toLowerCase();
+        if (removed.contains(key)) continue;
+        merged.add(changed.remove(key) ?? p);
+      }
+      merged.addAll(changed.values); // món mới thêm
+      final sellableTotal = (data['sellableTotal'] as num?)?.toInt();
+      if (sellableTotal != null && sellableTotal != merged.length) {
+        // Lệch số món (đổi nhóm bán / dữ liệu cũ) → tải lại đủ cho chắc.
+        await _syncFullCatalog(storeId);
+        return;
+      }
+      await PosSellCatalogCache.instance.write(
+        storeId,
+        items: merged,
+        catalogVersion: DateTime.tryParse('${data['catalogVersion'] ?? ''}'),
+        complete: true,
+        syncedAt: DateTime.tryParse('${data['serverTime'] ?? ''}'),
+      );
+      if (raw.isNotEmpty || removed.isNotEmpty) _applyFreshCatalog(merged);
+    } catch (_) {}
+  }
+
+  /// Đẩy danh mục mới lên lưới nếu đang xem toàn bộ (đang lọc thì lọc lại trên bản mới).
+  void _applyFreshCatalog(List<PosProduct> items) {
+    if (!mounted) return;
+    final view = _hasActiveFilter ? _filterLocal(items) : items;
+    setState(() {
+      _allProducts = view;
+      _products = List<PosProduct>.from(view);
+      _serverTotal = view.length;
+      _hasMore = false;
+      _loading = false;
+      _loadError = null;
+    });
+    _prefetchPageUnitViews();
+    _scheduleCatalogImageWarmup(items);
+  }
+
+  Timer? _imageWarmupTimer;
+
+  /// Tải trước ảnh toàn thực đơn ở nền (tuần tự, 2 luồng) — lần cuộn sau ảnh có ngay.
+  void _scheduleCatalogImageWarmup(List<PosProduct> items) {
+    _imageWarmupTimer?.cancel();
+    _imageWarmupTimer = Timer(const Duration(seconds: 3), () async {
+      final withImage = items.where((p) => (p.imageUrl ?? '').trim().isNotEmpty).toList();
+      for (var i = 0; i < withImage.length && mounted; i += 2) {
+        await Future.wait([
+          for (final p in withImage.skip(i).take(2))
+            PosProductImageCacheManager.instance.prefetchProduct(
+              api: widget.api,
+              productId: p.id,
+              imageUrl: p.imageUrl,
+              updatedAt: p.updatedAt,
+            ),
+        ]);
+      }
+    });
   }
 
   Future<void> _loadMore() async {
@@ -478,7 +719,6 @@ class PosSellProductGridState extends State<PosSellProductGrid> {
     required int gen,
   }) async {
     if (!reset) _loadingMore = true;
-    DateTime? catalogVersion;
     String? error;
     final page = reset ? 1 : _nextApiPage;
     final batch = <PosProduct>[];
@@ -511,28 +751,12 @@ class PosSellProductGridState extends State<PosSellProductGrid> {
           ..addAll(uniqueBatch);
         _serverTotal = (data['total'] as num?)?.toInt() ??
             (reset ? batch.length : _allProducts.length + batch.length);
-        final verRaw = data['catalogVersion'];
-        if (verRaw != null) {
-          catalogVersion = DateTime.tryParse(verRaw.toString());
-        }
         _nextApiPage = page + 1;
         _hasMore = batch.length >= _apiPageSize &&
             (reset ? batch.length : _allProducts.length + batch.length) <
                 _serverTotal;
       }
-
-      if (storeId.isNotEmpty && !_hasActiveFilter && batch.isNotEmpty) {
-        try {
-          final toCache = uniquePosProductsById(
-            reset ? batch : [..._allProducts, ...batch],
-          );
-          await PosSellCatalogCache.instance.write(
-            storeId,
-            items: toCache,
-            catalogVersion: catalogVersion,
-          );
-        } catch (_) {}
-      }
+      // Không ghi cache từ trang lẻ — _syncFullCatalog ghi khi đã đủ danh mục.
     } catch (e) {
       error = e.toString();
     }
@@ -696,7 +920,7 @@ class PosSellProductGridState extends State<PosSellProductGrid> {
     if (_categoryId == id) return;
     _categoryId = id;
     if (_gridScroll.hasClients) _gridScroll.jumpTo(0);
-    unawaited(_loadProducts(forceNetwork: true));
+    unawaited(_loadProducts());
   }
 
   List<PosProduct> _withSoldOutLast(List<PosProduct> source) {

@@ -49,8 +49,11 @@ class PosProductImage extends StatelessWidget {
           if (hasUrl) url,
           if (hasId) ApiService.posProductImagePath(productId!),
         ],
-        cacheEpoch: updatedAt?.millisecondsSinceEpoch ?? 0,
-        updatedAt: updatedAt,
+        cacheEpoch: PosProductImageCacheManager.imageEpoch(
+          imageUrl: url,
+          updatedAt: updatedAt,
+        ),
+        updatedAt: null,
         apiService: _api,
         size: size,
         fill: fill,
@@ -185,21 +188,40 @@ class _PosProductImageLoaderState extends State<_PosProductImageLoader> {
   Widget build(BuildContext context) {
     if (_failed) return widget.placeholder;
     if (_bytes == null) return widget.placeholder;
+    if (!widget.fill) return _image(context, widget.size, widget.size);
+    // Ô lưới: giải mã theo kích thước THẬT của ô (trước đây theo size=96 cố định →
+    // ~120px trên màn PC rồi phóng to lên ô 200–300px ⇒ ảnh mờ).
+    return LayoutBuilder(builder: (context, c) {
+      final w = c.maxWidth.isFinite ? c.maxWidth : widget.size;
+      final h = c.maxHeight.isFinite ? c.maxHeight : widget.size;
+      return _image(context, w, h);
+    });
+  }
+
+  Widget _image(BuildContext context, double boxW, double boxH) {
     final dpr = MediaQuery.devicePixelRatioOf(context);
-    // Chỉ cacheWidth: set cả Height sẽ vuông hóa JPEG (méo ảnh catalog mẫu landscape).
-    // Tăng cacheWidth để ảnh không bị mờ khi hiển thị trong ô lưới nhỏ.
-    // decode theo ~1.25x kích thước ô — cap 480px để A7 không đơ khi lưới nhiều ảnh.
-    final cachePx = (widget.size * dpr * 1.25).round().clamp(96, 480);
+    // Giải mã giữ đúng tỉ lệ ảnh, vừa trong khung vuông cạnh S. Với BoxFit.cover, ảnh ngang/dọc
+    // tới 1,5:1 vẫn phủ kín ô mà không phải phóng to. Ảnh gốc nhỏ hơn S thì không phóng to
+    // (allowUpscaling mặc định false). Trần 1024px (ảnh lưu tối đa 1200px) để lưới nhiều ảnh
+    // trên máy yếu không tốn RAM: ô 200px ở dpr 1 → ~300px.
+    final longest = boxW > boxH ? boxW : boxH;
+    final factor = widget.fit == BoxFit.cover ? 1.5 : 1.0;
+    final target = (longest * dpr * factor).round().clamp(96, 1024);
     // PNG có thể có nền trong suốt — bọc nền trắng để ảnh không bị lẫn màu nền container.
     return ColoredBox(
       color: Colors.white,
-      child: Image.memory(
-        _bytes!,
+      child: Image(
+        image: ResizeImage(
+          MemoryImage(_bytes!),
+          width: target,
+          height: target,
+          policy: ResizeImagePolicy.fit,
+        ),
         width: widget.fill ? double.infinity : widget.size,
         height: widget.fill ? double.infinity : widget.size,
         fit: widget.fit,
         gaplessPlayback: true,
-        cacheWidth: cachePx,
+        filterQuality: FilterQuality.medium,
         errorBuilder: (_, __, ___) => widget.placeholder,
       ),
     );

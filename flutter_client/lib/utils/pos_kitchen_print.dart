@@ -1114,6 +1114,26 @@ Future<bool> _printKitchenCompactSlipLocked({
         agentOnlyIds.add(id.toLowerCase());
       }
     }
+    // Phiếu tổng: máy bật «nhận mọi món» được thêm bản sao toàn bộ món của lần gửi này
+    // (máy đã gán món vẫn in như cũ).
+    // Máy phiếu tổng mà cũng giữ vai trò Phiếu bếp thì đã nhận món chưa gán qua
+    // đường mặc định → không thêm lại các món đó (tránh in 2 lần trên cùng máy).
+    final kitchenDoc = isCancel
+        ? PosCloudDocumentTypes.kitchenVoid
+        : PosCloudDocumentTypes.kitchenSlip;
+    for (final copy in PosPrintOrchestrator.instance.printers
+        .where((p) => p.kitchenCopyAll && p.isActive && !p.isLabelPrinter)) {
+      final receivesDefault = copy.documentTypes.contains(kitchenDoc);
+      final extra = [
+        for (final l in lines)
+          if (!(receivesDefault && defaultLines.contains(l))) l,
+      ];
+      if (extra.isEmpty) continue;
+      final group = assignedGroups.putIfAbsent(copy.id, () => []);
+      for (final l in extra) {
+        if (!group.contains(l)) group.add(l);
+      }
+    }
     debugPrint(
       'Kitchen DBG: resolved=${resolved.map((r) => '${r.line.productName}->${r.route.lane.name}/${r.route.printerId}').join(', ')} '
       'assignedGroups=${assignedGroups.keys.toList()} defaultLines=${defaultLines.length}',

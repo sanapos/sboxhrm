@@ -1048,7 +1048,8 @@ class _PosProductEditorPageState extends State<PosProductEditorPage>
   }
 
   Future<void> _pickImage() async {
-    final picked = await pickSingleImageWithCamera(context);
+    // 1200px · JPEG 85: ảnh món hiện ô lớn trên màn POS / màn khách — 78 mặc định lộ vệt nén.
+    final picked = await pickSingleImageWithCamera(context, maxEdge: 1200, jpegQuality: 85);
     if (picked == null) return;
     if (picked.bytes.length > 2 * 1024 * 1024) {
       NotificationOverlayManager().showError(
