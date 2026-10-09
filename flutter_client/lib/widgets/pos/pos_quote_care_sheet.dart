@@ -14,6 +14,7 @@ import '../../utils/pos_commercial_profile_local.dart';
 import '../../utils/pos_sell_store_settings.dart';
 import '../../utils/pos_html_print.dart';
 import '../../utils/pos_quote_document_wording.dart';
+import '../../utils/pos_quote_export.dart';
 import '../../utils/pos_print_template_defaults.dart';
 import '../../utils/pos_print_template_loader.dart';
 import '../../utils/pos_print_template_renderer.dart';
@@ -103,6 +104,16 @@ Future<void> printPosQuoteSlip(
       q = PosQuote.fromJson(Map<String, dynamic>.from(res['data'] as Map));
       if (useLines.isEmpty) useLines = q.lines;
     }
+  }
+  // Báo giá đã lưu: in đúng bản PDF máy chủ dựng — trùng với Xuất PDF / Word / gửi khách.
+  if (lines == null && q != null && q.id.isNotEmpty) {
+    if (!context.mounted) return;
+    await PosQuoteExport.run(
+      context,
+      quote: q,
+      action: 'print',
+    );
+    return;
   }
   if (q != null) {
     final custom = posQuoteSavedWordingHtml(q.documents, 'Quote');
@@ -303,6 +314,15 @@ Future<String?> posQuoteServerDocumentHtml(
     ))
         ?.html;
 
+/// Không lấy được bản máy chủ → đang dùng bản dựng trên máy (thiếu đợt thanh toán / bảo hành từng dòng…).
+void posQuoteWarnOfflineCopy() {
+  NotificationOverlayManager().showWarning(
+    title: 'Đang dùng bản in tạm trên máy',
+    message: tr('Không tải được bản chứng từ từ máy chủ (mất mạng?) — bản này có thể thiếu tiến độ '
+        'thanh toán, bảo hành từng dòng, thời gian thực hiện. Có mạng hãy in / xuất lại trước khi gửi khách.'),
+  );
+}
+
 /// Nhắc khi bản sửa lời văn riêng đã cũ so với số liệu báo giá.
 void posQuoteWarnIfStale(PosQuoteServerDoc doc) {
   if (!doc.isStale) return;
@@ -436,6 +456,7 @@ Future<String> bindPosQuotePrintHtml(
           final data = posPrintSampleData(
             documentType: PosPrintDocumentTypes.quote,
             commercialProfile: profile,
+            fillSamples: false,
           );
           data.addAll(_quoteHeaderData(q, lineItems, profile: profile));
           for (final k in const [

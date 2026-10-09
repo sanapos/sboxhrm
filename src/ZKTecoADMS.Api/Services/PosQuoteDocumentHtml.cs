@@ -342,11 +342,22 @@ public static class PosQuoteDocumentHtml
         var stageRows = new List<Dictionary<string, string>>();
         var left = collected;
         (string Title, decimal Remaining)? nextDue = null;
-        var stageList = stages ?? [];
+        var stageList = (stages ?? []).ToList();
+        // Cùng công thức màn hợp đồng: cọc tính trên trước VAT, đợt cuối nhận phần còn lại.
+        var stageAmounts = PosQuoteStageMath.Amounts(stageList, total, PosQuoteStageMath.PreVat(quote));
+        var depositIdx = stageList.FindIndex(s => s.Percent is > 0 && PosQuoteStageMath.IsDeposit(s));
         var i = 1;
         foreach (var st in stageList)
         {
-            var amount = st.Percent is > 0 ? Math.Round(total * st.Percent.Value / 100m, 0, MidpointRounding.AwayFromZero) : st.Amount;
+            var idx = i - 1;
+            var amount = stageAmounts[idx];
+            var pctText = st.Percent is > 0
+                ? idx == depositIdx
+                    ? st.Percent.Value.ToString("0.##", vn) + "% trước VAT"
+                    : Math.Abs(amount - Math.Round(total * st.Percent.Value / 100m, 0, MidpointRounding.AwayFromZero)) > 1
+                        ? "Phần còn lại"
+                        : st.Percent.Value.ToString("0.##", vn) + "%"
+                : (total > 0 ? Math.Round(amount / total * 100m, 1).ToString("0.#", vn) + "%" : "");
             var paid = Math.Min(amount, Math.Max(0, left));
             left -= paid;
             var remaining = Math.Max(0, amount - paid);
@@ -355,9 +366,7 @@ public static class PosQuoteDocumentHtml
             {
                 ["Dot_STT"] = (i++).ToString(),
                 ["Dot_Ten"] = st.Title,
-                ["Dot_Phan_Tram"] = st.Percent is > 0
-                    ? st.Percent.Value.ToString("0.##", vn) + "%"
-                    : (total > 0 ? Math.Round(amount / total * 100m, 1).ToString("0.#", vn) + "%" : ""),
+                ["Dot_Phan_Tram"] = pctText,
                 ["Dot_So_Tien"] = Money(amount),
                 ["Dot_Han"] = Day(st.DueDate),
                 ["Dot_Da_Thu"] = Money(paid),
@@ -372,9 +381,11 @@ public static class PosQuoteDocumentHtml
         string depositBase;
         if (stageRows.Count > 0)
         {
-            deposit = decimal.Parse(stageRows[0]["Dot_So_Tien"].Replace(".", "").Replace(",", ""), CultureInfo.InvariantCulture);
-            depositPct = stageRows[0]["Dot_Phan_Tram"].TrimEnd('%');
-            depositBase = "giá trị hợp đồng";
+            deposit = stageAmounts[0];
+            depositPct = stageList[0].Percent is > 0
+                ? stageList[0].Percent!.Value.ToString("0.##", vn)
+                : (total > 0 ? Math.Round(deposit / total * 100m, 1).ToString("0.#", vn) : "");
+            depositBase = depositIdx == 0 ? "giá trị trước VAT" : "giá trị hợp đồng";
         }
         else
         {
@@ -494,6 +505,8 @@ public static class PosQuoteDocumentHtml
             ["De_Nghi_So_Tien"] = Money(request),
             ["De_Nghi_Bang_Chu"] = PosVietnameseMoney.InWords(request),
             ["Co_Dot_Thanh_Toan"] = stageRows.Count > 0 ? "1" : "",
+            // Cột «Thời hạn» chỉ hiện khi có đợt đặt hạn (trước đây cột trống luôn hiện).
+            ["Co_Han_Dot"] = stageRows.Any(r => !string.IsNullOrEmpty(r["Dot_Han"])) ? "1" : "",
             [PosPrintTemplateHtmlRenderer.StagesKey] = System.Text.Json.JsonSerializer.Serialize(stageRows),
             ["Ky_Han_Thi_Cong"] = term,
             ["Ngay_San_Xuat"] = Day(quote.ProductionDueAt),

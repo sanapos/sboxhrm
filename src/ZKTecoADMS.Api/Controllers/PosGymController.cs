@@ -11,6 +11,8 @@ using ZKTecoADMS.Application.Helpers;
 using ZKTecoADMS.Application.Interfaces;
 using ZKTecoADMS.Application.Models;
 using ZKTecoADMS.Domain.Entities;
+using ZKTecoADMS.Domain.Enums;
+using ZKTecoADMS.Infrastructure.Services;
 using ZKTecoADMS.Infrastructure;
 
 namespace ZKTecoADMS.Api.Controllers;
@@ -133,44 +135,71 @@ public class PosGymController(ZKTecoDbContext db, IMediator bus, IGymCheckInServ
         if (targets.Count == 0)
             return BadRequest(AppResponse<List<MemberDto>>.Fail("Khách đã có trên các máy đã chọn"));
 
-        // Giữ cùng một PIN cho khách trên mọi máy (dễ tra cứu); lấy PIN cũ nếu đã có.
         var targetIds = targets.Select(t => t.Id).ToList();
-        var usedPins = (await db.DeviceUsers.AsNoTracking()
-                .Where(u => targetIds.Contains(u.DeviceId))
-                .Select(u => u.Pin).ToListAsync())
-            .ToHashSet(StringComparer.Ordinal);
-        var pin = existing.Select(e => e.Pin).FirstOrDefault(p => !usedPins.Contains(p))
-            ?? DeviceUserPinAllocator.AllocateMember(usedPins);
+        var pin = await PickMemberPinAsync(storeId, customer, existing, targetIds);
 
         var card = string.IsNullOrWhiteSpace(dto.CardNumber) ? null : dto.CardNumber.Trim();
         var name = ToDeviceName(customer.Name);
+        var created = new List<(Device Device, Guid UserId)>();
         foreach (var d in targets)
         {
-            var res = await bus.Send(new CreateDeviceUserCommand(pin, name, card, null, 0, d.Id));
-            if (!res.IsSuccess || res.Data == null)
-                return BadRequest(AppResponse<List<MemberDto>>.Fail(
-                    $"Không tạo được người dùng trên máy {d.DeviceName}: {res.Message}"));
-            if (!PosGymMemberDevice.IsMemberPin(res.Data.Pin))
+            var res = await bus.Send(new CreateDeviceUserCommand(pin, name, card, null, 0, d.Id, ExactPin: true));
+            if (!res.IsSuccess || res.Data == null || res.Data.Pin != pin)
             {
-                await bus.Send(new DeleteDeviceUserCommand(res.Data.Id, true));
+                if (res.IsSuccess && res.Data != null) created.Add((d, res.Data.Id));
+                // Xong hết hoặc gỡ hết: không để lại người dùng PIN hội viên «mồ côi» trên máy đã tạo trước đó.
+                foreach (var (_, userId) in created)
+                    await bus.Send(new DeleteDeviceUserCommand(userId, true));
                 return BadRequest(AppResponse<List<MemberDto>>.Fail(
-                    $"PIN hội viên đã bị dùng trên máy {d.DeviceName}, thử lại"));
+                    $"Không tạo được hội viên trên máy {d.DeviceName}: {res.Message}"));
             }
+            created.Add((d, res.Data.Id));
+        }
+        foreach (var (d, userId) in created)
+        {
             db.PosGymMemberDevices.Add(new PosGymMemberDevice
             {
                 Id = Guid.NewGuid(),
                 StoreId = storeId,
                 CustomerId = customer.Id,
                 DeviceId = d.Id,
-                DeviceUserId = res.Data.Id,
-                Pin = res.Data.Pin,
+                DeviceUserId = userId,
+                Pin = pin,
                 CardNumber = card,
                 IsActive = true,
                 CreatedBy = CurrentUserEmail,
             });
         }
         await db.SaveChangesAsync();
+        await gym.SyncDeviceAccessAsync(storeId, customer.Id);
         return await Members(customer.Name);
+    }
+
+    /// <summary>
+    /// PIN hội viên: giữ PIN cũ của khách → số điện thoại bỏ số 0 đầu (0973024042 → 973024042) → dải 9xxxxxxx.
+    /// Duy nhất trong CẢ cửa hàng (mọi máy): vân tay lấy ở một máy được chép sang máy khác theo PIN —
+    /// PIN trùng giữa 2 khách thì vân tay khách này thành của khách kia.
+    /// </summary>
+    async Task<string> PickMemberPinAsync(Guid storeId, PosCustomer customer, List<PosGymMemberDevice> existing, List<Guid> targetIds)
+    {
+        var storeDevices = await db.Devices.AsNoTracking()
+            .Where(d => d.StoreId == storeId && d.Deleted == null).Select(d => d.Id).ToListAsync();
+        var onDevices = await db.DeviceUsers.AsNoTracking()
+            .Where(u => storeDevices.Contains(u.DeviceId))
+            .Select(u => new { u.Id, u.DeviceId, u.Pin }).ToListAsync();
+        var ownUserIds = existing.Where(e => e.DeviceUserId.HasValue).Select(e => e.DeviceUserId!.Value).ToHashSet();
+        var otherMembers = (await db.PosGymMemberDevices.IgnoreQueryFilters().AsNoTracking()
+                .Where(m => m.StoreId == storeId && m.CustomerId != customer.Id).Select(m => m.Pin).ToListAsync())
+            .ToHashSet(StringComparer.Ordinal);
+        var taken = onDevices.Where(u => !ownUserIds.Contains(u.Id)).Select(u => u.Pin)
+            .Concat(otherMembers).ToHashSet(StringComparer.Ordinal);
+        var onTargets = onDevices.Where(u => targetIds.Contains(u.DeviceId)).Select(u => u.Pin).ToHashSet(StringComparer.Ordinal);
+
+        var own = existing.Select(e => e.Pin).FirstOrDefault(p => !onTargets.Contains(p) && !otherMembers.Contains(p));
+        if (own != null) return own;
+        var phone = GymVisitRules.PinFromPhone(customer.Phone);
+        if (phone != null && !taken.Contains(phone)) return phone;
+        return DeviceUserPinAllocator.AllocateMember(taken);
     }
 
     /// <summary>Gỡ hội viên khỏi máy (xóa người dùng trên máy). Lịch sử lượt tập giữ nguyên.</summary>
@@ -226,8 +255,18 @@ public class PosGymController(ZKTecoDbContext db, IMediator bus, IGymCheckInServ
         var exists = await db.PosCustomers.AsNoTracking()
             .AnyAsync(c => c.Id == dto.CustomerId && c.StoreId == storeId && c.Deleted == null);
         if (!exists) return BadRequest(AppResponse<VisitDto>.Fail("Không tìm thấy khách hàng"));
+        // Khách đang trong phòng mà bấm «Check-in» → trước đây thành CHO RA nhưng vẫn báo «Đã check-in».
+        var now = DateTime.UtcNow;
+        var inside = await db.PosGymVisits.AsNoTracking()
+            .Where(v => v.StoreId == storeId && v.CustomerId == dto.CustomerId && v.Deleted == null
+                && v.CheckOutAt == null && v.CheckInAt <= now && v.CheckInAt >= now - GymVisitRules.MaxOpenVisit)
+            .OrderByDescending(v => v.CheckInAt).FirstOrDefaultAsync();
+        if (inside != null)
+            return BadRequest(AppResponse<VisitDto>.Fail(
+                $"Khách đang tập (vào lúc {ReportHelpers.ToVn(inside.CheckInAt):HH:mm}) — bấm «Cho ra» nếu khách về."));
         var visit = await gym.RecordPunchAsync(storeId, dto.CustomerId, DateTime.UtcNow, null, null,
             "Manual", CurrentUserEmail);
+        if (visit != null) await gym.SyncDeviceAccessAsync(storeId, dto.CustomerId);
         if (visit == null)
             return BadRequest(AppResponse<VisitDto>.Fail("Khách vừa check-in, thử lại sau vài phút"));
         var row = (await LoadVisitsAsync(storeId, db.PosGymVisits.AsNoTracking().Where(v => v.Id == visit.Id)))
@@ -341,6 +380,106 @@ public class PosGymController(ZKTecoDbContext db, IMediator bus, IGymCheckInServ
             expiring = rows.Count(x => x.expiringSoon),
             items = rows,
         }));
+    }
+
+    // ── Máy ở cửa: máy chủ mở cửa cho hội viên còn hạn ──────────────────
+
+    public record DoorDeviceDto(Guid Id, string Name, bool Online, bool? SupportsDoor, string Mode, int Members, int Blocked);
+    public record DoorModeDto(string Mode);
+
+    [HttpGet("doors")]
+    [RequireModulePermission("PosSell", ModulePermissionAction.View)]
+    public async Task<ActionResult<AppResponse<List<DoorDeviceDto>>>> Doors()
+    {
+        var storeId = RequiredStoreId;
+        var devices = await db.Devices.AsNoTracking()
+            .Where(d => d.StoreId == storeId && d.Deleted == null)
+            .Select(d => new { d.Id, d.DeviceName, d.LastOnline, Door = d.DeviceInfo != null ? d.DeviceInfo.SupportsDoorControl : null })
+            .ToListAsync();
+        var ids = devices.Select(d => d.Id).ToList();
+        var modes = (await db.DeviceSettings.AsNoTracking()
+                .Where(s => ids.Contains(s.DeviceId) && s.SettingKey == GymCheckInService.DoorModeKey)
+                .Select(s => new { s.DeviceId, s.SettingValue }).ToListAsync())
+            .GroupBy(s => s.DeviceId).ToDictionary(g => g.Key, g => g.First().SettingValue ?? "");
+        var links = (await db.PosGymMemberDevices.AsNoTracking()
+                .Where(m => m.StoreId == storeId && m.Deleted == null)
+                .Select(m => new { m.DeviceId, m.AccessBlocked }).ToListAsync())
+            .GroupBy(m => m.DeviceId)
+            .ToDictionary(g => g.Key, g => (N: g.Count(), B: g.Count(x => x.AccessBlocked)));
+        var now = DateTime.UtcNow;
+        return Ok(AppResponse<List<DoorDeviceDto>>.Success(devices.Select(d =>
+        {
+            links.TryGetValue(d.Id, out var l);
+            return new DoorDeviceDto(
+                d.Id, d.DeviceName, d.LastOnline.HasValue && now - d.LastOnline.Value < TimeSpan.FromMinutes(5), d.Door,
+                modes.GetValueOrDefault(d.Id) == GymCheckInService.DoorModeServer ? "server" : "record", l.N, l.B);
+        }).ToList()));
+    }
+
+    /// <summary>«server»: hội viên quét → máy chủ kiểm tra thẻ, còn hạn mới gửi lệnh mở cửa; «record»: chỉ ghi lượt.</summary>
+    [HttpPut("doors/{deviceId:guid}")]
+    [RequireModulePermission("PosSell", ModulePermissionAction.Edit)]
+    public async Task<ActionResult<AppResponse<object>>> SetDoorMode(Guid deviceId, [FromBody] DoorModeDto dto)
+    {
+        var storeId = RequiredStoreId;
+        var device = await db.Devices.AsNoTracking().FirstOrDefaultAsync(d => d.Id == deviceId && d.StoreId == storeId && d.Deleted == null);
+        if (device == null) return NotFound(AppResponse<object>.Fail("Không tìm thấy máy chấm công"));
+        var server = string.Equals(dto.Mode, "server", StringComparison.OrdinalIgnoreCase);
+        var setting = await db.DeviceSettings.AsTracking()
+            .FirstOrDefaultAsync(s => s.DeviceId == deviceId && s.SettingKey == GymCheckInService.DoorModeKey);
+        if (setting == null)
+        {
+            setting = new DeviceSetting { Id = Guid.NewGuid(), DeviceId = deviceId, SettingKey = GymCheckInService.DoorModeKey };
+            db.DeviceSettings.Add(setting);
+        }
+        setting.SettingValue = server ? GymCheckInService.DoorModeServer : "record";
+        setting.Description = "Gym: máy chủ mở cửa cho hội viên còn hạn";
+        if (!server)
+        {
+            // Tắt: gỡ các thông báo «hết hạn» đã đẩy lên máy này.
+            var blocked = await db.PosGymMemberDevices.AsTracking()
+                .Where(m => m.DeviceId == deviceId && m.StoreId == storeId && m.Deleted == null && m.AccessBlocked).ToListAsync();
+            foreach (var m in blocked)
+            {
+                db.DeviceCommands.Add(new DeviceCommand
+                {
+                    DeviceId = deviceId,
+                    Command = ClockCommandBuilder.BuildDeleteUserMessageCommand(GymVisitRules.MessageUid(m.Pin)),
+                    CommandType = DeviceCommandTypes.UpdateDeviceUser,
+                    Priority = 20,
+                    Status = CommandStatus.Created,
+                });
+                m.AccessBlocked = false;
+                m.AccessSyncedAt = DateTime.UtcNow;
+            }
+        }
+        await db.SaveChangesAsync();
+        var changed = server ? await gym.SyncDeviceAccessAsync(storeId) : 0;
+        return Ok(AppResponse<object>.Success(new { deviceId, mode = server ? "server" : "record", blocked = changed }));
+    }
+
+    /// <summary>Lễ tân mở cửa tay (khách quên thẻ, mất mạng…) — cùng lệnh với mở cửa tự động.</summary>
+    [HttpPost("doors/{deviceId:guid}/open")]
+    [RequireModulePermission("PosSell", ModulePermissionAction.Create)]
+    public async Task<ActionResult<AppResponse<object>>> OpenDoor(Guid deviceId)
+    {
+        var storeId = RequiredStoreId;
+        var device = await db.Devices.AsNoTracking().Include(d => d.DeviceInfo)
+            .FirstOrDefaultAsync(d => d.Id == deviceId && d.StoreId == storeId && d.Deleted == null);
+        if (device == null) return NotFound(AppResponse<object>.Fail("Không tìm thấy máy chấm công"));
+        if (device.DeviceInfo?.SupportsDoorControl == false)
+            return BadRequest(AppResponse<object>.Fail("Máy này không hỗ trợ mở cửa từ xa."));
+        db.DeviceCommands.Add(new DeviceCommand
+        {
+            DeviceId = deviceId,
+            Command = ClockCommandBuilder.BuildOpenDoorCommand(useAccessControlProtocol: false),
+            CommandType = DeviceCommandTypes.OpenDoor,
+            CommandId = DateTimeOffset.UtcNow.ToUnixTimeMilliseconds() % 10_000,
+            Priority = 100,
+            Status = CommandStatus.Created,
+        });
+        await db.SaveChangesAsync();
+        return Ok(AppResponse<object>.Success(new { deviceId }));
     }
 
     // ── helpers ──────────────────────────────────────────────────────────

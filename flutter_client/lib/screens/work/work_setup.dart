@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:intl/intl.dart';
 import 'package:url_launcher/url_launcher.dart';
 
 import '../../l10n/app_tr.dart';
@@ -194,9 +195,17 @@ class _WorkQuickAddBarState extends State<WorkQuickAddBar> {
   DateTime? _custom;
   TaskTemplateV2? _template;
   bool _saving = false;
+  final _focus = FocusNode();
+
+  @override
+  void initState() {
+    super.initState();
+    _focus.addListener(() => setState(() {}));
+  }
 
   @override
   void dispose() {
+    _focus.dispose();
     _title.dispose();
     super.dispose();
   }
@@ -236,19 +245,25 @@ class _WorkQuickAddBarState extends State<WorkQuickAddBar> {
   @override
   Widget build(BuildContext context) {
     final personName = widget.people.where((p) => p.id == _person).firstOrNull?.name;
+    // Điện thoại: chỉ hiện ô nhập; chạm vào / gõ chữ mới mở hàng «Giao cho · Hôm nay · Mai…»
+    // (trước đây khối giao nhanh chiếm gần nửa màn hình dù không dùng).
+    final mobile = SboxBreakpoints.isMobile(context);
+    final showOptions = !mobile || _focus.hasFocus || _title.text.isNotEmpty || _template != null || _person != null;
     return SboxCard(
-      padding: const EdgeInsets.all(SboxSpace.md),
+      padding: EdgeInsets.all(mobile ? SboxSpace.sm : SboxSpace.md),
       child: Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
         Row(children: [
           Expanded(
             child: TextField(
               controller: _title,
+              focusNode: _focus,
+              onChanged: (_) => setState(() {}),
               textInputAction: TextInputAction.send,
               onSubmitted: (_) => _submit(),
               decoration: InputDecoration(
                 isDense: true,
                 prefixIcon: const Icon(Icons.add_task_rounded),
-                hintText: tr('Giao nhanh: nhập ${widget.taskLabel.toLowerCase()} rồi Enter…'),
+                hintText: tr(mobile ? 'Giao nhanh một ${widget.taskLabel.toLowerCase()}…' : 'Giao nhanh: nhập ${widget.taskLabel.toLowerCase()} rồi Enter…'),
               ),
             ),
           ),
@@ -257,8 +272,12 @@ class _WorkQuickAddBarState extends State<WorkQuickAddBar> {
               ? const SizedBox(width: 24, height: 24, child: CircularProgressIndicator(strokeWidth: 2))
               : IconButton.filled(onPressed: _submit, icon: const Icon(Icons.send_rounded), tooltip: tr('Giao việc')),
         ]),
+        if (showOptions) ...[
         const SizedBox(height: SboxSpace.sm),
-        Wrap(spacing: 6, runSpacing: 6, crossAxisAlignment: WrapCrossAlignment.center, children: [
+        // Một hàng cuộn ngang: trước đây Wrap làm «Chọn ngày» rơi xuống dòng riêng trên điện thoại.
+        SingleChildScrollView(
+          scrollDirection: Axis.horizontal,
+          child: Row(children: [
           ActionChip(
             avatar: const Icon(Icons.person_outline, size: 18),
             label: Text(personName ?? tr('Giao cho…')),
@@ -306,7 +325,9 @@ class _WorkQuickAddBarState extends State<WorkQuickAddBar> {
                 onDeleted: _template == null ? null : () => setState(() => _template = null),
               ),
             ),
-        ]),
+          ].expand((w) => [w, const SizedBox(width: 6)]).toList()),
+        ),
+        ],
       ]),
     );
   }
@@ -520,52 +541,98 @@ class WorkDashboardCard extends StatelessWidget {
   final TaskDashboardV2 data;
   final VoidCallback onOpenPieceRates;
 
+  static String _dec(num v) => NumberFormat('#,##0.#', 'vi_VN').format(v);
+
   @override
   Widget build(BuildContext context) {
     final d = data;
-    Widget kpi(String label, String value, {Color? color, String? hint}) => SizedBox(
-          width: 150,
-          child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-            Text(tr(label), style: SboxType.captionStyle()),
-            Text(value, style: color == null ? SboxType.titleStyle() : SboxType.titleStyle(color)),
-            if (hint != null) Text(tr(hint), style: SboxType.captionStyle()),
-          ]),
-        );
+    // Chỉ các số chưa có ở hàng KPI phía trên (đang mở / quá hạn / đúng hạn / thời gian TB đã có ở đó).
+    final tiles = <(String, String, Color?)>[
+      ('Hoàn thành', '${d.completed}/${d.total}', null),
+      ('Làm lại', '${_dec(d.reworkRate)}%', d.reworkRate > 10 ? SboxColors.danger : null),
+      if (d.avgQuality != null) ('Điểm chất lượng', '${_dec(d.avgQuality!)}/5', null),
+      if (d.avgCustomerRating != null) ('Khách đánh giá', '${_dec(d.avgCustomerRating!)}/5', null),
+      ('Check-in đúng chỗ', '${_dec(d.checkInRate)}%', null),
+      if (d.pieceRateTotal > 0) ('Khoán đã cộng lương', '${SboxFmt.number(d.pieceRateTotal)} đ', SboxColors.success),
+    ];
     return SboxCard(
-      title: 'Hiệu quả 30 ngày',
-      trailing: TextButton.icon(onPressed: onOpenPieceRates, icon: const Icon(Icons.payments_outlined, size: 18), label: Text(tr('Khoán tháng này'))),
-      child: Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
-        Wrap(spacing: SboxSpace.lg, runSpacing: SboxSpace.md, children: [
-          kpi('Hoàn thành', '${d.completed}/${d.total}'),
-          kpi('Đúng hạn', '${SboxFmt.number(d.onTimeRate)}%', color: d.onTimeRate >= 80 ? SboxColors.success : SboxColors.warning),
-          kpi('Làm lại', '${SboxFmt.number(d.reworkRate)}%', color: d.reworkRate > 10 ? SboxColors.danger : null),
-          kpi('Quá hạn', '${d.overdue}', color: d.overdue > 0 ? SboxColors.danger : null),
-          if (d.avgQuality != null) kpi('Điểm chất lượng', '${SboxFmt.number(d.avgQuality)}/5'),
-          if (d.avgCustomerRating != null) kpi('Khách đánh giá', '${SboxFmt.number(d.avgCustomerRating)}★'),
-          kpi('Check-in đúng', '${SboxFmt.number(d.checkInRate)}%'),
-          kpi('Thời gian xử lý', '${SboxFmt.number(d.avgCycleHours)} giờ', hint: 'trung bình'),
-          if (d.pieceRateTotal > 0) kpi('Khoán đã cộng lương', '${SboxFmt.number(d.pieceRateTotal)} đ'),
-        ]),
-        if (d.people.isNotEmpty) ...[
-          const Divider(height: 24),
-          for (final p in d.people.take(12))
-            Padding(
-              padding: const EdgeInsets.symmetric(vertical: 4),
-              child: Row(children: [
-                Expanded(child: Text(p.employeeName, style: SboxType.bodyStyle())),
-                SizedBox(width: 70, child: Text('${p.completed}/${p.total}', style: SboxType.smallStyle())),
-                SizedBox(width: 70, child: Text('${SboxFmt.number(p.onTimeRate)}%', style: SboxType.smallStyle())),
-                SizedBox(
-                    width: 70,
-                    child: Text(p.rework > 0 ? tr('${p.rework} làm lại') : '', style: SboxType.smallStyle(SboxColors.warningText))),
-                SizedBox(width: 60, child: Text(p.avgQuality == null ? '' : '${SboxFmt.number(p.avgQuality)}★', style: SboxType.smallStyle())),
-                SizedBox(
-                    width: 110,
-                    child: Text(p.pieceRateTotal > 0 ? '${SboxFmt.number(p.pieceRateTotal)} đ' : '',
-                        textAlign: TextAlign.right, style: SboxType.smallStyle(SboxColors.success))),
-              ]),
-            ),
-        ],
+      title: 'Chất lượng & khoán',
+      subtitle: '30 ngày gần nhất',
+      trailing: TextButton.icon(
+          onPressed: onOpenPieceRates, icon: const Icon(Icons.payments_outlined, size: 18), label: Text(tr('Khoán tháng này'))),
+      child: LayoutBuilder(builder: (ctx, c) {
+        final narrow = c.maxWidth < 560;
+        final cols = c.maxWidth >= 900 ? tiles.length.clamp(1, 6) : (narrow ? 2 : 3);
+        const gap = SboxSpace.md;
+        final tileW = (c.maxWidth - gap * (cols - 1)) / cols;
+        return Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
+          Wrap(spacing: gap, runSpacing: gap, children: [
+            for (final t in tiles)
+              SizedBox(
+                width: tileW,
+                child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+                  Text(tr(t.$1), style: SboxType.captionStyle(), maxLines: 1, overflow: TextOverflow.ellipsis),
+                  const SizedBox(height: 2),
+                  FittedBox(
+                    fit: BoxFit.scaleDown,
+                    alignment: Alignment.centerLeft,
+                    child: Text(t.$2, style: t.$3 == null ? SboxType.titleStyle() : SboxType.titleStyle(t.$3!)),
+                  ),
+                ]),
+              ),
+          ]),
+          if (d.people.isNotEmpty) ...[
+            const Divider(height: 28),
+            if (narrow) for (final p in d.people.take(12)) _personCompact(p) else ...[
+              _personRow(null),
+              const Divider(height: 1),
+              for (final p in d.people.take(12)) _personRow(p),
+            ],
+          ],
+        ]);
+      }),
+    );
+  }
+
+  /// Máy tính / máy tính bảng: bảng có tiêu đề cột (trước đây chỉ có số rời, không biết cột nào là gì).
+  Widget _personRow(TaskPersonStatV2? p) {
+    final head = p == null;
+    TextStyle st([Color? c]) => head ? SboxType.captionStyle().copyWith(fontWeight: FontWeight.w600) : SboxType.smallStyle(c ?? SboxColors.text);
+    Widget cell(String text, double w, {Color? color}) =>
+        SizedBox(width: w, child: Text(text, textAlign: TextAlign.right, maxLines: 1, style: st(color)));
+    return Padding(
+      padding: EdgeInsets.symmetric(vertical: head ? 6 : 7),
+      child: Row(children: [
+        Expanded(child: Text(head ? tr('Nhân viên') : p.employeeName, maxLines: 1, overflow: TextOverflow.ellipsis, style: st())),
+        cell(head ? tr('Xong') : '${p.completed}/${p.total}', 64),
+        cell(head ? tr('Đúng hạn') : '${_dec(p.onTimeRate)}%', 84),
+        cell(head ? tr('Làm lại') : '${p.rework}', 70, color: !head && p.rework > 0 ? SboxColors.warningText : null),
+        cell(head ? tr('Điểm') : (p.avgQuality == null ? '—' : '${_dec(p.avgQuality!)}/5'), 64),
+        cell(head ? tr('Khoán') : (p.pieceRateTotal > 0 ? '${SboxFmt.number(p.pieceRateTotal)} đ' : '—'), 120,
+            color: !head && p.pieceRateTotal > 0 ? SboxColors.success : null),
+      ]),
+    );
+  }
+
+  /// Điện thoại: mỗi người 2 dòng, không cột cố định (trước đây tràn ngang 46px).
+  Widget _personCompact(TaskPersonStatV2 p) {
+    final facts = [
+      '${p.completed}/${p.total} xong',
+      '${_dec(p.onTimeRate)}% đúng hạn',
+      if (p.rework > 0) '${p.rework} làm lại',
+      if (p.avgQuality != null) 'điểm ${_dec(p.avgQuality!)}/5',
+    ].join(' · ');
+    return Padding(
+      padding: const EdgeInsets.symmetric(vertical: 6),
+      child: Row(children: [
+        Expanded(
+          child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+            Text(p.employeeName, maxLines: 1, overflow: TextOverflow.ellipsis, style: SboxType.smallStyle(SboxColors.text).copyWith(fontWeight: FontWeight.w600)),
+            Text(tr(facts), style: SboxType.captionStyle()),
+          ]),
+        ),
+        if (p.pieceRateTotal > 0)
+          Text('${SboxFmt.number(p.pieceRateTotal)} đ', style: SboxType.smallStyle(SboxColors.success).copyWith(fontWeight: FontWeight.w600)),
       ]),
     );
   }

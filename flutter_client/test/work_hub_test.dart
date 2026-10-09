@@ -1,4 +1,4 @@
-import 'dart:convert';
+﻿import 'dart:convert';
 import 'dart:io';
 import 'dart:ui' as ui;
 
@@ -119,6 +119,20 @@ final _client = MockClient((req) async {
   if (p.endsWith('/api/Tasks/insights')) return _ok(_insights);
   if (p.endsWith('/api/Tasks/workload')) return _ok(_workload);
   if (p.endsWith('/api/Tasks/templates')) return _ok([]);
+  if (p.endsWith('/api/tasks/workspace')) {
+    return _ok({'industryKey': 'interior', 'industryName': 'Nội thất / Thi công', 'projectLabel': 'Công trình', 'taskLabel': 'Công việc', 'onboarded': true});
+  }
+  if (p.endsWith('/api/tasks/dashboard')) {
+    return _ok({
+      'total': 42, 'completed': 24, 'overdue': 3, 'onTimeRate': 87.5, 'reworkRate': 8.3, 'avgCycleHours': 30.5,
+      'avgQuality': 4.4, 'avgCustomerRating': 4.7, 'checkInRate': 92, 'pieceRateTotal': 3450000,
+      'people': [
+        {'employeeId': 'e1', 'employeeName': 'Trần Văn Quân', 'total': 14, 'completed': 11, 'overdue': 2, 'rework': 1, 'onTimeRate': 81.8, 'avgQuality': 4.2, 'pieceRateTotal': 1850000},
+        {'employeeId': 'e2', 'employeeName': 'Lê Thị Thanh Tú', 'total': 9, 'completed': 8, 'overdue': 1, 'rework': 0, 'onTimeRate': 100, 'avgQuality': 4.8, 'pieceRateTotal': 1600000},
+        {'employeeId': 'e3', 'employeeName': 'Phạm Hà', 'total': 6, 'completed': 5, 'overdue': 0, 'rework': 2, 'onTimeRate': 80, 'pieceRateTotal': 0},
+      ],
+    });
+  }
   if (p.endsWith('/api/Tasks/timeline')) {
     return _ok([
       for (final t in _tasks)

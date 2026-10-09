@@ -20155,6 +20155,40 @@ class ApiService {
     }
   }
 
+  /// Máy chấm công của cửa hàng + chế độ cửa cho hội viên (server = máy chủ mở cửa khi thẻ còn hạn).
+  Future<Map<String, dynamic>> getGymDoors() async {
+    try {
+      final response = await http
+          .get(Uri.parse('$baseUrl/api/pos/gym/doors'), headers: _headers)
+          .timeout(const Duration(seconds: 30));
+      return _handleResponse(response);
+    } catch (e) {
+      return _connectionFailure(e);
+    }
+  }
+
+  Future<Map<String, dynamic>> setGymDoorMode(String deviceId, String mode) async {
+    try {
+      final response = await http
+          .put(Uri.parse('$baseUrl/api/pos/gym/doors/$deviceId'), headers: _headers, body: jsonEncode({'mode': mode}))
+          .timeout(const Duration(seconds: 30));
+      return _handleResponse(response);
+    } catch (e) {
+      return _connectionFailure(e);
+    }
+  }
+
+  Future<Map<String, dynamic>> openGymDoor(String deviceId) async {
+    try {
+      final response = await http
+          .post(Uri.parse('$baseUrl/api/pos/gym/doors/$deviceId/open'), headers: _headers)
+          .timeout(const Duration(seconds: 30));
+      return _handleResponse(response);
+    } catch (e) {
+      return _connectionFailure(e);
+    }
+  }
+
   Future<Map<String, dynamic>> getGymReport({required DateTime from, required DateTime to}) async {
     try {
       final response = await http

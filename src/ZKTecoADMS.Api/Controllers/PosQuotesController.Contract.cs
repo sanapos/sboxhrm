@@ -8,6 +8,7 @@ using ZKTecoADMS.Application.Models;
 using ZKTecoADMS.Domain.Entities;
 using ZKTecoADMS.Domain.Enums;
 using ZKTecoADMS.Infrastructure.Services;
+using ZKTecoADMS.Api.Services;
 
 namespace ZKTecoADMS.Api.Controllers;
 
@@ -59,7 +60,8 @@ public partial class PosQuotesController
         DateTime? InstallDueAt, DateTime? HandoverDueAt, string? ContractNote,
         decimal Collected, decimal Remaining, decimal OverdueAmount,
         DateTime? NextDueDate, string? NextDueTitle,
-        List<ContractStageView> Stages, List<ContractPaymentView> Payments);
+        List<ContractStageView> Stages, List<ContractPaymentView> Payments,
+        decimal PreVat = 0, decimal? DepositPercent = null);
 
     public record ContractSummary(
         Guid QuoteId, string QuoteNo, string? ContractNo, string CommercialStage,
@@ -117,6 +119,7 @@ public partial class PosQuotesController
             .Where(s => s.QuoteId == id && s.StoreId == storeId && s.Deleted == null)
             .ToListAsync();
         var kept = new HashSet<Guid>();
+        var saved = new List<PosQuotePaymentStage>();
         var sort = 0;
         foreach (var input in inputs)
         {
@@ -146,6 +149,7 @@ public partial class PosQuotesController
                 stage.UpdatedBy = CurrentUserEmail;
             }
             kept.Add(stage.Id);
+            saved.Add(stage);
             stage.SortOrder = sort++;
             stage.Title = title;
             stage.Percent = pct;
@@ -153,6 +157,10 @@ public partial class PosQuotesController
             stage.DueDate = input.DueDate;
             stage.Note = Trim(input.Note, 500);
         }
+        // Lưu số tiền theo cùng công thức hiển thị (cọc trước VAT, đợt cuối nhận phần còn lại).
+        var snap = PosQuoteStageMath.Amounts(saved, quote.Total, PosQuoteStageMath.PreVat(quote));
+        for (var k = 0; k < saved.Count; k++)
+            if (saved[k].Percent is > 0) saved[k].Amount = snap[k];
         foreach (var gone in existing.Where(s => !kept.Contains(s.Id)))
         {
             gone.Deleted = now;
@@ -299,7 +307,7 @@ public partial class PosQuotesController
         {
             var st = stages.Where(s => s.QuoteId == x.Id).OrderBy(s => s.SortOrder).ToList();
             var collected = paid.GetValueOrDefault(x.Id);
-            var views = AllocateStages(st, collected, x.Total);
+            var views = AllocateStages(st, collected, x.Total, PosQuoteStageMath.PreVat(x));
             var next = views.FirstOrDefault(v => v.Remaining > 0);
             return new ContractSummary(
                 x.Id, x.QuoteNo, x.ContractNo, x.CommercialStage.ToString(),
@@ -351,7 +359,7 @@ public partial class PosQuotesController
                 .ToDictionaryAsync(c => c.Id, c => c.TransactionCode);
 
         var collected = payments.Sum(p => p.Amount);
-        var views = AllocateStages(stages, collected, quote.Total);
+        var views = AllocateStages(stages, collected, quote.Total, PosQuoteStageMath.PreVat(quote));
         var next = views.FirstOrDefault(v => v.Remaining > 0);
         var titles = stages.ToDictionary(s => s.Id, s => s.Title);
         return new ContractView(
@@ -369,20 +377,24 @@ public partial class PosQuotesController
                 p.StageId is Guid sid ? titles.GetValueOrDefault(sid) : null,
                 p.Amount, p.PaidAt, p.PaymentMethod, p.Note, p.CollectedBy,
                 p.CashTransactionId,
-                p.CashTransactionId is Guid cid ? codes.GetValueOrDefault(cid) : null)).ToList());
+                p.CashTransactionId is Guid cid ? codes.GetValueOrDefault(cid) : null)).ToList(),
+            PosQuoteStageMath.PreVat(quote), quote.DepositPercent);
     }
 
     /// <summary>Chia số đã thu vào các đợt theo thứ tự (đợt trước đủ rồi mới sang đợt sau).</summary>
     /// Đợt nhập theo % tính lại trên giá trị hợp đồng hiện tại (báo giá sửa sau khi lập đợt).
     static List<ContractStageView> AllocateStages(
-        IReadOnlyList<PosQuotePaymentStage> stages, decimal collected, decimal contractTotal)
+        IReadOnlyList<PosQuotePaymentStage> stages, decimal collected, decimal contractTotal, decimal preVat)
     {
         var today = DateTime.UtcNow.AddHours(7).Date;
         var left = collected;
         var result = new List<ContractStageView>(stages.Count);
-        foreach (var s in stages.OrderBy(s => s.SortOrder))
+        var ordered = stages.OrderBy(s => s.SortOrder).ToList();
+        var amounts = PosQuoteStageMath.Amounts(ordered, contractTotal, preVat);
+        for (var k = 0; k < ordered.Count; k++)
         {
-            var amount = s.Percent is > 0 ? Round0(contractTotal * s.Percent.Value / 100m) : s.Amount;
+            var s = ordered[k];
+            var amount = amounts[k];
             var paid = Math.Min(amount, Math.Max(0, left));
             left -= paid;
             var remaining = Math.Max(0, amount - paid);

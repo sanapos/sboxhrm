@@ -392,6 +392,7 @@ class PosQuoteExport {
     String? docNo,
     String? docId,
     bool includeStamp = true,
+    bool includeImages = false,
   }) async {
     // Chỉ có số chứng từ (danh sách báo giá) → tìm đúng chứng từ để in lời văn / mẫu riêng của nó.
     if ((docId == null || docId.isEmpty) && docNo != null && documentType != PosPrintDocumentTypes.quote) {
@@ -404,6 +405,7 @@ class PosQuoteExport {
       quote.id,
       documentType,
       includeStamp: includeStamp,
+      includeImages: includeImages,
       docNo: docNo ?? docNoOf(quote, documentType),
       docId: docId,
     );
@@ -411,6 +413,9 @@ class PosQuoteExport {
       posQuoteWarnIfStale(server);
       return server.html;
     }
+    // Không lấy được bản máy chủ (mất mạng): bản dựng trên máy thiếu đợt thanh toán,
+    // bảo hành từng dòng, thời gian thực hiện… → báo để không gửi nhầm bản thiếu cho khách.
+    posQuoteWarnOfflineCopy();
     // Offline: lời văn sửa riêng đã tải về của đúng chứng từ này.
     final saved = posQuoteSavedWordingHtml(quote.documents, documentType,
         docId: docId, docNo: docId == null ? docNo : null);
@@ -600,10 +605,27 @@ class PosQuoteExport {
           docNo: no,
           docId: docId,
           includeStamp: stamp,
+          includeImages: full.includeImages,
         );
     switch (action) {
       case 'print':
+        // In = đúng file PDF máy chủ dựng (giống hệt «Xuất PDF» / gửi khách). Trước đây in
+        // bằng trình dựng HTML của máy (WebView / trình duyệt) → lề, ngắt trang khác bản PDF.
+        if (await _usesWordTemplate(full, documentType, docId)) {
+          final res = await ApiService().exportPosQuoteFile(full.id,
+              kind: documentType, docId: docId, format: 'pdf');
+          if (res['isSuccess'] == true && res['data'] is List) {
+            await _printPdfBytes(Uint8List.fromList(List<int>.from(res['data'] as List)), no);
+            return;
+          }
+        }
         final body = await html();
+        if (!context.mounted) return;
+        final pdf = await ApiService().exportPosQuotePdfFromHtml(full.id, html: body, fileName: no);
+        if (pdf['isSuccess'] == true && pdf['data'] is List && (pdf['data'] as List).isNotEmpty) {
+          await _printPdfBytes(Uint8List.fromList(List<int>.from(pdf['data'] as List)), no);
+          return;
+        }
         if (!context.mounted) return;
         await showPosHtmlPrintDialog(
           context,
@@ -614,19 +636,14 @@ class PosQuoteExport {
       case 'excel':
         await exportExcel(context, quoteId: full.id, quoteNo: full.quoteNo);
       case 'word':
-        if (documentType == PosPrintDocumentTypes.quote) {
-          await exportWord(
-            context,
-            quoteId: full.id,
-            quoteNo: no,
-            includeStamp: stamp,
-            quote: full,
-          );
-        } else {
+        {
+          // Word cùng nội dung bản in / PDF (trước đây báo giá xuất Word bằng mẫu dựng trên máy
+          // → thiếu đợt thanh toán, bảo hành, ghi chú VAT khác bản in).
           final body = await html();
           if (!context.mounted) return;
-          final doc =
-              '<html><head><meta charset="utf-8"></head><body>$body</body></html>';
+          final doc = body.toLowerCase().contains('<html')
+              ? body
+              : '<html><head><meta charset="utf-8"></head><body>$body</body></html>';
           await saveAndOpenFileBytes(
             utf8.encode(doc),
             '${documentType}_$no.doc',
@@ -681,6 +698,15 @@ class PosQuoteExport {
           customerName: full.customerName,
           customerPhone: full.customerPhone,
         );
+    }
+  }
+
+  /// Mở hộp in hệ thống với đúng file PDF (có xem trước trên Android / iOS / web).
+  static Future<void> _printPdfBytes(Uint8List bytes, String name) async {
+    try {
+      await Printing.layoutPdf(name: name, format: PdfPageFormat.a4, onLayout: (_) async => bytes);
+    } catch (_) {
+      await saveAndOpenFileBytes(bytes, '$name.pdf', 'application/pdf');
     }
   }
 

@@ -373,15 +373,47 @@ class _WorkHubScreenState extends State<WorkHubScreen> {
         : (_viewer.isManager
             ? [if (_ws.industryName != null) _ws.industryName!, 'Giao việc, theo dõi tiến độ, ảnh hiện trường và biểu mẫu'].join(' · ')
             : 'Việc được giao cho bạn');
+    final menu = _menu();
+    if (mobile) {
+      // Điện thoại: tiêu đề + nút trên cùng một hàng (trước đây nút «⋮» đứng riêng một dòng, phụ đề 2 dòng).
+      final short = p != null
+          ? 'Tiến độ ${p.progress}% · ${p.doneCount}/${p.taskCount} việc${p.dueDate != null ? ' · hạn ${workDate(p.dueDate)}' : ''}'
+          : (_viewer.isManager ? (_ws.industryName ?? 'Giao việc và theo dõi tiến độ') : 'Việc được giao cho bạn');
+      return Row(children: [
+        Expanded(
+          child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+            Text(tr(p?.name ?? 'Công việc'), style: SboxType.titleStyle(), maxLines: 1, overflow: TextOverflow.ellipsis),
+            const SizedBox(height: 2),
+            Text(tr(short), style: SboxType.captionStyle(SboxColors.textMuted), maxLines: 1, overflow: TextOverflow.ellipsis),
+          ]),
+        ),
+        if (p != null && _viewer.isManager)
+          IconButton(tooltip: tr('Sửa dự án'), onPressed: () => _editProject(p), icon: const Icon(Icons.edit_outlined)),
+        if (_viewer.isManager)
+          IconButton.filled(
+            tooltip: tr('Tạo việc'),
+            style: IconButton.styleFrom(backgroundColor: SboxColors.brand600, foregroundColor: Colors.white),
+            onPressed: () => _createTask(),
+            icon: const Icon(Icons.add_rounded),
+          ),
+        menu,
+      ]);
+    }
     return SboxPageHeader(
       title: p?.name ?? 'Công việc',
       subtitle: subtitle,
       actions: [
         if (_viewer.isManager)
-          SboxButton(label: mobile ? 'Tạo việc' : 'Tạo ${_ws.taskLabel.toLowerCase()}', icon: Icons.add_rounded, onPressed: () => _createTask()),
+          SboxButton(label: 'Tạo ${_ws.taskLabel.toLowerCase()}', icon: Icons.add_rounded, onPressed: () => _createTask()),
         if (p != null && _viewer.isManager)
           SboxButton.secondary(label: 'Sửa dự án', icon: Icons.edit_outlined, onPressed: () => _editProject(p)),
-        PopupMenuButton<String>(
+        menu,
+      ],
+    );
+  }
+
+  Widget _menu() {
+    return PopupMenuButton<String>(
           tooltip: tr('Thêm'),
           onSelected: (v) => switch (v) {
             'project' => _editProject(),
@@ -402,9 +434,7 @@ class _WorkHubScreenState extends State<WorkHubScreen> {
             PopupMenuItem(value: 'refresh', child: ListTile(leading: const Icon(Icons.refresh_rounded), title: Text(tr('Tải lại')))),
           ],
           child: const Padding(padding: EdgeInsets.all(8), child: Icon(Icons.more_vert_rounded)),
-        ),
-      ],
-    );
+        );
   }
 
   Widget _scopeStrip(double pad) {
@@ -474,7 +504,37 @@ class _WorkHubScreenState extends State<WorkHubScreen> {
       (WorkView.timeline, 'Tiến độ', Icons.view_timeline_outlined),
       if (_viewer.isManager) (WorkView.people, 'Nhân sự', Icons.groups_2_outlined),
     ];
-    final tabs = SingleChildScrollView(
+    // Điện thoại: mọi chế độ xem chia đều một hàng (biểu tượng trên, nhãn dưới) — trước đây cuộn ngang,
+    // «Tiến độ» / «Nhân sự» bị che mất, người dùng không biết còn tab.
+    final tabs = mobile
+        ? Row(children: [
+            for (final v in views)
+              Expanded(
+                child: InkWell(
+                  borderRadius: SboxRadius.mdAll,
+                  onTap: () => _setView(v.$1),
+                  child: Container(
+                    padding: const EdgeInsets.symmetric(vertical: 6),
+                    decoration: BoxDecoration(
+                      color: _view == v.$1 ? SboxColors.brand50 : null,
+                      borderRadius: SboxRadius.mdAll,
+                    ),
+                    child: Column(mainAxisSize: MainAxisSize.min, children: [
+                      Icon(v.$3, size: 20, color: _view == v.$1 ? SboxColors.brand700 : SboxColors.textSecondary),
+                      const SizedBox(height: 2),
+                      FittedBox(
+                        fit: BoxFit.scaleDown,
+                        child: Text(tr(v.$2),
+                            maxLines: 1,
+                            style: SboxType.captionStyle(_view == v.$1 ? SboxColors.brand700 : SboxColors.textSecondary)
+                                .copyWith(fontWeight: FontWeight.w600)),
+                      ),
+                    ]),
+                  ),
+                ),
+              ),
+          ])
+        : SingleChildScrollView(
       scrollDirection: Axis.horizontal,
       child: Row(children: [
         for (final v in views)
@@ -538,10 +598,62 @@ class _WorkHubScreenState extends State<WorkHubScreen> {
       ),
     ]);
     if (mobile) {
+      // Ô tìm giãn hết chiều ngang; trạng thái thành nút lọc gọn (trước đây cả cụm phải cuộn ngang).
       return Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
         tabs,
-        const SizedBox(height: 6),
-        SingleChildScrollView(scrollDirection: Axis.horizontal, child: filters),
+        const SizedBox(height: 8),
+        Row(children: [
+          Expanded(
+            child: SizedBox(
+              height: 40,
+              child: TextField(
+                controller: _search,
+                decoration: InputDecoration(
+                  isDense: true,
+                  prefixIcon: const Icon(Icons.search, size: 18),
+                  hintText: tr('Tìm việc'),
+                  contentPadding: const EdgeInsets.symmetric(vertical: 8),
+                ),
+                onChanged: (_) {
+                  _debounce?.cancel();
+                  _debounce = Timer(const Duration(milliseconds: 400), _load);
+                },
+              ),
+            ),
+          ),
+          if (_view == WorkView.list)
+            PopupMenuButton<WorkTaskStatus?>(
+              tooltip: tr('Lọc trạng thái'),
+              onSelected: (v) {
+                setState(() => _statusFilter = v);
+                _load();
+              },
+              itemBuilder: (_) => [
+                PopupMenuItem(value: null, child: Text(tr('Mọi trạng thái'))),
+                for (final s in WorkTaskStatus.values.where((s) => s != WorkTaskStatus.cancelled))
+                  PopupMenuItem(value: s, child: Text(tr(getTaskStatusLabel(s)))),
+              ],
+              child: Padding(
+                padding: const EdgeInsets.symmetric(horizontal: 8),
+                child: Badge(
+                  isLabelVisible: _statusFilter != null,
+                  smallSize: 8,
+                  child: Icon(Icons.filter_list_rounded,
+                      color: _statusFilter != null ? SboxColors.brand600 : SboxColors.textSecondary),
+                ),
+              ),
+            ),
+          const SizedBox(width: 4),
+          FilterChip(
+            label: Text(tr('Quá hạn')),
+            visualDensity: VisualDensity.compact,
+            selected: _overdueOnly,
+            onSelected: (v) {
+              setState(() => _overdueOnly = v);
+              _load();
+            },
+          ),
+        ]),
         const SizedBox(height: 6),
       ]);
     }
@@ -598,10 +710,6 @@ class _WorkHubScreenState extends State<WorkHubScreen> {
         return RefreshIndicator(
           onRefresh: _refreshAll,
           child: ListView(padding: EdgeInsets.fromLTRB(pad, SboxSpace.sm, pad, pad + SboxSpace.xl), children: [
-            if (_viewer.isManager && _dash != null) ...[
-              WorkDashboardCard(data: _dash!, onOpenPieceRates: _openPieceRates),
-              const SizedBox(height: SboxSpace.lg),
-            ],
             WorkOverviewView(
               insights: _insights,
               tasks: _tasks,
@@ -612,6 +720,12 @@ class _WorkHubScreenState extends State<WorkHubScreen> {
               onOpenTask: (t) => _openTaskId(t.id),
               onOpenProject: (x) => _setScope(x.id),
             ),
+            // Chất lượng / khoán đặt sau các chỉ số chính — trước đây đứng đầu trang, lặp lại «Quá hạn»,
+            // «Đúng hạn», «Thời gian xử lý» với hàng KPI ngay bên dưới (hai số khác nhau vì khác kỳ).
+            if (_viewer.isManager && _dash != null) ...[
+              const SizedBox(height: SboxSpace.lg),
+              WorkDashboardCard(data: _dash!, onOpenPieceRates: _openPieceRates),
+            ],
           ]),
         );
       case WorkView.board:

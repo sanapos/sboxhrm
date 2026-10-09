@@ -237,6 +237,24 @@ public static class ClockCommandBuilder
     }
 
     /// <summary>
+    /// Tin nhắn riêng hiện trên màn hình máy khi người dùng này quét (ZK PUSH: SMS TAG=254 + USER_SMS).
+    /// Không dấu (nhiều máy không hiển thị tiếng Việt có dấu). <paramref name="minutes"/> = thời gian hiệu lực.
+    /// </summary>
+    public static string[] BuildUserMessageCommands(string pin, int uid, string text, int minutes = 43200)
+    {
+        var start = DateTime.UtcNow.AddHours(7).AddMinutes(-1).ToString("yyyy-MM-dd HH:mm:ss");
+        var msg = (text ?? "").Replace('\t', ' ').Replace('\n', ' ').Replace('\r', ' ').Trim();
+        if (msg.Length > 60) msg = msg[..60];
+        return
+        [
+            $"DATA UPDATE SMS MSG={msg}\tTAG=254\tUID={uid}\tMIN={minutes}\tStartTime={start}",
+            $"DATA UPDATE USER_SMS PIN={pin}\tUID={uid}",
+        ];
+    }
+
+    public static string BuildDeleteUserMessageCommand(int uid) => $"DATA DELETE SMS UID={uid}";
+
+    /// <summary>
     /// Remote close lock output (DD=00 Off) — CONTROL DEVICE 01010100.
     /// </summary>
     public static string BuildCloseDoorCommand(bool useAccessControlProtocol = true, int doorId = 1)

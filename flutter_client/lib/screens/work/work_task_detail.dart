@@ -457,13 +457,13 @@ class _WorkTaskDetailPageState extends State<WorkTaskDetailPage> {
     return SboxCard(
       title: 'Giai đoạn',
       subtitle: canMove ? 'Chạm để chuyển giai đoạn' : null,
+      // Bước đánh số thay cho mũi tên «›»: khi xuống dòng, mũi tên treo ở cuối dòng trông lộn xộn.
       child: Wrap(
-        spacing: 4,
+        spacing: 6,
         runSpacing: 8,
         crossAxisAlignment: WrapCrossAlignment.center,
         children: [
-          for (var i = 0; i < _stages.length; i++) ...[
-            if (i > 0) Icon(Icons.chevron_right_rounded, size: 16, color: i <= idx ? _stages[i].colorValue : SboxColors.slate300),
+          for (var i = 0; i < _stages.length; i++)
             InkWell(
               borderRadius: SboxRadius.pillAll,
               onTap: canMove && !_busy ? () => _moveStage(_stages[i]) : null,
@@ -475,15 +475,18 @@ class _WorkTaskDetailPageState extends State<WorkTaskDetailPage> {
                   border: Border.all(color: i <= idx ? _stages[i].colorValue : SboxColors.border),
                 ),
                 child: Row(mainAxisSize: MainAxisSize.min, children: [
-                  if (i < idx) Icon(Icons.check_rounded, size: 14, color: _stages[i].colorValue),
-                  if (i < idx) const SizedBox(width: 4),
+                  if (i < idx)
+                    Icon(Icons.check_rounded, size: 14, color: _stages[i].colorValue)
+                  else
+                    Text('${i + 1}.',
+                        style: SboxType.captionStyle(i == idx ? Colors.white : SboxColors.textMuted).copyWith(fontWeight: FontWeight.w700)),
+                  const SizedBox(width: 4),
                   Text(tr(_stages[i].name),
                       style: SboxType.captionStyle(i == idx ? Colors.white : (i < idx ? _stages[i].colorValue : SboxColors.textSecondary))
                           .copyWith(fontWeight: FontWeight.w600)),
                 ]),
               ),
             ),
-          ],
         ],
       ),
     );

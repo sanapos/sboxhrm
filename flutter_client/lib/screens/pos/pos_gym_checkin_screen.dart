@@ -1,10 +1,12 @@
 import 'dart:async';
 
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:intl/intl.dart';
 
 import '../../l10n/app_tr.dart';
 import '../../services/api_service.dart';
+import '../../services/signalr_service.dart';
 import '../../utils/file_saver.dart';
 import '../../utils/pos_kiot_time_range.dart';
 import '../../widgets/hrm_page_chrome.dart';
@@ -13,8 +15,10 @@ import '../../widgets/pos/pos_list_filters.dart';
 import '../../widgets/sbox/sbox_ui.dart';
 
 /// Gym: hội viên check-in bằng máy chấm công (vân tay / khuôn mặt / thẻ) hoặc tại quầy.
-/// Tách biệt chấm công nhân viên — hội viên có PIN riêng (9xxxxxxx), lượt quét ghi vào lượt tập,
-/// trừ 1 buổi / ngày (thẻ thời gian chỉ kiểm tra hạn).
+/// Tách biệt chấm công nhân viên — PIN hội viên = số điện thoại bỏ số 0 đầu (không có SĐT di động → 9xxxxxxx),
+/// lượt quét ghi vào lượt tập, trừ 1 buổi / ngày (thẻ thời gian chỉ kiểm tra hạn).
+/// Máy ở cửa bật «Máy chủ mở cửa»: thẻ còn hạn → máy chủ gửi lệnh mở; hết hạn → không mở, máy hiện thông báo,
+/// màn này báo ngay (âm báo + cảnh báo).
 ///
 /// 3 tab: Lượt tập (theo ngày) · Hội viên trên máy (đăng ký khách lên máy, lấy vân tay / khuôn mặt)
 /// · Báo cáo buổi tập (theo kỳ, theo từng hội viên, xuất Excel).
@@ -113,6 +117,13 @@ String _duration(int minutes) {
   final h = minutes ~/ 60;
   final m = minutes % 60;
   return m == 0 ? '$h giờ' : '$h giờ $m phút';
+}
+
+/// Đang trong phòng: chưa ra và vào chưa quá 8 giờ (quên quét ra thì không tính «đang tập» mãi) — khớp số máy chủ đếm.
+bool _insideNow(Map v) {
+  if (v['checkOutAt'] != null) return false;
+  final inAt = _date(v['checkInAt']);
+  return inAt != null && DateTime.now().difference(inAt) < const Duration(hours: 8);
 }
 
 bool _sameDay(DateTime a, DateTime b) => a.year == b.year && a.month == b.month && a.day == b.day;
@@ -645,8 +656,11 @@ class _VisitsTabState extends State<_VisitsTab> with AutomaticKeepAliveClientMix
   String? _error;
   Timer? _timer;
   String _filter = 'all';
+  StreamSubscription<Map<String, dynamic>>? _scanSub;
+  List<Map<String, dynamic>> _doors = const [];
 
   bool get _isToday => _sameDay(_day, DateTime.now());
+  List<Map<String, dynamic>> get _openableDoors => _doors.where((d) => d['supportsDoor'] != false).toList();
 
   @override
   bool get wantKeepAlive => true;
@@ -655,15 +669,93 @@ class _VisitsTabState extends State<_VisitsTab> with AutomaticKeepAliveClientMix
   void initState() {
     super.initState();
     _load();
+    _loadDoors();
     _timer = Timer.periodic(const Duration(seconds: 10), (_) {
       if (mounted && _isToday) _load(silent: true);
+    });
+    // Hội viên vừa quét ở máy → cập nhật ngay; thẻ hết hạn / hết buổi → âm báo + cảnh báo cho lễ tân.
+    _scanSub = SignalRService().onPosFloorChanged.listen((e) {
+      if (!mounted || e['reason'] != 'gym_scan') return;
+      if (_isToday) _load(silent: true);
+      final g = e['gym'];
+      if (g is Map && g['status'] != 'Ok' && g['action'] == 'in') _alertScan(g);
     });
   }
 
   @override
   void dispose() {
     _timer?.cancel();
+    _scanSub?.cancel();
     super.dispose();
+  }
+
+  Future<void> _loadDoors() async {
+    final res = await _api.getGymDoors();
+    if (!mounted || res['isSuccess'] != true || res['data'] is! List) return;
+    setState(() => _doors = (res['data'] as List).whereType<Map>().map((e) => Map<String, dynamic>.from(e)).toList());
+  }
+
+  void _alertScan(Map g) {
+    SystemSound.play(SystemSoundType.alert);
+    final name = '${g['customerName'] ?? ''}';
+    final reason = switch ('${g['status']}') {
+      'Expired' => 'Thẻ / gói đã hết hạn',
+      'OutOfSessions' => 'Gói đã hết buổi',
+      _ => 'Khách chưa có thẻ / gói tập',
+    };
+    showDialog<void>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        icon: const Icon(Icons.warning_amber_rounded, color: SboxColors.danger, size: 40),
+        title: Text(tr('$name — $reason')),
+        content: Text(tr('Khách vừa quét ở ${g['deviceName'] ?? 'máy'}: cửa KHÔNG mở. '
+            'Bán / gia hạn gói ở màn Bán hàng, hoặc mở cửa tay nếu cho khách vào.')),
+        actions: [
+          TextButton(onPressed: () => Navigator.pop(ctx), child: Text(tr('Đóng'))),
+          if (_openableDoors.isNotEmpty)
+            FilledButton.icon(
+              onPressed: () {
+                Navigator.pop(ctx);
+                _openDoorSheet();
+              },
+              icon: const Icon(Icons.door_front_door_outlined, size: 18),
+              label: Text(tr('Mở cửa tay')),
+            ),
+        ],
+      ),
+    );
+  }
+
+  Future<void> _openDoorSheet() async {
+    final doors = _openableDoors;
+    if (doors.isEmpty) return;
+    Future<void> open(Map d) async {
+      final res = await _api.openGymDoor(d['id'].toString());
+      if (!mounted) return;
+      res['isSuccess'] == true
+          ? NotificationOverlayManager().showSuccess(title: 'Đã gửi lệnh mở cửa', message: tr('${d['name']} — cửa mở trong vài giây.'))
+          : NotificationOverlayManager().showError(title: 'Không mở được cửa', message: res['message']?.toString() ?? '');
+    }
+
+    if (doors.length == 1) return open(doors.first);
+    await showModalBottomSheet<void>(
+      context: context,
+      builder: (ctx) => SafeArea(
+        child: Column(mainAxisSize: MainAxisSize.min, children: [
+          ListTile(title: Text(tr('Mở cửa'), style: const TextStyle(fontWeight: FontWeight.w700))),
+          for (final d in doors)
+            ListTile(
+              leading: const Icon(Icons.door_front_door_outlined),
+              title: Text(tr('${d['name']}')),
+              subtitle: d['online'] == true ? null : Text(tr('Mất kết nối'), style: const TextStyle(color: SboxColors.danger)),
+              onTap: () {
+                Navigator.pop(ctx);
+                open(d);
+              },
+            ),
+        ]),
+      ),
+    );
   }
 
   Future<void> _load({bool silent = false}) async {
@@ -722,7 +814,7 @@ class _VisitsTabState extends State<_VisitsTab> with AutomaticKeepAliveClientMix
     super.build(context);
     final all = ((_data['items'] as List?) ?? []).whereType<Map>().toList();
     final items = switch (_filter) {
-      'inside' => all.where((v) => v['checkOutAt'] == null).toList(),
+      'inside' => all.where(_insideNow).toList(),
       'warn' => all.where((v) => v['status'] != 'Ok').toList(),
       _ => all,
     };
@@ -792,8 +884,25 @@ class _VisitsTabState extends State<_VisitsTab> with AutomaticKeepAliveClientMix
                     Text(tr('Trực tiếp'), style: const TextStyle(fontSize: 12, color: SboxColors.slate600)),
                   ]),
                 ),
+              if (_openableDoors.isNotEmpty)
+                IconButton(
+                  onPressed: _openDoorSheet,
+                  icon: const Icon(Icons.door_front_door_outlined),
+                  tooltip: tr('Mở cửa tay'),
+                ),
               IconButton(onPressed: _load, icon: const Icon(Icons.refresh), tooltip: tr('Làm mới')),
             ]),
+            if (_doors.any((d) => d['mode'] == 'server' && d['online'] != true))
+              Container(
+                margin: const EdgeInsets.only(bottom: 6),
+                padding: const EdgeInsets.all(10),
+                decoration: BoxDecoration(color: SboxColors.dangerSoft, borderRadius: BorderRadius.circular(10)),
+                child: Text(
+                  tr('Máy ở cửa mất kết nối: ${_doors.where((d) => d['mode'] == 'server' && d['online'] != true).map((d) => d['name']).join(', ')} '
+                      '— hội viên quét sẽ không được mở cửa. Kiểm tra mạng / nguồn máy, tạm thời mở cửa tay.'),
+                  style: const TextStyle(fontSize: 12.5, color: SboxColors.dangerText, fontWeight: FontWeight.w600),
+                ),
+              ),
             const SizedBox(height: 6),
             _StatGrid([
               _StatTile(
@@ -864,6 +973,7 @@ class _VisitsTabState extends State<_VisitsTab> with AutomaticKeepAliveClientMix
     final outAt = _date(v['checkOutAt']);
     final ok = v['status'] == 'Ok';
     final inside = outAt == null;
+    final insideNow = _insideNow(v);
     final minutes = (v['durationMinutes'] as num?)?.toInt() ??
         (inAt == null ? 0 : DateTime.now().difference(inAt).inMinutes.clamp(0, 24 * 60).toInt());
     final (label, tone) = _visitStatus(v);
@@ -923,7 +1033,7 @@ class _VisitsTabState extends State<_VisitsTab> with AutomaticKeepAliveClientMix
                   style: const TextStyle(fontSize: 12, color: SboxColors.slate500),
                 ),
               ),
-              if (inside && _isToday)
+              if (insideNow)
                 TextButton.icon(
                   onPressed: () => _checkOut(v),
                   icon: const Icon(Icons.logout, size: 16),
@@ -936,6 +1046,115 @@ class _VisitsTabState extends State<_VisitsTab> with AutomaticKeepAliveClientMix
             ]),
           ]),
         ),
+      ]),
+    );
+  }
+}
+
+// ── Cấu hình cửa: máy chủ mở cửa cho hội viên còn hạn ───────────────────────
+
+class _DoorSettingsCard extends StatefulWidget {
+  const _DoorSettingsCard();
+
+  @override
+  State<_DoorSettingsCard> createState() => _DoorSettingsCardState();
+}
+
+class _DoorSettingsCardState extends State<_DoorSettingsCard> {
+  final _api = ApiService();
+  List<Map<String, dynamic>> _doors = const [];
+  String? _busy;
+
+  @override
+  void initState() {
+    super.initState();
+    _load();
+  }
+
+  Future<void> _load() async {
+    final res = await _api.getGymDoors();
+    if (!mounted || res['isSuccess'] != true || res['data'] is! List) return;
+    setState(() => _doors = (res['data'] as List).whereType<Map>().map((e) => Map<String, dynamic>.from(e)).toList());
+  }
+
+  Future<void> _set(Map d, bool server) async {
+    if (server) {
+      final ok = await showDialog<bool>(
+        context: context,
+        builder: (ctx) => AlertDialog(
+          title: Text(tr('Máy chủ mở cửa cho ${d['name']}?')),
+          content: Text(tr(
+              '• Hội viên còn hạn quét → máy chủ gửi lệnh mở cửa (chờ khoảng 2–6 giây).\n'
+              '• Hết hạn / hết buổi → KHÔNG mở, máy hiện «THE TAP HET HAN - MOI GAP LE TAN», quầy có âm báo.\n'
+              '• Quét RA luôn được mở cho khách về.\n'
+              '• Mất mạng thì máy chủ không mở được — lễ tân mở cửa tay.\n\n'
+              'Cần cài trên máy: khóa cửa KHÔNG tự mở khi nhận diện đúng (chỉ mở theo lệnh từ xa). '
+              'Bật xong hãy cho một khách còn hạn và một khách hết hạn quét thử.')),
+          actions: [
+            TextButton(onPressed: () => Navigator.pop(ctx, false), child: Text(tr('Hủy'))),
+            FilledButton(onPressed: () => Navigator.pop(ctx, true), child: Text(tr('Bật'))),
+          ],
+        ),
+      );
+      if (ok != true) return;
+    }
+    setState(() => _busy = d['id'].toString());
+    final res = await _api.setGymDoorMode(d['id'].toString(), server ? 'server' : 'record');
+    if (!mounted) return;
+    setState(() => _busy = null);
+    if (res['isSuccess'] == true) {
+      final blocked = (res['data'] is Map ? (res['data'] as Map)['blocked'] as num? : null)?.toInt() ?? 0;
+      NotificationOverlayManager().showSuccess(
+          title: server ? 'Đã bật máy chủ mở cửa' : 'Đã tắt — máy chỉ ghi lượt tập',
+          message: tr(server && blocked > 0 ? 'Đã đẩy thông báo hết hạn cho $blocked hội viên lên máy.' : '${d['name']}'));
+      _load();
+    } else {
+      NotificationOverlayManager().showError(title: 'Không lưu được', message: res['message']?.toString() ?? '');
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    if (_doors.isEmpty) return const SizedBox.shrink();
+    return _Card(
+      child: Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
+        Row(children: [
+          const Icon(Icons.door_front_door_outlined, size: 20, color: SboxColors.brand700),
+          const SizedBox(width: 8),
+          Expanded(child: Text(tr('Cửa ra vào'), style: const TextStyle(fontWeight: FontWeight.w700, fontSize: 15))),
+        ]),
+        const SizedBox(height: 2),
+        Text(tr('Bật «Máy chủ mở cửa» cho máy ở cửa: chỉ hội viên còn hạn mới được mở cửa.'),
+            style: const TextStyle(fontSize: 12.5, color: SboxColors.slate600)),
+        const SizedBox(height: 6),
+        for (final d in _doors)
+          Padding(
+            padding: const EdgeInsets.symmetric(vertical: 2),
+            child: Row(children: [
+              Expanded(
+                child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+                  Text(tr('${d['name']}'), maxLines: 1, overflow: TextOverflow.ellipsis,
+                      style: const TextStyle(fontWeight: FontWeight.w600)),
+                  Text(
+                    tr([
+                      d['online'] == true ? 'Đang kết nối' : 'Mất kết nối',
+                      if (d['supportsDoor'] == false) 'không hỗ trợ mở cửa',
+                      '${d['members']} hội viên',
+                      if (((d['blocked'] as num?) ?? 0) > 0) '${d['blocked']} hết hạn',
+                    ].join(' · ')),
+                    style: TextStyle(fontSize: 12, color: d['online'] == true ? SboxColors.slate500 : SboxColors.danger),
+                  ),
+                ]),
+              ),
+              if (_busy == d['id'].toString())
+                const SizedBox(width: 20, height: 20, child: CircularProgressIndicator(strokeWidth: 2))
+              else
+                Switch(
+                  value: d['mode'] == 'server',
+                  onChanged: d['supportsDoor'] == false ? null : (v) => _set(d, v),
+                ),
+            ]),
+          ),
       ]),
     );
   }
@@ -1079,8 +1298,8 @@ class _MembersTabState extends State<_MembersTab> with AutomaticKeepAliveClientM
                   ),
                   const SizedBox(height: 8),
                   Text(
-                    tr('Hội viên được cấp mã PIN riêng (bắt đầu bằng 9) — không tính công, '
-                        'không hiện trong danh sách nhân sự. Sau khi đăng ký, lấy vân tay / khuôn mặt.'),
+                    tr('Mã PIN = số điện thoại của khách bỏ số 0 đầu (không có số di động → mã bắt đầu bằng 9) — '
+                        'không tính công, không hiện trong danh sách nhân sự. Sau khi đăng ký, lấy vân tay / khuôn mặt.'),
                     style: const TextStyle(fontSize: 12, color: SboxColors.slate600),
                   ),
                 ],
@@ -1192,14 +1411,16 @@ class _MembersTabState extends State<_MembersTab> with AutomaticKeepAliveClientM
                 const SizedBox(width: 8),
                 Expanded(
                   child: Text(
-                    tr('Hội viên là KHÁCH HÀNG được đăng ký lên máy chấm công với mã PIN riêng (bắt đầu bằng 9). '
-                        'Quét vân tay / khuôn mặt / thẻ chỉ ghi lượt tập — không tính công, '
-                        'không lẫn vào danh sách nhân sự.'),
+                    tr('Hội viên là KHÁCH HÀNG được đăng ký lên máy chấm công. Mã PIN = số điện thoại bỏ số 0 đầu '
+                        '(0973 024 042 → 973024042) — không trùng, dễ tra; khách không có số di động được cấp mã bắt đầu bằng 9. '
+                        'Quét vân tay / khuôn mặt / thẻ chỉ ghi lượt tập — không tính công, không lẫn vào danh sách nhân sự.'),
                     style: const TextStyle(fontSize: 12.5, color: SboxColors.infoText, height: 1.35),
                   ),
                 ),
               ]),
             ),
+            const SizedBox(height: 10),
+            const _DoorSettingsCard(),
             const SizedBox(height: 10),
             TextField(
               decoration: InputDecoration(

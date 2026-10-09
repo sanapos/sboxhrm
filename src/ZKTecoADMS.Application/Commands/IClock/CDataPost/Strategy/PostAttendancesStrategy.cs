@@ -82,13 +82,15 @@ public class PostAttendancesStrategy(IServiceProvider serviceProvider) : IPostSt
             try
             {
                 var memberPins = await _gymCheckInService.GetMemberPinsAsync(device);
-                if (memberPins.Count > 0)
+                // Dải 9xxxxxxx luôn là hội viên (kể cả người dùng «mồ côi» trên máy) — không bao giờ tính công.
+                bool IsMember(Attendance a) => memberPins.Contains(a.PIN) || PosGymMemberDevice.IsMemberPin(a.PIN);
+                if (memberPins.Count > 0 || attendances.Any(IsMember))
                 {
-                    var gymPunches = attendances.Where(a => memberPins.Contains(a.PIN)).ToList();
+                    var gymPunches = attendances.Where(IsMember).ToList();
                     if (gymPunches.Count > 0)
                     {
                         await _gymCheckInService.ProcessPunchesAsync(device, gymPunches);
-                        attendances = attendances.Where(a => !memberPins.Contains(a.PIN)).ToList();
+                        attendances = attendances.Where(a => !IsMember(a)).ToList();
                         _logger.LogInformation("Device-SN-{SN}: {Count} gym member check-ins", device.SerialNumber, gymPunches.Count);
                         if (attendances.Count == 0)
                             return ClockResponses.Ok;

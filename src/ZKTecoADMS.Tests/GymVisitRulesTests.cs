@@ -47,4 +47,33 @@ public class GymVisitRulesTests
         Assert.True(PosGymMemberDevice.IsMemberPin("90000002"));
         Assert.False(PosGymMemberDevice.IsMemberPin("123"));
     }
+
+    [Theory]
+    [InlineData("0973024042", "973024042")]
+    [InlineData("097 302 4042", "973024042")]
+    [InlineData("+84 973 024 042", "973024042")]
+    [InlineData("84973024042", "973024042")]
+    [InlineData("02363123456", null)] // máy bàn 11 số
+    [InlineData("0012345678", null)]
+    [InlineData("12345", null)]
+    [InlineData(null, null)]
+    public void Pin_hoi_vien_theo_so_dien_thoai(string? phone, string? pin) =>
+        Assert.Equal(pin, PinFromPhone(phone));
+
+    [Fact]
+    public void Quyet_dinh_mo_cua()
+    {
+        var t = In.AddHours(1);
+        var ok = new PosGymVisit { CheckInAt = t, Status = "Ok" };
+        var expired = new PosGymVisit { CheckInAt = t, Status = "Expired" };
+        var leaving = new PosGymVisit { CheckInAt = In, CheckOutAt = t, Status = "OutOfSessions" };
+        Assert.True(ShouldOpenDoor(ok, t, ok));
+        Assert.False(ShouldOpenDoor(expired, t, expired));
+        Assert.True(ShouldOpenDoor(leaving, t, leaving));          // ra: luôn cho khách ra
+        Assert.True(ShouldOpenDoor(null, t.AddMinutes(1), ok));     // quét lại vì cửa chưa mở kịp
+        Assert.False(ShouldOpenDoor(null, t.AddMinutes(1), expired));
+        Assert.True(IsRealtime(t, t.AddSeconds(90)));
+        Assert.False(IsRealtime(t, t.AddMinutes(10)));             // log cũ gửi bù: không mở cửa
+        Assert.Equal(973024042, MessageUid("973024042"));
+    }
 }

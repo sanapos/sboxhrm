@@ -135,6 +135,8 @@ class PosQuoteContract {
     this.nextDueTitle,
     this.stages = const [],
     this.payments = const [],
+    this.preVat = 0,
+    this.depositPercent,
   });
 
   final String quoteId;
@@ -155,6 +157,10 @@ class PosQuoteContract {
   final String? nextDueTitle;
   final List<PosContractStage> stages;
   final List<PosContractPayment> payments;
+
+  /// Giá trị trước VAT — đợt cọc nhập % tính trên số này (khớp ô «Đặt cọc» của báo giá).
+  final double preVat;
+  final double? depositPercent;
 
   factory PosQuoteContract.fromJson(Map<String, dynamic> j) => PosQuoteContract(
         quoteId: _s(_k(j, 'quoteId')) ?? '',
@@ -181,7 +187,37 @@ class PosQuoteContract {
             .whereType<Map>()
             .map((e) => PosContractPayment.fromJson(Map<String, dynamic>.from(e)))
             .toList(),
+        preVat: _n(_k(j, 'preVat')),
+        depositPercent: _nn(_k(j, 'depositPercent')),
       );
+}
+
+/// Số tiền từng đợt — cùng công thức máy chủ (PosQuoteStageMath): đợt cọc đầu tiên nhập % tính trên
+/// trước VAT, đợt khác trên tổng cộng; mọi đợt nhập % đủ 100% → đợt cuối nhận phần còn lại.
+List<double> posContractStageAmounts(
+  List<({String title, double? percent, double amount})> stages, {
+  required double total,
+  required double preVat,
+}) {
+  final out = List<double>.filled(stages.length, 0);
+  var depositDone = false;
+  for (var i = 0; i < stages.length; i++) {
+    final s = stages[i];
+    final p = s.percent;
+    if (p == null || p <= 0) {
+      out[i] = s.amount;
+      continue;
+    }
+    final onPreVat = !depositDone && s.title.toLowerCase().contains('cọc');
+    if (onPreVat) depositDone = true;
+    out[i] = ((onPreVat ? preVat : total) * p / 100).roundToDouble();
+  }
+  final allPct = stages.length > 1 && stages.every((s) => (s.percent ?? 0) > 0);
+  if (allPct && (stages.fold<double>(0, (a, s) => a + s.percent!) - 100).abs() < 0.01) {
+    final others = out.take(stages.length - 1).fold<double>(0, (a, v) => a + v);
+    out[stages.length - 1] = (total - others).clamp(0, double.infinity).toDouble();
+  }
+  return out;
 }
 
 /// Một dòng công nợ hợp đồng (API /api/pos/quotes/receivables).

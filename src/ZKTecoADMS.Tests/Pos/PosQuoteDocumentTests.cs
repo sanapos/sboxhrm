@@ -74,8 +74,13 @@ public class PosQuoteDocumentTests(PosPgFixture fx) : PosFlowTestBase(fx)
         Assert.Contains("HĐ 25/2026/SANA", html);
         Assert.Contains("ngày 02 tháng 10 năm 2026", html);       // ký 01/10 17:00 UTC = 02/10 giờ VN
         Assert.Contains("Đặt cọc ký hợp đồng", html);
-        Assert.Contains("31.104.000", html);                       // 30% × 103.680.000
+        // Cọc 30% tính trên trước VAT (96.000.000) — khớp ô «Đặt cọc» của báo giá;
+        // đợt cuối nhận phần còn lại để tổng các đợt = 103.680.000.
+        Assert.Contains("28.800.000", html);
+        Assert.Contains("30% trước VAT", html);
+        Assert.DoesNotContain("31.104.000", html);
         Assert.Contains("51.840.000", html);
+        Assert.Contains("23.040.000", html);
         Assert.DoesNotContain("50% —", html);
         Assert.Contains("hoàn thành trước ngày 25/10/2026", html);
         Assert.Contains("Bảo hành 24 tháng phần khung", html);
@@ -83,6 +88,27 @@ public class PosQuoteDocumentTests(PosPgFixture fx) : PosFlowTestBase(fx)
         Assert.Contains("Giá đã cộng thuế GTGT 8%", html);
         Assert.DoesNotContain("<!--IF", html);
         Assert.DoesNotContain("{", html.Replace("{{", "")[(html.IndexOf("<body", StringComparison.Ordinal))..]);
+    }
+
+    [Fact]
+    public async Task Cot_thoi_han_dot_chi_hien_khi_co_dot_dat_han()
+    {
+        if (NoDb) return;
+        var (_, q) = await SeedAsync(withStages: true);
+        var html = await HtmlAsync(q, PosQuoteDocumentKind.Quote);
+        Assert.DoesNotContain("Thời hạn", html);           // không đợt nào có hạn → không in cột trống
+        Assert.Contains("<b>Bằng chữ:</b>", html);
+        await using (var db = Fx.NewDb())
+        {
+            var st = await db.Set<PosQuotePaymentStage>().AsTracking().Where(x => x.QuoteId == q).OrderBy(x => x.SortOrder).FirstAsync();
+            st.DueDate = new DateTime(2026, 10, 20, 17, 0, 0, DateTimeKind.Utc);
+            await db.SaveChangesAsync();
+        }
+        html = await HtmlAsync(q, PosQuoteDocumentKind.Quote);
+        Assert.Contains("Thời hạn", html);
+        Assert.Contains("21/10/2026", html);                // 20/10 17:00 UTC = 21/10 giờ VN
+        // Hai bên khung ký cùng cao (con dấu 112px) → tên ký thẳng hàng.
+        Assert.Equal(2, System.Text.RegularExpressions.Regex.Matches(html, "height:116px").Count);
     }
 
     [Fact]
@@ -108,13 +134,13 @@ public class PosQuoteDocumentTests(PosPgFixture fx) : PosFlowTestBase(fx)
     public async Task De_nghi_thanh_toan_tru_so_da_thu_va_lay_dot_den_han()
     {
         if (NoDb) return;
-        var (_, q) = await SeedAsync(withStages: true, paid: 31_104_000);
+        var (_, q) = await SeedAsync(withStages: true, paid: 28_800_000);
         var html = await HtmlAsync(q, PosQuoteDocumentKind.PaymentRequest);
         Assert.Contains("V/v: Giao hàng", html);
         Assert.Contains("<b>51.840.000 đ</b>", html);
         var acc = await HtmlAsync(q, PosQuoteDocumentKind.Acceptance);
         Assert.Contains("Căn cứ hợp đồng số <b>HĐ 25/2026/SANA</b>", acc);
-        Assert.Contains("Còn phải thanh toán: <b>72.576.000 đ</b>", acc);
+        Assert.Contains("Còn phải thanh toán: <b>74.880.000 đ</b>", acc);
         await HtmlAsync(q, PosQuoteDocumentKind.Quote);
         await HtmlAsync(q, PosQuoteDocumentKind.Handover);
     }

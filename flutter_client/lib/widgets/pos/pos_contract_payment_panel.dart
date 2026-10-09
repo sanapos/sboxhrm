@@ -459,21 +459,48 @@ class _ScheduleDialogState extends State<_ScheduleDialog> {
     super.dispose();
   }
 
+  static double _raw(_StageRow r) =>
+      parseFormattedNumber(r.value.text)?.toDouble() ??
+      double.tryParse(r.value.text.replaceAll(',', '.')) ??
+      0;
+
+  /// Số tiền các đợt — cùng công thức máy chủ (cọc trước VAT, đợt cuối nhận phần còn lại).
+  List<double> get _amounts => posContractStageAmounts(
+        [
+          for (final r in _rows)
+            (
+              title: r.title.text,
+              percent: r.isPercent ? _raw(r) : null,
+              amount: r.isPercent ? 0 : _raw(r),
+            ),
+        ],
+        total: widget.contract.total,
+        preVat: widget.contract.preVat > 0 ? widget.contract.preVat : widget.contract.total,
+      );
+
   double _amountOf(_StageRow r) {
-    final v = parseFormattedNumber(r.value.text)?.toDouble() ??
-        double.tryParse(r.value.text.replaceAll(',', '.')) ??
-        0;
-    return r.isPercent ? (widget.contract.total * v / 100).roundToDouble() : v;
+    final i = _rows.indexOf(r);
+    return i < 0 ? 0 : _amounts[i];
   }
 
-  double get _sum => _rows.fold(0.0, (a, r) => a + _amountOf(r));
+  bool _isDepositRow(_StageRow r) {
+    if (!r.isPercent) return false;
+    final first = _rows.where((x) => x.isPercent && x.title.text.toLowerCase().contains('cọc'));
+    return first.isNotEmpty && identical(first.first, r);
+  }
 
-  /// Mẫu nhôm kính: cọc (theo báo giá hoặc 50%) · lắp đặt xong 40% · nghiệm thu phần còn lại.
+  double get _sum => _amounts.fold(0.0, (a, v) => a + v);
+
+  /// Mẫu nhôm kính: cọc (theo báo giá, tính trên trước VAT; mặc định 50%) · lắp đặt xong 40% ·
+  /// nghiệm thu phần còn lại.
   void _fillTemplate() {
     final c = widget.contract;
-    final depositPct = c.total > 0 && c.depositAmount > 0
-        ? (c.depositAmount / c.total * 100).roundToDouble()
-        : 50.0;
+    final preVat = c.preVat > 0 ? c.preVat : c.total;
+    final depositPct = (c.depositPercent ?? 0) > 0
+        ? c.depositPercent!
+        : preVat > 0 && c.depositAmount > 0
+            ? (c.depositAmount / preVat * 100).roundToDouble()
+            : 50.0;
     final install = (100 - depositPct) >= 50 ? 40.0 : ((100 - depositPct) * 0.8).roundToDouble();
     final last = 100 - depositPct - install;
     setState(() {
@@ -632,6 +659,7 @@ class _ScheduleDialogState extends State<_ScheduleDialog> {
               Expanded(
                 child: TextField(
                   controller: r.title,
+                  onChanged: (_) => setState(() {}),
                   decoration: InputDecoration(
                     labelText: tr('Tên đợt'),
                     isDense: true,
@@ -656,7 +684,11 @@ class _ScheduleDialogState extends State<_ScheduleDialog> {
                   inputFormatters: r.isPercent ? null : [ThousandSeparatorFormatter()],
                   onChanged: (_) => setState(() {}),
                   decoration: InputDecoration(
-                    labelText: tr(r.isPercent ? '% giá trị HĐ' : 'Số tiền'),
+                    labelText: tr(!r.isPercent
+                        ? 'Số tiền'
+                        : _isDepositRow(r)
+                            ? '% giá trị trước VAT'
+                            : '% giá trị HĐ'),
                     helperText: r.isPercent ? '= ${_money.format(_amountOf(r))}đ' : null,
                     isDense: true,
                     border: const OutlineInputBorder(),
@@ -674,7 +706,9 @@ class _ScheduleDialogState extends State<_ScheduleDialog> {
                 onSelectionChanged: (s) => setState(() {
                   final amount = _amountOf(r);
                   r.isPercent = s.first;
-                  final total = widget.contract.total;
+                  final total = _isDepositRow(r) && widget.contract.preVat > 0
+                      ? widget.contract.preVat
+                      : widget.contract.total;
                   r.value.text = r.isPercent
                       ? (total > 0
                           ? NumberFormat('#,##0.##', 'vi_VN').format(amount / total * 100)

@@ -29,6 +29,10 @@ public class PosGymMemberDevice : AuditableEntity<Guid>
 
     public string Pin { get; set; } = string.Empty;
     public string? CardNumber { get; set; }
+
+    /// <summary>Đã đẩy thông báo «hết hạn» lên máy cho PIN này (máy ở cửa, chế độ máy chủ mở cửa).</summary>
+    public bool AccessBlocked { get; set; }
+    public DateTime? AccessSyncedAt { get; set; }
 }
 
 /// <summary>Một lượt tập: vào (quét lần đầu) → ra (quét lần sau). Trừ buổi tối đa 1 lần / ngày.</summary>

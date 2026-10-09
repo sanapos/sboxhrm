@@ -80,8 +80,9 @@ public class AttendancesController(
             }
         }
 
-        filter.ExcludedPins = await dbContext.PosGymMemberDevices.AsNoTracking()
-            .Where(m => m.StoreId == storeIdForDevices && m.Deleted == null)
+        // Gồm cả hội viên đã gỡ khỏi máy: lịch sử quét của khách không lẫn vào nhật ký chấm công nhân viên.
+        filter.ExcludedPins = await dbContext.PosGymMemberDevices.IgnoreQueryFilters().AsNoTracking()
+            .Where(m => m.StoreId == storeIdForDevices)
             .Select(m => m.Pin).Distinct().ToListAsync();
 
         var command = new GetAttsByDevicesQuery(paginationRequest, filter);

@@ -36,7 +36,15 @@ public class CreateDeviceUserHandler(
         var usedPins = onDevice.Select(u => u.Pin).ToList();
 
         string pin;
-        try
+        if (request.ExactPin)
+        {
+            pin = (request.Pin ?? "").Trim();
+            if (pin.Length == 0 || !pin.All(char.IsDigit))
+                return AppResponse<DeviceUserDto>.Fail("PIN không hợp lệ.");
+            if (usedPins.Contains(pin, StringComparer.Ordinal))
+                return AppResponse<DeviceUserDto>.Fail($"PIN {pin} đã có người dùng khác trên máy.");
+        }
+        else try
         {
             // Empty or too-long / phone-like codes → allocate short unique PIN.
             pin = DeviceUserPinAllocator.Allocate(usedPins, request.Pin);
@@ -61,6 +69,8 @@ public class CreateDeviceUserHandler(
         };
 
         var validEmployee = await deviceService.IsUserValid(deviceUser);
+        if (!validEmployee.IsSuccess && request.ExactPin)
+            return AppResponse<DeviceUserDto>.Fail(validEmployee.Message);
         if (!validEmployee.IsSuccess)
         {
             // Race: preferred pin taken between read and insert → try sequential once more.

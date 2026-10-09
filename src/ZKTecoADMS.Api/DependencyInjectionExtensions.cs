@@ -203,6 +203,7 @@ public static class DependencyInjectionExtensions
         
         // Register notification services
         services.AddScoped<IAttendanceNotificationService, AttendanceNotificationService>();
+        services.AddScoped<IGymRealtimeNotifier, ZKTecoADMS.Api.Services.GymRealtimeNotifier>();
         services.AddScoped<ISystemNotificationService, SystemNotificationService>();
         services.AddScoped<ZKTecoADMS.Application.Interfaces.IAnnualLeaveBalanceService,
             ZKTecoADMS.Application.Leaves.AnnualLeaveBalanceService>();
@@ -264,6 +265,7 @@ public static class DependencyInjectionExtensions
         services.AddHostedService<MaintenanceNotifierBackgroundService>();
         services.AddHostedService<BirthdayNotifierBackgroundService>();
         services.AddHostedService<PosStockAlertBackgroundService>();
+        services.AddHostedService<ZKTecoADMS.Api.Services.GymAccessSyncBackgroundService>();
         services.AddHostedService<PosQrMaintenanceBackgroundService>();
         services.AddHostedService<PosPrintJobCleanupBackgroundService>();
         services.AddHostedService<PosPrintJobSweepBackgroundService>();

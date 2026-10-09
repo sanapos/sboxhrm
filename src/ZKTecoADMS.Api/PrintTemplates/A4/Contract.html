@@ -66,16 +66,16 @@
     <tr style="background:#f1f5f9">
       <th style="border:1px solid #000;padding:4px;width:7%">Đợt</th>
       <th style="border:1px solid #000;padding:4px;text-align:left">Nội dung / điều kiện</th>
-      <th style="border:1px solid #000;padding:4px;width:10%">Tỷ lệ</th>
+      <th style="border:1px solid #000;padding:4px;width:15%;white-space:nowrap">Tỷ lệ</th>
       <th style="border:1px solid #000;padding:4px;width:18%;text-align:right">Số tiền (đ)</th>
-      <th style="border:1px solid #000;padding:4px;width:15%">Thời hạn</th>
+      <!--IF:Co_Han_Dot--><th style="border:1px solid #000;padding:4px;width:15%">Thời hạn</th><!--ENDIF:Co_Han_Dot-->
     </tr>
     <!--BEGIN_STAGES--><tr>
       <td style="border:1px solid #000;padding:4px;text-align:center">{Dot_STT}</td>
       <td style="border:1px solid #000;padding:4px">{Dot_Ten}</td>
-      <td style="border:1px solid #000;padding:4px;text-align:center">{Dot_Phan_Tram}</td>
+      <td style="border:1px solid #000;padding:4px;text-align:center;white-space:nowrap">{Dot_Phan_Tram}</td>
       <td style="border:1px solid #000;padding:4px;text-align:right">{Dot_So_Tien}</td>
-      <td style="border:1px solid #000;padding:4px;text-align:center">{Dot_Han}</td>
+      <!--IF:Co_Han_Dot--><td style="border:1px solid #000;padding:4px;text-align:center">{Dot_Han}</td><!--ENDIF:Co_Han_Dot-->
     </tr><!--END_STAGES-->
   </table>
   <!--ENDIF:Co_Dot_Thanh_Toan-->
@@ -111,7 +111,7 @@
   <!--IF:Ghi_Chu--><div style="white-space:pre-line">Ghi chú: {Ghi_Chu}</div><!--ENDIF:Ghi_Chu-->
 
   <table style="width:100%;margin-top:18px;border-collapse:collapse;page-break-inside:avoid"><tr>
-    <td style="width:50%;text-align:center;vertical-align:top"><b>ĐẠI DIỆN BÊN A</b><br/><i>{Chuc_Vu_Khach}</i><br/><i>(Ký, ghi rõ họ tên, đóng dấu)</i><div style="height:84px"></div><b>{Nguoi_Dai_Dien_Khach}</b></td>
-    <td style="width:50%;text-align:center;vertical-align:top"><b>ĐẠI DIỆN BÊN B</b><br/><i>{Chuc_Vu_Cua_Hang}</i><br/><i>(Ký, ghi rõ họ tên, đóng dấu)</i><div style="min-height:84px">{Con_Dau}</div><b>{Nguoi_Dai_Dien_Cua_Hang}</b></td>
+    <td style="width:50%;text-align:center;vertical-align:top"><b>ĐẠI DIỆN BÊN A</b><br/><i>{Chuc_Vu_Khach}</i><br/><i>(Ký, ghi rõ họ tên, đóng dấu)</i><div style="height:116px"></div><b>{Nguoi_Dai_Dien_Khach}</b></td>
+    <td style="width:50%;text-align:center;vertical-align:top"><b>ĐẠI DIỆN BÊN B</b><br/><i>{Chuc_Vu_Cua_Hang}</i><br/><i>(Ký, ghi rõ họ tên, đóng dấu)</i><div style="height:116px;overflow:hidden">{Con_Dau}</div><b>{Nguoi_Dai_Dien_Cua_Hang}</b></td>
   </tr></table>
 </div>

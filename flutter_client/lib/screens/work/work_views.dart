@@ -43,12 +43,12 @@ class WorkOverviewView extends StatelessWidget {
           note: '${SboxFmt.number(i?.inProgress ?? 0)} đang làm'),
       SboxKpi(label: 'Quá hạn', value: SboxFmt.number(i?.overdue ?? 0), icon: Icons.schedule_rounded, tone: SboxTone.danger,
           note: '${SboxFmt.number(i?.dueToday ?? 0)} việc đến hạn hôm nay'),
-      SboxKpi(label: 'Hoàn thành 14 ngày', value: SboxFmt.number(i?.completedInRange ?? 0), icon: Icons.task_alt_rounded,
-          tone: SboxTone.success, current: i?.completedInRange, previous: i?.completedPrevRange, compareLabel: '14 ngày trước'),
+      SboxKpi(label: 'Xong 14 ngày', value: SboxFmt.number(i?.completedInRange ?? 0), icon: Icons.task_alt_rounded,
+          tone: SboxTone.success, current: i?.completedInRange, previous: i?.completedPrevRange, compareLabel: 'kỳ trước'),
       SboxKpi(label: 'Đúng hạn', value: SboxFmt.pct(i?.onTimeRate ?? 0), icon: Icons.verified_outlined, tone: SboxTone.violet,
           note: '${SboxFmt.number(i?.completedOnTime ?? 0)}/${SboxFmt.number(i?.completedInRange ?? 0)} việc xong'),
       if (isManager)
-        SboxKpi(label: 'Chờ nhận / chờ duyệt', value: SboxFmt.number((i?.pendingAcceptance ?? 0) + (i?.inReview ?? 0)),
+        SboxKpi(label: 'Chờ nhận, duyệt', value: SboxFmt.number((i?.pendingAcceptance ?? 0) + (i?.inReview ?? 0)),
             icon: Icons.pending_actions_rounded, tone: SboxTone.warning),
       SboxKpi(
           label: 'Thời gian xong TB',
@@ -332,6 +332,7 @@ class WorkListView extends StatelessWidget {
   Widget build(BuildContext context) {
     final stageName = {for (final s in stages) s.key: s};
     int dueOrder(WorkTask t) => t.dueDate?.millisecondsSinceEpoch ?? 1 << 52;
+    if (SboxBreakpoints.isMobile(context)) return _compact(stageName);
     return SboxDataTable<WorkTask>(
       rows: tasks,
       pageSize: 25,
@@ -403,6 +404,88 @@ class WorkListView extends StatelessWidget {
           sortValue: (t) => t.progress,
         ),
       ],
+    );
+  }
+}
+
+extension on WorkListView {
+  /// Điện thoại: mỗi việc 2 dòng (tên · trạng thái / hạn / %) thay cho thẻ bảng 5 dòng.
+  Widget _compact(Map<String, TaskStageV2> stageName) {
+    if (tasks.isEmpty) {
+      return const SboxEmptyState(icon: Icons.inbox_outlined, title: 'Không có công việc', message: 'Đổi bộ lọc hoặc tạo việc mới.');
+    }
+    return SboxCard(
+      padding: EdgeInsets.zero,
+      child: Column(children: [
+        for (var i = 0; i < tasks.length; i++) ...[
+          if (i > 0) const Divider(height: 1),
+          _compactRow(tasks[i], stageName[tasks[i].stageKey]),
+        ],
+      ]),
+    );
+  }
+
+  Widget _compactRow(WorkTask t, TaskStageV2? stage) {
+    final due = workDueLabel(t);
+    final dueColor = due.tone == SboxTone.neutral ? SboxColors.textMuted : due.tone.fg;
+    return InkWell(
+      onTap: () => onOpenTask(t),
+      child: Padding(
+        padding: const EdgeInsets.fromLTRB(12, 10, 12, 10),
+        child: Row(children: [
+          Icon(workTypeIcon(t.taskType), size: 20, color: SboxColors.slate400),
+          const SizedBox(width: 10),
+          Expanded(
+            child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+              Text(t.title,
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: SboxType.smallStyle(t.isDone ? SboxColors.textMuted : SboxColors.text).copyWith(
+                      fontWeight: FontWeight.w600, decoration: t.isDone ? TextDecoration.lineThrough : null)),
+              const SizedBox(height: 4),
+              Row(children: [
+                Flexible(
+                  child: stage != null
+                      ? Text(tr(stage.name),
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                          style: SboxType.captionStyle(stage.colorValue).copyWith(fontWeight: FontWeight.w600))
+                      : Text(tr(getTaskStatusLabel(t.status)),
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                          style: SboxType.captionStyle(workStatusTone(t.status) == SboxTone.neutral
+                                  ? SboxColors.textSecondary
+                                  : workStatusTone(t.status).fg)
+                              .copyWith(fontWeight: FontWeight.w600)),
+                ),
+                // «Hoàn thành · Đã xong» lặp ý → bỏ chữ hạn khi việc đã xong mà không có ngày xong.
+                if (!(t.isDone && t.completedDate == null)) ...[
+                  Text('  ·  ', style: SboxType.captionStyle(SboxColors.slate300)),
+                  Text(tr(due.text), maxLines: 1, style: SboxType.captionStyle(dueColor)),
+                ],
+                if (showProject && t.projectName != null) ...[
+                  Text('  ·  ', style: SboxType.captionStyle(SboxColors.slate300)),
+                  Flexible(child: Text(t.projectName!, maxLines: 1, overflow: TextOverflow.ellipsis, style: SboxType.captionStyle())),
+                ],
+              ]),
+            ]),
+          ),
+          const SizedBox(width: 10),
+          SizedBox(
+            width: 40,
+            height: 40,
+            child: Stack(alignment: Alignment.center, children: [
+              CircularProgressIndicator(
+                value: t.progress.clamp(0, 100) / 100,
+                strokeWidth: 3.5,
+                backgroundColor: SboxColors.slate100,
+                valueColor: AlwaysStoppedAnimation(t.progress >= 100 ? SboxColors.success : SboxColors.brand500),
+              ),
+              Text('${t.progress}%', style: SboxType.captionStyle(SboxColors.text).copyWith(fontSize: 10, fontWeight: FontWeight.w700)),
+            ]),
+          ),
+        ]),
+      ),
     );
   }
 }

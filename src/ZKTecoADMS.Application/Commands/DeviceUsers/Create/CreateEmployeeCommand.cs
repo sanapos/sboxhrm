@@ -9,4 +9,6 @@ public record CreateDeviceUserCommand(
     string? Password, 
     int Privilege, 
     Guid DeviceId,
-    Guid? EmployeeId = null) : ICommand<AppResponse<DeviceUserDto>>;
+    Guid? EmployeeId = null,
+    // Dùng đúng PIN yêu cầu (hội viên gym: PIN = số điện thoại 9 chữ số) — trùng thì báo lỗi, không tự đổi / cắt ngắn.
+    bool ExactPin = false) : ICommand<AppResponse<DeviceUserDto>>;
