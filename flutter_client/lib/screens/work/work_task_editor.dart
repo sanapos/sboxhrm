@@ -103,6 +103,10 @@ class _WorkTaskEditorPageState extends State<WorkTaskEditorPage> {
   final _hours = TextEditingController();
   final _location = TextEditingController();
   final _newItem = TextEditingController();
+  final _custName = TextEditingController();
+  final _custPhone = TextEditingController();
+  final _piece = TextEditingController();
+  bool _checkIn = false;
   TaskType _type = TaskType.task;
   TaskPriority _priority = TaskPriority.medium;
   String? _projectId;
@@ -128,6 +132,10 @@ class _WorkTaskEditorPageState extends State<WorkTaskEditorPage> {
       _desc.text = t.description ?? '';
       _hours.text = t.estimatedHours == null ? '' : SboxFmt.number(t.estimatedHours);
       _location.text = t.location ?? '';
+      _custName.text = t.customerName ?? '';
+      _custPhone.text = t.customerPhone ?? '';
+      _piece.text = (t.pieceRate ?? 0) > 0 ? t.pieceRate!.toStringAsFixed(0) : '';
+      _checkIn = t.requireCheckIn;
       _type = t.taskType;
       _priority = t.priority;
       _projectId = t.projectId;
@@ -152,7 +160,7 @@ class _WorkTaskEditorPageState extends State<WorkTaskEditorPage> {
 
   @override
   void dispose() {
-    for (final c in [_title, _desc, _hours, _location, _newItem]) {
+    for (final c in [_title, _desc, _hours, _location, _newItem, _custName, _custPhone, _piece]) {
       c.dispose();
     }
     for (final d in _items) {
@@ -171,6 +179,8 @@ class _WorkTaskEditorPageState extends State<WorkTaskEditorPage> {
       _type = t.taskType;
       _priority = t.priority;
       _hours.text = t.estimatedHours == null ? '' : SboxFmt.number(t.estimatedHours);
+      _piece.text = (t.pieceRate ?? 0) > 0 ? t.pieceRate!.toStringAsFixed(0) : '';
+      _checkIn = t.requireCheckIn;
       if (t.stageKey != null && (_project?.stages.any((s) => s.key == t.stageKey) ?? false)) _stageKey = t.stageKey;
       for (final d in _items) {
         d.ctrl.dispose();
@@ -241,6 +251,10 @@ class _WorkTaskEditorPageState extends State<WorkTaskEditorPage> {
       'checklist': items.isEmpty ? (_editing ? '[]' : null) : TaskChecklistItemV2.encode(items),
       'progressMode': (items.isEmpty && _mode == TaskProgressMode.checklist ? TaskProgressMode.manual : _mode).index,
       'location': _location.text.trim(),
+      'customerName': _custName.text.trim(),
+      'customerPhone': _custPhone.text.trim(),
+      'pieceRate': double.tryParse(_piece.text.replaceAll(RegExp(r'[^\d]'), '')) ?? 0,
+      'requireCheckIn': _checkIn,
       'projectId': _projectId ?? (_editing ? '00000000-0000-0000-0000-000000000000' : null),
       'stageKey': _stageKey,
       if (!_editing) 'requireAcceptance': _requireAcceptance && _people.isNotEmpty,
@@ -422,6 +436,34 @@ class _WorkTaskEditorPageState extends State<WorkTaskEditorPage> {
                     decoration: InputDecoration(labelText: tr('Ước tính (giờ)')),
                   ),
                   TextField(controller: _location, decoration: InputDecoration(labelText: tr('Địa điểm'), prefixIcon: const Icon(Icons.place_outlined))),
+                ]),
+              ]),
+            ),
+            const SizedBox(height: SboxSpace.lg),
+            SboxCard(
+              title: 'Khách hàng & hiện trường',
+              child: Column(children: [
+                _row([
+                  TextField(controller: _custName, decoration: InputDecoration(labelText: tr('Khách hàng'), prefixIcon: const Icon(Icons.person_outline))),
+                  TextField(
+                    controller: _custPhone,
+                    keyboardType: TextInputType.phone,
+                    decoration: InputDecoration(labelText: tr('SĐT khách'), prefixIcon: const Icon(Icons.phone_outlined)),
+                  ),
+                ]),
+                const SizedBox(height: SboxSpace.md),
+                _row([
+                  TextField(
+                    controller: _piece,
+                    keyboardType: TextInputType.number,
+                    decoration: InputDecoration(labelText: tr('Tiền khoán (đ)'), helperText: tr('Duyệt hoàn thành → cộng vào lương'), prefixIcon: const Icon(Icons.payments_outlined)),
+                  ),
+                  SwitchListTile(
+                    contentPadding: EdgeInsets.zero,
+                    value: _checkIn,
+                    onChanged: (v) => setState(() => _checkIn = v),
+                    title: Text(tr('Bắt buộc check-in GPS')),
+                  ),
                 ]),
               ]),
             ),

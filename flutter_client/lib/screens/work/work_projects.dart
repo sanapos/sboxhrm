@@ -1,11 +1,11 @@
 import 'package:flutter/material.dart';
 
 import '../../l10n/app_tr.dart';
-import '../../models/task.dart';
 import '../../models/task_v2.dart';
 import '../../services/api_service.dart';
 import '../../widgets/sbox/sbox_ui.dart';
 import 'work_common.dart';
+import 'work_template_editor.dart';
 import 'work_task_editor.dart';
 
 const _stagePalette = <Color>[
@@ -399,7 +399,10 @@ class WorkPacksPage extends StatefulWidget {
 
 class _WorkPacksPageState extends State<WorkPacksPage> with SingleTickerProviderStateMixin {
   final _api = ApiService();
-  late final TabController _tabs = TabController(length: 2, vsync: this, initialIndex: widget.initialTab);
+  late final TabController _tabs = TabController(length: 2, vsync: this, initialIndex: widget.initialTab)
+    ..addListener(() {
+      if (mounted) setState(() {});
+    });
   List<TaskIndustryPackV2> _packs = [];
   List<TaskTemplateV2> _templates = [];
   bool _loading = true;
@@ -445,6 +448,15 @@ class _WorkPacksPageState extends State<WorkPacksPage> with SingleTickerProvider
     }
   }
 
+  Future<void> _editTemplate([TaskTemplateV2? t]) async {
+    final saved = await Navigator.of(context).push<bool>(
+        MaterialPageRoute(builder: (_) => WorkTemplateEditorPage(template: t, people: widget.people)));
+    if (saved == true) {
+      _changed = true;
+      _load();
+    }
+  }
+
   Future<void> _editRecurrence(TaskTemplateV2 t) async {
     final saved = await showDialog<bool>(context: context, builder: (_) => _RecurrenceDialog(template: t, people: widget.people));
     if (saved == true) {
@@ -469,6 +481,13 @@ class _WorkPacksPageState extends State<WorkPacksPage> with SingleTickerProvider
           leading: IconButton(icon: const Icon(Icons.arrow_back), onPressed: () => Navigator.of(context).pop(_changed)),
           bottom: TabBar(controller: _tabs, tabs: [Tab(text: tr('Gói theo ngành')), Tab(text: tr('Mẫu việc & lặp lại (${_templates.length})'))]),
         ),
+        floatingActionButton: _tabs.index == 1
+            ? FloatingActionButton.extended(
+                onPressed: () => _editTemplate(),
+                icon: const Icon(Icons.add_rounded),
+                label: Text(tr('Mẫu việc mới')),
+              )
+            : null,
         body: _loading
             ? const SboxLoading()
             : TabBarView(controller: _tabs, children: [_packGrid(), _templateList()]),
@@ -484,7 +503,7 @@ class _WorkPacksPageState extends State<WorkPacksPage> with SingleTickerProvider
             style: SboxType.smallStyle()),
         const SizedBox(height: SboxSpace.md),
         SboxGrid(columns: cols, children: [
-          for (final p in _packs)
+          for (final p in [..._packs.where((p) => p.featured), ..._packs.where((p) => !p.featured)])
             SboxCard(
               onTap: () => _openPack(p),
               child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
@@ -538,6 +557,7 @@ class _WorkPacksPageState extends State<WorkPacksPage> with SingleTickerProvider
         final recurring = t.recurrenceType != 0;
         return SboxCard(
           padding: const EdgeInsets.all(SboxSpace.md),
+          onTap: () => _editTemplate(t),
           child: Row(children: [
             Icon(workTypeIcon(t.taskType), color: SboxColors.slate500),
             const SizedBox(width: SboxSpace.md),
@@ -548,18 +568,23 @@ class _WorkPacksPageState extends State<WorkPacksPage> with SingleTickerProvider
                 Text(
                   [
                     '${t.checklistCount} mục checklist',
+                    if (t.formFieldCount > 0) '${t.formFieldCount} trường biểu mẫu',
+                    if ((t.pieceRate ?? 0) > 0) 'khoán ${SboxFmt.number(t.pieceRate)} đ',
+                    if (t.requireCheckIn) 'check-in GPS',
                     recurrenceLabel(t.recurrenceType, t.recurrenceDays, t.recurrenceTime),
-                    if (recurring && t.defaultAssigneeIds.isNotEmpty)
+                    if (recurring && t.assignOnShift)
+                      'giao người có ca'
+                    else if (recurring && t.defaultAssigneeIds.isNotEmpty)
                       t.defaultAssigneeIds.map((id) => nameOf[id] ?? '?').join(', ')
                     else if (recurring)
                       'chưa chọn người nhận — chưa chạy',
-                    if (t.nextRunAt != null && t.defaultAssigneeIds.isNotEmpty) 'lần tới ${workDate(t.nextRunAt, withTime: true)}',
+                    if (t.nextRunAt != null && (t.defaultAssigneeIds.isNotEmpty || t.assignOnShift)) 'lần tới ${workDate(t.nextRunAt, withTime: true)}',
                   ].join(' · '),
-                  style: SboxType.captionStyle(recurring && t.defaultAssigneeIds.isEmpty ? SboxColors.warningText : SboxColors.textMuted),
+                  style: SboxType.captionStyle(recurring && t.defaultAssigneeIds.isEmpty && !t.assignOnShift ? SboxColors.warningText : SboxColors.textMuted),
                 ),
               ]),
             ),
-            if (recurring && t.defaultAssigneeIds.isNotEmpty)
+            if (recurring && (t.defaultAssigneeIds.isNotEmpty || t.assignOnShift))
               IconButton(
                 tooltip: tr('Tạo ngay các việc'),
                 icon: const Icon(Icons.play_circle_outline),
@@ -722,23 +747,14 @@ class _RecurrenceDialogState extends State<_RecurrenceDialog> {
   Future<void> _save() async {
     final t = widget.template;
     setState(() => _saving = true);
-    final r = await _api.saveTaskTemplateV2({
-      'name': t.name,
-      'title': t.title,
-      'description': t.description,
-      'taskType': t.taskType.index,
-      'priority': t.priority.index,
-      'estimatedHours': t.estimatedHours,
-      'checklist': t.checklist,
-      'stageKey': t.stageKey,
-      'projectId': t.projectId,
-      'progressMode': TaskProgressMode.checklist.index,
+    // Gửi đủ trường của mẫu (biểu mẫu, khoán, check-in, giao theo ca) — chỉ đổi phần lịch lặp.
+    final r = await _api.saveTaskTemplateV2(workTemplatePayload(t, override: {
       'recurrenceType': _type,
       'recurrenceDays': (_days.toList()..sort()).join(','),
       'recurrenceTime': '${_time.hour.toString().padLeft(2, '0')}:${_time.minute.toString().padLeft(2, '0')}',
       'dueAfterHours': int.tryParse(_dueHours.text.trim()),
       'defaultAssigneeIds': _people,
-    }, id: t.id);
+    }), id: t.id);
     if (!mounted) return;
     setState(() => _saving = false);
     if (r['isSuccess'] == true) {

@@ -6,8 +6,10 @@ import '../../l10n/app_tr.dart';
 import '../../models/task.dart';
 import '../../models/task_v2.dart';
 import '../../services/api_service.dart';
+import '../../services/work_api.dart';
 import '../../widgets/sbox/sbox_ui.dart';
 import 'work_common.dart';
+import 'work_field_sections.dart';
 
 /// Ai đang xem: để quyết định nút hành động.
 class WorkViewer {
@@ -76,6 +78,8 @@ class _WorkTaskDetailPageState extends State<WorkTaskDetailPage> {
   String? _busyItem;
   final List<String> _commentPhotos = [];
   bool _showHistory = false;
+  TaskWorkspaceV2 _ws = TaskWorkspaceV2.empty();
+  int _rev = 0;
 
   @override
   void initState() {
@@ -105,8 +109,13 @@ class _WorkTaskDetailPageState extends State<WorkTaskDetailPage> {
       }
     }
     final h = await _api.getTaskHistory(t.id);
+    final ws = await WorkApi().workspace();
     if (!mounted) return;
     setState(() {
+      if (ws['isSuccess'] == true && ws['data'] is Map) {
+        _ws = TaskWorkspaceV2.fromJson(Map<String, dynamic>.from(ws['data'] as Map));
+      }
+      _rev++;
       _task = t;
       _stages = stages;
       _history = h['isSuccess'] == true && h['data'] is List
@@ -204,7 +213,7 @@ class _WorkTaskDetailPageState extends State<WorkTaskDetailPage> {
   Future<void> _toggleItem(TaskChecklistItemV2 item, bool done) async {
     String? photo;
     if (done && item.requirePhoto && (item.photoUrl == null || item.photoUrl!.isEmpty)) {
-      photo = await workPickAndUploadPhoto(context, _api);
+      photo = (await workUploadPhoto(context, _task!.id, category: 'checklist', checklistItemId: item.id, caption: item.text))?.url;
       if (photo == null) return;
     }
     setState(() => _busyItem = item.id);
@@ -215,7 +224,7 @@ class _WorkTaskDetailPageState extends State<WorkTaskDetailPage> {
   }
 
   Future<void> _attachItemPhoto(TaskChecklistItemV2 item) async {
-    final photo = await workPickAndUploadPhoto(context, _api);
+    final photo = (await workUploadPhoto(context, _task!.id, category: 'checklist', checklistItemId: item.id, caption: item.text))?.url;
     if (photo == null || !mounted) return;
     setState(() => _busyItem = item.id);
     final r = await _api.toggleTaskChecklistItem(_task!.id, item.id, done: item.done, photoUrl: photo);
@@ -240,7 +249,7 @@ class _WorkTaskDetailPageState extends State<WorkTaskDetailPage> {
   }
 
   Future<void> _addCommentPhoto() async {
-    final url = await workPickAndUploadPhoto(context, _api);
+    final url = (await workUploadPhoto(context, _task!.id, category: 'comment'))?.url;
     if (url != null && mounted) setState(() => _commentPhotos.add(url));
   }
 
@@ -289,7 +298,38 @@ class _WorkTaskDetailPageState extends State<WorkTaskDetailPage> {
                         const SizedBox(height: SboxSpace.lg),
                         _info(t),
                         const SizedBox(height: SboxSpace.lg),
+                        WorkCustomerCard(task: t),
+                        if (TaskFormFieldV2.parse(t.formSchema).isNotEmpty) ...[
+                          const SizedBox(height: SboxSpace.lg),
+                          WorkFormCard(
+                            key: ValueKey('form-${t.id}-$_rev'),
+                            task: t,
+                            canEdit: t.isOpen && (widget.viewer.isManager || widget.viewer.isParticipant(t)),
+                            onChanged: () {
+                              _changed = true;
+                              _load();
+                            },
+                          ),
+                        ],
+                        const SizedBox(height: SboxSpace.lg),
+                        WorkFieldCard(
+                          key: ValueKey('field-${t.id}-$_rev'),
+                          task: t,
+                          canAct: widget.viewer.isManager || widget.viewer.isParticipant(t),
+                          onChanged: () {
+                            _changed = true;
+                            _load();
+                          },
+                        ),
+                        const SizedBox(height: SboxSpace.lg),
                         _checklist(t),
+                        const SizedBox(height: SboxSpace.lg),
+                        WorkMediaCard(
+                          key: ValueKey('media-${t.id}-$_rev'),
+                          task: t,
+                          canAct: widget.viewer.isManager || widget.viewer.isParticipant(t),
+                          storageLabel: _ws.photoStorage == 'gdrive' && _ws.driveConnected ? 'Google Drive' : 'máy chủ SBOX',
+                        ),
                         if ((t.description ?? '').trim().isNotEmpty) ...[
                           const SizedBox(height: SboxSpace.lg),
                           SboxCard(title: 'Mô tả', child: SelectableText(t.description!, style: SboxType.bodyStyle())),
@@ -322,6 +362,14 @@ class _WorkTaskDetailPageState extends State<WorkTaskDetailPage> {
         SboxStatusChip(label: workPriorityLabel(t.priority), tone: workPriorityTone(t.priority), icon: Icons.flag_outlined),
         SboxStatusChip(label: getTaskTypeLabel(t.taskType), icon: workTypeIcon(t.taskType)),
         if (t.overdueNow) SboxStatusChip(label: workDueLabel(t).text, tone: SboxTone.danger, icon: Icons.schedule_rounded),
+        if ((t.pieceRate ?? 0) > 0)
+          SboxStatusChip(
+            label: 'Khoán ${SboxFmt.number(t.pieceRate)} đ${t.pieceRatePaid ? ' · đã cộng lương' : ''}',
+            tone: t.pieceRatePaid ? SboxTone.success : SboxTone.brand,
+            icon: Icons.payments_outlined,
+          ),
+        if (t.reworkCount > 0) SboxStatusChip(label: 'Làm lại ${t.reworkCount} lần', tone: SboxTone.warning, icon: Icons.replay_rounded),
+        if (t.requireCheckIn) const SboxStatusChip(label: 'Cần check-in', icon: Icons.my_location_rounded),
       ]),
       const SizedBox(height: SboxSpace.md),
       Row(children: [
@@ -381,6 +429,23 @@ class _WorkTaskDetailPageState extends State<WorkTaskDetailPage> {
           label: 'Mở lại',
           icon: Icons.undo_rounded,
           onPressed: _busy ? null : () => _run(() => _api.updateTaskStatus(t.id, {'status': WorkTaskStatus.inProgress.index}), ok: 'Đã mở lại')));
+    }
+    if (t.status == WorkTaskStatus.completed || t.status == WorkTaskStatus.inReview) {
+      buttons.add(SboxButton.secondary(
+          label: 'Phiếu hoàn thành', icon: Icons.picture_as_pdf_outlined, onPressed: _busy ? null : () => workShareReportPdf(context, t)));
+    }
+    if (widget.viewer.isManager && t.status == WorkTaskStatus.completed) {
+      buttons.add(SboxButton.ghost(
+          label: 'Đánh giá',
+          icon: Icons.star_outline_rounded,
+          onPressed: _busy
+              ? null
+              : () async {
+                  if (await workEvaluate(context, t)) _changed = true;
+                }));
+    }
+    if (widget.viewer.isManager && t.isOpen && t.assigneeId != null) {
+      buttons.add(SboxButton.ghost(label: 'Nhắc việc', icon: Icons.notifications_active_outlined, onPressed: _busy ? null : () => workRemind(context, t)));
     }
     if (buttons.isEmpty) return const SizedBox.shrink();
     return Wrap(spacing: SboxSpace.sm, runSpacing: SboxSpace.sm, children: buttons);
@@ -651,6 +716,12 @@ class _WorkTaskDetailPageState extends State<WorkTaskDetailPage> {
       'ChecklistUpdated' => 'Checklist',
       'AssigneeChanged' => 'Đổi người làm',
       'Created' => 'Tạo việc',
+      'FormUpdated' => 'Cập nhật biểu mẫu',
+      'MediaAdded' => 'Thêm ảnh',
+      'MediaRemoved' => 'Xoá ảnh',
+      'CheckIn' => 'Check-in',
+      'CheckOut' => 'Check-out',
+      'PieceRate' => 'Khoán',
       _ => h.changeType,
     };
     final change = [h.oldValue, h.newValue].whereType<String>().where((s) => s.isNotEmpty).join(' → ');

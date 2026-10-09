@@ -282,6 +282,23 @@ class WorkTask {
   final TaskProgressMode progressMode;
   final String? location;
 
+  // ─── Đa ngành ───
+  /// Biểu mẫu riêng (JSON mảng trường) và giá trị (JSON object).
+  final String? formSchema;
+  final String? formValues;
+  final String? customerId;
+  final String? customerName;
+  final String? customerPhone;
+  final String? relatedType;
+  final String? relatedId;
+  final String? relatedLabel;
+  final double? latitude;
+  final double? longitude;
+  final bool requireCheckIn;
+  final double? pieceRate;
+  final bool pieceRatePaid;
+  final int reworkCount;
+
   WorkTask({
     required this.id,
     required this.taskCode,
@@ -327,6 +344,20 @@ class WorkTask {
     this.stageKey,
     this.progressMode = TaskProgressMode.manual,
     this.location,
+    this.formSchema,
+    this.formValues,
+    this.customerId,
+    this.customerName,
+    this.customerPhone,
+    this.relatedType,
+    this.relatedId,
+    this.relatedLabel,
+    this.latitude,
+    this.longitude,
+    this.requireCheckIn = false,
+    this.pieceRate,
+    this.pieceRatePaid = false,
+    this.reworkCount = 0,
   });
 
   factory WorkTask.fromJson(Map<String, dynamic> json) {
@@ -388,6 +419,20 @@ class WorkTask {
       stageKey: json['stageKey'],
       progressMode: parseProgressMode(json['progressMode']),
       location: json['location'],
+      formSchema: json['formSchema'],
+      formValues: json['formValues'],
+      customerId: json['customerId']?.toString(),
+      customerName: json['customerName'],
+      customerPhone: json['customerPhone'],
+      relatedType: json['relatedType'],
+      relatedId: json['relatedId']?.toString(),
+      relatedLabel: json['relatedLabel'],
+      latitude: (json['latitude'] as num?)?.toDouble(),
+      longitude: (json['longitude'] as num?)?.toDouble(),
+      requireCheckIn: json['requireCheckIn'] == true,
+      pieceRate: (json['pieceRate'] as num?)?.toDouble(),
+      pieceRatePaid: json['pieceRatePaid'] == true,
+      reworkCount: (json['reworkCount'] as num?)?.toInt() ?? 0,
     );
   }
 

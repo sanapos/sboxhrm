@@ -12,8 +12,9 @@ import '../../services/api_service.dart';
 import '../../utils/navigation_notifier.dart';
 import '../../utils/store_role_helper.dart';
 import '../../widgets/sbox/sbox_ui.dart';
-import '../task_management_screen.dart';
 import 'work_common.dart';
+import 'work_setup.dart';
+import '../../services/work_api.dart';
 import 'work_projects.dart';
 import 'work_task_detail.dart';
 import 'work_task_editor.dart';
@@ -59,6 +60,8 @@ class _WorkHubScreenState extends State<WorkHubScreen> {
   List<WorkPerson> _people = [];
   List<TaskTemplateV2> _templates = [];
   List<TaskIndustryPackV2> _packs = [];
+  TaskWorkspaceV2 _ws = TaskWorkspaceV2.empty();
+  TaskDashboardV2? _dash;
   int _seq = 0;
   Timer? _debounce;
 
@@ -96,7 +99,7 @@ class _WorkHubScreenState extends State<WorkHubScreen> {
     if (widget.initialProjectId != null) _scope = widget.initialProjectId!;
     _view = widget.initialView ?? (_viewer.isManager ? WorkView.overview : WorkView.today);
     _ready = true;
-    await Future.wait([_loadProjects(), _loadPeople(), _loadTemplates()]);
+    await Future.wait([_loadProjects(), _loadPeople(), _loadTemplates(), _loadWorkspace()]);
     await _load();
     _consumeHighlight();
   }
@@ -126,6 +129,24 @@ class _WorkHubScreenState extends State<WorkHubScreen> {
     setState(() => _people = list.whereType<Map>().map((e) => WorkPerson.fromEmployee(Employee.fromJson(Map<String, dynamic>.from(e)))).toList()
       ..sort((a, b) => a.name.compareTo(b.name)));
   }
+
+  Future<void> _loadWorkspace() async {
+    final r = await WorkApi(_api).workspace();
+    if (!mounted || r['isSuccess'] != true || r['data'] is! Map) return;
+    setState(() => _ws = TaskWorkspaceV2.fromJson(Map<String, dynamic>.from(r['data'] as Map)));
+  }
+
+  Future<void> _openSettings() async {
+    final changed = await Navigator.of(context).push<bool>(MaterialPageRoute(builder: (_) => WorkSettingsPage(people: _people)));
+    if (changed == true) {
+      await _loadWorkspace();
+      _loadTemplates();
+      _refreshAll();
+    }
+  }
+
+  void _openPieceRates() =>
+      Navigator.of(context).push(MaterialPageRoute(builder: (_) => const WorkPieceRatePage()));
 
   Future<void> _loadTemplates() async {
     if (!_viewer.isManager) return;
@@ -157,6 +178,7 @@ class _WorkHubScreenState extends State<WorkHubScreen> {
       if (_viewer.isManager && (_view == WorkView.overview || _view == WorkView.people))
         'workload': _api.getTaskWorkload(projectId: projectId),
       if (_view == WorkView.timeline) 'timeline': _api.getTaskTimeline(projectId: projectId),
+      if (_viewer.isManager && _view == WorkView.overview) 'dashboard': WorkApi(_api).dashboard(projectId: projectId),
     };
     final keys = futures.keys.toList();
     final values = await Future.wait(futures.values);
@@ -175,6 +197,9 @@ class _WorkHubScreenState extends State<WorkHubScreen> {
         _insights = TaskInsightsV2.fromJson(Map<String, dynamic>.from(r['insights']!['data'] as Map));
       }
       if (r.containsKey('workload')) _workload = items(r['workload']).map(TaskWorkloadV2.fromJson).toList();
+      if (r['dashboard']?['data'] is Map) {
+        _dash = TaskDashboardV2.fromJson(Map<String, dynamic>.from(r['dashboard']!['data'] as Map));
+      }
       if (r.containsKey('timeline')) {
         _timeline = items(r['timeline']).map(TaskTimelineItemV2.fromJson).toList();
         if (mine && _viewer.employeeId != null) {
@@ -262,12 +287,6 @@ class _WorkHubScreenState extends State<WorkHubScreen> {
     }
   }
 
-  void _openLegacy() {
-    Navigator.of(context).push(MaterialPageRoute(
-      builder: (_) => Scaffold(appBar: AppBar(title: Text(tr('Công việc (giao diện cũ)'))), body: const TaskManagementScreen()),
-    ));
-  }
-
   // ─── Bảng: cột + kéo thả ──────────────────────────────────────
 
   List<WorkBoardColumn> _columns() {
@@ -351,12 +370,15 @@ class _WorkHubScreenState extends State<WorkHubScreen> {
             'Tiến độ ${p.progress}% · ${p.doneCount}/${p.taskCount} việc',
             if (p.dueDate != null) 'hạn ${workDate(p.dueDate)}',
           ].join(' · ')
-        : (_viewer.isManager ? 'Giao việc, theo dõi tiến độ theo dự án và theo ngành' : 'Việc được giao cho bạn');
+        : (_viewer.isManager
+            ? [if (_ws.industryName != null) _ws.industryName!, 'Giao việc, theo dõi tiến độ, ảnh hiện trường và biểu mẫu'].join(' · ')
+            : 'Việc được giao cho bạn');
     return SboxPageHeader(
       title: p?.name ?? 'Công việc',
       subtitle: subtitle,
       actions: [
-        if (_viewer.isManager) SboxButton(label: mobile ? 'Tạo việc' : 'Tạo công việc', icon: Icons.add_rounded, onPressed: () => _createTask()),
+        if (_viewer.isManager)
+          SboxButton(label: mobile ? 'Tạo việc' : 'Tạo ${_ws.taskLabel.toLowerCase()}', icon: Icons.add_rounded, onPressed: () => _createTask()),
         if (p != null && _viewer.isManager)
           SboxButton.secondary(label: 'Sửa dự án', icon: Icons.edit_outlined, onPressed: () => _editProject(p)),
         PopupMenuButton<String>(
@@ -365,17 +387,19 @@ class _WorkHubScreenState extends State<WorkHubScreen> {
             'project' => _editProject(),
             'packs' => _openPacks(),
             'templates' => _openPacks(tab: 1),
-            'legacy' => _openLegacy(),
+            'settings' => _openSettings(),
+            'piece' => _openPieceRates(),
             _ => _refreshAll(),
           },
           itemBuilder: (_) => [
             if (_viewer.isManager) ...[
               PopupMenuItem(value: 'project', child: ListTile(leading: const Icon(Icons.create_new_folder_outlined), title: Text(tr('Tạo dự án / công trình')))),
               PopupMenuItem(value: 'packs', child: ListTile(leading: const Icon(Icons.category_outlined), title: Text(tr('Gói theo ngành')))),
-              PopupMenuItem(value: 'templates', child: ListTile(leading: const Icon(Icons.event_repeat_outlined), title: Text(tr('Mẫu việc và việc định kỳ')))),
+              PopupMenuItem(value: 'templates', child: ListTile(leading: const Icon(Icons.event_repeat_outlined), title: Text(tr('Mẫu việc, biểu mẫu và việc định kỳ')))),
+              PopupMenuItem(value: 'piece', child: ListTile(leading: const Icon(Icons.payments_outlined), title: Text(tr('Khoán theo việc')))),
+              PopupMenuItem(value: 'settings', child: ListTile(leading: const Icon(Icons.settings_outlined), title: Text(tr('Thiết lập: ngành, ảnh / Google Drive')))),
             ],
             PopupMenuItem(value: 'refresh', child: ListTile(leading: const Icon(Icons.refresh_rounded), title: Text(tr('Tải lại')))),
-            PopupMenuItem(value: 'legacy', child: ListTile(leading: const Icon(Icons.history_rounded), title: Text(tr('Giao diện cũ')))),
           ],
           child: const Padding(padding: EdgeInsets.all(8), child: Icon(Icons.more_vert_rounded)),
         ),
@@ -433,7 +457,7 @@ class _WorkHubScreenState extends State<WorkHubScreen> {
             padding: const EdgeInsets.only(right: SboxSpace.sm),
             child: ActionChip(
               avatar: const Icon(Icons.add_rounded, size: 18),
-              label: Text(tr(_projects.isEmpty ? 'Tạo dự án theo ngành' : 'Dự án mới')),
+              label: Text(tr(_projects.isEmpty ? 'Tạo ${_ws.projectLabel.toLowerCase()}' : '${_ws.projectLabel} mới')),
               onPressed: () => _editProject(),
             ),
           ),
@@ -528,9 +552,31 @@ class _WorkHubScreenState extends State<WorkHubScreen> {
   }
 
   Widget _body(double pad) {
+    if (_viewer.isManager && !_ws.onboarded && !_loading && _tasks.isEmpty && _projects.isEmpty && _search.text.isEmpty) {
+      return WorkIndustryPicker(
+        people: _people,
+        onDone: (ws) {
+          setState(() => _ws = ws);
+          _loadTemplates();
+          _refreshAll();
+        },
+      );
+    }
     if (!_loading && _tasks.isEmpty && _projects.isEmpty && _viewer.isManager && _scope == _kAll && _search.text.isEmpty) {
       return _welcome();
     }
+    final quickAdd = _viewer.isManager
+        ? Padding(
+            padding: const EdgeInsets.only(bottom: SboxSpace.md),
+            child: WorkQuickAddBar(
+              people: _people,
+              templates: _templates,
+              taskLabel: _ws.taskLabel,
+              projectId: _project?.id,
+              onCreated: _refreshAll,
+            ),
+          )
+        : null;
     final p = _project;
     switch (_view) {
       case WorkView.today:
@@ -540,7 +586,10 @@ class _WorkHubScreenState extends State<WorkHubScreen> {
             Center(
               child: ConstrainedBox(
                 constraints: const BoxConstraints(maxWidth: 720),
-                child: WorkTodayView(tasks: _tasks, onOpenTask: (t) => _openTaskId(t.id)),
+                child: Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
+                  if (quickAdd != null) quickAdd,
+                  WorkTodayView(tasks: _tasks, onOpenTask: (t) => _openTaskId(t.id)),
+                ]),
               ),
             ),
           ]),
@@ -549,6 +598,10 @@ class _WorkHubScreenState extends State<WorkHubScreen> {
         return RefreshIndicator(
           onRefresh: _refreshAll,
           child: ListView(padding: EdgeInsets.fromLTRB(pad, SboxSpace.sm, pad, pad + SboxSpace.xl), children: [
+            if (_viewer.isManager && _dash != null) ...[
+              WorkDashboardCard(data: _dash!, onOpenPieceRates: _openPieceRates),
+              const SizedBox(height: SboxSpace.lg),
+            ],
             WorkOverviewView(
               insights: _insights,
               tasks: _tasks,
@@ -573,6 +626,7 @@ class _WorkHubScreenState extends State<WorkHubScreen> {
         return RefreshIndicator(
           onRefresh: _refreshAll,
           child: ListView(padding: EdgeInsets.fromLTRB(pad, SboxSpace.sm, pad, pad + SboxSpace.xl), children: [
+            if (quickAdd != null) quickAdd,
             WorkListView(tasks: _tasks, stages: p?.stages ?? const [], showProject: p == null, onOpenTask: (t) => _openTaskId(t.id)),
           ]),
         );
@@ -593,9 +647,9 @@ class _WorkHubScreenState extends State<WorkHubScreen> {
       SboxEmptyState(
         icon: Icons.rocket_launch_outlined,
         title: 'Bắt đầu quản lý công việc',
-        message: 'Chọn ngành để có sẵn quy trình, mẫu việc có checklist và việc định kỳ — hoặc tạo việc đầu tiên.',
+        message: 'Giao việc nhanh ở ô dưới, hoặc tạo việc có đủ khách hàng, checklist, biểu mẫu.',
         action: Wrap(spacing: SboxSpace.sm, runSpacing: SboxSpace.sm, alignment: WrapAlignment.center, children: [
-          SboxButton(label: 'Chọn gói theo ngành', icon: Icons.category_outlined, onPressed: () => _openPacks()),
+          SboxButton(label: 'Mẫu việc theo ngành', icon: Icons.category_outlined, onPressed: () => _openPacks()),
           SboxButton.secondary(label: 'Tạo công việc', icon: Icons.add_rounded, onPressed: () => _createTask()),
         ]),
       ),

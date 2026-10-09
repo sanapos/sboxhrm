@@ -261,7 +261,9 @@ class TaskIndustryPackV2 {
         color = '${j['color'] ?? ''}',
         stages = _maps(j['stages']).map(TaskStageV2.fromJson).toList(),
         templates = _maps(j['templates']).map(TaskPackTemplateV2.fromJson).toList(),
-        installedTemplates = _i(j['installedTemplates']);
+        installedTemplates = _i(j['installedTemplates']),
+        taskLabel = '${j['taskLabel'] ?? 'Công việc'}',
+        featured = j['featured'] == true;
 
   final String key;
   final String name;
@@ -273,11 +275,19 @@ class TaskIndustryPackV2 {
   final List<TaskPackTemplateV2> templates;
   final int installedTemplates;
 
+  /// Tên gọi việc theo ngành (Hạng mục / Phiếu dịch vụ / Cơ hội…).
+  final String taskLabel;
+
+  /// Gói ưu tiên (F&B, Xây dựng, Bán lẻ, Dịch vụ, Quản lý sale).
+  final bool featured;
+
   bool get installed => installedTemplates > 0;
   int get recurringCount => templates.where((t) => t.recurrenceType != 0).length;
 
   IconData get iconData => switch (key) {
-        'interior' => Icons.construction_outlined,
+        'interior' || 'construction' => Icons.construction_outlined,
+        'service' => Icons.home_repair_service_outlined,
+        'sales' => Icons.trending_up_outlined,
         'repair' => Icons.build_outlined,
         'spa' => Icons.spa_outlined,
         'fnb' => Icons.restaurant_outlined,
@@ -334,7 +344,19 @@ class TaskTemplateV2 {
             ? (j['defaultAssigneeIds'] as List).map((e) => '$e').toList()
             : <String>[],
         nextRunAt = _dt(j['nextRunAt']),
-        lastRunAt = _dt(j['lastRunAt']);
+        lastRunAt = _dt(j['lastRunAt']),
+        formSchema = j['formSchema'],
+        pieceRate = j['pieceRate'] == null ? null : _d(j['pieceRate']),
+        assignOnShift = j['assignOnShift'] == true,
+        requireCheckIn = j['requireCheckIn'] == true;
+
+  /// Biểu mẫu riêng (JSON), tiền khoán, giao theo ca, bắt buộc check-in.
+  final String? formSchema;
+  final double? pieceRate;
+  final bool assignOnShift;
+  final bool requireCheckIn;
+
+  int get formFieldCount => TaskFormFieldV2.parse(formSchema).length;
 
   final String id;
   final String name;
@@ -471,4 +493,242 @@ class TaskInsightsV2 {
   final List<({DateTime date, int created, int completed, int late})> byDay;
   final Map<String, int> byStatus;
   final Map<String, int> byType;
+}
+
+
+/// Một trường biểu mẫu riêng của loại việc.
+/// type: text / textarea / number / money / select / date / phone / checkbox / photo / signature / rating.
+class TaskFormFieldV2 {
+  TaskFormFieldV2({
+    this.key = '',
+    required this.label,
+    this.type = 'text',
+    this.required = false,
+    this.options = const [],
+    this.unit,
+    this.hint,
+  });
+
+  TaskFormFieldV2.fromJson(Map<String, dynamic> j)
+      : key = '${j['key'] ?? ''}',
+        label = '${j['label'] ?? ''}',
+        type = '${j['type'] ?? 'text'}',
+        required = j['required'] == true,
+        options = (j['options'] is List) ? (j['options'] as List).map((e) => '$e').toList() : const [],
+        unit = j['unit'],
+        hint = j['hint'];
+
+  String key;
+  String label;
+  String type;
+  bool required;
+  List<String> options;
+  String? unit;
+  String? hint;
+
+  static const types = <String, String>{
+    'text': 'Chữ ngắn',
+    'textarea': 'Đoạn văn',
+    'number': 'Số',
+    'money': 'Số tiền',
+    'select': 'Chọn một',
+    'date': 'Ngày',
+    'phone': 'Số điện thoại',
+    'checkbox': 'Có / không',
+    'photo': 'Ảnh',
+    'signature': 'Chữ ký',
+    'rating': 'Chấm sao (1–5)',
+  };
+
+  Map<String, dynamic> toJson() => {
+        if (key.isNotEmpty) 'key': key,
+        'label': label,
+        'type': type,
+        'required': required,
+        if (type == 'select') 'options': options,
+        if (unit != null && unit!.isNotEmpty) 'unit': unit,
+        if (hint != null && hint!.isNotEmpty) 'hint': hint,
+      };
+
+  static List<TaskFormFieldV2> parse(String? raw) {
+    if (raw == null || raw.trim().isEmpty) return [];
+    try {
+      final d = jsonDecode(raw);
+      if (d is! List) return [];
+      return d.whereType<Map>().map((e) => TaskFormFieldV2.fromJson(Map<String, dynamic>.from(e))).toList();
+    } catch (_) {
+      return [];
+    }
+  }
+
+  static String? encode(List<TaskFormFieldV2> fields) =>
+      fields.isEmpty ? null : jsonEncode(fields.map((f) => f.toJson()).toList());
+
+  static Map<String, String> parseValues(String? raw) {
+    if (raw == null || raw.trim().isEmpty) return {};
+    try {
+      final d = jsonDecode(raw);
+      if (d is! Map) return {};
+      return d.map((k, v) => MapEntry('$k', v == null ? '' : '$v'));
+    } catch (_) {
+      return {};
+    }
+  }
+}
+
+/// Thiết lập Công việc của cửa hàng.
+class TaskWorkspaceV2 {
+  TaskWorkspaceV2.fromJson(Map<String, dynamic> j)
+      : industryKey = j['industryKey'],
+        industryName = j['industryName'],
+        projectLabel = '${j['projectLabel'] ?? 'Dự án'}',
+        taskLabel = '${j['taskLabel'] ?? 'Công việc'}',
+        photoStorage = '${j['photoStorage'] ?? 'server'}',
+        driveConfigured = j['driveConfigured'] == true,
+        driveConnected = j['driveConnected'] == true,
+        driveAccountEmail = j['driveAccountEmail'],
+        driveConnectedAt = _dt(j['driveConnectedAt']),
+        driveLastError = j['driveLastError'],
+        checkInRadiusM = _i(j['checkInRadiusM'] ?? 300),
+        onboarded = j['onboarded'] == true;
+
+  TaskWorkspaceV2.empty()
+      : industryKey = null,
+        industryName = null,
+        projectLabel = 'Dự án',
+        taskLabel = 'Công việc',
+        photoStorage = 'server',
+        driveConfigured = false,
+        driveConnected = false,
+        driveAccountEmail = null,
+        driveConnectedAt = null,
+        driveLastError = null,
+        checkInRadiusM = 300,
+        onboarded = false;
+
+  final String? industryKey;
+  final String? industryName;
+  final String projectLabel;
+  final String taskLabel;
+  final String photoStorage;
+  final bool driveConfigured;
+  final bool driveConnected;
+  final String? driveAccountEmail;
+  final DateTime? driveConnectedAt;
+  final String? driveLastError;
+  final int checkInRadiusM;
+  final bool onboarded;
+}
+
+class TaskMediaV2 {
+  TaskMediaV2.fromJson(Map<String, dynamic> j)
+      : id = '${j['id']}',
+        fileName = '${j['fileName'] ?? ''}',
+        contentType = j['contentType'],
+        category = '${j['category'] ?? 'report'}',
+        checklistItemId = j['checklistItemId'],
+        caption = j['caption'],
+        storageKind = '${j['storageKind'] ?? 'server'}',
+        url = '${j['url'] ?? ''}',
+        uploadedByName = j['uploadedByName'],
+        createdAt = _dt(j['createdAt']),
+        warning = j['warning'];
+
+  final String id;
+  final String fileName;
+  final String? contentType;
+  final String category;
+  final String? checklistItemId;
+  final String? caption;
+  final String storageKind;
+  final String url;
+  final String? uploadedByName;
+  final DateTime? createdAt;
+  final String? warning;
+
+  bool get isImage => (contentType ?? '').startsWith('image/');
+
+  String get categoryLabel => switch (category) {
+        'before' => 'Trước',
+        'after' => 'Sau',
+        'signature' => 'Chữ ký',
+        'checklist' => 'Checklist',
+        'comment' => 'Trao đổi',
+        'form' => 'Biểu mẫu',
+        'file' => 'Tài liệu',
+        _ => 'Báo cáo',
+      };
+}
+
+class TaskTimeLogV2 {
+  TaskTimeLogV2.fromJson(Map<String, dynamic> j)
+      : id = '${j['id']}',
+        employeeName = j['employeeName'],
+        startAt = _dt(j['startAt']),
+        endAt = _dt(j['endAt']),
+        startDistanceM = j['startDistanceM'] == null ? null : _i(j['startDistanceM']),
+        hours = _d(j['hours']),
+        note = j['note'];
+
+  final String id;
+  final String? employeeName;
+  final DateTime? startAt;
+  final DateTime? endAt;
+  final int? startDistanceM;
+  final double hours;
+  final String? note;
+
+  bool get open => endAt == null;
+}
+
+class TaskPersonStatV2 {
+  TaskPersonStatV2.fromJson(Map<String, dynamic> j)
+      : employeeId = '${j['employeeId']}',
+        employeeName = '${j['employeeName'] ?? '—'}',
+        total = _i(j['total']),
+        completed = _i(j['completed']),
+        overdue = _i(j['overdue']),
+        rework = _i(j['rework']),
+        onTimeRate = _d(j['onTimeRate']),
+        avgQuality = j['avgQuality'] == null ? null : _d(j['avgQuality']),
+        loggedHours = _d(j['loggedHours']),
+        pieceRateTotal = _d(j['pieceRateTotal']);
+
+  final String employeeId;
+  final String employeeName;
+  final int total;
+  final int completed;
+  final int overdue;
+  final int rework;
+  final double onTimeRate;
+  final double? avgQuality;
+  final double loggedHours;
+  final double pieceRateTotal;
+}
+
+class TaskDashboardV2 {
+  TaskDashboardV2.fromJson(Map<String, dynamic> j)
+      : total = _i(j['total']),
+        completed = _i(j['completed']),
+        overdue = _i(j['overdue']),
+        onTimeRate = _d(j['onTimeRate']),
+        reworkRate = _d(j['reworkRate']),
+        avgCycleHours = _d(j['avgCycleHours']),
+        avgQuality = j['avgQuality'] == null ? null : _d(j['avgQuality']),
+        avgCustomerRating = j['avgCustomerRating'] == null ? null : _d(j['avgCustomerRating']),
+        checkInRate = _d(j['checkInRate']),
+        pieceRateTotal = _d(j['pieceRateTotal']),
+        people = _maps(j['people']).map(TaskPersonStatV2.fromJson).toList();
+
+  final int total;
+  final int completed;
+  final int overdue;
+  final double onTimeRate;
+  final double reworkRate;
+  final double avgCycleHours;
+  final double? avgQuality;
+  final double? avgCustomerRating;
+  final double checkInRate;
+  final double pieceRateTotal;
+  final List<TaskPersonStatV2> people;
 }

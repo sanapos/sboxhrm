@@ -6,6 +6,7 @@ import '../../l10n/app_tr.dart';
 import '../../models/pos_quote.dart';
 import '../../providers/permission_provider.dart';
 import '../../services/api_service.dart';
+import '../../services/work_api.dart';
 import '../../theme/sbox_tokens.dart';
 import '../../utils/pos_quote_commercial.dart';
 import '../../utils/pos_quote_export.dart';
@@ -494,6 +495,7 @@ class _PosQuoteDetailScreenState extends State<PosQuoteDetailScreen> {
           if (canEdit) {
             actions.add(secondary('Xuất kho', Icons.outbox_outlined, () => _createDoc('StockIssue')));
             actions.add(secondary('Bàn giao', Icons.local_shipping_outlined, () => _createDoc('Handover')));
+            actions.add(secondary('Giao việc thi công', Icons.engineering_outlined, _createWorkFromQuote));
           }
         case 'Issued':
         case 'HandedOver':
@@ -556,6 +558,28 @@ class _PosQuoteDetailScreenState extends State<PosQuoteDetailScreen> {
         ],
       ]),
     );
+  }
+
+  /// Hợp đồng → công trình + các hạng mục (khảo sát, vật tư, thi công, nghiệm thu…) trong Công việc.
+  Future<void> _createWorkFromQuote() async {
+    final q = _q;
+    if (q == null) return;
+    if (!await _confirm('Giao việc thi công?',
+        'Tạo công trình cho ${q.quoteNo} với các hạng mục theo quy trình Xây dựng / Thi công (có checklist, ảnh, chữ ký khách).',
+        ok: 'Tạo công trình')) {
+      return;
+    }
+    final r = await WorkApi().fromQuote(q.id, industryKey: 'construction');
+    if (!mounted) return;
+    if (r['isSuccess'] == true && r['data'] is Map) {
+      final d = r['data'] as Map;
+      NotificationOverlayManager().showSuccess(
+        title: 'Đã tạo công trình',
+        message: '${d['name']} · ${d['taskCount']} hạng mục — xem trong Công việc',
+      );
+    } else {
+      NotificationOverlayManager().showError(title: 'Chưa tạo được', message: '${r['message'] ?? ''}');
+    }
   }
 
   Future<void> _acceptAndContract() async {
