@@ -36,4 +36,7 @@ public class PosStockIssueLine : AuditableEntity<Guid>
 
     [MaxLength(500)]
     public string? LineNote { get; set; }
+
+    /// <summary>Seri máy xuất (mỗi seri một dòng) — hàng quản lý theo seri.</summary>
+    public string? SerialNumbersText { get; set; }
 }

@@ -1,3 +1,4 @@
+using Microsoft.Extensions.Caching.Memory;
 using Microsoft.EntityFrameworkCore;
 using ZKTecoADMS.Application.Authorization;
 using ZKTecoADMS.Application.Constants;
@@ -7,7 +8,7 @@ using ZKTecoADMS.Infrastructure;
 
 namespace ZKTecoADMS.Infrastructure.Services;
 
-public class ModulePermissionService(ZKTecoDbContext db) : IModulePermissionService
+public class ModulePermissionService(ZKTecoDbContext db, Microsoft.Extensions.Caching.Memory.IMemoryCache cache) : IModulePermissionService
 {
     private IReadOnlyDictionary<string, ModulePermissionDto>? _requestCache;
     private (Guid UserId, string Role, Guid? StoreId) _cacheKey;
@@ -21,7 +22,13 @@ public class ModulePermissionService(ZKTecoDbContext db) : IModulePermissionServ
         if (_requestCache != null && _cacheKey == (userId, role, storeId))
             return _requestCache;
 
-        var map = await LoadMapAsync(userId, role, storeId, cancellationToken);
+        // Cache ngắn giữa các request (đổi quyền có hiệu lực sau tối đa 20 giây).
+        var map = await cache.GetOrCreateAsync($"modperm:{userId}:{role}:{storeId}", async e =>
+        {
+            e.AbsoluteExpirationRelativeToNow = TimeSpan.FromSeconds(20);
+            e.Size = 1; // MemoryCache của API có SizeLimit — thiếu Size là lỗi 500 mọi request
+            return await LoadMapAsync(userId, role, storeId, CancellationToken.None);
+        }) ?? await LoadMapAsync(userId, role, storeId, cancellationToken);
         _cacheKey = (userId, role, storeId);
         _requestCache = map;
         return map;

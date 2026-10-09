@@ -41,6 +41,18 @@ public class PosStoreSellSettings : AuditableEntity<Guid>
     /// </summary>
     public bool AllowNegativeStock { get; set; }
 
+    /// <summary>Chi nhánh nhận đơn online (null = trụ sở).</summary>
+    public Guid? OnlineBranchId { get; set; }
+
+    /// <summary>Đơn online tối thiểu (0 = không giới hạn).</summary>
+    public decimal OnlineMinOrder { get; set; }
+
+    /// <summary>Phí giao hàng đơn online thu khách (0 = miễn phí).</summary>
+    public decimal OnlineShipFee { get; set; }
+
+    /// <summary>Đơn từ mức này được miễn phí giao (0 = không áp dụng).</summary>
+    public decimal OnlineFreeShipFrom { get; set; }
+
     /// <summary>
     /// Giờ bắt đầu ngày kinh doanh VN (0–23) cho báo cáo / cuối ngày.
     /// 0 = nửa đêm lịch (vẫn quy đổi UTC+7). &gt;0 = ngày qua đêm (vd. 6 = 06:00→06:00 hôm sau).

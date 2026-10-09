@@ -83,6 +83,12 @@ public class Notification : Entity<Guid>
     public Guid? StoreId { get; set; }
     public virtual Store? Store { get; set; }
 
+    /// <summary>
+    /// Mã đợt gửi: các thông báo quản lý gửi cho nhiều nhân viên trong một lần chung một mã —
+    /// để xem lịch sử đã gửi, ai đã đọc, nhắc người chưa đọc.
+    /// </summary>
+    public Guid? BatchId { get; set; }
+
     // Navigation Properties
     public virtual ApplicationUser? TargetUser { get; set; }
     public virtual ApplicationUser? FromUser { get; set; }

@@ -93,8 +93,8 @@ public class PosPurchaseSuppliersController(ZKTecoDbContext dbContext) : Authent
         {
             var s = VnSearch.FoldText(search); // không dấu: «binh» khớp «Bình»
             query = query.Where(x =>
-                VnSearch.Fold(x.Name).Contains(s) ||
-                VnSearch.Fold(x.SupplierCode).Contains(s) ||
+                VnSearch.Has(x.Name, s) ||
+                VnSearch.Has(x.SupplierCode, s) ||
                 (x.Phone != null && x.Phone.Contains(s)));
         }
         if (groupId.HasValue) query = query.Where(s => s.GroupId == groupId);

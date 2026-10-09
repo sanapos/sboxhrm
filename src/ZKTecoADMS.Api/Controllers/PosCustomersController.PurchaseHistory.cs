@@ -64,7 +64,7 @@ public partial class PosCustomersController
                 o.Lines.Select(l => new HistoryLineDto(l.ProductId, l.ProductName, l.UnitName, l.Qty,
                     returned.GetValueOrDefault(l.Id), l.UnitPrice, l.DiscountAmount, l.LineTotal, l.LineNote)).ToList()))
             .Where(o => q.Length == 0 || o.OrderNo.Contains(search!.Trim(), StringComparison.OrdinalIgnoreCase)
-                        || o.Lines.Any(l => VnSearch.Fold(l.ProductName).Contains(q)))
+                        || o.Lines.Any(l => VnSearch.Has(l.ProductName, q)))
             .ToList();
 
         var productIds = result.SelectMany(o => o.Lines.Select(l => l.ProductId)).Distinct().ToList();
@@ -76,7 +76,7 @@ public partial class PosCustomersController
         // Tổng hợp theo mặt hàng: giá «gần nhất» = đơn giá thực (sau giảm dòng) ở lần mua mới nhất.
         var products = result
             .SelectMany(o => o.Lines.Select(l => (o.Date, Line: l)))
-            .Where(x => q.Length == 0 || VnSearch.Fold(x.Line.ProductName).Contains(q))
+            .Where(x => q.Length == 0 || VnSearch.Has(x.Line.ProductName, q))
             .GroupBy(x => x.Line.ProductId)
             .Select(g =>
             {

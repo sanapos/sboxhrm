@@ -280,6 +280,12 @@ public class ZKTecoDbContext : IdentityDbContext<ApplicationUser, IdentityRole<G
     public DbSet<PosPriceList> PosPriceLists => Set<PosPriceList>();
     public DbSet<PosPriceListItem> PosPriceListItems => Set<PosPriceListItem>();
     public DbSet<PosProductWarrantyRegistration> PosProductWarrantyRegistrations => Set<PosProductWarrantyRegistration>();
+    public DbSet<PosWarrantyClaim> PosWarrantyClaims => Set<PosWarrantyClaim>();
+    public DbSet<PosProductSerial> PosProductSerials => Set<PosProductSerial>();
+    public DbSet<PosQrRequestLog> PosQrRequestLogs => Set<PosQrRequestLog>();
+    public DbSet<StoreScheduledNotification> StoreScheduledNotifications => Set<StoreScheduledNotification>();
+    public DbSet<PosSerialCount> PosSerialCounts => Set<PosSerialCount>();
+    public DbSet<PosSerialCountItem> PosSerialCountItems => Set<PosSerialCountItem>();
     public DbSet<PosCustomerPayment> PosCustomerPayments => Set<PosCustomerPayment>();
     public DbSet<PosCustomerPointTransaction> PosCustomerPointTransactions => Set<PosCustomerPointTransaction>();
     public DbSet<PosVoucher> PosVouchers => Set<PosVoucher>();

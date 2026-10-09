@@ -10,6 +10,7 @@ using ZKTecoADMS.Application.Services;
 using ZKTecoADMS.Domain.Entities;
 using ZKTecoADMS.Domain.Enums;
 using ZKTecoADMS.Infrastructure;
+using ZKTecoADMS.Infrastructure.Services;
 using ZKTecoADMS.Infrastructure.Helpers;
 using ZKTecoADMS.Infrastructure.Services.Push;
 
@@ -26,6 +27,7 @@ public class NotificationCenterController(
     ZKTecoDbContext db,
     ISystemNotificationService notifications,
     IPushNotificationService push,
+    IServiceScopeFactory scopeFactory,
     ILogger<NotificationCenterController> logger) : AuthenticatedControllerBase
 {
     // ═══════════════════════ Cài đặt đẩy của tôi ═══════════════════════
@@ -213,13 +215,14 @@ public class NotificationCenterController(
 
     public record AudienceEmployeeDto(
         Guid EmployeeId, Guid UserId, string Name, string? Code, string? Department, Guid? DepartmentId,
-        string? Position, bool HasApp);
+        string? Position, bool HasApp, Guid? BranchId = null);
+    public record AudienceBranchDto(Guid Id, string Name, bool IsHeadquarter, int Count, int WithApp);
 
     public record AudienceDepartmentDto(string Key, string Name, int Count, int WithApp);
 
     public record AudienceDto(
         List<AudienceEmployeeDto> Employees, List<AudienceDepartmentDto> Departments, bool StoreAllowsPush,
-        string StoreName);
+        string StoreName, List<AudienceBranchDto>? Branches = null);
 
     /// <summary>Danh sách nhân viên đang làm có tài khoản (nhận được thông báo), nhóm theo phòng ban.</summary>
     [HttpGet("audience")]
@@ -239,32 +242,19 @@ public class NotificationCenterController(
         try { allows = await StorePackageHelper.CanSendFcmAsync(db, storeId, "internal_comm"); }
         catch (Exception ex) { logger.LogWarning(ex, "CanSendFcm check failed"); }
         var storeName = await db.Stores.AsNoTracking().Where(s => s.Id == storeId).Select(s => s.Name).FirstOrDefaultAsync() ?? "";
-        return Ok(AppResponse<AudienceDto>.Success(new AudienceDto(employees, departments, allows, storeName)));
+        var branchInfos = await BranchStockService.GetStoreBranchesAsync(db, storeId);
+        var hq = BranchStockService.ResolveHeadquarter(branchInfos);
+        var branches = branchInfos.Where(b => b.IsActive || employees.Any(e => (e.BranchId ?? hq) == b.Id))
+            .Select(b => new AudienceBranchDto(b.Id, b.Name, b.IsHeadquarter,
+                employees.Count(e => (e.BranchId ?? hq) == b.Id),
+                employees.Count(e => (e.BranchId ?? hq) == b.Id && e.HasApp)))
+            .ToList();
+        return Ok(AppResponse<AudienceDto>.Success(new AudienceDto(employees, departments, allows, storeName,
+            branches.Count > 1 ? branches : null)));
     }
 
-    private async Task<List<AudienceEmployeeDto>> LoadAudienceAsync(Guid storeId)
-    {
-        var rows = await db.Employees.AsNoTracking()
-            .Where(e => e.StoreId == storeId && e.ApplicationUserId != null && e.WorkStatus != EmployeeWorkStatus.Resigned)
-            .Select(e => new
-            {
-                e.Id, UserId = e.ApplicationUserId!.Value, Name = (e.LastName + " " + e.FirstName).Trim(),
-                e.EmployeeCode, e.Department, e.DepartmentId, e.Position,
-            })
-            .ToListAsync();
-        var userIds = rows.Select(r => r.UserId).ToList();
-        var withApp = (await db.UserDeviceTokens.AsNoTracking()
-                .Where(t => userIds.Contains(t.UserId) && !t.IsDisabled)
-                .Select(t => t.UserId).Distinct().ToListAsync())
-            .ToHashSet();
-        return rows
-            .GroupBy(r => r.UserId).Select(g => g.First())
-            .Select(r => new AudienceEmployeeDto(r.Id, r.UserId, r.Name, r.EmployeeCode,
-                string.IsNullOrWhiteSpace(r.Department) ? null : r.Department.Trim(), r.DepartmentId, r.Position,
-                withApp.Contains(r.UserId)))
-            .OrderBy(r => r.Name)
-            .ToList();
-    }
+    private Task<List<AudienceEmployeeDto>> LoadAudienceAsync(Guid storeId) =>
+        ZKTecoADMS.Api.Services.StoreNotificationBroadcast.LoadAudienceAsync(db, storeId);
 
     // ═══════════════════════ Gửi ═══════════════════════
 
@@ -272,10 +262,13 @@ public class NotificationCenterController(
         string Title, string Body, string? CategoryCode, int Type,
         string Audience,                     // all | departments | users
         List<string>? Departments, List<Guid>? UserIds,
-        Guid? TemplateId, bool DryRun = false);
+        Guid? TemplateId, bool DryRun = false,
+        List<Guid>? Branches = null, string? Link = null, DateTime? ScheduleAt = null);
 
     public record SendResultDto(int Recipients, int WithApp, int WithoutApp, bool PushSent, string PreviewTitle,
-        string PreviewBody, List<string> SampleNames);
+        string PreviewBody, List<string> SampleNames,
+        Guid? BatchId = null, int Delivered = -1, int Skipped = 0, bool Queued = false,
+        bool Scheduled = false, DateTime? ScheduledAt = null);
 
     /// <summary>
     /// Gửi thông báo cho nhân viên. Biến: {ten} tên NV, {cuahang} tên cửa hàng, {ngay} dd/MM/yyyy, {thang} MM/yyyy,
@@ -296,13 +289,12 @@ public class NotificationCenterController(
         if (!req.DryRun && Regex.IsMatch(title + body, @"\[[^\]\{\}]{1,40}\]"))
             return Ok(AppResponse<SendResultDto>.Fail("Còn chỗ trống [...] trong mẫu chưa điền — vui lòng thay bằng nội dung thật."));
 
+        var link = ZKTecoADMS.Api.Services.StoreNotificationBroadcast.NormalizeLink(req.Link, out var linkErr);
+        if (linkErr != null) return Ok(AppResponse<SendResultDto>.Fail(linkErr));
         var all = await LoadAudienceAsync(storeId);
-        List<AudienceEmployeeDto> targets = (req.Audience ?? "all").ToLowerInvariant() switch
-        {
-            "departments" => all.Where(e => (req.Departments ?? []).Contains(e.Department ?? "")).ToList(),
-            "users" => all.Where(e => (req.UserIds ?? []).Contains(e.UserId)).ToList(),
-            _ => all,
-        };
+        var hqBranch = await ZKTecoADMS.Api.Services.StoreNotificationBroadcast.HeadquarterAsync(db, storeId);
+        var targets = ZKTecoADMS.Api.Services.StoreNotificationBroadcast.Select(
+            all, req.Audience, req.Departments, req.UserIds, req.Branches, hqBranch);
         if (targets.Count == 0)
             return Ok(AppResponse<SendResultDto>.Fail("Chưa chọn người nhận (hoặc nhân viên chưa có tài khoản đăng nhập)."));
         if (!req.DryRun && targets.Count > 2000)
@@ -325,25 +317,60 @@ public class NotificationCenterController(
             targets.Take(5).Select(t => t.Name).ToList());
         if (req.DryRun) return Ok(AppResponse<SendResultDto>.Success(result));
 
-        if (perPerson)
+        if (req.ScheduleAt is DateTime when)
         {
-            // Nội dung khác nhau từng người → gửi theo nhóm cùng nội dung (tên trùng nhau gộp chung).
-            foreach (var g in targets.GroupBy(t => t.Name))
+            var whenUtc = when.Kind == DateTimeKind.Local ? when.ToUniversalTime() : DateTime.SpecifyKind(when, DateTimeKind.Utc);
+            if (whenUtc < DateTime.UtcNow.AddMinutes(1))
+                return Ok(AppResponse<SendResultDto>.Fail("Giờ hẹn phải sau thời điểm hiện tại ít nhất 1 phút."));
+            if (whenUtc > DateTime.UtcNow.AddDays(90))
+                return Ok(AppResponse<SendResultDto>.Fail("Chỉ hẹn giờ gửi trong vòng 90 ngày."));
+            var pendingCount = await db.StoreScheduledNotifications.CountAsync(x =>
+                x.StoreId == storeId && x.Status == ZKTecoADMS.Api.Services.StoreNotificationBroadcast.Pending);
+            if (pendingCount >= 50)
+                return Ok(AppResponse<SendResultDto>.Fail("Tối đa 50 thông báo hẹn giờ đang chờ — hủy bớt hoặc đợi gửi."));
+            var payload = req with { DryRun = false, ScheduleAt = null, Link = link };
+            db.StoreScheduledNotifications.Add(new StoreScheduledNotification
             {
-                await notifications.CreateAndSendToUsersAsync(
-                    g.Select(x => x.UserId).ToList(), type,
-                    Render(title, g.Key, storeName, nowVn), Render(body, g.Key, storeName, nowVn),
-                    fromUserId: CurrentUserId, categoryCode: category, storeId: storeId);
-            }
+                Id = Guid.NewGuid(),
+                StoreId = storeId,
+                CreatedByUserId = CurrentUserId,
+                SendAt = whenUtc,
+                PayloadJson = System.Text.Json.JsonSerializer.Serialize(payload),
+                Title = title,
+                RecipientCount = targets.Count,
+                IsActive = true,
+                CreatedBy = CurrentUserEmail,
+            });
+            await db.SaveChangesAsync();
+            return Ok(AppResponse<SendResultDto>.Success(result with { Scheduled = true, ScheduledAt = whenUtc }));
+        }
+
+        var batchId = Guid.NewGuid();
+        var senderId = CurrentUserId;
+        Task DeliverAsync(ISystemNotificationService svc) =>
+            ZKTecoADMS.Api.Services.StoreNotificationBroadcast.DeliverAsync(
+                svc, targets, type, title, body, category, senderId, storeId, storeName, batchId, link);
+
+        // Gửi nhiều người: đẩy FCM từng máy mất thời gian → chạy nền, trả lời ngay (xem tiến độ ở «Đã gửi»).
+        var queued = targets.Count >= 150;
+        if (queued)
+        {
+            _ = Task.Run(async () =>
+            {
+                try
+                {
+                    using var scope = scopeFactory.CreateScope();
+                    await DeliverAsync(scope.ServiceProvider.GetRequiredService<ISystemNotificationService>());
+                }
+                catch (Exception ex) { logger.LogError(ex, "Background notification batch {Batch} failed", batchId); }
+            });
         }
         else
         {
-            await notifications.CreateAndSendToUsersAsync(
-                targets.Select(t => t.UserId).ToList(), type,
-                Render(title, "", storeName, nowVn), Render(body, "", storeName, nowVn),
-                fromUserId: CurrentUserId, categoryCode: category, storeId: storeId);
+            await DeliverAsync(notifications);
         }
-
+        var delivered = queued ? -1 : await db.Notifications.CountAsync(n => n.BatchId == batchId);
+        var skipped = queued ? 0 : Math.Max(0, targets.Count - delivered);
         if (req.TemplateId is Guid tid)
         {
             await db.StoreNotificationTemplates
@@ -358,7 +385,184 @@ public class NotificationCenterController(
         catch { /* chỉ để hiển thị */ }
         logger.LogInformation("Manager {UserId} sent notification '{Title}' to {Count} users (store {StoreId})",
             CurrentUserId, title, targets.Count, storeId);
-        return Ok(AppResponse<SendResultDto>.Success(result with { PushSent = pushAllowed && result.WithApp > 0 }));
+        return Ok(AppResponse<SendResultDto>.Success(result with
+        {
+            PushSent = pushAllowed && result.WithApp > 0,
+            BatchId = batchId,
+            Delivered = delivered,
+            Skipped = skipped,
+            Queued = queued,
+        }));
+    }
+
+
+    // ═══════════════════════ Đã gửi / ai đã đọc ═══════════════════════
+
+    public record SentBatchDto(
+        Guid BatchId, string Title, string Body, string? CategoryCode, int Type, DateTime SentAt,
+        int Total, int Read, string? SenderName);
+
+    public record SentRecipientDto(Guid UserId, string Name, string? Code, string? Department, bool IsRead, DateTime? ReadAt);
+
+    private IQueryable<Notification> SentScope(Guid storeId) =>
+        db.Notifications.AsNoTracking()
+            .Where(n => n.StoreId == storeId && n.BatchId != null && (IsAdmin || n.FromUserId == CurrentUserId));
+
+    /// <summary>Các đợt thông báo đã gửi cho nhân viên (mới nhất trước), kèm số người đã đọc.</summary>
+    [HttpGet("sent")]
+    [Authorize(Policy = PolicyNames.AtLeastManager)]
+    [RequireModulePermission("Notification", ModulePermissionAction.Create)]
+    public async Task<ActionResult<AppResponse<object>>> GetSent([FromQuery] int page = 1, [FromQuery] int pageSize = 20)
+    {
+        var storeId = RequiredStoreId;
+        page = Math.Max(1, page);
+        pageSize = Math.Clamp(pageSize, 5, 50);
+        var groups = SentScope(storeId).GroupBy(n => n.BatchId);
+        var total = await groups.CountAsync();
+        var rows = await groups
+            .Select(g => new
+            {
+                BatchId = g.Key!.Value,
+                Title = g.Max(x => x.Title),
+                Body = g.Max(x => x.Message),
+                Cat = g.Max(x => x.CategoryCode),
+                Type = g.Max(x => (int)x.Type),
+                At = g.Min(x => x.Timestamp),
+                Total = g.Count(),
+                Read = g.Count(x => x.IsRead),
+                Sender = g.Max(x => x.FromUserId),
+            })
+            .OrderByDescending(g => g.At)
+            .Skip((page - 1) * pageSize).Take(pageSize)
+            .ToListAsync();
+        var senderIds = rows.Where(r => r.Sender.HasValue).Select(r => r.Sender!.Value).Distinct().ToList();
+        var names = await db.Users.AsNoTracking().Where(u => senderIds.Contains(u.Id))
+            .Select(u => new { u.Id, Name = (u.LastName + " " + u.FirstName).Trim() })
+            .ToDictionaryAsync(u => u.Id, u => u.Name);
+        var items = rows.Select(r => new SentBatchDto(
+            r.BatchId, r.Title ?? "", r.Body ?? "", r.Cat, r.Type, r.At, r.Total, r.Read,
+            r.Sender.HasValue ? names.GetValueOrDefault(r.Sender.Value) : null)).ToList();
+        return Ok(AppResponse<object>.Success(new { items, total, page, pageSize }));
+    }
+
+    /// <summary>Chi tiết một đợt: từng người đã đọc / chưa đọc.</summary>
+    [HttpGet("sent/{batchId:guid}")]
+    [Authorize(Policy = PolicyNames.AtLeastManager)]
+    [RequireModulePermission("Notification", ModulePermissionAction.Create)]
+    public async Task<ActionResult<AppResponse<object>>> GetSentDetail(Guid batchId)
+    {
+        var storeId = RequiredStoreId;
+        var rows = await SentScope(storeId).Where(n => n.BatchId == batchId)
+            .Select(n => new { n.TargetUserId, n.IsRead, n.ReadAt, n.Title, n.Message, n.CategoryCode, n.Timestamp, Type = (int)n.Type })
+            .ToListAsync();
+        if (rows.Count == 0) return Ok(AppResponse<object>.Fail("Không tìm thấy đợt thông báo"));
+        var userIds = rows.Where(r => r.TargetUserId.HasValue).Select(r => r.TargetUserId!.Value).Distinct().ToList();
+        var emps = await db.Employees.AsNoTracking()
+            .Where(e => e.StoreId == storeId && e.ApplicationUserId != null && userIds.Contains(e.ApplicationUserId.Value))
+            .Select(e => new { UserId = e.ApplicationUserId!.Value, Name = (e.LastName + " " + e.FirstName).Trim(), e.EmployeeCode, e.Department })
+            .ToListAsync();
+        var byUser = emps.GroupBy(e => e.UserId).ToDictionary(g => g.Key, g => g.First());
+        var recipients = rows.Where(r => r.TargetUserId.HasValue).Select(r =>
+        {
+            byUser.TryGetValue(r.TargetUserId!.Value, out var e);
+            return new SentRecipientDto(r.TargetUserId.Value, e?.Name ?? "(không rõ)", e?.EmployeeCode, e?.Department,
+                r.IsRead, r.ReadAt);
+        }).OrderBy(r => r.IsRead).ThenBy(r => r.Name).ToList();
+        var first = rows.OrderBy(r => r.Timestamp).First();
+        var recent = await db.Notifications.AsNoTracking().AnyAsync(n =>
+            n.StoreId == storeId && n.RelatedEntityType == "NotificationBatchRemind" && n.RelatedEntityId == batchId
+            && n.Timestamp > DateTime.UtcNow.AddHours(-2));
+        return Ok(AppResponse<object>.Success(new
+        {
+            batchId,
+            title = first.Title ?? "",
+            body = first.Message,
+            categoryCode = first.CategoryCode,
+            type = first.Type,
+            sentAt = first.Timestamp,
+            total = recipients.Count,
+            read = recipients.Count(r => r.IsRead),
+            canRemind = !recent && recipients.Any(r => !r.IsRead),
+            recipients,
+        }));
+    }
+
+    /// <summary>Nhắc lại những người chưa đọc (mỗi đợt tối đa 1 lần / 2 giờ).</summary>
+    [HttpPost("sent/{batchId:guid}/remind")]
+    [Authorize(Policy = PolicyNames.AtLeastManager)]
+    [RequireModulePermission("Notification", ModulePermissionAction.Create)]
+    public async Task<ActionResult<AppResponse<object>>> RemindUnread(Guid batchId)
+    {
+        var storeId = RequiredStoreId;
+        var rows = await SentScope(storeId).Where(n => n.BatchId == batchId)
+            .Select(n => new { n.TargetUserId, n.IsRead, n.Title, n.Message, n.CategoryCode, Type = n.Type })
+            .ToListAsync();
+        if (rows.Count == 0) return Ok(AppResponse<object>.Fail("Không tìm thấy đợt thông báo"));
+        var unread = rows.Where(r => !r.IsRead && r.TargetUserId.HasValue).Select(r => r.TargetUserId!.Value).Distinct().ToList();
+        if (unread.Count == 0) return Ok(AppResponse<object>.Fail("Mọi người đều đã đọc."));
+        var recent = await db.Notifications.AsNoTracking().AnyAsync(n =>
+            n.StoreId == storeId && n.RelatedEntityType == "NotificationBatchRemind" && n.RelatedEntityId == batchId
+            && n.Timestamp > DateTime.UtcNow.AddHours(-2));
+        if (recent) return Ok(AppResponse<object>.Fail("Đã nhắc trong 2 giờ qua — vui lòng đợi thêm."));
+        var first = rows[0];
+        await notifications.CreateAndSendToUsersAsync(
+            unread, first.Type, "Nhắc: " + (first.Title ?? ""), first.Message,
+            relatedEntityId: batchId, relatedEntityType: "NotificationBatchRemind",
+            fromUserId: CurrentUserId, categoryCode: first.CategoryCode, storeId: storeId);
+        return Ok(AppResponse<object>.Success(new { reminded = unread.Count }));
+    }
+
+
+    /// <summary>
+    /// Thu hồi một đợt: xóa thông báo của những người CHƯA đọc khỏi trung tâm thông báo của họ.
+    /// Người đã đọc giữ nguyên; thông báo đã hiện trên màn hình điện thoại không gỡ được.
+    /// </summary>
+    [HttpPost("sent/{batchId:guid}/recall")]
+    [Authorize(Policy = PolicyNames.AtLeastManager)]
+    [RequireModulePermission("Notification", ModulePermissionAction.Create)]
+    public async Task<ActionResult<AppResponse<object>>> RecallUnread(Guid batchId)
+    {
+        var storeId = RequiredStoreId;
+        var owns = await SentScope(storeId).AnyAsync(n => n.BatchId == batchId);
+        if (!owns) return Ok(AppResponse<object>.Fail("Không tìm thấy đợt thông báo"));
+        var removed = await db.Notifications
+            .Where(n => n.StoreId == storeId && n.BatchId == batchId && !n.IsRead)
+            .ExecuteDeleteAsync();
+        logger.LogInformation("Manager {UserId} recalled batch {Batch}: {Count} unread removed", CurrentUserId, batchId, removed);
+        return Ok(AppResponse<object>.Success(new { recalled = removed }));
+    }
+
+    public record ScheduledDto(Guid Id, string Title, DateTime SendAt, int Status, int RecipientCount, string? Error, DateTime? SentAt);
+
+    /// <summary>Thông báo hẹn giờ (chờ gửi + vài lần gần nhất đã xử lý).</summary>
+    [HttpGet("scheduled")]
+    [Authorize(Policy = PolicyNames.AtLeastManager)]
+    [RequireModulePermission("Notification", ModulePermissionAction.Create)]
+    public async Task<ActionResult<AppResponse<List<ScheduledDto>>>> GetScheduled()
+    {
+        var storeId = RequiredStoreId;
+        var q = db.StoreScheduledNotifications.AsNoTracking()
+            .Where(x => x.StoreId == storeId && (IsAdmin || x.CreatedByUserId == CurrentUserId));
+        var rows = await q.OrderBy(x => x.Status == 0 ? 0 : 1).ThenBy(x => x.Status == 0 ? x.SendAt : DateTime.MaxValue)
+            .ThenByDescending(x => x.SentAt ?? x.SendAt).Take(30)
+            .Select(x => new ScheduledDto(x.Id, x.Title ?? "", x.SendAt, x.Status, x.RecipientCount, x.Error, x.SentAt))
+            .ToListAsync();
+        return Ok(AppResponse<List<ScheduledDto>>.Success(rows));
+    }
+
+    [HttpDelete("scheduled/{id:guid}")]
+    [Authorize(Policy = PolicyNames.AtLeastManager)]
+    [RequireModulePermission("Notification", ModulePermissionAction.Create)]
+    public async Task<ActionResult<AppResponse<bool>>> CancelScheduled(Guid id)
+    {
+        var storeId = RequiredStoreId;
+        var n = await db.StoreScheduledNotifications
+            .Where(x => x.Id == id && x.StoreId == storeId && x.Status == ZKTecoADMS.Api.Services.StoreNotificationBroadcast.Pending
+                        && (IsAdmin || x.CreatedByUserId == CurrentUserId))
+            .ExecuteUpdateAsync(s => s.SetProperty(x => x.Status, ZKTecoADMS.Api.Services.StoreNotificationBroadcast.Cancelled));
+        return n == 0
+            ? Ok(AppResponse<bool>.Fail("Không hủy được (đã gửi hoặc không tìm thấy)."))
+            : Ok(AppResponse<bool>.Success(true));
     }
 
     private static bool HasPersonalVars(string s) =>

@@ -55,7 +55,7 @@ public class PosGymController(ZKTecoDbContext db, IMediator bus, IGymCheckInServ
             var raw = search.Trim();
             var s = VnSearch.FoldText(raw); // không dấu: «hoa» khớp «Hòa»
             q = q.Where(m => m.Pin.Contains(raw)
-                || (m.Customer != null && (VnSearch.Fold(m.Customer.Name).Contains(s)
+                || (m.Customer != null && (VnSearch.Has(m.Customer.Name, s)
                     || (m.Customer.Phone != null && m.Customer.Phone.Contains(raw)))));
         }
         var rows = await q

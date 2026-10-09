@@ -33,7 +33,7 @@ public sealed class BranchStockInterceptor(IBranchContext branchContext) : SaveC
         return await base.SavingChangesAsync(eventData, result, cancellationToken);
     }
 
-    private sealed record StoreBranches(Guid? Hq, HashSet<Guid> Ids);
+    private sealed record StoreBranches(Guid? Hq, HashSet<Guid> Ids, HashSet<Guid> Inactive);
 
     private async Task ProcessAsync(ZKTecoDbContext db, CancellationToken ct)
     {
@@ -56,7 +56,10 @@ public sealed class BranchStockInterceptor(IBranchContext branchContext) : SaveC
         {
             if (cache.TryGetValue(storeId, out var sb)) return sb;
             var list = await BranchStockService.GetStoreBranchesAsync(db, storeId, ct);
-            sb = new StoreBranches(BranchStockService.ResolveHeadquarter(list), list.Select(b => b.Id).ToHashSet());
+            sb = new StoreBranches(
+                BranchStockService.ResolveHeadquarter(list),
+                list.Select(b => b.Id).ToHashSet(),
+                list.Where(b => !b.IsActive).Select(b => b.Id).ToHashSet());
             cache[storeId] = sb;
             return sb;
         }
@@ -67,6 +70,9 @@ public sealed class BranchStockInterceptor(IBranchContext branchContext) : SaveC
             var sb = await BranchesOf(sid);
             if (sb.Hq == null) return null; // cửa hàng chưa dùng chi nhánh
             var cur = branchContext.CurrentBranchId;
+            // Chi nhánh tạm ngưng chỉ để xem — không tạo chứng từ mới ở đó.
+            if (cur.HasValue && sb.Inactive.Contains(cur.Value))
+                throw new ForbiddenException("Chi nhánh đang tạm ngưng hoạt động — chọn chi nhánh khác để thao tác.");
             return cur.HasValue && sb.Ids.Contains(cur.Value) ? cur : sb.Hq;
         }
 

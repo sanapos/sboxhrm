@@ -32,6 +32,9 @@ public static class DependencyInjectionExtensions
         services.AddControllers(o =>
             {
                 o.Filters.Add<Controllers.Filters.AgentApiScopeFilter>();
+                o.Filters.Add<Controllers.Filters.PagingGuardFilter>();
+                // Hàng hóa / tồn / giá đổi → báo các máy bán đồng bộ danh mục ngay.
+                o.Filters.Add<Controllers.Filters.PosCatalogChangedFilter>();
                 // Lịch sử thao tác của cửa hàng (ai thêm / sửa / xóa gì, lúc nào).
                 o.Filters.Add<Controllers.Filters.ActivityAuditFilter>();
             })
@@ -99,6 +102,8 @@ public static class DependencyInjectionExtensions
                         options.Configuration.AbortOnConnectFail = false;
                     });
                     Console.WriteLine("✅ SignalR: Redis backplane connected at {0}", redisHost);
+                    // Màn hình khách dùng chung trạng thái qua Redis khi chạy nhiều instance.
+                    Services.PosCustomerDisplayStateStore.UseDistributed = true;
                 }
                 else
                 {
@@ -259,6 +264,10 @@ public static class DependencyInjectionExtensions
         services.AddHostedService<MaintenanceNotifierBackgroundService>();
         services.AddHostedService<BirthdayNotifierBackgroundService>();
         services.AddHostedService<PosStockAlertBackgroundService>();
+        services.AddHostedService<PosQrMaintenanceBackgroundService>();
+        services.AddHostedService<PosPrintJobCleanupBackgroundService>();
+        services.AddHostedService<PosPrintJobSweepBackgroundService>();
+        services.AddHostedService<StoreNotificationScheduleBackgroundService>();
         services.AddSingleton<ServerMetricsState>();
         services.AddSingleton<ServerOpsService>();
         services.AddHostedService<ServerMetricsBackgroundService>();

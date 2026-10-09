@@ -163,7 +163,7 @@ public class ShiftHubController(ZKTecoDbContext db, IMediator mediator, IDataSco
         if (!string.IsNullOrWhiteSpace(search))
         {
             var k = VnSearch.FoldText(search);
-            empQ = empQ.Where(e => VnSearch.Fold(e.LastName + " " + e.FirstName).Contains(k) || VnSearch.Fold(e.EmployeeCode).Contains(k));
+            empQ = empQ.Where(e => VnSearch.Has(e.LastName + " " + e.FirstName, k) || VnSearch.Has(e.EmployeeCode, k));
         }
         var emps = await empQ.OrderBy(e => e.Department).ThenBy(e => e.FirstName)
             .Select(e => new { e.Id, e.ApplicationUserId, Name = (e.LastName + " " + e.FirstName).Trim(), e.EmployeeCode, e.Department, e.Position, e.PhotoUrl })
@@ -203,7 +203,13 @@ public class ShiftHubController(ZKTecoDbContext db, IMediator mediator, IDataSco
             int shifts = 0, offs = 0;
             foreach (var d in days)
             {
-                var ws = schedules.FirstOrDefault(s => s.EmployeeUserId == e.Id && s.Date.Date == d);
+                // Một ngày có thể nhiều ca: ca làm đứng trước ngày nghỉ, ô hiển thị ca đầu + «+N ca»; tổng giờ tính đủ mọi ca.
+                var dayRows = schedules.Where(s => s.EmployeeUserId == e.Id && s.Date.Date == d)
+                    .OrderBy(s => s.IsDayOff)
+                    .ThenBy(s => s.StartTime ?? (s.ShiftId.HasValue && tplMap.ContainsKey(s.ShiftId.Value) ? tplMap[s.ShiftId.Value].Start : TimeSpan.Zero))
+                    .ToList();
+                var ws = dayRows.FirstOrDefault();
+                var moreShifts = dayRows.Count(s => !s.IsDayOff) - (ws is { IsDayOff: false } ? 1 : 0);
                 var reg = regs.Where(r => r.EmployeeUserId == e.Id && r.Date.Date == d).OrderByDescending(r => r.CreatedAt).FirstOrDefault();
                 var lv = e.ApplicationUserId.HasValue
                     ? leaves.Where(l => l.EmployeeUserId == e.ApplicationUserId.Value
@@ -215,14 +221,14 @@ public class ShiftHubController(ZKTecoDbContext db, IMediator mediator, IDataSco
                     (s.TargetUserId == e.ApplicationUserId && s.TargetDate.Date == d));
                 if (ws == null && reg == null && lv == null && !swap) continue;
 
-                if (ws != null)
+                foreach (var row in dayRows)
                 {
-                    if (ws.IsDayOff) offs++;
-                    else if (ws.ShiftId.HasValue && tplMap.TryGetValue(ws.ShiftId.Value, out var tp))
+                    if (row.IsDayOff) offs++;
+                    else if (row.ShiftId.HasValue && tplMap.TryGetValue(row.ShiftId.Value, out var tp))
                     {
                         shifts++;
                         if (lv == null || lv.Status != LeaveStatus.Approved)
-                            hours += ShiftCoverageRules.ShiftHours(ws.StartTime ?? tp.Start, ws.EndTime ?? tp.End, tp.Break);
+                            hours += ShiftCoverageRules.ShiftHours(row.StartTime ?? tp.Start, row.EndTime ?? tp.End, tp.Break);
                     }
                 }
                 cells[Key(d)] = new
@@ -233,6 +239,8 @@ public class ShiftHubController(ZKTecoDbContext db, IMediator mediator, IDataSco
                     start = ws?.StartTime?.ToString(@"hh\:mm"),
                     end = ws?.EndTime?.ToString(@"hh\:mm"),
                     note = ws?.Note,
+                    moreShifts,
+                    items = dayRows.Select(r => new { scheduleId = r.Id, shiftId = r.ShiftId, isDayOff = r.IsDayOff }),
                     registration = reg == null ? null : new { id = reg.Id, shiftId = reg.ShiftId, isDayOff = reg.IsDayOff, note = reg.Note },
                     leave = lv == null ? null : new { id = lv.Id, status = lv.Status.ToString(), type = lv.Type.ToString(), halfShift = lv.IsHalfShift },
                     swapPending = swap,
@@ -350,12 +358,17 @@ public class ShiftHubController(ZKTecoDbContext db, IMediator mediator, IDataSco
         double hours = 0;
         var days = Enumerable.Range(0, (t - f).Days + 1).Select(i => f.AddDays(i)).Select(d =>
         {
-            var ws = schedules.FirstOrDefault(s => s.Date.Date == d);
+            var dayRows = schedules.Where(s => s.Date.Date == d)
+                .OrderBy(s => s.IsDayOff)
+                .ThenBy(s => s.StartTime ?? (s.ShiftId.HasValue && tplMap.ContainsKey(s.ShiftId.Value) ? tplMap[s.ShiftId.Value].Start : TimeSpan.Zero))
+                .ToList();
+            var ws = dayRows.FirstOrDefault();
             var reg = regs.FirstOrDefault(r => r.Date.Date == d);
             var lv = leaves.Where(l => ShiftCoverageRules.LeaveCovers(l.StartDate, l.EndDate, l.ShiftIds, d, ws?.ShiftId)).ToList();
-            if (ws is { IsDayOff: false, ShiftId: not null } && tplMap.TryGetValue(ws.ShiftId.Value, out var tp)
-                && !lv.Any(l => l.Status == LeaveStatus.Approved))
-                hours += ShiftCoverageRules.ShiftHours(ws.StartTime ?? tp.Start, ws.EndTime ?? tp.End, tp.Break);
+            if (!lv.Any(l => l.Status == LeaveStatus.Approved))
+                foreach (var row in dayRows.Where(r => !r.IsDayOff && r.ShiftId.HasValue))
+                    if (tplMap.TryGetValue(row.ShiftId!.Value, out var tp))
+                        hours += ShiftCoverageRules.ShiftHours(row.StartTime ?? tp.Start, row.EndTime ?? tp.End, tp.Break);
             return new
             {
                 date = Key(d),
@@ -370,6 +383,16 @@ public class ShiftHubController(ZKTecoDbContext db, IMediator mediator, IDataSco
                     end = (ws.EndTime ?? (ws.ShiftId.HasValue && tplMap.ContainsKey(ws.ShiftId.Value) ? tplMap[ws.ShiftId.Value].End : null))?.ToString(@"hh\:mm"),
                     note = ws.Note,
                 },
+                // Mọi ca trong ngày (ca đầu cũng nằm trong `schedule` để tương thích bản cũ).
+                schedules = dayRows.Select(r => new
+                {
+                    id = r.Id,
+                    shiftId = r.ShiftId,
+                    isDayOff = r.IsDayOff,
+                    start = (r.StartTime ?? (r.ShiftId.HasValue && tplMap.ContainsKey(r.ShiftId.Value) ? tplMap[r.ShiftId.Value].Start : null))?.ToString(@"hh\:mm"),
+                    end = (r.EndTime ?? (r.ShiftId.HasValue && tplMap.ContainsKey(r.ShiftId.Value) ? tplMap[r.ShiftId.Value].End : null))?.ToString(@"hh\:mm"),
+                    note = r.Note,
+                }),
                 registration = reg == null ? null : new
                 {
                     id = reg.Id, shiftId = reg.ShiftId, isDayOff = reg.IsDayOff,
@@ -457,7 +480,8 @@ public class ShiftHubController(ZKTecoDbContext db, IMediator mediator, IDataSco
         var storeId = RequiredStoreId;
         var uid = CurrentUserId;
         var swapsForMe = await db.ShiftSwapRequests.CountAsync(s => s.StoreId == storeId && s.Deleted == null
-            && s.TargetUserId == uid && s.Status == ShiftSwapStatus.Pending, ct);
+            && s.TargetUserId == uid && s.Status == ShiftSwapStatus.Pending
+            && s.RequesterDate >= VnToday && s.TargetDate >= VnToday, ct);
         if (!IsManager)
             return Ok(AppResponse<object>.Success(new { swapsForMe, registrations = 0, leaves = 0, swaps = 0, shifts = 0, total = swapsForMe }));
 
@@ -465,7 +489,8 @@ public class ShiftHubController(ZKTecoDbContext db, IMediator mediator, IDataSco
         var registrations = await db.ScheduleRegistrations.CountAsync(r => r.StoreId == storeId && r.Deleted == null
             && r.Status == ScheduleRegistrationStatus.Pending && r.Date >= today.AddDays(-7), ct);
         var swaps = await db.ShiftSwapRequests.CountAsync(s => s.StoreId == storeId && s.Deleted == null
-            && s.Status == ShiftSwapStatus.TargetAccepted, ct);
+            && s.Status == ShiftSwapStatus.TargetAccepted
+            && s.RequesterDate >= today && s.TargetDate >= today, ct);
         var shifts = await db.Shifts.CountAsync(s => s.StoreId == storeId && s.Status == ShiftStatus.Pending, ct);
         var leaves = 0;
         try

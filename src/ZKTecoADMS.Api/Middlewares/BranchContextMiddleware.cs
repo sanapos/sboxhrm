@@ -27,7 +27,8 @@ public sealed class BranchContextMiddleware(RequestDelegate next)
     };
 
     public async Task InvokeAsync(
-        HttpContext http, IBranchContext branchContext, ZKTecoDbContext db, IDataScopeService dataScope, IMemoryCache cache)
+        HttpContext http, IBranchContext branchContext, ZKTecoDbContext db, IDataScopeService dataScope, IMemoryCache cache,
+        ILogger<BranchContextMiddleware> logger)
     {
         try
         {
@@ -37,9 +38,22 @@ public sealed class BranchContextMiddleware(RequestDelegate next)
                 await FillAsync(http, branchContext, db, dataScope, cache, storeId);
             }
         }
-        catch
+        catch (Exception ex)
         {
-            // Không để lỗi phân quyền chi nhánh chặn request — ngữ cảnh trống = hành vi cũ (toàn cửa hàng).
+            logger.LogError(ex, "Không xác định được phạm vi chi nhánh của {Path}", http.Request.Path);
+            // Vai trò xem tất cả chi nhánh: cho đi tiếp như cũ. Người bị giới hạn chi nhánh: KHÔNG mở toàn quyền
+            // (ngữ cảnh trống = thấy cả cửa hàng và tắt kiểm tra ghi) → từ chối, người dùng thử lại.
+            var role = http.User.FindFirst(ClaimTypes.Role)?.Value ?? "";
+            if (http.User.Identity?.IsAuthenticated == true && !AllBranchRoles.Contains(role))
+            {
+                http.Response.StatusCode = StatusCodes.Status503ServiceUnavailable;
+                await http.Response.WriteAsJsonAsync(new
+                {
+                    isSuccess = false,
+                    errors = new[] { "Chưa xác định được phạm vi chi nhánh của tài khoản. Vui lòng thử lại sau ít giây." },
+                });
+                return;
+            }
         }
         await next(http);
     }

@@ -9,6 +9,21 @@ internal readonly record struct LotAllocation(Guid? LotId, decimal Qty, decimal 
 
 internal static class PosStockLotHelper
 {
+    private static readonly System.Collections.Concurrent.ConcurrentDictionary<Guid, (Guid? Hq, DateTime At)> HqCache = new();
+
+    /// <summary>Trụ sở của cửa hàng (null nếu chưa dùng chi nhánh) — lô chưa gắn chi nhánh tính là của trụ sở.</summary>
+    public static async Task<Guid?> ResolveHqAsync(ZKTecoDbContext db, Guid storeId)
+    {
+        if (HqCache.TryGetValue(storeId, out var c) && DateTime.UtcNow - c.At < TimeSpan.FromSeconds(60)) return c.Hq;
+        var list = await ZKTecoADMS.Infrastructure.Services.BranchStockService.GetStoreBranchesAsync(db, storeId);
+        var hq = ZKTecoADMS.Infrastructure.Services.BranchStockService.ResolveHeadquarter(list);
+        HqCache[storeId] = (hq, DateTime.UtcNow);
+        return hq;
+    }
+
+    private static bool InBranch(Guid? lotBranch, Guid branch, Guid? hq) =>
+        lotBranch == branch || (lotBranch == null && branch == hq);
+
     public static bool ShouldTrackLot(PosProduct product, PosStockReceiptLine line) =>
         product.TrackExpiry ||
         line.ExpiryDate.HasValue ||
@@ -44,7 +59,9 @@ internal static class PosStockLotHelper
         PosProduct product,
         string? updatedBy,
         bool allowShortfall = false,
-        bool skipExpired = false)
+        bool skipExpired = false,
+        Guid? branchId = null,
+        bool strictBranch = false)
     {
         // allowShortfall: bán âm kho / kiểm kê — phần thiếu lô ghi «không lô» (giá vốn hiện tại)
         // thay vì chặn giao dịch (trước đây bán âm hàng có HSD bị lỗi hệ thống).
@@ -69,8 +86,19 @@ internal static class PosStockLotHelper
                         (variantId.HasValue ? l.VariantId == variantId : l.VariantId == null))
             .OrderBy(l => l.ExpiryDate ?? DateTime.MaxValue)
             .ThenBy(l => l.CreatedAt)
-            .Select(l => new { l.Id, l.QtyOnHand, l.UnitCost })
+            .Select(l => new { l.Id, l.QtyOnHand, l.UnitCost, l.BranchId })
             .ToListAsync();
+
+        // Ưu tiên lô của chính chi nhánh đang xuất (đúng hạn gần nhất trước); hết lô chi nhánh mới lấy lô nơi khác
+        // (dữ liệu cũ chưa chia lô theo chi nhánh) — trừ khi strictBranch (chuyển kho: chỉ lấy lô ở kho đi).
+        if (branchId.HasValue)
+        {
+            var hq = await ResolveHqAsync(db, storeId);
+            var own = lotSnapshots.Where(l => InBranch(l.BranchId, branchId.Value, hq)).ToList();
+            lotSnapshots = strictBranch
+                ? own
+                : own.Concat(lotSnapshots.Where(l => !InBranch(l.BranchId, branchId.Value, hq))).ToList();
+        }
 
         var planned = new List<(Guid LotId, decimal Take, decimal UnitCost)>();
         var remaining = qtyNeeded;
@@ -269,9 +297,87 @@ WHERE ""Id"" = {lotId}
             Status = PosStockLotStatus.Active,
             StockReceiptId = receipt.Id,
             StockReceiptLineId = line.Id,
+            BranchId = receipt.BranchId,
             IsActive = true,
             CreatedBy = createdBy,
         };
+    }
+
+    public sealed record TransferLotPart(Guid LotId, decimal Qty);
+
+    /// <summary>
+    /// Gửi chuyển kho: lấy lô ở kho đi theo FEFO (chỉ lô của kho đi), ghi lại để nhận kho tạo lô tương ứng.
+    /// Phần không có lô (hàng cũ chưa chia lô) bỏ qua. Ném InvalidOperationException khi tồn lô vừa đổi.
+    /// </summary>
+    public static async Task SendTransferLotsAsync(ZKTecoDbContext db, PosStockTransfer t, string? by)
+    {
+        var ids = t.Lines.Select(l => l.ProductId).Distinct().ToList();
+        var products = await db.PosProducts.AsNoTracking()
+            .Where(p => ids.Contains(p.Id)).ToDictionaryAsync(p => p.Id);
+        foreach (var line in t.Lines)
+        {
+            if (!products.TryGetValue(line.ProductId, out var p)) continue;
+            var (allocs, err) = await AllocateFefoAsync(
+                db, t.StoreId, line.ProductId, line.VariantId, line.Qty, p, by,
+                allowShortfall: true, branchId: t.FromBranchId, strictBranch: true);
+            if (err != null) throw new InvalidOperationException(err);
+            var parts = allocs!.Where(a => a.LotId.HasValue).Select(a => new TransferLotPart(a.LotId!.Value, a.Qty)).ToList();
+            line.LotAllocJson = parts.Count == 0 ? null : System.Text.Json.JsonSerializer.Serialize(parts);
+        }
+    }
+
+    private static List<TransferLotPart> ParseParts(string? json)
+    {
+        if (string.IsNullOrWhiteSpace(json)) return [];
+        try { return System.Text.Json.JsonSerializer.Deserialize<List<TransferLotPart>>(json) ?? []; }
+        catch { return []; }
+    }
+
+    /// <summary>Nhận chuyển kho: tạo lô tương ứng ở chi nhánh nhận cho phần nhận đủ; phần thiếu hoàn về lô kho đi.</summary>
+    public static async Task ReceiveTransferLotsAsync(ZKTecoDbContext db, PosStockTransfer t, string? by)
+    {
+        foreach (var line in t.Lines)
+        {
+            var parts = ParseParts(line.LotAllocJson);
+            if (parts.Count == 0) continue;
+            var remaining = line.ReceivedQty ?? line.Qty;
+            foreach (var part in parts)
+            {
+                var take = Math.Min(part.Qty, Math.Max(0, remaining));
+                remaining -= take;
+                var back = part.Qty - take;
+                if (take > 0)
+                {
+                    var src = await db.PosStockLots.AsNoTracking().FirstOrDefaultAsync(l => l.Id == part.LotId);
+                    if (src != null)
+                        db.PosStockLots.Add(new PosStockLot
+                        {
+                            Id = Guid.NewGuid(),
+                            StoreId = t.StoreId,
+                            BranchId = t.ToBranchId,
+                            ProductId = src.ProductId,
+                            VariantId = src.VariantId,
+                            LotNo = src.LotNo,
+                            ManufactureDate = src.ManufactureDate,
+                            ExpiryDate = src.ExpiryDate,
+                            QtyOnHand = take,
+                            UnitCost = src.UnitCost,
+                            Status = PosStockLotStatus.Active,
+                            IsActive = true,
+                            CreatedBy = by,
+                        });
+                }
+                if (back > 0) await RestoreLotQtyAsync(db, t.StoreId, part.LotId, back, by);
+            }
+        }
+    }
+
+    /// <summary>Hủy chuyển kho đang gửi: trả toàn bộ lô về kho đi.</summary>
+    public static async Task CancelTransferLotsAsync(ZKTecoDbContext db, PosStockTransfer t, string? by)
+    {
+        foreach (var line in t.Lines)
+            foreach (var part in ParseParts(line.LotAllocJson))
+                await RestoreLotQtyAsync(db, t.StoreId, part.LotId, part.Qty, by);
     }
 
     /// <summary>Lô điều chỉnh khi kiểm kê thừa (không gắn phiếu nhập).</summary>
@@ -282,12 +388,14 @@ WHERE ""Id"" = {lotId}
         decimal qtyOnHand,
         decimal unitCost,
         string countNo,
-        string? createdBy)
+        string? createdBy,
+        Guid? branchId = null)
     {
         return new PosStockLot
         {
             Id = Guid.NewGuid(),
             StoreId = storeId,
+            BranchId = branchId,
             ProductId = productId,
             VariantId = variantId,
             LotNo = $"KK-{countNo}",

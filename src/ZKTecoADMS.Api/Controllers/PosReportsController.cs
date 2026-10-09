@@ -1640,7 +1640,12 @@ public partial class PosReportsController(
             defTo = biz;
             defFrom = biz.AddDays(-Math.Max(0, days));
         }
-        return ReportHelpers.PosBusinessRange(from, to, dayStartHour, defFrom, defTo);
+        var r = ReportHelpers.PosBusinessRange(from, to, dayStartHour, defFrom, defTo);
+        // Chặn khoảng thời gian quá dài (vd. từ năm 2000): mọi báo cáo POS đều gom dữ liệu trong khoảng này.
+        const int maxDays = 1100;
+        if ((r.toUtcExclusive - r.fromUtc).TotalDays > maxDays)
+            r = (r.toUtcExclusive.AddDays(-maxDays), r.toUtcExclusive, r.toVnExclusive.AddDays(-maxDays), r.toVnExclusive);
+        return r;
     }
 
     /// <summary>

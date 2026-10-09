@@ -116,6 +116,17 @@ public static class PosQuoteDocumentHtml
 
     static string ProductLabel(string name, string? note) => name;
 
+    static string SerialList(PosQuoteLine l) =>
+        string.Join(", ", (l.SerialNumbersText ?? "").Split(['\r', '\n', ';', ','], StringSplitOptions.RemoveEmptyEntries)
+            .Select(x => x.Trim()).Where(x => x.Length > 0));
+
+    /// <summary>Seri máy giao (chỉ có sau khi chọn ở bàn giao / nghiệm thu) nối vào tên hàng trên chứng từ.</summary>
+    static string SerialSuffix(PosQuoteLine l)
+    {
+        var sn = SerialList(l);
+        return sn.Length == 0 ? "" : " — Seri: " + System.Net.WebUtility.HtmlEncode(sn);
+    }
+
     static string StampHtml(string? raw)
     {
         if (string.IsNullOrWhiteSpace(raw)) return "";
@@ -152,7 +163,8 @@ public static class PosQuoteDocumentHtml
             {
                 ["STT"] = (i++).ToString(),
                 ["Ma_Hang"] = l.ProductCode ?? "",
-                ["Ten_Hang_Hoa"] = ProductLabel(l.ProductName, l.LineNote),
+                ["Ten_Hang_Hoa"] = ProductLabel(l.ProductName, l.LineNote) + SerialSuffix(l),
+                ["Seri"] = SerialList(l),
                 ["Don_Vi_Tinh"] = l.UnitName ?? "",
                 ["So_Luong"] = l.Qty.ToString("0.##", vn),
                 ["Don_Gia"] = l.UnitPrice.ToString("#,##0", vn),
@@ -534,7 +546,8 @@ public static class PosQuoteDocumentHtml
             {
                 ["STT"] = (i++).ToString(),
                 ["Ma_Hang"] = l.ProductCode ?? "",
-                ["Ten_Hang_Hoa"] = ProductLabel(l.ProductName, l.LineNote),
+                ["Ten_Hang_Hoa"] = ProductLabel(l.ProductName, l.LineNote) + SerialSuffix(l),
+                ["Seri"] = SerialList(l),
                 ["Don_Vi_Tinh"] = l.UnitName ?? "",
                 ["So_Luong"] = l.Qty.ToString("0.##", vn),
                 ["Don_Gia"] = l.UnitPrice.ToString("#,##0", vn),

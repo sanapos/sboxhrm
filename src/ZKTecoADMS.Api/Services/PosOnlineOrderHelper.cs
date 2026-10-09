@@ -161,9 +161,13 @@ public static class PosOnlineOrderHelper
                 return (false, stockErr);
             }
 
-            await PosSaleStockHelper.ApplySaleStockAsync(
-                db, storeId, order, order.Lines.Where(l => l.Deleted == null).ToList(),
-                plan!, userEmail);
+            var doneLines = order.Lines.Where(l => l.Deleted == null).ToList();
+            await PosSaleStockHelper.ApplySaleStockAsync(db, storeId, order, doneLines, plan!, userEmail);
+            // Hàng có bảo hành (không bắt buộc seri) cũng phải có phiếu bảo hành như bán tại quầy.
+            await PosSaleWarrantyHelper.RegisterOnSaleAsync(
+                db, storeId, order, doneLines,
+                doneLines.Select(l => new PosSalesController.SaleLineDto(l.ProductId, l.Qty, l.UnitId, null, l.VariantId)).ToList(),
+                plan!.Products, userEmail ?? "system");
             await PosSaleStockHelper.UpdateCustomerOnSaleCompleteAsync(db, storeId, order);
             if (closeTableSession)
                 await CloseOpenTableSessionAsync(db, storeId, order, userEmail, ct);

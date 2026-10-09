@@ -257,6 +257,8 @@ public class PosStockController(ZKTecoDbContext dbContext) : AuthenticatedContro
         PosStockTransactionType.Sale => "Bán hàng",
         PosStockTransactionType.Purchase => "Mua hàng",
         PosStockTransactionType.Return => "Trả hàng",
+        PosStockTransactionType.TransferOut => "Chuyển kho đi",
+        PosStockTransactionType.TransferIn => "Chuyển kho đến",
         _ => type.ToString()
     };
 
@@ -289,6 +291,16 @@ public class PosStockController(ZKTecoDbContext dbContext) : AuthenticatedContro
         if (product == null)
 
             return NotFound(AppResponse<StockTransactionDto>.Fail("Không tìm thấy hàng hóa"));
+
+        // Hàng theo dõi lô/HSD hoặc seri: chỉnh tay làm tồn lệch sổ lô / sổ seri → bắt dùng chứng từ.
+        if (product.TrackExpiry)
+            return BadRequest(AppResponse<StockTransactionDto>.Fail(
+                $"«{product.Name}» theo dõi hạn dùng — chỉnh tồn bằng Nhập hàng / Kiểm kê / Xuất hủy để các lô khớp tồn"));
+        if (product.RequiresSerial && await PosSerialRegistry.IsTrackedAsync(dbContext, storeId, product.Id))
+            return BadRequest(AppResponse<StockTransactionDto>.Fail(
+                $"«{product.Name}» quản lý theo seri — dùng Nhập hàng / Kiểm kho theo mã / Xuất hủy để sổ seri khớp tồn"));
+        if (string.IsNullOrWhiteSpace(dto.Note))
+            return BadRequest(AppResponse<StockTransactionDto>.Fail("Nhập lý do điều chỉnh tồn"));
 
         // Cửa hàng có chi nhánh: xuất / giảm không vượt tồn của chi nhánh đang thao tác.
         var bctx = HttpContext.BranchContext();

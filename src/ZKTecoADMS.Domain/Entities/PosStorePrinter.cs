@@ -56,6 +56,12 @@ public class PosStorePrinter : AuditableEntity<Guid>
     /// <summary>Gửi lệnh bip loa máy in khi in.</summary>
     public bool BeepOnPrint { get; set; }
 
+    /// <summary>Chân xung mở két ESC p: 0 = chân 2 (phổ biến), 1 = chân 5.</summary>
+    public int CashDrawerPin { get; set; }
+
+    /// <summary>Phiếu tổng: nhận thêm bản sao mọi món báo bếp (ngoài máy đã gán món).</summary>
+    public bool KitchenCopyAll { get; set; }
+
     /// <summary>Máy in mặc định cửa hàng khi không có route.</summary>
     public bool IsDefault { get; set; }
 

@@ -11,6 +11,7 @@ public class CreateShiftSwapHandler(
     IRepository<ShiftTemplate> shiftTemplateRepository,
     IRepository<WorkSchedule> workScheduleRepository,
     IRepository<Employee> employeeRepository,
+    IRepository<ShiftStaffingQuota> quotaRepository,
     UserManager<ApplicationUser> userManager,
     ISystemNotificationService notificationService
 ) : ICommandHandler<CreateShiftSwapCommand, AppResponse<ShiftSwapRequestDto>>
@@ -70,6 +71,13 @@ public class CreateShiftSwapHandler(
             if (targetSchedule == null)
                 return AppResponse<ShiftSwapRequestDto>.Error(
                     $"Đồng nghiệp chưa được xếp ca {FormatShiftName(targetShift)} ngày {request.TargetDate:dd/MM/yyyy}");
+
+            var quotaError = await ScheduleStaffingQuotaHelper.GetSwapQuotaMessageAsync(
+                quotaRepository, workScheduleRepository, requesterEmployee, targetEmployee,
+                request.RequesterDate, request.RequesterShiftId,
+                request.TargetDate, request.TargetShiftId, request.StoreId, cancellationToken);
+            if (quotaError != null)
+                return AppResponse<ShiftSwapRequestDto>.Error(quotaError);
 
             var reqDay = request.RequesterDate.Date;
             var tgtDay = request.TargetDate.Date;

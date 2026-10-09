@@ -120,6 +120,10 @@ public enum PosStockTransactionType
     Purchase = 4,
     Return = 5,
     PurchaseReturn = 6,
+    /// <summary>Chuyển kho — hàng rời chi nhánh gửi (đang trên đường).</summary>
+    TransferOut = 7,
+    /// <summary>Chuyển kho — hàng vào chi nhánh nhận (hoặc quay về kho đi khi nhận thiếu / hủy).</summary>
+    TransferIn = 8,
 }
 
 /// <summary>Trạng thái đơn bán POS.</summary>

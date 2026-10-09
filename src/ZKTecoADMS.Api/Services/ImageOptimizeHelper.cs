@@ -11,7 +11,8 @@ namespace ZKTecoADMS.Api.Services;
 public static class ImageOptimizeHelper
 {
     public const int ProductMaxEdge = 1200;
-    public const int ProductJpegQuality = 75;
+    /// <summary>82: ảnh món hiển thị ô lớn trên màn POS/khách — 75 lộ vệt nén.</summary>
+    public const int ProductJpegQuality = 82;
 
     /// <summary>Ảnh catalog mẫu Super Admin — đủ nét khi hiển thị lưới POS / thẻ món.</summary>
     public const int SampleCatalogMaxEdge = 1920;
@@ -31,19 +32,21 @@ public static class ImageOptimizeHelper
         string? originalFileName,
         int maxEdge = ProductMaxEdge,
         int jpegQuality = ProductJpegQuality,
-        CancellationToken ct = default)
+        CancellationToken ct = default,
+        bool keepFittingJpeg = false)
     {
         await using var buffer = new MemoryStream();
         await input.CopyToAsync(buffer, ct);
         var bytes = buffer.ToArray();
-        return Optimize(bytes, originalFileName, maxEdge, jpegQuality);
+        return Optimize(bytes, originalFileName, maxEdge, jpegQuality, keepFittingJpeg);
     }
 
     public static (MemoryStream Stream, string FileName, bool Optimized) Optimize(
         byte[] bytes,
         string? originalFileName,
         int maxEdge = ProductMaxEdge,
-        int jpegQuality = ProductJpegQuality)
+        int jpegQuality = ProductJpegQuality,
+        bool keepFittingJpeg = false)
     {
         var safeName = string.IsNullOrWhiteSpace(originalFileName) ? "image.jpg" : originalFileName.Trim();
         var ext = Path.GetExtension(safeName).ToLowerInvariant();
@@ -62,6 +65,16 @@ public static class ImageOptimizeHelper
             var w = image.Width;
             var h = image.Height;
             if (w <= 0 || h <= 0)
+            {
+                var passthrough = new MemoryStream(bytes);
+                passthrough.Position = 0;
+                return (passthrough, safeName, false);
+            }
+
+            // Ảnh sản phẩm: JPEG đã đủ nhỏ (app đã nén trước khi tải lên) → giữ nguyên, không nén
+            // lần 2 làm mờ ảnh. Ảnh chấm công / phản hồi… vẫn nén lại để tiết kiệm dung lượng.
+            var isJpeg = bytes.Length > 3 && bytes[0] == 0xFF && bytes[1] == 0xD8 && bytes[2] == 0xFF;
+            if (keepFittingJpeg && isJpeg && w <= maxEdge && h <= maxEdge)
             {
                 var passthrough = new MemoryStream(bytes);
                 passthrough.Position = 0;

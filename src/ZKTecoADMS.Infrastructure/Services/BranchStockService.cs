@@ -1,5 +1,6 @@
 using Microsoft.EntityFrameworkCore;
 using ZKTecoADMS.Domain.Entities;
+using ZKTecoADMS.Domain.Enums;
 
 namespace ZKTecoADMS.Infrastructure.Services;
 
@@ -193,6 +194,16 @@ public static class BranchStockService
             .Where(s => s.StoreId == storeId && s.BranchId == branchId)
             .ToListAsync(ct);
         db.PosBranchStocks.RemoveRange(rows);
+
+        // Máy (seri) đang ở chi nhánh này cũng về trụ sở — nếu không sẽ không còn nơi nào nhìn thấy chúng.
+        var serials = await db.PosProductSerials.AsTracking()
+            .Where(x => x.StoreId == storeId && x.BranchId == branchId && x.Deleted == null)
+            .ToListAsync(ct);
+        foreach (var x in serials) x.BranchId = null;
+        var counts = await db.PosSerialCounts.AsTracking()
+            .Where(x => x.StoreId == storeId && x.BranchId == branchId && x.Status == PosSerialCountStatus.InProgress)
+            .ToListAsync(ct);
+        foreach (var c in counts) c.BranchId = null;
     }
 
     /// <summary>Chứng từ chưa gắn chi nhánh của cửa hàng → gán về trụ sở (khi vừa tạo chi nhánh đầu tiên / đổi trụ sở).</summary>

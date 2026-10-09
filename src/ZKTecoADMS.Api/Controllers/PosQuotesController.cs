@@ -137,8 +137,8 @@ public partial class PosQuotesController(
         {
             var s = VnSearch.FoldText(search); // không dấu: «binh» khớp «Bình»
             q = q.Where(x =>
-                VnSearch.Fold(x.QuoteNo).Contains(s) ||
-                (x.CustomerName != null && VnSearch.Fold(x.CustomerName).Contains(s)) ||
+                VnSearch.Has(x.QuoteNo, s) ||
+                (x.CustomerName != null && VnSearch.Has(x.CustomerName, s)) ||
                 (x.CustomerPhone != null && x.CustomerPhone.Contains(s)));
         }
         if (!string.IsNullOrWhiteSpace(commercialStage))

@@ -28,7 +28,7 @@ public partial class PosPrintersController(
         bool IsDeviceLocal, string? OwnerDeviceId,
         string HealthStatus, DateTime? LastSeenAt, string? LastErrorMessage,
         int SortOrder, bool IsActive, List<string> DocumentTypes, int DefaultCopies,
-        bool CutPerItem);
+        bool CutPerItem, int CashDrawerPin = 0, bool KitchenCopyAll = false);
 
     public record PrinterSaveDto(
         string Name,
@@ -49,7 +49,9 @@ public partial class PosPrintersController(
         bool IsDefault,
         int SortOrder,
         bool IsActive,
-        bool? CutPerItem);
+        bool? CutPerItem,
+        int? CashDrawerPin = null,
+        bool? KitchenCopyAll = null);
 
     /// <summary>Đồng bộ máy in nội bộ từ thiết bị POS → danh sách cửa hàng (để gán món).</summary>
     public record DeviceLocalPrinterUpsertDto(
@@ -72,7 +74,8 @@ public partial class PosPrintersController(
         bool? BeepOnPrint,
         bool IsActive,
         List<string>? DocumentTypes,
-        bool? CutPerItem);
+        bool? CutPerItem,
+        int? CashDrawerPin = null);
 
     public record RouteDto(string DocumentType, Guid PrinterId, int DefaultCopies);
 
@@ -560,7 +563,7 @@ public partial class PosPrintersController(
         p.IsDefault, p.RequiresAgent,
         p.IsDeviceLocal, p.OwnerDeviceId,
         p.HealthStatus.ToString(), p.LastSeenAt, p.LastErrorMessage,
-        p.SortOrder, p.IsActive, docTypes, copies, p.CutPerItem);
+        p.SortOrder, p.IsActive, docTypes, copies, p.CutPerItem, p.CashDrawerPin, p.KitchenCopyAll);
 
     [HttpPost("device-local")]
     [RequireModulePermission("PosPrinters", ModulePermissionAction.Edit)]
@@ -613,6 +616,7 @@ public partial class PosPrintersController(
         entity.OpenCashDrawer = dto.OpenCashDrawer ?? false;
         entity.OpenDrawerCashOnly = dto.OpenDrawerCashOnly ?? true;
         entity.BeepOnPrint = dto.BeepOnPrint ?? false;
+        entity.CashDrawerPin = dto.CashDrawerPin is 1 ? 1 : 0;
         entity.IsActive = dto.IsActive;
         entity.IsDeviceLocal = true;
         entity.OwnerDeviceId = owner;
@@ -712,6 +716,8 @@ public partial class PosPrintersController(
             OpenCashDrawer = dto.OpenCashDrawer ?? false,
             OpenDrawerCashOnly = dto.OpenDrawerCashOnly ?? true,
             BeepOnPrint = dto.BeepOnPrint ?? false,
+            CashDrawerPin = dto.CashDrawerPin is 1 ? 1 : 0,
+            KitchenCopyAll = dto.KitchenCopyAll ?? false,
             IsDefault = dto.IsDefault,
             RequiresAgent = requiresAgent,
             SortOrder = dto.SortOrder,
@@ -740,6 +746,8 @@ public partial class PosPrintersController(
         entity.OpenCashDrawer = dto.OpenCashDrawer ?? false;
         entity.OpenDrawerCashOnly = dto.OpenDrawerCashOnly ?? true;
         entity.BeepOnPrint = dto.BeepOnPrint ?? false;
+        entity.CashDrawerPin = dto.CashDrawerPin is 1 ? 1 : 0;
+        entity.KitchenCopyAll = dto.KitchenCopyAll ?? false;
         entity.IsDefault = dto.IsDefault;
         entity.RequiresAgent = true;
         entity.SortOrder = dto.SortOrder;

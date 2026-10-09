@@ -160,7 +160,7 @@ public class WorkSchedulesController(IMediator mediator) : AuthenticatedControll
     public async Task<ActionResult<AppResponse<ScheduleRegistrationDto>>> CreateScheduleRegistration([FromBody] CreateScheduleRegistrationDto request)
     {
         // Use EmployeeUserId from request if provided (admin submitting on behalf of employee), otherwise use current user
-        var employeeUserId = request.EmployeeUserId != Guid.Empty ? request.EmployeeUserId : CurrentUserId;
+        var employeeUserId = IsManager && request.EmployeeUserId != Guid.Empty ? request.EmployeeUserId : CurrentUserId;
         var command = new CreateScheduleRegistrationCommand(
             RequiredStoreId,
             employeeUserId,
@@ -196,7 +196,7 @@ public class WorkSchedulesController(IMediator mediator) : AuthenticatedControll
     [RequireModulePermission("WorkSchedule", ModulePermissionAction.Delete)]
     public async Task<ActionResult<AppResponse<bool>>> DeleteScheduleRegistration(Guid id)
     {
-        var command = new DeleteScheduleRegistrationCommand(RequiredStoreId, id);
+        var command = new DeleteScheduleRegistrationCommand(RequiredStoreId, id, CurrentUserId, IsManager);
         var result = await mediator.Send(command);
         return Ok(result);
     }

@@ -1,0 +1,3 @@
+BEGIN;
+ALTER TABLE "PosQuoteLines" ADD COLUMN IF NOT EXISTS "SerialNumbersText" text NULL;
+COMMIT;

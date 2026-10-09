@@ -31,6 +31,9 @@ public class PosServiceResource : AuditableEntity<Guid>
 {
     [Required]
     public Guid StoreId { get; set; }
+
+    /// <summary>Chi nhánh quản lý bàn / phòng — đơn QR của khách (ẩn danh) ghi về chi nhánh này. Null = trụ sở.</summary>
+    public Guid? BranchId { get; set; }
     public virtual Store? Store { get; set; }
 
     [Required]

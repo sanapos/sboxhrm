@@ -1,3 +1,4 @@
+using Microsoft.Extensions.Caching.Memory;
 using System.Security.Claims;
 using ZKTecoADMS.Application.Authorization;
 using ZKTecoADMS.Infrastructure.Helpers;
@@ -152,7 +153,7 @@ public class StorePackageModuleMiddleware
         _logger = logger;
     }
 
-    public async Task InvokeAsync(HttpContext context, ZKTecoDbContext db)
+    public async Task InvokeAsync(HttpContext context, ZKTecoDbContext db, Microsoft.Extensions.Caching.Memory.IMemoryCache cache)
     {
         if (!context.User.Identity?.IsAuthenticated ?? true)
         {
@@ -188,7 +189,13 @@ public class StorePackageModuleMiddleware
             return;
         }
 
-        var allowed = await StorePackageHelper.ResolveAllowedModulesAsync(db, storeId, context.RequestAborted);
+        // Cache ngắn theo cửa hàng: tránh 1–2 truy vấn DB ở mỗi request (đổi gói có hiệu lực sau tối đa 30 giây).
+        var allowed = await cache.GetOrCreateAsync($"pkgmods:{storeId}", async e =>
+        {
+            e.AbsoluteExpirationRelativeToNow = TimeSpan.FromSeconds(30);
+            e.Size = 1; // MemoryCache của API có SizeLimit — thiếu Size là lỗi 500 mọi request
+            return await StorePackageHelper.ResolveAllowedModulesAsync(db, storeId, context.RequestAborted);
+        }) ?? [];
         if (!allowed.Contains(module, StringComparer.OrdinalIgnoreCase) &&
             !IsImplicitlyAllowed(path, context.Request.Method, module, allowed))
         {

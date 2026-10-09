@@ -267,9 +267,9 @@ public partial class PosProductsController(
         {
             var s = VnSearch.FoldText(search); // không dấu: «binh» khớp «Bình»
             query = query.Where(p =>
-                VnSearch.Fold(p.Name).Contains(s) ||
-                VnSearch.Fold(p.ProductCode).Contains(s) ||
-                (p.Barcode != null && VnSearch.Fold(p.Barcode).Contains(s)));
+                VnSearch.Has(p.Name, s) ||
+                VnSearch.Has(p.ProductCode, s) ||
+                (p.Barcode != null && VnSearch.Has(p.Barcode, s)));
         }
 
         if (categoryId.HasValue)
@@ -617,7 +617,8 @@ public partial class PosProductsController(
                     ? $"product{ext}"
                     : file.FileName,
                 ImageOptimizeHelper.ProductMaxEdge,
-                ImageOptimizeHelper.ProductJpegQuality);
+                ImageOptimizeHelper.ProductJpegQuality,
+                keepFittingJpeg: true);
             await using (optimized)
             {
                 var path = await fileStorageService.UploadAsync(optimized, uploadName, folder);
@@ -1838,7 +1839,8 @@ public partial class PosProductsController(
                 bytes,
                 $"pos_{DateTime.UtcNow:yyyyMMdd_HHmmss}_{Guid.NewGuid():N}.jpg",
                 ImageOptimizeHelper.ProductMaxEdge,
-                ImageOptimizeHelper.ProductJpegQuality);
+                ImageOptimizeHelper.ProductJpegQuality,
+                keepFittingJpeg: true);
             await using (optimized)
             {
                 var folder = await GetStoreFolderAsync("uploads/pos-products");
@@ -1940,7 +1942,8 @@ public partial class PosProductsController(
                 fs,
                 Path.GetFileName(src),
                 ImageOptimizeHelper.ProductMaxEdge,
-                ImageOptimizeHelper.ProductJpegQuality);
+                ImageOptimizeHelper.ProductJpegQuality,
+                keepFittingJpeg: true);
             await using (optimized)
             {
                 var folder = await GetStoreFolderAsync("uploads/pos-products");

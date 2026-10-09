@@ -56,10 +56,10 @@ public partial class PosCustomersController(ZKTecoDbContext dbContext) : Authent
         {
             var s = VnSearch.FoldText(search); // không dấu: «binh» khớp «Bình»
             query = query.Where(c =>
-                VnSearch.Fold(c.Name).Contains(s) ||
-                VnSearch.Fold(c.CustomerCode).Contains(s) ||
+                VnSearch.Has(c.Name, s) ||
+                VnSearch.Has(c.CustomerCode, s) ||
                 (c.Phone != null && c.Phone.Contains(s)) ||
-                (c.TaxCode != null && VnSearch.Fold(c.TaxCode).Contains(s)));
+                (c.TaxCode != null && VnSearch.Has(c.TaxCode, s)));
         }
         if (debtFrom.HasValue) query = query.Where(c => c.CurrentDebt >= debtFrom);
         if (debtTo.HasValue) query = query.Where(c => c.CurrentDebt <= debtTo);

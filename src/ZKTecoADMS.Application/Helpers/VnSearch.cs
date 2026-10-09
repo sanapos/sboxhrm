@@ -41,6 +41,13 @@ public static class VnSearch
         return sb.ToString();
     }
 
+    /// <summary>
+    /// «text chứa term» không dấu. <paramref name="foldedTerm"/> phải là kết quả của <see cref="FoldText"/>.
+    /// Trong truy vấn EF dịch thành <c>translate(lower(x),…) LIKE '%term%'</c> — dùng được chỉ mục GIN pg_trgm
+    /// (khác <c>Fold(x).Contains(s)</c> bị dịch thành strpos, luôn quét cả bảng).
+    /// </summary>
+    public static bool Has(string? text, string foldedTerm) => Fold(text).Contains(foldedTerm);
+
     /// <summary>Chuẩn hóa từ khóa người dùng gõ (trim + bỏ dấu + thường).</summary>
     public static string FoldText(string? text) => Fold(text?.Trim());
 }

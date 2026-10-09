@@ -441,7 +441,7 @@ internal static class PosSaleStockHelper
 
         var (allocations, lotErr) = await PosStockLotHelper.AllocateFefoAsync(
             db, storeId, product.Id, variantId, baseDeduct, product, createdBy,
-            allowShortfall: plan.AllowNegativeStock, skipExpired: true);
+            allowShortfall: plan.AllowNegativeStock, skipExpired: true, branchId: order.BranchId);
         if (lotErr != null)
             throw new InvalidOperationException(lotErr);
 
@@ -483,7 +483,8 @@ internal static class PosSaleStockHelper
         component.UpdatedBy = createdBy;
 
         var (allocations, lotErr) = await PosStockLotHelper.AllocateFefoAsync(
-            db, storeId, component.Id, null, deduct, component, createdBy, allowShortfall, skipExpired: true);
+            db, storeId, component.Id, null, deduct, component, createdBy, allowShortfall, skipExpired: true,
+            branchId: order.BranchId);
         if (lotErr != null)
             throw new InvalidOperationException(lotErr);
 
@@ -626,7 +627,9 @@ internal static class PosSaleStockHelper
         ZKTecoDbContext db,
         Guid storeId,
         IEnumerable<(Guid ProductId, decimal Qty, Guid? VariantId, Guid? UnitId)> lineInputs,
-        bool allowNegativeStock = false)
+        bool allowNegativeStock = false,
+        Guid? branchId = null,
+        Guid? hqBranchId = null)
     {
         var inputs = lineInputs.ToList();
         var productIds = inputs.Select(l => l.ProductId).Distinct().ToList();
@@ -808,6 +811,29 @@ internal static class PosSaleStockHelper
                 var avail = AvailableOnHand(p);
                 if (avail < need)
                     return (null, $"Không đủ tồn kho: {p.Name} (cần {need}, còn {avail})");
+            }
+        }
+
+        // Cửa hàng có chi nhánh: bán không vượt tồn của chính chi nhánh đang bán (không chỉ tổng cửa hàng).
+        if (!allowNegativeStock && branchId.HasValue)
+        {
+            var ids = stockNeeds.Keys
+                .Concat(variantStockNeeds.Keys.Select(vid => variants[vid].ProductId)).Distinct().ToList();
+            var bq = await ZKTecoADMS.Infrastructure.Services.BranchStockService.GetBranchQtyAsync(
+                db, storeId, branchId.Value, hqBranchId, ids);
+            foreach (var (pid, need) in stockNeeds)
+            {
+                var have = bq.GetValueOrDefault((pid, (Guid?)null));
+                if (need > have)
+                    return (null, $"Chi nhánh đang bán chỉ còn {have:0.##} «{products[pid].Name}» (cần {need:0.##}) — chuyển kho về chi nhánh này hoặc bán ở chi nhánh khác");
+            }
+            foreach (var (vid, need) in variantStockNeeds)
+            {
+                var v = variants[vid];
+                if (PosVariantStockHelper.IsUnitOnlyVariant(v.AttributeJson)) continue;
+                var have = bq.GetValueOrDefault((v.ProductId, (Guid?)vid));
+                if (need > have)
+                    return (null, $"Chi nhánh đang bán chỉ còn {have:0.##} «{v.Name}» (cần {need:0.##})");
             }
         }
 

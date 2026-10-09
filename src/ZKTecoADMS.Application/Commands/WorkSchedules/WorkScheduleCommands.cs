@@ -52,14 +52,10 @@ public class CreateWorkScheduleHandler(
                 ws => ws.EmployeeUserId == employee.Id && ws.Date.Date == request.Date.Date && ws.StoreId == request.StoreId,
                 cancellationToken: cancellationToken);
 
-            if (WorkScheduleDuplicateHelper.AnyConflict(
-                    existingSchedules, employee.Id, request.Date, request.ShiftId, request.IsDayOff))
-            {
-                return AppResponse<WorkScheduleDto>.Error(
-                    request.IsDayOff
-                        ? "Nhân viên đã có ngày nghỉ trong ngày này"
-                        : "Nhân viên đã được xếp ca này trong ngày");
-            }
+            var createError = WorkScheduleDuplicateHelper.Validate(
+                existingSchedules.Where(e => e.Date.Date == request.Date.Date), request.ShiftId, request.IsDayOff);
+            if (createError != null)
+                return AppResponse<WorkScheduleDto>.Error(createError);
 
             var workSchedule = new WorkSchedule
             {
@@ -249,6 +245,15 @@ public class UpdateWorkScheduleHandler(
                 return AppResponse<WorkScheduleDto>.Error("Work schedule not found");
             }
 
+            var sameDay = await workScheduleRepository.GetAllAsync(
+                w => w.EmployeeUserId == workSchedule.EmployeeUserId && w.StoreId == request.StoreId
+                     && w.Date >= workSchedule.Date.Date && w.Date < workSchedule.Date.Date.AddDays(1)
+                     && w.Id != workSchedule.Id,
+                cancellationToken: cancellationToken);
+            var updateError = WorkScheduleDuplicateHelper.Validate(sameDay, request.ShiftId, request.IsDayOff);
+            if (updateError != null)
+                return AppResponse<WorkScheduleDto>.Error(updateError);
+
             workSchedule.ShiftId = request.ShiftId;
             workSchedule.StartTime = request.StartTime;
             workSchedule.EndTime = request.EndTime;
@@ -362,6 +367,9 @@ public class CreateScheduleRegistrationHandler(
                 return AppResponse<ScheduleRegistrationDto>.Error("Employee not found");
             }
 
+            if (request.Date.Date < DateTime.UtcNow.AddHours(7).Date)
+                return AppResponse<ScheduleRegistrationDto>.Error("Không thể đăng ký lịch cho ngày đã qua");
+
             var duplicateReg = await registrationRepository.GetSingleAsync(
                 filter: r => r.EmployeeUserId == employee.Id
                              && r.Date.Date == request.Date.Date
@@ -453,7 +461,9 @@ public class CreateScheduleRegistrationHandler(
 // Delete Schedule Registration Command (only pending registrations)
 public record DeleteScheduleRegistrationCommand(
     Guid StoreId,
-    Guid RegistrationId) : ICommand<AppResponse<bool>>;
+    Guid RegistrationId,
+    Guid? CallerUserId = null,
+    bool CallerIsManager = true) : ICommand<AppResponse<bool>>;
 
 public class DeleteScheduleRegistrationHandler(
     IRepository<ScheduleRegistration> registrationRepository,
@@ -480,6 +490,15 @@ public class DeleteScheduleRegistrationHandler(
             var employee = await employeeRepository.GetSingleAsync(
                 filter: e => e.Id == registration.EmployeeUserId && e.StoreId == request.StoreId,
                 cancellationToken: cancellationToken);
+
+            // Nhân viên chỉ được xóa phiếu chờ duyệt của chính mình; xóa phiếu đã xử lý là việc của quản lý.
+            if (!request.CallerIsManager)
+            {
+                if (employee?.ApplicationUserId == null || employee.ApplicationUserId != request.CallerUserId)
+                    return AppResponse<bool>.Error("Bạn chỉ được xóa đăng ký của chính mình");
+                if (registration.Status != ScheduleRegistrationStatus.Pending)
+                    return AppResponse<bool>.Error("Đăng ký đã được xử lý, không thể xóa");
+            }
 
             // Đã duyệt → gỡ lịch do phiếu tạo (không đụng lịch quản lý đã xếp sẵn).
             if (registration.Status == ScheduleRegistrationStatus.Approved)
@@ -584,6 +603,14 @@ public class ApproveScheduleRegistrationHandler(
 
             var approver = await userManager.FindByIdAsync(request.ApprovedById.ToString());
             var canApproveAsStoreManager = IsStoreScheduleApproverRole(approver?.Role);
+
+            // Không tự duyệt phiếu của chính mình (Admin/SuperAdmin là ngoại lệ vì có thể không có cấp trên).
+            var isOwnRequest = registration.Employee?.ApplicationUserId == request.ApprovedById;
+            var isTopAdmin = approver?.Role != null
+                && (approver.Role.Equals(nameof(Roles.Admin), StringComparison.OrdinalIgnoreCase)
+                    || approver.Role.Equals(nameof(Roles.SuperAdmin), StringComparison.OrdinalIgnoreCase));
+            if (isOwnRequest && !isTopAdmin)
+                return AppResponse<ScheduleRegistrationDto>.Error("Bạn không thể tự duyệt đăng ký lịch của chính mình");
 
             // Bản ghi mồ côi: mọi bước đã Approved nhưng phiếu vẫn Pending (Apply lịch lần trước bị lỗi).
             if (currentRecord == null
@@ -786,6 +813,13 @@ public class ApproveScheduleRegistrationHandler(
                   && ws.StoreId == storeId,
             cancellationToken: cancellationToken);
 
+        if (registration.IsDayOff && daySchedules.Any(ws => !ws.IsDayOff && ws.ShiftId != null))
+            throw new InvalidOperationException(
+                "Nhân viên đã được xếp ca trong ngày này — hãy gỡ ca trên lịch trước khi duyệt đăng ký nghỉ");
+        if (!registration.IsDayOff && daySchedules.Any(ws => ws.IsDayOff))
+            throw new InvalidOperationException(
+                "Nhân viên đang được đánh dấu nghỉ trong ngày này — hãy gỡ ngày nghỉ trước khi duyệt đăng ký ca");
+
         var existingSchedule = daySchedules.FirstOrDefault(ws =>
             WorkScheduleDuplicateHelper.ConflictsWith(
                 ws, registration.EmployeeUserId, registration.Date, registration.ShiftId, registration.IsDayOff));
@@ -878,22 +912,6 @@ public class UndoScheduleRegistrationApprovalHandler(
                 ar.Note = null;
                 ar.ActionDate = null;
                 await scheduleApprovalRecordRepository.UpdateAsync(ar, cancellationToken);
-            }
-
-            // If was approved, delete the associated work schedule
-            if (wasApproved)
-            {
-                var workSchedules = await workScheduleRepository.GetAllAsync(
-                    ws => ws.EmployeeUserId == registration.EmployeeUserId
-                          && ws.Date.Date == registration.Date.Date
-                          && ws.ShiftId == registration.ShiftId
-                          && ws.StoreId == request.StoreId,
-                    cancellationToken: cancellationToken);
-
-                foreach (var ws in workSchedules)
-                {
-                    await workScheduleRepository.DeleteAsync(ws, cancellationToken);
-                }
             }
 
             try

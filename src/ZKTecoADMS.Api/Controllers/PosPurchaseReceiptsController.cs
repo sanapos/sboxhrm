@@ -1,3 +1,4 @@
+using ZKTecoADMS.Api.Middlewares;
 using ZKTecoADMS.Application.Helpers;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
@@ -26,7 +27,8 @@ public class PosPurchaseReceiptsController(
         Guid ProductId, Guid? VariantId, decimal Qty, decimal CostPrice,
         decimal DiscountAmount, decimal VatRate, bool VatIncluded, bool VatExempt,
         string? UnitName, string? LineNote,
-        string? LotNo = null, DateTime? ManufactureDate = null, DateTime? ExpiryDate = null);
+        string? LotNo = null, DateTime? ManufactureDate = null, DateTime? ExpiryDate = null,
+        List<string>? SerialNumbers = null);
 
     public record SaveReceiptDto(
         Guid? SupplierId, string? Note, string? InputInvoiceNo, string? PurchaseOrderNo,
@@ -40,7 +42,7 @@ public class PosPurchaseReceiptsController(
         decimal VatRate, decimal VatAmount, bool VatIncluded, bool VatExempt,
         decimal LineTotal, string? LineNote,
         string? LotNo, DateTime? ManufactureDate, DateTime? ExpiryDate, bool TrackExpiry,
-        bool AllowDecimalQty = false);
+        bool AllowDecimalQty = false, bool RequiresSerial = false, List<string>? SerialNumbers = null);
 
     public record ReceiptDto(
         Guid Id, string ReceiptNo, Guid? SupplierId, string? SupplierCode, string? SupplierName,
@@ -84,13 +86,14 @@ public class PosPurchaseReceiptsController(
 
         var query = dbContext.PosStockReceipts.AsNoTracking()
             .Include(r => r.Supplier)
-            .Where(r => r.StoreId == storeId && r.Deleted == null && r.IsActive);
+            .Where(r => r.StoreId == storeId && r.Deleted == null && r.IsActive)
+            .ApplyBranchScope(HttpContext.BranchContext());
 
         if (!string.IsNullOrWhiteSpace(search))
         {
             var s = VnSearch.FoldText(search); // không dấu: «binh» khớp «Bình»
-            query = query.Where(r => VnSearch.Fold(r.ReceiptNo).Contains(s) ||
-                                     (r.Note != null && VnSearch.Fold(r.Note).Contains(s)));
+            query = query.Where(r => VnSearch.Has(r.ReceiptNo, s) ||
+                                     (r.Note != null && VnSearch.Has(r.Note, s)));
         }
         if (!string.IsNullOrWhiteSpace(statuses))
         {
@@ -190,7 +193,7 @@ public class PosPurchaseReceiptsController(
             {
                 dbContext.ChangeTracker.Clear();
             }
-            catch (Exception ex)
+            catch (Exception ex) when (!GlobalExceptionMiddleware.IsConcurrencyConflict(ex))
             {
                 return BadRequest(AppResponse<ReceiptDto>.Fail(
                     ex.InnerException?.Message ?? ex.Message));
@@ -429,7 +432,8 @@ public class PosPurchaseReceiptsController(
             src.Lines.Select(l => new ReceiptLineInput(
                 l.ProductId, l.VariantId, l.Qty, l.CostPrice, l.DiscountAmount, l.VatRate,
                 l.VatIncluded, l.VatExempt, l.UnitName, l.LineNote,
-                l.LotNo, l.ManufactureDate, l.ExpiryDate)).ToList());
+                l.LotNo, l.ManufactureDate, l.ExpiryDate,
+                PosSerialRegistry.Parse(l.SerialNumbersText))).ToList());
         return await Create(dto);
     }
 
@@ -531,6 +535,15 @@ public class PosPurchaseReceiptsController(
                 var lotErr = PosStockLotHelper.ValidateReceiptLineLot(
                     p, line.LotNo, line.ManufactureDate, line.ExpiryDate, p.TrackExpiry);
                 if (lotErr != null) return (null, null, lotErr);
+
+                if (p.RequiresSerial)
+                {
+                    var sn = PosSerialRegistry.Parse(PosSerialRegistry.Join(line.SerialNumbers));
+                    if (sn.Count != (int)Math.Ceiling(line.Qty))
+                        return (null, null, $"«{p.Name}» cần nhập đủ {(int)Math.Ceiling(line.Qty)} seri (đang có {sn.Count})");
+                    if (sn.Count != sn.Distinct().Count())
+                        return (null, null, $"Seri bị trùng trong dòng «{p.Name}»");
+                }
             }
         }
 
@@ -559,6 +572,7 @@ public class PosPurchaseReceiptsController(
             {
                 Id = Guid.NewGuid(),
                 StoreId = storeId,
+                BranchId = WorkBranchId,
                 ReceiptNo = receiptNo,
                 IsActive = true,
                 CreatedBy = CurrentUserEmail,
@@ -631,6 +645,8 @@ public class PosPurchaseReceiptsController(
                 LineTotal = lineTotal,
                 LineNote = line.LineNote?.Trim(),
                 LotNo = string.IsNullOrWhiteSpace(line.LotNo) ? null : line.LotNo.Trim(),
+                SerialNumbersText = p.RequiresSerial && line.SerialNumbers is { Count: > 0 }
+                    ? PosSerialRegistry.Join(line.SerialNumbers) : null,
                 ManufactureDate = line.ManufactureDate?.Date,
                 ExpiryDate = line.ExpiryDate?.Date,
                 IsActive = true,
@@ -673,11 +689,11 @@ public class PosPurchaseReceiptsController(
         var lines = linesOverride ?? r.Lines.ToList();
         var productIds = lines.Select(l => l.ProductId).Distinct().ToList();
         var productFlags = productIds.Count == 0
-            ? new Dictionary<Guid, (bool TrackExpiry, bool AllowDecimalQty)>()
+            ? new Dictionary<Guid, (bool TrackExpiry, bool AllowDecimalQty, bool RequiresSerial)>()
             : await dbContext.PosProducts.AsNoTracking()
                 .Where(p => productIds.Contains(p.Id))
-                .Select(p => new { p.Id, p.TrackExpiry, p.AllowDecimalQty })
-                .ToDictionaryAsync(x => x.Id, x => (x.TrackExpiry, x.AllowDecimalQty));
+                .Select(p => new { p.Id, p.TrackExpiry, p.AllowDecimalQty, p.RequiresSerial })
+                .ToDictionaryAsync(x => x.Id, x => (x.TrackExpiry, x.AllowDecimalQty, x.RequiresSerial));
 
         return new ReceiptDto(
             r.Id, r.ReceiptNo, r.SupplierId, r.Supplier?.SupplierCode, r.Supplier?.Name,
@@ -694,7 +710,8 @@ public class PosPurchaseReceiptsController(
                     l.Qty, l.CostPrice, l.DiscountAmount, l.VatRate, l.VatAmount,
                     l.VatIncluded, l.VatExempt, l.LineTotal, l.LineNote,
                     l.LotNo, l.ManufactureDate, l.ExpiryDate,
-                    flags.TrackExpiry, flags.AllowDecimalQty);
+                    flags.TrackExpiry, flags.AllowDecimalQty, flags.RequiresSerial,
+                    PosSerialRegistry.Parse(l.SerialNumbersText));
             }).ToList());
     }
 }

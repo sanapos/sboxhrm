@@ -389,6 +389,33 @@ CREATE TABLE IF NOT EXISTS "PosProductWarrantyRegistrations" (
     CONSTRAINT "PK_PosProductWarrantyRegistrations" PRIMARY KEY ("Id")
 );
 
+-- PosWarrantyClaim: lịch sử tiếp nhận / xử lý bảo hành theo seri
+CREATE TABLE IF NOT EXISTS "PosWarrantyClaims" (
+    "Id" uuid NOT NULL,
+    "CreatedAt" timestamp without time zone NOT NULL DEFAULT NOW(),
+    "UpdatedAt" timestamp without time zone NULL,
+    "UpdatedBy" text NULL,
+    "CreatedBy" text NULL,
+    "IsActive" boolean NOT NULL DEFAULT true,
+    "LastModified" timestamp without time zone NULL,
+    "LastModifiedBy" text NULL,
+    "Deleted" timestamp without time zone NULL,
+    "DeletedBy" text NULL,
+    "StoreId" uuid NOT NULL,
+    "RegistrationId" uuid NOT NULL REFERENCES "PosProductWarrantyRegistrations"("Id") ON DELETE CASCADE,
+    "ClaimType" integer NOT NULL DEFAULT 1,
+    "Status" integer NOT NULL DEFAULT 0,
+    "ReceivedDate" timestamp without time zone NOT NULL DEFAULT NOW(),
+    "ResolvedDate" timestamp without time zone NULL,
+    "InWarranty" boolean NOT NULL DEFAULT true,
+    "Description" character varying(1000) NULL,
+    "Resolution" character varying(1000) NULL,
+    "NewRegistrationId" uuid NULL,
+    CONSTRAINT "PK_PosWarrantyClaims" PRIMARY KEY ("Id")
+);
+CREATE INDEX IF NOT EXISTS "IX_PosWarrantyClaims_StoreId_RegistrationId" ON "PosWarrantyClaims" ("StoreId", "RegistrationId");
+CREATE INDEX IF NOT EXISTS "IX_PosWarrantyClaims_StoreId_Status" ON "PosWarrantyClaims" ("StoreId", "Status");
+
 -- PosPurchaseReturnLine
 CREATE TABLE IF NOT EXISTS "PosPurchaseReturnLines" (
     "Id" uuid NOT NULL,
@@ -1390,3 +1417,170 @@ UPDATE "CashTransactions" SET "SourceType" = 'payslip', "SourceId" = CAST(substr
 -- Phụ cấp theo ngày / theo ca: điều kiện số giờ làm trong ca
 ALTER TABLE "Allowances" ADD COLUMN IF NOT EXISTS "MinWorkPercent" numeric(5,2) NULL;
 ALTER TABLE "Allowances" ADD COLUMN IF NOT EXISTS "MinWorkHours" numeric(5,2) NULL;
+
+-- PosProductSerial: sổ seri máy (nhập kho → bán → trả NCC)
+CREATE TABLE IF NOT EXISTS "PosProductSerials" (
+    "Id" uuid NOT NULL,
+    "CreatedAt" timestamp without time zone NOT NULL DEFAULT NOW(),
+    "UpdatedAt" timestamp without time zone NULL,
+    "UpdatedBy" text NULL,
+    "CreatedBy" text NULL,
+    "IsActive" boolean NOT NULL DEFAULT true,
+    "LastModified" timestamp without time zone NULL,
+    "LastModifiedBy" text NULL,
+    "Deleted" timestamp without time zone NULL,
+    "DeletedBy" text NULL,
+    "StoreId" uuid NOT NULL,
+    "ProductId" uuid NOT NULL,
+    "VariantId" uuid NULL,
+    "SerialNumber" character varying(100) NOT NULL,
+    "Imei" character varying(50) NULL,
+    "Status" integer NOT NULL DEFAULT 0,
+    "ReceiptId" uuid NULL,
+    "PurchaseReturnId" uuid NULL,
+    "SaleOrderId" uuid NULL,
+    "ReceivedDate" timestamp without time zone NOT NULL DEFAULT NOW(),
+    "SoldDate" timestamp without time zone NULL,
+    "CostPrice" numeric(18,2) NOT NULL DEFAULT 0,
+    "Note" character varying(500) NULL,
+    CONSTRAINT "PK_PosProductSerials" PRIMARY KEY ("Id")
+);
+CREATE UNIQUE INDEX IF NOT EXISTS "IX_PosProductSerials_StoreId_SerialNumber"
+    ON "PosProductSerials" ("StoreId", "SerialNumber") WHERE "Deleted" IS NULL AND "Status" IN (0, 1);
+CREATE INDEX IF NOT EXISTS "IX_PosProductSerials_StoreId_ProductId_Status" ON "PosProductSerials" ("StoreId", "ProductId", "Status");
+CREATE INDEX IF NOT EXISTS "IX_PosProductSerials_ReceiptId" ON "PosProductSerials" ("ReceiptId");
+CREATE INDEX IF NOT EXISTS "IX_PosProductSerials_SaleOrderId" ON "PosProductSerials" ("SaleOrderId");
+ALTER TABLE "PosStockReceiptLines" ADD COLUMN IF NOT EXISTS "SerialNumbersText" text NULL;
+ALTER TABLE "PosPurchaseReturnLines" ADD COLUMN IF NOT EXISTS "SerialNumbersText" text NULL;
+
+-- Kiểm kho theo mã (seri / RFID)
+ALTER TABLE "PosProductSerials" ADD COLUMN IF NOT EXISTS "TagCode" character varying(100) NULL;
+CREATE INDEX IF NOT EXISTS "IX_PosProductSerials_StoreId_TagCode" ON "PosProductSerials" ("StoreId", "TagCode");
+CREATE TABLE IF NOT EXISTS "PosSerialCounts" (
+    "Id" uuid NOT NULL,
+    "CreatedAt" timestamp without time zone NOT NULL DEFAULT NOW(),
+    "UpdatedAt" timestamp without time zone NULL,
+    "UpdatedBy" text NULL,
+    "CreatedBy" text NULL,
+    "IsActive" boolean NOT NULL DEFAULT true,
+    "LastModified" timestamp without time zone NULL,
+    "LastModifiedBy" text NULL,
+    "Deleted" timestamp without time zone NULL,
+    "DeletedBy" text NULL,
+    "StoreId" uuid NOT NULL,
+    "CountNo" character varying(30) NOT NULL,
+    "Name" character varying(200) NOT NULL,
+    "ProductId" uuid NULL,
+    "Source" character varying(20) NOT NULL DEFAULT 'Barcode',
+    "Status" integer NOT NULL DEFAULT 0,
+    "StartedAt" timestamp without time zone NOT NULL DEFAULT NOW(),
+    "CompletedAt" timestamp without time zone NULL,
+    "Note" character varying(500) NULL,
+    "ExpectedQty" integer NOT NULL DEFAULT 0,
+    "MatchedQty" integer NOT NULL DEFAULT 0,
+    "MissingQty" integer NOT NULL DEFAULT 0,
+    "UnknownQty" integer NOT NULL DEFAULT 0,
+    CONSTRAINT "PK_PosSerialCounts" PRIMARY KEY ("Id")
+);
+CREATE UNIQUE INDEX IF NOT EXISTS "IX_PosSerialCounts_StoreId_CountNo" ON "PosSerialCounts" ("StoreId", "CountNo");
+CREATE TABLE IF NOT EXISTS "PosSerialCountItems" (
+    "Id" uuid NOT NULL,
+    "CreatedAt" timestamp without time zone NOT NULL DEFAULT NOW(),
+    "UpdatedAt" timestamp without time zone NULL,
+    "UpdatedBy" text NULL,
+    "CreatedBy" text NULL,
+    "IsActive" boolean NOT NULL DEFAULT true,
+    "LastModified" timestamp without time zone NULL,
+    "LastModifiedBy" text NULL,
+    "Deleted" timestamp without time zone NULL,
+    "DeletedBy" text NULL,
+    "StoreId" uuid NOT NULL,
+    "CountId" uuid NOT NULL,
+    "Code" character varying(100) NOT NULL,
+    "SerialId" uuid NULL,
+    "ProductId" uuid NULL,
+    "Result" integer NOT NULL DEFAULT 0,
+    "ScannedAt" timestamp without time zone NOT NULL DEFAULT NOW(),
+    "DeviceName" character varying(100) NULL,
+    CONSTRAINT "PK_PosSerialCountItems" PRIMARY KEY ("Id")
+);
+CREATE UNIQUE INDEX IF NOT EXISTS "IX_PosSerialCountItems_CountId_Code" ON "PosSerialCountItems" ("CountId", "Code");
+ALTER TABLE "PosStockIssueLines" ADD COLUMN IF NOT EXISTS "SerialNumbersText" text NULL;
+ALTER TABLE "PosQuoteLines" ADD COLUMN IF NOT EXISTS "SerialNumbersText" text NULL;
+
+-- Kho: seri theo chi nhánh / chuyển kho
+ALTER TABLE "PosProductSerials" ADD COLUMN IF NOT EXISTS "BranchId" uuid NULL;
+ALTER TABLE "PosProductSerials" ADD COLUMN IF NOT EXISTS "TransferId" uuid NULL;
+ALTER TABLE "PosSerialCounts" ADD COLUMN IF NOT EXISTS "BranchId" uuid NULL;
+ALTER TABLE "PosStockTransferLines" ADD COLUMN IF NOT EXISTS "SerialNumbersText" text NULL;
+
+-- Lô/HSD theo chi nhánh
+ALTER TABLE "PosStockLots" ADD COLUMN IF NOT EXISTS "BranchId" uuid NULL;
+CREATE INDEX IF NOT EXISTS "IX_PosStockLots_StoreId_BranchId" ON "PosStockLots" ("StoreId", "BranchId");
+ALTER TABLE "PosStockTransferLines" ADD COLUMN IF NOT EXISTS "LotAllocJson" text NULL;
+
+-- QR / đơn online / đặt bàn
+ALTER TABLE "PosServiceResources" ADD COLUMN IF NOT EXISTS "BranchId" uuid NULL;
+ALTER TABLE "PosStoreSellSettings" ADD COLUMN IF NOT EXISTS "OnlineBranchId" uuid NULL;
+ALTER TABLE "PosStoreSellSettings" ADD COLUMN IF NOT EXISTS "OnlineMinOrder" numeric(18,2) NOT NULL DEFAULT 0;
+ALTER TABLE "PosStoreSellSettings" ADD COLUMN IF NOT EXISTS "OnlineShipFee" numeric(18,2) NOT NULL DEFAULT 0;
+ALTER TABLE "PosStoreSellSettings" ADD COLUMN IF NOT EXISTS "OnlineFreeShipFrom" numeric(18,2) NOT NULL DEFAULT 0;
+CREATE TABLE IF NOT EXISTS "PosQrRequestLogs" (
+    "Id" uuid NOT NULL,
+    "CreatedAt" timestamp without time zone NOT NULL DEFAULT NOW(),
+    "UpdatedAt" timestamp without time zone NULL,
+    "UpdatedBy" text NULL,
+    "CreatedBy" text NULL,
+    "IsActive" boolean NOT NULL DEFAULT true,
+    "LastModified" timestamp without time zone NULL,
+    "LastModifiedBy" text NULL,
+    "Deleted" timestamp without time zone NULL,
+    "DeletedBy" text NULL,
+    "StoreId" uuid NOT NULL,
+    "RequestId" character varying(80) NOT NULL,
+    "Token" character varying(80) NULL,
+    "ResultJson" text NULL,
+    CONSTRAINT "PK_PosQrRequestLogs" PRIMARY KEY ("Id")
+);
+CREATE UNIQUE INDEX IF NOT EXISTS "IX_PosQrRequestLogs_StoreId_RequestId" ON "PosQrRequestLogs" ("StoreId", "RequestId");
+CREATE INDEX IF NOT EXISTS "IX_PosQrRequestLogs_CreatedAt" ON "PosQrRequestLogs" ("CreatedAt");
+
+-- Thông báo: đợt gửi (lịch sử đã gửi / ai đã đọc)
+ALTER TABLE "Notifications" ADD COLUMN IF NOT EXISTS "BatchId" uuid NULL;
+CREATE INDEX IF NOT EXISTS "IX_Notifications_BatchId" ON "Notifications" ("BatchId") WHERE "BatchId" IS NOT NULL;
+
+-- Thông báo hẹn giờ
+CREATE TABLE IF NOT EXISTS "StoreScheduledNotifications" (
+    "Id" uuid NOT NULL,
+    "CreatedAt" timestamp without time zone NOT NULL DEFAULT NOW(),
+    "UpdatedAt" timestamp without time zone NULL,
+    "UpdatedBy" text NULL,
+    "CreatedBy" text NULL,
+    "IsActive" boolean NOT NULL DEFAULT true,
+    "LastModified" timestamp without time zone NULL,
+    "LastModifiedBy" text NULL,
+    "Deleted" timestamp without time zone NULL,
+    "DeletedBy" text NULL,
+    "StoreId" uuid NOT NULL,
+    "CreatedByUserId" uuid NOT NULL,
+    "SendAt" timestamp without time zone NOT NULL,
+    "PayloadJson" text NOT NULL,
+    "Status" integer NOT NULL DEFAULT 0,
+    "SentAt" timestamp without time zone NULL,
+    "BatchId" uuid NULL,
+    "Error" character varying(300) NULL,
+    "Title" character varying(200) NULL,
+    "RecipientCount" integer NOT NULL DEFAULT 0,
+    CONSTRAINT "PK_StoreScheduledNotifications" PRIMARY KEY ("Id")
+);
+CREATE INDEX IF NOT EXISTS "IX_StoreScheduledNotifications_Status_SendAt" ON "StoreScheduledNotifications" ("Status", "SendAt");
+-- Máy in: chân mở két; lệnh in: mã băm nội dung (chống in trùng)
+ALTER TABLE "PosStorePrinters" ADD COLUMN IF NOT EXISTS "CashDrawerPin" integer NOT NULL DEFAULT 0;
+ALTER TABLE "PosStorePrinters" ADD COLUMN IF NOT EXISTS "KitchenCopyAll" boolean NOT NULL DEFAULT false;
+ALTER TABLE "PosPrintJobs" ADD COLUMN IF NOT EXISTS "PayloadHash" character varying(64) NULL;
+ALTER TABLE "PosPrintJobs" ADD COLUMN IF NOT EXISTS "ReleasedByAgentId" uuid NULL;
+ALTER TABLE "PosPrintJobs" ADD COLUMN IF NOT EXISTS "ReleasedAt" timestamp without time zone NULL;
+CREATE INDEX IF NOT EXISTS "IX_PosPrintJobs_PrinterId_PayloadHash" ON "PosPrintJobs" ("PrinterId", "PayloadHash") WHERE "PayloadHash" IS NOT NULL;
+CREATE INDEX IF NOT EXISTS "IX_PosPrintJobs_CreatedAt" ON "PosPrintJobs" ("CreatedAt");
+
+CREATE INDEX IF NOT EXISTS "IX_StoreScheduledNotifications_StoreId_CreatedByUserId" ON "StoreScheduledNotifications" ("StoreId", "CreatedByUserId");

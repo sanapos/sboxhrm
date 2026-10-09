@@ -160,7 +160,10 @@ public class PosQrTableOrderController(
         if (rawItems.Count > 20)
             return BadRequest(AppResponse<object>.Fail("Mỗi lần gửi tối đa 20 món"));
 
-        var rateKey = $"qr-rate:{token}";
+        // Giới hạn theo từng thiết bị (IP) + trần chung cho cả cửa hàng — một người spam không chặn được khách khác.
+        if (!TryGuestRateLimit($"qr-ip:{ClientIp()}", 40, out var ipFail)) return ipFail!;
+        if (!TryGuestRateLimit($"qr-tok:{token}", 120, out var tokFail)) return tokFail!;
+        var rateKey = $"qr-rate:{token}:{ClientIp()}";
         var n = cache.GetOrCreate(rateKey, e =>
         {
             e.AbsoluteExpirationRelativeToNow = TimeSpan.FromMinutes(1);
@@ -178,8 +181,8 @@ public class PosQrTableOrderController(
         var reqId = (dto?.ClientRequestId ?? "").Trim();
         if (reqId.Length is > 8 and < 80)
         {
-            if (cache.TryGetValue($"qr-req:{token}:{reqId}", out object? cached) && cached != null)
-                return Ok(AppResponse<object>.Success(cached));
+            if (TryGetQrRequest(token, store.Id, reqId, out var cachedQr))
+                return Ok(AppResponse<object>.Success(cachedQr!));
         }
 
         var storeId = store.Id;
@@ -379,6 +382,7 @@ public class PosQrTableOrderController(
                         OrderNo = orderNo,
                         Status = PosSaleOrderStatus.Draft,
                         PaymentMethod = "Tiền mặt",
+                        BranchId = resource!.BranchId,
                         CustomerName = "QR tại bàn",
                         ServiceResourceId = null,
                         ServiceStartedAt = now,
@@ -567,7 +571,7 @@ public class PosQrTableOrderController(
                     : "Đã ghi món — thu ngân sẽ in phiếu bếp",
         };
         if (reqId.Length is > 8 and < 80)
-            cache.Set($"qr-req:{token}:{reqId}", payload, new MemoryCacheEntryOptions
+            RememberQrRequest(store.Id, token, reqId, payload, new MemoryCacheEntryOptions
             {
                 AbsoluteExpirationRelativeToNow = TimeSpan.FromMinutes(10),
                 Size = 1,
@@ -586,7 +590,7 @@ public class PosQrTableOrderController(
         var lockFail = await EnforceQrGuestAsync(store.Id, ctx.Ctx.Settings, dto?.Lat, dto?.Lng);
         if (lockFail != null) return lockFail;
 
-        var rateKey = $"qr-pay:{token}";
+        var rateKey = $"qr-pay:{token}:{ClientIp()}";
         var n = cache.GetOrCreate(rateKey, e =>
         {
             e.AbsoluteExpirationRelativeToNow = TimeSpan.FromMinutes(1);
@@ -623,7 +627,7 @@ public class PosQrTableOrderController(
         var lockFail = await EnforceQrGuestAsync(store.Id, ctx.Ctx.Settings, dto?.Lat, dto?.Lng);
         if (lockFail != null) return lockFail;
 
-        if (!TryGuestRateLimit($"qr-staff:{token}", 4, out var fail))
+        if (!TryGuestRateLimit($"qr-staff:{token}:{ClientIp()}", 4, out var fail))
             return fail!;
 
         var tableName = TableLabel(resource);
@@ -648,7 +652,7 @@ public class PosQrTableOrderController(
         var lockFail = await EnforceQrGuestAsync(store.Id, ctx.Ctx.Settings, dto?.Lat, dto?.Lng);
         if (lockFail != null) return lockFail;
 
-        if (!TryGuestRateLimit($"qr-paid:{token}", 3, out var fail))
+        if (!TryGuestRateLimit($"qr-paid:{token}:{ClientIp()}", 3, out var fail))
             return fail!;
 
         var session = await db.PosResourceSessions.AsNoTracking()
@@ -863,8 +867,13 @@ public class PosQrTableOrderController(
             onlineDefaultCarrierCode = lockOpt.OnlineDefaultCarrierCode ?? "",
             storeZalo = lockOpt.StoreZalo ?? store?.Phone ?? "",
             useCustomMenu = lockOpt.UseCustomMenu,
+            onlineBranchId = settings?.OnlineBranchId,
+            onlineMinOrder = settings?.OnlineMinOrder ?? 0,
+            onlineShipFee = settings?.OnlineShipFee ?? 0,
+            onlineFreeShipFrom = settings?.OnlineFreeShipFrom ?? 0,
             tables = resources.Select(r => new
             {
+                branchId = r.BranchId,
                 id = r.Id,
                 name = r.Name,
                 code = r.Code,
@@ -913,12 +922,27 @@ public class PosQrTableOrderController(
         if (dto?.Rotate == true)
             token = NewToken();
         s.ExtraJson = QrOrderLockHelper.MergeOnline(s.ExtraJson, enable, token);
+        if (dto?.BranchId != null)
+        {
+            Guid? ob = dto.BranchId == Guid.Empty ? null : dto.BranchId;
+            if (ob.HasValue &&
+                !await db.Branches.AnyAsync(x => x.Id == ob && x.StoreId == storeId && x.Deleted == null))
+                return BadRequest(AppResponse<object>.Fail("Chi nhánh không hợp lệ"));
+            s.OnlineBranchId = ob;
+        }
+        if (dto?.MinOrder != null) s.OnlineMinOrder = Math.Max(0, dto.MinOrder.Value);
+        if (dto?.ShipFee != null) s.OnlineShipFee = Math.Max(0, dto.ShipFee.Value);
+        if (dto?.FreeShipFrom != null) s.OnlineFreeShipFrom = Math.Max(0, dto.FreeShipFrom.Value);
         s.UpdatedAt = DateTime.UtcNow;
         s.UpdatedBy = CurrentUserEmail;
         await db.SaveChangesAsync();
         var urlBase = PublicBase();
         return Ok(AppResponse<object>.Success(new
         {
+            onlineBranchId = s.OnlineBranchId,
+            onlineMinOrder = s.OnlineMinOrder,
+            onlineShipFee = s.OnlineShipFee,
+            onlineFreeShipFrom = s.OnlineFreeShipFrom,
             enableOnline = enable,
             onlineToken = token,
             onlineUrl = enable && !string.IsNullOrWhiteSpace(token) ? QrUrl(urlBase, token) : null,
@@ -929,6 +953,42 @@ public class PosQrTableOrderController(
     {
         public bool? Enabled { get; set; }
         public bool? Rotate { get; set; }
+        /// <summary>Chi nhánh nhận đơn online (Guid.Empty = trụ sở).</summary>
+        public Guid? BranchId { get; set; }
+        public decimal? MinOrder { get; set; }
+        public decimal? ShipFee { get; set; }
+        public decimal? FreeShipFrom { get; set; }
+    }
+
+    public class QrTableBranchDto
+    {
+        /// <summary>Bàn cần gán; trống = mọi bàn của cửa hàng.</summary>
+        public List<Guid>? Ids { get; set; }
+        /// <summary>Chi nhánh (Guid.Empty / null = trụ sở).</summary>
+        public Guid? BranchId { get; set; }
+    }
+
+    /// <summary>Gán chi nhánh cho bàn / phòng: đơn QR của khách tại bàn sẽ ghi về chi nhánh này.</summary>
+    [HttpPost("tables/branch")]
+    [RequireModulePermission("PosQrOrder", ModulePermissionAction.Edit)]
+    public async Task<ActionResult<AppResponse<object>>> SetTablesBranch([FromBody] QrTableBranchDto? dto)
+    {
+        var storeId = RequiredStoreId;
+        Guid? branch = dto?.BranchId is { } b && b != Guid.Empty ? b : null;
+        if (branch.HasValue &&
+            !await db.Branches.AnyAsync(x => x.Id == branch && x.StoreId == storeId && x.Deleted == null))
+            return BadRequest(AppResponse<object>.Fail("Chi nhánh không hợp lệ"));
+        var q = db.PosServiceResources.AsTracking().Where(r => r.StoreId == storeId && r.Deleted == null);
+        if (dto?.Ids is { Count: > 0 } ids) q = q.Where(r => ids.Contains(r.Id));
+        var rows = await q.ToListAsync();
+        foreach (var r in rows)
+        {
+            r.BranchId = branch;
+            r.UpdatedAt = DateTime.UtcNow;
+            r.UpdatedBy = CurrentUserEmail;
+        }
+        await db.SaveChangesAsync();
+        return Ok(AppResponse<object>.Success(new { updated = rows.Count }));
     }
 
     public class QrOnlineStatusDto
@@ -1602,6 +1662,22 @@ public class PosQrTableOrderController(
         if (extraNote.Length > 200) extraNote = extraNote[..200];
 
         var storeId = store.Id;
+        var goods = items.Sum(i => (i.UnitPrice + i.ToppingExtra) * i.Qty);
+        if (settings.OnlineMinOrder > 0 && goods < settings.OnlineMinOrder)
+            return BadRequest(AppResponse<object>.Fail(
+                $"Đơn online tối thiểu {settings.OnlineMinOrder:#,0}đ (hiện {goods:#,0}đ)"));
+        var shipFee = settings.OnlineShipFee > 0 &&
+                      !(settings.OnlineFreeShipFrom > 0 && goods >= settings.OnlineFreeShipFrom)
+            ? settings.OnlineShipFee : 0m;
+        // Một số điện thoại không giữ quá 3 đơn đang chờ xác nhận — chặn spam khóa tồn.
+        var sinceDay = DateTime.UtcNow.AddHours(-24);
+        var waiting = await db.PosSaleOrders.AsNoTracking().CountAsync(o =>
+            o.StoreId == storeId && o.SalesChannel == QrOnlineOrderStatuses.Channel
+            && o.Status == PosSaleOrderStatus.Draft && o.DeliveryPhone == digits && o.CreatedAt > sinceDay
+            && (o.DeliveryStatus == null || o.DeliveryStatus == "" || o.DeliveryStatus == QrOnlineOrderStatuses.Pending));
+        if (waiting >= 3)
+            return BadRequest(AppResponse<object>.Fail(
+                "Số điện thoại này đang có 3 đơn chờ xác nhận — vui lòng đợi quán xử lý hoặc gọi trực tiếp"));
         var lockOpt = QrOrderLockHelper.Parse(settings.ExtraJson);
         var autoConfirm = lockOpt.OnlineAutoConfirm;
         var autoPrintKitchen = lockOpt.OnlineAutoPrintKitchen;
@@ -1628,7 +1704,9 @@ public class PosQrTableOrderController(
                     OrderNo = orderNo,
                     Status = PosSaleOrderStatus.Draft,
                     PaymentMethod = "Liên hệ",
+                    BranchId = settings.OnlineBranchId,
                     CustomerName = name,
+                    DeliveryFee = shipFee,
                     IsDelivery = true,
                     DeliveryAddress = address,
                     DeliveryProvince = province,
@@ -1796,7 +1874,7 @@ public class PosQrTableOrderController(
                 : "Đã gửi đơn. Quán sẽ gọi lại để xác nhận.",
         };
         if (reqId.Length is > 8 and < 80)
-            cache.Set($"qr-req:{token}:{reqId}", payload, new MemoryCacheEntryOptions
+            RememberQrRequest(store.Id, token, reqId, payload, new MemoryCacheEntryOptions
             {
                 AbsoluteExpirationRelativeToNow = TimeSpan.FromMinutes(10),
                 Size = 1,
@@ -2364,6 +2442,55 @@ public class PosQrTableOrderController(
         string.IsNullOrWhiteSpace(resource.Area?.Name)
             ? resource.Name
             : $"{resource.Area!.Name} · {resource.Name}";
+
+    string ClientIp() => HttpContext.Connection.RemoteIpAddress?.ToString() ?? "?";
+
+    /// <summary>Mã yêu cầu đã xử lý: tìm bộ nhớ trước, rồi nhật ký trong CSDL (còn sau khi khởi động lại / nhiều máy chủ).</summary>
+    bool TryGetQrRequest(string token, Guid storeId, string reqId, out object? result)
+    {
+        if (cache.TryGetValue($"qr-req:{token}:{reqId}", out object? cached) && cached != null)
+        {
+            result = cached;
+            return true;
+        }
+        try
+        {
+            var json = db.PosQrRequestLogs.AsNoTracking()
+                .Where(l => l.StoreId == storeId && l.RequestId == reqId && l.Deleted == null)
+                .Select(l => l.ResultJson).FirstOrDefault();
+            if (!string.IsNullOrWhiteSpace(json))
+            {
+                result = JsonSerializer.Deserialize<JsonElement>(json);
+                return true;
+            }
+        }
+        catch { /* không chặn đặt hàng nếu nhật ký lỗi */ }
+        result = null;
+        return false;
+    }
+
+    void RememberQrRequest(Guid storeId, string token, string reqId, object payload, MemoryCacheEntryOptions opts)
+    {
+        cache.Set($"qr-req:{token}:{reqId}", payload, opts);
+        try
+        {
+            db.PosQrRequestLogs.Add(new PosQrRequestLog
+            {
+                Id = Guid.NewGuid(),
+                StoreId = storeId,
+                RequestId = reqId,
+                Token = token.Length > 80 ? token[..80] : token,
+                ResultJson = JsonSerializer.Serialize(payload),
+                IsActive = true,
+                CreatedBy = "QR",
+            });
+            db.SaveChanges();
+        }
+        catch
+        {
+            db.ChangeTracker.Clear(); // trùng mã yêu cầu (đua) hoặc lỗi ghi — bộ nhớ vẫn giữ kết quả
+        }
+    }
 
     bool TryGuestRateLimit(string key, int maxPerMinute, out ActionResult<AppResponse<object>>? fail)
     {

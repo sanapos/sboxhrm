@@ -82,20 +82,28 @@ public sealed class ActivityAuditFilter(
                 Status = "Success",
             };
 
-            using var scope = scopes.CreateScope();
-            scope.ServiceProvider.GetRequiredService<ActivityAuditCollector>().Suspended = true;
-            var db = scope.ServiceProvider.GetRequiredService<ZKTecoDbContext>();
-            if (userId is Guid id)
+            // Ghi nền: không bắt người dùng chờ thêm một vòng DB cho nhật ký.
+            _ = Task.Run(async () =>
             {
-                var u = await db.Users.IgnoreQueryFilters().AsNoTracking()
-                    .Where(x => x.Id == id).Select(x => new { x.FirstName, x.LastName, x.Email })
-                    .FirstOrDefaultAsync();
-                var full = $"{u?.LastName} {u?.FirstName}".Trim();
-                if (full.Length > 0) log.UserName = full;
-                log.UserEmail ??= u?.Email;
-            }
-            db.AuditLogs.Add(log);
-            await db.SaveChangesAsync();
+                try
+                {
+                using var scope = scopes.CreateScope();
+                scope.ServiceProvider.GetRequiredService<ActivityAuditCollector>().Suspended = true;
+                var db = scope.ServiceProvider.GetRequiredService<ZKTecoDbContext>();
+                if (userId is Guid id)
+                {
+                    var u = await db.Users.IgnoreQueryFilters().AsNoTracking()
+                        .Where(x => x.Id == id).Select(x => new { x.FirstName, x.LastName, x.Email })
+                        .FirstOrDefaultAsync();
+                    var full = $"{u?.LastName} {u?.FirstName}".Trim();
+                    if (full.Length > 0) log.UserName = full;
+                    log.UserEmail ??= u?.Email;
+                }
+                db.AuditLogs.Add(log);
+                await db.SaveChangesAsync();
+                }
+                catch (Exception ex) { logger.LogWarning(ex, "Activity audit write failed"); }
+            });
         }
         catch (Exception ex)
         {

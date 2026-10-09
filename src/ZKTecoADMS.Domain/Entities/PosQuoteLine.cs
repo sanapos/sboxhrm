@@ -57,4 +57,7 @@ public class PosQuoteLine : AuditableEntity<Guid>
     public int? WarrantyMonths { get; set; }
 
     public int SortOrder { get; set; }
+
+    /// <summary>Seri máy giao khách — chọn khi lập biên bản bàn giao / nghiệm thu (mỗi seri một dòng).</summary>
+    public string? SerialNumbersText { get; set; }
 }

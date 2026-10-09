@@ -45,7 +45,8 @@ public class PosStockIssueKiotController(ZKTecoDbContext dbContext) : Authentica
 
 
 
-    public record UpdateIssueLineDto(Guid LineId, decimal? Qty, decimal? CostPrice, string? LineNote);
+    public record UpdateIssueLineDto(Guid LineId, decimal? Qty, decimal? CostPrice, string? LineNote,
+        List<string>? SerialNumbers = null);
 
 
 
@@ -57,7 +58,8 @@ public class PosStockIssueKiotController(ZKTecoDbContext dbContext) : Authentica
 
         Guid Id, Guid ProductId, Guid? VariantId, string ProductCode, string ProductName,
 
-        string? UnitName, decimal Qty, decimal CostPrice, decimal LineTotal, string? LineNote);
+        string? UnitName, decimal Qty, decimal CostPrice, decimal LineTotal, string? LineNote,
+        bool RequiresSerial = false, List<string>? SerialNumbers = null);
 
 
 
@@ -135,7 +137,7 @@ public class PosStockIssueKiotController(ZKTecoDbContext dbContext) : Authentica
 
         await dbContext.SaveChangesAsync();
 
-        return Ok(AppResponse<StockIssueKiotDto>.Success(MapIssue(issue, [])));
+        return Ok(AppResponse<StockIssueKiotDto>.Success(await WithSerialFlagsAsync(MapIssue(issue, []))));
 
     }
 
@@ -187,7 +189,8 @@ public class PosStockIssueKiotController(ZKTecoDbContext dbContext) : Authentica
 
             .Include(i => i.Lines)
 
-            .Where(i => i.StoreId == storeId && i.Kind == issueKind && i.Deleted == null && i.IsActive);
+            .Where(i => i.StoreId == storeId && i.Kind == issueKind && i.Deleted == null && i.IsActive)
+            .ApplyBranchScope(HttpContext.BranchContext());
 
 
 
@@ -197,13 +200,13 @@ public class PosStockIssueKiotController(ZKTecoDbContext dbContext) : Authentica
 
             var s = VnSearch.FoldText(search); // không dấu: «binh» khớp «Bình»
 
-            query = query.Where(i => VnSearch.Fold(i.IssueNo).Contains(s) ||
+            query = query.Where(i => VnSearch.Has(i.IssueNo, s) ||
 
-                                     (i.Note != null && VnSearch.Fold(i.Note).Contains(s)) ||
+                                     (i.Note != null && VnSearch.Has(i.Note, s)) ||
 
-                                     (i.CategoryName != null && VnSearch.Fold(i.CategoryName).Contains(s)) ||
+                                     (i.CategoryName != null && VnSearch.Has(i.CategoryName, s)) ||
 
-                                     (i.RecipientName != null && VnSearch.Fold(i.RecipientName).Contains(s)));
+                                     (i.RecipientName != null && VnSearch.Has(i.RecipientName, s)));
 
         }
 
@@ -299,7 +302,7 @@ public class PosStockIssueKiotController(ZKTecoDbContext dbContext) : Authentica
 
 
 
-        return Ok(AppResponse<StockIssueKiotDto>.Success(MapIssue(issue, issue.Lines.ToList())));
+        return Ok(AppResponse<StockIssueKiotDto>.Success(await WithSerialFlagsAsync(MapIssue(issue, issue.Lines.ToList()))));
 
     }
 
@@ -358,7 +361,7 @@ public class PosStockIssueKiotController(ZKTecoDbContext dbContext) : Authentica
 
         await dbContext.SaveChangesAsync();
 
-        return Ok(AppResponse<StockIssueKiotDto>.Success(MapIssue(issue, issue.Lines.ToList())));
+        return Ok(AppResponse<StockIssueKiotDto>.Success(await WithSerialFlagsAsync(MapIssue(issue, issue.Lines.ToList()))));
 
     }
 
@@ -460,7 +463,7 @@ public class PosStockIssueKiotController(ZKTecoDbContext dbContext) : Authentica
 
         await dbContext.Entry(issue).Collection(i => i.Lines).LoadAsync();
 
-        return Ok(AppResponse<StockIssueKiotDto>.Success(MapIssue(issue, issue.Lines.ToList())));
+        return Ok(AppResponse<StockIssueKiotDto>.Success(await WithSerialFlagsAsync(MapIssue(issue, issue.Lines.ToList()))));
 
     }
 
@@ -522,7 +525,7 @@ public class PosStockIssueKiotController(ZKTecoDbContext dbContext) : Authentica
 
         await dbContext.SaveChangesAsync();
 
-        return Ok(AppResponse<StockIssueKiotDto>.Success(MapIssue(issue, remaining)));
+        return Ok(AppResponse<StockIssueKiotDto>.Success(await WithSerialFlagsAsync(MapIssue(issue, remaining))));
 
     }
 
@@ -591,6 +594,8 @@ public class PosStockIssueKiotController(ZKTecoDbContext dbContext) : Authentica
             if (upd.CostPrice.HasValue) line.CostPrice = upd.CostPrice.Value;
 
             if (upd.LineNote != null) line.LineNote = upd.LineNote.Trim();
+            if (upd.SerialNumbers != null)
+                line.SerialNumbersText = upd.SerialNumbers.Count == 0 ? null : PosSerialRegistry.Join(upd.SerialNumbers);
 
             line.UpdatedAt = DateTime.UtcNow;
 
@@ -608,7 +613,7 @@ public class PosStockIssueKiotController(ZKTecoDbContext dbContext) : Authentica
 
         await dbContext.SaveChangesAsync();
 
-        return Ok(AppResponse<StockIssueKiotDto>.Success(MapIssue(issue, issue.Lines.ToList())));
+        return Ok(AppResponse<StockIssueKiotDto>.Success(await WithSerialFlagsAsync(MapIssue(issue, issue.Lines.ToList()))));
 
     }
 
@@ -690,7 +695,7 @@ public class PosStockIssueKiotController(ZKTecoDbContext dbContext) : Authentica
 
 
 
-        return Ok(AppResponse<StockIssueKiotDto>.Success(MapIssue(fresh, fresh.Lines.ToList())));
+        return Ok(AppResponse<StockIssueKiotDto>.Success(await WithSerialFlagsAsync(MapIssue(fresh, fresh.Lines.ToList()))));
 
     }
 
@@ -806,7 +811,7 @@ public class PosStockIssueKiotController(ZKTecoDbContext dbContext) : Authentica
 
 
 
-        return Ok(AppResponse<StockIssueKiotDto>.Success(MapIssue(fresh, fresh.Lines.ToList())));
+        return Ok(AppResponse<StockIssueKiotDto>.Success(await WithSerialFlagsAsync(MapIssue(fresh, fresh.Lines.ToList()))));
 
     }
 
@@ -954,7 +959,7 @@ public class PosStockIssueKiotController(ZKTecoDbContext dbContext) : Authentica
 
         await dbContext.SaveChangesAsync();
 
-        return Ok(AppResponse<StockIssueKiotDto>.Success(MapIssue(issue, lines)));
+        return Ok(AppResponse<StockIssueKiotDto>.Success(await WithSerialFlagsAsync(MapIssue(issue, lines))));
 
     }
 
@@ -1052,9 +1057,20 @@ public class PosStockIssueKiotController(ZKTecoDbContext dbContext) : Authentica
 
         new(l.Id, l.ProductId, l.VariantId, l.ProductCode ?? "", l.ProductName, l.UnitName,
 
-            l.Qty, l.CostPrice, l.Qty * l.CostPrice, l.LineNote);
+            l.Qty, l.CostPrice, l.Qty * l.CostPrice, l.LineNote,
+            false, PosSerialRegistry.Parse(l.SerialNumbersText));
 
 
+
+    /// <summary>Gắn cờ «bắt buộc seri» cho từng dòng để màn hình hiện nút chọn seri.</summary>
+    private async Task<StockIssueKiotDto> WithSerialFlagsAsync(StockIssueKiotDto dto)
+    {
+        var ids = dto.Lines.Select(l => l.ProductId).Distinct().ToList();
+        if (ids.Count == 0) return dto;
+        var set = (await dbContext.PosProducts.AsNoTracking()
+            .Where(p => ids.Contains(p.Id) && p.RequiresSerial).Select(p => p.Id).ToListAsync()).ToHashSet();
+        return dto with { Lines = dto.Lines.Select(l => l with { RequiresSerial = set.Contains(l.ProductId) }).ToList() };
+    }
 
     private static StockIssueKiotDto MapIssue(PosStockIssue issue, List<PosStockIssueLine> lines) =>
 

@@ -206,7 +206,7 @@ public class AttendanceApprovalsController(
         if (!string.IsNullOrWhiteSpace(search))
         {
             var s = VnSearch.FoldText(search);
-            q = q.Where(i => VnSearch.Fold(i.EmployeeName).Contains(s) || VnSearch.Fold(i.EmployeeCode).Contains(s));
+            q = q.Where(i => VnSearch.Has(i.EmployeeName, s) || VnSearch.Has(i.EmployeeCode, s));
         }
         var list = q.OrderBy(i => i.RiskLevel == MobilePunchRiskScorer.High ? 0 : i.Overdue ? 1 : 2)
             .ThenByDescending(i => i.Time).ToList();

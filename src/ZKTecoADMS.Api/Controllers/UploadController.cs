@@ -424,6 +424,10 @@ public class UploadController : AuthenticatedControllerBase
             && !await IsOwnStorePathAsync(normalized, allowSystemRoles: true))
             return StatusCode(StatusCodes.Status403Forbidden,
                 new { isSuccess = false, message = "File thuộc cửa hàng khác" });
+        // Ảnh sản phẩm: mỗi lần tải lên là file tên GUID mới → nội dung một đường dẫn không bao giờ
+        // đổi. Cho trình duyệt (bán trên web) giữ 30 ngày thay vì 1 giờ.
+        if (normalized.Contains("/uploads/pos-products/", StringComparison.OrdinalIgnoreCase))
+            Response.Headers.CacheControl = "private, max-age=2592000, immutable";
         return ServeWwwrootFile(path, publicOnly: false);
     }
 

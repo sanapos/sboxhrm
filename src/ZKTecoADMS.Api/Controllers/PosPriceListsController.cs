@@ -179,7 +179,7 @@ public class PosPriceListsController(ZKTecoDbContext dbContext) : AuthenticatedC
         {
             var s = VnSearch.FoldText(search); // không dấu: «binh» khớp «Bình»
             q = q.Where(x => x.Product != null &&
-                (VnSearch.Fold(x.Product.Name).Contains(s) || VnSearch.Fold(x.Product.ProductCode).Contains(s)));
+                (VnSearch.Has(x.Product.Name, s) || VnSearch.Has(x.Product.ProductCode, s)));
         }
 
         var items = await q

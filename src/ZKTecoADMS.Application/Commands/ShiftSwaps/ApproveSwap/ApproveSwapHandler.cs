@@ -8,6 +8,7 @@ public class ApproveSwapHandler(
     IRepository<ShiftSwapRequest> shiftSwapRepository,
     IRepository<WorkSchedule> workScheduleRepository,
     IRepository<Employee> employeeRepository,
+    IRepository<ShiftStaffingQuota> quotaRepository,
     ISystemNotificationService notificationService
 ) : ICommandHandler<ApproveSwapCommand, AppResponse<bool>>
 {
@@ -27,8 +28,15 @@ public class ApproveSwapHandler(
             if (swapRequest.Status != ShiftSwapStatus.TargetAccepted)
                 return AppResponse<bool>.Error("Yêu cầu đổi ca chưa được đồng nghiệp chấp nhận");
 
+            if (request.ManagerId == swapRequest.RequesterUserId || request.ManagerId == swapRequest.TargetUserId)
+                return AppResponse<bool>.Error("Bạn là một bên của yêu cầu đổi ca này nên không thể tự duyệt");
+
             if (request.Approve)
             {
+                var vnToday = DateTime.UtcNow.AddHours(7).Date;
+                if (swapRequest.RequesterDate.Date < vnToday || swapRequest.TargetDate.Date < vnToday)
+                    return AppResponse<bool>.Error("Ca đổi đã qua ngày, không thể duyệt — hãy từ chối yêu cầu này");
+
                 var swapped = await SwapWorkSchedules(swapRequest, cancellationToken);
                 if (!swapped.IsSuccess)
                     return swapped;
@@ -109,6 +117,13 @@ public class ApproveSwapHandler(
             swapRequest.RequesterDate, swapRequest.RequesterShiftId, cancellationToken);
         if (targetAlreadyHasRequester != null && targetAlreadyHasRequester.Id != targetSchedule.Id)
             return AppResponse<bool>.Error("Đồng nghiệp đã có ca của người yêu cầu trong ngày đó");
+
+        var quotaError = await ScheduleStaffingQuotaHelper.GetSwapQuotaMessageAsync(
+            quotaRepository, workScheduleRepository, requesterEmployee, targetEmployee,
+            swapRequest.RequesterDate, swapRequest.RequesterShiftId,
+            swapRequest.TargetDate, swapRequest.TargetShiftId, swapRequest.StoreId, cancellationToken);
+        if (quotaError != null)
+            return AppResponse<bool>.Error(quotaError);
 
         // Giờ ghi đè (StartTime/EndTime) thuộc ca cũ → bỏ để ca mới dùng giờ của mẫu ca.
         requesterSchedule.Date = swapRequest.TargetDate.Date;

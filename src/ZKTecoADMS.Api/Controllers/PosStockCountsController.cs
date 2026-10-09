@@ -99,14 +99,15 @@ public class PosStockCountsController(ZKTecoDbContext dbContext) : Authenticated
 
         var query = dbContext.PosStockCounts.AsNoTracking()
             .Include(c => c.Lines)
-            .Where(c => c.StoreId == storeId && c.Deleted == null && c.IsActive);
+            .Where(c => c.StoreId == storeId && c.Deleted == null && c.IsActive)
+            .ApplyBranchScope(HttpContext.BranchContext());
 
         if (!string.IsNullOrWhiteSpace(search))
         {
             var s = VnSearch.FoldText(search); // không dấu: «binh» khớp «Bình»
-            query = query.Where(c => VnSearch.Fold(c.CountNo).Contains(s) ||
-                                     VnSearch.Fold(c.Name).Contains(s) ||
-                                     (c.Note != null && VnSearch.Fold(c.Note).Contains(s)));
+            query = query.Where(c => VnSearch.Has(c.CountNo, s) ||
+                                     VnSearch.Has(c.Name, s) ||
+                                     (c.Note != null && VnSearch.Has(c.Note, s)));
         }
         if (!string.IsNullOrWhiteSpace(statuses))
         {
@@ -393,6 +394,15 @@ public class PosStockCountsController(ZKTecoDbContext dbContext) : Authenticated
                 .Where(v => variantIds.Contains(v.Id) && v.StoreId == storeId && v.Deleted == null)
                 .ToDictionaryAsync(v => v.Id);
 
+        // Hàng quản lý theo seri: lệch tồn phải xử lý bằng «Kiểm kho theo mã» để sổ seri khớp tồn.
+        foreach (var line in count.Lines.Where(l => l.CountedQty.HasValue && l.CountedQty.Value != l.SystemQty))
+        {
+            if (products.TryGetValue(line.ProductId, out var sp) && sp.RequiresSerial &&
+                await PosSerialRegistry.IsTrackedAsync(dbContext, storeId, sp.Id))
+                return BadRequest(AppResponse<StockCountDto>.Fail(
+                    $"«{sp.Name}» quản lý theo seri — dùng «Kiểm kho theo mã» (quét seri / RFID) để cân bằng, không nhập số đếm tay"));
+        }
+
         await using var tx = await dbContext.Database.BeginTransactionAsync();
         try
         {
@@ -472,7 +482,7 @@ public class PosStockCountsController(ZKTecoDbContext dbContext) : Authenticated
                     // Kiểm kê là số thực tế — lô ghi thiếu hơn tồn sổ không được chặn cân bằng.
                     var (allocations, lotErr) = await PosStockLotHelper.AllocateFefoAsync(
                         dbContext, storeId, p.Id, variant?.Id, need, p, CurrentUserEmail,
-                        allowShortfall: true);
+                        allowShortfall: true, branchId: count.BranchId);
                     if (lotErr != null)
                         throw new InvalidOperationException(lotErr);
                     foreach (var alloc in allocations!)
@@ -507,7 +517,7 @@ public class PosStockCountsController(ZKTecoDbContext dbContext) : Authenticated
                         var lot = PosStockLotHelper.CreateLotFromCountAdjust(
                             storeId, p.Id, variant?.Id, txChangeBase,
                             surplusCost,
-                            count.CountNo, CurrentUserEmail);
+                            count.CountNo, CurrentUserEmail, count.BranchId);
                         dbContext.PosStockLots.Add(lot);
                         lotId = lot.Id;
                     }

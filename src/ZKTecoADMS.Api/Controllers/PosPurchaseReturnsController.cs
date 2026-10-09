@@ -20,7 +20,7 @@ public class PosPurchaseReturnsController(ZKTecoDbContext dbContext) : Authentic
 {
     public record ReturnLineInput(
         Guid ProductId, Guid? VariantId, decimal Qty, decimal CostPrice,
-        decimal DiscountAmount, string? UnitName, string? LineNote);
+        decimal DiscountAmount, string? UnitName, string? LineNote, List<string>? SerialNumbers = null);
 
     public record SaveReturnDto(
         Guid? SupplierId, Guid? SourceReceiptId, string? Note,
@@ -30,7 +30,7 @@ public class PosPurchaseReturnsController(ZKTecoDbContext dbContext) : Authentic
     public record ReturnLineDto(
         Guid Id, Guid ProductId, Guid? VariantId, string ProductCode, string ProductName,
         string? UnitName, decimal Qty, decimal CostPrice, decimal DiscountAmount,
-        decimal LineTotal, string? LineNote);
+        decimal LineTotal, string? LineNote, bool RequiresSerial = false, List<string>? SerialNumbers = null);
 
     public record ReturnDto(
         Guid Id, string ReturnNo, Guid? SupplierId, string? SupplierCode, string? SupplierName,
@@ -65,12 +65,13 @@ public class PosPurchaseReturnsController(ZKTecoDbContext dbContext) : Authentic
 
         var query = dbContext.PosPurchaseReturns.AsNoTracking()
             .Include(r => r.Supplier)
-            .Where(r => r.StoreId == storeId && r.Deleted == null && r.IsActive);
+            .Where(r => r.StoreId == storeId && r.Deleted == null && r.IsActive)
+            .ApplyBranchScope(HttpContext.BranchContext());
 
         if (!string.IsNullOrWhiteSpace(search))
         {
             var s = VnSearch.FoldText(search); // không dấu: «binh» khớp «Bình»
-            query = query.Where(r => VnSearch.Fold(r.ReturnNo).Contains(s));
+            query = query.Where(r => VnSearch.Has(r.ReturnNo, s));
         }
         if (!string.IsNullOrWhiteSpace(statuses))
         {
@@ -119,7 +120,7 @@ public class PosPurchaseReturnsController(ZKTecoDbContext dbContext) : Authentic
             .Include(x => x.Lines)
             .FirstOrDefaultAsync(x => x.Id == id && x.StoreId == storeId && x.Deleted == null);
         if (r == null) return NotFound(AppResponse<ReturnDto>.Fail("Không tìm thấy phiếu trả"));
-        return Ok(AppResponse<ReturnDto>.Success(MapReturn(r)));
+        return Ok(AppResponse<ReturnDto>.Success(await WithSerialFlagsAsync(MapReturn(r))));
     }
 
     [HttpGet("from-receipt/{receiptId:guid}")]
@@ -133,16 +134,21 @@ public class PosPurchaseReturnsController(ZKTecoDbContext dbContext) : Authentic
             .FirstOrDefaultAsync(r => r.Id == receiptId && r.StoreId == storeId && r.Deleted == null);
         if (receipt == null) return NotFound(AppResponse<ReturnDto>.Fail("Không tìm thấy phiếu nhập"));
 
+        var inStock = await dbContext.PosProductSerials.AsNoTracking()
+            .Where(x => x.StoreId == storeId && x.ReceiptId == receipt.Id && x.Deleted == null &&
+                        x.Status == ZKTecoADMS.Domain.Enums.PosSerialStatus.InStock)
+            .Select(x => new { x.ProductId, x.SerialNumber }).ToListAsync();
         var lines = receipt.Lines.Select(l => new ReturnLineDto(
             Guid.Empty, l.ProductId, l.VariantId, l.ProductCode ?? "", l.ProductName, l.UnitName,
-            l.Qty, l.CostPrice, l.DiscountAmount, l.LineTotal, l.LineNote)).ToList();
+            l.Qty, l.CostPrice, l.DiscountAmount, l.LineTotal, l.LineNote, false,
+            inStock.Where(x => x.ProductId == l.ProductId).Select(x => x.SerialNumber).ToList())).ToList();
 
         var dto = new ReturnDto(
             Guid.Empty, "", receipt.SupplierId, receipt.Supplier?.SupplierCode, receipt.Supplier?.Name,
             receipt.Id, receipt.ReceiptNo, PosPurchaseReturnStatus.Draft.ToString(), null,
             receipt.TotalQty, receipt.TotalCost, 0, receipt.TotalCost, 0,
             DateTime.UtcNow, CurrentUserEmail, receipt.CreatedAt, receipt.CreatedBy, lines);
-        return Ok(AppResponse<ReturnDto>.Success(dto));
+        return Ok(AppResponse<ReturnDto>.Success(await WithSerialFlagsAsync(dto)));
     }
 
     [HttpPost]
@@ -175,7 +181,7 @@ public class PosPurchaseReturnsController(ZKTecoDbContext dbContext) : Authentic
         ret!.Supplier = dto.SupplierId.HasValue
             ? await dbContext.PosSuppliers.AsNoTracking().FirstOrDefaultAsync(s => s.Id == dto.SupplierId)
             : null;
-        return Ok(AppResponse<ReturnDto>.Success(MapReturn(ret, lines!)));
+        return Ok(AppResponse<ReturnDto>.Success(await WithSerialFlagsAsync(MapReturn(ret, lines!))));
     }
 
     [HttpPut("{id:guid}")]
@@ -245,7 +251,7 @@ public class PosPurchaseReturnsController(ZKTecoDbContext dbContext) : Authentic
             .FirstOrDefaultAsync(r => r.Id == id && r.StoreId == storeId && r.Deleted == null);
         if (freshUpdated == null)
             return NotFound(AppResponse<ReturnDto>.Fail("Không tìm thấy phiếu"));
-        return Ok(AppResponse<ReturnDto>.Success(MapReturn(freshUpdated, freshUpdated.Lines.ToList())));
+        return Ok(AppResponse<ReturnDto>.Success(await WithSerialFlagsAsync(MapReturn(freshUpdated, freshUpdated.Lines.ToList()))));
     }
 
     [HttpPost("{id:guid}/copy")]
@@ -263,7 +269,7 @@ public class PosPurchaseReturnsController(ZKTecoDbContext dbContext) : Authentic
             src.DiscountAmount, 0, DateTime.UtcNow, CurrentUserEmail, false,
             src.Lines.Select(l => new ReturnLineInput(
                 l.ProductId, l.VariantId, l.Qty, l.CostPrice, l.DiscountAmount,
-                l.UnitName, l.LineNote)).ToList());
+                l.UnitName, l.LineNote, PosSerialRegistry.Parse(l.SerialNumbersText))).ToList());
         return await Create(dto);
     }
 
@@ -321,7 +327,7 @@ public class PosPurchaseReturnsController(ZKTecoDbContext dbContext) : Authentic
             .FirstOrDefaultAsync(r => r.Id == id && r.StoreId == storeId && r.Deleted == null);
         if (fresh == null)
             return NotFound(AppResponse<ReturnDto>.Fail("Không tìm thấy phiếu"));
-        return Ok(AppResponse<ReturnDto>.Success(MapReturn(fresh)));
+        return Ok(AppResponse<ReturnDto>.Success(await WithSerialFlagsAsync(MapReturn(fresh))));
     }
 
     [HttpPost("{id:guid}/cancel")]
@@ -374,7 +380,7 @@ public class PosPurchaseReturnsController(ZKTecoDbContext dbContext) : Authentic
             .FirstOrDefaultAsync(r => r.Id == id && r.StoreId == storeId && r.Deleted == null);
         if (fresh == null)
             return NotFound(AppResponse<ReturnDto>.Fail("Không tìm thấy phiếu"));
-        return Ok(AppResponse<ReturnDto>.Success(MapReturn(fresh)));
+        return Ok(AppResponse<ReturnDto>.Success(await WithSerialFlagsAsync(MapReturn(fresh))));
     }
 
     [HttpDelete("{id:guid}")]
@@ -428,6 +434,7 @@ public class PosPurchaseReturnsController(ZKTecoDbContext dbContext) : Authentic
         {
             Id = Guid.NewGuid(),
             StoreId = storeId,
+            BranchId = WorkBranchId,
             ReturnNo = await PosPurchaseStockHelper.NextReturnNoAsync(dbContext, storeId),
             IsActive = true,
             CreatedBy = CurrentUserEmail,
@@ -476,6 +483,8 @@ public class PosPurchaseReturnsController(ZKTecoDbContext dbContext) : Authentic
                 DiscountAmount = line.DiscountAmount,
                 LineTotal = lineTotal,
                 LineNote = line.LineNote?.Trim(),
+                SerialNumbersText = p.RequiresSerial && line.SerialNumbers is { Count: > 0 }
+                    ? PosSerialRegistry.Join(line.SerialNumbers) : null,
                 IsActive = true,
                 CreatedBy = CurrentUserEmail,
             });
@@ -491,6 +500,15 @@ public class PosPurchaseReturnsController(ZKTecoDbContext dbContext) : Authentic
         return (ret, lines, null);
     }
 
+    /// <summary>Gắn cờ «bắt buộc seri» cho từng dòng để màn hình biết dòng nào cần chọn seri máy trả.</summary>
+    private async Task<ReturnDto> WithSerialFlagsAsync(ReturnDto dto)
+    {
+        var ids = dto.Lines.Select(l => l.ProductId).Distinct().ToList();
+        var set = (await dbContext.PosProducts.AsNoTracking()
+            .Where(p => ids.Contains(p.Id) && p.RequiresSerial).Select(p => p.Id).ToListAsync()).ToHashSet();
+        return dto with { Lines = dto.Lines.Select(l => l with { RequiresSerial = set.Contains(l.ProductId) }).ToList() };
+    }
+
     private static ReturnDto MapReturn(PosPurchaseReturn r, List<PosPurchaseReturnLine>? linesOverride = null)
     {
         var lines = linesOverride ?? r.Lines.ToList();
@@ -501,6 +519,7 @@ public class PosPurchaseReturnsController(ZKTecoDbContext dbContext) : Authentic
             r.ReturnDate, r.ReturnedBy, r.CreatedAt, r.CreatedBy,
             lines.Select(l => new ReturnLineDto(
                 l.Id, l.ProductId, l.VariantId, l.ProductCode ?? "", l.ProductName, l.UnitName,
-                l.Qty, l.CostPrice, l.DiscountAmount, l.LineTotal, l.LineNote)).ToList());
+                l.Qty, l.CostPrice, l.DiscountAmount, l.LineTotal, l.LineNote,
+                false, PosSerialRegistry.Parse(l.SerialNumbersText))).ToList());
     }
 }

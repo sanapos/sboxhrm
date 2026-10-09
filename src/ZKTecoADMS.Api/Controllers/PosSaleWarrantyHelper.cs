@@ -9,6 +9,9 @@ public static class PosSaleWarrantyHelper
 {
     public record SerialInput(string SerialNumber, string? Imei = null);
 
+    /// <summary>Chuẩn hóa seri: bỏ khoảng trắng đầu/cuối, viết hoa — để unique index và tra cứu hoạt động đúng.</summary>
+    public static string NormalizeSerial(string? serial) => (serial ?? string.Empty).Trim().ToUpperInvariant();
+
     public static bool NeedsRegistration(PosProduct product) =>
         product.ProductType == PosProductType.Goods &&
         (product.RequiresSerial || (product.WarrantyMonths ?? 0) > 0);
@@ -16,7 +19,9 @@ public static class PosSaleWarrantyHelper
     public static async Task<string?> ValidateSerialsAsync(
         ZKTecoDbContext db,
         Guid storeId,
-        IReadOnlyList<(PosSalesController.SaleLineDto Dto, PosProduct Product)> lines)
+        IReadOnlyList<(PosSalesController.SaleLineDto Dto, PosProduct Product)> lines,
+        Guid? branchId = null,
+        Guid? hqBranchId = null)
     {
         var normalized = new List<(PosSalesController.SaleLineDto Dto, PosProduct Product, List<SerialInput> Serials)>();
 
@@ -55,19 +60,26 @@ public static class PosSaleWarrantyHelper
         if (normalized.Count == 0) return null;
 
         var allSerials = normalized
-            .SelectMany(x => x.Serials.Select(s => s.SerialNumber.Trim()))
+            .SelectMany(x => x.Serials.Select(s => NormalizeSerial(s.SerialNumber)))
             .ToList();
-        if (allSerials.Count != allSerials.Distinct(StringComparer.OrdinalIgnoreCase).Count())
+        if (allSerials.Count != allSerials.Distinct().Count())
             return "Seri máy bị trùng trong đơn hàng";
 
+        // So khớp không phân biệt hoa/thường (dữ liệu cũ có thể đã lưu chữ thường).
         var dupes = await db.PosProductWarrantyRegistrations.AsNoTracking()
             .Where(r => r.StoreId == storeId && r.Deleted == null &&
                         r.Status == PosWarrantyStatus.Active &&
-                        allSerials.Contains(r.SerialNumber))
+                        allSerials.Contains(r.SerialNumber.ToUpper()))
             .Select(r => r.SerialNumber)
             .ToListAsync();
         if (dupes.Count > 0)
             return $"Seri đã được đăng ký bảo hành: {string.Join(", ", dupes)}";
+
+        // Hàng đã nhập seri vào kho: chỉ được bán đúng các máy đang trong kho.
+        var stockErr = await PosSerialRegistry.ValidateForSaleAsync(db, storeId,
+            normalized.Select(x => (x.Product, x.Serials.Select(s => NormalizeSerial(s.SerialNumber)).ToList())).ToList(),
+            branchId, hqBranchId);
+        if (stockErr != null) return stockErr;
 
         return null;
     }
@@ -105,10 +117,14 @@ public static class PosSaleWarrantyHelper
                     serials.Add(new SerialInput(BuildAutoSerial(order.Id, i + 1, u + 1)));
             }
 
+            if (product.RequiresSerial)
+                await PosSerialRegistry.MarkSoldAsync(db, storeId, order.Id, product.Id,
+                    serials.Select(x => x.SerialNumber), saleDate);
+
             var months = product.WarrantyMonths ?? 0;
             foreach (var s in serials)
             {
-                var serial = s.SerialNumber.Trim();
+                var serial = NormalizeSerial(s.SerialNumber);
                 db.PosProductWarrantyRegistrations.Add(new PosProductWarrantyRegistration
                 {
                     Id = Guid.NewGuid(),
@@ -148,20 +164,27 @@ public static class PosSaleWarrantyHelper
             r.UpdatedAt = now;
             r.UpdatedBy = updatedBy;
         }
+        await PosSerialRegistry.RestoreAsync(db, storeId, saleOrderId);
     }
 
-    public static async Task MarkReturnedAsync(
+    /// <summary>
+    /// Đánh dấu các máy khách trả. Có chọn seri → chỉ đúng các seri đó; không chọn → chỉ chấp nhận khi
+    /// không mơ hồ (trả hết số máy còn bảo hành, hoặc hàng không bắt buộc seri). Trả về lỗi (null nếu ổn).
+    /// </summary>
+    public static async Task<string?> MarkReturnedAsync(
         ZKTecoDbContext db,
         Guid storeId,
         Guid saleOrderId,
         IReadOnlyList<(Guid ProductId, Guid? VariantId, decimal Qty)> returnLines,
+        IReadOnlyDictionary<(Guid ProductId, Guid? VariantId), List<string>>? serialsByKey,
         string updatedBy)
     {
         var now = DateTime.UtcNow;
-        foreach (var (productId, variantId, qty) in returnLines)
+        foreach (var g in returnLines.GroupBy(l => (l.ProductId, l.VariantId)))
         {
-            var toReturn = (int)Math.Ceiling(qty);
+            var toReturn = g.Sum(x => (int)Math.Ceiling(x.Qty));
             if (toReturn <= 0) continue;
+            var (productId, variantId) = g.Key;
 
             var active = await db.PosProductWarrantyRegistrations
                 .AsTracking()
@@ -169,19 +192,49 @@ public static class PosSaleWarrantyHelper
                             r.ProductId == productId && r.VariantId == variantId &&
                             r.Deleted == null && r.Status == PosWarrantyStatus.Active)
                 .OrderBy(r => r.CreatedAt)
-                .Take(toReturn)
                 .ToListAsync();
+            if (active.Count == 0) continue;
 
-            foreach (var r in active)
+            List<string>? picked = null;
+            serialsByKey?.TryGetValue((productId, variantId), out picked);
+            var wanted = (picked ?? [])
+                .Where(x => !string.IsNullOrWhiteSpace(x))
+                .Select(NormalizeSerial).Distinct().ToList();
+
+            List<PosProductWarrantyRegistration> toMark;
+            if (wanted.Count > 0)
+            {
+                if (wanted.Count != toReturn)
+                    return $"Chọn đúng {toReturn} seri máy trả lại (đang chọn {wanted.Count})";
+                toMark = active.Where(r => wanted.Contains(NormalizeSerial(r.SerialNumber))).ToList();
+                if (toMark.Count != wanted.Count)
+                {
+                    var found = toMark.Select(r => NormalizeSerial(r.SerialNumber)).ToHashSet();
+                    return $"Seri không thuộc đơn này hoặc đã trả/hủy: {string.Join(", ", wanted.Where(w => !found.Contains(w)))}";
+                }
+            }
+            else
+            {
+                var requiresSerial = await db.PosProducts.AsNoTracking()
+                    .Where(p => p.Id == productId).Select(p => p.RequiresSerial).FirstOrDefaultAsync();
+                if (requiresSerial && active.Count > toReturn)
+                    return "Đơn có nhiều máy — hãy chọn seri máy khách trả lại";
+                toMark = active.Take(toReturn).ToList();
+            }
+
+            foreach (var r in toMark)
             {
                 r.Status = PosWarrantyStatus.Returned;
                 r.UpdatedAt = now;
                 r.UpdatedBy = updatedBy;
             }
+            await PosSerialRegistry.RestoreAsync(db, storeId, saleOrderId, toMark.Select(r => r.SerialNumber));
         }
+        return null;
     }
 
-    public static async Task UnmarkReturnedAsync(
+    /// <summary>Hoàn bảo hành khi hủy phiếu trả. Lỗi nếu seri đó đã được bán/đăng ký bảo hành lại cho đơn khác.</summary>
+    public static async Task<string?> UnmarkReturnedAsync(
         ZKTecoDbContext db,
         Guid storeId,
         Guid saleOrderId,
@@ -202,6 +255,17 @@ public static class PosSaleWarrantyHelper
                 .OrderByDescending(r => r.UpdatedAt)
                 .Take(toRestore)
                 .ToListAsync();
+            if (returned.Count == 0) continue;
+
+            var ids = returned.Select(r => r.Id).ToList();
+            var serials = returned.Select(r => NormalizeSerial(r.SerialNumber)).ToList();
+            var clash = await db.PosProductWarrantyRegistrations.AsNoTracking()
+                .Where(r => r.StoreId == storeId && r.Deleted == null && r.Status == PosWarrantyStatus.Active
+                            && !ids.Contains(r.Id) && serials.Contains(r.SerialNumber.ToUpper()))
+                .Select(r => r.SerialNumber)
+                .ToListAsync();
+            if (clash.Count > 0)
+                return $"Không thể hủy trả: seri {string.Join(", ", clash)} đã được bán / đăng ký bảo hành cho đơn khác";
 
             foreach (var r in returned)
             {
@@ -209,7 +273,10 @@ public static class PosSaleWarrantyHelper
                 r.UpdatedAt = now;
                 r.UpdatedBy = updatedBy;
             }
+            await PosSerialRegistry.MarkSoldAsync(db, storeId, saleOrderId, productId,
+                returned.Select(r => r.SerialNumber), now);
         }
+        return null;
     }
 
     public static async Task<Dictionary<Guid, List<string>>> GetSerialsByLineAsync(
@@ -219,7 +286,8 @@ public static class PosSaleWarrantyHelper
         if (ids.Count == 0) return new Dictionary<Guid, List<string>>();
 
         var rows = await db.PosProductWarrantyRegistrations.AsNoTracking()
-            .Where(r => r.StoreId == storeId && ids.Contains(r.SaleOrderLineId) && r.Deleted == null)
+            .Where(r => r.StoreId == storeId && ids.Contains(r.SaleOrderLineId) && r.Deleted == null &&
+                        !r.SerialNumber.StartsWith("AUTO-"))
             .OrderBy(r => r.SerialNumber)
             .Select(r => new { r.SaleOrderLineId, r.SerialNumber, r.Imei, r.Status })
             .ToListAsync();

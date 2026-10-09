@@ -611,6 +611,11 @@ public partial class PosSalesController
             NotifyFloorChanged(storeId, "draftSaved",
                 orderId: order.Id, resourceId: order.ServiceResourceId);
         }
+        else if (order.InvoiceSlot.HasValue && SlotEventThrottle.Allow(order.Id))
+        {
+            // HĐ quầy (dùng chung giữa các máy): máy khác cập nhật ngay thay vì đợi vòng hỏi 10s.
+            NotifyFloorChanged(storeId, "slotSaved", orderId: order.Id);
+        }
         return Ok(AppResponse<SaleOrderDto>.Success(mapped));
     }
 
@@ -815,7 +820,7 @@ public partial class PosSalesController
         if (warrantyLines.Count > 0)
         {
             var warrantyErr = await PosSaleWarrantyHelper.ValidateSerialsAsync(
-                dbContext, storeId, warrantyLines);
+                dbContext, storeId, warrantyLines, SaleBranchScope().Branch, SaleBranchScope().Hq);
             if (warrantyErr != null) return BadRequest(AppResponse<SaleOrderDto>.Fail(warrantyErr));
         }
 
@@ -883,7 +888,8 @@ public partial class PosSalesController
                 (plan, stockErr) = await PosSaleStockHelper.PrepareSaleStockAsync(
                     dbContext, storeId, PosSaleStockHelper.ExpandStockInputsWithToppings(
                         order.Lines.Select(l => (l.ProductId, l.Qty, l.VariantId, l.UnitId, l.ToppingsJson)).ToList()),
-                    allowNegativeStock: allowNegComplete);
+                    allowNegativeStock: allowNegComplete,
+                    branchId: SaleBranchScope().Branch, hqBranchId: SaleBranchScope().Hq);
                 if (stockErr != null)
                 {
                     await tx.RollbackAsync();
@@ -1113,8 +1119,8 @@ public partial class PosSalesController
         if (!string.IsNullOrWhiteSpace(search))
         {
             var s = VnSearch.FoldText(search); // không dấu: «binh» khớp «Bình»
-            query = query.Where(o => VnSearch.Fold(o.OrderNo).Contains(s) ||
-                                     (o.CustomerName != null && VnSearch.Fold(o.CustomerName).Contains(s)));
+            query = query.Where(o => VnSearch.Has(o.OrderNo, s) ||
+                                     (o.CustomerName != null && VnSearch.Has(o.CustomerName, s)));
         }
         if (!string.IsNullOrWhiteSpace(statuses))
         {
@@ -1218,14 +1224,8 @@ public partial class PosSalesController
             return (null, null, "Đơn hàng trống");
         }
 
-        if (!allowDiscount)
-        {
-            if (dto.Discount > (prior?.Discount ?? 0) + 0.009m)
-                return (null, null, DiscountDeniedMessage);
-            if (dto.Lines.Any(l => l.DiscountAmount >
-                    (prior != null && prior.Lines.TryGetValue((l.ProductId, l.VariantId), out var pd) ? pd.Disc : 0) + 0.009m))
-                return (null, null, DiscountDeniedMessage);
-        }
+        // Quyền «Giảm giá khi bán» được kiểm tra sau khi dựng dòng (cần thành tiền server) —
+        // khuyến mãi tự áp không tính là giảm tay (xem PosPromotionEngine).
 
         if (dto.CustomerId.HasValue && !await dbContext.PosCustomers.AnyAsync(c =>
                 c.Id == dto.CustomerId && c.StoreId == storeId && c.Deleted == null))
@@ -1268,7 +1268,8 @@ public partial class PosSalesController
             }
             var (p, stockErr) = await PosSaleStockHelper.PrepareSaleStockAsync(
                 dbContext, storeId, PosSaleStockHelper.ExpandStockInputsWithToppings(lineInputs),
-                allowNegativeStock: allowNeg);
+                allowNegativeStock: allowNeg,
+                branchId: SaleBranchScope().Branch, hqBranchId: SaleBranchScope().Hq);
             if (stockErr != null) return (null, null, stockErr);
             plan = p;
         }
@@ -1364,7 +1365,7 @@ public partial class PosSalesController
                 order.OrderNo = PosDraftInvoiceSlots.TempOrderNo(dto.InvoiceSlot.Value);
         }
 
-        order.Discount = dto.Discount;
+        order.Discount = Math.Round(dto.Discount, 0, MidpointRounding.AwayFromZero);
         order.PaymentMethod = string.IsNullOrWhiteSpace(dto.PaymentMethod) ? "Tiền mặt" : dto.PaymentMethod.Trim();
         var qrGuest = existing != null && PosOnlineOrderHelper.IsQrOnlineOrder(existing)
             ? PosOnlineOrderHelper.CaptureGuestMeta(existing)
@@ -1571,8 +1572,9 @@ public partial class PosSalesController
                 }
                 catch { /* ignore bad json */ }
             }
-            grossLine = (unitPrice + toppingExtra) * line.Qty;
-            discAmt = Math.Max(0, Math.Min(line.DiscountAmount, grossLine));
+            // Tiền làm tròn đến đồng — khớp màn bán (hàng cân / giảm % không để số lẻ).
+            grossLine = Math.Round((unitPrice + toppingExtra) * line.Qty, 0, MidpointRounding.AwayFromZero);
+            discAmt = Math.Round(Math.Max(0, Math.Min(line.DiscountAmount, grossLine)), 0, MidpointRounding.AwayFromZero);
 
             if (p.ProductType == PosProductType.Service
                 && PosServiceBillingHelper.IsTimed(p.ServiceBillingMode))
@@ -1602,8 +1604,8 @@ public partial class PosSalesController
                     lineQty = PosHotelNightMath.Nights(started, ended ?? DateTime.UtcNow, hotelPolicy);
                 lineStarted ??= started;
                 if (complete) lineEnded ??= ended ?? DateTime.UtcNow;
-                grossLine = p.OpeningFee + (unitPrice + toppingExtra) * lineQty;
-                discAmt = Math.Max(0, Math.Min(line.DiscountAmount, grossLine));
+                grossLine = Math.Round(p.OpeningFee + (unitPrice + toppingExtra) * lineQty, 0, MidpointRounding.AwayFromZero);
+                discAmt = Math.Round(Math.Max(0, Math.Min(line.DiscountAmount, grossLine)), 0, MidpointRounding.AwayFromZero);
                 lineTotal = grossLine - discAmt;
             }
             else
@@ -1648,8 +1650,40 @@ public partial class PosSalesController
             });
         }
 
+        if (!allowDiscount)
+        {
+            // Không có quyền giảm giá: chỉ cho phần giảm do khuyến mãi tự áp (server tự tính lại)
+            // + phần giảm đã có sẵn trên đơn (quản lý giảm trước đó). Sai lệch ≤ 1đ do làm tròn.
+            var promos = await PosPromotionEngine.LoadAsync(dbContext, storeId);
+            var promo = new PosPromotionEngine.Result();
+            if (promos.Count > 0)
+            {
+                var promoLines = lines.Select((l, i) =>
+                {
+                    var prodRow = products[l.ProductId];
+                    var barcode = l.VariantId.HasValue && variants.TryGetValue(l.VariantId.Value, out var vv)
+                        ? vv.Barcode ?? prodRow.Barcode
+                        : prodRow.Barcode;
+                    return new PosPromotionEngine.Line(
+                        i.ToString(), l.ProductId, prodRow.CategoryId, !string.IsNullOrWhiteSpace(barcode),
+                        l.Qty, l.LineTotal + l.DiscountAmount);
+                }).ToList();
+                promo = PosPromotionEngine.ComputeTolerant(promos, promoLines, dto.CustomerId.HasValue);
+            }
+            for (var i = 0; i < dto.Lines.Count && i < lines.Count; i++)
+            {
+                var dl = dto.Lines[i];
+                var priorDisc = prior != null && prior.Lines.TryGetValue((dl.ProductId, dl.VariantId), out var pd) ? pd.Disc : 0;
+                var allowed = promo.LineDiscount.GetValueOrDefault(i.ToString()) + priorDisc;
+                if (dl.DiscountAmount > allowed + 1m)
+                    return (null, null, DiscountDeniedMessage);
+            }
+            if (dto.Discount > promo.BillDiscount + (prior?.Discount ?? 0) + 1m)
+                return (null, null, DiscountDeniedMessage);
+        }
+
         order.SubTotal = subTotal;
-        var merchandise = subTotal - lineDiscountTotal - dto.Discount;
+        var merchandise = subTotal - lineDiscountTotal - Math.Round(dto.Discount, 0, MidpointRounding.AwayFromZero);
         if (merchandise < 0) merchandise = 0;
 
         var voucherApply = await PosCustomerFinanceHelper.TryApplyVoucherAsync(
@@ -1700,10 +1734,10 @@ public partial class PosSalesController
             var sellTaxMode = QrOrderTaxHelper.Resolve(sellSettings?.ExtraJson, null).Mode;
             order.VatAmount = sellTaxMode is "included" or "none"
                 ? 0
-                : Math.Max(0, dto.VatAmount);
+                : Math.Round(Math.Max(0, dto.VatAmount), 0, MidpointRounding.AwayFromZero);
         }
-        order.SurchargeAmount = Math.Max(0, dto.SurchargeAmount);
-        order.DeliveryFee = Math.Max(0, dto.DeliveryFee);
+        order.SurchargeAmount = Math.Round(Math.Max(0, dto.SurchargeAmount), 0, MidpointRounding.AwayFromZero);
+        order.DeliveryFee = Math.Round(Math.Max(0, dto.DeliveryFee), 0, MidpointRounding.AwayFromZero);
         order.PointsEarned = complete && dto.CustomerId.HasValue
             ? PosCustomerFinanceHelper.CalcPointsEarn(
                 order.Total,
@@ -1782,10 +1816,11 @@ public partial class PosSalesController
             if (warrantyLines.Count > 0)
             {
                 var warrantyErr = await PosSaleWarrantyHelper.ValidateSerialsAsync(
-                    dbContext, storeId, warrantyLines);
+                    dbContext, storeId, warrantyLines, SaleBranchScope().Branch, SaleBranchScope().Hq);
                 if (warrantyErr != null) return (null, null, warrantyErr);
             }
 
+            order.BranchId ??= SaleBranchScope().Branch;
             await PosSaleStockHelper.ApplySaleStockAsync(
                 dbContext, storeId, order, lines, plan, CurrentUserEmail);
             await PosSaleStockHelper.UpdateCustomerOnSaleCompleteAsync(dbContext, storeId, order);
@@ -2053,5 +2088,12 @@ public partial class PosSalesController
 
         order.SoldByEmployeeId = null;
         order.SoldBy = soldByFallback?.Trim() ?? CurrentUserEmail;
+    }
+
+    /// <summary>Chi nhánh đang bán (null nếu cửa hàng chưa dùng chi nhánh) + trụ sở — để kiểm tra tồn / seri theo chi nhánh.</summary>
+    (Guid? Branch, Guid? Hq) SaleBranchScope()
+    {
+        var b = ZKTecoADMS.Api.Controllers.Base.BranchScopeExtensions.BranchContext(HttpContext);
+        return b is { StoreUsesBranches: true } ? (b.CurrentBranchId ?? b.HeadquarterBranchId, b.HeadquarterBranchId) : (null, null);
     }
 }

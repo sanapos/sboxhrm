@@ -30,6 +30,9 @@ public class PosPurchaseReturnLine : AuditableEntity<Guid>
     [MaxLength(100)]
     public string? UnitName { get; set; }
 
+    /// <summary>Seri máy trả nhà cung cấp (mỗi seri một dòng).</summary>
+    public string? SerialNumbersText { get; set; }
+
     public decimal Qty { get; set; }
     public decimal CostPrice { get; set; }
     public decimal DiscountAmount { get; set; }

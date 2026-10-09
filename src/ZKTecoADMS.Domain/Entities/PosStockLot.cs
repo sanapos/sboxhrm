@@ -5,8 +5,11 @@ using ZKTecoADMS.Domain.Enums;
 namespace ZKTecoADMS.Domain.Entities;
 
 /// <summary>Lô hàng theo dõi HSD — tạo khi nhập kho, dùng cho FEFO (P1+).</summary>
-public class PosStockLot : AuditableEntity<Guid>
+public class PosStockLot : AuditableEntity<Guid>, IBranchScoped
 {
+    /// <summary>Chi nhánh đang giữ lô (null = trụ sở / cửa hàng chưa dùng chi nhánh). Tự gán khi tạo lô.</summary>
+    public Guid? BranchId { get; set; }
+
     [Required]
     public Guid StoreId { get; set; }
     public virtual Store? Store { get; set; }

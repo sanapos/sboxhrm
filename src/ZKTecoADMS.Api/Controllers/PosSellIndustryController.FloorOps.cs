@@ -325,6 +325,7 @@ public partial class PosSellIndustryController
 
     /// <summary>Chuy?n b�n theo resourceId ngu?n (tin c?y hon sessionId tr�n so d?).</summary>
     [HttpPost("service-resources/{id:guid}/transfer")]
+    [ZKTecoADMS.Api.Controllers.Filters.NotifyPosFloor("transfer", "resource")]
     [RequireModulePermission("PosSell", ModulePermissionAction.Create)]
     public async Task<ActionResult<AppResponse<object>>> TransferByResource(
         Guid id, [FromBody] TransferSessionDto? dto)
@@ -852,6 +853,7 @@ public partial class PosSellIndustryController
     }
 
     [HttpPut("resource-sessions/{id:guid}/guests")]
+    [ZKTecoADMS.Api.Controllers.Filters.NotifyPosFloor("guests", "session")]
     [RequireModulePermission("PosSell", ModulePermissionAction.Create)]
     public async Task<ActionResult<AppResponse<object>>> SetGuestCount(Guid id, [FromBody] GuestCountDto dto)
     {
@@ -954,6 +956,7 @@ public partial class PosSellIndustryController
     }
 
     [HttpPost("service-resources/{id:guid}/clean")]
+    [ZKTecoADMS.Api.Controllers.Filters.NotifyPosFloor("clean", "resource")]
     [RequireModulePermission("PosSell", ModulePermissionAction.Create)]
     public async Task<ActionResult<AppResponse<object>>> MarkCleaned(Guid id)
     {
@@ -1143,6 +1146,7 @@ public partial class PosSellIndustryController
 
     // Thiết lập sơ đồ (khu / bàn / vị trí) = quyền Sửa bán hàng; thu ngân (Tạo) chỉ thao tác bán.
     [HttpPut("service-resources/layout")]
+    [ZKTecoADMS.Api.Controllers.Filters.NotifyPosFloor("layoutChanged")]
     [RequireModulePermission("PosSell", ModulePermissionAction.Edit)]
     public async Task<ActionResult<AppResponse<object>>> SaveLayout([FromBody] LayoutBatchDto? dto)
     {
@@ -1456,7 +1460,9 @@ public partial class PosSellIndustryController
     /// Dùng PosSell Create — thu ngân luôn đẩy được (PosCustomerDisplay kế thừa qua implicit grant).
     [HttpPut("customer-display/state")]
     [RequireModulePermission("PosSell", ModulePermissionAction.Create)]
-    public ActionResult<AppResponse<object>> PutCustomerDisplayState([FromBody] CustomerDisplayStateDto dto)
+    public ActionResult<AppResponse<object>> PutCustomerDisplayState(
+        [FromBody] CustomerDisplayStateDto dto,
+        [FromServices] Microsoft.Extensions.Caching.Distributed.IDistributedCache? dist)
     {
         if (!TryGetStoreId(out var storeId))
             return BadRequest(AppResponse<object>.Fail("Thiếu cửa hàng"));
@@ -1467,7 +1473,7 @@ public partial class PosSellIndustryController
         if (code.Length < 4)
             return BadRequest(AppResponse<object>.Fail("Thiếu mã xem màn phụ (viewerCode)"));
 
-        ZKTecoADMS.Api.Services.PosCustomerDisplayStateStore.Publish(storeId, code, dto.StateJson.Trim());
+        ZKTecoADMS.Api.Services.PosCustomerDisplayStateStore.Publish(storeId, code, dto.StateJson.Trim(), dist);
         return Ok(AppResponse<object>.Success(new { ok = true }));
     }
 
@@ -1485,9 +1491,11 @@ public partial class PosSellIndustryController
     /// <summary>Máy khác mở link công khai ?v=CODE — không cần đăng nhập.</summary>
     [HttpGet("customer-display/public-state")]
     [Microsoft.AspNetCore.Authorization.AllowAnonymous]
-    public ActionResult<object> GetCustomerDisplayPublicState([FromQuery] string? code)
+    public async Task<ActionResult<object>> GetCustomerDisplayPublicState(
+        [FromQuery] string? code,
+        [FromServices] Microsoft.Extensions.Caching.Distributed.IDistributedCache? dist)
     {
-        var json = ZKTecoADMS.Api.Services.PosCustomerDisplayStateStore.GetByViewerCode(code);
+        var json = await ZKTecoADMS.Api.Services.PosCustomerDisplayStateStore.GetByViewerCodeAsync(code, dist);
         if (string.IsNullOrWhiteSpace(json))
             return NotFound(new { isSuccess = false, message = "Chưa có dữ liệu màn phụ — mở bán hàng trên máy thu ngân trước" });
         return Ok(new { isSuccess = true, data = new { stateJson = json } });

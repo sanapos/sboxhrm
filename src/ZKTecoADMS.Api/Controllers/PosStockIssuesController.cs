@@ -16,7 +16,7 @@ namespace ZKTecoADMS.Api.Controllers;
 [Authorize]
 public class PosStockIssuesController(ZKTecoDbContext dbContext) : AuthenticatedControllerBase
 {
-    public record StockIssueLineInput(Guid ProductId, Guid? VariantId, decimal Qty);
+    public record StockIssueLineInput(Guid ProductId, Guid? VariantId, decimal Qty, List<string>? SerialNumbers = null);
 
     public record CreateStockIssueDto(string? Reason, string? Note, List<StockIssueLineInput> Lines);
 
@@ -76,6 +76,7 @@ public class PosStockIssuesController(ZKTecoDbContext dbContext) : Authenticated
         {
             Id = Guid.NewGuid(),
             StoreId = storeId,
+            BranchId = WorkBranchId,
             IssueNo = issueNo,
             Reason = dto.Reason?.Trim(),
             Note = dto.Note?.Trim(),
@@ -112,6 +113,7 @@ public class PosStockIssuesController(ZKTecoDbContext dbContext) : Authenticated
                 ProductName = displayName,
                 ProductCode = displayCode,
                 Qty = line.Qty,
+                SerialNumbersText = line.SerialNumbers is { Count: > 0 } ? PosSerialRegistry.Join(line.SerialNumbers) : null,
                 IsActive = true,
                 CreatedBy = CurrentUserEmail,
             });
@@ -155,7 +157,8 @@ public class PosStockIssuesController(ZKTecoDbContext dbContext) : Authenticated
         pageSize = Math.Clamp(pageSize, 1, 200);
 
         var query = dbContext.PosStockIssues.AsNoTracking()
-            .Where(i => i.StoreId == storeId && i.Deleted == null && i.IsActive);
+            .Where(i => i.StoreId == storeId && i.Deleted == null && i.IsActive)
+            .ApplyBranchScope(HttpContext.BranchContext());
         if (!string.IsNullOrWhiteSpace(search))
         {
             var s = search.Trim().ToLower();

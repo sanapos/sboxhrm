@@ -431,6 +431,7 @@ public partial class PosSellIndustryController
                 return BadRequest(AppResponse<object>.Fail("Nhân viên không hợp lệ"));
         }
 
+        await using var bookingTx = await BeginBookingLockAsync(dto.ResourceId, dto.AssignedEmployeeId);
         var live = await db.PosResourceSessions.AnyAsync(s =>
             s.ResourceId == dto.ResourceId
             && (s.Status == PosResourceSessionStatus.Open || s.Status == PosResourceSessionStatus.Paused)
@@ -570,6 +571,7 @@ public partial class PosSellIndustryController
                 db, entity, depositPaid, CurrentUserId, dto.DepositBankAccountId);
         }
         await db.SaveChangesAsync();
+        await bookingTx.CommitAsync();
 
         NotifyFloorChanged(storeId, "reservationCreate", resourceId: resource.Id);
         await PosNotificationHelper.NotifyReservationCreatedAsync(
@@ -673,6 +675,7 @@ public partial class PosSellIndustryController
                 return BadRequest(AppResponse<object>.Fail("Nhân viên không hợp lệ"));
         }
 
+        await using var bookingTx = await BeginBookingLockAsync(entity.ResourceId, dto.AssignedEmployeeId ?? entity.AssignedEmployeeId);
         var live = await db.PosResourceSessions.AnyAsync(s =>
             s.ResourceId == dto.ResourceId
             && (s.Status == PosResourceSessionStatus.Open || s.Status == PosResourceSessionStatus.Paused)
@@ -755,6 +758,7 @@ public partial class PosSellIndustryController
         entity.UpdatedAt = now;
         entity.UpdatedBy = CurrentUserEmail;
         await db.SaveChangesAsync();
+        await bookingTx.CommitAsync();
 
         NotifyFloorChanged(storeId, "reservationUpdated", resourceId: entity.ResourceId);
         if (oldResourceId != entity.ResourceId)
@@ -852,20 +856,17 @@ public partial class PosSellIndustryController
 
         var now = DateTime.UtcNow;
         if (entity.StoreId == Guid.Empty) entity.StoreId = storeId;
+        // Đã thu cọc: người dùng phải chọn hoàn hay giữ — không mặc định mất cọc của khách.
+        var hasDeposit = entity.DepositStatus == PosReservationDepositStatus.Held && entity.DepositPaid > 0;
+        if (hasDeposit && dto?.RefundDeposit != true && dto?.ForfeitDeposit != true)
+            return BadRequest(AppResponse<object>.Fail("Đã thu cọc — chọn hoàn cọc hoặc giữ cọc (mất cọc) khi hủy"));
         entity.Status = PosResourceReservationStatus.Cancelled;
-
-        if (entity.DepositStatus == PosReservationDepositStatus.Held && entity.DepositPaid > 0)
+        if (hasDeposit)
         {
             if (dto?.RefundDeposit == true)
             {
                 entity.DepositStatus = PosReservationDepositStatus.Refunded;
-                await PosFinanceSyncHelper.SyncReservationDepositRefundAsync(
-                    db, entity, CurrentUserId);
-            }
-            else if (dto?.ForfeitDeposit == true || dto == null)
-            {
-                entity.DepositStatus = PosReservationDepositStatus.Forfeited;
-                await PosFinanceSyncHelper.ReclassifyDepositOnForfeitAsync(db, entity);
+                await PosFinanceSyncHelper.SyncReservationDepositRefundAsync(db, entity, CurrentUserId);
             }
             else
             {
@@ -873,13 +874,11 @@ public partial class PosSellIndustryController
                 await PosFinanceSyncHelper.ReclassifyDepositOnForfeitAsync(db, entity);
             }
         }
-
-        entity.Deleted = now;
-        entity.DeletedBy = CurrentUserEmail;
+        // Giữ bản ghi (không xóa mềm): báo cáo hủy / không đến / tiền cọc cần lịch sử.
+        entity.IsActive = false;
         entity.UpdatedAt = now;
         entity.UpdatedBy = CurrentUserEmail;
         await db.SaveChangesAsync();
-
         NotifyFloorChanged(storeId, "reservationCancel", resourceId: entity.ResourceId);
         return Ok(AppResponse<object>.Success(new
         {
@@ -891,6 +890,7 @@ public partial class PosSellIndustryController
     }
 
     [HttpPost("resource-reservations/expire-noshow")]
+    [ZKTecoADMS.Api.Controllers.Filters.NotifyPosFloor("reservationNoShow")]
     [RequireModulePermission("PosBooking", ModulePermissionAction.Create)]
     public async Task<ActionResult<AppResponse<object>>> ExpireNoShows()
     {
@@ -1054,36 +1054,28 @@ public partial class PosSellIndustryController
         }
     }
 
+
+    /// <summary>
+    /// Khóa tư vấn theo bàn (và nhân viên) trong giao dịch — hai người đặt cùng lúc không cùng vượt qua bước kiểm tra trùng khung giờ.
+    /// </summary>
+    async Task<Microsoft.EntityFrameworkCore.Storage.IDbContextTransaction> BeginBookingLockAsync(Guid resourceId, Guid? employeeId)
+    {
+        var tx = await db.Database.BeginTransactionAsync();
+        var keys = new List<string> { "booking:" + resourceId };
+        if (employeeId.HasValue) keys.Add("booking-emp:" + employeeId);
+        foreach (var k in keys.OrderBy(x => x, StringComparer.Ordinal))
+            await db.Database.ExecuteSqlInterpolatedAsync($"SELECT pg_advisory_xact_lock(hashtextextended({k}, 0))");
+        return tx;
+    }
+
     /// <summary>Đánh NoShow các Booked quá ReservedUntil + grace; cọc Held → Forfeited.</summary>
     async Task<int> ExpireOverdueReservationsAsync(Guid storeId)
     {
-        var cutoff = DateTime.UtcNow.AddMinutes(-ReservationNoShowGraceMinutes);
-        var overdue = await db.PosResourceReservations.AsTracking()
-            .Where(x => x.StoreId == storeId && x.Deleted == null
-                && x.Status == PosResourceReservationStatus.Booked
-                && x.ReservedUntil != null
-                && x.ReservedUntil < cutoff
-                && x.ReservedAt <= cutoff)
-            .ToListAsync();
-        if (overdue.Count == 0) return 0;
-
-        var now = DateTime.UtcNow;
-        foreach (var x in overdue)
-        {
-            x.Status = PosResourceReservationStatus.NoShow;
-            if (x.DepositStatus == PosReservationDepositStatus.Held && x.DepositPaid > 0)
-            {
-                x.DepositStatus = PosReservationDepositStatus.Forfeited;
-                await PosFinanceSyncHelper.ReclassifyDepositOnForfeitAsync(db, x);
-            }
-            x.UpdatedAt = now;
-            x.UpdatedBy = CurrentUserEmail ?? "system";
-            x.IsActive = false;
-        }
-        await db.SaveChangesAsync();
-        if (overdue.Count > 0)
+        var n = await ZKTecoADMS.Api.Services.PosQrMaintenanceBackgroundService.ExpireOverdueReservationsAsync(
+            db, storeId, CurrentUserEmail ?? "system", ReservationNoShowGraceMinutes);
+        if (n > 0)
             NotifyFloorChanged(storeId, "reservationNoShow");
-        return overdue.Count;
+        return n;
     }
 
     /// <summary>

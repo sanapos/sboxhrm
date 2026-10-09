@@ -31,6 +31,23 @@ public partial class PosSalesController(
     IHubContext<AttendanceHub> hubContext,
     PosEInvoiceService eInvoiceService) : AuthenticatedControllerBase
 {
+    /// <summary>Tự lưu HĐ quầy gõ liên tục → tối đa 1 sự kiện / 2 giây / đơn.</summary>
+    static class SlotEventThrottle
+    {
+        static readonly System.Collections.Concurrent.ConcurrentDictionary<Guid, DateTime> Last = new();
+
+        public static bool Allow(Guid orderId)
+        {
+            var now = DateTime.UtcNow;
+            if (Last.TryGetValue(orderId, out var t) && now - t < TimeSpan.FromSeconds(2)) return false;
+            Last[orderId] = now;
+            if (Last.Count > 5000)
+                foreach (var k in Last.Where(kv => now - kv.Value > TimeSpan.FromMinutes(5)).Select(kv => kv.Key).ToList())
+                    Last.TryRemove(k, out _);
+            return true;
+        }
+    }
+
     void NotifyFloorChanged(
         Guid storeId,
         string reason,
@@ -424,10 +441,10 @@ public partial class PosSalesController(
         {
             var s = VnSearch.FoldText(search); // không dấu: «binh» khớp «Bình»
             baseFilter = baseFilter.Where(t =>
-                VnSearch.Fold(t.ReferenceNo).Contains(s) ||
-                (t.SaleOrder != null && VnSearch.Fold(t.SaleOrder.OrderNo).Contains(s)) ||
+                VnSearch.Has(t.ReferenceNo, s) ||
+                (t.SaleOrder != null && VnSearch.Has(t.SaleOrder.OrderNo, s)) ||
                 (t.SaleOrder != null && t.SaleOrder.CustomerName != null &&
-                 VnSearch.Fold(t.SaleOrder.CustomerName).Contains(s)));
+                 VnSearch.Has(t.SaleOrder.CustomerName, s)));
         }
         if (from.HasValue || to.HasValue)
         {
@@ -519,24 +536,45 @@ public partial class PosSalesController(
         [FromQuery] Guid? categoryId,
         [FromQuery] bool categoryIncludeChildren = true,
         [FromQuery] int page = 1,
-        [FromQuery] int pageSize = 48)
+        [FromQuery] int pageSize = 48,
+        [FromQuery] DateTime? updatedSince = null)
     {
         var storeId = RequiredStoreId;
+        var serverTime = DateTime.UtcNow;
         page = Math.Max(1, page);
-        pageSize = Math.Clamp(pageSize, 1, 100);
+        // Đồng bộ phần thay đổi (updatedSince): thường vài món → cho trang lớn hơn.
+        pageSize = Math.Clamp(pageSize, 1, updatedSince.HasValue ? 500 : 100);
 
         var query = dbContext.PosProducts
             .AsNoTracking()
             .Where(p => p.StoreId == storeId && p.Deleted == null && p.IsActive
                         && p.IsDirectSale && !p.IsTopping);
 
+        // Máy bán đã có danh mục đầy đủ: chỉ trả món đổi sau mốc này + id món đã xóa / ngừng bán
+        // + tổng số món đang bán (máy tự kiểm tra lệch → tải lại toàn bộ).
+        int? sellableTotal = null;
+        List<Guid>? removedIds = null;
+        if (updatedSince is DateTime since)
+        {
+            var sinceUtc = DateTime.SpecifyKind(since.ToUniversalTime(), DateTimeKind.Unspecified);
+            sellableTotal = await query.CountAsync();
+            removedIds = await dbContext.PosProducts.IgnoreQueryFilters().AsNoTracking()
+                .Where(p => p.StoreId == storeId
+                            && ((p.UpdatedAt ?? p.CreatedAt) > sinceUtc || (p.Deleted != null && p.Deleted > sinceUtc))
+                            && !(p.Deleted == null && p.IsActive && p.IsDirectSale && !p.IsTopping))
+                .Select(p => p.Id)
+                .Take(5000)
+                .ToListAsync();
+            query = query.Where(p => (p.UpdatedAt ?? p.CreatedAt) > sinceUtc);
+        }
+
         if (!string.IsNullOrWhiteSpace(search))
         {
             var s = VnSearch.FoldText(search); // không dấu: «binh» khớp «Bình»
             query = query.Where(p =>
-                VnSearch.Fold(p.Name).Contains(s) ||
-                VnSearch.Fold(p.ProductCode).Contains(s) ||
-                (p.Barcode != null && VnSearch.Fold(p.Barcode).Contains(s)));
+                VnSearch.Has(p.Name, s) ||
+                VnSearch.Has(p.ProductCode, s) ||
+                (p.Barcode != null && VnSearch.Has(p.Barcode, s)));
         }
 
         if (categoryId.HasValue)
@@ -897,6 +935,9 @@ public partial class PosSalesController(
             pageSize,
             catalogVersion,
             items,
+            serverTime = DateTime.SpecifyKind(serverTime, DateTimeKind.Utc),
+            sellableTotal,
+            removedIds,
         }));
     }
 
@@ -1289,6 +1330,10 @@ public partial class PosSalesController(
             NotifyFloorChanged(storeId, "draftSaved",
                 orderId: order.Id, resourceId: order.ServiceResourceId);
         }
+        else if (order.InvoiceSlot.HasValue && SlotEventThrottle.Allow(order.Id))
+        {
+            NotifyFloorChanged(storeId, "slotSaved", orderId: order.Id);
+        }
 
         return Ok(AppResponse<SaleOrderDto>.Success(mapped));
     }
@@ -1403,9 +1448,9 @@ public partial class PosSalesController(
         if (!string.IsNullOrWhiteSpace(search))
         {
             var s = VnSearch.FoldText(search); // không dấu: «binh» khớp «Bình»
-            query = query.Where(o => VnSearch.Fold(o.OrderNo).Contains(s) ||
-                                     (o.CustomerName != null && VnSearch.Fold(o.CustomerName).Contains(s)) ||
-                                     (o.VoucherCode != null && VnSearch.Fold(o.VoucherCode).Contains(s)));
+            query = query.Where(o => VnSearch.Has(o.OrderNo, s) ||
+                                     (o.CustomerName != null && VnSearch.Has(o.CustomerName, s)) ||
+                                     (o.VoucherCode != null && VnSearch.Has(o.VoucherCode, s)));
         }
         if (!string.IsNullOrWhiteSpace(statuses))
         {
@@ -1715,6 +1760,7 @@ public partial class PosSalesController(
     }
 
     [HttpDelete("{id:guid}")]
+    [ZKTecoADMS.Api.Controllers.Filters.NotifyPosFloor("saleDeleted", "order")]
     [RequireAnyActionOnModule("PosSaleOrders", ModulePermissionAction.Delete, ModulePermissionAction.Edit)]
     public async Task<ActionResult<AppResponse<object>>> DeleteSale(Guid id)
     {
@@ -1768,6 +1814,7 @@ public partial class PosSalesController(
     /// Thu ngân hủy đơn tạm (HĐ tách trống / trả bàn) — PosSell Create|Edit, không cần PosSaleOrders.
     /// </summary>
     [HttpPost("{id:guid}/cancel-draft")]
+    [ZKTecoADMS.Api.Controllers.Filters.NotifyPosFloor("draftCancelled", "order")]
     [RequireAnyActionOnModule("PosSell", ModulePermissionAction.Create, ModulePermissionAction.Edit)]
     public async Task<ActionResult<AppResponse<object>>> CancelDraftSale(Guid id)
     {
@@ -1989,7 +2036,7 @@ public partial class PosSalesController(
         return Ok(AppResponse<List<SaleReturnSummaryDto>>.Success(items));
     }
 
-    public record ReturnLineDto(Guid ProductId, decimal Qty, Guid? VariantId);
+    public record ReturnLineDto(Guid ProductId, decimal Qty, Guid? VariantId, List<string>? SerialNumbers = null);
 
     public record ReturnSaleDto(
         List<ReturnLineDto> Lines,
@@ -2000,6 +2047,7 @@ public partial class PosSalesController(
         string? DeviceName = null);
 
     [HttpPost("{id:guid}/return")]
+    [ZKTecoADMS.Api.Controllers.Filters.NotifyPosFloor("saleReturned", "order")]
     [RequireModulePermission("PosSaleReturns", ModulePermissionAction.Approve)]
     public async Task<ActionResult<AppResponse<object>>> ReturnSale(Guid id, [FromBody] ReturnSaleDto dto)
     {
@@ -2251,8 +2299,20 @@ public partial class PosSalesController(
             dbContext, storeId, order, refundTotal, totalBeforeRefund, CurrentUserEmail, returnNo);
         await PosFinanceSyncHelper.SyncCustomerReturnAsync(
             dbContext, order, returnNo, refundTotal, refundMethod, CurrentUserId);
-        await PosSaleWarrantyHelper.MarkReturnedAsync(
-            dbContext, storeId, order.Id, warrantyReturns, CurrentUserEmail);
+        var serialsByKey = new Dictionary<(Guid ProductId, Guid? VariantId), List<string>>();
+        foreach (var rl in dto.Lines.Where(l => l.SerialNumbers is { Count: > 0 }))
+        {
+            if (!serialsByKey.TryGetValue((rl.ProductId, rl.VariantId), out var bucket))
+                serialsByKey[(rl.ProductId, rl.VariantId)] = bucket = [];
+            bucket.AddRange(rl.SerialNumbers!);
+        }
+        var warrantyErr = await PosSaleWarrantyHelper.MarkReturnedAsync(
+            dbContext, storeId, order.Id, warrantyReturns, serialsByKey, CurrentUserEmail);
+        if (warrantyErr != null)
+        {
+            await tx.RollbackAsync();
+            return BadRequest(AppResponse<object>.Fail(warrantyErr));
+        }
 
         dbContext.PosCancelReturnAudits.Add(new PosCancelReturnAudit
         {
@@ -2310,6 +2370,7 @@ public partial class PosSalesController(
     }
 
     [HttpPost("{id:guid}/returns/cancel")]
+    [ZKTecoADMS.Api.Controllers.Filters.NotifyPosFloor("returnCancelled", "order")]
     [RequireModulePermission("PosSaleReturns", ModulePermissionAction.Approve)]
     public async Task<ActionResult<AppResponse<SaleOrderDto>>> CancelReturn(Guid id, [FromBody] CancelSaleReturnDto dto)
     {
@@ -2356,8 +2417,13 @@ public partial class PosSalesController(
         await PosCustomerFinanceHelper.RestorePointsOnReturnVoidAsync(
             dbContext, storeId, order, refundReversed, order.Total, CurrentUserEmail, returnNo);
         await PosFinanceSyncHelper.ReverseCustomerReturnAsync(dbContext, order, returnNo);
-        await PosSaleWarrantyHelper.UnmarkReturnedAsync(
+        var unmarkErr = await PosSaleWarrantyHelper.UnmarkReturnedAsync(
             dbContext, storeId, order.Id, warrantyLines, CurrentUserEmail);
+        if (unmarkErr != null)
+        {
+            await tx.RollbackAsync();
+            return BadRequest(AppResponse<SaleOrderDto>.Fail(unmarkErr));
+        }
         await dbContext.SaveChangesAsync();
         await tx.CommitAsync();
         }

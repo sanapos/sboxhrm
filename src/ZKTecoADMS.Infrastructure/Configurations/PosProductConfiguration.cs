@@ -804,6 +804,95 @@ public class PosProductWarrantyRegistrationConfiguration : IEntityTypeConfigurat
     }
 }
 
+public class PosProductSerialConfiguration : IEntityTypeConfiguration<PosProductSerial>
+{
+    public void Configure(EntityTypeBuilder<PosProductSerial> builder)
+    {
+        builder.ToTable("PosProductSerials");
+        builder.HasKey(x => x.Id);
+        builder.Property(x => x.SerialNumber).IsRequired().HasMaxLength(100);
+        builder.Property(x => x.Imei).HasMaxLength(50);
+        builder.Property(x => x.Note).HasMaxLength(500);
+        builder.Property(x => x.CostPrice).HasColumnType("numeric(18,2)");
+        builder.Property(x => x.TagCode).HasMaxLength(100);
+        builder.HasIndex(x => new { x.StoreId, x.TagCode });
+        // Một seri chỉ nằm trong kho hoặc nơi khách hàng tại một thời điểm.
+        builder.HasIndex(x => new { x.StoreId, x.SerialNumber })
+            .IsUnique()
+            .HasFilter("\"Deleted\" IS NULL AND \"Status\" IN (0, 1)");
+        builder.HasIndex(x => new { x.StoreId, x.ProductId, x.Status });
+        builder.HasIndex(x => x.ReceiptId);
+        builder.HasIndex(x => x.SaleOrderId);
+    }
+}
+
+public class StoreScheduledNotificationConfiguration : IEntityTypeConfiguration<StoreScheduledNotification>
+{
+    public void Configure(EntityTypeBuilder<StoreScheduledNotification> builder)
+    {
+        builder.ToTable("StoreScheduledNotifications");
+        builder.HasKey(x => x.Id);
+        builder.Property(x => x.PayloadJson).IsRequired();
+        builder.Property(x => x.Title).HasMaxLength(200);
+        builder.Property(x => x.Error).HasMaxLength(300);
+        builder.HasIndex(x => new { x.Status, x.SendAt });
+        builder.HasIndex(x => new { x.StoreId, x.CreatedByUserId });
+    }
+}
+
+public class PosQrRequestLogConfiguration : IEntityTypeConfiguration<PosQrRequestLog>
+{
+    public void Configure(EntityTypeBuilder<PosQrRequestLog> builder)
+    {
+        builder.ToTable("PosQrRequestLogs");
+        builder.HasKey(x => x.Id);
+        builder.Property(x => x.RequestId).IsRequired().HasMaxLength(80);
+        builder.Property(x => x.Token).HasMaxLength(80);
+        builder.HasIndex(x => new { x.StoreId, x.RequestId }).IsUnique();
+        builder.HasIndex(x => x.CreatedAt);
+    }
+}
+
+public class PosSerialCountConfiguration : IEntityTypeConfiguration<PosSerialCount>
+{
+    public void Configure(EntityTypeBuilder<PosSerialCount> builder)
+    {
+        builder.ToTable("PosSerialCounts");
+        builder.HasKey(x => x.Id);
+        builder.Property(x => x.CountNo).IsRequired().HasMaxLength(30);
+        builder.Property(x => x.Name).IsRequired().HasMaxLength(200);
+        builder.Property(x => x.Source).HasMaxLength(20);
+        builder.Property(x => x.Note).HasMaxLength(500);
+        builder.HasIndex(x => new { x.StoreId, x.CountNo }).IsUnique();
+    }
+}
+
+public class PosSerialCountItemConfiguration : IEntityTypeConfiguration<PosSerialCountItem>
+{
+    public void Configure(EntityTypeBuilder<PosSerialCountItem> builder)
+    {
+        builder.ToTable("PosSerialCountItems");
+        builder.HasKey(x => x.Id);
+        builder.Property(x => x.Code).IsRequired().HasMaxLength(100);
+        builder.Property(x => x.DeviceName).HasMaxLength(100);
+        builder.HasIndex(x => new { x.CountId, x.Code }).IsUnique();
+    }
+}
+
+public class PosWarrantyClaimConfiguration : IEntityTypeConfiguration<PosWarrantyClaim>
+{
+    public void Configure(EntityTypeBuilder<PosWarrantyClaim> builder)
+    {
+        builder.ToTable("PosWarrantyClaims");
+        builder.HasKey(x => x.Id);
+        builder.Property(x => x.Description).HasMaxLength(1000);
+        builder.Property(x => x.Resolution).HasMaxLength(1000);
+        builder.HasIndex(x => new { x.StoreId, x.RegistrationId });
+        builder.HasIndex(x => new { x.StoreId, x.Status });
+        builder.HasOne(x => x.Registration).WithMany().HasForeignKey(x => x.RegistrationId).OnDelete(DeleteBehavior.Cascade);
+    }
+}
+
 public class PosPrintTemplateConfiguration : IEntityTypeConfiguration<PosPrintTemplate>
 {
     public void Configure(EntityTypeBuilder<PosPrintTemplate> builder)

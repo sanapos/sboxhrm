@@ -31,7 +31,8 @@ public partial class PosQuotesController
     /// <param name="DocId">Xem trước đúng một chứng từ đã lập (lời văn sửa riêng / mẫu chọn riêng).</param>
     /// <param name="TemplateId">Mẫu in dùng thử / chọn khi lập chứng từ (chỉ cho chứng từ đó).</param>
     public record CreateQuoteDocumentDto(string Kind, string? Note, bool IncludeImages = false, bool IncludeStamp = true,
-        string? DocNo = null, Guid? DocId = null, Guid? TemplateId = null);
+        string? DocNo = null, Guid? DocId = null, Guid? TemplateId = null,
+        Dictionary<Guid, List<string>>? Serials = null);
 
     public record UpdateQuoteDocumentWordingDto(string? HtmlContent, bool Restore = false);
 
@@ -132,6 +133,14 @@ public partial class PosQuotesController
         if (quote.Status != PosQuoteStatus.Accepted && kind != PosQuoteDocumentKind.Quote)
             PromoteAccepted(quote);
 
+        if (kind is PosQuoteDocumentKind.Handover or PosQuoteDocumentKind.Acceptance)
+        {
+            var serialErr = await PosSerialRegistry.AssignQuoteSerialsAsync(
+                dbContext, storeId, quote, dto.Serials, CurrentUserEmail);
+            if (serialErr != null)
+                return BadRequest(AppResponse<QuoteDocumentDto>.Fail(serialErr));
+        }
+
         var docNo = await NextDocNoAsync(storeId, kind);
         var templateId = await ValidTemplateIdAsync(storeId, kind, dto.TemplateId);
         var doc = new PosQuoteDocument
@@ -211,6 +220,30 @@ public partial class PosQuotesController
         doc.UpdatedBy = CurrentUserEmail;
         await dbContext.SaveChangesAsync();
         return Ok(AppResponse<QuoteDocumentDto>.Success(MapDoc(doc)));
+    }
+
+    /// <summary>Dòng báo giá cần chọn seri máy khi lập bàn giao / nghiệm thu (hàng bắt buộc seri đã có trong sổ, chưa gán đủ).</summary>
+    [HttpGet("{id:guid}/handover/serial-needs")]
+    [RequireModulePermission("PosQuotes", ModulePermissionAction.View)]
+    public async Task<ActionResult<AppResponse<object>>> StockIssueSerialNeeds(Guid id)
+    {
+        var storeId = RequiredStoreId;
+        var quote = await LoadQuote(storeId, id, track: false);
+        if (quote == null || !OwnsOrManages(quote))
+            return NotFound(AppResponse<object>.Fail("Không tìm thấy báo giá"));
+        var lines = quote.Lines.Where(l => l.Deleted == null && l.ProductId.HasValue && l.Qty > 0).ToList();
+        var needIds = await PosSerialRegistry.SerialProductIdsAsync(
+            dbContext, storeId, lines.Select(l => l.ProductId!.Value));
+        var items = new List<object>();
+        foreach (var l in lines.Where(l => needIds.Contains(l.ProductId!.Value) &&
+                                           PosSerialRegistry.Parse(l.SerialNumbersText).Count != (int)Math.Ceiling(l.Qty)))
+        {
+            var inStock = await dbContext.PosProductSerials.AsNoTracking().CountAsync(x =>
+                x.StoreId == storeId && x.ProductId == l.ProductId && x.Deleted == null &&
+                x.Status == ZKTecoADMS.Domain.Enums.PosSerialStatus.InStock);
+            items.Add(new { lineId = l.Id, productId = l.ProductId, productName = l.ProductName, qty = l.Qty, inStock });
+        }
+        return Ok(AppResponse<object>.Success(new { items }));
     }
 
     [HttpPost("{id:guid}/stock-issue")]

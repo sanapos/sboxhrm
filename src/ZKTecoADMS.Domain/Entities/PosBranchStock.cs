@@ -113,4 +113,10 @@ public class PosStockTransferLine
 
     /// <summary>Số thực nhận (có thể thiếu so với số gửi — phần thiếu trả về kho đi).</summary>
     public decimal? ReceivedQty { get; set; }
+
+    /// <summary>Seri máy chuyển theo dòng (mỗi seri một dòng) — hàng bắt buộc seri.</summary>
+    public string? SerialNumbersText { get; set; }
+
+    /// <summary>Lô lấy ra khi gửi (JSON [{lotId, qty}]) — để tạo lô tương ứng ở chi nhánh nhận hoặc hoàn lại khi thiếu / hủy.</summary>
+    public string? LotAllocJson { get; set; }
 }

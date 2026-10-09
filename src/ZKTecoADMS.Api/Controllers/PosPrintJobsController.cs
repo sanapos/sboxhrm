@@ -448,12 +448,21 @@ public partial class PosPrintJobsController(
 
     [HttpPost("agents/{agentId:guid}/claim")]
     [RequireModulePermission("PosSell", ModulePermissionAction.Create)]
-    public async Task<ActionResult<AppResponse<object>>> Claim(Guid agentId)
+    public async Task<ActionResult<AppResponse<object>>> Claim(
+        Guid agentId,
+        [FromQuery] string? excludePrinterIds = null)
     {
         var denied = await DenyIfCannotUseAgentAsync(agentId);
         if (denied != null) return denied;
 
-        var job = await dispatch.ClaimNextJobAsync(RequiredStoreId, agentId);
+        // Agent chạy song song theo máy in: bỏ qua máy đang bận trên chính Agent.
+        var exclude = (excludePrinterIds ?? "")
+            .Split(',', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries)
+            .Select(x => Guid.TryParse(x, out var g) ? g : Guid.Empty)
+            .Where(g => g != Guid.Empty)
+            .Take(50)
+            .ToList();
+        var job = await dispatch.ClaimNextJobAsync(RequiredStoreId, agentId, excludePrinterIds: exclude);
         if (job == null)
             return Ok(AppResponse<object>.Success(null));
 

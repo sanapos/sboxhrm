@@ -29,6 +29,15 @@ public class PosPrintJob : AuditableEntity<Guid>
     /// <summary>Base64 hoặc HTML tùy PayloadFormat.</summary>
     public string Payload { get; set; } = string.Empty;
 
+    /// <summary>SHA-256 (hex) của Payload — chống in trùng mà không so cả chuỗi lớn trong SQL.</summary>
+    public string? PayloadHash { get; set; }
+
+    /// <summary>Agent nhả job gần nhất — ClaimNext không giao lại cho chính Agent đó trong 60s
+    /// (trước đây nhả → nhận lại → nhả… liên tục giữa các Agent).</summary>
+    public Guid? ReleasedByAgentId { get; set; }
+
+    public DateTime? ReleasedAt { get; set; }
+
     public int Copies { get; set; } = 1;
 
     public PosPrintJobStatus Status { get; set; } = PosPrintJobStatus.Queued;

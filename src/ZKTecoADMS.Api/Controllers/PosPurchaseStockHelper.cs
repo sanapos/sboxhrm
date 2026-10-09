@@ -189,6 +189,8 @@ internal static class PosPurchaseStockHelper
 
         foreach (var pid in touchedProducts)
             await PosVariantStockHelper.SyncParentStockFromVariantsAsync(db, products[pid]);
+
+        await PosSerialRegistry.ReceiveAsync(db, storeId, receipt, lines, products, createdBy);
     }
 
     /// <summary>Hoàn tồn khi hủy phiếu nhập đã hoàn thành.</summary>
@@ -200,6 +202,7 @@ internal static class PosPurchaseStockHelper
         string? createdBy)
     {
         await PosStockLotHelper.VoidLotsForReceiptAsync(db, receipt.Id, createdBy);
+        await PosSerialRegistry.RemoveForReceiptAsync(db, storeId, receipt.Id, createdBy);
 
         var productIds = lines.Select(l => l.ProductId).Distinct().ToList();
         var products = await db.PosProducts
@@ -506,7 +509,7 @@ internal static class PosPurchaseStockHelper
             }
 
             var (allocations, lotErr) = await PosStockLotHelper.AllocateFefoAsync(
-                db, storeId, p.Id, variant?.Id, baseDeduct, p, createdBy);
+                db, storeId, p.Id, variant?.Id, baseDeduct, p, createdBy, branchId: ret.BranchId);
             if (lotErr != null)
                 throw new InvalidOperationException(lotErr);
 
@@ -535,6 +538,8 @@ internal static class PosPurchaseStockHelper
 
         foreach (var pid in touchedProducts)
             await PosVariantStockHelper.SyncParentStockFromVariantsAsync(db, products[pid]);
+
+        await PosSerialRegistry.ReturnToSupplierAsync(db, storeId, ret, lines, products, createdBy);
     }
 
     /// <summary>Hoàn tồn khi hủy phiếu trả hàng đã hoàn thành.</summary>
@@ -545,6 +550,7 @@ internal static class PosPurchaseStockHelper
         List<PosPurchaseReturnLine> lines,
         string? createdBy)
     {
+        await PosSerialRegistry.RestoreFromSupplierReturnAsync(db, storeId, ret.Id);
         var outTxs = await db.PosStockTransactions
             .AsNoTracking()
             .Where(t => t.PurchaseReturnId == ret.Id && t.StoreId == storeId &&
@@ -804,6 +810,8 @@ internal static class PosPurchaseStockHelper
 
         foreach (var pid in touchedProducts)
             await PosVariantStockHelper.SyncParentStockFromVariantsAsync(db, products[pid]);
+
+        await PosSerialRegistry.IssueAsync(db, storeId, issue, lines, products, createdBy);
     }
 
     private static async Task ApplyFefoIssueLineAsync(
@@ -861,7 +869,7 @@ internal static class PosPurchaseStockHelper
         }
 
         var (allocations, lotErr) = await PosStockLotHelper.AllocateFefoAsync(
-            db, storeId, product.Id, variant?.Id, baseDeduct, product, createdBy);
+            db, storeId, product.Id, variant?.Id, baseDeduct, product, createdBy, branchId: issue.BranchId);
         if (lotErr != null)
             throw new InvalidOperationException(lotErr);
 
@@ -896,6 +904,7 @@ internal static class PosPurchaseStockHelper
         string? createdBy,
         string noteFallback)
     {
+        await PosSerialRegistry.RestoreIssueAsync(db, storeId, issue, lines);
         var outTxs = await db.PosStockTransactions
             .AsNoTracking()
             .Where(t => t.StockIssueId == issue.Id && t.StoreId == storeId &&

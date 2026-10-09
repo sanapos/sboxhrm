@@ -7,6 +7,57 @@ namespace ZKTecoADMS.Application.Helpers;
 public static class ScheduleStaffingQuotaHelper
 {
     /// <summary>
+    /// Đổi ca giữa hai nhân viên khác bộ phận làm đổi số người từng bộ phận trong mỗi ca.
+    /// Trả thông báo nếu bên nhận ca vượt định mức tối đa của bộ phận mình; cùng bộ phận thì số người không đổi.
+    /// </summary>
+    public static async Task<string?> GetSwapQuotaMessageAsync(
+        IRepository<ShiftStaffingQuota> quotaRepository,
+        IRepository<WorkSchedule> workScheduleRepository,
+        Employee requester,
+        Employee target,
+        DateTime requesterDate, Guid requesterShiftId,
+        DateTime targetDate, Guid targetShiftId,
+        Guid storeId,
+        CancellationToken cancellationToken = default)
+    {
+        if (string.Equals(requester.Department?.Trim(), target.Department?.Trim(), StringComparison.OrdinalIgnoreCase))
+            return null;
+
+        // Người yêu cầu sang ca của đồng nghiệp; đồng nghiệp sang ca của người yêu cầu.
+        return await MoverExceedsAsync(quotaRepository, workScheduleRepository, requester, targetDate, targetShiftId, storeId, cancellationToken)
+            ?? await MoverExceedsAsync(quotaRepository, workScheduleRepository, target, requesterDate, requesterShiftId, storeId, cancellationToken);
+    }
+
+    private static async Task<string?> MoverExceedsAsync(
+        IRepository<ShiftStaffingQuota> quotaRepository,
+        IRepository<WorkSchedule> workScheduleRepository,
+        Employee mover, DateTime date, Guid shiftId, Guid storeId, CancellationToken ct)
+    {
+        var dept = mover.Department;
+        if (string.IsNullOrWhiteSpace(dept)) return null;
+
+        var quota = (await quotaRepository.GetAllAsync(
+                q => q.StoreId == storeId && q.ShiftTemplateId == shiftId, cancellationToken: ct))
+            .FirstOrDefault(q => string.Equals(q.Department, dept, StringComparison.OrdinalIgnoreCase));
+        // Định mức chung (không theo bộ phận) giữ nguyên tổng số người → không ảnh hưởng.
+        if (quota == null) return null;
+
+        var day = date.Date;
+        var (_, max) = StaffingQuotaResolver.ResolveLimitsForDate(quota, day);
+        if (max <= 0) return null;
+
+        var rows = await workScheduleRepository.GetAllAsync(
+            ws => ws.StoreId == storeId && ws.Date >= day && ws.Date < day.AddDays(1)
+                  && ws.ShiftId == shiftId && !ws.IsDayOff,
+            includeProperties: ["Employee"], cancellationToken: ct);
+        var count = rows.Count(ws => ws.Employee != null
+            && string.Equals(ws.Employee.Department, dept, StringComparison.OrdinalIgnoreCase));
+        return count + 1 > max
+            ? $"Ca ngày {day:dd/MM/yyyy} đã đủ định mức tối đa {max} người của bộ phận {dept} (đã xếp {count}) — không thể nhận thêm."
+            : null;
+    }
+
+    /// <summary>
     /// Returns an error message when approving would exceed MaxEmployees for the shift/day, or null if OK.
     /// </summary>
     public static async Task<string?> GetQuotaExceededMessageAsync(

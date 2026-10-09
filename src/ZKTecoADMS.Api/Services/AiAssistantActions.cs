@@ -582,7 +582,7 @@ public sealed class AiAssistantActions(
                     .ToListAsync(ct);
                 return new
                 {
-                    ket_qua = rows.Where(r => q.Length == 0 || VnSearch.Fold(r.TicketCode + " " + r.Description + " " + N(r.EmployeeId)).Contains(q))
+                    ket_qua = rows.Where(r => q.Length == 0 || VnSearch.Has(r.TicketCode + " " + r.Description + " " + N(r.EmployeeId), q))
                         .Take(10)
                         .Select(r => new { id = r.Id, ma = r.TicketCode, nhan_vien = N(r.EmployeeId), so_tien = r.Amount, loai = r.Type.ToString(), trang_thai = r.Status.ToString(), ngay = r.ViolationDate.ToString("yyyy-MM-dd"), noi_dung = r.Description }),
                 };
@@ -599,7 +599,7 @@ public sealed class AiAssistantActions(
                     .ToListAsync(ct);
                 return new
                 {
-                    ket_qua = rows.Where(r => q.Length == 0 || VnSearch.Fold(r.Description + " " + N(r.EmployeeId)).Contains(q))
+                    ket_qua = rows.Where(r => q.Length == 0 || VnSearch.Has(r.Description + " " + N(r.EmployeeId), q))
                         .Take(10)
                         .Select(r => new { id = r.Id, nhan_vien = N(r.EmployeeId), so_tien = r.Amount, ngay = r.TransactionDate.ToString("yyyy-MM-dd"), ly_do = r.Description, trang_thai = r.Status.ToString() }),
                 };
@@ -613,7 +613,7 @@ public sealed class AiAssistantActions(
                     .ToListAsync(ct);
                 return new
                 {
-                    ket_qua = rows.Where(r => q.Length == 0 || VnSearch.Fold(r.TransactionCode + " " + r.Description).Contains(q))
+                    ket_qua = rows.Where(r => q.Length == 0 || VnSearch.Has(r.TransactionCode + " " + r.Description, q))
                         .Take(10)
                         .Select(r => new
                         {
@@ -972,7 +972,7 @@ public sealed class AiAssistantActions(
             .ToListAsync(ct);
         var list = rows
             .Where(o => q.Length == 0 || o.OrderNo.Contains(raw, StringComparison.OrdinalIgnoreCase)
-                        || VnSearch.Fold(o.CustomerName ?? "").Contains(q))
+                        || VnSearch.Has(o.CustomerName ?? "", q))
             .Take(6)
             .Select(o => new
             {

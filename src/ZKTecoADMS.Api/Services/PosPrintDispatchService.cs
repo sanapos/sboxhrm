@@ -14,7 +14,11 @@ public interface IPosPrintDispatchService
     Task<IReadOnlyList<PosStorePrinter>> ResolvePrintersAsync(Guid storeId, PosPrintDocumentType documentType, CancellationToken ct = default);
     Task EnsureDefaultRoutesAsync(Guid storeId, CancellationToken ct = default);
     Task<PosPrintJob> EnqueueJobAsync(EnqueuePrintJobRequest request, CancellationToken ct = default);
-    Task<PosPrintJob?> ClaimNextJobAsync(Guid storeId, Guid agentId, CancellationToken ct = default);
+    /// <param name="excludePrinterIds">Máy in đang bận trên chính Agent (Agent chạy song song theo máy in).</param>
+    Task<PosPrintJob?> ClaimNextJobAsync(Guid storeId, Guid agentId, CancellationToken ct = default,
+        IReadOnlyCollection<Guid>? excludePrinterIds = null);
+    /// <summary>Dọn lệnh treo / quá hạn của cửa hàng (job nền gọi định kỳ, không phụ thuộc Agent).</summary>
+    Task SweepStuckJobsAsync(Guid storeId, CancellationToken ct = default);
     Task<PosPrintJob?> ClaimJobByIdAsync(Guid storeId, Guid agentId, Guid jobId, CancellationToken ct = default);
     Task<PosPrintJob?> MarkPrintingAsync(Guid jobId, Guid agentId, CancellationToken ct = default);
     Task<PosPrintJob?> CompleteJobAsync(Guid jobId, Guid agentId, CancellationToken ct = default);
@@ -58,6 +62,8 @@ public class PosPrintDispatchService(
     /// <summary>Reclaim quá số lần này → hủy (tránh in đôi). Trước = 2 dễ hủy sớm
     /// khi A7 claim+release outbound rồi A6 claim (AttemptCount=2).</summary>
     const int MaxPrintAttemptsBeforeCancel = 5;
+    /// <summary>Agent vừa nhả job không được nhận lại job đó trong khoảng này.</summary>
+    static readonly TimeSpan ReleaseCooldown = TimeSpan.FromSeconds(60);
     /// <summary>
     /// Job Queued quá lâu (Agent tắt/offline) → hủy thay vì để dồn hàng đợi.
     /// Trước là 20 phút — Agent tắt máy nửa buổi rồi mở lại sẽ in ồ ạt cả loạt
@@ -379,13 +385,14 @@ public class PosPrintDispatchService(
                 .OrderByDescending(j => j.CreatedAt)
                 .FirstOrDefaultAsync(ct);
         }
+        var payloadHash = HashPayload(request.Payload);
         duplicate ??= await db.PosPrintJobs.AsNoTracking()
             .Where(j => j.StoreId == request.StoreId
                 && j.PrinterId == tracked.Id
                 && j.Deleted == null
                 && j.CreatedAt >= since
                 && j.PayloadFormat == request.PayloadFormat
-                && j.Payload == request.Payload
+                && j.PayloadHash == payloadHash
                 && (j.Status == PosPrintJobStatus.Queued
                     || j.Status == PosPrintJobStatus.Claimed
                     || j.Status == PosPrintJobStatus.Printing))
@@ -441,6 +448,7 @@ public class PosPrintDispatchService(
             ReferenceId = request.ReferenceId,
             PayloadFormat = request.PayloadFormat,
             Payload = request.Payload,
+            PayloadHash = payloadHash,
             Copies = Math.Clamp(request.Copies, 1, 10),
             Status = PosPrintJobStatus.Queued,
             RequestedByUserId = request.RequestedByUserId,
@@ -520,7 +528,8 @@ public class PosPrintDispatchService(
         }
     }
 
-    public async Task<PosPrintJob?> ClaimNextJobAsync(Guid storeId, Guid agentId, CancellationToken ct = default)
+    public async Task<PosPrintJob?> ClaimNextJobAsync(Guid storeId, Guid agentId, CancellationToken ct = default,
+        IReadOnlyCollection<Guid>? excludePrinterIds = null)
     {
         var agent = await db.PosPrintAgents
             .FirstOrDefaultAsync(a => a.Id == agentId && a.StoreId == storeId && a.Deleted == null, ct);
@@ -537,28 +546,32 @@ public class PosPrintDispatchService(
         var now = DateTime.UtcNow;
         await ReclaimStuckJobsAsync(storeId, now, ct);
 
-        var candidateId = await db.PosPrintJobs
+        var exclude = excludePrinterIds is { Count: > 0 } ? excludePrinterIds.ToList() : [];
+        var cooldownSince = now.Subtract(ReleaseCooldown);
+        var candidates = await db.PosPrintJobs
             .Where(j => j.StoreId == storeId && j.Deleted == null
                 && j.Status == PosPrintJobStatus.Queued
                 && assignedIds.Contains(j.PrinterId)
-                && j.ExpiresAt > now)
+                && !exclude.Contains(j.PrinterId)
+                && j.ExpiresAt > now
+                // Job chính Agent này vừa nhả (không mở được cổng / máy gửi) → nhường Agent khác.
+                && !(j.ReleasedByAgentId == agentId && j.ReleasedAt != null && j.ReleasedAt > cooldownSince))
             .OrderBy(j => j.CreatedAt)
-            .Select(j => j.Id)
-            .FirstOrDefaultAsync(ct);
+            .Select(j => new { j.Id, j.PrinterId })
+            .Take(10)
+            .ToListAsync(ct);
+        if (candidates.Count == 0) return null;
 
+        var candidateId = Guid.Empty;
+        foreach (var c in candidates)
+        {
+            if (await TryClaimSerializedAsync(c.Id, c.PrinterId, agentId, now, ct))
+            {
+                candidateId = c.Id;
+                break;
+            }
+        }
         if (candidateId == Guid.Empty) return null;
-
-        // Chỉ claim khi vẫn Queued — tránh 2 agent in trùng một job.
-        var claimed = await db.PosPrintJobs
-            .Where(j => j.Id == candidateId && j.Status == PosPrintJobStatus.Queued)
-            .ExecuteUpdateAsync(setters => setters
-                .SetProperty(j => j.Status, PosPrintJobStatus.Claimed)
-                .SetProperty(j => j.AgentId, agentId)
-                .SetProperty(j => j.ClaimedAt, now)
-                .SetProperty(j => j.UpdatedAt, now)
-                .SetProperty(j => j.AttemptCount, j => j.AttemptCount + 1), ct);
-
-        if (claimed == 0) return null;
 
         var job = await db.PosPrintJobs.FirstAsync(j => j.Id == candidateId, ct);
 
@@ -688,19 +701,20 @@ public class PosPrintDispatchService(
         if (existing == null) return null;
         if (existing.Status == PosPrintJobStatus.Completed) return existing;
 
-        if (existing.AgentId != null && existing.AgentId != agentId)
+        if (!CanAcceptComplete(existing.Status, existing.AgentId, existing.ErrorCode, agentId))
             return null;
 
-        if (existing.Status is not (PosPrintJobStatus.Claimed or PosPrintJobStatus.Printing
-            or PosPrintJobStatus.Queued))
-            return null;
-
+        // Báo in xong muộn (mất mạng lúc báo): server đã hủy STUCK / Agent đã báo timeout —
+        // giấy thật sự đã ra → ghi «đã in» để máy gửi không in lại (in 2 phiếu).
         var updated = await db.PosPrintJobs
             .Where(j => j.Id == jobId &&
-                        (j.AgentId == null || j.AgentId == agentId) &&
-                        (j.Status == PosPrintJobStatus.Claimed
-                         || j.Status == PosPrintJobStatus.Printing
-                         || j.Status == PosPrintJobStatus.Queued))
+                        (((j.Status == PosPrintJobStatus.Claimed || j.Status == PosPrintJobStatus.Printing)
+                            && j.AgentId == agentId)
+                         || (j.Status == PosPrintJobStatus.Queued && j.AgentId == null && j.ErrorCode == "SOFT_REQUEUE")
+                         || (j.Status == PosPrintJobStatus.Cancelled && j.AgentId == agentId
+                             && j.ErrorCode == "STUCK_NO_REQUEUE")
+                         || (j.Status == PosPrintJobStatus.Failed && j.AgentId == agentId
+                             && j.ErrorCode == "PRINT_TIMEOUT")))
             .ExecuteUpdateAsync(setters => setters
                 .SetProperty(j => j.Status, PosPrintJobStatus.Completed)
                 .SetProperty(j => j.AgentId, agentId)
@@ -726,6 +740,23 @@ public class PosPrintDispatchService(
         await BroadcastJobAsync("PrintJobStatusChanged", job, printer, ct);
         return job;
     }
+
+    /// <summary>
+    /// Trạng thái nhận được «in xong»:
+    /// • Agent đang giữ job (Claimed / Printing);
+    /// • job bị xếp lại vì Agent bị coi là mất (SOFT_REQUEUE, chưa ai nhận) — Agent đó thật ra đã in;
+    /// • job server đã hủy STUCK / Agent tự báo PRINT_TIMEOUT nhưng giấy đã ra (đúng Agent).
+    /// KHÔNG nhận job Queued do người dùng «In lại» (có thể đã chuyển máy in khác).
+    /// </summary>
+    internal static bool CanAcceptComplete(PosPrintJobStatus status, Guid? jobAgentId, string? errorCode, Guid agentId) =>
+        status switch
+        {
+            PosPrintJobStatus.Claimed or PosPrintJobStatus.Printing => jobAgentId == agentId,
+            PosPrintJobStatus.Queued => jobAgentId == null && errorCode == "SOFT_REQUEUE",
+            PosPrintJobStatus.Cancelled => jobAgentId == agentId && errorCode == "STUCK_NO_REQUEUE",
+            PosPrintJobStatus.Failed => jobAgentId == agentId && errorCode == "PRINT_TIMEOUT",
+            _ => false,
+        };
 
     public async Task<PosPrintJob?> FailJobAsync(Guid jobId, Guid? agentId, string errorCode, string errorMessage, CancellationToken ct = default)
     {
@@ -798,8 +829,14 @@ public class PosPrintDispatchService(
         // còn Agent nào khác nhận máy in này thì Queued = mất phiếu im lặng:
         // máy gửi chờ 60s mới báo treo, còn job nằm tới lúc hết hạn. Fail ngay
         // để thu ngân thấy lỗi và chọn máy khác / in lại trong 1 giây.
-        if (IsPortUnavailableRelease(errorCode, reason)
-            && !await HasOtherLiveAgentForPrinterAsync(job.StoreId, job.PrinterId, agentId, now, ct))
+        var portRelease = IsPortUnavailableRelease(errorCode, reason);
+        // Agent khác vừa nhả job này cũng vì không mở được cổng → không còn ai in được.
+        var otherAlsoFailedPort = job.ErrorCode == "RELEASED_PORT"
+            && job.ReleasedByAgentId != null && job.ReleasedByAgentId != agentId
+            && job.ReleasedAt != null && job.ReleasedAt > now.Subtract(ReleaseCooldown);
+        if (portRelease
+            && (otherAlsoFailedPort
+                || !await HasOtherLiveAgentForPrinterAsync(job.StoreId, job.PrinterId, agentId, now, ct)))
         {
             return await FailJobAsync(
                 jobId, agentId, "NO_AGENT_PORT",
@@ -824,7 +861,9 @@ public class PosPrintDispatchService(
                 // nếu không, A7 claim+nhả rồi A6 claim dễ chạm MAX_ATTEMPTS và bị hủy.
                 .SetProperty(j => j.AttemptCount,
                     j => j.AttemptCount > 0 ? j.AttemptCount - 1 : 0)
-                .SetProperty(j => j.ErrorCode, "RELEASED")
+                .SetProperty(j => j.ErrorCode, portRelease ? "RELEASED_PORT" : "RELEASED")
+                .SetProperty(j => j.ReleasedByAgentId, agentId)
+                .SetProperty(j => j.ReleasedAt, now)
                 .SetProperty(j => j.ErrorMessage, releaseError), ct);
 
         job.Status = PosPrintJobStatus.Queued;
@@ -833,7 +872,9 @@ public class PosPrintDispatchService(
         job.StartedAt = null;
         job.UpdatedAt = now;
         if (job.AttemptCount > 0) job.AttemptCount -= 1;
-        job.ErrorCode = "RELEASED";
+        job.ErrorCode = portRelease ? "RELEASED_PORT" : "RELEASED";
+        job.ReleasedByAgentId = agentId;
+        job.ReleasedAt = now;
         job.ErrorMessage = releaseError;
 
         // Không đánh Error — chỉ nhả để Agent đúng máy nhận.
@@ -1117,6 +1158,8 @@ public class PosPrintDispatchService(
         // Đang in thật → không giật lại (tránh ra 2 tờ). Đã in xong vẫn cho «In lại» (in thêm bản).
         if (job.Status == PosPrintJobStatus.Printing)
             throw new InvalidOperationException("Lệnh đang in — đợi máy in xong rồi mới in lại");
+        if (string.IsNullOrEmpty(job.Payload))
+            throw new InvalidOperationException("Lệnh in đã cũ, nội dung đã được dọn — in lại từ đơn hàng / phiếu gốc");
         var targetId = printerId ?? job.PrinterId;
         var printer = await db.PosStorePrinters.AsNoTracking()
             .FirstOrDefaultAsync(p => p.Id == targetId && p.StoreId == storeId && p.Deleted == null && p.IsActive, ct)
@@ -1292,6 +1335,65 @@ public class PosPrintDispatchService(
         _lastReclaimAt = new();
 
     static readonly TimeSpan ReclaimThrottle = TimeSpan.FromSeconds(15);
+
+    /// <summary>
+    /// Nhận job với khóa theo máy in (pg_advisory_xact_lock): mỗi máy in chỉ có 1 job đang
+    /// nhận / đang in trên MỘT Agent. Hai Agent cùng gán 1 máy in LAN trước đây in đồng thời
+    /// vào cổng 9100 → phiếu sau lỗi / lẫn. Chính Agent đó tự xếp hàng job của nó.
+    /// </summary>
+    async Task<bool> TryClaimSerializedAsync(Guid jobId, Guid printerId, Guid agentId, DateTime now, CancellationToken ct)
+    {
+        var ownTx = db.Database.CurrentTransaction == null;
+        var tx = ownTx ? await db.Database.BeginTransactionAsync(ct) : null;
+        try
+        {
+            var g = printerId.ToByteArray();
+            var key = BitConverter.ToInt64(g, 0) ^ BitConverter.ToInt64(g, 8);
+            await db.Database.ExecuteSqlRawAsync("SELECT pg_advisory_xact_lock({0})", [key], ct);
+
+            // Chỉ chặn khi Agent đang giữ máy in còn sống — Agent chết giữa chừng thì máy in
+            // không bị khóa tới lúc dọn treo (90s); job của nó vẫn do nhánh dọn treo xử lý.
+            var liveSince = now.Subtract(AgentOfflineThreshold);
+            var busyElsewhere = await db.PosPrintJobs.AsNoTracking()
+                .AnyAsync(o => o.PrinterId == printerId && o.Deleted == null
+                    && (o.Status == PosPrintJobStatus.Claimed || o.Status == PosPrintJobStatus.Printing)
+                    && o.AgentId != null && o.AgentId != agentId
+                    && db.PosPrintAgents.Any(a => a.Id == o.AgentId && a.Deleted == null
+                        && a.LastHeartbeatAt != null && a.LastHeartbeatAt >= liveSince), ct);
+            if (busyElsewhere)
+            {
+                if (tx != null) await tx.RollbackAsync(ct);
+                return false;
+            }
+
+            // Chỉ claim khi vẫn Queued — tránh 2 agent in trùng một job.
+            var claimed = await db.PosPrintJobs
+                .Where(j => j.Id == jobId && j.Status == PosPrintJobStatus.Queued)
+                .ExecuteUpdateAsync(setters => setters
+                    .SetProperty(j => j.Status, PosPrintJobStatus.Claimed)
+                    .SetProperty(j => j.AgentId, agentId)
+                    .SetProperty(j => j.ClaimedAt, now)
+                    .SetProperty(j => j.UpdatedAt, now)
+                    .SetProperty(j => j.AttemptCount, j => j.AttemptCount + 1), ct);
+            if (tx != null) await tx.CommitAsync(ct);
+            return claimed > 0;
+        }
+        catch
+        {
+            if (tx != null) await tx.RollbackAsync(CancellationToken.None);
+            throw;
+        }
+        finally
+        {
+            if (tx != null) await tx.DisposeAsync();
+        }
+    }
+
+    public Task SweepStuckJobsAsync(Guid storeId, CancellationToken ct = default) =>
+        ReclaimStuckJobsAsync(storeId, DateTime.UtcNow, ct);
+
+    static string HashPayload(string payload) =>
+        Convert.ToHexString(System.Security.Cryptography.SHA256.HashData(System.Text.Encoding.UTF8.GetBytes(payload ?? "")));
 
     async Task ReclaimStuckJobsAsync(Guid storeId, DateTime now, CancellationToken ct)
     {

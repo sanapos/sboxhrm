@@ -124,7 +124,7 @@ public class NotificationsController(
 
     [HttpPost("{id}/read")]
     [Authorize(Policy = PolicyNames.AtLeastEmployee)]
-    [RequireModulePermission("Notification", ModulePermissionAction.Create)]
+    [RequireModulePermission("Notification", ModulePermissionAction.View)]
     public async Task<ActionResult<AppResponse<NotificationDto>>> MarkNotificationAsRead(Guid id)
     {
         var command = new MarkNotificationReadCommand(id, CurrentUserId, CurrentStoreId, NotificationCrossStore);
@@ -215,7 +215,7 @@ public class NotificationsController(
 
     [HttpPost("read-all")]
     [Authorize(Policy = PolicyNames.AtLeastEmployee)]
-    [RequireModulePermission("Notification", ModulePermissionAction.Create)]
+    [RequireModulePermission("Notification", ModulePermissionAction.View)]
     public async Task<ActionResult<AppResponse<int>>> MarkAllNotificationsAsRead()
     {
         var now = DateTime.UtcNow;

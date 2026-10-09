@@ -332,7 +332,8 @@ public class SystemNotificationService : ISystemNotificationService
         string? relatedEntityType = null,
         Guid? fromUserId = null,
         string? categoryCode = null,
-        Guid? storeId = null)
+        Guid? storeId = null,
+        Guid? batchId = null)
     {
         try
         {
@@ -364,7 +365,8 @@ public class SystemNotificationService : ISystemNotificationService
                     RelatedEntityId = relatedEntityId,
                     RelatedEntityType = relatedEntityType,
                     CategoryCode = NotificationCategoryCodes.Normalize(categoryCode) ?? categoryCode,
-                    StoreId = storeId
+                    StoreId = storeId,
+                    BatchId = batchId
                 });
             }
 

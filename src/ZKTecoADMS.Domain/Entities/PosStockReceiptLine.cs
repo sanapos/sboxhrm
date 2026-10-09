@@ -44,6 +44,12 @@ public class PosStockReceiptLine : AuditableEntity<Guid>
 
 
 
+    /// <summary>Seri máy nhập theo dòng (mỗi seri một dòng) — dùng cho hàng bắt buộc seri.</summary>
+
+    public string? SerialNumbersText { get; set; }
+
+
+
     [Required]
 
     [MaxLength(500)]

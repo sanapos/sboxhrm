@@ -125,6 +125,7 @@ public partial class PosSellIndustryController(
     }
 
     [HttpPut("sell-settings")]
+    [ZKTecoADMS.Api.Controllers.Filters.NotifyPosFloor("settingsChanged")]
     [RequireAnyModulePermission(ModulePermissionAction.View, "PosSell", "SettingsHub")]
     public async Task<ActionResult<AppResponse<SellSettingsDto>>> SaveSellSettings(
         [FromBody] SellSettingsSaveDto dto)
@@ -501,6 +502,7 @@ public partial class PosSellIndustryController(
 
     // Thiết lập sơ đồ (khu / bàn / vị trí) = quyền Sửa bán hàng; thu ngân (Tạo) chỉ thao tác bán.
     [HttpPost("service-areas")]
+    [ZKTecoADMS.Api.Controllers.Filters.NotifyPosFloor("layoutChanged")]
     [RequireModulePermission("PosSell", ModulePermissionAction.Edit)]
     public async Task<ActionResult<AppResponse<AreaDto>>> CreateArea([FromBody] AreaSaveDto? dto)
     {
@@ -531,6 +533,7 @@ public partial class PosSellIndustryController(
 
     /// <summary>Sắp xếp thứ tự nhóm/khu vực — đặt trước route {id}.</summary>
     [HttpPut("service-areas/sort")]
+    [ZKTecoADMS.Api.Controllers.Filters.NotifyPosFloor("layoutChanged")]
     [RequireModulePermission("PosSell", ModulePermissionAction.Edit)]
     public async Task<ActionResult<AppResponse<object>>> SortAreas([FromBody] AreaSortBatchDto? dto)
     {
@@ -559,6 +562,7 @@ public partial class PosSellIndustryController(
     }
 
     [HttpPut("service-areas/{id:guid}")]
+    [ZKTecoADMS.Api.Controllers.Filters.NotifyPosFloor("layoutChanged")]
     [RequireModulePermission("PosSell", ModulePermissionAction.Edit)]
     public async Task<ActionResult<AppResponse<AreaDto>>> UpdateArea(Guid id, [FromBody] AreaSaveDto? dto)
     {
@@ -594,6 +598,7 @@ public partial class PosSellIndustryController(
     }
 
     [HttpDelete("service-areas/{id:guid}")]
+    [ZKTecoADMS.Api.Controllers.Filters.NotifyPosFloor("layoutChanged")]
     [RequireAnyModulePermission(ModulePermissionAction.Edit, "PosSell", "PosProducts")]
     public async Task<ActionResult<AppResponse<object>>> DeleteArea(Guid id)
     {
@@ -1048,6 +1053,7 @@ public partial class PosSellIndustryController(
 
     // Thiết lập sơ đồ (khu / bàn / vị trí) = quyền Sửa bán hàng; thu ngân (Tạo) chỉ thao tác bán.
     [HttpPost("service-resources")]
+    [ZKTecoADMS.Api.Controllers.Filters.NotifyPosFloor("layoutChanged")]
     [RequireModulePermission("PosSell", ModulePermissionAction.Edit)]
     public async Task<ActionResult<AppResponse<object>>> CreateResource([FromBody] ResourceSaveDto? dto)
     {
@@ -1110,6 +1116,7 @@ public partial class PosSellIndustryController(
     }
 
     [HttpPut("service-resources/{id:guid}")]
+    [ZKTecoADMS.Api.Controllers.Filters.NotifyPosFloor("layoutChanged", "resource")]
     [RequireModulePermission("PosSell", ModulePermissionAction.Edit)]
     public async Task<ActionResult<AppResponse<object>>> UpdateResource(Guid id, [FromBody] ResourceSaveDto? dto)
     {
@@ -1196,6 +1203,7 @@ public partial class PosSellIndustryController(
     }
 
     [HttpDelete("service-resources/{id:guid}")]
+    [ZKTecoADMS.Api.Controllers.Filters.NotifyPosFloor("layoutChanged", "resource")]
     [RequireModulePermission("PosSell", ModulePermissionAction.Delete)]
     public async Task<ActionResult<AppResponse<object>>> DeleteResource(Guid id)
     {

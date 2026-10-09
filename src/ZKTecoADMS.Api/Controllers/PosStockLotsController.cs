@@ -47,7 +47,8 @@ public class PosStockLotsController(ZKTecoDbContext dbContext) : AuthenticatedCo
 
         var query = dbContext.PosStockLots.AsNoTracking()
             .Include(l => l.Product)
-            .Where(l => l.StoreId == storeId && l.Deleted == null && l.IsActive);
+            .Where(l => l.StoreId == storeId && l.Deleted == null && l.IsActive)
+            .ApplyBranchScope(HttpContext.BranchContext());
 
         if (productId.HasValue) query = query.Where(l => l.ProductId == productId);
         if (variantId.HasValue) query = query.Where(l => l.VariantId == variantId);

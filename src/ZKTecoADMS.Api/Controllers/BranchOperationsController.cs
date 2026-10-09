@@ -129,7 +129,7 @@ public class BranchOperationsController(ZKTecoDbContext db, IBranchContext branc
 
     // ═══════════════════════ Chuyển kho ═══════════════════════
 
-    public record TransferLineInput(Guid ProductId, Guid? VariantId, decimal Qty);
+    public record TransferLineInput(Guid ProductId, Guid? VariantId, decimal Qty, List<string>? SerialNumbers = null);
 
     public record CreateTransferRequest(Guid FromBranchId, Guid ToBranchId, string? Note, List<TransferLineInput> Lines, bool SendNow);
 
@@ -228,16 +228,23 @@ public class BranchOperationsController(ZKTecoDbContext db, IBranchContext branc
                 Sku = p.ProductCode,
                 Unit = p.BaseUnitName,
                 Qty = l.Qty,
+                SerialNumbersText = l.SerialNumbers is { Count: > 0 } ? PosSerialRegistry.Join(l.SerialNumbers) : null,
             });
         }
         db.PosStockTransfers.Add(transfer);
 
+        await using var sendTx = await db.Database.BeginTransactionAsync();
         if (req.SendNow)
         {
             var err = await SendInternalAsync(transfer);
-            if (err != null) return Ok(AppResponse<object>.Fail(err));
+            if (err != null)
+            {
+                await sendTx.RollbackAsync();
+                return Ok(AppResponse<object>.Fail(err));
+            }
         }
         await db.SaveChangesAsync();
+        await sendTx.CommitAsync();
         return Ok(AppResponse<object>.Success(TransferDto(transfer, await BranchNamesAsync(storeId))));
     }
 
@@ -250,9 +257,15 @@ public class BranchOperationsController(ZKTecoDbContext db, IBranchContext branc
             .FirstOrDefaultAsync(x => x.Id == id && x.StoreId == storeId);
         if (t == null || !branchCtx.CanAccess(t.FromBranchId)) return Ok(AppResponse<object>.Fail("Không tìm thấy phiếu"));
         if (t.Status != PosStockTransferStatus.Draft) return Ok(AppResponse<object>.Fail("Phiếu đã được gửi hoặc đã hủy"));
+        await using var sendTx = await db.Database.BeginTransactionAsync();
         var err = await SendInternalAsync(t);
-        if (err != null) return Ok(AppResponse<object>.Fail(err));
+        if (err != null)
+        {
+            await sendTx.RollbackAsync();
+            return Ok(AppResponse<object>.Fail(err));
+        }
         await db.SaveChangesAsync();
+        await sendTx.CommitAsync();
         return Ok(AppResponse<object>.Success(TransferDto(t, await BranchNamesAsync(storeId))));
     }
 
@@ -277,6 +290,17 @@ public class BranchOperationsController(ZKTecoDbContext db, IBranchContext branc
             if (line.Qty - got > 0)
                 await AdjustAsync(storeId, t.FromBranchId, hq, line.ProductId, line.VariantId, line.Qty - got);
         }
+        await PosSerialRegistry.ReceiveTransferAsync(db, storeId, t);
+        await PosStockLotHelper.ReceiveTransferLotsAsync(db, t, CurrentUserEmail);
+        var txs = new List<(PosStockTransferLine, Guid, decimal, string)>();
+        foreach (var line in t.Lines)
+        {
+            var got = line.ReceivedQty ?? line.Qty;
+            if (got > 0) txs.Add((line, t.ToBranchId, got, "Chuyển kho đến — đã nhận"));
+            if (line.Qty - got > 0)
+                txs.Add((line, t.FromBranchId, line.Qty - got, "Chuyển kho nhận thiếu — hoàn về kho đi"));
+        }
+        await AddTransferTxAsync(t, txs);
         t.Status = PosStockTransferStatus.Received;
         t.ReceivedAt = DateTime.UtcNow;
         t.ReceivedByName = CurrentUserEmail;
@@ -299,10 +323,48 @@ public class BranchOperationsController(ZKTecoDbContext db, IBranchContext branc
             // Đang trên đường → hoàn lại kho đi.
             foreach (var line in t.Lines)
                 await AdjustAsync(storeId, t.FromBranchId, branchCtx.HeadquarterBranchId, line.ProductId, line.VariantId, line.Qty);
+            await PosSerialRegistry.CancelTransferAsync(db, storeId, t.Id);
+            await PosStockLotHelper.CancelTransferLotsAsync(db, t, CurrentUserEmail);
+            await AddTransferTxAsync(t, t.Lines.Select(l => (l, t.FromBranchId, l.Qty, "Hủy chuyển kho — hoàn về kho đi")));
         }
         t.Status = PosStockTransferStatus.Cancelled;
         await db.SaveChangesAsync();
         return Ok(AppResponse<object>.Success(true));
+    }
+
+    /// <summary>
+    /// Ghi thẻ kho cho chuyển kho (số + ở chi nhánh nào) để lịch sử tồn giải thích được vì sao tồn chi nhánh đổi.
+    /// Tổng tồn cửa hàng không đổi nên các dòng này không sửa OnHandQty.
+    /// </summary>
+    private async Task AddTransferTxAsync(
+        PosStockTransfer t, IEnumerable<(PosStockTransferLine Line, Guid BranchId, decimal Qty, string Note)> rows)
+    {
+        var list = rows.Where(r => r.Qty != 0).ToList();
+        if (list.Count == 0) return;
+        var ids = list.Select(r => r.Line.ProductId).Distinct().ToList();
+        var prods = await db.PosProducts.AsNoTracking().Where(p => ids.Contains(p.Id))
+            .Select(p => new { p.Id, p.OnHandQty, p.CostPrice }).ToDictionaryAsync(p => p.Id);
+        foreach (var (line, branchId, qty, note) in list)
+        {
+            if (!prods.TryGetValue(line.ProductId, out var p)) continue;
+            db.PosStockTransactions.Add(new PosStockTransaction
+            {
+                Id = Guid.NewGuid(),
+                StoreId = t.StoreId,
+                BranchId = branchId,
+                ProductId = line.ProductId,
+                VariantId = line.VariantId,
+                TransactionType = qty < 0 ? PosStockTransactionType.TransferOut : PosStockTransactionType.TransferIn,
+                QtyChange = qty,
+                QtyAfter = p.OnHandQty,
+                UnitCost = p.CostPrice,
+                LineAmount = Math.Abs(qty) * p.CostPrice,
+                ReferenceNo = t.TransferNo,
+                Note = $"{note} ({t.TransferNo})",
+                IsActive = true,
+                CreatedBy = CurrentUserEmail,
+            });
+        }
     }
 
     /// <summary>Trừ kho đi (kiểm đủ hàng) → trạng thái Đã gửi (hàng đang trên đường).</summary>
@@ -318,8 +380,13 @@ public class BranchOperationsController(ZKTecoDbContext db, IBranchContext branc
             if (need > have)
                 return $"«{g.First().ProductName}» chỉ còn {have:0.##} ở kho đi (cần {need:0.##})";
         }
+        var serialErr = await PosSerialRegistry.SendTransferAsync(db, t.StoreId, t, hq);
+        if (serialErr != null) return serialErr;
+        try { await PosStockLotHelper.SendTransferLotsAsync(db, t, CurrentUserEmail); }
+        catch (InvalidOperationException ex) { return ex.Message; }
         foreach (var line in t.Lines)
             await AdjustAsync(t.StoreId, t.FromBranchId, hq, line.ProductId, line.VariantId, -line.Qty);
+        await AddTransferTxAsync(t, t.Lines.Select(l => (l, t.FromBranchId, -l.Qty, "Chuyển kho đi — hàng đang trên đường")));
         t.Status = PosStockTransferStatus.Sent;
         t.SentAt = DateTime.UtcNow;
         t.SentByName = CurrentUserEmail;

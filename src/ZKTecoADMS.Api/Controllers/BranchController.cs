@@ -263,6 +263,10 @@ public class BranchController(
         if (existingCode)
             return BadRequest(AppResponse<BranchDto>.Fail($"Mã chi nhánh '{request.Code}' đã tồn tại"));
 
+        var parentErr = await ValidateParentAsync(storeId, null, request.ParentBranchId);
+        if (parentErr != null)
+            return BadRequest(AppResponse<BranchDto>.Fail(parentErr));
+
         // Trụ sở luôn cố định: chi nhánh đầu tiên tự thành trụ sở; đổi trụ sở → chuyển tồn cho đúng.
         Guid? oldHqId = null;
         if (storeId.HasValue)
@@ -347,9 +351,10 @@ public class BranchController(
         if (existingCode)
             return BadRequest(AppResponse<BranchDto>.Fail($"Mã chi nhánh '{request.Code}' đã tồn tại"));
 
-        // Prevent circular parent
-        if (request.ParentBranchId.HasValue && request.ParentBranchId.Value == id)
-            return BadRequest(AppResponse<BranchDto>.Fail("Chi nhánh không thể là cha của chính nó"));
+        // Prevent circular parent (cả vòng nhiều cấp A → B → A)
+        var parentErr = await ValidateParentAsync(storeId, id, request.ParentBranchId);
+        if (parentErr != null)
+            return BadRequest(AppResponse<BranchDto>.Fail(parentErr));
 
         // Bỏ cờ trụ sở mà không chọn trụ sở khác → tồn trụ sở không còn chỗ tính.
         if (!request.IsHeadquarter && branch.IsHeadquarter)
@@ -764,6 +769,29 @@ public class BranchController(
     // â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
 
     /// <summary>Sau khi đổi danh sách chi nhánh: gán chứng từ cũ về trụ sở + xóa cache ngữ cảnh chi nhánh.</summary>
+    /// <summary>Chi nhánh cha phải tồn tại trong cùng cửa hàng và không được là chính nó hay con cháu của nó.</summary>
+    private async Task<string?> ValidateParentAsync(Guid? storeId, Guid? selfId, Guid? parentId)
+    {
+        if (!parentId.HasValue) return null;
+        if (selfId.HasValue && parentId.Value == selfId.Value)
+            return "Chi nhánh không thể là cha của chính nó";
+        var all = await dbContext.Branches.AsNoTracking()
+            .Where(b => b.Deleted == null && (!storeId.HasValue || b.StoreId == storeId.Value))
+            .Select(b => new { b.Id, b.ParentBranchId })
+            .ToDictionaryAsync(b => b.Id, b => b.ParentBranchId);
+        if (!all.ContainsKey(parentId.Value))
+            return "Chi nhánh cha không tồn tại trong cửa hàng này";
+        if (selfId.HasValue)
+        {
+            // Đi lên từ cha mới: gặp chính nó nghĩa là sẽ tạo vòng.
+            var seen = new HashSet<Guid>();
+            for (Guid? cur = parentId; cur.HasValue && seen.Add(cur.Value); cur = all.GetValueOrDefault(cur.Value))
+                if (cur.Value == selfId.Value)
+                    return "Không thể chọn chi nhánh con (hoặc cháu) làm chi nhánh cha — sẽ tạo vòng lặp";
+        }
+        return null;
+    }
+
     private async Task AfterBranchesChangedAsync(Guid? storeId)
     {
         if (!storeId.HasValue) return;

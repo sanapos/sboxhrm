@@ -64,6 +64,7 @@ public class PosPrintJobConfiguration : IEntityTypeConfiguration<PosPrintJob>
         builder.Property(x => x.RequestedByName).HasMaxLength(200);
         builder.Property(x => x.ErrorCode).HasMaxLength(64);
         builder.Property(x => x.ErrorMessage).HasMaxLength(500);
+        builder.Property(x => x.PayloadHash).HasMaxLength(64);
         builder.HasIndex(x => new { x.StoreId, x.Status, x.CreatedAt });
         builder.HasIndex(x => new { x.PrinterId, x.Status });
         // Vòng claim của Agent lọc StoreId + Status + PrinterId + ExpiresAt và

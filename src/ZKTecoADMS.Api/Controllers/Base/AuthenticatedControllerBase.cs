@@ -28,6 +28,14 @@ public abstract class AuthenticatedControllerBase : ControllerBase
     /// </summary>
     protected Guid RequiredStoreId => GetRequiredStoreId();
 
+    /// <summary>
+    /// Chi nhánh đang thao tác (null nếu cửa hàng chưa dùng chi nhánh). Gán cho chứng từ mới TRƯỚC khi lưu để các bước
+    /// trừ / nhập kho, lô, seri trong cùng yêu cầu biết đúng chi nhánh (interceptor chỉ gán khi lưu).
+    /// </summary>
+    protected Guid? WorkBranchId =>
+        BranchScopeExtensions.BranchContext(HttpContext) is { StoreUsesBranches: true } b
+            ? (b.CurrentBranchId ?? b.HeadquarterBranchId) : null;
+
     protected bool IsAdmin => CurrentUserRole.Equals(nameof(Roles.Admin), StringComparison.OrdinalIgnoreCase)
         || CurrentUserRole.Equals(nameof(Roles.Director), StringComparison.OrdinalIgnoreCase)
         || CurrentUserRole.Equals(nameof(Roles.SuperAdmin), StringComparison.OrdinalIgnoreCase);

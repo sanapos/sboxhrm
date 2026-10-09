@@ -51,7 +51,8 @@ public interface ISystemNotificationService
         string? relatedEntityType = null,
         Guid? fromUserId = null,
         string? categoryCode = null,
-        Guid? storeId = null);
+        Guid? storeId = null,
+        Guid? batchId = null);
 
     /// <summary>
     /// Gửi thông báo tới mọi tài khoản đang hoạt động trong cửa hàng (vd. thực đơn suất ăn).

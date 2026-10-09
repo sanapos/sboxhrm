@@ -175,7 +175,7 @@ public class DepartmentsV2Controller(ZKTecoDbContext db) : AuthenticatedControll
         var term = VnSearch.FoldText(q);
         var rows = await db.Employees.AsNoTracking()
             .Where(e => e.StoreId == storeId && e.WorkStatus != EmployeeWorkStatus.Resigned)
-            .Where(e => term == "" || VnSearch.Fold(e.LastName + " " + e.FirstName).Contains(term) || VnSearch.Fold(e.EmployeeCode).Contains(term))
+            .Where(e => term == "" || VnSearch.Has(e.LastName + " " + e.FirstName, term) || VnSearch.Has(e.EmployeeCode, term))
             .OrderBy(e => e.FirstName)
             .Take(30)
             .Select(e => new
