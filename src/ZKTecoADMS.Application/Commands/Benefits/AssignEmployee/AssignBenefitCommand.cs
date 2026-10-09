@@ -6,5 +6,6 @@ public record AssignBenefitCommand(
     Guid EmployeeId,
     Guid BenefitId,
     DateTime EffectiveDate,
-    string? Notes
+    string? Notes,
+    string? ChangedBy = null
 ) : ICommand<AppResponse<EmployeeBenefitDto>>;

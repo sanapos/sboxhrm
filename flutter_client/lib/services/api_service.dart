@@ -3131,6 +3131,18 @@ class ApiService {
     }
   }
 
+  /// Lịch sử lương đầy đủ: phiên bản theo ngày + đính chính / bản bị thay / thay đổi bị hủy.
+  Future<Map<String, dynamic>> getSalaryLog(String employeeId) async {
+    try {
+      final response = await http
+          .get(Uri.parse('$baseUrl/api/benefits/employees/$employeeId/salary-log'), headers: _headers)
+          .timeout(const Duration(seconds: 20));
+      return _handleResponse(response);
+    } catch (e) {
+      return _connectionFailure(e);
+    }
+  }
+
   /// Lịch sử thay đổi lương của một nhân viên.
   Future<Map<String, dynamic>> getSalaryHistory(String employeeId) async {
     try {

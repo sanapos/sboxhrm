@@ -55,6 +55,7 @@ public class ZKTecoDbContext : IdentityDbContext<ApplicationUser, IdentityRole<G
     // Compensation & Benefits
     public DbSet<Benefit> Benefits => Set<Benefit>();
     public DbSet<EmployeeBenefit> EmployeeBenefits => Set<EmployeeBenefit>();
+    public DbSet<SalaryProfileRevision> SalaryProfileRevisions => Set<SalaryProfileRevision>();
     public DbSet<Allowance> Allowances => Set<Allowance>();
     
     // Payroll & Finance

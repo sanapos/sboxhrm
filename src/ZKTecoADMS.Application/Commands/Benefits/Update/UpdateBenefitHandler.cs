@@ -1,4 +1,5 @@
 using ZKTecoADMS.Application.DTOs.Benefits;
+using ZKTecoADMS.Application.Helpers;
 using ZKTecoADMS.Application.Interfaces;
 using ZKTecoADMS.Domain.Enums;
 
@@ -6,7 +7,9 @@ namespace ZKTecoADMS.Application.Commands.Benefits.Update;
 
 public class UpdateBenefitHandler(
     IRepository<Benefit> repository,
-    ISystemNotificationService notificationService
+    ISystemNotificationService notificationService,
+    IRepository<EmployeeBenefit> versionRepository,
+    IRepository<SalaryProfileRevision> revisionRepository
     ) : ICommandHandler<UpdateBenefitCommand, AppResponse<BenefitDto>>
 {
     public async Task<AppResponse<BenefitDto>> Handle(UpdateBenefitCommand request, CancellationToken cancellationToken)
@@ -26,6 +29,9 @@ public class UpdateBenefitHandler(
         {
             return AppResponse<BenefitDto>.Error($"A salary profile with the name '{request.Name}' already exists");
         }
+
+        // Đính chính tại chỗ: chụp hồ sơ trước khi sửa để lịch sử lương không mất mức cũ.
+        var before = SalaryRevisionLog.Snapshot(salaryProfile);
 
         salaryProfile.Name = request.Name;
         salaryProfile.Description = request.Description;
@@ -98,6 +104,25 @@ public class UpdateBenefitHandler(
             salaryProfile.AddIfAboveFixedStandard = request.AddIfAboveFixedStandard.Value;
 
         await repository.UpdateAsync(salaryProfile, cancellationToken);
+
+        var after = SalaryRevisionLog.Snapshot(salaryProfile);
+        if (!SalaryRevisionLog.SameContent(before, after))
+        {
+            var versions = await versionRepository.GetAllAsync(
+                eb => eb.BenefitId == salaryProfile.Id, cancellationToken: cancellationToken);
+            if (versions.Count == 0)
+            {
+                await revisionRepository.AddAsync(SalaryRevisionLog.New(
+                    salaryProfile.StoreId, null, salaryProfile.Id, null, "correction", before, after, request.ChangedBy),
+                    cancellationToken);
+            }
+            foreach (var v in versions)
+            {
+                await revisionRepository.AddAsync(SalaryRevisionLog.New(
+                    salaryProfile.StoreId, v.EmployeeId, salaryProfile.Id, v, "correction", before, after, request.ChangedBy),
+                    cancellationToken);
+            }
+        }
 
         var dto = salaryProfile.Adapt<BenefitDto>();
 

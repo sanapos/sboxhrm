@@ -7,6 +7,7 @@ import '../../widgets/settings/settings_page.dart';
 import '../../widgets/sbox/sbox_ui.dart';
 import '../allowance_settings_screen.dart';
 import 'sl_common.dart';
+import 'sl_history.dart';
 import 'sl_model.dart';
 
 /// Mở form thiết lập lương cho một nhân viên. Trả về true khi đã lưu.
@@ -46,11 +47,12 @@ class _SalaryEditorState extends State<SalaryEditor> {
   bool _saving = false;
   String? _error;
 
-  /// false = đính chính hồ sơ hiện tại; true = đổi lương từ ngày [_from].
-  bool _fromDate = false;
+  /// true (mặc định) = đổi lương từ ngày [_from] — mức cũ giữ trong lịch sử;
+  /// false = đính chính hồ sơ hiện tại (nhập sai) — bản trước khi sửa vẫn lưu trong lịch sử.
+  bool _fromDate = true;
   late DateTime _from = () {
     final n = DateTime.now();
-    return DateTime(n.year, n.month + 1, 1);
+    return DateTime(n.year, n.month, n.day);
   }();
 
   SlContext get _c => widget.ctx;
@@ -257,7 +259,11 @@ class _SalaryEditorState extends State<SalaryEditor> {
         ),
         const SizedBox(height: 8),
         if (!_fromDate)
-          Text(tr('Dùng khi nhập sai. Áp dụng cho mọi bảng lương chưa chốt đang dùng hồ sơ này.'), style: SboxType.smallStyle())
+          Text(
+            tr('Chỉ dùng khi nhập sai: sửa thẳng mức lương đang áp dụng${_e.currentFrom != null ? ' (từ ${dmy(_e.currentFrom!)})' : ''}, '
+                'mọi bảng lương chưa chốt đang dùng hồ sơ này tính lại theo mức mới. Mức trước khi sửa vẫn lưu trong «Lịch sử thay đổi lương».'),
+            style: SboxType.smallStyle(SboxColors.warningText),
+          )
         else ...[
           OutlinedButton.icon(
             onPressed: () async {
@@ -277,6 +283,14 @@ class _SalaryEditorState extends State<SalaryEditor> {
             tr('Từ ${dmy(_from)} tính theo mức mới, trước ngày đó giữ mức cũ — tháng có ngày đổi được tách hai đoạn. Bảng lương đã qua không thay đổi.'),
             style: SboxType.smallStyle(),
           ),
+          if (_e.currentFrom != null && !_from.isAfter(_e.currentFrom!))
+            Padding(
+              padding: const EdgeInsets.only(top: 6),
+              child: Text(
+                  tr('Mức đang áp dụng từ ${dmy(_e.currentFrom!)} sẽ được thay bằng mức mới (bản cũ vẫn lưu trong lịch sử). '
+                      'Muốn giữ mức cũ cho những ngày trước, chọn ngày sau ${dmy(_e.currentFrom!)}.'),
+                  style: SboxType.smallStyle(SboxColors.warningText)),
+            ),
           if (_e.upcomingFrom != null && !_from.isAfter(_e.upcomingFrom!))
             Padding(
               padding: const EdgeInsets.only(top: 6),
@@ -286,63 +300,21 @@ class _SalaryEditorState extends State<SalaryEditor> {
         ],
       ];
 
-  Future<void> _showHistory() async {
-    final res = await _c.api.getSalaryHistory(_e.id);
-    if (!mounted) return;
-    final rows = [for (final x in (res['data'] is List ? res['data'] as List : const [])) if (x is Map) Map<String, dynamic>.from(x)];
-    await showModalBottomSheet<void>(
-      context: context,
-      showDragHandle: true,
-      isScrollControlled: true,
-      builder: (ctx) => SafeArea(
-        child: ConstrainedBox(
-          constraints: BoxConstraints(maxHeight: MediaQuery.of(ctx).size.height * 0.7),
-          child: ListView(shrinkWrap: true, padding: const EdgeInsets.fromLTRB(16, 0, 16, 16), children: [
-            Text(tr('Lịch sử thay đổi lương'), style: SboxType.titleStyle()),
-            const SizedBox(height: 8),
-            if (rows.isEmpty) Text(tr(res['isSuccess'] == true ? 'Chưa có thay đổi nào.' : 'Không tải được lịch sử.'), style: SboxType.smallStyle()),
-            for (final r in rows) _historyTile(ctx, r),
-          ]),
-        ),
-      ),
-    );
-  }
-
-  Widget _historyTile(BuildContext ctx, Map<String, dynamic> r) {
-    final b = r['benefit'] is Map ? Map<String, dynamic>.from(r['benefit'] as Map) : <String, dynamic>{};
-    final from = DateTime.tryParse('${r['from']}');
-    final to = DateTime.tryParse('${r['to']}');
-    final eff = DateTime.tryParse('${r['effectiveDate']}');
-    final today = DateTime.now();
-    final future = eff != null && eff.isAfter(DateTime(today.year, today.month, today.day));
-    final d = SalaryDraft.fromBenefit(b);
-    final range = [
-      from == null || from.year < 1900 ? 'Từ đầu' : 'Từ ${dmy(from)}',
-      if (to != null && to.year < 9000) 'đến ${dmy(to)}' else 'đến nay',
-    ].join(' ');
-    final amount = d.kind == SalaryKind.shift && d.shiftType == 1 ? 'Lương ca theo bậc' : '${money(d.mainRate)}${d.kind.unit}';
-    return ListTile(
-      contentPadding: EdgeInsets.zero,
-      leading: Icon(future ? Icons.schedule_rounded : Icons.check_circle_outline_rounded, color: future ? SboxColors.warning : SboxColors.success),
-      title: Text('$amount · ${d.kind.label}'),
-      subtitle: Text(tr(future ? '$range · sắp áp dụng' : range)),
-      trailing: future && widget.canEdit
-          ? TextButton(
-              onPressed: () async {
-                final res = await _c.api.cancelSalaryVersion('${r['id']}');
-                if (!ctx.mounted) return;
-                Navigator.pop(ctx);
-                if (res['isSuccess'] == true) {
-                  if (mounted) Navigator.of(context).pop(true);
-                } else if (mounted) {
-                  setState(() => _error = res['message']?.toString() ?? 'Không hủy được thay đổi.');
-                }
-              },
-              child: Text(tr('Hủy thay đổi')),
-            )
-          : null,
-    );
-  }
+  Future<void> _showHistory() => showSalaryHistorySheet(
+        context,
+        ctx: _c,
+        employee: _e,
+        canEdit: widget.canEdit,
+        onCancelUpcoming: (id) async {
+          final res = await _c.api.cancelSalaryVersion(id);
+          if (!mounted) return;
+          if (res['isSuccess'] == true) {
+            Navigator.of(context).pop(true);
+          } else {
+            setState(() => _error = res['message']?.toString() ?? 'Không hủy được thay đổi.');
+          }
+        },
+      );
 
   Widget _estimateCard() {
     final fa = _c.allowanceTotal(_e, 0);

@@ -7,6 +7,8 @@ public class UpdateBenefitCommand : ICommand<AppResponse<BenefitDto>>
 {
     public Guid StoreId { get; set; }
     public Guid Id { get; set; }
+    /// <summary>Người sửa (ghi lịch sử đính chính lương).</summary>
+    public string? ChangedBy { get; set; }
     public string Name { get; set; } = string.Empty;
     public string? Description { get; set; }
     public SalaryRateType RateType { get; set; }

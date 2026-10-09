@@ -12,7 +12,8 @@ public class AssignBenefitHandler(
     IRepository<Employee> employeeRepository,
     BenefitAssignmentStrategyFactory strategyFactory,
     ISystemNotificationService notificationService,
-    UserManager<ApplicationUser> userManager) 
+    UserManager<ApplicationUser> userManager,
+    IRepository<SalaryProfileRevision> revisionRepository) 
     : ICommandHandler<AssignBenefitCommand, AppResponse<EmployeeBenefitDto>>
 {
     public async Task<AppResponse<EmployeeBenefitDto>> Handle(AssignBenefitCommand request, CancellationToken cancellationToken)
@@ -77,7 +78,18 @@ public class AssignBenefitHandler(
 
         // Bản sau ngày hiệu lực đã lên lịch trước → bản mới kéo tới hết (sẽ không còn bản sau).
         foreach (var r in plan.Replaced)
+        {
+            // Phiên bản bị thay (đổi lương trùng / trước ngày của nó): giữ bản chụp trong lịch sử trước khi xóa.
+            var old = await benefitRepository.GetByIdAsync(r.BenefitId, cancellationToken: cancellationToken);
+            if (old != null)
+            {
+                await revisionRepository.AddAsync(SalaryRevisionLog.New(
+                    old.StoreId, r.EmployeeId, old.Id, r, "replaced",
+                    SalaryRevisionLog.Snapshot(old), SalaryRevisionLog.Snapshot(benefit), request.ChangedBy),
+                    cancellationToken);
+            }
             await employeeBenefitRepository.DeleteAsync(r, cancellationToken);
+        }
         foreach (var e in plan.Ended)
         {
             e.EndDate = BenefitTimeline.EndBefore(effective);

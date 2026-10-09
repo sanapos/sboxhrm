@@ -103,6 +103,50 @@ public partial class BenefitsController
         return Ok(AppResponse<List<SalarySegmentDto>>.Success(segs));
     }
 
+    public sealed record SalaryChangeDto(
+        Guid Id, string Kind, DateTime At, string? By, Guid BenefitId, Guid? VersionId,
+        DateTime? EffectiveDate, DateTime? EndDate,
+        System.Text.Json.JsonElement Before, System.Text.Json.JsonElement? After);
+
+    public sealed record SalaryLogDto(List<SalarySegmentDto> Versions, List<SalaryChangeDto> Changes);
+
+    static System.Text.Json.JsonElement JsonOf(string s)
+    {
+        using var doc = System.Text.Json.JsonDocument.Parse(string.IsNullOrWhiteSpace(s) ? "{}" : s);
+        return doc.RootElement.Clone();
+    }
+
+    /// <summary>
+    /// Lịch sử lương đầy đủ: các phiên bản theo ngày hiệu lực + các lần đính chính / phiên bản bị thay /
+    /// thay đổi bị hủy (kèm hồ sơ trước và sau). Mới nhất trước.
+    /// </summary>
+    [HttpGet("employees/{employeeId}/salary-log")]
+    [Authorize(Policy = PolicyNames.ManagerOrAccountant)]
+    [RequireAnyModulePermission(ModulePermissionAction.View, "SalarySettings", "Benefit", "Payroll")]
+    public async Task<ActionResult<AppResponse<SalaryLogDto>>> GetSalaryLog(
+        Guid employeeId, [FromServices] ZKTecoDbContext db, CancellationToken ct)
+    {
+        if (!await db.Employees.AnyAsync(e => e.Id == employeeId, ct))
+            return NotFound(AppResponse<SalaryLogDto>.Fail("Không tìm thấy nhân viên"));
+        var rows = await db.EmployeeBenefits.AsNoTracking().Include(eb => eb.Benefit)
+            .Where(eb => eb.EmployeeId == employeeId)
+            .ToListAsync(ct);
+        var versions = BenefitTimeline.Segments(rows, DateTime.MinValue.AddYears(1), DateTime.MaxValue.AddYears(-1))
+            .Select(ToDto)
+            .OrderByDescending(s => s.From)
+            .ToList();
+        var revs = await db.SalaryProfileRevisions.AsNoTracking()
+            .Where(r => r.EmployeeId == employeeId && r.Deleted == null)
+            .OrderByDescending(r => r.CreatedAt)
+            .Take(200)
+            .ToListAsync(ct);
+        var changes = revs.Select(r => new SalaryChangeDto(
+            r.Id, r.Kind, r.CreatedAt, r.CreatedBy, r.BenefitId, r.EmployeeBenefitId,
+            r.EffectiveDate, r.EndDate, JsonOf(r.BeforeJson),
+            r.AfterJson == null ? null : JsonOf(r.AfterJson))).ToList();
+        return Ok(AppResponse<SalaryLogDto>.Success(new SalaryLogDto(versions, changes)));
+    }
+
     /// <summary>Hủy thay đổi lương chưa tới ngày áp dụng — bản trước đó chạy tiếp.</summary>
     [HttpDelete("versions/{id}")]
     [Authorize(Policy = PolicyNames.ManagerOrAccountant)]
@@ -121,6 +165,13 @@ public partial class BenefitsController
             .OrderByDescending(eb => eb.EffectiveDate)
             .FirstOrDefaultAsync(ct);
         var later = await db.EmployeeBenefits.AnyAsync(eb => eb.EmployeeId == v.EmployeeId && eb.Id != v.Id && eb.EffectiveDate > v.EffectiveDate, ct);
+        var cancelled = await db.Benefits.AsNoTracking().FirstOrDefaultAsync(b => b.Id == v.BenefitId, ct);
+        if (cancelled != null)
+        {
+            var snap = SalaryRevisionLog.Snapshot(cancelled);
+            db.SalaryProfileRevisions.Add(SalaryRevisionLog.New(
+                cancelled.StoreId, v.EmployeeId, cancelled.Id, v, "cancelled", snap, null, CurrentUserEmail));
+        }
         if (prev != null)
         {
             // Bản trước nối liền tới bản kế tiếp (hoặc chạy tiếp nếu không còn bản sau).

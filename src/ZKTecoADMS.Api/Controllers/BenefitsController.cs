@@ -74,6 +74,7 @@ public partial class BenefitsController(IMediator mediator) : AuthenticatedContr
         var command = request.Adapt<UpdateBenefitCommand>();
         command.StoreId = RequiredStoreId;
         command.Id = id;
+        command.ChangedBy = CurrentUserEmail;
                 
         var result = await mediator.Send(command);
         return result.IsSuccess ? Ok(result) : BadRequest(result);
@@ -100,7 +101,7 @@ public partial class BenefitsController(IMediator mediator) : AuthenticatedContr
     [RequireAnyModulePermission(ModulePermissionAction.Create, "SalarySettings", "Benefit")]
     public async Task<ActionResult<AppResponse<EmployeeBenefitDto>>> AssignEmployee([FromBody] AssignSalaryProfileRequest request)
     {
-        var command = request.Adapt<AssignBenefitCommand>();
+        var command = request.Adapt<AssignBenefitCommand>() with { ChangedBy = CurrentUserEmail };
         var result = await mediator.Send(command);
 
         return result.IsSuccess ? Ok(result) : BadRequest(result);

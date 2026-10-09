@@ -47,6 +47,9 @@ class SlEmployee {
   }
 
   DateTime? get upcomingFrom => DateTime.tryParse('${upcoming?['effectiveDate'] ?? ''}');
+
+  /// Ngày bắt đầu của mức lương đang áp dụng.
+  DateTime? get currentFrom => DateTime.tryParse('${profile?['effectiveDate'] ?? ''}');
   SalaryKind get kind => SalaryKindX.parse(benefit?['rateType']);
 
   String get initials {
@@ -151,8 +154,18 @@ void slToast(BuildContext context, String m, {bool error = false}) => ScaffoldMe
 /// Lưu hồ sơ lương cho một nhân viên: cập nhật hồ sơ đang dùng hoặc tạo mới rồi gán.
 /// Trả về null khi thành công, ngược lại là thông báo lỗi.
 Future<String?> saveSalaryFor(SlContext ctx, SlEmployee e, SalaryDraft d, {bool forceNew = false, DateTime? effectiveFrom}) async {
+  final existing = forceNew || effectiveFrom != null ? null : e.benefitId;
+  // Tên hồ sơ duy nhất trong cửa hàng: đính chính giữ tên đang dùng; phiên bản mới mang ngày áp dụng
+  // (trước đây tạo trùng tên «Lương <tên> (<mã>)» → máy chủ từ chối, đổi lương từ ngày không lưu được).
+  final currentName = (e.benefit?['name'] ?? '').toString().trim();
+  final baseName = salaryProfileName(e.name, e.code);
+  final name = existing != null && currentName.isNotEmpty
+      ? currentName
+      : (e.configured || effectiveFrom != null)
+          ? '$baseName · từ ${dmy(effectiveFrom ?? DateTime.now())}'
+          : baseName;
   final body = d.toBenefit(
-    name: salaryProfileName(e.name, e.code),
+    name: name,
     fixedAllowanceTotal: ctx.allowanceTotal(e, 0),
     dailyAllowanceTotal: ctx.allowanceTotal(e, 1),
     insuranceSettings: ctx.insurance,
@@ -166,12 +179,17 @@ Future<String?> saveSalaryFor(SlContext ctx, SlEmployee e, SalaryDraft d, {bool 
   }
 
   // Đổi lương từ một ngày: tạo hồ sơ mới, bản cũ kết thúc hôm trước (bảng lương tách đoạn).
-  final existing = forceNew || effectiveFrom != null ? null : e.benefitId;
   if (existing != null) {
     final r = await ctx.api.updateSalaryProfile(existing, body);
     return r['isSuccess'] == true ? null : msg(r, 'Không lưu được hồ sơ lương.');
   }
-  final r = await ctx.api.createSalaryProfile(body);
+  var r = await ctx.api.createSalaryProfile(body);
+  if (r['isSuccess'] != true && msg(r, '').contains('already exists')) {
+    // Cùng ngày đã có hồ sơ cùng tên (đổi lương 2 lần trong ngày / hồ sơ cũ còn sót) → thêm giờ cho khác tên.
+    final now = DateTime.now();
+    final hm = '${now.hour.toString().padLeft(2, '0')}:${now.minute.toString().padLeft(2, '0')}:${now.second.toString().padLeft(2, '0')}';
+    r = await ctx.api.createSalaryProfile({...body, 'name': '$name $hm'});
+  }
   if (r['isSuccess'] != true) return msg(r, 'Không tạo được hồ sơ lương.');
   final data = r['data'];
   final id = data is Map ? data['id']?.toString() : null;
