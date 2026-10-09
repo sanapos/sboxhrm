@@ -85,6 +85,11 @@ public static class DependencyInjectionExtensions
 
     private static IServiceCollection AddJwtConfiguration(this IServiceCollection services, JwtSettings jwtSettings)
     {
+        // Khoá ký phải đặt qua biến môi trường (JwtSettings__AccessTokenSecret / RefreshTokenSecret),
+        // không lấy từ appsettings trong git. Thiếu / quá ngắn → dừng khởi động thay vì chạy với khoá đoán được.
+        foreach (var (name, secret) in new[] { ("AccessTokenSecret", jwtSettings.AccessTokenSecret), ("RefreshTokenSecret", jwtSettings.RefreshTokenSecret) })
+            if (string.IsNullOrWhiteSpace(secret) || Encoding.UTF8.GetByteCount(secret) < 32)
+                throw new InvalidOperationException($"JwtSettings:{name} chưa đặt hoặc ngắn hơn 32 byte — đặt qua biến môi trường JwtSettings__{name}.");
 
         services.AddAuthentication(options =>
                 {

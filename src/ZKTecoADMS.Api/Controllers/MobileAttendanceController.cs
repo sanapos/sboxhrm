@@ -4584,16 +4584,7 @@ public partial class MobileAttendanceController : AuthenticatedControllerBase
         var storeId = RequiredStoreId;
 
 
-        var clientIp = HttpContext.Connection.RemoteIpAddress?.ToString() ?? "";
-
-
-        var forwardedFor = HttpContext.Request.Headers["X-Forwarded-For"].FirstOrDefault();
-
-
-        if (!string.IsNullOrEmpty(forwardedFor))
-
-
-            clientIp = forwardedFor.Split(',')[0].Trim();
+        var clientIp = ZKTecoADMS.Api.Services.ClientIp.Of(HttpContext);
 
 
 
@@ -5454,16 +5445,7 @@ public partial class MobileAttendanceController : AuthenticatedControllerBase
         {
 
 
-            var clientIp = HttpContext.Connection.RemoteIpAddress?.ToString() ?? "";
-
-
-            var forwardedFor = HttpContext.Request.Headers["X-Forwarded-For"].FirstOrDefault();
-
-
-            if (!string.IsNullOrEmpty(forwardedFor))
-
-
-                clientIp = forwardedFor.Split(',')[0].Trim();
+            var clientIp = ZKTecoADMS.Api.Services.ClientIp.Of(HttpContext);
 
 
 

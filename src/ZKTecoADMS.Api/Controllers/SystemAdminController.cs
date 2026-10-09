@@ -588,7 +588,7 @@ public class SystemAdminController : AuthenticatedControllerBase
                     u.IsActive,
                     u.CreatedAt,
                     u.LastLoginAt,
-                    u.PlainTextPassword,
+                    (string?)null,
                     u.Store != null ? u.Store.AgentId : null,
                     u.Store != null && u.Store.Agent != null ? u.Store.Agent.Name : null
                 ))
@@ -895,7 +895,7 @@ public class SystemAdminController : AuthenticatedControllerBase
                 newUser.IsActive,
                 newUser.CreatedAt,
                 null,
-                newUser.PlainTextPassword
+                null
             );
 
             return Ok(AppResponse<SystemUserDto>.Success(dto));
@@ -2961,7 +2961,7 @@ public class SystemAdminController : AuthenticatedControllerBase
                 user.IsActive,
                 user.CreatedAt,
                 user.LastLoginAt,
-                user.PlainTextPassword
+                null
             )));
         }
         catch (Exception ex)
@@ -3129,7 +3129,7 @@ public class SystemAdminController : AuthenticatedControllerBase
                 user.IsActive,
                 user.CreatedAt,
                 user.LastLoginAt,
-                user.PlainTextPassword
+                null
             )));
         }
         catch (Exception ex)

@@ -571,7 +571,7 @@ public class PosQrTableOrderController(
                     : "Đã ghi món — thu ngân sẽ in phiếu bếp",
         };
         if (reqId.Length is > 8 and < 80)
-            RememberQrRequest(store.Id, token, reqId, payload, new MemoryCacheEntryOptions
+            await RememberQrRequestAsync(store.Id, token, reqId, payload, new MemoryCacheEntryOptions
             {
                 AbsoluteExpirationRelativeToNow = TimeSpan.FromMinutes(10),
                 Size = 1,
@@ -1874,7 +1874,7 @@ public class PosQrTableOrderController(
                 : "Đã gửi đơn. Quán sẽ gọi lại để xác nhận.",
         };
         if (reqId.Length is > 8 and < 80)
-            RememberQrRequest(store.Id, token, reqId, payload, new MemoryCacheEntryOptions
+            await RememberQrRequestAsync(store.Id, token, reqId, payload, new MemoryCacheEntryOptions
             {
                 AbsoluteExpirationRelativeToNow = TimeSpan.FromMinutes(10),
                 Size = 1,
@@ -2469,7 +2469,7 @@ public class PosQrTableOrderController(
         return false;
     }
 
-    void RememberQrRequest(Guid storeId, string token, string reqId, object payload, MemoryCacheEntryOptions opts)
+    async Task RememberQrRequestAsync(Guid storeId, string token, string reqId, object payload, MemoryCacheEntryOptions opts)
     {
         cache.Set($"qr-req:{token}:{reqId}", payload, opts);
         try
@@ -2484,7 +2484,7 @@ public class PosQrTableOrderController(
                 IsActive = true,
                 CreatedBy = "QR",
             });
-            db.SaveChanges();
+            await db.SaveChangesAsync();
         }
         catch
         {

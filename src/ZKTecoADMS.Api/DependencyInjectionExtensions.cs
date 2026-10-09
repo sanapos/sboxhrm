@@ -179,7 +179,7 @@ public static class DependencyInjectionExtensions
             ZKTecoADMS.Api.Services.Shipping.SpxShippingClient>();
         services.AddScoped<ZKTecoADMS.Api.Services.Shipping.PosShippingService>();
         services.AddScoped<PosQrMenuService>();
-        services.AddScoped<IPaymentWebhookProvider, TingeePaymentWebhookProvider>();
+        services.AddSingleton<IPaymentWebhookProvider, TingeePaymentWebhookProvider>(); // không trạng thái — registry singleton giữ được
         services.AddSingleton<IPaymentWebhookProviderRegistry, PaymentWebhookProviderRegistry>();
         services.AddScoped<IPosNotificationCreditService, PosNotificationCreditService>();
         services.AddScoped<IPosPlatformNotificationCreditService, PosPlatformNotificationCreditService>();
@@ -320,10 +320,21 @@ public static class DependencyInjectionExtensions
                         QueueLimit = 50,
                         QueueProcessingOrder = QueueProcessingOrder.OldestFirst
                     }));
-            // Per-user sliding window: 1000 requests per minute
-            options.AddPolicy("per-user", httpContext =>
-                RateLimitPartition.GetSlidingWindowLimiter(
-                    partitionKey: httpContext.User?.Identity?.Name ?? httpContext.Connection.RemoteIpAddress?.ToString() ?? "unknown",
+            // Mặc định mọi API controller: 1000 request / phút theo người dùng (chưa đăng nhập → theo IP).
+            // Dùng GlobalLimiter thay cho MapControllers().RequireRateLimiting("per-user"): quy ước đó gắn
+            // metadata SAU [EnableRateLimiting] của action nên đè mất «login» (20/phút) → không còn chống dò mật khẩu.
+            // Endpoint có chính sách riêng (login, device, public-form…) chỉ dùng chính sách đó.
+            options.GlobalLimiter = PartitionedRateLimiter.Create<HttpContext, string>(httpContext =>
+            {
+                var ep = httpContext.GetEndpoint();
+                if (ep?.Metadata.GetMetadata<Microsoft.AspNetCore.Mvc.Controllers.ControllerActionDescriptor>() == null
+                    || ep.Metadata.GetMetadata<Microsoft.AspNetCore.RateLimiting.EnableRateLimitingAttribute>() != null
+                    || ep.Metadata.GetMetadata<Microsoft.AspNetCore.RateLimiting.DisableRateLimitingAttribute>() != null)
+                    return RateLimitPartition.GetNoLimiter("_");
+                return RateLimitPartition.GetSlidingWindowLimiter(
+                    partitionKey: httpContext.User?.Identity?.IsAuthenticated == true
+                        ? "u:" + (httpContext.User.FindFirst(System.Security.Claims.ClaimTypes.NameIdentifier)?.Value ?? httpContext.User.Identity.Name)
+                        : "ip:" + (httpContext.Connection.RemoteIpAddress?.ToString() ?? "unknown"),
                     factory: _ => new SlidingWindowRateLimiterOptions
                     {
                         PermitLimit = 1000,
@@ -331,14 +342,16 @@ public static class DependencyInjectionExtensions
                         SegmentsPerWindow = 6,
                         QueueLimit = 50,
                         QueueProcessingOrder = QueueProcessingOrder.OldestFirst
-                    }));
-            // Login brute-force protection: 20 attempts per minute per IP
+                    });
+            });
+            // Chống dò mật khẩu theo IP: 60 lần / phút (văn phòng chung IP đăng nhập đầu ca vẫn đủ).
+            // Lớp thứ hai: mỗi tài khoản khoá 15 phút sau 5 lần sai (Identity Lockout).
             options.AddPolicy("login", httpContext =>
                 RateLimitPartition.GetFixedWindowLimiter(
                     partitionKey: httpContext.Connection.RemoteIpAddress?.ToString() ?? "unknown",
                     factory: _ => new FixedWindowRateLimiterOptions
                     {
-                        PermitLimit = 20,
+                        PermitLimit = 60,
                         Window = TimeSpan.FromMinutes(1),
                         QueueLimit = 0
                     }));
@@ -394,6 +407,14 @@ public static class DependencyInjectionExtensions
         return services;
     }
 
+    /// <summary>Proxy tin cậy: loopback + dải private (nginx trên host đi vào qua gateway Docker).</summary>
+    internal static readonly (string Prefix, int Length)[] TrustedProxyNetworks =
+    [
+        ("127.0.0.0", 8), ("::1", 128),
+        ("10.0.0.0", 8), ("172.16.0.0", 12), ("192.168.0.0", 16),
+        ("::ffff:127.0.0.0", 104), ("::ffff:10.0.0.0", 104), ("::ffff:172.16.0.0", 108), ("::ffff:192.168.0.0", 112),
+    ];
+
     public static async Task<WebApplication> UseApiServicesAsync(this WebApplication app)
     {
         AppContext.SetSwitch("Npgsql.EnableLegacyTimestampBehavior", true);
@@ -416,8 +437,26 @@ public static class DependencyInjectionExtensions
                 scope.ServiceProvider.GetRequiredService<ILoggerFactory>().CreateLogger("SeoArticleSeeder"));
         }
         
-        // Log ALL incoming requests — to diagnose new-gen ZKTeco devices using different paths
-        // Logger resolved once at startup (not per-request) to avoid DI overhead
+        // Sau nginx: lấy IP thật từ X-Forwarded-For. Phải chạy trước mọi middleware đọc IP
+        // (log, rate limit, audit). Chỉ tin proxy trong mạng nội bộ / Docker — request đi thẳng
+        // từ Internet không giả được IP. Thiếu cấu hình này thì mọi request mang IP gateway Docker
+        // và giới hạn đăng nhập theo IP thành giới hạn chung toàn hệ thống.
+        var forwarded = new Microsoft.AspNetCore.Builder.ForwardedHeadersOptions
+        {
+            ForwardedHeaders = Microsoft.AspNetCore.HttpOverrides.ForwardedHeaders.XForwardedFor
+                             | Microsoft.AspNetCore.HttpOverrides.ForwardedHeaders.XForwardedProto
+                             | Microsoft.AspNetCore.HttpOverrides.ForwardedHeaders.XForwardedHost,
+            ForwardLimit = 1,
+        };
+        forwarded.KnownNetworks.Clear();
+        forwarded.KnownProxies.Clear();
+        foreach (var (prefix, len) in TrustedProxyNetworks)
+            forwarded.KnownNetworks.Add(new Microsoft.AspNetCore.HttpOverrides.IPNetwork(System.Net.IPAddress.Parse(prefix), len));
+        app.UseForwardedHeaders(forwarded);
+
+        // Log request để chẩn đoán máy chấm công đời mới dùng đường dẫn khác. Chỉ /iclock ở mức
+        // Information; còn lại Debug (trước đây Warning mọi request → log container phình hàng trăm MB).
+        // Không ghi query string ngoài /iclock vì có thể chứa access_token (SignalR) / chữ ký link ảnh.
         var requestLogger = app.Services.GetRequiredService<ILoggerFactory>().CreateLogger("RequestLogger");
         app.Use(async (context, next) =>
         {
@@ -426,9 +465,11 @@ public static class DependencyInjectionExtensions
             if (path != null && !path.StartsWith("/health") && !path.Contains('.'))
             {
                 var method = context.Request.Method;
-                var qs = context.Request.QueryString.Value;
                 var ip = context.Connection.RemoteIpAddress?.ToString();
-                requestLogger.LogWarning("[ALL REQUEST] {Method} {Path}{QS} from {IP}", method, path, qs, ip);
+                if (path.StartsWith("/iclock", StringComparison.OrdinalIgnoreCase))
+                    requestLogger.LogInformation("[ALL REQUEST] {Method} {Path}{QS} from {IP}", method, path, context.Request.QueryString.Value, ip);
+                else if (requestLogger.IsEnabled(LogLevel.Debug))
+                    requestLogger.LogDebug("[ALL REQUEST] {Method} {Path} from {IP}", method, path, ip);
             }
             await next();
         });
@@ -446,17 +487,8 @@ public static class DependencyInjectionExtensions
 
         app.UseExceptionHandler(options => { });
 
-        // Forward headers from reverse proxy (nginx)
-        app.UseForwardedHeaders(new Microsoft.AspNetCore.Builder.ForwardedHeadersOptions
-        {
-            ForwardedHeaders = Microsoft.AspNetCore.HttpOverrides.ForwardedHeaders.XForwardedFor
-                             | Microsoft.AspNetCore.HttpOverrides.ForwardedHeaders.XForwardedProto
-                             | Microsoft.AspNetCore.HttpOverrides.ForwardedHeaders.XForwardedHost,
-        });
-
         app.UseResponseCompression();
         app.UseCors("corsPolicy");
-        app.UseRateLimiter();
         app.UseDefaultFiles();
         var contentTypes = new Microsoft.AspNetCore.StaticFiles.FileExtensionContentTypeProvider();
         contentTypes.Mappings[".apk"] = "application/vnd.android.package-archive";
@@ -470,12 +502,14 @@ public static class DependencyInjectionExtensions
         // Enable WebSocket middleware (required for SignalR WebSocket transport in Docker/cloud)
         app.UseWebSockets();
         app.UseAuthentication();
+        // Sau xác thực: giới hạn theo người dùng thật (trước đây chạy trước → mọi request tính theo IP).
+        app.UseRateLimiter();
         app.UseAuthorization();
         app.UseMaintenanceMode();
         app.UseStoreLicenseCheck();
         app.UseStorePackageModuleCheck();
         app.UseBranchContext();
-        app.MapControllers().RequireRateLimiting("per-user");
+        app.MapControllers();
         
         // Map SignalR hub for real-time attendance notifications (require authentication)
         app.MapHub<AttendanceHub>("/hubs/attendance").RequireAuthorization();

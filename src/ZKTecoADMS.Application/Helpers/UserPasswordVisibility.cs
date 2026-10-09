@@ -3,16 +3,15 @@ using ZKTecoADMS.Domain.Entities;
 namespace ZKTecoADMS.Application.Helpers;
 
 /// <summary>
-/// Lưu mật khẩu dạng plain text để Super Admin tra cứu (chỉ khi admin tạo/đặt lại).
+/// Trước đây lưu mật khẩu plain text để Super Admin tra cứu — đã bỏ (lộ DB / backup / token admin
+/// là lộ mật khẩu người dùng). Giữ API để không đổi nơi gọi; mọi lời gọi chỉ xoá giá trị cũ.
+/// Super Admin xem mật khẩu vừa đặt ngay trên màn hình lúc đặt lại, không lưu server.
 /// </summary>
 public static class UserPasswordVisibility
 {
     public static void RememberPassword(ApplicationUser user, string? password)
     {
-        if (!string.IsNullOrWhiteSpace(password))
-        {
-            user.PlainTextPassword = password;
-        }
+        user.PlainTextPassword = null;
     }
 
     public static void ClearRememberedPassword(ApplicationUser user)

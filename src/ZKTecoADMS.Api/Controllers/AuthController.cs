@@ -81,8 +81,6 @@ public class AuthController(IMediator _bus, UserManager<ApplicationUser> _userMa
                     .Select(u => new { u.Id, u.Email, FullName = (u.LastName + " " + u.FirstName).Trim(), u.Role })
                     .FirstOrDefaultAsync(ct);
             var ok = result.IsSuccess;
-            var forwarded = Request.Headers["X-Forwarded-For"].ToString().Split(',')[0].Trim();
-            var realIp = Request.Headers["X-Real-IP"].ToString();
             _dbContext.AuditLogs.Add(new AuditLog
             {
                 Id = Guid.NewGuid(),
@@ -99,9 +97,7 @@ public class AuthController(IMediator _bus, UserManager<ApplicationUser> _userMa
                 UserRole = user?.Role,
                 StoreId = store?.Id,
                 StoreName = store?.Name,
-                IpAddress = !string.IsNullOrWhiteSpace(forwarded) ? forwarded
-                    : !string.IsNullOrWhiteSpace(realIp) ? realIp
-                    : HttpContext.Connection.RemoteIpAddress?.ToString(),
+                IpAddress = ZKTecoADMS.Api.Services.ClientIp.Of(HttpContext),
                 UserAgent = Request.Headers.UserAgent.ToString(),
                 Timestamp = DateTime.UtcNow,
                 Status = ok ? "Success" : "Failed",
