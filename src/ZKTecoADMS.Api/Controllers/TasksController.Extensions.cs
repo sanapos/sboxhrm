@@ -254,6 +254,10 @@ public partial class TasksController
                 NextRunAt = t.NextRunAt,
                 LastRunAt = t.LastRunAt,
                 DefaultAssigneeIdsRaw = t.DefaultAssigneeIds,
+                FormSchema = t.FormSchema,
+                PieceRate = t.PieceRate,
+                AssignOnShift = t.AssignOnShift,
+                RequireCheckIn = t.RequireCheckIn,
             })
             .ToListAsync();
         foreach (var t in list)
@@ -326,6 +330,17 @@ public partial class TasksController
             StageKey = request.StageKey ?? template.StageKey,
             ProgressMode = template.ProgressMode,
             Location = request.Location,
+            FormSchema = template.FormSchema ?? "",
+            PieceRate = template.PieceRate,
+            RequireCheckIn = template.RequireCheckIn,
+            CustomerId = request.CustomerId,
+            CustomerName = request.CustomerName,
+            CustomerPhone = request.CustomerPhone,
+            RelatedType = request.RelatedType,
+            RelatedId = request.RelatedId,
+            RelatedLabel = request.RelatedLabel,
+            Latitude = request.Latitude,
+            Longitude = request.Longitude,
         });
     }
 

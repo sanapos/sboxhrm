@@ -100,6 +100,11 @@ public partial class TasksController
                 return Ok(AppResponse<WorkTaskDto>.Error($"Công việc bị chặn bởi: {string.Join(", ", blocked)}"));
         }
 
+        if (target.Done && task.Status != WorkTaskStatus.Completed)
+        {
+            var blocker = await CompletionBlockerAsync(task);
+            if (blocker != null) return Ok(AppResponse<WorkTaskDto>.Error(blocker));
+        }
         var oldStatus = task.Status;
         task.StageKey = target.Key;
         if (target.Done)
@@ -122,6 +127,7 @@ public partial class TasksController
             }
             if (task.Status == WorkTaskStatus.InProgress) task.ActualStartDate ??= DateTime.Now;
         }
+        if (oldStatus != task.Status) await OnStatusChangedAsync(task, oldStatus);
         task.UpdatedAt = DateTime.Now;
         task.UpdatedBy = CurrentUserEmail;
         _dbContext.TaskHistories.Add(CreateHistory(task.Id, "StageChanged", oldStage?.Name ?? task.StageKey, target.Name));
@@ -424,6 +430,10 @@ public partial class TasksController
             ? null
             : System.Text.Json.JsonSerializer.Serialize(assignees);
         entity.NextRunAt = TaskV2Helper.NextRun(entity.RecurrenceType, entity.RecurrenceDays, entity.RecurrenceTime, DateTime.Now);
+        entity.FormSchema = TaskFormHelper.NormalizeSchema(request.FormSchema);
+        entity.PieceRate = request.PieceRate is > 0 ? request.PieceRate : null;
+        entity.AssignOnShift = request.AssignOnShift;
+        entity.RequireCheckIn = request.RequireCheckIn;
     }
 
     private static TaskTemplateDto ToTemplateDto(TaskTemplate e) => new()
@@ -450,6 +460,10 @@ public partial class TasksController
         DefaultAssigneeIds = TaskV2Helper.ParseGuidList(e.DefaultAssigneeIds),
         NextRunAt = e.NextRunAt,
         LastRunAt = e.LastRunAt,
+        FormSchema = e.FormSchema,
+        PieceRate = e.PieceRate,
+        AssignOnShift = e.AssignOnShift,
+        RequireCheckIn = e.RequireCheckIn,
     };
 
     [HttpPut("templates/{templateId}")]
@@ -505,7 +519,7 @@ public partial class TasksController
         var entity = await _dbContext.TaskTemplates.AsTracking()
             .FirstOrDefaultAsync(t => t.Id == templateId && t.StoreId == RequiredStoreId && t.IsActive);
         if (entity == null) return Ok(AppResponse<int>.Error("Không tìm thấy mẫu"));
-        if (TaskV2Helper.ParseGuidList(entity.DefaultAssigneeIds).Count == 0)
+        if (TaskV2Helper.ParseGuidList(entity.DefaultAssigneeIds).Count == 0 && !entity.AssignOnShift)
             return Ok(AppResponse<int>.Error("Mẫu chưa chọn nhân viên nhận việc"));
         var n = await TaskRecurrenceRunner.CreateTasksFromTemplateAsync(
             _dbContext, entity, DateTime.Now, CurrentUserId, notificationService);

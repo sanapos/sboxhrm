@@ -9,6 +9,7 @@ public class WorkTaskConfiguration : IEntityTypeConfiguration<WorkTask>
     public void Configure(EntityTypeBuilder<WorkTask> builder)
     {
         builder.ToTable("WorkTasks");
+        builder.Property(e => e.PieceRate).HasColumnType("numeric(18,2)");
         
         builder.HasKey(e => e.Id);
         
@@ -283,6 +284,7 @@ public class TaskTemplateConfiguration : IEntityTypeConfiguration<TaskTemplate>
     public void Configure(EntityTypeBuilder<TaskTemplate> builder)
     {
         builder.ToTable("TaskTemplates");
+        builder.Property(e => e.PieceRate).HasColumnType("numeric(18,2)");
         builder.HasKey(e => e.Id);
         builder.Property(e => e.Name).HasMaxLength(120).IsRequired();
         builder.Property(e => e.Title).HasMaxLength(200).IsRequired();
@@ -342,5 +344,25 @@ public class TaskDependencyConfiguration : IEntityTypeConfiguration<TaskDependen
             .WithMany(t => t.BlockingDependencies)
             .HasForeignKey(e => e.DependsOnTaskId)
             .OnDelete(DeleteBehavior.Restrict);
+    }
+}
+
+public class TaskTimeLogConfiguration : IEntityTypeConfiguration<TaskTimeLog>
+{
+    public void Configure(EntityTypeBuilder<TaskTimeLog> builder)
+    {
+        builder.ToTable("TaskTimeLogs");
+        builder.HasKey(e => e.Id);
+        builder.HasIndex(e => new { e.TaskId, e.StartAt });
+    }
+}
+
+public class TaskWorkspaceSettingConfiguration : IEntityTypeConfiguration<TaskWorkspaceSetting>
+{
+    public void Configure(EntityTypeBuilder<TaskWorkspaceSetting> builder)
+    {
+        builder.ToTable("TaskWorkspaceSettings");
+        builder.HasKey(e => e.Id);
+        builder.HasIndex(e => e.StoreId).IsUnique();
     }
 }

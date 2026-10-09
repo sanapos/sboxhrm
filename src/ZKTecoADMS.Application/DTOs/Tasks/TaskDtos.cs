@@ -58,6 +58,22 @@ public class WorkTaskDto
     public TaskProgressMode ProgressMode { get; set; }
     public string? Location { get; set; }
     
+    // ─── Đa ngành ───
+    public string? FormSchema { get; set; }
+    public string? FormValues { get; set; }
+    public Guid? CustomerId { get; set; }
+    public string? CustomerName { get; set; }
+    public string? CustomerPhone { get; set; }
+    public string? RelatedType { get; set; }
+    public Guid? RelatedId { get; set; }
+    public string? RelatedLabel { get; set; }
+    public double? Latitude { get; set; }
+    public double? Longitude { get; set; }
+    public bool RequireCheckIn { get; set; }
+    public decimal? PieceRate { get; set; }
+    public bool PieceRatePaid { get; set; }
+    public int ReworkCount { get; set; }
+
     public bool IsOverdue => DueDate.HasValue && DueDate.Value < DateTime.Now && Status != WorkTaskStatus.Completed && Status != WorkTaskStatus.Cancelled;
     
     public int SubTaskCount { get; set; }
@@ -104,6 +120,16 @@ public class TaskAttachmentDto
     public string? ContentType { get; set; }
     public long FileSize { get; set; }
     public DateTime CreatedAt { get; set; }
+    public string? Category { get; set; }
+    public string? ChecklistItemId { get; set; }
+    public string? Caption { get; set; }
+    public double? Latitude { get; set; }
+    public double? Longitude { get; set; }
+    public string? StorageKind { get; set; }
+    /// <summary>Đường dẫn xem ảnh (máy chủ hoặc proxy có chữ ký cho ảnh trên Google Drive).</summary>
+    public string? Url { get; set; }
+    /// <summary>Cảnh báo khi lưu (vd Google Drive lỗi → đã lưu máy chủ).</summary>
+    public string? Warning { get; set; }
 }
 
 public class TaskAssigneeDto
@@ -158,6 +184,21 @@ public class CreateTaskDto
     public string? StageKey { get; set; }
     public TaskProgressMode? ProgressMode { get; set; }
     public string? Location { get; set; }
+    // ─── Đa ngành ───
+    /// <summary>Biểu mẫu riêng (JSON mảng trường).</summary>
+    public string? FormSchema { get; set; }
+    public Guid? CustomerId { get; set; }
+    public string? CustomerName { get; set; }
+    public string? CustomerPhone { get; set; }
+    public string? RelatedType { get; set; }
+    public Guid? RelatedId { get; set; }
+    public string? RelatedLabel { get; set; }
+    public double? Latitude { get; set; }
+    public double? Longitude { get; set; }
+    public bool? RequireCheckIn { get; set; }
+    public decimal? PieceRate { get; set; }
+    /// <summary>Giá trị biểu mẫu cần gộp (khoá → giá trị; chuỗi rỗng = xoá).</summary>
+    public Dictionary<string, string?>? FormValues { get; set; }
 }
 
 public class UpdateTaskDto
@@ -186,6 +227,21 @@ public class UpdateTaskDto
     public string? StageKey { get; set; }
     public TaskProgressMode? ProgressMode { get; set; }
     public string? Location { get; set; }
+    // ─── Đa ngành ───
+    /// <summary>Biểu mẫu riêng (JSON mảng trường).</summary>
+    public string? FormSchema { get; set; }
+    public Guid? CustomerId { get; set; }
+    public string? CustomerName { get; set; }
+    public string? CustomerPhone { get; set; }
+    public string? RelatedType { get; set; }
+    public Guid? RelatedId { get; set; }
+    public string? RelatedLabel { get; set; }
+    public double? Latitude { get; set; }
+    public double? Longitude { get; set; }
+    public bool? RequireCheckIn { get; set; }
+    public decimal? PieceRate { get; set; }
+    /// <summary>Giá trị biểu mẫu cần gộp (khoá → giá trị; chuỗi rỗng = xoá).</summary>
+    public Dictionary<string, string?>? FormValues { get; set; }
 }
 
 public class AcceptTaskDto
@@ -230,6 +286,10 @@ public class TaskTemplateDto
     public string? RecurrenceDays { get; set; }
     public string? RecurrenceTime { get; set; }
     public int? DueAfterHours { get; set; }
+    public string? FormSchema { get; set; }
+    public decimal? PieceRate { get; set; }
+    public bool AssignOnShift { get; set; }
+    public bool RequireCheckIn { get; set; }
     public List<Guid>? DefaultAssigneeIds { get; set; }
     [System.Text.Json.Serialization.JsonIgnore]
     public string? DefaultAssigneeIdsRaw { get; set; }
@@ -255,6 +315,10 @@ public class CreateTaskTemplateDto
     public string? RecurrenceDays { get; set; }
     public string? RecurrenceTime { get; set; }
     public int? DueAfterHours { get; set; }
+    public string? FormSchema { get; set; }
+    public decimal? PieceRate { get; set; }
+    public bool AssignOnShift { get; set; }
+    public bool RequireCheckIn { get; set; }
     public List<Guid>? DefaultAssigneeIds { get; set; }
 }
 
@@ -270,6 +334,14 @@ public class CreateTaskFromTemplateDto
     public Guid? ProjectId { get; set; }
     public string? StageKey { get; set; }
     public string? Location { get; set; }
+    public Guid? CustomerId { get; set; }
+    public string? CustomerName { get; set; }
+    public string? CustomerPhone { get; set; }
+    public string? RelatedType { get; set; }
+    public Guid? RelatedId { get; set; }
+    public string? RelatedLabel { get; set; }
+    public double? Latitude { get; set; }
+    public double? Longitude { get; set; }
 }
 
 public class TaskDependencyDto

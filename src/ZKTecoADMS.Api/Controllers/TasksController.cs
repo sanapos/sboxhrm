@@ -491,6 +491,25 @@ public partial class TasksController(
         var v2Error = await ApplyProjectAndStageAsync(task, request.ProjectId, request.StageKey);
         if (v2Error != null)
             return Ok(AppResponse<WorkTaskDto>.Error(v2Error));
+        // Tạo từ mẫu (giao nhanh): lấy biểu mẫu / khoán / check-in của mẫu nếu không truyền riêng.
+        if (request.TemplateId.HasValue && request.FormSchema == null)
+        {
+            var tpl = await _dbContext.TaskTemplates.AsNoTracking()
+                .FirstOrDefaultAsync(x => x.Id == request.TemplateId && x.StoreId == RequiredStoreId);
+            if (tpl != null)
+            {
+                task.FormSchema = tpl.FormSchema;
+                task.PieceRate = tpl.PieceRate;
+                task.RequireCheckIn = tpl.RequireCheckIn;
+                task.Checklist ??= TaskV2Helper.NormalizeChecklist(tpl.Checklist);
+            }
+        }
+        var multiError = await ApplyMultiIndustryAsync(task, request.FormSchema, request.FormValues,
+            request.CustomerId, request.CustomerName, request.CustomerPhone,
+            request.RelatedType, request.RelatedId, request.RelatedLabel,
+            request.Latitude, request.Longitude, request.RequireCheckIn, request.PieceRate, isUpdate: false);
+        if (multiError != null)
+            return Ok(AppResponse<WorkTaskDto>.Error(multiError));
         task.ProgressMode = request.ProgressMode
             ?? (task.Checklist != null ? TaskProgressMode.Checklist : TaskProgressMode.Manual);
         task.Progress = TaskV2Helper.AutoProgress(task) ?? 0;
@@ -597,6 +616,7 @@ public partial class TasksController(
         if (request.Status.HasValue && request.Status.Value != task.Status)
         {
             histories.Add(CreateHistory(task.Id, "StatusChanged", task.Status.ToString(), request.Status.Value.ToString()));
+            var statusBefore = task.Status;
             task.Status = request.Status.Value;
             
             if (request.Status.Value == WorkTaskStatus.InProgress && task.ActualStartDate == null)
@@ -604,6 +624,7 @@ public partial class TasksController(
             
             if (request.Status.Value == WorkTaskStatus.Completed)
                 task.CompletedDate = DateTime.Now;
+            await OnStatusChangedAsync(task, statusBefore);
         }
 
         if (request.Progress.HasValue && request.Progress.Value != task.Progress)
@@ -643,6 +664,12 @@ public partial class TasksController(
             if (projectError != null)
                 return Ok(AppResponse<WorkTaskDto>.Error(projectError));
         }
+        var multiError = await ApplyMultiIndustryAsync(task, request.FormSchema, request.FormValues,
+            request.CustomerId, request.CustomerName, request.CustomerPhone,
+            request.RelatedType, request.RelatedId, request.RelatedLabel,
+            request.Latitude, request.Longitude, request.RequireCheckIn, request.PieceRate, isUpdate: true);
+        if (multiError != null)
+            return Ok(AppResponse<WorkTaskDto>.Error(multiError));
         if (task.ProgressMode == TaskProgressMode.Checklist &&
             TaskV2Helper.AutoProgress(task) is int autoProgress)
             task.Progress = autoProgress;
@@ -722,6 +749,13 @@ public partial class TasksController(
                     $"Công việc bị chặn bởi: {string.Join(", ", blocked)}"));
         }
 
+        if (request.Status is WorkTaskStatus.InReview or WorkTaskStatus.Completed &&
+            task.Status is not (WorkTaskStatus.InReview or WorkTaskStatus.Completed))
+        {
+            var blocker = await CompletionBlockerAsync(task);
+            if (blocker != null) return Ok(AppResponse<WorkTaskDto>.Error(blocker));
+        }
+
         var oldStatus = task.Status;
         task.Status = request.Status;
 
@@ -740,6 +774,7 @@ public partial class TasksController(
             task.Progress = 100;
         }
 
+        await OnStatusChangedAsync(task, oldStatus);
         await SyncStageWithStatusAsync(task);
         task.UpdatedAt = DateTime.Now;
         task.UpdatedBy = CurrentUserEmail;
@@ -1952,23 +1987,14 @@ public partial class TasksController(
                 AssignedAt = ta.AssignedAt
             }).ToList()
         };
+        MapMultiIndustry(task, dto);
 
         if (includeDetails)
         {
             dto.Comments = task.Comments?.Where(c => c.ParentCommentId == null)
                 .Select(MapCommentToDto).ToList();
-            dto.Attachments = task.Attachments?.Select(a => new TaskAttachmentDto
-            {
-                Id = a.Id,
-                TaskId = a.TaskId,
-                UploadedById = a.UploadedById,
-                UploadedByName = a.UploadedBy?.UserName,
-                FileName = a.FileName,
-                FilePath = a.FilePath,
-                ContentType = a.ContentType,
-                FileSize = a.FileSize,
-                CreatedAt = a.CreatedAt
-            }).ToList();
+            var media = Media;
+            dto.Attachments = task.Attachments?.OrderByDescending(a => a.CreatedAt).Select(a => ToMediaDto(a, media)).ToList();
             dto.SubTasks = task.SubTasks?.Select(st => MapToDto(st)).ToList();
         }
 

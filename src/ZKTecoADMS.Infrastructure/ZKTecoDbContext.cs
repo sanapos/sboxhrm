@@ -117,6 +117,8 @@ public class ZKTecoDbContext : IdentityDbContext<ApplicationUser, IdentityRole<G
     public DbSet<TaskComment> TaskComments => Set<TaskComment>();
     public DbSet<TaskHistory> TaskHistories => Set<TaskHistory>();
     public DbSet<TaskAttachment> TaskAttachments => Set<TaskAttachment>();
+    public DbSet<TaskTimeLog> TaskTimeLogs => Set<TaskTimeLog>();
+    public DbSet<TaskWorkspaceSetting> TaskWorkspaceSettings => Set<TaskWorkspaceSetting>();
     public DbSet<TaskAssignee> TaskAssignees => Set<TaskAssignee>();
     public DbSet<TaskReminder> TaskReminders => Set<TaskReminder>();
     public DbSet<TaskEvaluation> TaskEvaluations => Set<TaskEvaluation>();

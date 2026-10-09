@@ -22,13 +22,35 @@ public static class TaskRecurrenceRunner
         ISystemNotificationService? notifications,
         CancellationToken ct = default)
     {
-        var assignees = TaskV2Helper.ParseGuidList(template.DefaultAssigneeIds);
+        // Giao theo ca: người có ca làm bao trùm giờ tạo việc (ca bắt đầu ≤ giờ tạo + 1h, kết thúc ≥ giờ tạo).
+        List<Guid> onShift = [];
+        if (template.AssignOnShift)
+        {
+            var day = runAt.Date;
+            var at = runAt.TimeOfDay;
+            var schedules = await db.WorkSchedules.AsNoTracking()
+                .Where(w => w.Date >= day && w.Date < day.AddDays(1) && !w.IsDayOff &&
+                            (w.StoreId == template.StoreId || w.StoreId == null))
+                .Select(w => new { w.EmployeeUserId, w.StartTime, w.EndTime, ShiftStart = (TimeSpan?)w.Shift!.StartTime, ShiftEnd = (TimeSpan?)w.Shift!.EndTime })
+                .ToListAsync(ct);
+            foreach (var w in schedules)
+            {
+                var start = w.StartTime ?? w.ShiftStart;
+                var end = w.EndTime ?? w.ShiftEnd;
+                if (start == null || end == null) continue;
+                var e = end.Value <= start.Value ? end.Value + TimeSpan.FromDays(1) : end.Value;
+                if (start.Value <= at + TimeSpan.FromHours(1) && e >= at) onShift.Add(w.EmployeeUserId);
+            }
+        }
+        var assignees = onShift.Count > 0 ? onShift.Distinct().ToList() : TaskV2Helper.ParseGuidList(template.DefaultAssigneeIds);
         if (assignees.Count == 0) return 0;
         var valid = await db.Employees.AsNoTracking()
             .Where(e => assignees.Contains(e.Id) && e.StoreId == template.StoreId && e.Deleted == null)
             .Select(e => new { e.Id, e.ApplicationUserId })
             .ToListAsync(ct);
         if (valid.Count == 0) return 0;
+        // Việc theo ca: một việc chung cho cả ca (mọi người cùng thấy, ai làm cũng được).
+        var shared = template.AssignOnShift && onShift.Count > 0;
 
         // Dự án của mẫu phải còn hoạt động; giai đoạn phải thuộc quy trình dự án.
         Guid? projectId = null;
@@ -48,7 +70,7 @@ public static class TaskRecurrenceRunner
 
         var due = template.DueAfterHours is > 0 ? runAt.AddHours(template.DueAfterHours.Value) : runAt.Date.AddDays(1).AddMinutes(-1);
         var created = 0;
-        foreach (var emp in valid)
+        foreach (var emp in shared ? valid.Take(1) : valid)
         {
             var task = new WorkTask
             {
@@ -72,12 +94,16 @@ public static class TaskRecurrenceRunner
                 ProjectId = projectId,
                 StageKey = stageKey,
                 SlaReminderHours = template.DefaultSlaReminderHours ?? Math.Max(1, (template.DueAfterHours ?? 24) / 4),
+                FormSchema = template.FormSchema,
+                PieceRate = template.PieceRate,
+                RequireCheckIn = template.RequireCheckIn,
                 IsActive = true,
                 CreatedBy = "Lặp tự động",
             };
             task.Progress = TaskV2Helper.AutoProgress(task) ?? 0;
             db.WorkTasks.Add(task);
-            await TaskWorkflowHelper.SyncAssigneesAsync(db, task.Id, emp.Id, new List<Guid> { emp.Id });
+            await TaskWorkflowHelper.SyncAssigneesAsync(db, task.Id, emp.Id,
+                shared ? valid.Select(v => v.Id).ToList() : new List<Guid> { emp.Id });
             db.TaskHistories.Add(new TaskHistory
             {
                 Id = Guid.NewGuid(),
@@ -89,12 +115,13 @@ public static class TaskRecurrenceRunner
             });
             created++;
 
-            if (notifications != null && emp.ApplicationUserId is Guid uid && uid != Guid.Empty)
+            foreach (var target in shared ? valid : [emp])
             {
+                if (notifications == null || target.ApplicationUserId is not Guid uid || uid == Guid.Empty) continue;
                 try
                 {
                     await notifications.CreateAndSendAsync(
-                        uid, NotificationType.Info, "Việc định kỳ",
+                        uid, NotificationType.Info, shared ? "Việc của ca" : "Việc định kỳ",
                         $"{task.Title} — hạn {due:HH:mm dd/MM}",
                         relatedEntityId: task.Id, relatedEntityType: "WorkTask",
                         categoryCode: "task", storeId: template.StoreId);
@@ -139,7 +166,7 @@ public class TaskRecurrenceBackgroundService(IServiceProvider sp, ILogger<TaskRe
             .Where(t => t.IsActive && t.Deleted == null &&
                         t.RecurrenceType != TaskRecurrenceType.None &&
                         t.NextRunAt != null && t.NextRunAt <= now &&
-                        t.DefaultAssigneeIds != null)
+                        (t.DefaultAssigneeIds != null || t.AssignOnShift))
             .OrderBy(t => t.NextRunAt)
             .Take(50)
             .ToListAsync(ct);

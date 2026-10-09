@@ -77,6 +77,11 @@ public class TaskIndustryPackTemplateDto
     public TaskRecurrenceType RecurrenceType { get; set; }
     public string? RecurrenceDays { get; set; }
     public string? RecurrenceTime { get; set; }
+    public string? FormSchema { get; set; }
+    public int FormFields { get; set; }
+    public decimal? PieceRate { get; set; }
+    public bool AssignOnShift { get; set; }
+    public bool RequireCheckIn { get; set; }
 }
 
 public class TaskIndustryPackDto
@@ -90,6 +95,10 @@ public class TaskIndustryPackDto
     public List<TaskStageDto> Stages { get; set; } = new();
     public List<TaskIndustryPackTemplateDto> Templates { get; set; } = new();
     public int InstalledTemplates { get; set; }
+    /// <summary>Tên gọi việc theo ngành (Hạng mục / Phiếu dịch vụ / Cơ hội…).</summary>
+    public string TaskLabel { get; set; } = "Công việc";
+    /// <summary>Gói ưu tiên hiển thị đầu.</summary>
+    public bool Featured { get; set; }
 }
 
 public class InstallIndustryPackDto

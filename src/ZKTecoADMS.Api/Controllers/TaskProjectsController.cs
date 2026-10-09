@@ -259,8 +259,15 @@ public class TaskProjectsController(ZKTecoDbContext db) : AuthenticatedControlle
                 RecurrenceType = t.Recurrence,
                 RecurrenceDays = t.RecurrenceDays,
                 RecurrenceTime = t.RecurrenceTime,
+                FormSchema = TaskIndustryPacks.FormJson(t),
+                FormFields = t.Form?.Length ?? 0,
+                PieceRate = t.PieceRate,
+                AssignOnShift = t.AssignOnShift,
+                RequireCheckIn = t.RequireCheckIn,
             }).ToList(),
             InstalledTemplates = installed.GetValueOrDefault(p.Key),
+            TaskLabel = p.TaskLabel,
+            Featured = p.Featured,
         }).ToList();
         return Ok(AppResponse<List<TaskIndustryPackDto>>.Success(list));
     }
@@ -277,57 +284,15 @@ public class TaskProjectsController(ZKTecoDbContext db) : AuthenticatedControlle
         request ??= new InstallIndustryPackDto();
         var pack = TaskIndustryPacks.Find(key);
         if (pack == null) return Ok(AppResponse<InstallIndustryPackResultDto>.Error("Không có gói ngành này"));
-        var storeId = RequiredStoreId;
-        var existing = await db.TaskTemplates.AsNoTracking()
-            .Where(t => t.StoreId == storeId && t.IsActive && t.IndustryKey == pack.Key)
-            .Select(t => t.Name).ToListAsync();
-        var assignees = request.RecurringAssigneeIds?.Where(g => g != Guid.Empty).Distinct().ToList() ?? new();
-        if (assignees.Count > 0)
+        var (r, err) = await ZKTecoADMS.Api.Services.TaskPackInstaller.InstallAsync(
+            db, RequiredStoreId, pack, request.EnableRecurring, request.RecurringAssigneeIds, CurrentUserEmail);
+        if (err != null) return Ok(AppResponse<InstallIndustryPackResultDto>.Error(err));
+        return Ok(AppResponse<InstallIndustryPackResultDto>.Success(new InstallIndustryPackResultDto
         {
-            var validCount = await db.Employees.AsNoTracking()
-                .CountAsync(e => assignees.Contains(e.Id) && e.StoreId == storeId && e.Deleted == null);
-            if (validCount != assignees.Count)
-                return Ok(AppResponse<InstallIndustryPackResultDto>.Error("Nhân viên nhận việc không hợp lệ"));
-        }
-        var result = new InstallIndustryPackResultDto();
-        var now = DateTime.Now;
-        foreach (var t in pack.Templates)
-        {
-            if (existing.Contains(t.Name))
-            {
-                result.SkippedTemplates++;
-                continue;
-            }
-            var recurring = request.EnableRecurring && t.Recurrence != TaskRecurrenceType.None;
-            db.TaskTemplates.Add(new TaskTemplate
-            {
-                Id = Guid.NewGuid(),
-                StoreId = storeId,
-                Name = t.Name,
-                Title = t.Name,
-                Description = t.Description,
-                TaskType = t.Type,
-                Priority = t.Priority,
-                EstimatedHours = t.Hours,
-                DefaultSlaReminderHours = t.DueAfterHours is > 0 ? Math.Max(1, t.DueAfterHours.Value / 4) : 24,
-                Checklist = TaskIndustryPacks.ChecklistJson(t),
-                IndustryKey = pack.Key,
-                StageKey = t.StageKey,
-                ProgressMode = TaskProgressMode.Checklist,
-                RecurrenceType = recurring ? t.Recurrence : TaskRecurrenceType.None,
-                RecurrenceDays = t.RecurrenceDays,
-                RecurrenceTime = t.RecurrenceTime,
-                DueAfterHours = t.DueAfterHours,
-                DefaultAssigneeIds = recurring && assignees.Count > 0 ? System.Text.Json.JsonSerializer.Serialize(assignees) : null,
-                NextRunAt = recurring ? TaskV2Helper.NextRun(t.Recurrence, t.RecurrenceDays, t.RecurrenceTime, now) : null,
-                IsActive = true,
-                CreatedBy = CurrentUserEmail,
-            });
-            result.CreatedTemplates++;
-            if (recurring) result.RecurringTemplates++;
-        }
-        await db.SaveChangesAsync();
-        return Ok(AppResponse<InstallIndustryPackResultDto>.Success(result));
+            CreatedTemplates = r!.Created,
+            SkippedTemplates = r.Skipped,
+            RecurringTemplates = r.Recurring,
+        }));
     }
 
     // ─── Hỗ trợ ──────────────────────────────────────────────────

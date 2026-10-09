@@ -155,6 +155,44 @@ public class WorkTask : AuditableEntity<Guid>
     [MaxLength(300)]
     public string? Location { get; set; }
 
+    // ─── Đa ngành: biểu mẫu, khách hàng, hiện trường, khoán ───
+
+    /// <summary>Định nghĩa trường biểu mẫu riêng (JSON mảng TaskFormField) — chụp từ mẫu việc lúc tạo.</summary>
+    public string? FormSchema { get; set; }
+
+    /// <summary>Giá trị biểu mẫu (JSON object key → giá trị).</summary>
+    public string? FormValues { get; set; }
+
+    /// <summary>Khách hàng (POS) liên quan — sửa máy, giao hàng, chăm sóc, sale.</summary>
+    public Guid? CustomerId { get; set; }
+    [MaxLength(200)]
+    public string? CustomerName { get; set; }
+    [MaxLength(30)]
+    public string? CustomerPhone { get; set; }
+
+    /// <summary>Chứng từ liên quan: sale / quote / warranty / purchase … (RelatedId = Id chứng từ).</summary>
+    [MaxLength(30)]
+    public string? RelatedType { get; set; }
+    public Guid? RelatedId { get; set; }
+    [MaxLength(200)]
+    public string? RelatedLabel { get; set; }
+
+    /// <summary>Toạ độ nơi làm việc (để check-in GPS).</summary>
+    public double? Latitude { get; set; }
+    public double? Longitude { get; set; }
+
+    /// <summary>Bắt buộc check-in tại địa điểm trước khi bắt đầu.</summary>
+    public bool RequireCheckIn { get; set; }
+
+    /// <summary>Tiền khoán khi việc được duyệt hoàn thành (cộng vào lương — thưởng).</summary>
+    public decimal? PieceRate { get; set; }
+
+    /// <summary>Giao dịch thưởng đã tạo cho tiền khoán (tránh tạo trùng).</summary>
+    public Guid? PieceRateTransactionId { get; set; }
+
+    /// <summary>Số lần bị yêu cầu làm lại (tỉ lệ làm lại).</summary>
+    public int ReworkCount { get; set; }
+
     public virtual TaskProject? Project { get; set; }
     public virtual Branch? Branch { get; set; }
     public virtual Department? Department { get; set; }
@@ -273,9 +311,75 @@ public class TaskAttachment : Entity<Guid>
     /// </summary>
     public long FileSize { get; set; }
 
+    /// <summary>report / before / after / checklist / signature / comment / file</summary>
+    [MaxLength(30)]
+    public string? Category { get; set; }
+
+    [MaxLength(60)]
+    public string? ChecklistItemId { get; set; }
+
+    [MaxLength(300)]
+    public string? Caption { get; set; }
+
+    public double? Latitude { get; set; }
+    public double? Longitude { get; set; }
+
+    /// <summary>server / gdrive — FilePath của gdrive dạng "gdrive://{fileId}".</summary>
+    [MaxLength(20)]
+    public string? StorageKind { get; set; }
+
     // Navigation Properties
     public virtual WorkTask? Task { get; set; }
     public virtual ApplicationUser? UploadedBy { get; set; }
+}
+
+/// <summary>Một lượt làm việc tại hiện trường: check-in (GPS) → check-out, tự cộng giờ thực tế.</summary>
+public class TaskTimeLog : Entity<Guid>
+{
+    public Guid TaskId { get; set; }
+    public Guid StoreId { get; set; }
+    public Guid? EmployeeId { get; set; }
+    public Guid UserId { get; set; }
+    public DateTime StartAt { get; set; }
+    public DateTime? EndAt { get; set; }
+    public double? StartLat { get; set; }
+    public double? StartLng { get; set; }
+    /// <summary>Khoảng cách tới địa điểm việc lúc check-in (mét).</summary>
+    public int? StartDistanceM { get; set; }
+    public double? EndLat { get; set; }
+    public double? EndLng { get; set; }
+    public int? EndDistanceM { get; set; }
+    [MaxLength(300)]
+    public string? Note { get; set; }
+}
+
+/// <summary>Thiết lập Công việc của cửa hàng: ngành, nơi lưu ảnh (máy chủ / Google Drive), check-in.</summary>
+public class TaskWorkspaceSetting : Entity<Guid>
+{
+    public Guid StoreId { get; set; }
+
+    /// <summary>fnb / construction / retail / service / sales / … (khớp gói ngành)</summary>
+    [MaxLength(40)]
+    public string? IndustryKey { get; set; }
+
+    /// <summary>server / gdrive</summary>
+    [MaxLength(20)]
+    public string PhotoStorage { get; set; } = "server";
+
+    /// <summary>Refresh token Google (đã mã hoá).</summary>
+    public string? DriveRefreshTokenEnc { get; set; }
+    [MaxLength(200)]
+    public string? DriveAccountEmail { get; set; }
+    [MaxLength(100)]
+    public string? DriveRootFolderId { get; set; }
+    public DateTime? DriveConnectedAt { get; set; }
+    [MaxLength(500)]
+    public string? DriveLastError { get; set; }
+
+    /// <summary>Bán kính check-in hợp lệ (mét).</summary>
+    public int CheckInRadiusM { get; set; } = 300;
+
+    public DateTime? OnboardedAt { get; set; }
 }
 
 /// <summary>
@@ -484,6 +588,18 @@ public class TaskTemplate : AuditableEntity<Guid>
     /// <summary>Nhân viên nhận việc lặp lại (JSON mảng Guid) — mỗi người một việc riêng</summary>
     [MaxLength(2000)]
     public string? DefaultAssigneeIds { get; set; }
+
+    /// <summary>Biểu mẫu riêng của loại việc (JSON mảng TaskFormField).</summary>
+    public string? FormSchema { get; set; }
+
+    /// <summary>Tiền khoán mặc định mỗi việc.</summary>
+    public decimal? PieceRate { get; set; }
+
+    /// <summary>Việc lặp giao cho người có ca làm hôm đó (thay cho danh sách cố định).</summary>
+    public bool AssignOnShift { get; set; }
+
+    /// <summary>Bắt buộc check-in GPS tại địa điểm.</summary>
+    public bool RequireCheckIn { get; set; }
 
     public DateTime? NextRunAt { get; set; }
     public DateTime? LastRunAt { get; set; }
