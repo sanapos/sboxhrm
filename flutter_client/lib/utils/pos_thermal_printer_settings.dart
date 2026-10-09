@@ -58,9 +58,12 @@ enum PosThermalConnectionType {
   usb('usb', 'USB'),
   sunmi('sunmi', 'Máy in Sunmi');
 
-  const PosThermalConnectionType(this.key, this.label);
+  const PosThermalConnectionType(this.key, this._label);
   final String key;
-  final String label;
+  final String _label;
+
+  /// Windows: «USB» là máy in đã cài trong Windows (in RAW qua spooler).
+  String get label => this == usb && !kIsWeb && Platform.isWindows ? 'Máy in Windows (USB)' : _label;
 
   static bool get _isIos => !kIsWeb && Platform.isIOS;
 

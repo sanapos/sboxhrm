@@ -13280,7 +13280,9 @@ class ApiService {
                   ? 'Bạn không có quyền thực hiện thao tác này.'
                   : response.statusCode == 413
                       ? 'File quá lớn. Vui lòng chọn file nhỏ hơn.'
-                      : 'Lỗi: ${response.statusCode}',
+                      : response.statusCode == 429
+                          ? 'Thao tác quá nhiều lần trong thời gian ngắn. Vui lòng đợi khoảng 1 phút rồi thử lại.'
+                          : 'Lỗi: ${response.statusCode}',
           'statusCode': response.statusCode
         };
       }

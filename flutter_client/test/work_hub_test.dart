@@ -15,6 +15,7 @@ import 'package:zkteco_flutter_client/providers/theme_provider.dart';
 import 'package:zkteco_flutter_client/screens/work/work_hub_screen.dart';
 import 'package:zkteco_flutter_client/screens/work/work_projects.dart';
 import 'package:zkteco_flutter_client/screens/work/work_task_detail.dart';
+import 'package:zkteco_flutter_client/screens/work/work_task_editor.dart';
 
 /// Công việc v2 với dữ liệu mẫu (ngành nội thất). Đặt SBOX_SHOT_DIR để lưu ảnh duyệt giao diện.
 Future<void> _loadFonts() async {
@@ -285,5 +286,47 @@ void main() {
   testWidgets('Gói ngành — máy tính', (t) async {
     await _pump(t, const WorkPacksPage(people: []), _desk, 'work_packs_desktop');
     expect(find.text('Nội thất / Thi công'), findsOneWidget);
+  });
+
+  // ── Khổ điện thoại: đủ các màn để rà khả dụng ──
+  testWidgets('Bảng — điện thoại', (t) async {
+    await _pump(t, const WorkHubScreen(debugViewer: _manager, initialView: WorkView.board, initialProjectId: 'p1'), _phone,
+        'work_board_mobile', tall: false);
+  });
+
+  testWidgets('Tiến độ — điện thoại', (t) async {
+    await _pump(t, const WorkHubScreen(debugViewer: _manager, initialView: WorkView.timeline), _phone, 'work_gantt_mobile', tall: false);
+  });
+
+  testWidgets('Nhân sự — điện thoại', (t) async {
+    await _pump(t, const WorkHubScreen(debugViewer: _manager, initialView: WorkView.people), _phone, 'work_people_mobile');
+  });
+
+  testWidgets('Hôm nay của quản lý — điện thoại', (t) async {
+    await _pump(t, const WorkHubScreen(debugViewer: _manager, initialView: WorkView.today), _phone, 'work_today_manager_mobile');
+  });
+
+  testWidgets('Chi tiết việc (quản lý, chờ duyệt) — điện thoại', (t) async {
+    await _pump(t, const WorkTaskDetailPage(taskId: '6', viewer: _manager), _phone, 'work_detail_manager_mobile');
+  });
+
+  testWidgets('Form tạo việc đầy đủ — điện thoại', (t) async {
+    await _pump(t, const WorkTaskEditorPage(projects: [], people: []), _phone, 'work_editor_mobile');
+  });
+
+  testWidgets('Gói ngành — điện thoại', (t) async {
+    await _pump(t, const WorkPacksPage(people: []), _phone, 'work_packs_mobile');
+  });
+
+  testWidgets('Hướng dẫn thu gọn từ lần mở thứ hai — điện thoại', (t) async {
+    SharedPreferences.setMockInitialValues({'work_guide_seen_v1': true});
+    await _pump(t, const WorkHubScreen(debugViewer: _staff), _phone, 'work_today_guide_compact_mobile');
+    expect(find.text('Nhận việc → làm, tick checklist → báo xong'), findsOneWidget);
+    expect(find.text('Bắt đầu nhanh'), findsNothing);
+  });
+
+  testWidgets('Chi tiết việc: nút thao tác cố định ở đáy — điện thoại', (t) async {
+    await _pump(t, const WorkTaskDetailPage(taskId: '3', viewer: _staff), _phone, 'work_detail_bottom_mobile', tall: false);
+    expect(find.text('Báo hoàn thành'), findsOneWidget);
   });
 }

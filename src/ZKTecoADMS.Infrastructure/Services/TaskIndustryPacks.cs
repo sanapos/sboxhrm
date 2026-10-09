@@ -62,7 +62,7 @@ public static class TaskIndustryPacks
         // ─── F&B: nhà hàng, cafe, trà sữa, bếp ───
         new("fnb", "F&B — Nhà hàng / Cafe", "tools-kitchen-2",
             "Checklist mở / đóng ca theo người có ca, vệ sinh, nhiệt độ tủ, nhận hàng, kiểm kê nguyên liệu, an toàn thực phẩm, phản ánh khách.",
-            "Chi nhánh / khu vực", "#EA580C", SimpleBoard,
+            "Nhóm việc", "#EA580C", SimpleBoard,
             new TaskPackTemplate[]
             {
                 new("Checklist mở ca", TaskType.Routine, "doing", 0.75m, new[]
@@ -258,7 +258,7 @@ public static class TaskIndustryPacks
         // ─── Bán lẻ ───
         new("retail", "Bán lẻ / Cửa hàng", "building-store",
             "Mở / đóng cửa theo ca, đối soát tiền, trưng bày khuyến mãi, hàng cận date, nhận hàng, kiểm kê, đổi trả.",
-            "Cửa hàng / chi nhánh", "#0284C7", SimpleBoard,
+            "Nhóm việc", "#0284C7", SimpleBoard,
             new TaskPackTemplate[]
             {
                 new("Mở cửa hàng", TaskType.Routine, "doing", 0.5m, new[]

@@ -297,6 +297,8 @@ class _CommEditorPageState extends State<CommEditorPage> {
   // ─── Lưu ─────────────────────────────────────────────────────
 
   Future<void> _save({required bool publish}) async {
+    // Bấm nhanh 2 lần (hoặc bấm lại khi mạng chậm) → trước đây gửi 2 lần, tạo 2 bài giống nhau.
+    if (_saving) return;
     final text = _ctrl.document.toPlainText().trim();
     if (_title.text.trim().isEmpty && text.isEmpty && _images.isEmpty && _files.isEmpty && !_pollOn) {
       commToast(context, 'Bài viết đang trống', error: true);
@@ -345,19 +347,33 @@ class _CommEditorPageState extends State<CommEditorPage> {
       'isAiGenerated': _aiGenerated,
     };
     setState(() => _saving = true);
-    final r = await _api.saveCommPost(data, id: widget.post?.id);
+    Map<String, dynamic> r;
+    try {
+      r = await _api.saveCommPost(data, id: widget.post?.id);
+    } catch (e) {
+      r = {'isSuccess': false, 'message': 'Không lưu được: $e'};
+    }
     if (!mounted) return;
-    setState(() => _saving = false);
     if (r['isSuccess'] == true) {
-      final status = r['data'] is Map ? CommStatus.values[((r['data'] as Map)['status'] as num? ?? 0).toInt().clamp(0, 5)] : null;
-      commToast(context, switch (status) {
-        CommStatus.pendingApproval => 'Đã gửi, chờ quản lý duyệt',
-        CommStatus.scheduled => 'Đã hẹn giờ đăng',
-        CommStatus.draft => 'Đã lưu nháp',
-        _ => 'Đã đăng bài',
-      });
+      // Máy chủ trả trạng thái dạng TÊN («Draft» / «Published»…) — trước đây ép kiểu số nên văng lỗi ngay sau khi
+      // lưu thành công: không có thông báo, màn soạn không đóng, người dùng bấm lại → bài trùng.
+      final status = r['data'] is Map ? commStatusOf((r['data'] as Map)['status']) : (publish ? CommStatus.published : CommStatus.draft);
+      final msg = switch (status) {
+        CommStatus.pendingApproval => 'Đã gửi bài, chờ quản lý duyệt',
+        CommStatus.scheduled => 'Đã hẹn giờ đăng ${_scheduledAt == null ? '' : _fmt(_scheduledAt!)}',
+        CommStatus.draft => 'Đã lưu nháp — xem lại ở mục «Bài nháp»',
+        _ => _wasPublished ? 'Đã cập nhật bài viết' : 'Đã đăng bài',
+      };
+      // Thông báo gắn với ScaffoldMessenger gốc → vẫn hiện sau khi đóng màn soạn.
+      final messenger = ScaffoldMessenger.maybeOf(context);
       Navigator.of(context).pop(true);
+      messenger?.showSnackBar(SnackBar(
+        content: Text(tr(msg)),
+        backgroundColor: SboxColors.success,
+        behavior: SnackBarBehavior.floating,
+      ));
     } else {
+      setState(() => _saving = false);
       commToast(context, '${r['message'] ?? 'Không lưu được'}', error: true);
     }
   }
@@ -885,11 +901,69 @@ class _CommEditorPageState extends State<CommEditorPage> {
                 ),
               ]),
               const SizedBox(height: 12),
+              // Trước đây xem trước chỉ có tiêu đề + nội dung + ảnh: thiếu bình chọn, sự kiện, bắt buộc đọc…
+              Wrap(spacing: 6, runSpacing: 6, children: [
+                if (_priority >= 3) const SboxStatusChip(label: 'Khẩn', tone: SboxTone.danger, icon: Icons.priority_high_rounded),
+                if (_priority == 2) const SboxStatusChip(label: 'Quan trọng', tone: SboxTone.warning, icon: Icons.flag_outlined),
+                if (_requireAck)
+                  SboxStatusChip(
+                    label: _ackDeadline == null ? 'Bắt buộc đọc và xác nhận' : 'Bắt buộc xác nhận trước ${_fmt(_ackDeadline!)}',
+                    tone: SboxTone.violet,
+                    icon: Icons.verified_user_outlined,
+                  ),
+                if (_pinned) const SboxStatusChip(label: 'Ghim đầu bảng tin', icon: Icons.push_pin_outlined),
+                if (_scheduledAt != null) SboxStatusChip(label: 'Hẹn đăng ${_fmt(_scheduledAt!)}', icon: Icons.schedule_send_outlined),
+              ]),
+              const SizedBox(height: 8),
               if (_title.text.trim().isNotEmpty) Text(_title.text.trim(), style: SboxType.titleStyle()),
+              if ((_summary ?? '').trim().isNotEmpty)
+                Padding(
+                  padding: const EdgeInsets.only(top: 6),
+                  child: Text(_summary!.trim(), style: SboxType.bodyStyle(SboxColors.textSecondary).copyWith(fontStyle: FontStyle.italic)),
+                ),
               const SizedBox(height: 8),
               CommHtml(html: commDeltaToHtml(_ctrl.document)),
+              if (_eventOn && _eventAt != null)
+                Container(
+                  margin: const EdgeInsets.only(top: 10),
+                  padding: const EdgeInsets.all(12),
+                  decoration: BoxDecoration(color: SboxColors.dangerSoft, borderRadius: SboxRadius.mdAll),
+                  child: Row(children: [
+                    const Icon(Icons.event_outlined, color: SboxColors.danger),
+                    const SizedBox(width: 10),
+                    Expanded(
+                      child: Text(tr('${_fmt(_eventAt!)}${_location.text.trim().isEmpty ? '' : ' · ${_location.text.trim()}'}'),
+                          style: SboxType.bodyStrong()),
+                    ),
+                  ]),
+                ),
+              if (_pollOn && _pollQ.text.trim().isNotEmpty)
+                Container(
+                  margin: const EdgeInsets.only(top: 10),
+                  padding: const EdgeInsets.all(12),
+                  decoration: BoxDecoration(color: SboxColors.warningSoft, borderRadius: SboxRadius.mdAll),
+                  child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+                    Text(_pollQ.text.trim(), style: SboxType.bodyStrong()),
+                    const SizedBox(height: 6),
+                    for (final o in _pollOpts.where((c) => c.text.trim().isNotEmpty))
+                      Padding(
+                        padding: const EdgeInsets.only(bottom: 4),
+                        child: Row(children: [
+                          Icon(_pollMultiple ? Icons.check_box_outline_blank : Icons.radio_button_unchecked, size: 18, color: SboxColors.slate500),
+                          const SizedBox(width: 8),
+                          Expanded(child: Text(o.text.trim(), style: SboxType.bodyStyle())),
+                        ]),
+                      ),
+                  ]),
+                ),
               if (_images.isNotEmpty) ...[const SizedBox(height: 8), CommImageGrid(urls: _images)],
               for (final f in _files) Padding(padding: const EdgeInsets.only(top: 6), child: CommFileTile(file: f, dense: true)),
+              if (_tags.text.trim().isNotEmpty)
+                Padding(
+                  padding: const EdgeInsets.only(top: 10),
+                  child: Text(_tags.text.split(',').map((t) => t.trim()).where((t) => t.isNotEmpty).map((t) => '#$t').join('  '),
+                      style: SboxType.smallStyle(SboxColors.brand700)),
+                ),
             ]),
           ),
         ),
@@ -1381,6 +1455,8 @@ class _CommAiPanelState extends State<CommAiPanel> with SingleTickerProviderStat
               ]),
             ),
         ],
+        const SizedBox(height: 10),
+        _AiDraftBody(draft: d),
         const SizedBox(height: 6),
         Text(tr('${d.blocks.length} đoạn${d.faq.isEmpty ? '' : ' · ${d.faq.length} câu hỏi thường gặp'}${d.suggestRequireAck ? ' · gợi ý bắt buộc đọc' : ''}'),
             style: SboxType.captionStyle()),
@@ -1392,5 +1468,42 @@ class _CommAiPanelState extends State<CommAiPanel> with SingleTickerProviderStat
         ]),
       ]),
     );
+  }
+}
+
+/// Nội dung đầy đủ của bản nháp AI (đúng định dạng sẽ đăng): thu gọn ~14 dòng, bấm «Xem toàn bộ» để mở.
+class _AiDraftBody extends StatefulWidget {
+  const _AiDraftBody({required this.draft});
+  final CommAiDraft draft;
+
+  @override
+  State<_AiDraftBody> createState() => _AiDraftBodyState();
+}
+
+class _AiDraftBodyState extends State<_AiDraftBody> {
+  bool _open = false;
+
+  @override
+  Widget build(BuildContext context) {
+    final ops = commBlocksToOps(widget.draft.blocks, faq: widget.draft.faq);
+    final html = QuillDeltaToHtmlConverter(ops, ConverterOptions(multiLineBlockquote: true, multiLineHeader: false)).convert();
+    final long = commLongHtml(html);
+    return Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
+      Container(
+        padding: const EdgeInsets.all(12),
+        decoration: BoxDecoration(color: SboxColors.surfaceMuted, borderRadius: SboxRadius.mdAll),
+        constraints: BoxConstraints(maxHeight: _open || !long ? double.infinity : 320),
+        child: ClipRect(child: SingleChildScrollView(physics: const NeverScrollableScrollPhysics(), child: CommHtml(html: html))),
+      ),
+      if (long)
+        Align(
+          alignment: Alignment.centerLeft,
+          child: TextButton.icon(
+            onPressed: () => setState(() => _open = !_open),
+            icon: Icon(_open ? Icons.expand_less_rounded : Icons.expand_more_rounded, size: 18),
+            label: Text(tr(_open ? 'Thu gọn' : 'Xem toàn bộ bài AI viết')),
+          ),
+        ),
+    ]);
   }
 }

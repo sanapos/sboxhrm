@@ -2,6 +2,7 @@ import 'dart:async';
 
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 
 import '../../l10n/app_tr.dart';
 import '../../models/employee.dart';
@@ -12,6 +13,7 @@ import '../../services/api_service.dart';
 import '../../utils/navigation_notifier.dart';
 import '../../utils/store_role_helper.dart';
 import '../../widgets/sbox/sbox_ui.dart';
+import 'work_assign_sheet.dart';
 import 'work_common.dart';
 import 'work_setup.dart';
 import '../../services/work_api.dart';
@@ -64,6 +66,10 @@ class _WorkHubScreenState extends State<WorkHubScreen> {
   TaskDashboardV2? _dash;
   int _seq = 0;
   Timer? _debounce;
+  static const _guideKey = 'work_guide_hidden_v1';
+  static const _guideSeenKey = 'work_guide_seen_v1';
+  bool _guideHidden = true;
+  bool _guideCompact = false;
 
   TaskProjectV2? get _project => _projects.where((p) => p.id == _scope).firstOrNull;
 
@@ -98,6 +104,16 @@ class _WorkHubScreenState extends State<WorkHubScreen> {
     if (!_viewer.isManager) _scope = _kMine;
     if (widget.initialProjectId != null) _scope = widget.initialProjectId!;
     _view = widget.initialView ?? (_viewer.isManager ? WorkView.overview : WorkView.today);
+    if (_view == WorkView.today && widget.initialProjectId == null) _scope = _kMine;
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      _guideHidden = prefs.getBool(_guideKey) ?? false;
+      // Lần đầu: đầy đủ; các lần sau: 1 dòng (bấm «Xem» để mở).
+      _guideCompact = prefs.getBool(_guideSeenKey) ?? false;
+      await prefs.setBool(_guideSeenKey, true);
+    } catch (_) {
+      _guideHidden = false;
+    }
     _ready = true;
     await Future.wait([_loadProjects(), _loadPeople(), _loadTemplates(), _loadWorkspace()]);
     await _load();
@@ -244,7 +260,21 @@ class _WorkHubScreenState extends State<WorkHubScreen> {
     ));
   }
 
-  Future<void> _createTask({String? stageKey}) async {
+  Future<void> _createTask({String? stageKey, WorkAssignMore? more}) async {
+    if (stageKey == null && more == null) {
+      final ok = await showWorkAssignSheet(
+        context,
+        templates: _templates,
+        people: _people,
+        taskLabel: _ws.taskLabel,
+        industryName: _ws.industryName,
+        projectId: _project?.id,
+        onMore: (m) => _createTask(more: m),
+        onInstallPacks: () => _openPacks(),
+      );
+      if (ok) _refreshAll();
+      return;
+    }
     final ok = await Navigator.of(context).push<bool>(MaterialPageRoute(
       builder: (_) => WorkTaskEditorPage(
         projects: _projects,
@@ -252,9 +282,93 @@ class _WorkHubScreenState extends State<WorkHubScreen> {
         templates: _templates,
         initialProjectId: _project?.id,
         initialStageKey: stageKey,
+        initialTemplate: more?.template,
+        initialTitle: more?.title,
+        initialPeople: more?.people ?? const [],
+        initialDue: more?.due,
       ),
     ));
     if (ok == true) _refreshAll();
+  }
+
+  Future<void> _setGuideHidden(bool hidden) async {
+    setState(() {
+      _guideHidden = hidden;
+      if (!hidden) _guideCompact = false; // mở lại từ menu → đầy đủ
+    });
+    try {
+      await (await SharedPreferences.getInstance()).setBool(_guideKey, hidden);
+    } catch (_) {}
+  }
+
+  Widget? _guide() => _guideHidden
+      ? null
+      : WorkGuideCard(
+          isManager: _viewer.isManager,
+          industryName: _ws.industryName,
+          projectLabel: _ws.projectLabel,
+          compact: _guideCompact,
+          onExpand: () => setState(() => _guideCompact = false),
+          onClose: () => _setGuideHidden(true),
+          onAssign: _viewer.isManager ? () => _createTask() : null,
+          onPacks: _viewer.isManager ? () => _openPacks() : null,
+        );
+
+  // ─── Thao tác nhanh của nhân viên trên thẻ việc ───────────────
+
+  Future<void> _quick(Future<Map<String, dynamic>> Function() call, String ok) async {
+    final r = await call();
+    if (!mounted) return;
+    if (r['isSuccess'] == true) {
+      workToast(context, ok);
+      _load();
+    } else {
+      workToast(context, '${r['message'] ?? 'Không thực hiện được'}', error: true);
+    }
+  }
+
+  void _acceptTask(WorkTask t) =>
+      _quick(() => _api.acceptTask(t.id, startImmediately: true), 'Đã nhận việc — bắt đầu làm');
+
+  void _startTask(WorkTask t) =>
+      _quick(() => _api.updateTaskStatus(t.id, {'status': WorkTaskStatus.inProgress.index}), 'Đã bắt đầu');
+
+  Future<void> _progressTask(WorkTask t) async {
+    var v = t.progress.toDouble();
+    final picked = await showDialog<int>(
+      context: context,
+      builder: (ctx) => StatefulBuilder(
+        builder: (ctx, set) => AlertDialog(
+          title: Text(tr('Cập nhật tiến độ')),
+          content: Column(mainAxisSize: MainAxisSize.min, children: [
+            Text(t.title, style: SboxType.smallStyle(SboxColors.textSecondary)),
+            const SizedBox(height: 8),
+            Text('${v.round()}%', style: SboxType.headlineStyle()),
+            Slider(value: v, max: 100, divisions: 20, onChanged: (x) => set(() => v = x)),
+          ]),
+          actions: [
+            TextButton(onPressed: () => Navigator.pop(ctx), child: Text(tr('Hủy'))),
+            FilledButton(onPressed: () => Navigator.pop(ctx, v.round()), child: Text(tr('Lưu'))),
+          ],
+        ),
+      ),
+    );
+    if (picked == null) return;
+    await _quick(() => _api.updateTaskProgress(t.id, {'progress': picked}), 'Đã cập nhật $picked%');
+  }
+
+  Future<void> _completeTask(WorkTask t) async {
+    final open = t.checklistItems.where((i) => !i.done).length;
+    if (open > 0) {
+      final go = await SboxDialogs.confirm(
+        context,
+        title: 'Còn $open mục checklist chưa tick',
+        message: 'Vẫn báo xong việc này?',
+        confirmLabel: 'Vẫn báo xong',
+      );
+      if (!go) return;
+    }
+    await _quick(() => _api.updateTaskStatus(t.id, {'status': WorkTaskStatus.completed.index}), 'Đã báo xong');
   }
 
   Future<void> _ensurePacks() async {
@@ -351,9 +465,8 @@ class _WorkHubScreenState extends State<WorkHubScreen> {
       color: SboxColors.page,
       child: Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
         Padding(padding: EdgeInsets.fromLTRB(pad, pad, pad, 0), child: _header(mobile)),
-        const SizedBox(height: SboxSpace.md),
-        _scopeStrip(pad),
-        const SizedBox(height: SboxSpace.sm),
+        SizedBox(height: mobile ? SboxSpace.sm : SboxSpace.md),
+        if (!mobile) ...[_scopeStrip(pad), const SizedBox(height: SboxSpace.sm)],
         Padding(padding: EdgeInsets.symmetric(horizontal: pad), child: _viewTabs(mobile)),
         if (_loading) const LinearProgressIndicator(minHeight: 2) else const SizedBox(height: 2),
         Expanded(child: !_ready ? const SboxLoading() : _body(pad)),
@@ -384,14 +497,31 @@ class _WorkHubScreenState extends State<WorkHubScreen> {
           child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
             Text(tr(p?.name ?? 'Công việc'), style: SboxType.titleStyle(), maxLines: 1, overflow: TextOverflow.ellipsis),
             const SizedBox(height: 2),
-            Text(tr(short), style: SboxType.captionStyle(SboxColors.textMuted), maxLines: 1, overflow: TextOverflow.ellipsis),
+            // Phạm vi xem (Tất cả / Của tôi / Việc lẻ / nhóm việc) — chạm để đổi; thay hàng chip cuộn ngang.
+            InkWell(
+              borderRadius: SboxRadius.smAll,
+              onTap: _pickScope,
+              child: Padding(
+                padding: const EdgeInsets.symmetric(vertical: 2),
+                child: Row(mainAxisSize: MainAxisSize.min, children: [
+                  // Đang xem một nhóm việc: tiêu đề đã là tên nhóm → dòng phụ chỉ ghi tiến độ (không lặp tên).
+                  Flexible(
+                    child: Text(tr(p != null ? short : _scopeLabel()),
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                        style: SboxType.smallStyle(SboxColors.brand700).copyWith(fontWeight: FontWeight.w600)),
+                  ),
+                  const Icon(Icons.expand_more_rounded, size: 18, color: SboxColors.brand700),
+                ]),
+              ),
+            ),
           ]),
         ),
         if (p != null && _viewer.isManager)
           IconButton(tooltip: tr('Sửa dự án'), onPressed: () => _editProject(p), icon: const Icon(Icons.edit_outlined)),
         if (_viewer.isManager)
           IconButton.filled(
-            tooltip: tr('Tạo việc'),
+            tooltip: tr('Giao việc'),
             style: IconButton.styleFrom(backgroundColor: SboxColors.brand600, foregroundColor: Colors.white),
             onPressed: () => _createTask(),
             icon: const Icon(Icons.add_rounded),
@@ -404,7 +534,7 @@ class _WorkHubScreenState extends State<WorkHubScreen> {
       subtitle: subtitle,
       actions: [
         if (_viewer.isManager)
-          SboxButton(label: 'Tạo ${_ws.taskLabel.toLowerCase()}', icon: Icons.add_rounded, onPressed: () => _createTask()),
+          SboxButton(label: 'Giao việc', icon: Icons.send_rounded, onPressed: () => _createTask()),
         if (p != null && _viewer.isManager)
           SboxButton.secondary(label: 'Sửa dự án', icon: Icons.edit_outlined, onPressed: () => _editProject(p)),
         menu,
@@ -421,20 +551,84 @@ class _WorkHubScreenState extends State<WorkHubScreen> {
             'templates' => _openPacks(tab: 1),
             'settings' => _openSettings(),
             'piece' => _openPieceRates(),
+            'guide' => _setGuideHidden(false),
+            'board' => _setView(WorkView.board),
+            'timeline' => _setView(WorkView.timeline),
             _ => _refreshAll(),
           },
           itemBuilder: (_) => [
             if (_viewer.isManager) ...[
-              PopupMenuItem(value: 'project', child: ListTile(leading: const Icon(Icons.create_new_folder_outlined), title: Text(tr('Tạo dự án / công trình')))),
-              PopupMenuItem(value: 'packs', child: ListTile(leading: const Icon(Icons.category_outlined), title: Text(tr('Gói theo ngành')))),
+              PopupMenuItem(
+                  value: 'project',
+                  child: ListTile(
+                    leading: const Icon(Icons.create_new_folder_outlined),
+                    title: Text(tr('Tạo ${_ws.projectLabel.toLowerCase()}')),
+                    subtitle: Text(tr('Gom nhiều việc để xem tiến độ chung (không bắt buộc)')),
+                  )),
+              PopupMenuItem(value: 'packs', child: ListTile(leading: const Icon(Icons.category_outlined), title: Text(tr('Mẫu việc theo ngành')))),
               PopupMenuItem(value: 'templates', child: ListTile(leading: const Icon(Icons.event_repeat_outlined), title: Text(tr('Mẫu việc, biểu mẫu và việc định kỳ')))),
               PopupMenuItem(value: 'piece', child: ListTile(leading: const Icon(Icons.payments_outlined), title: Text(tr('Khoán theo việc')))),
               PopupMenuItem(value: 'settings', child: ListTile(leading: const Icon(Icons.settings_outlined), title: Text(tr('Thiết lập: ngành, ảnh / Google Drive')))),
             ],
+            if (SboxBreakpoints.isMobile(context)) ...[
+              PopupMenuItem(value: 'board', child: ListTile(leading: const Icon(Icons.view_kanban_outlined), title: Text(tr('Xem dạng bảng (Kanban)')))),
+              PopupMenuItem(value: 'timeline', child: ListTile(leading: const Icon(Icons.view_timeline_outlined), title: Text(tr('Xem tiến độ (Gantt)')))),
+            ],
+            PopupMenuItem(value: 'guide', child: ListTile(leading: const Icon(Icons.help_outline_rounded), title: Text(tr('Hướng dẫn sử dụng')))),
             PopupMenuItem(value: 'refresh', child: ListTile(leading: const Icon(Icons.refresh_rounded), title: Text(tr('Tải lại')))),
           ],
           child: const Padding(padding: EdgeInsets.all(8), child: Icon(Icons.more_vert_rounded)),
         );
+  }
+
+  String _scopeLabel() => switch (_scope) {
+        _kAll => 'Tất cả việc',
+        _kMine => 'Việc của tôi',
+        _kLoose => 'Việc lẻ (không thuộc nhóm)',
+        _ => _project?.name ?? 'Tất cả việc',
+      };
+
+  Future<void> _pickScope() async {
+    Widget tile(String id, String label, {Color? color, String? sub}) => ListTile(
+          leading: color == null
+              ? Icon(id == _kMine ? Icons.person_outline : (id == _kLoose ? Icons.inbox_outlined : Icons.list_alt_rounded))
+              : Container(width: 14, height: 14, decoration: BoxDecoration(color: color, shape: BoxShape.circle)),
+          title: Text(tr(label)),
+          subtitle: sub == null ? null : Text(tr(sub)),
+          trailing: _scope == id ? const Icon(Icons.check_rounded, color: SboxColors.brand600) : null,
+          onTap: () => Navigator.pop(context, id),
+        );
+    final picked = await showModalBottomSheet<String>(
+      context: context,
+      useSafeArea: true,
+      isScrollControlled: true,
+      builder: (ctx) => SafeArea(
+        child: ConstrainedBox(
+          constraints: BoxConstraints(maxHeight: MediaQuery.sizeOf(ctx).height * 0.7),
+          child: ListView(shrinkWrap: true, children: [
+            ListTile(title: Text(tr('Xem việc của'), style: const TextStyle(fontWeight: FontWeight.w700))),
+            if (_viewer.isManager) tile(_kAll, 'Tất cả việc'),
+            tile(_kMine, 'Việc của tôi'),
+            if (_viewer.isManager) tile(_kLoose, 'Việc lẻ (không thuộc nhóm)'),
+            for (final p in _projects)
+              tile(p.id, p.name, color: p.colorValue, sub: 'Tiến độ ${p.progress}%${p.overdueCount > 0 ? ' · ${p.overdueCount} trễ' : ''}'),
+            if (_viewer.isManager)
+              ListTile(
+                leading: const Icon(Icons.create_new_folder_outlined),
+                title: Text(tr('Tạo ${_ws.projectLabel.toLowerCase()}')),
+                subtitle: Text(tr('Gom nhiều việc để xem tiến độ chung (không bắt buộc)')),
+                onTap: () => Navigator.pop(context, '__new'),
+              ),
+          ]),
+        ),
+      ),
+    );
+    if (picked == null || !mounted) return;
+    if (picked == '__new') {
+      _editProject();
+    } else {
+      _setScope(picked);
+    }
   }
 
   Widget _scopeStrip(double pad) {
@@ -482,7 +676,7 @@ class _WorkHubScreenState extends State<WorkHubScreen> {
         chip(_kMine, 'Việc của tôi'),
         if (_viewer.isManager) chip(_kLoose, 'Việc lẻ'),
         for (final p in _projects) chip(p.id, p.name, color: p.colorValue, progress: p.progress, late: p.overdueCount),
-        if (_viewer.isManager)
+        if (_viewer.isManager && _projects.isNotEmpty)
           Padding(
             padding: const EdgeInsets.only(right: SboxSpace.sm),
             child: ActionChip(
@@ -499,9 +693,9 @@ class _WorkHubScreenState extends State<WorkHubScreen> {
     final views = <(WorkView, String, IconData)>[
       (WorkView.today, 'Hôm nay', Icons.today_outlined),
       if (_viewer.isManager) (WorkView.overview, 'Tổng quan', Icons.insights_outlined),
-      (WorkView.board, 'Bảng', Icons.view_kanban_outlined),
+      if (!mobile || _view == WorkView.board) (WorkView.board, 'Bảng', Icons.view_kanban_outlined),
       (WorkView.list, 'Danh sách', Icons.view_list_outlined),
-      (WorkView.timeline, 'Tiến độ', Icons.view_timeline_outlined),
+      if (!mobile || _view == WorkView.timeline) (WorkView.timeline, 'Tiến độ', Icons.view_timeline_outlined),
       if (_viewer.isManager) (WorkView.people, 'Nhân sự', Icons.groups_2_outlined),
     ];
     // Điện thoại: mọi chế độ xem chia đều một hàng (biểu tượng trên, nhãn dưới) — trước đây cuộn ngang,
@@ -699,8 +893,17 @@ class _WorkHubScreenState extends State<WorkHubScreen> {
               child: ConstrainedBox(
                 constraints: const BoxConstraints(maxWidth: 720),
                 child: Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
+                  if (_guide() case final g?) g,
                   if (quickAdd != null) quickAdd,
-                  WorkTodayView(tasks: _tasks, onOpenTask: (t) => _openTaskId(t.id)),
+                  WorkTodayView(
+                    tasks: _tasks,
+                    onOpenTask: (t) => _openTaskId(t.id),
+                    onAccept: _acceptTask,
+                    onStart: _startTask,
+                    onProgress: _progressTask,
+                    onComplete: _completeTask,
+                    canAct: _viewer.isParticipant,
+                  ),
                 ]),
               ),
             ),
@@ -710,6 +913,7 @@ class _WorkHubScreenState extends State<WorkHubScreen> {
         return RefreshIndicator(
           onRefresh: _refreshAll,
           child: ListView(padding: EdgeInsets.fromLTRB(pad, SboxSpace.sm, pad, pad + SboxSpace.xl), children: [
+            if (_guide() case final g?) g,
             WorkOverviewView(
               insights: _insights,
               tasks: _tasks,
@@ -763,8 +967,8 @@ class _WorkHubScreenState extends State<WorkHubScreen> {
         title: 'Bắt đầu quản lý công việc',
         message: 'Giao việc nhanh ở ô dưới, hoặc tạo việc có đủ khách hàng, checklist, biểu mẫu.',
         action: Wrap(spacing: SboxSpace.sm, runSpacing: SboxSpace.sm, alignment: WrapAlignment.center, children: [
-          SboxButton(label: 'Mẫu việc theo ngành', icon: Icons.category_outlined, onPressed: () => _openPacks()),
-          SboxButton.secondary(label: 'Tạo công việc', icon: Icons.add_rounded, onPressed: () => _createTask()),
+          SboxButton(label: 'Giao việc theo mẫu', icon: Icons.send_rounded, onPressed: () => _createTask()),
+          SboxButton.secondary(label: 'Mẫu việc theo ngành', icon: Icons.category_outlined, onPressed: () => _openPacks()),
         ]),
       ),
     ]);

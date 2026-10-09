@@ -283,6 +283,7 @@ class _WorkTaskDetailPageState extends State<WorkTaskDetailPage> {
               ),
           ],
         ),
+        bottomNavigationBar: t == null || _loading ? null : _bottomBar(t),
         body: _loading
             ? const SboxLoading()
             : t == null
@@ -292,13 +293,11 @@ class _WorkTaskDetailPageState extends State<WorkTaskDetailPage> {
                     Expanded(
                       child: ListView(padding: const EdgeInsets.all(SboxSpace.lg), children: [
                         _header(t),
-                        const SizedBox(height: SboxSpace.md),
-                        _actions(t),
-                        if (_stages.isNotEmpty) ...[const SizedBox(height: SboxSpace.lg), _stageStepper(t)],
+                        if (_bottomBar(t) == null) ...[const SizedBox(height: SboxSpace.md), _actions(t)],
+                        // Việc nhân viên phải làm lên trước (checklist, biểu mẫu, ảnh) — trước đây nằm giữa trang,
+                        // sau giai đoạn / thông tin / khách hàng / check-in, phải cuộn mới thấy.
                         const SizedBox(height: SboxSpace.lg),
-                        _info(t),
-                        const SizedBox(height: SboxSpace.lg),
-                        WorkCustomerCard(task: t),
+                        _checklist(t),
                         if (TaskFormFieldV2.parse(t.formSchema).isNotEmpty) ...[
                           const SizedBox(height: SboxSpace.lg),
                           WorkFormCard(
@@ -312,18 +311,6 @@ class _WorkTaskDetailPageState extends State<WorkTaskDetailPage> {
                           ),
                         ],
                         const SizedBox(height: SboxSpace.lg),
-                        WorkFieldCard(
-                          key: ValueKey('field-${t.id}-$_rev'),
-                          task: t,
-                          canAct: widget.viewer.isManager || widget.viewer.isParticipant(t),
-                          onChanged: () {
-                            _changed = true;
-                            _load();
-                          },
-                        ),
-                        const SizedBox(height: SboxSpace.lg),
-                        _checklist(t),
-                        const SizedBox(height: SboxSpace.lg),
                         WorkMediaCard(
                           key: ValueKey('media-${t.id}-$_rev'),
                           task: t,
@@ -334,6 +321,21 @@ class _WorkTaskDetailPageState extends State<WorkTaskDetailPage> {
                           const SizedBox(height: SboxSpace.lg),
                           SboxCard(title: 'Mô tả', child: SelectableText(t.description!, style: SboxType.bodyStyle())),
                         ],
+                        const SizedBox(height: SboxSpace.lg),
+                        _info(t),
+                        const SizedBox(height: SboxSpace.lg),
+                        WorkCustomerCard(task: t),
+                        const SizedBox(height: SboxSpace.lg),
+                        WorkFieldCard(
+                          key: ValueKey('field-${t.id}-$_rev'),
+                          task: t,
+                          canAct: widget.viewer.isManager || widget.viewer.isParticipant(t),
+                          onChanged: () {
+                            _changed = true;
+                            _load();
+                          },
+                        ),
+                        if (_stages.isNotEmpty) ...[const SizedBox(height: SboxSpace.lg), _stageStepper(t)],
                         const SizedBox(height: SboxSpace.lg),
                         _comments(t),
                         const SizedBox(height: SboxSpace.lg),
@@ -389,66 +391,111 @@ class _WorkTaskDetailPageState extends State<WorkTaskDetailPage> {
   }
 
   Widget _actions(WorkTask t) {
-    final mine = widget.viewer.isParticipant(t);
-    final canAct = mine || widget.viewer.isManager;
-    final buttons = <Widget>[];
-    if (t.status == WorkTaskStatus.assigned && mine) {
-      buttons.add(SboxButton(
-          label: 'Nhận việc và bắt đầu',
-          icon: Icons.play_arrow_rounded,
-          onPressed: _busy ? null : () => _run(() => _api.acceptTask(t.id, startImmediately: true), ok: 'Đã nhận việc')));
-      buttons.add(SboxButton.secondary(label: 'Từ chối', icon: Icons.block_rounded, onPressed: _busy ? null : _reject));
-    } else if (canAct && (t.status == WorkTaskStatus.todo || t.status == WorkTaskStatus.onHold)) {
-      buttons.add(SboxButton(
-          label: 'Bắt đầu làm',
-          icon: Icons.play_arrow_rounded,
-          onPressed: _busy ? null : () => _run(() => _api.updateTaskStatus(t.id, {'status': WorkTaskStatus.inProgress.index}), ok: 'Đã bắt đầu')));
-    }
-    if (canAct && t.status == WorkTaskStatus.inProgress) {
-      buttons.add(SboxButton.pay(label: 'Báo hoàn thành', icon: Icons.check_rounded, expand: false, onPressed: _busy ? null : _complete));
-      if (!widget.viewer.isManager) {
-        buttons.add(SboxButton.secondary(
-            label: 'Gửi duyệt',
-            icon: Icons.rate_review_outlined,
-            onPressed: _busy ? null : () => _run(() => _api.updateTaskStatus(t.id, {'status': WorkTaskStatus.inReview.index}), ok: 'Đã gửi duyệt')));
-      }
-      buttons.add(SboxButton.ghost(
-          label: 'Tạm hoãn',
-          icon: Icons.pause_rounded,
-          onPressed: _busy ? null : () => _run(() => _api.updateTaskStatus(t.id, {'status': WorkTaskStatus.onHold.index}))));
-    }
-    if (widget.viewer.isManager && t.status == WorkTaskStatus.inReview) {
-      buttons.add(SboxButton.pay(label: 'Duyệt hoàn thành', icon: Icons.verified_outlined, expand: false, onPressed: _busy ? null : _complete));
-      buttons.add(SboxButton.secondary(
-          label: 'Yêu cầu làm lại',
-          icon: Icons.replay_rounded,
-          onPressed: _busy ? null : () => _run(() => _api.updateTaskStatus(t.id, {'status': WorkTaskStatus.inProgress.index}), ok: 'Đã trả lại')));
-    }
-    if (canAct && t.status == WorkTaskStatus.completed) {
-      buttons.add(SboxButton.secondary(
-          label: 'Mở lại',
-          icon: Icons.undo_rounded,
-          onPressed: _busy ? null : () => _run(() => _api.updateTaskStatus(t.id, {'status': WorkTaskStatus.inProgress.index}), ok: 'Đã mở lại')));
-    }
-    if (t.status == WorkTaskStatus.completed || t.status == WorkTaskStatus.inReview) {
-      buttons.add(SboxButton.secondary(
-          label: 'Phiếu hoàn thành', icon: Icons.picture_as_pdf_outlined, onPressed: _busy ? null : () => workShareReportPdf(context, t)));
-    }
-    if (widget.viewer.isManager && t.status == WorkTaskStatus.completed) {
-      buttons.add(SboxButton.ghost(
-          label: 'Đánh giá',
-          icon: Icons.star_outline_rounded,
-          onPressed: _busy
-              ? null
-              : () async {
-                  if (await workEvaluate(context, t)) _changed = true;
-                }));
-    }
-    if (widget.viewer.isManager && t.isOpen && t.assigneeId != null) {
-      buttons.add(SboxButton.ghost(label: 'Nhắc việc', icon: Icons.notifications_active_outlined, onPressed: _busy ? null : () => workRemind(context, t)));
-    }
+    final buttons = _actionButtons(t);
     if (buttons.isEmpty) return const SizedBox.shrink();
     return Wrap(spacing: SboxSpace.sm, runSpacing: SboxSpace.sm, children: buttons);
+  }
+
+  /// Điện thoại: nút thao tác cố định ở đáy — luôn bấm được «Báo xong» khi đang tick checklist bên dưới.
+  /// 2 nút đầu chia đều bề ngang, còn lại vào menu «⋯» (trước đây cuộn ngang, nút thứ 3 bị cắt mép).
+  Widget? _bottomBar(WorkTask t) {
+    if (MediaQuery.sizeOf(context).width >= SboxBreakpoints.tablet) return null;
+    final acts = _acts(t);
+    if (acts.isEmpty) return null;
+    final shown = acts.take(2).toList();
+    final more = acts.skip(2).toList();
+    return Container(
+      decoration: const BoxDecoration(
+        color: SboxColors.surface,
+        border: Border(top: BorderSide(color: SboxColors.border)),
+      ),
+      child: SafeArea(
+        top: false,
+        child: Padding(
+          padding: const EdgeInsets.symmetric(horizontal: SboxSpace.md, vertical: SboxSpace.sm),
+          child: Row(children: [
+            for (var i = 0; i < shown.length; i++) ...[
+              if (i > 0) const SizedBox(width: SboxSpace.sm),
+              Expanded(flex: i == 0 ? 3 : 2, child: _actButton(shown[i], expand: true)),
+            ],
+            if (more.isNotEmpty) ...[
+              const SizedBox(width: 4),
+              PopupMenuButton<int>(
+                tooltip: tr('Thao tác khác'),
+                icon: const Icon(Icons.more_horiz_rounded),
+                onSelected: (i) => more[i].onPressed?.call(),
+                itemBuilder: (_) => [
+                  for (var i = 0; i < more.length; i++)
+                    PopupMenuItem(
+                      value: i,
+                      enabled: more[i].onPressed != null,
+                      child: ListTile(dense: true, leading: Icon(more[i].icon), title: Text(tr(more[i].label))),
+                    ),
+                ],
+              ),
+            ],
+          ]),
+        ),
+      ),
+    );
+  }
+
+  List<Widget> _actionButtons(WorkTask t) => [for (final a in _acts(t)) _actButton(a)];
+
+  Widget _actButton(_Act a, {bool expand = false}) {
+    final b = switch (a.kind) {
+      _ActKind.primary => SboxButton(label: a.label, icon: a.icon, onPressed: a.onPressed),
+      _ActKind.pay => SboxButton.pay(label: a.label, icon: a.icon, expand: false, onPressed: a.onPressed),
+      _ActKind.secondary => SboxButton.secondary(label: a.label, icon: a.icon, onPressed: a.onPressed),
+      _ActKind.ghost => SboxButton.ghost(label: a.label, icon: a.icon, onPressed: a.onPressed),
+    };
+    return expand ? SizedBox(width: double.infinity, child: FittedBox(fit: BoxFit.scaleDown, child: b)) : b;
+  }
+
+  /// Thao tác theo trạng thái việc và vai trò người xem — thứ tự = mức quan trọng (nút chính trước).
+  List<_Act> _acts(WorkTask t) {
+    final mine = widget.viewer.isParticipant(t);
+    final canAct = mine || widget.viewer.isManager;
+    VoidCallback? run(VoidCallback f) => _busy ? null : f;
+    void status(WorkTaskStatus s, [String? ok]) => _run(() => _api.updateTaskStatus(t.id, {'status': s.index}), ok: ok);
+    final acts = <_Act>[];
+    if (t.status == WorkTaskStatus.assigned && mine) {
+      acts.add(_Act(_ActKind.primary, 'Nhận việc và bắt đầu', Icons.play_arrow_rounded,
+          run(() => _run(() => _api.acceptTask(t.id, startImmediately: true), ok: 'Đã nhận việc'))));
+      acts.add(_Act(_ActKind.secondary, 'Từ chối', Icons.block_rounded, run(_reject)));
+    } else if (canAct && (t.status == WorkTaskStatus.todo || t.status == WorkTaskStatus.onHold)) {
+      acts.add(_Act(_ActKind.primary, 'Bắt đầu làm', Icons.play_arrow_rounded,
+          run(() => status(WorkTaskStatus.inProgress, 'Đã bắt đầu'))));
+    }
+    if (canAct && t.status == WorkTaskStatus.inProgress) {
+      acts.add(_Act(_ActKind.pay, 'Báo hoàn thành', Icons.check_rounded, run(_complete)));
+      if (!widget.viewer.isManager) {
+        acts.add(_Act(_ActKind.secondary, 'Gửi duyệt', Icons.rate_review_outlined,
+            run(() => status(WorkTaskStatus.inReview, 'Đã gửi duyệt'))));
+      }
+      acts.add(_Act(_ActKind.ghost, 'Tạm hoãn', Icons.pause_rounded, run(() => status(WorkTaskStatus.onHold))));
+    }
+    if (widget.viewer.isManager && t.status == WorkTaskStatus.inReview) {
+      acts.add(_Act(_ActKind.pay, 'Duyệt hoàn thành', Icons.verified_outlined, run(_complete)));
+      acts.add(_Act(_ActKind.secondary, 'Yêu cầu làm lại', Icons.replay_rounded,
+          run(() => status(WorkTaskStatus.inProgress, 'Đã trả lại'))));
+    }
+    if (canAct && t.status == WorkTaskStatus.completed) {
+      acts.add(_Act(_ActKind.secondary, 'Mở lại', Icons.undo_rounded, run(() => status(WorkTaskStatus.inProgress, 'Đã mở lại'))));
+    }
+    if (t.status == WorkTaskStatus.completed || t.status == WorkTaskStatus.inReview) {
+      acts.add(_Act(_ActKind.secondary, 'Phiếu hoàn thành', Icons.picture_as_pdf_outlined,
+          run(() => workShareReportPdf(context, t))));
+    }
+    if (widget.viewer.isManager && t.status == WorkTaskStatus.completed) {
+      acts.add(_Act(_ActKind.ghost, 'Đánh giá', Icons.star_outline_rounded, run(() async {
+        if (await workEvaluate(context, t)) _changed = true;
+      })));
+    }
+    if (widget.viewer.isManager && t.isOpen && t.assigneeId != null) {
+      acts.add(_Act(_ActKind.ghost, 'Nhắc việc', Icons.notifications_active_outlined, run(() => workRemind(context, t))));
+    }
+    return acts;
   }
 
   Widget _stageStepper(WorkTask t) {
@@ -730,4 +777,14 @@ class _WorkTaskDetailPageState extends State<WorkTaskDetailPage> {
     final change = [h.oldValue, h.newValue].whereType<String>().where((s) => s.isNotEmpty).join(' → ');
     return change.isEmpty ? label : '$label: $change';
   }
+}
+
+enum _ActKind { primary, pay, secondary, ghost }
+
+class _Act {
+  const _Act(this.kind, this.label, this.icon, this.onPressed);
+  final _ActKind kind;
+  final String label;
+  final IconData icon;
+  final VoidCallback? onPressed;
 }

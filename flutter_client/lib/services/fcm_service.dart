@@ -47,6 +47,11 @@ class FcmService {
   /// so the app still launches when Firebase is misconfigured.
   Future<void> initialize() async {
     if (_initialized) return;
+    // Windows / macOS / Linux: không có Firebase Messaging — bỏ qua (trước đây thử khởi tạo Firebase rồi văng lỗi).
+    if (!(Platform.isAndroid || Platform.isIOS)) {
+      _initialized = true;
+      return;
+    }
     try {
       // Guard against duplicate init: on iOS, FirebaseApp.configure() is called
       // natively in AppDelegate.swift before Dart runs, so Firebase.apps is already

@@ -4,7 +4,9 @@ import 'dart:typed_data';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/services.dart';
 
-/// Một cổng / thiết bị USB máy in (Android UsbManager).
+import 'pos_windows_spooler.dart';
+
+/// Một cổng / thiết bị USB máy in (Android UsbManager; Windows: máy in đã cài, stableId «win:Tên máy in»).
 class PosUsbDevice {
   const PosUsbDevice({
     required this.deviceName,
@@ -100,10 +102,22 @@ class PosUsbPrinter {
 
   static bool get isSupported => !kIsWeb;
 
+  /// Windows: máy in USB là máy in đã cài trong Windows → in RAW qua spooler (không có kênh native Android).
+  static bool get _windows => PosWindowsSpooler.isSupported;
+  static const _winPrefix = 'win:';
+
+  static String _winName({String? stableId, String? deviceName}) {
+    final dn = (deviceName ?? '').trim();
+    if (dn.isNotEmpty) return dn;
+    final sid = (stableId ?? '').trim();
+    return sid.startsWith(_winPrefix) ? sid.substring(_winPrefix.length) : sid;
+  }
+
   static Stream<Map<String, dynamic>>? _eventStream;
 
   /// attached / detached — làm mới online/offline từng máy khi nhiều USB.
   static Stream<Map<String, dynamic>> get deviceEvents {
+    if (_windows) return const Stream.empty();
     _eventStream ??= _events
         .receiveBroadcastStream()
         .map((e) => Map<String, dynamic>.from(e as Map))
@@ -113,6 +127,22 @@ class PosUsbPrinter {
 
   static Future<List<PosUsbDevice>> listDevices() async {
     if (!isSupported) return const [];
+    if (_windows) {
+      final names = await PosWindowsSpooler.listPrinters();
+      return [
+        for (var i = 0; i < names.length; i++)
+          PosUsbDevice(
+            deviceName: names[i],
+            vendorId: 0,
+            productId: 0,
+            deviceId: i,
+            stableId: '$_winPrefix${names[i]}',
+            displayName: names[i],
+            productName: names[i],
+            hasPermission: true,
+          ),
+      ];
+    }
     try {
       final raw = await _ch.invokeMethod<List<dynamic>>('listDevices');
       if (raw == null) return const [];
@@ -129,6 +159,7 @@ class PosUsbPrinter {
 
   static Future<bool> requestPermission(PosUsbDevice device) async {
     if (!isSupported) return false;
+    if (_windows) return true;
     try {
       final ok = await _ch.invokeMethod<bool>(
         'requestPermission',
@@ -151,6 +182,9 @@ class PosUsbPrinter {
     String? serialNumber,
   }) async {
     if (!isSupported || bytes.isEmpty) return false;
+    if (_windows) {
+      return PosWindowsSpooler.writeRaw(_winName(stableId: stableId, deviceName: deviceName), bytes);
+    }
     try {
       final ok = await _ch.invokeMethod<bool>('writeBytes', {
         'bytes': Uint8List.fromList(bytes),
@@ -177,6 +211,7 @@ class PosUsbPrinter {
     String? serialNumber,
   }) async {
     if (!isSupported) return false;
+    if (_windows) return PosWindowsSpooler.canOpen(_winName(stableId: stableId, deviceName: deviceName));
     try {
       final ok = await _ch.invokeMethod<bool>('probeDevice', {
         if (stableId != null && stableId.isNotEmpty) 'stableId': stableId,
@@ -206,12 +241,13 @@ class PosUsbPrinter {
 
     final dn = (ref.deviceName ?? '').trim();
     if (dn.isNotEmpty) {
-      final byName = list.where((d) => d.deviceName == dn).firstOrNull;
+      final byName = list.where((d) => d.deviceName == dn || d.stableId == dn).firstOrNull;
       if (byName != null) return byName;
     }
 
     final sid = (ref.stableId ?? '').trim();
     if (sid.isEmpty) return null;
+    if (sid.startsWith(_winPrefix)) return list.where((d) => d.stableId == sid).firstOrNull;
 
     final parts = sid.split(':');
     if (parts.length < 2) return null;

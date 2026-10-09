@@ -97,6 +97,9 @@ dependencies:
 
   # Mobile file save / share / open
   path_provider: ^2.1.0
+  # Windows: in ESC/POS thô qua hàng đợi in (winspool) — máy in USB đã cài driver.
+  win32: ^5.5.0
+  ffi: ^2.1.0
   share_plus: ^10.0.0
   open_filex: ^4.6.0
   geolocator: ^13.0.2

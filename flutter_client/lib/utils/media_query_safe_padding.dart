@@ -1,4 +1,4 @@
-import 'package:flutter/foundation.dart' show kIsWeb;
+import 'package:flutter/foundation.dart' show TargetPlatform, defaultTargetPlatform, kIsWeb;
 import 'package:flutter/widgets.dart';
 
 import 'system_ui_inset_mode.dart';
@@ -11,6 +11,11 @@ const kFallbackStatusBarInset = 24.0;
 
 /// Khi cửa sổ đã trừ nav bar, vẫn nâng footer khỏi mép dưới.
 const kFallbackBottomClearance = 8.0;
+
+/// Chừa khoảng dự phòng cho status / nav bar chỉ trên điện thoại — Windows / macOS / web không có
+/// (trước đây mọi nền tảng trừ web đều cộng → app Windows có dải đen 24 px trên, 12 px dưới).
+bool get _phone =>
+    !kIsWeb && (defaultTargetPlatform == TargetPlatform.android || defaultTargetPlatform == TargetPlatform.iOS);
 
 double _maxInset(Iterable<double> values) {
   var m = 0.0;
@@ -54,11 +59,12 @@ MediaQueryData mediaQueryWithSystemPadding(
   }
   final top = topSys > 0.5
       ? topSys
-      : (kIsWeb ? 0.0 : kFallbackStatusBarInset);
+      : (_phone ? kFallbackStatusBarInset : 0.0);
   final bottom = ime > 1
       ? mq.padding.bottom
-      : (botSys > 0.5 ? botSys : (kIsWeb ? 0.0 : kFallbackBottomClearance)) +
-          kSystemBarClearance;
+      : _phone
+          ? (botSys > 0.5 ? botSys : kFallbackBottomClearance) + kSystemBarClearance
+          : botSys + (kIsWeb ? kSystemBarClearance : 0.0); // web giữ như cũ
   return mq.copyWith(
     padding: EdgeInsets.only(
       left: _maxInset([mq.padding.left, mq.viewPadding.left, raw.padding.left]),
@@ -99,7 +105,7 @@ Widget padAwaySystemBars(BuildContext context, Widget child, {bool? immersive}) 
   if (hideBars) {
     if (top <= 0.5) top = 0;
     if (inherited.viewInsets.bottom <= 1 && bottom <= 0.5) bottom = 0;
-  } else if (!kIsWeb) {
+  } else if (_phone) {
     if (top < kFallbackStatusBarInset) {
       top = kFallbackStatusBarInset;
     }

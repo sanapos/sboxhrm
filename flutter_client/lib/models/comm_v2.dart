@@ -2,6 +2,31 @@
 import 'package:flutter/material.dart';
 
 int _i(dynamic v) => v is num ? v.toInt() : int.tryParse('${v ?? ''}') ?? 0;
+
+/// Enum từ API: máy chủ bật JsonStringEnumConverter → trả TÊN («Published», «Normal»), bản cũ trả SỐ.
+/// Trước đây chỉ đọc số → mọi bài đã đăng bị hiểu là «Nháp» (0), mức độ 0, đăng / lưu xong app văng lỗi.
+int _enum(dynamic v, Map<String, int> byName, {int fallback = 0}) {
+  if (v is num) return v.toInt();
+  final s = '${v ?? ''}'.trim();
+  if (s.isEmpty) return fallback;
+  final n = int.tryParse(s);
+  if (n != null) return n;
+  final key = s.replaceAll('_', '').toLowerCase();
+  for (final e in byName.entries) {
+    if (e.key.toLowerCase() == key) return e.value;
+  }
+  return fallback;
+}
+
+const _statusNames = {'Draft': 0, 'PendingApproval': 1, 'Published': 2, 'Archived': 3, 'Rejected': 4, 'Scheduled': 5};
+const _priorityNames = {'Low': 0, 'Normal': 1, 'High': 2, 'Urgent': 3};
+const _typeNames = {
+  'News': 0, 'Announcement': 1, 'Event': 2, 'Policy': 3, 'Training': 4, 'Culture': 5, 'Recruitment': 6, 'Regulation': 7, 'Other': 99,
+};
+
+/// Trạng thái bài từ dữ liệu API (tên hoặc số).
+CommStatus commStatusOf(dynamic v) =>
+    CommStatus.values[_enum(v, _statusNames).clamp(0, CommStatus.values.length - 1)];
 DateTime? _dt(dynamic v) {
   if (v == null) return null;
   final d = DateTime.tryParse('$v');
@@ -220,7 +245,7 @@ class CommPost {
         channelId = j['channelId']?.toString(),
         channelName = j['channelName'],
         channelColor = j['channelColor'],
-        type = _i(j['type']),
+        type = _enum(j['type'], _typeNames),
         title = '${j['title'] ?? ''}',
         summary = j['summary'],
         contentHtml = '${j['contentHtml'] ?? ''}',
@@ -229,8 +254,8 @@ class CommPost {
         thumbnailUrl = j['thumbnailUrl'],
         images = _strs(j['images']),
         attachments = _maps(j['attachments']).map(CommAttachment.fromJson).toList(),
-        priority = _i(j['priority']),
-        status = CommStatus.values[_i(j['status']).clamp(0, CommStatus.values.length - 1)],
+        priority = _enum(j['priority'], _priorityNames, fallback: 1),
+        status = commStatusOf(j['status']),
         authorId = '${j['authorId']}',
         authorName = j['authorName'],
         authorAvatar = j['authorAvatar'],

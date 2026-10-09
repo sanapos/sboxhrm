@@ -150,11 +150,13 @@ class WorkProgressBar extends StatelessWidget {
 
 /// Thẻ việc dùng cho bảng Kanban và danh sách «Việc của tôi».
 class WorkTaskCard extends StatelessWidget {
-  const WorkTaskCard({super.key, required this.task, this.onTap, this.showProject = false, this.dense = false});
+  const WorkTaskCard({super.key, required this.task, this.onTap, this.showProject = false, this.dense = false, this.footer});
   final WorkTask task;
   final VoidCallback? onTap;
   final bool showProject;
   final bool dense;
+  /// Nút thao tác nhanh dưới thẻ (nhân viên: Nhận việc / Bắt đầu / Cập nhật % / Báo xong).
+  final Widget? footer;
 
   @override
   Widget build(BuildContext context) {
@@ -228,6 +230,7 @@ class WorkTaskCard extends StatelessWidget {
               const Spacer(),
               WorkAvatarStack(names: task.peopleNames, size: 22),
             ]),
+            if (footer != null) ...[const SizedBox(height: 10), footer!],
           ]),
         ),
       ),

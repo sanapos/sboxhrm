@@ -77,9 +77,18 @@ class WorkTaskEditorPage extends StatefulWidget {
     this.templates = const [],
     this.initialProjectId,
     this.initialStageKey,
+    this.initialTemplate,
+    this.initialTitle,
+    this.initialPeople = const [],
+    this.initialDue,
   });
 
   final WorkTask? task;
+  /// Từ «Giao việc theo mẫu» → «Thêm chi tiết…»: điền sẵn mẫu, tên, người, hạn.
+  final TaskTemplateV2? initialTemplate;
+  final String? initialTitle;
+  final List<String> initialPeople;
+  final DateTime? initialDue;
   final List<TaskProjectV2> projects;
   final List<WorkPerson> people;
   final List<TaskTemplateV2> templates;
@@ -155,6 +164,10 @@ class _WorkTaskEditorPageState extends State<WorkTaskEditorPage> {
       _due = DateTime(now.year, now.month, now.day, 17);
       final p = _project;
       if (p != null && (p.address ?? '').isNotEmpty) _location.text = p.address!;
+      if (widget.initialTemplate != null) _applyTemplate(widget.initialTemplate!, notify: false);
+      if ((widget.initialTitle ?? '').isNotEmpty) _title.text = widget.initialTitle!;
+      if (widget.initialPeople.isNotEmpty) _people = [...widget.initialPeople];
+      if (widget.initialDue != null) _due = widget.initialDue;
     }
   }
 
@@ -171,8 +184,8 @@ class _WorkTaskEditorPageState extends State<WorkTaskEditorPage> {
 
   TaskProjectV2? get _project => widget.projects.where((p) => p.id == _projectId).firstOrNull;
 
-  void _applyTemplate(TaskTemplateV2 t) {
-    setState(() {
+  void _applyTemplate(TaskTemplateV2 t, {bool notify = true}) {
+    void apply() {
       _templateId = t.id;
       _title.text = t.title;
       _desc.text = t.description ?? '';
@@ -195,7 +208,9 @@ class _WorkTaskEditorPageState extends State<WorkTaskEditorPage> {
           return _ChecklistDraft(i);
         }));
       _mode = _items.isEmpty ? TaskProgressMode.manual : TaskProgressMode.checklist;
-    });
+    }
+
+    notify ? setState(apply) : apply();
   }
 
   void _addItems(String raw) {
@@ -308,7 +323,7 @@ class _WorkTaskEditorPageState extends State<WorkTaskEditorPage> {
               SingleChildScrollView(
                 scrollDirection: Axis.horizontal,
                 child: Row(children: [
-                  for (final t in widget.templates.where((t) => t.recurrenceType == 0).take(30))
+                  for (final t in widget.templates.take(40))
                     Padding(
                       padding: const EdgeInsets.only(right: 6),
                       child: ChoiceChip(
@@ -333,7 +348,7 @@ class _WorkTaskEditorPageState extends State<WorkTaskEditorPage> {
                 const SizedBox(height: SboxSpace.md),
                 TextField(controller: _desc, minLines: 2, maxLines: 6, decoration: InputDecoration(labelText: tr('Mô tả, yêu cầu'))),
                 const SizedBox(height: SboxSpace.md),
-                _row([
+                if (widget.projects.isNotEmpty) _row([
                   DropdownButtonFormField<String?>(
                     value: _projectId,
                     isExpanded: true,
@@ -424,47 +439,7 @@ class _WorkTaskEditorPageState extends State<WorkTaskEditorPage> {
                     subtitle: Text(tr('Tắt để giao thẳng, việc vào ngay trạng thái Cần làm')),
                   ),
                 const SizedBox(height: SboxSpace.sm),
-                _row([
-                  _dateField('Bắt đầu', _start, (d) => setState(() => _start = d)),
-                  _dateField('Hạn chót', _due, (d) => setState(() => _due = d)),
-                ]),
-                const SizedBox(height: SboxSpace.md),
-                _row([
-                  TextField(
-                    controller: _hours,
-                    keyboardType: const TextInputType.numberWithOptions(decimal: true),
-                    decoration: InputDecoration(labelText: tr('Ước tính (giờ)')),
-                  ),
-                  TextField(controller: _location, decoration: InputDecoration(labelText: tr('Địa điểm'), prefixIcon: const Icon(Icons.place_outlined))),
-                ]),
-              ]),
-            ),
-            const SizedBox(height: SboxSpace.lg),
-            SboxCard(
-              title: 'Khách hàng & hiện trường',
-              child: Column(children: [
-                _row([
-                  TextField(controller: _custName, decoration: InputDecoration(labelText: tr('Khách hàng'), prefixIcon: const Icon(Icons.person_outline))),
-                  TextField(
-                    controller: _custPhone,
-                    keyboardType: TextInputType.phone,
-                    decoration: InputDecoration(labelText: tr('SĐT khách'), prefixIcon: const Icon(Icons.phone_outlined)),
-                  ),
-                ]),
-                const SizedBox(height: SboxSpace.md),
-                _row([
-                  TextField(
-                    controller: _piece,
-                    keyboardType: TextInputType.number,
-                    decoration: InputDecoration(labelText: tr('Tiền khoán (đ)'), helperText: tr('Duyệt hoàn thành → cộng vào lương'), prefixIcon: const Icon(Icons.payments_outlined)),
-                  ),
-                  SwitchListTile(
-                    contentPadding: EdgeInsets.zero,
-                    value: _checkIn,
-                    onChanged: (v) => setState(() => _checkIn = v),
-                    title: Text(tr('Bắt buộc check-in GPS')),
-                  ),
-                ]),
+                _dateField('Hạn chót', _due, (d) => setState(() => _due = d)),
               ]),
             ),
             const SizedBox(height: SboxSpace.lg),
@@ -534,12 +509,79 @@ class _WorkTaskEditorPageState extends State<WorkTaskEditorPage> {
                 ),
               ]),
             ),
+            const SizedBox(height: SboxSpace.lg),
+            // Ít dùng → thu gọn (form trước đây 14 ô trong 4 thẻ, điện thoại phải cuộn rất dài).
+            SboxCard(
+              padding: EdgeInsets.zero,
+              child: Theme(
+                data: Theme.of(context).copyWith(dividerColor: Colors.transparent),
+                child: ExpansionTile(
+                  initiallyExpanded: _hasExtras,
+                  tilePadding: const EdgeInsets.symmetric(horizontal: SboxSpace.md),
+                  childrenPadding: const EdgeInsets.fromLTRB(SboxSpace.md, 0, SboxSpace.md, SboxSpace.md),
+                  title: Text(tr('Tùy chọn thêm'), style: SboxType.bodyStrong()),
+                  subtitle: Text(tr('Ngày bắt đầu, giờ ước tính, địa điểm, khách hàng, tiền khoán, check-in GPS'),
+                      style: SboxType.captionStyle()),
+                  children: [
+                    _row([
+                      _dateField('Bắt đầu', _start, (d) => setState(() => _start = d)),
+                      TextField(
+                        controller: _hours,
+                        keyboardType: const TextInputType.numberWithOptions(decimal: true),
+                        decoration: InputDecoration(labelText: tr('Ước tính (giờ)')),
+                      ),
+                    ]),
+                    const SizedBox(height: SboxSpace.md),
+                    TextField(
+                        controller: _location,
+                        decoration: InputDecoration(labelText: tr('Địa điểm'), prefixIcon: const Icon(Icons.place_outlined))),
+                    const SizedBox(height: SboxSpace.md),
+                    _row([
+                      TextField(
+                          controller: _custName,
+                          decoration: InputDecoration(labelText: tr('Khách hàng'), prefixIcon: const Icon(Icons.person_outline))),
+                      TextField(
+                        controller: _custPhone,
+                        keyboardType: TextInputType.phone,
+                        decoration: InputDecoration(labelText: tr('SĐT khách'), prefixIcon: const Icon(Icons.phone_outlined)),
+                      ),
+                    ]),
+                    const SizedBox(height: SboxSpace.md),
+                    TextField(
+                      controller: _piece,
+                      keyboardType: TextInputType.number,
+                      decoration: InputDecoration(
+                        labelText: tr('Tiền khoán (đ)'),
+                        helperText: tr('Duyệt hoàn thành thì cộng vào lương người làm'),
+                        prefixIcon: const Icon(Icons.payments_outlined),
+                      ),
+                    ),
+                    SwitchListTile(
+                      contentPadding: EdgeInsets.zero,
+                      value: _checkIn,
+                      onChanged: (v) => setState(() => _checkIn = v),
+                      title: Text(tr('Bắt buộc check-in GPS tại nơi làm')),
+                    ),
+                  ],
+                ),
+              ),
+            ),
             const SizedBox(height: SboxSpace.xxl),
           ]),
         ),
       ),
     );
   }
+
+  /// Đang sửa việc có sẵn các thông tin phụ → mở sẵn «Tùy chọn thêm».
+  bool get _hasExtras =>
+      _start != null ||
+      _hours.text.isNotEmpty ||
+      _location.text.isNotEmpty ||
+      _custName.text.isNotEmpty ||
+      _custPhone.text.isNotEmpty ||
+      _piece.text.isNotEmpty ||
+      _checkIn;
 
   Widget _row(List<Widget> children) => LayoutBuilder(builder: (ctx, c) {
         if (c.maxWidth < 520 || children.length == 1) {

@@ -99,9 +99,11 @@ void main() {
     expect(find.text('Máy in cloud'), findsOneWidget);
   });
 
-  testWidgets('Máy in: chỉ có quyền cloud thì không hiện tab', (t) async {
+  testWidgets('Máy in: chỉ có quyền cloud thì không có tab «Trên máy này»', (t) async {
     await _pump(t, const Scaffold(body: PosPrintersTabsScreen(debugTabs: (device: false, cloud: true))), const Size(900, 700), 'v3_printers_cloud_only');
-    expect(find.byType(TabBar), findsNothing);
+    expect(find.text('Trên máy này'), findsNothing);
+    expect(find.text('Máy in cloud'), findsWidgets);
+    expect(find.text('Hàng đợi in'), findsOneWidget);
   });
 
   testWidgets('Mở thẳng mục theo mã; lối tắt cũ «Máy in cloud» mở mục Máy in', (t) async {

@@ -855,6 +855,18 @@ public class CommunicationV2Controller(
         {
             p.IsPinned = d.IsPinned;
         }
+
+        // Chống đăng trùng: bấm «Đăng» nhiều lần / app bản cũ gửi lại → trả bài vừa tạo thay vì tạo bài mới.
+        var dupSince = DateTime.UtcNow.AddMinutes(-2);
+        var dupId = await db.InternalCommunications
+            .Where(x => x.StoreId == p.StoreId && x.AuthorId == p.AuthorId && x.ChannelId == p.ChannelId
+                        && x.CreatedAt >= dupSince && x.Status != CommunicationStatus.Archived
+                        && x.Title == p.Title && x.Content == p.Content)
+            .OrderByDescending(x => x.CreatedAt)
+            .Select(x => (Guid?)x.Id)
+            .FirstOrDefaultAsync();
+        if (dupId.HasValue) return await Get(dupId.Value, markRead: false);
+
         p.Status = TargetStatus(d, ch, v);
         p.ScheduledAt = p.Status == CommunicationStatus.Scheduled ? d.ScheduledAt : null;
         if (p.Status == CommunicationStatus.Published) p.PublishedAt = DateTime.UtcNow;

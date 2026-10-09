@@ -230,7 +230,8 @@ class _WorkBoardViewState extends State<WorkBoardView> {
   @override
   Widget build(BuildContext context) {
     final mobile = SboxBreakpoints.isMobile(context);
-    final colW = mobile ? MediaQuery.sizeOf(context).width * 0.82 : 300.0;
+    if (mobile) return _mobileList();
+    final colW = 300.0;
     return Scrollbar(
       controller: _scroll,
       thumbVisibility: !mobile,
@@ -243,6 +244,76 @@ class _WorkBoardViewState extends State<WorkBoardView> {
         itemBuilder: (ctx, i) => SizedBox(width: colW, child: _column(widget.columns[i], mobile)),
       ),
     );
+  }
+
+  /// Điện thoại: các cột xếp dọc, đổi cột bằng nút «Chuyển sang…» — kéo thả ngang trên màn nhỏ khó dùng,
+  /// cột trống chiếm cả màn hình.
+  Widget _mobileList() {
+    return ListView(padding: const EdgeInsets.fromLTRB(SboxSpace.md, SboxSpace.sm, SboxSpace.md, SboxSpace.xl), children: [
+      for (final c in widget.columns) ...[
+        Padding(
+          padding: const EdgeInsets.only(top: SboxSpace.sm, bottom: 6),
+          child: Row(children: [
+            Container(width: 10, height: 10, decoration: BoxDecoration(color: c.color, shape: BoxShape.circle)),
+            const SizedBox(width: 8),
+            Expanded(child: Text(tr(c.title), style: SboxType.bodyStrong(), maxLines: 1, overflow: TextOverflow.ellipsis)),
+            Container(
+              padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 1),
+              decoration: BoxDecoration(color: SboxColors.slate100, borderRadius: SboxRadius.pillAll),
+              child: Text('${c.tasks.length}', style: SboxType.captionStyle()),
+            ),
+            if (widget.onAdd != null && !c.done)
+              IconButton(
+                tooltip: tr('Thêm việc vào «${c.title}»'),
+                visualDensity: VisualDensity.compact,
+                icon: const Icon(Icons.add_rounded, size: 20),
+                onPressed: () => widget.onAdd!(c),
+              ),
+          ]),
+        ),
+        if (c.tasks.isEmpty)
+          Padding(
+            padding: const EdgeInsets.only(left: 18, bottom: SboxSpace.sm),
+            child: Text(tr('Chưa có việc'), style: SboxType.captionStyle(SboxColors.textMuted)),
+          ),
+        for (final t in c.tasks)
+          Padding(
+            padding: const EdgeInsets.only(bottom: 8),
+            child: WorkTaskCard(
+              task: t,
+              dense: true,
+              showProject: widget.showProject,
+              onTap: () => widget.onOpenTask(t),
+              footer: Align(
+                alignment: Alignment.centerLeft,
+                child: PopupMenuButton<WorkBoardColumn>(
+                  tooltip: tr('Chuyển sang cột khác'),
+                  onSelected: (to) => widget.onMove(t, to),
+                  itemBuilder: (_) => [
+                    for (final o in widget.columns.where((o) => o.id != c.id))
+                      PopupMenuItem(
+                        value: o,
+                        child: Row(children: [
+                          Container(width: 10, height: 10, decoration: BoxDecoration(color: o.color, shape: BoxShape.circle)),
+                          const SizedBox(width: 8),
+                          Text(tr(o.title)),
+                        ]),
+                      ),
+                  ],
+                  child: Padding(
+                    padding: const EdgeInsets.symmetric(vertical: 4),
+                    child: Row(mainAxisSize: MainAxisSize.min, children: [
+                      const Icon(Icons.swap_horiz_rounded, size: 18, color: SboxColors.brand600),
+                      const SizedBox(width: 4),
+                      Text(tr('Chuyển sang…'), style: SboxType.smallStyle(SboxColors.brand700).copyWith(fontWeight: FontWeight.w600)),
+                    ]),
+                  ),
+                ),
+              ),
+            ),
+          ),
+      ],
+    ]);
   }
 
   Widget _column(WorkBoardColumn c, bool mobile) {
@@ -605,12 +676,16 @@ class _WorkGanttViewState extends State<WorkGanttView> {
       Padding(
         padding: const EdgeInsets.fromLTRB(SboxSpace.lg, 0, SboxSpace.lg, SboxSpace.sm),
         child: Row(children: [
-          const SboxLegend(items: [
-            (label: 'Đang làm', color: SboxColors.brand500),
-            (label: 'Quá hạn', color: SboxColors.danger),
-            (label: 'Hoàn thành', color: SboxColors.success),
-          ]),
-          const Spacer(),
+          const Expanded(
+            child: SingleChildScrollView(
+              scrollDirection: Axis.horizontal,
+              child: SboxLegend(items: [
+                (label: 'Đang làm', color: SboxColors.brand500),
+                (label: 'Quá hạn', color: SboxColors.danger),
+                (label: 'Hoàn thành', color: SboxColors.success),
+              ]),
+            ),
+          ),
           IconButton(tooltip: tr('Thu nhỏ'), onPressed: () => setState(() => _dayW = math.max(14, _dayW - 6)), icon: const Icon(Icons.zoom_out)),
           IconButton(tooltip: tr('Phóng to'), onPressed: () => setState(() => _dayW = math.min(72, _dayW + 6)), icon: const Icon(Icons.zoom_in)),
           TextButton(onPressed: _scrollToToday, child: Text(tr('Hôm nay'))),
@@ -799,10 +874,76 @@ class WorkWorkloadView extends StatelessWidget {
 // ═════════════════ Hôm nay (nhân viên, điện thoại) ═════════════════
 
 class WorkTodayView extends StatelessWidget {
-  const WorkTodayView({super.key, required this.tasks, required this.onOpenTask, this.header});
+  const WorkTodayView({
+    super.key,
+    required this.tasks,
+    required this.onOpenTask,
+    this.header,
+    this.onAccept,
+    this.onStart,
+    this.onProgress,
+    this.onComplete,
+    this.canAct,
+  });
   final List<WorkTask> tasks;
   final ValueChanged<WorkTask> onOpenTask;
   final Widget? header;
+  /// Thao tác ngay trên thẻ (không cần mở chi tiết). null = không hiện nút.
+  final ValueChanged<WorkTask>? onAccept;
+  final ValueChanged<WorkTask>? onStart;
+  final ValueChanged<WorkTask>? onProgress;
+  final ValueChanged<WorkTask>? onComplete;
+  /// Chỉ hiện nút nhanh trên việc người xem tham gia.
+  final bool Function(WorkTask t)? canAct;
+
+  Widget? _actions(WorkTask t) {
+    if (canAct != null && !canAct!(t)) return null;
+    Widget btn(String label, IconData icon, VoidCallback? onTap, {bool primary = false, Color? color}) => Expanded(
+          child: primary
+              ? FilledButton.icon(
+                  style: FilledButton.styleFrom(
+                      backgroundColor: color ?? SboxColors.brand600, visualDensity: VisualDensity.compact),
+                  onPressed: onTap,
+                  icon: Icon(icon, size: 18),
+                  label: Text(tr(label), maxLines: 1, overflow: TextOverflow.ellipsis),
+                )
+              : OutlinedButton.icon(
+                  style: OutlinedButton.styleFrom(visualDensity: VisualDensity.compact),
+                  onPressed: onTap,
+                  icon: Icon(icon, size: 18),
+                  label: Text(tr(label), maxLines: 1, overflow: TextOverflow.ellipsis),
+                ),
+        );
+    switch (t.status) {
+      case WorkTaskStatus.assigned:
+        if (onAccept == null) return null;
+        return Row(children: [
+          btn('Nhận việc', Icons.check_circle_outline_rounded, () => onAccept!(t), primary: true),
+          const SizedBox(width: 8),
+          btn('Xem', Icons.visibility_outlined, () => onOpenTask(t)),
+        ]);
+      case WorkTaskStatus.todo:
+      case WorkTaskStatus.onHold:
+        if (onStart == null) return null;
+        return Row(children: [
+          btn('Bắt đầu làm', Icons.play_arrow_rounded, () => onStart!(t), primary: true),
+          const SizedBox(width: 8),
+          btn('Xem', Icons.visibility_outlined, () => onOpenTask(t)),
+        ]);
+      case WorkTaskStatus.inProgress:
+        if (onComplete == null) return null;
+        return Row(children: [
+          btn(t.checklistItems.isNotEmpty ? 'Tick checklist' : 'Cập nhật %', Icons.trending_up_rounded,
+              () => (t.checklistItems.isNotEmpty || onProgress == null) ? onOpenTask(t) : onProgress!(t)),
+          const SizedBox(width: 8),
+          btn('Báo xong', Icons.task_alt_rounded, () => onComplete!(t), primary: true, color: SboxColors.success),
+        ]);
+      case WorkTaskStatus.inReview:
+        return Text(tr('Đã báo xong — chờ quản lý duyệt'), style: SboxType.captionStyle(SboxColors.violet));
+      default:
+        return null;
+    }
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -836,7 +977,7 @@ class WorkTodayView extends StatelessWidget {
           for (final t in list)
             Padding(
               padding: const EdgeInsets.only(bottom: SboxSpace.sm),
-              child: WorkTaskCard(task: t, showProject: true, onTap: () => onOpenTask(t)),
+              child: WorkTaskCard(task: t, showProject: true, onTap: () => onOpenTask(t), footer: _actions(t)),
             ),
         ]),
       );

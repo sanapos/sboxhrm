@@ -357,6 +357,21 @@ public static class DependencyInjectionExtensions
                         Window = TimeSpan.FromMinutes(1),
                         QueueLimit = 0
                     }));
+            // Làm mới token: giới hạn THEO TỪNG refresh token (30 / phút — app bản cũ trên App Store / CH Play
+            // gọi làm mới song song mỗi yêu cầu 401, mở app có thể 10–20 lần cùng lúc; vượt hạn mức → bị đăng xuất), không theo IP và không chung
+            // với «login». Trước đây dùng chung «login» 60/phút/IP → 1 app bản cũ lặp làm mới ~440 lần/phút
+            // ăn hết lượt đăng nhập của cả văn phòng chung IP (bấm Đăng nhập báo 429 nhiều lần mới vào).
+            options.AddPolicy(RefreshTokenRateKey.Policy, httpContext =>
+                RateLimitPartition.GetFixedWindowLimiter(
+                    partitionKey: httpContext.Items[RefreshTokenRateKey.ItemKey] as string
+                        ?? "ip:" + (httpContext.Connection.RemoteIpAddress?.ToString() ?? "unknown"),
+                    factory: key => new FixedWindowRateLimiterOptions
+                    {
+                        // Chưa đọc được mã (body lạ) → theo IP nhưng rộng tay để không chặn cả văn phòng.
+                        PermitLimit = key.StartsWith("rt:") ? 30 : 300,
+                        Window = TimeSpan.FromMinutes(1),
+                        QueueLimit = 0
+                    }));
             // Tra cứu khi đang gõ (mã cửa hàng / email ở màn đăng nhập, đăng ký) — tách khỏi «login»
             // để không làm hết lượt đăng nhập của cả văn phòng dùng chung IP.
             options.AddPolicy("auth-lookup", httpContext =>
@@ -504,6 +519,8 @@ public static class DependencyInjectionExtensions
         // Enable WebSocket middleware (required for SignalR WebSocket transport in Docker/cloud)
         app.UseWebSockets();
         app.UseAuthentication();
+        // Khoá giới hạn làm mới token = băm refresh token trong body (bộ giới hạn không đọc được body).
+        app.Use(RefreshTokenRateKey.CaptureAsync);
         // Sau xác thực: giới hạn theo người dùng thật (trước đây chạy trước → mọi request tính theo IP).
         app.UseRateLimiter();
         app.UseAuthorization();

@@ -71,10 +71,12 @@ public class TaskV2Tests
     [Fact]
     public void Nine_industry_packs_are_consistent()
     {
-        Assert.Equal(9, TaskIndustryPacks.All.Length);
+        Assert.Equal(11, TaskIndustryPacks.All.Length);
         Assert.Equal(TaskIndustryPacks.All.Length, TaskIndustryPacks.All.Select(p => p.Key).Distinct().Count());
         foreach (var pack in TaskIndustryPacks.All)
         {
+            // Mỗi ngành đủ mẫu để giao việc ngay sau khi chọn mô hình (không phải tự nhập từ đầu).
+            Assert.True(pack.Templates.Length >= 4, $"{pack.Key}: chỉ {pack.Templates.Length} mẫu");
             var keys = pack.Stages.Select(s => s.Key).ToList();
             Assert.Equal(keys.Count, keys.Distinct().Count());
             Assert.Contains(pack.Stages, s => s.Done);
@@ -90,7 +92,7 @@ public class TaskV2Tests
                     Assert.NotNull(TaskV2Helper.NextRun(t.Recurrence, t.RecurrenceDays, t.RecurrenceTime, DateTime.Now));
             }
         }
-        Assert.Contains(TaskIndustryPacks.Find("interior")!.Templates, t => t.Checklist.Any(c => c.StartsWith("📷")));
+        Assert.Contains(TaskIndustryPacks.Find("construction")!.Templates, t => t.Checklist.Any(c => c.StartsWith("📷")));
     }
 
     [Fact]

@@ -27,6 +27,9 @@ import 'pos_product_printer_assignment_screen.dart';
 
 import '../../theme/sbox_tokens.dart';
 /// Quản lý nhiều máy in nội bộ (nhiệt + tem) trên thiết bị này.
+/// Windows: máy in USB là máy in đã cài trong Windows (in RAW qua spooler).
+bool get _isWindows => !kIsWeb && defaultTargetPlatform == TargetPlatform.windows;
+
 class PosLocalPrintersScreen extends StatefulWidget {
   const PosLocalPrintersScreen({super.key});
 
@@ -836,13 +839,18 @@ class _LocalPrinterEditorSheetState extends State<_LocalPrinterEditorSheet> {
       final action = await showDialog<String>(
         context: context,
         builder: (ctx) => AlertDialog(
-          title: Text(tr('Không thấy cổng USB')),
+          title: Text(tr(_isWindows ? 'Chưa có máy in nào trong Windows' : 'Không thấy cổng USB')),
           content: Text(
             tr(
-              '${hint ?? ''}\n\n'
-              '• Cắm máy in vào cổng USB Type-A phía sau/máy POS (không cắm vào cổng đang nối PC).\n'
-              '• Bật nguồn máy in, chờ 3–5 giây rồi bấm Thử lại.\n'
-              '• Nếu vẫn trống: dùng Bluetooth (ghép trước) hoặc LAN (IP máy in).',
+              _isWindows
+                  ? '• Cắm máy in USB, cài driver của hãng (hoặc «Generic / Text Only»): '
+                      'Cài đặt → Bluetooth & thiết bị → Máy in & máy quét → Thêm.\n'
+                      '• Máy in hiện trong danh sách máy in của Windows thì bấm Thử lại.\n'
+                      '• Máy in mạng: chọn kết nối LAN và nhập IP máy in (nhanh, không cần driver).'
+                  : '${hint ?? ''}\n\n'
+                      '• Cắm máy in vào cổng USB Type-A phía sau/máy POS (không cắm vào cổng đang nối PC).\n'
+                      '• Bật nguồn máy in, chờ 3–5 giây rồi bấm Thử lại.\n'
+                      '• Nếu vẫn trống: dùng Bluetooth (ghép trước) hoặc LAN (IP máy in).',
             ),
           ),
           actions: [
@@ -1277,11 +1285,13 @@ class _LocalPrinterEditorSheetState extends State<_LocalPrinterEditorSheet> {
               const SizedBox(height: 10),
               ListTile(
                 contentPadding: EdgeInsets.zero,
-                title: Text(tr('Cổng / máy in USB')),
+                title: Text(tr(_isWindows ? 'Máy in Windows (USB)' : 'Cổng / máy in USB')),
                 subtitle: Text(
                   tr((_usbDisplayLabel ?? '').isNotEmpty
                       ? '$_usbDisplayLabel\nĐã nhớ — lần sau tự dùng máy này'
-                      : 'Chưa chọn — bấm để liệt kê cổng USB đang cắm'),
+                      : _isWindows
+                          ? 'Chưa chọn — bấm để liệt kê máy in đã cài trong Windows'
+                          : 'Chưa chọn — bấm để liệt kê cổng USB đang cắm'),
                 ),
                 isThreeLine: (_usbDisplayLabel ?? '').isNotEmpty,
                 trailing: IconButton(
@@ -1297,7 +1307,10 @@ class _LocalPrinterEditorSheetState extends State<_LocalPrinterEditorSheet> {
                 onTap: _testing ? null : _pickUsb,
               ),
               Text(
-                tr('Mỗi máy USB lưu VID/PID/serial riêng — nhiều máy không đá nhau.'),
+                tr(_isWindows
+                    ? 'In lệnh ESC/POS thô qua hàng đợi in Windows — giữ cắt giấy, mở két. '
+                        'Driver «Generic / Text Only» hoặc driver hãng đều dùng được.'
+                    : 'Mỗi máy USB lưu VID/PID/serial riêng — nhiều máy không đá nhau.'),
                 style: TextStyle(fontSize: 12, color: PosTheme.textSecondary),
               ),
             ],

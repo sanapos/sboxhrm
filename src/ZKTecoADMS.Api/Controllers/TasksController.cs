@@ -502,6 +502,14 @@ public partial class TasksController(
                 task.PieceRate = tpl.PieceRate;
                 task.RequireCheckIn = tpl.RequireCheckIn;
                 task.Checklist ??= TaskV2Helper.NormalizeChecklist(tpl.Checklist);
+                // Giao nhanh chỉ gửi tên + người + hạn → lấy phần còn lại của mẫu (trước đây việc tạo từ mẫu
+                // vẫn là «Công việc / Trung bình / không mô tả», nhìn chung chung dù đã chọn mẫu ngành).
+                if (string.IsNullOrWhiteSpace(task.Description)) task.Description = tpl.Description;
+                if (task.TaskType == TaskType.Task) task.TaskType = tpl.TaskType;
+                if (task.Priority == TaskPriority.Medium) task.Priority = tpl.Priority;
+                task.EstimatedHours ??= tpl.EstimatedHours;
+                if (!task.DueDate.HasValue && tpl.DueAfterHours is > 0)
+                    task.DueDate = DateTime.UtcNow.AddHours(tpl.DueAfterHours.Value);
             }
         }
         var multiError = await ApplyMultiIndustryAsync(task, request.FormSchema, request.FormValues,

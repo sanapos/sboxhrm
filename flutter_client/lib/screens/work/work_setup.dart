@@ -743,3 +743,125 @@ class _WorkPieceRatePageState extends State<WorkPieceRatePage> {
     );
   }
 }
+
+// ─── Hướng dẫn nhanh (quản lý / nhân viên) ─────────────────────────
+
+/// Thẻ «Bắt đầu nhanh»: các bước dùng Công việc. Ẩn được; mở lại ở menu ⋮ → Hướng dẫn sử dụng.
+class WorkGuideCard extends StatelessWidget {
+  const WorkGuideCard({
+    super.key,
+    required this.isManager,
+    required this.onClose,
+    this.industryName,
+    this.projectLabel = 'Dự án',
+    this.onAssign,
+    this.onPacks,
+    this.compact = false,
+    this.onExpand,
+  });
+
+  /// Từ lần mở thứ hai: chỉ 1 dòng (không chiếm nửa màn hình điện thoại).
+  final bool compact;
+  final VoidCallback? onExpand;
+  final bool isManager;
+  final String? industryName;
+  final String projectLabel;
+  final VoidCallback onClose;
+  final VoidCallback? onAssign;
+  final VoidCallback? onPacks;
+
+  @override
+  Widget build(BuildContext context) {
+    if (compact) {
+      return Container(
+        margin: const EdgeInsets.only(bottom: SboxSpace.md),
+        padding: const EdgeInsets.only(left: SboxSpace.md),
+        decoration: BoxDecoration(color: SboxColors.brand50, borderRadius: SboxRadius.mdAll),
+        child: Row(children: [
+          const Icon(Icons.lightbulb_outline_rounded, color: SboxColors.brand700, size: 18),
+          const SizedBox(width: 8),
+          Expanded(
+            child: Text(
+              tr(isManager ? 'Giao việc → nhân viên nhận → báo xong → bạn duyệt' : 'Nhận việc → làm, tick checklist → báo xong'),
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
+              style: SboxType.smallStyle(SboxColors.brand700),
+            ),
+          ),
+          TextButton(onPressed: onExpand, child: Text(tr('Xem'))),
+          IconButton(tooltip: tr('Ẩn hướng dẫn'), onPressed: onClose, icon: const Icon(Icons.close_rounded, size: 18)),
+        ]),
+      );
+    }
+    final steps = isManager
+        ? <(IconData, String, String)>[
+            (
+              Icons.category_outlined,
+              industryName == null ? 'Chọn mẫu theo ngành' : 'Mẫu ngành: $industryName',
+              'Có sẵn việc mở ca, đóng ca, vệ sinh, nhận hàng, lắp đặt… kèm checklist và biểu mẫu.',
+            ),
+            (Icons.send_rounded, 'Bấm «Giao việc»', 'Chọn mẫu → chọn nhân viên → chọn hạn → Giao. Một người hay nhiều người đều được.'),
+            (Icons.phone_iphone_rounded, 'Nhân viên nhận việc trên điện thoại', 'Bấm «Nhận việc», tick checklist, chụp ảnh nếu yêu cầu, «Báo xong».'),
+            (Icons.insights_outlined, 'Bạn theo dõi', '«Tổng quan»: việc trễ, việc chờ duyệt. «Bảng»: kéo thả đổi trạng thái.'),
+          ]
+        : <(IconData, String, String)>[
+            (Icons.inbox_outlined, 'Việc mới ở «Chờ bạn nhận»', 'Bấm «Nhận việc» để xác nhận — quản lý biết bạn đã nhận.'),
+            (Icons.play_arrow_rounded, 'Bắt đầu làm', 'Tick từng mục checklist (mục ghi «cần chụp ảnh» thì chụp kèm), hoặc cập nhật % tiến độ.'),
+            (Icons.task_alt_rounded, 'Báo xong', 'Quản lý xem ảnh, biểu mẫu rồi duyệt. Việc trễ hiện đỏ ở mục «Quá hạn».'),
+          ];
+    return Container(
+      margin: const EdgeInsets.only(bottom: SboxSpace.lg),
+      padding: const EdgeInsets.fromLTRB(SboxSpace.md, SboxSpace.sm, SboxSpace.xs, SboxSpace.md),
+      decoration: BoxDecoration(
+        color: SboxColors.brand50,
+        borderRadius: SboxRadius.lgAll,
+        border: Border.all(color: SboxColors.brand500.withValues(alpha: 0.25)),
+      ),
+      child: Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
+        Row(children: [
+          const Icon(Icons.lightbulb_outline_rounded, color: SboxColors.brand700, size: 20),
+          const SizedBox(width: 8),
+          Expanded(child: Text(tr('Bắt đầu nhanh'), style: SboxType.titleSmStyle(SboxColors.brand700))),
+          IconButton(tooltip: tr('Ẩn hướng dẫn'), onPressed: onClose, icon: const Icon(Icons.close_rounded, size: 20)),
+        ]),
+        for (var i = 0; i < steps.length; i++)
+          Padding(
+            padding: const EdgeInsets.only(top: 6, right: SboxSpace.sm),
+            child: Row(crossAxisAlignment: CrossAxisAlignment.start, children: [
+              CircleAvatar(
+                radius: 12,
+                backgroundColor: SboxColors.brand600,
+                child: Text('${i + 1}', style: const TextStyle(color: Colors.white, fontSize: 12, fontWeight: FontWeight.w700)),
+              ),
+              const SizedBox(width: 10),
+              Expanded(
+                child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+                  Text(tr(steps[i].$2), style: SboxType.bodyStrong()),
+                  Text(tr(steps[i].$3), style: SboxType.smallStyle(SboxColors.textSecondary)),
+                ]),
+              ),
+            ]),
+          ),
+        if (isManager) ...[
+          Padding(
+            padding: const EdgeInsets.only(top: SboxSpace.sm, right: SboxSpace.sm),
+            child: Text(
+              tr('«$projectLabel» (không bắt buộc): gom nhiều việc của cùng một công trình / sự kiện / đợt để xem tiến độ chung. '
+                  'Việc hằng ngày không cần tạo.'),
+              style: SboxType.captionStyle(),
+            ),
+          ),
+          const SizedBox(height: SboxSpace.sm),
+          Wrap(spacing: SboxSpace.sm, runSpacing: SboxSpace.sm, children: [
+            if (onAssign != null) SboxButton(label: 'Giao việc', icon: Icons.send_rounded, onPressed: onAssign),
+            if (onPacks != null)
+              SboxButton.secondary(
+                  label: industryName == null ? 'Chọn mẫu ngành' : 'Đổi / thêm mẫu ngành',
+                  icon: Icons.category_outlined,
+                  onPressed: onPacks),
+          ]),
+        ],
+      ]),
+    );
+  }
+}

@@ -164,7 +164,7 @@ public class AuthController(IMediator _bus, UserManager<ApplicationUser> _userMa
 
     [HttpPost]
     [AllowAnonymous]
-    [EnableRateLimiting("login")]
+    [EnableRateLimiting(ZKTecoADMS.Api.Services.RefreshTokenRateKey.Policy)]
     public async Task<IActionResult> Refresh(RefreshRequest refreshRequest, CancellationToken cancellationToken = new())
     {
        return Ok(await _bus.Send(new RefreshCommand(refreshRequest.RefreshToken, refreshRequest.DeviceKey), cancellationToken));
