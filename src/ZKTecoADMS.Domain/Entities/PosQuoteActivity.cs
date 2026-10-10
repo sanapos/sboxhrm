@@ -24,6 +24,9 @@ public class PosQuoteActivity : AuditableEntity<Guid>
 
     public DateTime? NextFollowUpAt { get; set; }
 
+    /// <summary>Đã gửi nhắc lịch hẹn (trước hạn 30 phút) — không nhắc lại.</summary>
+    public DateTime? ReminderSentAt { get; set; }
+
     public Guid? EmployeeId { get; set; }
 
     /// <summary>Độ tiềm năng khách tại lần chăm sóc này, thang 0–10.</summary>

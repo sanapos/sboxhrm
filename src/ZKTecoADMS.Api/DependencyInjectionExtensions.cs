@@ -252,6 +252,7 @@ public static class DependencyInjectionExtensions
         services.AddHostedService<KpiAutoSyncBackgroundService>();
         services.AddHostedService<PenaltyAutoApproveBackgroundService>();
         services.AddHostedService<TaskRecurrenceBackgroundService>();
+        services.AddHostedService<PosQuoteFollowUpReminderBackgroundService>();
         services.AddHostedService<CommScheduleBackgroundService>();
         services.AddHostedService<AttendanceEvidencePurgeBackgroundService>();
         services.AddHostedService<NotificationCleanupBackgroundService>();

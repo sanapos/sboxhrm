@@ -15,8 +15,18 @@ public static class PosQuoteCareBoard
     /// <summary>Giờ Việt Nam cho mốc "hôm nay" của lịch hẹn.</summary>
     static readonly TimeSpan LocalOffset = TimeSpan.FromHours(7);
 
-    /// <summary>Hoạt động do hệ thống ghi (tạo / sửa / đổi trạng thái) — không tính là chăm sóc khách.</summary>
-    static readonly HashSet<string> SystemKinds = new(StringComparer.OrdinalIgnoreCase) { "Created", "Edit", "Status" };
+    /// <summary>
+    /// Hoạt động do hệ thống ghi (tạo / sửa / đổi trạng thái / thu tiền / cập nhật hợp đồng) — không tính là
+    /// chăm sóc khách (trước đây thu tiền bị tính là «lần liên hệ cuối» → sai «bỏ quên» / số lần liên hệ).
+    /// </summary>
+    public static readonly HashSet<string> SystemKinds = new(StringComparer.OrdinalIgnoreCase)
+        { "Created", "Edit", "Status", "Payment", "Contract" };
+
+    /// <summary>Khóa nhận cùng một khách giữa các báo giá: mã khách, không có thì SĐT chuẩn hoá.</summary>
+    public static string? CustomerKey(PosQuote q) =>
+        q.CustomerId is Guid id ? "c:" + id
+        : PosQuoteDocumentHtml.NormalizePhone(q.CustomerPhone) is string p ? "p:" + p
+        : null;
 
     public record ScorePoint(int Score, DateTime At);
 
@@ -41,7 +51,9 @@ public static class PosQuoteCareBoard
         int ContactCount,
         Guid? OwnerEmployeeId,
         string? OwnerName,
-        IReadOnlyList<ScorePoint> ScoreHistory);
+        IReadOnlyList<ScorePoint> ScoreHistory,
+        int OtherQuotes = 0,
+        DateTime? CustomerLastContactAt = null);
 
     public record CareSummary(
         int Total,
@@ -74,6 +86,20 @@ public static class PosQuoteCareBoard
             .GroupBy(a => a.QuoteId)
             .ToDictionary(g => g.Key, g => g.OrderBy(a => a.CreatedAt).ToList());
         var today = (nowUtc + LocalOffset).Date;
+        // Liên hệ gần nhất theo KHÁCH (mọi báo giá của khách): gọi khách theo báo giá này thì báo giá khác
+        // của cùng khách không còn bị coi là «bỏ quên».
+        var keyOf = quotes.ToDictionary(q => q.Id, CustomerKey);
+        var customerLast = new Dictionary<string, DateTime>();
+        var customerQuotes = new Dictionary<string, int>();
+        foreach (var q in quotes)
+        {
+            if (keyOf[q.Id] is not string k) continue;
+            customerQuotes[k] = customerQuotes.GetValueOrDefault(k) + 1;
+            var lastAt = (byQuote.GetValueOrDefault(q.Id) ?? [])
+                .Where(a => !SystemKinds.Contains(a.Kind))
+                .Select(a => (DateTime?)a.CreatedAt).LastOrDefault();
+            if (lastAt is DateTime t && (!customerLast.TryGetValue(k, out var cur) || t > cur)) customerLast[k] = t;
+        }
 
         var items = new List<CareItem>(quotes.Count);
         foreach (var q in quotes)
@@ -98,7 +124,9 @@ public static class PosQuoteCareBoard
                 : null;
             var followUp = next is DateTime n ? FollowUpState(n, today) : "none";
 
-            var since = last?.CreatedAt ?? q.CreatedAt;
+            var key = keyOf[q.Id];
+            DateTime? customerLastAt = key != null && customerLast.TryGetValue(key, out var cl) ? cl : null;
+            var since = new[] { last?.CreatedAt, customerLastAt, q.CreatedAt }.Where(x => x != null).Max()!.Value;
             var days = (int)Math.Floor((nowUtc - since).TotalDays);
             var stale = days > StaleDays && followUp is not ("upcoming" or "today");
 
@@ -123,7 +151,9 @@ public static class PosQuoteCareBoard
                 contacts.Count,
                 q.QuotedByEmployeeId,
                 q.QuotedByEmployeeId is Guid eid ? employeeNames.GetValueOrDefault(eid) : q.QuotedBy,
-                history.TakeLast(10).ToList()));
+                history.TakeLast(10).ToList(),
+                key != null ? Math.Max(0, customerQuotes.GetValueOrDefault(key) - 1) : 0,
+                customerLastAt));
         }
 
         items = items

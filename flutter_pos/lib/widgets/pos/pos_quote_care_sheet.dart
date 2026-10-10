@@ -853,6 +853,8 @@ class _PosQuoteCareSheetState extends State<_PosQuoteCareSheet> {
           .whereType<Map>()
           .map((e) => PosQuoteActivity.fromJson(Map<String, dynamic>.from(e)))
           .toList();
+      // Điền sẵn điểm tiềm năng lần chấm gần nhất — chỉ chỉnh khi khách đổi ý.
+      _score ??= _items.where((a) => a.score != null).map((a) => a.score).firstOrNull;
     });
   }
 
@@ -872,12 +874,19 @@ class _PosQuoteCareSheetState extends State<_PosQuoteCareSheet> {
       );
       return;
     }
+    if (_kind == 'FollowUp' && _followUp == null) {
+      NotificationOverlayManager().showWarning(
+        title: 'Chưa chọn ngày hẹn',
+        message: tr('Chọn ngày giờ hẹn chăm sóc lại'),
+      );
+      return;
+    }
     setState(() => _saving = true);
     final res = await _api.createPosQuoteActivity(
       widget.quoteId,
       kind: _kind,
       content: PosQuoteActivity.encodeContent(text, _score!),
-      nextFollowUpAt: _kind == 'FollowUp' ? _followUp : null,
+      nextFollowUpAt: _followUp,
       potentialScore: _score,
     );
     if (!mounted) return;
@@ -891,7 +900,7 @@ class _PosQuoteCareSheetState extends State<_PosQuoteCareSheet> {
     }
     _note.clear();
     _followUp = null;
-    _score = null;
+    _kind = 'Note';
     NotificationOverlayManager().showSuccess(
       title: 'Đã ghi',
       message: tr('Đã thêm vào lịch chăm sóc khách'),
@@ -923,7 +932,11 @@ class _PosQuoteCareSheetState extends State<_PosQuoteCareSheet> {
               spacing: 8,
               children: [
                 FilledButton.tonalIcon(
-                  onPressed: () => callPosQuoteCustomer(widget.customerPhone),
+                  onPressed: () {
+                    // Gọi xong ghi kết quả cuộc gọi luôn.
+                    setState(() => _kind = 'Call');
+                    callPosQuoteCustomer(widget.customerPhone);
+                  },
                   icon: const Icon(Icons.call, size: 18),
                   label: Text(tr('Gọi khách')),
                 ),
@@ -952,7 +965,7 @@ class _PosQuoteCareSheetState extends State<_PosQuoteCareSheet> {
                     },
                   ),
                 ),
-                if (_kind == 'FollowUp') ...[
+                ...[
                   const SizedBox(width: 8),
                   TextButton.icon(
                     onPressed: () async {
@@ -980,7 +993,7 @@ class _PosQuoteCareSheetState extends State<_PosQuoteCareSheet> {
                     },
                     icon: const Icon(Icons.event, size: 18),
                     label: Text(_followUp == null
-                        ? tr('Chọn hạn')
+                        ? tr(_kind == 'FollowUp' ? 'Chọn hạn' : 'Hẹn lần sau')
                         : DateFormat('dd/MM HH:mm').format(_followUp!)),
                   ),
                 ],

@@ -38,6 +38,7 @@ class _CareItem {
         nextFollowUpAt = parseApiUtcDateTime('${j['nextFollowUpAt'] ?? ''}'),
         followUp = '${j['followUp'] ?? 'none'}',
         contactCount = (j['contactCount'] as num?)?.toInt() ?? 0,
+        otherQuotes = (j['otherQuotes'] as num?)?.toInt() ?? 0,
         ownerName = j['ownerName'] as String?,
         history = ((j['scoreHistory'] as List?) ?? const [])
             .map((e) => ((e as Map)['score'] as num).toInt())
@@ -61,6 +62,9 @@ class _CareItem {
   final DateTime? nextFollowUpAt;
   final String followUp;
   final int contactCount;
+
+  /// Số báo giá khác (đang theo dõi) của cùng khách — liên hệ ở báo giá nào cũng tính cho khách.
+  final int otherQuotes;
   final String? ownerName;
   final List<int> history;
 }
@@ -429,6 +433,8 @@ class _PosQuoteCareBoardScreenState extends State<PosQuoteCareBoardScreen> {
                           _tag(tr('Lâu chưa liên hệ'), Colors.brown),
                         _tag(tr('${i.contactCount} lần liên hệ'),
                             Colors.blueGrey),
+                        if (i.otherQuotes > 0)
+                          _tag(tr('Khách còn ${i.otherQuotes} báo giá khác'), Colors.indigo),
                         if (i.history.length > 1) _sparkline(i.history),
                       ],
                     ),
