@@ -102,8 +102,8 @@ class AuthProvider extends ChangeNotifier {
           }
           notifyListeners();
           // ignore: discarded_futures
-          _fetchAllowedModules().then((_) {
-            if (_user != null) notifyListeners();
+          _fetchAllowedModules().then((changed) {
+            if (changed && _user != null) notifyListeners();
           });
           _refreshCompleter!.complete(true);
           return true;
@@ -207,7 +207,13 @@ class AuthProvider extends ChangeNotifier {
     }
 
     if (_user != null && !StoreRoleHelper.bypassesPackageFilter(_user!.role)) {
-      await _fetchAllowedModules();
+      // Có bản lưu → hiện ngay, tải mới ở _runPostAuthSideEffects (không chặn màn khởi động).
+      if (await _restoreModulesCache()) {
+        ensurePosPackageDefaults(notify: false);
+      } else {
+        // Lỗi mạng → danh sách rỗng (menu vẫn hiện, không chờ mãi); tải nền ngay sau sẽ thử lại.
+        await _fetchAllowedModules(freshSession: true);
+      }
     }
   }
 
@@ -216,10 +222,14 @@ class AuthProvider extends ChangeNotifier {
     if (_token == null || _user == null) return;
     // ignore: discarded_futures
     verifyStoreLicense();
-    // ignore: discarded_futures
-    _fetchAllowedModules().then((_) {
-      if (_user != null) notifyListeners();
-    });
+    // Vừa tải lúc khôi phục phiên (< 1 phút) thì thôi; chỉ vẽ lại khi gói thật sự đổi.
+    final fetchedAt = _modulesFetchedAt;
+    if (fetchedAt == null || DateTime.now().difference(fetchedAt) > const Duration(minutes: 1)) {
+      // ignore: discarded_futures
+      _fetchAllowedModules().then((changed) {
+        if (changed && _user != null) notifyListeners();
+      });
+    }
     GlobalLocationReporter.instance.startIfEligible(
       employeeId: _user?.employeeId ?? _user?.id,
     );
@@ -363,7 +373,7 @@ class AuthProvider extends ChangeNotifier {
   ];
 
   /// Gộp module POS vào gói — hub / FeatureGate client không bị «Trống» / chặn bán.
-  void ensurePosPackageDefaults() {
+  void ensurePosPackageDefaults({bool notify = true}) {
     if (_user == null) return;
     if (StoreRoleHelper.bypassesPackageFilter(_user!.role)) return;
     final current = List<String>.from(_user!.allowedModules ?? const []);
@@ -377,14 +387,42 @@ class AuthProvider extends ChangeNotifier {
     }
     if (!changed) return;
     _user = _user!.copyWith(allowedModules: current);
-    notifyListeners();
+    if (notify) notifyListeners();
   }
 
-  /// Lấy danh sách module được phép từ gói dịch vụ cửa hàng
-  Future<void> _fetchAllowedModules({bool freshSession = false}) async {
+  static const _modulesCachePrefix = 'mods_cache_v1:';
+  DateTime? _modulesFetchedAt;
+
+  String? get _modulesCacheKey =>
+      _user == null ? null : '$_modulesCachePrefix${_user!.id}:${_user!.storeId ?? ''}';
+
+  /// Chức năng của gói lần trước — menu hiện đúng ngay khi mở app (không nhảy khi API trả về).
+  Future<bool> _restoreModulesCache() async {
+    final key = _modulesCacheKey;
+    if (key == null) return false;
     try {
-      if (_user == null) return;
-      if (StoreRoleHelper.bypassesPackageFilter(_user!.role)) return;
+      final list = (await SharedPreferences.getInstance()).getStringList(key);
+      if (list == null || list.isEmpty) return false;
+      _user = _user!.copyWith(allowedModules: list);
+      return true;
+    } catch (_) {
+      return false;
+    }
+  }
+
+  static bool _sameModules(List<String>? a, List<String>? b) {
+    if (a == null || b == null) return a == b;
+    if (a.length != b.length) return false;
+    final sa = {for (final m in a) m.toLowerCase()};
+    return b.every((m) => sa.contains(m.toLowerCase()));
+  }
+
+  /// Lấy danh sách module được phép từ gói dịch vụ cửa hàng.
+  /// Trả true khi danh sách thật sự đổi (nơi gọi mới cần vẽ lại menu).
+  Future<bool> _fetchAllowedModules({bool freshSession = false}) async {
+    try {
+      if (_user == null) return false;
+      if (StoreRoleHelper.bypassesPackageFilter(_user!.role)) return false;
 
       final modules = await _apiService.getMyModules();
       // null = lỗi mạng/API — không xóa module đang có (tránh mất menu giữa ca).
@@ -394,16 +432,31 @@ class AuthProvider extends ChangeNotifier {
         if (freshSession) {
           _user = _user!.copyWith(allowedModules: const []);
           ensurePosPackageDefaults();
+          return true;
         }
-        return;
+        return false;
       }
+      _modulesFetchedAt = DateTime.now();
+      final before = _user!.allowedModules;
       _user = _user!.copyWith(allowedModules: modules);
-      ensurePosPackageDefaults();
+      ensurePosPackageDefaults(notify: false);
+      final key = _modulesCacheKey;
+      if (key != null) {
+        final save = List<String>.from(_user!.allowedModules ?? const []);
+        unawaited(SharedPreferences.getInstance().then((p) => p.setStringList(key, save)).catchError((_) => false));
+      }
+      // Như cũ (sau khi gộp mặc định POS) → giữ nguyên danh sách cũ, menu không vẽ lại.
+      if (_sameModules(before, _user!.allowedModules)) {
+        _user = _user!.copyWith(allowedModules: before);
+        return false;
+      }
       debugPrint(
           '✅ AuthProvider: Loaded ${_user!.allowedModules?.length ?? 0} allowed modules');
+      return true;
     } catch (e) {
       debugPrint('⚠️ AuthProvider: Error fetching allowed modules: $e');
       ensurePosPackageDefaults();
+      return false;
     }
   }
 

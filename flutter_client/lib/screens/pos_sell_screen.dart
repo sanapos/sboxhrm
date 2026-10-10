@@ -12,6 +12,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:intl/intl.dart';
 import 'package:provider/provider.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 
 import '../models/cash_transaction.dart';
 import '../models/pos_einvoice.dart';
@@ -779,6 +780,62 @@ class _PosSellScreenState extends State<PosSellScreen>
 
   int _nextTabSeq = 2;
   final List<_SellInvoiceTab> _tabs = [_SellInvoiceTab(id: 1)];
+
+  /// Hóa đơn (slot) lần trước — hiện ô giữ chỗ trong lúc chờ máy chủ, dải hóa đơn không «nở» từ 1 → 3.
+  static List<int> _lastSlotIdsMem = const [];
+  List<int> _pendingSlotIds = _lastSlotIdsMem;
+  bool _slotsBootstrapped = false;
+
+  /// Người dùng đã tự chọn hóa đơn — không tự nhảy sang hóa đơn trống khi danh sách tải xong.
+  bool _userTouchedTabs = false;
+
+  String get _slotCacheKey =>
+      'pos_inv_slots_v1:${Provider.of<AuthProvider>(context, listen: false).user?.id ?? ''}';
+
+  Future<void> _loadCachedSlotIds() async {
+    if (_pendingSlotIds.isNotEmpty) return;
+    try {
+      final ids = (await SharedPreferences.getInstance()).getStringList(_slotCacheKey);
+      if (!mounted || _slotsBootstrapped || ids == null) return;
+      final parsed = ids.map(int.tryParse).whereType<int>().toList();
+      if (parsed.isNotEmpty) setState(() => _pendingSlotIds = parsed);
+    } catch (_) {}
+  }
+
+  void _rememberSlotIds() {
+    final ids = _tabs.map((t) => t.id).toList();
+    _lastSlotIdsMem = ids;
+    unawaited(SharedPreferences.getInstance()
+        .then((p) => p.setStringList(_slotCacheKey, [for (final i in ids) '$i']))
+        .catchError((_) => false));
+  }
+
+  /// Ô giữ chỗ (không bấm được) cho hóa đơn lần trước chưa tải xong.
+  List<Widget> _pendingSlotChips({required bool onBlue, double gap = 4}) {
+    if (_slotsBootstrapped || _pendingSlotIds.isEmpty) return const [];
+    final have = _tabs.map((t) => t.id).toSet();
+    return [
+      for (final id in _pendingSlotIds)
+        if (!have.contains(id)) ...[
+          SizedBox(width: gap),
+          Opacity(
+            opacity: 0.55,
+            child: Container(
+              height: 32,
+              padding: const EdgeInsets.symmetric(horizontal: 12),
+              alignment: Alignment.center,
+              decoration: BoxDecoration(
+                color: onBlue ? Colors.white24 : SboxColors.slate100,
+                borderRadius: BorderRadius.circular(6),
+                border: Border.all(color: onBlue ? Colors.white38 : PosTheme.border),
+              ),
+              child: Text('HĐ $id',
+                  style: TextStyle(fontSize: 13, color: onBlue ? Colors.white : PosTheme.textSecondary)),
+            ),
+          ),
+        ],
+    ];
+  }
   /// Slot vừa đóng — bỏ qua nếu sync stale còn trả về (tránh HĐ hiện lại).
   final Map<int, DateTime> _recentlyClosedSlots = {};
   /// Sau khi máy này lưu Draft thành công — không để sync lật readOnly trong vài giây.
@@ -1256,6 +1313,7 @@ class _PosSellScreenState extends State<PosSellScreen>
     super.initState();
     WidgetsBinding.instance.addObserver(this);
     _startStorePrintPoll();
+    unawaited(_loadCachedSlotIds());
     // Đang xem "Tất cả chi nhánh" → hỏi bán tại chi nhánh nào (đơn, kho, quỹ gắn chi nhánh đó).
     if (BranchSession.instance.isAll) {
       WidgetsBinding.instance.addPostFrameCallback((_) {
@@ -5037,11 +5095,13 @@ class _PosSellScreenState extends State<PosSellScreen>
       _tabs
         ..clear()
         ..addAll(built);
+      _slotsBootstrapped = true;
       _activeTab = active.clamp(0, _tabs.length - 1);
       _nextTabSeq =
           built.map((t) => t.id).fold<int>(1, (a, b) => a > b ? a : b) + 1;
     });
 
+    _rememberSlotIds();
     if (hydrateAll) {
       // Tab đang mở trước — các tab khác hydrate nền để không chặn UI.
       final activeIdx = _activeTab.clamp(0, _tabs.length - 1);
@@ -5092,6 +5152,7 @@ class _PosSellScreenState extends State<PosSellScreen>
     );
     if (!mounted) return;
     if (res['isSuccess'] != true || res['data'] is! Map) {
+      setState(() => _slotsBootstrapped = true);
       return;
     }
     await _applyInvoiceSlotsPayload(res['data'] as Map, hydrateAll: true);
@@ -5099,7 +5160,10 @@ class _PosSellScreenState extends State<PosSellScreen>
     // Ưu tiên hóa đơn trống để bán ngay
     final emptyIdx = _tabs.indexWhere(
         (t) => t.cart.isEmpty && t.serverLineCount == 0 && !t.draftReadOnly);
-    if (emptyIdx >= 0) {
+    // Chỉ tự chuyển sang hóa đơn trống khi người dùng chưa chọn hóa đơn / chưa quét hàng —
+    // trước đây đang thao tác cũng bị nhảy tab.
+    final userBusy = _userTouchedTabs || _tab.cart.isNotEmpty || _tab.localDirty;
+    if (emptyIdx >= 0 && !userBusy) {
       _selectTab(emptyIdx);
     } else {
       unawaited(_onSelectedTabActivated());
@@ -12773,6 +12837,7 @@ class _PosSellScreenState extends State<PosSellScreen>
                       ),
                       if (i < _tabs.length - 1) const SizedBox(width: 4),
                     ],
+                    ..._pendingSlotChips(onBlue: true),
                   ],
                 ),
               ),
@@ -12882,6 +12947,7 @@ class _PosSellScreenState extends State<PosSellScreen>
               _invoiceTabChip(i),
               const SizedBox(width: 4),
             ],
+            ..._pendingSlotChips(onBlue: true, gap: 0),
             IconButton(
               visualDensity: VisualDensity.compact,
               tooltip: tr('Thêm hóa đơn'),
@@ -13222,7 +13288,10 @@ class _PosSellScreenState extends State<PosSellScreen>
           children: [
             InkWell(
               borderRadius: BorderRadius.circular(4),
-              onTap: () => _selectTab(index),
+              onTap: () {
+                _userTouchedTabs = true;
+                _selectTab(index);
+              },
               child: Padding(
                 padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 4),
                 child: Row(
@@ -17100,6 +17169,7 @@ class _PosSellScreenState extends State<PosSellScreen>
                     _invoiceTabChip(i, onBlue: false),
                     const SizedBox(width: 6),
                   ],
+                  ..._pendingSlotChips(onBlue: false, gap: 0),
                   Material(
                     color: PosTheme.kiotBlueLight,
                     borderRadius: BorderRadius.circular(10),

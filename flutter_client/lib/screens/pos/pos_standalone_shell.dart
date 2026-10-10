@@ -79,7 +79,11 @@ class _PosStandaloneShellState extends State<PosStandaloneShell>
   ) async {
     try {
       await perm
-          .loadPermissions(role: auth.user?.role, freshSession: true)
+          .loadPermissions(
+            role: auth.user?.role,
+            freshSession: true,
+            cacheKey: auth.user == null ? null : '${auth.user!.id}:${auth.user!.storeId ?? ''}',
+          )
           .timeout(const Duration(seconds: 12));
     } catch (e) {
       debugPrint('⚠️ PosStandaloneShell permissions: $e');

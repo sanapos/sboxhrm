@@ -1,5 +1,7 @@
 import 'dart:async';
+import 'dart:convert';
 import 'package:flutter/material.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 import '../services/api_service.dart';
 import '../utils/dashboard_permission_modules.dart';
 import '../utils/permission_modules.dart';
@@ -21,6 +23,9 @@ class PermissionProvider extends ChangeNotifier {
   Timer? _refreshTimer;
 
   bool get isLoaded => _isLoaded;
+
+  /// Lần tải đầu lỗi (chưa có quyền nào) — UI không chờ mãi.
+  bool get loadFailed => _loadError && !_isLoaded;
   bool get isLoading => _isLoading;
 
   /// App POS độc lập: nếu API quyền trống / lỗi, vẫn cho bán hàng + hàng hóa.
@@ -60,15 +65,81 @@ class PermissionProvider extends ChangeNotifier {
     if (changed) notifyListeners();
   }
 
-  /// Tải quyền hiệu lực từ API
-  Future<void> loadPermissions({String? role, bool freshSession = false}) async {
+  static const _cachePrefix = 'perm_cache_v1:';
+  String? _cacheKey;
+
+  /// Quyền lần trước của tài khoản (mở app hiện menu đúng ngay, không «bung» dần khi API trả về).
+  Future<bool> _restoreFromCache(String cacheKey, String? role) async {
+    try {
+      final raw = (await SharedPreferences.getInstance()).getString('$_cachePrefix$cacheKey');
+      if (raw == null) return false;
+      final m = jsonDecode(raw) as Map<String, dynamic>;
+      if ('${m['role'] ?? ''}' != (role ?? '')) return false;
+      final perms = <String, _ModulePermission>{};
+      (m['p'] as Map<String, dynamic>).forEach((k, v) {
+        final f = '$v';
+        perms[k] = _ModulePermission(
+          canView: f.contains('V'), canCreate: f.contains('C'), canEdit: f.contains('E'),
+          canDelete: f.contains('D'), canExport: f.contains('X'), canApprove: f.contains('A'),
+        );
+      });
+      if (perms.isEmpty) return false;
+      _permissions = perms;
+      _isLoaded = true;
+      _loadError = false;
+      return true;
+    } catch (_) {
+      return false;
+    }
+  }
+
+  Future<void> _saveCache(String? role) async {
+    final key = _cacheKey;
+    if (key == null || _permissions.isEmpty) return;
+    try {
+      String flags(_ModulePermission p) => [
+            if (p.canView) 'V', if (p.canCreate) 'C', if (p.canEdit) 'E',
+            if (p.canDelete) 'D', if (p.canExport) 'X', if (p.canApprove) 'A',
+          ].join();
+      await (await SharedPreferences.getInstance()).setString(
+        '$_cachePrefix$key',
+        jsonEncode({'role': role ?? '', 'p': {for (final e in _permissions.entries) e.key: flags(e.value)}}),
+      );
+    } catch (_) {}
+  }
+
+  static bool _samePermissions(Map<String, _ModulePermission> a, Map<String, _ModulePermission> b) {
+    if (a.length != b.length) return false;
+    for (final e in a.entries) {
+      final o = b[e.key];
+      if (o == null ||
+          o.canView != e.value.canView || o.canCreate != e.value.canCreate || o.canEdit != e.value.canEdit ||
+          o.canDelete != e.value.canDelete || o.canExport != e.value.canExport || o.canApprove != e.value.canApprove) {
+        return false;
+      }
+    }
+    return true;
+  }
+
+  /// Tải quyền hiệu lực từ API.
+  /// [cacheKey] (tài khoản + cửa hàng): hiện ngay quyền lần trước, API cập nhật nền —
+  /// menu / thanh dưới không nhảy lúc mở app; chỉ vẽ lại khi quyền thật sự đổi.
+  Future<void> loadPermissions({String? role, bool freshSession = false, String? cacheKey}) async {
     if (_isLoading && !freshSession) return;
+    if (cacheKey != null) _cacheKey = cacheKey;
     if (freshSession) {
       _permissions = {};
       _isLoaded = false;
       _loadError = false;
       _isSuperUser = false;
+      if (cacheKey != null &&
+          !StoreRoleHelper.isFullAccess(role) &&
+          await _restoreFromCache(cacheKey, role)) {
+        notifyListeners();
+      }
     }
+    final before = Map<String, _ModulePermission>.from(_permissions);
+    final wasLoaded = _isLoaded;
     _isLoading = true;
     _lastRole = role;
     final normalizedRole = (role ?? '').trim().toLowerCase();
@@ -105,7 +176,8 @@ class PermissionProvider extends ChangeNotifier {
         }
       }
 
-      _permissions = {};
+      final fresh = <String, _ModulePermission>{};
+      _permissions = fresh;
       for (final item in data) {
         final module = item['module'] as String? ?? '';
         if (module.isEmpty) continue;
@@ -124,6 +196,7 @@ class PermissionProvider extends ChangeNotifier {
           _permissions['PosSell']?.canView != true) {
         ensurePosSellDefaults();
       }
+      unawaited(_saveCache(role));
       final viewableModules = _permissions.entries.where((e) => e.value.canView).map((e) => e.key).toList();
       debugPrint('✅ PermissionProvider: Loaded ${_permissions.length} modules, canView: $viewableModules');
     } catch (e) {
@@ -142,7 +215,10 @@ class PermissionProvider extends ChangeNotifier {
       }
     } finally {
       _isLoading = false;
-      notifyListeners();
+      // Quyền như cũ (thường gặp: bản lưu đúng) → không vẽ lại menu.
+      if (!(wasLoaded && _isLoaded && !_loadError && _samePermissions(before, _permissions))) {
+        notifyListeners();
+      }
     }
   }
 

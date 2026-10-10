@@ -539,6 +539,8 @@ class _MainLayoutState extends State<MainLayout> with WidgetsBindingObserver {
         .loadPermissions(
           role: authUser?.role,
           freshSession: true,
+          // Quyền lần trước của tài khoản: menu hiện đúng ngay, không bung dần.
+          cacheKey: authUser == null ? null : '${authUser.id}:${authUser.storeId ?? ''}',
         )
         .then((_) {
       if (mounted) _maybeLandPosSell();
@@ -551,7 +553,7 @@ class _MainLayoutState extends State<MainLayout> with WidgetsBindingObserver {
     final auth = Provider.of<AuthProvider>(context, listen: false);
     final perm = Provider.of<PermissionProvider>(context, listen: false);
     if (!perm.isLoaded) return;
-    if (StoreRoleHelper.isFullAccess(auth.userRole) || auth.userRole?.toLowerCase() == 'director') return;
+    if (StoreRoleHelper.isFullAccess(auth.userRole) || auth.userRole.toLowerCase() == 'director') return;
     if (!PermissionNavigation.canNavigate(perm, 'PosSell')) return;
 
     final roleHit = StoreRoleHelper.isPosCashierRole(auth.userRole);
@@ -4558,6 +4560,15 @@ class _HomeMenuScreenState extends State<_HomeMenuScreen> {
     required double padding,
     required PermissionProvider permProvider,
   }) {
+    // Quyền / gói chưa có (lần đăng nhập đầu, chưa có bản lưu): chờ một lần thay vì hiện vài ô
+    // tự phục vụ rồi bung ra đủ menu (giao diện nhảy).
+    if ((!permProvider.isLoaded && !permProvider.loadFailed) ||
+        (!widget.bypassPackageFilter && widget.allowedModules == null)) {
+      return ColoredBox(
+        color: isMobile || kIsWeb ? PosTheme.background : const Color(0xFFF1F4F6),
+        child: const Center(child: CircularProgressIndicator(strokeWidth: 2.5)),
+      );
+    }
     // Group items
     final groupedItems = <String, List<MapEntry<int, NavItem>>>{};
     for (int i = 0; i < widget.navItems.length; i++) {

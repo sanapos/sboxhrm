@@ -287,7 +287,11 @@ class _PosAuthShellState extends State<_PosAuthShell>
       // Luôn gọi ACL thật — ensurePosSellDefaults() đã set isLoaded=true (fail-open UI)
       // nên không được skip; nếu skip thì Admin không lên superUser → nút TT xám mãi.
       await perm
-          .loadPermissions(role: auth.user?.role, freshSession: true)
+          .loadPermissions(
+            role: auth.user?.role,
+            freshSession: true,
+            cacheKey: auth.user == null ? null : '${auth.user!.id}:${auth.user!.storeId ?? ""}',
+          )
           .timeout(const Duration(seconds: 12));
     } catch (e) {
       debugPrint('⚠️ PosAuthShell permissions: $e');
