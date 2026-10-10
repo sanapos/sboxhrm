@@ -117,7 +117,7 @@ List<Map<String, dynamic>> payrollFixtureAttendanceJson() {
 }
 
 /// Phản hồi API theo đường dẫn (không gồm /api/employees, /api/attendances — xử lý riêng).
-Map<String, Object?> payrollFixtureResponses({bool serverAdjustments = false}) => {
+Map<String, Object?> payrollFixtureResponses({bool serverAdjustments = false, bool lawPolicy = false}) => {
       '/api/benefits/employees': [
         for (final e in payrollFixtureEmployees)
           if (payrollFixtureBenefits.containsKey(e['id']))
@@ -142,7 +142,10 @@ Map<String, Object?> payrollFixtureResponses({bool serverAdjustments = false}) =
         'bhxhEmployeeRate': 8, 'bhytEmployeeRate': 1.5, 'bhtnEmployeeRate': 1, 'unionFeeEmployeeRate': 0,
         'defaultRegion': 1, 'minSalaryRegion1': 4960000, 'maxInsuranceSalary': 46800000,
       },
-      '/api/settings/salary': {'standardWorkDays': 26, 'standardWorkHours': 8, 'overtimeRate': 1.5, 'weekendRate': 2, 'holidayRate': 3},
+      '/api/settings/salary': {
+        'standardWorkDays': 26, 'standardWorkHours': 8, 'overtimeRate': 1.5, 'weekendRate': 2, 'holidayRate': 3,
+        if (lawPolicy) 'payrollPolicyPreset': 'law',
+      },
       '/api/settings/tax': {'personalDeduction': 11000000, 'dependentDeduction': 4400000},
       '/api/settings/tax/employee-deductions': [
         {'employeeId': 'e1', 'numberOfDependents': 1},

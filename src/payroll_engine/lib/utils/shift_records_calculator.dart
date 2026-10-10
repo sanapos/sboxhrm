@@ -846,11 +846,31 @@ double applyOvernightShiftCoefficient({
   required double workSalary,
   required int totalShifts,
   required int overnightShifts,
+  /// Hệ số ca đêm theo Chính sách tính lương (1,3 = +30%; 1,0 = tắt / tính theo giờ đêm).
+  double coefficient = 1.3,
 }) {
-  if (overnightShifts <= 0 || totalShifts <= 0) return workSalary;
+  if (overnightShifts <= 0 || totalShifts <= 0 || coefficient == 1.0) return workSalary;
   final regularShifts = totalShifts - overnightShifts;
   final perShift = workSalary / totalShifts;
-  return perShift * regularShifts + perShift * 1.3 * overnightShifts;
+  return perShift * regularShifts + perShift * coefficient * overnightShifts;
+}
+
+/// Số giờ của cặp vào / ra nằm trong khung làm đêm 22:00–06:00 (Điều 106 BLLĐ).
+double nightWorkHours(DailyShiftPair pair) {
+  final checkIn = pair.checkIn;
+  var checkOut = pair.checkOut;
+  if (checkIn == null || checkOut == null) return 0;
+  if (!checkOut.isAfter(checkIn)) checkOut = checkOut.add(const Duration(days: 1));
+  var minutes = 0;
+  final base = DateTime(checkIn.year, checkIn.month, checkIn.day);
+  for (final d in [-1, 0, 1]) {
+    final ws = base.add(Duration(days: d, hours: 22));
+    final we = ws.add(const Duration(hours: 8));
+    final from = checkIn.isAfter(ws) ? checkIn : ws;
+    final to = checkOut.isBefore(we) ? checkOut : we;
+    if (to.isAfter(from)) minutes += to.difference(from).inMinutes;
+  }
+  return minutes / 60.0;
 }
 
 /// How well a punch pair fits a shift (lower penalty = better match).
@@ -3089,9 +3109,19 @@ ShiftPairPayrollResult calcShiftPairPayroll({
   required Map<String, dynamic>? level,
   required double fallbackFixedShiftRate,
   required double standardDayHours,
+  /// Hệ số ca đêm (Chính sách tính lương — «cả ca»). 1,0 = không cộng trong đơn giá ca.
+  double nightCoefficient = 1.3,
+  /// Ca (ShiftTemplate) — để trừ giờ nghỉ trưa khi mức lương theo giờ.
+  Map<String, dynamic>? shift,
 }) {
-  final overnightCoef = pair.isOvernight ? 1.3 : 1.0;
-  final pairHours = dailyShiftPairWorkHours(pair);
+  // Ca đêm: ca loại «Qua đêm» HOẶC mức lương ca đánh dấu «Ca đêm» (trước đây ô này không được dùng).
+  final isNight = pair.isOvernight || level?['isNightShift'] == true;
+  final overnightCoef = isNight ? nightCoefficient : 1.0;
+  var pairHours = dailyShiftPairWorkHours(pair);
+  if (shift != null && pair.checkIn != null && pair.checkOut != null) {
+    // Trừ giờ nghỉ trưa (trước đây trả cả giờ nghỉ cho mức lương theo giờ).
+    pairHours = _netWorkedMinutesAfterLunch(punchIn: pair.checkIn!, punchOut: pair.checkOut!, shift: shift) / 60.0;
+  }
 
   if (level == null) {
     final amount = fallbackFixedShiftRate * overnightCoef;
@@ -3120,8 +3150,9 @@ ShiftPairPayrollResult calcShiftPairPayroll({
               ? fallbackFixedShiftRate / standardDayHours
               : 0.0);
       var amount = effHourly * pairHours;
-      if (pair.isOvernight && standardDayHours > 0) {
-        amount += effHourly * standardDayHours * 0.3;
+      // Ca đêm: cộng theo giờ thực làm của ca (trước đây luôn tính 8 giờ × 30%).
+      if (isNight && overnightCoef > 1) {
+        amount += effHourly * pairHours * (overnightCoef - 1);
       }
       return ShiftPairPayrollResult(
         salary: amount,
@@ -3129,8 +3160,9 @@ ShiftPairPayrollResult calcShiftPairPayroll({
         effectiveHourlyRate: effHourly,
       );
     case 'multiplier':
+      // Hệ số do cửa hàng tự đặt (vd «ca đêm = 1,3») — không nhân thêm hệ số ca đêm (trước đây thành 1,69).
       final perShift = fallbackFixedShiftRate * lvlMultiplier;
-      final amount = perShift * overnightCoef;
+      final amount = perShift;
       final effHourly =
           standardDayHours > 0 ? perShift / standardDayHours : 0.0;
       return ShiftPairPayrollResult(
@@ -3170,6 +3202,9 @@ ShiftBasedPayrollTotals calcShiftBasedPayrollFromPairs({
   required double fallbackFixedShiftRate,
   required double standardDayHours,
   required double totalWorkHours,
+  double nightCoefficient = 1.3,
+  /// id ca (chữ thường) → ShiftTemplate.
+  Map<String, Map<String, dynamic>> shiftById = const {},
 }) {
   double workSalary = 0;
   double shiftAllowance = 0;
@@ -3188,6 +3223,8 @@ ShiftBasedPayrollTotals calcShiftBasedPayrollFromPairs({
       level: level,
       fallbackFixedShiftRate: fallbackFixedShiftRate,
       standardDayHours: standardDayHours,
+      nightCoefficient: nightCoefficient,
+      shift: shiftById[(pair.shiftTemplateId ?? '').toLowerCase()],
     );
     workSalary += result.salary;
     shiftAllowance += result.allowance;

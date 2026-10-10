@@ -13,6 +13,7 @@ import '../../widgets/sbox/sbox_ui.dart';
 import 'sl_common.dart';
 import 'sl_editor.dart';
 import 'sl_model.dart';
+import 'sl_policy.dart';
 
 /// Thiết lập lương: mỗi nhân viên một hồ sơ lương (loại lương, mức lương, tăng ca, BHXH, chấm công).
 class SalaryV2Screen extends StatefulWidget {
@@ -152,65 +153,16 @@ class _SalaryV2ScreenState extends State<SalaryV2Screen> {
   // ─── Hệ số tăng ca cửa hàng ────────────────────────────────────
 
   Future<void> _editStoreRates() async {
-    final w = TextEditingController(text: settingsNum(_ctx.otRate('overtimeRate', 1.5)));
-    final e = TextEditingController(text: settingsNum(_ctx.otRate('weekendRate', 2.0)));
-    final h = TextEditingController(text: settingsNum(_ctx.otRate('holidayRate', 3.0)));
-    Widget f(String label, String hint, TextEditingController c) => Padding(
-          padding: const EdgeInsets.only(bottom: 12),
-          child: TextField(
-            controller: c,
-            keyboardType: const TextInputType.numberWithOptions(decimal: true),
-            decoration: InputDecoration(
-              labelText: tr(label),
-              helperText: tr(hint),
-              prefixText: '× ',
-              isDense: true,
-              border: OutlineInputBorder(borderRadius: BorderRadius.circular(10)),
-            ),
-          ),
-        );
-    final ok = await showDialog<bool>(
-      context: context,
-      builder: (ctx) => AlertDialog(
-        title: Text(tr('Hệ số tăng ca theo luật')),
-        content: SizedBox(
-          width: 380,
-          child: Column(mainAxisSize: MainAxisSize.min, children: [
-            Text(tr('Áp dụng cho mọi nhân viên chọn «Theo luật». Tiền tăng ca = giờ × đơn giá giờ × hệ số.'), style: SboxType.smallStyle()),
-            const SizedBox(height: 16),
-            f('Ngày thường', 'Luật lao động: tối thiểu 1,5', w),
-            f('Ngày nghỉ hằng tuần', 'Luật lao động: tối thiểu 2', e),
-            f('Ngày lễ, Tết', 'Luật lao động: tối thiểu 3', h),
-          ]),
-        ),
-        actions: [
-          TextButton(onPressed: () => Navigator.pop(ctx, false), child: Text(tr('Hủy'))),
-          FilledButton(onPressed: () => Navigator.pop(ctx, true), child: Text(tr('Lưu'))),
-        ],
-      ),
-    );
-    double p(TextEditingController c, double fb) {
-      final v = double.tryParse(c.text.trim().replaceAll(',', '.'));
-      return v == null || v <= 0 ? fb : v.clamp(1.0, 10.0);
-    }
-
-    final payload = {
-      ..._ctx.store,
-      'overtimeRate': p(w, 1.5),
-      'weekendRate': p(e, 2.0),
-      'holidayRate': p(h, 3.0),
-    };
-    for (final c in [w, e, h]) {
-      c.dispose();
-    }
-    if (ok != true || !mounted) return;
+    // Hệ số tăng ca + chính sách trả lễ / phép / phụ cấp đêm / BHXH: «Theo luật» hoặc «Tùy chỉnh».
+    final payload = await showPayrollPolicyDialog(context, _ctx.store);
+    if (payload == null || !mounted) return;
     final res = await _api.saveSalarySettings(payload);
     if (!mounted) return;
     if (res['isSuccess'] == true) {
       setState(() => _ctx.store = res['data'] is Map ? Map<String, dynamic>.from(res['data'] as Map) : payload);
-      slToast(context, 'Đã lưu hệ số tăng ca');
+      slToast(context, 'Đã lưu chính sách tính lương');
     } else {
-      slToast(context, res['message']?.toString() ?? 'Không lưu được hệ số tăng ca', error: true);
+      slToast(context, res['message']?.toString() ?? 'Không lưu được chính sách tính lương', error: true);
     }
   }
 
@@ -356,8 +308,8 @@ class _SalaryV2ScreenState extends State<SalaryV2Screen> {
       ),
     ]);
     final rates = SboxButton.secondary(
-      label: 'Hệ số tăng ca ×$w · ×$e · ×$h',
-      icon: Icons.more_time_rounded,
+      label: 'Chính sách lương: ${payrollPolicyBadge(_ctx.store)} · TC ×$w · ×$e · ×$h',
+      icon: Icons.gavel_rounded,
       onPressed: _canEdit ? _editStoreRates : null,
     );
     if (narrow) return Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [title, const SizedBox(height: 12), Align(alignment: Alignment.centerLeft, child: rates)]);

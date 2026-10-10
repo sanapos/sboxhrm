@@ -19,6 +19,9 @@ import '../utils/standard_work_days_utils.dart';
 import '../utils/travel_hours_load_utils.dart';
 import '../utils/travel_salary_utils.dart';
 import '../utils/work_schedule_load_utils.dart';
+import 'payroll_policy.dart';
+
+export 'payroll_policy.dart';
 
 /// Giờ để nhân đơn giá khi lương theo giờ.
 ///
@@ -40,8 +43,11 @@ class HourlyPayHours {
 
   static HourlyPayHours split(
     List<DailyShiftRecord> records,
-    double standardDayHours,
-  ) {
+    double standardDayHours, {
+    /// Lương giờ được trả ngày lễ riêng (Chính sách tính lương) → đi làm ngày lễ chỉ cộng phần hệ số,
+    /// tránh 100% lễ + 100% giờ làm + 300% tăng ca.
+    bool holidayPremiumOnly = false,
+  }) {
     var pay = 0.0;
     var weekday = 0.0;
     var weekend = 0.0;
@@ -52,6 +58,10 @@ class HourlyPayHours {
       pay += hours;
       final isHoliday = r.status.contains('Tăng ca ngày lễ');
       final isWeekend = r.status.contains('Tăng ca ngày nghỉ');
+      if (isHoliday && holidayPremiumOnly) {
+        holiday += hours;
+        continue;
+      }
       if (isWeekend && !isHoliday) {
         // Ngày nghỉ tuần: cả ngày là tăng ca (bảng tổng hợp tính toàn bộ giờ gốc vào OT ngày nghỉ)
         // → phần 1.0 đã nằm trong lương giờ, cột tăng ca chỉ còn phần hệ số. Trước đây chỉ trừ
@@ -378,6 +388,9 @@ class PayrollEngine {
     }
     return m;
   }
+
+  /// Chính sách tính lương của cửa hàng (theo luật / tùy chỉnh) — đọc từ thiết lập lương.
+  PayrollPolicy get policy => PayrollPolicy.fromSalarySettings(salarySettings);
 
   /// Đơn nghỉ đã duyệt trong kỳ (phép năm, việc riêng có lương, không lương, ốm BHXH…).
   List<Map<String, dynamic>> approvedLeaves = [];
@@ -1507,11 +1520,15 @@ class PayrollEngine {
             employeeGuid: emp?.id,
           )
         : null;
-    // Lương tháng / lương ngày: ngày lễ + nghỉ có lương được trả như ngày công.
-    // Lương giờ / ca (thường bán thời gian): giữ như cũ.
-    final double paidDaysCredit = (rateType == 1 || rateType == 2) ? holidayPaidDays + leavePaidDays : 0;
-    final double daysWithPay = daysWithWork.length +
-        ((rateType == 1 || rateType == 2) ? holidayIdleDays + leavePaidDays : 0);
+    // Ngày lễ + nghỉ có lương được trả như ngày công cho loại lương trong phạm vi Chính sách tính lương
+    // (mặc định: lương tháng + lương ngày; theo luật: mọi loại).
+    final pol = policy;
+    final holidayCovered = pol.holidayPayScope.covers(rateType);
+    final leaveCovered = pol.paidLeavePayScope.covers(rateType);
+    final double holidayCredit = holidayCovered ? holidayPaidDays.toDouble() : 0;
+    final double leaveCredit = leaveCovered ? leavePaidDays : 0;
+    final double paidDaysCredit = holidayCredit + leaveCredit;
+    final double daysWithPay = daysWithWork.length + (holidayCovered ? holidayIdleDays : 0) + leaveCredit;
     final resolvedStd = resolveStandardWorkDays(
       benefit: benefit,
       year: fromDate.year,
@@ -1552,7 +1569,7 @@ class PayrollEngine {
     switch (rateType) {
       case 0: // Hourly — giờ công thực tế × đơn giá, không trần giờ chuẩn/ngày
         hourlyRate = baseSalary;
-        final split = HourlyPayHours.split(shiftRecords, standardDayHours);
+        final split = HourlyPayHours.split(shiftRecords, standardDayHours, holidayPremiumOnly: holidayCovered);
         var paid = split.payHours;
         var dropFromBase = 0.0;
         if (hourlyOtType == 0) {
@@ -1574,7 +1591,8 @@ class PayrollEngine {
             hourlyOtInsideHours += split.weekendInside + split.holidayInside;
           }
         }
-        workSalary = (baseSalary * paid).roundToDouble();
+        // Ngày lễ / nghỉ có lương (nếu chính sách trả cho lương giờ): giờ chuẩn / ngày × đơn giá.
+        workSalary = (baseSalary * paid + paidDaysCredit * standardDayHours * baseSalary).roundToDouble();
         break;
       case 1: // Monthly
         // dailyRate = Rate / công chuẩn; workSalary = dailyRate × công tính lương
@@ -1595,8 +1613,10 @@ class PayrollEngine {
             workSalary: fixedShiftRate * totalShifts,
             totalShifts: totalShifts,
             overnightShifts: overnightShifts,
+            coefficient: pol.wholeShiftCoefficient,
           );
           hourlyRate = fixedShiftRate / standardDayHours;
+          workSalary += paidDaysCredit * fixedShiftRate;
         } else {
           // Per-pair theo shiftTemplateId (nhiều mức lương ca).
           final shiftTotals = calcShiftBasedPayrollFromPairs(
@@ -1606,6 +1626,11 @@ class PayrollEngine {
             fallbackFixedShiftRate: fixedShiftRate,
             standardDayHours: standardDayHours,
             totalWorkHours: totalWorkHours,
+            nightCoefficient: pol.wholeShiftCoefficient,
+            shiftById: shiftById ??= {
+              for (final s in shifts)
+                if (s['id'] != null) '${s['id']}'.toLowerCase(): s,
+            },
           );
           workSalary = shiftTotals.workSalary;
           shiftLevelAllowance = shiftTotals.shiftAllowance;
@@ -1614,6 +1639,7 @@ class PayrollEngine {
               : (standardDayHours > 0
                   ? fixedShiftRate / standardDayHours
                   : 0);
+          workSalary += paidDaysCredit * hourlyRate * standardDayHours;
         }
         break;
     }
@@ -1644,13 +1670,14 @@ class PayrollEngine {
           benefit?['OTRateHoliday'] ??
           benefit?['oTRateHoliday'],
     );
+    // Chính sách «theo luật»: hệ số không thấp hơn 1,5 / 2 / 3 (được cao hơn).
     final otRateWeekday =
-        benefitOtWeekday > 0 ? benefitOtWeekday : storeOtWeekday;
+        pol.otWeekday(benefitOtWeekday > 0 ? benefitOtWeekday : storeOtWeekday);
     // Ưu tiên hệ số cửa hàng khi NV không ghi đè OTRate* — đổi ở «Hệ số TC» áp dụng ngay.
     final otRateWeekend =
-        benefitOtWeekend > 0 ? benefitOtWeekend : storeOtWeekend;
+        pol.otRestDay(benefitOtWeekend > 0 ? benefitOtWeekend : storeOtWeekend);
     final otRateHoliday =
-        benefitOtHoliday > 0 ? benefitOtHoliday : storeOtHoliday;
+        pol.otHoliday(benefitOtHoliday > 0 ? benefitOtHoliday : storeOtHoliday);
 
     double otSalary = 0;
     if (hourlyOtType == 0) {
@@ -1699,7 +1726,9 @@ class PayrollEngine {
     if (rateType == 3 && hourlyOtType == 1 && holidayOtType != 0) {
       // Lương ca: ca làm ngày nghỉ tuần đã được trả theo đơn giá ca (100%) → cột tăng ca chỉ phần hệ số.
       final restDayHours = shiftRecords
-          .where((r) => r.status.contains('Tăng ca ngày nghỉ') && !r.status.contains('Tăng ca ngày lễ'))
+          .where((r) =>
+              (r.status.contains('Tăng ca ngày nghỉ') && !r.status.contains('Tăng ca ngày lễ')) ||
+              (holidayCovered && r.status.contains('Tăng ca ngày lễ')))
           .fold<double>(0, (a, r) => a + r.baseWorkHours);
       if (restDayHours > 0) {
         otSalary -= restDayHours * hourlyRate;
@@ -1710,6 +1739,21 @@ class PayrollEngine {
       // 1.0 đã nằm trong lương giờ; cột tăng ca chỉ còn phần hệ số.
       otSalary -= hourlyOtInsideHours * hourlyRate;
       if (otSalary < 0) otSalary = 0;
+    }
+
+    // ═══ Phụ cấp làm đêm (Chính sách tính lương) ═══
+    // Theo giờ: giờ thực làm trong 22:00–06:00 × đơn giá giờ × %. Cả ca: ca «Qua đêm» × giờ làm × %.
+    // Lương ca tính «cả ca» đã nằm trong đơn giá ca (hệ số) — không cộng lần nữa.
+    double nightHours = 0;
+    double nightPremium = 0;
+    if (pol.nightAppliesTo(rateType) && !(rateType == 3 && pol.nightBasis == NightBasis.wholeShift)) {
+      for (final pr in shiftPairs.where((p) => p.checkOut != null)) {
+        nightHours += pol.nightBasis == NightBasis.nightHours
+            ? nightWorkHours(pr)
+            : (pr.isOvernight ? dailyShiftPairWorkHours(pr) : 0);
+      }
+      final nightRate = rateType == 0 ? baseSalary : hourlyRate;
+      nightPremium = (nightHours * nightRate * pol.nightPremiumPercent / 100).roundToDouble();
     }
 
     final travelMode = parseTravelSalaryModeForEmployee(
@@ -1760,6 +1804,8 @@ class PayrollEngine {
       leavePaidDays: leavePaidDays,
       paidDaysCredit: paidDaysCredit,
       daysWithPay: daysWithPay,
+      nightHours: nightHours,
+      nightPremium: nightPremium,
       standardWorkDays: standardWorkDays,
       billableWorkDays: billableWorkDays,
       scheduleOffCount: scheduleOffCount,
@@ -1999,7 +2045,8 @@ class PayrollEngine {
         fromDate.month == toDate.month &&
         toDate.day == DateTime(toDate.year, toDate.month + 1, 0).day;
     final double unpaidWorkDays = (standardWorkDays - pay.daysWithPay).clamp(0, 31).toDouble();
-    final insuranceSkipped = fullMonth && monthEnded && socialInsType != '0' && unpaidWorkDays >= 14;
+    final insuranceSkipped =
+        policy.bhxh14DayRule && fullMonth && monthEnded && socialInsType != '0' && unpaidWorkDays >= 14;
     final double insFactor = insuranceSkipped ? 0 : 1;
 
     final double bhxhPart = insFactor * insuranceSalary * bhxhRate / 100;
@@ -2022,6 +2069,7 @@ class PayrollEngine {
     final double grossIncome = workSalary +
         completionSalaryEarned +
         otSalary +
+        pay.nightPremium +
         travelSalary +
         totalAllowance +
         bonusTotal +
@@ -2090,6 +2138,7 @@ class PayrollEngine {
     final double totalSalary = workSalary +
         completionSalaryEarned +
         otSalary +
+        pay.nightPremium +
         travelSalary +
         totalAllowance +
         bonusTotal +
@@ -2156,6 +2205,9 @@ class PayrollEngine {
       'paidDaysCredit': pay.paidDaysCredit,
       'unpaidWorkDays': unpaidWorkDays,
       'insuranceSkipped': insuranceSkipped,
+      'nightHours': pay.nightHours,
+      'nightPremium': pay.nightPremium,
+      'payrollPolicy': policy.isLaw ? 'law' : 'custom',
       'baseSalary': baseSalary,
       // Cột bảng = số đã tính theo công (khớp Tổng lương). Mức cấu hình xem chi tiết.
       'completionSalary': completionSalaryEarned,
@@ -2493,7 +2545,13 @@ class SegPay {
     this.leavePaidDays = 0,
     this.paidDaysCredit = 0,
     this.daysWithPay = 0,
+    this.nightHours = 0,
+    this.nightPremium = 0,
   });
+
+  /// Giờ làm đêm được phụ cấp và tiền phụ cấp làm đêm (ngoài đơn giá lương ca).
+  final double nightHours;
+  final double nightPremium;
 
   /// Ngày có hưởng lương (đi làm, kể cả nghỉ tuần / lễ; + lễ / nghỉ có lương được trả) — quy tắc BHXH 14 ngày.
   final double daysWithPay;
@@ -2585,6 +2643,8 @@ class SegPay {
       leavePaidDays: sum((x) => x.leavePaidDays),
       paidDaysCredit: sum((x) => x.paidDaysCredit),
       daysWithPay: sum((x) => x.daysWithPay),
+      nightHours: sum((x) => x.nightHours),
+      nightPremium: sum((x) => x.nightPremium),
       standardWorkDays: last.standardWorkDays,
       billableWorkDays: sum((x) => x.billableWorkDays),
       scheduleOffCount: last.scheduleOffCount,

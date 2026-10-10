@@ -14,8 +14,9 @@ Future<HttpServer> _serve({
   required List<String> seen,
   String dayEnd = '04:00',
   String nightShiftType = 'Qua đêm',
+  bool lawPolicy = false,
 }) async {
-  final responses = payrollFixtureResponses(serverAdjustments: serverAdjustments)
+  final responses = payrollFixtureResponses(serverAdjustments: serverAdjustments, lawPolicy: lawPolicy)
     ..['/api/settings/app/day_end_time'] = {'key': 'day_end_time', 'value': dayEnd};
   responses['/api/shifts/templates'] = [
     for (final t in (responses['/api/shifts/templates'] as List).cast<Map<String, dynamic>>())
@@ -92,9 +93,9 @@ void _expectSame(List<Map<String, dynamic>> actual, List<Map<String, dynamic>> e
   }
 }
 
-Future<void> _check(String golden, {required bool serverAdjustments}) async {
+Future<void> _check(String golden, {required bool serverAdjustments, bool lawPolicy = false}) async {
   final seen = <String>[];
-  final server = await _serve(serverAdjustments: serverAdjustments, seen: seen);
+  final server = await _serve(serverAdjustments: serverAdjustments, seen: seen, lawPolicy: lawPolicy);
   final api = HttpPayrollApi(baseUrl: 'http://127.0.0.1:${server.port}', token: 'test-token');
   try {
     final engine = PayrollEngine(api: api)
@@ -185,6 +186,10 @@ void main() {
 
   test('Máy chủ ra đúng bảng lương như app — khoản cộng / trừ tính trên máy', () async {
     await _check('payroll_rows_local', serverAdjustments: false);
+  });
+
+  test('Máy chủ ra đúng bảng lương như app — chính sách «Theo luật»', () async {
+    await _check('payroll_rows_law', serverAdjustments: false, lawPolicy: true);
   });
 
   test('Máy chủ ra đúng bảng lương như app — khoản cộng / trừ do máy chủ tính sẵn', () async {

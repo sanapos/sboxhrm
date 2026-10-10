@@ -54,6 +54,15 @@ public class SettingsController(IMediator mediator, ZKTecoDbContext dbContext) :
             holidayRate = ParseDouble(map, "holiday_rate", 3.0),
             travelSalaryMode = map.GetValueOrDefault("travel_salary_mode") ?? "off",
             travelFixedHourlyRate = ParseDouble(map, "travel_fixed_hourly_rate", 0),
+            // Chính sách tính lương (payroll_engine/PayrollPolicy) — mặc định = cách tính trước đây.
+            payrollPolicyPreset = OneOf(map.GetValueOrDefault("payroll_policy_preset"), PolicyPresets, "custom"),
+            holidayPayScope = OneOf(map.GetValueOrDefault("holiday_pay_scope"), PayScopes, "monthly_daily"),
+            paidLeavePayScope = OneOf(map.GetValueOrDefault("paid_leave_pay_scope"), PayScopes, "monthly_daily"),
+            nightPremiumEnabled = ParseBool(map, "night_premium_enabled", true),
+            nightPremiumPercent = ParseDouble(map, "night_premium_percent", 30),
+            nightPremiumBasis = OneOf(map.GetValueOrDefault("night_premium_basis"), NightBases, "whole_shift"),
+            nightPremiumScope = OneOf(map.GetValueOrDefault("night_premium_scope"), PayScopes, "shift"),
+            bhxh14DayRule = ParseBool(map, "bhxh_14_day_rule", true),
         }));
     }
 
@@ -121,6 +130,32 @@ public class SettingsController(IMediator mediator, ZKTecoDbContext dbContext) :
                 "Lương giờ đi đường cố định (VNĐ/giờ)");
         }
 
+        // Chính sách tính lương — chỉ ghi mục được gửi (màn cũ lưu thiết lập lương không xóa chính sách).
+        if (request.PayrollPolicyPreset != null)
+            await UpsertStoreSettingAsync(storeId.Value, "payroll_policy_preset",
+                OneOf(request.PayrollPolicyPreset, PolicyPresets, "custom"), "Chính sách tính lương: law (theo luật) | custom");
+        if (request.HolidayPayScope != null)
+            await UpsertStoreSettingAsync(storeId.Value, "holiday_pay_scope",
+                OneOf(request.HolidayPayScope, PayScopes, "monthly_daily"), "Trả lương ngày lễ cho loại lương");
+        if (request.PaidLeavePayScope != null)
+            await UpsertStoreSettingAsync(storeId.Value, "paid_leave_pay_scope",
+                OneOf(request.PaidLeavePayScope, PayScopes, "monthly_daily"), "Trả lương ngày nghỉ có lương cho loại lương");
+        if (request.NightPremiumEnabled.HasValue)
+            await UpsertStoreSettingAsync(storeId.Value, "night_premium_enabled",
+                request.NightPremiumEnabled.Value ? "true" : "false", "Phụ cấp làm đêm");
+        if (request.NightPremiumPercent.HasValue)
+            await UpsertStoreSettingAsync(storeId.Value, "night_premium_percent",
+                Math.Clamp(request.NightPremiumPercent.Value, 0, 300).ToString(CultureInfo.InvariantCulture), "% phụ cấp làm đêm");
+        if (request.NightPremiumBasis != null)
+            await UpsertStoreSettingAsync(storeId.Value, "night_premium_basis",
+                OneOf(request.NightPremiumBasis, NightBases, "whole_shift"), "Phụ cấp đêm: night_hours | whole_shift");
+        if (request.NightPremiumScope != null)
+            await UpsertStoreSettingAsync(storeId.Value, "night_premium_scope",
+                OneOf(request.NightPremiumScope, PayScopes, "shift"), "Phụ cấp đêm cho loại lương");
+        if (request.Bhxh14DayRule.HasValue)
+            await UpsertStoreSettingAsync(storeId.Value, "bhxh_14_day_rule",
+                request.Bhxh14DayRule.Value ? "true" : "false", "Không đóng BHXH tháng nghỉ không lương ≥14 ngày");
+
         await dbContext.SaveChangesAsync();
         return await GetSalarySettings();
     }
@@ -131,8 +166,20 @@ public class SettingsController(IMediator mediator, ZKTecoDbContext dbContext) :
         "min_hours_for_work_day", "min_work_day_percent", "min_half_day_hours", "decimal_work_day_enabled",
         "work_start_time", "work_end_time",
         "overtime_rate", "weekend_rate", "holiday_rate",
-        "travel_salary_mode", "travel_fixed_hourly_rate"
+        "travel_salary_mode", "travel_fixed_hourly_rate",
+        "payroll_policy_preset", "holiday_pay_scope", "paid_leave_pay_scope", "night_premium_enabled",
+        "night_premium_percent", "night_premium_basis", "night_premium_scope", "bhxh_14_day_rule",
     ];
+
+    static readonly string[] PolicyPresets = ["law", "custom"];
+    static readonly string[] PayScopes = ["none", "shift", "monthly", "monthly_daily", "all"];
+    static readonly string[] NightBases = ["night_hours", "whole_shift"];
+
+    static string OneOf(string? value, string[] allowed, string fallback)
+    {
+        var v = value?.Trim().ToLowerInvariant();
+        return v != null && allowed.Contains(v) ? v : fallback;
+    }
 
     private static double ParseMinWorkDayPercent(Dictionary<string, string> map)
     {
@@ -168,6 +215,14 @@ public class SettingsController(IMediator mediator, ZKTecoDbContext dbContext) :
         holidayRate = 3.0,
         travelSalaryMode = "off",
         travelFixedHourlyRate = 0,
+        payrollPolicyPreset = "custom",
+        holidayPayScope = "monthly_daily",
+        paidLeavePayScope = "monthly_daily",
+        nightPremiumEnabled = true,
+        nightPremiumPercent = 30,
+        nightPremiumBasis = "whole_shift",
+        nightPremiumScope = "shift",
+        bhxh14DayRule = true,
     };
 
     private static double ParseDouble(IReadOnlyDictionary<string, string?> map, string key, double fallback) =>
@@ -232,6 +287,18 @@ public class SettingsController(IMediator mediator, ZKTecoDbContext dbContext) :
         /// <summary>off | fixed | base_per_8h | completion_per_8h | base_plus_completion_per_8h</summary>
         public string? TravelSalaryMode { get; set; }
         public double? TravelFixedHourlyRate { get; set; }
+
+        /// <summary>Chính sách tính lương: law | custom.</summary>
+        public string? PayrollPolicyPreset { get; set; }
+        /// <summary>none | shift | monthly | monthly_daily | all.</summary>
+        public string? HolidayPayScope { get; set; }
+        public string? PaidLeavePayScope { get; set; }
+        public bool? NightPremiumEnabled { get; set; }
+        public double? NightPremiumPercent { get; set; }
+        /// <summary>night_hours | whole_shift.</summary>
+        public string? NightPremiumBasis { get; set; }
+        public string? NightPremiumScope { get; set; }
+        public bool? Bhxh14DayRule { get; set; }
     }
 
     // Penalty Settings

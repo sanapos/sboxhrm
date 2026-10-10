@@ -22,8 +22,8 @@ import 'fixtures/payroll_fixture.dart';
 http.Response _ok(Object? data) =>
     http.Response(jsonEncode({'isSuccess': true, 'data': data}), 200, headers: {'content-type': 'application/json; charset=utf-8'});
 
-MockClient payrollFixtureClient({required bool serverAdjustments, List<Map<String, dynamic>>? serverRows}) {
-  final responses = payrollFixtureResponses(serverAdjustments: serverAdjustments);
+MockClient payrollFixtureClient({required bool serverAdjustments, List<Map<String, dynamic>>? serverRows, bool lawPolicy = false}) {
+  final responses = payrollFixtureResponses(serverAdjustments: serverAdjustments, lawPolicy: lawPolicy);
   return MockClient((req) async {
     final p = req.url.path;
     if (p.endsWith('/api/payroll/summary')) {
@@ -48,7 +48,7 @@ MockClient payrollFixtureClient({required bool serverAdjustments, List<Map<Strin
   });
 }
 
-Future<List<Map<String, dynamic>>> _rows(WidgetTester t, {required bool serverAdjustments, List<Map<String, dynamic>>? serverRows}) async {
+Future<List<Map<String, dynamic>>> _rows(WidgetTester t, {required bool serverAdjustments, List<Map<String, dynamic>>? serverRows, bool lawPolicy = false}) async {
   SharedPreferences.setMockInitialValues({});
   final key = GlobalKey<PayrollSummaryTabState>();
   List<Map<String, dynamic>>? rows;
@@ -79,7 +79,7 @@ Future<List<Map<String, dynamic>>> _rows(WidgetTester t, {required bool serverAd
       await t.pump(const Duration(milliseconds: 50));
       rows = key.currentState?.debugPayrollRows();
     }
-  }, () => payrollFixtureClient(serverAdjustments: serverAdjustments, serverRows: serverRows));
+  }, () => payrollFixtureClient(serverAdjustments: serverAdjustments, serverRows: serverRows, lawPolicy: lawPolicy));
   expect(rows, isNotNull, reason: 'bảng lương chưa tải xong');
   return normalizePayrollRows(rows!);
 }
@@ -117,8 +117,8 @@ void expectSameRows(List<Map<String, dynamic>> actual, List<Map<String, dynamic>
   }
 }
 
-Future<void> _check(WidgetTester t, String name, {required bool serverAdjustments}) async {
-  final rows = await _rows(t, serverAdjustments: serverAdjustments);
+Future<void> _check(WidgetTester t, String name, {required bool serverAdjustments, bool lawPolicy = false}) async {
+  final rows = await _rows(t, serverAdjustments: serverAdjustments, lawPolicy: lawPolicy);
   final file = File('test/goldens/$name.json');
   if (Platform.environment['UPDATE_PAYROLL_GOLDEN'] == '1' || !file.existsSync()) {
     file.parent.createSync(recursive: true);
@@ -131,6 +131,10 @@ Future<void> _check(WidgetTester t, String name, {required bool serverAdjustment
 void main() {
   testWidgets('Bảng lương mẫu — tính khoản cộng / trừ trên máy', (t) async {
     await _check(t, 'payroll_rows_local', serverAdjustments: false);
+  });
+
+  testWidgets('Bảng lương mẫu — Chính sách tính lương «Theo luật»', (t) async {
+    await _check(t, 'payroll_rows_law', serverAdjustments: false, lawPolicy: true);
   });
 
   testWidgets('Bảng lương mẫu — khoản cộng / trừ do máy chủ tính sẵn', (t) async {
