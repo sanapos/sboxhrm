@@ -58,16 +58,18 @@ public partial class PosQuotesController
             // Báo giá đã sửa lời văn riêng → bản in của báo giá.
             doc = await dbContext.PosQuoteDocuments.AsNoTracking()
                 .Where(d => d.QuoteId == quote.Id && d.StoreId == storeId && d.Kind == kind
-                            && d.Deleted == null && d.IsCustomWording)
+                            && d.Deleted == null && (d.IsCustomWording || d.CustomTemplateHtml != null))
                 .OrderByDescending(d => d.WordingUpdatedAt)
                 .FirstOrDefaultAsync(ct);
         }
         // Lời văn sửa riêng luôn thắng mẫu (kể cả mẫu Word) — trừ khi người dùng chọn mẫu khác lúc xuất.
         var custom = doc is { IsCustomWording: true } && templateId == null;
+        // Mẫu riêng của chứng từ (HTML) cũng thắng mẫu Word chung.
+        var customTpl = templateId == null ? doc?.CustomTemplateHtml : null;
 
         try
         {
-            var docxTemplate = custom
+            var docxTemplate = custom || customTpl != null
                 ? null
                 : await ResolveDocxTemplateAsync(storeId, kind, templateId ?? doc?.PrintTemplateId ?? quote.PrintTemplateId, ct);
             if (docxTemplate != null)
@@ -93,7 +95,7 @@ public partial class PosQuotesController
                 ? (includeStamp ? doc!.HtmlContent : PosQuoteDocumentHtml.StripStamp(doc!.HtmlContent))
                 : await PosQuoteDocumentHtml.BuildAsync(dbContext, quote, kind, docNo, doc?.Note ?? quote.Note,
                     includeImages, webHostEnvironment.ContentRootPath, includeStamp,
-                    templateId ?? doc?.PrintTemplateId);
+                    templateId ?? doc?.PrintTemplateId, customTpl);
             if (wantPdf)
                 return File(await converter.HtmlToPdfAsync(html, ct), "application/pdf", baseName + ".pdf");
             var page = PosQuoteExportService.BuildWordHtml(html, $"{PosQuoteDocumentHtml.TitleOf(kind)} {docNo}");

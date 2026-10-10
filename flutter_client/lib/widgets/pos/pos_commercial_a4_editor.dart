@@ -32,6 +32,7 @@ class PosCommercialA4Editor extends StatefulWidget {
     this.paperSize = PosPrintPaperSizes.a4,
     this.onPageSetupChanged,
     this.snapshot = false,
+    this.livePreview,
   });
 
   final String html;
@@ -54,6 +55,9 @@ class PosCommercialA4Editor extends StatefulWidget {
 
   /// Sửa một chứng từ đã render: không đổ dòng mẫu, không đụng mẫu chung.
   final bool snapshot;
+
+  /// Mẫu riêng của một chứng từ: «Xem trước» dựng bằng số liệu thật của báo giá (máy chủ) thay vì dữ liệu mẫu.
+  final Future<String?> Function(String templateHtml)? livePreview;
 
   @override
   State<PosCommercialA4Editor> createState() => PosCommercialA4EditorState();
@@ -186,13 +190,24 @@ class PosCommercialA4EditorState extends State<PosCommercialA4Editor> {
     _pageScroll.jumpTo((pos.pixels + dy).clamp(0.0, pos.maxScrollExtent));
   }
 
+  String? _liveHtml;
+
   Future<void> _switchTab(int tab) async {
     await _surfaceKey.currentState?.flush();
     if (!mounted) return;
     setState(() => _tab = tab);
+    final live = widget.livePreview;
+    if (tab == 1 && live != null) {
+      setState(() => _liveHtml = null);
+      final html = await live(_html);
+      if (!mounted) return;
+      setState(() => _liveHtml = html ?? '<p style="color:#b91c1c">Không xem trước được — kiểm tra kết nối.</p>');
+    }
   }
 
-  String get _previewHtml => widget.snapshot
+  String get _previewHtml => widget.livePreview != null
+      ? (_liveHtml ?? '<p style="color:#64748b">Đang dựng bản xem trước với số liệu báo giá…</p>')
+      : widget.snapshot
       ? _html
       : renderPosPrintTemplateHtml(
         _html,

@@ -26,13 +26,17 @@ public partial class PosQuotesController
         Guid? PrintTemplateId = null,
         bool IsCustomWording = false,
         DateTime? WordingUpdatedAt = null,
-        string? WordingUpdatedBy = null);
+        string? WordingUpdatedBy = null,
+        bool HasCustomTemplate = false);
 
     /// <param name="DocId">Xem trước đúng một chứng từ đã lập (lời văn sửa riêng / mẫu chọn riêng).</param>
     /// <param name="TemplateId">Mẫu in dùng thử / chọn khi lập chứng từ (chỉ cho chứng từ đó).</param>
     public record CreateQuoteDocumentDto(string Kind, string? Note, bool IncludeImages = false, bool IncludeStamp = true,
         string? DocNo = null, Guid? DocId = null, Guid? TemplateId = null,
-        Dictionary<Guid, List<string>>? Serials = null);
+        Dictionary<Guid, List<string>>? Serials = null, string? TemplateHtml = null);
+
+    /// <param name="Html">Mẫu riêng (HTML còn trường động {…}) của chứng từ.</param>
+    public record DocumentCustomTemplateDto(string? Html);
 
     public record UpdateQuoteDocumentWordingDto(string? HtmlContent, bool Restore = false);
 
@@ -81,13 +85,25 @@ public partial class PosQuotesController
             // Báo giá: bản đã sửa lời văn riêng (nếu có) là bản in của báo giá.
             doc = await dbContext.PosQuoteDocuments.AsNoTracking()
                 .Where(d => d.QuoteId == id && d.StoreId == storeId && d.Deleted == null
-                            && d.Kind == PosQuoteDocumentKind.Quote && d.IsCustomWording)
+                            && d.Kind == PosQuoteDocumentKind.Quote
+                            && (d.IsCustomWording || d.CustomTemplateHtml != null))
                 .OrderByDescending(d => d.WordingUpdatedAt)
                 .FirstOrDefaultAsync();
         }
         string html;
         var stale = false;
-        if (doc != null && dto.TemplateId == null)
+        if (!string.IsNullOrWhiteSpace(dto.TemplateHtml))
+        {
+            // Xem trước mẫu riêng đang soạn (chưa lưu) với số liệu thật của báo giá.
+            html = await PosQuoteDocumentHtml.BuildAsync(
+                dbContext, quote, doc?.Kind ?? kind,
+                doc?.DocNo ?? (string.IsNullOrWhiteSpace(dto.DocNo) ? quote.QuoteNo : dto.DocNo.Trim()),
+                doc?.Note ?? dto.Note,
+                dto.IncludeImages, webHostEnvironment.ContentRootPath, dto.IncludeStamp,
+                customTemplateHtml: OfficePdfConverter.SanitizeHtml(dto.TemplateHtml));
+            if (doc != null) kind = doc.Kind;
+        }
+        else if (doc != null && dto.TemplateId == null)
         {
             (html, stale) = await PosQuoteDocumentHtml.RenderDocumentAsync(
                 dbContext, quote, doc, dto.IncludeStamp, dto.IncludeImages, webHostEnvironment.ContentRootPath);
@@ -193,7 +209,8 @@ public partial class PosQuotesController
             AddRevision(doc, "restore");
             doc.HtmlContent = await PosQuoteDocumentHtml.BuildAsync(
                 dbContext, quote, doc.Kind, doc.DocNo, doc.Note,
-                includeImages: false, webHostEnvironment.ContentRootPath, templateId: doc.PrintTemplateId);
+                includeImages: false, webHostEnvironment.ContentRootPath, templateId: doc.PrintTemplateId,
+                customTemplateHtml: doc.CustomTemplateHtml);
             doc.IsCustomWording = false;
             doc.SourceHash = null;
         }
@@ -473,12 +490,13 @@ public partial class PosQuotesController
     static QuoteDocumentDto MapDoc(PosQuoteDocument d, string? issueNo = null) => new(
         d.Id, d.Kind.ToString(), d.DocNo, d.Title, d.HtmlContent, d.Note,
         d.IssuedAt, d.IssuedBy, d.StockIssueId, issueNo,
-        d.PrintTemplateId, d.IsCustomWording, d.WordingUpdatedAt, d.WordingUpdatedBy);
+        d.PrintTemplateId, d.IsCustomWording, d.WordingUpdatedAt, d.WordingUpdatedBy,
+        !string.IsNullOrWhiteSpace(d.CustomTemplateHtml));
 
     /// <summary>Lưu nội dung hiện tại vào lịch sử trước khi thay.</summary>
     void AddRevision(PosQuoteDocument doc, string reason)
     {
-        if (string.IsNullOrWhiteSpace(doc.HtmlContent)) return;
+        if (string.IsNullOrWhiteSpace(doc.HtmlContent) && string.IsNullOrWhiteSpace(doc.CustomTemplateHtml)) return;
         dbContext.PosQuoteDocumentRevisions.Add(new PosQuoteDocumentRevision
         {
             Id = Guid.NewGuid(),
@@ -486,6 +504,7 @@ public partial class PosQuotesController
             DocumentId = doc.Id,
             HtmlContent = doc.HtmlContent,
             IsCustomWording = doc.IsCustomWording,
+            CustomTemplateHtml = doc.CustomTemplateHtml,
             PrintTemplateId = doc.PrintTemplateId,
             Reason = reason,
             CreatedBy = CurrentUserEmail,
@@ -530,10 +549,12 @@ public partial class PosQuotesController
         var tid = await ValidTemplateIdAsync(doc!.StoreId, doc.Kind, dto.TemplateId);
         if (dto.TemplateId != null && tid == null)
             return BadRequest(AppResponse<object>.Fail("Mẫu không thuộc loại chứng từ này"));
-        if (doc.PrintTemplateId != tid)
+        if (doc.PrintTemplateId != tid || doc.CustomTemplateHtml != null)
         {
             AddRevision(doc, "template");
             doc.PrintTemplateId = tid;
+            // Chọn mẫu chung cho chứng từ → bỏ mẫu riêng của chứng từ (vẫn khôi phục được ở lịch sử).
+            doc.CustomTemplateHtml = null;
             if (!doc.IsCustomWording)
                 doc.HtmlContent = await PosQuoteDocumentHtml.BuildAsync(
                     dbContext, quote!, doc.Kind, doc.DocNo, doc.Note,
@@ -580,6 +601,76 @@ public partial class PosQuotesController
     }
 
     /// <summary>Quay lại một bản trong lịch sử (bản hiện tại được lưu vào lịch sử trước).</summary>
+    /// <summary>Mẫu riêng của chứng từ (chưa có → mẫu đang dùng làm điểm bắt đầu).</summary>
+    [HttpGet("{id:guid}/documents/{docId:guid}/custom-template")]
+    [RequireModulePermission("PosQuotes", ModulePermissionAction.Edit)]
+    public async Task<ActionResult> GetDocumentCustomTemplate(Guid id, Guid docId)
+    {
+        var (quote, doc, error) = await LoadDocForEditAsync(id, docId);
+        if (error != null) return error;
+        var html = doc!.CustomTemplateHtml
+            ?? await PosQuoteDocumentHtml.TemplateHtmlForAsync(dbContext, quote!, doc.Kind, doc.PrintTemplateId);
+        return Ok(AppResponse<object>.Success(new
+        {
+            html,
+            isCustom = doc.CustomTemplateHtml != null,
+            isCustomWording = doc.IsCustomWording,
+            kind = doc.Kind.ToString(),
+        }));
+    }
+
+    /// <summary>
+    /// Lưu mẫu riêng cho CHỈ chứng từ này: sửa toàn bộ lời văn / bố cục, số liệu vẫn tự cập nhật theo báo giá.
+    /// Mẫu chung và chứng từ / báo giá khác không đổi. Bản chụp lời văn cũ (nếu có) được thay — vẫn khôi phục ở lịch sử.
+    /// </summary>
+    [HttpPut("{id:guid}/documents/{docId:guid}/custom-template")]
+    [RequireModulePermission("PosQuotes", ModulePermissionAction.Edit)]
+    public async Task<ActionResult> SaveDocumentCustomTemplate(Guid id, Guid docId, [FromBody] DocumentCustomTemplateDto dto)
+    {
+        var (quote, doc, error) = await LoadDocForEditAsync(id, docId);
+        if (error != null) return error;
+        var html = OfficePdfConverter.SanitizeHtml(dto.Html ?? "").Trim();
+        if (html.Length == 0)
+            return BadRequest(AppResponse<object>.Fail("Nội dung mẫu trống"));
+        if (html.Length > 2_000_000)
+            return BadRequest(AppResponse<object>.Fail("Nội dung quá lớn (ảnh dán vào quá nặng)"));
+        AddRevision(doc!, "custom-template");
+        doc!.CustomTemplateHtml = html;
+        doc.IsCustomWording = false;
+        doc.SourceHash = null;
+        doc.HtmlContent = await PosQuoteDocumentHtml.BuildAsync(
+            dbContext, quote!, doc.Kind, doc.DocNo, doc.Note,
+            includeImages: false, webHostEnvironment.ContentRootPath, templateId: doc.PrintTemplateId,
+            customTemplateHtml: html);
+        doc.WordingUpdatedAt = DateTime.UtcNow;
+        doc.WordingUpdatedBy = CurrentUserEmail;
+        doc.UpdatedAt = DateTime.UtcNow;
+        doc.UpdatedBy = CurrentUserEmail;
+        await dbContext.SaveChangesAsync();
+        return Ok(AppResponse<QuoteDocumentDto>.Success(MapDoc(doc)));
+    }
+
+    /// <summary>Bỏ mẫu riêng — chứng từ quay về mẫu chọn / mẫu chung (mẫu riêng cũ còn ở lịch sử).</summary>
+    [HttpDelete("{id:guid}/documents/{docId:guid}/custom-template")]
+    [RequireModulePermission("PosQuotes", ModulePermissionAction.Edit)]
+    public async Task<ActionResult> ClearDocumentCustomTemplate(Guid id, Guid docId)
+    {
+        var (quote, doc, error) = await LoadDocForEditAsync(id, docId);
+        if (error != null) return error;
+        if (doc!.CustomTemplateHtml == null)
+            return Ok(AppResponse<QuoteDocumentDto>.Success(MapDoc(doc)));
+        AddRevision(doc, "custom-template-clear");
+        doc.CustomTemplateHtml = null;
+        if (!doc.IsCustomWording)
+            doc.HtmlContent = await PosQuoteDocumentHtml.BuildAsync(
+                dbContext, quote!, doc.Kind, doc.DocNo, doc.Note,
+                includeImages: false, webHostEnvironment.ContentRootPath, templateId: doc.PrintTemplateId);
+        doc.UpdatedAt = DateTime.UtcNow;
+        doc.UpdatedBy = CurrentUserEmail;
+        await dbContext.SaveChangesAsync();
+        return Ok(AppResponse<QuoteDocumentDto>.Success(MapDoc(doc)));
+    }
+
     [HttpPost("{id:guid}/documents/{docId:guid}/revisions/{revId:guid}/restore")]
     [RequireModulePermission("PosQuotes", ModulePermissionAction.Edit)]
     public async Task<ActionResult> RestoreDocumentRevision(Guid id, Guid docId, Guid revId)
@@ -592,6 +683,7 @@ public partial class PosQuotesController
         AddRevision(doc!, "revert");
         doc!.HtmlContent = rev.HtmlContent;
         doc.IsCustomWording = rev.IsCustomWording;
+        doc.CustomTemplateHtml = rev.CustomTemplateHtml;
         doc.PrintTemplateId = rev.PrintTemplateId;
         doc.SourceHash = rev.IsCustomWording
             ? await PosQuoteDocumentHtml.SourceHashAsync(dbContext, quote!, doc.Kind, doc.DocNo, doc.Note)

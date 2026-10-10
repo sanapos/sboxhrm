@@ -52,10 +52,13 @@ public static class PosQuoteDocumentHtml
         bool includeImages = false,
         string? contentRootPath = null,
         bool includeStamp = true,
-        Guid? templateId = null)
+        Guid? templateId = null,
+        string? customTemplateHtml = null)
     {
         var docType = PrintDocumentTypeOf(kind);
-        var templateHtml = await ResolveTemplateHtmlAsync(db, quote, docType, templateId);
+        var templateHtml = !string.IsNullOrWhiteSpace(customTemplateHtml)
+            ? customTemplateHtml
+            : await ResolveTemplateHtmlAsync(db, quote, docType, templateId);
         var (data, lines) = await BuildFieldsAsync(db, quote, kind, docNo, extraNote, includeImages, contentRootPath);
         if (!includeStamp) data["Con_Dau"] = "<div style=\"height:48px\"></div>";
         return PosPrintTemplateHtmlRenderer.Render(templateHtml, data, lines);
@@ -299,9 +302,14 @@ public static class PosQuoteDocumentHtml
             return (includeStamp ? doc.HtmlContent : StripStamp(doc.HtmlContent), stale);
         }
         var html = await BuildAsync(db, quote, doc.Kind, doc.DocNo, doc.Note,
-            includeImages, contentRootPath, includeStamp, doc.PrintTemplateId);
+            includeImages, contentRootPath, includeStamp, doc.PrintTemplateId, doc.CustomTemplateHtml);
         return (html, false);
     }
+
+    /// <summary>Mẫu (còn trường động) đang dùng cho chứng từ — điểm bắt đầu khi tạo mẫu riêng.</summary>
+    public static Task<string> TemplateHtmlForAsync(
+        ZKTecoDbContext db, PosQuote quote, PosQuoteDocumentKind kind, Guid? templateId) =>
+        ResolveTemplateHtmlAsync(db, quote, PrintDocumentTypeOf(kind), templateId);
 
     static string FirstText(params string?[] values)
     {

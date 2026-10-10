@@ -20387,6 +20387,7 @@ class ApiService implements PayrollApi {
     String? docNo,
     String? docId,
     String? templateId,
+    String? templateHtml,
   }) async {
     try {
       final response = await http
@@ -20401,8 +20402,47 @@ class ApiService implements PayrollApi {
               if (docNo != null && docNo.isNotEmpty) 'docNo': docNo,
               if (docId != null && docId.isNotEmpty) 'docId': docId,
               if (templateId != null && templateId.isNotEmpty) 'templateId': templateId,
+              if (templateHtml != null && templateHtml.isNotEmpty) 'templateHtml': templateHtml,
             }),
           )
+          .timeout(const Duration(seconds: 30));
+      return _handleResponse(response);
+    } catch (e) {
+      return _connectionFailure(e);
+    }
+  }
+
+  /// Mẫu riêng của một chứng từ (chưa có → mẫu đang dùng làm điểm bắt đầu).
+  Future<Map<String, dynamic>> getPosQuoteDocumentCustomTemplate(String quoteId, String docId) async {
+    try {
+      final response = await http
+          .get(Uri.parse('$baseUrl/api/pos/quotes/$quoteId/documents/$docId/custom-template'), headers: _headers)
+          .timeout(const Duration(seconds: 30));
+      return _handleResponse(response);
+    } catch (e) {
+      return _connectionFailure(e);
+    }
+  }
+
+  Future<Map<String, dynamic>> savePosQuoteDocumentCustomTemplate(String quoteId, String docId, String html) async {
+    try {
+      final response = await http
+          .put(
+            Uri.parse('$baseUrl/api/pos/quotes/$quoteId/documents/$docId/custom-template'),
+            headers: _headers,
+            body: jsonEncode({'html': html}),
+          )
+          .timeout(const Duration(seconds: 60));
+      return _handleResponse(response);
+    } catch (e) {
+      return _connectionFailure(e);
+    }
+  }
+
+  Future<Map<String, dynamic>> clearPosQuoteDocumentCustomTemplate(String quoteId, String docId) async {
+    try {
+      final response = await http
+          .delete(Uri.parse('$baseUrl/api/pos/quotes/$quoteId/documents/$docId/custom-template'), headers: _headers)
           .timeout(const Duration(seconds: 30));
       return _handleResponse(response);
     } catch (e) {

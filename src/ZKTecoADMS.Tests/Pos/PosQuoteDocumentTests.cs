@@ -91,6 +91,57 @@ public class PosQuoteDocumentTests(PosPgFixture fx) : PosFlowTestBase(fx)
     }
 
     [Fact]
+    public async Task Mau_rieng_cua_chung_tu_giu_loi_van_rieng_so_lieu_van_cap_nhat_khong_anh_huong_bao_gia_khac()
+    {
+        if (NoDb) return;
+        var (_, qA) = await SeedAsync(withStages: false);
+        var (_, qB) = await SeedAsync(withStages: false);
+        Guid docA;
+        await using (var db = Fx.NewDb())
+        {
+            var d = new PosQuoteDocument
+            {
+                Id = Guid.NewGuid(), StoreId = (await db.PosQuotes.FirstAsync(x => x.Id == qA)).StoreId, QuoteId = qA,
+                Kind = PosQuoteDocumentKind.Contract, DocNo = "HD-A", Title = "HỢP ĐỒNG",
+                CustomTemplateHtml = "<div>HỢP ĐỒNG RIÊNG KHÁCH A — tổng {Tong_Cong}</div><!--BEGIN_ITEMS--><p>{Ten_Hang_Hoa} × {So_Luong}</p><!--END_ITEMS-->",
+                IsActive = true,
+            };
+            db.PosQuoteDocuments.Add(d);
+            await db.SaveChangesAsync();
+            docA = d.Id;
+        }
+        async Task<string> Render(Guid q, Guid? docId)
+        {
+            await using var db = Fx.NewDb();
+            var quote = await db.PosQuotes.Include(x => x.Lines).FirstAsync(x => x.Id == q);
+            if (docId is Guid id)
+            {
+                var doc = await db.PosQuoteDocuments.FirstAsync(x => x.Id == id);
+                return (await PosQuoteDocumentHtml.RenderDocumentAsync(db, quote, doc)).Html;
+            }
+            return await PosQuoteDocumentHtml.BuildAsync(db, quote, PosQuoteDocumentKind.Contract, "HD-B", null);
+        }
+        var a1 = await Render(qA, docA);
+        Assert.Contains("HỢP ĐỒNG RIÊNG KHÁCH A", a1);
+        Assert.Contains("103.680.000", a1);
+        // Sửa số lượng trên báo giá A → chứng từ riêng vẫn lấy số mới (không «bản cũ»).
+        await using (var db = Fx.NewDb())
+        {
+            var line = await db.PosQuoteLines.AsTracking().Where(l => l.QuoteId == qA).OrderBy(l => l.SortOrder).FirstAsync();
+            line.Qty = 6;
+            await db.SaveChangesAsync();
+        }
+        var a2 = await Render(qA, docA);
+        Assert.Contains("HỢP ĐỒNG RIÊNG KHÁCH A", a2);
+        Assert.Contains(">6</td>", a2);       // SL mới (4,5 → 6) đã vào chứng từ riêng
+        Assert.DoesNotContain(">4,5</td>", a2);
+        // Báo giá B (cùng cửa hàng mẫu khác, cùng loại chứng từ) vẫn theo mẫu chung.
+        var b = await Render(qB, null);
+        Assert.DoesNotContain("HỢP ĐỒNG RIÊNG KHÁCH A", b);
+        Assert.Contains("HỢP ĐỒNG", b);
+    }
+
+    [Fact]
     public async Task Thanh_tien_dong_chua_VAT_va_cong_dung_bang_tong_tien_hang()
     {
         if (NoDb) return;

@@ -149,6 +149,7 @@ class PosQuoteDocument {
     this.isCustomWording = false,
     this.wordingUpdatedAt,
     this.wordingUpdatedBy,
+    this.hasCustomTemplate = false,
   });
 
   final String id;
@@ -169,6 +170,9 @@ class PosQuoteDocument {
   final bool isCustomWording;
   final DateTime? wordingUpdatedAt;
   final String? wordingUpdatedBy;
+
+  /// Có mẫu riêng của chứng từ (sửa toàn bộ lời văn, số liệu vẫn tự cập nhật theo báo giá).
+  final bool hasCustomTemplate;
 
   factory PosQuoteDocument.fromJson(Map<String, dynamic> json) {
     DateTime? d(dynamic v) {
@@ -194,6 +198,7 @@ class PosQuoteDocument {
               .contains('<!--SBOX_DOC_WORDING-->'),
       wordingUpdatedAt: d(json['wordingUpdatedAt'] ?? json['WordingUpdatedAt']),
       wordingUpdatedBy: (json['wordingUpdatedBy'] ?? json['WordingUpdatedBy'])?.toString(),
+      hasCustomTemplate: (json['hasCustomTemplate'] ?? json['HasCustomTemplate']) == true,
     );
   }
 

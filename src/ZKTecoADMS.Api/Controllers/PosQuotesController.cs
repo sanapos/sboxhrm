@@ -957,7 +957,7 @@ public partial class PosQuotesController(
         slip.DocNo = docNo;
         slip.HtmlContent = await PosQuoteDocumentHtml.BuildAsync(
             dbContext, quote, PosQuoteDocumentKind.Quote, docNo, quote.Note,
-            includeImages, webHostEnvironment.ContentRootPath);
+            includeImages, webHostEnvironment.ContentRootPath, customTemplateHtml: slip.CustomTemplateHtml);
         slip.PrintTemplateId = quote.PrintTemplateId;
         slip.Note = quote.Note;
         slip.UpdatedAt = DateTime.UtcNow;

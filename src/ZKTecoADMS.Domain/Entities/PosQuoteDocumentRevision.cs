@@ -16,6 +16,9 @@ public class PosQuoteDocumentRevision : AuditableEntity<Guid>
 
     public bool IsCustomWording { get; set; }
 
+    /// <summary>Mẫu riêng của chứng từ tại thời điểm lưu (null = không có).</summary>
+    public string? CustomTemplateHtml { get; set; }
+
     public Guid? PrintTemplateId { get; set; }
 
     /// <summary>wording / restore / template / revert.</summary>

@@ -40,6 +40,13 @@ public class PosQuoteDocument : AuditableEntity<Guid>
     /// <summary>Đã sửa lời văn riêng — in đúng <see cref="HtmlContent"/>, không dựng lại từ mẫu.</summary>
     public bool IsCustomWording { get; set; }
 
+    /// <summary>
+    /// Mẫu riêng của CHỈ chứng từ này (HTML còn trường động {…}): sửa toàn bộ lời văn / bố cục mà số liệu,
+    /// hàng hóa, đợt thanh toán vẫn lấy từ báo giá hiện tại. Null = theo mẫu chọn / mẫu chung.
+    /// Bản chụp lời văn (<see cref="IsCustomWording"/>) vẫn thắng nếu có.
+    /// </summary>
+    public string? CustomTemplateHtml { get; set; }
+
     public DateTime? WordingUpdatedAt { get; set; }
 
     [MaxLength(200)]

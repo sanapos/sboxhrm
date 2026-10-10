@@ -9,6 +9,7 @@ import '../../utils/pos_html_print.dart';
 import '../../utils/pos_quote_commercial.dart';
 import '../../utils/pos_quote_export.dart';
 import '../../widgets/notification_overlay.dart';
+import 'pos_quote_document_template_screen.dart';
 import 'pos_quote_document_wording_screen.dart';
 import '../../widgets/pos/pos_quote_document_tools.dart';
 import '../../widgets/pos/pos_quote_care_sheet.dart';
@@ -421,6 +422,16 @@ class _PosContractDetailScreenState extends State<PosContractDetailScreen> {
     );
   }
 
+  /// Sửa riêng toàn bộ nội dung chứng từ (số liệu tự cập nhật theo báo giá).
+  Future<void> _editContent(PosQuoteDocument d) async {
+    final q = _quote;
+    if (q == null || d.id.isEmpty) return;
+    final changed = await Navigator.of(context).push<bool>(
+      MaterialPageRoute(builder: (_) => PosQuoteDocumentTemplateScreen(quoteId: q.id, document: d)),
+    );
+    if (changed == true) await _load();
+  }
+
   Future<void> _editWording(PosQuoteDocument d) async {
     final q = _quote;
     if (q == null) return;
@@ -499,14 +510,15 @@ class _PosContractDetailScreenState extends State<PosContractDetailScreen> {
                 if (d.issuedAt != null)
                   DateFormat('dd/MM/yyyy HH:mm').format(d.issuedAt!.toLocal()),
               ].join(' · ')),
-              if (d.isCustomWording || d.printTemplateId != null)
+              if (d.isCustomWording || d.printTemplateId != null || d.hasCustomTemplate)
                 Padding(
                   padding: const EdgeInsets.only(top: 4),
                   child: Wrap(
                     spacing: 6,
                     children: [
-                      if (d.isCustomWording) _docBadge(tr('Đã sửa lời riêng'), Colors.orange.shade800),
-                      if (d.printTemplateId != null) _docBadge(tr('Mẫu riêng'), Colors.indigo),
+                      if (d.isCustomWording) _docBadge(tr('Bản chốt đã sửa chữ'), Colors.orange.shade800),
+                      if (d.hasCustomTemplate && !d.isCustomWording) _docBadge(tr('Nội dung riêng'), Colors.teal.shade700),
+                      if (d.printTemplateId != null && !d.hasCustomTemplate) _docBadge(tr('Mẫu chọn riêng'), Colors.indigo),
                     ],
                   ),
                 ),
@@ -518,6 +530,10 @@ class _PosContractDetailScreenState extends State<PosContractDetailScreen> {
             onSelected: (v) async {
               final q = _quote;
               if (q == null) return;
+              if (v == 'content') {
+                await _editContent(d);
+                return;
+              }
               if (v == 'wording') {
                 await _editWording(d);
                 return;
@@ -547,7 +563,8 @@ class _PosContractDetailScreenState extends State<PosContractDetailScreen> {
               );
             },
             itemBuilder: (_) => [
-              PopupMenuItem(value: 'wording', child: Text(tr('Sửa lời riêng'))),
+              PopupMenuItem(value: 'content', child: Text(tr('Sửa riêng nội dung (số liệu tự cập nhật)'))),
+              PopupMenuItem(value: 'wording', child: Text(tr('Chốt bản in & sửa chữ'))),
               PopupMenuItem(value: 'template', child: Text(tr('Chọn mẫu cho chứng từ này'))),
               if (d.isCustomWording)
                 PopupMenuItem(value: 'restore', child: Text(tr('Khôi phục theo mẫu'))),

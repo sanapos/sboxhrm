@@ -16,6 +16,7 @@ import '../../widgets/pos/pos_quote_care_sheet.dart';
 import '../../widgets/pos/pos_theme.dart';
 import 'pos_contract_detail_screen.dart';
 import 'pos_quote_composer_screen.dart';
+import 'pos_quote_document_template_screen.dart';
 import 'pos_quote_editor_screen.dart';
 
 /// Các bước của một hồ sơ báo giá → hợp đồng (dùng chung danh sách + màn chi tiết).
@@ -187,6 +188,30 @@ class _PosQuoteDetailScreenState extends State<PosQuoteDetailScreen> {
   }
 
   Future<void> _editItems() => _push(PosQuoteComposerScreen(quoteId: widget.quoteId));
+
+  /// Sửa riêng toàn bộ nội dung phiếu báo giá này (lời văn, điều khoản, bố cục); số liệu vẫn theo báo giá.
+  Future<void> _editQuoteContent(PosQuote q) async {
+    PosQuoteDocument? slip;
+    for (final d in q.documents) {
+      if (d.kind == 'Quote') {
+        slip = d;
+        break;
+      }
+    }
+    if (slip == null) {
+      final res = await ApiService().createPosQuoteDocument(q.id, 'Quote', includeImages: q.includeImages);
+      if (!mounted) return;
+      if (res['isSuccess'] != true || res['data'] is! Map) {
+        NotificationOverlayManager().showError(
+          title: 'Chưa mở được',
+          message: res['message']?.toString() ?? tr('Chưa có phiếu báo giá để sửa'),
+        );
+        return;
+      }
+      slip = PosQuoteDocument.fromJson(Map<String, dynamic>.from(res['data'] as Map));
+    }
+    await _push(PosQuoteDocumentTemplateScreen(quoteId: q.id, document: slip));
+  }
   Future<void> _openContract() => _push(PosContractDetailScreen(quoteId: widget.quoteId));
 
   Future<void> _createDoc(String kind) async {
@@ -268,6 +293,7 @@ class _PosQuoteDetailScreenState extends State<PosQuoteDetailScreen> {
               PopupMenuButton<String>(
                 tooltip: tr('Thêm'),
                 onSelected: (v) => switch (v) {
+                  'content' => _editQuoteContent(q),
                   'wording' => _push(PosQuoteEditorScreen(quoteId: q.id)),
                   'delete' => _delete(),
                   _ => _share(v),
@@ -280,7 +306,8 @@ class _PosQuoteDetailScreenState extends State<PosQuoteDetailScreen> {
                   _menu('email', Icons.email_outlined, 'Gửi Email'),
                   _menu('facebook', Icons.facebook, 'Chia sẻ Facebook'),
                   const PopupMenuDivider(),
-                  _menu('wording', Icons.edit_note_outlined, 'Hồ sơ & lời văn chứng từ'),
+                  _menu('content', Icons.edit_note_outlined, 'Sửa riêng nội dung báo giá'),
+                  _menu('wording', Icons.folder_open_outlined, 'Hồ sơ thương mại (giao diện cũ)'),
                   if (perm.canDelete('PosQuotes') && q.canDelete) ...[
                     const PopupMenuDivider(),
                     _menu('delete', Icons.delete_outline, 'Xóa báo giá', color: SboxColors.danger),

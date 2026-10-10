@@ -24,6 +24,15 @@ public partial class PosQuotesController
         return File(bytes, "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet", name);
     }
 
+    /// <summary>Mẫu riêng của phiếu báo giá (nếu đã sửa riêng) — xuất Word / HTML theo đúng bản đó.</summary>
+    async Task<string?> QuoteSlipCustomTemplateAsync(ZKTecoADMS.Domain.Entities.PosQuote quote) =>
+        await dbContext.PosQuoteDocuments.AsNoTracking()
+            .Where(d => d.QuoteId == quote.Id && d.StoreId == quote.StoreId && d.Deleted == null
+                        && d.Kind == PosQuoteDocumentKind.Quote && d.CustomTemplateHtml != null)
+            .OrderByDescending(d => d.WordingUpdatedAt)
+            .Select(d => d.CustomTemplateHtml)
+            .FirstOrDefaultAsync();
+
     [HttpGet("{id:guid}/export/word")]
     [RequireModulePermission("PosQuotes", ModulePermissionAction.Export)]
     public async Task<IActionResult> ExportWord(Guid id, [FromQuery] bool includeImages = false)
@@ -34,7 +43,8 @@ public partial class PosQuotesController
             return NotFound();
         var html = await PosQuoteDocumentHtml.BuildAsync(
             dbContext, quote, PosQuoteDocumentKind.Quote, quote.QuoteNo, quote.Note,
-            includeImages, webHostEnvironment.ContentRootPath);
+            includeImages, webHostEnvironment.ContentRootPath,
+            customTemplateHtml: await QuoteSlipCustomTemplateAsync(quote));
         var bytes = PosQuoteExportService.BuildWordHtml(html, $"Báo giá {quote.QuoteNo}");
         var name = $"BaoGia_{quote.QuoteNo}.doc";
         return File(bytes, "application/msword", name);
@@ -50,7 +60,8 @@ public partial class PosQuotesController
             return NotFound();
         var html = await PosQuoteDocumentHtml.BuildAsync(
             dbContext, quote, PosQuoteDocumentKind.Quote, quote.QuoteNo, quote.Note,
-            includeImages, webHostEnvironment.ContentRootPath);
+            includeImages, webHostEnvironment.ContentRootPath,
+            customTemplateHtml: await QuoteSlipCustomTemplateAsync(quote));
         return Content(html, "text/html; charset=utf-8");
     }
 }
