@@ -145,6 +145,7 @@ class CustomerDisplayState {
     this.promoItems = const [],
     this.storeName,
     this.idleSeconds = 8,
+    this.videoSound = false,
     this.updatedAtMs = 0,
     this.paymentQrUrl,
     this.paymentStatus,
@@ -164,6 +165,8 @@ class CustomerDisplayState {
   final String? storeName;
   /// Đồng bộ từ POS — engine phụ không có sell-settings.
   final int idleSeconds;
+  /// Video trình chiếu có tiếng (đồng bộ từ thiết lập POS — máy xem từ xa không có sell-settings).
+  final bool videoSound;
   final int updatedAtMs;
   /// URL ảnh VietQR (img.vietqr.io…) — T1 native tải bitmap.
   final String? paymentQrUrl;
@@ -190,6 +193,7 @@ class CustomerDisplayState {
     List<CustomerDisplayPromoItem>? promoItems,
     String? storeName,
     int? idleSeconds,
+    bool? videoSound,
     int? updatedAtMs,
     String? paymentQrUrl,
     String? paymentStatus,
@@ -211,6 +215,7 @@ class CustomerDisplayState {
       promoItems: promoItems ?? this.promoItems,
       storeName: storeName ?? this.storeName,
       idleSeconds: idleSeconds ?? this.idleSeconds,
+      videoSound: videoSound ?? this.videoSound,
       updatedAtMs: updatedAtMs ?? this.updatedAtMs,
       paymentQrUrl:
           clearPaymentQr ? null : (paymentQrUrl ?? this.paymentQrUrl),
@@ -236,6 +241,7 @@ class CustomerDisplayState {
         'promoItems': promoItems.map((e) => e.toJson()).toList(),
         'storeName': storeName,
         'idleSeconds': idleSeconds,
+        if (videoSound) 'videoSound': true,
         'updatedAtMs': updatedAtMs,
         if (paymentQrUrl != null && paymentQrUrl!.isNotEmpty)
           'paymentQrUrl': paymentQrUrl,
@@ -279,6 +285,7 @@ class CustomerDisplayState {
           .toList(),
       storeName: j['storeName']?.toString(),
       idleSeconds: (j['idleSeconds'] as num?)?.toInt().clamp(3, 60) ?? 8,
+      videoSound: j['videoSound'] == true,
       updatedAtMs: (j['updatedAtMs'] as num?)?.toInt() ?? 0,
       paymentQrUrl: qr.isEmpty ? null : qr,
       paymentStatus: paySt.isEmpty ? null : paySt,
@@ -307,6 +314,7 @@ class CustomerDisplayConfig {
   const CustomerDisplayConfig({
     this.enabled = false,
     this.idleSeconds = 8,
+    this.videoSound = false,
     this.useProductImages = true,
     this.promoVideoUrls = const [],
     this.promoImageUrls = const [],
@@ -317,6 +325,8 @@ class CustomerDisplayConfig {
 
   final bool enabled;
   final int idleSeconds;
+  /// Bật tiếng video trình chiếu (mặc định tắt — trình duyệt chặn tự phát có tiếng).
+  final bool videoSound;
   final bool useProductImages;
   final List<String> promoVideoUrls;
   /// Ảnh trình chiếu riêng (path stores/... hoặc URL http).
@@ -366,6 +376,7 @@ class CustomerDisplayConfig {
       return CustomerDisplayConfig(
         enabled: m['enabled'] == true,
         idleSeconds: (m['idleSeconds'] as num?)?.toInt().clamp(3, 60) ?? 8,
+        videoSound: m['videoSound'] == true,
         useProductImages: m['useProductImages'] != false,
         promoVideoUrls: videos,
         promoImageUrls: images,
@@ -390,6 +401,7 @@ class CustomerDisplayConfig {
     root['customerDisplay'] = {
       'enabled': enabled,
       'idleSeconds': idleSeconds,
+      'videoSound': videoSound,
       'useProductImages': useProductImages,
       'promoVideoUrls': promoVideoUrls,
       'promoImageUrls': promoImageUrls,
@@ -403,6 +415,7 @@ class CustomerDisplayConfig {
   CustomerDisplayConfig copyWith({
     bool? enabled,
     int? idleSeconds,
+    bool? videoSound,
     bool? useProductImages,
     List<String>? promoVideoUrls,
     List<String>? promoImageUrls,
@@ -413,6 +426,7 @@ class CustomerDisplayConfig {
     return CustomerDisplayConfig(
       enabled: enabled ?? this.enabled,
       idleSeconds: idleSeconds ?? this.idleSeconds,
+      videoSound: videoSound ?? this.videoSound,
       useProductImages: useProductImages ?? this.useProductImages,
       promoVideoUrls: promoVideoUrls ?? this.promoVideoUrls,
       promoImageUrls: promoImageUrls ?? this.promoImageUrls,

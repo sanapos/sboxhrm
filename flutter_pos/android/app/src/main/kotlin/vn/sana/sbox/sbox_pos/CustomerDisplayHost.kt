@@ -171,6 +171,18 @@ class CustomerDisplayNativePresentation(
 
     private var qrLoadToken = 0
     private var promoLoadToken = 0
+    private lateinit var scrollView: ScrollView
+    private var promoUrls: List<String> = emptyList()
+    private var promoIndex = 0
+    private var promoSeconds = 8
+    private val promoTick = object : Runnable {
+        override fun run() {
+            if (promoUrls.size < 2) return
+            promoIndex = (promoIndex + 1) % promoUrls.size
+            loadPromo(promoUrls[promoIndex])
+            mainHandler.postDelayed(this, promoSeconds * 1000L)
+        }
+    }
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -218,12 +230,12 @@ class CustomerDisplayNativePresentation(
             setPadding(dp(8), dp(8), dp(8), dp(8))
         }
         promoView = ImageView(context).apply {
-            adjustViewBounds = true
-            scaleType = ImageView.ScaleType.CENTER_CROP
+            scaleType = ImageView.ScaleType.FIT_CENTER
             visibility = android.view.View.GONE
         }
 
         val scroll = ScrollView(context).apply {
+            scrollView = this
             layoutParams = LinearLayout.LayoutParams(
                 ViewGroup.LayoutParams.MATCH_PARENT,
                 0,
@@ -242,7 +254,8 @@ class CustomerDisplayNativePresentation(
         root.addView(subtitleView)
         root.addView(promoView, LinearLayout.LayoutParams(
             ViewGroup.LayoutParams.MATCH_PARENT,
-            dp(160),
+            0,
+            1f,
         ).apply { topMargin = dp(10) })
         root.addView(scroll)
         root.addView(totalView, LinearLayout.LayoutParams(
@@ -267,7 +280,7 @@ class CustomerDisplayNativePresentation(
 
     fun applyJson(raw: String?) {
         if (raw.isNullOrBlank()) {
-            showIdle(null, null)
+            showIdle(null, emptyList(), 8)
             return
         }
         try {
@@ -275,8 +288,7 @@ class CustomerDisplayNativePresentation(
             val mode = j.optString("mode", "idle")
             val store = j.optString("storeName", "").ifBlank { "SBOX POS" }
             if (mode != "active") {
-                val promo = firstPromoImage(j.optJSONArray("promoItems"))
-                showIdle(store, promo)
+                showIdle(store, promoImages(j.optJSONArray("promoItems")), j.optInt("idleSeconds", 8))
                 return
             }
             val table = j.optString("tableLabel", "")
@@ -304,7 +316,9 @@ class CustomerDisplayNativePresentation(
             }
             linesView.text = if (buf.isEmpty()) "Chưa có món" else buf.toString().trim()
             totalView.text = "${money.format(total)}đ"
+            stopPromos()
             promoView.visibility = android.view.View.GONE
+            scrollView.visibility = android.view.View.VISIBLE
             if (qr.isNotEmpty()) {
                 hintView.text = "Quét VietQR để thanh toán"
                 qrView.visibility = android.view.View.VISIBLE
@@ -315,11 +329,27 @@ class CustomerDisplayNativePresentation(
                 qrView.setImageDrawable(null)
             }
         } catch (_: Exception) {
-            showIdle(null, null)
+            showIdle(null, emptyList(), 8)
         }
     }
 
-    private fun showIdle(store: String?, promoUrl: String?) {
+    private fun stopPromos() {
+        mainHandler.removeCallbacks(promoTick)
+        promoLoadToken++
+    }
+
+    /** Chờ khách: trình chiếu mọi ảnh (đổi sau idleSeconds) chiếm phần còn lại của màn, ảnh hiện trọn. */
+    private fun showIdle(store: String?, urls: List<String>, seconds: Int) {
+        stopPromos()
+        promoUrls = urls
+        promoSeconds = seconds.coerceIn(3, 60)
+        promoIndex = 0
+        scrollView.visibility = if (urls.isEmpty()) android.view.View.VISIBLE else android.view.View.GONE
+        showIdleText(store, urls.firstOrNull())
+        if (urls.size > 1) mainHandler.postDelayed(promoTick, promoSeconds * 1000L)
+    }
+
+    private fun showIdleText(store: String?, promoUrl: String?) {
         titleView.text = store?.ifBlank { "SBOX POS" } ?: "SBOX POS"
         subtitleView.text = "Xin chào quý khách"
         linesView.text = ""
@@ -336,14 +366,15 @@ class CustomerDisplayNativePresentation(
         }
     }
 
-    private fun firstPromoImage(arr: JSONArray?): String? {
-        if (arr == null) return null
+    private fun promoImages(arr: JSONArray?): List<String> {
+        if (arr == null) return emptyList()
+        val out = mutableListOf<String>()
         for (i in 0 until arr.length()) {
-            val o = arr.optJSONObject(i) ?: continue
-            val img = o.optString("imageUrl", "").trim()
-            if (img.isNotEmpty()) return img
+            val img = arr.optJSONObject(i)?.optString("imageUrl", "")?.trim().orEmpty()
+            if (img.isNotEmpty() && img !in out) out.add(img)
+            if (out.size >= 30) break
         }
-        return null
+        return out
     }
 
     private fun loadQr(url: String) {
@@ -360,7 +391,7 @@ class CustomerDisplayNativePresentation(
     private fun loadPromo(url: String) {
         val token = ++promoLoadToken
         io.execute {
-            val bmp = downloadBitmap(url, maxSide = 720)
+            val bmp = downloadBitmap(url, maxSide = 1280)
             mainHandler.post {
                 if (token != promoLoadToken) return@post
                 if (bmp != null) promoView.setImageBitmap(bmp)
@@ -389,7 +420,7 @@ class CustomerDisplayNativePresentation(
                     true,
                 )
             }
-        } catch (_: Exception) {
+        } catch (_: Throwable) {
             null
         }
     }
@@ -407,6 +438,7 @@ class CustomerDisplayNativePresentation(
         ).toInt()
 
     override fun onStop() {
+        stopPromos()
         super.onStop()
     }
 }
@@ -446,8 +478,11 @@ object CustomerDisplayController {
             nativePresentation?.applyJson(json)
         } catch (_: Exception) {
         }
-        // T1: luon day DSKernel tren may Sunmi (khong phu thuoc activeMode).
-        if (SunmiDsCustomerDisplay.isLikelyAvailable(context)) {
+        // T1: đẩy DSKernel trên máy Sunmi — trừ khi màn phụ đang do Presentation (native / Flutter) vẽ:
+        // cả hai cùng hiện lên một màn phụ thì che nhau (ảnh DSKernel bị Presentation phủ mất).
+        if (nativePresentation == null && flutterPresentation == null &&
+            SunmiDsCustomerDisplay.isLikelyAvailable(context)
+        ) {
             usingDsKernel = true
             try {
                 SunmiDsCustomerDisplay.ensureInit(context)

@@ -480,6 +480,17 @@ class _PosCustomerDisplaySettingsScreenState
                   },
           ),
         ),
+        SwitchListTile(
+          contentPadding: EdgeInsets.zero,
+          title: Text(tr('Bật tiếng video')),
+          subtitle: Text(tr(cd.target == CustomerDisplayTarget.t1Native
+              ? 'Không áp dụng cho Sunmi T1 (DSKernel không phát video)'
+              : 'Mặc định tắt. Trên trình duyệt / TV: nếu bị chặn tự phát có tiếng, màn phụ hiện nút «Chạm để bật tiếng»')),
+          value: cd.videoSound,
+          onChanged: busy || !cd.enabled
+              ? null
+              : (v) => _patchCd((c) => c.copyWith(videoSound: v)),
+        ),
         const Divider(height: 28),
         Text(tr('Ảnh trình chiếu'),
             style: const TextStyle(fontWeight: FontWeight.w700, fontSize: 16)),

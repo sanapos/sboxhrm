@@ -246,6 +246,7 @@ object SunmiDsCustomerDisplay {
         sb.append(j.optDouble("discount")).append('|')
         sb.append(j.optString("paymentQrUrl")).append('|')
         sb.append(j.optString("storeName")).append('|')
+        sb.append(j.optInt("idleSeconds", 8)).append('|')
         val lines = j.optJSONArray("lines")
         if (lines != null) {
             for (i in 0 until lines.length()) {
@@ -258,8 +259,11 @@ object SunmiDsCustomerDisplay {
         }
         val promos = j.optJSONArray("promoItems")
         if (promos != null) {
-            for (i in 0 until minOf(promos.length(), 12)) {
-                sb.append(promos.optJSONObject(i)?.optString("imageUrl") ?: "").append(',')
+            for (i in 0 until minOf(promos.length(), 30)) {
+                val o = promos.optJSONObject(i)
+                sb.append(o?.optString("imageUrl") ?: "").append('~')
+                    .append(o?.optString("title") ?: "").append('~')
+                    .append(o?.optDouble("price", 0.0) ?: 0.0).append(',')
             }
         }
         return sb.toString()
@@ -276,7 +280,17 @@ object SunmiDsCustomerDisplay {
         showTextTemplate(store.take(40), "Xin chào quý khách")
     }
 
-    /** Idle: ưu tiên ảnh promo (SHOW_IMG_WELCOME), không có thì TEXT. */
+    private data class PromoSlide(val url: String, val title: String, val price: Double)
+
+    /** Ảnh slide đã vẽ sẵn 1024×600 theo (url|tên|giá) — vòng sau không tải / vẽ lại. */
+    private val slideFiles = java.util.concurrent.ConcurrentHashMap<String, String>()
+
+    /**
+     * Idle: TRÌNH CHIẾU mọi ảnh promo (ảnh upload + ảnh hàng hóa), đổi sau mỗi idleSeconds.
+     * Trước đây chỉ lấy ảnh đầu tiên, gửi nguyên cỡ gốc (vd 1536×1024) → màn T1 cắt / méo, không bao giờ đổi ảnh.
+     * Mỗi ảnh được vẽ lên khung 1024×600: nền tối, ảnh hiện trọn (không cắt), dải tên + giá ở đáy.
+     * Không có ảnh / tải lỗi hết → màn chào chữ.
+     */
     private fun showIdleWithPromos(j: JSONObject, store: String) {
         val ctx = appContext ?: run {
             showIdleWelcome(store)
@@ -286,57 +300,138 @@ object SunmiDsCustomerDisplay {
             showIdleWelcome(store)
             return
         }
-        var imageUrl: String? = null
+        val slides = mutableListOf<PromoSlide>()
         val promos = j.optJSONArray("promoItems")
         if (promos != null) {
             for (i in 0 until promos.length()) {
-                val u = promos.optJSONObject(i)?.optString("imageUrl")?.trim()
-                if (!u.isNullOrBlank()) {
-                    imageUrl = u
-                    break
-                }
+                val o = promos.optJSONObject(i) ?: continue
+                val u = o.optString("imageUrl", "").trim()
+                if (u.isEmpty() || slides.any { it.url == u }) continue
+                val title = o.optString("title", "").trim()
+                slides.add(PromoSlide(u, title, o.optDouble("price", 0.0)))
+                if (slides.size >= 30) break
             }
         }
-        if (imageUrl.isNullOrBlank()) {
+        if (slides.isEmpty()) {
             showIdleWelcome(store)
             return
         }
+        // DSKernel cần vài giây để chuyển file sang màn phụ — không đổi nhanh hơn 6 giây.
+        val seconds = j.optInt("idleSeconds", 8).coerceIn(6, 60)
         val token = gen.incrementAndGet()
+        showSlide(ctx, slides, 0, 0, seconds, store, token)
+    }
+
+    private fun showSlide(
+        ctx: Context,
+        slides: List<PromoSlide>,
+        index: Int,
+        failures: Int,
+        seconds: Int,
+        store: String,
+        token: Int,
+    ) {
+        if (token != gen.get()) return
+        if (failures >= slides.size) {
+            // Không ảnh nào tải được (mạng / link hỏng) → màn chào, thử lại sau 60 giây.
+            Log.w(TAG, "idle slideshow: all ${slides.size} images failed")
+            showTextTemplate(store.take(40), "Xin chào quý khách")
+            mainHandler.postDelayed({ showSlide(ctx, slides, 0, 0, seconds, store, token) }, 60_000L)
+            return
+        }
+        val slide = slides[index % slides.size]
         io.execute {
             if (token != gen.get()) return@execute
-            try {
-                val bmp = downloadBitmap(imageUrl) ?: run {
-                    Log.w(TAG, "idle promo download fail url=$imageUrl")
-                    mainHandler.post { showIdleWelcome(store) }
-                    return@execute
-                }
-                val file = resolveWelcomeFile(ctx, token)
-                FileOutputStream(file).use { out ->
-                    bmp.compress(Bitmap.CompressFormat.JPEG, 88, out)
-                }
-                bmp.recycle()
-                try {
-                    file.setReadable(true, false)
-                    file.setWritable(true, false)
-                } catch (_: Exception) {
-                }
-                if (!file.exists() || file.length() < 100) {
-                    mainHandler.post { showIdleWelcome(store) }
-                    return@execute
-                }
-                Log.i(TAG, "idle welcome image size=${file.length()}")
-                sendFullScreenPicture(
-                    path = file.absolutePath,
-                    token = token,
-                    fallbackTitle = store.take(40),
-                    fallbackBody = listOf("Xin chào quý khách"),
-                    fallbackFooter = null,
+            val path = try {
+                renderSlideFile(ctx, slide, store)
+            } catch (t: Throwable) {
+                Log.e(TAG, "render slide ${slide.url}", t)
+                null
+            }
+            if (token != gen.get()) return@execute
+            if (path == null) {
+                mainHandler.post { showSlide(ctx, slides, index + 1, failures + 1, seconds, store, token) }
+                return@execute
+            }
+            sendFullScreenPicture(
+                path = path,
+                token = token,
+                fallbackTitle = store.take(40),
+                fallbackBody = listOf("Xin chào quý khách"),
+                fallbackFooter = null,
+            )
+            if (slides.size > 1) {
+                mainHandler.postDelayed(
+                    { showSlide(ctx, slides, index + 1, 0, seconds, store, token) },
+                    seconds * 1000L,
                 )
-            } catch (e: Exception) {
-                Log.e(TAG, "showIdleWithPromos", e)
-                mainHandler.post { showIdleWelcome(store) }
             }
         }
+    }
+
+    /** Tải ảnh (thu nhỏ khi giải mã), vẽ lên khung 1024×600, lưu JPEG. Trả đường dẫn file hoặc null. */
+    private fun renderSlideFile(ctx: Context, slide: PromoSlide, store: String): String? {
+        val key = "${slide.url}|${slide.title}|${slide.price}"
+        slideFiles[key]?.let { if (File(it).length() > 100) return it }
+        val src = downloadBitmap(slide.url) ?: run {
+            Log.w(TAG, "idle promo download fail url=${slide.url}")
+            return null
+        }
+        val bmp = Bitmap.createBitmap(W, H, Bitmap.Config.RGB_565)
+        val c = Canvas(bmp)
+        c.drawColor(Color.parseColor("#0B1220"))
+        val caption = slide.title.ifBlank { store }
+        val hasCaption = caption.isNotBlank()
+        val captionH = if (hasCaption) 84f else 0f
+        // Ảnh hiện trọn trong vùng phía trên dải chữ.
+        val boxH = H - captionH
+        val scale = minOf(W / src.width.toFloat(), boxH / src.height.toFloat())
+        val dw = src.width * scale
+        val dh = src.height * scale
+        val left = (W - dw) / 2f
+        val top = (boxH - dh) / 2f
+        c.drawBitmap(
+            src,
+            null,
+            android.graphics.RectF(left, top, left + dw, top + dh),
+            Paint(Paint.ANTI_ALIAS_FLAG or Paint.FILTER_BITMAP_FLAG),
+        )
+        src.recycle()
+        if (hasCaption) {
+            val band = Paint().apply { color = Color.parseColor("#0F172A") }
+            c.drawRect(0f, H - captionH, W.toFloat(), H.toFloat(), band)
+            val pricePaint = TextPaint(Paint.ANTI_ALIAS_FLAG).apply {
+                color = Color.WHITE
+                textSize = 34f
+                typeface = Typeface.DEFAULT_BOLD
+            }
+            val priceText = if (slide.price > 0.5) formatMoney(slide.price) else ""
+            val priceW = if (priceText.isEmpty()) 0f else pricePaint.measureText(priceText) + 36f
+            if (priceText.isNotEmpty()) {
+                val pill = Paint(Paint.ANTI_ALIAS_FLAG).apply { color = Color.parseColor("#DC2626") }
+                val pl = W - 28f - priceW
+                c.drawRoundRect(android.graphics.RectF(pl, H - captionH + 16f, W - 28f, H - 16f), 12f, 12f, pill)
+                c.drawText(priceText, pl + 18f, H - captionH / 2f + 12f, pricePaint)
+            }
+            val titlePaint = TextPaint(Paint.ANTI_ALIAS_FLAG).apply {
+                color = Color.WHITE
+                textSize = 32f
+                typeface = Typeface.DEFAULT_BOLD
+            }
+            val maxW = W - 56f - priceW - 16f
+            val title = android.text.TextUtils.ellipsize(caption, titlePaint, maxW, android.text.TextUtils.TruncateAt.END)
+            c.drawText(title.toString(), 28f, H - captionH / 2f + 11f, titlePaint)
+        }
+        val file = resolveMediaFile(ctx, "sbox_cd_slide_${Integer.toHexString(key.hashCode())}.jpg")
+        FileOutputStream(file).use { out -> bmp.compress(Bitmap.CompressFormat.JPEG, 86, out) }
+        bmp.recycle()
+        try {
+            file.setReadable(true, false)
+        } catch (_: Exception) {
+        }
+        if (!file.exists() || file.length() < 100) return null
+        slideFiles[key] = file.absolutePath
+        return file.absolutePath
     }
 
     /** Docs 2.1 — two lines of text (7"). */
@@ -423,7 +518,7 @@ object SunmiDsCustomerDisplay {
                     fallbackBody = lines.map { formatBillTextLine(it) },
                     fallbackFooter = "TỔNG  ${formatMoney(total)}",
                 )
-            } catch (e: Exception) {
+            } catch (e: Throwable) {
                 Log.e(TAG, "renderAndSend", e)
                 showTextTemplate(title, "TỔNG  ${formatMoney(total)}")
             }
@@ -446,9 +541,15 @@ object SunmiDsCustomerDisplay {
             val bytes = conn.inputStream.use { it.readBytes() }
             conn.disconnect()
             if (bytes.size < 200) return null
-            BitmapFactory.decodeByteArray(bytes, 0, bytes.size)
-        } catch (e: Exception) {
-            Log.w(TAG, "downloadBitmap: ${e.message}")
+            // Giải mã thu nhỏ về ~2048px cạnh dài: đủ nét cho khung 1024×600, không tràn RAM.
+            val bounds = BitmapFactory.Options().apply { inJustDecodeBounds = true }
+            BitmapFactory.decodeByteArray(bytes, 0, bytes.size, bounds)
+            var sample = 1
+            while (maxOf(bounds.outWidth, bounds.outHeight) / (sample * 2) >= 2048) sample *= 2
+            val opts = BitmapFactory.Options().apply { inSampleSize = sample }
+            BitmapFactory.decodeByteArray(bytes, 0, bytes.size, opts)
+        } catch (t: Throwable) {
+            Log.w(TAG, "downloadBitmap: ${t.message}")
             null
         }
     }
@@ -668,11 +769,6 @@ object SunmiDsCustomerDisplay {
 
     private fun resolveBillFile(ctx: Context, token: Int): File {
         val name = "sbox_cd_bill_$token.jpg"
-        return resolveMediaFile(ctx, name)
-    }
-
-    private fun resolveWelcomeFile(ctx: Context, token: Int): File {
-        val name = "sbox_cd_welcome_$token.jpg"
         return resolveMediaFile(ctx, name)
     }
 

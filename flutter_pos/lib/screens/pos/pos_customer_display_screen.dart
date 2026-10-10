@@ -23,7 +23,8 @@ import '../../theme/sbox_tokens.dart';
 /// - Chờ khách: ảnh / video chiếu TOÀN màn (tên cửa hàng góc dưới).
 /// - Đang bán: màn ngang → media | hóa đơn; màn dọc → dải media 16:9 trên, hóa đơn dưới.
 /// - Chữ / mã QR co giãn theo cạnh ngắn của màn (7″ 1024×600 … TV 1920×1080).
-/// - Video: tắt tiếng (trình duyệt chặn tự phát có tiếng), phát hết rồi sang mục kế; lỗi / treo → bỏ qua.
+/// - Video: tiếng theo thiết lập «Bật tiếng video» (trình duyệt chặn tự phát có tiếng → phát tắt tiếng,
+///   hiện nút «Chạm để bật tiếng»); phát hết rồi sang mục kế; lỗi / treo → bỏ qua.
 /// Không có ảnh/video → panel branding SBOX.
 class PosCustomerDisplayScreen extends StatefulWidget {
   const PosCustomerDisplayScreen({super.key});
@@ -51,6 +52,9 @@ class _PosCustomerDisplayScreenState extends State<PosCustomerDisplayScreen> {
   /// Tăng mỗi lần đổi media — kết quả khởi tạo video cũ (chậm) bị bỏ, không rò controller.
   int _mediaGen = 0;
   bool _advancing = false;
+
+  /// Trình duyệt chặn tự phát có tiếng → đang phát tắt tiếng, chờ khách chạm để bật.
+  bool _soundBlocked = false;
 
   static const _billBg = Color(0xFFFFFFFF);
   static const _billFg = SboxColors.slate900;
@@ -119,9 +123,18 @@ class _PosCustomerDisplayScreenState extends State<PosCustomerDisplayScreen> {
       .map((e) => '${e.videoUrl ?? ''}|${e.imageUrl ?? ''}')
       .join(';');
 
+  /// Thiết lập «Bật tiếng video»: state do máy thu ngân đóng dấu (máy xem từ xa chỉ có state).
+  bool get _wantSound => _sync.state.updatedAtMs > 0 ? _sync.state.videoSound : _sync.config.videoSound;
+
   void _onSync() {
     if (!mounted) return;
     setState(() {});
+    // Đổi thiết lập tiếng khi video đang phát.
+    final v = _video;
+    if (v != null && v.value.isInitialized && !_soundBlocked) {
+      final want = _wantSound ? 1.0 : 0.0;
+      if (v.value.volume != want) unawaited(v.setVolume(want));
+    }
     final fp = _fingerprint();
     if (fp == _promoFingerprint) {
       // Vẫn cập nhật timer nếu idleSeconds đổi.
@@ -266,12 +279,10 @@ class _PosCustomerDisplayScreenState extends State<PosCustomerDisplayScreen> {
         await c.dispose();
         return;
       }
-      // Trình duyệt chặn video tự phát có tiếng → tắt tiếng; màn phụ không cần âm thanh.
-      await c.setVolume(0);
       await c.setLooping(items.length == 1);
       final ctrl = c;
       ctrl.addListener(() => _onVideoTick(ctrl, gen));
-      await c.play();
+      final blocked = await _playWithSoundSetting(ctrl);
       if (!mounted || gen != _mediaGen) {
         await c.dispose();
         return;
@@ -280,6 +291,7 @@ class _PosCustomerDisplayScreenState extends State<PosCustomerDisplayScreen> {
         _video = c;
         _playingVideoUrl = url;
         _videoError = null;
+        _soundBlocked = blocked;
       });
     } catch (_) {
       await c?.dispose();
@@ -293,6 +305,41 @@ class _PosCustomerDisplayScreenState extends State<PosCustomerDisplayScreen> {
         });
       }
     }
+  }
+
+  /// Phát theo thiết lập tiếng. Trả true nếu trình duyệt chặn phát có tiếng (đã chuyển sang tắt tiếng).
+  /// Android / iOS không chặn; trình duyệt chỉ cho phát có tiếng sau khi người xem chạm vào trang.
+  Future<bool> _playWithSoundSetting(VideoPlayerController c) async {
+    if (!_wantSound) {
+      await c.setVolume(0);
+      await c.play();
+      return false;
+    }
+    if (!kIsWeb) {
+      await c.setVolume(1);
+      await c.play();
+      return false;
+    }
+    // Trình duyệt: phát có tiếng khi chưa có thao tác của người xem sẽ bị từ chối (và plugin báo lỗi video).
+    // Luôn bắt đầu tắt tiếng (được phép), rồi mới bật tiếng: bị chặn thì trình duyệt dừng video →
+    // quay lại tắt tiếng và hiện nút «Chạm để bật tiếng».
+    await c.setVolume(0);
+    await c.play();
+    await Future<void>.delayed(const Duration(milliseconds: 300));
+    await c.setVolume(1);
+    await Future<void>.delayed(const Duration(milliseconds: 500));
+    if (c.value.isPlaying && !c.value.hasError) return false;
+    await c.setVolume(0);
+    await c.play();
+    return true;
+  }
+
+  Future<void> _unblockSound() async {
+    final v = _video;
+    if (v == null) return;
+    await v.setVolume(1);
+    if (!v.value.isPlaying) await v.play();
+    if (mounted) setState(() => _soundBlocked = false);
   }
 
   /// Phát hết (khi có nhiều mục) hoặc lỗi giữa chừng → sang mục kế.
@@ -321,6 +368,7 @@ class _PosCustomerDisplayScreenState extends State<PosCustomerDisplayScreen> {
     final v = _video;
     _video = null;
     _playingVideoUrl = null;
+    _soundBlocked = false;
     v?.dispose();
   }
 
@@ -522,6 +570,31 @@ class _PosCustomerDisplayScreenState extends State<PosCustomerDisplayScreen> {
             duration: const Duration(milliseconds: 450),
             child: KeyedSubtree(key: ValueKey('m:$_promoIndex:${media.key}'), child: media),
           ),
+          if (hasVideo && _soundBlocked)
+            Positioned(
+              top: 12 * scale,
+              right: 12 * scale,
+              child: Material(
+                color: const Color(0xCC000000),
+                borderRadius: BorderRadius.circular(24),
+                child: InkWell(
+                  borderRadius: BorderRadius.circular(24),
+                  onTap: _unblockSound,
+                  child: Padding(
+                    padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
+                    child: Row(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        Icon(Icons.volume_up_rounded, color: Colors.white, size: 20 * scale),
+                        const SizedBox(width: 6),
+                        Text(tr('Chạm để bật tiếng'),
+                            style: const TextStyle(color: Colors.white, fontSize: 14, fontWeight: FontWeight.w600)),
+                      ],
+                    ),
+                  ),
+                ),
+              ),
+            ),
           if (caption.isNotEmpty || item.price != null || (idle && store.isNotEmpty))
             Positioned(
               left: 0,

@@ -183,6 +183,7 @@ class CustomerDisplaySync extends ChangeNotifier {
     final stamped = next.copyWith(
       updatedAtMs: DateTime.now().millisecondsSinceEpoch,
       idleSeconds: _config.idleSeconds,
+      videoSound: _config.videoSound,
     );
     if (stillValid != null && !stillValid()) return;
     _state = stamped;
