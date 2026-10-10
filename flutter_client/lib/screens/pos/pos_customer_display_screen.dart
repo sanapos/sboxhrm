@@ -1,7 +1,11 @@
 import 'dart:async';
+import 'dart:math' as math;
+import 'dart:ui' show ImageFilter;
 
 import 'package:cached_network_image/cached_network_image.dart';
+import 'package:flutter/foundation.dart' show kIsWeb;
 import 'package:flutter/material.dart';
+import 'package:flutter_cache_manager/flutter_cache_manager.dart';
 import 'package:intl/intl.dart';
 import 'package:video_player/video_player.dart';
 
@@ -14,8 +18,13 @@ import '../../widgets/hrm_page_chrome.dart';
 import 'package:zkteco_flutter_client/l10n/app_tr.dart';
 
 import '../../theme/sbox_tokens.dart';
-/// Màn hình phụ phía khách: luôn 2 cột — media | bill (trắng/đen).
-/// Không có ảnh/video → panel branding SBOX HRM (giống trang chủ).
+
+/// Màn hình phụ phía khách.
+/// - Chờ khách: ảnh / video chiếu TOÀN màn (tên cửa hàng góc dưới).
+/// - Đang bán: màn ngang → media | hóa đơn; màn dọc → dải media 16:9 trên, hóa đơn dưới.
+/// - Chữ / mã QR co giãn theo cạnh ngắn của màn (7″ 1024×600 … TV 1920×1080).
+/// - Video: tắt tiếng (trình duyệt chặn tự phát có tiếng), phát hết rồi sang mục kế; lỗi / treo → bỏ qua.
+/// Không có ảnh/video → panel branding SBOX.
 class PosCustomerDisplayScreen extends StatefulWidget {
   const PosCustomerDisplayScreen({super.key});
 
@@ -39,6 +48,10 @@ class _PosCustomerDisplayScreenState extends State<PosCustomerDisplayScreen> {
   bool _awaitingRemote = false;
   String? _remoteStatus;
 
+  /// Tăng mỗi lần đổi media — kết quả khởi tạo video cũ (chậm) bị bỏ, không rò controller.
+  int _mediaGen = 0;
+  bool _advancing = false;
+
   static const _billBg = Color(0xFFFFFFFF);
   static const _billFg = SboxColors.slate900;
   static const _billMuted = SboxColors.slate500;
@@ -60,6 +73,7 @@ class _PosCustomerDisplayScreenState extends State<PosCustomerDisplayScreen> {
     }
     _sync.startListening();
     _sync.addListener(_onSync);
+    _promoFingerprint = _fingerprint();
     _restartIdleTimer();
     unawaited(_ensurePromoMedia());
     if ((_viewerCode ?? '').length >= 4) {
@@ -75,6 +89,7 @@ class _PosCustomerDisplayScreenState extends State<PosCustomerDisplayScreen> {
     _idleTimer?.cancel();
     _remotePoll?.cancel();
     _sync.removeListener(_onSync);
+    _mediaGen++;
     _disposeVideo();
     super.dispose();
   }
@@ -106,18 +121,22 @@ class _PosCustomerDisplayScreenState extends State<PosCustomerDisplayScreen> {
     }
   }
 
+  String _fingerprint() => _promoList
+      .map((e) => '${e.videoUrl ?? ''}|${e.imageUrl ?? ''}')
+      .join(';');
+
   void _onSync() {
     if (!mounted) return;
     setState(() {});
-    final fp = _promoList
-        .map((e) => '${e.videoUrl ?? ''}|${e.imageUrl ?? ''}')
-        .join(';');
+    final fp = _fingerprint();
     if (fp == _promoFingerprint) {
       // Vẫn cập nhật timer nếu idleSeconds đổi.
       _restartIdleTimer();
       return;
     }
     _promoFingerprint = fp;
+    final n = _promoList.length;
+    if (n > 0 && _promoIndex >= n) _promoIndex = 0;
     _restartIdleTimer();
     unawaited(_ensurePromoMedia());
   }
@@ -128,24 +147,29 @@ class _PosCustomerDisplayScreenState extends State<PosCustomerDisplayScreen> {
     return _sync.config.idleSeconds.clamp(3, 60);
   }
 
+  bool get _videoPlaying =>
+      _video != null &&
+      _video!.value.isInitialized &&
+      !_video!.value.hasError &&
+      (_playingVideoUrl ?? '').isNotEmpty;
+
   void _restartIdleTimer() {
     _idleTimer?.cancel();
     final sec = _idleSeconds;
     _idleTimer = Timer.periodic(Duration(seconds: sec), (_) {
       if (!mounted) return;
-      final items = _promoList;
-      if (items.isEmpty) return;
-      // Đang phát video thành công — không nhảy slide (tránh cắt giữa chừng).
-      if (_video != null &&
-          _video!.value.isInitialized &&
-          (_playingVideoUrl ?? '').isNotEmpty) {
-        return;
-      }
-      setState(() {
-        _promoIndex = (_promoIndex + 1) % items.length;
-      });
-      unawaited(_ensurePromoMedia());
+      // Video đang phát: chờ phát hết (listener tự chuyển), không cắt giữa chừng.
+      if (_videoPlaying) return;
+      _next();
     });
+  }
+
+  /// Sang mục trình chiếu kế tiếp.
+  void _next() {
+    final items = _promoList;
+    if (items.isEmpty || !mounted) return;
+    setState(() => _promoIndex = (_promoIndex + 1) % items.length);
+    unawaited(_ensurePromoMedia());
   }
 
   List<CustomerDisplayPromoItem> get _promoList {
@@ -171,19 +195,41 @@ class _PosCustomerDisplayScreenState extends State<PosCustomerDisplayScreen> {
         lower.contains('vimeo.com')) {
       return false;
     }
-    // Drive/Dropbox đã chuẩn hoá → cho phép.
-    if (lower.contains('drive.google.com') ||
-        lower.contains('dropbox')) {
-      return true;
+    return lower.startsWith('http');
+  }
+
+  /// Máy Android: lần đầu phát qua mạng và tải file về bộ nhớ đệm; các vòng sau phát từ file
+  /// (không tải lại video mỗi lượt, không bị Drive giới hạn lượt tải).
+  Future<VideoPlayerController> _videoControllerFor(String url) async {
+    if (!kIsWeb) {
+      try {
+        final cached = await DefaultCacheManager().getFileFromCache(url);
+        if (cached != null) return VideoPlayerController.file(cached.file);
+        unawaited(DefaultCacheManager().downloadFile(url).then((_) {}, onError: (_) {}));
+      } catch (_) {}
     }
-    return lower.contains('.mp4') ||
-        lower.contains('.webm') ||
-        lower.contains('.mov') ||
-        lower.contains('public-serve') ||
-        lower.startsWith('http');
+    return VideoPlayerController.networkUrl(
+      Uri.parse(url),
+      videoPlayerOptions: VideoPlayerOptions(mixWithOthers: true),
+    );
+  }
+
+  /// Tải trước ảnh của mục kế tiếp — chuyển slide không còn khoảng tối chờ tải ảnh.
+  void _precacheNext(List<CustomerDisplayPromoItem> items) {
+    if (items.length < 2 || !mounted) return;
+    final next = items[(_promoIndex + 1) % items.length];
+    if ((next.videoUrl ?? '').trim().isNotEmpty) return;
+    final url = _resolveMediaUrl(next.imageUrl);
+    if (url.isEmpty) return;
+    // Sau khung hình: precacheImage đọc MediaQuery, không gọi được ngay trong initState.
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!mounted) return;
+      unawaited(precacheImage(CachedNetworkImageProvider(url), context).catchError((_) {}));
+    });
   }
 
   Future<void> _ensurePromoMedia() async {
+    final gen = ++_mediaGen;
     final items = _promoList;
     if (items.isEmpty) {
       _disposeVideo();
@@ -191,6 +237,7 @@ class _PosCustomerDisplayScreenState extends State<PosCustomerDisplayScreen> {
       return;
     }
     final item = items[_promoIndex % items.length];
+    _precacheNext(items);
     final raw = (item.videoUrl ?? '').trim();
     if (raw.isEmpty) {
       _disposeVideo();
@@ -202,33 +249,78 @@ class _PosCustomerDisplayScreenState extends State<PosCustomerDisplayScreen> {
       _disposeVideo();
       if (mounted) {
         setState(() => _videoError =
-            'Video không hợp lệ — dùng URL file .mp4/.webm (không YouTube)');
+            'Video không hợp lệ — dùng link file .mp4 / Google Drive (không YouTube)');
       }
       return;
     }
-    if (_video != null && _playingVideoUrl == url) return;
+    if (_video != null && _playingVideoUrl == url) {
+      // Cùng video (danh sách chỉ có 1 mục) — phát lại từ đầu nếu đã dừng.
+      _video!.setLooping(items.length == 1);
+      if (!_video!.value.isPlaying) {
+        await _video!.seekTo(Duration.zero);
+        await _video!.play();
+      }
+      return;
+    }
     _disposeVideo();
     if (mounted) setState(() => _videoError = null);
+    VideoPlayerController? c;
     try {
-      final c = VideoPlayerController.networkUrl(Uri.parse(url));
-      await c.initialize();
-      if (!mounted) {
+      c = await _videoControllerFor(url);
+      await c.initialize().timeout(const Duration(seconds: 25));
+      if (!mounted || gen != _mediaGen) {
         await c.dispose();
         return;
       }
-      c.setLooping(true);
+      // Trình duyệt chặn video tự phát có tiếng → tắt tiếng; màn phụ không cần âm thanh.
+      await c.setVolume(0);
+      await c.setLooping(items.length == 1);
+      final ctrl = c;
+      ctrl.addListener(() => _onVideoTick(ctrl, gen));
       await c.play();
+      if (!mounted || gen != _mediaGen) {
+        await c.dispose();
+        return;
+      }
       setState(() {
         _video = c;
         _playingVideoUrl = url;
         _videoError = null;
       });
-    } catch (e) {
+    } catch (_) {
+      await c?.dispose();
+      if (!mounted || gen != _mediaGen) return;
       _disposeVideo();
-      if (mounted) {
-        setState(() => _videoError = 'Không phát được video');
+      setState(() => _videoError = 'Không phát được video — chuyển mục khác');
+      // Bỏ qua video hỏng thay vì đứng ở màn lỗi.
+      if (items.length > 1) {
+        Future.delayed(const Duration(seconds: 3), () {
+          if (mounted && gen == _mediaGen) _next();
+        });
       }
     }
+  }
+
+  /// Phát hết (khi có nhiều mục) hoặc lỗi giữa chừng → sang mục kế.
+  void _onVideoTick(VideoPlayerController c, int gen) {
+    if (gen != _mediaGen || _advancing || !identical(c, _video)) return;
+    final v = c.value;
+    final ended = v.isInitialized &&
+        !v.isLooping &&
+        v.duration > Duration.zero &&
+        v.position >= v.duration - const Duration(milliseconds: 300) &&
+        !v.isPlaying;
+    if (!ended && !v.hasError) return;
+    _advancing = true;
+    scheduleMicrotask(() {
+      _advancing = false;
+      if (!mounted || gen != _mediaGen) return;
+      if (_promoList.length > 1) {
+        _next();
+      } else {
+        unawaited(c.seekTo(Duration.zero).then((_) => c.play()));
+      }
+    });
   }
 
   void _disposeVideo() {
@@ -238,24 +330,131 @@ class _PosCustomerDisplayScreenState extends State<PosCustomerDisplayScreen> {
     v?.dispose();
   }
 
+  bool _paymentConfirmed(CustomerDisplayState s) =>
+      (s.paymentStatus ?? '').toLowerCase() == 'confirmed';
+
+  bool _hasQr(CustomerDisplayState s) =>
+      !_paymentConfirmed(s) && (s.paymentQrUrl ?? '').isNotEmpty;
+
+  Widget _buildQrPanel(CustomerDisplayState s, double scale) {
+    return ColoredBox(
+      key: const ValueKey('qr-panel'),
+      color: const Color(0xFFF1F5F9),
+      child: LayoutBuilder(builder: (context, c) {
+        final qr = math.min(c.maxWidth * 0.8, c.maxHeight - 150 * scale).clamp(120.0, 560.0);
+        return Center(
+          child: SingleChildScrollView(
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Text(
+                  tr((s.paymentStatus ?? '').toLowerCase() == 'waiting'
+                      ? 'Quét mã để chuyển khoản'
+                      : 'Mã QR thanh toán'),
+                  textAlign: TextAlign.center,
+                  style: const TextStyle(color: _billFg, fontSize: 20, fontWeight: FontWeight.w700),
+                ),
+                const SizedBox(height: 4),
+                Text(
+                  '${_money.format(s.total)}đ',
+                  style: const TextStyle(color: SboxColors.danger, fontSize: 30, fontWeight: FontWeight.w800),
+                ),
+                const SizedBox(height: 10),
+                Container(
+                  width: qr + 16,
+                  height: qr + 16,
+                  padding: const EdgeInsets.all(8),
+                  decoration: BoxDecoration(
+                    color: Colors.white,
+                    borderRadius: BorderRadius.circular(12),
+                    boxShadow: const [BoxShadow(color: Color(0x1A000000), blurRadius: 16, offset: Offset(0, 4))],
+                  ),
+                  child: CachedNetworkImage(
+                    imageUrl: s.paymentQrUrl!,
+                    fit: BoxFit.contain,
+                    errorWidget: (_, __, ___) => Icon(Icons.qr_code_2, size: qr * 0.5, color: _billMuted),
+                  ),
+                ),
+              ],
+            ),
+          ),
+        );
+      }),
+    );
+  }
+
+  Widget _buildPaidPanel(CustomerDisplayState s, double scale) {
+    return ColoredBox(
+      key: const ValueKey('paid-panel'),
+      color: SboxColors.successSoft,
+      child: Center(
+        child: SingleChildScrollView(
+          padding: const EdgeInsets.all(24),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Icon(Icons.check_circle_rounded, color: SboxColors.success, size: 96 * scale),
+              const SizedBox(height: 12),
+              Text(
+                tr((s.paymentConfirmedMessage ?? 'Đã nhận chuyển khoản').trim()),
+                textAlign: TextAlign.center,
+                style: const TextStyle(color: SboxColors.successText, fontSize: 26, fontWeight: FontWeight.w800),
+              ),
+              const SizedBox(height: 6),
+              Text(
+                tr('Cảm ơn quý khách'),
+                style: const TextStyle(color: SboxColors.successText, fontSize: 18),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
+  bool _showBill(CustomerDisplayState s) =>
+      s.isActive ||
+      (s.paymentQrUrl ?? '').isNotEmpty ||
+      (s.paymentStatus ?? '').toLowerCase() == 'confirmed';
+
   @override
   Widget build(BuildContext context) {
     final s = _sync.state;
-    final wide = MediaQuery.sizeOf(context).width >= 720;
-    final body = wide
-        ? Row(
+    final body = LayoutBuilder(
+      builder: (context, c) {
+        final w = c.maxWidth;
+        final h = c.maxHeight;
+        // 600 px cạnh ngắn = cỡ chuẩn (màn 7″ 1024×600); TV 1080p → ×1.8.
+        final scale = (math.min(w, h) / 600).clamp(0.8, 2.0).toDouble();
+        Widget content;
+        if (!_showBill(s)) {
+          content = _buildMediaPane(s, scale, idle: true);
+        } else if (w >= h * 1.1) {
+          final billW = (w * 0.38).clamp(300 * scale, math.max(300 * scale, w * 0.5)).toDouble();
+          content = Row(
+            crossAxisAlignment: CrossAxisAlignment.stretch,
             children: [
-              // ~60% media — full khung, không bị bill đè.
-              Expanded(flex: 62, child: _buildMediaPane(s)),
-              Expanded(flex: 38, child: _buildBillPane(s)),
-            ],
-          )
-        : Column(
-            children: [
-              Expanded(flex: 55, child: _buildMediaPane(s)),
-              Expanded(flex: 45, child: _buildBillPane(s)),
+              Expanded(child: _buildMediaPane(s, scale)),
+              SizedBox(width: math.min(billW, w * 0.6), child: _buildBillPane(s, scale)),
             ],
           );
+        } else {
+          // Màn dọc / vuông: dải media đúng 16:9 theo bề ngang, phần còn lại cho hóa đơn.
+          final mediaH = math.min(w * 9 / 16, h * 0.42);
+          content = Column(
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              SizedBox(height: mediaH, child: _buildMediaPane(s, scale)),
+              Expanded(child: _buildBillPane(s, scale)),
+            ],
+          );
+        }
+        return MediaQuery(
+          data: MediaQuery.of(context).copyWith(textScaler: TextScaler.linear(scale)),
+          child: content,
+        );
+      },
+    );
     return Scaffold(
       backgroundColor: _billBg,
       // Thông báo chờ máy thu ngân nằm trên cùng, đẩy nội dung xuống — trước đây nổi đè lên tiêu đề hóa đơn.
@@ -285,57 +484,140 @@ class _PosCustomerDisplayScreenState extends State<PosCustomerDisplayScreen> {
     );
   }
 
-  Widget _buildMediaPane(CustomerDisplayState s) {
+  Widget _buildMediaPane(CustomerDisplayState s, double scale, {bool idle = false}) {
+    // Đang chờ chuyển khoản / vừa nhận tiền: vùng media lớn dành cho mã QR / xác nhận (dễ quét trên màn 7″).
+    if (!idle && _paymentConfirmed(s)) return _buildPaidPanel(s, scale);
+    if (!idle && _hasQr(s)) return _buildQrPanel(s, scale);
     final items = _promoList;
     if (items.isEmpty) {
-      return _buildBrandFallback(s.storeName);
+      return _buildBrandFallback(s.storeName, scale: scale);
     }
     final item = items[_promoIndex % items.length];
     final hasVideo = _video != null && _video!.value.isInitialized;
-    final imageUrl = _resolveMediaUrl(item.imageUrl);
+    final imageUrl = (item.videoUrl ?? '').trim().isEmpty ? _resolveMediaUrl(item.imageUrl) : '';
+    final caption = item.title.trim() == 'Giới thiệu' ? '' : item.title.trim();
+    final store = (s.storeName ?? '').trim();
 
-    // Nền tối + contain: ảnh/video hiện trọn, không bị cắt / che.
+    Widget media;
+    if (hasVideo) {
+      media = Center(
+        key: ValueKey('v:$_playingVideoUrl'),
+        child: AspectRatio(
+          aspectRatio: _video!.value.aspectRatio > 0 ? _video!.value.aspectRatio : 16 / 9,
+          child: VideoPlayer(_video!),
+        ),
+      );
+    } else if (imageUrl.isNotEmpty) {
+      media = _buildImageSlide(imageUrl, s.storeName, scale);
+    } else if ((_videoError ?? '').isNotEmpty) {
+      media = _buildBrandFallback(s.storeName, hint: _videoError, scale: scale);
+    } else {
+      // Video đang tải.
+      media = const Center(
+        key: ValueKey('loading'),
+        child: SizedBox(width: 36, height: 36, child: CircularProgressIndicator(color: Colors.white54, strokeWidth: 3)),
+      );
+    }
+
     return ColoredBox(
       color: _mediaBg,
       child: Stack(
         fit: StackFit.expand,
         children: [
-          if (hasVideo)
-            Center(
-              child: FittedBox(
-                fit: BoxFit.contain,
-                child: SizedBox(
-                  width: _video!.value.size.width,
-                  height: _video!.value.size.height,
-                  child: VideoPlayer(_video!),
-                ),
+          AnimatedSwitcher(
+            duration: const Duration(milliseconds: 450),
+            child: KeyedSubtree(key: ValueKey('m:$_promoIndex:${media.key}'), child: media),
+          ),
+          if (caption.isNotEmpty || item.price != null || (idle && store.isNotEmpty))
+            Positioned(
+              left: 0,
+              right: 0,
+              bottom: 0,
+              child: _buildCaption(
+                title: caption.isNotEmpty ? caption : store,
+                price: item.price,
+                scale: scale,
               ),
-            )
-          else if (imageUrl.isNotEmpty)
-            CachedNetworkImage(
-              imageUrl: imageUrl,
-              fit: BoxFit.contain,
-              width: double.infinity,
-              height: double.infinity,
-              alignment: Alignment.center,
-              errorWidget: (_, __, ___) => _buildBrandFallback(
-                s.storeName,
-                hint: 'Không tải được ảnh',
-              ),
-            )
-          else if ((_videoError ?? '').isNotEmpty)
-            _buildBrandFallback(s.storeName, hint: _videoError)
-          else
-            _buildBrandFallback(s.storeName),
+            ),
         ],
       ),
     );
   }
 
-  Widget _buildBrandFallback(String? storeName, {String? hint}) {
+  /// Ảnh hiện trọn (không cắt); khoảng trống quanh ảnh lấp bằng chính ảnh đó làm mờ — không còn viền đen
+  /// khi ảnh vuông (ảnh hàng hóa) chiếu trên màn ngang.
+  Widget _buildImageSlide(String url, String? storeName, double scale) {
+    return Stack(
+      key: ValueKey('i:$url'),
+      fit: StackFit.expand,
+      children: [
+        ImageFiltered(
+          imageFilter: ImageFilter.blur(sigmaX: 28, sigmaY: 28),
+          child: CachedNetworkImage(
+            imageUrl: url,
+            fit: BoxFit.cover,
+            errorWidget: (_, __, ___) => const SizedBox.shrink(),
+          ),
+        ),
+        const ColoredBox(color: Color(0x66000000)),
+        CachedNetworkImage(
+          imageUrl: url,
+          fit: BoxFit.contain,
+          alignment: Alignment.center,
+          fadeInDuration: const Duration(milliseconds: 250),
+          errorWidget: (_, __, ___) => _buildBrandFallback(
+            storeName,
+            hint: 'Không tải được ảnh',
+            scale: scale,
+          ),
+        ),
+      ],
+    );
+  }
+
+  Widget _buildCaption({required String title, double? price, required double scale}) {
+    return DecoratedBox(
+      decoration: const BoxDecoration(
+        gradient: LinearGradient(
+          begin: Alignment.topCenter,
+          end: Alignment.bottomCenter,
+          colors: [Color(0x00000000), Color(0xB3000000)],
+        ),
+      ),
+      child: Padding(
+        padding: EdgeInsets.fromLTRB(20 * scale, 28 * scale, 20 * scale, 14 * scale),
+        child: Row(
+          crossAxisAlignment: CrossAxisAlignment.end,
+          children: [
+            Expanded(
+              child: Text(
+                tr(title),
+                maxLines: 2,
+                overflow: TextOverflow.ellipsis,
+                style: const TextStyle(color: Colors.white, fontSize: 20, fontWeight: FontWeight.w700, height: 1.2),
+              ),
+            ),
+            if (price != null && price > 0) ...[
+              const SizedBox(width: 12),
+              Container(
+                padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+                decoration: BoxDecoration(color: SboxColors.danger, borderRadius: BorderRadius.circular(8)),
+                child: Text(
+                  '${_money.format(price)}đ',
+                  style: const TextStyle(color: Colors.white, fontSize: 20, fontWeight: FontWeight.w800),
+                ),
+              ),
+            ],
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildBrandFallback(String? storeName, {String? hint, double scale = 1}) {
     final store = (storeName ?? '').trim();
     return Container(
-      key: const ValueKey('brand-fallback'),
+      key: ValueKey('brand-fallback:${hint ?? ''}'),
       decoration: BoxDecoration(
         gradient: LinearGradient(
           begin: Alignment.topLeft,
@@ -347,63 +629,54 @@ class _PosCustomerDisplayScreenState extends State<PosCustomerDisplayScreen> {
         ),
       ),
       child: Center(
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            Container(
-              width: 96,
-              height: 96,
-              padding: const EdgeInsets.all(14),
-              decoration: BoxDecoration(
-                color: Colors.white.withValues(alpha: 0.12),
-                shape: BoxShape.circle,
-                border: Border.all(color: Colors.white24, width: 2),
-              ),
-              child: Image.asset(
-                'assets/logo.png',
-                fit: BoxFit.contain,
-                errorBuilder: (_, __, ___) => const Icon(
-                  Icons.storefront_rounded,
-                  color: Colors.white,
-                  size: 48,
+        child: SingleChildScrollView(
+          padding: const EdgeInsets.symmetric(horizontal: 24),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Container(
+                width: 96 * scale,
+                height: 96 * scale,
+                padding: EdgeInsets.all(14 * scale),
+                decoration: BoxDecoration(
+                  color: Colors.white.withValues(alpha: 0.12),
+                  shape: BoxShape.circle,
+                  border: Border.all(color: Colors.white24, width: 2),
+                ),
+                child: Image.asset(
+                  'assets/logo.png',
+                  fit: BoxFit.contain,
+                  errorBuilder: (_, __, ___) => Icon(
+                    Icons.storefront_rounded,
+                    color: Colors.white,
+                    size: 48 * scale,
+                  ),
                 ),
               ),
-            ),
-            const SizedBox(height: 20),
-            Text(
-              tr('SBOX HRM - SBOX POS'),
-              style: const TextStyle(
-                color: Colors.white,
-                fontSize: 28,
-                fontWeight: FontWeight.w700,
-                letterSpacing: 0.6,
+              const SizedBox(height: 20),
+              Text(
+                tr(store.isNotEmpty ? store : 'Xin chào quý khách'),
+                textAlign: TextAlign.center,
+                style: const TextStyle(
+                  color: Colors.white,
+                  fontSize: 28,
+                  fontWeight: FontWeight.w700,
+                  letterSpacing: 0.4,
+                ),
               ),
-              textAlign: TextAlign.center,
-            ),
-            const SizedBox(height: 6),
-            Text(
-              tr('Giải pháp quản lý toàn diện cho doanh nghiệp'),
-              textAlign: TextAlign.center,
-              style: TextStyle(
-                color: Colors.white.withValues(alpha: 0.72),
-                fontSize: 14,
-                fontWeight: FontWeight.w500,
+              const SizedBox(height: 6),
+              Text(
+                tr(store.isNotEmpty ? 'Xin chào quý khách' : 'SBOX HRM - SBOX POS'),
+                textAlign: TextAlign.center,
+                style: TextStyle(
+                  color: Colors.white.withValues(alpha: 0.75),
+                  fontSize: 16,
+                  fontWeight: FontWeight.w500,
+                ),
               ),
-            ),
-            const SizedBox(height: 8),
-            Text(
-              tr(store.isNotEmpty ? store : 'Xin chào quý khách'),
-              textAlign: TextAlign.center,
-              style: TextStyle(
-                color: Colors.white.withValues(alpha: 0.8),
-                fontSize: 18,
-              ),
-            ),
-            if ((hint ?? '').isNotEmpty) ...[
-              const SizedBox(height: 12),
-              Padding(
-                padding: const EdgeInsets.symmetric(horizontal: 24),
-                child: Text(
+              if ((hint ?? '').isNotEmpty) ...[
+                const SizedBox(height: 12),
+                Text(
                   tr(hint!),
                   textAlign: TextAlign.center,
                   style: TextStyle(
@@ -411,202 +684,173 @@ class _PosCustomerDisplayScreenState extends State<PosCustomerDisplayScreen> {
                     fontSize: 13,
                   ),
                 ),
-              ),
+              ],
             ],
-          ],
+          ),
         ),
       ),
     );
   }
 
-  Widget _buildBillPane(CustomerDisplayState s) {
+  Widget _buildBillPane(CustomerDisplayState s, double scale) {
     final active = s.isActive;
     final table = [
       if ((s.areaName ?? '').isNotEmpty) s.areaName,
       if ((s.tableLabel ?? '').isNotEmpty) s.tableLabel,
     ].whereType<String>().join(' · ');
+    final confirmed = _paymentConfirmed(s);
+    final hasQr = _hasQr(s);
+    final pad = 14 + 10 * scale;
 
-    return Container(
-      color: _billBg,
-      padding: const EdgeInsets.fromLTRB(24, 24, 24, 20),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.stretch,
-        children: [
-          Text(
-            tr((s.storeName ?? 'Hóa đơn').trim()),
-            style: const TextStyle(
-              color: _billFg,
-              fontSize: 20,
-              fontWeight: FontWeight.w700,
+    return LayoutBuilder(builder: (context, c) {
+      final tight = c.maxHeight < 560 * scale;
+      return Container(
+        color: _billBg,
+        padding: EdgeInsets.fromLTRB(pad, pad, pad, pad * 0.8),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            Text(
+              tr((s.storeName ?? 'Hóa đơn').trim()),
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
+              style: const TextStyle(
+                color: _billFg,
+                fontSize: 20,
+                fontWeight: FontWeight.w700,
+              ),
             ),
-          ),
-          const SizedBox(height: 4),
-          Text(
-            tr(active
-                ? (table.isEmpty ? 'Đơn hiện tại' : table)
-                : 'Chờ phục vụ'),
-            style: const TextStyle(color: _billMuted, fontSize: 14),
-          ),
-          if (active &&
-              ((s.orderNo ?? '').isNotEmpty || s.guestCount > 0)) ...[
             const SizedBox(height: 2),
             Text(
               tr([
+                active ? (table.isEmpty ? 'Đơn hiện tại' : table) : 'Thanh toán',
                 if ((s.orderNo ?? '').isNotEmpty) s.orderNo,
                 if (s.guestCount > 0) '${s.guestCount} khách',
               ].join(' · ')),
-              style: const TextStyle(color: _billMuted, fontSize: 13),
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
+              style: const TextStyle(color: _billMuted, fontSize: 14),
             ),
-          ],
-          const SizedBox(height: 14),
-          Container(height: 1, color: _billLine),
-          const SizedBox(height: 12),
-          Expanded(
-            child: !active || s.lines.isEmpty
-                ? Center(
-                    child: Text(
-                      tr(active ? 'Chưa có món' : 'Xin chào quý khách'),
-                      style: const TextStyle(
-                        color: _billMuted,
-                        fontSize: 18,
+            const SizedBox(height: 10),
+            Container(height: 1, color: _billLine),
+            const SizedBox(height: 8),
+            Expanded(
+              child: s.lines.isEmpty
+                  ? Center(
+                      child: Text(
+                        tr(active ? 'Chưa có món' : 'Xin chào quý khách'),
+                        style: const TextStyle(color: _billMuted, fontSize: 18),
                       ),
+                    )
+                  : ListView.separated(
+                      itemCount: s.lines.length,
+                      separatorBuilder: (_, __) => const SizedBox(height: 8),
+                      itemBuilder: (_, i) => _lineRow(s.lines[i]),
                     ),
-                  )
-                : ListView.separated(
-                    itemCount: s.lines.length,
-                    separatorBuilder: (_, __) => const SizedBox(height: 8),
-                    itemBuilder: (_, i) {
-                      final l = s.lines[i];
-                      final qty = l.qty % 1 == 0
-                          ? l.qty.toStringAsFixed(0)
-                          : l.qty.toStringAsFixed(2);
-                      return Row(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          Expanded(
-                            child: Column(
-                              crossAxisAlignment: CrossAxisAlignment.start,
-                              children: [
-                                Text(
-                                  tr(l.name),
-                                  style: const TextStyle(
-                                    color: _billFg,
-                                    fontSize: 16,
-                                    fontWeight: FontWeight.w600,
-                                  ),
-                                ),
-                                const SizedBox(height: 2),
-                                Text(
-                                  tr('SL $qty'
-                                  '${(l.unitLabel ?? '').isNotEmpty ? ' ${l.unitLabel}' : ''}'
-                                  ' × ${_money.format(l.unitPrice)}đ'),
-                                  style: const TextStyle(
-                                    color: _billMuted,
-                                    fontSize: 13,
-                                  ),
-                                ),
-                              ],
-                            ),
-                          ),
-                          const SizedBox(width: 8),
-                          Text(tr('${_money.format(l.lineTotal)}đ'),
-                            style: const TextStyle(
-                              color: _billFg,
-                              fontSize: 16,
-                              fontWeight: FontWeight.w700,
-                            ),
-                          ),
-                        ],
-                      );
-                    },
-                  ),
-          ),
-          Container(height: 1, color: _billLine),
-          const SizedBox(height: 12),
-          _billRow('Tạm tính', '${_money.format(s.subtotal)}đ'),
-          if (s.discount > 0) ...[
+            ),
+            Container(height: 1, color: _billLine),
+            const SizedBox(height: 10),
+            _billRow('Tạm tính', '${_money.format(s.subtotal)}đ'),
+            if (s.discount > 0) ...[
+              const SizedBox(height: 4),
+              _billRow(
+                'Giảm giá',
+                '-${_money.format(s.discount)}đ',
+                valueColor: SboxColors.danger,
+              ),
+            ],
             const SizedBox(height: 6),
             _billRow(
-              'Giảm giá',
-              '-${_money.format(s.discount)}đ',
-              valueColor: SboxColors.danger,
+              'TỔNG CỘNG',
+              '${_money.format(s.total)}đ',
+              emphasize: true,
             ),
-          ],
-          const SizedBox(height: 10),
-          _billRow(
-            'TỔNG CỘNG',
-            '${_money.format(s.total)}đ',
-            emphasize: true,
-          ),
-          if ((s.paymentStatus ?? '').toLowerCase() == 'confirmed') ...[
-            const SizedBox(height: 14),
-            Container(
-              padding: const EdgeInsets.all(14),
-              decoration: BoxDecoration(
-                color: SboxColors.successSoft,
-                borderRadius: BorderRadius.circular(10),
-                border: Border.all(color: SboxColors.success),
-              ),
-              child: Row(
-                children: [
-                  const Icon(Icons.check_circle,
-                      color: SboxColors.success, size: 28),
-                  const SizedBox(width: 10),
-                  Expanded(
-                    child: Text(
-                      tr((s.paymentConfirmedMessage ?? 'Đã nhận chuyển khoản')
-                              .trim())
-                          ,
-                      style: const TextStyle(
-                        color: SboxColors.successText,
-                        fontSize: 16,
-                        fontWeight: FontWeight.w700,
+            if (confirmed || hasQr) ...[
+              const SizedBox(height: 10),
+              Container(
+                padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+                decoration: BoxDecoration(
+                  color: confirmed ? SboxColors.successSoft : const Color(0xFFEFF6FF),
+                  borderRadius: BorderRadius.circular(10),
+                ),
+                child: Row(
+                  children: [
+                    Icon(confirmed ? Icons.check_circle : Icons.qr_code_2,
+                        color: confirmed ? SboxColors.success : const Color(0xFF1D4ED8), size: 22 * scale),
+                    const SizedBox(width: 8),
+                    Expanded(
+                      child: Text(
+                        tr(confirmed
+                            ? (s.paymentConfirmedMessage ?? 'Đã nhận chuyển khoản').trim()
+                            : 'Quét mã QR trên màn hình để thanh toán'),
+                        style: TextStyle(
+                          color: confirmed ? SboxColors.successText : const Color(0xFF1D4ED8),
+                          fontSize: 14,
+                          fontWeight: FontWeight.w600,
+                        ),
                       ),
                     ),
-                  ),
-                ],
-              ),
-            ),
-          ] else if ((s.paymentQrUrl ?? '').isNotEmpty) ...[
-            const SizedBox(height: 14),
-            Text(
-              tr((s.paymentStatus ?? '').toLowerCase() == 'waiting'
-                  ? 'Quét mã chuyển khoản'
-                  : 'Mã QR thanh toán'),
-              textAlign: TextAlign.center,
-              style: const TextStyle(
-                color: _billFg,
-                fontSize: 14,
-                fontWeight: FontWeight.w600,
-              ),
-            ),
-            const SizedBox(height: 8),
-            Center(
-              child: ConstrainedBox(
-                constraints: const BoxConstraints(maxWidth: 220, maxHeight: 220),
-                child: CachedNetworkImage(
-                  imageUrl: s.paymentQrUrl!,
-                  fit: BoxFit.contain,
-                  errorWidget: (_, __, ___) => const Icon(
-                    Icons.qr_code_2,
-                    size: 80,
-                    color: _billMuted,
-                  ),
+                  ],
                 ),
               ),
-            ),
+            ],
+            if (!tight) ...[
+              const SizedBox(height: 12),
+              Text(
+                tr('Cảm ơn quý khách'),
+                textAlign: TextAlign.center,
+                style: TextStyle(
+                  color: HrmPageChrome.primaryNavy.withValues(alpha: 0.85),
+                  fontSize: 16,
+                  fontWeight: FontWeight.w600,
+                ),
+              ),
+            ],
           ],
-          const SizedBox(height: 16),
-          Text(tr('Cảm ơn quý khách'),
-            textAlign: TextAlign.center,
-            style: TextStyle(
-              color: HrmPageChrome.primaryNavy.withValues(alpha: 0.85),
-              fontSize: 16,
-              fontWeight: FontWeight.w600,
-            ),
+        ),
+      );
+    });
+  }
+
+  Widget _lineRow(CustomerDisplayLine l) {
+    final qty = l.qty % 1 == 0 ? l.qty.toStringAsFixed(0) : l.qty.toStringAsFixed(2);
+    return Row(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Expanded(
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(
+                tr(l.name),
+                maxLines: 2,
+                overflow: TextOverflow.ellipsis,
+                style: const TextStyle(
+                  color: _billFg,
+                  fontSize: 16,
+                  fontWeight: FontWeight.w600,
+                ),
+              ),
+              const SizedBox(height: 2),
+              Text(
+                tr('SL $qty'
+                    '${(l.unitLabel ?? '').isNotEmpty ? ' ${l.unitLabel}' : ''}'
+                    ' × ${_money.format(l.unitPrice)}đ'),
+                style: const TextStyle(color: _billMuted, fontSize: 13),
+              ),
+            ],
           ),
-        ],
-      ),
+        ),
+        const SizedBox(width: 8),
+        Text(
+          tr('${_money.format(l.lineTotal)}đ'),
+          style: const TextStyle(
+            color: _billFg,
+            fontSize: 16,
+            fontWeight: FontWeight.w700,
+          ),
+        ),
+      ],
     );
   }
 
@@ -626,13 +870,19 @@ class _PosCustomerDisplayScreenState extends State<PosCustomerDisplayScreen> {
             fontWeight: emphasize ? FontWeight.w700 : FontWeight.w500,
           ),
         ),
-        const Spacer(),
-        Text(
-          tr(value),
-          style: TextStyle(
-            color: valueColor ?? _billFg,
-            fontSize: emphasize ? 28 : 17,
-            fontWeight: FontWeight.w700,
+        const SizedBox(width: 8),
+        Expanded(
+          child: FittedBox(
+            fit: BoxFit.scaleDown,
+            alignment: Alignment.centerRight,
+            child: Text(
+              tr(value),
+              style: TextStyle(
+                color: valueColor ?? _billFg,
+                fontSize: emphasize ? 28 : 17,
+                fontWeight: FontWeight.w700,
+              ),
+            ),
           ),
         ),
       ],

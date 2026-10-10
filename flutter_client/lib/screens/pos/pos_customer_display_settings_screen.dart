@@ -339,8 +339,8 @@ class _PosCustomerDisplaySettingsScreenState
       padding: const EdgeInsets.all(16),
       children: [
         Text(
-          tr('Cột trái (~60%): ảnh/video full khung · Cột phải: hóa đơn. '
-              'Không media → branding SBOX HRM.'),
+          tr('Chờ khách: ảnh / video chiếu toàn màn · Có đơn: media | hóa đơn (màn dọc: media trên, hóa đơn dưới). '
+              'Không có media → màn chào của cửa hàng.'),
           style: TextStyle(fontSize: 13, color: SboxColors.slate700),
         ),
         const SizedBox(height: 12),

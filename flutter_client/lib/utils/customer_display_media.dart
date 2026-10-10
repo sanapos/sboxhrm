@@ -1,13 +1,17 @@
 import '../models/customer_display_models.dart';
 import '../services/api_service.dart';
 
-/// Chuẩn kích thước media màn hình phụ (cột trái ~60% màn 16:9).
+/// Chuẩn kích thước media màn hình phụ.
+/// Chờ khách: media chiếu toàn màn. Đang bán: màn ngang → media ~62% bên trái, hóa đơn bên phải;
+/// màn dọc → dải media 16:9 phía trên, hóa đơn bên dưới.
 class CustomerDisplayMediaSpec {
-  static const recommendedImage = '1920×1080 (16:9) hoặc 1280×720';
-  static const recommendedVideo = '1280×720 H.264 MP4, dưới 100MB trên Drive';
+  static const recommendedImage =
+      'Màn ngang: 1920×1080 (16:9) · màn dọc: 1080×1920 (9:16). Ảnh khác tỉ lệ vẫn hiện trọn, viền lấp bằng ảnh làm mờ';
+  static const recommendedVideo =
+      '16:9, 1280×720 hoặc 1920×1080, MP4 H.264, nên dưới 50MB · video tự tắt tiếng, phát hết rồi chuyển mục';
   static const layoutNote =
-      'Màn 16:9: cột media ~60% rộng × full cao (vd. 1152×1080 trên TV 1920×1080). '
-      'Ảnh/video fit chứa trọn khung (letterbox), không cắt mất.';
+      'Chờ khách: ảnh / video chiếu toàn màn. Khi có đơn: màn ngang chia media | hóa đơn, màn dọc chia media trên | hóa đơn dưới. '
+      'Chữ và mã QR tự co giãn theo kích thước màn (7″ đến TV 1080p).';
 }
 
 /// Resolve URL ảnh/video cho màn phụ (public-serve + Drive/Dropbox).

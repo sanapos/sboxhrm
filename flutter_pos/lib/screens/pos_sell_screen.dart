@@ -2433,9 +2433,11 @@ class _PosSellScreenState extends State<PosSellScreen>
       for (final p in products) {
         final resolved = pub(p.imageUrl);
         if (resolved.isEmpty) continue;
+        // Ảnh hàng hóa kèm tên + giá (màn phụ hiện chú thích dưới ảnh).
         fromProducts.add(CustomerDisplayPromoItem(
-          title: '',
+          title: p.name,
           imageUrl: resolved,
+          price: p.basePrice > 0 ? p.basePrice : null,
         ));
         if (fromProducts.length >= 24) break;
       }
