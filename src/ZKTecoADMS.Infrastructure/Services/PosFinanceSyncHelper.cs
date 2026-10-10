@@ -67,7 +67,7 @@ public static class PosFinanceSyncHelper
                 Description = $"Bán hàng POS — {order.OrderNo}" +
                               (string.IsNullOrWhiteSpace(order.CustomerName) ? "" : $" — {order.CustomerName}") +
                               (payList.Count > 1 ? $" ({pay.PaymentMethod})" : ""),
-                PaymentMethod = ParsePaymentMethod(pay.PaymentMethod),
+                PaymentMethod = ParsePaymentMethod(pay.PaymentMethod, pay.BankAccountId),
                 BankAccountId = pay.BankAccountId,
                 Status = CashTransactionStatus.Completed,
                 IsPaid = true,
@@ -136,7 +136,7 @@ public static class PosFinanceSyncHelper
             TransactionDate = VnTimeHelper.NowVn(),
             Description = $"Thu cọc đặt chỗ — {booking.CustomerName}" +
                           (string.IsNullOrWhiteSpace(booking.Phone) ? "" : $" — {booking.Phone}"),
-            PaymentMethod = ParsePaymentMethod(booking.DepositPaymentMethod),
+            PaymentMethod = ParsePaymentMethod(booking.DepositPaymentMethod, bankAccountId),
             BankAccountId = bankAccountId,
             Status = CashTransactionStatus.Completed,
             IsPaid = true,
@@ -415,7 +415,7 @@ public static class PosFinanceSyncHelper
             Amount = payment.Amount,
             TransactionDate = VnTimeHelper.UtcToVn(payment.PaidAt),
             Description = $"Thu nợ khách — {customer.Name} ({payment.PaymentNo})",
-            PaymentMethod = ParsePaymentMethod(payment.PaymentMethod),
+            PaymentMethod = ParsePaymentMethod(payment.PaymentMethod, bankAccountId),
             BankAccountId = bankAccountId,
             Status = CashTransactionStatus.Completed,
             IsPaid = true,
@@ -499,7 +499,7 @@ public static class PosFinanceSyncHelper
             Description = $"Thu tiền HĐ {docNo}" +
                           (string.IsNullOrWhiteSpace(stageTitle) ? "" : $" — {stageTitle}") +
                           (string.IsNullOrWhiteSpace(quote.CustomerName) ? "" : $" — {quote.CustomerName}"),
-            PaymentMethod = ParsePaymentMethod(payment.PaymentMethod),
+            PaymentMethod = ParsePaymentMethod(payment.PaymentMethod, payment.BankAccountId),
             BankAccountId = payment.BankAccountId,
             Status = CashTransactionStatus.Completed,
             IsPaid = true,
@@ -518,18 +518,33 @@ public static class PosFinanceSyncHelper
         return cash;
     }
 
+    /// <summary>
+    /// Chuỗi phương thức trên chứng từ → phương thức phiếu quỹ. Chuỗi lạ mặc định Tiền mặt, nên mọi kênh
+    /// chuyển khoản (Tingee, tên ngân hàng «Ngân hàng … 99…», «CK», «Bank») phải nhận diện ở đây — trước đây
+    /// rơi vào Tiền mặt làm quỹ tiền mặt cao hơn thực tế. COD: shipper thu tiền mặt → Tiền mặt.
+    /// </summary>
     public static PaymentMethodType ParsePaymentMethod(string? method)
     {
         if (string.IsNullOrWhiteSpace(method)) return PaymentMethodType.Cash;
         var m = method.Trim().ToLowerInvariant();
-        if (m.Contains("chuyển") || m.Contains("chuyen") || m.Contains("transfer"))
+        if (m.Contains("chuyển") || m.Contains("chuyen") || m.Contains("transfer")
+            || m.Contains("tingee") || m.Contains("ngân hàng") || m.Contains("ngan hang")
+            || m.Contains("bank") || m == "ck" || m.StartsWith("ck "))
             return PaymentMethodType.BankTransfer;
-        if (m.Contains("thẻ") || m.Contains("the ") || m.Contains("card"))
+        if (m.Contains("thẻ") || m.Contains("the ") || m.Contains("card") || m.Contains("pos quẹt"))
             return PaymentMethodType.Card;
         if (m.Contains("qr")) return PaymentMethodType.VietQR;
-        if (m.Contains("ví") || m.Contains("vi ") || m.Contains("wallet"))
+        if (m.Contains("ví") || m.Contains("vi ") || m.Contains("wallet") || m.Contains("momo")
+            || m.Contains("zalopay") || m.Contains("vnpay") || m.Contains("shopeepay"))
             return PaymentMethodType.EWallet;
         return PaymentMethodType.Cash;
+    }
+
+    /// <summary>Như <see cref="ParsePaymentMethod(string?)"/>, nhưng tiền đã vào một tài khoản ngân hàng thì không thể là Tiền mặt.</summary>
+    public static PaymentMethodType ParsePaymentMethod(string? method, Guid? bankAccountId)
+    {
+        var t = ParsePaymentMethod(method);
+        return t == PaymentMethodType.Cash && bankAccountId != null ? PaymentMethodType.BankTransfer : t;
     }
 
     private static async Task<bool> HasActiveCashAsync(

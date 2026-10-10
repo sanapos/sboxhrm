@@ -984,72 +984,73 @@ public class CashTransactionsController(
             ? "Tiền mặt"
             : $"{account.BankShortName ?? account.BankName} - {account.AccountNumber}";
 
+    /// <summary>
+    /// Số dư từng quỹ. Phiếu gắn tài khoản ngân hàng thuộc quỹ ngân hàng đó (kể cả khi phương thức ghi «Tiền mặt»);
+    /// tiền mặt chỉ gồm phiếu Tiền mặt không gắn tài khoản. Phiếu chuyển khoản / thẻ / ví chưa gán tài khoản
+    /// gom vào một dòng riêng — trước đây bị bỏ sót, còn phiếu «Tiền mặt» gắn tài khoản bị cộng cả hai quỹ.
+    /// </summary>
     private async Task<List<FundBalanceDto>> BuildFundBalancesAsync(Guid storeId)
     {
-        var completed = CashTransactionStatus.Completed;
+        var rows = await context.CashTransactions.AsNoTracking()
+            .Where(x => x.StoreId == storeId && x.IsActive && x.Deleted == null
+                        && x.Status == CashTransactionStatus.Completed)
+            .GroupBy(x => new { x.BankAccountId, IsCash = x.PaymentMethod == PaymentMethodType.Cash })
+            .Select(g => new
+            {
+                g.Key.BankAccountId,
+                g.Key.IsCash,
+                Net = g.Sum(x => x.Type == CashTransactionType.Income ? x.Amount : -x.Amount),
+            })
+            .ToListAsync();
 
-        var cashIncome = await context.CashTransactions
-            .Where(x => x.StoreId == storeId && x.IsActive && x.Status == completed
-                        && x.Type == CashTransactionType.Income
-                        && x.PaymentMethod == PaymentMethodType.Cash)
-            .SumAsync(x => (decimal?)x.Amount) ?? 0m;
+        var transfers = await context.FundTransfers.AsNoTracking()
+            .Where(x => x.StoreId == storeId && x.IsActive)
+            .Select(x => new { x.FromBankAccountId, x.ToBankAccountId, x.Amount })
+            .ToListAsync();
+        decimal TransferNet(Guid? fund) =>
+            transfers.Where(t => t.ToBankAccountId == fund).Sum(t => t.Amount)
+            - transfers.Where(t => t.FromBankAccountId == fund).Sum(t => t.Amount);
 
-        var cashExpense = await context.CashTransactions
-            .Where(x => x.StoreId == storeId && x.IsActive && x.Status == completed
-                        && x.Type == CashTransactionType.Expense
-                        && x.PaymentMethod == PaymentMethodType.Cash)
-            .SumAsync(x => (decimal?)x.Amount) ?? 0m;
-
-        var transferInCash = await context.FundTransfers
-            .Where(x => x.StoreId == storeId && x.IsActive && x.ToBankAccountId == null)
-            .SumAsync(x => (decimal?)x.Amount) ?? 0m;
-
-        var transferOutCash = await context.FundTransfers
-            .Where(x => x.StoreId == storeId && x.IsActive && x.FromBankAccountId == null)
-            .SumAsync(x => (decimal?)x.Amount) ?? 0m;
-
-        var cashBalance = cashIncome - cashExpense + transferInCash - transferOutCash;
-
+        var cashBalance = rows.Where(r => r.BankAccountId == null && r.IsCash).Sum(r => r.Net) + TransferNet(null);
         var result = new List<FundBalanceDto>
         {
             new() { BankAccountId = null, Label = "Tiền mặt", IsCash = true, Balance = cashBalance }
         };
 
-        var bankAccounts = await context.BankAccounts
-            .Where(x => x.StoreId == storeId && x.IsActive)
+        var bankNet = rows.Where(r => r.BankAccountId != null)
+            .GroupBy(r => r.BankAccountId!.Value)
+            .ToDictionary(g => g.Key, g => g.Sum(r => r.Net));
+        var bankAccounts = await context.BankAccounts.AsNoTracking()
+            .Where(x => x.StoreId == storeId)
             .OrderByDescending(x => x.IsDefault)
             .ThenBy(x => x.BankName)
             .ToListAsync();
 
         foreach (var bank in bankAccounts)
         {
-            var bankIncome = await context.CashTransactions
-                .Where(x => x.StoreId == storeId && x.IsActive && x.Status == completed
-                            && x.Type == CashTransactionType.Income && x.BankAccountId == bank.Id)
-                .SumAsync(x => (decimal?)x.Amount) ?? 0m;
-
-            var bankExpense = await context.CashTransactions
-                .Where(x => x.StoreId == storeId && x.IsActive && x.Status == completed
-                            && x.Type == CashTransactionType.Expense && x.BankAccountId == bank.Id)
-                .SumAsync(x => (decimal?)x.Amount) ?? 0m;
-
-            var inTransfer = await context.FundTransfers
-                .Where(x => x.StoreId == storeId && x.IsActive && x.ToBankAccountId == bank.Id)
-                .SumAsync(x => (decimal?)x.Amount) ?? 0m;
-
-            var outTransfer = await context.FundTransfers
-                .Where(x => x.StoreId == storeId && x.IsActive && x.FromBankAccountId == bank.Id)
-                .SumAsync(x => (decimal?)x.Amount) ?? 0m;
-
+            var balance = bankNet.GetValueOrDefault(bank.Id) + TransferNet(bank.Id);
+            // Tài khoản đã ngừng dùng vẫn hiện nếu còn số dư — tiền không «biến mất» khỏi tổng quỹ.
+            if (!bank.IsActive && balance == 0) continue;
             result.Add(new FundBalanceDto
             {
                 BankAccountId = bank.Id,
-                Label = $"{bank.AccountName} ({bank.AccountNumber})",
+                Label = $"{bank.AccountName} ({bank.AccountNumber})" + (bank.IsActive ? "" : " — ngừng dùng"),
                 BankShortName = bank.BankShortName ?? bank.BankName,
                 IsCash = false,
-                Balance = bankIncome - bankExpense + inTransfer - outTransfer
+                Balance = balance
             });
         }
+
+        var unassigned = rows.Where(r => r.BankAccountId == null && !r.IsCash).Sum(r => r.Net);
+        if (unassigned != 0)
+            result.Add(new FundBalanceDto
+            {
+                BankAccountId = null,
+                Label = "Chuyển khoản / thẻ / ví chưa gán tài khoản",
+                BankShortName = "Chưa gán TK",
+                IsCash = false,
+                Balance = unassigned
+            });
 
         return result;
     }

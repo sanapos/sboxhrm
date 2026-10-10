@@ -56,6 +56,11 @@ SBOX_API=http://localhost:7199 node warehouse-e2e.js
 In bảng ĐẠT / LỖI theo nhóm, mã thoát ≠ 0 khi có lỗi; kết quả lưu ở `out/warehouse-e2e.json`.
 
 ```bash
+SBOX_API=http://localhost:7199 node cashbook-e2e.js
+```
+Sổ quỹ / thu chi: phiếu thu tự sinh vào đúng quỹ (Tiền mặt · Tingee · tiền vào tài khoản ngân hàng), số dư quỹ, tồn đầu – cuối kỳ của báo cáo Sổ quỹ, thu chi theo ngày / phương thức khớp tổng, chặn xóa phiếu tự động, hủy đơn hoàn phiếu thu. Kết quả ở `out/cashbook-e2e.json`.
+
+```bash
 SBOX_API=http://localhost:7199 SBOX_WEB=http://localhost:8190 node ui-shots.js
 ```
 Chụp 5 màn × (điện thoại: danh sách · chi tiết · tạo phiếu, máy tính: danh sách · chi tiết), mở `out/ui/index.html` để xem. Chỉ một màn: `SBOX_UI_ONLY=PosStockCounts`.

@@ -71,6 +71,16 @@ public partial class PosReportsController
                         count = g.Count()
                     })
                     .ToList(),
+                byDay = scoped
+                    .GroupBy(c => c.TransactionDate.Date)
+                    .OrderBy(g => g.Key)
+                    .Select(g => new
+                    {
+                        date = g.Key,
+                        income = g.Where(x => x.Type == CashTransactionType.Income).Sum(x => x.Amount),
+                        expense = g.Where(x => x.Type == CashTransactionType.Expense).Sum(x => x.Amount),
+                    })
+                    .ToList(),
                 items = scoped
                     .OrderByDescending(c => c.TransactionDate)
                     .Take(80)
@@ -121,16 +131,40 @@ public partial class PosReportsController
             })
             .ToListAsync();
 
+        // Tồn đầu kỳ = thu − chi mọi phiếu hoàn thành trước kỳ (cùng phạm vi chi nhánh). Chuyển quỹ chỉ đổi
+        // tiền giữa các quỹ nên không làm đổi tổng.
+        var opening = await dbContext.CashTransactions.AsNoTracking().ApplyBranchScope(HttpContext.BranchContext())
+            .Where(c => c.StoreId == storeId && c.Deleted == null && c.IsActive
+                        && c.Status == CashTransactionStatus.Completed
+                        && c.TransactionDate < fromDt.AddHours(7))
+            .SumAsync(c => (decimal?)(c.Type == CashTransactionType.Income ? c.Amount : -c.Amount)) ?? 0;
+
+        // Thu – chi theo ngày trên toàn kỳ (biểu đồ trước đây cộng từ 80 phiếu gần nhất → thiếu khi kỳ nhiều phiếu).
+        var byDay = (await txs
+                .GroupBy(c => c.TransactionDate.Date)
+                .Select(g => new
+                {
+                    date = g.Key,
+                    income = g.Sum(x => x.Type == CashTransactionType.Income ? x.Amount : 0),
+                    expense = g.Sum(x => x.Type == CashTransactionType.Expense ? x.Amount : 0),
+                })
+                .ToListAsync())
+            .OrderBy(d => d.date)
+            .ToList();
+
         return Ok(AppResponse<object>.Success(new
         {
             from = fromVn.Date,
             to = toVnEx.AddDays(-1).Date,
+            openingBalance = opening,
             income,
             expense,
             net = income - expense,
+            closingBalance = opening + income - expense,
             incomeCount = await txs.CountAsync(c => c.Type == CashTransactionType.Income),
             expenseCount = await txs.CountAsync(c => c.Type == CashTransactionType.Expense),
             byMethod,
+            byDay,
             items
         }));
     }

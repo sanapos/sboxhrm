@@ -31,6 +31,7 @@ import 'package:zkteco_flutter_client/l10n/app_tr.dart';
 
 import 'pos_shipping_report_screen.dart';
 import '../../widgets/sbox/sbox_ui.dart';
+import '../../models/cash_transaction.dart' show PaymentMethodType;
 /// Hub 14 báo cáo — cùng token trang chủ A7 (nền xám, thẻ nổi, chữ #2B3437).
 class PosReportsHubScreen extends StatelessWidget {
   const PosReportsHubScreen({super.key});
@@ -64,7 +65,7 @@ class PosReportsHubScreen extends StatelessWidget {
       (label: 'Doanh thu theo nhân viên', subtitle: 'Thu ngân', icon: Icons.badge_outlined, module: 'PosReportStaffRevenue', screen: const PosStaffRevenueReportScreen()),
       (label: 'Hoa hồng nhân viên', subtitle: 'DV / combo', icon: Icons.handshake_outlined, module: 'PosReportStaffCommission', screen: const PosStaffCommissionReportScreen()),
       (label: 'Vận chuyển', subtitle: 'Hãng / thất bại / hoàn / COD', icon: Icons.local_shipping_outlined, module: 'PosShipping', screen: const PosShippingReportScreen()),
-      (label: 'Sổ quỹ', subtitle: 'Tiền mặt', icon: Icons.menu_book_outlined, module: 'PosReportCashbook', screen: const PosCashbookReportScreen()),
+      (label: 'Sổ quỹ', subtitle: 'Thu chi · tồn quỹ', icon: Icons.menu_book_outlined, module: 'PosReportCashbook', screen: const PosCashbookReportScreen()),
       (label: 'Kết quả kinh doanh', subtitle: 'P&L', icon: Icons.account_balance, module: 'PosReportPnl', screen: const PosPnlReportScreen()),
       (label: 'Voucher', subtitle: 'Sử dụng', icon: Icons.confirmation_number_outlined, module: 'PosReportVoucher', screen: const PosVoucherUsageReportScreen()),
       (label: 'Bán theo khách', subtitle: 'Doanh thu / nợ KH', icon: Icons.people_outline, module: 'PosReportRevenue', screen: const PosCustomerSalesReportScreen()),
@@ -2330,16 +2331,33 @@ class _PosCashbookReportScreenState extends State<PosCashbookReportScreen> {
     }).toList();
     final all = _maps(_data?['items']);
     bool isIncome(Map<String, dynamic> e) => e['type']?.toString().toLowerCase() == 'income';
-    final inDay = _sumByDay(all, 'transactionDate', (e) => isIncome(e) ? _n(e['amount']) : 0);
-    final outDay = _sumByDay(all, 'transactionDate', (e) => isIncome(e) ? 0 : _n(e['amount']));
+    // Theo ngày: server tổng hợp toàn kỳ (danh sách phiếu chỉ có 80 phiếu mới nhất).
+    final days = _maps(_data?['byDay']);
+    final inDay = days.isNotEmpty
+        ? _sumByDay(days, 'date', (e) => _n(e['income']))
+        : _sumByDay(all, 'transactionDate', (e) => isIncome(e) ? _n(e['amount']) : 0);
+    final outDay = days.isNotEmpty
+        ? _sumByDay(days, 'date', (e) => _n(e['expense']))
+        : _sumByDay(all, 'transactionDate', (e) => isIncome(e) ? 0 : _n(e['amount']));
+    final hasBalance = _data?['openingBalance'] != null;
+    final incomeCount = _data?['incomeCount'] ?? all.where(isIncome).length;
+    final expenseCount = _data?['expenseCount'] ?? all.where((e) => !isIncome(e)).length;
+    final methods = _maps(_data?['byMethod']);
     final insight = SboxInsightPanel(
       kpis: [
+        if (hasBalance)
+          SboxKpi(label: 'Tồn đầu kỳ', value: SboxFmt.money(_n(_data?['openingBalance'])), icon: Icons.account_balance_wallet_outlined,
+              tone: SboxTone.neutral, note: 'Mọi quỹ'),
         SboxKpi(label: 'Tổng thu', value: SboxFmt.money(_n(_data?['income'])), icon: Icons.south_west_rounded, tone: SboxTone.success,
-            note: '${all.where(isIncome).length} phiếu thu'),
+            note: '$incomeCount phiếu thu'),
         SboxKpi(label: 'Tổng chi', value: SboxFmt.money(_n(_data?['expense'])), icon: Icons.north_east_rounded, tone: SboxTone.danger,
-            note: '${all.where((e) => !isIncome(e)).length} phiếu chi'),
-        SboxKpi(label: 'Chênh lệch', value: SboxFmt.money(_n(_data?['net'])), icon: Icons.balance_outlined,
-            tone: _n(_data?['net']) < 0 ? SboxTone.danger : SboxTone.brand, note: 'Thu − chi'),
+            note: '$expenseCount phiếu chi'),
+        if (hasBalance)
+          SboxKpi(label: 'Tồn cuối kỳ', value: SboxFmt.money(_n(_data?['closingBalance'])), icon: Icons.savings_outlined,
+              tone: _n(_data?['closingBalance']) < 0 ? SboxTone.danger : SboxTone.brand, note: 'Đầu kỳ + thu − chi')
+        else
+          SboxKpi(label: 'Chênh lệch', value: SboxFmt.money(_n(_data?['net'])), icon: Icons.balance_outlined,
+              tone: _n(_data?['net']) < 0 ? SboxTone.danger : SboxTone.brand, note: 'Thu − chi'),
       ],
       charts: [
         SboxChartCard(
@@ -2378,18 +2396,20 @@ class _PosCashbookReportScreenState extends State<PosCashbookReportScreen> {
           for (final e in items)
             [
               e['transactionCode'] ?? '',
-              e['type'] ?? '',
+              isIncome(e) ? 'Thu' : 'Chi',
               e['category'] ?? '',
               e['description'] ?? '',
-              e['paymentMethod'] ?? '',
+              _methodLabel(e['paymentMethod']),
               _fmtDt(e['transactionDate']),
               _n(e['amount']),
             ],
         ],
         summaryLines: [
+          if (hasBalance) 'Tồn đầu kỳ: ${_moneyFmt.format(_n(_data?['openingBalance']))}',
           'Thu: ${_moneyFmt.format(_n(_data?['income']))}',
           'Chi: ${_moneyFmt.format(_n(_data?['expense']))}',
           'Chênh lệch: ${_moneyFmt.format(_n(_data?['net']))}',
+          if (hasBalance) 'Tồn cuối kỳ: ${_moneyFmt.format(_n(_data?['closingBalance']))}',
         ],
       )),
       onExportPng: () => unawaited(PosReportExport.png(
@@ -2431,8 +2451,20 @@ class _PosCashbookReportScreenState extends State<PosCashbookReportScreen> {
                     ],
                   ),
                 ),
+                if (methods.isNotEmpty)
+                  PosReportCard(
+                    title: 'Theo phương thức thanh toán',
+                    child: Column(
+                      children: [
+                        for (var i = 0; i < methods.length; i++) ...[
+                          if (i > 0) const Divider(height: 14),
+                          _methodRow(methods[i]),
+                        ],
+                      ],
+                    ),
+                  ),
                 PosReportCard(
-                  title: 'Giao dịch gần đây',
+                  title: items.length >= 80 ? 'Giao dịch gần đây (80 phiếu mới nhất)' : 'Giao dịch gần đây',
                   child: items.isEmpty
                       ? const PosReportEmpty()
                       : Column(
@@ -2475,7 +2507,7 @@ class _PosCashbookReportScreenState extends State<PosCashbookReportScreen> {
                 Text(
                   tr([
                     e['description']?.toString() ?? '',
-                    e['paymentMethod']?.toString() ?? '',
+                    _methodLabel(e['paymentMethod']),
                     _fmtDt(e['transactionDate']),
                   ].where((s) => s.isNotEmpty).join(' · ')),
                   style: const TextStyle(fontSize: 12, color: PosTheme.textSecondary),
@@ -2490,6 +2522,30 @@ class _PosCashbookReportScreenState extends State<PosCashbookReportScreen> {
           ),
         ],
       ),
+    );
+  }
+
+  static String _methodLabel(dynamic raw) =>
+      raw == null || raw.toString().isEmpty ? '' : PaymentMethodType.parse(raw).label;
+
+  Widget _methodRow(Map<String, dynamic> m) {
+    final income = m['type']?.toString().toLowerCase() == 'income';
+    return Row(
+      children: [
+        Expanded(
+          child: Text(
+            '${income ? 'Thu' : 'Chi'} · ${_methodLabel(m['paymentMethod'])} · ${m['count'] ?? 0} phiếu',
+            maxLines: 1,
+            overflow: TextOverflow.ellipsis,
+            style: const TextStyle(fontSize: 13, color: Color(0xFF2B3437)),
+          ),
+        ),
+        PosReportMoneyLabel(
+          _n(m['total']),
+          prefix: income ? '+' : '-',
+          color: income ? SboxColors.successText : const Color(0xFFB42318),
+        ),
+      ],
     );
   }
 }
