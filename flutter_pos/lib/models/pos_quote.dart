@@ -461,6 +461,9 @@ class PosQuoteActivity {
         'Meeting' => 'Gặp khách',
         'FollowUp' => 'Hẹn chăm sóc',
         'Status' => 'Trạng thái',
+        'Payment' => 'Thu tiền',
+        'Contract' => 'Hợp đồng',
+        'Document' => 'Chứng từ',
         _ => k,
       };
 

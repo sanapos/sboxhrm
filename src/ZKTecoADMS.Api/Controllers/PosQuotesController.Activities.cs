@@ -39,18 +39,78 @@ public partial class PosQuotesController
             .Where(a => a.QuoteId == id && a.StoreId == storeId && a.Deleted == null)
             .OrderByDescending(a => a.CreatedAt)
             .ToListAsync();
+        var items = await MapActivitiesAsync(rows);
+        return Ok(AppResponse<object>.Success(new { items }));
+    }
+
+    /// <summary>Người ghi = họ tên (nhân viên → tài khoản), trạng thái cũ ghi tiếng Anh đổi sang tiếng Việt.</summary>
+    async Task<List<QuoteActivityDto>> MapActivitiesAsync(List<PosQuoteActivity> rows)
+    {
         var names = await EmployeeNamesAsync(rows.Select(a => a.EmployeeId));
-        var items = rows.Select(a => new QuoteActivityDto(
+        var byEmail = await UserNamesByEmailAsync(rows.Select(a => a.CreatedBy));
+        return rows.Select(a => new QuoteActivityDto(
             a.Id,
             a.Kind,
-            a.Content,
+            LegacyStatusText(a.Content),
             a.NextFollowUpAt,
             a.EmployeeId,
-            a.EmployeeId is Guid eid ? names.GetValueOrDefault(eid) : null,
+            (a.EmployeeId is Guid eid ? names.GetValueOrDefault(eid) : null)
+                ?? (a.CreatedBy != null ? byEmail.GetValueOrDefault(a.CreatedBy) : null),
             a.CreatedBy,
             a.CreatedAt,
             ResolvePotentialScore(a.PotentialScore, a.Content))).ToList();
-        return Ok(AppResponse<object>.Success(new { items }));
+    }
+
+    static string LegacyStatusText(string content)
+    {
+        const string prefix = "Cập nhật trạng thái: ";
+        if (!content.StartsWith(prefix, StringComparison.Ordinal)) return content;
+        return Enum.TryParse<PosQuoteStatus>(content[prefix.Length..].Trim(), out var st)
+            ? "Trạng thái: " + StatusVi(st)
+            : content;
+    }
+
+    /// <summary>
+    /// Lịch sử của khách trên báo giá này: các báo giá khác của cùng khách (theo mã khách, không có thì theo SĐT)
+    /// và các lần chăm sóc trên những báo giá đó — xem lại đã báo gì, đã hẹn gì trước khi gọi lại.
+    /// </summary>
+    [HttpGet("{id:guid}/customer-history")]
+    [RequireModulePermission("PosQuotes", ModulePermissionAction.View)]
+    public async Task<ActionResult<AppResponse<object>>> CustomerHistory(Guid id)
+    {
+        var storeId = RequiredStoreId;
+        var quote = await dbContext.PosQuotes.AsNoTracking()
+            .FirstOrDefaultAsync(x => x.Id == id && x.StoreId == storeId && x.Deleted == null);
+        if (quote == null || !OwnsOrManages(quote))
+            return NotFound(AppResponse<object>.Fail("Không tìm thấy báo giá"));
+        var phone = (quote.CustomerPhone ?? "").Trim();
+        if (quote.CustomerId == null && phone.Length < 6)
+            return Ok(AppResponse<object>.Success(new { quotes = Array.Empty<object>(), activities = Array.Empty<object>() }));
+        var q = ApplyOwnScope(dbContext.PosQuotes.AsNoTracking()
+            .Where(x => x.StoreId == storeId && x.Deleted == null && x.Id != id));
+        q = quote.CustomerId is Guid cid
+            ? q.Where(x => x.CustomerId == cid || (x.CustomerId == null && phone.Length >= 6 && x.CustomerPhone == phone))
+            : q.Where(x => x.CustomerPhone == phone);
+        var others = await q.OrderByDescending(x => x.CreatedAt).Take(30)
+            .Select(x => new { x.Id, x.QuoteNo, x.Status, x.CommercialStage, x.Total, x.CreatedAt, x.Revision })
+            .ToListAsync();
+        var otherIds = others.Select(x => x.Id).ToList();
+        var acts = otherIds.Count == 0 ? new List<PosQuoteActivity>() : await dbContext.PosQuoteActivities.AsNoTracking()
+            .Where(a => a.StoreId == storeId && a.Deleted == null && otherIds.Contains(a.QuoteId)
+                        && a.Kind != "Created" && a.Kind != "Status")
+            .OrderByDescending(a => a.CreatedAt).Take(50)
+            .ToListAsync();
+        var mapped = await MapActivitiesAsync(acts);
+        var noById = others.ToDictionary(x => x.Id, x => x.QuoteNo);
+        return Ok(AppResponse<object>.Success(new
+        {
+            quotes = others.Select(x => new
+            {
+                x.Id, x.QuoteNo, status = x.Status.ToString(), statusText = StatusVi(x.Status),
+                commercialStage = x.CommercialStage.ToString(), x.Total, x.CreatedAt, x.Revision,
+            }),
+            activities = acts.Zip(mapped, (a, m) => new { activity = m, quoteId = a.QuoteId, quoteNo = noById.GetValueOrDefault(a.QuoteId) }),
+        }));
     }
 
     /// <summary>

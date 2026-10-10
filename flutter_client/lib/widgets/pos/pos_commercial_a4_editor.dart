@@ -546,7 +546,7 @@ class PosCommercialA4EditorState extends State<PosCommercialA4Editor> {
   Widget _hintRow() {
     return Text(
       tr(widget.snapshot
-          ? 'Sửa chữ của riêng chứng từ này. Mẫu chung và chứng từ khác không đổi.'
+          ? 'Bôi đen chữ rồi chọn đậm / font / màu.' // màn sửa lời riêng đã có dòng «không đổi mẫu chung»
           : 'Chạm vào chữ trên trang để sửa như Word. Bôi đen rồi chọn đậm / font / màu.'),
       style: TextStyle(fontSize: 13, color: SboxColors.slate700),
     );

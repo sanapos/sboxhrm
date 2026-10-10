@@ -696,7 +696,8 @@ class _PosQuoteDetailScreenState extends State<PosQuoteDetailScreen> {
                 ]),
               ),
               const SizedBox(width: 8),
-              Text(tr(_money.format(q.lines[i].lineTotal > 0 ? q.lines[i].lineTotal : q.lines[i].net)),
+              // Thành tiền chưa VAT (SL × giá − CK dòng) — cộng lại đúng «Tiền hàng»; VAT ở dòng tổng.
+              Text(tr(_money.format(q.lines[i].net)),
                   style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w700)),
             ]),
           ),

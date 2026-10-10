@@ -85,6 +85,19 @@ class _PosContractPaymentPanelState extends State<PosContractPaymentPanel> {
     return false;
   }
 
+  /// Nhãn tỷ lệ khớp số tiền: đợt cọc «% trước VAT»; mọi đợt nhập % đủ 100% → đợt cuối «phần còn lại»
+  /// (số tiền đợt cuối = tổng − các đợt trước, không phải đúng % ghi).
+  String _stageRate(List<PosContractStage> all, int i) {
+    final p = all[i].percent;
+    if (p == null || p <= 0) return '';
+    final allPct = all.length > 1 && all.every((x) => (x.percent ?? 0) > 0);
+    final sum = all.fold<double>(0, (a, x) => a + (x.percent ?? 0));
+    if (allPct && (sum - 100).abs() < 0.01 && i == all.length - 1) return ' (phần còn lại)';
+    final firstDeposit = all.indexWhere((x) => (x.percent ?? 0) > 0 && x.title.toLowerCase().contains('cọc'));
+    final pct = NumberFormat('#,##0.##', 'vi_VN').format(p);
+    return i == firstDeposit ? ' ($pct% trước VAT)' : ' ($pct%)';
+  }
+
   String _d(DateTime? d) => d == null ? '—' : _date.format(d);
 
   // ── Sửa hợp đồng: số HĐ, mốc tiến độ, đợt thanh toán
@@ -316,7 +329,7 @@ class _PosContractPaymentPanelState extends State<PosContractPaymentPanel> {
                     : 'Chưa chia đợt thanh toán.'),
                 style: TextStyle(fontSize: 13, color: SboxColors.slate600),
               ),
-            for (final s in c.stages)
+            for (final (i, s) in c.stages.indexed)
               Padding(
                 padding: const EdgeInsets.symmetric(vertical: 6),
                 child: Row(
@@ -327,7 +340,7 @@ class _PosContractPaymentPanelState extends State<PosContractPaymentPanel> {
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
                           Text(
-                            '${s.title}${s.percent != null ? ' (${NumberFormat('#,##0.##', 'vi_VN').format(s.percent)}%)' : ''}',
+                            '${s.title}${_stageRate(c.stages, i)}',
                             style: const TextStyle(fontWeight: FontWeight.w600),
                           ),
                           Text(

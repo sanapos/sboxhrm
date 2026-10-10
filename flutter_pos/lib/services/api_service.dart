@@ -18570,6 +18570,19 @@ class ApiService {
     }
   }
 
+  /// Báo giá khác + lịch chăm sóc trước đây của cùng khách (theo mã khách / SĐT).
+  Future<Map<String, dynamic>> getPosQuoteCustomerHistory(String id) async {
+    try {
+      final response = await http
+          .get(Uri.parse('$baseUrl/api/pos/quotes/$id/customer-history'),
+              headers: _headers)
+          .timeout(const Duration(seconds: 30));
+      return _handleResponse(response);
+    } catch (e) {
+      return _connectionFailure(e);
+    }
+  }
+
   Future<Map<String, dynamic>> getPosQuoteActivities(String id) async {
     try {
       final response = await http

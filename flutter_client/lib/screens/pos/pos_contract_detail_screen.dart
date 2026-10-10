@@ -284,6 +284,8 @@ class _PosContractDetailScreenState extends State<PosContractDetailScreen> {
                                 tr((q.customerName ?? '').trim().isEmpty ? 'Khách lẻ' : q.customerName!.trim()),
                                 style: const TextStyle(fontSize: 18, fontWeight: FontWeight.w700, color: SboxColors.slate900),
                               ),
+                              // Có khung «Thu tiền hợp đồng» (giá trị HĐ / đã thu / còn phải thu) → không lặp ở đầu trang.
+                              if (!canUsePosContracts(context)) ...[
                               const SizedBox(height: 10),
                               Row(crossAxisAlignment: CrossAxisAlignment.end, children: [
                                 Expanded(
@@ -304,6 +306,7 @@ class _PosContractDetailScreenState extends State<PosContractDetailScreen> {
                                     ),
                                   ]),
                               ]),
+                              ],
                               const SizedBox(height: 14),
                               PosQuoteProgress(done: PosQuoteFlow.doneCount(q), stopped: PosQuoteFlow.isStopped(q)),
                               const SizedBox(height: 12),

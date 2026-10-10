@@ -173,7 +173,8 @@ public partial class PosQuotesController(
             .Skip((page - 1) * pageSize).Take(pageSize)
             .ToListAsync();
         var names = await EmployeeNamesAsync(rows.Select(x => x.QuotedByEmployeeId));
-        var items = rows.Select(x => MapList(x, names)).ToList();
+        var byEmail = await UserNamesByEmailAsync(rows.Select(x => x.QuotedBy));
+        var items = rows.Select(x => WithQuoterName(MapList(x, names), byEmail)).ToList();
         return Ok(AppResponse<object>.Success(new
         {
             total,
@@ -206,8 +207,15 @@ public partial class PosQuotesController(
         quote.Lines.Clear();
         foreach (var line in dbLines) quote.Lines.Add(line);
         var names = await EmployeeNamesAsync([quote.QuotedByEmployeeId]);
-        return Ok(AppResponse<QuoteDto>.Success(Map(quote, names)));
+        var byEmail = await UserNamesByEmailAsync([quote.QuotedBy]);
+        return Ok(AppResponse<QuoteDto>.Success(WithQuoterName(Map(quote, names), byEmail)));
     }
+
+    /// <summary>Báo giá cũ lưu người báo giá bằng email → trả họ tên tài khoản.</summary>
+    static QuoteDto WithQuoterName(QuoteDto d, IReadOnlyDictionary<string, string> byEmail) =>
+        d.QuotedByEmployeeName == null && d.QuotedBy != null && byEmail.TryGetValue(d.QuotedBy, out var n)
+            ? d with { QuotedByEmployeeName = n }
+            : d;
 
     [HttpPost]
     [RequireModulePermission("PosQuotes", ModulePermissionAction.Create)]
@@ -216,7 +224,7 @@ public partial class PosQuotesController(
         var storeId = RequiredStoreId;
         if (dto.Lines == null || dto.Lines.Count == 0)
             return BadRequest(AppResponse<QuoteDto>.Fail("Báo giá cần ít nhất một dòng"));
-        var quotedName = await EmployeeNameAsync(EmployeeId) ?? CurrentUserEmail;
+        var quotedName = await EmployeeNameAsync(EmployeeId) ?? await UserDisplayNameAsync(CurrentUserEmail) ?? CurrentUserEmail;
         var quote = new PosQuote
         {
             Id = Guid.NewGuid(),
@@ -258,6 +266,13 @@ public partial class PosQuotesController(
         if (dto.Lines == null || dto.Lines.Count == 0)
             return BadRequest(AppResponse<QuoteDto>.Fail("Báo giá cần ít nhất một dòng"));
         var now = DateTime.UtcNow;
+        var before = await dbContext.PosQuoteLines.AsNoTracking()
+            .Where(l => l.QuoteId == id && l.Deleted == null)
+            .OrderBy(l => l.SortOrder)
+            .Select(l => new QuoteLineSnap(l.ProductName, l.UnitName, l.Qty, l.UnitPrice))
+            .ToListAsync();
+        var totalBefore = quote.Total;
+        var revisionBefore = quote.Revision;
         await dbContext.Database.ExecuteSqlInterpolatedAsync(
             $@"UPDATE ""PosQuoteLines"" SET ""Deleted"" = {now}, ""DeletedBy"" = {CurrentUserEmail}, ""UpdatedAt"" = {now}, ""UpdatedBy"" = {CurrentUserEmail} WHERE ""QuoteId"" = {id} AND ""Deleted"" IS NULL");
         dbContext.ChangeTracker.Clear();
@@ -302,9 +317,47 @@ public partial class PosQuotesController(
                 ""Revision"" = {quote.Revision}
               WHERE ""Id"" = {quote.Id}");
         dbContext.Entry(quote).State = EntityState.Unchanged;
+        var after = quote.Lines.Where(l => l.Deleted == null).OrderBy(l => l.SortOrder)
+            .Select(l => new QuoteLineSnap(l.ProductName, l.UnitName, l.Qty, l.UnitPrice)).ToList();
+        var diff = DescribeRevision(before, after, totalBefore, quote.Total);
+        if (diff != null)
+        {
+            var label = quote.Revision != revisionBefore ? $"Bản sửa {quote.Revision}: " : "";
+            AddActivity(quote, "Edit", label + diff);
+        }
         await dbContext.SaveChangesAsync();
         var names = await EmployeeNamesAsync([quote.QuotedByEmployeeId]);
         return Ok(AppResponse<QuoteDto>.Success(Map(quote, names)));
+    }
+
+    record QuoteLineSnap(string Name, string? Unit, decimal Qty, decimal Price);
+
+    /// <summary>
+    /// Tóm tắt thay đổi khi sửa báo giá (tổng tiền, dòng thêm / bớt / đổi SL / đổi giá) — ghi vào lịch sử
+    /// để xem lại bản trước đã báo khách gì. Không đổi gì → null.
+    /// </summary>
+    static string? DescribeRevision(List<QuoteLineSnap> before, List<QuoteLineSnap> after, decimal totalBefore, decimal totalAfter)
+    {
+        var vn = System.Globalization.CultureInfo.GetCultureInfo("vi-VN");
+        string M(decimal v) => v.ToString("#,##0", vn);
+        string Q(decimal v) => v.ToString("0.##", vn);
+        string Key(QuoteLineSnap l) => (l.Name.Trim() + "|" + (l.Unit ?? "").Trim()).ToLowerInvariant();
+        var parts = new List<string>();
+        if (totalBefore != totalAfter) parts.Add($"tổng {M(totalBefore)} → {M(totalAfter)} đ");
+        var oldBy = before.GroupBy(Key).ToDictionary(g => g.Key, g => g.First());
+        var newBy = after.GroupBy(Key).ToDictionary(g => g.Key, g => g.First());
+        foreach (var (k, n) in newBy)
+        {
+            if (!oldBy.TryGetValue(k, out var o)) { parts.Add($"thêm {n.Name} ({Q(n.Qty)} × {M(n.Price)})"); continue; }
+            if (o.Qty != n.Qty) parts.Add($"{n.Name} SL {Q(o.Qty)} → {Q(n.Qty)}");
+            if (o.Price != n.Price) parts.Add($"{n.Name} giá {M(o.Price)} → {M(n.Price)}");
+        }
+        foreach (var (k, o) in oldBy)
+            if (!newBy.ContainsKey(k)) parts.Add($"bỏ {o.Name}");
+        if (parts.Count == 0) return null;
+        const int max = 8;
+        var text = string.Join("; ", parts.Take(max));
+        return parts.Count > max ? text + $"; … (+{parts.Count - max} thay đổi)" : text;
     }
 
     [HttpPost("{id:guid}/send")]
@@ -424,7 +477,7 @@ public partial class PosQuotesController(
             return BadRequest(AppResponse<QuoteDto>.Fail(err));
         quote.UpdatedAt = DateTime.UtcNow;
         quote.UpdatedBy = CurrentUserEmail;
-        AddActivity(quote, "Status", $"Cập nhật trạng thái: {quote.Status}");
+        AddActivity(quote, "Status", $"Trạng thái: {StatusVi(quote.Status)}");
         await dbContext.SaveChangesAsync();
         var names = await EmployeeNamesAsync([quote.QuotedByEmployeeId]);
         return Ok(AppResponse<QuoteDto>.Success(Map(quote, names)));
@@ -803,6 +856,38 @@ public partial class PosQuotesController(
             .Select(e => new { e.Id, Name = (e.LastName + " " + e.FirstName).Trim() })
             .ToDictionaryAsync(e => e.Id, e => e.Name);
     }
+
+    /// <summary>Tên trạng thái báo giá hiển thị cho người dùng.</summary>
+    internal static string StatusVi(PosQuoteStatus s) => s switch
+    {
+        PosQuoteStatus.Draft => "Nháp",
+        PosQuoteStatus.Sent => "Đã gửi khách",
+        PosQuoteStatus.Revised => "Đã sửa, chờ gửi lại",
+        PosQuoteStatus.Accepted => "Khách chốt",
+        PosQuoteStatus.Rejected => "Khách từ chối",
+        PosQuoteStatus.Expired => "Hết hạn",
+        PosQuoteStatus.Cancelled => "Đã hủy",
+        _ => s.ToString(),
+    };
+
+    /// <summary>Họ tên tài khoản theo email (chủ cửa hàng không có hồ sơ nhân viên).</summary>
+    async Task<Dictionary<string, string>> UserNamesByEmailAsync(IEnumerable<string?> emails)
+    {
+        var keys = emails.Where(e => !string.IsNullOrWhiteSpace(e) && e!.Contains('@'))
+            .Select(e => e!).Distinct(StringComparer.OrdinalIgnoreCase).ToList();
+        if (keys.Count == 0) return new(StringComparer.OrdinalIgnoreCase);
+        var rows = await dbContext.Users.AsNoTracking()
+            .Where(u => u.Email != null && keys.Contains(u.Email))
+            .Select(u => new { u.Email, Name = (u.LastName + " " + u.FirstName).Trim() })
+            .ToListAsync();
+        var map = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
+        foreach (var r in rows)
+            if (!string.IsNullOrWhiteSpace(r.Name)) map[r.Email!] = r.Name;
+        return map;
+    }
+
+    async Task<string?> UserDisplayNameAsync(string? email) =>
+        (await UserNamesByEmailAsync([email])).GetValueOrDefault(email ?? "");
 
     async Task<string?> EmployeeNameAsync(Guid? id)
     {

@@ -9,6 +9,7 @@ import '../../models/pos_print_template.dart';
 import '../../models/pos_quote.dart';
 import '../../services/api_service.dart';
 import '../../services/pos_product_image_cache.dart';
+import '../../utils/api_datetime.dart';
 import '../../utils/pos_area_dims.dart';
 import '../../utils/pos_commercial_profile_local.dart';
 import '../../utils/pos_sell_store_settings.dart';
@@ -731,10 +732,107 @@ class _PosQuoteCareSheetState extends State<_PosQuoteCareSheet> {
   bool _saving = false;
   List<PosQuoteActivity> _items = [];
 
+  /// Cả khách hàng: báo giá khác + chăm sóc trên các báo giá đó.
+  bool _wholeCustomer = false;
+  bool _histLoaded = false;
+  List<Map<String, dynamic>> _otherQuotes = [];
+  List<({PosQuoteActivity a, String quoteNo})> _histItems = [];
+
   @override
   void initState() {
     super.initState();
     _load();
+    _loadHistory();
+  }
+
+  Future<void> _loadHistory() async {
+    final res = await _api.getPosQuoteCustomerHistory(widget.quoteId);
+    if (!mounted) return;
+    final data = res['data'];
+    if (res['isSuccess'] != true || data is! Map) {
+      setState(() => _histLoaded = true);
+      return;
+    }
+    setState(() {
+      _histLoaded = true;
+      _otherQuotes = [
+        for (final e in (data['quotes'] as List? ?? const []))
+          if (e is Map) Map<String, dynamic>.from(e),
+      ];
+      _histItems = [
+        for (final e in (data['activities'] as List? ?? const []))
+          if (e is Map && e['activity'] is Map)
+            (
+              a: PosQuoteActivity.fromJson(Map<String, dynamic>.from(e['activity'] as Map)),
+              quoteNo: (e['quoteNo'] ?? '').toString(),
+            ),
+      ];
+    });
+  }
+
+  Widget _scopeToggle() {
+    final n = _otherQuotes.length;
+    return SegmentedButton<bool>(
+      showSelectedIcon: false,
+      segments: [
+        ButtonSegment(value: false, label: Text(tr('Báo giá này'))),
+        ButtonSegment(value: true, label: Text(tr(n > 0 ? 'Cả khách hàng ($n BG khác)' : 'Cả khách hàng'))),
+      ],
+      selected: {_wholeCustomer},
+      onSelectionChanged: (v) => setState(() => _wholeCustomer = v.first),
+    );
+  }
+
+  Widget _activityTile(PosQuoteActivity a, {String? quoteNo}) {
+    final when = a.createdAt == null ? '' : DateFormat('dd/MM HH:mm').format(a.createdAt!.toLocal());
+    final who = (a.employeeName ?? a.createdBy ?? '').trim();
+    return ListTile(
+      dense: true,
+      contentPadding: EdgeInsets.zero,
+      leading: Icon(_iconOf(a.kind), size: 20),
+      title: Text(
+        [if ((quoteNo ?? '').isNotEmpty) quoteNo!, PosQuoteActivity.kindLabel(a.kind), when].join(' · '),
+        style: const TextStyle(fontWeight: FontWeight.w700, fontSize: 13),
+      ),
+      subtitle: Text([
+        if (a.score != null) 'Tiềm năng ${a.score}/10',
+        a.displayContent,
+        if (who.isNotEmpty) who,
+        if (a.nextFollowUpAt != null) 'Hẹn ${DateFormat('dd/MM HH:mm').format(a.nextFollowUpAt!.toLocal())}',
+      ].join('\n')),
+    );
+  }
+
+  Widget _customerHistory() {
+    if (!_histLoaded) return const Center(child: CircularProgressIndicator());
+    if (_otherQuotes.isEmpty) {
+      return Center(child: Text(tr('Khách chưa có báo giá nào khác')));
+    }
+    final money = NumberFormat('#,##0', 'vi_VN');
+    return ListView(children: [
+      Text(tr('Báo giá khác của khách'), style: const TextStyle(fontWeight: FontWeight.w700, fontSize: 13)),
+      const SizedBox(height: 4),
+      for (final q in _otherQuotes)
+        ListTile(
+          dense: true,
+          contentPadding: EdgeInsets.zero,
+          leading: const Icon(Icons.request_quote_outlined, size: 20),
+          title: Text('${q['quoteNo'] ?? ''} · ${q['statusText'] ?? ''}',
+              style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w600)),
+          subtitle: Text([
+            '${money.format((q['total'] as num?) ?? 0)} đ',
+            if (q['createdAt'] != null)
+              DateFormat('dd/MM/yyyy').format(
+                  (parseApiUtcDateTime(q['createdAt'].toString()) ?? DateTime.now()).toLocal()),
+            if (((q['revision'] as num?) ?? 1) > 1) 'bản sửa ${q['revision']}',
+          ].join(' · ')),
+        ),
+      if (_histItems.isNotEmpty) ...[
+        const Divider(height: 16),
+        Text(tr('Lần chăm sóc trước'), style: const TextStyle(fontWeight: FontWeight.w700, fontSize: 13)),
+        for (final h in _histItems) _activityTile(h.a, quoteNo: h.quoteNo),
+      ],
+    ]);
   }
 
   @override
@@ -935,40 +1033,19 @@ class _PosQuoteCareSheetState extends State<_PosQuoteCareSheet> {
               label: Text(_saving ? tr('Đang lưu…') : tr('Ghi lịch')),
             ),
             const Divider(height: 20),
+            _scopeToggle(),
+            const SizedBox(height: 6),
             Expanded(
-              child: _loading
+              child: _wholeCustomer
+                  ? _customerHistory()
+                  : _loading
                   ? const Center(child: CircularProgressIndicator())
                   : _items.isEmpty
                       ? Center(child: Text(tr('Chưa có lịch làm việc với khách')))
                       : ListView.separated(
                           itemCount: _items.length,
                           separatorBuilder: (_, __) => const Divider(height: 1),
-                          itemBuilder: (_, i) {
-                            final a = _items[i];
-                            final when = a.createdAt == null
-                                ? ''
-                                : DateFormat('dd/MM HH:mm')
-                                    .format(a.createdAt!.toLocal());
-                            final who = (a.employeeName ?? a.createdBy ?? '')
-                                .trim();
-                            return ListTile(
-                              dense: true,
-                              contentPadding: EdgeInsets.zero,
-                              leading: Icon(_iconOf(a.kind), size: 20),
-                              title: Text(
-                                '${PosQuoteActivity.kindLabel(a.kind)} · $when',
-                                style: const TextStyle(
-                                    fontWeight: FontWeight.w700, fontSize: 13),
-                              ),
-                              subtitle: Text([
-                                if (a.score != null) 'Tiềm năng ${a.score}/10',
-                                a.displayContent,
-                                if (who.isNotEmpty) who,
-                                if (a.nextFollowUpAt != null)
-                                  'Hẹn ${DateFormat('dd/MM HH:mm').format(a.nextFollowUpAt!.toLocal())}',
-                              ].join('\n')),
-                            );
-                          },
+                          itemBuilder: (_, i) => _activityTile(_items[i]),
                         ),
             ),
           ],

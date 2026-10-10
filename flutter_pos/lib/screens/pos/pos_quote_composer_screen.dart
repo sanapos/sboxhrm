@@ -1736,6 +1736,7 @@ class _PosQuoteComposerScreenState extends State<PosQuoteComposerScreen> {
               style:
                   const TextStyle(fontWeight: FontWeight.w700, fontSize: 16)),
           const SizedBox(height: 8),
+          if (_customer == null) ...[
           Row(
             children: [
               Expanded(
@@ -1793,7 +1794,8 @@ class _PosQuoteComposerScreenState extends State<PosQuoteComposerScreen> {
                 ],
               ),
             ),
-          if (_customer != null) _customerCard(_customer!),
+          ] else
+            _customerCard(_customer!),
           const SizedBox(height: 14),
           if (_priceLists.isNotEmpty) ...[
             _priceListSelector(),
@@ -2130,11 +2132,15 @@ class _PosQuoteComposerScreenState extends State<PosQuoteComposerScreen> {
 
   Widget _customerCard(PosCustomer c) {
     final company = (c.companyName ?? '').trim();
-    final title = company.isNotEmpty ? company : c.name;
+    final person = c.name.trim();
+    final title = company.isNotEmpty ? company : person;
+    // Mỗi thông tin một lần: tên liên hệ chỉ hiện khi khác tên công ty.
     final bits = <String>[
+      if (company.isNotEmpty && person.isNotEmpty && person != company) person,
       if ((c.taxCode ?? '').isNotEmpty) 'MST ${c.taxCode}',
       if ((c.phone ?? '').isNotEmpty) c.phone!,
     ];
+    final address = (c.address ?? '').trim();
     return Padding(
       padding: const EdgeInsets.only(top: 8),
       child: Material(
@@ -2158,6 +2164,12 @@ class _PosQuoteComposerScreenState extends State<PosQuoteComposerScreen> {
                       Text(bits.join(' · '),
                           style: TextStyle(
                               fontSize: 11, color: SboxColors.slate700)),
+                    if (address.isNotEmpty)
+                      Text(address,
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                          style: TextStyle(
+                              fontSize: 11, color: SboxColors.slate500)),
                   ],
                 ),
               ),
@@ -2165,6 +2177,11 @@ class _PosQuoteComposerScreenState extends State<PosQuoteComposerScreen> {
                 tooltip: tr('Sửa khách'),
                 icon: const Icon(Icons.edit_outlined, size: 18),
                 onPressed: () => _openAddCustomer(edit: c),
+              ),
+              IconButton(
+                tooltip: tr('Đổi khách'),
+                icon: const Icon(Icons.close, size: 18),
+                onPressed: _clearCustomer,
               ),
             ],
           ),
