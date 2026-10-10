@@ -592,6 +592,7 @@ public partial class PosSellIndustryController(
                 .SetProperty(a => a.UpdatedBy, by));
         if (n == 0)
             return NotFound(AppResponse<AreaDto>.Fail("Không tìm thấy khu vực"));
+        ZKTecoADMS.Api.Controllers.Filters.ActivityTrail.Updated(HttpContext, "PosServiceArea", id, name, ("Name", null, name), ("IsActive", null, dto.IsActive ? "Có" : "Không"));
 
         return Ok(AppResponse<AreaDto>.Success(
             new AreaDto(id, name, code, dto.SortOrder, areaType, dto.IsActive)));
@@ -652,6 +653,10 @@ public partial class PosSellIndustryController(
 
         if (n == 0)
             return NotFound(AppResponse<object>.Fail("Không xóa được khu vực"));
+        var areaName = await db.PosServiceAreas.IgnoreQueryFilters().AsNoTracking()
+            .Where(a => a.Id == id).Select(a => a.Name).FirstOrDefaultAsync();
+        ZKTecoADMS.Api.Controllers.Filters.ActivityTrail.Deleted(HttpContext, "PosServiceArea", id,
+            resourceIds.Count > 0 ? $"{areaName} (kèm {resourceIds.Count} bàn / phòng)" : areaName);
 
         return Ok(AppResponse<object>.Success(new { deleted = true, id }));
     }
@@ -1183,6 +1188,7 @@ public partial class PosSellIndustryController(
 
         if (n == 0)
             return NotFound(AppResponse<object>.Fail("Không cập nhật được"));
+        ZKTecoADMS.Api.Controllers.Filters.ActivityTrail.Updated(HttpContext, "PosServiceResource", id, name, ("Name", null, name), ("IsActive", null, dto.IsActive ? "Có" : "Không"));
 
         if (dto.LayoutX.HasValue)
         {
@@ -1227,6 +1233,9 @@ public partial class PosSellIndustryController(
                 .SetProperty(r => r.UpdatedBy, by));
         if (n == 0)
             return NotFound(AppResponse<object>.Fail("Không tìm thấy"));
+        var resourceName = await db.PosServiceResources.IgnoreQueryFilters().AsNoTracking()
+            .Where(r => r.Id == id).Select(r => r.Name).FirstOrDefaultAsync();
+        ZKTecoADMS.Api.Controllers.Filters.ActivityTrail.Deleted(HttpContext, "PosServiceResource", id, resourceName);
 
         return Ok(AppResponse<object>.Success(new { deleted = true, id }));
     }
@@ -1823,6 +1832,13 @@ public partial class PosSellIndustryController(
                 && (s.Status == PosResourceSessionStatus.Open
                     || s.Status == PosResourceSessionStatus.Paused));
 
+        if (closed > 0 || draftsRemoved > 0)
+        {
+            var freedName = await db.PosServiceResources.AsNoTracking()
+                .Where(r => r.Id == id).Select(r => r.Name).FirstOrDefaultAsync();
+            ZKTecoADMS.Api.Controllers.Filters.ActivityTrail.Updated(HttpContext, "PosServiceResource", id, freedName,
+                ("Status", "Đang dùng", "Trống (trả bàn)"));
+        }
         NotifyFloorChanged(storeId, "freeResource", resourceId: id);
         return Ok(AppResponse<object>.Success(new
         {

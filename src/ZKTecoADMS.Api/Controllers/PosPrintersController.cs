@@ -329,6 +329,9 @@ public partial class PosPrintersController(
 
         if (affected == 0)
             return NotFound(AppResponse<object>.Fail("Không tìm thấy máy in"));
+        var printerName = await db.PosStorePrinters.IgnoreQueryFilters().AsNoTracking()
+            .Where(p => p.Id == id).Select(p => p.Name).FirstOrDefaultAsync();
+        ZKTecoADMS.Api.Controllers.Filters.ActivityTrail.Deleted(HttpContext, "PosStorePrinter", id, printerName);
 
         // Lệnh chưa in của máy vừa xóa → hủy (trước đây nằm «Chờ in» mãi → phiếu treo không bao giờ hết).
         await db.PosPrintJobs

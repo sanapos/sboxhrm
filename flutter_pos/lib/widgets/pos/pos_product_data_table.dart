@@ -593,7 +593,7 @@ class PosProductDataTable extends StatelessWidget {
     );
   }
 
-  /// Dòng hàng cùng lo?i (bi?n th?) — th?t vào ki?u KiotViet, b?m xem chi ti?t.
+  /// Dòng hàng cùng loại (biến thể) — thụt vào kiểu KiotViet, bấm xem chi tiết.
   Widget _variantDataRow(PosProduct parent, PosProductVariant v) {
     final selected = selectedVariantId == v.id;
     return Material(
@@ -706,7 +706,7 @@ class PosProductDataTable extends StatelessWidget {
               padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
             ),
             icon: const Icon(Icons.add, size: 16),
-            label: Text(tr('Thêm hàng hóa cùng lo?i')),
+            label: Text(tr('Thêm hàng hóa cùng loại')),
           ),
         ],
       ),

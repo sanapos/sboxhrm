@@ -24,7 +24,7 @@ class PosCancelReturnHistoryScreen extends StatefulWidget {
       _PosCancelReturnHistoryScreenState();
 }
 
-enum _ActionFilter { all, kitchenVoid, saleCancel, saleReturn }
+enum _ActionFilter { all, kitchenVoid, draftCancel, saleCancel, orderDelete, saleReturn, returnCancel }
 
 enum _BillPhaseFilter { all, before, after }
 
@@ -41,6 +41,17 @@ class _PosCancelReturnHistoryScreenState
   bool _loading = true;
   String? _error;
   List<Map<String, dynamic>> _items = [];
+
+  /// Tổng của TOÀN BỘ kỳ do máy chủ tính (trước đây cộng trên 400 dòng tải về → kỳ dài bị thiếu).
+  Map<String, ({int count, double amount})> _byType = {};
+  int _total = 0;
+  double _totalAmount = 0;
+  int _afterCount = 0;
+  double _afterAmount = 0;
+  bool _mineOnly = false;
+
+  /// Đổi bộ lọc liên tục: chỉ nhận kết quả của lần tải mới nhất.
+  int _seq = 0;
 
   DateTime _from = DateTime.now().subtract(const Duration(days: 7));
   DateTime _to = DateTime.now();
@@ -61,14 +72,19 @@ class _PosCancelReturnHistoryScreenState
     super.dispose();
   }
 
-  String? get _actionTypeParam => switch (_action) {
-        _ActionFilter.kitchenVoid => 'KitchenVoid',
-        _ActionFilter.saleCancel => 'SaleCancel',
-        _ActionFilter.saleReturn => 'SaleReturn',
-        _ActionFilter.all => null,
-      };
+  static const _codes = {
+    _ActionFilter.kitchenVoid: 'KitchenVoid',
+    _ActionFilter.draftCancel: 'DraftCancel',
+    _ActionFilter.saleCancel: 'SaleCancel',
+    _ActionFilter.orderDelete: 'OrderDelete',
+    _ActionFilter.saleReturn: 'SaleReturn',
+    _ActionFilter.returnCancel: 'ReturnCancel',
+  };
+
+  String? get _actionTypeParam => _codes[_action];
 
   Future<void> _load() async {
+    final seq = ++_seq;
     setState(() {
       _loading = true;
       _error = null;
@@ -85,7 +101,7 @@ class _PosCancelReturnHistoryScreenState
       search: _searchCtrl.text.trim().isEmpty ? null : _searchCtrl.text.trim(),
       take: 400,
     );
-    if (!mounted) return;
+    if (!mounted || seq != _seq) return;
     if (res['isSuccess'] != true || res['data'] is! Map) {
       setState(() {
         _loading = false;
@@ -101,23 +117,43 @@ class _PosCancelReturnHistoryScreenState
         if (e is Map) list.add(Map<String, dynamic>.from(e));
       }
     }
+    double num0(Object? v) => (v as num?)?.toDouble() ?? 0;
+    final byType = <String, ({int count, double amount})>{};
+    for (final t in (data['types'] as List? ?? const [])) {
+      if (t is Map && t['actionType'] != null) {
+        byType['${t['actionType']}'] = (count: (t['count'] as num?)?.toInt() ?? 0, amount: num0(t['amount']));
+      }
+    }
     setState(() {
       _loading = false;
       _items = list;
+      _byType = byType;
+      _total = (data['total'] as num?)?.toInt() ?? list.length;
+      _totalAmount = data.containsKey('totalAmount') ? num0(data['totalAmount']) : list.fold(0.0, (s, m) => s + num0(m['amount']));
+      _afterCount = (data['afterBillCount'] as num?)?.toInt() ?? list.where((m) => m['afterProvisionalBill'] == true).length;
+      _afterAmount = data.containsKey('afterBillAmount')
+          ? num0(data['afterBillAmount'])
+          : list.where((m) => m['afterProvisionalBill'] == true).fold(0.0, (s, m) => s + num0(m['amount']));
+      _mineOnly = data['scope'] == 'mine';
     });
   }
 
   String _actionLabel(String? t) => switch (t) {
         'KitchenVoid' => 'Hủy món bếp',
+        'DraftCancel' => 'Hủy đơn tạm',
         'SaleCancel' => 'Hủy đơn',
+        'OrderDelete' => 'Xóa đơn',
         'SaleReturn' => 'Trả hàng',
+        'ReturnCancel' => 'Hủy phiếu trả',
         _ => t ?? '—',
       };
 
   Color _actionColor(String? t) => switch (t) {
         'KitchenVoid' => SboxColors.warningText,
-        'SaleCancel' => SboxColors.danger,
+        'DraftCancel' => SboxColors.warningText,
+        'SaleCancel' || 'OrderDelete' => SboxColors.danger,
         'SaleReturn' => SboxColors.brand600,
+        'ReturnCancel' => SboxColors.slate600,
         _ => PosTheme.textSecondary,
       };
 
@@ -133,51 +169,45 @@ class _PosCancelReturnHistoryScreenState
   // ── Dashboard ──
 
   List<ReportKpiItem> _kpis() {
-    int count(String t) => _items.where((m) => m['actionType'] == t).length;
-    double amt(Iterable<Map<String, dynamic>> xs) =>
-        xs.fold(0.0, (s, m) => s + ((m['amount'] as num?)?.toDouble() ?? 0));
-    final total = amt(_items);
-    final after = _items.where((m) => m['afterProvisionalBill'] == true).toList();
-    String sub(String t) => '${_money.format(amt(_items.where((m) => m['actionType'] == t)))}đ';
+    ({int count, double amount}) of(String t) => _byType[t] ?? (count: 0, amount: 0);
+    String money(double v) => '${_money.format(v)}đ';
+    ReportKpiItem kpi(String label, String code, IconData icon, Color color, _ActionFilter f) {
+      final v = of(code);
+      return ReportKpiItem(
+        label: label,
+        value: '${v.count}',
+        note: money(v.amount),
+        icon: icon,
+        color: color,
+        onTap: () => _quickAction(f),
+      );
+    }
+
+    final draft = of('DraftCancel'), del = of('OrderDelete'), rc = of('ReturnCancel');
     return [
       ReportKpiItem(
-        label: 'Tổng lượt hủy / trả',
-        value: '${_items.length}',
-        note: '${_money.format(total)}đ',
+        label: _mineOnly ? 'Lượt hủy / trả của tôi' : 'Tổng lượt hủy / trả',
+        value: '$_total',
+        note: money(_totalAmount),
         icon: Icons.receipt_long_outlined,
         color: SboxColors.brand600,
       ),
-      ReportKpiItem(
-        label: 'Hủy món bếp',
-        value: '${count('KitchenVoid')}',
-        note: sub('KitchenVoid'),
-        icon: Icons.soup_kitchen_outlined,
-        color: SboxColors.warning,
-        onTap: () => _quickAction(_ActionFilter.kitchenVoid),
-      ),
-      ReportKpiItem(
-        label: 'Hủy đơn',
-        value: '${count('SaleCancel')}',
-        note: sub('SaleCancel'),
-        icon: Icons.cancel_outlined,
-        color: SboxColors.danger,
-        onTap: () => _quickAction(_ActionFilter.saleCancel),
-      ),
-      ReportKpiItem(
-        label: 'Trả hàng',
-        value: '${count('SaleReturn')}',
-        note: sub('SaleReturn'),
-        icon: Icons.assignment_return_outlined,
-        color: SboxColors.brand500,
-        onTap: () => _quickAction(_ActionFilter.saleReturn),
-      ),
+      kpi('Hủy món bếp', 'KitchenVoid', Icons.soup_kitchen_outlined, SboxColors.warning, _ActionFilter.kitchenVoid),
+      kpi('Hủy đơn', 'SaleCancel', Icons.cancel_outlined, SboxColors.danger, _ActionFilter.saleCancel),
+      kpi('Trả hàng', 'SaleReturn', Icons.assignment_return_outlined, SboxColors.brand500, _ActionFilter.saleReturn),
+      if (draft.count > 0 || _action == _ActionFilter.draftCancel)
+        kpi('Hủy đơn tạm', 'DraftCancel', Icons.table_restaurant_outlined, SboxColors.warning, _ActionFilter.draftCancel),
+      if (del.count > 0 || _action == _ActionFilter.orderDelete)
+        kpi('Xóa đơn', 'OrderDelete', Icons.delete_outline, SboxColors.danger, _ActionFilter.orderDelete),
+      if (rc.count > 0 || _action == _ActionFilter.returnCancel)
+        kpi('Hủy phiếu trả', 'ReturnCancel', Icons.undo_rounded, SboxColors.slate500, _ActionFilter.returnCancel),
       ReportKpiItem(
         label: 'Sau tạm tính',
-        value: '${after.length}',
-        note: after.isEmpty ? 'Không có — tốt' : '${_money.format(amt(after))}đ · cần kiểm soát',
+        value: '$_afterCount',
+        note: _afterCount == 0 ? 'Không có — tốt' : '${money(_afterAmount)} · cần kiểm soát',
         icon: Icons.policy_outlined,
         color: SboxColors.danger,
-        tone: after.isEmpty ? SboxTone.success : SboxTone.danger,
+        tone: _afterCount == 0 ? SboxTone.success : SboxTone.danger,
         onTap: () {
           setState(() => _phase = _phase == _BillPhaseFilter.after ? _BillPhaseFilter.all : _BillPhaseFilter.after);
           unawaited(_load());
@@ -204,12 +234,18 @@ class _PosCancelReturnHistoryScreenState
       'SaleCancel': {for (final d in days) d: 0},
       'SaleReturn': {for (final d in days) d: 0},
     };
+    // Hủy đơn tạm / xóa đơn gộp vào cột «Hủy đơn», hủy phiếu trả vào «Trả hàng».
+    String series(String t) => switch (t) {
+          'DraftCancel' || 'OrderDelete' => 'SaleCancel',
+          'ReturnCancel' => 'SaleReturn',
+          _ => t,
+        };
     final byActor = <String, double>{};
     final actorCnt = <String, int>{};
     final byProduct = <String, double>{};
     final byReason = <String, double>{};
     for (final m in _items) {
-      final t = m['actionType']?.toString() ?? '';
+      final t = series(m['actionType']?.toString() ?? '');
       final occ = parseApiUtcDateTime(m['occurredAt']?.toString() ?? '')?.toLocal();
       final amount = (m['amount'] as num?)?.toDouble() ?? 0;
       if (occ != null) {
@@ -217,20 +253,21 @@ class _PosCancelReturnHistoryScreenState
         final series = byDay[t];
         if (series != null && series.containsKey(k)) series[k] = series[k]! + 1;
       }
-      final actor = (m['actor'] ?? '').toString().trim();
+      final actor = _actorOf(m);
       if (actor.isNotEmpty) {
         byActor[actor] = (byActor[actor] ?? 0) + amount;
         actorCnt[actor] = (actorCnt[actor] ?? 0) + 1;
       }
       final p = (m['productName'] ?? '').toString().trim();
-      if (p.isNotEmpty) byProduct[p] = (byProduct[p] ?? 0) + ((m['qty'] as num?)?.toDouble() ?? 1);
+      // Chỉ hủy món bếp ghi đúng một món / dòng; hủy đơn, trả hàng lưu tóm tắt «A, B +2 món» → không xếp hạng.
+      if (p.isNotEmpty && m['actionType'] == 'KitchenVoid') byProduct[p] = (byProduct[p] ?? 0) + ((m['qty'] as num?)?.toDouble() ?? 1);
       final r = (m['reason'] ?? '').toString().trim();
       byReason[r.isEmpty ? 'Không ghi lý do' : r] = (byReason[r.isEmpty ? 'Không ghi lý do' : r] ?? 0) + 1;
     }
     return [
       if (days.length > 1 && days.length <= 62)
         SboxChartCard(
-          title: 'Số lượt theo ngày',
+          title: _items.length < _total ? 'Số lượt theo ngày (${_items.length} lượt gần nhất)' : 'Số lượt theo ngày',
           wide: true,
           child: SboxBarChart(
             stacked: true,
@@ -256,7 +293,7 @@ class _PosCancelReturnHistoryScreenState
         ),
       if (byProduct.isNotEmpty)
         SboxChartCard(
-          title: 'Món / hàng bị hủy nhiều nhất',
+          title: 'Món bị hủy ở bếp nhiều nhất',
           subtitle: 'Theo số lượng',
           child: SboxRankList(
             color: SboxColors.warning,
@@ -329,8 +366,11 @@ class _PosCancelReturnHistoryScreenState
             options: const {
               _ActionFilter.all: 'Tất cả',
               _ActionFilter.kitchenVoid: 'Hủy món bếp',
+              _ActionFilter.draftCancel: 'Hủy đơn tạm',
               _ActionFilter.saleCancel: 'Hủy đơn',
+              _ActionFilter.orderDelete: 'Xóa đơn',
               _ActionFilter.saleReturn: 'Trả hàng',
+              _ActionFilter.returnCancel: 'Hủy phiếu trả',
             },
             onChanged: (v) {
               setState(() => _action = v);
@@ -393,7 +433,9 @@ class _PosCancelReturnHistoryScreenState
             else ...[
               ReportDashboard(
                 storageKey: 'pos_cancel_return',
-                subtitle: '${_dayFmt.format(_from)} – ${_dayFmt.format(_to)}${_items.length >= 400 ? ' · 400 bản ghi gần nhất' : ''}',
+                subtitle: '${_dayFmt.format(_from)} – ${_dayFmt.format(_to)}'
+                    '${_mineOnly ? ' · chỉ lượt của bạn' : ''}'
+                    '${_items.length < _total ? ' · biểu đồ và danh sách: ${_items.length} lượt gần nhất' : ''}',
                 kpis: _kpis(),
                 charts: _charts(),
               ),
@@ -405,7 +447,7 @@ class _PosCancelReturnHistoryScreenState
               else ...[
                 Padding(
                   padding: const EdgeInsets.fromLTRB(16, 12, 16, 6),
-                  child: Text(tr('Chi tiết (${_items.length})'),
+                  child: Text(tr(_items.length < _total ? 'Chi tiết (${_items.length}/$_total gần nhất)' : 'Chi tiết (${_items.length})'),
                       style: const TextStyle(fontWeight: FontWeight.w700, fontSize: 14)),
                 ),
                 for (final m in _items)
@@ -416,6 +458,12 @@ class _PosCancelReturnHistoryScreenState
         ),
       ),
     );
+  }
+
+  /// Tên nhân viên (máy chủ đổi từ email), không có thì email.
+  String _actorOf(Map<String, dynamic> m) {
+    final n = (m['actorName'] ?? '').toString().trim();
+    return n.isNotEmpty ? n : (m['actor'] ?? '').toString().trim();
   }
 
   Widget _tile(Map<String, dynamic> m) {
@@ -514,7 +562,7 @@ class _PosCancelReturnHistoryScreenState
             Text(
               tr([
                 if (occurred != null) _fmt.format(occurred.toLocal()),
-                if ((m['actor'] ?? '').toString().isNotEmpty) m['actor'],
+                if (_actorOf(m).isNotEmpty) _actorOf(m),
                 if ((m['deviceName'] ?? '').toString().isNotEmpty)
                   m['deviceName'],
               ].whereType<Object>().join(' · ')),

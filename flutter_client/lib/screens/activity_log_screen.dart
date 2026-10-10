@@ -41,7 +41,11 @@ class _ActivityLogScreenState extends State<ActivityLogScreen> {
   int _page = 1;
   bool _loading = true;
   bool _loadingMore = false;
+  bool _openingDetail = false;
   String? _error;
+
+  /// Gõ tìm / đổi lọc liên tục: chỉ nhận kết quả của lần tải mới nhất (trước đây kết quả cũ về sau ghi đè kết quả mới).
+  int _seq = 0;
 
   @override
   void initState() {
@@ -101,6 +105,7 @@ class _ActivityLogScreenState extends State<ActivityLogScreen> {
   }
 
   Future<void> _reload() async {
+    final seq = ++_seq;
     setState(() {
       _loading = true;
       _error = null;
@@ -108,9 +113,9 @@ class _ActivityLogScreenState extends State<ActivityLogScreen> {
     });
     final results = await Future.wait([
       _api.getActivityLogFilters(from: _from, to: _to),
-      _fetch(1),
+      _fetch(1, seq: seq),
     ]);
-    if (!mounted) return;
+    if (!mounted || seq != _seq) return;
     final f = results[0];
     setState(() {
       if (f['isSuccess'] == true && f['data'] is Map) {
@@ -124,7 +129,8 @@ class _ActivityLogScreenState extends State<ActivityLogScreen> {
     });
   }
 
-  Future<Map<String, dynamic>> _fetch(int page) async {
+  Future<Map<String, dynamic>> _fetch(int page, {int? seq}) async {
+    final mySeq = seq ?? _seq;
     final res = await _api.getActivityLogs(
       from: _from,
       to: _to,
@@ -134,9 +140,10 @@ class _ActivityLogScreenState extends State<ActivityLogScreen> {
       search: _searchCtrl.text,
       page: page,
     );
-    if (!mounted) return res;
+    if (!mounted || mySeq != _seq) return res;
     setState(() {
       if (res['isSuccess'] == true && res['data'] is Map) {
+        _error = null;
         final d = res['data'] as Map;
         final rows = ((d['items'] as List?) ?? []).whereType<Map>().map((e) => Map<String, dynamic>.from(e)).toList();
         _items = page == 1 ? rows : [..._items, ...rows];
@@ -153,20 +160,26 @@ class _ActivityLogScreenState extends State<ActivityLogScreen> {
   }
 
   Future<void> _applyFilters() async {
-    setState(() => _loading = true);
-    await _fetch(1);
-    if (mounted) setState(() => _loading = false);
+    // Trước đây không xóa lỗi cũ: lỗi mạng một lần là màn kẹt ở thông báo lỗi dù lần lọc sau đã tải được.
+    final seq = ++_seq;
+    setState(() {
+      _loading = true;
+      _error = null;
+    });
+    await _fetch(1, seq: seq);
+    if (mounted && seq == _seq) setState(() => _loading = false);
   }
 
   Future<void> _loadMore() async {
-    if (_loadingMore || _items.length >= _total) return;
+    if (_loadingMore || _loading || _items.length >= _total) return;
     setState(() => _loadingMore = true);
-    await _fetch(_page + 1);
+    await _fetch(_page + 1, seq: _seq);
     if (mounted) setState(() => _loadingMore = false);
   }
 
   Future<void> _export() async {
     if (!ensureCanExport(context, 'ActivityLog')) return;
+    NotificationOverlayManager().showInfo(title: 'Đang xuất Excel…', message: 'Tối đa 20.000 dòng theo bộ lọc hiện tại');
     final res = await _api.downloadActivityLogsExcel(
         from: _from, to: _to, userId: _userId, module: _module, action: _action, search: _searchCtrl.text);
     if (!mounted) return;
@@ -199,6 +212,7 @@ class _ActivityLogScreenState extends State<ActivityLogScreen> {
           children: [
             _buildFilterBar(wide),
             _buildSummary(),
+            if (_openingDetail) const LinearProgressIndicator(minHeight: 2),
             Expanded(child: _buildList()),
           ],
         ),
@@ -507,8 +521,12 @@ class _ActivityLogScreenState extends State<ActivityLogScreen> {
       };
 
   Future<void> _showDetail(Map<String, dynamic> it) async {
+    // Bấm 2 lần khi mạng chậm → trước đây mở chồng 2 bảng chi tiết.
+    if (_openingDetail) return;
+    setState(() => _openingDetail = true);
     final res = await _api.getActivityLogDetail('${it['id']}');
     if (!mounted) return;
+    setState(() => _openingDetail = false);
     if (res['isSuccess'] != true || res['data'] is! Map) {
       NotificationOverlayManager().showError(title: 'Không tải được chi tiết', message: res['message']?.toString() ?? '');
       return;

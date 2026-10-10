@@ -5219,8 +5219,8 @@ class _KpiScreenState extends State<KpiScreen> with TickerProviderStateMixin {
         ]),
         const SizedBox(height: 8),
         Text(
-          tr('C?n upload file credentials.json (Google Service Account key) d? kết nối Google Sheet. '
-          'Tải file JSON key tế Google Cloud Console ? IAM ? Service Accounts ? Keys.'),
+          tr('Cần tải lên file credentials.json (khóa Google Service Account) để kết nối Google Sheet. '
+          'Tải file khóa JSON từ Google Cloud Console → IAM → Service Accounts → Keys.'),
           style: TextStyle(color: SboxColors.slate700, fontSize: 13),
         ),
         const SizedBox(height: 12),

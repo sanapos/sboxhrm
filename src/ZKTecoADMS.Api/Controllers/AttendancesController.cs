@@ -500,9 +500,18 @@ public class AttendancesController(
             await attendanceDeletePreparer.PrepareForDeleteAsync(attId, cancellationToken);
         }
 
-        return await dbContext.AttendanceLogs
+        var removed = await dbContext.AttendanceLogs
             .Where(a => attendanceIds.Contains(a.Id))
             .ExecuteDeleteAsync(cancellationToken);
+        // Xóa thẳng DB → bộ ghi tự động không thấy: ghi bù vào Lịch sử thao tác (ai xóa, bao nhiêu dòng, khoảng ngày).
+        if (removed > 0)
+        {
+            var range = request.FromDate.HasValue || request.ToDate.HasValue
+                ? $"{request.FromDate:dd/MM/yyyy} – {request.ToDate:dd/MM/yyyy}"
+                : "toàn bộ";
+            ZKTecoADMS.Api.Controllers.Filters.ActivityTrail.Deleted(HttpContext, "Attendance", null, $"Chấm công {range}", removed);
+        }
+        return removed;
     }
 
     /// <summary>

@@ -275,6 +275,26 @@ class PayrollSummaryTabState extends State<PayrollSummaryTab> {
   @override
   void didUpdateWidget(PayrollSummaryTab oldWidget) {
     super.didUpdateWidget(oldWidget);
+    if (!DateUtils.isSameDay(oldWidget.fromDate, widget.fromDate) ||
+        !DateUtils.isSameDay(oldWidget.toDate, widget.toDate)) {
+      // Màn cha đổi tháng: tải lại toàn bộ cho kỳ mới.
+      _fromDate = widget.fromDate;
+      _toDate = widget.toDate;
+      _loadPayrollData();
+      return;
+    }
+    if (oldWidget.attendances != widget.attendances) {
+      // Chấm công mới (máy chấm / app): trước đây vẫn tính trên danh sách cũ đã tải lúc mở màn
+      // → bảng lương không tự cập nhật. Kỳ nằm trong tháng màn cha thì lấy luôn dữ liệu mới.
+      final fromDay = DateTime(_fromDate.year, _fromDate.month, _fromDate.day);
+      final toEnd = DateTime(_toDate.year, _toDate.month, _toDate.day, 23, 59, 59);
+      if (_parentAttendancesCoverPeriod(fromDay, toEnd)) {
+        _periodAttendances = widget.attendances.where((a) {
+          final t = a.attendanceTime;
+          return !t.isBefore(fromDay) && !t.isAfter(toEnd);
+        }).toList();
+      }
+    }
     if (oldWidget.branchId != widget.branchId ||
         oldWidget.attendances != widget.attendances) {
       _cachedPayrollData = null;
@@ -524,6 +544,21 @@ class PayrollSummaryTabState extends State<PayrollSummaryTab> {
   }
 
   static String _normEmpId(String id) => id.toLowerCase().trim();
+
+  /// Hồ sơ lương thật (có bảng lương) — không phải hồ sơ rỗng máy chủ trả cho NV chưa gán.
+  static bool isRealSalaryProfile(Object? profile) {
+    if (profile is! Map) return false;
+    final b = profile['benefit'] ?? profile['Benefit'];
+    return b is Map && b.isNotEmpty;
+  }
+
+  bool _hasSalaryProfile(Employee e) {
+    if (_salaryTimeline[_normEmpId(e.id)]?.isNotEmpty == true) return true;
+    final sp = _employeeSalaryProfiles
+        .where((x) => x['employeeId'] == e.id)
+        .firstOrNull;
+    return isRealSalaryProfile(sp?['profile']);
+  }
 
   void _putSalaryProfile(
     Map<String, dynamic> profileMap,
@@ -785,9 +820,6 @@ class PayrollSummaryTabState extends State<PayrollSummaryTab> {
         activeEmployees,
         preferSelfServiceApi: mounted && _isEmployeeRole(context),
       );
-      _notConfiguredSalaryCount = activeEmployees
-          .where((e) => !profileMap.containsKey(_normEmpId(e.id)))
-          .length;
       _employees = activeEmployees;
       for (final emp in _employees) {
         _employeeSalaryProfiles.add({
@@ -999,6 +1031,9 @@ class PayrollSummaryTabState extends State<PayrollSummaryTab> {
       }
 
       await _loadSalaryTimeline();
+      // Đếm sau khi có lịch sử hồ sơ lương: NV đổi / hết hồ sơ giữa kỳ vẫn tính là đã cài.
+      _notConfiguredSalaryCount =
+          _employees.where((e) => !_hasSalaryProfile(e)).length;
       await _loadLeavePayouts();
       await _loadPeriodAttendances();
       await _loadTravelMobileRecords();
@@ -2270,9 +2305,11 @@ class PayrollSummaryTabState extends State<PayrollSummaryTab> {
     final salaryProfileId =
         (benefit?['id'] ?? benefit?['Id'])?.toString() ?? '';
 
+    final noProfile = benefit == null && segs.isEmpty;
     return {
       'code': empCode,
       'name': empName,
+      'noSalaryProfile': noProfile,
       'employeeUserId': emp?.applicationUserId ?? '',
       'employeeId': emp?.id ?? '',
       'salaryProfileId': salaryProfileId,
@@ -2291,7 +2328,7 @@ class PayrollSummaryTabState extends State<PayrollSummaryTab> {
       ],
       'department': emp?.department ?? '',
       'position': emp?.position ?? '',
-      'salaryType': salaryTypeLabel,
+      'salaryType': noProfile ? 'Chưa có bảng lương' : salaryTypeLabel,
       'rateType': rateType,
       'standardDays': standardWorkDays,
       'workDays': workDays,

@@ -1,4 +1,5 @@
 using System.Collections;
+using System.Text.RegularExpressions;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.ChangeTracking;
 using Microsoft.EntityFrameworkCore.Diagnostics;
@@ -38,7 +39,7 @@ public sealed class ActivityAuditInterceptor(ActivityAuditCollector collector) :
         "AttendanceSyncLog", "ErrorLog", "PosPrintJob", "LoginSession", "AccessDeviceSession",
         // Chạy nền (GPS, hành trình, thống kê, webhook, lượt xem) — không phải thao tác của người dùng.
         "EmployeeLocationPoint", "EmployeeLiveLocation", "JourneyTracking", "ServerMetricSample", "SyncLog",
-        "PosPaymentWebhookEvent", "CommunicationRead", "AnnouncementDelivery", "PosBranchStock",
+        "PosPaymentWebhookEvent", "CommunicationRead", "AnnouncementDelivery", "PosBranchStock", "PosCancelReturnAudit",
     };
 
     static readonly HashSet<string> SkipFields = new(StringComparer.OrdinalIgnoreCase)
@@ -53,7 +54,7 @@ public sealed class ActivityAuditInterceptor(ActivityAuditCollector collector) :
         "DeviceStatus", "DisplayStateJson", "StateJson",
     };
 
-    static readonly string[] SensitiveMarks = ["password", "secret", "token", "apikey", "api_key", "hash", "pin"];
+    static readonly string[] SensitiveMarks = ["password", "secret", "token", "apikey", "api_key", "hash"];
 
     static readonly string[] LabelProps =
     [
@@ -141,8 +142,21 @@ public sealed class ActivityAuditInterceptor(ActivityAuditCollector collector) :
         return changed.Count == 0 ? null : new ActivityEntityChange(type, id, "Update", label, changed);
     }
 
-    static bool IsSensitive(string? name) =>
-        name != null && SensitiveMarks.Any(m => name.Contains(m, StringComparison.OrdinalIgnoreCase));
+    public static bool IsSensitive(string? name) =>
+        name != null && (SensitiveMarks.Any(m => name.Contains(m, StringComparison.OrdinalIgnoreCase)) || IsPinName(name));
+
+    /// <summary>
+    /// «PIN» chỉ khi là một từ riêng (Pin, PinCode, ManagerPin, pos.manager_pin). Trước đây so chuỗi con «pin»
+    /// nên che nhầm ShippingFee / ShippingAddress / IsPinned / PriceMapping… thành «••••» trong Lịch sử thao tác.
+    /// </summary>
+    public static bool IsPinName(string name)
+    {
+        // Tách từ theo camelCase / dấu phân cách rồi so nguyên từ.
+        var words = Regex.Split(Regex.Replace(name, "([a-z0-9])([A-Z])", "$1 $2"), @"[\s._\-]+")
+            .Where(w => w.Length > 0)
+            .Select(w => w.ToLowerInvariant());
+        return words.Any(w => w is "pin" or "pincode" or "otp");
+    }
 
     static string? Mask(string field, bool sensitiveRow, string? value) =>
         value == null ? null : (sensitiveRow && field == "Value") || IsSensitive(field) ? "••••" : value;

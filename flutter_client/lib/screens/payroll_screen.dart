@@ -81,9 +81,8 @@ class _PayrollScreenState extends State<PayrollScreen> {
   }
 
   void _onExternalRefresh() {
-    if (mounted) {
-      _loadData();
-    }
+    // Chấm công mới: chỉ tải lại chấm công, giữ nguyên bảng (không dựng lại từ đầu, không mất cuộn / lựa chọn).
+    if (mounted) _loadData(silent: true);
   }
 
   @override
@@ -92,8 +91,25 @@ class _PayrollScreenState extends State<PayrollScreen> {
     super.dispose();
   }
 
-  Future<void> _loadData() async {
-    setState(() => _isLoading = true);
+  /// Lọc theo chi nhánh trả danh sách mới mỗi lần build → bảng lương tưởng chấm công đổi và tính lại liên tục.
+  List<Attendance>? _filteredCache;
+  String? _filteredCacheBranch;
+  List<Attendance>? _filteredCacheSource;
+
+  List<Attendance> get _stableFilteredAttendances {
+    if (_filteredCache != null &&
+        identical(_filteredCacheSource, _attendances) &&
+        _filteredCacheBranch == _selectedBranchId) {
+      return _filteredCache!;
+    }
+    _filteredCacheSource = _attendances;
+    _filteredCacheBranch = _selectedBranchId;
+    return _filteredCache = _filteredAttendances;
+  }
+
+  Future<void> _loadData({bool silent = false}) async {
+    if (silent && _isLoading) return;
+    if (!silent) setState(() => _isLoading = true);
     try {
       final isEmployee = isEmployeeUserRole(
         context.read<AuthProvider>().user?.role,
@@ -296,7 +312,7 @@ class _PayrollScreenState extends State<PayrollScreen> {
                       ? const Center(child: CircularProgressIndicator())
                       : PayrollSummaryTab(
                           key: _payrollTabKey,
-                          attendances: _filteredAttendances,
+                          attendances: _stableFilteredAttendances,
                           devices: _devices,
                           fromDate: fromDate,
                           toDate: toDate,

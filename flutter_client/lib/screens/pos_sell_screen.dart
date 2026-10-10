@@ -4291,6 +4291,7 @@ class _PosSellScreenState extends State<PosSellScreen>
     final body = <String, dynamic>{
       'lines': lines
           .map((l) => {
+                if ((l.productId ?? '').isNotEmpty) 'productId': l.productId,
                 'productName': l.productName,
                 'qty': l.qty,
                 if ((l.unitName ?? '').isNotEmpty) 'unitName': l.unitName,

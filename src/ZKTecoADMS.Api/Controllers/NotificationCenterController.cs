@@ -529,6 +529,7 @@ public class NotificationCenterController(
             .Where(n => n.StoreId == storeId && n.BatchId == batchId && !n.IsRead)
             .ExecuteDeleteAsync();
         logger.LogInformation("Manager {UserId} recalled batch {Batch}: {Count} unread removed", CurrentUserId, batchId, removed);
+        if (removed > 0) ZKTecoADMS.Api.Controllers.Filters.ActivityTrail.Deleted(HttpContext, "Notification", batchId, "Thu hồi thông báo chưa đọc", removed);
         return Ok(AppResponse<object>.Success(new { recalled = removed }));
     }
 
@@ -560,6 +561,12 @@ public class NotificationCenterController(
             .Where(x => x.Id == id && x.StoreId == storeId && x.Status == ZKTecoADMS.Api.Services.StoreNotificationBroadcast.Pending
                         && (IsAdmin || x.CreatedByUserId == CurrentUserId))
             .ExecuteUpdateAsync(s => s.SetProperty(x => x.Status, ZKTecoADMS.Api.Services.StoreNotificationBroadcast.Cancelled));
+        if (n > 0)
+        {
+            var title = await db.StoreScheduledNotifications.AsNoTracking()
+                .Where(x => x.Id == id).Select(x => x.Title).FirstOrDefaultAsync();
+            ZKTecoADMS.Api.Controllers.Filters.ActivityTrail.Updated(HttpContext, "StoreScheduledNotification", id, title, ("Status", "Chờ gửi", "Đã hủy"));
+        }
         return n == 0
             ? Ok(AppResponse<bool>.Fail("Không hủy được (đã gửi hoặc không tìm thấy)."))
             : Ok(AppResponse<bool>.Success(true));

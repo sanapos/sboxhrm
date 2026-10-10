@@ -951,6 +951,11 @@ public partial class PosProductsController(
 
         if (affected == 0)
             return NotFound(AppResponse<object>.Fail("Không tìm thấy hàng hóa hoặc đã bị xóa"));
+        // Xóa thẳng DB → ghi bù Lịch sử thao tác (trước đây xóa hàng hóa không để lại dấu vết).
+        var deletedProduct = await dbContext.PosProducts.IgnoreQueryFilters().AsNoTracking()
+            .Where(p => p.Id == id).Select(p => new { p.Name, Code = p.ProductCode }).FirstOrDefaultAsync();
+        ZKTecoADMS.Api.Controllers.Filters.ActivityTrail.Deleted(HttpContext, "PosProduct", id,
+            deletedProduct == null ? null : $"{deletedProduct.Name}{(string.IsNullOrWhiteSpace(deletedProduct.Code) ? "" : $" ({deletedProduct.Code})")}");
 
         await dbContext.PosProductUnits
             .Where(u => u.ProductId == id && u.StoreId == storeId && u.Deleted == null)

@@ -32,7 +32,7 @@ import 'package:sbox_pos/l10n/app_tr.dart';
 import '../utils/pos_print_template_v2_codec.dart';
 import '../utils/pos_print_template_compiler.dart';
 
-/// Print Agent: thi?t b? nh?n job in cloud (LAN/BT/USB) v? in c?c b?.
+/// Print Agent: thiết bị nhận job in cloud (LAN/BT/USB) về in cục bộ.
 class PosPrintAgentService {
   PosPrintAgentService._();
   static final PosPrintAgentService instance = PosPrintAgentService._();
@@ -53,8 +53,8 @@ class PosPrintAgentService {
   List<PosStorePrinter> _printers = [];
   final _activeJobIds = <String>{};
   final _notifiedReceiveJobIds = <String>{};
-  /// Job d? complete/fail ? timeout kh?ng du?c ghi d? th?nh Failed sau khi gi?y d? in.
-  /// Persist nh? d? tr?nh restart Agent ? reclaim ? in ch?ng.
+  /// Job đã complete/fail → timeout không được ghi đè thành Failed sau khi giấy đã in.
+  /// Persist nhẹ để tránh restart Agent → reclaim → in chồng.
   final _settledJobIds = <String>{};
   bool _settledLoaded = false;
   Timer? _claimDebounce;
@@ -65,7 +65,7 @@ class PosPrintAgentService {
   StreamSubscription<Map<String, dynamic>>? _forceStopSub;
   StreamSubscription<bool>? _connSub;
   bool _ensureRunningInFlight = false;
-  /// PrinterIds l?n heartbeat th?nh c?ng g?n nh?t (server AssignedPrinterIdsJson).
+  /// PrinterIds lần heartbeat thành công gần nhất (server AssignedPrinterIdsJson).
   List<String> _registeredPrinterIds = const [];
   DateTime? _lastOfflineMarkAt;
 
@@ -76,7 +76,7 @@ class PosPrintAgentService {
   List<String> get registeredPrinterIds =>
       List<String>.unmodifiable(_registeredPrinterIds);
 
-  /// T?m d?ng claim (tr?nh dua v?i test cloud tr?n ch?nh m?y Agent).
+  /// Tạm dừng claim (tránh đua với test cloud trên chính máy Agent).
   bool _claimsPaused = false;
 
   void pauseClaims() => _claimsPaused = true;
@@ -85,12 +85,12 @@ class PosPrintAgentService {
     _scheduleClaim();
   }
 
-  /// ?p claim ngay (sau khi t?o job tr?n m?y kh?c / c?ng m?y).
+  /// Ép claim ngay (sau khi tạo job trên máy khác / cùng máy).
   void nudgeClaim() => _scheduleClaim();
 
   Future<void> ensureRunning(String? storeId, {bool forceReregister = false}) async {
-    // Web kh?ng in du?c BT/LAN/USB ? kh?ng dang k? Agent (tr?nh claim r?i fail).
-    // M?y Android/tablet c?nh m?y in m?i ch?y Agent.
+    // Web không in được BT/LAN/USB → không đăng ký Agent (tránh claim rồi fail).
+    // Máy Android/tablet cạnh máy in mới chạy Agent.
     if (kIsWeb) {
       await stop();
       return;
@@ -104,8 +104,8 @@ class PosPrintAgentService {
         await stop();
         return;
       }
-      // App m? l?i / SignalR reconnect: lu?n join l?i group + heartbeat,
-      // kh?ng ch? khi forceReregister (tr?nh ph?i t?t-b?t Agent tay).
+      // App mở lại / SignalR reconnect: luôn join lại group + heartbeat,
+      // không chỉ khi forceReregister (tránh phải tắt-bật Agent tay).
       if (_running && _storeId == storeId) {
         await _waitForSignalR();
         await _signalR.joinPrintAgentGroup(storeId);
@@ -124,7 +124,7 @@ class PosPrintAgentService {
       await _signalR.joinPrintAgentGroup(storeId);
       await _register(refreshPrinters: true);
 
-      // Heartbeat 12s ? server stale 90s; Oppo th?y Agent online ?n d?nh hon.
+      // Heartbeat 12s ← server stale 90s; Oppo thấy Agent online ổn định hơn.
       _heartbeatTimer =
           Timer.periodic(const Duration(seconds: 12), (_) => _register());
       _claimTimer =
@@ -136,7 +136,7 @@ class PosPrintAgentService {
       await _connSub?.cancel();
       _connSub = _signalR.onConnectionStateChanged.listen((connected) {
         if (!connected || !_running || _storeId == null) return;
-        // Debounce reconnect ? tr?nh b?o ensureRunning khi hub dao d?ng.
+        // Debounce reconnect → tránh bão ensureRunning khi hub dao động.
         unawaited(ensureRunning(_storeId!));
       });
 
@@ -172,7 +172,7 @@ class PosPrintAgentService {
     );
   }
 
-  /// ?p dang k? l?i (g?n chip m?y in l?n server tru?c khi claim).
+  /// Ép đăng ký lại (gắn chip máy in lên server trước khi claim).
   Future<bool> forceRegister({bool refreshPrinters = false}) async {
     if (!_running || _storeId == null) return false;
     await _register(refreshPrinters: refreshPrinters);
@@ -198,7 +198,7 @@ class PosPrintAgentService {
     _connSub = null;
     _activeJobIds.clear();
     _notifiedReceiveJobIds.clear();
-    // Gi? _settledJobIds (+ prefs) ? tr?nh restart Agent in ch?ng job v?a in.
+    // Giữ _settledJobIds (+ prefs) → tránh restart Agent in chồng job vừa in.
     if (storeId != null) {
       await _signalR.leavePrintAgentGroup(storeId);
     }
@@ -218,7 +218,7 @@ class PosPrintAgentService {
 
   Future<void> _register({bool refreshPrinters = false}) async {
     if (!_running || _storeId == null) return;
-    // Ch?ng b?o register (UI/heartbeat) ? t?i thi?u 8s gi?a 2 l?n tr? khi refresh m?y in.
+    // Chống bão register (UI/heartbeat) — tối thiểu 8s giữa 2 lần trừ khi refresh máy in.
     final now = DateTime.now();
     if (!refreshPrinters &&
         _lastRegisterAt != null &&
@@ -232,7 +232,7 @@ class PosPrintAgentService {
       return;
     }
 
-    // Heartbeat nh? ? kh?ng refresh m?y in m?i l?n (tr?nh ch?m / l?i m?ng l?m Agent offline).
+    // Heartbeat nhẹ — không refresh máy in mỗi lần (tránh chậm / lỗi mạng làm Agent offline).
     final needRefresh = refreshPrinters ||
         _printers.isEmpty ||
         _lastConfigRefreshAt == null ||
@@ -246,7 +246,7 @@ class PosPrintAgentService {
     }
 
     var printerIds = List<String>.from(settings.assignedPrinterIds);
-    // B? chip m?y in d? x?a / kh?ng c?n tr?n server ? so kh?p GUID kh?ng ph?n bi?t hoa/thu?ng.
+    // Bỏ chip máy in đã xóa / không còn trên server — so khớp GUID không phân biệt hoa/thường.
     if (_printers.isNotEmpty && printerIds.isNotEmpty) {
       final alive = {
         for (final p in _printers) PosPrintRole.normalizePrinterId(p.id),
@@ -286,8 +286,8 @@ class PosPrintAgentService {
       printerIds = claimable;
     }
     if (printerIds.isEmpty) {
-      // Kh?ng t? g?n h?t m?y c?a h?ng ? user d? t?t chip th? gi? tr?ng
-      // (tru?c d?y khi?n danh s?ch ?nh?y? l?i 6 m?y sau m?i heartbeat).
+      // Không tự gắn hết máy của hàng — user đã tắt chip thì giữ trống
+      // (trước đây khiến danh sách «nhảy» lại 6 máy sau mỗi heartbeat).
       _registeredPrinterIds = const [];
       _lastRegisterError = 'Chưa chọn chip máy in cho Agent';
       await _markOfflineOnServerIfNeeded();
@@ -303,14 +303,14 @@ class PosPrintAgentService {
     }
     _warnedNoPrinters = false;
 
-    // ?ang k? d? chip user d? ch?n ? k? c? USB t?m m?t (ADB / r?t c?p).
-    // L?c printable tru?c d?y khi?n A6 ch? c?n Sunmi ? b?o b?p Zywell
-    // agentOnlineForPrinter=0, kh?ng ai Claim. Claim l?c in: release n?u chua c? c?ng.
+    // Đăng ký đủ chip user đã chọn — kể cả USB tạm mất (ADB / rút cáp).
+    // Lọc printable trước đây khiến A6 chỉ còn Sunmi → báo bếp Zywell
+    // agentOnlineForPrinter=0, không ai Claim. Claim lúc in: release nếu chưa có cổng.
     final printableNow = await _filterLocallyPrintableIds(printerIds);
     if (printableNow.isEmpty) {
       debugPrint(
-        '??? Print Agent: ${printerIds.length} chip d? ch?n nhung chua th?y c?ng in '
-        '? v?n dang k? (USB c? th? b? ADB chi?m)',
+        '⚠️ Print Agent: ${printerIds.length} chip đã chọn nhưng chưa thấy cổng in '
+        '— vẫn đăng ký (USB có thể bị ADB chiếm)',
       );
       if (!_warnedNoPrinters) {
         _warnedNoPrinters = true;
@@ -347,7 +347,7 @@ class PosPrintAgentService {
           '??? Print Agent registered id=$_agentId printers=${printerIds.length}',
         );
       } else {
-        // Gi? agentId cu n?u heartbeat l?i t?m th?i ? tr?nh Oppo m?t Agent gi?a ch?ng.
+        // Giữ agentId cũ nếu heartbeat lỗi tạm thời → tránh Oppo mất Agent giữa chừng.
         _lastRegisterError =
             res['message']?.toString() ?? 'Đăng ký Agent thất bại';
         debugPrint('Print Agent register soft-fail: $_lastRegisterError');
@@ -401,21 +401,21 @@ class PosPrintAgentService {
       final jobId = data['jobId']?.toString() ?? data['JobId']?.toString() ?? '';
       if (jobId.isEmpty) return;
 
-      // ??/dang x? l? job n?y ? KH?NG fail (tr?nh b?o ?kh?ng in du?c?
-      // trong khi l?n claim d?u d? in ra gi?y, r?i reclaim/claim l?i).
+      // Đã/đang xử lý job này → KHÔNG fail (tránh báo «không in được»
+      // trong khi lần claim đầu đã in ra giấy, rồi reclaim/claim lại).
       if (_settledJobIds.contains(jobId)) {
-        // App ch?/Agent claim l?i job d? in: complete tr?n server d? kh?ng
-        // reclaim ? Queued ? in l?i phi?u b?p khi in h?a don sau.
-        debugPrint('Print Agent: job $jobId d? settle ? complete l?i tr?n server');
+        // App chủ/Agent claim lại job đã in: complete trên server để không
+        // reclaim → Queued → in lại phiếu bếp khi in hóa đơn sau.
+        debugPrint('Print Agent: job $jobId đã settle → complete lại trên server');
         try {
           await _api.completePosPrintJob(jobId, _agentId!);
         } catch (e) {
-          debugPrint('Print Agent: complete tr?ng job $jobId: $e');
+          debugPrint('Print Agent: complete trùng job $jobId: $e');
         }
         return;
       }
       if (_activeJobIds.contains(jobId)) {
-        debugPrint('Print Agent: b? claim tr?ng job $jobId (dang x? l?)');
+        debugPrint('Print Agent: bỏ claim trùng job $jobId (đang xử lý)');
         return;
       }
 
@@ -431,9 +431,9 @@ class PosPrintAgentService {
         return;
       }
 
-      // Job do ch?nh m?y n?y g?i l?n cloud ? d? Agent kh?c (A6) nh?n, kh?ng t? claim.
+      // Job do chính máy này gửi lên cloud → để Agent khác (A6) nhận, không tự claim.
       if (PosPrintSessionRegistry.isOutbound(jobId)) {
-        debugPrint('Print Agent: b? claim job outbound $jobId (m?y g?i)');
+        debugPrint('Print Agent: bỏ claim job outbound $jobId (máy gửi)');
         await _api.releasePosPrintJob(
           jobId,
           _agentId!,
@@ -443,12 +443,12 @@ class PosPrintAgentService {
         return;
       }
 
-      // ClaimNext d? l?c AssignedPrinterIdsJson tr?n server ? kh?ng fail ?kh?ng ph?c v??
-      // khi SharedPreferences chip l?ch t?m th?i (A7 b?o d? d? A6 v?n in du?c).
-      // Ch? nh? khi c?ng in kh?ng c? tr?n m?y n?y.
+      // ClaimNext đã lọc AssignedPrinterIdsJson trên server → không fail «không phục vụ»
+      // khi SharedPreferences chip lệch tạm thời (A7 báo đủ để A6 vẫn in được).
+      // Chỉ nhả khi cổng in không có trên máy này.
       if (!await _canPrintPrinterLocally(printerId)) {
         debugPrint(
-          'Print Agent: nh? job $jobId ? m?y n?y kh?ng k?t n?i c?ng in $printerId',
+          'Print Agent: nhả job $jobId — máy này không kết nối cổng in $printerId',
         );
         await _api.releasePosPrintJob(
           jobId,
@@ -467,7 +467,7 @@ class PosPrintAgentService {
 
       _notifyReceivedOnce(data, jobId);
 
-      // Payload tem TSPL l?n: claim ??i khi v? r?ng / c?t ? l?y l?i qua GET.
+      // Payload tem TSPL lớn: claim đôi khi về rỗng / cắt → lấy lại qua GET.
       var formatEarly =
           data['payloadFormat']?.toString() ?? data['PayloadFormat']?.toString() ?? '';
       var payloadEarly =
@@ -512,9 +512,9 @@ class PosPrintAgentService {
         } catch (_) {}
         return;
       }
-      // Timeout ? tr?nh 1 job USB/tem treo Agent ng?ng claim.
-      // USB native block isolate: timeout ch? k?ch khi future yield; v?n fail
-      // n?u send c? timeout ri?ng.
+      // Timeout — tránh 1 job USB/tem treo làm Agent ngừng claim.
+      // USB native block isolate: timeout chỉ kích khi future yield; vẫn fail
+      // nếu send có timeout riêng.
       try {
         await _executeJob(data, jobId).timeout(const Duration(seconds: 75));
       } on TimeoutException {
@@ -547,7 +547,7 @@ class PosPrintAgentService {
       await _failAbandonedJob(claimedJobId, e);
     } finally {
       _claimInFlight = false;
-      // X? h?ng d?i ngay ? kh?ng ch? timer 3s.
+      // Xử hàng đợi ngay — không chờ timer 3s.
       if (_running && !_claimsPaused) _scheduleClaim();
     }
   }
@@ -618,7 +618,7 @@ class PosPrintAgentService {
     if (_notifiedReceiveJobIds.length > 50) {
       _notifiedReceiveJobIds.remove(_notifiedReceiveJobIds.first);
     }
-    // M?y Agent: 1 d?ng g?n ? kh?ng ch?ng toast v?i m?y g?i.
+    // Máy Agent: 1 dòng gọn — không chồng toast với máy gửi.
     final format =
         (job['payloadFormat'] ?? job['PayloadFormat'] ?? '').toString();
     final doc =
@@ -639,7 +639,7 @@ class PosPrintAgentService {
     await PosKdsAlert.playTing();
   }
 
-  /// TSPL thu?ng b?t d?u b?ng SIZE / CLS / BITMAP ? EscPos b?t d?u ESC (@?).
+  /// TSPL thường bắt đầu bằng SIZE / CLS / BITMAP; EscPos bắt đầu ESC (@…).
   static bool _payloadLooksLikeTspl(List<int> bytes) {
     if (bytes.isEmpty) return false;
     final n = bytes.length < 96 ? bytes.length : 96;
@@ -682,8 +682,8 @@ class PosPrintAgentService {
       return;
     }
 
-    // Uu ti?n c?ng USB/BT/LAN d? luu tr?n m?y Agent (in n?i b? OK) ?
-    // cloud d?i khi thi?u/sai usbDeviceName ? job Completed nhung kh?ng ra gi?y.
+    // Ưu tiên cổng USB/BT/LAN đã lưu trên máy Agent (in nội bộ OK) —
+    // cloud đôi khi thiếu/sai usbDeviceName → job Completed nhưng không ra giấy.
     final local =
         await PosLocalPrintersStore.instance.resolveForStorePrinter(printer, exactPort: true);
     final settings = local != null
@@ -1050,8 +1050,8 @@ class PosPrintAgentService {
       }
 
     } else if (format == 'EscPosBase64') {
-      // Sunmi: ESC/POS qua printEscPos hay l?i font ti?ng Vi?t / in ra l?nh th?.
-      // M?i job tr?n m?y Sunmi ? uu ti?n native (test JSON ho?c test slip).
+      // Sunmi: ESC/POS qua printEscPos hay lỗi font tiếng Việt / in ra lệnh thô.
+      // Mọi job trên máy Sunmi → ưu tiên native (test JSON hoặc test slip).
       final isTest = referenceNo.toUpperCase() == 'TEST' ||
           referenceNo.toUpperCase().startsWith('TEST');
       final onSunmi = printer.isSunmi &&
@@ -1069,7 +1069,7 @@ class PosPrintAgentService {
           }
         }
       } else if (onSunmi && !isTest) {
-        // Kh?ng dump ESC/POS l?n Sunmi (font/r?c). Job ph?i l? SaleOrderJson.
+        // Không dump ESC/POS lên Sunmi (font/rác). Job phải là SaleOrderJson.
         await _api.failPosPrintJob(
           jobId,
           _agentId!,
@@ -1092,7 +1092,7 @@ class PosPrintAgentService {
           );
           return;
         }
-        // M?y tem TSPL nh?n nh?m EscPos ? USB ghi OK nhung kh?ng ra tem.
+        // Máy tem TSPL nhận nhầm EscPos → USB ghi OK nhưng không ra tem.
         if (printer.isLabelPrinter) {
           final proto = (printer.textMode ?? 'tspl').toLowerCase();
           if (proto.contains('tspl') && !_payloadLooksLikeTspl(bytes)) {
@@ -1108,9 +1108,9 @@ class PosPrintAgentService {
           }
         }
         final sunmiFeed = printer.isSunmi ? 4 : settings.resolvedFeedBeforeCut;
-        // Kh?ng ?p Sunmi n?i b? cho job m?y LAN/BT/USB (tem).
+        // Không ép Sunmi nội bộ cho job máy LAN/BT/USB (tem).
         final conn = settings.connectionType;
-        // Tem TSPL d? ch?a PRINT 1,1 ? copies>1 s? ra g?p d?i/g?p ba.
+        // Tem TSPL đã chứa PRINT 1,1 → copies>1 sẽ ra gấp đôi/gấp ba.
         final effectiveCopies = (printer.isLabelPrinter ||
                 _payloadLooksLikeTspl(bytes))
             ? 1
@@ -1436,7 +1436,7 @@ class PosPrintAgentService {
     return true;
   }
 
-  /// Heartbeat ch? b?o printerIds m? m?y n?y th?c s? in du?c (USB g?n / Sunmi / LAN-BT).
+  /// Heartbeat chỉ báo printerIds mà máy này thực sự in được (USB gắn / Sunmi / LAN-BT).
   Future<List<String>> _filterLocallyPrintableIds(List<String> ids) async {
     if (ids.isEmpty) return ids;
     final out = <String>[];

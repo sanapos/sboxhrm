@@ -1709,11 +1709,12 @@ public partial class PosSalesController(
                     .AnyAsync(s => s.Id == order.ResourceSessionId && s.StoreId == storeId
                         && s.Deleted == null && s.BillRequested);
             }
-            dbContext.PosCancelReturnAudits.Add(new PosCancelReturnAudit
+            var cancelledLines = order.Lines?.Where(l => l.Deleted == null).ToList() ?? [];
+            PosCancelAuditHelper.Add(dbContext, new PosCancelReturnAudit
             {
                 Id = Guid.NewGuid(),
                 StoreId = storeId,
-                ActionType = "SaleCancel",
+                ActionType = PosCancelAuditHelper.SaleCancel,
                 Reason = dto?.Reason?.Trim(),
                 DetailNote = dto?.DetailNote?.Trim(),
                 AfterProvisionalBill = afterProv,
@@ -1721,9 +1722,10 @@ public partial class PosSalesController(
                 OrderNo = order.OrderNo,
                 ResourceSessionId = order.ResourceSessionId,
                 ServiceResourceId = order.ServiceResourceId,
-                ResourceName = null,
+                ResourceName = await PosCancelAuditHelper.ResourceNameAsync(dbContext, storeId, order.ServiceResourceId),
+                ProductName = PosCancelAuditHelper.ProductSummary(cancelledLines.Select(l => l.ProductName).ToList()),
                 Amount = order.Total,
-                Qty = order.Lines?.Where(l => l.Deleted == null).Sum(l => l.Qty) ?? 0,
+                Qty = cancelledLines.Sum(l => l.Qty),
                 OccurredAt = DateTime.UtcNow,
                 Actor = CurrentUserEmail,
                 DeviceName = dto?.DeviceName?.Trim(),
@@ -1794,6 +1796,8 @@ public partial class PosSalesController(
             }
         }
 
+        await PosCancelAuditHelper.AddOrderRemovalAsync(dbContext, HttpContext, storeId, order,
+            PosCancelAuditHelper.OrderDelete, CurrentUserEmail);
         var deleted = await dbContext.PosSaleOrders
             .Where(o => o.Id == id && o.StoreId == storeId && o.Deleted == null)
             .ExecuteUpdateAsync(setters => setters
@@ -1840,6 +1844,9 @@ public partial class PosSalesController(
                 return BadRequest(AppResponse<object>.Fail(releaseErr));
         }
 
+        // Trước đây không để lại dấu vết: bàn đã gọi món (kể cả sau tạm tính) bị hủy mà quản lý không biết.
+        await PosCancelAuditHelper.AddOrderRemovalAsync(dbContext, HttpContext, storeId, order,
+            PosCancelAuditHelper.DraftCancel, CurrentUserEmail);
         var now = DateTime.UtcNow;
         var deleted = await dbContext.PosSaleOrders
             .Where(o => o.Id == id && o.StoreId == storeId && o.Deleted == null
@@ -2314,11 +2321,11 @@ public partial class PosSalesController(
             return BadRequest(AppResponse<object>.Fail(warrantyErr));
         }
 
-        dbContext.PosCancelReturnAudits.Add(new PosCancelReturnAudit
+        PosCancelAuditHelper.Add(dbContext, new PosCancelReturnAudit
         {
             Id = Guid.NewGuid(),
             StoreId = storeId,
-            ActionType = "SaleReturn",
+            ActionType = PosCancelAuditHelper.SaleReturn,
             Reason = dto.Reason?.Trim(),
             DetailNote = string.IsNullOrWhiteSpace(dto.DetailNote)
                 ? dto.Note?.Trim()
@@ -2328,9 +2335,8 @@ public partial class PosSalesController(
             OrderNo = order.OrderNo,
             ResourceSessionId = order.ResourceSessionId,
             ServiceResourceId = order.ServiceResourceId,
-            ProductName = string.Join(", ",
-                dto.Lines.Take(3).Select(l =>
-                    products.TryGetValue(l.ProductId, out var p) ? p.Name : "?")),
+            ProductName = PosCancelAuditHelper.ProductSummary(
+                dto.Lines.Select(l => products.TryGetValue(l.ProductId, out var p) ? p.Name : "").ToList()),
             Qty = dto.Lines.Sum(l => l.Qty),
             Amount = refundTotal,
             OccurredAt = DateTime.UtcNow,
@@ -2424,6 +2430,24 @@ public partial class PosSalesController(
             await tx.RollbackAsync();
             return BadRequest(AppResponse<SaleOrderDto>.Fail(unmarkErr));
         }
+        PosCancelAuditHelper.Add(dbContext, new PosCancelReturnAudit
+        {
+            Id = Guid.NewGuid(),
+            StoreId = storeId,
+            ActionType = PosCancelAuditHelper.ReturnCancel,
+            DetailNote = $"Hủy phiếu trả {returnNo}",
+            AfterProvisionalBill = true,
+            SaleOrderId = order.Id,
+            OrderNo = order.OrderNo,
+            ResourceSessionId = order.ResourceSessionId,
+            ServiceResourceId = order.ServiceResourceId,
+            Amount = refundReversed,
+            OccurredAt = DateTime.UtcNow,
+            Actor = CurrentUserEmail,
+            IsActive = true,
+            CreatedAt = DateTime.UtcNow,
+            CreatedBy = CurrentUserEmail,
+        });
         await dbContext.SaveChangesAsync();
         await tx.CommitAsync();
         }

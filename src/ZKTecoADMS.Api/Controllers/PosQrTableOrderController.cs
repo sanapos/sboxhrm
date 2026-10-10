@@ -1190,6 +1190,26 @@ public class PosQrTableOrderController(
                 await PosSaleWarrantyHelper.VoidOrderAsync(db, storeId, order.Id, CurrentUserEmail);
                 order.Status = PosSaleOrderStatus.Cancelled;
             }
+            // Hủy đơn online / QR: trước đây không vào «Lịch sử hủy / trả».
+            var cancelledLines = order.Lines.Where(l => l.Deleted == null).ToList();
+            PosCancelAuditHelper.Add(db, new PosCancelReturnAudit
+            {
+                Id = Guid.NewGuid(),
+                StoreId = storeId,
+                ActionType = PosCancelAuditHelper.SaleCancel,
+                DetailNote = $"Đơn online ({order.SalesChannel})",
+                AfterProvisionalBill = order.Status == PosSaleOrderStatus.Cancelled && cancelTx != null,
+                SaleOrderId = order.Id,
+                OrderNo = order.OrderNo,
+                ProductName = PosCancelAuditHelper.ProductSummary(cancelledLines.Select(l => l.ProductName).ToList()),
+                Qty = cancelledLines.Sum(l => l.Qty),
+                Amount = order.Total,
+                OccurredAt = now,
+                Actor = CurrentUserEmail,
+                IsActive = true,
+                CreatedAt = now,
+                CreatedBy = CurrentUserEmail,
+            });
         }
 
         if (next == QrOnlineOrderStatuses.Delivered)
@@ -1445,6 +1465,7 @@ public class PosQrTableOrderController(
 
         if (deleted == 0)
             return NotFound(AppResponse<object>.Fail("Không tìm thấy đơn hoặc đã xóa"));
+        ZKTecoADMS.Api.Controllers.Filters.ActivityTrail.Deleted(HttpContext, "PosSaleOrder", id, order.OrderNo);
 
         PosFloorRealtimeHelper.Notify(hub, storeId, "qrOnlineDeleted",
             orderId: id, tableName: "Online", message: order.OrderNo);

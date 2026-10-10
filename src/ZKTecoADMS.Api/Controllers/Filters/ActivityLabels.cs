@@ -18,7 +18,7 @@ public static partial class ActivityLabels
         ["ApprovalFlow"] = "Quy trình duyệt", ["ApprovalRecord"] = "Lượt duyệt", ["ApprovalStep"] = "Bước duyệt",
         ["Asset"] = "Tài sản", ["AssetCategory"] = "Nhóm tài sản", ["AssetImage"] = "Ảnh tài sản",
         ["AssetInventory"] = "Kiểm kê tài sản", ["AssetInventoryItem"] = "Dòng kiểm kê tài sản", ["AssetTransfer"] = "Điều chuyển tài sản",
-        ["Attendance"] = "Chấm công", ["AttendanceCorrectionRequest"] = "Yêu cầu sửa công",
+        ["Attendance"] = "Chấm công", ["AttendanceCorrectionRequest"] = "Yêu cầu sửa công", ["StoreScheduledNotification"] = "Thông báo hẹn giờ",
         ["AuthorizedMobileDevice"] = "Thiết bị chấm công di động", ["BankAccount"] = "Tài khoản ngân hàng",
         ["Benefit"] = "Chế độ phúc lợi", ["Branch"] = "Chi nhánh", ["BranchPermission"] = "Phân quyền chi nhánh",
         ["BusinessTripAdvanceApprovalRecord"] = "Duyệt ứng công tác phí", ["BusinessTripAdvanceClaim"] = "Đề nghị ứng công tác phí",
