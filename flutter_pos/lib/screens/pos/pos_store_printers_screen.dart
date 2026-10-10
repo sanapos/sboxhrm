@@ -283,7 +283,8 @@ class _PosStorePrintersScreenState extends State<PosStorePrintersScreen> {
       if (mounted) setState(() => _loading = false);
       if (mounted) {
         await _loadOnlineAgents(silent: true);
-        unawaited(_purgeOrphanLocalCloudClones());
+        // Không tự xoá máy cloud «trùng máy nội bộ»: Agent máy khác tạm tắt vẫn bị coi là
+        // không ai nhận → mất máy in của máy đó. Dọn tay ở mục «máy in mồ côi».
       }
       unawaited(PosPrintOrchestrator.instance.refreshConfig(force: true));
       unawaited(_refreshPrinterReadiness());
@@ -304,34 +305,6 @@ class _PosStorePrintersScreenState extends State<PosStorePrintersScreen> {
     if (i >= 0) {
       _localPrinters[i] = next;
     }
-  }
-
-  /// Xóa máy cloud clone trùng máy nội bộ nhưng không còn được Agent nhận.
-  Future<void> _purgeOrphanLocalCloudClones() async {
-    if (_localPrinters.isEmpty || _printers.isEmpty) return;
-    final assigned = _agent.assignedPrinterIds.toSet();
-    final covered = <String>{};
-    for (final a in _onlineAgents) {
-      covered.addAll(a.printerIds);
-    }
-    final removeIds = <String>[];
-    for (final p in _printers) {
-      if (!p.isCloudAgentPrinter) continue;
-      if (assigned.contains(p.id) || covered.contains(p.id)) continue;
-      final matchLocal = _localPrinters.any((l) => _sameLocalConnection(p, l));
-      if (!matchLocal) continue;
-      removeIds.add(p.id);
-    }
-    if (removeIds.isEmpty) return;
-    for (final id in removeIds) {
-      try {
-        await _api.deletePosStorePrinter(id);
-      } catch (_) {}
-    }
-    if (!mounted) return;
-    setState(() {
-      _printers = _printers.where((p) => !removeIds.contains(p.id)).toList();
-    });
   }
 
   /// Chỉ probe/report máy gán Agent trên thiết bị này — A7 thu ngân không
@@ -816,6 +789,8 @@ class _PosStorePrintersScreenState extends State<PosStorePrintersScreen> {
       ];
 
   bool get _hideCloudChrome {
+    // Trong tab «Máy in» đã có thanh tiêu đề ngoài — không chồng thêm AppBar.
+    if (widget.embeddedInSettings) return true;
     if (PosHubScope.pushedSubPageOf(context)) return false;
     if (ModalRoute.of(context)?.canPop ?? false) return false;
     if (Navigator.of(context).canPop()) return false;
@@ -987,7 +962,7 @@ class _PosStorePrintersScreenState extends State<PosStorePrintersScreen> {
         if (a.isNotEmpty && b.isNotEmpty) return a == b;
         return p.name.trim().toLowerCase() == local.name.trim().toLowerCase();
       case 'Sunmi':
-        return true;
+        return p.name.trim().toLowerCase() == local.name.trim().toLowerCase();
       default:
         return p.name.trim() == local.name.trim();
     }

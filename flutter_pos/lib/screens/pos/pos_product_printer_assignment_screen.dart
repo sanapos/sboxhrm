@@ -293,8 +293,8 @@ class _PosProductPrinterAssignmentScreenState
   Future<void> _load() async {
     setState(() => _loading = true);
     try {
-      // May cloud khong con tren Agent: go mon ve tu do + xoa may.
-      await _autoCleanupAgentOrphans();
+      // Không tự dọn máy cloud khi mở màn: chip Agent trên server có thể chưa kịp
+      // cập nhật (máy Agent tắt / vừa cài lại) → xoá nhầm máy đang dùng. Dọn bằng nút.
       final res = await _api.getPosPrinterProductSummary(
         ownerDeviceId: await PosPrintDeviceScope.myDeviceId(),
       );
@@ -374,27 +374,6 @@ class _PosProductPrinterAssignmentScreenState
   List<_PrinterSummary> get _orphanEmpty =>
       _printers.where((p) => p.isOrphanEmpty).toList();
 
-
-  Future<void> _autoCleanupAgentOrphans() async {
-    try {
-      final res = await _api.cleanupPosAgentOrphanPrinters();
-      if (res['isSuccess'] != true || res['data'] is! Map) return;
-      final data = Map<String, dynamic>.from(res['data'] as Map);
-      if (data['skipped'] == true) return;
-      final deleted = _readInt(data, 'deletedPrinters') ?? 0;
-      final freed = _readInt(data, 'freedProducts') ?? 0;
-      if (deleted <= 0 && freed <= 0) return;
-      if (!mounted) return;
-      NotificationOverlayManager().showSuccess(
-        title: 'Đã dọn máy ngoài Agent',
-        message: tr(
-          'Xóa $deleted máy · trả $freed món về chưa gán',
-        ),
-      );
-    } catch (e) {
-      debugPrint('autoCleanupAgentOrphans: $e');
-    }
-  }
 
   Future<void> _deletePrinter(_PrinterSummary p) async {
     final ok = await showDialog<bool>(

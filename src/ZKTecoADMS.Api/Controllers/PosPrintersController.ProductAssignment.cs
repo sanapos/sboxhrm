@@ -160,7 +160,9 @@ public partial class PosPrintersController
     [RequireModulePermission("PosPrinters", ModulePermissionAction.View)]
     public async Task<ActionResult<AppResponse<List<PrinterProductSummaryDto>>>> GetPrinterProductSummary(
         [FromQuery] bool includeLocal = false,
-        [FromQuery] bool autoCleanup = true,
+        // Mặc định KHÔNG dọn: chip Agent lưu trên server có thể rỗng / cũ (Agent tắt, cài lại)
+        // → xoá nhầm máy cloud đang dùng (demopos 07/10 mất 3 máy của T1).
+        [FromQuery] bool autoCleanup = false,
         [FromQuery] string? ownerDeviceId = null)
     {
         var storeId = RequiredStoreId;
