@@ -3726,11 +3726,12 @@ public class SystemAdminController : AuthenticatedControllerBase
             if (!string.IsNullOrEmpty(status))
                 query = query.Where(a => a.Status == status);
                 
+            // Ngày lọc là ngày VN; cột Timestamp lưu UTC.
             if (fromDate.HasValue)
-                query = query.Where(a => a.Timestamp >= fromDate.Value);
+                query = query.Where(a => a.Timestamp >= fromDate.Value.Date.AddHours(-7));
                 
             if (toDate.HasValue)
-                query = query.Where(a => a.Timestamp <= toDate.Value.AddDays(1));
+                query = query.Where(a => a.Timestamp < toDate.Value.Date.AddDays(1).AddHours(-7));
                 
             if (!string.IsNullOrEmpty(search))
                 query = query.Where(a => 
@@ -3839,7 +3840,8 @@ public class SystemAdminController : AuthenticatedControllerBase
     {
         try
         {
-            var today = DateTime.UtcNow.Date;
+            // 0h hôm nay giờ VN, quy về UTC (cột Timestamp lưu UTC).
+            var today = DateTime.UtcNow.AddHours(7).Date.AddHours(-7);
             var last7Days = today.AddDays(-7);
             var last30Days = today.AddDays(-30);
             

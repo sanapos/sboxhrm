@@ -1318,10 +1318,11 @@ public class ReportsController(
 
             foreach (var employee in employees)
             {
-                // free2 / fullday: trễ/sớm gộp ở client (shift_records_calculator).
+                // free2 / fullday: trễ/sớm gộp ở client (shift_records_calculator); any: không tính trễ/sớm.
                 if (benefitByEmp.TryGetValue(employee.Id, out var empBen) &&
                     (string.Equals(empBen.AttendanceMode, "free2", StringComparison.OrdinalIgnoreCase)
-                     || string.Equals(empBen.AttendanceMode, "fullday", StringComparison.OrdinalIgnoreCase)))
+                     || string.Equals(empBen.AttendanceMode, "fullday", StringComparison.OrdinalIgnoreCase)
+                     || string.Equals(empBen.AttendanceMode, "any", StringComparison.OrdinalIgnoreCase)))
                     continue;
 
                 var empAttendances = PinsForEmployee(pinToEmployeeId, employee.Id)
@@ -1721,7 +1722,7 @@ public class ReportsController(
             foreach (var employee in employees)
             {
                 benefitByEmp.TryGetValue(employee.Id, out var benefit);
-                if (OvertimeCalcHelper.IsFreeTwoPunch(benefit?.AttendanceMode))
+                if (OvertimeCalcHelper.IsNoShiftTimingMode(benefit?.AttendanceMode))
                     continue;
 
                 var candidates = new List<ShiftMatchHelper.Candidate>();

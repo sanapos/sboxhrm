@@ -28,6 +28,13 @@ const String kCheckOutOnlyAttendanceMode = 'checkout';
 /// lịch của lần vào. Khớp `FullDayShiftAttendanceMode` bên C#.
 const String kFullDayShiftAttendanceMode = 'fullday';
 
+/// «Chấm bất kỳ trong ca»: một lần chấm nằm trong khung ca = đủ ca đó (vào = đầu ca, ra = hết ca),
+/// không tính đi trễ / về sớm / thiếu chấm. Khớp `AnyPunchInShiftAttendanceMode` bên C#.
+const String kAnyPunchInShiftAttendanceMode = 'any';
+
+bool isAnyPunchInShiftAttendanceMode(String? mode) =>
+    (mode ?? '').trim().toLowerCase() == kAnyPunchInShiftAttendanceMode;
+
 /// Chấm vào đủ ca (`once` hoặc `checkin`).
 bool isCheckInOnlyAttendanceMode(String? mode) {
   final m = (mode ?? '').trim().toLowerCase();
@@ -547,6 +554,60 @@ List<DayAttendancePair> buildOncePerShiftCheckInPairs(List<Attendance> dayAtts) 
   ];
 }
 
+/// Mode [kAnyPunchInShiftAttendanceMode]: mỗi lần chấm rơi vào khung ca (từ «vào sớm» trước giờ bắt đầu
+/// đến giờ kết thúc, hỗ trợ ca qua đêm) → trọn ca đó: vào = đầu ca, ra = hết ca.
+/// Ca xét theo thứ tự gán trong thiết lập lương (ca đầu được ưu tiên khi các ca chồng nhau);
+/// chưa gán ca → mọi ca của cửa hàng theo giờ bắt đầu. Mỗi ca tính một lần; tối đa [maxShifts] ca / ngày.
+List<DayAttendancePair> buildAnyPunchInShiftPairs(
+  List<Attendance> dayAtts, {
+  required DateTime workDate,
+  required List<Map<String, dynamic>> shifts,
+  int maxShifts = 0,
+}) {
+  final sorted = List<Attendance>.from(Attendance.forMainShiftPairing(dayAtts))
+    ..sort((a, b) => a.punchTime.compareTo(b.punchTime));
+  final day = DateTime(workDate.year, workDate.month, workDate.day);
+  final usable = shifts.where((s) => !isOvertimeShiftTemplate(s)).toList();
+  final used = <Map<String, dynamic>>{};
+  final pairs = <DayAttendancePair>[];
+  for (final a in sorted) {
+    if (maxShifts > 0 && pairs.length >= maxShifts) break;
+    for (final s in usable) {
+      if (used.contains(s)) continue;
+      final startMin = _parseTimeSpanToMinutes(s['startTime']?.toString());
+      final endMin = _parseTimeSpanToMinutes(s['endTime']?.toString());
+      final earlyIn = (s['earlyCheckInMinutes'] as num?)?.toInt() ?? 30;
+      final start = day.add(Duration(minutes: startMin));
+      var end = day.add(Duration(minutes: endMin));
+      if (!end.isAfter(start)) end = end.add(const Duration(days: 1));
+      final from = start.subtract(Duration(minutes: earlyIn));
+      if (a.punchTime.isBefore(from) || a.punchTime.isAfter(end)) continue;
+      used.add(s);
+      pairs.add(DayAttendancePair(checkIn: start, checkOut: end, shift: s));
+      break;
+    }
+  }
+  pairs.sort((x, y) => x.checkIn!.compareTo(y.checkIn!));
+  return pairs;
+}
+
+/// Ca dùng cho mode «chấm bất kỳ trong ca»: ca gán (đúng thứ tự) hoặc mọi ca theo giờ bắt đầu.
+List<Map<String, dynamic>> _anyPunchCandidateShifts(
+  List<String> assignedShiftIds,
+  Map<String, dynamic> shiftTemplateMap,
+) {
+  final out = <Map<String, dynamic>>[];
+  for (final id in assignedShiftIds) {
+    final st = shiftTemplateMap[id];
+    if (st is Map<String, dynamic> && !out.contains(st)) out.add(st);
+  }
+  if (out.isNotEmpty) return out;
+  final all = shiftTemplateMap.values.whereType<Map<String, dynamic>>().toSet().toList()
+    ..sort((a, b) => _parseTimeSpanToMinutes(a['startTime']?.toString())
+        .compareTo(_parseTimeSpanToMinutes(b['startTime']?.toString())));
+  return all;
+}
+
 /// Mỗi lần chấm = 1 lần ra ca — dùng cho mode [kCheckOutOnlyAttendanceMode].
 List<DayAttendancePair> buildCheckoutOnlyPairs(List<Attendance> dayAtts) {
   final sorted = List<Attendance>.from(Attendance.forMainShiftPairing(dayAtts))
@@ -662,6 +723,9 @@ DateTime? synthesizeShiftEndCheckOut({
     out = out.add(const Duration(days: 1));
   }
   if (!out.isAfter(checkIn)) {
+    // Ca trong ngày mà chấm vào SAU giờ hết ca: không phải lần vào của ca này —
+    // trước đây đẩy giờ ra sang hôm sau (vd vào 16:18 ca 07:00–16:00 → 23,2 giờ, trễ 558 phút).
+    if (!cross) return null;
     out = out.add(const Duration(days: 1));
   }
   return out;
@@ -684,10 +748,14 @@ class DayAttendancePair {
   final DateTime? checkOut;
   final bool checkInInferred;
 
+  /// Ca đã xác định sẵn (mode «chấm bất kỳ trong ca») — không dò ca theo giờ vào.
+  final Map<String, dynamic>? shift;
+
   const DayAttendancePair({
     this.checkIn,
     this.checkOut,
     this.checkInInferred = false,
+    this.shift,
   });
 
   bool get isOrphanOut => checkIn == null && checkOut != null;
@@ -1156,6 +1224,13 @@ class _ShiftLookups {
   /// Chỉ chấm ra — giờ vào = đầu ca, tính về sớm.
   bool isCheckoutOnlyMode(String empGuid, String employeeCode) =>
       isCheckOutOnlyAttendanceMode(attendanceModeOf(empGuid, employeeCode));
+
+  /// Chấm bất kỳ trong ca — một lần chấm trong khung ca = đủ ca.
+  bool isAnyPunchInShiftMode(String empGuid, String employeeCode) =>
+      isAnyPunchInShiftAttendanceMode(attendanceModeOf(empGuid, employeeCode));
+
+  int shiftsPerDayOf(String empGuid, String employeeCode) =>
+      employeeGuidToShiftsPerDay[empGuid] ?? employeeGuidToShiftsPerDay[employeeCode] ?? 0;
 
   /// Ca nguyên ngày (~24h): ghép vào/ra theo chuỗi thời gian, ngày công = ngày vào.
   bool isFullDayShiftMode(String empGuid, String employeeCode) =>
@@ -2012,23 +2087,32 @@ List<DailyShiftRecord> computeDailyShiftRecords({
       final missingOutShiftNames = <String>[];
       final lateEarlyItems = <ShiftLateEarlyItem>[];
       final usedShiftIds = <String>{};
-      final dayPairs = isOnceShift
-          ? buildOncePerShiftCheckInPairs(workDayAttendances)
-          : isCheckoutOnly
-              ? buildCheckoutOnlyPairs(workDayAttendances)
-              : _logicalDayPairsFromAttendances(
-                  workDayAttendances,
-                  dayEndHour: dayEndHour,
-                  dayEndMinute: dayEndMinute,
-                );
+      final isAnyPunch = lookups.isAnyPunchInShiftMode(empGuid, employeeCode);
+      final dayPairs = isAnyPunch
+          ? buildAnyPunchInShiftPairs(
+              workDayAttendances,
+              workDate: date,
+              shifts: _anyPunchCandidateShifts(assignedShiftIds, lookups.shiftTemplateMap),
+              maxShifts: lookups.shiftsPerDayOf(empGuid, employeeCode),
+            )
+          : isOnceShift
+              ? buildOncePerShiftCheckInPairs(workDayAttendances)
+              : isCheckoutOnly
+                  ? buildCheckoutOnlyPairs(workDayAttendances)
+                  : _logicalDayPairsFromAttendances(
+                      workDayAttendances,
+                      dayEndHour: dayEndHour,
+                      dayEndMinute: dayEndMinute,
+                    );
 
       for (var pairIndex = 0; pairIndex < dayPairs.length; pairIndex++) {
         final pair = dayPairs[pairIndex];
         DateTime? punchIn = pair.checkIn;
         DateTime? punchOut = pair.checkOut;
 
-        Map<String, dynamic>? matchedShift;
-        if (!isOnceShift && pair.isOrphanOut && punchOut != null) {
+        // Mode «chấm bất kỳ trong ca»: cặp mang sẵn ca.
+        Map<String, dynamic>? matchedShift = pair.shift;
+        if (matchedShift == null && !isOnceShift && pair.isOrphanOut && punchOut != null) {
           final outMin = _dateTimeToMinutes(punchOut);
           matchedShift = matchShiftForOrphanCheckOut(
             checkOutMinutes: outMin,
@@ -2147,6 +2231,11 @@ List<DailyShiftRecord> computeDailyShiftRecords({
             checkIn: punchIn,
             matchedShift: matchedShift,
           );
+          // Chấm sau giờ hết ca: không phải lần vào ca này — không tính đi trễ.
+          if (punchOut == null && lateCalc > 0) {
+            totalLate -= lateCalc;
+            lateCalc = 0;
+          }
         }
 
         if (punchOut == null) {
@@ -2739,23 +2828,32 @@ List<DailyShiftPair> computeDailyShiftPairs({
       final isOnceShift = lookups.isOncePerShiftMode(empGuid, employeeCode);
       final isCheckoutOnly = lookups.isCheckoutOnlyMode(empGuid, employeeCode);
       final usedShiftIds = <String>{};
-      final dayPairs = isOnceShift
-          ? buildOncePerShiftCheckInPairs(workDayAttendances)
-          : isCheckoutOnly
-              ? buildCheckoutOnlyPairs(workDayAttendances)
-              : _logicalDayPairsFromAttendances(
-                  workDayAttendances,
-                  dayEndHour: dayEndHour,
-                  dayEndMinute: dayEndMinute,
-                );
+      final isAnyPunch = lookups.isAnyPunchInShiftMode(empGuid, employeeCode);
+      final dayPairs = isAnyPunch
+          ? buildAnyPunchInShiftPairs(
+              workDayAttendances,
+              workDate: date,
+              shifts: _anyPunchCandidateShifts(assignedShiftIds, lookups.shiftTemplateMap),
+              maxShifts: lookups.shiftsPerDayOf(empGuid, employeeCode),
+            )
+          : isOnceShift
+              ? buildOncePerShiftCheckInPairs(workDayAttendances)
+              : isCheckoutOnly
+                  ? buildCheckoutOnlyPairs(workDayAttendances)
+                  : _logicalDayPairsFromAttendances(
+                      workDayAttendances,
+                      dayEndHour: dayEndHour,
+                      dayEndMinute: dayEndMinute,
+                    );
 
       for (var pairIndex = 0; pairIndex < dayPairs.length; pairIndex++) {
         final pair = dayPairs[pairIndex];
         DateTime? punchIn = pair.checkIn;
         DateTime? punchOut = pair.checkOut;
 
-        Map<String, dynamic>? matchedShift;
-        if (!isFree2 && !isOnceShift && pair.isOrphanOut && punchOut != null) {
+        // Mode «chấm bất kỳ trong ca»: cặp mang sẵn ca.
+        Map<String, dynamic>? matchedShift = pair.shift;
+        if (matchedShift == null && !isFree2 && !isOnceShift && pair.isOrphanOut && punchOut != null) {
           final outMin = _dateTimeToMinutes(punchOut);
           matchedShift = matchShiftForOrphanCheckOut(
             checkOutMinutes: outMin,

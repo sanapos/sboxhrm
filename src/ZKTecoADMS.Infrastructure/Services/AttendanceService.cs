@@ -66,9 +66,16 @@ public class AttendanceService(
     private static bool IsSinglePunchAttendanceMode(string? mode) =>
         IsOncePerShiftMode(mode) || IsCheckOutOnlyMode(mode);
 
+    /// <summary>
+    /// «Chấm bất kỳ trong ca»: một lần chấm trong khung ca = đủ ca — không đi trễ / về sớm / quên chấm.
+    /// Khớp <c>kAnyPunchInShiftAttendanceMode</c> Flutter.
+    /// </summary>
+    private const string AnyPunchInShiftAttendanceMode = "any";
+
     private static bool IsClientGroupedAttendanceMode(string? mode) =>
         string.Equals(mode, FreeTwoPunchAttendanceMode, StringComparison.OrdinalIgnoreCase)
-        || string.Equals(mode, FullDayShiftAttendanceMode, StringComparison.OrdinalIgnoreCase);
+        || string.Equals(mode, FullDayShiftAttendanceMode, StringComparison.OrdinalIgnoreCase)
+        || string.Equals(mode, AnyPunchInShiftAttendanceMode, StringComparison.OrdinalIgnoreCase);
 
     public async Task<IEnumerable<Attendance>> GetAttendanceByDeviceAsync(
         Guid deviceId, DateTime? startDate, DateTime? endDate)

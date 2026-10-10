@@ -73,6 +73,11 @@ public static class OvertimeCalcHelper
     public static bool IsFreeTwoPunch(string? attendanceMode) =>
         string.Equals(attendanceMode, FreeTwoPunchMode, StringComparison.OrdinalIgnoreCase);
 
+    /// <summary>Chế độ không tính tăng ca theo giờ chấm: «chấm 2 lần trong ngày», «chấm bất kỳ trong ca».</summary>
+    public static bool IsNoShiftTimingMode(string? attendanceMode) =>
+        IsFreeTwoPunch(attendanceMode)
+        || string.Equals(attendanceMode, "any", StringComparison.OrdinalIgnoreCase);
+
     /// <summary>
     /// Tính OT theo ngày trong khoảng. punches đã là wall-clock VN (hoặc cùng timezone nhất quán).
     /// </summary>
@@ -85,7 +90,7 @@ public static class OvertimeCalcHelper
         DateTime rangeStart,
         DateTime rangeEnd)
     {
-        if (IsFreeTwoPunch(attendanceMode) || punches.Count == 0)
+        if (IsNoShiftTimingMode(attendanceMode) || punches.Count == 0)
             return Empty();
 
         var candidates = assignedShifts?.ToList() ?? [];

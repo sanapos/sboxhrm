@@ -272,7 +272,8 @@ public class ActivityLogsController(ZKTecoDbContext db) : AuthenticatedControlle
             }
         }
         catch (JsonException) { }
-        return new LogRow(a.Id, a.Timestamp, a.UserId, a.UserName, a.UserEmail, ActivityLabels.Role(a.UserRole),
+        // Giờ VN (cột lưu UTC, không Kind) — app hiển thị thẳng; trước đây lệch 7 tiếng.
+        return new LogRow(a.Id, ReportHelpers.ToVn(a.Timestamp), a.UserId, a.UserName, a.UserEmail, ActivityLabels.Role(a.UserRole),
             a.EntityType, ActivityAuditFilter.ModuleLabel(a.EntityType), a.Action, entityName, endpoint,
             a.IpAddress, DeviceOf(a.UserAgent), count);
     }
