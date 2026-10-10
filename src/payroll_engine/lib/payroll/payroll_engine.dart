@@ -50,10 +50,17 @@ class HourlyPayHours {
       final hours = r.baseWorkHours > 0 ? r.baseWorkHours : r.workHours;
       if (hours <= 0) continue;
       pay += hours;
-      final ot = r.overtimeMinutes / 60.0;
-      if (ot <= 0) continue;
       final isHoliday = r.status.contains('Tăng ca ngày lễ');
       final isWeekend = r.status.contains('Tăng ca ngày nghỉ');
+      if (isWeekend && !isHoliday) {
+        // Ngày nghỉ tuần: cả ngày là tăng ca (bảng tổng hợp tính toàn bộ giờ gốc vào OT ngày nghỉ)
+        // → phần 1.0 đã nằm trong lương giờ, cột tăng ca chỉ còn phần hệ số. Trước đây chỉ trừ
+        // phút OT ghi nhận (thường 0) → trả 100% + 200% = 300% thay vì 200%.
+        weekend += hours;
+        continue;
+      }
+      final ot = r.overtimeMinutes / 60.0;
+      if (ot <= 0) continue;
       final inside = (isHoliday || isWeekend)
           ? ot
           : () {
@@ -340,7 +347,9 @@ class PayrollEngine {
           return !t.isBefore(fromDay) && !t.isAfter(toEnd);
         }).toList();
 
-    if (parentAttendancesCoverPeriod(fromDay, toEnd)) {
+    // Ca đêm tan sau giờ chốt ngày: màn cha không tải sáng hôm sau ngày cuối kỳ → tự tải (khung rộng hơn).
+    final needsWiderWindow = overnightFetchCutoffMinutes() > dayEndHour * 60 + dayEndMinute;
+    if (!needsWiderWindow && parentAttendancesCoverPeriod(fromDay, toEnd)) {
       periodAttendances = filterParent();
       return;
     }
@@ -357,6 +366,82 @@ class PayrollEngine {
       _log('Payroll period attendances reload failed: $e');
       periodAttendances = filterParent();
     }
+  }
+
+  /// Mốc muộn nhất (phút) mà giờ ra ca qua đêm còn thuộc ngày trước — theo mọi ca qua đêm đang dùng.
+  int overnightFetchCutoffMinutes() {
+    var m = 0;
+    for (final sh in shifts) {
+      if (sh['isActive'] == false || isOvertimeShiftTemplate(sh) || !isOvernightShiftTemplate(sh)) continue;
+      final c = overnightShiftCutoffMinutes(sh);
+      if (c > m) m = c;
+    }
+    return m;
+  }
+
+  /// Đơn nghỉ đã duyệt trong kỳ (phép năm, việc riêng có lương, không lương, ốm BHXH…).
+  List<Map<String, dynamic>> approvedLeaves = [];
+
+  /// (mã NV → ngày → (công được trả, có đơn nghỉ)) — dựng một lần mỗi kỳ.
+  Map<String, Map<String, ({double paid, bool any})>>? _leaveDays;
+
+  Future<void> loadApprovedLeaves() async {
+    approvedLeaves = [];
+    _leaveDays = null;
+    try {
+      String ymd(DateTime d) =>
+          '${d.year.toString().padLeft(4, '0')}-${d.month.toString().padLeft(2, '0')}-${d.day.toString().padLeft(2, '0')}';
+      final items = await loadLeavesForPeriod(api, fromDate: ymd(fromDate), toDate: ymd(toDate), status: 'Approved');
+      approvedLeaves = [
+        for (final l in items)
+          if (l is Map) Map<String, dynamic>.from(l),
+      ];
+    } catch (e) {
+      _log('Error loading approved leaves: $e');
+    }
+  }
+
+  /// Ngày nghỉ được TRẢ LƯƠNG: đơn «DN trả lương» (phép năm, việc riêng có lương, nghỉ bù…)
+  /// hoặc đơn bật «vẫn tính công». Không lương / ốm BHXH / thai sản (BHXH chi trả) → không trả.
+  static bool isPaidLeave(Map<String, dynamic> lv) {
+    if (lv['countAsWork'] == true) return true;
+    final src = '${lv['paymentSource'] ?? 0}'.toLowerCase();
+    return src == '0' || src == 'employerpaid';
+  }
+
+  ({double paid, bool any}) leaveOn(Employee? emp, DateTime day) {
+    if (emp == null) return (paid: 0, any: false);
+    final map = _leaveDays ??= _buildLeaveDays();
+    final key = '${day.year}-${day.month}-${day.day}';
+    return map[emp.id.toLowerCase()]?[key] ??
+        map['u:${(emp.applicationUserId ?? '').toLowerCase()}']?[key] ??
+        (paid: 0, any: false);
+  }
+
+  Map<String, Map<String, ({double paid, bool any})>> _buildLeaveDays() {
+    final out = <String, Map<String, ({double paid, bool any})>>{};
+    for (final lv in approvedLeaves) {
+      final st = '${lv['status'] ?? ''}'.toLowerCase();
+      if (st != 'approved' && st != '1') continue;
+      final start = DateTime.tryParse('${lv['startDate'] ?? ''}');
+      final end = DateTime.tryParse('${lv['endDate'] ?? ''}') ?? start;
+      if (start == null || end == null) continue;
+      final credit = isPaidLeave(lv) ? (lv['isHalfShift'] == true ? 0.5 : 1.0) : 0.0;
+      final keys = <String>[
+        if ('${lv['employeeId'] ?? ''}'.isNotEmpty) '${lv['employeeId']}'.toLowerCase(),
+        if ('${lv['employeeUserId'] ?? ''}'.isNotEmpty) 'u:${'${lv['employeeUserId']}'.toLowerCase()}',
+      ];
+      for (var d = DateTime(start.year, start.month, start.day);
+          !d.isAfter(DateTime(end.year, end.month, end.day));
+          d = d.add(const Duration(days: 1))) {
+        final dk = '${d.year}-${d.month}-${d.day}';
+        for (final k in keys) {
+          final prev = out[k]?[dk];
+          (out[k] ??= {})[dk] = (paid: (prev?.paid ?? 0) > credit ? prev!.paid : credit, any: true);
+        }
+      }
+    }
+    return out;
   }
 
   /// Như màn cha (loadAttendanceBootstrap): máy chấm của cửa hàng + giờ chốt ngày → log chấm công.
@@ -384,13 +469,18 @@ class PayrollEngine {
         }
       }
     } catch (_) {}
+    // Khung tải: lùi theo mốc ca đêm (giờ ra sáng hôm sau ngày cuối kỳ) — chỉ ảnh hưởng phạm vi tải,
+    // ngày công vẫn xác định theo ca + giờ chốt ngày.
+    final fetchEnd = overnightFetchCutoffMinutes() > endHour * 60 + endMinute
+        ? overnightFetchCutoffMinutes()
+        : endHour * 60 + endMinute;
     final atts = await loadAttendancesForPeriod(
       api,
       deviceIds: deviceIds,
       fromDate: from,
       toDate: to,
-      dayEndHour: endHour,
-      dayEndMinute: endMinute,
+      dayEndHour: fetchEnd ~/ 60,
+      dayEndMinute: fetchEnd % 60,
     );
     return (attendances: atts, dayEndHour: endHour, dayEndMinute: endMinute);
   }
@@ -694,6 +784,7 @@ class PayrollEngine {
       }
 
       await loadSalaryTimeline();
+      await loadApprovedLeaves();
       // Đếm sau khi có lịch sử hồ sơ lương: NV đổi / hết hồ sơ giữa kỳ vẫn tính là đã cài.
       notConfiguredSalaryCount =
           employees.where((e) => !hasSalaryProfile(e)).length;
@@ -1313,12 +1404,21 @@ class PayrollEngine {
         ? null
         : DateTime(emp!.resignationDate!.year, emp.resignationDate!.month, emp.resignationDate!.day);
 
+    // Ngày lễ rơi vào ngày làm việc + ngày nghỉ có lương đã duyệt (chưa chấm công ngày đó).
+    // Điều 112–113 BLLĐ: nghỉ lễ / phép năm hưởng nguyên lương — trước đây lương tháng bị trừ những ngày này.
+    int holidayPaidDays = 0;
+    int holidayIdleDays = 0;
+    double leavePaidDays = 0;
+    bool employed(DateTime d) =>
+        (joinDay == null || !d.isBefore(joinDay)) && (resignDay == null || !d.isAfter(resignDay));
+
     // Count paid leave and absent days
     for (var d = segFrom;
         !d.isAfter(segTo);
         d = d.add(const Duration(days: 1))) {
       final key = DateFormat('yyyy-MM-dd').format(d);
-      if (isHoliday(d)) continue;
+      final holiday = isHoliday(d);
+      var flexWeekend = false;
 
       bool isPaidOff = false;
       switch (paidLeaveType) {
@@ -1348,9 +1448,7 @@ class PayrollEngine {
         case 'off-3':
         case 'off-4':
           // Không có thứ nghỉ cố định — bỏ qua T7/CN (tránh phạt vắng ảo).
-          if (d.weekday == DateTime.saturday || d.weekday == DateTime.sunday) {
-            continue;
-          }
+          flexWeekend = d.weekday == DateTime.saturday || d.weekday == DateTime.sunday;
           isPaidOff = false;
           break;
         default:
@@ -1366,12 +1464,26 @@ class PayrollEngine {
           }
       }
 
+      if (holiday) {
+        // Lễ trùng ngày nghỉ tuần: không cộng (luật cho nghỉ bù ngày làm việc kế tiếp — cửa hàng tự xếp).
+        if (!isPaidOff && employed(d) && !d.isAfter(todayStart)) {
+          holidayPaidDays++;
+          if (!daysWithWork.contains(key)) holidayIdleDays++;
+        }
+        continue;
+      }
+      if (flexWeekend) continue;
+      final leave = isPaidOff ? (paid: 0.0, any: false) : leaveOn(emp, d);
+      if (!isPaidOff && leave.paid > 0 && !daysWithWork.contains(key) && employed(d) && !d.isAfter(todayStart)) {
+        leavePaidDays += leave.paid;
+      }
+
       if (isPaidOff) {
         paidLeaveDays++;
       } else if (!daysWithWork.contains(key) &&
+          !leave.any &&
           d.isBefore(todayStart) &&
-          (joinDay == null || !d.isBefore(joinDay)) &&
-          (resignDay == null || !d.isAfter(resignDay))) {
+          employed(d)) {
         // Theo lịch: chỉ đếm vắng khi có xếp ca làm và không chấm.
         if (isSchedulePaidLeaveType(paidLeaveType)) {
           final onWorkDay = scheduleKeyHit(
@@ -1395,11 +1507,16 @@ class PayrollEngine {
             employeeGuid: emp?.id,
           )
         : null;
+    // Lương tháng / lương ngày: ngày lễ + nghỉ có lương được trả như ngày công.
+    // Lương giờ / ca (thường bán thời gian): giữ như cũ.
+    final double paidDaysCredit = (rateType == 1 || rateType == 2) ? holidayPaidDays + leavePaidDays : 0;
+    final double daysWithPay = daysWithWork.length +
+        ((rateType == 1 || rateType == 2) ? holidayIdleDays + leavePaidDays : 0);
     final resolvedStd = resolveStandardWorkDays(
       benefit: benefit,
       year: fromDate.year,
       month: fromDate.month,
-      rawWorkDays: workDays,
+      rawWorkDays: workDays + paidDaysCredit,
       paidLeaveType: paidLeaveType,
       paidDayOff: paidDayOff,
       scheduleDayOffCount: scheduleOffCount,
@@ -1419,8 +1536,8 @@ class PayrollEngine {
         rateType == 1 &&
         const ['off-1', 'off-2', 'off-3', 'off-4'].contains(paidLeaveType) &&
         resolvedStd.mode == EmployeeStandardWorkMode.monthMinusPaidLeave &&
-        workDays > standardWorkDays) {
-      final excessWorkDays = workDays - standardWorkDays;
+        workDays + paidDaysCredit > standardWorkDays) {
+      final excessWorkDays = workDays + paidDaysCredit - standardWorkDays;
       otHoursWeekend += excessWorkDays * standardDayHours;
       billableWorkDays = standardWorkDays;
     }
@@ -1470,7 +1587,7 @@ class PayrollEngine {
         break;
       case 2: // Daily
         hourlyRate = baseSalary / standardDayHours;
-        workSalary = baseSalary * workDays;
+        workSalary = baseSalary * (workDays + paidDaysCredit);
         break;
       case 3: // Shift-based
         if (shiftSalaryType == 0) {
@@ -1579,6 +1696,16 @@ class PayrollEngine {
       }
     }
     otSalary += holidayDaySalary;
+    if (rateType == 3 && hourlyOtType == 1 && holidayOtType != 0) {
+      // Lương ca: ca làm ngày nghỉ tuần đã được trả theo đơn giá ca (100%) → cột tăng ca chỉ phần hệ số.
+      final restDayHours = shiftRecords
+          .where((r) => r.status.contains('Tăng ca ngày nghỉ') && !r.status.contains('Tăng ca ngày lễ'))
+          .fold<double>(0, (a, r) => a + r.baseWorkHours);
+      if (restDayHours > 0) {
+        otSalary -= restDayHours * hourlyRate;
+        if (otSalary < 0) otSalary = 0;
+      }
+    }
     if (rateType == 0 && hourlyOtInsideHours > 0) {
       // 1.0 đã nằm trong lương giờ; cột tăng ca chỉ còn phần hệ số.
       otSalary -= hourlyOtInsideHours * hourlyRate;
@@ -1629,6 +1756,10 @@ class PayrollEngine {
       overnightShifts: overnightShifts,
       paidLeaveDays: paidLeaveDays,
       absentDays: absentDays,
+      holidayPaidDays: holidayPaidDays,
+      leavePaidDays: leavePaidDays,
+      paidDaysCredit: paidDaysCredit,
+      daysWithPay: daysWithPay,
       standardWorkDays: standardWorkDays,
       billableWorkDays: billableWorkDays,
       scheduleOffCount: scheduleOffCount,
@@ -1708,7 +1839,7 @@ class PayrollEngine {
             wholePeriod: false,
           ),
       ];
-      final rawTotal = raw.fold<double>(0, (a, p) => a + p.workDays);
+      final rawTotal = raw.fold<double>(0, (a, p) => a + p.workDays + p.paidDaysCredit);
       final last = raw.last;
       final billableAll = resolveStandardWorkDays(
         benefit: last.benefit,
@@ -1723,7 +1854,7 @@ class PayrollEngine {
       for (var k = 0; k < segs.length; k++) {
         final sg = segs[k];
         final share = rawTotal > 0
-            ? raw[k].workDays / rawTotal
+            ? (raw[k].workDays + raw[k].paidDaysCredit) / rawTotal
             : (sg.to.difference(sg.from).inDays + 1) / (periodDays <= 0 ? 1 : periodDays);
         parts.add(calcSegmentPay(
           emp: emp,
@@ -1847,7 +1978,8 @@ class PayrollEngine {
     final double bhtnRate =
         toDouble(insuranceSettings['bhtnEmployeeRate'], 1);
     final double unionFeeRate =
-        toDouble(insuranceSettings['unionFeeEmployeeRate'], 1);
+        // Đoàn phí chỉ đoàn viên công đoàn đóng — mặc định 0% (cửa hàng tự bật trong Thiết lập bảo hiểm).
+        toDouble(insuranceSettings['unionFeeEmployeeRate'], 0);
 
     final double insuranceSalary = calculateInsuranceSalary(
         socialInsType, baseSalary, completionSalary, customInsuranceSalary);
@@ -1857,11 +1989,23 @@ class PayrollEngine {
 
     // If socialInsType == '0' (chưa đóng BHXH), insuranceSalary = 0 => all = 0
     // Otherwise: mức đóng × hệ số tổng NLĐ đóng
-    final double bhxhPart = insuranceSalary * bhxhRate / 100;
-    final double bhytPart =
-        hasHealthInsurance ? 0 : insuranceSalary * bhytRate / 100;
-    final double bhtnPart = bhtnInsuranceSalary * bhtnRate / 100;
-    final double unionFeePart = insuranceSalary * unionFeeRate / 100;
+    // Luật BHXH: tháng không làm việc và không hưởng lương từ 14 ngày làm việc trở lên → không đóng
+    // BHXH / BHYT / BHTN tháng đó (mới vào giữa tháng, nghỉ không lương dài…). Chỉ xét khi kỳ là trọn
+    // một tháng đã kết thúc — xem giữa tháng thì các ngày chưa tới không bị tính là «không làm».
+    final today = DateTime.now();
+    final monthEnded = !DateTime(toDate.year, toDate.month, toDate.day).isAfter(DateTime(today.year, today.month, today.day).subtract(const Duration(days: 1)));
+    final fullMonth = fromDate.day == 1 &&
+        fromDate.year == toDate.year &&
+        fromDate.month == toDate.month &&
+        toDate.day == DateTime(toDate.year, toDate.month + 1, 0).day;
+    final double unpaidWorkDays = (standardWorkDays - pay.daysWithPay).clamp(0, 31).toDouble();
+    final insuranceSkipped = fullMonth && monthEnded && socialInsType != '0' && unpaidWorkDays >= 14;
+    final double insFactor = insuranceSkipped ? 0 : 1;
+
+    final double bhxhPart = insFactor * insuranceSalary * bhxhRate / 100;
+    final double bhytPart = insFactor * (hasHealthInsurance ? 0 : insuranceSalary * bhytRate / 100);
+    final double bhtnPart = insFactor * bhtnInsuranceSalary * bhtnRate / 100;
+    final double unionFeePart = insFactor * insuranceSalary * unionFeeRate / 100;
     final double totalInsurance = bhxhPart + bhytPart + bhtnPart + unionFeePart;
 
     // ═══ KPI / hoa hồng / lương sản phẩm (tính trước thuế — đều là thu nhập chịu thuế TNCN) ═══
@@ -2007,6 +2151,11 @@ class PayrollEngine {
       'earlyCount': earlyCount,
       'earlyMinutes': earlyMinutes,
       'absentDays': absentDays,
+      'holidayPaidDays': pay.holidayPaidDays,
+      'leavePaidDays': pay.leavePaidDays,
+      'paidDaysCredit': pay.paidDaysCredit,
+      'unpaidWorkDays': unpaidWorkDays,
+      'insuranceSkipped': insuranceSkipped,
       'baseSalary': baseSalary,
       // Cột bảng = số đã tính theo công (khớp Tổng lương). Mức cấu hình xem chi tiết.
       'completionSalary': completionSalaryEarned,
@@ -2224,8 +2373,9 @@ class PayrollEngine {
 
   /// Cảnh báo cấu hình làm SAI công / lương — hiện trên bảng lương để cửa hàng sửa.
   ///
-  /// Ca qua đêm (vd 22:00–06:00) chỉ ghép được giờ vào / ra khi «giờ chốt ngày» muộn hơn giờ kết thúc ca:
-  /// giờ ra sau giờ chốt bị tính sang ngày hôm sau → cả hai ngày «thiếu chấm», nhân viên ca đêm ra 0 công.
+  /// Ca kết thúc qua nửa đêm nhưng loại ca không phải «Qua đêm» (vd «Full 08:00–04:00» loại Hành chính):
+  /// hệ thống không coi là ca qua đêm → giờ ra sau giờ chốt ngày bị tính sang hôm sau → thiếu công.
+  /// (Ca loại «Qua đêm» đã tự ghép giờ ra sáng hôm sau, không phụ thuộc giờ chốt ngày.)
   List<String> configWarnings() {
     int? minutes(Object? v) {
       final p = '${v ?? ''}'.split(':');
@@ -2256,12 +2406,13 @@ class PayrollEngine {
       if (sh['isActive'] == false) continue;
       final start = minutes(sh['startTime']), end = minutes(sh['endTime']);
       if (start == null || end == null || end >= start) continue; // không qua đêm
+      if (isOvernightShiftTemplate(sh) || isOvertimeShiftTemplate(sh)) continue;
       final name = '${sh['name'] ?? ''}'.trim();
       final used = usedNames.contains(name.toLowerCase()) || usedIds.contains('${sh['id']}'.toLowerCase());
       if (!used || dayEnd >= end) continue;
-      out.add('Ca «$name» ${hhmm(start)}–${hhmm(end)} kết thúc sau giờ chốt ngày ${hhmm(dayEnd)}: '
-          'giờ ra bị tính sang hôm sau nên nhân viên ca này bị thiếu công. '
-          'Đặt «Giờ chốt ngày» (Thiết lập chấm công) từ ${hhmm(end + 60 > 12 * 60 ? end : end + 60)} trở đi.');
+      out.add('Ca «$name» ${hhmm(start)}–${hhmm(end)} kết thúc qua ngày hôm sau nhưng loại ca chưa đặt «Qua đêm»: '
+          'giờ ra sau ${hhmm(dayEnd)} bị tính sang hôm sau nên nhân viên ca này bị thiếu công. '
+          'Vào Thiết lập ca, đổi loại ca thành «Qua đêm».');
     }
     return out;
   }
@@ -2338,7 +2489,23 @@ class SegPay {
     required this.travelSalary,
     this.allowanceDays = const {},
     this.standardDayMinutes = 480,
+    this.holidayPaidDays = 0,
+    this.leavePaidDays = 0,
+    this.paidDaysCredit = 0,
+    this.daysWithPay = 0,
   });
+
+  /// Ngày có hưởng lương (đi làm, kể cả nghỉ tuần / lễ; + lễ / nghỉ có lương được trả) — quy tắc BHXH 14 ngày.
+  final double daysWithPay;
+
+  /// Ngày lễ rơi vào ngày làm việc (được trả lương).
+  final int holidayPaidDays;
+
+  /// Ngày nghỉ có lương đã duyệt (phép năm, việc riêng có lương, «vẫn tính công»).
+  final double leavePaidDays;
+
+  /// Số ngày lễ + nghỉ có lương thực sự cộng vào lương (lương tháng / lương ngày).
+  final double paidDaysCredit;
 
   final Map<String, dynamic>? benefit;
   final DateTime from;
@@ -2414,6 +2581,10 @@ class SegPay {
       overnightShifts: isum((x) => x.overnightShifts),
       paidLeaveDays: isum((x) => x.paidLeaveDays),
       absentDays: isum((x) => x.absentDays),
+      holidayPaidDays: isum((x) => x.holidayPaidDays),
+      leavePaidDays: sum((x) => x.leavePaidDays),
+      paidDaysCredit: sum((x) => x.paidDaysCredit),
+      daysWithPay: sum((x) => x.daysWithPay),
       standardWorkDays: last.standardWorkDays,
       billableWorkDays: sum((x) => x.billableWorkDays),
       scheduleOffCount: last.scheduleOffCount,

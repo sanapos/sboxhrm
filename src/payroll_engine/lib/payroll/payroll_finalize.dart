@@ -39,7 +39,8 @@ PayrollFinalizeBatch buildPayrollFinalizeBatch(
     final regularUnits = switch (rateType) {
       0 => PayrollEngine.toDouble(row['totalHours']),
       3 => PayrollEngine.toDouble(row['totalShifts']),
-      _ => PayrollEngine.toDouble(row['workDays']),
+      // Lương tháng / ngày: công đi làm + ngày lễ / nghỉ có lương được trả.
+      _ => PayrollEngine.toDouble(row['workDays']) + PayrollEngine.toDouble(row['paidDaysCredit']),
     };
     final item = <String, dynamic>{
       'employeeId': employeeId,

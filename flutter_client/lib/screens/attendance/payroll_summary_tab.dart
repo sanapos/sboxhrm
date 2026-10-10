@@ -226,6 +226,8 @@ class PayrollSummaryTabState extends State<PayrollSummaryTab> {
       PayrollColumn(key: 'salaryType', label: _l10n.salaryType),
       PayrollColumn(key: 'standardDays', label: _l10n.standardWorkDays),
       PayrollColumn(key: 'workDays', label: _l10n.totalWorkDays),
+      // Ngày lễ + nghỉ có lương đã duyệt được trả (lương tháng / ngày) — ẩn khi không có.
+      PayrollColumn(key: 'paidDaysCredit', label: 'Lễ / phép có lương'),
       PayrollColumn(key: 'totalHours', label: _l10n.totalHours),
       PayrollColumn(
         key: 'otTotalHours',
@@ -3521,12 +3523,14 @@ class PayrollSummaryTabState extends State<PayrollSummaryTab> {
       case 'position':
       case 'salaryType':
         return row[key]?.toString() ?? '';
-      case 'workDays':
       case 'paidLeaveDays':
       case 'absentDays':
       case 'lateCount':
       case 'earlyCount':
         return '${(row[key] as num?)?.toInt() ?? 0}';
+      // Công có thể lẻ (nửa công, nghỉ nửa ca) — trước đây cắt mất phần lẻ (19,5 → 19).
+      case 'workDays':
+      case 'paidDaysCredit':
       case 'standardDays':
         final sd = (row[key] as num?)?.toDouble() ?? 0;
         return sd == sd.roundToDouble()
@@ -3543,8 +3547,11 @@ class PayrollSummaryTabState extends State<PayrollSummaryTab> {
       case 'lateMinutes':
       case 'earlyMinutes':
         return '${(row[key] as num?)?.toInt() ?? 0}';
-      case 'penalty':
       case 'bhxh':
+        if (row['insuranceSkipped'] == true) return 'Không đóng (<14 ngày)';
+        final ins = (row[key] as num?)?.toDouble() ?? 0;
+        return ins == 0 ? '0' : '-${_currencyFmt.format(ins.round())}';
+      case 'penalty':
       case 'bhyt':
       case 'bhtn':
       case 'unionFee':
@@ -3586,6 +3593,7 @@ class PayrollSummaryTabState extends State<PayrollSummaryTab> {
         return 88;
       case 'standardDays':
       case 'workDays':
+      case 'paidDaysCredit':
         return 72;
       case 'totalHours':
       case 'otTotalHours':

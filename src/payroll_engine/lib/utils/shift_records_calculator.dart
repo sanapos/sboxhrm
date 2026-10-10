@@ -1,4 +1,5 @@
 import 'dart:convert';
+import 'dart:math' as math;
 
 import 'package:intl/intl.dart';
 import '../models/attendance.dart';
@@ -1244,11 +1245,16 @@ class _ShiftLookups {
             employeeCodeToGuid[code] = guid;
             employeeGuidToShiftsPerDay[guid] = shiftsPerDay;
             employeeGuidToHoursPerWorkDay[guid] = hoursPerDay;
+            // Tra theo mã NV và GUID: chấm công từ máy mang mã NV, chấm trên app có thể mang GUID —
+            // thiếu GUID thì làm ngày nghỉ tuần không nhận ra «Tăng ca ngày nghỉ».
             employeeCodeToWeeklyOffDays[code] = weeklyOffDays;
+            employeeCodeToWeeklyOffDays[guid] = weeklyOffDays;
             employeeCodeToPaidLeaveType[code] = paidLeaveType;
             employeeCodeToPaidLeaveType[guid] = paidLeaveType;
             employeeCodeToHolidayMultiplier[code] = holidayMultiplier;
+            employeeCodeToHolidayMultiplier[guid] = holidayMultiplier;
             employeeCodeToHolidayOvertimeType[code] = holidayOvertimeType;
+            employeeCodeToHolidayOvertimeType[guid] = holidayOvertimeType;
             employeeCodeToApplyLateEarlyOnRestDayOt[code] = applyLateEarlyRest;
             employeeCodeToApplyLateEarlyOnRestDayOt[guid] = applyLateEarlyRest;
             employeeCodeToRestDayOtHoursOnly[code] = restDayHoursOnly;
@@ -1419,6 +1425,18 @@ class _ShiftLookups {
   }
 }
 
+/// Mốc (phút trong ngày) đến đó giờ chấm sáng hôm sau còn thuộc ca qua đêm của ngày trước:
+/// giờ kết thúc ca + tối đa 3 giờ (tan ca muộn / tăng ca), không lấn sang nửa sau khoảng nghỉ
+/// trước giờ vào ca kế tiếp (ca 06:00–05:59 gần như liền nhau → chỉ tới đúng giờ kết thúc).
+int overnightShiftCutoffMinutes(Map<String, dynamic> st) {
+  final start = _parseTimeSpanToMinutes(st['startTime']?.toString());
+  final end = _parseTimeSpanToMinutes(st['endTime']?.toString());
+  if (end >= start) return 0; // không qua nửa đêm
+  final gap = start - end; // khoảng nghỉ trước ca kế tiếp (phút)
+  final grace = math.min(180, gap ~/ 2);
+  return math.min(end + math.max(1, grace), 12 * 60);
+}
+
 DateTime _getLogicalDate(DateTime punchTime, int dayEndHour, int dayEndMinute) {
   return resolveAttendanceWorkDay(
     punchTime,
@@ -1441,14 +1459,12 @@ DateTime resolveAttendanceWorkDay(
 }) {
   final calendar = DateTime(punchTime.year, punchTime.month, punchTime.day);
   final dayEnd = dayEndHour * 60 + dayEndMinute;
-  if (dayEnd <= 0) return calendar;
-
   final punchMinutes = punchTime.hour * 60 + punchTime.minute;
-  if (punchMinutes >= dayEnd) return calendar;
 
   var hasOvernight = false;
   var hasDayShift = false;
   var fitsDayShift = false;
+  var overnightCutoff = 0;
   for (final id in assignedShiftIds) {
     final raw = shiftTemplateMap[id];
     if (raw is! Map) continue;
@@ -1456,6 +1472,7 @@ DateTime resolveAttendanceWorkDay(
     if (isOvertimeShiftTemplate(st)) continue;
     if (isOvernightShiftTemplate(st)) {
       hasOvernight = true;
+      overnightCutoff = math.max(overnightCutoff, overnightShiftCutoffMinutes(st));
       continue;
     }
     hasDayShift = true;
@@ -1463,6 +1480,13 @@ DateTime resolveAttendanceWorkDay(
       fitsDayShift = true;
     }
   }
+
+  // Ca qua đêm được xếp: giờ ra trước «giờ kết thúc ca + tối đa 3 giờ» thuộc ngày hôm trước,
+  // kể cả khi «giờ chốt ngày» để mặc định 00:00. Trước đây phải đặt giờ chốt ngày sau giờ tan ca —
+  // không thì NV ca 22:00–06:00 bị tách thành 2 ngày «thiếu chấm» → 0 công.
+  final effectiveEnd = math.max(dayEnd, overnightCutoff);
+  if (effectiveEnd <= 0) return calendar;
+  if (punchMinutes >= effectiveEnd) return calendar;
 
   // Khớp ca ngày / chỉ có ca ngày → ngày lịch.
   if (fitsDayShift || (hasDayShift && !hasOvernight)) {

@@ -9,9 +9,18 @@ import 'fixtures/payroll_fixture.dart';
 
 /// Đường chạy MÁY CHỦ (chương trình payroll_engine): tự nạp dữ liệu qua HTTP như API thật,
 /// tính bảng lương → phải ra đúng «đáp án chuẩn» của bảng lương trên app.
-Future<HttpServer> _serve({required bool serverAdjustments, required List<String> seen, String dayEnd = '04:00'}) async {
+Future<HttpServer> _serve({
+  required bool serverAdjustments,
+  required List<String> seen,
+  String dayEnd = '04:00',
+  String nightShiftType = 'Qua đêm',
+}) async {
   final responses = payrollFixtureResponses(serverAdjustments: serverAdjustments)
     ..['/api/settings/app/day_end_time'] = {'key': 'day_end_time', 'value': dayEnd};
+  responses['/api/shifts/templates'] = [
+    for (final t in (responses['/api/shifts/templates'] as List).cast<Map<String, dynamic>>())
+      t['id'] == 's2' ? {...t, 'shiftType': nightShiftType} : t,
+  ];
   final server = await HttpServer.bind(InternetAddress.loopbackIPv4, 0);
   server.listen((req) async {
     final p = req.uri.path;
@@ -48,6 +57,9 @@ Future<HttpServer> _serve({required bool serverAdjustments, required List<String
   });
   return server;
 }
+
+/// Dùng cho test thăm dò.
+Future<HttpServer> serveForProbe(List<String> seen, {String dayEnd = '04:00'}) => _serve(serverAdjustments: false, seen: seen, dayEnd: dayEnd);
 
 List<Map<String, dynamic>> _normalize(List<Map<String, dynamic>> rows) {
   final list = (jsonDecode(jsonEncode(rows)) as List).cast<Map<String, dynamic>>();
@@ -128,7 +140,7 @@ Future<void> _checkExe() async {
     _expectSame(rows, expected);
     final fin = res['finalize'] as Map<String, dynamic>;
     // NV005 chưa có bảng lương → bỏ qua; còn lại có phiếu.
-    expect((fin['request']['items'] as List).length, 5);
+    expect((fin['request']['items'] as List).length, 6);
     expect(fin['skipped'], hasLength(1));
     final nv1 = (fin['request']['items'] as List).cast<Map<String, dynamic>>().firstWhere((i) => i['employeeId'] == 'e1');
     final row1 = rows.firstWhere((r) => r['code'] == 'NV001');
@@ -138,15 +150,16 @@ Future<void> _checkExe() async {
   }
 }
 
-Future<List<String>> _warnings(String dayEnd) async {
-  final server = await _serve(serverAdjustments: false, seen: [], dayEnd: dayEnd);
+Future<({List<String> warnings, Map<String, dynamic> nv4})> _night(String dayEnd, {String nightShiftType = 'Qua đêm'}) async {
+  final server = await _serve(serverAdjustments: false, seen: [], dayEnd: dayEnd, nightShiftType: nightShiftType);
   final api = HttpPayrollApi(baseUrl: 'http://127.0.0.1:${server.port}', token: 'test-token');
   try {
     final engine = PayrollEngine(api: api)
       ..fromDate = DateTime(2026, 8, 1)
       ..toDate = DateTime(2026, 8, 31);
     await engine.loadPayrollData();
-    return engine.configWarnings();
+    final nv4 = engine.computeRows().firstWhere((r) => r['code'] == 'NV004');
+    return (warnings: engine.configWarnings(), nv4: nv4);
   } finally {
     api.close();
     await server.close(force: true);
@@ -154,11 +167,18 @@ Future<List<String>> _warnings(String dayEnd) async {
 }
 
 void main() {
-  test('Ca đêm kết thúc sau giờ chốt ngày → cảnh báo; chốt 07:00 → không', () async {
-    final bad = await _warnings('04:00');
-    expect(bad, hasLength(1));
-    expect(bad.first, contains('Ca đêm'));
-    expect(await _warnings('07:00'), isEmpty);
+  test('Ca đêm 22:00–06:00 đủ công dù giờ chốt ngày 00:00 / 04:00 / 07:00', () async {
+    for (final de in ['00:00', '04:00', '07:00']) {
+      final r = await _night(de);
+      expect(r.nv4['totalShifts'], 15, reason: 'giờ chốt $de');
+      expect(r.warnings, isEmpty, reason: 'giờ chốt $de');
+    }
+  });
+
+  test('Ca qua nửa đêm nhưng loại ca không phải «Qua đêm» → cảnh báo', () async {
+    final r = await _night('04:00', nightShiftType: 'Hành chính');
+    expect(r.warnings, hasLength(1));
+    expect(r.warnings.first, contains('Qua đêm'));
   });
 
   test('Chương trình payroll_engine (file thực thi) ra đúng bảng lương + phiếu chốt', _checkExe);

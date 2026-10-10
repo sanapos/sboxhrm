@@ -81,7 +81,7 @@ public class InsuranceSetting : AuditableEntity<Guid>
     /// <summary>
     /// Phí công đoàn người lao động (%)
     /// </summary>
-    public decimal UnionFeeEmployeeRate { get; set; } = 1;
+    public decimal UnionFeeEmployeeRate { get; set; } = 0; // chỉ đoàn viên công đoàn đóng — cửa hàng tự bật
 
     /// <summary>
     /// Phí công đoàn doanh nghiệp (%)

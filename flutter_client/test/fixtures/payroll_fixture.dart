@@ -45,6 +45,8 @@ final Map<String, Map<String, dynamic>> payrollFixtureBenefits = {
     'fixedShiftRate': 250000,
   }),
   // e5: chưa có bảng lương.
+  // NV mới vào 20/8, lương tháng có BHXH → tháng 8 không làm ≥14 ngày → không đóng BHXH.
+  'e7': _benefit('b7', rateType: 'Monthly', rate: 10000000, extra: {'socialInsuranceType': 1}),
   // Lương tháng, nghỉ T7 + CN, BHXH mức tự chọn.
   'e6': _benefit('b6', rateType: 'Monthly', rate: 9000000, paidLeaveType: 'sat-sun', weeklyOffDays: 'Saturday,Sunday', extra: {
     'socialInsuranceType': 4,
@@ -59,6 +61,7 @@ const payrollFixtureEmployees = [
   {'id': 'e4', 'employeeCode': 'NV004', 'pin': '4', 'firstName': 'Dũng', 'lastName': 'Phạm', 'workStatus': 'Active', 'department': 'Bảo vệ'},
   {'id': 'e5', 'employeeCode': 'NV005', 'pin': '5', 'firstName': 'Em', 'lastName': 'Hồ', 'workStatus': 'Active', 'department': 'Thu ngân'},
   {'id': 'e6', 'employeeCode': 'NV006', 'pin': '6', 'firstName': 'Giang', 'lastName': 'Vũ', 'workStatus': 'Active', 'department': 'Văn phòng'},
+  {'id': 'e7', 'employeeCode': 'NV007', 'pin': '7', 'firstName': 'Hải', 'lastName': 'Đặng', 'workStatus': 'Active', 'department': 'Bếp', 'joinDate': '2026-08-20T00:00:00', 'applicationUserId': 'u7'},
 ];
 
 /// Log chấm công: (pin, ngày, giờ vào, giờ ra). Giờ ra < giờ vào = ra hôm sau.
@@ -78,13 +81,14 @@ List<(String, int, int, int, int, int)> payrollFixturePunches() {
     if (wd <= DateTime.friday && d != 10 && d != 11) out.add(('3', d, 8, 5, 17, 2));
     // NV004: ca đêm 22:00–06:00, cách ngày.
     if (d.isEven && d < 31) out.add(('4', d, 21, 55, 6, 3));
+    // NV007: vào làm 20/8, T2–T7.
+    if (d >= 20 && wd != DateTime.sunday) out.add(('7', d, 8, 0, 17, 0));
     // NV006: T2–T6, đi trễ thứ Hai.
     if (wd <= DateTime.friday) out.add(('6', d, wd == DateTime.monday ? 8 : 7, wd == DateTime.monday ? 25 : 58, 17, 1));
   }
   return out;
 }
 
-const _pinToEmp = {'1': 'e1', '2': 'e2', '3': 'e3', '4': 'e4', '5': 'e5', '6': 'e6'};
 
 /// Log chấm công dạng API (/api/attendances).
 List<Map<String, dynamic>> payrollFixtureAttendanceJson() {
@@ -99,7 +103,8 @@ List<Map<String, dynamic>> payrollFixtureAttendanceJson() {
       out.add({
         'id': 'a-$pin-$d-$st',
         'pin': pin,
-        'employeeId': _pinToEmp[pin],
+        // Như API thật (AttendanceDto): mã NV, không phải GUID.
+        'employeeCode': 'NV00$pin',
         'deviceId': 'dev1',
         'deviceName': 'Máy cửa',
         'attendanceTime': iso(t),
@@ -130,8 +135,8 @@ Map<String, Object?> payrollFixtureResponses({bool serverAdjustments = false}) =
         },
       ],
       '/api/shifts/templates': [
-        {'id': 's1', 'name': 'Ca HC', 'startTime': '08:00:00', 'endTime': '17:00:00', 'breakMinutes': 60, 'isActive': true, 'shiftType': 'Hành chính'},
-        {'id': 's2', 'name': 'Ca đêm', 'startTime': '22:00:00', 'endTime': '06:00:00', 'breakMinutes': 0, 'isActive': true, 'shiftType': 'Qua đêm'},
+        {'id': 's1', 'name': 'Ca HC', 'startTime': '08:00:00', 'endTime': '17:00:00', 'breakTimeMinutes': 60, 'isActive': true, 'shiftType': 'Hành chính'},
+        {'id': 's2', 'name': 'Ca đêm', 'startTime': '22:00:00', 'endTime': '06:00:00', 'breakTimeMinutes': 0, 'isActive': true, 'shiftType': 'Qua đêm'},
       ],
       '/api/settings/insurance': {
         'bhxhEmployeeRate': 8, 'bhytEmployeeRate': 1.5, 'bhtnEmployeeRate': 1, 'unionFeeEmployeeRate': 0,
@@ -197,4 +202,17 @@ Map<String, Object?> payrollFixtureResponses({bool serverAdjustments = false}) =
       ],
       '/api/settings/app/commission_settings': {'key': 'commission_settings', 'value': '{"commissionType":"flat","flatRate":2}'},
       '/api/settings/app/day_end_time': {'key': 'day_end_time', 'value': '04:00'},
+      '/api/Leaves': {
+        'items': [
+          // Phép năm DN trả lương — NV003 vắng 10, 11/8 → được trả 2 ngày.
+          {'id': 'l1', 'employeeId': 'e3', 'employeeUserId': 'u3', 'type': 'AnnualLeave', 'status': 'Approved',
+            'startDate': '2026-08-10T00:00:00', 'endDate': '2026-08-11T00:00:00', 'isHalfShift': false,
+            'countAsWork': false, 'paymentSource': 'EmployerPaid'},
+          // Ốm hưởng BHXH — không trả lương (NV002 nghỉ 3/8).
+          {'id': 'l2', 'employeeId': 'e2', 'employeeUserId': 'u2', 'type': 'SickLeave', 'status': 'Approved',
+            'startDate': '2026-08-03T00:00:00', 'endDate': '2026-08-03T00:00:00', 'isHalfShift': false,
+            'countAsWork': false, 'paymentSource': 'SocialInsurance'},
+        ],
+        'totalCount': 2,
+      },
     };
