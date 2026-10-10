@@ -120,25 +120,213 @@ public partial class PosQuotesController
     /// </summary>
     [HttpGet("care-overview")]
     [RequireModulePermission("PosQuotes", ModulePermissionAction.View)]
-    public async Task<ActionResult<AppResponse<object>>> CareOverview([FromQuery] bool all = false)
+    public async Task<ActionResult<AppResponse<object>>> CareOverview(
+        [FromQuery] bool all = false, [FromQuery] string? scope = null)
     {
         var storeId = RequiredStoreId;
         var q = ApplyOwnScope(dbContext.PosQuotes.AsNoTracking()
             .Where(x => x.StoreId == storeId && x.Deleted == null));
-        if (!all)
+        // pipeline: báo giá đang theo đuổi · aftersale: khách đã chốt (chăm sóc sau bán / bảo hành) · all
+        var sc = (scope ?? (all ? "all" : "pipeline")).Trim().ToLowerInvariant();
+        if (sc == "pipeline")
             q = q.Where(x => x.Status == PosQuoteStatus.Draft
                 || x.Status == PosQuoteStatus.Sent
                 || x.Status == PosQuoteStatus.Revised);
+        else if (sc == "aftersale")
+            q = q.Where(x => x.Status == PosQuoteStatus.Accepted);
         var quotes = await q.OrderByDescending(x => x.UpdatedAt ?? x.CreatedAt)
-            .Take(500)
+            .Take(2000)
             .ToListAsync();
         var ids = quotes.Select(x => x.Id).ToList();
         var acts = await dbContext.PosQuoteActivities.AsNoTracking()
             .Where(a => ids.Contains(a.QuoteId) && a.StoreId == storeId && a.Deleted == null)
             .ToListAsync();
         var names = await EmployeeNamesAsync(quotes.Select(x => x.QuotedByEmployeeId));
-        var (summary, items) = PosQuoteCareBoard.Build(quotes, acts, names, DateTime.UtcNow);
-        return Ok(AppResponse<object>.Success(new { summary, items }));
+        // Sau bán: 30 ngày chưa hỏi thăm mới coi là «lâu chưa liên hệ» (đang chào hàng: 7 ngày).
+        var (summary, items) = PosQuoteCareBoard.Build(quotes, acts, names, DateTime.UtcNow,
+            sc == "aftersale" ? 30 : PosQuoteCareBoard.StaleDays);
+        return Ok(AppResponse<object>.Success(new { summary, items, scope = sc }));
+    }
+
+    public record UpdateQuoteActivityDto(string? Kind, string? Content, DateTime? NextFollowUpAt, int? PotentialScore,
+        bool ClearFollowUp = false);
+
+    /// <summary>Lần ghi do người dùng ghi (không phải hệ thống) — người ghi hoặc quản lý mới sửa / xoá được.</summary>
+    async Task<(PosQuote? Quote, PosQuoteActivity? Act, ActionResult? Error)> LoadOwnActivityAsync(Guid id, Guid actId)
+    {
+        var storeId = RequiredStoreId;
+        var quote = await dbContext.PosQuotes.AsTracking()
+            .FirstOrDefaultAsync(x => x.Id == id && x.StoreId == storeId && x.Deleted == null);
+        if (quote == null || !OwnsOrManages(quote))
+            return (null, null, NotFound(AppResponse<object>.Fail("Không tìm thấy báo giá")));
+        var act = await dbContext.PosQuoteActivities.AsTracking()
+            .FirstOrDefaultAsync(a => a.Id == actId && a.QuoteId == id && a.StoreId == storeId && a.Deleted == null);
+        if (act == null) return (null, null, NotFound(AppResponse<object>.Fail("Không tìm thấy lần ghi")));
+        if (PosQuoteCareBoard.SystemKinds.Contains(act.Kind))
+            return (null, null, BadRequest(AppResponse<object>.Fail("Ghi chép tự động của hệ thống — không sửa / xoá")));
+        var mine = (act.EmployeeId != null && act.EmployeeId == EmployeeId)
+                   || string.Equals(act.CreatedBy, CurrentUserEmail, StringComparison.OrdinalIgnoreCase);
+        if (!mine && !CanViewAllQuotes)
+            return (null, null, StatusCode(403, AppResponse<object>.Fail("Chỉ người ghi hoặc quản lý được sửa / xoá")));
+        return (quote, act, null);
+    }
+
+    /// <summary>Điểm tiềm năng của báo giá = điểm của lần chấm gần nhất còn lại.</summary>
+    async Task RefreshQuoteScoreAsync(PosQuote quote)
+    {
+        var rows = await dbContext.PosQuoteActivities.AsNoTracking()
+            .Where(a => a.QuoteId == quote.Id && a.Deleted == null)
+            .OrderByDescending(a => a.CreatedAt)
+            .ToListAsync();
+        quote.PotentialScore = rows.Select(PosQuoteCareBoard.ScoreOf).FirstOrDefault(s => s != null);
+    }
+
+    [HttpPut("{id:guid}/activities/{actId:guid}")]
+    [RequireModulePermission("PosQuotes", ModulePermissionAction.Edit)]
+    public async Task<ActionResult> UpdateActivity(Guid id, Guid actId, [FromBody] UpdateQuoteActivityDto dto)
+    {
+        var (quote, act, error) = await LoadOwnActivityAsync(id, actId);
+        if (error != null) return error;
+        if (dto.PotentialScore is int raw && (raw < 0 || raw > 10))
+            return BadRequest(AppResponse<object>.Fail("Điểm tiềm năng phải từ 0 đến 10"));
+        if (dto.Content != null)
+        {
+            var content = dto.Content.Trim();
+            if (content.Length == 0) return BadRequest(AppResponse<object>.Fail("Nhập nội dung làm việc với khách"));
+            act!.Content = content;
+        }
+        if (dto.Kind != null)
+        {
+            var k = NormalizeActivityKind(dto.Kind);
+            if (PosQuoteCareBoard.SystemKinds.Contains(k)) return BadRequest(AppResponse<object>.Fail("Loại không hợp lệ"));
+            act!.Kind = k;
+        }
+        if (dto.ClearFollowUp || dto.NextFollowUpAt != null)
+        {
+            act!.NextFollowUpAt = dto.ClearFollowUp ? null : dto.NextFollowUpAt;
+            act.ReminderSentAt = null; // đổi hẹn → nhắc lại theo giờ mới
+        }
+        if (dto.PotentialScore is int s) act!.PotentialScore = s;
+        act!.UpdatedAt = DateTime.UtcNow;
+        act.UpdatedBy = CurrentUserEmail;
+        await dbContext.SaveChangesAsync();
+        await RefreshQuoteScoreAsync(quote!);
+        await dbContext.SaveChangesAsync();
+        var mapped = await MapActivitiesAsync([act]);
+        return Ok(AppResponse<QuoteActivityDto>.Success(mapped[0]));
+    }
+
+    [HttpDelete("{id:guid}/activities/{actId:guid}")]
+    [RequireModulePermission("PosQuotes", ModulePermissionAction.Edit)]
+    public async Task<ActionResult> DeleteActivity(Guid id, Guid actId)
+    {
+        var (quote, act, error) = await LoadOwnActivityAsync(id, actId);
+        if (error != null) return error;
+        act!.Deleted = DateTime.UtcNow;
+        act.DeletedBy = CurrentUserEmail;
+        await dbContext.SaveChangesAsync();
+        await RefreshQuoteScoreAsync(quote!);
+        await dbContext.SaveChangesAsync();
+        return Ok(AppResponse<object>.Success(new { deleted = true }));
+    }
+
+    /// <summary>
+    /// Hiệu quả chăm sóc theo nhân viên trong <paramref name="days"/> ngày: số lần chăm sóc, khách đang theo,
+    /// hẹn quá hạn, báo giá mới, khách chốt, tỉ lệ chốt, điểm tiềm năng trung bình. Nhân viên chỉ thấy mình.
+    /// </summary>
+    [HttpGet("care-staff")]
+    [RequireModulePermission("PosQuotes", ModulePermissionAction.View)]
+    public async Task<ActionResult<AppResponse<object>>> CareStaff([FromQuery] int days = 30)
+    {
+        var storeId = RequiredStoreId;
+        days = Math.Clamp(days, 7, 365);
+        var since = DateTime.UtcNow.AddDays(-days);
+        var quotes = await ApplyOwnScope(dbContext.PosQuotes.AsNoTracking()
+                .Where(x => x.StoreId == storeId && x.Deleted == null))
+            .Where(x => x.CreatedAt >= since || x.Status == PosQuoteStatus.Draft
+                        || x.Status == PosQuoteStatus.Sent || x.Status == PosQuoteStatus.Revised)
+            .Take(5000)
+            .ToListAsync();
+        var ids = quotes.Select(x => x.Id).ToList();
+        var acts = await dbContext.PosQuoteActivities.AsNoTracking()
+            .Where(a => ids.Contains(a.QuoteId) && a.StoreId == storeId && a.Deleted == null)
+            .ToListAsync();
+        var names = await EmployeeNamesAsync(quotes.Select(x => x.QuotedByEmployeeId).Concat(acts.Select(a => a.EmployeeId)));
+        var open = quotes.Where(x => x.Status is PosQuoteStatus.Draft or PosQuoteStatus.Sent or PosQuoteStatus.Revised).ToList();
+        var (_, careItems) = PosQuoteCareBoard.Build(open, acts, names, DateTime.UtcNow);
+        string Key(Guid? emp, string? by) => emp is Guid e ? e.ToString() : "u:" + (by ?? "");
+        var rows = quotes.GroupBy(x => Key(x.QuotedByEmployeeId, x.QuotedBy)).Select(g =>
+        {
+            var first = g.First();
+            var created = g.Where(x => x.CreatedAt >= since).ToList();
+            var accepted = created.Count(x => x.Status == PosQuoteStatus.Accepted);
+            var decided = created.Count(x => x.Status is PosQuoteStatus.Accepted or PosQuoteStatus.Rejected
+                or PosQuoteStatus.Expired or PosQuoteStatus.Cancelled);
+            var qIds = g.Select(x => x.Id).ToHashSet();
+            var contacts = acts.Count(a => qIds.Contains(a.QuoteId) && a.CreatedAt >= since
+                                           && !PosQuoteCareBoard.SystemKinds.Contains(a.Kind));
+            var mineCare = careItems.Where(i => qIds.Contains(i.QuoteId)).ToList();
+            var scored = mineCare.Where(i => i.Score != null).ToList();
+            return new
+            {
+                employeeId = first.QuotedByEmployeeId,
+                name = first.QuotedByEmployeeId is Guid eid ? names.GetValueOrDefault(eid) ?? first.QuotedBy : first.QuotedBy,
+                openQuotes = mineCare.Count,
+                pipelineValue = mineCare.Sum(i => i.Total),
+                contacts,
+                overdue = mineCare.Count(i => i.FollowUp == "overdue"),
+                stale = mineCare.Count(i => i.Stale),
+                createdQuotes = created.Count,
+                accepted,
+                conversionRate = decided > 0 ? Math.Round(accepted * 100.0 / decided, 1) : (double?)null,
+                acceptedValue = created.Where(x => x.Status == PosQuoteStatus.Accepted).Sum(x => x.Total),
+                averageScore = scored.Count > 0 ? Math.Round(scored.Average(i => i.Score!.Value), 1) : (double?)null,
+            };
+        }).OrderByDescending(r => r.acceptedValue).ThenByDescending(r => r.contacts).ToList();
+        var byEmail = await UserNamesByEmailAsync(rows.Where(r => r.name != null && r.name.Contains('@')).Select(r => r.name));
+        return Ok(AppResponse<object>.Success(new
+        {
+            days,
+            items = rows.Select(r => r with { name = r.name != null && byEmail.TryGetValue(r.name, out var n) ? n : r.name }),
+        }));
+    }
+
+    /// <summary>Báo giá + lịch chăm sóc của MỘT khách (hồ sơ khách hàng POS): theo mã khách và SĐT của khách.</summary>
+    [HttpGet("customer-care")]
+    [RequireModulePermission("PosQuotes", ModulePermissionAction.View)]
+    public async Task<ActionResult<AppResponse<object>>> CustomerCare([FromQuery] Guid? customerId, [FromQuery] string? phone)
+    {
+        var storeId = RequiredStoreId;
+        var p = PosQuoteDocumentHtml.NormalizePhone(phone);
+        if (customerId == null && p == null)
+            return Ok(AppResponse<object>.Success(new { quotes = Array.Empty<object>(), activities = Array.Empty<object>() }));
+        if (customerId is Guid cid && p == null)
+            p = PosQuoteDocumentHtml.NormalizePhone(await dbContext.PosCustomers.AsNoTracking()
+                .Where(c => c.Id == cid && c.StoreId == storeId).Select(c => c.Phone).FirstOrDefaultAsync());
+        var q = ApplyOwnScope(dbContext.PosQuotes.AsNoTracking().Where(x => x.StoreId == storeId && x.Deleted == null));
+        var cands = await q.Where(x => (customerId != null && x.CustomerId == customerId)
+                                       || (p != null && x.CustomerPhone != null))
+            .OrderByDescending(x => x.CreatedAt).Take(500).ToListAsync();
+        // SĐT lưu nhiều kiểu (+84 / dấu cách) → so sau khi chuẩn hoá.
+        var quotes = cands.Where(x => (customerId != null && x.CustomerId == customerId)
+                                      || (p != null && PosQuoteDocumentHtml.NormalizePhone(x.CustomerPhone) == p))
+            .Take(50).ToList();
+        var ids = quotes.Select(x => x.Id).ToList();
+        var acts = ids.Count == 0 ? new List<PosQuoteActivity>() : await dbContext.PosQuoteActivities.AsNoTracking()
+            .Where(a => a.StoreId == storeId && a.Deleted == null && ids.Contains(a.QuoteId) && a.Kind != "Created")
+            .OrderByDescending(a => a.CreatedAt).Take(100)
+            .ToListAsync();
+        var mapped = await MapActivitiesAsync(acts);
+        var noById = quotes.ToDictionary(x => x.Id, x => x.QuoteNo);
+        return Ok(AppResponse<object>.Success(new
+        {
+            quotes = quotes.Select(x => new
+            {
+                x.Id, x.QuoteNo, status = x.Status.ToString(), statusText = StatusVi(x.Status),
+                commercialStage = x.CommercialStage.ToString(), x.Total, x.CreatedAt, x.PotentialScore,
+            }),
+            activities = acts.Zip(mapped, (a, m) => new { activity = m, quoteId = a.QuoteId, quoteNo = noById.GetValueOrDefault(a.QuoteId) }),
+        }));
     }
 
     [HttpPost("{id:guid}/activities")]

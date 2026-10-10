@@ -821,13 +821,137 @@ class _PosQuoteCareSheetState extends State<_PosQuoteCareSheet> {
     );
   }
 
+  static const _systemKinds = {'Created', 'Edit', 'Status', 'Payment', 'Contract'};
+
+  Future<void> _editActivity(PosQuoteActivity a) async {
+    final text = TextEditingController(text: a.displayContent.trim());
+    var kind = const {'Note', 'Call', 'Meeting', 'FollowUp'}.contains(a.kind) ? a.kind : 'Note';
+    int? score = a.score;
+    DateTime? next = a.nextFollowUpAt?.toLocal();
+    final ok = await showDialog<bool>(
+      context: context,
+      builder: (ctx) => StatefulBuilder(
+        builder: (ctx, setD) => AlertDialog(
+          title: Text(tr('Sửa lần ghi chăm sóc')),
+          content: SizedBox(
+            width: 420,
+            child: Column(mainAxisSize: MainAxisSize.min, crossAxisAlignment: CrossAxisAlignment.stretch, children: [
+              DropdownButtonFormField<String>(
+                value: kind,
+                decoration: PosTheme.inputDecoration(label: 'Loại'),
+                items: const [
+                  DropdownMenuItem(value: 'Note', child: Text('Ghi chú')),
+                  DropdownMenuItem(value: 'Call', child: Text('Gọi điện')),
+                  DropdownMenuItem(value: 'Meeting', child: Text('Gặp khách')),
+                  DropdownMenuItem(value: 'FollowUp', child: Text('Hẹn chăm sóc')),
+                ],
+                onChanged: (v) => setD(() => kind = v ?? kind),
+              ),
+              const SizedBox(height: 8),
+              TextField(controller: text, maxLines: 3, decoration: PosTheme.inputDecoration(label: 'Nội dung')),
+              const SizedBox(height: 8),
+              Wrap(spacing: 4, runSpacing: 4, children: [
+                for (var i = 0; i <= 10; i++)
+                  ChoiceChip(
+                    visualDensity: VisualDensity.compact,
+                    label: Text('$i'),
+                    selected: score == i,
+                    onSelected: (_) => setD(() => score = i),
+                  ),
+              ]),
+              const SizedBox(height: 8),
+              Row(children: [
+                TextButton.icon(
+                  icon: const Icon(Icons.event, size: 18),
+                  label: Text(next == null ? tr('Hẹn lần sau') : DateFormat('dd/MM HH:mm').format(next!)),
+                  onPressed: () async {
+                    final d = await showDatePicker(
+                      context: ctx,
+                      initialDate: next ?? DateTime.now(),
+                      firstDate: DateTime.now().subtract(const Duration(days: 1)),
+                      lastDate: DateTime.now().add(const Duration(days: 365)),
+                    );
+                    if (d == null || !ctx.mounted) return;
+                    final t = await showTimePicker(context: ctx, initialTime: TimeOfDay.fromDateTime(next ?? DateTime.now()));
+                    setD(() => next = DateTime(d.year, d.month, d.day, t?.hour ?? 9, t?.minute ?? 0));
+                  },
+                ),
+                if (next != null)
+                  IconButton(tooltip: tr('Bỏ hẹn'), icon: const Icon(Icons.close, size: 18), onPressed: () => setD(() => next = null)),
+              ]),
+            ]),
+          ),
+          actions: [
+            TextButton(onPressed: () => Navigator.pop(ctx, false), child: Text(tr('Huỷ'))),
+            FilledButton(onPressed: () => Navigator.pop(ctx, true), child: Text(tr('Lưu'))),
+          ],
+        ),
+      ),
+    );
+    if (ok != true || !mounted) return;
+    if (text.text.trim().isEmpty) return;
+    if (kind == 'FollowUp' && next == null) {
+      NotificationOverlayManager().showWarning(title: 'Chưa chọn ngày hẹn', message: tr('Chọn ngày giờ hẹn chăm sóc lại'));
+      return;
+    }
+    final res = await _api.updatePosQuoteActivity(
+      widget.quoteId,
+      a.id,
+      kind: kind,
+      content: score == null ? text.text.trim() : PosQuoteActivity.encodeContent(text.text, score!),
+      nextFollowUpAt: next,
+      clearFollowUp: next == null,
+      potentialScore: score,
+    );
+    if (!mounted) return;
+    if (res['isSuccess'] != true) {
+      NotificationOverlayManager().showError(title: 'Chưa sửa được', message: res['message']?.toString() ?? '');
+      return;
+    }
+    await _load();
+  }
+
+  Future<void> _deleteActivity(PosQuoteActivity a) async {
+    final ok = await showDialog<bool>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: Text(tr('Xoá lần ghi này?')),
+        content: Text(a.displayContent.trim()),
+        actions: [
+          TextButton(onPressed: () => Navigator.pop(ctx, false), child: Text(tr('Huỷ'))),
+          FilledButton(onPressed: () => Navigator.pop(ctx, true), child: Text(tr('Xoá'))),
+        ],
+      ),
+    );
+    if (ok != true || !mounted) return;
+    final res = await _api.deletePosQuoteActivity(widget.quoteId, a.id);
+    if (!mounted) return;
+    if (res['isSuccess'] != true) {
+      NotificationOverlayManager().showError(title: 'Chưa xoá được', message: res['message']?.toString() ?? '');
+      return;
+    }
+    await _load();
+  }
+
   Widget _activityTile(PosQuoteActivity a, {String? quoteNo}) {
     final when = a.createdAt == null ? '' : DateFormat('dd/MM HH:mm').format(a.createdAt!.toLocal());
     final who = (a.employeeName ?? a.createdBy ?? '').trim();
+    final editable = quoteNo == null && !_systemKinds.contains(a.kind);
     return ListTile(
       dense: true,
       contentPadding: EdgeInsets.zero,
       leading: Icon(_iconOf(a.kind), size: 20),
+      trailing: editable
+          ? PopupMenuButton<String>(
+              tooltip: tr('Sửa / xoá'),
+              icon: const Icon(Icons.more_vert, size: 18),
+              onSelected: (v) => v == 'edit' ? _editActivity(a) : _deleteActivity(a),
+              itemBuilder: (_) => [
+                PopupMenuItem(value: 'edit', child: Text(tr('Sửa'))),
+                PopupMenuItem(value: 'delete', child: Text(tr('Xoá'))),
+              ],
+            )
+          : null,
       title: Text(
         [if ((quoteNo ?? '').isNotEmpty) quoteNo!, PosQuoteActivity.kindLabel(a.kind), when].join(' · '),
         style: const TextStyle(fontWeight: FontWeight.w700, fontSize: 13),

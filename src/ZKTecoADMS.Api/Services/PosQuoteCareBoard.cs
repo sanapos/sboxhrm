@@ -80,7 +80,8 @@ public static class PosQuoteCareBoard
         IReadOnlyList<PosQuote> quotes,
         IReadOnlyList<PosQuoteActivity> activities,
         IReadOnlyDictionary<Guid, string> employeeNames,
-        DateTime nowUtc)
+        DateTime nowUtc,
+        int staleDays = StaleDays)
     {
         var byQuote = activities.Where(a => a.Deleted == null)
             .GroupBy(a => a.QuoteId)
@@ -128,7 +129,7 @@ public static class PosQuoteCareBoard
             DateTime? customerLastAt = key != null && customerLast.TryGetValue(key, out var cl) ? cl : null;
             var since = new[] { last?.CreatedAt, customerLastAt, q.CreatedAt }.Where(x => x != null).Max()!.Value;
             var days = (int)Math.Floor((nowUtc - since).TotalDays);
-            var stale = days > StaleDays && followUp is not ("upcoming" or "today");
+            var stale = days > staleDays && followUp is not ("upcoming" or "today");
 
             items.Add(new CareItem(
                 q.Id,

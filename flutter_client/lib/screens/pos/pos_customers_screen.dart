@@ -10,6 +10,7 @@ import '../../utils/api_datetime.dart';
 import '../../widgets/notification_overlay.dart';
 import '../../widgets/pos/pos_customer_debt_collect_dialog.dart';
 import '../../widgets/pos/pos_customer_form_dialog.dart';
+import '../../widgets/pos/pos_customer_quote_care_section.dart';
 import '../../widgets/pos/pos_debt_statement.dart';
 import '../../widgets/sbox/sbox_ui.dart';
 import 'pos_session_redeem_sheet.dart';
@@ -571,6 +572,11 @@ class _PosCustomerDetailScreenState extends State<_PosCustomerDetailScreen> {
                   SboxColumn(label: 'Ghi chú', minWidth: 160, hideOnMobile: true, text: (t) => '${t['note'] ?? ''}'),
                 ],
               ),
+            ),
+            _section(
+              'Báo giá & chăm sóc',
+              PosCustomerQuoteCareSection(
+                  customerId: _customer.id, phone: _customer.phone, customerName: _customer.name),
             ),
             _section(
               'Lịch sử thu nợ',

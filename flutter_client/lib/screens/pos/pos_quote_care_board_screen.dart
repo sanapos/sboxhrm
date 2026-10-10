@@ -87,7 +87,8 @@ class _PosQuoteCareBoardScreenState extends State<PosQuoteCareBoardScreen> {
   final _money = NumberFormat('#,###', 'vi_VN');
   final _search = TextEditingController();
   bool _loading = true;
-  bool _all = false;
+  /// pipeline = đang chào giá, aftersale = đã chốt (chăm sóc sau bán), all = tất cả.
+  String _scope = 'pipeline';
   String? _error;
   String _filter = 'all';
   Map<String, dynamic> _summary = const {};
@@ -110,7 +111,7 @@ class _PosQuoteCareBoardScreenState extends State<PosQuoteCareBoardScreen> {
       _loading = true;
       _error = null;
     });
-    final res = await ApiService().getPosQuoteCareOverview(all: _all);
+    final res = await ApiService().getPosQuoteCareOverview(scope: _scope);
     if (!mounted) return;
     if (res['isSuccess'] != true) {
       setState(() {
@@ -165,6 +166,12 @@ class _PosQuoteCareBoardScreenState extends State<PosQuoteCareBoardScreen> {
       appBar: AppBar(
         title: Text(tr('Theo dõi chăm sóc khách')),
         actions: [
+          IconButton(
+            tooltip: tr('Theo nhân viên'),
+            icon: const Icon(Icons.groups_outlined),
+            onPressed: () => Navigator.of(context).push(
+                MaterialPageRoute(builder: (_) => const PosQuoteCareStaffScreen())),
+          ),
         ],
       ),
       body: RefreshIndicator(
@@ -189,16 +196,21 @@ class _PosQuoteCareBoardScreenState extends State<PosQuoteCareBoardScreen> {
                     borderRadius: BorderRadius.circular(10)),
               ),
             ),
-            SwitchListTile(
-              dense: true,
-              contentPadding: EdgeInsets.zero,
-              title: Text(tr('Gồm cả báo giá đã chốt / từ chối / hết hạn')),
-              value: _all,
-              onChanged: (v) {
-                setState(() => _all = v);
+            const SizedBox(height: 8),
+            SegmentedButton<String>(
+              showSelectedIcon: false,
+              segments: [
+                ButtonSegment(value: 'pipeline', label: Text(tr('Đang chào giá'))),
+                ButtonSegment(value: 'aftersale', label: Text(tr('Sau bán'))),
+                ButtonSegment(value: 'all', label: Text(tr('Tất cả'))),
+              ],
+              selected: {_scope},
+              onSelectionChanged: (v) {
+                setState(() => _scope = v.first);
                 _load();
               },
             ),
+            const SizedBox(height: 4),
             if (_loading)
               const Padding(
                 padding: EdgeInsets.all(32),
@@ -538,4 +550,115 @@ class _PosQuoteCareBoardScreenState extends State<PosQuoteCareBoardScreen> {
         'FollowUp' => tr('Hẹn'),
         _ => tr('Ghi chú'),
       };
+}
+
+/// Báo cáo chăm sóc theo nhân viên: số lần liên hệ, hẹn quá hạn, khách bỏ quên, tỉ lệ chốt.
+class PosQuoteCareStaffScreen extends StatefulWidget {
+  const PosQuoteCareStaffScreen({super.key});
+
+  @override
+  State<PosQuoteCareStaffScreen> createState() => _PosQuoteCareStaffScreenState();
+}
+
+class _PosQuoteCareStaffScreenState extends State<PosQuoteCareStaffScreen> {
+  final _money = NumberFormat('#,###', 'vi_VN');
+  int _days = 30;
+  bool _loading = true;
+  String? _error;
+  List<Map<String, dynamic>> _rows = const [];
+
+  @override
+  void initState() {
+    super.initState();
+    _load();
+  }
+
+  Future<void> _load() async {
+    setState(() {
+      _loading = true;
+      _error = null;
+    });
+    final res = await ApiService().getPosQuoteCareStaff(days: _days);
+    if (!mounted) return;
+    if (res['isSuccess'] != true) {
+      setState(() {
+        _loading = false;
+        _error = res['message']?.toString() ?? tr('Không tải được dữ liệu');
+      });
+      return;
+    }
+    final data = (res['data'] as Map?)?.cast<String, dynamic>() ?? const {};
+    setState(() {
+      _loading = false;
+      _rows = ((data['items'] as List?) ?? const []).whereType<Map>().map((e) => e.cast<String, dynamic>()).toList();
+    });
+  }
+
+  Widget _stat(String label, String value, {Color? color}) => Padding(
+        padding: const EdgeInsets.only(right: 14, top: 4),
+        child: Column(crossAxisAlignment: CrossAxisAlignment.start, mainAxisSize: MainAxisSize.min, children: [
+          Text(value, style: TextStyle(fontWeight: FontWeight.w700, color: color)),
+          Text(label, style: const TextStyle(fontSize: 11, color: Colors.black54)),
+        ]),
+      );
+
+  num _n(Map<String, dynamic> r, String k) => (r[k] as num?) ?? 0;
+
+  @override
+  Widget build(BuildContext context) {
+    return Scaffold(
+      backgroundColor: PosTheme.background,
+      appBar: AppBar(title: Text(tr('Chăm sóc theo nhân viên'))),
+      body: RefreshIndicator(
+        onRefresh: _load,
+        child: ListView(padding: const EdgeInsets.fromLTRB(12, 12, 12, 24), children: [
+          SegmentedButton<int>(
+            showSelectedIcon: false,
+            segments: const [
+              ButtonSegment(value: 7, label: Text('7 ngày')),
+              ButtonSegment(value: 30, label: Text('30 ngày')),
+              ButtonSegment(value: 90, label: Text('90 ngày')),
+            ],
+            selected: {_days},
+            onSelectionChanged: (v) {
+              setState(() => _days = v.first);
+              _load();
+            },
+          ),
+          const SizedBox(height: 10),
+          if (_loading)
+            const Padding(padding: EdgeInsets.all(32), child: Center(child: CircularProgressIndicator()))
+          else if (_error != null)
+            Padding(padding: const EdgeInsets.all(24), child: Text(_error!, style: const TextStyle(color: Colors.red)))
+          else if (_rows.isEmpty)
+            Padding(padding: const EdgeInsets.all(24), child: Center(child: Text(tr('Chưa có dữ liệu'))))
+          else
+            for (final r in _rows)
+              Card(
+                margin: const EdgeInsets.only(bottom: 8),
+                child: Padding(
+                  padding: const EdgeInsets.all(12),
+                  child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+                    Text('${r['name'] ?? tr('Chưa rõ người lập')}',
+                        style: const TextStyle(fontWeight: FontWeight.w600, fontSize: 15)),
+                    Wrap(children: [
+                      _stat(tr('Đang theo'), '${_n(r, 'openQuotes')}'),
+                      _stat(tr('Giá trị đang chào'), _money.format(_n(r, 'pipelineValue'))),
+                      _stat(tr('Lần liên hệ'), '${_n(r, 'contacts')}'),
+                      _stat(tr('Quá hẹn'), '${_n(r, 'overdue')}', color: _n(r, 'overdue') > 0 ? Colors.red : null),
+                      _stat(tr('Bỏ quên'), '${_n(r, 'stale')}',
+                          color: _n(r, 'stale') > 0 ? Colors.orange.shade800 : null),
+                      _stat(tr('BG lập'), '${_n(r, 'createdQuotes')}'),
+                      _stat(tr('Đã chốt'), '${_n(r, 'accepted')}'),
+                      _stat(tr('Tỉ lệ chốt'), r['conversionRate'] == null ? '—' : '${r['conversionRate']}%'),
+                      _stat(tr('Doanh số chốt'), _money.format(_n(r, 'acceptedValue'))),
+                      _stat(tr('Điểm TB'), r['averageScore'] == null ? '—' : '${r['averageScore']}/10'),
+                    ]),
+                  ]),
+                ),
+              ),
+        ]),
+      ),
+    );
+  }
 }

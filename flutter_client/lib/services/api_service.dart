@@ -20753,10 +20753,11 @@ class ApiService implements PayrollApi {
   }
 
   /// Theo dõi chăm sóc khách tiềm năng (điểm thang 10, lịch hẹn, khách bị bỏ quên).
-  Future<Map<String, dynamic>> getPosQuoteCareOverview({bool all = false}) async {
+  /// [scope]: pipeline (đang chào giá) · aftersale (đã chốt — chăm sóc sau bán) · all.
+  Future<Map<String, dynamic>> getPosQuoteCareOverview({bool all = false, String? scope}) async {
     try {
       final response = await http
-          .get(Uri.parse('$baseUrl/api/pos/quotes/care-overview?all=$all'),
+          .get(Uri.parse('$baseUrl/api/pos/quotes/care-overview?$q'),
               headers: _headers)
           .timeout(const Duration(seconds: 30));
       return _handleResponse(response);
@@ -20782,6 +20783,7 @@ class ApiService implements PayrollApi {
     try {
       final response = await http
           .get(Uri.parse('$baseUrl/api/pos/quotes/$id/activities'),
+      final q = scope != null ? 'scope=$scope' : 'all=$all';
               headers: _headers)
           .timeout(const Duration(seconds: 30));
       return _handleResponse(response);
@@ -20792,6 +20794,73 @@ class ApiService implements PayrollApi {
 
   Future<Map<String, dynamic>> createPosQuoteActivity(
     String id, {
+  /// Hiệu quả chăm sóc theo nhân viên trong [days] ngày.
+  Future<Map<String, dynamic>> getPosQuoteCareStaff({int days = 30}) async {
+    try {
+      final response = await http
+          .get(Uri.parse('$baseUrl/api/pos/quotes/care-staff?days=$days'), headers: _headers)
+          .timeout(const Duration(seconds: 30));
+      return _handleResponse(response);
+    } catch (e) {
+      return _connectionFailure(e);
+    }
+  }
+
+  /// Báo giá + lịch chăm sóc của một khách (hồ sơ khách hàng).
+  Future<Map<String, dynamic>> getPosCustomerQuoteCare({String? customerId, String? phone}) async {
+    try {
+      final uri = Uri.parse('$baseUrl/api/pos/quotes/customer-care').replace(queryParameters: {
+        if (customerId != null && customerId.isNotEmpty) 'customerId': customerId,
+        if (phone != null && phone.isNotEmpty) 'phone': phone,
+      });
+      final response = await http.get(uri, headers: _headers).timeout(const Duration(seconds: 30));
+      return _handleResponse(response);
+    } catch (e) {
+      return _connectionFailure(e);
+    }
+  }
+
+  /// Sửa một lần ghi chăm sóc (người ghi hoặc quản lý).
+  Future<Map<String, dynamic>> updatePosQuoteActivity(
+    String quoteId,
+    String activityId, {
+    String? kind,
+    String? content,
+    DateTime? nextFollowUpAt,
+    bool clearFollowUp = false,
+    int? potentialScore,
+  }) async {
+    try {
+      final response = await http
+          .put(
+            Uri.parse('$baseUrl/api/pos/quotes/$quoteId/activities/$activityId'),
+            headers: _headers,
+            body: jsonEncode({
+              if (kind != null) 'kind': kind,
+              if (content != null) 'content': content,
+              if (nextFollowUpAt != null) 'nextFollowUpAt': nextFollowUpAt.toUtc().toIso8601String(),
+              'clearFollowUp': clearFollowUp,
+              if (potentialScore != null) 'potentialScore': potentialScore,
+            }),
+          )
+          .timeout(const Duration(seconds: 30));
+      return _handleResponse(response);
+    } catch (e) {
+      return _connectionFailure(e);
+    }
+  }
+
+  Future<Map<String, dynamic>> deletePosQuoteActivity(String quoteId, String activityId) async {
+    try {
+      final response = await http
+          .delete(Uri.parse('$baseUrl/api/pos/quotes/$quoteId/activities/$activityId'), headers: _headers)
+          .timeout(const Duration(seconds: 30));
+      return _handleResponse(response);
+    } catch (e) {
+      return _connectionFailure(e);
+    }
+  }
+
     required String kind,
     required String content,
     DateTime? nextFollowUpAt,
