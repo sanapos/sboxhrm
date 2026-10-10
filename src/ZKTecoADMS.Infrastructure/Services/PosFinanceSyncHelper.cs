@@ -569,6 +569,9 @@ public static class PosFinanceSyncHelper
         var categories = await db.TransactionCategories
             .Where(c => c.IsActive && c.StoreId == storeId && c.Type == type)
             .ToListAsync(ct);
+        // Danh mục vừa tạo trong cùng lần lưu (vd. trả nợ NCC gộp nhiều phiếu) — tránh tạo trùng.
+        categories.AddRange(db.TransactionCategories.Local.Where(c =>
+            c.IsActive && c.StoreId == storeId && c.Type == type && db.Entry(c).State == EntityState.Added));
 
         var existing = categories.FirstOrDefault(c =>
             c.Name == name || VietnameseEncodingFix.TryFix(c.Name) == name);

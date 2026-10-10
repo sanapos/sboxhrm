@@ -9,6 +9,7 @@ using ZKTecoADMS.Api.Controllers.Reports;
 using ZKTecoADMS.Application.Constants;
 using ZKTecoADMS.Application.Models;
 using ZKTecoADMS.Domain.Entities;
+using ZKTecoADMS.Domain.Enums;
 using ZKTecoADMS.Infrastructure;
 
 namespace ZKTecoADMS.Api.Controllers;
@@ -160,6 +161,61 @@ public class PosPurchaseSuppliersController(ZKTecoDbContext dbContext) : Authent
 
         var merged = receipts.Concat(returns).Concat(payments).OrderByDescending(x => x.Date).Take(150).ToList();
         return Ok(AppResponse<List<SupplierHistoryItemDto>>.Success(merged));
+    }
+
+    public sealed record SupplierPayAllDto(decimal Amount, string? PaymentMethod, DateTime? PaidAt, string? Note);
+
+    /// <summary>
+    /// Trả nợ NCC một lần cho nhiều phiếu nhập: chia vào phiếu còn nợ cũ trước (FIFO), mỗi phiếu một phiếu chi.
+    /// (Trước đây chỉ trả được từng phiếu.)
+    /// </summary>
+    [HttpPost("{id:guid}/pay")]
+    [RequireModulePermission("PosPurchaseReceipts", ModulePermissionAction.Edit)]
+    public async Task<ActionResult<AppResponse<object>>> PayAll(Guid id, [FromBody] SupplierPayAllDto dto)
+    {
+        var storeId = RequiredStoreId;
+        if (dto.Amount <= 0) return BadRequest(AppResponse<object>.Fail("Số tiền phải > 0"));
+        var supplier = await dbContext.PosSuppliers.AsTracking()
+            .FirstOrDefaultAsync(s => s.Id == id && s.StoreId == storeId && s.Deleted == null);
+        if (supplier == null) return NotFound(AppResponse<object>.Fail("Không tìm thấy nhà cung cấp"));
+        var receipts = await dbContext.PosStockReceipts.AsTracking()
+            .Where(r => r.StoreId == storeId && r.SupplierId == id && r.Deleted == null
+                        && r.Status == PosPurchaseReceiptStatus.Completed)
+            .OrderBy(r => r.ImportDate ?? r.CreatedAt).ThenBy(r => r.CreatedAt)
+            .ToListAsync();
+        var open = receipts.Where(r => r.GrandTotal - r.PaidAmount > 0).ToList();
+        var totalDue = open.Sum(r => r.GrandTotal - r.PaidAmount);
+        if (dto.Amount > totalDue)
+            return BadRequest(AppResponse<object>.Fail($"Số tiền vượt tổng nợ các phiếu nhập ({totalDue:N0}đ)"));
+
+        // Mọi phiếu chi + số dư lưu trong một lần SaveChanges (một giao dịch).
+        var left = dto.Amount;
+        var paid = new List<object>();
+        foreach (var r in open)
+        {
+            if (left <= 0) break;
+            var part = Math.Min(left, r.GrandTotal - r.PaidAmount);
+            var pay = await PosPurchaseStockHelper.PayReceiptAsync(dbContext, storeId, r, supplier, part,
+                dto.PaymentMethod, dto.PaidAt, string.IsNullOrWhiteSpace(dto.Note) ? $"Trả nợ gộp — phiếu {r.ReceiptNo}" : dto.Note,
+                CurrentUserEmail, CurrentUserId);
+            paid.Add(new { receiptId = r.Id, r.ReceiptNo, amount = part, paymentNo = pay.PaymentNo });
+            left -= part;
+        }
+        await dbContext.SaveChangesAsync();
+        return Ok(AppResponse<object>.Success(new { paid, remainingDebt = supplier.CurrentDebt }));
+    }
+
+    /// <summary>Sổ đối chiếu công nợ NCC trong kỳ (đầu kỳ, từng phát sinh, cuối kỳ).</summary>
+    [HttpGet("{id:guid}/statement")]
+    [RequireModulePermission("PosProducts", ModulePermissionAction.View)]
+    public async Task<ActionResult<AppResponse<object>>> Statement(Guid id, [FromQuery] DateTime? from, [FromQuery] DateTime? to)
+    {
+        var storeId = RequiredStoreId;
+        var s = await dbContext.PosSuppliers.AsNoTracking()
+            .FirstOrDefaultAsync(x => x.Id == id && x.StoreId == storeId && x.Deleted == null);
+        if (s == null) return NotFound(AppResponse<object>.Fail("Không tìm thấy nhà cung cấp"));
+        return Ok(AppResponse<object>.Success(
+            await PosDebtStatement.BuildAsync(dbContext, storeId, PosDebtLedger.Supplier, id, s.CurrentDebt, from, to)));
     }
 
     [HttpPost]

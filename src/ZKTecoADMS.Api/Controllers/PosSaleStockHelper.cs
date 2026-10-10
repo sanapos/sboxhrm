@@ -343,7 +343,10 @@ internal static class PosSaleStockHelper
         if (customer == null) return;
         customer.TotalPurchase += order.Total;
         var debt = order.PayableTotal - order.PaidAmount;
+        var before = customer.CurrentDebt;
         if (debt > 0) customer.CurrentDebt += debt;
+        PosDebtLedger.Add(db, storeId, PosDebtLedger.Customer, customer.Id, before, customer.CurrentDebt,
+            "Sale", order.Id, order.OrderNo, $"Bán hàng — còn nợ {debt:N0}đ", order.SaleDate ?? DateTime.UtcNow);
         customer.UpdatedAt = DateTime.UtcNow;
     }
 
@@ -356,7 +359,10 @@ internal static class PosSaleStockHelper
         if (customer == null) return;
         customer.TotalPurchase = Math.Max(0, customer.TotalPurchase - order.Total);
         var debt = order.PayableTotal - order.PaidAmount;
+        var before = customer.CurrentDebt;
         if (debt > 0) customer.CurrentDebt = Math.Max(0, customer.CurrentDebt - debt);
+        PosDebtLedger.Add(db, storeId, PosDebtLedger.Customer, customer.Id, before, customer.CurrentDebt,
+            "SaleCancel", order.Id, order.OrderNo, "Hủy đơn bán");
         customer.UpdatedAt = DateTime.UtcNow;
     }
 
@@ -370,8 +376,11 @@ internal static class PosSaleStockHelper
         customer.TotalPurchase = Math.Max(0, customer.TotalPurchase - refundTotal);
         var balanceBeforeReturn = order.PayableTotal + refundTotal - order.PaidAmount;
         var debtReduction = Math.Min(refundTotal, Math.Max(0, balanceBeforeReturn));
+        var before = customer.CurrentDebt;
         if (debtReduction > 0)
             customer.CurrentDebt = Math.Max(0, customer.CurrentDebt - debtReduction);
+        PosDebtLedger.Add(db, storeId, PosDebtLedger.Customer, customer.Id, before, customer.CurrentDebt,
+            "Return", order.Id, order.OrderNo, $"Khách trả hàng {refundTotal:N0}đ — trừ vào nợ");
         customer.UpdatedAt = DateTime.UtcNow;
     }
 
@@ -1248,10 +1257,14 @@ internal static class PosSaleStockHelper
             .FirstOrDefaultAsync(c => c.Id == order.CustomerId && c.StoreId == storeId && c.Deleted == null);
         if (customer == null) return;
         customer.TotalPurchase += refundTotal;
-        var balanceAfterVoid = order.Total - order.PaidAmount;
+        // Phải thu gồm VAT / phụ thu / phí giao như lúc bán (trước đây chỉ tiền hàng).
+        var balanceAfterVoid = order.PayableTotal - order.PaidAmount;
         var debtIncrease = Math.Min(refundTotal, Math.Max(0, balanceAfterVoid));
+        var before = customer.CurrentDebt;
         if (debtIncrease > 0)
             customer.CurrentDebt += debtIncrease;
+        PosDebtLedger.Add(db, storeId, PosDebtLedger.Customer, customer.Id, before, customer.CurrentDebt,
+            "ReturnVoid", order.Id, order.OrderNo, "Hủy phiếu trả hàng");
         customer.UpdatedAt = DateTime.UtcNow;
     }
 

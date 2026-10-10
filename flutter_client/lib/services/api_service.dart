@@ -11558,6 +11558,19 @@ class ApiService implements PayrollApi {
     }
   }
 
+  /// Sổ đối chiếu công nợ khách trong kỳ: đầu kỳ, phát sinh tăng / giảm, cuối kỳ, số dư sau từng chứng từ.
+  Future<Map<String, dynamic>> getPosCustomerStatement(String customerId, DateTime from, DateTime to) async {
+    try {
+      final r = await http.get(
+          Uri.parse('$baseUrl/api/pos/customers/$customerId/statement')
+              .replace(queryParameters: {'from': _ymd(from), 'to': _ymd(to)}),
+          headers: _headers);
+      return _handleResponse(r);
+    } catch (e) {
+      return _connectionFailure(e);
+    }
+  }
+
   /// Xác nhận phiếu Trợ lý ảo đề xuất → server gọi API thật bằng phiên của người dùng.
   Future<Map<String, dynamic>> confirmAiAction(String id) async {
     try {
@@ -19335,6 +19348,40 @@ class ApiService implements PayrollApi {
           )
           .timeout(const Duration(seconds: 30));
       return _handleResponse(response);
+    } catch (e) {
+      return _connectionFailure(e);
+    }
+  }
+
+  /// Sổ đối chiếu công nợ nhà cung cấp trong kỳ.
+  Future<Map<String, dynamic>> getPosSupplierStatement(String id, DateTime from, DateTime to) async {
+    try {
+      final r = await http
+          .get(
+              Uri.parse('$baseUrl/api/pos/purchase/suppliers/$id/statement')
+                  .replace(queryParameters: {'from': _ymd(from), 'to': _ymd(to)}),
+              headers: _headers)
+          .timeout(const Duration(seconds: 30));
+      return _handleResponse(r);
+    } catch (e) {
+      return _connectionFailure(e);
+    }
+  }
+
+  /// Trả nợ NCC một lần — server chia vào các phiếu nhập còn nợ cũ trước (FIFO).
+  Future<Map<String, dynamic>> payPosSupplierAll(String id,
+      {required double amount, String? paymentMethod, String? note}) async {
+    try {
+      final r = await http
+          .post(Uri.parse('$baseUrl/api/pos/purchase/suppliers/$id/pay'),
+              headers: _headers,
+              body: jsonEncode({
+                'amount': amount,
+                if (paymentMethod != null) 'paymentMethod': paymentMethod,
+                if (note != null && note.trim().isNotEmpty) 'note': note.trim(),
+              }))
+          .timeout(const Duration(seconds: 30));
+      return _handleResponse(r);
     } catch (e) {
       return _connectionFailure(e);
     }

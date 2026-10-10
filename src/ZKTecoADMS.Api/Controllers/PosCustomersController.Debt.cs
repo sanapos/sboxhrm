@@ -60,6 +60,19 @@ public partial class PosCustomersController
             pay.SaleOrderId, pay.CreatedBy)));
     }
 
+    /// <summary>Sổ đối chiếu công nợ khách trong kỳ (đầu kỳ, từng phát sinh có số dư, cuối kỳ).</summary>
+    [HttpGet("{id:guid}/statement")]
+    [RequireModulePermission("PosCustomers", ModulePermissionAction.View)]
+    public async Task<ActionResult<AppResponse<object>>> Statement(Guid id, [FromQuery] DateTime? from, [FromQuery] DateTime? to)
+    {
+        var storeId = RequiredStoreId;
+        var c = await dbContext.PosCustomers.AsNoTracking()
+            .FirstOrDefaultAsync(x => x.Id == id && x.StoreId == storeId && x.Deleted == null);
+        if (c == null) return NotFound(AppResponse<object>.Fail("Không tìm thấy khách hàng"));
+        return Ok(AppResponse<object>.Success(
+            await PosDebtStatement.BuildAsync(dbContext, storeId, PosDebtLedger.Customer, id, c.CurrentDebt, from, to)));
+    }
+
     [HttpGet("{id:guid}/points")]
     [RequireModulePermission("PosCustomers", ModulePermissionAction.View)]
     public async Task<ActionResult<AppResponse<object>>> GetPointHistory(

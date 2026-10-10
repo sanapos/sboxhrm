@@ -730,6 +730,22 @@ public class PosSupplierPaymentConfiguration : IEntityTypeConfiguration<PosSuppl
     }
 }
 
+public class PosDebtLedgerEntryConfiguration : IEntityTypeConfiguration<PosDebtLedgerEntry>
+{
+    public void Configure(EntityTypeBuilder<PosDebtLedgerEntry> builder)
+    {
+        builder.ToTable("PosDebtLedgerEntries");
+        builder.HasKey(x => x.Id);
+        builder.Property(x => x.PartyType).IsRequired().HasMaxLength(20);
+        builder.Property(x => x.DocType).IsRequired().HasMaxLength(30);
+        builder.Property(x => x.DocNo).HasMaxLength(60);
+        builder.Property(x => x.Note).HasMaxLength(300);
+        builder.Property(x => x.Delta).HasPrecision(18, 2);
+        builder.Property(x => x.BalanceAfter).HasPrecision(18, 2);
+        builder.HasIndex(x => new { x.StoreId, x.PartyType, x.PartyId, x.At });
+    }
+}
+
 public class PosCustomerPaymentConfiguration : IEntityTypeConfiguration<PosCustomerPayment>
 {
     public void Configure(EntityTypeBuilder<PosCustomerPayment> builder)

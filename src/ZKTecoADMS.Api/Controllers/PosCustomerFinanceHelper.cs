@@ -467,9 +467,12 @@ public static class PosCustomerFinanceHelper
             IsActive = true,
             CreatedBy = createdBy,
         };
+        var debtBefore = customer.CurrentDebt;
         customer.CurrentDebt = Math.Max(0, customer.CurrentDebt - amount);
         customer.UpdatedAt = DateTime.UtcNow;
         db.PosCustomerPayments.Add(pay);
+        PosDebtLedger.Add(db, storeId, PosDebtLedger.Customer, customer.Id, debtBefore, customer.CurrentDebt,
+            "Payment", pay.Id, pay.PaymentNo, $"Thu nợ ({pay.PaymentMethod})", pay.PaidAt, createdBy);
 
         // Cập nhật PaidAmount đơn: ưu tiên SaleOrderId; không có thì FIFO theo đơn còn nợ.
         var remaining = amount;
@@ -488,7 +491,7 @@ public static class PosCustomerFinanceHelper
                 .Where(o => o.StoreId == storeId && o.CustomerId == customer.Id &&
                             o.Deleted == null &&
                             o.Status == PosSaleOrderStatus.Completed &&
-                            o.PaidAmount < o.Total)
+                            o.PaidAmount < o.Total + o.VatAmount + o.SurchargeAmount + o.DeliveryFee)
                 .OrderBy(o => o.SaleDate)
                 .ThenBy(o => o.CreatedAt)
                 .ToListAsync();
@@ -504,7 +507,9 @@ public static class PosCustomerFinanceHelper
 
     private static decimal ApplyPaidToOrder(PosSaleOrder order, decimal amount, string createdBy)
     {
-        var due = Math.Max(0, order.Total - order.PaidAmount);
+        // Phải thu = tiền hàng + VAT + phụ thu + phí giao (như công nợ khách) — trước đây chỉ tiền hàng
+        // → khách trả hết nợ mà đơn vẫn «còn nợ» phần VAT, thu nợ FIFO bỏ qua đơn đó.
+        var due = Math.Max(0, order.Total + order.VatAmount + order.SurchargeAmount + order.DeliveryFee - order.PaidAmount);
         var applied = Math.Min(amount, due);
         if (applied <= 0) return 0;
         order.PaidAmount += applied;

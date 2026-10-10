@@ -11,6 +11,8 @@ import '../models/pos_purchase.dart';
 import '../services/api_service.dart';
 import '../widgets/hrm_page_chrome.dart';
 import '../widgets/notification_overlay.dart';
+import '../widgets/pos/pos_debt_statement.dart';
+import '../widgets/pos/pos_supplier_debt_pay_dialog.dart';
 import '../widgets/pos/pos_supplier_form_dialog.dart';
 import '../widgets/pos/pos_theme.dart';
 import 'package:zkteco_flutter_client/l10n/app_tr.dart';
@@ -216,6 +218,21 @@ class _PosSupplierListScreenState extends State<PosSupplierListScreen> {
     );
   }
 
+  Future<void> _showStatement(PosSupplierFull s) => showPosDebtStatementPage(
+        context,
+        title: s.name,
+        subtitle: '${s.supplierCode} · Đang nợ ${SboxFmt.money(s.currentDebt)}',
+        loader: (from, to) => _api.getPosSupplierStatement(s.id, from, to),
+        increaseLabel: 'Nhập nợ',
+        decreaseLabel: 'Đã trả / trả hàng',
+      );
+
+  Future<void> _payAll(PosSupplierFull s) async {
+    final ok = await showPosSupplierPayAllDialog(context,
+        supplierId: s.id, supplierName: s.name, currentDebt: s.currentDebt);
+    if (ok == true) await _load();
+  }
+
   Timer? _debounce;
 
   @override
@@ -225,6 +242,7 @@ class _PosSupplierListScreenState extends State<PosSupplierListScreen> {
     final canCreate = perm.canCreate('PosProducts');
     final canEdit = perm.canEdit('PosProducts');
     final canDelete = perm.canDelete('PosProducts');
+    final canPay = perm.canEdit('PosPurchaseReceipts');
     final indebted = _items.where((x) => x.currentDebt > 0).length;
     return Scaffold(
       backgroundColor: SboxColors.page,
@@ -292,6 +310,10 @@ class _PosSupplierListScreenState extends State<PosSupplierListScreen> {
                     await _addOrEdit(existing: s);
                   case 'history':
                     await _showHistory(s);
+                  case 'statement':
+                    await _showStatement(s);
+                  case 'pay':
+                    await _payAll(s);
                   case 'toggle':
                     await _toggleActive(s);
                   case 'delete':
@@ -301,6 +323,8 @@ class _PosSupplierListScreenState extends State<PosSupplierListScreen> {
               itemBuilder: (_) => [
                 if (canEdit) PopupMenuItem(value: 'edit', child: Text(tr('Sửa'))),
                 PopupMenuItem(value: 'history', child: Text(tr('Lịch sử nhập / trả'))),
+                PopupMenuItem(value: 'statement', child: Text(tr('Sổ đối chiếu công nợ'))),
+                if (canPay && s.currentDebt > 0) PopupMenuItem(value: 'pay', child: Text(tr('Trả nợ'))),
                 if (canEdit)
                   PopupMenuItem(value: 'toggle', child: Text(tr(s.isActive ? 'Ngừng hoạt động' : 'Kích hoạt'))),
                 if (canDelete)

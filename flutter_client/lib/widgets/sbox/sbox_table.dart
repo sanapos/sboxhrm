@@ -197,10 +197,28 @@ class _SboxDataTableState<T> extends State<SboxDataTable<T>> {
       final actionsW = widget.rowActions == null ? 0.0 : 96.0;
       final minTotal = cols.fold<double>(0, (s, c) => s + c._min) + actionsW + SboxSpace.lg * 2;
       final tableW = math.max(cons.maxWidth, minTotal);
-      final fixed = cols.where((c) => c.width != null).fold<double>(0, (s, c) => s + c.width!);
-      final flexSum = cols.where((c) => c.width == null).fold<int>(0, (s, c) => s + c.flex);
-      final free = math.max(0.0, tableW - SboxSpace.lg * 2 - actionsW - fixed);
-      double w(SboxColumn<T> c) => c.width ?? math.max(c.minWidth, free * c.flex / math.max(1, flexSum));
+      // Cột có minWidth lớn hơn phần chia theo flex thì giữ minWidth, phần còn lại chia cho các cột khác
+      // (trước đây cộng dồn max(min, phần chia) → tổng vượt khung, tràn vài px).
+      final ws = <double?>[for (final c in cols) c.width];
+      double rest() => math.max(0.0, tableW - SboxSpace.lg * 2 - actionsW - ws.whereType<double>().fold<double>(0, (s, x) => s + x));
+      for (var pinned = true; pinned;) {
+        pinned = false;
+        final open = [for (var i = 0; i < cols.length; i++) if (ws[i] == null) i];
+        final fs = open.fold<int>(0, (s, i) => s + cols[i].flex);
+        final free = rest();
+        for (final i in open) {
+          if (cols[i].minWidth > free * cols[i].flex / math.max(1, fs)) {
+            ws[i] = cols[i].minWidth;
+            pinned = true;
+          }
+        }
+      }
+      final openFlex = [for (var i = 0; i < cols.length; i++) if (ws[i] == null) cols[i].flex].fold<int>(0, (s, f) => s + f);
+      final free = rest();
+      for (var i = 0; i < cols.length; i++) {
+        ws[i] ??= free * cols[i].flex / math.max(1, openFlex);
+      }
+      double w(SboxColumn<T> c) => ws[cols.indexOf(c)]!;
 
       final rowH = widget.dense ? SboxSize.tableRowDense : SboxSize.tableRow;
       final header = Container(

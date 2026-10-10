@@ -321,7 +321,10 @@ internal static class PosPurchaseStockHelper
         if (supplier == null) return;
         var grand = receipt.GrandTotal;
         supplier.TotalPurchase = Math.Max(0, supplier.TotalPurchase - grand);
+        var before = supplier.CurrentDebt;
         supplier.CurrentDebt = Math.Max(0, supplier.CurrentDebt - receipt.BalanceDue);
+        PosDebtLedger.Add(db, supplier.StoreId, PosDebtLedger.Supplier, supplier.Id, before, supplier.CurrentDebt,
+            "ReceiptCancel", receipt.Id, receipt.ReceiptNo, "Hủy phiếu nhập");
         supplier.UpdatedAt = DateTime.UtcNow;
     }
 
@@ -712,6 +715,42 @@ internal static class PosPurchaseStockHelper
             await PosVariantStockHelper.SyncParentStockFromVariantsAsync(db, products2[pid]);
     }
 
+    /// <summary>
+    /// Trả tiền cho 1 phiếu nhập: phiếu chi NCC, cộng đã trả của phiếu, trừ công nợ NCC, ghi sổ công nợ, sinh phiếu chi quỹ.
+    /// Không SaveChanges — nơi gọi lưu một lần (trả gộp nhiều phiếu trong một giao dịch).
+    /// </summary>
+    public static async Task<PosSupplierPayment> PayReceiptAsync(
+        ZKTecoDbContext db, Guid storeId, PosStockReceipt receipt, PosSupplier? supplier, decimal amount,
+        string? method, DateTime? paidAt, string? note, string? by, Guid userId)
+    {
+        var pay = new PosSupplierPayment
+        {
+            Id = Guid.NewGuid(),
+            StoreId = storeId,
+            SupplierId = receipt.SupplierId!.Value,
+            StockReceiptId = receipt.Id,
+            PaymentNo = PosStockDocumentNo.NewSupplierPayment(),
+            Amount = amount,
+            PaymentMethod = string.IsNullOrWhiteSpace(method) ? "Tiền mặt" : method.Trim(),
+            PaidAt = paidAt ?? DateTime.UtcNow,
+            Note = note?.Trim(),
+            IsActive = true,
+            CreatedBy = by,
+        };
+        receipt.PaidAmount += amount;
+        if (supplier != null)
+        {
+            var before = supplier.CurrentDebt;
+            supplier.CurrentDebt = Math.Max(0, supplier.CurrentDebt - amount);
+            supplier.UpdatedAt = DateTime.UtcNow;
+            PosDebtLedger.Add(db, storeId, PosDebtLedger.Supplier, supplier.Id, before, supplier.CurrentDebt,
+                "Payment", pay.Id, pay.PaymentNo, $"Trả tiền phiếu {receipt.ReceiptNo} ({pay.PaymentMethod})", pay.PaidAt, by);
+        }
+        db.PosSupplierPayments.Add(pay);
+        await ZKTecoADMS.Infrastructure.Services.PosFinanceSyncHelper.SyncSupplierPaymentAsync(db, pay, receipt, userId);
+        return pay;
+    }
+
     public static async Task UpdateSupplierOnReceiptCompleteAsync(
         ZKTecoDbContext db, PosStockReceipt receipt)
     {
@@ -721,7 +760,10 @@ internal static class PosPurchaseStockHelper
         if (supplier == null) return;
         var grand = receipt.GrandTotal;
         supplier.TotalPurchase += grand;
+        var before = supplier.CurrentDebt;
         supplier.CurrentDebt += receipt.BalanceDue;
+        PosDebtLedger.Add(db, supplier.StoreId, PosDebtLedger.Supplier, supplier.Id, before, supplier.CurrentDebt,
+            "Receipt", receipt.Id, receipt.ReceiptNo, $"Nhập hàng — còn nợ {receipt.BalanceDue:N0}đ", receipt.ImportDate ?? DateTime.UtcNow);
         supplier.UpdatedAt = DateTime.UtcNow;
     }
 
@@ -734,7 +776,10 @@ internal static class PosPurchaseStockHelper
         if (supplier == null) return;
         var net = ret.TotalAmount - ret.DiscountAmount;
         supplier.TotalPurchase = Math.Max(0, supplier.TotalPurchase - net);
+        var before = supplier.CurrentDebt;
         supplier.CurrentDebt = Math.Max(0, supplier.CurrentDebt - (net - ret.RefundReceived));
+        PosDebtLedger.Add(db, supplier.StoreId, PosDebtLedger.Supplier, supplier.Id, before, supplier.CurrentDebt,
+            "PurchaseReturn", ret.Id, ret.ReturnNo, "Trả hàng nhà cung cấp", ret.ReturnDate ?? DateTime.UtcNow);
         supplier.UpdatedAt = DateTime.UtcNow;
     }
 
@@ -747,7 +792,10 @@ internal static class PosPurchaseStockHelper
         if (supplier == null) return;
         var net = ret.TotalAmount - ret.DiscountAmount;
         supplier.TotalPurchase += net;
+        var before = supplier.CurrentDebt;
         supplier.CurrentDebt += Math.Max(0, net - ret.RefundReceived);
+        PosDebtLedger.Add(db, supplier.StoreId, PosDebtLedger.Supplier, supplier.Id, before, supplier.CurrentDebt,
+            "PurchaseReturnCancel", ret.Id, ret.ReturnNo, "Hủy phiếu trả hàng NCC");
         supplier.UpdatedAt = DateTime.UtcNow;
     }
 

@@ -10,6 +10,7 @@ import '../../utils/api_datetime.dart';
 import '../../widgets/notification_overlay.dart';
 import '../../widgets/pos/pos_customer_debt_collect_dialog.dart';
 import '../../widgets/pos/pos_customer_form_dialog.dart';
+import '../../widgets/pos/pos_debt_statement.dart';
 import '../../widgets/sbox/sbox_ui.dart';
 import 'pos_session_redeem_sheet.dart';
 import 'package:zkteco_flutter_client/l10n/app_tr.dart';
@@ -380,9 +381,13 @@ class _PosCustomerDetailScreenState extends State<_PosCustomerDetailScreen> {
     }
   }
 
+  /// Tăng để sổ đối chiếu tải lại sau khi thu nợ.
+  int _statementToken = 0;
+
   Future<void> _collectDebt() async {
     final ok = await showPosCustomerDebtCollectDialog(context, customer: _customer);
     if (ok == true) {
+      setState(() => _statementToken++);
       widget.onChanged();
       await _reloadCustomer();
       _loadHistory();
@@ -514,6 +519,15 @@ class _PosCustomerDetailScreenState extends State<_PosCustomerDetailScreen> {
                     },
                   ),
                 ],
+              ),
+            ),
+            _section(
+              'Sổ đối chiếu công nợ',
+              PosDebtStatementView(
+                loader: (from, to) => _api.getPosCustomerStatement(_customer.id, from, to),
+                increaseLabel: 'Phát sinh nợ',
+                decreaseLabel: 'Đã thu / trả hàng',
+                reloadToken: _statementToken,
               ),
             ),
             _section(

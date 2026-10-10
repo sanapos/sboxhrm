@@ -470,30 +470,10 @@ public class PosPurchaseReceiptsController(
             return BadRequest(AppResponse<PaymentDto>.Fail(
                 $"Số thanh toán vượt công nợ phiếu (còn {balanceDue:0.##} đ)"));
 
-        var pay = new PosSupplierPayment
-        {
-            Id = Guid.NewGuid(),
-            StoreId = storeId,
-            SupplierId = receipt.SupplierId.Value,
-            StockReceiptId = receipt.Id,
-            PaymentNo = PosStockDocumentNo.NewSupplierPayment(),
-            Amount = dto.Amount,
-            PaymentMethod = string.IsNullOrWhiteSpace(dto.PaymentMethod) ? "Tiền mặt" : dto.PaymentMethod.Trim(),
-            PaidAt = dto.PaidAt ?? DateTime.UtcNow,
-            Note = dto.Note?.Trim(),
-            IsActive = true,
-            CreatedBy = CurrentUserEmail,
-        };
-        receipt.PaidAmount += dto.Amount;
         var supplier = await dbContext.PosSuppliers.AsTracking()
             .FirstOrDefaultAsync(s => s.Id == receipt.SupplierId && s.Deleted == null);
-        if (supplier != null)
-        {
-            supplier.CurrentDebt = Math.Max(0, supplier.CurrentDebt - dto.Amount);
-            supplier.UpdatedAt = DateTime.UtcNow;
-        }
-        dbContext.PosSupplierPayments.Add(pay);
-        await PosFinanceSyncHelper.SyncSupplierPaymentAsync(dbContext, pay, receipt, CurrentUserId);
+        var pay = await PosPurchaseStockHelper.PayReceiptAsync(dbContext, storeId, receipt, supplier, dto.Amount,
+            dto.PaymentMethod, dto.PaidAt, dto.Note, CurrentUserEmail, CurrentUserId);
         await dbContext.SaveChangesAsync();
         return Ok(AppResponse<PaymentDto>.Success(
             new PaymentDto(pay.Id, pay.PaymentNo, pay.Amount, pay.PaymentMethod, pay.PaidAt, pay.Note, pay.CreatedBy)));
