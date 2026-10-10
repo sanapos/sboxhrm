@@ -142,6 +142,41 @@ public class PosQuoteDocumentTests(PosPgFixture fx) : PosFlowTestBase(fx)
     }
 
     [Fact]
+    public async Task Mau_rieng_cua_khach_nhan_theo_ma_khach_hoac_SDT_khach_khac_khong_dung()
+    {
+        if (NoDb) return;
+        Assert.Equal("0905111222", PosQuoteDocumentHtml.NormalizePhone("+84 905 111 222"));
+        Assert.Null(PosQuoteDocumentHtml.NormalizePhone("123"));
+        var (store, qA) = await SeedAsync(withStages: false);
+        await using (var db = Fx.NewDb())
+        {
+            var qa = await db.PosQuotes.FirstAsync(x => x.Id == qA);
+            db.PosCustomerDocTemplates.Add(new PosCustomerDocTemplate
+            {
+                Id = Guid.NewGuid(), StoreId = store, CustomerId = qa.CustomerId, CustomerPhone = "0905111222",
+                Kind = PosQuoteDocumentKind.Contract, HtmlContent = "<div>MẪU KHÁCH BÌNH {Tong_Cong}</div>", IsActive = true,
+            });
+            // Báo giá gõ tay cùng SĐT (không gắn mã khách) + báo giá của khách khác cùng cửa hàng.
+            db.PosQuotes.Add(new PosQuote { Id = Guid.NewGuid(), StoreId = store, QuoteNo = "BG-PHONE", CustomerPhone = "+84 905 111 222", IsActive = true });
+            db.PosQuotes.Add(new PosQuote { Id = Guid.NewGuid(), StoreId = store, QuoteNo = "BG-OTHER", CustomerPhone = "0911000000", IsActive = true });
+            await db.SaveChangesAsync();
+        }
+        await using (var db = Fx.NewDb())
+        {
+            var byId = await db.PosQuotes.FirstAsync(x => x.Id == qA);
+            var byPhone = await db.PosQuotes.FirstAsync(x => x.StoreId == store && x.QuoteNo == "BG-PHONE");
+            var other = await db.PosQuotes.FirstAsync(x => x.StoreId == store && x.QuoteNo == "BG-OTHER");
+            Assert.Contains("MẪU KHÁCH BÌNH", (await PosQuoteDocumentHtml.CustomerTemplateAsync(db, byId, PosQuoteDocumentKind.Contract))!.HtmlContent);
+            Assert.NotNull(await PosQuoteDocumentHtml.CustomerTemplateAsync(db, byPhone, PosQuoteDocumentKind.Contract));
+            Assert.Null(await PosQuoteDocumentHtml.CustomerTemplateAsync(db, other, PosQuoteDocumentKind.Contract));
+            Assert.Null(await PosQuoteDocumentHtml.CustomerTemplateAsync(db, byId, PosQuoteDocumentKind.Quote));   // khác loại chứng từ
+            // Chứng từ đã lập (không mang nội dung riêng) vẫn dựng theo mẫu chung — mẫu khách chỉ chép khi lập mới.
+            var html = await PosQuoteDocumentHtml.BuildAsync(db, byId, PosQuoteDocumentKind.Contract, "HD-OLD", null);
+            Assert.DoesNotContain("MẪU KHÁCH BÌNH", html);
+        }
+    }
+
+    [Fact]
     public async Task Thanh_tien_dong_chua_VAT_va_cong_dung_bang_tong_tien_hang()
     {
         if (NoDb) return;

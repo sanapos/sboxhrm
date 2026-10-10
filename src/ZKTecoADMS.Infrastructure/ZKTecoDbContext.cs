@@ -254,6 +254,7 @@ public class ZKTecoDbContext : IdentityDbContext<ApplicationUser, IdentityRole<G
     public DbSet<PosQuoteLine> PosQuoteLines => Set<PosQuoteLine>();
     public DbSet<PosQuoteDocument> PosQuoteDocuments => Set<PosQuoteDocument>();
     public DbSet<PosQuoteDocumentRevision> PosQuoteDocumentRevisions => Set<PosQuoteDocumentRevision>();
+    public DbSet<PosCustomerDocTemplate> PosCustomerDocTemplates => Set<PosCustomerDocTemplate>();
     public DbSet<PosQuoteActivity> PosQuoteActivities => Set<PosQuoteActivity>();
     public DbSet<PosSaleCommissionLine> PosSaleCommissionLines => Set<PosSaleCommissionLine>();
     public DbSet<PosEInvoiceSetting> PosEInvoiceSettings => Set<PosEInvoiceSetting>();

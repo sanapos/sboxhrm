@@ -36,7 +36,8 @@ public partial class PosQuotesController
         Dictionary<Guid, List<string>>? Serials = null, string? TemplateHtml = null);
 
     /// <param name="Html">Mẫu riêng (HTML còn trường động {…}) của chứng từ.</param>
-    public record DocumentCustomTemplateDto(string? Html);
+    /// <param name="ForCustomer">Đồng thời lưu làm mẫu riêng của khách — chứng từ cùng loại sau này của khách tự dùng.</param>
+    public record DocumentCustomTemplateDto(string? Html, bool ForCustomer = false);
 
     public record UpdateQuoteDocumentWordingDto(string? HtmlContent, bool Restore = false);
 
@@ -111,12 +112,15 @@ public partial class PosQuotesController
         }
         else
         {
+            var customerHtml = doc == null && dto.TemplateId == null
+                ? (await PosQuoteDocumentHtml.CustomerTemplateAsync(dbContext, quote, kind))?.HtmlContent
+                : null;
             html = await PosQuoteDocumentHtml.BuildAsync(
                 dbContext, quote, kind,
                 doc?.DocNo ?? (string.IsNullOrWhiteSpace(dto.DocNo) ? quote.QuoteNo : dto.DocNo.Trim()),
                 doc?.Note ?? dto.Note,
                 dto.IncludeImages, webHostEnvironment.ContentRootPath, dto.IncludeStamp,
-                dto.TemplateId ?? doc?.PrintTemplateId);
+                dto.TemplateId ?? doc?.PrintTemplateId, customerHtml);
         }
         return Ok(AppResponse<object>.Success(new
         {
@@ -159,6 +163,10 @@ public partial class PosQuotesController
 
         var docNo = await NextDocNoAsync(storeId, kind);
         var templateId = await ValidTemplateIdAsync(storeId, kind, dto.TemplateId);
+        // Khách có mẫu riêng cho loại chứng từ này (và không chọn mẫu khác lúc lập) → chứng từ mới mang theo.
+        var customerHtml = templateId == null
+            ? (await PosQuoteDocumentHtml.CustomerTemplateAsync(dbContext, quote, kind))?.HtmlContent
+            : null;
         var doc = new PosQuoteDocument
         {
             Id = Guid.NewGuid(),
@@ -169,8 +177,10 @@ public partial class PosQuotesController
             Title = PosQuoteDocumentHtml.TitleOf(kind),
             HtmlContent = await PosQuoteDocumentHtml.BuildAsync(
                 dbContext, quote, kind, docNo, dto.Note,
-                dto.IncludeImages, webHostEnvironment.ContentRootPath, templateId: templateId),
+                dto.IncludeImages, webHostEnvironment.ContentRootPath, templateId: templateId,
+                customTemplateHtml: customerHtml),
             PrintTemplateId = templateId,
+            CustomTemplateHtml = customerHtml,
             Note = dto.Note?.Trim(),
             IssuedAt = DateTime.UtcNow,
             IssuedBy = CurrentUserEmail,
@@ -610,12 +620,17 @@ public partial class PosQuotesController
         if (error != null) return error;
         var html = doc!.CustomTemplateHtml
             ?? await PosQuoteDocumentHtml.TemplateHtmlForAsync(dbContext, quote!, doc.Kind, doc.PrintTemplateId);
+        var customerTpl = await PosQuoteDocumentHtml.CustomerTemplateAsync(dbContext, quote!, doc.Kind);
         return Ok(AppResponse<object>.Success(new
         {
             html,
             isCustom = doc.CustomTemplateHtml != null,
             isCustomWording = doc.IsCustomWording,
             kind = doc.Kind.ToString(),
+            // Khách có mẫu riêng cho loại chứng từ này (chứng từ lập mới của khách tự mang theo).
+            hasCustomerTemplate = customerTpl != null,
+            canSaveForCustomer = quote!.CustomerId != null || PosQuoteDocumentHtml.NormalizePhone(quote.CustomerPhone) != null,
+            customerName = quote.CustomerName,
         }));
     }
 
@@ -634,6 +649,11 @@ public partial class PosQuotesController
             return BadRequest(AppResponse<object>.Fail("Nội dung mẫu trống"));
         if (html.Length > 2_000_000)
             return BadRequest(AppResponse<object>.Fail("Nội dung quá lớn (ảnh dán vào quá nặng)"));
+        var phone = PosQuoteDocumentHtml.NormalizePhone(quote!.CustomerPhone);
+        if (dto.ForCustomer && quote.CustomerId == null && phone == null)
+            return BadRequest(AppResponse<object>.Fail("Báo giá chưa có khách (chọn khách hoặc nhập SĐT) — chưa lưu được mẫu riêng của khách"));
+        if (dto.ForCustomer)
+            await UpsertCustomerTemplateAsync(quote, doc!, html, phone);
         AddRevision(doc!, "custom-template");
         doc!.CustomTemplateHtml = html;
         doc.IsCustomWording = false;
@@ -648,6 +668,66 @@ public partial class PosQuotesController
         doc.UpdatedBy = CurrentUserEmail;
         await dbContext.SaveChangesAsync();
         return Ok(AppResponse<QuoteDocumentDto>.Success(MapDoc(doc)));
+    }
+
+    async Task UpsertCustomerTemplateAsync(PosQuote quote, PosQuoteDocument doc, string html, string? phone)
+    {
+        var existing = await dbContext.PosCustomerDocTemplates.AsTracking()
+            .Where(t => t.StoreId == quote.StoreId && t.Kind == doc.Kind && t.Deleted == null
+                        && ((quote.CustomerId != null && t.CustomerId == quote.CustomerId)
+                            || (quote.CustomerId == null && phone != null && t.CustomerId == null && t.CustomerPhone == phone)))
+            .FirstOrDefaultAsync();
+        if (existing == null)
+        {
+            dbContext.PosCustomerDocTemplates.Add(new PosCustomerDocTemplate
+            {
+                Id = Guid.NewGuid(),
+                StoreId = quote.StoreId,
+                CustomerId = quote.CustomerId,
+                CustomerPhone = phone,
+                CustomerName = quote.CustomerName,
+                Kind = doc.Kind,
+                HtmlContent = html,
+                SourceDocumentId = doc.Id,
+                CreatedBy = CurrentUserEmail,
+                IsActive = true,
+            });
+            return;
+        }
+        existing.HtmlContent = html;
+        existing.CustomerPhone ??= phone;
+        existing.CustomerName = quote.CustomerName ?? existing.CustomerName;
+        existing.SourceDocumentId = doc.Id;
+        existing.IsActive = true;
+        existing.UpdatedAt = DateTime.UtcNow;
+        existing.UpdatedBy = CurrentUserEmail;
+    }
+
+    /// <summary>Bỏ mẫu riêng của khách cho một loại chứng từ — chứng từ sau của khách quay về mẫu chung.</summary>
+    [HttpDelete("{id:guid}/customer-template")]
+    [RequireModulePermission("PosQuotes", ModulePermissionAction.Edit)]
+    public async Task<ActionResult> ClearCustomerTemplate(Guid id, [FromQuery] string kind)
+    {
+        var storeId = RequiredStoreId;
+        if (!TryParseKind(kind, out var k))
+            return BadRequest(AppResponse<object>.Fail("Loại chứng từ không hợp lệ"));
+        var quote = await LoadQuote(storeId, id);
+        if (quote == null || !OwnsOrManages(quote))
+            return NotFound(AppResponse<object>.Fail("Không tìm thấy báo giá"));
+        var phone = PosQuoteDocumentHtml.NormalizePhone(quote.CustomerPhone);
+        var rows = await dbContext.PosCustomerDocTemplates.AsTracking()
+            .Where(t => t.StoreId == storeId && t.Kind == k && t.Deleted == null
+                        && ((quote.CustomerId != null && t.CustomerId == quote.CustomerId)
+                            || (phone != null && t.CustomerPhone == phone)))
+            .ToListAsync();
+        var now = DateTime.UtcNow;
+        foreach (var r in rows)
+        {
+            r.Deleted = now;
+            r.DeletedBy = CurrentUserEmail;
+        }
+        await dbContext.SaveChangesAsync();
+        return Ok(AppResponse<object>.Success(new { removed = rows.Count }));
     }
 
     /// <summary>Bỏ mẫu riêng — chứng từ quay về mẫu chọn / mẫu chung (mẫu riêng cũ còn ở lịch sử).</summary>

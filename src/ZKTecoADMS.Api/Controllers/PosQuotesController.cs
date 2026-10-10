@@ -916,9 +916,12 @@ public partial class PosQuotesController(
     async Task AttachQuoteSlipAsync(PosQuote quote, bool includeImages = false)
     {
         var docNo = await NextDocNoAsync(quote.StoreId, PosQuoteDocumentKind.Quote);
+        // Báo giá mới của khách có mẫu báo giá riêng → phiếu báo giá mang theo (khách khác không thấy).
+        var customerHtml = (await PosQuoteDocumentHtml.CustomerTemplateAsync(
+            dbContext, quote, PosQuoteDocumentKind.Quote))?.HtmlContent;
         var html = await PosQuoteDocumentHtml.BuildAsync(
             dbContext, quote, PosQuoteDocumentKind.Quote, docNo, quote.Note,
-            includeImages, webHostEnvironment.ContentRootPath);
+            includeImages, webHostEnvironment.ContentRootPath, customTemplateHtml: customerHtml);
         quote.Documents.Add(new PosQuoteDocument
         {
             Id = Guid.NewGuid(),
@@ -932,6 +935,7 @@ public partial class PosQuotesController(
             IssuedAt = DateTime.UtcNow,
             IssuedBy = CurrentUserEmail,
             PrintTemplateId = quote.PrintTemplateId,
+            CustomTemplateHtml = customerHtml,
             CreatedBy = CurrentUserEmail,
             IsActive = true,
         });

@@ -231,6 +231,34 @@ public static class PosQuoteDocumentHtml
         return DefaultA4For(kindFromDocType(docType));
     }
 
+    /// <summary>SĐT chuẩn hoá để nhận khách: chỉ chữ số, 84… → 0…; ngắn hơn 8 số → null.</summary>
+    public static string? NormalizePhone(string? phone)
+    {
+        if (string.IsNullOrWhiteSpace(phone)) return null;
+        var d = new string(phone.Where(char.IsDigit).ToArray());
+        if (d.StartsWith("84") && d.Length >= 11) d = "0" + d[2..];
+        return d.Length >= 8 ? d : null;
+    }
+
+    /// <summary>
+    /// Mẫu riêng của khách trên báo giá (theo mã khách, không có thì SĐT) cho loại chứng từ.
+    /// Chỉ CHÉP vào chứng từ lúc tạo mới (thành nội dung riêng của chứng từ) — chứng từ đã lập trước đó của
+    /// khách không đổi, sửa mẫu của khách về sau cũng không đổi chứng từ đã lập.
+    /// </summary>
+    public static async Task<PosCustomerDocTemplate?> CustomerTemplateAsync(
+        ZKTecoDbContext db, PosQuote quote, PosQuoteDocumentKind kind)
+    {
+        var phone = NormalizePhone(quote.CustomerPhone);
+        var cid = quote.CustomerId;
+        if (cid == null && phone == null) return null;
+        return await db.PosCustomerDocTemplates.AsNoTracking()
+            .Where(t => t.StoreId == quote.StoreId && t.Kind == kind && t.Deleted == null && t.IsActive
+                        && ((cid != null && t.CustomerId == cid) || (phone != null && t.CustomerPhone == phone)))
+            .OrderByDescending(t => cid != null && t.CustomerId == cid)
+            .ThenByDescending(t => t.UpdatedAt ?? t.CreatedAt)
+            .FirstOrDefaultAsync();
+    }
+
     static PosQuoteDocumentKind kindFromDocType(PosPrintDocumentType t) => t switch
     {
         PosPrintDocumentType.Contract => PosQuoteDocumentKind.Contract,

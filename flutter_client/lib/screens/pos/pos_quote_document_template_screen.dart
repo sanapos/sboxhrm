@@ -33,6 +33,12 @@ class _PosQuoteDocumentTemplateScreenState extends State<PosQuoteDocumentTemplat
   String? _html;
   bool _isCustom = false;
   bool _hadWording = false;
+
+  /// Lưu làm mẫu riêng của khách — chứng từ cùng loại lập sau này của khách tự mang theo.
+  bool _forCustomer = false;
+  bool _hasCustomerTemplate = false;
+  bool _canSaveForCustomer = false;
+  String _customerName = '';
   bool _loading = true;
   bool _saving = false;
 
@@ -58,6 +64,10 @@ class _PosQuoteDocumentTemplateScreenState extends State<PosQuoteDocumentTemplat
       _html = (d['html'] ?? '').toString();
       _isCustom = d['isCustom'] == true;
       _hadWording = d['isCustomWording'] == true;
+      _hasCustomerTemplate = d['hasCustomerTemplate'] == true;
+      _canSaveForCustomer = d['canSaveForCustomer'] == true;
+      _customerName = (d['customerName'] ?? '').toString().trim();
+      _forCustomer = _hasCustomerTemplate;
       _loading = false;
     });
   }
@@ -94,7 +104,8 @@ class _PosQuoteDocumentTemplateScreenState extends State<PosQuoteDocumentTemplat
       if (ok != true || !mounted) return;
     }
     setState(() => _saving = true);
-    final res = await _api.savePosQuoteDocumentCustomTemplate(widget.quoteId, widget.document.id, html);
+    final res = await _api.savePosQuoteDocumentCustomTemplate(widget.quoteId, widget.document.id, html,
+        forCustomer: _forCustomer && _canSaveForCustomer);
     if (!mounted) return;
     setState(() => _saving = false);
     if (res['isSuccess'] != true) {
@@ -106,9 +117,66 @@ class _PosQuoteDocumentTemplateScreenState extends State<PosQuoteDocumentTemplat
     }
     NotificationOverlayManager().showSuccess(
       title: 'Đã lưu nội dung riêng',
-      message: tr('Chỉ chứng từ này đổi — số liệu vẫn theo báo giá. Mẫu chung và chứng từ khác giữ nguyên.'),
+      message: tr(_forCustomer && _canSaveForCustomer
+          ? 'Chứng từ này và các ${_kindLower()} lập sau của khách dùng nội dung này. Khách khác và chứng từ đã lập không đổi.'
+          : 'Chỉ chứng từ này đổi — số liệu vẫn theo báo giá. Mẫu chung và chứng từ khác giữ nguyên.'),
     );
     Navigator.of(context).pop(true);
+  }
+
+  String _kindLower() => PosQuoteDocument.kindLabel(widget.document.kind).toLowerCase();
+
+  Future<void> _clearCustomerTemplate() async {
+    final ok = await showDialog<bool>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: Text(tr('Bỏ mẫu riêng của khách')),
+        content: Text(tr('Các ${_kindLower()} lập sau của khách ${_customerName.isEmpty ? '' : '«$_customerName» '}quay về mẫu chung. '
+            'Chứng từ đã lập (kể cả chứng từ này) giữ nguyên nội dung.')),
+        actions: [
+          TextButton(onPressed: () => Navigator.pop(ctx, false), child: Text(tr('Huỷ'))),
+          FilledButton(onPressed: () => Navigator.pop(ctx, true), child: Text(tr('Bỏ mẫu của khách'))),
+        ],
+      ),
+    );
+    if (ok != true || !mounted) return;
+    final res = await _api.clearPosQuoteCustomerTemplate(widget.quoteId, widget.document.kind);
+    if (!mounted) return;
+    if (res['isSuccess'] != true) {
+      NotificationOverlayManager().showError(title: 'Chưa bỏ được', message: res['message']?.toString() ?? '');
+      return;
+    }
+    setState(() {
+      _hasCustomerTemplate = false;
+      _forCustomer = false;
+    });
+    NotificationOverlayManager().showSuccess(title: 'Đã bỏ mẫu của khách', message: tr('Chứng từ lập sau dùng mẫu chung.'));
+  }
+
+  Widget _customerBar() {
+    if (!_canSaveForCustomer) {
+      return Padding(
+        padding: const EdgeInsets.fromLTRB(16, 6, 16, 6),
+        child: Text(tr('Báo giá chưa có khách (mã khách hoặc SĐT) — chỉ lưu được cho chứng từ này.'),
+            style: const TextStyle(fontSize: 12, color: SboxColors.slate500)),
+      );
+    }
+    final who = _customerName.isEmpty ? tr('khách này') : '«$_customerName»';
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(8, 0, 12, 0),
+      child: Row(children: [
+        Checkbox(value: _forCustomer, onChanged: (v) => setState(() => _forCustomer = v ?? false)),
+        Expanded(
+          child: Text(
+            tr('Dùng làm mẫu cho các ${_kindLower()} lập sau của $who'
+                '${_hasCustomerTemplate ? ' (khách đang có mẫu riêng — lưu sẽ cập nhật)' : ''}'),
+            style: const TextStyle(fontSize: 13),
+          ),
+        ),
+        if (_hasCustomerTemplate)
+          TextButton(onPressed: _saving ? null : _clearCustomerTemplate, child: Text(tr('Bỏ mẫu của khách'))),
+      ]),
+    );
   }
 
   Future<void> _clear() async {
@@ -181,6 +249,8 @@ class _PosQuoteDocumentTemplateScreenState extends State<PosQuoteDocumentTemplat
                     ),
                   ),
                 ),
+                _customerBar(),
+                const Divider(height: 1),
                 Expanded(
                   child: PosCommercialA4Editor(
                     key: _editorKey,

@@ -20424,15 +20424,28 @@ class ApiService implements PayrollApi {
     }
   }
 
-  Future<Map<String, dynamic>> savePosQuoteDocumentCustomTemplate(String quoteId, String docId, String html) async {
+  Future<Map<String, dynamic>> savePosQuoteDocumentCustomTemplate(String quoteId, String docId, String html,
+      {bool forCustomer = false}) async {
     try {
       final response = await http
           .put(
             Uri.parse('$baseUrl/api/pos/quotes/$quoteId/documents/$docId/custom-template'),
             headers: _headers,
-            body: jsonEncode({'html': html}),
+            body: jsonEncode({'html': html, 'forCustomer': forCustomer}),
           )
           .timeout(const Duration(seconds: 60));
+      return _handleResponse(response);
+    } catch (e) {
+      return _connectionFailure(e);
+    }
+  }
+
+  /// Bỏ mẫu riêng của khách (theo khách của báo giá) cho một loại chứng từ.
+  Future<Map<String, dynamic>> clearPosQuoteCustomerTemplate(String quoteId, String kind) async {
+    try {
+      final response = await http
+          .delete(Uri.parse('$baseUrl/api/pos/quotes/$quoteId/customer-template?kind=$kind'), headers: _headers)
+          .timeout(const Duration(seconds: 30));
       return _handleResponse(response);
     } catch (e) {
       return _connectionFailure(e);
