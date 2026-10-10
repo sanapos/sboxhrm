@@ -67,6 +67,7 @@ class _PosHtmlIframe extends StatefulWidget {
 
 class _PosHtmlIframeState extends State<_PosHtmlIframe> {
   late final String _viewType;
+  web.HTMLIFrameElement? _iframe;
 
   @override
   void initState() {
@@ -75,18 +76,41 @@ class _PosHtmlIframeState extends State<_PosHtmlIframe> {
     ui_web.platformViewRegistry.registerViewFactory(_viewType, (_) {
       final iframe = web.document.createElement('iframe') as web.HTMLIFrameElement
         ..style.border = 'none'
-        ..style.width = '100%'
-        ..style.height = '100%'
         ..srcdoc = widget.html.toJS;
-      if (widget.scale < 1 && widget.pageWidth != null && widget.pageHeight != null) {
-        iframe.style
-          ..width = '${widget.pageWidth}px'
-          ..height = '${widget.pageHeight}px'
-          ..transformOrigin = '0 0'
-          ..transform = 'scale(${widget.scale})';
-      }
+      _iframe = iframe;
+      _applySize();
       return iframe;
     });
+  }
+
+  @override
+  void didUpdateWidget(covariant _PosHtmlIframe oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    // Hộp thoại mở (hiệu ứng phóng to) / đổi cỡ cửa sổ → tỷ lệ đổi. Trước đây iframe giữ tỷ lệ lúc tạo
+    // (rất nhỏ lúc hộp vừa bật) → trang A4 dính góc trái, lệch so với bản in.
+    if (oldWidget.scale != widget.scale ||
+        oldWidget.pageWidth != widget.pageWidth ||
+        oldWidget.pageHeight != widget.pageHeight) {
+      _applySize();
+    }
+  }
+
+  void _applySize() {
+    final iframe = _iframe;
+    if (iframe == null) return;
+    if (widget.pageWidth != null && widget.pageHeight != null) {
+      // Luôn giữ khổ trang thật, chỉ thu / phóng bằng transform (kể cả tỷ lệ 1) → canh giữa đúng khung.
+      iframe.style
+        ..width = '${widget.pageWidth}px'
+        ..height = '${widget.pageHeight}px'
+        ..transformOrigin = '0 0'
+        ..transform = 'scale(${widget.scale})';
+    } else {
+      iframe.style
+        ..width = '100%'
+        ..height = '100%'
+        ..transform = '';
+    }
   }
 
   @override
