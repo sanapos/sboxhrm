@@ -20231,6 +20231,14 @@ class ApiService implements PayrollApi {
     bool? hasDebt,
     int page = 1,
     int pageSize = 50,
+    /// today | week | month | next30
+    String? birthday,
+    /// Đã từng mua nhưng không mua N ngày gần đây.
+    int? inactiveDays,
+    /// active | inactive | all
+    String? status,
+    /// debt | purchase | points | name | recent | newest | birthday
+    String? sort,
   }) async {
     try {
       final q = <String, String>{'page': '$page', 'pageSize': '$pageSize'};
@@ -20238,6 +20246,10 @@ class ApiService implements PayrollApi {
       if (debtFrom != null) q['debtFrom'] = '$debtFrom';
       if (debtTo != null) q['debtTo'] = '$debtTo';
       if (hasDebt == true) q['hasDebt'] = 'true';
+      if (birthday != null) q['birthday'] = birthday;
+      if (inactiveDays != null) q['inactiveDays'] = '$inactiveDays';
+      if (status != null) q['status'] = status;
+      if (sort != null) q['sort'] = sort;
       final uri = Uri.parse('$baseUrl/api/pos/customers')
           .replace(queryParameters: q);
       final response =
@@ -20914,6 +20926,18 @@ class ApiService implements PayrollApi {
             headers: _headers,
             body: jsonEncode(body),
           )
+          .timeout(const Duration(seconds: 30));
+      return _handleResponse(response);
+    } catch (e) {
+      return _connectionFailure(e);
+    }
+  }
+
+  /// Ngừng hoạt động / kích hoạt lại khách hàng (khách đã có đơn không xóa được).
+  Future<Map<String, dynamic>> setPosCustomerActive(String customerId, bool active) async {
+    try {
+      final response = await http
+          .post(Uri.parse('$baseUrl/api/pos/customers/$customerId/${active ? 'activate' : 'deactivate'}'), headers: _headers)
           .timeout(const Duration(seconds: 30));
       return _handleResponse(response);
     } catch (e) {

@@ -83,7 +83,9 @@ public partial class PosCustomersController
                 decimal Net(HistoryLineDto l) => l.Qty > 0 ? Math.Round(l.LineTotal / l.Qty, 0) : l.UnitPrice;
                 var last = g.OrderByDescending(x => x.Date).First();
                 return new HistoryProductDto(g.Key, last.Line.ProductName, last.Line.UnitName, g.Count(),
-                    g.Sum(x => x.Line.Qty - x.Line.ReturnedQty), g.Sum(x => x.Line.LineTotal),
+                    g.Sum(x => x.Line.Qty - x.Line.ReturnedQty),
+                    // Tiền mua thực = tiền dòng × phần còn giữ (đã trả lại thì không tính).
+                    g.Sum(x => x.Line.Qty > 0 ? Math.Round(x.Line.LineTotal * (x.Line.Qty - x.Line.ReturnedQty) / x.Line.Qty, 0) : 0),
                     Net(last.Line), last.Date, g.Min(x => Net(x.Line)), g.Max(x => Net(x.Line)),
                     current.TryGetValue(g.Key, out var cp) ? cp : null);
             })

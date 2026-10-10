@@ -161,7 +161,7 @@ class _PosSupplierListScreenState extends State<PosSupplierListScreen> {
               const Divider(height: 1),
               Expanded(
                 child: items.isEmpty
-                    ? Center(child: Text(tr('Chưa có phiếu nhập/trả')))
+                    ? Center(child: Text(tr('Chưa có phiếu nhập / trả / thanh toán')))
                     : ListView.separated(
                         itemCount: items.length,
                         separatorBuilder: (_, __) => const Divider(height: 1),
@@ -180,19 +180,25 @@ class _PosSupplierListScreenState extends State<PosSupplierListScreen> {
                               ? parseApiUtcDateTime(dateRaw.toString())
                               : null;
                           final isReturn = type.toLowerCase().contains('return');
+                          // Lần trả tiền NCC (giảm công nợ) — trạng thái = hình thức thanh toán.
+                          final isPayment = type.toLowerCase() == 'payment';
                           return ListTile(
                             dense: true,
                             leading: Icon(
-                              isReturn
-                                  ? Icons.reply_outlined
-                                  : Icons.shopping_cart_outlined,
-                              color: isReturn
-                                  ? Colors.orange
-                                  : PosTheme.kiotBlue,
+                              isPayment
+                                  ? Icons.payments_outlined
+                                  : isReturn
+                                      ? Icons.reply_outlined
+                                      : Icons.shopping_cart_outlined,
+                              color: isPayment
+                                  ? Colors.green
+                                  : isReturn
+                                      ? Colors.orange
+                                      : PosTheme.kiotBlue,
                             ),
                             title: Text(tr(no)),
                             subtitle: Text(tr(
-                                '${isReturn ? 'Trả NCC' : 'Nhập'} · $status'
+                                '${isPayment ? 'Trả tiền NCC' : isReturn ? 'Trả hàng NCC' : 'Nhập'} · $status'
                                 '${date != null ? ' · ${DateFormat('dd/MM/yyyy').format(date.toLocal())}' : ''}')),
                             trailing: Text(
                               tr('${_moneyFmt.format(amount)}đ'),

@@ -150,7 +150,15 @@ public class PosPurchaseSuppliersController(ZKTecoDbContext dbContext) : Authent
                 r.TotalAmount - r.DiscountAmount, r.Status.ToString()))
             .ToListAsync();
 
-        var merged = receipts.Concat(returns).OrderByDescending(x => x.Date).Take(100).ToList();
+        // Các lần trả tiền nhà cung cấp (trước đây lịch sử không có → không đối chiếu được công nợ).
+        var payments = await dbContext.PosSupplierPayments.AsNoTracking()
+            .Where(p => p.SupplierId == id && p.StoreId == storeId && p.Deleted == null)
+            .OrderByDescending(p => p.PaidAt)
+            .Take(100)
+            .Select(p => new SupplierHistoryItemDto("Payment", p.Id, p.PaymentNo, p.PaidAt, p.Amount, p.PaymentMethod))
+            .ToListAsync();
+
+        var merged = receipts.Concat(returns).Concat(payments).OrderByDescending(x => x.Date).Take(150).ToList();
         return Ok(AppResponse<List<SupplierHistoryItemDto>>.Success(merged));
     }
 

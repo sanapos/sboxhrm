@@ -17,6 +17,24 @@ class PosCustomer {
   final double totalPurchase;
   final double currentDebt;
   final double pointBalance;
+  final bool isActive;
+
+  /// Lần mua gần nhất (UTC) và số đơn hoàn tất — chỉ có ở danh sách khách.
+  final DateTime? lastPurchaseAt;
+  final int orderCount;
+
+  /// Sinh nhật rơi vào hôm nay / [days] ngày tới (theo ngày-tháng).
+  bool birthdayWithin(int days, {DateTime? now}) {
+    final b = birthday;
+    if (b == null) return false;
+    final t = now ?? DateTime.now();
+    final today = DateTime(t.year, t.month, t.day);
+    for (var i = 0; i < days; i++) {
+      final d = today.add(Duration(days: i));
+      if (d.month == b.month && d.day == b.day) return true;
+    }
+    return false;
+  }
 
   PosCustomer({
     required this.id,
@@ -37,6 +55,9 @@ class PosCustomer {
     this.totalPurchase = 0,
     this.currentDebt = 0,
     this.pointBalance = 0,
+    this.isActive = true,
+    this.lastPurchaseAt,
+    this.orderCount = 0,
   });
 
   factory PosCustomer.fromJson(Map<String, dynamic> json) {
@@ -62,6 +83,11 @@ class PosCustomer {
       totalPurchase: n(json['totalPurchase'] ?? json['TotalPurchase']),
       currentDebt: n(json['currentDebt'] ?? json['CurrentDebt']),
       pointBalance: n(json['pointBalance'] ?? json['PointBalance']),
+      isActive: (json['isActive'] ?? json['IsActive']) != false,
+      lastPurchaseAt: DateTime.tryParse('${json['lastPurchaseAt'] ?? json['LastPurchaseAt'] ?? ''}'),
+      orderCount: (json['orderCount'] ?? json['OrderCount'] ?? 0) is num
+          ? ((json['orderCount'] ?? json['OrderCount'] ?? 0) as num).toInt()
+          : 0,
     );
   }
 }

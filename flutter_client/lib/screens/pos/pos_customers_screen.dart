@@ -29,11 +29,17 @@ class _PosCustomersScreenState extends State<PosCustomersScreen> {
   List<PosCustomer> _items = [];
   bool _loading = true;
   String _debt = 'all';
+  String _birthday = 'all';
+  String _inactive = 'all';
+  String _status = 'active';
+  String _sort = 'debt';
   int _page = 1;
   int _pageSize = 50;
   int _total = 0;
   double _sumDebt = 0;
   double _sumPurchase = 0;
+  double _sumPoints = 0;
+  int _birthdaysThisMonth = 0;
 
   @override
   void initState() {
@@ -57,6 +63,10 @@ class _PosCustomersScreenState extends State<PosCustomersScreen> {
       hasDebt: _debt == 'debt' ? true : null,
       page: _page,
       pageSize: _pageSize,
+      birthday: _birthday == 'all' ? null : _birthday,
+      inactiveDays: int.tryParse(_inactive),
+      status: _status,
+      sort: _sort,
     );
     if (!mounted) return;
     if (res['isSuccess'] == true && res['data'] is Map) {
@@ -68,6 +78,8 @@ class _PosCustomersScreenState extends State<PosCustomersScreen> {
         _total = (data['total'] as num?)?.toInt() ?? _items.length;
         _sumDebt = _d(data['sumDebt']);
         _sumPurchase = _d(data['sumPurchase']);
+        _sumPoints = _d(data['sumPoints']);
+        _birthdaysThisMonth = (data['birthdaysThisMonth'] as num?)?.toInt() ?? 0;
         _loading = false;
       });
     } else {
@@ -85,6 +97,26 @@ class _PosCustomersScreenState extends State<PosCustomersScreen> {
       _page = 1;
       _load();
     });
+  }
+
+  void _setFilter(void Function() change) {
+    setState(() {
+      change();
+      _page = 1;
+    });
+    _load();
+  }
+
+  static String _dm(DateTime? d) =>
+      d == null ? '—' : '${d.day.toString().padLeft(2, '0')}/${d.month.toString().padLeft(2, '0')}';
+
+  static String _ago(DateTime? utc) {
+    if (utc == null) return 'Chưa mua';
+    final days = DateTime.now().toUtc().difference(utc).inDays;
+    if (days <= 0) return 'Hôm nay';
+    if (days < 30) return '$days ngày trước';
+    if (days < 365) return '${days ~/ 30} tháng trước';
+    return '${days ~/ 365} năm trước';
   }
 
   Future<void> _openAdd() async {
@@ -120,13 +152,54 @@ class _PosCustomersScreenState extends State<PosCustomersScreen> {
               label: 'Công nợ',
               value: _debt,
               options: const {'all': 'Tất cả', 'debt': 'Đang nợ'},
-              onChanged: (v) {
-                setState(() {
-                  _debt = v;
-                  _page = 1;
-                });
-                _load();
+              onChanged: (v) => _setFilter(() => _debt = v),
+            ),
+            SboxFilterChip<String>(
+              label: 'Sinh nhật',
+              value: _birthday,
+              options: const {
+                'all': 'Tất cả',
+                'today': 'Hôm nay',
+                'week': 'Trong 7 ngày tới',
+                'month': 'Trong tháng này',
+                'next30': 'Trong 30 ngày tới',
               },
+              onChanged: (v) => _setFilter(() {
+                _birthday = v;
+                if (v != 'all') _sort = 'birthday';
+              }),
+            ),
+            SboxFilterChip<String>(
+              label: 'Mua hàng',
+              value: _inactive,
+              options: const {
+                'all': 'Tất cả',
+                '30': 'Không mua > 30 ngày',
+                '60': 'Không mua > 60 ngày',
+                '90': 'Không mua > 90 ngày',
+                '180': 'Không mua > 6 tháng',
+              },
+              onChanged: (v) => _setFilter(() => _inactive = v),
+            ),
+            SboxFilterChip<String>(
+              label: 'Trạng thái',
+              value: _status,
+              options: const {'active': 'Đang hoạt động', 'inactive': 'Ngừng hoạt động', 'all': 'Tất cả'},
+              onChanged: (v) => _setFilter(() => _status = v),
+            ),
+            SboxFilterChip<String>(
+              label: 'Sắp xếp',
+              value: _sort,
+              options: const {
+                'debt': 'Nợ nhiều nhất',
+                'purchase': 'Mua nhiều nhất',
+                'points': 'Điểm cao nhất',
+                'recent': 'Mua gần đây',
+                'birthday': 'Sinh nhật sắp tới',
+                'newest': 'Mới thêm',
+                'name': 'Tên A → Z',
+              },
+              onChanged: (v) => _setFilter(() => _sort = v),
             ),
           ],
           actions: [
@@ -141,18 +214,23 @@ class _PosCustomersScreenState extends State<PosCustomersScreen> {
             value: SboxFmt.money(_sumDebt),
             icon: Icons.account_balance_wallet_outlined,
             tone: _sumDebt > 0 ? SboxTone.danger : SboxTone.neutral,
-            onTap: _debt == 'debt'
+            onTap: _debt == 'debt' ? null : () => _setFilter(() => _debt = 'debt'),
+          ),
+          SboxKpi(label: 'Điểm đang có', value: SboxFmt.number(_sumPoints), icon: Icons.stars_outlined, tone: SboxTone.violet),
+          SboxKpi(
+            label: 'Sinh nhật tháng này',
+            value: SboxFmt.number(_birthdaysThisMonth),
+            icon: Icons.cake_outlined,
+            tone: SboxTone.warning,
+            onTap: _birthday == 'month'
                 ? null
-                : () {
-                    setState(() {
-                      _debt = 'debt';
-                      _page = 1;
-                    });
-                    _load();
-                  },
+                : () => _setFilter(() {
+                      _birthday = 'month';
+                      _sort = 'birthday';
+                    }),
           ),
         ],
-        maxKpiColumns: 3,
+        maxKpiColumns: 5,
         table: SboxCard(
           padding: EdgeInsets.zero,
           child: Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
@@ -170,13 +248,26 @@ class _PosCustomersScreenState extends State<PosCustomersScreen> {
                   flex: 3,
                   minWidth: 220,
                   cell: (c) => Column(crossAxisAlignment: CrossAxisAlignment.start, mainAxisSize: MainAxisSize.min, children: [
-                    Text(c.name, maxLines: 1, overflow: TextOverflow.ellipsis, style: SboxType.bodyStyle().copyWith(fontWeight: SboxType.semibold)),
+                    Row(mainAxisSize: MainAxisSize.min, children: [
+                      Flexible(
+                        child: Text(c.name, maxLines: 1, overflow: TextOverflow.ellipsis, style: SboxType.bodyStyle().copyWith(fontWeight: SboxType.semibold)),
+                      ),
+                      if (c.birthdayWithin(7)) ...[
+                        const SizedBox(width: 4),
+                        Tooltip(message: tr('Sinh nhật ${_dm(c.birthday)}'), child: const Icon(Icons.cake_rounded, size: 15, color: SboxColors.warning)),
+                      ],
+                      if (!c.isActive) ...[
+                        const SizedBox(width: 6),
+                        const SboxStatusChip(label: 'Ngừng', tone: SboxTone.neutral),
+                      ],
+                    ]),
                     Text(c.customerCode, maxLines: 1, overflow: TextOverflow.ellipsis, style: SboxType.smallStyle(SboxColors.textMuted)),
                   ]),
-                  sortValue: (c) => c.name.toLowerCase(),
                 ),
                 SboxColumn(label: 'Điện thoại', minWidth: 130, text: (c) => c.phone ?? '—'),
-                SboxColumn(label: 'Tổng mua', numeric: true, minWidth: 130, text: (c) => SboxFmt.money(c.totalPurchase), sortValue: (c) => c.totalPurchase),
+                SboxColumn(label: 'Sinh nhật', minWidth: 90, hideOnMobile: true, text: (c) => _dm(c.birthday)),
+                SboxColumn(label: 'Mua gần nhất', minWidth: 120, hideOnMobile: true, text: (c) => c.orderCount > 0 ? '${_ago(c.lastPurchaseAt)} · ${c.orderCount} đơn' : 'Chưa mua'),
+                SboxColumn(label: 'Tổng mua', numeric: true, minWidth: 130, text: (c) => SboxFmt.money(c.totalPurchase)),
                 SboxColumn(
                   label: 'Công nợ',
                   numeric: true,
@@ -187,9 +278,8 @@ class _PosCustomersScreenState extends State<PosCustomersScreen> {
                     style: SboxType.bodyStyle(c.currentDebt > 0 ? SboxColors.dangerText : SboxColors.textMuted)
                         .copyWith(fontWeight: c.currentDebt > 0 ? SboxType.semibold : null),
                   ),
-                  sortValue: (c) => c.currentDebt,
                 ),
-                SboxColumn(label: 'Điểm', numeric: true, minWidth: 90, hideOnMobile: true, text: (c) => SboxFmt.number(c.pointBalance), sortValue: (c) => c.pointBalance),
+                SboxColumn(label: 'Điểm', numeric: true, minWidth: 90, hideOnMobile: true, text: (c) => SboxFmt.number(c.pointBalance)),
               ],
             ),
             if (_total > _pageSize)
@@ -234,6 +324,8 @@ class _PosCustomerDetailScreenState extends State<_PosCustomerDetailScreen> {
   List<Map<String, dynamic>> _orders = [];
   List<Map<String, dynamic>> _sessionBalances = [];
   List<Map<String, dynamic>> _sessionTxns = [];
+  List<Map<String, dynamic>> _products = [];
+  List<Map<String, dynamic>> _points = [];
 
   @override
   void initState() {
@@ -254,8 +346,17 @@ class _PosCustomerDetailScreenState extends State<_PosCustomerDetailScreen> {
 
   Future<void> _loadHistory() async {
     setState(() => _loading = true);
+    // Sản phẩm khách đã mua (2 năm) + lịch sử điểm — chạy song song với lịch sử đơn / thu nợ.
+    final extra = Future.wait([
+      _api.getPosCustomerPurchaseHistory(_customer.id, days: 730),
+      _api.getPosCustomerPointHistory(_customer.id, pageSize: 100),
+    ]);
     final res = await _api.getPosCustomerHistory(_customer.id);
+    final ex = await extra;
     if (!mounted) return;
+    final ph = ex[0], pt = ex[1];
+    _products = ph['isSuccess'] == true && ph['data'] is Map ? _maps((ph['data'] as Map)['products']) : [];
+    _points = pt['isSuccess'] == true && pt['data'] is Map ? _maps((pt['data'] as Map)['items']) : [];
     if (res['isSuccess'] == true && res['data'] is Map) {
       final data = res['data'] as Map;
       setState(() {
@@ -296,6 +397,20 @@ class _PosCustomerDetailScreenState extends State<_PosCustomerDetailScreen> {
     }
   }
 
+  Future<void> _toggleActive() async {
+    final res = await _api.setPosCustomerActive(_customer.id, !_customer.isActive);
+    if (!mounted) return;
+    if (res['isSuccess'] == true && res['data'] is Map) {
+      setState(() => _customer = PosCustomer.fromJson(Map<String, dynamic>.from(res['data'] as Map)));
+      widget.onChanged();
+    } else {
+      NotificationOverlayManager().showError(title: 'Không đổi được trạng thái', message: res['message']?.toString() ?? '');
+    }
+  }
+
+  static String _dmy(DateTime? d) =>
+      d == null ? '' : '${d.day.toString().padLeft(2, '0')}/${d.month.toString().padLeft(2, '0')}/${d.year}';
+
   Future<void> _openSessions() async {
     await showPosSessionRedeemSheet(
       context,
@@ -317,6 +432,8 @@ class _PosCustomerDetailScreenState extends State<_PosCustomerDetailScreen> {
       if ((c.phone ?? '').isNotEmpty) c.phone!,
       if ((c.email ?? '').isNotEmpty) c.email!,
       if ((c.companyName ?? '').isNotEmpty) c.companyName!,
+      if (c.birthday != null) 'Sinh nhật ${_dmy(c.birthday)}${c.birthdayWithin(7) ? ' 🎂' : ''}',
+      if (!c.isActive) 'Ngừng hoạt động',
     ].join(' · ');
 
     return Scaffold(
@@ -337,6 +454,12 @@ class _PosCustomerDetailScreenState extends State<_PosCustomerDetailScreen> {
           ),
           actions: [
             if (canEdit) SboxButton.secondary(label: 'Sửa', icon: Icons.edit_outlined, onPressed: _edit),
+            if (canEdit)
+              SboxButton.ghost(
+                label: c.isActive ? 'Ngừng hoạt động' : 'Kích hoạt lại',
+                icon: c.isActive ? Icons.block_outlined : Icons.check_circle_outline,
+                onPressed: _toggleActive,
+              ),
             if (canEdit && c.currentDebt > 0)
               SboxButton(label: 'Thu nợ', icon: Icons.payments_outlined, onPressed: _collectDebt),
           ],
@@ -390,6 +513,48 @@ class _PosCustomerDetailScreenState extends State<_PosCustomerDetailScreen> {
                           style: SboxType.bodyStyle(due > 0 ? SboxColors.dangerText : SboxColors.textMuted));
                     },
                   ),
+                ],
+              ),
+            ),
+            _section(
+              'Sản phẩm đã mua',
+              SboxDataTable<Map<String, dynamic>>(
+                rows: _products,
+                pageSize: 10,
+                emptyTitle: 'Chưa mua sản phẩm nào',
+                columns: [
+                  SboxColumn(label: 'Sản phẩm', primary: true, flex: 3, minWidth: 180, text: (p) => '${p['productName'] ?? '—'}', sortValue: (p) => '${p['productName'] ?? ''}'),
+                  SboxColumn(label: 'Số lần', numeric: true, minWidth: 80, text: (p) => SboxFmt.number(_d(p['timesBought'])), sortValue: (p) => _d(p['timesBought'])),
+                  SboxColumn(label: 'Tổng SL', numeric: true, minWidth: 90, text: (p) => '${SboxFmt.decimal(_d(p['totalQty']))} ${p['unitName'] ?? ''}'.trim(), sortValue: (p) => _d(p['totalQty'])),
+                  SboxColumn(label: 'Tiền mua', numeric: true, minWidth: 120, text: (p) => SboxFmt.money(_d(p['totalAmount'])), sortValue: (p) => _d(p['totalAmount'])),
+                  SboxColumn(label: 'Giá gần nhất', numeric: true, minWidth: 110, hideOnMobile: true, text: (p) => SboxFmt.money(_d(p['lastPrice']))),
+                  SboxColumn(label: 'Mua lần cuối', minWidth: 110, hideOnMobile: true, text: (p) => _date(p['lastDate']).split(' ').first, sortValue: (p) => '${p['lastDate'] ?? ''}'),
+                ],
+              ),
+            ),
+            _section(
+              'Lịch sử điểm',
+              SboxDataTable<Map<String, dynamic>>(
+                rows: _points,
+                pageSize: 10,
+                emptyTitle: 'Chưa có giao dịch điểm',
+                columns: [
+                  SboxColumn(label: 'Ngày', primary: true, minWidth: 140, text: (t) => _date(t['createdAt'])),
+                  SboxColumn(label: 'Loại', minWidth: 120, text: (t) => switch ('${t['type']}') {
+                        'Earn' => 'Tích điểm',
+                        'Redeem' => 'Dùng điểm',
+                        'Adjust' => 'Điều chỉnh',
+                        'Reverse' || 'Revoke' => 'Hoàn / thu hồi',
+                        final s => s,
+                      }),
+                  SboxColumn(label: 'Điểm', numeric: true, minWidth: 90, cell: (t) {
+                    final p = _d(t['points']);
+                    return Text(p > 0 ? '+${SboxFmt.number(p)}' : SboxFmt.number(p),
+                        textAlign: TextAlign.right,
+                        style: SboxType.bodyStyle(p >= 0 ? SboxColors.successText : SboxColors.dangerText));
+                  }),
+                  SboxColumn(label: 'Còn lại', numeric: true, minWidth: 90, text: (t) => SboxFmt.number(_d(t['balanceAfter']))),
+                  SboxColumn(label: 'Ghi chú', minWidth: 160, hideOnMobile: true, text: (t) => '${t['note'] ?? ''}'),
                 ],
               ),
             ),
