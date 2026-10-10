@@ -52,7 +52,9 @@ public partial class PosCustomersController(ZKTecoDbContext dbContext) : Authent
         // active (mặc định) | inactive | all
         [FromQuery] string? status = null,
         // debt (mặc định) | purchase | points | name | recent | newest | birthday
-        [FromQuery] string? sort = null)
+        [FromQuery] string? sort = null,
+        // Tên hạng thành viên | none (chưa đạt hạng nào)
+        [FromQuery] string? tier = null)
     {
         var storeId = RequiredStoreId;
         page = Math.Max(page, 1);
@@ -77,6 +79,28 @@ public partial class PosCustomersController(ZKTecoDbContext dbContext) : Authent
         if (purchaseFrom.HasValue) query = query.Where(c => c.TotalPurchase >= purchaseFrom);
         if (purchaseTo.HasValue) query = query.Where(c => c.TotalPurchase <= purchaseTo);
         if (hasDebt == true) query = query.Where(c => c.CurrentDebt > 0);
+        var tiers = await LoadTiersAsync(storeId);
+        if (!string.IsNullOrWhiteSpace(tier) && tiers.Count > 0)
+        {
+            var t = tier.Trim();
+            if (t.Equals("none", StringComparison.OrdinalIgnoreCase))
+            {
+                var min0 = tiers[0].MinSpend;
+                query = query.Where(c => c.TotalPurchase < min0);
+            }
+            else
+            {
+                var ti = tiers.FindIndex(x => x.Name.Equals(t, StringComparison.OrdinalIgnoreCase));
+                if (ti < 0) query = query.Where(c => false);
+                else
+                {
+                    var (from, to) = PosCustomerTiers.Range(tiers, ti);
+                    query = to == null
+                        ? query.Where(c => c.TotalPurchase >= from)
+                        : query.Where(c => c.TotalPurchase >= from && c.TotalPurchase < to.Value);
+                }
+            }
+        }
 
         var todayVn = VnTimeHelper.NowVn().Date;
         var bdKeys = BirthdayKeys(birthday, todayVn);
@@ -128,7 +152,8 @@ public partial class PosCustomersController(ZKTecoDbContext dbContext) : Authent
                 OrderCount = done.Count(o => o.CustomerId == c.Id),
             })
             .ToListAsync();
-        var items = rows.Select(r => new CustomerListItemDto(MapCustomer(r.Customer), r.LastPurchaseAt, r.OrderCount)).ToList();
+        var items = rows.Select(r => new CustomerListItemDto(MapCustomer(r.Customer), r.LastPurchaseAt, r.OrderCount,
+            PosCustomerTiers.Resolve(tiers, r.Customer.TotalPurchase)?.Name)).ToList();
 
         return Ok(AppResponse<object>.Success(new
         {
@@ -138,7 +163,8 @@ public partial class PosCustomersController(ZKTecoDbContext dbContext) : Authent
 
     /// <summary>Khách trong danh sách + lần mua gần nhất (UTC) + số đơn hoàn tất. JSON phẳng như CustomerDto.</summary>
     public sealed record CustomerListItemDto(
-        [property: System.Text.Json.Serialization.JsonIgnore] CustomerDto C, DateTime? LastPurchaseAt, int OrderCount)
+        [property: System.Text.Json.Serialization.JsonIgnore] CustomerDto C, DateTime? LastPurchaseAt, int OrderCount,
+        string? Tier = null)
     {
         public Guid Id => C.Id;
         public string CustomerCode => C.CustomerCode;

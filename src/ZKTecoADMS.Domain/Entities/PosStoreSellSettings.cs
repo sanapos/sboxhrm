@@ -100,6 +100,9 @@ public class PosStoreSellSettings : AuditableEntity<Guid>
     /// <summary>Bắt buộc chọn NV trên dịch vụ (và thành phần dịch vụ trong combo) khi thanh toán.</summary>
     public bool RequireStaffOnService { get; set; }
 
+    /// <summary>Hạng thành viên: JSON [{name, minSpend, color, benefit}] — hạng theo tổng mua của khách.</summary>
+    public string? LoyaltyTiersJson { get; set; }
+
     /// <summary>JSON flags mở rộng (tùy ngành).</summary>
     [MaxLength(4000)]
     public string? ExtraJson { get; set; }

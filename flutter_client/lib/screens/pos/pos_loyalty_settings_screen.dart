@@ -3,11 +3,15 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:intl/intl.dart';
 
+import 'dart:convert';
+
+import '../../models/pos_customer.dart';
 import '../../models/pos_sell_industry.dart';
 import '../../services/api_service.dart';
 import '../../utils/pos_loyalty_rates.dart';
 import '../../utils/pos_sell_settings_helper.dart';
 import '../../widgets/notification_overlay.dart';
+import '../../widgets/pos/pos_vnd_thousands_formatter.dart';
 import '../../widgets/settings/settings_page.dart';
 import 'package:zkteco_flutter_client/l10n/app_tr.dart';
 
@@ -34,6 +38,12 @@ class _PosLoyaltySettingsScreenState extends State<PosLoyaltySettingsScreen> {
   double _maxPct = 100;
   bool _refundRedeem = false;
   final _money = NumberFormat('#,###', 'vi_VN');
+  final _api = ApiService();
+
+  /// Hạng thành viên đang sửa + bản đã lưu (JSON) để biết có thay đổi.
+  final List<_TierRow> _tiers = [];
+  String _tiersSaved = '[]';
+  static const _tierColors = ['#64748B', '#F59E0B', '#0EA5E9', '#8B5CF6', '#EF4444', '#10B981'];
 
   @override
   void initState() {
@@ -45,7 +55,66 @@ class _PosLoyaltySettingsScreenState extends State<PosLoyaltySettingsScreen> {
   void dispose() {
     _earnCtrl.dispose();
     _redeemCtrl.dispose();
+    for (final t in _tiers) {
+      t.dispose();
+    }
     super.dispose();
+  }
+
+  double _tierMin(_TierRow t) => double.tryParse(t.min.text.replaceAll(RegExp(r'[^0-9]'), '')) ?? 0;
+
+  List<Map<String, dynamic>> _tiersPayload() => [
+        for (final t in _tiers)
+          if (t.name.text.trim().isNotEmpty)
+            PosCustomerTier(
+              name: t.name.text.trim(),
+              minSpend: _tierMin(t),
+              color: t.color,
+              benefit: t.benefit.text.trim(),
+            ).toJson(),
+      ];
+
+  void _setTiers(List<PosCustomerTier> list) {
+    for (final t in _tiers) {
+      t.dispose();
+    }
+    _tiers
+      ..clear()
+      ..addAll(list.map((t) => _TierRow(t.name, t.minSpend > 0 ? _money.format(t.minSpend) : '0', t.benefit ?? '', t.color)));
+    _tiersSaved = jsonEncode(_tiersPayload());
+  }
+
+  Future<void> _loadTiers() async {
+    final res = await _api.getPosCustomerTiers();
+    if (!mounted || res['isSuccess'] != true || res['data'] is! Map) return;
+    final list = ((res['data'] as Map)['tiers'] as List? ?? [])
+        .whereType<Map>()
+        .map((e) => PosCustomerTier.fromJson(Map<String, dynamic>.from(e)))
+        .toList();
+    setState(() => _setTiers(list));
+  }
+
+  bool get _tiersDirty => jsonEncode(_tiersPayload()) != _tiersSaved;
+
+  void _addTier() {
+    final last = _tiers.isEmpty ? 0.0 : _tierMin(_tiers.last);
+    setState(() => _tiers.add(_TierRow('', _money.format(last <= 0 ? 2000000 : last * 2), '',
+        _tierColors[_tiers.length % _tierColors.length])));
+  }
+
+  Future<bool> _saveTiers() async {
+    final res = await _api.savePosCustomerTiers(_tiersPayload());
+    if (!mounted) return false;
+    if (res['isSuccess'] == true && res['data'] is Map) {
+      final list = ((res['data'] as Map)['tiers'] as List? ?? [])
+          .whereType<Map>()
+          .map((e) => PosCustomerTier.fromJson(Map<String, dynamic>.from(e)))
+          .toList();
+      setState(() => _setTiers(list));
+      return true;
+    }
+    NotificationOverlayManager().showError(title: 'Hạng thành viên', message: res['message']?.toString() ?? 'Không lưu được');
+    return false;
   }
 
   Future<void> _load() async {
@@ -53,6 +122,7 @@ class _PosLoyaltySettingsScreenState extends State<PosLoyaltySettingsScreen> {
       _loading = true;
       _error = null;
     });
+    _loadTiers();
     final r = await _helper.load();
     if (!mounted) return;
     final s = r.settings;
@@ -93,6 +163,16 @@ class _PosLoyaltySettingsScreenState extends State<PosLoyaltySettingsScreen> {
     final earn = _parseMoney(_earnCtrl.text);
     final redeem = _parseMoney(_redeemCtrl.text);
     setState(() => _saving = true);
+    if (_tiersDirty && !await _saveTiers()) {
+      if (mounted) setState(() => _saving = false);
+      return;
+    }
+    if (!_ratesDirty) {
+      if (!mounted) return;
+      setState(() => _saving = false);
+      NotificationOverlayManager().showSuccess(title: 'Tích điểm', message: tr('Đã lưu hạng thành viên'));
+      return;
+    }
     final r = await _helper.save(
       s.copyWith(
         loyaltyEnabled: _enabled,
@@ -119,7 +199,9 @@ class _PosLoyaltySettingsScreenState extends State<PosLoyaltySettingsScreen> {
   }
 
   /// Có thay đổi chưa lưu (hiện thanh Lưu / Bỏ thay đổi ở dưới).
-  bool get _dirty {
+  bool get _dirty => _ratesDirty || _tiersDirty;
+
+  bool get _ratesDirty {
     final s = _settings;
     if (s == null) return false;
     return _enabled != s.loyaltyEnabled ||
@@ -132,13 +214,79 @@ class _PosLoyaltySettingsScreenState extends State<PosLoyaltySettingsScreen> {
   void _discard() {
     final s = _settings;
     if (s == null) return;
+    final saved = (jsonDecode(_tiersSaved) as List)
+        .map((e) => PosCustomerTier.fromJson(Map<String, dynamic>.from(e as Map)))
+        .toList();
     setState(() {
+      _setTiers(saved);
       _enabled = s.loyaltyEnabled;
       _earnCtrl.text = _fmtNum(s.loyaltyEarnPerAmount);
       _redeemCtrl.text = _fmtNum(s.loyaltyRedeemValue);
       _maxPct = s.loyaltyMaxRedeemPercent.clamp(1, 100);
       _refundRedeem = s.loyaltyRefundRedeemOnReturn;
     });
+  }
+
+  Widget _tierRow(int i) {
+    final t = _tiers[i];
+    InputDecoration deco(String label, {String? suffix}) => InputDecoration(
+          labelText: tr(label),
+          suffixText: suffix,
+          isDense: true,
+          border: OutlineInputBorder(borderRadius: BorderRadius.circular(10)),
+        );
+    final color = Color(0xFF000000 | (int.tryParse((t.color ?? '#64748B').substring(1), radix: 16) ?? 0x64748B));
+    final colorDot = InkWell(
+      customBorder: const CircleBorder(),
+      onTap: _saving
+          ? null
+          : () => setState(() => t.color = _tierColors[(_tierColors.indexOf(t.color ?? '') + 1) % _tierColors.length]),
+      child: Tooltip(
+        message: tr('Đổi màu'),
+        child: Padding(
+          padding: const EdgeInsets.all(6),
+          child: Icon(Icons.workspace_premium_rounded, color: color, size: 22),
+        ),
+      ),
+    );
+    final remove = IconButton(
+      tooltip: tr('Xóa hạng'),
+      onPressed: _saving ? null : () => setState(() => _tiers.removeAt(i).dispose()),
+      icon: const Icon(Icons.delete_outline, color: Colors.red),
+    );
+    final name = TextField(controller: t.name, enabled: !_saving, decoration: deco('Tên hạng'), onChanged: (_) => setState(() {}));
+    final min = TextField(
+      controller: t.min,
+      enabled: !_saving,
+      keyboardType: TextInputType.number,
+      inputFormatters: [PosVndThousandsFormatter()],
+      decoration: deco('Tổng mua từ', suffix: 'đ'),
+      onChanged: (_) => setState(() {}),
+    );
+    final benefit = TextField(controller: t.benefit, enabled: !_saving, decoration: deco('Ưu đãi (ghi chú)'), onChanged: (_) => setState(() {}));
+    return Padding(
+      padding: const EdgeInsets.symmetric(vertical: 6),
+      child: LayoutBuilder(builder: (context, c) {
+        if (c.maxWidth < 560) {
+          return Column(children: [
+            Row(children: [colorDot, Expanded(child: name), remove]),
+            const SizedBox(height: 8),
+            min,
+            const SizedBox(height: 8),
+            benefit,
+          ]);
+        }
+        return Row(children: [
+          colorDot,
+          Expanded(flex: 2, child: name),
+          const SizedBox(width: 8),
+          Expanded(flex: 2, child: min),
+          const SizedBox(width: 8),
+          Expanded(flex: 3, child: benefit),
+          remove,
+        ]);
+      }),
+    );
   }
 
   Widget _numField(TextEditingController c, String suffix, String hint) => SizedBox(
@@ -236,9 +384,44 @@ class _PosLoyaltySettingsScreenState extends State<PosLoyaltySettingsScreen> {
             ),
           ],
         ),
+        SettingsSection(
+          title: 'Hạng thành viên',
+          subtitle: 'Hạng theo tổng mua của khách — khách đạt mức của hạng cao nhất nào thì thuộc hạng đó',
+          icon: Icons.workspace_premium_outlined,
+          trailing: TextButton.icon(
+            onPressed: _saving || _tiers.length >= 10 ? null : _addTier,
+            icon: const Icon(Icons.add, size: 18),
+            label: Text(tr('Thêm hạng')),
+          ),
+          children: [
+            if (_tiers.isEmpty)
+              const SettingsNote('Chưa có hạng. Ví dụ: Bạc từ 2.000.000đ, Vàng từ 10.000.000đ, Kim cương từ 50.000.000đ.',
+                  icon: Icons.info_outline),
+            for (var i = 0; i < _tiers.length; i++) _tierRow(i),
+          ],
+        ),
       ],
     );
     if (HrmPageChrome.isHubBody(context)) return page;
     return Scaffold(appBar: AppBar(title: Text(tr('Tích điểm & đổi điểm'))), body: page);
+  }
+}
+
+/// Một dòng hạng đang sửa.
+class _TierRow {
+  _TierRow(String name, String min, String benefit, this.color)
+      : name = TextEditingController(text: name),
+        min = TextEditingController(text: min),
+        benefit = TextEditingController(text: benefit);
+
+  final TextEditingController name;
+  final TextEditingController min;
+  final TextEditingController benefit;
+  String? color;
+
+  void dispose() {
+    name.dispose();
+    min.dispose();
+    benefit.dispose();
   }
 }

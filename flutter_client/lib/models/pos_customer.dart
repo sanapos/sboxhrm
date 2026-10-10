@@ -23,6 +23,9 @@ class PosCustomer {
   final DateTime? lastPurchaseAt;
   final int orderCount;
 
+  /// Hạng thành viên theo tổng mua — chỉ có ở danh sách khách.
+  final String? tier;
+
   /// Sinh nhật rơi vào hôm nay / [days] ngày tới (theo ngày-tháng).
   bool birthdayWithin(int days, {DateTime? now}) {
     final b = birthday;
@@ -58,6 +61,7 @@ class PosCustomer {
     this.isActive = true,
     this.lastPurchaseAt,
     this.orderCount = 0,
+    this.tier,
   });
 
   factory PosCustomer.fromJson(Map<String, dynamic> json) {
@@ -88,6 +92,46 @@ class PosCustomer {
       orderCount: (json['orderCount'] ?? json['OrderCount'] ?? 0) is num
           ? ((json['orderCount'] ?? json['OrderCount'] ?? 0) as num).toInt()
           : 0,
+      tier: (json['tier'] ?? json['Tier']) as String?,
     );
+  }
+}
+
+/// Hạng thành viên — khách đạt mức tổng mua [minSpend] của hạng cao nhất nào thì thuộc hạng đó.
+class PosCustomerTier {
+  const PosCustomerTier({required this.name, required this.minSpend, this.color, this.benefit, this.customerCount = 0});
+
+  final String name;
+  final double minSpend;
+
+  /// Mã màu «#RRGGBB» (tùy chọn).
+  final String? color;
+
+  /// Ưu đãi của hạng (ghi chú cho thu ngân).
+  final String? benefit;
+  final int customerCount;
+
+  factory PosCustomerTier.fromJson(Map<String, dynamic> j) => PosCustomerTier(
+        name: '${j['name'] ?? j['Name'] ?? ''}',
+        minSpend: (j['minSpend'] ?? j['MinSpend'] ?? 0) is num ? ((j['minSpend'] ?? j['MinSpend'] ?? 0) as num).toDouble() : 0,
+        color: (j['color'] ?? j['Color']) as String?,
+        benefit: (j['benefit'] ?? j['Benefit']) as String?,
+        customerCount: (j['customerCount'] as num?)?.toInt() ?? 0,
+      );
+
+  Map<String, dynamic> toJson() => {
+        'name': name,
+        'minSpend': minSpend,
+        if (color != null) 'color': color,
+        if (benefit != null && benefit!.isNotEmpty) 'benefit': benefit,
+      };
+
+  /// Hạng của khách theo tổng mua ([tiers] tăng dần); -1 = chưa đạt hạng nào.
+  static int indexFor(List<PosCustomerTier> tiers, double totalPurchase) {
+    var idx = -1;
+    for (var i = 0; i < tiers.length; i++) {
+      if (totalPurchase >= tiers[i].minSpend) idx = i;
+    }
+    return idx;
   }
 }

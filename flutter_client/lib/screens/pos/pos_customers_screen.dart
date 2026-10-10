@@ -35,6 +35,9 @@ class _PosCustomersScreenState extends State<PosCustomersScreen> {
   String _inactive = 'all';
   String _status = 'active';
   String _sort = 'debt';
+  String _tier = 'all';
+  List<PosCustomerTier> _tiers = [];
+  int _noTierCount = 0;
   int _page = 1;
   int _pageSize = 50;
   int _total = 0;
@@ -47,6 +50,7 @@ class _PosCustomersScreenState extends State<PosCustomersScreen> {
   void initState() {
     super.initState();
     _load();
+    _loadTiers();
   }
 
   @override
@@ -57,6 +61,21 @@ class _PosCustomersScreenState extends State<PosCustomersScreen> {
   }
 
   static double _d(dynamic v) => v is num ? v.toDouble() : double.tryParse('${v ?? ''}') ?? 0;
+
+  /// Hạng thành viên của cửa hàng (+ số khách mỗi hạng cho bộ lọc).
+  Future<void> _loadTiers() async {
+    final res = await _api.getPosCustomerTiers();
+    if (!mounted || res['isSuccess'] != true || res['data'] is! Map) return;
+    final data = res['data'] as Map;
+    setState(() {
+      _tiers = (data['tiers'] as List? ?? [])
+          .whereType<Map>()
+          .map((e) => PosCustomerTier.fromJson(Map<String, dynamic>.from(e)))
+          .toList();
+      _noTierCount = (data['noTierCount'] as num?)?.toInt() ?? 0;
+      if (_tier != 'all' && _tier != 'none' && !_tiers.any((t) => t.name == _tier)) _tier = 'all';
+    });
+  }
 
   Future<void> _load() async {
     setState(() => _loading = true);
@@ -69,6 +88,7 @@ class _PosCustomersScreenState extends State<PosCustomersScreen> {
       inactiveDays: int.tryParse(_inactive),
       status: _status,
       sort: _sort,
+      tier: _tier == 'all' ? null : _tier,
     );
     if (!mounted) return;
     if (res['isSuccess'] == true && res['data'] is Map) {
@@ -129,9 +149,10 @@ class _PosCustomersScreenState extends State<PosCustomersScreen> {
   Future<void> _openDetail(PosCustomer c) async {
     await Navigator.push(
       context,
-      MaterialPageRoute(builder: (_) => _PosCustomerDetailScreen(customer: c, onChanged: _load)),
+      MaterialPageRoute(builder: (_) => _PosCustomerDetailScreen(customer: c, tiers: _tiers, onChanged: _load)),
     );
     _load();
+    _loadTiers();
   }
 
   @override
@@ -144,7 +165,9 @@ class _PosCustomersScreenState extends State<PosCustomersScreen> {
     return Scaffold(
       backgroundColor: SboxColors.page,
       body: SboxReportLayout(
-        onRefresh: _load,
+        onRefresh: () async {
+          await Future.wait([_load(), _loadTiers()]);
+        },
         filters: SboxFilterBar(
           searchHint: 'Tìm tên, SĐT, mã khách',
           searchController: _searchCtrl,
@@ -183,6 +206,17 @@ class _PosCustomersScreenState extends State<PosCustomersScreen> {
               },
               onChanged: (v) => _setFilter(() => _inactive = v),
             ),
+            if (_tiers.isNotEmpty)
+              SboxFilterChip<String>(
+                label: 'Hạng',
+                value: _tier,
+                options: {
+                  'all': 'Tất cả',
+                  for (final t in _tiers.reversed) t.name: '${t.name} (${t.customerCount})',
+                  'none': 'Chưa có hạng ($_noTierCount)',
+                },
+                onChanged: (v) => _setFilter(() => _tier = v),
+              ),
             SboxFilterChip<String>(
               label: 'Trạng thái',
               value: _status,
@@ -258,6 +292,10 @@ class _PosCustomersScreenState extends State<PosCustomersScreen> {
                         const SizedBox(width: 4),
                         Tooltip(message: tr('Sinh nhật ${_dm(c.birthday)}'), child: const Icon(Icons.cake_rounded, size: 15, color: SboxColors.warning)),
                       ],
+                      if (c.tier != null) ...[
+                        const SizedBox(width: 6),
+                        PosTierBadge(name: c.tier!, color: _tiers.where((t) => t.name == c.tier).firstOrNull?.color),
+                      ],
                       if (!c.isActive) ...[
                         const SizedBox(width: 6),
                         const SboxStatusChip(label: 'Ngừng', tone: SboxTone.neutral),
@@ -309,10 +347,13 @@ class _PosCustomersScreenState extends State<PosCustomersScreen> {
 }
 
 class _PosCustomerDetailScreen extends StatefulWidget {
-  const _PosCustomerDetailScreen({required this.customer, required this.onChanged});
+  const _PosCustomerDetailScreen({required this.customer, required this.onChanged, this.tiers = const []});
 
   final PosCustomer customer;
   final VoidCallback onChanged;
+
+  /// Hạng thành viên của cửa hàng (tăng dần theo tổng mua).
+  final List<PosCustomerTier> tiers;
 
   @override
   State<_PosCustomerDetailScreen> createState() => _PosCustomerDetailScreenState();
@@ -478,6 +519,7 @@ class _PosCustomerDetailScreenState extends State<_PosCustomerDetailScreen> {
         ],
         maxKpiColumns: 3,
         children: [
+          if (widget.tiers.isNotEmpty) _tierCard(),
           if (_loading) const SboxLoading(),
           if (!_loading) ...[
             _section(
@@ -532,6 +574,11 @@ class _PosCustomerDetailScreenState extends State<_PosCustomerDetailScreen> {
               ),
             ),
             _section(
+              'Báo giá & chăm sóc',
+              PosCustomerQuoteCareSection(
+                  customerId: _customer.id, phone: _customer.phone, customerName: _customer.name),
+            ),
+            _section(
               'Sản phẩm đã mua',
               SboxDataTable<Map<String, dynamic>>(
                 rows: _products,
@@ -572,11 +619,6 @@ class _PosCustomerDetailScreenState extends State<_PosCustomerDetailScreen> {
                   SboxColumn(label: 'Ghi chú', minWidth: 160, hideOnMobile: true, text: (t) => '${t['note'] ?? ''}'),
                 ],
               ),
-            ),
-            _section(
-              'Báo giá & chăm sóc',
-              PosCustomerQuoteCareSection(
-                  customerId: _customer.id, phone: _customer.phone, customerName: _customer.name),
             ),
             _section(
               'Lịch sử thu nợ',
@@ -655,6 +697,45 @@ class _PosCustomerDetailScreenState extends State<_PosCustomerDetailScreen> {
     );
   }
 
+  /// Hạng hiện tại, ưu đãi và còn bao nhiêu tổng mua để lên hạng kế tiếp.
+  Widget _tierCard() {
+    final tiers = widget.tiers;
+    final spend = _customer.totalPurchase;
+    final i = PosCustomerTier.indexFor(tiers, spend);
+    final cur = i >= 0 ? tiers[i] : null;
+    final next = i + 1 < tiers.length ? tiers[i + 1] : null;
+    final from = cur?.minSpend ?? 0;
+    final progress = next == null ? 1.0 : ((spend - from) / (next.minSpend - from)).clamp(0.0, 1.0);
+    return SboxCard(
+      child: Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
+        Wrap(spacing: SboxSpace.sm, runSpacing: 4, crossAxisAlignment: WrapCrossAlignment.center, children: [
+          Text(tr('Hạng thành viên'), style: SboxType.smallStyle(SboxColors.textMuted)),
+          cur == null
+              ? const SboxStatusChip(label: 'Chưa có hạng', tone: SboxTone.neutral)
+              : PosTierBadge(name: cur.name, color: cur.color),
+          if ((cur?.benefit ?? '').isNotEmpty) Text(tr('Ưu đãi: ${cur!.benefit}'), style: SboxType.bodyStyle()),
+        ]),
+        const SizedBox(height: SboxSpace.sm),
+        ClipRRect(
+          borderRadius: BorderRadius.circular(4),
+          child: LinearProgressIndicator(
+            value: progress,
+            minHeight: 6,
+            backgroundColor: SboxColors.slate100,
+            color: posTierColor(next?.color ?? cur?.color) ?? SboxColors.brand600,
+          ),
+        ),
+        const SizedBox(height: 6),
+        Text(
+          next == null
+              ? tr('Đang ở hạng cao nhất')
+              : tr('Còn ${SboxFmt.money(next.minSpend - spend)} tổng mua để lên hạng ${next.name}'),
+          style: SboxType.smallStyle(SboxColors.textMuted),
+        ),
+      ]),
+    );
+  }
+
   Widget _section(String title, Widget child, {Widget? action}) {
     return Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
       Padding(
@@ -666,5 +747,39 @@ class _PosCustomerDetailScreenState extends State<_PosCustomerDetailScreen> {
       ),
       SboxCard(padding: EdgeInsets.zero, child: child),
     ]);
+  }
+}
+
+/// Màu «#RRGGBB» của hạng (null nếu không có / sai định dạng).
+Color? posTierColor(String? hex) {
+  final h = (hex ?? '').replaceFirst('#', '');
+  if (h.length != 6) return null;
+  final v = int.tryParse(h, radix: 16);
+  return v == null ? null : Color(0xFF000000 | v);
+}
+
+/// Nhãn hạng thành viên có màu.
+class PosTierBadge extends StatelessWidget {
+  const PosTierBadge({super.key, required this.name, this.color});
+
+  final String name;
+  final String? color;
+
+  @override
+  Widget build(BuildContext context) {
+    final c = posTierColor(color) ?? SboxColors.brand600;
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 2),
+      decoration: BoxDecoration(
+        color: c.withValues(alpha: 0.12),
+        borderRadius: BorderRadius.circular(999),
+        border: Border.all(color: c.withValues(alpha: 0.45)),
+      ),
+      child: Row(mainAxisSize: MainAxisSize.min, children: [
+        Icon(Icons.workspace_premium_rounded, size: 12, color: c),
+        const SizedBox(width: 3),
+        Text(name, maxLines: 1, overflow: TextOverflow.ellipsis, style: SboxType.smallStyle(c).copyWith(fontWeight: FontWeight.w700)),
+      ]),
+    );
   }
 }

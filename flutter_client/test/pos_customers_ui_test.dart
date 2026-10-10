@@ -36,9 +36,25 @@ Map<String, dynamic> _cust(String code, String name, {String? birthday, double d
       'id': 'id-$code', 'customerCode': code, 'name': name, 'phone': '0912 000 ${code.substring(2)}',
       'birthday': birthday, 'totalPurchase': orders * 250000, 'currentDebt': debt, 'pointBalance': orders * 25,
       'isActive': true, 'orderCount': orders, 'lastPurchaseAt': last, 'province': 'Hà Nội',
+      'tier': orders >= 12 ? 'Kim cương' : (orders >= 1 ? 'Bạc' : null),
     };
 
 MockClient _client() => MockClient((req) async {
+      if (req.url.path.endsWith('/customers/tiers')) {
+        return http.Response(
+            jsonEncode({
+              'isSuccess': true,
+              'data': {
+                'noTierCount': 1,
+                'tiers': [
+                  {'name': 'Bạc', 'minSpend': 200000, 'color': '#64748B', 'customerCount': 1},
+                  {'name': 'Kim cương', 'minSpend': 3000000, 'color': '#8B5CF6', 'benefit': 'Giảm 5% mỗi đơn', 'customerCount': 1},
+                ],
+              },
+            }),
+            200,
+            headers: {'content-type': 'application/json; charset=utf-8'});
+      }
       if (req.url.path == '/api/pos/customers') _queries.add(req.url.queryParameters);
       final now = DateTime.now();
       final bd = '1990-${now.month.toString().padLeft(2, '0')}-${now.day.toString().padLeft(2, '0')}T00:00:00';
@@ -113,5 +129,7 @@ void main() {
     expect(find.text('Mua gần nhất'), findsOneWidget);
     expect(find.textContaining('3 ngày trước · 12 đơn'), findsOneWidget);
     expect(find.text('Chưa mua'), findsWidgets);
+    expect(find.text('Kim cương'), findsOneWidget);
+    expect(find.textContaining('Hạng'), findsWidgets);
   });
 }

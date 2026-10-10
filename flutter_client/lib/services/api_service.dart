@@ -19353,6 +19353,30 @@ class ApiService implements PayrollApi {
     }
   }
 
+  /// Hạng thành viên + số khách mỗi hạng.
+  Future<Map<String, dynamic>> getPosCustomerTiers() async {
+    try {
+      final r = await http
+          .get(Uri.parse('$baseUrl/api/pos/customers/tiers'), headers: _headers)
+          .timeout(const Duration(seconds: 30));
+      return _handleResponse(r);
+    } catch (e) {
+      return _connectionFailure(e);
+    }
+  }
+
+  /// Lưu hạng thành viên ([tiers] rỗng = bỏ hạng).
+  Future<Map<String, dynamic>> savePosCustomerTiers(List<Map<String, dynamic>> tiers) async {
+    try {
+      final r = await http
+          .put(Uri.parse('$baseUrl/api/pos/customers/tiers'), headers: _headers, body: jsonEncode({'tiers': tiers}))
+          .timeout(const Duration(seconds: 30));
+      return _handleResponse(r);
+    } catch (e) {
+      return _connectionFailure(e);
+    }
+  }
+
   /// Sổ đối chiếu công nợ nhà cung cấp trong kỳ.
   Future<Map<String, dynamic>> getPosSupplierStatement(String id, DateTime from, DateTime to) async {
     try {
@@ -20286,6 +20310,8 @@ class ApiService implements PayrollApi {
     String? status,
     /// debt | purchase | points | name | recent | newest | birthday
     String? sort,
+    /// Tên hạng thành viên | none
+    String? tier,
   }) async {
     try {
       final q = <String, String>{'page': '$page', 'pageSize': '$pageSize'};
@@ -20297,6 +20323,7 @@ class ApiService implements PayrollApi {
       if (inactiveDays != null) q['inactiveDays'] = '$inactiveDays';
       if (status != null) q['status'] = status;
       if (sort != null) q['sort'] = sort;
+      if (tier != null) q['tier'] = tier;
       final uri = Uri.parse('$baseUrl/api/pos/customers')
           .replace(queryParameters: q);
       final response =
@@ -20756,6 +20783,7 @@ class ApiService implements PayrollApi {
   /// [scope]: pipeline (đang chào giá) · aftersale (đã chốt — chăm sóc sau bán) · all.
   Future<Map<String, dynamic>> getPosQuoteCareOverview({bool all = false, String? scope}) async {
     try {
+      final q = scope != null ? 'scope=$scope' : 'all=$all';
       final response = await http
           .get(Uri.parse('$baseUrl/api/pos/quotes/care-overview?$q'),
               headers: _headers)
@@ -20766,34 +20794,6 @@ class ApiService implements PayrollApi {
     }
   }
 
-  /// Báo giá khác + lịch chăm sóc trước đây của cùng khách (theo mã khách / SĐT).
-  Future<Map<String, dynamic>> getPosQuoteCustomerHistory(String id) async {
-    try {
-      final response = await http
-          .get(Uri.parse('$baseUrl/api/pos/quotes/$id/customer-history'),
-              headers: _headers)
-          .timeout(const Duration(seconds: 30));
-      return _handleResponse(response);
-    } catch (e) {
-      return _connectionFailure(e);
-    }
-  }
-
-  Future<Map<String, dynamic>> getPosQuoteActivities(String id) async {
-    try {
-      final response = await http
-          .get(Uri.parse('$baseUrl/api/pos/quotes/$id/activities'),
-      final q = scope != null ? 'scope=$scope' : 'all=$all';
-              headers: _headers)
-          .timeout(const Duration(seconds: 30));
-      return _handleResponse(response);
-    } catch (e) {
-      return _connectionFailure(e);
-    }
-  }
-
-  Future<Map<String, dynamic>> createPosQuoteActivity(
-    String id, {
   /// Hiệu quả chăm sóc theo nhân viên trong [days] ngày.
   Future<Map<String, dynamic>> getPosQuoteCareStaff({int days = 30}) async {
     try {
@@ -20861,6 +20861,33 @@ class ApiService implements PayrollApi {
     }
   }
 
+  /// Báo giá khác + lịch chăm sóc trước đây của cùng khách (theo mã khách / SĐT).
+  Future<Map<String, dynamic>> getPosQuoteCustomerHistory(String id) async {
+    try {
+      final response = await http
+          .get(Uri.parse('$baseUrl/api/pos/quotes/$id/customer-history'),
+              headers: _headers)
+          .timeout(const Duration(seconds: 30));
+      return _handleResponse(response);
+    } catch (e) {
+      return _connectionFailure(e);
+    }
+  }
+
+  Future<Map<String, dynamic>> getPosQuoteActivities(String id) async {
+    try {
+      final response = await http
+          .get(Uri.parse('$baseUrl/api/pos/quotes/$id/activities'),
+              headers: _headers)
+          .timeout(const Duration(seconds: 30));
+      return _handleResponse(response);
+    } catch (e) {
+      return _connectionFailure(e);
+    }
+  }
+
+  Future<Map<String, dynamic>> createPosQuoteActivity(
+    String id, {
     required String kind,
     required String content,
     DateTime? nextFollowUpAt,
