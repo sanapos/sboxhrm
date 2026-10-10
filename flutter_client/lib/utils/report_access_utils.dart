@@ -203,6 +203,10 @@ bool isApprovedPenaltyStatus(dynamic raw) {
   return key == 'approved' || key == 'autoapproved' || key == '1' || key == '3';
 }
 
+/// Phiếu phạt thu tiền mặt (đã có phiếu thu) — không trừ vào lương.
+bool isCashPenaltyTicket(Map<String, dynamic> t) =>
+    '${t['collectionMethod'] ?? t['CollectionMethod'] ?? ''}'.trim().toLowerCase() == 'cash';
+
 /// Phiếu hủy / từ chối — không tính vào KPI báo cáo (trừ khi lọc đúng trạng thái đó).
 bool isVoidAdvanceRequestStatus(AdvanceRequestStatus s) =>
     s == AdvanceRequestStatus.cancelled ||

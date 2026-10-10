@@ -22,6 +22,9 @@ abstract final class SboxFmt {
   /// 12.500.000
   static String number(num? v) => _int.format(v ?? 0);
 
+  /// Một chữ số thập phân khi cần (2,5 ngày; 1,5 giờ) — [number] làm tròn số nguyên.
+  static String decimal(num? v) => _dec1.format(v ?? 0);
+
   /// Rút gọn cho trục / thẻ: 950k · 12,5 tr · 1,2 tỷ.
   static String compact(num? v) {
     final x = (v ?? 0).toDouble();

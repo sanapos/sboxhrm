@@ -280,7 +280,8 @@ class _KpiTile extends StatelessWidget {
           ],
           Expanded(
             child: Text(d == null ? ' ' : tr(d.text),
-                maxLines: 1, overflow: TextOverflow.ellipsis, style: SboxType.captionStyle(dColor)),
+                // Điện thoại: ghi chú dài (vd «Đã chi … · Chờ chi …») được 2 dòng thay vì bị cắt.
+                maxLines: compact ? 2 : 1, overflow: TextOverflow.ellipsis, style: SboxType.captionStyle(dColor)),
           ),
         ]),
       ]),

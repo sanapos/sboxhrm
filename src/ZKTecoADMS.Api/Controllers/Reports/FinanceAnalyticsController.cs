@@ -238,7 +238,7 @@ public class FinanceAnalyticsController(
             if (string.Equals(format, "excel", StringComparison.OrdinalIgnoreCase))
             {
                 return ReportHelpers.ExcelFile("Ứng lương",
-                    new[] { "Mã NV", "Họ tên", "Phòng ban", "Số lần", "Đã duyệt", "Đã trả", "Dư nợ" },
+                    new[] { "Mã NV", "Họ tên", "Phòng ban", "Số lần", "Đã duyệt", "Đã chi", "Duyệt chưa chi" },
                     (ws, dataStartRow) => { int row = dataStartRow;
                         foreach (var i in byEmployee)
                         {

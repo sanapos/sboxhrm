@@ -14,7 +14,8 @@ import 'package:zkteco_flutter_client/l10n/app_tr.dart';
 
 import '../theme/sbox_tokens.dart';
 import '../widgets/sbox/sbox_report.dart';
-import '../widgets/sbox/sbox_charts.dart';
+import '../widgets/sbox/sbox_charts.dart';
+
 import '../utils/branch_filter_helper.dart';
 const _theme = HrmPageChrome.primaryNavy;
 
@@ -262,6 +263,11 @@ class _AdvanceReportScreenState extends State<AdvanceReportScreen> {
     final approvedAmt = f
         .where((r) => r.status == AdvanceRequestStatus.approved)
         .fold(0.0, (s, r) => s + r.payoutAmount);
+    // Bảng lương chỉ trừ phiếu ĐÃ CHI (theo ngày chi / tháng trừ) — tách khỏi phiếu duyệt chưa chi.
+    final paidAmt = f
+        .where((r) => r.status == AdvanceRequestStatus.approved && r.isPaid)
+        .fold(0.0, (s, r) => s + r.payoutAmount);
+    final unpaidAmt = approvedAmt - paidAmt;
     final empCount = f
         .where((r) => r.status == AdvanceRequestStatus.approved)
         .map((r) => r.employeeName)
@@ -287,9 +293,11 @@ class _AdvanceReportScreenState extends State<AdvanceReportScreen> {
             icon: Icons.check_circle_outline,
             color: SboxColors.success),
         ReportKpiItem(
-            label: 'Tổng đã ứng',
-            value: '${reportMoneyFmt.format(approvedAmt)}đ',
-            note: 'Trừ vào lương kỳ này',
+            label: 'Đã nhận',
+            value: '${reportMoneyFmt.format(paidAmt)}đ',
+            note: unpaidAmt > 0
+                ? 'Chờ chi ${reportMoneyFmt.format(unpaidAmt)}đ'
+                : (paidAmt > 0 ? 'Trừ vào lương khi chốt' : null),
             icon: Icons.payments_outlined,
             color: _theme),
       ];
@@ -310,7 +318,9 @@ class _AdvanceReportScreenState extends State<AdvanceReportScreen> {
       ReportKpiItem(
           label: 'Đã duyệt chi',
           value: '${reportMoneyFmt.format(approvedAmt)}đ',
-          note: '$approved yêu cầu',
+          note: unpaidAmt > 0
+              ? 'Đã chi ${reportMoneyFmt.format(paidAmt)}đ · Chờ chi ${reportMoneyFmt.format(unpaidAmt)}đ'
+              : '$approved yêu cầu · đã chi hết',
           icon: Icons.account_balance,
           color: SboxColors.success),
       ReportKpiItem(
@@ -364,7 +374,7 @@ class _AdvanceReportScreenState extends State<AdvanceReportScreen> {
         r.amount,
         r.payoutAmount,
         r.reason ?? '',
-        _statusLabel(r.status),
+        r.status == AdvanceRequestStatus.approved && r.isPaid ? 'Đã chi' : _statusLabel(r.status),
         r.approvedByName ?? '',
       ]);
     }
@@ -594,7 +604,7 @@ class _AdvanceReportScreenState extends State<AdvanceReportScreen> {
           'Duyệt: ${r.approvedByName}',
       ].where((s) => s != null && s.toString().isNotEmpty).join(' · '),
       accentColor: _theme,
-      statusLabel: _statusLabel(r.status),
+      statusLabel: r.status == AdvanceRequestStatus.approved && r.isPaid ? 'Đã chi' : _statusLabel(r.status),
       statusColor: _statusColor(r.status),
       icon: Icons.account_balance_wallet_outlined,
     );
@@ -621,15 +631,15 @@ class _AdvanceReportScreenState extends State<AdvanceReportScreen> {
             e['Department']?.toString() ??
             '';
         final count = e['totalRequests'] ?? e['TotalRequests'] ?? 0;
-        final amt = reportSafeDouble(e['totalApproved'] ??
-            e['TotalApproved'] ??
-            e['outstandingDebt'] ??
-            e['OutstandingDebt']);
+        final amt = reportSafeDouble(e['totalApproved'] ?? e['TotalApproved']);
+        final unpaid = reportSafeDouble(e['outstandingDebt'] ?? e['OutstandingDebt']);
         return ReportEmployeeSummaryCard(
           name: name,
           meta: dept.isNotEmpty ? dept : null,
           primaryValue: '${reportMoneyFmt.format(amt)}đ',
-          secondaryValue: '$count lần ứng',
+          secondaryValue: unpaid > 0
+              ? '$count lần ứng · chờ chi ${reportMoneyFmt.format(unpaid)}đ'
+              : '$count lần ứng',
           accentColor: _theme,
           onTap: () => setState(() {
             _viewTab = 0;

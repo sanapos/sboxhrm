@@ -286,6 +286,11 @@ class _BusinessTripReportScreenState extends State<BusinessTripReportScreen> {
         : (_summaryTotalCases ?? f.length);
 
     final empCount = f.map((c) => c['employeeName']?.toString() ?? '').where((n) => n.isNotEmpty).toSet().length;
+    // Tạm ứng của hồ sơ ghi nhận ngay khi NV xin — tách phần đã chi thật (phiếu chi) và phần chờ duyệt / chờ chi.
+    final paidAdv = f
+        .where((c) => c['advanceIsPaid'] == true)
+        .fold(0.0, (s, c) => s + reportSafeDouble(c['advanceAmount']));
+    final waitingAdv = totalAdv - paidAdv;
     // Chênh lệch = chi phí − tạm ứng: dương → công ty trả thêm cho NV; âm → NV hoàn lại.
     final balNote = totalBal > 0
         ? 'Công ty cần trả thêm cho NV'
@@ -300,6 +305,9 @@ class _BusinessTripReportScreenState extends State<BusinessTripReportScreen> {
       ReportKpiItem(
           label: 'Tổng tạm ứng',
           value: '${reportMoneyFmt.format(totalAdv)}đ',
+          note: waitingAdv > 0.5
+              ? 'Đã chi ${reportMoneyFmt.format(paidAdv)}đ · Chờ chi ${reportMoneyFmt.format(waitingAdv)}đ'
+              : (totalAdv > 0 ? 'Đã chi đủ' : null),
           icon: Icons.payments_outlined,
           color: SboxColors.warning),
       ReportKpiItem(

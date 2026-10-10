@@ -21,7 +21,7 @@ import 'package:zkteco_flutter_client/l10n/app_tr.dart';
 
 import '../theme/sbox_tokens.dart';
 import '../widgets/sbox/sbox_report.dart';
-import '../widgets/sbox/sbox_charts.dart';
+import '../widgets/sbox/sbox_charts.dart';
 import '../utils/branch_filter_helper.dart';
 const _theme = HrmPageChrome.primaryNavy;
 
@@ -52,11 +52,21 @@ class _TravelTripRow {
     return arrive!.difference(start).inMinutes / 60.0;
   }
 
+  /// Bảng lương chỉ tính chuyến có CẢ hai lượt chấm đã duyệt (travelHoursByEmployeeDateKey).
+  bool get isPayrollApproved {
+    bool ok(MobileAttendanceRecord? r) => r != null && (r.status == 'approved' || r.status == 'auto_approved');
+    return isComplete && ok(startRecord) && ok(arriveRecord);
+  }
+
   String get statusLabel {
     if (startRecord != null && arriveRecord == null) return 'Thiếu đến điểm';
     if (startRecord == null && arriveRecord != null) return 'Thiếu bắt đầu đi';
     if (!isComplete) return 'Thiếu chấm';
-    final s = startRecord?.status ?? arriveRecord?.status ?? '';
+    // Lượt «kém» nhất quyết định (đi đã duyệt + đến chờ duyệt = Chờ duyệt — chưa vào lương).
+    final ss = [startRecord?.status ?? '', arriveRecord?.status ?? ''];
+    final s = ss.contains('rejected')
+        ? 'rejected'
+        : (ss.contains('pending') ? 'pending' : (startRecord?.status ?? arriveRecord?.status ?? ''));
     if (s == 'approved' || s == 'auto_approved') return 'Đã duyệt';
     if (s == 'pending') return 'Chờ duyệt';
     if (s == 'rejected') return 'Từ chối';
@@ -355,14 +365,14 @@ class _TravelHoursReportScreenState extends State<TravelHoursReportScreen> {
       dur[t.hours < 0.5 ? 0 : (t.hours < 1 ? 1 : (t.hours < 2 ? 2 : 3))]++;
     }
     final days = byDay.keys.toList()..sort();
-    String h(num? v) => '${SboxFmt.number(v)} giờ';
+    String h(num? v) => '${SboxFmt.decimal(v)} giờ';
     return [
       if (days.isNotEmpty)
         SboxChartCard(
           title: 'Giờ di chuyển theo ngày',
           child: SboxBarChart(
             valueFormat: h,
-            axisFormat: (v) => SboxFmt.number(v),
+            axisFormat: (v) => SboxFmt.decimal(v),
             labels: [for (final d in days) sboxDayLabel(d)],
             series: [SboxSeries(name: 'Giờ di chuyển', values: [for (final d in days) byDay[d]!])],
           ),
@@ -406,6 +416,7 @@ class _TravelHoursReportScreenState extends State<TravelHoursReportScreen> {
   List<ReportKpiItem> _buildKpis(List<_TravelTripRow> filtered) {
     final complete = filtered.where((t) => t.isComplete && t.hours > 0).toList();
     final hours = complete.fold<double>(0, (s, t) => s + t.hours);
+    final payHours = complete.where((t) => t.isPayrollApproved).fold<double>(0, (s, t) => s + t.hours);
     final incomplete = filtered.where((t) => !t.isComplete).length;
     final empCount = filtered.map((t) => t.employeeId).toSet().length;
     final completePct = filtered.isEmpty ? null : (complete.length / filtered.length * 100).round();
@@ -420,7 +431,11 @@ class _TravelHoursReportScreenState extends State<TravelHoursReportScreen> {
       ReportKpiItem(
         label: 'Tổng giờ',
         value: _fmtHours(hours),
-        note: complete.isEmpty ? null : 'TB ${_fmtHours(hours / complete.length)}/chuyến',
+        note: complete.isEmpty
+            ? null
+            : ((hours - payHours).abs() >= 1 / 60
+                ? 'Tính lương ${_fmtHours(payHours)} (đã duyệt)'
+                : 'TB ${_fmtHours(hours / complete.length)}/chuyến'),
         icon: Icons.schedule,
         color: _theme,
       ),

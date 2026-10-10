@@ -23,6 +23,14 @@ class AuthProvider extends ChangeNotifier {
   String? _error;
 
   User? get user => _user;
+
+  /// Chỉ dùng trong test: giả lập người đăng nhập (vai trò quản lý / nhân viên).
+  @visibleForTesting
+  void debugSetUser(User? u) {
+    _user = u;
+    _token = u == null ? null : 'test-token';
+    notifyListeners();
+  }
   User? get currentUser => _user;
   String? get token => _token;
   bool get isLoading => _isLoading;

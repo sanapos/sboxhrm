@@ -15,7 +15,7 @@ import 'package:zkteco_flutter_client/l10n/app_tr.dart';
 
 import '../theme/sbox_tokens.dart';
 import '../widgets/sbox/sbox_report.dart';
-import '../widgets/sbox/sbox_charts.dart';
+import '../widgets/sbox/sbox_charts.dart';
 import '../utils/branch_filter_helper.dart';
 const _theme = HrmPageChrome.primaryNavy;
 
@@ -273,10 +273,20 @@ class _LeaveReportScreenState extends State<LeaveReportScreen> {
   }
 
   /// Số ngày nghỉ của đơn — nghỉ nửa ca tính 0,5 ngày.
-  double _leaveDays(Map<String, dynamic> l) {
+  /// [inPeriod]: chỉ đếm phần nằm trong kỳ báo cáo (đơn 28/9–3/10 trong báo cáo tháng 10 = 3 ngày).
+  double _leaveDays(Map<String, dynamic> l, {bool inPeriod = false}) {
     try {
-      final start = parseApiCalendarDate(l['startDate']);
-      final end = parseApiCalendarDate(l['endDate']);
+      var start = parseApiCalendarDate(l['startDate']);
+      var end = parseApiCalendarDate(l['endDate']);
+      if (inPeriod && start != null && end != null) {
+        final from = DateTime(_from.year, _from.month, _from.day);
+        final to = DateTime(_to.year, _to.month, _to.day);
+        start = DateTime(start.year, start.month, start.day);
+        end = DateTime(end.year, end.month, end.day);
+        if (start.isBefore(from)) start = from;
+        if (end.isAfter(to)) end = to;
+        if (end.isBefore(start)) return 0;
+      }
       final days = (start == null || end == null) ? 1 : end.difference(start).inDays + 1;
       final half = l['isHalfShift'] == true || l['IsHalfShift'] == true;
       return half ? days * 0.5 : days.toDouble();
@@ -285,7 +295,7 @@ class _LeaveReportScreenState extends State<LeaveReportScreen> {
     }
   }
 
-  String _daysText(num v) => '${SboxFmt.number(v)} ngày';
+  String _daysText(num v) => '${SboxFmt.decimal(v)} ngày';
 
   /// Biểu đồ dashboard: số người nghỉ theo ngày, cơ cấu loại nghỉ, trạng thái đơn, nghỉ nhiều nhất.
   List<Widget> _buildCharts() {
@@ -305,7 +315,7 @@ class _LeaveReportScreenState extends State<LeaveReportScreen> {
       perDay[d] = 0;
     }
     for (final l in f) {
-      final d = _leaveDays(l);
+      final d = _leaveDays(l, inPeriod: true);
       final t = _leaveTypeName(l['leaveType'] ?? l['type']);
       byType[t] = (byType[t] ?? 0) + d;
       final n = l['employeeName']?.toString() ?? '—';
@@ -336,7 +346,7 @@ class _LeaveReportScreenState extends State<LeaveReportScreen> {
           subtitle: 'Đơn đã duyệt',
           wide: true,
           child: SboxBarChart(
-            valueFormat: (v) => '${SboxFmt.number(v)} người',
+            valueFormat: (v) => '${SboxFmt.decimal(v)} người',
             labels: [for (final d in days) sboxDayLabel(d)],
             series: [SboxSeries(name: 'Người nghỉ', values: [for (final d in days) perDay[d]!], color: SboxColors.violet)],
           ),
@@ -347,7 +357,7 @@ class _LeaveReportScreenState extends State<LeaveReportScreen> {
           subtitle: 'Đơn đã duyệt',
           child: SboxDonutChart(
             valueFormat: (v) => _daysText(v ?? 0),
-            centerValue: SboxFmt.number(total),
+            centerValue: SboxFmt.decimal(total),
             centerLabel: 'ngày nghỉ',
             slices: [for (final e in byType.entries) SboxSlice(e.key, e.value)],
           ),
@@ -381,7 +391,7 @@ class _LeaveReportScreenState extends State<LeaveReportScreen> {
     final pending = f.where((l) => _normalizeStatus(l['status']) == 0).length;
     final approvedRows = f.where((l) => _normalizeStatus(l['status']) == 1).toList();
     final approved = approvedRows.length;
-    final totalDays = approvedRows.fold<double>(0, (s, l) => s + _leaveDays(l));
+    final totalDays = approvedRows.fold<double>(0, (s, l) => s + _leaveDays(l, inPeriod: true));
     final decided = _statsFiltered.where((l) {
       final s = _normalizeStatus(l['status']);
       return s == 1 || s == 2;
@@ -430,7 +440,7 @@ class _LeaveReportScreenState extends State<LeaveReportScreen> {
       ReportKpiItem(
           label: 'Tổng ngày nghỉ',
           value: _daysText(totalDays),
-          note: empCount == 0 ? null : 'TB ${SboxFmt.number(totalDays / empCount)} ngày/NV',
+          note: empCount == 0 ? null : 'TB ${SboxFmt.decimal(totalDays / empCount)} ngày/NV',
           icon: Icons.event_busy,
           color: SboxColors.violet),
       ReportKpiItem(
@@ -721,12 +731,12 @@ class _LeaveReportScreenState extends State<LeaveReportScreen> {
         final dept = e['departmentName']?.toString() ??
             e['DepartmentName']?.toString() ??
             '';
-        final days = e['totalDays'] ?? e['TotalDays'] ?? 0;
+        final days = reportSafeDouble(e['totalDays'] ?? e['TotalDays']);
         final requests = e['totalRequests'] ?? e['TotalRequests'] ?? 0;
         return ReportEmployeeSummaryCard(
           name: name,
           meta: dept.isNotEmpty ? dept : null,
-          primaryValue: '$days ngày nghỉ',
+          primaryValue: '${_daysText(days)} nghỉ',
           secondaryValue: '$requests đơn',
           accentColor: _theme,
           onTap: () => setState(() {

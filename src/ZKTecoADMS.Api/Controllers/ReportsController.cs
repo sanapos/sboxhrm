@@ -1875,8 +1875,10 @@ public class ReportsController(
         try
         {
             var storeId = RequiredStoreId;
-            var start = startDate ?? new DateTime(DateTime.Now.Year, 1, 1);
-            var end = endDate ?? DateTime.Today;
+            // Theo NGÀY (client gửi kèm giờ hiện tại) — tránh lệch / cắt mất ngày cuối.
+            var start = (startDate ?? new DateTime(DateTime.Now.Year, 1, 1)).Date;
+            var end = (endDate ?? DateTime.Today).Date;
+            var endExclusive = end.AddDays(1);
 
             var employeesQuery = dbContext.Employees
                 .Where(e => e.StoreId == storeId && e.Deleted == null);
@@ -1893,7 +1895,7 @@ public class ReportsController(
 
             var leaves = await dbContext.Leaves
                 .Where(l => l.StoreId == storeId
-                    && l.StartDate <= end
+                    && l.StartDate < endExclusive
                     && l.EndDate >= start
                     && employeeUserIds.Keys.Contains(l.EmployeeUserId))
                 .ToListAsync();
@@ -1902,7 +1904,7 @@ public class ReportsController(
 
             var reportItems = new List<LeaveSummaryItemDto>();
             var totalLeaveRequests = 0;
-            var totalLeaveDays = 0;
+            var totalLeaveDays = 0.0;
             var approvedCount = 0;
             var rejectedCount = 0;
             var pendingCount = 0;
@@ -1922,12 +1924,15 @@ public class ReportsController(
                     .Where(l => l.Status != LeaveStatus.Rejected && l.Status != LeaveStatus.Cancelled)
                     .ToList();
 
-                var usedDays = 0;
+                // Chỉ phần nằm trong kỳ; nghỉ nửa ca = 0,5 ngày (khớp màn báo cáo / phép năm).
+                var usedDays = 0.0;
                 foreach (var leave in approved)
                 {
-                    var leaveStart = leave.StartDate < start ? start : leave.StartDate;
-                    var leaveEnd = leave.EndDate > end ? end : leave.EndDate;
-                    usedDays += (int)(leaveEnd - leaveStart).TotalDays + 1;
+                    var leaveStart = leave.StartDate.Date < start ? start : leave.StartDate.Date;
+                    var leaveEnd = leave.EndDate.Date > end ? end : leave.EndDate.Date;
+                    var days = (leaveEnd - leaveStart).Days + 1;
+                    if (days <= 0) continue;
+                    usedDays += leave.IsHalfShift ? days * 0.5 : days;
                 }
 
                 totalLeaveRequests += activeLeaves.Count;
@@ -1953,11 +1958,21 @@ public class ReportsController(
                     TotalRequests = activeLeaves.Count,
                     TotalDays = usedDays,
                     UsedDays = usedDays,
-                    RemainingDays = 12 - usedDays, // Assuming 12 days/year default
+                    // Phép năm còn lại thật (chính sách cửa hàng, thâm niên) — điền sau vòng lặp.
+                    RemainingDays = 0,
                     ApprovedCount = approved.Count,
                     RejectedCount = rejected.Count,
                     PendingCount = pending.Count
                 });
+            }
+
+            if (HttpContext?.RequestServices.GetService(typeof(IAnnualLeaveBalanceService)) is IAnnualLeaveBalanceService balances)
+            {
+                foreach (var item in reportItems)
+                {
+                    var bal = await balances.GetBalanceAsync(item.EmployeeId, HttpContext.RequestAborted);
+                    item.RemainingDays = bal is { Eligible: true } ? (double)bal.RemainingDays : 0;
+                }
             }
 
             var report = new LeaveSummaryReportDto

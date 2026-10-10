@@ -15,7 +15,8 @@ import 'package:zkteco_flutter_client/l10n/app_tr.dart';
 
 import '../theme/sbox_tokens.dart';
 import '../widgets/sbox/sbox_report.dart';
-import '../widgets/sbox/sbox_charts.dart';
+import '../widgets/sbox/sbox_charts.dart';
+
 import '../utils/branch_filter_helper.dart';
 const _theme = HrmPageChrome.primaryNavy;
 const _accentDark = SboxColors.brand800;
@@ -247,6 +248,14 @@ class _PenaltyReportScreenState extends State<PenaltyReportScreen> {
         .where((t) => isApprovedPenaltyStatus(t['status']))
         .fold(0.0, (s, t) => s + reportSafeDouble(t['amount']));
     final approvedPct = totalAmt <= 0 ? 0 : (approvedAmt / totalAmt * 100).round();
+    // Bảng lương chỉ trừ phiếu đã duyệt KHÔNG thu tiền mặt (CollectionMethod != Cash).
+    final cashAmt = f
+        .where((t) => isApprovedPenaltyStatus(t['status']) && isCashPenaltyTicket(t))
+        .fold(0.0, (s, t) => s + reportSafeDouble(t['amount']));
+    final salaryAmt = approvedAmt - cashAmt;
+    final approvedNote = cashAmt > 0
+        ? 'Trừ lương ${reportMoneyFmt.format(salaryAmt)}đ · Thu tiền mặt ${reportMoneyFmt.format(cashAmt)}đ'
+        : (approvedAmt > 0 ? 'Trừ vào lương · $approvedPct% tổng tiền phạt' : '$approvedPct% tổng tiền phạt');
     final avg = total == 0 ? 0.0 : totalAmt / total;
 
     if (!_teamView) {
@@ -271,7 +280,7 @@ class _PenaltyReportScreenState extends State<PenaltyReportScreen> {
         ReportKpiItem(
             label: 'Tiền đã duyệt',
             value: '${reportMoneyFmt.format(approvedAmt)}đ',
-            note: '$approvedPct% tổng tiền phạt',
+            note: approvedNote,
             icon: Icons.payments_outlined,
             color: _accentDark),
       ];
@@ -303,7 +312,7 @@ class _PenaltyReportScreenState extends State<PenaltyReportScreen> {
       ReportKpiItem(
           label: 'Tiền đã duyệt',
           value: '${reportMoneyFmt.format(approvedAmt)}đ',
-          note: '$approvedPct% tổng tiền phạt',
+          note: approvedNote,
           icon: Icons.payments_outlined,
           color: SboxColors.success),
     ];

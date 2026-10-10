@@ -237,7 +237,7 @@ public class ExecutiveReportsController(
                 AddRow("Đơn chờ duyệt", r.Leave.PendingLeaves);
 
                 AddSection("D. Lương");
-                AddRow("Số bảng lương", r.Payroll.PayslipCount);
+                AddRow("Số phiếu lương đã chốt", r.Payroll.PayslipCount);
                 AddRow("Tổng Gross", r.Payroll.TotalGross, isMoney: true);
                 AddRow("Tổng Net", r.Payroll.TotalNet, isMoney: true);
                 AddRow("Tổng OT/Holiday/Night", r.Payroll.TotalOvertime, isMoney: true);
@@ -247,7 +247,7 @@ public class ExecutiveReportsController(
                 AddSection("E. Công nợ / Tài chính");
                 AddRow("Phạt đã duyệt", r.Finance.PenaltyApproved, isMoney: true);
                 AddRow("Ứng lương đã duyệt", r.Finance.AdvanceApproved, isMoney: true);
-                AddRow("Ứng lương chưa trả", r.Finance.AdvanceOutstanding, isMoney: true);
+                AddRow("Ứng lương duyệt chưa chi", r.Finance.AdvanceOutstanding, isMoney: true);
                 AddRow("Tiền ăn phát sinh", r.Finance.MealCharge, isMoney: true);
                 AddRow("Tiền ăn đã thu", r.Finance.MealPayment, isMoney: true);
                 AddRow("Tiền ăn còn nợ", r.Finance.MealOutstanding, isMoney: true);

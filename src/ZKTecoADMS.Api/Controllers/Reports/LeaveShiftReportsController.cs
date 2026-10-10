@@ -1,5 +1,6 @@
 using ZKTecoADMS.Domain.Entities;
 using ZKTecoADMS.Application.Helpers;
+using ZKTecoADMS.Application.Interfaces;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
@@ -78,12 +79,27 @@ public class LeaveShiftReportsController(
                 return half ? days * 0.5 : days;
             }
 
+            // Năm hiện tại: số dư phép năm thật (chính sách cửa hàng, thâm niên, chuyển năm trước, điều chỉnh)
+            // — khớp màn đơn nghỉ. Năm cũ: giữ định mức hồ sơ làm việc.
+            var balances = y == ReportHelpers.NowVn().Year
+                ? HttpContext?.RequestServices.GetService(typeof(IAnnualLeaveBalanceService)) as IAnnualLeaveBalanceService
+                : null;
+
             var items = new List<LeaveBalanceItemDto>();
             foreach (var e in employees)
             {
                 infoByEmp.TryGetValue(e.Id, out var info);
                 var entitlement = info?.PaidLeaveDaysPerYear ?? 12m;
                 var balanceRemaining = info?.BalancedPaidLeaveDays ?? 0m;
+                if (balances != null)
+                {
+                    var bal = await balances.GetBalanceAsync(e.Id, ct);
+                    if (bal != null)
+                    {
+                        entitlement = bal.Eligible ? (bal.EntitlementDays ?? 0m) + bal.CarryDays + bal.AdjustDays : 0m;
+                        balanceRemaining = bal.Eligible ? bal.RemainingDays : 0m;
+                    }
+                }
 
                 var empLeaves = e.ApplicationUserId.HasValue
                     ? leaves.Where(l => l.EmployeeUserId == e.ApplicationUserId.Value).ToList()
