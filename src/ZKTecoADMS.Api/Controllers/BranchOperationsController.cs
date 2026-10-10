@@ -5,6 +5,8 @@ using Microsoft.EntityFrameworkCore;
 using ZKTecoADMS.Api.Authorization;
 using ZKTecoADMS.Api.Controllers.Base;
 using ZKTecoADMS.Application.Constants;
+using ZKTecoADMS.Application.Helpers;
+using ZKTecoADMS.Application.Services;
 using ZKTecoADMS.Application.Interfaces;
 using ZKTecoADMS.Application.Models;
 using ZKTecoADMS.Domain.Entities;
@@ -452,12 +454,13 @@ public class BranchOperationsController(ZKTecoDbContext db, IBranchContext branc
 
     /// <summary>So sánh các chi nhánh: doanh thu, lợi nhuận gộp, chi phí, lương, lợi nhuận ròng, tồn kho, nhân sự.</summary>
     [HttpGet("reports/compare")]
-    [RequireModulePermission("PosSalesReport", ModulePermissionAction.View)]
+    // Có lãi ròng, chi phí, quỹ lương từng chi nhánh → quyền «Lãi lỗ» (thu ngân chỉ có báo cáo bán hàng).
+    [RequireModulePermission("PosReportPnl", ModulePermissionAction.View)]
     public async Task<ActionResult<AppResponse<object>>> Compare([FromQuery] DateTime? from, [FromQuery] DateTime? to)
     {
         var storeId = RequiredStoreId;
         if (!branchCtx.StoreUsesBranches) return Ok(AppResponse<object>.Fail("Cửa hàng chưa tạo chi nhánh"));
-        var (fromUtc, toUtc, fromVn, toVn) = Range(from, to);
+        var (fromUtc, toUtc, fromVn, toVn, hour) = await RangeAsync(storeId, from, to);
         var all = await BranchStockService.GetStoreBranchesAsync(db, storeId);
         var branches = all.Where(b => branchCtx.CanAccess(b.Id)).ToList();
         var kpis = await ComputeKpisAsync(storeId, branches, fromUtc, toUtc, fromVn, toVn);
@@ -477,7 +480,7 @@ public class BranchOperationsController(ZKTecoDbContext db, IBranchContext branc
         {
             branchId = b.Id,
             name = b.Name,
-            values = days.Select(d => daily.Where(x => x.B == b.Id && x.At.AddHours(7).Date == d).Sum(x => x.Net)).ToList(),
+            values = days.Select(d => daily.Where(x => x.B == b.Id && BizDay(x.At, hour) == d).Sum(x => x.Net)).ToList(),
         }).ToList();
 
         return Ok(AppResponse<object>.Success(new
@@ -492,7 +495,7 @@ public class BranchOperationsController(ZKTecoDbContext db, IBranchContext branc
 
     /// <summary>Tổng quan 1 chi nhánh: KPI + so kỳ trước + doanh thu / lợi nhuận theo ngày + top hàng, NV + kho.</summary>
     [HttpGet("reports/overview/{branchId:guid}")]
-    [RequireModulePermission("PosSalesReport", ModulePermissionAction.View)]
+    [RequireModulePermission("PosReportPnl", ModulePermissionAction.View)]
     public async Task<ActionResult<AppResponse<object>>> Overview(Guid branchId, [FromQuery] DateTime? from, [FromQuery] DateTime? to)
     {
         var storeId = RequiredStoreId;
@@ -502,7 +505,7 @@ public class BranchOperationsController(ZKTecoDbContext db, IBranchContext branc
         var b = all.FirstOrDefault(x => x.Id == branchId);
         if (b == null) return Ok(AppResponse<object>.Fail("Không tìm thấy chi nhánh"));
 
-        var (fromUtc, toUtc, fromVn, toVn) = Range(from, to);
+        var (fromUtc, toUtc, fromVn, toVn, hour) = await RangeAsync(storeId, from, to);
         var span = (toVn.Date - fromVn.Date).Days + 1;
         var cur = (await ComputeKpisAsync(storeId, [b], fromUtc, toUtc, fromVn, toVn)).First();
         var prev = (await ComputeKpisAsync(storeId, [b], fromUtc.AddDays(-span), fromUtc, fromVn.AddDays(-span), fromVn.AddDays(-1), includeStock: false)).First();
@@ -519,7 +522,7 @@ public class BranchOperationsController(ZKTecoDbContext db, IBranchContext branc
         var daily = new List<object>();
         for (var d = fromVn.Date; d <= toVn.Date; d = d.AddDays(1))
         {
-            var dayOrders = orders.Where(o => o.At.AddHours(7).Date == d).ToList();
+            var dayOrders = orders.Where(o => BizDay(o.At, hour) == d).ToList();
             var rev = dayOrders.Sum(o => o.Net);
             var cogs = dayOrders.Sum(o => cogsByOrder.GetValueOrDefault(o.Id));
             daily.Add(new { date = d.ToString("yyyy-MM-dd"), revenue = rev, profit = rev - cogs, orders = dayOrders.Count });
@@ -575,16 +578,28 @@ public class BranchOperationsController(ZKTecoDbContext db, IBranchContext branc
         }));
     }
 
-    private static (DateTime fromUtc, DateTime toUtc, DateTime fromVn, DateTime toVn) Range(DateTime? from, DateTime? to)
+    /// <summary>
+    /// Kỳ báo cáo theo ngày kinh doanh — cùng giờ cắt ngày (Thiết lập bán hàng) với báo cáo doanh thu / lãi lỗ,
+    /// để tổng các chi nhánh khớp báo cáo cửa hàng (trước đây luôn cắt lúc 0h).
+    /// </summary>
+    private async Task<(DateTime fromUtc, DateTime toUtc, DateTime fromVn, DateTime toVn, int hour)> RangeAsync(
+        Guid storeId, DateTime? from, DateTime? to)
     {
-        var todayVn = DateTime.UtcNow.AddHours(7).Date;
-        var fromVn = (from ?? todayVn.AddDays(-29)).Date;
-        var toVn = (to ?? todayVn).Date;
+        var hour = Math.Clamp(await db.PosStoreSellSettings.AsNoTracking()
+            .Where(s => s.StoreId == storeId && s.Deleted == null)
+            .Select(s => (int?)s.ReportDayStartHour)
+            .FirstOrDefaultAsync() ?? 0, 0, 23);
+        var todayBiz = VnTimeHelper.ResolveBusinessDate(VnTimeHelper.NowVn(), hour);
+        var fromVn = (from ?? todayBiz.AddDays(-29)).Date;
+        var toVn = (to ?? todayBiz).Date;
         if (toVn < fromVn) (fromVn, toVn) = (toVn, fromVn);
         if ((toVn - fromVn).Days > 366) fromVn = toVn.AddDays(-366);
-        return (DateTime.SpecifyKind(fromVn.AddHours(-7), DateTimeKind.Utc),
-                DateTime.SpecifyKind(toVn.AddDays(1).AddHours(-7), DateTimeKind.Utc), fromVn, toVn);
+        return (DateTime.SpecifyKind(fromVn.AddHours(hour - 7), DateTimeKind.Utc),
+                DateTime.SpecifyKind(toVn.AddDays(1).AddHours(hour - 7), DateTimeKind.Utc), fromVn, toVn, hour);
     }
+
+    /// <summary>Ngày kinh doanh của thời điểm UTC (giờ VN trừ giờ cắt ngày).</summary>
+    private static DateTime BizDay(DateTime utc, int hour) => utc.AddHours(7 - hour).Date;
 
     private static readonly string[] PosMarkers =
     [
@@ -618,15 +633,31 @@ public class BranchOperationsController(ZKTecoDbContext db, IBranchContext branc
         var cogs = await PosReportMoney.CogsByOrderAsync(db, storeId, orderIds);
         var orderBranch = orders.ToDictionary(o => o.Id, o => o.B);
 
+        // Phiếu thu chi lưu giờ VN (TransactionDate) → khung giờ VN cùng giờ cắt ngày.
+        var cashFrom = fromUtc.AddHours(7);
+        var cashTo = toUtc.AddHours(7);
         var cash = await db.CashTransactions.AsNoTracking()
             .Where(c => c.StoreId == storeId && c.Deleted == null && c.IsActive && c.Status == CashTransactionStatus.Completed &&
-                        c.TransactionDate >= fromUtc && c.TransactionDate < toUtc && ids.Contains(c.BranchId ?? hq))
-            .Select(c => new { B = c.BranchId ?? hq, c.Type, c.Amount, Note = c.InternalNote ?? "" })
+                        c.TransactionDate >= cashFrom && c.TransactionDate < cashTo && ids.Contains(c.BranchId ?? hq))
+            .Select(c => new
+            {
+                B = c.BranchId ?? hq, c.Type, c.Amount, Note = c.InternalNote ?? "", Source = c.SourceType ?? "",
+                Category = c.Category != null ? c.Category.Name : null,
+            })
             .ToListAsync();
+        // Hàng khách trả của các đơn trong kỳ (thông tin — Total của đơn đã trừ sẵn, không trừ lần nữa).
+        var returned = await PosSaleReturnLedger.ReturnedByOrderAsync(db, storeId, orderIds);
 
-        // Lương theo chi nhánh của NV
-        var months = new HashSet<(int, int)>();
-        for (var d = new DateTime(fromVn.Year, fromVn.Month, 1); d <= toVn; d = d.AddMonths(1)) months.Add((d.Year, d.Month));
+        // Lương theo chi nhánh của NV — phân bổ theo số ngày của tháng nằm trong kỳ
+        // (trước đây kỳ 30 ngày vắt 2 tháng cộng trọn lương 2 tháng).
+        var monthShare = new Dictionary<(int, int), decimal>();
+        for (var d = new DateTime(fromVn.Year, fromVn.Month, 1); d <= toVn; d = d.AddMonths(1))
+        {
+            var mStart = d < fromVn.Date ? fromVn.Date : d;
+            var mEndEx = d.AddMonths(1) > toVn.Date.AddDays(1) ? toVn.Date.AddDays(1) : d.AddMonths(1);
+            monthShare[(d.Year, d.Month)] = (decimal)(mEndEx - mStart).Days / DateTime.DaysInMonth(d.Year, d.Month);
+        }
+        var months = monthShare.Keys.ToHashSet();
         var years = months.Select(m => m.Item1).Distinct().ToList();
         var payslips = await db.Payslips.AsNoTracking()
             .Where(p => p.StoreId == storeId && p.Deleted == null && p.Status != PayslipStatus.Cancelled && years.Contains(p.Year))
@@ -662,15 +693,28 @@ public class BranchOperationsController(ZKTecoDbContext db, IBranchContext branc
             var revenue = bo.Sum(o => o.Net);
             var cg = bo.Sum(o => cogs.GetValueOrDefault(o.Id));
             var bc = cash.Where(c => c.B == b.Id).ToList();
-            bool IsPos(string note) => PosMarkers.Any(m => note.StartsWith(m, StringComparison.OrdinalIgnoreCase));
-            bool IsPayslip(string note) => note.StartsWith("phiếu lương #", StringComparison.OrdinalIgnoreCase);
-            var refunds = bc.Where(c => c.Type == CashTransactionType.Expense &&
-                                        c.Note.StartsWith(PosFinanceSyncHelper.CustomerReturnMarker, StringComparison.OrdinalIgnoreCase))
-                .Sum(c => c.Amount);
-            var otherIncome = bc.Where(c => c.Type == CashTransactionType.Income && !IsPos(c.Note) && !IsPayslip(c.Note)).Sum(c => c.Amount);
-            var expenses = bc.Where(c => c.Type == CashTransactionType.Expense && !IsPos(c.Note) && !IsPayslip(c.Note)).Sum(c => c.Amount);
-            var payroll = payslips.Where(p => (p.EmpBranch ?? hq) == b.Id && months.Contains((p.Year, p.Month))).Sum(p => p.GrossSalary);
-            var gross = revenue - refunds - cg;
+            // Không phải lãi / lỗ: tiền bán, thu nợ, nhập hàng, trả hàng, cọc (đã nằm trong doanh thu / giá vốn)
+            // — nhận theo nguồn phiếu, phiếu cũ theo ghi chú / danh mục như báo cáo Lãi lỗ.
+            bool IsPos(string note, string source, string? category) =>
+                (source.StartsWith("pos_", StringComparison.OrdinalIgnoreCase))
+                || PosMarkers.Any(m => note.StartsWith(m, StringComparison.OrdinalIgnoreCase))
+                || category is "Bán hàng" or "Thu nợ khách" or "Cọc đặt chỗ" or "Thu trả hàng NCC"
+                    or "Nhập hàng" or "Trả hàng khách" or "Hoàn cọc đặt chỗ";
+            // Chi lương / chi ứng lương: đã nằm trong «Lương» (phiếu lương) — không cộng hai lần.
+            bool IsPayroll(string note, string source) =>
+                source is CashSources.Payslip or CashSources.Advance
+                || note.StartsWith("phiếu lương #", StringComparison.OrdinalIgnoreCase);
+            var refunds = bo.Sum(o => returned.TryGetValue(o.Id, out var r) ? r.Refund : 0);
+            var tripRefund = bc.Where(c => c.Type == CashTransactionType.Income && c.Source == CashSources.TripRefund).Sum(c => c.Amount);
+            var otherIncome = bc.Where(c => c.Type == CashTransactionType.Income && c.Source != CashSources.TripRefund
+                                            && !IsPos(c.Note, c.Source, c.Category) && !IsPayroll(c.Note, c.Source)).Sum(c => c.Amount);
+            var expenses = bc.Where(c => c.Type == CashTransactionType.Expense
+                                         && !IsPos(c.Note, c.Source, c.Category) && !IsPayroll(c.Note, c.Source)).Sum(c => c.Amount)
+                           - tripRefund;
+            var payroll = Math.Round(payslips.Where(p => (p.EmpBranch ?? hq) == b.Id && months.Contains((p.Year, p.Month)))
+                .Sum(p => p.GrossSalary * monthShare[(p.Year, p.Month)]), 0);
+            // Lãi gộp = doanh thu thuần − giá vốn thuần (như báo cáo Lãi lỗ; trước đây trừ thêm tiền hoàn → trừ 2 lần).
+            var gross = revenue - cg;
             result.Add(new BranchKpiDto(
                 b.Id, b.Code, b.Name, b.IsHeadquarter,
                 revenue, bo.Count, bo.Count == 0 ? 0 : Math.Round(revenue / bo.Count, 0), refunds, cg, gross,

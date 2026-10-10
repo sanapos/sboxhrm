@@ -618,7 +618,7 @@ public sealed class AiAssistantActions(
                         .Select(r => new
                         {
                             id = r.Id, ma = r.TransactionCode, loai = r.Type == CashTransactionType.Income ? "thu" : "chi", so_tien = r.Amount,
-                            ngay = r.TransactionDate.AddHours(7).ToString("yyyy-MM-dd"), noi_dung = r.Description,
+                            ngay = r.TransactionDate.ToString("yyyy-MM-dd") /* đã là giờ VN */, noi_dung = r.Description,
                             sua_duoc = !ZKTecoADMS.Application.Services.CashSources.IsLinked(r.SourceType),
                         }),
                 };

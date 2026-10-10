@@ -2103,7 +2103,8 @@ class _MainLayoutState extends State<MainLayout> with WidgetsBindingObserver {
       group: 'Báo cáo kinh doanh',
       showInSidebar: true,
       themeColor: HrmPageChrome.primaryNavy,
-      moduleCode: 'PosSalesReport',
+      // Có lãi ròng, chi phí, quỹ lương → quyền «Lãi lỗ» (khớp API).
+      moduleCode: 'PosReportPnl',
     ),
     NavItem(
       icon: Icons.history,

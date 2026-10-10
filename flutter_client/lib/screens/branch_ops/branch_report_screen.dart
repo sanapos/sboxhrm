@@ -96,9 +96,10 @@ class _BranchReportScreenState extends State<BranchReportScreen> {
               _table(),
               const SizedBox(height: 10),
               Text(
-                tr('Doanh thu = tổng đơn hoàn tất (chưa VAT). Lãi gộp = doanh thu − trả hàng − giá vốn. '
-                    'Chi phí = phiếu chi thủ công (không gồm nhập hàng / trả NCC / lương). '
-                    'Lương = lương gộp các phiếu lương của nhân viên thuộc chi nhánh trong các tháng của kỳ. '
+                tr('Doanh thu thuần = tổng đơn hoàn tất đã trừ hàng khách trả (chưa VAT), theo giờ cắt ngày như báo cáo Lãi lỗ. '
+                    'Lãi gộp = doanh thu thuần − giá vốn thuần. '
+                    'Chi phí = phiếu chi không thuộc bán / nhập / trả hàng, không gồm chi lương và chi ứng lương. '
+                    'Lương = lương gộp các phiếu lương đã chốt của nhân viên thuộc chi nhánh, chia theo số ngày của tháng nằm trong kỳ. '
                     'Lãi ròng = lãi gộp + thu khác − chi phí − lương.'),
                 style: const TextStyle(fontSize: 11.5, color: SboxColors.slate500, height: 1.4),
               ),

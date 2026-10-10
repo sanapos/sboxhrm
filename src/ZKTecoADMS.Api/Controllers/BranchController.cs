@@ -41,9 +41,9 @@ public class BranchController(
     {
         var storeId = CurrentStoreId;
 
-        // Phân quyền: Admin thấy tất cả; Manager/Manager chi nhánh chỉ thấy CN quản lý
+        // Phân quyền: Admin / kế toán thấy tất cả; Manager/Manager chi nhánh chỉ thấy CN quản lý
         List<Guid>? allowedBranchIds = null;
-        if (!IsAdmin && storeId.HasValue)
+        if (!SeesWholeStore && storeId.HasValue)
             allowedBranchIds = await dataScopeService.GetManagedBranchIdsAsync(CurrentUserId, storeId.Value);
 
         var query = dbContext.Branches
@@ -117,9 +117,9 @@ public class BranchController(
     {
         var storeId = CurrentStoreId;
 
-        // Phân quyền: Admin thấy tất cả, Manager chỉ thấy sub-tree của CN mình
+        // Phân quyền: Admin / kế toán thấy tất cả, Manager chỉ thấy sub-tree của CN mình
         List<Guid>? allowedBranchIds = null;
-        if (!IsAdmin && storeId.HasValue)
+        if (!SeesWholeStore && storeId.HasValue)
             allowedBranchIds = await dataScopeService.GetManagedBranchIdsAsync(CurrentUserId, storeId.Value);
 
         var branches = await dbContext.Branches
@@ -136,6 +136,14 @@ public class BranchController(
             .GroupBy(e => e.BranchId!.Value)
             .Select(g => new { BranchId = g.Key, Count = g.Count() })
             .ToDictionaryAsync(g => g.BranchId, g => g.Count);
+
+        // NV chưa gắn chi nhánh = trụ sở (cùng quy ước danh sách / báo cáo) — trước đây cây đếm thiếu.
+        if (storeId.HasValue && await BranchQueryHelper.HeadquarterIdAsync(dbContext, storeId.Value) is Guid hqId)
+        {
+            var unassigned = await dbContext.Set<Employee>()
+                .CountAsync(e => e.Deleted == null && e.BranchId == null && e.StoreId == storeId.Value);
+            employeeCounts[hqId] = employeeCounts.GetValueOrDefault(hqId) + unassigned;
+        }
 
         var rootBranches = branches.Where(b => b.ParentBranchId == null).ToList();
         var tree = rootBranches.Select(b => BuildTreeNode(b, branches, employeeCounts)).ToList();
@@ -247,6 +255,9 @@ public class BranchController(
     public async Task<ActionResult<AppResponse<BranchDto>>> CreateBranch([FromBody] CreateBranchRequest request)
     {
         var storeId = CurrentStoreId;
+        // Chi nhánh phải thuộc một cửa hàng (production có 2 chi nhánh mồ côi tạo khi chưa chọn cửa hàng).
+        if (!storeId.HasValue)
+            return BadRequest(AppResponse<BranchDto>.Fail("Chưa xác định cửa hàng — hãy đăng nhập vào cửa hàng để tạo chi nhánh."));
         if (storeId.HasValue)
         {
             var limitCheck = await storeLicenseLimitService.CanAddBranchAsync(storeId.Value);
@@ -263,7 +274,8 @@ public class BranchController(
         if (existingCode)
             return BadRequest(AppResponse<BranchDto>.Fail($"Mã chi nhánh '{request.Code}' đã tồn tại"));
 
-        var parentErr = await ValidateParentAsync(storeId, null, request.ParentBranchId);
+        var parentErr = await ValidateParentAsync(storeId, null, request.ParentBranchId)
+                        ?? await ValidateManagerAsync(request.ManagerId);
         if (parentErr != null)
             return BadRequest(AppResponse<BranchDto>.Fail(parentErr));
 
@@ -342,6 +354,13 @@ public class BranchController(
 
         if (branch == null)
             return NotFound(AppResponse<BranchDto>.Fail("Không tìm thấy chi nhánh"));
+        if (await DenyBranchWriteAsync(id) is { } denyUpd)
+            return StatusCode(StatusCodes.Status403Forbidden, AppResponse<BranchDto>.Fail(denyUpd));
+        if (await ValidateManagerAsync(request.ManagerId) is { } mgrErr)
+            return BadRequest(AppResponse<BranchDto>.Fail(mgrErr));
+        // Như nút «Tạm ngưng»: trụ sở không được ngưng hoạt động.
+        if (!request.IsActive && (branch.IsHeadquarter || request.IsHeadquarter))
+            return BadRequest(AppResponse<BranchDto>.Fail("Không thể tạm ngưng trụ sở. Hãy chọn chi nhánh khác làm trụ sở trước."));
 
         // Check duplicate code (exclude self)
         var existingCode = await dbContext.Branches
@@ -461,6 +480,8 @@ public class BranchController(
 
         if (branch == null)
             return NotFound(AppResponse<bool>.Fail("Không tìm thấy chi nhánh"));
+        if (await DenyBranchWriteAsync(id) is { } denyDel)
+            return StatusCode(StatusCodes.Status403Forbidden, AppResponse<bool>.Fail(denyDel));
 
         // Check children
         var hasChildren = await dbContext.Branches
@@ -516,6 +537,8 @@ public class BranchController(
 
         if (branch == null)
             return NotFound(AppResponse<BranchDto>.Fail("Không tìm thấy chi nhánh"));
+        if (await DenyBranchWriteAsync(id) is { } denyTog)
+            return StatusCode(StatusCodes.Status403Forbidden, AppResponse<BranchDto>.Fail(denyTog));
         if (branch.IsHeadquarter && branch.IsActive)
             return BadRequest(AppResponse<BranchDto>.Fail("Không thể tạm ngưng trụ sở. Hãy chọn chi nhánh khác làm trụ sở trước."));
 
@@ -612,8 +635,15 @@ public class BranchController(
         if (branch == null)
             return NotFound(AppResponse<BranchPermissionDto>.Fail("Không tìm thấy chi nhánh"));
 
+        if (await DenyBranchWriteAsync(branchId) is { } denyPerm)
+            return StatusCode(StatusCodes.Status403Forbidden, AppResponse<BranchPermissionDto>.Fail(denyPerm));
+        // Không tự cấp phạm vi chi nhánh cho chính mình (tự nới rộng dữ liệu được xem).
+        if (request.UserId == CurrentUserId && !IsAdmin)
+            return StatusCode(StatusCodes.Status403Forbidden,
+                AppResponse<BranchPermissionDto>.Fail("Không thể tự cấp quyền chi nhánh cho chính mình"));
+
         var targetUser = await dbContext.Users
-            .FirstOrDefaultAsync(u => u.Id == request.UserId);
+            .FirstOrDefaultAsync(u => u.Id == request.UserId && (!storeId.HasValue || u.StoreId == storeId.Value));
         if (targetUser == null)
             return NotFound(AppResponse<BranchPermissionDto>.Fail("Không tìm thấy user"));
 
@@ -689,6 +719,10 @@ public class BranchController(
             .FirstOrDefaultAsync(p => p.Id == permId);
         if (perm == null)
             return NotFound(AppResponse<bool>.Fail("Không tìm thấy phân quyền"));
+        if (await DenyBranchWriteAsync(perm.BranchId) is { } denyUp)
+            return StatusCode(StatusCodes.Status403Forbidden, AppResponse<bool>.Fail(denyUp));
+        if (perm.UserId == CurrentUserId && !IsAdmin)
+            return StatusCode(StatusCodes.Status403Forbidden, AppResponse<bool>.Fail("Không thể tự sửa quyền chi nhánh của chính mình"));
 
         perm.IncludeChildren = request.IncludeChildren;
         perm.CanView = request.CanView;
@@ -715,6 +749,8 @@ public class BranchController(
             .FirstOrDefaultAsync(p => p.Id == permId);
         if (perm == null)
             return NotFound(AppResponse<bool>.Fail("Không tìm thấy phân quyền"));
+        if (await DenyBranchWriteAsync(perm.BranchId) is { } denyRm)
+            return StatusCode(StatusCodes.Status403Forbidden, AppResponse<bool>.Fail(denyRm));
 
         dbContext.BranchPermissions.Remove(perm);
         await dbContext.SaveChangesAsync();
@@ -770,6 +806,26 @@ public class BranchController(
 
     /// <summary>Sau khi đổi danh sách chi nhánh: gán chứng từ cũ về trụ sở + xóa cache ngữ cảnh chi nhánh.</summary>
     /// <summary>Chi nhánh cha phải tồn tại trong cùng cửa hàng và không được là chính nó hay con cháu của nó.</summary>
+    /// <summary>
+    /// null = được sửa / xóa / phân quyền chi nhánh này. Chủ cửa hàng / giám đốc: mọi chi nhánh;
+    /// quản lý khác: chỉ chi nhánh mình quản lý (trước đây sửa / xóa được cả chi nhánh ngoài phạm vi).
+    /// </summary>
+    private async Task<string?> DenyBranchWriteAsync(Guid? branchId)
+    {
+        if (IsAdmin || CurrentStoreId is not Guid sid) return null;
+        var managed = await dataScopeService.GetManagedBranchIdsAsync(CurrentUserId, sid);
+        return branchId.HasValue && managed.Contains(branchId.Value) ? null : "Chi nhánh này không thuộc phạm vi bạn quản lý";
+    }
+
+    /// <summary>Quản lý chi nhánh phải là nhân viên của cửa hàng.</summary>
+    private async Task<string?> ValidateManagerAsync(Guid? managerId)
+    {
+        if (!managerId.HasValue) return null;
+        var ok = await dbContext.Set<Employee>().AnyAsync(e => e.Id == managerId.Value && e.Deleted == null
+            && (!CurrentStoreId.HasValue || e.StoreId == CurrentStoreId.Value));
+        return ok ? null : "Người quản lý không phải nhân viên của cửa hàng";
+    }
+
     private async Task<string?> ValidateParentAsync(Guid? storeId, Guid? selfId, Guid? parentId)
     {
         if (!parentId.HasValue) return null;

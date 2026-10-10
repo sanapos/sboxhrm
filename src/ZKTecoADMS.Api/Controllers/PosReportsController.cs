@@ -61,7 +61,7 @@ public partial class PosReportsController(
                 && c.Type == CashTransactionType.Income
                 && c.InternalNote != null
                 && c.InternalNote.StartsWith(PosFinanceSyncHelper.SaleMarker)
-                && c.TransactionDate >= fromDt && c.TransactionDate < toDt)
+                && c.TransactionDate >= fromDt.AddHours(7) && c.TransactionDate < toDt.AddHours(7) /* phiếu thu chi lưu giờ VN */)
             .GroupBy(c => c.PaymentMethod)
             .Select(g => new { Method = g.Key, total = g.Sum(x => x.Amount), count = g.Count() })
             .ToListAsync();
@@ -184,7 +184,7 @@ public partial class PosReportsController(
             .Where(c => c.StoreId == storeId && c.Deleted == null && c.IsActive
                 && c.Status == CashTransactionStatus.Completed
                 && c.InternalNote != null
-                && c.TransactionDate >= fromDt && c.TransactionDate < toDt
+                && c.TransactionDate >= fromDt.AddHours(7) && c.TransactionDate < toDt.AddHours(7) /* phiếu thu chi lưu giờ VN */
                 && (c.InternalNote.StartsWith(PosFinanceSyncHelper.ReservationDepositMarker)
                     || c.InternalNote.StartsWith(PosFinanceSyncHelper.ReservationDepositRefundMarker)))
             .Select(c => new { c.Type, c.Amount, c.PaymentMethod, c.InternalNote })
@@ -1804,7 +1804,7 @@ public partial class PosReportsController(
             .Where(c => c.StoreId == storeId && c.Deleted == null && c.IsActive
                 && c.Status == CashTransactionStatus.Completed
                 && c.InternalNote != null
-                && c.TransactionDate >= fromDt && c.TransactionDate < toDt
+                && c.TransactionDate >= fromDt.AddHours(7) && c.TransactionDate < toDt.AddHours(7) /* phiếu thu chi lưu giờ VN */
                 && (c.InternalNote.StartsWith(PosFinanceSyncHelper.ReservationDepositMarker)
                     || c.InternalNote.StartsWith(PosFinanceSyncHelper.ReservationDepositRefundMarker)));
         if (userId.HasValue)

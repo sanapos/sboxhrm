@@ -25,7 +25,7 @@ public partial class PosReportsController
         var txs = dbContext.CashTransactions.AsNoTracking().ApplyBranchScope(HttpContext.BranchContext())
             .Where(c => c.StoreId == storeId && c.Deleted == null && c.IsActive
                         && c.Status == CashTransactionStatus.Completed
-                        && c.TransactionDate >= fromDt && c.TransactionDate < toDt);
+                        && c.TransactionDate >= fromDt.AddHours(7) && c.TransactionDate < toDt.AddHours(7) /* phiếu thu chi lưu giờ VN */);
 
         if (!IsManager)
         {
@@ -150,7 +150,7 @@ public partial class PosReportsController
             .Where(c => c.StoreId == storeId && c.Deleted == null && c.IsActive
                         && c.Status == CashTransactionStatus.Completed
                         && c.Type == CashTransactionType.Expense
-                        && c.TransactionDate >= fromDt && c.TransactionDate < toDt);
+                        && c.TransactionDate >= fromDt.AddHours(7) && c.TransactionDate < toDt.AddHours(7) /* phiếu thu chi lưu giờ VN */);
         if (!IsManager)
             txs = txs.Where(c => c.CreatedBy == CurrentUserEmail || c.CreatedByUserId == CurrentUserId);
 
@@ -310,7 +310,7 @@ public partial class PosReportsController
         var cashQ = dbContext.CashTransactions.AsNoTracking().ApplyBranchScope(HttpContext.BranchContext())
             .Where(c => c.StoreId == storeId && c.Deleted == null && c.IsActive
                         && c.Status == CashTransactionStatus.Completed
-                        && c.TransactionDate >= fromDt && c.TransactionDate < toDt);
+                        && c.TransactionDate >= fromDt.AddHours(7) && c.TransactionDate < toDt.AddHours(7) /* phiếu thu chi lưu giờ VN */);
         if (!IsManager)
             cashQ = cashQ.Where(c => c.CreatedBy == CurrentUserEmail || c.CreatedByUserId == CurrentUserId);
         var cashRows = await cashQ
