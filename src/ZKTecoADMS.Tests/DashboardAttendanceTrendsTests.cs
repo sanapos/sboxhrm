@@ -86,6 +86,12 @@ public class DashboardAttendanceTrendsTests
             Id = Guid.NewGuid(), DeviceId = device.Id, PIN = "NV1", AttendanceTime = today.AddHours(8),
             AttendanceState = AttendanceStates.CheckIn,
         });
+        // Máy không ghi loại vào/ra: lần chấm cuối ngày = giờ ra.
+        _db.AttendanceLogs.Add(new Attendance
+        {
+            Id = Guid.NewGuid(), DeviceId = device.Id, PIN = "NV1", AttendanceTime = today.AddHours(17).AddMinutes(5),
+            AttendanceState = AttendanceStates.CheckIn,
+        });
         _db.Leaves.Add(new Leave
         {
             Id = Guid.NewGuid(), StoreId = _store, EmployeeUserId = onLeave.ApplicationUserId!.Value,
@@ -103,6 +109,17 @@ public class DashboardAttendanceTrendsTests
         Assert.Equal(1, row.GetProperty("onLeave").GetInt32());   // nghỉ phép không tính vắng
         Assert.Equal(1, row.GetProperty("absent").GetInt32());    // NV3; NV4 đã nghỉ việc không tính
         Assert.Equal(3, row.GetProperty("total").GetInt32());
+
+        // «Nhân viên hôm nay» theo chấm công thực tế (gồm NV không có ca kiểu cũ).
+        var emps = row.GetProperty("employees").EnumerateArray()
+            .ToDictionary(e => e.GetProperty("employeeCode").GetString()!);
+        Assert.Equal(3, emps.Count);
+        Assert.Equal("Present", emps["NV1"].GetProperty("status").GetString());
+        Assert.Equal("08:00", emps["NV1"].GetProperty("checkIn").GetString());
+        Assert.Equal("17:05", emps["NV1"].GetProperty("checkOut").GetString());
+        Assert.Equal("On Leave", emps["NV2"].GetProperty("status").GetString());
+        Assert.Equal("Absent", emps["NV3"].GetProperty("status").GetString());
+        Assert.False(emps.ContainsKey("NV4"));
     }
 
     [Theory]

@@ -187,6 +187,12 @@ public class DashboardController(
 
     static readonly HashSet<DayOfWeek> DefaultWeeklyOff = [DayOfWeek.Sunday];
 
+    /// <summary>Một dòng «Nhân viên hôm nay» — theo chấm công thực tế (giờ VN, «HH:mm»).</summary>
+    public sealed record TodayEmployeeRow(
+        Guid EmployeeId, string EmployeeCode, string FullName, string? Department,
+        string? ShiftName, string? ShiftStart, string? ShiftEnd,
+        string? CheckIn, string? CheckOut, string Status, int LateMinutes);
+
     /// <summary>Ngày nghỉ tuần từ thiết lập lương: WeeklyOffDays («Saturday,Sunday») hoặc kiểu nghỉ có lương.</summary>
     internal static HashSet<DayOfWeek> ParseWeeklyOff(string? weeklyOffDays, string? paidLeaveType)
     {
@@ -243,7 +249,7 @@ public class DashboardController(
             }
 
             var employeeData = await employeesQuery
-                .Select(e => new { e.Id, e.EmployeeCode, e.ApplicationUserId, e.FirstName, e.LastName })
+                .Select(e => new { e.Id, e.EmployeeCode, e.ApplicationUserId, e.FirstName, e.LastName, e.Department })
                 .ToListAsync();
 
             var empIds = employeeData.Select(e => e.Id).ToList();
@@ -383,6 +389,8 @@ public class DashboardController(
                 var shiftStats = new Dictionary<string, (int Present, int Late, int EarlyLeave)>();
                 var lateEmps = new List<object>();
                 var earlyEmps = new List<object>();
+                // «Nhân viên hôm nay» trên Tổng quan: theo chấm công thực tế (chỉ ngày cuối = hôm nay).
+                var dayRows = d == endDate ? new List<TodayEmployeeRow>() : null;
 
                 foreach (var empId in presentEmpIds)
                 {
@@ -453,6 +461,22 @@ public class DashboardController(
                         .Where(a => pinsForEmp.Contains(a.PIN) && a.AttendanceState == AttendanceStates.CheckOut)
                         .OrderByDescending(a => a.VnTime)
                         .FirstOrDefault();
+                    if (dayRows != null)
+                    {
+                        // Giờ ra hiển thị: lượt ra cuối; máy không ghi loại vào/ra → lần chấm cuối (nếu khác lần vào).
+                        var lastPunch = checkOut ?? dayAttendances
+                            .Where(a => pinsForEmp.Contains(a.PIN) && a.VnTime > checkIn.VnTime)
+                            .OrderByDescending(a => a.VnTime).FirstOrDefault();
+                        var emp = empById[empId];
+                        var lateBy = checkIn.VnTime.TimeOfDay - threshold - TimeSpan.FromMinutes(graceMin);
+                        dayRows.Add(new TodayEmployeeRow(
+                            emp.Id, emp.EmployeeCode, $"{emp.LastName} {emp.FirstName}".Trim(), emp.Department,
+                            shiftLabel, shiftLabel == "Không xếp ca" ? null : threshold.ToString(@"hh\:mm"), shiftEnd?.ToString(@"hh\:mm"),
+                            checkIn.VnTime.ToString("HH:mm"), lastPunch?.VnTime.ToString("HH:mm"),
+                            checkIn.VnTime.TimeOfDay > threshold + TimeSpan.FromMinutes(graceMin) && shiftLabel != "Không xếp ca"
+                                ? "Late" : "Present",
+                            lateBy > TimeSpan.Zero && shiftLabel != "Không xếp ca" ? (int)lateBy.TotalMinutes : 0));
+                    }
                     var isEarly = checkOut != null && shiftEnd.HasValue
                         && checkOut.VnTime.TimeOfDay < shiftEnd.Value - TimeSpan.FromMinutes(earlyGraceMin);
 
@@ -492,6 +516,25 @@ public class DashboardController(
                 var totalEmp = expected.Count + presentSet.Count(id => !expectedIds.Contains(id));
                 var rate = totalEmp > 0 ? Math.Round((double)presentCount / totalEmp * 100, 1) : 0.0;
 
+                if (dayRows != null)
+                {
+                    // Người phải đi làm mà chưa chấm công: nghỉ phép / vắng (ca theo lịch nếu có).
+                    foreach (var e in expected.Where(e => !presentSet.Contains(e.Id)))
+                    {
+                        string? sName = null, sStart = null, sEnd = null;
+                        if (e.ApplicationUserId is Guid u && scheduleIndex.TryGetValue((u, d), out var s))
+                        {
+                            sName = s.ShiftName;
+                            sStart = (s.OverrideStart ?? s.ShiftStart)?.ToString(@"hh\:mm");
+                            sEnd = (s.OverrideEnd ?? s.ShiftEnd)?.ToString(@"hh\:mm");
+                        }
+                        dayRows.Add(new TodayEmployeeRow(
+                            e.Id, e.EmployeeCode, $"{e.LastName} {e.FirstName}".Trim(), e.Department,
+                            sName, sStart, sEnd, null, null,
+                            OnLeave(e.ApplicationUserId, d) ? "On Leave" : "Absent", 0));
+                    }
+                }
+
                 trends.Add(new
                 {
                     date = d.ToString("yyyy-MM-dd"),
@@ -508,7 +551,8 @@ public class DashboardController(
                         .Select(kv => new { shiftName = kv.Key, present = kv.Value.Present, late = kv.Value.Late, earlyLeave = kv.Value.EarlyLeave })
                         .ToList(),
                     lateEmployees = lateEmps,
-                    earlyEmployees = earlyEmps
+                    earlyEmployees = earlyEmps,
+                    employees = dayRows,
                 });
             }
 

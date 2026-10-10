@@ -349,8 +349,12 @@ class _BusinessOverviewScreenState extends State<BusinessOverviewScreen> {
           color: SboxColors.warning,
           valueFormat: (v) => '${SboxFmt.number(v)} phút',
           items: [
-            for (final e in _list(_manager?['lateEmployees']))
-              SboxSlice('${e['fullName'] ?? ''}', _lateMinutes(e['lateBy']), caption: '${e['department'] ?? ''}'),
+            if (_todayTrend?['employees'] is List)
+              for (final e in _list(_todayTrend!['employees']).where((e) => e['status'] == 'Late'))
+                SboxSlice('${e['fullName'] ?? ''}', _n(e['lateMinutes']), caption: '${e['department'] ?? ''}')
+            else
+              for (final e in _list(_manager?['lateEmployees']))
+                SboxSlice('${e['fullName'] ?? ''}', _lateMinutes(e['lateBy']), caption: '${e['department'] ?? ''}'),
           ],
         ),
       ]),
@@ -475,7 +479,66 @@ class _BusinessOverviewScreenState extends State<BusinessOverviewScreen> {
     );
   }
 
+  /// Dòng hôm nay của chuyên cần (chấm công thực tế) — null khi máy chủ cũ chưa trả.
+  Map<String, dynamic>? get _todayTrend {
+    final now = DateTime.now();
+    final key = '${now.year}-${now.month.toString().padLeft(2, '0')}-${now.day.toString().padLeft(2, '0')}';
+    return _trends.where((d) => '${d['date']}' == key).firstOrNull;
+  }
+
+  /// «Nhân viên hôm nay» theo chấm công thực tế: ai đã chấm (giờ vào / ra thật, ca khớp, trễ có ân hạn),
+  /// ai phải đi làm mà chưa chấm (vắng), ai nghỉ phép — gồm cả NV không có tài khoản app.
   Widget _employeeTodayTable() {
+    final actual = _todayTrend?['employees'];
+    if (actual is List) return _actualTodayTable(_list(actual));
+    return _legacyTodayTable();
+  }
+
+  Widget _actualTodayTable(List<Map<String, dynamic>> rows) {
+    (String, SboxTone) status(Map<String, dynamic> r) => switch ('${r['status']}') {
+          'Present' => ('Có mặt', SboxTone.success),
+          'Late' => ('Trễ ${r['lateMinutes'] ?? 0}p', SboxTone.warning),
+          'Absent' => ('Vắng', SboxTone.danger),
+          'On Leave' => ('Nghỉ phép', SboxTone.violet),
+          _ => ('—', SboxTone.neutral),
+        };
+    int order(dynamic s) => switch ('$s') { 'Absent' => 0, 'Late' => 1, 'On Leave' => 2, 'Present' => 3, _ => 4 };
+    rows.sort((a, b) {
+      final c = order(a['status']).compareTo(order(b['status']));
+      return c != 0 ? c : '${a['checkIn'] ?? ''}'.compareTo('${b['checkIn'] ?? ''}');
+    });
+    String shift(Map<String, dynamic> r) {
+      final name = '${r['shiftName'] ?? ''}';
+      final s = r['shiftStart'], e = r['shiftEnd'];
+      if (s == null) return name.isEmpty ? '—' : name;
+      final time = e == null ? '$s' : '$s–$e';
+      return name.isEmpty || name == 'Ca khác' ? time : '$name · $time';
+    }
+    return SboxDataTable<Map<String, dynamic>>(
+      rows: rows,
+      pageSize: 10,
+      emptyTitle: 'Hôm nay chưa có ai chấm công',
+      columns: [
+        SboxColumn(label: 'Nhân viên', primary: true, flex: 3, text: (r) => '${r['fullName'] ?? ''}', sortValue: (r) => '${r['fullName'] ?? ''}'),
+        SboxColumn(label: 'Phòng ban', flex: 2, hideOnMobile: true, text: (r) => '${r['department'] ?? ''}', sortValue: (r) => '${r['department'] ?? ''}'),
+        SboxColumn(label: 'Ca', flex: 2, text: shift, sortValue: (r) => '${r['shiftStart'] ?? ''}'),
+        SboxColumn(label: 'Vào', flex: 1, text: (r) => '${r['checkIn'] ?? '—'}', sortValue: (r) => '${r['checkIn'] ?? ''}'),
+        SboxColumn(label: 'Ra', flex: 1, hideOnMobile: true, text: (r) => '${r['checkOut'] ?? '—'}'),
+        SboxColumn(
+          label: 'Trạng thái',
+          flex: 2,
+          cell: (r) {
+            final (l, t) = status(r);
+            return Align(alignment: Alignment.centerLeft, child: SboxStatusChip(label: l, tone: t, dot: true));
+          },
+          sortValue: (r) => order(r['status']),
+        ),
+      ],
+    );
+  }
+
+  /// Máy chủ cũ: theo ca đã duyệt (bảng ca cũ).
+  Widget _legacyTodayTable() {
     final rows = _list(_manager?['todayEmployees']);
     String hm(dynamic iso) {
       final d = DateTime.tryParse('${iso ?? ''}');
