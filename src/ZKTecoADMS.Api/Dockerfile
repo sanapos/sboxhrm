@@ -34,7 +34,7 @@ COPY ["payroll_engine/pubspec.yaml", "payroll_engine/pubspec.lock", "./"]
 RUN dart pub get
 COPY payroll_engine/lib ./lib
 COPY payroll_engine/cli ./cli
-RUN dart pub get --offline && dart compile exe cli/payroll_engine.dart -o /out/payroll_engine
+RUN mkdir -p /out && dart pub get --offline && dart compile exe cli/payroll_engine.dart -o /out/payroll_engine
 
 # This stage is used to build the service project
 FROM mcr.microsoft.com/dotnet/sdk:8.0 AS build
