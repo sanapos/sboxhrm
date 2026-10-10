@@ -30,17 +30,22 @@ public class GetManagerDashboardHandler(
             var endOfDayExclusive = startOfDay.AddDays(1);
             var endOfDay = endOfDayExclusive.AddTicks(-1);
 
-            // Get all employees managed by this manager
-            var managedUsers = await userManager.Users
-                .Include(u => u.Employee)
-                .Where(u => u.ManagerId == request.ManagerUserId)
-                .ToListAsync(cancellationToken);
-
-            // If user is Admin/SuperAdmin and has no direct managed employees, get all employees in the same Store
+            // Chủ cửa hàng / giám đốc / kế toán: cả cửa hàng. Trước đây chỉ khi KHÔNG có tài khoản nào
+            // nhận mình làm quản lý — tài khoản do chủ tạo đều có ManagerId = chủ → chủ chỉ thấy số người mình tạo.
             var isAdmin = request.UserRole.Equals(nameof(Roles.Admin), StringComparison.OrdinalIgnoreCase)
-                       || request.UserRole.Equals(nameof(Roles.SuperAdmin), StringComparison.OrdinalIgnoreCase);
+                       || request.UserRole.Equals(nameof(Roles.SuperAdmin), StringComparison.OrdinalIgnoreCase)
+                       || request.UserRole.Equals(nameof(Roles.Director), StringComparison.OrdinalIgnoreCase)
+                       || request.UserRole.Equals(nameof(Roles.Accountant), StringComparison.OrdinalIgnoreCase);
 
-            if (!managedUsers.Any() && isAdmin && request.StoreId.HasValue)
+            // Quản lý khác: tài khoản nhận mình làm quản lý.
+            var managedUsers = isAdmin && request.StoreId.HasValue
+                ? []
+                : await userManager.Users
+                    .Include(u => u.Employee)
+                    .Where(u => u.ManagerId == request.ManagerUserId)
+                    .ToListAsync(cancellationToken);
+
+            if (isAdmin && request.StoreId.HasValue)
             {
                 managedUsers = await userManager.Users
                     .Include(u => u.Employee)

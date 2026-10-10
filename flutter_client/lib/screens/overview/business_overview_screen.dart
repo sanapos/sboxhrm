@@ -160,10 +160,23 @@ class _BusinessOverviewScreenState extends State<BusinessOverviewScreen> {
   Map<String, dynamic> get _rate =>
       _manager?['attendanceRate'] is Map ? Map<String, dynamic>.from(_manager!['attendanceRate'] as Map) : const {};
 
-  /// Chuyên cần hôm nay. Ưu tiên ca đã duyệt; cửa hàng không xếp ca duyệt (0 ca) → dùng dòng hôm nay
-  /// của biểu đồ chuyên cần (tính trên toàn bộ nhân viên) để ô số và biểu đồ khớp nhau.
+  /// Chuyên cần hôm nay. Ưu tiên dòng hôm nay của biểu đồ chuyên cần: mọi nhân viên (cả người không có
+  /// tài khoản app), theo chi nhánh đang xem, ngày nghỉ theo lịch / thiết lập lương, trễ có ân hạn —
+  /// ô số và biểu đồ khớp nhau. Máy chủ cũ (không có dòng hôm nay) → số theo ca đã duyệt.
   /// checkedIn = đã chấm công vào (gồm cả người đi trễ).
   ({int total, int checkedIn, int late, int absent, int leave}) get _today {
+    final now = DateTime.now();
+    final todayKey = '${now.year}-${now.month.toString().padLeft(2, '0')}-${now.day.toString().padLeft(2, '0')}';
+    final tr0 = _trends.where((d) => '${d['date']}' == todayKey).firstOrNull;
+    if (tr0 != null && tr0.containsKey('onLeave')) {
+      return (
+        total: _n(tr0['total']).round(),
+        checkedIn: _n(tr0['present']).round(),
+        late: _n(tr0['late']).round(),
+        absent: _n(tr0['absent']).round(),
+        leave: _n(tr0['onLeave']).round(),
+      );
+    }
     final shifts = _n(_rate['totalEmployeesWithShift']).round();
     if (shifts > 0) {
       final late = _n(_rate['lateEmployees']).round();
@@ -175,9 +188,7 @@ class _BusinessOverviewScreenState extends State<BusinessOverviewScreen> {
         leave: _n(_rate['onLeaveEmployees']).round(),
       );
     }
-    final now = DateTime.now();
-    final key = '${now.year}-${now.month.toString().padLeft(2, '0')}-${now.day.toString().padLeft(2, '0')}';
-    final t = _trends.where((d) => '${d['date']}' == key).firstOrNull;
+    final t = tr0;
     if (t == null) return (total: 0, checkedIn: 0, late: 0, absent: 0, leave: _n(_rate['onLeaveEmployees']).round());
     return (
       total: _n(t['total']).round(),
@@ -194,6 +205,9 @@ class _BusinessOverviewScreenState extends State<BusinessOverviewScreen> {
     return '${d.day.toString().padLeft(2, '0')}/${d.month.toString().padLeft(2, '0')}';
   }
 
+  /// Người xem không có quyền «Xem giá vốn & lợi nhuận»: máy chủ bỏ trường lãi.
+  bool get _profitHidden => _sales != null && !_sales!.containsKey('totalProfit');
+
   List<SboxKpi> _posKpis() {
     final cmp = _period.compareLabel;
     final rev = _n(_sales?['totalRevenue']);
@@ -206,14 +220,24 @@ class _BusinessOverviewScreenState extends State<BusinessOverviewScreen> {
     final pAov = pOrders > 0 ? pRev / pOrders : 0.0;
     return [
       SboxKpi(label: 'Doanh thu', value: SboxFmt.money(rev), icon: Icons.payments_outlined, current: rev, previous: _salesPrev == null ? null : pRev, compareLabel: cmp),
-      SboxKpi(
-          label: 'Lợi nhuận gộp',
-          value: SboxFmt.money(profit),
-          icon: Icons.trending_up_rounded,
-          tone: SboxTone.success,
-          current: profit,
-          previous: _salesPrev == null ? null : pProfit,
-          compareLabel: cmp),
+      if (_profitHidden)
+        SboxKpi(
+            label: 'Đã thu',
+            value: SboxFmt.money(_n(_sales?['totalPaid'])),
+            icon: Icons.account_balance_wallet_outlined,
+            tone: SboxTone.success,
+            current: _n(_sales?['totalPaid']),
+            previous: _salesPrev == null ? null : _n(_salesPrev?['totalPaid']),
+            compareLabel: cmp)
+      else
+        SboxKpi(
+            label: 'Lợi nhuận gộp',
+            value: SboxFmt.money(profit),
+            icon: Icons.trending_up_rounded,
+            tone: SboxTone.success,
+            current: profit,
+            previous: _salesPrev == null ? null : pProfit,
+            compareLabel: cmp),
       SboxKpi(label: 'Số đơn', value: SboxFmt.number(orders), icon: Icons.receipt_long_outlined, tone: SboxTone.violet, current: orders, previous: _salesPrev == null ? null : pOrders, compareLabel: cmp),
       SboxKpi(label: 'Giá trị TB/đơn', value: SboxFmt.money(aov), icon: Icons.shopping_basket_outlined, tone: SboxTone.neutral, current: aov, previous: _salesPrev == null ? null : pAov, compareLabel: cmp),
     ];
@@ -230,9 +254,14 @@ class _BusinessOverviewScreenState extends State<BusinessOverviewScreen> {
           icon: Icons.how_to_reg_outlined,
           tone: SboxTone.success,
           note: t.total > 0 ? 'Tỷ lệ ${SboxFmt.pct(rate)}' : 'Chưa có nhân viên'),
-      SboxKpi(label: 'Đi trễ', value: '${t.late}', icon: Icons.schedule_outlined, tone: SboxTone.warning, note: 'Đúng giờ ${SboxFmt.pct(punctual)}'),
-      SboxKpi(label: 'Vắng', value: '${t.absent}', icon: Icons.person_off_outlined, tone: SboxTone.danger, note: 'Chưa chấm công vào'),
-      SboxKpi(label: 'Nghỉ phép', value: '${t.leave}', icon: Icons.beach_access_outlined, tone: SboxTone.violet, note: 'Đơn đã duyệt'),
+      SboxKpi(
+          label: 'Đi trễ hôm nay',
+          value: '${t.late}',
+          icon: Icons.schedule_outlined,
+          tone: SboxTone.warning,
+          note: t.checkedIn > 0 ? 'Đúng giờ ${SboxFmt.pct(punctual)}' : 'Chưa ai chấm công'),
+      SboxKpi(label: 'Vắng hôm nay', value: '${t.absent}', icon: Icons.person_off_outlined, tone: SboxTone.danger, note: 'Phải đi làm, chưa chấm công'),
+      SboxKpi(label: 'Nghỉ phép hôm nay', value: '${t.leave}', icon: Icons.beach_access_outlined, tone: SboxTone.violet, note: 'Đơn đã duyệt'),
     ];
   }
 
@@ -247,13 +276,17 @@ class _BusinessOverviewScreenState extends State<BusinessOverviewScreen> {
       pos[2],
       hrm[0],
       hrm[1],
-      SboxKpi(
-        label: 'Doanh thu / NV có mặt',
-        value: present > 0 ? SboxFmt.money(rev / present) : '—',
-        icon: Icons.groups_2_outlined,
-        tone: SboxTone.brand,
-        note: _period == SboxPeriod.today ? 'Năng suất hôm nay' : 'Theo số NV có mặt hôm nay',
-      ),
+      // Doanh thu cả kỳ ÷ số NV có mặt HÔM NAY vô nghĩa khi xem kỳ khác → chỉ hiện khi xem hôm nay.
+      if (_period == SboxPeriod.today)
+        SboxKpi(
+          label: 'Doanh thu / NV có mặt',
+          value: present > 0 ? SboxFmt.money(rev / present) : '—',
+          icon: Icons.groups_2_outlined,
+          tone: SboxTone.brand,
+          note: 'Năng suất hôm nay',
+        )
+      else
+        hrm[2],
     ];
   }
 
@@ -262,7 +295,7 @@ class _BusinessOverviewScreenState extends State<BusinessOverviewScreen> {
   Widget _revenueChart({bool wide = false}) {
     final days = _list(_salesTrend?['profitByDay']);
     return SboxChartCard(
-      title: 'Doanh thu & lợi nhuận',
+      title: _profitHidden ? 'Doanh thu' : 'Doanh thu & lợi nhuận',
       subtitle: _shortPeriod ? '7 ngày gần nhất' : _period.label,
       wide: wide,
       onMore: _can('PosSalesReport') ? () => _go('PosSalesReport') : null,
@@ -270,7 +303,8 @@ class _BusinessOverviewScreenState extends State<BusinessOverviewScreen> {
         labels: [for (final d in days) _dayLabel(d['date'])],
         series: [
           SboxSeries(name: 'Doanh thu', values: [for (final d in days) _n(d['revenue'])]),
-          SboxSeries(name: 'Lợi nhuận', values: [for (final d in days) _n(d['profit'])], color: SboxColors.success),
+          if (!_profitHidden)
+            SboxSeries(name: 'Lợi nhuận', values: [for (final d in days) _n(d['profit'])], color: SboxColors.success),
         ],
       ),
     );

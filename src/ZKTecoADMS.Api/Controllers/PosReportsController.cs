@@ -25,6 +25,8 @@ public partial class PosReportsController(
 {
     [HttpGet("sales/summary")]
     [RequireModulePermission("PosSalesReport", ModulePermissionAction.View)]
+    // Thu ngân / NV không có quyền «Xem giá vốn & lợi nhuận»: bỏ giá vốn, lãi (Tổng quan, báo cáo bán hàng).
+    [MaskCostData("totalCogs", "totalProfit", "profitMarginPct")]
     public async Task<ActionResult<AppResponse<object>>> GetSalesSummary(
         [FromQuery] DateTime? from,
         [FromQuery] DateTime? to,

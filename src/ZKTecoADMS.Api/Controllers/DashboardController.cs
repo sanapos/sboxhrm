@@ -33,7 +33,8 @@ public class DashboardController(
     /// <param name="date">Date for the dashboard data (optional, defaults to today)</param>
     /// <returns>Dashboard data with employees on leave, absent, late, and attendance rate</returns>
     [HttpGet("manager")]
-    [Authorize(Policy = PolicyNames.AtLeastManager)]
+    // Kế toán có quyền Tổng quan cũng xem được số chuyên cần (trước đây 403 → phần nhân sự trống).
+    [Authorize(Policy = PolicyNames.ManagerOrAccountant)]
     [RequireModulePermission("Dashboard", ModulePermissionAction.View)]
     [ProducesResponseType(typeof(AppResponse<ManagerDashboardDto>), StatusCodes.Status200OK)]
     [ProducesResponseType(StatusCodes.Status401Unauthorized)]
@@ -184,11 +185,31 @@ public class DashboardController(
         }
     }
 
+    static readonly HashSet<DayOfWeek> DefaultWeeklyOff = [DayOfWeek.Sunday];
+
+    /// <summary>Ngày nghỉ tuần từ thiết lập lương: WeeklyOffDays («Saturday,Sunday») hoặc kiểu nghỉ có lương.</summary>
+    internal static HashSet<DayOfWeek> ParseWeeklyOff(string? weeklyOffDays, string? paidLeaveType)
+    {
+        var set = new HashSet<DayOfWeek>();
+        foreach (var part in (weeklyOffDays ?? "").Split([',', ';', ' '], StringSplitOptions.RemoveEmptyEntries))
+            if (Enum.TryParse<DayOfWeek>(part.Trim(), true, out var dow)) set.Add(dow);
+        if (set.Count > 0) return set;
+        return (paidLeaveType ?? "").Trim().ToLowerInvariant() switch
+        {
+            "sunday" or "sat-afternoon-sun" => [DayOfWeek.Sunday],
+            "saturday" => [DayOfWeek.Saturday],
+            "sat-sun" => [DayOfWeek.Saturday, DayOfWeek.Sunday],
+            // Theo lịch phân ca / nghỉ N ngày bất kỳ / phép: không có thứ nghỉ cố định.
+            "schedule" or "off-1" or "off-2" or "off-3" or "off-4" or "leave" => [],
+            _ => [DayOfWeek.Sunday],
+        };
+    }
+
     /// <summary>
     /// Get attendance trends for the last N days
     /// </summary>
     [HttpGet("attendance-trends")]
-    [Authorize(Policy = PolicyNames.AtLeastManager)]
+    [Authorize(Policy = PolicyNames.ManagerOrAccountant)]
     [RequireModulePermission("Dashboard", ModulePermissionAction.View)]
     public async Task<IActionResult> GetAttendanceTrends(
         [FromQuery] int days = 30,
@@ -204,11 +225,22 @@ public class DashboardController(
             var rangeStart = startDate;
             var rangeEnd = endDate.AddDays(1);
 
-            // Load employees with ApplicationUserId for WorkSchedule lookup
+            // Load employees with ApplicationUserId for WorkSchedule lookup — bỏ NV đã nghỉ việc
+            // (trước đây cộng vào tổng / vắng).
             var employeesQuery = dbContext.Employees
-                .Where(e => e.StoreId == storeId && e.Deleted == null);
+                .Where(e => e.StoreId == storeId && e.Deleted == null && e.WorkStatus != EmployeeWorkStatus.Resigned);
+            // Chi nhánh đang xem (như số bán hàng ở Tổng quan): ?branchId= hoặc chi nhánh lọc của request,
+            // và chỉ chi nhánh người xem được phép.
+            var bctx = HttpContext.BranchContext();
+            branchId ??= bctx?.StoreUsesBranches == true ? bctx.FilterBranchId : null;
             employeesQuery = await BranchQueryHelper.ApplyBranchFilterAsync(
                 employeesQuery, dbContext, storeId, branchId, includeChildBranches);
+            if (bctx is { StoreUsesBranches: true, AllowedBranchIds: { } allowedBranches })
+            {
+                var allowedList = allowedBranches.ToList();
+                var hqForScope = bctx.HeadquarterBranchId ?? Guid.Empty;
+                employeesQuery = employeesQuery.Where(e => allowedList.Contains(e.BranchId ?? hqForScope));
+            }
 
             var employeeData = await employeesQuery
                 .Select(e => new { e.Id, e.EmployeeCode, e.ApplicationUserId, e.FirstName, e.LastName })
@@ -299,10 +331,41 @@ public class DashboardController(
             var defaultStart = new TimeSpan(8, 30, 0);
             var trends = new List<object>();
 
+            // ── Ai phải đi làm ngày d (để tính vắng): lịch làm việc nếu NV có xếp lịch trong kỳ;
+            // không thì theo ngày nghỉ tuần của thiết lập lương (chưa có thiết lập lương → nghỉ Chủ nhật).
+            // Trước đây bỏ qua thứ 7 / Chủ nhật với mọi cửa hàng và coi mọi NV không chấm công là vắng.
+            var empIdsList = employeeData.Select(e => e.Id).ToList();
+            var benefitRows = await dbContext.EmployeeBenefits.AsNoTracking()
+                .Where(eb => empIdsList.Contains(eb.EmployeeId) && eb.Deleted == null && eb.EffectiveDate <= endDate.AddDays(1))
+                .Select(eb => new { eb.EmployeeId, eb.EffectiveDate, eb.Benefit.WeeklyOffDays, eb.Benefit.PaidLeaveType })
+                .ToListAsync();
+            var weeklyOffByEmp = benefitRows
+                .GroupBy(b => b.EmployeeId)
+                .ToDictionary(g => g.Key, g =>
+                {
+                    var cur = g.OrderByDescending(x => x.EffectiveDate).First();
+                    return ParseWeeklyOff(cur.WeeklyOffDays, cur.PaidLeaveType);
+                });
+            var usersWithSchedule = workScheduleData.Select(w => w.EmployeeUserId).ToHashSet();
+            var leaveRows = await dbContext.Leaves.AsNoTracking()
+                .Where(l => l.Status == LeaveStatus.Approved && l.StartDate < rangeEnd && l.EndDate >= rangeStart
+                            && userIds.Contains(l.EmployeeUserId))
+                .Select(l => new { l.EmployeeUserId, l.StartDate, l.EndDate })
+                .ToListAsync();
+
+            bool ExpectedToWork(Guid empId, Guid? userId, DateTime day)
+            {
+                if (userId is Guid u && usersWithSchedule.Contains(u))
+                    return scheduleIndex.TryGetValue((u, day), out var s) && !s.IsDayOff;
+                var off = weeklyOffByEmp.TryGetValue(empId, out var w) ? w : DefaultWeeklyOff;
+                return !off.Contains(day.DayOfWeek);
+            }
+
+            bool OnLeave(Guid? userId, DateTime day) =>
+                userId is Guid u && leaveRows.Any(l => l.EmployeeUserId == u && l.StartDate.Date <= day && l.EndDate.Date >= day);
+
             for (var d = startDate; d <= endDate; d = d.AddDays(1))
             {
-                if (d.DayOfWeek == DayOfWeek.Saturday || d.DayOfWeek == DayOfWeek.Sunday)
-                    continue;
 
                 var dayAttendances = vnAttendances.Where(a => a.VnTime.Date == d).ToList();
                 // Gộp theo Employee.Id — một NV có nhiều PIN máy chỉ tính 1 lần có mặt.
@@ -327,10 +390,13 @@ public class DashboardController(
                         .Where(kv => kv.Value == empId)
                         .Select(kv => kv.Key)
                         .ToList();
+                    // Lượt vào; máy / app không ghi loại vào-ra → lần chấm đầu ngày (trước đây NV này
+                    // được tính có mặt nhưng không vào «đúng giờ» lẫn «trễ» → cột biểu đồ hụt).
                     var checkIn = dayAttendances
                         .Where(a => pinsForEmp.Contains(a.PIN) && a.AttendanceState == AttendanceStates.CheckIn)
                         .OrderBy(a => a.VnTime)
-                        .FirstOrDefault();
+                        .FirstOrDefault()
+                        ?? dayAttendances.Where(a => pinsForEmp.Contains(a.PIN)).OrderBy(a => a.VnTime).FirstOrDefault();
                     if (checkIn == null) continue;
 
                     var resolvePin = checkIn.PIN;
@@ -416,9 +482,14 @@ public class DashboardController(
                     }
                 }
 
-                var totalEmp = employeeData.Count;
-                var presentCount = presentEmpIds.Count;
-                var absentCount = Math.Max(0, totalEmp - presentCount);
+                // Tổng = người phải đi làm hôm đó (kể cả nghỉ phép) + người đi làm ngoài lịch.
+                var presentSet = presentEmpIds.ToHashSet();
+                var expected = employeeData.Where(e => ExpectedToWork(e.Id, e.ApplicationUserId, d)).ToList();
+                var leaveCount = expected.Count(e => !presentSet.Contains(e.Id) && OnLeave(e.ApplicationUserId, d));
+                var absentCount = expected.Count(e => !presentSet.Contains(e.Id) && !OnLeave(e.ApplicationUserId, d));
+                var presentCount = presentSet.Count;
+                var expectedIds = expected.Select(e => e.Id).ToHashSet();
+                var totalEmp = expected.Count + presentSet.Count(id => !expectedIds.Contains(id));
                 var rate = totalEmp > 0 ? Math.Round((double)presentCount / totalEmp * 100, 1) : 0.0;
 
                 trends.Add(new
@@ -429,6 +500,7 @@ public class DashboardController(
                     late = lateCount,
                     earlyLeave = earlyLeaveCount,
                     absent = absentCount,
+                    onLeave = leaveCount,
                     total = totalEmp,
                     attendanceRate = rate,
                     shiftBreakdown = shiftStats
