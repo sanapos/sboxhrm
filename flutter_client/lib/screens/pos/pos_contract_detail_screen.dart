@@ -18,6 +18,9 @@ import '../../widgets/pos/pos_theme.dart';
 import 'pos_quote_detail_screen.dart' show PosQuoteFlow, PosQuoteProgress;
 
 import '../../theme/sbox_tokens.dart';
+import '../../utils/pos_busy.dart';
+import 'dart:typed_data';
+import '../../widgets/pos/pos_pdf_preview_dialog.dart';
 /// Chi tiết hợp đồng: tạm ứng + biên bản nghiệm thu.
 class PosContractDetailScreen extends StatefulWidget {
   const PosContractDetailScreen({super.key, required this.quoteId});
@@ -99,6 +102,25 @@ class _PosContractDetailScreenState extends State<PosContractDetailScreen> {
       await printPosQuoteSlip(context, quoteId: q.id, quote: q);
       return;
     }
+    // Cửa hàng dùng mẫu Word (hợp đồng upload) → xem đúng file PDF dựng từ mẫu Word, giữ nguyên bố cục
+    // bản upload (trước đây «Xem / in» luôn hiện bản HTML mẫu chuẩn, khác hẳn bản Word).
+    if (q != null && type.isNotEmpty && d.id.isNotEmpty &&
+        await PosQuoteExport.usesWordTemplate(q, type, d.id)) {
+      final res = await _api.exportPosQuoteFile(q.id, kind: type, docId: d.id, format: 'pdf');
+      if (!mounted) return;
+      if (res['isSuccess'] == true && res['data'] is List && (res['data'] as List).isNotEmpty) {
+        await showPosPdfPreviewDialog(
+          context,
+          bytes: Uint8List.fromList(List<int>.from(res['data'] as List)),
+          title: '${d.docNo} · ${d.title.isEmpty ? PosQuoteDocument.kindLabel(d.kind) : d.title}',
+        );
+        return;
+      }
+      NotificationOverlayManager().showError(
+        title: 'Chưa dựng được từ mẫu Word',
+        message: '${res['message'] ?? ''} — ${tr('hiện bản HTML')}',
+      );
+    }
     if (q != null && type.isNotEmpty) {
       // Đúng chứng từ này: lời văn sửa riêng hoặc mẫu chọn riêng + số liệu mới nhất.
       final server = await posQuoteServerDocument(
@@ -142,6 +164,7 @@ class _PosContractDetailScreenState extends State<PosContractDetailScreen> {
         return;
       }
     }
+    if (!mounted) return;
     // Mất mạng: lời văn đã sửa riêng của chứng từ này (đã tải sẵn) — không dựng lại đè mất.
     if (d.isCustomWording && d.htmlContent.trim().isNotEmpty) {
       await showPosHtmlPrintDialog(
@@ -316,7 +339,8 @@ class _PosContractDetailScreenState extends State<PosContractDetailScreen> {
                                 child: FilledButton.tonalIcon(
                                   onPressed: contract == null
                                       ? null
-                                      : () => _openDoc(contract),
+                                      : () => PosBusy.run(context, () => _openDoc(contract),
+                                          label: 'Đang mở hợp đồng…'),
                                   icon: const Icon(Icons.description_outlined),
                                   label: Text(tr('Xem / in hợp đồng')),
                                 ),
@@ -524,10 +548,11 @@ class _PosContractDetailScreenState extends State<PosContractDetailScreen> {
                 ),
             ],
           ),
-          onTap: () => _openDoc(d),
+          onTap: () => PosBusy.run(context, () => _openDoc(d),
+              label: 'Đang mở ${PosQuoteDocument.kindLabel(d.kind).toLowerCase()}…'),
           trailing: PopupMenuButton<String>(
             tooltip: tr('Thao tác'),
-            onSelected: (v) async {
+            onSelected: (v) => PosBusy.run(context, () async {
               final q = _quote;
               if (q == null) return;
               if (v == 'content') {
@@ -561,7 +586,7 @@ class _PosContractDetailScreenState extends State<PosContractDetailScreen> {
                 documentType: d.kind,
                 docId: d.id,
               );
-            },
+            }, label: 'Đang xử lý chứng từ…'),
             itemBuilder: (_) => [
               PopupMenuItem(value: 'content', child: Text(tr('Sửa riêng nội dung (số liệu tự cập nhật)'))),
               PopupMenuItem(value: 'wording', child: Text(tr('Chốt bản in & sửa chữ'))),

@@ -10,6 +10,7 @@ import 'package:share_plus/share_plus.dart';
 
 import '../models/downloaded_document.dart';
 import '../services/downloaded_documents_service.dart';
+import 'pos_busy.dart';
 
 /// MethodChannel to interact with native Android MediaStore for saving files
 const _channel = MethodChannel('com.sboxhrm/file_saver');
@@ -90,6 +91,7 @@ Rect _iosShareOrigin() {
 /// Save a file and immediately open it with the default app.
 Future<void> saveAndOpenFileBytes(
     List<int> bytes, String filename, String mimeType) async {
+  PosBusy.hideLayer(); // lớp «Đang mở…» không nằm sau hộp này
   final savedPath = await saveFileBytes(bytes, filename, mimeType);
   if (savedPath == null) {
     throw Exception('Không lưu được file trên máy');

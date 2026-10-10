@@ -20,9 +20,11 @@ import '../utils/pos_print_template_loader.dart';
 import '../utils/pos_quote_document_wording.dart';
 import '../widgets/notification_overlay.dart';
 import '../widgets/pos/pos_quote_care_sheet.dart';
+import 'pos_busy.dart';
 
 /// Hỏi chèn dấu treo trước khi in / xuất / gửi. Null = hủy.
 Future<bool?> askPosQuoteStamp(BuildContext context) async {
+  PosBusy.hideLayer(); // lớp «Đang mở…» không nằm sau hộp này
   var stamp = true;
   return showDialog<bool>(
     context: context,
@@ -440,9 +442,13 @@ class PosQuoteExport {
 
   /// Xuất Word / PDF bằng mẫu Word? Chứng từ đã sửa lời văn riêng → luôn bản HTML đã sửa;
   /// chứng từ chọn mẫu riêng → theo loại mẫu đó; còn lại → cửa hàng có mẫu Word đang bật.
+  static Future<bool> usesWordTemplate(PosQuote quote, String documentType, String? docId) =>
+      _usesWordTemplate(quote, documentType, docId);
+
   static Future<bool> _usesWordTemplate(PosQuote quote, String documentType, String? docId) async {
     final doc = docById(quote, docId);
-    if (doc != null && doc.isCustomWording) return false;
+    // Lời văn đã chốt / nội dung riêng của chứng từ luôn thắng mẫu Word (máy chủ cũng vậy).
+    if (doc != null && (doc.isCustomWording || doc.hasCustomTemplate)) return false;
     if (doc == null && documentType == PosPrintDocumentTypes.quote &&
         posQuoteSavedWordingHtml(quote.documents, documentType) != null) {
       return false;
@@ -703,6 +709,7 @@ class PosQuoteExport {
 
   /// Mở hộp in hệ thống với đúng file PDF (có xem trước trên Android / iOS / web).
   static Future<void> _printPdfBytes(Uint8List bytes, String name) async {
+    PosBusy.hideLayer(); // lớp «Đang mở…» không nằm sau hộp này
     try {
       await Printing.layoutPdf(name: name, format: PdfPageFormat.a4, onLayout: (_) async => bytes);
     } catch (_) {

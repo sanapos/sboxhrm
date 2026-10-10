@@ -9,6 +9,7 @@ import '../widgets/pos/pos_html_preview_stub.dart'
 import 'pos_print_template_defaults.dart';
 
 import '../theme/sbox_tokens.dart';
+import 'pos_busy.dart';
 const _blue = SboxColors.brand600;
 
 bool _pdfBytesOk(Uint8List? bytes) {
@@ -72,6 +73,7 @@ Future<void> showPosHtmlPrintDialog(
   int initialCopies = 1,
   bool? a4Paper,
 }) async {
+  PosBusy.hideLayer(); // lớp «Đang mở…» không nằm sau hộp này
   var copies = initialCopies.clamp(1, 10);
   final screenW = MediaQuery.sizeOf(context).width;
   final isMobile = !kIsWeb && screenW < 600;

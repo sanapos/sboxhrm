@@ -6,6 +6,7 @@ import 'package:printing/printing.dart';
 import 'pos_pdf_iframe_stub.dart'
     if (dart.library.js_interop) 'pos_pdf_iframe_web.dart';
 import 'package:zkteco_flutter_client/l10n/app_tr.dart';
+import '../../utils/pos_busy.dart';
 
 /// Dialog xem trước PDF — web dùng iframe (giống KiotViet), desktop dùng PdfPreview.
 Future<void> showPosPdfPreviewDialog(
@@ -13,6 +14,7 @@ Future<void> showPosPdfPreviewDialog(
   required Uint8List bytes,
   required String title,
 }) async {
+  PosBusy.hideLayer(); // lớp «Đang mở…» không nằm sau hộp này
   await showDialog<void>(
     context: context,
     barrierDismissible: true,

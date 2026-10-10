@@ -6,6 +6,7 @@ import 'dart:typed_data';
 import 'package:web/web.dart' as web;
 
 import 'excel_bytes_utils.dart';
+import 'pos_busy.dart';
 
 /// Max size for data-URL download (Chrome handles this reliably without user gesture).
 const _kDataUrlMaxBytes = 20 * 1024 * 1024;
@@ -121,6 +122,7 @@ Future<void> saveDataUrl(String dataUrl, String filename) async {
 /// On Web, open = download (same as save).
 Future<void> saveAndOpenFileBytes(
     List<int> bytes, String filename, String mimeType) async {
+  PosBusy.hideLayer(); // lớp «Đang mở…» không nằm sau hộp này
   await saveFileBytes(bytes, filename, mimeType);
 }
 

@@ -18,6 +18,7 @@ import 'pos_contract_detail_screen.dart';
 import 'pos_quote_composer_screen.dart';
 import 'pos_quote_document_template_screen.dart';
 import 'pos_quote_editor_screen.dart';
+import '../../utils/pos_busy.dart';
 
 /// Các bước của một hồ sơ báo giá → hợp đồng (dùng chung danh sách + màn chi tiết).
 class PosQuoteFlow {
@@ -216,8 +217,15 @@ class _PosQuoteDetailScreenState extends State<PosQuoteDetailScreen> {
 
   Future<void> _createDoc(String kind) async {
     final q = _q;
-    if (q == null) return;
-    final doc = await createPosQuoteCommercialDoc(context, quote: q, kind: kind, includeImages: q.includeImages);
+    if (q == null || _busy) return;
+    // Đang lập chứng từ: khóa các nút (bấm lặp từng tạo 2 hợp đồng).
+    setState(() => _busy = true);
+    final PosQuoteDocument? doc;
+    try {
+      doc = await createPosQuoteCommercialDoc(context, quote: q, kind: kind, includeImages: q.includeImages);
+    } finally {
+      if (mounted) setState(() => _busy = false);
+    }
     if (!mounted) return;
     if (doc != null) {
       _changed = true;
@@ -240,10 +248,21 @@ class _PosQuoteDetailScreenState extends State<PosQuoteDetailScreen> {
     }
   }
 
-  void _share(String action, {String documentType = 'Quote'}) {
+  Future<void> _share(String action, {String documentType = 'Quote'}) async {
     final q = _q;
     if (q == null) return;
-    PosQuoteExport.run(context, quote: q, action: action, documentType: documentType);
+    await PosBusy.run(
+      context,
+      () => PosQuoteExport.run(context, quote: q, action: action, documentType: documentType),
+      label: switch (action) {
+        'pdf' => 'Đang tạo PDF…',
+        'word' => 'Đang tạo Word…',
+        'excel' => 'Đang tạo Excel…',
+        'png' => 'Đang tạo ảnh…',
+        'zalo' || 'email' || 'facebook' => 'Đang chuẩn bị gửi khách…',
+        _ => 'Đang xử lý…',
+      },
+    );
   }
 
   Future<void> _delete() async {
@@ -287,13 +306,17 @@ class _PosQuoteDetailScreenState extends State<PosQuoteDetailScreen> {
             if (q != null) ...[
               IconButton(
                 tooltip: tr('In báo giá'),
-                onPressed: () => printPosQuoteSlip(context, quoteId: q.id, quote: q, includeImages: q.includeImages),
+                onPressed: () => PosBusy.run(
+                  context,
+                  () => printPosQuoteSlip(context, quoteId: q.id, quote: q, includeImages: q.includeImages),
+                  label: 'Đang dựng bản in báo giá…',
+                ),
                 icon: const Icon(Icons.print_outlined),
               ),
               PopupMenuButton<String>(
                 tooltip: tr('Thêm'),
                 onSelected: (v) => switch (v) {
-                  'content' => _editQuoteContent(q),
+                  'content' => PosBusy.run(context, () => _editQuoteContent(q), label: 'Đang mở nội dung báo giá…'),
                   'wording' => _push(PosQuoteEditorScreen(quoteId: q.id)),
                   'delete' => _delete(),
                   _ => _share(v),

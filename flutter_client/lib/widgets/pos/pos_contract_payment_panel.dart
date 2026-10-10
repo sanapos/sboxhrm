@@ -561,7 +561,10 @@ class _ScheduleDialogState extends State<_ScheduleDialog> {
     );
   }
 
+  bool _done = false;
+
   void _save() {
+    if (_done) return; // bấm lặp khi hộp đang đóng → pop nhầm màn bên dưới
     final stages = <Map<String, dynamic>>[];
     for (var i = 0; i < _rows.length; i++) {
       final r = _rows[i];
@@ -577,6 +580,7 @@ class _ScheduleDialogState extends State<_ScheduleDialog> {
         dueDate: r.dueDate,
       ).toInputJson());
     }
+    _done = true;
     Navigator.pop(context, {
       'contractNo': _no.text.trim(),
       'contractSignedAt': _signed == null ? null : dateOnly(_signed!),
@@ -794,7 +798,10 @@ class _CollectDialogState extends State<_CollectDialog> {
     super.dispose();
   }
 
+  bool _done = false;
+
   void _save() {
+    if (_done) return; // bấm lặp khi hộp đang đóng → pop nhầm màn bên dưới
     final v = parseFormattedNumber(_amount.text)?.toDouble() ?? 0;
     if (v <= 0) {
       setState(() => _error = 'Nhập số tiền thu');
@@ -805,6 +812,7 @@ class _CollectDialogState extends State<_CollectDialog> {
           'Vượt số còn phải thu ${_money.format(widget.contract.remaining)}đ');
       return;
     }
+    _done = true;
     Navigator.pop(context, {
       'amount': v,
       // Giữa trưa giờ máy → UTC, tránh lệch sang ngày khác.
