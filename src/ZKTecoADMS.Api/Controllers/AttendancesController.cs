@@ -68,8 +68,8 @@ public class AttendancesController(
         }
 
         // Employee: chỉ xem chấm công của chính mình
-        // Manager: xem chấm công của NV thuộc phạm vi quản lý
-        if (!IsAdmin)
+        // Manager: xem chấm công của NV thuộc phạm vi quản lý; kế toán xem cả cửa hàng
+        if (!SeesWholeStore)
         {
             var allowedPins = await GetAllowedPinsAsync();
             if (allowedPins != null)
@@ -1054,7 +1054,7 @@ public class AttendancesController(
     /// </summary>
     private async Task<List<string>?> GetAllowedPinsAsync()
     {
-        if (IsAdmin) return null;
+        if (SeesWholeStore) return null;
 
         var storeId = GetCurrentStoreId();
         

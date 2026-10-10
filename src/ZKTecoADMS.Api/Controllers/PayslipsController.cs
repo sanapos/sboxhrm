@@ -25,7 +25,7 @@ public class PayslipsController(IMediator mediator) : AuthenticatedControllerBas
     [RequireModulePermission("Payslip", ModulePermissionAction.View)]
     public async Task<ActionResult<AppResponse<List<PayslipDto>>>> GetEmployeePayslips(Guid employeeUserId)
     {
-        var isManagerOrAdmin = IsManager || IsAdmin;
+        var isManagerOrAdmin = IsManager || SeesWholeStore;
         var currentUserId = CurrentUserId;
 
         if (!isManagerOrAdmin && currentUserId != employeeUserId)
@@ -76,7 +76,8 @@ public class PayslipsController(IMediator mediator) : AuthenticatedControllerBas
     /// </summary>
     [HttpPost("finalize")]
     [Authorize(Policy = PolicyNames.ManagerOrAccountant)]
-    [RequireModulePermission("Payroll", ModulePermissionAction.Export)]
+    // Chốt lương = ghi phiếu lương → quyền «Duyệt» bảng lương (trước đây «Xuất»: ai xuất Excel được cũng chốt được).
+    [RequireModulePermission("Payroll", ModulePermissionAction.Approve)]
     public async Task<ActionResult<AppResponse<FinalizePayrollResultDto>>> FinalizePayroll(
         [FromBody] FinalizePayrollRequest request,
         [FromServices] ZKTecoADMS.Api.Services.PayrollEngineRunner engine,
@@ -114,7 +115,7 @@ public class PayslipsController(IMediator mediator) : AuthenticatedControllerBas
     [RequireModulePermission("Payslip", ModulePermissionAction.View)]
     public async Task<ActionResult<AppResponse<PayslipDto>>> GetPayslipById(Guid id)
     {
-        var isManagerOrAdmin = IsManager || IsAdmin;
+        var isManagerOrAdmin = IsManager || SeesWholeStore;
         var currentUserId = CurrentUserId;
 
         var query = new GetPayslipByIdQuery(RequiredStoreId, id);
@@ -136,7 +137,7 @@ public class PayslipsController(IMediator mediator) : AuthenticatedControllerBas
     [RequireModulePermission("Payslip", ModulePermissionAction.View)]
     public async Task<ActionResult<AppResponse<PayslipAttendanceSnapshotDto>>> GetPayslipAttendanceSnapshot(Guid id)
     {
-        var isManagerOrAdmin = IsManager || IsAdmin;
+        var isManagerOrAdmin = IsManager || SeesWholeStore;
         var payslipResult = await mediator.Send(new GetPayslipByIdQuery(RequiredStoreId, id));
         if (!payslipResult.IsSuccess || payslipResult.Data == null)
             return NotFound(payslipResult);

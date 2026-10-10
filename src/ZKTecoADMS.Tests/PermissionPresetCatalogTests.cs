@@ -89,4 +89,14 @@ public class PermissionPresetCatalogTests
         Assert.False(PermissionPresetCatalog.DefaultFlags("Employee", "SalarySettings", hrm).Any);
         Assert.True(PermissionPresetCatalog.DefaultFlags("Employee", "Leave", hrm).C);
     }
+
+    [Fact]
+    public void Giam_doc_theo_bang_quyen_va_chot_luong_can_quyen_duyet()
+    {
+        Assert.False(ModulePermissionDefaults.IsSuperRole("Director"));
+        Assert.True(ModulePermissionDefaults.IsSuperRole("Admin"));
+        foreach (var id in new[] { "hrm.director", "hrm.manager", "hrm.accountant", "full.director", "full.manager", "full.accountant" })
+            Assert.True(PermissionPresetCatalog.Build(id)["Payroll"].A, id);
+        Assert.False(PermissionPresetCatalog.Build("hrm.depthead").TryGetValue("Payroll", out var f) && f.A);
+    }
 }

@@ -551,7 +551,7 @@ class _MainLayoutState extends State<MainLayout> with WidgetsBindingObserver {
     final auth = Provider.of<AuthProvider>(context, listen: false);
     final perm = Provider.of<PermissionProvider>(context, listen: false);
     if (!perm.isLoaded) return;
-    if (StoreRoleHelper.isFullAccess(auth.userRole)) return;
+    if (StoreRoleHelper.isFullAccess(auth.userRole) || auth.userRole?.toLowerCase() == 'director') return;
     if (!PermissionNavigation.canNavigate(perm, 'PosSell')) return;
 
     final roleHit = StoreRoleHelper.isPosCashierRole(auth.userRole);

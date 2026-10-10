@@ -3,8 +3,12 @@ namespace ZKTecoADMS.Application.Authorization;
 /// <summary>Default module permissions when seeding role permissions (aligned with Flutter UI).</summary>
 public static class ModulePermissionDefaults
 {
+    /// <summary>
+    /// Vai trò bỏ qua bảng quyền: nền tảng (SuperAdmin, Đại lý) và chủ cửa hàng (Admin).
+    /// Giám đốc theo bảng quyền / mẫu như các vai trò khác (chủ cửa hàng quyết định).
+    /// </summary>
     public static bool IsSuperRole(string role) =>
-        role is "SuperAdmin" or "Agent" or "Admin" or "Director";
+        role is "SuperAdmin" or "Agent" or "Admin";
 
     private static readonly HashSet<string> DashboardWidgetModules = new(StringComparer.OrdinalIgnoreCase)
     {

@@ -105,8 +105,8 @@ public class ReportsController(
         query = await BranchQueryHelper.ApplyBranchFilterAsync(
             query, dbContext, storeId, branchId, includeChildBranches);
 
-        // Phạm vi quản lý theo chi nhánh / cấp dưới (giống EmployeesController).
-        if (!IsAdmin)
+        // Phạm vi quản lý theo chi nhánh / cấp dưới (giống EmployeesController); kế toán xem cả cửa hàng.
+        if (!SeesWholeStore)
         {
             if (IsEmployee && !IsManager)
             {

@@ -22,13 +22,13 @@ class StoreRoleHelper {
   /// Chỉ SuperAdmin / Agent bỏ qua giới hạn gói dịch vụ trên UI.
   static bool bypassesPackageFilter(String? role) => isSystemPortalRole(role);
 
-  /// Admin cửa hàng / giám đốc — toàn quyền module (khớp backend IsSuperRole mở rộng).
+  /// Chủ cửa hàng (Admin) / SuperAdmin / Đại lý — toàn quyền module (khớp backend IsSuperRole).
+  /// Giám đốc theo bảng quyền như vai trò khác.
   static bool isFullAccess(String? role) {
     switch (_norm(role)) {
       case 'admin':
       case 'superadmin':
       case 'agent':
-      case 'director':
         return true;
       default:
         return false;
@@ -39,6 +39,7 @@ class StoreRoleHelper {
   static bool isManagerOrAbove(String? role) {
     if (isFullAccess(role)) return true;
     switch (_norm(role)) {
+      case 'director':
       case 'manager':
       case 'departmenthead':
       case 'storeowner':

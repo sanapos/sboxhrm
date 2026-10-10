@@ -155,7 +155,8 @@ public class LeavesController(IMediator mediator, IDataScopeService dataScopeSer
         List<Guid>? subordinateUserIds = null;
         if (IsManager && !IsAdmin)
             subordinateUserIds = await dataScopeService.GetSubordinateUserIdsAsync(CurrentUserId, RequiredStoreId);
-        var query = new GetAllLeavesQuery(RequiredStoreId, CurrentUserId, IsManager, request, subordinateUserIds, fromDate, toDate, status);
+        // Kế toán xem đơn nghỉ cả cửa hàng (tính lương ngày nghỉ có lương).
+        var query = new GetAllLeavesQuery(RequiredStoreId, CurrentUserId, IsManager || IsAccountant, request, subordinateUserIds, fromDate, toDate, status);
         var result = await mediator.Send(query);
         return Ok(result);
     }

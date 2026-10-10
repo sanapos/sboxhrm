@@ -17,7 +17,8 @@ namespace ZKTecoADMS.Api.Controllers;
 public class WorkSchedulesController(IMediator mediator) : AuthenticatedControllerBase
 {
     [HttpGet]
-    [Authorize(Policy = PolicyNames.AtLeastManager)]
+    // Kế toán đọc lịch cả cửa hàng để tính lương (ngày nghỉ theo lịch, ca được xếp).
+    [Authorize(Policy = PolicyNames.ManagerOrAccountant)]
     [RequireAnyModulePermission(ModulePermissionAction.View, "ScheduleApproval", "WorkSchedule")]
     public async Task<ActionResult<AppResponse<PagedResult<WorkScheduleDto>>>> GetWorkSchedules(
         [FromQuery] int page = 1,

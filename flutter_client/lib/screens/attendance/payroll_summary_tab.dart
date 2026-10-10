@@ -618,7 +618,8 @@ class PayrollSummaryTabState extends State<PayrollSummaryTab> {
   bool _canFinalizePayroll() {
     if (!mounted) return false;
     if (_isEmployeeRole(context)) return false;
-    return context.read<PermissionProvider>().canExport('Payroll');
+    // Chốt lương cần quyền «Duyệt» bảng lương (khớp API).
+    return context.read<PermissionProvider>().canApprove('Payroll');
   }
 
   List<Map<String, dynamic>> _payrollRowsForFinalize({required bool allInTable}) {

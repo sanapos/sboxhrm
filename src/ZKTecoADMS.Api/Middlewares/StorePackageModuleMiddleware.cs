@@ -76,7 +76,6 @@ public class StorePackageModuleMiddleware
         ("/api/penalties", "PenaltySetup"),
         ("/api/insurance", "Insurance"),
         ("/api/tax", "Tax"),
-        ("/api/users", "UserManagement"),
         ("/api/permission-management", "Role"),
         ("/api/orgchart", "OrgChart"),
         ("/api/geofences", "Geofence"),

@@ -74,7 +74,7 @@ class PermissionProvider extends ChangeNotifier {
     _startRefreshTimer();
 
     try {
-      // Admin cửa hàng / giám đốc / SuperAdmin — toàn quyền module
+      // Chủ cửa hàng (Admin) / SuperAdmin / Đại lý — toàn quyền module (giám đốc theo bảng quyền)
       if (StoreRoleHelper.isFullAccess(role)) {
         _isSuperUser = true;
         _permissions = {};

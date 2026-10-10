@@ -62,7 +62,8 @@ public class PayrollController(PayrollEngineRunner engine, IMediator mediator) :
     /// <summary>Chốt lương bằng số máy chủ tự tính (người dùng bấm «Chốt lương»).</summary>
     [HttpPost("finalize")]
     [Authorize(Policy = PolicyNames.ManagerOrAccountant)]
-    [RequireModulePermission("Payroll", ModulePermissionAction.Export)]
+    // Chốt lương = ghi phiếu lương → quyền «Duyệt» bảng lương (trước đây «Xuất»: ai xuất Excel được cũng chốt được).
+    [RequireModulePermission("Payroll", ModulePermissionAction.Approve)]
     public async Task<ActionResult<AppResponse<FinalizePayrollResultDto>>> Finalize(
         [FromBody] FinalizeServerRequest body, CancellationToken ct)
     {

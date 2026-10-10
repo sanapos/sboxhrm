@@ -3604,7 +3604,6 @@ public class ZKTecoDbInitializer(
             await SeedShiftTemplatesAsync();
             await SeedHolidaysAsync();
             await SeedPermissionModulesAsync();
-            await SyncEmployeeRolePermissionsAsync();
             await PatchPosSellOpsRolePermissionsAsync();
             await PatchPermissionSplitAsync();
             await SeedServicePackagesAsync();
@@ -4382,6 +4381,41 @@ IF NOT EXISTS (SELECT 1 FROM ""SboxDataMigrations"" WHERE ""Id"" = 'perm-comm-cr
   INSERT INTO ""SboxDataMigrations"" (""Id"") VALUES ('perm-comm-create-v1');
 END IF;
 END $$;");
+
+        // Một lần: chốt lương chuyển từ quyền «Xuất» sang «Duyệt» bảng lương — ai đang chốt được (có Xuất) giữ nguyên.
+        await context.Database.ExecuteSqlRawAsync(
+            @"DO $$ BEGIN
+IF NOT EXISTS (SELECT 1 FROM ""SboxDataMigrations"" WHERE ""Id"" = 'perm-payroll-approve-v1') THEN
+  UPDATE ""RolePermissions"" rp SET ""CanApprove"" = true
+    FROM ""Permissions"" p WHERE p.""Id"" = rp.""PermissionId"" AND p.""Module"" = 'Payroll'
+    AND rp.""CanExport"" AND NOT rp.""CanApprove"";
+  UPDATE ""DepartmentPermissions"" dp SET ""CanApprove"" = true
+    FROM ""Permissions"" p WHERE p.""Id"" = dp.""PermissionId"" AND p.""Module"" = 'Payroll'
+    AND dp.""CanExport"" AND NOT dp.""CanApprove"";
+  INSERT INTO ""SboxDataMigrations"" (""Id"") VALUES ('perm-payroll-approve-v1');
+END IF;
+END $$;");
+
+        // Một lần: thu hồi quyền nhạy cảm do cách cấp mặc định cũ để lại (không phải chủ cửa hàng tick) —
+        // thu ngân: báo cáo lợi nhuận / lãi lỗ / sổ quỹ, hủy hóa đơn đã thu, sửa giá, xem giá vốn;
+        // phục vụ: giá vốn; nhân viên: bảng lương cửa hàng, thiết lập lương. Chủ cửa hàng tick lại nếu cần.
+        await context.Database.ExecuteSqlRawAsync(
+            @"DO $$ BEGIN
+IF NOT EXISTS (SELECT 1 FROM ""SboxDataMigrations"" WHERE ""Id"" = 'perm-revoke-legacy-v1') THEN
+  UPDATE ""RolePermissions"" rp SET ""CanView"" = false, ""CanCreate"" = false, ""CanEdit"" = false,
+      ""CanDelete"" = false, ""CanExport"" = false, ""CanApprove"" = false,
+      ""UpdatedAt"" = now(), ""UpdatedBy"" = 'perm-revoke-legacy-v1'
+    FROM ""Permissions"" p
+    WHERE p.""Id"" = rp.""PermissionId""
+      AND (rp.""CanView"" OR rp.""CanCreate"" OR rp.""CanEdit"" OR rp.""CanDelete"" OR rp.""CanExport"" OR rp.""CanApprove"")
+      AND (
+        (rp.""RoleName"" = 'Cashier' AND p.""Module"" IN
+          ('PosReportProfit', 'PosReportPnl', 'PosReportCashbook', 'PosSellCancelPaid', 'PosSellPriceEdit', 'PosViewCost'))
+        OR (rp.""RoleName"" = 'Waiter' AND p.""Module"" = 'PosViewCost')
+        OR (rp.""RoleName"" = 'Employee' AND p.""Module"" IN ('Payroll', 'SalarySettings')));
+  INSERT INTO ""SboxDataMigrations"" (""Id"") VALUES ('perm-revoke-legacy-v1');
+END IF;
+END $$;");
     }
 
     /// <summary>
@@ -4566,94 +4600,6 @@ END $$;");
             pkg.UpdatedAt = DateTime.UtcNow;
             pkg.UpdatedBy = "System";
             logger.LogInformation("Added POS report modules to package: {Name}", pkg.Name);
-        }
-    }
-
-    /// <summary>
-    /// Đồng bộ RolePermissions cho role Employee theo ModulePermissionDefaults (mọi store).
-    /// Ghi đè quyền cũ — seed-if-empty không cập nhật cửa hàng đã có dữ liệu.
-    /// </summary>
-    private async Task SyncEmployeeRolePermissionsAsync()
-    {
-        const string roleName = nameof(Roles.Employee);
-        var modules = await context.Permissions.AsNoTracking().ToListAsync();
-        if (modules.Count == 0) return;
-
-        var storeIds = await context.Stores.AsNoTracking().Select(s => s.Id).ToListAsync();
-        var scopes = storeIds.Select(id => (Guid?)id).ToList();
-        if (await context.RolePermissions.AnyAsync(rp => rp.RoleName == roleName && rp.StoreId == null))
-            scopes.Add(null);
-
-        var updated = 0;
-        var inserted = 0;
-        var now = DateTime.UtcNow;
-
-        foreach (var storeId in scopes)
-        {
-            var existing = await context.RolePermissions
-                .Where(rp => rp.RoleName == roleName && rp.StoreId == storeId)
-                .ToListAsync();
-            var byPermissionId = existing.ToDictionary(rp => rp.PermissionId);
-
-            foreach (var module in modules)
-            {
-                var (canView, canCreate, canEdit, canDelete, canExport, canApprove) =
-                    ModulePermissionDefaults.Get(roleName, module.Module);
-                if (byPermissionId.TryGetValue(module.Id, out var row))
-                {
-                    if (row.CanView == canView
-                        && row.CanCreate == canCreate
-                        && row.CanEdit == canEdit
-                        && row.CanDelete == canDelete
-                        && row.CanExport == canExport
-                        && row.CanApprove == canApprove)
-                    {
-                        continue;
-                    }
-
-                    row.CanView = canView;
-                    row.CanCreate = canCreate;
-                    row.CanEdit = canEdit;
-                    row.CanDelete = canDelete;
-                    row.CanExport = canExport;
-                    row.CanApprove = canApprove;
-                    row.UpdatedAt = now;
-                    row.UpdatedBy = "System";
-                    updated++;
-                }
-                else
-                {
-                    context.RolePermissions.Add(new RolePermission
-                    {
-                        Id = Guid.NewGuid(),
-                        StoreId = storeId,
-                        RoleName = roleName,
-                        RoleDisplayName = "Nhân viên",
-                        PermissionId = module.Id,
-                        CanView = canView,
-                        CanCreate = canCreate,
-                        CanEdit = canEdit,
-                        CanDelete = canDelete,
-                        CanExport = canExport,
-                        CanApprove = canApprove,
-                        CreatedAt = now,
-                        CreatedBy = "System"
-                    });
-                    inserted++;
-                }
-            }
-        }
-
-        if (updated > 0 || inserted > 0)
-        {
-            await context.SaveChangesAsync();
-            logger.LogInformation(
-                "Employee RolePermissions synced: {Updated} updated, {Inserted} inserted across {StoreCount} stores.",
-                updated, inserted, storeIds.Count);
-        }
-        else
-        {
-            logger.LogInformation("Employee RolePermissions already match defaults.");
         }
     }
 

@@ -45,7 +45,19 @@ public abstract class AuthenticatedControllerBase : ControllerBase
         || CurrentUserRole.Equals(nameof(Roles.DepartmentHead), StringComparison.OrdinalIgnoreCase)
         || CurrentUserRole.Equals(nameof(Roles.Agent), StringComparison.OrdinalIgnoreCase);
     
-    protected bool IsEmployee => CurrentUserRole.Equals(nameof(Roles.Employee), StringComparison.OrdinalIgnoreCase);
+    /// <summary>
+    /// Nhân viên tự phục vụ — chỉ thấy dữ liệu của mình: Nhân viên, Thu ngân, Phục vụ, Người dùng.
+    /// (Trước đây chỉ Employee → thu ngân / phục vụ rơi vào nhánh «phạm vi quản lý»: thấy phiếu ứng / phạt
+    /// của cả cửa hàng nhưng không thấy hồ sơ của chính mình.)
+    /// </summary>
+    protected bool IsEmployee =>
+        CurrentUserRole.Equals(nameof(Roles.Employee), StringComparison.OrdinalIgnoreCase)
+        || CurrentUserRole.Equals(nameof(Roles.Cashier), StringComparison.OrdinalIgnoreCase)
+        || CurrentUserRole.Equals(nameof(Roles.Waiter), StringComparison.OrdinalIgnoreCase)
+        || CurrentUserRole.Equals(nameof(Roles.User), StringComparison.OrdinalIgnoreCase);
+
+    /// <summary>Xem dữ liệu nhân sự cả cửa hàng (đọc): Admin / Giám đốc và Kế toán (tính lương cho mọi người).</summary>
+    protected bool SeesWholeStore => IsAdmin || IsAccountant;
 
     /// <summary>Được xem / sửa giá vốn (quyền «Xem giá vốn & lợi nhuận» — PosViewCost).</summary>
     protected async Task<bool> CanViewCostAsync()

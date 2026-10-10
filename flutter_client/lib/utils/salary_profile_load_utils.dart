@@ -1,7 +1,10 @@
 import '../services/api_service.dart';
 
-bool isEmployeeUserRole(String? role) =>
-    role?.trim().toLowerCase() == 'employee';
+/// Vai trò tự phục vụ (chỉ dữ liệu của mình) — khớp API IsEmployee: nhân viên, thu ngân, phục vụ, người dùng.
+bool isEmployeeUserRole(String? role) {
+  final r = role?.trim().toLowerCase();
+  return r == 'employee' || r == 'cashier' || r == 'waiter' || r == 'user';
+}
 
 /// Chuyển EmployeeBenefitDto (/api/benefits/me) sang định dạng BenefitDto cho tính ca.
 Map<String, dynamic>? employeeBenefitToShiftProfile(

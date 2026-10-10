@@ -44,7 +44,7 @@ public class EmployeesController(
     {
         // Admin: tất cả. Manager: phạm vi quản lý. Employee: chỉ hồ sơ của mình.
         List<Guid>? subordinateIds = null;
-        if (!IsAdmin)
+        if (!SeesWholeStore)
         {
             if (IsEmployee && !IsManager)
             {
@@ -293,7 +293,7 @@ public class EmployeesController(
             {
                 StoreId = RequiredStoreId,
                 ManagerId = CurrentUserId,
-                SubordinateEmployeeIds = IsAdmin ? null : await dataScopeService.GetSubordinateEmployeeIdsAsync(CurrentUserId, RequiredStoreId),
+                SubordinateEmployeeIds = SeesWholeStore ? null : await dataScopeService.GetSubordinateEmployeeIdsAsync(CurrentUserId, RequiredStoreId),
                 PaginationRequest = new PaginationRequest { PageNumber = 1, PageSize = 10000 }
             };
             var result = await mediator.Send(query);

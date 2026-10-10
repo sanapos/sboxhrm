@@ -143,13 +143,13 @@ public static class PermissionPresetCatalog
     // ── Mẫu HRM ───────────────────────────────────────────────────────────
     static IReadOnlyDictionary<string, Flags> HrmDirector() => new Builder()
         .Set(V, Dashboard)
-        .Set(F, HrProfile).Set(F, Attendance).Set(VX, HrReports).Set(F, Finance).Set(F, Operations)
+        .Set(F, HrProfile).Set(F, Attendance).Set(VX, HrReports).Set(Appr, "Payroll").Set(F, Finance).Set(F, Operations)
         .Set(F, HrSettings).Set(VE, SystemSettings).Set(VX, Admin)
         .Build();
 
     static IReadOnlyDictionary<string, Flags> HrmManager() => new Builder()
         .Set(V, Dashboard)
-        .Set(Mg, HrProfile).Set(Mg, Attendance).Set(VX, HrReports).Set(Mg, Finance).Set(Mg, Operations)
+        .Set(Mg, HrProfile).Set(Mg, Attendance).Set(VX, HrReports).Set(Appr, "Payroll").Set(Mg, Finance).Set(Mg, Operations)
         .Set(Op, HrSettings).Set(V, SystemSettings).Set(V, "UserManagement", "ActivityLog")
         .Set(F, "Leave", "WorkSchedule", "Task")
         .Build();
@@ -176,7 +176,7 @@ public static class PermissionPresetCatalog
         .Set(V, Dashboard)
         .Set(VX, "Employee").Set(V, "Department").Set(Op, "SalarySettings")
         .Set(VX, "Attendance").Set(V, "Leave", "Overtime", "WorkSchedule", "ShiftSwap")
-        .Set(VX, HrReports)
+        .Set(VX, HrReports).Set(Appr, "Payroll") // chốt lương
         .Set(Mg, "BonusPenalty", "AdvanceRequests").Set(Op, "PenaltyTickets")
         .Set(F, "BusinessTripExpense", "CashTransaction", "BankAccount")
         .Set(Op, "Allowance", "Insurance", "Tax", "PenaltySetup", "ProductSalary", "ShiftSalaryLevel", "Benefit", "Transaction")
