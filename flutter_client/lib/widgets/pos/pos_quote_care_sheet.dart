@@ -523,12 +523,9 @@ bool _printHtmlMatchesQuoteLines(
   return second.isEmpty || html.contains(second);
 }
 
-double _quoteLineAmount(PosQuoteLine l) {
-  if (l.lineTotal > 0) return l.lineTotal;
-  final net =
-      (l.qty * l.unitPrice - l.discountAmount).clamp(0.0, double.infinity);
-  return net * (1 + l.vatRate / 100);
-}
+/// Thành tiền in trên chứng từ — SL × đơn giá − CK dòng, chưa cộng VAT (khớp máy chủ PosQuoteDocumentHtml.LineNet).
+double _quoteLineAmount(PosQuoteLine l) =>
+    (l.qty * l.unitPrice - l.discountAmount).clamp(0.0, double.infinity).roundToDouble();
 
 Map<String, String> _quoteHeaderData(
   PosQuote q,
@@ -541,7 +538,6 @@ Map<String, String> _quoteHeaderData(
   final use = lines.isNotEmpty ? lines : q.lines;
   final rate = q.vatPercent ?? 8;
   final t = PosQuoteVat.compute(use, mode: q.vatMode, rate: rate, discount: q.discount);
-  final subTotal = t.subTotal;
   final vat = t.vat;
   final total = t.total;
   final rateText = rate == rate.roundToDouble() ? rate.toStringAsFixed(0) : rate.toStringAsFixed(1);
@@ -605,9 +601,9 @@ Map<String, String> _quoteHeaderData(
     'SDT': q.customerPhone ?? '',
     'Dia_Chi_Khach_Hang': q.customerAddress ?? '',
     'Han_Bao_Gia': q.validUntil == null ? '' : day.format(q.validUntil!.toLocal()),
-    'Tong_Tien_Hang': money.format(subTotal),
+    'Tong_Tien_Hang': money.format(use.fold<double>(0, (a, l) => a + _quoteLineAmount(l))),
     'Chiet_Khau_Hoa_Don': money.format(q.discount),
-    'Tien_Thue': money.format(vat),
+    'Tien_Thue': q.vatMode == PosQuoteVat.included ? '' : money.format(vat),
     'Thue': money.format(vat),
     'VAT': money.format(vat),
     'Thue_Suat': q.vatMode == PosQuoteVat.included || q.vatMode == PosQuoteVat.added ? '$rateText%' : '',

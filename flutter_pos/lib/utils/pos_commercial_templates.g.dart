@@ -86,7 +86,7 @@ const posA4QuoteHtml = r'''<div style="font-family:'Times New Roman',Times,serif
   <p style="margin:8px 0">Rất mong nhận được sự hợp tác của Quý khách. Trân trọng!</p>
   <table style="width:100%;margin-top:14px;border-collapse:collapse;page-break-inside:avoid"><tr>
     <td style="width:50%;text-align:center;vertical-align:top"><b>XÁC NHẬN CỦA KHÁCH HÀNG</b><br/><i>(Ký, ghi rõ họ tên)</i><div style="height:116px"></div><b>{Nguoi_Dai_Dien_Khach}</b></td>
-    <td style="width:50%;text-align:center;vertical-align:top"><b>ĐẠI DIỆN {Ten_Cong_Ty}</b><br/><i>{Chuc_Vu_Cua_Hang}</i><div style="height:116px;overflow:hidden">{Con_Dau}</div><b>{Nguoi_Dai_Dien_Cua_Hang}</b><!--IF:Nguoi_Bao_Gia--><div style="margin-top:6px;font-size:12px">Người lập: {Nguoi_Bao_Gia}</div><!--ENDIF:Nguoi_Bao_Gia--></td>
+    <td style="width:50%;text-align:center;vertical-align:top"><b style="text-transform:uppercase">ĐẠI DIỆN {Ten_Cong_Ty}</b><br/><i>{Chuc_Vu_Cua_Hang}</i><div style="height:116px;overflow:hidden">{Con_Dau}</div><b>{Nguoi_Dai_Dien_Cua_Hang}</b><!--IF:Nguoi_Bao_Gia--><div style="margin-top:6px;font-size:12px">Người lập: {Nguoi_Bao_Gia}</div><!--ENDIF:Nguoi_Bao_Gia--></td>
   </tr></table>
 </div>''';
 
@@ -374,6 +374,6 @@ const posA4PaymentRequestHtml = r'''<!--NO_ITEMS--><div style="font-family:'Time
   <p style="margin:8px 0">Rất mong Quý khách xem xét và thanh toán đúng tiến độ đã thỏa thuận. Trân trọng!</p>
   <table style="width:100%;margin-top:14px;border-collapse:collapse;page-break-inside:avoid"><tr>
     <td style="width:50%;text-align:center;vertical-align:top"><b>XÁC NHẬN CỦA BÊN A</b><br/><i>(Ký, ghi rõ họ tên)</i><div style="height:116px"></div></td>
-    <td style="width:50%;text-align:center;vertical-align:top"><b>ĐẠI DIỆN {Ten_Cong_Ty}</b><br/><i>{Chuc_Vu_Cua_Hang}</i><div style="height:116px;overflow:hidden">{Con_Dau}</div><b>{Nguoi_Dai_Dien_Cua_Hang}</b></td>
+    <td style="width:50%;text-align:center;vertical-align:top"><b style="text-transform:uppercase">ĐẠI DIỆN {Ten_Cong_Ty}</b><br/><i>{Chuc_Vu_Cua_Hang}</i><div style="height:116px;overflow:hidden">{Con_Dau}</div><b>{Nguoi_Dai_Dien_Cua_Hang}</b></td>
   </tr></table>
 </div>''';

@@ -502,6 +502,10 @@ bool _printHtmlMatchesQuoteLines(
   return second.isEmpty || html.contains(second);
 }
 
+/// Thành tiền in trên chứng từ — SL × đơn giá − CK dòng, chưa cộng VAT (khớp máy chủ PosQuoteDocumentHtml.LineNet).
+double _quoteLineNet(PosQuoteLine l) =>
+    (l.qty * l.unitPrice - l.discountAmount).clamp(0.0, double.infinity).roundToDouble();
+
 double _quoteLineAmount(PosQuoteLine l) {
   if (l.lineTotal > 0) return l.lineTotal;
   final net =
@@ -518,7 +522,6 @@ Map<String, String> _quoteHeaderData(
   final day = DateFormat('dd/MM/yyyy');
   final now = DateTime.now();
   final use = lines.isNotEmpty ? lines : q.lines;
-  final subTotal = use.fold<double>(0, (a, l) => a + l.qty * l.unitPrice);
   final lineSum = use.fold<double>(0, (a, l) => a + _quoteLineAmount(l));
   final vat = use.fold<double>(0, (a, l) {
     final net =
@@ -526,6 +529,10 @@ Map<String, String> _quoteHeaderData(
     return a + (_quoteLineAmount(l) - net);
   });
   final total = (lineSum - q.discount).clamp(0.0, double.infinity);
+  // Giá trị trước VAT (cơ sở tính % cọc) — khớp PosQuoteStageMath máy chủ.
+  final preVat = (use.fold<double>(0, (a, l) => a + _quoteLineNet(l)) - q.discount)
+      .clamp(0.0, double.infinity)
+      .toDouble();
   String prof(String a, String b) =>
       (profile?[a] ?? profile?[b] ?? '').toString().trim();
   final quoteTerms = (q.terms ?? '').trim();
@@ -539,7 +546,7 @@ Map<String, String> _quoteHeaderData(
   final pct = q.depositPercent ?? 0;
   final deposit = q.depositAmount > 0
       ? q.depositAmount
-      : (pct > 0 ? (t.preVat * pct / 100).roundToDouble() : 0.0);
+      : (pct > 0 ? (preVat * pct / 100).roundToDouble() : 0.0);
   final remain = (total - deposit).clamp(0.0, double.infinity).toDouble();
   final pctText = pct > 0
       ? (pct == pct.roundToDouble() ? pct.toStringAsFixed(0) : pct.toStringAsFixed(1))
@@ -586,7 +593,7 @@ Map<String, String> _quoteHeaderData(
     'SDT': q.customerPhone ?? '',
     'Dia_Chi_Khach_Hang': q.customerAddress ?? '',
     'Han_Bao_Gia': q.validUntil == null ? '' : day.format(q.validUntil!.toLocal()),
-    'Tong_Tien_Hang': money.format(subTotal),
+    'Tong_Tien_Hang': money.format(use.fold<double>(0, (a, l) => a + _quoteLineNet(l))),
     'Chiet_Khau_Hoa_Don': money.format(q.discount),
     'Tien_Thue': money.format(vat),
     'Thue': money.format(vat),
@@ -664,7 +671,7 @@ List<Map<String, String>> _quoteLineItems(List<PosQuoteLine> lines) {
         'Don_Vi_Tinh': l.unitName ?? '',
         'So_Luong': qty.format(l.qty),
         'Don_Gia': money.format(l.unitPrice),
-        'Thanh_Tien': money.format(_quoteLineAmount(l)),
+        'Thanh_Tien': money.format(_quoteLineNet(l)),
         'Chiet_Khau': money.format(l.discountAmount),
         'Ghi_Chu': l.lineNote ?? '',
         'Chieu_Dai': formatPosDim(l.length),

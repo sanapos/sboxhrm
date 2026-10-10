@@ -91,6 +91,45 @@ public class PosQuoteDocumentTests(PosPgFixture fx) : PosFlowTestBase(fx)
     }
 
     [Fact]
+    public async Task Thanh_tien_dong_chua_VAT_va_cong_dung_bang_tong_tien_hang()
+    {
+        if (NoDb) return;
+        var (_, q) = await SeedAsync(withStages: false);
+        await using (var db = Fx.NewDb())
+        {
+            // Như máy chủ lưu thật: LineTotal đã cộng VAT 8% từng dòng, dòng 2 có chiết khấu dòng.
+            var lines = await db.PosQuoteLines.AsTracking().Where(l => l.QuoteId == q).OrderBy(l => l.SortOrder).ToListAsync();
+            lines[0].LineTotal = 46_170_000;
+            lines[1].DiscountAmount = 250_000;
+            lines[1].LineTotal = 59_400_000;
+            await db.SaveChangesAsync();
+        }
+        var html = await HtmlAsync(q, PosQuoteDocumentKind.Quote);
+        Assert.Contains("42.750.000", html);      // 4,5 × 9.500.000 — chưa VAT
+        Assert.Contains("55.000.000", html);      // 55.250.000 − 250.000 CK dòng
+        Assert.DoesNotContain("46.170.000", html);
+        Assert.DoesNotContain("59.400.000", html);
+        Assert.Contains("97.750.000", html);      // Tổng tiền hàng = Σ thành tiền
+    }
+
+    [Fact]
+    public async Task Gia_da_gom_VAT_khong_chen_dong_thue_vao_bang_tong()
+    {
+        if (NoDb) return;
+        var (_, q) = await SeedAsync(withStages: false);
+        await using (var db = Fx.NewDb())
+        {
+            var quote = await db.PosQuotes.AsTracking().FirstAsync(x => x.Id == q);
+            quote.VatMode = "included";
+            quote.VatAmount = 7_111_111;
+            await db.SaveChangesAsync();
+        }
+        var html = await HtmlAsync(q, PosQuoteDocumentKind.Quote);
+        Assert.DoesNotContain("7.111.111", html);
+        Assert.Contains("Giá đã bao gồm thuế GTGT 8%", html);
+    }
+
+    [Fact]
     public async Task Cot_thoi_han_dot_chi_hien_khi_co_dot_dat_han()
     {
         if (NoDb) return;

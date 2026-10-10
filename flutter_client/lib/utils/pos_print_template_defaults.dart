@@ -1,6 +1,14 @@
 import '../models/pos_print_template.dart';
 import 'pos_commercial_templates.g.dart';
 
+/// Phiên bản mẫu chuẩn A4 (báo giá, hợp đồng, bàn giao, nghiệm thu, đề nghị TT) — tăng mỗi khi sửa
+/// `src/ZKTecoADMS.Api/PrintTemplates/A4/*.html`. Mẫu cửa hàng lưu từ bản cũ hơn → màn Mẫu in mời cập nhật.
+/// 2: 10/10/2026 — bảng tổng khớp cột Thành tiền, ký tên thẳng hàng, bỏ dòng trống.
+const kPosCommercialBaseRev = 2;
+
+/// Phiên bản mẫu chuẩn mà mẫu [html] được tạo từ (thiếu = 1: trước khi có đánh số).
+int posCommercialBaseRev(String html) => PosCommercialPageSetup.parse(html).baseRev;
+
 /// Khổ + lề (mm) mẫu báo giá / hợp đồng — lưu trong `<!--POS_A4_V6 …-->`.
 class PosCommercialPageSetup {
   const PosCommercialPageSetup({
@@ -9,6 +17,7 @@ class PosCommercialPageSetup {
     this.rightMm = defaultMm,
     this.bottomMm = defaultMm,
     this.leftMm = defaultMm,
+    this.baseRev = 1,
   });
 
   static const defaultMm = 12.0;
@@ -20,6 +29,9 @@ class PosCommercialPageSetup {
   final double rightMm;
   final double bottomMm;
   final double leftMm;
+
+  /// Mẫu chuẩn gốc — xem [kPosCommercialBaseRev].
+  final int baseRev;
 
   bool get isA5 => paperSize == PosPrintPaperSizes.a5;
 
@@ -36,6 +48,7 @@ class PosCommercialPageSetup {
     double? rightMm,
     double? bottomMm,
     double? leftMm,
+    int? baseRev,
   }) {
     return PosCommercialPageSetup(
       paperSize: paperSize ?? this.paperSize,
@@ -43,6 +56,7 @@ class PosCommercialPageSetup {
       rightMm: rightMm ?? this.rightMm,
       bottomMm: bottomMm ?? this.bottomMm,
       leftMm: leftMm ?? this.leftMm,
+      baseRev: baseRev ?? this.baseRev,
     );
   }
 
@@ -84,6 +98,7 @@ class PosCommercialPageSetup {
       rightMm: _clampMm(double.tryParse(_attr(html, 'mr') ?? '')),
       bottomMm: _clampMm(double.tryParse(_attr(html, 'mb') ?? '')),
       leftMm: _clampMm(double.tryParse(_attr(html, 'ml') ?? '')),
+      baseRev: int.tryParse(_attr(html, 'rev') ?? '') ?? 1,
     );
   }
 
@@ -102,7 +117,7 @@ class PosCommercialPageSetup {
         .replaceFirst(RegExp(r'<!--POS_PAGE[^>]*-->'), '');
     return '<!--POS_A4_V9 paper="$paperSize" mt="${_fmt(topMm)}" '
         'mr="${_fmt(rightMm)}" mb="${_fmt(bottomMm)}" '
-        'ml="${_fmt(leftMm)}"-->$body';
+        'ml="${_fmt(leftMm)}" rev="$baseRev"-->$body';
   }
 }
 
@@ -163,6 +178,7 @@ String posPrintDefaultHtml({
   if (PosPrintDocumentTypes.isCommercial(documentType)) {
     final setup = PosCommercialPageSetup(
       paperSize: PosPrintPaperSizes.normalizeCommercialPaper(paperSize),
+      baseRev: kPosCommercialBaseRev,
     );
     return setup.applyToHtml(_commercialA4(documentType));
   }

@@ -130,10 +130,11 @@ class PosCommercialWordSurfaceState extends State<PosCommercialWordSurface> {
 <html><head><meta charset="utf-8">
 <style>
   html,body{margin:0;background:#fff;}
-  html{height:100%;overflow-y:scroll;overflow-x:hidden;}
+  /* Khung trang đã cao bằng nội dung, cuộn ở ngoài → không chừa 12px thanh cuộn trong trang:
+     vùng chữ phải rộng đúng như bản in / PDF (A4 794px − lề), nếu không chữ xuống dòng khác bản in. */
+  html{height:100%;overflow-y:auto;overflow-x:hidden;scrollbar-width:none;}
   body{overflow:visible;}
-  ::-webkit-scrollbar{width:12px;}
-  ::-webkit-scrollbar-thumb{background:#94a3b8;border-radius:6px;}
+  ::-webkit-scrollbar{width:0;height:0;}
 $posCommercialContentCss
   body{
     padding:${widget.pageSetup.paddingCss};min-height:100%;box-sizing:border-box;

@@ -102,6 +102,17 @@ public static class PosQuoteDocumentHtml
         var lines = await BuildLinesAsync(db, quote, includeImages, contentRootPath);
         data["Co_Anh"] = lines.Any(l => !string.IsNullOrWhiteSpace(l.GetValueOrDefault("Hinh_Anh"))) ? "1" : "";
         data["Co_Bao_Hanh_Dong"] = lines.Any(l => !string.IsNullOrWhiteSpace(l.GetValueOrDefault("Bao_Hanh"))) ? "1" : "";
+        // Người lập lưu bằng email (chủ cửa hàng không có hồ sơ nhân viên) → in họ tên tài khoản.
+        foreach (var key in new[] { "Nguoi_Bao_Gia", "Nguoi_Ban" })
+        {
+            var who = data.GetValueOrDefault(key) ?? "";
+            if (!who.Contains('@')) continue;
+            var name = await db.Users.AsNoTracking()
+                .Where(u => u.Email == who)
+                .Select(u => (u.LastName + " " + u.FirstName).Trim())
+                .FirstOrDefaultAsync();
+            data[key] = string.IsNullOrWhiteSpace(name) ? "" : name;
+        }
         return (data, lines);
     }
 
@@ -154,6 +165,12 @@ public static class PosQuoteDocumentHtml
             : "";
     }
 
+    /// <summary>
+    /// Thành tiền in trên chứng từ: SL × đơn giá − chiết khấu dòng (cùng cơ sở thuế với đơn giá).
+    /// LineTotal lưu trong DB đã cộng VAT từng dòng — in ra sẽ không khớp «Tổng tiền hàng» / «Thuế GTGT».
+    /// </summary>
+    static decimal LineNet(PosQuoteLine l) => Math.Round(Math.Max(0, l.Qty * l.UnitPrice - l.DiscountAmount), 0);
+
     static List<Dictionary<string, string>> activeLinesSync(PosQuote quote)
     {
         var vn = CultureInfo.GetCultureInfo("vi-VN");
@@ -168,7 +185,7 @@ public static class PosQuoteDocumentHtml
                 ["Don_Vi_Tinh"] = l.UnitName ?? "",
                 ["So_Luong"] = l.Qty.ToString("0.##", vn),
                 ["Don_Gia"] = l.UnitPrice.ToString("#,##0", vn),
-                ["Thanh_Tien"] = l.LineTotal.ToString("#,##0", vn),
+                ["Thanh_Tien"] = LineNet(l).ToString("#,##0", vn),
                 ["Chiet_Khau"] = l.DiscountAmount.ToString("#,##0", vn),
                 ["Ghi_Chu"] = l.LineNote ?? "",
                 ["Chieu_Dai"] = DimCell(l.Length, l.LineNote, "Dài"),
@@ -479,9 +496,11 @@ public static class PosQuoteDocumentHtml
             ["Dia_Diem_Thi_Cong"] = FirstText(quote.CustomerAddress, customer?.Address),
             ["Dia_Diem_Ky"] = "",
             ["Han_Bao_Gia"] = Day(quote.ValidUntil),
-            ["Tong_Tien_Hang"] = Money(quote.SubTotal),
+            // Bảng tổng cộng khớp cột «Thành tiền»: tổng tiền hàng = Σ thành tiền dòng (đã trừ CK dòng, chưa VAT);
+            // giá đã gồm VAT → không chen dòng thuế vào giữa (đã ghi «Giá đã bao gồm thuế…» bên dưới).
+            ["Tong_Tien_Hang"] = Money(lines.Sum(LineNet)),
             ["Chiet_Khau_Hoa_Don"] = Money(quote.Discount),
-            ["Tien_Thue"] = Money(quote.VatAmount),
+            ["Tien_Thue"] = quote.VatMode == "included" ? "" : Money(quote.VatAmount),
             ["Thue"] = Money(quote.VatAmount),
             ["VAT"] = Money(quote.VatAmount),
             ["Thue_Suat"] = quote.VatMode is "included" or "added" ? vatRateText + "%" : "",
@@ -564,7 +583,7 @@ public static class PosQuoteDocumentHtml
                 ["Don_Vi_Tinh"] = l.UnitName ?? "",
                 ["So_Luong"] = l.Qty.ToString("0.##", vn),
                 ["Don_Gia"] = l.UnitPrice.ToString("#,##0", vn),
-                ["Thanh_Tien"] = l.LineTotal.ToString("#,##0", vn),
+                ["Thanh_Tien"] = LineNet(l).ToString("#,##0", vn),
                 ["Chiet_Khau"] = l.DiscountAmount.ToString("#,##0", vn),
                 ["Ghi_Chu"] = l.LineNote ?? "",
                 ["Chieu_Dai"] = DimCell(l.Length, l.LineNote, "Dài"),
@@ -579,7 +598,16 @@ public static class PosQuoteDocumentHtml
         }).ToList();
     }
 
-    public static string DefaultA4Html(string title) => DefaultA4For(kindFromTitle(title));
+    /// <summary>
+    /// Phiên bản mẫu chuẩn A4 — khớp `kPosCommercialBaseRev` (flutter_client/lib/utils/pos_print_template_defaults.dart).
+    /// Tăng khi sửa PrintTemplates/A4/*.html: app mời cửa hàng đang dùng mẫu lưu từ bản cũ cập nhật.
+    /// </summary>
+    public const int CommercialBaseRev = 2;
+
+    /// <summary>Mẫu chuẩn cho catalog «Mẫu có sẵn» — kèm khổ, lề mặc định và phiên bản (app đọc cùng comment).</summary>
+    public static string DefaultA4Html(string title) =>
+        $"<!--POS_A4_V9 paper=\"A4\" mt=\"12\" mr=\"12\" mb=\"12\" ml=\"12\" rev=\"{CommercialBaseRev}\"-->"
+        + DefaultA4For(kindFromTitle(title));
 
     public static string DefaultA4For(PosQuoteDocumentKind kind) => LoadA4(kind switch
     {

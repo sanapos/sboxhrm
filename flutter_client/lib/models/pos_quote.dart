@@ -239,6 +239,8 @@ class PosQuote {
     this.includeImages = false,
     this.vatMode = PosQuoteVat.perItem,
     this.vatPercent,
+    this.priceListId,
+    this.priceListName,
     this.createdAt,
     this.lines = const [],
     this.documents = const [],
@@ -281,6 +283,10 @@ class PosQuote {
 
   /// % VAT chung khi [vatMode] là added / included.
   final double? vatPercent;
+
+  /// Bảng giá (Thiết lập › Bảng giá) dùng lấy đơn giá khi soạn — null = giá bán chung.
+  final String? priceListId;
+  final String? priceListName;
   final DateTime? createdAt;
   final List<PosQuoteLine> lines;
   final List<PosQuoteDocument> documents;
@@ -395,6 +401,8 @@ class PosQuote {
       }(),
       includeImages: json['includeImages'] == true ||
           json['IncludeImages'] == true,
+      priceListId: (json['priceListId'] ?? json['PriceListId'])?.toString(),
+      priceListName: (json['priceListName'] ?? json['PriceListName'])?.toString(),
       createdAt: d(json['createdAt'] ?? json['CreatedAt']),
       lines: parseLines(rawLines),
       documents: rawDocs is List

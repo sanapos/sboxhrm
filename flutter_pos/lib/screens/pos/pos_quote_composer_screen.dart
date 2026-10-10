@@ -5,12 +5,15 @@ import 'package:intl/intl.dart';
 
 import '../../l10n/app_tr.dart';
 import '../../models/pos_customer.dart';
+import '../../models/pos_price_list.dart';
 import '../../models/pos_print_template.dart';
 import '../../models/pos_product.dart';
 import '../../models/pos_quote.dart';
 import '../../services/api_service.dart';
 import '../../utils/pos_html_print.dart';
+import '../../utils/pos_quote_export.dart';
 import '../../utils/pos_print_template_loader.dart';
+import '../../utils/pos_price_list_resolver.dart';
 import '../../utils/pos_print_template_v2_codec.dart';
 import '../../utils/pos_purchase_product_lookup.dart';
 import '../../utils/pos_qty_rules.dart';
@@ -97,6 +100,13 @@ class _PosQuoteComposerScreenState extends State<PosQuoteComposerScreen> {
   List<PosCustomer> _custHits = [];
   String? _printTemplateId;
   List<PosPrintTemplate> _templates = [];
+
+  /// Bảng giá (Thiết lập › Bảng giá): null = giá bán chung của hàng hóa.
+  List<PosPriceList> _priceLists = [];
+  String? _priceListId;
+  String? _priceListName;
+  Map<String, double> _priceOverrides = const {};
+  final Map<String, Map<String, double>> _priceOverrideCache = {};
   String _depositPayment = 'Chuyển khoản';
   DateTime _validUntil = DateTime.now().add(const Duration(days: 15));
   final List<_QLine> _cart = [];
@@ -151,6 +161,7 @@ class _PosQuoteComposerScreenState extends State<PosQuoteComposerScreen> {
     super.initState();
     _loadDefaultTemplate();
     _loadCommercialProfile();
+    unawaited(_loadPriceLists(pickDefault: !_isEdit));
     if (_isEdit) {
       _loadQuote();
     }
@@ -198,6 +209,110 @@ class _PosQuoteComposerScreenState extends State<PosQuoteComposerScreen> {
       if (_printTemplateId == null ||
           html.every((t) => t.id != _printTemplateId)) {
         _printTemplateId = def?.id;
+      }
+    });
+  }
+
+  Future<void> _loadPriceLists({required bool pickDefault}) async {
+    final res = await _api.getPosPriceLists();
+    if (!mounted || res['isSuccess'] != true || res['data'] is! List) return;
+    final lists = [
+      for (final e in res['data'] as List)
+        if (e is Map) PosPriceList.fromJson(Map<String, dynamic>.from(e)),
+    ].where((l) => l.isActive).toList();
+    setState(() => _priceLists = lists);
+    // Báo giá mới: tự lấy bảng giá mặc định như màn bán hàng (chưa có dòng nào → không hỏi).
+    if (pickDefault && _priceListId == null && _cart.isEmpty) {
+      final def = pickDefaultPosPriceList(lists);
+      if (def != null) await _setPriceList(def.id, def.name, reprice: false);
+    }
+  }
+
+  Future<Map<String, double>> _loadOverrides(String priceListId) async {
+    final cached = _priceOverrideCache[priceListId];
+    if (cached != null) return cached;
+    final res = await _api.getPosPriceListResolvedPrices(priceListId);
+    final map = res['isSuccess'] == true && res['data'] is List
+        ? buildPosPriceOverrideMap(res['data'] as List)
+        : <String, double>{};
+    _priceOverrideCache[priceListId] = map;
+    return map;
+  }
+
+  Future<void> _setPriceList(String? id, String? name, {required bool reprice}) async {
+    final overrides = id == null ? const <String, double>{} : await _loadOverrides(id);
+    if (!mounted) return;
+    setState(() {
+      _priceListId = id;
+      _priceListName = name;
+      _priceOverrides = overrides;
+    });
+    if (reprice) _repriceCart();
+  }
+
+  /// Đơn giá theo bảng giá đang chọn; hàng không có trong bảng → giá bán của đơn vị / hàng hóa.
+  double _priceFor(PosProduct p, PosProductUnitView? v) {
+    final fromList = resolvePosPriceListPrice(
+      _priceOverrides,
+      productId: p.id,
+      variantId: v?.variantId,
+      unitId: v?.unitId,
+    );
+    if (fromList != null && fromList > 0) return fromList;
+    if (v != null && v.basePrice > 0) return v.basePrice;
+    return p.basePrice;
+  }
+
+  PosProductUnitView? _rowView(_QLine row) {
+    for (final v in row.views) {
+      if (v.viewKey == row.viewKey) return v;
+    }
+    for (final v in row.views) {
+      if (v.label == row.line.unitName) return v;
+    }
+    return null;
+  }
+
+  /// Đổi bảng giá → hỏi cập nhật đơn giá các dòng đã có (dòng gia công tính theo m² cập nhật giá m²).
+  Future<void> _choosePriceList(String? id) async {
+    if (id == _priceListId) return;
+    final name = id == null ? null : _priceLists.where((l) => l.id == id).firstOrNull?.name;
+    final priced = _cart.where((r) => r.product != null).length;
+    var reprice = false;
+    if (priced > 0) {
+      reprice = await showDialog<bool>(
+            context: context,
+            builder: (ctx) => AlertDialog(
+              title: Text(tr('Đổi bảng giá')),
+              content: Text(tr(
+                  'Cập nhật đơn giá $priced dòng hàng theo «${name ?? 'Giá bán chung'}»?\n'
+                  'Chọn «Giữ giá cũ» nếu đã thương lượng giá với khách.')),
+              actions: [
+                TextButton(onPressed: () => Navigator.pop(ctx, false), child: Text(tr('Giữ giá cũ'))),
+                FilledButton(onPressed: () => Navigator.pop(ctx, true), child: Text(tr('Cập nhật giá'))),
+              ],
+            ),
+          ) ??
+          false;
+      if (!mounted) return;
+    }
+    await _setPriceList(id, name, reprice: reprice);
+  }
+
+  void _repriceCart() {
+    setState(() {
+      for (final row in _cart) {
+        final p = row.product;
+        if (p == null) continue;
+        final price = _priceFor(p, _rowView(row));
+        if (price <= 0) continue;
+        final line = row.line;
+        line.unitPrice = price;
+        row.priceCtrl.text = _money.format(line.unitPrice);
+        if (row.discountIsPercent) {
+          line.discountAmount =
+              (row.lineGross * row.discountInput / 100).clamp(0, row.lineGross);
+        }
       }
     });
   }
@@ -253,6 +368,9 @@ class _PosQuoteComposerScreenState extends State<PosQuoteComposerScreen> {
         _printTemplateId = q.printTemplateId ?? _printTemplateId;
         if (q.validUntil != null) _validUntil = q.validUntil!.toLocal();
       });
+      if ((q.priceListId ?? '').isNotEmpty) {
+        unawaited(_setPriceList(q.priceListId, q.priceListName, reprice: false));
+      }
       for (final row in _cart) {
         unawaited(_hydrateRow(row));
       }
@@ -393,7 +511,7 @@ class _PosQuoteComposerScreenState extends State<PosQuoteComposerScreen> {
     final views = _viewsOf(p);
     final view = _viewForPick(views, pick);
     final unit = view?.label ?? pick.unitLabel ?? p.baseUnitName;
-    final price = (view?.basePrice ?? 0) > 0 ? view!.basePrice : p.basePrice;
+    final price = _priceFor(p, view);
     final i = _cart.indexWhere((c) =>
         c.line.productId == p.id && (c.line.unitName ?? '') == unit);
     if (i >= 0) {
@@ -598,9 +716,10 @@ class _PosQuoteComposerScreenState extends State<PosQuoteComposerScreen> {
     setState(() {
       row.viewKey = v.viewKey;
       row.line.unitName = v.label;
-      if (v.basePrice > 0) {
-        row.line.unitPrice = v.basePrice;
-        row.priceCtrl.text = _money.format(v.basePrice);
+      final price = row.product != null ? _priceFor(row.product!, v) : v.basePrice;
+      if (price > 0) {
+        row.line.unitPrice = price;
+        row.priceCtrl.text = _money.format(price);
       }
       if (v.displayCode.isNotEmpty) row.line.productCode = v.displayCode;
     });
@@ -725,6 +844,7 @@ class _PosQuoteComposerScreenState extends State<PosQuoteComposerScreen> {
         'depositPercent': _depositIsPercent ? _depositInput : null,
         if (tplId != null) 'printTemplateId': tplId,
         'includeImages': _includeImages,
+        'priceListId': _priceListId ?? '',
         'lines': _cart.map((r) => r.line.toInputJson()).toList(),
       };
       final quoteId = _activeQuoteId;
@@ -786,18 +906,8 @@ class _PosQuoteComposerScreenState extends State<PosQuoteComposerScreen> {
         final cartLines = _cart.map((r) => r.line).toList();
         var html = '';
         try {
-          Map<String, dynamic>? profile;
-          try {
-            final profileRes = await ApiService().getPosCommercialProfile();
-            if (profileRes['isSuccess'] == true && profileRes['data'] is Map) {
-              profile = Map<String, dynamic>.from(profileRes['data'] as Map);
-            }
-          } catch (_) {}
-          html = bindPosQuotePrintHtmlLocal(
-            q,
-            cartLines,
-            commercialProfile: profile,
-          );
+          // Cùng bản HTML máy chủ với màn chi tiết / PDF — mất mạng mới dựng trên máy.
+          html = await PosQuoteExport.renderHtml(q, documentType: PosPrintDocumentTypes.quote);
         } catch (_) {
           html = '';
         }
@@ -983,11 +1093,41 @@ class _PosQuoteComposerScreenState extends State<PosQuoteComposerScreen> {
     );
   }
 
+  Widget _priceListSelector() {
+    final known = _priceLists.any((l) => l.id == _priceListId);
+    return DropdownButtonFormField<String?>(
+      value: known ? _priceListId : null,
+      isExpanded: true,
+      decoration: PosTheme.inputDecoration(label: 'Bảng giá'),
+      items: [
+        DropdownMenuItem<String?>(
+          value: null,
+          child: Text(
+            tr(!known && (_priceListName ?? '').isNotEmpty
+                ? '$_priceListName (đã ngừng)'
+                : 'Giá bán chung'),
+            overflow: TextOverflow.ellipsis,
+          ),
+        ),
+        for (final l in _priceLists)
+          DropdownMenuItem<String?>(
+            value: l.id,
+            child: Text(
+              l.isDefault ? '${l.name} · mặc định' : l.name,
+              overflow: TextOverflow.ellipsis,
+            ),
+          ),
+      ],
+      onChanged: (v) => unawaited(_choosePriceList(v)),
+    );
+  }
+
   Widget _catalogPane({required bool listLayout}) {
     return PosSellProductGrid(
       api: _api,
       sellListLayout: listLayout,
       cartQtyByProductId: _cartQty,
+      priceOverrides: _priceOverrides,
       onPick: _addPick,
       onSetQty: _setLineQty,
       onDecrement: (p) {
@@ -1655,6 +1795,10 @@ class _PosQuoteComposerScreenState extends State<PosQuoteComposerScreen> {
             ),
           if (_customer != null) _customerCard(_customer!),
           const SizedBox(height: 14),
+          if (_priceLists.isNotEmpty) ...[
+            _priceListSelector(),
+            const SizedBox(height: 12),
+          ],
           if (_templates.isNotEmpty) ...[
             ClipRect(
               child: DropdownButtonFormField<String?>(

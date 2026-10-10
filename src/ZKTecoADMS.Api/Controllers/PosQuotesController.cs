@@ -75,7 +75,9 @@ public partial class PosQuotesController(
         int? PotentialScore = null,
         bool IncludeImages = false,
         string VatMode = "per_item",
-        decimal? VatPercent = null);
+        decimal? VatPercent = null,
+        Guid? PriceListId = null,
+        string? PriceListName = null);
 
     public record QuoteLineInput(
         string? ProductId,
@@ -112,7 +114,9 @@ public partial class PosQuotesController(
         decimal DepositAmount = 0,
         decimal? DepositPercent = null,
         string? VatMode = null,
-        decimal? VatPercent = null);
+        decimal? VatPercent = null,
+        // null = giữ nguyên (app cũ không gửi); "" = giá bán chung; id = bảng giá của cửa hàng.
+        string? PriceListId = null);
 
     [HttpGet]
     [RequireModulePermission("PosQuotes", ModulePermissionAction.View)]
@@ -225,6 +229,7 @@ public partial class PosQuotesController(
             IsActive = true,
         };
         ApplyHeader(quote, dto);
+        await ApplyPriceListAsync(quote, storeId, dto.PriceListId);
         ApplyLines(quote, storeId, dto.Lines);
         Recalc(quote);
         ApplyDeposit(quote, dto);
@@ -259,6 +264,7 @@ public partial class PosQuotesController(
         quote = await dbContext.PosQuotes.IgnoreQueryFilters()
             .FirstAsync(x => x.Id == id);
         ApplyHeader(quote, dto);
+        await ApplyPriceListAsync(quote, storeId, dto.PriceListId);
         InsertLines(quote, storeId, dto.Lines);
         Recalc(quote);
         ApplyDeposit(quote, dto);
@@ -287,6 +293,8 @@ public partial class PosQuotesController(
                 ""IncludeImages"" = {quote.IncludeImages},
                 ""VatMode"" = {quote.VatMode},
                 ""VatPercent"" = {quote.VatPercent},
+                ""PriceListId"" = {quote.PriceListId},
+                ""PriceListName"" = {quote.PriceListName},
                 ""Status"" = {(int)quote.Status},
                 ""CustomerId"" = {quote.CustomerId},
                 ""UpdatedAt"" = {now},
@@ -484,6 +492,26 @@ public partial class PosQuotesController(
         }
         if (dto.VatPercent.HasValue)
             quote.VatPercent = Math.Clamp(dto.VatPercent.Value, 0, 100);
+    }
+
+    /// <summary>Bảng giá chỉ nhận khi thuộc cửa hàng; giá trên từng dòng vẫn do người soạn quyết định.</summary>
+    async Task ApplyPriceListAsync(PosQuote quote, Guid storeId, string? priceListId)
+    {
+        if (priceListId == null) return;
+        var id = ParseGuid(priceListId);
+        if (id == null)
+        {
+            quote.PriceListId = null;
+            quote.PriceListName = null;
+            return;
+        }
+        var name = await dbContext.PosPriceLists.AsNoTracking()
+            .Where(x => x.Id == id && x.StoreId == storeId && x.Deleted == null)
+            .Select(x => x.Name)
+            .FirstOrDefaultAsync();
+        if (name == null) return;
+        quote.PriceListId = id;
+        quote.PriceListName = name;
     }
 
     static void ApplyDeposit(PosQuote quote, QuoteSaveDto dto)
@@ -859,7 +887,8 @@ public partial class PosQuotesController(
         x.QuotedByEmployeeId,
         x.QuotedByEmployeeId is Guid eid ? names?.GetValueOrDefault(eid) : null,
         x.CommercialStage.ToString(),
-        x.CreatedAt, x.UpdatedAt, null, null, x.PotentialScore, x.IncludeImages, x.VatMode, x.VatPercent);
+        x.CreatedAt, x.UpdatedAt, null, null, x.PotentialScore, x.IncludeImages, x.VatMode, x.VatPercent,
+        x.PriceListId, x.PriceListName);
 
     static QuoteDto Map(PosQuote x, IReadOnlyDictionary<Guid, string>? names = null) => new(
         x.Id, x.QuoteNo, x.Status.ToString(), x.CustomerId, x.CustomerName,
@@ -884,5 +913,7 @@ public partial class PosQuotesController(
         x.PotentialScore,
         x.IncludeImages,
         x.VatMode,
-        x.VatPercent);
+        x.VatPercent,
+        x.PriceListId,
+        x.PriceListName);
 }

@@ -58,6 +58,12 @@ public class PosQuote : AuditableEntity<Guid>
 
     public Guid? PrintTemplateId { get; set; }
 
+    /// <summary>Bảng giá dùng để lấy đơn giá khi soạn (Thiết lập › Bảng giá). Null = giá bán chung.</summary>
+    public Guid? PriceListId { get; set; }
+
+    /// <summary>Tên bảng giá lúc lưu — vẫn hiển thị được khi bảng giá đã bị xoá / đổi tên.</summary>
+    public string? PriceListName { get; set; }
+
     /// <summary>Phiếu in của báo giá này có chèn ảnh sản phẩm 3×3.</summary>
     public bool IncludeImages { get; set; }
 

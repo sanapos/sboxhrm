@@ -214,6 +214,8 @@ class PosQuote {
     this.quotedByEmployeeName,
     this.commercialStage = 'None',
     this.potentialScore,
+    this.priceListId,
+    this.priceListName,
     this.createdAt,
     this.lines = const [],
     this.documents = const [],
@@ -247,6 +249,10 @@ class PosQuote {
 
   /// Điểm tiềm năng khách gần nhất, thang 0–10.
   final int? potentialScore;
+
+  /// Bảng giá (Thiết lập › Bảng giá) dùng lấy đơn giá khi soạn — null = giá bán chung.
+  final String? priceListId;
+  final String? priceListName;
   final DateTime? createdAt;
   final List<PosQuoteLine> lines;
   final List<PosQuoteDocument> documents;
@@ -353,6 +359,8 @@ class PosQuote {
           (json['commercialStage'] ?? json['CommercialStage'] ?? 'None')
               .toString(),
       potentialScore: _score010(json['potentialScore'] ?? json['PotentialScore']),
+      priceListId: (json['priceListId'] ?? json['PriceListId'])?.toString(),
+      priceListName: (json['priceListName'] ?? json['PriceListName'])?.toString(),
       createdAt: d(json['createdAt'] ?? json['CreatedAt']),
       lines: parseLines(rawLines),
       documents: rawDocs is List

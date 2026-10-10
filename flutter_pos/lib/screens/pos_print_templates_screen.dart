@@ -1,4 +1,5 @@
 import 'package:file_picker/file_picker.dart';
+import 'package:intl/intl.dart';
 import 'dart:typed_data';
 import '../widgets/pos/pos_pdf_preview_dialog.dart';
 import '../providers/permission_provider.dart';
@@ -432,8 +433,12 @@ class _PosPrintTemplatesScreenState extends State<PosPrintTemplatesScreen> {
               paperSize: paper,
             )
           : _legacyHtml!;
-      final setup = PosCommercialPageSetup.parse(rawHtml, fallbackPaper: paper)
-          .copyWith(paperSize: paper);
+      final parsed = PosCommercialPageSetup.parse(rawHtml, fallbackPaper: paper);
+      final prevRev = posCommercialBaseRev(_selected!.htmlContent);
+      final setup = parsed.copyWith(
+        paperSize: paper,
+        baseRev: parsed.baseRev > prevRev ? parsed.baseRev : prevRev,
+      );
       final html = ensurePosPrintItemLoop(setup.applyToHtml(rawHtml));
       final body = _selected!
           .copyWith(
@@ -1219,6 +1224,77 @@ class _PosPrintTemplatesScreenState extends State<PosPrintTemplatesScreen> {
     await _deleteTemplate();
   }
 
+  /// Mẫu A4 (báo giá / hợp đồng…) cửa hàng lưu từ mẫu chuẩn cũ hơn bản hiện tại.
+  List<PosPrintTemplate> get _outdatedCommercial {
+    if (!_isCommercialDoc) return const [];
+    return _templates.where((t) {
+      if (t.isDocx) return false;
+      final raw = t.htmlContent.trim();
+      if (!raw.startsWith('<') || PosPrintTemplateV2Codec.isV2Content(raw)) return false;
+      return posCommercialBaseRev(raw) < kPosCommercialBaseRev;
+    }).toList();
+  }
+
+  /// Thay nội dung bằng mẫu chuẩn mới nhất (giữ khổ giấy + lề); bản cũ lưu thành mẫu tắt để khôi phục.
+  Future<void> _upgradeToLatestBase() async {
+    final list = _outdatedCommercial;
+    if (list.isEmpty) return;
+    final ok = await showDialog<bool>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: Text(tr('Cập nhật mẫu chuẩn mới')),
+        content: Text(tr(
+            '${list.length} mẫu sẽ dùng bố cục chuẩn mới nhất (giữ khổ giấy và lề). '
+            'Câu chữ đã tự sửa trong mẫu cũ sẽ được giữ ở một bản sao «bản cũ» (đang tắt) để xem lại / khôi phục.')),
+        actions: [
+          TextButton(onPressed: () => Navigator.pop(ctx, false), child: Text(tr('Để sau'))),
+          FilledButton(onPressed: () => Navigator.pop(ctx, true), child: Text(tr('Cập nhật'))),
+        ],
+      ),
+    );
+    if (ok != true || !mounted) return;
+    final stamp = DateFormat('dd/MM').format(DateTime.now());
+    var done = 0;
+    String? fail;
+    for (final t in list) {
+      final backup = await _api.createPosPrintTemplate({
+        'name': '${t.name} (bản cũ $stamp)',
+        'documentType': t.documentType,
+        'paperSize': t.paperSize,
+        'htmlContent': t.htmlContent,
+        'isDefault': false,
+        'isActive': false,
+        'sortOrder': _templates.length + done + 1,
+      });
+      if (backup['isSuccess'] != true) {
+        fail = backup['message']?.toString() ?? '';
+        break;
+      }
+      final paper = PosPrintPaperSizes.normalizeCommercialPaper(t.paperSize);
+      final setup = PosCommercialPageSetup.parse(t.htmlContent, fallbackPaper: paper)
+          .copyWith(paperSize: paper, baseRev: kPosCommercialBaseRev);
+      final html = ensurePosPrintItemLoop(
+          setup.applyToHtml(posPrintDefaultHtml(documentType: t.documentType, paperSize: paper)));
+      final res = await _api.updatePosPrintTemplate(
+        t.id,
+        t.copyWith(htmlContent: html, paperSize: paper).toSaveJson(),
+      );
+      if (res['isSuccess'] != true) {
+        fail = res['message']?.toString() ?? '';
+        break;
+      }
+      done++;
+    }
+    if (!mounted) return;
+    if (fail != null) {
+      NotificationOverlayManager().showError(title: 'Chưa cập nhật hết', message: fail);
+    } else {
+      NotificationOverlayManager().showSuccess(
+          title: 'Đã cập nhật mẫu', message: tr('$done mẫu dùng bố cục chuẩn mới — bản cũ giữ ở mẫu «bản cũ $stamp»'));
+    }
+    await _load(keepId: _selected?.id);
+  }
+
   Future<void> _duplicateTemplate(PosPrintTemplate t) async {
     final res = await _api.createPosPrintTemplate({
       'name': '${t.name} (bản sao)',
@@ -1391,6 +1467,26 @@ class _PosPrintTemplatesScreenState extends State<PosPrintTemplatesScreen> {
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
         header,
+        if (_canEditTpl && _outdatedCommercial.isNotEmpty)
+          Material(
+            color: SboxColors.brand50,
+            child: Padding(
+              padding: const EdgeInsets.fromLTRB(16, 8, 12, 8),
+              child: Row(children: [
+                const Icon(Icons.auto_awesome_outlined, size: 18, color: SboxColors.brand600),
+                const SizedBox(width: 8),
+                Expanded(
+                  child: Text(
+                    tr('Có mẫu chuẩn mới (bảng tổng khớp số, ký tên thẳng hàng, bỏ dòng trống). '
+                        '${_outdatedCommercial.length} mẫu của cửa hàng vẫn theo bố cục cũ.'),
+                    style: const TextStyle(fontSize: 13, color: SboxColors.slate700),
+                  ),
+                ),
+                const SizedBox(width: 8),
+                FilledButton(onPressed: _upgradeToLatestBase, child: Text(tr('Cập nhật mẫu'))),
+              ]),
+            ),
+          ),
         if (_templates.isNotEmpty && !_templates.any((t) => t.isDefault))
           Material(
             color: SboxColors.warningSoft,
