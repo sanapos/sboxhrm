@@ -753,7 +753,7 @@ class _PosPromotionEditorPageState extends State<PosPromotionEditorPage> {
             TextField(controller: _name, decoration: PosTheme.inputDecoration(label: 'Tên chương trình', hint: 'vd: Giờ vàng rau cá')),
             const SizedBox(height: 10),
             DropdownButtonFormField<String>(
-              initialValue: _type,
+              value: _type,
               isExpanded: true,
               decoration: PosTheme.inputDecoration(label: 'Loại khuyến mãi'),
               items: [

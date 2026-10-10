@@ -83,7 +83,7 @@ class _PosProductEditorSectionsDialogState
                       child: ChoiceChip(
                         label: Text(tr(p.label), style: const TextStyle(fontSize: 12)),
                         selected: _selected.length == p.sections.length && _selected.containsAll(p.sections),
-                        selectedColor: PosTheme.kiotBlue.withValues(alpha: 0.15),
+                        selectedColor: PosTheme.kiotBlue.withOpacity(0.15),
                         visualDensity: VisualDensity.compact,
                         onSelected: (_) => setState(() => _selected = {...p.sections}),
                       ),

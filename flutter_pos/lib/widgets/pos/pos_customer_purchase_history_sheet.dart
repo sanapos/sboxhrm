@@ -232,7 +232,7 @@ class _HistorySheetState extends State<_HistorySheet> {
   Widget _chip(IconData icon, String text, {Color? color}) => Container(
         padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
         decoration: BoxDecoration(
-          color: (color ?? PosTheme.kiotBlue).withValues(alpha: 0.08),
+          color: (color ?? PosTheme.kiotBlue).withOpacity(0.08),
           borderRadius: BorderRadius.circular(20),
         ),
         child: Row(mainAxisSize: MainAxisSize.min, children: [

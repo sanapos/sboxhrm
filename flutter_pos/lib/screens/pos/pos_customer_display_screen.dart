@@ -691,7 +691,7 @@ class _PosCustomerDisplayScreenState extends State<PosCustomerDisplayScreen> {
           end: Alignment.bottomRight,
           colors: [
             HrmPageChrome.primaryNavy,
-            HrmPageChrome.primaryNavy.withValues(alpha: 0.85),
+            HrmPageChrome.primaryNavy.withOpacity(0.85),
           ],
         ),
       ),
@@ -706,7 +706,7 @@ class _PosCustomerDisplayScreenState extends State<PosCustomerDisplayScreen> {
                 height: 96 * scale,
                 padding: EdgeInsets.all(14 * scale),
                 decoration: BoxDecoration(
-                  color: Colors.white.withValues(alpha: 0.12),
+                  color: Colors.white.withOpacity(0.12),
                   shape: BoxShape.circle,
                   border: Border.all(color: Colors.white24, width: 2),
                 ),
@@ -736,7 +736,7 @@ class _PosCustomerDisplayScreenState extends State<PosCustomerDisplayScreen> {
                 tr(store.isNotEmpty ? 'Xin chào quý khách' : 'SBOX HRM - SBOX POS'),
                 textAlign: TextAlign.center,
                 style: TextStyle(
-                  color: Colors.white.withValues(alpha: 0.75),
+                  color: Colors.white.withOpacity(0.75),
                   fontSize: 16,
                   fontWeight: FontWeight.w500,
                 ),
@@ -747,7 +747,7 @@ class _PosCustomerDisplayScreenState extends State<PosCustomerDisplayScreen> {
                   tr(hint!),
                   textAlign: TextAlign.center,
                   style: TextStyle(
-                    color: Colors.white.withValues(alpha: 0.65),
+                    color: Colors.white.withOpacity(0.65),
                     fontSize: 13,
                   ),
                 ),
@@ -867,7 +867,7 @@ class _PosCustomerDisplayScreenState extends State<PosCustomerDisplayScreen> {
                 tr('Cảm ơn quý khách'),
                 textAlign: TextAlign.center,
                 style: TextStyle(
-                  color: HrmPageChrome.primaryNavy.withValues(alpha: 0.85),
+                  color: HrmPageChrome.primaryNavy.withOpacity(0.85),
                   fontSize: 16,
                   fontWeight: FontWeight.w600,
                 ),

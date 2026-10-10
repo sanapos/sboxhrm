@@ -1,3 +1,4 @@
+import 'utils/pos_lite_mode.dart';
 import 'dart:async';
 import 'dart:ui' as ui;
 
@@ -47,6 +48,7 @@ import 'theme/sbox_tokens.dart';
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
   applyLowRamImageCache();
+  await PosLiteMode.init();
   FlutterError.onError = (details) {
     FlutterError.presentError(details);
     debugPrint('FlutterError: ${details.exceptionAsString()}');

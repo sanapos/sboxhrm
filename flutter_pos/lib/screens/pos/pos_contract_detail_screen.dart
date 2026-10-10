@@ -391,7 +391,7 @@ class _PosContractDetailScreenState extends State<PosContractDetailScreen> {
   Widget _docBadge(String text, Color color) => Container(
         padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
         decoration: BoxDecoration(
-          color: color.withValues(alpha: .1),
+          color: color.withOpacity(.1),
           borderRadius: BorderRadius.circular(4),
         ),
         child: Text(text, style: TextStyle(fontSize: 11, color: color, fontWeight: FontWeight.w600)),

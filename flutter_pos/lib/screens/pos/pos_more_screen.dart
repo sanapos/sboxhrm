@@ -8,6 +8,7 @@ import '../../providers/permission_provider.dart';
 import '../../services/api_service.dart';
 import '../../utils/navigation_notifier.dart';
 import '../../utils/permission_navigation.dart';
+import '../../utils/pos_lite_mode.dart';
 import '../../utils/pos_sell_settings_helper.dart';
 import '../../utils/store_role_helper.dart';
 import '../main_layout.dart' show ScreenRefreshNotifier;
@@ -321,7 +322,7 @@ class _PosMoreScreenState extends State<PosMoreScreen> {
                         tr('Báo cáo POS'),
                         style: const TextStyle(fontWeight: FontWeight.w700),
                       ),
-                      subtitle: Text(tr('14 báo cáo')),
+                      subtitle: Text(tr(PosLiteMode.enabled ? 'Doanh thu, cuối ngày, sổ quỹ' : '14 báo cáo')),
                       trailing: const Icon(Icons.chevron_right),
                       onTap: () {
                         Navigator.of(context).push(
@@ -491,7 +492,7 @@ class _PosMoreScreenState extends State<PosMoreScreen> {
       );
 
   static bool _canSeeItem(PermissionProvider perm, _Item item, AuthProvider auth) {
-    if (!item.visible) return false;
+    if (!item.visible || !PosLiteMode.showMore(item.label)) return false;
     bool inPackage(String code) => PermissionNavigation.isAllowedByPackageOrRole(
           code,
           allowedModules: auth.user?.allowedModules,

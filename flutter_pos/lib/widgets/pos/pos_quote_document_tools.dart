@@ -81,7 +81,7 @@ Widget _templateOption(BuildContext ctx, String value, String label, String curr
           Container(
             padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
             decoration: BoxDecoration(
-              color: const Color(0xFF2B579A).withValues(alpha: .12),
+              color: const Color(0xFF2B579A).withOpacity(.12),
               borderRadius: BorderRadius.circular(4),
             ),
             child: Text(tag, style: const TextStyle(fontSize: 11, color: Color(0xFF2B579A))),

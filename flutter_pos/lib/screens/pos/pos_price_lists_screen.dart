@@ -127,7 +127,7 @@ class _PosPriceListsScreenState extends State<PosPriceListsScreen> {
                     ),
                     const SizedBox(height: 12),
                     DropdownButtonFormField<int>(
-                      initialValue: roundTo,
+                      value: roundTo,
                       isExpanded: true,
                       decoration: PosTheme.inputDecoration(label: 'Làm tròn giá'),
                       items: [

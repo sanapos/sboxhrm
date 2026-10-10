@@ -7,6 +7,7 @@ import '../providers/permission_provider.dart';
 import '../services/settings_hub_sidebar_prefs.dart';
 import '../utils/permission_navigation.dart';
 import '../utils/settings_hub_catalog.dart';
+import '../utils/pos_lite_mode.dart';
 import '../utils/store_role_helper.dart';
 import '../widgets/hrm_page_chrome.dart';
 import '../services/api_service.dart';
@@ -170,7 +171,9 @@ class _SettingsHubScreenState extends State<SettingsHubScreen> {
   }
 
   List<SettingsHubItemDef> _permittedHubItems() {
-    return _filterItems(SettingsHubCatalog.allItems);
+    return _filterItems(SettingsHubCatalog.allItems)
+        .where((i) => PosLiteMode.showSetting(i.label))
+        .toList();
   }
 
   List<SettingsHubItemDef> _orderedHubItems() {

@@ -1,3 +1,4 @@
+import '../../utils/pos_lite_mode.dart';
 import 'dart:async';
 
 import 'package:flutter/material.dart';
@@ -68,7 +69,7 @@ class PosReportsHubScreen extends StatelessWidget {
       (label: 'Sức khỏe kho', subtitle: 'Cháy / chậm / chết tồn', icon: Icons.inventory_2_outlined, module: 'PosReportStock', screen: const PosStockHealthReportScreen()),
       (label: 'Hóa đơn điện tử', subtitle: 'Xuất, xem lại PDF, gửi, thay thế, hủy, đồng bộ, tải từ hãng', icon: Icons.request_quote_outlined, module: 'PosEInvoice', screen: const PosEInvoiceReportScreen()),
       (label: 'Thuế hộ kinh doanh', subtitle: 'Dưới 1 tỷ / 1–3 tỷ / trên 3 tỷ', icon: Icons.request_quote_outlined, module: 'HkdBooks', screen: const PosHkdBooksScreen()),
-    ].where((item) => PermissionNavigation.canAccessModule(
+    ].where((item) => PosLiteMode.showReport(item.label) && PermissionNavigation.canAccessModule(
           item.module,
           allowedModules: auth.user?.allowedModules,
           perm: perm,
