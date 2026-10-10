@@ -16,7 +16,6 @@ import '../../utils/pos_label_printer_service.dart';
 import '../../utils/pos_label_printer_settings.dart';
 import '../../utils/pos_print_template_loader.dart';
 import '../../utils/pos_print_orchestrator.dart';
-import '../../utils/pos_print_device_scope.dart';
 import '../../utils/pos_print_config_session.dart';
 import '../../utils/pos_sell_print_settings.dart';
 import '../../utils/pos_printer_transport.dart';
@@ -173,13 +172,10 @@ class _PosSellMobilePrintSettingsScreenState
     await PosPrintOrchestrator.instance.refreshConfig();
     if (!mounted) return;
     final orch = PosPrintOrchestrator.instance;
-    // Máy nội bộ của thiết bị khác không nhận được lệnh từ đây — chỉ hiện máy cloud
-    // và máy của chính thiết bị này (trước đây hiện cả 17 máy của mọi máy POS từng cài).
-    final me = (await PosPrintDeviceScope.myDeviceId()).toLowerCase();
-    if (!mounted) return;
+    // Máy khác gửi hoá đơn qua cloud → chỉ máy cloud (Agent) nhận được. Máy nội bộ
+    // (của máy này hay máy khác) không nhận lệnh cloud — trước đây hiện cả 17 máy mọi thiết bị.
     final printers = orch.printers
-        .where((p) => p.isActive && !p.isLabelPrinter)
-        .where((p) => !p.isDeviceLocal || (p.ownerDeviceId ?? '').toLowerCase() == me)
+        .where((p) => p.isActive && !p.isLabelPrinter && !p.isDeviceLocal)
         .toList();
     if (printers.isEmpty) {
       NotificationOverlayManager().showWarning(
