@@ -37,6 +37,8 @@ import '../../widgets/pos/pos_form_keyboard.dart';
 import '../../widgets/pos/pos_theme.dart';
 
 import '../../theme/sbox_tokens.dart';
+import '../../utils/pos_busy.dart';
+import 'pos_quote_document_template_screen.dart';
 enum _RowExpand { note, price }
 
 enum _ComposerStage { catalog, cart, checkout }
@@ -1128,7 +1130,10 @@ class _PosQuoteComposerScreenState extends State<PosQuoteComposerScreen> {
     PosQuote q,
     List<PosQuoteLine> lines, {
     List<String?>? imageUrls,
-  }) async {
+  }) =>
+      PosBusy.run(context, () => _openQuotePrintNow(q), label: 'Đang dựng bản in báo giá…');
+
+  Future<void> _openQuotePrintNow(PosQuote q) async {
     var html = '';
     try {
       // Cùng bản HTML máy chủ với màn chi tiết / PDF / Word — xem trước sao in ra vậy.
@@ -1182,9 +1187,10 @@ class _PosQuoteComposerScreenState extends State<PosQuoteComposerScreen> {
           Map<String, dynamic>.from(created['data'] as Map));
     }
     if (!mounted) return;
+    PosBusy.hideLayer();
     await Navigator.of(context).push<bool>(
       MaterialPageRoute(
-        builder: (_) => PosQuoteDocumentWordingScreen(
+        builder: (_) => PosQuoteDocumentTemplateScreen(
           quoteId: id,
           document: doc!,
         ),
@@ -1239,8 +1245,8 @@ class _PosQuoteComposerScreenState extends State<PosQuoteComposerScreen> {
           actions: [
             if (_activeQuoteId != null)
               IconButton(
-                tooltip: tr('Sửa lời riêng báo giá này'),
-                onPressed: _editComposerWording,
+                tooltip: tr('Sửa riêng nội dung báo giá này'),
+                onPressed: () => PosBusy.run(context, _editComposerWording, label: 'Đang mở nội dung báo giá…'),
                 icon: const Icon(Icons.edit_outlined),
               ),
           ],

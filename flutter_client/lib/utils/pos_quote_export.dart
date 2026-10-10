@@ -643,8 +643,26 @@ class PosQuoteExport {
         await exportExcel(context, quoteId: full.id, quoteNo: full.quoteNo);
       case 'word':
         {
-          // Word cùng nội dung bản in / PDF (trước đây báo giá xuất Word bằng mẫu dựng trên máy
-          // → thiếu đợt thanh toán, bảo hành, ghi chú VAT khác bản in).
+          // File Word thật (.docx) do máy chủ dựng từ đúng bản in (nội dung riêng / mẫu / số liệu, có / không
+          // dấu) — trước đây là HTML đổi đuôi .doc, Word báo lỗi định dạng và vỡ bảng.
+          final res = await ApiService().exportPosQuoteFile(full.id,
+              kind: documentType, docId: docId, format: 'docx',
+              includeImages: full.includeImages, includeStamp: stamp);
+          if (res['isSuccess'] == true && res['data'] is List && (res['data'] as List).isNotEmpty) {
+            final bytes = List<int>.from(res['data'] as List);
+            final isDocx = bytes.length > 2 && bytes[0] == 0x50 && bytes[1] == 0x4B; // "PK" = zip / docx
+            final name = '${documentType}_$no.${isDocx ? 'docx' : 'doc'}';
+            await saveAndOpenFileBytes(
+              bytes,
+              name,
+              isDocx
+                  ? 'application/vnd.openxmlformats-officedocument.wordprocessingml.document'
+                  : 'application/msword',
+            );
+            NotificationOverlayManager().showSuccess(title: 'Đã xuất Word', message: name);
+            return;
+          }
+          // Mất mạng / máy chủ lỗi: bản .doc dựng trên máy như trước.
           final body = await html();
           if (!context.mounted) return;
           final doc = body.toLowerCase().contains('<html')

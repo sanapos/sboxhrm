@@ -21392,6 +21392,7 @@ class ApiService implements PayrollApi {
     String? docId,
     String format = 'pdf',
     bool includeImages = false,
+    bool includeStamp = true,
   }) =>
       _getBinary(
           Uri.parse('$baseUrl/api/pos/quotes/$quoteId/export/file').replace(
@@ -21400,6 +21401,7 @@ class ApiService implements PayrollApi {
               if (docId != null) 'docId': docId,
               'format': format,
               'includeImages': includeImages.toString(),
+              if (!includeStamp) 'includeStamp': 'false',
             },
           ),
           timeout: const Duration(seconds: 150));

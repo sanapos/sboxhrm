@@ -23,9 +23,10 @@ import 'pos_contract_receivables_screen.dart';
 import 'pos_quote_care_board_screen.dart';
 import 'pos_quote_composer_screen.dart';
 import 'pos_quote_detail_screen.dart';
-import 'pos_quote_editor_screen.dart';
 
 import '../../theme/sbox_tokens.dart';
+import '../../utils/pos_busy.dart';
+import 'pos_quote_document_template_screen.dart';
 class PosQuoteListScreen extends StatefulWidget {
   const PosQuoteListScreen({super.key, this.initialTab = 0});
 
@@ -338,10 +339,36 @@ class _PosQuoteListScreenState extends State<PosQuoteListScreen> {
     if (mounted) await _reloadAll();
   }
 
-  Future<void> _openDocs(PosQuote q) async {
+  /// «Sửa riêng nội dung» của chứng từ mới nhất cùng loại (báo giá / hợp đồng / …) trên báo giá này.
+  Future<void> _openDocContent(PosQuote q, String kind) async {
+    final res = await ApiService().getPosQuote(q.id);
+    if (!mounted) return;
+    if (res['isSuccess'] != true || res['data'] is! Map) {
+      NotificationOverlayManager().showError(title: 'Không mở được', message: res['message']?.toString() ?? '');
+      return;
+    }
+    final full = PosQuote.fromJson(Map<String, dynamic>.from(res['data'] as Map));
+    final docs = full.documents.where((d) => d.kind == kind).toList()
+      ..sort((a, b) => (b.issuedAt ?? DateTime(2000)).compareTo(a.issuedAt ?? DateTime(2000)));
+    var doc = docs.firstOrNull;
+    if (doc == null && kind == 'Quote') {
+      final c = await ApiService().createPosQuoteDocument(q.id, 'Quote', includeImages: full.includeImages);
+      if (!mounted) return;
+      if (c['isSuccess'] == true && c['data'] is Map) {
+        doc = PosQuoteDocument.fromJson(Map<String, dynamic>.from(c['data'] as Map));
+      }
+    }
+    if (doc == null) {
+      NotificationOverlayManager().showWarning(
+        title: 'Chưa có ${PosQuoteDocument.kindLabel(kind).toLowerCase()}',
+        message: tr('Lập chứng từ trước rồi mới sửa riêng nội dung'),
+      );
+      return;
+    }
     hidePosSoftKeyboard(alsoAfterMs: 0);
+    PosBusy.hideLayer();
     await Navigator.of(context).push<bool>(
-      MaterialPageRoute(builder: (_) => PosQuoteEditorScreen(quoteId: q.id)),
+      MaterialPageRoute(builder: (_) => PosQuoteDocumentTemplateScreen(quoteId: q.id, document: doc!)),
     );
     if (mounted) await _reloadAll();
   }
@@ -1179,7 +1206,7 @@ class _PosQuoteListScreenState extends State<PosQuoteListScreen> {
             tile('handover', Icons.local_shipping_outlined, 'Bàn giao'),
             tile('acceptance', Icons.fact_check_outlined, 'Nghiệm thu'),
           ],
-          tile('docs', Icons.edit_note_outlined, 'Lời văn chứng từ'),
+          if (canEdit) tile('docs', Icons.edit_note_outlined, stage ? 'Sửa riêng nội dung' : 'Sửa riêng nội dung báo giá'),
         ];
         final send = <Widget>[
           tile('print', Icons.print_outlined, 'In'),
@@ -1191,10 +1218,12 @@ class _PosQuoteListScreenState extends State<PosQuoteListScreen> {
           tile('zalo', Icons.chat_outlined, 'Gửi Zalo'),
           tile('facebook', Icons.facebook, 'Facebook'),
         ];
+        final hasPhone = (q.customerPhone ?? '').replaceAll(RegExp(r'\D'), '').isNotEmpty;
         final contact = <Widget>[
-          tile('call', Icons.call_outlined, 'Gọi khách'),
-          tile('zaloCall', Icons.phone_in_talk_outlined, 'Gọi Zalo'),
-          tile('facebookLink', Icons.link, 'Link Facebook'),
+          if (hasPhone) tile('call', Icons.call_outlined, 'Gọi khách'),
+          if (hasPhone) tile('zaloCall', Icons.phone_in_talk_outlined, 'Gọi Zalo'),
+          if (hasPhone || (q.customerName ?? '').trim().isNotEmpty)
+            tile('facebookLink', Icons.link, 'Link Facebook'),
           tile('care', Icons.event_note_outlined, 'Lịch CSKH'),
         ];
         final name = (q.customerName ?? '').trim();
@@ -1259,11 +1288,23 @@ class _PosQuoteListScreenState extends State<PosQuoteListScreen> {
       case 'acceptance':
         await _createKind(q, 'Acceptance');
       case 'docs':
-        await _openDocs(q);
+        await PosBusy.run(context, () => _openDocContent(q, stage ? docType : 'Quote'), label: 'Đang mở nội dung…');
       case 'delete':
         await _delete(q);
       default:
-        await PosQuoteExport.run(context, quote: q, action: picked, documentType: docType);
+        await PosBusy.run(
+          context,
+          () => PosQuoteExport.run(context, quote: q, action: picked, documentType: docType),
+          label: switch (picked) {
+            'print' => 'Đang dựng bản in…',
+            'pdf' => 'Đang tạo PDF…',
+            'word' => 'Đang tạo file Word…',
+            'excel' => 'Đang tạo Excel…',
+            'png' => 'Đang tạo ảnh…',
+            'email' || 'zalo' || 'facebook' => 'Đang chuẩn bị gửi khách…',
+            _ => 'Đang xử lý…',
+          },
+        );
     }
   }
 }

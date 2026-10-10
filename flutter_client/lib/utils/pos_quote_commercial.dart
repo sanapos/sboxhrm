@@ -5,6 +5,7 @@ import '../models/pos_quote.dart';
 import '../services/api_service.dart';
 import '../widgets/notification_overlay.dart';
 import '../widgets/pos/pos_theme.dart';
+import 'pos_busy.dart';
 
 const posQuotePackageKinds = [
   'Contract',
@@ -25,7 +26,7 @@ Future<PosQuoteDocument?> createPosQuoteCommercialDoc(
   final api = ApiService();
   final current = quote;
 
-  if (!context.mounted) return null;
+  if (!context.mounted || PosBusy.isBusy('create-doc')) return null;
   var resolvedNote = note;
   if (!skipNoteDialog && note == null) {
     resolvedNote = await _askCommercialNote(
@@ -33,18 +34,26 @@ Future<PosQuoteDocument?> createPosQuoteCommercialDoc(
     if (resolvedNote == null) return null;
   }
 
-  final res = kind == 'StockIssue'
-      ? await api.createPosQuoteStockIssue(
-          current.id,
-          note: resolvedNote,
-          includeImages: includeImages,
-        )
-      : await api.createPosQuoteDocument(
-          current.id,
-          kind,
-          note: resolvedNote,
-          includeImages: includeImages,
-        );
+  if (!context.mounted) return null;
+  // Khung «Đang lập …» + chặn bấm lặp (bấm 2 lần từng tạo 2 hợp đồng).
+  final res = await PosBusy.run(
+    context,
+    () => kind == 'StockIssue'
+        ? api.createPosQuoteStockIssue(
+            current.id,
+            note: resolvedNote,
+            includeImages: includeImages,
+          )
+        : api.createPosQuoteDocument(
+            current.id,
+            kind,
+            note: resolvedNote,
+            includeImages: includeImages,
+          ),
+    label: 'Đang lập ${PosQuoteDocument.kindLabel(kind).toLowerCase()}…',
+    key: 'create-doc',
+  );
+  if (res == null) return null;
   if (res['isSuccess'] != true || res['data'] is! Map) {
     NotificationOverlayManager().showError(
       title: 'Lập chứng từ thất bại',

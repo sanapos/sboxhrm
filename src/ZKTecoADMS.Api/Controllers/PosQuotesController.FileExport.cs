@@ -98,6 +98,16 @@ public partial class PosQuotesController
                     templateId ?? doc?.PrintTemplateId, customTpl);
             if (wantPdf)
                 return File(await converter.HtmlToPdfAsync(html, ct), "application/pdf", baseName + ".pdf");
+            // Word thật (.docx) từ đúng bản in; máy chưa có LibreOffice → bản .doc (HTML) như trước.
+            if (converter.IsAvailable)
+            {
+                try
+                {
+                    return File(await converter.HtmlToDocxAsync(html, ct),
+                        "application/vnd.openxmlformats-officedocument.wordprocessingml.document", baseName + ".docx");
+                }
+                catch (InvalidOperationException) { /* rơi xuống bản .doc */ }
+            }
             var page = PosQuoteExportService.BuildWordHtml(html, $"{PosQuoteDocumentHtml.TitleOf(kind)} {docNo}");
             return File(page, "application/msword", baseName + ".doc");
         }
