@@ -15,10 +15,11 @@ internal static class PosDebtLedger
     public static void Add(
         ZKTecoDbContext db, Guid storeId, string partyType, Guid partyId,
         decimal before, decimal after, string docType, Guid? docId, string? docNo, string? note = null,
-        DateTime? at = null, string? by = null)
+        DateTime? at = null, string? by = null, bool keepZero = false)
     {
         var delta = after - before;
-        if (delta == 0) return;
+        // keepZero: chứng từ cần biết «đã giảm bao nhiêu» khi hủy (vd trả hàng NCC lúc đã hết nợ → 0).
+        if (delta == 0 && !keepZero) return;
         db.PosDebtLedgerEntries.Add(new PosDebtLedgerEntry
         {
             Id = Guid.NewGuid(),

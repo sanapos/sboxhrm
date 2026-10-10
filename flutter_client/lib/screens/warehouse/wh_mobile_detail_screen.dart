@@ -111,7 +111,7 @@ class _WhMobileDocDetailScreenState extends State<WhMobileDocDetailScreen> {
                       'qty': l.countedQty ?? l.systemQty,
                       'unit': l.unitName ?? '',
                       'total': l.diffValue,
-                      'extra': 'TK: ${l.systemQty}',
+                      'extra': 'Tồn HT: ${l.systemQty}',
                     }).toList());
           }
         case WhDocType.damageIssue:

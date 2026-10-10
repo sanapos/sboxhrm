@@ -779,7 +779,8 @@ internal static class PosPurchaseStockHelper
         var before = supplier.CurrentDebt;
         supplier.CurrentDebt = Math.Max(0, supplier.CurrentDebt - (net - ret.RefundReceived));
         PosDebtLedger.Add(db, supplier.StoreId, PosDebtLedger.Supplier, supplier.Id, before, supplier.CurrentDebt,
-            "PurchaseReturn", ret.Id, ret.ReturnNo, "Trả hàng nhà cung cấp", ret.ReturnDate ?? DateTime.UtcNow);
+            "PurchaseReturn", ret.Id, ret.ReturnNo, "Trả hàng nhà cung cấp", ret.ReturnDate ?? DateTime.UtcNow,
+            keepZero: true);
         supplier.UpdatedAt = DateTime.UtcNow;
     }
 
@@ -793,7 +794,17 @@ internal static class PosPurchaseStockHelper
         var net = ret.TotalAmount - ret.DiscountAmount;
         supplier.TotalPurchase += net;
         var before = supplier.CurrentDebt;
-        supplier.CurrentDebt += Math.Max(0, net - ret.RefundReceived);
+        // Cộng lại đúng số đã thực giảm lúc hoàn thành (sổ công nợ ghi Delta). Lúc hoàn thành công nợ bị
+        // chặn ở 0 — trả hàng khi đã hết nợ NCC thì không giảm gì; trước đây hủy phiếu lại cộng đủ
+        // (net − tiền hoàn) → NCC «bị nợ» khoản không có thật. Dữ liệu cũ không có sổ → cách tính cũ.
+        var completedDelta = await db.PosDebtLedgerEntries.AsNoTracking()
+            .Where(e => e.StoreId == supplier.StoreId && e.PartyType == PosDebtLedger.Supplier
+                        && e.PartyId == supplier.Id && e.DocType == "PurchaseReturn" && e.DocId == ret.Id)
+            .Select(e => (decimal?)e.Delta)
+            .FirstOrDefaultAsync();
+        supplier.CurrentDebt += completedDelta is decimal d
+            ? Math.Max(0, -d)
+            : Math.Max(0, net - ret.RefundReceived);
         PosDebtLedger.Add(db, supplier.StoreId, PosDebtLedger.Supplier, supplier.Id, before, supplier.CurrentDebt,
             "PurchaseReturnCancel", ret.Id, ret.ReturnNo, "Hủy phiếu trả hàng NCC");
         supplier.UpdatedAt = DateTime.UtcNow;

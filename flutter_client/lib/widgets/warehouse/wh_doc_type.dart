@@ -69,7 +69,7 @@ extension WhDocTypeX on WhDocType {
         WhDocType.purchaseReceipt => 'Hoàn thành nhập',
         WhDocType.purchaseReturn => 'Hoàn thành trả',
         WhDocType.stockCount => 'Cân bằng kho',
-        WhDocType.damageIssue => 'Hoàn thành xuất hủy',
+        WhDocType.damageIssue => 'Hoàn thành hủy',
         WhDocType.internalUseIssue => 'Hoàn thành xuất',
       };
 

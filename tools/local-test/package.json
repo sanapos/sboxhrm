@@ -1,0 +1,12 @@
+{
+  "name": "sbox-local-test",
+  "private": true,
+  "description": "Kiểm thử logic + giao diện SBOX trên môi trường local (không chạy vào production).",
+  "scripts": {
+    "warehouse": "node warehouse-e2e.js",
+    "ui": "node ui-shots.js"
+  },
+  "dependencies": {
+    "playwright-core": "^1.63.0"
+  }
+}

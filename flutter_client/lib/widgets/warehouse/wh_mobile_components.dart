@@ -178,7 +178,10 @@ class WhMobileBottomBar extends StatelessWidget {
                             child: FilledButton(
                               onPressed: loading ? null : onComplete,
                               style: WhMobileTheme.primaryButton(),
-                              child: Text(tr(loading ? 'Đang lưu…' : completeLabel)),
+                              child: FittedBox(
+                                fit: BoxFit.scaleDown,
+                                child: Text(tr(loading ? 'Đang lưu…' : completeLabel), maxLines: 1, softWrap: false),
+                              ),
                             ),
                           ),
                       ],

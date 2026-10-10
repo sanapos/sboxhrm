@@ -246,7 +246,7 @@ class _WhMobileStockCountEditorState extends State<WhMobileStockCountEditor> {
   @override
   Widget build(BuildContext context) {
     return WhMobileScaffold(
-      title: _countNo.isEmpty ? 'Tạo phiếu KK' : _countNo,
+      title: _countNo.isEmpty ? 'Tạo phiếu kiểm kho' : _countNo,
       subtitle: _unchecked > 0 ? 'Còn $_unchecked dòng chưa kiểm' : 'Kiểm kho',
       actions: [
         if (!_readOnly)
