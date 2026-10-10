@@ -23,6 +23,9 @@ dependencies:
   
   # Date/Time formatting
   intl: any
+  # Công thức tính công & lương dùng chung với máy chủ (src/payroll_engine).
+  payroll_engine:
+    path: ../src/payroll_engine
   
   # State Management (optional)
   provider: ^6.1.1

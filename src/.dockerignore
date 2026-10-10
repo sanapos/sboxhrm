@@ -16,3 +16,6 @@
 **/wwwroot/downloads/SboxPrintAgent*.exe
 # Bài viết SEO (nhúng vào API) — không bỏ khỏi bản build
 !ZKTecoADMS.Api/Seo/Seed/*.md
+# Gói Dart bảng lương: bỏ thư mục tạm
+**/.dart_tool/
+payroll_engine/build/

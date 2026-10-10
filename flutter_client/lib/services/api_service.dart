@@ -14,6 +14,7 @@ import '../utils/excel_bytes_utils.dart';
 import '../models/pos_product.dart';
 
 import '../utils/pos_request_id.dart';
+import 'package:payroll_engine/payroll_api.dart';
 /// Query phân trang cho API dùng [PaginationRequest] (pageNumber + alias page).
 Map<String, String> paginationQueryParams(int page, int pageSize) => {
       'pageNumber': page.toString(),
@@ -21,7 +22,7 @@ Map<String, String> paginationQueryParams(int page, int pageSize) => {
       'page': page.toString(),
     };
 
-class ApiService {
+class ApiService implements PayrollApi {
   static const String _baseUrlPrefKey = 'sbox_api_base_url';
   static String _baseUrl = getApiBaseUrl();
 
@@ -12639,6 +12640,44 @@ class ApiService {
         headers: _headers,
         body: jsonEncode(body),
       );
+      return _handleResponse(response);
+    } catch (e) {
+      return _connectionFailure(e);
+    }
+  }
+
+  /// Bảng lương do MÁY CHỦ tính (cùng công thức với app). 404 = máy chủ cũ.
+  Future<Map<String, dynamic>> getPayrollSummaryServer(DateTime from, DateTime to) async {
+    try {
+      final uri = Uri.parse('$baseUrl/api/payroll/summary')
+          .replace(queryParameters: {'from': _ymd(from), 'to': _ymd(to)});
+      final response = await http.get(uri, headers: _headers).timeout(const Duration(seconds: 200));
+      return _handleResponse(response);
+    } catch (e) {
+      return _connectionFailure(e);
+    }
+  }
+
+  /// Chốt lương: máy chủ tự tính số và tạo phiếu (app chỉ gửi kỳ + danh sách NV). 404 = máy chủ cũ.
+  Future<Map<String, dynamic>> finalizePayrollServer({
+    required DateTime from,
+    required DateTime to,
+    List<String>? employeeIds,
+    bool overwriteExisting = true,
+  }) async {
+    try {
+      final response = await http
+          .post(
+            Uri.parse('$baseUrl/api/payroll/finalize'),
+            headers: _headers,
+            body: jsonEncode({
+              'from': _ymd(from),
+              'to': _ymd(to),
+              if (employeeIds != null && employeeIds.isNotEmpty) 'employeeIds': employeeIds,
+              'overwriteExisting': overwriteExisting,
+            }),
+          )
+          .timeout(const Duration(seconds: 200));
       return _handleResponse(response);
     } catch (e) {
       return _connectionFailure(e);

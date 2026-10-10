@@ -1,0 +1,11 @@
+name: payroll_engine
+description: Công thức tính công & lương dùng chung cho app SBOX và máy chủ (chạy dạng chương trình dòng lệnh).
+publish_to: none
+version: 1.0.0
+
+environment:
+  sdk: '>=3.4.0 <4.0.0'
+
+dependencies:
+  intl: '>=0.19.0 <1.0.0'
+

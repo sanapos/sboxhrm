@@ -62,7 +62,8 @@ public class FinalizePayrollHandler(
 
                 var benefit = await benefitRepository.GetByIdAsync(
                     item.SalaryProfileId, cancellationToken: cancellationToken);
-                if (benefit == null)
+                // Bảng lương phải thuộc cửa hàng (hoặc dùng chung) — không gắn phiếu vào bảng lương cửa hàng khác.
+                if (benefit == null || (benefit.StoreId != null && benefit.StoreId != command.StoreId))
                 {
                     result.Skipped++;
                     result.Errors.Add($"NV {employee.EmployeeCode}: bảng lương không tồn tại");

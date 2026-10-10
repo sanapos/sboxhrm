@@ -134,6 +134,9 @@ public static class DependencyInjectionExtensions
         // Register ONNX embedding service as singleton so the InferenceSession
         // is loaded once and reused across requests (heavy init).
         services.AddSingleton<FaceDetectorService>();
+        // Bảng lương tính trên máy chủ (chương trình payroll_engine — cùng công thức với app).
+        services.Configure<ZKTecoADMS.Api.Services.PayrollEngineOptions>(configuration.GetSection(ZKTecoADMS.Api.Services.PayrollEngineOptions.Section));
+        services.AddSingleton<ZKTecoADMS.Api.Services.PayrollEngineRunner>();
         services.AddSingleton<FaceAntiSpoofService>();
         services.AddHttpClient("viettel-sinvoice", client =>
         {

@@ -26,6 +26,16 @@ EXPOSE 7070
 EXPOSE 7071
 
 
+# Bảng lương: biên dịch chương trình tính lương (gói Dart src/payroll_engine — CÙNG công thức với app).
+# API chạy chương trình này khi xem / chốt bảng lương (PayrollEngineRunner).
+FROM dart:3.12 AS payroll
+WORKDIR /engine
+COPY ["payroll_engine/pubspec.yaml", "payroll_engine/pubspec.lock", "./"]
+RUN dart pub get
+COPY payroll_engine/lib ./lib
+COPY payroll_engine/cli ./cli
+RUN dart pub get --offline && dart compile exe cli/payroll_engine.dart -o /out/payroll_engine
+
 # This stage is used to build the service project
 FROM mcr.microsoft.com/dotnet/sdk:8.0 AS build
 ARG BUILD_CONFIGURATION=Release
@@ -48,6 +58,7 @@ RUN dotnet publish "./ZKTecoADMS.Api.csproj" -c $BUILD_CONFIGURATION -o /app/pub
 FROM base AS final
 WORKDIR /app
 COPY --from=publish /app/publish .
+COPY --from=payroll /out/payroll_engine /app/engine/payroll_engine
 
 # Create wwwroot directories with proper permissions for file uploads.
 # Production compose mounts a volume over /app/wwwroot — keep a copy of the

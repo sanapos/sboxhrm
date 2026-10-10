@@ -70,14 +70,36 @@ public class PayslipsController(IMediator mediator) : AuthenticatedControllerBas
     }
 
     /// <summary>
-    /// Chốt lương — tạo/cập nhật phiếu lương từ dữ liệu tổng hợp lương đã tính.
+    /// Chốt lương (app bản cũ gửi kèm số đã tính). Máy chủ TÍNH LẠI bằng chương trình tính lương và
+    /// chỉ dùng danh sách nhân viên + kỳ từ app — số tiền app gửi không còn được tin (mỗi phiên bản app
+    /// có thể tính khác nhau, và ai gọi được API đều ghi được số tùy ý). Bản mới dùng POST api/payroll/finalize.
     /// </summary>
     [HttpPost("finalize")]
     [Authorize(Policy = PolicyNames.ManagerOrAccountant)]
     [RequireModulePermission("Payroll", ModulePermissionAction.Export)]
     public async Task<ActionResult<AppResponse<FinalizePayrollResultDto>>> FinalizePayroll(
-        [FromBody] FinalizePayrollRequest request)
+        [FromBody] FinalizePayrollRequest request,
+        [FromServices] ZKTecoADMS.Api.Services.PayrollEngineRunner engine,
+        [FromServices] ILogger<PayslipsController> logger,
+        CancellationToken ct)
     {
+        var ids = request.Items.Where(i => i.EmployeeId.HasValue).Select(i => i.EmployeeId!.Value.ToString()).Distinct().ToList();
+        if (engine.IsAvailable && ids.Count > 0)
+        {
+            try
+            {
+                var input = ZKTecoADMS.Api.Services.PayrollEngineRunner.InputFor(
+                    HttpContext, IsEmployee, request.PeriodStart, request.PeriodEnd) with { EmployeeIds = ids };
+                var (server, _) = await engine.ComputeFinalizeAsync(input, ct);
+                server.OverwriteExisting = request.OverwriteExisting;
+                request = server;
+            }
+            catch (ZKTecoADMS.Api.Services.PayrollEngineException ex)
+            {
+                // Không để chốt lương đứng hẳn khi chương trình tính lương lỗi — ghi lại để xử lý.
+                logger.LogWarning("Finalize fallback to client numbers: {Err}", ex.Message);
+            }
+        }
         var command = new FinalizePayrollCommand(RequiredStoreId, CurrentUserId, request);
         var result = await mediator.Send(command);
         if (!result.IsSuccess)
