@@ -66,9 +66,11 @@ public class PermissionManagementController(
             if (missingModules.Count > 0)
             {
                 var newEntries = new List<RolePermission>();
+                var allowedSet = await ResolveStorePackageModuleSetAsync();
                 foreach (var module in missingModules)
                 {
-                    var (canView, canCreate, canEdit, canDelete, canExport, canApprove) = GetDefaultPermissions(roleName, module.Module);
+                    var f = PermissionPresetCatalog.DefaultFlags(roleName, module.Module, allowedSet);
+                    var (canView, canCreate, canEdit, canDelete, canExport, canApprove) = (f.V, f.C, f.E, f.D, f.X, f.A);
                     newEntries.Add(new RolePermission
                     {
                         Id = Guid.NewGuid(),
@@ -168,9 +170,12 @@ public class PermissionManagementController(
                 if (missingModules.Count > 0)
                 {
                     var newEntries = new List<RolePermission>();
+                    var allowedSet = await ResolveStorePackageModuleSetAsync();
                     foreach (var module in missingModules)
                     {
-                        var (canView, canCreate, canEdit, canDelete, canExport, canApprove) = GetDefaultPermissions(roleName, module.Module);
+                        // Chức năng mới: theo mẫu của gói (như lúc tạo cửa hàng), không theo bảng mặc định cũ.
+                        var f = PermissionPresetCatalog.DefaultFlags(roleName, module.Module, allowedSet);
+                        var (canView, canCreate, canEdit, canDelete, canExport, canApprove) = (f.V, f.C, f.E, f.D, f.X, f.A);
                         newEntries.Add(new RolePermission
                         {
                             Id = Guid.NewGuid(),
@@ -493,17 +498,11 @@ public class PermissionManagementController(
         var newPermissions = new List<RolePermission>();
         // Mặc định theo gói cửa hàng (HRM / POS / HRM + POS) — cùng bộ mẫu với lúc tạo cửa hàng.
         var allowed = await ResolveStorePackageModuleSetAsync();
-        var defaults = PermissionPresetCatalog.Defaults(PermissionPresetCatalog.Detect(allowed));
-        var preset = defaults.TryGetValue(roleName, out var presetId) ? PermissionPresetCatalog.Build(presetId) : null;
 
         foreach (var module in modules)
         {
-            var (canView, canCreate, canEdit, canDelete, canExport, canApprove) = GetDefaultPermissions(roleName, module.Module);
-            if (preset != null)
-            {
-                var f = PermissionPresetCatalog.FlagsFor(preset, module.Module, allowed);
-                (canView, canCreate, canEdit, canDelete, canExport, canApprove) = (f.V, f.C, f.E, f.D, f.X, f.A);
-            }
+            var f = PermissionPresetCatalog.DefaultFlags(roleName, module.Module, allowed);
+            var (canView, canCreate, canEdit, canDelete, canExport, canApprove) = (f.V, f.C, f.E, f.D, f.X, f.A);
 
             var newPermission = new RolePermission
             {
@@ -531,10 +530,6 @@ public class PermissionManagementController(
             .Where(p => p.StoreId == RequiredStoreId && p.RoleName == roleName)
             .ToListAsync();
     }
-
-    private static (bool canView, bool canCreate, bool canEdit, bool canDelete, bool canExport, bool canApprove)
-        GetDefaultPermissions(string roleName, string module) =>
-        ModulePermissionDefaults.Get(roleName, module);
 
     private static int CountGrantedModules(IEnumerable<ModulePermissionDto> permissions) =>
         permissions.Count(p =>

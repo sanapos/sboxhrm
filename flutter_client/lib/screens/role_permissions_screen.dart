@@ -1048,6 +1048,14 @@ class _RolePermissionsScreenState extends State<RolePermissionsScreen> {
   Future<void> _savePermissions() async {
     if (_selectedRolePermissions == null) return;
     if (!_perm.canEdit('Role')) return;
+    // Quản trị viên / Giám đốc luôn toàn quyền trên máy chủ — bảng quyền không có tác dụng.
+    if (StoreRoleHelper.isFullAccess(_selectedRoleName)) {
+      appNotification.showWarning(
+        title: 'Vai trò toàn quyền',
+        message: tr('Quản trị viên và Giám đốc luôn có toàn quyền trong cửa hàng (theo gói dịch vụ). Không cần phân quyền.'),
+      );
+      return;
+    }
 
     setState(() => _isSaving = true);
     try {
@@ -1579,6 +1587,8 @@ class _RolePermissionsScreenState extends State<RolePermissionsScreen> {
       'Accountant',
       'DepartmentHead',
       'Manager',
+      'Cashier',
+      'Waiter',
       'Employee',
       'User'
     ];
@@ -2034,6 +2044,25 @@ class _RolePermissionsScreenState extends State<RolePermissionsScreen> {
               : ListView(
                   padding: const EdgeInsets.all(12),
                   children: [
+                    if (StoreRoleHelper.isFullAccess(_selectedRoleName))
+                      Container(
+                        margin: const EdgeInsets.only(bottom: 12),
+                        padding: const EdgeInsets.all(12),
+                        decoration: BoxDecoration(
+                          color: SboxColors.infoSoft,
+                          borderRadius: BorderRadius.circular(10),
+                        ),
+                        child: Row(children: [
+                          const Icon(Icons.verified_user_outlined, color: SboxColors.info, size: 20),
+                          const SizedBox(width: 8),
+                          Expanded(
+                            child: Text(
+                              tr('Vai trò này luôn có toàn quyền mọi chức năng trong gói dịch vụ — bảng bên dưới chỉ để tham khảo, không cần lưu.'),
+                              style: const TextStyle(fontSize: 13, color: SboxColors.infoText),
+                            ),
+                          ),
+                        ]),
+                      ),
                     _buildGroupFilterBar(),
                     for (final gid in [
                       ..._packageVisibleGroups.map((g) => g.id),
@@ -2254,6 +2283,8 @@ class _RolePermissionsScreenState extends State<RolePermissionsScreen> {
       'Accountant',
       'DepartmentHead',
       'Manager',
+      'Cashier',
+      'Waiter',
       'Employee',
       'User'
     ];
@@ -2287,6 +2318,8 @@ class _RolePermissionsScreenState extends State<RolePermissionsScreen> {
       'Accountant',
       'DepartmentHead',
       'Manager',
+      'Cashier',
+      'Waiter',
       'Employee',
       'User'
     ];

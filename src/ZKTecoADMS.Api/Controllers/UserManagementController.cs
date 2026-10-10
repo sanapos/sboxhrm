@@ -292,6 +292,8 @@ public class UserManagementController(
 
         await userManager.SetLockoutEndDateAsync(user, lockoutEnd);
         await userManager.SetLockoutEnabledAsync(user, true);
+        // Làm mới phiên không kiểm tra khóa — xóa phiên để người bị khóa không dùng tiếp.
+        await RevokeSessionsAsync(user.Id);
 
         return Ok(AppResponse<bool>.Success(true));
     }

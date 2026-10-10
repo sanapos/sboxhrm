@@ -130,11 +130,16 @@ public class MyPermissionsController(ZKTecoDbContext context, ILogger<MyPermissi
         var existingSet = existingPermissionIds.ToHashSet();
         var missingModules = allModules.Where(m => !existingSet.Contains(m.Id)).ToList();
         var changed = false;
+        // Theo mẫu phân quyền của gói cửa hàng (như lúc tạo cửa hàng) — bảng mặc định cũ cấp rộng hơn nhiều.
+        var allowed = missingModules.Count > 0 && storeId.HasValue
+            ? (await StorePackageHelper.ResolveAllowedModulesAsync(context, storeId.Value))
+                .ToHashSet(StringComparer.OrdinalIgnoreCase)
+            : null;
 
         foreach (var module in missingModules)
         {
-            var (canView, canCreate, canEdit, canDelete, canExport, canApprove) =
-                ModulePermissionDefaults.Get(roleName, module.Module);
+            var f = PermissionPresetCatalog.DefaultFlags(roleName, module.Module, allowed);
+            var (canView, canCreate, canEdit, canDelete, canExport, canApprove) = (f.V, f.C, f.E, f.D, f.X, f.A);
             context.RolePermissions.Add(new ZKTecoADMS.Domain.Entities.RolePermission
             {
                 Id = Guid.NewGuid(),

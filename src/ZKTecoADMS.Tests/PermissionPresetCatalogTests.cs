@@ -71,4 +71,22 @@ public class PermissionPresetCatalogTests
         Assert.True(PermissionPresetCatalog.FlagsFor(p, "PosSellDiscount", posOnly).E);   // quyền con đi theo Bán hàng
         Assert.True(PermissionPresetCatalog.FlagsFor(p, "Payslip", posOnly).V);           // tự phục vụ luôn có
     }
+    [Fact]
+    public void Quyen_mac_dinh_khi_thieu_dong_theo_mau_khong_theo_bang_cu()
+    {
+        var pos = new HashSet<string>(["PosSell", "PosProducts", "PosReportProfit", "PosReportCashbook", "PosSalesReport"],
+            StringComparer.OrdinalIgnoreCase);
+        // Bảng cũ cho thu ngân xem báo cáo lợi nhuận / sổ quỹ, sửa giá, hủy hóa đơn đã thu — mẫu thì không.
+        Assert.False(PermissionPresetCatalog.DefaultFlags("Cashier", "PosReportProfit", pos).Any);
+        Assert.False(PermissionPresetCatalog.DefaultFlags("Cashier", "PosReportCashbook", pos).Any);
+        Assert.False(PermissionPresetCatalog.DefaultFlags("Cashier", "PosSellCancelPaid", pos).Any);
+        Assert.True(PermissionPresetCatalog.DefaultFlags("Cashier", "PosSell", pos).A);
+        Assert.True(PermissionPresetCatalog.DefaultFlags("Admin", "PosReportProfit", pos).D);
+        Assert.False(PermissionPresetCatalog.DefaultFlags("ThuKhoTuDat", "PosProducts", pos).Any);
+        // Nhân viên (HRM): tự phục vụ, không xem bảng lương cửa hàng.
+        var hrm = new HashSet<string>(["Attendance", "Leave", "Payroll", "SalarySettings"], StringComparer.OrdinalIgnoreCase);
+        Assert.False(PermissionPresetCatalog.DefaultFlags("Employee", "Payroll", hrm).Any);
+        Assert.False(PermissionPresetCatalog.DefaultFlags("Employee", "SalarySettings", hrm).Any);
+        Assert.True(PermissionPresetCatalog.DefaultFlags("Employee", "Leave", hrm).C);
+    }
 }

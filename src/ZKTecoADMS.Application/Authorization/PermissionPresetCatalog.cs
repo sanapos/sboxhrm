@@ -359,6 +359,22 @@ public static class PermissionPresetCatalog
         return f;
     }
 
+    /// <summary>
+    /// Quyền mặc định của một vai trò cho một chức năng khi vai trò chưa có dòng quyền
+    /// (chức năng mới thêm, vai trò chưa từng cấu hình): theo mẫu của gói cửa hàng.
+    /// Admin toàn quyền; vai trò tự đặt / không có mẫu → không có quyền.
+    /// Thay bảng cũ <see cref="ModulePermissionDefaults"/> (cấp rộng hơn mẫu nhiều — vd thu ngân xem báo cáo lợi nhuận).
+    /// </summary>
+    public static Flags DefaultFlags(string roleName, string module, ISet<string>? allowedModules)
+    {
+        if (roleName.Equals("Admin", StringComparison.OrdinalIgnoreCase))
+            return new Flags(true, true, true, true, true, true);
+        var defaults = Defaults(Detect(allowedModules));
+        return defaults.TryGetValue(roleName, out var presetId)
+            ? FlagsFor(Build(presetId), module, allowedModules)
+            : N;
+    }
+
     /// <summary>Quyền con không chọn theo gói — đi theo chức năng cha.</summary>
     static bool IsSubModuleAllowed(string module, ISet<string> allowed) => module switch
     {

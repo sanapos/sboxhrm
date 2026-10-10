@@ -55,6 +55,8 @@ public class PermissionsController(ZKTecoDbContext context) : AuthenticatedContr
     /// Lấy danh sách các chức danh (roles) đã được cấu hình
     /// </summary>
     [HttpGet("roles")]
+    [Authorize(Policy = PolicyNames.AtLeastAdmin)]
+    [RequireModulePermission("Role", ModulePermissionAction.View)]
     public async Task<ActionResult<AppResponse<List<RoleDto>>>> GetRoles([FromQuery] Guid? storeId = null)
     {
         storeId = ScopedStore(storeId);
@@ -114,6 +116,8 @@ public class PermissionsController(ZKTecoDbContext context) : AuthenticatedContr
     /// Lấy chi tiết quyền của một role
     /// </summary>
     [HttpGet("roles/{roleName}")]
+    [Authorize(Policy = PolicyNames.AtLeastAdmin)]
+    [RequireModulePermission("Role", ModulePermissionAction.View)]
     public async Task<ActionResult<AppResponse<RolePermissionGroupDto>>> GetRolePermissions(
         string roleName, 
         [FromQuery] Guid? storeId = null)
@@ -130,12 +134,14 @@ public class PermissionsController(ZKTecoDbContext context) : AuthenticatedContr
             .Where(rp => rp.RoleName == roleName && rp.StoreId == storeId)
             .ToListAsync();
 
-        // Auto-create default permissions if none exist for this role
+        // Auto-create default permissions if none exist for this role (theo mẫu của gói cửa hàng)
         if (rolePermissions.Count == 0)
         {
+            var allowed = storeId is Guid sid0 ? await StoreModulesAsync(sid0) : null;
             var newPermissions = permissions.Select(p =>
             {
-                var (canView, canCreate, canEdit, canDelete, canExport, canApprove) = GetDefaultPermissions(roleName, p.Module);
+                var f = PermissionPresetCatalog.DefaultFlags(roleName, p.Module, allowed);
+                var (canView, canCreate, canEdit, canDelete, canExport, canApprove) = (f.V, f.C, f.E, f.D, f.X, f.A);
                 return new RolePermission
                 {
                     Id = Guid.NewGuid(),
@@ -458,10 +464,8 @@ public class PermissionsController(ZKTecoDbContext context) : AuthenticatedContr
     [HttpGet("my-permissions")]
     public async Task<ActionResult<AppResponse<RolePermissionGroupDto>>> GetMyPermissions()
     {
-        var userRole = CurrentUserRole;
-        var userStoreId = CurrentStoreId;
-
-        return await GetRolePermissions(userRole, userStoreId);
+        // Quyền của chính mình — gọi thẳng (không qua kiểm tra quản trị của GET roles/{roleName}).
+        return await GetRolePermissions(CurrentUserRole, CurrentStoreId);
     }
 
     private string GetDefaultRoleDisplayName(string roleName) => roleName switch
@@ -477,9 +481,5 @@ public class PermissionsController(ZKTecoDbContext context) : AuthenticatedContr
         "User" => "Người dùng",
         _ => roleName
     };
-
-    private static (bool canView, bool canCreate, bool canEdit, bool canDelete, bool canExport, bool canApprove)
-        GetDefaultPermissions(string roleName, string module) =>
-        ModulePermissionDefaults.Get(roleName, module);
 
 }
