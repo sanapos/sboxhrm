@@ -63,7 +63,7 @@ public static class PosFinanceSyncHelper
                 Type = CashTransactionType.Income,
                 CategoryId = category.Id,
                 Amount = pay.Amount,
-                TransactionDate = order.SaleDate ?? order.CreatedAt,
+                TransactionDate = VnTimeHelper.UtcToVn(order.SaleDate ?? order.CreatedAt), // ngày phiếu thu chi = giờ VN
                 Description = $"Bán hàng POS — {order.OrderNo}" +
                               (string.IsNullOrWhiteSpace(order.CustomerName) ? "" : $" — {order.CustomerName}") +
                               (payList.Count > 1 ? $" ({pay.PaymentMethod})" : ""),
@@ -273,7 +273,7 @@ public static class PosFinanceSyncHelper
             Type = CashTransactionType.Expense,
             CategoryId = category.Id,
             Amount = receipt.PaidAmount,
-            TransactionDate = receipt.ImportDate ?? receipt.CreatedAt,
+            TransactionDate = VnTimeHelper.UtcToVn(receipt.ImportDate ?? receipt.CreatedAt),
             Description = $"Thanh toán nhập hàng — {receipt.ReceiptNo}",
             PaymentMethod = PaymentMethodType.Cash,
             Status = CashTransactionStatus.Completed,
@@ -313,7 +313,7 @@ public static class PosFinanceSyncHelper
             Type = CashTransactionType.Expense,
             CategoryId = category.Id,
             Amount = payment.Amount,
-            TransactionDate = payment.PaidAt,
+            TransactionDate = VnTimeHelper.UtcToVn(payment.PaidAt),
             Description = $"Thanh toán NCC — {receipt.ReceiptNo} ({payment.PaymentNo})",
             PaymentMethod = ParsePaymentMethod(payment.PaymentMethod),
             Status = CashTransactionStatus.Completed,
@@ -413,7 +413,7 @@ public static class PosFinanceSyncHelper
             Type = CashTransactionType.Income,
             CategoryId = category.Id,
             Amount = payment.Amount,
-            TransactionDate = payment.PaidAt,
+            TransactionDate = VnTimeHelper.UtcToVn(payment.PaidAt),
             Description = $"Thu nợ khách — {customer.Name} ({payment.PaymentNo})",
             PaymentMethod = ParsePaymentMethod(payment.PaymentMethod),
             BankAccountId = bankAccountId,
@@ -455,7 +455,7 @@ public static class PosFinanceSyncHelper
             Type = CashTransactionType.Income,
             CategoryId = category.Id,
             Amount = ret.RefundReceived,
-            TransactionDate = ret.ReturnDate ?? ret.CreatedAt,
+            TransactionDate = VnTimeHelper.UtcToVn(ret.ReturnDate ?? ret.CreatedAt),
             Description = $"NCC hoàn tiền trả hàng — {ret.ReturnNo}",
             PaymentMethod = PaymentMethodType.Cash,
             Status = CashTransactionStatus.Completed,
@@ -495,7 +495,7 @@ public static class PosFinanceSyncHelper
             Type = CashTransactionType.Income,
             CategoryId = category.Id,
             Amount = payment.Amount,
-            TransactionDate = payment.PaidAt,
+            TransactionDate = VnTimeHelper.UtcToVn(payment.PaidAt),
             Description = $"Thu tiền HĐ {docNo}" +
                           (string.IsNullOrWhiteSpace(stageTitle) ? "" : $" — {stageTitle}") +
                           (string.IsNullOrWhiteSpace(quote.CustomerName) ? "" : $" — {quote.CustomerName}"),

@@ -99,7 +99,7 @@ public static class PayslipCashTransactionHelper
             Type = CashTransactionType.Expense,
             CategoryId = category.Id,
             Amount = payslip.NetSalary,
-            TransactionDate = now,
+            TransactionDate = VnTimeHelper.UtcToVn(now), // phiếu thu chi lưu giờ VN
             Description = description,
             PaymentMethod = PaymentMethodType.Cash,
             Status = CashTransactionStatus.Pending,

@@ -3568,6 +3568,10 @@ public class ZKTecoDbInitializer(
                 && n != CompleteSchemaResource)
             .OrderBy(n => n, StringComparer.Ordinal)
             .ToList();
+        // Bảng đánh dấu patch chạy một lần — trước đây không ai tạo nên các patch dùng nó bị bỏ qua mỗi lần khởi động
+        // (vd cột PenaltySettings.AutoApproveHoursAfterShift chưa có → lỗi mọi truy vấn thiết lập phạt).
+        await context.Database.ExecuteSqlRawAsync(
+            @"CREATE TABLE IF NOT EXISTS ""__SchemaPatches"" (""Name"" character varying(200) NOT NULL PRIMARY KEY, ""AppliedAt"" timestamp with time zone NOT NULL DEFAULT now());");
         foreach (var name in names)
             await ApplySchemaResourceAsync(asm, name);
     }

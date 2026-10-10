@@ -1,6 +1,11 @@
 -- Thêm cột AutoApproveHoursAfterShift vào PenaltySettings.
 -- Mặc định 2 giờ sau kết ca sẽ tự duyệt phiếu phạt nếu NV chưa khiếu nại.
 -- 0 = tắt tự duyệt (chờ quản lý duyệt thủ công).
+CREATE TABLE IF NOT EXISTS "__SchemaPatches" (
+  "Name" character varying(200) NOT NULL PRIMARY KEY,
+  "AppliedAt" timestamp with time zone NOT NULL DEFAULT now()
+);
+
 DO $$
 BEGIN
   IF NOT EXISTS (

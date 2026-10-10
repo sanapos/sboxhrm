@@ -349,7 +349,7 @@ public class TransactionsController(
                         Type = cashType,
                         CategoryId = category.Id,
                         Amount = Math.Abs(transaction.Amount),
-                        TransactionDate = today,
+                        TransactionDate = ZKTecoADMS.Application.Helpers.VnTimeHelper.UtcToVn(today), // phiếu thu chi lưu giờ VN
                         Description = $"{(isPenalty ? "Thu tiền phạt" : "Thưởng")} - {empName} - {transaction.Description}",
                         PaymentMethod = paymentMethod,
                         Status = CashTransactionStatus.Completed,

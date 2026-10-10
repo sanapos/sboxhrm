@@ -64,4 +64,20 @@ public class SqlScriptSplitterTests
         // Không câu nào bắt đầu giữa khối DO (dấu hiệu bị cắt vỡ như trước).
         Assert.DoesNotContain(parts, p => p.StartsWith("END") || p.StartsWith("UPDATE \"PosProductComboLines\""));
     }
+
+    [Theory]
+    [InlineData("CashTransactionDateVnLocal")]
+    [InlineData("PenaltySettingAutoApproveHours")]
+    public void Patch_dung_bang_danh_dau_tao_bang_truoc_roi_moi_chay_khoi_DO(string name)
+    {
+        using var stream = typeof(ZKTecoDbInitializer).Assembly
+            .GetManifestResourceStream($"ZKTecoADMS.Infrastructure.SchemaPatches.{name}.sql");
+        Assert.NotNull(stream);
+        var parts = SqlScriptSplitter.Split(new StreamReader(stream!).ReadToEnd());
+
+        Assert.Equal(2, parts.Count);
+        Assert.StartsWith("CREATE TABLE IF NOT EXISTS \"__SchemaPatches\"", parts[0].TrimStart());
+        Assert.StartsWith("DO $$", parts[1]);
+        Assert.EndsWith("$$", parts[1]);
+    }
 }

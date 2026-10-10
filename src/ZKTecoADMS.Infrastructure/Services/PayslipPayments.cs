@@ -106,7 +106,7 @@ public static class PayslipPayments
                     Type = CashTransactionType.Expense,
                     CategoryId = cat.Id,
                     Amount = remaining,
-                    TransactionDate = now,
+                    TransactionDate = VnTimeHelper.UtcToVn(now), // phiếu thu chi lưu giờ VN
                     Description = label,
                     PaymentMethod = PaymentMethodType.Cash,
                     Status = CashTransactionStatus.Pending,
@@ -214,7 +214,7 @@ public static class PayslipPayments
             v.ContactName = name;
             v.BranchId ??= p.Employee?.BranchId;
             v.PaymentReference = method == PaymentMethodType.BankTransfer ? r.Reference : null;
-            v.TransactionDate = paidAt;
+            v.TransactionDate = VnTimeHelper.UtcToVn(paidAt); // phiếu thu chi lưu giờ VN
             v.Status = CashTransactionStatus.Completed;
             v.IsPaid = true;
             v.PaidDate = paidAt;

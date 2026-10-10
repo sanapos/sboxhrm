@@ -815,7 +815,7 @@ public class PayAdvanceRequestHandler(
                     Type = Domain.Enums.CashTransactionType.Expense,
                     CategoryId = advanceCategory.Id,
                     Amount = payoutAmount,
-                    TransactionDate = now,
+                    TransactionDate = VnTimeHelper.UtcToVn(now), // phiếu thu chi lưu giờ VN
                     Description = $"Chi ứng lương ({paymentMethodLabel}) - {employeeName}",
                     PaymentMethod = paymentMethodEnum,
                     Status = Domain.Enums.CashTransactionStatus.Completed,
