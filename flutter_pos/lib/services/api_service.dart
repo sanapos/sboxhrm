@@ -21576,6 +21576,20 @@ class ApiService {
     }
   }
 
+  /// KDS: vé đã ra món trong [hours] giờ (mới nhất trước) — để gọi lại vé bấm nhầm.
+  Future<Map<String, dynamic>> getPosKdsRecentDone({String? printerId, int hours = 6}) async {
+    try {
+      final uri = Uri.parse('$baseUrl/api/pos/kds/recent-done').replace(queryParameters: {
+        'hours': '$hours',
+        if (printerId != null && printerId.isNotEmpty) 'printerId': printerId,
+      });
+      final response = await http.get(uri, headers: _headers).timeout(const Duration(seconds: 20));
+      return _handleResponse(response);
+    } catch (e) {
+      return _connectionFailure(e);
+    }
+  }
+
   Future<Map<String, dynamic>> splitPosBill(
     String sessionId, {
     required List<Map<String, dynamic>> items,

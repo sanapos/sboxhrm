@@ -46,36 +46,38 @@ class _KdsTone {
 }
 
 class _PosKdsScreenState extends State<PosKdsScreen> {
-  static const _bg = Color(0xFFF4F6FB);
-  static const _bar = Color(0xFFFFFFFF);
-  static const _card = Color(0xFFFFFFFF);
-  static const _line = SboxColors.slate200;
-  static const _ink = SboxColors.slate900;
-  static const _muted = SboxColors.slate500;
-  static const _chipIdle = SboxColors.slate100;
-  static const _blue = SboxColors.brand600;
-  static const _blueSoft = SboxColors.brand50;
-  static const _orange = SboxColors.warning;
-  static const _orangeSoft = SboxColors.warningSoft;
-  static const _green = SboxColors.success;
-  static const _greenSoft = SboxColors.successSoft;
-  static const _chipOn = _blue;
-  static const _sheet = Color(0xFFFFFFFF);
-  static const _ticketHead = SboxColors.slate50;
-  static const _accent = _blue;
-  static const _note = SboxColors.slate500;
-  static const _queued = _orange;
-  static const _cooking = _blue;
-  static const _ready = _green;
-  static const _late = SboxColors.danger;
-  static const _voided = SboxColors.slate400;
-  static const _inkOnLight = SboxColors.slate900;
-  static const _namePanel = Color(0xFFFFFFFF);
-  static const _freshGlow = _blue;
+  /// Giao diện sáng / tối — mỗi máy bếp tự chọn (menu ⋯), lưu trên máy.
+  bool _dark = false;
+  /// Cỡ chữ cả màn bếp (1.0 thường · 1.2 lớn · 1.4 rất lớn) — bếp đứng xa màn.
+  double _textScale = 1.0;
+  _KdsPalette get _p => _dark ? _KdsPalette.night : _KdsPalette.day;
+  Color get _bg => _p.bg;
+  Color get _bar => _p.bar;
+  Color get _card => _p.card;
+  Color get _line => _p.line;
+  Color get _ink => _p.ink;
+  Color get _muted => _p.muted;
+  Color get _chipIdle => _p.chipIdle;
+  Color get _blue => _p.blue;
+  Color get _blueSoft => _p.blueSoft;
+  Color get _orange => _p.orange;
+  Color get _orangeSoft => _p.orangeSoft;
+  Color get _green => _p.green;
+  Color get _greenSoft => _p.greenSoft;
+  Color get _chipOn => _blue;
+  Color get _sheet => _p.sheet;
+  Color get _accent => _blue;
+  Color get _note => _p.note;
+  Color get _cooking => _blue;
+  Color get _ready => _green;
+  Color get _late => _p.late;
+  Color get _voided => _p.voided;
+  Color get _namePanel => _p.namePanel;
+  Color get _freshGlow => _blue;
 
   final _api = ApiService();
   final _floor = PosFloorRealtimeSubscription(
-    debounce: const Duration(milliseconds: 250),
+    debounce: Duration(milliseconds: 250),
   );
   final _qtyFmt = NumberFormat('#,##0.###', 'vi_VN');
   final _clockFmt = DateFormat('HH:mm:ss');
@@ -144,10 +146,10 @@ class _PosKdsScreenState extends State<PosKdsScreen> {
         voidMessage: reason == 'kitchenvoid' ? msg : null,
       ));
     });
-    _poll = Timer.periodic(const Duration(seconds: 8), (_) {
+    _poll = Timer.periodic(Duration(seconds: 8), (_) {
       if (mounted) unawaited(_loadTickets(silent: true));
     });
-    _clock = Timer.periodic(const Duration(seconds: 1), (_) {
+    _clock = Timer.periodic(Duration(seconds: 1), (_) {
       if (!mounted) return;
       final now = DateTime.now();
       _nowTick.value = now;
@@ -298,7 +300,7 @@ class _PosKdsScreenState extends State<PosKdsScreen> {
       music = await PosQrOrderVoiceAlert.instance.ensureVolume(percent: 60);
     }
     await PosKdsAlert.playBell();
-    await Future<void>.delayed(const Duration(milliseconds: 380));
+    await Future<void>.delayed(Duration(milliseconds: 380));
     await PosQrOrderVoiceAlert.instance.speak('Loa bếp hoạt động. Bàn 1, hai phần bún chả');
     if (!mounted) return;
     final vi = st?['viAvailable'];
@@ -317,6 +319,10 @@ class _PosKdsScreenState extends State<PosKdsScreen> {
     _printOnDone = prefs.getBool('pos_kds_print_on_done') ?? false;
     _kdsPrinterId = prefs.getString('pos_kds_printer_id');
     _newestFirst = prefs.getBool('pos_kds_newest_first') ?? false;
+    _dark = prefs.getBool('pos_kds_dark') ?? false;
+    _textScale = (prefs.getDouble('pos_kds_text_scale') ?? 1.0).clamp(1.0, 1.4);
+    // Mặc định mở «Gộp món»; nhớ lựa chọn lần trước trên máy.
+    _view = prefs.getString('pos_kds_view') == 'table' ? _KdsView.table : _KdsView.dish;
     _onlyUnfinished = prefs.getBool('pos_kds_only_unfinished') ?? false;
     _lateMinutes = (prefs.getInt(PosKdsAlert.lateMinutesKey) ??
             PosKdsAlert.defaultLateMinutes)
@@ -336,6 +342,9 @@ class _PosKdsScreenState extends State<PosKdsScreen> {
     final prefs = await SharedPreferences.getInstance();
     await prefs.setBool('pos_kds_print_on_done', _printOnDone);
     await prefs.setBool('pos_kds_newest_first', _newestFirst);
+    await prefs.setBool('pos_kds_dark', _dark);
+    await prefs.setDouble('pos_kds_text_scale', _textScale);
+    await prefs.setString('pos_kds_view', _view == _KdsView.table ? 'table' : 'dish');
     await prefs.setBool('pos_kds_only_unfinished', _onlyUnfinished);
     await prefs.setInt(PosKdsAlert.lateMinutesKey, _lateMinutes);
     await prefs.setBool(PosKdsAlert.voiceOnKey, _voiceOn);
@@ -512,7 +521,7 @@ class _PosKdsScreenState extends State<PosKdsScreen> {
         _announcedMaxQty[e.key] = e.value;
       }
     }
-    if (first) return const [];
+    if (first) return [];
     return newcomers;
   }
 
@@ -546,7 +555,7 @@ class _PosKdsScreenState extends State<PosKdsScreen> {
 
   void _markFresh(List<_KdsHit> hits) {
     if (hits.isEmpty) return;
-    final until = DateTime.now().add(const Duration(seconds: 90));
+    final until = DateTime.now().add(Duration(seconds: 90));
     for (final h in hits) {
       final k = _announceKey(h);
       if (k.isNotEmpty) _freshUntil[k] = until;
@@ -576,7 +585,7 @@ class _PosKdsScreenState extends State<PosKdsScreen> {
     final bell = _bellBeforeVoice && (hasVoice || pingNew);
     if (bell) await PosKdsAlert.playBell();
     if (hasVoice) {
-      if (bell) await Future<void>.delayed(const Duration(milliseconds: 380));
+      if (bell) await Future<void>.delayed(Duration(milliseconds: 380));
       if (!mounted) return;
       await PosQrOrderVoiceAlert.instance.speakSequence(chunks);
     } else if (pingNew && !_bellBeforeVoice) {
@@ -697,7 +706,7 @@ class _PosKdsScreenState extends State<PosKdsScreen> {
     required bool fresh,
     bool fullTable = false,
   }) {
-    if (hits.isEmpty) return const [];
+    if (hits.isEmpty) return [];
     final byTicket = <String, List<_KdsHit>>{};
     for (final h in hits) {
       byTicket.putIfAbsent(h.ticket.orderId, () => []).add(h);
@@ -808,7 +817,7 @@ class _PosKdsScreenState extends State<PosKdsScreen> {
   Future<void> _speakPending() async {
     final now = DateTime.now();
     if (_lastSpeakTap != null &&
-        now.difference(_lastSpeakTap!) < const Duration(milliseconds: 900)) {
+        now.difference(_lastSpeakTap!) < Duration(milliseconds: 900)) {
       return;
     }
     _lastSpeakTap = now;
@@ -914,10 +923,10 @@ class _PosKdsScreenState extends State<PosKdsScreen> {
         .where((h) => h.item.status == status)
         .fold(0.0, (s, h) => s + h.item.qty);
     Widget pill(double qty, String label) {
-      if (qty <= 0) return const SizedBox.shrink();
+      if (qty <= 0) return SizedBox.shrink();
       return Container(
-        margin: const EdgeInsets.only(right: 4, bottom: 2),
-        padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 3),
+        margin: EdgeInsets.only(right: 4, bottom: 2),
+        padding: EdgeInsets.symmetric(horizontal: 7, vertical: 3),
         decoration: BoxDecoration(
           color: _chipIdle,
           borderRadius: BorderRadius.circular(10),
@@ -925,7 +934,7 @@ class _PosKdsScreenState extends State<PosKdsScreen> {
         ),
         child: Text(
           '${_qtyFmt.format(qty)} $label',
-          style: const TextStyle(
+          style: TextStyle(
             color: _muted,
             fontWeight: FontWeight.w700,
             fontSize: 11,
@@ -1079,7 +1088,7 @@ class _PosKdsScreenState extends State<PosKdsScreen> {
     ];
     if (ids.isEmpty || _busy) return;
     final snapshot =
-        status == 'done' ? _hitsForIds(ids) : const <_KdsHit>[];
+        status == 'done' ? _hitsForIds(ids) : <_KdsHit>[];
     setState(() => _busy = true);
     HapticFeedback.mediumImpact();
     final res = ids.length == 1
@@ -1260,6 +1269,7 @@ class _PosKdsScreenState extends State<PosKdsScreen> {
     final d = _waitAt(sent, now);
     if (d.inSeconds < 60) return '${d.inSeconds}s';
     if (d.inHours < 1) return '${d.inMinutes}p';
+    if (d.inHours >= 24) return '${d.inDays} ${tr('ngày')}';
     final h = d.inHours;
     final m = d.inMinutes.remainder(60);
     return m == 0 ? '${h}h' : '${h}h${m.toString().padLeft(2, '0')}';
@@ -1272,14 +1282,6 @@ class _PosKdsScreenState extends State<PosKdsScreen> {
     final s = status ?? 'queued';
     return _KdsTone(_statusAccent(s), Colors.white);
   }
-
-  int get _itemCount => _tickets.fold(
-      0,
-      (s, t) =>
-          s +
-          t.items
-              .where((i) => !_isVoided(i))
-              .fold(0, (a, i) => a + i.qty.round()));
 
   int get _lateCount {
     final now = DateTime.now();
@@ -1301,14 +1303,16 @@ class _PosKdsScreenState extends State<PosKdsScreen> {
     final aggs = _visibleAggs;
     return Theme(
       data: ThemeData(
-        brightness: Brightness.light,
+        brightness: _dark ? Brightness.dark : Brightness.light,
         scaffoldBackgroundColor: _bg,
-        colorScheme: const ColorScheme.light(
+        colorScheme: (_dark ? const ColorScheme.dark() : const ColorScheme.light()).copyWith(
           primary: _blue,
           secondary: _orange,
           surface: _card,
+          onSurface: _ink,
         ),
-        popupMenuTheme: const PopupMenuThemeData(
+        dividerColor: _line,
+        popupMenuTheme: PopupMenuThemeData(
           color: _sheet,
           textStyle: TextStyle(color: _ink),
         ),
@@ -1323,222 +1327,439 @@ class _PosKdsScreenState extends State<PosKdsScreen> {
       ),
       child: Scaffold(
       backgroundColor: _bg,
-      body: Column(
-        children: [
-          _buildHeader(pushed, aggs),
-          _buildFilters(),
-          Expanded(child: _buildBody(aggs)),
-        ],
+      // Cỡ chữ riêng cho bếp (đứng xa màn) — áp cho cả bảng, không đổi cỡ chữ máy.
+      body: MediaQuery(
+        data: MediaQuery.of(context).copyWith(textScaler: TextScaler.linear(_textScale)),
+        child: Column(
+          children: [
+            _buildHeader(pushed, aggs),
+            _buildFilters(),
+            Expanded(child: _buildBody(aggs)),
+          ],
+        ),
       ),
     ),
     );
   }
 
+  /// Thanh đầu một hàng: ← BẾP · Gộp món|Theo bàn · trạm ▾ · Chờ / Đang làm / Trễ · giờ · Đã xong · loa · máy in · ⋯
   Widget _buildHeader(bool pushed, List<_KdsAgg> aggs) {
+    final narrow = MediaQuery.sizeOf(context).width < 760;
+    double qtyWhere(bool Function(_KdsItem i, _KdsTicket t) test) {
+      var q = 0.0;
+      for (final t in _tickets) {
+        for (final i in t.items) {
+          if (test(i, t)) q += i.qty;
+        }
+      }
+      return q;
+    }
+
+    final queuedN = qtyWhere((i, _) => _itemIsQueued(i));
+    final cookingN = qtyWhere((i, _) => i.status == 'cooking');
     final lateN = _lateCount;
-    // Điện thoại: thanh đầu gọn — ẩn đồng hồ, nút toàn màn hình / đọc món / máy in vào menu «⋯» (tránh tràn hàng).
-    final narrow = MediaQuery.sizeOf(context).width < 600;
     return Material(
       color: _bar,
       elevation: 0,
       child: DecoratedBox(
-        decoration: const BoxDecoration(
-          border: Border(bottom: BorderSide(color: _line)),
-        ),
-      child: SafeArea(
-        top: !_isKdsFullscreen,
-        bottom: false,
-        child: Padding(
-          padding: const EdgeInsets.fromLTRB(8, 4, 8, 8),
-          child: Row(
-            children: [
-              if (pushed)
-                IconButton(
-                  tooltip: tr('Quay lại'),
-                  onPressed: () => Navigator.of(context).maybePop(),
-                  icon: const Icon(Icons.arrow_back, color: _ink),
-                ),
-              Icon(Icons.soup_kitchen, color: _blue, size: narrow ? 22 : 28),
-              if (!narrow) ...[
-              const SizedBox(width: 8),
-              Text(
-                tr('BẾP'),
-                style: TextStyle(
-                  color: _blue,
-                  fontWeight: FontWeight.w700,
-                  fontSize: narrow ? 18 : 26,
-                  letterSpacing: 0.4,
-                  height: 1,
-                ),
-              ),
-              ],
-              SizedBox(width: narrow ? 8 : 12),
-              _viewToggle(compact: narrow),
-              SizedBox(width: narrow ? 8 : 16),
-              Expanded(
-                child: SingleChildScrollView(
-                  scrollDirection: Axis.horizontal,
-                  child: Row(
-                    children: [
-                      _statIcon(Icons.restaurant_outlined,
-                          '${_itemCount} ${tr('món')}'),
-                      const SizedBox(width: 14),
-                      _statIcon(Icons.table_restaurant_outlined,
-                          '${_tickets.length} ${tr('bàn')}'),
-                      if (aggs.isNotEmpty) ...[
-                        const SizedBox(width: 14),
-                        _statIcon(Icons.grid_view_outlined,
-                            '${aggs.length} ${tr('loại')}'),
-                      ],
-                      if (lateN > 0) ...[
-                        const SizedBox(width: 14),
-                        InkWell(
-                          onTap: () {
-                            setState(() => _lateOnly = !_lateOnly);
-                          },
-                          child: _statIcon(
-                            Icons.schedule,
-                            '${lateN} ${tr('trễ')}',
-                            color: _late,
+        decoration: BoxDecoration(border: Border(bottom: BorderSide(color: _line))),
+        child: SafeArea(
+          top: !_isKdsFullscreen,
+          bottom: false,
+          child: Padding(
+            padding: const EdgeInsets.fromLTRB(8, 6, 4, 6),
+            child: Row(
+              children: [
+                if (pushed)
+                  IconButton(
+                    tooltip: tr('Quay lại'),
+                    onPressed: () => Navigator.of(context).maybePop(),
+                    icon: Icon(Icons.arrow_back, color: _ink),
+                  ),
+                Icon(Icons.soup_kitchen, color: _blue, size: narrow ? 22 : 28),
+                if (!narrow) ...[
+                  const SizedBox(width: 6),
+                  Text(
+                    tr('BẾP'),
+                    style: TextStyle(
+                      color: _blue,
+                      fontWeight: FontWeight.w800,
+                      fontSize: 24,
+                      letterSpacing: 0.4,
+                      height: 1,
+                    ),
+                  ),
+                ],
+                const SizedBox(width: 10),
+                _viewToggle(compact: narrow),
+                const SizedBox(width: 8),
+                _stationPicker(compact: narrow),
+                const SizedBox(width: 8),
+                Expanded(
+                  child: SingleChildScrollView(
+                    scrollDirection: Axis.horizontal,
+                    child: Row(
+                      children: [
+                        _countPill(tr('Chờ'), queuedN, _orange,
+                            on: _statusFilter == 'queued',
+                            onTap: () => setState(() => _statusFilter =
+                                _statusFilter == 'queued' ? null : 'queued')),
+                        _countPill(tr('Đang làm'), cookingN, _blue,
+                            on: _statusFilter == 'cooking',
+                            onTap: () => setState(() => _statusFilter =
+                                _statusFilter == 'cooking' ? null : 'cooking')),
+                        _countPill(tr('Trễ'), lateN.toDouble(), _late,
+                            on: _lateOnly,
+                            onTap: () => setState(() => _lateOnly = !_lateOnly)),
+                        if (aggs.isNotEmpty && !narrow)
+                          Padding(
+                            padding: const EdgeInsets.only(left: 4, right: 8),
+                            child: _statIcon(Icons.table_restaurant_outlined,
+                                '${_tickets.length} ${tr('bàn')} · ${aggs.length} ${tr('món')}'),
                           ),
+                      ],
+                    ),
+                  ),
+                ),
+                if (!narrow)
+                  Padding(
+                    padding: const EdgeInsets.symmetric(horizontal: 6),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.end,
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        _KdsTickText(
+                          tick: _nowTick,
+                          style: TextStyle(
+                            color: _ink,
+                            fontWeight: FontWeight.w700,
+                            fontSize: 22,
+                            height: 1.1,
+                            fontFeatures: const [FontFeature.tabularFigures()],
+                          ),
+                          builder: (n) => _clockFmt.format(n),
+                        ),
+                        _KdsTickText(
+                          tick: _nowTick,
+                          style: TextStyle(color: _muted, fontWeight: FontWeight.w600, fontSize: 11),
+                          builder: (n) => _dateLabel(n),
                         ),
                       ],
-                    ],
+                    ),
                   ),
+                IconButton(
+                  tooltip: tr('Đã xong gần đây · gọi lại'),
+                  onPressed: () => unawaited(_openRecentDone()),
+                  icon: Icon(Icons.history, color: _ink),
                 ),
-              ),
-              if (!narrow)
-              Column(
-                crossAxisAlignment: CrossAxisAlignment.end,
-                children: [
-                  _KdsTickText(
-                    tick: _nowTick,
-                    style: const TextStyle(
-                      color: _ink,
-                      fontWeight: FontWeight.w700,
-                      fontSize: 22,
-                      height: 1.1,
-                      fontFeatures: [FontFeature.tabularFigures()],
+                if (!narrow) ...[
+                  IconButton(
+                    tooltip: tr('Đọc món cần chế biến'),
+                    onPressed: _speakPending,
+                    icon: Icon(
+                      _voiceOn ? Icons.volume_up : Icons.volume_off,
+                      color: _voiceOn ? _blue : _muted,
                     ),
-                    builder: (now) => _clockFmt.format(now),
                   ),
-                  _KdsTickText(
-                    tick: _nowTick,
-                    style: const TextStyle(
-                      color: _muted,
-                      fontWeight: FontWeight.w600,
-                      fontSize: 11,
+                  IconButton(
+                    tooltip: tr('Máy in KDS'),
+                    onPressed: _openKdsPrintSettings,
+                    icon: Icon(
+                      _printOnDone ? Icons.print : Icons.print_disabled,
+                      color: _printOnDone ? _blue : _muted,
                     ),
-                    builder: (now) => _dateLabel(now),
                   ),
                 ],
-              ),
-              if (_lastBumpedOrderId != null)
-                TextButton(
-                  onPressed: _recall,
-                  child: Text(tr('Gọi lại'),
-                      style: const TextStyle(
-                          color: _chipOn, fontWeight: FontWeight.w700)),
-                ),
-              if (!narrow) ...[
-              IconButton(
-                tooltip: tr(_isKdsFullscreen
-                    ? 'Thu nhỏ'
-                    : 'Phóng toàn màn hình'),
-                onPressed: () => unawaited(_toggleKdsFullscreen()),
-                icon: Icon(
-                  _isKdsFullscreen
-                      ? Icons.fullscreen_exit
-                      : Icons.fullscreen,
-                  color: _ink,
-                ),
-              ),
-              IconButton(
-                tooltip: tr('Đọc món cần chế biến'),
-                onPressed: _speakPending,
-                icon: Icon(
-                  _voiceOn ? Icons.volume_up : Icons.volume_off,
-                  color: _voiceOn ? _blue : _muted,
-                ),
-              ),
-              IconButton(
-                tooltip: tr('Máy in KDS'),
-                onPressed: _openKdsPrintSettings,
-                icon: Icon(
-                  _printOnDone ? Icons.print : Icons.print_disabled,
-                  color: _printOnDone ? _blue : _muted,
-                ),
-              ),
+                _headerMenu(narrow: narrow),
               ],
-              PopupMenuButton<String>(
-                tooltip: tr('Thêm'),
-                color: _sheet,
-                icon: const Icon(Icons.more_vert, color: _muted),
-                onSelected: (v) async {
-                  if (v == 'pos_settings') {
-                    SettingsHubScreen.pendingSubIndex.value = null;
-                    if (NavigationNotifier.mainLayoutReady.value) {
-                      NavigationNotifier.navigateToModule.value =
-                          'SettingsHub';
-                    } else if (mounted) {
-                      await Navigator.of(context).push(
-                        MaterialPageRoute(
-                            builder: (_) => const SettingsHubScreen()),
-                      );
-                    }
-                  } else if (v == 'kds_print') {
-                    unawaited(_openKdsPrintSettings());
-                  } else if (v == 'voice_toggle') {
-                    _toggleVoice();
-                  } else if (v == 'voice_settings') {
-                    unawaited(
-                      PosQrOrderVoiceAlert.instance.showSettingsSheet(context),
-                    );
-                  } else if (v == 'fullscreen') {
-                    unawaited(_toggleKdsFullscreen());
-                  } else if (v == 'logout') {
-                    await showPosLogoutDialog(context);
-                  }
-                },
-                itemBuilder: (_) => [
-                  PopupMenuItem(
-                    value: 'fullscreen',
-                    child: Text(tr(_isKdsFullscreen
-                        ? 'Thu nhỏ'
-                        : 'Phóng toàn màn hình')),
-                  ),
-                  PopupMenuItem(
-                    value: 'voice_toggle',
-                    child: Text(tr(_voiceOn
-                        ? 'Tắt loa tự đọc'
-                        : 'Bật loa tự đọc')),
-                  ),
-                  PopupMenuItem(
-                    value: 'voice_settings',
-                    child: Text(tr('Chọn giọng và tốc độ')),
-                  ),
-                  PopupMenuItem(
-                    value: 'kds_print',
-                    child: Text(tr('Máy in KDS')),
-                  ),
-                  PopupMenuItem(
-                    value: 'pos_settings',
-                    child: Text(tr('Thiết lập SBOX')),
-                  ),
-                  // App SBOX KDS không có hub «Nhiều hơn» → đăng xuất ở đây.
-                  if (kSboxKdsApp)
-                    PopupMenuItem(
-                      value: 'logout',
-                      child: Text(tr('Đăng xuất')),
-                    ),
-                ],
-              ),
-            ],
+            ),
           ),
         ),
       ),
+    );
+  }
+
+  Widget _countPill(String label, double qty, Color color,
+      {required bool on, required VoidCallback onTap}) {
+    final has = qty > 0;
+    return Padding(
+      padding: const EdgeInsets.only(right: 8),
+      child: Material(
+        color: on ? color : (has ? color.withOpacity(_dark ? 0.22 : 0.12) : _chipIdle),
+        shape: StadiumBorder(side: BorderSide(color: has ? color : _line)),
+        child: InkWell(
+          customBorder: const StadiumBorder(),
+          onTap: onTap,
+          child: Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+            child: Text.rich(
+              TextSpan(children: [
+                TextSpan(
+                  text: _qtyFmt.format(qty),
+                  style: TextStyle(fontWeight: FontWeight.w800, fontSize: 17),
+                ),
+                TextSpan(text: '  $label', style: TextStyle(fontWeight: FontWeight.w600, fontSize: 13)),
+              ]),
+              style: TextStyle(color: on ? Colors.white : (has ? color : _muted)),
+            ),
+          ),
+        ),
       ),
     );
+  }
+
+  /// Chọn trạm bếp (theo máy in bếp của món) — dropdown thay hàng chip dài bị cắt chữ.
+  Widget _stationPicker({bool compact = false}) {
+    if (_stations.isEmpty) return const SizedBox.shrink();
+    final current = _stations.where((s) => s.id == _stationId).firstOrNull;
+    return PopupMenuButton<String>(
+      tooltip: tr('Trạm bếp'),
+      color: _sheet,
+      onSelected: (v) {
+        setState(() {
+          _stationId = v.isEmpty ? null : v;
+          _voiceSeeded = false;
+          _announcedMaxQty.clear();
+        });
+        unawaited(_loadTickets());
+      },
+      itemBuilder: (_) => [
+        CheckedPopupMenuItem(
+          value: '',
+          checked: _stationId == null,
+          child: Text(tr('Tất cả trạm'), style: TextStyle(color: _ink)),
+        ),
+        for (final s in _stations)
+          CheckedPopupMenuItem(
+            value: s.id,
+            checked: _stationId == s.id,
+            child: Text(s.name, style: TextStyle(color: _ink)),
+          ),
+      ],
+      child: Container(
+        padding: EdgeInsets.symmetric(horizontal: compact ? 8 : 12, vertical: 8),
+        decoration: BoxDecoration(
+          color: current == null ? _chipIdle : _blueSoft,
+          borderRadius: BorderRadius.circular(12),
+          border: Border.all(color: current == null ? _line : _blue),
+        ),
+        child: Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Icon(Icons.outdoor_grill_outlined, size: 18, color: current == null ? _muted : _blue),
+            const SizedBox(width: 6),
+            ConstrainedBox(
+              constraints: BoxConstraints(maxWidth: compact ? 90 : 170),
+              child: Text(
+                current?.name ?? tr('Tất cả trạm'),
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+                style: TextStyle(color: _ink, fontWeight: FontWeight.w700, fontSize: 13),
+              ),
+            ),
+            Icon(Icons.arrow_drop_down, color: _muted),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _headerMenu({required bool narrow}) {
+    return PopupMenuButton<String>(
+      tooltip: tr('Thêm'),
+      color: _sheet,
+      icon: Icon(Icons.more_vert, color: _muted),
+      onSelected: (v) async {
+        switch (v) {
+          case 'pos_settings':
+            SettingsHubScreen.pendingSubIndex.value = null;
+            if (NavigationNotifier.mainLayoutReady.value) {
+              NavigationNotifier.navigateToModule.value = 'SettingsHub';
+            } else if (mounted) {
+              await Navigator.of(context).push(
+                MaterialPageRoute(builder: (_) => SettingsHubScreen()),
+              );
+            }
+          case 'kds_print':
+            unawaited(_openKdsPrintSettings());
+          case 'voice_toggle':
+            _toggleVoice();
+          case 'speak':
+            unawaited(_speakPending());
+          case 'voice_settings':
+            unawaited(PosQrOrderVoiceAlert.instance.showSettingsSheet(context));
+          case 'fullscreen':
+            unawaited(_toggleKdsFullscreen());
+          case 'theme':
+            setState(() => _dark = !_dark);
+            unawaited(_saveKdsPrintPrefs());
+          case 'text_scale':
+            setState(() => _textScale = _textScale >= 1.35 ? 1.0 : (_textScale >= 1.15 ? 1.4 : 1.2));
+            unawaited(_saveKdsPrintPrefs());
+          case 'sort':
+            setState(() => _newestFirst = !_newestFirst);
+            unawaited(_saveKdsPrintPrefs());
+            unawaited(_loadTickets(silent: true));
+          case 'logout':
+            await showPosLogoutDialog(context);
+        }
+      },
+      itemBuilder: (_) {
+        PopupMenuItem<String> item(String v, IconData icon, String label) => PopupMenuItem(
+              value: v,
+              child: Row(children: [
+                Icon(icon, size: 20, color: _muted),
+                const SizedBox(width: 12),
+                Expanded(child: Text(label, style: TextStyle(color: _ink))),
+              ]),
+            );
+        final scaleLabel = _textScale >= 1.35
+            ? tr('Cỡ chữ: rất lớn')
+            : _textScale >= 1.15
+                ? tr('Cỡ chữ: lớn')
+                : tr('Cỡ chữ: thường');
+        return [
+          item('theme', _dark ? Icons.light_mode_outlined : Icons.dark_mode_outlined,
+              tr(_dark ? 'Giao diện sáng' : 'Giao diện tối')),
+          item('text_scale', Icons.format_size, scaleLabel),
+          item('sort', Icons.swap_vert, tr(_newestFirst ? 'Xếp: mới nhất trước' : 'Xếp: lâu nhất trước')),
+          item('fullscreen', _isKdsFullscreen ? Icons.fullscreen_exit : Icons.fullscreen,
+              tr(_isKdsFullscreen ? 'Thu nhỏ' : 'Phóng toàn màn hình')),
+          const PopupMenuDivider(),
+          if (narrow) item('speak', Icons.campaign_outlined, tr('Đọc món cần chế biến')),
+          item('voice_toggle', _voiceOn ? Icons.volume_off_outlined : Icons.volume_up_outlined,
+              tr(_voiceOn ? 'Tắt loa tự đọc' : 'Bật loa tự đọc')),
+          item('voice_settings', Icons.record_voice_over_outlined, tr('Chọn giọng và tốc độ')),
+          item('kds_print', Icons.print_outlined, tr('Máy in KDS · âm thanh')),
+          const PopupMenuDivider(),
+          item('pos_settings', Icons.tune, tr('Thiết lập SBOX')),
+          // App SBOX KDS không có hub «Nhiều hơn» → đăng xuất ở đây.
+          if (kSboxKdsApp) item('logout', Icons.logout, tr('Đăng xuất')),
+        ];
+      },
+    );
+  }
+
+  /// Vé đã ra món trong 6 giờ — bấm «Gọi lại» đưa cả vé về bảng bếp (bấm nhầm Ra món).
+  Future<void> _openRecentDone() async {
+    var res = await _api.getPosKdsRecentDone(printerId: _stationId);
+    if (!mounted) return;
+    var orders = (res['data'] is Map ? (res['data']['orders'] as List?) : null) ?? const [];
+    final timeFmt = DateFormat('HH:mm');
+    await showModalBottomSheet<void>(
+      context: context,
+      backgroundColor: _sheet,
+      isScrollControlled: true,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(18)),
+      ),
+      builder: (ctx) => StatefulBuilder(builder: (ctx, setLocal) {
+        Future<void> recall(String orderId) async {
+          if (!_canKdsAct()) {
+            _denyKdsAct();
+            return;
+          }
+          final r = await _api.recallPosKdsTicket(orderId);
+          if (r['isSuccess'] != true) {
+            NotificationOverlayManager().showError(
+              title: 'Gọi lại',
+              message: r['message']?.toString() ?? 'Không gọi lại được',
+              relatedEntityType: kPosKdsNotifyKind,
+            );
+            return;
+          }
+          await _loadTickets(silent: true);
+          res = await _api.getPosKdsRecentDone(printerId: _stationId);
+          orders = (res['data'] is Map ? (res['data']['orders'] as List?) : null) ?? const [];
+          if (ctx.mounted) setLocal(() {});
+        }
+
+        return SafeArea(
+          child: SizedBox(
+            height: MediaQuery.sizeOf(ctx).height * 0.8,
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              children: [
+                Padding(
+                  padding: const EdgeInsets.fromLTRB(20, 16, 12, 8),
+                  child: Row(children: [
+                    Icon(Icons.history, color: _blue),
+                    const SizedBox(width: 10),
+                    Expanded(
+                      child: Text(tr('Đã ra món · 6 giờ gần nhất'),
+                          style: TextStyle(color: _ink, fontWeight: FontWeight.w800, fontSize: 18)),
+                    ),
+                    IconButton(
+                      onPressed: () => Navigator.pop(ctx),
+                      icon: Icon(Icons.close, color: _muted),
+                    ),
+                  ]),
+                ),
+                Divider(height: 1, color: _line),
+                Expanded(
+                  child: orders.isEmpty
+                      ? Center(
+                          child: Text(
+                            res['isSuccess'] == true
+                                ? tr('Chưa có vé nào ra món trong 6 giờ qua')
+                                : (res['message']?.toString() ?? tr('Không tải được')),
+                            style: TextStyle(color: _muted, fontSize: 16),
+                          ),
+                        )
+                      : ListView.separated(
+                          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+                          itemCount: orders.length,
+                          separatorBuilder: (_, __) => Divider(height: 1, color: _line),
+                          itemBuilder: (_, i) {
+                            final o = Map<String, dynamic>.from(orders[i] as Map);
+                            final table = (o['tableName'] ?? '').toString().trim();
+                            final area = (o['areaName'] ?? '').toString().trim();
+                            final title = [
+                              if (table.isNotEmpty) table else (o['orderNo'] ?? '').toString(),
+                              if (area.isNotEmpty) area,
+                            ].join(' · ');
+                            final at = DateTime.tryParse((o['doneAt'] ?? '').toString())?.toLocal();
+                            final items = ((o['items'] as List?) ?? const [])
+                                .whereType<Map>()
+                                .map((e) => '${_qtyFmt.format((e['qty'] as num?) ?? 0)} ${e['productName']}')
+                                .join(' · ');
+                            return ListTile(
+                              contentPadding: const EdgeInsets.symmetric(vertical: 6),
+                              title: Text(title, style: TextStyle(color: _ink, fontWeight: FontWeight.w700, fontSize: 16)),
+                              subtitle: Text(
+                                [
+                                  if (at != null)
+                                    '${tr('Xong lúc')} ${timeFmt.format(at)} (${_waitShortAt(at, DateTime.now())} ${tr('trước')})',
+                                  items,
+                                ].join('\n'),
+                                style: TextStyle(color: _muted, height: 1.35),
+                              ),
+                              trailing: OutlinedButton.icon(
+                                onPressed: _busy ? null : () => unawaited(recall('${o['orderId']}')),
+                                icon: Icon(Icons.undo, color: _orange, size: 18),
+                                label: Text(tr('Gọi lại'), style: TextStyle(color: _orange, fontWeight: FontWeight.w700)),
+                                style: OutlinedButton.styleFrom(side: BorderSide(color: _orange)),
+                              ),
+                            );
+                          },
+                        ),
+                ),
+              ],
+            ),
+          ),
+        );
+      }),
+    );
+  }
+
+  /// Màu đầu thẻ theo thời gian chờ món chưa làm: xanh < 5 phút, vàng tới ngưỡng trễ, đỏ khi trễ.
+  Color _waitStripe(DateTime oldest, {required bool allDone, required bool voided}) {
+    if (voided) return _voided;
+    if (allDone) return _green;
+    final m = _waitAt(oldest, DateTime.now()).inMinutes;
+    if (m >= _lateMinutes) return _late;
+    if (m >= 5) return _orange;
+    return _green;
   }
 
   String _dateLabel(DateTime now) {
@@ -1558,12 +1779,13 @@ class _PosKdsScreenState extends State<PosKdsScreen> {
     return '$d, $dd/$mm/${now.year}';
   }
 
-  Widget _statIcon(IconData icon, String text, {Color color = _muted}) {
+  Widget _statIcon(IconData icon, String text, {Color? color}) {
+    color ??= _muted;
     return Row(
       mainAxisSize: MainAxisSize.min,
       children: [
         Icon(icon, size: 15, color: color),
-        const SizedBox(width: 4),
+        SizedBox(width: 4),
         Text(
           text,
           style: TextStyle(
@@ -1580,10 +1802,13 @@ class _PosKdsScreenState extends State<PosKdsScreen> {
     Widget tab(String label, _KdsView v) {
       final on = _view == v;
       return InkWell(
-        onTap: () => setState(() => _view = v),
+        onTap: () {
+          setState(() => _view = v);
+          unawaited(_saveKdsPrintPrefs());
+        },
         borderRadius: BorderRadius.circular(10),
         child: AnimatedContainer(
-          duration: const Duration(milliseconds: 160),
+          duration: Duration(milliseconds: 160),
           padding: EdgeInsets.symmetric(horizontal: compact ? 10 : 16, vertical: compact ? 7 : 9),
           decoration: BoxDecoration(
             color: on ? _chipOn : Colors.transparent,
@@ -1602,7 +1827,7 @@ class _PosKdsScreenState extends State<PosKdsScreen> {
     }
 
     return Container(
-      padding: const EdgeInsets.all(3),
+      padding: EdgeInsets.all(3),
       decoration: BoxDecoration(
         color: _chipIdle,
         borderRadius: BorderRadius.circular(14),
@@ -1620,91 +1845,53 @@ class _PosKdsScreenState extends State<PosKdsScreen> {
   Widget _buildFilters() {
     final lateN = _lateCount;
     final noDishN = _noDishTableCount;
-    Widget label(String text) => Padding(
-          padding: const EdgeInsets.only(right: 8),
-          child: Text(
-            text,
-            style: const TextStyle(
-              color: _muted,
-              fontWeight: FontWeight.w600,
-              fontSize: 12,
-            ),
-          ),
-        );
+    int countOf(String? f) {
+      if (_view == _KdsView.dish) {
+        return f == null ? _aggregates.length : _aggregates.where((a) => _aggVisualStatus(a) == f).length;
+      }
+      if (f == null) return _scopedTickets.length;
+      return _scopedTickets.where((t) => t.items.any((i) {
+            if (_isVoided(i)) return f == 'voided';
+            final s = i.status == 'done' ? 'ready' : i.status;
+            return s == f;
+          })).length;
+    }
+
+    String withN(String label, int n) => n > 0 ? '$label ($n)' : label;
     return Material(
       color: _bar,
-      child: Padding(
-        padding: const EdgeInsets.fromLTRB(16, 0, 16, 12),
-        // Điện thoại: một hàng cuộn duy nhất (trước đây 2 vùng cuộn chia nửa màn → chữ «Đang…» bị cắt).
-        child: LayoutBuilder(builder: (context, c) {
-          final leftChips = <Widget>[
-                    label('${tr('Trạng thái')}:'),
-                    _toneChip(tr('Tất cả'), null, _blue, _blueSoft),
-                    _toneChip(tr('Đang làm'), 'cooking', _blue, _blueSoft),
-                    _toneChip(tr('Chờ làm'), 'queued', _orange, _orangeSoft),
-                    _toneChip(tr('Làm xong'), 'ready', _green, _greenSoft),
-                    const SizedBox(width: 16),
-                    label('${tr('Máy in')}:'),
-                    _stationChip(null, tr('Tất cả')),
-                    for (final s in _stations) _stationChip(s.id, s.name),
-          ];
-          final rightChips = <Widget>[
-                    _filterChip(
-                      _newestFirst ? tr('Mới nhất') : tr('Lâu nhất'),
-                      !_newestFirst,
-                      () {
-                        setState(() => _newestFirst = !_newestFirst);
-                        unawaited(_saveKdsPrintPrefs());
-                        unawaited(_loadTickets(silent: true));
-                      },
-                    ),
-                    _filterChip(
-                      lateN > 0
-                          ? '${tr('Trễ')} ($lateN)'
-                          : tr('Trễ'),
-                      _lateOnly,
-                      () {
-                        setState(() => _lateOnly = !_lateOnly);
-                      },
-                      accent: _late,
-                    ),
-                    _filterChip(
-                      noDishN > 0
-                          ? '${tr('Bàn chưa có món')} ($noDishN)'
-                          : tr('Bàn chưa có món'),
-                      _noDishTables,
-                      () {
-                        setState(() {
-                          _noDishTables = !_noDishTables;
-                          if (_noDishTables) _view = _KdsView.table;
-                        });
-                      },
-                    ),
-          ];
-          if (c.maxWidth < 700) {
-            return SingleChildScrollView(
-              scrollDirection: Axis.horizontal,
-              child: Row(children: [...leftChips, const SizedBox(width: 8), ...rightChips]),
-            );
-          }
-          return Row(
-            children: [
-              Expanded(
-                child: SingleChildScrollView(
-                  scrollDirection: Axis.horizontal,
-                  child: Row(children: leftChips),
-                ),
-              ),
-              const SizedBox(width: 8),
-              Flexible(
-                child: SingleChildScrollView(
-                  scrollDirection: Axis.horizontal,
-                  child: Row(children: rightChips),
-                ),
-              ),
-            ],
-          );
-        }),
+      child: Container(
+        width: double.infinity,
+        decoration: BoxDecoration(border: Border(bottom: BorderSide(color: _line))),
+        child: Padding(
+        padding: const EdgeInsets.fromLTRB(12, 8, 12, 10),
+        child: SingleChildScrollView(
+          scrollDirection: Axis.horizontal,
+          child: Row(children: [
+            _toneChip(withN(tr('Tất cả'), countOf(null)), null, _blue, _blueSoft),
+            _toneChip(withN(tr('Chờ làm'), countOf('queued')), 'queued', _orange, _orangeSoft),
+            _toneChip(withN(tr('Đang làm'), countOf('cooking')), 'cooking', _blue, _blueSoft),
+            _toneChip(withN(tr('Làm xong'), countOf('ready')), 'ready', _green, _greenSoft),
+            const SizedBox(width: 12),
+            _filterChip(
+              lateN > 0 ? '${tr('Trễ')} ($lateN)' : tr('Trễ'),
+              _lateOnly,
+              () => setState(() => _lateOnly = !_lateOnly),
+              accent: _late,
+            ),
+            _filterChip(
+              noDishN > 0 ? '${tr('Bàn chưa có món')} ($noDishN)' : tr('Bàn chưa có món'),
+              _noDishTables,
+              () => setState(() {
+                _noDishTables = !_noDishTables;
+                if (_noDishTables) _view = _KdsView.table;
+              }),
+            ),
+            if (_lastBumpedOrderId != null)
+              _filterChip(tr('↶ Gọi lại vé vừa ra'), false, () => unawaited(_recall()), accent: _orange),
+          ]),
+        ),
+      ),
       ),
     );
   }
@@ -1712,15 +1899,15 @@ class _PosKdsScreenState extends State<PosKdsScreen> {
   Widget _toneChip(String label, String? value, Color accent, Color soft) {
     final on = _statusFilter == value;
     return Padding(
-      padding: const EdgeInsets.only(right: 8),
+      padding: EdgeInsets.only(right: 8),
       child: Material(
         color: on ? accent : soft,
-        shape: const StadiumBorder(),
+        shape: StadiumBorder(),
         child: InkWell(
-          customBorder: const StadiumBorder(),
+          customBorder: StadiumBorder(),
           onTap: () => setState(() => _statusFilter = value),
           child: Padding(
-            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+            padding: EdgeInsets.symmetric(horizontal: 12, vertical: 6),
             child: Text(
               label,
               style: TextStyle(
@@ -1735,45 +1922,11 @@ class _PosKdsScreenState extends State<PosKdsScreen> {
     );
   }
 
-  Widget _stationChip(String? id, String label) {
-    final on = _stationId == id;
-    return Padding(
-      padding: const EdgeInsets.only(right: 8),
-      child: Material(
-        color: on ? _chipOn : _chipIdle,
-        shape: StadiumBorder(
-          side: BorderSide(color: on ? _chipOn : _line),
-        ),
-        child: InkWell(
-          customBorder: const StadiumBorder(),
-          onTap: () {
-            setState(() {
-              _stationId = id;
-              _voiceSeeded = false;
-              _announcedMaxQty.clear();
-            });
-            unawaited(_loadTickets());
-          },
-          child: Padding(
-            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 7),
-            child: Text(
-              label,
-              style: TextStyle(
-                color: on ? Colors.white : _ink,
-                fontWeight: FontWeight.w700,
-                fontSize: 13,
-              ),
-            ),
-          ),
-        ),
-      ),
-    );
-  }
-
   Widget _filterChip(String label, bool on, VoidCallback tap,
-      {Color accent = _blue}) {
+      {Color? accent}) {
+    accent ??= _blue;
     return Padding(
-      padding: const EdgeInsets.only(right: 8),
+      padding: EdgeInsets.only(right: 8),
       child: Material(
         color: on ? accent : _chipIdle,
         shape: StadiumBorder(
@@ -1782,10 +1935,10 @@ class _PosKdsScreenState extends State<PosKdsScreen> {
           ),
         ),
         child: InkWell(
-          customBorder: const StadiumBorder(),
+          customBorder: StadiumBorder(),
           onTap: tap,
           child: Padding(
-            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 7),
+            padding: EdgeInsets.symmetric(horizontal: 12, vertical: 7),
             child: Text(
               label,
               style: TextStyle(
@@ -1807,14 +1960,14 @@ class _PosKdsScreenState extends State<PosKdsScreen> {
       context: context,
       backgroundColor: _sheet,
       isScrollControlled: true,
-      shape: const RoundedRectangleBorder(
+      shape: RoundedRectangleBorder(
         borderRadius: BorderRadius.vertical(top: Radius.circular(18)),
       ),
       builder: (ctx) {
         return StatefulBuilder(builder: (ctx, setLocal) {
           return SafeArea(
             child: Padding(
-              padding: const EdgeInsets.fromLTRB(16, 12, 16, 16),
+              padding: EdgeInsets.fromLTRB(16, 12, 16, 16),
               child: SingleChildScrollView(
               child: Column(
                 mainAxisSize: MainAxisSize.min,
@@ -1824,7 +1977,7 @@ class _PosKdsScreenState extends State<PosKdsScreen> {
                     child: Container(
                       width: 40,
                       height: 4,
-                      margin: const EdgeInsets.only(bottom: 12),
+                      margin: EdgeInsets.only(bottom: 12),
                       decoration: BoxDecoration(
                         color: _line,
                         borderRadius: BorderRadius.circular(99),
@@ -1832,18 +1985,18 @@ class _PosKdsScreenState extends State<PosKdsScreen> {
                     ),
                   ),
                   Text(tr('Máy in KDS'),
-                      style: const TextStyle(
+                      style: TextStyle(
                           color: _ink,
                           fontWeight: FontWeight.w700,
                           fontSize: 18)),
-                  const SizedBox(height: 8),
+                  SizedBox(height: 8),
                   SwitchListTile(
                     contentPadding: EdgeInsets.zero,
                     title: Text(tr('Đọc món cần chế biến'),
-                        style: const TextStyle(color: _ink)),
+                        style: TextStyle(color: _ink)),
                     subtitle: Text(
                       tr('Tự đọc món mới. Chạm loa trên cột Đang làm / Xong để đọc lại. Nút chỉnh giọng để chọn giọng mượt và tốc độ.'),
-                      style: const TextStyle(color: _muted),
+                      style: TextStyle(color: _muted),
                     ),
                     value: _voiceOn,
                     onChanged: (v) {
@@ -1855,10 +2008,10 @@ class _PosKdsScreenState extends State<PosKdsScreen> {
                   SwitchListTile(
                     contentPadding: EdgeInsets.zero,
                     title: Text(tr('Chuông trước khi đọc'),
-                        style: const TextStyle(color: _ink)),
+                        style: TextStyle(color: _ink)),
                     subtitle: Text(
                       tr('Kêu 1 tiếng chuông, rồi mới đọc tên món / số lượng.'),
-                      style: const TextStyle(color: _muted),
+                      style: TextStyle(color: _muted),
                     ),
                     value: _bellBeforeVoice,
                     onChanged: (v) {
@@ -1870,10 +2023,10 @@ class _PosKdsScreenState extends State<PosKdsScreen> {
                   SwitchListTile(
                     contentPadding: EdgeInsets.zero,
                     title: Text(tr('Ting khi in phiếu từ máy khác'),
-                        style: const TextStyle(color: _ink)),
+                        style: TextStyle(color: _ink)),
                     subtitle: Text(
                       tr('Máy bếp / Print Agent kêu ting khi nhận lệnh in phiếu bếp.'),
-                      style: const TextStyle(color: _muted),
+                      style: TextStyle(color: _muted),
                     ),
                     value: _printTingOn,
                     onChanged: (v) {
@@ -1882,15 +2035,15 @@ class _PosKdsScreenState extends State<PosKdsScreen> {
                       unawaited(_saveKdsPrintPrefs());
                     },
                   ),
-                  const SizedBox(height: 4),
+                  SizedBox(height: 4),
                   Text(tr('Báo trễ món'),
-                      style: const TextStyle(
+                      style: TextStyle(
                           color: _ink, fontWeight: FontWeight.w700)),
                   Text(
                     tr('Chưa nhấn Đang làm quá số phút này thì tính là trễ.'),
-                    style: const TextStyle(color: _muted, fontSize: 12),
+                    style: TextStyle(color: _muted, fontSize: 12),
                   ),
-                  const SizedBox(height: 8),
+                  SizedBox(height: 8),
                   Row(
                     children: [
                       IconButton(
@@ -1903,11 +2056,11 @@ class _PosKdsScreenState extends State<PosKdsScreen> {
                                 setState(() => _lateMinutes = next);
                                 unawaited(_saveKdsPrintPrefs());
                               },
-                        icon: const Icon(Icons.remove_circle_outline),
+                        icon: Icon(Icons.remove_circle_outline),
                       ),
                       Text(
                         '$_lateMinutes ${tr('phút')}',
-                        style: const TextStyle(
+                        style: TextStyle(
                           color: _ink,
                           fontWeight: FontWeight.w700,
                           fontSize: 16,
@@ -1923,7 +2076,7 @@ class _PosKdsScreenState extends State<PosKdsScreen> {
                                 setState(() => _lateMinutes = next);
                                 unawaited(_saveKdsPrintPrefs());
                               },
-                        icon: const Icon(Icons.add_circle_outline),
+                        icon: Icon(Icons.add_circle_outline),
                       ),
                     ],
                   ),
@@ -1931,7 +2084,7 @@ class _PosKdsScreenState extends State<PosKdsScreen> {
                     spacing: 6,
                     runSpacing: 4,
                     children: [
-                      for (final m in const [5, 10, 15, 20, 30])
+                      for (final m in [5, 10, 15, 20, 30])
                         ChoiceChip(
                           label: Text('$m ${tr('phút')}'),
                           selected: _lateMinutes == m,
@@ -1953,25 +2106,25 @@ class _PosKdsScreenState extends State<PosKdsScreen> {
                             PosQrOrderVoiceAlert.instance.showSettingsSheet(context),
                           );
                         },
-                        icon: const Icon(Icons.tune, color: _accent),
+                        icon: Icon(Icons.tune, color: _accent),
                         label: Text(tr('Chọn giọng và tốc độ'),
-                            style: const TextStyle(color: _accent)),
+                            style: TextStyle(color: _accent)),
                       ),
                       TextButton.icon(
                         onPressed: () => unawaited(_testSpeaker()),
-                        icon: const Icon(Icons.campaign_outlined, color: _accent),
+                        icon: Icon(Icons.campaign_outlined, color: _accent),
                         label: Text(tr('Thử loa'),
-                            style: const TextStyle(color: _accent)),
+                            style: TextStyle(color: _accent)),
                       ),
                     ],
                   ),
                   SwitchListTile(
                     contentPadding: EdgeInsets.zero,
                     title: Text(tr('In phiếu khi bấm Ra món'),
-                        style: const TextStyle(color: _ink)),
+                        style: TextStyle(color: _ink)),
                     subtitle: Text(
                       tr('In rồi tự gỡ món khỏi bảng bếp'),
-                      style: const TextStyle(color: _muted),
+                      style: TextStyle(color: _muted),
                     ),
                     value: _printOnDone,
                     onChanged: (v) {
@@ -1980,11 +2133,11 @@ class _PosKdsScreenState extends State<PosKdsScreen> {
                       unawaited(_saveKdsPrintPrefs());
                     },
                   ),
-                  const SizedBox(height: 6),
+                  SizedBox(height: 6),
                   Text(tr('Thêm máy in bếp trên máy này'),
-                      style: const TextStyle(
+                      style: TextStyle(
                           color: _ink, fontWeight: FontWeight.w700)),
-                  const SizedBox(height: 6),
+                  SizedBox(height: 6),
                   Row(
                     children: [
                       Expanded(
@@ -2002,11 +2155,11 @@ class _PosKdsScreenState extends State<PosKdsScreen> {
                             if (mounted) setState(() {});
                             unawaited(_saveKdsPrintPrefs());
                           },
-                          icon: const Icon(Icons.usb, size: 18),
+                          icon: Icon(Icons.usb, size: 18),
                           label: Text(tr('USB nội bộ')),
                         ),
                       ),
-                      const SizedBox(width: 8),
+                      SizedBox(width: 8),
                       Expanded(
                         child: OutlinedButton.icon(
                           onPressed: () async {
@@ -2022,13 +2175,13 @@ class _PosKdsScreenState extends State<PosKdsScreen> {
                             if (mounted) setState(() {});
                             unawaited(_saveKdsPrintPrefs());
                           },
-                          icon: const Icon(Icons.wifi, size: 18),
+                          icon: Icon(Icons.wifi, size: 18),
                           label: Text(tr('LAN / WiFi')),
                         ),
                       ),
                     ],
                   ),
-                  const SizedBox(height: 8),
+                  SizedBox(height: 8),
                   // Máy Sunmi (T1 / T2 / V2s / K2) có máy in nhiệt gắn liền — in phiếu bếp ngay trên máy.
                   OutlinedButton.icon(
                     onPressed: () async {
@@ -2042,18 +2195,18 @@ class _PosKdsScreenState extends State<PosKdsScreen> {
                       if (mounted) setState(() {});
                       unawaited(_saveKdsPrintPrefs());
                     },
-                    icon: const Icon(Icons.print_outlined, size: 18),
+                    icon: Icon(Icons.print_outlined, size: 18),
                     label: Text(tr('Máy in Sunmi gắn trên máy')),
                   ),
-                  const SizedBox(height: 10),
+                  SizedBox(height: 10),
                   Text(tr('Kết nối máy in'),
-                      style: const TextStyle(
+                      style: TextStyle(
                           color: _ink, fontWeight: FontWeight.w700)),
-                  const SizedBox(height: 6),
+                  SizedBox(height: 6),
                   if (_kdsPrinters.isEmpty)
                     Text(
                       tr('Chưa có máy bếp trên thiết bị này. Kết nối USB / LAN / Sunmi nội bộ, hoặc chọn máy đã chia sẻ Agent.'),
-                      style: const TextStyle(color: _muted),
+                      style: TextStyle(color: _muted),
                     )
                   else
                     DropdownButtonFormField<String?>(
@@ -2062,9 +2215,9 @@ class _PosKdsScreenState extends State<PosKdsScreen> {
                           ? _kdsPrinterId
                           : null,
                       hint: Text(tr('Chọn máy in bếp'),
-                          style: const TextStyle(color: _muted)),
+                          style: TextStyle(color: _muted)),
                       dropdownColor: _sheet,
-                      decoration: const InputDecoration(
+                      decoration: InputDecoration(
                         filled: true,
                         fillColor: _chipIdle,
                         border: OutlineInputBorder(),
@@ -2075,7 +2228,7 @@ class _PosKdsScreenState extends State<PosKdsScreen> {
                             value: p.id,
                             child: Text(
                               '${p.name}${p.isDeviceLocal ? (p.isSunmi ? ' · Sunmi trên máy' : ' · USB/LAN nội bộ') : ''}',
-                              style: const TextStyle(color: _ink),
+                              style: TextStyle(color: _ink),
                             ),
                           ),
                       ],
@@ -2097,25 +2250,25 @@ class _PosKdsScreenState extends State<PosKdsScreen> {
 
   Widget _buildBody(List<_KdsAgg> aggs) {
     if (_loading && _tickets.isEmpty) {
-      return const Center(
+      return Center(
           child: CircularProgressIndicator(color: _chipOn));
     }
     if (_error != null) {
       return Center(
           child: Text(_error!,
-              style: const TextStyle(color: Colors.redAccent)));
+              style: TextStyle(color: Colors.redAccent)));
     }
     if (_tickets.isEmpty) {
       return Center(
         child: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
-            const Icon(Icons.restaurant_outlined,
+            Icon(Icons.restaurant_outlined,
                 size: 56, color: _muted),
-            const SizedBox(height: 12),
+            SizedBox(height: 12),
             Text(
               tr('Chưa có món báo bếp'),
-              style: const TextStyle(color: _muted, fontSize: 18),
+              style: TextStyle(color: _muted, fontSize: 18),
             ),
           ],
         ),
@@ -2133,14 +2286,14 @@ class _PosKdsScreenState extends State<PosKdsScreen> {
                   ? tr('Không có bàn chưa có món')
                   : tr('Không có món khớp bộ lọc');
       return Center(
-        child: Text(msg, style: const TextStyle(color: _muted, fontSize: 16)),
+        child: Text(msg, style: TextStyle(color: _muted, fontSize: 16)),
       );
     }
     return Stack(
       children: [
         _view == _KdsView.dish ? _buildDishGrid(aggs) : _buildTableGrid(),
         if (_busy)
-          const Positioned(
+          Positioned(
             top: 0,
             left: 0,
             right: 0,
@@ -2156,14 +2309,15 @@ class _PosKdsScreenState extends State<PosKdsScreen> {
 
   Widget _buildDishGrid(List<_KdsAgg> aggs) {
     return LayoutBuilder(builder: (context, c) {
-      final n = (c.maxWidth / 260).floor().clamp(1, 6);
+      // Chữ lớn → thẻ to hơn, ít cột hơn (không tràn chữ).
+      final n = (c.maxWidth / (260 * _textScale)).floor().clamp(1, 7);
       return GridView.builder(
-        padding: const EdgeInsets.fromLTRB(16, 8, 16, 20),
+        padding: EdgeInsets.fromLTRB(16, 8, 16, 20),
         gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
           crossAxisCount: n,
           mainAxisSpacing: 12,
           crossAxisSpacing: 12,
-          mainAxisExtent: 198,
+          mainAxisExtent: 206 * _textScale,
         ),
         itemCount: aggs.length,
         itemBuilder: (_, i) => _dishCard(aggs[i]),
@@ -2174,7 +2328,7 @@ class _PosKdsScreenState extends State<PosKdsScreen> {
   Widget _statusBadge(String status) {
     final accent = _statusAccent(status);
     return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+      padding: EdgeInsets.symmetric(horizontal: 8, vertical: 3),
       decoration: BoxDecoration(
         color: _statusSoft(status),
         borderRadius: BorderRadius.circular(20),
@@ -2205,7 +2359,7 @@ class _PosKdsScreenState extends State<PosKdsScreen> {
           if (fresh)
             Text(
               tr('MỚI'),
-              style: const TextStyle(
+              style: TextStyle(
                 color: Colors.white,
                 fontWeight: FontWeight.w700,
                 fontSize: 7,
@@ -2214,7 +2368,7 @@ class _PosKdsScreenState extends State<PosKdsScreen> {
             ),
           Text(
             qty,
-            style: const TextStyle(
+            style: TextStyle(
               color: Colors.white,
               fontWeight: FontWeight.w700,
               fontSize: 20,
@@ -2238,7 +2392,7 @@ class _PosKdsScreenState extends State<PosKdsScreen> {
           child: SizedBox(
             height: 40,
             child: FilledButton(
-              onPressed: _busy ? null : onCook,
+              onPressed: _busy || cooking ? null : onCook,
               style: FilledButton.styleFrom(
                 backgroundColor: cooking ? _blue : _orange,
                 foregroundColor: Colors.white,
@@ -2247,17 +2401,17 @@ class _PosKdsScreenState extends State<PosKdsScreen> {
                 shape: RoundedRectangleBorder(
                     borderRadius: BorderRadius.circular(14)),
                 elevation: 0,
-                padding: const EdgeInsets.symmetric(horizontal: 8),
+                padding: EdgeInsets.symmetric(horizontal: 8),
               ),
               child: Text(
-                tr('Đang làm'),
+                tr(cooking ? 'Đang làm…' : 'Bắt đầu làm'),
                 textAlign: TextAlign.center,
-                style: const TextStyle(fontWeight: FontWeight.w700, fontSize: 13),
+                style: TextStyle(fontWeight: FontWeight.w700, fontSize: 13),
               ),
             ),
           ),
         ),
-        const SizedBox(width: 8),
+        SizedBox(width: 8),
         Expanded(
           child: _primaryCta(
             label: tr('Ra món'),
@@ -2284,7 +2438,7 @@ class _PosKdsScreenState extends State<PosKdsScreen> {
         icon: Icon(icon, size: 16),
         label: Text(
           label,
-          style: const TextStyle(fontWeight: FontWeight.w700, fontSize: 13),
+          style: TextStyle(fontWeight: FontWeight.w700, fontSize: 13),
         ),
         style: FilledButton.styleFrom(
           backgroundColor: color,
@@ -2314,6 +2468,7 @@ class _PosKdsScreenState extends State<PosKdsScreen> {
         : '${_qtyFmt.format(a.qty)} ${tr('phần')}';
     final late =
         a.hits.any((h) => _itemIsLate(h.item, h.ticket, DateTime.now()));
+    final stripe = _waitStripe(a.oldest, allDone: status == 'ready', voided: voided);
     return Material(
       color: _statusSoft(status),
       elevation: 0,
@@ -2327,8 +2482,10 @@ class _PosKdsScreenState extends State<PosKdsScreen> {
       clipBehavior: Clip.antiAlias,
       child: InkWell(
         onTap: () => _openAggSheet(a),
-        child: Padding(
-          padding: const EdgeInsets.fromLTRB(12, 12, 12, 10),
+        child: DecoratedBox(
+          decoration: BoxDecoration(border: Border(top: BorderSide(color: stripe, width: 6))),
+          child: Padding(
+          padding: EdgeInsets.fromLTRB(12, 10, 12, 10),
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
@@ -2336,7 +2493,7 @@ class _PosKdsScreenState extends State<PosKdsScreen> {
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
                   _qtyBadge(_qtyFmt.format(a.qty), status, fresh: fresh),
-                  const SizedBox(width: 10),
+                  SizedBox(width: 10),
                   Expanded(
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
@@ -2365,17 +2522,17 @@ class _PosKdsScreenState extends State<PosKdsScreen> {
                             ),
                           ],
                         ),
-                        const SizedBox(height: 4),
+                        SizedBox(height: 4),
                         GestureDetector(
                           onTap: status == 'queued'
                               ? () => unawaited(_aggCook(a))
                               : null,
                           child: _statusBadge(status),
                         ),
-                        const SizedBox(height: 4),
+                        SizedBox(height: 4),
                         Text(
                           sub,
-                          style: const TextStyle(
+                          style: TextStyle(
                             color: _muted,
                             fontSize: 12,
                             fontWeight: FontWeight.w500,
@@ -2386,7 +2543,7 @@ class _PosKdsScreenState extends State<PosKdsScreen> {
                             noteSample,
                             maxLines: 1,
                             overflow: TextOverflow.ellipsis,
-                            style: const TextStyle(
+                            style: TextStyle(
                               color: _note,
                               fontSize: 11,
                               fontWeight: FontWeight.w600,
@@ -2397,36 +2554,36 @@ class _PosKdsScreenState extends State<PosKdsScreen> {
                   ),
                 ],
               ),
-              const Spacer(),
+              Spacer(),
               Row(
                 children: [
-                  const Icon(Icons.table_restaurant_outlined,
+                  Icon(Icons.table_restaurant_outlined,
                       size: 14, color: _muted),
-                  const SizedBox(width: 4),
+                  SizedBox(width: 4),
                   Expanded(
                     child: Text(
                       tables.isEmpty ? '—' : tables.join(' · '),
                       maxLines: 1,
                       overflow: TextOverflow.ellipsis,
-                      style: const TextStyle(color: _muted, fontSize: 12),
+                      style: TextStyle(color: _muted, fontSize: 12),
                     ),
                   ),
                   Icon(Icons.schedule,
                       size: 14, color: late ? _late : _muted),
-                  const SizedBox(width: 4),
+                  SizedBox(width: 4),
                   _KdsTickText(
                     tick: _nowTick,
                     style: TextStyle(
                       color: late ? _late : _muted,
                       fontWeight: FontWeight.w700,
                       fontSize: 12,
-                      fontFeatures: const [FontFeature.tabularFigures()],
+                      fontFeatures: [FontFeature.tabularFigures()],
                     ),
                     builder: (now) => _waitShortAt(a.oldest, now),
                   ),
                 ],
               ),
-              const SizedBox(height: 8),
+              SizedBox(height: 8),
               if (voided)
                 _primaryCta(
                   label: tr('Đồng ý'),
@@ -2450,6 +2607,7 @@ class _PosKdsScreenState extends State<PosKdsScreen> {
             ],
           ),
         ),
+        ),
       ),
     );
   }
@@ -2459,7 +2617,7 @@ class _PosKdsScreenState extends State<PosKdsScreen> {
     return IconButton(
       visualDensity: VisualDensity.compact,
       padding: EdgeInsets.zero,
-      constraints: const BoxConstraints(minWidth: 32, minHeight: 32),
+      constraints: BoxConstraints(minWidth: 32, minHeight: 32),
       tooltip: tooltip,
       onPressed: onTap,
       icon: Icon(
@@ -2498,7 +2656,7 @@ class _PosKdsScreenState extends State<PosKdsScreen> {
       context: context,
       backgroundColor: _sheet,
       isScrollControlled: true,
-      shape: const RoundedRectangleBorder(
+      shape: RoundedRectangleBorder(
         borderRadius: BorderRadius.vertical(top: Radius.circular(18)),
       ),
       builder: (ctx) {
@@ -2512,14 +2670,14 @@ class _PosKdsScreenState extends State<PosKdsScreen> {
                   Navigator.pop(ctx);
                 }
               });
-              return const SizedBox(height: 8);
+              return SizedBox(height: 8);
             }
             final hasLive = a.hits.any((h) => !_isVoided(h.item));
             final hasVoid = a.hits.any((h) => _isVoided(h.item));
             final c = _aggAccent(a);
             return SafeArea(
           child: Padding(
-            padding: const EdgeInsets.fromLTRB(16, 12, 16, 16),
+            padding: EdgeInsets.fromLTRB(16, 12, 16, 16),
             child: Column(
               mainAxisSize: MainAxisSize.min,
               crossAxisAlignment: CrossAxisAlignment.stretch,
@@ -2534,25 +2692,25 @@ class _PosKdsScreenState extends State<PosKdsScreen> {
                     ),
                   ),
                 ),
-                const SizedBox(height: 12),
+                SizedBox(height: 12),
                 Row(
                   children: [
                     Text(
                       _qtyFmt.format(a.qty),
-                      style: const TextStyle(
+                      style: TextStyle(
                         color: _ink,
                         fontWeight: FontWeight.w700,
                         fontSize: 36,
                       ),
                     ),
-                    const SizedBox(width: 10),
+                    SizedBox(width: 10),
                     Expanded(
                       child: Column(
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
                           Text(
                             a.name,
-                            style: const TextStyle(
+                            style: TextStyle(
                               color: _ink,
                               fontWeight: FontWeight.w700,
                               fontSize: 20,
@@ -2564,7 +2722,7 @@ class _PosKdsScreenState extends State<PosKdsScreen> {
                             builder: (now) =>
                                 '${tr('Chờ')} ${_waitShortAt(a.oldest, now)}',
                           ),
-                          const SizedBox(height: 6),
+                          SizedBox(height: 6),
                           _statusPillsFromHits(a.hits),
                         ],
                       ),
@@ -2575,7 +2733,7 @@ class _PosKdsScreenState extends State<PosKdsScreen> {
                     ),
                   ],
                 ),
-                const SizedBox(height: 12),
+                SizedBox(height: 12),
                 if (hasLive)
                   Row(
                     children: [
@@ -2588,13 +2746,13 @@ class _PosKdsScreenState extends State<PosKdsScreen> {
                           style: FilledButton.styleFrom(
                             backgroundColor: _blue,
                             foregroundColor: Colors.white,
-                            padding: const EdgeInsets.symmetric(vertical: 14),
+                            padding: EdgeInsets.symmetric(vertical: 14),
                           ),
                           child: Text(tr('Đang làm'),
-                              style: const TextStyle(fontWeight: FontWeight.w700)),
+                              style: TextStyle(fontWeight: FontWeight.w700)),
                         ),
                       ),
-                      const SizedBox(width: 8),
+                      SizedBox(width: 8),
                       Expanded(
                         child: FilledButton(
                           onPressed: () {
@@ -2604,25 +2762,25 @@ class _PosKdsScreenState extends State<PosKdsScreen> {
                           style: FilledButton.styleFrom(
                             backgroundColor: _blue,
                             foregroundColor: Colors.white,
-                            padding: const EdgeInsets.symmetric(vertical: 14),
+                            padding: EdgeInsets.symmetric(vertical: 14),
                           ),
                           child: Text(tr('Ra món'),
-                              style: const TextStyle(fontWeight: FontWeight.w700)),
+                              style: TextStyle(fontWeight: FontWeight.w700)),
                         ),
                       ),
                     ],
                   ),
                 if (hasVoid) ...[
-                  if (hasLive) const SizedBox(height: 8),
+                  if (hasLive) SizedBox(height: 8),
                   Text(tr('Món hủy — Đồng ý từng dòng'),
-                      style: const TextStyle(
+                      style: TextStyle(
                           color: _muted, fontWeight: FontWeight.w700)),
                 ],
-                const SizedBox(height: 12),
+                SizedBox(height: 12),
                 Text(tr('Theo bàn'),
-                    style: const TextStyle(
+                    style: TextStyle(
                         color: _muted, fontWeight: FontWeight.w700)),
-                const SizedBox(height: 6),
+                SizedBox(height: 6),
                 ConstrainedBox(
                   constraints: BoxConstraints(
                     maxHeight: MediaQuery.of(ctx).size.height * 0.4,
@@ -2631,7 +2789,7 @@ class _PosKdsScreenState extends State<PosKdsScreen> {
                     shrinkWrap: true,
                     itemCount: a.hits.length,
                     separatorBuilder: (_, __) =>
-                        const Divider(height: 1, color: _line),
+                        Divider(height: 1, color: _line),
                     itemBuilder: (_, i) {
                       final h = a.hits[i];
                       final sent = h.item.sentAt ?? h.ticket.sentAt;
@@ -2695,7 +2853,7 @@ class _PosKdsScreenState extends State<PosKdsScreen> {
     return InkWell(
       onTap: onTap,
       child: Container(
-        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+        padding: EdgeInsets.symmetric(horizontal: 10, vertical: 6),
         decoration: BoxDecoration(
           color: color,
           borderRadius: BorderRadius.circular(10),
@@ -2708,14 +2866,14 @@ class _PosKdsScreenState extends State<PosKdsScreen> {
 
   Widget _buildTableGrid() {
     return LayoutBuilder(builder: (context, c) {
-      final n = (c.maxWidth / 280).floor().clamp(1, 6);
+      final n = (c.maxWidth / (290 * _textScale)).floor().clamp(1, 7);
       return GridView.builder(
-        padding: const EdgeInsets.fromLTRB(16, 8, 16, 20),
+        padding: EdgeInsets.fromLTRB(16, 8, 16, 20),
         gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
           crossAxisCount: n,
           mainAxisSpacing: 12,
           crossAxisSpacing: 12,
-          mainAxisExtent: 248,
+          mainAxisExtent: 290 * _textScale,
         ),
         itemCount: _visibleTickets.length,
         itemBuilder: (_, i) => _ticketCard(_visibleTickets[i]),
@@ -2740,8 +2898,8 @@ class _PosKdsScreenState extends State<PosKdsScreen> {
     final extra = t.items.length > 4 ? t.items.length - 4 : 0;
     final shown = extra > 0 ? t.items.take(4).toList() : t.items;
     final fresh = t.items.any((i) => _itemIsFresh(i, t));
-    final late =
-        t.items.any((i) => _itemIsLate(i, t, DateTime.now()));
+    final stripe = _waitStripe(oldest, allDone: status == 'ready', voided: allVoided);
+    final area = (t.areaName ?? '').trim();
     return Material(
       color: _statusSoft(status),
       elevation: 0,
@@ -2753,8 +2911,39 @@ class _PosKdsScreenState extends State<PosKdsScreen> {
         ),
       ),
       clipBehavior: Clip.antiAlias,
-      child: Padding(
-        padding: const EdgeInsets.fromLTRB(12, 10, 12, 10),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          // Đầu thẻ đổi màu theo thời gian chờ: bàn · khu · số phút — nhìn từ xa biết bàn nào gấp.
+          Container(
+            color: stripe,
+            padding: const EdgeInsets.fromLTRB(12, 6, 8, 6),
+            child: Row(children: [
+              Expanded(
+                child: Text(
+                  [t.title, if (area.isNotEmpty && !t.title.contains(area)) area].join(' · '),
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: const TextStyle(color: Colors.white, fontWeight: FontWeight.w800, fontSize: 16),
+                ),
+              ),
+              const Icon(Icons.schedule, size: 15, color: Colors.white),
+              const SizedBox(width: 4),
+              _KdsTickText(
+                tick: _nowTick,
+                style: const TextStyle(
+                  color: Colors.white,
+                  fontWeight: FontWeight.w800,
+                  fontSize: 15,
+                  fontFeatures: [FontFeature.tabularFigures()],
+                ),
+                builder: (now) => _waitShortAt(oldest, now),
+              ),
+            ]),
+          ),
+          Expanded(
+            child: Padding(
+        padding: EdgeInsets.fromLTRB(12, 6, 12, 10),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
@@ -2762,10 +2951,10 @@ class _PosKdsScreenState extends State<PosKdsScreen> {
               children: [
                 Expanded(
                   child: Text(
-                    t.title,
+                    [if ((t.orderNo ?? '').isNotEmpty) t.orderNo!, if ((t.channel ?? '').trim().isNotEmpty) t.channel!.trim()].join(' · '),
                     maxLines: 1,
                     overflow: TextOverflow.ellipsis,
-                    style: const TextStyle(
+                    style: TextStyle(
                       color: _ink,
                       fontWeight: FontWeight.w700,
                       fontSize: 16,
@@ -2785,27 +2974,11 @@ class _PosKdsScreenState extends State<PosKdsScreen> {
                   for (final item in shown) _itemRow(item, t),
                   if (extra > 0)
                     Text('+ $extra',
-                        style: const TextStyle(color: _muted, fontSize: 12)),
+                        style: TextStyle(color: _muted, fontSize: 12)),
                 ],
               ),
             ),
-            Row(
-              children: [
-                Icon(Icons.schedule, size: 14, color: late ? _late : _muted),
-                const SizedBox(width: 4),
-                _KdsTickText(
-                  tick: _nowTick,
-                  style: TextStyle(
-                    color: late ? _late : _muted,
-                    fontWeight: FontWeight.w700,
-                    fontSize: 12,
-                    fontFeatures: const [FontFeature.tabularFigures()],
-                  ),
-                  builder: (now) => _waitShortAt(oldest, now),
-                ),
-              ],
-            ),
-            const SizedBox(height: 8),
+            SizedBox(height: 8),
             if (allVoided)
               _primaryCta(
                 label: tr('Đồng ý'),
@@ -2829,6 +3002,9 @@ class _PosKdsScreenState extends State<PosKdsScreen> {
           ],
         ),
       ),
+          ),
+        ],
+      ),
     );
   }
 
@@ -2851,7 +3027,7 @@ class _PosKdsScreenState extends State<PosKdsScreen> {
               unawaited(_setLine(item, next));
             },
       child: Container(
-        margin: const EdgeInsets.symmetric(vertical: 3),
+        margin: EdgeInsets.symmetric(vertical: 3),
         decoration: BoxDecoration(
           borderRadius: BorderRadius.circular(10),
           border: fresh
@@ -2866,7 +3042,7 @@ class _PosKdsScreenState extends State<PosKdsScreen> {
             Container(
               width: 52,
               color: tone.bg,
-              padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 8),
+              padding: EdgeInsets.symmetric(horizontal: 4, vertical: 8),
               alignment: Alignment.center,
               child: Column(
                 mainAxisSize: MainAxisSize.min,
@@ -2892,7 +3068,7 @@ class _PosKdsScreenState extends State<PosKdsScreen> {
                       decoration: voided ? TextDecoration.lineThrough : null,
                       decorationColor: tone.fg,
                       decorationThickness: 2.2,
-                      fontFeatures: const [FontFeature.tabularFigures()],
+                      fontFeatures: [FontFeature.tabularFigures()],
                     ),
                   ),
                 ],
@@ -2902,7 +3078,7 @@ class _PosKdsScreenState extends State<PosKdsScreen> {
               child: ColoredBox(
                 color: _namePanel,
                 child: Padding(
-                  padding: const EdgeInsets.fromLTRB(8, 6, 8, 6),
+                  padding: EdgeInsets.fromLTRB(8, 6, 8, 6),
                   child: Row(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
@@ -2926,7 +3102,7 @@ class _PosKdsScreenState extends State<PosKdsScreen> {
                               ),
                             ),
                             if (note.isNotEmpty) ...[
-                              const SizedBox(height: 2),
+                              SizedBox(height: 2),
                               Text(
                                 note,
                                 softWrap: true,
@@ -2945,7 +3121,7 @@ class _PosKdsScreenState extends State<PosKdsScreen> {
                           ],
                         ),
                       ),
-                      const SizedBox(width: 6),
+                      SizedBox(width: 6),
                       if (voided)
                         _miniAct(
                           tr('Đồng ý'),
@@ -2959,7 +3135,7 @@ class _PosKdsScreenState extends State<PosKdsScreen> {
                             color: _muted,
                             fontSize: 12,
                             fontWeight: FontWeight.w700,
-                            fontFeatures: const [FontFeature.tabularFigures()],
+                            fontFeatures: [FontFeature.tabularFigures()],
                           ),
                           builder: (now) => _waitShortAt(sent, now),
                         ),
@@ -3197,5 +3373,78 @@ DateTime _parseUtc(dynamic raw) {
     t.minute,
     t.second,
     t.millisecond,
+  );
+}
+
+
+/// Bảng màu KDS: sáng (mặc định) / tối (bếp tối, đỡ chói).
+class _KdsPalette {
+  const _KdsPalette({
+    required this.bg,
+    required this.bar,
+    required this.card,
+    required this.line,
+    required this.ink,
+    required this.muted,
+    required this.chipIdle,
+    required this.blue,
+    required this.blueSoft,
+    required this.orange,
+    required this.orangeSoft,
+    required this.green,
+    required this.greenSoft,
+    required this.sheet,
+    required this.ticketHead,
+    required this.note,
+    required this.late,
+    required this.voided,
+    required this.namePanel,
+  });
+
+  final Color bg, bar, card, line, ink, muted, chipIdle, blue, blueSoft, orange, orangeSoft;
+  final Color green, greenSoft, sheet, ticketHead, note, late, voided, namePanel;
+
+  static const day = _KdsPalette(
+    bg: Color(0xFFF4F6FB),
+    bar: Color(0xFFFFFFFF),
+    card: Color(0xFFFFFFFF),
+    line: SboxColors.slate200,
+    ink: SboxColors.slate900,
+    muted: SboxColors.slate500,
+    chipIdle: SboxColors.slate100,
+    blue: SboxColors.brand600,
+    blueSoft: SboxColors.brand50,
+    orange: SboxColors.warning,
+    orangeSoft: SboxColors.warningSoft,
+    green: SboxColors.success,
+    greenSoft: SboxColors.successSoft,
+    sheet: Color(0xFFFFFFFF),
+    ticketHead: SboxColors.slate50,
+    note: SboxColors.slate500,
+    late: SboxColors.danger,
+    voided: SboxColors.slate400,
+    namePanel: Color(0xFFFFFFFF),
+  );
+
+  static const night = _KdsPalette(
+    bg: Color(0xFF0B1120),
+    bar: Color(0xFF111827),
+    card: Color(0xFF1E293B),
+    line: Color(0xFF334155),
+    ink: Color(0xFFF1F5F9),
+    muted: Color(0xFF94A3B8),
+    chipIdle: Color(0xFF1F2937),
+    blue: Color(0xFF38A9DE),
+    blueSoft: Color(0xFF0E2A3D),
+    orange: Color(0xFFF59E0B),
+    orangeSoft: Color(0xFF332407),
+    green: Color(0xFF22C55E),
+    greenSoft: Color(0xFF0C2A18),
+    sheet: Color(0xFF1E293B),
+    ticketHead: Color(0xFF1E293B),
+    note: Color(0xFFCBD5E1),
+    late: Color(0xFFF87171),
+    voided: Color(0xFF64748B),
+    namePanel: Color(0xFF111827),
   );
 }
