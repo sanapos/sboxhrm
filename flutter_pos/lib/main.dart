@@ -1,4 +1,5 @@
 import 'utils/pos_lite_mode.dart';
+import 'utils/pos_perf.dart';
 import 'dart:async';
 import 'dart:ui' as ui;
 
@@ -51,6 +52,8 @@ Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
   applyLowRamImageCache();
   await PosLiteMode.init();
+  // Ghi khung hình chậm (> 100ms) ra logcat — đo độ trễ khi bấm trên máy bán hàng.
+  WidgetsBinding.instance.addPostFrameCallback((_) => PosPerf.watchSlowFrames());
   FlutterError.onError = (details) {
     FlutterError.presentError(details);
     debugPrint('FlutterError: ${details.exceptionAsString()}');

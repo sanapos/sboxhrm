@@ -69,6 +69,7 @@ import '../widgets/pos/pos_vietqr_payment_panel.dart';
 import '../utils/pos_thermal_printer_settings.dart';
 import '../utils/pos_price_list_resolver.dart';
 import '../utils/pos_lite_mode.dart';
+import '../utils/pos_perf.dart';
 import '../utils/pos_product_type_picker.dart';
 import '../utils/pos_qty_rules.dart';
 import '../utils/pos_product_quick_note_memory.dart';
@@ -3825,6 +3826,10 @@ class _PosSellScreenState extends State<PosSellScreen>
     });
   }
 
+  /// Mốc bấm Thông báo / Thanh toán — đo «từ lúc bấm đến lúc ra phiếu».
+  DateTime? _kitchenTapAt;
+  DateTime? _checkoutTapAt;
+
   Future<void> _kitchenSendCurrentTable() async {
     if (_kitchenSending || _checkingOut || _parking) return;
     if (_industrySettings?.sellProfile != PosSellProfile.restaurant) return;
@@ -3875,7 +3880,10 @@ class _PosSellScreenState extends State<PosSellScreen>
     }
 
     // 2) Đẩy draft lên server trước KitchenSend — chỉ máy đang giữ khóa mới được.
+    final perf = PosPerf('kitchenSend');
+    _kitchenTapAt = DateTime.now();
     if (!await _ensureCanEditActiveDraft()) return;
+    perf.mark('canEdit');
     if (!await _ensureLockHeldForTableEdit(_tab)) {
       NotificationOverlayManager().showError(
         title: 'Không giữ được bàn',
@@ -3885,10 +3893,12 @@ class _PosSellScreenState extends State<PosSellScreen>
       );
       return;
     }
+    perf.mark('lock');
     if (!await _awaitDraftAutosaveIdle(
           busyMessage: 'Đợi lưu xong rồi báo bếp lại')) {
       return;
     }
+    perf.mark('autosaveWait');
     await _ensureDeviceReady();
     if ((_posDeviceId ?? '').isEmpty || (_posDeviceName ?? '').isEmpty) {
       NotificationOverlayManager().showError(
@@ -3912,11 +3922,13 @@ class _PosSellScreenState extends State<PosSellScreen>
     }
     // Luôn persist — kể cả khi !localDirty (kitchenSentQty có thể vừa đổi).
     _tab.localDirty = true;
+    perf.mark('device');
     final saved = await _persistDraftAutosave(
       forTab: _tab,
       showLockError: true,
       retryOnConflict: false,
     );
+    perf.mark('saveDraft');
     if (!mounted) return;
     if (!saved) {
       NotificationOverlayManager().showError(
@@ -3943,6 +3955,8 @@ class _PosSellScreenState extends State<PosSellScreen>
       deviceName: _posDeviceName,
       requestId: kitchenRequestId,
     );
+    perf.mark('sendApi');
+    perf.done();
     if (!mounted) return;
     if (res['isSuccess'] == true) {
       _tab.kitchenRequestId = null;
@@ -4120,6 +4134,8 @@ class _PosSellScreenState extends State<PosSellScreen>
     var kitchenOk = true;
     if (shouldPrint) {
       var enqueuedPerPrinterFail = false;
+      final pp = PosPerf('kitchenPrint');
+      try {
       kitchenOk = await printKitchenCompactSlip(
         tableName: formatPosTableLabel(
           areaName: _tab.serviceAreaName,
@@ -4195,6 +4211,10 @@ class _PosSellScreenState extends State<PosSellScreen>
           );
         },
       );
+      } finally {
+        final tap = _kitchenTapAt;
+        pp.done(tap == null ? '' : 'sinceTap=${DateTime.now().difference(tap).inMilliseconds}ms');
+      }
       if (!kitchenOk && !enqueuedPerPrinterFail) {
         _enqueueFailedKitchenPrint(
           PendingKitchenPrintJob(
@@ -6154,12 +6174,16 @@ class _PosSellScreenState extends State<PosSellScreen>
       return;
     }
     _playSellPickClick();
+    final perf = PosPerf('addItem');
     if (!await _ensureCanEditActiveDraft()) return;
+    perf.mark('canEdit');
     // Đánh dirty sớm — chặn sync/pull đè giỏ về 0 trong lúc load đơn vị.
     _markTabDirty(_tab);
     final p = pick.product;
+    final unitsCached = _sellUnitViewsCache.containsKey(p.id);
     List<PosProductUnitView> views =
         _sellUnitViewsCache[p.id] ?? await loadPosSellUnitViews(_api, p);
+    perf.mark(unitsCached ? 'unitsCache' : 'unitsApi');
     if (views.isNotEmpty) _sellUnitViewsCache[p.id] = views;
     views = applyPosPriceListToViews(views, p, _currentPriceOverrides);
     if (!mounted || views.isEmpty) return;
@@ -6181,6 +6205,8 @@ class _PosSellScreenState extends State<PosSellScreen>
           .firstOrNull;
       variant ??= await _resolveVariant(p.id, view.variantId!);
     }
+    perf.mark('variant');
+    WidgetsBinding.instance.addPostFrameCallback((_) => perf.done(p.name));
 
     _SellCartLine? focusLine;
     setState(() {
@@ -10828,6 +10854,8 @@ class _PosSellScreenState extends State<PosSellScreen>
       _syncCheckoutKitchenChip();
     });
     final paidSessionId = _tab.resourceSessionId;
+    final perf = PosPerf('checkout');
+    _checkoutTapAt = DateTime.now();
     try {
       final perm = Provider.of<PermissionProvider>(context, listen: false);
       if (!perm.canPosPay()) {
@@ -10840,13 +10868,16 @@ class _PosSellScreenState extends State<PosSellScreen>
       }
 
       if (!await _ensureOpenCashierShiftIfRequired()) return;
+      perf.mark('shift');
 
       if (!await _awaitDraftAutosaveIdle(
             busyMessage: 'Đợi lưu xong rồi thanh toán lại')) {
         return;
       }
+      perf.mark('autosaveWait');
 
       if (!await _ensureCanEditActiveDraft()) return;
+      perf.mark('canEdit');
       if (!_ensureResourceIfRequired()) return;
 
       final paid = _effectivePaidAmount;
@@ -10861,10 +10892,12 @@ class _PosSellScreenState extends State<PosSellScreen>
       }
 
       if (!await _refreshCartStockBeforeCheckout()) return;
+      perf.mark('stock(${_tab.cart.length})');
       if (!_validateFullCartStock()) return;
 
       await _ensureDeviceReady();
       if (!await _collectSerialsBeforeCheckout()) return;
+      perf.mark('device');
 
       _refreshTimedLineQtys();
       final body = _buildSaleBody(complete: true);
@@ -10874,6 +10907,8 @@ class _PosSellScreenState extends State<PosSellScreen>
           : _createSaleFor(_tab, body);
 
       var res = await payOnce();
+      perf.mark('payApi');
+      perf.done();
       // 409 xung đột serialization/mã phiếu — thử lại 1 lần (server cũng đã retry).
       if (res['isSuccess'] != true && _isRetryableCheckoutConflict(res)) {
         await Future<void>.delayed(const Duration(milliseconds: 350));
@@ -11052,12 +11087,15 @@ class _PosSellScreenState extends State<PosSellScreen>
         // Tuần tự: hóa đơn → bếp (nếu auto) → xuất kho.
         unawaited(() async {
           if (wantInvoicePrint) {
+            final pp = PosPerf('invoicePrint');
             await _maybePrintOrder(
               orderId,
               orderJson: enriched ?? data,
               areaNameOverride: printAreaName,
               tableNameOverride: printTableName,
             );
+            final tap = _checkoutTapAt;
+            pp.done(tap == null ? '' : 'sinceTap=${DateTime.now().difference(tap).inMilliseconds}ms');
           }
           if (kitchenAutoLines.isNotEmpty) {
             var enqueuedPerPrinterFail = false;

@@ -1,4 +1,5 @@
 import 'package:flutter/foundation.dart';
+import 'pos_perf.dart';
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
 import 'package:pdf/pdf.dart';
@@ -387,7 +388,9 @@ Future<bool> printPosSaleOrder({
   PosStorePrinter? overridePrinter,
   PosPrintHangCallback? onCloudHang,
 }) async {
+  final perf = PosPerf('printSaleOrder');
   var printOrder = await _resolvePrintOrder(order);
+  perf.mark('order');
   // Hóa đơn có mẫu nhớ riêng / mẫu chọn cho lần in này → thắng mẫu của thiết lập máy in.
   String? nz(String? v) => (v == null || v.isEmpty) ? null : v;
   templateId = nz(order.printTemplateId) ?? nz(printOrder.printTemplateId) ?? templateId;
@@ -407,10 +410,12 @@ Future<bool> printPosSaleOrder({
           await PosVietQrHelper.resolvePrintImageUrlForOrder(printOrder);
     }
   }
+  perf.mark('vietQr');
   final template = await _resolveSalePrintTemplate(
     templateId,
     documentType: documentType,
   );
+  perf.mark('template');
   final effectiveVat = vatAmount ?? printOrder.vatAmount;
   // Ưu tiên flag caller; không có thì theo thiết lập cửa hàng (giá đã gồm → không cộng VAT).
   final storeTaxMode = (await PosSellStoreSettings.load()).taxMode;
@@ -509,8 +514,11 @@ Future<bool> printPosSaleOrder({
     );
   }
 
+  perf.mark('storeInfo');
   final thermal = await PosThermalPrinterSettings.load();
   await PosPrintOrchestrator.instance.refreshConfig();
+  perf.mark('printerConfig');
+  perf.done('(chuẩn bị in — phần gửi lệnh = invoicePrint − phần này)');
   final cloudPrinters = PosPrintOrchestrator.instance
       .resolveCloudPrinters(PosCloudDocumentTypes.saleInvoice);
 
