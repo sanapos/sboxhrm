@@ -1,3 +1,4 @@
+import '../utils/api_datetime.dart';
 class PosPriceList {
   final String id;
   final String name;
@@ -36,7 +37,7 @@ class PosPriceList {
   factory PosPriceList.fromJson(Map<String, dynamic> json) {
     DateTime? parseDate(dynamic v) {
       if (v == null) return null;
-      return DateTime.tryParse(v.toString())?.toLocal();
+      return parseApiUtcDateTime(v.toString())?.toLocal();
     }
 
     int asInt(dynamic v) {

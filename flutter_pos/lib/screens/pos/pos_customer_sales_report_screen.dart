@@ -1,6 +1,7 @@
 import 'dart:async';
 
 import 'package:flutter/material.dart';
+import '../../utils/api_datetime.dart';
 import 'package:intl/intl.dart';
 
 import '../../services/api_service.dart';
@@ -11,7 +12,7 @@ import '../../widgets/pos/pos_theme.dart';
 import '../../widgets/pos/reports/pos_report_widgets.dart';
 import 'package:sbox_pos/l10n/app_tr.dart';
 
-import '../../theme/sbox_tokens.dart';
+import '../../widgets/sbox/sbox_ui.dart';
 /// Doanh thu / lần mua / khách mới theo kỳ.
 class PosCustomerSalesReportScreen extends StatefulWidget {
   const PosCustomerSalesReportScreen({super.key});
@@ -67,8 +68,48 @@ class _PosCustomerSalesReportScreenState extends State<PosCustomerSalesReportScr
         .whereType<Map>()
         .map((e) => Map<String, dynamic>.from(e))
         .toList();
+    final rev = _n(_data?['totalRevenue']);
+    final newCount = items.where((r) => r['isNew'] == true).length;
+    final newRev = items.where((r) => r['isNew'] == true).fold<double>(0, (a, r) => a + _n(r['revenue']));
+    final custCount = _n(_data?['customerCount'] ?? items.length);
+    // Khách lẻ (đơn không gắn khách) tách riêng — không tính là «khách cũ», không chia vào DT TB / khách.
+    final walkInRev = _n(_data?['walkInRevenue']);
+    final namedRev = rev - walkInRev;
+    final oldRev = items.where((r) => r['customerId'] != null && r['isNew'] != true).fold<double>(0, (a, r) => a + _n(r['revenue']));
+    final insight = SboxInsightPanel(
+      kpis: [
+        SboxKpi(label: 'Doanh thu từ khách', value: SboxFmt.money(rev), icon: Icons.payments_outlined, note: _time.displayLabel),
+        SboxKpi(label: 'Lợi nhuận', value: SboxFmt.money(_n(_data?['totalProfit'])), icon: Icons.trending_up_rounded, tone: SboxTone.success),
+        SboxKpi(label: 'Khách mua', value: SboxFmt.number(custCount), icon: Icons.people_outline, tone: SboxTone.violet,
+            note: '${SboxFmt.number(_n(_data?['newCustomerCount']))} khách mới'),
+        SboxKpi(
+            label: 'DT TB / khách',
+            value: SboxFmt.money(custCount > 0 ? namedRev / custCount : 0),
+            icon: Icons.person_outline,
+            tone: SboxTone.neutral,
+            note: walkInRev > 0 ? 'Khách lẻ ${SboxFmt.money(walkInRev)}' : null),
+      ],
+      charts: [
+        SboxChartCard(
+          title: 'Khách mua nhiều nhất',
+          child: SboxRankList(items: [
+            for (final r in items) SboxSlice(r['name']?.toString() ?? '—', _n(r['revenue']), caption: '${r['orderCount'] ?? 0} HĐ'),
+          ]),
+        ),
+        SboxChartCard(
+          title: 'Khách mới, khách cũ, khách lẻ',
+          subtitle: 'Theo doanh thu',
+          child: SboxDonutChart(slices: [
+            SboxSlice('Khách cũ', oldRev),
+            SboxSlice('Khách mới ($newCount)', newRev, color: SboxColors.success),
+            if (walkInRev > 0) SboxSlice('Khách lẻ', walkInRev, color: SboxColors.slate400),
+          ]),
+        ),
+      ],
+    );
     return PosReportMobileScaffold(
       title: 'Bán theo khách',
+      exportModule: 'PosSalesReport',
       time: _time,
       onExportExcel: () => unawaited(PosReportExport.excel(
         context: context,
@@ -107,6 +148,7 @@ class _PosCustomerSalesReportScreenState extends State<PosCustomerSalesReportScr
                   onSubmitted: (_) => _load(),
                 ),
                 const SizedBox(height: 10),
+                insight,
                 PosReportCard(
                   title: 'Tổng kỳ',
                   child: PosReportMetricTiles(
@@ -149,7 +191,7 @@ class _PosCustomerSalesReportScreenState extends State<PosCustomerSalesReportScr
   }
 
   Widget _row(Map<String, dynamic> r) {
-    final last = DateTime.tryParse('${r['lastPurchaseAt'] ?? ''}');
+    final last = parseApiUtcDateTime(r['lastPurchaseAt']);
     final isNew = r['isNew'] == true;
     final cid = '${r['customerId'] ?? r['id'] ?? ''}';
     return InkWell(

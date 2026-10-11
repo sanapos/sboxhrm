@@ -1,6 +1,7 @@
 import 'dart:async';
 
 import 'package:flutter/material.dart';
+import '../../widgets/hrm_page_chrome.dart';
 import 'package:intl/intl.dart';
 import 'package:provider/provider.dart';
 import 'package:url_launcher/url_launcher.dart';
@@ -1388,19 +1389,17 @@ class _PosQrOnlineOrdersScreenState extends State<PosQrOnlineOrdersScreen> {
     final pushed = PosHubScope.pushedSubPageOf(context);
     return Scaffold(
       backgroundColor: SboxColors.slate100,
-      appBar: AppBar(
-        backgroundColor: PosTheme.kiotBlue,
-        foregroundColor: Colors.white,
-        automaticallyImplyLeading: pushed,
-        title: Text(tr('Đơn online')),
-        actions: [
-          IconButton(
-            tooltip: tr('Tải lại'),
-            onPressed: _loading || _busy ? null : _load,
-            icon: const Icon(Icons.refresh),
-          ),
-        ],
-      ),
+      // Trong khung chính thanh trên đã ghi «Đơn online» — chỉ vẽ thanh riêng khi mở thành trang con.
+      appBar: HrmPageChrome.hideInPageTitle(context)
+          ? null
+          : AppBar(
+              backgroundColor: Colors.white,
+              surfaceTintColor: Colors.white,
+              elevation: 0.5,
+              foregroundColor: SboxColors.text,
+              automaticallyImplyLeading: pushed,
+              title: Text(tr('Đơn online')),
+            ),
       body: Column(
         children: [
           Material(

@@ -1,4 +1,6 @@
-﻿import 'package:flutter/material.dart';
+import 'dart:async';
+
+import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 
 import '../../providers/permission_provider.dart';
@@ -7,6 +9,7 @@ import '../../widgets/pos/pos_hub_scope.dart';
 import '../../widgets/warehouse/wh_doc_type.dart';
 import '../../widgets/warehouse/wh_mobile_components.dart';
 import '../../widgets/warehouse/wh_mobile_doc_service.dart';
+import '../../theme/sbox_tokens.dart';
 import '../../widgets/warehouse/wh_mobile_theme.dart';
 import 'wh_mobile_detail_screen.dart';
 import 'wh_mobile_editor_router.dart';
@@ -43,6 +46,7 @@ class _WhMobileDocListScreenState extends State<WhMobileDocListScreen> {
   int _total = 0;
   int _page = 1;
   String _statusFilter = 'all';
+  Timer? _debounce;
 
   WhDocType get _type => widget.docType;
 
@@ -61,6 +65,7 @@ class _WhMobileDocListScreenState extends State<WhMobileDocListScreen> {
 
   @override
   void dispose() {
+    _debounce?.cancel();
     _searchCtrl.dispose();
     super.dispose();
   }
@@ -108,17 +113,12 @@ class _WhMobileDocListScreenState extends State<WhMobileDocListScreen> {
     return WhMobileScaffold(
       title: _type.listTitle,
       subtitle: '$_total phiếu',
-      actions: [
-        IconButton(
-          icon: const Icon(Icons.refresh_rounded),
-          color: WhMobileTheme.primary,
-          onPressed: _loading ? null : () => _load(page: _page),
-        ),
-      ],
+      showAppBar: PosHubScope.pushedSubPageOf(context),
       floatingAction: canEdit
           ? FloatingActionButton.extended(
               onPressed: _openCreate,
-              backgroundColor: _type.accentColor,
+              // Mọi loại phiếu cùng màu nút chính của app (trước đây xanh lá / tím / đỏ / cam lẫn lộn).
+              backgroundColor: SboxColors.brand600,
               elevation: 0,
               icon: const Icon(Icons.add_rounded, color: Colors.white),
               label: Text(tr(_type.createLabel),
@@ -139,7 +139,10 @@ class _WhMobileDocListScreenState extends State<WhMobileDocListScreen> {
               controller: _searchCtrl,
               hint: 'Tìm mã phiếu, ghi chú…',
               onSubmitted: (_) => _load(),
-              onChanged: (_) {},
+              onChanged: (_) {
+                _debounce?.cancel();
+                _debounce = Timer(const Duration(milliseconds: 400), () => _load());
+              },
             ),
           ),
           const SizedBox(height: 10),

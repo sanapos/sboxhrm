@@ -1,3 +1,4 @@
+import '../../widgets/sbox/sbox_ui.dart';
 import 'dart:async';
 
 import '../../utils/pos_scale_barcode.dart';
@@ -233,17 +234,24 @@ class _PosSellIndustrySettingsScreenState
     final body = _loading
         ? const Center(child: CircularProgressIndicator())
         : _error != null
-            ? Center(
-                child: Column(
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    Text(tr(_error!), style: const TextStyle(color: Colors.red)),
-                    const SizedBox(height: 12),
-                    FilledButton(onPressed: _load, child: Text(tr('Thử lại'))),
-                  ],
-                ),
+            ? SboxEmptyState(
+                icon: Icons.cloud_off_rounded,
+                title: 'Không tải được thiết lập',
+                message: _error,
+                action: SboxButton.secondary(label: 'Thử lại', icon: Icons.refresh_rounded, onPressed: _load),
               )
             : _buildForm();
+
+    // Điện thoại trong Thiết lập SBOX: tên đã ở thanh trên — không lặp; chỉ vạch tiến độ khi đang lưu.
+    if (widget.embeddedInSettings && MediaQuery.sizeOf(context).width < 640) {
+      return ColoredBox(
+        color: PosTheme.background,
+        child: Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
+          if (_saving) const LinearProgressIndicator(minHeight: 2),
+          Expanded(child: body),
+        ]),
+      );
+    }
 
     if (widget.embeddedInSettings) {
       return ColoredBox(
@@ -269,12 +277,6 @@ class _PosSellIndustrySettingsScreenState
                         width: 18,
                         height: 18,
                         child: CircularProgressIndicator(strokeWidth: 2),
-                      )
-                    else
-                      IconButton(
-                        tooltip: tr('Tải lại'),
-                        onPressed: _load,
-                        icon: const Icon(Icons.refresh),
                       ),
                   ],
                 ),
@@ -291,8 +293,10 @@ class _PosSellIndustrySettingsScreenState
       backgroundColor: PosTheme.background,
       appBar: AppBar(
         title: Text(tr(_title)),
-        backgroundColor: PosTheme.kiotBlue,
-        foregroundColor: Colors.white,
+        backgroundColor: Colors.white,
+        surfaceTintColor: Colors.white,
+        elevation: 0.5,
+        foregroundColor: SboxColors.text,
         actions: [
           if (_saving)
             const Padding(
@@ -303,16 +307,10 @@ class _PosSellIndustrySettingsScreenState
                   height: 20,
                   child: CircularProgressIndicator(
                     strokeWidth: 2,
-                    color: Colors.white,
+                    color: SboxColors.primary,
                   ),
                 ),
               ),
-            )
-          else
-            IconButton(
-              tooltip: tr('Tải lại'),
-              onPressed: _load,
-              icon: const Icon(Icons.refresh),
             ),
         ],
       ),

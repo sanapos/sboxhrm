@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import '../utils/api_datetime.dart';
 
 import '../theme/sbox_tokens.dart';
 class PosEInvoiceSettings {
@@ -295,7 +296,7 @@ class PosEInvoiceRow {
     double n(dynamic v) => v is num ? v.toDouble() : double.tryParse('$v') ?? 0;
     DateTime? d(dynamic v) {
       if (v == null) return null;
-      return DateTime.tryParse(v.toString());
+      return parseApiUtcDateTime(v.toString());
     }
 
     return PosEInvoiceRow(

@@ -1,11 +1,13 @@
 import 'dart:async';
-
+import 'dart:convert';
+import '../../utils/api_datetime.dart';
 
 import '../../utils/notification_sound.dart';
 import '../../widgets/pos/pos_package_timer.dart';
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
 import 'package:provider/provider.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 
 import '../../models/pos_customer.dart';
 import '../../models/pos_product.dart';
@@ -15,6 +17,7 @@ import '../../widgets/pos/pos_split_bill_sheet.dart';
 import '../../providers/auth_provider.dart';
 import '../../providers/permission_provider.dart';
 import '../../services/api_service.dart';
+import '../../services/signalr_service.dart';
 import '../../utils/permission_navigation.dart';
 import '../../utils/pos_owner_password_gate.dart';
 import '../../utils/pos_device_identity.dart';
@@ -153,6 +156,14 @@ class PosResourceFloorScreenState extends State<PosResourceFloorScreen> {
   bool _reloadInFlight = false;
   bool _reloadQueued = false;
   DateTime? _lastSuccessfulReloadAt;
+
+  /// Đã có dữ liệu sống từ server (bản lưu trên máy chỉ để hiện sơ đồ ngay).
+  bool _liveLoaded = false;
+  StreamSubscription<bool>? _connSub;
+  AppLifecycleListener? _lifecycle;
+  Completer<void>? _liveWaiter;
+  int _silentReloads = 0;
+  bool _areasStale = false;
   PosSellProfile? _loadedSellProfile;
 
   /// «bàn» / «ghế» / «phòng» theo ngành (bán lẻ, gym không có sơ đồ → «bàn»).
@@ -193,29 +204,50 @@ class PosResourceFloorScreenState extends State<PosResourceFloorScreen> {
     // Luôn đọc cài đặt ngành: cần cờ tính tiền giờ kể cả khi đã truyền sẵn ngành.
     unawaited(_loadSellProfile());
     unawaited(_loadDeviceId());
+    // Hiện sơ đồ đã lưu trên máy ngay (tên / vị trí bàn) — trạng thái cập nhật sau vài trăm ms.
+    unawaited(_restoreFloorCache());
     _reload();
-    // Bán hàng: poll 15–25s làm heartbeat; SignalR PosFloorChanged reload tức thì.
+    // Bán hàng: poll 8–12s làm fallback; SignalR PosFloorChanged reload tức thì.
     // manageMode giữ autoRefreshSeconds (mặc định 20).
     final pollSec = widget.manageMode
         ? widget.autoRefreshSeconds
         : (widget.autoRefreshSeconds > 0
-            ? widget.autoRefreshSeconds.clamp(15, 25)
-            : 20);
+            ? widget.autoRefreshSeconds.clamp(8, 12)
+            : 10);
     if (pollSec > 0) {
       _poll = Timer.periodic(
         Duration(seconds: pollSec),
         (_) {
-          if (mounted && !_layoutEdit && widget.paneActive) {
-            _reload(silent: true);
+          if (!mounted || _layoutEdit || !widget.paneActive) return;
+          // Đang nối realtime (PosFloorChanged báo ngay khi bàn đổi) → poll dự phòng 30s.
+          final last = _lastSuccessfulReloadAt;
+          if (!widget.manageMode &&
+              SignalRService().isConnected &&
+              last != null &&
+              DateTime.now().difference(last) < const Duration(seconds: 30)) {
+            return;
           }
+          _reload(silent: true);
         },
       );
     }
-    _floorRealtime.start((_) {
+    _floorRealtime.start((event) {
+      final reason = PosSyncReasons.of(event);
+      if (PosSyncReasons.notFloor.contains(reason)) return;
+      if (reason == 'layoutchanged') _areasStale = true;
       // heal khi có sự kiện realtime — tránh ghost Occupied đến khi mở lại app.
       if (mounted && !_layoutEdit && widget.paneActive) {
         _reload(silent: true, heal: true);
       }
+    });
+    // Nối lại realtime / mở lại app → có thể lỡ sự kiện: tải lại ngay.
+    _connSub = SignalRService().onConnectionStateChanged.listen((connected) {
+      if (connected && mounted && !_layoutEdit && widget.paneActive) {
+        _reload(silent: true, heal: true);
+      }
+    });
+    _lifecycle = AppLifecycleListener(onResume: () {
+      if (mounted && !_layoutEdit && widget.paneActive) _reload(silent: true, heal: true);
     });
     // Đồng hồ bàn: 15s đủ (hiển thị phút); bàn có gói giờ đếm ngược → cập nhật mỗi giây + báo hết giờ.
     var tick = 0;
@@ -228,6 +260,65 @@ class PosResourceFloorScreenState extends State<PosResourceFloorScreen> {
         setState(() {});
       }
     });
+  }
+
+  void _markLive() {
+    _liveLoaded = true;
+    final w = _liveWaiter;
+    _liveWaiter = null;
+    if (w != null && !w.isCompleted) w.complete();
+  }
+
+  Future<void> _waitLive() async {
+    if (_liveLoaded) return;
+    final w = _liveWaiter ??= Completer<void>();
+    await w.future.timeout(const Duration(seconds: 6), onTimeout: () {});
+  }
+
+  String _floorCacheKey() {
+    final sid = Provider.of<AuthProvider>(context, listen: false).user?.storeId ?? '';
+    return sid.isEmpty ? '' : 'pos_floor_cache_v1_$sid';
+  }
+
+  /// Lưu sơ đồ (khu + bàn) để lần mở sau hiện ngay. Trạng thái trong bản lưu chỉ để hiển thị.
+  Future<void> _saveFloorCache(List? areasRaw, List resourcesRaw) async {
+    try {
+      final key = _floorCacheKey();
+      if (key.isEmpty) return;
+      final prefs = await SharedPreferences.getInstance();
+      Object? areas = areasRaw;
+      if (areas == null) {
+        final old = prefs.getString(key);
+        areas = old == null ? null : (jsonDecode(old) as Map)['areas'];
+      }
+      if (areas == null) return;
+      await prefs.setString(key, jsonEncode({'areas': areas, 'resources': resourcesRaw}));
+    } catch (_) {}
+  }
+
+  Future<void> _restoreFloorCache() async {
+    try {
+      final key = _floorCacheKey();
+      if (key.isEmpty) return;
+      final prefs = await SharedPreferences.getInstance();
+      final raw = prefs.getString(key);
+      if (raw == null || !mounted || _liveLoaded || _resources.isNotEmpty) return;
+      final m = jsonDecode(raw) as Map;
+      final areas = ((m['areas'] as List?) ?? const [])
+          .whereType<Map>()
+          .map((e) => PosServiceAreaDto.fromJson(Map<String, dynamic>.from(e)))
+          .toList();
+      final resources = ((m['resources'] as List?) ?? const [])
+          .whereType<Map>()
+          .map((e) => PosServiceResourceDto.fromJson(Map<String, dynamic>.from(e)))
+          .toList();
+      if (resources.isEmpty || !mounted || _liveLoaded) return;
+      setState(() {
+        _areas = areas;
+        _resources = resources.map(_patchResourceFlags).toList();
+        _loading = false;
+      });
+    } catch (_) {}
   }
 
   /// Đã báo (bàn|mốc hết giờ|giai đoạn) — mỗi mốc chỉ báo 1 lần trên máy này.
@@ -486,6 +577,8 @@ class PosResourceFloorScreenState extends State<PosResourceFloorScreen> {
     _poll?.cancel();
     _clock?.cancel();
     _floorRealtime.dispose();
+    _connSub?.cancel();
+    _lifecycle?.dispose();
     super.dispose();
   }
 
@@ -512,14 +605,21 @@ class PosResourceFloorScreenState extends State<PosResourceFloorScreen> {
     try {
       if (!silent) {
         setState(() {
-          _loading = true;
+          // Đã có sơ đồ (bản lưu / lần trước) → không che bằng vòng xoay.
+          _loading = _resources.isEmpty;
           _error = null;
         });
       }
-      final areaRes = await _api.getPosServiceAreas();
-      final resRes = await _api.getPosServiceResources(
-        heal: heal ?? !silent,
-      );
+      // Khu vực hầu như không đổi: tải khi mở / khi có bàn thuộc khu chưa biết / mỗi 6 lần poll.
+      final needAreas = !silent || _areas.isEmpty || _areasStale || (++_silentReloads % 6 == 0);
+      final results = await Future.wait([
+        needAreas
+            ? _api.getPosServiceAreas()
+            : Future.value(<String, dynamic>{'isSuccess': true, 'data': null}),
+        _api.getPosServiceResources(heal: heal ?? !silent),
+      ]);
+      final areaRes = results[0];
+      final resRes = results[1];
       if (!mounted) return;
       if (areaRes['isSuccess'] != true || resRes['isSuccess'] != true) {
         if (!silent) {
@@ -538,14 +638,26 @@ class PosResourceFloorScreenState extends State<PosResourceFloorScreen> {
               PosServiceResourceDto.fromJson(Map<String, dynamic>.from(e)))
           .toList();
       _reconcileOptimisticFlags(rawResources);
-      _areas = ((areaRes['data'] as List?) ?? [])
-          .whereType<Map>()
-          .map((e) => PosServiceAreaDto.fromJson(Map<String, dynamic>.from(e)))
-          .toList();
+      if (areaRes['data'] is List) {
+        _areas = (areaRes['data'] as List)
+            .whereType<Map>()
+            .map((e) => PosServiceAreaDto.fromJson(Map<String, dynamic>.from(e)))
+            .toList();
+        _areasStale = false;
+      }
+      final knownAreas = {for (final a in _areas) a.id};
+      if (rawResources.any((r) => r.areaId.isNotEmpty && !knownAreas.contains(r.areaId))) {
+        _areasStale = true; // khu mới → lần sau tải lại khu vực
+      }
       _resources = rawResources.map(_patchResourceFlags).toList();
       _loading = false;
       _error = null;
       _lastSuccessfulReloadAt = DateTime.now();
+      _markLive();
+      unawaited(_saveFloorCache(
+        areaRes['data'] is List ? areaRes['data'] as List : null,
+        resRes['data'] as List? ?? const [],
+      ));
       // Đang mở bàn: đừng rebuild lưới — mất gesture, đơ lần bấm tiếp.
       if (_openingResourceId == null) {
         setState(() {});
@@ -610,7 +722,7 @@ class PosResourceFloorScreenState extends State<PosResourceFloorScreen> {
       return;
     }
     // Hub / nhúng sơ đồ: không pop shell (MainLayout).
-    if (widget.embedded || HrmPageChrome.isEmbedded) return;
+    if (widget.embedded || HrmPageChrome.hideOuterChrome(context)) return;
     SafeNavigator.popPageIfPushed(context, result);
   }
 
@@ -635,10 +747,10 @@ class PosResourceFloorScreenState extends State<PosResourceFloorScreen> {
     final expRaw = data['lockExpiresAt'] ?? data['LockExpiresAt'];
     final atRaw = data['lockedAt'] ?? data['LockedAt'];
     final exp = expRaw != null
-        ? DateTime.tryParse(expRaw.toString())?.toUtc()
+        ? parseApiUtcDateTime(expRaw.toString())?.toUtc()
         : null;
     final at =
-        atRaw != null ? DateTime.tryParse(atRaw.toString())?.toUtc() : null;
+        atRaw != null ? parseApiUtcDateTime(atRaw.toString())?.toUtc() : null;
     final now = DateTime.now().toUtc();
     var sessionOpen = false;
     if (isLocked && exp != null && exp.isAfter(now)) {
@@ -791,6 +903,14 @@ class PosResourceFloorScreenState extends State<PosResourceFloorScreen> {
     PosServiceResourceDto r, {
     bool skipHoldingPrompt = false,
   }) async {
+    if (!_liveLoaded) {
+      // Sơ đồ đang hiện bản lưu: đợi trạng thái thật (bàn có thể vừa có khách ở máy khác).
+      await _waitLive();
+      if (!mounted || !_liveLoaded) return;
+      final fresh = _resources.where((x) => x.id == r.id).firstOrNull;
+      if (fresh == null) return;
+      r = fresh;
+    }
     final gen = ++_openGen;
     _openingResourceId = r.id;
     try {
@@ -807,8 +927,9 @@ class PosResourceFloorScreenState extends State<PosResourceFloorScreen> {
   }) async {
     bool current() => mounted && gen == _openGen;
     if (r.showReservedOnFloor) {
-      await _showReservedActions(r);
-      return;
+      // Lịch đặt còn xa (ngoài khung giữ 60′) → cho mở bàn khách vãng lai, lịch đặt vẫn giữ.
+      final walkIn = await _showReservedActions(r, allowWalkIn: true);
+      if (!walkIn || !current()) return;
     }
 
     // Đang dùng / tạm rời / holding → vào lại đơn.
@@ -991,7 +1112,21 @@ class PosResourceFloorScreenState extends State<PosResourceFloorScreen> {
     ));
   }
 
-  Future<void> _showReservedActions(PosServiceResourceDto r) async {
+  static String _depositStatusVi(String s) => switch (s.toLowerCase()) {
+        'held' => 'đang giữ',
+        'applied' => 'đã trừ vào hóa đơn',
+        'refunded' => 'đã hoàn',
+        'forfeited' => 'mất cọc',
+        'none' => 'chưa thu',
+        _ => s,
+      };
+
+  /// Trả về true khi thu ngân chọn «Khách vãng lai» (mở bàn bình thường, giữ lịch đặt).
+  Future<bool> _showReservedActions(PosServiceResourceDto r, {bool allowWalkIn = false}) async {
+    final arrival = _reservationArrivalLocal(r);
+    final canWalkIn = allowWalkIn &&
+        arrival != null &&
+        arrival.isAfter(DateTime.now().add(const Duration(minutes: 60)));
     final depositHeld = (r.reservationDepositStatus ?? '').toLowerCase() == 'held' &&
         r.reservationDepositPaid > 0;
     final tableLabel =
@@ -1008,7 +1143,7 @@ class PosResourceFloorScreenState extends State<PosResourceFloorScreen> {
         '${r.reservationPreOrderCount} món đặt trước',
       if (r.reservationDepositPaid > 0)
         'Cọc ${_moneyFmt.format(r.reservationDepositPaid)}đ'
-            '${r.reservationDepositStatus != null ? ' (${r.reservationDepositStatus})' : ''}',
+            '${r.reservationDepositStatus != null ? ' (${_depositStatusVi(r.reservationDepositStatus!)})' : ''}',
     ].join(' · ');
     final action = await showDialog<String>(
       context: context,
@@ -1026,6 +1161,11 @@ class PosResourceFloorScreenState extends State<PosResourceFloorScreen> {
               onPressed: () => Navigator.pop(ctx, 'deposit'),
               child: Text(tr('Thu cọc')),
             ),
+          if (canWalkIn)
+            OutlinedButton(
+              onPressed: () => Navigator.pop(ctx, 'walkin'),
+              child: Text(tr('Khách vãng lai')),
+            ),
           FilledButton(
             onPressed: () => Navigator.pop(ctx, 'seat'),
             child: Text(tr('Nhận bàn')),
@@ -1033,14 +1173,15 @@ class PosResourceFloorScreenState extends State<PosResourceFloorScreen> {
         ],
       ),
     );
-    if (action == null || !mounted) return;
+    if (action == null || !mounted) return false;
+    if (action == 'walkin') return true;
     if (action == 'deposit') {
       await _collectDepositForResource(r);
-      return;
+      return false;
     }
     if (action == 'cancel') {
       final rid = r.reservationId;
-      if (rid == null || rid.isEmpty) return;
+      if (rid == null || rid.isEmpty) return false;
       var refund = false;
       var forfeit = true;
       if (depositHeld) {
@@ -1064,7 +1205,7 @@ class PosResourceFloorScreenState extends State<PosResourceFloorScreen> {
             ],
           ),
         );
-        if (choice == null) return;
+        if (choice == null) return false;
         refund = choice == 'refund';
         forfeit = choice == 'forfeit';
       }
@@ -1073,7 +1214,7 @@ class PosResourceFloorScreenState extends State<PosResourceFloorScreen> {
         forfeitDeposit: forfeit,
         refundDeposit: refund,
       );
-      if (!mounted) return;
+      if (!mounted) return false;
       if (res['isSuccess'] == true) {
         NotificationOverlayManager().showSuccess(
           title: 'Đã hủy đặt',
@@ -1086,19 +1227,19 @@ class PosResourceFloorScreenState extends State<PosResourceFloorScreen> {
           message: res['message']?.toString() ?? 'Không hủy được',
         );
       }
-      return;
+      return false;
     }
     if (action == 'seat') {
       final rid = r.reservationId;
-      if (rid == null || rid.isEmpty) return;
+      if (rid == null || rid.isEmpty) return false;
       final res = await _api.seatPosResourceReservation(rid);
-      if (!mounted) return;
+      if (!mounted) return false;
       if (res['isSuccess'] != true) {
         NotificationOverlayManager().showError(
           title: 'Không nhận bàn',
           message: res['message']?.toString() ?? 'Lỗi',
         );
-        return;
+        return false;
       }
       final data = res['data'] as Map? ?? {};
       _emitSelect(_tableSelectPayload(
@@ -1120,6 +1261,7 @@ class PosResourceFloorScreenState extends State<PosResourceFloorScreen> {
         },
       ));
     }
+    return false;
   }
 
   Future<void> _collectDepositForResource(PosServiceResourceDto r) async {
@@ -2331,8 +2473,8 @@ class PosResourceFloorScreenState extends State<PosResourceFloorScreen> {
           productId: e['productId']?.toString(),
           sentBefore: (e['sentBefore'] as num?)?.toDouble(),
           lineKey: e['lineId']?.toString(),
-          calledAt: DateTime.tryParse(e['calledAt']?.toString() ?? '') ??
-              DateTime.tryParse(e['sentAt']?.toString() ?? '') ??
+          calledAt: parseApiUtcDateTime(e['calledAt']?.toString() ?? '') ??
+              parseApiUtcDateTime(e['sentAt']?.toString() ?? '') ??
               DateTime.now(),
         ));
       }
@@ -4306,6 +4448,46 @@ class PosResourceFloorScreenState extends State<PosResourceFloorScreen> {
       );
     }
 
+    if (r.showReservedOnFloor) {
+      final meta = _tileReservedMeta(r);
+      final customer = (r.reservationCustomerName ?? '').trim();
+      return Center(
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Icon(Icons.event_seat_outlined, size: 22, color: accent),
+            const SizedBox(height: 4),
+            if (customer.isNotEmpty)
+              Padding(
+                padding: const EdgeInsets.symmetric(horizontal: 2),
+                child: Text(
+                  tr(customer),
+                  textAlign: TextAlign.center,
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: TextStyle(
+                    fontSize: 12,
+                    fontWeight: FontWeight.w700,
+                    color: accent,
+                  ),
+                ),
+              ),
+            Text(
+              tr(meta ?? 'Đặt bàn — không mở khách vãng lai'),
+              textAlign: TextAlign.center,
+              maxLines: 2,
+              overflow: TextOverflow.ellipsis,
+              style: TextStyle(
+                fontSize: 11,
+                fontWeight: FontWeight.w600,
+                color: accent.withOpacity(customer.isEmpty ? 1 : 0.9),
+              ),
+            ),
+          ],
+        ),
+      );
+    }
+
     if (_isWaitingTable(r)) {
       final guests = r.guestCount > 0 ? '${r.guestCount}' : '–';
       final missingTimed = _warnMissingTimed;
@@ -4355,46 +4537,6 @@ class PosResourceFloorScreenState extends State<PosResourceFloorScreen> {
             ),
           ),
         ],
-      );
-    }
-
-    if (r.showReservedOnFloor) {
-      final meta = _tileReservedMeta(r);
-      final customer = (r.reservationCustomerName ?? '').trim();
-      return Center(
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            Icon(Icons.event_seat_outlined, size: 22, color: accent),
-            const SizedBox(height: 4),
-            if (customer.isNotEmpty)
-              Padding(
-                padding: const EdgeInsets.symmetric(horizontal: 2),
-                child: Text(
-                  tr(customer),
-                  textAlign: TextAlign.center,
-                  maxLines: 1,
-                  overflow: TextOverflow.ellipsis,
-                  style: TextStyle(
-                    fontSize: 12,
-                    fontWeight: FontWeight.w700,
-                    color: accent,
-                  ),
-                ),
-              ),
-            Text(
-              tr(meta ?? 'Đặt bàn — không mở khách vãng lai'),
-              textAlign: TextAlign.center,
-              maxLines: 2,
-              overflow: TextOverflow.ellipsis,
-              style: TextStyle(
-                fontSize: 11,
-                fontWeight: FontWeight.w600,
-                color: accent.withOpacity(customer.isEmpty ? 1 : 0.9),
-              ),
-            ),
-          ],
-        ),
       );
     }
 
@@ -4542,8 +4684,11 @@ class PosResourceFloorScreenState extends State<PosResourceFloorScreen> {
       return '${DateFormat('HH:mm').format(start)}–${DateFormat('HH:mm').format(end)}';
     }
     final arrival = _reservationArrivalLocal(r);
-    if (arrival != null) return DateFormat('HH:mm').format(arrival);
-    return '';
+    if (arrival == null) return '';
+    // Khách đến hôm khác → ghi kèm ngày (tránh hiểu nhầm là hôm nay).
+    return DateUtils.isSameDay(arrival, DateTime.now())
+        ? DateFormat('HH:mm').format(arrival)
+        : DateFormat('dd/MM HH:mm').format(arrival);
   }
 
   bool _reservationIsUpcoming(PosServiceResourceDto r) {
@@ -4871,12 +5016,12 @@ class PosResourceFloorScreenState extends State<PosResourceFloorScreen> {
                                     label: Text(tr('Sắp nhóm'),
                                         style: TextStyle(
                                             fontWeight: FontWeight.w600,
-                                            fontSize: 14)),
+                                            fontSize: 13)),
                                     onPressed: () =>
                                         unawaited(_manageAreas()),
                                     padding: const EdgeInsets.symmetric(
-                                        horizontal: 10, vertical: 10),
-                                    visualDensity: VisualDensity.standard,
+                                        horizontal: 4, vertical: 4),
+                                    visualDensity: VisualDensity.compact,
                                   ),
                                   const SizedBox(width: 4),
                                   ActionChip(
@@ -4885,12 +5030,12 @@ class PosResourceFloorScreenState extends State<PosResourceFloorScreen> {
                                     label: Text(tr('Tạo nhanh'),
                                         style: TextStyle(
                                             fontWeight: FontWeight.w600,
-                                            fontSize: 14)),
+                                            fontSize: 13)),
                                     onPressed: () => unawaited(
                                         _showQuickCreateTables()),
                                     padding: const EdgeInsets.symmetric(
-                                        horizontal: 10, vertical: 10),
-                                    visualDensity: VisualDensity.standard,
+                                        horizontal: 4, vertical: 4),
+                                    visualDensity: VisualDensity.compact,
                                   ),
                                 ],
                               ),
@@ -4946,24 +5091,46 @@ class PosResourceFloorScreenState extends State<PosResourceFloorScreen> {
                       ),
                     ),
                   // Chú thích màu — quản lý đầy đủ; bán hàng chỉ nhắc khi có bàn đặt.
+                  // Chú thích màu + hướng dẫn (ⓘ) chung 1 hàng — không thêm dòng chữ nhỏ bên dưới.
                   if (widget.manageMode)
-                    const Padding(
-                      padding: EdgeInsets.fromLTRB(12, 0, 12, 4),
-                      child: Wrap(
-                        spacing: 8,
-                        runSpacing: 4,
-                        children: [
-                          _LegendDot(color: SboxColors.slate300, label: 'Trống'),
-                          _LegendDot(
-                              color: PosTheme.kiotBlue, label: 'Đang dùng'),
-                          _LegendDot(
-                              color: Color(0xFFEA580C), label: 'Tạm tính'),
-                          _LegendDot(
-                              color: SboxColors.slate400, label: 'Chưa gọi'),
-                          _LegendDot(
-                              color: Color(0xFF0284C7), label: 'Đã đặt'),
-                        ],
-                      ),
+                    Padding(
+                      padding: const EdgeInsets.fromLTRB(12, 2, 4, 2),
+                      child: Row(children: [
+                        const Expanded(
+                          child: FittedBox(
+                            fit: BoxFit.scaleDown,
+                            alignment: Alignment.centerLeft,
+                            child: Row(children: [
+                              _LegendDot(color: SboxColors.slate300, label: 'Trống'),
+                              SizedBox(width: 10),
+                              _LegendDot(color: PosTheme.kiotBlue, label: 'Đang dùng'),
+                              SizedBox(width: 10),
+                              _LegendDot(color: Color(0xFFEA580C), label: 'Tạm tính'),
+                              SizedBox(width: 10),
+                              _LegendDot(color: SboxColors.slate400, label: 'Chưa gọi'),
+                              SizedBox(width: 10),
+                              _LegendDot(color: Color(0xFF0284C7), label: 'Đã đặt'),
+                            ]),
+                          ),
+                        ),
+                        if (!_layoutEdit)
+                          IconButton(
+                            visualDensity: VisualDensity.compact,
+                            tooltip: tr('Hướng dẫn'),
+                            icon: const Icon(Icons.info_outline_rounded, size: 20, color: SboxColors.slate500),
+                            onPressed: () => showDialog<void>(
+                              context: context,
+                              builder: (ctx) => AlertDialog(
+                                title: Text(tr('Quản lý bàn / phòng')),
+                                content: Text(tr('• Chạm vào bàn để sửa hoặc xóa.\n'
+                                    '• Giữ lâu tên nhóm để đổi tên.\n'
+                                    '• «Sắp nhóm» để kéo đổi thứ tự nhóm.\n'
+                                    '• «Tạo nhanh» để thêm nhiều bàn một lần.')),
+                                actions: [TextButton(onPressed: () => Navigator.pop(ctx), child: Text(tr('Đã hiểu')))],
+                              ),
+                            ),
+                          ),
+                      ]),
                     )
                   else if (_reservedTableCount > 0)
                     Padding(
@@ -4992,14 +5159,6 @@ class PosResourceFloorScreenState extends State<PosResourceFloorScreen> {
                     Padding(
                       padding: EdgeInsets.fromLTRB(12, 0, 12, 4),
                       child: Text(tr('Kéo bàn — thả ra dính ô (cách nhau 16px), rồi Lưu.'),
-                        style: TextStyle(
-                            fontSize: 12, color: PosTheme.textSecondary),
-                      ),
-                    )
-                  else if (widget.manageMode)
-                    Padding(
-                      padding: EdgeInsets.fromLTRB(12, 0, 12, 4),
-                      child: Text(tr('Chạm bàn → Sửa/Xóa · giữ nhóm → đổi tên · «Sắp nhóm» để kéo thứ tự.'),
                         style: TextStyle(
                             fontSize: 12, color: PosTheme.textSecondary),
                       ),
@@ -5134,11 +5293,6 @@ class PosResourceFloorScreenState extends State<PosResourceFloorScreen> {
                   tooltip: tr(_bookingChipLabel),
                   onPressed: () => unawaited(_openAppointmentCalendar()),
                   icon: const Icon(Icons.calendar_month_outlined),
-                ),
-                IconButton(
-                  tooltip: tr('Tải lại'),
-                  onPressed: _reload,
-                  icon: const Icon(Icons.refresh),
                 ),
               ],
             )
@@ -5592,7 +5746,7 @@ class _LegendDot extends StatelessWidget {
         ),
         const SizedBox(width: 4),
         Text(tr(label),
-            style: const TextStyle(fontSize: 10, color: PosTheme.textSecondary)),
+            style: const TextStyle(fontSize: 11.5, color: PosTheme.textSecondary)),
       ],
     );
   }

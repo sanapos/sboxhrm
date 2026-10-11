@@ -12,6 +12,7 @@ import 'pos_theme.dart';
 import '../safe_layout_widgets.dart';
 import 'package:sbox_pos/l10n/app_tr.dart';
 
+import '../sbox/sbox_table.dart';
 import '../../theme/sbox_tokens.dart';
 /// Xác nhận và đăng xuất khỏi POS / cửa hàng.
 Future<void> showPosLogoutDialog(BuildContext context) async {
@@ -52,7 +53,23 @@ class PosMobileProfileCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Container(
+    final auth = context.watch<AuthProvider>();
+    final displayName = (auth.user?.fullName ?? name).trim().isEmpty
+        ? name
+        : (auth.user?.fullName ?? name);
+    final displaySub = (auth.user?.department ?? '').trim().isNotEmpty
+        ? auth.user!.department!.trim()
+        : ((auth.user?.position ?? '').trim().isNotEmpty
+            ? auth.user!.position!.trim()
+            : (subtitle.trim().isNotEmpty
+                ? subtitle
+                : (auth.user?.email ?? '')));
+    return Material(
+      color: Colors.transparent,
+      child: InkWell(
+        onTap: () => NavigationNotifier.goToModule('Settings'),
+        borderRadius: BorderRadius.circular(14),
+        child: Container(
       decoration: PosTheme.mobileCardDecoration(),
       padding: const EdgeInsets.all(14),
       child: Row(
@@ -61,7 +78,7 @@ class PosMobileProfileCard extends StatelessWidget {
             radius: 26,
             backgroundColor: PosTheme.kiotBlueLight,
             child: Text(
-              tr(name.isNotEmpty ? name[0].toUpperCase() : 'S'),
+              tr(displayName.isNotEmpty ? displayName[0].toUpperCase() : 'S'),
               style: const TextStyle(
                 color: PosTheme.kiotBlue,
                 fontWeight: FontWeight.bold,
@@ -75,14 +92,14 @@ class PosMobileProfileCard extends StatelessWidget {
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 Text(
-                  tr(name),
+                  tr(displayName),
                   style: const TextStyle(
                     fontSize: 18,
                     fontWeight: FontWeight.bold,
                   ),
                 ),
                 Text(
-                  tr(subtitle),
+                  tr(displaySub.isEmpty ? 'Cài đặt' : displaySub),
                   maxLines: 1,
                   overflow: TextOverflow.ellipsis,
                   style: const TextStyle(
@@ -95,8 +112,8 @@ class PosMobileProfileCard extends StatelessWidget {
           ),
           IconButton(
             tooltip: tr('Cài đặt'),
-            onPressed: () => NavigationNotifier.goToModule('SettingsHub'),
-            icon: const Icon(Icons.settings_outlined, color: PosTheme.kiotBlue),
+            onPressed: () => NavigationNotifier.goToModule('Settings'),
+            icon: const Icon(Icons.person_outline, color: PosTheme.kiotBlue),
           ),
           IconButton(
             tooltip: tr('Đăng xuất'),
@@ -104,6 +121,8 @@ class PosMobileProfileCard extends StatelessWidget {
             icon: Icon(Icons.logout, color: Colors.red.shade600),
           ),
         ],
+      ),
+        ),
       ),
     );
   }
@@ -200,7 +219,11 @@ class PosMobileHubSectionGrid extends StatelessWidget {
             crossAxisCount: cols,
             spacing: roomy ? 8 : 4,
             runSpacing: roomy ? 8 : 4,
-            childAspectRatio: roomy ? 1.05 : 0.92,
+            // Chiều cao theo nội dung (biểu tượng + 2 dòng chữ, có tính cỡ chữ máy) — trước đây
+            // theo tỉ lệ ô vuông nên điện thoại bị thừa nửa ô trống, trang chủ dài lê thê.
+            itemHeight: roomy
+                ? 60 + 30 * MediaQuery.textScalerOf(context).scale(1)
+                : 52 + 27 * MediaQuery.textScalerOf(context).scale(1),
             itemCount: items.length,
             itemBuilder: (context, index) => _PosMobileHubGridTile(
               item: items[index],
@@ -608,12 +631,6 @@ class PosMobileListHeader extends StatelessWidget {
                       child: const Icon(Icons.filter_list),
                     ),
                   ),
-                if (onRefresh != null)
-                  IconButton(
-                    onPressed: onRefresh,
-                    icon: const Icon(Icons.refresh),
-                    tooltip: tr('Tải lại'),
-                  ),
                 if (trailing != null) ...trailing!,
               ],
             );
@@ -697,11 +714,6 @@ class PosMobileListHeader extends StatelessWidget {
                     if (trailing != null) ...trailing!,
                     if (onRefresh != null) ...[
                       const SizedBox(width: 8),
-                      IconButton(
-                        onPressed: onRefresh,
-                        icon: const Icon(Icons.refresh),
-                        tooltip: tr('Tải lại'),
-                      ),
                     ],
                   ],
                 ),
@@ -840,31 +852,8 @@ class PosMobilePager extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     if (total <= pageSize) return const SizedBox.shrink();
-    final pages = (total / pageSize).ceil();
-    return Container(
-      color: Colors.white,
-      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 6),
-      child: Row(
-        children: [
-          Expanded(
-            child: Text(tr('Tổng $total $label · Trang $page/$pages'),
-              style: const TextStyle(
-                  fontSize: 12, color: PosTheme.textSecondary),
-            ),
-          ),
-          IconButton(
-            visualDensity: VisualDensity.compact,
-            icon: const Icon(Icons.chevron_left),
-            onPressed: page > 1 ? () => onPageChanged(page - 1) : null,
-          ),
-          IconButton(
-            visualDensity: VisualDensity.compact,
-            icon: const Icon(Icons.chevron_right),
-            onPressed: page < pages ? () => onPageChanged(page + 1) : null,
-          ),
-        ],
-      ),
-    );
+    // Thanh phân trang chuẩn SBOX (tự gọn trên điện thoại).
+    return SboxPager(page: page, pageSize: pageSize, total: total, onPage: onPageChanged);
   }
 }
 
@@ -1152,13 +1141,6 @@ class PosMobileKiotHeader extends StatelessWidget {
                 ConstrainedBox(
                   constraints: const BoxConstraints(maxWidth: 160),
                   child: filterChips!,
-                ),
-              if (onRefresh != null)
-                IconButton(
-                  visualDensity: VisualDensity.compact,
-                  onPressed: onRefresh,
-                  icon: const Icon(Icons.refresh),
-                  tooltip: tr('Làm mới'),
                 ),
               if (onSearch != null)
                 IconButton(

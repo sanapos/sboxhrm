@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import '../sbox/sbox_ui.dart';
 import 'package:intl/intl.dart';
 
 import '../../models/pos_sale_order.dart';
@@ -336,45 +337,39 @@ class _PosPickSaleOrderShellState extends State<_PosPickSaleOrderShell> {
         ),
       );
     }
+    // Bảng chuẩn: cột tự co, chữ dài cắt «…», nút «Chọn» luôn hiện đủ; bấm cả dòng cũng chọn.
+    final shortFmt = DateFormat('dd/MM HH:mm', 'vi_VN');
     return SingleChildScrollView(
       padding: const EdgeInsets.all(12),
-      child: DataTable(
-        headingRowColor: WidgetStateProperty.all(_kiotBlue),
-        headingTextStyle: const TextStyle(
-          color: Colors.white,
-          fontSize: 12,
-          fontWeight: FontWeight.w600,
-        ),
-        dataRowMinHeight: 40,
-        columns: [
-          DataColumn(label: Text(tr('Mã hóa đơn'))),
-          DataColumn(label: Text(tr('Thời gian'))),
-          DataColumn(label: Text(tr('Nhân viên'))),
-          DataColumn(label: Text(tr('Khách hàng'))),
-          DataColumn(label: Text(tr('Tổng cộng')), numeric: true),
-          DataColumn(label: Text('')),
-        ],
-        rows: _items.map((o) {
-          return DataRow(cells: [
-            DataCell(Text(tr(o.orderNo),
-                style: const TextStyle(
-                    color: _kiotBlue, fontWeight: FontWeight.w600))),
-            DataCell(Text(
-                tr(o.createdAt != null ? _dateFmt.format(o.createdAt!.toLocal()) : '—'))),
-            DataCell(Text(tr(o.soldBy ?? o.createdBy ?? '—'),
-                overflow: TextOverflow.ellipsis)),
-            DataCell(Text(tr(o.customerName ?? 'Khách lẻ'),
-                overflow: TextOverflow.ellipsis)),
-            DataCell(Text(tr(_moneyFmt.format(o.total)))),
-            DataCell(
-              OutlinedButton(
-                onPressed: () => _select(o),
-                style: OutlinedButton.styleFrom(foregroundColor: _kiotBlue),
-                child: Text(tr('Chọn')),
-              ),
+      child: SboxCard(
+        padding: EdgeInsets.zero,
+        child: SboxDataTable<dynamic>(
+          rows: _items,
+          paginate: false,
+          onRowTap: (o) => _select(o),
+          rowActions: (o) => TextButton(
+            onPressed: () => _select(o),
+            child: Text(tr('Chọn')),
+          ),
+          columns: [
+            SboxColumn(
+              label: 'Mã hóa đơn',
+              primary: true,
+              minWidth: 150,
+              cell: (o) => Text(o.orderNo,
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: SboxType.bodyStyle(SboxColors.primary).copyWith(fontWeight: SboxType.semibold)),
             ),
-          ]);
-        }).toList(),
+            SboxColumn(
+                label: 'Thời gian',
+                minWidth: 100,
+                text: (o) => o.createdAt != null ? shortFmt.format(o.createdAt!.toLocal()) : '—'),
+            SboxColumn(label: 'Nhân viên', minWidth: 120, hideOnMobile: true, text: (o) => o.soldBy ?? o.createdBy ?? '—'),
+            SboxColumn(label: 'Khách hàng', flex: 2, minWidth: 140, text: (o) => o.customerName ?? 'Khách lẻ'),
+            SboxColumn(label: 'Tổng cộng', numeric: true, minWidth: 100, text: (o) => _moneyFmt.format(o.total)),
+          ],
+        ),
       ),
     );
   }

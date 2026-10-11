@@ -1,4 +1,5 @@
 import 'dart:async';
+import '../../utils/api_datetime.dart';
 
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
@@ -274,7 +275,7 @@ class _PosKitchenVoidListScreenState extends State<PosKitchenVoidListScreen> {
                               final atRaw =
                                   (e['voidedAt'] ?? e['VoidedAt'])?.toString();
                               final at = atRaw != null
-                                  ? DateTime.tryParse(atRaw)?.toLocal()
+                                  ? parseApiUtcDateTime(atRaw)?.toLocal()
                                   : null;
                               return Material(
                                 color: after

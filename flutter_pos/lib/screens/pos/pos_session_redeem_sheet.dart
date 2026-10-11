@@ -265,11 +265,6 @@ class _PosCustomerSessionSheetState extends State<_PosCustomerSessionSheet>
                     ),
                   ),
                   IconButton(
-                    onPressed: _loading ? null : _load,
-                    icon: const Icon(Icons.refresh, size: 20),
-                    tooltip: tr('Tải lại'),
-                  ),
-                  IconButton(
                     onPressed: () => Navigator.pop(context, _changed),
                     icon: const Icon(Icons.close, size: 20),
                   ),

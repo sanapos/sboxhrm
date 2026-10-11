@@ -1,4 +1,4 @@
-﻿import 'package:flutter/material.dart';
+import 'package:flutter/material.dart';
 import '../../l10n/app_tr.dart';
 
 /// Design tokens — Material 3 + iOS (glass nhẹ, bo góc lớn, nhiều khoảng trắng).
@@ -178,7 +178,7 @@ abstract final class WhMobileTheme {
         _ => warning,
       };
 
-  static String statusLabel(String status, {String draftLabel = 'Nháp'}) =>
+  static String statusLabel(String status, {String draftLabel = 'Phiếu tạm'}) =>
       switch (status) {
         'Completed' => 'Hoàn thành',
         'Cancelled' => 'Đã hủy',

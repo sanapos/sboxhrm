@@ -1,4 +1,4 @@
-﻿import 'package:flutter/material.dart';
+import 'package:flutter/material.dart';
 
 import '../../widgets/pos/pos_stock_issue_config.dart';
 
@@ -31,9 +31,9 @@ extension WhDocTypeX on WhDocType {
   String get createLabel => switch (this) {
         WhDocType.purchaseReceipt => 'Tạo phiếu nhập',
         WhDocType.purchaseReturn => 'Tạo phiếu trả',
-        WhDocType.stockCount => 'Tạo phiếu KK',
-        WhDocType.damageIssue => 'Tạo phiếu XH',
-        WhDocType.internalUseIssue => 'Tạo phiếu XDNB',
+        WhDocType.stockCount => 'Tạo phiếu kiểm',
+        WhDocType.damageIssue => 'Tạo phiếu hủy',
+        WhDocType.internalUseIssue => 'Tạo phiếu xuất dùng',
       };
 
   IconData get icon => switch (this) {
@@ -62,14 +62,14 @@ extension WhDocTypeX on WhDocType {
 
   String get draftStatusLabel => switch (this) {
         WhDocType.stockCount => 'Đang kiểm',
-        _ => 'Nháp',
+        _ => 'Phiếu tạm', // cùng tên với bản máy tính
       };
 
   String get completeLabel => switch (this) {
         WhDocType.purchaseReceipt => 'Hoàn thành nhập',
         WhDocType.purchaseReturn => 'Hoàn thành trả',
         WhDocType.stockCount => 'Cân bằng kho',
-        WhDocType.damageIssue => 'Hoàn thành xuất hủy',
+        WhDocType.damageIssue => 'Hoàn thành hủy',
         WhDocType.internalUseIssue => 'Hoàn thành xuất',
       };
 

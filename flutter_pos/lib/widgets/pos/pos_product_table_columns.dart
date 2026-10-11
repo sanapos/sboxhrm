@@ -42,7 +42,10 @@ extension PosProductTableColumnX on PosProductTableColumn {
 
   /// Nhãn cột trên header bảng (cột hẹp dùng tên ngắn).
   String get headerLabel => switch (this) {
-        PosProductTableColumn.image => 'Hình ảnh',
+        PosProductTableColumn.image => 'Ảnh',
+        PosProductTableColumn.reserved => 'Đặt',
+        PosProductTableColumn.createdAt => 'Ngày tạo',
+        PosProductTableColumn.stockout => 'Dự kiến hết',
         _ => label,
       };
 

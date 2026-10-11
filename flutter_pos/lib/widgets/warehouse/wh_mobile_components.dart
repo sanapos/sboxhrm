@@ -4,8 +4,8 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 
 import 'wh_mobile_theme.dart';
-import '../../utils/play_system_ui.dart';
 import '../../l10n/app_tr.dart';
+import '../../utils/play_system_ui.dart';
 
 /// Scaffold chuẩn cho màn Kho mobile — nền xám, bottom bar cố định.
 class WhMobileScaffold extends StatelessWidget {
@@ -19,8 +19,11 @@ class WhMobileScaffold extends StatelessWidget {
     this.bottomBar,
     this.floatingAction,
     this.extendBodyBehindAppBar = false,
+    this.showAppBar = true,
   });
 
+  /// false khi màn nằm trong MainLayout (thanh trên đã có tiêu đề) — tránh tiêu đề lặp.
+  final bool showAppBar;
   final String title;
   final String? subtitle;
   final Widget? leading;
@@ -42,13 +45,14 @@ class WhMobileScaffold extends StatelessWidget {
         body: Column(
           crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
-            _WhGlassAppBar(
-              title: title,
-              subtitle: subtitle,
-              leading: leading,
-              actions: actions,
-              topPadding: top,
-            ),
+            if (showAppBar)
+              _WhGlassAppBar(
+                title: title,
+                subtitle: subtitle,
+                leading: leading,
+                actions: actions,
+                topPadding: top,
+              ),
             Expanded(child: body),
             if (bottomBar != null) bottomBar!,
           ],
@@ -114,13 +118,13 @@ class _WhGlassAppBar extends StatelessWidget {
   }
 }
 
-/// Thanh hành động cố định dưới cùng — Lưu nháp + Hoàn thành.
+/// Thanh hành động cố định dưới cùng — Lưu tạm + Hoàn thành.
 class WhMobileBottomBar extends StatelessWidget {
   const WhMobileBottomBar({
     super.key,
     this.onSaveDraft,
     this.onComplete,
-    this.saveDraftLabel = 'Lưu nháp',
+    this.saveDraftLabel = 'Lưu tạm',
     this.completeLabel = 'Hoàn thành',
     this.loading = false,
     this.readOnly = false,
@@ -174,7 +178,10 @@ class WhMobileBottomBar extends StatelessWidget {
                             child: FilledButton(
                               onPressed: loading ? null : onComplete,
                               style: WhMobileTheme.primaryButton(),
-                              child: Text(tr(loading ? 'Đang lưu…' : completeLabel)),
+                              child: FittedBox(
+                                fit: BoxFit.scaleDown,
+                                child: Text(tr(loading ? 'Đang lưu…' : completeLabel), maxLines: 1, softWrap: false),
+                              ),
                             ),
                           ),
                       ],
@@ -196,7 +203,7 @@ class WhMobileBottomBar extends StatelessWidget {
 }
 
 class WhStatusPill extends StatelessWidget {
-  const WhStatusPill({super.key, required this.status, this.draftLabel = 'Nháp'});
+  const WhStatusPill({super.key, required this.status, this.draftLabel = 'Phiếu tạm'});
 
   final String status;
   final String draftLabel;
@@ -269,7 +276,7 @@ class WhDocListTile extends StatelessWidget {
     required this.meta,
     this.subtitle,
     this.onTap,
-    this.draftLabel = 'Nháp',
+    this.draftLabel = 'Phiếu tạm',
   });
 
   final String docNo;
@@ -282,39 +289,57 @@ class WhDocListTile extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    // Mã phiếu + số tiền một hàng; NCC / số dòng · ngày + trạng thái hàng dưới — không bẻ mã phiếu
+    // khi chữ hệ thống phóng to (trước đây «PN00 / 0015»).
     return WhGlassCard(
       margin: const EdgeInsets.only(bottom: WhMobileTheme.gap),
+      padding: const EdgeInsets.fromLTRB(16, 12, 16, 12),
       onTap: onTap,
-      child: Row(
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Row(
-                  children: [
-                    Expanded(
-                      child: Text(tr(docNo), style: WhMobileTheme.titleMedium),
-                    ),
-                    WhStatusPill(status: status, draftLabel: draftLabel),
-                  ],
-                ),
-                if (subtitle != null) ...[
-                  const SizedBox(height: 4),
-                  Text(tr(subtitle!), style: WhMobileTheme.caption),
-                ],
-                const SizedBox(height: 6),
-                Text(tr(meta), style: WhMobileTheme.caption),
-              ],
-            ),
-          ),
-          const SizedBox(width: 12),
-          Column(
-            crossAxisAlignment: CrossAxisAlignment.end,
+          Row(
             children: [
-              Text(tr(amountLabel), style: WhMobileTheme.money),
-              const SizedBox(height: 4),
-              Icon(Icons.chevron_right_rounded, color: WhMobileTheme.textTertiary, size: 22),
+              Expanded(
+                child: Text(
+                  tr(docNo),
+                  style: WhMobileTheme.titleMedium.copyWith(fontSize: 16),
+                  maxLines: 1,
+                  softWrap: false,
+                  overflow: TextOverflow.ellipsis,
+                ),
+              ),
+              const SizedBox(width: 10),
+              Text(
+                tr(amountLabel),
+                style: WhMobileTheme.money.copyWith(fontSize: 16),
+                maxLines: 1,
+                softWrap: false,
+              ),
+            ],
+          ),
+          if (subtitle != null && subtitle!.trim().isNotEmpty) ...[
+            const SizedBox(height: 4),
+            Text(
+              tr(subtitle!),
+              style: WhMobileTheme.caption,
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
+            ),
+          ],
+          const SizedBox(height: 6),
+          Row(
+            children: [
+              Expanded(
+                child: Text(
+                  tr(meta),
+                  style: WhMobileTheme.caption,
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                ),
+              ),
+              const SizedBox(width: 8),
+              WhStatusPill(status: status, draftLabel: draftLabel),
             ],
           ),
         ],

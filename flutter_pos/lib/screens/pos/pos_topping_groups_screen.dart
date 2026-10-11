@@ -310,14 +310,11 @@ class _PosToppingGroupsScreenState extends State<PosToppingGroupsScreen> {
       backgroundColor: PosTheme.background,
       appBar: AppBar(
         title: Text(tr('Nhóm topping')),
-        backgroundColor: PosTheme.kiotBlue,
-        foregroundColor: Colors.white,
+        backgroundColor: Colors.white,
+        surfaceTintColor: Colors.white,
+        elevation: 0.5,
+        foregroundColor: SboxColors.text,
         actions: [
-          IconButton(
-            tooltip: tr('Tải lại'),
-            onPressed: _load,
-            icon: const Icon(Icons.refresh),
-          ),
         ],
       ),
       floatingActionButton: canCreate

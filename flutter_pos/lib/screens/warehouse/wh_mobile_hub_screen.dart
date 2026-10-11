@@ -1,4 +1,4 @@
-﻿import 'package:flutter/material.dart';
+import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 
 import '../../providers/permission_provider.dart';
@@ -81,7 +81,7 @@ class WhMobileHubScreen extends StatelessWidget {
                     color: WhMobileTheme.primary.withOpacity(0.8), size: 22),
                 const SizedBox(width: 12),
                 Expanded(
-                  child: Text(tr('Quét mã vạch khi thêm hàng · Lưu nháp bất cứ lúc nào · Hoàn thành khi đã kiểm tra xong.'),
+                  child: Text(tr('Quét mã vạch khi thêm hàng · Lưu tạm bất cứ lúc nào · Hoàn thành khi đã kiểm tra xong.'),
                     style: WhMobileTheme.caption,
                   ),
                 ),

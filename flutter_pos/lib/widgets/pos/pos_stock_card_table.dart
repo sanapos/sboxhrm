@@ -54,6 +54,10 @@ class PosStockCardTable extends StatelessWidget {
         return 'Trả hàng';
       case 'PurchaseReturn':
         return 'Trả NCC';
+      case 'TransferOut':
+        return 'Chuyển kho đi';
+      case 'TransferIn':
+        return 'Chuyển kho đến';
       default:
         return raw;
     }

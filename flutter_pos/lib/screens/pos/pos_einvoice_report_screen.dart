@@ -16,6 +16,9 @@ import 'pos_einvoice_provider_list_screen.dart';
 import 'package:sbox_pos/l10n/app_tr.dart';
 
 import '../../theme/sbox_tokens.dart';
+import '../../widgets/sbox/sbox_report.dart';
+import '../../widgets/sbox/sbox_charts.dart';
+import '../../widgets/sbox/sbox_basics.dart' show SboxTone;
 /// Quản lý vòng đời HĐĐT: danh sách, nháp, phát hành, xem lại, email, thay thế, hủy,
 /// đồng bộ hàng loạt, tải danh sách từ hãng, mở trang quản lý của hãng, báo cáo.
 class PosEInvoiceReportScreen extends StatefulWidget {
@@ -460,6 +463,7 @@ class _PosEInvoiceReportScreenState extends State<PosEInvoiceReportScreen> {
 
     return PosReportMobileScaffold(
       title: 'Quản lý hóa đơn điện tử',
+      exportModule: 'PosEInvoice',
       time: _time,
       onTimeChanged: (PosKiotTimeFilterState s) async {
         setState(() => _time = s);
@@ -563,6 +567,32 @@ class _PosEInvoiceReportScreenState extends State<PosEInvoiceReportScreen> {
           : ListView(
               padding: const EdgeInsets.fromLTRB(12, 8, 12, 24),
               children: [
+                SboxInsightPanel(
+                  kpis: [
+                    SboxKpi(label: 'Đã xuất', value: SboxFmt.number(issued), icon: Icons.verified_outlined, tone: SboxTone.success,
+                        note: SboxFmt.money(_num(_summary?['issuedAmount']))),
+                    SboxKpi(label: 'Chờ xuất / nháp', value: SboxFmt.number(pending + draft), icon: Icons.hourglass_empty_rounded, tone: SboxTone.warning),
+                    SboxKpi(label: 'Lỗi', value: SboxFmt.number(failed), icon: Icons.error_outline, tone: SboxTone.danger,
+                        note: failed > 0 ? 'Cần xuất lại' : null),
+                    SboxKpi(label: 'Đã gửi email', value: SboxFmt.number(emailed), icon: Icons.mark_email_read_outlined, tone: SboxTone.violet,
+                        note: issued > 0 ? 'Tỷ lệ ${SboxFmt.pct(emailed / issued * 100)}' : null),
+                  ],
+                  charts: [
+                    SboxChartCard(
+                      title: 'Trạng thái hóa đơn điện tử',
+                      child: SboxDonutChart(
+                        valueFormat: (v) => '${SboxFmt.number(v)} HĐ',
+                        slices: [
+                          SboxSlice('Đã xuất', issued.toDouble(), color: SboxColors.success),
+                          SboxSlice('Nháp', draft.toDouble(), color: SboxColors.slate400),
+                          SboxSlice('Chờ xuất', pending.toDouble(), color: SboxColors.warning),
+                          SboxSlice('Lỗi', failed.toDouble(), color: SboxColors.danger),
+                          SboxSlice('Đã hủy', cancelled.toDouble(), color: SboxColors.violet),
+                        ],
+                      ),
+                    ),
+                  ],
+                ),
                 PosReportCard(
                   title: 'Tổng hợp HĐĐT',
                   child: Column(
@@ -712,40 +742,30 @@ class _PosEInvoiceReportScreenState extends State<PosEInvoiceReportScreen> {
     final daily = (_report?['daily'] is List)
         ? (_report!['daily'] as List).whereType<Map>().toList()
         : const <Map>[];
-    if (daily.isEmpty) return const [];
+    if (daily.length < 2) return const [];
     return [
-      PosReportCard(
+      SboxChartCard(
         title: 'HĐĐT theo ngày',
-        child: Column(
-          children: [
-            for (final d in daily.reversed.take(14))
-              Padding(
-                padding: const EdgeInsets.symmetric(vertical: 3),
-                child: Row(
-                  children: [
-                    SizedBox(
-                      width: 48,
-                      child: Text(
-                        d['date'].toString().substring(5).split('-').reversed.join('/'),
-                        style: const TextStyle(fontSize: 12),
-                      ),
-                    ),
-                    Expanded(
-                      child: Text(
-                        '${_num(d['issuedCount']).toInt()}/${_num(d['orders']).toInt()} đơn',
-                        style: TextStyle(fontSize: 12, color: SboxColors.slate700),
-                      ),
-                    ),
-                    Text(
-                      _moneyFmt.format(_num(d['issuedAmount'])),
-                      style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w600),
-                    ),
-                  ],
-                ),
-              ),
+        subtitle: 'Doanh thu so với giá trị đã xuất hóa đơn',
+        child: SboxBarChart(
+          labels: [
+            for (final d in daily) d['date'].toString().substring(5).replaceAll('-', '/'),
+          ],
+          series: [
+            SboxSeries(
+              name: 'Doanh thu',
+              values: [for (final d in daily) _num(d['revenue'])],
+              color: SboxColors.slate400,
+            ),
+            SboxSeries(
+              name: 'Đã xuất HĐĐT',
+              values: [for (final d in daily) _num(d['issuedAmount'])],
+              color: SboxColors.success,
+            ),
           ],
         ),
       ),
+      const SizedBox(height: 8),
     ];
   }
 

@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import '../../utils/api_datetime.dart';
 import 'package:intl/intl.dart';
 
 import '../../services/api_service.dart';
@@ -8,6 +9,7 @@ import '../../widgets/pos/reports/pos_report_widgets.dart';
 import 'package:sbox_pos/l10n/app_tr.dart';
 
 import '../../theme/sbox_tokens.dart';
+import '../../widgets/sbox/sbox_ui.dart';
 /// Cháy hàng / chậm / chết tồn.
 class PosStockHealthReportScreen extends StatefulWidget {
   const PosStockHealthReportScreen({super.key});
@@ -71,8 +73,40 @@ class _PosStockHealthReportScreenState extends State<PosStockHealthReportScreen>
         .whereType<Map>()
         .map((e) => Map<String, dynamic>.from(e))
         .toList();
+    final hot = _n(_data?['hotCount']), slow = _n(_data?['slowCount']), dead = _n(_data?['deadCount']);
+    final byStatus = <String, double>{};
+    for (final r in items) {
+      final k = _statusVi(r['status']?.toString());
+      byStatus[k] = (byStatus[k] ?? 0) + _n(r['stockValue']);
+    }
+    final insight = SboxInsightPanel(
+      kpis: [
+        SboxKpi(label: 'Cháy hàng', value: SboxFmt.number(hot), icon: Icons.local_fire_department_outlined, tone: SboxTone.danger, note: 'Bán nhanh, sắp hết'),
+        SboxKpi(label: 'Bán chậm', value: SboxFmt.number(slow), icon: Icons.hourglass_bottom_rounded, tone: SboxTone.warning),
+        SboxKpi(label: 'Chết tồn', value: SboxFmt.number(dead), icon: Icons.block_outlined, tone: SboxTone.neutral, note: 'Không bán trong kỳ'),
+        SboxKpi(
+            label: 'Giá trị tồn trong danh sách',
+            value: SboxFmt.money(items.fold<double>(0, (a, r) => a + _n(r['stockValue']))),
+            icon: Icons.warehouse_outlined,
+            tone: SboxTone.violet),
+      ],
+      charts: [
+        SboxChartCard(
+          title: 'Vốn nằm trong kho theo tình trạng',
+          child: SboxDonutChart(slices: [for (final e in byStatus.entries) SboxSlice(e.key, e.value)]),
+        ),
+        SboxChartCard(
+          title: 'Tồn giá trị lớn nhất',
+          child: SboxRankList(
+            color: SboxColors.violet,
+            items: [for (final r in items) SboxSlice(r['name']?.toString() ?? '—', _n(r['stockValue']), caption: 'Tồn ${r['onHandQty'] ?? 0}')],
+          ),
+        ),
+      ],
+    );
     return PosReportMobileScaffold(
       title: 'Tồn chậm / cháy hàng',
+      exportModule: 'PosReportStock',
       time: _time,
       onTimeChanged: (s) async {
         setState(() => _time = s);
@@ -106,6 +140,7 @@ class _PosStockHealthReportScreenState extends State<PosStockHealthReportScreen>
                   ],
                 ),
                 const SizedBox(height: 10),
+                insight,
                 PosReportCard(
                   title: 'Danh sách',
                   child: items.isEmpty
@@ -126,8 +161,8 @@ class _PosStockHealthReportScreenState extends State<PosStockHealthReportScreen>
   }
 
   Widget _row(Map<String, dynamic> r) {
-    final lastSold = DateTime.tryParse('${r['lastSoldAt'] ?? ''}');
-    final lastIn = DateTime.tryParse('${r['lastInboundAt'] ?? ''}');
+    final lastSold = parseApiUtcDateTime(r['lastSoldAt']);
+    final lastIn = parseApiUtcDateTime(r['lastInboundAt']);
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [

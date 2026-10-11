@@ -47,7 +47,6 @@ class PosLiteMode {
     'Máy in',
     'Mẫu in',
     'Màn hình phụ',
-    'Thông báo',
   };
 
   static bool showMore(String label) => !enabled || !hiddenMoreItems.contains(label);

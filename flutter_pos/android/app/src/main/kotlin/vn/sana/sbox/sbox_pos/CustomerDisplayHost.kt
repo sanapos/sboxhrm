@@ -90,6 +90,10 @@ class CustomerDisplayActivity : FlutterActivity() {
                             CustomerDisplayController.hide()
                             result.success(true)
                         }
+                        "setAuth" -> {
+                            LeTrust.setAuth(call.argument<String>("token"), call.argument<String>("baseUrl"))
+                            result.success(true)
+                        }
                         "publish" -> {
                             val json = call.argument<String>("json") ?: ""
                             CustomerDisplayController.publish(context, json)
@@ -406,6 +410,7 @@ class CustomerDisplayNativePresentation(
                 readTimeout = 10000
                 instanceFollowRedirects = true
             }
+            LeTrust.apply(conn)
             conn.inputStream.use { input ->
                 val raw = BitmapFactory.decodeStream(input) ?: return null
                 val w = raw.width

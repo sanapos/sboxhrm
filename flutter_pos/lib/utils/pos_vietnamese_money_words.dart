@@ -12,26 +12,26 @@ String vietnameseMoneyInWords(int amount) {
     ' triệu tỷ',
   ];
 
-  // Tách nhóm 3 chữ số từ thấp → cao.
-  final rawGroups = <int>[];
+  final groups = <String>[];
   var n = amount;
+  var groupIdx = 0;
+
   while (n > 0) {
-    rawGroups.add(n % 1000);
+    final group = n % 1000;
+    if (group != 0) {
+      final chunk = _readThreeDigits(group, groupIdx > 0);
+      final suffix = groupIdx < units.length ? units[groupIdx] : '';
+      groups.add('$chunk$suffix');
+    }
     n ~/= 1000;
+    groupIdx++;
   }
 
-  final parts = <String>[];
-  for (var i = rawGroups.length - 1; i >= 0; i--) {
-    final group = rawGroups[i];
-    if (group == 0) continue;
-    // Có nhóm cao hơn (đã/sẽ in) → cần «không trăm» / «lẻ» đúng chỗ.
-    final hasHigher = rawGroups.skip(i + 1).any((g) => g != 0);
-    final chunk = _readThreeDigits(group, hasHigher);
-    final suffix = i < units.length ? units[i] : '';
-    parts.add('$chunk$suffix');
+  // Nhóm thấp → cao khi tách; ghép ngược để "hai triệu … nghìn".
+  var text = groups.reversed.join(' ').trim();
+  if (text.startsWith('không trăm ')) {
+    text = text.substring('không trăm '.length);
   }
-
-  final text = parts.join(' ').trim();
   if (text.isEmpty) return 'Không đồng';
   return '${_capitalizeFirst(text)} đồng chẵn';
 }
@@ -82,7 +82,7 @@ String _readThreeDigits(int n, bool hasHigherGroup) {
 }
 
 String _digitWord(int d) {
-  const words = [
+  const w = [
     'không',
     'một',
     'hai',
@@ -94,6 +94,5 @@ String _digitWord(int d) {
     'tám',
     'chín',
   ];
-  if (d < 0 || d > 9) return '';
-  return words[d];
+  return w[d.clamp(0, 9)];
 }

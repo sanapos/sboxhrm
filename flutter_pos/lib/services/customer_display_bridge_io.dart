@@ -2,6 +2,8 @@ import 'dart:async';
 
 import 'package:flutter/services.dart';
 
+import 'api_service.dart';
+
 /// Android/iOS: MethodChannel + Activity/Presentation màn phụ (DisplayManager).
 class CustomerDisplayPlatformBridge {
   static const _method = MethodChannel('com.sboxhrm/customer_display');
@@ -69,6 +71,13 @@ class CustomerDisplayPlatformBridge {
   }
 
   static Future<void> publishNative(String json) async {
+    try {
+      // Ảnh trình chiếu / QR nằm sau /api/upload/serve ([Authorize]) — native cần token để tải.
+      await _method.invokeMethod('setAuth', {
+        'token': ApiService().authToken,
+        'baseUrl': ApiService.baseUrl,
+      });
+    } catch (_) {}
     try {
       await _method.invokeMethod('publish', {'json': json});
     } catch (_) {}

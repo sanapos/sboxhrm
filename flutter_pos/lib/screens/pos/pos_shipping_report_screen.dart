@@ -1,15 +1,16 @@
 import 'dart:async';
 
 import 'package:flutter/material.dart';
+import '../../utils/api_datetime.dart';
 import 'package:intl/intl.dart';
 
 import '../../services/api_service.dart';
-import '../../theme/sbox_tokens.dart';
 import '../../utils/pos_kiot_time_range.dart';
 import '../../utils/pos_report_export.dart';
 import '../../utils/pos_report_open.dart';
 import '../../widgets/notification_overlay.dart';
 import '../../widgets/pos/reports/pos_report_widgets.dart';
+import '../../widgets/sbox/sbox_ui.dart';
 import 'package:sbox_pos/l10n/app_tr.dart';
 
 /// Báo cáo vận chuyển: theo hãng, giao thất bại, hoàn hàng, hủy vận đơn, đối soát COD, lãi/lỗ ship.
@@ -66,7 +67,7 @@ class _PosShippingReportScreenState extends State<PosShippingReportScreen> {
 
   String _t(dynamic iso) {
     if (iso == null) return '—';
-    final d = DateTime.tryParse('$iso');
+    final d = parseApiUtcDateTime(iso);
     if (d == null) return '—';
     return _dt.format((d.isUtc ? d : DateTime.utc(d.year, d.month, d.day, d.hour, d.minute)).toLocal());
   }
@@ -112,6 +113,7 @@ class _PosShippingReportScreenState extends State<PosShippingReportScreen> {
     final byCarrier = _maps(_data?['byCarrier']);
     return PosReportMobileScaffold(
       title: 'Báo cáo vận chuyển',
+      exportModule: 'PosShipping',
       time: _time,
       pngKey: _pngKey,
       onTimeChanged: (t) {
@@ -134,6 +136,7 @@ class _PosShippingReportScreenState extends State<PosShippingReportScreen> {
               children: [
                 _carrierFilter(byCarrier),
                 const SizedBox(height: 8),
+                _insight(total, byCarrier),
                 _summary(total),
                 const SizedBox(height: 12),
                 SingleChildScrollView(
@@ -185,6 +188,60 @@ class _PosShippingReportScreenState extends State<PosShippingReportScreen> {
           },
         ),
     ]);
+  }
+
+  Widget _insight(Map<String, dynamic> t, List<Map<String, dynamic>> byCarrier) {
+    double n(dynamic v) => _n(v).toDouble();
+    final profit = n(t['shipProfit']);
+    String name(Map<String, dynamic> c) => '${c['carrierName'] ?? c['carrierCode'] ?? '—'}';
+    final other = (n(t['shipments']) - n(t['delivered']) - n(t['failedOrders']) - n(t['returning']) - n(t['returned']) - n(t['cancelled']))
+        .clamp(0, double.infinity)
+        .toDouble();
+    return SboxInsightPanel(
+      kpis: [
+        SboxKpi(label: 'Vận đơn', value: SboxFmt.number(n(t['shipments'])), icon: Icons.local_shipping_outlined, note: _time.displayLabel),
+        SboxKpi(label: 'Giao thành công', value: SboxFmt.pct(n(t['successRate'])), icon: Icons.task_alt_rounded, tone: SboxTone.success,
+            note: '${SboxFmt.number(n(t['delivered']))} đơn đã giao'),
+        SboxKpi(label: 'Thất bại / hoàn', value: SboxFmt.number(n(t['failedOrders']) + n(t['returning']) + n(t['returned'])),
+            icon: Icons.assignment_return_outlined, tone: SboxTone.danger, note: 'Cần gọi khách / nhận hàng hoàn'),
+        SboxKpi(label: 'Lãi / lỗ phí ship', value: SboxFmt.money(profit), icon: Icons.savings_outlined,
+            tone: profit < 0 ? SboxTone.danger : SboxTone.brand, note: 'Phí thu khách − cước hãng'),
+        SboxKpi(label: 'COD chưa đối soát', value: SboxFmt.money(n(t['codPending'])), icon: Icons.account_balance_wallet_outlined, tone: SboxTone.warning),
+      ],
+      charts: [
+        SboxChartCard(
+          title: 'Kết quả giao theo hãng',
+          child: SboxBarChart(
+            stacked: true,
+            valueFormat: (v) => '${SboxFmt.number(v)} đơn',
+            axisFormat: (v) => SboxFmt.number(v),
+            labels: [for (final c in byCarrier) name(c)],
+            series: [
+              SboxSeries(name: 'Đã giao', values: [for (final c in byCarrier) n(c['delivered'])], color: SboxColors.success),
+              SboxSeries(name: 'Thất bại', values: [for (final c in byCarrier) n(c['failedOrders'])], color: SboxColors.warning),
+              SboxSeries(name: 'Hoàn', values: [for (final c in byCarrier) n(c['returning']) + n(c['returned'])], color: SboxColors.danger),
+              SboxSeries(name: 'Hủy', values: [for (final c in byCarrier) n(c['cancelled'])], color: SboxColors.slate400),
+            ],
+          ),
+        ),
+        SboxChartCard(
+          title: 'Trạng thái vận đơn',
+          child: SboxDonutChart(
+            valueFormat: (v) => '${SboxFmt.number(v)} đơn',
+            centerValue: SboxFmt.number(n(t['shipments'])),
+            centerLabel: 'vận đơn',
+            maxSlices: 6,
+            slices: [
+              SboxSlice('Đã giao', n(t['delivered']), color: SboxColors.success),
+              SboxSlice('Đang giao / chờ', other, color: SboxColors.brand500),
+              SboxSlice('Giao thất bại', n(t['failedOrders']), color: SboxColors.warning),
+              SboxSlice('Hoàn hàng', n(t['returning']) + n(t['returned']), color: SboxColors.danger),
+              SboxSlice('Hủy', n(t['cancelled']), color: SboxColors.slate400),
+            ],
+          ),
+        ),
+      ],
+    );
   }
 
   Widget _summary(Map<String, dynamic> t) {

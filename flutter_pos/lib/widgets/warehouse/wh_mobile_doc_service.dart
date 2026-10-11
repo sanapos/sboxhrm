@@ -1,4 +1,4 @@
-﻿import 'package:intl/intl.dart';
+import 'package:intl/intl.dart';
 
 import '../../models/pos_purchase.dart';
 import '../../models/pos_stock_count.dart';
@@ -61,9 +61,9 @@ class WhMobileDocService {
               docNo: r.receiptNo,
               status: r.status,
               amount: r.grandTotal,
-              lineCount: r.lines.length,
+              lineCount: r.lineCount,
               subtitle: r.supplierName,
-              meta: '${r.lines.length} dòng · ${formatDate(r.importDate ?? r.createdAt)}',
+              meta: '${r.lineCount} dòng · ${formatDate(r.importDate ?? r.createdAt)}',
               createdAt: r.createdAt,
               createdBy: r.createdBy,
               note: r.note,
@@ -95,9 +95,9 @@ class WhMobileDocService {
               docNo: r.returnNo,
               status: r.status,
               amount: r.totalAmount,
-              lineCount: r.lines.length,
+              lineCount: r.lineCount,
               subtitle: r.supplierName,
-              meta: '${r.lines.length} dòng · ${formatDate(r.returnDate)}',
+              meta: '${r.lineCount} dòng · ${formatDate(r.returnDate)}',
               createdAt: r.returnDate,
               createdBy: r.createdBy,
               note: r.note,
@@ -129,9 +129,12 @@ class WhMobileDocService {
               id: c.id,
               docNo: c.countNo,
               status: c.status,
-              amount: c.totalDiffValue.abs(),
+              // Tiền chênh lệch có dấu (âm = thiếu) — trước đây bỏ dấu nên không biết thừa hay thiếu.
+              amount: c.totalDiffValue,
               lineCount: c.lineCount,
-              subtitle: c.name,
+              subtitle: c.totalDiffQty == 0
+                  ? c.name
+                  : '${c.name} · lệch ${c.totalDiffQty > 0 ? '+' : ''}${c.totalDiffQty.toStringAsFixed(c.totalDiffQty == c.totalDiffQty.roundToDouble() ? 0 : 2)}',
               meta: '${c.checkedCount}/${c.lineCount} đã kiểm · ${formatDate(c.createdAt)}',
               createdAt: c.createdAt,
               createdBy: c.createdBy,
@@ -167,9 +170,9 @@ class WhMobileDocService {
               docNo: d.issueNo,
               status: d.status,
               amount: d.totalValue,
-              lineCount: d.lines.length,
+              lineCount: d.lineCount,
               subtitle: d.recipientName ?? d.categoryName,
-              meta: '${d.lines.length} dòng · ${formatDate(d.createdAt)}',
+              meta: '${d.lineCount} dòng · ${formatDate(d.createdAt)}',
               createdAt: d.createdAt,
               createdBy: d.createdBy,
               note: d.note,

@@ -533,6 +533,7 @@ object SunmiDsCustomerDisplay {
                 instanceFollowRedirects = true
                 requestMethod = "GET"
             }
+            LeTrust.apply(conn)
             conn.connect()
             if (conn.responseCode !in 200..299) {
                 conn.disconnect()

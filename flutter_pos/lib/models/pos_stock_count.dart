@@ -72,6 +72,9 @@ class PosStockCount {
   final double qtyIncrease;
   final double qtyDecrease;
   final List<PosStockCountLine> lines;
+  /// Danh sách phiếu chỉ trả số dòng (không kèm lines) — giữ để không hiện «0/0».
+  final int? _lineCountApi;
+  final int? _checkedCountApi;
 
   PosStockCount({
     required this.id,
@@ -90,7 +93,10 @@ class PosStockCount {
     this.qtyIncrease = 0,
     this.qtyDecrease = 0,
     this.lines = const [],
-  });
+    int? lineCountApi,
+    int? checkedCountApi,
+  })  : _lineCountApi = lineCountApi,
+        _checkedCountApi = checkedCountApi;
 
   factory PosStockCount.fromJson(Map<String, dynamic> json) {
     double n(dynamic v) => v is num ? v.toDouble() : double.tryParse('$v') ?? 0;
@@ -117,6 +123,8 @@ class PosStockCount {
               ?.map((e) => PosStockCountLine.fromJson(e as Map<String, dynamic>))
               .toList() ??
           [],
+      lineCountApi: ((json['lineCount'] ?? json['LineCount']) as num?)?.toInt(),
+      checkedCountApi: ((json['checkedCount'] ?? json['CheckedCount']) as num?)?.toInt(),
     );
   }
 
@@ -126,8 +134,10 @@ class PosStockCount {
         _ => 'Phiếu tạm',
       };
 
-  int get lineCount => lines.length;
-  int get checkedCount => lines.where((l) => l.isChecked || l.countedQty != null).length;
+  int get lineCount => lines.isNotEmpty ? lines.length : (_lineCountApi ?? 0);
+  int get checkedCount => lines.isNotEmpty
+      ? lines.where((l) => l.isChecked || l.countedQty != null).length
+      : (_checkedCountApi ?? 0);
 }
 
 String stockCountStatusColor(String status) => switch (status) {

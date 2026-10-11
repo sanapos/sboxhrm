@@ -55,6 +55,10 @@ class MainActivity : FlutterActivity() {
                         CustomerDisplayController.hide()
                         result.success(true)
                     }
+                    "setAuth" -> {
+                        LeTrust.setAuth(call.argument<String>("token"), call.argument<String>("baseUrl"))
+                        result.success(true)
+                    }
                     "publish" -> {
                         val json = call.argument<String>("json") ?: ""
                         CustomerDisplayController.publish(this, json)

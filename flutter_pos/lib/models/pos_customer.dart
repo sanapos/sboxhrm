@@ -17,6 +17,27 @@ class PosCustomer {
   final double totalPurchase;
   final double currentDebt;
   final double pointBalance;
+  final bool isActive;
+
+  /// Lần mua gần nhất (UTC) và số đơn hoàn tất — chỉ có ở danh sách khách.
+  final DateTime? lastPurchaseAt;
+  final int orderCount;
+
+  /// Hạng thành viên theo tổng mua — chỉ có ở danh sách khách.
+  final String? tier;
+
+  /// Sinh nhật rơi vào hôm nay / [days] ngày tới (theo ngày-tháng).
+  bool birthdayWithin(int days, {DateTime? now}) {
+    final b = birthday;
+    if (b == null) return false;
+    final t = now ?? DateTime.now();
+    final today = DateTime(t.year, t.month, t.day);
+    for (var i = 0; i < days; i++) {
+      final d = today.add(Duration(days: i));
+      if (d.month == b.month && d.day == b.day) return true;
+    }
+    return false;
+  }
 
   PosCustomer({
     required this.id,
@@ -37,6 +58,10 @@ class PosCustomer {
     this.totalPurchase = 0,
     this.currentDebt = 0,
     this.pointBalance = 0,
+    this.isActive = true,
+    this.lastPurchaseAt,
+    this.orderCount = 0,
+    this.tier,
   });
 
   factory PosCustomer.fromJson(Map<String, dynamic> json) {
@@ -62,6 +87,51 @@ class PosCustomer {
       totalPurchase: n(json['totalPurchase'] ?? json['TotalPurchase']),
       currentDebt: n(json['currentDebt'] ?? json['CurrentDebt']),
       pointBalance: n(json['pointBalance'] ?? json['PointBalance']),
+      isActive: (json['isActive'] ?? json['IsActive']) != false,
+      lastPurchaseAt: DateTime.tryParse('${json['lastPurchaseAt'] ?? json['LastPurchaseAt'] ?? ''}'),
+      orderCount: (json['orderCount'] ?? json['OrderCount'] ?? 0) is num
+          ? ((json['orderCount'] ?? json['OrderCount'] ?? 0) as num).toInt()
+          : 0,
+      tier: (json['tier'] ?? json['Tier']) as String?,
     );
+  }
+}
+
+/// Hạng thành viên — khách đạt mức tổng mua [minSpend] của hạng cao nhất nào thì thuộc hạng đó.
+class PosCustomerTier {
+  const PosCustomerTier({required this.name, required this.minSpend, this.color, this.benefit, this.customerCount = 0});
+
+  final String name;
+  final double minSpend;
+
+  /// Mã màu «#RRGGBB» (tùy chọn).
+  final String? color;
+
+  /// Ưu đãi của hạng (ghi chú cho thu ngân).
+  final String? benefit;
+  final int customerCount;
+
+  factory PosCustomerTier.fromJson(Map<String, dynamic> j) => PosCustomerTier(
+        name: '${j['name'] ?? j['Name'] ?? ''}',
+        minSpend: (j['minSpend'] ?? j['MinSpend'] ?? 0) is num ? ((j['minSpend'] ?? j['MinSpend'] ?? 0) as num).toDouble() : 0,
+        color: (j['color'] ?? j['Color']) as String?,
+        benefit: (j['benefit'] ?? j['Benefit']) as String?,
+        customerCount: (j['customerCount'] as num?)?.toInt() ?? 0,
+      );
+
+  Map<String, dynamic> toJson() => {
+        'name': name,
+        'minSpend': minSpend,
+        if (color != null) 'color': color,
+        if (benefit != null && benefit!.isNotEmpty) 'benefit': benefit,
+      };
+
+  /// Hạng của khách theo tổng mua ([tiers] tăng dần); -1 = chưa đạt hạng nào.
+  static int indexFor(List<PosCustomerTier> tiers, double totalPurchase) {
+    var idx = -1;
+    for (var i = 0; i < tiers.length; i++) {
+      if (totalPurchase >= tiers[i].minSpend) idx = i;
+    }
+    return idx;
   }
 }

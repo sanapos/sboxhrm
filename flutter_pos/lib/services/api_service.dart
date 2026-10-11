@@ -37,6 +37,9 @@ class ApiService {
 
   String? _token;
 
+  /// Token hiện tại (màn hình phụ native tải ảnh /api/upload/serve cần đăng nhập).
+  String? get authToken => _token;
+
   // Singleton pattern
   static final ApiService _instance = ApiService._internal();
   factory ApiService() => _instance;
@@ -17841,12 +17844,16 @@ class ApiService {
 
   Future<Map<String, dynamic>> getPosSaleReturnHistory({
     String? search,
+    DateTime? from,
+    DateTime? to,
     int page = 1,
     int pageSize = 50,
   }) async {
     try {
       final q = <String, String>{'page': '$page', 'pageSize': '$pageSize'};
       if (search != null && search.trim().isNotEmpty) q['search'] = search.trim();
+      if (from != null) q['from'] = from.toIso8601String();
+      if (to != null) q['to'] = to.toIso8601String();
       final uri = Uri.parse('$baseUrl/api/pos/sales/return-history')
           .replace(queryParameters: q);
       final response =
@@ -18222,6 +18229,194 @@ class ApiService {
       _getBinary(Uri.parse('$baseUrl/api/pos/gym/report').replace(
           queryParameters: {'from': _gymDate(from), 'to': _gymDate(to), 'format': 'excel'}));
 
+  /// Seri đang trong kho của một mặt hàng (gợi ý khi bán / trả NCC).
+  Future<Map<String, dynamic>> getPosSerialsAvailable(String productId, {String? q}) async {
+    try {
+      final uri = Uri.parse('$baseUrl/api/pos/serials/available').replace(queryParameters: {
+        'productId': productId,
+        if (q != null && q.trim().isNotEmpty) 'q': q.trim(),
+      });
+      final response = await http.get(uri, headers: _headers).timeout(const Duration(seconds: 30));
+      return _handleResponse(response);
+    } catch (e) {
+      return _connectionFailure(e);
+    }
+  }
+
+  Future<Map<String, dynamic>> updatePosWarrantyClaim(
+      String claimId, String status, String? resolution) async {
+    try {
+      final response = await http
+          .post(Uri.parse('$baseUrl/api/pos/warranty/claims/$claimId'),
+              headers: _headers, body: jsonEncode({'status': status, 'resolution': resolution}))
+          .timeout(const Duration(seconds: 30));
+      return _handleResponse(response);
+    } catch (e) {
+      return _connectionFailure(e);
+    }
+  }
+
+  /// Hạng thành viên + số khách mỗi hạng.
+  Future<Map<String, dynamic>> getPosCustomerTiers() async {
+    try {
+      final r = await http
+          .get(Uri.parse('$baseUrl/api/pos/customers/tiers'), headers: _headers)
+          .timeout(const Duration(seconds: 30));
+      return _handleResponse(r);
+    } catch (e) {
+      return _connectionFailure(e);
+    }
+  }
+
+  /// Lưu hạng thành viên ([tiers] rỗng = bỏ hạng).
+  Future<Map<String, dynamic>> savePosCustomerTiers(List<Map<String, dynamic>> tiers) async {
+    try {
+      final r = await http
+          .put(Uri.parse('$baseUrl/api/pos/customers/tiers'), headers: _headers, body: jsonEncode({'tiers': tiers}))
+          .timeout(const Duration(seconds: 30));
+      return _handleResponse(r);
+    } catch (e) {
+      return _connectionFailure(e);
+    }
+  }
+
+  /// Ngừng hoạt động / kích hoạt lại khách hàng (khách đã có đơn không xóa được).
+  Future<Map<String, dynamic>> setPosCustomerActive(String customerId, bool active) async {
+    try {
+      final response = await http
+          .post(Uri.parse('$baseUrl/api/pos/customers/$customerId/${active ? 'activate' : 'deactivate'}'), headers: _headers)
+          .timeout(const Duration(seconds: 30));
+      return _handleResponse(response);
+    } catch (e) {
+      return _connectionFailure(e);
+    }
+  }
+
+  Future<Map<String, dynamic>> replacePosWarrantySerial(
+      String registrationId, String newSerial, String? newImei, String description) async {
+    try {
+      final response = await http
+          .post(Uri.parse('$baseUrl/api/pos/warranty/$registrationId/replace'),
+              headers: _headers,
+              body: jsonEncode({'newSerial': newSerial, 'newImei': newImei, 'description': description}))
+          .timeout(const Duration(seconds: 30));
+      return _handleResponse(response);
+    } catch (e) {
+      return _connectionFailure(e);
+    }
+  }
+
+  /// Trả nợ NCC một lần — server chia vào các phiếu nhập còn nợ cũ trước (FIFO).
+  Future<Map<String, dynamic>> payPosSupplierAll(String id,
+      {required double amount, String? paymentMethod, String? note}) async {
+    try {
+      final r = await http
+          .post(Uri.parse('$baseUrl/api/pos/purchase/suppliers/$id/pay'),
+              headers: _headers,
+              body: jsonEncode({
+                'amount': amount,
+                if (paymentMethod != null) 'paymentMethod': paymentMethod,
+                if (note != null && note.trim().isNotEmpty) 'note': note.trim(),
+              }))
+          .timeout(const Duration(seconds: 30));
+      return _handleResponse(r);
+    } catch (e) {
+      return _connectionFailure(e);
+    }
+  }
+
+  Future<Map<String, dynamic>> getPosWarrantyOpenClaims() async {
+    try {
+      final response = await http
+          .get(Uri.parse('$baseUrl/api/pos/warranty/claims/open'), headers: _headers)
+          .timeout(const Duration(seconds: 30));
+      return _handleResponse(response);
+    } catch (e) {
+      return _connectionFailure(e);
+    }
+  }
+
+  Future<Map<String, dynamic>> getPosWarrantyClaims(String registrationId) async {
+    try {
+      final response = await http
+          .get(Uri.parse('$baseUrl/api/pos/warranty/$registrationId/claims'), headers: _headers)
+          .timeout(const Duration(seconds: 30));
+      return _handleResponse(response);
+    } catch (e) {
+      return _connectionFailure(e);
+    }
+  }
+
+  /// Sổ đối chiếu công nợ nhà cung cấp trong kỳ.
+  Future<Map<String, dynamic>> getPosSupplierStatement(String id, DateTime from, DateTime to) async {
+    try {
+      final r = await http
+          .get(
+              Uri.parse('$baseUrl/api/pos/purchase/suppliers/$id/statement')
+                  .replace(queryParameters: {'from': _ymd(from), 'to': _ymd(to)}),
+              headers: _headers)
+          .timeout(const Duration(seconds: 30));
+      return _handleResponse(r);
+    } catch (e) {
+      return _connectionFailure(e);
+    }
+  }
+
+  /// Sổ đối chiếu công nợ khách trong kỳ: đầu kỳ, phát sinh tăng / giảm, cuối kỳ, số dư sau từng chứng từ.
+  Future<Map<String, dynamic>> getPosCustomerStatement(String customerId, DateTime from, DateTime to) async {
+    try {
+      final r = await http.get(
+          Uri.parse('$baseUrl/api/pos/customers/$customerId/statement')
+              .replace(queryParameters: {'from': _ymd(from), 'to': _ymd(to)}),
+          headers: _headers);
+      return _handleResponse(r);
+    } catch (e) {
+      return _connectionFailure(e);
+    }
+  }
+
+  /// Một khách theo mã (sau thu nợ / sửa — không tìm theo tên để tránh lấy nhầm khách trùng tên).
+  Future<Map<String, dynamic>> getPosCustomerById(String customerId) async {
+    try {
+      final response = await http
+          .get(Uri.parse('$baseUrl/api/pos/customers/$customerId'), headers: _headers)
+          .timeout(const Duration(seconds: 30));
+      return _handleResponse(response);
+    } catch (e) {
+      return _connectionFailure(e);
+    }
+  }
+
+  Future<Map<String, dynamic>> createPosWarrantyClaim(
+      String registrationId, String claimType, String description) async {
+    try {
+      final response = await http
+          .post(Uri.parse('$baseUrl/api/pos/warranty/$registrationId/claims'),
+              headers: _headers, body: jsonEncode({'claimType': claimType, 'description': description}))
+          .timeout(const Duration(seconds: 30));
+      return _handleResponse(response);
+    } catch (e) {
+      return _connectionFailure(e);
+    }
+  }
+
+  String _ymd(DateTime d) =>
+      '${d.year.toString().padLeft(4, '0')}-${d.month.toString().padLeft(2, '0')}-${d.day.toString().padLeft(2, '0')}';
+
+  /// Báo giá + lịch chăm sóc của một khách (hồ sơ khách hàng).
+  Future<Map<String, dynamic>> getPosCustomerQuoteCare({String? customerId, String? phone}) async {
+    try {
+      final uri = Uri.parse('$baseUrl/api/pos/quotes/customer-care').replace(queryParameters: {
+        if (customerId != null && customerId.isNotEmpty) 'customerId': customerId,
+        if (phone != null && phone.isNotEmpty) 'phone': phone,
+      });
+      final response = await http.get(uri, headers: _headers).timeout(const Duration(seconds: 30));
+      return _handleResponse(response);
+    } catch (e) {
+      return _connectionFailure(e);
+    }
+  }
+
   Future<Map<String, dynamic>> getPosCustomers({
     String? search,
     double? debtFrom,
@@ -18229,6 +18424,16 @@ class ApiService {
     bool? hasDebt,
     int page = 1,
     int pageSize = 50,
+    /// today | week | month | next30
+    String? birthday,
+    /// Đã từng mua nhưng không mua N ngày gần đây.
+    int? inactiveDays,
+    /// active | inactive | all
+    String? status,
+    /// debt | purchase | points | name | recent | newest | birthday
+    String? sort,
+    /// Tên hạng thành viên | none
+    String? tier,
   }) async {
     try {
       final q = <String, String>{'page': '$page', 'pageSize': '$pageSize'};
@@ -18236,6 +18441,11 @@ class ApiService {
       if (debtFrom != null) q['debtFrom'] = '$debtFrom';
       if (debtTo != null) q['debtTo'] = '$debtTo';
       if (hasDebt == true) q['hasDebt'] = 'true';
+      if (birthday != null) q['birthday'] = birthday;
+      if (inactiveDays != null) q['inactiveDays'] = '$inactiveDays';
+      if (status != null) q['status'] = status;
+      if (sort != null) q['sort'] = sort;
+      if (tier != null) q['tier'] = tier;
       final uri = Uri.parse('$baseUrl/api/pos/customers')
           .replace(queryParameters: q);
       final response =

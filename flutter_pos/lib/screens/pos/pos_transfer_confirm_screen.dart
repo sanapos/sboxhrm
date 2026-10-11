@@ -64,13 +64,15 @@ class _PosTransferConfirmScreenState extends State<PosTransferConfirmScreen>
     return Scaffold(
       appBar: AppBar(
         title: Text(tr('Xác nhận chuyển khoản')),
-        backgroundColor: PosTheme.kiotBlue,
-        foregroundColor: Colors.white,
+        backgroundColor: Colors.white,
+        surfaceTintColor: Colors.white,
+        elevation: 0.5,
+        foregroundColor: SboxColors.text,
         bottom: TabBar(
           controller: _tabs,
-          indicatorColor: Colors.white,
-          labelColor: Colors.white,
-          unselectedLabelColor: Colors.white70,
+          indicatorColor: SboxColors.primary,
+          labelColor: SboxColors.primary,
+          unselectedLabelColor: SboxColors.textMuted,
           tabs: [
             Tab(text: tr('Chờ CK (${_waiting.length})')),
             Tab(text: tr('Đã xác nhận (${_confirmed.length})')),

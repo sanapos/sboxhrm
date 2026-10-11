@@ -10,6 +10,7 @@ import '../../models/pos_product.dart';
 import '../../models/pos_sell_industry.dart';
 import '../../services/api_service.dart';
 import '../../utils/safe_navigator.dart';
+import '../../widgets/hrm_page_chrome.dart';
 import '../../widgets/notification_overlay.dart';
 import '../../widgets/pos/pos_deposit_payment_picker.dart';
 import '../../widgets/pos/pos_theme.dart';
@@ -137,6 +138,11 @@ class _PosAppointmentDayScreenState extends State<PosAppointmentDayScreen> {
       .fold(0.0, (s, e) => s + e.depositPaid);
   double get _expectedRevenueSum =>
       _items.fold(0.0, (s, e) => s + e.expectedRevenue);
+  /// Cọc của khách không đến — cửa hàng giữ lại (thu nhập), không còn «đang giữ».
+  double get _depositForfeitedSum => _items
+      .where((e) => e.depositStatus.toLowerCase() == 'forfeited')
+      .fold(0.0, (s, e) => s + e.depositPaid);
+
 
   bool get _useRoomGrid =>
       _profile == PosSellProfile.hotel ||
@@ -1018,11 +1024,6 @@ class _PosAppointmentDayScreenState extends State<PosAppointmentDayScreen> {
     final visible = _visibleItems;
     final weekStart = _day.subtract(const Duration(days: 3));
 
-    Color statusColor(PosResourceReservationDto b) => reservationAccent(b);
-
-    String statusLabel(PosResourceReservationDto b) =>
-        reservationStatusLabel(b);
-
     Widget filterChip(String id, String label) {
       final selected = _statusFilter == id;
       return Padding(
@@ -1036,38 +1037,50 @@ class _PosAppointmentDayScreenState extends State<PosAppointmentDayScreen> {
       );
     }
 
-    return Scaffold(
-      backgroundColor: SboxColors.slate50,
-      appBar: AppBar(
-        title: Text(tr(_calendarTitle)),
-        actions: [
-          IconButton(
-            tooltip: tr(_showMonth ? 'Lịch ngày' : 'Lịch tháng'),
-            onPressed: _loading ? null : () => unawaited(_toggleMonthView()),
-            icon: Icon(_showMonth
-                ? Icons.view_agenda_outlined
-                : Icons.calendar_month),
-          ),
+    // Trong khung chính thanh trên đã có tiêu đề — không vẽ thêm «Lịch đặt bàn»; các nút chuyển xuống hàng ngày.
+    final hideTitle = HrmPageChrome.hideInPageTitle(context);
+    final headerActions = <Widget>[
+      IconButton(
+        tooltip: tr(_showMonth ? 'Xem theo ngày' : 'Xem theo tháng'),
+        onPressed: _loading ? null : () => unawaited(_toggleMonthView()),
+        icon: Icon(_showMonth ? Icons.view_agenda_outlined : Icons.calendar_month),
+      ),
+      PopupMenuButton<String>(
+        tooltip: tr('Thao tác khác'),
+        icon: const Icon(Icons.more_vert),
+        onSelected: (v) {
+          if (v == 'grid') setState(() => _showGrid = !_showGrid);
+          if (v == 'noshow') unawaited(_expireNoShows());
+        },
+        itemBuilder: (_) => [
           if (_useRoomGrid)
-            IconButton(
-              tooltip: tr(_showGrid ? 'Danh sách' : 'Lịch chỗ'),
-              onPressed: () => setState(() => _showGrid = !_showGrid),
-              icon: Icon(_showGrid
-                  ? Icons.view_list_outlined
-                  : Icons.grid_view_outlined),
+            PopupMenuItem(
+              value: 'grid',
+              child: ListTile(
+                dense: true,
+                leading: Icon(_showGrid ? Icons.view_list_outlined : Icons.grid_view_outlined),
+                title: Text(tr(_showGrid ? 'Xem dạng danh sách' : 'Xem lịch theo bàn / phòng')),
+              ),
             ),
-          IconButton(
-            tooltip: tr('Quét khách không đến'),
-            onPressed: _loading ? null : () => unawaited(_expireNoShows()),
-            icon: const Icon(Icons.event_busy_outlined),
-          ),
-          IconButton(
-            tooltip: tr('Tải lại'),
-            onPressed: _loading ? null : () => unawaited(_reload()),
-            icon: const Icon(Icons.refresh),
+          PopupMenuItem(
+            value: 'noshow',
+            child: ListTile(
+              dense: true,
+              leading: const Icon(Icons.event_busy_outlined),
+              title: Text(tr('Đánh dấu khách không đến (quá giờ)')),
+            ),
           ),
         ],
       ),
+    ];
+    return Scaffold(
+      backgroundColor: SboxColors.slate50,
+      appBar: hideTitle
+          ? null
+          : AppBar(
+              title: Text(tr(_calendarTitle)),
+              actions: headerActions,
+            ),
       floatingActionButton: context.watch<PermissionProvider>().canCreate('PosBooking')
           ? FloatingActionButton.extended(
               onPressed: _resources.isEmpty
@@ -1103,7 +1116,7 @@ class _PosAppointmentDayScreenState extends State<PosAppointmentDayScreen> {
                               tr(_showMonth
                                   ? DateFormat('MMMM yyyy', 'vi_VN')
                                       .format(_month)
-                                  : DateFormat('EEEE, dd/MM/yyyy', 'vi_VN')
+                                  : DateFormat(hideTitle ? 'EEE, dd/MM/yyyy' : 'EEEE, dd/MM/yyyy', 'vi_VN')
                                       .format(_day)),
                               textAlign: TextAlign.center,
                               style: const TextStyle(
@@ -1119,6 +1132,7 @@ class _PosAppointmentDayScreenState extends State<PosAppointmentDayScreen> {
                             _showMonth ? _shiftMonth(1) : _shiftDay(1)),
                         icon: const Icon(Icons.chevron_right),
                       ),
+                      if (hideTitle) ...headerActions,
                     ],
                   ),
                   if (!_showMonth)
@@ -1189,26 +1203,37 @@ class _PosAppointmentDayScreenState extends State<PosAppointmentDayScreen> {
                       color: SboxColors.brand50,
                       borderRadius: BorderRadius.circular(10),
                     ),
-                    child: Row(
+                    // Số liệu CÙNG phạm vi đang xem (ngày / tháng) — trước đây số lịch theo ngày nhưng cọc /
+                    // tạm tính lại cộng cả 7 ngày, cọc mất của khách không đến không hiện.
+                    child: Wrap(
+                      spacing: 14,
+                      runSpacing: 4,
+                      crossAxisAlignment: WrapCrossAlignment.center,
                       children: [
-                        Expanded(
-                          child: Text(
-                            tr('${_showMonth ? _bookedCount : (_pipelineBooked ?? _bookedCount)} đặt'),
-                            style: const TextStyle(
-                                fontWeight: FontWeight.w700, fontSize: 13),
+                        Text(
+                          tr(_items.isEmpty
+                              ? 'Chưa có lịch'
+                              : [
+                                  '${_items.where((e) => !e.isCancelled).length} lịch',
+                                  if (_bookedCount > 0) '$_bookedCount chưa đến',
+                                  if (_items.any((e) => e.isSeated)) '${_items.where((e) => e.isSeated).length} đã nhận bàn',
+                                  if (_items.any((e) => e.isNoShow)) '${_items.where((e) => e.isNoShow).length} không đến',
+                                ].join(' · ')),
+                          style: const TextStyle(fontWeight: FontWeight.w700, fontSize: 13),
+                        ),
+                        Text(
+                          tr('Cọc đang giữ ${_moneyFmt.format(_depositHeldSum)}đ'),
+                          style: const TextStyle(fontSize: 12.5),
+                        ),
+                        if (_depositForfeitedSum > 0)
+                          Text(
+                            tr('Cọc mất (không đến) ${_moneyFmt.format(_depositForfeitedSum)}đ'),
+                            style: const TextStyle(fontSize: 12.5, color: Color(0xFFC2410C), fontWeight: FontWeight.w600),
                           ),
-                        ),
                         Text(
-                          tr(
-                              'Cọc ${_moneyFmt.format(_pipelineDeposit ?? _depositHeldSum)}đ'),
-                          style: const TextStyle(fontSize: 12),
-                        ),
-                        const SizedBox(width: 12),
-                        Text(
-                          tr(
-                              'Tạm tính ${_moneyFmt.format(_pipelineExpected ?? _expectedRevenueSum)}đ'),
+                          tr('Tạm tính ${_moneyFmt.format(_expectedRevenueSum)}đ'),
                           style: const TextStyle(
-                            fontSize: 12,
+                            fontSize: 12.5,
                             fontWeight: FontWeight.w700,
                             color: Color(0xFF0F766E),
                           ),
@@ -1216,14 +1241,13 @@ class _PosAppointmentDayScreenState extends State<PosAppointmentDayScreen> {
                       ],
                     ),
                   ),
-                  if (_upcomingBooked > 0)
+                  if (!_showMonth && _upcomingBooked > 0)
                     Padding(
-                      padding: const EdgeInsets.only(top: 6),
+                      padding: const EdgeInsets.only(top: 6, left: 4),
                       child: Align(
                         alignment: Alignment.centerLeft,
                         child: Text(
-                          tr(
-                              'Đã nhận $_upcomingBooked lịch dùng trong 7 ngày tới — mở đúng ngày trên lịch để chuẩn bị bàn. Cọc thu hôm đặt vào két ngày thu.'),
+                          tr('6 ngày tiếp theo còn $_upcomingBooked lịch chờ đến'),
                           style: TextStyle(
                             fontSize: 12,
                             color: PosTheme.textSecondary,
@@ -1237,13 +1261,13 @@ class _PosAppointmentDayScreenState extends State<PosAppointmentDayScreen> {
                     child: Row(
                       children: [
                         filterChip('all', 'Tất cả (${_items.length})'),
-                        filterChip('booked', 'Đặt ($_bookedCount)'),
+                        filterChip('booked', 'Chưa đến ($_bookedCount)'),
                         filterChip(
                             'seated',
-                            'Đã dùng (${_items.where((e) => e.isSeated).length})'),
+                            'Đã nhận bàn (${_items.where((e) => e.isSeated).length})'),
                         filterChip(
                             'cancelled',
-                            'Hủy (${_items.where((e) => e.isCancelled).length})'),
+                            'Đã hủy (${_items.where((e) => e.isCancelled).length})'),
                         filterChip(
                             'noshow',
                             'Không đến (${_items.where((e) => e.isNoShow).length})'),
@@ -1307,238 +1331,145 @@ class _PosAppointmentDayScreenState extends State<PosAppointmentDayScreen> {
                           itemCount: visible.length,
                           separatorBuilder: (_, __) =>
                               const SizedBox(height: 8),
-                          itemBuilder: (_, i) {
-                            final b = visible[i];
-                            final start = b.reservedAt?.toLocal();
-                            final end = b.reservedUntil?.toLocal();
-                            final time = start == null
-                                ? '—'
-                                : end == null
-                                    ? DateFormat('HH:mm').format(start)
-                                    : '${DateFormat('HH:mm').format(start)}–${DateFormat('HH:mm').format(end)}';
-                            final table =
-                                b.areaName == null || b.areaName!.isEmpty
-                                    ? b.resourceName
-                                    : '${b.areaName} · ${b.resourceName}';
-                            final accent = statusColor(b);
-                            return Material(
-                              color: Colors.white,
-                              borderRadius: BorderRadius.circular(14),
-                              child: InkWell(
-                                borderRadius: BorderRadius.circular(14),
-                                onTap: () => unawaited(_openBooking(b)),
-                                child: Padding(
-                                  padding: const EdgeInsets.all(12),
-                                  child: Row(
-                                    crossAxisAlignment:
-                                        CrossAxisAlignment.start,
-                                    children: [
-                                      Container(
-                                        width: 64,
-                                        padding: const EdgeInsets.symmetric(
-                                            vertical: 8),
-                                        decoration: BoxDecoration(
-                                          color: accent.withOpacity(0.1),
-                                          borderRadius:
-                                              BorderRadius.circular(10),
-                                        ),
-                                        child: Text(
-                                          time,
-                                          textAlign: TextAlign.center,
-                                          style: TextStyle(
-                                            fontWeight: FontWeight.w700,
-                                            fontSize: 12,
-                                            color: accent,
-                                          ),
-                                        ),
-                                      ),
-                                      const SizedBox(width: 12),
-                                      Expanded(
-                                        child: Column(
-                                          crossAxisAlignment:
-                                              CrossAxisAlignment.start,
-                                          children: [
-                                            Row(
-                                              children: [
-                                                Expanded(
-                                                  child: Text(
-                                                    tr(b.customerName),
-                                                    style: const TextStyle(
-                                                      fontWeight:
-                                                          FontWeight.w700,
-                                                      fontSize: 16,
-                                                    ),
-                                                  ),
-                                                ),
-                                                Container(
-                                                  padding:
-                                                      const EdgeInsets
-                                                          .symmetric(
-                                                          horizontal: 6,
-                                                          vertical: 2),
-                                                  decoration: BoxDecoration(
-                                                    color: accent
-                                                        .withOpacity(0.12),
-                                                    borderRadius:
-                                                        BorderRadius.circular(
-                                                            6),
-                                                  ),
-                                                  child: Text(
-                                                    tr(statusLabel(b)),
-                                                    style: TextStyle(
-                                                      fontSize: 10,
-                                                      fontWeight:
-                                                          FontWeight.w700,
-                                                      color: accent,
-                                                    ),
-                                                  ),
-                                                ),
-                                              ],
-                                            ),
-                                            const SizedBox(height: 2),
-                                            Text(
-                                              tr([
-                                                if ((b.serviceProductName ??
-                                                        '')
-                                                    .isNotEmpty)
-                                                  b.serviceProductName!,
-                                                if (b.durationMinutes !=
-                                                    null)
-                                                  b.durationMinutes! >= 1440
-                                                      ? '${(b.durationMinutes! / 1440).round()} đêm'
-                                                      : '${b.durationMinutes} phút',
-                                                table,
-                                              ].join(' · ')),
-                                              style: TextStyle(
-                                                fontSize: 13,
-                                                color:
-                                                    PosTheme.textSecondary,
-                                              ),
-                                            ),
-                                            if ((b.assignedEmployeeName ??
-                                                    '')
-                                                .isNotEmpty)
-                                              Padding(
-                                                padding:
-                                                    const EdgeInsets.only(
-                                                        top: 2),
-                                                child: Text(
-                                                  tr('NV: ${b.assignedEmployeeName}'),
-                                                  style: const TextStyle(
-                                                      fontSize: 12),
-                                                ),
-                                              ),
-                                            if ((b.phone ?? '').isNotEmpty)
-                                              Text(b.phone!,
-                                                  style: TextStyle(
-                                                      fontSize: 12,
-                                                      color: PosTheme
-                                                          .textSecondary)),
-                                            if (PosReservationOccasion.label(
-                                                    b.occasion)
-                                                .isNotEmpty)
-                                              Padding(
-                                                padding:
-                                                    const EdgeInsets.only(
-                                                        top: 2),
-                                                child: Text(
-                                                  tr(PosReservationOccasion
-                                                      .label(b.occasion)),
-                                                  style: const TextStyle(
-                                                    fontSize: 12,
-                                                    fontWeight:
-                                                        FontWeight.w700,
-                                                    color: SboxColors.violet,
-                                                  ),
-                                                ),
-                                              ),
-                                            if (b.createdAt != null &&
-                                                b.reservedAt != null &&
-                                                !DateUtils.isSameDay(
-                                                    b.createdAt!.toLocal(),
-                                                    b.reservedAt!.toLocal()))
-                                              Text(
-                                                tr(
-                                                    'Đặt ${DateFormat('dd/MM').format(b.createdAt!.toLocal())} · dùng ${DateFormat('dd/MM').format(b.reservedAt!.toLocal())}'),
-                                                style: TextStyle(
-                                                  fontSize: 12,
-                                                  color:
-                                                      PosTheme.textSecondary,
-                                                ),
-                                              ),
-                                            if (b.guestCount > 0)
-                                              Text(
-                                                tr('${b.guestCount} khách'),
-                                                style: TextStyle(
-                                                  fontSize: 12,
-                                                  color:
-                                                      PosTheme.textSecondary,
-                                                ),
-                                              ),
-                                            if (b.depositPaid > 0 ||
-                                                b.preOrderValue > 0)
-                                              Padding(
-                                                padding:
-                                                    const EdgeInsets.only(
-                                                        top: 4),
-                                                child: Text(
-                                                  tr([
-                                                    if (b.depositPaid > 0)
-                                                      'Cọc ${_moneyFmt.format(b.depositPaid)}đ (${reservationDepositLabel(b.depositStatus)})',
-                                                    if (b.preOrderValue > 0)
-                                                      'Món ${_moneyFmt.format(b.preOrderValue)}đ',
-                                                  ].join(' · ')),
-                                                  style: const TextStyle(
-                                                    fontSize: 12,
-                                                    color: Color(0xFF0F766E),
-                                                    fontWeight:
-                                                        FontWeight.w600,
-                                                  ),
-                                                ),
-                                              ),
-                                            if ((b.orderNo ?? '').isNotEmpty ||
-                                                b.orderTotal > 0)
-                                              Padding(
-                                                padding:
-                                                    const EdgeInsets.only(
-                                                        top: 4),
-                                                child: Text(
-                                                  tr([
-                                                    if ((b.orderNo ?? '')
-                                                        .isNotEmpty)
-                                                      'HĐ ${b.orderNo}',
-                                                    if (b.orderTotal > 0)
-                                                      '${_moneyFmt.format(b.orderTotal)}đ',
-                                                    if (b.orderPaid > 0)
-                                                      'Đã trả ${_moneyFmt.format(b.orderPaid)}đ',
-                                                  ].join(' · ')),
-                                                  style: TextStyle(
-                                                    fontSize: 12,
-                                                    fontWeight:
-                                                        FontWeight.w700,
-                                                    color: b.isOrderCompleted
-                                                        ? const Color(
-                                                            0xFF15803D)
-                                                        : const Color(
-                                                            0xFF0F766E),
-                                                  ),
-                                                ),
-                                              ),
-                                          ],
-                                        ),
-                                      ),
-                                      const Icon(Icons.chevron_right,
-                                          color: SboxColors.slate500),
-                                    ],
-                                  ),
-                                ),
-                              ),
-                            );
-                          },
+                          itemBuilder: (_, i) => _bookingCard(visible[i]),
                         ),
                       ),
           ),
         ],
+      ),
+    );
+  }
+
+  /// Thẻ một lịch: cột giờ gọn (giờ đến lớn, giờ kết thúc nhỏ), tên 1 dòng + trạng thái bên phải,
+  /// thông tin dạng biểu tượng ngắn (bàn · khách · thời lượng · SĐT · NV), dịp / cọc / hóa đơn.
+  Widget _bookingCard(PosResourceReservationDto b) {
+    final start = b.reservedAt?.toLocal();
+    final end = b.reservedUntil?.toLocal();
+    final accent = reservationAccent(b);
+    final table = b.areaName == null || b.areaName!.isEmpty ? b.resourceName : '${b.areaName} · ${b.resourceName}';
+    final duration = b.durationMinutes == null
+        ? null
+        : b.durationMinutes! >= 1440
+            ? '${(b.durationMinutes! / 1440).round()} đêm'
+            : b.durationMinutes! >= 60 && b.durationMinutes! % 60 == 0
+                ? '${b.durationMinutes! ~/ 60} giờ'
+                : '${b.durationMinutes} phút';
+    Widget info(IconData icon, String text, {Color? color}) => Row(mainAxisSize: MainAxisSize.min, children: [
+          Icon(icon, size: 14, color: color ?? SboxColors.slate500),
+          const SizedBox(width: 3),
+          Flexible(
+            child: Text(tr(text),
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+                style: TextStyle(fontSize: 12.5, color: color ?? PosTheme.textSecondary)),
+          ),
+        ]);
+    final occasion = PosReservationOccasion.label(b.occasion);
+    final money = <String>[
+      if (b.depositPaid > 0) 'Cọc ${_moneyFmt.format(b.depositPaid)}đ (${reservationDepositLabel(b.depositStatus)})',
+      if (b.preOrderValue > 0) 'Món ${_moneyFmt.format(b.preOrderValue)}đ',
+    ];
+    final order = <String>[
+      if ((b.orderNo ?? '').isNotEmpty) 'HĐ ${b.orderNo}',
+      if (b.orderTotal > 0) '${_moneyFmt.format(b.orderTotal)}đ',
+      if (b.orderPaid > 0) 'Đã trả ${_moneyFmt.format(b.orderPaid)}đ',
+    ];
+    return Material(
+      color: Colors.white,
+      borderRadius: BorderRadius.circular(14),
+      child: InkWell(
+        borderRadius: BorderRadius.circular(14),
+        onTap: () => unawaited(_openBooking(b)),
+        child: Container(
+          decoration: BoxDecoration(
+            borderRadius: BorderRadius.circular(14),
+            border: Border(left: BorderSide(color: accent, width: 4)),
+          ),
+          padding: const EdgeInsets.fromLTRB(10, 10, 6, 10),
+          child: Row(crossAxisAlignment: CrossAxisAlignment.start, children: [
+            SizedBox(
+              width: 54,
+              child: Column(children: [
+                Text(start == null ? '—' : DateFormat('HH:mm').format(start),
+                    style: TextStyle(fontSize: 17, fontWeight: FontWeight.w800, color: accent)),
+                if (end != null)
+                  Text(DateUtils.isSameDay(start, end) ? DateFormat('HH:mm').format(end) : DateFormat('dd/MM').format(end),
+                      style: const TextStyle(fontSize: 11.5, color: SboxColors.slate500)),
+              ]),
+            ),
+            const SizedBox(width: 10),
+            Expanded(
+              child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+                Row(children: [
+                  Expanded(
+                    child: Text(tr(b.customerName),
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                        style: const TextStyle(fontWeight: FontWeight.w700, fontSize: 15)),
+                  ),
+                  const SizedBox(width: 6),
+                  Container(
+                    padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 2),
+                    decoration: BoxDecoration(
+                      color: accent.withOpacity(0.12),
+                      borderRadius: BorderRadius.circular(20),
+                    ),
+                    child: Text(tr(reservationStatusLabel(b)),
+                        style: TextStyle(fontSize: 10.5, fontWeight: FontWeight.w700, color: accent)),
+                  ),
+                ]),
+                const SizedBox(height: 4),
+                Wrap(spacing: 10, runSpacing: 3, children: [
+                  info(Icons.table_restaurant_outlined, table),
+                  if (b.guestCount > 0) info(Icons.people_outline, '${b.guestCount} khách'),
+                  if ((b.serviceProductName ?? '').isNotEmpty) info(Icons.spa_outlined, b.serviceProductName!),
+                  if (duration != null) info(Icons.timelapse, duration),
+                  if ((b.phone ?? '').isNotEmpty) info(Icons.call_outlined, b.phone!),
+                  if ((b.assignedEmployeeName ?? '').isNotEmpty) info(Icons.badge_outlined, b.assignedEmployeeName!),
+                ]),
+                if (occasion.isNotEmpty ||
+                    (b.createdAt != null && b.reservedAt != null &&
+                        !DateUtils.isSameDay(b.createdAt!.toLocal(), b.reservedAt!.toLocal()))) ...[
+                  const SizedBox(height: 5),
+                  Wrap(spacing: 6, runSpacing: 4, children: [
+                    if (occasion.isNotEmpty)
+                      Container(
+                        padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 2),
+                        decoration: BoxDecoration(
+                          color: SboxColors.violet.withOpacity(0.10),
+                          borderRadius: BorderRadius.circular(6),
+                        ),
+                        child: Text(tr('🎉 $occasion'),
+                            style: const TextStyle(fontSize: 11.5, fontWeight: FontWeight.w700, color: SboxColors.violet)),
+                      ),
+                    if (b.createdAt != null && b.reservedAt != null &&
+                        !DateUtils.isSameDay(b.createdAt!.toLocal(), b.reservedAt!.toLocal()))
+                      Text(tr('Đặt từ ${DateFormat('dd/MM').format(b.createdAt!.toLocal())}'),
+                          style: const TextStyle(fontSize: 11.5, color: SboxColors.slate500)),
+                  ]),
+                ],
+                if (money.isNotEmpty) ...[
+                  const SizedBox(height: 4),
+                  info(
+                    Icons.savings_outlined,
+                    money.join(' · '),
+                    color: b.depositStatus.toLowerCase() == 'forfeited'
+                        ? const Color(0xFFC2410C)
+                        : b.depositStatus.toLowerCase() == 'refunded'
+                            ? SboxColors.slate500
+                            : const Color(0xFF0F766E),
+                  ),
+                ],
+                if (order.isNotEmpty) ...[
+                  const SizedBox(height: 2),
+                  info(Icons.receipt_long_outlined, order.join(' · '),
+                      color: b.isOrderCompleted ? const Color(0xFF15803D) : const Color(0xFF0F766E)),
+                ],
+              ]),
+            ),
+            const Icon(Icons.chevron_right, color: SboxColors.slate400),
+          ]),
+        ),
       ),
     );
   }
@@ -1565,7 +1496,8 @@ class _BookingDetailDialog extends StatelessWidget {
         ? '—'
         : end == null
             ? DateFormat('HH:mm dd/MM').format(start)
-            : '${DateFormat('HH:mm').format(start)}–${DateFormat('HH:mm').format(end)} · ${DateFormat('dd/MM/yyyy').format(start)}';
+            : '${DateFormat('HH:mm').format(start)} – ${DateFormat('HH:mm').format(end)}';
+    final useDay = start == null ? '' : DateFormat('EEE, dd/MM/yyyy', 'vi_VN').format(start);
     final table = b.areaName == null || b.areaName!.isEmpty
         ? b.resourceName
         : '${b.areaName} · ${b.resourceName}';
@@ -1579,7 +1511,7 @@ class _BookingDetailDialog extends StatelessWidget {
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             SizedBox(
-              width: 118,
+              width: 100,
               child: Text(
                 tr(label),
                 style: TextStyle(
@@ -1592,7 +1524,7 @@ class _BookingDetailDialog extends StatelessWidget {
               child: Text(
                 tr(value),
                 style: TextStyle(
-                  fontSize: 16,
+                  fontSize: 15,
                   fontWeight: emphasize ? FontWeight.w700 : FontWeight.w600,
                 ),
               ),
@@ -1644,8 +1576,10 @@ class _BookingDetailDialog extends StatelessWidget {
                         Expanded(
                           child: Text(
                             tr(b.customerName),
+                            maxLines: 2,
+                            overflow: TextOverflow.ellipsis,
                             style: const TextStyle(
-                              fontSize: 22,
+                              fontSize: 19,
                               fontWeight: FontWeight.w700,
                             ),
                           ),
@@ -1670,6 +1604,7 @@ class _BookingDetailDialog extends StatelessWidget {
                     ),
                     const SizedBox(height: 16),
                     row('Giờ', time, emphasize: true),
+                    row('Ngày dùng', useDay),
                     if (b.createdAt != null)
                       row(
                         'Ngày đặt lịch',
@@ -1762,42 +1697,43 @@ class _BookingDetailDialog extends StatelessWidget {
             const Divider(height: 1),
             Padding(
               padding: const EdgeInsets.fromLTRB(12, 10, 12, 14),
-              child: Wrap(
-                spacing: 8,
-                runSpacing: 8,
-                alignment: WrapAlignment.end,
-                children: [
-                  if (b.isBooked) ...[
-                    OutlinedButton.icon(
-                      onPressed: () => Navigator.pop(context, 'edit'),
-                      icon: const Icon(Icons.edit_outlined, size: 18),
-                      label: Text(tr('Sửa')),
-                    ),
-                    OutlinedButton.icon(
-                      onPressed: () => Navigator.pop(context, 'cancel'),
-                      style: OutlinedButton.styleFrom(
-                        foregroundColor: Colors.red.shade700,
+              // Nút chính rộng cả hàng, ba thao tác phụ chia đều bên dưới (không còn xếp lệch 2 hàng).
+              child: b.isBooked
+                  ? Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
+                      FilledButton.icon(
+                        onPressed: () => Navigator.pop(context, 'seat'),
+                        style: FilledButton.styleFrom(minimumSize: const Size(0, 46)),
+                        icon: const Icon(Icons.login, size: 18),
+                        label: Text(tr('Nhận $noun')),
                       ),
-                      icon: const Icon(Icons.delete_outline, size: 18),
-                      label: Text(tr('Xóa lịch')),
-                    ),
-                    OutlinedButton.icon(
-                      onPressed: () => Navigator.pop(context, 'deposit'),
-                      icon: const Icon(Icons.payments_outlined, size: 18),
-                      label: Text(tr('Thu cọc')),
-                    ),
-                    FilledButton.icon(
-                      onPressed: () => Navigator.pop(context, 'seat'),
-                      icon: const Icon(Icons.login, size: 18),
-                      label: Text(tr('Nhận $noun')),
-                    ),
-                  ] else
-                    FilledButton(
+                      const SizedBox(height: 8),
+                      Row(children: [
+                        for (final (value, icon, label, danger) in [
+                          ('deposit', Icons.payments_outlined, 'Thu cọc', false),
+                          ('edit', Icons.edit_outlined, 'Sửa', false),
+                          ('cancel', Icons.delete_outline, 'Xóa lịch', true),
+                        ]) ...[
+                          if (value != 'deposit') const SizedBox(width: 8),
+                          Expanded(
+                            child: OutlinedButton.icon(
+                              onPressed: () => Navigator.pop(context, value),
+                              style: OutlinedButton.styleFrom(
+                                minimumSize: const Size(0, 42),
+                                padding: const EdgeInsets.symmetric(horizontal: 6),
+                                foregroundColor: danger ? Colors.red.shade700 : null,
+                              ),
+                              icon: Icon(icon, size: 17),
+                              label: Text(tr(label), maxLines: 1, overflow: TextOverflow.ellipsis),
+                            ),
+                          ),
+                        ],
+                      ]),
+                    ])
+                  : FilledButton(
                       onPressed: () => Navigator.pop(context),
+                      style: FilledButton.styleFrom(minimumSize: const Size(0, 44)),
                       child: Text(tr('Đóng')),
                     ),
-                ],
-              ),
             ),
           ],
         ),
@@ -2174,388 +2110,334 @@ class _BookAppointmentDialogState extends State<_BookAppointmentDialog> {
     final serviceIds = {for (final p in _services) p.id};
     final employeeIds = {for (final e in _employees) e.id};
     final resourceIds = {for (final r in widget.resources) r.id};
-    return AlertDialog(
-      title: Text(tr(widget.existing == null
-          ? _profile.bookActionLabel
-          : 'Sửa lịch đặt')),
-      content: SizedBox(
-        width: 420,
-        child: _loadingMeta
-            ? const SizedBox(
-                height: 120,
-                child: Center(child: CircularProgressIndicator()),
-              )
-            : SingleChildScrollView(
-                child: Column(
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    Align(
-                      alignment: Alignment.centerLeft,
-                      child: TextButton.icon(
-                        onPressed: _saving ? null : () => unawaited(_pickCustomer()),
-                        icon: const Icon(Icons.person_search_outlined,
-                            size: 18),
-                        label: Text(tr(_customerId == null
-                            ? 'Chọn khách CRM'
-                            : 'Đổi khách CRM')),
-                      ),
-                    ),
-                    TextField(
-                      controller: _nameCtrl,
-                      decoration: InputDecoration(
-                        labelText: tr('Tên khách *'),
-                        border: const OutlineInputBorder(),
-                      ),
-                    ),
-                    const SizedBox(height: 10),
-                    TextField(
-                      controller: _phoneCtrl,
-                      decoration: InputDecoration(
-                        labelText: tr('SĐT'),
-                        border: const OutlineInputBorder(),
-                      ),
-                      keyboardType: TextInputType.phone,
-                    ),
-                    const SizedBox(height: 10),
-                    DropdownButtonFormField<int>(
-                      value: _guestCount < 1 ? 1 : _guestCount,
-                      decoration: InputDecoration(
-                        labelText: tr('Số khách'),
-                        border: const OutlineInputBorder(),
-                        isDense: true,
-                      ),
-                      items: [
-                        for (final n in ({
-                          1, 2, 3, 4, 5, 6, 8, 10, 12, _guestCount.clamp(1, 99),
-                        }.toList()
-                          ..sort()))
-                          DropdownMenuItem(value: n, child: Text('$n')),
-                      ],
-                      onChanged: _saving
-                          ? null
-                          : (v) {
-                              if (v != null) {
-                                setState(() => _guestCount = v);
-                              }
-                            },
-                    ),
-                    const SizedBox(height: 10),
-                    DropdownButtonFormField<String>(
-                      value: resourceIds.contains(_resourceId)
-                          ? _resourceId
-                          : null,
-                      decoration: InputDecoration(
-                        labelText: tr('${_noun[0].toUpperCase()}${_noun.substring(1)} *'),
-                        border: const OutlineInputBorder(),
-                        isDense: true,
-                      ),
-                      items: widget.resources
-                          .map((r) => DropdownMenuItem(
-                                value: r.id,
-                                child: Text(tr(r.areaName.trim().isEmpty
-                                    ? r.name
-                                    : '${r.areaName} · ${r.name}')),
-                              ))
-                          .toList(),
-                      onChanged: _saving
-                          ? null
-                          : (v) => setState(() => _resourceId = v),
-                    ),
-                    const SizedBox(height: 10),
-                    DropdownButtonFormField<String?>(
-                      value: serviceIds.contains(_serviceProductId)
-                          ? _serviceProductId
-                          : null,
-                      decoration: InputDecoration(
-                        labelText: tr(_requireService
-                            ? 'Dịch vụ *'
-                            : 'Dịch vụ (tuỳ chọn)'),
-                        border: const OutlineInputBorder(),
-                        isDense: true,
-                      ),
-                      items: [
-                        if (!_requireService)
-                          DropdownMenuItem<String?>(
-                            value: null,
-                            child: Text(tr('— Không chọn —')),
-                          ),
-                        ..._services.map((p) => DropdownMenuItem<String?>(
-                              value: p.id,
-                              child: Text(tr(
-                                  '${p.name}${p.defaultDurationMinutes != null ? ' (${p.defaultDurationMinutes}′)' : ''}')),
-                            )),
-                      ],
-                      onChanged: _saving
-                          ? null
-                          : (v) {
-                              PosProduct? p;
-                              for (final x in _services) {
-                                if (x.id == v) {
-                                  p = x;
-                                  break;
-                                }
-                              }
-                              setState(() => _onServicePicked(p));
-                            },
-                    ),
-                    const SizedBox(height: 10),
-                    Row(
-                      children: [
-                        Expanded(
-                          child: OutlinedButton.icon(
-                            onPressed: _saving
-                                ? null
-                                : () async {
-                                    final d = await showDatePicker(
-                                      context: context,
-                                      initialDate: _usageDay,
-                                      firstDate: DateTime.now()
-                                          .subtract(const Duration(days: 1)),
-                                      lastDate: DateTime.now()
-                                          .add(const Duration(days: 180)),
-                                    );
-                                    if (d != null) {
-                                      setState(() => _usageDay = DateTime(
-                                          d.year, d.month, d.day));
-                                    }
-                                  },
-                            icon: const Icon(Icons.event, size: 18),
-                            label: Text(tr(
-                                DateFormat('dd/MM/yyyy').format(_usageDay))),
-                          ),
-                        ),
-                        const SizedBox(width: 8),
-                        Expanded(
-                          child: OutlinedButton.icon(
-                            onPressed: _saving
-                                ? null
-                                : () async {
-                                    final t = await showTimePicker(
-                                      context: context,
-                                      initialTime: _slotTime,
-                                      builder: (c, child) => MediaQuery(
-                                        data: MediaQuery.of(c).copyWith(
-                                          alwaysUse24HourFormat: true,
-                                        ),
-                                        child:
-                                            child ?? const SizedBox.shrink(),
-                                      ),
-                                    );
-                                    if (t != null) {
-                                      setState(() => _slotTime = t);
-                                    }
-                                  },
-                            icon: const Icon(Icons.access_time, size: 18),
-                            label: Text(tr(
-                                '${_slotTime.hour.toString().padLeft(2, '0')}:${_slotTime.minute.toString().padLeft(2, '0')}')),
-                          ),
-                        ),
-                        const SizedBox(width: 8),
-                        SizedBox(
-                          width: 110,
-                          child: _isHotel
-                              ? DropdownButtonFormField<int>(
-                                  value: _stayNights,
-                                  decoration: InputDecoration(
-                                    labelText: tr('Đêm'),
-                                    border: const OutlineInputBorder(),
-                                    isDense: true,
-                                  ),
-                                  items: List.generate(
-                                    14,
-                                    (i) => DropdownMenuItem(
-                                      value: i + 1,
-                                      child: Text('${i + 1}'),
-                                    ),
-                                  ),
-                                  onChanged: _saving
-                                      ? null
-                                      : (v) {
-                                          if (v != null) {
-                                            setState(() => _stayNights = v);
-                                          }
-                                        },
-                                )
-                              : Builder(builder: (ctx) {
-                                  final mins = <int>{
-                                    30,
-                                    45,
-                                    60,
-                                    75,
-                                    90,
-                                    120,
-                                    _durationMinutes,
-                                  }.toList()
-                                    ..sort();
-                                  return DropdownButtonFormField<int>(
-                                    value: _durationMinutes,
-                                    decoration: InputDecoration(
-                                      labelText: tr('Phút'),
-                                      border: const OutlineInputBorder(),
-                                      isDense: true,
-                                    ),
-                                    items: mins
-                                        .map((m) => DropdownMenuItem(
-                                              value: m,
-                                              child: Text('$m'),
-                                            ))
-                                        .toList(),
-                                    onChanged: _saving
-                                        ? null
-                                        : (v) {
-                                            if (v != null) {
-                                              setState(
-                                                  () => _durationMinutes = v);
-                                            }
-                                          },
-                                  );
-                                }),
-                        ),
-                      ],
-                    ),
-                    if (_showStaffPicker) ...[
-                      const SizedBox(height: 10),
-                      DropdownButtonFormField<String?>(
-                        value: employeeIds.contains(_employeeId)
-                            ? _employeeId
-                            : null,
-                        decoration: InputDecoration(
-                          labelText: tr('Nhân viên phụ trách'),
-                          border: const OutlineInputBorder(),
-                          isDense: true,
-                        ),
-                        items: [
-                          DropdownMenuItem<String?>(
-                            value: null,
-                            child: Text(tr('— Không chọn —')),
-                          ),
-                          ..._employees.map((e) => DropdownMenuItem(
-                                value: e.id,
-                                child: Text(tr(e.label)),
-                              )),
-                        ],
-                        onChanged: _saving
-                            ? null
-                            : (v) => setState(() => _employeeId = v),
-                      ),
-                    ],
-                    const SizedBox(height: 12),
-                    Align(
-                      alignment: Alignment.centerLeft,
-                      child: Text(
-                        tr('Loại tổ chức'),
-                        style: const TextStyle(
-                            fontSize: 12, fontWeight: FontWeight.w700),
-                      ),
-                    ),
-                    const SizedBox(height: 6),
-                    Wrap(
-                      spacing: 6,
-                      runSpacing: 6,
-                      children: [
-                        for (final o in PosReservationOccasion.options)
-                          ChoiceChip(
-                            label: Text(tr(o.$2),
-                                style: const TextStyle(fontSize: 12)),
-                            selected: _occasion == o.$1,
-                            onSelected: _saving
-                                ? null
-                                : (v) => setState(
-                                    () => _occasion = v ? o.$1 : null),
-                          ),
-                      ],
-                    ),
-                    const SizedBox(height: 10),
-                    Align(
-                      alignment: Alignment.centerLeft,
-                      child: Text(
-                        tr('Yêu cầu thêm'),
-                        style: const TextStyle(
-                            fontSize: 12, fontWeight: FontWeight.w700),
-                      ),
-                    ),
-                    const SizedBox(height: 6),
-                    Wrap(
-                      spacing: 6,
-                      runSpacing: 6,
-                      children: [
-                        for (final chip in PosReservationOccasion.requestChips)
-                          FilterChip(
-                            label: Text(tr(chip),
-                                style: const TextStyle(fontSize: 12)),
-                            selected: _requestTags.contains(chip),
-                            onSelected: _saving
-                                ? null
-                                : (v) => setState(() {
-                                      if (v) {
-                                        _requestTags.add(chip);
-                                      } else {
-                                        _requestTags.remove(chip);
-                                      }
-                                    }),
-                          ),
-                      ],
-                    ),
-                    const SizedBox(height: 8),
-                    TextField(
-                      controller: _requestCtrl,
-                      decoration: InputDecoration(
-                        labelText: tr('Yêu cầu khác (ghi chú)'),
-                        hintText: tr('VD: không cay, bàn gần cửa sổ…'),
-                        border: const OutlineInputBorder(),
-                      ),
-                      maxLines: 2,
-                    ),
-                    if (widget.existing == null) ...[
-                      const SizedBox(height: 10),
-                      TextField(
-                        controller: _depositPaidCtrl,
-                        keyboardType: TextInputType.number,
-                        decoration: InputDecoration(
-                          labelText: tr('Thu cọc ngay'),
-                          border: const OutlineInputBorder(),
-                          isDense: true,
-                          suffixText: tr('đ'),
-                        ),
-                      ),
-                      const SizedBox(height: 10),
-                      PosDepositPaymentPicker(
-                        compact: true,
-                        value: _depositPay,
-                        onChanged: (v) => setState(() => _depositPay = v),
-                      ),
-                    ],
-                    const SizedBox(height: 10),
-                    TextField(
-                      controller: _noteCtrl,
-                      decoration: InputDecoration(
-                        labelText: tr('Ghi chú'),
-                        border: const OutlineInputBorder(),
-                      ),
-                      maxLines: 2,
-                    ),
-                  ],
+    final phone = MediaQuery.sizeOf(context).width < 600;
+    final nounCap = '${_noun[0].toUpperCase()}${_noun.substring(1)}';
+    const field = OutlineInputBorder();
+
+    Widget section(String title, {Widget? trailing}) => Padding(
+          padding: const EdgeInsets.only(top: 16, bottom: 8),
+          child: Row(children: [
+            Expanded(
+              child: Text(tr(title),
+                  style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w700, color: SboxColors.slate700)),
+            ),
+            if (trailing != null) trailing,
+          ]),
+        );
+
+    // Nút chọn ngày / giờ: 1 dòng, không xuống chữ khi hẹp.
+    Widget pickBox(IconData icon, String label, String value, VoidCallback? onTap) => InkWell(
+          borderRadius: BorderRadius.circular(8),
+          onTap: onTap,
+          child: InputDecorator(
+            decoration: InputDecoration(labelText: tr(label), border: field, isDense: true),
+            child: Row(children: [
+              Icon(icon, size: 18, color: SboxColors.slate500),
+              const SizedBox(width: 6),
+              Expanded(
+                child: Text(tr(value),
+                    maxLines: 1,
+                    overflow: TextOverflow.fade,
+                    softWrap: false,
+                    style: const TextStyle(fontSize: 15, fontWeight: FontWeight.w600)),
+              ),
+            ]),
+          ),
+        );
+
+    final datePick = pickBox(Icons.event, 'Ngày', (_usageDay.year == DateTime.now().year
+            ? DateFormat('EEE, dd/MM', 'vi_VN').format(_usageDay)
+            : DateFormat('dd/MM/yyyy').format(_usageDay)),
+        _saving
+            ? null
+            : () async {
+                final d = await showDatePicker(
+                  context: context,
+                  initialDate: _usageDay,
+                  firstDate: DateTime.now().subtract(const Duration(days: 1)),
+                  lastDate: DateTime.now().add(const Duration(days: 180)),
+                );
+                if (d != null) setState(() => _usageDay = DateTime(d.year, d.month, d.day));
+              });
+    final timePick = pickBox(
+        Icons.access_time,
+        'Giờ đến',
+        '${_slotTime.hour.toString().padLeft(2, '0')}:${_slotTime.minute.toString().padLeft(2, '0')}',
+        _saving
+            ? null
+            : () async {
+                final t = await showTimePicker(
+                  context: context,
+                  initialTime: _slotTime,
+                  builder: (c, child) => MediaQuery(
+                    data: MediaQuery.of(c).copyWith(alwaysUse24HourFormat: true),
+                    child: child ?? const SizedBox.shrink(),
+                  ),
+                );
+                if (t != null) setState(() => _slotTime = t);
+              });
+
+    final mins = <int>{30, 45, 60, 90, 120, 150, 180, 240, _durationMinutes}.toList()..sort();
+    final durationPick = _isHotel
+        ? DropdownButtonFormField<int>(
+            value: _stayNights,
+            decoration: InputDecoration(labelText: tr('Số đêm'), border: field, isDense: true),
+            items: List.generate(14, (i) => DropdownMenuItem(value: i + 1, child: Text(tr('${i + 1} đêm')))),
+            onChanged: _saving ? null : (v) => v == null ? null : setState(() => _stayNights = v),
+          )
+        : DropdownButtonFormField<int>(
+            value: _durationMinutes,
+            decoration: InputDecoration(labelText: tr('Thời lượng'), border: field, isDense: true),
+            items: [
+              for (final m in mins)
+                DropdownMenuItem(
+                  value: m,
+                  child: Text(tr(m % 60 == 0 ? '${m ~/ 60} giờ' : m > 60 ? '${m ~/ 60} giờ ${m % 60}′' : '$m phút')),
+                ),
+            ],
+            onChanged: _saving ? null : (v) => v == null ? null : setState(() => _durationMinutes = v),
+          );
+
+    final guests = InputDecorator(
+      decoration: InputDecoration(
+        labelText: tr('Số khách'),
+        border: field,
+        isDense: true,
+        contentPadding: const EdgeInsets.symmetric(horizontal: 4, vertical: 2),
+      ),
+      child: Row(children: [
+        IconButton(
+          visualDensity: VisualDensity.compact,
+          onPressed: _saving || _guestCount <= 1 ? null : () => setState(() => _guestCount--),
+          icon: const Icon(Icons.remove, size: 18),
+        ),
+        Expanded(
+          child: Text('$_guestCount',
+              textAlign: TextAlign.center, style: const TextStyle(fontSize: 16, fontWeight: FontWeight.w700)),
+        ),
+        IconButton(
+          visualDensity: VisualDensity.compact,
+          onPressed: _saving || _guestCount >= 200 ? null : () => setState(() => _guestCount++),
+          icon: const Icon(Icons.add, size: 18),
+        ),
+      ]),
+    );
+
+    final body = Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        section(
+          'Khách hàng',
+          trailing: TextButton.icon(
+            onPressed: _saving ? null : () => unawaited(_pickCustomer()),
+            style: TextButton.styleFrom(visualDensity: VisualDensity.compact),
+            icon: const Icon(Icons.person_search_outlined, size: 18),
+            label: Text(tr(_customerId == null ? 'Chọn từ danh bạ' : 'Đổi khách')),
+          ),
+        ),
+        TextField(
+          controller: _nameCtrl,
+          textCapitalization: TextCapitalization.words,
+          decoration: InputDecoration(labelText: tr('Tên khách *'), border: field, isDense: true),
+        ),
+        const SizedBox(height: 10),
+        TextField(
+          controller: _phoneCtrl,
+          keyboardType: TextInputType.phone,
+          decoration: InputDecoration(
+            labelText: tr('Số điện thoại'),
+            border: field,
+            isDense: true,
+            prefixIcon: const Icon(Icons.call_outlined, size: 18),
+          ),
+        ),
+        section('Thời gian'),
+        Row(children: [
+          Expanded(flex: 3, child: datePick),
+          const SizedBox(width: 8),
+          Expanded(flex: 2, child: timePick),
+        ]),
+        const SizedBox(height: 10),
+        Row(children: [
+          Expanded(child: durationPick),
+          const SizedBox(width: 8),
+          Expanded(child: guests),
+        ]),
+        section('$nounCap & dịch vụ'),
+        DropdownButtonFormField<String>(
+          value: resourceIds.contains(_resourceId) ? _resourceId : null,
+          isExpanded: true,
+          decoration: InputDecoration(labelText: tr('$nounCap *'), border: field, isDense: true),
+          items: widget.resources
+              .map((r) => DropdownMenuItem(
+                    value: r.id,
+                    child: Text(tr(r.areaName.trim().isEmpty ? r.name : '${r.areaName} · ${r.name}'),
+                        overflow: TextOverflow.ellipsis),
+                  ))
+              .toList(),
+          onChanged: _saving ? null : (v) => setState(() => _resourceId = v),
+        ),
+        const SizedBox(height: 10),
+        DropdownButtonFormField<String?>(
+          value: serviceIds.contains(_serviceProductId) ? _serviceProductId : null,
+          isExpanded: true,
+          decoration: InputDecoration(
+            labelText: tr(_requireService ? 'Dịch vụ *' : 'Dịch vụ (tuỳ chọn)'),
+            border: field,
+            isDense: true,
+          ),
+          items: [
+            if (!_requireService) DropdownMenuItem<String?>(value: null, child: Text(tr('— Không chọn —'))),
+            ..._services.map((p) => DropdownMenuItem<String?>(
+                  value: p.id,
+                  child: Text(
+                      tr('${p.name}${p.defaultDurationMinutes != null ? ' (${p.defaultDurationMinutes}′)' : ''}'),
+                      overflow: TextOverflow.ellipsis),
+                )),
+          ],
+          onChanged: _saving
+              ? null
+              : (v) {
+                  PosProduct? p;
+                  for (final x in _services) {
+                    if (x.id == v) {
+                      p = x;
+                      break;
+                    }
+                  }
+                  setState(() => _onServicePicked(p));
+                },
+        ),
+        if (_showStaffPicker) ...[
+          const SizedBox(height: 10),
+          DropdownButtonFormField<String?>(
+            value: employeeIds.contains(_employeeId) ? _employeeId : null,
+            isExpanded: true,
+            decoration: InputDecoration(labelText: tr('Nhân viên phụ trách'), border: field, isDense: true),
+            items: [
+              DropdownMenuItem<String?>(value: null, child: Text(tr('— Không chọn —'))),
+              ..._employees.map((e) => DropdownMenuItem(value: e.id, child: Text(tr(e.label)))),
+            ],
+            onChanged: _saving ? null : (v) => setState(() => _employeeId = v),
+          ),
+        ],
+        section('Dịp'),
+        Wrap(spacing: 8, runSpacing: 8, children: [
+          for (final o in PosReservationOccasion.options)
+            ChoiceChip(
+              label: Text(tr(o.$2)),
+              selected: _occasion == o.$1,
+              onSelected: _saving ? null : (v) => setState(() => _occasion = v ? o.$1 : null),
+            ),
+        ]),
+        section('Yêu cầu thêm'),
+        Wrap(spacing: 8, runSpacing: 8, children: [
+          for (final chip in PosReservationOccasion.requestChips)
+            FilterChip(
+              label: Text(tr(chip)),
+              selected: _requestTags.contains(chip),
+              onSelected: _saving
+                  ? null
+                  : (v) => setState(() => v ? _requestTags.add(chip) : _requestTags.remove(chip)),
+            ),
+        ]),
+        const SizedBox(height: 10),
+        TextField(
+          controller: _requestCtrl,
+          maxLines: 2,
+          decoration: InputDecoration(
+            labelText: tr('Yêu cầu khác'),
+            hintText: tr('VD: không cay, bàn gần cửa sổ…'),
+            border: field,
+            isDense: true,
+          ),
+        ),
+        if (widget.existing == null) ...[
+          section('Đặt cọc'),
+          TextField(
+            controller: _depositPaidCtrl,
+            keyboardType: TextInputType.number,
+            decoration: InputDecoration(
+              labelText: tr('Thu cọc ngay (không bắt buộc)'),
+              border: field,
+              isDense: true,
+              suffixText: tr('đ'),
+            ),
+          ),
+          const SizedBox(height: 8),
+          PosDepositPaymentPicker(
+            compact: true,
+            value: _depositPay,
+            onChanged: (v) => setState(() => _depositPay = v),
+          ),
+        ],
+        section('Ghi chú'),
+        TextField(
+          controller: _noteCtrl,
+          maxLines: 2,
+          decoration: InputDecoration(labelText: tr('Ghi chú nội bộ'), border: field, isDense: true),
+        ),
+        const SizedBox(height: 4),
+      ],
+    );
+
+    return Dialog(
+      insetPadding: phone
+          ? const EdgeInsets.symmetric(horizontal: 10, vertical: 20)
+          : const EdgeInsets.symmetric(horizontal: 40, vertical: 24),
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+      child: ConstrainedBox(
+        constraints: const BoxConstraints(maxWidth: 520),
+        child: Column(mainAxisSize: MainAxisSize.min, crossAxisAlignment: CrossAxisAlignment.stretch, children: [
+          Padding(
+            padding: const EdgeInsets.fromLTRB(20, 14, 8, 0),
+            child: Row(children: [
+              Icon(widget.existing == null ? Icons.event_available_outlined : Icons.edit_calendar_outlined,
+                  color: PosTheme.kiotBlue),
+              const SizedBox(width: 8),
+              Expanded(
+                child: Text(tr(widget.existing == null ? _profile.bookActionLabel : 'Sửa lịch đặt'),
+                    style: const TextStyle(fontSize: 18, fontWeight: FontWeight.w700)),
+              ),
+              IconButton(
+                onPressed: _saving ? null : () => Navigator.pop(context),
+                icon: const Icon(Icons.close),
+              ),
+            ]),
+          ),
+          Flexible(
+            child: _loadingMeta
+                ? const SizedBox(height: 160, child: Center(child: CircularProgressIndicator()))
+                : SingleChildScrollView(padding: const EdgeInsets.fromLTRB(20, 0, 20, 12), child: body),
+          ),
+          const Divider(height: 1),
+          Padding(
+            padding: const EdgeInsets.fromLTRB(16, 10, 16, 12),
+            child: Row(children: [
+              Expanded(
+                child: OutlinedButton(
+                  onPressed: _saving ? null : () => Navigator.pop(context),
+                  style: OutlinedButton.styleFrom(minimumSize: const Size(0, 46)),
+                  child: Text(tr('Huỷ')),
                 ),
               ),
+              const SizedBox(width: 10),
+              Expanded(
+                flex: 2,
+                child: FilledButton.icon(
+                  onPressed: _saving || _loadingMeta ? null : () => unawaited(_submit()),
+                  style: FilledButton.styleFrom(minimumSize: const Size(0, 46)),
+                  icon: _saving
+                      ? const SizedBox(width: 18, height: 18, child: CircularProgressIndicator(strokeWidth: 2))
+                      : const Icon(Icons.check, size: 18),
+                  label: Text(tr(widget.existing == null ? _profile.bookActionLabel : 'Lưu thay đổi')),
+                ),
+              ),
+            ]),
+          ),
+        ]),
       ),
-      actions: [
-        TextButton(
-          onPressed: _saving ? null : () => Navigator.pop(context),
-          child: Text(tr('Huỷ')),
-        ),
-        FilledButton(
-          onPressed: _saving || _loadingMeta ? null : () => unawaited(_submit()),
-          child: _saving
-              ? const SizedBox(
-                  width: 18,
-                  height: 18,
-                  child: CircularProgressIndicator(strokeWidth: 2),
-                )
-              : Text(tr(widget.existing == null
-                  ? _profile.bookActionLabel
-                  : 'Lưu')),
-        ),
-      ],
     );
   }
 }

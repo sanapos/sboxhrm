@@ -1,4 +1,4 @@
-﻿import 'package:flutter/material.dart';
+import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 
 import '../../models/pos_purchase.dart';
@@ -44,6 +44,8 @@ class _WhMobileDocDetailScreenState extends State<WhMobileDocDetailScreen> {
   String? _subtitle;
   String? _note;
   String? _meta;
+  /// (nhãn, số tiền, tô đỏ) — đã trả / còn nợ NCC.
+  List<(String, double, bool)> _money = const [];
   double _amount = 0;
   int _lineCount = 0;
   List<Map<String, dynamic>> _lines = [];
@@ -65,6 +67,10 @@ class _WhMobileDocDetailScreenState extends State<WhMobileDocDetailScreen> {
           final res = await _api.getPosPurchaseReceipt(widget.docId);
           if (res['isSuccess'] == true) {
             final r = PosPurchaseReceipt.fromJson(res['data'] as Map<String, dynamic>);
+            final due = r.balanceDue != 0 ? r.balanceDue : r.grandTotal - r.paidAmount;
+            _money = r.status == 'Cancelled'
+                ? const []
+                : [('Đã trả NCC', r.paidAmount, false), ('Còn nợ NCC', due, due > 0)];
             _apply(r.receiptNo, r.status, r.supplierName, r.note,
                 '${r.lines.length} dòng · ${_svc.formatDate(r.importDate ?? r.createdAt)}',
                 r.grandTotal, r.lines.length,
@@ -79,6 +85,10 @@ class _WhMobileDocDetailScreenState extends State<WhMobileDocDetailScreen> {
           final res = await _api.getPosPurchaseReturn(widget.docId);
           if (res['isSuccess'] == true) {
             final r = PosPurchaseReturn.fromJson(res['data'] as Map<String, dynamic>);
+            final owed = r.supplierRefundAmount - r.refundReceived;
+            _money = r.status == 'Cancelled'
+                ? const []
+                : [('NCC đã hoàn', r.refundReceived, false), ('NCC còn phải hoàn', owed, owed > 0)];
             _apply(r.returnNo, r.status, r.supplierName, r.note,
                 '${r.lines.length} dòng · ${_svc.formatDate(r.returnDate)}',
                 r.totalAmount, r.lines.length,
@@ -101,7 +111,7 @@ class _WhMobileDocDetailScreenState extends State<WhMobileDocDetailScreen> {
                       'qty': l.countedQty ?? l.systemQty,
                       'unit': l.unitName ?? '',
                       'total': l.diffValue,
-                      'extra': 'TK: ${l.systemQty}',
+                      'extra': 'Tồn HT: ${l.systemQty}',
                     }).toList());
           }
         case WhDocType.damageIssue:
@@ -297,6 +307,16 @@ class _WhMobileDocDetailScreenState extends State<WhMobileDocDetailScreen> {
                       if (_meta != null) ...[
                         const SizedBox(height: 6),
                         Text(tr(_meta!), style: WhMobileTheme.caption),
+                      ],
+                      for (final m in _money) ...[
+                        const SizedBox(height: 8),
+                        Row(children: [
+                          Expanded(child: Text(tr(m.$1), style: WhMobileTheme.caption)),
+                          Text(_svc.formatMoney(m.$2),
+                              style: WhMobileTheme.body.copyWith(
+                                  fontWeight: FontWeight.w600,
+                                  color: m.$3 ? const Color(0xFFB42318) : null)),
+                        ]),
                       ],
                       if (_note != null && _note!.trim().isNotEmpty) ...[
                         const SizedBox(height: 12),

@@ -1,6 +1,7 @@
 import 'dart:async';
 
 import 'package:flutter/material.dart';
+import '../../utils/api_datetime.dart';
 import 'package:intl/intl.dart';
 import 'package:provider/provider.dart';
 
@@ -11,7 +12,7 @@ import '../../widgets/pos/pos_hub_scope.dart';
 import '../../widgets/pos/pos_numeric_keypad.dart';
 import '../../widgets/pos/pos_theme.dart';
 import '../../widgets/pos/pos_vnd_thousands_formatter.dart';
-import 'pos_sell_industry_settings_hub_screen.dart';
+import 'pos_sell_industry_settings_screen.dart';
 import 'package:sbox_pos/l10n/app_tr.dart';
 
 import '../../theme/sbox_tokens.dart';
@@ -255,16 +256,13 @@ class _PosCashierShiftScreenState extends State<PosCashierShiftScreen> {
     return Scaffold(
       backgroundColor: SboxColors.slate100,
       appBar: AppBar(
-        backgroundColor: PosTheme.kiotBlue,
-        foregroundColor: Colors.white,
+        backgroundColor: Colors.white,
+        surfaceTintColor: Colors.white,
+        elevation: 0.5,
+        foregroundColor: SboxColors.text,
         automaticallyImplyLeading: pushed,
         title: Text(tr('Ca thu ngân')),
         actions: [
-          IconButton(
-            tooltip: tr('Tải lại'),
-            onPressed: _loading || _busy ? null : _load,
-            icon: const Icon(Icons.refresh),
-          ),
         ],
       ),
       body: _loading
@@ -630,7 +628,7 @@ class _PosCashierShiftScreenState extends State<PosCashierShiftScreen> {
                   builder: (_) => const PosHubScope(
                     embeddedInHub: false,
                     pushedSubPage: true,
-                    child: PosSellIndustrySettingsHubScreen(),
+                    child: PosSellIndustrySettingsScreen(section: 'profile'),
                   ),
                 ),
               );
@@ -993,9 +991,7 @@ class _ShiftSnap {
         v is num ? v.toDouble() : double.tryParse('$v') ?? 0;
     DateTime? d(dynamic v) {
       if (v == null) return null;
-      final parsed = DateTime.tryParse(v.toString());
-      if (parsed == null) return null;
-      return parsed.isUtc ? parsed.toLocal() : parsed;
+      return parseApiUtcDateTime(v);
     }
 
     return _ShiftSnap(

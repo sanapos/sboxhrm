@@ -131,6 +131,8 @@ class _PosKdsScreenState extends State<PosKdsScreen> {
       if (!mounted) return;
       final reason =
           (event['reason'] ?? event['Reason'] ?? '').toString().toLowerCase();
+      // Hàng hóa / HĐ quầy / thiết lập không đổi vé bếp.
+      if (PosSyncReasons.notFloor.contains(reason)) return;
       final msg = (event['message'] ?? event['Message'])?.toString();
       unawaited(_loadTickets(
         silent: true,
@@ -1288,6 +1290,8 @@ class _PosKdsScreenState extends State<PosKdsScreen> {
 
   Widget _buildHeader(bool pushed, List<_KdsAgg> aggs) {
     final lateN = _lateCount;
+    // Điện thoại: thanh đầu gọn — ẩn đồng hồ, nút toàn màn hình / đọc món / máy in vào menu «⋯» (tránh tràn hàng).
+    final narrow = MediaQuery.sizeOf(context).width < 600;
     return Material(
       color: _bar,
       elevation: 0,
@@ -1308,21 +1312,23 @@ class _PosKdsScreenState extends State<PosKdsScreen> {
                   onPressed: () => Navigator.of(context).maybePop(),
                   icon: const Icon(Icons.arrow_back, color: _ink),
                 ),
-              const Icon(Icons.soup_kitchen, color: _blue, size: 28),
+              Icon(Icons.soup_kitchen, color: _blue, size: narrow ? 22 : 28),
+              if (!narrow) ...[
               const SizedBox(width: 8),
               Text(
                 tr('BẾP'),
-                style: const TextStyle(
+                style: TextStyle(
                   color: _blue,
                   fontWeight: FontWeight.w700,
-                  fontSize: 26,
+                  fontSize: narrow ? 18 : 26,
                   letterSpacing: 0.4,
                   height: 1,
                 ),
               ),
-              const SizedBox(width: 12),
-              _viewToggle(),
-              const SizedBox(width: 16),
+              ],
+              SizedBox(width: narrow ? 8 : 12),
+              _viewToggle(compact: narrow),
+              SizedBox(width: narrow ? 8 : 16),
               Expanded(
                 child: SingleChildScrollView(
                   scrollDirection: Axis.horizontal,
@@ -1355,6 +1361,7 @@ class _PosKdsScreenState extends State<PosKdsScreen> {
                   ),
                 ),
               ),
+              if (!narrow)
               Column(
                 crossAxisAlignment: CrossAxisAlignment.end,
                 children: [
@@ -1387,6 +1394,7 @@ class _PosKdsScreenState extends State<PosKdsScreen> {
                       style: const TextStyle(
                           color: _chipOn, fontWeight: FontWeight.w700)),
                 ),
+              if (!narrow) ...[
               IconButton(
                 tooltip: tr(_isKdsFullscreen
                     ? 'Thu nhỏ'
@@ -1415,18 +1423,7 @@ class _PosKdsScreenState extends State<PosKdsScreen> {
                   color: _printOnDone ? _blue : _muted,
                 ),
               ),
-              IconButton(
-                tooltip: tr('Tải lại'),
-                onPressed: _loading ? null : () => _loadTickets(),
-                icon: _loading
-                    ? const SizedBox(
-                        width: 18,
-                        height: 18,
-                        child: CircularProgressIndicator(
-                            strokeWidth: 2, color: _muted),
-                      )
-                    : const Icon(Icons.refresh, color: _muted),
-              ),
+              ],
               PopupMenuButton<String>(
                 tooltip: tr('Thêm'),
                 color: _sheet,
@@ -1443,6 +1440,8 @@ class _PosKdsScreenState extends State<PosKdsScreen> {
                             builder: (_) => const SettingsHubScreen()),
                       );
                     }
+                  } else if (v == 'kds_print') {
+                    unawaited(_openKdsPrintSettings());
                   } else if (v == 'voice_toggle') {
                     _toggleVoice();
                   } else if (v == 'voice_settings') {
@@ -1469,6 +1468,10 @@ class _PosKdsScreenState extends State<PosKdsScreen> {
                   PopupMenuItem(
                     value: 'voice_settings',
                     child: Text(tr('Chọn giọng và tốc độ')),
+                  ),
+                  PopupMenuItem(
+                    value: 'kds_print',
+                    child: Text(tr('Máy in KDS')),
                   ),
                   PopupMenuItem(
                     value: 'pos_settings',
@@ -1519,7 +1522,7 @@ class _PosKdsScreenState extends State<PosKdsScreen> {
     );
   }
 
-  Widget _viewToggle() {
+  Widget _viewToggle({bool compact = false}) {
     Widget tab(String label, _KdsView v) {
       final on = _view == v;
       return InkWell(
@@ -1527,7 +1530,7 @@ class _PosKdsScreenState extends State<PosKdsScreen> {
         borderRadius: BorderRadius.circular(10),
         child: AnimatedContainer(
           duration: const Duration(milliseconds: 160),
-          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 9),
+          padding: EdgeInsets.symmetric(horizontal: compact ? 10 : 16, vertical: compact ? 7 : 9),
           decoration: BoxDecoration(
             color: on ? _chipOn : Colors.transparent,
             borderRadius: BorderRadius.circular(10),
@@ -1537,7 +1540,7 @@ class _PosKdsScreenState extends State<PosKdsScreen> {
             style: TextStyle(
               color: on ? Colors.white : _ink,
               fontWeight: FontWeight.w700,
-              fontSize: 14,
+              fontSize: compact ? 13 : 14,
             ),
           ),
         ),
@@ -1578,13 +1581,9 @@ class _PosKdsScreenState extends State<PosKdsScreen> {
       color: _bar,
       child: Padding(
         padding: const EdgeInsets.fromLTRB(16, 0, 16, 12),
-        child: Row(
-          children: [
-            Expanded(
-              child: SingleChildScrollView(
-                scrollDirection: Axis.horizontal,
-                child: Row(
-                  children: [
+        // Điện thoại: một hàng cuộn duy nhất (trước đây 2 vùng cuộn chia nửa màn → chữ «Đang…» bị cắt).
+        child: LayoutBuilder(builder: (context, c) {
+          final leftChips = <Widget>[
                     label('${tr('Trạng thái')}:'),
                     _toneChip(tr('Tất cả'), null, _blue, _blueSoft),
                     _toneChip(tr('Đang làm'), 'cooking', _blue, _blueSoft),
@@ -1594,16 +1593,8 @@ class _PosKdsScreenState extends State<PosKdsScreen> {
                     label('${tr('Máy in')}:'),
                     _stationChip(null, tr('Tất cả')),
                     for (final s in _stations) _stationChip(s.id, s.name),
-                  ],
-                ),
-              ),
-            ),
-            const SizedBox(width: 8),
-            Flexible(
-              child: SingleChildScrollView(
-                scrollDirection: Axis.horizontal,
-                child: Row(
-                  children: [
+          ];
+          final rightChips = <Widget>[
                     _filterChip(
                       _newestFirst ? tr('Mới nhất') : tr('Lâu nhất'),
                       !_newestFirst,
@@ -1635,12 +1626,31 @@ class _PosKdsScreenState extends State<PosKdsScreen> {
                         });
                       },
                     ),
-                  ],
+          ];
+          if (c.maxWidth < 700) {
+            return SingleChildScrollView(
+              scrollDirection: Axis.horizontal,
+              child: Row(children: [...leftChips, const SizedBox(width: 8), ...rightChips]),
+            );
+          }
+          return Row(
+            children: [
+              Expanded(
+                child: SingleChildScrollView(
+                  scrollDirection: Axis.horizontal,
+                  child: Row(children: leftChips),
                 ),
               ),
-            ),
-          ],
-        ),
+              const SizedBox(width: 8),
+              Flexible(
+                child: SingleChildScrollView(
+                  scrollDirection: Axis.horizontal,
+                  child: Row(children: rightChips),
+                ),
+              ),
+            ],
+          );
+        }),
       ),
     );
   }
