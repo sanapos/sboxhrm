@@ -11934,6 +11934,15 @@ class _PosSellScreenState extends State<PosSellScreen>
               contentPadding: EdgeInsets.zero,
             ),
           ),
+        PopupMenuItem(
+          value: 'price_list',
+          child: ListTile(
+            dense: true,
+            leading: const Icon(Icons.sell_outlined, size: 20),
+            title: Text(tr('Bảng giá: ${_tab.priceListLabel}')),
+            contentPadding: EdgeInsets.zero,
+          ),
+        ),
         if (canMod('PosCustomerDisplay'))
           PopupMenuItem(
             value: 'customer_display',
@@ -14387,6 +14396,34 @@ class _PosSellScreenState extends State<PosSellScreen>
                     .toList(),
               ),
             ),
+        ],
+        // Màn rộng (T1, tablet ngang, web): trước đây chỉ khung thanh toán điện thoại có chọn bảng giá.
+        if (!forMobilePayment) ...[
+          const SizedBox(height: 6),
+          InkWell(
+            borderRadius: BorderRadius.circular(6),
+            onTap: () async {
+              await _openMobilePriceListPicker(onMutate: onMutate);
+              if (mounted) setState(() {});
+              onMutate?.call();
+            },
+            child: InputDecorator(
+              decoration: InputDecoration(
+                labelText: tr('Bảng giá'),
+                isDense: true,
+                prefixIcon: const Icon(Icons.sell_outlined, size: 18),
+                suffixIcon: const Icon(Icons.expand_more_rounded, size: 18),
+                border: OutlineInputBorder(borderRadius: BorderRadius.circular(6)),
+                contentPadding: const EdgeInsets.symmetric(horizontal: 8, vertical: 8),
+              ),
+              child: Text(
+                tr(_tab.priceListLabel),
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+                style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w600),
+              ),
+            ),
+          ),
         ],
         if (_sellSellers.isNotEmpty) ...[
           const SizedBox(height: 6),
