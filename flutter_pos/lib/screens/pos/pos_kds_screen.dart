@@ -2396,12 +2396,13 @@ class _PosKdsScreenState extends State<PosKdsScreen> {
             height: 40,
             child: FilledButton(
               onPressed: _busy || cooking ? null : onCook,
+              // Nút phụ nhưng phải rõ: nền nhạt + viền / chữ màu trạng thái (Chờ làm = hổ phách).
               style: FilledButton.styleFrom(
-                backgroundColor: _chipIdle,
-                foregroundColor: _ink,
+                backgroundColor: _tint(_orange),
+                foregroundColor: _orange,
                 disabledBackgroundColor: _tint(_blue),
                 disabledForegroundColor: _blue,
-                side: BorderSide(color: cooking ? _blue.withOpacity(0.4) : _line),
+                side: BorderSide(color: (cooking ? _blue : _orange).withOpacity(0.75), width: 1.5),
                 shape: RoundedRectangleBorder(
                     borderRadius: BorderRadius.circular(14)),
                 elevation: 0,
@@ -2410,7 +2411,7 @@ class _PosKdsScreenState extends State<PosKdsScreen> {
               child: Text(
                 tr(cooking ? 'Đang làm…' : 'Bắt đầu làm'),
                 textAlign: TextAlign.center,
-                style: TextStyle(fontWeight: FontWeight.w700, fontSize: 13),
+                style: TextStyle(fontWeight: FontWeight.w800, fontSize: 14),
               ),
             ),
           ),
