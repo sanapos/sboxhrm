@@ -18,6 +18,8 @@ import 'screens/login_screen.dart';
 import 'screens/admin_login_screen.dart';
 import 'screens/pos/pos_customer_display_screen.dart';
 import 'screens/pos/pos_mobile_hub_screen.dart';
+import 'screens/pos/pos_kds_screen.dart';
+import 'utils/sbox_app_variant.dart';
 import 'models/hrm.dart';
 import 'screens/main_layout.dart';
 import 'services/api_service.dart';
@@ -134,7 +136,7 @@ class SboxPosApp extends StatelessWidget {
             context.read<PermissionProvider>(),
           );
           return MaterialApp(
-        title: 'SBOX POS',
+        title: kSboxKdsApp ? 'SBOX KDS' : 'SBOX POS',
         debugShowCheckedModeBanner: false,
         locale: AppLocale.locale,
         supportedLocales: const [
@@ -275,9 +277,12 @@ class _PosAuthShellState extends State<_PosAuthShell>
       MobileBottomNavPrefs.loadAll().timeout(const Duration(seconds: 4)),
     );
     unawaited(_loadPermissionsInBackground(auth, perm));
-    WidgetsBinding.instance.addPostFrameCallback((_) {
-      if (mounted) unawaited(maybePromptPosAppUpdate(context));
-    });
+    // SBOX KDS: không mời cập nhật APK POS (khác mã ứng dụng).
+    if (!kSboxKdsApp) {
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (mounted) unawaited(maybePromptPosAppUpdate(context));
+      });
+    }
     unawaited(_connectSignalR());
   }
 
@@ -325,8 +330,9 @@ class _PosAuthShellState extends State<_PosAuthShell>
       if (storeId != null && storeId.isNotEmpty) {
         await _signalR.joinStoreGroup(storeId);
         await PosPrintOrchestrator.instance.ensureListening();
-        final agentSettings = await PosPrintAgentSettings.load();
-        if (agentSettings.enabled) {
+        // SBOX KDS chỉ hiện / in phiếu bếp — không làm Agent in hộ, không nghe cổng thanh toán.
+        final agentSettings = kSboxKdsApp ? null : await PosPrintAgentSettings.load();
+        if (agentSettings != null && agentSettings.enabled) {
           final u = auth.user;
           final label = [
             if ((u?.fullName ?? '').trim().isNotEmpty) u!.fullName.trim(),
@@ -336,12 +342,14 @@ class _PosAuthShellState extends State<_PosAuthShell>
             await agentSettings.copyWith(accountLabel: label).save();
           }
         }
-        await PosPrintAgentService.instance.ensureRunning(
-          storeId,
-          forceReregister: forceAgent,
-        );
+        if (!kSboxKdsApp) {
+          await PosPrintAgentService.instance.ensureRunning(
+            storeId,
+            forceReregister: forceAgent,
+          );
+        }
         unawaited(PosQrOrderVoiceAlert.instance.start());
-        PosPaymentGatewayListener.instance.start();
+        if (!kSboxKdsApp) PosPaymentGatewayListener.instance.start();
       }
       final userId = auth.user?.id;
       if (userId != null && userId.isNotEmpty) {
@@ -428,8 +436,10 @@ class _PosAuthShellState extends State<_PosAuthShell>
         if (handler != null && await handler()) return;
         SystemNavigator.pop();
       },
-      // Luôn vào tab Bán hàng sau login — không khôi phục tab cũ (Tổng quan/…).
-      child: const PosMobileHubScreen(initialTab: 2, restoreLastTab: false),
+      // SBOX KDS: chỉ màn hình bếp. POS: luôn vào tab Bán hàng (không khôi phục tab cũ).
+      child: kSboxKdsApp
+          ? const PosKdsScreen()
+          : const PosMobileHubScreen(initialTab: 2, restoreLastTab: false),
     );
   }
 }

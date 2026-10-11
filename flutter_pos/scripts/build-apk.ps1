@@ -6,7 +6,9 @@
 param(
   [ValidateSet('hrm', 'pos', 'all')]
   [string]$Server = 'all',
-  [switch]$DebugBuild
+  [switch]$DebugBuild,
+  # SBOX KDS: chỉ màn hình bếp, mã ứng dụng sbox.sana.vn.kds -> dist\flutter_kds\<server>\sbox-kds.apk
+  [switch]$Kds
 )
 
 $ErrorActionPreference = "Stop"
@@ -53,13 +55,15 @@ $servers = if ($Server -eq 'all') { @('hrm', 'pos') } else { @($Server) }
 
 foreach ($s in $servers) {
   Write-Host "==> Build $mode for server '$s'"
-  & $flutter build apk "--$mode" "--dart-define=SBOX_SERVER=$s"
+  $extra = @()
+  if ($Kds) { $extra += "--dart-define=SBOX_APP=kds" }
+  & $flutter build apk "--$mode" "--dart-define=SBOX_SERVER=$s" @extra
   if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
 
   $apk = Join-Path $root "build\app\outputs\flutter-apk\app-$mode.apk"
-  $outDir = Join-Path $repo "dist\flutter_pos\$s"
+  $outDir = if ($Kds) { Join-Path $repo "dist\flutter_kds\$s" } else { Join-Path $repo "dist\flutter_pos\$s" }
   New-Item -ItemType Directory -Force -Path $outDir | Out-Null
-  $dest = Join-Path $outDir "sbox-pos.apk"
+  $dest = Join-Path $outDir $(if ($Kds) { "sbox-kds.apk" } else { "sbox-pos.apk" })
   Copy-Item $apk $dest -Force
   Set-Content -Path (Join-Path $outDir "server.txt") -Value $s -NoNewline
   Write-Host "OK -> $dest"

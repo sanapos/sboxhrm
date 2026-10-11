@@ -1,3 +1,5 @@
+import '../../utils/sbox_app_variant.dart';
+import '../../widgets/pos/pos_mobile_widgets.dart';
 import 'dart:async';
 import 'dart:ui';
 
@@ -1450,6 +1452,8 @@ class _PosKdsScreenState extends State<PosKdsScreen> {
                     );
                   } else if (v == 'fullscreen') {
                     unawaited(_toggleKdsFullscreen());
+                  } else if (v == 'logout') {
+                    await showPosLogoutDialog(context);
                   }
                 },
                 itemBuilder: (_) => [
@@ -1477,6 +1481,12 @@ class _PosKdsScreenState extends State<PosKdsScreen> {
                     value: 'pos_settings',
                     child: Text(tr('Thiết lập SBOX')),
                   ),
+                  // App SBOX KDS không có hub «Nhiều hơn» → đăng xuất ở đây.
+                  if (kSboxKdsApp)
+                    PopupMenuItem(
+                      value: 'logout',
+                      child: Text(tr('Đăng xuất')),
+                    ),
                 ],
               ),
             ],

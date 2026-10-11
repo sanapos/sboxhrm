@@ -1,3 +1,4 @@
+import '../utils/sbox_app_variant.dart';
 import 'dart:async';
 import 'dart:convert';
 import 'dart:io' show File, Platform;
@@ -496,7 +497,7 @@ class _LoginScreenState extends State<LoginScreen>
                   const SizedBox(height: 8),
                   Align(
                     alignment: Alignment.center,
-                    child: Text(tr('Nhập thông tin để vào SBOX POS.'),
+                    child: Text(tr(kSboxKdsApp ? 'Đăng nhập để mở màn hình bếp SBOX KDS.' : 'Nhập thông tin để vào SBOX POS.'),
                       style: TextStyle(
                           color: SboxColors.slate600, fontSize: 14, height: 1.5),
                     ),

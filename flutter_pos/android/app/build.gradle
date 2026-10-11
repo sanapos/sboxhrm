@@ -22,6 +22,19 @@ if (flutterVersionName == null) {
     flutterVersionName = "1.0"
 }
 
+// `flutter build ... --dart-define=SBOX_APP=kds` → app SBOX KDS (mã ứng dụng riêng, cài song song POS).
+// Flutter truyền dart-define sang Gradle dạng -Pdart-defines=<base64,base64,...>.
+def sboxDartDefines = [:]
+if (project.hasProperty('dart-defines')) {
+    project.property('dart-defines').toString().split(',').each { enc ->
+        try {
+            def kv = new String(enc.decodeBase64(), 'UTF-8').split('=', 2)
+            if (kv.length == 2) sboxDartDefines[kv[0]] = kv[1]
+        } catch (ignored) {}
+    }
+}
+def sboxIsKds = sboxDartDefines['SBOX_APP'] == 'kds'
+
 android {
     namespace = "vn.sana.sbox.sbox_pos"
     compileSdk = 34
@@ -38,7 +51,8 @@ android {
     }
 
     defaultConfig {
-        applicationId = "sbox.sana.vn.pos.flutter"
+        applicationId = sboxIsKds ? "sbox.sana.vn.kds" : "sbox.sana.vn.pos.flutter"
+        manifestPlaceholders += [appLabel: sboxIsKds ? "SBOX KDS" : "SBOX POS"]
         // Sunmi T1 (A6) = API 23. Lay tu gradle.properties: so hardcode o day bi
         // `flutter build` tu dong viet de thanh flutter.minSdkVersion (>=24).
         minSdk = (project.findProperty('sboxMinSdk') ?: 23) as Integer
