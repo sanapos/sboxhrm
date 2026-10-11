@@ -1,5 +1,10 @@
+import 'dart:async';
+import 'dart:convert';
+
 import 'package:shared_preferences/shared_preferences.dart';
 
+import '../services/api_service.dart';
+import 'pos_sell_settings_helper.dart';
 import 'pos_thermal_printer_settings.dart';
 
 /// Chế độ in phiếu báo xuất kho trên màn bán hàng.
@@ -176,6 +181,60 @@ class PosSellPrintSettings {
   static const _kWarehouseMode = 'pos_sell_kitchen_print_mode';
   static const _kKitchenSlipMode = 'pos_sell_kitchen_slip_print_mode';
   static const _kCupLabelMode = 'pos_sell_cup_label_print_mode';
+  /// Chế độ tem ly mặc định của cửa hàng (bản sao trên máy, lấy từ sell-settings «cupLabel.mode»).
+  static const _kCupLabelStoreMode = 'pos_sell_cup_label_store_mode';
+
+  /// Đọc «cupLabel.mode» trong extraJson cửa hàng.
+  static String? storeCupModeFrom(String? extraJson) {
+    if (extraJson == null || extraJson.trim().isEmpty) return null;
+    try {
+      final root = jsonDecode(extraJson);
+      if (root is! Map) return null;
+      final cup = root['cupLabel'];
+      if (cup is! Map) return null;
+      final m = cup['mode']?.toString();
+      return (m == null || m.isEmpty) ? null : m;
+    } catch (_) {
+      return null;
+    }
+  }
+
+  /// Ghi chế độ tem ly của cửa hàng vào máy (gọi khi tải sell-settings). Trả true khi máy chưa chỉnh riêng
+  /// và chế độ đổi → nơi gọi nên tải lại thiết lập in.
+  static Future<bool> cacheStoreCupMode(String? extraJson) async {
+    final mode = storeCupModeFrom(extraJson);
+    if (mode == null) return false;
+    final prefs = await SharedPreferences.getInstance();
+    final before = prefs.getString(_kCupLabelStoreMode);
+    await prefs.setString(_kCupLabelStoreMode, mode);
+    return before != mode && !prefs.containsKey(_kCupLabelMode);
+  }
+
+  /// Lưu chế độ tem ly làm mặc định cửa hàng (máy chủ dùng cho đơn QR / online; máy khác chưa chỉnh riêng
+  /// sẽ theo). Lỗi / không có quyền sửa thiết lập → bỏ qua, máy này vẫn giữ chế độ riêng.
+  static Future<void> _pushStoreCupMode(PosCupLabelPrintMode mode) async {
+    try {
+      final helper = PosSellSettingsHelper(ApiService());
+      final loaded = await helper.load();
+      final s = loaded.settings;
+      if (s == null) return;
+      if (storeCupModeFrom(s.extraJson) == mode.storageValue) return;
+      Map<String, dynamic> root = {};
+      try {
+        final decoded = jsonDecode(s.extraJson ?? '');
+        if (decoded is Map) root = Map<String, dynamic>.from(decoded);
+      } catch (_) {}
+      final cup = root['cupLabel'] is Map ? Map<String, dynamic>.from(root['cupLabel'] as Map) : <String, dynamic>{};
+      cup['mode'] = mode.storageValue;
+      root['cupLabel'] = cup;
+      final r = await helper.save(s.copyWith(extraJson: jsonEncode(root)));
+      if (r.settings != null) {
+        final prefs = await SharedPreferences.getInstance();
+        await prefs.setString(_kCupLabelStoreMode, mode.storageValue);
+      }
+    } catch (_) {}
+  }
+
   static const _kCupOnKitchen = 'pos_sell_cup_on_kitchen_notify';
 
   PosSellPrintSettings copyWith({
@@ -229,8 +288,9 @@ class PosSellPrintSettings {
         autoPrint = false;
       }
     }
-    final cupMode =
-        PosCupLabelPrintMode.fromStored(prefs.getString(_kCupLabelMode));
+    // Máy chưa chỉnh riêng → theo chế độ cửa hàng.
+    final cupMode = PosCupLabelPrintMode.fromStored(
+        prefs.getString(_kCupLabelMode) ?? prefs.getString(_kCupLabelStoreMode));
     // Cờ riêng; nếu prefs chưa có mà mode = onCheckout → coi như bật.
     final printCupOnCheckout = prefs.containsKey(_kCupOnPay)
         ? (prefs.getBool(_kCupOnPay) ?? false)
@@ -264,7 +324,11 @@ class PosSellPrintSettings {
     await prefs.setString(_kWarehouseMode, warehousePrintMode.storageValue);
     await prefs.setString(
         _kKitchenSlipMode, kitchenSlipPrintMode.storageValue);
+    final prevCup = prefs.getString(_kCupLabelMode) ?? prefs.getString(_kCupLabelStoreMode);
     await prefs.setString(_kCupLabelMode, cupLabelPrintMode.storageValue);
+    if (prevCup != cupLabelPrintMode.storageValue) {
+      unawaited(_pushStoreCupMode(cupLabelPrintMode));
+    }
     await prefs.setBool(_kCupOnKitchen, printCupOnKitchenNotify);
     if (templateId != null && templateId!.isNotEmpty) {
       await prefs.setString(_kTemplate, templateId!);

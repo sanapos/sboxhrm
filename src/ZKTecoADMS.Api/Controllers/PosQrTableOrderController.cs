@@ -2362,7 +2362,92 @@ public class PosQrTableOrderController(
                 g.Key));
             jobs++;
         }
+        jobs += await EnqueueCupLabelsAsync(storeId, order, tbl, added, now);
         return jobs;
+    }
+
+    /// <summary>
+    /// Tem dán ly cho đơn QR / online: cửa hàng chọn «Tự in khi báo bếp» (sell-settings extraJson cupLabel.mode =
+    /// withKitchen) và có máy tem bếp → một lệnh in tem (Agent trên máy cắm máy tem vẽ tem theo mẫu Tem báo bếp).
+    /// Trước đây đơn QR / online chỉ ra phiếu bếp, quầy phải tự bấm in tem từng ly.
+    /// </summary>
+    async Task<int> EnqueueCupLabelsAsync(
+        Guid storeId,
+        PosSaleOrder order,
+        string tableName,
+        List<(PosSaleOrderLine Line, decimal Qty, PosProduct Product)> added,
+        DateTime now)
+    {
+        try
+        {
+            var extra = await db.PosStoreSellSettings.AsNoTracking()
+                .Where(s => s.StoreId == storeId && s.Deleted == null)
+                .Select(s => s.ExtraJson)
+                .FirstOrDefaultAsync();
+            if (!string.Equals(CupLabelMode(extra), "withKitchen", StringComparison.OrdinalIgnoreCase)) return 0;
+            var printer = await dispatch.ResolvePrinterAsync(storeId, PosPrintDocumentType.KitchenLabel);
+            if (printer == null) return 0;
+
+            var tickets = new List<Dictionary<string, object?>>();
+            foreach (var row in added)
+            {
+                var whole = row.Qty == Math.Floor(row.Qty);
+                var copies = whole ? (int)Math.Clamp(row.Qty, 1, 50) : 1;
+                for (var i = 0; i < copies; i++)
+                {
+                    tickets.Add(new Dictionary<string, object?>
+                    {
+                        ["productName"] = row.Line.ProductName,
+                        ["note"] = KitchenNoteText(row.Line.ToppingsJson, row.Line.LineNote),
+                        ["qtyLabel"] = whole ? null : row.Qty.ToString("0.##", System.Globalization.CultureInfo.GetCultureInfo("vi-VN")),
+                        ["tableLabel"] = tableName,
+                        ["orderNo"] = order.OrderNo,
+                        ["unitLabel"] = row.Line.UnitName,
+                        ["price"] = row.Line.UnitPrice > 0 ? row.Line.UnitPrice : null,
+                    });
+                }
+            }
+            if (tickets.Count == 0) return 0;
+            // Số thứ tự ly theo cả lần in (Ly k/N).
+            for (var i = 0; i < tickets.Count; i++)
+                tickets[i]["qtyLabel"] ??= $"{i + 1}/{tickets.Count}";
+
+            var payload = JsonSerializer.Serialize(new { kind = "cupLabels", tickets });
+            await dispatch.EnqueueJobAsync(new EnqueuePrintJobRequest(
+                storeId,
+                PosPrintDocumentType.KitchenLabel,
+                PosPrintPayloadFormat.KitchenSlipJson,
+                payload,
+                1,
+                $"CUP|{order.OrderNo}|{now:HHmmss}",
+                order.Id,
+                null,
+                "Tem ly",
+                printer.Id));
+            return 1;
+        }
+        catch
+        {
+            return 0; // tem ly không chặn phiếu bếp
+        }
+    }
+
+    /// <summary>Chế độ tem ly mặc định của cửa hàng (extraJson «cupLabel.mode»: off / manual / withKitchen / onCheckout).</summary>
+    internal static string? CupLabelMode(string? extraJson)
+    {
+        if (string.IsNullOrWhiteSpace(extraJson)) return null;
+        try
+        {
+            using var doc = JsonDocument.Parse(extraJson);
+            return doc.RootElement.TryGetProperty("cupLabel", out var c) && c.ValueKind == JsonValueKind.Object
+                   && c.TryGetProperty("mode", out var m) && m.ValueKind == JsonValueKind.String
+                ? m.GetString()
+                : null;
+        }
+        catch (JsonException)
+        {
+            return null;
+        }
     }
 
     async Task<Dictionary<Guid, Dictionary<Guid, QrToppingPick>>> LoadToppingCatalogAsync(

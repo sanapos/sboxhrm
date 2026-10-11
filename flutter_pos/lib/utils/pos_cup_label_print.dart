@@ -11,6 +11,7 @@ import '../services/api_service.dart';
 import '../widgets/notification_overlay.dart';
 import 'pos_barcode_print.dart';
 import 'pos_label_printer_service.dart';
+import 'pos_label_printer_settings.dart';
 import 'pos_label_renderer.dart';
 import 'pos_local_printers_store.dart';
 import 'pos_print_device_scope.dart';
@@ -87,7 +88,7 @@ Future<bool> hasReadyCupLabelPrinter() async {
   return await _resolveCupLabelCloudPrinter() != null;
 }
 
-/// In tem trà sữa / dán ly.
+/// In tem trà sữa / dán ly. True khi mọi tem đã gửi máy.
 ///
 /// Ưu tiên **máy in tem** (KitchenLabel / mọi máy kind=label),
 /// không đẩy sang máy hóa đơn Sunmi trừ khi không có máy tem.
@@ -96,8 +97,24 @@ Future<bool> printCupLabels({
   DateTime? printedAt,
   bool showFeedback = false,
   PosPrintTemplateV2? templateOverride,
+}) async =>
+    (await printCupLabelsRemaining(
+      tickets: tickets,
+      printedAt: printedAt,
+      showFeedback: showFeedback,
+      templateOverride: templateOverride,
+    ))
+        .isEmpty;
+
+/// Như [printCupLabels] nhưng trả các tem CHƯA in được (theo thứ tự). Máy tem lỗi giữa chừng (vd hết giấy ở
+/// tem thứ 3/5) → chỉ 2 tem cuối cần in lại; trước đây phiếu chờ in lại cả 5 → ra tem trùng.
+Future<List<CupLabelTicket>> printCupLabelsRemaining({
+  required List<CupLabelTicket> tickets,
+  DateTime? printedAt,
+  bool showFeedback = false,
+  PosPrintTemplateV2? templateOverride,
 }) async {
-  if (tickets.isEmpty) return false;
+  if (tickets.isEmpty) return const [];
   if (!await hasReadyCupLabelPrinter()) {
     if (showFeedback) {
       NotificationOverlayManager().showWarning(
@@ -108,12 +125,67 @@ Future<bool> printCupLabels({
       );
     }
     debugPrint('Cup label: bỏ qua — không có máy tem kết nối');
-    return false;
+    return tickets;
   }
   final timeFmt = DateFormat('dd/MM/yyyy');
   final hourFmt = DateFormat('HH:mm');
   final when = printedAt ?? DateTime.now();
   final storeNameForCup = (await PosSellStoreSettings.load()).storeName;
+  final total = tickets.length;
+  // Số tem (tính từ đầu danh sách) đã gửi máy thành công hoặc bỏ qua vì trống.
+  var done = 0;
+
+  void feedbackOk(String message) {
+    if (showFeedback) {
+      NotificationOverlayManager().showSuccess(title: 'Tem ly', message: tr(message));
+    }
+  }
+
+  /// Raster một tem cho khổ máy; null = mẫu và dự phòng đều trống (bỏ qua tem này).
+  Future<({Uint8List raster, int widthPx, int heightPx})?> renderOne(
+    CupLabelTicket t,
+    PosPrintCompiledOutput output,
+    PosLabelPrinterSettings settings,
+    double widthMm,
+    double heightMm,
+  ) async {
+    final r = await PosLabelRenderer.renderCompiledLabel(
+      output: output,
+      widthMm: widthMm,
+      heightMm: heightMm,
+      dpi: settings.dpi,
+      marginLeftMm: settings.marginLeftMm,
+      marginRightMm: settings.marginRightMm,
+      marginTopMm: settings.marginTopMm,
+      marginBottomMm: settings.marginBottomMm,
+      fontScale: settings.fontScale,
+    );
+    if (PosLabelRenderer.hasEnoughInk(r.raster)) return r;
+    // Fallback raster cứng nếu mẫu trống.
+    final fallback = await PosLabelRenderer.renderCupTicket(
+      productName: t.productName,
+      tableLabel: t.tableLabel,
+      orderNo: t.orderNo,
+      toppings: t.toppings,
+      note: t.note,
+      qtyLabel: t.qtyLabel,
+      widthMm: widthMm,
+      heightMm: heightMm,
+      dpi: settings.dpi,
+      marginLeftMm: settings.marginLeftMm,
+      marginRightMm: settings.marginRightMm,
+      marginTopMm: settings.marginTopMm,
+      marginBottomMm: settings.marginBottomMm,
+      fontScale: settings.fontScale,
+      showHeader: settings.showHeader,
+      showTable: settings.showTable,
+      showOrderNo: settings.showOrderNo,
+      showToppings: settings.showToppings,
+      showNote: settings.showNote,
+      showQty: settings.showQty,
+    );
+    return PosLabelRenderer.hasEnoughInk(fallback.raster) ? fallback : null;
+  }
 
   if (!kIsWeb) {
     final all = await PosLocalPrintersStore.instance.loadAll();
@@ -150,18 +222,19 @@ Future<bool> printCupLabels({
 
     if (labelTargets.isNotEmpty) {
       final v2 = templateOverride ?? await _loadKitchenLabelTemplate();
+      var anyInk = false;
       // Khổ vật lý = máy tem (TSPL SIZE/GAP). Layout mẫu scale vào canvas máy — tránh trôi.
-      var anyOk = false;
+      // Máy đầu lỗi giữa chừng → máy sau in tiếp từ tem chưa ra (không in lại tem đã ra).
       for (final p in labelTargets) {
+        if (done >= total) break;
         final settings = p.toLabelSettings().copyWith(enabled: true);
         final machineTpl = settings.template ??
             posBarcodeLabelTemplateById('roll_1_50x30')!;
         final widthMm = machineTpl.labelWidthMm;
         final heightMm = machineTpl.labelHeightMm;
-        final jobs =
-            <({Uint8List raster, int widthPx, int heightPx})>[];
+        final rest = tickets.sublist(done);
         final outputs = _compileCupOutputs(
-          tickets: tickets,
+          tickets: rest,
           v2: v2.copyWith(paperSize: machineTpl.id),
           timeFmt: timeFmt,
           hourFmt: hourFmt,
@@ -169,78 +242,34 @@ Future<bool> printCupLabels({
           storeName: storeNameForCup,
         );
         for (var i = 0; i < outputs.length; i++) {
-          final r = await PosLabelRenderer.renderCompiledLabel(
-            output: outputs[i],
-            widthMm: widthMm,
-            heightMm: heightMm,
-            dpi: settings.dpi,
-            marginLeftMm: settings.marginLeftMm,
-            marginRightMm: settings.marginRightMm,
-            marginTopMm: settings.marginTopMm,
-            marginBottomMm: settings.marginBottomMm,
-            fontScale: settings.fontScale,
-          );
-          if (!PosLabelRenderer.hasEnoughInk(r.raster)) {
-            // Fallback raster cứng nếu mẫu trống.
-            final t = tickets[i];
-            final fallback = await PosLabelRenderer.renderCupTicket(
-              productName: t.productName,
-              tableLabel: t.tableLabel,
-              orderNo: t.orderNo,
-              toppings: t.toppings,
-              note: t.note,
-              qtyLabel: t.qtyLabel,
-              widthMm: widthMm,
-              heightMm: heightMm,
-              dpi: settings.dpi,
-              marginLeftMm: settings.marginLeftMm,
-              marginRightMm: settings.marginRightMm,
-              marginTopMm: settings.marginTopMm,
-              marginBottomMm: settings.marginBottomMm,
-              fontScale: settings.fontScale,
-              showHeader: settings.showHeader,
-              showTable: settings.showTable,
-              showOrderNo: settings.showOrderNo,
-              showToppings: settings.showToppings,
-              showNote: settings.showNote,
-              showQty: settings.showQty,
-            );
-            if (PosLabelRenderer.hasEnoughInk(fallback.raster)) {
-              jobs.add(fallback);
-            }
+          final r = await renderOne(rest[i], outputs[i], settings, widthMm, heightMm);
+          if (r == null) {
+            done++;
             continue;
           }
-          jobs.add(r);
-        }
-        if (jobs.isEmpty) {
-          if (showFeedback) {
-            NotificationOverlayManager().showError(
-              title: 'Tem ly trống',
-              message: tr('Không render được chữ tem. Thử lại hoặc kiểm tra font.'),
-            );
-          }
-          continue;
-        }
-        final ok = await PosLabelPrinterService.printCupRasters(
-          jobs,
-          settings: settings,
-          widthMm: widthMm,
-          heightMm: heightMm,
-        );
-        if (ok) {
-          // Chỉ 1 máy tem — tránh in đôi khi có 2 profile cùng role.
-          anyOk = true;
-          break;
+          anyInk = true;
+          final ok = await PosLabelPrinterService.printCupRasters(
+            [r],
+            settings: settings,
+            widthMm: widthMm,
+            heightMm: heightMm,
+          );
+          if (!ok) break;
+          done++;
         }
       }
-      if (anyOk) {
+      if (!anyInk && done >= total) {
         if (showFeedback) {
-          NotificationOverlayManager().showSuccess(
-            title: 'Tem ly',
-            message: tr('Đã in lên máy tem'),
+          NotificationOverlayManager().showError(
+            title: 'Tem ly trống',
+            message: tr('Không render được chữ tem. Thử lại hoặc kiểm tra font.'),
           );
         }
-        return true;
+        return const [];
+      }
+      if (done >= total) {
+        feedbackOk('Đã in lên máy tem');
+        return const [];
       }
     }
 
@@ -253,17 +282,16 @@ Future<bool> printCupLabels({
             !p.hasRole(PosLocalPrinterRoles.kitchenSlip) &&
             !p.hasRole(PosLocalPrinterRoles.kitchenVoid))
         .toList();
-    if (thermalCup.isNotEmpty) {
+    if (thermalCup.isNotEmpty && done < total) {
       final v2 = templateOverride ?? await _loadKitchenLabelTemplate();
       final outputs = _compileCupOutputs(
-        tickets: tickets,
+        tickets: tickets.sublist(done),
         v2: v2,
         timeFmt: timeFmt,
         hourFmt: hourFmt,
         when: when,
-          storeName: storeNameForCup,
+        storeName: storeNameForCup,
       );
-      var anyOk = false;
       for (final p in thermalCup) {
         final prepared =
             await PosPrinterTransport.prepareLocalSettings(p.toThermalSettings());
@@ -271,38 +299,34 @@ Future<bool> printCupLabels({
           feedBeforeCut: 8,
           openCashDrawer: false,
         );
-        // Không ép Sunmi khi connection không phải sunmi.
+        // Không ép Sunmi khi connection không phải sunmi. Gửi gộp một lệnh (tất cả hoặc không).
         final ok = await _printCupOutputsLocal(
           outputs: outputs,
           cupSettings: cupSettings,
           showFeedback: false,
         );
         if (ok) {
-          anyOk = true;
+          done = total;
           break;
         }
       }
-      if (anyOk) {
-        if (showFeedback) {
-          NotificationOverlayManager().showSuccess(
-            title: 'Tem ly',
-            message: tr('Đã in tem ly'),
-          );
-        }
-        return true;
+      if (done >= total) {
+        feedbackOk('Đã in tem ly');
+        return const [];
       }
     }
   }
 
-  // Cloud → Print Agent.
+  // Cloud → Print Agent (các tem còn lại).
+  final rest = tickets.sublist(done);
   final v2 = templateOverride ?? await _loadKitchenLabelTemplate();
   final outputs = _compileCupOutputs(
-    tickets: tickets,
+    tickets: rest,
     v2: v2,
     timeFmt: timeFmt,
     hourFmt: hourFmt,
     when: when,
-          storeName: storeNameForCup,
+    storeName: storeNameForCup,
   );
 
   await PosPrintOrchestrator.instance.refreshConfig();
@@ -318,78 +342,34 @@ Future<bool> printCupLabels({
             posBarcodeLabelTemplateById('roll_1_50x30')!;
         final widthMm = machineTpl.labelWidthMm;
         final heightMm = machineTpl.labelHeightMm;
-        final rasters = <({Uint8List raster, int widthPx, int heightPx})>[];
         for (var i = 0; i < outputs.length; i++) {
-          final r = await PosLabelRenderer.renderCompiledLabel(
-            output: outputs[i],
-            widthMm: widthMm,
-            heightMm: heightMm,
-            dpi: labelSettings.dpi,
-            marginLeftMm: labelSettings.marginLeftMm,
-            marginRightMm: labelSettings.marginRightMm,
-            marginTopMm: labelSettings.marginTopMm,
-            marginBottomMm: labelSettings.marginBottomMm,
-            fontScale: labelSettings.fontScale,
-          );
-          if (!PosLabelRenderer.hasEnoughInk(r.raster)) {
-            final t = tickets[i];
-            final fallback = await PosLabelRenderer.renderCupTicket(
-              productName: t.productName,
-              tableLabel: t.tableLabel,
-              orderNo: t.orderNo,
-              toppings: t.toppings,
-              note: t.note,
-              qtyLabel: t.qtyLabel,
-              widthMm: widthMm,
-              heightMm: heightMm,
-              dpi: labelSettings.dpi,
-              marginLeftMm: labelSettings.marginLeftMm,
-              marginRightMm: labelSettings.marginRightMm,
-              marginTopMm: labelSettings.marginTopMm,
-              marginBottomMm: labelSettings.marginBottomMm,
-              fontScale: labelSettings.fontScale,
-              showHeader: labelSettings.showHeader,
-              showTable: labelSettings.showTable,
-              showOrderNo: labelSettings.showOrderNo,
-              showToppings: labelSettings.showToppings,
-              showNote: labelSettings.showNote,
-              showQty: labelSettings.showQty,
-            );
-            if (PosLabelRenderer.hasEnoughInk(fallback.raster)) {
-              rasters.add(fallback);
-            }
+          final r = await renderOne(rest[i], outputs[i], labelSettings, widthMm, heightMm);
+          if (r == null) {
+            done++;
             continue;
           }
-          rasters.add(r);
-        }
-        if (rasters.isNotEmpty) {
-          final jobs = PosLabelPrinterService.buildCupRasterByteJobs(
-            rasters,
+          final job = PosLabelPrinterService.buildCupRasterByteJobs(
+            [r],
             settings: labelSettings,
             widthMm: widthMm,
             heightMm: heightMm,
+          ).first;
+          final ok = await PosPrintOrchestrator.instance.dispatchEscPos(
+            documentType: PosCloudDocumentTypes.kitchenLabel,
+            bytes: job,
+            printerId: cloudPrinter.id,
+            showFeedback: showFeedback && done == total - 1,
+            successTitle: 'Tem ly',
+            skipDedup: true,
+            // Không treo UI 90s chờ Completed — Agent Claimed = đang in tem.
+            waitForCompletion: false,
+            acceptClaimedAsSuccess: true,
+            hangAfter: const Duration(seconds: 90),
           );
-          var allOk = true;
-          for (var i = 0; i < jobs.length; i++) {
-            final ok = await PosPrintOrchestrator.instance.dispatchEscPos(
-              documentType: PosCloudDocumentTypes.kitchenLabel,
-              bytes: jobs[i],
-              printerId: cloudPrinter.id,
-              showFeedback: showFeedback && i == jobs.length - 1,
-              successTitle: 'Tem ly',
-              skipDedup: true,
-              // Không treo UI 90s chờ Completed — Agent Claimed = đang in tem.
-              waitForCompletion: false,
-              acceptClaimedAsSuccess: true,
-              hangAfter: const Duration(seconds: 90),
-            );
-            if (!ok) {
-              allOk = false;
-              break;
-            }
-          }
-          if (allOk) return true;
+          if (!ok) break;
+          done++;
         }
+        if (done >= total) return const [];
       } else if (!_isKitchenReceiptPrinter(cloudPrinter)) {
         final cupSettings = toThermalSettings(cloudPrinter).copyWith(
           feedBeforeCut: 8,
@@ -413,7 +393,7 @@ Future<bool> printCupLabels({
           acceptClaimedAsSuccess: true,
           hangAfter: const Duration(seconds: 90),
         );
-        if (ok) return true;
+        if (ok) return const [];
       } else {
         debugPrint(
           'Cup label: bỏ Agent ${cloudPrinter.name} — máy phiếu chế biến',
@@ -425,18 +405,93 @@ Future<bool> printCupLabels({
   }
 
   // Không fallback EscPos «Ban: …» lên máy phiếu chế biến / máy bất kỳ.
-  debugPrint(
-    'Cup label: không in — cần máy tem Agent (A6), không đẩy lên máy bếp',
-  );
+  debugPrint('Cup label: còn ${total - done}/$total tem chưa in');
   if (showFeedback) {
     NotificationOverlayManager().showError(
-      title: 'Chưa in tem ly',
+      title: done > 0 ? 'Mới in $done/$total tem ly' : 'Chưa in tem ly',
       message: tr(
         'Không gửi được tới máy tem. Kiểm tra máy tem trong Máy in nội bộ, hoặc bật in qua Agent trên máy có cắm máy tem.',
       ),
     );
   }
-  return false;
+  return tickets.sublist(done);
+}
+
+/// Tem ly từ lệnh in máy chủ (đơn QR / online — Agent): in thẳng lên đúng máy cửa hàng đã chọn cho
+/// «Tem báo bếp», máy tem (TSPL / ZPL / ESC raster) hoặc máy nhiệt có vai trò tem.
+Future<bool> printCupTicketsOnStorePrinter({
+  required List<CupLabelTicket> tickets,
+  required bool isLabelPrinter,
+  required PosLabelPrinterSettings labelSettings,
+  required PosThermalPrinterSettings thermalSettings,
+}) async {
+  if (tickets.isEmpty) return true;
+  final v2 = await _loadKitchenLabelTemplate();
+  final storeName = (await PosSellStoreSettings.load()).storeName;
+  final when = DateTime.now();
+  if (!isLabelPrinter) {
+    final outputs = _compileCupOutputs(
+      tickets: tickets,
+      v2: v2,
+      timeFmt: DateFormat('dd/MM/yyyy'),
+      hourFmt: DateFormat('HH:mm'),
+      when: when,
+      storeName: storeName,
+    );
+    return _printCupOutputsLocal(
+      outputs: outputs,
+      cupSettings: thermalSettings.copyWith(feedBeforeCut: 8, openCashDrawer: false),
+      showFeedback: false,
+    );
+  }
+  final settings = labelSettings.copyWith(enabled: true);
+  final machineTpl = settings.template ?? posBarcodeLabelTemplateById('roll_1_50x30')!;
+  final outputs = _compileCupOutputs(
+    tickets: tickets,
+    v2: v2.copyWith(paperSize: machineTpl.id),
+    timeFmt: DateFormat('dd/MM/yyyy'),
+    hourFmt: DateFormat('HH:mm'),
+    when: when,
+    storeName: storeName,
+  );
+  final rasters = <({Uint8List raster, int widthPx, int heightPx})>[];
+  for (var i = 0; i < outputs.length; i++) {
+    final r = await PosLabelRenderer.renderCompiledLabel(
+      output: outputs[i],
+      widthMm: machineTpl.labelWidthMm,
+      heightMm: machineTpl.labelHeightMm,
+      dpi: settings.dpi,
+      marginLeftMm: settings.marginLeftMm,
+      marginRightMm: settings.marginRightMm,
+      marginTopMm: settings.marginTopMm,
+      marginBottomMm: settings.marginBottomMm,
+      fontScale: settings.fontScale,
+    );
+    if (PosLabelRenderer.hasEnoughInk(r.raster)) {
+      rasters.add(r);
+      continue;
+    }
+    final t = tickets[i];
+    final fb = await PosLabelRenderer.renderCupTicket(
+      productName: t.productName,
+      tableLabel: t.tableLabel,
+      orderNo: t.orderNo,
+      toppings: t.toppings,
+      note: t.note,
+      qtyLabel: t.qtyLabel,
+      widthMm: machineTpl.labelWidthMm,
+      heightMm: machineTpl.labelHeightMm,
+      dpi: settings.dpi,
+    );
+    if (PosLabelRenderer.hasEnoughInk(fb.raster)) rasters.add(fb);
+  }
+  if (rasters.isEmpty) return false;
+  return PosLabelPrinterService.printCupRasters(
+    rasters,
+    settings: settings,
+    widthMm: machineTpl.labelWidthMm,
+    heightMm: machineTpl.labelHeightMm,
+  );
 }
 
 /// Máy tem Agent (chip cloud). A7 không cài tem — không lấy IsDeviceLocal A6.

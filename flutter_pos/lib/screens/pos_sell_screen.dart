@@ -2381,6 +2381,12 @@ class _PosSellScreenState extends State<PosSellScreen>
 
   void _applyCustomerDisplayConfig([PosStoreSellSettingsDto? industry]) {
     final dto = industry ?? _industrySettings;
+    unawaited(() async {
+      if (await PosSellPrintSettings.cacheStoreCupMode(dto?.extraJson)) {
+        final next = await PosSellPrintSettings.load();
+        if (mounted) setState(() => _printSettings = next);
+      }
+    }());
     final cfg = CustomerDisplayConfig.fromExtraJson(dto?.extraJson);
     CustomerDisplaySync.instance.applyConfig(cfg);
   }
@@ -4766,6 +4772,24 @@ class _PosSellScreenState extends State<PosSellScreen>
       }
     }
     if (tickets.isEmpty) return;
+    // Số thứ tự ly theo cả lần in (Ly 2/5) — pha chế / giao dễ đếm đủ ly của đơn. Ly bán lẻ số lẻ (0,5) giữ SL.
+    if (tickets.length > 1) {
+      for (var i = 0; i < tickets.length; i++) {
+        final t = tickets[i];
+        final q = (t.qtyLabel ?? '1').trim();
+        if (q != '1' && !q.contains('/')) continue;
+        tickets[i] = CupLabelTicket(
+          productName: t.productName,
+          toppings: t.toppings,
+          note: t.note,
+          qtyLabel: '${i + 1}/${tickets.length}',
+          tableLabel: t.tableLabel,
+          orderNo: t.orderNo,
+          unitLabel: t.unitLabel,
+          price: t.price,
+        );
+      }
+    }
     final ready = await hasReadyCupLabelPrinter();
     if (mounted && ready != _hasReadyLabelPrinter) {
       setState(() => _hasReadyLabelPrinter = ready);
@@ -4781,20 +4805,31 @@ class _PosSellScreenState extends State<PosSellScreen>
       }
       return;
     }
-    final ok = await printCupLabels(
+    final remaining = await printCupLabelsRemaining(
       tickets: tickets,
       showFeedback: showFeedback,
     );
-    if (!ok) {
+    if (remaining.isNotEmpty) {
+      // Chỉ tem CHƯA in vào hàng chờ; dòng giỏ coi như đã xử lý tem (phần còn lại nằm trong hàng chờ)
+      // — tránh bấm «Tem ly» in lại cả các tem đã ra.
       _enqueueFailedCupPrint(
         PendingCupLabelPrintJob(
           id: 'cup_${DateTime.now().millisecondsSinceEpoch}',
-          tickets: tickets,
+          tickets: remaining,
           tableLabel: table.isEmpty ? null : table,
           orderNo: orderNo.isEmpty ? null : orderNo,
-          errorMessage: 'In tem ly thất bại',
+          errorMessage: remaining.length < tickets.length
+              ? 'Còn ${remaining.length}/${tickets.length} tem ly chưa in'
+              : 'In tem ly thất bại',
         ),
       );
+      if (mounted) {
+        setState(() {
+          for (final l in lines) {
+            l.cupLabelPrintedQty = l.qty;
+          }
+        });
+      }
       return;
     }
     if (mounted) {
@@ -11605,7 +11640,18 @@ class _PosSellScreenState extends State<PosSellScreen>
         );
       },
       onRetryCup: (job) async {
-        return printCupLabels(tickets: job.tickets, showFeedback: true);
+        final remaining = await printCupLabelsRemaining(tickets: job.tickets, showFeedback: true);
+        if (remaining.isEmpty) return true;
+        // In được một phần: bỏ các tem đã ra khỏi phiếu chờ (sửa tại chỗ — bảng chờ đang giữ cùng phiếu),
+        // lần in lại sau chỉ còn tem thiếu.
+        final printed = job.tickets.length - remaining.length;
+        if (printed > 0) {
+          try {
+            job.tickets.removeRange(0, printed);
+            _enqueueFailedCupPrint(job);
+          } catch (_) {}
+        }
+        return false;
       },
       onRetry: (job, method, {overridePrinterId}) async {
         // Dùng root navigator — tránh dialog/HTML gắn nhầm context sheet.

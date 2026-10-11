@@ -11,6 +11,7 @@ import '../services/api_service.dart';
 import '../services/signalr_service.dart';
 import '../models/pos_print_template.dart';
 import '../models/pos_print_template_v2.dart';
+import '../utils/pos_cup_label_print.dart';
 import '../utils/pos_device_identity.dart';
 import '../utils/pos_local_printers_store.dart';
 import '../utils/pos_kds_alert.dart';
@@ -918,7 +919,31 @@ class PosPrintAgentService {
 
         final slipMap = Map<String, dynamic>.from(map);
         final kind = slipMap['kind']?.toString() ?? '';
-        if (kind == 'kdsReady') {
+        if (kind == 'cupLabels') {
+          final raw = slipMap['tickets'];
+          final tickets = <CupLabelTicket>[
+            if (raw is List)
+              for (final e in raw)
+                if (e is Map)
+                  CupLabelTicket(
+                    productName: (e['productName'] ?? '').toString(),
+                    note: e['note']?.toString(),
+                    qtyLabel: e['qtyLabel']?.toString(),
+                    tableLabel: e['tableLabel']?.toString(),
+                    orderNo: e['orderNo']?.toString(),
+                    unitLabel: e['unitLabel']?.toString(),
+                    price: (e['price'] as num?)?.toDouble(),
+                  ),
+          ];
+          final localProfile = await PosLocalPrintersStore.instance
+              .resolveForStorePrinter(printer, exactPort: true);
+          ok = await printCupTicketsOnStorePrinter(
+            tickets: tickets,
+            isLabelPrinter: printer.isLabelPrinter || (localProfile?.isLabel ?? false),
+            labelSettings: localProfile?.toLabelSettings() ?? toLabelSettings(printer),
+            thermalSettings: settings,
+          );
+        } else if (kind == 'kdsReady') {
           ok = await _printKdsReadySlip(
             printer: printer,
             settings: settings,
