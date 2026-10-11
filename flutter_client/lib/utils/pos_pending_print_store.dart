@@ -224,6 +224,8 @@ class PendingCupLabelPrintJob {
                   'qtyLabel': t.qtyLabel,
                   'tableLabel': t.tableLabel,
                   'orderNo': t.orderNo,
+                  if (t.unitLabel != null) 'unitLabel': t.unitLabel,
+                  if (t.price != null) 'price': t.price,
                 })
             .toList(),
       };
@@ -242,6 +244,8 @@ class PendingCupLabelPrintJob {
           qtyLabel: m['qtyLabel']?.toString(),
           tableLabel: m['tableLabel']?.toString(),
           orderNo: m['orderNo']?.toString(),
+          unitLabel: m['unitLabel']?.toString(),
+          price: (m['price'] as num?)?.toDouble(),
         ));
       }
     }

@@ -23,22 +23,25 @@ import 'package:sbox_pos/l10n/app_tr.dart';
 
 import '../../theme/sbox_tokens.dart';
 /// Dialog chọn loại giấy in tem mã — giao diện kiểu KiotViet.
+/// [quantities] (song song với [products]): số tem riêng từng hàng, vd theo số lượng nhập hàng.
 Future<void> showPosBarcodeLabelDialog(
   BuildContext context,
-  List<PosProduct> products,
-) async {
+  List<PosProduct> products, {
+  List<int>? quantities,
+}) async {
   if (products.isEmpty) return;
   await showDialog<void>(
     context: context,
     barrierDismissible: true,
-    builder: (ctx) => _PosBarcodeLabelDialog(products: products),
+    builder: (ctx) => _PosBarcodeLabelDialog(products: products, quantities: quantities),
   );
 }
 
 class _PosBarcodeLabelDialog extends StatefulWidget {
-  const _PosBarcodeLabelDialog({required this.products});
+  const _PosBarcodeLabelDialog({required this.products, this.quantities});
 
   final List<PosProduct> products;
+  final List<int>? quantities;
 
   @override
   State<_PosBarcodeLabelDialog> createState() => _PosBarcodeLabelDialogState();
@@ -54,6 +57,7 @@ class _PosBarcodeLabelDialogState extends State<_PosBarcodeLabelDialog> {
   PosBarcodePriceMode _priceMode = PosBarcodePriceMode.withVnd;
   PosBarcodeUnitMode _unitMode = PosBarcodeUnitMode.withoutUnit;
   PosBarcodeStoreMode _storeMode = PosBarcodeStoreMode.withoutStore;
+  PosBarcodeSpecMode _specMode = PosBarcodeSpecMode.withoutSpecs;
   PosBarcodeLabelTemplate? _selectedTemplate;
   PosLabelPrinterSettings _labelPrinter = const PosLabelPrinterSettings();
   String? _storeName;
@@ -109,7 +113,21 @@ class _PosBarcodeLabelDialogState extends State<_PosBarcodeLabelDialog> {
         unitMode: _unitMode,
         storeMode: _storeMode,
         storeName: _storeName,
+        specMode: _specMode,
       );
+
+  /// Tổng số tem sẽ in (theo số lượng từng hàng × số bản).
+  int get _totalLabels {
+    final q = widget.quantities;
+    final per = q == null
+        ? widget.products.length
+        : q.fold<int>(0, (a, b) => a + (b < 0 ? 0 : b));
+    return per * _copies;
+  }
+
+  String get _countText => widget.quantities == null
+      ? '${widget.products.length} mặt hàng × $_copies = $_totalLabels tem'
+      : '${widget.products.length} mặt hàng · $_totalLabels tem';
 
   PosLabelPrinterSettings _draftPrinterSettings() {
     final port = int.tryParse(_lanPortCtrl.text.trim()) ?? 9100;
@@ -132,6 +150,7 @@ class _PosBarcodeLabelDialogState extends State<_PosBarcodeLabelDialog> {
       final bytes = await buildPosBarcodeLabelPdfBytes(
         widget.products,
         options: _options(template),
+        copiesPerItem: widget.quantities,
       );
       if (!mounted) return;
       await showPosPdfPreviewDialog(
@@ -157,20 +176,29 @@ class _PosBarcodeLabelDialogState extends State<_PosBarcodeLabelDialog> {
       return;
     }
 
+    if (template.isSheet) {
+      NotificationOverlayManager().showWarning(
+        title: 'Mẫu tờ chỉ in qua PDF',
+        message: tr('«${template.name}» là giấy tờ A4 cho máy in văn phòng — bấm «Xem bản in» rồi in. '
+            'Máy tem cuộn chọn mẫu Tem …×…'),
+      );
+      return;
+    }
+
     setState(() => _printing = true);
     await _savePrinterSettings();
 
     // 1) Ưu tiên máy tem nội bộ trên thiết bị này.
     if (!kIsWeb) {
       final locals = await PosLocalPrintersStore.instance.loadAll();
-      final labelLocal = locals
-          .where((p) =>
-              p.enabled &&
-              p.isLabel &&
-              (p.hasRole(PosLocalPrinterRoles.barcodeLabel) ||
-                  p.roles.isEmpty ||
-                  p.isLabel))
-          .firstOrNull;
+      final labelPrinters = locals.where((p) => p.enabled && p.isLabel).toList();
+      final labelLocal = labelPrinters
+              .where((p) => p.hasRole(PosLocalPrinterRoles.barcodeLabel))
+              .firstOrNull ??
+          labelPrinters
+              .where((p) => !p.hasRole(PosLocalPrinterRoles.kitchenLabel))
+              .firstOrNull ??
+          labelPrinters.firstOrNull;
       if (labelLocal != null) {
         final settings = labelLocal.toLabelSettings().copyWith(
               enabled: true,
@@ -192,6 +220,7 @@ class _PosBarcodeLabelDialogState extends State<_PosBarcodeLabelDialog> {
           widget.products,
           options: _options(template),
           settings: settings,
+          copiesPerItem: widget.quantities,
         );
         if (!mounted) return;
         setState(() => _printing = false);
@@ -199,7 +228,7 @@ class _PosBarcodeLabelDialogState extends State<_PosBarcodeLabelDialog> {
           NotificationOverlayManager().showSuccess(
             title: 'Đã gửi in tem',
             message: tr(
-              '${widget.products.length} mặt hàng × $_copies → ${labelLocal.name}',
+              '$_countText → ${labelLocal.name}',
             ),
           );
         } else {
@@ -224,6 +253,7 @@ class _PosBarcodeLabelDialogState extends State<_PosBarcodeLabelDialog> {
           widget.products,
           options: _options(template),
           settings: settings,
+          copiesPerItem: widget.quantities,
         );
         final cloudOk = await PosPrintOrchestrator.instance.dispatchLabelJobs(
           jobs: jobs,
@@ -237,7 +267,7 @@ class _PosBarcodeLabelDialogState extends State<_PosBarcodeLabelDialog> {
         if (cloudOk) {
           NotificationOverlayManager().showSuccess(
             title: 'Đã gửi in tem',
-            message: tr('${widget.products.length} mặt hàng × $_copies tem (cloud)'),
+            message: tr('$_countText (cloud)'),
           );
           return;
         }
@@ -283,13 +313,14 @@ class _PosBarcodeLabelDialogState extends State<_PosBarcodeLabelDialog> {
       widget.products,
       options: _options(template),
       settings: draft.copyWith(enabled: true),
+      copiesPerItem: widget.quantities,
     );
     if (!mounted) return;
     setState(() => _printing = false);
     if (ok) {
       NotificationOverlayManager().showSuccess(
         title: 'Đã gửi in tem',
-        message: tr('${widget.products.length} mặt hàng × $_copies tem'),
+        message: tr(_countText),
       );
     } else {
       NotificationOverlayManager().showError(
@@ -326,6 +357,7 @@ class _PosBarcodeLabelDialogState extends State<_PosBarcodeLabelDialog> {
     await exportPosBarcodeLabelsExcel(
       widget.products,
       options: _options(_selectedTemplate!),
+      copiesPerItem: widget.quantities,
     );
   }
 
@@ -504,6 +536,13 @@ class _PosBarcodeLabelDialogState extends State<_PosBarcodeLabelDialog> {
           items: PosBarcodeStoreMode.values,
           label: (v) => v.label,
           onChanged: (v) => setState(() => _storeMode = v!),
+        ),
+        const SizedBox(height: 8),
+        _dropdown<PosBarcodeSpecMode>(
+          value: _specMode,
+          items: PosBarcodeSpecMode.values,
+          label: (v) => v.label,
+          onChanged: (v) => setState(() => _specMode = v!),
         ),
       ],
     );

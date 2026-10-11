@@ -71,7 +71,7 @@ class PosLabelRenderer {
       code: code,
       priceText: priceText,
       storeName: store?.trim().isNotEmpty == true ? store!.trim() : null,
-      detailText: posLabelDetail[p],
+      detailText: posLabelDetailFor(p, opts),
     );
   }
 
@@ -396,19 +396,42 @@ class PosLabelRenderer {
     }
   }
 
+  /// Mã vạch khớp lưới điểm in: mỗi module = số nguyên điểm, căn giữa, chừa lề trắng (quiet zone).
+  /// Trước đây kéo giãn theo bề rộng tem → module lẻ điểm (vd 2,4 điểm), vạch dày mỏng không đều
+  /// sau khi chuyển đen trắng → máy quét đọc chậm / không đọc được, nhất là tem 35×22.
   static void _drawBarcode(ui.Canvas canvas, String data, ui.Rect rect) {
     if (data.isEmpty || rect.height < 8 || rect.width < 8) return;
     try {
       final bc = posBarcodeSymbology(data);
-      final elements = bc.make(data, width: rect.width, height: rect.height, drawText: false);
-      final paint = ui.Paint()..color = const ui.Color(0xFF000000);
+      // Đo số module: bản vẽ thử rộng 1000 → vạch hẹp nhất = 1 module.
+      final probe = bc.make(data, width: 1000, height: rect.height, drawText: false);
+      var minBar = double.infinity;
+      for (final e in probe) {
+        if (e is BarcodeBar && e.width > 0 && e.width < minBar) minBar = e.width;
+      }
+      var drawW = rect.width;
+      var left = rect.left;
+      if (minBar.isFinite && minBar > 0) {
+        final modules = (1000 / minBar).round();
+        // Ưu tiên chừa 10 module lề mỗi bên; tem quá hẹp thì bỏ dần lề.
+        var moduleW = (rect.width / (modules + 20)).floorToDouble();
+        if (moduleW < 1) moduleW = (rect.width / modules).floorToDouble();
+        if (moduleW >= 1) {
+          drawW = moduleW * modules;
+          left = (rect.left + (rect.width - drawW) / 2).roundToDouble();
+        }
+      }
+      final elements = bc.make(data, width: drawW, height: rect.height, drawText: false);
+      final paint = ui.Paint()
+        ..color = const ui.Color(0xFF000000)
+        ..isAntiAlias = false;
       for (final e in elements) {
         if (e is BarcodeBar && e.black) {
           canvas.drawRect(
             ui.Rect.fromLTWH(
-              rect.left + e.left,
+              (left + e.left).roundToDouble(),
               rect.top,
-              e.width,
+              e.width.roundToDouble(),
               e.height,
             ),
             paint,

@@ -16,10 +16,14 @@ class PosLabelPrinterService {
   static final _money = NumberFormat('#,##0', 'vi_VN');
 
   /// Tạo danh sách payload in tem (mỗi phần tử = 1 lệnh gửi máy in).
+  ///
+  /// [copiesPerItem] (song song với [products]): số tem riêng từng hàng (vd in theo số lượng nhập);
+  /// mỗi hàng được nhân thêm `options.copiesPerProduct`. Bỏ trống → mọi hàng `copiesPerProduct` tem.
   static Future<List<List<int>>> buildLabelByteJobs(
     List<PosProduct> products, {
     required PosBarcodePrintOptions options,
     required PosLabelPrinterSettings settings,
+    List<int>? copiesPerItem,
   }) async {
     if (products.isEmpty || kIsWeb) return [];
     final template = options.template;
@@ -30,35 +34,61 @@ class PosLabelPrinterService {
     final items = products
         .map((p) => PosLabelRenderer.fromProduct(p, options, _money))
         .toList();
+    int countOf(int i) {
+      final per = copiesPerItem != null && i < copiesPerItem.length ? copiesPerItem[i] : 1;
+      return (per.clamp(0, 5000) * copies).clamp(0, 5000);
+    }
 
     // Mỗi tem chỉ vẽ 1 lần; số bản in giao cho máy (TSPL PRINT n / ZPL ^PQ n) —
     // trước đây vẽ + gửi lại nguyên ảnh cho từng bản ⇒ 50 tem qua Bluetooth rất chậm.
     if (template.cols > 1 && !template.isSheet) {
-      for (var i = 0; i < items.length; i += template.cols) {
-        final chunk = items.sublist(
-          i,
-          (i + template.cols > items.length) ? items.length : i + template.cols,
-        );
+      // Cuộn nhiều tem / hàng: xếp kín từng ô. Trước đây mỗi hàng chỉ in đúng các mặt hàng liền nhau
+      // rồi nhân số bản → in 10 tem một mặt hàng trên cuộn 2 tem = 10 hàng, mỗi hàng bỏ trống 1 ô.
+      final cols = template.cols;
+      Future<void> emit(List<PosLabelRenderItem> row, int times) async {
+        if (row.isEmpty || times <= 0) return;
         final raster = await PosLabelRenderer.renderRow(
-          items: chunk,
+          items: row,
           template: template,
           dpi: dpi,
           contentInsetLeftMm: settings.shiftRightMm,
         );
-        jobs.add(_bytesForRaster(settings, template, raster,
-            rowMode: true, copies: copies));
+        jobs.add(_bytesForRaster(settings, template, raster, rowMode: true, copies: times));
       }
+
+      final pending = <PosLabelRenderItem>[];
+      for (var i = 0; i < items.length; i++) {
+        var n = countOf(i);
+        while (n > 0 && pending.isNotEmpty) {
+          pending.add(items[i]);
+          n--;
+          if (pending.length == cols) {
+            await emit(List.of(pending), 1);
+            pending.clear();
+          }
+        }
+        if (n >= cols) {
+          await emit(List.filled(cols, items[i]), n ~/ cols);
+          n %= cols;
+        }
+        for (var r = 0; r < n; r++) {
+          pending.add(items[i]);
+        }
+      }
+      await emit(pending, 1);
       return jobs;
     }
 
-    for (final item in items) {
+    for (var i = 0; i < items.length; i++) {
+      final n = countOf(i);
+      if (n <= 0) continue;
       final raster = await PosLabelRenderer.renderSingle(
-        item: item,
+        item: items[i],
         template: template,
         dpi: dpi,
         contentInsetLeftMm: settings.shiftRightMm,
       );
-      jobs.add(_bytesForRaster(settings, template, raster, copies: copies));
+      jobs.add(_bytesForRaster(settings, template, raster, copies: n));
     }
     return jobs;
   }
@@ -137,9 +167,11 @@ class PosLabelPrinterService {
     List<PosProduct> products, {
     required PosBarcodePrintOptions options,
     required PosLabelPrinterSettings settings,
+    List<int>? copiesPerItem,
   }) async {
     if (products.isEmpty || kIsWeb) return false;
-    final jobs = await buildLabelByteJobs(products, options: options, settings: settings);
+    final jobs = await buildLabelByteJobs(products,
+        options: options, settings: settings, copiesPerItem: copiesPerItem);
     for (final bytes in jobs) {
       final ok = await _send(settings, bytes);
       if (!ok) return false;

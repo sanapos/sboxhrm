@@ -35,6 +35,8 @@ class CupLabelTicket {
     this.qtyLabel,
     this.tableLabel,
     this.orderNo,
+    this.unitLabel,
+    this.price,
   });
 
   final String productName;
@@ -43,6 +45,10 @@ class CupLabelTicket {
   final String? qtyLabel;
   final String? tableLabel;
   final String? orderNo;
+  /// Size / đơn vị (M, L, Ly…) — trường «Đơn vị tính» của mẫu tem.
+  final String? unitLabel;
+  /// Giá 1 ly (gồm topping) — trường «Đơn giá» của mẫu tem.
+  final double? price;
 }
 
 bool _isKitchenReceiptPrinter(PosStorePrinter p) {
@@ -426,7 +432,7 @@ Future<bool> printCupLabels({
     NotificationOverlayManager().showError(
       title: 'Chưa in tem ly',
       message: tr(
-        'A7 không cài máy tem. Trên A6: cài máy tem USB và bật in qua Agent.',
+        'Không gửi được tới máy tem. Kiểm tra máy tem trong Máy in nội bộ, hoặc bật in qua Agent trên máy có cắm máy tem.',
       ),
     );
   }
@@ -504,10 +510,10 @@ List<PosPrintCompiledOutput> _compileCupOutputs({
       'So_Luong': (t.qtyLabel ?? '1').trim().isEmpty
           ? '1'
           : (t.qtyLabel ?? '1').trim(),
-      'Don_Vi_Tinh': '',
+      'Don_Vi_Tinh': (t.unitLabel ?? '').trim(),
       'Ma_Hang': '',
       'Ma_Vach': '',
-      'Don_Gia': '',
+      'Don_Gia': (t.price ?? 0) > 0 ? NumberFormat('#,##0', 'vi_VN').format(t.price) : '',
       'Tieu_De_In': 'TEM LY',
     };
     // Khối「Tên hàng」là lineItems — phải có 1 dòng, nếu không in thật trống dù preview có sample.

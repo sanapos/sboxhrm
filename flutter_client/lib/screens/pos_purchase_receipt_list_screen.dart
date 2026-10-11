@@ -17,6 +17,7 @@ import '../screens/main_layout.dart' show ScreenRefreshNotifier;
 import '../widgets/loading_widget.dart';
 import '../widgets/notification_overlay.dart';
 import '../widgets/pos/pos_barcode_label_dialog.dart';
+import '../utils/pos_barcode_print.dart' show posLabelDetail;
 import '../utils/pos_kiot_time_range.dart';
 import '../widgets/pos/pos_list_filters.dart';
 import '../widgets/sbox/sbox_ui.dart';
@@ -259,13 +260,43 @@ class _PosPurchaseReceiptListScreenState
     );
   }
 
+  /// In tem theo phiếu nhập: mỗi dòng in đúng số lượng nhập (quy đổi về đơn vị cơ bản, vd 2 Thùng × 24
+  /// = 48 tem lon), kèm lô / HSD của dòng. Trước đây in mỗi mặt hàng 1 tem (× số bản chung) và gọi API
+  /// lần lượt từng dòng.
   Future<void> _printLabels(PosPurchaseReceipt r) async {
+    final ids = {for (final l in r.lines) l.productId};
+    final fetched = await Future.wait(ids.map((id) async {
+      final res = await _api.getPosProduct(id);
+      return MapEntry(id, res['isSuccess'] == true && res['data'] is Map
+          ? Map<String, dynamic>.from(res['data'] as Map)
+          : null);
+    }));
+    final byId = {for (final e in fetched) if (e.value != null) e.key: e.value!};
     final products = <PosProduct>[];
+    final quantities = <int>[];
+    final dateFmt = DateFormat('dd/MM/yyyy');
     for (final line in r.lines) {
-      final res = await _api.getPosProduct(line.productId);
-      if (res['isSuccess'] == true && res['data'] != null) {
-        products.add(PosProduct.fromJson(res['data'] as Map<String, dynamic>));
-      }
+      final json = byId[line.productId];
+      if (json == null || line.qty <= 0) continue;
+      // Mỗi dòng một đối tượng riêng: cùng mặt hàng nhưng khác lô / HSD vẫn in đúng thông tin dòng.
+      final p = PosProduct.fromJson(json);
+      final unit = (line.unitName ?? '').trim().toLowerCase();
+      final rate = unit.isEmpty
+          ? 1.0
+          : (p.units ?? const [])
+                  .where((u) => u.unitName.trim().toLowerCase() == unit)
+                  .map((u) => u.conversionRate)
+                  .firstOrNull ??
+              1.0;
+      final count = (line.qty * (rate <= 0 ? 1 : rate)).ceil().clamp(1, 2000);
+      final detail = [
+        if ((line.lotNo ?? '').trim().isNotEmpty) 'Lô ${line.lotNo!.trim()}',
+        if (line.manufactureDate != null) 'NSX ${dateFmt.format(line.manufactureDate!)}',
+        if (line.expiryDate != null) 'HSD ${dateFmt.format(line.expiryDate!)}',
+      ].join(' · ');
+      if (detail.isNotEmpty) posLabelDetail[p] = detail;
+      products.add(p);
+      quantities.add(count);
     }
     if (!mounted) return;
     if (products.isEmpty) {
@@ -273,7 +304,7 @@ class _PosPurchaseReceiptListScreenState
           .showWarning(title: 'In tem', message: tr('Không có hàng để in tem'));
       return;
     }
-    await showPosBarcodeLabelDialog(context, products);
+    await showPosBarcodeLabelDialog(context, products, quantities: quantities);
   }
 
   Future<void> _completeReceipt(PosPurchaseReceipt r) async {

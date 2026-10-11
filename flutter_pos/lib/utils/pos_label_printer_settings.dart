@@ -6,7 +6,8 @@ import 'pos_thermal_printer_settings.dart';
 /// Giao thức máy in tem nhãn.
 enum PosLabelPrinterProtocol {
   tspl('tspl', 'TSPL (Xprinter, TSC, Zywell tem)'),
-  escpos('escpos', 'ESC/POS raster');
+  escpos('escpos', 'ESC/POS raster'),
+  zpl('zpl', 'ZPL (Zebra, Honeywell…)');
 
   const PosLabelPrinterProtocol(this.key, this.label);
   final String key;

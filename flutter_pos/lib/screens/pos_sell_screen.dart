@@ -4736,15 +4736,19 @@ class _PosSellScreenState extends State<PosSellScreen>
       final noteOnly = (l.lineNote ?? '').trim();
       final whole = pending == pending.roundToDouble();
       final copies = whole ? pending.round().clamp(1, 99) : 1;
+      final unit = l.unitLabel.trim();
+      final cupPrice = l.unitPrice + l.toppingExtraPerUnit;
       if (whole && copies > 1) {
         for (var i = 0; i < copies; i++) {
           tickets.add(CupLabelTicket(
             productName: l.product.name,
             toppings: toppings.isEmpty ? null : toppings,
             note: noteOnly.isEmpty ? null : noteOnly,
-            qtyLabel: '1/${copies}',
+            qtyLabel: '${i + 1}/$copies',
             tableLabel: table.isEmpty ? null : table,
             orderNo: orderNo.isEmpty ? null : orderNo,
+            unitLabel: unit.isEmpty ? null : unit,
+            price: cupPrice > 0 ? cupPrice : null,
           ));
         }
       } else {
@@ -4755,6 +4759,8 @@ class _PosSellScreenState extends State<PosSellScreen>
           qtyLabel: _qtyFmt.format(pending),
           tableLabel: table.isEmpty ? null : table,
           orderNo: orderNo.isEmpty ? null : orderNo,
+          unitLabel: unit.isEmpty ? null : unit,
+          price: cupPrice > 0 ? cupPrice : null,
         ));
       }
     }
@@ -4779,12 +4785,6 @@ class _PosSellScreenState extends State<PosSellScreen>
       showFeedback: showFeedback,
     );
     if (!ok) {
-      if (showFeedback) {
-        NotificationOverlayManager().showError(
-          title: 'In tem ly thất bại',
-          message: tr('Kiểm tra máy in nhiệt / Sunmi'),
-        );
-      }
       _enqueueFailedCupPrint(
         PendingCupLabelPrintJob(
           id: 'cup_${DateTime.now().millisecondsSinceEpoch}',

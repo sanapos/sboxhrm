@@ -10,6 +10,7 @@ import 'package:printing/printing.dart';
 
 import '../models/pos_product.dart';
 import 'file_saver.dart' as file_saver;
+import 'pos_pdf_fonts.dart';
 import 'pos_label_printer_settings.dart';
 import 'pos_label_printer_service.dart';
 
@@ -42,6 +43,40 @@ enum PosBarcodeUnitMode {
         PosBarcodeUnitMode.withUnit => 'Giá kèm đơn vị tính',
       };
 }
+
+/// Dòng thông số dưới tên hàng (tem mã vạch thông số hàng hóa).
+enum PosBarcodeSpecMode {
+  withoutSpecs,
+  withSpecs;
+
+  String get label => switch (this) {
+        PosBarcodeSpecMode.withoutSpecs => 'Không in thông số',
+        PosBarcodeSpecMode.withSpecs => 'In thông số (thuộc tính, thương hiệu, khối lượng, kích thước, bảo hành)',
+      };
+}
+
+/// Thông số hàng hóa in trên tem: thuộc tính (Màu: Đỏ · Size: L), thương hiệu, khối lượng,
+/// kích thước, bảo hành. Rỗng → null.
+String? posProductSpecText(PosProduct p) {
+  String num(double v) =>
+      v == v.roundToDouble() ? v.toStringAsFixed(0) : v.toStringAsFixed(2).replaceAll(RegExp(r'0+$'), '');
+  final parts = <String>[
+    for (final a in p.attributes ?? const [])
+      if (a.value.trim().isNotEmpty)
+        a.attributeName.trim().isEmpty ? a.value.trim() : '${a.attributeName.trim()}: ${a.value.trim()}',
+    if ((p.brandName ?? '').trim().isNotEmpty) 'TH: ${p.brandName!.trim()}',
+    if ((p.weight ?? 0) > 0) 'KL: ${num(p.weight!)} ${p.weightUnit.trim().isEmpty ? 'g' : p.weightUnit.trim()}',
+    if ((p.lengthCm ?? 0) > 0 || (p.widthCm ?? 0) > 0 || (p.heightCm ?? 0) > 0)
+      'KT: ${[p.lengthCm, p.widthCm, p.heightCm].where((v) => (v ?? 0) > 0).map((v) => num(v!)).join('×')} cm',
+    if ((p.warrantyMonths ?? 0) > 0) 'BH: ${p.warrantyMonths} tháng',
+  ];
+  return parts.isEmpty ? null : parts.join(' · ');
+}
+
+/// Dòng chi tiết in dưới tên: tem cân (gắn sẵn) hoặc thông số hàng khi bật.
+String? posLabelDetailFor(PosProduct p, PosBarcodePrintOptions opts) =>
+    posLabelDetail[p] ??
+    (opts.specMode == PosBarcodeSpecMode.withSpecs ? posProductSpecText(p) : null);
 
 enum PosBarcodeStoreMode {
   withoutStore,
@@ -227,6 +262,7 @@ class PosBarcodePrintOptions {
     this.unitMode = PosBarcodeUnitMode.withoutUnit,
     this.storeMode = PosBarcodeStoreMode.withoutStore,
     this.storeName,
+    this.specMode = PosBarcodeSpecMode.withoutSpecs,
   });
 
   final PosBarcodeLabelTemplate template;
@@ -236,15 +272,17 @@ class PosBarcodePrintOptions {
   final PosBarcodeUnitMode unitMode;
   final PosBarcodeStoreMode storeMode;
   final String? storeName;
+  final PosBarcodeSpecMode specMode;
 }
 
 /// Tạo PDF tem mã vạch, trả về bytes.
 Future<Uint8List> buildPosBarcodeLabelPdfBytes(
   List<PosProduct> products, {
   required PosBarcodePrintOptions options,
+  List<int>? copiesPerItem,
 }) async {
   final copies = options.copiesPerProduct.clamp(1, 5000);
-  final pdf = await _buildLabelPdf(products, options, copies);
+  final pdf = await _buildLabelPdf(products, options, copies, copiesPerItem);
   return Uint8List.fromList(await pdf.save());
 }
 
@@ -253,11 +291,13 @@ Future<bool> printPosBarcodeLabelsToDevice(
   List<PosProduct> products, {
   required PosBarcodePrintOptions options,
   required PosLabelPrinterSettings settings,
+  List<int>? copiesPerItem,
 }) =>
     PosLabelPrinterService.printLabels(
       products,
       options: options,
       settings: settings,
+      copiesPerItem: copiesPerItem,
     );
 
 Future<void> printPosBarcodeLabels(
@@ -269,7 +309,7 @@ Future<void> printPosBarcodeLabels(
   if (products.isEmpty) return;
   final opts = options ??
       PosBarcodePrintOptions(
-        template: posBarcodeLabelTemplates[3],
+        template: defaultBarcodeLabelTemplate,
         copiesPerProduct: copiesPerProduct,
       );
   final bytes = await buildPosBarcodeLabelPdfBytes(products, options: opts);
@@ -290,10 +330,12 @@ Future<void> printPosBarcodeLabels(
 Future<pw.Document> _buildLabelPdf(
   List<PosProduct> products,
   PosBarcodePrintOptions opts,
-  int copies,
-) async {
-  final font = await PdfGoogleFonts.notoSansRegular();
-  final fontBold = await PdfGoogleFonts.notoSansBold();
+  int copies, [
+  List<int>? copiesPerItem,
+]) async {
+  final fonts = await loadPosPdfFonts();
+  final font = fonts.regular;
+  final fontBold = fonts.bold;
   final pdf = pw.Document(
     theme: pw.ThemeData.withFont(base: font, bold: fontBold),
   );
@@ -301,9 +343,13 @@ Future<pw.Document> _buildLabelPdf(
   final t = opts.template;
 
   final labels = <pw.Widget>[];
-  for (final p in products) {
-    for (var c = 0; c < copies; c++) {
-      labels.add(_labelWidget(p, opts, moneyFmt, font, fontBold));
+  for (var i = 0; i < products.length; i++) {
+    final per = copiesPerItem != null && i < copiesPerItem.length ? copiesPerItem[i] : 1;
+    final n = (per.clamp(0, 5000) * copies).clamp(0, 5000);
+    if (n == 0) continue;
+    final label = _labelWidget(products[i], opts, moneyFmt, font, fontBold);
+    for (var c = 0; c < n; c++) {
+      labels.add(label);
     }
   }
 
@@ -311,9 +357,11 @@ Future<pw.Document> _buildLabelPdf(
     final perPage = t.cols * t.rows;
     final gapW = t.labelGapMm * PdfPageFormat.mm;
     final totalGap = t.cols > 1 ? gapW * (t.cols - 1) : 0;
-    final pageInnerW = t.rollPageWidthMm * PdfPageFormat.mm - totalGap;
+    final pageInnerW = t.pageFormat.availableWidth - totalGap;
     final labelW = pageInnerW / t.cols;
-    final labelH = t.labelHeightMm * PdfPageFormat.mm;
+    final labelH = t.isSheet
+        ? t.pageFormat.availableHeight / t.rows
+        : t.pageFormat.availableHeight;
 
     for (var i = 0; i < labels.length; i += perPage) {
       final end = (i + perPage > labels.length) ? labels.length : i + perPage;
@@ -384,7 +432,7 @@ pw.Widget _labelWidget(
     PosBarcodeCodeField.productCode => p.productCode,
   };
 
-  final detail = posLabelDetail[p];
+  final detail = posLabelDetailFor(p, opts);
   final t = opts.template;
   final small = t.labelHeightMm <= 22;
   final nameSize = small ? 4.8 : 7.0;
@@ -488,6 +536,7 @@ pw.Widget _labelWidget(
 Future<void> exportPosBarcodeLabelsExcel(
   List<PosProduct> products, {
   required PosBarcodePrintOptions options,
+  List<int>? copiesPerItem,
 }) async {
   final excel = Excel.createExcel();
   final sheet = excel['Tem ma'];
@@ -499,19 +548,23 @@ Future<void> exportPosBarcodeLabelsExcel(
     TextCellValue('Mã vạch'),
     TextCellValue('Giá bán'),
     TextCellValue('Đơn vị'),
+    TextCellValue('Thông số'),
     TextCellValue('Số lượng in'),
     TextCellValue('Mẫu giấy'),
   ]);
 
   final moneyFmt = NumberFormat('#,##0', 'vi_VN');
-  for (final p in products) {
+  for (var i = 0; i < products.length; i++) {
+    final p = products[i];
+    final per = copiesPerItem != null && i < copiesPerItem.length ? copiesPerItem[i] : 1;
     sheet.appendRow([
       TextCellValue(p.productCode),
       TextCellValue(p.name),
       TextCellValue(p.barcode ?? ''),
       TextCellValue(moneyFmt.format(p.basePrice)),
       TextCellValue(p.baseUnitName),
-      IntCellValue(options.copiesPerProduct),
+      TextCellValue(posProductSpecText(p) ?? ''),
+      IntCellValue(per * options.copiesPerProduct),
       TextCellValue(options.template.name),
     ]);
   }
