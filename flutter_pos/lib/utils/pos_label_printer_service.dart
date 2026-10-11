@@ -107,6 +107,7 @@ class PosLabelPrinterService {
           widthMm: widthMm,
           heightMm: template.labelHeightMm,
           gapMm: settings.gapMm,
+          density: settings.density,
           // Lề trái đã render trong raster — không lệch BITMAP thêm.
           shiftRightMm: 0,
           dpi: settings.dpi,
@@ -117,6 +118,7 @@ class PosLabelPrinterService {
         );
       case PosLabelPrinterProtocol.zpl:
         return _buildZplJob(
+          density: settings.density,
           widthPx: raster.widthPx,
           heightPx: raster.heightPx,
           raster: raster.raster,
@@ -135,6 +137,7 @@ class PosLabelPrinterService {
 
   /// ZPL: ảnh tem dạng ^GFA (hex, bit 1 = đen — cùng chiều ESC/POS), ^PQ = số bản.
   static List<int> _buildZplJob({
+    int density = 0,
     required int widthPx,
     required int heightPx,
     required Uint8List raster,
@@ -150,7 +153,10 @@ class PosLabelPrinterService {
         ..write(digits[v >> 4])
         ..write(digits[v & 0x0F]);
     }
-    final zpl = StringBuffer()
+    final zpl = StringBuffer();
+    // ~SD: độ đậm 00–30 (đặt trước ^XA).
+    if (density > 0) zpl.write('~SD${(density * 2).clamp(0, 30).toString().padLeft(2, '0')}');
+    zpl
       ..write('^XA')
       ..write('^PW$widthPx')
       ..write('^LL$heightPx')
@@ -286,6 +292,7 @@ class PosLabelPrinterService {
             widthMm: widthMm,
             heightMm: heightMm,
             gapMm: settings.gapMm,
+            density: settings.density,
             shiftRightMm: 0, // đã inset trong raster cup
             dpi: settings.dpi,
             raster: r.raster,
@@ -294,6 +301,7 @@ class PosLabelPrinterService {
           ));
         case PosLabelPrinterProtocol.zpl:
           jobs.add(_buildZplJob(
+            density: settings.density,
             widthPx: r.widthPx,
             heightPx: r.heightPx,
             raster: r.raster,
@@ -330,6 +338,7 @@ class PosLabelPrinterService {
     required int heightPx,
     double shiftRightMm = 0,
     int dpi = 203,
+    int density = 0,
     int copies = 1,
   }) {
     final bytesPerRow = (widthPx + 7) ~/ 8;
@@ -345,6 +354,7 @@ class PosLabelPrinterService {
     final header = StringBuffer()
       ..write('SIZE ${widthMm.toStringAsFixed(1)} mm, ${heightMm.toStringAsFixed(1)} mm\r\n')
       ..write('GAP ${gapMm.toStringAsFixed(1)} mm, 0 mm\r\n')
+      ..write(density > 0 ? 'DENSITY ${density.clamp(1, 15)}\r\n' : '')
       ..write('DIRECTION 1\r\n')
       ..write('REFERENCE 0,0\r\n')
       ..write('CLS\r\n')

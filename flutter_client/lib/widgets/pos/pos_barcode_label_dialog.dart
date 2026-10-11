@@ -4,6 +4,10 @@ import 'package:flutter/services.dart';
 
 import '../../models/pos_print_template.dart';
 import '../../models/pos_product.dart';
+import '../../models/pos_price_list.dart';
+import '../../services/api_service.dart';
+import '../../utils/pos_price_list_resolver.dart';
+import '../../utils/pos_sell_unit_views.dart';
 import '../../models/pos_store_printer.dart';
 import '../../screens/pos_print_templates_screen.dart';
 import '../../utils/pos_barcode_print.dart';
@@ -58,6 +62,11 @@ class _PosBarcodeLabelDialogState extends State<_PosBarcodeLabelDialog> {
   PosBarcodeUnitMode _unitMode = PosBarcodeUnitMode.withoutUnit;
   PosBarcodeStoreMode _storeMode = PosBarcodeStoreMode.withoutStore;
   PosBarcodeSpecMode _specMode = PosBarcodeSpecMode.withoutSpecs;
+  /// Mỗi biến thể / đơn vị bán một tem (mã SKU / mã vạch biến thể, giá theo đơn vị).
+  bool _expandViews = false;
+  /// Bảng giá cho giá trên tem (null = giá bán).
+  String? _priceListId;
+  List<PosPriceList> _priceLists = const [];
   PosBarcodeLabelTemplate? _selectedTemplate;
   PosLabelPrinterSettings _labelPrinter = const PosLabelPrinterSettings();
   String? _storeName;
@@ -74,6 +83,7 @@ class _PosBarcodeLabelDialogState extends State<_PosBarcodeLabelDialog> {
     _selectedTemplate = posBarcodeLabelTemplateById(_labelPrinter.templateId) ??
         defaultBarcodeLabelTemplate;
     _loadPrinterSettings();
+    _loadPriceLists();
   }
 
   Future<void> _loadPrinterSettings() async {
@@ -102,6 +112,82 @@ class _PosBarcodeLabelDialogState extends State<_PosBarcodeLabelDialog> {
     _lanHostCtrl.dispose();
     _lanPortCtrl.dispose();
     super.dispose();
+  }
+
+  /// Danh sách tem thực in: theo biến thể / đơn vị bán (mỗi loại một tem, mã SKU / mã vạch biến thể, giá
+  /// theo đơn vị) và / hoặc giá theo bảng giá. Không chọn gì → đúng danh sách truyền vào.
+  Future<({List<PosProduct> products, List<int>? quantities})> _effectiveItems() async {
+    if (!_expandViews && _priceListId == null) {
+      return (products: widget.products, quantities: widget.quantities);
+    }
+    final api = ApiService();
+    var overrides = <String, double>{};
+    if (_priceListId != null) {
+      final res = await api.getPosPriceListResolvedPrices(_priceListId!);
+      if (res['isSuccess'] == true && res['data'] is List) {
+        overrides = buildPosPriceOverrideMap(res['data'] as List);
+      }
+    }
+    final out = <PosProduct>[];
+    final qty = <int>[];
+    for (var i = 0; i < widget.products.length; i++) {
+      final p = widget.products[i];
+      final q = widget.quantities != null && i < widget.quantities!.length ? widget.quantities![i] : 1;
+      void add(PosProduct x) {
+        final d = posLabelDetail[p];
+        if (d != null) posLabelDetail[x] = d;
+        out.add(x);
+        qty.add(q);
+      }
+
+      if (!_expandViews) {
+        add(p.copyWith(basePrice: applyPosPriceListToProductBase(p, overrides)));
+        continue;
+      }
+      var views = await loadPosSellUnitViews(api, p);
+      views = applyPosPriceListToViews(views, p, overrides);
+      if (views.length <= 1) {
+        add(p.copyWith(
+          basePrice: views.isEmpty ? applyPosPriceListToProductBase(p, overrides) : views.first.basePrice,
+        ));
+        continue;
+      }
+      final variantBarcodes = <String, String>{};
+      if (views.any((v) => v.variantId != null)) {
+        final vr = await api.getPosProductVariants(p.id);
+        if (vr['isSuccess'] == true && vr['data'] is List) {
+          for (final e in vr['data'] as List) {
+            if (e is! Map) continue;
+            final v = PosProductVariant.fromJson(Map<String, dynamic>.from(e));
+            if ((v.barcode ?? '').trim().isNotEmpty) variantBarcodes[v.id] = v.barcode!.trim();
+          }
+        }
+      }
+      for (final v in views) {
+        add(p.copyWith(
+          name: v.isBase ? p.name : '${p.name} · ${v.label}',
+          productCode: v.displayCode.trim().isEmpty ? p.productCode : v.displayCode,
+          // Biến thể: mã vạch riêng; đơn vị lớn (Thùng): chưa có mã vạch riêng → in mã hàng, không in EAN của lon.
+          barcode: v.variantId != null
+              ? (variantBarcodes[v.variantId] ?? '')
+              : (v.unitId != null ? '' : p.barcode),
+          basePrice: v.basePrice,
+          baseUnitName: v.unitId != null ? v.label : p.baseUnitName,
+        ));
+      }
+    }
+    return (products: out, quantities: qty);
+  }
+
+  Future<void> _loadPriceLists() async {
+    final res = await ApiService().getPosPriceLists();
+    if (!mounted || res['isSuccess'] != true || res['data'] is! List) return;
+    setState(() {
+      _priceLists = [
+        for (final e in res['data'] as List)
+          if (e is Map) PosPriceList.fromJson(Map<String, dynamic>.from(e)),
+      ].where((l) => l.isActive).toList();
+    });
   }
 
   PosBarcodePrintOptions _options(PosBarcodeLabelTemplate template) =>
@@ -147,10 +233,11 @@ class _PosBarcodeLabelDialogState extends State<_PosBarcodeLabelDialog> {
   Future<void> _preview(PosBarcodeLabelTemplate template) async {
     setState(() => _selectedTemplate = template);
     try {
+      final eff = await _effectiveItems();
       final bytes = await buildPosBarcodeLabelPdfBytes(
-        widget.products,
+        eff.products,
         options: _options(template),
-        copiesPerItem: widget.quantities,
+        copiesPerItem: eff.quantities,
       );
       if (!mounted) return;
       await showPosPdfPreviewDialog(
@@ -187,6 +274,7 @@ class _PosBarcodeLabelDialogState extends State<_PosBarcodeLabelDialog> {
 
     setState(() => _printing = true);
     await _savePrinterSettings();
+    final eff = await _effectiveItems();
 
     // 1) Ưu tiên máy tem nội bộ trên thiết bị này.
     if (!kIsWeb) {
@@ -217,10 +305,10 @@ class _PosBarcodeLabelDialogState extends State<_PosBarcodeLabelDialog> {
           return;
         }
         final ok = await printPosBarcodeLabelsToDevice(
-          widget.products,
+          eff.products,
           options: _options(template),
           settings: settings,
-          copiesPerItem: widget.quantities,
+          copiesPerItem: eff.quantities,
         );
         if (!mounted) return;
         setState(() => _printing = false);
@@ -250,10 +338,10 @@ class _PosBarcodeLabelDialogState extends State<_PosBarcodeLabelDialog> {
           templateId: template.id,
         );
         final jobs = await PosLabelPrinterService.buildLabelByteJobs(
-          widget.products,
+          eff.products,
           options: _options(template),
           settings: settings,
-          copiesPerItem: widget.quantities,
+          copiesPerItem: eff.quantities,
         );
         final cloudOk = await PosPrintOrchestrator.instance.dispatchLabelJobs(
           jobs: jobs,
@@ -310,10 +398,10 @@ class _PosBarcodeLabelDialogState extends State<_PosBarcodeLabelDialog> {
     }
 
     final ok = await printPosBarcodeLabelsToDevice(
-      widget.products,
+      eff.products,
       options: _options(template),
       settings: draft.copyWith(enabled: true),
-      copiesPerItem: widget.quantities,
+      copiesPerItem: eff.quantities,
     );
     if (!mounted) return;
     setState(() => _printing = false);
@@ -354,10 +442,11 @@ class _PosBarcodeLabelDialogState extends State<_PosBarcodeLabelDialog> {
       );
       return;
     }
+    final eff = await _effectiveItems();
     await exportPosBarcodeLabelsExcel(
-      widget.products,
+      eff.products,
       options: _options(_selectedTemplate!),
-      copiesPerItem: widget.quantities,
+      copiesPerItem: eff.quantities,
     );
   }
 
@@ -543,6 +632,22 @@ class _PosBarcodeLabelDialogState extends State<_PosBarcodeLabelDialog> {
           items: PosBarcodeSpecMode.values,
           label: (v) => v.label,
           onChanged: (v) => setState(() => _specMode = v!),
+        ),
+        const SizedBox(height: 8),
+        _dropdown<bool>(
+          value: _expandViews,
+          items: const [false, true],
+          label: (v) => v ? 'Mỗi biến thể / đơn vị bán một tem' : 'Một tem mỗi mặt hàng',
+          onChanged: (v) => setState(() => _expandViews = v ?? false),
+        ),
+        const SizedBox(height: 8),
+        _dropdown<String>(
+          value: _priceListId ?? '',
+          items: ['', for (final l in _priceLists) l.id],
+          label: (id) => id.isEmpty
+              ? 'Giá trên tem: giá bán'
+              : 'Giá trên tem: ${_priceLists.where((l) => l.id == id).map((l) => l.name).firstOrNull ?? id}',
+          onChanged: (v) => setState(() => _priceListId = (v ?? '').isEmpty ? null : v),
         ),
       ],
     );

@@ -30,6 +30,7 @@ class PosLabelPrinterSettings {
     this.templateId = 'roll_1_50x30',
     this.dpi = 203,
     this.gapMm = 2.0,
+    this.density = 0,
     /// Lề trái (mm) — bù tem lệch trái trên nhiều máy 50×30.
     this.marginLeftMm = 3.0,
     this.marginRightMm = 2.0,
@@ -56,6 +57,9 @@ class PosLabelPrinterSettings {
   final String templateId;
   final int dpi;
   final double gapMm;
+
+  /// Độ đậm in 1–15 (TSPL DENSITY; ZPL ~SD ×2). 0 = theo máy.
+  final int density;
   final double marginLeftMm;
   final double marginRightMm;
   final double marginTopMm;
@@ -110,6 +114,7 @@ class PosLabelPrinterSettings {
     String? templateId,
     int? dpi,
     double? gapMm,
+    int? density,
     double? marginLeftMm,
     double? marginRightMm,
     double? marginTopMm,
@@ -138,6 +143,7 @@ class PosLabelPrinterSettings {
         templateId: templateId ?? this.templateId,
         dpi: dpi ?? this.dpi,
         gapMm: gapMm ?? this.gapMm,
+        density: density ?? this.density,
         marginLeftMm: marginLeftMm ?? shiftRightMm ?? this.marginLeftMm,
         marginRightMm: marginRightMm ?? this.marginRightMm,
         marginTopMm: marginTopMm ?? this.marginTopMm,

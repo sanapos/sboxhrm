@@ -116,6 +116,7 @@ class PosLocalPrinterProfile {
     this.labelTemplateId = 'roll_1_50x30',
     this.labelDpi = 203,
     this.labelGapMm = 2.0,
+    this.labelDensity = 0,
     this.labelShiftRightMm = 3.0,
     this.labelMarginRightMm = 2.0,
     this.labelMarginTopMm = 2.0,
@@ -158,6 +159,9 @@ class PosLocalPrinterProfile {
   final String labelTemplateId;
   final int labelDpi;
   final double labelGapMm;
+
+  /// Độ đậm máy tem 1–15 (0 = theo máy).
+  final int labelDensity;
   /// Lề trái (mm) — giữ tên cũ để tương thích JSON.
   final double labelShiftRightMm;
   final double labelMarginRightMm;
@@ -205,6 +209,7 @@ class PosLocalPrinterProfile {
         templateId: labelTemplateId,
         dpi: labelDpi,
         gapMm: labelGapMm,
+        density: labelDensity,
         marginLeftMm: labelShiftRightMm,
         marginRightMm: labelMarginRightMm,
         marginTopMm: labelMarginTopMm,
@@ -251,6 +256,7 @@ class PosLocalPrinterProfile {
     String? labelTemplateId,
     int? labelDpi,
     double? labelGapMm,
+    int? labelDensity,
     double? labelShiftRightMm,
     double? labelMarginRightMm,
     double? labelMarginTopMm,
@@ -293,6 +299,7 @@ class PosLocalPrinterProfile {
         labelTemplateId: labelTemplateId ?? this.labelTemplateId,
         labelDpi: labelDpi ?? this.labelDpi,
         labelGapMm: labelGapMm ?? this.labelGapMm,
+        labelDensity: labelDensity ?? this.labelDensity,
         labelShiftRightMm: labelShiftRightMm ?? this.labelShiftRightMm,
         labelMarginRightMm: labelMarginRightMm ?? this.labelMarginRightMm,
         labelMarginTopMm: labelMarginTopMm ?? this.labelMarginTopMm,
@@ -334,6 +341,7 @@ class PosLocalPrinterProfile {
         'labelTemplateId': labelTemplateId,
         'labelDpi': labelDpi,
         'labelGapMm': labelGapMm,
+        if (labelDensity > 0) 'labelDensity': labelDensity,
         'labelShiftRightMm': labelShiftRightMm,
         'labelMarginRightMm': labelMarginRightMm,
         'labelMarginTopMm': labelMarginTopMm,
@@ -406,6 +414,7 @@ class PosLocalPrinterProfile {
               ? (json['paperSize']?.toString() ?? 'roll_1_50x30')
               : 'roll_1_50x30'),
       labelDpi: (json['labelDpi'] as num?)?.toInt() ?? 203,
+      labelDensity: ((json['labelDensity'] as num?)?.toInt() ?? 0).clamp(0, 15),
       labelGapMm: (json['labelGapMm'] as num?)?.toDouble() ??
           (kind == PosLocalPrinterKind.label
               ? ((json['feedBeforeCut'] as num?)?.toDouble() ?? 2.0)
@@ -478,6 +487,7 @@ class PosLocalPrinterProfile {
         labelTemplateId: s.templateId,
         labelDpi: s.dpi,
         labelGapMm: s.gapMm,
+        labelDensity: s.density,
         labelShiftRightMm: s.marginLeftMm,
         labelMarginRightMm: s.marginRightMm,
         labelMarginTopMm: s.marginTopMm,

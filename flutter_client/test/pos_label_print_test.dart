@@ -189,4 +189,15 @@ void main() {
     expect(PosLabelRenderer.hasEnoughInk(r.raster), isTrue);
     await savePng(r, 'ship_rotated');
   });
+  test('độ đậm in: TSPL DENSITY, ZPL ~SD', () async {
+    final opts = PosBarcodePrintOptions(template: defaultBarcodeLabelTemplate);
+    final t = await PosLabelPrinterService.buildLabelByteJobs([_product('A')],
+        options: opts, settings: const PosLabelPrinterSettings(protocol: PosLabelPrinterProtocol.tspl, density: 12));
+    expect(latin1.decode(t.first.take(120).toList()), contains('DENSITY 12'));
+    final z = await PosLabelPrinterService.buildLabelByteJobs([_product('A')],
+        options: opts, settings: const PosLabelPrinterSettings(protocol: PosLabelPrinterProtocol.zpl, density: 12));
+    expect(latin1.decode(z.first.take(12).toList()), startsWith('~SD24^XA'));
+    final d = await PosLabelPrinterService.buildLabelByteJobs([_product('A')], options: opts, settings: tspl);
+    expect(latin1.decode(d.first.take(120).toList()), isNot(contains('DENSITY')));
+  });
 }

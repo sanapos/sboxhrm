@@ -541,6 +541,7 @@ class _LocalPrinterEditorSheetState extends State<_LocalPrinterEditorSheet> {
   late PosLabelPrinterProtocol _labelProtocol;
   late String _labelTemplateId;
   late double _labelGapMm;
+  late int _labelDensity;
   late double _labelShiftRightMm;
   late double _labelMarginRightMm;
   late double _labelMarginTopMm;
@@ -602,6 +603,7 @@ class _LocalPrinterEditorSheetState extends State<_LocalPrinterEditorSheet> {
     _labelProtocol = i?.labelProtocol ?? PosLabelPrinterProtocol.tspl;
     _labelTemplateId = i?.labelTemplateId ?? 'roll_1_50x30';
     _labelGapMm = i?.labelGapMm ?? 2.0;
+    _labelDensity = i?.labelDensity ?? 0;
     _labelShiftRightMm = i?.labelShiftRightMm ?? 3.0;
     _labelMarginRightMm = i?.labelMarginRightMm ?? 2.0;
     _labelMarginTopMm = i?.labelMarginTopMm ?? 2.0;
@@ -1026,6 +1028,7 @@ class _LocalPrinterEditorSheetState extends State<_LocalPrinterEditorSheet> {
       labelProtocol: _labelProtocol,
       labelTemplateId: _labelTemplateId,
       labelGapMm: _labelGapMm,
+      labelDensity: _labelDensity,
       labelShiftRightMm: _labelShiftRightMm,
       labelMarginRightMm: _labelMarginRightMm,
       labelMarginTopMm: _labelMarginTopMm,
@@ -1356,6 +1359,23 @@ class _LocalPrinterEditorSheetState extends State<_LocalPrinterEditorSheet> {
                 ],
                 onChanged: (v) {
                   if (v != null) setState(() => _labelGapMm = v);
+                },
+              ),
+              const SizedBox(height: 10),
+              DropdownButtonFormField<int>(
+                value: _labelDensity,
+                decoration: InputDecoration(
+                  labelText: tr('Độ đậm in'),
+                  helperText: tr('Mã vạch nhạt / máy quét khó đọc → tăng độ đậm'),
+                  border: const OutlineInputBorder(),
+                ),
+                items: [
+                  DropdownMenuItem(value: 0, child: Text(tr('Theo máy'))),
+                  for (final d in const [6, 8, 10, 12, 14, 15])
+                    DropdownMenuItem(value: d, child: Text(tr('$d${d == 15 ? ' (đậm nhất)' : ''}'))),
+                ],
+                onChanged: (v) {
+                  if (v != null) setState(() => _labelDensity = v);
                 },
               ),
               const SizedBox(height: 10),

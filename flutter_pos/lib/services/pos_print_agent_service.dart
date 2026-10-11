@@ -1140,6 +1140,15 @@ class PosPrintAgentService {
                 _payloadLooksLikeTspl(bytes))
             ? 1
             : copies.clamp(1, 10);
+        // Độ đậm máy tem đặt trên máy Agent — lệnh tem do máy khác dựng không biết thiết lập này.
+        var outBytes = bytes;
+        final density = local?.labelDensity ?? 0;
+        if (density > 0 && _payloadLooksLikeTspl(bytes)) {
+          final head = String.fromCharCodes(bytes.take(160)).toUpperCase();
+          if (!head.contains('DENSITY')) {
+            outBytes = [...utf8.encode('DENSITY ${density.clamp(1, 15)}\r\n'), ...bytes];
+          }
+        }
         for (var i = 0; i < effectiveCopies; i++) {
           final sent = await PosPrinterTransport.send(
             connectionType: conn,
@@ -1147,7 +1156,7 @@ class PosPrintAgentService {
             lanHost: settings.lanHost,
             lanPort: settings.lanPort,
             usbDeviceName: settings.usbDeviceName,
-            bytes: bytes,
+            bytes: outBytes,
             sunmiFeedLines: sunmiFeed,
           );
           if (!sent) {
