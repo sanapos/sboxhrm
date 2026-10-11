@@ -593,6 +593,8 @@ abstract final class PosPrintTokens {
     ('Gio', 'Giờ'),
     ('Ghi_Chu', 'Ghi chú / topping'),
     ('Ten_Cua_Hang', 'Tên cửa hàng'),
+    ('Thong_So', 'Thông số hàng (thuộc tính, KL, KT, BH)'),
+    ('Lo_HSD', 'Lô / NSX / HSD'),
   ];
 
   static const totals = [

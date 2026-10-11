@@ -4,6 +4,10 @@ import 'package:flutter/services.dart';
 
 import '../../models/pos_print_template.dart';
 import '../../models/pos_product.dart';
+import 'package:shared_preferences/shared_preferences.dart';
+import '../../models/pos_print_template_v2.dart';
+import '../../utils/pos_print_template_loader.dart';
+import '../../utils/pos_print_template_v2_codec.dart';
 import '../../models/pos_price_list.dart';
 import '../../services/api_service.dart';
 import '../../utils/pos_price_list_resolver.dart';
@@ -67,6 +71,10 @@ class _PosBarcodeLabelDialogState extends State<_PosBarcodeLabelDialog> {
   /// Bảng giá cho giá trên tem (null = giá bán).
   String? _priceListId;
   List<PosPriceList> _priceLists = const [];
+  /// Mẫu tem cửa hàng (màn Mẫu in → Tem sản phẩm) đọc được; chọn '' = bố cục chuẩn SBOX.
+  List<({String id, String name, PosPrintTemplateV2 tpl})> _layouts = const [];
+  String _layoutId = '';
+  static const _kLayoutPref = 'pos_barcode_label_layout_id';
   PosBarcodeLabelTemplate? _selectedTemplate;
   PosLabelPrinterSettings _labelPrinter = const PosLabelPrinterSettings();
   String? _storeName;
@@ -84,6 +92,25 @@ class _PosBarcodeLabelDialogState extends State<_PosBarcodeLabelDialog> {
         defaultBarcodeLabelTemplate;
     _loadPrinterSettings();
     _loadPriceLists();
+    _loadLayouts();
+  }
+
+  Future<void> _loadLayouts() async {
+    try {
+      final list = await loadPosPrintTemplates(ApiService(), PosPrintDocumentTypes.barcodeLabel);
+      final parsed = <({String id, String name, PosPrintTemplateV2 tpl})>[
+        for (final t in list)
+          if (PosPrintTemplateV2Codec.tryParse(t.htmlContent) case final v2?)
+            (id: t.id, name: t.name, tpl: v2),
+      ];
+      final prefs = await SharedPreferences.getInstance();
+      final saved = prefs.getString(_kLayoutPref) ?? '';
+      if (!mounted) return;
+      setState(() {
+        _layouts = parsed;
+        _layoutId = parsed.any((l) => l.id == saved) ? saved : '';
+      });
+    } catch (_) {}
   }
 
   Future<void> _loadPrinterSettings() async {
@@ -211,6 +238,7 @@ class _PosBarcodeLabelDialogState extends State<_PosBarcodeLabelDialog> {
         storeMode: _storeMode,
         storeName: _storeName,
         specMode: _specMode,
+        layout: _layouts.where((l) => l.id == _layoutId).map((l) => l.tpl).firstOrNull,
       );
 
   /// Tổng số tem sẽ in (theo số lượng từng hàng × số bản).
@@ -644,6 +672,23 @@ class _PosBarcodeLabelDialogState extends State<_PosBarcodeLabelDialog> {
           label: (v) => v.label,
           onChanged: (v) => setState(() => _specMode = v!),
         ),
+        if (_layouts.isNotEmpty) ...[
+          const SizedBox(height: 8),
+          _dropdown<String>(
+            value: _layoutId,
+            items: ['', for (final l in _layouts) l.id],
+            label: (id) => id.isEmpty
+                ? 'Bố cục tem: chuẩn SBOX'
+                : 'Bố cục tem: mẫu «${_layouts.where((l) => l.id == id).map((l) => l.name).firstOrNull ?? id}»',
+            onChanged: (v) async {
+              setState(() => _layoutId = v ?? '');
+              try {
+                final prefs = await SharedPreferences.getInstance();
+                await prefs.setString(_kLayoutPref, _layoutId);
+              } catch (_) {}
+            },
+          ),
+        ],
         const SizedBox(height: 8),
         _dropdown<bool>(
           value: _expandViews,

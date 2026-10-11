@@ -362,6 +362,8 @@ Map<String, String> posPrintSampleData({
       'Ma_Vach': '8934567890123',
       'Don_Gia': money.format(350000),
       'Don_Vi_Tinh': 'Đôi',
+      'Thong_So': 'Màu: Xanh · Size: 42 · TH: Adidas',
+      'Lo_HSD': 'Lô L2610 · HSD 10/10/2027',
     };
   }
   if (documentType == PosPrintDocumentTypes.kitchenLabel) {
@@ -369,7 +371,8 @@ Map<String, String> posPrintSampleData({
       ...base,
       'Tieu_De_In': 'TEM BÁO BẾP',
       'Ghi_Chu': '+ TranChau x2\n+ Thach',
-      'So_Luong': '1',
+      'So_Luong': '2/5',
+      'Don_Vi_Tinh': 'Size L',
     };
   }
   return base;

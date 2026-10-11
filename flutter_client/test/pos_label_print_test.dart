@@ -11,6 +11,10 @@ import 'package:zkteco_flutter_client/utils/pos_barcode_print.dart';
 import 'package:zkteco_flutter_client/utils/pos_label_printer_service.dart';
 import 'package:zkteco_flutter_client/utils/pos_label_printer_settings.dart';
 import 'package:zkteco_flutter_client/utils/pos_label_renderer.dart';
+import 'package:zkteco_flutter_client/models/pos_print_template.dart';
+import 'package:zkteco_flutter_client/models/pos_print_template_v2.dart';
+import 'package:zkteco_flutter_client/utils/pos_print_template_compiler.dart';
+import 'package:zkteco_flutter_client/utils/pos_print_template_v2_presets.dart';
 
 PosProduct _product(String code, {Map<String, dynamic> extra = const {}}) => PosProduct.fromJson({
       'id': code,
@@ -199,5 +203,76 @@ void main() {
     expect(latin1.decode(z.first.take(12).toList()), startsWith('~SD24^XA'));
     final d = await PosLabelPrinterService.buildLabelByteJobs([_product('A')], options: opts, settings: tspl);
     expect(latin1.decode(d.first.take(120).toList()), isNot(contains('DENSITY')));
+  });
+  group('Tem theo mẫu cửa hàng', () {
+    final tpl = PosPrintTemplateV2Presets.build(
+      documentType: PosPrintDocumentTypes.barcodeLabel,
+      paperSize: 'roll_1_50x30',
+      printerProfile: PosPrintPrinterProfiles.genericK58,
+    );
+
+    test('in thẳng 1 cột: vẽ theo mẫu, máy in nhiều bản', () async {
+      final jobs = await PosLabelPrinterService.buildLabelByteJobs(
+        [_product('A'), _product('B')],
+        options: PosBarcodePrintOptions(template: defaultBarcodeLabelTemplate, copiesPerProduct: 3, layout: tpl),
+        settings: tspl,
+      );
+      expect(_tsplJobs(jobs).map((j) => j.copies), [3, 3]);
+    });
+
+    test('cuộn 2 tem / hàng: ghép ô theo mẫu, đủ khổ cuộn', () async {
+      final t = posBarcodeLabelTemplateById('roll_2_72x22')!;
+      final jobs = await PosLabelPrinterService.buildLabelByteJobs(
+        [_product('A')],
+        options: PosBarcodePrintOptions(template: t, layout: tpl),
+        settings: tspl,
+        copiesPerItem: [3],
+      );
+      // 3 tem = [A,A] + [A]
+      final parsed = _tsplJobs(jobs);
+      expect(parsed.length, 2);
+      expect(parsed.every((j) => j.size.startsWith('72.0 mm')), isTrue);
+      expect(PosLabelRenderer.rowCellWidthMm(t), closeTo(35.5, 0.01));
+    });
+
+    test('«Không in giá» bỏ dòng «{Don_Gia} đ» của mẫu', () {
+      final p = _product('A');
+      String text(PosBarcodePrintOptions o) => compilePosBarcodeLayout(p, o)
+          .steps
+          .whereType<PosPrintCompiledLine>()
+          .map((l) => l.text)
+          .join('|');
+      final withPrice = text(PosBarcodePrintOptions(template: defaultBarcodeLabelTemplate, layout: tpl));
+      final noPrice = text(PosBarcodePrintOptions(
+          template: defaultBarcodeLabelTemplate, layout: tpl, priceMode: PosBarcodePriceMode.withoutPrice));
+      expect(withPrice, contains('35.000'));
+      expect(noPrice, isNot(contains(' đ')));
+      expect(noPrice, contains('Hàng A'));
+    });
+
+    test('PDF theo mẫu tạo được', () async {
+      final bytes = await buildPosBarcodeLabelPdfBytes(
+        [_product('A'), _product('B')],
+        options: PosBarcodePrintOptions(template: posBarcodeLabelTemplateById('roll_3_104x22')!, layout: tpl),
+        copiesPerItem: [2, 1],
+      );
+      expect(latin1.decode(bytes.sublist(0, 5)), '%PDF-');
+    });
+
+    test('ảnh tem theo mẫu 50×30 (xem bằng mắt)', () async {
+      final r = await PosLabelRenderer.renderCompiledLabel(
+        output: compilePosBarcodeLayout(
+          _product('A', extra: {'barcode': '8934588012228', 'brandName': 'Tiger'}),
+          PosBarcodePrintOptions(
+              template: defaultBarcodeLabelTemplate, layout: tpl, storeMode: PosBarcodeStoreMode.withStore,
+              storeName: 'Quán Demo', specMode: PosBarcodeSpecMode.withSpecs,
+              codeField: PosBarcodeCodeField.barcode),
+        ),
+        widthMm: 50,
+        heightMm: 30,
+      );
+      expect(PosLabelRenderer.hasEnoughInk(r.raster), isTrue);
+      await savePng(r, 'layout_50x30');
+    });
   });
 }

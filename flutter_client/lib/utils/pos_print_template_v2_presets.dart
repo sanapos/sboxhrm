@@ -271,6 +271,15 @@ abstract final class PosPrintTemplateV2Presets {
             align: PosPrintTextAlign.center,
           ),
         ),
+        if (!compact)
+          PosPrintBlock(
+            type: PosPrintBlockType.field,
+            field: 'Thong_So',
+            style: PosPrintTextStyle(
+              fontSize: smallSize,
+              align: PosPrintTextAlign.center,
+            ),
+          ),
         PosPrintBlock(
           type: PosPrintBlockType.barcode,
           field: 'Ma_Vach',
@@ -323,6 +332,8 @@ abstract final class PosPrintTemplateV2Presets {
         PosPrintBlock(
           type: PosPrintBlockType.field,
           field: 'Ten_Hang_Hoa',
+          // Góc phải dòng tên món: số thứ tự ly (Ly 2/5) + size (ĐVT) — trước đây chỉ SL.
+          fields: const ['So_Luong', 'Don_Vi_Tinh'],
           style: PosPrintTextStyle(
             fontSize: compact ? bodySize + 6 : titleSize + 2,
             bold: true,

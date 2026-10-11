@@ -41,26 +41,48 @@ class PosLabelPrinterService {
 
     // Mỗi tem chỉ vẽ 1 lần; số bản in giao cho máy (TSPL PRINT n / ZPL ^PQ n) —
     // trước đây vẽ + gửi lại nguyên ảnh cho từng bản ⇒ 50 tem qua Bluetooth rất chậm.
+    final layout = options.layout != null;
+    final cellCache = <int, ({Uint8List raster, int widthPx, int heightPx})>{};
+    Future<({Uint8List raster, int widthPx, int heightPx})> layoutCell(int i, double widthMm) async =>
+        cellCache[i] ??= await PosLabelRenderer.renderCompiledLabel(
+          output: compilePosBarcodeLayout(products[i], options),
+          widthMm: widthMm,
+          heightMm: template.labelHeightMm,
+          dpi: dpi,
+          marginLeftMm: settings.marginLeftMm,
+          marginRightMm: settings.marginRightMm,
+          marginTopMm: settings.marginTopMm,
+          marginBottomMm: settings.marginBottomMm,
+          fontScale: settings.fontScale,
+        );
+
     if (template.cols > 1 && !template.isSheet) {
       // Cuộn nhiều tem / hàng: xếp kín từng ô. Trước đây mỗi hàng chỉ in đúng các mặt hàng liền nhau
       // rồi nhân số bản → in 10 tem một mặt hàng trên cuộn 2 tem = 10 hàng, mỗi hàng bỏ trống 1 ô.
       final cols = template.cols;
-      Future<void> emit(List<PosLabelRenderItem> row, int times) async {
+      final cellW = PosLabelRenderer.rowCellWidthMm(template);
+      Future<void> emit(List<int> row, int times) async {
         if (row.isEmpty || times <= 0) return;
-        final raster = await PosLabelRenderer.renderRow(
-          items: row,
-          template: template,
-          dpi: dpi,
-          contentInsetLeftMm: settings.shiftRightMm,
-        );
+        final raster = layout
+            ? PosLabelRenderer.composeRow(
+                [for (final i in row) await layoutCell(i, cellW)],
+                template,
+                dpi: dpi,
+              )
+            : await PosLabelRenderer.renderRow(
+                items: [for (final i in row) items[i]],
+                template: template,
+                dpi: dpi,
+                contentInsetLeftMm: settings.shiftRightMm,
+              );
         jobs.add(_bytesForRaster(settings, template, raster, rowMode: true, copies: times));
       }
 
-      final pending = <PosLabelRenderItem>[];
+      final pending = <int>[];
       for (var i = 0; i < items.length; i++) {
         var n = countOf(i);
         while (n > 0 && pending.isNotEmpty) {
-          pending.add(items[i]);
+          pending.add(i);
           n--;
           if (pending.length == cols) {
             await emit(List.of(pending), 1);
@@ -68,11 +90,11 @@ class PosLabelPrinterService {
           }
         }
         if (n >= cols) {
-          await emit(List.filled(cols, items[i]), n ~/ cols);
+          await emit(List.filled(cols, i), n ~/ cols);
           n %= cols;
         }
         for (var r = 0; r < n; r++) {
-          pending.add(items[i]);
+          pending.add(i);
         }
       }
       await emit(pending, 1);
@@ -82,12 +104,14 @@ class PosLabelPrinterService {
     for (var i = 0; i < items.length; i++) {
       final n = countOf(i);
       if (n <= 0) continue;
-      final raster = await PosLabelRenderer.renderSingle(
-        item: items[i],
-        template: template,
-        dpi: dpi,
-        contentInsetLeftMm: settings.shiftRightMm,
-      );
+      final raster = layout
+          ? await layoutCell(i, template.labelWidthMm)
+          : await PosLabelRenderer.renderSingle(
+              item: items[i],
+              template: template,
+              dpi: dpi,
+              contentInsetLeftMm: settings.shiftRightMm,
+            );
       jobs.add(_bytesForRaster(settings, template, raster, copies: n));
     }
     return jobs;

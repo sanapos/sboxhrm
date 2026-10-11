@@ -107,8 +107,10 @@ class PosLabelRenderer {
     await PosThermalBitmapEncoder.ensureFont();
     final w = mmToDots(template.rollPageWidthMm, dpi);
     final h = mmToDots(template.labelHeightMm, dpi);
-    final labelW = mmToDots(template.labelWidthMm, dpi);
     final gap = mmToDots(template.labelGapMm, dpi);
+    // Ô tem = (khổ cuộn − khe) / số cột. Trước đây lấy bề rộng tem danh nghĩa (36 mm × 2 + khe 1 mm = 73 mm
+    // trên cuộn 72 mm) → tem cuối hàng bị cắt mép phải.
+    final labelW = ((w - gap * (template.cols - 1)) / template.cols).floor();
     final small = template.labelHeightMm <= 22;
     final wide = template.labelWidthMm >= 48;
 
@@ -289,6 +291,39 @@ class PosLabelRenderer {
       );
     }
     canvas.restore();
+  }
+
+  /// Bề rộng một ô tem trên cuộn nhiều tem / hàng (mm).
+  static double rowCellWidthMm(PosBarcodeLabelTemplate t) =>
+      (t.rollPageWidthMm - t.labelGapMm * (t.cols - 1)) / t.cols;
+
+  /// Ghép các tem đã vẽ (1-bit) thành một hàng của cuộn nhiều tem.
+  static ({Uint8List raster, int widthPx, int heightPx}) composeRow(
+    List<({Uint8List raster, int widthPx, int heightPx})> cells,
+    PosBarcodeLabelTemplate template, {
+    int dpi = 203,
+  }) {
+    final w = mmToDots(template.rollPageWidthMm, dpi);
+    final h = mmToDots(template.labelHeightMm, dpi);
+    final gap = mmToDots(template.labelGapMm, dpi);
+    final pitch = ((w - gap * (template.cols - 1)) / template.cols).floor() + gap;
+    final bpr = (w + 7) ~/ 8;
+    final out = Uint8List(bpr * h);
+    for (var c = 0; c < cells.length && c < template.cols; c++) {
+      final cell = cells[c];
+      final cbpr = (cell.widthPx + 7) ~/ 8;
+      final x0 = c * pitch;
+      for (var y = 0; y < h && y < cell.heightPx; y++) {
+        for (var x = 0; x < cell.widthPx; x++) {
+          final tx = x0 + x;
+          if (tx >= w) break;
+          if ((cell.raster[y * cbpr + (x >> 3)] >> (7 - (x & 7))) & 1 == 1) {
+            out[y * bpr + (tx >> 3)] |= 0x80 >> (tx & 7);
+          }
+        }
+      }
+    }
+    return (raster: out, widthPx: w, heightPx: h);
   }
 
   /// Tem QR gọi món tại bàn — khổ mặc định 60×40 mm.
@@ -987,7 +1022,11 @@ class PosLabelRenderer {
     canvas.save();
     canvas.clipRect(ui.Rect.fromLTWH(baseLeft, top, baseInnerW, (maxY - top).clamp(1, h.toDouble())));
     // Khoảng cách / thụt lề trong mẫu là điểm in — tem cùng hệ số với cỡ chữ (×0.72).
-    final layoutK = 0.72 * scale;
+    // Máy 300 dpi: cùng cỡ điểm thì chữ nhỏ hơn 1,5 lần → nhân theo dpi để tem in ra cùng cỡ thật.
+    final dpiK = dpi / 203;
+    final layoutK = 0.72 * scale * dpiK;
+    // Tem lớn (75×100, 100×150): cho chữ to hơn mức trần của tem 50×30.
+    final sizeK = (wMm / 50).clamp(1.0, 2.5);
 
     for (final step in output.steps) {
       if (y >= maxY - 4) break;
@@ -1046,7 +1085,7 @@ class PosLabelRenderer {
           y += (lay?.spaceAfter ?? 0) * layoutK;
           continue;
         }
-        final fs = (step.fontSize * 0.72 * scale).clamp(11.0, 32.0);
+        final fs = (step.fontSize * 0.72 * scale * dpiK).clamp(11.0 * dpiK, 32.0 * dpiK * sizeK);
         y += await _drawText(
           canvas,
           step.text,
@@ -1061,7 +1100,7 @@ class PosLabelRenderer {
         );
         y += 2;
       } else if (step is PosPrintCompiledSaleRow) {
-        final fs = (step.fontSize * 0.72 * scale).clamp(11.0, 26.0);
+        final fs = (step.fontSize * 0.72 * scale * dpiK).clamp(11.0 * dpiK, 26.0 * dpiK * sizeK);
         if (step.nameOnly) {
           y += await _drawText(
             canvas,
@@ -1201,8 +1240,20 @@ class PosLabelRenderer {
         );
         y += (leftH > rightH ? leftH : rightH) + 2;
       } else if (step is PosPrintCompiledBarcode) {
-        final remain = maxY - y - 16;
-        final barH = remain.clamp(18.0, 48.0);
+        // Chiều cao theo mẫu (trước đây bỏ qua, luôn 18–48 điểm) nhưng chừa chỗ cho các dòng chữ phía sau
+        // (giá dưới mã vạch không bị đẩy khỏi tem).
+        final idx = output.steps.indexOf(step);
+        var after = 0.0;
+        for (final s in output.steps.skip(idx + 1)) {
+          if (s is PosPrintCompiledLine && !s.isDivider && s.text.trim().isNotEmpty) {
+            after += s.fontSize * 0.72 * scale * dpiK * 1.15 + 2;
+          }
+        }
+        final textH = step.showText ? 14 * dpiK : 0;
+        // Tối thiểu ~30% chiều cao tem: mã vạch cao dễ quét, tem không bỏ trống nửa dưới.
+        final want = [step.height * 0.72 * scale * dpiK, h * 0.30].reduce((a, b) => a > b ? a : b);
+        final remain = maxY - y - after - textH - 2;
+        final barH = want.clamp(16.0 * dpiK, remain < 16 * dpiK ? 16 * dpiK : remain).toDouble();
         if (barH >= 16 && step.data.trim().isNotEmpty) {
           _drawBarcode(
             canvas,
@@ -1217,7 +1268,7 @@ class PosLabelRenderer {
               contentLeft,
               y,
               innerW,
-              fontSize: 11,
+              fontSize: 11 * dpiK,
               bold: true,
               maxLines: 1,
               center: true,

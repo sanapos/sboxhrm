@@ -11,6 +11,9 @@ import 'package:printing/printing.dart';
 import '../models/pos_product.dart';
 import 'file_saver.dart' as file_saver;
 import 'pos_pdf_fonts.dart';
+import '../models/pos_print_template_v2.dart';
+import 'pos_label_renderer.dart';
+import 'pos_print_template_compiler.dart';
 import 'pos_label_printer_settings.dart';
 import 'pos_label_printer_service.dart';
 
@@ -263,6 +266,7 @@ class PosBarcodePrintOptions {
     this.storeMode = PosBarcodeStoreMode.withoutStore,
     this.storeName,
     this.specMode = PosBarcodeSpecMode.withoutSpecs,
+    this.layout,
   });
 
   final PosBarcodeLabelTemplate template;
@@ -273,7 +277,64 @@ class PosBarcodePrintOptions {
   final PosBarcodeStoreMode storeMode;
   final String? storeName;
   final PosBarcodeSpecMode specMode;
+
+  /// Mẫu tem cửa hàng (màn Mẫu in → Tem sản phẩm). null = bố cục chuẩn SBOX.
+  final PosPrintTemplateV2? layout;
 }
+
+/// Dữ liệu một tem hàng hóa cho mẫu thiết kế (token giống màn Mẫu in).
+Map<String, String> posBarcodeLabelData(PosProduct p, PosBarcodePrintOptions opts) {
+  final money = NumberFormat('#,##0', 'vi_VN');
+  final code = switch (opts.codeField) {
+    PosBarcodeCodeField.barcode =>
+      (p.barcode?.trim().isNotEmpty == true) ? p.barcode!.trim() : p.productCode,
+    PosBarcodeCodeField.productCode => p.productCode,
+  };
+  var price = '';
+  if (opts.priceMode == PosBarcodePriceMode.withVnd) {
+    price = money.format(p.basePrice);
+    if (opts.unitMode == PosBarcodeUnitMode.withUnit && p.baseUnitName.isNotEmpty) {
+      price = '$price/${p.baseUnitName}';
+    }
+  }
+  return {
+    'Ten_Cua_Hang': opts.storeMode == PosBarcodeStoreMode.withStore ? (opts.storeName ?? '') : '',
+    'Ten_Hang_Hoa': p.name,
+    'Ma_Hang': p.productCode,
+    'Ma_Vach': code,
+    'Don_Gia': price,
+    'Don_Vi_Tinh': p.baseUnitName,
+    'Thong_So': posProductSpecText(p) ?? '',
+    'Lo_HSD': posLabelDetail[p] ?? '',
+    'Ngay': DateFormat('dd/MM/yyyy').format(DateTime.now()),
+    'So_Luong': '1',
+  };
+}
+
+/// Biên dịch mẫu tem cửa hàng cho một hàng. Bỏ khối giá / tên cửa hàng khi chọn «Không in giá» /
+/// «Không in tên cửa hàng» (mẫu có chữ «{Don_Gia} đ» sẽ không còn in « đ» trơ trọi).
+PosPrintCompiledOutput compilePosBarcodeLayout(PosProduct p, PosBarcodePrintOptions opts) {
+  final tpl = opts.layout!;
+  bool uses(PosPrintBlock b, String token) =>
+      b.field == token ||
+      b.leftField == token ||
+      b.rightField == token ||
+      (b.text ?? '').contains('{$token}');
+  final blocks = tpl.blocks.where((b) {
+    if (opts.priceMode == PosBarcodePriceMode.withoutPrice && uses(b, 'Don_Gia')) return false;
+    if (opts.storeMode == PosBarcodeStoreMode.withoutStore && uses(b, 'Ten_Cua_Hang')) return false;
+    if (opts.specMode == PosBarcodeSpecMode.withoutSpecs && uses(b, 'Thong_So') && posLabelDetail[p] == null) {
+      return false;
+    }
+    return true;
+  }).toList();
+  return PosPrintTemplateCompiler.compile(
+    template: tpl.copyWith(blocks: blocks),
+    data: posBarcodeLabelData(p, opts),
+    lineItems: const [],
+  );
+}
+
 
 /// Tạo PDF tem mã vạch, trả về bytes.
 Future<Uint8List> buildPosBarcodeLabelPdfBytes(
@@ -347,7 +408,9 @@ Future<pw.Document> _buildLabelPdf(
     final per = copiesPerItem != null && i < copiesPerItem.length ? copiesPerItem[i] : 1;
     final n = (per.clamp(0, 5000) * copies).clamp(0, 5000);
     if (n == 0) continue;
-    final label = _labelWidget(products[i], opts, moneyFmt, font, fontBold);
+    final label = opts.layout != null
+        ? await _layoutLabelWidget(products[i], opts)
+        : _labelWidget(products[i], opts, moneyFmt, font, fontBold);
     for (var c = 0; c < n; c++) {
       labels.add(label);
     }
@@ -408,6 +471,31 @@ Future<pw.Document> _buildLabelPdf(
     }
   }
   return pdf;
+}
+
+/// Tem theo mẫu cửa hàng → ảnh 300 dpi (giống tem in thẳng), một ảnh dùng chung cho mọi bản sao.
+Future<pw.Widget> _layoutLabelWidget(PosProduct p, PosBarcodePrintOptions opts) async {
+  final t = opts.template;
+  final w = t.cols > 1 && !t.isSheet ? PosLabelRenderer.rowCellWidthMm(t) : t.labelWidthMm;
+  final r = await PosLabelRenderer.renderCompiledLabel(
+    output: compilePosBarcodeLayout(p, opts),
+    widthMm: w,
+    heightMm: t.labelHeightMm,
+    dpi: 300,
+  );
+  final rgba = Uint8List(r.widthPx * r.heightPx * 4);
+  final bpr = (r.widthPx + 7) ~/ 8;
+  for (var y = 0; y < r.heightPx; y++) {
+    for (var x = 0; x < r.widthPx; x++) {
+      final v = (r.raster[y * bpr + (x >> 3)] >> (7 - (x & 7))) & 1 == 1 ? 0 : 255;
+      final i = (y * r.widthPx + x) * 4;
+      rgba[i] = v;
+      rgba[i + 1] = v;
+      rgba[i + 2] = v;
+      rgba[i + 3] = 255;
+    }
+  }
+  return pw.Image(pw.RawImage(bytes: rgba, width: r.widthPx, height: r.heightPx), fit: pw.BoxFit.contain);
 }
 
 pw.Widget _labelCell(pw.Widget child, double width, double height) {
