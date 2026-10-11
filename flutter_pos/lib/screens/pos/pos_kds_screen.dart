@@ -297,8 +297,8 @@ class _PosKdsScreenState extends State<PosKdsScreen> {
     if (music == 0) {
       music = await PosQrOrderVoiceAlert.instance.ensureVolume(percent: 60);
     }
-    await PosQrOrderVoiceAlert.instance.beep();
-    await Future<void>.delayed(const Duration(milliseconds: 900));
+    await PosKdsAlert.playBell();
+    await Future<void>.delayed(const Duration(milliseconds: 380));
     await PosQrOrderVoiceAlert.instance.speak('Loa bếp hoạt động. Bàn 1, hai phần bún chả');
     if (!mounted) return;
     final vi = st?['viAvailable'];
