@@ -157,6 +157,14 @@ class SboxPosApp extends StatelessWidget {
           appBarTheme: SboxTheme.light().appBarTheme.copyWith(
             systemOverlayStyle: kPlayOverlayOnDarkBg,
           ),
+          // Máy Android 6 (T1): hiệu ứng chạm InkSparkle (shader) và chuyển trang Zoom
+          // tốn GPU → khung hình 100–600ms khi bấm. Dùng gợn sóng / mờ dần nhẹ hơn.
+          splashFactory: PosLiteMode.enabled ? InkRipple.splashFactory : null,
+          pageTransitionsTheme: PosLiteMode.enabled
+              ? const PageTransitionsTheme(builders: {
+                  TargetPlatform.android: FadeUpwardsPageTransitionsBuilder(),
+                })
+              : null,
         )),
         routes: {
           '/customer-display': (_) => const PosCustomerDisplayScreen(),

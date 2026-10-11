@@ -389,10 +389,19 @@ Future<bool> printPosSaleOrder({
   PosPrintHangCallback? onCloudHang,
 }) async {
   final perf = PosPerf('printSaleOrder');
+  String? nz(String? v) => (v == null || v.isEmpty) ? null : v;
+  final hasOverride = overridePrinter != null ||
+      (overridePrinterId ?? '').trim().isNotEmpty;
+  // Chạy song song: ghi lần in (server) + mẫu in + cấu hình máy in — trước đây nối tiếp ~2,8s.
+  final earlyTemplateId = nz(order.printTemplateId) ?? templateId;
+  final templateF = _resolveSalePrintTemplate(earlyTemplateId, documentType: documentType);
+  final configF = hasOverride
+      ? Future.value(true)
+      : PosPrintOrchestrator.instance.refreshConfig();
+  final storeSettingsF = PosSellStoreSettings.load();
   var printOrder = await _resolvePrintOrder(order);
   perf.mark('order');
   // Hóa đơn có mẫu nhớ riêng / mẫu chọn cho lần in này → thắng mẫu của thiết lập máy in.
-  String? nz(String? v) => (v == null || v.isEmpty) ? null : v;
   templateId = nz(order.printTemplateId) ?? nz(printOrder.printTemplateId) ?? templateId;
   // Ghi chú in riêng của hóa đơn: in kèm ghi chú đơn (không đổi số liệu bán).
   final printNote = (order.printNote ?? printOrder.printNote ?? '').trim();
@@ -411,14 +420,13 @@ Future<bool> printPosSaleOrder({
     }
   }
   perf.mark('vietQr');
-  final template = await _resolveSalePrintTemplate(
-    templateId,
-    documentType: documentType,
-  );
+  final template = templateId == earlyTemplateId
+      ? await templateF
+      : await _resolveSalePrintTemplate(templateId, documentType: documentType);
   perf.mark('template');
   final effectiveVat = vatAmount ?? printOrder.vatAmount;
   // Ưu tiên flag caller; không có thì theo thiết lập cửa hàng (giá đã gồm → không cộng VAT).
-  final storeTaxMode = (await PosSellStoreSettings.load()).taxMode;
+  final storeTaxMode = (await storeSettingsF).taxMode;
   final effectiveIncluded = vatIncludedInPrice ??
       (storeTaxMode == PosSellTaxMode.includedInPrice);
 
@@ -441,9 +449,6 @@ Future<bool> printPosSaleOrder({
             ? storePhone
             : store.phone;
   }
-
-  final hasOverride = overridePrinter != null ||
-      (overridePrinterId ?? '').trim().isNotEmpty;
 
   // In lại chọn máy: bỏ máy nội bộ mặc định — gửi đúng máy đã chọn (cloud/Agent).
   if (hasOverride) {
@@ -516,7 +521,7 @@ Future<bool> printPosSaleOrder({
 
   perf.mark('storeInfo');
   final thermal = await PosThermalPrinterSettings.load();
-  await PosPrintOrchestrator.instance.refreshConfig();
+  await configF;
   perf.mark('printerConfig');
   perf.done('(chuẩn bị in — phần gửi lệnh = invoicePrint − phần này)');
   final cloudPrinters = PosPrintOrchestrator.instance
@@ -1021,8 +1026,35 @@ Future<bool> _tryLocalSalePrint({
   return false;
 }
 
+/// Server cũ chưa có record-print-lite → dùng bản đầy đủ, khỏi thử lại mỗi lần in.
+bool _printLiteUnsupported = false;
+
 Future<PosSaleOrder> _resolvePrintOrder(PosSaleOrder order) async {
   if (order.id.isEmpty || order.status != 'Completed') return order;
+  // Đơn đã có đủ dòng (in ngay sau thanh toán) → chỉ cần context in, không tải lại cả đơn.
+  if (order.lines.isNotEmpty && !_printLiteUnsupported) {
+    try {
+      final res = await ApiService().recordPosSalePrintLite(order.id);
+      if (res['isSuccess'] == true && res['data'] is Map) {
+        final d = Map<String, dynamic>.from(res['data'] as Map);
+        int toInt(Object? v) => v is num ? v.toInt() : int.tryParse('$v') ?? 0;
+        double toDouble(Object? v) => v is num ? v.toDouble() : double.tryParse('$v') ?? 0;
+        final count = toInt(d['printCount']);
+        final tpl = (d['printTemplateId'] ?? '').toString();
+        return order.copyWithPrintContext(
+          printCount: count > 0 ? count : order.printCount + 1,
+          dailyOrderIndex: toInt(d['dailyOrderIndex']),
+          dailySalesTotal: toDouble(d['dailySalesTotal']),
+          printTemplateIdOverride: tpl.isEmpty ? null : tpl,
+        );
+      }
+      final code = res['statusCode'];
+      if (code == 404 || code == 405) _printLiteUnsupported = true;
+      debugPrint('recordPosSalePrintLite failed: ${res['message']}');
+    } catch (e) {
+      debugPrint('recordPosSalePrintLite error: $e');
+    }
+  }
   try {
     final res = await ApiService().recordPosSalePrint(order.id);
     if (res['isSuccess'] == true && res['data'] is Map) {

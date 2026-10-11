@@ -5966,8 +5966,15 @@ class _PosSellScreenState extends State<PosSellScreen>
   }
 
   /// Làm mới OnHand/Reserved từ server trước khi thanh toán.
+  /// Chỉ món có kiểm tồn (không phải dịch vụ, cửa hàng không cho bán âm) — quán cà phê / quán ăn
+  /// bán âm thì bỏ hẳn bước này (trước đây tải lại từng món, chậm thanh toán trên T1).
   Future<bool> _refreshCartStockBeforeCheckout() async {
-    final ids = _tab.cart.map((l) => l.product.id).toSet().toList();
+    if (_allowNegativeStock) return true;
+    final ids = _tab.cart
+        .where((l) => l.product.productType != PosProductType.service || l.product.hasRecipe)
+        .map((l) => l.product.id)
+        .toSet()
+        .toList();
     if (ids.isEmpty) return true;
     final responses = await Future.wait(ids.map((id) => _api.getPosProduct(id)));
     if (!mounted) return false;
@@ -5998,7 +6005,7 @@ class _PosSellScreenState extends State<PosSellScreen>
       );
       var views = posProductHasEmbeddedSellViews(freshProduct)
           ? buildPosSellUnitViewsFromProduct(freshProduct)
-          : await loadPosSellUnitViews(_api, freshProduct);
+          : await loadPosSellUnitViews(_api, freshProduct, useCache: false);
       if (!mounted) return false;
       views = applyPosPriceListToViews(views, freshProduct, overrides);
       final match = views
@@ -11004,7 +11011,10 @@ class _PosSellScreenState extends State<PosSellScreen>
         }());
       }
 
-      if (cupLabelLines.isNotEmpty) {
+      // Có in hóa đơn → tem ly in SAU bill (trước đây chạy song song, tranh CPU/mạng
+      // làm bill trên T1 ra chậm thêm ~1s).
+      final cupAfterInvoice = cupLabelLines.isNotEmpty && orderId != null && wantInvoicePrint;
+      void printCupLabels() {
         unawaited(_printCupLabelsForLines(
           cupLabelLines,
           tableLabelOverride: cupTableLabel,
@@ -11012,6 +11022,8 @@ class _PosSellScreenState extends State<PosSellScreen>
           showFeedback: false,
         ));
       }
+
+      if (cupLabelLines.isNotEmpty && !cupAfterInvoice) printCupLabels();
 
       _stopDraftLockHeartbeat();
       _draftAutosaveTimer?.cancel();
@@ -11097,6 +11109,7 @@ class _PosSellScreenState extends State<PosSellScreen>
             final tap = _checkoutTapAt;
             pp.done(tap == null ? '' : 'sinceTap=${DateTime.now().difference(tap).inMilliseconds}ms');
           }
+          if (cupAfterInvoice) printCupLabels();
           if (kitchenAutoLines.isNotEmpty) {
             var enqueuedPerPrinterFail = false;
             final kitchenOk = await printKitchenCompactSlip(

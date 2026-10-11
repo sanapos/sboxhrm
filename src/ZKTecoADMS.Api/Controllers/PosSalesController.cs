@@ -1611,6 +1611,44 @@ public partial class PosSalesController(
         return Ok(AppResponse<SaleOrderDto>.Success(await MapOrderAsync(storeId, order)));
     }
 
+    public record SalePrintContextDto(
+        int PrintCount, int DailyOrderIndex, decimal DailySalesTotal, Guid? PrintTemplateId, string? PrintNote);
+
+    /// <summary>
+    /// Bản nhẹ của record-print cho in ngay sau thanh toán (app đã có đủ dòng hàng):
+    /// tăng PrintCount nguyên tử, chỉ trả context in — không dựng lại cả đơn (~6 truy vấn).
+    /// </summary>
+    [HttpPost("{id:guid}/record-print-lite")]
+    [RequireModulePermission("PosSell", ModulePermissionAction.View)]
+    public async Task<ActionResult<AppResponse<SalePrintContextDto>>> RecordPrintLite(Guid id)
+    {
+        var storeId = RequiredStoreId;
+        var now = DateTime.UtcNow;
+        var updated = await dbContext.PosSaleOrders
+            .Where(o => o.Id == id && o.StoreId == storeId && o.Deleted == null)
+            .ExecuteUpdateAsync(u => u
+                .SetProperty(o => o.PrintCount, o => o.PrintCount + 1)
+                .SetProperty(o => o.LastPrintedAt, now));
+        if (updated == 0)
+            return NotFound(AppResponse<SalePrintContextDto>.Fail("Không tìm thấy đơn hàng"));
+
+        var order = await dbContext.PosSaleOrders.AsNoTracking()
+            .FirstAsync(o => o.Id == id && o.StoreId == storeId);
+        int dailyIndex = 0;
+        decimal dailyTotal = 0;
+        try
+        {
+            (dailyIndex, dailyTotal) =
+                await PosSaleStockHelper.GetDailyPrintContextAsync(dbContext, storeId, order);
+        }
+        catch
+        {
+            // Context in không bắt buộc — vẫn in được.
+        }
+        return Ok(AppResponse<SalePrintContextDto>.Success(new SalePrintContextDto(
+            order.PrintCount, dailyIndex, dailyTotal, order.PrintTemplateId, order.PrintNote)));
+    }
+
     /// <param name="PrintTemplateId">Mẫu nhớ riêng cho hóa đơn (null + ClearTemplate = bỏ, dùng thiết lập máy in).</param>
     public record SalePrintSettingsDto(Guid? PrintTemplateId, string? PrintNote, bool ClearTemplate = false);
 

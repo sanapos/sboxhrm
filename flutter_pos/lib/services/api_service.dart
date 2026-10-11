@@ -17698,6 +17698,21 @@ class ApiService {
   }
 
   /// Ghi nhận lần in — tăng PrintCount, trả daily context cho mẫu in.
+  /// Bản nhẹ: chỉ tăng lần in + trả số thứ tự / tổng ngày (không dựng lại cả đơn).
+  Future<Map<String, dynamic>> recordPosSalePrintLite(String id) async {
+    try {
+      final response = await http
+          .post(
+            Uri.parse('$baseUrl/api/pos/sales/$id/record-print-lite'),
+            headers: _headers,
+          )
+          .timeout(const Duration(seconds: 15));
+      return _handleResponse(response);
+    } catch (e) {
+      return _connectionFailure(e);
+    }
+  }
+
   Future<Map<String, dynamic>> recordPosSalePrint(String id) async {
     try {
       final response = await http
@@ -19165,6 +19180,7 @@ class ApiService {
     String catalogId, {
     bool setAsDefault = true,
   }) async {
+    posPrintTemplatesEpoch++;
     try {
       final response = await http
           .post(
@@ -19180,6 +19196,7 @@ class ApiService {
   }
 
   Future<Map<String, dynamic>> setDefaultPosPrintTemplate(String id) async {
+    posPrintTemplatesEpoch++;
     try {
       final response = await http
           .post(
@@ -19434,6 +19451,7 @@ class ApiService {
     required String documentType,
     String? name,
   }) async {
+    posPrintTemplatesEpoch++;
     try {
       final uri = Uri.parse('$baseUrl/api/pos/print-templates/import-file');
       final request = http.MultipartRequest('POST', uri);
@@ -19466,6 +19484,7 @@ class ApiService {
   }
 
   Future<Map<String, dynamic>> createPosPrintTemplate(Map<String, dynamic> body) async {
+    posPrintTemplatesEpoch++;
     try {
       final response = await http
           .post(
@@ -19482,6 +19501,7 @@ class ApiService {
 
   Future<Map<String, dynamic>> updatePosPrintTemplate(
       String id, Map<String, dynamic> body) async {
+    posPrintTemplatesEpoch++;
     try {
       final response = await http
           .put(
@@ -19497,6 +19517,7 @@ class ApiService {
   }
 
   Future<Map<String, dynamic>> deletePosPrintTemplate(String id) async {
+    posPrintTemplatesEpoch++;
     try {
       final response = await http
           .delete(Uri.parse('$baseUrl/api/pos/print-templates/$id'), headers: _headers)
@@ -19510,6 +19531,7 @@ class ApiService {
   Future<Map<String, dynamic>> seedPosPrintTemplates({
     String documentType = 'SaleInvoice',
   }) async {
+    posPrintTemplatesEpoch++;
     try {
       final uri = Uri.parse('$baseUrl/api/pos/print-templates/seed')
           .replace(queryParameters: {'documentType': documentType});
@@ -22165,3 +22187,5 @@ class ApiService {
   }
 }
 
+/// Tăng mỗi lần thêm / sửa / xóa mẫu in — bộ nhớ đệm mẫu in (in bill) tự bỏ bản cũ.
+int posPrintTemplatesEpoch = 0;

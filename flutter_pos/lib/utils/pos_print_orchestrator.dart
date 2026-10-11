@@ -409,17 +409,32 @@ class PosPrintOrchestrator {
     _routes = [];
   }
 
+  Future<bool>? _configInflight;
+
+  /// [force] = luôn chờ bản mới. Không force: bản đệm còn hạn → dùng ngay; quá hạn → vẫn dùng
+  /// bản đệm (in không phải chờ 2 API ~1s) và tải lại ở nền. Sửa máy in gọi [invalidateCache].
   Future<bool> refreshConfig({bool force = false}) async {
-    if (!force &&
-        _cacheAt != null &&
-        DateTime.now().difference(_cacheAt!) < _cacheTtl &&
-        _printers.isNotEmpty) {
+    if (!force && _cacheAt != null && _printers.isNotEmpty) {
+      if (DateTime.now().difference(_cacheAt!) >= _cacheTtl) {
+        unawaited(_loadConfig());
+      }
       return true;
     }
+    return _loadConfig();
+  }
+
+  Future<bool> _loadConfig() {
+    return _configInflight ??= _loadConfigOnce().whenComplete(() {
+      _configInflight = null;
+    });
+  }
+
+  Future<bool> _loadConfigOnce() async {
     try {
-      final printersRes = await _api.getPosStorePrinters();
+      final both = await Future.wait([_api.getPosStorePrinters(), _api.getPosPrinterRoutes()]);
+      final printersRes = both[0];
       if (printersRes['isSuccess'] != true) return false;
-      final routesRes = await _api.getPosPrinterRoutes();
+      final routesRes = both[1];
       _printers = (printersRes['data'] as List? ?? [])
           .map((e) => PosStorePrinter.fromJson(e as Map<String, dynamic>))
           .where((p) => p.isActive)

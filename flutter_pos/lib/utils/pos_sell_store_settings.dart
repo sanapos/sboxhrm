@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'dart:convert';
 
 import 'package:shared_preferences/shared_preferences.dart';
@@ -164,19 +165,31 @@ class PosSellStoreSettings {
     _peekedAt = null;
   }
 
+  static Future<String?>? _peekInflight;
+
+  /// Đã có bản đệm → trả ngay (in bill không chờ API thiết lập ~0,4s), quá 30s thì tải lại ở nền.
   static Future<String?> _peekSellExtraJson() async {
-    if (_peekedAt != null &&
-        DateTime.now().difference(_peekedAt!) < const Duration(seconds: 30)) {
+    if (_peekedAt != null) {
+      if (DateTime.now().difference(_peekedAt!) >= const Duration(seconds: 30)) {
+        unawaited(_fetchSellExtraJson());
+      }
       return _peekedExtraJson;
     }
-    try {
-      final loaded = await PosSellSettingsHelper(ApiService()).load();
-      _peekedExtraJson = loaded.settings?.extraJson;
-      _peekedAt = DateTime.now();
+    return _fetchSellExtraJson();
+  }
+
+  static Future<String?> _fetchSellExtraJson() {
+    return _peekInflight ??= () async {
+      try {
+        final loaded = await PosSellSettingsHelper(ApiService()).load();
+        _peekedExtraJson = loaded.settings?.extraJson;
+        _peekedAt = DateTime.now();
+      } catch (_) {}
       return _peekedExtraJson;
-    } catch (_) {
-      return _peekedExtraJson;
-    }
+    }()
+        .whenComplete(() {
+      _peekInflight = null;
+    });
   }
 
   /// Tên/địa chỉ/SĐT in bill = Thiết lập cửa hàng (prefs + ExtraJson.receiptStore).

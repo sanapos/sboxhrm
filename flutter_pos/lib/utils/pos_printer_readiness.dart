@@ -153,6 +153,9 @@ class PosPrinterReadiness {
       case PosThermalConnectionType.lan:
         final host = (lanHost ?? '').trim();
         if (host.isEmpty) return false;
+        if (PosPrinterTransport.isLanMarkedDown(host, lanPort <= 0 ? 9100 : lanPort)) {
+          return false;
+        }
         try {
           final socket = await Socket.connect(
             host,

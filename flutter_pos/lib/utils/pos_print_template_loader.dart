@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import '../models/pos_print_template.dart';
 import '../services/api_service.dart';
 
@@ -41,8 +43,50 @@ PosPrintTemplate? pickPosPrintTemplateForPaper(
   return sorted.first;
 }
 
+class _TplCacheEntry {
+  _TplCacheEntry(this.list, this.epoch) : at = DateTime.now();
+  final List<PosPrintTemplate> list;
+  final int epoch;
+  final DateTime at;
+}
+
+final _tplCache = <String, _TplCacheEntry>{};
+final _tplInflight = <String, Future<List<PosPrintTemplate>>>{};
+
+/// Sau thời gian này lần in tiếp vẫn dùng bản đệm nhưng tải lại ở nền.
+const _tplFreshFor = Duration(seconds: 30);
+
 /// Tải danh sách mẫu in; tự seed mặc định nếu chưa có.
+/// Có bộ nhớ đệm: in bill không phải chờ API mẫu in mỗi lần (bản đệm cũ → trả ngay, tải lại ở nền).
 Future<List<PosPrintTemplate>> loadPosPrintTemplates(
+  ApiService api,
+  String documentType,
+) async {
+  final hit = _tplCache[documentType];
+  if (hit != null && hit.epoch == posPrintTemplatesEpoch && hit.list.isNotEmpty) {
+    if (DateTime.now().difference(hit.at) > _tplFreshFor) {
+      unawaited(_fetchPosPrintTemplates(api, documentType).catchError((_) => hit.list));
+    }
+    return hit.list;
+  }
+  return _fetchPosPrintTemplates(api, documentType);
+}
+
+Future<List<PosPrintTemplate>> _fetchPosPrintTemplates(ApiService api, String documentType) {
+  final running = _tplInflight[documentType];
+  if (running != null) return running;
+  final epoch = posPrintTemplatesEpoch;
+  final f = _loadPosPrintTemplatesFromApi(api, documentType).then((list) {
+    if (list.isNotEmpty) _tplCache[documentType] = _TplCacheEntry(list, epoch);
+    return list;
+  }).whenComplete(() {
+    _tplInflight.remove(documentType);
+  });
+  _tplInflight[documentType] = f;
+  return f;
+}
+
+Future<List<PosPrintTemplate>> _loadPosPrintTemplatesFromApi(
   ApiService api,
   String documentType,
 ) async {

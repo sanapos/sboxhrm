@@ -1,4 +1,5 @@
-import 'dart:io' show Platform, Socket;
+import 'dart:async';
+import 'dart:io' show Platform, Socket, SocketException;
 
 import 'package:device_info_plus/device_info_plus.dart';
 import 'package:flutter/foundation.dart';
@@ -238,16 +239,63 @@ class PosPrinterTransport {
     return false;
   }
 
+  /// Máy LAN vừa không kết nối được → «mất kết nối» tạm thời: lệnh in sau trả lỗi ngay
+  /// (chuyển hàng đợi / Agent) thay vì mỗi phiếu chờ ~3,5s. Thăm dò nền, nối lại được thì gỡ.
+  static final Map<String, DateTime> _lanDownSince = {};
+  static final Set<String> _lanProbing = {};
+  static const _lanDownHold = Duration(seconds: 60);
+  static const _lanConnectTimeout = Duration(milliseconds: 1500);
+
+  static bool isLanMarkedDown(String host, int port) {
+    final at = _lanDownSince['$host:$port'];
+    if (at == null) return false;
+    if (DateTime.now().difference(at) >= _lanDownHold) {
+      _lanDownSince.remove('$host:$port');
+      return false;
+    }
+    return true;
+  }
+
+  static void _markLanDown(String host, int port) {
+    final key = '$host:$port';
+    _lanDownSince[key] = DateTime.now();
+    if (!_lanProbing.add(key)) return;
+    Future<void> probe() async {
+      for (var i = 0; i < 6 && _lanDownSince.containsKey(key); i++) {
+        await Future<void>.delayed(const Duration(seconds: 10));
+        try {
+          final s = await Socket.connect(host, port, timeout: _lanConnectTimeout);
+          await s.close();
+          _lanDownSince.remove(key);
+          debugPrint('LAN printer $key kết nối lại');
+          break;
+        } catch (_) {}
+      }
+      _lanProbing.remove(key);
+    }
+
+    unawaited(probe());
+  }
+
   static Future<bool> _sendLan(String? host, int port, List<int> bytes) async {
     final h = host?.trim();
     if (h == null || h.isEmpty) return false;
+    if (isLanMarkedDown(h, port)) {
+      debugPrint('LAN print skipped: $h:$port đang mất kết nối');
+      return false;
+    }
     try {
-      final socket = await Socket.connect(h, port, timeout: const Duration(seconds: 8));
+      final socket = await Socket.connect(h, port, timeout: _lanConnectTimeout);
       socket.add(bytes);
       await socket.flush();
       await Future<void>.delayed(const Duration(milliseconds: 200));
       await socket.close();
+      _lanDownSince.remove('$h:$port');
       return true;
+    } on SocketException catch (e) {
+      debugPrint('LAN print failed: $e');
+      _markLanDown(h, port);
+      return false;
     } catch (e) {
       debugPrint('LAN print failed: $e');
       return false;
