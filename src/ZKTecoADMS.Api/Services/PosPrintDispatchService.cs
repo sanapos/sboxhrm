@@ -1164,6 +1164,17 @@ public class PosPrintDispatchService(
         var printer = await db.PosStorePrinters.AsNoTracking()
             .FirstOrDefaultAsync(p => p.Id == targetId && p.StoreId == storeId && p.Deleted == null && p.IsActive, ct)
             ?? throw new InvalidOperationException("Máy in không còn hoạt động — chọn máy in khác");
+        if (targetId != job.PrinterId)
+        {
+            // Chuyển máy: tem (ly / mã vạch) chỉ sang máy in tem, phiếu thường không sang máy tem
+            // (trước đây chuyển tem sang Sunmi → lỗi UNSUPPORTED_ON_SUNMI).
+            var labelDoc = job.DocumentType is PosPrintDocumentType.KitchenLabel or PosPrintDocumentType.BarcodeLabel;
+            var labelPrinter = string.Equals(printer.PrinterBrand, "label", StringComparison.OrdinalIgnoreCase);
+            if (labelDoc && !labelPrinter)
+                throw new InvalidOperationException($"«{printer.Name}» không phải máy in tem — chọn máy in tem");
+            if (!labelDoc && labelPrinter)
+                throw new InvalidOperationException($"«{printer.Name}» là máy in tem — chọn máy in phiếu / hóa đơn");
+        }
         var now = DateTime.UtcNow;
         await db.PosPrintJobs
             .Where(j => j.Id == jobId && j.Status != PosPrintJobStatus.Printing)
@@ -1518,11 +1529,16 @@ public class PosPrintDispatchService(
                 stuckCancelled, storeId);
 
         // Hủy job Queued quá lâu — tránh Agent xả cả loạt hàng đợi cũ khi vừa mở máy lại.
+        // Mốc «vào hàng đợi» = lần gửi gần nhất: tạo mới hoặc In lại / Chuyển máy (RetryJobAsync đặt lại
+        // ExpiresAt = lúc đó + JobTtl). Trước đây chỉ xét CreatedAt → lệnh cũ vừa bấm In lại bị hủy ngay
+        // (STALE_QUEUED) trước khi Agent kịp nhận.
         var staleQueuedBefore = now.Subtract(StaleQueuedCancelAfter);
+        var requeuedAfter = staleQueuedBefore.Add(JobTtl);
         var staleIds = await db.PosPrintJobs.AsNoTracking()
             .Where(j => j.StoreId == storeId && j.Deleted == null
                 && j.Status == PosPrintJobStatus.Queued
-                && j.CreatedAt < staleQueuedBefore)
+                && j.CreatedAt < staleQueuedBefore
+                && j.ExpiresAt < requeuedAfter)
             .Select(j => j.Id)
             .ToListAsync(ct);
         var cancelled = staleIds.Count == 0 ? 0 : await db.PosPrintJobs

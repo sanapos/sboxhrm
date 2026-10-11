@@ -21,6 +21,9 @@ public partial class PosPrintJobsController
 
     public record RetryJobDto(Guid? PrinterId = null);
 
+    /// <param name="Action">retry (in lại / chuyển máy khi có PrinterId) · cancel.</param>
+    public record BulkJobsDto(List<Guid> Ids, string Action, Guid? PrinterId = null);
+
     [HttpGet("queue")]
     [RequireModulePermission("PosSell", ModulePermissionAction.View)]
     public async Task<ActionResult<AppResponse<object>>> Queue(
@@ -56,7 +59,7 @@ public partial class PosPrintJobsController
             .Select(p => new
             {
                 p.Id, p.Name, ConnectionType = p.ConnectionType.ToString(), p.HealthStatus, p.LastErrorMessage,
-                p.IsActive, Deleted = p.Deleted != null, p.RequiresAgent, p.IsDeviceLocal,
+                p.IsActive, Deleted = p.Deleted != null, p.RequiresAgent, p.IsDeviceLocal, p.PrinterBrand,
             })
             .ToDictionaryAsync(p => p.Id);
 
@@ -133,9 +136,11 @@ public partial class PosPrintJobsController
                 health = p.HealthStatus.ToString(),
                 lastError = p.LastErrorMessage,
                 requiresAgent = p.RequiresAgent,
+                isLabel = string.Equals(p.PrinterBrand, "label", StringComparison.OrdinalIgnoreCase),
                 agents = agentsByPrinter.GetValueOrDefault(p.Id) ?? [],
                 waiting = items.Count(i => i.printerId == p.Id && (i.status == "Queued" || i.status == "Claimed" || i.status == "Printing")),
-                problems = items.Count(i => i.printerId == p.Id && i.problem != ""),
+                // Lệnh đã hủy (quá hạn / máy xóa) không cần xử lý — trước đây vẫn đếm làm thẻ máy báo sai.
+                problems = items.Count(i => i.printerId == p.Id && i.problem != "" && i.problem != "cancelled"),
             })
             .OrderByDescending(x => x.problems).ThenBy(x => x.name)
             .ToList();
@@ -165,6 +170,41 @@ public partial class PosPrintJobsController
         {
             return BadRequest(AppResponse<object>.Fail(ex.Message));
         }
+    }
+
+    /// <summary>
+    /// Xử lý nhiều lệnh một lần (nút «In lại tất cả» / «Chuyển tất cả» / «Hủy tất cả» trên hàng đợi in).
+    /// Từng lệnh độc lập: lệnh lỗi không chặn lệnh khác, trả về số thành công + lý do lỗi.
+    /// </summary>
+    [HttpPost("bulk")]
+    [RequireModulePermission("PosSell", ModulePermissionAction.Create)]
+    public async Task<ActionResult<AppResponse<object>>> Bulk([FromBody] BulkJobsDto dto)
+    {
+        var storeId = RequiredStoreId;
+        var ids = (dto.Ids ?? []).Distinct().Take(200).ToList();
+        if (ids.Count == 0) return BadRequest(AppResponse<object>.Fail("Chưa chọn lệnh in"));
+        var action = (dto.Action ?? "").Trim().ToLowerInvariant();
+        if (action is not ("retry" or "cancel"))
+            return BadRequest(AppResponse<object>.Fail("Thao tác không hợp lệ"));
+
+        var ok = 0;
+        var errors = new List<object>();
+        foreach (var id in ids)
+        {
+            try
+            {
+                var job = action == "cancel"
+                    ? await dispatch.CancelJobAsync(storeId, id, CurrentUserEmail)
+                    : await dispatch.RetryJobAsync(storeId, id, dto.PrinterId, CurrentUserEmail);
+                if (job == null) errors.Add(new { id, message = "Không tìm thấy lệnh in" });
+                else ok++;
+            }
+            catch (InvalidOperationException ex)
+            {
+                errors.Add(new { id, message = ex.Message });
+            }
+        }
+        return Ok(AppResponse<object>.Success(new { ok, failed = errors.Count, errors }));
     }
 
     [HttpPost("{id:guid}/cancel")]

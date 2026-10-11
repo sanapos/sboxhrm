@@ -4,6 +4,7 @@ import '../../models/pos_store_printer.dart';
 import '../../utils/pos_kitchen_print.dart';
 import '../../utils/pos_pending_print_store.dart';
 import '../../utils/pos_print_orchestrator.dart';
+import '../../utils/pos_printer_transport.dart';
 import '../../utils/pos_sale_order_print.dart';
 import '../pos/pos_theme.dart';
 import 'package:zkteco_flutter_client/l10n/app_tr.dart';
@@ -38,6 +39,9 @@ Future<void> showPendingWarehousePrintSheet({
   Future<bool> Function(PendingCupLabelPrintJob job)? onRetryCup,
   void Function(PendingCupLabelPrintJob job)? onDismissCup,
   VoidCallback? onDismissAll,
+  /// Lệnh lỗi / treo của CẢ cửa hàng (server) — hiện lối sang «Hàng đợi in».
+  int storeProblemCount = 0,
+  VoidCallback? onOpenStoreQueue,
 }) async {
   if (jobs.isEmpty &&
       saleJobs.isEmpty &&
@@ -68,6 +72,8 @@ Future<void> showPendingWarehousePrintSheet({
         onRetryCup: onRetryCup,
         onDismissCup: onDismissCup,
         onDismissAll: onDismissAll,
+        storeProblemCount: storeProblemCount,
+        onOpenStoreQueue: onOpenStoreQueue,
       );
     },
   );
@@ -89,6 +95,8 @@ class _PendingWarehousePrintSheetBody extends StatefulWidget {
     this.onRetryCup,
     this.onDismissCup,
     this.onDismissAll,
+    this.storeProblemCount = 0,
+    this.onOpenStoreQueue,
   });
 
   final List<PendingWarehousePrintJob> jobs;
@@ -117,6 +125,8 @@ class _PendingWarehousePrintSheetBody extends StatefulWidget {
   final Future<bool> Function(PendingCupLabelPrintJob job)? onRetryCup;
   final void Function(PendingCupLabelPrintJob job)? onDismissCup;
   final VoidCallback? onDismissAll;
+  final int storeProblemCount;
+  final VoidCallback? onOpenStoreQueue;
 
   @override
   State<_PendingWarehousePrintSheetBody> createState() =>
@@ -146,6 +156,372 @@ class _PendingWarehousePrintSheetBodyState
       _localSaleJobs.length +
       _localKitchenJobs.length +
       _localCupJobs.length;
+
+  // ---------- Lọc theo máy in ----------
+  static const _cupGroup = 'Tem ly';
+  static const _saleGroup = 'Hóa đơn';
+
+  /// null = mọi máy.
+  String? _groupFilter;
+  /// «Đang in lại 2/6…» khi chạy hàng loạt.
+  String? _bulkProgress;
+
+  String _kitchenGroup(PendingKitchenPrintJob j) =>
+      (j.printerName ?? '').trim().isNotEmpty ? j.printerName!.trim() : 'Máy bếp';
+  String _warehouseGroup(PendingWarehousePrintJob j) =>
+      j.printerName.trim().isNotEmpty ? j.printerName.trim() : 'Xuất kho';
+
+  bool _show(String group) => _groupFilter == null || _groupFilter == group;
+
+  List<PendingKitchenPrintJob> get _visKitchen =>
+      _localKitchenJobs.where((j) => _show(_kitchenGroup(j))).toList();
+  List<PendingCupLabelPrintJob> get _visCups =>
+      _show(_cupGroup) ? _localCupJobs : const [];
+  List<PendingSalePrintJob> get _visSales =>
+      _show(_saleGroup) ? _localSaleJobs : const [];
+  List<PendingWarehousePrintJob> get _visWarehouse =>
+      _localJobs.where((j) => _show(_warehouseGroup(j))).toList();
+
+  int get _visibleCount =>
+      _visKitchen.length + _visCups.length + _visSales.length + _visWarehouse.length;
+
+  Map<String, int> get _groupCounts {
+    final m = <String, int>{};
+    void add(String g) => m[g] = (m[g] ?? 0) + 1;
+    for (final j in _localKitchenJobs) {
+      add(_kitchenGroup(j));
+    }
+    for (final _ in _localCupJobs) {
+      add(_cupGroup);
+    }
+    for (final _ in _localSaleJobs) {
+      add(_saleGroup);
+    }
+    for (final j in _localJobs) {
+      add(_warehouseGroup(j));
+    }
+    return m;
+  }
+
+  /// Máy LAN vừa không kết nối được (app đánh dấu mất kết nối 60s) → in lại sẽ lỗi tiếp.
+  bool _printerDown(String? printerId) {
+    if ((printerId ?? '').isEmpty) return false;
+    final p = widget.printers.where((x) => x.id == printerId).firstOrNull;
+    if (p == null || !p.isLan || (p.lanHost ?? '').trim().isEmpty) return false;
+    return PosPrinterTransport.isLanMarkedDown(p.lanHost!.trim(), p.lanPort <= 0 ? 9100 : p.lanPort);
+  }
+
+  static const _staleMinutes = 30;
+  bool _isStale(DateTime at) => DateTime.now().difference(at).inMinutes > _staleMinutes;
+
+  void _closeIfEmpty() {
+    if (_totalCount == 0 && mounted) Navigator.pop(context);
+  }
+
+  /// In lại mọi phiếu đang hiện (theo bộ lọc), lần lượt — phiếu in được thì gỡ khỏi danh sách.
+  Future<void> _retryAllVisible({PosStorePrinter? kitchenTarget}) async {
+    final kitchen = _visKitchen;
+    final cups = kitchenTarget == null ? _visCups : <PendingCupLabelPrintJob>[];
+    final sales = kitchenTarget == null ? _visSales : <PendingSalePrintJob>[];
+    final warehouse = kitchenTarget == null
+        ? _visWarehouse.where((j) => j.reason != PendingWarehousePrintReason.noPrinterAssignment).toList()
+        : <PendingWarehousePrintJob>[];
+    final total = kitchen.length + cups.length + sales.length + warehouse.length;
+    if (total == 0) return;
+
+    final staleKitchen = kitchen.where((j) => _isStale(j.sentAt)).length +
+        cups.where((j) => _isStale(j.createdAt)).length;
+    final down = kitchenTarget == null
+        ? {for (final j in kitchen) if (_printerDown(j.printerId)) _kitchenGroup(j)}
+        : <String>{};
+    var skipStale = staleKitchen > 0;
+    final ok = await showDialog<bool>(
+      context: context,
+      builder: (ctx) => StatefulBuilder(
+        builder: (ctx, setD) => AlertDialog(
+          title: Text(tr(kitchenTarget == null
+              ? 'In lại $total phiếu?'
+              : 'In ${kitchen.length} phiếu bếp trên «${kitchenTarget.name}»?')),
+          content: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              if (down.isNotEmpty)
+                Text(
+                  tr('Máy đang mất kết nối: ${down.join(', ')} — in lại sẽ lỗi tiếp. '
+                      'Nên dùng «Chuyển phiếu bếp» sang máy đang chạy.'),
+                  style: TextStyle(color: Colors.red.shade700, fontSize: 13),
+                ),
+              if (staleKitchen > 0)
+                CheckboxListTile(
+                  contentPadding: EdgeInsets.zero,
+                  value: skipStale,
+                  onChanged: (v) => setD(() => skipStale = v ?? true),
+                  title: Text(tr('Bỏ qua $staleKitchen phiếu bếp / tem cũ hơn $_staleMinutes phút'),
+                      style: const TextStyle(fontSize: 14)),
+                  subtitle: Text(tr('Tránh bếp nhận phiếu cũ rồi làm trùng món'),
+                      style: const TextStyle(fontSize: 12)),
+                ),
+              if (down.isEmpty && staleKitchen == 0)
+                Text(tr('Gửi lại lần lượt từng phiếu.')),
+            ],
+          ),
+          actions: [
+            TextButton(onPressed: () => Navigator.pop(ctx, false), child: Text(tr('Không'))),
+            FilledButton(onPressed: () => Navigator.pop(ctx, true), child: Text(tr('In lại'))),
+          ],
+        ),
+      ),
+    );
+    if (ok != true || !mounted) return;
+
+    final runKitchen = skipStale ? kitchen.where((j) => !_isStale(j.sentAt)).toList() : kitchen;
+    final runCups = skipStale ? cups.where((j) => !_isStale(j.createdAt)).toList() : cups;
+    final n = runKitchen.length + runCups.length + sales.length + warehouse.length;
+    var done = 0;
+    var printed = 0;
+    void tick() => setState(() => _bulkProgress = 'Đang in lại ${++done}/$n…');
+
+    for (final job in runKitchen) {
+      if (!mounted) return;
+      tick();
+      final good = await widget.onRetryKitchen?.call(
+            job,
+            overridePrinterId: kitchenTarget?.id,
+            overridePrinter: kitchenTarget,
+          ) ??
+          false;
+      if (good) {
+        printed++;
+        widget.onDismissKitchen?.call(job);
+        _localKitchenJobs.removeWhere((j) => j.id == job.id);
+      }
+    }
+    for (final job in runCups) {
+      if (!mounted) return;
+      tick();
+      if (await widget.onRetryCup?.call(job) ?? false) {
+        printed++;
+        widget.onDismissCup?.call(job);
+        _localCupJobs.removeWhere((j) => j.id == job.id);
+      }
+    }
+    for (final job in sales) {
+      if (!mounted) return;
+      tick();
+      if (await widget.onRetrySale?.call(job) ?? false) {
+        printed++;
+        widget.onDismissSale?.call(job);
+        _localSaleJobs.removeWhere((j) => j.id == job.id);
+      }
+    }
+    for (final job in warehouse) {
+      if (!mounted) return;
+      tick();
+      final r = await widget.onRetry(job, WarehouseSlipPrintMethod.assigned);
+      if (r.anySuccess && !r.hasFailures) {
+        printed++;
+        widget.onDismiss(job);
+        _localJobs.removeWhere((j) => j.id == job.id);
+      }
+    }
+    if (!mounted) return;
+    setState(() {
+      _bulkProgress = null;
+      _statusMessage = printed == n
+          ? 'Đã in lại $printed phiếu'
+          : 'In lại được $printed/$n phiếu — phiếu còn lại thử «Chuyển phiếu bếp» sang máy khác';
+      if (_groupFilter != null && !_groupCounts.containsKey(_groupFilter)) _groupFilter = null;
+    });
+    _closeIfEmpty();
+  }
+
+  Future<void> _moveKitchenVisible() async {
+    final p = await _pickPrinter(title: 'Chuyển phiếu bếp sang máy', kitchenOnly: true);
+    if (p == null || !mounted) return;
+    await _retryAllVisible(kitchenTarget: p);
+  }
+
+  /// Bỏ các phiếu đang hiện (theo bộ lọc). Không lọc → giống «Bỏ hết» cũ.
+  Future<void> _dismissVisible() async {
+    final n = _visibleCount;
+    if (n == 0) return;
+    final ok = await showDialog<bool>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: Text(tr('Bỏ $n phiếu chưa in?')),
+        content: Text(tr('Các phiếu này sẽ không được in nữa.')),
+        actions: [
+          TextButton(onPressed: () => Navigator.pop(ctx, false), child: Text(tr('Không'))),
+          FilledButton(
+            style: FilledButton.styleFrom(backgroundColor: Colors.red.shade700),
+            onPressed: () => Navigator.pop(ctx, true),
+            child: Text(tr('Bỏ')),
+          ),
+        ],
+      ),
+    );
+    if (ok != true || !mounted) return;
+    if (_groupFilter == null && widget.onDismissAll != null) {
+      widget.onDismissAll!.call();
+      setState(() {
+        _localJobs.clear();
+        _localSaleJobs.clear();
+        _localKitchenJobs.clear();
+        _localCupJobs.clear();
+      });
+    } else {
+      for (final j in _visKitchen) {
+        widget.onDismissKitchen?.call(j);
+      }
+      for (final j in _visCups) {
+        widget.onDismissCup?.call(j);
+      }
+      for (final j in _visSales) {
+        widget.onDismissSale?.call(j);
+      }
+      for (final j in _visWarehouse) {
+        widget.onDismiss(j);
+      }
+      final g = _groupFilter;
+      setState(() {
+        _localKitchenJobs.removeWhere((j) => _kitchenGroup(j) == g);
+        if (g == _cupGroup) _localCupJobs.clear();
+        if (g == _saleGroup) _localSaleJobs.clear();
+        _localJobs.removeWhere((j) => _warehouseGroup(j) == g);
+        _groupFilter = null;
+      });
+    }
+    _closeIfEmpty();
+  }
+
+  Widget _groupChips() {
+    final counts = _groupCounts;
+    if (counts.length < 2) return const SizedBox.shrink();
+    Widget chip(String label, bool selected, VoidCallback onTap, {bool down = false}) => Padding(
+          padding: const EdgeInsets.only(right: 6),
+          child: ChoiceChip(
+            label: Row(mainAxisSize: MainAxisSize.min, children: [
+              if (down) ...[
+                Icon(Icons.link_off, size: 14, color: Colors.red.shade700),
+                const SizedBox(width: 4),
+              ],
+              Text(tr(label)),
+            ]),
+            selected: selected,
+            showCheckmark: false,
+            onSelected: (_) => onTap(),
+            selectedColor: SboxColors.brand50,
+            side: BorderSide(color: selected ? SboxColors.primary : SboxColors.border),
+            labelStyle: TextStyle(
+              fontWeight: selected ? FontWeight.w700 : FontWeight.w500,
+              color: selected ? SboxColors.primary : PosTheme.textSecondary,
+            ),
+          ),
+        );
+    final downGroups = {
+      for (final j in _localKitchenJobs)
+        if (_printerDown(j.printerId)) _kitchenGroup(j)
+    };
+    return SizedBox(
+      height: 44,
+      child: ListView(
+        scrollDirection: Axis.horizontal,
+        padding: const EdgeInsets.symmetric(horizontal: 12),
+        children: [
+          chip('Tất cả máy ($_totalCount)', _groupFilter == null, () => setState(() => _groupFilter = null)),
+          for (final e in counts.entries)
+            chip(
+              '${e.key} (${e.value})',
+              _groupFilter == e.key,
+              () => setState(() => _groupFilter = _groupFilter == e.key ? null : e.key),
+              down: downGroups.contains(e.key),
+            ),
+        ],
+      ),
+    );
+  }
+
+  Widget _bulkActions() {
+    if (_bulkProgress != null) {
+      return Padding(
+        padding: const EdgeInsets.fromLTRB(16, 4, 16, 6),
+        child: Row(children: [
+          const SizedBox(width: 18, height: 18, child: CircularProgressIndicator(strokeWidth: 2)),
+          const SizedBox(width: 10),
+          Text(tr(_bulkProgress!)),
+        ]),
+      );
+    }
+    final n = _visibleCount;
+    if (n == 0) return const SizedBox.shrink();
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(12, 4, 12, 6),
+      child: Wrap(
+        spacing: 8,
+        runSpacing: 6,
+        children: [
+          FilledButton.icon(
+            onPressed: _busyJobId == null ? () => _retryAllVisible() : null,
+            icon: const Icon(Icons.refresh, size: 18),
+            label: Text(tr('In lại tất cả ($n)')),
+          ),
+          if (_visKitchen.isNotEmpty && widget.onRetryKitchen != null)
+            OutlinedButton.icon(
+              onPressed: _busyJobId == null ? _moveKitchenVisible : null,
+              icon: const Icon(Icons.print_outlined, size: 18),
+              label: Text(tr('Chuyển phiếu bếp (${_visKitchen.length})…')),
+            ),
+          OutlinedButton.icon(
+            onPressed: _busyJobId == null ? _dismissVisible : null,
+            style: OutlinedButton.styleFrom(
+              foregroundColor: Colors.red.shade700,
+              side: BorderSide(color: Colors.red.shade200),
+            ),
+            icon: const Icon(Icons.close, size: 18),
+            label: Text(tr(_groupFilter == null ? 'Bỏ tất cả ($n)' : 'Bỏ $n phiếu')),
+          ),
+        ],
+      ),
+    );
+  }
+
+  /// Lệnh lỗi do máy khác gửi / đã đẩy lên server — xem & xử lý ở hàng đợi cả cửa hàng.
+  Widget _storeQueueLink() {
+    final open = widget.onOpenStoreQueue;
+    if (open == null) return const SizedBox.shrink();
+    final n = widget.storeProblemCount;
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(12, 0, 12, 4),
+      child: Material(
+        color: SboxColors.slate100,
+        borderRadius: BorderRadius.circular(10),
+        child: InkWell(
+          borderRadius: BorderRadius.circular(10),
+          onTap: () {
+            Navigator.pop(context);
+            open();
+          },
+          child: Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+            child: Row(children: [
+              const Icon(Icons.queue_outlined, size: 20, color: PosTheme.kiotBlue),
+              const SizedBox(width: 10),
+              Expanded(
+                child: Text(
+                  tr(n > 0
+                      ? 'Hàng đợi in cả cửa hàng · $n lệnh lỗi / treo (mọi máy gửi)'
+                      : 'Hàng đợi in cả cửa hàng'),
+                  style: const TextStyle(fontWeight: FontWeight.w600, fontSize: 13),
+                ),
+              ),
+              const Icon(Icons.chevron_right, color: PosTheme.textSecondary),
+            ]),
+          ),
+        ),
+      ),
+    );
+  }
 
   String _pickerKind(PosStorePrinter p) {
     if (p.isLabelPrinter) return 'Tem';
@@ -365,31 +741,12 @@ class _PendingWarehousePrintSheetBodyState
                         ),
                       ),
                     ),
-                    if (widget.onDismissAll != null && _totalCount > 0)
-                      TextButton(
-                        style: TextButton.styleFrom(
-                          minimumSize: const Size(48, 44),
-                          padding: const EdgeInsets.symmetric(horizontal: 14),
-                        ),
-                        onPressed: () {
-                          widget.onDismissAll?.call();
-                          setState(() {
-                            _localJobs.clear();
-                            _localSaleJobs.clear();
-                            _localKitchenJobs.clear();
-                            _localCupJobs.clear();
-                          });
-                          if (mounted) Navigator.pop(context);
-                        },
-                        child: Text(tr('Bỏ hết'),
-                            style: const TextStyle(
-                              fontSize: 16,
-                              fontWeight: FontWeight.w700,
-                            )),
-                      ),
                   ],
                 ),
               ),
+              _storeQueueLink(),
+              _groupChips(),
+              _bulkActions(),
               if (_statusMessage != null)
                 Padding(
                   padding: const EdgeInsets.fromLTRB(16, 0, 16, 8),
@@ -405,22 +762,22 @@ class _PendingWarehousePrintSheetBodyState
                 child: ListView(
                   padding: const EdgeInsets.fromLTRB(12, 4, 12, 20),
                   children: [
-                    if (_localKitchenJobs.isNotEmpty) ...[
+                    if (_visKitchen.isNotEmpty) ...[
                       _sectionLabel('Bếp / hủy'),
-                      for (final job in _localKitchenJobs)
+                      for (final job in _visKitchen)
                         _buildKitchenRow(job),
                     ],
-                    if (_localCupJobs.isNotEmpty) ...[
+                    if (_visCups.isNotEmpty) ...[
                       _sectionLabel('Tem ly'),
-                      for (final job in _localCupJobs) _buildCupRow(job),
+                      for (final job in _visCups) _buildCupRow(job),
                     ],
-                    if (_localSaleJobs.isNotEmpty) ...[
+                    if (_visSales.isNotEmpty) ...[
                       _sectionLabel('Hóa đơn'),
-                      for (final job in _localSaleJobs) _buildSaleRow(job),
+                      for (final job in _visSales) _buildSaleRow(job),
                     ],
-                    if (_localJobs.isNotEmpty) ...[
+                    if (_visWarehouse.isNotEmpty) ...[
                       _sectionLabel('Xuất kho'),
-                      for (final job in _localJobs) _buildWarehouseRow(job),
+                      for (final job in _visWarehouse) _buildWarehouseRow(job),
                     ],
                   ],
                 ),
@@ -634,7 +991,7 @@ class _PendingWarehousePrintSheetBodyState
   }
 
   Widget _buildKitchenRow(PendingKitchenPrintJob job) {
-    final busy = _busyJobId == 'kitchen:${job.id}';
+    final busy = _busyJobId == 'kitchen:${job.id}' || _bulkProgress != null;
     final printer = (job.printerName ?? '').trim().isNotEmpty
         ? ' · ${job.printerName}'
         : '';
@@ -676,7 +1033,7 @@ class _PendingWarehousePrintSheetBodyState
   }
 
   Widget _buildCupRow(PendingCupLabelPrintJob job) {
-    final busy = _busyJobId == 'cup:${job.id}';
+    final busy = _busyJobId == 'cup:${job.id}' || _bulkProgress != null;
     final table = (job.tableLabel ?? '').trim();
     return _denseRow(
       bg: SboxColors.successSoft,
@@ -700,7 +1057,7 @@ class _PendingWarehousePrintSheetBodyState
   }
 
   Widget _buildSaleRow(PendingSalePrintJob job) {
-    final busy = _busyJobId == 'sale:${job.id}';
+    final busy = _busyJobId == 'sale:${job.id}' || _bulkProgress != null;
     return _denseRow(
       bg: SboxColors.brand50,
       title: job.orderLabel,
@@ -736,7 +1093,7 @@ class _PendingWarehousePrintSheetBodyState
   }
 
   Widget _buildWarehouseRow(PendingWarehousePrintJob job) {
-    final busy = _busyJobId == job.id;
+    final busy = _busyJobId == job.id || _bulkProgress != null;
     final printer = job.printerName.isNotEmpty ? ' · ${job.printerName}' : '';
     return _denseRow(
       bg: SboxColors.warningSoft,

@@ -363,6 +363,26 @@ public class PosPrintDispatchTests(PosPgFixture fx)
         Assert.Equal("STALE_QUEUED", (await JobAsync(job)).ErrorCode);
     }
 
+    [Fact]
+    public async Task Sweep_KeepsOldJobJustRetried()
+    {
+        if (NoDb) return;
+        var s = await SeedAsync();
+        var job = await QueueAsync(s, createdAt: DateTime.UtcNow.AddMinutes(-30));
+        await using (var db = fx.NewDb())
+        {
+            await db.PosPrintJobs.Where(j => j.Id == job).ExecuteUpdateAsync(x => x
+                .SetProperty(j => j.Status, PosPrintJobStatus.Failed)
+                .SetProperty(j => j.ErrorCode, "NO_AGENT_PORT"));
+            await Svc(db).RetryJobAsync(s.Store, job, null, "test");
+        }
+        await using (var db = fx.NewDb())
+            await Svc(db).SweepStuckJobsAsync(s.Store);
+        var j = await JobAsync(job);
+        Assert.Equal(PosPrintJobStatus.Queued, j.Status);
+        Assert.Null(j.ErrorCode);
+    }
+
     [Theory]
     [InlineData(PosPrintJobStatus.Printing, true, null, true)]
     [InlineData(PosPrintJobStatus.Printing, false, null, false)]

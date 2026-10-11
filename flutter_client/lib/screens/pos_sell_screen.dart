@@ -11241,8 +11241,20 @@ class _PosSellScreenState extends State<PosSellScreen>
   }
 
   void _removeFailedKitchenPrint(PendingKitchenPrintJob job) {
+    _cancelServerHangJob(job);
     setState(() => _failedKitchenPrints.removeWhere((j) => j.id == job.id));
     unawaited(_persistPendingPrintQueue());
+  }
+
+  /// Phiếu treo sinh từ lệnh cloud (id `kitchen_hang_<jobId>`…):
+  /// gỡ khỏi máy này thì hủy luôn lệnh cũ trên server — tránh Agent in muộn ra phiếu trùng
+  /// và để số «In treo» của cửa hàng giảm theo. Lệnh đã in xong / đang in: server tự từ chối.
+  void _cancelServerHangJob(PendingKitchenPrintJob job) {
+    final jobId = _pendingKitchenSourceJobId(job.id);
+    if (jobId == null) return;
+    unawaited(_api.cancelPosPrintJob(jobId).then((_) {
+      if (mounted) _startStorePrintPollOnce();
+    }));
   }
 
   void _enqueueFailedCupPrint(PendingCupLabelPrintJob job) {
@@ -11393,7 +11405,15 @@ class _PosSellScreenState extends State<PosSellScreen>
       onDismissSale: _removeFailedSalePrint,
       onDismissKitchen: _removeFailedKitchenPrint,
       onDismissCup: _removeFailedCupPrint,
+      storeProblemCount: _storePrintProblems,
+      onOpenStoreQueue: () async {
+        await PosPrintQueueScreen.open(context);
+        if (mounted) _startStorePrintPollOnce();
+      },
       onDismissAll: () {
+        for (final j in _failedKitchenPrints) {
+          _cancelServerHangJob(j);
+        }
         setState(() {
           _failedWarehousePrints.clear();
           _failedSalePrints.clear();

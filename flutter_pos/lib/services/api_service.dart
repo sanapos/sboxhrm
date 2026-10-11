@@ -20094,6 +20094,51 @@ class ApiService {
     }
   }
 
+  /// In lại / chuyển máy / hủy nhiều lệnh một lần. Trả {ok, failed, errors:[{id,message}]}.
+  /// Server cũ chưa có API bulk → tự gọi từng lệnh (4 lệnh song song).
+  Future<Map<String, dynamic>> bulkPosPrintJobs(
+    List<String> jobIds, {
+    required String action,
+    String? printerId,
+  }) async {
+    if (jobIds.isEmpty) return {'isSuccess': true, 'data': {'ok': 0, 'failed': 0, 'errors': []}};
+    try {
+      final response = await http
+          .post(Uri.parse('$baseUrl/api/pos/print-jobs/bulk'),
+              headers: _headers,
+              body: jsonEncode({
+                'ids': jobIds,
+                'action': action,
+                if (printerId != null) 'printerId': printerId,
+              }))
+          .timeout(const Duration(seconds: 60));
+      if (response.statusCode != 404 && response.statusCode != 405) {
+        return _handleResponse(response);
+      }
+    } catch (e) {
+      return _connectionFailure(e);
+    }
+    var ok = 0;
+    final errors = <Map<String, dynamic>>[];
+    for (var i = 0; i < jobIds.length; i += 4) {
+      final chunk = jobIds.sublist(i, i + 4 > jobIds.length ? jobIds.length : i + 4);
+      final res = await Future.wait(chunk.map((id) => action == 'cancel'
+          ? cancelPosPrintJob(id)
+          : retryPosPrintJob(id, printerId: printerId)));
+      for (var k = 0; k < chunk.length; k++) {
+        if (res[k]['isSuccess'] == true) {
+          ok++;
+        } else {
+          errors.add({'id': chunk[k], 'message': res[k]['message']?.toString() ?? 'Lỗi'});
+        }
+      }
+    }
+    return {
+      'isSuccess': true,
+      'data': {'ok': ok, 'failed': errors.length, 'errors': errors},
+    };
+  }
+
   Future<Map<String, dynamic>> cancelPosPrintJob(String jobId) async {
     try {
       final response = await http
