@@ -11934,6 +11934,26 @@ class _PosSellScreenState extends State<PosSellScreen>
               contentPadding: EdgeInsets.zero,
             ),
           ),
+        if (canMod('CashTransaction')) ...[
+          PopupMenuItem(
+            value: 'receipt',
+            child: ListTile(
+              dense: true,
+              leading: const Icon(Icons.call_received_rounded, size: 20, color: Colors.green),
+              title: Text(tr('Lập phiếu thu')),
+              contentPadding: EdgeInsets.zero,
+            ),
+          ),
+          PopupMenuItem(
+            value: 'payment',
+            child: ListTile(
+              dense: true,
+              leading: const Icon(Icons.call_made_rounded, size: 20, color: Colors.red),
+              title: Text(tr('Lập phiếu chi')),
+              contentPadding: EdgeInsets.zero,
+            ),
+          ),
+        ],
         PopupMenuItem(
           value: 'price_list',
           child: ListTile(

@@ -1,10 +1,13 @@
 import 'package:fl_chart/fl_chart.dart';
 import 'package:flutter/material.dart';
+import 'package:provider/provider.dart';
+import '../../../providers/permission_provider.dart';
 import 'package:intl/intl.dart';
 
+import '../../../utils/api_datetime.dart';
 import '../../../utils/media_query_safe_padding.dart';
 import '../../../utils/pos_kiot_time_range.dart';
-import '../pos_kiot_time_filter.dart';
+import '../pos_list_filters.dart';
 import '../pos_mobile_widgets.dart';
 import '../pos_theme.dart';
 import 'package:sbox_pos/l10n/app_tr.dart';
@@ -160,6 +163,7 @@ class PosReportMobileScaffold extends StatelessWidget {
     this.onExportExcel,
     this.onExportPng,
     this.pngKey,
+    this.exportModule,
   });
 
   final String title;
@@ -174,14 +178,34 @@ class PosReportMobileScaffold extends StatelessWidget {
   final VoidCallback? onExportPng;
   final GlobalKey? pngKey;
 
+  /// Mã chức năng để kiểm quyền Xuất (không có quyền → ẩn nút xuất Excel / PNG).
+  final String? exportModule;
+
   @override
   Widget build(BuildContext context) {
+    var canExport = true;
+    if (exportModule != null) {
+      try {
+        canExport = Provider.of<PermissionProvider>(context).canExport(exportModule);
+      } on ProviderNotFoundException {
+        canExport = true; // màn nhúng / test không có PermissionProvider — giữ như cũ
+      }
+    }
+    final narrow = MediaQuery.sizeOf(context).width < 600;
+    final timeChip = PosTimeRangeChip(state: time, onChanged: onTimeChanged);
+    Widget action(String tip, IconData icon, VoidCallback? onTap) => IconButton(
+          tooltip: tr(tip),
+          icon: Icon(icon, color: _muted, size: 22),
+          onPressed: onTap,
+        );
+    // Một hàng (desktop): ← Tiêu đề · Thời gian ▾ · PNG · Excel · Lọc — thay khối chọn kỳ 3 dòng cũ.
     final header = Material(
       color: Colors.white,
       child: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
           SizedBox(
-            height: 48,
+            height: 56,
             child: Row(
               children: [
                 IconButton(
@@ -189,59 +213,37 @@ class PosReportMobileScaffold extends StatelessWidget {
                   onPressed: () => Navigator.maybePop(context),
                 ),
                 Expanded(
-                  child: FittedBox(
-                    fit: BoxFit.scaleDown,
-                    alignment: Alignment.centerLeft,
-                    child: Text(
-                      tr(title),
-                      maxLines: 1,
-                      style: const TextStyle(
-                        fontSize: 18,
-                        fontWeight: FontWeight.w700,
-                        color: _ink,
-                        letterSpacing: -0.3,
-                      ),
+                  child: Text(
+                    tr(title),
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    style: const TextStyle(
+                      fontSize: 18,
+                      fontWeight: FontWeight.w700,
+                      color: _ink,
+                      letterSpacing: -0.3,
                     ),
                   ),
                 ),
-                if (onExportPng != null)
-                  IconButton(
-                    tooltip: tr('Xuất PNG'),
-                    icon: const Icon(Icons.image_outlined, color: _muted),
-                    onPressed: onExportPng,
-                  ),
-                if (onExportExcel != null)
-                  IconButton(
-                    tooltip: tr('Xuất Excel'),
-                    icon: const Icon(Icons.file_download_outlined, color: _muted),
-                    onPressed: onExportExcel,
-                  ),
-                if (onFilterTap != null)
-                  IconButton(
-                    tooltip: tr('Bộ lọc'),
-                    icon: const Icon(Icons.filter_alt_outlined, color: _muted),
-                    onPressed: onFilterTap,
-                  ),
+                if (showTimeFilter && !narrow) ...[timeChip, const SizedBox(width: 8)],
+                if (onExportPng != null && canExport) action('Xuất PNG', Icons.image_outlined, onExportPng),
+                if (onExportExcel != null && canExport) action('Xuất Excel', Icons.file_download_outlined, onExportExcel),
+                if (onFilterTap != null) action('Bộ lọc', Icons.filter_alt_outlined, onFilterTap),
+                const SizedBox(width: 8),
               ],
             ),
           ),
-          if (showTimeFilter)
-            Material(
-              color: Colors.white,
-              child: Padding(
-                padding: const EdgeInsets.fromLTRB(12, 0, 12, 10),
-                child: PosKiotTimeFilter(
-                  state: time,
-                  dense: true,
-                  onChanged: onTimeChanged,
-                ),
-              ),
+          if (showTimeFilter && narrow)
+            Padding(
+              padding: const EdgeInsets.fromLTRB(12, 0, 12, 10),
+              child: Align(alignment: Alignment.centerLeft, child: timeChip),
             ),
           if (filterBar != null)
             Padding(
               padding: const EdgeInsets.fromLTRB(12, 0, 12, 10),
               child: filterBar,
             ),
+          const Divider(height: 1, color: SboxColors.slate200),
         ],
       ),
     );
@@ -866,11 +868,14 @@ class PosReportMetricTiles extends StatelessWidget {
               child: InkWell(
                 onTap: onTileTap == null ? null : () => onTileTap!(i),
                 borderRadius: BorderRadius.circular(10),
+                // Viền trái màu nhấn + viền xám: Flutter không cho borderRadius với viền khác màu
+                // → bo góc bằng ClipRRect.
+                child: ClipRRect(
+                borderRadius: BorderRadius.circular(10),
                 child: Container(
               padding: const EdgeInsets.fromLTRB(10, 8, 10, 8),
               decoration: BoxDecoration(
                 color: const Color(0xFFF7F9FB),
-                borderRadius: BorderRadius.circular(10),
                 border: Border(
                   left: BorderSide(color: tiles[i].color, width: 3),
                   top: const BorderSide(color: Color(0xFFE8ECF0)),
@@ -913,6 +918,7 @@ class PosReportMetricTiles extends StatelessWidget {
                   ),
                 ],
               ),
+                ),
                 ),
               ),
             ),
@@ -1038,9 +1044,7 @@ class PosReportInvoiceList extends StatelessWidget {
     final sold = (e['soldBy'] ?? e['SoldBy'] ?? e['createdBy'] ?? '').toString();
     final totalAmt = _num(e['total'] ?? e['Total']);
     final paid = _num(e['paidAmount'] ?? e['PaidAmount']);
-    final dt = DateTime.tryParse(
-          '${e['saleDate'] ?? e['SaleDate'] ?? e['createdAt'] ?? e['CreatedAt'] ?? ''}',
-        )?.toLocal();
+    final dt = parseApiUtcDateTime(e['saleDate'] ?? e['SaleDate'] ?? e['createdAt'] ?? e['CreatedAt']);
     return InkWell(
       onTap: () => onOpen(e),
       child: Padding(

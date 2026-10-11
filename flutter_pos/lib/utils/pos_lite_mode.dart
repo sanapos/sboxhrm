@@ -2,8 +2,8 @@ import 'package:device_info_plus/device_info_plus.dart';
 import 'package:flutter/foundation.dart';
 
 /// Chế độ gọn cho máy Android 6 (Sunmi T1 A6) — chủ yếu quán cà phê / quán ăn có order:
-/// chỉ giữ bán hàng, order bàn / QR, bếp, ca thu ngân, máy in (thiết bị + cloud), màn hình phụ,
-/// khách hàng và vài báo cáo hằng ngày. Báo giá, hợp đồng, kho, thiết lập sâu làm trên web / SBOX HRM.
+/// ẩn báo giá, hợp đồng, HĐĐT, hội viên và thiết lập nhân sự (làm trên web / SBOX HRM);
+/// bán hàng, kho, báo cáo, thu chi, máy in, màn hình phụ giữ đủ.
 /// Máy Android 7+ (V2s, A7…) dùng cùng APK vẫn đủ chức năng.
 class PosLiteMode {
   PosLiteMode._();
@@ -27,27 +27,15 @@ class PosLiteMode {
     }
   }
 
-  /// Mục giữ lại trong «Nhiều hơn».
-  static const moreItems = {
-    'Bán hàng',
-    'Hoá đơn',
-    'Trả hàng bán',
-    'Lịch sử hủy / trả',
-    'Cuối ngày',
-    'Ca thu ngân',
-    'QR order bàn',
-    'Menu QR / Online',
-    'Đơn online',
-    'Xác nhận CK',
-    'Màn hình bếp (KDS)',
-    'Hàng hoá',
-    'Bảng giá',
-    'Khuyến mãi',
-    'Voucher',
-    'Đặt lịch',
-    'Khách hàng',
-    'Công nợ KH',
-    'Thiết lập SBOX',
+  /// Mục ẩn trong «Nhiều hơn» (báo giá / hợp đồng / HĐĐT / hội viên làm trên web hoặc SBOX HRM).
+  /// Kho, nhập hàng, báo cáo, thu chi vẫn giữ — chủ quán cần xem / làm ngay tại quầy.
+  static const hiddenMoreItems = {
+    'Báo giá',
+    'Hợp đồng',
+    'Mẫu in báo giá',
+    'Hóa đơn điện tử',
+    'Check-in hội viên',
+    'Tra cứu BH',
   };
 
   /// Mục giữ lại trong «Thiết lập SBOX».
@@ -62,17 +50,6 @@ class PosLiteMode {
     'Thông báo',
   };
 
-  /// Báo cáo giữ lại.
-  static const reports = {
-    'Doanh thu',
-    'Hàng hóa bán ra',
-    'Phương thức thanh toán',
-    'Tổng kết cuối ngày',
-    'Doanh thu theo nhân viên',
-    'Sổ quỹ',
-  };
-
-  static bool showMore(String label) => !enabled || moreItems.contains(label);
+  static bool showMore(String label) => !enabled || !hiddenMoreItems.contains(label);
   static bool showSetting(String label) => !enabled || settingsItems.contains(label);
-  static bool showReport(String label) => !enabled || reports.contains(label);
 }

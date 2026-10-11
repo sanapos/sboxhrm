@@ -112,7 +112,8 @@ class PosReportsHubScreen extends StatelessWidget {
         ),
       ),
     );
-    return ColoredBox(
+    // Material (không phải ColoredBox): mở bằng route riêng không có Scaffold → chữ bị gạch chân vàng.
+    return Material(
       color: _pageBg,
       child: Column(
         children: [
