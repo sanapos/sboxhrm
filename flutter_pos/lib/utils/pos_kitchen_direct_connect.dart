@@ -9,6 +9,7 @@ import 'package:sbox_pos/l10n/app_tr.dart';
 import 'pos_local_printers_store.dart';
 import 'pos_print_agent_settings.dart';
 import 'pos_print_orchestrator.dart';
+import 'pos_printer_transport.dart';
 import 'pos_thermal_printer_settings.dart';
 import 'pos_usb_labels.dart';
 import 'pos_usb_printer.dart';
@@ -326,6 +327,43 @@ class PosKitchenDirectConnect {
       lanHost: hit.host,
       lanPort: hit.port,
       brand: hit.brand,
+    );
+  }
+
+  /// Máy in nhiệt gắn liền của Sunmi (T1 / T2 / V2s / K2). Đã có hồ sơ Sunmi (vd. in hoá đơn)
+  /// thì chỉ thêm vai trò phiếu bếp — không tạo máy trùng.
+  static Future<PosLocalPrinterProfile?> connectSunmi(BuildContext context) async {
+    if (kIsWeb || !await PosPrinterTransport.isSunmiDevice()) {
+      NotificationOverlayManager().showError(
+        title: 'Sunmi',
+        message: tr('Máy này không phải Sunmi có máy in gắn liền'),
+      );
+      return null;
+    }
+    final all = await PosLocalPrintersStore.instance.loadAll();
+    final existing = all
+        .where((p) => !p.isLabel && p.connectionType == PosThermalConnectionType.sunmi)
+        .firstOrNull;
+    if (existing != null) {
+      final saved = await PosLocalPrintersStore.instance.upsert(
+        existing.copyWith(
+          enabled: true,
+          roles: {...existing.roles, ..._kitchenRoles},
+        ),
+        syncServer: true,
+      );
+      await PosProductPrinterService.instance.invalidate();
+      await PosPrintOrchestrator.instance.invalidateCache();
+      NotificationOverlayManager().showSuccess(
+        title: 'Đã kết nối máy bếp',
+        message: tr('${saved.name} · in phiếu bếp trên máy Sunmi'),
+      );
+      return saved;
+    }
+    return _saveKitchenProfile(
+      name: 'Máy in Sunmi',
+      type: PosThermalConnectionType.sunmi,
+      brand: PosThermalPrinterBrand.sunmi,
     );
   }
 

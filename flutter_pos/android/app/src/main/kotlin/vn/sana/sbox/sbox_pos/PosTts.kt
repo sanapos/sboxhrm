@@ -9,6 +9,7 @@ import android.os.Handler
 import android.os.Looper
 import android.speech.tts.TextToSpeech
 import android.speech.tts.Voice
+import android.util.Log
 import io.flutter.plugin.common.MethodCall
 import io.flutter.plugin.common.MethodChannel
 import java.util.Locale
@@ -17,6 +18,7 @@ import java.util.Locale
 /// T1 (API 23) không dùng flutter_tts.
 object PosTts {
     const val CHANNEL = "com.sboxhrm/tts"
+    private const val TAG = "PosTts"
     private const val GOOGLE = "com.google.android.tts"
 
     private var tts: TextToSpeech? = null
@@ -37,6 +39,36 @@ object PosTts {
             }
             "stop" -> {
                 tts?.stop()
+                result.success(true)
+            }
+            // Loa ngoài (STREAM_MUSIC) — T1 hay để 0 → KDS đọc / bíp không nghe thấy gì.
+            "audioState" -> {
+                val am = context.getSystemService(Context.AUDIO_SERVICE) as AudioManager
+                result.success(
+                    mapOf(
+                        "music" to am.getStreamVolume(AudioManager.STREAM_MUSIC),
+                        "musicMax" to am.getStreamMaxVolume(AudioManager.STREAM_MUSIC),
+                        "viAvailable" to viAvailable(),
+                    )
+                )
+            }
+            "ensureVolume" -> {
+                val pct = (call.argument<Int>("percent") ?: 60).coerceIn(10, 100)
+                val am = context.getSystemService(Context.AUDIO_SERVICE) as AudioManager
+                val max = am.getStreamMaxVolume(AudioManager.STREAM_MUSIC)
+                val want = (max * pct + 99) / 100
+                val cur = am.getStreamVolume(AudioManager.STREAM_MUSIC)
+                if (cur < want) {
+                    try {
+                        am.setStreamVolume(AudioManager.STREAM_MUSIC, want, 0)
+                    } catch (e: Exception) {
+                        Log.w(TAG, "setStreamVolume: ${e.message}")
+                    }
+                }
+                result.success(am.getStreamVolume(AudioManager.STREAM_MUSIC))
+            }
+            "beep" -> {
+                playTone()
                 result.success(true)
             }
             "setOptions" -> {
@@ -224,11 +256,22 @@ object PosTts {
             TextToSpeech.LANG_NOT_SUPPORTED
         }
         if (avail < TextToSpeech.LANG_AVAILABLE) {
+            Log.w(TAG, "vi-VN không có giọng (avail=$avail) → bíp")
             playTone()
             return
         }
         applyVoiceAndRate()
-        engine.speak(text, TextToSpeech.QUEUE_FLUSH, null, "kds-vi")
+        val r = engine.speak(text, TextToSpeech.QUEUE_FLUSH, null, "kds-vi")
+        Log.i(TAG, "speak r=$r voice=${try { engine.voice?.name } catch (_: Exception) { null }} text=${text.take(60)}")
+    }
+
+    private fun viAvailable(): Boolean? {
+        val engine = tts ?: return null
+        return try {
+            engine.isLanguageAvailable(Locale("vi", "VN")) >= TextToSpeech.LANG_AVAILABLE
+        } catch (_: Exception) {
+            null
+        }
     }
 
     /// Hai tiếng bíp ngắn qua loa (STREAM_MUSIC — to hơn notification trên máy POS).

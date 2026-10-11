@@ -22,6 +22,7 @@ import '../../utils/pos_browser_fullscreen.dart';
 import '../../utils/play_system_ui.dart';
 import '../../utils/system_ui_inset_mode.dart';
 import '../../utils/navigation_notifier.dart';
+import '../../models/hrm.dart' show NotificationType;
 import '../../widgets/notification_overlay.dart';
 import '../../widgets/pos/pos_hub_scope.dart';
 import '../settings_hub_screen.dart';
@@ -128,6 +129,7 @@ class _PosKdsScreenState extends State<PosKdsScreen> {
     PosKdsAlert.enterUi();
     NotificationOverlayManager().clear();
     unawaited(PosQrOrderVoiceAlert.instance.warmUp());
+    unawaited(_ensureSpeakerAudible());
     unawaited(_bootstrap());
     _floor.start((event) {
       if (!mounted) return;
@@ -267,6 +269,48 @@ class _PosKdsScreenState extends State<PosKdsScreen> {
 
   bool _ticketUnfinished(_KdsTicket t) =>
       t.items.every((i) => i.status != 'ready' && i.status != 'done');
+
+  /// Máy bếp (T1…) hay để loa ngoài = 0 → đọc món / chuông không ra tiếng. Đang bật đọc món
+  /// mà loa tắt hẳn thì nâng lên 60% và báo cho bếp biết.
+  Future<void> _ensureSpeakerAudible() async {
+    final prefs = await SharedPreferences.getInstance();
+    final voice = prefs.getBool(PosKdsAlert.voiceOnKey) ?? true;
+    final bell = prefs.getBool(PosKdsAlert.bellBeforeVoiceKey) ?? true;
+    if (!voice && !bell) return;
+    final st = await PosQrOrderVoiceAlert.instance.audioState();
+    if (st == null) return;
+    final music = (st['music'] as num?)?.toInt() ?? 1;
+    if (music > 0) return;
+    final now = await PosQrOrderVoiceAlert.instance.ensureVolume(percent: 60);
+    final max = (st['musicMax'] as num?)?.toInt() ?? 0;
+    if (!mounted || now == null || now <= 0) return;
+    NotificationOverlayManager().showWarning(
+      title: 'Loa đang tắt tiếng',
+      message: tr('Đã bật loa lên $now/$max để nghe đọc món. Chỉnh bằng nút âm lượng của máy.'),
+    );
+  }
+
+  Future<void> _testSpeaker() async {
+    final st = await PosQrOrderVoiceAlert.instance.audioState();
+    var music = (st?['music'] as num?)?.toInt();
+    final max = (st?['musicMax'] as num?)?.toInt();
+    if (music == 0) {
+      music = await PosQrOrderVoiceAlert.instance.ensureVolume(percent: 60);
+    }
+    await PosQrOrderVoiceAlert.instance.beep();
+    await Future<void>.delayed(const Duration(milliseconds: 900));
+    await PosQrOrderVoiceAlert.instance.speak('Loa bếp hoạt động. Bàn 1, hai phần bún chả');
+    if (!mounted) return;
+    final vi = st?['viAvailable'];
+    NotificationOverlayManager().show(
+      title: 'Thử loa',
+      message: tr([
+        if (music != null && max != null) 'Âm lượng loa: $music/$max',
+        if (vi == false) 'Máy chưa có giọng tiếng Việt — chỉ kêu bíp. Cài «Giọng nói Google» + gói tiếng Việt.',
+      ].join(' · ')),
+      type: vi == false ? NotificationType.warning : NotificationType.info,
+    );
+  }
 
   Future<void> _loadKdsPrintPrefs() async {
     final prefs = await SharedPreferences.getInstance();
@@ -1899,19 +1943,27 @@ class _PosKdsScreenState extends State<PosKdsScreen> {
                         ),
                     ],
                   ),
-                  Align(
-                    alignment: Alignment.centerLeft,
-                    child: TextButton.icon(
-                      onPressed: () {
-                        Navigator.pop(ctx);
-                        unawaited(
-                          PosQrOrderVoiceAlert.instance.showSettingsSheet(context),
-                        );
-                      },
-                      icon: const Icon(Icons.tune, color: _accent),
-                      label: Text(tr('Chọn giọng và tốc độ'),
-                          style: const TextStyle(color: _accent)),
-                    ),
+                  Wrap(
+                    spacing: 4,
+                    children: [
+                      TextButton.icon(
+                        onPressed: () {
+                          Navigator.pop(ctx);
+                          unawaited(
+                            PosQrOrderVoiceAlert.instance.showSettingsSheet(context),
+                          );
+                        },
+                        icon: const Icon(Icons.tune, color: _accent),
+                        label: Text(tr('Chọn giọng và tốc độ'),
+                            style: const TextStyle(color: _accent)),
+                      ),
+                      TextButton.icon(
+                        onPressed: () => unawaited(_testSpeaker()),
+                        icon: const Icon(Icons.campaign_outlined, color: _accent),
+                        label: Text(tr('Thử loa'),
+                            style: const TextStyle(color: _accent)),
+                      ),
+                    ],
                   ),
                   SwitchListTile(
                     contentPadding: EdgeInsets.zero,
@@ -1976,6 +2028,23 @@ class _PosKdsScreenState extends State<PosKdsScreen> {
                       ),
                     ],
                   ),
+                  const SizedBox(height: 8),
+                  // Máy Sunmi (T1 / T2 / V2s / K2) có máy in nhiệt gắn liền — in phiếu bếp ngay trên máy.
+                  OutlinedButton.icon(
+                    onPressed: () async {
+                      Navigator.pop(ctx);
+                      final saved =
+                          await PosKitchenDirectConnect.connectSunmi(context);
+                      if (saved == null || !mounted) return;
+                      await _loadKdsPrintPrefs();
+                      final id = (saved.storePrinterId ?? saved.id).trim();
+                      if (id.isNotEmpty) _kdsPrinterId = id;
+                      if (mounted) setState(() {});
+                      unawaited(_saveKdsPrintPrefs());
+                    },
+                    icon: const Icon(Icons.print_outlined, size: 18),
+                    label: Text(tr('Máy in Sunmi gắn trên máy')),
+                  ),
                   const SizedBox(height: 10),
                   Text(tr('Kết nối máy in'),
                       style: const TextStyle(
@@ -1983,7 +2052,7 @@ class _PosKdsScreenState extends State<PosKdsScreen> {
                   const SizedBox(height: 6),
                   if (_kdsPrinters.isEmpty)
                     Text(
-                      tr('Chưa có máy bếp trên thiết bị này. Kết nối USB/LAN nội bộ, hoặc chọn máy đã chia sẻ Agent.'),
+                      tr('Chưa có máy bếp trên thiết bị này. Kết nối USB / LAN / Sunmi nội bộ, hoặc chọn máy đã chia sẻ Agent.'),
                       style: const TextStyle(color: _muted),
                     )
                   else
@@ -2005,7 +2074,7 @@ class _PosKdsScreenState extends State<PosKdsScreen> {
                           DropdownMenuItem(
                             value: p.id,
                             child: Text(
-                              '${p.name}${p.isDeviceLocal ? ' · USB/LAN nội bộ' : ''}',
+                              '${p.name}${p.isDeviceLocal ? (p.isSunmi ? ' · Sunmi trên máy' : ' · USB/LAN nội bộ') : ''}',
                               style: const TextStyle(color: _ink),
                             ),
                           ),

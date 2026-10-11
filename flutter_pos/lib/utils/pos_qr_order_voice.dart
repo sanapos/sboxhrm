@@ -336,6 +336,34 @@ class PosQrOrderVoiceAlert {
     }
   }
 
+  /// Âm lượng loa ngoài: {music, musicMax, viAvailable}. null trên web / lỗi kênh.
+  Future<Map<String, dynamic>?> audioState() async {
+    if (kIsWeb) return null;
+    try {
+      final r = await _channel.invokeMethod<Map<dynamic, dynamic>>('audioState');
+      return r == null ? null : Map<String, dynamic>.from(r);
+    } catch (_) {
+      return null;
+    }
+  }
+
+  /// Nâng loa ngoài lên tối thiểu [percent]% (không hạ nếu đang to hơn). Trả mức mới.
+  Future<int?> ensureVolume({int percent = 60}) async {
+    if (kIsWeb) return null;
+    try {
+      return await _channel.invokeMethod<int>('ensureVolume', {'percent': percent});
+    } catch (_) {
+      return null;
+    }
+  }
+
+  Future<void> beep() async {
+    if (kIsWeb) return;
+    try {
+      await _channel.invokeMethod('beep');
+    } catch (_) {}
+  }
+
   Future<void> warmUp() async {
     await _loadPrefs();
     await _applyOptions();
