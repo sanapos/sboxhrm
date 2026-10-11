@@ -22,6 +22,12 @@ public class PosKdsController(
     ZKTecoDbContext db,
     IHubContext<AttendanceHub> hub) : AuthenticatedControllerBase
 {
+    /// <summary>Vé không thao tác quá số giờ này tự rời bảng bếp.</summary>
+    public const int DefaultIdleHours = 60;
+
+    /// <summary>Cho gọi lại vé đã ra món trong số giờ này.</summary>
+    public const int RecallWindowHours = 6;
+
     public class PrepDto
     {
         public string? Status { get; set; }
@@ -79,7 +85,8 @@ public class PosKdsController(
     [RequireModulePermission("PosKds", ModulePermissionAction.View)]
     public async Task<ActionResult<AppResponse<object>>> Tickets(
         [FromQuery] Guid? printerId = null,
-        [FromQuery] bool includeDone = false)
+        [FromQuery] bool includeDone = false,
+        [FromQuery] int idleHours = DefaultIdleHours)
     {
         var storeId = RequiredStoreId;
         var since = DateTime.UtcNow.AddHours(-12);
@@ -114,24 +121,24 @@ public class PosKdsController(
                 order.ServiceResourceId,
                 order.CustomerName,
                 PrinterId = product.DefaultPrinterId ?? cat.DefaultPrinterId,
+                Activity = line.UpdatedAt ?? line.KitchenSentAt ?? line.CreatedAt,
             }).ToListAsync();
 
-        List<Guid>? siblingIds = null;
-        if (printerId.HasValue && printerId != Guid.Empty)
+        // Đơn quên thanh toán / bỏ dở: cả vé không ai thao tác (báo bếp, đổi trạng thái) quá idleHours
+        // thì không hiện nữa — trước đây vé 19 ngày vẫn nằm trên bảng («470h32»), cảnh báo trễ vô nghĩa.
+        if (!includeDone && idleHours > 0)
         {
-            var selectedName = await db.PosStorePrinters.AsNoTracking()
-                .Where(p => p.Id == printerId && p.StoreId == storeId)
-                .Select(p => p.Name)
-                .FirstOrDefaultAsync();
-            siblingIds = string.IsNullOrWhiteSpace(selectedName)
-                ? new List<Guid> { printerId.Value }
-                : await db.PosStorePrinters.AsNoTracking()
-                    .Where(p => p.StoreId == storeId && p.Deleted == null
-                        && p.Name == selectedName)
-                    .Select(p => p.Id)
-                    .ToListAsync();
-            rows = rows.Where(r => r.PrinterId != null && siblingIds.Contains(r.PrinterId.Value)).ToList();
+            var idleCut = DateTime.UtcNow.AddHours(-Math.Clamp(idleHours, 1, 24 * 30));
+            var activeOrders = rows.GroupBy(r => r.SaleOrderId)
+                .Where(g => g.Max(r => r.Activity) >= idleCut)
+                .Select(g => g.Key)
+                .ToHashSet();
+            rows = rows.Where(r => activeOrders.Contains(r.SaleOrderId)).ToList();
         }
+
+        var siblingIds = await StationPrinterIdsAsync(storeId, printerId);
+        if (siblingIds != null)
+            rows = rows.Where(r => r.PrinterId != null && siblingIds.Contains(r.PrinterId.Value)).ToList();
 
         var draftOrderIds = await db.PosSaleOrders.AsNoTracking()
             .Where(o => o.StoreId == storeId && o.Deleted == null
@@ -501,12 +508,89 @@ public class PosKdsController(
         return Ok(AppResponse<object>.Success(new { bumped = lines.Count }));
     }
 
+    /// <summary>Vé đã ra món trong [hours] giờ gần nhất (mới nhất trước) — ngăn «Đã xong» trên KDS.</summary>
+    [HttpGet("recent-done")]
+    [RequireModulePermission("PosKds", ModulePermissionAction.View)]
+    public async Task<ActionResult<AppResponse<object>>> RecentDone(
+        [FromQuery] Guid? printerId = null,
+        [FromQuery] int hours = RecallWindowHours,
+        [FromQuery] int take = 40)
+    {
+        var storeId = RequiredStoreId;
+        var since = DateTime.UtcNow.AddHours(-Math.Clamp(hours, 1, 48));
+        var rows = await (
+            from line in db.PosSaleOrderLines.AsNoTracking()
+            join order in db.PosSaleOrders.AsNoTracking() on line.SaleOrderId equals order.Id
+            join product in db.PosProducts.AsNoTracking() on line.ProductId equals product.Id
+            join cat in db.PosProductCategories.AsNoTracking() on product.CategoryId equals cat.Id into cats
+            from cat in cats.DefaultIfEmpty()
+            where line.StoreId == storeId && line.Deleted == null && order.Deleted == null
+                && line.KitchenSentQty > 0 && line.KitchenDoneQty > 0
+                && (line.KitchenPrepStatus == PosKitchenKdsHelper.Done || line.KitchenDoneQty >= line.KitchenSentQty)
+                && line.UpdatedAt != null && line.UpdatedAt >= since
+            select new
+            {
+                line.SaleOrderId,
+                line.ProductName,
+                line.KitchenDoneQty,
+                line.UnitName,
+                DoneAt = line.UpdatedAt!.Value,
+                order.OrderNo,
+                order.ServiceResourceId,
+                order.SalesChannel,
+                order.CustomerName,
+                PrinterId = product.DefaultPrinterId ?? cat.DefaultPrinterId,
+            }).ToListAsync();
+        var siblingIds = await StationPrinterIdsAsync(storeId, printerId);
+        if (siblingIds != null)
+            rows = rows.Where(r => r.PrinterId != null && siblingIds.Contains(r.PrinterId.Value)).ToList();
+
+        var resourceIds = rows.Where(r => r.ServiceResourceId != null)
+            .Select(r => r.ServiceResourceId!.Value).Distinct().ToList();
+        var resources = resourceIds.Count == 0
+            ? new Dictionary<Guid, (string Name, string? Area)>()
+            : await db.PosServiceResources.AsNoTracking()
+                .Include(r => r.Area)
+                .Where(r => resourceIds.Contains(r.Id))
+                .ToDictionaryAsync(r => r.Id, r => (Name: r.Name, Area: r.Area != null ? r.Area.Name : (string?)null));
+
+        var orders = rows.GroupBy(r => r.SaleOrderId)
+            .Select(g =>
+            {
+                var first = g.First();
+                (string Name, string? Area) res = default;
+                var hasRes = first.ServiceResourceId is Guid rid && resources.TryGetValue(rid, out res);
+                return new
+                {
+                    orderId = g.Key,
+                    orderNo = first.OrderNo,
+                    tableName = hasRes ? res.Name : null,
+                    areaName = hasRes ? res.Area : null,
+                    channel = first.SalesChannel,
+                    customerName = first.CustomerName,
+                    doneAt = UtcIso(g.Max(r => r.DoneAt)),
+                    doneAtRaw = g.Max(r => r.DoneAt),
+                    items = g.OrderBy(r => r.ProductName).Select(r => new
+                    {
+                        productName = r.ProductName,
+                        qty = r.KitchenDoneQty,
+                        unitName = r.UnitName,
+                    }).ToList(),
+                };
+            })
+            .OrderByDescending(o => o.doneAtRaw)
+            .Take(Math.Clamp(take, 1, 100))
+            .Select(o => new { o.orderId, o.orderNo, o.tableName, o.areaName, o.channel, o.customerName, o.doneAt, o.items })
+            .ToList();
+        return Ok(AppResponse<object>.Success(new { orders, hours = Math.Clamp(hours, 1, 48) }));
+    }
+
     [HttpPost("tickets/{orderId:guid}/recall")]
     [RequireModulePermission("PosKds", ModulePermissionAction.Create)]
     public async Task<ActionResult<AppResponse<object>>> Recall(Guid orderId)
     {
         var storeId = RequiredStoreId;
-        var since = DateTime.UtcNow.AddMinutes(-45);
+        var since = DateTime.UtcNow.AddHours(-RecallWindowHours);
         var lines = await db.PosSaleOrderLines.AsTracking()
             .Where(l => l.SaleOrderId == orderId && l.StoreId == storeId && l.Deleted == null
                 && l.KitchenSentQty > 0
@@ -566,6 +650,22 @@ public class PosKdsController(
             v.UpdatedBy = CurrentUserEmail;
         }
         return rows.Count;
+    }
+
+    /// <summary>Trạm bếp = các máy in cùng tên với máy được chọn (máy in mỗi thiết bị có thể trùng tên).</summary>
+    async Task<List<Guid>?> StationPrinterIdsAsync(Guid storeId, Guid? printerId)
+    {
+        if (!printerId.HasValue || printerId == Guid.Empty) return null;
+        var selectedName = await db.PosStorePrinters.AsNoTracking()
+            .Where(p => p.Id == printerId && p.StoreId == storeId)
+            .Select(p => p.Name)
+            .FirstOrDefaultAsync();
+        return string.IsNullOrWhiteSpace(selectedName)
+            ? new List<Guid> { printerId.Value }
+            : await db.PosStorePrinters.AsNoTracking()
+                .Where(p => p.StoreId == storeId && p.Deleted == null && p.Name == selectedName)
+                .Select(p => p.Id)
+                .ToListAsync();
     }
 
     /// KitchenSentAt lưu UTC trên cột timestamp without time zone — trả ISO có Z để client không +7 giờ.
