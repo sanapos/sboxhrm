@@ -66,6 +66,7 @@ class _PosKdsScreenState extends State<PosKdsScreen> {
   Color get _greenSoft => _p.greenSoft;
   Color get _chipOn => _blue;
   Color get _sheet => _p.sheet;
+  Color get _ticketHead => _p.ticketHead;
   Color get _accent => _blue;
   Color get _note => _p.note;
   Color get _cooking => _blue;
@@ -890,12 +891,11 @@ class _PosKdsScreenState extends State<PosKdsScreen> {
         _ => _orange,
       };
 
-  Color _statusSoft(String status) => switch (status) {
-        'cooking' => _blueSoft,
-        'ready' || 'done' => _greenSoft,
-        'voided' => _chipIdle,
-        _ => _orangeSoft,
-      };
+  /// Nền thẻ: trơn (trắng / xám than) cho mọi trạng thái, chỉ món hủy nhạt màu hơn.
+  Color _statusSoft(String status) => status == 'voided' ? _chipIdle : _card;
+
+  /// Nền nhạt của màu nhấn (ô số lượng, nhãn trạng thái).
+  Color _tint(Color c) => c.withOpacity(_dark ? 0.26 : 0.12);
 
   Color _aggAccent(_KdsAgg a) => _statusAccent(_aggVisualStatus(a));
 
@@ -1738,7 +1738,10 @@ class _PosKdsScreenState extends State<PosKdsScreen> {
                                 onPressed: _busy ? null : () => unawaited(recall('${o['orderId']}')),
                                 icon: Icon(Icons.undo, color: _orange, size: 18),
                                 label: Text(tr('Gọi lại'), style: TextStyle(color: _orange, fontWeight: FontWeight.w700)),
-                                style: OutlinedButton.styleFrom(side: BorderSide(color: _orange)),
+                                style: OutlinedButton.styleFrom(
+                                  backgroundColor: Colors.transparent,
+                                  side: BorderSide(color: _orange),
+                                ),
                               ),
                             );
                           },
@@ -2330,7 +2333,7 @@ class _PosKdsScreenState extends State<PosKdsScreen> {
     return Container(
       padding: EdgeInsets.symmetric(horizontal: 8, vertical: 3),
       decoration: BoxDecoration(
-        color: _statusSoft(status),
+        color: _tint(accent),
         borderRadius: BorderRadius.circular(20),
       ),
       child: Text(
@@ -2350,8 +2353,8 @@ class _PosKdsScreenState extends State<PosKdsScreen> {
       height: 44,
       alignment: Alignment.center,
       decoration: BoxDecoration(
-        color: _statusAccent(status),
-        borderRadius: BorderRadius.circular(14),
+        color: _tint(_statusAccent(status)),
+        borderRadius: BorderRadius.circular(12),
       ),
       child: Column(
         mainAxisAlignment: MainAxisAlignment.center,
@@ -2360,8 +2363,8 @@ class _PosKdsScreenState extends State<PosKdsScreen> {
             Text(
               tr('MỚI'),
               style: TextStyle(
-                color: Colors.white,
-                fontWeight: FontWeight.w700,
+                color: _statusAccent(status),
+                fontWeight: FontWeight.w800,
                 fontSize: 7,
                 height: 1,
               ),
@@ -2369,7 +2372,7 @@ class _PosKdsScreenState extends State<PosKdsScreen> {
           Text(
             qty,
             style: TextStyle(
-              color: Colors.white,
+              color: _statusAccent(status),
               fontWeight: FontWeight.w700,
               fontSize: 20,
               height: 1.05,
@@ -2394,10 +2397,11 @@ class _PosKdsScreenState extends State<PosKdsScreen> {
             child: FilledButton(
               onPressed: _busy || cooking ? null : onCook,
               style: FilledButton.styleFrom(
-                backgroundColor: cooking ? _blue : _orange,
-                foregroundColor: Colors.white,
-                disabledBackgroundColor: cooking ? _blue : _orange,
-                disabledForegroundColor: Colors.white,
+                backgroundColor: _chipIdle,
+                foregroundColor: _ink,
+                disabledBackgroundColor: _tint(_blue),
+                disabledForegroundColor: _blue,
+                side: BorderSide(color: cooking ? _blue.withOpacity(0.4) : _line),
                 shape: RoundedRectangleBorder(
                     borderRadius: BorderRadius.circular(14)),
                 elevation: 0,
@@ -2415,7 +2419,7 @@ class _PosKdsScreenState extends State<PosKdsScreen> {
         Expanded(
           child: _primaryCta(
             label: tr('Ra món'),
-            color: _blue,
+            color: _green,
             icon: Icons.restaurant,
             onTap: onDone,
           ),
@@ -2475,15 +2479,15 @@ class _PosKdsScreenState extends State<PosKdsScreen> {
       shape: RoundedRectangleBorder(
         borderRadius: BorderRadius.circular(18),
         side: BorderSide(
-          color: fresh ? _blue : _statusAccent(status).withOpacity(0.18),
-          width: fresh ? 1.6 : 1,
+          color: fresh ? _blue : (late ? _late.withOpacity(0.55) : _line),
+          width: fresh || late ? 1.5 : 1,
         ),
       ),
       clipBehavior: Clip.antiAlias,
       child: InkWell(
         onTap: () => _openAggSheet(a),
         child: DecoratedBox(
-          decoration: BoxDecoration(border: Border(top: BorderSide(color: stripe, width: 6))),
+          decoration: BoxDecoration(border: Border(top: BorderSide(color: stripe, width: 4))),
           child: Padding(
           padding: EdgeInsets.fromLTRB(12, 10, 12, 10),
           child: Column(
@@ -2898,6 +2902,7 @@ class _PosKdsScreenState extends State<PosKdsScreen> {
     final extra = t.items.length > 4 ? t.items.length - 4 : 0;
     final shown = extra > 0 ? t.items.take(4).toList() : t.items;
     final fresh = t.items.any((i) => _itemIsFresh(i, t));
+    final late = t.items.any((i) => _itemIsLate(i, t, DateTime.now()));
     final stripe = _waitStripe(oldest, allDone: status == 'ready', voided: allVoided);
     final area = (t.areaName ?? '').trim();
     return Material(
@@ -2906,8 +2911,8 @@ class _PosKdsScreenState extends State<PosKdsScreen> {
       shape: RoundedRectangleBorder(
         borderRadius: BorderRadius.circular(18),
         side: BorderSide(
-          color: fresh ? _blue : _statusAccent(status).withOpacity(0.18),
-          width: fresh ? 1.6 : 1,
+          color: fresh ? _blue : (late ? _late.withOpacity(0.55) : _line),
+          width: fresh || late ? 1.5 : 1,
         ),
       ),
       clipBehavior: Clip.antiAlias,
@@ -2916,28 +2921,40 @@ class _PosKdsScreenState extends State<PosKdsScreen> {
         children: [
           // Đầu thẻ đổi màu theo thời gian chờ: bàn · khu · số phút — nhìn từ xa biết bàn nào gấp.
           Container(
-            color: stripe,
-            padding: const EdgeInsets.fromLTRB(12, 6, 8, 6),
+            decoration: BoxDecoration(
+              color: _ticketHead,
+              border: Border(
+                left: BorderSide(color: stripe, width: 5),
+                bottom: BorderSide(color: _line),
+              ),
+            ),
+            padding: const EdgeInsets.fromLTRB(12, 8, 10, 8),
             child: Row(children: [
               Expanded(
                 child: Text(
                   [t.title, if (area.isNotEmpty && !t.title.contains(area)) area].join(' · '),
                   maxLines: 1,
                   overflow: TextOverflow.ellipsis,
-                  style: const TextStyle(color: Colors.white, fontWeight: FontWeight.w800, fontSize: 16),
+                  style: TextStyle(color: _ink, fontWeight: FontWeight.w800, fontSize: 16),
                 ),
               ),
-              const Icon(Icons.schedule, size: 15, color: Colors.white),
-              const SizedBox(width: 4),
-              _KdsTickText(
-                tick: _nowTick,
-                style: const TextStyle(
-                  color: Colors.white,
-                  fontWeight: FontWeight.w800,
-                  fontSize: 15,
-                  fontFeatures: [FontFeature.tabularFigures()],
-                ),
-                builder: (now) => _waitShortAt(oldest, now),
+              Container(
+                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+                decoration: BoxDecoration(color: _tint(stripe), borderRadius: BorderRadius.circular(20)),
+                child: Row(mainAxisSize: MainAxisSize.min, children: [
+                  Icon(Icons.schedule, size: 14, color: stripe),
+                  const SizedBox(width: 4),
+                  _KdsTickText(
+                    tick: _nowTick,
+                    style: TextStyle(
+                      color: stripe,
+                      fontWeight: FontWeight.w800,
+                      fontSize: 14,
+                      fontFeatures: const [FontFeature.tabularFigures()],
+                    ),
+                    builder: (now) => _waitShortAt(oldest, now),
+                  ),
+                ]),
               ),
             ]),
           ),
@@ -3041,7 +3058,7 @@ class _PosKdsScreenState extends State<PosKdsScreen> {
           children: [
             Container(
               width: 52,
-              color: tone.bg,
+              color: _tint(tone.bg),
               padding: EdgeInsets.symmetric(horizontal: 4, vertical: 8),
               alignment: Alignment.center,
               child: Column(
@@ -3051,7 +3068,7 @@ class _PosKdsScreenState extends State<PosKdsScreen> {
                     Text(
                       tr('MỚI'),
                       style: TextStyle(
-                        color: tone.fg,
+                        color: tone.bg,
                         fontWeight: FontWeight.w700,
                         fontSize: 8,
                         letterSpacing: 0.4,
@@ -3061,12 +3078,12 @@ class _PosKdsScreenState extends State<PosKdsScreen> {
                     _qtyFmt.format(item.qty),
                     textAlign: TextAlign.center,
                     style: TextStyle(
-                      color: tone.fg,
-                      fontWeight: FontWeight.w700,
+                      color: tone.bg,
+                      fontWeight: FontWeight.w800,
                       fontSize: 20,
                       height: 1.05,
                       decoration: voided ? TextDecoration.lineThrough : null,
-                      decorationColor: tone.fg,
+                      decorationColor: tone.bg,
                       decorationThickness: 2.2,
                       fontFeatures: [FontFeature.tabularFigures()],
                     ),
@@ -3405,46 +3422,46 @@ class _KdsPalette {
   final Color green, greenSoft, sheet, ticketHead, note, late, voided, namePanel;
 
   static const day = _KdsPalette(
-    bg: Color(0xFFF4F6FB),
+    bg: Color(0xFFF3F4F6),
     bar: Color(0xFFFFFFFF),
     card: Color(0xFFFFFFFF),
-    line: SboxColors.slate200,
-    ink: SboxColors.slate900,
-    muted: SboxColors.slate500,
-    chipIdle: SboxColors.slate100,
-    blue: SboxColors.brand600,
-    blueSoft: SboxColors.brand50,
-    orange: SboxColors.warning,
-    orangeSoft: SboxColors.warningSoft,
-    green: SboxColors.success,
-    greenSoft: SboxColors.successSoft,
+    line: Color(0xFFE4E7EC),
+    ink: Color(0xFF111827),
+    muted: Color(0xFF6B7280),
+    chipIdle: Color(0xFFF2F4F7),
+    blue: Color(0xFF1F6FA3),
+    blueSoft: Color(0xFFEAF2F8),
+    orange: Color(0xFFB7791F),
+    orangeSoft: Color(0xFFFBF3E4),
+    green: Color(0xFF15803D),
+    greenSoft: Color(0xFFE8F5EC),
     sheet: Color(0xFFFFFFFF),
-    ticketHead: SboxColors.slate50,
-    note: SboxColors.slate500,
-    late: SboxColors.danger,
-    voided: SboxColors.slate400,
-    namePanel: Color(0xFFFFFFFF),
+    ticketHead: Color(0xFFF9FAFB),
+    note: Color(0xFF4B5563),
+    late: Color(0xFFC0392B),
+    voided: Color(0xFF9CA3AF),
+    namePanel: Color(0xFFF9FAFB),
   );
 
   static const night = _KdsPalette(
-    bg: Color(0xFF0B1120),
-    bar: Color(0xFF111827),
-    card: Color(0xFF1E293B),
-    line: Color(0xFF334155),
-    ink: Color(0xFFF1F5F9),
-    muted: Color(0xFF94A3B8),
-    chipIdle: Color(0xFF1F2937),
-    blue: Color(0xFF38A9DE),
-    blueSoft: Color(0xFF0E2A3D),
-    orange: Color(0xFFF59E0B),
-    orangeSoft: Color(0xFF332407),
-    green: Color(0xFF22C55E),
-    greenSoft: Color(0xFF0C2A18),
-    sheet: Color(0xFF1E293B),
-    ticketHead: Color(0xFF1E293B),
-    note: Color(0xFFCBD5E1),
-    late: Color(0xFFF87171),
-    voided: Color(0xFF64748B),
-    namePanel: Color(0xFF111827),
+    bg: Color(0xFF0F1115),
+    bar: Color(0xFF15181D),
+    card: Color(0xFF1B1F25),
+    line: Color(0xFF2B3139),
+    ink: Color(0xFFE9ECF0),
+    muted: Color(0xFF8A93A0),
+    chipIdle: Color(0xFF232830),
+    blue: Color(0xFF5BA4D4),
+    blueSoft: Color(0xFF182A38),
+    orange: Color(0xFFD9A048),
+    orangeSoft: Color(0xFF2C2416),
+    green: Color(0xFF2F9E66),
+    greenSoft: Color(0xFF16291F),
+    sheet: Color(0xFF1B1F25),
+    ticketHead: Color(0xFF1B1F25),
+    note: Color(0xFFB5BDC8),
+    late: Color(0xFFE5766B),
+    voided: Color(0xFF5E6672),
+    namePanel: Color(0xFF15181D),
   );
 }
