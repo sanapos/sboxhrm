@@ -26,4 +26,8 @@ public class PosProductUnit : AuditableEntity<Guid>
     public bool IsDirectSale { get; set; } = true;
 
     public bool IsBaseUnit { get; set; }
+
+    /// <summary>Mã vạch riêng của đơn vị (vd mã thùng). Đơn vị cơ bản dùng mã vạch của hàng hóa.</summary>
+    [MaxLength(64)]
+    public string? Barcode { get; set; }
 }

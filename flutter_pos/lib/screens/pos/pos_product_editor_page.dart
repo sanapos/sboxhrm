@@ -4798,7 +4798,9 @@ class _PosProductEditorPageState extends State<PosProductEditorPage>
                     dense: true,
                     title: Text(tr(u.unitName +
                         (u.isBaseUnit ? ' (cơ bản)' : ' = ${u.conversionRate}'))),
-                    subtitle: Text(tr('Giá: ${_moneyFmt.format(u.basePrice)}')),
+                    subtitle: Text(tr('Giá: ${_moneyFmt.format(u.basePrice)}'
+                        '${(u.barcode ?? '').isEmpty ? '' : ' · Mã vạch: ${u.barcode}'}')),
+                    onTap: u.isBaseUnit || !_isEditing ? null : () => _editExtraUnit(u),
                     trailing: u.isBaseUnit || !_isEditing
                         ? null
                         : IconButton(
@@ -5478,15 +5480,20 @@ class _PosProductEditorPageState extends State<PosProductEditorPage>
     );
   }
 
-  Future<void> _addExtraUnit() async {
+  Future<void> _addExtraUnit() => _editExtraUnit();
+
+  /// Thêm / sửa đơn vị quy đổi (tên, quy đổi, giá, mã vạch riêng — vd mã thùng).
+  Future<void> _editExtraUnit([PosProductUnit? unit]) async {
     if (!_isEditing) return;
-    final nameCtrl = TextEditingController();
-    final rateCtrl = TextEditingController(text: tr('1'));
-    final priceCtrl = TextEditingController(text: tr('0'));
+    String num(double v) => v == v.roundToDouble() ? v.toStringAsFixed(0) : v.toString();
+    final nameCtrl = TextEditingController(text: unit?.unitName ?? '');
+    final rateCtrl = TextEditingController(text: unit == null ? '1' : num(unit.conversionRate));
+    final priceCtrl = TextEditingController(text: unit == null ? '0' : num(unit.basePrice));
+    final barcodeCtrl = TextEditingController(text: unit?.barcode ?? '');
     final ok = await showDialog<bool>(
       context: context,
       builder: (ctx) => AlertDialog(
-        title: Text(tr('Thêm đơn vị quy đổi')),
+        title: Text(tr(unit == null ? 'Thêm đơn vị quy đổi' : 'Sửa đơn vị ${unit.unitName}')),
         content: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
@@ -5506,6 +5513,13 @@ class _PosProductEditorPageState extends State<PosProductEditorPage>
               decoration: PosTheme.inputDecoration(label: 'Giá bán'),
               keyboardType: TextInputType.number,
             ),
+            TextField(
+              controller: barcodeCtrl,
+              decoration: PosTheme.inputDecoration(label: 'Mã vạch đơn vị (vd mã thùng)').copyWith(
+                helperText: tr('Quét mã này khi bán → thêm đúng 1 đơn vị; in tem đơn vị đúng mã'),
+                suffixIcon: PosBarcodeScanIcon(controller: barcodeCtrl, iconSize: 20),
+              ),
+            ),
           ],
         ),
         actions: [
@@ -5516,21 +5530,39 @@ class _PosProductEditorPageState extends State<PosProductEditorPage>
           FilledButton(
             style: PosTheme.filledButtonStyle,
             onPressed: () => Navigator.pop(ctx, true),
-            child: Text(tr('Thêm')),
+            child: Text(tr(unit == null ? 'Thêm' : 'Lưu')),
           ),
         ],
       ),
     );
     if (ok != true) return;
-    final res = await _api.createPosProductUnit(widget.product!.id, {
+    final body = {
       'unitName': nameCtrl.text.trim(),
-      'conversionRate': double.tryParse(rateCtrl.text) ?? 1,
-      'basePrice': double.tryParse(priceCtrl.text) ?? 0,
-      'isDirectSale': true,
-    });
-    if (res['isSuccess'] == true && res['data'] != null) {
-      setState(() => _units.add(
-          PosProductUnit.fromJson(res['data'] as Map<String, dynamic>)));
+      'conversionRate': double.tryParse(rateCtrl.text.replaceAll(',', '.')) ?? 1,
+      'basePrice': double.tryParse(priceCtrl.text.replaceAll('.', '').replaceAll(',', '.')) ?? 0,
+      'isDirectSale': unit?.isDirectSale ?? true,
+      'barcode': barcodeCtrl.text.trim(),
+    };
+    final res = unit == null
+        ? await _api.createPosProductUnit(widget.product!.id, body)
+        : await _api.updatePosProductUnit(widget.product!.id, unit.id, body);
+    if (!mounted) return;
+    if (res['isSuccess'] == true && res['data'] is Map) {
+      final saved = PosProductUnit.fromJson(Map<String, dynamic>.from(res['data'] as Map));
+      setState(() {
+        final i = unit == null ? -1 : _units.indexOf(unit);
+        if (i >= 0) {
+          _units[i] = saved;
+        } else {
+          _units.add(saved);
+        }
+      });
+      invalidatePosConversionUnits(widget.product!.id);
+    } else {
+      NotificationOverlayManager().showError(
+        title: unit == null ? 'Không thêm được đơn vị' : 'Không lưu được đơn vị',
+        message: res['message']?.toString() ?? 'Lỗi',
+      );
     }
   }
 

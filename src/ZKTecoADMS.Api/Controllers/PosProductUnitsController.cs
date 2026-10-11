@@ -21,13 +21,26 @@ public class PosProductUnitsController(ZKTecoDbContext dbContext) : Authenticate
         decimal ConversionRate,
         decimal BasePrice,
         bool IsDirectSale,
-        bool IsBaseUnit);
+        bool IsBaseUnit,
+        string? Barcode = null);
 
+    /// <param name="Barcode">Mã vạch riêng của đơn vị (mã thùng…). Khi sửa: null = giữ nguyên, rỗng = xóa mã.</param>
     public record UnitUpsertDto(
         string UnitName,
         decimal ConversionRate,
         decimal BasePrice,
-        bool IsDirectSale);
+        bool IsDirectSale,
+        string? Barcode = null);
+
+    /// <summary>Chuẩn hóa + kiểm tra trùng mã vạch đơn vị. Trả (mã, lỗi).</summary>
+    async Task<(string? Code, string? Error)> CheckBarcodeAsync(Guid storeId, string? raw, Guid? unitId)
+    {
+        var code = string.IsNullOrWhiteSpace(raw) ? null : raw.Trim();
+        if (code == null) return (null, null);
+        if (code.Length > 64) return (null, "Mã vạch tối đa 64 ký tự");
+        var owner = await PosBarcodeUsage.FindOwnerAsync(dbContext, storeId, code, unitId);
+        return owner == null ? (code, null) : (null, $"Mã vạch {code} đã dùng cho {owner}");
+    }
 
     [HttpGet]
     [RequireModulePermission("PosProducts", ModulePermissionAction.View)]
@@ -42,7 +55,7 @@ public class PosProductUnitsController(ZKTecoDbContext dbContext) : Authenticate
             .Where(u => u.ProductId == productId && u.StoreId == storeId && u.Deleted == null)
             .OrderByDescending(u => u.IsBaseUnit)
             .ThenBy(u => u.ConversionRate)
-            .Select(u => new UnitDto(u.Id, u.UnitName, u.ConversionRate, u.BasePrice, u.IsDirectSale, u.IsBaseUnit))
+            .Select(u => new UnitDto(u.Id, u.UnitName, u.ConversionRate, u.BasePrice, u.IsDirectSale, u.IsBaseUnit, u.Barcode))
             .ToListAsync();
 
         return Ok(AppResponse<List<UnitDto>>.Success(items));
@@ -65,6 +78,8 @@ public class PosProductUnitsController(ZKTecoDbContext dbContext) : Authenticate
         if (await dbContext.PosProductUnits.AnyAsync(u =>
                 u.ProductId == productId && u.UnitName == name && u.Deleted == null))
             return BadRequest(AppResponse<UnitDto>.Fail("Đơn vị đã tồn tại"));
+        var (barcode, barcodeErr) = await CheckBarcodeAsync(storeId, dto.Barcode, null);
+        if (barcodeErr != null) return BadRequest(AppResponse<UnitDto>.Fail(barcodeErr));
 
         var entity = new PosProductUnit
         {
@@ -76,6 +91,7 @@ public class PosProductUnitsController(ZKTecoDbContext dbContext) : Authenticate
             BasePrice = dto.BasePrice,
             IsDirectSale = dto.IsDirectSale,
             IsBaseUnit = false,
+            Barcode = barcode,
             IsActive = true,
             CreatedBy = CurrentUserEmail,
         };
@@ -84,7 +100,7 @@ public class PosProductUnitsController(ZKTecoDbContext dbContext) : Authenticate
 
         return Ok(AppResponse<UnitDto>.Success(new UnitDto(
             entity.Id, entity.UnitName, entity.ConversionRate, entity.BasePrice,
-            entity.IsDirectSale, entity.IsBaseUnit)));
+            entity.IsDirectSale, entity.IsBaseUnit, entity.Barcode)));
     }
 
     [HttpPut("{unitId:guid}")]
@@ -125,6 +141,13 @@ public class PosProductUnitsController(ZKTecoDbContext dbContext) : Authenticate
             }
         }
 
+        // Đơn vị cơ bản dùng mã vạch của hàng hóa — không gán mã riêng. Không gửi mã (luồng cũ) → giữ nguyên.
+        if (!entity.IsBaseUnit && dto.Barcode != null)
+        {
+            var (barcode, barcodeErr) = await CheckBarcodeAsync(storeId, dto.Barcode, entity.Id);
+            if (barcodeErr != null) return BadRequest(AppResponse<UnitDto>.Fail(barcodeErr));
+            entity.Barcode = barcode;
+        }
         entity.BasePrice = dto.BasePrice;
         entity.IsDirectSale = dto.IsDirectSale;
         entity.UpdatedAt = DateTime.UtcNow;
@@ -133,7 +156,7 @@ public class PosProductUnitsController(ZKTecoDbContext dbContext) : Authenticate
 
         return Ok(AppResponse<UnitDto>.Success(new UnitDto(
             entity.Id, entity.UnitName, entity.ConversionRate, entity.BasePrice,
-            entity.IsDirectSale, entity.IsBaseUnit)));
+            entity.IsDirectSale, entity.IsBaseUnit, entity.Barcode)));
     }
 
     [HttpDelete("{unitId:guid}")]

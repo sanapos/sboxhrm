@@ -181,6 +181,9 @@ class PosProductUnit {
   final bool isDirectSale;
   final bool isBaseUnit;
 
+  /// Mã vạch riêng của đơn vị (mã thùng…). Đơn vị cơ bản dùng mã vạch của hàng.
+  final String? barcode;
+
   PosProductUnit({
     required this.id,
     required this.unitName,
@@ -188,6 +191,7 @@ class PosProductUnit {
     this.basePrice = 0,
     this.isDirectSale = true,
     this.isBaseUnit = false,
+    this.barcode,
   });
 
   factory PosProductUnit.fromJson(Map<String, dynamic> json) {
@@ -204,6 +208,10 @@ class PosProductUnit {
       isBaseUnit: _posJsonFlag(
           json['isBaseUnit'] ?? json['IsBaseUnit'],
           fallback: false),
+      barcode: () {
+        final b = (json['barcode'] ?? json['Barcode'])?.toString().trim() ?? '';
+        return b.isEmpty ? null : b;
+      }(),
     );
   }
 
@@ -212,6 +220,8 @@ class PosProductUnit {
         'conversionRate': conversionRate,
         'basePrice': basePrice,
         'isDirectSale': isDirectSale,
+        // Không gửi = máy chủ giữ nguyên mã vạch đơn vị.
+        if (barcode != null) 'barcode': barcode,
       };
 }
 

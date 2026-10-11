@@ -153,6 +153,17 @@ class _PosBarcodeLabelDialogState extends State<_PosBarcodeLabelDialog> {
         continue;
       }
       final variantBarcodes = <String, String>{};
+      final unitBarcodes = <String, String>{};
+      if (views.any((v) => v.unitId != null)) {
+        final ur = await api.getPosProductUnits(p.id);
+        if (ur['isSuccess'] == true && ur['data'] is List) {
+          for (final e in ur['data'] as List) {
+            if (e is! Map) continue;
+            final u = PosProductUnit.fromJson(Map<String, dynamic>.from(e));
+            if ((u.barcode ?? '').isNotEmpty) unitBarcodes[u.id] = u.barcode!;
+          }
+        }
+      }
       if (views.any((v) => v.variantId != null)) {
         final vr = await api.getPosProductVariants(p.id);
         if (vr['isSuccess'] == true && vr['data'] is List) {
@@ -167,10 +178,10 @@ class _PosBarcodeLabelDialogState extends State<_PosBarcodeLabelDialog> {
         add(p.copyWith(
           name: v.isBase ? p.name : '${p.name} · ${v.label}',
           productCode: v.displayCode.trim().isEmpty ? p.productCode : v.displayCode,
-          // Biến thể: mã vạch riêng; đơn vị lớn (Thùng): chưa có mã vạch riêng → in mã hàng, không in EAN của lon.
+          // Biến thể / đơn vị lớn (Thùng): mã vạch riêng; đơn vị chưa có mã riêng → in mã hàng, không in EAN của lon.
           barcode: v.variantId != null
               ? (variantBarcodes[v.variantId] ?? '')
-              : (v.unitId != null ? '' : p.barcode),
+              : (v.unitId != null ? (unitBarcodes[v.unitId] ?? '') : p.barcode),
           basePrice: v.basePrice,
           baseUnitName: v.unitId != null ? v.label : p.baseUnitName,
         ));

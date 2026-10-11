@@ -148,7 +148,7 @@ public partial class PosProductsController(
 
     public record PosProductUnitDto(
         Guid Id, string UnitName, decimal ConversionRate,
-        decimal BasePrice, bool IsDirectSale, bool IsBaseUnit);
+        decimal BasePrice, bool IsDirectSale, bool IsBaseUnit, string? Barcode = null);
 
     public record PosProductAttributeDto(Guid AttributeId, string AttributeName, string Value);
 
@@ -532,6 +532,17 @@ public partial class PosProductsController(
         var product = await dbContext.PosProducts.AsNoTracking()
             .FirstOrDefaultAsync(p => p.StoreId == storeId && p.Deleted == null && p.IsActive &&
                 (p.Barcode == trimmed || p.ProductCode == trimmed));
+        // Mã vạch đơn vị (thùng / lốc) → hàng hóa của đơn vị đó.
+        if (product == null)
+        {
+            var unitProductId = await dbContext.PosProductUnits.AsNoTracking()
+                .Where(u => u.StoreId == storeId && u.Deleted == null && u.Barcode == trimmed)
+                .Select(u => (Guid?)u.ProductId)
+                .FirstOrDefaultAsync();
+            if (unitProductId != null)
+                product = await dbContext.PosProducts.AsNoTracking()
+                    .FirstOrDefaultAsync(p => p.Id == unitProductId && p.Deleted == null && p.IsActive);
+        }
         if (product == null)
             return NotFound(AppResponse<PosProductDto>.Fail("Không tìm thấy hàng theo mã vạch"));
 
@@ -1167,7 +1178,7 @@ public partial class PosProductsController(
             .Where(u => u.ProductId == id && u.Deleted == null)
             .OrderByDescending(u => u.IsBaseUnit)
             .ThenBy(u => u.ConversionRate)
-            .Select(u => new PosProductUnitDto(u.Id, u.UnitName, u.ConversionRate, u.BasePrice, u.IsDirectSale, u.IsBaseUnit))
+            .Select(u => new PosProductUnitDto(u.Id, u.UnitName, u.ConversionRate, u.BasePrice, u.IsDirectSale, u.IsBaseUnit, u.Barcode))
             .ToListAsync();
 
         var attrs = await dbContext.PosProductAttributeValues

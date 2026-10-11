@@ -1007,6 +1007,42 @@ public partial class PosSalesController(
             }));
         }
 
+        // Mã vạch đơn vị bán (thùng / lốc / hộp) → bán đúng đơn vị đó (giá + quy đổi tồn theo đơn vị).
+        var unit = await dbContext.PosProductUnits
+            .AsNoTracking()
+            .Where(u => u.StoreId == storeId && u.Deleted == null && u.Barcode != null &&
+                        u.Barcode.ToLower() == cLower)
+            .Select(u => new
+            {
+                UnitId = u.Id,
+                u.UnitName,
+                u.ConversionRate,
+                UnitPrice = u.BasePrice,
+                u.ProductId,
+            })
+            .FirstOrDefaultAsync();
+        if (unit != null)
+        {
+            var unitProduct = await dbContext.PosProducts.AsNoTracking()
+                .Where(p => p.Id == unit.ProductId && p.StoreId == storeId && p.Deleted == null && p.IsActive)
+                .Select(p => new
+                {
+                    p.Id,
+                    p.ProductCode,
+                    p.Barcode,
+                    p.Name,
+                    ProductType = p.ProductType.ToString(),
+                    p.BasePrice,
+                    p.OnHandQty,
+                    p.ImageUrl,
+                    p.BaseUnitName,
+                    VariantCount = p.Variants.Count(v => v.Deleted == null && v.IsActive),
+                })
+                .FirstOrDefaultAsync();
+            if (unitProduct != null)
+                return Ok(AppResponse<object>.Success(new { matchType = "unit", product = unitProduct, unit }));
+        }
+
         var product = await dbContext.PosProducts
             .AsNoTracking()
             .Where(p => p.StoreId == storeId && p.Deleted == null && p.IsActive && p.IsDirectSale)

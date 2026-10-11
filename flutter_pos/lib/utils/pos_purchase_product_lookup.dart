@@ -40,7 +40,7 @@ Future<PosPurchaseLookupPick?> lookupOrPickPosProduct(
   if (lookup['isSuccess'] == true && lookup['data'] is Map) {
     final data = Map<String, dynamic>.from(lookup['data'] as Map);
     final match = data['matchType']?.toString();
-    if (match == 'variant' || match == 'product') {
+    if (match == 'variant' || match == 'product' || match == 'unit') {
       final fromExact = await _pickFromExact(api, data);
       if (fromExact != null) return fromExact;
     }
@@ -131,6 +131,18 @@ Future<PosPurchaseLookupPick?> _pickFromExact(
   if (matchType == 'product' && data['product'] is Map) {
     final p = PosProduct.fromJson(data['product'] as Map<String, dynamic>);
     return _enrichProduct(api, p);
+  }
+
+  // Mã vạch đơn vị (thùng / lốc): thêm đúng đơn vị đó, giá theo đơn vị.
+  if (matchType == 'unit' && data['product'] is Map && data['unit'] is Map) {
+    final p = PosProduct.fromJson(Map<String, dynamic>.from(data['product'] as Map));
+    final u = Map<String, dynamic>.from(data['unit'] as Map);
+    final enriched = await _enrichProduct(api, p);
+    return PosPurchaseLookupPick(
+      product: enriched?.product ?? p,
+      unitId: (u['unitId'] ?? u['UnitId'])?.toString(),
+      unitLabel: (u['unitName'] ?? u['UnitName'])?.toString(),
+    );
   }
 
   return null;
