@@ -95,7 +95,12 @@ class PosLineQuickNotesPicker extends StatelessWidget {
     this.onAddQuickNote,
     this.onDeleteQuickNote,
     this.autofocusExtra = false,
+    this.itemLabel,
   });
+
+  /// Tên món — ghi lên ô nhập để biết đang ghi chú cho món nào (dòng món có thể bị cuộn khuất
+  /// khi bàn phím ảo chiếm nửa màn).
+  final String? itemLabel;
 
   final List<String> quickNotes;
   final Set<String> selected;
@@ -214,7 +219,7 @@ class PosLineQuickNotesPicker extends StatelessWidget {
                 children: quickNotes.map((note) {
                   final active = selected.contains(note);
                   return InputChip(
-                    label: Text(tr(note), style: const TextStyle(fontSize: 12)),
+                    label: Text(tr(note), style: const TextStyle(fontSize: 14)),
                     selected: active,
                     showCheckmark: true,
                     selectedColor: PosTheme.kiotBlueLight,
@@ -255,7 +260,13 @@ class PosLineQuickNotesPicker extends StatelessWidget {
           autofocus: autofocusExtra,
           onTap: posShowSoftKeyboardOnFieldTap,
           maxLines: 2,
+          // Cuộn chừa cả nút OK bên dưới ô khi bàn phím bật.
+          scrollPadding: const EdgeInsets.fromLTRB(20, 20, 20, 72),
           decoration: InputDecoration(
+            labelText: (itemLabel ?? '').trim().isEmpty
+                ? null
+                : tr('Ghi chú cho «${itemLabel!.trim()}»'),
+            floatingLabelBehavior: FloatingLabelBehavior.always,
             hintText: tr(quickNotes.isEmpty
                 ? 'Ghi chú dòng hàng'
                 : 'Ghi chú khác (tùy chọn)'),
@@ -264,9 +275,9 @@ class PosLineQuickNotesPicker extends StatelessWidget {
             fillColor: Colors.white,
             border: const OutlineInputBorder(),
             contentPadding:
-                const EdgeInsets.symmetric(horizontal: 8, vertical: 8),
+                const EdgeInsets.symmetric(horizontal: 10, vertical: 10),
           ),
-          style: const TextStyle(fontSize: 12),
+          style: const TextStyle(fontSize: 15, color: Colors.black87),
           onChanged: (_) => onExtraChanged(),
         ),
         ),

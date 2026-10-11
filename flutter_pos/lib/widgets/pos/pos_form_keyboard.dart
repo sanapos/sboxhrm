@@ -230,6 +230,98 @@ class _PosTouchImeHostState extends State<PosTouchImeHost> {
   }
 }
 
+/// Đẩy cả app lên khi bàn phím ảo che ô đang gõ (giống adjustPan nhưng tự tính trong Flutter).
+///
+/// Màn bán hàng cố ý không co theo bàn phím (`resizeToAvoidBottomInset: false`), app còn giới hạn
+/// inset ~⅓ màn, dialog dùng [wrapPosFormDialog] bỏ inset → ô ghi chú / tiền khách đưa ở đáy bị
+/// bàn phím Sunmi (~45% màn) che, gõ không thấy chữ. Lớp này đo vị trí ô đang focus SAU khi
+/// layout; còn bị che thì dịch toàn bộ giao diện lên vừa đủ. Màn đã tự co / tự cuộn → không dịch.
+class PosKeyboardLift extends StatefulWidget {
+  const PosKeyboardLift({super.key, required this.child, this.gap = 12});
+
+  final Widget child;
+  /// Khoảng hở giữa đáy ô nhập và mép bàn phím.
+  final double gap;
+
+  @override
+  State<PosKeyboardLift> createState() => _PosKeyboardLiftState();
+}
+
+class _PosKeyboardLiftState extends State<PosKeyboardLift> with WidgetsBindingObserver {
+  double _dy = 0;
+  int _seq = 0;
+
+  @override
+  void initState() {
+    super.initState();
+    WidgetsBinding.instance.addObserver(this);
+    FocusManager.instance.addListener(_schedule);
+  }
+
+  @override
+  void dispose() {
+    WidgetsBinding.instance.removeObserver(this);
+    FocusManager.instance.removeListener(_schedule);
+    super.dispose();
+  }
+
+  @override
+  void didChangeMetrics() => _schedule();
+
+  /// Đo lại sau frame hiện tại và sau khi bàn phím / cuộn tự động chạy xong.
+  void _schedule() {
+    if (kIsWeb) return;
+    final seq = ++_seq;
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (seq == _seq) _measure();
+    });
+    for (final ms in const [180, 420]) {
+      Future<void>.delayed(Duration(milliseconds: ms), () {
+        if (seq == _seq) _measure();
+      });
+    }
+  }
+
+  void _measure() {
+    if (!mounted) return;
+    final view = View.maybeOf(context);
+    if (view == null) return;
+    final raw = MediaQueryData.fromView(view);
+    final inset = raw.viewInsets.bottom;
+    var next = 0.0;
+    final node = FocusManager.instance.primaryFocus;
+    if (inset > 0 && posFocusWantsSoftKeyboard(node) && node!.context != null) {
+      final state = node.context!.findAncestorStateOfType<EditableTextState>();
+      final box = (state?.context ?? node.context)!.findRenderObject();
+      if (box is RenderBox && box.attached && box.hasSize) {
+        // Toạ độ đã gồm phần đang dịch → cộng lại để có vị trí gốc.
+        final top = box.localToGlobal(Offset.zero).dy + _dy;
+        final bottom = top + box.size.height;
+        final visibleBottom = raw.size.height - inset - widget.gap;
+        if (bottom > visibleBottom) {
+          next = math.min(bottom - visibleBottom, inset);
+          // Không đẩy mép trên ô ra khỏi màn (ô nhiều dòng cao).
+          next = math.min(next, math.max(0.0, top - raw.padding.top - 8));
+        }
+      }
+    }
+    if ((next - _dy).abs() > 1) setState(() => _dy = next);
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    if (kIsWeb) return widget.child;
+    return TweenAnimationBuilder<double>(
+      tween: Tween<double>(end: _dy),
+      duration: const Duration(milliseconds: 160),
+      curve: Curves.easeOut,
+      builder: (_, v, child) =>
+          v.abs() < 0.5 ? child! : Transform.translate(offset: Offset(0, -v), child: child),
+      child: widget.child,
+    );
+  }
+}
+
 void hidePosSoftKeyboard({int alsoAfterMs = 320}) {
   void run() {
     FocusManager.instance.primaryFocus?.unfocus();

@@ -133,9 +133,11 @@ class ZKTecoApp extends StatelessWidget {
                           ColoredBox(
                             color: const Color(0xFF000000),
                             child: PosTouchImeHost(
-                              child: DefaultTextStyle(
-                                style: kDefaultVietnameseTextStyle,
-                                child: ImpersonationBanner(child: child!),
+                              child: PosKeyboardLift(
+                                child: DefaultTextStyle(
+                                  style: kDefaultVietnameseTextStyle,
+                                  child: ImpersonationBanner(child: child!),
+                                ),
                               ),
                             ),
                           ),

@@ -203,7 +203,9 @@ class SboxPosApp extends StatelessWidget {
                         ColoredBox(
                           color: const Color(0xFF000000),
                           child: PosTouchImeHost(
-                            child: NotificationOverlay(child: body),
+                            child: PosKeyboardLift(
+                              child: NotificationOverlay(child: body),
+                            ),
                           ),
                         ),
                         immersive: immersive,

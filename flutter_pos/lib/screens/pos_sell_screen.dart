@@ -13790,7 +13790,9 @@ class _PosSellScreenState extends State<PosSellScreen>
                 });
               },
               extraController: line.noteCtrl,
-              autofocusExtra: true,
+              // Có ghi chú nhanh → chọn chip trước, chưa bật bàn phím (bàn phím che mất chip).
+              autofocusExtra: _quickNotesFor(line).isEmpty,
+              itemLabel: line.product.name,
               onExtraChanged: () {
                 if (!_guardReadOnlyEdit()) return;
                 setState(() => _applyLineNoteFromPicker(line));
@@ -17511,7 +17513,8 @@ class _PosSellScreenState extends State<PosSellScreen>
                     _applyLineNoteFromPicker(line);
                   }),
                   extraController: line.noteCtrl,
-                  autofocusExtra: true,
+                  autofocusExtra: _quickNotesFor(line).isEmpty,
+                  itemLabel: line.product.name,
                   onExtraChanged: () => setState(() => _applyLineNoteFromPicker(line)),
                   onAddQuickNote: (note) => _learnQuickNote(line, note),
                   onDeleteQuickNote: (note) => _forgetQuickNote(line, note),
