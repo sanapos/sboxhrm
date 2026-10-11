@@ -34,6 +34,8 @@ class PosLocalPrinterRoles {
   static const stockIssue = 'StockIssue';
   static const endOfDay = 'EndOfDayReport';
   static const barcodeLabel = 'BarcodeLabel';
+  /// Tem vận đơn (máy tem khổ lớn 100×150 / 80×80).
+  static const shippingLabel = 'ShippingLabel';
 
   static const all = <String>[
     saleInvoice,
@@ -43,6 +45,7 @@ class PosLocalPrinterRoles {
     stockIssue,
     endOfDay,
     barcodeLabel,
+    shippingLabel,
   ];
 
   static const receiptRoles = <String>[
@@ -56,6 +59,7 @@ class PosLocalPrinterRoles {
   static const labelRoles = <String>[
     kitchenLabel,
     barcodeLabel,
+    shippingLabel,
   ];
 
   static String label(String role) => switch (role) {
@@ -66,6 +70,7 @@ class PosLocalPrinterRoles {
         stockIssue => 'Báo kho / xuất kho',
         endOfDay => 'Tổng kết cuối ngày',
         barcodeLabel => 'Tem mã vạch',
+        shippingLabel => 'Tem vận đơn',
         _ => role,
       };
 

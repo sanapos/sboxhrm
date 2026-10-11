@@ -22554,11 +22554,14 @@ class ApiService implements PayrollApi {
     }
   }
 
-  Future<Map<String, dynamic>> getPosShipmentLabel(String orderId) async {
+  /// [size]: khổ nhãn mong muốn (GHN: «80x80», «52x70»; khác = A5).
+  Future<Map<String, dynamic>> getPosShipmentLabel(String orderId, {String? size}) async {
     try {
       final response = await http
           .get(
-            Uri.parse('$baseUrl/api/pos/shipping/shipments/$orderId/label'),
+            Uri.parse('$baseUrl/api/pos/shipping/shipments/$orderId/label').replace(
+              queryParameters: (size ?? '').isEmpty ? null : {'size': size!},
+            ),
             headers: _headers,
           )
           .timeout(const Duration(seconds: 45));

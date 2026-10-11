@@ -443,6 +443,204 @@ class PosLabelRenderer {
     }
   }
 
+  /// Ảnh nhãn vận đơn của hãng (trang PDF / HTML đã dựng) → raster máy tem [widthMm]×[heightMm].
+  /// Cắt viền trắng, xoay 90° nếu khác chiều tem, thu phóng vừa khổ (giữ tỉ lệ), nền trắng.
+  static Future<({Uint8List raster, int widthPx, int heightPx})> rasterFromImage(
+    ui.Image src, {
+    double widthMm = 100,
+    double heightMm = 150,
+    int dpi = 203,
+    bool trimWhite = true,
+  }) async {
+    final w = mmToDots(widthMm, dpi);
+    final h = mmToDots(heightMm, dpi);
+    var crop = ui.Rect.fromLTWH(0, 0, src.width.toDouble(), src.height.toDouble());
+    if (trimWhite) {
+      final data = await src.toByteData(format: ui.ImageByteFormat.rawRgba);
+      if (data != null) {
+        final px = data.buffer.asUint8List();
+        var minX = src.width, minY = src.height, maxX = -1, maxY = -1;
+        for (var y = 0; y < src.height; y += 2) {
+          for (var x = 0; x < src.width; x += 2) {
+            final i = (y * src.width + x) * 4;
+            if (px[i + 3] < 32) continue; // trong suốt = giấy trắng
+            final lum = 0.299 * px[i] + 0.587 * px[i + 1] + 0.114 * px[i + 2];
+            if (lum < 200) {
+              if (x < minX) minX = x;
+              if (x > maxX) maxX = x;
+              if (y < minY) minY = y;
+              if (y > maxY) maxY = y;
+            }
+          }
+        }
+        if (maxX > minX && maxY > minY) {
+          final pad = src.width * 0.01;
+          crop = ui.Rect.fromLTRB(
+            (minX - pad).clamp(0, src.width.toDouble()),
+            (minY - pad).clamp(0, src.height.toDouble()),
+            (maxX + pad).clamp(0, src.width.toDouble()),
+            (maxY + pad).clamp(0, src.height.toDouble()),
+          );
+        }
+      }
+    }
+    final rotate = (crop.width > crop.height) != (w > h);
+    final srcW = rotate ? crop.height : crop.width;
+    final srcH = rotate ? crop.width : crop.height;
+    final scale = (w / srcW) < (h / srcH) ? (w / srcW) : (h / srcH);
+    final dw = srcW * scale;
+    final dh = srcH * scale;
+
+    final recorder = ui.PictureRecorder();
+    final canvas = ui.Canvas(recorder);
+    canvas.drawRect(
+      ui.Rect.fromLTWH(0, 0, w.toDouble(), h.toDouble()),
+      ui.Paint()..color = const ui.Color(0xFFFFFFFF),
+    );
+    canvas.save();
+    canvas.translate(w / 2, h / 2);
+    if (rotate) canvas.rotate(1.5707963267948966);
+    final dst = rotate
+        ? ui.Rect.fromCenter(center: ui.Offset.zero, width: dh, height: dw)
+        : ui.Rect.fromCenter(center: ui.Offset.zero, width: dw, height: dh);
+    canvas.drawImageRect(src, crop, dst, ui.Paint()..filterQuality = ui.FilterQuality.high);
+    canvas.restore();
+    final image = await recorder.endRecording().toImage(w, h);
+    return _imageToRaster(image);
+  }
+
+  /// Tem vận đơn tự in (đơn tự giao / hãng không trả nhãn): khổ mặc định 100×150.
+  /// Người gửi, người nhận (to, rõ), địa chỉ, COD, mã đơn dạng mã vạch, hãng + mã vận đơn, danh sách hàng.
+  static Future<({Uint8List raster, int widthPx, int heightPx})> renderShippingSelfLabel({
+    required String orderNo,
+    required String receiverName,
+    required String receiverPhone,
+    required String receiverAddress,
+    double codAmount = 0,
+    String? senderName,
+    String? senderPhone,
+    String? carrierName,
+    String? trackingCode,
+    String? note,
+    List<String> itemLines = const [],
+    int itemCount = 0,
+    DateTime? date,
+    double widthMm = 100,
+    double heightMm = 150,
+    int dpi = 203,
+  }) async {
+    await PosThermalBitmapEncoder.ensureFont();
+    final w = mmToDots(widthMm, dpi);
+    final h = mmToDots(heightMm, dpi);
+    final k = dpi / 203; // cỡ chữ theo mật độ điểm
+    final recorder = ui.PictureRecorder();
+    final canvas = ui.Canvas(recorder);
+    canvas.drawRect(
+      ui.Rect.fromLTWH(0, 0, w.toDouble(), h.toDouble()),
+      ui.Paint()..color = const ui.Color(0xFFFFFFFF),
+    );
+    final line = ui.Paint()
+      ..color = const ui.Color(0xFF000000)
+      ..strokeWidth = 2 * k;
+    final pad = 14.0 * k;
+    final cw = w - pad * 2;
+    var y = pad;
+    void rule() {
+      canvas.drawLine(ui.Offset(pad, y), ui.Offset(w - pad, y), line);
+      y += 8 * k;
+    }
+
+    // Đầu tem: hãng + mã vận đơn (mã vạch) — hoặc mã đơn khi tự giao.
+    final code = (trackingCode ?? '').trim().isNotEmpty ? trackingCode!.trim() : orderNo.trim();
+    y += await _drawText(canvas, (carrierName ?? '').trim().isEmpty ? 'GIAO HÀNG' : carrierName!.trim().toUpperCase(),
+        pad, y, cw, fontSize: 30 * k, bold: true, maxLines: 1, center: true);
+    y += 6 * k;
+    if (code.isNotEmpty) {
+      _drawBarcode(canvas, code, ui.Rect.fromLTWH(pad, y, cw, 110 * k));
+      y += 116 * k;
+      y += await _drawText(canvas, code, pad, y, cw, fontSize: 26 * k, bold: true, maxLines: 1, center: true);
+    }
+    y += 6 * k;
+    rule();
+
+    // Người gửi (nhỏ).
+    final sender = [
+      if ((senderName ?? '').trim().isNotEmpty) senderName!.trim(),
+      if ((senderPhone ?? '').trim().isNotEmpty) senderPhone!.trim(),
+    ].join(' · ');
+    if (sender.isNotEmpty) {
+      y += await _drawText(canvas, 'Từ: $sender', pad, y, cw, fontSize: 20 * k, maxLines: 2);
+      y += 4 * k;
+      rule();
+    }
+
+    // Người nhận (lớn).
+    y += await _drawText(canvas, 'ĐẾN:', pad, y, cw, fontSize: 20 * k, bold: true, maxLines: 1);
+    y += await _drawText(canvas, receiverName.trim().isEmpty ? 'Khách hàng' : receiverName.trim(),
+        pad, y, cw, fontSize: 34 * k, bold: true, maxLines: 2);
+    if (receiverPhone.trim().isNotEmpty) {
+      y += await _drawText(canvas, receiverPhone.trim(), pad, y, cw, fontSize: 34 * k, bold: true, maxLines: 1);
+    }
+    y += 2 * k;
+    y += await _drawText(canvas, receiverAddress.trim(), pad, y, cw, fontSize: 24 * k, maxLines: 4);
+    y += 6 * k;
+    rule();
+
+    // COD.
+    final money = NumberFormat('#,##0', 'vi_VN');
+    if (codAmount > 0) {
+      final boxH = 64 * k;
+      canvas.drawRect(ui.Rect.fromLTWH(pad, y, cw, boxH), ui.Paint()..color = const ui.Color(0xFF000000));
+      final tp = TextPainter(
+        text: TextSpan(
+          text: 'THU HỘ: ${money.format(codAmount)}đ',
+          style: vietnameseTextStyle(TextStyle(
+            fontSize: 34 * k,
+            fontWeight: FontWeight.w700,
+            color: const Color(0xFFFFFFFF),
+          )),
+        ),
+        textAlign: TextAlign.center,
+        textDirection: ui.TextDirection.ltr,
+        maxLines: 1,
+      )..layout(maxWidth: cw);
+      tp.paint(canvas, ui.Offset(pad + (cw - tp.width) / 2, y + (boxH - tp.height) / 2));
+      y += boxH + 8 * k;
+    } else {
+      y += await _drawText(canvas, 'Đã thanh toán — không thu tiền', pad, y, cw,
+          fontSize: 24 * k, bold: true, maxLines: 1, center: true);
+      y += 6 * k;
+    }
+    rule();
+
+    // Hàng hóa + ghi chú (phần còn lại của tem).
+    final footerH = 30 * k;
+    final itemsMaxH = h - y - footerH - pad;
+    if (itemLines.isNotEmpty && itemsMaxH > 24 * k) {
+      final shown = itemLines.take(8).join('\n') +
+          (itemLines.length > 8 ? '\n… và ${itemLines.length - 8} dòng khác' : '');
+      y += await _drawText(canvas, 'Hàng (${itemCount > 0 ? itemCount : itemLines.length}):\n$shown', pad, y, cw,
+          fontSize: 20 * k, maxLines: 10, maxHeight: itemsMaxH * (note == null ? 1 : 0.7));
+      y += 4 * k;
+    }
+    if ((note ?? '').trim().isNotEmpty && h - y - footerH - pad > 20 * k) {
+      y += await _drawText(canvas, 'Ghi chú: ${note!.trim()}', pad, y, cw,
+          fontSize: 20 * k, bold: true, maxLines: 3, maxHeight: h - y - footerH - pad);
+    }
+    await _drawText(
+      canvas,
+      'Đơn $orderNo · ${DateFormat('dd/MM/yyyy HH:mm').format(date ?? DateTime.now())}',
+      pad,
+      h - pad - footerH + 6 * k,
+      cw,
+      fontSize: 18 * k,
+      maxLines: 1,
+      center: true,
+    );
+    final image = await recorder.endRecording().toImage(w, h);
+    return _imageToRaster(image);
+  }
+
   static Future<double> _drawText(
     ui.Canvas canvas,
     String text,

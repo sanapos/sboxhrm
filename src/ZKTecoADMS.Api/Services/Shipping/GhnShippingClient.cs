@@ -433,8 +433,9 @@ public class GhnShippingClient(IHttpClientFactory httpClientFactory, ILogger<Ghn
         }
     }
 
+    /// <param name="size">Khổ nhãn GHN: «80x80», «52x70»; mặc định A5 (máy tem 100×150 thu nhỏ vừa khổ).</param>
     public async Task<ShippingLabelResult> GetPrintLabelAsync(
-        PosShippingCarrierSetting settings, string orderCode, CancellationToken ct = default)
+        PosShippingCarrierSetting settings, string orderCode, CancellationToken ct = default, string? size = null)
     {
         try
         {
@@ -453,8 +454,14 @@ public class GhnShippingClient(IHttpClientFactory httpClientFactory, ILogger<Ghn
                 var msg = root.TryGetProperty("message", out var m) ? m.GetString() : raw;
                 return new(false, CarrierCode, Message: msg);
             }
-            var url = $"{BaseUrl(settings)}/a5/public-api/printA5?token={Uri.EscapeDataString(token)}";
-            return new(true, CarrierCode, LabelUrl: url, PrintCode: token, Message: "Link in nhãn A5 GHN");
+            var (path, label) = size?.Trim().ToLowerInvariant() switch
+            {
+                "80x80" => ("print80x80", "80×80"),
+                "52x70" => ("print52x70", "52×70"),
+                _ => ("printA5", "A5"),
+            };
+            var url = $"{BaseUrl(settings)}/a5/public-api/{path}?token={Uri.EscapeDataString(token)}";
+            return new(true, CarrierCode, LabelUrl: url, PrintCode: token, Message: $"Link in nhãn {label} GHN", Format: "html");
         }
         catch (Exception ex)
         {

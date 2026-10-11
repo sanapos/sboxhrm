@@ -791,8 +791,9 @@ public partial class PosShippingService(
         };
     }
 
+    /// <param name="size">Khổ nhãn mong muốn (hãng hỗ trợ nhiều khổ — hiện GHN: 80x80 / 52x70 / A5).</param>
     public async Task<ShippingLabelResult> GetShipmentLabelAsync(
-        Guid storeId, Guid orderId, CancellationToken ct)
+        Guid storeId, Guid orderId, CancellationToken ct, string? size = null)
     {
         var order = await FindDeliveryOrderAsync(storeId, orderId, ct);
         if (order == null)
@@ -808,7 +809,7 @@ public partial class PosShippingService(
             var (ghnSettings, ghnErr) = await GetEnabledSettingsAsync(storeId, code, ct);
             if (ghnSettings == null) return new(false, code, Message: ghnErr);
             if (Resolve(code) is not GhnShippingClient ghn) return new(false, code, Message: "Adapter chưa đăng ký");
-            return await ghn.GetPrintLabelAsync(ghnSettings, order.DeliveryTrackingCode!, ct);
+            return await ghn.GetPrintLabelAsync(ghnSettings, order.DeliveryTrackingCode!, ct, size);
         }
         if (code == ShippingCarrierCodes.Ghtk)
         {
@@ -818,7 +819,7 @@ public partial class PosShippingService(
             var exp = DateTimeOffset.UtcNow.AddMinutes(30).ToUnixTimeSeconds();
             return new(true, code,
                 LabelUrl: $"/api/pos/shipping/label-file/{order.Id}?exp={exp}&sig={LabelSignature(secret, order.Id, exp)}",
-                Message: "Nhãn GHTK (PDF)");
+                Message: "Nhãn GHTK (PDF)", Format: "pdf");
         }
         if (!string.Equals(code, ShippingCarrierCodes.ViettelPost, StringComparison.OrdinalIgnoreCase))
         {

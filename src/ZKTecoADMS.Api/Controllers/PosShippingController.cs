@@ -188,11 +188,11 @@ public class PosShippingController(
     [HttpGet("shipments/{orderId:guid}/label")]
     [RequireModulePermission("PosShipping", ModulePermissionAction.View)]
     public async Task<ActionResult<AppResponse<ShippingLabelResult>>> GetShipmentLabel(
-        Guid orderId, CancellationToken ct)
+        Guid orderId, [FromQuery] string? size, CancellationToken ct)
     {
         if (!TryGetStoreId(out var storeId))
             return BadRequest(AppResponse<ShippingLabelResult>.Fail("Thiếu cửa hàng"));
-        var result = await shipping.GetShipmentLabelAsync(storeId, orderId, ct);
+        var result = await shipping.GetShipmentLabelAsync(storeId, orderId, ct, size);
         // Link nội bộ (nhãn GHTK) → tuyệt đối để máy bán mở trực tiếp.
         if (result.LabelUrl != null && result.LabelUrl.StartsWith('/'))
             result = result with { LabelUrl = $"{Request.Scheme}://{Request.Host}{result.LabelUrl}" };

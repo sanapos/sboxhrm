@@ -1,6 +1,7 @@
 import 'dart:async';
 
 import 'package:flutter/material.dart';
+import '../../utils/pos_shipping_label_print.dart';
 import '../../widgets/hrm_page_chrome.dart';
 import 'package:intl/intl.dart';
 import 'package:provider/provider.dart';
@@ -48,6 +49,9 @@ class _PosQrOnlineOrdersScreenState extends State<PosQrOnlineOrdersScreen> {
   String? _productFilterId;
   Timer? _searchDebounce;
   List<_OnlineOrder> _orders = [];
+
+  /// Đơn đã có mã vận đơn từ lần tải đầu — chỉ tự in tem cho đơn có mã MỚI trong phiên (máy chủ tự tạo vận đơn).
+  Set<String>? _trackedIds;
   List<_StatusOpt> _statuses = const [];
   List<_ProductFilter> _productFilters = const [];
   String? _highlightId;
@@ -227,6 +231,17 @@ class _PosQrOnlineOrdersScreenState extends State<PosQrOnlineOrdersScreen> {
       _loading = false;
     });
     _openHighlightIfAny();
+    final tracked = {
+      for (final o in orders)
+        if (o.trackingCode.isNotEmpty && o.status != 'cancelled') o.id,
+    };
+    final seen = _trackedIds;
+    _trackedIds = {...?seen, ...tracked};
+    if (seen != null) {
+      for (final id in tracked.difference(seen)) {
+        unawaited(PosShippingLabelPrinter.autoPrintAfterCreate(id));
+      }
+    }
   }
 
   void _openHighlightIfAny() {
@@ -507,6 +522,8 @@ class _PosQrOnlineOrdersScreenState extends State<PosQrOnlineOrdersScreen> {
         );
         _toastResult('Chưa có mã vận đơn', msg, success: false);
       } else {
+        _trackedIds?.add(o.id);
+        unawaited(PosShippingLabelPrinter.autoPrintAfterCreate(o.id));
         final msg = apiMsg.isNotEmpty ? apiMsg : 'Mã: $tracking';
         await showDialog<void>(
           context: context,
@@ -532,27 +549,19 @@ class _PosQrOnlineOrdersScreenState extends State<PosQrOnlineOrdersScreen> {
     }
   }
 
-  bool _isViettelCarrier(String partner) {
-    final p = partner.toLowerCase();
-    return p.contains('viettel') || p == 'viettelpost' || p == 'vtp';
-  }
-
   bool _isAhamoveCarrier(String partner) {
     final p = partner.toLowerCase();
     return p.contains('aha');
   }
 
-  bool _isSpxCarrier(String partner) {
-    final p = partner.toLowerCase();
-    return p.contains('spx') || p.contains('shopee express');
-  }
-
-  bool _canManageCarrierShipment(String partner) =>
-      _isViettelCarrier(partner) ||
-      _isAhamoveCarrier(partner) ||
-      _isSpxCarrier(partner);
-
   Future<void> _openShipmentLabel(_OnlineOrder o) async {
+    if (!_isAhamoveCarrier(o.deliveryPartner)) {
+      // In thẳng ra máy tem (không có máy tem → mở link in của hãng).
+      setState(() => _busy = true);
+      await PosShippingLabelPrinter.printForOrder(o.id);
+      if (mounted) setState(() => _busy = false);
+      return;
+    }
     setState(() => _busy = true);
     try {
       final res = await _api.getPosShipmentLabel(o.id);
@@ -727,7 +736,7 @@ class _PosQrOnlineOrdersScreenState extends State<PosQrOnlineOrdersScreen> {
             '${o.trackingCode.isNotEmpty ? ' · ${o.trackingCode}' : ''}',
             style: TextStyle(fontSize: 12, color: SboxColors.slate700),
           ),
-          if (o.trackingCode.isNotEmpty && _canManageCarrierShipment(o.deliveryPartner)) ...[
+          if (o.trackingCode.isNotEmpty) ...[
             const SizedBox(height: 6),
             Wrap(
               spacing: 6,
@@ -748,7 +757,7 @@ class _PosQrOnlineOrdersScreenState extends State<PosQrOnlineOrdersScreen> {
                   ),
                   label: Text(tr(_isAhamoveCarrier(o.deliveryPartner)
                       ? 'Theo dõi đơn'
-                      : 'In vận đơn')),
+                      : 'In tem vận đơn')),
                 ),
                 OutlinedButton.icon(
                   onPressed: _busy

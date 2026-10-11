@@ -43,6 +43,7 @@ import '../utils/pos_purchase_product_lookup.dart';
 import '../utils/pos_combo_stock.dart';
 import '../utils/pos_kitchen_print.dart';
 import '../utils/pos_cup_label_print.dart';
+import '../utils/pos_shipping_label_print.dart';
 import '../utils/pos_pending_print_store.dart';
 import '../utils/pos_table_label.dart';
 import '../utils/pos_topping_format.dart';
@@ -10738,6 +10739,7 @@ class _PosSellScreenState extends State<PosSellScreen>
             ? code
             : 'Mã: $tracking',
       );
+      unawaited(PosShippingLabelPrinter.autoPrintAfterCreate(orderId));
     } else {
       final msg = data is Map
           ? (data['message'] ?? data['Message'] ?? res['message'])

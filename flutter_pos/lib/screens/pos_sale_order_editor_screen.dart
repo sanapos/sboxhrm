@@ -1,8 +1,10 @@
+import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:intl/intl.dart';
 import 'package:provider/provider.dart';
 import 'package:url_launcher/url_launcher.dart';
+import '../utils/pos_shipping_label_print.dart';
 
 import '../models/pos_customer.dart';
 import '../models/pos_product.dart';
@@ -306,6 +308,7 @@ class _PosSaleOrderEditorScreenState extends State<PosSaleOrderEditorScreen> {
         message: tracking.isEmpty ? pick.carrierName : tracking,
       );
       await _loadOrder(order.id);
+      unawaited(PosShippingLabelPrinter.autoPrintAfterCreate(order.id));
     } else {
       NotificationOverlayManager().showError(
         title: 'Tạo vận đơn thất bại',
@@ -409,9 +412,19 @@ class _PosSaleOrderEditorScreenState extends State<PosSaleOrderEditorScreen> {
     }
   }
 
+  /// In tem vận đơn thẳng ra máy tem (nhãn hãng / tem tự vẽ); không có máy tem → mở link / PDF.
+  Future<void> _printShippingLabel() async {
+    final order = _order;
+    if (order == null) return;
+    setState(() => _shippingBusy = true);
+    await PosShippingLabelPrinter.printForOrder(order.id, order: order);
+    if (mounted) setState(() => _shippingBusy = false);
+  }
+
   Future<void> _openShipmentLabel() async {
     final order = _order;
     if (order == null) return;
+    if (!_isAhamovePartner(_deliveryPartner)) return _printShippingLabel();
     setState(() => _shippingBusy = true);
     final res = await _api.getPosShipmentLabel(order.id);
     if (!mounted) return;
@@ -876,6 +889,19 @@ class _PosSaleOrderEditorScreenState extends State<PosSaleOrderEditorScreen> {
                     .toList(),
                 onChanged: _readOnly ? null : (v) => setState(() => _deliveryStatus = v!),
               ),
+              if (_order != null &&
+                  _order!.id.isNotEmpty &&
+                  (_order!.deliveryTrackingCode ?? '').isEmpty) ...[
+                const SizedBox(height: 8),
+                Align(
+                  alignment: Alignment.centerLeft,
+                  child: OutlinedButton.icon(
+                    onPressed: _shippingBusy ? null : _printShippingLabel,
+                    icon: const Icon(Icons.print_outlined, size: 18),
+                    label: Text(tr('In tem giao hàng (tự giao)')),
+                  ),
+                ),
+              ],
               if ((_order?.deliveryTrackingCode ?? '').isNotEmpty) ...[
                 const SizedBox(height: 8),
                 Text(
@@ -921,8 +947,14 @@ class _PosSaleOrderEditorScreenState extends State<PosSaleOrderEditorScreen> {
                       ),
                       label: Text(tr(_isAhamovePartner(_deliveryPartner)
                           ? 'Theo dõi đơn'
-                          : 'In vận đơn')),
+                          : 'In tem vận đơn')),
                     ),
+                    if (_isAhamovePartner(_deliveryPartner))
+                      OutlinedButton.icon(
+                        onPressed: _shippingBusy ? null : _printShippingLabel,
+                        icon: const Icon(Icons.print_outlined, size: 18),
+                        label: Text(tr('In tem vận đơn')),
+                      ),
                     OutlinedButton.icon(
                       onPressed: _shippingBusy ? null : _syncShipmentTracking,
                       icon: const Icon(Icons.sync, size: 18),

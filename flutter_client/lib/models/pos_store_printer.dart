@@ -279,6 +279,8 @@ abstract final class PosCloudDocumentTypes {
   static const kitchenSlip = 'KitchenSlip';
   static const kitchenVoid = 'KitchenVoid';
   static const kitchenLabel = 'KitchenLabel';
+  /// Tem vận đơn — máy tem khổ lớn (100×150).
+  static const shippingLabel = 'ShippingLabel';
 
   static const labels = <String, String>{
     saleInvoice: 'Hóa đơn bán hàng',
@@ -291,6 +293,7 @@ abstract final class PosCloudDocumentTypes {
     endOfDayReport: 'Tổng kết cuối ngày',
     barcodeLabel: 'Tem sản phẩm',
     kitchenLabel: 'Tem báo bếp',
+    shippingLabel: 'Tem vận đơn',
     kitchenSlip: 'Phiếu chế biến',
     kitchenVoid: 'Phiếu hủy bếp',
     stockCount: 'Kiểm kho',

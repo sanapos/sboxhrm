@@ -1,4 +1,5 @@
 import 'dart:async';
+import '../utils/pos_shipping_label_print.dart';
 import '../utils/api_datetime.dart';
 import 'dart:typed_data';
 
@@ -880,6 +881,98 @@ class _PosSaleOrderListScreenState extends State<PosSaleOrderListScreen> {
     );
   }
 
+  /// In tem vận đơn nhiều đơn giao hàng trong trang đang xem (chọn đơn → in thẳng ra máy tem).
+  Future<void> _bulkShippingLabels() async {
+    final candidates = _items
+        .where((o) => o.isDelivery && o.status.toLowerCase() != 'cancelled')
+        .toList();
+    if (candidates.isEmpty) {
+      NotificationOverlayManager().showWarning(
+        title: 'In tem vận đơn',
+        message: tr('Trang này không có đơn giao hàng — lọc «Giao hàng» rồi thử lại.'),
+      );
+      return;
+    }
+    if (!await PosShippingLabelPrinter.hasPrinter()) {
+      NotificationOverlayManager().showWarning(
+        title: 'Chưa có máy tem vận đơn',
+        message: tr('Thêm máy tem 100×150 (vai trò «Tem vận đơn») trong Máy in nội bộ hoặc Agent.'),
+      );
+      return;
+    }
+    if (!mounted) return;
+    final selected = {for (final o in candidates) o.id};
+    final ok = await showDialog<bool>(
+      context: context,
+      builder: (ctx) => StatefulBuilder(
+        builder: (ctx, setDlg) => AlertDialog(
+          title: Text(tr('In tem vận đơn (${selected.length}/${candidates.length})')),
+          content: SizedBox(
+            width: 420,
+            height: 360,
+            child: ListView(
+              children: [
+                for (final o in candidates)
+                  CheckboxListTile(
+                    dense: true,
+                    value: selected.contains(o.id),
+                    onChanged: (v) => setDlg(() => v == true ? selected.add(o.id) : selected.remove(o.id)),
+                    title: Text(tr('${o.orderNo} · ${o.customerName ?? ''}'),
+                        maxLines: 1, overflow: TextOverflow.ellipsis),
+                    subtitle: Text(
+                      tr((o.deliveryTrackingCode ?? '').isEmpty
+                          ? 'Tự giao — tem tự in'
+                          : '${o.deliveryCarrierCode ?? o.deliveryPartner ?? ''} · ${o.deliveryTrackingCode}'),
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                    ),
+                  ),
+              ],
+            ),
+          ),
+          actions: [
+            TextButton(onPressed: () => Navigator.pop(ctx, false), child: Text(tr('Hủy'))),
+            FilledButton(
+              onPressed: selected.isEmpty ? null : () => Navigator.pop(ctx, true),
+              style: FilledButton.styleFrom(backgroundColor: PosTheme.kiotBlue),
+              child: Text(tr('In ${selected.length} tem')),
+            ),
+          ],
+        ),
+      ),
+    );
+    if (ok != true || !mounted) return;
+    final ids = candidates.where((o) => selected.contains(o.id)).map((o) => o.id).toList();
+    final progress = ValueNotifier<int>(0);
+    unawaited(showDialog<void>(
+      context: context,
+      barrierDismissible: false,
+      builder: (ctx) => AlertDialog(
+        content: ValueListenableBuilder<int>(
+          valueListenable: progress,
+          builder: (_, done, __) => Row(
+            children: [
+              const SizedBox(width: 22, height: 22, child: CircularProgressIndicator(strokeWidth: 2.5)),
+              const SizedBox(width: 14),
+              Expanded(child: Text(tr('Đang in tem vận đơn $done/${ids.length}…'))),
+            ],
+          ),
+        ),
+      ),
+    ));
+    final r = await PosShippingLabelPrinter.printMany(ids, onProgress: (d, _) => progress.value = d);
+    if (mounted) Navigator.of(context, rootNavigator: true).pop();
+    progress.dispose();
+    if (r.failed == 0) {
+      NotificationOverlayManager().showSuccess(title: 'Đã in tem vận đơn', message: tr('${r.printed} đơn'));
+    } else {
+      NotificationOverlayManager().showWarning(
+        title: 'In tem vận đơn',
+        message: tr('Đã in ${r.printed} · lỗi ${r.failed} (mở từng đơn để in lại)'),
+      );
+    }
+  }
+
   Future<void> _exportExcel(PermissionProvider perm) async {
     if (!perm.canExport('PosSaleOrders') && !perm.canExport('PosProducts')) return;
     setState(() => _exporting = true);
@@ -1078,6 +1171,11 @@ class _PosSaleOrderListScreenState extends State<PosSaleOrderListScreen> {
             loading: _exporting,
             onPressed: _exporting ? null : () => _exportExcel(perm),
           ),
+        SboxButton.secondary(
+          label: 'In tem vận đơn',
+          icon: Icons.local_shipping_outlined,
+          onPressed: _bulkShippingLabels,
+        ),
         if (!posUseMobileList(context))
           IconButton(
             tooltip: tr('Hiển thị cột'),
@@ -1219,6 +1317,11 @@ class _PosSaleOrderListScreenState extends State<PosSaleOrderListScreen> {
                     style: const TextStyle(fontSize: 18, fontWeight: FontWeight.w700, color: PosTheme.textPrimary)),
               ),
               if (exportBtn != null) exportBtn,
+              IconButton(
+                tooltip: tr('In tem vận đơn'),
+                onPressed: _bulkShippingLabels,
+                icon: const Icon(Icons.local_shipping_outlined),
+              ),
             ]),
           Padding(
             padding: EdgeInsets.only(left: showTitle && (pushed || inHub) ? 8 : 0, top: showTitle ? 2 : 0),
@@ -1266,6 +1369,11 @@ class _PosSaleOrderListScreenState extends State<PosSaleOrderListScreen> {
                 ),
               ),
               if (!showTitle && exportBtn != null) exportBtn,
+              IconButton(
+                tooltip: tr('In tem vận đơn'),
+                onPressed: _bulkShippingLabels,
+                icon: const Icon(Icons.local_shipping_outlined),
+              ),
             ]),
           ),
           const SizedBox(height: 6),
@@ -1688,6 +1796,7 @@ class _PosSaleOrderListScreenState extends State<PosSaleOrderListScreen> {
         message: tracking.isEmpty ? pick.carrierName : tracking,
       );
       await _load();
+      unawaited(PosShippingLabelPrinter.autoPrintAfterCreate(order.id));
     } else {
       NotificationOverlayManager().showError(
         title: 'Tạo vận đơn thất bại',

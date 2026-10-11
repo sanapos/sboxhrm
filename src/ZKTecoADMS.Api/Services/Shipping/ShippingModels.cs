@@ -168,12 +168,15 @@ public record ShippingAddressItem(
     string? Code = null,
     string? ParentId = null);
 
+/// <param name="Format">Dạng nội dung tại LabelUrl để máy bán in thẳng ra máy tem: «pdf», «html», «link»
+/// (chỉ mở được bằng trình duyệt — vd trang theo dõi); null = chưa rõ, máy bán tự nhận diện khi tải.</param>
 public record ShippingLabelResult(
     bool Success,
     string CarrierCode,
     string? LabelUrl = null,
     string? PrintCode = null,
-    string? Message = null);
+    string? Message = null,
+    string? Format = null);
 
 public record ShippingCancelResult(
     bool Success,

@@ -1,4 +1,9 @@
 import 'dart:convert';
+import 'dart:io';
+import 'dart:typed_data';
+import 'dart:ui' as ui;
+
+import 'dart:async';
 
 import 'package:flutter_test/flutter_test.dart';
 import 'package:zkteco_flutter_client/models/pos_product.dart';
@@ -130,5 +135,58 @@ void main() {
     );
     expect(bytes.length, greaterThan(1000));
     expect(latin1.decode(bytes.sublist(0, 5)), '%PDF-');
+  });
+  Future<void> savePng(({Uint8List raster, int widthPx, int heightPx}) r, String name) async {
+    final out = Platform.environment['SBOX_LABEL_SHOTS'];
+    if (out == null) return;
+    final bpr = (r.widthPx + 7) ~/ 8;
+    final rgba = Uint8List(r.widthPx * r.heightPx * 4);
+    for (var y = 0; y < r.heightPx; y++) {
+      for (var x = 0; x < r.widthPx; x++) {
+        final v = (r.raster[y * bpr + (x >> 3)] >> (7 - (x & 7))) & 1 == 1 ? 0 : 255;
+        final i = (y * r.widthPx + x) * 4;
+        rgba[i] = v;
+        rgba[i + 1] = v;
+        rgba[i + 2] = v;
+        rgba[i + 3] = 255;
+      }
+    }
+    final c = Completer<ui.Image>();
+    ui.decodeImageFromPixels(rgba, r.widthPx, r.heightPx, ui.PixelFormat.rgba8888, c.complete);
+    final img = await c.future;
+    final png = await img.toByteData(format: ui.ImageByteFormat.png);
+    File('$out/$name.png').writeAsBytesSync(png!.buffer.asUint8List());
+  }
+
+  test('tem vận đơn tự giao 100×150: đủ khổ, có mực', () async {
+    final r = await PosLabelRenderer.renderShippingSelfLabel(
+      orderNo: 'HD101020260012',
+      receiverName: 'Nguyễn Thị Hồng Nhung',
+      receiverPhone: '0905 123 456',
+      receiverAddress: '191A Hà Huy Tập, Phường Thanh Khê Đông, Quận Thanh Khê, Đà Nẵng',
+      codAmount: 460000,
+      senderName: 'Quán Demo UI',
+      senderPhone: '0935364556',
+      carrierName: 'Giao nội bộ',
+      note: 'Gọi trước khi giao',
+      itemLines: const ['2 × Trà sữa trân châu (Ly L)', '1 × Bánh flan', '3 × Cà phê sữa đá'],
+    );
+    expect(r.widthPx, PosLabelRenderer.mmToDots(100, 203));
+    expect(r.heightPx, PosLabelRenderer.mmToDots(150, 203));
+    expect(PosLabelRenderer.hasEnoughInk(r.raster), isTrue);
+    await savePng(r, 'ship_self');
+  });
+
+  test('ảnh nhãn ngang của hãng → xoay vừa tem dọc 100×150', () async {
+    final rec = ui.PictureRecorder();
+    final c = ui.Canvas(rec);
+    c.drawRect(const ui.Rect.fromLTWH(0, 0, 600, 400), ui.Paint()..color = const ui.Color(0xFFFFFFFF));
+    c.drawRect(const ui.Rect.fromLTWH(50, 50, 500, 60), ui.Paint()..color = const ui.Color(0xFF000000));
+    c.drawRect(const ui.Rect.fromLTWH(50, 300, 120, 60), ui.Paint()..color = const ui.Color(0xFF000000));
+    final img = await rec.endRecording().toImage(600, 400);
+    final r = await PosLabelRenderer.rasterFromImage(img);
+    expect((r.widthPx, r.heightPx), (PosLabelRenderer.mmToDots(100, 203), PosLabelRenderer.mmToDots(150, 203)));
+    expect(PosLabelRenderer.hasEnoughInk(r.raster), isTrue);
+    await savePng(r, 'ship_rotated');
   });
 }

@@ -5,6 +5,7 @@ import 'package:flutter/services.dart';
 import 'package:provider/provider.dart';
 import 'package:url_launcher/url_launcher.dart';
 
+import '../../utils/pos_shipping_label_print.dart';
 import '../../providers/permission_provider.dart';
 import '../../services/api_service.dart';
 import '../../widgets/hrm_page_chrome.dart';
@@ -33,11 +34,14 @@ class _PosShippingSettingsScreenState extends State<PosShippingSettingsScreen> {
   final Map<String, bool> _reveal = {};
   /// Chỉ mở 1 hãng — tránh đơ khi build nhiều form địa chỉ/webhook cùng lúc.
   String? _expandedCode;
+  PosShippingLabelSettings _labelSettings = const PosShippingLabelSettings();
+  bool? _labelPrinterReady;
 
   @override
   void initState() {
     super.initState();
     _load();
+    _loadLabelSettings();
   }
 
   Future<void> _load() async {
@@ -319,10 +323,83 @@ class _PosShippingSettingsScreenState extends State<PosShippingSettingsScreen> {
               'Bấm Lưu, rồi «Thử kết nối» để kiểm tra phí giao.',
             ],
           ),
+          _labelPrintCard(),
           for (final f in _forms) _carrierCard(f, canEdit),
         ],
       ),
     );
+  }
+
+  /// In tem vận đơn trên máy này (máy tem, khổ, tự in) — lưu theo máy, không cần quyền sửa thiết lập.
+  Widget _labelPrintCard() {
+    final s = _labelSettings;
+    return Material(
+      color: Colors.white,
+      shape: RoundedRectangleBorder(
+        borderRadius: BorderRadius.circular(10),
+        side: BorderSide(color: SboxColors.slate300),
+      ),
+      child: Padding(
+        padding: const EdgeInsets.fromLTRB(12, 10, 12, 12),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            Row(
+              children: [
+                const Icon(Icons.print_outlined, color: PosTheme.kiotBlue),
+                const SizedBox(width: 10),
+                Expanded(
+                  child: Text(tr('In tem vận đơn (máy này)'),
+                      style: const TextStyle(fontWeight: FontWeight.w700, fontSize: 16)),
+                ),
+              ],
+            ),
+            const SizedBox(height: 4),
+            Text(
+              tr(_labelPrinterReady == null
+                  ? 'Đang kiểm tra máy tem…'
+                  : _labelPrinterReady!
+                      ? 'Đã có máy tem nhận tem vận đơn. Nhãn GHTK / GHN / Viettel Post / SPX và tem tự giao in thẳng ra máy tem.'
+                      : 'Chưa có máy tem khổ lớn: thêm máy tem 100×150 trong Máy in nội bộ (vai trò «Tem vận đơn») hoặc qua Agent. '
+                          'Chưa có máy tem thì vẫn mở link in của hãng như trước.'),
+              style: TextStyle(fontSize: 12, color: SboxColors.slate600),
+            ),
+            const SizedBox(height: 8),
+            DropdownButtonFormField<String>(
+              value: s.size,
+              decoration: PosTheme.inputDecoration(label: 'Khổ tem'),
+              items: [
+                for (final e in PosShippingLabelSettings.sizes.entries)
+                  DropdownMenuItem(value: e.key, child: Text(tr(e.value))),
+              ],
+              onChanged: (v) => _saveLabelSettings(s.copyWith(size: v)),
+            ),
+            SwitchListTile(
+              contentPadding: EdgeInsets.zero,
+              title: Text(tr('Tự in tem khi tạo vận đơn')),
+              subtitle: Text(tr('Gồm cả đơn online máy chủ tự tạo vận đơn (máy này đang mở màn Đơn online).')),
+              value: s.autoPrint && s.directPrint,
+              onChanged: s.directPrint ? (v) => _saveLabelSettings(s.copyWith(autoPrint: v)) : null,
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Future<void> _saveLabelSettings(PosShippingLabelSettings s) async {
+    setState(() => _labelSettings = s);
+    await s.save();
+  }
+
+  Future<void> _loadLabelSettings() async {
+    final s = await PosShippingLabelSettings.load();
+    final ready = await PosShippingLabelPrinter.hasPrinter();
+    if (!mounted) return;
+    setState(() {
+      _labelSettings = s;
+      _labelPrinterReady = ready;
+    });
   }
 
   Widget _carrierCard(_CarrierForm f, bool canEdit) {
