@@ -67,6 +67,7 @@ import '../utils/notification_sound.dart';
 import '../widgets/pos/pos_vietqr_payment_panel.dart';
 import '../utils/pos_thermal_printer_settings.dart';
 import '../utils/pos_price_list_resolver.dart';
+import '../utils/pos_lite_mode.dart';
 import '../utils/pos_product_type_picker.dart';
 import '../utils/pos_qty_rules.dart';
 import '../utils/pos_product_quick_note_memory.dart';
@@ -12046,7 +12047,7 @@ class _PosSellScreenState extends State<PosSellScreen>
               contentPadding: EdgeInsets.zero,
             ),
           ),
-        if (canMod('PosQuotes'))
+        if (!PosLiteMode.enabled && canMod('PosQuotes'))
           PopupMenuItem(
             value: 'quotes',
             child: ListTile(
@@ -12056,7 +12057,7 @@ class _PosSellScreenState extends State<PosSellScreen>
               contentPadding: EdgeInsets.zero,
             ),
           ),
-        if (canMod('PosQuotes') && canMod('PosPrintTemplates'))
+        if (!PosLiteMode.enabled && canMod('PosQuotes') && canMod('PosPrintTemplates'))
           PopupMenuItem(
             value: 'quote_templates',
             child: ListTile(
