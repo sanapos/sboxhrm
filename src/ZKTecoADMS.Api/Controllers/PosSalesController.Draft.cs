@@ -1877,13 +1877,20 @@ public partial class PosSalesController
                 }
             }
             // Phòng trường hợp ResourceSessionId null nhưng vẫn còn phiên mở trên bàn.
-            else if (order.SplitFromOrderId == null && order.ServiceResourceId.HasValue)
+            // Đơn offline (bàn mở lúc mất mạng) không đóng phiên — bàn có thể đã được máy khác mở trên máy chủ.
+            else if (order.SplitFromOrderId == null && order.ServiceResourceId.HasValue
+                && PosOfflineSaleRules.NormalizeNo(dto.OfflineNo) == null)
             {
+                // Không đóng phiên đang thuộc hóa đơn khác còn mở trên bàn (vd giỏ mở offline bị trùng bàn
+                // lưu thành hóa đơn thứ 2 — thanh toán nó không được trả bàn của khách kia).
                 var live = await dbContext.PosResourceSessions.AsTracking()
                     .Where(s => s.ResourceId == order.ServiceResourceId
                         && s.StoreId == storeId && s.Deleted == null
                         && (s.Status == PosResourceSessionStatus.Open
-                            || s.Status == PosResourceSessionStatus.Paused))
+                            || s.Status == PosResourceSessionStatus.Paused)
+                        && (s.SaleOrderId == null || s.SaleOrderId == order.Id
+                            || !dbContext.PosSaleOrders.Any(o => o.Id == s.SaleOrderId && o.Deleted == null
+                                && o.Status == PosSaleOrderStatus.Draft)))
                     .ToListAsync();
                 foreach (var sess in live)
                 {

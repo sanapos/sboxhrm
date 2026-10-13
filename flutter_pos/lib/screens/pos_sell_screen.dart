@@ -784,6 +784,13 @@ class _PosSellScreenState extends State<PosSellScreen>
   int _nextTabSeq = 2;
   final List<_SellInvoiceTab> _tabs = [_SellInvoiceTab(id: 1)];
 
+  /// Bàn mở lúc mất mạng đang tạm cất khi chuyển sang bàn khác — resourceId (chữ thường) → tab.
+  final Map<String, _SellInvoiceTab> _offlineTableTabs = {};
+  bool _promotingOfflineTable = false;
+
+  /// Đơn bàn máy này vừa nhả (về sơ đồ) khi đang giữ quyền sửa — mất mạng bấm lại bàn thì sửa tiếp.
+  String? _lastLeftEditableDraftId;
+
   /// Hóa đơn (slot) lần trước — hiện ô giữ chỗ trong lúc chờ máy chủ, dải hóa đơn không «nở» từ 1 → 3.
   static List<int> _lastSlotIdsMem = const [];
   List<int> _pendingSlotIds = _lastSlotIdsMem;
@@ -1375,7 +1382,8 @@ class _PosSellScreenState extends State<PosSellScreen>
     PosNetworkMonitor.instance.reachable.addListener(_onReachabilityChanged);
     WidgetsBinding.instance.addPostFrameCallback((_) {
       if (!mounted) return;
-      PosOfflineService.instance.isLiveCart = (k) => _tabs.any((t) => t.localKey == k);
+      PosOfflineService.instance.isLiveCart = (k) =>
+          _tabs.any((t) => t.localKey == k) || _offlineTableTabs.values.any((t) => t.localKey == k);
       unawaited(PosOfflineService.instance.init(_storeId));
     });
     unawaited(_bootstrapSellScreen());
@@ -3408,6 +3416,12 @@ class _PosSellScreenState extends State<PosSellScreen>
         tab.paidAmount = paidFromDeposit;
       }
     }
+    if (!_serverReachable || result['offlineOpen'] == true || result['offlineTap'] == true) {
+      if (await _attachFloorResultOffline(result)) return;
+    }
+    if (PosOfflineService.isOfflineSession(_tab.resourceSessionId)) {
+      setState(() => _parkCurrentTabForSwitch(resourceId));
+    }
     if (orderId != null && orderId.isNotEmpty) {
       final attachEpoch = ++_tableAttachEpoch;
       _floorReleasedOrderIds.remove(orderId);
@@ -3711,6 +3725,8 @@ class _PosSellScreenState extends State<PosSellScreen>
     final hasDraft = (_tab.draftOrderId ?? '').isNotEmpty;
     final draftId = _tab.draftOrderId;
     final wasViewOnly = _tab.draftReadOnly;
+    final offlineTable = PosOfflineService.isOfflineSession(sid);
+    _lastLeftEditableDraftId = (!wasViewOnly && hasDraft) ? draftId : null;
 
     // Đánh dấu nhả trước — chặn heartbeat/autosave gắn lại khóa.
     // Chỉ máy đang giữ khóa mới vào «tạm rời»; máy chỉ xem thoát ra không đụng khóa.
@@ -3755,7 +3771,10 @@ class _PosSellScreenState extends State<PosSellScreen>
       }
     }
 
-    if (emptyCart && !hasDraft && (rid ?? '').isNotEmpty) {
+    if (offlineTable) {
+      // Bàn mở offline chưa có món → bỏ giữ bàn trên máy (máy chủ chưa biết bàn này).
+      if (emptyCart) unawaited(PosOfflineService.instance.clearTable(rid));
+    } else if (emptyCart && !hasDraft && (rid ?? '').isNotEmpty) {
       try {
         await _api.freePosServiceResource(rid!);
       } catch (_) {}
@@ -7481,6 +7500,19 @@ class _PosSellScreenState extends State<PosSellScreen>
   void _onReachabilityChanged() {
     if (!mounted) return;
     if (_serverReachable) {
+      // Bàn mở offline đang cất: giữ bản trên máy để dịch vụ đẩy nền (mở bàn trên máy chủ + lưu món).
+      for (final t in _offlineTableTabs.values) {
+        t.offlineSnapFp = null;
+        _snapshotTabOffline(t);
+      }
+      _offlineTableTabs.clear();
+      // Bàn đang mở offline trên màn: mở trên máy chủ rồi lưu món.
+      if (PosOfflineService.isOfflineSession(_tab.resourceSessionId)) {
+        final t = _tab;
+        unawaited(() async {
+          if (await _promoteOfflineTable(t) && t.cart.isNotEmpty) await _persistDraftAutosave(forTab: t);
+        }());
+      }
       // Có mạng lại: lưu các giỏ đang giữ trên máy → bỏ bản giữ khi lưu xong.
       for (final t in _tabs) {
         if (t.localDirty && t.cart.isNotEmpty) {
@@ -7509,13 +7541,251 @@ class _PosSellScreenState extends State<PosSellScreen>
       ),
       'lines': tab.cart.length,
       'body': _buildSaleBodyFor(tab, complete: false),
+      if (PosOfflineService.isOfflineSession(tab.resourceSessionId) && tab.serviceResourceId != null)
+        'offlineTable': {
+          'resourceId': tab.serviceResourceId,
+          'guests': tab.tableGuestCount,
+          'label': formatPosTableLabel(areaName: tab.serviceAreaName, tableName: tab.serviceResourceName),
+        },
     }));
+  }
+
+  /// Chuyển sang bàn khác: cất bàn mở offline (còn món) để bấm lại vào tiếp; bàn máy chủ sửa lúc mất mạng
+  /// → giữ bản trên máy, có mạng dịch vụ tự lưu lên.
+  void _parkCurrentTabForSwitch(String? nextResourceId) {
+    final t = _tab;
+    final cur = t.serviceResourceId;
+    if (cur == null || cur.isEmpty) return;
+    if (nextResourceId != null && cur.toLowerCase() == nextResourceId.toLowerCase()) return;
+    final off = PosOfflineService.instance;
+    if (PosOfflineService.isOfflineSession(t.resourceSessionId)) {
+      if (t.cart.isEmpty) {
+        unawaited(off.clearTable(cur));
+        unawaited(off.removeCart(t.localKey));
+      } else {
+        t.offlineSnapFp = null;
+        _snapshotTabOffline(t);
+        _offlineTableTabs[cur.toLowerCase()] = t;
+      }
+    } else if (!_serverReachable && t.cart.isNotEmpty && t.localDirty) {
+      t.offlineSnapFp = null;
+      _snapshotTabOffline(t);
+    } else {
+      return;
+    }
+    final fresh = _SellInvoiceTab(id: t.id);
+    fresh.reset(defaultVatRate: _storeSettings.defaultVatRate, store: _storeSettings);
+    fresh.sellerEmployeeId = _defaultSellerEmployeeId;
+    _tabs[_activeTab] = fresh;
+  }
+
+  void _showSellAfterAttach() {
+    _floorMapVisible = false;
+    _catalogPaneKept = true;
+    _mobileSellKept = true;
+    _tabletPaymentStage = false;
+    _mobileProductPickerOpen = false;
+    _tableAttachBusy = false;
+  }
+
+  /// Sơ đồ khi mất mạng. Trả true nếu đã xử lý xong.
+  Future<bool> _attachFloorResultOffline(Map<String, dynamic> result) async {
+    final rid = result['resourceId']?.toString() ?? '';
+    if (rid.isEmpty) return false;
+    final key = rid.toLowerCase();
+    final off = PosOfflineService.instance;
+    final offlineOpen = result['offlineOpen'] == true;
+    // Bàn đang mở trên tab hiện tại → hiện lại (kể cả đơn máy chủ mở trước lúc mất mạng).
+    if ((_tab.serviceResourceId ?? '').toLowerCase() == key &&
+        (_tab.cart.isNotEmpty || offlineOpen || (_tab.draftOrderId ?? '').isNotEmpty)) {
+      final did = _tab.draftOrderId;
+      final editable = did == null || did.isEmpty || did == _lastLeftEditableDraftId;
+      // Bàn offline đang trên màn mà mất dấu giữ bàn (vd về sơ đồ lúc giỏ trống) → giữ lại.
+      final sidNow = _tab.resourceSessionId;
+      if (PosOfflineService.isOfflineSession(sidNow) && off.offlineTable(rid) == null) {
+        await off.markTable(rid, {
+          'sessionId': sidNow,
+          'name': _tab.serviceResourceName,
+          'area': _tab.serviceAreaName,
+          'startedAt': (_tab.serviceStartedAt ?? DateTime.now().toUtc()).toIso8601String(),
+          'guests': _tab.tableGuestCount,
+          'cartKey': _tab.localKey,
+        });
+        if (!mounted) return true;
+      }
+      if (did != null && editable) _floorReleasedOrderIds.remove(did);
+      setState(() {
+        if (editable) _tab.draftReadOnly = false;
+        _showSellAfterAttach();
+      });
+      _suspendDraftAutosave = false;
+      _scheduleCustomerDisplayPublish(delayMs: 50);
+      return true;
+    }
+    if (!offlineOpen) {
+      if (_serverReachable) return false;
+      NotificationOverlayManager().showError(
+        title: 'Mất mạng — chưa mở được bàn này',
+        message: tr('Bàn đang có đơn trên máy chủ — cần có mạng để mở. Bàn trống mở được offline (máy Android đã bật bán offline).'),
+      );
+      return true;
+    }
+    final sid = result['sessionId']?.toString() ?? '';
+    final stashed = _offlineTableTabs[key];
+    final held = off.offlineTable(rid);
+    if (stashed == null && held != null) {
+      final cartKey = held['cartKey']?.toString();
+      if (off.hasCart(cartKey)) {
+        // Bàn mở offline trước khi mở lại app: giỏ giữ trên máy, có mạng tự lưu lên máy chủ.
+        NotificationOverlayManager().showWarning(
+          title: 'Bàn đang giữ trên máy',
+          message: tr('Bàn mở lúc mất mạng trước khi mở lại app — giỏ đã giữ trên máy, có mạng sẽ tự lưu lên máy chủ rồi mở lại bàn.'),
+        );
+        return true;
+      }
+      await off.clearTable(rid);
+    }
+    _parkCurrentTabForSwitch(rid);
+    // Bàn offline luôn dùng tab riêng — không gắn vào HĐ bán lẻ (TMP…) đang có đơn tạm trên máy chủ.
+    if ((_tab.serviceResourceId ?? '').isEmpty &&
+        ((_tab.draftOrderId ?? '').isNotEmpty || _tab.cart.isNotEmpty)) {
+      if (_tab.cart.isNotEmpty && _tab.localDirty) {
+        _tab.offlineSnapFp = null;
+        _snapshotTabOffline(_tab);
+      }
+      final fresh = _SellInvoiceTab(id: _tab.id);
+      fresh.reset(defaultVatRate: _storeSettings.defaultVatRate, store: _storeSettings);
+      fresh.sellerEmployeeId = _defaultSellerEmployeeId;
+      _tabs[_activeTab] = fresh;
+    }
+    if (stashed != null) {
+      _offlineTableTabs.remove(key);
+      setState(() {
+        _tabs[_activeTab] = stashed;
+        _syncPaidAmount();
+        _showSellAfterAttach();
+      });
+      _suspendDraftAutosave = false;
+      _refreshTimedLineQtys();
+      _scheduleCustomerDisplayPublish(delayMs: 50);
+      return true;
+    }
+    final guestRaw = result['guestCount'];
+    final guests = guestRaw is num ? guestRaw.toInt() : int.tryParse('$guestRaw') ?? 1;
+    final startedAt = parsePosApiUtc(result['startedAt']?.toString()) ?? DateTime.now().toUtc();
+    setState(() {
+      _tab.serviceResourceId = rid;
+      _tab.resourceSessionId = sid;
+      _tab.serviceResourceName = result['resourceName']?.toString();
+      _tab.serviceAreaName = result['areaName']?.toString();
+      _tab.serviceStartedAt = startedAt;
+      if (guests > 0) _tab.tableGuestCount = guests;
+      _showSellAfterAttach();
+    });
+    _suspendDraftAutosave = false;
+    await off.markTable(rid, {
+      'sessionId': sid,
+      'name': _tab.serviceResourceName,
+      'area': _tab.serviceAreaName,
+      'startedAt': startedAt.toIso8601String(),
+      'guests': guests,
+      'cartKey': _tab.localKey,
+    });
+    NotificationOverlayManager().showWarning(
+      title: 'Mở bàn offline: ${formatPosTableLabel(areaName: _tab.serviceAreaName, tableName: _tab.serviceResourceName)}',
+      message: tr('Có mạng sẽ tự mở bàn trên máy chủ và lưu món. Mất mạng chỉ thu tiền mặt.'),
+    );
+    _refreshTimedLineQtys();
+    _scheduleCustomerDisplayPublish(delayMs: 50);
+    return true;
+  }
+
+  /// Có mạng lại: mở bàn (đã mở offline) trên máy chủ — chỉ khi bàn còn trống. Máy khác đã mở bàn đó →
+  /// giỏ lưu thành hóa đơn thứ 2 trên cùng bàn, không gộp đè đơn của máy kia.
+  /// Trả true khi tab đã có phiên thật trên máy chủ.
+  Future<bool> _promoteOfflineTable(_SellInvoiceTab tab) async {
+    if (!PosOfflineService.isOfflineSession(tab.resourceSessionId)) return true;
+    final rid = tab.serviceResourceId;
+    if (_promotingOfflineTable || !_serverReachable || rid == null || rid.isEmpty) return false;
+    _promotingOfflineTable = true;
+    final off = PosOfflineService.instance;
+    try {
+      final res = await off.openOfflineTableOnServer(rid, guestCount: tab.tableGuestCount);
+      if (!mounted || PosOfflineService.isConnectionFailure(res)) return false;
+      if (!PosOfflineService.isOfflineSession(tab.resourceSessionId)) return true;
+      final label = formatPosTableLabel(areaName: tab.serviceAreaName, tableName: tab.serviceResourceName);
+      if (res['isSuccess'] == true && res['data'] is Map) {
+        final d = res['data'] as Map;
+        setState(() {
+          tab.resourceSessionId = d['sessionId']?.toString();
+          final oid = d['saleOrderId']?.toString();
+          if (oid != null && oid.isNotEmpty) {
+            tab.draftOrderId = oid;
+            tab.draftOrderNo = d['orderNo']?.toString() ?? tab.draftOrderNo;
+          }
+          tab.draftReadOnly = false;
+          if (tab.cart.isNotEmpty) tab.localDirty = true;
+        });
+        await off.clearTable(rid);
+        NotificationOverlayManager().showSuccess(
+          title: 'Đã mở $label trên máy chủ',
+          message: tr('Bàn mở lúc mất mạng đã đồng bộ — đang lưu món'),
+        );
+        return true;
+      }
+      final hadCart = tab.cart.isNotEmpty;
+      String? orderNo;
+      if (hadCart) {
+        final created = await _api.createPosSale(
+            PosOfflineService.conflictDraftBody(_buildSaleBodyFor(tab, complete: false), label));
+        if (!mounted) return false;
+        if (created['isSuccess'] != true) {
+          if (!PosOfflineService.isConnectionFailure(created)) {
+            NotificationOverlayManager().showError(
+              title: 'Không lưu được giỏ của $label',
+              message: created['message']?.toString() ?? 'Máy chủ từ chối',
+            );
+          }
+          return false;
+        }
+        final cd = created['data'];
+        orderNo = cd is Map ? cd['orderNo']?.toString() : null;
+      }
+      await off.clearTable(rid);
+      unawaited(off.removeCart(tab.localKey));
+      tab.offlineSnapFp = null;
+      if (!mounted) return false;
+      setState(() {
+        tab.reset(defaultVatRate: _storeSettings.defaultVatRate, store: _storeSettings);
+        tab.sellerEmployeeId = _defaultSellerEmployeeId;
+        if (identical(tab, _tab)) {
+          _syncPaidAmount();
+          if (_useFloorAsPrimary) _floorMapVisible = true;
+        }
+      });
+      NotificationOverlayManager().showWarning(
+        title: '$label đã có khách ở máy khác',
+        message: tr(hadCart
+            ? 'Giỏ mở lúc mất mạng đã lưu thành hóa đơn tách của bàn (${orderNo ?? ''}) — mở bàn để chọn, thanh toán riêng'
+            : 'Bàn mở lúc mất mạng chưa có món — đã bỏ'),
+      );
+      return false;
+    } finally {
+      _promotingOfflineTable = false;
+    }
   }
 
   /// Báo bếp lúc mất mạng: in thẳng ra máy in bếp nội bộ, ghi «đã báo» trên máy — có mạng, lưu đơn sẽ
   /// đồng bộ số đã báo lên máy chủ (không in lại).
   Future<void> _sendKitchenOffline(List<_SellCartLine> pendingLines) async {
     final off = PosOfflineService.instance;
+    if (kIsWeb) {
+      NotificationOverlayManager().showError(
+        title: 'Mất kết nối máy chủ',
+        message: tr(PosOfflineService.webBlockedReason),
+      );
+      return;
+    }
     if (!off.enabled) {
       NotificationOverlayManager().showError(
         title: 'Mất kết nối máy chủ',
@@ -7708,6 +7978,7 @@ class _PosSellScreenState extends State<PosSellScreen>
     final printResourceId = _tab.serviceResourceId;
     final useFloor = _useFloorAsPrimary;
     final localKey = _tab.localKey;
+    final offlineTable = PosOfflineService.isOfflineSession(_tab.resourceSessionId);
 
     _stopDraftLockHeartbeat();
     _draftAutosaveTimer?.cancel();
@@ -7727,6 +7998,7 @@ class _PosSellScreenState extends State<PosSellScreen>
       _suspendDraftAutosave = false;
     });
     unawaited(off.removeCart(localKey));
+    if (offlineTable) unawaited(off.clearTable(printResourceId));
     if (useFloor) _markFloorResourceFreed(printResourceId);
     _scheduleCustomerDisplayPublish();
     NotificationOverlayManager().showSuccess(
@@ -7769,6 +8041,11 @@ class _PosSellScreenState extends State<PosSellScreen>
     if (!_serverReachable) {
       _snapshotTabOffline(tab);
       return false;
+    }
+    // Bàn mở lúc mất mạng: mở bàn trên máy chủ trước (chỉ khi bàn còn trống), rồi mới lưu món.
+    if (PosOfflineService.isOfflineSession(tab.resourceSessionId)) {
+      if (!identical(tab, _tab) || !await _promoteOfflineTable(tab)) return false;
+      if (!mounted) return false;
     }
     // Máy khác đang giữ khóa → không ghi đè; giữ dirty để không mất SL vừa tăng.
     if (tab.draftReadOnly) {
@@ -10367,7 +10644,10 @@ class _PosSellScreenState extends State<PosSellScreen>
       if (tab.sellerEmployeeId != null) 'soldByEmployeeId': tab.sellerEmployeeId,
       if (tab.serviceResourceId != null)
         'serviceResourceId': tab.serviceResourceId,
-      if (tab.splitFromOrderId == null && tab.resourceSessionId != null)
+      // Phiên bàn mở lúc mất mạng (offline-…) chỉ có trên máy — không gửi lên máy chủ.
+      if (tab.splitFromOrderId == null &&
+          tab.resourceSessionId != null &&
+          !PosOfflineService.isOfflineSession(tab.resourceSessionId))
         'resourceSessionId': tab.resourceSessionId,
       if (tab.serviceStartedAt != null)
         'serviceStartedAt': tab.serviceStartedAt!.toUtc().toIso8601String(),
@@ -11198,6 +11478,9 @@ class _PosSellScreenState extends State<PosSellScreen>
       if (!_serverReachable) {
         await _checkoutOffline();
         return;
+      }
+      if (PosOfflineService.isOfflineSession(_tab.resourceSessionId)) {
+        if (!await _promoteOfflineTable(_tab) || _tab.cart.isEmpty) return;
       }
       if (!await _ensureOpenCashierShiftIfRequired()) return;
       perf.mark('shift');

@@ -18,7 +18,7 @@ public class PosOfflineSaleTests(PosPgFixture fx) : PosFlowTestBase(fx)
     PosSalesController.CreateSaleDto OfflineDto(Guid product, string offlineNo, DateTime at, decimal qty = 1) =>
         new([new PosSalesController.SaleLineDto(product, qty, null, 10000, null)],
             0, 10000 * qty, "Tiền mặt", null, null, null,
-            ClientRequestId: "cr-" + offlineNo, OfflineNo: offlineNo, OfflineAt: at, OfflineDeviceKey: "dev-1");
+            ClientRequestId: "cr-" + offlineNo, OfflineNo: offlineNo, OfflineAt: at, OfflineDeviceKey: "a:dev-1");
 
     async Task EnableOfflineAsync(Guid store)
     {
@@ -73,7 +73,7 @@ public class PosOfflineSaleTests(PosPgFixture fx) : PosFlowTestBase(fx)
 
         var order = await OrderAsync(first.Id);
         Assert.Equal("OFF-000007", order.OfflineNo);
-        Assert.Equal("dev-1", order.OfflineDeviceKey);
+        Assert.Equal("a:dev-1", order.OfflineDeviceKey);
         Assert.True(Math.Abs(((order.SaleDate ?? order.CreatedAt) - at).TotalSeconds) < 2);
         // Tồn 1, bán 3 lúc mất mạng → đồng bộ vẫn nhận (âm kho), không mất đơn đã thu tiền.
         Assert.Equal(-2, await OnHandAsync(p));
@@ -100,14 +100,16 @@ public class PosOfflineSaleTests(PosPgFixture fx) : PosFlowTestBase(fx)
     {
         if (NoDb) return;
         var store = await Fx.NewStoreAsync();
-        var dto = new PosOfflineController.ReserveDto { DeviceKey = "dev-1", InstallId = "inst-1", Count = 20 };
+        var dto = new PosOfflineController.ReserveDto { DeviceKey = "a:dev-1", InstallId = "inst-1", Count = 20 };
+        await InstallAsync(store, "a:dev-1", "inst-1");
+        await InstallAsync(store, "a:dev-2", "i2");
         await using (var db = Fx.NewDb())
             Assert.NotNull(Error(await Offline(db, store).Reserve(dto, default)));
         await EnableOfflineAsync(store);
         await using (var db = Fx.NewDb())
             await Offline(db, store).Reserve(dto, default);
         await using (var db = Fx.NewDb())
-            await Offline(db, store).Reserve(new PosOfflineController.ReserveDto { DeviceKey = "dev-2", InstallId = "i2", Count = 10 }, default);
+            await Offline(db, store).Reserve(new PosOfflineController.ReserveDto { DeviceKey = "a:dev-2", InstallId = "i2", Count = 10 }, default);
         await using (var db = Fx.NewDb())
         {
             var blocks = await db.PosOfflineSerialBlocks.Where(b => b.StoreId == store).OrderBy(b => b.FromSeq).ToListAsync();
@@ -115,6 +117,133 @@ public class PosOfflineSaleTests(PosPgFixture fx) : PosFlowTestBase(fx)
             Assert.Equal((1, 20), (blocks[0].FromSeq, blocks[0].ToSeq));
             Assert.Equal((21, 30), (blocks[1].FromSeq, blocks[1].ToSeq));
         }
+    }
+
+    async Task InstallAsync(Guid store, string deviceKey, string installId, string platform = "android")
+    {
+        await using var db = Fx.NewDb();
+        await Offline(db, store).Install(new PosOfflineController.InstallDto
+        {
+            DeviceKey = deviceKey, InstallId = installId, DeviceName = "Máy", Platform = platform,
+        }, default);
+    }
+
+    [Fact]
+    public async Task Offline_table_sale_does_not_close_session_opened_on_server_by_other_device()
+    {
+        if (NoDb) return;
+        var store = await Fx.NewStoreAsync();
+        await EnableOfflineAsync(store);
+        var p = (await Fx.AddProductAsync(store, "Cà phê", PosProductType.Goods, 100, 4000, 10000)).Id;
+        var area = Guid.NewGuid();
+        var table = Guid.NewGuid();
+        var session = Guid.NewGuid();
+        await using (var db = Fx.NewDb())
+        {
+            db.PosServiceAreas.Add(new PosServiceArea { Id = area, StoreId = store, Name = "Tầng 1" });
+            db.PosServiceResources.Add(new PosServiceResource { Id = table, StoreId = store, AreaId = area, Code = "B9", Name = "Bàn 9" });
+            // Máy khác mở bàn trên máy chủ trong lúc máy này mất mạng.
+            db.PosResourceSessions.Add(new PosResourceSession
+            {
+                Id = session, StoreId = store, ResourceId = table, StartedAt = DateTime.UtcNow.AddMinutes(-5),
+                Status = PosResourceSessionStatus.Open,
+            });
+            await db.SaveChangesAsync();
+        }
+        await using (var db = Fx.NewDb())
+            Data(await Sales(db, store).CreateSale(
+                OfflineDto(p, "OFF-000007", DateTime.UtcNow.AddMinutes(-20)) with { ServiceResourceId = table }));
+        await using (var db = Fx.NewDb())
+        {
+            var s = await db.PosResourceSessions.SingleAsync(x => x.Id == session);
+            Assert.Equal(PosResourceSessionStatus.Open, s.Status);
+            var order = await db.PosSaleOrders.SingleAsync(o => o.StoreId == store && o.OfflineNo == "OFF-000007");
+            Assert.Equal(table, order.ServiceResourceId);
+        }
+    }
+
+    [Fact]
+    public async Task Paying_second_bill_on_table_keeps_session_of_other_open_bill()
+    {
+        if (NoDb) return;
+        var store = await Fx.NewStoreAsync();
+        var p = (await Fx.AddProductAsync(store, "Nem", PosProductType.Goods, 100, 4000, 10000)).Id;
+        var area = Guid.NewGuid();
+        var table = Guid.NewGuid();
+        await using (var db = Fx.NewDb())
+        {
+            db.PosServiceAreas.Add(new PosServiceArea { Id = area, StoreId = store, Name = "Tầng 1" });
+            db.PosServiceResources.Add(new PosServiceResource { Id = table, StoreId = store, AreaId = area, Code = "B8", Name = "Bàn 8" });
+            await db.SaveChangesAsync();
+        }
+        // Hóa đơn của máy khác đang mở trên bàn (phiên gắn đơn nháp còn món).
+        await using (var db = Fx.NewDb())
+            Data(await Sales(db, store).CreateSale(new PosSalesController.CreateSaleDto(
+                [new PosSalesController.SaleLineDto(p, 1, null, 10000, null)], 0, 0, "Tiền mặt", null, null, null,
+                Complete: false, ServiceResourceId: table, ClientRequestId: "cr-main")));
+        var session = Guid.NewGuid();
+        await using (var db = Fx.NewDb())
+        {
+            var main = await db.PosSaleOrders.SingleAsync(o => o.StoreId == store && o.ServiceResourceId == table);
+            db.PosResourceSessions.Add(new PosResourceSession
+            {
+                Id = session, StoreId = store, ResourceId = table, SaleOrderId = main.Id,
+                StartedAt = DateTime.UtcNow.AddMinutes(-10), Status = PosResourceSessionStatus.Open,
+            });
+            await db.SaveChangesAsync();
+        }
+        // Hóa đơn thứ 2 trên cùng bàn (không gắn phiên) thanh toán → phiên của hóa đơn kia vẫn mở.
+        await using (var db = Fx.NewDb())
+            Data(await Sales(db, store).CreateSale(new PosSalesController.CreateSaleDto(
+                [new PosSalesController.SaleLineDto(p, 1, null, 10000, null)], 0, 10000, "Tiền mặt", null, null, null,
+                ServiceResourceId: table, ClientRequestId: "cr-second")));
+        await using (var db = Fx.NewDb())
+            Assert.Equal(PosResourceSessionStatus.Open,
+                (await db.PosResourceSessions.SingleAsync(x => x.Id == session)).Status);
+
+        // Giỏ mở offline trùng bàn → hóa đơn tách của hóa đơn đang mở; thanh toán nó không trả bàn / không xóa bill kia.
+        await using (var db = Fx.NewDb())
+            Data(await Sales(db, store).CreateSale(new PosSalesController.CreateSaleDto(
+                [new PosSalesController.SaleLineDto(p, 2, null, 10000, null)], 0, 0, "Tiền mặt", null, null, null,
+                Complete: false, ServiceResourceId: table, ClientRequestId: "cr-offline-conflict", SplitOfTableBill: true)));
+        Guid mainId, splitId;
+        await using (var db = Fx.NewDb())
+        {
+            mainId = (await db.PosResourceSessions.SingleAsync(x => x.Id == session)).SaleOrderId!.Value;
+            var split = await db.PosSaleOrders.SingleAsync(o => o.StoreId == store && o.ClientRequestId == "cr-offline-conflict");
+            Assert.Equal(mainId, split.SplitFromOrderId);
+            Assert.Null(split.ResourceSessionId);
+            splitId = split.Id;
+        }
+        await using (var db = Fx.NewDb())
+            Data(await Sales(db, store).CompleteSale(splitId, new PosSalesController.CompleteSaleDto()));
+        await using (var db = Fx.NewDb())
+        {
+            Assert.Equal(PosResourceSessionStatus.Open,
+                (await db.PosResourceSessions.SingleAsync(x => x.Id == session)).Status);
+            var main = await db.PosSaleOrders.SingleAsync(o => o.Id == mainId);
+            Assert.Null(main.Deleted);
+            Assert.Equal(PosSaleOrderStatus.Draft, main.Status);
+            Assert.Equal(PosSaleOrderStatus.Completed,
+                (await db.PosSaleOrders.SingleAsync(o => o.Id == splitId)).Status);
+        }
+    }
+
+    [Fact]
+    public async Task Reserve_rejects_web_and_unknown_installs()
+    {
+        if (NoDb) return;
+        var store = await Fx.NewStoreAsync();
+        await EnableOfflineAsync(store);
+        await InstallAsync(store, "d:web-1", "w1", platform: "web");
+        await using (var db = Fx.NewDb())
+            Assert.NotNull(Error(await Offline(db, store).Reserve(
+                new PosOfflineController.ReserveDto { DeviceKey = "d:web-1", InstallId = "w1", Count = 10 }, default)));
+        await using (var db = Fx.NewDb())
+            Assert.NotNull(Error(await Offline(db, store).Reserve(
+                new PosOfflineController.ReserveDto { DeviceKey = "a:never", InstallId = "x", Count = 10 }, default)));
+        await using (var db = Fx.NewDb())
+            Assert.False(await db.PosOfflineSerialBlocks.AnyAsync(b => b.StoreId == store));
     }
 
     [Fact]
@@ -127,11 +256,11 @@ public class PosOfflineSaleTests(PosPgFixture fx) : PosFlowTestBase(fx)
         await using (var db = Fx.NewDb())
             await Offline(db, store).Install(new PosOfflineController.InstallDto
             {
-                DeviceKey = "dev-1", InstallId = "inst-1", DeviceName = "Quầy 1",
+                DeviceKey = "a:dev-1", InstallId = "inst-1", DeviceName = "Quầy 1", Platform = "android",
                 PendingOfflineSales = 2, LastOfflineSeq = 4,
             }, default);
         await using (var db = Fx.NewDb())
-            await Offline(db, store).Reserve(new PosOfflineController.ReserveDto { DeviceKey = "dev-1", InstallId = "inst-1", Count = 10 }, default);
+            await Offline(db, store).Reserve(new PosOfflineController.ReserveDto { DeviceKey = "a:dev-1", InstallId = "inst-1", Count = 10 }, default);
         // Đồng bộ OFF-000001 và OFF-000003 → OFF-000002 nhảy cóc; máy báo đã bán tới 4 → OFF-000004 chưa về.
         foreach (var no in new[] { "OFF-000001", "OFF-000003" })
             await using (var db = Fx.NewDb())
@@ -140,7 +269,7 @@ public class PosOfflineSaleTests(PosPgFixture fx) : PosFlowTestBase(fx)
         await using (var db = Fx.NewDb())
             await Offline(db, store).Install(new PosOfflineController.InstallDto
             {
-                DeviceKey = "dev-1", InstallId = "inst-2", DeviceName = "Quầy 1",
+                DeviceKey = "a:dev-1", InstallId = "inst-2", DeviceName = "Quầy 1", Platform = "android",
             }, default);
 
         object audit;

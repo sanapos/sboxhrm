@@ -17,6 +17,8 @@ import '../../widgets/pos/pos_split_bill_sheet.dart';
 import '../../providers/auth_provider.dart';
 import '../../providers/permission_provider.dart';
 import '../../services/api_service.dart';
+import '../../services/pos_network_monitor.dart';
+import '../../services/pos_offline_service.dart';
 import '../../services/signalr_service.dart';
 import '../../utils/permission_navigation.dart';
 import '../../utils/pos_owner_password_gate.dart';
@@ -206,6 +208,7 @@ class PosResourceFloorScreenState extends State<PosResourceFloorScreen> {
     unawaited(_loadDeviceId());
     // Hiện sơ đồ đã lưu trên máy ngay (tên / vị trí bàn) — trạng thái cập nhật sau vài trăm ms.
     unawaited(_restoreFloorCache());
+    PosOfflineService.instance.tablesVersion.addListener(_onOfflineTablesChanged);
     _reload();
     // Bán hàng: poll 8–12s làm fallback; SignalR PosFloorChanged reload tức thì.
     // manageMode giữ autoRefreshSeconds (mặc định 20).
@@ -375,7 +378,78 @@ class PosResourceFloorScreenState extends State<PosResourceFloorScreen> {
     setState(() => _deviceId = device.id);
   }
 
-  PosServiceResourceDto _patchResourceFlags(PosServiceResourceDto r) {
+  PosServiceResourceDto _patchResourceFlags(PosServiceResourceDto r) =>
+      _applyOfflineHeld(_patchResourceFlagsBase(r));
+
+  /// Bàn mở trên máy này lúc mất mạng: máy chủ chưa biết → hiện «đang dùng» (máy chủ báo máy khác
+  /// đã mở bàn thì giữ theo máy chủ). Bàn hết giữ offline → về trống.
+  PosServiceResourceDto _applyOfflineHeld(PosServiceResourceDto r) {
+    final held = PosOfflineService.instance.offlineTable(r.id);
+    if (held != null) {
+      if (!(r.isFree || r.isDirty || PosOfflineService.isOfflineSession(r.openSessionId))) return r;
+      return r.asOfflineHeld(
+        sessionId: held['sessionId']?.toString() ?? 'offline-',
+        startedAt: DateTime.tryParse(held['startedAt']?.toString() ?? ''),
+        guests: (held['guests'] as num?)?.toInt() ?? 1,
+        deviceId: _deviceId,
+      );
+    }
+    if (PosOfflineService.isOfflineSession(r.openSessionId)) return r.asLocallyFreed();
+    return r;
+  }
+
+  void _onOfflineTablesChanged() {
+    if (!mounted) return;
+    setState(() => _resources = _resources.map(_applyOfflineHeld).toList());
+  }
+
+  /// Mất kết nối máy chủ: bàn mở offline trên máy này → vào lại; bàn trống → mở offline (máy Android
+  /// đã bật bán offline); bàn đang có đơn trên máy chủ → màn bán xử lý (chỉ vào lại bàn đang mở trên máy này).
+  Future<void> _openResourceOffline(PosServiceResourceDto r) async {
+    final off = PosOfflineService.instance;
+    final held = off.offlineTable(r.id);
+    if (held != null) {
+      _emitSelect(_tableSelectPayload(r, extra: {
+        'saleOrderId': null,
+        'sessionId': held['sessionId']?.toString(),
+        'orderNo': null,
+        'startedAt': held['startedAt']?.toString(),
+        'guestCount': (held['guests'] as num?)?.toInt() ?? 1,
+        'accumulatedPauseMinutes': 0,
+        'isPaused': false,
+        'pausedAt': null,
+        'offlineOpen': true,
+      }));
+      return;
+    }
+    if (!(r.isFree || r.isDirty)) {
+      _emitSelect(_tableSelectPayload(r, extra: {'offlineTap': true}));
+      return;
+    }
+    final reason = off.offlineTableBlockedReason();
+    if (reason != null) {
+      NotificationOverlayManager().showError(
+        title: 'Mất mạng — chưa mở bàn được',
+        message: reason,
+      );
+      return;
+    }
+    final guests = widget.promptGuestCountOnOpen ? await _promptGuestCount(r) : 1;
+    if (guests == null || !mounted) return;
+    _emitSelect(_tableSelectPayload(r, extra: {
+      'saleOrderId': null,
+      'sessionId': 'offline-${PosRequestId.newId()}',
+      'orderNo': null,
+      'startedAt': DateTime.now().toUtc().toIso8601String(),
+      'guestCount': guests,
+      'accumulatedPauseMinutes': 0,
+      'isPaused': false,
+      'pausedAt': null,
+      'offlineOpen': true,
+    }));
+  }
+
+  PosServiceResourceDto _patchResourceFlagsBase(PosServiceResourceDto r) {
     final rid = r.id.toLowerCase();
     final markedFreed =
         widget.freedResourceIds.any((e) => e.toLowerCase() == rid);
@@ -411,6 +485,8 @@ class PosResourceFloorScreenState extends State<PosResourceFloorScreen> {
     if (zeroKitchen || forceBill) {
       out = PosServiceResourceDto(
         id: r.id,
+        draftBills: r.draftBills,
+        draftBillCount: r.draftBillCount,
         areaId: r.areaId,
         areaName: r.areaName,
         code: r.code,
@@ -466,6 +542,8 @@ class PosResourceFloorScreenState extends State<PosResourceFloorScreen> {
       if (!out.tableSessionOpen || out.isLockedByDevice(_deviceId)) {
         return PosServiceResourceDto(
           id: out.id,
+          draftBills: out.draftBills,
+          draftBillCount: out.draftBillCount,
           areaId: out.areaId,
           areaName: out.areaName,
           code: out.code,
@@ -574,6 +652,7 @@ class PosResourceFloorScreenState extends State<PosResourceFloorScreen> {
 
   @override
   void dispose() {
+    PosOfflineService.instance.tablesVersion.removeListener(_onOfflineTablesChanged);
     _poll?.cancel();
     _clock?.cancel();
     _floorRealtime.dispose();
@@ -762,6 +841,8 @@ class PosResourceFloorScreenState extends State<PosResourceFloorScreen> {
     }
     final updated = PosServiceResourceDto(
       id: r.id,
+      draftBills: r.draftBills,
+      draftBillCount: r.draftBillCount,
       areaId: r.areaId,
       areaName: r.areaName,
       code: r.code,
@@ -903,6 +984,10 @@ class PosResourceFloorScreenState extends State<PosResourceFloorScreen> {
     PosServiceResourceDto r, {
     bool skipHoldingPrompt = false,
   }) async {
+    if (!PosNetworkMonitor.instance.reachable.value) {
+      await _openResourceOffline(r);
+      return;
+    }
     if (!_liveLoaded) {
       // Sơ đồ đang hiện bản lưu: đợi trạng thái thật (bàn có thể vừa có khách ở máy khác).
       await _waitLive();

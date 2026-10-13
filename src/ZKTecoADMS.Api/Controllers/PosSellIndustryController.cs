@@ -1248,7 +1248,9 @@ public partial class PosSellIndustryController(
         string? Note = null,
         string? DeviceId = null,
         string? DeviceName = null,
-        int? GuestCount = null);
+        int? GuestCount = null,
+        // Bàn mở lúc mất mạng đẩy lên: chỉ nhận bàn còn trống — bàn đã có món ở máy khác thì báo trùng, không gộp.
+        bool RequireFree = false);
     public record SessionDto(
         Guid Id, Guid ResourceId, string ResourceCode, string ResourceName,
         Guid? SaleOrderId, string? OrderNo, Guid? CustomerId, string? CustomerName,
@@ -1320,6 +1322,8 @@ public partial class PosSellIndustryController(
                             && o.Lines.Any(l => l.Deleted == null))
                         .OrderByDescending(o => o.UpdatedAt ?? o.CreatedAt)
                         .FirstOrDefaultAsync();
+                    if (orphanBusy != null && dto.RequireFree)
+                        return Conflict(AppResponse<object>.Fail("Bàn đã có khách ở máy khác"));
                     if (orphanBusy != null)
                     {
                         var orphanActor = new PosDraftLockHelper.LockActor(
@@ -1439,6 +1443,8 @@ public partial class PosSellIndustryController(
                     && o.Lines.Any(l => l.Deleted == null))
                 .OrderByDescending(o => o.UpdatedAt ?? o.CreatedAt)
                 .FirstOrDefaultAsync();
+            if (orphanWithLines != null && dto.RequireFree)
+                return Conflict(AppResponse<object>.Fail("Bàn đã có khách ở máy khác"));
             if (orphanWithLines != null)
             {
                 var resumeActor = new PosDraftLockHelper.LockActor(

@@ -192,7 +192,10 @@ public partial class PosSalesController(
         /// <summary>Đơn bán offline (mất mạng) đồng bộ lại: số HĐ offline cấp trước, giờ bán thật, thiết bị.</summary>
         string? OfflineNo = null,
         DateTime? OfflineAt = null,
-        string? OfflineDeviceKey = null);
+        string? OfflineDeviceKey = null,
+        /// <summary>Giỏ mở offline mà bàn đã có hóa đơn ở máy khác: lưu thành hóa đơn tách của hóa đơn đang mở
+        /// trên bàn (thanh toán riêng không trả bàn / không xóa hóa đơn kia).</summary>
+        bool SplitOfTableBill = false);
 
     public record EInvoiceBuyerDto(
         string? Name = null,
@@ -1316,6 +1319,23 @@ public partial class PosSalesController(
 
             order.ClientRequestId = clientRequestId;
             PosOfflineSaleRules.Stamp(order, offlineNo, dto.OfflineAt, dto.OfflineDeviceKey);
+            if (dto.SplitOfTableBill && !dto.Complete && order.ServiceResourceId is Guid splitTable)
+            {
+                var mainBill = await dbContext.PosResourceSessions.AsNoTracking()
+                    .Where(x => x.StoreId == storeId && x.ResourceId == splitTable && x.Deleted == null
+                        && x.SaleOrderId != null
+                        && (x.Status == PosResourceSessionStatus.Open || x.Status == PosResourceSessionStatus.Paused)
+                        && dbContext.PosSaleOrders.Any(o => o.Id == x.SaleOrderId && o.Deleted == null
+                            && o.Status == PosSaleOrderStatus.Draft))
+                    .OrderByDescending(x => x.StartedAt)
+                    .Select(x => x.SaleOrderId)
+                    .FirstOrDefaultAsync();
+                if (mainBill.HasValue)
+                {
+                    order.SplitFromOrderId = mainBill;
+                    order.ResourceSessionId = null;
+                }
+            }
             dbContext.PosSaleOrders.Add(order);
             dbContext.PosSaleOrderLines.AddRange(lines);
 

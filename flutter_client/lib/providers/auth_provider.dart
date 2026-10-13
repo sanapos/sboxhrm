@@ -1,4 +1,5 @@
 import '../services/pos_network_monitor.dart';
+import '../services/pos_offline_service.dart';
 import '../services/branch_session.dart';
 import 'dart:async';
 import 'dart:convert';
@@ -549,6 +550,7 @@ class AuthProvider extends ChangeNotifier {
 
   Future<void> logout() async {
     unawaited(PosNetworkMonitor.instance.stop());
+    await PosOfflineService.instance.onLogout();
     _isLoading = true;
     notifyListeners();
 

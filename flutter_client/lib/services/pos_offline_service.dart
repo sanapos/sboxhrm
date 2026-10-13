@@ -103,6 +103,8 @@ class PosOfflineService {
   final ValueNotifier<int> errorSales = ValueNotifier<int>(0);
   final ValueNotifier<int> pendingCarts = ValueNotifier<int>(0);
   final ValueNotifier<bool> enabledNotifier = ValueNotifier<bool>(false);
+  /// Đổi khi danh sách bàn mở lúc mất mạng thay đổi (sơ đồ vẽ lại).
+  final ValueNotifier<int> tablesVersion = ValueNotifier<int>(0);
 
   String? _storeId;
   Map<String, dynamic> _vault = {};
@@ -125,6 +127,59 @@ class PosOfflineService {
       .toList();
 
   bool get enabled => (_vault['settings'] as Map?)?['enabled'] == true;
+
+  /// Trình duyệt web KHÔNG bán offline: bộ nhớ trình duyệt ai cũng xóa / sửa được, không có mã máy bền
+  /// để kiểm soát số hóa đơn — web chỉ giữ giỏ hàng chờ có mạng.
+  static const webBlockedReason =
+      'Trình duyệt web không bán offline — dùng máy POS Android (giỏ hàng vẫn giữ, có mạng lưu tiếp)';
+
+  /// Phiên bàn mở lúc mất mạng (chưa có trên máy chủ).
+  static bool isOfflineSession(String? sessionId) => (sessionId ?? '').startsWith('offline-');
+
+  /// Bàn mở trên máy này lúc mất mạng: resourceId → {sessionId, name, area, startedAt, guests, cartKey}.
+  Map<String, Map<String, dynamic>> get offlineTables {
+    final raw = (_vault['tables'] as Map?) ?? const {};
+    return {
+      for (final e in raw.entries)
+        if (e.value is Map) e.key.toString(): Map<String, dynamic>.from(e.value as Map),
+    };
+  }
+
+  Map<String, dynamic>? offlineTable(String? resourceId) {
+    if (resourceId == null || resourceId.isEmpty) return null;
+    final key = resourceId.toLowerCase();
+    for (final e in offlineTables.entries) {
+      if (e.key.toLowerCase() == key) return e.value;
+    }
+    return null;
+  }
+
+  /// Mở bàn trống lúc mất mạng được không (null = được). Chỉ máy Android đã bật bán offline.
+  String? offlineTableBlockedReason() {
+    if (kIsWeb) return webBlockedReason;
+    return offlineSaleBlockedReason();
+  }
+
+  Future<void> markTable(String resourceId, Map<String, dynamic> info) async {
+    if (!_ready || kIsWeb) return;
+    final t = Map<String, dynamic>.from((_vault['tables'] as Map?) ?? {});
+    t.removeWhere((k, _) => k.toString().toLowerCase() == resourceId.toLowerCase());
+    t[resourceId] = {...info, 'markedAt': DateTime.now().toUtc().toIso8601String()};
+    _vault['tables'] = t;
+    await _save();
+    tablesVersion.value++;
+  }
+
+  Future<void> clearTable(String? resourceId) async {
+    if (!_ready || resourceId == null || resourceId.isEmpty) return;
+    final t = Map<String, dynamic>.from((_vault['tables'] as Map?) ?? {});
+    final before = t.length;
+    t.removeWhere((k, _) => k.toString().toLowerCase() == resourceId.toLowerCase());
+    if (t.length == before) return;
+    _vault['tables'] = t;
+    await _save();
+    tablesVersion.value++;
+  }
   int get maxHours => ((_vault['settings'] as Map?)?['maxHours'] as num?)?.toInt() ?? 8;
 
   List<Map<String, int>> get _blocks => ((_vault['blocks'] as List?) ?? const [])
@@ -356,7 +411,8 @@ class PosOfflineService {
         .toList();
     if (serverBlocks.isNotEmpty) _vault['blocks'] = serverBlocks;
     await _save();
-    if (enabled && remainingSerials < _reserveWhenBelow) {
+    // Web không xin dải số (máy chủ cũng chỉ cấp cho máy Android).
+    if (!kIsWeb && enabled && remainingSerials < _reserveWhenBelow) {
       final r = await _api.offlineReserveSerials({
         'deviceKey': deviceKey,
         'installId': installId,
@@ -376,6 +432,7 @@ class PosOfflineService {
 
   /// Lý do không bán offline được (null = được).
   String? offlineSaleBlockedReason() {
+    if (kIsWeb) return webBlockedReason;
     if (!_ready) return 'Chưa sẵn sàng bán offline';
     if (!enabled) return 'Cửa hàng chưa bật «Cho bán offline» (Thiết lập → Ngành hàng & cách bán)';
     if (remainingSerials <= 0) {
@@ -446,6 +503,7 @@ class PosOfflineService {
           'offlineAt': r.createdAt.toUtc().toIso8601String(),
           'offlineDeviceKey': deviceKey,
         }..remove('expectedLockVersion');
+        if (isOfflineSession(body['resourceSessionId']?.toString())) body.remove('resourceSessionId');
         final res = r.draftOrderId != null
             ? await _api.updatePosSale(r.draftOrderId!, body)
             : await _api.createPosSale(body);
@@ -478,6 +536,7 @@ class PosOfflineService {
         changed = true;
       }
       await _pushCarts();
+      _dropOrphanTables();
       if (changed) await _save();
       await _registerInstall();
     } catch (e) {
@@ -498,10 +557,36 @@ class PosOfflineService {
         continue;
       }
       body.remove('expectedLockVersion');
-      final draftId = m!['draftOrderId']?.toString();
-      final res = (draftId != null && draftId.isNotEmpty)
-          ? await _api.updatePosSale(draftId, body)
-          : await _api.createPosSale({...body, 'complete': false});
+      var draftId = m!['draftOrderId']?.toString();
+      final table = m['offlineTable'] is Map ? Map<String, dynamic>.from(m['offlineTable'] as Map) : null;
+      final tableId = table?['resourceId']?.toString();
+      Map<String, dynamic> res;
+      if ((draftId == null || draftId.isEmpty) && tableId != null && tableId.isNotEmpty) {
+        // Bàn mở lúc mất mạng: mở bàn trên máy chủ (chỉ khi bàn còn trống) rồi ghi giỏ vào đơn của bàn.
+        final opened = await openOfflineTableOnServer(tableId, guestCount: (table!['guests'] as num?)?.toInt() ?? 1);
+        if (isConnectionFailure(opened)) break;
+        if (opened['isSuccess'] == true && opened['data'] is Map) {
+          final d = opened['data'] as Map;
+          draftId = d['saleOrderId']?.toString();
+          body['resourceSessionId'] = d['sessionId']?.toString();
+          res = (draftId != null && draftId.isNotEmpty)
+              ? await _api.updatePosSale(draftId, body)
+              : await _api.createPosSale({...body, 'complete': false});
+          if (res['isSuccess'] == true && draftId != null && draftId.isNotEmpty) {
+            // Đẩy nền: nhả khóa để máy nào cũng vào bàn được ngay.
+            final dev = await PosDeviceIdentity.get();
+            unawaited(_api.unlockPosSaleDraft(draftId, deviceId: dev.id, deviceName: dev.name));
+          }
+        } else {
+          // Máy khác đã mở bàn này trên máy chủ → không gộp: lưu thành hóa đơn tách của bàn (thu ngân chọn khi mở bàn).
+          res = await _api.createPosSale(conflictDraftBody(body, table!['label']?.toString()));
+        }
+        if (res['isSuccess'] == true) await clearTable(tableId);
+      } else {
+        res = (draftId != null && draftId.isNotEmpty)
+            ? await _api.updatePosSale(draftId, body)
+            : await _api.createPosSale({...body, 'complete': false});
+      }
       if (res['isSuccess'] == true) {
         carts.remove(e.key);
       } else if (isConnectionFailure(res)) {
@@ -513,6 +598,65 @@ class PosOfflineService {
       }
     }
     _vault['carts'] = carts;
+  }
+
+  /// Bàn mở offline mà giỏ đã trống / đã đẩy xong và không còn mở trên màn bán → bỏ giữ bàn.
+  void _dropOrphanTables() {
+    final carts = (_vault['carts'] as Map?) ?? const {};
+    final t = Map<String, dynamic>.from((_vault['tables'] as Map?) ?? {});
+    final before = t.length;
+    t.removeWhere((_, v) {
+      final key = v is Map ? v['cartKey']?.toString() : null;
+      if (key == null) return true;
+      return !carts.containsKey(key) && isLiveCart?.call(key) != true;
+    });
+    if (t.length == before) return;
+    _vault['tables'] = t;
+    tablesVersion.value++;
+  }
+
+  bool hasCart(String? key) => key != null && ((_vault['carts'] as Map?) ?? const {}).containsKey(key);
+
+  /// Đăng xuất: trên web xóa bản giữ giỏ trong trình duyệt (máy dùng chung không lộ đơn ca trước).
+  /// Android giữ nguyên kho (đơn offline chưa gửi + lịch sử chống gian lận).
+  Future<void> onLogout() async {
+    if (!kIsWeb) return;
+    final sid = _storeId;
+    _ready = false;
+    _vault = {};
+    _storeId = null;
+    _initDone = null;
+    _refreshCounters();
+    if (sid == null) return;
+    try {
+      await (await SharedPreferences.getInstance()).remove(_prefsVaultKey + sid);
+    } catch (_) {}
+  }
+
+  /// Mở bàn trên máy chủ cho bàn đã mở lúc mất mạng — chỉ nhận khi bàn còn trống (requireFree).
+  Future<Map<String, dynamic>> openOfflineTableOnServer(String resourceId, {int guestCount = 1}) async {
+    final device = await PosDeviceIdentity.get();
+    return _api.openPosResourceSession({
+      'resourceId': resourceId,
+      'deviceId': device.id,
+      'deviceName': device.name,
+      'guestCount': guestCount < 1 ? 1 : guestCount,
+      'requireFree': true,
+    });
+  }
+
+  /// Giỏ của bàn mở offline mà máy khác đã mở bàn đó → hóa đơn thứ 2 trên cùng bàn (không gắn phiên của
+  /// máy kia), ghi chú để thu ngân gộp / thanh toán riêng.
+  static Map<String, dynamic> conflictDraftBody(Map<String, dynamic> body, String? tableLabel) {
+    final note = [
+      'Giỏ mở offline${(tableLabel ?? '').isEmpty ? '' : ' tại $tableLabel'} — bàn đã có hóa đơn ở máy khác',
+      if ((body['note']?.toString() ?? '').trim().isNotEmpty) body['note'].toString().trim(),
+    ].join(' · ');
+    // Máy chủ gắn thành hóa đơn tách của hóa đơn đang mở trên bàn: thanh toán riêng không trả bàn,
+    // không xóa hóa đơn của máy kia.
+    return {...body, 'complete': false, 'note': note, 'splitOfTableBill': true}
+      ..remove('resourceSessionId')
+      ..remove('expectedLockVersion');
   }
 
   /// Gửi lại đơn lỗi (quản lý đã xử lý nguyên nhân, vd mở lại ca / thêm hàng).

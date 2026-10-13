@@ -128,6 +128,15 @@ public class PosOfflineController(ZKTecoDbContext db, ILogger<PosOfflineControll
             return BadRequest(AppResponse<object>.Fail("Thiếu mã thiết bị / mã cài đặt"));
         if (!(await SettingsAsync(storeId, ct)).Enabled)
             return BadRequest(AppResponse<object>.Fail("Cửa hàng chưa bật bán offline"));
+        // Chỉ máy POS Android đã báo lần cài mới được cấp số (trình duyệt web không bán offline:
+        // bộ nhớ trình duyệt xóa được, không có mã máy bền để kiểm soát).
+        var install = await db.PosDeviceInstalls.AsNoTracking()
+            .FirstOrDefaultAsync(x => x.StoreId == storeId && x.DeviceKey == deviceKey && x.InstallId == installId, ct);
+        if (install == null)
+            return BadRequest(AppResponse<object>.Fail("Máy chưa báo lần cài đặt"));
+        if (!deviceKey.StartsWith("a:", StringComparison.Ordinal)
+            || !string.Equals(install.Platform, "android", StringComparison.OrdinalIgnoreCase))
+            return BadRequest(AppResponse<object>.Fail("Chỉ máy POS Android được bán offline"));
         var count = Math.Clamp(dto!.Count, 10, 200);
 
         await using var tx = await db.Database.BeginTransactionAsync(ct);
