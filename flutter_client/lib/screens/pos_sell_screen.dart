@@ -4441,10 +4441,13 @@ class _PosSellScreenState extends State<PosSellScreen>
     return 'Thông báo ($_kitchenPendingLineCount)';
   }
 
+  /// Số TEM sẽ in (mỗi phần 1 tem; SL lẻ 0,5 = 1 tem) — trước đếm số dòng món, «In tem ly (4)» mà ra 20 tem.
   int get _cupLabelPendingCount {
     var n = 0;
     for (final l in _tab.cart) {
-      if (l.cupLabelPendingQty > 0) n++;
+      final q = l.cupLabelPendingQty;
+      if (q <= 0) continue;
+      n += q == q.roundToDouble() ? q.round().clamp(1, 99) : 1;
     }
     return n;
   }
