@@ -231,7 +231,7 @@ class _PosNetworkReportScreenState extends State<PosNetworkReportScreen> {
             subtitle: Text(tr(x['detail']?.toString() ?? '')),
           ),
       ]),
-      if (hours.isNotEmpty) _section('Theo giờ (cột = số đơn · màu = mạng)', [_hourChart(hours)]),
+      if (hours.isNotEmpty) _section('Theo giờ (cột = đơn mới + phiếu in · màu = mạng)', [_hourChart(hours)]),
       _section('Mất kết nối (${outages.length})', [
         if (outages.isEmpty)
           Text(tr('Không có lần mất kết nối nào đáng kể.'), style: const TextStyle(color: SboxColors.slate500)),
@@ -298,7 +298,9 @@ class _PosNetworkReportScreenState extends State<PosNetworkReportScreen> {
       );
 
   Widget _hourChart(List<Map<String, dynamic>> hours) {
-    final maxOrders = hours.map((h) => (h['orders'] as num?)?.toInt() ?? 0).fold<int>(1, (a, b) => b > a ? b : a);
+    int busy(Map<String, dynamic> h) =>
+        ((h['orders'] as num?)?.toInt() ?? 0) + ((h['printJobs'] as num?)?.toInt() ?? 0);
+    final maxOrders = hours.map(busy).fold<int>(1, (a, b) => b > a ? b : a);
     final multiDay = hours.isNotEmpty &&
         _dt(hours.first['hourVn'])?.day != _dt(hours.last['hourVn'])?.day;
     return SizedBox(
@@ -320,10 +322,10 @@ class _PosNetworkReportScreenState extends State<PosNetworkReportScreen> {
                 child: Column(
                   mainAxisAlignment: MainAxisAlignment.end,
                   children: [
-                    Text('${h['orders'] ?? 0}', style: const TextStyle(fontSize: 9, color: SboxColors.slate500)),
+                    Text('${busy(h)}', style: const TextStyle(fontSize: 9, color: SboxColors.slate500)),
                     Container(
                       width: 18,
-                      height: 8 + 100.0 * (((h['orders'] as num?)?.toInt() ?? 0) / maxOrders),
+                      height: 8 + 100.0 * (busy(h) / maxOrders),
                       decoration: BoxDecoration(
                         color: _healthColor(h['health']?.toString()),
                         borderRadius: BorderRadius.circular(3),

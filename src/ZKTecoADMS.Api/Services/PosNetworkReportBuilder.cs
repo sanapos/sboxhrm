@@ -197,7 +197,9 @@ public static class PosNetworkReportBuilder
         var discAll = samples.Sum(s => s.RealtimeDisconnects);
 
         // Giờ đông (25% giờ nhiều đơn nhất) so với giờ còn lại.
-        var busy = hours.Where(h => h.Orders > 0 && h.PingSent > 0).OrderByDescending(h => h.Orders).ToList();
+        // Độ bận = đơn mới + lệnh in (đơn QR gọi thêm vào đơn đang mở không tạo đơn mới nhưng có phiếu in).
+        static int Busy(HourRow h) => h.Orders + h.PrintJobs;
+        var busy = hours.Where(h => Busy(h) > 0 && h.PingSent > 0).OrderByDescending(Busy).ToList();
         var degrades = false;
         string? peakNote = null;
         if (busy.Count >= 4)
@@ -212,7 +214,7 @@ public static class PosNetworkReportBuilder
             peakNote = $"Giờ đông: lỗi {topFail}% · trễ {topP95} ms — giờ khác: lỗi {restFail}% · trễ {restP95} ms";
         }
 
-        var businessHours = hours.Where(h => h.Orders > 0).Select(h => h.HourVn).ToHashSet();
+        var businessHours = hours.Where(h => Busy(h) > 0).Select(h => h.HourVn).ToHashSet();
         bool InBusiness(Outage o) => businessHours.Contains(new DateTime(o.StartVn.Year, o.StartVn.Month,
             o.StartVn.Day, o.StartVn.Hour, 0, 0, o.StartVn.Kind));
         var printIssues = print.Failed + print.StaleQueued + print.StuckNoRequeue;
@@ -225,7 +227,7 @@ public static class PosNetworkReportBuilder
                  || netOutages.Any(o => o.Seconds >= BadOutageSec && (businessHours.Count == 0 || InBusiness(o)))
                  || printIssuePct > 5)
             verdict = "red";
-        else if (hours.Any(h => h.Orders > 0 && h.Health is "yellow" or "red")
+        else if (hours.Any(h => Busy(h) > 0 && h.Health is "yellow" or "red")
                  || netOutages.Count > 0 || degrades || (print.P95Sec ?? 0) > SlowPrintSec
                  || failAll >= WarnFailPct || (p95All ?? 0) > GoodP95Ms)
             verdict = "yellow";
