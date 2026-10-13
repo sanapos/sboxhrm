@@ -349,7 +349,10 @@ class WhDocListTile extends StatelessWidget {
 }
 
 /// Bộ điều chỉnh số lượng — nút lớn, thao tác một tay.
-class WhQtyStepper extends StatelessWidget {
+///
+/// Ô nhập giữ controller/focus riêng: trước đây ô dùng key theo giá trị nên mỗi phím gõ
+/// tạo lại ô, mất con trỏ — xóa «42» rồi gõ «1» ra số sai.
+class WhQtyStepper extends StatefulWidget {
   const WhQtyStepper({
     super.key,
     required this.value,
@@ -370,20 +373,91 @@ class WhQtyStepper extends StatelessWidget {
   final String? label;
 
   @override
+  State<WhQtyStepper> createState() => _WhQtyStepperState();
+}
+
+class _WhQtyStepperState extends State<WhQtyStepper> {
+  late final TextEditingController _ctrl;
+  final _focus = FocusNode();
+
+  /// 1 → «1», 1.5 → «1,5» (dấu phẩy thập phân kiểu VN, không phân tách nghìn).
+  static String _fmt(double v) {
+    var t = v.toStringAsFixed(3);
+    t = t.replaceFirst(RegExp(r'\.?0+$'), '');
+    return t.replaceAll('.', ',');
+  }
+
+  static double? _parse(String raw) {
+    final t = raw.trim().replaceAll(',', '.');
+    if (t.isEmpty) return null;
+    return double.tryParse(t);
+  }
+
+  double _clamp(double v) => v.clamp(widget.min, widget.max ?? double.infinity).toDouble();
+
+  @override
+  void initState() {
+    super.initState();
+    _ctrl = TextEditingController(text: _fmt(widget.value));
+    _focus.addListener(_onFocus);
+  }
+
+  @override
+  void didUpdateWidget(covariant WhQtyStepper old) {
+    super.didUpdateWidget(old);
+    // Giá trị đổi từ ngoài (nút +/−, quy đổi ĐVT, «Khớp tồn») — chỉ ghi lại ô khi
+    // khác số đang gõ, để không phá con trỏ lúc người dùng đang nhập.
+    if (_parse(_ctrl.text) != widget.value) {
+      final t = _fmt(widget.value);
+      _ctrl.value = TextEditingValue(
+        text: t,
+        selection: TextSelection.collapsed(offset: t.length),
+      );
+    }
+  }
+
+  void _onFocus() {
+    if (_focus.hasFocus) {
+      // Chọn sẵn cả số — gõ là thay số cũ.
+      _ctrl.selection = TextSelection(baseOffset: 0, extentOffset: _ctrl.text.length);
+    } else {
+      _commit();
+    }
+  }
+
+  /// Rời ô / Enter: ô trống hoặc sai thì trả về giá trị hiện tại.
+  void _commit() {
+    final v = _parse(_ctrl.text);
+    if (v == null) {
+      _ctrl.text = _fmt(widget.value);
+      return;
+    }
+    final c = _clamp(v);
+    if (c != widget.value) widget.onChanged(c);
+    if (c != v) _ctrl.text = _fmt(c);
+  }
+
+  @override
+  void dispose() {
+    _focus.removeListener(_onFocus);
+    _focus.dispose();
+    _ctrl.dispose();
+    super.dispose();
+  }
+
+  @override
   Widget build(BuildContext context) {
-    final canDec = !readOnly && value > min;
-    final canInc = !readOnly && (max == null || value + step <= max!);
-    final display = value == value.roundToDouble()
-        ? value.toStringAsFixed(0)
-        : value.toStringAsFixed(2);
+    final value = widget.value;
+    final canDec = !widget.readOnly && value > widget.min;
+    final canInc = !widget.readOnly && (widget.max == null || value + widget.step <= widget.max!);
 
     return Row(
       children: [
-        if (label != null) ...[
+        if (widget.label != null) ...[
           SizedBox(
             width: 72,
             child: Text(
-              tr(label!),
+              tr(widget.label!),
               style: WhMobileTheme.label.copyWith(fontSize: 11),
               maxLines: 2,
               overflow: TextOverflow.ellipsis,
@@ -394,19 +468,21 @@ class WhQtyStepper extends StatelessWidget {
         _StepBtn(
           icon: Icons.remove_rounded,
           enabled: canDec,
-          onTap: () =>
-              onChanged((value - step).clamp(min, max ?? double.infinity)),
+          onTap: () => widget.onChanged(_clamp(value - widget.step)),
         ),
         Expanded(
           child: Padding(
             padding: const EdgeInsets.symmetric(horizontal: 6),
-            child: TextFormField(
-              key: ValueKey('wh_qty_$display'),
-              initialValue: display,
-              enabled: !readOnly,
+            child: TextField(
+              controller: _ctrl,
+              focusNode: _focus,
+              enabled: !widget.readOnly,
               keyboardType: const TextInputType.numberWithOptions(
                 decimal: true,
               ),
+              inputFormatters: [
+                FilteringTextInputFormatter.allow(RegExp(r'[0-9.,]')),
+              ],
               textAlign: TextAlign.center,
               style: WhMobileTheme.titleLarge.copyWith(fontSize: 16),
               decoration: const InputDecoration(
@@ -417,19 +493,14 @@ class WhQtyStepper extends StatelessWidget {
                   vertical: 6,
                 ),
               ),
-              onFieldSubmitted: (raw) {
-                final v = double.tryParse(
-                      raw.replaceAll(',', '.').trim(),
-                    ) ??
-                    value;
-                onChanged(v.clamp(min, max ?? double.infinity));
-              },
+              onSubmitted: (_) => _commit(),
               onChanged: (raw) {
-                final v = double.tryParse(
-                  raw.replaceAll(',', '.').trim(),
-                );
-                if (v != null && v >= min) {
-                  onChanged(v.clamp(min, max ?? double.infinity));
+                // Đang gõ: báo giá trị hợp lệ ngay (cập nhật lệch / thành tiền),
+                // ô trống thì chờ — không ép về 0.
+                final v = _parse(raw);
+                if (v != null && v >= widget.min) {
+                  final c = _clamp(v);
+                  if (c != widget.value) widget.onChanged(c);
                 }
               },
             ),
@@ -438,8 +509,7 @@ class WhQtyStepper extends StatelessWidget {
         _StepBtn(
           icon: Icons.add_rounded,
           enabled: canInc,
-          onTap: () =>
-              onChanged((value + step).clamp(min, max ?? double.infinity)),
+          onTap: () => widget.onChanged(_clamp(value + widget.step)),
           primary: true,
         ),
       ],
