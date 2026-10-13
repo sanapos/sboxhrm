@@ -1595,6 +1595,19 @@ Future<bool> _printKitchenCompactSlipDefault({
     }
     return false;
   }
+  // Máy nội bộ của máy KHÁC mà không có bản cloud (Agent) cùng cổng → không Agent nào nhận lệnh
+  // (vd «usb printer» của T1 sau khi dọn máy cũ) → treo «Chờ in». Ưu tiên máy Agent nhận được.
+  final reachable = cloudPrinters
+      .where((p) =>
+          !p.isDeviceLocal ||
+          PosPrintOrchestrator.instance.preferCloudAgentPrinter(p).id != p.id)
+      .toList();
+  if (reachable.isNotEmpty && reachable.length < cloudPrinters.length) {
+    debugPrint(
+      'Kitchen default: bỏ ${cloudPrinters.length - reachable.length} máy nội bộ máy khác không Agent nhận',
+    );
+    cloudPrinters = reachable;
+  }
   cloudPrinters = _preferExternalKitchenCloud(cloudPrinters);
   if (cloudPrinters.length > 1) {
     final picked = cloudPrinters.first;
