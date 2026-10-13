@@ -1,5 +1,7 @@
 import 'dart:async';
 import 'package:flutter/material.dart';
+import '../../providers/permission_provider.dart';
+import 'package:provider/provider.dart';
 
 import '../../models/pos_store_printer.dart';
 import '../../services/api_service.dart';
@@ -747,7 +749,8 @@ class _PosProductPrinterAssignmentScreenState
                                 trailing: Row(
                                   mainAxisSize: MainAxisSize.min,
                                   children: [
-                                    if (p.productCount == 0)
+                                    if (p.productCount == 0 &&
+                                        context.watch<PermissionProvider>().canEdit('PosPrinters'))
                                       IconButton(
                                         tooltip: tr('Xóa máy in này'),
                                         icon: Icon(
@@ -756,6 +759,7 @@ class _PosProductPrinterAssignmentScreenState
                                         ),
                                         onPressed: () => unawaited(_deletePrinter(p)),
                                       ),
+                                    if (context.watch<PermissionProvider>().canEdit('PosPrinters'))
                                     IconButton(
                                         tooltip: tr('Gán nhanh giống máy khác'),
                                         icon: const Icon(Icons.copy_all_outlined),
@@ -1049,6 +1053,8 @@ class _PosPrinterManageProductsScreenState
   Widget build(BuildContext context) {
     final totalPages = (_total / _pageSize).ceil().clamp(1, 9999);
     final purpose = widget.purpose;
+    // Chỉ quyền Xem «Máy in»: thấy danh sách, không có nút gán / bỏ gán (server cũng chặn).
+    final canEdit = context.watch<PermissionProvider>().canEdit('PosPrinters');
     return Scaffold(
       backgroundColor: PosTheme.background,
       appBar: AppBar(
@@ -1061,6 +1067,7 @@ class _PosPrinterManageProductsScreenState
           onPressed: () => Navigator.maybePop(context),
         ),
         actions: [
+          if (canEdit)
           IconButton(
             tooltip: tr('Gán nhanh giống máy khác'),
             onPressed: _busy
@@ -1095,14 +1102,30 @@ class _PosPrinterManageProductsScreenState
                 onPressed: _loadAssigned, icon: const Icon(Icons.refresh)),
         ],
       ),
-      floatingActionButton: FloatingActionButton.extended(
-        onPressed: _busy ? null : _addProducts,
-        backgroundColor: purpose.accent,
-        icon: const Icon(Icons.add),
-        label: Text(tr('Thêm / chuyển SP')),
-      ),
+      floatingActionButton: canEdit
+          ? FloatingActionButton.extended(
+              onPressed: _busy ? null : _addProducts,
+              backgroundColor: purpose.accent,
+              icon: const Icon(Icons.add),
+              label: Text(tr('Thêm / chuyển SP')),
+            )
+          : null,
       body: Column(
         children: [
+          if (!canEdit)
+            Container(
+              width: double.infinity,
+              margin: const EdgeInsets.fromLTRB(12, 10, 12, 0),
+              padding: const EdgeInsets.all(10),
+              decoration: BoxDecoration(
+                color: SboxColors.warningSoft,
+                borderRadius: BorderRadius.circular(10),
+              ),
+              child: Text(
+                tr('Chỉ xem — tài khoản chưa có quyền Sửa «Máy in» nên không gán / bỏ gán được.'),
+                style: const TextStyle(fontSize: 13),
+              ),
+            ),
           Container(
             width: double.infinity,
             margin: const EdgeInsets.fromLTRB(12, 10, 12, 0),
@@ -1193,10 +1216,12 @@ class _PosPrinterManageProductsScreenState
                       color: Colors.orange.shade900,
                     ),
                   ),
-                  trailing: TextButton(
-                    onPressed: _busy ? null : _clearInactiveAssigned,
-                    child: Text(tr('Gỡ hết')),
-                  ),
+                  trailing: canEdit
+                      ? TextButton(
+                          onPressed: _busy ? null : _clearInactiveAssigned,
+                          child: Text(tr('Gỡ hết')),
+                        )
+                      : null,
                 ),
               ),
             ),
@@ -1217,12 +1242,14 @@ class _PosPrinterManageProductsScreenState
                                 ),
                                 textAlign: TextAlign.center,
                               ),
-                              const SizedBox(height: 12),
-                              FilledButton.icon(
-                                onPressed: _addProducts,
-                                icon: const Icon(Icons.add),
-                                label: Text(tr('Thêm / chuyển SP')),
-                              ),
+                              if (canEdit) ...[
+                                const SizedBox(height: 12),
+                                FilledButton.icon(
+                                  onPressed: _addProducts,
+                                  icon: const Icon(Icons.add),
+                                  label: Text(tr('Thêm / chuyển SP')),
+                                ),
+                              ],
                             ],
                           ),
                         ),
@@ -1270,12 +1297,14 @@ class _PosPrinterManageProductsScreenState
                           return ListTile(
                             title: Text(tr(p.name)),
                             subtitle: Text(tr(p.productCode)),
-                            trailing: IconButton(
-                              tooltip: tr('Bỏ gán'),
-                              onPressed: _busy ? null : () => _removeProduct(p),
-                              icon: const Icon(Icons.link_off,
-                                  color: Colors.redAccent),
-                            ),
+                            trailing: canEdit
+                                ? IconButton(
+                                    tooltip: tr('Bỏ gán'),
+                                    onPressed: _busy ? null : () => _removeProduct(p),
+                                    icon: const Icon(Icons.link_off,
+                                        color: Colors.redAccent),
+                                  )
+                                : null,
                           );
                         },
                       ),

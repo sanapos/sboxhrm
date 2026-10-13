@@ -193,7 +193,10 @@ class _PosStorePrintersScreenState extends State<PosStorePrintersScreen> {
       }).toList();
 
   /// Thêm/sửa máy cửa hàng: quyền module, không khóa theo công tắc Agent.
-  bool get _canManageCloudPrinters => true;
+  /// Thêm / sửa / xóa / vai trò / gán món: cần quyền Sửa «Máy in» (server cũng chặn).
+  /// Trước luôn true → tài khoản chỉ Xem vẫn thấy nút, bấm Lưu mới bị server từ chối.
+  bool get _canManageCloudPrinters =>
+      Provider.of<PermissionProvider>(context, listen: false).canEdit('PosPrinters');
 
   bool _agentCoversPrinter(String printerId) =>
       _onlineAgents.any((a) => a.coversPrinter(printerId));
@@ -1828,7 +1831,7 @@ class _PosStorePrintersScreenState extends State<PosStorePrintersScreen> {
                   NotificationOverlayManager().show(
                     title: 'Chỉ xem',
                     message: tr(
-                        'Máy in cloud — chỉ máy bật Print Agent mới được sửa. Dùng menu › Test qua cloud.'),
+                        'Tài khoản chỉ có quyền xem máy in — nhờ quản lý cấp quyền Sửa «Máy in» để thêm / sửa / gán món.'),
                     duration: const Duration(seconds: 3),
                   );
                 },
