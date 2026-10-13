@@ -685,15 +685,17 @@ class _PosProductsScreenState extends State<PosProductsScreen> {
   }
 
   Future<void> _quickEditStock(PosProduct p) async {
-    final ctrl =
-        TextEditingController(text: tr(p.onHandQty.toStringAsFixed(0)));
+    // Giữ phần lẻ (hàng cân kg) + chọn sẵn để gõ đè.
+    final init = formatViQty(p.onHandQty);
+    final ctrl = TextEditingController(text: init)
+      ..selection = TextSelection(baseOffset: 0, extentOffset: init.length);
     final val = await showDialog<double>(
       context: context,
       builder: (ctx) => AlertDialog(
         title: Text(tr('Sửa tồn kho — ${p.name}')),
         content: TextField(
           controller: ctrl,
-          keyboardType: TextInputType.number,
+          keyboardType: const TextInputType.numberWithOptions(decimal: true),
           autofocus: true,
           decoration: PosTheme.inputDecoration(label: 'Tồn kho'),
         ),
@@ -701,7 +703,7 @@ class _PosProductsScreenState extends State<PosProductsScreen> {
           TextButton(onPressed: () => Navigator.pop(ctx), child: Text(tr('Hủy'))),
           FilledButton(
             onPressed: () => Navigator.pop(
-                ctx, double.tryParse(ctrl.text.replaceAll(',', ''))),
+                ctx, parseViDecimal(ctrl.text)),
             style: PosTheme.filledButtonStyle,
             child: Text(tr('Lưu')),
           ),
@@ -774,14 +776,16 @@ class _PosProductsScreenState extends State<PosProductsScreen> {
   }
 
   Future<void> _quickEditVariantStock(PosProduct p, PosProductVariant v) async {
-    final ctrl = TextEditingController(text: tr(v.onHandQty.toStringAsFixed(0)));
+    final init = formatViQty(v.onHandQty);
+    final ctrl = TextEditingController(text: init)
+      ..selection = TextSelection(baseOffset: 0, extentOffset: init.length);
     final val = await showDialog<double>(
       context: context,
       builder: (ctx) => AlertDialog(
         title: Text(tr('Sửa tồn kho — ${v.name}')),
         content: TextField(
           controller: ctrl,
-          keyboardType: TextInputType.number,
+          keyboardType: const TextInputType.numberWithOptions(decimal: true),
           autofocus: true,
           decoration: PosTheme.inputDecoration(label: 'Tồn kho'),
         ),
@@ -789,7 +793,7 @@ class _PosProductsScreenState extends State<PosProductsScreen> {
           TextButton(onPressed: () => Navigator.pop(ctx), child: Text(tr('Hủy'))),
           FilledButton(
             onPressed: () => Navigator.pop(
-                ctx, double.tryParse(ctrl.text.replaceAll(',', ''))),
+                ctx, parseViDecimal(ctrl.text)),
             style: PosTheme.filledButtonStyle,
             child: Text(tr('Lưu')),
           ),

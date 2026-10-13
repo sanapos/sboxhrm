@@ -4,6 +4,7 @@ import 'package:intl/intl.dart';
 
 import '../../../models/pos_purchase.dart';
 import '../../../services/api_service.dart';
+import '../../../utils/number_formatter.dart';
 import '../../../utils/pos_mutation_result.dart';
 import '../../../utils/pos_purchase_product_lookup.dart';
 import '../../../utils/pos_sell_stock_patch.dart';
@@ -417,8 +418,12 @@ class _WhMobilePurchaseReceiptEditorState extends State<WhMobilePurchaseReceiptE
                             onTap: _readOnly
                                 ? null
                                 : () async {
-                                    final ctrl = TextEditingController(
-                                        text: tr(l.cost.toStringAsFixed(0)));
+                                    // Định dạng nghìn kiểu VN + chọn sẵn → gõ là thay giá cũ.
+                                    // Trước đây gõ «4.000» bị đọc thành 4 (dấu chấm = thập phân).
+                                    final initial = formatNumber(l.cost.round());
+                                    final ctrl = TextEditingController(text: initial)
+                                      ..selection = TextSelection(
+                                          baseOffset: 0, extentOffset: initial.length);
                                     final v = await showDialog<String>(
                                       context: context,
                                       builder: (ctx) => AlertDialog(
@@ -427,6 +432,9 @@ class _WhMobilePurchaseReceiptEditorState extends State<WhMobilePurchaseReceiptE
                                           controller: ctrl,
                                           keyboardType: TextInputType.number,
                                           autofocus: true,
+                                          inputFormatters: [ThousandSeparatorFormatter()],
+                                          style: const TextStyle(fontSize: 18),
+                                          decoration: const InputDecoration(suffixText: 'đ'),
                                         ),
                                         actions: [
                                           TextButton(
@@ -439,8 +447,8 @@ class _WhMobilePurchaseReceiptEditorState extends State<WhMobilePurchaseReceiptE
                                       ),
                                     );
                                     if (v != null) {
-                                      setState(() =>
-                                          l.cost = double.tryParse(v.replaceAll(',', '')) ?? l.cost);
+                                      setState(() => l.cost =
+                                          parseFormattedNumber(v)?.toDouble() ?? l.cost);
                                     }
                                   },
                             borderRadius: BorderRadius.circular(WhMobileTheme.radiusSm),

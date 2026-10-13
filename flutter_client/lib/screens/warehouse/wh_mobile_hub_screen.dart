@@ -56,13 +56,15 @@ class WhMobileHubScreen extends StatelessWidget {
             style: WhMobileTheme.caption,
           ),
           const SizedBox(height: WhMobileTheme.gapLg),
-          GridView.count(
-            crossAxisCount: 2,
+          // Ô rộng tối đa ~320px: điện thoại vẫn 2 cột, máy POS / tablet ngang hiện đủ 5 loại
+          // phiếu trên một màn — trước đây 2 cột ô cao ~900px, Kiểm kho / Xuất hủy bị khuất.
+          GridView.extent(
+            maxCrossAxisExtent: 320,
             shrinkWrap: true,
             physics: const NeverScrollableScrollPhysics(),
             mainAxisSpacing: WhMobileTheme.gap,
             crossAxisSpacing: WhMobileTheme.gap,
-            childAspectRatio: 1.05,
+            childAspectRatio: MediaQuery.sizeOf(context).width >= 700 ? 1.6 : 1.05,
             children: [
               for (final t in tiles)
                 WhHubTile(

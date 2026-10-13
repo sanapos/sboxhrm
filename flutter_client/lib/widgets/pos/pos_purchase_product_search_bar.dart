@@ -471,7 +471,10 @@ class PosPurchaseProductSearchBarState extends State<PosPurchaseProductSearchBar
         child: CompositedTransformTarget(
           link: _layerLink,
           key: _barKey,
-          child: TextField(
+          // Danh sách kết quả (tối đa 360px) thả dưới ô — chừa chỗ để bàn phím không che.
+          child: PosImeReserve(
+            below: 300,
+            child: TextField(
             controller: _ctrl,
             focusNode: _focus,
             style: TextStyle(
@@ -525,6 +528,7 @@ class PosPurchaseProductSearchBarState extends State<PosPurchaseProductSearchBar
             ),
             onTap: posShowSoftKeyboardOnFieldTap,
             onSubmitted: (_) => _submitExact(),
+          ),
           ),
         ),
       ),

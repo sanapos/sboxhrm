@@ -34,6 +34,24 @@ String formatNumber(dynamic v) {
   return NumberFormat('#,###', 'vi_VN').format(n);
 }
 
+/// Số lượng có phần lẻ kiểu VN: «1.250,5» → 1250.5 · «1,5» → 1.5 · «1.5» → 1.5 (một dấu chấm,
+/// ≤ 2 số sau → coi là thập phân). Không đọc được → null.
+double? parseViDecimal(String text) {
+  var t = text.trim().replaceAll(' ', '');
+  if (t.isEmpty) return null;
+  if (t.contains(',')) {
+    t = t.replaceAll('.', '').replaceAll(',', '.');
+  } else if ('.'.allMatches(t).length == 1 && t.split('.').last.length <= 2) {
+    // «1.5» / «2.25»: thập phân.
+  } else {
+    t = t.replaceAll('.', '');
+  }
+  return double.tryParse(t);
+}
+
+/// Hiển thị số lượng kiểu VN, giữ phần lẻ: 1250.5 → «1.250,5».
+String formatViQty(num v) => NumberFormat('#,##0.###', 'vi_VN').format(v);
+
 /// Parse chuỗi đã format về num (bỏ dấu phân tách)
 num? parseFormattedNumber(String text) {
   if (text.isEmpty) return null;

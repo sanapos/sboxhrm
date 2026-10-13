@@ -230,6 +230,17 @@ class _PosTouchImeHostState extends State<PosTouchImeHost> {
   }
 }
 
+/// Bọc ô nhập có danh sách gợi ý thả xuống (tìm hàng, tìm khách…): khi bàn phím bật,
+/// [PosKeyboardLift] chừa thêm [below] px dưới ô để danh sách hiện đủ phía trên bàn phím.
+class PosImeReserve extends InheritedWidget {
+  const PosImeReserve({super.key, required this.below, required super.child});
+
+  final double below;
+
+  @override
+  bool updateShouldNotify(PosImeReserve oldWidget) => oldWidget.below != below;
+}
+
 /// Đẩy cả app lên khi bàn phím ảo che ô đang gõ (giống adjustPan nhưng tự tính trong Flutter).
 ///
 /// Màn bán hàng cố ý không co theo bàn phím (`resizeToAvoidBottomInset: false`), app còn giới hạn
@@ -248,7 +259,10 @@ class PosKeyboardLift extends StatefulWidget {
 }
 
 class _PosKeyboardLiftState extends State<PosKeyboardLift> with WidgetsBindingObserver {
+  /// Khoảng dịch đích.
   double _dy = 0;
+  /// Khoảng đang dịch thật trên màn (đang chạy hiệu ứng thì khác [_dy]).
+  double _applied = 0;
   int _seq = 0;
 
   @override
@@ -294,9 +308,12 @@ class _PosKeyboardLiftState extends State<PosKeyboardLift> with WidgetsBindingOb
       final state = node.context!.findAncestorStateOfType<EditableTextState>();
       final box = (state?.context ?? node.context)!.findRenderObject();
       if (box is RenderBox && box.attached && box.hasSize) {
-        // Toạ độ đã gồm phần đang dịch → cộng lại để có vị trí gốc.
-        final top = box.localToGlobal(Offset.zero).dy + _dy;
-        final bottom = top + box.size.height;
+        // Toạ độ đã gồm phần đang dịch thật → cộng lại để có vị trí gốc (không dùng [_dy]:
+        // giữa hiệu ứng, cộng đích sẽ tưởng ô thấp hơn thật rồi đẩy tới kịch trần).
+        final top = box.localToGlobal(Offset.zero).dy + _applied;
+        final reserve =
+            node.context!.getInheritedWidgetOfExactType<PosImeReserve>()?.below ?? 0;
+        final bottom = top + box.size.height + reserve;
         final visibleBottom = raw.size.height - inset - widget.gap;
         if (bottom > visibleBottom) {
           next = math.min(bottom - visibleBottom, inset);
@@ -311,13 +328,23 @@ class _PosKeyboardLiftState extends State<PosKeyboardLift> with WidgetsBindingOb
   @override
   Widget build(BuildContext context) {
     if (kIsWeb) return widget.child;
-    return TweenAnimationBuilder<double>(
-      tween: Tween<double>(end: _dy),
-      duration: const Duration(milliseconds: 160),
-      curve: Curves.easeOut,
-      builder: (_, v, child) =>
-          v.abs() < 0.5 ? child! : Transform.translate(offset: Offset(0, -v), child: child),
-      child: widget.child,
+    // Màn tự cuộn ô vào tầm nhìn (ensureVisible) sau khi bàn phím bật — đo lại khi cuộn xong,
+    // không thì vừa cuộn vừa dịch cộng dồn, ô trượt khỏi đỉnh màn.
+    return NotificationListener<ScrollEndNotification>(
+      onNotification: (_) {
+        if (_dy > 0 || MediaQuery.viewInsetsOf(context).bottom > 0) _schedule();
+        return false;
+      },
+      child: TweenAnimationBuilder<double>(
+        tween: Tween<double>(end: _dy),
+        duration: const Duration(milliseconds: 160),
+        curve: Curves.easeOut,
+        builder: (_, v, child) {
+          _applied = v.abs() < 0.5 ? 0 : v;
+          return _applied == 0 ? child! : Transform.translate(offset: Offset(0, -v), child: child);
+        },
+        child: widget.child,
+      ),
     );
   }
 }
