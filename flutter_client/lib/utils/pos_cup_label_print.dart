@@ -330,7 +330,13 @@ Future<List<CupLabelTicket>> printCupLabelsRemaining({
   );
 
   await PosPrintOrchestrator.instance.refreshConfig();
-  final cloudPrinter = await _resolveCupLabelCloudPrinter();
+  var cloudPrinter = await _resolveCupLabelCloudPrinter();
+  if (cloudPrinter != null &&
+      PosPrintOrchestrator.instance.isServedBySelfAgent(cloudPrinter)) {
+    // Agent chính máy này không nhận lệnh do mình gửi → tem treo; báo lỗi để thu ngân in lại.
+    debugPrint('Cup label: bỏ cloud ${cloudPrinter.name} — Agent là chính máy này');
+    cloudPrinter = null;
+  }
   if (cloudPrinter != null && outputs.isNotEmpty) {
     try {
       // Máy tem (TSPL/Xprinter): phải gửi bitmap TSPL — EscPos ghi USB «OK»

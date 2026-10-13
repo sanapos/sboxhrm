@@ -29,6 +29,8 @@ public enum PosPrintDocumentType
     Acceptance = 21,
     /// <summary>Đề nghị thanh toán / tạm ứng theo hợp đồng.</summary>
     PaymentRequest = 22,
+    /// <summary>Tem vận đơn (máy tem khổ lớn 100×150 / 80×80).</summary>
+    ShippingLabel = 23,
 }
 
 /// <summary>Loại kết nối máy in cửa hàng.</summary>

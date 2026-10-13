@@ -337,7 +337,7 @@ class _PosLocalPrintersScreenState extends State<PosLocalPrintersScreen> {
       body: _loading
           ? const Center(child: CircularProgressIndicator())
           : ListView(
-              padding: const EdgeInsets.fromLTRB(12, 12, 12, 88),
+              padding: const EdgeInsets.fromLTRB(12, 12, 12, 132),
               children: [
                 Card(
                   color: SboxColors.brand50,

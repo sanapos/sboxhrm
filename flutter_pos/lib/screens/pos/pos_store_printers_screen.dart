@@ -785,8 +785,106 @@ class _PosStorePrintersScreenState extends State<PosStorePrintersScreen> {
           },
           icon: const Icon(Icons.phone_android),
         ),
+        IconButton(
+          tooltip: tr('Dọn máy in cũ'),
+          onPressed: _cleanupStalePrinters,
+          icon: const Icon(Icons.cleaning_services_outlined),
+        ),
         IconButton(onPressed: _load, icon: const Icon(Icons.refresh)),
       ];
+
+  /// Máy in lâu không hoạt động (cài lại app / đổi máy để lại bản ghi) → tắt, không xóa.
+  Future<void> _cleanupStalePrinters() async {
+    const days = 14;
+    final res = await _api.getPosStalePrinters(days: days);
+    if (!mounted) return;
+    if (res['isSuccess'] != true) {
+      NotificationOverlayManager().showError(
+        title: 'Không tải được',
+        message: res['message']?.toString() ?? 'Thử lại',
+      );
+      return;
+    }
+    final list = (res['data'] as List? ?? const [])
+        .whereType<Map>()
+        .map((e) => Map<String, dynamic>.from(e))
+        .toList();
+    if (list.isEmpty) {
+      NotificationOverlayManager().showSuccess(
+        title: 'Không có máy in cũ',
+        message: 'Mọi máy in đều hoạt động trong $days ngày qua',
+      );
+      return;
+    }
+    final ok = await showDialog<bool>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: Text(tr('Tắt ${list.length} máy in cũ?')),
+        content: SizedBox(
+          width: 420,
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(
+                tr('Không hoạt động, không lệnh in và không Agent nào nhận trong $days ngày. '
+                    'Chỉ tắt (bật lại được), không xóa.'),
+                style: const TextStyle(fontSize: 13, color: PosTheme.textSecondary),
+              ),
+              const SizedBox(height: 8),
+              Flexible(
+                child: ListView(
+                  shrinkWrap: true,
+                  children: [
+                    for (final p in list)
+                      ListTile(
+                        dense: true,
+                        contentPadding: EdgeInsets.zero,
+                        leading: Icon(
+                          p['isDeviceLocal'] == true
+                              ? Icons.phone_android
+                              : Icons.cloud_outlined,
+                          size: 18,
+                        ),
+                        title: Text('${p['name'] ?? ''} · ${p['connectionType'] ?? ''}'),
+                        subtitle: Text(p['reason']?.toString() ?? ''),
+                      ),
+                  ],
+                ),
+              ),
+            ],
+          ),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(ctx, false),
+            child: Text(tr('Hủy')),
+          ),
+          FilledButton(
+            onPressed: () => Navigator.pop(ctx, true),
+            child: Text(tr('Tắt máy cũ')),
+          ),
+        ],
+      ),
+    );
+    if (ok != true || !mounted) return;
+    final r = await _api.deactivatePosStalePrinters(days: days);
+    if (!mounted) return;
+    if (r['isSuccess'] == true) {
+      final n = (r['data'] is Map ? (r['data'] as Map)['deactivated'] : null) ?? list.length;
+      NotificationOverlayManager().showSuccess(
+        title: 'Đã tắt $n máy in cũ',
+        message: 'Bật lại trong danh sách nếu cần',
+      );
+      unawaited(PosPrintOrchestrator.instance.refreshConfig(force: true));
+      await _load();
+    } else {
+      NotificationOverlayManager().showError(
+        title: 'Không tắt được',
+        message: r['message']?.toString() ?? 'Thử lại',
+      );
+    }
+  }
 
   bool get _hideCloudChrome {
     // Trong tab «Máy in» đã có thanh tiêu đề ngoài — không chồng thêm AppBar.
@@ -887,7 +985,7 @@ class _PosStorePrintersScreenState extends State<PosStorePrintersScreen> {
               onRefresh: _load,
               child: ListView(
                 // Chừa chỗ FAB «Thêm máy in».
-                padding: const EdgeInsets.fromLTRB(12, 12, 12, 100),
+                padding: const EdgeInsets.fromLTRB(12, 12, 12, 132),
                 children: [
                   if (hideOuter) ...[
                     _embeddedToolbar(),

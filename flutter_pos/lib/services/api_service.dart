@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'dart:convert';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/painting.dart';
@@ -11616,7 +11617,30 @@ class ApiService {
         .timeout(_defaultTimeout);
   }
 
+  static bool _raw401Checking = false;
+
+  /// Lệnh gọi `http` thô (không qua [_retryOnUnauthorized]) bị 401: thử refresh token;
+  /// không được → đăng xuất có thông báo thay vì lỗi im lặng (Agent đăng ký lỗi mỗi 12 giây).
+  void _onRaw401(http.Response response) {
+    if (_raw401Checking || _token == null) return;
+    final path = response.request?.url.path.toLowerCase() ?? '';
+    if (path.contains('/api/auth/')) return;
+    _raw401Checking = true;
+    unawaited(() async {
+      try {
+        final r = await refreshToken();
+        if (r == null) {
+          debugPrint('❌ ApiService: 401 $path, refresh hỏng → hết phiên');
+          await _triggerSessionExpired();
+        }
+      } finally {
+        _raw401Checking = false;
+      }
+    }());
+  }
+
   Map<String, dynamic> _handleResponse(http.Response response) {
+    if (response.statusCode == 401) _onRaw401(response);
     try {
       final rawBody = utf8.decode(response.bodyBytes, allowMalformed: true);
 
@@ -20075,6 +20099,30 @@ class ApiService {
         'hours': '$hours',
       });
       final response = await http.get(uri, headers: _headers).timeout(const Duration(seconds: 20));
+      return _handleResponse(response);
+    } catch (e) {
+      return _connectionFailure(e);
+    }
+  }
+
+  /// Máy in lâu không hoạt động (xem trước — không đổi gì).
+  Future<Map<String, dynamic>> getPosStalePrinters({int days = 14}) async {
+    try {
+      final uri = Uri.parse('$baseUrl/api/pos/printers/stale')
+          .replace(queryParameters: {'days': '$days'});
+      final response = await http.get(uri, headers: _headers).timeout(const Duration(seconds: 20));
+      return _handleResponse(response);
+    } catch (e) {
+      return _connectionFailure(e);
+    }
+  }
+
+  /// Tắt (không xóa) máy in cũ.
+  Future<Map<String, dynamic>> deactivatePosStalePrinters({int days = 14}) async {
+    try {
+      final uri = Uri.parse('$baseUrl/api/pos/printers/stale/deactivate')
+          .replace(queryParameters: {'days': '$days'});
+      final response = await http.post(uri, headers: _headers).timeout(const Duration(seconds: 20));
       return _handleResponse(response);
     } catch (e) {
       return _connectionFailure(e);

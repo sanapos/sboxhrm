@@ -11360,9 +11360,25 @@ class _PosSellScreenState extends State<PosSellScreen>
       if (!mounted || res['isSuccess'] != true || res['data'] is! Map) return;
       final n = ((res['data'] as Map)['problemCount'] as num?)?.toInt() ?? 0;
       if (n != _storePrintProblems) setState(() => _storePrintProblems = n);
+      await _dropSettledKitchenPending();
     }
     unawaited(tick());
     _storePrintPollTimer = Timer.periodic(const Duration(seconds: 30), (_) => unawaited(tick()));
+  }
+
+  /// Phiếu bếp treo mà lệnh gốc đã in xong (Agent chậm / máy khác In lại) → gỡ, không hủy lệnh.
+  Future<void> _dropSettledKitchenPending() async {
+    final jobs = _failedKitchenPrints
+        .where((j) => _pendingKitchenSourceJobId(j.id) != null)
+        .toList();
+    if (jobs.isEmpty) return;
+    final done = <String>{};
+    for (final j in jobs) {
+      if (await _kitchenPendingSettledOnServer(j)) done.add(j.id);
+    }
+    if (done.isEmpty || !mounted) return;
+    setState(() => _failedKitchenPrints.removeWhere((j) => done.contains(j.id)));
+    unawaited(_persistPendingPrintQueue());
   }
 
   Future<void> _startStorePrintPollOnce() async {
@@ -11989,6 +12005,19 @@ class _PosSellScreenState extends State<PosSellScreen>
               contentPadding: EdgeInsets.zero,
             ),
           ),
+        if (_printSettings.showCupLabelManualButton)
+          PopupMenuItem(
+            value: 'cup_label',
+            enabled: _cupLabelActionEnabled,
+            child: ListTile(
+              dense: true,
+              leading: const Icon(Icons.sticky_note_2_outlined, size: 20),
+              title: Text(tr(_cupLabelPendingCount > 0
+                  ? 'In tem ly ($_cupLabelPendingCount)'
+                  : 'In tem ly')),
+              contentPadding: EdgeInsets.zero,
+            ),
+          ),
         if (!_isTableOrderMode &&
             (_tab.resourceSessionId ?? '').isNotEmpty &&
             _industrySettings?.sellProfile == PosSellProfile.restaurant)
@@ -12078,19 +12107,6 @@ class _PosSellScreenState extends State<PosSellScreen>
               leading: Icon(Icons.event_seat_outlined,
                   size: 20, color: Colors.red.shade700),
               title: Text(tr('Trả về bàn trống')),
-              contentPadding: EdgeInsets.zero,
-            ),
-          ),
-        if (_printSettings.showCupLabelManualButton)
-          PopupMenuItem(
-            value: 'cup_label',
-            enabled: _cupLabelActionEnabled,
-            child: ListTile(
-              dense: true,
-              leading: const Icon(Icons.sticky_note_2_outlined, size: 20),
-              title: Text(tr(_cupLabelPendingCount > 0
-                  ? 'In tem ly ($_cupLabelPendingCount)'
-                  : 'In tem ly')),
               contentPadding: EdgeInsets.zero,
             ),
           ),

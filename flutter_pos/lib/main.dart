@@ -287,7 +287,9 @@ class _PosAuthShellState extends State<_PosAuthShell>
       });
     }
     unawaited(
-      MobileBottomNavPrefs.loadAll().timeout(const Duration(seconds: 4)),
+      MobileBottomNavPrefs.loadAll()
+          .timeout(const Duration(seconds: 4))
+          .then((_) {}, onError: (_) {}),
     );
     unawaited(_loadPermissionsInBackground(auth, perm));
     // SBOX KDS: không mời cập nhật APK POS (khác mã ứng dụng).

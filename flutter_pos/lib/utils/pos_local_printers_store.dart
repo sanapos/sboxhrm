@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'dart:convert';
 import 'dart:math';
 
@@ -7,6 +8,7 @@ import 'package:shared_preferences/shared_preferences.dart';
 import '../models/pos_store_printer.dart';
 import '../services/api_service.dart';
 import 'pos_device_identity.dart';
+import 'pos_print_orchestrator.dart';
 import 'pos_label_printer_settings.dart';
 import 'pos_thermal_printer_settings.dart';
 
@@ -729,6 +731,7 @@ class PosLocalPrintersStore {
     final idx = list.indexWhere((p) => p.id == profile.id);
     var next = profile;
     if (idx >= 0) {
+      if (syncServer) await _updateCloudTwin(list[idx], next);
       list[idx] = next;
     } else {
       list.add(next);
@@ -740,6 +743,57 @@ class PosLocalPrintersStore {
     }
     await saveAll(list);
     return next;
+  }
+
+  /// Máy cloud (Agent) cùng cổng với máy nội bộ cũ — đổi USB→LAN / IP mới mà không sửa
+  /// thì Agent vẫn in vào cổng cũ (lỗi) dù máy nội bộ đã đúng.
+  Future<void> _updateCloudTwin(
+      PosLocalPrinterProfile old, PosLocalPrinterProfile next) async {
+    String norm(String? v) => (v ?? '').trim().toLowerCase();
+    final changed = old.connectionType != next.connectionType ||
+        norm(old.lanHost) != norm(next.lanHost) ||
+        old.lanPort != next.lanPort ||
+        norm(old.usbDeviceName) != norm(next.usbDeviceName) ||
+        norm(old.bluetoothAddress) != norm(next.bluetoothAddress);
+    if (!changed) return;
+    try {
+      final oldType = _apiConnection(old.connectionType).toLowerCase();
+      final hits = PosPrintOrchestrator.instance.printers.where((p) {
+        if (p.isDeviceLocal || p.connectionType.toLowerCase() != oldType) {
+          return false;
+        }
+        switch (old.connectionType) {
+          case PosThermalConnectionType.lan:
+            return norm(old.lanHost).isNotEmpty &&
+                norm(p.lanHost) == norm(old.lanHost);
+          case PosThermalConnectionType.usb:
+            return norm(old.usbDeviceName).isNotEmpty &&
+                norm(p.usbDeviceName) == norm(old.usbDeviceName);
+          case PosThermalConnectionType.bluetooth:
+            return norm(old.bluetoothAddress).isNotEmpty &&
+                norm(p.bluetoothAddress) == norm(old.bluetoothAddress);
+          case PosThermalConnectionType.sunmi:
+            return false;
+        }
+      }).toList();
+      if (hits.length != 1) return;
+      final twin = hits.first;
+      final body = twin.toSaveJson()
+        ..['connectionType'] = _apiConnection(next.connectionType)
+        ..['lanHost'] = next.lanHost
+        ..['lanPort'] = next.lanPort
+        ..['usbDeviceName'] = next.usbDeviceName
+        ..['bluetoothAddress'] = next.bluetoothAddress
+        ..['bluetoothName'] = next.bluetoothName;
+      final res = await _api.updatePosStorePrinter(twin.id, body);
+      debugPrint('LocalPrinters: sửa máy cloud ${twin.name} theo kết nối mới '
+          '→ ${res['isSuccess'] == true ? 'OK' : res['message']}');
+      if (res['isSuccess'] == true) {
+        unawaited(PosPrintOrchestrator.instance.refreshConfig(force: true));
+      }
+    } catch (e) {
+      debugPrint('LocalPrinters: sửa máy cloud lỗi $e');
+    }
   }
 
   Future<void> remove(String id, {bool syncServer = true}) async {
@@ -809,17 +863,14 @@ class PosLocalPrintersStore {
         'LocalPrinters.syncOne fail forceNew=$forceNew '
         'oldId=${p.storePrinterId} msg=${res['message']}',
       );
-      // ID cũ có thể là máy Agent / đã xóa / sai cửa hàng → tạo máy device-local mới.
-      if (!forceNew && sendId) {
+      // Server không tìm thấy ID thì tự tạo mới; ở đây server TỪ CHỐI hẳn (máy Agent / sai cửa hàng)
+      // → tạo máy device-local mới. Lỗi mạng / 401 / hết giờ: giữ ID cũ — tạo mới lúc đó sinh máy trùng.
+      final code = (res['statusCode'] as num?)?.toInt() ?? 0;
+      if (!forceNew && sendId && (code == 400 || code == 403 || code == 404)) {
         return syncOne(p.copyWith(clearStorePrinterId: true), forceNew: true);
       }
     } catch (e) {
       debugPrint('LocalPrinters.syncOne error: $e');
-      if (!forceNew && (p.storePrinterId ?? '').trim().isNotEmpty) {
-        try {
-          return syncOne(p.copyWith(clearStorePrinterId: true), forceNew: true);
-        } catch (_) {}
-      }
     }
     return null;
   }
@@ -832,7 +883,8 @@ class PosLocalPrintersStore {
     if (synced != null && (synced.storePrinterId ?? '').trim().isNotEmpty) {
       return synced;
     }
-    return syncOne(p.copyWith(clearStorePrinterId: true), forceNew: true);
+    // Chưa có ID → syncOne đã tạo mới; có ID mà lỗi mạng → không tạo máy trùng.
+    return null;
   }
 
   Future<void> syncAll() async {

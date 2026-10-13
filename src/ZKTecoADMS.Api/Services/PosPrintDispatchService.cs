@@ -1230,6 +1230,10 @@ public class PosPrintDispatchService(
         if (printer == null) return;
 
         var now = DateTime.UtcNow;
+        // Agent báo sức khỏe ~5 giây / máy: trạng thái không đổi thì chỉ ghi «thấy lần cuối», không phát
+        // SignalR cho cả cửa hàng (trước đây ~20 sự kiện / phút / máy dù không có gì thay đổi).
+        var changed = printer.HealthStatus != status ||
+                      !string.Equals(printer.LastErrorMessage ?? "", errorMessage ?? "", StringComparison.Ordinal);
         await db.PosStorePrinters
             .Where(p => p.Id == printerId)
             .ExecuteUpdateAsync(s => s
@@ -1240,6 +1244,7 @@ public class PosPrintDispatchService(
         printer.HealthStatus = status;
         printer.LastSeenAt = now;
         printer.LastErrorMessage = errorMessage;
+        if (!changed) return;
 
         await hubContext.Clients.Group(StoreGroup(printer.StoreId)).SendAsync("PrinterStatusChanged", new
         {

@@ -457,6 +457,18 @@ class PosPrintOrchestrator {
 
   /// Đổi máy device-local → bản cloud/Agent cùng cổng (USB/LAN/BT/Sunmi).
   /// Job gửi ID nội bộ sẽ không được Agent claim.
+  /// Lệnh cloud tới [printer] do Agent CHÍNH MÁY NÀY nhận → Agent bỏ qua lệnh do mình gửi
+  /// (OUTBOUND_SKIP) → phiếu treo tới khi server báo lỗi (~2 phút). In local lỗi thì báo lỗi ngay.
+  bool isServedBySelfAgent(PosStorePrinter printer) {
+    final agent = PosPrintAgentService.instance;
+    if (!agent.isRunning || !agent.isRegistered) return false;
+    final ids = agent.registeredPrinterIds.map((e) => e.toLowerCase()).toSet();
+    if (ids.isEmpty) return false;
+    final twin = preferCloudAgentPrinter(printer);
+    return ids.contains(printer.id.toLowerCase()) ||
+        ids.contains(twin.id.toLowerCase());
+  }
+
   PosStorePrinter preferCloudAgentPrinter(PosStorePrinter printer) {
     if (!printer.isDeviceLocal) return printer;
     final cloud = _printers
@@ -1710,6 +1722,12 @@ class PosPrintOrchestrator {
         if (isAgent) {
           debugPrint(
             'Kitchen DBG: Agent local fail ${printer.name} — không cloud (tránh trùng)',
+          );
+          return false;
+        }
+        if (isServedBySelfAgent(printer)) {
+          debugPrint(
+            'Kitchen DBG: local fail ${printer.name} — Agent là chính máy này, không đẩy cloud',
           );
           return false;
         }
