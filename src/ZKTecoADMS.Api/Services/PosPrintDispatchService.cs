@@ -138,6 +138,29 @@ public class PosPrintDispatchService(
                 var twin = await ResolveCloudAgentTwinAsync(p, ct);
                 if (seen.Add(twin.Id)) remapped.Add(twin);
             }
+            // Phiếu bếp / hủy bếp: cùng thứ tự với app — máy bếp rời (USB > LAN > BT) trước Sunmi trong
+            // quầy, máy đang lỗi / mất kết nối xếp cuối. Trước: đơn QR in Sunmi (máy tạo trước) còn thu ngân
+            // gửi món chưa gán lại in máy LAN — cùng một bếp nhận phiếu ở 2 nơi.
+            if (documentType is PosPrintDocumentType.KitchenSlip or PosPrintDocumentType.KitchenVoid
+                && remapped.Count > 1)
+            {
+                static int Port(PosStorePrinter p) => p.ConnectionType switch
+                {
+                    PosPrinterConnectionType.Usb => 0,
+                    PosPrinterConnectionType.Lan => 1,
+                    PosPrinterConnectionType.Bluetooth => 2,
+                    _ => 3,
+                };
+                static int Broken(PosStorePrinter p) =>
+                    p.HealthStatus is PosPrinterHealthStatus.Error or PosPrinterHealthStatus.Offline ? 1 : 0;
+                remapped = remapped
+                    .Select((p, i) => (p, i))
+                    .OrderBy(x => Broken(x.p))
+                    .ThenBy(x => Port(x.p))
+                    .ThenBy(x => x.i)
+                    .Select(x => x.p)
+                    .ToList();
+            }
             return remapped;
         }
 

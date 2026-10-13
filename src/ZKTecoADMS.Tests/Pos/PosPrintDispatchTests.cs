@@ -519,4 +519,32 @@ public class PosPrintDispatchTests(PosPgFixture fx)
         var b = await EnqueueDocAsync(s.Store, s.Kitchen, PosPrintDocumentType.SaleInvoice, order, "{\"v\":2}");
         Assert.Equal(a.Id, b.Id);
     }
+
+    [Fact]
+    public async Task Kitchen_default_prefers_healthy_external_over_sunmi()
+    {
+        if (NoDb) return;
+        var store = await fx.NewStoreAsync();
+        Guid sunmi = Guid.NewGuid(), lan = Guid.NewGuid(), lanBroken = Guid.NewGuid();
+        await using (var db = fx.NewDb())
+        {
+            db.PosStorePrinters.AddRange(
+                new PosStorePrinter { Id = sunmi, StoreId = store, Name = "Sunmi", ConnectionType = PosPrinterConnectionType.Sunmi, IsActive = true, CreatedAt = DateTime.UtcNow.AddMinutes(-3) },
+                new PosStorePrinter { Id = lanBroken, StoreId = store, Name = "LAN hỏng", ConnectionType = PosPrinterConnectionType.Lan, LanHost = "10.0.0.9", IsActive = true, HealthStatus = PosPrinterHealthStatus.Error, CreatedAt = DateTime.UtcNow.AddMinutes(-2) },
+                new PosStorePrinter { Id = lan, StoreId = store, Name = "LAN bếp", ConnectionType = PosPrinterConnectionType.Lan, LanHost = "10.0.0.8", IsActive = true, CreatedAt = DateTime.UtcNow.AddMinutes(-1) });
+            var t = DateTime.UtcNow.AddMinutes(-10);
+            foreach (var (id, i) in new[] { (sunmi, 0), (lanBroken, 1), (lan, 2) })
+                db.PosPrinterDocumentRoutes.Add(new PosPrinterDocumentRoute
+                {
+                    Id = Guid.NewGuid(), StoreId = store, PrinterId = id, IsActive = true,
+                    DocumentType = PosPrintDocumentType.KitchenSlip, CreatedAt = t.AddSeconds(i),
+                });
+            await db.SaveChangesAsync();
+        }
+        await using (var db = fx.NewDb())
+        {
+            var list = await Svc(db).ResolvePrintersAsync(store, PosPrintDocumentType.KitchenSlip);
+            Assert.Equal(new[] { lan, sunmi, lanBroken }, list.Select(p => p.Id).ToArray());
+        }
+    }
 }
