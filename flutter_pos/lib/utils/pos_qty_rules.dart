@@ -71,6 +71,7 @@ class PosQtyRules {
         areaLength: axis('allowAreaLength', 'AllowAreaLength'),
         areaWidth: axis('allowAreaWidth', 'AllowAreaWidth'),
         areaHeight: axis('allowAreaHeight', 'AllowAreaHeight'),
+        areaQuickSizes: parseAreaQuickSizes(map['areaQuickSizes'] ?? map['AreaQuickSizes']),
         baseUnitName:
             (unit == null || unit.isEmpty) ? product.baseUnitName : unit,
       );

@@ -472,6 +472,8 @@ class PosProduct {
   final bool areaWidth;
   /// Hiện ô chiều cao khi nhập số lượng theo kích thước.
   final bool areaHeight;
+  /// Kích thước chọn nhanh khi nhập Dài·Rộng·Cao (cài trong form hàng hóa).
+  final List<double> areaQuickSizes;
   final bool trackExpiry;
   final int expiryWarningDays;
   /// Mã PLU in trong tem cân (EAN-13 đầu 20–29); null = chưa gán.
@@ -569,6 +571,7 @@ class PosProduct {
     this.areaLength = true,
     this.areaWidth = true,
     this.areaHeight = true,
+    this.areaQuickSizes = const [],
     this.trackExpiry = false,
     this.expiryWarningDays = 30,
     this.scalePlu,
@@ -651,6 +654,9 @@ class PosProduct {
   bool get showAreaLength => allowAreaQty && (!_areaAxesValid || areaLength);
   bool get showAreaWidth => allowAreaQty && (!_areaAxesValid || areaWidth);
   bool get showAreaHeight => allowAreaQty && (!_areaAxesValid || areaHeight);
+
+  /// Dạng lưu máy chủ: «0.2;0.4;0.6».
+  String get areaQuickSizesRaw => areaQuickSizes.map((v) => v.toString()).join(';');
 
   factory PosProduct.fromJson(Map<String, dynamic> json) {
     DateTime? dt(dynamic v) => parseApiUtcDateTime(v);
@@ -763,6 +769,7 @@ class PosProduct {
       areaLength: _areaAxisFromJson(json, 'allowAreaLength', 'AllowAreaLength'),
       areaWidth: _areaAxisFromJson(json, 'allowAreaWidth', 'AllowAreaWidth'),
       areaHeight: _areaAxisFromJson(json, 'allowAreaHeight', 'AllowAreaHeight'),
+      areaQuickSizes: parseAreaQuickSizes(json['areaQuickSizes'] ?? json['AreaQuickSizes']),
       trackExpiry: json['trackExpiry'] == true || json['TrackExpiry'] == true,
       expiryWarningDays:
           (json['expiryWarningDays'] ?? json['ExpiryWarningDays'] as num?)?.toInt() ?? 30,
@@ -891,6 +898,7 @@ class PosProduct {
       'allowAreaLength': areaLength,
       'allowAreaWidth': areaWidth,
       'allowAreaHeight': areaHeight,
+      if (areaQuickSizes.isNotEmpty) 'areaQuickSizes': areaQuickSizesRaw,
       if (trackExpiry) 'trackExpiry': true,
       if (trackExpiry) 'expiryWarningDays': expiryWarningDays,
       'scalePlu': scalePlu,
@@ -974,6 +982,7 @@ class PosProduct {
     bool? areaLength,
     bool? areaWidth,
     bool? areaHeight,
+    List<double>? areaQuickSizes,
   }) {
     return PosProduct(
       id: id ?? this.id,
@@ -1017,6 +1026,7 @@ class PosProduct {
       areaLength: areaLength ?? this.areaLength,
       areaWidth: areaWidth ?? this.areaWidth,
       areaHeight: areaHeight ?? this.areaHeight,
+      areaQuickSizes: areaQuickSizes ?? this.areaQuickSizes,
       trackExpiry: this.trackExpiry,
       scalePlu: scalePlu ?? this.scalePlu,
       packShelfLifeDays: this.packShelfLifeDays,
@@ -1086,6 +1096,7 @@ class PosProduct {
         'allowAreaLength': areaLength,
         'allowAreaWidth': areaWidth,
         'allowAreaHeight': areaHeight,
+        'areaQuickSizes': areaQuickSizesRaw,
         'variantCount': variantCount,
         'saleQuickNotes': saleQuickNotes,
         'isTopping': isTopping,
@@ -1375,4 +1386,17 @@ class PosStockReceipt {
           : [],
     );
   }
+}
+
+/// «0.2;0.4;0,6» (hoặc list số) → [0.2, 0.4, 0.6]; bỏ giá trị sai / trùng.
+List<double> parseAreaQuickSizes(dynamic raw) {
+  final parts = raw is List
+      ? raw.map((e) => e.toString())
+      : (raw?.toString() ?? '').split(RegExp(r'[;\s|]+'));
+  final out = <double>[];
+  for (final part in parts) {
+    final v = double.tryParse(part.trim().replaceAll(',', '.'));
+    if (v != null && v > 0 && !out.contains(v)) out.add(v);
+  }
+  return out;
 }

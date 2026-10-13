@@ -111,7 +111,8 @@ public partial class PosProductsController(
         decimal? MinPricePerSet = null,
         string? ScalePlu = null,
         int? PackShelfLifeDays = null,
-        decimal? LoyaltyPercent = null);
+        decimal? LoyaltyPercent = null,
+        string? AreaQuickSizes = null);
 
     public record PosProductComboLineDto(
         Guid Id,
@@ -224,7 +225,8 @@ public partial class PosProductsController(
         // Tồn lúc mở form sửa — chỉ ghi tồn khi người dùng thực sự đổi ô tồn kho
         // (tránh ghi đè số tồn cũ lên lượt bán xảy ra trong lúc đang sửa hàng).
         decimal? OriginalOnHandQty = null,
-        decimal? LoyaltyPercent = null);
+        decimal? LoyaltyPercent = null,
+        string? AreaQuickSizes = null);
 
     public record PosProductAttributeInput(Guid? AttributeId, string? AttributeName, string Value);
 
@@ -393,6 +395,7 @@ public partial class PosProductsController(
                 p.AllowAreaLength,
                 p.AllowAreaWidth,
                 p.AllowAreaHeight,
+                p.AreaQuickSizes,
                 p.ServiceBillingMode,
                 p.MinBillMinutes,
                 p.BillRoundMinutes,
@@ -498,7 +501,8 @@ public partial class PosProductsController(
                 MinPricePerSet: r.MinPricePerSet,
                 ScalePlu: r.ScalePlu,
                 PackShelfLifeDays: r.PackShelfLifeDays,
-                LoyaltyPercent: r.LoyaltyPercent);
+                LoyaltyPercent: r.LoyaltyPercent,
+                AreaQuickSizes: r.AreaQuickSizes);
         }).ToList();
 
         if (stockoutFilter != PosStockoutFilter.All)
@@ -1036,6 +1040,7 @@ public partial class PosProductsController(
             AllowAreaLength = source.AllowAreaLength,
             AllowAreaWidth = source.AllowAreaWidth,
             AllowAreaHeight = source.AllowAreaHeight,
+            AreaQuickSizes = source.AreaQuickSizes,
             TrackExpiry = source.TrackExpiry,
             ExpiryWarningDays = source.ExpiryWarningDays,
             IsTopping = source.IsTopping,
@@ -1325,7 +1330,8 @@ public partial class PosProductsController(
             MinPricePerSet: p.MinPricePerSet,
             ScalePlu: p.ScalePlu,
             PackShelfLifeDays: p.PackShelfLifeDays,
-            LoyaltyPercent: p.LoyaltyPercent);
+            LoyaltyPercent: p.LoyaltyPercent,
+            AreaQuickSizes: p.AreaQuickSizes);
     }
 
     private async Task<DateTime> ResolveStoreBusinessDateAsync(Guid storeId)
@@ -1581,6 +1587,25 @@ public partial class PosProductsController(
         return map;
     }
 
+    /// <summary>«0,2; 0.4 ;0,6» → «0.2;0.4;0.6» — số dương, không trùng, tối đa 12 giá trị.</summary>
+    internal static string? NormalizeAreaQuickSizes(string? raw)
+    {
+        if (string.IsNullOrWhiteSpace(raw)) return null;
+        var values = new List<decimal>();
+        foreach (var part in raw.Split(new[] { ';', ' ', '|', '\n' }, StringSplitOptions.RemoveEmptyEntries))
+        {
+            var t = part.Trim().Replace(',', '.');
+            if (!decimal.TryParse(t, System.Globalization.NumberStyles.Number,
+                    System.Globalization.CultureInfo.InvariantCulture, out var v) || v <= 0 || v > 100000)
+                continue;
+            v = Math.Round(v, 4);
+            if (!values.Contains(v)) values.Add(v);
+            if (values.Count >= 12) break;
+        }
+        if (values.Count == 0) return null;
+        return string.Join(";", values.Select(v => v.ToString("0.####", System.Globalization.CultureInfo.InvariantCulture)));
+    }
+
     private static void ApplyQtyMode(PosProduct entity, PosProductUpsertDto dto)
     {
         var length = dto.AllowAreaLength;
@@ -1600,6 +1625,7 @@ public partial class PosProductsController(
         entity.AllowAreaLength = length;
         entity.AllowAreaWidth = width;
         entity.AllowAreaHeight = height;
+        entity.AreaQuickSizes = NormalizeAreaQuickSizes(dto.AreaQuickSizes);
 
         // Hàng gia công: chỉ hàng hóa / nguyên vật liệu; giá m² cần bật gia công.
         entity.IsMadeToOrder = dto.IsMadeToOrder &&

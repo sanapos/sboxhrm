@@ -10111,6 +10111,7 @@ class _PosSellScreenState extends State<PosSellScreen>
       askWidth: productNow.showAreaWidth,
       askHeight: productNow.showAreaHeight,
       productId: productNow.id,
+      quickSizes: productNow.areaQuickSizes,
       serialOnly: productNow.requiresSerial,
       existingNote: line.lineNote,
     );

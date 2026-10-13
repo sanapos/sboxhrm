@@ -15,6 +15,7 @@ import '../../services/api_service.dart';
 import '../../services/pos_product_image_cache.dart';
 import '../../utils/image_source_picker.dart';
 import '../../utils/pos_product_editor_prefs.dart';
+import '../../utils/pos_area_dims.dart';
 import '../../utils/pos_qty_rules.dart';
 import '../../utils/pos_combo_stock.dart';
 import '../../widgets/notification_overlay.dart';
@@ -285,6 +286,8 @@ class _PosProductEditorPageState extends State<PosProductEditorPage>
   bool _areaLength = false;
   bool _areaWidth = false;
   bool _areaHeight = false;
+  /// Kích thước chọn nhanh khi bán, vd. «0,6; 0,8; 1,2».
+  final _areaSizesCtrl = TextEditingController();
   bool _trackExpiry = false;
   PosServiceBillingMode _serviceBillingMode = PosServiceBillingMode.flat;
   late final TextEditingController _minBillMinutesCtrl;
@@ -953,6 +956,7 @@ class _PosProductEditorPageState extends State<PosProductEditorPage>
     _lengthCtrl.dispose();
     _widthCtrl.dispose();
     _heightCtrl.dispose();
+    _areaSizesCtrl.dispose();
     _descCtrl.dispose();
     _unitCtrl.dispose();
     _warrantyMonthsCtrl.dispose();
@@ -1178,6 +1182,7 @@ class _PosProductEditorPageState extends State<PosProductEditorPage>
         'allowAreaLength': _areaLength,
         'allowAreaWidth': _areaWidth,
         'allowAreaHeight': _areaHeight,
+        'areaQuickSizes': _areaQuickSizesForSave,
         'trackExpiry': _trackExpiry,
         'expiryWarningDays':
             int.tryParse(_expiryWarningDaysCtrl.text.trim()) ?? 30,
@@ -1747,7 +1752,7 @@ class _PosProductEditorPageState extends State<PosProductEditorPage>
         _descCtrl.text, _unitCtrl.text, _categoryId, _brandId, _locationId,
         _supplierId, _imageBase64?.length, _pendingImageName, _directSale,
         _allowDecimalQty, _allowAreaQty, _areaLength, _areaWidth, _areaHeight,
-        _requiresSerial, _units.length, _variantAttrs.length,
+        _requiresSerial, _areaSizesCtrl.text, _units.length, _variantAttrs.length,
         _comboLines.length, _recipeLines.length,
       ].join('|');
 
@@ -3530,12 +3535,21 @@ class _PosProductEditorPageState extends State<PosProductEditorPage>
     );
   }
 
+  List<double> get _areaQuickSizesPreview => parseAreaQuickSizes(_areaSizesCtrl.text);
+
+  /// «0,6; 0,8» → «0.6;0.8» (máy chủ chuẩn hóa thêm lần nữa).
+  String get _areaQuickSizesForSave =>
+      _areaQuickSizesPreview.map((v) => v.toString()).join(';');
+
   void _loadAreaAxes(PosProduct? p) {
     _allowAreaQty = p?.allowAreaQty ?? false;
     // Giữ đúng các chiều đã cài cho hàng (trước đây luôn tick cả 3).
     _areaLength = p?.showAreaLength ?? false;
     _areaWidth = p?.showAreaWidth ?? false;
     _areaHeight = p?.showAreaHeight ?? false;
+    _areaSizesCtrl.text = (p?.areaQuickSizes ?? const <double>[])
+        .map((v) => formatPosDim(v))
+        .join('; ');
   }
 
   void _setAreaMaster(bool on) {
@@ -3591,6 +3605,35 @@ class _PosProductEditorPageState extends State<PosProductEditorPage>
           axis('Chiều dài', _areaLength, (v) => _setAreaAxis(length: v)),
           axis('Chiều rộng', _areaWidth, (v) => _setAreaAxis(width: v)),
           axis('Chiều cao', _areaHeight, (v) => _setAreaAxis(height: v)),
+          const SizedBox(height: 8),
+          TextField(
+            controller: _areaSizesCtrl,
+            enabled: !locked,
+            keyboardType: const TextInputType.numberWithOptions(decimal: true),
+            onChanged: (_) => setState(() {}),
+            decoration: PosTheme.inputDecoration(
+              label: 'Kích thước chọn nhanh khi bán',
+              hint: 'vd. 0,6; 0,8; 1,2; 2,4',
+            ).copyWith(
+              helperText: tr('Cách nhau bằng dấu «;». Khi bán hiện thành nút chạm để điền nhanh từng chiều.'),
+              helperMaxLines: 2,
+            ),
+          ),
+          if (_areaQuickSizesPreview.isNotEmpty)
+            Padding(
+              padding: const EdgeInsets.only(top: 8),
+              child: Wrap(
+                spacing: 6,
+                runSpacing: 6,
+                children: [
+                  for (final v in _areaQuickSizesPreview)
+                    Chip(
+                      label: Text(formatPosDim(v)),
+                      visualDensity: VisualDensity.compact,
+                    ),
+                ],
+              ),
+            ),
           if (n == 1)
             Align(
               alignment: Alignment.centerLeft,
@@ -3778,6 +3821,15 @@ class _PosProductEditorPageState extends State<PosProductEditorPage>
         'autoOpenToppingPopup': _autoOpenToppingPopup,
         'showComboComponentsOnSell': _isCombo && _showComboComponentsOnSell,
         'comboTrackStock': _isCombo && _comboTrackStock,
+        if (_isGoods) ...{
+          'requiresSerial': _requiresSerial,
+          'allowDecimalQty': _allowDecimalQty || _allowAreaQty,
+          'allowAreaQty': _allowAreaQty,
+          'allowAreaLength': _areaLength,
+          'allowAreaWidth': _areaWidth,
+          'allowAreaHeight': _areaHeight,
+          'areaQuickSizes': _areaQuickSizesForSave,
+        },
       'commissionMode': _commissionMode,
       'commissionPercent': _parseNum(_commissionPercentCtrl.text),
       'commissionFixed': _parseNum(_commissionFixedCtrl.text),

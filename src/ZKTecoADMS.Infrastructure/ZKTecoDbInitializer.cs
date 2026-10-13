@@ -77,6 +77,8 @@ public class ZKTecoDbInitializer(
                     await context.Database.ExecuteSqlRawAsync(
                         "ALTER TABLE \"PosProducts\" ADD COLUMN IF NOT EXISTS \"AllowAreaHeight\" boolean NOT NULL DEFAULT true;");
                     await context.Database.ExecuteSqlRawAsync(
+                        "ALTER TABLE \"PosProducts\" ADD COLUMN IF NOT EXISTS \"AreaQuickSizes\" character varying(300) NULL;");
+                    await context.Database.ExecuteSqlRawAsync(
                         "ALTER TABLE \"PosStoreCommercialProfiles\" ADD COLUMN IF NOT EXISTS \"StampPngBase64\" text NULL;");
                     await context.Database.ExecuteSqlRawAsync(
                         "ALTER TABLE \"PosStoreCommercialProfiles\" ADD COLUMN IF NOT EXISTS \"LogoPngBase64\" text NULL;");
@@ -211,6 +213,7 @@ public class ZKTecoDbInitializer(
                     ALTER TABLE ""PosProducts"" ADD COLUMN IF NOT EXISTS ""AllowAreaLength"" boolean NOT NULL DEFAULT true;
                     ALTER TABLE ""PosProducts"" ADD COLUMN IF NOT EXISTS ""AllowAreaWidth"" boolean NOT NULL DEFAULT true;
                     ALTER TABLE ""PosProducts"" ADD COLUMN IF NOT EXISTS ""AllowAreaHeight"" boolean NOT NULL DEFAULT true;
+                    ALTER TABLE ""PosProducts"" ADD COLUMN IF NOT EXISTS ""AreaQuickSizes"" character varying(300) NULL;
                     ALTER TABLE ""PosProducts"" ADD COLUMN IF NOT EXISTS ""SortOrder"" integer NOT NULL DEFAULT 0;
                     ALTER TABLE ""PosProducts"" ADD COLUMN IF NOT EXISTS ""LengthCm"" numeric(18,2) NULL;
                     ALTER TABLE ""PosProducts"" ADD COLUMN IF NOT EXISTS ""WidthCm"" numeric(18,2) NULL;
@@ -1717,6 +1720,7 @@ public class ZKTecoDbInitializer(
                     ALTER TABLE ""PosProducts"" ADD COLUMN IF NOT EXISTS ""AllowAreaLength"" boolean NOT NULL DEFAULT true;
                     ALTER TABLE ""PosProducts"" ADD COLUMN IF NOT EXISTS ""AllowAreaWidth"" boolean NOT NULL DEFAULT true;
                     ALTER TABLE ""PosProducts"" ADD COLUMN IF NOT EXISTS ""AllowAreaHeight"" boolean NOT NULL DEFAULT true;
+                    ALTER TABLE ""PosProducts"" ADD COLUMN IF NOT EXISTS ""AreaQuickSizes"" character varying(300) NULL;
                     ALTER TABLE ""PosProducts"" ADD COLUMN IF NOT EXISTS ""DailySoldOutOn"" timestamp without time zone NULL;
                     ALTER TABLE ""PosProducts"" ADD COLUMN IF NOT EXISTS ""CommissionMode"" integer NOT NULL DEFAULT 0;
                     ALTER TABLE ""PosProducts"" ADD COLUMN IF NOT EXISTS ""CommissionPercent"" numeric(18,2) NOT NULL DEFAULT 0;

@@ -57,6 +57,8 @@ Future<PosLineQtyResult?> showPosLineQtyDialog({
   String? existingNote,
   /// Để nhớ kích thước hay dùng của từng hàng (chip chọn nhanh).
   String? productId,
+  /// Kích thước chọn nhanh cài cho hàng trong form hàng hóa.
+  List<double> quickSizes = const [],
 }) {
   return showDialog<PosLineQtyResult>(
     context: context,
@@ -72,12 +74,11 @@ Future<PosLineQtyResult?> showPosLineQtyDialog({
       serialOnly: serialOnly,
       existingNote: existingNote,
       productId: productId,
+      quickSizes: quickSizes,
     ),
   );
 }
 
-/// Kích thước gợi ý mặc định (m) — chạm để điền nhanh.
-const _kDefaultDimSizes = <double>[0.2, 0.4, 0.5, 0.6, 0.8, 1, 1.2, 1.5, 2, 2.4];
 const _kRecentDimMax = 6;
 
 String _recentDimKey(String productId, String axis) => 'pos_area_recent_${productId}_$axis';
@@ -95,9 +96,11 @@ class _PosLineQtyDialog extends StatefulWidget {
     this.serialOnly = false,
     this.existingNote,
     this.productId,
+    this.quickSizes = const [],
   });
 
   final String? productId;
+  final List<double> quickSizes;
   final String productName;
   final String unitName;
   final double initialQty;
@@ -250,13 +253,14 @@ class _PosLineQtyDialogState extends State<_PosLineQtyDialog> {
     );
   }
 
-  /// Ô nhập một chiều + hàng chip kích thước chọn nhanh (hay dùng trước, gợi ý sau).
+  /// Ô nhập một chiều + chip chọn nhanh: kích thước cài cho hàng, rồi kích thước
+  /// hay dùng trên máy này (biểu tượng lịch sử).
   Widget _dimField(String label, String axis, TextEditingController ctrl) {
-    final recent = _recent[axis] ?? const <double>[];
-    final sizes = <double>[
-      ...recent,
-      ..._kDefaultDimSizes.where((v) => !recent.contains(v)),
-    ].take(10).toList();
+    final preset = widget.quickSizes;
+    final recent = (_recent[axis] ?? const <double>[])
+        .where((v) => !preset.contains(v))
+        .toList();
+    final sizes = <double>[...preset, ...recent].take(14).toList();
     final current = parsePosDim(ctrl.text);
     return Padding(
       padding: const EdgeInsets.only(bottom: 10),
@@ -275,7 +279,8 @@ class _PosLineQtyDialogState extends State<_PosLineQtyDialog> {
               isDense: true,
             ),
           ),
-          const SizedBox(height: 6),
+          if (sizes.isNotEmpty) const SizedBox(height: 6),
+          if (sizes.isNotEmpty)
           Wrap(
             spacing: 6,
             runSpacing: 6,

@@ -126,6 +126,9 @@ public class PosProduct : AuditableEntity<Guid>
     /// <summary>Hiện ô chiều cao khi nhập số lượng theo kích thước.</summary>
     public bool AllowAreaHeight { get; set; } = true;
 
+    /// <summary>Kích thước chọn nhanh khi nhập Dài·Rộng·Cao, vd. "0.2;0.4;0.6" (dấu chấm thập phân, cách nhau «;»).</summary>
+    public string? AreaQuickSizes { get; set; }
+
     /// <summary>Hàng gia công / sản xuất theo đơn (cửa nhôm kính, nội thất…): đo kích thước khi báo giá.</summary>
     public bool IsMadeToOrder { get; set; }
 
