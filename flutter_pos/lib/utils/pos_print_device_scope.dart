@@ -90,7 +90,15 @@ abstract final class PosPrintDeviceScope {
     // Gán máy nội bộ trên thiết bị này = nguồn sự thật.
     // Không fallback sang DefaultPrinterId cửa hàng (LAN Zywell máy/tài khoản khác).
     if (device.isNotEmpty) {
-      return KitchenPrintRoute.local(device);
+      // Gán trên máy này trỏ tới máy đã xóa / đã dọn → bỏ qua, dùng gán cửa hàng / máy bếp mặc định
+      // (trước: phiếu vào «In treo» với lỗi «không tìm thấy máy đã gán» dù cửa hàng còn máy in).
+      final want = device.toLowerCase();
+      final known = PosPrintOrchestrator.instance.printerByIdExact(device) != null ||
+          (await PosLocalPrintersStore.instance.loadAll()).any((p) =>
+              p.id.toLowerCase() == want ||
+              (p.storePrinterId ?? '').trim().toLowerCase() == want);
+      if (known) return KitchenPrintRoute.local(device);
+      debugPrint('Kitchen: gán máy trên thiết bị $device không còn — dùng gán cửa hàng');
     }
     if (store.isNotEmpty &&
         await canExactLocal(store, documentRole: documentRole)) {
