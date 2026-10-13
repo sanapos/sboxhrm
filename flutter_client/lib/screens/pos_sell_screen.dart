@@ -34,6 +34,8 @@ import '../providers/auth_provider.dart';
 import '../utils/responsive_helper.dart';
 import '../utils/store_role_helper.dart';
 import '../services/pos_network_monitor.dart';
+import '../widgets/pos/pos_offline_banner.dart';
+import '../services/pos_offline_service.dart';
 import '../services/api_service.dart';
 import '../services/branch_session.dart';
 import '../widgets/branch_switcher.dart';
@@ -483,6 +485,9 @@ bool _isWalkInCustomerQuery(String q) {
 }
 
 class _SellInvoiceTab {
+  /// Khóa giữ giỏ trên máy khi mất mạng (PosOfflineService).
+  final String localKey = 'tab-${PosRequestId.newId()}';
+  String? offlineSnapFp;
   _SellInvoiceTab({required this.id});
 
   final int id;
@@ -1391,6 +1396,13 @@ class _PosSellScreenState extends State<PosSellScreen>
     unawaited(PosQrOrderVoiceAlert.instance.start());
     // Đo mạng cửa hàng (ping / lỗi gọi server / realtime / máy in LAN) → báo cáo «Mạng cửa hàng».
     unawaited(PosNetworkMonitor.instance.start());
+    // Bán offline / giữ giỏ khi mất mạng.
+    PosNetworkMonitor.instance.reachable.addListener(_onReachabilityChanged);
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!mounted) return;
+      PosOfflineService.instance.isLiveCart = (k) => _tabs.any((t) => t.localKey == k);
+      unawaited(PosOfflineService.instance.init(_storeId));
+    });
     unawaited(_bootstrapSellScreen());
   }
 
@@ -2115,6 +2127,8 @@ class _PosSellScreenState extends State<PosSellScreen>
     _floorActiveTotals.dispose();
     _stopDraftLockHeartbeat();
     _floorRealtime.dispose();
+    PosNetworkMonitor.instance.reachable.removeListener(_onReachabilityChanged);
+    PosOfflineService.instance.isLiveCart = null;
     _signalRConnSub?.cancel();
     WidgetsBinding.instance.removeObserver(this);
     _qrOnlineSignalSub?.cancel();
@@ -3612,6 +3626,17 @@ class _PosSellScreenState extends State<PosSellScreen>
         title: 'Không có thay đổi',
         message: tr('Chưa có món mới hoặc hủy chờ báo bếp'),
       );
+      return;
+    }
+
+    if (!_serverReachable) {
+      if (cancelLines.isNotEmpty) {
+        NotificationOverlayManager().showWarning(
+          title: 'Hủy món cần có mạng',
+          message: tr('Món hủy giữ lại, báo hủy khi có mạng (cần ghi lý do lên máy chủ)'),
+        );
+      }
+      if (pendingLines.isNotEmpty) await _sendKitchenOffline(pendingLines);
       return;
     }
 
@@ -7189,6 +7214,288 @@ class _PosSellScreenState extends State<PosSellScreen>
 
   bool _autosaveLockRetrying = false;
 
+
+  // ── Mất mạng: giữ giỏ, báo bếp offline, thanh toán offline ─────────────────
+
+  bool get _serverReachable => PosNetworkMonitor.instance.reachable.value;
+
+  void _onReachabilityChanged() {
+    if (!mounted) return;
+    if (_serverReachable) {
+      // Có mạng lại: lưu các giỏ đang giữ trên máy → bỏ bản giữ khi lưu xong.
+      for (final t in _tabs) {
+        if (t.localDirty && t.cart.isNotEmpty) {
+          unawaited(_persistDraftAutosave(forTab: t));
+        }
+      }
+      unawaited(PosOfflineService.instance.syncAll());
+    }
+    setState(() {});
+  }
+
+  /// Giỏ chưa lưu được lên máy chủ → ghi xuống bộ nhớ bền trên máy (mở lại app / văng app vẫn còn).
+  void _snapshotTabOffline(_SellInvoiceTab tab) {
+    if (tab.cart.isEmpty) {
+      unawaited(PosOfflineService.instance.removeCart(tab.localKey));
+      return;
+    }
+    final fp = _cartSyncFingerprint(tab);
+    if (fp == tab.offlineSnapFp) return;
+    tab.offlineSnapFp = fp;
+    unawaited(PosOfflineService.instance.saveCart(tab.localKey, {
+      'draftOrderId': tab.draftOrderId,
+      'tableLabel': formatPosTableLabel(
+        areaName: tab.serviceAreaName,
+        tableName: tab.serviceResourceName,
+      ),
+      'lines': tab.cart.length,
+      'body': _buildSaleBodyFor(tab, complete: false),
+    }));
+  }
+
+  /// Báo bếp lúc mất mạng: in thẳng ra máy in bếp nội bộ, ghi «đã báo» trên máy — có mạng, lưu đơn sẽ
+  /// đồng bộ số đã báo lên máy chủ (không in lại).
+  Future<void> _sendKitchenOffline(List<_SellCartLine> pendingLines) async {
+    final off = PosOfflineService.instance;
+    if (!off.enabled) {
+      NotificationOverlayManager().showError(
+        title: 'Mất kết nối máy chủ',
+        message: tr('Chưa báo bếp được — cửa hàng chưa bật «Cho bán offline». Giỏ hàng đã giữ trên máy, có mạng báo lại.'),
+      );
+      return;
+    }
+    final lines = pendingLines
+        .map((l) => KitchenTicketLine(
+              productName: l.product.name,
+              qty: l.kitchenPendingQty,
+              unitName: l.unitLabel,
+              note: l.noteWithToppings,
+              productId: l.product.id,
+              sentBefore: l.kitchenSentQty,
+              lineKey: '${l.rowId}',
+              calledAt: DateTime.now(),
+            ))
+        .where((l) => l.qty > 0)
+        .toList();
+    if (lines.isEmpty) return;
+    setState(() => _kitchenSending = true);
+    bool ok;
+    try {
+      ok = await printKitchenCompactSlip(
+        tableName: formatPosTableLabel(
+          areaName: _tab.serviceAreaName,
+          tableName: _tab.serviceResourceName,
+        ),
+        isCancel: false,
+        lines: lines,
+        senderName: _kitchenSenderName(),
+        orderNo: _tab.draftOrderNo,
+        showFeedback: false,
+        waitForCompletion: true,
+        skipDedup: false,
+      );
+    } catch (_) {
+      ok = false;
+    } finally {
+      if (mounted) setState(() => _kitchenSending = false);
+    }
+    if (!mounted) return;
+    if (!ok) {
+      NotificationOverlayManager().showError(
+        title: 'Mất mạng — không in được phiếu bếp',
+        message: tr('Máy này không có máy in bếp nội bộ đang kết nối (LAN / USB / Sunmi). Giỏ hàng vẫn giữ trên máy.'),
+      );
+      return;
+    }
+    setState(() {
+      for (final l in pendingLines) {
+        l.kitchenSentQty = l.qty;
+        l.kitchenCancelPendingQty = 0;
+      }
+      _syncCheckoutKitchenChip();
+      _tab.localDirty = true;
+    });
+    _snapshotTabOffline(_tab);
+    NotificationOverlayManager().showSuccess(
+      title: 'Đã in phiếu bếp tại máy (mất mạng)',
+      message: tr('${lines.length} món — tự đồng bộ lên máy chủ khi có mạng'),
+    );
+  }
+
+  /// Đơn có dùng thứ cần máy chủ (chuyển khoản, nợ, voucher, điểm, giao hàng) → không bán offline.
+  String? _offlinePaymentProblem() {
+    if (_sellMode == _SellMode.delivery) return 'Đơn giao hàng cần có mạng';
+    if (_tab.paymentLines.any((p) => p.amount > 0 && p.sourceKey != _PosPaymentSource.cashKey)) {
+      return 'Mất mạng chỉ nhận TIỀN MẶT (chuyển khoản / QR cần có mạng để xác nhận)';
+    }
+    if ((_grandTotal - _effectivePaidAmount) > 0.5) return 'Mất mạng không ghi nợ được — thu đủ tiền mặt';
+    if ((_tab.voucherCode ?? '').isNotEmpty) return 'Voucher cần có mạng — bỏ voucher hoặc chờ có mạng';
+    if (_tab.pointsToRedeem > 0) return 'Đổi điểm cần có mạng — bỏ đổi điểm hoặc chờ có mạng';
+    return null;
+  }
+
+  /// Thanh toán lúc mất mạng (tiền mặt): lưu bền trên máy TRƯỚC, in hóa đơn tạm số OFF-xxxxxx, xóa giỏ.
+  /// Có mạng → tự gửi lên máy chủ đúng thứ tự (máy chủ chống trùng theo số offline + mã yêu cầu).
+  Future<void> _checkoutOffline({bool afterFailure = false}) async {
+    final off = PosOfflineService.instance;
+    final blocked = off.offlineSaleBlockedReason() ?? _offlinePaymentProblem();
+    if (blocked != null) {
+      await _showBlockingPayDialog(
+        title: 'Mất kết nối máy chủ — chưa thanh toán được',
+        message: blocked,
+      );
+      return;
+    }
+    if (!mounted) return;
+    final total = _grandTotal;
+    final yes = await showDialog<bool>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: Text(tr('Thanh toán offline?')),
+        content: Text(tr(
+          '${afterFailure ? 'Mất kết nối lúc thanh toán. ' : 'Đang mất kết nối máy chủ. '}'
+          'Thu TIỀN MẶT ${_moneyFmt.format(total)}, in hóa đơn tạm số offline.\n'
+          'Đơn lưu trên máy và tự gửi lên máy chủ khi có mạng.',
+        )),
+        actions: [
+          TextButton(onPressed: () => Navigator.pop(ctx, false), child: Text(tr('Hủy'))),
+          FilledButton(onPressed: () => Navigator.pop(ctx, true), child: Text(tr('Thanh toán offline'))),
+        ],
+      ),
+    );
+    if (yes != true || !mounted) return;
+    final serial = await off.takeOfflineNo();
+    if (serial == null) {
+      await _showBlockingPayDialog(
+        title: 'Không cấp được số hóa đơn offline',
+        message: 'Hết số hoặc không ghi được bộ nhớ máy — KHÔNG thu tiền.',
+      );
+      return;
+    }
+    _refreshTimedLineQtys();
+    final now = DateTime.now();
+    final body = _buildSaleBody(complete: true)
+      ..['issueEInvoice'] = false
+      ..remove('expectedLockVersion');
+    final tableLabel = formatPosTableLabel(
+      areaName: _tab.serviceAreaName,
+      tableName: _tab.serviceResourceName,
+    );
+    final saved = await off.addSale(OfflineSaleRecord(
+      offlineNo: serial.no,
+      seq: serial.seq,
+      createdAt: now,
+      draftOrderId: _tab.draftOrderId,
+      body: body,
+      total: total,
+      tableLabel: tableLabel.isEmpty ? null : tableLabel,
+      cashier: _kitchenSenderName(),
+    ));
+    if (!saved) {
+      await _showBlockingPayDialog(
+        title: 'Không lưu được đơn offline',
+        message: 'Bộ nhớ máy lỗi / đầy — KHÔNG thu tiền, thử lại.',
+      );
+      return;
+    }
+    // Hóa đơn tạm (in ra máy in nội bộ) — dữ liệu dựng từ giỏ hàng.
+    final receipt = <String, dynamic>{
+      'id': 'offline-${serial.no}',
+      'orderNo': serial.no,
+      'status': 'Completed',
+      'saleDate': now.toUtc().toIso8601String(),
+      'subTotal': _subTotal,
+      'discount': (_subTotal + _vatAmount - total).clamp(0, double.infinity),
+      'vatAmount': _vatAmount,
+      'total': total,
+      'paidAmount': _effectivePaidAmount,
+      'paymentMethod': 'Tiền mặt',
+      'customerName': body['customerName'],
+      'note': 'HÓA ĐƠN OFFLINE (mất mạng) — chưa đồng bộ máy chủ',
+      if ((_tab.serviceAreaName ?? '').isNotEmpty) 'serviceAreaName': _tab.serviceAreaName,
+      if ((_tab.serviceResourceName ?? '').isNotEmpty) 'serviceResourceName': _tab.serviceResourceName,
+      'lines': [
+        for (final l in _tab.cart)
+          {
+            'productId': l.product.id,
+            'productName': l.product.name,
+            'qty': l.qty,
+            'unitPrice': l.unitPrice,
+            'unitName': l.unitLabel,
+            'lineNote': l.lineNote,
+            if (l.toppings.isNotEmpty)
+              'toppingsJson': jsonEncode(l.toppings.map((t) => t.toJson()).toList()),
+            'discountAmount': l.discountAmount,
+            'lineTotal': l.lineTotal,
+          },
+      ],
+    };
+    final kitchenLines = _printSettings.kitchenSlipPrintMode != PosKitchenSlipPrintMode.off
+        ? _tab.cart
+            .where((l) => l.kitchenPendingQty > 0)
+            .map((l) => KitchenTicketLine(
+                  productName: l.product.name,
+                  qty: l.kitchenPendingQty,
+                  unitName: l.unitLabel,
+                  note: l.noteWithToppings,
+                  productId: l.product.id,
+                  sentBefore: l.kitchenSentQty,
+                  lineKey: '${l.rowId}',
+                ))
+            .toList()
+        : const <KitchenTicketLine>[];
+    final printArea = _tab.serviceAreaName;
+    final printTable = _tab.serviceResourceName;
+    final printResourceId = _tab.serviceResourceId;
+    final useFloor = _useFloorAsPrimary;
+    final localKey = _tab.localKey;
+
+    _stopDraftLockHeartbeat();
+    _draftAutosaveTimer?.cancel();
+    _suspendDraftAutosave = true;
+    final draftId = _tab.draftOrderId;
+    if (draftId != null && draftId.isNotEmpty) _floorReleasedOrderIds.add(draftId);
+    setState(() {
+      _tab.reset(defaultVatRate: _storeSettings.defaultVatRate, store: _storeSettings);
+      _tab.sellerEmployeeId = _defaultSellerEmployeeId;
+      _syncPaidAmount();
+      if (useFloor) {
+        _floorMapVisible = true;
+        _tabletPaymentStage = false;
+      }
+    });
+    Future<void>.delayed(const Duration(milliseconds: 600), () {
+      _suspendDraftAutosave = false;
+    });
+    unawaited(off.removeCart(localKey));
+    if (useFloor) _markFloorResourceFreed(printResourceId);
+    _scheduleCustomerDisplayPublish();
+    NotificationOverlayManager().showSuccess(
+      title: 'Đã thanh toán offline ${serial.no}',
+      message: tr('Tự gửi lên máy chủ khi có mạng'),
+    );
+    unawaited(() async {
+      await _maybePrintOrder(
+        'offline-${serial.no}',
+        orderJson: receipt,
+        areaNameOverride: printArea,
+        tableNameOverride: printTable,
+      );
+      if (kitchenLines.isNotEmpty) {
+        await printKitchenCompactSlip(
+          tableName: formatPosTableLabel(areaName: printArea, tableName: printTable),
+          isCancel: false,
+          lines: kitchenLines,
+          senderName: _kitchenSenderName(),
+          orderNo: serial.no,
+          showFeedback: false,
+          waitForCompletion: false,
+          skipDedup: false,
+        );
+      }
+    }());
+  }
+
   Future<bool> _persistDraftAutosave({
     _SellInvoiceTab? forTab,
     bool showLockError = false,
@@ -7197,6 +7504,11 @@ class _PosSellScreenState extends State<PosSellScreen>
     final tab = forTab ?? _tab;
     if (!mounted) return false;
     if (!Provider.of<PermissionProvider>(context, listen: false).canPosOrder()) {
+      return false;
+    }
+    // Mất kết nối máy chủ: không gọi mạng (tránh thử lại liên tục) — giữ giỏ xuống máy, có mạng lưu tiếp.
+    if (!_serverReachable) {
+      _snapshotTabOffline(tab);
       return false;
     }
     // Máy khác đang giữ khóa → không ghi đè; giữ dirty để không mất SL vừa tăng.
@@ -7355,6 +7667,9 @@ class _PosSellScreenState extends State<PosSellScreen>
         }
         _applyLockMetaFromMap(data, tab: tab);
       });
+      // Đã lên máy chủ → bỏ bản giữ trên máy.
+      tab.offlineSnapFp = null;
+      unawaited(PosOfflineService.instance.removeCart(tab.localKey));
       _ensureDraftSyncLoop();
       return true;
     } catch (_) {
@@ -10666,6 +10981,10 @@ class _PosSellScreenState extends State<PosSellScreen>
         return;
       }
 
+      if (!_serverReachable) {
+        await _checkoutOffline();
+        return;
+      }
       if (!await _ensureOpenCashierShiftIfRequired()) return;
 
       if (!await _awaitDraftAutosaveIdle(
@@ -10712,6 +11031,14 @@ class _PosSellScreenState extends State<PosSellScreen>
       }
       if (!mounted) return;
 
+      // Mất mạng giữa lúc thanh toán: cho thanh toán offline (máy chủ nếu đã nhận đơn sẽ trả đúng đơn đó
+      // theo mã yêu cầu — không tạo đơn đôi).
+      if (res['isSuccess'] != true &&
+          PosOfflineService.isConnectionFailure(res) &&
+          PosOfflineService.instance.enabled) {
+        await _checkoutOffline(afterFailure: true);
+        return;
+      }
       if (res['isSuccess'] != true) {
         if (_isLockConflict(res)) {
           await _handleMutationLockConflict(res, title: 'Không thanh toán được');
@@ -12481,7 +12808,14 @@ class _PosSellScreenState extends State<PosSellScreen>
             return _buildUnifiedSplitFlow(perm);
           },
           );
-          final padded = PosImeAvoidingPadding(child: body);
+          final padded = PosImeAvoidingPadding(
+            child: Column(
+              children: [
+                const PosOfflineBanner(),
+                Expanded(child: body),
+              ],
+            ),
+          );
           if (PosHubScope.of(context)) return padded;
           return SafeArea(top: false, child: padded);
         },

@@ -34,6 +34,60 @@ class PosNetworkMonitor {
 
   final _api = ApiService();
   final Map<int, _Bucket> _open = {};
+
+  /// Còn gọi được máy chủ không (thanh báo mất mạng, bán offline). Ping lỗi hoặc 2 lệnh gọi lỗi kết nối
+  /// liên tiếp → false; bất kỳ trả lời nào từ máy chủ → true.
+  final ValueNotifier<bool> reachable = ValueNotifier<bool>(true);
+  DateTime? lastOkAt;
+  DateTime? offlineSince;
+  int _connFails = 0;
+  Timer? _fastPing;
+
+  /// Giả lập mất mạng (chủ quán thử quy trình bán offline) — tự tắt sau 30 phút.
+  DateTime? _simulateUntil;
+  bool get simulateOffline =>
+      _simulateUntil != null && DateTime.now().isBefore(_simulateUntil!);
+  void setSimulateOffline(bool on) {
+    _simulateUntil = on ? DateTime.now().add(const Duration(minutes: 30)) : null;
+    if (on) {
+      _markFail(force: true);
+    } else {
+      unawaited(_pingOnce());
+    }
+  }
+
+  void _markOk() {
+    if (simulateOffline) return;
+    _connFails = 0;
+    lastOkAt = DateTime.now();
+    if (!reachable.value) {
+      reachable.value = true;
+      offlineSince = null;
+      _fastPing?.cancel();
+      _fastPing = null;
+    }
+  }
+
+  void _markFail({bool force = false}) {
+    _connFails++;
+    if (!force && _connFails < 2) return;
+    if (reachable.value) {
+      reachable.value = false;
+      offlineSince ??= DateTime.now();
+      // Mất mạng: ping dày hơn để biết có mạng lại sớm.
+      _fastPing ??= Timer.periodic(const Duration(seconds: 10), (_) => unawaited(_pingOnce()));
+    }
+  }
+
+  static bool _isConnError(Object e) {
+    final s = e.toString();
+    return e is TimeoutException ||
+        s.contains('SocketException') ||
+        s.contains('ClientException') ||
+        s.contains('Failed host lookup') ||
+        s.contains('Connection') ||
+        s.contains('XMLHttpRequest');
+  }
   List<Map<String, dynamic>> _pending = [];
   bool _started = false;
   bool _flushing = false;
@@ -77,12 +131,14 @@ class PosNetworkMonitor {
       final b = _cur;
       b.apiCalls++;
       if (status >= 500 || status == 0) b.apiErrors++;
+      if (status > 0 && status < 500) _markOk();
     };
     ApiService.onApiFailure = (e) {
       final b = _cur;
       b.apiCalls++;
       b.apiErrors++;
       if (e is TimeoutException) b.apiTimeouts++;
+      if (_isConnError(e)) _markFail();
     };
     _rtSub = SignalRService().onConnectionStateChanged.listen(_onRealtime);
     // Mới mở app chưa kịp nối realtime không tính là rớt — chỉ đếm sau khi đã nối được.
@@ -102,9 +158,10 @@ class PosNetworkMonitor {
   Future<void> stop() async {
     if (!_started) return;
     _started = false;
-    for (final t in [_pingTimer, _printerTimer, _wifiTimer, _flushTimer]) {
+    for (final t in [_pingTimer, _printerTimer, _wifiTimer, _flushTimer, _fastPing]) {
       t?.cancel();
     }
+    _fastPing = null;
     _pingTimer = _printerTimer = _wifiTimer = _flushTimer = null;
     await _rtSub?.cancel();
     _rtSub = null;
@@ -129,14 +186,20 @@ class PosNetworkMonitor {
   }
 
   Future<void> _pingOnce() async {
+    if (simulateOffline) {
+      _markFail(force: true);
+      return;
+    }
     final ms = await _api.pingNetwork();
     final b = _cur;
     b.pingSent++;
     if (ms == null) {
       b.pingFailed++;
       b.offlineSec = (b.offlineSec + _pingEvery.inSeconds).clamp(0, 300);
+      _markFail(force: true);
     } else {
       b.pings.add(ms);
+      _markOk();
     }
     // Realtime đang rớt: cộng dồn mỗi lượt (cả khi chưa nối lại).
     if (_rtDownSince != null) {

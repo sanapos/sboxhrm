@@ -279,6 +279,8 @@ public class ZKTecoDbContext : IdentityDbContext<ApplicationUser, IdentityRole<G
     public DbSet<PosPrinterDocumentRoute> PosPrinterDocumentRoutes => Set<PosPrinterDocumentRoute>();
     public DbSet<PosPrintAgent> PosPrintAgents => Set<PosPrintAgent>();
     public DbSet<PosNetworkSample> PosNetworkSamples => Set<PosNetworkSample>();
+    public DbSet<PosDeviceInstall> PosDeviceInstalls => Set<PosDeviceInstall>();
+    public DbSet<PosOfflineSerialBlock> PosOfflineSerialBlocks => Set<PosOfflineSerialBlock>();
     public DbSet<PosPrintJob> PosPrintJobs => Set<PosPrintJob>();
     public DbSet<PosPriceList> PosPriceLists => Set<PosPriceList>();
     public DbSet<PosPriceListItem> PosPriceListItems => Set<PosPriceListItem>();

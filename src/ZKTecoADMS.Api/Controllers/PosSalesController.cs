@@ -59,12 +59,14 @@ public partial class PosSalesController(
     /// Thanh toán (Complete) bắt buộc PosSell Approve — tránh Waiter/Order
     /// bypass bằng CreateSale/UpdateSale với complete=true.
     /// </summary>
-    async Task<ActionResult?> DenyIfCannotCompleteSaleAsync(CancellationToken ct = default)
+    async Task<ActionResult?> DenyIfCannotCompleteSaleAsync(CancellationToken ct = default, bool offlineSync = false)
     {
         if (!await HasPosSellApproveAsync(ct))
             return StatusCode(StatusCodes.Status403Forbidden,
                 AppResponse<SaleOrderDto>.Fail(
                     "Tài khoản không có quyền duyệt module PosSell (thanh toán)."));
+        // Đơn bán lúc mất mạng: tiền đã thu, ca lúc đó có thể đã đóng → không chặn khi đồng bộ.
+        if (offlineSync) return null;
         return await DenyIfCashierShiftClosedAsync(ct);
     }
 
@@ -186,7 +188,11 @@ public partial class PosSalesController(
         /// <summary>Mã chống trùng do máy bán sinh; gửi lại cùng mã → trả đơn đã tạo.</summary>
         string? ClientRequestId = null,
         /// <summary>Khuyến mãi máy bán đã áp (tiền giảm đã nằm trong giảm dòng / Discount).</summary>
-        string? PromotionsJson = null);
+        string? PromotionsJson = null,
+        /// <summary>Đơn bán offline (mất mạng) đồng bộ lại: số HĐ offline cấp trước, giờ bán thật, thiết bị.</summary>
+        string? OfflineNo = null,
+        DateTime? OfflineAt = null,
+        string? OfflineDeviceKey = null);
 
     public record EInvoiceBuyerDto(
         string? Name = null,
@@ -236,7 +242,11 @@ public partial class PosSalesController(
         decimal SurchargeAmount = 0,
         decimal DeliveryFee = 0,
         DateTime? SaleDate = null,
-        string? PromotionsJson = null);
+        string? PromotionsJson = null,
+        /// <summary>Đơn bán offline (mất mạng) đồng bộ lại: số HĐ offline cấp trước, giờ bán thật, thiết bị.</summary>
+        string? OfflineNo = null,
+        DateTime? OfflineAt = null,
+        string? OfflineDeviceKey = null);
 
     public record SaleOrderDto(
         Guid Id,
@@ -1210,13 +1220,28 @@ public partial class PosSalesController(
     [RequireModulePermission("PosSell", ModulePermissionAction.Create)]
     public async Task<ActionResult<AppResponse<SaleOrderDto>>> CreateSale([FromBody] CreateSaleDto dto)
     {
+        var offlineNo = PosOfflineSaleRules.NormalizeNo(dto.OfflineNo);
         if (dto.Complete)
         {
-            var denied = await DenyIfCannotCompleteSaleAsync();
+            var denied = await DenyIfCannotCompleteSaleAsync(offlineSync: offlineNo != null);
             if (denied != null) return denied;
         }
 
         var storeId = RequiredStoreId;
+
+        // Đơn offline gửi lại (lần trước đã tới server nhưng máy mất mạng lúc nhận kết quả) → trả đơn đã tạo.
+        if (offlineNo != null
+            && await dbContext.PosSaleOrders.AsNoTracking()
+                .Where(o => o.StoreId == storeId && o.OfflineNo == offlineNo && o.Deleted == null)
+                .Select(o => (Guid?)o.Id).FirstOrDefaultAsync() is { } offlineExistingId)
+        {
+            var ex = await dbContext.PosSaleOrders.AsNoTracking().Include(o => o.Lines)
+                .FirstAsync(o => o.Id == offlineExistingId);
+            SaleOrderDto exDto;
+            try { exDto = await MapOrderAsync(storeId, ex); }
+            catch { exDto = MapOrder(ex, ex.Lines?.Where(l => l.Deleted == null).ToList() ?? [], viewerUserId: CurrentUserId); }
+            return Ok(AppResponse<SaleOrderDto>.Success(exDto));
+        }
 
         // Chống trùng: máy bán gửi lại (mất mạng lúc trả kết quả, bấm Thanh toán lần 2)
         // cùng mã → trả đơn đã tạo, không tạo đơn / trừ kho / thu tiền lần hai.
@@ -1290,6 +1315,7 @@ public partial class PosSalesController(
                 PosKitchenKdsHelper.CloseOpenOnPaid(lines);
 
             order.ClientRequestId = clientRequestId;
+            PosOfflineSaleRules.Stamp(order, offlineNo, dto.OfflineAt, dto.OfflineDeviceKey);
             dbContext.PosSaleOrders.Add(order);
             dbContext.PosSaleOrderLines.AddRange(lines);
 

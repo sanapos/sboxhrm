@@ -23,9 +23,10 @@ public partial class PosSalesController
     [RequireAnyActionOnModule("PosSell", ModulePermissionAction.Create, ModulePermissionAction.Edit)]
     public async Task<ActionResult<AppResponse<SaleOrderDto>>> UpdateSale(Guid id, [FromBody] UpdateSaleDto dto)
     {
+        var offlineNo = dto.Complete ? PosOfflineSaleRules.NormalizeNo(dto.OfflineNo) : null;
         if (dto.Complete)
         {
-            var denied = await DenyIfCannotCompleteSaleAsync();
+            var denied = await DenyIfCannotCompleteSaleAsync(offlineSync: offlineNo != null);
             if (denied != null) return denied;
         }
 
@@ -50,7 +51,11 @@ public partial class PosSalesController
             return BadRequest(AppResponse<SaleOrderDto>.Fail("Chỉ sửa được đơn tạm"));
 
         var actor = CurrentLockActor(dto.DeviceId, dto.DeviceName);
-        var lockErr = PosDraftLockHelper.EnsureCanMutate(order, actor, dto.ExpectedLockVersion);
+        // Đồng bộ đơn offline: máy này giữ bàn lúc mất mạng, khóa có thể đã hết hạn / đổi phiên bản
+        // trong lúc offline — đơn đã bán thật, không chặn vì khóa.
+        var lockErr = offlineNo != null
+            ? null
+            : PosDraftLockHelper.EnsureCanMutate(order, actor, dto.ExpectedLockVersion);
         if (lockErr != null)
         {
             SaleOrderDto conflictMapped;
@@ -59,7 +64,8 @@ public partial class PosSalesController
             return Conflict(AppResponse<SaleOrderDto>.Create(false, conflictMapped, [lockErr]));
         }
         PosDraftLockHelper.StampDeviceIfMissing(order, actor);
-        if (PosDraftLockHelper.IsLockActive(order) && !PosDraftLockHelper.IsHeldBy(order, actor))
+        if (offlineNo == null
+            && PosDraftLockHelper.IsLockActive(order) && !PosDraftLockHelper.IsHeldBy(order, actor))
         {
             SaleOrderDto conflictMapped;
             try { conflictMapped = await MapOrderAsync(storeId, order, order.Lines?.ToList() ?? [], dto.DeviceId, dto.DeviceName); }
@@ -161,7 +167,8 @@ public partial class PosSalesController
             dto.ExpectedLockVersion, dto.DeviceId, dto.DeviceName, dto.InvoiceSlot,
             dto.VatAmount, dto.IssueEInvoice, dto.EInvoiceBuyer,
             dto.SurchargeAmount, dto.DeliveryFee, dto.SaleDate,
-            PromotionsJson: dto.PromotionsJson);
+            PromotionsJson: dto.PromotionsJson,
+            OfflineNo: offlineNo, OfflineAt: dto.OfflineAt, OfflineDeviceKey: dto.OfflineDeviceKey);
 
         // Thanh toán: RepeatableRead + retry serialization/unique (giống CreateSale) —
         // tránh 500 «lỗi hệ thống» khi autosave/máy khác tranh chấp tồn hoặc mã HD/phiếu thu.
@@ -1241,7 +1248,9 @@ public partial class PosSalesController
             return (null, null, "Cần chọn bàn/phòng trước khi lưu đơn");
 
         SaleStockPlan? plan = null;
-        var allowNeg = sellSettings?.AllowNegativeStock == true;
+        // Đơn offline: hàng đã giao cho khách lúc mất mạng → cho âm kho khi đồng bộ (báo cáo kiểm soát ghi lại).
+        var allowNeg = sellSettings?.AllowNegativeStock == true
+            || (complete && PosOfflineSaleRules.NormalizeNo(dto.OfflineNo) != null);
         var lineInputs = dto.Lines
             .Select(l => (l.ProductId, l.Qty, l.VariantId, l.UnitId, l.ToppingsJson))
             .ToList();
@@ -1306,8 +1315,8 @@ public partial class PosSalesController
         }
 
         var now = DateTime.UtcNow;
-        var saleAt = PosSellExtraJsonHelper.ResolveSaleAt(
-            sellSettings?.ExtraJson, dto.SaleDate, now, complete);
+        var saleAt = PosOfflineSaleRules.ResolveOfflineSaleAt(dto.OfflineNo, dto.OfflineAt, now, complete)
+            ?? PosSellExtraJsonHelper.ResolveSaleAt(sellSettings?.ExtraJson, dto.SaleDate, now, complete);
         PosSaleOrder order;
         if (existing == null)
         {
@@ -1917,6 +1926,9 @@ public partial class PosSalesController
         await PosStaffCommissionHelper.ReplaceLinesAsync(
             dbContext, storeId, order, lines, products, CurrentUserEmail);
 
+        if (complete)
+            PosOfflineSaleRules.Stamp(order, PosOfflineSaleRules.NormalizeNo(dto.OfflineNo), dto.OfflineAt,
+                dto.OfflineDeviceKey);
         return (order, lines, null);
     }
 

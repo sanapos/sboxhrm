@@ -422,6 +422,34 @@ class PosStoreSellSettingsDto {
     return false;
   }
 
+  /// ExtraJson.offlineSale — cho bán offline khi mất mạng (mặc định TẮT) + số giờ tối đa.
+  Map<String, dynamic> get _offlineSale {
+    final raw = extraJson;
+    if (raw == null || raw.trim().isEmpty) return const {};
+    try {
+      final root = jsonDecode(raw);
+      if (root is Map && root['offlineSale'] is Map) {
+        return Map<String, dynamic>.from(root['offlineSale'] as Map);
+      }
+    } catch (_) {}
+    return const {};
+  }
+
+  bool get offlineSaleEnabled => _offlineSale['enabled'] == true;
+  int get offlineSaleMaxHours => (_offlineSale['maxHours'] as num?)?.toInt() ?? 8;
+
+  static String mergeOfflineSale(String? existing, {required bool enabled, required int maxHours}) {
+    Map<String, dynamic> root = {};
+    if (existing != null && existing.trim().isNotEmpty) {
+      try {
+        final decoded = jsonDecode(existing);
+        if (decoded is Map) root = Map<String, dynamic>.from(decoded);
+      } catch (_) {}
+    }
+    root['offlineSale'] = {'enabled': enabled, 'maxHours': maxHours};
+    return jsonEncode(root);
+  }
+
   static String mergeAllowEditSaleTime(String? existing, bool value) {
     Map<String, dynamic> root = {};
     if (existing != null && existing.trim().isNotEmpty) {

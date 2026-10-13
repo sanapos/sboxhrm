@@ -87,3 +87,23 @@ public class PosNetworkSampleConfiguration : IEntityTypeConfiguration<PosNetwork
         builder.HasIndex(x => new { x.StoreId, x.BucketStart });
     }
 }
+
+public class PosDeviceInstallConfiguration : IEntityTypeConfiguration<PosDeviceInstall>
+{
+    public void Configure(EntityTypeBuilder<PosDeviceInstall> builder)
+    {
+        builder.ToTable("PosDeviceInstalls");
+        builder.HasKey(x => x.Id);
+        builder.HasIndex(x => new { x.StoreId, x.DeviceKey, x.InstallId }).IsUnique();
+    }
+}
+
+public class PosOfflineSerialBlockConfiguration : IEntityTypeConfiguration<PosOfflineSerialBlock>
+{
+    public void Configure(EntityTypeBuilder<PosOfflineSerialBlock> builder)
+    {
+        builder.ToTable("PosOfflineSerialBlocks");
+        builder.HasKey(x => x.Id);
+        builder.HasIndex(x => new { x.StoreId, x.ToSeq });
+    }
+}

@@ -22,6 +22,26 @@ class MainActivity : FlutterActivity() {
 
     override fun configureFlutterEngine(flutterEngine: FlutterEngine) {
         super.configureFlutterEngine(flutterEngine)
+        MethodChannel(flutterEngine.dartExecutor.binaryMessenger, OfflineVaultMirror.CHANNEL)
+            .setMethodCallHandler { call, result ->
+                val ctx = applicationContext
+                when (call.method) {
+                    "deviceKey" -> result.success(OfflineVaultMirror.deviceKey(ctx))
+                    "firstInstallTime" -> result.success(OfflineVaultMirror.firstInstallTime(ctx))
+                    "write" -> {
+                        val name = call.argument<String>("name") ?: ""
+                        val content = call.argument<String>("content") ?: ""
+                        Thread { val ok = OfflineVaultMirror.write(ctx, name, content)
+                            runOnUiThread { result.success(ok) } }.start()
+                    }
+                    "read" -> {
+                        val name = call.argument<String>("name") ?: ""
+                        Thread { val txt = OfflineVaultMirror.read(ctx, name)
+                            runOnUiThread { result.success(txt) } }.start()
+                    }
+                    else -> result.notImplemented()
+                }
+            }
         MethodChannel(flutterEngine.dartExecutor.binaryMessenger, NetworkProbe.CHANNEL)
             .setMethodCallHandler { call, result ->
                 if (call.method == "info") result.success(NetworkProbe.info(applicationContext))

@@ -22303,6 +22303,39 @@ class ApiService implements PayrollApi {
     }
   }
 
+  // ── Bán offline ───────────────────────────────────────────────────────────
+
+  Future<Map<String, dynamic>> _postJson(String path, Map<String, dynamic> body) async {
+    try {
+      final response = await http
+          .post(Uri.parse('$baseUrl$path'), headers: _headers, body: json.encode(body))
+          .timeout(const Duration(seconds: 20));
+      return _handleResponse(response);
+    } catch (e) {
+      return _connectionFailure(e);
+    }
+  }
+
+  /// Máy báo lần cài app (mã thiết bị + mã cài đặt) — trả cài đặt bán offline + dải số đã cấp.
+  Future<Map<String, dynamic>> offlineRegisterInstall(Map<String, dynamic> body) =>
+      _postJson('/api/pos/offline/install', body);
+
+  /// Xin dải số hóa đơn offline (chỉ khi cửa hàng bật bán offline).
+  Future<Map<String, dynamic>> offlineReserveSerials(Map<String, dynamic> body) =>
+      _postJson('/api/pos/offline/reserve', body);
+
+  /// Báo cáo kiểm soát bán offline & lịch sử cài app (chủ / quản lý).
+  Future<Map<String, dynamic>> getOfflineAudit({int days = 30}) async {
+    try {
+      final response = await http
+          .get(Uri.parse('$baseUrl/api/pos/offline/audit?days=$days'), headers: _headers)
+          .timeout(const Duration(seconds: 30));
+      return _handleResponse(response);
+    } catch (e) {
+      return _connectionFailure(e);
+    }
+  }
+
   /// Báo cáo mạng cửa hàng — [from]/[to] ngày VN (yyyy-MM-dd).
   Future<Map<String, dynamic>> getNetworkReport({required String from, required String to}) async {
     try {

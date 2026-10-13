@@ -180,6 +180,16 @@ public class PosSaleOrder : AuditableEntity<Guid>, IBranchScoped
     [System.ComponentModel.DataAnnotations.MaxLength(64)]
     public string? ClientRequestId { get; set; }
 
+    /// <summary>Số hóa đơn bán offline (OFF-000123) — cấp trước theo dải cho thiết bị; đồng bộ lại không tạo đơn đôi.</summary>
+    [System.ComponentModel.DataAnnotations.MaxLength(40)]
+    public string? OfflineNo { get; set; }
+
+    /// <summary>Giờ bán thật trên máy lúc mất mạng.</summary>
+    public DateTime? OfflineAt { get; set; }
+
+    [System.ComponentModel.DataAnnotations.MaxLength(128)]
+    public string? OfflineDeviceKey { get; set; }
+
     /// <summary>Mã lần báo bếp gần nhất + nội dung đã báo — báo lại cùng mã (mất mạng lúc trả kết quả) được trả lại để in phiếu.</summary>
     [System.ComponentModel.DataAnnotations.MaxLength(64)]
     public string? KitchenSendRequestId { get; set; }

@@ -2,6 +2,7 @@ import 'dart:async';
 
 import 'package:flutter/material.dart';
 import 'pos_network_report_screen.dart';
+import 'pos_offline_sales_screen.dart';
 import 'pos_reservation_report_screen.dart';
 import '../../utils/api_datetime.dart';
 import 'package:intl/intl.dart';
@@ -75,6 +76,7 @@ class PosReportsHubScreen extends StatelessWidget {
       (label: 'Hóa đơn điện tử', subtitle: 'Xuất, xem lại PDF, gửi, thay thế, hủy, đồng bộ, tải từ hãng', icon: Icons.request_quote_outlined, module: 'PosEInvoice', screen: const PosEInvoiceReportScreen()),
       (label: 'Thuế hộ kinh doanh', subtitle: 'Dưới 1 tỷ / 1–3 tỷ / trên 3 tỷ', icon: Icons.request_quote_outlined, module: 'HkdBooks', screen: const PosHkdBooksScreen()),
       (label: 'Mạng cửa hàng', subtitle: 'Mạng có đủ ổn định để order / in qua mạng', icon: Icons.wifi_tethering, module: 'PosPrinters', screen: const PosNetworkReportScreen()),
+      (label: 'Bán offline & kiểm soát', subtitle: 'Đơn bán lúc mất mạng · lịch sử cài app · số HĐ offline', icon: Icons.cloud_off_outlined, module: 'PosSalesReport', screen: const PosOfflineSalesScreen()),
       (label: 'Sổ khách lưu trú', subtitle: 'Khai báo tạm trú', icon: Icons.hotel_outlined, module: 'PosReportStayGuests', screen: const AnalyticsReportViewer(spec: AnalyticsReportSpec.stayGuests)),
       (label: 'Thẻ tập sắp hết hạn', subtitle: 'Gym / spa — nhắc gia hạn', icon: Icons.fitness_center_outlined, module: 'PosReportSessionExpiry', screen: const AnalyticsReportViewer(spec: AnalyticsReportSpec.sessionExpiry)),
     ].where((item) => PermissionNavigation.canAccessModule(
@@ -152,7 +154,7 @@ const _hubGroups = <(String, IconData, List<String>)>[
     'Tồn kho', 'Sức khỏe kho', 'Hàng sắp hết hạn', 'Báo cáo nhập hàng',
   ]),
   ('Nhân viên', Icons.badge_outlined, ['Doanh thu theo nhân viên', 'Hoa hồng nhân viên']),
-  ('Hệ thống', Icons.router_outlined, ['Mạng cửa hàng']),
+  ('Hệ thống', Icons.router_outlined, ['Mạng cửa hàng', 'Bán offline & kiểm soát']),
 ];
 
 class _PosReportsHubSection extends StatefulWidget {

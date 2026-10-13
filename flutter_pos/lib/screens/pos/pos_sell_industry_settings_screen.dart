@@ -552,6 +552,43 @@ class _PosSellIndustrySettingsScreenState
           ),
           SwitchListTile(
             contentPadding: EdgeInsets.zero,
+            title: Text(tr('Cho bán offline khi mất mạng')),
+            subtitle: Text(tr(
+                'Mặc định TẮT. Bật: mất mạng vẫn báo bếp ra máy in nội bộ và thanh toán TIỀN MẶT với số hóa đơn '
+                'offline (OFF-…) cấp trước cho từng máy; có mạng tự gửi lên máy chủ. Không chuyển khoản / nợ / '
+                'voucher / điểm khi offline. Chủ quán xem «Bán offline & kiểm soát» (lịch sử cài app, số chưa về).')),
+            value: s.offlineSaleEnabled,
+            onChanged: _saving
+                ? null
+                : (v) => _patchAndSave((cur) => cur.copyWith(
+                      extraJson: PosStoreSellSettingsDto.mergeOfflineSale(cur.extraJson,
+                          enabled: v, maxHours: cur.offlineSaleMaxHours),
+                    )),
+          ),
+          if (s.offlineSaleEnabled)
+            Padding(
+              padding: const EdgeInsets.only(bottom: 8),
+              child: Row(
+                children: [
+                  Expanded(child: Text(tr('Bán offline tối đa sau khi mất mạng'))),
+                  DropdownButton<int>(
+                    value: const [2, 4, 8, 12, 24].contains(s.offlineSaleMaxHours) ? s.offlineSaleMaxHours : 8,
+                    items: [
+                      for (final h in const [2, 4, 8, 12, 24])
+                        DropdownMenuItem(value: h, child: Text(tr('$h giờ'))),
+                    ],
+                    onChanged: _saving
+                        ? null
+                        : (h) => _patchAndSave((cur) => cur.copyWith(
+                              extraJson: PosStoreSellSettingsDto.mergeOfflineSale(cur.extraJson,
+                                  enabled: true, maxHours: h ?? 8),
+                            )),
+                  ),
+                ],
+              ),
+            ),
+          SwitchListTile(
+            contentPadding: EdgeInsets.zero,
             title: Text(tr('Khóa đơn tạm đa máy')),
             subtitle: Text(tr(
                 'Bật: máy đang mở đơn tạm giữ khóa — máy khác phải «Nhận bàn» mới sửa. '
