@@ -67,6 +67,32 @@ public partial class PosPrintersController
                     $"Không Agent nào nhận, không có lệnh in {days} ngày"));
             }
         }
+        if (result.Count > 0)
+        {
+            // Máy còn được gán món / nhóm hàng: tắt rồi thì món đó in ở máy bếp mặc định — ghi rõ để chủ quán biết.
+            var ids = result.Select(r => r.Id).ToList();
+            var refs = await db.PosProducts.AsNoTracking()
+                .Where(p => p.StoreId == storeId && p.Deleted == null &&
+                            ((p.DefaultPrinterId != null && ids.Contains(p.DefaultPrinterId.Value)) ||
+                             (p.DefaultLabelPrinterId != null && ids.Contains(p.DefaultLabelPrinterId.Value))))
+                .Select(p => new { p.DefaultPrinterId, p.DefaultLabelPrinterId })
+                .ToListAsync(ct);
+            var catRefs = await db.PosProductCategories.AsNoTracking()
+                .Where(c => c.StoreId == storeId && c.Deleted == null &&
+                            ((c.DefaultPrinterId != null && ids.Contains(c.DefaultPrinterId.Value)) ||
+                             (c.DefaultLabelPrinterId != null && ids.Contains(c.DefaultLabelPrinterId.Value))))
+                .Select(c => new { c.DefaultPrinterId, c.DefaultLabelPrinterId })
+                .ToListAsync(ct);
+            result = result.Select(r =>
+            {
+                var n = refs.Count(x => x.DefaultPrinterId == r.Id || x.DefaultLabelPrinterId == r.Id);
+                var c = catRefs.Count(x => x.DefaultPrinterId == r.Id || x.DefaultLabelPrinterId == r.Id);
+                if (n + c == 0) return r;
+                var what = string.Join(", ", new[] { n > 0 ? $"{n} món" : null, c > 0 ? $"{c} nhóm hàng" : null }
+                    .Where(x => x != null));
+                return r with { Reason = $"{r.Reason} · còn gán {what} → sẽ in ở máy bếp mặc định" };
+            }).ToList();
+        }
         return result.OrderBy(x => x.LastActivityAt).ToList();
     }
 

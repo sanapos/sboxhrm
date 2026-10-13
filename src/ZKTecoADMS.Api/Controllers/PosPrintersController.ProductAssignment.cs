@@ -885,6 +885,21 @@ public partial class PosPrintersController
                 p.DefaultLabelPrinterId,
                 p.Category != null ? p.Category.DefaultLabelPrinterId : null))
             .ToListAsync();
+        // Gán vào máy đã tắt / đã xóa (dọn máy cũ, xóa máy) → bỏ gán khi trả về để món rơi về máy bếp
+        // mặc định thay vì gửi lệnh vào máy không Agent nào nhận (treo «Chờ in»).
+        var live = (await db.PosStorePrinters.AsNoTracking()
+                .Where(x => x.StoreId == storeId && x.Deleted == null && x.IsActive)
+                .Select(x => x.Id)
+                .ToListAsync())
+            .ToHashSet();
+        Guid? ok(Guid? id) => id is { } g && live.Contains(g) ? g : null;
+        items = items.Select(i => i with
+        {
+            ProductPrinterId = ok(i.ProductPrinterId),
+            CategoryPrinterId = ok(i.CategoryPrinterId),
+            ProductLabelPrinterId = ok(i.ProductLabelPrinterId),
+            CategoryLabelPrinterId = ok(i.CategoryLabelPrinterId),
+        }).ToList();
         return Ok(AppResponse<List<ProductPrinterMapItem>>.Success(items));
     }
 

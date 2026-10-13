@@ -55,6 +55,17 @@ const tag = 'STALE' + new Date().toISOString().replace(/\D/g, '').slice(4, 12);
   sql(`UPDATE "PosStorePrinters" SET "CreatedAt"='${old}', "UpdatedAt"='${old}', "LastSeenAt"=NULL WHERE "Id"='${oldId}'`);
 
   R.check('Hai máy khác nhau', oldId && newId && oldId !== newId);
+  const prod = await api.post('/api/pos/products', {
+    name: `${tag} Món gán máy cũ`, productType: 0, costPrice: 0, basePrice: 10000, onHandQty: 10,
+    baseUnitName: 'Phần', isDirectSale: true, vatRate: 0,
+  });
+  R.must('Tạo món thử', prod);
+  const prodId = prod.data?.id;
+  R.must('Gán món vào máy cũ',
+    await api.put(`/api/pos/printers/product-assignment/products/${prodId}`, { printerId: oldId }));
+  const mapOf = async () => ((await api.get('/api/pos/printers/product-assignment/map')).data || [])
+    .find((m) => m.productId === prodId) || {};
+  R.check('Trước khi dọn: map trỏ máy cũ', (await mapOf()).productPrinterId === oldId);
 
   R.group('Xem trước');
   const pre = await api.get('/api/pos/printers/stale?days=14');
@@ -64,6 +75,7 @@ const tag = 'STALE' + new Date().toISOString().replace(/\D/g, '').slice(4, 12);
   R.check('Máy mới không có', !ids.includes(newId));
   const row = (pre.data || []).find((p) => p.id === oldId) || {};
   R.check('Có lý do + thời điểm hoạt động cuối', !!row.reason && !!row.lastActivityAt, row.reason);
+  R.check('Lý do ghi còn gán món', /còn gán 1 món/.test(row.reason || ''), row.reason);
   R.check('Xem trước không đổi gì',
     sql(`SELECT "IsActive" FROM "PosStorePrinters" WHERE "Id"='${oldId}'`) === 't');
 
@@ -75,11 +87,13 @@ const tag = 'STALE' + new Date().toISOString().replace(/\D/g, '').slice(4, 12);
     sql(`SELECT "IsActive"::text || coalesce("Deleted"::text,'') FROM "PosStorePrinters" WHERE "Id"='${oldId}'`) === 'false');
   R.check('Máy mới vẫn bật',
     sql(`SELECT "IsActive" FROM "PosStorePrinters" WHERE "Id"='${newId}'`) === 't');
+  R.check('Sau khi dọn: map không trỏ máy đã tắt (về máy bếp mặc định)', !(await mapOf()).productPrinterId);
   const again = await api.get('/api/pos/printers/stale?days=14');
   R.check('Chạy lại: máy cũ không còn trong danh sách', !(again.data || []).some((p) => p.id === oldId));
 
   R.group('Dọn dữ liệu thử');
   for (const id of [oldId, newId]) if (id) await api.del(`/api/pos/printers/${id}`);
+  if (prodId) await api.del(`/api/pos/products/${prodId}`);
   process.exitCode = R.summary() ? 1 : 0;
 })().catch((e) => {
   console.error(e);
