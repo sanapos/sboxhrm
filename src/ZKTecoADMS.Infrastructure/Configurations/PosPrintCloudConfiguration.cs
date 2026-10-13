@@ -76,3 +76,14 @@ public class PosPrintJobConfiguration : IEntityTypeConfiguration<PosPrintJob>
         builder.HasOne(x => x.Agent).WithMany().HasForeignKey(x => x.AgentId).OnDelete(DeleteBehavior.SetNull);
     }
 }
+
+public class PosNetworkSampleConfiguration : IEntityTypeConfiguration<PosNetworkSample>
+{
+    public void Configure(EntityTypeBuilder<PosNetworkSample> builder)
+    {
+        builder.ToTable("PosNetworkSamples");
+        builder.HasKey(x => x.Id);
+        builder.HasIndex(x => new { x.StoreId, x.DeviceId, x.BucketStart }).IsUnique();
+        builder.HasIndex(x => new { x.StoreId, x.BucketStart });
+    }
+}

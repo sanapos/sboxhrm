@@ -1500,6 +1500,7 @@ class PosPrintOrchestrator {
     required DateTime sentAt,
     String? orderNo,
     String? referenceNo,
+    String? retryOfReference,
     bool showFeedback = false,
     String? successTitle,
     bool skipDedup = false,
@@ -1752,6 +1753,7 @@ class PosPrintOrchestrator {
       sentAt: sentAt,
       orderNo: orderNo,
       referenceNo: referenceNo,
+      retryOfReference: retryOfReference,
       showFeedback: showFeedback,
       waitForCompletion: waitForCompletion,
       onHang: onHang,
@@ -1869,6 +1871,7 @@ class PosPrintOrchestrator {
     required DateTime sentAt,
     String? orderNo,
     String? referenceNo,
+    String? retryOfReference,
     bool showFeedback = true,
     bool waitForCompletion = true,
     PosPrintHangCallback? onHang,
@@ -1906,6 +1909,7 @@ class PosPrintOrchestrator {
       // Idempotency server (ReferenceNo + active job) — chống bấm nhiều lần.
       referenceId: null,
       printerId: printer.id,
+      retryOfReference: retryOfReference,
     );
     if (res['isSuccess'] != true) {
       if (showFeedback) {

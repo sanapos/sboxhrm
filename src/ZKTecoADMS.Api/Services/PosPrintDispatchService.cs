@@ -46,7 +46,12 @@ public record EnqueuePrintJobRequest(
     string? RequestedByName,
     Guid? PrinterIdOverride = null,
     /// <summary>Mã chống trùng của máy gửi (gửi lại do lỗi mạng → trả đúng job cũ, kể cả đã in xong).</summary>
-    string? ClientRequestId = null);
+    string? ClientRequestId = null,
+    /// <summary>
+    /// In lại phiếu treo: mã tham chiếu GỐC của lần gửi đầu. Lần đầu thật ra đã tới server và in xong
+    /// (máy gửi mất mạng nên không biết) → trả lệnh đó, không in phiếu thứ hai.
+    /// </summary>
+    string? RetryOfReference = null);
 
 public class PosPrintDispatchService(
     ZKTecoDbContext db,
@@ -427,6 +432,16 @@ public class PosPrintDispatchService(
 
         var tracked = await db.PosStorePrinters.FirstAsync(p => p.Id == printer.Id, ct);
 
+        if (!string.IsNullOrWhiteSpace(request.RetryOfReference)
+            && await FindPrintedOrActiveByReferenceAsync(
+                request.StoreId, tracked.Id, request.RetryOfReference, ct) is { } already)
+        {
+            logger.LogInformation(
+                "Print retry skipped — original {JobId} ({Status}) ref={Ref}", already.Id, already.Status,
+                request.RetryOfReference);
+            return already;
+        }
+
         // Chặn in trùng khi job còn đang chạy (Queued/Claimed/Printing).
         // KHÔNG dedup Completed — nếu không, «In lại» trong 10 phút báo thành công
         // nhưng không ra giấy (sót bill khi khách xin thêm bản).
@@ -548,6 +563,25 @@ public class PosPrintDispatchService(
         return job;
     }
 
+    static readonly TimeSpan RetryOfReferenceWindow = TimeSpan.FromMinutes(30);
+
+    /// <summary>Lần gửi gốc (cùng mã tham chiếu, cùng máy) đã in xong trong 30 phút hoặc đang chờ / in.</summary>
+    async Task<PosPrintJob?> FindPrintedOrActiveByReferenceAsync(
+        Guid storeId, Guid printerId, string reference, CancellationToken ct)
+    {
+        var refNo = FitReferenceNo(reference);
+        var since = DateTime.UtcNow - RetryOfReferenceWindow;
+        return await db.PosPrintJobs.AsNoTracking()
+            .Where(j => j.StoreId == storeId && j.PrinterId == printerId && j.Deleted == null
+                && j.ReferenceNo == refNo && j.CreatedAt >= since
+                && (j.Status == PosPrintJobStatus.Completed
+                    || j.Status == PosPrintJobStatus.Queued
+                    || j.Status == PosPrintJobStatus.Claimed
+                    || j.Status == PosPrintJobStatus.Printing))
+            .OrderByDescending(j => j.CreatedAt)
+            .FirstOrDefaultAsync(ct);
+    }
+
     async Task<PosPrintJob?> FindJobByClientRequestAsync(Guid storeId, string clientRequestId, CancellationToken ct)
     {
         var existing = await db.PosPrintJobs
@@ -555,6 +589,20 @@ public class PosPrintDispatchService(
                 && j.ClientRequestId == clientRequestId
                 && j.Deleted == null, ct);
         if (existing == null) return null;
+        // Gửi lại cùng mã mà lệnh cũ đã lỗi / bị hủy (chưa ra giấy) → xếp lại lệnh cũ để in.
+        // Trước trả lệnh chết → máy gửi tưởng xong, phiếu không bao giờ in.
+        if (existing.Status is PosPrintJobStatus.Failed or PosPrintJobStatus.Cancelled
+            && !string.IsNullOrEmpty(existing.Payload))
+        {
+            try
+            {
+                return await RetryJobAsync(storeId, existing.Id, null, "client-retry", ct) ?? existing;
+            }
+            catch (InvalidOperationException)
+            {
+                return existing;
+            }
+        }
         // Còn chờ: phát lại tín hiệu cho Agent (lần trước có thể không ai nhận được).
         if (existing.Status == PosPrintJobStatus.Queued)
         {
@@ -1590,7 +1638,7 @@ public class PosPrintDispatchService(
                 .SetProperty(j => j.Status, PosPrintJobStatus.Cancelled)
                 .SetProperty(j => j.ErrorCode, "STUCK_NO_REQUEUE")
                 .SetProperty(j => j.ErrorMessage,
-                    "Agent nhận job nhưng không complete — hủy để tránh in trùng")
+                    "Có thể ĐÃ IN — Agent nhận lệnh nhưng không báo xong (mất mạng?). Kiểm tra máy in / bếp trước khi in lại")
                 .SetProperty(j => j.CompletedAt, now)
                 .SetProperty(j => j.UpdatedAt, now), ct);
         if (stuckCancelled > 0) cancelledIds.AddRange(stuckIds);

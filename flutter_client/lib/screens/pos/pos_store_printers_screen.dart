@@ -29,6 +29,7 @@ import '../../widgets/pos/pos_hub_scope.dart';
 import '../../widgets/pos/pos_theme.dart';
 import '../../widgets/pos/pos_lan_printer_scan_sheet.dart';
 import 'pos_local_printers_screen.dart';
+import 'pos_network_report_screen.dart';
 import 'pos_product_printer_assignment_screen.dart';
 import 'package:zkteco_flutter_client/l10n/app_tr.dart';
 
@@ -795,6 +796,14 @@ class _PosStorePrintersScreenState extends State<PosStorePrintersScreen> {
             ).then((_) => _load());
           },
           icon: const Icon(Icons.phone_android),
+        ),
+        IconButton(
+          tooltip: tr('Mạng cửa hàng'),
+          onPressed: () => Navigator.push(
+            context,
+            MaterialPageRoute(builder: (_) => const PosNetworkReportScreen()),
+          ),
+          icon: const Icon(Icons.wifi_tethering),
         ),
         IconButton(
           tooltip: tr('Dọn máy in cũ'),

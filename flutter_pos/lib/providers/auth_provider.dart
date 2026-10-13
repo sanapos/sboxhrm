@@ -2,6 +2,7 @@ import 'dart:async';
 import 'dart:convert';
 import 'package:flutter/material.dart';
 import 'package:shared_preferences/shared_preferences.dart';
+import '../services/pos_network_monitor.dart';
 import '../services/api_service.dart';
 import '../services/fcm_service_stub.dart'
     if (dart.library.io) '../services/fcm_service.dart';
@@ -473,6 +474,7 @@ class AuthProvider extends ChangeNotifier {
   }
 
   Future<void> logout() async {
+    unawaited(PosNetworkMonitor.instance.stop());
     _isLoading = true;
     notifyListeners();
 

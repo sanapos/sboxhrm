@@ -547,4 +547,78 @@ public class PosPrintDispatchTests(PosPgFixture fx)
             Assert.Equal(new[] { lan, sunmi, lanBroken }, list.Select(p => p.Id).ToArray());
         }
     }
+
+    // ── Mạng chập chờn: gửi lại / in lại không ra phiếu đôi, không nuốt phiếu ───────────────
+    async Task<PosPrintJob> EnqueueRawAsync(Guid store, Guid printer, string payload, string refNo,
+        string? clientRequestId = null, string? retryOf = null)
+    {
+        await using var db = fx.NewDb();
+        return await Svc(db).EnqueueJobAsync(new EnqueuePrintJobRequest(
+            store, PosPrintDocumentType.KitchenSlip, PosPrintPayloadFormat.KitchenSlipJson, payload, 1,
+            refNo, null, null, "test", PrinterIdOverride: printer, ClientRequestId: clientRequestId,
+            RetryOfReference: retryOf));
+    }
+
+    async Task SetStatusAsync(Guid jobId, PosPrintJobStatus status, string? code = null)
+    {
+        await using var db = fx.NewDb();
+        DateTime? done = status == PosPrintJobStatus.Completed ? DateTime.UtcNow : null;
+        await db.PosPrintJobs.Where(j => j.Id == jobId).ExecuteUpdateAsync(x => x
+            .SetProperty(j => j.Status, status)
+            .SetProperty(j => j.ErrorCode, code)
+            .SetProperty(j => j.CompletedAt, done));
+    }
+
+    [Fact]
+    public async Task Same_client_request_after_failure_requeues_old_job()
+    {
+        if (NoDb) return;
+        var s = await SeedRoutingAsync();
+        var a = await EnqueueRawAsync(s.Store, s.Kitchen, "{\"x\":1}", "R1", clientRequestId: "cr-1-abcdefgh");
+        await SetStatusAsync(a.Id, PosPrintJobStatus.Failed, "NO_AGENT_PORT");
+        var b = await EnqueueRawAsync(s.Store, s.Kitchen, "{\"x\":1}", "R1", clientRequestId: "cr-1-abcdefgh");
+        Assert.Equal(a.Id, b.Id);
+        Assert.Equal(PosPrintJobStatus.Queued, (await JobAsync(a.Id)).Status);
+    }
+
+    [Fact]
+    public async Task Same_client_request_after_completed_does_not_print_again()
+    {
+        if (NoDb) return;
+        var s = await SeedRoutingAsync();
+        var a = await EnqueueRawAsync(s.Store, s.Kitchen, "{\"x\":2}", "R2", clientRequestId: "cr-2-abcdefgh");
+        await SetStatusAsync(a.Id, PosPrintJobStatus.Completed);
+        var b = await EnqueueRawAsync(s.Store, s.Kitchen, "{\"x\":2}", "R2", clientRequestId: "cr-2-abcdefgh");
+        Assert.Equal(a.Id, b.Id);
+        Assert.Equal(PosPrintJobStatus.Completed, (await JobAsync(a.Id)).Status);
+    }
+
+    [Fact]
+    public async Task Retry_of_printed_reference_returns_original_same_printer_only()
+    {
+        if (NoDb) return;
+        var s = await SeedRoutingAsync();
+        var a = await EnqueueRawAsync(s.Store, s.Kitchen, "{\"x\":3}", "ksend|HD1|abc");
+        await SetStatusAsync(a.Id, PosPrintJobStatus.Completed);
+        // In lại từ «In treo» (mã mới + khóa gốc) → lần đầu đã in → không ra phiếu thứ hai.
+        var b = await EnqueueRawAsync(s.Store, s.Kitchen, "{\"x\":3,\"r\":1}", "ksend|HD1|abc|r|1",
+            retryOf: "ksend|HD1|abc");
+        Assert.Equal(a.Id, b.Id);
+        // Chuyển sang máy khác → in thật.
+        var c = await EnqueueRawAsync(s.Store, s.OfflineAgentPrinter, "{\"x\":3,\"r\":2}", "ksend|HD1|abc|r|2",
+            retryOf: "ksend|HD1|abc");
+        Assert.NotEqual(a.Id, c.Id);
+    }
+
+    [Fact]
+    public async Task Retry_of_failed_reference_prints_new_job()
+    {
+        if (NoDb) return;
+        var s = await SeedRoutingAsync();
+        var a = await EnqueueRawAsync(s.Store, s.Kitchen, "{\"x\":4}", "ksend|HD2|abc");
+        await SetStatusAsync(a.Id, PosPrintJobStatus.Failed, "NO_AGENT_PORT");
+        var b = await EnqueueRawAsync(s.Store, s.Kitchen, "{\"x\":4,\"r\":1}", "ksend|HD2|abc|r|1",
+            retryOf: "ksend|HD2|abc");
+        Assert.NotEqual(a.Id, b.Id);
+    }
 }

@@ -42,6 +42,11 @@ class MainActivity : FlutterFragmentActivity() {
 
     override fun configureFlutterEngine(flutterEngine: FlutterEngine) {
         super.configureFlutterEngine(flutterEngine)
+        MethodChannel(flutterEngine.dartExecutor.binaryMessenger, NetworkProbe.CHANNEL)
+            .setMethodCallHandler { call, result ->
+                if (call.method == "info") result.success(NetworkProbe.info(applicationContext))
+                else result.notImplemented()
+            }
 
         MethodChannel(flutterEngine.dartExecutor.binaryMessenger, FILE_CHANNEL)
             .setMethodCallHandler { call, result ->

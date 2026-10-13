@@ -1069,6 +1069,7 @@ Future<bool> _printKitchenCompactSlipLocked({
       sentAt: sentAt ?? DateTime.now(),
       orderNo: (orderNo ?? '').trim(),
       referenceNo: overrideRef,
+      retryOfReference: skipDedup ? dedupRef : null,
       showFeedback: showFeedback,
       successTitle: isCancel ? 'Hủy bếp' : 'Báo bếp',
       skipDedup: true,
@@ -1239,6 +1240,8 @@ Future<bool> _printKitchenCompactSlipLocked({
           sentAt: sentAt ?? DateTime.now(),
           orderNo: (orderNo ?? '').trim(),
           referenceNo: refNo,
+          // In lại (bỏ chống trùng phía máy): server vẫn nhận ra lần gửi đầu đã in xong.
+          retryOfReference: skipDedup ? groupRef : null,
           showFeedback: showFeedback,
           successTitle: isCancel ? 'Hủy bếp' : 'Báo bếp',
           skipDedup: skipDedup,
@@ -1634,6 +1637,7 @@ Future<bool> _printKitchenCompactSlipDefault({
       sentAt: at,
       orderNo: code == '-' ? '' : code,
       referenceNo: refNo,
+      retryOfReference: skipDedup ? baseRef : null,
       // Chỉ toast 1 lần (máy đầu) — overlay đã coalesce pos_print.
       showFeedback: showFeedback && i == 0,
       successTitle: isCancel ? 'Hủy bếp' : 'Báo bếp',

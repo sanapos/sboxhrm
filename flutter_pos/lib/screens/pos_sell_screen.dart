@@ -32,6 +32,7 @@ import '../providers/permission_provider.dart';
 import '../providers/auth_provider.dart';
 import '../utils/responsive_helper.dart';
 import '../utils/store_role_helper.dart';
+import '../services/pos_network_monitor.dart';
 import '../services/api_service.dart';
 import '../services/system_notification_service.dart';
 import '../services/customer_display_sync.dart';
@@ -1363,6 +1364,8 @@ class _PosSellScreenState extends State<PosSellScreen>
         .addListener(_onPendingQrOnlineDraftChanged);
     _startSellBadgePolling();
     unawaited(PosQrOrderVoiceAlert.instance.start());
+    // Đo mạng cửa hàng (ping / lỗi gọi server / realtime / máy in LAN) → báo cáo «Mạng cửa hàng».
+    unawaited(PosNetworkMonitor.instance.start());
     unawaited(_bootstrapSellScreen());
   }
 

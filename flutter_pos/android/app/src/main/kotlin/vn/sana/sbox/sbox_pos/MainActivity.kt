@@ -22,6 +22,11 @@ class MainActivity : FlutterActivity() {
 
     override fun configureFlutterEngine(flutterEngine: FlutterEngine) {
         super.configureFlutterEngine(flutterEngine)
+        MethodChannel(flutterEngine.dartExecutor.binaryMessenger, NetworkProbe.CHANNEL)
+            .setMethodCallHandler { call, result ->
+                if (call.method == "info") result.success(NetworkProbe.info(applicationContext))
+                else result.notImplemented()
+            }
 
         // T1 7" uses DSKernel (not Presentation) — init early for HCService.
         SunmiDsCustomerDisplay.ensureInit(this)

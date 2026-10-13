@@ -79,6 +79,43 @@ class _PosLocalPrintersScreenState extends State<PosLocalPrintersScreen> {
     unawaited(_refreshLinkStatus());
   }
 
+  /// Máy in LAN mất kết nối vì router cấp IP mới: quét mạng, chọn IP, lưu (máy cloud cùng cổng tự sửa theo).
+  Future<void> _relocateLanPrinter(PosLocalPrinterProfile p) async {
+    final hit = await showPosLanPrinterScanSheet(context);
+    if (hit == null || !mounted) return;
+    final old = '${p.lanHost ?? ''}:${p.lanPort}';
+    final now = '${hit.host}:${hit.port}';
+    if (old == now) {
+      NotificationOverlayManager().showWarning(
+        title: 'Vẫn IP cũ',
+        message: tr('$now — máy in vẫn ở IP này; kiểm tra nguồn / dây mạng máy in'),
+      );
+      return;
+    }
+    final yes = await showDialog<bool>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: Text(tr('Đổi IP «${p.name}»?')),
+        content: Text(tr(
+          '$old → $now\n'
+          'Nên đặt IP cố định cho máy in trên router (giữ IP theo MAC) để không phải sửa lại.',
+        )),
+        actions: [
+          TextButton(onPressed: () => Navigator.pop(ctx, false), child: Text(tr('Hủy'))),
+          FilledButton(onPressed: () => Navigator.pop(ctx, true), child: Text(tr('Đổi IP'))),
+        ],
+      ),
+    );
+    if (yes != true) return;
+    await _store.upsert(p.copyWith(lanHost: hit.host, lanPort: hit.port));
+    if (!mounted) return;
+    NotificationOverlayManager().showSuccess(
+      title: 'Đã đổi IP máy in',
+      message: tr('${p.name}: $now'),
+    );
+    await _reload();
+  }
+
   Future<void> _refreshLinkStatus() async {
     if (kIsWeb || !mounted || _items.isEmpty) return;
     final usbList = await PosPrinterReadiness.listUsbDevices();
@@ -472,6 +509,7 @@ class _PosLocalPrintersScreenState extends State<PosLocalPrintersScreen> {
                               isThreeLine: true,
                               trailing: PopupMenuButton<String>(
                                 onSelected: (v) {
+                                  if (v == 'relocate') unawaited(_relocateLanPrinter(p));
                                   if (v == 'test') _testProfile(p);
                                   if (v == 'edit') _edit(p);
                                   if (v == 'assign') _assignProducts(p);
@@ -481,6 +519,11 @@ class _PosLocalPrintersScreenState extends State<PosLocalPrintersScreen> {
                                   PopupMenuItem(
                                       value: 'test',
                                       child: Text(tr('In thử'))),
+                                  if (p.connectionType == PosThermalConnectionType.lan)
+                                    PopupMenuItem(
+                                      value: 'relocate',
+                                      child: Text(tr('Tìm lại IP (máy in đổi IP)')),
+                                    ),
                                   PopupMenuItem(
                                       value: 'edit', child: Text(tr('Sửa'))),
                                   if (canAssign)
@@ -494,6 +537,27 @@ class _PosLocalPrintersScreenState extends State<PosLocalPrintersScreen> {
                               ),
                               onTap: () => _edit(p),
                             ),
+                            if (lost &&
+                                p.enabled &&
+                                p.connectionType == PosThermalConnectionType.lan)
+                              Padding(
+                                padding: const EdgeInsets.fromLTRB(16, 0, 8, 0),
+                                child: Row(
+                                  children: [
+                                    Expanded(
+                                      child: Text(
+                                        tr('Không kết nối ${p.lanHost}:${p.lanPort} — router có thể đã đổi IP máy in.'),
+                                        style: const TextStyle(fontSize: 12, color: SboxColors.dangerText),
+                                      ),
+                                    ),
+                                    TextButton.icon(
+                                      onPressed: () => unawaited(_relocateLanPrinter(p)),
+                                      icon: const Icon(Icons.search, size: 18),
+                                      label: Text(tr('Tìm lại IP')),
+                                    ),
+                                  ],
+                                ),
+                              ),
                             if (canAssign)
                               Align(
                                 alignment: Alignment.centerRight,

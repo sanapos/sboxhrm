@@ -46,8 +46,14 @@ class ApiService {
   factory ApiService() => _instance;
   ApiService._internal();
 
-  Map<String, dynamic> _connectionFailure(Object e, {String? fallback}) =>
-      AppErrorUtils.apiFailure(e, fallbackMessage: fallback);
+  /// Đo mạng cửa hàng (PosNetworkMonitor): mỗi lần gọi server có trả lời / lỗi kết nối.
+  static void Function(int statusCode)? onApiResponse;
+  static void Function(Object error)? onApiFailure;
+
+  Map<String, dynamic> _connectionFailure(Object e, {String? fallback}) {
+    onApiFailure?.call(e);
+    return AppErrorUtils.apiFailure(e, fallbackMessage: fallback);
+  }
 
   Future<Map<String, String>> _loginAccessPayload({required bool posApp}) async {
     final prefs = await SharedPreferences.getInstance();
@@ -11640,6 +11646,7 @@ class ApiService {
   }
 
   Map<String, dynamic> _handleResponse(http.Response response) {
+    onApiResponse?.call(response.statusCode);
     if (response.statusCode == 401) _onRaw401(response);
     try {
       final rawBody = utf8.decode(response.bodyBytes, allowMalformed: true);
@@ -20023,6 +20030,9 @@ class ApiService {
     String? referenceNo,
     String? referenceId,
     String? printerId,
+    /// In lại phiếu treo: mã tham chiếu của lần gửi đầu — server thấy lần đầu đã in xong
+    /// (mất mạng nên máy này không biết) thì trả lệnh đó, không in phiếu thứ hai.
+    String? retryOfReference,
   }) async {
     // Mã chống trùng cho lần bấm này: mạng lỗi thì tự gửi lại cùng mã — server trả
     // đúng lệnh cũ (kể cả đã in xong) nên không ra bản thứ hai.
@@ -20039,6 +20049,9 @@ class ApiService {
       };
       if (referenceNo != null && referenceNo.isNotEmpty) {
         body['referenceNo'] = referenceNo;
+      }
+      if (retryOfReference != null && retryOfReference.isNotEmpty) {
+        body['retryOfReference'] = retryOfReference;
       }
       if (referenceId != null && referenceId.isNotEmpty) {
         body['referenceId'] = referenceId;
@@ -20099,6 +20112,80 @@ class ApiService {
         'hours': '$hours',
       });
       final response = await http.get(uri, headers: _headers).timeout(const Duration(seconds: 20));
+      return _handleResponse(response);
+    } catch (e) {
+      return _connectionFailure(e);
+    }
+  }
+
+  // ── Mạng cửa hàng ─────────────────────────────────────────────────────────
+
+  /// Ping nhẹ tới server (không truy vấn CSDL). Trả số ms nếu server trả lời (kể cả 401 — mạng vẫn tốt);
+  /// null nếu không kết nối được / hết thời gian.
+  Future<int?> pingNetwork({Duration timeout = const Duration(seconds: 8)}) async {
+    final sw = Stopwatch()..start();
+    try {
+      final r = await http
+          .get(Uri.parse('$baseUrl/api/pos/network/ping'), headers: _headers)
+          .timeout(timeout);
+      return r.statusCode > 0 ? sw.elapsedMilliseconds : null;
+    } catch (_) {
+      return null;
+    }
+  }
+
+  /// Tốc độ tải về (kbit/s) — tải [bytes] byte rác từ server.
+  Future<double?> networkDownloadKbps({int bytes = 200000}) async {
+    final sw = Stopwatch()..start();
+    try {
+      final r = await http
+          .get(Uri.parse('$baseUrl/api/pos/network/ping?pad=$bytes'), headers: _headers)
+          .timeout(const Duration(seconds: 20));
+      if (r.statusCode != 200) return null;
+      final ms = sw.elapsedMilliseconds.clamp(1, 1 << 30);
+      return r.bodyBytes.length * 8 / ms;
+    } catch (_) {
+      return null;
+    }
+  }
+
+  /// Tốc độ tải lên (kbit/s) — gửi [bytes] byte rác.
+  Future<double?> networkUploadKbps({int bytes = 100000}) async {
+    final sw = Stopwatch()..start();
+    try {
+      final r = await http
+          .post(
+            Uri.parse('$baseUrl/api/pos/network/ping'),
+            headers: {..._headers, 'Content-Type': 'application/octet-stream'},
+            body: List<int>.filled(bytes, 120),
+          )
+          .timeout(const Duration(seconds: 20));
+      if (r.statusCode != 200) return null;
+      final ms = sw.elapsedMilliseconds.clamp(1, 1 << 30);
+      return bytes * 8 / ms;
+    } catch (_) {
+      return null;
+    }
+  }
+
+  Future<Map<String, dynamic>> postNetworkSamples(Map<String, dynamic> body) async {
+    try {
+      final response = await http
+          .post(Uri.parse('$baseUrl/api/pos/network/samples'),
+              headers: _headers, body: json.encode(body))
+          .timeout(const Duration(seconds: 20));
+      return _handleResponse(response);
+    } catch (e) {
+      return _connectionFailure(e);
+    }
+  }
+
+  /// Báo cáo mạng cửa hàng — [from]/[to] ngày VN (yyyy-MM-dd).
+  Future<Map<String, dynamic>> getNetworkReport({required String from, required String to}) async {
+    try {
+      final uri = Uri.parse('$baseUrl/api/pos/network/report')
+          .replace(queryParameters: {'from': from, 'to': to});
+      final response = await http.get(uri, headers: _headers).timeout(const Duration(seconds: 30));
       return _handleResponse(response);
     } catch (e) {
       return _connectionFailure(e);

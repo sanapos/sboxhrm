@@ -28,7 +28,9 @@ public partial class PosPrintJobsController(
         Guid? ReferenceId,
         Guid? PrinterId,
         /// <summary>Mã chống trùng của máy gửi (gửi lại do mạng lỗi → đúng job cũ).</summary>
-        string? ClientRequestId = null);
+        string? ClientRequestId = null,
+        /// <summary>In lại phiếu treo: mã tham chiếu gốc — lần đầu đã in thì không in thêm.</summary>
+        string? RetryOfReference = null);
 
     public record FailJobDto(string ErrorCode, string ErrorMessage);
 
@@ -264,7 +266,8 @@ public partial class PosPrintJobsController(
                 CurrentUserId.ToString(),
                 CurrentUserEmail ?? User.Identity?.Name,
                 dto.PrinterId,
-                dto.ClientRequestId));
+                dto.ClientRequestId,
+                dto.RetryOfReference));
 
             var printer = await db.PosStorePrinters.AsNoTracking()
                 .FirstAsync(p => p.Id == job.PrinterId);
