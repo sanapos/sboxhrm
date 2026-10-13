@@ -43,6 +43,7 @@ class PosNetworkMonitor {
   Timer? _flushTimer;
   StreamSubscription<bool>? _rtSub;
   DateTime? _rtDownSince;
+  bool _rtEverConnected = false;
   String? _appVersion;
 
   static int _bucketKey(DateTime t) {
@@ -84,7 +85,8 @@ class PosNetworkMonitor {
       if (e is TimeoutException) b.apiTimeouts++;
     };
     _rtSub = SignalRService().onConnectionStateChanged.listen(_onRealtime);
-    if (!SignalRService().isConnected) _rtDownSince = DateTime.now();
+    // Mới mở app chưa kịp nối realtime không tính là rớt — chỉ đếm sau khi đã nối được.
+    _rtEverConnected = SignalRService().isConnected;
 
     _pingTimer = Timer.periodic(_pingEvery, (_) => unawaited(_pingOnce()));
     unawaited(_pingOnce());
@@ -114,6 +116,8 @@ class PosNetworkMonitor {
 
   void _onRealtime(bool connected) {
     final now = DateTime.now();
+    if (connected) _rtEverConnected = true;
+    if (!connected && !_rtEverConnected) return;
     if (!connected) {
       _cur.rtDisconnects++;
       _rtDownSince ??= now;
