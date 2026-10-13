@@ -484,4 +484,39 @@ public class PosPrintDispatchTests(PosPgFixture fx)
         var s = await SeedRoutingAsync();
         Assert.Equal(s.Kitchen, (await EnqueueToAsync(s.Store, s.Kitchen)).PrinterId);
     }
+
+    // ── Chống trùng theo đơn: phiếu bếp thêm món cùng đơn KHÔNG được coi là trùng ─────────────────
+    async Task<PosPrintJob> EnqueueDocAsync(Guid store, Guid printer, PosPrintDocumentType type, Guid orderId,
+        string payload)
+    {
+        await using var db = fx.NewDb();
+        return await Svc(db).EnqueueJobAsync(new EnqueuePrintJobRequest(
+            store, type, PosPrintPayloadFormat.KitchenSlipJson, payload, 1,
+            "R-" + Guid.NewGuid().ToString("N")[..8], orderId, null, "test", PrinterIdOverride: printer));
+    }
+
+    [Fact]
+    public async Task Kitchen_slips_same_order_different_items_are_not_deduped()
+    {
+        if (NoDb) return;
+        var s = await SeedRoutingAsync();
+        var order = Guid.NewGuid();
+        var a = await EnqueueDocAsync(s.Store, s.Kitchen, PosPrintDocumentType.KitchenSlip, order, "{\"lines\":[\"Gỏi\"]}");
+        var b = await EnqueueDocAsync(s.Store, s.Kitchen, PosPrintDocumentType.KitchenSlip, order, "{\"lines\":[\"Nem\"]}");
+        Assert.NotEqual(a.Id, b.Id);
+        // Nội dung giống hệt (gửi lặp) vẫn chặn.
+        var c = await EnqueueDocAsync(s.Store, s.Kitchen, PosPrintDocumentType.KitchenSlip, order, "{\"lines\":[\"Nem\"]}");
+        Assert.Equal(b.Id, c.Id);
+    }
+
+    [Fact]
+    public async Task Invoice_same_order_still_deduped_while_queued()
+    {
+        if (NoDb) return;
+        var s = await SeedRoutingAsync();
+        var order = Guid.NewGuid();
+        var a = await EnqueueDocAsync(s.Store, s.Kitchen, PosPrintDocumentType.SaleInvoice, order, "{\"v\":1}");
+        var b = await EnqueueDocAsync(s.Store, s.Kitchen, PosPrintDocumentType.SaleInvoice, order, "{\"v\":2}");
+        Assert.Equal(a.Id, b.Id);
+    }
 }

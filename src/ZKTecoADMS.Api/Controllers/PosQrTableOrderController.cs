@@ -2348,7 +2348,8 @@ public class PosQrTableOrderController(
                     note = l.Note,
                 }),
             });
-            var refNo = $"QR|{order.OrderNo}|{stamp}|{g.Key.ToString("N")[..6]}";
+            // Thêm mã ngẫu nhiên: 2 lần gọi món cùng bàn trong cùng giây không bị coi là trùng (mất phiếu).
+            var refNo = $"QR|{order.OrderNo}|{stamp}|{g.Key.ToString("N")[..6]}|{Guid.NewGuid().ToString("N")[..4]}";
             await dispatch.EnqueueJobAsync(new EnqueuePrintJobRequest(
                 storeId,
                 PosPrintDocumentType.KitchenSlip,

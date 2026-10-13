@@ -409,7 +409,11 @@ public class PosPrintDispatchService(
         // nhưng không ra giấy (sót bill khi khách xin thêm bản).
         var since = DateTime.UtcNow.AddMinutes(-10);
         PosPrintJob? duplicate = null;
-        if (request.ReferenceId is { } refId && refId != Guid.Empty)
+        // Theo đơn (ReferenceId) chỉ cho hóa đơn / tạm tính (in lại cùng một bill). Phiếu bếp / tem / kho
+        // là phần THÊM của cùng đơn: QR bàn gọi 2 lần liền → lần 2 bị coi là trùng, mất phiếu bếp
+        // (test 20 đơn QR / 4 bàn: chỉ ra 5 phiếu). Các loại đó chỉ chặn khi nội dung giống hệt (hash).
+        if (IsInvoiceFamily(request.DocumentType)
+            && request.ReferenceId is { } refId && refId != Guid.Empty)
         {
             duplicate = await db.PosPrintJobs.AsNoTracking()
                 .Where(j => j.StoreId == request.StoreId
