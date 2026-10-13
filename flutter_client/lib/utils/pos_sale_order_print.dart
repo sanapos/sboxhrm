@@ -1029,6 +1029,9 @@ Future<bool> _tryLocalSalePrint({
 
 Future<PosSaleOrder> _resolvePrintOrder(PosSaleOrder order) async {
   if (order.id.isEmpty || order.status != 'Completed') return order;
+  // Hóa đơn tạm bán lúc mất mạng (OFF-…) chưa có trên máy chủ — không gọi mạng (chờ hết giờ mới in) và
+  // không để lỗi 404 làm tắt «record-print-lite» cho mọi lần in sau.
+  if (order.id.startsWith('offline-')) return order;
   try {
     final res = await ApiService().recordPosSalePrint(order.id);
     if (res['isSuccess'] == true && res['data'] is Map) {

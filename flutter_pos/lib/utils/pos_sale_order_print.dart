@@ -1031,6 +1031,9 @@ bool _printLiteUnsupported = false;
 
 Future<PosSaleOrder> _resolvePrintOrder(PosSaleOrder order) async {
   if (order.id.isEmpty || order.status != 'Completed') return order;
+  // Hóa đơn tạm bán lúc mất mạng (OFF-…) chưa có trên máy chủ — không gọi mạng (chờ hết giờ mới in) và
+  // không để lỗi 404 làm tắt «record-print-lite» cho mọi lần in sau.
+  if (order.id.startsWith('offline-')) return order;
   // Đơn đã có đủ dòng (in ngay sau thanh toán) → chỉ cần context in, không tải lại cả đơn.
   if (order.lines.isNotEmpty && !_printLiteUnsupported) {
     try {
