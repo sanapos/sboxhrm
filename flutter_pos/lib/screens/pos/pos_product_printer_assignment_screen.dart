@@ -88,7 +88,53 @@ PosAssignPrinterPurpose purposeFromFlags({
       : PosAssignPrinterPurpose.kitchenSlip;
 }
 
-/// Copy/chuyển món đã gán máy nội bộ → máy Agent (mỗi món 1 máy/lane).
+/// Máy [printerId] là máy nội bộ CỦA THIẾT BỊ NÀY (gán món lưu trên máy) hay máy cửa hàng / Agent (gán trên server).
+Future<bool> _isMineLocalPrinter(String printerId) async {
+  await PosPrintOrchestrator.instance.refreshConfig();
+  final p = PosPrintOrchestrator.instance.printerByIdExact(printerId);
+  if (p != null) return PosPrintDeviceScope.isOwnedDeviceLocal(p);
+  return (await PosLocalPrintersStore.instance.byStorePrinterId(printerId)) != null;
+}
+
+/// Món đang gán [printerId] ở đúng lớp của máy đó (nội bộ: trên thiết bị; cửa hàng: server).
+Future<List<String>> _assignedProductIds(
+  ApiService api,
+  String printerId, {
+  required bool isLabel,
+  required bool local,
+}) async {
+  if (local) {
+    return (await PosDeviceProductPrinters.instance.productIdsForPrinter(
+      printerId,
+      label: isLabel,
+    ))
+        .toList();
+  }
+  final ids = <String>[];
+  for (var page = 1; page <= 50; page++) {
+    final res = await api.getPosPrinterProducts(
+      printerId,
+      assignedOnly: true,
+      forLabel: isLabel,
+      page: page,
+      pageSize: 200,
+    );
+    if (res['isSuccess'] != true || res['data'] is! Map) break;
+    final data = Map<String, dynamic>.from(res['data'] as Map);
+    final raw = data['items'] ?? data['Items'];
+    if (raw is! List || raw.isEmpty) break;
+    for (final e in raw.whereType<Map>()) {
+      final id = (e['id'] ?? e['Id'] ?? e['productId'])?.toString() ?? '';
+      if (id.isNotEmpty) ids.add(id);
+    }
+    if (raw.length < 200) break;
+  }
+  return ids;
+}
+
+/// Gán nhanh giống máy khác: lấy danh sách món của 1 máy nguồn (nội bộ hoặc cửa hàng / Agent)
+/// rồi gán vào [targetPrinterId] theo đúng lớp của máy đích. KHÔNG đụng máy nguồn, không xóa gán
+/// lớp còn lại — 2 lớp vẫn tách riêng (máy nội bộ in thẳng trên thiết bị, máy Agent cho máy khác in qua).
 Future<bool> copyProductAssignmentsFromLocal({
   required BuildContext context,
   required ApiService api,
@@ -96,6 +142,7 @@ Future<bool> copyProductAssignmentsFromLocal({
   required String targetPrinterName,
   required bool isLabel,
 }) async {
+  final targetLocal = await _isMineLocalPrinter(targetPrinterId);
   final res = await api.getPosPrinterProductSummary(
     includeLocal: true,
     ownerDeviceId: await PosPrintDeviceScope.myDeviceId(),
@@ -113,19 +160,16 @@ Future<bool> copyProductAssignmentsFromLocal({
       .where((p) => p.id.isNotEmpty && p.id != targetPrinterId)
       .where((p) => p.isLabel == isLabel)
       .toList();
-  final scoped = await _scopePrintersToThisDevice(all);
-  final locals = scoped.where((p) => p.isDeviceLocal).toList();
+  // Máy nội bộ của thiết bị này: số món đọc trên máy (server không biết gán nội bộ).
+  final scoped = await _overlayLocalAssignCounts(await _scopePrintersToThisDevice(all));
   final sources = [
-    ...locals,
-    ...all.where((p) => !p.isDeviceLocal),
-  ];
+    ...scoped.where((p) => p.isDeviceLocal),
+    ...scoped.where((p) => !p.isDeviceLocal),
+  ].where((p) => p.productCount > 0).toList();
   if (sources.isEmpty) {
     NotificationOverlayManager().showWarning(
       title: 'Không có máy nguồn',
-      message: tr(
-        'Chưa có máy nội bộ cùng loại (bếp/tem) để copy. '
-        'Gán món trên Máy in nội bộ trước.',
-      ),
+      message: tr('Chưa có máy cùng loại (bếp/tem) nào đang gán món để copy.'),
     );
     return false;
   }
@@ -134,14 +178,17 @@ Future<bool> copyProductAssignmentsFromLocal({
   final picked = await showDialog<_PrinterSummary>(
     context: context,
     builder: (ctx) => SimpleDialog(
-      title: Text(tr('Copy món từ máy nội bộ')),
+      title: Text(tr('Gán nhanh giống máy khác')),
       children: [
         Padding(
           padding: const EdgeInsets.fromLTRB(24, 0, 24, 8),
           child: Text(
             tr(
-              'Chuyển danh sách gán sang «$targetPrinterName». '
-              'Mỗi món chỉ thuộc 1 máy — món sẽ in qua Agent.',
+              targetLocal
+                  ? 'Chọn máy có sẵn danh sách món. «$targetPrinterName» là máy nội bộ: gán lưu trên '
+                      'thiết bị này, máy nguồn giữ nguyên.'
+                  : 'Chọn máy có sẵn danh sách món. «$targetPrinterName» là máy cửa hàng / Agent: '
+                      'mỗi món chỉ thuộc 1 máy cửa hàng; gán nội bộ trên các thiết bị giữ nguyên.',
             ),
             style: const TextStyle(fontSize: 13, height: 1.35),
           ),
@@ -159,7 +206,7 @@ Future<bool> copyProductAssignmentsFromLocal({
               title: Text(tr(p.name)),
               subtitle: Text(
                 tr(
-                  '${p.isDeviceLocal ? 'Máy nội bộ' : 'Máy cửa hàng'}'
+                  '${p.isDeviceLocal ? 'Máy nội bộ (máy này)' : 'Máy cửa hàng / Agent'}'
                   ' · ${p.productCount} sản phẩm',
                 ),
               ),
@@ -170,14 +217,29 @@ Future<bool> copyProductAssignmentsFromLocal({
   );
   if (picked == null || !context.mounted) return false;
 
+  final ids = await _assignedProductIds(
+    api,
+    picked.id,
+    isLabel: isLabel,
+    local: picked.isDeviceLocal,
+  );
+  if (ids.isEmpty) {
+    NotificationOverlayManager().showWarning(
+      title: 'Máy nguồn chưa gán món',
+      message: tr(picked.name),
+    );
+    return false;
+  }
+  if (!context.mounted) return false;
   final yes = await showDialog<bool>(
     context: context,
     builder: (ctx) => AlertDialog(
-      title: Text(tr('Copy gán món?')),
+      title: Text(tr('Gán ${ids.length} món?')),
       content: Text(
         tr(
-          'Chuyển ${picked.productCount} món từ «${picked.name}» '
-          'sang «$targetPrinterName».',
+          'Gán ${ids.length} món của «${picked.name}» vào «$targetPrinterName».'
+          '${targetLocal ? '' : '\nMón đang thuộc máy cửa hàng khác sẽ chuyển sang máy này.'}'
+          '\n«${picked.name}» giữ nguyên danh sách.',
         ),
       ),
       actions: [
@@ -187,32 +249,38 @@ Future<bool> copyProductAssignmentsFromLocal({
         ),
         FilledButton(
           onPressed: () => Navigator.pop(ctx, true),
-          child: Text(tr('Copy')),
+          child: Text(tr('Gán')),
         ),
       ],
     ),
   );
   if (yes != true) return false;
 
-  final copyRes = await api.copyPosPrinterProductAssignments(
-    targetPrinterId,
-    sourcePrinterId: picked.id,
-    forLabel: isLabel,
-  );
-  if (copyRes['isSuccess'] != true) {
-    NotificationOverlayManager().showError(
-      title: 'Không copy được',
-      message: copyRes['message']?.toString() ?? 'Lỗi máy chủ',
+  if (targetLocal) {
+    await PosDeviceProductPrinters.instance.assignProducts(
+      printerId: targetPrinterId,
+      productIds: ids,
+      label: isLabel,
     );
-    return false;
+  } else {
+    final r = await api.assignProductsToPosPrinter(
+      targetPrinterId,
+      productIds: ids,
+      forceReassign: true,
+      forLabel: isLabel,
+    );
+    if (r['isSuccess'] != true) {
+      NotificationOverlayManager().showError(
+        title: 'Không gán được',
+        message: r['message']?.toString() ?? 'Lỗi máy chủ',
+      );
+      return false;
+    }
   }
-  final data = copyRes['data'] is Map
-      ? Map<String, dynamic>.from(copyRes['data'] as Map)
-      : <String, dynamic>{};
   await PosProductPrinterService.instance.invalidate();
   NotificationOverlayManager().showSuccess(
-    title: 'Đã copy gán món',
-    message: (data['message'] ?? copyRes['message'] ?? '').toString(),
+    title: 'Đã gán ${ids.length} món',
+    message: tr('«${picked.name}» → «$targetPrinterName»'),
   );
   return true;
 }
@@ -681,9 +749,8 @@ class _PosProductPrinterAssignmentScreenState
                                         ),
                                         onPressed: () => unawaited(_deletePrinter(p)),
                                       ),
-                                    if (!p.isDeviceLocal)
-                                      IconButton(
-                                        tooltip: tr('Copy món từ máy nội bộ'),
+                                    IconButton(
+                                        tooltip: tr('Gán nhanh giống máy khác'),
                                         icon: const Icon(Icons.copy_all_outlined),
                                         onPressed: () async {
                                           final ok =
@@ -983,7 +1050,7 @@ class _PosPrinterManageProductsScreenState
         foregroundColor: Colors.white,
         actions: [
           IconButton(
-            tooltip: tr('Copy món từ máy nội bộ'),
+            tooltip: tr('Gán nhanh giống máy khác'),
             onPressed: _busy
                 ? null
                 : () async {

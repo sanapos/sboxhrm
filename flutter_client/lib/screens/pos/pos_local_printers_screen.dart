@@ -298,6 +298,11 @@ class _PosLocalPrintersScreenState extends State<PosLocalPrintersScreen> {
         ),
         actions: [
           IconButton(
+            tooltip: tr('Thêm máy'),
+            onPressed: () => _edit(),
+            icon: const Icon(Icons.add),
+          ),
+          IconButton(
             tooltip: tr('Kiểm tra kết nối'),
             onPressed: _loading ? null : () => unawaited(_refreshLinkStatus()),
             icon: const Icon(Icons.wifi_tethering),
@@ -328,16 +333,11 @@ class _PosLocalPrintersScreenState extends State<PosLocalPrintersScreen> {
           ),
         ],
       ),
-      floatingActionButton: FloatingActionButton.extended(
-        onPressed: () => _edit(),
-        backgroundColor: PosTheme.kiotBlue,
-        icon: const Icon(Icons.add),
-        label: Text(tr('Thêm máy')),
-      ),
+      // Không dùng nút nổi: danh sách ngắn không cuộn → nút nổi che «Gán sản phẩm» / ⋮ của thẻ cuối.
       body: _loading
           ? const Center(child: CircularProgressIndicator())
           : ListView(
-              padding: const EdgeInsets.fromLTRB(12, 12, 12, 132),
+              padding: const EdgeInsets.fromLTRB(12, 12, 12, 24),
               children: [
                 Card(
                   color: SboxColors.brand50,
@@ -511,6 +511,16 @@ class _PosLocalPrintersScreenState extends State<PosLocalPrintersScreen> {
                       ),
                     );
                   }),
+                const SizedBox(height: 8),
+                Align(
+                  alignment: Alignment.centerLeft,
+                  child: FilledButton.icon(
+                    onPressed: () => _edit(),
+                    style: FilledButton.styleFrom(backgroundColor: PosTheme.kiotBlue),
+                    icon: const Icon(Icons.add),
+                    label: Text(tr('Thêm máy')),
+                  ),
+                ),
               ],
             ),
     );

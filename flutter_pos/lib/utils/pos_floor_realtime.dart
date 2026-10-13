@@ -27,26 +27,46 @@ abstract final class PosSyncReasons {
 }
 
 /// Debounced listener cho event `PosFloorChanged` (sơ đồ / draft bàn).
+///
+/// [maxWait]: sự kiện dồn liên tục (nhiều đơn QR / máy khác gọi món dồn dập) — debounce thuần
+/// cứ reset mãi, sơ đồ đứng yên tới hết đợt (test 20 đơn / 10s: bàn cuối trễ ~16s). Quá [maxWait]
+/// kể từ sự kiện đầu chưa xử lý thì chạy luôn.
 class PosFloorRealtimeSubscription {
   PosFloorRealtimeSubscription({
     this.debounce = const Duration(milliseconds: 400),
+    this.maxWait = const Duration(milliseconds: 1500),
   });
 
   final Duration debounce;
+  final Duration maxWait;
   StreamSubscription<Map<String, dynamic>>? _sub;
   Timer? _timer;
+  DateTime? _pendingSince;
 
   void start(void Function(Map<String, dynamic> event) onChanged) {
     dispose();
+    void fire(Map<String, dynamic> event) {
+      _timer?.cancel();
+      _timer = null;
+      _pendingSince = null;
+      onChanged(event);
+    }
+
     _sub = SignalRService().onPosFloorChanged.listen((event) {
       _timer?.cancel();
-      _timer = Timer(debounce, () => onChanged(event));
+      final since = _pendingSince ??= DateTime.now();
+      if (DateTime.now().difference(since) >= maxWait) {
+        fire(event);
+        return;
+      }
+      _timer = Timer(debounce, () => fire(event));
     });
   }
 
   void dispose() {
     _timer?.cancel();
     _timer = null;
+    _pendingSince = null;
     _sub?.cancel();
     _sub = null;
   }

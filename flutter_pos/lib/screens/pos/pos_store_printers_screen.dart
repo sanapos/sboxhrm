@@ -773,6 +773,12 @@ class _PosStorePrintersScreenState extends State<PosStorePrintersScreen> {
   }
 
   List<Widget> _cloudPrinterActions() => [
+        if (_canManageCloudPrinters)
+          IconButton(
+            tooltip: tr('Thêm máy in'),
+            onPressed: () => _openEditor(),
+            icon: const Icon(Icons.add),
+          ),
         IconButton(
           tooltip: tr('Máy in nội bộ'),
           onPressed: () {
@@ -985,7 +991,7 @@ class _PosStorePrintersScreenState extends State<PosStorePrintersScreen> {
               onRefresh: _load,
               child: ListView(
                 // Chừa chỗ FAB «Thêm máy in».
-                padding: const EdgeInsets.fromLTRB(12, 12, 12, 132),
+                padding: const EdgeInsets.fromLTRB(12, 12, 12, 24),
                 children: [
                   if (hideOuter) ...[
                     _embeddedToolbar(),
@@ -1010,18 +1016,21 @@ class _PosStorePrintersScreenState extends State<PosStorePrintersScreen> {
                   _agentCard(),
                   const SizedBox(height: 12),
                   _printersSection(),
+                  if (_canManageCloudPrinters) ...[
+                    const SizedBox(height: 8),
+                    Align(
+                      alignment: Alignment.centerLeft,
+                      child: FilledButton.icon(
+                        onPressed: () => _openEditor(),
+                        style: FilledButton.styleFrom(backgroundColor: PosTheme.kiotBlue),
+                        icon: const Icon(Icons.add),
+                        label: Text(tr('Thêm máy in')),
+                      ),
+                    ),
+                  ],
                 ],
               ),
             ),
-      floatingActionButtonLocation: FloatingActionButtonLocation.endFloat,
-      floatingActionButton: _canManageCloudPrinters
-          ? FloatingActionButton.extended(
-              onPressed: () => _openEditor(),
-              backgroundColor: PosTheme.kiotBlue,
-              icon: const Icon(Icons.add),
-              label: Text(tr('Thêm máy in')),
-            )
-          : null,
     ),
     );
   }
