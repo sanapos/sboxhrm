@@ -92,12 +92,12 @@ abstract final class PosPrintDeviceScope {
     if (device.isNotEmpty) {
       // Gán trên máy này trỏ tới máy đã xóa / đã dọn → bỏ qua, dùng gán cửa hàng / máy bếp mặc định
       // (trước: phiếu vào «In treo» với lỗi «không tìm thấy máy đã gán» dù cửa hàng còn máy in).
-      final want = device.toLowerCase();
-      final known = PosPrintOrchestrator.instance.printerByIdExact(device) != null ||
-          (await PosLocalPrintersStore.instance.loadAll()).any((p) =>
-              p.id.toLowerCase() == want ||
-              (p.storePrinterId ?? '').trim().toLowerCase() == want);
-      if (known) return KitchenPrintRoute.local(device);
+      // Phiếu bếp tra máy theo danh sách máy cửa hàng — máy nội bộ còn trên thiết bị nhưng bản ghi
+      // server đã xóa / đã tắt cũng coi như không còn.
+      await PosPrintOrchestrator.instance.refreshConfig();
+      if (PosPrintOrchestrator.instance.printerByIdExact(device) != null) {
+        return KitchenPrintRoute.local(device);
+      }
       debugPrint('Kitchen: gán máy trên thiết bị $device không còn — dùng gán cửa hàng');
     }
     if (store.isNotEmpty &&
