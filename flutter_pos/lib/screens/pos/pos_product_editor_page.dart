@@ -35,6 +35,7 @@ import 'pos_topping_groups_screen.dart';
 import 'package:sbox_pos/l10n/app_tr.dart';
 
 import '../../theme/sbox_tokens.dart';
+import '../../widgets/pos/pos_unsaved_changes.dart';
 class PosProductEditorPage extends StatefulWidget {
   const PosProductEditorPage({
     super.key,
@@ -226,6 +227,8 @@ class _PosProductEditorPageState extends State<PosProductEditorPage>
   late TabController _tabs;
   bool _saving = false;
   bool _loading = true;
+  /// Ảnh chụp dữ liệu form lúc nạp xong / vừa lưu — khác thì hỏi trước khi đóng.
+  String? _cleanSig;
   String? _imageBase64;
   String? _imagePreviewUrl;
   DateTime? _imageStamp;
@@ -619,6 +622,7 @@ class _PosProductEditorPageState extends State<PosProductEditorPage>
         _loading = false;
         _syncTabController();
       });
+      _cleanSig = _formSig();
       hidePosSoftKeyboard();
     }
     if (mounted && widget.openUnitSetup && _isGoods) {
@@ -1322,6 +1326,7 @@ class _PosProductEditorPageState extends State<PosProductEditorPage>
       if (createAnother && !_isEditing) {
         _resetForAnother();
         setState(() {});
+        _cleanSig = _formSig();
       } else {
         Navigator.pop(context, true);
       }
@@ -1726,7 +1731,33 @@ class _PosProductEditorPageState extends State<PosProductEditorPage>
   }
   @override
   Widget build(BuildContext context) {
-    return _buildKiotVietDialog();
+    return PopScope(
+      canPop: false,
+      onPopInvoked: (didPop) {
+        if (!didPop) _requestClose();
+      },
+      child: _buildKiotVietDialog(),
+    );
+  }
+
+  String _formSig() => [
+        _codeCtrl.text, _barcodeCtrl.text, _nameCtrl.text, _costCtrl.text,
+        _priceCtrl.text, _stockCtrl.text, _minStockCtrl.text, _maxStockCtrl.text,
+        _weightCtrl.text, _lengthCtrl.text, _widthCtrl.text, _heightCtrl.text,
+        _descCtrl.text, _unitCtrl.text, _categoryId, _brandId, _locationId,
+        _supplierId, _imageBase64?.length, _pendingImageName, _directSale,
+        _allowDecimalQty, _allowAreaQty, _areaLength, _areaWidth, _areaHeight,
+        _requiresSerial, _units.length, _variantAttrs.length,
+        _comboLines.length, _recipeLines.length,
+      ].join('|');
+
+  bool get _isDirty => !_loading && _cleanSig != null && _formSig() != _cleanSig;
+
+  /// «Bỏ qua» / X / back: còn dữ liệu chưa lưu thì hỏi trước.
+  Future<void> _requestClose() async {
+    if (_saving) return;
+    if (_isDirty && !await confirmDiscardUnsavedChanges(context)) return;
+    if (mounted) Navigator.pop(context);
   }
 
   Widget _buildKiotVietDialog() {
@@ -1830,7 +1861,7 @@ class _PosProductEditorPageState extends State<PosProductEditorPage>
             tooltip: tr('Tùy chọn hiển thị form'),
           ),
           IconButton(
-            onPressed: _saving ? null : () => Navigator.pop(context),
+            onPressed: _saving ? null : _requestClose,
             icon: const Icon(Icons.close),
             tooltip: tr('Đóng'),
           ),
@@ -1843,7 +1874,7 @@ class _PosProductEditorPageState extends State<PosProductEditorPage>
     final narrow = MediaQuery.sizeOf(context).width < 520;
     final actions = <Widget>[
       TextButton(
-        onPressed: _saving ? null : () => Navigator.pop(context),
+        onPressed: _saving ? null : _requestClose,
         child: Text(tr('Bỏ qua')),
       ),
       if (!_isEditing) ...[
@@ -1890,10 +1921,6 @@ class _PosProductEditorPageState extends State<PosProductEditorPage>
             mainAxisSize: MainAxisSize.min,
             crossAxisAlignment: CrossAxisAlignment.stretch,
             children: [
-              if (_isGoods && !_requiresSerial) ...[
-                _retailDecimalFooterRow(),
-                _retailAreaFooterRow(),
-              ],
               narrow
               ? Column(
                   crossAxisAlignment: CrossAxisAlignment.stretch,
@@ -2013,7 +2040,7 @@ class _PosProductEditorPageState extends State<PosProductEditorPage>
                   children: [
                     Expanded(child: _goodsBasicFields()),
                     const SizedBox(width: 20),
-                    SizedBox(width: 300, child: _kiotImageBox()),
+                    SizedBox(width: 200, child: _kiotImageBox(side: true)),
                   ],
                 )
               : Column(
@@ -2054,7 +2081,7 @@ class _PosProductEditorPageState extends State<PosProductEditorPage>
             ),
           ),
           if (_isGoods) _retailQtyModeButtons(),
-          if (_isGoods) _buildAreaAxesSection(),
+          if (_isGoods && _allowAreaQty) _buildAreaAxesSection(),
           _buildProductVatSection(),
           if (_showSection(PosProductEditorSection.staffCommission))
             _kvExpansion(
@@ -2425,7 +2452,7 @@ class _PosProductEditorPageState extends State<PosProductEditorPage>
                   children: [
                     Expanded(child: _serviceBasicFields()),
                     const SizedBox(width: 20),
-                    SizedBox(width: 300, child: _kiotImageBox()),
+                    SizedBox(width: 200, child: _kiotImageBox(side: true)),
                   ],
                 )
               : Column(
@@ -2814,7 +2841,7 @@ class _PosProductEditorPageState extends State<PosProductEditorPage>
                   children: [
                     Expanded(child: _comboBasicFields()),
                     const SizedBox(width: 20),
-                    SizedBox(width: 300, child: _kiotImageBox()),
+                    SizedBox(width: 200, child: _kiotImageBox(side: true)),
                   ],
                 )
               : Column(
@@ -3580,64 +3607,6 @@ class _PosProductEditorPageState extends State<PosProductEditorPage>
     );
   }
 
-  Widget _retailDecimalFooterRow() {
-    return InkWell(
-      onTap: () {
-        if (_allowDecimalQty || _allowAreaQty) {
-          _setAreaMaster(false);
-          setState(() => _allowDecimalQty = false);
-        } else {
-          setState(() => _allowDecimalQty = true);
-        }
-      },
-      child: Row(
-        children: [
-          Checkbox(
-            value: _allowDecimalQty || _allowAreaQty,
-            activeColor: PosTheme.kiotBlue,
-            visualDensity: VisualDensity.compact,
-            onChanged: (v) {
-              if (v ?? false) {
-                setState(() => _allowDecimalQty = true);
-              } else {
-                _setAreaMaster(false);
-                setState(() => _allowDecimalQty = false);
-              }
-            },
-          ),
-          Expanded(
-            child: Text(
-              tr('Bán số lẻ  ·  1,5  ·  1,45'),
-              style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w700),
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-
-  Widget _retailAreaFooterRow() {
-    return InkWell(
-      onTap: () => _setAreaMaster(!_allowAreaQty),
-      child: Row(
-        children: [
-          Checkbox(
-            value: _allowAreaQty,
-            activeColor: PosTheme.kiotBlue,
-            visualDensity: VisualDensity.compact,
-            onChanged: (v) => _setAreaMaster(v ?? false),
-          ),
-          Expanded(
-            child: Text(
-              tr('Nhập Dài, Rộng, Cao khi báo giá và bán'),
-              style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w700),
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-
   Widget _retailQtyModeButtons() {
     final locked = _requiresSerial;
     return Padding(
@@ -3696,8 +3665,9 @@ class _PosProductEditorPageState extends State<PosProductEditorPage>
     );
   }
 
-  Widget _kiotImageBox({bool compact = false}) {
-    final boxH = compact ? 260.0 : 340.0;
+  /// [side]: ảnh nhỏ đặt cạnh Tên/Nhóm (màn ngang) — không đẩy Giá vốn/Giá bán khuất xuống dưới.
+  Widget _kiotImageBox({bool compact = false, bool side = false}) {
+    final boxH = side ? 170.0 : (compact ? 200.0 : 260.0);
     return Column(
       children: [
         InkWell(
@@ -3717,7 +3687,7 @@ class _PosProductEditorPageState extends State<PosProductEditorPage>
           ),
         ),
         const SizedBox(height: 6),
-        Text(tr('Chạm để đổi ảnh. Ảnh mới thay ảnh cũ. Tối đa 2 MB.'),
+        Text(tr(side ? 'Chạm để đổi ảnh · tối đa 2 MB' : 'Chạm để đổi ảnh. Ảnh mới thay ảnh cũ. Tối đa 2 MB.'),
           style: TextStyle(fontSize: 11, color: SboxColors.slate600),
           textAlign: TextAlign.center,
         ),
@@ -4433,7 +4403,7 @@ class _PosProductEditorPageState extends State<PosProductEditorPage>
                     style: TextStyle(fontSize: 13)),
               ),
               TextButton(
-                onPressed: _saving ? null : () => Navigator.pop(context),
+                onPressed: _saving ? null : _requestClose,
                 child: Text(tr('Bỏ qua')),
               ),
               const SizedBox(width: 8),

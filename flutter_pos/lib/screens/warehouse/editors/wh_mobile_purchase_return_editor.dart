@@ -11,6 +11,7 @@ import '../../../widgets/pos/pos_purchase_product_search_bar.dart';
 import '../../../widgets/pos/pos_supplier_form_dialog.dart';
 import '../../../widgets/pos_barcode_scanner.dart';
 import '../../../widgets/pos/pos_serial_list_dialog.dart';
+import '../../../widgets/pos/pos_unsaved_changes.dart';
 import '../../../widgets/warehouse/wh_mobile_components.dart';
 import '../../../widgets/warehouse/wh_mobile_theme.dart';
 import '../../main_layout.dart' show ScreenRefreshNotifier;
@@ -78,6 +79,14 @@ class _WhMobilePurchaseReturnEditorState extends State<WhMobilePurchaseReturnEdi
 
   bool get _readOnly => _status != 'Draft';
 
+  /// Dữ liệu lúc nạp / vừa lưu — khác thì hỏi trước khi thoát.
+  String? _cleanSig;
+  bool get _isDirty => !_loading && !_readOnly && _cleanSig != null && _sig() != _cleanSig;
+  String _sig() => [
+        _supplierId, _noteCtrl.text.trim(),
+        for (final l in _lines) '${l.productId}/${l.variantId}/${l.qty}/${l.cost}/${l.serials.length}',
+      ].join('|');
+
   @override
   void initState() {
     super.initState();
@@ -117,6 +126,7 @@ class _WhMobilePurchaseReturnEditorState extends State<WhMobilePurchaseReturnEdi
               )));
       }
     }
+    _cleanSig = _sig();
     if (mounted) setState(() => _loading = false);
   }
 
@@ -244,6 +254,9 @@ class _WhMobilePurchaseReturnEditorState extends State<WhMobilePurchaseReturnEdi
     setState(() => _saving = false);
     if (res['isSuccess'] == true) {
       final r = PosPurchaseReturn.fromJson(res['data'] as Map<String, dynamic>);
+      if (r.id.isNotEmpty) _returnId = r.id;
+      if (r.returnNo.isNotEmpty) setState(() => _returnNo = r.returnNo);
+      _cleanSig = _sig();
       NotificationOverlayManager().showSuccess(
         title: complete ? 'Đã trả hàng' : 'Đã lưu nháp',
         message: r.returnNo,
@@ -261,7 +274,9 @@ class _WhMobilePurchaseReturnEditorState extends State<WhMobilePurchaseReturnEdi
 
   @override
   Widget build(BuildContext context) {
-    return WhMobileScaffold(
+    return UnsavedChangesScope(
+      isDirty: () => _isDirty,
+      child: WhMobileScaffold(
       title: _returnNo.isEmpty ? 'Tạo phiếu trả' : _returnNo,
       subtitle: 'Trả hàng nhập',
       actions: [
@@ -387,6 +402,7 @@ class _WhMobilePurchaseReturnEditorState extends State<WhMobilePurchaseReturnEdi
                 ),
               ],
             ),
+    ),
     );
   }
 }

@@ -88,12 +88,13 @@ class _WhMobileDocListScreenState extends State<WhMobileDocListScreen> {
   }
 
   Future<void> _openCreate() async {
-    final ok = await WhMobileEditorRouter.openCreate(context, _type);
-    if (ok == true && mounted) _load(page: _page);
+    await WhMobileEditorRouter.openCreate(context, _type);
+    // Luôn tải lại: «Lưu nháp» ở lại màn sửa rồi back (không trả true) vẫn đã tạo phiếu.
+    if (mounted) _load(page: _page);
   }
 
   Future<void> _openItem(WhDocListItem item) async {
-    final ok = await Navigator.of(context).push<bool>(
+    await Navigator.of(context).push<bool>(
       MaterialPageRoute(
         builder: (_) => PosHubScope(
           embeddedInHub: false,
@@ -102,7 +103,7 @@ class _WhMobileDocListScreenState extends State<WhMobileDocListScreen> {
         ),
       ),
     );
-    if (ok == true && mounted) _load(page: _page);
+    if (mounted) _load(page: _page);
   }
 
   @override

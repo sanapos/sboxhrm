@@ -6,6 +6,7 @@ import '../../models/pos_stock_count.dart';
 import '../../models/pos_stock_issue_doc.dart';
 import '../../providers/permission_provider.dart';
 import '../../services/api_service.dart';
+import '../../utils/number_formatter.dart';
 import '../../utils/pos_doc_status.dart';
 import '../../utils/pos_mutation_result.dart';
 import '../../widgets/loading_widget.dart';
@@ -49,6 +50,8 @@ class _WhMobileDocDetailScreenState extends State<WhMobileDocDetailScreen> {
   double _amount = 0;
   int _lineCount = 0;
   List<Map<String, dynamic>> _lines = [];
+  /// Phiếu kiểm kho vừa nạp — dùng cho hộp xác nhận «Cân bằng kho».
+  PosStockCount? _count;
 
   bool get _isDraft =>
       _status == widget.docType.draftStatus || _status == 'Draft';
@@ -103,15 +106,16 @@ class _WhMobileDocDetailScreenState extends State<WhMobileDocDetailScreen> {
           final res = await _api.getPosStockCount(widget.docId);
           if (res['isSuccess'] == true) {
             final c = PosStockCount.fromJson(res['data'] as Map<String, dynamic>);
+            _count = c;
             _apply(c.countNo, c.status, c.name, c.note,
                 '${c.checkedCount}/${c.lineCount} đã kiểm · ${_svc.formatDate(c.createdAt)}',
                 c.totalDiffValue.abs(), c.lineCount,
                 c.lines.map((l) => {
                       'name': l.productName,
-                      'qty': l.countedQty ?? l.systemQty,
+                      'qty': l.countedQty,
                       'unit': l.unitName ?? '',
                       'total': l.diffValue,
-                      'extra': 'Tồn HT: ${l.systemQty}',
+                      'extra': 'Tồn HT: ${formatViQty(l.systemQty)}',
                     }).toList());
           }
         case WhDocType.damageIssue:
@@ -162,13 +166,72 @@ class _WhMobileDocDetailScreenState extends State<WhMobileDocDetailScreen> {
       widget.docType,
       widget.docId,
     );
-    if (ok == true && mounted) {
-      await _load();
-      if (mounted) Navigator.pop(context, true);
+    if (!mounted) return;
+    // Lưu nháp rồi back cũng phải hiện số liệu mới.
+    await _load();
+    if (ok == true && mounted) Navigator.pop(context, true);
+  }
+
+  /// Kiểm kho: chặn khi còn dòng chưa kiểm, liệt kê dòng lệch để xác nhận trước khi
+  /// ghi đè tồn (giống màn sửa phiếu).
+  Future<bool> _confirmStockCountBalance() async {
+    final c = _count;
+    if (c == null) return true;
+    final unchecked = c.lines.where((l) => l.countedQty == null).length;
+    if (unchecked > 0) {
+      NotificationOverlayManager().showWarning(
+        title: 'Còn $unchecked dòng chưa kiểm',
+        message: tr('Bấm «Chỉnh sửa» để nhập SL thực tế hoặc chọn «Khớp tồn» trước khi cân bằng.'),
+      );
+      return false;
     }
+    final diffs = c.lines.where((l) => l.hasDiff).toList();
+    final ok = await showDialog<bool>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: Text(tr('Xác nhận cân bằng kho')),
+        content: SingleChildScrollView(
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Text(diffs.isEmpty
+                  ? tr('Tất cả ${c.lines.length} dòng khớp tồn hệ thống — tồn kho không đổi.')
+                  : tr('Tồn kho sẽ được cập nhật theo SL thực tế cho ${diffs.length} dòng lệch:')),
+              for (final l in diffs.take(8))
+                Padding(
+                  padding: const EdgeInsets.only(top: 4),
+                  child: Text(
+                    '• ${l.productName}: ${formatViQty(l.systemQty)} → ${formatViQty(l.countedQty!)}'
+                    ' (${l.diffQty > 0 ? '+' : ''}${formatViQty(l.diffQty)})',
+                    style: TextStyle(
+                      fontSize: 13,
+                      color: l.diffQty.abs() >= 5 && l.diffQty.abs() > l.systemQty.abs() * 0.5
+                          ? WhMobileTheme.danger
+                          : null,
+                    ),
+                  ),
+                ),
+              if (diffs.length > 8)
+                Padding(
+                  padding: const EdgeInsets.only(top: 4),
+                  child: Text(tr('… và ${diffs.length - 8} dòng khác')),
+                ),
+            ],
+          ),
+        ),
+        actions: [
+          TextButton(onPressed: () => Navigator.pop(ctx, false), child: Text(tr('Hủy'))),
+          FilledButton(onPressed: () => Navigator.pop(ctx, true), child: Text(tr('Cân bằng kho'))),
+        ],
+      ),
+    );
+    return ok == true;
   }
 
   Future<void> _complete() async {
+    if (widget.docType == WhDocType.stockCount && !await _confirmStockCountBalance()) return;
+    if (!mounted) return;
     setState(() => _acting = true);
     Map<String, dynamic> res;
     switch (widget.docType) {
@@ -338,7 +401,9 @@ class _WhMobileDocDetailScreenState extends State<WhMobileDocDetailScreen> {
                       mainAxisAlignment: MainAxisAlignment.spaceBetween,
                       children: [
                         Text(
-                          tr('SL: ${_lines[i]['qty']}'),
+                          _lines[i]['qty'] == null
+                              ? tr('Chưa kiểm')
+                              : tr('SL: ${formatViQty(_lines[i]['qty'] as num)}'),
                           style: WhMobileTheme.body.copyWith(fontWeight: FontWeight.w600),
                         ),
                         if (_lines[i]['extra'] != null)

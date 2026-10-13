@@ -14,6 +14,7 @@ import '../../../widgets/pos/pos_stock_issue_config.dart';
 import '../../../widgets/pos_barcode_scanner.dart';
 import '../../../widgets/pos/pos_serial_list_dialog.dart';
 import '../../../widgets/warehouse/wh_doc_type.dart';
+import '../../../widgets/pos/pos_unsaved_changes.dart';
 import '../../../widgets/warehouse/wh_mobile_components.dart';
 import '../../../widgets/warehouse/wh_mobile_theme.dart';
 import '../../main_layout.dart' show ScreenRefreshNotifier;
@@ -79,6 +80,14 @@ class _WhMobileStockIssueEditorState extends State<WhMobileStockIssueEditor> {
 
   bool get _readOnly => _status != 'Draft';
 
+  /// Dữ liệu lúc nạp / vừa lưu — khác thì hỏi trước khi thoát.
+  String? _cleanSig;
+  bool get _isDirty => !_loading && !_readOnly && _cleanSig != null && _sig() != _cleanSig;
+  String _sig() => [
+        _noteCtrl.text.trim(), _recipientCtrl.text.trim(), _categoryName,
+        for (final l in _lines) '${l.lineId}/${l.productId}/${l.qty}/${l.serials.length}',
+      ].join('|');
+
   @override
   void initState() {
     super.initState();
@@ -100,6 +109,7 @@ class _WhMobileStockIssueEditorState extends State<WhMobileStockIssueEditor> {
         _applyDoc(PosStockIssueDoc.fromJson(res['data'] as Map<String, dynamic>));
       }
     }
+    _cleanSig = _sig();
     if (mounted) setState(() => _loading = false);
   }
 
@@ -277,6 +287,7 @@ class _WhMobileStockIssueEditorState extends State<WhMobileStockIssueEditor> {
     if (!mounted) return;
     setState(() => _saving = false);
     if (ok) {
+      _cleanSig = _sig();
       NotificationOverlayManager().showSuccess(title: 'Đã lưu nháp', message: _issueNo);
     }
   }
@@ -323,7 +334,9 @@ class _WhMobileStockIssueEditorState extends State<WhMobileStockIssueEditor> {
 
   @override
   Widget build(BuildContext context) {
-    return WhMobileScaffold(
+    return UnsavedChangesScope(
+      isDirty: () => _isDirty,
+      child: WhMobileScaffold(
       title: _issueNo.isEmpty ? widget.docType.createLabel : _issueNo,
       subtitle: widget.docType.title,
       actions: [
@@ -462,6 +475,7 @@ class _WhMobileStockIssueEditorState extends State<WhMobileStockIssueEditor> {
                   ),
               ],
             ),
+    ),
     );
   }
 }

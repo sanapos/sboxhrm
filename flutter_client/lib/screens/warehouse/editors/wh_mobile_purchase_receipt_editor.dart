@@ -14,6 +14,7 @@ import '../../../widgets/pos/pos_purchase_product_search_bar.dart';
 import '../../../widgets/pos/pos_supplier_form_dialog.dart';
 import '../../../widgets/pos_barcode_scanner.dart';
 import '../../../widgets/pos/pos_serial_list_dialog.dart';
+import '../../../widgets/pos/pos_unsaved_changes.dart';
 import '../../../widgets/warehouse/wh_mobile_components.dart';
 import '../../../widgets/warehouse/wh_mobile_theme.dart';
 import '../../main_layout.dart' show ScreenRefreshNotifier;
@@ -87,6 +88,14 @@ class _WhMobilePurchaseReceiptEditorState extends State<WhMobilePurchaseReceiptE
 
   bool get _readOnly => _status != 'Draft';
 
+  /// Dữ liệu lúc nạp / vừa lưu — khác thì hỏi trước khi thoát.
+  String? _cleanSig;
+  bool get _isDirty => !_loading && !_readOnly && _cleanSig != null && _sig() != _cleanSig;
+  String _sig() => [
+        _supplierId, _paymentMethod, _noteCtrl.text.trim(), _paidCtrl.text,
+        for (final l in _lines) '${l.productId}/${l.variantId}/${l.qty}/${l.cost}/${l.serials.length}',
+      ].join('|');
+
   @override
   void initState() {
     super.initState();
@@ -106,6 +115,7 @@ class _WhMobilePurchaseReceiptEditorState extends State<WhMobilePurchaseReceiptE
     if (_receiptId != null && _receiptId!.isNotEmpty) {
       await _loadReceipt(_receiptId!);
     }
+    _cleanSig = _sig();
     if (mounted) setState(() => _loading = false);
   }
 
@@ -295,7 +305,9 @@ class _WhMobilePurchaseReceiptEditorState extends State<WhMobilePurchaseReceiptE
 
   @override
   Widget build(BuildContext context) {
-    return WhMobileScaffold(
+    return UnsavedChangesScope(
+      isDirty: () => _isDirty,
+      child: WhMobileScaffold(
       title: _receiptNo.isEmpty ? 'Tạo phiếu nhập' : _receiptNo,
       subtitle: 'Nhập hàng NCC',
       actions: [
@@ -508,6 +520,7 @@ class _WhMobilePurchaseReceiptEditorState extends State<WhMobilePurchaseReceiptE
                 ),
               ],
             ),
+    ),
     );
   }
 }
