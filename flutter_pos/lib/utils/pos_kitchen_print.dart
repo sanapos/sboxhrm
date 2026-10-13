@@ -1685,8 +1685,14 @@ List<PosStorePrinter> _preferExternalKitchenCloud(List<PosStorePrinter> printers
       if (byPort != 0) return byPort;
       return a.name.toLowerCase().compareTo(b.name.toLowerCase());
     });
-  final external = ranked.where((p) => !p.isSunmi).toList();
-  return external.isNotEmpty ? external : ranked;
+  // Máy đang báo lỗi / mất kết nối (vd LAN rút dây) xếp sau — phiếu bếp mặc định không chọn máy
+  // chắc chắn hỏng rồi để thu ngân chuyển tay; chỉ dùng khi không còn máy nào khác.
+  final healthy = ranked
+      .where((p) => p.healthStatus != 'Error' && p.healthStatus != 'Offline')
+      .toList();
+  final pool = healthy.isNotEmpty ? healthy : ranked;
+  final external = pool.where((p) => !p.isSunmi).toList();
+  return external.isNotEmpty ? external : pool;
 }
 
 int _kitchenPortRank(PosThermalConnectionType t) => switch (t) {
