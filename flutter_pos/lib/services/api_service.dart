@@ -20053,8 +20053,11 @@ class ApiService {
       if (retryOfReference != null && retryOfReference.isNotEmpty) {
         body['retryOfReference'] = retryOfReference;
       }
-      if (referenceId != null && referenceId.isNotEmpty) {
-        body['referenceId'] = referenceId;
+      // Máy chủ nhận Guid — đơn bán offline (id «offline-OFF-…») gửi kèm sẽ bị từ chối cả lệnh in.
+      if (referenceId != null &&
+          RegExp(r'^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$')
+              .hasMatch(referenceId.trim())) {
+        body['referenceId'] = referenceId.trim();
       }
       if (printerId != null && printerId.isNotEmpty) {
         body['printerId'] = printerId;
