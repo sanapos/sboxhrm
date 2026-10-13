@@ -3703,7 +3703,8 @@ class _PosProductEditorPageState extends State<PosProductEditorPage>
             ),
           ),
           if (_areaQuickSizesPreview.isNotEmpty)
-            Padding(
+            Container(
+              alignment: Alignment.centerLeft,
               padding: const EdgeInsets.only(top: 8),
               child: Wrap(
                 spacing: 6,

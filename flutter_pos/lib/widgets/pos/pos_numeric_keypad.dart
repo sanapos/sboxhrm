@@ -7,8 +7,8 @@ import 'package:sbox_pos/l10n/app_tr.dart';
 import 'pos_theme.dart';
 
 import '../../theme/sbox_tokens.dart';
-/// Ã” sá»‘ khÃ´ng má»Ÿ soft keyboard â€” tap má»Ÿ [showPosNumericKeypad].
-/// Váº«n nháº­n bÃ n phÃ­m cá»©ng khi Ä‘Ã£ focus (`showSoftInputOnFocus: false`).
+/// Ô số không mở soft keyboard — tap mở [showPosNumericKeypad].
+/// Vẫn nhận bàn phím cứng khi đã focus (`showSoftInputOnFocus: false`).
 class PosNoSoftKeyboardField extends StatelessWidget {
   const PosNoSoftKeyboardField({
     super.key,
@@ -41,11 +41,11 @@ class PosNoSoftKeyboardField extends StatelessWidget {
   final String? keypadTitle;
   final ValueChanged<String>? onChanged;
   final ValueChanged<String>? onSubmitted;
-  /// Gá»i khi ngÆ°á»i dÃ¹ng cháº¡m Ã´ (trÆ°á»›c khi má»Ÿ keypad) â€” vÃ­ dá»¥ hiá»‡n chip gá»£i Ã½.
+  /// Gọi khi người dùng chạm ô (trước khi mở keypad) — ví dụ hiện chip gợi ý.
   final VoidCallback? onOpen;
   final bool enabled;
   final bool openKeypadOnTap;
-  /// Hiá»‡n chip Â«BÃ¡n sá»‘ láº»Â» trÃªn bÃ n phÃ­m sá»‘.
+  /// Hiện chip «Bán số lẻ» trên bàn phím số.
   final bool offerDecimalToggle;
   final ValueChanged<bool>? onDecimalToggle;
 
@@ -54,7 +54,7 @@ class PosNoSoftKeyboardField extends StatelessWidget {
     onOpen?.call();
     final next = await showPosNumericKeypad(
       context: context,
-      title: keypadTitle ?? 'Nháº­p sá»‘',
+      title: keypadTitle ?? 'Nhập số',
       initial: controller.text,
       allowDecimal: allowDecimal,
       allowNegative: allowNegative,
@@ -75,7 +75,7 @@ class PosNoSoftKeyboardField extends StatelessWidget {
       focusNode: focusNode,
       enabled: enabled,
       autofocus: autofocus,
-      // readOnly + pad: khÃ´ng má»Ÿ soft IME trÃªn mÃ¡y cáº£m á»©ng.
+      // readOnly + pad: không mở soft IME trên máy cảm ứng.
       readOnly: openKeypadOnTap,
       showCursor: true,
       enableInteractiveSelection: true,
@@ -99,7 +99,7 @@ class PosNoSoftKeyboardField extends StatelessWidget {
   }
 }
 
-/// Bottom sheet bÃ n phÃ­m sá»‘ POS (tiá»n / CK / giÃ¡ / SL / khÃ¡ch).
+/// Bottom sheet bàn phím số POS (tiền / CK / giá / SL / khách).
 Future<String?> showPosNumericKeypad({
   required BuildContext context,
   required String title,
@@ -263,7 +263,7 @@ class _PosNumericKeypadSheetState extends State<_PosNumericKeypadSheet> {
                 ),
               ),
               IconButton(
-                tooltip: tr('ÄÃ³ng'),
+                tooltip: tr('Đóng'),
                 onPressed: () => Navigator.pop(context),
                 icon: const Icon(Icons.close),
               ),
@@ -296,7 +296,7 @@ class _PosNumericKeypadSheetState extends State<_PosNumericKeypadSheet> {
                 padding: const EdgeInsets.only(bottom: 8),
                 child: FilterChip(
                   label: Text(
-                    tr(_allowDecimal ? 'BÃ¡n sá»‘ láº»: 1,5 Â· 1,45' : 'BÃ¡n sá»‘ láº»'),
+                    tr(_allowDecimal ? 'Bán số lẻ: 1,5 · 1,45' : 'Bán số lẻ'),
                     style: const TextStyle(fontWeight: FontWeight.w700),
                   ),
                   selected: _allowDecimal,
@@ -324,11 +324,11 @@ class _PosNumericKeypadSheetState extends State<_PosNumericKeypadSheet> {
             if (_allowDecimal)
               _key('.', onTap: () => _append('.'))
             else if (widget.allowNegative)
-              _key('Â±', onTap: () => _append('-'))
+              _key('±', onTap: () => _append('-'))
             else
               _key('C', onTap: _clear, fg: Colors.red.shade700),
             _key('0', onTap: () => _append('0')),
-            _key('âŒ«', onTap: _backspace, fg: Colors.red.shade700),
+            _key('⌫', onTap: _backspace, fg: Colors.red.shade700),
           ]),
           const SizedBox(height: 8),
           Row(
@@ -339,7 +339,7 @@ class _PosNumericKeypadSheetState extends State<_PosNumericKeypadSheet> {
                   style: OutlinedButton.styleFrom(
                     minimumSize: const Size(0, 48),
                   ),
-                  child: Text(tr('XÃ³a')),
+                  child: Text(tr('Xóa')),
                 ),
               ),
               const SizedBox(width: 10),
