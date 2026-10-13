@@ -1290,6 +1290,17 @@ public class PosQrTableOrderController(
             await cancelTx.CommitAsync();
             await cancelTx.DisposeAsync();
         }
+        if (next == QrOnlineOrderStatuses.Cancelled)
+        {
+            try
+            {
+                await TryEnqueueOnlineKitchenVoidAsync(storeId, order, DateTime.UtcNow);
+            }
+            catch
+            {
+                // Đơn đã hủy — phiếu hủy bếp lỗi thì quầy báo bếp bằng tay.
+            }
+        }
         PosFloorRealtimeHelper.Notify(hub, storeId, "qrOnlineStatus",
             orderId: order.Id, tableName: "Online",
             message: $"{order.OrderNo} · {QrOnlineOrderStatuses.Label(next)}");
@@ -2302,9 +2313,13 @@ public class PosQrTableOrderController(
         string tableName,
         List<(PosSaleOrderLine Line, decimal Qty, PosProduct Product)> added,
         DateTime now,
-        string senderName = "QR khách")
+        string senderName = "QR khách",
+        bool isCancel = false)
     {
-        var fallback = await dispatch.ResolvePrinterAsync(storeId, PosPrintDocumentType.KitchenSlip);
+        var fallback = (isCancel
+                ? await dispatch.ResolvePrinterAsync(storeId, PosPrintDocumentType.KitchenVoid)
+                : null)
+            ?? await dispatch.ResolvePrinterAsync(storeId, PosPrintDocumentType.KitchenSlip);
         var groups = new Dictionary<Guid, List<(string Name, decimal Qty, string? Unit, string? Note)>>();
         foreach (var row in added)
         {
@@ -2336,7 +2351,7 @@ public class PosQrTableOrderController(
             var payload = JsonSerializer.Serialize(new
             {
                 tableName = tbl,
-                isCancel = false,
+                isCancel,
                 senderName,
                 orderNo = order.OrderNo ?? "",
                 sentAt = now.ToUniversalTime().ToString("o"),
@@ -2349,10 +2364,10 @@ public class PosQrTableOrderController(
                 }),
             });
             // Thêm mã ngẫu nhiên: 2 lần gọi món cùng bàn trong cùng giây không bị coi là trùng (mất phiếu).
-            var refNo = $"QR|{order.OrderNo}|{stamp}|{g.Key.ToString("N")[..6]}|{Guid.NewGuid().ToString("N")[..4]}";
+            var refNo = $"{(isCancel ? "QRV" : "QR")}|{order.OrderNo}|{stamp}|{g.Key.ToString("N")[..6]}|{Guid.NewGuid().ToString("N")[..4]}";
             await dispatch.EnqueueJobAsync(new EnqueuePrintJobRequest(
                 storeId,
-                PosPrintDocumentType.KitchenSlip,
+                isCancel ? PosPrintDocumentType.KitchenVoid : PosPrintDocumentType.KitchenSlip,
                 PosPrintPayloadFormat.KitchenSlipJson,
                 payload,
                 1,
@@ -2363,8 +2378,29 @@ public class PosQrTableOrderController(
                 g.Key));
             jobs++;
         }
-        jobs += await EnqueueCupLabelsAsync(storeId, order, tbl, added, now);
+        if (!isCancel) jobs += await EnqueueCupLabelsAsync(storeId, order, tbl, added, now);
         return jobs;
+    }
+
+    /// <summary>Hủy đơn online đã báo bếp → phiếu HỦY ra đúng máy bếp đã in (bếp không làm món cho đơn đã hủy).</summary>
+    async Task<int> TryEnqueueOnlineKitchenVoidAsync(Guid storeId, PosSaleOrder order, DateTime now)
+    {
+        var sent = order.Lines.Where(l => l.Deleted == null && l.KitchenSentQty > 0).ToList();
+        if (sent.Count == 0) return 0;
+        var productIds = sent.Select(l => l.ProductId).Distinct().ToList();
+        var products = await db.PosProducts.AsNoTracking()
+            .Include(p => p.Category)
+            .Where(p => productIds.Contains(p.Id) && p.StoreId == storeId && p.Deleted == null)
+            .ToDictionaryAsync(p => p.Id);
+        var rows = sent
+            .Where(l => products.ContainsKey(l.ProductId))
+            .Select(l => (Line: l, Qty: l.KitchenSentQty, Product: products[l.ProductId]))
+            .ToList();
+        if (rows.Count == 0) return 0;
+        var label = string.IsNullOrWhiteSpace(order.CustomerName)
+            ? "Đơn online"
+            : $"Online · {order.CustomerName}";
+        return await EnqueueKitchenSlipAsync(storeId, order, label, rows, now, "Đơn online (hủy)", isCancel: true);
     }
 
     /// <summary>

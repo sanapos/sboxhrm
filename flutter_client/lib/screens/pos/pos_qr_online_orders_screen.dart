@@ -294,6 +294,26 @@ class _PosQrOnlineOrdersScreenState extends State<PosQrOnlineOrdersScreen> {
       );
       return;
     }
+    if (status == 'cancelled') {
+      // Hủy là kết thúc (không đổi lại được) — hỏi lại, tránh bấm nhầm.
+      final ok = await showDialog<bool>(
+        context: context,
+        builder: (ctx) => AlertDialog(
+          title: Text(tr('Hủy đơn ${order.orderNo}?')),
+          content: Text(tr('Đơn hủy không đổi lại được. Món đã báo bếp sẽ in phiếu HỦY ra bếp.')),
+          actions: [
+            TextButton(onPressed: () => Navigator.pop(ctx, false), child: Text(tr('Không'))),
+            FilledButton(
+              style: FilledButton.styleFrom(backgroundColor: Colors.red.shade700),
+              onPressed: () => Navigator.pop(ctx, true),
+              child: Text(tr('Hủy đơn')),
+            ),
+          ],
+        ),
+      );
+      if (ok != true || !mounted) return;
+    }
+    final wasPending = order.status == 'pending';
     setState(() => _busy = true);
     final res = await _api.setPosQrOnlineOrderStatus(
       order.id,
@@ -313,7 +333,10 @@ class _PosQrOnlineOrdersScreenState extends State<PosQrOnlineOrdersScreen> {
       title: 'Đã cập nhật',
       message: order.orderNo,
     );
-    if (status == 'confirmed' && _onlineCfg.onlineAutoPrintProvisional) {
+    // «Xác nhận đơn» nay chuyển thẳng pending → preparing.
+    final justConfirmed =
+        status == 'confirmed' || (status == 'preparing' && wasPending);
+    if (justConfirmed && _onlineCfg.onlineAutoPrintProvisional) {
       await _printProvisional(order);
     }
     await _load();

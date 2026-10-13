@@ -528,6 +528,13 @@ class PosResourceFloorScreenState extends State<PosResourceFloorScreen> {
         lockExpiresAt: r.lockExpiresAt,
         tableSessionOpen: r.tableSessionOpen,
         hasParkedBill: r.hasParkedBill,
+        reservationReservedAt: r.reservationReservedAt,
+        accumulatedPauseMinutes: r.accumulatedPauseMinutes,
+        pausedAt: r.pausedAt,
+        timerEndsAt: r.timerEndsAt,
+        timerName: r.timerName,
+        timerAlertBeforeMinutes: r.timerAlertBeforeMinutes,
+        billingLockedAt: r.billingLockedAt,
       );
     }
     // Máy này vừa về sơ đồ — hiện «tạm rời» ngay nếu server chưa cập nhật.
@@ -585,6 +592,13 @@ class PosResourceFloorScreenState extends State<PosResourceFloorScreen> {
           lockExpiresAt: null,
           tableSessionOpen: false,
           hasParkedBill: true,
+          reservationReservedAt: out.reservationReservedAt,
+          accumulatedPauseMinutes: out.accumulatedPauseMinutes,
+          pausedAt: out.pausedAt,
+          timerEndsAt: out.timerEndsAt,
+          timerName: out.timerName,
+          timerAlertBeforeMinutes: out.timerAlertBeforeMinutes,
+          billingLockedAt: out.billingLockedAt,
         );
       }
     }
@@ -884,6 +898,13 @@ class PosResourceFloorScreenState extends State<PosResourceFloorScreen> {
       lockExpiresAt: sessionOpen ? exp : null,
       tableSessionOpen: sessionOpen,
       hasParkedBill: !sessionOpen && r.hasOpenSession,
+      reservationReservedAt: r.reservationReservedAt,
+      accumulatedPauseMinutes: r.accumulatedPauseMinutes,
+      pausedAt: r.pausedAt,
+      timerEndsAt: r.timerEndsAt,
+      timerName: r.timerName,
+      timerAlertBeforeMinutes: r.timerAlertBeforeMinutes,
+      billingLockedAt: r.billingLockedAt,
     );
     final patched = _patchResourceFlags(updated);
     final idx = _resources.indexWhere((x) => x.id == r.id);
@@ -2492,6 +2513,21 @@ class PosResourceFloorScreenState extends State<PosResourceFloorScreen> {
             reservationDepositPaid: x.reservationDepositPaid,
             reservationDepositAmount: x.reservationDepositAmount,
             reservationDepositStatus: x.reservationDepositStatus,
+            reservationReservedAt: x.reservationReservedAt,
+            lockedByDeviceId: x.lockedByDeviceId,
+            lockedByDeviceName: x.lockedByDeviceName,
+            lockedByDisplayName: x.lockedByDisplayName,
+            lockExpiresAt: x.lockExpiresAt,
+            tableSessionOpen: x.tableSessionOpen,
+            hasParkedBill: x.hasParkedBill,
+            accumulatedPauseMinutes: x.accumulatedPauseMinutes,
+            pausedAt: x.pausedAt,
+            draftBillCount: x.draftBillCount,
+            draftBills: x.draftBills,
+            timerEndsAt: x.timerEndsAt,
+            timerName: x.timerName,
+            timerAlertBeforeMinutes: x.timerAlertBeforeMinutes,
+            billingLockedAt: x.billingLockedAt,
           );
         }).toList();
       });
@@ -3422,6 +3458,7 @@ class PosResourceFloorScreenState extends State<PosResourceFloorScreen> {
           reservationDepositPaid: x.reservationDepositPaid,
           reservationDepositAmount: x.reservationDepositAmount,
           reservationDepositStatus: x.reservationDepositStatus,
+          reservationReservedAt: x.reservationReservedAt,
         );
 
     void markFreeLocal() {
