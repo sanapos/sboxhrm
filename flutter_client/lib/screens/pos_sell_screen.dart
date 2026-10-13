@@ -9880,6 +9880,7 @@ class _PosSellScreenState extends State<PosSellScreen>
       askLength: productNow.showAreaLength,
       askWidth: productNow.showAreaWidth,
       askHeight: productNow.showAreaHeight,
+      productId: productNow.id,
       serialOnly: productNow.requiresSerial,
       existingNote: line.lineNote,
     );

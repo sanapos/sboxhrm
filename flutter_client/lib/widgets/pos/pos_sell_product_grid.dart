@@ -996,6 +996,7 @@ class PosSellProductGridState extends State<PosSellProductGrid> {
       askLength: p.showAreaLength,
       askWidth: p.showAreaWidth,
       askHeight: p.showAreaHeight,
+      productId: p.id,
       serialOnly: p.requiresSerial,
     );
     if (result == null || !mounted) return;

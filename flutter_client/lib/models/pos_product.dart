@@ -654,9 +654,12 @@ class PosProduct {
     return commissionPercent > 0 || commissionFixed > 0 || m != 'none';
   }
 
-  bool get showAreaLength => allowAreaQty;
-  bool get showAreaWidth => allowAreaQty;
-  bool get showAreaHeight => allowAreaQty;
+  /// Chiều hiện khi bán / báo giá theo cài đặt từng hàng; chọn chưa đủ 2 chiều thì hiện cả 3.
+  bool get _areaAxesValid =>
+      [areaLength, areaWidth, areaHeight].where((v) => v).length >= 2;
+  bool get showAreaLength => allowAreaQty && (!_areaAxesValid || areaLength);
+  bool get showAreaWidth => allowAreaQty && (!_areaAxesValid || areaWidth);
+  bool get showAreaHeight => allowAreaQty && (!_areaAxesValid || areaHeight);
 
   factory PosProduct.fromJson(Map<String, dynamic> json) {
     DateTime? dt(dynamic v) => parseApiUtcDateTime(v);

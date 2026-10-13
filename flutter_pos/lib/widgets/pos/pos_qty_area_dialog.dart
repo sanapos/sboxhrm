@@ -1,4 +1,7 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 import 'package:sbox_pos/l10n/app_tr.dart';
 
 import '../../utils/pos_area_dims.dart';
@@ -52,6 +55,8 @@ Future<PosLineQtyResult?> showPosLineQtyDialog({
   bool askHeight = true,
   bool serialOnly = false,
   String? existingNote,
+  /// Để nhớ kích thước hay dùng của từng hàng (chip chọn nhanh).
+  String? productId,
 }) {
   return showDialog<PosLineQtyResult>(
     context: context,
@@ -66,9 +71,16 @@ Future<PosLineQtyResult?> showPosLineQtyDialog({
       askHeight: askHeight,
       serialOnly: serialOnly,
       existingNote: existingNote,
+      productId: productId,
     ),
   );
 }
+
+/// Kích thước gợi ý mặc định (m) — chạm để điền nhanh.
+const _kDefaultDimSizes = <double>[0.2, 0.4, 0.5, 0.6, 0.8, 1, 1.2, 1.5, 2, 2.4];
+const _kRecentDimMax = 6;
+
+String _recentDimKey(String productId, String axis) => 'pos_area_recent_${productId}_$axis';
 
 class _PosLineQtyDialog extends StatefulWidget {
   const _PosLineQtyDialog({
@@ -82,8 +94,10 @@ class _PosLineQtyDialog extends StatefulWidget {
     this.askHeight = true,
     this.serialOnly = false,
     this.existingNote,
+    this.productId,
   });
 
+  final String? productId;
   final String productName;
   final String unitName;
   final double initialQty;
@@ -109,6 +123,9 @@ class _PosLineQtyDialogState extends State<_PosLineQtyDialog> {
 
   String get _unit => _dimUnit(widget.unitName);
 
+  /// Kích thước đã dùng gần đây cho hàng này, theo từng chiều (mới nhất trước).
+  final Map<String, List<double>> _recent = {};
+
   @override
   void initState() {
     super.initState();
@@ -132,6 +149,41 @@ class _PosLineQtyDialogState extends State<_PosLineQtyDialog> {
     _lengthCtrl.addListener(_syncArea);
     _widthCtrl.addListener(_syncArea);
     _heightCtrl.addListener(_syncArea);
+    if (_area) _loadRecent();
+  }
+
+  Future<void> _loadRecent() async {
+    final id = widget.productId;
+    if (id == null || id.isEmpty) return;
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      final next = <String, List<double>>{};
+      for (final axis in const ['length', 'width', 'height']) {
+        next[axis] = (prefs.getStringList(_recentDimKey(id, axis)) ?? const [])
+            .map(double.tryParse)
+            .whereType<double>()
+            .toList();
+      }
+      if (mounted) setState(() => _recent.addAll(next));
+    } catch (_) {}
+  }
+
+  Future<void> _saveRecent(PosAreaDims dims) async {
+    final id = widget.productId;
+    if (id == null || id.isEmpty) return;
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      final values = {'length': dims.length, 'width': dims.width, 'height': dims.height};
+      for (final e in values.entries) {
+        final v = e.value;
+        if (v == null) continue;
+        final list = [v, ...(_recent[e.key] ?? const <double>[]).where((x) => x != v)]
+            .take(_kRecentDimMax)
+            .map((x) => x.toString())
+            .toList();
+        await prefs.setStringList(_recentDimKey(id, e.key), list);
+      }
+    } catch (_) {}
   }
 
   @override
@@ -176,6 +228,7 @@ class _PosLineQtyDialogState extends State<_PosLineQtyDialog> {
       final measure = dims.measure;
       final note = _areaNote();
       if (measure == null || note == null) return;
+      unawaited(_saveRecent(dims));
       Navigator.pop(
         context,
         PosLineQtyResult(
@@ -197,14 +250,64 @@ class _PosLineQtyDialogState extends State<_PosLineQtyDialog> {
     );
   }
 
+  /// Ô nhập một chiều + hàng chip kích thước chọn nhanh (hay dùng trước, gợi ý sau).
+  Widget _dimField(String label, String axis, TextEditingController ctrl) {
+    final recent = _recent[axis] ?? const <double>[];
+    final sizes = <double>[
+      ...recent,
+      ..._kDefaultDimSizes.where((v) => !recent.contains(v)),
+    ].take(10).toList();
+    final current = parsePosDim(ctrl.text);
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 10),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          PosNoSoftKeyboardField(
+            controller: ctrl,
+            allowDecimal: true,
+            keypadTitle: label,
+            decoration: InputDecoration(
+              labelText: tr(label),
+              suffixText: _unit.isEmpty ? null : _unit,
+              border: const OutlineInputBorder(),
+              isDense: true,
+            ),
+          ),
+          const SizedBox(height: 6),
+          Wrap(
+            spacing: 6,
+            runSpacing: 6,
+            children: [
+              for (final v in sizes)
+                ChoiceChip(
+                  label: Text(formatPosDim(v)),
+                  selected: current == v,
+                  visualDensity: VisualDensity.compact,
+                  materialTapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                  avatar: recent.contains(v)
+                      ? const Icon(Icons.history, size: 14)
+                      : null,
+                  onSelected: (_) => ctrl.text = formatPosDim(v),
+                ),
+            ],
+          ),
+        ],
+      ),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     final dims = _dims;
     final area = dims.measure;
     final unitLabel = widget.unitName.trim();
-    final showLength = _area || widget.askLength;
-    final showWidth = _area || widget.askWidth;
-    final showHeight = _area || widget.askHeight;
+    // Chỉ hiện các chiều đã cài cho hàng (form hàng hóa); cài thiếu thì hiện đủ 3.
+    final axes = [widget.askLength, widget.askWidth, widget.askHeight].where((v) => v).length;
+    final showLength = axes < 2 || widget.askLength;
+    final showWidth = axes < 2 || widget.askWidth;
+    final showHeight = axes < 2 || widget.askHeight;
     return AlertDialog(
       insetPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
       title: Text(tr('Số lượng')),
@@ -229,45 +332,9 @@ class _PosLineQtyDialogState extends State<_PosLineQtyDialog> {
             ],
             const SizedBox(height: 10),
             if (_area) ...[
-              if (showLength)
-              PosNoSoftKeyboardField(
-                controller: _lengthCtrl,
-                allowDecimal: true,
-                keypadTitle: 'Chiều dài',
-                decoration: InputDecoration(
-                  labelText: tr('Chiều dài'),
-                  suffixText: _unit.isEmpty ? null : _unit,
-                  border: const OutlineInputBorder(),
-                  isDense: true,
-                ),
-              ),
-              const SizedBox(height: 8),
-              if (showWidth)
-              PosNoSoftKeyboardField(
-                controller: _widthCtrl,
-                allowDecimal: true,
-                keypadTitle: 'Chiều rộng',
-                decoration: InputDecoration(
-                  labelText: tr('Chiều rộng'),
-                  suffixText: _unit.isEmpty ? null : _unit,
-                  border: const OutlineInputBorder(),
-                  isDense: true,
-                ),
-              ),
-              const SizedBox(height: 8),
-              if (showHeight)
-              PosNoSoftKeyboardField(
-                controller: _heightCtrl,
-                allowDecimal: true,
-                keypadTitle: 'Chiều cao',
-                decoration: InputDecoration(
-                  labelText: tr('Chiều cao'),
-                  suffixText: _unit.isEmpty ? null : _unit,
-                  border: const OutlineInputBorder(),
-                  isDense: true,
-                ),
-              ),
-              const SizedBox(height: 8),
+              if (showLength) _dimField('Chiều dài', 'length', _lengthCtrl),
+              if (showWidth) _dimField('Chiều rộng', 'width', _widthCtrl),
+              if (showHeight) _dimField('Chiều cao', 'height', _heightCtrl),
               Text(
                 tr(area == null
                     ? 'Nhập ít nhất 2 chiều. Diện tích = các ô đã nhập nhân với nhau (dài × rộng hoặc rộng × cao).'

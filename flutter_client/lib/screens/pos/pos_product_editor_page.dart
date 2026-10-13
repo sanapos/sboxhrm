@@ -1109,7 +1109,7 @@ class _PosProductEditorPageState extends State<PosProductEditorPage>
     }
     if (_isGoods && !_requiresSerial) {
       final axes = [_areaLength, _areaWidth, _areaHeight].where((v) => v).length;
-      if (axes == 1) {
+      if (_allowAreaQty && axes < 2) {
         NotificationOverlayManager().showError(
           title: 'Kích thước',
           message: tr('Chọn ít nhất 2 chiều: Dài, Rộng hoặc Cao.'),
@@ -3615,9 +3615,10 @@ class _PosProductEditorPageState extends State<PosProductEditorPage>
 
   void _loadAreaAxes(PosProduct? p) {
     _allowAreaQty = p?.allowAreaQty ?? false;
-    _areaLength = _allowAreaQty;
-    _areaWidth = _allowAreaQty;
-    _areaHeight = _allowAreaQty;
+    // Giữ đúng các chiều đã cài cho hàng (trước đây luôn tick cả 3).
+    _areaLength = p?.showAreaLength ?? false;
+    _areaWidth = p?.showAreaWidth ?? false;
+    _areaHeight = p?.showAreaHeight ?? false;
   }
 
   void _setAreaMaster(bool on) {
@@ -3637,9 +3638,13 @@ class _PosProductEditorPageState extends State<PosProductEditorPage>
     });
   }
 
+  /// Bật / tắt từng chiều — trước đây bỏ tick một chiều là tắt cả chế độ Dài·Rộng·Cao.
   void _setAreaAxis({bool? length, bool? width, bool? height}) {
-    final turningOff = length == false || width == false || height == false;
-    _setAreaMaster(!turningOff);
+    setState(() {
+      if (length != null) _areaLength = length;
+      if (width != null) _areaWidth = width;
+      if (height != null) _areaHeight = height;
+    });
   }
 
   Widget _buildAreaAxesSection() {
@@ -3663,7 +3668,7 @@ class _PosProductEditorPageState extends State<PosProductEditorPage>
     return _kvSection(
       title: 'Nhập số lượng theo Dài, Rộng, Cao',
       subtitle:
-          'Báo giá và bán hàng hiện đủ Chiều dài, Chiều rộng và Chiều cao. Số lượng = các ô đã nhập nhân với nhau.',
+          'Tick các chiều cần nhập khi báo giá và bán hàng (ít nhất 2). Số lượng = các chiều nhân với nhau, vd. Rộng × Cao = m².',
       child: Column(
         children: [
           axis('Chiều dài', _areaLength, (v) => _setAreaAxis(length: v)),

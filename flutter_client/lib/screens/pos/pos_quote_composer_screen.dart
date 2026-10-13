@@ -731,6 +731,7 @@ class _PosQuoteComposerScreenState extends State<PosQuoteComposerScreen> {
       askLength: product?.showAreaLength ?? true,
       askWidth: product?.showAreaWidth ?? true,
       askHeight: product?.showAreaHeight ?? true,
+      productId: product?.id,
       serialOnly: product?.requiresSerial == true,
       existingNote: row.line.lineNote,
     );
