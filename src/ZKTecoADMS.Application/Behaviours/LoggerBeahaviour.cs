@@ -19,12 +19,9 @@ public class LoggingBehaviour<TRequest, TResponse>(ILogger<TRequest> logger) : I
 
         if (shouldLog)
         {
-            var requestData = JsonSerializer.Serialize(request, new JsonSerializerOptions 
-            { 
-                WriteIndented = false,
-                PropertyNamingPolicy = JsonNamingPolicy.CamelCase
-            });
-            
+            // Che mật khẩu / token / PIN… — không ghi bí mật ra log server.
+            var requestData = LogRedactor.Serialize(request);
+
             logger.LogInformation("[START] Handle request={Request} - Response={Response} - RequestData={RequestData}",
                 requestName, typeof(TResponse).Name, requestData);
         }

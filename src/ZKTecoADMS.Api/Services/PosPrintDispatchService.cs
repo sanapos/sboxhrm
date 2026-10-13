@@ -309,6 +309,32 @@ public class PosPrintDispatchService(
         return twin;
     }
 
+    static readonly TimeSpan OrphanAgentWindow = TimeSpan.FromDays(14);
+
+    async Task<PosStorePrinter> RedirectOrphanPrinterAsync(
+        PosStorePrinter printer, PosPrintDocumentType documentType, CancellationToken ct)
+    {
+        var since = DateTime.UtcNow.Subtract(OrphanAgentWindow);
+        var agentJsons = await db.PosPrintAgents.AsNoTracking()
+            .Where(a => a.StoreId == printer.StoreId && a.Deleted == null
+                && a.LastHeartbeatAt != null && a.LastHeartbeatAt >= since)
+            .Select(a => a.AssignedPrinterIdsJson)
+            .ToListAsync(ct);
+        var served = new HashSet<Guid>();
+        foreach (var json in agentJsons)
+            foreach (var id in ParsePrinterIds(json)) served.Add(id);
+        // Chưa có Agent nào (cửa hàng chỉ in nội bộ / web) → giữ nguyên như trước.
+        if (served.Count == 0 || served.Contains(printer.Id)) return printer;
+
+        var alt = (await ResolvePrintersAsync(printer.StoreId, documentType, ct))
+            .FirstOrDefault(p => served.Contains(p.Id));
+        if (alt == null) return printer;
+        logger.LogWarning(
+            "Printer {PrinterId} ({Name}) not served by any Agent — job {Doc} → {AltId} ({AltName}) store {StoreId}",
+            printer.Id, printer.Name, documentType, alt.Id, alt.Name, printer.StoreId);
+        return alt;
+    }
+
     static string StripLocalPrefix(string? name)
     {
         var n = (name ?? "").Trim();
@@ -358,10 +384,23 @@ public class PosPrintDispatchService(
         if (printer == null)
             throw new InvalidOperationException("Chưa cấu hình máy in cho loại chứng từ này");
 
+        // Máy đã tắt (dọn máy cũ / tắt tay) — món / app còn gán id cũ → máy mặc định của loại phiếu.
+        if (!printer.IsActive
+            && await ResolvePrinterAsync(request.StoreId, request.DocumentType, ct) is { } activeFallback)
+        {
+            logger.LogWarning("Print job to inactive printer {PrinterId} ({Name}) → default {FallbackId} store {StoreId}",
+                printer.Id, printer.Name, activeFallback.Id, request.StoreId);
+            printer = activeFallback;
+        }
+
         printer = await ResolveCloudAgentTwinAsync(printer, ct);
         // Hóa đơn / tạm tính: đúng máy đã cài. Máy offline → job treo, không đổi máy.
         if (!IsInvoiceFamily(request.DocumentType))
             printer = await RedirectToLiveAgentTwinAsync(printer, ct);
+
+        // Máy không thuộc Agent nào (kể cả Agent đang tắt) → không bao giờ có ai nhận, treo «Chờ in» mãi.
+        // Đổi sang máy mặc định có Agent. Máy của Agent đang offline tạm thời thì GIỮ — không in nhầm quầy.
+        printer = await RedirectOrphanPrinterAsync(printer, request.DocumentType, ct);
 
         var tracked = await db.PosStorePrinters.FirstAsync(p => p.Id == printer.Id, ct);
 

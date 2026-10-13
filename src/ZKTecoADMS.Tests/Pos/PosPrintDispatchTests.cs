@@ -401,4 +401,87 @@ public class PosPrintDispatchTests(PosPgFixture fx)
         Guid? jobAgent = sameAgent switch { true => me, false => Guid.NewGuid(), null => null };
         Assert.Equal(expected, PosPrintDispatchService.CanAcceptComplete(status, jobAgent, code, me));
     }
+
+    // ── Chốt tạo lệnh: máy đã tắt / máy không Agent nào nhận ────────────────────────────
+    record RouteSetup(Guid Store, Guid Kitchen, Guid Inactive, Guid Orphan, Guid OfflineAgentPrinter);
+
+    async Task<RouteSetup> SeedRoutingAsync()
+    {
+        var store = await fx.NewStoreAsync();
+        var kitchen = Guid.NewGuid();
+        var inactive = Guid.NewGuid();
+        var orphan = Guid.NewGuid();
+        var offline = Guid.NewGuid();
+        await using var db = fx.NewDb();
+        PosStorePrinter P(Guid id, string name, string host, bool active = true) => new()
+        {
+            Id = id, StoreId = store, Name = name, ConnectionType = PosPrinterConnectionType.Lan,
+            LanHost = host, IsActive = active,
+        };
+        db.PosStorePrinters.AddRange(
+            P(kitchen, "Bếp chính", "10.0.0.1"),
+            P(inactive, "Bếp cũ", "10.0.0.2", active: false),
+            P(orphan, "USB máy cũ", "10.0.0.3"),
+            P(offline, "Bếp quầy 2", "10.0.0.4"));
+        db.PosPrinterDocumentRoutes.Add(new PosPrinterDocumentRoute
+        {
+            Id = Guid.NewGuid(), StoreId = store, PrinterId = kitchen,
+            DocumentType = PosPrintDocumentType.KitchenSlip, IsActive = true,
+        });
+        db.PosPrintAgents.Add(new PosPrintAgent
+        {
+            Id = Guid.NewGuid(), StoreId = store, DeviceId = "t1", AssignedPrinterIdsJson = $"[\"{kitchen}\"]",
+            IsOnline = true, LastHeartbeatAt = DateTime.UtcNow, IsActive = true,
+        });
+        // Agent quầy 2 đang tắt máy 1 tiếng — máy của nó vẫn «có chủ».
+        db.PosPrintAgents.Add(new PosPrintAgent
+        {
+            Id = Guid.NewGuid(), StoreId = store, DeviceId = "a7", AssignedPrinterIdsJson = $"[\"{offline}\"]",
+            IsOnline = false, LastHeartbeatAt = DateTime.UtcNow.AddHours(-1), IsActive = true,
+        });
+        await db.SaveChangesAsync();
+        return new RouteSetup(store, kitchen, inactive, orphan, offline);
+    }
+
+    async Task<PosPrintJob> EnqueueToAsync(Guid store, Guid printer)
+    {
+        await using var db = fx.NewDb();
+        return await Svc(db).EnqueueJobAsync(new EnqueuePrintJobRequest(
+            store, PosPrintDocumentType.KitchenSlip, PosPrintPayloadFormat.EscPosBase64,
+            "AAAA" + Guid.NewGuid().ToString("N"), 1, "T-" + Guid.NewGuid().ToString("N")[..6], null,
+            null, "test", PrinterIdOverride: printer));
+    }
+
+    [Fact]
+    public async Task Enqueue_to_inactive_printer_goes_to_default_kitchen()
+    {
+        if (NoDb) return;
+        var s = await SeedRoutingAsync();
+        Assert.Equal(s.Kitchen, (await EnqueueToAsync(s.Store, s.Inactive)).PrinterId);
+    }
+
+    [Fact]
+    public async Task Enqueue_to_printer_no_agent_serves_goes_to_default_kitchen()
+    {
+        if (NoDb) return;
+        var s = await SeedRoutingAsync();
+        Assert.Equal(s.Kitchen, (await EnqueueToAsync(s.Store, s.Orphan)).PrinterId);
+    }
+
+    [Fact]
+    public async Task Enqueue_to_printer_of_offline_agent_stays_put()
+    {
+        if (NoDb) return;
+        var s = await SeedRoutingAsync();
+        // Agent tạm tắt → giữ đúng quầy, bật lại sẽ in; không đổ sang bếp chính.
+        Assert.Equal(s.OfflineAgentPrinter, (await EnqueueToAsync(s.Store, s.OfflineAgentPrinter)).PrinterId);
+    }
+
+    [Fact]
+    public async Task Enqueue_to_served_printer_unchanged()
+    {
+        if (NoDb) return;
+        var s = await SeedRoutingAsync();
+        Assert.Equal(s.Kitchen, (await EnqueueToAsync(s.Store, s.Kitchen)).PrinterId);
+    }
 }
