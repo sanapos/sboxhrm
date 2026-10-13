@@ -58,3 +58,6 @@
 #*.rtf   diff=astextplain
 #*.RTF   diff=astextplain
 *.apk filter=lfs diff=lfs merge=lfs -text
+
+# Script chạy trên server Linux — luôn LF (CRLF làm bash lỗi).
+deploy_api.sh text eol=lf
