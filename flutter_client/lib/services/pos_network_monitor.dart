@@ -47,8 +47,13 @@ class PosNetworkMonitor {
   DateTime? _simulateUntil;
   bool get simulateOffline =>
       _simulateUntil != null && DateTime.now().isBefore(_simulateUntil!);
+  static const _simulateKey = 'pos_net_simulate_until_v1';
   void setSimulateOffline(bool on) {
     _simulateUntil = on ? DateTime.now().add(const Duration(minutes: 30)) : null;
+    // Giữ qua lần mở lại app (thử «tắt app lúc mất mạng») — vẫn tự hết sau 30 phút.
+    unawaited(SharedPreferences.getInstance().then((p) => on
+        ? p.setString(_simulateKey, _simulateUntil!.toIso8601String())
+        : p.remove(_simulateKey)));
     if (on) {
       _markFail(force: true);
     } else {
@@ -115,6 +120,11 @@ class PosNetworkMonitor {
     _started = true;
     try {
       final prefs = await SharedPreferences.getInstance();
+      final sim = DateTime.tryParse(prefs.getString(_simulateKey) ?? '');
+      if (sim != null && DateTime.now().isBefore(sim)) {
+        _simulateUntil = sim;
+        _markFail(force: true);
+      }
       final raw = prefs.getString(_pendingKey);
       if (raw != null && raw.isNotEmpty) {
         _pending = (jsonDecode(raw) as List)

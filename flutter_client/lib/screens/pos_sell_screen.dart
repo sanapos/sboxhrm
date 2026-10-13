@@ -486,7 +486,8 @@ bool _isWalkInCustomerQuery(String q) {
 
 class _SellInvoiceTab {
   /// Khóa giữ giỏ trên máy khi mất mạng (PosOfflineService).
-  final String localKey = 'tab-${PosRequestId.newId()}';
+  /// Mở lại bàn offline sau khi app bị tắt: gán lại đúng khóa cũ (không tạo bản giữ trùng).
+  String localKey = 'tab-${PosRequestId.newId()}';
   String? offlineSnapFp;
   _SellInvoiceTab({required this.id});
 
@@ -7281,6 +7282,8 @@ class _PosSellScreenState extends State<PosSellScreen>
       ),
       'lines': tab.cart.length,
       'body': _buildSaleBodyFor(tab, complete: false),
+      // Dạng đơn (như máy chủ trả) — mở lại app lúc vẫn mất mạng dựng lại giỏ từ đây.
+      'order': _offlineOrderJson(tab),
       if (PosOfflineService.isOfflineSession(tab.resourceSessionId) && tab.serviceResourceId != null)
         'offlineTable': {
           'resourceId': tab.serviceResourceId,
@@ -7288,6 +7291,99 @@ class _PosSellScreenState extends State<PosSellScreen>
           'label': formatPosTableLabel(areaName: tab.serviceAreaName, tableName: tab.serviceResourceName),
         },
     }));
+  }
+
+  Map<String, dynamic> _offlineOrderJson(_SellInvoiceTab tab) => {
+        'id': '',
+        'orderNo': '',
+        'status': 'Draft',
+        'discount': tab.discount,
+        'surchargeAmount': tab.surchargeAmount,
+        'deliveryFee': tab.deliveryFee,
+        'note': tab.note,
+        'customerName': tab.customer?.name,
+        if (tab.priceListId != null) 'priceListId': tab.priceListId,
+        if (tab.priceListLabel != null) 'priceListName': tab.priceListLabel,
+        'serviceResourceId': tab.serviceResourceId,
+        'serviceResourceName': tab.serviceResourceName,
+        'serviceAreaName': tab.serviceAreaName,
+        'serviceStartedAt': tab.serviceStartedAt?.toUtc().toIso8601String(),
+        'lines': [
+          for (final l in tab.cart)
+            {
+              'productId': l.product.id,
+              'productName': l.product.name,
+              if (l.variantId != null) 'variantId': l.variantId,
+              'unitName': l.unitLabel,
+              'qty': l.qty,
+              'unitPrice': l.unitPrice,
+              'discountAmount': l.discountAmount,
+              'lineTotal': l.lineTotal,
+              'lineNote': l.lineNote,
+              'kitchenSentQty': l.kitchenSentQty,
+              if (l.toppings.isNotEmpty)
+                'toppingsJson': jsonEncode(l.toppings.map((t) => t.toJson()).toList()),
+            },
+        ],
+      };
+
+  /// App bị tắt lúc còn mất mạng: dựng lại bàn offline từ bản giữ trên máy (danh mục món lưu trên máy).
+  /// Thiếu món nào (không có trong danh mục máy) → không mở, giữ nguyên bản cũ để có mạng tự lưu đủ.
+  Future<bool> _restoreOfflineTableTab(
+    String rid,
+    Map<String, dynamic> held,
+    Map<String, dynamic>? snap,
+  ) async {
+    final raw = snap?['order'];
+    if (raw is! Map) return false;
+    final orderJson = Map<String, dynamic>.from(raw);
+    final order = PosSaleOrder.fromJson(orderJson);
+    final want = order.lines.where((l) => l.productId.isNotEmpty).length;
+    final sid = held['sessionId']?.toString();
+    final tab = _SellInvoiceTab(id: _tab.id);
+    tab.reset(defaultVatRate: _storeSettings.defaultVatRate, store: _storeSettings);
+    tab.sellerEmployeeId = _defaultSellerEmployeeId;
+    tab.localKey = held['cartKey']?.toString() ?? tab.localKey;
+    tab.serviceResourceId = rid;
+    tab.resourceSessionId = sid;
+    tab.serviceResourceName = held['name']?.toString();
+    tab.serviceAreaName = held['area']?.toString();
+    tab.serviceStartedAt = DateTime.tryParse(held['startedAt']?.toString() ?? '')?.toUtc();
+    final guests = (held['guests'] as num?)?.toInt() ?? 0;
+    if (guests > 0) tab.tableGuestCount = guests;
+    try {
+      await _hydrateTabCartFromOrder(tab, order, readOnly: false, force: true);
+    } catch (_) {
+      return false;
+    }
+    if (!mounted) return true;
+    if (tab.cart.length < want) {
+      for (final c in tab.cart) {
+        c.dispose();
+      }
+      return false;
+    }
+    _parkCurrentTabForSwitch(rid);
+    setState(() {
+      tab.draftOrderId = null;
+      tab.draftOrderNo = null;
+      tab.resourceSessionId = sid;
+      tab.serverLineCount = 0;
+      tab.localDirty = false;
+      tab.draftReadOnly = false;
+      tab.offlineSnapFp = _cartSyncFingerprint(tab);
+      _tabs[_activeTab] = tab;
+      _syncPaidAmount();
+      _showSellAfterAttach();
+    });
+    _suspendDraftAutosave = false;
+    _refreshTimedLineQtys();
+    _scheduleCustomerDisplayPublish(delayMs: 50);
+    NotificationOverlayManager().showSuccess(
+      title: 'Đã mở lại ${formatPosTableLabel(areaName: tab.serviceAreaName, tableName: tab.serviceResourceName)}',
+      message: tr('Giỏ bàn mở lúc mất mạng khôi phục từ bản giữ trên máy (${tab.cart.length} món)'),
+    );
+    return true;
   }
 
   /// Chuyển sang bàn khác: cất bàn mở offline (còn món) để bấm lại vào tiếp; bàn máy chủ sửa lúc mất mạng
@@ -7376,7 +7472,9 @@ class _PosSellScreenState extends State<PosSellScreen>
     if (stashed == null && held != null) {
       final cartKey = held['cartKey']?.toString();
       if (off.hasCart(cartKey)) {
-        // Bàn mở offline trước khi mở lại app: giỏ giữ trên máy, có mạng tự lưu lên máy chủ.
+        // Bàn mở offline trước khi mở lại app: dựng lại giỏ từ bản giữ trên máy.
+        if (await _restoreOfflineTableTab(rid, held, off.cartSnapshot(cartKey))) return true;
+        if (!mounted) return true;
         NotificationOverlayManager().showWarning(
           title: 'Bàn đang giữ trên máy',
           message: tr('Bàn mở lúc mất mạng trước khi mở lại app — giỏ đã giữ trên máy, có mạng sẽ tự lưu lên máy chủ rồi mở lại bàn.'),

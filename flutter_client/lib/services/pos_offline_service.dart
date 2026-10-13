@@ -617,6 +617,13 @@ class PosOfflineService {
 
   bool hasCart(String? key) => key != null && ((_vault['carts'] as Map?) ?? const {}).containsKey(key);
 
+  /// Bản giữ giỏ trên máy (để mở lại bàn offline sau khi app bị tắt).
+  Map<String, dynamic>? cartSnapshot(String? key) {
+    if (key == null) return null;
+    final v = ((_vault['carts'] as Map?) ?? const {})[key];
+    return v is Map ? Map<String, dynamic>.from(v) : null;
+  }
+
   /// Đăng xuất: trên web xóa bản giữ giỏ trong trình duyệt (máy dùng chung không lộ đơn ca trước).
   /// Android giữ nguyên kho (đơn offline chưa gửi + lịch sử chống gian lận).
   Future<void> onLogout() async {
