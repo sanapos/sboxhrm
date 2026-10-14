@@ -194,8 +194,16 @@ public static class AdmsEngineProfiles
                 }
                 info.SupportsUserQuery ??= true;
                 info.SupportsAttendanceQuery ??= true;
-                // ROM không có ENROLL_FP / AC_UNLOCK; máy không có camera (FaceFunOn=0).
-                info.SupportsEnrollFingerprint = false;
+                // ENROLL_FP: ROM gốc không có, nhưng ROM vá (code-cave 2026-10-14) đã thêm.
+                // Không ép false nữa — để «chưa biết»: máy vá trả 0 (học true), máy chưa vá trả -1002
+                // (học false rồi UI tự ẩn). Cờ false do SEED cũ (dòng ép cứng trước đây) được dọn khi
+                // vào nhóm PushLite; false do máy thật từ chối (-1002) thì LearnFromCommandResultAsync đặt lại.
+                if (!string.Equals(previous, PushLite, StringComparison.OrdinalIgnoreCase)
+                    && info.SupportsEnrollFingerprint == false)
+                {
+                    info.SupportsEnrollFingerprint = null;
+                }
+                // Máy không có camera (FaceFunOn=0); ROM chưa thêm AC_UNLOCK.
                 info.SupportsFaceUpdate = false;
                 info.SupportsDoorControl = false;
                 // Stamp=0 chỉ có tác dụng khi máy bắt tay lại — server gửi kèm CHECK (UsesCheckStampSync).

@@ -66,7 +66,8 @@ public class DeviceInfoCommandTests
         Assert.True(info.SupportsUserQuery);
         Assert.True(info.SupportsAttendanceQuery);
         Assert.True(info.PreferStampSync);
-        Assert.False(info.SupportsEnrollFingerprint);
+        // Rời PullDeny: enroll mở lại thành «chưa biết» (ROM vá có ENROLL_FP; máy tự dò bằng 0/-1002).
+        Assert.Null(info.SupportsEnrollFingerprint);
         Assert.False(info.SupportsDoorControl);
         Assert.True(AdmsEngineProfiles.UsesCheckStampSync(info.EngineProfile));
         Assert.True(AdmsEngineProfiles.UsesSpaceDateTime(info.EngineProfile));
@@ -125,10 +126,12 @@ public class DeviceInfoCommandTests
         await handler.Handle(new CreateDeviceCmdCommand(device.Id, (int)DeviceCommandTypes.SyncDeviceUsers, 10), default);
         Assert.Equal(2, await db.DeviceCommands.CountAsync(c => c.Command == "CHECK"));
 
-        // Lệnh firmware không có: báo rõ, không tạo lệnh
+        // ROM vá (2026-10-14) thêm ENROLL_FP: cờ «chưa biết» → gửi lệnh thật xuống máy (máy tự trả 0 / -1002).
         var enroll = await handler.Handle(new CreateDeviceCmdCommand(device.Id, (int)DeviceCommandTypes.EnrollFingerprint, 10, null, "968315", 9), default);
-        Assert.False(enroll.IsSuccess);
-        Assert.Contains("trực tiếp trên máy", enroll.Message);
+        Assert.True(enroll.IsSuccess);
+        Assert.Contains("ENROLL_FP PIN=968315", enroll.Data!.Command);
+        Assert.Contains("FID=9", enroll.Data!.Command);
+        // Cửa vẫn chặn (ROM chưa có AC_UNLOCK)
         Assert.False((await handler.Handle(new CreateDeviceCmdCommand(device.Id, (int)DeviceCommandTypes.OpenDoor, 10), default)).IsSuccess);
         // «Xóa toàn bộ user»: CLEAR ALL USERINFO trả -1002 (thử thật) → xóa từng người bằng DATA DELETE USERINFO
         var none = await handler.Handle(new CreateDeviceCmdCommand(device.Id, (int)DeviceCommandTypes.ClearDeviceUsers, 10), default);
@@ -147,10 +150,10 @@ public class DeviceInfoCommandTests
         // CLEAR DATA vẫn gửi bình thường (máy nhận, xóa hết)
         Assert.Equal("CLEAR DATA", (await svc.ResolveCommandAsync(device.Id, DeviceCommandTypes.ClearData)).Command);
         var cap = await svc.GetCapabilityDtoAsync(device.Id);
-        Assert.False(cap.AllowEnrollFingerprintUi);
+        Assert.True(cap.AllowEnrollFingerprintUi); // ROM vá: hiện nút trừ khi đã học là không hỗ trợ
         Assert.False(cap.AllowDoorControlUi);
         Assert.False(cap.AllowEnrollFaceUi);
-        Assert.Equal(6, await db.DeviceCommands.CountAsync()); // 2 đánh dấu + 2 CHECK + 2 xóa NV
+        Assert.Equal(7, await db.DeviceCommands.CountAsync()); // 2 đánh dấu + 2 CHECK + 2 xóa NV + 1 ENROLL_FP
 
         // INFO vẫn chạy bình thường
         Assert.Equal("INFO", (await svc.ResolveCommandAsync(device.Id, DeviceCommandTypes.GetDeviceInfo)).Command);

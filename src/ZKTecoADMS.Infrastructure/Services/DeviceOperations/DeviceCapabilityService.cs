@@ -226,8 +226,9 @@ public class DeviceCapabilityService(
                     return (AdmsEngineProfiles.StampSyncCommand, null);
                 case DeviceCommandTypes.SyncFingerprints:
                     return (string.Empty, PushLiteNoFingerprintSync);
-                case DeviceCommandTypes.EnrollFingerprint:
-                    return (string.Empty, PushLiteNoRemoteEnroll);
+                // ENROLL_FP: ROM vá (code-cave 2026-10-14) đã thêm verb → KHÔNG chặn cứng nữa.
+                // Để lệnh gửi xuống: máy vá trả 0 (học Supports=true), máy chưa vá trả -1002
+                // (học Supports=false → chốt bên dưới + UI tự khóa lại). Tự phân biệt đã vá / chưa vá.
                 case DeviceCommandTypes.EnrollFace:
                     return (string.Empty, "Máy này (dòng LX35) không có nhận diện khuôn mặt.");
                 case DeviceCommandTypes.OpenDoor:
@@ -377,9 +378,11 @@ public class DeviceCapabilityService(
         var profile = info.EngineProfile ?? AdmsEngineProfiles.Default;
         var allowUserSync = info.SupportsUserQuery != false; // unknown = allow probe once
         var allowAttSync = info.SupportsAttendanceQuery != false;
-        // LX35: ROM không có ENROLL_FP / AC_UNLOCK, máy không camera — ẩn nút kể cả máy đã xếp nhóm trước bản này.
+        // LX35: ROM gốc không có ENROLL_FP / AC_UNLOCK, máy không camera.
+        // ROM vá (2026-10-14) thêm ENROLL_FP → hiện nút trừ khi đã học là không hỗ trợ
+        // (máy chưa vá trả -1002 một lần rồi tự ẩn lại). Face/Door vẫn ẩn (không camera / không AC_UNLOCK).
         var pushLite = AdmsEngineProfiles.UsesCheckStampSync(profile);
-        var allowEnroll = !pushLite && info.SupportsEnrollFingerprint != false;
+        var allowEnroll = info.SupportsEnrollFingerprint != false;
         var allowFace = !pushLite && info.SupportsFaceUpdate == true;
         var allowDoor = !pushLite && info.SupportsDoorControl != false;
 

@@ -54,9 +54,11 @@ public class GetAllDevicesHandler(
                 dto.SupportsFaceUpdate = info.SupportsFaceUpdate;
                 dto.SupportsDoorControl = info.SupportsDoorControl;
                 dto.PreferStampSync = info.PreferStampSync;
-                // LX35 (PushLite): ROM không có ENROLL_FP / AC_UNLOCK, không camera — ẩn kể cả cờ cũ chưa cập nhật.
+                // LX35 (PushLite): ROM gốc không có ENROLL_FP, nhưng ROM vá (2026-10-14) đã thêm.
+                // Hiện nút enroll trừ khi đã học là không hỗ trợ (máy chưa vá trả -1002 một lần rồi tự ẩn).
+                // Face/Door vẫn ẩn cho PushLite (không camera / ROM chưa có AC_UNLOCK).
                 var pushLite = AdmsEngineProfiles.UsesCheckStampSync(info.EngineProfile);
-                dto.AllowEnrollFingerprintUi = !pushLite && info.SupportsEnrollFingerprint != false;
+                dto.AllowEnrollFingerprintUi = info.SupportsEnrollFingerprint != false;
                 dto.AllowEnrollFaceUi = !pushLite && info.SupportsFaceUpdate == true;
                 dto.AllowDoorControlUi = !pushLite && info.SupportsDoorControl != false;
                 dto.CapabilityNotes = info.CapabilityNotes;
