@@ -15,7 +15,23 @@ class QrOrderLockConfig {
     this.storeZalo,
     this.logoUrl,
     this.banners = const [],
+    this.onlineHoursEnabled = false,
+    this.onlineOpenTime = '08:00',
+    this.onlineCloseTime = '22:00',
+    this.onlineAfterHoursMode = 'block',
   });
+
+  /// Giờ nhận đơn online (giờ Việt Nam). Tắt = nhận 24/24.
+  final bool onlineHoursEnabled;
+
+  /// «HH:mm». Giờ đóng nhỏ hơn giờ mở = ca qua đêm (vd 18:00–02:00).
+  final String onlineOpenTime;
+  final String onlineCloseTime;
+
+  /// Ngoài giờ: «block» = không cho đặt; «preorder» = vẫn nhận (đặt trước, quán xử lý khi mở cửa).
+  final String onlineAfterHoursMode;
+
+  bool get onlineAfterHoursPreorder => onlineAfterHoursMode == 'preorder';
 
   /// Chỉ gọi món khi thu ngân đã mở bàn (không tự tạo phiên từ QR).
   final bool requireOpenSession;
@@ -97,6 +113,18 @@ class QrOrderLockConfig {
         storeZalo: _optStr(m['storeZalo'] ?? m['StoreZalo']),
         logoUrl: (logo == null || logo.isEmpty) ? null : logo,
         banners: banners,
+        onlineHoursEnabled: m['onlineHoursEnabled'] == true ||
+            m['OnlineHoursEnabled'] == true,
+        onlineOpenTime:
+            _optStr(m['onlineOpenTime'] ?? m['OnlineOpenTime']) ?? '08:00',
+        onlineCloseTime:
+            _optStr(m['onlineCloseTime'] ?? m['OnlineCloseTime']) ?? '22:00',
+        onlineAfterHoursMode:
+            (_optStr(m['onlineAfterHoursMode'] ?? m['OnlineAfterHoursMode']) ?? 'block')
+                        .toLowerCase() ==
+                    'preorder'
+                ? 'preorder'
+                : 'block',
       );
     } catch (_) {
       return const QrOrderLockConfig();
@@ -150,6 +178,10 @@ class QrOrderLockConfig {
         .where((e) => e.isNotEmpty)
         .take(5)
         .toList();
+    qr['onlineHoursEnabled'] = onlineHoursEnabled;
+    qr['onlineOpenTime'] = onlineOpenTime;
+    qr['onlineCloseTime'] = onlineCloseTime;
+    qr['onlineAfterHoursMode'] = onlineAfterHoursMode;
     root['qrOrder'] = qr;
     root.remove('QrOrder');
     return jsonEncode(root);
@@ -171,6 +203,10 @@ class QrOrderLockConfig {
     bool clearLogo = false,
     bool clearStoreZalo = false,
     bool clearOnlineDefaultCarrier = false,
+    bool? onlineHoursEnabled,
+    String? onlineOpenTime,
+    String? onlineCloseTime,
+    String? onlineAfterHoursMode,
   }) =>
       QrOrderLockConfig(
         requireOpenSession: requireOpenSession ?? this.requireOpenSession,
@@ -191,6 +227,10 @@ class QrOrderLockConfig {
         storeZalo: clearStoreZalo ? null : (storeZalo ?? this.storeZalo),
         logoUrl: clearLogo ? null : (logoUrl ?? this.logoUrl),
         banners: banners ?? this.banners,
+        onlineHoursEnabled: onlineHoursEnabled ?? this.onlineHoursEnabled,
+        onlineOpenTime: onlineOpenTime ?? this.onlineOpenTime,
+        onlineCloseTime: onlineCloseTime ?? this.onlineCloseTime,
+        onlineAfterHoursMode: onlineAfterHoursMode ?? this.onlineAfterHoursMode,
       );
 
   static String? _optStr(dynamic v) {

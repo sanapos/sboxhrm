@@ -1894,7 +1894,7 @@
       return html;
     }
     function onSendClick() {
-      if (!canOrder()) { toast(t('lockClosed'), true); return; }
+      if (!canOrder()) { const l = lockInfo(); toast((l.message || l.Message) || t('lockClosed'), true); return; }
       if (!cart.filter(x => x.qty > 0).length) return;
       if (isOnline()) {
         cartOpen = true;
@@ -1924,7 +1924,7 @@
       });
     }
     async function submit() {
-      if (!canOrder()) { toast(t('lockClosed'), true); return; }
+      if (!canOrder()) { const l = lockInfo(); toast((l.message || l.Message) || t('lockClosed'), true); return; }
       const items = cart.filter(x => x.qty>0).map(x => ({
         productId: x.productId,
         variantId: x.variantId || null,

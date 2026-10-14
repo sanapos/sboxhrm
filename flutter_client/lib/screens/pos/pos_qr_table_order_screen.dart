@@ -40,6 +40,11 @@ class _PosQrTableOrderScreenState extends State<PosQrTableOrderScreen> {
   double _onlineFreeShipFrom = 0;
   String _onlineBranchId = '';
   bool _onlineAutoConfirm = false;
+  bool _onlineHoursEnabled = false;
+  String _onlineOpenTime = '08:00';
+  String _onlineCloseTime = '22:00';
+  String _onlineAfterHoursMode = 'block';
+  bool _onlineOpenNow = true;
   bool _onlineAutoPrintKitchen = false;
   bool _onlineAutoPay = false;
   bool _onlineAutoPrintProvisional = false;
@@ -118,6 +123,21 @@ class _PosQrTableOrderScreenState extends State<PosQrTableOrderScreen> {
       _onlineBranchId = (data['onlineBranchId'] ?? '').toString();
       _onlineAutoConfirm = data['onlineAutoConfirm'] == true ||
           data['OnlineAutoConfirm'] == true;
+      _onlineHoursEnabled = data['onlineHoursEnabled'] == true ||
+          data['OnlineHoursEnabled'] == true;
+      _onlineOpenTime =
+          (data['onlineOpenTime'] ?? data['OnlineOpenTime'] ?? '08:00').toString();
+      _onlineCloseTime =
+          (data['onlineCloseTime'] ?? data['OnlineCloseTime'] ?? '22:00').toString();
+      _onlineAfterHoursMode =
+          (data['onlineAfterHoursMode'] ?? data['OnlineAfterHoursMode'] ?? 'block')
+                      .toString()
+                      .toLowerCase() ==
+                  'preorder'
+              ? 'preorder'
+              : 'block';
+      _onlineOpenNow =
+          data['onlineOpenNow'] != false && data['OnlineOpenNow'] != false;
       _onlineAutoPrintKitchen = data['onlineAutoPrintKitchen'] == true ||
           data['OnlineAutoPrintKitchen'] == true;
       _onlineAutoPay =
@@ -441,6 +461,118 @@ class _PosQrTableOrderScreenState extends State<PosQrTableOrderScreen> {
     } finally {
       if (mounted) setState(() => _busy = false);
     }
+  }
+
+  /// Giờ nhận đơn online: bật/tắt, giờ mở – đóng, ngoài giờ không cho đặt hay vẫn nhận đặt trước.
+  List<Widget> _buildOnlineHours() {
+    Widget timeBtn(String label, String value, ValueChanged<String> onPick) =>
+        OutlinedButton.icon(
+          onPressed: _busy
+              ? null
+              : () async {
+                  final parts = value.split(':');
+                  final picked = await showTimePicker(
+                    context: context,
+                    helpText: tr(label),
+                    initialTime: TimeOfDay(
+                      hour: int.tryParse(parts.first) ?? 8,
+                      minute: parts.length > 1 ? int.tryParse(parts[1]) ?? 0 : 0,
+                    ),
+                    builder: (ctx, child) => MediaQuery(
+                      data: MediaQuery.of(ctx).copyWith(alwaysUse24HourFormat: true),
+                      child: child!,
+                    ),
+                  );
+                  if (picked == null) return;
+                  onPick('${picked.hour.toString().padLeft(2, '0')}:'
+                      '${picked.minute.toString().padLeft(2, '0')}');
+                },
+          icon: const Icon(Icons.schedule, size: 18),
+          label: Text('${tr(label)}: $value'),
+        );
+    final overnight = _onlineCloseTime.compareTo(_onlineOpenTime) < 0;
+    return [
+      SwitchListTile(
+        title: Text(tr('Giờ nhận đơn online')),
+        subtitle: Text(tr(_onlineHoursEnabled
+            ? 'Nhận đơn $_onlineOpenTime–$_onlineCloseTime'
+                '${overnight ? ' (qua đêm)' : ''} · '
+                '${_onlineOpenNow ? 'đang trong giờ' : 'đang ngoài giờ'}'
+            : 'Tắt: khách đặt được 24/24')),
+        value: _onlineHoursEnabled,
+        onChanged: _busy
+            ? null
+            : (v) async {
+                if (await _patchBrand((c) => c.copyWith(
+                      onlineHoursEnabled: v,
+                      onlineOpenTime: _onlineOpenTime,
+                      onlineCloseTime: _onlineCloseTime,
+                      onlineAfterHoursMode: _onlineAfterHoursMode,
+                    ))) {
+                  setState(() => _onlineHoursEnabled = v);
+                }
+              },
+      ),
+      if (_onlineHoursEnabled)
+        Padding(
+          padding: const EdgeInsets.fromLTRB(16, 0, 16, 8),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Wrap(
+                spacing: 8,
+                runSpacing: 8,
+                children: [
+                  timeBtn('Mở nhận đơn', _onlineOpenTime, (t) async {
+                    if (await _patchBrand((c) => c.copyWith(onlineOpenTime: t))) {
+                      setState(() => _onlineOpenTime = t);
+                    }
+                  }),
+                  timeBtn('Ngưng nhận đơn', _onlineCloseTime, (t) async {
+                    if (await _patchBrand((c) => c.copyWith(onlineCloseTime: t))) {
+                      setState(() => _onlineCloseTime = t);
+                    }
+                  }),
+                ],
+              ),
+              const SizedBox(height: 8),
+              Text(tr('Ngoài giờ nhận đơn'),
+                  style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w600)),
+              const SizedBox(height: 4),
+              SegmentedButton<String>(
+                segments: [
+                  ButtonSegment(
+                    value: 'block',
+                    icon: const Icon(Icons.block, size: 16),
+                    label: Text(tr('Không cho đặt')),
+                  ),
+                  ButtonSegment(
+                    value: 'preorder',
+                    icon: const Icon(Icons.event_available, size: 16),
+                    label: Text(tr('Vẫn nhận (đặt trước)')),
+                  ),
+                ],
+                selected: {_onlineAfterHoursMode},
+                onSelectionChanged: _busy
+                    ? null
+                    : (s) async {
+                        final mode = s.first;
+                        if (await _patchBrand((c) => c.copyWith(onlineAfterHoursMode: mode))) {
+                          setState(() => _onlineAfterHoursMode = mode);
+                        }
+                      },
+              ),
+              const SizedBox(height: 4),
+              Text(
+                tr(_onlineAfterHoursMode == 'preorder'
+                    ? 'Ngoài giờ khách vẫn đặt — đơn ghi «ĐẶT NGOÀI GIỜ», không tự xác nhận / in bếp, quán xử lý khi mở cửa.'
+                    : 'Ngoài giờ trang đặt hàng báo giờ mở cửa và khóa nút đặt.'),
+                style: TextStyle(fontSize: 12, color: SboxColors.slate600),
+              ),
+            ],
+          ),
+        ),
+    ];
   }
 
   Future<bool> _patchBrand(
@@ -1059,6 +1191,7 @@ class _PosQrTableOrderScreenState extends State<PosQrTableOrderScreen> {
               onChanged: _busy ? null : (v) => _setOnline(v),
             ),
             if (_enableOnline) ...[
+              ..._buildOnlineHours(),
               ListTile(
                 leading: const Icon(Icons.rule_rounded),
                 title: Text(tr('Quy tắc đơn online')),

@@ -19,7 +19,49 @@ public static class QrOrderLockHelper
         bool OnlineAutoCreateShipment,
         string? OnlineDefaultCarrierCode,
         string? StoreZalo,
-        bool UseCustomMenu);
+        bool UseCustomMenu,
+        bool OnlineHoursEnabled = false,
+        string? OnlineOpenTime = null,
+        string? OnlineCloseTime = null,
+        string? OnlineAfterHoursMode = null);
+
+    /// <summary>Giờ nhận đơn online hiện tại (giờ Việt Nam). <c>AllowPreorder</c>: ngoài giờ vẫn nhận (đặt trước).</summary>
+    public readonly record struct OnlineHoursState(
+        bool Enabled, bool OpenNow, bool AllowPreorder, string Open, string Close)
+    {
+        public bool AfterHours => Enabled && !OpenNow;
+        public string RangeText => $"{Open}–{Close}";
+    }
+
+    static TimeSpan? ParseHm(string? s)
+    {
+        if (string.IsNullOrWhiteSpace(s)) return null;
+        var p = s.Trim().Split(':');
+        if (p.Length != 2 || !int.TryParse(p[0], out var h) || !int.TryParse(p[1], out var m)) return null;
+        if (h is < 0 or > 24 || m is < 0 or > 59 || (h == 24 && m != 0)) return null;
+        return new TimeSpan(h, m, 0);
+    }
+
+    /// <summary>Đang trong giờ nhận đơn online không. Hỗ trợ ca qua đêm (vd 18:00–02:00);
+    /// giờ mở = giờ đóng hoặc 00:00–24:00 coi như cả ngày.</summary>
+    public static OnlineHoursState OnlineHours(Options o, DateTime utcNow)
+    {
+        var open = ParseHm(o.OnlineOpenTime);
+        var close = ParseHm(o.OnlineCloseTime);
+        if (!o.OnlineHoursEnabled || open == null || close == null)
+            return new OnlineHoursState(false, true, false, "", "");
+        var preorder = string.Equals(o.OnlineAfterHoursMode, "preorder", StringComparison.OrdinalIgnoreCase);
+        var vn = utcNow.AddHours(7).TimeOfDay; // Việt Nam UTC+7, không đổi giờ mùa hè
+        bool openNow;
+        if (open.Value == close.Value || (open.Value == TimeSpan.Zero && close.Value.TotalHours >= 24))
+            openNow = true;
+        else if (open.Value < close.Value)
+            openNow = vn >= open.Value && vn < close.Value;
+        else
+            openNow = vn >= open.Value || vn < close.Value; // qua đêm
+        static string Fmt(TimeSpan t) => $"{(int)t.TotalHours:00}:{t.Minutes:00}";
+        return new OnlineHoursState(true, openNow, preorder, Fmt(open.Value), Fmt(close.Value));
+    }
 
     public static Options Parse(string? extraJson)
     {
@@ -43,7 +85,11 @@ public static class QrOrderLockHelper
                 Flag(qr, "onlineAutoCreateShipment", "OnlineAutoCreateShipment"),
                 Str(qr, "onlineDefaultCarrierCode", "OnlineDefaultCarrierCode"),
                 Str(qr, "storeZalo", "StoreZalo"),
-                Flag(qr, "useCustomMenu", "UseCustomMenu"));
+                Flag(qr, "useCustomMenu", "UseCustomMenu"),
+                Flag(qr, "onlineHoursEnabled", "OnlineHoursEnabled"),
+                Str(qr, "onlineOpenTime", "OnlineOpenTime"),
+                Str(qr, "onlineCloseTime", "OnlineCloseTime"),
+                Str(qr, "onlineAfterHoursMode", "OnlineAfterHoursMode"));
         }
         catch
         {
