@@ -18552,6 +18552,24 @@ class ApiService implements PayrollApi {
     }
   }
 
+  /// Gửi một lô mã quét (barcode / QR / thẻ RFID) — server cộng thẳng vào số đếm, trả phiếu
+  /// mới + mã lạ. Mã trùng trong lô = quét nhiều lần.
+  Future<Map<String, dynamic>> scanPosStockCountCodes(
+      String id, List<String> codes, {String? deviceName}) async {
+    try {
+      final response = await http
+          .post(
+            Uri.parse('$baseUrl/api/pos/stock/counts/$id/scan'),
+            headers: _headers,
+            body: jsonEncode({'codes': codes, if (deviceName != null) 'deviceName': deviceName}),
+          )
+          .timeout(const Duration(seconds: 60));
+      return _handleResponse(response);
+    } catch (e) {
+      return _connectionFailure(e);
+    }
+  }
+
   Future<Map<String, dynamic>> addPosStockCountLines(
       String id, List<Map<String, dynamic>> lines) async {
     try {

@@ -4,6 +4,7 @@ using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
 using ZKTecoADMS.Api.Authorization;
 using ZKTecoADMS.Api.Controllers.Base;
+using ZKTecoADMS.Api.Services;
 using ZKTecoADMS.Application.Constants;
 using ZKTecoADMS.Application.Models;
 using ZKTecoADMS.Domain.Entities;
@@ -28,6 +29,17 @@ public class PosStockCountsController(ZKTecoDbContext dbContext) : Authenticated
     public record UpdateCountLineDto(Guid LineId, decimal? CountedQty, bool? IsChecked);
 
     public record UpdateCountLinesDto(List<UpdateCountLineDto> Lines);
+
+    /// <param name="Codes">Mã quét theo thứ tự (trùng = quét nhiều lần = cộng nhiều lần).</param>
+    public record ScanCountCodesDto(List<string>? Codes, string? DeviceName);
+
+    public record ScanCountMatchDto(Guid LineId, string ProductName, string? UnitName, decimal Added, decimal CountedQty);
+
+    /// <param name="Unknown">Mã không khớp hàng nào (kèm số lần quét).</param>
+    /// <param name="NotTracked">Mã khớp hàng không quản lý tồn (dịch vụ…) — bỏ qua.</param>
+    public record ScanCountResultDto(
+        StockCountDto Count, int ScannedCodes, int MatchedCodes,
+        List<ScanCountMatchDto> Matches, Dictionary<string, int> Unknown, Dictionary<string, int> NotTracked);
 
     public record StockCountLineDto(
         Guid Id, Guid ProductId, Guid? VariantId, string ProductCode, string ProductName,
@@ -297,6 +309,149 @@ public class PosStockCountsController(ZKTecoDbContext dbContext) : Authenticated
         // Reload lines for response accuracy
         await dbContext.Entry(count).Collection(c => c.Lines).LoadAsync();
         return Ok(AppResponse<StockCountDto>.Success(MapCount(count, count.Lines.ToList())));
+    }
+
+    /// <summary>
+    /// Nhận một lô mã từ máy kiểm kho (barcode / QR / thẻ RFID) và cộng thẳng vào số đếm.
+    /// Mỗi lần xuất hiện của mã = 1 đơn vị quét: mã hàng / SKU biến thể +1, mã vạch đơn vị (thùng)
+    /// + hệ số quy đổi, thẻ RFID gắn với seri +1, thẻ SGTIN-96 → GTIN → mã vạch hàng.
+    /// Hàng chưa có trong phiếu được thêm dòng. Dòng «chưa kiểm» bắt đầu đếm từ 0.
+    /// </summary>
+    [HttpPost("{id:guid}/scan")]
+    [RequireModulePermission("PosStockCounts", ModulePermissionAction.Edit)]
+    public async Task<ActionResult<AppResponse<ScanCountResultDto>>> ScanCodes(
+        Guid id, [FromBody] ScanCountCodesDto dto)
+    {
+        var storeId = RequiredStoreId;
+        var count = await dbContext.PosStockCounts
+            .AsTracking()
+            .Include(c => c.Lines)
+            .FirstOrDefaultAsync(c => c.Id == id && c.StoreId == storeId && c.Deleted == null);
+        if (count == null)
+            return NotFound(AppResponse<ScanCountResultDto>.Fail("Không tìm thấy phiếu kiểm kê"));
+        if (count.Status != PosStockCountStatus.InProgress)
+            return BadRequest(AppResponse<ScanCountResultDto>.Fail("Phiếu đã hoàn thành hoặc hủy"));
+
+        var codes = (dto.Codes ?? [])
+            .Select(c => (c ?? "").Trim())
+            .Where(c => c.Length is > 0 and <= 128)
+            .Take(5000)
+            .ToList();
+        if (codes.Count == 0)
+            return BadRequest(AppResponse<ScanCountResultDto>.Fail("Chưa có mã quét"));
+
+        var tally = codes.GroupBy(c => c).ToDictionary(g => g.Key, g => g.Count());
+        var keysByCode = tally.Keys.ToDictionary(c => c, PosScanCodes.LookupKeys);
+        var allKeys = keysByCode.Values.SelectMany(k => k).Distinct().ToList();
+
+        var products = await dbContext.PosProducts.AsNoTracking()
+            .Where(p => p.StoreId == storeId && p.Deleted == null &&
+                        ((p.Barcode != null && allKeys.Contains(p.Barcode)) || allKeys.Contains(p.ProductCode)))
+            .Select(p => new { p.Id, p.Barcode, p.ProductCode, p.ProductType, p.IsActive })
+            .ToListAsync();
+        var variants = await dbContext.PosProductVariants.AsNoTracking()
+            .Where(v => v.StoreId == storeId && v.Deleted == null &&
+                        ((v.Barcode != null && allKeys.Contains(v.Barcode)) || allKeys.Contains(v.SkuCode)))
+            .Select(v => new { v.Id, v.ProductId, v.Barcode, v.SkuCode })
+            .ToListAsync();
+        var units = await dbContext.PosProductUnits.AsNoTracking()
+            .Where(u => u.StoreId == storeId && u.Deleted == null && u.Barcode != null && allKeys.Contains(u.Barcode))
+            .Select(u => new { u.ProductId, u.Barcode, u.ConversionRate })
+            .ToListAsync();
+        var serials = await dbContext.PosProductSerials.AsNoTracking()
+            .Where(x => x.StoreId == storeId && x.Deleted == null &&
+                        ((x.TagCode != null && allKeys.Contains(x.TagCode)) || allKeys.Contains(x.SerialNumber)))
+            .Select(x => new { x.ProductId, x.VariantId, x.TagCode, x.SerialNumber })
+            .ToListAsync();
+
+        // Thứ tự ưu tiên: biến thể (SKU riêng) → mã đơn vị (có hệ số) → hàng → seri / thẻ RFID.
+        (Guid Pid, Guid? Vid, decimal Rate)? Resolve(string key)
+        {
+            var v = variants.FirstOrDefault(x => x.Barcode == key || x.SkuCode == key);
+            if (v != null) return (v.ProductId, v.Id, 1m);
+            var u = units.FirstOrDefault(x => x.Barcode == key);
+            if (u != null) return (u.ProductId, null, u.ConversionRate <= 0 ? 1m : u.ConversionRate);
+            var p = products.FirstOrDefault(x => x.Barcode == key || x.ProductCode == key);
+            if (p != null) return (p.Id, null, 1m);
+            var sr = serials.FirstOrDefault(x => x.TagCode == key || x.SerialNumber == key);
+            if (sr != null) return (sr.ProductId, sr.VariantId, 1m);
+            return null;
+        }
+
+        var trackByProduct = products.ToDictionary(p => p.Id, p => PosProductTypeRules.TracksInventory(p.ProductType));
+        var extraIds = variants.Select(v => v.ProductId).Concat(units.Select(u => u.ProductId))
+            .Concat(serials.Select(x => x.ProductId)).Where(pid => !trackByProduct.ContainsKey(pid)).Distinct().ToList();
+        if (extraIds.Count > 0)
+        {
+            var extra = await dbContext.PosProducts.AsNoTracking()
+                .Where(p => extraIds.Contains(p.Id) && p.StoreId == storeId && p.Deleted == null)
+                .Select(p => new { p.Id, p.ProductType })
+                .ToListAsync();
+            foreach (var p in extra) trackByProduct[p.Id] = PosProductTypeRules.TracksInventory(p.ProductType);
+        }
+
+        var unknown = new Dictionary<string, int>();
+        var notTracked = new Dictionary<string, int>();
+        var add = new Dictionary<(Guid Pid, Guid? Vid), decimal>();
+        var matchedCodes = 0;
+        foreach (var (code, times) in tally)
+        {
+            (Guid Pid, Guid? Vid, decimal Rate)? hit = null;
+            foreach (var key in keysByCode[code])
+            {
+                hit = Resolve(key);
+                if (hit != null) break;
+            }
+            if (hit == null || !trackByProduct.ContainsKey(hit.Value.Pid))
+            {
+                unknown[code] = times;
+                continue;
+            }
+            if (!trackByProduct[hit.Value.Pid])
+            {
+                notTracked[code] = times;
+                continue;
+            }
+            matchedCodes += times;
+            var k = (hit.Value.Pid, hit.Value.Vid);
+            add[k] = add.GetValueOrDefault(k) + hit.Value.Rate * times;
+        }
+
+        var lineByKey = count.Lines.ToDictionary(l => (l.ProductId, l.VariantId));
+        var newLines = new List<PosStockCountLine>();
+        foreach (var k in add.Keys.Where(k => !lineByKey.ContainsKey(k)))
+        {
+            var line = await BuildLineAsync(storeId, count.Id, k.Pid, k.Vid);
+            if (line == null) continue;
+            newLines.Add(line);
+            lineByKey[k] = line;
+        }
+        await RebaseSystemQtyToBranchAsync(storeId, count.BranchId, newLines);
+
+        // Dòng đã có mà đổi số đếm → chốt lại tồn sổ «lúc đếm» như khi sửa tay (UpdateLines).
+        var existingTouched = add.Keys
+            .Where(k => lineByKey.TryGetValue(k, out var l) && !newLines.Contains(l))
+            .Select(k => lineByKey[k]).ToList();
+        var live = await LoadLiveSystemQtyAsync(storeId, existingTouched, count.BranchId);
+
+        var matches = new List<ScanCountMatchDto>();
+        var now = DateTime.UtcNow;
+        foreach (var (k, qty) in add)
+        {
+            if (!lineByKey.TryGetValue(k, out var line)) continue;
+            line.CountedQty = (line.CountedQty ?? 0) + qty;
+            line.IsChecked = true;
+            if (live.TryGetValue(line.Id, out var sys)) line.SystemQty = sys;
+            line.UpdatedAt = now;
+            line.UpdatedBy = CurrentUserEmail;
+            matches.Add(new ScanCountMatchDto(line.Id, line.ProductName, line.UnitName, qty, line.CountedQty.Value));
+        }
+        if (newLines.Count > 0) dbContext.PosStockCountLines.AddRange(newLines);
+        await dbContext.SaveChangesAsync();
+
+        await dbContext.Entry(count).Collection(c => c.Lines).LoadAsync();
+        return Ok(AppResponse<ScanCountResultDto>.Success(new ScanCountResultDto(
+            MapCount(count, count.Lines.ToList()), codes.Count, matchedCodes, matches, unknown, notTracked)));
     }
 
     /// <summary>Tồn hiện tại (theo ĐVT dòng kiểm) của các dòng kiểm kê.</summary>

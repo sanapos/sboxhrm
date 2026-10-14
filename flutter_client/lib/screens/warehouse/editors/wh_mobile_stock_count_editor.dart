@@ -1,5 +1,8 @@
+import 'dart:async';
+
 import '../../../widgets/pos/pos_unit_qty_convert.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 
 import '../../../models/pos_stock_count.dart';
 import '../../../services/api_service.dart';
@@ -7,8 +10,10 @@ import '../../../utils/number_formatter.dart';
 import '../../../utils/pos_doc_status.dart';
 import '../../../utils/pos_mutation_result.dart';
 import '../../../utils/pos_purchase_product_lookup.dart';
+import '../../../utils/pos_scanner_config.dart';
 import '../../../widgets/loading_widget.dart';
 import '../../../widgets/notification_overlay.dart';
+import '../../../widgets/pos/pos_bulk_scan_listener.dart';
 import '../../../widgets/pos/pos_purchase_product_search_bar.dart';
 import '../../../widgets/pos_barcode_scanner.dart';
 import '../../../widgets/pos/pos_unsaved_changes.dart';
@@ -65,10 +70,34 @@ class _WhMobileStockCountEditorState extends State<WhMobileStockCountEditor> {
 
   bool get _readOnly => _status != 'InProgress';
 
+  // ---------- Quét hàng loạt (máy kiểm kho / súng quét / đầu đọc RFID) ----------
+  bool _bulkMode = false;
+  /// RFID: đầu đọc đọc lặp thẻ liên tục → mỗi thẻ chỉ tính một lần trong lượt quét.
+  bool _rfidMode = false;
+  final List<String> _scanQueue = [];
+  final Set<String> _seenTags = {};
+  int _scanTotal = 0;
+  int _scanCounted = 0;
+  int _scanDupTags = 0;
+  final Map<String, int> _unknown = {};
+  final Map<String, int> _notTracked = {};
+  String? _lastScanLabel;
+  String? _scanError;
+  bool _flushing = false;
+  Timer? _flushTimer;
+  DateTime? _lastBeep;
+
+  /// Gom mã rồi gửi theo lô: 100 mã gửi ngay, ít hơn thì đợi 0,4s yên lặng.
+  static const _flushBatch = 100;
+  static const _flushDelay = Duration(milliseconds: 400);
+
   /// SL đếm + ghi chú lúc nạp / vừa lưu. Dòng chưa kiểm (null) đã nằm trên server
   /// nên không tính là chưa lưu.
   String? _cleanSig;
-  bool get _isDirty => !_loading && !_readOnly && _cleanSig != null && _sig() != _cleanSig;
+  bool get _isDirty =>
+      !_loading &&
+      !_readOnly &&
+      (_scanQueue.isNotEmpty || (_cleanSig != null && _sig() != _cleanSig));
   String _sig() => [
         _noteCtrl.text.trim(),
         for (final l in _lines)
@@ -84,8 +113,303 @@ class _WhMobileStockCountEditorState extends State<WhMobileStockCountEditor> {
 
   @override
   void dispose() {
+    _flushTimer?.cancel();
     _noteCtrl.dispose();
     super.dispose();
+  }
+
+  void _toggleBulk() {
+    if (_readOnly) return;
+    // Bỏ focus ô tìm / ô SL để súng quét gõ phím không đổ mã vào ô chữ.
+    FocusManager.instance.primaryFocus?.unfocus();
+    setState(() {
+      _bulkMode = !_bulkMode;
+      if (_bulkMode) {
+        _seenTags.clear();
+        _scanTotal = 0;
+        _scanCounted = 0;
+        _scanDupTags = 0;
+        _unknown.clear();
+        _notTracked.clear();
+        _lastScanLabel = null;
+        _scanError = null;
+      }
+    });
+  }
+
+  void _onScanCode(String raw) {
+    if (!_bulkMode || _readOnly) return;
+    final code = raw.trim();
+    if (code.isEmpty) return;
+    if (_rfidMode) {
+      final key = code.toUpperCase();
+      if (!_seenTags.add(key)) {
+        setState(() => _scanDupTags++);
+        return;
+      }
+    }
+    setState(() {
+      _scanQueue.add(code);
+      _scanTotal++;
+    });
+    final now = DateTime.now();
+    if (_lastBeep == null || now.difference(_lastBeep!) > const Duration(milliseconds: 120)) {
+      _lastBeep = now;
+      SystemSound.play(SystemSoundType.click);
+    }
+    _flushTimer?.cancel();
+    if (_scanQueue.length >= _flushBatch) {
+      unawaited(_flushScans());
+    } else {
+      _flushTimer = Timer(_flushDelay, () => unawaited(_flushScans()));
+    }
+  }
+
+  Future<void> _flushScans() async {
+    if (_flushing || _scanQueue.isEmpty || !mounted) return;
+    _flushing = true;
+    try {
+      final id = await _ensureId();
+      if (id == null || !mounted) return;
+      // SL đang sửa tay chưa lưu → lưu trước, server cộng tiếp trên số đó.
+      if (_cleanSig != null && _sig() != _cleanSig) {
+        if (!await _persist() || !mounted) return;
+      }
+      final batch = List<String>.from(_scanQueue.take(500));
+      final res = await _api.scanPosStockCountCodes(id, batch, deviceName: 'POS');
+      if (!mounted) return;
+      if (res['isSuccess'] != true || res['data'] is! Map) {
+        setState(() => _scanError =
+            'Chưa gửi được ${_scanQueue.length} mã — ${res['message'] ?? 'mất mạng'}. Tự thử lại…');
+        _flushTimer?.cancel();
+        _flushTimer = Timer(const Duration(seconds: 3), () => unawaited(_flushScans()));
+        return;
+      }
+      final d = Map<String, dynamic>.from(res['data'] as Map);
+      final count = d['count'] ?? d['Count'];
+      setState(() {
+        _scanQueue.removeRange(0, batch.length);
+        _scanError = null;
+        if (count is Map) {
+          _apply(PosStockCount.fromJson(Map<String, dynamic>.from(count)));
+          _cleanSig = _sig();
+        }
+        _scanCounted += ((d['matchedCodes'] ?? d['MatchedCodes']) as num?)?.toInt() ?? 0;
+        void merge(Map<String, int> into, Object? m) {
+          if (m is! Map) return;
+          m.forEach((k, v) => into['$k'] = (into['$k'] ?? 0) + ((v as num?)?.toInt() ?? 0));
+        }
+        merge(_unknown, d['unknown'] ?? d['Unknown']);
+        merge(_notTracked, d['notTracked'] ?? d['NotTracked']);
+        final matches = (d['matches'] ?? d['Matches']) as List? ?? const [];
+        if (matches.isNotEmpty && matches.last is Map) {
+          final m = matches.last as Map;
+          final added = (m['added'] ?? m['Added']) as num? ?? 0;
+          final total = (m['countedQty'] ?? m['CountedQty']) as num? ?? 0;
+          _lastScanLabel =
+              '+${formatViQty(added)} ${m['productName'] ?? m['ProductName'] ?? ''} → ${formatViQty(total)}';
+        }
+      });
+      if (((d['unknown'] ?? d['Unknown']) as Map?)?.isNotEmpty == true) {
+        HapticFeedback.heavyImpact();
+        SystemSound.play(SystemSoundType.alert);
+      }
+    } finally {
+      _flushing = false;
+      if (mounted && _scanQueue.isNotEmpty && _scanError == null) {
+        _flushTimer?.cancel();
+        _flushTimer = Timer(_flushDelay, () => unawaited(_flushScans()));
+      }
+    }
+  }
+
+  Future<void> _showCodes(String title, Map<String, int> codes) async {
+    await showDialog<void>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: Text(tr(title)),
+        content: SizedBox(
+          width: 420,
+          child: ListView(
+            shrinkWrap: true,
+            children: [
+              for (final e in codes.entries)
+                ListTile(
+                  dense: true,
+                  title: SelectableText(e.key),
+                  trailing: Text('×${e.value}'),
+                ),
+            ],
+          ),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () {
+              setState(() => codes.clear());
+              Navigator.pop(ctx);
+            },
+            child: Text(tr('Xóa danh sách')),
+          ),
+          FilledButton(onPressed: () => Navigator.pop(ctx), child: Text(tr('Đóng'))),
+        ],
+      ),
+    );
+  }
+
+  Future<void> _openScannerSetup() async {
+    final cur = await PosScannerConfig.load();
+    if (!mounted) return;
+    final actionCtrl = TextEditingController(text: cur.action);
+    final extraCtrl = TextEditingController(text: cur.extra);
+    final ok = await showDialog<bool>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: Text(tr('Cài máy quét / máy kiểm kho')),
+        content: SizedBox(
+          width: 520,
+          child: SingleChildScrollView(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Text(tr('Đã nhận sẵn (để máy ở chế độ Broadcast / Intent):'),
+                    style: const TextStyle(fontWeight: FontWeight.w600)),
+                for (final d in PosScannerConfig.supportedDevices)
+                  Padding(
+                    padding: const EdgeInsets.only(top: 4),
+                    child: Text('• ${tr(d)}', style: const TextStyle(fontSize: 13)),
+                  ),
+                const SizedBox(height: 14),
+                Text(tr('Máy khác: nhập Intent action và tên extra chứa mã (xem trong app cài đặt '
+                    'máy quét / DataWedge).')),
+                const SizedBox(height: 8),
+                TextField(
+                  controller: actionCtrl,
+                  decoration: InputDecoration(
+                    labelText: tr('Intent action'),
+                    hintText: PosScannerConfig.standardAction,
+                  ),
+                ),
+                TextField(
+                  controller: extraCtrl,
+                  decoration: InputDecoration(
+                    labelText: tr('Tên extra chứa mã'),
+                    hintText: PosScannerConfig.standardExtra,
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ),
+        actions: [
+          TextButton(onPressed: () => Navigator.pop(ctx, false), child: Text(tr('Hủy'))),
+          FilledButton(onPressed: () => Navigator.pop(ctx, true), child: Text(tr('Lưu'))),
+        ],
+      ),
+    );
+    if (ok == true) {
+      await PosScannerConfig.save(action: actionCtrl.text, extra: extraCtrl.text);
+      if (mounted) {
+        NotificationOverlayManager().showSuccess(title: 'Đã lưu cài đặt máy quét', message: '');
+      }
+    }
+    actionCtrl.dispose();
+    extraCtrl.dispose();
+  }
+
+  Widget _statChip(String label, {Color? color, VoidCallback? onTap}) {
+    final c = color ?? WhMobileTheme.primary;
+    return ActionChip(
+      onPressed: onTap,
+      label: Text(tr(label), style: TextStyle(color: c, fontWeight: FontWeight.w700)),
+      backgroundColor: c.withOpacity(0.08),
+      side: BorderSide(color: c.withOpacity(0.25)),
+    );
+  }
+
+  Widget _bulkPanel() {
+    final pending = _scanQueue.length;
+    final unknown = _unknown.values.fold<int>(0, (a, b) => a + b);
+    final notTracked = _notTracked.values.fold<int>(0, (a, b) => a + b);
+    return WhGlassCard(
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          Row(
+            children: [
+              Icon(Icons.qr_code_scanner_rounded, color: WhMobileTheme.primary),
+              const SizedBox(width: 8),
+              Expanded(
+                child: Text(tr('Đang quét hàng loạt'),
+                    style: WhMobileTheme.titleLarge.copyWith(fontSize: 17)),
+              ),
+              SegmentedButton<bool>(
+                segments: [
+                  ButtonSegment(value: false, label: Text(tr('Mã vạch / QR'))),
+                  ButtonSegment(value: true, label: Text(tr('RFID'))),
+                ],
+                selected: {_rfidMode},
+                showSelectedIcon: false,
+                onSelectionChanged: (v) => setState(() {
+                  _rfidMode = v.first;
+                  _seenTags.clear();
+                }),
+              ),
+            ],
+          ),
+          const SizedBox(height: 8),
+          Text(
+            tr(_rfidMode
+                ? 'Bóp cò đầu đọc RFID và quét quanh kệ. Mỗi thẻ chỉ tính 1 lần trong lượt này; '
+                    'thẻ SGTIN-96 tự ra mã vạch hàng, thẻ gắn seri ra đúng máy.'
+                : 'Bấm nút quét trên máy kiểm kho / bóp cò súng quét. Mỗi lần quét = +1; quét mã '
+                    'thùng = + số lượng quy đổi. Mã lạ báo bíp dài.'),
+            style: WhMobileTheme.caption,
+          ),
+          const SizedBox(height: 10),
+          Wrap(
+            spacing: 8,
+            runSpacing: 6,
+            children: [
+              _statChip('Đã quét $_scanTotal'),
+              _statChip('Đã cộng $_scanCounted', color: WhMobileTheme.accent),
+              if (pending > 0) _statChip('Chờ gửi $pending', color: WhMobileTheme.warning),
+              if (_rfidMode && _scanDupTags > 0)
+                _statChip('Thẻ đọc lặp bỏ qua $_scanDupTags', color: WhMobileTheme.textSecondary),
+              if (unknown > 0)
+                _statChip('Mã lạ $unknown', color: WhMobileTheme.danger,
+                    onTap: () => _showCodes('Mã không khớp hàng nào', _unknown)),
+              if (notTracked > 0)
+                _statChip('Không quản lý tồn $notTracked', color: WhMobileTheme.textSecondary,
+                    onTap: () => _showCodes('Hàng không quản lý tồn (dịch vụ…)', _notTracked)),
+            ],
+          ),
+          if (_lastScanLabel != null) ...[
+            const SizedBox(height: 8),
+            Text(_lastScanLabel!, style: const TextStyle(fontSize: 16, fontWeight: FontWeight.w700)),
+          ],
+          if (_scanError != null) ...[
+            const SizedBox(height: 8),
+            Text(tr(_scanError!), style: TextStyle(color: WhMobileTheme.danger)),
+          ],
+          const SizedBox(height: 6),
+          Row(
+            children: [
+              TextButton.icon(
+                onPressed: _openScannerSetup,
+                icon: const Icon(Icons.settings_outlined, size: 18),
+                label: Text(tr('Cài máy quét')),
+              ),
+              const Spacer(),
+              FilledButton(
+                onPressed: pending > 0 ? null : _toggleBulk,
+                child: Text(tr(pending > 0 ? 'Đang gửi…' : 'Xong quét')),
+              ),
+            ],
+          ),
+        ],
+      ),
+    );
   }
 
   Future<void> _bootstrap() async {
@@ -405,14 +729,24 @@ class _WhMobileStockCountEditorState extends State<WhMobileStockCountEditor> {
 
   @override
   Widget build(BuildContext context) {
-    return UnsavedChangesScope(
+    return PosBulkScanListener(
+      enabled: _bulkMode && !_readOnly,
+      onCode: _onScanCode,
+      child: UnsavedChangesScope(
       isDirty: () => _isDirty,
       child: WhMobileScaffold(
       title: _countNo.isEmpty ? 'Tạo phiếu kiểm kho' : _countNo,
       subtitle: _unchecked > 0 ? 'Còn $_unchecked dòng chưa kiểm' : 'Kiểm kho',
       actions: [
         if (!_readOnly)
+          TextButton.icon(
+            onPressed: _toggleBulk,
+            icon: Icon(_bulkMode ? Icons.stop_circle_outlined : Icons.document_scanner_outlined),
+            label: Text(tr(_bulkMode ? 'Dừng quét' : 'Quét hàng loạt')),
+          ),
+        if (!_readOnly)
           IconButton(
+            tooltip: tr('Quét bằng camera'),
             icon: const Icon(Icons.qr_code_scanner_rounded),
             color: WhMobileTheme.primary,
             onPressed: _scan,
@@ -435,7 +769,10 @@ class _WhMobileStockCountEditorState extends State<WhMobileStockCountEditor> {
                 24,
               ),
               children: [
-                if (!_readOnly)
+                if (_bulkMode && !_readOnly) ...[
+                  _bulkPanel(),
+                  const SizedBox(height: WhMobileTheme.gap),
+                ] else if (!_readOnly)
                   PosPurchaseProductSearchBar(
                     api: _api,
                     hintText: tr('Tìm hoặc quét mã hàng…'),
@@ -531,6 +868,7 @@ class _WhMobileStockCountEditorState extends State<WhMobileStockCountEditor> {
                 ),
               ],
             ),
+    ),
     ),
     );
   }

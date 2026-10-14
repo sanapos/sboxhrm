@@ -18,7 +18,29 @@ class MainActivity : FlutterFragmentActivity() {
     private val FILE_CHANNEL = "com.sboxhrm/file_saver"
     private val SCANNER_CHANNEL = "com.sboxhrm/sunmi_scanner"
 
-    private val ACTION_DATA_CODE_RECEIVED = "com.sunmi.scanner.ACTION_DATA_CODE_RECEIVED"
+    private val SCANNER_CONFIG_CHANNEL = "com.sboxhrm/scanner_config"
+
+    /// Broadcast của máy quét / máy kiểm kho cầm tay phổ biến (máy để chế độ «Broadcast / Intent»).
+    /// Zebra DataWedge, Honeywell, app đọc RFID…: cài Intent action = vn.sana.sbox.SCAN, extra = data
+    /// (hoặc nhập action / extra riêng trong app — [customAction]).
+    private val KNOWN_ACTIONS = listOf(
+        "com.sunmi.scanner.ACTION_DATA_CODE_RECEIVED", // Sunmi
+        "android.intent.ACTION_DECODE_DATA",            // Urovo
+        "nlscan.action.SCANNER_RESULT",                 // Newland
+        "android.intent.action.SCANRESULT",             // iData
+        "com.scanner.broadcast",                        // Chainway
+        "com.android.server.scannerservice.broadcast",  // Seuic / Autoid
+        "com.android.serial.BARCODEPORT_RECEIVEDDATA_ACTION",
+        "vn.sana.sbox.SCAN",                            // chuẩn SBOX cho máy tự cài
+    )
+    private val KNOWN_EXTRAS = listOf(
+        "data", "barcode_string", "SCAN_BARCODE1", "value", "scannerdata",
+        "com.symbol.datawedge.data_string", "barcodeData", "barcode", "decode_rslt",
+        "EXTRA_BARCODE_DECODING_DATA", "epc", "rfid", "code",
+    )
+    private var customAction: String? = null
+    private var customExtra: String? = null
+
     private val DATA = "data"
 
     private var scannerEvents: EventChannel.EventSink? = null
@@ -104,6 +126,23 @@ class MainActivity : FlutterFragmentActivity() {
                 }
             })
 
+        MethodChannel(flutterEngine.dartExecutor.binaryMessenger, SCANNER_CONFIG_CHANNEL)
+            .setMethodCallHandler { call, result ->
+                when (call.method) {
+                    "setCustom" -> {
+                        customAction = call.argument<String>("action")?.trim()?.ifEmpty { null }
+                        customExtra = call.argument<String>("extra")?.trim()?.ifEmpty { null }
+                        if (scannerReceiver != null) {
+                            unregisterScannerReceiver()
+                            registerScannerReceiver()
+                        }
+                        result.success(true)
+                    }
+                    "knownActions" -> result.success(KNOWN_ACTIONS)
+                    else -> result.notImplemented()
+                }
+            }
+
         MethodChannel(flutterEngine.dartExecutor.binaryMessenger, CUSTOMER_DISPLAY_CHANNEL)
             .setMethodCallHandler { call, result ->
                 when (call.method) {
@@ -167,28 +206,53 @@ class MainActivity : FlutterFragmentActivity() {
             }
     }
 
+    /// Lấy chuỗi mã trong intent: extra tự cài → các extra quen thuộc → mảng byte → chuỗi duy nhất.
+    private fun extractScanText(intent: Intent): String? {
+        val extras = intent.extras ?: return null
+        val keys = listOfNotNull(customExtra) + KNOWN_EXTRAS
+        for (k in keys) {
+            val v = extras.get(k) ?: continue
+            when (v) {
+                is String -> if (v.isNotBlank()) return v
+                is ByteArray -> {
+                    val len = extras.getInt("length", v.size).coerceIn(0, v.size)
+                    val txt = String(v, 0, len, Charsets.UTF_8)
+                    if (txt.isNotBlank()) return txt
+                }
+                is Array<*> -> {
+                    val txt = v.filterIsInstance<String>().joinToString("\n")
+                    if (txt.isNotBlank()) return txt
+                }
+                is ArrayList<*> -> {
+                    val txt = v.filterIsInstance<String>().joinToString("\n")
+                    if (txt.isNotBlank()) return txt
+                }
+            }
+        }
+        val strings = extras.keySet().mapNotNull { extras.get(it) as? String }.filter { it.isNotBlank() }
+        return strings.singleOrNull()
+    }
+
     private fun registerScannerReceiver() {
         if (scannerReceiver != null) return
         scannerReceiver = object : BroadcastReceiver() {
             override fun onReceive(context: Context?, intent: Intent?) {
                 if (intent == null) return
-                val action = intent.action ?: return
-                if (action != ACTION_DATA_CODE_RECEIVED) return
-                var code = intent.getStringExtra(DATA)
-                if (code.isNullOrBlank()) {
-                    // Một số firmware dùng key khác
-                    code = intent.getStringExtra("barcode_string")
-                        ?: intent.getStringExtra("barcode")
-                }
-                if (!code.isNullOrBlank()) {
-                    runOnUiThread {
-                        scannerEvents?.success(code.trim())
-                    }
+                val text = extractScanText(intent) ?: return
+                // Đầu đọc RFID có thể gửi cả lô EPC trong một broadcast.
+                val codes = text.split('\n', '\r', ',', ';', '\t')
+                    .map { it.trim() }
+                    .filter { it.isNotEmpty() }
+                if (codes.isEmpty()) return
+                runOnUiThread {
+                    for (c in codes) scannerEvents?.success(c)
                 }
             }
         }
-        val filter = IntentFilter(ACTION_DATA_CODE_RECEIVED)
-        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
+        val filter = IntentFilter()
+        for (a in KNOWN_ACTIONS) filter.addAction(a)
+        customAction?.let { if (!KNOWN_ACTIONS.contains(it)) filter.addAction(it) }
+        if (Build.VERSION.SDK_INT >= 33) {
             registerReceiver(scannerReceiver, filter, Context.RECEIVER_EXPORTED)
         } else {
             @Suppress("UnspecifiedRegisterReceiverFlag")
