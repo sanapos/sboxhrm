@@ -881,6 +881,9 @@ public class PosQrTableOrderController(
             onlineOpenTime = lockOpt.OnlineOpenTime ?? "08:00",
             onlineCloseTime = lockOpt.OnlineCloseTime ?? "22:00",
             onlineAfterHoursMode = lockOpt.OnlineAfterHoursMode ?? "block",
+            onlineSchedule = lockOpt.OnlineScheduleJson,
+            onlineTodayText = QrOrderLockHelper.OnlineHours(lockOpt, DateTime.UtcNow).TodayText,
+            onlineNextOpen = QrOrderLockHelper.OnlineHours(lockOpt, DateTime.UtcNow).NextOpen,
             onlineOpenNow = QrOrderLockHelper.OnlineHours(lockOpt, DateTime.UtcNow).OpenNow,
             onlineAutoPrintKitchen = lockOpt.OnlineAutoPrintKitchen,
             onlineAutoPay = lockOpt.OnlineAutoPay,
@@ -1816,7 +1819,7 @@ public class PosQrTableOrderController(
         var hours = QrOrderLockHelper.OnlineHours(lockOpt, DateTime.UtcNow);
         if (hours.AfterHours && !hours.AllowPreorder)
             return BadRequest(AppResponse<object>.Fail(
-                $"Quán nhận đơn online từ {hours.Open} đến {hours.Close}. Vui lòng đặt lại trong giờ mở cửa."));
+                hours.BlockText));
         var afterHours = hours.AfterHours;
         var autoConfirm = lockOpt.OnlineAutoConfirm && !afterHours;
         var autoPrintKitchen = lockOpt.OnlineAutoPrintKitchen && !afterHours;
@@ -1834,7 +1837,7 @@ public class PosQrTableOrderController(
                 var now = DateTime.UtcNow;
                 var orderNo = await PosSaleStockHelper.NextOrderNoAsync(db, storeId, now);
                 var note = afterHours
-                    ? $"[ĐẶT NGOÀI GIỜ — xử lý khi mở cửa {hours.Open}] QR online — quán gọi lại xác nhận."
+                    ? $"[ĐẶT NGOÀI GIỜ — xử lý khi mở cửa {hours.OpenAtText}] QR online — quán gọi lại xác nhận."
                     : "QR online — quán gọi lại xác nhận.";
                 if (!string.IsNullOrWhiteSpace(extraNote))
                     note = $"{note} {extraNote}";
@@ -2006,7 +2009,7 @@ public class PosQrTableOrderController(
             onlineStatusLabel = QrOnlineOrderStatuses.Label(finalStatus),
             payment,
             message = afterHours
-                ? $"Đã nhận đơn đặt trước. Quán đang ngoài giờ ({hours.RangeText}) — sẽ gọi xác nhận khi mở cửa lúc {hours.Open}."
+                ? $"Đã nhận đơn đặt trước. Quán đang ngoài giờ — sẽ gọi xác nhận khi mở cửa lúc {hours.OpenAtText}."
                 : tingeeOn
                 ? "Đã gửi đơn. Quét QR để thanh toán — đơn tự xác nhận khi chuyển khoản xong."
                 : autoConfirm
@@ -2260,12 +2263,12 @@ public class PosQrTableOrderController(
         {
             if (hours.AllowPreorder)
             {
-                lockMessage = $"Quán đang ngoài giờ nhận đơn ({hours.RangeText}). Bạn vẫn đặt trước được — quán xác nhận khi mở cửa lúc {hours.Open}.";
+                lockMessage = hours.PreorderText;
             }
             else
             {
                 canOrder = false;
-                lockMessage = $"Quán nhận đơn online từ {hours.Open} đến {hours.Close}. Hiện ngoài giờ — vui lòng quay lại sau.";
+                lockMessage = hours.BlockText;
             }
         }
         var lockInfo = new
@@ -2277,7 +2280,7 @@ public class PosQrTableOrderController(
             canOrder,
             message = lockMessage,
             onlineHours = online && hours.Enabled
-                ? new { open = hours.Open, close = hours.Close, openNow = hours.OpenNow, preorder = hours.AllowPreorder }
+                ? new { today = hours.TodayText, nextOpen = hours.NextOpen, openNow = hours.OpenNow, preorder = hours.AllowPreorder }
                 : null,
         };
 

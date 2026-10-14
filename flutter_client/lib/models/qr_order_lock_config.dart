@@ -19,7 +19,37 @@ class QrOrderLockConfig {
     this.onlineOpenTime = '08:00',
     this.onlineCloseTime = '22:00',
     this.onlineAfterHoursMode = 'block',
+    this.onlineSchedule,
   });
+
+  /// Lịch tuần (null = mọi ngày cùng giờ mở – đóng): khóa mon…sun → danh sách ca [mở, đóng].
+  /// Ngày rỗng = nghỉ. Ca đóng ≤ mở = qua đêm.
+  final Map<String, List<List<String>>>? onlineSchedule;
+
+  static const scheduleDayKeys = ['mon', 'tue', 'wed', 'thu', 'fri', 'sat', 'sun'];
+
+  static Map<String, List<List<String>>>? parseSchedule(dynamic raw) {
+    if (raw is String && raw.trim().isNotEmpty) {
+      try {
+        raw = jsonDecode(raw);
+      } catch (_) {
+        return null;
+      }
+    }
+    if (raw is! Map) return null;
+    final out = <String, List<List<String>>>{};
+    for (final k in scheduleDayKeys) {
+      final v = raw[k] ?? raw[k[0].toUpperCase() + k.substring(1)];
+      final shifts = <List<String>>[];
+      if (v is List) {
+        for (final sh in v) {
+          if (sh is List && sh.length == 2) shifts.add([sh[0].toString(), sh[1].toString()]);
+        }
+      }
+      out[k] = shifts;
+    }
+    return out;
+  }
 
   /// Giờ nhận đơn online (giờ Việt Nam). Tắt = nhận 24/24.
   final bool onlineHoursEnabled;
@@ -125,6 +155,7 @@ class QrOrderLockConfig {
                     'preorder'
                 ? 'preorder'
                 : 'block',
+        onlineSchedule: parseSchedule(m['onlineSchedule'] ?? m['OnlineSchedule']),
       );
     } catch (_) {
       return const QrOrderLockConfig();
@@ -182,6 +213,14 @@ class QrOrderLockConfig {
     qr['onlineOpenTime'] = onlineOpenTime;
     qr['onlineCloseTime'] = onlineCloseTime;
     qr['onlineAfterHoursMode'] = onlineAfterHoursMode;
+    qr.remove('OnlineSchedule');
+    if (onlineSchedule == null) {
+      qr.remove('onlineSchedule');
+    } else {
+      qr['onlineSchedule'] = {
+        for (final k in scheduleDayKeys) k: onlineSchedule![k] ?? const <List<String>>[],
+      };
+    }
     root['qrOrder'] = qr;
     root.remove('QrOrder');
     return jsonEncode(root);
@@ -207,6 +246,8 @@ class QrOrderLockConfig {
     String? onlineOpenTime,
     String? onlineCloseTime,
     String? onlineAfterHoursMode,
+    Map<String, List<List<String>>>? onlineSchedule,
+    bool clearOnlineSchedule = false,
   }) =>
       QrOrderLockConfig(
         requireOpenSession: requireOpenSession ?? this.requireOpenSession,
@@ -231,6 +272,8 @@ class QrOrderLockConfig {
         onlineOpenTime: onlineOpenTime ?? this.onlineOpenTime,
         onlineCloseTime: onlineCloseTime ?? this.onlineCloseTime,
         onlineAfterHoursMode: onlineAfterHoursMode ?? this.onlineAfterHoursMode,
+        onlineSchedule:
+            clearOnlineSchedule ? null : (onlineSchedule ?? this.onlineSchedule),
       );
 
   static String? _optStr(dynamic v) {

@@ -23,14 +23,32 @@ public static class QrOrderLockHelper
         bool OnlineHoursEnabled = false,
         string? OnlineOpenTime = null,
         string? OnlineCloseTime = null,
-        string? OnlineAfterHoursMode = null);
+        string? OnlineAfterHoursMode = null,
+        string? OnlineScheduleJson = null);
 
-    /// <summary>Giờ nhận đơn online hiện tại (giờ Việt Nam). <c>AllowPreorder</c>: ngoài giờ vẫn nhận (đặt trước).</summary>
+    /// <summary>Trạng thái nhận đơn online lúc này (giờ Việt Nam).</summary>
+    /// <param name="TodayText">Ca hôm nay «08:00–11:00, 17:00–22:00» hoặc «nghỉ».</param>
+    /// <param name="NextOpen">Lúc mở nhận đơn kế tiếp «08:00» / «08:00 ngày mai» / «08:00 Thứ Ba»; trống = cả tuần nghỉ.</param>
     public readonly record struct OnlineHoursState(
-        bool Enabled, bool OpenNow, bool AllowPreorder, string Open, string Close)
+        bool Enabled, bool OpenNow, bool AllowPreorder, string TodayText, string NextOpen)
     {
         public bool AfterHours => Enabled && !OpenNow;
-        public string RangeText => $"{Open}–{Close}";
+        public bool ClosedToday => TodayText == "nghỉ";
+        string NextPart => string.IsNullOrEmpty(NextOpen) ? "" : $" Mở nhận đơn lại lúc {NextOpen}.";
+
+        /// <summary>Banner / lỗi khi ngoài giờ và không cho đặt.</summary>
+        public string BlockText => string.IsNullOrEmpty(NextOpen)
+            ? "Quán đang tạm ngưng nhận đơn online — vui lòng gọi trực tiếp cho quán."
+            : ClosedToday
+                ? $"Hôm nay quán nghỉ nhận đơn online.{NextPart}"
+                : $"Quán nhận đơn online hôm nay {TodayText}. Hiện ngoài giờ.{NextPart}";
+
+        /// <summary>Banner khi ngoài giờ nhưng vẫn nhận đặt trước.</summary>
+        public string PreorderText => string.IsNullOrEmpty(NextOpen)
+            ? "Quán đang ngoài giờ nhận đơn. Bạn vẫn đặt trước được — quán sẽ liên hệ xác nhận."
+            : $"Quán đang ngoài giờ nhận đơn. Bạn vẫn đặt trước được — quán xác nhận khi mở cửa lúc {NextOpen}.";
+
+        public string OpenAtText => string.IsNullOrEmpty(NextOpen) ? "quán mở cửa" : NextOpen;
     }
 
     static TimeSpan? ParseHm(string? s)
@@ -42,25 +60,107 @@ public static class QrOrderLockHelper
         return new TimeSpan(h, m, 0);
     }
 
-    /// <summary>Đang trong giờ nhận đơn online không. Hỗ trợ ca qua đêm (vd 18:00–02:00);
-    /// giờ mở = giờ đóng hoặc 00:00–24:00 coi như cả ngày.</summary>
-    public static OnlineHoursState OnlineHours(Options o, DateTime utcNow)
+    static readonly string[] DayKeys = ["sun", "mon", "tue", "wed", "thu", "fri", "sat"];
+    static readonly string[] DayNames = ["Chủ nhật", "Thứ Hai", "Thứ Ba", "Thứ Tư", "Thứ Năm", "Thứ Sáu", "Thứ Bảy"];
+
+    /// <summary>Lịch tuần: mỗi ngày (theo DayOfWeek) nhiều ca [mở, đóng). Ca đóng ≤ mở = qua đêm sang hôm sau.
+    /// Không có <c>onlineSchedule</c> → mọi ngày cùng một ca giờ mở – đóng.</summary>
+    public static List<(TimeSpan Start, TimeSpan End)>[]? OnlineWeek(Options o)
     {
+        var week = new List<(TimeSpan, TimeSpan)>[7];
+        for (var i = 0; i < 7; i++) week[i] = [];
+        if (!string.IsNullOrWhiteSpace(o.OnlineScheduleJson))
+        {
+            try
+            {
+                using var doc = JsonDocument.Parse(o.OnlineScheduleJson);
+                if (doc.RootElement.ValueKind != JsonValueKind.Object) return null;
+                for (var d = 0; d < 7; d++)
+                {
+                    if (!doc.RootElement.TryGetProperty(DayKeys[d], out var arr) || arr.ValueKind != JsonValueKind.Array)
+                        continue;
+                    foreach (var shift in arr.EnumerateArray())
+                    {
+                        string? a = null, b = null;
+                        if (shift.ValueKind == JsonValueKind.Array && shift.GetArrayLength() == 2)
+                        {
+                            a = shift[0].GetString();
+                            b = shift[1].GetString();
+                        }
+                        var st = ParseHm(a);
+                        var en = ParseHm(b);
+                        if (st == null || en == null) continue;
+                        week[d].Add((st.Value, en.Value));
+                    }
+                    week[d].Sort((x, y) => x.Item1.CompareTo(y.Item1));
+                }
+                return week;
+            }
+            catch
+            {
+                return null;
+            }
+        }
         var open = ParseHm(o.OnlineOpenTime);
         var close = ParseHm(o.OnlineCloseTime);
-        if (!o.OnlineHoursEnabled || open == null || close == null)
+        if (open == null || close == null) return null;
+        for (var d = 0; d < 7; d++) week[d].Add((open.Value, close.Value));
+        return week;
+    }
+
+    static bool FullDay(TimeSpan s, TimeSpan e) => s == e || (s == TimeSpan.Zero && e.TotalHours >= 24);
+    static string Fmt(TimeSpan t) => $"{(int)t.TotalHours:00}:{t.Minutes:00}";
+
+    /// <summary>Đang trong giờ nhận đơn online không (giờ Việt Nam UTC+7, không đổi giờ mùa hè).</summary>
+    public static OnlineHoursState OnlineHours(Options o, DateTime utcNow)
+    {
+        if (!o.OnlineHoursEnabled)
+            return new OnlineHoursState(false, true, false, "", "");
+        var week = OnlineWeek(o);
+        if (week == null)
             return new OnlineHoursState(false, true, false, "", "");
         var preorder = string.Equals(o.OnlineAfterHoursMode, "preorder", StringComparison.OrdinalIgnoreCase);
-        var vn = utcNow.AddHours(7).TimeOfDay; // Việt Nam UTC+7, không đổi giờ mùa hè
-        bool openNow;
-        if (open.Value == close.Value || (open.Value == TimeSpan.Zero && close.Value.TotalHours >= 24))
-            openNow = true;
-        else if (open.Value < close.Value)
-            openNow = vn >= open.Value && vn < close.Value;
-        else
-            openNow = vn >= open.Value || vn < close.Value; // qua đêm
-        static string Fmt(TimeSpan t) => $"{(int)t.TotalHours:00}:{t.Minutes:00}";
-        return new OnlineHoursState(true, openNow, preorder, Fmt(open.Value), Fmt(close.Value));
+        var vn = utcNow.AddHours(7);
+        var t = vn.TimeOfDay;
+        var day = (int)vn.DayOfWeek;
+        var prev = (day + 6) % 7;
+
+        var openNow = false;
+        foreach (var (st, en) in week[day])
+        {
+            if (FullDay(st, en) || (st < en ? t >= st && t < en : t >= st)) { openNow = true; break; }
+        }
+        if (!openNow)
+        {
+            foreach (var (st, en) in week[prev])
+            {
+                if (!FullDay(st, en) && st > en && t < en) { openNow = true; break; }
+            }
+        }
+
+        var todayText = week[day].Count == 0
+            ? "nghỉ"
+            : string.Join(", ", week[day].Select(x => FullDay(x.Start, x.End) ? "cả ngày" : $"{Fmt(x.Start)}–{Fmt(x.End)}"));
+
+        var nextOpen = "";
+        var vnDate = vn.Date;
+        for (var add = 0; add <= 7 && nextOpen.Length == 0; add++)
+        {
+            var date = vnDate.AddDays(add);
+            foreach (var (st, _) in week[(int)date.DayOfWeek])
+            {
+                var at = date + st;
+                if (at <= vn) continue;
+                nextOpen = add switch
+                {
+                    0 => Fmt(st),
+                    1 => $"{Fmt(st)} ngày mai",
+                    _ => $"{Fmt(st)} {DayNames[(int)date.DayOfWeek]}",
+                };
+                break;
+            }
+        }
+        return new OnlineHoursState(true, openNow, preorder, todayText, nextOpen);
     }
 
     public static Options Parse(string? extraJson)
@@ -89,7 +189,8 @@ public static class QrOrderLockHelper
                 Flag(qr, "onlineHoursEnabled", "OnlineHoursEnabled"),
                 Str(qr, "onlineOpenTime", "OnlineOpenTime"),
                 Str(qr, "onlineCloseTime", "OnlineCloseTime"),
-                Str(qr, "onlineAfterHoursMode", "OnlineAfterHoursMode"));
+                Str(qr, "onlineAfterHoursMode", "OnlineAfterHoursMode"),
+                RawObj(qr, "onlineSchedule", "OnlineSchedule"));
         }
         catch
         {
@@ -245,6 +346,15 @@ public static class QrOrderLockHelper
     static bool Flag(JsonElement obj, string camel, string pascal) =>
         (obj.TryGetProperty(camel, out var a) && a.ValueKind == JsonValueKind.True)
         || (obj.TryGetProperty(pascal, out var b) && b.ValueKind == JsonValueKind.True);
+
+    static string? RawObj(JsonElement obj, string camel, string pascal)
+    {
+        if (obj.TryGetProperty(camel, out var a) && a.ValueKind == JsonValueKind.Object)
+            return a.GetRawText();
+        if (obj.TryGetProperty(pascal, out var b) && b.ValueKind == JsonValueKind.Object)
+            return b.GetRawText();
+        return null;
+    }
 
     static string? Str(JsonElement obj, string camel, string pascal)
     {

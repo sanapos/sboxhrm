@@ -45,6 +45,9 @@ class _PosQrTableOrderScreenState extends State<PosQrTableOrderScreen> {
   String _onlineCloseTime = '22:00';
   String _onlineAfterHoursMode = 'block';
   bool _onlineOpenNow = true;
+  Map<String, List<List<String>>>? _onlineSchedule;
+  String _onlineTodayText = '';
+  String _onlineNextOpen = '';
   bool _onlineAutoPrintKitchen = false;
   bool _onlineAutoPay = false;
   bool _onlineAutoPrintProvisional = false;
@@ -138,6 +141,12 @@ class _PosQrTableOrderScreenState extends State<PosQrTableOrderScreen> {
               : 'block';
       _onlineOpenNow =
           data['onlineOpenNow'] != false && data['OnlineOpenNow'] != false;
+      _onlineSchedule = QrOrderLockConfig.parseSchedule(
+          data['onlineSchedule'] ?? data['OnlineSchedule']);
+      _onlineTodayText =
+          (data['onlineTodayText'] ?? data['OnlineTodayText'] ?? '').toString();
+      _onlineNextOpen =
+          (data['onlineNextOpen'] ?? data['OnlineNextOpen'] ?? '').toString();
       _onlineAutoPrintKitchen = data['onlineAutoPrintKitchen'] == true ||
           data['OnlineAutoPrintKitchen'] == true;
       _onlineAutoPay =
@@ -463,6 +472,123 @@ class _PosQrTableOrderScreenState extends State<PosQrTableOrderScreen> {
     }
   }
 
+  static const _dayLabels = {
+    'mon': 'Thứ Hai',
+    'tue': 'Thứ Ba',
+    'wed': 'Thứ Tư',
+    'thu': 'Thứ Năm',
+    'fri': 'Thứ Sáu',
+    'sat': 'Thứ Bảy',
+    'sun': 'Chủ nhật',
+  };
+
+  Future<void> _saveSchedule(Map<String, List<List<String>>>? next) async {
+    final ok = await _patchBrand((c) => next == null
+        ? c.copyWith(clearOnlineSchedule: true)
+        : c.copyWith(onlineSchedule: next));
+    if (ok && mounted) setState(() => _onlineSchedule = next);
+  }
+
+  Future<String?> _pickHm(String title, String initial) async {
+    final parts = initial.split(':');
+    final picked = await showTimePicker(
+      context: context,
+      helpText: tr(title),
+      initialTime: TimeOfDay(
+        hour: int.tryParse(parts.first) ?? 8,
+        minute: parts.length > 1 ? int.tryParse(parts[1]) ?? 0 : 0,
+      ),
+      builder: (ctx, child) => MediaQuery(
+        data: MediaQuery.of(ctx).copyWith(alwaysUse24HourFormat: true),
+        child: child!,
+      ),
+    );
+    if (picked == null) return null;
+    return '${picked.hour.toString().padLeft(2, '0')}:${picked.minute.toString().padLeft(2, '0')}';
+  }
+
+  /// Lịch tuần: mỗi ngày nhiều ca, không ca = nghỉ; «Áp dụng cho mọi ngày» chép lịch một ngày.
+  Widget _buildWeekEditor() {
+    final sched = _onlineSchedule!;
+    Map<String, List<List<String>>> copy() => {
+          for (final k in QrOrderLockConfig.scheduleDayKeys)
+            k: [for (final s in sched[k] ?? const <List<String>>[]) List<String>.from(s)],
+        };
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        for (final k in QrOrderLockConfig.scheduleDayKeys)
+          Padding(
+            padding: const EdgeInsets.symmetric(vertical: 2),
+            child: Row(
+              crossAxisAlignment: CrossAxisAlignment.center,
+              children: [
+                SizedBox(
+                  width: 82,
+                  child: Text(tr(_dayLabels[k]!),
+                      style: const TextStyle(fontWeight: FontWeight.w600, fontSize: 13)),
+                ),
+                Expanded(
+                  child: Wrap(
+                    spacing: 6,
+                    runSpacing: 4,
+                    crossAxisAlignment: WrapCrossAlignment.center,
+                    children: [
+                      if ((sched[k] ?? const []).isEmpty)
+                        Text(tr('Nghỉ'),
+                            style: TextStyle(color: Colors.red.shade700, fontSize: 13)),
+                      for (var i = 0; i < (sched[k] ?? const []).length; i++)
+                        InputChip(
+                          label: Text('${sched[k]![i][0]}–${sched[k]![i][1]}'
+                              '${sched[k]![i][1].compareTo(sched[k]![i][0]) < 0 ? ' (qua đêm)' : ''}'),
+                          onDeleted: _busy
+                              ? null
+                              : () {
+                                  final n = copy();
+                                  n[k]!.removeAt(i);
+                                  _saveSchedule(n);
+                                },
+                        ),
+                      ActionChip(
+                        avatar: const Icon(Icons.add, size: 16),
+                        label: Text(tr('Ca')),
+                        onPressed: _busy
+                            ? null
+                            : () async {
+                                final st = await _pickHm('Giờ mở ca', '08:00');
+                                if (st == null || !mounted) return;
+                                final en = await _pickHm('Giờ đóng ca', '22:00');
+                                if (en == null || !mounted) return;
+                                final n = copy();
+                                n[k]!.add([st, en]);
+                                n[k]!.sort((a, b) => a[0].compareTo(b[0]));
+                                _saveSchedule(n);
+                              },
+                      ),
+                      if (k == 'mon')
+                        TextButton(
+                          onPressed: _busy
+                              ? null
+                              : () {
+                                  final n = copy();
+                                  for (final d in QrOrderLockConfig.scheduleDayKeys) {
+                                    n[d] = [for (final s in n['mon']!) List<String>.from(s)];
+                                  }
+                                  _saveSchedule(n);
+                                },
+                          child: Text(tr('Áp dụng cho mọi ngày')),
+                        ),
+                    ],
+                  ),
+                ),
+              ],
+            ),
+          ),
+        const SizedBox(height: 4),
+      ],
+    );
+  }
+
   /// Giờ nhận đơn online: bật/tắt, giờ mở – đóng, ngoài giờ không cho đặt hay vẫn nhận đặt trước.
   List<Widget> _buildOnlineHours() {
     Widget timeBtn(String label, String value, ValueChanged<String> onPick) =>
@@ -494,11 +620,15 @@ class _PosQrTableOrderScreenState extends State<PosQrTableOrderScreen> {
     return [
       SwitchListTile(
         title: Text(tr('Giờ nhận đơn online')),
-        subtitle: Text(tr(_onlineHoursEnabled
-            ? 'Nhận đơn $_onlineOpenTime–$_onlineCloseTime'
-                '${overnight ? ' (qua đêm)' : ''} · '
-                '${_onlineOpenNow ? 'đang trong giờ' : 'đang ngoài giờ'}'
-            : 'Tắt: khách đặt được 24/24')),
+        subtitle: Text(tr(!_onlineHoursEnabled
+            ? 'Tắt: khách đặt được 24/24'
+            : _onlineSchedule != null
+                ? 'Hôm nay: ${_onlineTodayText.isEmpty ? '—' : _onlineTodayText} · '
+                    '${_onlineOpenNow ? 'đang trong giờ' : 'đang ngoài giờ'}'
+                    '${!_onlineOpenNow && _onlineNextOpen.isNotEmpty ? ', mở lại $_onlineNextOpen' : ''}'
+                : 'Nhận đơn $_onlineOpenTime–$_onlineCloseTime'
+                    '${overnight ? ' (qua đêm)' : ''} · '
+                    '${_onlineOpenNow ? 'đang trong giờ' : 'đang ngoài giờ'}')),
         value: _onlineHoursEnabled,
         onChanged: _busy
             ? null
@@ -519,6 +649,24 @@ class _PosQrTableOrderScreenState extends State<PosQrTableOrderScreen> {
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
+              SwitchListTile(
+                contentPadding: EdgeInsets.zero,
+                title: Text(tr('Lịch khác nhau theo ngày')),
+                subtitle: Text(tr('Ngày nghỉ (vd thứ Hai), 2 ca sáng / tối…')),
+                value: _onlineSchedule != null,
+                onChanged: _busy
+                    ? null
+                    : (v) => _saveSchedule(v
+                        ? {
+                            for (final k in QrOrderLockConfig.scheduleDayKeys)
+                              k: [
+                                [_onlineOpenTime, _onlineCloseTime]
+                              ],
+                          }
+                        : null),
+              ),
+              if (_onlineSchedule != null) _buildWeekEditor(),
+              if (_onlineSchedule == null)
               Wrap(
                 spacing: 8,
                 runSpacing: 8,
