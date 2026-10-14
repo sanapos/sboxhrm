@@ -64,9 +64,10 @@ class _PosQrTableOrderScreenState extends State<PosQrTableOrderScreen> {
     super.dispose();
   }
 
-  Future<void> _load() async {
+  /// [silent]: tải lại sau khi lưu — giữ nguyên danh sách (không thay bằng vòng xoay → không cuộn về đầu).
+  Future<void> _load({bool silent = false}) async {
     setState(() {
-      _loading = true;
+      if (!silent) _loading = true;
       _error = null;
     });
     final cellCm = await loadPosQrTablePdfCellCm();
@@ -180,7 +181,66 @@ class _PosQrTableOrderScreenState extends State<PosQrTableOrderScreen> {
       );
       return;
     }
-    await _load();
+    await _load(silent: true);
+  }
+
+  /// SĐT / địa chỉ quán hiện trên trang đặt hàng (trước đây chỉ lấy lúc đăng ký, chủ quán không sửa được).
+  Future<void> _editStoreContact() async {
+    final phoneCtrl = TextEditingController(text: _storePhone);
+    final addrCtrl = TextEditingController(text: _storeAddress);
+    final ok = await showDialog<bool>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: Text(tr('Liên hệ quán trên trang đặt hàng')),
+        content: SizedBox(
+          width: 420,
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              TextField(
+                controller: phoneCtrl,
+                keyboardType: TextInputType.phone,
+                decoration: InputDecoration(labelText: tr('Số điện thoại')),
+              ),
+              const SizedBox(height: 8),
+              TextField(
+                controller: addrCtrl,
+                maxLines: 2,
+                decoration: InputDecoration(labelText: tr('Địa chỉ')),
+              ),
+            ],
+          ),
+        ),
+        actions: [
+          TextButton(onPressed: () => Navigator.pop(ctx, false), child: Text(tr('Hủy'))),
+          FilledButton(onPressed: () => Navigator.pop(ctx, true), child: Text(tr('Lưu'))),
+        ],
+      ),
+    );
+    final phone = phoneCtrl.text.trim();
+    final address = addrCtrl.text.trim();
+    phoneCtrl.dispose();
+    addrCtrl.dispose();
+    if (ok != true || !mounted) return;
+    setState(() => _busy = true);
+    final res = await _api.savePosQrStoreContact(phone: phone, address: address);
+    if (!mounted) return;
+    setState(() => _busy = false);
+    if (res['isSuccess'] != true) {
+      NotificationOverlayManager().showError(
+        title: 'Không lưu được',
+        message: res['message']?.toString() ?? 'Thử lại',
+      );
+      return;
+    }
+    setState(() {
+      _storePhone = phone;
+      _storeAddress = address;
+    });
+    NotificationOverlayManager().showSuccess(
+      title: 'Đã lưu',
+      message: tr('Khách thấy SĐT / địa chỉ mới trên trang đặt hàng'),
+    );
   }
 
   Future<void> _setAutoPrint(bool value) async {
@@ -223,7 +283,7 @@ class _PosQrTableOrderScreenState extends State<PosQrTableOrderScreen> {
       );
       return;
     }
-    await _load();
+    await _load(silent: true);
   }
 
   Future<void> _printOnline() async {
@@ -293,7 +353,7 @@ class _PosQrTableOrderScreenState extends State<PosQrTableOrderScreen> {
         );
         return false;
       }
-      await _load();
+      await _load(silent: true);
       return true;
     } finally {
       if (mounted) setState(() => _busy = false);
@@ -760,14 +820,27 @@ class _PosQrTableOrderScreenState extends State<PosQrTableOrderScreen> {
                 padding: const EdgeInsets.only(top: 2),
                 child: Text('⌖ $_storeAddress'),
               ),
-            if (_storePhone.trim().isEmpty && _storeAddress.trim().isEmpty)
-              Padding(
-                padding: const EdgeInsets.only(top: 4),
-                child: Text(
-                  tr('Chưa có SĐT / địa chỉ — cập nhật thông tin cửa hàng.'),
-                  style: TextStyle(color: Colors.orange.shade800, fontSize: 12),
-                ),
+            Padding(
+              padding: const EdgeInsets.only(top: 4),
+              child: Wrap(
+                crossAxisAlignment: WrapCrossAlignment.center,
+                spacing: 8,
+                children: [
+                  if (_storePhone.trim().isEmpty && _storeAddress.trim().isEmpty)
+                    Text(
+                      tr('Chưa có SĐT / địa chỉ — khách không biết gọi / tìm quán.'),
+                      style: TextStyle(color: Colors.orange.shade800, fontSize: 12),
+                    ),
+                  TextButton.icon(
+                    onPressed: _busy ? null : _editStoreContact,
+                    icon: const Icon(Icons.edit_outlined, size: 16),
+                    label: Text(tr(_storePhone.trim().isEmpty && _storeAddress.trim().isEmpty
+                        ? 'Nhập ngay'
+                        : 'Sửa SĐT / địa chỉ')),
+                  ),
+                ],
               ),
+            ),
             const SizedBox(height: 12),
             Row(
               children: [

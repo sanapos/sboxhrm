@@ -211,6 +211,12 @@ public sealed class PosTingeePaidOrderService(
             }
             eInvoiceAuto.Enqueue(storeId, order.Id);
         }
+        else if (order.Status == PosSaleOrderStatus.Cancelled)
+        {
+            // Khách chuyển khoản cho đơn quán đã hủy → báo thu ngân để hoàn tiền (không tự mở lại đơn).
+            logger.LogWarning("Tingee: nhận chuyển khoản cho đơn đã hủy {OrderNo}", order.OrderNo);
+            return $"Đã nhận chuyển khoản {paid:0} đồng cho đơn ĐÃ HỦY {order.OrderNo}. Liên hệ khách để hoàn tiền";
+        }
         else if (order.Status != PosSaleOrderStatus.Completed)
         {
             return null;

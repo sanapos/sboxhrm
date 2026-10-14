@@ -711,6 +711,23 @@ public class PosQrTableOrderController(
         if (paid && order.PaidAmount > 0) amount = order.PaidAmount;
         var table = ctx.Ctx.Resource != null ? TableLabel(ctx.Ctx.Resource) : "Online";
         if (online) table = "Online";
+        // Quán đã hủy đơn → không đưa QR / không mở chờ chuyển khoản (khách chuyển nhầm tiền cho đơn hủy).
+        var cancelled = order.Status == PosSaleOrderStatus.Cancelled
+            || QrOnlineOrderStatuses.Normalize(order.DeliveryStatus) == QrOnlineOrderStatuses.Cancelled;
+        if (cancelled)
+        {
+            return Ok(AppResponse<object>.Success(new
+            {
+                paid = false,
+                cancelled = true,
+                orderNo = order.OrderNo,
+                orderId = order.Id,
+                amount,
+                status = order.Status.ToString(),
+                deliveryStatus = QrOnlineOrderStatuses.Cancelled,
+                payment = (object?)null,
+            }));
+        }
         if (!paid && amount > 0 && await tingeePaid.IsTingeeEnabledAsync(store.Id))
         {
             var tracked = await db.PosSaleOrders.AsTracking()
@@ -903,6 +920,32 @@ public class PosQrTableOrderController(
             token = r.QrOrderToken,
             url = QrUrl(urlBase, r.QrOrderToken!),
         }));
+    }
+
+    public class QrStoreContactDto
+    {
+        public string? Phone { get; set; }
+        public string? Address { get; set; }
+    }
+
+    /// <summary>SĐT / địa chỉ hiện trên trang đặt hàng của khách (QR bàn / online) — chủ quán tự cập nhật.</summary>
+    [HttpPut("store-contact")]
+    [RequireModulePermission("PosQrOrder", ModulePermissionAction.Edit)]
+    public async Task<ActionResult<AppResponse<object>>> SaveStoreContact([FromBody] QrStoreContactDto? dto)
+    {
+        var storeId = RequiredStoreId;
+        var phone = (dto?.Phone ?? "").Trim();
+        var address = (dto?.Address ?? "").Trim();
+        if (phone.Length > 30) return BadRequest(AppResponse<object>.Fail("Số điện thoại quá dài"));
+        if (address.Length > 300) return BadRequest(AppResponse<object>.Fail("Địa chỉ quá dài"));
+        if (phone.Length > 0 && phone.Count(char.IsDigit) < 8)
+            return BadRequest(AppResponse<object>.Fail("Số điện thoại không hợp lệ"));
+        var store = await db.Stores.AsTracking().FirstOrDefaultAsync(x => x.Id == storeId);
+        if (store == null) return NotFound(AppResponse<object>.Fail("Không tìm thấy cửa hàng"));
+        store.Phone = phone.Length > 0 ? phone : null;
+        store.Address = address.Length > 0 ? address : null;
+        await db.SaveChangesAsync();
+        return Ok(AppResponse<object>.Success(new { storePhone = store.Phone ?? "", storeAddress = store.Address ?? "" }));
     }
 
     [HttpPost("online")]
@@ -1306,6 +1349,59 @@ public class PosQrTableOrderController(
             message: $"{order.OrderNo} · {QrOnlineOrderStatuses.Label(next)}");
 
         return Ok(AppResponse<object>.Success(MapOnlineOrder(order)));
+    }
+
+    public class QrOnlineKitchenDto
+    {
+        /// <summary>Món đã báo hết → in lại cả phiếu (bếp làm mất / máy kẹt giấy).</summary>
+        public bool Reprint { get; set; }
+    }
+
+    /// <summary>In phiếu bếp tay cho đơn online (khi quán tắt «Tự in bếp khi xác nhận»).
+    /// Món chưa báo → báo bếp; đã báo hết và <c>reprint</c> → in lại cả phiếu.</summary>
+    [HttpPost("online-orders/{id:guid}/kitchen")]
+    [RequireModulePermission("PosQrOrder", ModulePermissionAction.Edit)]
+    public async Task<ActionResult<AppResponse<object>>> PrintOnlineOrderKitchen(
+        Guid id, [FromBody] QrOnlineKitchenDto? dto)
+    {
+        var storeId = RequiredStoreId;
+        var order = await db.PosSaleOrders.AsTracking()
+            .Include(o => o.Lines)
+            .FirstOrDefaultAsync(o => o.Id == id && o.StoreId == storeId && o.Deleted == null
+                && o.SalesChannel == QrOnlineOrderStatuses.Channel);
+        if (order == null)
+            return NotFound(AppResponse<object>.Fail("Không tìm thấy đơn online"));
+        if (order.Status == PosSaleOrderStatus.Cancelled
+            || QrOnlineOrderStatuses.Normalize(order.DeliveryStatus) == QrOnlineOrderStatuses.Cancelled)
+            return BadRequest(AppResponse<object>.Fail("Đơn đã hủy — không in bếp"));
+
+        var now = DateTime.UtcNow;
+        var jobs = await TryEnqueueOnlineKitchenAsync(storeId, order.Id, now);
+        var reprinted = false;
+        if (jobs == 0 && dto?.Reprint == true)
+        {
+            var lines = order.Lines.Where(l => l.Deleted == null).ToList();
+            var productIds = lines.Select(l => l.ProductId).Distinct().ToList();
+            var products = await db.PosProducts.AsNoTracking()
+                .Include(p => p.Category)
+                .Where(p => productIds.Contains(p.Id) && p.StoreId == storeId && p.Deleted == null)
+                .ToDictionaryAsync(p => p.Id);
+            var rows = lines.Where(l => products.ContainsKey(l.ProductId))
+                .Select(l => (Line: l, Qty: l.Qty, Product: products[l.ProductId]))
+                .ToList();
+            if (rows.Count > 0)
+            {
+                var label = string.IsNullOrWhiteSpace(order.CustomerName)
+                    ? "Đơn online"
+                    : $"Online · {order.CustomerName}";
+                jobs = await EnqueueKitchenSlipAsync(storeId, order, label, rows, now, "Đơn online (in lại)");
+                reprinted = true;
+            }
+        }
+        if (jobs == 0)
+            return BadRequest(AppResponse<object>.Fail(
+                "Món đã báo bếp hết — chọn «In lại» hoặc kiểm tra máy in bếp đã gán"));
+        return Ok(AppResponse<object>.Success(new { jobs, reprinted }));
     }
 
     [HttpPost("online-orders/{id:guid}/complete")]

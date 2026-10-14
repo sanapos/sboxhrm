@@ -397,6 +397,53 @@ class _PosQrOnlineOrdersScreenState extends State<PosQrOnlineOrdersScreen> {
     );
   }
 
+  /// Báo bếp tay (quán tắt «Tự in bếp khi xác nhận»): in món chưa báo qua Agent; đã báo hết → hỏi in lại.
+  Future<void> _printKitchen(_OnlineOrder o) async {
+    if (!_canQrMutate()) {
+      NotificationOverlayManager().showWarning(
+        title: 'Không có quyền',
+        message: tr('Tài khoản không được in bếp đơn online'),
+      );
+      return;
+    }
+    setState(() => _busy = true);
+    var res = await _api.printPosQrOnlineOrderKitchen(o.id);
+    if (!mounted) return;
+    setState(() => _busy = false);
+    if (res['isSuccess'] != true &&
+        (res['message']?.toString() ?? '').contains('báo bếp hết')) {
+      final again = await showDialog<bool>(
+        context: context,
+        builder: (ctx) => AlertDialog(
+          title: Text(tr('Món đã báo bếp hết')),
+          content: Text(tr('In lại cả phiếu bếp đơn ${o.orderNo}?')),
+          actions: [
+            TextButton(onPressed: () => Navigator.pop(ctx, false), child: Text(tr('Không'))),
+            FilledButton(onPressed: () => Navigator.pop(ctx, true), child: Text(tr('In lại'))),
+          ],
+        ),
+      );
+      if (again != true || !mounted) return;
+      setState(() => _busy = true);
+      res = await _api.printPosQrOnlineOrderKitchen(o.id, reprint: true);
+      if (!mounted) return;
+      setState(() => _busy = false);
+    }
+    if (res['isSuccess'] != true) {
+      NotificationOverlayManager().showError(
+        title: 'Chưa in bếp',
+        message: res['message']?.toString() ?? 'Thử lại',
+      );
+      return;
+    }
+    final d = res['data'] is Map ? res['data'] as Map : const {};
+    NotificationOverlayManager().showSuccess(
+      title: d['reprinted'] == true ? 'Đã gửi in lại phiếu bếp' : 'Đã gửi phiếu bếp',
+      message: o.orderNo,
+    );
+    await _load();
+  }
+
   Future<void> _printProvisional(_OnlineOrder o) async {
     setState(() => _busy = true);
     try {
@@ -707,6 +754,17 @@ class _PosQrOnlineOrdersScreenState extends State<PosQrOnlineOrdersScreen> {
           spacing: 6,
           runSpacing: 6,
           children: [
+            if (o.status != 'cancelled' && o.status != 'delivered')
+              OutlinedButton.icon(
+                onPressed: _busy
+                    ? null
+                    : () {
+                        onClose?.call();
+                        _printKitchen(o);
+                      },
+                icon: const Icon(Icons.soup_kitchen_outlined, size: 18),
+                label: Text(tr('In bếp')),
+              ),
             if (o.canPrintProvisional)
               OutlinedButton.icon(
                 onPressed: _busy

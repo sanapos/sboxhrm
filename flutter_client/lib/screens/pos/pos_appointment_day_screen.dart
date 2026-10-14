@@ -826,6 +826,24 @@ class _PosAppointmentDayScreenState extends State<PosAppointmentDayScreen> {
         if (choice == null) return;
         refund = choice == 'refund';
         forfeit = choice == 'forfeit';
+      } else {
+        // Không cọc vẫn hỏi lại — hủy lịch không khôi phục được.
+        final ok = await showDialog<bool>(
+          context: context,
+          builder: (ctx) => AlertDialog(
+            title: Text(tr('Hủy lịch đặt?')),
+            content: Text(tr('${b.customerName} — lịch đặt sẽ bị hủy.')),
+            actions: [
+              TextButton(onPressed: () => Navigator.pop(ctx, false), child: Text(tr('Không hủy'))),
+              FilledButton(
+                style: FilledButton.styleFrom(backgroundColor: Colors.red.shade700),
+                onPressed: () => Navigator.pop(ctx, true),
+                child: Text(tr('Hủy lịch')),
+              ),
+            ],
+          ),
+        );
+        if (ok != true || !mounted) return;
       }
       final res = await _api.cancelPosResourceReservation(
         b.id,

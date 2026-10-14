@@ -24048,6 +24048,45 @@ class ApiService implements PayrollApi {
     }
   }
 
+  /// SĐT / địa chỉ hiện trên trang đặt hàng của khách (QR bàn / online).
+  Future<Map<String, dynamic>> savePosQrStoreContact({
+    required String phone,
+    required String address,
+  }) async {
+    try {
+      final response = await http
+          .put(
+            Uri.parse('$baseUrl/api/pos/qr-order/store-contact'),
+            headers: _headers,
+            body: jsonEncode({'phone': phone, 'address': address}),
+          )
+          .timeout(const Duration(seconds: 30));
+      return _handleResponse(response);
+    } catch (e) {
+      return _connectionFailure(e);
+    }
+  }
+
+  /// In phiếu bếp tay cho đơn online (món chưa báo; [reprint] → in lại cả phiếu khi đã báo hết).
+  Future<Map<String, dynamic>> printPosQrOnlineOrderKitchen(
+    String orderId, {
+    bool reprint = false,
+  }) async {
+    try {
+      final response = await http
+          .post(
+            Uri.parse(
+                '$baseUrl/api/pos/qr-order/online-orders/$orderId/kitchen'),
+            headers: _headers,
+            body: jsonEncode({'reprint': reprint}),
+          )
+          .timeout(const Duration(seconds: 30));
+      return _handleResponse(response);
+    } catch (e) {
+      return _connectionFailure(e);
+    }
+  }
+
   Future<Map<String, dynamic>> deletePosQrOnlineOrder(String orderId) async {
     try {
       final response = await http

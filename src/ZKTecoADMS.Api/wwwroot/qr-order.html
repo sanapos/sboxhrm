@@ -573,6 +573,7 @@
         staffFail: 'Không gọi được phục vụ',
         qrHint: 'Quét mã để chuyển khoản. Đơn tự xác nhận khi tiền vào — không cần bấm thêm.',
         paidOk: 'Đã thanh toán',
+        orderCancelled: 'Quán đã hủy đơn này — đừng chuyển khoản. Liên hệ quán nếu đã chuyển.',
         paidTitle: 'Thanh toán thành công',
         paidHint: 'Quán đã nhận tiền. Đơn được xác nhận tự động.',
         waitingPay: 'Đang chờ chuyển khoản… QR tự tắt khi thành công.',
@@ -687,6 +688,7 @@
         staffFail: 'Could not call the waiter',
         qrHint: 'Scan to pay. The order confirms automatically when the transfer arrives.',
         paidOk: 'Paid',
+        orderCancelled: 'The shop cancelled this order — please do not pay. Contact the shop if you already did.',
         paidTitle: 'Payment received',
         paidHint: 'The shop has the money. Your order is confirmed.',
         waitingPay: 'Waiting for transfer… this QR closes when paid.',
@@ -796,6 +798,7 @@
         staffFail: '无法呼叫服务员',
         qrHint: '扫码支付。到账后订单自动确认。',
         paidOk: '已支付',
+        orderCancelled: '店家已取消此订单，请勿付款。如已付款请联系店家。',
         paidTitle: '支付成功',
         paidHint: '商家已收款，订单已自动确认。',
         waitingPay: '等待转账… 成功后二维码会关闭。',
@@ -896,6 +899,7 @@
         staffFail: '직원을 호출할 수 없습니다',
         qrHint: '스캔하여 결제하세요. 입금되면 주문이 자동 확정됩니다.',
         paidOk: '결제 완료',
+        orderCancelled: '가게에서 이 주문을 취소했습니다. 결제하지 마세요. 이미 결제했다면 가게에 문의하세요.',
         paidTitle: '결제 성공',
         paidHint: '매장이 입금을 확인했고 주문이 확정되었습니다.',
         waitingPay: '이체 대기 중… 성공하면 QR이 닫힙니다.',
@@ -996,6 +1000,7 @@
         staffFail: 'スタッフを呼べませんでした',
         qrHint: 'スキャンして支払い。入金後に注文が自動確定します。',
         paidOk: '支払済み',
+        orderCancelled: '店舗がこの注文を取り消しました。お支払いしないでください。支払済みの場合は店舗へご連絡ください。',
         paidTitle: '支払い完了',
         paidHint: '店舗が入金を確認し、注文が確定しました。',
         waitingPay: '振込待ち… 成功するとQRが閉じます。',
@@ -1822,6 +1827,17 @@
             const res = await fetch(apiBase() + '/api/pos/qr-order/' + encodeURIComponent(T) + '/pay/' + encodeURIComponent(pendingOnlinePayId), { cache: 'no-store' });
             const json = await res.json();
             const d = json.data || json.Data || {};
+            if (d.cancelled || d.Cancelled) {
+              // Quán hủy đơn trong lúc khách đang mở QR → đóng QR, không cho chuyển khoản tiếp.
+              stopPayPoll();
+              menu = menu || {};
+              menu.payment = null;
+              pendingOnlinePayId = '';
+              payOpen = false;
+              toast(t('orderCancelled'), true);
+              render();
+              return;
+            }
             if (d.payment || d.Payment) {
               menu = menu || {};
               menu.payment = d.payment || d.Payment;
