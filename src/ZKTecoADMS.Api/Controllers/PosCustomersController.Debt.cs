@@ -1,3 +1,4 @@
+using ZKTecoADMS.Api.Controllers.Base;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
 using ZKTecoADMS.Api.Authorization;
@@ -70,7 +71,7 @@ public partial class PosCustomersController
             .FirstOrDefaultAsync(x => x.Id == id && x.StoreId == storeId && x.Deleted == null);
         if (c == null) return NotFound(AppResponse<object>.Fail("Không tìm thấy khách hàng"));
         return Ok(AppResponse<object>.Success(
-            await PosDebtStatement.BuildAsync(dbContext, storeId, PosDebtLedger.Customer, id, c.CurrentDebt, from, to)));
+            await PosDebtStatement.BuildAsync(dbContext, storeId, PosDebtLedger.Customer, id, c.CurrentDebt, from, to, HttpContext.BranchContext())));
     }
 
     [HttpGet("{id:guid}/points")]

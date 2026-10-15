@@ -346,7 +346,8 @@ internal static class PosSaleStockHelper
         var before = customer.CurrentDebt;
         if (debt > 0) customer.CurrentDebt += debt;
         PosDebtLedger.Add(db, storeId, PosDebtLedger.Customer, customer.Id, before, customer.CurrentDebt,
-            "Sale", order.Id, order.OrderNo, $"Bán hàng — còn nợ {debt:N0}đ", order.SaleDate ?? DateTime.UtcNow);
+            "Sale", order.Id, order.OrderNo, $"Bán hàng — còn nợ {debt:N0}đ", order.SaleDate ?? DateTime.UtcNow,
+            branchId: order.BranchId);
         customer.UpdatedAt = DateTime.UtcNow;
     }
 
@@ -362,7 +363,7 @@ internal static class PosSaleStockHelper
         var before = customer.CurrentDebt;
         if (debt > 0) customer.CurrentDebt = Math.Max(0, customer.CurrentDebt - debt);
         PosDebtLedger.Add(db, storeId, PosDebtLedger.Customer, customer.Id, before, customer.CurrentDebt,
-            "SaleCancel", order.Id, order.OrderNo, "Hủy đơn bán");
+            "SaleCancel", order.Id, order.OrderNo, "Hủy đơn bán", branchId: order.BranchId);
         customer.UpdatedAt = DateTime.UtcNow;
     }
 
@@ -380,7 +381,7 @@ internal static class PosSaleStockHelper
         if (debtReduction > 0)
             customer.CurrentDebt = Math.Max(0, customer.CurrentDebt - debtReduction);
         PosDebtLedger.Add(db, storeId, PosDebtLedger.Customer, customer.Id, before, customer.CurrentDebt,
-            "Return", order.Id, order.OrderNo, $"Khách trả hàng {refundTotal:N0}đ — trừ vào nợ");
+            "Return", order.Id, order.OrderNo, $"Khách trả hàng {refundTotal:N0}đ — trừ vào nợ", branchId: order.BranchId);
         customer.UpdatedAt = DateTime.UtcNow;
     }
 
@@ -1264,7 +1265,7 @@ internal static class PosSaleStockHelper
         if (debtIncrease > 0)
             customer.CurrentDebt += debtIncrease;
         PosDebtLedger.Add(db, storeId, PosDebtLedger.Customer, customer.Id, before, customer.CurrentDebt,
-            "ReturnVoid", order.Id, order.OrderNo, "Hủy phiếu trả hàng");
+            "ReturnVoid", order.Id, order.OrderNo, "Hủy phiếu trả hàng", branchId: order.BranchId);
         customer.UpdatedAt = DateTime.UtcNow;
     }
 

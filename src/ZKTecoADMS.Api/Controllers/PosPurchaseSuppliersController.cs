@@ -215,7 +215,7 @@ public class PosPurchaseSuppliersController(ZKTecoDbContext dbContext) : Authent
             .FirstOrDefaultAsync(x => x.Id == id && x.StoreId == storeId && x.Deleted == null);
         if (s == null) return NotFound(AppResponse<object>.Fail("Không tìm thấy nhà cung cấp"));
         return Ok(AppResponse<object>.Success(
-            await PosDebtStatement.BuildAsync(dbContext, storeId, PosDebtLedger.Supplier, id, s.CurrentDebt, from, to)));
+            await PosDebtStatement.BuildAsync(dbContext, storeId, PosDebtLedger.Supplier, id, s.CurrentDebt, from, to, HttpContext.BranchContext())));
     }
 
     [HttpPost]

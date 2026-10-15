@@ -6,8 +6,11 @@ namespace ZKTecoADMS.Domain.Entities;
 /// Sổ công nợ khách hàng / nhà cung cấp — một dòng cho mỗi lần công nợ đổi (bán / nhập, hủy, trả hàng, thu / trả tiền).
 /// Dùng cho sổ đối chiếu công nợ (đầu kỳ, phát sinh, cuối kỳ). Dữ liệu trước khi có sổ: một dòng «Số dư đầu».
 /// </summary>
-public class PosDebtLedgerEntry : Entity<Guid>
+public class PosDebtLedgerEntry : Entity<Guid>, IBranchScoped
 {
+    /// <summary>Chi nhánh của chứng từ gây ra thay đổi công nợ (null = trụ sở / chưa dùng chi nhánh).</summary>
+    public Guid? BranchId { get; set; }
+
     public Guid StoreId { get; set; }
 
     /// <summary>customer | supplier</summary>

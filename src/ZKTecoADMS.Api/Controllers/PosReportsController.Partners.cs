@@ -20,9 +20,20 @@ public partial class PosReportsController
         [FromQuery] bool includeZeroDebt = false)
     {
         var storeId = RequiredStoreId;
+        // Xem theo chi nhánh: công nợ = phần còn nợ của các phiếu nhập thuộc chi nhánh đó.
+        var bctx = HttpContext.BranchContext();
+        var branchScoped = bctx is { StoreUsesBranches: true } && (bctx.FilterBranchId != null || bctx.AllowedBranchIds != null);
         var q = dbContext.PosSuppliers.AsNoTracking()
             .Where(s => s.StoreId == storeId && s.Deleted == null && s.IsActive);
-        if (!includeZeroDebt) q = q.Where(s => s.CurrentDebt > 0);
+        if (branchScoped)
+        {
+            var branchSupplierIds = await dbContext.PosStockReceipts.AsNoTracking()
+                .Where(r => r.StoreId == storeId && r.Deleted == null && r.Status == PosPurchaseReceiptStatus.Completed &&
+                            r.SupplierId != null && r.TotalCost + r.TotalVat - r.DiscountAmount > r.PaidAmount)
+                .ApplyBranchScope(bctx).Select(r => r.SupplierId!.Value).Distinct().ToListAsync();
+            q = q.Where(s => branchSupplierIds.Contains(s.Id));
+        }
+        else if (!includeZeroDebt) q = q.Where(s => s.CurrentDebt > 0);
         if (!string.IsNullOrWhiteSpace(search))
         {
             var s = search.Trim().ToLower();
@@ -31,8 +42,11 @@ public partial class PosReportsController
                 x.SupplierCode.ToLower().Contains(s) ||
                 (x.Phone != null && x.Phone.Contains(s)));
         }
-        if (debtFrom.HasValue) q = q.Where(x => x.CurrentDebt >= debtFrom);
-        if (debtTo.HasValue) q = q.Where(x => x.CurrentDebt <= debtTo);
+        if (!branchScoped)
+        {
+            if (debtFrom.HasValue) q = q.Where(x => x.CurrentDebt >= debtFrom);
+            if (debtTo.HasValue) q = q.Where(x => x.CurrentDebt <= debtTo);
+        }
 
         var suppliers = await q
             .OrderByDescending(x => x.CurrentDebt)
@@ -57,6 +71,7 @@ public partial class PosReportsController
                             r.Status == PosPurchaseReceiptStatus.Completed &&
                             r.SupplierId != null && supplierIds.Contains(r.SupplierId.Value) &&
                             r.TotalCost + r.TotalVat - r.DiscountAmount > r.PaidAmount)
+                .ApplyBranchScope(bctx)
                 .Select(r => new
                 {
                     SupplierId = r.SupplierId!.Value,
@@ -86,7 +101,8 @@ public partial class PosReportsController
                 s.Name,
                 s.Phone,
                 s.TotalPurchase,
-                s.CurrentDebt,
+                CurrentDebt = branchScoped ? rows.Sum(x => x.Due) : s.CurrentDebt,
+                totalDebtAllBranches = s.CurrentDebt,
                 s.groupName,
                 openReceiptCount = rows.Count,
                 openReceiptDebt = rows.Sum(x => x.Due),
@@ -96,6 +112,11 @@ public partial class PosReportsController
                 debtOver90 = SumB(3),
             };
         }).ToList();
+        if (branchScoped)
+            items = items.Where(x => (includeZeroDebt || x.CurrentDebt > 0)
+                                     && (!debtFrom.HasValue || x.CurrentDebt >= debtFrom)
+                                     && (!debtTo.HasValue || x.CurrentDebt <= debtTo))
+                .OrderByDescending(x => x.CurrentDebt).ThenBy(x => x.Name).ToList();
 
         return Ok(AppResponse<object>.Success(new
         {

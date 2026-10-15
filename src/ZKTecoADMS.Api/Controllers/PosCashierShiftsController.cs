@@ -67,7 +67,8 @@ public class PosCashierShiftsController(ZKTecoDbContext db) : AuthenticatedContr
 
         var q = db.PosCashierShifts.AsNoTracking()
             .Where(s => s.StoreId == storeId && s.Deleted == null
-                && s.OpenedAt >= fromUtc && s.OpenedAt < toUtc);
+                && s.OpenedAt >= fromUtc && s.OpenedAt < toUtc)
+            .ApplyBranchScope(HttpContext.BranchContext());
 
         // Thu ngân thường chỉ xem ca của mình; quản lý/admin xem cả cửa hàng (hoặc lọc openedBy).
         if (!IsAdmin && !IsManager)
@@ -180,6 +181,10 @@ public class PosCashierShiftsController(ZKTecoDbContext db) : AuthenticatedContr
         var storeId = RequiredStoreId;
         var shift = await db.PosCashierShifts.AsTracking()
             .FirstOrDefaultAsync(s => s.Id == id && s.StoreId == storeId && s.Deleted == null);
+        // Chỉ chặn theo chi nhánh được phép (không theo chi nhánh đang chọn xem) — người chuyển chi nhánh vẫn đóng được ca của mình.
+        if (shift != null && HttpContext.BranchContext() is { StoreUsesBranches: true, AllowedBranchIds: { } allowedShiftBranches }
+            && shift.BranchId is Guid shiftBranchId && !allowedShiftBranches.Contains(shiftBranchId))
+            shift = null;
         if (shift == null)
             return NotFound(AppResponse<object>.Fail("Không tìm thấy ca"));
         if (shift.Status != "Open")
@@ -223,6 +228,9 @@ public class PosCashierShiftsController(ZKTecoDbContext db) : AuthenticatedContr
         var from = shift.OpenedAt;
         var to = shift.ClosedAt ?? DateTime.UtcNow;
         var byEmail = (shift.OpenedByName ?? "").Trim();
+        // Ca thuộc 1 chi nhánh: chỉ cộng đơn bán ở chi nhánh đó (người bán ở nhiều chi nhánh không làm lệch két).
+        var shiftBranch = shift.BranchId;
+        var hq = HttpContext.BranchContext()?.HeadquarterBranchId ?? Guid.Empty;
         var cashSales = await db.PosSaleOrders.AsNoTracking()
             .Where(o => o.StoreId == storeId && o.Deleted == null
                 && o.Status == PosSaleOrderStatus.Completed
@@ -231,6 +239,7 @@ public class PosCashierShiftsController(ZKTecoDbContext db) : AuthenticatedContr
                 && o.PaymentMethod != null
                 && o.PaymentMethod == "Tiền mặt"
                 && byEmail != ""
+                && (shiftBranch == null || (o.BranchId ?? hq) == shiftBranch)
                 && (o.SoldBy == byEmail || o.CreatedBy == byEmail))
             .SumAsync(o => (decimal?)o.PaidAmount) ?? 0;
         return shift.OpeningCash + cashSales;

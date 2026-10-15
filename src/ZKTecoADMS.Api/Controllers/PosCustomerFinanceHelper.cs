@@ -467,12 +467,17 @@ public static class PosCustomerFinanceHelper
             IsActive = true,
             CreatedBy = createdBy,
         };
+        // Thu nợ theo đơn → chi nhánh của đơn; thu chung → chi nhánh đang thao tác (hệ thống tự gán khi lưu).
+        Guid? ledgerBranch = saleOrderId.HasValue
+            ? await db.PosSaleOrders.AsNoTracking().Where(o => o.Id == saleOrderId).Select(o => o.BranchId).FirstOrDefaultAsync()
+            : null;
         var debtBefore = customer.CurrentDebt;
         customer.CurrentDebt = Math.Max(0, customer.CurrentDebt - amount);
         customer.UpdatedAt = DateTime.UtcNow;
         db.PosCustomerPayments.Add(pay);
         PosDebtLedger.Add(db, storeId, PosDebtLedger.Customer, customer.Id, debtBefore, customer.CurrentDebt,
-            "Payment", pay.Id, pay.PaymentNo, $"Thu nợ ({pay.PaymentMethod})", pay.PaidAt, createdBy);
+            "Payment", pay.Id, pay.PaymentNo, $"Thu nợ ({pay.PaymentMethod})", pay.PaidAt, createdBy,
+            branchId: ledgerBranch);
 
         // Cập nhật PaidAmount đơn: ưu tiên SaleOrderId; không có thì FIFO theo đơn còn nợ.
         var remaining = amount;

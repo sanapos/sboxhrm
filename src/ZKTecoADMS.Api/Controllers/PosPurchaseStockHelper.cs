@@ -324,7 +324,7 @@ internal static class PosPurchaseStockHelper
         var before = supplier.CurrentDebt;
         supplier.CurrentDebt = Math.Max(0, supplier.CurrentDebt - receipt.BalanceDue);
         PosDebtLedger.Add(db, supplier.StoreId, PosDebtLedger.Supplier, supplier.Id, before, supplier.CurrentDebt,
-            "ReceiptCancel", receipt.Id, receipt.ReceiptNo, "Hủy phiếu nhập");
+            "ReceiptCancel", receipt.Id, receipt.ReceiptNo, "Hủy phiếu nhập", branchId: receipt.BranchId);
         supplier.UpdatedAt = DateTime.UtcNow;
     }
 
@@ -744,7 +744,8 @@ internal static class PosPurchaseStockHelper
             supplier.CurrentDebt = Math.Max(0, supplier.CurrentDebt - amount);
             supplier.UpdatedAt = DateTime.UtcNow;
             PosDebtLedger.Add(db, storeId, PosDebtLedger.Supplier, supplier.Id, before, supplier.CurrentDebt,
-                "Payment", pay.Id, pay.PaymentNo, $"Trả tiền phiếu {receipt.ReceiptNo} ({pay.PaymentMethod})", pay.PaidAt, by);
+                "Payment", pay.Id, pay.PaymentNo, $"Trả tiền phiếu {receipt.ReceiptNo} ({pay.PaymentMethod})", pay.PaidAt, by,
+                branchId: receipt.BranchId);
         }
         db.PosSupplierPayments.Add(pay);
         await ZKTecoADMS.Infrastructure.Services.PosFinanceSyncHelper.SyncSupplierPaymentAsync(db, pay, receipt, userId);
@@ -763,7 +764,8 @@ internal static class PosPurchaseStockHelper
         var before = supplier.CurrentDebt;
         supplier.CurrentDebt += receipt.BalanceDue;
         PosDebtLedger.Add(db, supplier.StoreId, PosDebtLedger.Supplier, supplier.Id, before, supplier.CurrentDebt,
-            "Receipt", receipt.Id, receipt.ReceiptNo, $"Nhập hàng — còn nợ {receipt.BalanceDue:N0}đ", receipt.ImportDate ?? DateTime.UtcNow);
+            "Receipt", receipt.Id, receipt.ReceiptNo, $"Nhập hàng — còn nợ {receipt.BalanceDue:N0}đ", receipt.ImportDate ?? DateTime.UtcNow,
+            branchId: receipt.BranchId);
         supplier.UpdatedAt = DateTime.UtcNow;
     }
 
@@ -780,7 +782,7 @@ internal static class PosPurchaseStockHelper
         supplier.CurrentDebt = Math.Max(0, supplier.CurrentDebt - (net - ret.RefundReceived));
         PosDebtLedger.Add(db, supplier.StoreId, PosDebtLedger.Supplier, supplier.Id, before, supplier.CurrentDebt,
             "PurchaseReturn", ret.Id, ret.ReturnNo, "Trả hàng nhà cung cấp", ret.ReturnDate ?? DateTime.UtcNow,
-            keepZero: true);
+            keepZero: true, branchId: ret.BranchId);
         supplier.UpdatedAt = DateTime.UtcNow;
     }
 
@@ -806,7 +808,7 @@ internal static class PosPurchaseStockHelper
             ? Math.Max(0, -d)
             : Math.Max(0, net - ret.RefundReceived);
         PosDebtLedger.Add(db, supplier.StoreId, PosDebtLedger.Supplier, supplier.Id, before, supplier.CurrentDebt,
-            "PurchaseReturnCancel", ret.Id, ret.ReturnNo, "Hủy phiếu trả hàng NCC");
+            "PurchaseReturnCancel", ret.Id, ret.ReturnNo, "Hủy phiếu trả hàng NCC", branchId: ret.BranchId);
         supplier.UpdatedAt = DateTime.UtcNow;
     }
 
