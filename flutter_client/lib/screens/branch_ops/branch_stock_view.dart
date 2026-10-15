@@ -82,8 +82,10 @@ class _BranchStockViewState extends State<BranchStockView> {
           padding: const EdgeInsets.fromLTRB(16, 0, 16, 16),
           child: Column(mainAxisSize: MainAxisSize.min, crossAxisAlignment: CrossAxisAlignment.stretch, children: [
             Text(item['name']?.toString() ?? '', style: const TextStyle(fontSize: 16, fontWeight: FontWeight.w800)),
-            Text(tr('Tổng tồn cả cửa hàng: ${bQty(item['totalQty'])} ${item['unit'] ?? ''}'),
-                style: const TextStyle(color: SboxColors.slate500, fontSize: 12.5)),
+            // Người chỉ được xem chi nhánh mình không thấy tổng tồn cả cửa hàng.
+            if (BranchSession.instance.canSeeAll)
+              Text(tr('Tổng tồn cả cửa hàng: ${bQty(item['totalQty'])} ${item['unit'] ?? ''}'),
+                  style: const TextStyle(color: SboxColors.slate500, fontSize: 12.5)),
             const SizedBox(height: 12),
             for (final b in branches)
               Padding(
@@ -303,7 +305,7 @@ class _BranchStockViewState extends State<BranchStockView> {
           tr([
             '${it['productCode'] ?? ''}',
             if (min > 0) 'tối thiểu ${bQty(min)}',
-            if (bNum(it['totalQty']) != qty) 'cả cửa hàng ${bQty(it['totalQty'])}',
+            if (BranchSession.instance.canSeeAll && bNum(it['totalQty']) != qty) 'cả cửa hàng ${bQty(it['totalQty'])}',
           ].where((x) => x.trim().isNotEmpty).join(' · ')),
           maxLines: 2,
           overflow: TextOverflow.ellipsis,

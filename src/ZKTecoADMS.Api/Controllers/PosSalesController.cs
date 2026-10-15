@@ -705,9 +705,24 @@ public partial class PosSalesController(
                 })
                 .ToListAsync();
 
+        // Tồn hiển thị = tồn của chi nhánh đang bán (khớp kiểm tồn lúc thanh toán), không phải tổng cả cửa hàng.
+        var (sellBranch, sellHq) = SaleBranchScope();
+        var branchQty = sellBranch is Guid sellBranchId && productIds.Count > 0
+            ? await ZKTecoADMS.Infrastructure.Services.BranchStockService.GetBranchQtyAsync(
+                dbContext, storeId, sellBranchId, sellHq, productIds)
+            : null;
+        decimal ShownQty(Guid productId, Guid? variantId, decimal total) =>
+            branchQty == null ? total : branchQty.GetValueOrDefault((productId, variantId));
+
         var unitsByProduct = units.GroupBy(u => u.ProductId)
             .ToDictionary(g => g.Key, g => g.ToList());
-        var variantsByProduct = variants.GroupBy(v => v.ProductId)
+        var variantsByProduct = variants
+            .Select(v => new
+            {
+                v.Id, v.ProductId, v.SkuCode, v.Barcode, v.Name, v.AttributeJson, v.CostPrice, v.BasePrice,
+                OnHandQty = ShownQty(v.ProductId, v.Id, v.OnHandQty), v.IsActive,
+            })
+            .GroupBy(v => v.ProductId)
             .ToDictionary(g => g.Key, g => g.ToList());
 
         var comboIds = products
@@ -880,7 +895,8 @@ public partial class PosSalesController(
                 p.BasePrice,
                 p.VatRate,
                 p.VatExempt,
-                p.OnHandQty,
+                OnHandQty = p.ProductType == nameof(PosProductType.Goods) || p.ProductType == nameof(PosProductType.Material)
+                    ? ShownQty(p.Id, null, p.OnHandQty) : p.OnHandQty,
                 p.ReservedQty,
                 p.ImageUrl,
                 p.BaseUnitName,
@@ -987,6 +1003,7 @@ public partial class PosSalesController(
 
         var c = code.Trim();
         var cLower = c.ToLower();
+        var gtin = PosGtin.Variants(c);
         // Mã PLU tem cân: chỉ số, so khớp không tính số 0 đầu.
         var pluKey = PosProductsController.NormalizePlu(c);
 
@@ -994,7 +1011,7 @@ public partial class PosSalesController(
             .AsNoTracking()
             .Where(v => v.StoreId == storeId && v.Deleted == null && v.IsActive)
             .Where(v => v.SkuCode.ToLower() == cLower ||
-                        (v.Barcode != null && v.Barcode.ToLower() == cLower))
+                        (v.Barcode != null && gtin.Contains(v.Barcode.ToLower())))
             .Select(v => new
             {
                 v.Id,
@@ -1014,11 +1031,12 @@ public partial class PosSalesController(
 
         if (variant != null)
         {
+            var variantShown = await SellShownQtyAsync(storeId, variant.ProductId, variant.Id, variant.OnHandQty, variant.ProductType);
             return Ok(AppResponse<object>.Success(new
             {
                 matchType = "variant",
                 productId = variant.ProductId,
-                variant,
+                variant = variant with { OnHandQty = variantShown },
             }));
         }
 
@@ -1026,7 +1044,7 @@ public partial class PosSalesController(
         var unit = await dbContext.PosProductUnits
             .AsNoTracking()
             .Where(u => u.StoreId == storeId && u.Deleted == null && u.Barcode != null &&
-                        u.Barcode.ToLower() == cLower)
+                        gtin.Contains(u.Barcode.ToLower()))
             .Select(u => new
             {
                 UnitId = u.Id,
@@ -1055,17 +1073,20 @@ public partial class PosSalesController(
                 })
                 .FirstOrDefaultAsync();
             if (unitProduct != null)
-                return Ok(AppResponse<object>.Success(new { matchType = "unit", product = unitProduct, unit }));
+            {
+                var shown = await SellShownQtyAsync(storeId, unitProduct.Id, null, unitProduct.OnHandQty, unitProduct.ProductType);
+                return Ok(AppResponse<object>.Success(new { matchType = "unit", product = unitProduct with { OnHandQty = shown }, unit }));
+            }
         }
 
         var product = await dbContext.PosProducts
             .AsNoTracking()
             .Where(p => p.StoreId == storeId && p.Deleted == null && p.IsActive && p.IsDirectSale)
             .Where(p => p.ProductCode.ToLower() == cLower ||
-                        (p.Barcode != null && p.Barcode.ToLower() == cLower) ||
+                        (p.Barcode != null && gtin.Contains(p.Barcode.ToLower())) ||
                         (pluKey != null && p.ScalePlu == pluKey))
             // Khớp mã hàng / mã vạch trước, PLU tem cân sau.
-            .OrderBy(p => p.ProductCode.ToLower() == cLower || (p.Barcode != null && p.Barcode.ToLower() == cLower) ? 0 : 1)
+            .OrderBy(p => p.ProductCode.ToLower() == cLower || (p.Barcode != null && gtin.Contains(p.Barcode.ToLower())) ? 0 : 1)
             .Select(p => new
             {
                 p.Id,
@@ -1139,7 +1160,20 @@ public partial class PosSalesController(
             }));
         }
 
-        return Ok(AppResponse<object>.Success(new { matchType = "product", product }));
+        var shownQty = await SellShownQtyAsync(storeId, product.Id, null, product.OnHandQty, product.ProductType);
+        return Ok(AppResponse<object>.Success(new { matchType = "product", product = product with { OnHandQty = shownQty } }));
+    }
+
+    /// <summary>Tồn hiển thị cho hàng có tồn kho = tồn chi nhánh đang bán (khớp kiểm tồn lúc thanh toán); loại khác giữ nguyên.</summary>
+    private async Task<decimal> SellShownQtyAsync(Guid storeId, Guid productId, Guid? variantId, decimal total, string? productType)
+    {
+        if (productType is not (nameof(PosProductType.Goods) or nameof(PosProductType.Material)))
+            return total;
+        var (branch, hq) = SaleBranchScope();
+        if (branch is not Guid b) return total;
+        var qty = await ZKTecoADMS.Infrastructure.Services.BranchStockService.GetBranchQtyAsync(
+            dbContext, storeId, b, hq, [productId]);
+        return qty.GetValueOrDefault((productId, variantId));
     }
 
     /// <summary>Dò chuỗi InnerException tìm lỗi Postgres 40001/40P01 (serialization/deadlock) —

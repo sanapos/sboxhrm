@@ -2,8 +2,10 @@ import 'dart:async';
 
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
+import 'package:provider/provider.dart';
 import 'package:zkteco_flutter_client/l10n/app_tr.dart';
 
+import '../../providers/permission_provider.dart';
 import '../../services/api_service.dart';
 import '../../services/branch_session.dart';
 import '../../theme/sbox_tokens.dart';
@@ -127,33 +129,36 @@ class _StockTransferScreenState extends State<StockTransferScreen> {
         ],
       ),
     );
+    // Chỉ người có quyền tạo (khớp API) mới thấy nút tạo phiếu.
+    final canCreate = context.watch<PermissionProvider>().canCreate('PosProducts');
     final fab = FloatingActionButton.extended(
       onPressed: () => _openCreate(),
       icon: const Icon(Icons.add),
       label: Text(tr('Tạo phiếu chuyển')),
     );
     if (widget.embedded) {
-      return Stack(children: [list, Positioned(right: 0, bottom: 12, child: fab)]);
+      return Stack(children: [list, if (canCreate) Positioned(right: 0, bottom: 12, child: fab)]);
     }
     final inShell = HrmPageChrome.hideInPageTitle(context);
     final scaffold = Scaffold(
       backgroundColor: SboxColors.slate50,
       // Trong khung chính thanh trên đã có tiêu đề — không lặp.
       appBar: inShell ? null : AppBar(title: Text(tr('Chuyển kho chi nhánh'))),
-      floatingActionButton: inShell ? null : fab,
+      floatingActionButton: inShell || !canCreate ? null : fab,
       body: list,
     );
     if (!inShell) return scaffold;
     // Trong khung chính: dùng nút nổi chung của app (điện thoại) / thanh trên (máy tính).
     return RegisterPageTopActions(
       actions: [
-        HrmTopBarAction(
-          icon: Icons.add,
-          label: 'Tạo phiếu chuyển',
-          primary: true,
-          showLabel: true,
-          onPressed: () => _openCreate(),
-        ),
+        if (canCreate)
+          HrmTopBarAction(
+            icon: Icons.add,
+            label: 'Tạo phiếu chuyển',
+            primary: true,
+            showLabel: true,
+            onPressed: () => _openCreate(),
+          ),
         HrmTopBarAction(icon: Icons.refresh, label: 'Làm mới', onPressed: _load),
       ],
       child: scaffold,

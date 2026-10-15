@@ -249,6 +249,28 @@ public class BranchController(
     /// <summary>
     /// Tạo chi nhánh mới
     /// </summary>
+    /// <summary>Hạn mức chi nhánh của cửa hàng (để app báo trước khi bấm tạo): tối đa, đang dùng, còn lại.</summary>
+    [HttpGet("limits")]
+    public async Task<ActionResult<AppResponse<object>>> GetLimits()
+    {
+        var storeId = CurrentStoreId;
+        if (!storeId.HasValue) return Ok(AppResponse<object>.Fail("Chưa xác định cửa hàng"));
+        var store = await dbContext.Stores.AsNoTracking().Include(s => s.ServicePackage)
+            .FirstOrDefaultAsync(s => s.Id == storeId.Value);
+        if (store == null) return Ok(AppResponse<object>.Fail("Không tìm thấy cửa hàng"));
+        var limits = ZKTecoADMS.Infrastructure.Helpers.StorePackageHelper.ResolveLimits(store);
+        var used = await dbContext.Branches.CountAsync(b => b.StoreId == storeId && b.Deleted == null);
+        return Ok(AppResponse<object>.Success(new
+        {
+            max = limits.MaxBranches,
+            used,
+            remaining = limits.MaxBranches <= 0 ? (int?)null : Math.Max(0, limits.MaxBranches - used),
+            canAdd = limits.MaxBranches <= 0 || used < limits.MaxBranches,
+            overridden = limits.BranchesOverridden,
+            packageName = store.ServicePackage?.Name,
+        }));
+    }
+
     [HttpPost]
     [Authorize(Policy = PolicyNames.AtLeastManager)]
     [RequireModulePermission("Branch", ModulePermissionAction.Create)]

@@ -578,7 +578,7 @@ public partial class AgentController : AuthenticatedControllerBase
             var items = mapped.Select(dto =>
             {
                 storeById.TryGetValue(dto.Id, out var store);
-                var max = store?.ServicePackage?.MaxAccessDevices ?? store?.MaxAccessDevices ?? 0;
+                var max = store == null ? 0 : ZKTecoADMS.Infrastructure.Helpers.StorePackageHelper.ResolveLimits(store).MaxAccessDevices;
                 usedMap.TryGetValue(dto.Id, out var used);
                 return dto with { AccessDeviceUsed = used, MaxAccessDevices = max };
             }).ToList();

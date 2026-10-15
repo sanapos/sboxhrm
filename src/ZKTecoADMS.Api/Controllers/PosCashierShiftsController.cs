@@ -40,7 +40,8 @@ public class PosCashierShiftsController(ZKTecoDbContext db) : AuthenticatedContr
         decimal? Difference,
         string Status,
         string? Note,
-        bool Enabled);
+        bool Enabled,
+        string? BranchName = null);
 
     /// <summary>
     /// Danh sách ca trong khoảng ngày (phục vụ tổng kết cuối ngày / đối chiếu két).
@@ -82,11 +83,12 @@ public class PosCashierShiftsController(ZKTecoDbContext db) : AuthenticatedContr
         }
 
         var rows = await q.OrderBy(s => s.OpenedAt).ToListAsync();
+        var branchNames = await BranchNamesAsync(storeId);
         var list = new List<object>(rows.Count);
         foreach (var s in rows)
         {
             var expected = s.ExpectedCash ?? await ExpectedCashAsync(storeId, s);
-            list.Add(Map(s, expected));
+            list.Add(Map(s, expected, BranchNameOf(branchNames, s.BranchId)));
         }
 
         return Ok(AppResponse<object>.Success(new
@@ -124,7 +126,7 @@ public class PosCashierShiftsController(ZKTecoDbContext db) : AuthenticatedContr
         {
             enabled,
             open = true,
-            shift = Map(open, expected),
+            shift = Map(open, expected, BranchNameOf(await BranchNamesAsync(storeId), open.BranchId)),
         }));
     }
 
@@ -258,9 +260,19 @@ public class PosCashierShiftsController(ZKTecoDbContext db) : AuthenticatedContr
         return false;
     }
 
-    static ShiftDto Map(PosCashierShift s, decimal expected) => new(
+    /// <summary>Tên chi nhánh để hiện trên ca — chỉ khi cửa hàng có từ 2 chi nhánh (1 chi nhánh thì không cần).</summary>
+    async Task<Dictionary<Guid, string>> BranchNamesAsync(Guid storeId)
+    {
+        var list = await ZKTecoADMS.Infrastructure.Services.BranchStockService.GetStoreBranchesAsync(db, storeId);
+        return list.Count > 1 ? list.ToDictionary(b => b.Id, b => b.Name) : [];
+    }
+
+    static string? BranchNameOf(Dictionary<Guid, string> names, Guid? branchId) =>
+        branchId.HasValue && names.TryGetValue(branchId.Value, out var n) ? n : null;
+
+    static ShiftDto Map(PosCashierShift s, decimal expected, string? branchName = null) => new(
         s.Id, s.OpenedAt, s.OpenedByName, s.OpeningCash,
         s.ClosedAt, s.ClosedByName, s.CountedCash, expected,
         s.CountedCash.HasValue ? s.CountedCash.Value - expected : null,
-        s.Status, s.Note, true);
+        s.Status, s.Note, true, branchName);
 }

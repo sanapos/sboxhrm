@@ -33,7 +33,7 @@ public partial class PosSalesController
         }
         else
         {
-            var hasSlot = await dbContext.PosSaleOrders.AsNoTracking()
+            var hasSlot = await InBranchSlots(dbContext.PosSaleOrders.AsNoTracking())
                 .AnyAsync(o => o.StoreId == storeId && o.Deleted == null
                     && o.Status == PosSaleOrderStatus.Draft && o.InvoiceSlot != null);
             if (!hasSlot)
@@ -108,7 +108,7 @@ public partial class PosSalesController
             return BadRequest(AppResponse<object>.Fail("Slot không hợp lệ"));
 
         // DbContext mặc định NoTracking — bắt buộc AsTracking để SaveChangesAsync thực sự xóa slot.
-        var drafts = await dbContext.PosSaleOrders.AsTracking()
+        var drafts = await InBranchSlots(dbContext.PosSaleOrders.AsTracking())
             .Include(o => o.Lines)
             .Where(o => o.StoreId == storeId && o.Deleted == null
                 && o.Status == PosSaleOrderStatus.Draft && o.InvoiceSlot != null)
@@ -150,14 +150,23 @@ public partial class PosSalesController
         return Ok(AppResponse<object>.Success(await BuildInvoiceSlotsPayloadAsync(storeId, deviceId, deviceName)));
     }
 
+    /// <summary>
+    /// Hóa đơn nháp chỉ hiện / dọn trong chi nhánh đang bán (cửa hàng nhiều chi nhánh). Số hóa đơn vẫn đánh chung cả cửa hàng
+    /// nên không trùng; cửa hàng một chi nhánh không bị lọc.
+    /// </summary>
+    IQueryable<PosSaleOrder> InBranchSlots(IQueryable<PosSaleOrder> q)
+    {
+        var (branch, hq) = SaleBranchScope();
+        return branch is Guid b ? q.Where(o => (o.BranchId ?? hq) == b) : q;
+    }
+
     async Task<object> BuildInvoiceSlotsPayloadAsync(Guid storeId, string? deviceId, string? deviceName)
         => await BuildInvoiceSlotsPayloadDictAsync(storeId, deviceId, deviceName);
 
     async Task<Dictionary<string, object?>> BuildInvoiceSlotsPayloadDictAsync(
         Guid storeId, string? deviceId, string? deviceName)
     {
-        var drafts = await dbContext.PosSaleOrders
-            .AsNoTracking()
+        var drafts = await InBranchSlots(dbContext.PosSaleOrders.AsNoTracking())
             .Where(o => o.StoreId == storeId && o.Deleted == null
                 && o.Status == PosSaleOrderStatus.Draft
                 && o.InvoiceSlot != null)
@@ -219,9 +228,13 @@ public partial class PosSalesController
             .ToListAsync();
         var used = existing.ToHashSet();
         var target = Math.Min(Math.Max(minCount, PosDraftInvoiceSlots.MinCount), PosDraftInvoiceSlots.MaxCount);
-        if (used.Count >= target) return;
+        // Mỗi chi nhánh có tối thiểu `target` hóa đơn của riêng mình; số HĐ vẫn duy nhất trong cửa hàng.
+        var ownCount = await InBranchSlots(dbContext.PosSaleOrders)
+            .CountAsync(o => o.StoreId == storeId && o.Deleted == null
+                && o.Status == PosSaleOrderStatus.Draft && o.InvoiceSlot != null);
+        if (ownCount >= target) return;
 
-        var need = target - used.Count;
+        var need = target - ownCount;
         var now = DateTime.UtcNow;
         for (var slot = 1; need > 0 && slot <= PosDraftInvoiceSlots.MaxCount; slot++)
         {
@@ -258,7 +271,7 @@ public partial class PosSalesController
     {
         keepAtLeast = Math.Max(PosDraftInvoiceSlots.MinCount, keepAtLeast);
         // DbContext mặc định NoTracking — bắt buộc AsTracking để SaveChangesAsync thực sự prune.
-        var drafts = await dbContext.PosSaleOrders.AsTracking()
+        var drafts = await InBranchSlots(dbContext.PosSaleOrders.AsTracking())
             .Include(o => o.Lines)
             .Where(o => o.StoreId == storeId && o.Deleted == null
                 && o.Status == PosSaleOrderStatus.Draft && o.InvoiceSlot != null)

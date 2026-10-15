@@ -401,6 +401,8 @@ class _PosCashierShiftScreenState extends State<PosCashierShiftScreen> {
             ? 'Mở: $openBy · Đóng: $closeBy'
             : openBy)
         : tr('Không rõ tài khoản');
+    final branchLabel = (s.branchName ?? '').trim();
+    final whoWithBranch = branchLabel.isEmpty ? who : '$who · $branchLabel';
     final when = [
       if (s.openedAt != null) _dtFmt.format(s.openedAt!),
       if (s.closedAt != null) '→ ${_dtFmt.format(s.closedAt!)}',
@@ -450,7 +452,7 @@ class _PosCashierShiftScreenState extends State<PosCashierShiftScreen> {
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
                       Text(
-                        who,
+                        whoWithBranch,
                         style: const TextStyle(
                           fontSize: 13,
                           fontWeight: FontWeight.w700,
@@ -972,6 +974,7 @@ class _ShiftSnap {
     this.difference,
     this.note,
     this.status = 'Open',
+    this.branchName,
   });
 
   final String id;
@@ -985,6 +988,7 @@ class _ShiftSnap {
   final double? difference;
   final String? note;
   final String status;
+  final String? branchName;
 
   factory _ShiftSnap.fromJson(Map<String, dynamic> json) {
     double n(dynamic v) =>
@@ -1013,6 +1017,7 @@ class _ShiftSnap {
           ? n(json['difference'] ?? json['Difference'])
           : null,
       note: (json['note'] ?? json['Note'])?.toString(),
+      branchName: (json['branchName'] ?? json['BranchName'])?.toString(),
       status: (json['status'] ?? json['Status'] ?? 'Open').toString(),
     );
   }

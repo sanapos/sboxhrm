@@ -319,7 +319,7 @@ public class NotificationsController(
             var store = await db.Stores.AsNoTracking()
                 .Include(s => s.ServicePackage)
                 .FirstOrDefaultAsync(s => s.Id == sid);
-            var allowFcm = store?.ServicePackage?.AllowFcm ?? store?.AllowFcm ?? true;
+            var allowFcm = store == null || ZKTecoADMS.Infrastructure.Helpers.StorePackageHelper.ResolveLimits(store).AllowFcm;
             if (!allowFcm)
                 return Ok(AppResponse<bool>.Success(true));
         }

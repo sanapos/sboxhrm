@@ -44,6 +44,53 @@ class _BranchManagementScreenState extends State<BranchManagementScreen>
   PermissionProvider get _perm =>
       Provider.of<PermissionProvider>(context, listen: false);
 
+  /// Hạn mức chi nhánh theo gói / cấu hình riêng (max 0 = không giới hạn).
+  Map<String, dynamic>? _limit;
+  bool get _canAddBranch => _limit?['canAdd'] != false;
+
+  Future<void> _loadLimit() async {
+    try {
+      final r = await _api.getBranchLimits();
+      if (mounted && r['data'] is Map) {
+        setState(() => _limit = Map<String, dynamic>.from(r['data'] as Map));
+      }
+    } catch (_) {}
+  }
+
+  Widget? _limitBanner() {
+    final l = _limit;
+    final max = (l?['max'] as num?)?.toInt() ?? 0;
+    if (l == null || max <= 0) return null;
+    final used = (l['used'] as num?)?.toInt() ?? 0;
+    final full = !_canAddBranch;
+    final source = l['overridden'] == true
+        ? 'theo thiết lập riêng của cửa hàng'
+        : 'theo gói «${l['packageName'] ?? 'dịch vụ'}»';
+    return Container(
+      width: double.infinity,
+      margin: const EdgeInsets.fromLTRB(12, 8, 12, 0),
+      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+      decoration: BoxDecoration(
+        color: full ? const Color(0xFFFFF7ED) : const Color(0xFFEFF6FF),
+        borderRadius: BorderRadius.circular(10),
+        border: Border.all(color: full ? const Color(0xFFFDBA74) : const Color(0xFFBFDBFE)),
+      ),
+      child: Row(children: [
+        Icon(full ? Icons.warning_amber_rounded : Icons.info_outline,
+            size: 18, color: full ? const Color(0xFFC2410C) : const Color(0xFF1D4ED8)),
+        const SizedBox(width: 8),
+        Expanded(
+          child: Text(
+            tr(full
+                ? 'Đã dùng hết $used/$max chi nhánh $source. Liên hệ quản trị / nâng gói để thêm chi nhánh.'
+                : 'Đang dùng $used/$max chi nhánh $source.'),
+            style: TextStyle(fontSize: 12.5, color: full ? const Color(0xFF9A3412) : const Color(0xFF1E40AF)),
+          ),
+        ),
+      ]),
+    );
+  }
+
   @override
   void initState() {
     super.initState();
@@ -74,7 +121,7 @@ class _BranchManagementScreenState extends State<BranchManagementScreen>
     try {
       switch (tab) {
         case 0:
-          await Future.wait([_loadBranches(), _loadStats()]);
+          await Future.wait([_loadBranches(), _loadStats(), _loadLimit()]);
           break;
         case 1:
           await Future.wait([_loadBranchTree(), _loadStats()]);
@@ -179,14 +226,19 @@ class _BranchManagementScreenState extends State<BranchManagementScreen>
       ),
       body: _loading
           ? const Center(child: CircularProgressIndicator())
-          : TabBarView(
-              controller: _tabController,
-              children: [
-                _buildListTab(),
-                _buildTreeTab(),
-                _buildStatsTab(),
-              ],
-            ),
+          : Column(children: [
+              if (_limitBanner() case final banner?) banner,
+              Expanded(
+                child: TabBarView(
+                  controller: _tabController,
+                  children: [
+                    _buildListTab(),
+                    _buildTreeTab(),
+                    _buildStatsTab(),
+                  ],
+                ),
+              ),
+            ]),
     );
   }
 
@@ -1265,6 +1317,25 @@ class _BranchManagementScreenState extends State<BranchManagementScreen>
   // ═══════════════════════════════════════════════════════════════
 
   void _showBranchDialog({Branch? branch}) async {
+    if (branch == null) {
+      // Báo trước khi mở form: hết hạn mức thì giải thích rõ, không để người dùng điền xong mới bị từ chối.
+      await _loadLimit();
+      if (!mounted) return;
+      if (!_canAddBranch) {
+        final l = _limit!;
+        await showDialog<void>(
+          context: context,
+          builder: (ctx) => AlertDialog(
+            title: Text(tr('Đã hết hạn mức chi nhánh')),
+            content: Text(tr(
+                'Cửa hàng đã dùng ${l['used']}/${l['max']} chi nhánh ${l['overridden'] == true ? 'theo thiết lập riêng của cửa hàng' : 'theo gói «${l['packageName'] ?? 'dịch vụ'}»'}.\n'
+                'Vui lòng nâng cấp gói hoặc liên hệ quản trị SBOX để tăng số chi nhánh.')),
+            actions: [FilledButton(onPressed: () => Navigator.pop(ctx), child: Text(tr('Đã hiểu')))],
+          ),
+        );
+        return;
+      }
+    }
     await _loadBranchSelect();
     if (!mounted) return;
 
