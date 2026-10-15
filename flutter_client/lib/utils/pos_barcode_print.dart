@@ -308,6 +308,8 @@ Map<String, String> posBarcodeLabelData(PosProduct p, PosBarcodePrintOptions opt
     'Lo_HSD': posLabelDetail[p] ?? '',
     'Ngay': DateFormat('dd/MM/yyyy').format(DateTime.now()),
     'So_Luong': '1',
+    // Tem cân: khối lượng, đơn giá/kg, thành tiền, ngày giờ in, HSD… (ghi đè token trùng tên).
+    ...?posScaleLabelData[p],
   };
 }
 
@@ -669,6 +671,10 @@ Future<void> exportPosBarcodeLabelsExcel(
 /// Dòng chi tiết in thêm dưới tên trên tem (vd tem cân: «0,450 kg × 150.000đ/kg · HSD 08/10»).
 /// Gắn theo đối tượng hàng (tem cân dùng hàng tạm), không đổi model.
 final posLabelDetail = Expando<String>('posLabelDetail');
+
+/// Dữ liệu riêng tem cân (token mẫu «Tem cân»: Khoi_Luong, Don_Gia_Kg, Thanh_Tien, Ngay_Gio_In, HSD, PLU…),
+/// gắn theo đối tượng hàng tạm của từng gói.
+final posScaleLabelData = Expando<Map<String, String>>('posScaleLabelData');
 
 /// EAN-13 / EAN-8 khi mã đúng chuẩn (mã vạch siêu thị, tem cân), còn lại Code128.
 Barcode posBarcodeSymbology(String data) {

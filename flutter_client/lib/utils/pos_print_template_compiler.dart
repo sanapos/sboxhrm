@@ -638,7 +638,7 @@ abstract final class PosPrintTemplateCompiler {
     final isKitchenLabel =
         working.documentType == PosPrintDocumentTypes.kitchenLabel;
     final isBarcodeLabel =
-        working.documentType == PosPrintDocumentTypes.barcodeLabel;
+        PosPrintDocumentTypes.isProductLabel(working.documentType);
     var effectiveItems = lineItems;
     if (k58 && isSaleDoc) {
       effectiveItems = [

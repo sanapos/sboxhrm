@@ -20,6 +20,7 @@ public static class PosPrintTemplateDefaults
         PosPrintDocumentType.KitchenSlip => "PHIẾU BÁO CHẾ BIẾN",
         PosPrintDocumentType.KitchenVoid => "PHIẾU HỦY BẾP",
         PosPrintDocumentType.BarcodeLabel => "TEM SẢN PHẨM",
+        PosPrintDocumentType.ScaleLabel => "TEM CÂN",
         PosPrintDocumentType.KitchenLabel => "TEM BÁO BẾP",
         PosPrintDocumentType.CashReceipt => "PHIẾU THU",
         PosPrintDocumentType.CashPayment => "PHIẾU CHI",
@@ -64,7 +65,8 @@ public static class PosPrintTemplateDefaults
 
     public static IReadOnlyList<CatalogSpec> CatalogSpecs(PosPrintDocumentType docType)
     {
-        if (docType is PosPrintDocumentType.BarcodeLabel or PosPrintDocumentType.KitchenLabel)
+        if (docType is PosPrintDocumentType.BarcodeLabel or PosPrintDocumentType.KitchenLabel
+            or PosPrintDocumentType.ScaleLabel)
         {
             return new[]
             {
@@ -115,6 +117,8 @@ public static class PosPrintTemplateDefaults
             return BuildProductLabelHtml(paperSize);
         if (docType == PosPrintDocumentType.KitchenLabel)
             return BuildKitchenLabelHtml(paperSize);
+        if (docType == PosPrintDocumentType.ScaleLabel)
+            return BuildScaleLabelHtml(paperSize);
         if (docType is PosPrintDocumentType.KitchenSlip or PosPrintDocumentType.KitchenVoid)
             return BuildKitchenV2(paperSize, isCancel: docType == PosPrintDocumentType.KitchenVoid);
         if (docType is PosPrintDocumentType.Quote or PosPrintDocumentType.Contract
@@ -150,6 +154,25 @@ public static class PosPrintTemplateDefaults
             "<div style=\"letter-spacing:1px;font-family:monospace;border:1px solid #000;" +
             "padding:3px 2px;margin:3px 0;font-size:11px\">|||| {Ma_Vach} ||||</div>" +
             "<div style=\"font-weight:bold;font-size:" + priceFs + "\">{Don_Gia} đ</div>" +
+            "</div>";
+    }
+
+    /// <summary>Tem cân: tên hàng · KL × đơn giá · thành tiền · mã cân · ngày giờ in · HSD.</summary>
+    static string BuildScaleLabelHtml(PosPrintPaperSize size)
+    {
+        var width = LabelWidthCss(size);
+        var compact = size == PosPrintPaperSize.Label40x30;
+        return
+            "<div style=\"width:" + width +
+            ";max-width:100%;box-sizing:border-box;margin:0 auto;padding:1mm;" +
+            "overflow:hidden;font-family:Arial,sans-serif;color:#000;text-align:center;font-size:10px\">" +
+            (compact ? "" : "<div style=\"font-weight:bold\">{Ten_Cua_Hang}</div>") +
+            "<div style=\"font-weight:bold;font-size:" + (compact ? "12px" : "13px") + "\">{Ten_Hang_Hoa}</div>" +
+            "<div style=\"display:flex;justify-content:space-between\"><span>{Khoi_Luong}</span><span>{Don_Gia_Kg}</span></div>" +
+            "<div style=\"font-weight:bold;font-size:" + (compact ? "14px" : "16px") + "\">{Thanh_Tien} đ</div>" +
+            "<div style=\"letter-spacing:1px;font-family:monospace;border:1px solid #000;padding:2px;margin:2px 0\">|||| {Ma_Vach} ||||</div>" +
+            "<div>In: {Ngay_Gio_In}</div>" +
+            "<div style=\"font-weight:bold\">HSD: {HSD}</div>" +
             "</div>";
     }
 

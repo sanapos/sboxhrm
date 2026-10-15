@@ -9307,9 +9307,11 @@ class _PosSellScreenState extends State<PosSellScreen>
             unitId: pick.unitId,
           ) ??
           pick.product.basePrice;
+      // Tem «thành tiền»: SL 4 số lẻ (cột SL lưu 4 số) — giá × SL làm tròn ra đúng tiền in trên tem
+      // (trước đây 3 số lẻ: tem 33.330đ, giá 150.000 → SL 0,222 → thu 33.300đ).
       final qty = scale.isWeight
           ? scale.value
-          : (price > 0 ? double.parse((scale.value / price).toStringAsFixed(3)) : 1.0);
+          : (price > 0 ? double.parse((scale.value / price).toStringAsFixed(4)) : 1.0);
       await _addPick(pick, mergeIfSame: false, addQty: qty);
       return;
     }

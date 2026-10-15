@@ -210,7 +210,7 @@ class _PosPrintTemplatesScreenState extends State<PosPrintTemplatesScreen> {
     final paper = paperSize ??
         (_docType == PosPrintDocumentTypes.kitchenLabel
             ? PosPrintPaperSizes.label50x30
-            : _docType == PosPrintDocumentTypes.barcodeLabel
+            : PosPrintDocumentTypes.isProductLabel(_docType)
                 ? 'roll_1_50x30'
                 : PosPrintPaperSizes.k80);
     _v2Template = PosPrintTemplateV2Presets.build(
@@ -259,9 +259,12 @@ class _PosPrintTemplatesScreenState extends State<PosPrintTemplatesScreen> {
       // Giữ HTML thuần; vẫn tạo V2 preset để có thể quay lại chỉnh khối.
       _legacyHtml = t!.htmlContent;
       final paper = t.paperSize;
-      final profile = paper == PosPrintPaperSizes.k58
-          ? PosPrintPrinterProfiles.sunmiK58
-          : PosPrintPrinterProfiles.sunmiK80;
+      // Tem (sản phẩm / cân / bếp): máy in tem, không phải Sunmi K80.
+      final profile = PosPrintPaperSizes.isLabelDoc(_docType) || PosPrintPaperSizes.isLabelSize(paper)
+          ? PosPrintPrinterProfiles.genericK58
+          : paper == PosPrintPaperSizes.k58
+              ? PosPrintPrinterProfiles.sunmiK58
+              : PosPrintPrinterProfiles.sunmiK80;
       _v2Template = PosPrintTemplateV2Presets.build(
         documentType: _docType,
         paperSize: paper,
@@ -519,7 +522,7 @@ class _PosPrintTemplatesScreenState extends State<PosPrintTemplatesScreen> {
           .map((k) => (k, PosPrintPaperSizes.displayLabel(k)))
           .toList();
     }
-    if (_docType == PosPrintDocumentTypes.barcodeLabel) {
+    if (PosPrintDocumentTypes.isProductLabel(_docType)) {
       return PosPrintPaperSizes.productLabelSizes
           .map((id) => (id, PosPrintPaperSizes.displayLabel(id)))
           .toList();
@@ -548,7 +551,7 @@ class _PosPrintTemplatesScreenState extends State<PosPrintTemplatesScreen> {
 
     final paperOpts = _paperOptionsForDoc();
     String paper = paperOpts.first.$1;
-    if (_docType == PosPrintDocumentTypes.barcodeLabel) {
+    if (PosPrintDocumentTypes.isProductLabel(_docType)) {
       paper = 'roll_1_50x30';
     } else if (_docType == PosPrintDocumentTypes.kitchenLabel) {
       paper = PosPrintPaperSizes.label50x30;
@@ -847,7 +850,7 @@ class _PosPrintTemplatesScreenState extends State<PosPrintTemplatesScreen> {
         return;
       }
 
-      final isBarcodeLabel = v2.documentType == PosPrintDocumentTypes.barcodeLabel;
+      final isBarcodeLabel = PosPrintDocumentTypes.isProductLabel(v2.documentType);
       final isKitchenLabel =
           v2.documentType == PosPrintDocumentTypes.kitchenLabel;
       final isKitchenSlipDoc =

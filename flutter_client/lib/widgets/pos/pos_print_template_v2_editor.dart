@@ -172,7 +172,7 @@ class _PosPrintTemplateV2EditorState extends State<PosPrintTemplateV2Editor>
       PosPrintBlockType.field => PosPrintBlock(
         type: PosPrintBlockType.field,
         field: _tpl.documentType == PosPrintDocumentTypes.kitchenLabel ||
-                _tpl.documentType == PosPrintDocumentTypes.barcodeLabel
+                PosPrintDocumentTypes.isProductLabel(_tpl.documentType)
             ? 'Ten_Hang_Hoa'
             : 'Ghi_Chu',
         style: const PosPrintTextStyle(bold: true, fontSize: 28),
@@ -222,7 +222,7 @@ class _PosPrintTemplateV2EditorState extends State<PosPrintTemplateV2Editor>
 
   void _addProductNameBlock() {
     final isLabelDoc = _tpl.documentType == PosPrintDocumentTypes.kitchenLabel ||
-        _tpl.documentType == PosPrintDocumentTypes.barcodeLabel;
+        PosPrintDocumentTypes.isProductLabel(_tpl.documentType);
     if (isLabelDoc) {
       const block = PosPrintBlock(
         type: PosPrintBlockType.field,
@@ -783,7 +783,7 @@ class _PosPrintTemplateV2EditorState extends State<PosPrintTemplateV2Editor>
               ))
           .toList();
     }
-    if (doc == PosPrintDocumentTypes.barcodeLabel) {
+    if (PosPrintDocumentTypes.isProductLabel(doc)) {
       // Chỉ khổ tem — không K58/K80/A4/A5.
       final ids = PosPrintPaperSizes.productLabelSizes;
       return [
@@ -809,7 +809,7 @@ class _PosPrintTemplateV2EditorState extends State<PosPrintTemplateV2Editor>
     final keys = items.map((e) => e.value).whereType<String>().toSet();
     if (keys.contains(_tpl.paperSize)) return _tpl.paperSize;
     // Map Label50x30 ↔ roll_1_50x30 khi mở mẫu cũ.
-    if (_tpl.documentType == PosPrintDocumentTypes.barcodeLabel) {
+    if (PosPrintDocumentTypes.isProductLabel(_tpl.documentType)) {
       if (_tpl.paperSize == PosPrintPaperSizes.label50x30 &&
           keys.contains('roll_1_50x30')) {
         return 'roll_1_50x30';
@@ -836,8 +836,10 @@ class _PosPrintTemplateV2EditorState extends State<PosPrintTemplateV2Editor>
     final paperItems = _paperSizeItems();
     final paperValue = _resolvedPaperValue(paperItems);
     final isLabel = PosPrintPaperSizes.isLabelDoc(_tpl.documentType);
-    final paperHint = _tpl.documentType == PosPrintDocumentTypes.barcodeLabel
-        ? tr('Tem sản phẩm — cùng danh sách khi In tem hàng hóa')
+    final paperHint = PosPrintDocumentTypes.isProductLabel(_tpl.documentType)
+        ? tr(_tpl.documentType == PosPrintDocumentTypes.scaleLabel
+            ? 'Tem cân — cùng danh sách khổ khi Cân & in tem'
+            : 'Tem sản phẩm — cùng danh sách khi In tem hàng hóa')
         : (_tpl.documentType == PosPrintDocumentTypes.kitchenLabel
             ? tr('Tem báo bếp / tem ly: 50×30, 40×30, 35×22×2/3, 60×40… (không K58/K80)')
             : tr('${PosPrintDocumentTypes.all[_tpl.documentType] ?? _tpl.documentType} · ${PosPrintPaperSizes.categoryLabel(_tpl.documentType)}'));
@@ -2221,6 +2223,8 @@ class _BlockPropertiesPanelState extends State<_BlockPropertiesPanel> {
 
   Widget _tokenField(String label, String? value, ValueChanged<String> onField) {
     final tokenEntries = <(String, String)>[
+      // Tem cân: trường riêng lên đầu (khối lượng, đơn giá/kg, thành tiền, ngày giờ in, HSD…).
+      if (widget.documentType == PosPrintDocumentTypes.scaleLabel) ...PosPrintTokens.scaleLabel,
       ...PosPrintTokens.store,
       ...PosPrintTokens.order,
       ...PosPrintTokens.customer,
@@ -2231,7 +2235,11 @@ class _BlockPropertiesPanelState extends State<_BlockPropertiesPanel> {
       ('Gio', 'Giờ'),
     ];
     final tokens = tokenEntries.map((e) => e.$1).toSet().toList();
-    final labels = {for (final e in tokenEntries) e.$1: e.$2};
+    // Nhãn đầu tiên thắng (tem cân: «Mã cân (EAN-13)», «Thành tiền»… không bị nhãn chung ghi đè).
+    final labels = <String, String>{};
+    for (final e in tokenEntries) {
+      labels.putIfAbsent(e.$1, () => e.$2);
+    }
     final current = tokens.contains(value) ? value : tokens.first;
     return DropdownButtonFormField<String>(
       value: current,

@@ -173,6 +173,11 @@ abstract final class PosPrintDocumentTypes {
   static const barcodeLabel = 'BarcodeLabel';
   /// Tem báo bếp / tem ly / tem báo sản phẩm khi chế biến.
   static const kitchenLabel = 'KitchenLabel';
+  /// Tem cân hàng tươi (khối lượng × đơn giá, mã cân EAN-13, ngày giờ in, HSD).
+  static const scaleLabel = 'ScaleLabel';
+
+  /// Tem dán hàng (tem sản phẩm / tem cân) — cùng khổ tem, cùng máy in tem.
+  static bool isProductLabel(String t) => t == barcodeLabel || t == scaleLabel;
   static const quote = 'Quote';
   static const contract = 'Contract';
   static const handover = 'Handover';
@@ -193,6 +198,7 @@ abstract final class PosPrintDocumentTypes {
     kitchenVoid: 'Hủy bếp',
     kitchenLabel: 'Tem báo bếp',
     barcodeLabel: 'Tem sản phẩm',
+    scaleLabel: 'Tem cân',
     saleOrder: 'Đặt hàng',
     delivery: 'Giao hàng',
     saleReturn: 'Trả hàng',
@@ -218,6 +224,7 @@ abstract final class PosPrintDocumentTypes {
     kitchenVoid: 'Phiếu hủy món đã báo bếp (in kèm khi hủy trên báo bếp).',
     kitchenLabel: 'Tem ly / tem báo bếp (1 tem mỗi món, khổ 50×30 hoặc 40×30). Không dùng khổ K58/K80.',
     barcodeLabel: 'Tem dán sản phẩm (mã hàng / barcode / giá). Khổ tem — không phải phiếu nhiệt.',
+    scaleLabel: 'Tem cân hàng tươi (rau, thịt, cá…): khối lượng, đơn giá/kg, thành tiền, mã cân, ngày giờ in, HSD.',
     saleOrder: 'Phiếu đặt hàng (không phải hóa đơn thanh toán).',
     delivery: 'Phiếu giao hàng.',
     saleReturn: 'Phiếu trả hàng bán.',
@@ -344,7 +351,7 @@ abstract final class PosPrintPaperSizes {
   }
 
   static bool isLabelDoc(String documentType) =>
-      documentType == PosPrintDocumentTypes.barcodeLabel ||
+      PosPrintDocumentTypes.isProductLabel(documentType) ||
       documentType == PosPrintDocumentTypes.kitchenLabel;
 
   static bool isLabelSize(String size) =>
@@ -458,7 +465,7 @@ abstract final class PosPrintPaperSizes {
   /// Map khổ V2 (có thể là id tem barcode) → enum API (chỉ 50×30 / 40×30).
   static String toApiPaperSize(String documentType, String v2PaperSize) {
     if (documentType == PosPrintDocumentTypes.kitchenLabel ||
-        documentType == PosPrintDocumentTypes.barcodeLabel) {
+        PosPrintDocumentTypes.isProductLabel(documentType)) {
       if (v2PaperSize == label40x30 ||
           v2PaperSize == 'roll_1_40x30' ||
           v2PaperSize == label35x22x2 ||
@@ -595,6 +602,26 @@ abstract final class PosPrintTokens {
     ('Ten_Cua_Hang', 'Tên cửa hàng'),
     ('Thong_So', 'Thông số hàng (thuộc tính, KL, KT, BH)'),
     ('Lo_HSD', 'Lô / NSX / HSD'),
+  ];
+
+  /// Token tem cân (màn Mẫu in → Tem cân).
+  static const scaleLabel = [
+    ('Ten_Cua_Hang', 'Tên cửa hàng'),
+    ('Ten_Hang_Hoa', 'Tên hàng hóa'),
+    ('Ma_Hang', 'Mã hàng'),
+    ('Ma_Vach', 'Mã cân (EAN-13)'),
+    ('PLU', 'Mã PLU'),
+    ('Khoi_Luong', 'Khối lượng (vd 0,456 kg)'),
+    ('Don_Vi_Tinh', 'ĐVT'),
+    ('Don_Gia_Kg', 'Đơn giá / kg'),
+    ('Thanh_Tien', 'Thành tiền'),
+    ('Ngay_Dong_Goi', 'Ngày đóng gói'),
+    ('Ngay_Gio_In', 'Ngày giờ in'),
+    ('Ngay', 'Ngày in'),
+    ('Gio', 'Giờ in'),
+    ('HSD', 'Hạn sử dụng'),
+    ('So_Ngay_Dung', 'Dùng trong (ngày)'),
+    ('Lo_HSD', 'Dòng chi tiết (KL × giá · ĐG · HSD)'),
   ];
 
   static const totals = [

@@ -45,6 +45,17 @@ abstract final class PosPrintTemplateV2Presets {
       );
     }
 
+    if (documentType == PosPrintDocumentTypes.scaleLabel) {
+      return _scaleLabelPreset(
+        paperSize: paperSize,
+        printerProfile: printerProfile,
+        titleSize: titleSize,
+        bodySize: bodySize,
+        smallSize: smallSize,
+        name: name,
+      );
+    }
+
     if (documentType == PosPrintDocumentTypes.kitchenLabel) {
       return _kitchenLabelPreset(
         paperSize: paperSize,
@@ -299,6 +310,75 @@ abstract final class PosPrintTemplateV2Presets {
     );
   }
 
+  /// Tem cân hàng tươi: tên hàng · KL × đơn giá · THÀNH TIỀN to · mã cân · ngày giờ in / HSD.
+  static PosPrintTemplateV2 _scaleLabelPreset({
+    required String paperSize,
+    required String printerProfile,
+    required double titleSize,
+    required double bodySize,
+    required double smallSize,
+    String? name,
+  }) {
+    final compact = paperSize.contains('40x30') ||
+        paperSize.contains('35x22') ||
+        paperSize.contains('22');
+    return PosPrintTemplateV2(
+      paperSize: paperSize,
+      printerProfile: printerProfile,
+      documentType: PosPrintDocumentTypes.scaleLabel,
+      name: name ?? (paperSize.contains('40x30') ? 'Tem cân 40×30' : 'Tem cân 50×30'),
+      blocks: [
+        if (!compact)
+          PosPrintBlock(
+            type: PosPrintBlockType.field,
+            field: 'Ten_Cua_Hang',
+            style: PosPrintTextStyle(fontSize: smallSize, bold: true, align: PosPrintTextAlign.center),
+          ),
+        PosPrintBlock(
+          type: PosPrintBlockType.field,
+          field: 'Ten_Hang_Hoa',
+          style: PosPrintTextStyle(
+            fontSize: compact ? 22 : titleSize,
+            bold: true,
+            align: PosPrintTextAlign.center,
+          ),
+        ),
+        PosPrintBlock(
+          type: PosPrintBlockType.pair,
+          leftField: 'Khoi_Luong',
+          rightField: 'Don_Gia_Kg',
+          // Khối lượng / đơn giá phải đọc rõ để khách đối chiếu — không dùng cỡ chữ nhỏ.
+          style: PosPrintTextStyle(fontSize: compact ? 20 : bodySize, bold: true),
+        ),
+        PosPrintBlock(
+          type: PosPrintBlockType.text,
+          text: tr('{Thanh_Tien} đ'),
+          style: PosPrintTextStyle(
+            fontSize: compact ? 26 : bodySize + 8,
+            bold: true,
+            align: PosPrintTextAlign.center,
+          ),
+        ),
+        PosPrintBlock(
+          type: PosPrintBlockType.barcode,
+          field: 'Ma_Vach',
+          barcodeHeight: compact ? 34 : 44,
+          barcodeShowText: !compact,
+        ),
+        PosPrintBlock(
+          type: PosPrintBlockType.text,
+          text: tr('In: {Ngay_Gio_In}'),
+          style: PosPrintTextStyle(fontSize: compact ? 16 : smallSize, align: PosPrintTextAlign.center),
+        ),
+        PosPrintBlock(
+          type: PosPrintBlockType.text,
+          text: tr('HSD: {HSD}'),
+          style: PosPrintTextStyle(fontSize: compact ? 16 : smallSize, bold: true, align: PosPrintTextAlign.center),
+        ),
+      ],
+    );
+  }
+
   /// Tem báo bếp / tem ly — ít dòng, tên món to, không tràn viền.
   static PosPrintTemplateV2 _kitchenLabelPreset({
     required String paperSize,
@@ -481,6 +561,17 @@ abstract final class PosPrintTemplateV2Presets {
             paperSize: size,
             printerProfile: PosPrintPrinterProfiles.genericK58,
             name: 'Tem báo bếp ${PosPrintPaperSizes.displayLabel(size)}',
+          ),
+      ];
+    }
+    if (documentType == PosPrintDocumentTypes.scaleLabel) {
+      return [
+        for (final size in PosPrintPaperSizes.productLabelSizes.take(6))
+          build(
+            documentType: documentType,
+            paperSize: size,
+            printerProfile: PosPrintPrinterProfiles.genericK58,
+            name: 'Tem cân ${PosPrintPaperSizes.displayLabel(size)}',
           ),
       ];
     }

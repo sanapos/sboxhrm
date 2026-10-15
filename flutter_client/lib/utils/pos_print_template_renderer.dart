@@ -366,6 +366,28 @@ Map<String, String> posPrintSampleData({
       'Lo_HSD': 'Lô L2610 · HSD 10/10/2027',
     };
   }
+  if (documentType == PosPrintDocumentTypes.scaleLabel) {
+    return {
+      ...base,
+      'Tieu_De_In': 'TEM CÂN',
+      'Ten_Hang_Hoa': 'Thịt ba chỉ heo',
+      'Ma_Hang': 'HH00012',
+      'Ma_Vach': '2000012004564',
+      'PLU': '12',
+      'Khoi_Luong': '0,456 kg',
+      'Don_Vi_Tinh': 'kg',
+      'Don_Gia_Kg': '${money.format(150000)}đ/kg',
+      'Don_Gia': money.format(68400),
+      'Thanh_Tien': money.format(68400),
+      'Ngay_Dong_Goi': '15/10/2026',
+      'Ngay_Gio_In': '15/10/2026 08:35',
+      'Ngay': '15/10/2026',
+      'Gio': '08:35',
+      'HSD': '18/10/2026',
+      'So_Ngay_Dung': '3',
+      'Lo_HSD': '0,456 kg × 150.000đ · ĐG 15/10/26 · HSD 18/10/26',
+    };
+  }
   if (documentType == PosPrintDocumentTypes.kitchenLabel) {
     return {
       ...base,

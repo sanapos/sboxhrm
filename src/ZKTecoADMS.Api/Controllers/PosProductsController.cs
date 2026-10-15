@@ -719,6 +719,8 @@ public partial class PosProductsController(
 
         var validation = await ValidateRefsAsync(storeId, dto);
         if (validation != null) return validation;
+        var pluConflict = await ScalePluConflictAsync(storeId, dto.ScalePlu, null);
+        if (pluConflict != null) return BadRequest(AppResponse<PosProductDto>.Fail(pluConflict));
 
         var code = dto.ProductCode?.Trim();
         if (string.IsNullOrEmpty(code))
@@ -834,6 +836,8 @@ public partial class PosProductsController(
 
         var validation = await ValidateRefsAsync(storeId, dto);
         if (validation != null) return validation;
+        var pluConflict = await ScalePluConflictAsync(storeId, dto.ScalePlu, id);
+        if (pluConflict != null) return BadRequest(AppResponse<PosProductDto>.Fail(pluConflict));
 
         if (!string.IsNullOrWhiteSpace(dto.ProductCode))
         {
@@ -1648,19 +1652,46 @@ public partial class PosProductsController(
         return s.Length == 0 ? null : s;
     }
 
+    /// <summary>
+    /// PLU đang dùng cho hàng khác (chưa xóa) trong cửa hàng → thông báo lỗi; trống / hợp lệ → null.
+    /// Trước đây không kiểm tra → hai hàng cùng PLU, quét tem cân ra hàng bất kỳ.
+    /// </summary>
+    private async Task<string?> ScalePluConflictAsync(Guid storeId, string? plu, Guid? excludeId)
+    {
+        var key = NormalizePlu(plu);
+        if (key == null) return null;
+        var other = await dbContext.PosProducts.AsNoTracking()
+            .Where(p => p.StoreId == storeId && p.Deleted == null && p.ScalePlu == key
+                        && (excludeId == null || p.Id != excludeId))
+            .Select(p => new { p.ProductCode, p.Name })
+            .FirstOrDefaultAsync();
+        return other == null
+            ? null
+            : $"Mã PLU {key} đang dùng cho «{other.Name}» ({other.ProductCode}). Chọn PLU khác hoặc để trống để hệ thống tự gán.";
+    }
+
     /// <summary>Gán PLU tem cân cho hàng chưa có (số nhỏ nhất chưa dùng trong cửa hàng). Trả PLU hiện có nếu đã gán.</summary>
     [HttpPost("{id:guid}/scale-plu")]
     [RequireModulePermission("PosProducts", ModulePermissionAction.Edit)]
     public async Task<ActionResult<AppResponse<object>>> AssignScalePlu(Guid id)
     {
         var storeId = RequiredStoreId;
+        var relational = dbContext.Database.IsRelational();
+        await using var tx = relational ? await dbContext.Database.BeginTransactionAsync() : null;
+        if (relational)
+        {
+            // Hai quầy cùng gán một lúc trước đây có thể ra cùng số PLU → khóa theo cửa hàng.
+            await dbContext.Database.ExecuteSqlRawAsync(
+                "SELECT pg_advisory_xact_lock(hashtext({0}))", ["scale-plu:" + storeId]);
+        }
         var p = await dbContext.PosProducts.AsTracking()
             .FirstOrDefaultAsync(x => x.Id == id && x.StoreId == storeId && x.Deleted == null);
         if (p == null) return NotFound(AppResponse<object>.Fail("Không tìm thấy hàng hóa"));
         if (string.IsNullOrEmpty(p.ScalePlu))
         {
-            var used = (await dbContext.PosProducts.AsNoTracking()
-                    .Where(x => x.StoreId == storeId && x.Deleted == null && x.ScalePlu != null)
+            // Gồm cả hàng đã xóa: tem cũ của hàng đã xóa còn dán ngoài quầy không được quét ra hàng mới.
+            var used = (await dbContext.PosProducts.AsNoTracking().IgnoreQueryFilters()
+                    .Where(x => x.StoreId == storeId && x.ScalePlu != null)
                     .Select(x => x.ScalePlu!)
                     .ToListAsync())
                 .Select(s => int.TryParse(s, out var n) ? n : 0)
@@ -1672,6 +1703,7 @@ public partial class PosProductsController(
             p.UpdatedBy = CurrentUserEmail;
             await dbContext.SaveChangesAsync();
         }
+        if (tx != null) await tx.CommitAsync();
         return Ok(AppResponse<object>.Success(new { scalePlu = p.ScalePlu }));
     }
 

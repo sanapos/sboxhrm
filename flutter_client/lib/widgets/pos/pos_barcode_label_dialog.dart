@@ -7,6 +7,7 @@ import '../../models/pos_product.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import '../../models/pos_print_template_v2.dart';
 import '../../utils/pos_print_template_loader.dart';
+import '../../utils/pos_print_template_v2_presets.dart';
 import '../../utils/pos_print_template_v2_codec.dart';
 import '../../models/pos_price_list.dart';
 import '../../services/api_service.dart';
@@ -32,24 +33,36 @@ import 'package:zkteco_flutter_client/l10n/app_tr.dart';
 import '../../theme/sbox_tokens.dart';
 /// Dialog chọn loại giấy in tem mã — giao diện kiểu KiotViet.
 /// [quantities] (song song với [products]): số tem riêng từng hàng, vd theo số lượng nhập hàng.
+/// [documentType] = [PosPrintDocumentTypes.scaleLabel]: in tem cân — mẫu «Tem cân» (hoặc mẫu dựng sẵn),
+/// giá trên tem cố định theo mã cân (không đổi theo bảng giá / biến thể).
 Future<void> showPosBarcodeLabelDialog(
   BuildContext context,
   List<PosProduct> products, {
   List<int>? quantities,
+  String documentType = PosPrintDocumentTypes.barcodeLabel,
 }) async {
   if (products.isEmpty) return;
   await showDialog<void>(
     context: context,
     barrierDismissible: true,
-    builder: (ctx) => _PosBarcodeLabelDialog(products: products, quantities: quantities),
+    builder: (ctx) => _PosBarcodeLabelDialog(
+      products: products,
+      quantities: quantities,
+      documentType: documentType,
+    ),
   );
 }
 
 class _PosBarcodeLabelDialog extends StatefulWidget {
-  const _PosBarcodeLabelDialog({required this.products, this.quantities});
+  const _PosBarcodeLabelDialog({
+    required this.products,
+    this.quantities,
+    this.documentType = PosPrintDocumentTypes.barcodeLabel,
+  });
 
   final List<PosProduct> products;
   final List<int>? quantities;
+  final String documentType;
 
   @override
   State<_PosBarcodeLabelDialog> createState() => _PosBarcodeLabelDialogState();
@@ -74,7 +87,9 @@ class _PosBarcodeLabelDialogState extends State<_PosBarcodeLabelDialog> {
   /// Mẫu tem cửa hàng (màn Mẫu in → Tem sản phẩm) đọc được; chọn '' = bố cục chuẩn SBOX.
   List<({String id, String name, PosPrintTemplateV2 tpl})> _layouts = const [];
   String _layoutId = '';
-  static const _kLayoutPref = 'pos_barcode_label_layout_id';
+  String get _kLayoutPref =>
+      _isScale ? 'pos_scale_label_layout_id' : 'pos_barcode_label_layout_id';
+  bool get _isScale => widget.documentType == PosPrintDocumentTypes.scaleLabel;
   PosBarcodeLabelTemplate? _selectedTemplate;
   PosLabelPrinterSettings _labelPrinter = const PosLabelPrinterSettings();
   String? _storeName;
@@ -97,7 +112,7 @@ class _PosBarcodeLabelDialogState extends State<_PosBarcodeLabelDialog> {
 
   Future<void> _loadLayouts() async {
     try {
-      final list = await loadPosPrintTemplates(ApiService(), PosPrintDocumentTypes.barcodeLabel);
+      final list = await loadPosPrintTemplates(ApiService(), widget.documentType);
       final parsed = <({String id, String name, PosPrintTemplateV2 tpl})>[
         for (final t in list)
           if (PosPrintTemplateV2Codec.tryParse(t.htmlContent) case final v2?)
@@ -144,7 +159,8 @@ class _PosBarcodeLabelDialogState extends State<_PosBarcodeLabelDialog> {
   /// Danh sách tem thực in: theo biến thể / đơn vị bán (mỗi loại một tem, mã SKU / mã vạch biến thể, giá
   /// theo đơn vị) và / hoặc giá theo bảng giá. Không chọn gì → đúng danh sách truyền vào.
   Future<({List<PosProduct> products, List<int>? quantities})> _effectiveItems() async {
-    if (!_expandViews && _priceListId == null) {
+    // Tem cân: giá đã nằm trong mã cân — không đổi theo bảng giá / biến thể.
+    if (_isScale || (!_expandViews && _priceListId == null)) {
       return (products: widget.products, quantities: widget.quantities);
     }
     final api = ApiService();
@@ -238,7 +254,15 @@ class _PosBarcodeLabelDialogState extends State<_PosBarcodeLabelDialog> {
         storeMode: _storeMode,
         storeName: _storeName,
         specMode: _specMode,
-        layout: _layouts.where((l) => l.id == _layoutId).map((l) => l.tpl).firstOrNull,
+        layout: _layouts.where((l) => l.id == _layoutId).map((l) => l.tpl).firstOrNull ??
+            (_isScale
+                // Chưa chọn mẫu cửa hàng → mẫu tem cân dựng sẵn theo khổ tem đang chọn.
+                ? PosPrintTemplateV2Presets.build(
+                    documentType: PosPrintDocumentTypes.scaleLabel,
+                    paperSize: template.id,
+                    printerProfile: PosPrintPrinterProfiles.genericK58,
+                  )
+                : null),
       );
 
   /// Tổng số tem sẽ in (theo số lượng từng hàng × số bản).
@@ -555,7 +579,9 @@ class _PosBarcodeLabelDialogState extends State<_PosBarcodeLabelDialog> {
       child: Row(
         children: [
           Expanded(
-            child: Text(tr('In tem mã hàng (${widget.products.length})'),
+            child: Text(tr(_isScale
+                  ? 'In tem cân (${widget.products.length})'
+                  : 'In tem mã hàng (${widget.products.length})'),
               style: TextStyle(
                 fontSize: mobile ? 15 : 16,
                 fontWeight: FontWeight.w600,
@@ -569,7 +595,7 @@ class _PosBarcodeLabelDialogState extends State<_PosBarcodeLabelDialog> {
                 MaterialPageRoute<void>(
                   builder: (_) => PosPrintTemplatesScreen(
                     embeddedInSettings: true,
-                    initialDocumentType: PosPrintDocumentTypes.barcodeLabel,
+                    initialDocumentType: widget.documentType,
                   ),
                 ),
               );
@@ -638,7 +664,7 @@ class _PosBarcodeLabelDialogState extends State<_PosBarcodeLabelDialog> {
           },
         ),
         const SizedBox(height: 10),
-        _dropdown<PosBarcodeCodeField>(
+        if (!_isScale) _dropdown<PosBarcodeCodeField>(
           value: _codeField,
           items: PosBarcodeCodeField.values,
           label: (v) => v.label,
@@ -678,7 +704,7 @@ class _PosBarcodeLabelDialogState extends State<_PosBarcodeLabelDialog> {
             value: _layoutId,
             items: ['', for (final l in _layouts) l.id],
             label: (id) => id.isEmpty
-                ? 'Bố cục tem: chuẩn SBOX'
+                ? (_isScale ? 'Bố cục tem: mẫu tem cân chuẩn' : 'Bố cục tem: chuẩn SBOX')
                 : 'Bố cục tem: mẫu «${_layouts.where((l) => l.id == id).map((l) => l.name).firstOrNull ?? id}»',
             onChanged: (v) async {
               setState(() => _layoutId = v ?? '');
@@ -689,6 +715,7 @@ class _PosBarcodeLabelDialogState extends State<_PosBarcodeLabelDialog> {
             },
           ),
         ],
+        if (!_isScale) ...[
         const SizedBox(height: 8),
         _dropdown<bool>(
           value: _expandViews,
@@ -705,6 +732,7 @@ class _PosBarcodeLabelDialogState extends State<_PosBarcodeLabelDialog> {
               : 'Giá trên tem: ${_priceLists.where((l) => l.id == id).map((l) => l.name).firstOrNull ?? id}',
           onChanged: (v) => setState(() => _priceListId = (v ?? '').isEmpty ? null : v),
         ),
+        ],
       ],
     );
   }

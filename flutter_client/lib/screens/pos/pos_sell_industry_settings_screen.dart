@@ -451,13 +451,22 @@ class _PosSellIndustrySettingsScreenState
                   border: const OutlineInputBorder(),
                   isDense: true,
                 ),
-                onFieldSubmitted: (v) => save(c.copyWith(
-                  prefixes: v
+                onFieldSubmitted: (v) {
+                  final prefixes = v
                       .split(RegExp(r'[,; ]+'))
                       .map((e) => e.trim())
                       .where((e) => RegExp(r'^\d{2}$').hasMatch(e))
-                      .toList(),
-                )),
+                      .toList();
+                  // Rỗng → tem vẫn in đầu 20 nhưng màn bán không đọc được tem nào.
+                  if (prefixes.isEmpty) {
+                    NotificationOverlayManager().showWarning(
+                      title: 'Đầu mã không hợp lệ',
+                      message: tr('Nhập ít nhất một đầu mã 2 số (vd 20, 21) — chưa lưu.'),
+                    );
+                    return;
+                  }
+                  save(c.copyWith(prefixes: prefixes));
+                },
               ),
             ],
           ],

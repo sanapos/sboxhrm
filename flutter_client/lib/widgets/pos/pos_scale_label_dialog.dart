@@ -1,3 +1,5 @@
+import 'dart:math' as math;
+
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:intl/intl.dart';
@@ -7,6 +9,7 @@ import '../../services/api_service.dart';
 import '../../utils/pos_barcode_print.dart';
 import '../../utils/pos_scale_barcode.dart';
 import '../../utils/pos_sell_settings_helper.dart';
+import '../../models/pos_print_template.dart';
 import '../notification_overlay.dart';
 import 'pos_barcode_label_dialog.dart';
 import 'pos_theme.dart';
@@ -118,9 +121,18 @@ class _PosScaleLabelDialogState extends State<_PosScaleLabelDialog> {
 
   double _amountOf(double qty) => (qty * _unitPrice).roundToDouble();
 
+  /// Khối lượng làm tròn theo số lẻ mã cân (3 số = gram). Trước đây tiền tính trên số chưa làm tròn
+  /// (0,4555 kg → tem ghi 68.325đ) nhưng mã cân ghi 0,456 kg → thanh toán 68.400đ.
+  double _roundQty(double q) {
+    final f = math.pow(10, _scale.isWeight ? _scale.decimals : 3).toDouble();
+    return (q * f).round() / f;
+  }
+
   void _addPack() {
-    final q = double.tryParse(_qtyCtrl.text.trim().replaceAll(',', '.'));
-    if (q == null || q <= 0) return;
+    final raw = double.tryParse(_qtyCtrl.text.trim().replaceAll(',', '.'));
+    if (raw == null || raw <= 0) return;
+    final q = _roundQty(raw);
+    if (q <= 0) return;
     setState(() {
       _packs.add(_Pack(q));
       _qtyCtrl.clear();
@@ -133,6 +145,33 @@ class _PosScaleLabelDialogState extends State<_PosScaleLabelDialog> {
     if (p == null || _packs.isEmpty) return;
     if (_unitPrice <= 0) {
       NotificationOverlayManager().showWarning(title: 'Thiếu đơn giá', message: tr('Nhập đơn giá / $_unit'));
+      return;
+    }
+    final effCfg = _scale.enabled || !_enableScale ? _scale : _scale.copyWith(enabled: true);
+    if (effCfg.isWeight && (_unitPrice - p.basePrice).abs() >= 1) {
+      // Mã cân chỉ chứa khối lượng → máy bán tính lại theo giá bán, không theo giá in trên tem.
+      await showDialog<void>(
+        context: context,
+        builder: (ctx) => AlertDialog(
+          title: Text(tr('Giá trên tem khác giá bán')),
+          content: Text(tr(
+              'Mã cân đang ghi KHỐI LƯỢNG: khi quét, máy bán tính theo giá bán '
+              '${_money.format(p.basePrice.round())}đ/$_unit, không theo giá '
+              '${_money.format(_unitPrice.round())}đ in trên tem → khách trả khác tem.\n\n'
+              'Muốn in giá giảm (hàng cuối ngày): sửa giá bán của hàng trước, hoặc chuyển «Cân in» '
+              'sang «Thành tiền» ở Thiết lập ngành hàng.')),
+          actions: [
+            TextButton(
+              onPressed: () {
+                Navigator.pop(ctx);
+                setState(() => _priceCtrl.text = '${p.basePrice.round()}');
+              },
+              child: Text(tr('Dùng giá bán')),
+            ),
+            FilledButton(onPressed: () => Navigator.pop(ctx), child: Text(tr('Đóng'))),
+          ],
+        ),
+      );
       return;
     }
     setState(() => _busy = true);
@@ -173,6 +212,7 @@ class _PosScaleLabelDialogState extends State<_PosScaleLabelDialog> {
       final packedOn = DateTime.now();
       final shelf = int.tryParse(_shelfCtrl.text.trim());
       final hsd = shelf != null && shelf > 0 ? packedOn.add(Duration(days: shelf)) : null;
+      final fullDate = DateFormat('dd/MM/yyyy');
       final labels = <PosProduct>[];
       for (final pack in _packs) {
         final amount = _amountOf(pack.qty);
@@ -183,11 +223,28 @@ class _PosScaleLabelDialogState extends State<_PosScaleLabelDialog> {
             title: 'Không tạo được mã cân',
             message: encodeCfg.isWeight
                 ? tr('Khối lượng tối đa ${_qtyFmt.format(encodeCfg.maxValue)} $_unit, PLU tối đa ${encodeCfg.pluDigits} số')
-                : tr('Mã cân đang để «thành tiền», tối đa ${_money.format(encodeCfg.maxValue)}đ — đổi sang «trọng lượng» ở Thiết lập ngành hàng'),
+                : tr('Mã cân «thành tiền» chứa tối đa ${_money.format(encodeCfg.maxValue)}đ/tem '
+                    '(PLU ${encodeCfg.pluDigits} số). Gói lớn hơn: chọn «Số chữ số PLU» = 4 (tối đa 999.999đ) '
+                    'hoặc «Cân in» = «Trọng lượng» ở Thiết lập ngành hàng'),
           );
           return;
         }
         final label = p.copyWith(barcode: code, basePrice: amount, baseUnitName: '');
+        posScaleLabelData[label] = {
+          'PLU': plu,
+          'Khoi_Luong': '${_qtyFmt.format(pack.qty)} $_unit',
+          'Don_Vi_Tinh': _unit,
+          'Don_Gia_Kg': '${_money.format(_unitPrice.round())}đ/$_unit',
+          'Thanh_Tien': _money.format(amount.round()),
+          'Don_Gia': _money.format(amount.round()),
+          'Ngay_Dong_Goi': fullDate.format(packedOn),
+          'Ngay_Gio_In': DateFormat('dd/MM/yyyy HH:mm').format(packedOn),
+          'Ngay': fullDate.format(packedOn),
+          'Gio': DateFormat('HH:mm').format(packedOn),
+          'HSD': hsd == null ? '' : fullDate.format(hsd),
+          'So_Ngay_Dung': shelf != null && shelf > 0 ? '$shelf' : '',
+          'Tieu_De_In': 'TEM CÂN',
+        };
         posLabelDetail[label] = [
           '${_qtyFmt.format(pack.qty)} $_unit × ${_money.format(_unitPrice)}đ',
           'ĐG ${_dateFmt.format(packedOn)}',
@@ -196,7 +253,7 @@ class _PosScaleLabelDialogState extends State<_PosScaleLabelDialog> {
         labels.add(label);
       }
       if (!mounted) return;
-      await showPosBarcodeLabelDialog(context, labels);
+      await showPosBarcodeLabelDialog(context, labels, documentType: PosPrintDocumentTypes.scaleLabel);
     } finally {
       if (mounted) setState(() => _busy = false);
     }

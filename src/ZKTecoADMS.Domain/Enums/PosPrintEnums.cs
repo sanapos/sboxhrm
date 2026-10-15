@@ -31,6 +31,8 @@ public enum PosPrintDocumentType
     PaymentRequest = 22,
     /// <summary>Tem vận đơn (máy tem khổ lớn 100×150 / 80×80).</summary>
     ShippingLabel = 23,
+    /// <summary>Tem cân hàng tươi (khối lượng × đơn giá, mã cân EAN-13, ngày giờ in, HSD).</summary>
+    ScaleLabel = 24,
 }
 
 /// <summary>Loại kết nối máy in cửa hàng.</summary>
