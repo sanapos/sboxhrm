@@ -18,8 +18,25 @@ class TrayNotificationGuard {
     return true;
   }
 
+  /// Thông báo đã tới qua SignalR (đã hiện hoặc bị bỏ qua có chủ đích theo thiết lập).
+  static final Map<String, DateTime> _signalR = {};
+
+  static void markSignalRDelivered(String? notificationId) {
+    _purge();
+    if (notificationId == null || notificationId.isEmpty) return;
+    _signalR[notificationId] = DateTime.now();
+  }
+
+  /// FCM lúc app đang mở: chỉ tự hiện khi SignalR KHÔNG đưa tới (mất kết nối / kết nối «chết»).
+  static bool deliveredViaSignalR(String? notificationId) {
+    _purge();
+    if (notificationId == null || notificationId.isEmpty) return false;
+    return _signalR.containsKey(notificationId);
+  }
+
   static void _purge() {
     final now = DateTime.now();
     _shown.removeWhere((_, t) => now.difference(t) > _window);
+    _signalR.removeWhere((_, t) => now.difference(t) > _window);
   }
 }

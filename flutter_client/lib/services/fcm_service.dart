@@ -15,7 +15,11 @@ import '../screens/main_layout.dart' show ScreenRefreshNotifier;
 import '../utils/notification_display_utils.dart';
 import '../utils/notification_navigation.dart';
 import '../utils/pending_notification_launch.dart';
+import '../utils/tray_notification_guard.dart';
+import '../widgets/device_sync_progress_overlay.dart'
+    show DeviceSyncProgressManager;
 import 'api_service.dart';
+import 'system_notification_service.dart';
 
 /// Background message handler. Must be a top-level function.
 /// On iOS, this handler is only called for DATA-ONLY messages (no `notification` field).
@@ -244,15 +248,40 @@ class FcmService {
   }
 
   void _onForegroundMessage(RemoteMessage msg) {
-    // Khi app đang foreground, SignalR (`AttendanceHub` / `_handleNewNotification`
-    // trong main_layout.dart) đã đảm nhận hiển thị notification qua
-    // SystemNotificationService. Nếu hiện thêm local notif từ FCM ở đây sẽ
-    // gây trùng 2 thông báo. Khi app vào background/terminated, FCM SDK tự
-    // hiển thị system notification từ payload `notification` nên cũng không
-    // cần xử lý ở đây. Chỉ log debug.
-    if (kDebugMode) {
-      debugPrint('FCM fg (suppressed, handled by SignalR): ${msg.notification?.title}');
-    }
+    // App đang mở: SignalR (`_handleNewNotification` trong main_layout.dart) hiển thị
+    // thông báo; FCM ở đây chỉ là dự phòng. Trước đây bỏ hẳn → khi SignalR rớt / kết nối
+    // «chết» sau đổi mạng, người dùng không thấy gì dù server đã gửi FCM.
+    final notification = msg.notification;
+    if (notification == null) return; // badge_sync / data-only
+    final data = msg.data.map((k, v) => MapEntry(k, v.toString()));
+    final notificationId = data['notificationId'];
+    unawaited(Future<void>.delayed(const Duration(seconds: 3), () async {
+      if (TrayNotificationGuard.deliveredViaSignalR(notificationId)) {
+        if (kDebugMode) {
+          debugPrint('FCM fg (đã có qua SignalR): ${notification.title}');
+        }
+        return;
+      }
+      final entityLower = (data['relatedEntityType'] ?? '').toLowerCase();
+      final isAttendance = entityLower == 'attendance' ||
+          (data['categoryCode'] ?? '').toLowerCase() == 'attendance';
+      if (isAttendance &&
+          DeviceSyncProgressManager.shouldSuppressAttendanceNotifications) {
+        return;
+      }
+      if (kDebugMode) {
+        debugPrint('FCM fg fallback (SignalR không tới): ${notification.title}');
+      }
+      await SystemNotificationService().showGeneral(
+        title: notification.title ?? data['displayTitle'] ?? 'Thông báo',
+        message: notification.body ?? data['displayBody'] ?? '',
+        categoryLabel: data['categoryLabel'],
+        relatedEntityType: data['relatedEntityType'],
+        notificationId: notificationId,
+        relatedEntityId: data['relatedEntityId'],
+      );
+      ScreenRefreshNotifier.refreshNotificationCount();
+    }));
   }
 
   /// User tapped FCM system notification while app was in background or

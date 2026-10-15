@@ -251,7 +251,7 @@ public static class NotificationPushFormatter
         int? lateMinutes = null)
     {
         var device = string.IsNullOrWhiteSpace(deviceLabel) ? "Thiết bị" : deviceLabel.Trim();
-        var timeStr = attendanceTime.ToString("HH:mm:ss");
+        var timeStr = Helpers.VnTimeHelper.AttendanceWallClock(attendanceTime).ToString("HH:mm:ss");
         var parts = new List<string> { timeStr };
         var shift = shiftName?.Trim();
         if (!string.IsNullOrEmpty(shift))
@@ -265,6 +265,34 @@ public static class NotificationPushFormatter
         if (!string.IsNullOrEmpty(branch))
             parts.Add($"tại {branch}");
         return string.Join(" · ", parts);
+    }
+
+    /// <summary>
+    /// Push gộp nhiều lượt chấm (máy tải lên theo lô): 1 dòng / lượt "Họ tên · giờ", mới nhất trước.
+    /// Trước đây title là tên người mới nhất + body "3 lần chấm công mới" → không biết ai đã chấm.
+    /// </summary>
+    public static NotificationPushDisplay FormatAttendanceBatch(
+        IReadOnlyCollection<Notification> notifications,
+        string? deviceLabel = null)
+    {
+        var ordered = notifications.OrderByDescending(n => n.Timestamp).ToList();
+        if (ordered.Count == 1)
+            return Format(ordered[0]);
+
+        var lines = new List<string>();
+        foreach (var n in ordered)
+        {
+            var parts = (n.Message ?? string.Empty)
+                .Split('\n', StringSplitOptions.TrimEntries | StringSplitOptions.RemoveEmptyEntries);
+            var name = parts.Length > 0 ? parts[0] : "Nhân viên";
+            var time = parts.Length > 1 ? parts[1].Split(" · ")[0].Split(" - ")[0].Trim() : string.Empty;
+            lines.Add(string.IsNullOrEmpty(time) ? name : $"{name} · {time}");
+        }
+
+        var title = string.IsNullOrWhiteSpace(deviceLabel)
+            ? $"Chấm công · {ordered.Count} lượt mới"
+            : $"Chấm công · {ordered.Count} lượt mới · {deviceLabel.Trim()}";
+        return new(title, string.Join('\n', lines), null, "Chấm công");
     }
 
     private static NotificationPushDisplay FormatAttendanceDisplay(string rawMessage, string? sender)
@@ -307,6 +335,12 @@ public static class NotificationPushFormatter
         if (string.IsNullOrWhiteSpace(detail))
             return "Chấm công";
 
+        // Định dạng hiện tại (FormatAttendanceDetailLine): "08:01:02 · Ca Sáng · Đúng giờ · Máy A · tại CN1"
+        // — đã gọn sẵn. Trước đây rơi vào nhánh " tại " bên dưới → "… · Máy A · · CN1".
+        if (detail.Contains(" · ", StringComparison.Ordinal))
+            return detail;
+
+        // Định dạng cũ: "18:02:30 - SN123456789 tại Chi nhánh".
         const string taiMarker = " tại ";
         var taiIdx = detail.IndexOf(taiMarker, StringComparison.Ordinal);
         if (taiIdx >= 0)

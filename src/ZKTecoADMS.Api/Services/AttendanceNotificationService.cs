@@ -564,10 +564,8 @@ public class AttendanceNotificationService : IAttendanceNotificationService
                 if (list.Count == 0) continue;
 
                 var latest = list.OrderByDescending(n => n.Timestamp).First();
-                var display = NotificationPushFormatter.Format(latest);
-                var body = list.Count == 1
-                    ? display.Body
-                    : $"{list.Count} lần chấm công mới\n{deviceLabel}";
+                var display = NotificationPushFormatter.FormatAttendanceBatch(list, deviceLabel);
+                var body = display.Body;
 
                 var pushData = NotificationDtoMapper.ToFcmData(latest, new Dictionary<string, string>
                 {

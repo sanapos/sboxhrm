@@ -1,3 +1,4 @@
+import '../utils/tray_notification_guard.dart';
 import '../utils/pos_sell_settings_helper.dart';
 import '../services/branch_session.dart';
 import '../utils/module_deep_link_stub.dart'
@@ -1258,7 +1259,12 @@ class _MainLayoutState extends State<MainLayout> with WidgetsBindingObserver {
     final backgroundedAt =
         _lastBackgroundedAt!.subtract(const Duration(seconds: 3));
     final suppressUntil = _lastForegroundedAt!.add(const Duration(seconds: 15));
+    // Chỉ chặn thông báo tạo TRONG lúc app ở nền (FCM đã hiện). Trước đây cả thông báo
+    // mới tạo sau khi mở lại app (trong 15s đầu) cũng bị chặn → không hiện ở đâu cả,
+    // vì FCM lúc foreground cũng tắt hiển thị.
+    final foregroundedAt = _lastForegroundedAt!.add(const Duration(seconds: 1));
     return notifTs.isAfter(backgroundedAt) &&
+        notifTs.isBefore(foregroundedAt) &&
         DateTime.now().isBefore(suppressUntil);
   }
 
@@ -1272,6 +1278,7 @@ class _MainLayoutState extends State<MainLayout> with WidgetsBindingObserver {
       final relatedEntityType = data['relatedEntityType'] as String?;
       final entityTypeLower = relatedEntityType?.toLowerCase();
       final notificationId = data['id']?.toString();
+      TrayNotificationGuard.markSignalRDelivered(notificationId);
 
       // Cập nhật số thông báo chưa đọc từ server (chính xác hơn local increment)
       _loadNotificationCount();
@@ -1386,6 +1393,8 @@ class _MainLayoutState extends State<MainLayout> with WidgetsBindingObserver {
   void _handleCommunicationEvent(Map<String, dynamic> data) {
     if (!mounted) return;
     debugPrint('📡 Communication event received: $data');
+    TrayNotificationGuard.markSignalRDelivered(
+        data['notificationId']?.toString() ?? data['id']?.toString());
 
     final title = data['title'] as String? ?? 'Tin nhắn mới';
     final message =

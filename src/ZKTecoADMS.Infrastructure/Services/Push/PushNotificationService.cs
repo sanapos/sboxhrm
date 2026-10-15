@@ -55,10 +55,13 @@ public sealed class PushNotificationService : IPushNotificationService
         string? androidTag = null,
         CancellationToken ct = default)
     {
-        if (!_firebase.IsAvailable) return 0;
-
         var idList = userIds as IList<Guid> ?? userIds.ToList();
         if (idList.Count == 0) return 0;
+        if (!_firebase.IsAvailable)
+        {
+            _logger.LogWarning("FCM skipped (Firebase chưa cấu hình): '{Title}' → {Users} người", title, idList.Count);
+            return 0;
+        }
 
         // Cài đặt đẩy theo tài khoản: tắt đẩy / giờ yên lặng.
         var settings = await _db.UserNotificationSettings.AsNoTracking()
@@ -71,7 +74,13 @@ public sealed class PushNotificationService : IPushNotificationService
             .Select(t => new { t.Id, t.Token, t.UserId })
             .ToListAsync(ct);
         tokens = tokens.Where(t => !pushOff.Contains(t.UserId)).ToList();
-        if (tokens.Count == 0) return 0;
+        if (tokens.Count == 0)
+        {
+            _logger.LogInformation(
+                "FCM skipped '{Title}': {Users} người, không có token hoạt động (tắt đẩy: {PushOff})",
+                title, idList.Count, pushOff.Count);
+            return 0;
+        }
 
         var urgent = NotificationQuietRules.IsUrgent(
             data != null && data.TryGetValue("notificationType", out var nt) ? nt : null,
@@ -169,14 +178,15 @@ public sealed class PushNotificationService : IPushNotificationService
                             var sr = resp.Responses[r];
                             if (sr.IsSuccess) continue;
                             var ec = sr.Exception?.MessagingErrorCode;
-                            if (ec == MessagingErrorCode.Unregistered || ec == MessagingErrorCode.InvalidArgument)
+                            if (IsDeadToken(ec, resp.SuccessCount))
                             {
                                 invalidTokenIds.Add(chunk[r].Id);
                             }
                             else
                             {
                                 _logger.LogWarning(sr.Exception,
-                                    "FCM transient failure for token {TokenId}: {Code}", chunk[r].Id, ec);
+                                    "FCM failure for token {TokenId} (user {UserId}): {Code}",
+                                    chunk[r].Id, userGroup.Key, ec);
                             }
                         }
                     }
@@ -206,8 +216,22 @@ public sealed class PushNotificationService : IPushNotificationService
                 .ExecuteUpdateAsync(s => s.SetProperty(t => t.LastUsedAt, DateTime.UtcNow), ct);
         }
 
+        _logger.LogInformation(
+            "FCM '{Title}': {Users} người, {Tokens} token, thành công {Success}, token hỏng {Invalid}",
+            title, idList.Count, tokens.Count, success, invalidTokenIds.Count);
         return success;
     }
+
+    /// <summary>
+    /// Token chết thật → tắt để không gửi lại. Unregistered luôn là token chết.
+    /// InvalidArgument có thể do token sai HOẶC do payload (quá lớn, khóa data cấm…): chỉ coi là
+    /// token chết khi cùng lô có token khác nhận thành công (payload hợp lệ). Trước đây mọi
+    /// InvalidArgument đều tắt token → một payload lỗi làm người dùng mất push vĩnh viễn
+    /// cho tới khi đăng nhập lại.
+    /// </summary>
+    public static bool IsDeadToken(MessagingErrorCode? code, int successInSameBatch) =>
+        code == MessagingErrorCode.Unregistered
+        || (code == MessagingErrorCode.InvalidArgument && successInSameBatch > 0);
 
     public Task ClearBadgeAsync(Guid userId, CancellationToken ct = default) => SendBadgeAsync(userId, 0, ct);
 
