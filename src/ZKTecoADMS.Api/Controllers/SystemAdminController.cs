@@ -1524,6 +1524,11 @@ public class SystemAdminController : AuthenticatedControllerBase
     {
         try
         {
+            var invalid = await ValidateLicenseSpecAsync(
+                request.DurationDays, request.MaxUsers, request.MaxDevices, request.ServicePackageId);
+            if (invalid != null)
+                return BadRequest(AppResponse<LicenseKeyDto>.Fail(invalid));
+
             // Generate unique key
             var key = GenerateLicenseKey(request.LicenseType);
 
@@ -1572,6 +1577,14 @@ public class SystemAdminController : AuthenticatedControllerBase
     {
         try
         {
+            if (request.Count is < 1 or > MaxLicenseBatch)
+                return BadRequest(AppResponse<List<LicenseKeyDto>>.Fail(
+                    $"Số lượng key mỗi lần tạo phải từ 1 đến {MaxLicenseBatch}"));
+            var invalid = await ValidateLicenseSpecAsync(
+                request.DurationDays, request.MaxUsers, request.MaxDevices, request.ServicePackageId);
+            if (invalid != null)
+                return BadRequest(AppResponse<List<LicenseKeyDto>>.Fail(invalid));
+
             var licenses = new List<LicenseKey>();
 
             for (int i = 0; i < request.Count; i++)
@@ -1899,45 +1912,27 @@ public class SystemAdminController : AuthenticatedControllerBase
     {
         try
         {
-            var store = await _dbContext.Stores.FindAsync(request.StoreId);
+            var store = await _dbContext.Stores.AsTracking().FirstOrDefaultAsync(s => s.Id == request.StoreId);
             if (store == null)
                 return NotFound(AppResponse<BatchAssignResult>.Fail("Store not found"));
                 
-            // Only get one available license for the store (takes the first matching one)
-            var license = await _dbContext.LicenseKeys
-                .AsTracking()
-                .Where(l => request.LicenseKeyIds.Contains(l.Id) && !l.IsUsed && l.IsActive)
-                .FirstOrDefaultAsync();
-                
+            // Kích 1 key hợp lệ trong danh sách — cùng đường kích hoạt chuẩn (cộng nối ngày, đúng phạm vi đại lý,
+            // transaction). Trước đây đặt hạn = hôm nay + số ngày → mất phần ngày còn lại của cửa hàng.
+            var candidates = await LicenseKeyActivationHelper
+                .FilterActivatableForStore(
+                    _dbContext.LicenseKeys.AsNoTracking().Where(l => request.LicenseKeyIds.Contains(l.Id)),
+                    store)
+                .OrderBy(l => l.CreatedAt)
+                .ToListAsync();
+            var license = candidates.FirstOrDefault();
             if (license == null)
-                return BadRequest(AppResponse<BatchAssignResult>.Fail("Không có key hợp lệ"));
-                
-            // Activate license for store — giữ key nguyên tử trước (chống kích hoạt trùng)
-            if (!await LicenseKeyClaim.TryClaimAsync(_dbContext, license.Id, request.StoreId))
-                return BadRequest(AppResponse<BatchAssignResult>.Fail(LicenseKeyClaim.AlreadyUsedMessage));
-            license.IsUsed = true;
-            license.StoreId = request.StoreId;
-            license.ActivatedAt = DateTime.UtcNow;
-            license.UpdatedAt = DateTime.UtcNow;
-            license.UpdatedBy = CurrentUserId.ToString();
-            
-            // Update store subscription
-            store.LicenseKey = license.Key;
-            store.LicenseType = license.LicenseType;
-            store.MaxUsers = license.MaxUsers;
-            store.MaxDevices = license.MaxDevices;
-            store.ExpiryDate = DateTime.UtcNow.AddDays(license.DurationDays);
-            store.IsActive = true;
-            store.IsLocked = false;
-            store.UpdatedAt = DateTime.UtcNow;
-            if (license.ServicePackageId != null)
-            {
-                store.ServicePackageId = license.ServicePackageId;
-                var pkg = await _dbContext.ServicePackages.FindAsync(license.ServicePackageId);
-                if (pkg != null) StorePackageHelper.ApplyToStore(store, pkg);
-            }
-            
-            await _dbContext.SaveChangesAsync();
+                return BadRequest(AppResponse<BatchAssignResult>.Fail("Không có key hợp lệ cho cửa hàng này"));
+
+            var outcome = await LicenseKeyActivator.ActivateAsync(
+                _dbContext, store, [license.Key], actingAgentId: null, CurrentUserId.ToString());
+            if (!outcome.Ok)
+                return BadRequest(AppResponse<BatchAssignResult>.Fail(outcome.Error!));
+            await InvalidateRenewalAlertsAsync(store, sendSuccessNotification: false);
             _logger.LogInformation("SuperAdmin {UserId} activated License {Key} for Store {StoreId}", CurrentUserId, license.Key, request.StoreId);
             
             return Ok(AppResponse<BatchAssignResult>.Success(new BatchAssignResult(1, new List<Guid>())));
@@ -2144,70 +2139,16 @@ public class SystemAdminController : AuthenticatedControllerBase
                 return NotFound(AppResponse<StoreDetailDto>.Fail("Store not found"));
             }
 
-            var license = await _dbContext.LicenseKeys
-                .AsTracking()
-                .Include(l => l.ServicePackage)
-                .FirstOrDefaultAsync(l => l.Key == request.LicenseKey && l.IsActive && !l.IsUsed);
-
-            if (license == null)
-            {
-                return BadRequest(AppResponse<StoreDetailDto>.Fail("License key không hợp lệ hoặc đã được sử dụng"));
-            }
-
-            if (!LicenseKeyActivationHelper.CanActivateForStore(license, store))
-            {
-                return BadRequest(AppResponse<StoreDetailDto>.Fail(
-                    LicenseKeyActivationHelper.InvalidScopeMessage));
-            }
-
-            // Kiểm tra giới hạn gia hạn: lần đầu kích hoạt (chưa có LicenseKey) không tính
-            var isFirstActivation = string.IsNullOrEmpty(store.LicenseKey);
-            if (!isFirstActivation && store.RenewalCount >= 3)
-            {
-                return BadRequest(AppResponse<StoreDetailDto>.Fail(
-                    "Cửa hàng đã gia hạn tối đa 3 lần. Không thể kích hoạt thêm key."));
-            }
-
-            // Activate license — giữ key nguyên tử trước (chống kích hoạt trùng)
-            if (!await LicenseKeyClaim.TryClaimAsync(_dbContext, license.Id, storeId))
-                return BadRequest(AppResponse<StoreDetailDto>.Fail(LicenseKeyClaim.AlreadyUsedMessage));
-            license.IsUsed = true;
-            license.StoreId = storeId;
-            license.ActivatedAt = DateTime.UtcNow;
-
-            // Cộng thêm ngày sử dụng (không reset)
-            store.ExpiryDate = StoreLicenseHelper.ComputeExtendedExpiryDate(store, license.DurationDays);
-
-            // Cập nhật thông tin license & gói dịch vụ từ key
-            store.LicenseKey = license.Key;
-            store.LicenseType = license.LicenseType;
-            store.MaxUsers = license.MaxUsers;
-            store.MaxDevices = license.MaxDevices;
-
-            if (license.ServicePackageId != null)
-            {
-                store.ServicePackageId = license.ServicePackageId;
-                var pkg = await _dbContext.ServicePackages.FindAsync(license.ServicePackageId);
-                if (pkg != null) StorePackageHelper.ApplyToStore(store, pkg);
-            }
-
-            // Tăng số lần gia hạn (lần đầu không tính)
-            if (!isFirstActivation)
-            {
-                store.RenewalCount++;
-            }
-
-            store.IsActive = true;
-            store.IsLocked = false;
-            store.LockReason = null;
-            store.UpdatedAt = DateTime.UtcNow;
-
-            await _dbContext.SaveChangesAsync();
+            var outcome = await LicenseKeyActivator.ActivateAsync(
+                _dbContext, store, [request.LicenseKey], actingAgentId: null, CurrentUserId.ToString());
+            if (!outcome.Ok)
+                return BadRequest(AppResponse<StoreDetailDto>.Fail(outcome.Error!));
+            var license = outcome.Keys[0];
 
             await InvalidateRenewalAlertsAsync(store, sendSuccessNotification: false);
 
-            _logger.LogInformation("SuperAdmin {UserId} activated License {Key} for Store {StoreId} (renewal #{Count})", 
-                CurrentUserId, license.Key, storeId, store.RenewalCount);
+            _logger.LogInformation("SuperAdmin {UserId} activated License {Key} for Store {StoreId}",
+                CurrentUserId, license.Key, storeId);
 
             // Thông báo cho chủ cửa hàng về việc kích hoạt key
             try
@@ -3279,6 +3220,24 @@ public class SystemAdminController : AuthenticatedControllerBase
         {
             _logger.LogWarning(ex, "Failed to invalidate renewal alerts for store {StoreId}", store.Id);
         }
+    }
+
+    private const int MaxLicenseBatch = 1000;
+    private const int MaxLicenseDays = 3660;
+
+    /// <summary>
+    /// Key 0 ngày / âm trước đây vẫn tạo được → khi kích, cửa hàng không được cộng ngày mà key bị tính đã dùng.
+    /// </summary>
+    private async Task<string?> ValidateLicenseSpecAsync(int durationDays, int maxUsers, int maxDevices, Guid? servicePackageId)
+    {
+        if (durationDays is < 1 or > MaxLicenseDays)
+            return $"Số ngày sử dụng của key phải từ 1 đến {MaxLicenseDays}";
+        if (maxUsers < 0 || maxDevices < 0)
+            return "Số người dùng / thiết bị tối đa không được âm";
+        if (servicePackageId.HasValue &&
+            !await _dbContext.ServicePackages.AnyAsync(p => p.Id == servicePackageId.Value))
+            return "Gói dịch vụ của key không tồn tại";
+        return null;
     }
 
     private static string GenerateLicenseKey(LicenseType type)
@@ -5012,98 +4971,38 @@ public class SystemAdminController : AuthenticatedControllerBase
             if (request.LicenseKeys == null || request.LicenseKeys.Count == 0)
                 return BadRequest(AppResponse<BulkActivationResultDto>.Fail("Chưa nhập license key nào"));
 
-            // Tìm tất cả key hợp lệ
-            var licenses = await _dbContext.LicenseKeys
-                .AsTracking()
-                .Include(l => l.ServicePackage)
-                .Where(l => request.LicenseKeys.Contains(l.Key) && l.IsActive && !l.IsUsed)
-                .ToListAsync();
-
-            if (licenses.Count == 0)
-                return BadRequest(AppResponse<BulkActivationResultDto>.Fail("Không có key hợp lệ hoặc đã được sử dụng"));
-
-            foreach (var license in licenses)
-            {
-                if (!LicenseKeyActivationHelper.CanActivateForStore(license, store))
+            // Tất cả hoặc không: key nào sai / đã dùng / sai phạm vi → báo rõ, không kích key nào.
+            // Trước đây key không hợp lệ bị bỏ qua lặng lẽ và key không được giữ nguyên tử (kích trùng được).
+            KeyActivationPromotion? promo = null;
+            var outcome = await LicenseKeyActivator.ActivateAsync(
+                _dbContext, store, request.LicenseKeys, actingAgentId: null, CurrentUserId.ToString(),
+                bonusDaysResolver: async (packageId, keyCount) =>
                 {
-                    return BadRequest(AppResponse<BulkActivationResultDto>.Fail(
-                        $"{LicenseKeyActivationHelper.InvalidScopeMessage} (Key: {license.Key})"));
-                }
-            }
+                    if (packageId == null) return 0;
+                    var now = DateTime.UtcNow;
+                    promo = await _dbContext.KeyActivationPromotions.AsNoTracking()
+                        .Where(p => p.ServicePackageId == packageId.Value
+                            && p.IsActive
+                            && p.StartDate <= now
+                            && p.EndDate >= now)
+                        .FirstOrDefaultAsync();
+                    if (promo == null) return 0;
+                    return keyCount switch
+                    {
+                        1 => promo.Bonus1Key,
+                        2 => promo.Bonus2Keys,
+                        3 => promo.Bonus3Keys,
+                        _ => promo.Bonus4Keys  // >= 4 keys
+                    };
+                });
+            if (!outcome.Ok)
+                return BadRequest(AppResponse<BulkActivationResultDto>.Fail(outcome.Error!));
 
-            // Kiểm tra tất cả key cùng 1 gói
-            var packageIds = licenses.Select(l => l.ServicePackageId).Where(id => id != null).Distinct().ToList();
-            if (packageIds.Count > 1)
-                return BadRequest(AppResponse<BulkActivationResultDto>.Fail(
-                    "Tất cả key phải cùng một gói dịch vụ. Không thể kích key thuộc nhiều gói khác nhau."));
-
-            // Ưu tiên packageId từ key, nếu không có thì lấy từ store
-            var packageId = packageIds.FirstOrDefault() ?? store.ServicePackageId;
-
-            // Tính tổng ngày từ tất cả key
-            var totalDays = licenses.Sum(l => l.DurationDays);
+            var licenses = outcome.Keys;
             var keyCount = licenses.Count;
-
-            // Tìm chương trình khuyến mãi đang áp dụng
-            var now = DateTime.UtcNow;
-            var promo = packageId != null
-                ? await _dbContext.KeyActivationPromotions
-                    .Where(p => p.ServicePackageId == packageId.Value
-                        && p.IsActive
-                        && p.StartDate <= now
-                        && p.EndDate >= now)
-                    .FirstOrDefaultAsync()
-                : null;
-
-            // Tính bonus theo số lượng key
-            int bonusDays = 0;
-            if (promo != null)
-            {
-                bonusDays = keyCount switch
-                {
-                    1 => promo.Bonus1Key,
-                    2 => promo.Bonus2Keys,
-                    3 => promo.Bonus3Keys,
-                    _ => promo.Bonus4Keys  // >= 4 keys
-                };
-            }
-
-            // Kiểm tra lần đầu kích hoạt TRƯỚC khi cập nhật LicenseKey
-            var isFirstActivation = string.IsNullOrEmpty(store.LicenseKey);
-
-            // Kích hoạt tất cả key
-            foreach (var license in licenses)
-            {
-                license.IsUsed = true;
-                license.StoreId = storeId;
-                license.ActivatedAt = DateTime.UtcNow;
-                license.UpdatedAt = DateTime.UtcNow;
-                license.UpdatedBy = CurrentUserId.ToString();
-            }
-
-            // Cộng ngày: tổng ngày key + bonus khuyến mãi
-            store.ExpiryDate = StoreLicenseHelper.ComputeExtendedExpiryDate(store, totalDays + bonusDays);
-
-            // Cập nhật store từ key cuối cùng
-            var lastLicense = licenses.Last();
-            store.LicenseKey = string.Join(", ", licenses.Select(l => l.Key));
-            store.LicenseType = lastLicense.LicenseType;
-            store.MaxUsers = licenses.Max(l => l.MaxUsers);
-            store.MaxDevices = licenses.Max(l => l.MaxDevices);
-
-            if (packageId != null)
-                store.ServicePackageId = packageId;
-
-            if (!isFirstActivation)
-                store.RenewalCount++;
-
-            store.IsActive = true;
-            store.IsLocked = false;
-            store.LockReason = null;
-            store.UpdatedAt = DateTime.UtcNow;
-            store.UpdatedBy = CurrentUserId.ToString();
-
-            await _dbContext.SaveChangesAsync();
+            var totalDays = outcome.KeyDays;
+            var bonusDays = outcome.BonusDays;
+            var lastLicense = licenses[^1];
 
             await InvalidateRenewalAlertsAsync(store, sendSuccessNotification: false);
 

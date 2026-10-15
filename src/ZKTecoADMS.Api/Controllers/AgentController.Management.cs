@@ -323,7 +323,8 @@ public partial class AgentController
                     .Include(l => l.Store)
                     .Include(l => l.Agent)
                     .Include(l => l.ServicePackage),
-                store)
+                store,
+                agent.Id)
             .OrderByDescending(l => l.CreatedAt)
             .Take(500)
             .ToListAsync();
@@ -362,68 +363,11 @@ public partial class AgentController
         if (store == null)
             return NotFound(AppResponse<StoreDetailDto>.Fail("Không tìm thấy cửa hàng"));
 
-        var license = await _dbContext.LicenseKeys
-            .AsTracking()
-            .Include(l => l.ServicePackage)
-            .FirstOrDefaultAsync(l =>
-                l.Key == request.LicenseKey &&
-                l.IsActive &&
-                !l.IsUsed);
-
-        if (license == null)
-        {
-            return BadRequest(AppResponse<StoreDetailDto>.Fail(
-                "License key không hợp lệ hoặc đã được sử dụng"));
-        }
-
-        if (!LicenseKeyActivationHelper.CanActivateForStore(license, store))
-        {
-            return BadRequest(AppResponse<StoreDetailDto>.Fail(
-                LicenseKeyActivationHelper.InvalidScopeMessage));
-        }
-
-        if (license.AgentId.HasValue && license.AgentId != agent.Id)
-        {
-            return BadRequest(AppResponse<StoreDetailDto>.Fail(
-                "License key không thuộc đại lý này"));
-        }
-
-        var isFirstActivation = string.IsNullOrEmpty(store.LicenseKey);
-        if (!isFirstActivation && store.RenewalCount >= 3)
-        {
-            return BadRequest(AppResponse<StoreDetailDto>.Fail(
-                "Cửa hàng đã gia hạn tối đa 3 lần. Không thể kích hoạt thêm key."));
-        }
-
-        if (!await ZKTecoADMS.Infrastructure.Helpers.LicenseKeyClaim.TryClaimAsync(_dbContext, license.Id, storeId))
-            return BadRequest(AppResponse<StoreDetailDto>.Fail(ZKTecoADMS.Infrastructure.Helpers.LicenseKeyClaim.AlreadyUsedMessage));
-        license.IsUsed = true;
-        license.StoreId = storeId;
-        license.ActivatedAt = DateTime.UtcNow;
-
-        store.ExpiryDate = StoreLicenseHelper.ComputeExtendedExpiryDate(store, license.DurationDays);
-        store.LicenseKey = license.Key;
-        store.LicenseType = license.LicenseType;
-        store.MaxUsers = license.MaxUsers;
-        store.MaxDevices = license.MaxDevices;
-
-        if (license.ServicePackageId != null)
-        {
-            store.ServicePackageId = license.ServicePackageId;
-            var pkg = await _dbContext.ServicePackages.FindAsync(license.ServicePackageId);
-            if (pkg != null) ZKTecoADMS.Infrastructure.Helpers.StorePackageHelper.ApplyToStore(store, pkg);
-        }
-
-        if (!isFirstActivation)
-            store.RenewalCount++;
-
-        store.IsActive = true;
-        store.IsLocked = false;
-        store.LockReason = null;
-        store.UpdatedAt = DateTime.UtcNow;
-        store.UpdatedBy = CurrentUserId.ToString();
-
-        await _dbContext.SaveChangesAsync();
+        var outcome = await ZKTecoADMS.Infrastructure.Helpers.LicenseKeyActivator.ActivateAsync(
+            _dbContext, store, [request.LicenseKey], agent.Id, CurrentUserId.ToString());
+        if (!outcome.Ok)
+            return BadRequest(AppResponse<StoreDetailDto>.Fail(outcome.Error!));
+        var license = outcome.Keys[0];
 
         _logger.LogInformation(
             "Agent {UserId} activated license {Key} for store {StoreId}",

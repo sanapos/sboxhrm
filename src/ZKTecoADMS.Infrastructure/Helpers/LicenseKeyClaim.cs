@@ -15,7 +15,7 @@ public static class LicenseKeyClaim
         if (!db.Database.IsRelational()) return true;
         var now = DateTime.UtcNow;
         var n = await db.LicenseKeys
-            .Where(l => l.Id == licenseId && !l.IsUsed)
+            .Where(l => l.Id == licenseId && !l.IsUsed && l.IsActive)
             .ExecuteUpdateAsync(u => u
                 .SetProperty(l => l.IsUsed, true)
                 .SetProperty(l => l.StoreId, storeId)

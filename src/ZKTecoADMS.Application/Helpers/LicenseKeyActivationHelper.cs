@@ -23,10 +23,19 @@ public static class LicenseKeyActivationHelper
         return store.AgentId.HasValue && license.AgentId.Value == store.AgentId.Value;
     }
 
+    /// <param name="actingAgentId">Đại lý đang xem: chỉ key đã cấp cho đại lý đó (không lộ kho key chưa cấp).</param>
     public static IQueryable<LicenseKey> FilterActivatableForStore(
         IQueryable<LicenseKey> query,
-        Store store)
+        Store store,
+        Guid? actingAgentId = null)
     {
+        if (actingAgentId.HasValue)
+        {
+            var agentId = actingAgentId.Value;
+            return query.Where(l => l.IsActive && !l.IsUsed && l.AgentId == agentId
+                                    && store.AgentId == agentId);
+        }
+
         return query.Where(l =>
             l.IsActive &&
             !l.IsUsed &&
