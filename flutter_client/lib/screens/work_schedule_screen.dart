@@ -89,8 +89,11 @@ class _WorkScheduleScreenState extends State<WorkScheduleScreen>
         _selectedBranchId!,
         _branches,
       );
+      // Nhân viên chưa gắn chi nhánh = thuộc trụ sở (như các màn khác). Trước đây bị loại hẳn →
+      // đang xem một chi nhánh thì bấm vào ca không còn ai để xếp (cửa hàng có 1 chi nhánh mặc định
+      // nhưng nhân viên nhập trước khi bật chi nhánh).
       list = list
-          .where((e) => e.branchId != null && ids.contains(e.branchId))
+          .where((e) => BranchFilterHelper.branchMatches(e.branchId, ids))
           .toList();
     }
     if (_selectedDepartment == null) return list;
