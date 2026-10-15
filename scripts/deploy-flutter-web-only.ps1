@@ -72,7 +72,9 @@ function Publish-FlutterWeb {
     Push-Location "$RepoRoot\flutter_client\build"
     if (-not (Test-Path "web\index.html")) { throw "Flutter web build output missing" }
     if (Test-Path $tarPath) { Remove-Item $tarPath -Force }
-    tar -czf $tarPath web
+    # tar.exe của Windows: chạy từ Git Bash thì «tar» trong PATH là GNU tar, hiểu «E:\...» là máy chủ từ xa → hỏng gói.
+    & "$env:SystemRoot\System32\tar.exe" -czf $tarPath web
+    if ($LASTEXITCODE -ne 0) { throw "tar failed (exit $LASTEXITCODE)" }
     Pop-Location
 
     Write-Host "==> Upload to $Server ($Site)..."
