@@ -774,6 +774,16 @@ class PosSunmiNativePrint {
   static Future<void> _printCompiledBarcode(PosPrintCompiledBarcode barcode) async {
     final data = barcode.data.trim();
     if (data.isEmpty) return;
+    if (barcode.qr) {
+      try {
+        await SunmiPrinter.printQRCode(data, style: SunmiQrcodeStyle(qrcodeSize: 6));
+        if (barcode.showText) await _center(data, size: 18);
+      } catch (e) {
+        debugPrint('Sunmi QR failed, fallback text: $e');
+        await _center(data, size: 18);
+      }
+      return;
+    }
     try {
       await SunmiPrinter.printBarCode(
         data,

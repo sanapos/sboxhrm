@@ -130,7 +130,8 @@ public partial class PosPrintersController
         var labelish = routes.Any(t =>
             t.Equals("KitchenLabel", StringComparison.OrdinalIgnoreCase) ||
             t.Equals("BarcodeLabel", StringComparison.OrdinalIgnoreCase) ||
-            t.Equals("ScaleLabel", StringComparison.OrdinalIgnoreCase));
+            t.Equals("ScaleLabel", StringComparison.OrdinalIgnoreCase) ||
+            t.Equals("SpecLabel", StringComparison.OrdinalIgnoreCase));
         var kitchenish = routes.Any(t =>
             t.Equals("KitchenSlip", StringComparison.OrdinalIgnoreCase) ||
             t.Equals("KitchenVoid", StringComparison.OrdinalIgnoreCase) ||

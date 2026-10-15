@@ -34,6 +34,7 @@ const posPrintDocGroups = <PosPrintDocGroup>[
     PosPrintDocumentTypes.kitchenLabel,
     PosPrintDocumentTypes.barcodeLabel,
     PosPrintDocumentTypes.scaleLabel,
+    PosPrintDocumentTypes.specLabel,
   ]),
   PosPrintDocGroup('Kho hàng', Icons.warehouse_outlined, [
     PosPrintDocumentTypes.purchaseOrder,
@@ -79,6 +80,7 @@ IconData posPrintDocIcon(String type) => switch (type) {
       PosPrintDocumentTypes.kitchenLabel => Icons.local_cafe_outlined,
       PosPrintDocumentTypes.barcodeLabel => Icons.qr_code_2,
       PosPrintDocumentTypes.scaleLabel => Icons.scale_outlined,
+      PosPrintDocumentTypes.specLabel => Icons.qr_code_2,
       PosPrintDocumentTypes.purchaseOrder => Icons.request_page_outlined,
       PosPrintDocumentTypes.purchaseReceipt => Icons.move_to_inbox_outlined,
       PosPrintDocumentTypes.purchaseReturn => Icons.outbox_outlined,

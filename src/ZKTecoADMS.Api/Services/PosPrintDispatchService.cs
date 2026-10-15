@@ -1283,7 +1283,7 @@ public class PosPrintDispatchService(
             // Chuyển máy: tem (ly / mã vạch) chỉ sang máy in tem, phiếu thường không sang máy tem
             // (trước đây chuyển tem sang Sunmi → lỗi UNSUPPORTED_ON_SUNMI).
             var labelDoc = job.DocumentType is PosPrintDocumentType.KitchenLabel or PosPrintDocumentType.BarcodeLabel
-                or PosPrintDocumentType.ScaleLabel;
+                or PosPrintDocumentType.ScaleLabel or PosPrintDocumentType.SpecLabel;
             var labelPrinter = string.Equals(printer.PrinterBrand, "label", StringComparison.OrdinalIgnoreCase);
             if (labelDoc && !labelPrinter)
                 throw new InvalidOperationException($"«{printer.Name}» không phải máy in tem — chọn máy in tem");
@@ -1579,6 +1579,7 @@ public class PosPrintDispatchService(
             PosPrintDocumentType.KitchenLabel,
             PosPrintDocumentType.BarcodeLabel,
             PosPrintDocumentType.ScaleLabel,
+            PosPrintDocumentType.SpecLabel,
             PosPrintDocumentType.KitchenSlip,
             PosPrintDocumentType.KitchenVoid,
         };

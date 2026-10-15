@@ -21,6 +21,7 @@ public static class PosPrintTemplateDefaults
         PosPrintDocumentType.KitchenVoid => "PHIẾU HỦY BẾP",
         PosPrintDocumentType.BarcodeLabel => "TEM SẢN PHẨM",
         PosPrintDocumentType.ScaleLabel => "TEM CÂN",
+        PosPrintDocumentType.SpecLabel => "TEM THÔNG SỐ",
         PosPrintDocumentType.KitchenLabel => "TEM BÁO BẾP",
         PosPrintDocumentType.CashReceipt => "PHIẾU THU",
         PosPrintDocumentType.CashPayment => "PHIẾU CHI",
@@ -66,7 +67,7 @@ public static class PosPrintTemplateDefaults
     public static IReadOnlyList<CatalogSpec> CatalogSpecs(PosPrintDocumentType docType)
     {
         if (docType is PosPrintDocumentType.BarcodeLabel or PosPrintDocumentType.KitchenLabel
-            or PosPrintDocumentType.ScaleLabel)
+            or PosPrintDocumentType.ScaleLabel or PosPrintDocumentType.SpecLabel)
         {
             return new[]
             {
@@ -113,7 +114,8 @@ public static class PosPrintTemplateDefaults
     public static string BuildHtml(PosPrintDocumentType docType, PosPrintPaperSize paperSize)
     {
         var title = DocumentTitle(docType);
-        if (docType == PosPrintDocumentType.BarcodeLabel)
+        // Tem thông số: mẫu HTML cũ dùng chung tem sản phẩm (mẫu V2 dựng sẵn do app tạo).
+        if (docType is PosPrintDocumentType.BarcodeLabel or PosPrintDocumentType.SpecLabel)
             return BuildProductLabelHtml(paperSize);
         if (docType == PosPrintDocumentType.KitchenLabel)
             return BuildKitchenLabelHtml(paperSize);

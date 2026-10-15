@@ -392,13 +392,24 @@ class _PosPrintExactPreviewState extends State<PosPrintExactPreview> {
       Padding(
         padding: EdgeInsets.symmetric(vertical: 6 * k),
         child: Column(children: [
-          SizedBox(
-            width: displayW * 0.62,
-            height: b.height * k,
-            child: CustomPaint(painter: _BarcodePainter(b.data)),
-          ),
+          if (b.qr)
+            SizedBox(
+              width: b.height * 1.6 * k,
+              height: b.height * 1.6 * k,
+              child: CustomPaint(painter: _BarcodePainter(b.data, qr: true)),
+            )
+          else
+            SizedBox(
+              width: displayW * 0.62,
+              height: b.height * k,
+              child: CustomPaint(painter: _BarcodePainter(b.data)),
+            ),
           if (b.showText)
-            Text(b.data, style: TextStyle(fontFamily: 'BeVietnamPro', fontSize: 20 * k, color: Colors.black)),
+            Text(b.data,
+                textAlign: TextAlign.center,
+                maxLines: b.qr ? 2 : 1,
+                overflow: TextOverflow.ellipsis,
+                style: TextStyle(fontFamily: 'BeVietnamPro', fontSize: (b.qr ? 14 : 20) * k, color: Colors.black)),
         ]),
       ),
     );
@@ -406,13 +417,15 @@ class _PosPrintExactPreviewState extends State<PosPrintExactPreview> {
 }
 
 class _BarcodePainter extends CustomPainter {
-  _BarcodePainter(this.data);
+  _BarcodePainter(this.data, {this.qr = false});
   final String data;
+  final bool qr;
 
   @override
   void paint(Canvas canvas, Size size) {
     try {
-      final els = Barcode.code128().make(data, width: size.width, height: size.height, drawText: false);
+      final els = (qr ? Barcode.qrCode() : Barcode.code128())
+          .make(data, width: size.width, height: size.height, drawText: false);
       final p = Paint()..color = Colors.black;
       for (final e in els) {
         if (e is BarcodeBar && e.black) {

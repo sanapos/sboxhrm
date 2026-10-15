@@ -96,6 +96,7 @@ import 'meal_tracking_screen.dart';
 import 'staff_map/staff_map_screen.dart';
 import 'shift_hub/shift_hub_screen.dart';
 import 'pos_products_screen.dart';
+import 'pos/pos_label_print_hub_screen.dart';
 import 'pos_sell_screen.dart';
 import 'pos_sale_order_list_screen.dart';
 import 'pos/pos_gym_checkin_screen.dart';
@@ -1864,6 +1865,17 @@ class _MainLayoutState extends State<MainLayout> with WidgetsBindingObserver {
       label: 'Hàng hóa',
       subtitle: 'SP, tồn, giá',
       screen: const PosProductsScreen(),
+      group: 'POS',
+      themeColor: HrmPageChrome.primaryNavy,
+      moduleCode: 'PosProducts',
+    ),
+    // Một chỗ cho mọi loại tem: hàng hóa, cân, thông số / tự soạn, soạn mẫu, máy in tem.
+    NavItem(
+      icon: Icons.label_outline,
+      activeIcon: Icons.label,
+      label: 'In tem nhãn',
+      subtitle: 'Tem hàng, tem cân, tem thông số',
+      screen: const PosLabelPrintHubScreen(),
       group: 'POS',
       themeColor: HrmPageChrome.primaryNavy,
       moduleCode: 'PosProducts',

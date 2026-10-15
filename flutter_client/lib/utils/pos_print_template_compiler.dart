@@ -154,12 +154,15 @@ class PosPrintCompiledBarcode {
     required this.data,
     this.height = 60,
     this.showText = true,
+    this.qr = false,
     this.sourceBlockIndex,
   });
 
   final String data;
   final int height;
   final bool showText;
+  /// In QR (nội dung tự soạn: link, thông số…) thay vì mã vạch 1D.
+  final bool qr;
   final int? sourceBlockIndex;
 }
 
@@ -1165,24 +1168,34 @@ abstract final class PosPrintTemplateCompiler {
             );
           }
         case PosPrintBlockType.barcode:
-          final codeField = block.field ?? 'Ma_Vach';
-          var code = (data[codeField] ?? '').trim();
-          if (code.isEmpty) {
-            code = (data['Ma_Hang'] ?? '').trim();
+          final custom = (block.codeContent ?? '').trim();
+          var code = '';
+          if (custom.isNotEmpty) {
+            // Nội dung tự soạn: chữ + trường {Token}; QR giữ xuống dòng.
+            code = _resolveToken(custom, data).trim();
+          } else {
+            final codeField = block.field ?? 'Ma_Vach';
+            code = (data[codeField] ?? '').trim();
+            if (code.isEmpty) {
+              code = (data['Ma_Hang'] ?? '').trim();
+            }
           }
+          // Mã vạch 1D chỉ nhận một dòng ASCII — nội dung tự soạn dài / có dấu: dùng QR.
+          if (!block.barcodeQr) code = code.replaceAll(RegExp(r'\s+'), ' ');
           if (code.isNotEmpty) {
             final h = block.barcodeHeight.clamp(40, 120);
             steps.add(PosPrintCompiledBarcode(
               data: code,
               height: h,
               showText: block.barcodeShowText,
+              qr: block.barcodeQr,
               sourceBlockIndex: bi,
             ));
             htmlBuf.write(
               '<div style="text-align:center;margin:6px 0">'
               '<div style="letter-spacing:1px;font-family:monospace;'
               'border:1px solid #999;padding:10px 6px;font-size:12px">'
-              '|||| $code ||||</div>'
+              '${block.barcodeQr ? '[QR] $code' : '|||| $code ||||'}</div>'
               '${block.barcodeShowText ? '<div style="margin-top:2px;font-size:11px">$code</div>' : ''}'
               '</div>',
             );

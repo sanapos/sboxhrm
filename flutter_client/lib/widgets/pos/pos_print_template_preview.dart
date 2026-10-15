@@ -1,3 +1,4 @@
+import 'package:barcode/barcode.dart';
 import 'package:flutter/material.dart';
 
 import '../../models/pos_print_template.dart';
@@ -707,6 +708,32 @@ class _PreviewBarcode extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final h = (barcode.height * scale).clamp(isLabel ? 16.0 : 28.0, isLabel ? 48.0 : 72.0);
+    if (barcode.qr) {
+      final side = (barcode.height * 1.6 * scale).clamp(36.0, isLabel ? 96.0 : 140.0);
+      return Padding(
+        padding: const EdgeInsets.symmetric(vertical: 6),
+        child: Column(
+          children: [
+            SizedBox(
+              width: side,
+              height: side,
+              child: CustomPaint(painter: _PreviewQrPainter(barcode.data)),
+            ),
+            if (barcode.showText)
+              Padding(
+                padding: const EdgeInsets.only(top: 2),
+                child: Text(
+                  barcode.data,
+                  textAlign: TextAlign.center,
+                  maxLines: 2,
+                  overflow: TextOverflow.ellipsis,
+                  style: TextStyle(fontSize: _previewFontSize(14, scale, isLabel: isLabel)),
+                ),
+              ),
+          ],
+        ),
+      );
+    }
     return Padding(
       padding: const EdgeInsets.symmetric(vertical: 6),
       child: Column(
@@ -746,4 +773,25 @@ class _PreviewBarcode extends StatelessWidget {
       ),
     );
   }
+}
+
+class _PreviewQrPainter extends CustomPainter {
+  _PreviewQrPainter(this.data);
+  final String data;
+
+  @override
+  void paint(Canvas canvas, Size size) {
+    try {
+      final els = Barcode.qrCode().make(data, width: size.width, height: size.height, drawText: false);
+      final p = Paint()..color = Colors.black;
+      for (final e in els) {
+        if (e is BarcodeBar && e.black) {
+          canvas.drawRect(Rect.fromLTWH(e.left, e.top, e.width, e.height), p);
+        }
+      }
+    } catch (_) {}
+  }
+
+  @override
+  bool shouldRepaint(covariant _PreviewQrPainter old) => old.data != data;
 }

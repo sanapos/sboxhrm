@@ -166,7 +166,7 @@ class _PosPrintTemplateV2EditorState extends State<PosPrintTemplateV2Editor>
     return blocks;
   }
 
-  void _addBlock(PosPrintBlockType type, {List<String>? fields}) {
+  void _addBlock(PosPrintBlockType type, {List<String>? fields, bool qr = false}) {
     final block = switch (type) {
       PosPrintBlockType.text => PosPrintBlock(type: PosPrintBlockType.text, text: tr('Dòng mới')),
       PosPrintBlockType.field => PosPrintBlock(
@@ -202,12 +202,22 @@ class _PosPrintTemplateV2EditorState extends State<PosPrintTemplateV2Editor>
         ),
       PosPrintBlockType.spacer => const PosPrintBlock(type: PosPrintBlockType.spacer),
       PosPrintBlockType.vietQr => const PosPrintBlock(type: PosPrintBlockType.vietQr),
-      PosPrintBlockType.barcode => const PosPrintBlock(
-          type: PosPrintBlockType.barcode,
-          field: 'Ma_Vach',
-          barcodeHeight: 60,
-          barcodeShowText: true,
-        ),
+      PosPrintBlockType.barcode => qr
+          // QR nội dung tự soạn: mặc định mã hàng + tên + thông số (sửa ở bảng thuộc tính).
+          ? const PosPrintBlock(
+              type: PosPrintBlockType.barcode,
+              field: 'Ma_Vach',
+              barcodeQr: true,
+              codeContent: '{Ma_Hang} - {Ten_Hang_Hoa}\n{Thong_So}',
+              barcodeHeight: 60,
+              barcodeShowText: false,
+            )
+          : const PosPrintBlock(
+              type: PosPrintBlockType.barcode,
+              field: 'Ma_Vach',
+              barcodeHeight: 60,
+              barcodeShowText: true,
+            ),
       PosPrintBlockType.image => const PosPrintBlock(
           type: PosPrintBlockType.image,
           style: PosPrintTextStyle(align: PosPrintTextAlign.center),
@@ -594,6 +604,15 @@ class _PosPrintTemplateV2EditorState extends State<PosPrintTemplateV2Editor>
                   _addBlock(t.$2);
                 },
               ),
+            ListTile(
+              leading: const Icon(Icons.qr_code_2, color: PosTheme.edgeBlue),
+              title: Text(tr('Mã QR tự soạn')),
+              subtitle: Text(tr('Link, thông số… chèn được trường {Ma_Hang}')),
+              onTap: () {
+                Navigator.pop(ctx);
+                _addBlock(PosPrintBlockType.barcode, qr: true);
+              },
+            ),
           ],
         ),
       ),
@@ -706,6 +725,10 @@ class _PosPrintTemplateV2EditorState extends State<PosPrintTemplateV2Editor>
                                     _addChip('Tổng', PosPrintBlockType.totals),
                                     _addChip('QR', PosPrintBlockType.vietQr),
                                     _addChip('Barcode', PosPrintBlockType.barcode),
+                                    ActionChip(
+                                      label: Text(tr('QR tự soạn'), style: const TextStyle(fontSize: 11)),
+                                      onPressed: () => _addBlock(PosPrintBlockType.barcode, qr: true),
+                                    ),
                                     _addChip('Ảnh', PosPrintBlockType.image),
                                     _addChip('Khoảng trống', PosPrintBlockType.spacer),
                                   ],
@@ -784,8 +807,13 @@ class _PosPrintTemplateV2EditorState extends State<PosPrintTemplateV2Editor>
           .toList();
     }
     if (PosPrintDocumentTypes.isProductLabel(doc)) {
-      // Chỉ khổ tem — không K58/K80/A4/A5.
-      final ids = PosPrintPaperSizes.productLabelSizes;
+      // Chỉ khổ tem — không K58/K80/A4/A5; thêm khổ tùy chỉnh (rộng × cao mm).
+      final ids = [
+        ...PosPrintPaperSizes.productLabelSizes,
+        if (!PosPrintPaperSizes.productLabelSizes.contains(_tpl.paperSize) &&
+            PosPrintPaperSizes.customLabelDims(_tpl.paperSize) != null)
+          _tpl.paperSize,
+      ];
       return [
         for (final id in ids)
           DropdownMenuItem(
@@ -795,6 +823,10 @@ class _PosPrintTemplateV2EditorState extends State<PosPrintTemplateV2Editor>
               overflow: TextOverflow.ellipsis,
             ),
           ),
+        DropdownMenuItem(
+          value: _kCustomPaper,
+          child: Text(tr('Khổ tùy chỉnh… (nhập rộng × cao mm)'), overflow: TextOverflow.ellipsis),
+        ),
       ];
     }
     return PosPrintPaperSizes.receiptSizes
@@ -803,6 +835,77 @@ class _PosPrintTemplateV2EditorState extends State<PosPrintTemplateV2Editor>
               child: Text(tr(PosPrintPaperSizes.displayLabel(k))),
             ))
         .toList();
+  }
+
+  static const _kCustomPaper = '__custom__';
+
+  /// Hỏi khổ tem tùy chỉnh (mm) → id `roll_1_{W}x{H}`.
+  Future<String?> _askCustomPaper() async {
+    final cur = PosPrintPaperSizes.customLabelDims(_tpl.paperSize) ??
+        (PosPrintPaperSizes.widthMm(_tpl.paperSize), PosPrintPaperSizes.heightMm(_tpl.paperSize));
+    String f(double v) => v == v.roundToDouble() ? v.toStringAsFixed(0) : v.toStringAsFixed(1);
+    final wCtrl = TextEditingController(text: f(cur.$1));
+    final hCtrl = TextEditingController(text: f(cur.$2));
+    String? error;
+    final id = await showDialog<String>(
+      context: context,
+      builder: (ctx) => StatefulBuilder(
+        builder: (ctx, setLocal) {
+          double? parse(TextEditingController c) => double.tryParse(c.text.trim().replaceAll(',', '.'));
+          void submit() {
+            final w = parse(wCtrl);
+            final h = parse(hCtrl);
+            if (w == null || h == null || w < 10 || w > 200 || h < 8 || h > 300) {
+              setLocal(() => error = tr('Rộng 10–200 mm, cao 8–300 mm'));
+              return;
+            }
+            Navigator.pop(ctx, PosPrintPaperSizes.customLabelId(w, h));
+          }
+
+          return AlertDialog(
+            title: Text(tr('Khổ tem tùy chỉnh')),
+            content: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Row(children: [
+                  Expanded(
+                    child: TextField(
+                      key: const ValueKey('custom-paper-w'),
+                      controller: wCtrl,
+                      autofocus: true,
+                      keyboardType: const TextInputType.numberWithOptions(decimal: true),
+                      decoration: InputDecoration(labelText: tr('Rộng (mm)'), border: const OutlineInputBorder()),
+                    ),
+                  ),
+                  const Padding(padding: EdgeInsets.symmetric(horizontal: 8), child: Text('×')),
+                  Expanded(
+                    child: TextField(
+                      key: const ValueKey('custom-paper-h'),
+                      controller: hCtrl,
+                      keyboardType: const TextInputType.numberWithOptions(decimal: true),
+                      decoration: InputDecoration(labelText: tr('Cao (mm)'), border: const OutlineInputBorder()),
+                      onSubmitted: (_) => submit(),
+                    ),
+                  ),
+                ]),
+                const SizedBox(height: 8),
+                Text(
+                  error ?? tr('Đo đúng 1 con tem trên cuộn (không tính khe). Máy in tem cài cùng khổ.'),
+                  style: TextStyle(fontSize: 12, color: error == null ? SboxColors.textSecondary : Colors.red),
+                ),
+              ],
+            ),
+            actions: [
+              TextButton(onPressed: () => Navigator.pop(ctx), child: Text(tr('Hủy'))),
+              FilledButton(onPressed: submit, child: Text(tr('Áp dụng'))),
+            ],
+          );
+        },
+      ),
+    );
+    wCtrl.dispose();
+    hCtrl.dispose();
+    return id;
   }
 
   String _resolvedPaperValue(List<DropdownMenuItem<String>> items) {
@@ -837,9 +940,12 @@ class _PosPrintTemplateV2EditorState extends State<PosPrintTemplateV2Editor>
     final paperValue = _resolvedPaperValue(paperItems);
     final isLabel = PosPrintPaperSizes.isLabelDoc(_tpl.documentType);
     final paperHint = PosPrintDocumentTypes.isProductLabel(_tpl.documentType)
-        ? tr(_tpl.documentType == PosPrintDocumentTypes.scaleLabel
-            ? 'Tem cân — cùng danh sách khổ khi Cân & in tem'
-            : 'Tem sản phẩm — cùng danh sách khi In tem hàng hóa')
+        ? tr(switch (_tpl.documentType) {
+            PosPrintDocumentTypes.scaleLabel => 'Tem cân — cùng danh sách khổ khi Cân & in tem',
+            PosPrintDocumentTypes.specLabel =>
+              'Tem thông số / tự soạn — chọn «Khổ tùy chỉnh…» để nhập rộng × cao mm',
+            _ => 'Tem sản phẩm — cùng danh sách khi In tem hàng hóa',
+          })
         : (_tpl.documentType == PosPrintDocumentTypes.kitchenLabel
             ? tr('Tem báo bếp / tem ly: 50×30, 40×30, 35×22×2/3, 60×40… (không K58/K80)')
             : tr('${PosPrintDocumentTypes.all[_tpl.documentType] ?? _tpl.documentType} · ${PosPrintPaperSizes.categoryLabel(_tpl.documentType)}'));
@@ -859,8 +965,17 @@ class _PosPrintTemplateV2EditorState extends State<PosPrintTemplateV2Editor>
       items: paperItems,
       onChanged: widget.readOnly
           ? null
-          : (v) {
+          : (v) async {
               if (v == null) return;
+              if (v == _kCustomPaper) {
+                final id = await _askCustomPaper();
+                if (id == null || !mounted) {
+                  setState(() {}); // trả dropdown về khổ cũ
+                  return;
+                }
+                _update(_tpl.copyWith(paperSize: id));
+                return;
+              }
               _update(_tpl.copyWith(paperSize: v));
             },
     );
@@ -1176,13 +1291,15 @@ class _PosPrintTemplateV2EditorState extends State<PosPrintTemplateV2Editor>
         PosPrintBlockType.totals => 'Tổng cộng',
         PosPrintBlockType.spacer => 'Khoảng trống',
         PosPrintBlockType.vietQr => 'VietQR',
-        PosPrintBlockType.barcode => 'Barcode {${b.field ?? 'Ma_Vach'}}',
+        PosPrintBlockType.barcode => (b.codeContent ?? '').trim().isNotEmpty
+            ? '${b.barcodeQr ? 'QR' : 'Barcode'}: ${b.codeContent!.replaceAll('\n', ' ')}'
+            : '${b.barcodeQr ? 'QR' : 'Barcode'} {${b.field ?? 'Ma_Vach'}}',
         PosPrintBlockType.image => b.imageData == null ? 'Ảnh (chưa chọn)' : 'Ảnh / logo',
       };
 
   static String _blockMeta(PosPrintBlock b) {
     if (b.type == PosPrintBlockType.barcode) {
-      return 'Cao ${b.barcodeHeight} · ${b.barcodeShowText ? 'Hiện chữ' : 'Ẩn chữ'}';
+      return '${b.barcodeQr ? 'Cỡ' : 'Cao'} ${b.barcodeHeight} · ${b.barcodeShowText ? 'Hiện chữ' : 'Ẩn chữ'}';
     }
     if (b.type == PosPrintBlockType.image) {
       final a = switch (b.style.align) {
@@ -1472,6 +1589,7 @@ class _BlockPropertiesPanelState extends State<_BlockPropertiesPanel> {
   late TextEditingController _labelCtrl;
   late TextEditingController _qrTitleCtrl;
   late TextEditingController _qrCaptionCtrl;
+  late TextEditingController _codeCtrl;
   late TextEditingController _leftLabelCtrl;
   late TextEditingController _rightLabelCtrl;
   late Map<String, TextEditingController> _totalLabelCtrls;
@@ -1508,6 +1626,7 @@ class _BlockPropertiesPanelState extends State<_BlockPropertiesPanel> {
     _labelCtrl = TextEditingController(text: widget.block.label ?? '');
     _qrTitleCtrl = TextEditingController(text: tr(widget.block.qrTitle ?? ''));
     _qrCaptionCtrl = TextEditingController(text: tr(widget.block.qrCaption));
+    _codeCtrl = TextEditingController(text: widget.block.codeContent ?? '');
     _leftLabelCtrl = TextEditingController(
       text: widget.block.fieldLabels?[widget.block.leftField ?? ''] ?? '',
     );
@@ -1550,6 +1669,10 @@ class _BlockPropertiesPanelState extends State<_BlockPropertiesPanel> {
         widget.block.qrCaption != _qrCaptionCtrl.text) {
       _qrCaptionCtrl.text = widget.block.qrCaption;
     }
+    if (widget.block.codeContent != oldWidget.block.codeContent &&
+        (widget.block.codeContent ?? '') != _codeCtrl.text) {
+      _codeCtrl.text = widget.block.codeContent ?? '';
+    }
   }
 
   @override
@@ -1558,6 +1681,7 @@ class _BlockPropertiesPanelState extends State<_BlockPropertiesPanel> {
     _labelCtrl.dispose();
     _qrTitleCtrl.dispose();
     _qrCaptionCtrl.dispose();
+    _codeCtrl.dispose();
     _leftLabelCtrl.dispose();
     _rightLabelCtrl.dispose();
     for (final c in _totalLabelCtrls.values) {
@@ -1887,13 +2011,62 @@ class _BlockPropertiesPanelState extends State<_BlockPropertiesPanel> {
           ],
         ],
         if (block.type == PosPrintBlockType.barcode) ...[
+          SegmentedButton<bool>(
+            segments: [
+              ButtonSegment(value: false, icon: const Icon(Icons.view_week, size: 16), label: Text(tr('Mã vạch'))),
+              ButtonSegment(value: true, icon: const Icon(Icons.qr_code_2, size: 16), label: Text(tr('Mã QR'))),
+            ],
+            selected: {block.barcodeQr},
+            onSelectionChanged: readOnly
+                ? null
+                : (v) => onChanged(block.copyWith(barcodeQr: v.first)),
+          ),
+          const SizedBox(height: 12),
+          TextField(
+            readOnly: readOnly,
+            controller: _codeCtrl,
+            minLines: 1,
+            maxLines: block.barcodeQr ? 4 : 1,
+            decoration: InputDecoration(
+              labelText: tr('Nội dung mã tự soạn (tuỳ chọn)'),
+              hintText: tr(block.barcodeQr
+                  ? 'vd. https://shop.vn/sp/{Ma_Hang} hoặc {Ten_Hang_Hoa}\n{Thong_So}'
+                  : 'vd. {Ma_Hang}-{Kich_Thuoc}'),
+              helperText: tr('Trống = lấy theo «Nguồn mã» bên dưới. Chèn trường bằng {Ten_Truong}.'),
+              helperMaxLines: 2,
+              border: const OutlineInputBorder(),
+            ),
+            onChanged: (v) => onChanged(block.copyWith(
+              codeContent: v,
+              clearCodeContent: v.trim().isEmpty,
+            )),
+          ),
+          const SizedBox(height: 8),
           _tokenField(
-            'Nguồn mã vạch',
+            'Chèn trường vào nội dung',
+            null,
+            (v) {
+              final sel = _codeCtrl.selection;
+              final t = _codeCtrl.text;
+              final at = sel.isValid ? sel.end : t.length;
+              final next = '${t.substring(0, at)}{$v}${t.substring(at)}';
+              _codeCtrl.value = TextEditingValue(
+                text: next,
+                selection: TextSelection.collapsed(offset: at + v.length + 2),
+              );
+              onChanged(block.copyWith(codeContent: next));
+            },
+          ),
+          const SizedBox(height: 12),
+          _tokenField(
+            'Nguồn mã (khi không tự soạn)',
             block.field ?? 'Ma_Vach',
             (v) => onChanged(block.copyWith(field: v)),
           ),
           const SizedBox(height: 12),
-          Text(tr('Chiều cao vạch: ${block.barcodeHeight}')),
+          Text(tr(block.barcodeQr
+              ? 'Cỡ QR: ${block.barcodeHeight} (120 = lấp hết phần trống của tem)'
+              : 'Chiều cao vạch: ${block.barcodeHeight}')),
           Slider(
             value: block.barcodeHeight.clamp(40, 120).toDouble(),
             min: 40,
@@ -1906,7 +2079,7 @@ class _BlockPropertiesPanelState extends State<_BlockPropertiesPanel> {
           ),
           SwitchListTile(
             contentPadding: EdgeInsets.zero,
-            title: Text(tr('Hiện chữ mã dưới barcode')),
+            title: Text(tr(block.barcodeQr ? 'In nội dung dưới QR' : 'Hiện chữ mã dưới barcode')),
             value: block.barcodeShowText,
             onChanged: readOnly
                 ? null
@@ -2225,6 +2398,10 @@ class _BlockPropertiesPanelState extends State<_BlockPropertiesPanel> {
     final tokenEntries = <(String, String)>[
       // Tem cân: trường riêng lên đầu (khối lượng, đơn giá/kg, thành tiền, ngày giờ in, HSD…).
       if (widget.documentType == PosPrintDocumentTypes.scaleLabel) ...PosPrintTokens.scaleLabel,
+      // Tem thông số / tự soạn: trường thông số hàng lên đầu.
+      if (widget.documentType == PosPrintDocumentTypes.specLabel ||
+          widget.documentType == PosPrintDocumentTypes.barcodeLabel)
+        ...PosPrintTokens.specLabel,
       ...PosPrintTokens.store,
       ...PosPrintTokens.order,
       ...PosPrintTokens.customer,
@@ -2240,8 +2417,10 @@ class _BlockPropertiesPanelState extends State<_BlockPropertiesPanel> {
     for (final e in tokenEntries) {
       labels.putIfAbsent(e.$1, () => e.$2);
     }
-    final current = tokens.contains(value) ? value : tokens.first;
+    // value null: ô chọn để chèn (không giữ lựa chọn) — chọn lại cùng trường vẫn chèn được.
+    final current = value == null ? null : (tokens.contains(value) ? value : tokens.first);
     return DropdownButtonFormField<String>(
+      key: value == null ? UniqueKey() : null,
       value: current,
       isExpanded: true,
       decoration: InputDecoration(

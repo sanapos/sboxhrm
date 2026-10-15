@@ -45,6 +45,16 @@ abstract final class PosPrintTemplateV2Presets {
       );
     }
 
+    if (documentType == PosPrintDocumentTypes.specLabel) {
+      return _specLabelPreset(
+        paperSize: paperSize,
+        printerProfile: printerProfile,
+        titleSize: titleSize,
+        smallSize: smallSize,
+        name: name,
+      );
+    }
+
     if (documentType == PosPrintDocumentTypes.scaleLabel) {
       return _scaleLabelPreset(
         paperSize: paperSize,
@@ -305,6 +315,59 @@ abstract final class PosPrintTemplateV2Presets {
             bold: true,
             align: PosPrintTextAlign.center,
           ),
+        ),
+      ],
+    );
+  }
+
+  /// Tem thông số kỹ thuật: tên hàng · thuộc tính · thương hiệu / KL / KT / bảo hành · QR nội dung tự soạn.
+  /// Dòng có trường trống tự bỏ (hàng không khai báo bảo hành → không in «Bảo hành:»).
+  static PosPrintTemplateV2 _specLabelPreset({
+    required String paperSize,
+    required String printerProfile,
+    required double titleSize,
+    required double smallSize,
+    String? name,
+  }) {
+    final h = PosPrintPaperSizes.heightMm(paperSize);
+    final compact = h <= 30;
+    PosPrintBlock line(String text, {bool bold = false}) => PosPrintBlock(
+          type: PosPrintBlockType.text,
+          text: tr(text),
+          style: PosPrintTextStyle(fontSize: compact ? 14 : smallSize, bold: bold),
+        );
+    return PosPrintTemplateV2(
+      paperSize: paperSize,
+      printerProfile: printerProfile,
+      documentType: PosPrintDocumentTypes.specLabel,
+      name: name ?? 'Tem thông số ${PosPrintPaperSizes.displayLabel(paperSize)}',
+      blocks: [
+        PosPrintBlock(
+          type: PosPrintBlockType.field,
+          field: 'Ten_Hang_Hoa',
+          style: PosPrintTextStyle(
+            fontSize: compact ? 20 : titleSize,
+            bold: true,
+            align: PosPrintTextAlign.center,
+          ),
+        ),
+        if (compact)
+          line('{Thong_So}')
+        else ...[
+          line('Mã: {Ma_Hang}'),
+          line('{Thuoc_Tinh}'),
+          line('Thương hiệu: {Thuong_Hieu}'),
+          line('Khối lượng: {Khoi_Luong_SP}'),
+          line('Kích thước: {Kich_Thuoc}'),
+          line('Bảo hành: {Bao_Hanh}', bold: true),
+        ],
+        PosPrintBlock(
+          type: PosPrintBlockType.barcode,
+          field: 'Ma_Vach',
+          barcodeQr: true,
+          codeContent: '{Ma_Hang}\n{Ten_Hang_Hoa}\n{Thong_So}',
+          barcodeHeight: 120,
+          barcodeShowText: false,
         ),
       ],
     );
@@ -572,6 +635,17 @@ abstract final class PosPrintTemplateV2Presets {
             paperSize: size,
             printerProfile: PosPrintPrinterProfiles.genericK58,
             name: 'Tem cân ${PosPrintPaperSizes.displayLabel(size)}',
+          ),
+      ];
+    }
+    if (documentType == PosPrintDocumentTypes.specLabel) {
+      return [
+        for (final size in const ['roll_1_60x40', 'roll_1_50x30', 'roll_1_75x100'])
+          build(
+            documentType: documentType,
+            paperSize: size,
+            printerProfile: PosPrintPrinterProfiles.genericK58,
+            name: 'Tem thông số ${PosPrintPaperSizes.displayLabel(size)}',
           ),
       ];
     }

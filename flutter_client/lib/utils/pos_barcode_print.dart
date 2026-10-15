@@ -8,6 +8,7 @@ import 'package:pdf/pdf.dart';
 import 'package:pdf/widgets.dart' as pw;
 import 'package:printing/printing.dart';
 
+import '../models/pos_print_template.dart';
 import '../models/pos_product.dart';
 import 'file_saver.dart' as file_saver;
 import 'pos_pdf_fonts.dart';
@@ -74,6 +75,29 @@ String? posProductSpecText(PosProduct p) {
     if ((p.warrantyMonths ?? 0) > 0) 'BH: ${p.warrantyMonths} tháng',
   ];
   return parts.isEmpty ? null : parts.join(' · ');
+}
+
+/// Từng trường thông số (tem thông số / tự soạn). Trống → ''.
+Map<String, String> posProductSpecTokens(PosProduct p) {
+  String num(double v) =>
+      v == v.roundToDouble() ? v.toStringAsFixed(0) : v.toStringAsFixed(2).replaceAll(RegExp(r'0+$'), '');
+  final dims = [p.lengthCm, p.widthCm, p.heightCm].where((v) => (v ?? 0) > 0).map((v) => num(v!)).join('×');
+  return {
+    'Thuong_Hieu': (p.brandName ?? '').trim(),
+    'Nhom_Hang': (p.categoryName ?? '').trim(),
+    'Nha_Cung_Cap': (p.supplierName ?? '').trim(),
+    'Thuoc_Tinh': [
+      for (final a in p.attributes ?? const [])
+        if (a.value.trim().isNotEmpty)
+          a.attributeName.trim().isEmpty ? a.value.trim() : '${a.attributeName.trim()}: ${a.value.trim()}',
+    ].join(' · '),
+    'Khoi_Luong_SP': (p.weight ?? 0) > 0
+        ? '${num(p.weight!)} ${p.weightUnit.trim().isEmpty ? 'g' : p.weightUnit.trim()}'
+        : '',
+    'Kich_Thuoc': dims.isEmpty ? '' : '$dims cm',
+    'Bao_Hanh': (p.warrantyMonths ?? 0) > 0 ? '${p.warrantyMonths} tháng' : '',
+    'Mo_Ta': (p.description ?? '').trim(),
+  };
 }
 
 /// Dòng chi tiết in dưới tên: tem cân (gắn sẵn) hoặc thông số hàng khi bật.
@@ -250,7 +274,17 @@ PosBarcodeLabelTemplate? posBarcodeLabelTemplateById(String id) {
   for (final t in posBarcodeLabelTemplates) {
     if (t.id == id) return t;
   }
-  return null;
+  // Khổ tùy chỉnh (mẫu tem thông số / tự soạn): roll_1_{rộng}x{cao}.
+  final d = PosPrintPaperSizes.customLabelDims(id);
+  if (d == null) return null;
+  final name = PosPrintPaperSizes.displayLabel(id);
+  return PosBarcodeLabelTemplate(
+    id: id,
+    name: name,
+    sizeLabel: name.replaceFirst('Tem ', ''),
+    labelWidthMm: d.$1,
+    labelHeightMm: d.$2,
+  );
 }
 
 PosBarcodeLabelTemplate get defaultBarcodeLabelTemplate =>
@@ -305,6 +339,7 @@ Map<String, String> posBarcodeLabelData(PosProduct p, PosBarcodePrintOptions opt
     'Don_Gia': price,
     'Don_Vi_Tinh': p.baseUnitName,
     'Thong_So': posProductSpecText(p) ?? '',
+    ...posProductSpecTokens(p),
     'Lo_HSD': posLabelDetail[p] ?? '',
     'Ngay': DateFormat('dd/MM/yyyy').format(DateTime.now()),
     'So_Luong': '1',

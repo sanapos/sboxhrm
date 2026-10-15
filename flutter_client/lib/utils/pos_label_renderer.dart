@@ -1239,6 +1239,40 @@ class PosLabelRenderer {
           maxHeight: remain,
         );
         y += (leftH > rightH ? leftH : rightH) + 2;
+      } else if (step is PosPrintCompiledBarcode && step.qr) {
+        // QR tự soạn: ô vuông lớn nhất còn chỗ (chừa dòng chữ phía sau), căn giữa.
+        final idx = output.steps.indexOf(step);
+        var after = 0.0;
+        for (final s in output.steps.skip(idx + 1)) {
+          if (s is PosPrintCompiledLine && !s.isDivider && s.text.trim().isNotEmpty) {
+            after += s.fontSize * 0.72 * scale * dpiK * 1.15 + 2;
+          }
+        }
+        final textH = step.showText ? 24 * dpiK : 0;
+        final room = maxY - y - after - textH - 2;
+        // Cỡ QR (40–120) = tỷ lệ phần trống còn lại của tem: 120 = lấp đầy, 60 = một nửa.
+        final k = step.height.clamp(40, 120) / 120;
+        var side = ([innerW, room].reduce((a, b) => a < b ? a : b) * k).toDouble();
+        if (side < 24 * dpiK) side = [innerW, maxY - y - 2].reduce((a, b) => a < b ? a : b);
+        if (side >= 16 && step.data.trim().isNotEmpty) {
+          _drawQr(canvas, step.data.trim(),
+              ui.Rect.fromLTWH(contentLeft + (innerW - side) / 2, y, side, side));
+          y += side + 2;
+          if (step.showText && y < maxY - 10) {
+            y += await _drawText(
+              canvas,
+              step.data.trim(),
+              contentLeft,
+              y,
+              innerW,
+              fontSize: 9 * dpiK,
+              bold: false,
+              maxLines: 2,
+              center: true,
+              maxHeight: maxY - y,
+            );
+          }
+        }
       } else if (step is PosPrintCompiledBarcode) {
         // Chiều cao theo mẫu (trước đây bỏ qua, luôn 18–48 điểm) nhưng chừa chỗ cho các dòng chữ phía sau
         // (giá dưới mã vạch không bị đẩy khỏi tem).

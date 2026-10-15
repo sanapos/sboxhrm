@@ -366,6 +366,31 @@ Map<String, String> posPrintSampleData({
       'Lo_HSD': 'Lô L2610 · HSD 10/10/2027',
     };
   }
+  if (documentType == PosPrintDocumentTypes.specLabel) {
+    // Trường thông số (tem thông số / tự soạn).
+    final spec = <String, String>{
+      'Thuong_Hieu': 'Panasonic',
+      'Nhom_Hang': 'Đồ gia dụng',
+      'Nha_Cung_Cap': 'Nhật Bản',
+      'Thuoc_Tinh': 'Màu: Trắng · Công suất: 1200W',
+      'Khoi_Luong_SP': '2,5 kg',
+      'Kich_Thuoc': '32×24×18 cm',
+      'Bao_Hanh': '12 tháng',
+      'Mo_Ta': 'Nồi cơm điện tử 1,8L',
+      'Thong_So': 'Màu: Trắng · TH: Panasonic · KL: 2,5 kg · KT: 32×24×18 cm · BH: 12 tháng',
+    };
+    return {
+        ...base,
+        'Tieu_De_In': 'TEM THÔNG SỐ',
+        'Ten_Hang_Hoa': 'Nồi cơm điện SR-CX188',
+        'Ma_Hang': 'HH00321',
+        'Ma_Vach': '8934563123456',
+        'Don_Gia': money.format(1890000),
+        'Don_Vi_Tinh': 'Cái',
+        'Ngay': '15/10/2026',
+        ...spec,
+      };
+  }
   if (documentType == PosPrintDocumentTypes.scaleLabel) {
     return {
       ...base,

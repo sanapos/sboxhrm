@@ -357,6 +357,8 @@ class PosPrintBlock {
     this.qrPlacement = PosPrintQrPlacement.belowTotals,
     this.barcodeHeight = 60,
     this.barcodeShowText = true,
+    this.barcodeQr = false,
+    this.codeContent,
     this.imageData,
     this.imageWidthPct = 60,
   });
@@ -392,6 +394,10 @@ class PosPrintBlock {
   final int barcodeHeight;
   /// In chữ mã dưới barcode.
   final bool barcodeShowText;
+  /// Khối mã in QR (thay vì mã vạch 1D).
+  final bool barcodeQr;
+  /// Nội dung mã tự soạn, chèn được trường `{Ma_Hang}`, `{Thong_So}`… (trống = theo [field]).
+  final String? codeContent;
   /// Ảnh PNG (base64) của khối ảnh — đã chuyển đen trắng, thu về khổ giấy.
   final String? imageData;
   /// Chiều rộng ảnh theo % khổ in (10–100).
@@ -455,6 +461,9 @@ class PosPrintBlock {
     PosPrintQrPlacement? qrPlacement,
     int? barcodeHeight,
     bool? barcodeShowText,
+    bool? barcodeQr,
+    String? codeContent,
+    bool clearCodeContent = false,
     String? imageData,
     int? imageWidthPct,
   }) =>
@@ -480,6 +489,8 @@ class PosPrintBlock {
         qrPlacement: qrPlacement ?? this.qrPlacement,
         barcodeHeight: barcodeHeight ?? this.barcodeHeight,
         barcodeShowText: barcodeShowText ?? this.barcodeShowText,
+        barcodeQr: barcodeQr ?? this.barcodeQr,
+        codeContent: clearCodeContent ? null : (codeContent ?? this.codeContent),
         imageData: imageData ?? this.imageData,
         imageWidthPct: imageWidthPct ?? this.imageWidthPct,
       );
@@ -510,6 +521,8 @@ class PosPrintBlock {
         if (type == PosPrintBlockType.barcode) ...{
           'barcodeHeight': barcodeHeight,
           'barcodeShowText': barcodeShowText,
+          if (barcodeQr) 'barcodeQr': true,
+          if ((codeContent ?? '').isNotEmpty) 'codeContent': codeContent,
         },
         if (type == PosPrintBlockType.image) ...{
           if (imageData != null) 'imageData': imageData,
@@ -565,6 +578,8 @@ class PosPrintBlock {
           (json['barcodeHeight'] is num ? (json['barcodeHeight'] as num).toInt() : null) ??
               60,
       barcodeShowText: json['barcodeShowText'] != false,
+      barcodeQr: json['barcodeQr'] == true,
+      codeContent: json['codeContent']?.toString(),
       imageData: json['imageData']?.toString(),
       imageWidthPct: ((json['imageWidthPct'] as num?)?.toInt() ?? 60).clamp(10, 100),
     );

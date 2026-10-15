@@ -1,3 +1,4 @@
+import 'dart:convert';
 import 'dart:io' show Platform;
 
 import 'package:flutter/foundation.dart';
@@ -318,6 +319,11 @@ class PosThermalPrinterService {
         if (step.amountText != null && step.amountText!.trim().isNotEmpty) {
           await b.line('${step.amountText!.trim()} đ');
         }
+        continue;
+      }
+      if (step is PosPrintCompiledBarcode && step.qr) {
+        if (b._useImageBatch) await b.flushImageBatch();
+        b.printQr(step.data, showText: step.showText);
         continue;
       }
       if (step is PosPrintCompiledBarcode) {
@@ -1056,6 +1062,26 @@ class _EscPosBuilder {
   void _add(List<int> data) => _buf.addAll(data);
 
   void appendRaw(List<int> data) => _add(data);
+
+  /// ESC/POS QR (GS ( k) — nội dung UTF-8, module 6, sửa lỗi M.
+  void printQr(String data, {bool showText = false}) {
+    final text = data.trim();
+    if (text.isEmpty) return;
+    if (_useImageBatch || _isImpact) {
+      _imageLines.add(PosReceiptImageLine(text: text, fontSize: 18, center: true));
+      return;
+    }
+    center();
+    final bytes = utf8.encode(text);
+    final len = bytes.length + 3;
+    _add([0x1D, 0x28, 0x6B, 4, 0, 0x31, 0x41, 0x32, 0x00]); // model 2
+    _add([0x1D, 0x28, 0x6B, 3, 0, 0x31, 0x43, 6]); // module 6
+    _add([0x1D, 0x28, 0x6B, 3, 0, 0x31, 0x45, 0x31]); // sửa lỗi M
+    _add([0x1D, 0x28, 0x6B, len & 0xFF, (len >> 8) & 0xFF, 0x31, 0x50, 0x30, ...bytes]);
+    _add([0x1D, 0x28, 0x6B, 3, 0, 0x31, 0x51, 0x30]); // in
+    _add([0x0A]);
+    if (showText) _add([...text.codeUnits.where((c) => c >= 32 && c <= 126), 0x0A]);
+  }
 
   /// ESC/POS CODE128 (GS k 73).
   void printCode128(String data, {int height = 60, bool showText = true}) {

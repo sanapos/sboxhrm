@@ -87,9 +87,34 @@ class _PosBarcodeLabelDialogState extends State<_PosBarcodeLabelDialog> {
   /// Mẫu tem cửa hàng (màn Mẫu in → Tem sản phẩm) đọc được; chọn '' = bố cục chuẩn SBOX.
   List<({String id, String name, PosPrintTemplateV2 tpl})> _layouts = const [];
   String _layoutId = '';
-  String get _kLayoutPref =>
-      _isScale ? 'pos_scale_label_layout_id' : 'pos_barcode_label_layout_id';
+  String get _kLayoutPref => switch (widget.documentType) {
+        PosPrintDocumentTypes.scaleLabel => 'pos_scale_label_layout_id',
+        PosPrintDocumentTypes.specLabel => 'pos_spec_label_layout_id',
+        _ => 'pos_barcode_label_layout_id',
+      };
   bool get _isScale => widget.documentType == PosPrintDocumentTypes.scaleLabel;
+  bool get _isSpec => widget.documentType == PosPrintDocumentTypes.specLabel;
+
+  /// Khổ tem theo mẫu đang chọn (mẫu khổ tùy chỉnh / khổ riêng → tự chọn đúng khổ in).
+  PosBarcodeLabelTemplate? _templateForLayout(String layoutId) {
+    final tpl = _layouts.where((l) => l.id == layoutId).map((l) => l.tpl).firstOrNull;
+    if (tpl == null) return null;
+    return posBarcodeLabelTemplateById(PosPrintPaperSizes.toLabelTemplateId(tpl.paperSize));
+  }
+
+  /// Khổ hiển thị: khổ tùy chỉnh của các mẫu cửa hàng (lên đầu) + danh sách cố định.
+  List<PosBarcodeLabelTemplate> get _gridTemplates {
+    final custom = <PosBarcodeLabelTemplate>[];
+    bool known(String id) =>
+        posBarcodeLabelTemplates.any((x) => x.id == id) || custom.any((x) => x.id == id);
+    for (final l in _layouts) {
+      final t = posBarcodeLabelTemplateById(PosPrintPaperSizes.toLabelTemplateId(l.tpl.paperSize));
+      if (t != null && !known(t.id)) custom.add(t);
+    }
+    final sel = _selectedTemplate;
+    if (sel != null && !known(sel.id)) custom.add(sel);
+    return [...custom, ...posBarcodeLabelTemplates];
+  }
   PosBarcodeLabelTemplate? _selectedTemplate;
   PosLabelPrinterSettings _labelPrinter = const PosLabelPrinterSettings();
   String? _storeName;
@@ -105,6 +130,8 @@ class _PosBarcodeLabelDialogState extends State<_PosBarcodeLabelDialog> {
     _lanPortCtrl = TextEditingController(text: tr('9100'));
     _selectedTemplate = posBarcodeLabelTemplateById(_labelPrinter.templateId) ??
         defaultBarcodeLabelTemplate;
+    // Tem thông số: mặc định in dòng / trường thông số.
+    if (_isSpec) _specMode = PosBarcodeSpecMode.withSpecs;
     _loadPrinterSettings();
     _loadPriceLists();
     _loadLayouts();
@@ -123,10 +150,19 @@ class _PosBarcodeLabelDialogState extends State<_PosBarcodeLabelDialog> {
       if (!mounted) return;
       setState(() {
         _layouts = parsed;
-        _layoutId = parsed.any((l) => l.id == saved) ? saved : '';
+        // Tem thông số: chưa từng chọn → dùng mẫu đầu tiên của cửa hàng (thường là mẫu vừa soạn).
+        _layoutId = parsed.any((l) => l.id == saved)
+            ? saved
+            : (_isSpec && parsed.isNotEmpty ? parsed.first.id : '');
+        final t = _templateForLayout(_layoutId);
+        if (t != null && _isCustomOrSpec(t)) _selectedTemplate = t;
       });
     } catch (_) {}
   }
+
+  /// Khổ tùy chỉnh (không nằm trong danh sách cố định) hoặc đang in tem thông số → theo khổ của mẫu.
+  bool _isCustomOrSpec(PosBarcodeLabelTemplate t) =>
+      _isSpec || !posBarcodeLabelTemplates.any((x) => x.id == t.id);
 
   Future<void> _loadPrinterSettings() async {
     final locals = await PosLocalPrintersStore.instance.loadAll();
@@ -255,10 +291,10 @@ class _PosBarcodeLabelDialogState extends State<_PosBarcodeLabelDialog> {
         storeName: _storeName,
         specMode: _specMode,
         layout: _layouts.where((l) => l.id == _layoutId).map((l) => l.tpl).firstOrNull ??
-            (_isScale
-                // Chưa chọn mẫu cửa hàng → mẫu tem cân dựng sẵn theo khổ tem đang chọn.
+            (_isScale || _isSpec
+                // Chưa chọn mẫu cửa hàng → mẫu tem cân / tem thông số dựng sẵn theo khổ tem đang chọn.
                 ? PosPrintTemplateV2Presets.build(
-                    documentType: PosPrintDocumentTypes.scaleLabel,
+                    documentType: widget.documentType,
                     paperSize: template.id,
                     printerProfile: PosPrintPrinterProfiles.genericK58,
                   )
@@ -581,7 +617,9 @@ class _PosBarcodeLabelDialogState extends State<_PosBarcodeLabelDialog> {
           Expanded(
             child: Text(tr(_isScale
                   ? 'In tem cân (${widget.products.length})'
-                  : 'In tem mã hàng (${widget.products.length})'),
+                  : _isSpec
+                      ? 'In tem thông số (${widget.products.length})'
+                      : 'In tem mã hàng (${widget.products.length})'),
               style: TextStyle(
                 fontSize: mobile ? 15 : 16,
                 fontWeight: FontWeight.w600,
@@ -691,8 +729,8 @@ class _PosBarcodeLabelDialogState extends State<_PosBarcodeLabelDialog> {
           label: (v) => v.label,
           onChanged: (v) => setState(() => _storeMode = v!),
         ),
-        const SizedBox(height: 8),
-        _dropdown<PosBarcodeSpecMode>(
+        if (!_isSpec) const SizedBox(height: 8),
+        if (!_isSpec) _dropdown<PosBarcodeSpecMode>(
           value: _specMode,
           items: PosBarcodeSpecMode.values,
           label: (v) => v.label,
@@ -704,10 +742,19 @@ class _PosBarcodeLabelDialogState extends State<_PosBarcodeLabelDialog> {
             value: _layoutId,
             items: ['', for (final l in _layouts) l.id],
             label: (id) => id.isEmpty
-                ? (_isScale ? 'Bố cục tem: mẫu tem cân chuẩn' : 'Bố cục tem: chuẩn SBOX')
+                ? (_isScale
+                    ? 'Bố cục tem: mẫu tem cân chuẩn'
+                    : _isSpec
+                        ? 'Bố cục tem: mẫu thông số chuẩn'
+                        : 'Bố cục tem: chuẩn SBOX')
                 : 'Bố cục tem: mẫu «${_layouts.where((l) => l.id == id).map((l) => l.name).firstOrNull ?? id}»',
             onChanged: (v) async {
-              setState(() => _layoutId = v ?? '');
+              setState(() {
+                _layoutId = v ?? '';
+                // Mẫu khổ tùy chỉnh → in đúng khổ của mẫu.
+                final t = _templateForLayout(_layoutId);
+                if (t != null && _isCustomOrSpec(t)) _selectedTemplate = t;
+              });
               try {
                 final prefs = await SharedPreferences.getInstance();
                 await prefs.setString(_kLayoutPref, _layoutId);
@@ -967,7 +1014,7 @@ class _PosBarcodeLabelDialogState extends State<_PosBarcodeLabelDialog> {
           Wrap(
             spacing: 12,
             runSpacing: 12,
-            children: posBarcodeLabelTemplates.map((t) {
+            children: _gridTemplates.map((t) {
               final selected = _selectedTemplate?.id == t.id;
               return SizedBox(
                 width: Responsive.isMobile(context) ? double.infinity : 200,

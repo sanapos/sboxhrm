@@ -176,8 +176,11 @@ abstract final class PosPrintDocumentTypes {
   /// Tem cân hàng tươi (khối lượng × đơn giá, mã cân EAN-13, ngày giờ in, HSD).
   static const scaleLabel = 'ScaleLabel';
 
-  /// Tem dán hàng (tem sản phẩm / tem cân) — cùng khổ tem, cùng máy in tem.
-  static bool isProductLabel(String t) => t == barcodeLabel || t == scaleLabel;
+  /// Tem thông số kỹ thuật / tem tự soạn: khổ tùy chỉnh, mã vạch / QR nội dung tự soạn, trường thông số hàng.
+  static const specLabel = 'SpecLabel';
+
+  /// Tem dán hàng (tem sản phẩm / tem cân / tem thông số) — cùng khổ tem, cùng máy in tem.
+  static bool isProductLabel(String t) => t == barcodeLabel || t == scaleLabel || t == specLabel;
   static const quote = 'Quote';
   static const contract = 'Contract';
   static const handover = 'Handover';
@@ -199,6 +202,7 @@ abstract final class PosPrintDocumentTypes {
     kitchenLabel: 'Tem báo bếp',
     barcodeLabel: 'Tem sản phẩm',
     scaleLabel: 'Tem cân',
+    specLabel: 'Tem thông số / tự soạn',
     saleOrder: 'Đặt hàng',
     delivery: 'Giao hàng',
     saleReturn: 'Trả hàng',
@@ -225,6 +229,8 @@ abstract final class PosPrintDocumentTypes {
     kitchenLabel: 'Tem ly / tem báo bếp (1 tem mỗi món, khổ 50×30 hoặc 40×30). Không dùng khổ K58/K80.',
     barcodeLabel: 'Tem dán sản phẩm (mã hàng / barcode / giá). Khổ tem — không phải phiếu nhiệt.',
     scaleLabel: 'Tem cân hàng tươi (rau, thịt, cá…): khối lượng, đơn giá/kg, thành tiền, mã cân, ngày giờ in, HSD.',
+    specLabel: 'Tem thông số kỹ thuật / tem tự soạn: khổ tem tùy chỉnh (rộng × cao mm), mã vạch hoặc QR nội dung tự soạn, '
+        'thương hiệu, xuất xứ, bảo hành, kích thước, khối lượng…',
     saleOrder: 'Phiếu đặt hàng (không phải hóa đơn thanh toán).',
     delivery: 'Phiếu giao hàng.',
     saleReturn: 'Phiếu trả hàng bán.',
@@ -306,6 +312,12 @@ abstract final class PosPrintPaperSizes {
   static String displayLabel(String paperSize) {
     final known = labels[paperSize];
     if (known != null) return known;
+    final custom = customLabelDims(paperSize);
+    if (custom != null &&
+        !productLabelSizes.contains(paperSize) &&
+        paperSize != 'roll_1_100x50') {
+      return 'Tem ${_mm(custom.$1)}×${_mm(custom.$2)} mm (tùy chỉnh)';
+    }
     if (paperSize.startsWith('roll_') ||
         paperSize.startsWith('sheet_') ||
         paperSize.startsWith('jewelry_')) {
@@ -413,6 +425,23 @@ abstract final class PosPrintPaperSizes {
     };
   }
 
+  static String _mm(double v) =>
+      v == v.roundToDouble() ? v.toStringAsFixed(0) : v.toStringAsFixed(1);
+
+  /// Id khổ tem tùy chỉnh 1 tem / hàng: `roll_1_{rộng}x{cao}` (mm, cho phép 1 số lẻ).
+  static String customLabelId(double widthMm, double heightMm) =>
+      'roll_1_${_mm(widthMm)}x${_mm(heightMm)}';
+
+  /// (rộng, cao) mm của id `roll_1_WxH` bất kỳ; null nếu không phải dạng đó / ngoài 10–200 mm.
+  static (double, double)? customLabelDims(String size) {
+    final m = RegExp(r'^roll_1_(\d+(?:\.\d+)?)x(\d+(?:\.\d+)?)$').firstMatch(size);
+    if (m == null) return null;
+    final w = double.parse(m.group(1)!);
+    final h = double.parse(m.group(2)!);
+    if (w < 10 || w > 200 || h < 8 || h > 300) return null;
+    return (w, h);
+  }
+
   static (double, double)? _dimsFromRollId(String size) {
     switch (size) {
       case 'roll_1_50x30':
@@ -440,7 +469,7 @@ abstract final class PosPrintPaperSizes {
       case 'roll_1_100x50':
         return (100, 50);
     }
-    return null;
+    return customLabelDims(size);
   }
 
   /// Phiếu nhiệt cuộn (không gồm tem nhãn).
@@ -602,6 +631,26 @@ abstract final class PosPrintTokens {
     ('Ten_Cua_Hang', 'Tên cửa hàng'),
     ('Thong_So', 'Thông số hàng (thuộc tính, KL, KT, BH)'),
     ('Lo_HSD', 'Lô / NSX / HSD'),
+  ];
+
+  /// Token tem thông số / tem tự soạn.
+  static const specLabel = [
+    ('Ten_Hang_Hoa', 'Tên hàng hóa'),
+    ('Ma_Hang', 'Mã hàng'),
+    ('Ma_Vach', 'Mã vạch'),
+    ('Don_Gia', 'Giá bán'),
+    ('Don_Vi_Tinh', 'ĐVT'),
+    ('Thuong_Hieu', 'Thương hiệu'),
+    ('Nhom_Hang', 'Nhóm hàng'),
+    ('Nha_Cung_Cap', 'Nhà cung cấp / xuất xứ'),
+    ('Thuoc_Tinh', 'Thuộc tính (Màu: Đỏ · Size: L)'),
+    ('Khoi_Luong_SP', 'Khối lượng (vd 500 g)'),
+    ('Kich_Thuoc', 'Kích thước (D×R×C cm)'),
+    ('Bao_Hanh', 'Bảo hành (vd 12 tháng)'),
+    ('Mo_Ta', 'Mô tả hàng'),
+    ('Thong_So', 'Thông số gộp (TH · KL · KT · BH)'),
+    ('Ten_Cua_Hang', 'Tên cửa hàng'),
+    ('Ngay', 'Ngày in'),
   ];
 
   /// Token tem cân (màn Mẫu in → Tem cân).
