@@ -2083,7 +2083,9 @@ public partial class PosSalesController(
                     c.TransactionCode,
                     c.Amount,
                     PaymentMethodLabel(c.PaymentMethod),
-                    c.TransactionDate,
+                    // Phiếu thu lưu giờ VN; các dòng khác (thu nợ, cọc, ngày bán) là UTC → đưa về UTC
+                    // để app không cộng thêm 7 giờ (trước đây «Thu khi bán» lệch 7h so với giờ bán).
+                    VnTimeHelper.VnLocalToUtcWall(c.TransactionDate),
                     c.Description,
                     order.CreatedBy)));
             }
