@@ -9309,8 +9309,9 @@ class _PosSellScreenState extends State<PosSellScreen>
           pick.product.basePrice;
       // Tem «thành tiền»: SL 4 số lẻ (cột SL lưu 4 số) — giá × SL làm tròn ra đúng tiền in trên tem
       // (trước đây 3 số lẻ: tem 33.330đ, giá 150.000 → SL 0,222 → thu 33.300đ).
+      // Tem trọng lượng ghi kg → SL theo đơn vị gốc (gram / lạng / kg).
       final qty = scale.isWeight
-          ? scale.value
+          ? posScaleQtyFromKg(scale.value, pick.product.baseUnitName)
           : (price > 0 ? double.parse((scale.value / price).toStringAsFixed(4)) : 1.0);
       await _addPick(pick, mergeIfSame: false, addQty: qty);
       return;

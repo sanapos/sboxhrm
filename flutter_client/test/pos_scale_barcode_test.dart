@@ -35,4 +35,17 @@ void main() {
     expect(c.prefixes, ['21', '22']);
     expect(json.contains('"sell"'), isTrue);
   });
+  test('Hàng bán theo gram / lạng: mã cân ghi kg, quy đổi đúng đơn vị gốc', () {
+    // 456 gram → mã ghi 0,456 kg → quét ra lại 456 gram (trước đây ra 0,456 gram).
+    final code = weight.encode('7', posScaleKgFromQty(456, 'gram'))!;
+    final r = weight.decode(code)!;
+    expect(r.value, 0.456);
+    expect(posScaleQtyFromKg(r.value, 'gram'), 456);
+    expect(posScaleQtyFromKg(r.value, 'Lạng'), 4.56);
+    expect(posScaleQtyFromKg(r.value, 'kg'), 0.456);
+    expect(posScaleKgFromQty(3.5, 'lạng'), 0.35);
+    // Đơn vị không phải khối lượng: giữ nguyên như trước.
+    expect(posScaleKgPerUnit('mét'), isNull);
+    expect(posScaleQtyFromKg(1.25, 'mét'), 1.25);
+  });
 }
