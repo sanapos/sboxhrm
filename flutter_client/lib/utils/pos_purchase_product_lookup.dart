@@ -131,14 +131,14 @@ Future<PosPurchaseLookupPick?> _pickFromExact(
 
   if (matchType == 'product' && data['product'] is Map) {
     final p = PosProduct.fromJson(data['product'] as Map<String, dynamic>);
-    return _enrichProduct(api, p);
+    return _enrichProduct(api, p, keepLookupQty: true);
   }
 
   // Mã vạch đơn vị (thùng / lốc): thêm đúng đơn vị đó, giá theo đơn vị.
   if (matchType == 'unit' && data['product'] is Map && data['unit'] is Map) {
     final p = PosProduct.fromJson(Map<String, dynamic>.from(data['product'] as Map));
     final u = Map<String, dynamic>.from(data['unit'] as Map);
-    final enriched = await _enrichProduct(api, p);
+    final enriched = await _enrichProduct(api, p, keepLookupQty: true);
     return PosPurchaseLookupPick(
       product: enriched?.product ?? p,
       unitId: (u['unitId'] ?? u['UnitId'])?.toString(),
@@ -149,11 +149,12 @@ Future<PosPurchaseLookupPick?> _pickFromExact(
   return null;
 }
 
-Future<PosPurchaseLookupPick?> _enrichProduct(ApiService api, PosProduct p) async {
+/// [keepLookupQty]: giữ tồn trả về từ tra cứu mã (tồn của chi nhánh đang bán) thay vì tồn tổng cửa hàng của bản đầy đủ.
+Future<PosPurchaseLookupPick?> _enrichProduct(ApiService api, PosProduct p, {bool keepLookupQty = false}) async {
   final res = await api.getPosProduct(p.id);
   if (res['isSuccess'] == true && res['data'] is Map) {
     final full = PosProduct.fromJson(res['data'] as Map<String, dynamic>);
-    return PosPurchaseLookupPick(product: full);
+    return PosPurchaseLookupPick(product: keepLookupQty ? full.copyWith(onHandQty: p.onHandQty) : full);
   }
   return PosPurchaseLookupPick(product: p);
 }

@@ -1,4 +1,5 @@
 using System.Globalization;
+using System.Text;
 using System.Text.RegularExpressions;
 using Microsoft.Extensions.Logging;
 using ZKTecoADMS.Application.Interfaces;
@@ -6,9 +7,9 @@ using ZKTecoADMS.Application.Interfaces;
 namespace ZKTecoADMS.Infrastructure.Services;
 
 /// <summary>
-/// OCR Service for Vietnamese CCCD (Citizen ID Card)
-/// This implementation uses regex patterns to extract data from OCR text.
-/// The actual OCR can be performed client-side (mobile) or via external API.
+/// Đọc thông tin căn cước công dân từ văn bản OCR (OCR chạy trên máy người dùng hoặc dịch vụ ngoài).
+/// Văn bản được cắt theo NHÃN (Họ và tên, Ngày sinh, Giới tính, ...) chứ không theo dòng: trên thẻ nhiều trường
+/// nằm chung một dòng (Giới tính + Quốc tịch) và tên người có thể trùng từ với nhãn (Quốc, Học, Ngày ...).
 /// </summary>
 public class CccdOcrService : IOcrService
 {
@@ -21,10 +22,7 @@ public class CccdOcrService : IOcrService
 
     public Task<CccdOcrResult> ExtractCccdDataAsync(Stream imageStream)
     {
-        // This method is a placeholder for server-side OCR
-        // For production, integrate with Google Vision API, Azure Computer Vision, or Tesseract
-        // Currently, we recommend using client-side OCR (Flutter) and sending text to parse
-        
+        // Chưa đọc ảnh phía máy chủ: dùng OCR trên máy rồi gọi /api/upload/parse-cccd-text.
         return Task.FromResult(new CccdOcrResult
         {
             IsSuccess = false,
@@ -32,98 +30,120 @@ public class CccdOcrService : IOcrService
         });
     }
 
-    /// <summary>
-    /// Parse CCCD data from OCR text extracted by client (mobile OCR libraries like Google ML Kit)
-    /// </summary>
+    private enum Field { FullName, Dob, Sex, Nationality, Origin, Residence, Expiry, IssueDate, IssuePlace, Stop }
+
+    // Nhãn viết KHÔNG dấu, in hoa (văn bản được bỏ dấu trước khi dò). Phần «/ tiếng Anh» là tùy chọn.
+    private static readonly (Field Field, Regex Pattern)[] Labels =
+    [
+        (Field.FullName, new Regex(@"HO\s*VA\s*TEN(\s*/\s*FULL\s*NAME)?|FULL\s*NAME", RegexOptions.Compiled)),
+        (Field.Dob, new Regex(@"NGAY\s*SINH(\s*/\s*DATE\s*OF\s*BIRTH)?|DATE\s*OF\s*BIRTH", RegexOptions.Compiled)),
+        (Field.Sex, new Regex(@"GIOI\s*TINH(\s*/\s*SEX)?|\bSEX\b", RegexOptions.Compiled)),
+        (Field.Nationality, new Regex(@"QUOC\s*TICH(\s*/\s*NATIONALITY)?|NATIONALITY", RegexOptions.Compiled)),
+        (Field.Origin, new Regex(@"QUE\s*QUAN(\s*/\s*PLACE\s*OF\s*ORIGIN)?|PLACE\s*OF\s*ORIGIN", RegexOptions.Compiled)),
+        (Field.Residence, new Regex(@"NOI\s*(THUONG|CU)\s*TRU(\s*/\s*PLACE\s*OF\s*RESIDENCE)?|PLACE\s*OF\s*RESIDENCE", RegexOptions.Compiled)),
+        (Field.Expiry, new Regex(@"CO\s*GIA\s*TRI\s*DEN(\s*/\s*DATE\s*OF\s*EXPIRY)?|DATE\s*OF\s*EXPIRY|HET\s*HAN", RegexOptions.Compiled)),
+        (Field.IssueDate, new Regex(@"NGAY\s*,?\s*THANG\s*,?\s*NAM(\s*/\s*DATE\s*,?\s*MONTH\s*,?\s*YEAR)?|NGAY\s*CAP|DATE\s*OF\s*ISSUE", RegexOptions.Compiled)),
+        (Field.IssuePlace, new Regex(@"NOI\s*CAP", RegexOptions.Compiled)),
+        // Chặn giá trị trường trước tràn sang phần không phải dữ liệu (mặt sau, chữ ký, quốc hiệu).
+        (Field.Stop, new Regex(@"DAC\s*DIEM\s*NHAN\s*DANG|PERSONAL\s*IDENTIFICATION|CUC\s*TRUONG|CONG\s*HOA\s*XA\s*HOI|CAN\s*CUOC", RegexOptions.Compiled)),
+    ];
+
+    private static readonly Regex DatePattern = new(@"\d{1,2}\s*[/\-.]\s*\d{1,2}\s*[/\-.]\s*\d{4}|\b\d{8}\b", RegexOptions.Compiled);
+
+    /// <summary>Bỏ dấu tiếng Việt, in hoa; GIỮ NGUYÊN số ký tự để vị trí khớp với văn bản gốc.</summary>
+    private static string Fold(string text)
+    {
+        var sb = new StringBuilder(text.Length);
+        foreach (var ch in text)
+        {
+            if (ch is 'đ' or 'Đ') { sb.Append('D'); continue; }
+            if (char.IsSurrogate(ch)) { sb.Append(ch); continue; }
+            var d = ch.ToString().Normalize(NormalizationForm.FormD);
+            sb.Append(char.ToUpperInvariant(d[0]));
+        }
+        return sb.ToString();
+    }
+
+    /// <summary>Đọc thông tin căn cước từ văn bản OCR.</summary>
     public CccdOcrResult ParseCccdText(string ocrText)
     {
         if (string.IsNullOrWhiteSpace(ocrText))
         {
-            return new CccdOcrResult
-            {
-                IsSuccess = false,
-                ErrorMessage = "OCR text is empty"
-            };
+            return new CccdOcrResult { IsSuccess = false, ErrorMessage = "OCR text is empty" };
         }
 
         try
         {
-            var result = new CccdOcrResult
-            {
-                IsSuccess = true,
-                RawText = ocrText
-            };
+            // Chữ có dấu từ OCR có thể ở dạng tổ hợp (NFD) → đưa về dạng dựng sẵn để mỗi chữ là 1 ký tự.
+            var text = ocrText.Normalize(NormalizationForm.FormC).Replace("\r\n", "\n").Replace('\r', '\n');
+            var folded = Fold(text);
+            var result = new CccdOcrResult { IsSuccess = true, RawText = ocrText };
 
-            // Normalize text
-            var text = ocrText.ToUpper();
-            var lines = text.Split(new[] { '\n', '\r' }, StringSplitOptions.RemoveEmptyEntries)
-                           .Select(l => l.Trim())
-                           .Where(l => !string.IsNullOrEmpty(l))
-                           .ToList();
+            // Số căn cước: ưu tiên 12 số, không có thì CMND 9 số (số điện thoại 10 số không bị nhầm).
+            var id12 = Regex.Match(folded, @"(?<!\d)\d{12}(?!\d)");
+            var id9 = Regex.Match(folded, @"(?<!\d)\d{9}(?!\d)");
+            result.IdNumber = id12.Success ? id12.Value : id9.Success ? id9.Value : null;
 
-            // Extract ID Number (12 digits for new CCCD, 9 or 12 for old CMND)
-            var idPattern = new Regex(@"\b(\d{12}|\d{9})\b");
-            var idMatch = idPattern.Match(text);
-            if (idMatch.Success)
+            // Vị trí các nhãn, theo thứ tự xuất hiện; mỗi nhãn một lần (lần đầu).
+            var hits = new List<(Field Field, int Start, int End)>();
+            foreach (var (field, pattern) in Labels)
+                foreach (Match m in pattern.Matches(folded))
+                    hits.Add((field, m.Index, m.Index + m.Length));
+            hits = hits.OrderBy(h => h.Start).ThenByDescending(h => h.End - h.Start).ToList();
+            // Nhãn song ngữ khớp trong nhãn khác (vd «FULL NAME» nằm trong «HỌ VÀ TÊN / FULL NAME») → bỏ nhãn lồng nhau.
+            var labels = new List<(Field Field, int Start, int End)>();
+            foreach (var h in hits)
+                if (labels.Count == 0 || h.Start >= labels[^1].End) labels.Add(h);
+
+            string? Value(Field field, int maxLines)
             {
-                result.IdNumber = idMatch.Groups[1].Value;
+                var i = labels.FindIndex(l => l.Field == field);
+                if (i < 0) return null;
+                var from = labels[i].End;
+                var to = i + 1 < labels.Count ? labels[i + 1].Start : text.Length;
+                var lines = text[from..to].Split('\n')
+                    .Select(l => Regex.Replace(l.Replace('|', ' '), @"\s+", " ").Trim(' ', ':', '/', '-', '.', ','))
+                    .Where(l => l.Length > 0)
+                    .Take(maxLines)
+                    .ToList();
+                return lines.Count == 0 ? null : string.Join(" ", lines);
             }
 
-            // Extract Full Name (look for "Họ và tên" or similar patterns)
-            result.FullName = ExtractFieldValue(lines, new[] { "HỌ VÀ TÊN", "HO VA TEN", "FULL NAME", "HỌ TÊN" });
-
-            // Extract Date of Birth
-            var dobString = ExtractFieldValue(lines, new[] { "NGÀY SINH", "NGAY SINH", "DATE OF BIRTH", "SINH" });
-            if (!string.IsNullOrEmpty(dobString))
+            DateTime? DateOf(Field field)
             {
-                result.DateOfBirth = ParseVietnameseDate(dobString);
+                var i = labels.FindIndex(l => l.Field == field);
+                if (i < 0) return null;
+                var to = i + 1 < labels.Count ? labels[i + 1].Start : text.Length;
+                var m = DatePattern.Match(text[labels[i].End..to]);
+                return m.Success ? ParseVietnameseDate(m.Value) : null;
             }
 
-            // Extract Gender
-            var genderText = ExtractFieldValue(lines, new[] { "GIỚI TÍNH", "GIOI TINH", "SEX" });
-            if (!string.IsNullOrEmpty(genderText))
+            result.FullName = Value(Field.FullName, 1);
+            result.DateOfBirth = DateOf(Field.Dob);
+
+            // Giới tính: chỉ xét chữ ngay sau nhãn, KHÔNG tìm «NAM» trong cả dòng («Việt Nam» làm nữ thành nam).
+            var sex = Value(Field.Sex, 1);
+            if (sex != null)
             {
-                result.Gender = genderText.Contains("NAM") || genderText.Contains("MALE") ? "Nam" : "Nữ";
+                var s = Fold(sex);
+                if (Regex.IsMatch(s, @"^(NAM|MALE)\b")) result.Gender = "Nam";
+                else if (Regex.IsMatch(s, @"^(NU|FEMALE)\b")) result.Gender = "Nữ";
             }
 
-            // Extract Nationality
-            result.Nationality = ExtractFieldValue(lines, new[] { "QUỐC TỊCH", "QUOC TICH", "NATIONALITY" });
-            if (string.IsNullOrEmpty(result.Nationality) && text.Contains("VIỆT NAM"))
-            {
+            result.Nationality = Value(Field.Nationality, 1);
+            if (string.IsNullOrEmpty(result.Nationality) && folded.Contains("VIET NAM"))
                 result.Nationality = "Việt Nam";
-            }
 
-            // Extract Place of Origin
-            result.PlaceOfOrigin = ExtractFieldValue(lines, new[] { "QUÊ QUÁN", "QUE QUAN", "PLACE OF ORIGIN" });
+            result.PlaceOfOrigin = Value(Field.Origin, 2);
+            result.PlaceOfResidence = Value(Field.Residence, 3);
+            result.ExpiryDate = DateOf(Field.Expiry);
+            result.IssueDate = DateOf(Field.IssueDate);
 
-            // Extract Place of Residence
-            result.PlaceOfResidence = ExtractFieldValue(lines, new[] { "NƠI THƯỜNG TRÚ", "NOI THUONG TRU", "PLACE OF RESIDENCE", "THƯỜNG TRÚ" });
-
-            // Extract Issue Date
-            var issueDateString = ExtractFieldValue(lines, new[] { "NGÀY CẤP", "NGAY CAP", "DATE OF ISSUE" });
-            if (!string.IsNullOrEmpty(issueDateString))
-            {
-                result.IssueDate = ParseVietnameseDate(issueDateString);
-            }
-
-            // Extract Expiry Date
-            var expiryDateString = ExtractFieldValue(lines, new[] { "CÓ GIÁ TRỊ ĐẾN", "CO GIA TRI DEN", "DATE OF EXPIRY", "HẾT HẠN" });
-            if (!string.IsNullOrEmpty(expiryDateString))
-            {
-                result.ExpiryDate = ParseVietnameseDate(expiryDateString);
-            }
-
-            // Extract Issue Place
-            result.IssuePlace = ExtractFieldValue(lines, new[] { "NƠI CẤP", "NOI CAP" });
+            result.IssuePlace = Value(Field.IssuePlace, 1);
             if (string.IsNullOrEmpty(result.IssuePlace))
-            {
-                // Default for new CCCD
                 result.IssuePlace = "Cục Cảnh sát QLHC về TTXH";
-            }
 
-            _logger.LogInformation("CCCD OCR parsed successfully. ID: {IdNumber}, Name: {FullName}", 
-                result.IdNumber, result.FullName);
-
+            _logger.LogInformation("CCCD OCR parsed successfully. ID: {IdNumber}", result.IdNumber);
             return result;
         }
         catch (Exception ex)
@@ -138,109 +158,18 @@ public class CccdOcrService : IOcrService
         }
     }
 
-    private string? ExtractFieldValue(List<string> lines, string[] fieldNames)
-    {
-        foreach (var fieldName in fieldNames)
-        {
-            // Try to find line containing field name
-            var matchingLine = lines.FirstOrDefault(l => l.Contains(fieldName, StringComparison.OrdinalIgnoreCase));
-            if (matchingLine != null)
-            {
-                // Extract value after the field name or colon
-                var colonIndex = matchingLine.IndexOf(':');
-                if (colonIndex >= 0)
-                {
-                    var value = matchingLine.Substring(colonIndex + 1).Trim();
-                    if (!string.IsNullOrEmpty(value))
-                        return CleanText(value);
-                }
-
-                // Try to get the next line as the value
-                var lineIndex = lines.IndexOf(matchingLine);
-                if (lineIndex < lines.Count - 1)
-                {
-                    var nextLine = lines[lineIndex + 1];
-                    // Make sure next line is not another field
-                    if (!ContainsFieldName(nextLine))
-                    {
-                        return CleanText(nextLine);
-                    }
-                }
-
-                // Try to extract from same line after field name
-                var fieldIndex = matchingLine.IndexOf(fieldName, StringComparison.OrdinalIgnoreCase);
-                if (fieldIndex >= 0)
-                {
-                    var afterField = matchingLine.Substring(fieldIndex + fieldName.Length).Trim();
-                    if (afterField.StartsWith(":"))
-                        afterField = afterField.Substring(1).Trim();
-                    if (!string.IsNullOrEmpty(afterField))
-                        return CleanText(afterField);
-                }
-            }
-        }
-        return null;
-    }
-
-    private bool ContainsFieldName(string text)
-    {
-        var fieldNames = new[] { "HỌ", "TÊN", "NGÀY", "GIỚI", "QUỐC", "QUÊ", "NƠI", "CẤP", "GIÁ TRỊ" };
-        return fieldNames.Any(f => text.Contains(f, StringComparison.OrdinalIgnoreCase));
-    }
-
-    private string CleanText(string text)
-    {
-        // Remove common OCR artifacts and normalize
-        text = text.Trim();
-        text = Regex.Replace(text, @"[|]", "");
-        text = Regex.Replace(text, @"\s+", " ");
-        return text;
-    }
-
-    private DateTime? ParseVietnameseDate(string dateString)
+    private static DateTime? ParseVietnameseDate(string dateString)
     {
         if (string.IsNullOrWhiteSpace(dateString))
             return null;
 
-        // Clean the date string
-        dateString = Regex.Replace(dateString, @"[^0-9/\-.]", "");
-
-        // Common Vietnamese date formats
-        var formats = new[]
-        {
-            "dd/MM/yyyy",
-            "d/M/yyyy",
-            "dd-MM-yyyy",
-            "d-M-yyyy",
-            "dd.MM.yyyy",
-            "ddMMyyyy"
-        };
-
+        var cleaned = Regex.Replace(dateString, @"[^0-9/\-.]", "");
+        string[] formats = ["dd/MM/yyyy", "d/M/yyyy", "dd-MM-yyyy", "d-M-yyyy", "dd.MM.yyyy", "d.M.yyyy", "ddMMyyyy"];
         foreach (var format in formats)
         {
-            if (DateTime.TryParseExact(dateString, format, 
-                CultureInfo.InvariantCulture, DateTimeStyles.None, out var date))
-            {
+            if (DateTime.TryParseExact(cleaned, format, CultureInfo.InvariantCulture, DateTimeStyles.None, out var date))
                 return date;
-            }
         }
-
-        // Try to extract and parse individual components
-        var match = Regex.Match(dateString, @"(\d{1,2})[/\-.]?(\d{1,2})[/\-.]?(\d{4})");
-        if (match.Success)
-        {
-            if (int.TryParse(match.Groups[1].Value, out var day) &&
-                int.TryParse(match.Groups[2].Value, out var month) &&
-                int.TryParse(match.Groups[3].Value, out var year))
-            {
-                try
-                {
-                    return new DateTime(year, month, day);
-                }
-                catch { }
-            }
-        }
-
         return null;
     }
 }

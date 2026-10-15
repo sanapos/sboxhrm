@@ -1,4 +1,5 @@
 // ignore: avoid_web_libraries_in_flutter, deprecated_member_use
+import '../utils/cccd_qr_parser.dart';
 import '../utils/excel_bytes_utils.dart';
 import '../utils/excel_download_helper.dart';
 import 'dart:typed_data';
@@ -187,95 +188,12 @@ class _EmployeesScreenState extends State<EmployeesScreen> {
     return result;
   }
 
-  /// Parse Vietnamese CCCD QR code data
-  /// Format: CCCD|CMND_CU|HO_TEN|NGAY_SINH|GIOI_TINH|DIA_CHI|NGAY_CAP
-  /// Example: 012345678901|123456789|NGUYEN VAN A|19900101|Nam|Hanoi|20220101
-  /// Some QR codes may have fewer fields (no old CMND): CCCD|HO_TEN|NGAY_SINH|GIOI_TINH|DIA_CHI|NGAY_CAP
+  /// Đọc mã QR căn cước (xem utils/cccd_qr_parser.dart) và suy ra tỉnh / thành từ địa chỉ.
   Map<String, dynamic>? _parseCccdQr(String raw) {
-    final parts = raw.split('|');
-    if (parts.length < 6) return null;
-
-    // Determine format: 7 fields = has old CMND, 6 fields = no old CMND
-    String? cccd;
-    String? fullName;
-    String? dobStr;
-    String? gender;
-    String? address;
-    String? issueDateStr;
-
-    if (parts.length >= 7) {
-      // 7-field format: CCCD|CMND_CU|HO_TEN|NGAY_SINH|GIOI_TINH|DIA_CHI|NGAY_CAP
-      cccd = parts[0].trim();
-      // parts[1] = old CMND (ignored for now)
-      fullName = parts[2].trim();
-      dobStr = parts[3].trim();
-      gender = parts[4].trim();
-      address = parts[5].trim();
-      issueDateStr = parts[6].trim();
-    } else {
-      // 6-field format: CCCD|HO_TEN|NGAY_SINH|GIOI_TINH|DIA_CHI|NGAY_CAP
-      cccd = parts[0].trim();
-      fullName = parts[1].trim();
-      dobStr = parts[2].trim();
-      gender = parts[3].trim();
-      address = parts[4].trim();
-      issueDateStr = parts[5].trim();
-    }
-
-    // Validate CCCD is 12 digits
-    if (cccd.length != 12 || int.tryParse(cccd) == null) return null;
-
-    // Parse date of birth (ddMMyyyy → DateTime)
-    // Vietnamese CCCD QR uses ddMMyyyy format (e.g. 01011990 = 01/01/1990)
-    DateTime? dob;
-    if (dobStr.length == 8) {
-      final d = int.tryParse(dobStr.substring(0, 2));
-      final m = int.tryParse(dobStr.substring(2, 4));
-      final y = int.tryParse(dobStr.substring(4, 8));
-      if (y != null &&
-          m != null &&
-          d != null &&
-          m >= 1 &&
-          m <= 12 &&
-          d >= 1 &&
-          d <= 31) {
-        dob = DateTime(y, m, d);
-      }
-    } else if (dobStr.contains('/')) {
-      try {
-        dob = DateFormat('dd/MM/yyyy').parse(dobStr);
-      } catch (_) {}
-    }
-
-    // Normalize gender
-    String? genderNormalized;
-    final genderLower = gender.toLowerCase();
-    if (genderLower == 'nam' || genderLower == 'male') {
-      genderNormalized = 'Nam';
-    } else if (genderLower == 'nữ' ||
-        genderLower == 'nu' ||
-        genderLower == 'female') {
-      genderNormalized = 'Nữ';
-    }
-
-    // Convert fullName to title case
-    final nameFormatted = fullName.split(' ').map((w) {
-      if (w.isEmpty) return w;
-      return w[0].toUpperCase() + w.substring(1).toLowerCase();
-    }).join(' ');
-
-    // Extract province from address for hometown field
-    String? province = _extractProvinceFromAddress(address);
-
-    return {
-      'cccd': cccd,
-      'fullName': nameFormatted,
-      'dob': dob,
-      'gender': genderNormalized,
-      'address': address,
-      'issueDate': issueDateStr,
-      'province': province,
-    };
+    final parsed = parseCccdQr(raw);
+    if (parsed == null) return null;
+    parsed['province'] = _extractProvinceFromAddress(parsed['address'] as String);
+    return parsed;
   }
 
   /// Extract province/city from CCCD address string
@@ -316,7 +234,7 @@ class _EmployeesScreenState extends State<EmployeesScreen> {
     final normalizedAddr = _removeAccents(lowerAddr);
     const provinceNoAccent = <String, String>{
       'ha noi': 'Hà Nội',
-      'hai phơng': 'Hải Phòng',
+      'hai phong': 'Hải Phòng',
       'da nang': 'Đà Nẵng',
       'hue': 'Huế',
       'can tho': 'Cần Thơ',
@@ -2415,6 +2333,8 @@ class _EmployeesScreenState extends State<EmployeesScreen> {
     final nationalIdController =
         TextEditingController(text: tr(employee?.nationalId ?? ''));
     String? selectedHometown = employee?.hometown;
+    // Tăng khi quét QR căn cước điền tỉnh → dựng lại ô Quê quán (Autocomplete chỉ nhận giá trị ban đầu).
+    var hometownRevision = 0;
 
     String? selectedBank = employee?.bankName;
     String? selectedGender = employee?.genderDisplay;
@@ -2536,6 +2456,7 @@ class _EmployeesScreenState extends State<EmployeesScreen> {
                             }
                             if (parsed['province'] != null) {
                               selectedHometown = parsed['province'];
+                              hometownRevision++;
                             }
                           });
                           NotificationOverlayManager().showSuccess(
@@ -2748,6 +2669,7 @@ class _EmployeesScreenState extends State<EmployeesScreen> {
                 const SizedBox(height: 16),
                 // Quê quán — Autocomplete 34 tỉnh thành
                 Autocomplete<String>(
+                  key: ValueKey('hometown_$hometownRevision'),
                   initialValue: TextEditingValue(text: tr(selectedHometown ?? '')),
                   optionsBuilder: (TextEditingValue textEditingValue) {
                     if (textEditingValue.text.isEmpty) {
@@ -4496,6 +4418,8 @@ class _CccdQrScannerDialogState extends State<_CccdQrScannerDialog> {
   MobileScannerController? _scannerController;
   bool _hasScanned = false;
   String? _scannedPreview;
+  // Có QR nhưng không phải căn cước: báo để người dùng không tưởng máy quét hỏng.
+  bool _notCccdQr = false;
   String? _cameraError;
   bool _showManualInput = false;
   final _manualController = TextEditingController();
@@ -4600,6 +4524,8 @@ class _CccdQrScannerDialogState extends State<_CccdQrScannerDialog> {
                                         Navigator.pop(context, code);
                                       }
                                     });
+                                  } else if (!_notCccdQr) {
+                                    setState(() => _notCccdQr = true);
                                   }
                                 }
                               },
@@ -4688,6 +4614,18 @@ class _CccdQrScannerDialogState extends State<_CccdQrScannerDialog> {
                       ? const SizedBox.shrink()
                       : Column(
                           children: [
+                            if (_notCccdQr)
+                              Padding(
+                                padding: const EdgeInsets.only(bottom: 4),
+                                child: Text(
+                                  tr('Mã vừa quét không phải QR căn cước — hãy quét mã ở mặt sau thẻ'),
+                                  textAlign: TextAlign.center,
+                                  style: const TextStyle(
+                                      color: SboxColors.danger,
+                                      fontSize: 12.5,
+                                      fontWeight: FontWeight.w600),
+                                ),
+                              ),
                             Text(tr('Hướng camera vào mã QR trên CCCD'),
                               textAlign: TextAlign.center,
                               style: TextStyle(

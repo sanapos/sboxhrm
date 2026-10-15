@@ -533,14 +533,15 @@ public partial class PosProductsController(
             return BadRequest(AppResponse<PosProductDto>.Fail("Mã vạch không hợp lệ"));
 
         var trimmed = code.Trim();
+        var gtin = PosGtin.Variants(trimmed);
         var product = await dbContext.PosProducts.AsNoTracking()
             .FirstOrDefaultAsync(p => p.StoreId == storeId && p.Deleted == null && p.IsActive &&
-                (p.Barcode == trimmed || p.ProductCode == trimmed));
+                ((p.Barcode != null && gtin.Contains(p.Barcode.ToLower())) || p.ProductCode == trimmed));
         // Mã vạch đơn vị (thùng / lốc) → hàng hóa của đơn vị đó.
         if (product == null)
         {
             var unitProductId = await dbContext.PosProductUnits.AsNoTracking()
-                .Where(u => u.StoreId == storeId && u.Deleted == null && u.Barcode == trimmed)
+                .Where(u => u.StoreId == storeId && u.Deleted == null && u.Barcode != null && gtin.Contains(u.Barcode.ToLower()))
                 .Select(u => (Guid?)u.ProductId)
                 .FirstOrDefaultAsync();
             if (unitProductId != null)
