@@ -5,6 +5,7 @@ import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
 import 'package:provider/provider.dart';
 
+import '../../utils/pos_report_export.dart';
 import '../../providers/permission_provider.dart';
 import '../../services/api_service.dart';
 import '../../utils/file_saver.dart' as file_saver;
@@ -25,6 +26,7 @@ class PosHkdBooksScreen extends StatefulWidget {
 }
 
 class _PosHkdBooksScreenState extends State<PosHkdBooksScreen> {
+  final _pngKey = GlobalKey();
   final _api = ApiService();
   final _taxCodeCtrl = TextEditingController();
   final _businessNameCtrl = TextEditingController();
@@ -285,6 +287,12 @@ class _PosHkdBooksScreenState extends State<PosHkdBooksScreen> {
     final canEdit = perm.canEdit('HkdBooks');
 
     return PosReportMobileScaffold(
+      pngKey: _pngKey,
+      onExportPng: () => unawaited(PosReportExport.png(
+        context: context,
+        key: _pngKey,
+        filePrefix: 'POS_ThueHKD',
+      )),
       title: 'Thuế hộ kinh doanh',
       exportModule: 'HkdBooks',
       time: _time,

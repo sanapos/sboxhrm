@@ -1,4 +1,6 @@
+import 'dart:async';
 import 'package:flutter/material.dart';
+import '../../utils/pos_report_export.dart';
 import '../../utils/api_datetime.dart';
 import 'package:intl/intl.dart';
 
@@ -20,6 +22,7 @@ class PosStockHealthReportScreen extends StatefulWidget {
 }
 
 class _PosStockHealthReportScreenState extends State<PosStockHealthReportScreen> {
+  final _pngKey = GlobalKey();
   final _api = ApiService();
   final _moneyFmt = NumberFormat('#,##0', 'vi_VN');
   final _dateFmt = DateFormat('dd/MM/yyyy');
@@ -105,6 +108,12 @@ class _PosStockHealthReportScreenState extends State<PosStockHealthReportScreen>
       ],
     );
     return PosReportMobileScaffold(
+      pngKey: _pngKey,
+      onExportPng: () => unawaited(PosReportExport.png(
+        context: context,
+        key: _pngKey,
+        filePrefix: 'POS_SucKhoeKho',
+      )),
       title: 'Tồn chậm / cháy hàng',
       exportModule: 'PosReportStock',
       time: _time,

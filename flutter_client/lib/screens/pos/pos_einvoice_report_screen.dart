@@ -30,6 +30,7 @@ class PosEInvoiceReportScreen extends StatefulWidget {
 }
 
 class _PosEInvoiceReportScreenState extends State<PosEInvoiceReportScreen> {
+  final _pngKey = GlobalKey();
   final _api = ApiService();
   final _moneyFmt = NumberFormat('#,##0', 'vi_VN');
   final _dateFmt = DateFormat('dd/MM HH:mm');
@@ -462,6 +463,12 @@ class _PosEInvoiceReportScreenState extends State<PosEInvoiceReportScreen> {
     final emailed = _num(_summary?['emailSentCount']);
 
     return PosReportMobileScaffold(
+      pngKey: _pngKey,
+      onExportPng: () => unawaited(PosReportExport.png(
+        context: context,
+        key: _pngKey,
+        filePrefix: 'POS_HoaDonDienTu',
+      )),
       title: 'Quản lý hóa đơn điện tử',
       exportModule: 'PosEInvoice',
       time: _time,
@@ -477,7 +484,7 @@ class _PosEInvoiceReportScreenState extends State<PosEInvoiceReportScreen> {
                 title: 'Hóa đơn điện tử',
                 sheetName: 'HDDT',
                 filePrefix: 'POS_HDDT',
-                periodLabel: _time.displayLabel,
+                periodLabel: _time.exportLabel,
                 filterLabel: _status == 'all' ? null : _status,
                 headers: const [
                   'Mã đơn',

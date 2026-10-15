@@ -1,5 +1,6 @@
 import 'package:fl_chart/fl_chart.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter/rendering.dart';
 import 'package:provider/provider.dart';
 import '../../../providers/permission_provider.dart';
 import 'package:intl/intl.dart';
@@ -7,6 +8,9 @@ import 'package:intl/intl.dart';
 import '../../../utils/api_datetime.dart';
 import '../../../utils/media_query_safe_padding.dart';
 import '../../../utils/pos_kiot_time_range.dart';
+import '../../../providers/auth_provider.dart';
+import '../../../utils/excel_report_builder.dart';
+import '../../../utils/report_screen_helpers.dart';
 import '../pos_list_filters.dart';
 import '../pos_mobile_widgets.dart';
 import '../pos_theme.dart';
@@ -273,7 +277,12 @@ class PosReportMobileScaffold extends StatelessWidget {
                   onRefresh: onRefresh ?? () async {},
                   child: pngKey == null
                       ? body
-                      : RepaintBoundary(key: pngKey, child: body),
+                      : PosReportPngCapture(
+                          pngKey: pngKey!,
+                          title: title,
+                          periodLabel: showTimeFilter ? time.exportLabel : null,
+                          child: body,
+                        ),
                 ),
               ),
             ),
@@ -1098,4 +1107,190 @@ class PosReportInvoiceList extends StatelessWidget {
 
   static double _num(dynamic v) =>
       v is num ? v.toDouble() : double.tryParse('$v') ?? 0;
+}
+
+
+/// Bọc nội dung báo cáo để xuất PNG ĐỦ TRANG: lúc chụp, nới chiều cao bằng toàn bộ nội dung cuộn
+/// (danh sách dựng hết các mục) và thêm đầu trang (tên báo cáo · kỳ · cửa hàng · giờ xuất).
+class PosReportPngCapture extends StatefulWidget {
+  const PosReportPngCapture({
+    super.key,
+    required this.pngKey,
+    required this.title,
+    required this.child,
+    this.periodLabel,
+  });
+
+  final GlobalKey pngKey;
+  final String title;
+  final String? periodLabel;
+  final Widget child;
+
+  @override
+  State<PosReportPngCapture> createState() => _PosReportPngCaptureState();
+}
+
+class _PosReportPngCaptureState extends State<PosReportPngCapture> implements PngFullCaptureHost {
+  final _contentKey = GlobalKey();
+  double? _fullHeight;
+
+  @override
+  void initState() {
+    super.initState();
+    PngFullCapture.hosts[widget.pngKey] = this;
+  }
+
+  @override
+  void didUpdateWidget(covariant PosReportPngCapture oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (oldWidget.pngKey != widget.pngKey) {
+      PngFullCapture.hosts.remove(oldWidget.pngKey);
+      PngFullCapture.hosts[widget.pngKey] = this;
+    }
+  }
+
+  @override
+  void dispose() {
+    if (identical(PngFullCapture.hosts[widget.pngKey], this)) {
+      PngFullCapture.hosts.remove(widget.pngKey);
+    }
+    super.dispose();
+  }
+
+  /// Vị trí cuộn dọc đầu tiên trong nội dung (ListView của báo cáo).
+  ScrollPosition? _position() {
+    ScrollPosition? found;
+    void visit(Element e) {
+      if (found != null) return;
+      if (e is StatefulElement && e.state is ScrollableState) {
+        final pos = (e.state as ScrollableState).position;
+        if (pos.axis == Axis.vertical && pos.hasContentDimensions) {
+          found = pos;
+          return;
+        }
+      }
+      e.visitChildElements(visit);
+    }
+
+    _contentKey.currentContext?.visitChildElements(visit);
+    return found;
+  }
+
+  @override
+  Future<void> prepareFullCapture() async {
+    final viewport = _contentKey.currentContext?.size?.height ?? 0;
+    var height = viewport;
+    // Danh sách dựng dần → chiều cao ước tính; nới tới khi hết cuộn (tối đa vài lượt).
+    for (var i = 0; i < 6; i++) {
+      final pos = _position();
+      if (pos == null || pos.maxScrollExtent <= 0.5) break;
+      height = pos.maxScrollExtent + pos.viewportDimension;
+      if (!mounted) return;
+      setState(() => _fullHeight = height);
+      await WidgetsBinding.instance.endOfFrame;
+      await Future<void>.delayed(const Duration(milliseconds: 60));
+    }
+    if (!mounted) return;
+    // Luôn bật đầu trang khi chụp (kể cả báo cáo ngắn không cần nới).
+    setState(() => _fullHeight ??= viewport);
+    await WidgetsBinding.instance.endOfFrame;
+    // Chiều cao ước tính của danh sách thường lớn hơn thật → thu về đúng nội dung (khỏi khoảng trắng cuối ảnh).
+    final actual = _contentExtent();
+    if (mounted && actual != null && actual > 0 && _fullHeight != null && actual < _fullHeight! - 1) {
+      setState(() => _fullHeight = actual);
+      await WidgetsBinding.instance.endOfFrame;
+    }
+  }
+
+  /// Tổng chiều cao thật các sliver của danh sách (đã dựng hết vì viewport đủ cao).
+  double? _contentExtent() {
+    RenderViewportBase? viewport;
+    void visit(RenderObject r) {
+      if (viewport != null) return;
+      if (r is RenderViewportBase && r.axis == Axis.vertical) {
+        viewport = r;
+        return;
+      }
+      r.visitChildren(visit);
+    }
+
+    final root = _contentKey.currentContext?.findRenderObject();
+    if (root == null) return null;
+    visit(root);
+    final vp = viewport;
+    if (vp == null) return null;
+    var sum = 0.0;
+    vp.visitChildren((c) {
+      if (c is RenderSliver && c.geometry != null) sum += c.geometry!.scrollExtent;
+    });
+    return sum;
+  }
+
+  @override
+  void endFullCapture() {
+    if (mounted && _fullHeight != null) setState(() => _fullHeight = null);
+  }
+
+  Widget _header(BuildContext context) {
+    String? store;
+    try {
+      final auth = context.read<AuthProvider>();
+      store = ExcelReportContext.resolve(
+        token: auth.token,
+        email: auth.user?.email,
+        fullName: auth.user?.fullName,
+      ).storeName;
+    } catch (_) {}
+    final meta = [
+      if ((widget.periodLabel ?? '').isNotEmpty) 'Kỳ: ${widget.periodLabel}',
+      if ((store ?? '').isNotEmpty) store!,
+      'Xuất lúc ${DateFormat('dd/MM/yyyy HH:mm').format(DateTime.now())}',
+    ].join('  ·  ');
+    return Container(
+      color: Colors.white,
+      padding: const EdgeInsets.fromLTRB(16, 14, 16, 12),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Text(tr(widget.title.toUpperCase()),
+              style: const TextStyle(fontSize: 18, fontWeight: FontWeight.w800, color: _ink, letterSpacing: 0.2)),
+          const SizedBox(height: 4),
+          Text(tr(meta), style: const TextStyle(fontSize: 12, color: _muted)),
+        ],
+      ),
+    );
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final content = KeyedSubtree(key: _contentKey, child: widget.child);
+    final full = _fullHeight;
+    if (full == null) {
+      return RepaintBoundary(key: widget.pngKey, child: content);
+    }
+    // Lúc chụp: nội dung cao bằng toàn bộ danh sách, tràn khỏi màn hình (không ảnh hưởng ảnh chụp).
+    return ClipRect(
+      child: OverflowBox(
+        alignment: Alignment.topCenter,
+        minHeight: 0,
+        maxHeight: double.infinity,
+        child: RepaintBoundary(
+          key: widget.pngKey,
+          child: ColoredBox(
+            color: _pageBg,
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              children: [
+                _header(context),
+                const Divider(height: 1, color: SboxColors.slate200),
+                SizedBox(height: full, child: content),
+              ],
+            ),
+          ),
+        ),
+      ),
+    );
+  }
 }

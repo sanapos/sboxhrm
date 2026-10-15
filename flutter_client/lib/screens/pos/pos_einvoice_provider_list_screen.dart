@@ -122,7 +122,7 @@ class _PosEInvoiceProviderListScreenState
                 title: 'Hóa đơn điện tử trên $providerName',
                 sheetName: 'HDDT_hang',
                 filePrefix: 'POS_HDDT_HANG',
-                periodLabel: _time.displayLabel,
+                periodLabel: _time.exportLabel,
                 headers: const [
                   'Số HĐ',
                   'Ký hiệu',

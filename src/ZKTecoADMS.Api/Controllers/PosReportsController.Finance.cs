@@ -293,7 +293,11 @@ public partial class PosReportsController
         // hoàn trả hay VAT (trước đây trừ cả hai → doanh thu thuần thấp hơn thực tế).
         var revenue = await orders.SumAsync(o => (decimal?)o.Total) ?? 0;
         var vat = await orders.SumAsync(o => (decimal?)o.VatAmount) ?? 0;
-        var discount = await orders.SumAsync(o => (decimal?)(o.Discount + o.VoucherDiscount + o.PointsDiscount)) ?? 0;
+        // Gồm cả giảm giá từng dòng (trước đây thiếu → KQKD ghi giảm giá thấp hơn báo cáo bán hàng).
+        var discount = (await orders.SumAsync(o => (decimal?)(o.Discount + o.VoucherDiscount + o.PointsDiscount)) ?? 0)
+            + (await dbContext.PosSaleOrderLines.AsNoTracking()
+                .Where(l => orders.Select(o => o.Id).Contains(l.SaleOrderId) && l.Deleted == null)
+                .SumAsync(l => (decimal?)l.DiscountAmount) ?? 0);
         var orderCount = await orders.CountAsync();
         var orderIds = await orders.Select(o => o.Id).ToListAsync();
         var returnedByOrder = await PosSaleReturnLedger.ReturnedByOrderAsync(dbContext, storeId, orderIds);

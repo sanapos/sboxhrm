@@ -275,6 +275,8 @@ class _PosEndOfDayScreenState extends State<PosEndOfDayScreen> {
             ['Hoàn cọc', r.depositRefunded],
             ['Mất cọc', r.depositForfeited],
             ['Cọc đang giữ', r.depositHeld],
+            ['Thu nợ khách', r.debtCollected],
+            ['Hoàn tiền trả hàng', r.refundPaid],
             ['Tiền mặt két', r.drawerCash],
             ['Quỹ vào hôm nay', r.fundInToday],
             for (final p in r.payments)
@@ -300,7 +302,7 @@ class _PosEndOfDayScreenState extends State<PosEndOfDayScreen> {
       title: 'Tổng kết cuối ngày',
       sheetName: r.transactions.isEmpty ? 'Cuoi ngay' : 'Hoa don',
       filePrefix: 'POS_CuoiNgay',
-      periodLabel: _time.displayLabel,
+      periodLabel: _time.exportLabel,
       filterLabel: r.staffName,
       headers: r.transactions.isEmpty
           ? const ['Hạng mục', 'Giá trị']
@@ -763,6 +765,16 @@ class _PosEndOfDayScreenState extends State<PosEndOfDayScreen> {
                 _summaryLine('', 'Mất cọc (thu nhập)', _fmt(r.depositForfeited), indent: true),
                 _summaryLine('', 'Đang giữ (chưa nhận bàn)', _fmt(r.depositHeld), indent: true),
                 _summaryLine('', 'Đã trừ HĐ hôm nay', _fmt(r.depositApplied), indent: true),
+                if (r.debtCollected > 0 || r.refundPaid > 0) ...[
+                  const Divider(height: 16),
+                  section('THU NỢ / HOÀN TRẢ'),
+                  _summaryLine('', 'Khách trả nợ', _fmt(r.debtCollected), indent: true),
+                  if (r.debtCollectedCash > 0 && r.debtCollectedCash != r.debtCollected)
+                    _summaryLine('', '· tiền mặt', _fmt(r.debtCollectedCash), indent: true),
+                  _summaryLine('', 'Hoàn tiền trả hàng', '-${_fmt(r.refundPaid)}', indent: true),
+                  if (r.refundPaidCash > 0 && r.refundPaidCash != r.refundPaid)
+                    _summaryLine('', '· tiền mặt', '-${_fmt(r.refundPaidCash)}', indent: true),
+                ],
                 const Divider(height: 18, thickness: 1.4),
                 _summaryLine('', 'TIỀN MẶT TRONG KÉT', _fmt(r.drawerCash), bold: true),
                 _summaryLine('', 'QUỸ VÀO HÔM NAY', _fmt(r.fundInToday), bold: true),

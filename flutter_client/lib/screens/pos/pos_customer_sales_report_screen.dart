@@ -23,6 +23,7 @@ class PosCustomerSalesReportScreen extends StatefulWidget {
 }
 
 class _PosCustomerSalesReportScreenState extends State<PosCustomerSalesReportScreen> {
+  final _pngKey = GlobalKey();
   final _api = ApiService();
   final _searchCtrl = TextEditingController();
   final _moneyFmt = NumberFormat('#,##0', 'vi_VN');
@@ -108,6 +109,12 @@ class _PosCustomerSalesReportScreenState extends State<PosCustomerSalesReportScr
       ],
     );
     return PosReportMobileScaffold(
+      pngKey: _pngKey,
+      onExportPng: () => unawaited(PosReportExport.png(
+        context: context,
+        key: _pngKey,
+        filePrefix: 'POS_BanTheoKhach',
+      )),
       title: 'Bán theo khách',
       exportModule: 'PosSalesReport',
       time: _time,
@@ -116,7 +123,7 @@ class _PosCustomerSalesReportScreenState extends State<PosCustomerSalesReportScr
         title: 'Bán theo khách',
         sheetName: 'Khach hang',
         filePrefix: 'POS_BanTheoKhach',
-        periodLabel: _time.displayLabel,
+        periodLabel: _time.exportLabel,
         headers: const ['Khách', 'SĐT', 'Số HĐ', 'DT', 'LN', 'Nợ'],
         rows: [
           for (final r in items)

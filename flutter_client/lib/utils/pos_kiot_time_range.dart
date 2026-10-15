@@ -102,6 +102,21 @@ class PosKiotTimeFilterState {
     return preset.label;
   }
 
+  /// Nhãn kỳ cho file xuất (Excel / PNG): kèm ngày cụ thể — «Tháng này (01/10/2026 – 31/10/2026)».
+  /// Chỉ «Tháng này» thì file lưu lại về sau không biết thuộc kỳ nào.
+  String get exportLabel {
+    if (isCustom) return displayLabel;
+    final f = from;
+    final t = to;
+    if (f == null && t == null) return displayLabel;
+    final range = f != null && t != null
+        ? (_fmt(f) == _fmt(t) ? _fmt(f) : '${_fmt(f)} – ${_fmt(t)}')
+        : f != null
+            ? 'từ ${_fmt(f)}'
+            : 'đến ${_fmt(t!)}';
+    return '${preset.label} ($range)';
+  }
+
   PosKiotTimeFilterState copyWith({
     PosKiotTimePreset? preset,
     bool? isCustom,

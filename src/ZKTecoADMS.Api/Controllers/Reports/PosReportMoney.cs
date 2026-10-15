@@ -24,7 +24,7 @@ internal static class PosReportMoney
     sealed record LineRow(Guid Id, Guid SaleOrderId, Guid ProductId, string ProductName, decimal Qty, decimal LineTotal,
         decimal DiscountAmount, string? ToppingsJson, Guid? UnitId, DateTime SoldAt);
 
-    sealed record OrderRow(Guid Id, decimal Discount, decimal VoucherDiscount, decimal PointsDiscount);
+    sealed record OrderRow(Guid Id, decimal Discount, decimal VoucherDiscount, decimal PointsDiscount, decimal Total = 0);
 
     /// <summary>Dòng bán đã trừ hàng trả, phân bổ giảm giá đơn, quy ĐVT — đầu vào cho PosReportLineExpand.</summary>
     public static async Task<List<PosReportLineExpand.LineIn>> NetLinesAsync(
@@ -46,7 +46,8 @@ internal static class PosReportMoney
             var rate = l.UnitId.HasValue && rates.TryGetValue(l.UnitId.Value, out var r) && r > 0 ? r : 1m;
             result.Add(new PosReportLineExpand.LineIn(
                 l.ProductId, l.ProductName, net, l.LineTotal * share, l.DiscountAmount * share, l.ToppingsJson, l.SoldAt,
-                factors.GetValueOrDefault(l.SaleOrderId, 1m), rate));
+                factors.GetValueOrDefault(l.SaleOrderId, 1m), rate, l.SaleOrderId,
+                orders.TryGetValue(l.SaleOrderId, out var ord) ? ord.Total : null));
         }
         return result;
     }
@@ -61,7 +62,7 @@ internal static class PosReportMoney
             .ToListAsync();
         var orders = await db.PosSaleOrders.AsNoTracking()
             .Where(o => orderIds.Contains(o.Id))
-            .Select(o => new OrderRow(o.Id, o.Discount, o.VoucherDiscount, o.PointsDiscount))
+            .Select(o => new OrderRow(o.Id, o.Discount, o.VoucherDiscount, o.PointsDiscount, o.Total))
             .ToDictionaryAsync(o => o.Id);
         return (lines, orders);
     }

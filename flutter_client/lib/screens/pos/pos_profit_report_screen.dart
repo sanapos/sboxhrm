@@ -69,8 +69,8 @@ class _PosProfitReportScreenState extends State<PosProfitReportScreen> {
       title: 'Báo cáo lợi nhuận',
       sheetName: 'Loi nhuan',
       filePrefix: 'POS_LoiNhuan',
-      periodLabel: _time.displayLabel,
-      filterLabel: _dim,
+      periodLabel: _time.exportLabel,
+      filterLabel: 'Theo ${const {'product': 'hàng', 'category': 'nhóm hàng', 'channel': 'kênh bán', 'staff': 'nhân viên'}[_dim] ?? _dim}',
       headers: const [
         'Tên',
         'Mã',

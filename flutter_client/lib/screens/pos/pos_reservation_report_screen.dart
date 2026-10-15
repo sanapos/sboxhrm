@@ -1,4 +1,6 @@
+import 'dart:async';
 import 'package:flutter/material.dart';
+import '../../utils/pos_report_export.dart';
 import '../../utils/api_datetime.dart';
 import 'package:intl/intl.dart';
 
@@ -22,6 +24,7 @@ class PosReservationReportScreen extends StatefulWidget {
 }
 
 class _PosReservationReportScreenState extends State<PosReservationReportScreen> {
+  final _pngKey = GlobalKey();
   final _api = ApiService();
   final _moneyFmt = NumberFormat('#,##0', 'vi_VN');
   final _dateFmt = DateFormat('dd/MM HH:mm');
@@ -64,6 +67,12 @@ class _PosReservationReportScreenState extends State<PosReservationReportScreen>
         .map((e) => Map<String, dynamic>.from(e))
         .toList();
     return PosReportMobileScaffold(
+      pngKey: _pngKey,
+      onExportPng: () => unawaited(PosReportExport.png(
+        context: context,
+        key: _pngKey,
+        filePrefix: 'POS_DatCho',
+      )),
       title: 'Đặt chỗ / cọc',
       exportModule: 'PosSalesReport',
       time: _time,

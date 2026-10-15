@@ -112,6 +112,11 @@ class _PosShippingReportScreenState extends State<PosShippingReportScreen> {
     final total = _data?['total'] is Map ? Map<String, dynamic>.from(_data!['total'] as Map) : <String, dynamic>{};
     final byCarrier = _maps(_data?['byCarrier']);
     return PosReportMobileScaffold(
+      onExportPng: () => unawaited(PosReportExport.png(
+        context: context,
+        key: _pngKey,
+        filePrefix: 'POS_VanChuyen',
+      )),
       title: 'Báo cáo vận chuyển',
       exportModule: 'PosShipping',
       time: _time,

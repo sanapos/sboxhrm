@@ -99,6 +99,7 @@ public partial class PosReportsController
                     profit,
                     marginPct = revenue > 0 ? Math.Round(profit / revenue * 100, 1) : 0m,
                     onHandQty = first?.OnHandQty ?? 0,
+                    orderCount = x.OrderCount,
                 };
             })
             .OrderByDescending(x => x.profit)
@@ -141,6 +142,7 @@ public partial class PosReportsController
                     profit = -extraCogs,
                     marginPct = 0m,
                     onHandQty = p.OnHandQty,
+                    orderCount = 0,
                 });
             }
             items = items.OrderByDescending(x => x.profit).Take(limit).ToList();

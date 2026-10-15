@@ -85,14 +85,20 @@ public partial class PosReportsController(
                 .Select(g => new { paymentMethod = PayLabel(g.Method), g.total, g.count })
                 .OrderByDescending(x => x.total)
                 .ToList();
+            // «Đã thu» = tiền thu khi bán trong kỳ — cùng nguồn với biểu đồ PTTT.
+            // PaidAmount của đơn cộng dồn cả tiền khách trả nợ về sau (kể cả ngày khác) và giảm khi
+            // trả hàng → trước đây thẻ «Đã thu» lệch tổng các phương thức và tự đổi khi khách trả nợ.
+            totalPaid = byPaymentRaw.Sum(g => g.total);
         }
         else
         {
-            byPayment = await orders
+            var byPaymentRows = await orders
                 .GroupBy(o => o.PaymentMethod)
                 .Select(g => new { paymentMethod = g.Key ?? "Khác", total = g.Sum(x => x.PaidAmount), count = g.Count() })
                 .OrderByDescending(x => x.total)
                 .ToListAsync();
+            byPayment = byPaymentRows;
+            totalPaid = byPaymentRows.Sum(x => x.total);
         }
 
 
@@ -395,7 +401,8 @@ public partial class PosReportsController(
         {
             ws.Cell(row, 1).Value = idx++;
             ws.Cell(row, 2).Value = o.OrderNo;
-            ws.Cell(row, 3).Value = (o.SaleDate ?? o.CreatedAt).ToString("dd/MM/yyyy HH:mm");
+            // DB lưu UTC → giờ VN (trước đây cột Ngày lệch 7 giờ).
+            ws.Cell(row, 3).Value = VnTimeHelper.UtcToVn(o.SaleDate ?? o.CreatedAt).ToString("dd/MM/yyyy HH:mm");
             ws.Cell(row, 4).Value = o.CustomerName ?? "";
             ws.Cell(row, 5).Value = o.SubTotal;
             ws.Cell(row, 6).Value = o.Discount;
@@ -404,7 +411,7 @@ public partial class PosReportsController(
             ws.Cell(row, 9).Value = o.Total + o.VatAmount + o.SurchargeAmount + o.DeliveryFee;
             ws.Cell(row, 10).Value = o.PaidAmount;
             ws.Cell(row, 11).Value = o.PaymentMethod;
-            ws.Cell(row, 12).Value = o.Status.ToString();
+            ws.Cell(row, 12).Value = SaleStatusLabel(o.Status);
             ws.Cell(row, 13).Value = o.SoldBy ?? "";
             ws.Cell(row, 14).Value = o.CreatedBy ?? "";
             ws.Cell(row, 15).Value = o.VoucherCode ?? "";
@@ -415,11 +422,37 @@ public partial class PosReportsController(
                 : "";
             row++;
         }
+        if (orders.Count > 0)
+        {
+            ws.Cell(row, 2).Value = "TỔNG CỘNG";
+            ws.Cell(row, 5).Value = orders.Sum(o => o.SubTotal);
+            ws.Cell(row, 6).Value = orders.Sum(o => o.Discount);
+            ws.Cell(row, 7).Value = orders.Sum(o => o.Total);
+            ws.Cell(row, 8).Value = orders.Sum(o => o.VatAmount);
+            ws.Cell(row, 9).Value = orders.Sum(o => o.Total + o.VatAmount + o.SurchargeAmount + o.DeliveryFee);
+            ws.Cell(row, 10).Value = orders.Sum(o => o.PaidAmount);
+            ws.Range(row, 1, row, headers.Length).Style.Font.Bold = true;
+        }
 
         ReportExcelLayout.FinishSheet(ws, headerRow);
 
+        // Theo PTTT: theo phiếu thu khi bán (cùng nguồn với biểu đồ trên màn hình). Trước đây nhóm theo chữ
+        // «phương thức» ghi trên đơn + PaidAmount → tiền khách trả nợ bằng tiền mặt bị cộng vào «Chuyển khoản».
+        var orderIdSet = orders.Select(o => o.Id).ToHashSet();
+        var saleCash = (await dbContext.CashTransactions.AsNoTracking().ApplyBranchScope(HttpContext.BranchContext())
+                .Where(c => c.StoreId == storeId && c.Deleted == null && c.IsActive
+                    && c.Status == CashTransactionStatus.Completed
+                    && c.Type == CashTransactionType.Income
+                    && c.InternalNote != null
+                    && c.InternalNote.StartsWith(PosFinanceSyncHelper.SaleMarker)
+                    && c.TransactionDate >= fromDt.AddHours(7) && c.TransactionDate < toDt.AddHours(7))
+                .Select(c => new { c.PaymentMethod, c.Amount, c.InternalNote })
+                .ToListAsync())
+            .Where(c => ParseSaleOrderIdFromMarker(c.InternalNote) is Guid oid && orderIdSet.Contains(oid))
+            .ToList();
+
         var payWs = workbook.Worksheets.Add("Theo PTTT");
-        var payHeaders = new[] { "Phương thức", "Số HĐ", "Tổng", "Đã thu" };
+        var payHeaders = new[] { "Phương thức", "Số phiếu thu", "Đã thu khi bán" };
         var payMeta = ReportExcelMeta.FromUser(
             User, "DOANH THU THEO PHƯƠNG THỨC",
             $"{fromVn:dd/MM/yyyy} - {toVnEx.AddDays(-1):dd/MM/yyyy}",
@@ -427,14 +460,19 @@ public partial class PosReportsController(
         var (payHeaderRow, payDataStart) = ReportExcelLayout.ApplyMeta(payWs, payMeta, payHeaders.Length);
         ReportExcelLayout.ApplyHeaderRow(payWs, payHeaderRow, payHeaders);
         var payRow = payDataStart;
-        foreach (var g in orders.GroupBy(o => string.IsNullOrWhiteSpace(o.PaymentMethod) ? "Khác" : o.PaymentMethod!)
-                     .OrderByDescending(g => g.Sum(x => x.Total)))
+        foreach (var g in saleCash.GroupBy(c => c.PaymentMethod).OrderByDescending(g => g.Sum(x => x.Amount)))
         {
-            payWs.Cell(payRow, 1).Value = g.Key;
+            payWs.Cell(payRow, 1).Value = PaymentMethodLabel(g.Key);
             payWs.Cell(payRow, 2).Value = g.Count();
-            payWs.Cell(payRow, 3).Value = g.Sum(x => x.Total);
-            payWs.Cell(payRow, 4).Value = g.Sum(x => x.PaidAmount);
+            payWs.Cell(payRow, 3).Value = g.Sum(x => x.Amount);
             payRow++;
+        }
+        if (saleCash.Count > 0)
+        {
+            payWs.Cell(payRow, 1).Value = "TỔNG CỘNG";
+            payWs.Cell(payRow, 2).Value = saleCash.Count;
+            payWs.Cell(payRow, 3).Value = saleCash.Sum(x => x.Amount);
+            payWs.Range(payRow, 1, payRow, payHeaders.Length).Style.Font.Bold = true;
         }
         ReportExcelLayout.FinishSheet(payWs, payHeaderRow);
 
@@ -464,6 +502,24 @@ public partial class PosReportsController(
             "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
             $"BaoCaoDoanhThuPOS_{DateTime.Now:yyyyMMdd_HHmm}.xlsx");
     }
+
+    private static string SaleStatusLabel(PosSaleOrderStatus status) => status switch
+    {
+        PosSaleOrderStatus.Completed => "Hoàn thành",
+        PosSaleOrderStatus.Cancelled => "Đã hủy",
+        PosSaleOrderStatus.Draft => "Phiếu tạm",
+        _ => status.ToString(),
+    };
+
+    private static string PaymentMethodLabel(PaymentMethodType method) => method switch
+    {
+        PaymentMethodType.Cash => "Tiền mặt",
+        PaymentMethodType.BankTransfer => "Chuyển khoản",
+        PaymentMethodType.VietQR => "VietQR",
+        PaymentMethodType.Card => "Thẻ",
+        PaymentMethodType.EWallet => "Ví điện tử",
+        _ => "Khác",
+    };
 
     /// <summary>Báo cáo hàng hóa: top doanh thu + top giá trị tồn.</summary>
     [HttpGet("goods/summary")]
@@ -497,17 +553,22 @@ public partial class PosReportsController(
                         (o.SaleDate ?? o.CreatedAt) < toDt))
             .Select(o => o.Id)
             .ToListAsync();
-        var allowedProductIds = (await productScope.Select(p => p.Id).ToListAsync()).ToHashSet();
+        var allowedProducts = await productScope.Select(p => new { p.Id, p.ProductCode }).ToListAsync();
+        var codeById = allowedProducts.ToDictionary(p => p.Id, p => p.ProductCode);
         var topByRevenue = PosReportLineExpand
             .Aggregate(await LoadSaleLinesForExpandAsync(storeId, goodsOrderIds))
-            .Where(x => allowedProductIds.Contains(x.ProductId))
+            .Where(x => codeById.ContainsKey(x.ProductId))
             .Take(limit)
             .Select(x => new
             {
                 productId = x.ProductId,
+                // Excel «Hàng hóa bán ra» cần mã hàng (trước đây rơi về GUID) và giảm giá dòng (trước đây 0).
+                productCode = codeById.GetValueOrDefault(x.ProductId) ?? "",
                 productName = x.ProductName,
                 qty = x.Qty,
                 revenue = x.Revenue,
+                lineDiscount = x.LineDiscount,
+                orderCount = x.OrderCount,
             })
             .ToList();
 
@@ -577,9 +638,13 @@ public partial class PosReportsController(
                             (o.SaleDate ?? o.CreatedAt) < end));
             var revenue = await q.SumAsync(o => (decimal?)o.Total) ?? 0;
             var vat = await q.SumAsync(o => (decimal?)o.VatAmount) ?? 0;
-            var discount = await q.SumAsync(o => (decimal?)o.Discount) ?? 0;
             var count = await q.CountAsync();
             var ids = await q.Select(o => o.Id).ToListAsync();
+            // Cùng cách tính với báo cáo bán hàng: giảm đơn + voucher + đổi điểm + giảm từng dòng.
+            var discount = (await q.SumAsync(o => (decimal?)(o.Discount + o.VoucherDiscount + o.PointsDiscount)) ?? 0)
+                + (await dbContext.PosSaleOrderLines.AsNoTracking()
+                    .Where(l => ids.Contains(l.SaleOrderId) && l.Deleted == null)
+                    .SumAsync(l => (decimal?)l.DiscountAmount) ?? 0);
             var cogs = (await PosReportMoney.CogsByOrderAsync(dbContext, storeId, ids)).Values.Sum();
             var refund = await SumPeriodSaleRefundsAsync(
                 storeId, start, end, IsManager ? null : ids);
@@ -1317,8 +1382,13 @@ public partial class PosReportsController(
         var depositEod = await LoadDepositEndOfDayAsync(
             storeId, fromDt, toDt, effectiveStaff, effectiveEmployeeId, filter);
 
-        var drawerCash = cashTotal + depositEod.CollectedCash - depositEod.RefundedCash;
-        var fundInToday = saleFundIn + depositEod.Collected - depositEod.Refunded;
+        // Két / quỹ trong ngày còn có: tiền khách trả nợ (+) và tiền hoàn khách trả hàng (−).
+        // Trước đây bỏ sót → «Tiền mặt két» lệch tiền thực trong két.
+        var cashFlow = await LoadEodDebtAndRefundAsync(storeId, fromDt, toDt, viewerOrderIds);
+        var drawerCash = cashTotal + depositEod.CollectedCash - depositEod.RefundedCash
+                         + cashFlow.DebtCash - cashFlow.RefundCash;
+        var fundInToday = saleFundIn + depositEod.Collected - depositEod.Refunded
+                          + cashFlow.Debt - cashFlow.Refund;
         var otherIncome = depositEod.Forfeited;
 
         return Ok(AppResponse<object>.Success(new
@@ -1369,6 +1439,10 @@ public partial class PosReportsController(
             drawerCash,
             fundInToday,
             otherIncome,
+            debtCollected = cashFlow.Debt,
+            debtCollectedCash = cashFlow.DebtCash,
+            refundPaid = cashFlow.Refund,
+            refundPaidCash = cashFlow.RefundCash,
         }));
     }
 
@@ -1685,6 +1759,64 @@ public partial class PosReportsController(
     private Task<List<PosReportLineExpand.LineIn>> LoadSaleLinesForExpandAsync(
         Guid storeId, IReadOnlyCollection<Guid> orderIds) =>
         PosReportMoney.NetLinesAsync(dbContext, storeId, orderIds);
+
+    /// <summary>
+    /// Thu nợ khách và hoàn tiền trả hàng trong kỳ (theo ngày phiếu thu chi — giờ VN).
+    /// <paramref name="viewerOrderIds"/> ≠ null: chỉ phiếu gắn đơn của nhân viên đang xem.
+    /// </summary>
+    private async Task<(decimal Debt, decimal DebtCash, decimal Refund, decimal RefundCash)> LoadEodDebtAndRefundAsync(
+        Guid storeId, DateTime fromDt, DateTime toDt, List<Guid>? viewerOrderIds)
+    {
+        var rows = await dbContext.CashTransactions.AsNoTracking().ApplyBranchScope(HttpContext.BranchContext())
+            .Where(c => c.StoreId == storeId && c.Deleted == null && c.IsActive
+                && c.Status == CashTransactionStatus.Completed
+                && c.TransactionDate >= fromDt.AddHours(7) && c.TransactionDate < toDt.AddHours(7)
+                && c.InternalNote != null
+                && (c.InternalNote.StartsWith(PosFinanceSyncHelper.CustomerPaymentMarker)
+                    || c.InternalNote.StartsWith(PosFinanceSyncHelper.CustomerReturnMarker)))
+            .Select(c => new { c.Type, c.Amount, c.PaymentMethod, Note = c.InternalNote! })
+            .ToListAsync();
+        if (rows.Count == 0) return (0, 0, 0, 0);
+
+        static Guid? IdAfter(string note, string prefix)
+        {
+            var rest = note[prefix.Length..];
+            var pipe = rest.IndexOf('|');
+            return Guid.TryParse(pipe >= 0 ? rest[..pipe] : rest, out var id) ? id : null;
+        }
+
+        var paymentOrder = new Dictionary<Guid, Guid?>();
+        var scope = viewerOrderIds?.ToHashSet();
+        if (scope != null)
+        {
+            var payIds = rows.Where(r => r.Note.StartsWith(PosFinanceSyncHelper.CustomerPaymentMarker))
+                .Select(r => IdAfter(r.Note, PosFinanceSyncHelper.CustomerPaymentMarker))
+                .Where(id => id.HasValue).Select(id => id!.Value).Distinct().ToList();
+            paymentOrder = await dbContext.PosCustomerPayments.AsNoTracking()
+                .Where(p => p.StoreId == storeId && payIds.Contains(p.Id))
+                .ToDictionaryAsync(p => p.Id, p => p.SaleOrderId);
+        }
+
+        bool InScope(string note)
+        {
+            if (scope == null) return true;
+            Guid? orderId = note.StartsWith(PosFinanceSyncHelper.CustomerReturnMarker)
+                ? IdAfter(note, PosFinanceSyncHelper.CustomerReturnMarker)
+                : IdAfter(note, PosFinanceSyncHelper.CustomerPaymentMarker) is Guid pid
+                    ? paymentOrder.GetValueOrDefault(pid)
+                    : null;
+            return orderId.HasValue && scope.Contains(orderId.Value);
+        }
+
+        var debt = rows.Where(r => r.Type == CashTransactionType.Income
+                                   && r.Note.StartsWith(PosFinanceSyncHelper.CustomerPaymentMarker) && InScope(r.Note)).ToList();
+        var refund = rows.Where(r => r.Type == CashTransactionType.Expense
+                                     && r.Note.StartsWith(PosFinanceSyncHelper.CustomerReturnMarker) && InScope(r.Note)).ToList();
+        return (debt.Sum(r => r.Amount),
+            debt.Where(r => r.PaymentMethod == PaymentMethodType.Cash).Sum(r => r.Amount),
+            refund.Sum(r => r.Amount),
+            refund.Where(r => r.PaymentMethod == PaymentMethodType.Cash).Sum(r => r.Amount));
+    }
 
     internal static Guid? ParseSaleOrderIdFromMarker(string? note)
     {

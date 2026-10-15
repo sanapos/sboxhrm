@@ -82,7 +82,7 @@ class _PosStaffCommissionReportScreenState
         title: 'Hoa hồng nhân viên',
         sheetName: 'Hoa hong',
         filePrefix: 'POS_HoaHongNV',
-        periodLabel: _time.displayLabel,
+        periodLabel: _time.exportLabel,
         headers: const [
           'Số HĐ',
           'Nhân viên',

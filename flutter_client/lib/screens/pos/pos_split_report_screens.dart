@@ -411,6 +411,9 @@ DateTime? _parseWallDate(dynamic v) {
   return d.isUtc ? d.toLocal() : d;
 }
 
+String _payMethodLabel(dynamic raw) =>
+    raw == null || raw.toString().isEmpty ? '' : PaymentMethodType.parse(raw).label;
+
 String _fmtWallDt(dynamic v) {
   final dt = _parseWallDate(v);
   return dt == null ? '' : DateFormat('dd/MM HH:mm').format(dt);
@@ -607,7 +610,7 @@ class _PosRevenueReportScreenState extends State<PosRevenueReportScreen> {
         title: 'Báo cáo doanh thu',
         sheetName: 'Doanh thu',
         filePrefix: 'POS_DoanhThu',
-        periodLabel: _time.displayLabel,
+        periodLabel: _time.exportLabel,
         headers: _invoiceExcelHeaders,
         rows: _invoiceExcelRows(_orders),
         summaryLines: [
@@ -863,7 +866,7 @@ class _PosSoldGoodsReportScreenState extends State<PosSoldGoodsReportScreen> {
       title: 'Hàng hóa bán ra',
       sheetName: 'Hang hoa',
       filePrefix: 'POS_HangHoaBanRa',
-      periodLabel: _time.displayLabel,
+      periodLabel: _time.exportLabel,
       headers: const ['Mã SP', 'Hàng hóa', 'SL', 'Doanh thu', 'CK dòng'],
       rows: [
         for (final p in items)
@@ -1038,7 +1041,7 @@ class _PosPurchaseReportScreenState extends State<PosPurchaseReportScreen> {
       title: 'Báo cáo nhập hàng',
       sheetName: 'Nhap hang',
       filePrefix: 'POS_NhapHang',
-      periodLabel: _time.displayLabel,
+      periodLabel: _time.exportLabel,
       filterLabel: const ['Tất cả', 'Phiếu nhập', 'Trả NCC'][_docKind],
       headers: const ['Loại', 'Số phiếu', 'NCC', 'Ngày', 'Số tiền'],
       rows: rows,
@@ -1368,7 +1371,7 @@ class _PosPaymentMethodReportScreenState
         title: 'Phương thức thanh toán',
         sheetName: 'Hoa don',
         filePrefix: 'POS_PTTT',
-        periodLabel: _time.displayLabel,
+        periodLabel: _time.exportLabel,
         filterLabel: _pay,
         headers: _invoiceExcelHeaders,
         rows: _invoiceExcelRows(_orders),
@@ -1564,7 +1567,7 @@ class _PosDebtCombinedReportScreenState
         title: 'Báo cáo công nợ',
         sheetName: 'Cong no',
         filePrefix: 'POS_CongNo',
-        periodLabel: _time.displayLabel,
+        periodLabel: _time.exportLabel,
         filterLabel: [
           'Tất cả',
           'Khách hàng',
@@ -1834,7 +1837,7 @@ class _PosProfitOnlyReportScreenState extends State<PosProfitOnlyReportScreen> {
         title: 'Báo cáo lợi nhuận',
         sheetName: 'Loi nhuan',
         filePrefix: 'POS_LoiNhuan',
-        periodLabel: _time.displayLabel,
+        periodLabel: _time.exportLabel,
         headers: const ['Chỉ tiêu', 'Giá trị'],
         rows: [
           ['Doanh thu', revenue],
@@ -2004,7 +2007,7 @@ class _PosExpenseReportScreenState extends State<PosExpenseReportScreen> {
         title: 'Báo cáo chi phí',
         sheetName: 'Chi phi',
         filePrefix: 'POS_ChiPhi',
-        periodLabel: _time.displayLabel,
+        periodLabel: _time.exportLabel,
         filterLabel: _category,
         headers: const ['Mã', 'Danh mục', 'Mô tả', 'PTTT', 'Ngày', 'Số tiền'],
         rows: [
@@ -2013,7 +2016,8 @@ class _PosExpenseReportScreenState extends State<PosExpenseReportScreen> {
               e['transactionCode'] ?? '',
               e['category'] ?? '',
               e['description'] ?? '',
-              e['paymentMethod'] ?? '',
+              // API trả mã («Cash») — ghi nhãn tiếng Việt như Sổ quỹ.
+              _payMethodLabel(e['paymentMethod']),
               _fmtWallDt(e['transactionDate']),
               _n(e['amount']),
             ],
@@ -2240,7 +2244,7 @@ class _PosStaffRevenueReportScreenState
         title: 'Doanh thu theo nhân viên',
         sheetName: 'Hoa don',
         filePrefix: 'POS_DTNhanVien',
-        periodLabel: _time.displayLabel,
+        periodLabel: _time.exportLabel,
         filterLabel: _staff,
         headers: _invoiceExcelHeaders,
         rows: _invoiceExcelRows(_orders),
@@ -2409,7 +2413,7 @@ class _PosCashbookReportScreenState extends State<PosCashbookReportScreen> {
         title: 'Sổ quỹ',
         sheetName: 'So quy',
         filePrefix: 'POS_SoQuy',
-        periodLabel: _time.displayLabel,
+        periodLabel: _time.exportLabel,
         filterLabel: const ['Tất cả', 'Thu', 'Chi'][_cashKind],
         headers: const ['Mã', 'Loại', 'Danh mục', 'Mô tả', 'PTTT', 'Ngày', 'Số tiền'],
         rows: [
@@ -2678,7 +2682,7 @@ class _PosPnlReportScreenState extends State<PosPnlReportScreen> {
         title: 'Kết quả kinh doanh',
         sheetName: 'Hoa don',
         filePrefix: 'POS_KQKD',
-        periodLabel: _time.displayLabel,
+        periodLabel: _time.exportLabel,
         headers: _invoiceExcelHeaders,
         rows: _invoiceExcelRows(_orders),
         summaryLines: [
@@ -3010,7 +3014,7 @@ class _PosVoucherUsageReportScreenState
         title: 'Báo cáo voucher',
         sheetName: 'Hoa don',
         filePrefix: 'POS_Voucher',
-        periodLabel: _time.displayLabel,
+        periodLabel: _time.exportLabel,
         filterLabel: _code,
         headers: _invoiceExcelHeaders,
         rows: _invoiceExcelRows(_orders),

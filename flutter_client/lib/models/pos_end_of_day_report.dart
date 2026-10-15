@@ -164,6 +164,12 @@ class PosEndOfDayReport {
   final double drawerCash;
   final double fundInToday;
   final double otherIncome;
+  /// Khách trả nợ trong ngày (tổng / phần tiền mặt) — cộng vào quỹ / két.
+  final double debtCollected;
+  final double debtCollectedCash;
+  /// Tiền hoàn khách trả hàng trong ngày (tổng / phần tiền mặt) — trừ khỏi quỹ / két.
+  final double refundPaid;
+  final double refundPaidCash;
 
   const PosEndOfDayReport({
     required this.from,
@@ -207,6 +213,10 @@ class PosEndOfDayReport {
     this.drawerCash = 0,
     this.fundInToday = 0,
     this.otherIncome = 0,
+    this.debtCollected = 0,
+    this.debtCollectedCash = 0,
+    this.refundPaid = 0,
+    this.refundPaidCash = 0,
   });
 
   factory PosEndOfDayReport.fromJson(Map<String, dynamic> json) {
@@ -259,6 +269,10 @@ class PosEndOfDayReport {
       drawerCash: _num(json['drawerCash']),
       fundInToday: _num(json['fundInToday']),
       otherIncome: _num(json['otherIncome']),
+      debtCollected: _num(json['debtCollected']),
+      debtCollectedCash: _num(json['debtCollectedCash']),
+      refundPaid: _num(json['refundPaid']),
+      refundPaidCash: _num(json['refundPaidCash']),
     );
   }
 }

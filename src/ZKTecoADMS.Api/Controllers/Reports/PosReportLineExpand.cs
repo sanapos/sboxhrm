@@ -19,7 +19,11 @@ internal static class PosReportLineExpand
         // Tỷ lệ tiền thực thu (giảm giá đơn / voucher / điểm) — nhân vào doanh thu món + topping.
         decimal RevenueFactor = 1m,
         // 1 ĐVT bán = QtyRate đơn vị cơ bản (Thùng = 24) — SL món cộng theo đơn vị cơ bản.
-        decimal QtyRate = 1m);
+        decimal QtyRate = 1m,
+        // Đơn chứa dòng — để làm tròn phần phân bổ giảm giá đơn sao cho tổng theo hàng khớp tổng đơn.
+        Guid OrderId = default,
+        // Tổng thật của đơn (Total) — đích làm tròn khi chỉ lệch tối đa 1đ (tiền hoàn đã làm tròn khác phần chia).
+        decimal? OrderTotal = null);
 
     public sealed record ProductAgg(
         Guid ProductId,
@@ -27,13 +31,21 @@ internal static class PosReportLineExpand
         decimal Qty,
         decimal Revenue,
         decimal LineDiscount,
-        DateTime? LastSoldAt);
+        DateTime? LastSoldAt,
+        // Số hóa đơn có bán món này (đếm đơn khác nhau).
+        int OrderCount = 0);
 
     public static List<ProductAgg> Aggregate(IEnumerable<LineIn> lines)
     {
         var map = new Dictionary<Guid, ProductAgg>();
-        void Add(Guid id, string name, decimal qty, decimal revenue, decimal discount, DateTime? soldAt)
+        var ordersByProduct = new Dictionary<Guid, HashSet<Guid>>();
+        void Add(Guid id, string name, decimal qty, decimal revenue, decimal discount, DateTime? soldAt, Guid orderId)
         {
+            if (orderId != Guid.Empty)
+            {
+                if (!ordersByProduct.TryGetValue(id, out var set)) ordersByProduct[id] = set = new HashSet<Guid>();
+                set.Add(orderId);
+            }
             if (map.TryGetValue(id, out var e))
             {
                 map[id] = e with
@@ -51,6 +63,9 @@ internal static class PosReportLineExpand
             }
         }
 
+        // Phần doanh thu từng món / topping theo đơn (chưa làm tròn).
+        var parts = new List<(Guid OrderId, Guid ProductId, string Name, decimal Qty, decimal Revenue, decimal Discount, DateTime? SoldAt)>();
+        var orderTotals = new Dictionary<Guid, decimal>();
         foreach (var l in lines)
         {
             var picks = PosSaleStockHelper.ParseToppingPicks(l.ToppingsJson);
@@ -58,19 +73,42 @@ internal static class PosReportLineExpand
             if (extra < 0) extra = 0;
             if (extra > l.LineTotal) extra = l.LineTotal;
             var f = l.RevenueFactor;
-            Add(l.ProductId, l.ProductName, l.Qty * (l.QtyRate > 0 ? l.QtyRate : 1), (l.LineTotal - extra) * f, l.DiscountAmount, l.SoldAt);
+            if (l.OrderTotal.HasValue) orderTotals[l.OrderId] = l.OrderTotal.Value;
+            parts.Add((l.OrderId, l.ProductId, l.ProductName, l.Qty * (l.QtyRate > 0 ? l.QtyRate : 1),
+                (l.LineTotal - extra) * f, l.DiscountAmount, l.SoldAt));
             foreach (var p in picks)
             {
                 var tQty = p.Qty * l.Qty;
                 if (tQty <= 0) continue;
                 var name = string.IsNullOrWhiteSpace(p.Name) ? "Topping" : p.Name;
-                Add(p.ProductId, name, tQty, p.UnitPrice * tQty * f, 0, l.SoldAt);
+                parts.Add((l.OrderId, p.ProductId, name, tQty, p.UnitPrice * tQty * f, 0, l.SoldAt));
             }
         }
 
-        // Phân bổ giảm giá đơn tạo số lẻ — làm tròn 2 chữ số (đồng) khi trả kết quả.
+        // Phân bổ giảm giá đơn tạo số lẻ (VD 14.062,5). Làm tròn tới đồng THEO TỪNG ĐƠN, phần dư dồn vào món lớn
+        // nhất → tổng theo hàng = tổng đơn (trước đây lệch 0,5đ so với báo cáo doanh thu).
+        foreach (var g in parts.Select((x, i) => (x, i)).GroupBy(t => t.x.OrderId))
+        {
+            var raw = g.Sum(t => t.x.Revenue);
+            var target = orderTotals.TryGetValue(g.Key, out var total) && Math.Abs(total - raw) <= 1m
+                ? total
+                : Math.Round(raw, 0, MidpointRounding.AwayFromZero);
+            var rounded = g.Select(t => (t.i, R: Math.Round(t.x.Revenue, 0, MidpointRounding.AwayFromZero))).ToList();
+            var diff = target - rounded.Sum(t => t.R);
+            if (diff != 0 && rounded.Count > 0)
+            {
+                var big = rounded.OrderByDescending(t => t.R).First();
+                rounded[rounded.IndexOf(big)] = (big.i, big.R + diff);
+            }
+            foreach (var (i, r) in rounded)
+            {
+                var x = parts[i];
+                Add(x.ProductId, x.Name, x.Qty, r, x.Discount, x.SoldAt, x.OrderId);
+            }
+        }
+
         return map.Values
-            .Select(x => x with { Revenue = Math.Round(x.Revenue, 2, MidpointRounding.AwayFromZero) })
+            .Select(x => x with { OrderCount = ordersByProduct.TryGetValue(x.ProductId, out var o) ? o.Count : 0 })
             .OrderByDescending(x => x.Revenue).ToList();
     }
 

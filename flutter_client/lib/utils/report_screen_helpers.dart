@@ -602,12 +602,39 @@ class ClientExcelExport {
 }
 
 /// Chụp [RepaintBoundary] (qua [GlobalKey]) thành file PNG.
+/// Vùng chụp PNG có nội dung cuộn: mở rộng hết nội dung (và thêm đầu trang) trước khi chụp,
+/// trả lại như cũ sau khi chụp. Trước đây ảnh chỉ có phần đang thấy trên màn hình.
+abstract class PngFullCaptureHost {
+  Future<void> prepareFullCapture();
+  void endFullCapture();
+}
+
+class PngFullCapture {
+  PngFullCapture._();
+  static final Map<GlobalKey, PngFullCaptureHost> hosts = {};
+}
+
 class ClientPngExport {
   static Future<bool> capture({
     required BuildContext context,
     required GlobalKey key,
     required String filePrefix,
     double pixelRatio = 2.5,
+  }) async {
+    final host = PngFullCapture.hosts[key];
+    try {
+      if (host != null) await host.prepareFullCapture();
+      return await _capture(context: context, key: key, filePrefix: filePrefix, pixelRatio: pixelRatio);
+    } finally {
+      host?.endFullCapture();
+    }
+  }
+
+  static Future<bool> _capture({
+    required BuildContext context,
+    required GlobalKey key,
+    required String filePrefix,
+    required double pixelRatio,
   }) async {
     try {
       await WidgetsBinding.instance.endOfFrame;

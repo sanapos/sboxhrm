@@ -1173,7 +1173,8 @@ public partial class PosSalesController
         var row = dataStartRow;
         foreach (var o in items)
         {
-            var dt = o.SaleDate ?? o.CreatedAt;
+            // DB lưu UTC → giờ VN (trước đây cột Ngày lệch 7 giờ).
+            var dt = VnTimeHelper.UtcToVn(o.SaleDate ?? o.CreatedAt);
             ws.Cell(row, 1).Value = o.OrderNo;
             ws.Cell(row, 2).Value = dt.ToString("dd/MM/yyyy HH:mm");
             ws.Cell(row, 3).Value = o.Status switch
