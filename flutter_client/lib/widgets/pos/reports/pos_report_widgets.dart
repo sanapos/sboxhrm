@@ -264,7 +264,11 @@ class PosReportMobileScaffold extends StatelessWidget {
                   )
                 : withFallbackTopInset(context, header),
             Expanded(
-              child: DefaultTextStyle(
+              // ListTile / InkWell trong báo cáo cần Material phía trên — thiếu thì lỗi
+              // «Null check operator» khi vẽ (vd mục «Theo hàng / dịch vụ» của Hoa hồng NV).
+              child: Material(
+                type: MaterialType.transparency,
+                child: DefaultTextStyle(
                 style: const TextStyle(
                   fontSize: 13,
                   fontWeight: FontWeight.w500,
@@ -284,6 +288,7 @@ class PosReportMobileScaffold extends StatelessWidget {
                           child: body,
                         ),
                 ),
+              ),
               ),
             ),
           ],

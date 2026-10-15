@@ -22,6 +22,10 @@ namespace ZKTecoADMS.Api.Controllers;
 public class PosOfflineController(ZKTecoDbContext db, ILogger<PosOfflineController> logger)
     : AuthenticatedControllerBase
 {
+    /// <summary>Giờ lưu DB là con số UTC (không múi giờ) → trả JSON kèm Z để app đổi đúng sang giờ máy.</summary>
+    static DateTime U(DateTime v) => DateTime.SpecifyKind(v, DateTimeKind.Utc);
+    static DateTime? U(DateTime? v) => v == null ? null : DateTime.SpecifyKind(v.Value, DateTimeKind.Utc);
+
     static string? Cut(string? s, int max) =>
         string.IsNullOrWhiteSpace(s) ? null : (s.Trim().Length <= max ? s.Trim() : s.Trim()[..max]);
 
@@ -56,7 +60,9 @@ public class PosOfflineController(ZKTecoDbContext db, ILogger<PosOfflineControll
         if (deviceKey == null || installId == null)
             return BadRequest(AppResponse<object>.Fail("Thiếu mã thiết bị / mã cài đặt"));
         var now = DateTime.UtcNow;
-        var row = await db.PosDeviceInstalls
+        // AsTracking: DbContext mặc định NoTracking — thiếu thì lần báo sau (LastSeenAt, số đơn chờ, số offline cuối)
+        // không được lưu → cảnh báo «chưa đồng bộ đủ» / «cài lại khi còn đơn chưa gửi» không bao giờ hiện.
+        var row = await db.PosDeviceInstalls.AsTracking()
             .FirstOrDefaultAsync(x => x.StoreId == storeId && x.DeviceKey == deviceKey && x.InstallId == installId, ct);
         var isNew = row == null;
         if (row == null)
@@ -226,7 +232,7 @@ public class PosOfflineController(ZKTecoDbContext db, ILogger<PosOfflineControll
                 });
             return new
             {
-                b.DeviceKey, b.DeviceName, b.InstallId, reservedAt = b.CreatedAt, b.ReservedBy,
+                b.DeviceKey, b.DeviceName, b.InstallId, reservedAt = U(b.CreatedAt), b.ReservedBy,
                 from = PosOfflineSaleRules.Format(b.FromSeq), to = PosOfflineSaleRules.Format(b.ToSeq),
                 used = used.Count,
                 lastUsed = maxUsed == null ? null : PosOfflineSaleRules.Format(maxUsed.Value),
@@ -265,7 +271,8 @@ public class PosOfflineController(ZKTecoDbContext db, ILogger<PosOfflineControll
                 reinstalls,
                 installs = list.Select(i => new
                 {
-                    i.InstallId, i.Platform, i.AppVersion, i.FirstSeenAt, i.LastSeenAt, i.OsFirstInstallAt,
+                    i.InstallId, i.Platform, i.AppVersion,
+                    FirstSeenAt = U(i.FirstSeenAt), LastSeenAt = U(i.LastSeenAt), OsFirstInstallAt = U(i.OsFirstInstallAt),
                     i.LastUserName, i.PendingOfflineSales,
                     lastOfflineSeq = i.LastOfflineSeq == null ? null : PosOfflineSaleRules.Format(i.LastOfflineSeq.Value),
                 }).ToList(),
@@ -276,7 +283,7 @@ public class PosOfflineController(ZKTecoDbContext db, ILogger<PosOfflineControll
             .OrderByDescending(o => o.OfflineAt)
             .Select(o => new
             {
-                o.Id, o.OrderNo, o.OfflineNo, o.OfflineAt, syncedAt = o.CreatedAt, o.Total, o.CreatedBy,
+                o.Id, o.OrderNo, o.OfflineNo, OfflineAt = U(o.OfflineAt), syncedAt = U(o.CreatedAt), o.Total, o.CreatedBy,
                 device = installs.FirstOrDefault(i => i.DeviceKey == o.OfflineDeviceKey)?.DeviceName ?? o.OfflineDeviceKey,
                 delayMinutes = o.OfflineAt == null ? 0 : (int)Math.Max(0, (o.CreatedAt - o.OfflineAt.Value).TotalMinutes),
                 status = o.Status.ToString(),

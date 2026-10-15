@@ -41,7 +41,8 @@ public partial class PosReportsController
                 x.Id,
                 x.SaleOrderId,
                 OrderNo = x.SaleOrder != null ? x.SaleOrder.OrderNo : "",
-                SaleAt = x.PerformedAt ?? (x.SaleOrder != null ? x.SaleOrder.CreatedAt : x.CreatedAt),
+                // Cùng mốc với điều kiện lọc kỳ: ngày bán (SaleDate) — không phải lúc tạo phiếu nháp.
+                SaleAt = x.PerformedAt ?? (x.SaleOrder != null ? x.SaleOrder.SaleDate ?? x.SaleOrder.CreatedAt : x.CreatedAt),
                 x.EmployeeId,
                 x.EmployeeName,
                 x.ProductId,

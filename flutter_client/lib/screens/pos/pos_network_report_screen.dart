@@ -3,6 +3,8 @@ import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
 
+import '../../utils/pos_report_export.dart';
+import '../../widgets/pos/reports/pos_report_widgets.dart';
 import '../../services/api_service.dart';
 import '../../services/pos_network_monitor.dart';
 import '../../theme/sbox_tokens.dart';
@@ -20,6 +22,7 @@ class PosNetworkReportScreen extends StatefulWidget {
 
 class _PosNetworkReportScreenState extends State<PosNetworkReportScreen> {
   final _api = ApiService();
+  final _pngKey = GlobalKey();
   int _range = 0; // 0 hôm nay, 1 hôm qua, 7 = 7 ngày
   bool _loading = true;
   String? _error;
@@ -90,13 +93,84 @@ class _PosNetworkReportScreenState extends State<PosNetworkReportScreen> {
         foregroundColor: Colors.white,
         actions: [
           IconButton(
+            tooltip: tr('Xuất PNG'),
+            onPressed: _r == null
+                ? null
+                : () => unawaited(PosReportExport.png(context: context, key: _pngKey, filePrefix: 'POS_MangCuaHang')),
+            icon: const Icon(Icons.image_outlined),
+          ),
+          IconButton(
+            tooltip: tr('Xuất Excel'),
+            onPressed: _r == null ? null : () => unawaited(_exportExcel()),
+            icon: const Icon(Icons.file_download_outlined),
+          ),
+          IconButton(
             tooltip: tr('Tải lại'),
             onPressed: _loading ? null : _load,
             icon: const Icon(Icons.refresh),
           ),
         ],
       ),
-      body: RefreshIndicator(
+      body: PosReportPngCapture(
+        pngKey: _pngKey,
+        title: 'Mạng cửa hàng',
+        periodLabel: _periodLabel(),
+        child: _body(),
+      ),
+    );
+  }
+
+  String _periodLabel() {
+    final f = DateFormat('dd/MM/yyyy');
+    final today = DateTime.now();
+    return switch (_range) {
+      1 => 'Hôm qua (${f.format(today.subtract(const Duration(days: 1)))})',
+      7 => '7 ngày (${f.format(today.subtract(const Duration(days: 6)))} – ${f.format(today)})',
+      _ => 'Hôm nay (${f.format(today)})',
+    };
+  }
+
+  Future<void> _exportExcel() async {
+    final hours = ((_r?['hours'] as List?) ?? const []).whereType<Map>().toList();
+    num n(dynamic v) => v is num ? v : num.tryParse('$v') ?? 0;
+    // Cột số (trễ / in xong) để trống khi không có số liệu — không ghi dạng chữ.
+    Object opt(dynamic v) => v == null ? '' : n(v);
+    await PosReportExport.excel(
+      context: context,
+      title: 'Mạng cửa hàng',
+      sheetName: 'Mang',
+      filePrefix: 'POS_MangCuaHang',
+      periodLabel: _periodLabel(),
+      headers: const [
+        'Giờ', 'Thiết bị', 'Ping gửi', 'Ping lỗi', 'Lỗi %', 'Trễ p95 (ms)', 'Mất mạng lâu nhất (giây)',
+        'Rớt realtime', 'Đơn mới', 'Phiếu in', 'In xong p95 (giây)', 'Tình trạng',
+      ],
+      rows: [
+        for (final h in hours)
+          [
+            _dt(h['hourVn']) == null ? '' : _dhm.format(_dt(h['hourVn'])!),
+            n(h['devices']), n(h['pingSent']), n(h['pingFailed']), n(h['failPct']), opt(h['latencyP95Ms']),
+            n(h['maxDeviceOfflineSec']), n(h['disconnects']), n(h['orders']), n(h['printJobs']),
+            opt(h['printP95Sec']), _healthLabel(h['health']?.toString()),
+          ],
+      ],
+      summaryLines: [
+        '${_r?['verdictText'] ?? ''}',
+        'Thiết bị: ${n(_r?['deviceCount'])} · Lỗi gọi máy chủ: ${n(_r?['failPct'])}% · Trễ p95: ${n(_r?['latencyP95Ms'])} ms'
+            ' · Mất kết nối: ${n(_r?['outageCount'])} lần',
+      ],
+    );
+  }
+
+  static String _healthLabel(String? h) => switch (h) {
+        'green' => 'Tốt',
+        'yellow' => 'Chập chờn',
+        'red' => 'Kém',
+        _ => 'Không có số liệu',
+      };
+
+  Widget _body() {
+    return RefreshIndicator(
         onRefresh: _load,
         child: ListView(
           padding: const EdgeInsets.fromLTRB(12, 12, 12, 32),
@@ -142,8 +216,7 @@ class _PosNetworkReportScreenState extends State<PosNetworkReportScreen> {
             ),
           ],
         ),
-      ),
-    );
+      );
   }
 
   List<Widget> _content(Map<String, dynamic> r) {

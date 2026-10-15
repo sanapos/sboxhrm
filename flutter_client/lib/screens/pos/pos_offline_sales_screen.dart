@@ -4,7 +4,10 @@ import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
 import 'package:provider/provider.dart';
 
+import '../../utils/api_datetime.dart';
 import '../../providers/permission_provider.dart';
+import '../../utils/pos_report_export.dart';
+import '../../widgets/pos/reports/pos_report_widgets.dart';
 import '../../services/api_service.dart';
 import '../../services/pos_network_monitor.dart';
 import '../../services/pos_offline_service.dart';
@@ -23,6 +26,7 @@ class PosOfflineSalesScreen extends StatefulWidget {
 
 class _PosOfflineSalesScreenState extends State<PosOfflineSalesScreen> {
   final _api = ApiService();
+  final _pngKey = GlobalKey();
   final _money = NumberFormat('#,##0', 'vi_VN');
   final _dt = DateFormat('dd/MM HH:mm');
   Map<String, dynamic>? _audit;
@@ -65,8 +69,6 @@ class _PosOfflineSalesScreenState extends State<PosOfflineSalesScreen> {
 
   @override
   Widget build(BuildContext context) {
-    final off = PosOfflineService.instance;
-    final mon = PosNetworkMonitor.instance;
     final canManage = context.watch<PermissionProvider>().canEdit('PosPrinters');
     return Scaffold(
       backgroundColor: PosTheme.background,
@@ -75,6 +77,17 @@ class _PosOfflineSalesScreenState extends State<PosOfflineSalesScreen> {
         backgroundColor: PosTheme.kiotBlue,
         foregroundColor: Colors.white,
         actions: [
+          IconButton(
+            tooltip: tr('Xuất PNG'),
+            onPressed: () =>
+                unawaited(PosReportExport.png(context: context, key: _pngKey, filePrefix: 'POS_BanOffline')),
+            icon: const Icon(Icons.image_outlined),
+          ),
+          IconButton(
+            tooltip: tr('Xuất Excel'),
+            onPressed: _audit == null ? null : () => unawaited(_exportExcel()),
+            icon: const Icon(Icons.file_download_outlined),
+          ),
           IconButton(
             tooltip: tr('Tải lại'),
             onPressed: () {
@@ -85,7 +98,45 @@ class _PosOfflineSalesScreenState extends State<PosOfflineSalesScreen> {
           ),
         ],
       ),
-      body: AnimatedBuilder(
+      body: PosReportPngCapture(
+        pngKey: _pngKey,
+        title: 'Bán offline & kiểm soát',
+        periodLabel: '30 ngày gần nhất',
+        child: _body(canManage),
+      ),
+    );
+  }
+
+  Future<void> _exportExcel() async {
+    final a = _audit ?? const {};
+    final sales = ((a['sales'] as List?) ?? const []).whereType<Map>().toList();
+    final alerts = ((a['alerts'] as List?) ?? const []).whereType<Map>().toList();
+    num n(dynamic v) => v is num ? v : num.tryParse('$v') ?? 0;
+    await PosReportExport.excel(
+      context: context,
+      title: 'Bán offline & kiểm soát',
+      sheetName: 'Ban offline',
+      filePrefix: 'POS_BanOffline',
+      periodLabel: '30 ngày gần nhất',
+      headers: const ['Số HĐ offline', 'Mã HĐ', 'Bán lúc', 'Gửi lên lúc', 'Trễ (phút)', 'Tổng', 'Máy', 'Người tạo', 'Trạng thái'],
+      rows: [
+        for (final s in sales)
+          [
+            '${s['offlineNo'] ?? ''}', '${s['orderNo'] ?? ''}', _fmt(s['offlineAt']), _fmt(s['syncedAt']),
+            n(s['delayMinutes']), n(s['total']), '${s['device'] ?? ''}', '${s['createdBy'] ?? ''}',
+            switch ('${s['status']}') { 'Completed' => 'Hoàn thành', 'Cancelled' => 'Đã hủy', 'Draft' => 'Phiếu tạm', final x => x },
+          ],
+      ],
+      summaryLines: [
+        for (final al in alerts) 'Cảnh báo: ${al['device'] ?? ''} — ${al['text'] ?? ''}${al['range'] == null ? '' : ' (${al['range']})'}',
+      ],
+    );
+  }
+
+  Widget _body(bool canManage) {
+    final off = PosOfflineService.instance;
+    final mon = PosNetworkMonitor.instance;
+    return AnimatedBuilder(
         animation: Listenable.merge([mon.reachable, off.pendingSales, off.errorSales, off.pendingCarts]),
         builder: (context, _) {
           final sales = off.sales..sort((a, b) => b.seq.compareTo(a.seq));
@@ -163,8 +214,7 @@ class _PosOfflineSalesScreenState extends State<PosOfflineSalesScreen> {
             ],
           );
         },
-      ),
-    );
+      );
   }
 
   Widget _auditSection() {
@@ -258,7 +308,8 @@ class _PosOfflineSalesScreenState extends State<PosOfflineSalesScreen> {
   }
 
   String _fmt(dynamic v) {
-    final d = DateTime.tryParse(v?.toString() ?? '');
+    // Giờ từ API là UTC (có / không có Z) → giờ máy.
+    final d = parseApiUtcDateTime(v);
     return d == null ? '—' : _dt.format(d.toLocal());
   }
 

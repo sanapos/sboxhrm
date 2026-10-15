@@ -73,6 +73,11 @@ class _PosStaffCommissionReportScreenState
       exportModule: 'PosReportStaffCommission',
       time: _time,
       pngKey: _pngKey,
+      onExportPng: () => unawaited(PosReportExport.png(
+        context: context,
+        key: _pngKey,
+        filePrefix: 'POS_HoaHongNV',
+      )),
       onTimeChanged: (t) {
         setState(() => _time = t);
         _load();

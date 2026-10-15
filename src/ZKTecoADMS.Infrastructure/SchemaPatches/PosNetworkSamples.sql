@@ -7,7 +7,7 @@ CREATE TABLE IF NOT EXISTS "PosNetworkSamples" (
     "Platform" character varying(16) NULL,
     "AppVersion" character varying(32) NULL,
     "IsAgent" boolean NOT NULL DEFAULT false,
-    "BucketStart" timestamp with time zone NOT NULL,
+    "BucketStart" timestamp without time zone NOT NULL,
     "ConnType" character varying(16) NULL,
     "WifiRssi" integer NULL,
     "ApiCalls" integer NOT NULL DEFAULT 0,
@@ -24,8 +24,8 @@ CREATE TABLE IF NOT EXISTS "PosNetworkSamples" (
     "PrinterChecks" integer NOT NULL DEFAULT 0,
     "PrinterFailed" integer NOT NULL DEFAULT 0,
     "PrinterAvgMs" integer NULL,
-    "CreatedAt" timestamp with time zone NOT NULL DEFAULT now(),
-    "UpdatedAt" timestamp with time zone NULL,
+    "CreatedAt" timestamp without time zone NOT NULL DEFAULT now(),
+    "UpdatedAt" timestamp without time zone NULL,
     "UpdatedBy" text NULL,
     "CreatedBy" text NULL
 );

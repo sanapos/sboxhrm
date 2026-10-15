@@ -74,6 +74,10 @@ public static class PosNetworkReportBuilder
 
     static DateTime HourUtc(DateTime t) => new(t.Year, t.Month, t.Day, t.Hour, 0, 0, DateTimeKind.Utc);
 
+    /// <summary>Giờ VN trả cho app dưới dạng «UTC» (app hiển thị đúng con số). Kind phải là Utc — Unspecified/Local
+    /// bị bộ chuyển JSON đổi múi giờ → lệch 7 giờ (vd «máy gửi lần cuối»).</summary>
+    static DateTime VnAsUtc(DateTime utc) => DateTime.SpecifyKind(utc, DateTimeKind.Utc) + Vn;
+
     public static Report Build(
         IReadOnlyList<PosNetworkSample> samples,
         IReadOnlyList<DateTime> orderTimesUtc,
@@ -123,7 +127,7 @@ public static class PosNetworkReportBuilder
                 void Flush()
                 {
                     if (start != null && sec >= minSec)
-                        outages.Add(new Outage(dev.Key, name, isAgent, start.Value + Vn, sec, kind));
+                        outages.Add(new Outage(dev.Key, name, isAgent, VnAsUtc(start.Value), sec, kind));
                     start = null;
                     sec = 0;
                 }
@@ -165,7 +169,7 @@ public static class PosNetworkReportBuilder
             return new DeviceRow(
                 g.Key,
                 list.LastOrDefault(s => !string.IsNullOrWhiteSpace(s.DeviceName))?.DeviceName,
-                lastS.Platform, list.Any(s => s.IsAgent), lastS.BucketStart + Vn, list.Count,
+                lastS.Platform, list.Any(s => s.IsAgent), VnAsUtc(lastS.BucketStart), list.Count,
                 sent, failPct, p95, off,
                 outages.Count(o => o.DeviceId == g.Key && o.Kind.StartsWith("Mất kết nối máy")),
                 disc,
