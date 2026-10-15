@@ -26,3 +26,9 @@ String basename(String path) {
   final i = path.replaceAll('\\', '/').lastIndexOf('/');
   return i < 0 ? path : path.substring(i + 1);
 }
+
+Future<int> fileLength(String path) async => 0;
+
+Future<void> deleteDirIfExists(String path) async {}
+
+Future<void> moveFile(String from, String to) async {}

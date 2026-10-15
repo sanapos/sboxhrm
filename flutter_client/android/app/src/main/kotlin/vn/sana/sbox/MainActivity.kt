@@ -108,6 +108,23 @@ class MainActivity : FlutterFragmentActivity() {
                     } catch (e: Exception) {
                         result.error("SAVE_ERROR", e.message, null)
                     }
+                } else if (call.method == "deleteFile") {
+                    val uri = call.argument<String>("uri")
+                    if (uri == null) {
+                        result.error("INVALID_ARGS", "uri required", null)
+                        return@setMethodCallHandler
+                    }
+                    try {
+                        // Chỉ xóa được tệp do chính app tạo (MediaStore); tệp của app khác sẽ ném SecurityException → false.
+                        val deleted = if (uri.startsWith("content:")) {
+                            contentResolver.delete(android.net.Uri.parse(uri), null, null) > 0
+                        } else {
+                            java.io.File(uri).delete()
+                        }
+                        result.success(deleted)
+                    } catch (e: Exception) {
+                        result.success(false)
+                    }
                 } else {
                     result.notImplemented()
                 }

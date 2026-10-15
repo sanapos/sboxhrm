@@ -2215,7 +2215,8 @@ class _MainLayoutState extends State<MainLayout> with WidgetsBindingObserver {
       subtitle: 'File máy này',
       screen: const DownloadedDocumentsScreen(),
       group: 'Báo cáo kinh doanh',
-      showInSidebar: true,
+      // Web tải thẳng vào thư mục Tải về của trình duyệt — không có danh sách trong app.
+      showInSidebar: !kIsWeb,
       themeColor: HrmPageChrome.primaryNavy,
     ),
 

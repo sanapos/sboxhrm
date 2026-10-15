@@ -8,6 +8,7 @@ import 'package:share_plus/share_plus.dart';
 import '../models/downloaded_document.dart';
 import '../services/downloaded_documents_service.dart';
 import '../utils/responsive_helper.dart';
+import '../utils/share_origin.dart';
 import '../widgets/hrm_page_chrome.dart';
 import '../widgets/hrm_collapsible_overview.dart';
 import '../widgets/page_top_actions.dart';
@@ -37,10 +38,26 @@ class _DownloadedDocumentsScreenState extends State<DownloadedDocumentsScreen> {
   bool _loading = true;
   bool _showOverviewPanel = true;
   String _category = DownloadDocCategories.all;
-  String _fileType = 'all';
+  String _fileType = DownloadFileKinds.all;
   String _datePreset = 'all';
   DateTime? _dateFrom;
   DateTime? _dateTo;
+  DownloadSort _sort = DownloadSort.newest;
+  final Set<String> _selected = {};
+
+  bool get _selecting => _selected.isNotEmpty;
+  bool get _hasFilter =>
+      _category != DownloadDocCategories.all ||
+      _fileType != DownloadFileKinds.all ||
+      _datePreset != 'all' ||
+      _searchCtrl.text.trim().isNotEmpty;
+
+  static const _sortLabels = {
+    DownloadSort.newest: 'Mới nhất',
+    DownloadSort.oldest: 'Cũ nhất',
+    DownloadSort.name: 'Tên A → Z',
+    DownloadSort.size: 'Dung lượng lớn nhất',
+  };
 
   @override
   void initState() {
@@ -57,7 +74,7 @@ class _DownloadedDocumentsScreenState extends State<DownloadedDocumentsScreen> {
   Future<void> _reload() async {
     setState(() => _loading = true);
     try {
-      await _svc.ensureLoaded(rescan: true);
+      await _svc.ensureLoaded(force: true);
     } catch (e) {
       debugPrint('DownloadedDocumentsScreen._reload: $e');
       if (mounted) {
@@ -103,6 +120,7 @@ class _DownloadedDocumentsScreenState extends State<DownloadedDocumentsScreen> {
         from: _dateFrom,
         to: _dateTo,
         search: _searchCtrl.text,
+        sort: _sort,
       );
 
   Future<void> _open(DownloadedDocument doc) async {
@@ -124,20 +142,41 @@ class _DownloadedDocumentsScreenState extends State<DownloadedDocumentsScreen> {
 
   Future<void> _share(DownloadedDocument doc) async {
     if (kIsWeb) return;
-    await Share.shareXFiles(
-      [XFile(doc.localPath, mimeType: doc.mimeType)],
-      text: tr(doc.displayName),
+    try {
+      await Share.shareXFiles(
+        [XFile(doc.localPath, mimeType: doc.mimeType, name: doc.fileName)],
+        text: doc.displayName,
+        // iPad / iPhone ném lỗi nếu thiếu điểm neo hộp chia sẻ.
+        sharePositionOrigin: shareOriginRect(),
+      );
+    } catch (e) {
+      debugPrint('share document: $e');
+      if (mounted) {
+        NotificationOverlayManager().showError(
+            title: 'Không chia sẻ được', message: tr('Thử lại sau hoặc mở tệp rồi chia sẻ từ ứng dụng xem tệp'));
+      }
+    }
+  }
+
+  Future<void> _importPublic() async {
+    final n = await _svc.importFromPublicFolders();
+    if (!mounted) return;
+    setState(() {});
+    NotificationOverlayManager().showSuccess(
+      title: 'Nhập tệp',
+      message: tr(n > 0 ? 'Đã nhập thêm $n tệp từ thư mục SBOX HRM' : 'Không có tệp mới trong thư mục SBOX HRM'),
     );
   }
 
   Future<void> _rename(DownloadedDocument doc) async {
-    final ctrl = TextEditingController(text: tr(doc.displayName));
+    final ctrl = TextEditingController(text: doc.displayName);
     final ok = await showDialog<bool>(
       context: context,
       builder: (ctx) => ScrollableAlertDialog(
         title: Text(tr('Đổi tên tệp')),
         content: TextField(
           controller: ctrl,
+          maxLength: 120,
           decoration: InputDecoration(
             labelText: tr('Tên hiển thị'),
             border: OutlineInputBorder(),
@@ -168,28 +207,53 @@ class _DownloadedDocumentsScreenState extends State<DownloadedDocumentsScreen> {
     }
   }
 
-  Future<void> _delete(DownloadedDocument doc) async {
+  Future<void> _delete(List<DownloadedDocument> docs) async {
+    if (docs.isEmpty) return;
+    final hasPublic = !kIsWeb && docs.any((d) => d.externalUri != null);
+    var alsoPublic = false;
     final confirm = await showDialog<bool>(
       context: context,
-      builder: (ctx) => ScrollableAlertDialog(
-        title: Text(tr('Xóa tệp')),
-        content: Text(tr('Xóa "${doc.displayName}" khỏi danh sách quản lý?')),
-        actions: [
-          TextButton(
-              onPressed: () => Navigator.pop(ctx, false),
-              child: Text(tr('Hủy'))),
-          FilledButton(
-            style: FilledButton.styleFrom(backgroundColor: Colors.red),
-            onPressed: () => Navigator.pop(ctx, true),
-            child: Text(tr('Xóa')),
-          ),
-        ],
+      builder: (ctx) => StatefulBuilder(
+        builder: (ctx, setD) => ScrollableAlertDialog(
+          title: Text(tr(docs.length == 1 ? 'Xóa tệp' : 'Xóa ${docs.length} tệp')),
+          content: Column(mainAxisSize: MainAxisSize.min, crossAxisAlignment: CrossAxisAlignment.start, children: [
+            Text(docs.length == 1
+                ? tr('Xóa "${docs.first.displayName}" khỏi danh sách quản lý?')
+                : tr('Xóa ${docs.length} tệp đã chọn khỏi danh sách quản lý?')),
+            if (hasPublic) ...[
+              const SizedBox(height: 8),
+              CheckboxListTile(
+                dense: true,
+                contentPadding: EdgeInsets.zero,
+                controlAffinity: ListTileControlAffinity.leading,
+                value: alsoPublic,
+                onChanged: (v) => setD(() => alsoPublic = v ?? false),
+                title: Text(tr('Xóa luôn bản trong thư mục Tải xuống')),
+                subtitle: Text(tr(alsoPublic
+                    ? 'Tệp sẽ mất hẳn khỏi máy.'
+                    : 'Bản trong Tải xuống được giữ lại và sẽ không bị nhập lại vào danh sách.')),
+              ),
+            ],
+          ]),
+          actions: [
+            TextButton(onPressed: () => Navigator.pop(ctx, false), child: Text(tr('Hủy'))),
+            FilledButton(
+              style: FilledButton.styleFrom(backgroundColor: Colors.red),
+              onPressed: () => Navigator.pop(ctx, true),
+              child: Text(tr('Xóa')),
+            ),
+          ],
+        ),
       ),
     );
     if (confirm != true || !mounted) return;
-    await _svc.delete(doc.id);
-    if (mounted) setState(() {});
+    await _svc.deleteMany(docs.map((d) => d.id), deletePublicCopy: alsoPublic);
+    if (!mounted) return;
+    setState(() => _selected.removeAll(docs.map((d) => d.id)));
   }
+
+  void _toggleSelect(DownloadedDocument doc) =>
+      setState(() => _selected.contains(doc.id) ? _selected.remove(doc.id) : _selected.add(doc.id));
 
   String _formatSize(int bytes) {
     if (bytes < 1024) return '$bytes B';
@@ -217,13 +281,24 @@ class _DownloadedDocumentsScreenState extends State<DownloadedDocumentsScreen> {
     final list = _filtered;
 
     return RegisterPageTopActions(
-      actions: [
-        HrmTopBarAction(
-          icon: Icons.sync_rounded,
-          label: 'Quét lại thư mục SBOX HRM',
-          onPressed: _reload,
-        ),
-      ],
+      actions: _selecting
+          ? [
+              HrmTopBarAction(
+                icon: Icons.delete_outline,
+                label: 'Xóa ${_selected.length} tệp đã chọn',
+                onPressed: () => _delete(_svc.items.where((d) => _selected.contains(d.id)).toList()),
+              ),
+              HrmTopBarAction(icon: Icons.close_rounded, label: 'Bỏ chọn', onPressed: () => setState(_selected.clear)),
+            ]
+          : [
+              if (!kIsWeb && _svc.isImportSupported)
+                HrmTopBarAction(
+                  icon: Icons.download_for_offline_outlined,
+                  label: 'Nhập từ thư mục SBOX HRM',
+                  onPressed: _importPublic,
+                ),
+              HrmTopBarAction(icon: Icons.sync_rounded, label: 'Làm mới', onPressed: _reload),
+            ],
       child: Scaffold(
       backgroundColor: HrmPageChrome.background,
       body: Column(
@@ -233,22 +308,34 @@ class _DownloadedDocumentsScreenState extends State<DownloadedDocumentsScreen> {
                 ? const Center(child: CircularProgressIndicator())
                 : RefreshIndicator(
                     onRefresh: _reload,
-                    child: list.isEmpty
+                    child: _svc.items.isEmpty || list.isEmpty
                         ? ListView(
                             children: [
-                              const SizedBox(height: 120),
+                              if (_svc.items.isNotEmpty)
+                                Padding(
+                                  padding: EdgeInsets.fromLTRB(isMobile ? 10 : 16, 8, isMobile ? 10 : 16, 0),
+                                  child: _buildOverviewSection(0),
+                                ),
+                              const SizedBox(height: 80),
                               Center(
                                 child: Padding(
                                   padding: const EdgeInsets.symmetric(
                                       horizontal: 24),
-                                  child: Text(
-                                    tr(kIsWeb
-                                        ? 'Trên web, tệp xuất Excel/ảnh được tải thẳng vào thư mục Tải về của trình duyệt.\nMở thư mục Downloads để xem — danh sách trong app chỉ có trên điện thoại/máy tính cài app.'
-                                        : 'Chưa có tệp tải xuống.\nXuất Excel/ảnh từ báo cáo sẽ hiện tại đây.'),
-                                    textAlign: TextAlign.center,
-                                    style: const TextStyle(
-                                        color: SboxColors.slate500),
-                                  ),
+                                  child: Column(children: [
+                                    Text(
+                                      tr(kIsWeb
+                                          ? 'Trên web, tệp xuất Excel/ảnh được tải thẳng vào thư mục Tải về của trình duyệt.\nMở thư mục Downloads để xem — danh sách trong app chỉ có trên điện thoại/máy tính cài app.'
+                                          : _svc.items.isEmpty
+                                              ? 'Chưa có tệp tải xuống.\nXuất Excel/PDF/ảnh từ báo cáo sẽ hiện tại đây.'
+                                              : 'Không có tệp nào khớp bộ lọc.'),
+                                      textAlign: TextAlign.center,
+                                      style: const TextStyle(color: SboxColors.slate500),
+                                    ),
+                                    if (_svc.items.isNotEmpty && _hasFilter) ...[
+                                      const SizedBox(height: 12),
+                                      OutlinedButton(onPressed: _clearFilters, child: Text(tr('Bỏ bộ lọc'))),
+                                    ],
+                                  ]),
                                 ),
                               ),
                             ],
@@ -272,10 +359,9 @@ class _DownloadedDocumentsScreenState extends State<DownloadedDocumentsScreen> {
 
   Widget _buildOverviewSection(int visibleCount) {
     final total = _svc.items.length;
-    final excel =
-        _svc.items.where((e) => e.isExcel).length;
-    final images =
-        _svc.items.where((e) => e.isImage).length;
+    final excel = _svc.items.where((e) => e.isExcel).length;
+    final docs = _svc.items.where((e) => e.isPdf || e.isWord || e.isCsv).length;
+    final images = _svc.items.where((e) => e.isImage).length;
 
     return HrmCollapsibleOverview(
       expanded: _showOverviewPanel,
@@ -296,17 +382,33 @@ class _DownloadedDocumentsScreenState extends State<DownloadedDocumentsScreen> {
             cards: [
               _statCard('Tổng tệp', '$total', Icons.folder_open),
               _statCard('Excel', '$excel', Icons.table_chart),
-              _statCard('Ảnh PNG', '$images', Icons.image),
+              _statCard('PDF/Word/CSV', '$docs', Icons.description),
+              _statCard('Ảnh', '$images', Icons.image),
+              _statCard('Dung lượng', _formatSize(_svc.totalBytes), Icons.sd_storage_outlined),
             ],
             minCardWidth: 100,
             gap: 8,
           ),
           const SizedBox(height: 10),
           _buildFilterBar(),
+          const SizedBox(height: 6),
+          Text(
+            tr('Bản trong app tự dọn sau ${DownloadedDocumentsService.retentionDays} ngày hoặc khi quá ${DownloadedDocumentsService.maxStoredBytes ~/ (1024 * 1024)} MB; bản ở thư mục Tải xuống không bị xóa trừ khi bạn chọn xóa cả hai.'),
+            style: const TextStyle(fontSize: 11, color: SboxColors.slate500),
+          ),
         ],
       ),
     );
   }
+
+  void _clearFilters() => setState(() {
+        _category = DownloadDocCategories.all;
+        _fileType = DownloadFileKinds.all;
+        _datePreset = 'all';
+        _dateFrom = null;
+        _dateTo = null;
+        _searchCtrl.clear();
+      });
 
   Widget _statCard(String label, String value, IconData icon) {
     return HrmStatSummaryCard(
@@ -337,13 +439,9 @@ class _DownloadedDocumentsScreenState extends State<DownloadedDocumentsScreen> {
             ),
             _filterChip(
               'Loại tệp',
-              _fileType == 'excel'
-                  ? 'Excel'
-                  : _fileType == 'image'
-                      ? 'Ảnh'
-                      : 'Tất cả',
+              DownloadFileKinds.labels[_fileType] ?? 'Tất cả',
               Icons.description_rounded,
-              _fileType != 'all',
+              _fileType != DownloadFileKinds.all,
               () => _pickFileType(),
             ),
           ]),
@@ -357,7 +455,9 @@ class _DownloadedDocumentsScreenState extends State<DownloadedDocumentsScreen> {
                       ? 'Hôm nay'
                       : _datePreset == 'week'
                           ? 'Tuần này'
-                          : 'Tháng này',
+                          : _datePreset == 'custom'
+                              ? '${DateFormat('dd/MM').format(_dateFrom!)} – ${DateFormat('dd/MM').format(_dateTo!)}'
+                              : 'Tháng này',
               Icons.date_range_rounded,
               _datePreset != 'all',
               () => _pickDate(),
@@ -368,6 +468,23 @@ class _DownloadedDocumentsScreenState extends State<DownloadedDocumentsScreen> {
               Icons.search_rounded,
               _searchCtrl.text.isNotEmpty,
               _pickSearch,
+            ),
+          ]),
+          const SizedBox(height: 8),
+          _filterRow([
+            _filterChip(
+              'Sắp xếp',
+              _sortLabels[_sort]!,
+              Icons.sort_rounded,
+              _sort != DownloadSort.newest,
+              _pickSort,
+            ),
+            _filterChip(
+              'Bộ lọc',
+              _hasFilter ? 'Bỏ tất cả bộ lọc' : 'Chưa lọc',
+              Icons.filter_alt_off_outlined,
+              _hasFilter,
+              _hasFilter ? _clearFilters : () {},
             ),
           ]),
         ],
@@ -456,29 +573,57 @@ class _DownloadedDocumentsScreenState extends State<DownloadedDocumentsScreen> {
       builder: (ctx) => SafeArea(
         child: Column(
           mainAxisSize: MainAxisSize.min,
-          children: [
-            ListTile(
-                title: Text(tr('Tất cả')),
-                onTap: () {
-                  Navigator.pop(ctx);
-                  setState(() => _fileType = 'all');
-                }),
-            ListTile(
-                title: Text(tr('Excel (.xlsx)')),
-                onTap: () {
-                  Navigator.pop(ctx);
-                  setState(() => _fileType = 'excel');
-                }),
-            ListTile(
-                title: Text(tr('Ảnh PNG/JPG')),
-                onTap: () {
-                  Navigator.pop(ctx);
-                  setState(() => _fileType = 'image');
-                }),
-          ],
+          children: DownloadFileKinds.labels.entries
+              .map((e) => ListTile(
+                    title: Text(tr(e.value)),
+                    trailing: _fileType == e.key ? const Icon(Icons.check, size: 18) : null,
+                    onTap: () {
+                      Navigator.pop(ctx);
+                      setState(() => _fileType = e.key);
+                    },
+                  ))
+              .toList(),
         ),
       ),
     );
+  }
+
+  Future<void> _pickSort() async {
+    await showAppSheet<void>(
+      context: context,
+      showDragHandle: true,
+      builder: (ctx) => SafeArea(
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: _sortLabels.entries
+              .map((e) => ListTile(
+                    title: Text(tr(e.value)),
+                    trailing: _sort == e.key ? const Icon(Icons.check, size: 18) : null,
+                    onTap: () {
+                      Navigator.pop(ctx);
+                      setState(() => _sort = e.key);
+                    },
+                  ))
+              .toList(),
+        ),
+      ),
+    );
+  }
+
+  Future<void> _pickCustomRange() async {
+    final now = DateTime.now();
+    final picked = await showDateRangePicker(
+      context: context,
+      firstDate: DateTime(now.year - 3),
+      lastDate: now,
+      initialDateRange: _dateFrom != null && _dateTo != null ? DateTimeRange(start: _dateFrom!, end: _dateTo!) : null,
+    );
+    if (picked == null || !mounted) return;
+    setState(() {
+      _datePreset = 'custom';
+      _dateFrom = picked.start;
+      _dateTo = picked.end;
+    });
   }
 
   Future<void> _pickDate() async {
@@ -489,30 +634,24 @@ class _DownloadedDocumentsScreenState extends State<DownloadedDocumentsScreen> {
         child: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
-            ListTile(
-                title: Text(tr('Tất cả')),
+            for (final e in const [('Tất cả', 'all'), ('Hôm nay', 'today'), ('Tuần này', 'week'), ('Tháng này', 'month')])
+              ListTile(
+                title: Text(tr(e.$1)),
+                trailing: _datePreset == e.$2 ? const Icon(Icons.check, size: 18) : null,
                 onTap: () {
                   Navigator.pop(ctx);
-                  _applyDatePreset('all');
-                }),
+                  _applyDatePreset(e.$2);
+                },
+              ),
             ListTile(
-                title: Text(tr('Hôm nay')),
-                onTap: () {
-                  Navigator.pop(ctx);
-                  _applyDatePreset('today');
-                }),
-            ListTile(
-                title: Text(tr('Tuần này')),
-                onTap: () {
-                  Navigator.pop(ctx);
-                  _applyDatePreset('week');
-                }),
-            ListTile(
-                title: Text(tr('Tháng này')),
-                onTap: () {
-                  Navigator.pop(ctx);
-                  _applyDatePreset('month');
-                }),
+              leading: const Icon(Icons.date_range_rounded, size: 20),
+              title: Text(tr('Chọn khoảng ngày…')),
+              trailing: _datePreset == 'custom' ? const Icon(Icons.check, size: 18) : null,
+              onTap: () {
+                Navigator.pop(ctx);
+                _pickCustomRange();
+              },
+            ),
           ],
         ),
       ),
@@ -571,14 +710,24 @@ class _DownloadedDocumentsScreenState extends State<DownloadedDocumentsScreen> {
         borderRadius: BorderRadius.circular(14),
         side: const BorderSide(color: SboxColors.slate200),
       ),
+      color: _selected.contains(doc.id) ? _theme.withValues(alpha: 0.06) : null,
       child: InkWell(
-        onTap: () => _open(doc),
+        onTap: () => _selecting ? _toggleSelect(doc) : _open(doc),
+        onLongPress: () => _toggleSelect(doc),
         borderRadius: BorderRadius.circular(14),
         child: Padding(
           padding: const EdgeInsets.all(12),
           child: Row(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
+              if (_selecting)
+                Padding(
+                  padding: const EdgeInsets.only(right: 8, top: 10),
+                  child: Icon(
+                    _selected.contains(doc.id) ? Icons.check_circle : Icons.radio_button_unchecked,
+                    color: _selected.contains(doc.id) ? _theme : SboxColors.slate400,
+                  ),
+                ),
               Container(
                 width: 44,
                 height: 44,
@@ -594,17 +743,18 @@ class _DownloadedDocumentsScreenState extends State<DownloadedDocumentsScreen> {
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     Text(
-                      tr(doc.displayName),
+                      doc.displayName,
                       style: const TextStyle(
                         fontWeight: FontWeight.w700,
                         fontSize: 14,
                       ),
                       maxLines: 2,
+                      overflow: TextOverflow.ellipsis,
                       softWrap: true,
                     ),
                     const SizedBox(height: 4),
                     Text(
-                      tr('${doc.category} · ${_fmt.format(doc.downloadedAt)} · ${_formatSize(doc.sizeBytes)}'),
+                      '${tr(doc.category)} · ${_fmt.format(doc.downloadedAt)} · ${_formatSize(doc.sizeBytes)}',
                       style: const TextStyle(
                         fontSize: 12,
                         color: SboxColors.slate500,
@@ -618,7 +768,7 @@ class _DownloadedDocumentsScreenState extends State<DownloadedDocumentsScreen> {
                   if (v == 'open') _open(doc);
                   if (v == 'share') _share(doc);
                   if (v == 'rename') _rename(doc);
-                  if (v == 'delete') _delete(doc);
+                  if (v == 'delete') _delete([doc]);
                 },
                 itemBuilder: (_) => [
                   PopupMenuItem(

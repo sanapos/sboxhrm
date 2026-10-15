@@ -1,6 +1,5 @@
 import 'dart:convert';
 import 'dart:io';
-import 'dart:ui';
 
 import 'package:flutter/foundation.dart';
 import 'package:flutter/services.dart';
@@ -11,6 +10,7 @@ import 'package:share_plus/share_plus.dart';
 import '../models/downloaded_document.dart';
 import '../services/downloaded_documents_service.dart';
 import 'pos_busy.dart';
+import 'share_origin.dart';
 
 /// MethodChannel to interact with native Android MediaStore for saving files
 const _channel = MethodChannel('com.sboxhrm/file_saver');
@@ -48,12 +48,28 @@ Future<String?> saveFileBytes(
     try {
       await Share.shareXFiles(
         [XFile(filePath, mimeType: mimeType, name: filename)],
-        sharePositionOrigin: _iosShareOrigin(),
+        sharePositionOrigin: shareOriginRect(),
       );
     } catch (e) {
       // iPad/iPhone TestFlight ném PlatformException nếu thiếu neo chia sẻ.
       // File đã ghi — không làm hỏng xuất Excel/PNG.
       debugPrint('iOS share export: $e');
+    }
+  }
+
+  // Máy tính (Windows / macOS / Linux): lưu bản công khai vào Downloads/SBOX HRM (không đè tệp cùng tên).
+  if (mediaUri == null && (Platform.isWindows || Platform.isMacOS || Platform.isLinux)) {
+    try {
+      final dl = await getDownloadsDirectory();
+      if (dl != null) {
+        final dir = Directory('${dl.path}${Platform.pathSeparator}SBOX HRM');
+        if (!await dir.exists()) await dir.create(recursive: true);
+        final file = _uniqueFile(dir, filename);
+        await file.writeAsBytes(bytes, flush: true);
+        mediaUri = file.path;
+      }
+    } catch (e) {
+      debugPrint('desktop save: $e');
     }
   }
 
@@ -73,19 +89,17 @@ Future<String?> saveFileBytes(
   return doc?.localPath ?? mediaUri;
 }
 
-/// Điểm neo cho UIActivityViewController. Rect rỗng làm iOS ném
-/// PlatformException(error, sharePositionOrigin...).
-Rect _iosShareOrigin() {
-  final views = PlatformDispatcher.instance.views;
-  if (views.isEmpty) return const Rect.fromLTWH(0, 0, 120, 48);
-  final size = views.first.physicalSize / views.first.devicePixelRatio;
-  final width = size.width > 8 ? size.width : 320.0;
-  final height = size.height > 8 ? size.height : 640.0;
-  return Rect.fromCenter(
-    center: Offset(width / 2, height / 3),
-    width: 48,
-    height: 48,
-  );
+/// Tên tệp chưa có trong [dir]: «a.xlsx», «a (1).xlsx», «a (2).xlsx»…
+File _uniqueFile(Directory dir, String filename) {
+  final sep = Platform.pathSeparator;
+  final dot = filename.lastIndexOf('.');
+  final stem = dot > 0 ? filename.substring(0, dot) : filename;
+  final ext = dot > 0 ? filename.substring(dot) : '';
+  var f = File('${dir.path}$sep$filename');
+  for (var i = 1; f.existsSync() && i < 1000; i++) {
+    f = File('${dir.path}$sep$stem ($i)$ext');
+  }
+  return f;
 }
 
 /// Save a file and immediately open it with the default app.

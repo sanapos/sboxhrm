@@ -51,3 +51,21 @@ Future<List<String>> listFiles(String dirPath) async {
 
 String basename(String path) =>
     path.split(Platform.pathSeparator).last;
+
+Future<int> fileLength(String path) async {
+  final f = File(path);
+  if (!await f.exists()) return 0;
+  return f.length();
+}
+
+Future<void> deleteDirIfExists(String path) async {
+  final d = Directory(path);
+  if (await d.exists()) await d.delete(recursive: true);
+}
+
+/// Đổi tên / chuyển tệp; tạo thư mục đích nếu chưa có.
+Future<void> moveFile(String from, String to) async {
+  final parent = File(to).parent;
+  if (!await parent.exists()) await parent.create(recursive: true);
+  await File(from).rename(to);
+}

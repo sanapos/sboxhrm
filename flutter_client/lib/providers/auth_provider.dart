@@ -1,3 +1,4 @@
+import '../services/downloaded_documents_service.dart';
 import '../services/pos_network_monitor.dart';
 import '../services/pos_offline_service.dart';
 import '../services/branch_session.dart';
@@ -25,6 +26,14 @@ class AuthProvider extends ChangeNotifier {
   String? _error;
 
   User? get user => _user;
+
+  /// Tài liệu đã tải xuống là riêng từng tài khoản + cửa hàng: đổi / đăng xuất thì danh sách không còn thấy tệp của người trước.
+  @override
+  void notifyListeners() {
+    final u = _user;
+    DownloadedDocumentsService.instance.setOwner(u == null ? null : '${u.storeId ?? 'sys'}_${u.id}');
+    super.notifyListeners();
+  }
 
   /// Chỉ dùng trong test: giả lập người đăng nhập (vai trò quản lý / nhân viên).
   @visibleForTesting
