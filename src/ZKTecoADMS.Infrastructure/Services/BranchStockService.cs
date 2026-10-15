@@ -158,8 +158,10 @@ public static class BranchStockService
             .Select(g => new { BranchId = g.Key, Qty = g.Sum(x => x.Qty) })
             .ToDictionaryAsync(x => x.BranchId, x => x.Qty, ct);
         decimal total = variantId == null
-            ? await db.PosProducts.AsNoTracking().Where(p => p.Id == productId).Select(p => p.OnHandQty).FirstOrDefaultAsync(ct)
-            : await db.PosProductVariants.AsNoTracking().Where(v => v.Id == variantId).Select(v => v.OnHandQty).FirstOrDefaultAsync(ct);
+            ? await db.PosProducts.AsNoTracking().Where(p => p.Id == productId && p.StoreId == storeId).Select(p => p.OnHandQty).FirstOrDefaultAsync(ct)
+            : await db.PosProductVariants.AsNoTracking()
+                .Where(v => v.Id == variantId && db.PosProducts.Any(p => p.Id == v.ProductId && p.StoreId == storeId))
+                .Select(v => v.OnHandQty).FirstOrDefaultAsync(ct);
         var transit = await GetInTransitAsync(db, storeId, [productId], ct);
         var inTransit = variantId == null ? ProductLevelTransit(transit, productId) : transit.GetValueOrDefault((productId, variantId));
         foreach (var b in branches)

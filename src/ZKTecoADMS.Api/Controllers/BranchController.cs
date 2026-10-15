@@ -458,6 +458,7 @@ public class BranchController(
         string? blocker = branch.IsHeadquarter ? "Đây là trụ sở — chọn chi nhánh khác làm trụ sở trước."
             : children > 0 ? $"Còn {children} chi nhánh con — xóa hoặc chuyển chi nhánh con trước."
             : openTransfers > 0 ? $"Còn {openTransfers} phiếu chuyển kho chưa hoàn tất."
+            : saleOrders > 0 ? $"Chi nhánh đã có {saleOrders} đơn bán — không thể xóa (doanh thu sẽ biến mất khỏi báo cáo). Hãy dùng «Ngừng hoạt động»."
             : null;
 
         return Ok(AppResponse<object>.Success(new
@@ -496,6 +497,9 @@ public class BranchController(
                            (t.Status == PosStockTransferStatus.Draft || t.Status == PosStockTransferStatus.Sent));
         if (pendingTransfers)
             return BadRequest(AppResponse<bool>.Fail("Chi nhánh còn phiếu chuyển kho chưa hoàn tất — hãy nhận hoặc hủy phiếu trước."));
+        // Đơn bán gắn chi nhánh là lịch sử doanh thu: xóa chi nhánh làm đơn rơi khỏi báo cáo so sánh.
+        if (await dbContext.PosSaleOrders.AnyAsync(o => o.BranchId == id))
+            return BadRequest(AppResponse<bool>.Fail("Chi nhánh đã có đơn bán nên không thể xóa — hãy chuyển sang «Ngừng hoạt động» để giữ lịch sử doanh thu."));
         // Hàng còn ở chi nhánh này quay về trụ sở.
         if (branch.StoreId.HasValue)
             await BranchStockService.ReleaseBranchStockAsync(dbContext, branch.StoreId.Value, id);
@@ -505,7 +509,10 @@ public class BranchController(
             .Where(e => e.BranchId == id && e.Deleted == null)
             .ToListAsync();
         foreach (var emp in linkedEmployees)
+        {
             emp.BranchId = null;
+            memoryCache.Remove($"emp-branch:{emp.Id}");
+        }
 
         // Quyền xem chi nhánh đã xóa không còn ý nghĩa.
         var perms = await dbContext.BranchPermissions.AsTracking()

@@ -318,6 +318,7 @@ public partial class PosReportsController
         if (IsManager)
         {
             var issueRows = await dbContext.PosStockTransactions.AsNoTracking()
+                .ApplyBranchScope(HttpContext.BranchContext())
                 .Where(t => t.StoreId == storeId && t.Deleted == null && t.IsActive &&
                             t.StockIssueId != null &&
                             t.CreatedAt >= fromDt && t.CreatedAt < toDt)
@@ -334,6 +335,7 @@ public partial class PosReportsController
             internalUseCost = issueRows.Where(r => r.Kind == PosStockIssueKind.InternalUse).Sum(r => r.Amount);
             otherIssueCost = issueRows.Where(r => r.Kind == PosStockIssueKind.Generic && r.QuoteId == null).Sum(r => r.Amount);
             countLossCost = await dbContext.PosStockTransactions.AsNoTracking()
+                .ApplyBranchScope(HttpContext.BranchContext())
                 .Where(t => t.StoreId == storeId && t.Deleted == null && t.IsActive &&
                             t.StockCountId != null && t.TransactionType == PosStockTransactionType.Adjust &&
                             t.CreatedAt >= fromDt && t.CreatedAt < toDt)

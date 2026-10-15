@@ -113,8 +113,10 @@ public sealed class BranchContextMiddleware(RequestDelegate next)
                 }
                 return s;
             }) ?? [];
-            // Chưa gán chi nhánh nào → giữ hành vi cũ (xem toàn cửa hàng).
-            allowed = set.Count == 0 ? null : set;
+            // Cache có thể còn chi nhánh vừa xóa → chỉ giữ chi nhánh còn tồn tại.
+            var live = set.Where(ids.Contains).ToHashSet();
+            // Chưa gán chi nhánh nào = nhân viên trụ sở (cùng quy ước báo cáo chi nhánh), KHÔNG phải xem toàn cửa hàng.
+            allowed = live.Count > 0 ? live : ctx.HeadquarterBranchId is { } hqId ? new HashSet<Guid> { hqId } : null;
         }
         ctx.AllowedBranchIds = allowed;
         ctx.UserId = userId == Guid.Empty ? null : userId;

@@ -1,4 +1,5 @@
 using Microsoft.AspNetCore.Mvc;
+using ZKTecoADMS.Api.Controllers.Base;
 using Microsoft.EntityFrameworkCore;
 using ZKTecoADMS.Api.Authorization;
 using ZKTecoADMS.Application.Constants;
@@ -122,11 +123,14 @@ public partial class PosReportsController
         var hour = await ResolveReportDayStartHourAsync(storeId, dayStartHour);
         var (fromDt, toDt, fromVn, toVnEx) = ResolvePosRange(from, to, hour, defaultLookbackDays: 30);
 
+        var bctx = HttpContext.BranchContext();
+        var branchScoped = bctx is { StoreUsesBranches: true } && (bctx.FilterBranchId != null || bctx.AllowedBranchIds != null);
         var receiptQ = dbContext.PosStockReceipts.AsNoTracking()
             .Where(r => r.StoreId == storeId && r.Deleted == null &&
                         r.Status == PosPurchaseReceiptStatus.Completed &&
                         (r.ImportDate ?? r.CreatedAt) >= fromDt &&
-                        (r.ImportDate ?? r.CreatedAt) < toDt);
+                        (r.ImportDate ?? r.CreatedAt) < toDt)
+            .ApplyBranchScope(bctx);
         if (supplierId.HasValue) receiptQ = receiptQ.Where(r => r.SupplierId == supplierId);
 
         var receipts = await receiptQ
@@ -154,7 +158,8 @@ public partial class PosReportsController
             .Where(r => r.StoreId == storeId && r.Deleted == null &&
                         r.Status == PosPurchaseReturnStatus.Completed &&
                         (r.ReturnDate ?? r.CreatedAt) >= fromDt &&
-                        (r.ReturnDate ?? r.CreatedAt) < toDt);
+                        (r.ReturnDate ?? r.CreatedAt) < toDt)
+            .ApplyBranchScope(bctx);
         if (supplierId.HasValue) returnQ = returnQ.Where(r => r.SupplierId == supplierId);
 
         var returns = await returnQ
@@ -180,8 +185,10 @@ public partial class PosReportsController
                         p.PaidAt >= fromDt && p.PaidAt < toDt &&
                         (!supplierId.HasValue || p.SupplierId == supplierId))
             .SumAsync(p => (decimal?)p.Amount) ?? 0;
+        // Lọc theo chi nhánh: thanh toán NCC không gắn chi nhánh → chỉ tính tiền trả trên chính các phiếu nhập của chi nhánh.
+        if (branchScoped) paidInPeriod = receipts.Sum(r => r.PaidAmount);
         // Phiếu nhập không chọn NCC: tiền trả ngay chỉ ghi sổ quỹ (không có bản ghi thanh toán NCC) — vẫn là đã trả.
-        if (!supplierId.HasValue)
+        if (!supplierId.HasValue && !branchScoped)
             paidInPeriod += await receiptQ.Where(r => r.SupplierId == null)
                 .SumAsync(r => (decimal?)r.PaidAmount) ?? 0;
 

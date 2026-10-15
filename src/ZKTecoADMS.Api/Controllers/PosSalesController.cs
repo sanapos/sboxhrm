@@ -1628,9 +1628,12 @@ public partial class PosSalesController(
         [FromQuery] string? deviceName = null)
     {
         var storeId = RequiredStoreId;
+        // Người bị giới hạn chi nhánh không mở được đơn của chi nhánh khác (danh sách đã lọc, chi tiết theo id cũng phải lọc).
         var order = await dbContext.PosSaleOrders.AsNoTracking()
             .Include(o => o.Lines)
-            .FirstOrDefaultAsync(o => o.Id == id && o.StoreId == storeId && o.Deleted == null);
+            .Where(o => o.Id == id && o.StoreId == storeId && o.Deleted == null)
+            .ApplyBranchScope(HttpContext.BranchContext())
+            .FirstOrDefaultAsync();
         if (order == null)
             return NotFound(AppResponse<SaleOrderDto>.Fail("Không tìm thấy đơn hàng"));
 

@@ -54,7 +54,7 @@ public partial class PosReportsController(
                 .SumAsync(l => l.DiscountAmount);
         var orderCount = await orders.CountAsync();
         var totalRefund = await SumPeriodSaleRefundsAsync(
-            storeId, fromDt, toDt, IsManager ? null : orderIds);
+            storeId, fromDt, toDt, IsManager ? await BranchRefundOrderIdsAsync(storeId) : orderIds);
         var totalRevenueInclVat = totalRevenue + totalVat;
 
         var byPaymentRaw = await dbContext.CashTransactions.AsNoTracking().ApplyBranchScope(HttpContext.BranchContext())
@@ -628,6 +628,8 @@ public partial class PosReportsController(
         var prevFrom = prevRange.fromUtc;
         var prevTo = prevRange.toUtcExclusive;
 
+        var refundBranchOrderIds = IsManager ? await BranchRefundOrderIdsAsync(storeId) : null;
+
         async Task<(decimal revenue, decimal vat, decimal cogs, int orders, decimal discount, decimal refund)> PeriodAsync(
             DateTime start, DateTime end)
         {
@@ -647,7 +649,7 @@ public partial class PosReportsController(
                     .SumAsync(l => (decimal?)l.DiscountAmount) ?? 0);
             var cogs = (await PosReportMoney.CogsByOrderAsync(dbContext, storeId, ids)).Values.Sum();
             var refund = await SumPeriodSaleRefundsAsync(
-                storeId, start, end, IsManager ? null : ids);
+                storeId, start, end, IsManager ? refundBranchOrderIds : ids);
             // Total = tiền hàng đã trừ giảm giá và hàng trả, CHƯA gồm VAT (VAT lưu riêng ở VatAmount).
             // Tiền hoàn chỉ để xem — Total đã giảm khi trả hàng, không trừ thêm.
             return (revenue, vat, cogs, count, discount, refund);
@@ -844,6 +846,15 @@ public partial class PosReportsController(
     {
         var storeId = RequiredStoreId;
         var core = await GetStockSummaryCoreAsync(storeId);
+        if (await BranchQtyScopeAsync(storeId) is { } branchQty)
+        {
+            var tracked = await StockTracked(dbContext.PosProducts.AsNoTracking()
+                    .Where(p => p.StoreId == storeId && p.Deleted == null && p.IsActive))
+                .Select(p => new { p.Id, p.CostPrice, p.MinStockQty }).ToListAsync();
+            var rows = tracked.Select(p => (p.CostPrice, p.MinStockQty, Qty: branchQty.GetValueOrDefault(p.Id))).ToList();
+            core = (rows.Count, rows.Sum(r => r.Qty), rows.Sum(r => r.Qty * r.CostPrice),
+                rows.Count(r => r.Qty <= 0), rows.Count(r => r.MinStockQty > 0 && r.Qty > 0 && r.Qty < r.MinStockQty));
+        }
 
         return Ok(AppResponse<object>.Success(new
         {
@@ -892,6 +903,36 @@ public partial class PosReportsController(
                 PosStockFilter.AboveMax => query.Where(p => p.MaxStockQty > 0 && p.OnHandQty > p.MaxStockQty),
                 _ => query,
             };
+        }
+
+        if (await BranchQtyScopeAsync(storeId) is { } branchQty)
+        {
+            var all = await query.Select(p => new
+            {
+                p.Id, p.ProductCode, p.Barcode, p.Name, p.BaseUnitName, p.MinStockQty, p.MaxStockQty, p.CostPrice,
+                ProductType = p.ProductType.ToString(),
+            }).ToListAsync();
+            var rows = all.Select(p => new
+            {
+                p.Id, p.ProductCode, p.Barcode, p.Name, p.BaseUnitName, OnHandQty = branchQty.GetValueOrDefault(p.Id),
+                p.MinStockQty, p.MaxStockQty, p.CostPrice, p.ProductType,
+            }).ToList();
+            if (Enum.TryParse<PosStockFilter>(filter, true, out var bf))
+                rows = bf switch
+                {
+                    PosStockFilter.BelowMin => rows.Where(r => r.MinStockQty > 0 && r.OnHandQty < r.MinStockQty).ToList(),
+                    PosStockFilter.OutOfStock => rows.Where(r => r.OnHandQty <= 0).ToList(),
+                    PosStockFilter.AboveMax => rows.Where(r => r.MaxStockQty > 0 && r.OnHandQty > r.MaxStockQty).ToList(),
+                    _ => rows,
+                };
+            var pageRows = rows.OrderBy(r => r.OnHandQty <= 0 ? 0 : 1).ThenBy(r => r.Name)
+                .Skip((page - 1) * pageSize).Take(pageSize)
+                .Select(r => new
+                {
+                    r.Id, r.ProductCode, r.Barcode, r.Name, r.BaseUnitName, r.OnHandQty, r.MinStockQty, r.MaxStockQty,
+                    r.CostPrice, stockValue = r.OnHandQty * r.CostPrice, r.ProductType,
+                }).ToList();
+            return Ok(AppResponse<object>.Success(new { total = rows.Count, page, pageSize, items = pageRows }));
         }
 
         var total = await query.CountAsync();
@@ -1180,7 +1221,8 @@ public partial class PosReportsController(
         var baseQuery = dbContext.PosSaleOrders.AsNoTracking()
             .Where(o => o.StoreId == storeId && o.Deleted == null && o.IsActive &&
                         (o.SaleDate ?? o.CreatedAt) >= fromDt &&
-                        (o.SaleDate ?? o.CreatedAt) < toDt);
+                        (o.SaleDate ?? o.CreatedAt) < toDt)
+            .ApplyBranchScope(HttpContext.BranchContext());
         baseQuery = ApplyStaffFilter(baseQuery, effectiveStaff, effectiveEmployeeId, filter);
 
         var completedQuery = baseQuery.Where(o => o.Status == PosSaleOrderStatus.Completed);
@@ -1208,7 +1250,7 @@ public partial class PosReportsController(
         // Tiền hoàn trả khách trong ngày (theo ngày trả, mọi đơn của người xem) — chỉ để đối chiếu két;
         // doanh thu (netSales = Total) đã giảm khi trả hàng nên không trừ thêm.
         var viewerOrderIds = string.IsNullOrWhiteSpace(effectiveStaff) && !effectiveEmployeeId.HasValue
-            ? null
+            ? (IsManager ? await BranchRefundOrderIdsAsync(storeId) : null)
             : await ApplyStaffFilter(
                     dbContext.PosSaleOrders.AsNoTracking().Where(o => o.StoreId == storeId && o.Deleted == null),
                     effectiveStaff, effectiveEmployeeId, filter)
@@ -1744,6 +1786,32 @@ public partial class PosReportsController(
                 uid, role, storeId, "PosSalesReport", ModulePermissionAction.Edit, ct))
             return true;
         return false;
+    }
+
+    /// <summary>
+    /// Tiền hoàn trả tính theo ngày trả nên cần đơn của chi nhánh đang lọc (mọi kỳ). Không lọc chi nhánh → null (cả cửa hàng).
+    /// </summary>
+    private async Task<List<Guid>?> BranchRefundOrderIdsAsync(Guid storeId)
+    {
+        var ctx = HttpContext.BranchContext();
+        if (ctx is not { StoreUsesBranches: true } || (ctx.FilterBranchId == null && ctx.AllowedBranchIds == null)) return null;
+        return await dbContext.PosSaleOrders.AsNoTracking()
+            .Where(o => o.StoreId == storeId && o.Deleted == null)
+            .ApplyBranchScope(ctx).Select(o => o.Id).ToListAsync();
+    }
+
+    /// <summary>Tồn theo chi nhánh đang lọc / được phép xem (cộng các chi nhánh). null = báo cáo tồn cả cửa hàng.</summary>
+    private async Task<Dictionary<Guid, decimal>?> BranchQtyScopeAsync(Guid storeId)
+    {
+        var b = HttpContext.BranchContext();
+        if (b is not { StoreUsesBranches: true }) return null;
+        IReadOnlyCollection<Guid>? ids = b.FilterBranchId is Guid f ? new[] { f } : b.AllowedBranchIds;
+        if (ids == null) return null;
+        var res = new Dictionary<Guid, decimal>();
+        foreach (var bid in ids)
+            foreach (var kv in await BranchStockService.GetBranchQtyAsync(dbContext, storeId, bid, b.HeadquarterBranchId))
+                if (kv.Key.Item2 == null) res[kv.Key.Item1] = res.GetValueOrDefault(kv.Key.Item1) + kv.Value;
+        return res;
     }
 
     private IQueryable<PosSaleOrder> ScopeOrdersForViewer(IQueryable<PosSaleOrder> query)

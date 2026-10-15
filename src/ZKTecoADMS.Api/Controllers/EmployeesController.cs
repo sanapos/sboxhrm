@@ -53,6 +53,8 @@ public class EmployeesController(
             else
             {
                 subordinateIds = await dataScopeService.GetSubordinateEmployeeIdsAsync(CurrentUserId, RequiredStoreId);
+                // Quản lý chi nhánh thấy cả nhân viên thuộc chi nhánh mình được phép (không cần là cấp dưới trực tiếp).
+                subordinateIds = subordinateIds.Union(await BranchEmployeeIdsAsync()).ToList();
             }
         }
 
@@ -164,6 +166,9 @@ public class EmployeesController(
     [RequireModulePermission("Employee", ModulePermissionAction.View)]
     public async Task<IActionResult> GetEmployeeById(Guid id)
     {
+        // Quản lý chỉ xem hồ sơ trong phạm vi mình quản lý (cùng phạm vi với danh sách nhân viên); hồ sơ của chính mình luôn xem được.
+        if (!SeesWholeStore && id != EmployeeId && !await CanAccessEmployeeAsync(id))
+            return Ok(AppResponse<bool>.Error("Nhân viên này không thuộc phạm vi bạn quản lý"));
         var result = await mediator.Send(new GetEmployeeByIdQuery { StoreId = RequiredStoreId, Id = id });
         return Ok(result);
     }
@@ -197,6 +202,13 @@ public class EmployeesController(
             if (!IsAdmin && !await dataScopeService.CanActOnBranchAsync(
                     CurrentUserId, RequiredStoreId, request.BranchId, BranchAction.Create))
                 return Ok(AppResponse<Guid>.Error("Bạn không có quyền thêm nhân viên vào chi nhánh này"));
+            // Người bị giới hạn chi nhánh chỉ thêm nhân viên vào chi nhánh mình được phép (không gán = trụ sở).
+            if (!IsAdmin && HttpContext.BranchContext() is { StoreUsesBranches: true, AllowedBranchIds: { } allowedBranches } bctx)
+            {
+                var target = request.BranchId ?? bctx.HeadquarterBranchId;
+                if (target == null || !allowedBranches.Contains(target.Value))
+                    return Ok(AppResponse<Guid>.Error("Bạn chỉ được thêm nhân viên vào chi nhánh mình quản lý"));
+            }
 
             var command = request.Adapt<CreateEmployeeCommand>();
             command.StoreId = RequiredStoreId;
@@ -261,11 +273,27 @@ public class EmployeesController(
     /// phải có cờ Sửa / Xóa của chi nhánh (nếu quyền đến từ phân quyền chi nhánh).
     /// Chuyển NV sang chi nhánh khác cần quyền Tạo ở chi nhánh đích.
     /// </summary>
+    /// <summary>Nhân viên thuộc chi nhánh người xem được phép (chưa gán chi nhánh = trụ sở). Rỗng nếu không bị giới hạn chi nhánh.</summary>
+    private async Task<List<Guid>> BranchEmployeeIdsAsync()
+    {
+        if (!IsManager || HttpContext.BranchContext() is not { StoreUsesBranches: true, AllowedBranchIds: { } allowed } bctx)
+            return [];
+        var list = allowed.ToList();
+        var hq = bctx.HeadquarterBranchId ?? Guid.Empty;
+        return await dbContext.Employees.AsNoTracking()
+            .Where(e => e.StoreId == RequiredStoreId && e.Deleted == null && list.Contains(e.BranchId ?? hq))
+            .Select(e => e.Id).ToListAsync();
+    }
+
+    private async Task<bool> CanAccessEmployeeAsync(Guid employeeId) =>
+        await dataScopeService.CanAccessEmployeeDataAsync(CurrentUserId, employeeId, RequiredStoreId)
+        || (await BranchEmployeeIdsAsync()).Contains(employeeId);
+
     private async Task<string?> DenyOutOfScopeAsync(Guid employeeId, BranchAction action, Guid? newBranchId)
     {
         if (IsAdmin) return null;
         var storeId = RequiredStoreId;
-        if (!await dataScopeService.CanAccessEmployeeDataAsync(CurrentUserId, employeeId, storeId))
+        if (!await CanAccessEmployeeAsync(employeeId))
             return "Nhân viên này không thuộc phạm vi bạn quản lý";
         var curBranch = await dbContext.Employees.AsNoTracking()
             .Where(e => e.Id == employeeId && e.StoreId == storeId)

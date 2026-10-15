@@ -75,6 +75,9 @@ public class GlobalExceptionMiddleware(ILogger<GlobalExceptionMiddleware> logger
             }
         };
 
+        // Bị chặn phạm vi chi nhánh / quyền ghi → trả 403 thật (trước đây luôn 500 dù nội dung báo đúng lý do).
+        if (exception is ForbiddenException) context.Response.StatusCode = (int)HttpStatusCode.Forbidden;
+
         var statusCode = exception switch
         {
             NotFoundException => (int)HttpStatusCode.NotFound,
