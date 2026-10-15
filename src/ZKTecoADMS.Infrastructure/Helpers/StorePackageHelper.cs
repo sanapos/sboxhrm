@@ -25,6 +25,62 @@ public static class StorePackageHelper
         return set.ToList();
     }
 
+    /// <summary>Giới hạn riêng của cửa hàng; trường null = theo gói dịch vụ.</summary>
+    public sealed record StoreLimitOverrides(
+        int? MaxUsers = null, int? MaxDevices = null, int? MaxAccessDevices = null, int? MaxBranches = null,
+        bool? AllowFcm = null, List<string>? FcmCategories = null)
+    {
+        public bool IsEmpty => MaxUsers == null && MaxDevices == null && MaxAccessDevices == null
+                               && MaxBranches == null && AllowFcm == null && FcmCategories == null;
+    }
+
+    /// <summary>Giới hạn đang áp dụng thật = riêng cửa hàng ?? gói ?? giá trị lưu trên cửa hàng. 0 = không giới hạn.</summary>
+    public sealed record EffectiveLimits(
+        int MaxUsers, int MaxDevices, int MaxAccessDevices, int MaxBranches, bool AllowFcm, List<string> FcmCategories,
+        bool BranchesOverridden, bool UsersOverridden, bool DevicesOverridden, bool FcmOverridden);
+
+    public static StoreLimitOverrides ParseLimitOverrides(string? json)
+    {
+        if (string.IsNullOrWhiteSpace(json)) return new StoreLimitOverrides();
+        try
+        {
+            return JsonSerializer.Deserialize<StoreLimitOverrides>(json, JsonOpts) ?? new StoreLimitOverrides();
+        }
+        catch
+        {
+            return new StoreLimitOverrides();
+        }
+    }
+
+    /// <summary>null khi không còn giới hạn riêng nào (xóa cột cho gọn).</summary>
+    public static string? SerializeLimitOverrides(StoreLimitOverrides o)
+    {
+        if (o.IsEmpty) return null;
+        return JsonSerializer.Serialize(o, new JsonSerializerOptions
+        {
+            PropertyNamingPolicy = JsonNamingPolicy.CamelCase,
+            DefaultIgnoreCondition = System.Text.Json.Serialization.JsonIgnoreCondition.WhenWritingNull,
+        });
+    }
+
+    public static EffectiveLimits ResolveLimits(Store store)
+    {
+        var ov = ParseLimitOverrides(store.LimitOverridesJson);
+        var pkg = store.ServicePackage;
+        var cats = ov.FcmCategories != null
+            ? NormalizeFcmCategories(ov.FcmCategories)
+            : DeserializeModules(pkg?.AllowedFcmCategories ?? store.AllowedFcmCategories);
+        return new EffectiveLimits(
+            Math.Max(0, ov.MaxUsers ?? pkg?.MaxUsers ?? store.MaxUsers),
+            Math.Max(0, ov.MaxDevices ?? pkg?.MaxDevices ?? store.MaxDevices),
+            Math.Max(0, ov.MaxAccessDevices ?? pkg?.MaxAccessDevices ?? store.MaxAccessDevices),
+            Math.Max(0, ov.MaxBranches ?? pkg?.MaxBranches ?? store.MaxBranches),
+            ov.AllowFcm ?? pkg?.AllowFcm ?? store.AllowFcm,
+            cats,
+            ov.MaxBranches != null, ov.MaxUsers != null, ov.MaxDevices != null,
+            ov.AllowFcm != null || ov.FcmCategories != null);
+    }
+
     public sealed record PackageDataRetention(int RunHour, int AttendanceMonths, int SaleOrderMonths);
 
     public static PackageDataRetention ParseRetention(string? json)
@@ -181,7 +237,7 @@ public static class StorePackageHelper
 
         // Prefer the higher of store vs package so a package upgrade is honored even if
         // Store.MaxUsers was not re-synced yet (legacy data after editing ServicePackage).
-        var maxUsers = store.ServicePackage?.MaxUsers ?? store.MaxUsers;
+        var maxUsers = ResolveLimits(store).MaxUsers;
         if (maxUsers <= 0) return (true, null);
 
         // Only active accounts occupy package seats (deactivated free a slot).
@@ -208,7 +264,7 @@ public static class StorePackageHelper
             .FirstOrDefaultAsync(s => s.Id == storeId, cancellationToken);
         if (storeWithPkg == null) return (false, "Không tìm thấy cửa hàng.");
 
-        var maxDevices = storeWithPkg.ServicePackage?.MaxDevices ?? storeWithPkg.MaxDevices;
+        var maxDevices = ResolveLimits(storeWithPkg).MaxDevices;
         if (maxDevices <= 0) return (true, null);
 
         var current = await db.Devices.CountAsync(
@@ -248,7 +304,8 @@ public static class StorePackageHelper
             .FirstOrDefaultAsync(s => s.Id == storeId, cancellationToken);
         if (store == null) return (false, "Không tìm thấy cửa hàng.");
 
-        var max = store.ServicePackage?.MaxBranches ?? store.MaxBranches;
+        var limits = ResolveLimits(store);
+        var max = limits.MaxBranches;
         if (max <= 0) return (true, null);
 
         var current = await db.Branches.CountAsync(
@@ -256,8 +313,11 @@ public static class StorePackageHelper
             cancellationToken);
         if (current >= max)
         {
+            var source = limits.BranchesOverridden
+                ? "do quản trị thiết lập cho cửa hàng"
+                : $"theo gói dịch vụ{(store.ServicePackage != null ? $" «{store.ServicePackage.Name}»" : "")}";
             return (false,
-                $"Cửa hàng đã đạt giới hạn {max} chi nhánh theo gói dịch vụ. Vui lòng nâng cấp gói hoặc liên hệ quản trị.");
+                $"Cửa hàng đã dùng hết {max} chi nhánh được phép ({current}/{max}) {source}. Vui lòng nâng cấp gói hoặc liên hệ quản trị để tăng số chi nhánh.");
         }
 
         return (true, null);
@@ -291,7 +351,7 @@ public static class StorePackageHelper
 
         var allowWeb = store.ServicePackage?.AllowWeb ?? store.AllowWeb;
         var allowMobile = store.ServicePackage?.AllowMobile ?? store.AllowMobile;
-        var maxAccess = store.ServicePackage?.MaxAccessDevices ?? store.MaxAccessDevices;
+        var maxAccess = ResolveLimits(store).MaxAccessDevices;
 
         var p = (platform ?? "").Trim().ToLowerInvariant();
         if (string.IsNullOrEmpty(p))
@@ -390,11 +450,10 @@ public static class StorePackageHelper
             .FirstOrDefaultAsync(s => s.Id == storeId, cancellationToken);
         if (store == null) return false;
 
-        var allow = store.ServicePackage?.AllowFcm ?? store.AllowFcm;
-        if (!allow) return false;
+        var limits = ResolveLimits(store);
+        if (!limits.AllowFcm) return false;
 
-        var json = store.ServicePackage?.AllowedFcmCategories ?? store.AllowedFcmCategories;
-        var allowed = DeserializeModules(json);
+        var allowed = limits.FcmCategories;
         if (allowed.Count == 0) return true;
 
         var code = Application.Constants.NotificationCategoryCodes.Normalize(categoryCode)

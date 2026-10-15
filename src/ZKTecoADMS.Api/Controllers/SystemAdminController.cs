@@ -4714,6 +4714,7 @@ public class SystemAdminController : AuthenticatedControllerBase
                 return NotFound(AppResponse<StoreDetailDto>.Fail("Service package not found"));
 
             store.ServicePackageId = packageId;
+            store.ServicePackage = package;
             StorePackageHelper.ApplyToStore(store, package);
             store.UpdatedAt = DateTime.UtcNow;
             store.UpdatedBy = CurrentUserId.ToString();

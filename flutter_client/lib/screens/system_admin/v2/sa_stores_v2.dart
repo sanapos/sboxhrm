@@ -6,6 +6,7 @@ import 'package:flutter/services.dart';
 import '../../../l10n/app_tr.dart';
 import '../../../services/api_service.dart';
 import '../../../widgets/sbox/sbox_ui.dart';
+import 'sa_store_limits_dialog.dart';
 import 'sa_v2_common.dart';
 
 const _statusLabels = {
@@ -132,7 +133,10 @@ class _StoresV2ViewState extends State<StoresV2View> {
         days = await _askDays();
         if (days == null) return;
       case 'assign-package':
-        packageId = await _askPackage();
+        final cur = targets.length == 1
+            ? _items.cast<Map<String, dynamic>?>().firstWhere((e) => '${e?['id']}' == targets.first, orElse: () => null)
+            : null;
+        packageId = await _askPackage(currentPackageId: cur?['packageId']?.toString(), storeName: cur?['name']?.toString(), count: targets.length);
         if (packageId == null) return;
       case 'lock':
         reason = await _askText('Khóa ${targets.length} cửa hàng', 'Lý do khóa');
@@ -144,6 +148,24 @@ class _StoresV2ViewState extends State<StoresV2View> {
     if (!mounted) return;
     if (saOk(context, r, 'Đã cập nhật ${(r['data'] is Map ? r['data']['updated'] : targets.length)} cửa hàng')) {
       _selected.clear();
+      final warnings = ((r['data'] is Map ? r['data']['warnings'] : null) as List? ?? []).map((e) => '$e').toList();
+      if (warnings.isNotEmpty) {
+        await showDialog<void>(
+          context: context,
+          builder: (ctx) => AlertDialog(
+            title: Text(tr('Gói mới thấp hơn mức đang dùng')),
+            content: SingleChildScrollView(
+              child: Column(crossAxisAlignment: CrossAxisAlignment.start, mainAxisSize: MainAxisSize.min, children: [
+                for (final w in warnings) Padding(padding: const EdgeInsets.only(bottom: 6), child: Text('• $w')),
+                const SizedBox(height: 4),
+                Text(tr('Dữ liệu hiện có không bị xóa; cửa hàng chỉ không thêm mới được cho đến khi giảm xuống hoặc nâng gói / giới hạn riêng.'),
+                    style: SboxType.smallStyle()),
+              ]),
+            ),
+            actions: [FilledButton(onPressed: () => Navigator.pop(ctx), child: Text(tr('Đã hiểu')))],
+          ),
+        );
+      }
       _load();
     }
   }
@@ -171,19 +193,33 @@ class _StoresV2ViewState extends State<StoresV2View> {
     );
   }
 
-  Future<String?> _askPackage() => showDialog<String>(
-        context: context,
-        builder: (ctx) => SimpleDialog(
-          title: Text(tr('Chọn gói dịch vụ')),
-          children: [
-            for (final p in _packages.where((p) => p['isActive'] == true))
-              SimpleDialogOption(
-                onPressed: () => Navigator.pop(ctx, '${p['id']}'),
-                child: Text('${p['name']} · ${saProductLineLabel('${p['productLine']}')}'),
-              ),
-          ],
-        ),
-      );
+  Future<String?> _askPackage({String? currentPackageId, String? storeName, int count = 0}) {
+    String lim(dynamic v, String unit) => (v is num && v > 0) ? '$v $unit' : '$unit không giới hạn';
+    return showDialog<String>(
+      context: context,
+      builder: (ctx) => SimpleDialog(
+        title: Text(tr(storeName != null ? 'Đổi gói — $storeName' : 'Đổi gói cho $count cửa hàng')),
+        children: [
+          if (_packages.where((p) => p['isActive'] == true).isEmpty)
+            Padding(padding: const EdgeInsets.all(16), child: Text(tr('Chưa có gói dịch vụ nào đang bật. Tạo hoặc bật gói trong mục «Gói dịch vụ».'))),
+          for (final p in _packages.where((p) => p['isActive'] == true))
+            SimpleDialogOption(
+              onPressed: () => Navigator.pop(ctx, '${p['id']}'),
+              child: Row(children: [
+                Expanded(
+                  child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+                    Text('${p['name']} · ${saProductLineLabel('${p['productLine']}')}', style: SboxType.bodyStrong()),
+                    Text('${lim(p['maxBranches'], 'chi nhánh')} · ${lim(p['maxUsers'], 'tài khoản')} · ${lim(p['maxDevices'], 'máy chấm công')}',
+                        style: SboxType.smallStyle()),
+                  ]),
+                ),
+                if ('${p['id']}' == currentPackageId) const SboxStatusChip(label: 'Đang dùng', tone: SboxTone.success),
+              ]),
+            ),
+        ],
+      ),
+    );
+  }
 
   Future<String?> _askText(String title, String label) {
     final ctrl = TextEditingController();
@@ -321,6 +357,15 @@ class _StoresV2ViewState extends State<StoresV2View> {
         ),
         SboxStatusChip(label: 'Gia hạn ${s['renewalCount'] ?? 0}/3', tone: ((s['renewalCount'] as num?) ?? 0) >= 3 ? SboxTone.warning : SboxTone.neutral),
         SboxStatusChip(label: (s['maxUsers'] as num?) == 0 ? '${s['users']} tài khoản' : '${s['users']}/${s['maxUsers']} tài khoản', tone: SboxTone.neutral),
+        SboxStatusChip(
+          label: (s['maxBranches'] as num?) == 0 || s['maxBranches'] == null
+              ? '${s['branches'] ?? 0} chi nhánh'
+              : '${s['branches'] ?? 0}/${s['maxBranches']} chi nhánh',
+          tone: ((s['maxBranches'] as num?) ?? 0) > 0 && ((s['branches'] as num?) ?? 0) >= ((s['maxBranches'] as num?) ?? 0)
+              ? SboxTone.warning
+              : SboxTone.neutral,
+        ),
+        if (s['limitOverridden'] == true) const SboxStatusChip(label: 'Giới hạn riêng', tone: SboxTone.violet),
         if (((s['extraCount'] as num?) ?? 0) + ((s['blockedCount'] as num?) ?? 0) > 0)
           SboxStatusChip(label: 'Chức năng riêng +${s['extraCount']}/−${s['blockedCount']}', tone: SboxTone.violet),
         if (s['agentName'] != null)
@@ -332,6 +377,8 @@ class _StoresV2ViewState extends State<StoresV2View> {
         Padding(padding: const EdgeInsets.only(top: 4), child: Text('Khóa: ${s['lockReason']}', style: SboxType.captionStyle(SboxColors.dangerText))),
     ]);
     final actions = Wrap(spacing: 4, children: [
+      IconButton(tooltip: tr('Đổi gói dịch vụ'), icon: const Icon(Icons.swap_horiz_rounded, size: 20), onPressed: () => _bulk('assign-package', ids: [id])),
+      IconButton(tooltip: tr('Giới hạn & thông báo'), icon: const Icon(Icons.settings_suggest_outlined, size: 20), onPressed: () => _limits(s)),
       IconButton(tooltip: tr('Chức năng riêng'), icon: const Icon(Icons.tune_rounded, size: 20), onPressed: () => _modules(s)),
       IconButton(tooltip: tr('Lịch sử key & gia hạn'), icon: const Icon(Icons.vpn_key_outlined, size: 20), onPressed: () => _history(s)),
       IconButton(tooltip: tr('Gia hạn'), icon: const Icon(Icons.update, size: 20), onPressed: () => _bulk('extend', ids: [id])),
@@ -349,6 +396,22 @@ class _StoresV2ViewState extends State<StoresV2View> {
         if (!mobile) actions,
       ]),
     );
+  }
+
+  Future<void> _limits(Map<String, dynamic> s) async {
+    final c = _catalog;
+    if (c == null) return;
+    final r = await _api.saStoreLimits('${s['id']}');
+    if (!mounted) return;
+    if (r['data'] is! Map) {
+      saOk(context, r, '');
+      return;
+    }
+    final changed = await showDialog<bool>(
+      context: context,
+      builder: (_) => StoreLimitsDialog(api: _api, catalog: c, store: s, data: Map<String, dynamic>.from(r['data'] as Map)),
+    );
+    if (changed == true) _load();
   }
 
   Future<void> _modules(Map<String, dynamic> s) async {

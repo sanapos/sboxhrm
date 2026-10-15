@@ -33,6 +33,12 @@ public class Store : Entity<Guid>
     public bool AllowMobile { get; set; } = true;
     public int MaxBranches { get; set; } = 0;
     public bool AllowFcm { get; set; } = true;
+
+    /// <summary>
+    /// Giới hạn RIÊNG của cửa hàng (JSON, trường nào null = theo gói): maxUsers, maxDevices, maxAccessDevices,
+    /// maxBranches, allowFcm, fcmCategories. Do Super Admin đặt, không bị ghi đè khi đổi gói.
+    /// </summary>
+    public string? LimitOverridesJson { get; set; }
     public string AllowedFcmCategories { get; set; } = "[]";
 
     /// <summary>

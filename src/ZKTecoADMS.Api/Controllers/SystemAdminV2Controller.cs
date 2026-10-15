@@ -48,6 +48,19 @@ public class SaStoreModulesDto
     public string? AdminNote { get; set; }
 }
 
+/// <summary>Giới hạn riêng của cửa hàng. Trường null = theo gói dịch vụ; 0 = không giới hạn.</summary>
+public class SaStoreLimitsDto
+{
+    public int? MaxUsers { get; set; }
+    public int? MaxDevices { get; set; }
+    public int? MaxAccessDevices { get; set; }
+    public int? MaxBranches { get; set; }
+    public bool? AllowFcm { get; set; }
+    /// <summary>null = theo gói; rỗng = mọi loại thông báo.</summary>
+    public List<string>? FcmCategories { get; set; }
+    public string? Note { get; set; }
+}
+
 public class SaStoreBulkRequest
 {
     public List<Guid> Ids { get; set; } = [];
@@ -274,15 +287,21 @@ public class SystemAdminV2Controller(
                 ownerName = s.Owner == null ? null : (s.Owner.LastName + " " + s.Owner.FirstName),
                 ownerEmail = s.Owner == null ? null : s.Owner.Email,
                 ownerPhone = s.Owner == null ? null : s.Owner.PhoneNumber,
+                pkg = s.ServicePackage,
                 packageName = s.ServicePackage == null ? null : s.ServicePackage.Name,
                 productLine = s.ServicePackage == null ? null : s.ServicePackage.ProductLine,
                 agentName = s.Agent == null ? null : s.Agent.Name,
                 users = s.Users.Count(u => u.IsActive),
             })
             .ToListAsync();
+        var branchCounts = await db.Branches.AsNoTracking().Where(b => b.Deleted == null)
+            .GroupBy(b => b.StoreId).Select(g => new { StoreId = g.Key, N = g.Count() })
+            .ToDictionaryAsync(x => x.StoreId ?? Guid.Empty, x => x.N);
         var mapped = rows.Select(r =>
         {
             var s = r.store;
+            s.ServicePackage = r.pkg;
+            var limits = StorePackageHelper.ResolveLimits(s);
             var st = StoreStatus(s, now);
             return new
             {
@@ -290,7 +309,9 @@ public class SystemAdminV2Controller(
                 daysLeft = s.ExpiryDate == null ? (int?)null : (int)Math.Ceiling((s.ExpiryDate.Value - now).TotalDays),
                 status = st, s.IsLocked, s.LockReason, s.RenewalCount, s.LicenseKey,
                 packageId = s.ServicePackageId, r.packageName, r.productLine, agentId = s.AgentId, r.agentName,
-                r.ownerName, r.ownerEmail, r.ownerPhone, r.users, s.MaxUsers,
+                r.ownerName, r.ownerEmail, r.ownerPhone, r.users, MaxUsers = limits.MaxUsers,
+                branches = branchCounts.GetValueOrDefault(s.Id), maxBranches = limits.MaxBranches,
+                limitOverridden = !StorePackageHelper.ParseLimitOverrides(s.LimitOverridesJson).IsEmpty,
                 extraCount = Modules(s.ExtraModules).Count, blockedCount = Modules(s.BlockedModules).Count, s.AdminNote,
             };
         }).ToList();
@@ -326,6 +347,82 @@ public class SystemAdminV2Controller(
             missing = FeatureModuleCatalog.MissingDependencies(effective).Select(x => new { code = x.Code, missing = x.Missing }),
             s.AdminNote,
         }));
+    }
+
+    /// <summary>Giới hạn của cửa hàng: theo gói, riêng cửa hàng, thực tế áp dụng và mức đang dùng.</summary>
+    [HttpGet("stores/{id:guid}/limits")]
+    public async Task<ActionResult<AppResponse<object>>> StoreLimits(Guid id)
+    {
+        var s = await db.Stores.AsNoTracking().Include(x => x.ServicePackage).FirstOrDefaultAsync(x => x.Id == id);
+        if (s == null) return Ok(AppResponse<object>.Fail("Không tìm thấy cửa hàng"));
+        var p = s.ServicePackage;
+        return Ok(AppResponse<object>.Success(new
+        {
+            packageName = p?.Name,
+            package = new
+            {
+                maxUsers = p?.MaxUsers ?? s.MaxUsers, maxDevices = p?.MaxDevices ?? s.MaxDevices,
+                maxAccessDevices = p?.MaxAccessDevices ?? s.MaxAccessDevices, maxBranches = p?.MaxBranches ?? s.MaxBranches,
+                allowFcm = p?.AllowFcm ?? s.AllowFcm,
+                fcmCategories = StorePackageHelper.DeserializeModules(p?.AllowedFcmCategories ?? s.AllowedFcmCategories),
+            },
+            overrides = StorePackageHelper.ParseLimitOverrides(s.LimitOverridesJson),
+            effective = StorePackageHelper.ResolveLimits(s),
+            usage = await UsageAsync(s.Id),
+            s.AdminNote,
+        }));
+    }
+
+    private async Task<object> UsageAsync(Guid storeId) => new
+    {
+        branches = await db.Branches.CountAsync(b => b.StoreId == storeId && b.Deleted == null),
+        users = await db.Users.CountAsync(u => u.StoreId == storeId && u.IsActive),
+        devices = await db.Devices.CountAsync(d => d.StoreId == storeId && d.IsActive && d.IsClaimed),
+    };
+
+    [HttpPut("stores/{id:guid}/limits")]
+    public async Task<ActionResult<AppResponse<object>>> SaveStoreLimits(Guid id, [FromBody] SaStoreLimitsDto dto)
+    {
+        var s = await db.Stores.AsTracking().Include(x => x.ServicePackage).FirstOrDefaultAsync(x => x.Id == id);
+        if (s == null) return Ok(AppResponse<object>.Fail("Không tìm thấy cửa hàng"));
+        foreach (var (v, name) in new[] { (dto.MaxUsers, "tài khoản"), (dto.MaxDevices, "thiết bị chấm công"), (dto.MaxAccessDevices, "thiết bị truy cập"), (dto.MaxBranches, "chi nhánh") })
+            if (v is < 0 or > 100000) return Ok(AppResponse<object>.Fail($"Số {name} không hợp lệ (0 = không giới hạn)"));
+        var cats = dto.FcmCategories == null ? null : StorePackageHelper.NormalizeFcmCategories(dto.FcmCategories);
+        if (cats != null)
+        {
+            var valid = FeatureModuleCatalog.FcmCategories.Select(f => f.Code).ToHashSet(StringComparer.OrdinalIgnoreCase);
+            cats = cats.Where(valid.Contains).ToList();
+        }
+        var ov = new StorePackageHelper.StoreLimitOverrides(dto.MaxUsers, dto.MaxDevices, dto.MaxAccessDevices, dto.MaxBranches, dto.AllowFcm, cats);
+        s.LimitOverridesJson = StorePackageHelper.SerializeLimitOverrides(ov);
+        if (dto.Note != null) s.AdminNote = string.IsNullOrWhiteSpace(dto.Note) ? null : dto.Note.Trim();
+        s.UpdatedAt = DateTime.UtcNow;
+        await db.SaveChangesAsync();
+
+        var eff = StorePackageHelper.ResolveLimits(s);
+        var warnings = await LimitWarningsAsync(s.Id, eff);
+        await AuditAsync(AuditActions.Update, AuditEntityTypes.Store, id.ToString(), s.Name,
+            ov.IsEmpty ? "Giới hạn riêng: bỏ, dùng theo gói"
+                : $"Giới hạn riêng: chi nhánh {Fmt(dto.MaxBranches)}, tài khoản {Fmt(dto.MaxUsers)}, thiết bị {Fmt(dto.MaxDevices)}, thông báo {(dto.AllowFcm == null ? "theo gói" : dto.AllowFcm == true ? "bật" : "tắt")}", id);
+        return Ok(AppResponse<object>.Success(new { effective = eff, warnings }));
+
+        static string Fmt(int? v) => v == null ? "theo gói" : v == 0 ? "không giới hạn" : v.ToString()!;
+    }
+
+    /// <summary>Cảnh báo khi giới hạn mới thấp hơn mức cửa hàng đang dùng (không chặn — chỉ không cho thêm mới).</summary>
+    private async Task<List<string>> LimitWarningsAsync(Guid storeId, StorePackageHelper.EffectiveLimits eff)
+    {
+        var warnings = new List<string>();
+        var branches = await db.Branches.CountAsync(b => b.StoreId == storeId && b.Deleted == null);
+        if (eff.MaxBranches > 0 && branches > eff.MaxBranches)
+            warnings.Add($"đang có {branches} chi nhánh, vượt giới hạn {eff.MaxBranches} (không thêm được chi nhánh mới)");
+        var users = await db.Users.CountAsync(u => u.StoreId == storeId && u.IsActive);
+        if (eff.MaxUsers > 0 && users > eff.MaxUsers)
+            warnings.Add($"đang có {users} tài khoản, vượt giới hạn {eff.MaxUsers}");
+        var devices = await db.Devices.CountAsync(d => d.StoreId == storeId && d.IsActive && d.IsClaimed);
+        if (eff.MaxDevices > 0 && devices > eff.MaxDevices)
+            warnings.Add($"đang có {devices} thiết bị chấm công, vượt giới hạn {eff.MaxDevices}");
+        return warnings;
     }
 
     [HttpPut("stores/{id:guid}/modules")]
@@ -412,9 +509,15 @@ public class SystemAdminV2Controller(
                 return Ok(AppResponse<object>.Fail("Thao tác không hỗ trợ"));
         }
         await db.SaveChangesAsync();
+        var packageWarnings = new List<string>();
         if (pkg != null)
             foreach (var s in stores)
+            {
                 await StorePermissionSyncHelper.SyncAsync(db, s.Id);
+                s.ServicePackage = pkg;
+                foreach (var w in await LimitWarningsAsync(s.Id, StorePackageHelper.ResolveLimits(s)))
+                    packageWarnings.Add($"{s.Name}: {w}");
+            }
         var action = req.Action switch
         {
             "extend" => AuditActions.SubscriptionExtended,
@@ -431,7 +534,7 @@ public class SystemAdminV2Controller(
                     "lock" => $"Khóa hàng loạt: {req.Reason}",
                     _ => "Mở khóa hàng loạt",
                 }, s.Id);
-        return Ok(AppResponse<object>.Success(new { updated = stores.Count }));
+        return Ok(AppResponse<object>.Success(new { updated = stores.Count, warnings = packageWarnings }));
     }
 
     [HttpGet("stores/{id:guid}/license-history")]

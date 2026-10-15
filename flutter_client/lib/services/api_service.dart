@@ -7542,6 +7542,16 @@ class ApiService implements PayrollApi {
     }
   }
 
+  /// Hạn mức chi nhánh theo gói / cấu hình riêng: max (0 = không giới hạn), used, remaining, canAdd.
+  Future<Map<String, dynamic>> getBranchLimits() async {
+    try {
+      final response = await http.get(Uri.parse('$baseUrl/api/branches/limits'), headers: _headers);
+      return _handleResponse(response);
+    } catch (e) {
+      return _connectionFailure(e);
+    }
+  }
+
   Future<Map<String, dynamic>> createBranch(Map<String, dynamic> data) async {
     try {
       final response = await http.post(Uri.parse('$baseUrl/api/branches'),
@@ -8783,6 +8793,9 @@ class ApiService implements PayrollApi {
   Future<Map<String, dynamic>> saStoreModules(String id) => _taskV2('GET', '$_sa2/stores/$id/modules');
   Future<Map<String, dynamic>> saSaveStoreModules(String id, Map<String, dynamic> data) =>
       _taskV2('PUT', '$_sa2/stores/$id/modules', body: data);
+  Future<Map<String, dynamic>> saStoreLimits(String id) => _taskV2('GET', '$_sa2/stores/$id/limits');
+  Future<Map<String, dynamic>> saSaveStoreLimits(String id, Map<String, dynamic> data) =>
+      _taskV2('PUT', '$_sa2/stores/$id/limits', body: data);
   Future<Map<String, dynamic>> saBulkStores(Map<String, dynamic> data) => _taskV2('POST', '$_sa2/stores/bulk', body: data);
   Future<Map<String, dynamic>> saLicenseHistory(String id) => _taskV2('GET', '$_sa2/stores/$id/license-history');
   Future<Map<String, dynamic>> saLicenses({String? status, String? packageId, String? agentId, String? search, int page = 1, int pageSize = 50}) =>
