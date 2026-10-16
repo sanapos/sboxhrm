@@ -20,6 +20,7 @@ internal static class PosDebtStatement
         "ReceiptCancel" => "Hủy phiếu nhập",
         "PurchaseReturn" => "Trả hàng NCC",
         "PurchaseReturnCancel" => "Hủy phiếu trả NCC",
+        "Adjust" => "Điều chỉnh công nợ",
         _ => docType,
     };
 

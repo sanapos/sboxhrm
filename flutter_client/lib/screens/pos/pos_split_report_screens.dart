@@ -1,6 +1,12 @@
 import 'dart:async';
 
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
+import 'package:url_launcher/url_launcher.dart';
+import '../../models/pos_customer.dart';
+import '../../widgets/pos/pos_customer_debt_collect_dialog.dart';
+import '../../widgets/pos/pos_debt_statement.dart';
+import '../../widgets/notification_overlay.dart';
 import 'pos_network_report_screen.dart';
 import 'pos_offline_sales_screen.dart';
 import 'pos_reservation_report_screen.dart';
@@ -1453,6 +1459,69 @@ class PosDebtCombinedReportScreen extends StatefulWidget {
 
 class _PosDebtCombinedReportScreenState
     extends State<PosDebtCombinedReportScreen> {
+  /// Bấm một khách nợ: thu nợ, gọi, Zalo (chép tin nhắc nợ), sổ nợ, đơn bán.
+  Future<void> _customerDebtActions(Map e) async {
+    final id = '${e['id'] ?? ''}';
+    final name = e['name']?.toString() ?? e['customerName']?.toString() ?? '';
+    final phone = (e['phone'] ?? '').toString().replaceAll(RegExp(r'\D'), '');
+    final perm = Provider.of<PermissionProvider>(context, listen: false);
+    final money = NumberFormat('#,##0', 'vi_VN');
+    final a = await showModalBottomSheet<String>(
+      context: context,
+      builder: (ctx) => SafeArea(
+        child: Column(mainAxisSize: MainAxisSize.min, children: [
+          ListTile(
+            title: Text(tr(name), style: const TextStyle(fontWeight: FontWeight.w700)),
+            subtitle: Text(tr('Công nợ ${money.format(_n(e['currentDebt'] ?? e['debt']))}đ'
+                '${_n(e['debtOver90']) > 0 ? ' · quá 90 ngày ${money.format(_n(e['debtOver90']))}đ' : ''}')),
+          ),
+          if (perm.canEdit('PosCustomers'))
+            ListTile(leading: const Icon(Icons.payments_outlined), title: Text(tr('Thu nợ')), onTap: () => Navigator.pop(ctx, 'collect')),
+          if (phone.isNotEmpty) ...[
+            ListTile(leading: const Icon(Icons.call_outlined), title: Text(tr('Gọi $phone')), onTap: () => Navigator.pop(ctx, 'call')),
+            ListTile(
+                leading: const Icon(Icons.chat_outlined),
+                title: Text(tr('Zalo — đã chép tin nhắc nợ')),
+                onTap: () => Navigator.pop(ctx, 'zalo')),
+          ],
+          ListTile(leading: const Icon(Icons.copy), title: Text(tr('Chép tin nhắc nợ')), onTap: () => Navigator.pop(ctx, 'copy')),
+          if (perm.canView('PosCustomers'))
+            ListTile(leading: const Icon(Icons.menu_book_outlined), title: Text(tr('Sổ đối chiếu công nợ')), onTap: () => Navigator.pop(ctx, 'statement')),
+          ListTile(leading: const Icon(Icons.receipt_long_outlined), title: Text(tr('Đơn bán của khách')), onTap: () => Navigator.pop(ctx, 'sales')),
+        ]),
+      ),
+    );
+    if (!mounted || a == null) return;
+    final msg = posDebtReminderText(e, money);
+    switch (a) {
+      case 'collect':
+        final res = await _api.getPosCustomerById(id);
+        if (!mounted || res['isSuccess'] != true || res['data'] is! Map) return;
+        final ok = await showPosCustomerDebtCollectDialog(context,
+            customer: PosCustomer.fromJson(Map<String, dynamic>.from(res['data'] as Map)));
+        if (ok == true) await _load();
+      case 'call':
+        await launchUrl(Uri(scheme: 'tel', path: phone));
+      case 'zalo':
+        await Clipboard.setData(ClipboardData(text: msg));
+        await launchUrl(Uri.parse('https://zalo.me/$phone'), mode: LaunchMode.externalApplication);
+      case 'copy':
+        await Clipboard.setData(ClipboardData(text: msg));
+        NotificationOverlayManager().showSuccess(title: 'Đã chép tin nhắc nợ', message: tr(msg));
+      case 'statement':
+        await showPosDebtStatementPage(
+          context,
+          title: name,
+          subtitle: tr('Công nợ hiện tại ${money.format(_n(e['currentDebt'] ?? e['debt']))}đ'),
+          loader: (from, to) => _api.getPosCustomerStatement(id, from, to),
+          increaseLabel: 'Phát sinh nợ',
+          decreaseLabel: 'Đã thu / trả hàng',
+        );
+      case 'sales':
+        PosReportOpen.sales(context, from: _time.from, to: _time.to, customerId: id, customerName: name);
+    }
+  }
+
   final _api = ApiService();
   final _moneyFmt = NumberFormat('#,##0', 'vi_VN');
   final _pngKey = GlobalKey();
@@ -1585,6 +1654,7 @@ class _PosDebtCombinedReportScreenState
           '31–60',
           '61–90',
           '>90',
+          'Nợ đầu kỳ / điều chỉnh',
         ],
         rows: [
           if (_party != 2)
@@ -1600,6 +1670,7 @@ class _PosDebtCombinedReportScreenState
                 _n(e['debt31To60']),
                 _n(e['debt61To90']),
                 _n(e['debtOver90']),
+                _n(e['debtOther']),
               ],
           if (_party != 1)
             for (final e in ncc)
@@ -1609,11 +1680,13 @@ class _PosDebtCombinedReportScreenState
                 e['name'] ?? '',
                 e['phone'] ?? '',
                 _n(e['currentDebt']),
-                _n(e['openOrderCount']).toInt(),
+                // NCC: số phiếu nhập còn nợ (trước đây đọc nhầm openOrderCount → luôn 0).
+                _n(e['openReceiptCount']).toInt(),
                 _n(e['debt0To30']),
                 _n(e['debt31To60']),
                 _n(e['debt61To90']),
                 _n(e['debtOver90']),
+                _n(e['debtOther']),
               ],
         ],
       )),
@@ -1694,13 +1767,7 @@ class _PosDebtCombinedReportScreenState
                               '—',
                           valueOf: (e) => _n(e['currentDebt'] ?? e['debt']),
                           moneyFmt: _moneyFmt,
-                          onItemTap: (e) => PosReportOpen.sales(
-                            context,
-                            from: _time.from,
-                            to: _time.to,
-                            customerId: '${e['id'] ?? ''}',
-                            customerName: e['name']?.toString(),
-                          ),
+                          onItemTap: (e) => _customerDebtActions(e),
                         ),
                       ],
                     ),
@@ -1749,6 +1816,15 @@ class _PosDebtCombinedReportScreenState
             ),
     );
   }
+}
+
+/// Tin nhắn nhắc nợ (Zalo / SMS) cho một dòng báo cáo công nợ khách.
+String posDebtReminderText(Map e, NumberFormat money) {
+  final over = (e['debtOver90'] as num? ?? 0) + (e['debt61To90'] as num? ?? 0) + (e['debt31To60'] as num? ?? 0);
+  return 'Chào ${e['name'] ?? e['customerName'] ?? 'anh/chị'}, cửa hàng xin nhắc khoản công nợ hiện tại '
+      '${money.format(e['currentDebt'] ?? e['debt'] ?? 0)}đ'
+      '${over > 0 ? ' (trong đó ${money.format(over)}đ đã quá 30 ngày)' : ''}. '
+      'Anh/chị vui lòng sắp xếp thanh toán giúp cửa hàng. Cảm ơn anh/chị!';
 }
 
 /// Lợi nhuận gộp — không gộp PTTT / nhân viên / HĐĐT.

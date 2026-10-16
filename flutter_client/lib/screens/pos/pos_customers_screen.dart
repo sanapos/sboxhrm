@@ -9,6 +9,7 @@ import '../../services/api_service.dart';
 import '../../utils/api_datetime.dart';
 import '../../widgets/notification_overlay.dart';
 import '../../widgets/pos/pos_customer_debt_collect_dialog.dart';
+import '../../widgets/pos/pos_debt_adjust_dialog.dart';
 import '../../widgets/pos/pos_customer_form_dialog.dart';
 import '../../widgets/pos/pos_customer_quote_care_section.dart';
 import '../../widgets/pos/pos_debt_statement.dart';
@@ -436,6 +437,20 @@ class _PosCustomerDetailScreenState extends State<_PosCustomerDetailScreen> {
     }
   }
 
+  Future<void> _adjustDebt() async {
+    final ok = await showPosDebtAdjustDialog(
+      context,
+      partyName: _customer.name,
+      currentDebt: _customer.currentDebt,
+      submit: (v, reason) => _api.adjustPosCustomerDebt(_customer.id, v, reason),
+    );
+    if (ok) {
+      setState(() => _statementToken++);
+      widget.onChanged();
+      await _reloadCustomer();
+    }
+  }
+
   Future<void> _edit() async {
     final updated = await showDialog<dynamic>(context: context, builder: (_) => PosCustomerFormDialog(customer: _customer));
     if (updated is Map<String, dynamic>) {
@@ -507,6 +522,8 @@ class _PosCustomerDetailScreenState extends State<_PosCustomerDetailScreen> {
                 icon: c.isActive ? Icons.block_outlined : Icons.check_circle_outline,
                 onPressed: _toggleActive,
               ),
+            if (canEdit)
+              SboxButton.ghost(label: 'Điều chỉnh nợ', icon: Icons.tune, onPressed: _adjustDebt),
             if (canEdit && c.currentDebt > 0)
               SboxButton(label: 'Thu nợ', icon: Icons.payments_outlined, onPressed: _collectDebt),
           ],

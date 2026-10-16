@@ -71,9 +71,7 @@ public partial class PosCustomersController
     {
         var storeId = RequiredStoreId;
         var c = await dbContext.PosCustomers.AsNoTracking()
-            .Where(x => x.Id == id && x.StoreId == storeId && x.Deleted == null)
-            .Select(x => new { x.Id, x.Name, x.CurrentDebt })
-            .FirstOrDefaultAsync();
+            .FirstOrDefaultAsync(x => x.Id == id && x.StoreId == storeId && x.Deleted == null);
         if (c == null) return NotFound(AppResponse<object>.Fail("Không tìm thấy khách hàng"));
         var open = await dbContext.PosSaleOrders.AsNoTracking()
             .Where(o => o.StoreId == storeId && o.CustomerId == id && o.Deleted == null &&
@@ -92,11 +90,22 @@ public partial class PosCustomersController
             .OrderByDescending(p => p.PaidAt)
             .Select(p => new { p.PaidAt, p.Amount })
             .FirstOrDefaultAsync();
-        var todayVn = ZKTecoADMS.Application.Helpers.VnTimeHelper.NowVn().Date;
-        int AgeDays(DateTime utc) => Math.Max(0, (todayVn - ZKTecoADMS.Application.Helpers.VnTimeHelper.UtcToVn(utc).Date).Days);
+        static int AgeDays(DateTime utc) => PosDebtPolicy.AgeDaysVn(utc);
         var oldest = open.FirstOrDefault();
+        var policy = await PosDebtPolicy.LoadAsync(dbContext, storeId);
+        var limit = policy.LimitFor(c);
+        var term = policy.TermFor(c);
+        var oldestDays = oldest == null ? 0 : AgeDays(oldest.At);
         return Ok(AppResponse<object>.Success(new
         {
+            debtLimit = limit,
+            limitIsCustom = c.DebtLimit is > 0,
+            availableCredit = limit is decimal l ? Math.Max(0, l - c.CurrentDebt) : (decimal?)null,
+            termDays = term,
+            overdueDays = term > 0 && oldestDays > term ? oldestDays - term : 0,
+            overdueDebt = term > 0 ? open.Where(o => AgeDays(o.At) > term).Sum(o => o.Due) : 0,
+            blockOverLimit = policy.BlockOverLimit,
+            blockOverdue = policy.BlockOverdue,
             customerId = c.Id,
             currentDebt = c.CurrentDebt,
             openOrderCount = open.Count,
@@ -107,6 +116,37 @@ public partial class PosCustomersController
             lastPaymentAt = lastPay == null ? (DateTime?)null : ZKTecoADMS.Application.Helpers.VnTimeHelper.UtcToVn(lastPay.PaidAt),
             lastPaymentAmount = lastPay?.Amount,
         }));
+    }
+
+    public record DebtAdjustDto(decimal NewBalance, string? Reason, DateTime? At = null);
+
+    /// <summary>
+    /// Nhập nợ đầu kỳ (chuyển từ phần mềm cũ) / điều chỉnh công nợ khách về số đúng, có lý do — ghi sổ công nợ
+    /// («Số dư đầu» nếu khách chưa có dòng sổ nào, còn lại «Điều chỉnh»). Không đổi tiền đã thu của các đơn.
+    /// </summary>
+    [HttpPost("{id:guid}/debt-adjust")]
+    [RequireModulePermission("PosCustomers", ModulePermissionAction.Edit)]
+    public async Task<ActionResult<AppResponse<object>>> AdjustDebt(Guid id, [FromBody] DebtAdjustDto dto)
+    {
+        var storeId = RequiredStoreId;
+        if (dto.NewBalance < 0) return BadRequest(AppResponse<object>.Fail("Công nợ không được âm"));
+        var reason = dto.Reason?.Trim();
+        if (string.IsNullOrEmpty(reason)) return BadRequest(AppResponse<object>.Fail("Nhập lý do điều chỉnh"));
+        var c = await dbContext.PosCustomers.AsTracking()
+            .FirstOrDefaultAsync(x => x.Id == id && x.StoreId == storeId && x.Deleted == null);
+        if (c == null) return NotFound(AppResponse<object>.Fail("Không tìm thấy khách hàng"));
+        if (dto.NewBalance == c.CurrentDebt) return BadRequest(AppResponse<object>.Fail("Công nợ không đổi"));
+        var hasLedger = await dbContext.PosDebtLedgerEntries.AnyAsync(e =>
+            e.StoreId == storeId && e.PartyType == PosDebtLedger.Customer && e.PartyId == id);
+        var before = c.CurrentDebt;
+        c.CurrentDebt = Math.Round(dto.NewBalance, 0);
+        c.UpdatedAt = DateTime.UtcNow;
+        c.UpdatedBy = CurrentUserEmail;
+        PosDebtLedger.Add(dbContext, storeId, PosDebtLedger.Customer, c.Id, before, c.CurrentDebt,
+            hasLedger || before != 0 ? "Adjust" : "Opening", null, null, reason,
+            dto.At?.ToUniversalTime() ?? DateTime.UtcNow, CurrentUserEmail);
+        await dbContext.SaveChangesAsync();
+        return Ok(AppResponse<object>.Success(new { id, before, currentDebt = c.CurrentDebt }));
     }
 
     /// <summary>Sổ đối chiếu công nợ khách trong kỳ (đầu kỳ, từng phát sinh có số dư, cuối kỳ).</summary>

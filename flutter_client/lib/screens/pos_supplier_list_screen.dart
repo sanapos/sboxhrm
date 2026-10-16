@@ -2,6 +2,7 @@ import 'dart:async';
 import '../utils/api_datetime.dart';
 
 import 'package:flutter/material.dart';
+import '../widgets/pos/pos_debt_adjust_dialog.dart';
 import '../widgets/sbox/sbox_ui.dart';
 import '../providers/permission_provider.dart';
 import 'package:provider/provider.dart';
@@ -314,6 +315,16 @@ class _PosSupplierListScreenState extends State<PosSupplierListScreen> {
                     await _showStatement(s);
                   case 'pay':
                     await _payAll(s);
+                  case 'adjust':
+                    if (await showPosDebtAdjustDialog(
+                      context,
+                      partyName: s.name,
+                      currentDebt: s.currentDebt,
+                      supplier: true,
+                      submit: (v, reason) => _api.adjustPosSupplierDebt(s.id, v, reason),
+                    )) {
+                      await _load();
+                    }
                   case 'toggle':
                     await _toggleActive(s);
                   case 'delete':
@@ -325,6 +336,7 @@ class _PosSupplierListScreenState extends State<PosSupplierListScreen> {
                 PopupMenuItem(value: 'history', child: Text(tr('Lịch sử nhập / trả'))),
                 PopupMenuItem(value: 'statement', child: Text(tr('Sổ đối chiếu công nợ'))),
                 if (canPay && s.currentDebt > 0) PopupMenuItem(value: 'pay', child: Text(tr('Trả nợ'))),
+                if (canPay) PopupMenuItem(value: 'adjust', child: Text(tr('Nhập nợ đầu kỳ / điều chỉnh'))),
                 if (canEdit)
                   PopupMenuItem(value: 'toggle', child: Text(tr(s.isActive ? 'Ngừng hoạt động' : 'Kích hoạt'))),
                 if (canDelete)

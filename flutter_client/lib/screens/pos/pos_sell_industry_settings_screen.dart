@@ -3,6 +3,7 @@ import 'dart:async';
 
 import '../../utils/pos_scale_barcode.dart';
 import 'package:flutter/material.dart';
+import 'package:intl/intl.dart';
 
 import '../../models/pos_product.dart';
 import '../../models/pos_sell_industry.dart';
@@ -10,6 +11,7 @@ import '../../models/qr_order_lock_config.dart';
 import '../../services/api_service.dart';
 import '../../utils/pos_sell_settings_helper.dart';
 import '../../widgets/notification_overlay.dart';
+import '../../utils/pos_debt_policy.dart';
 import '../../widgets/pos/pos_scale_device_ui.dart';
 import '../../widgets/pos/pos_theme.dart';
 import 'package:zkteco_flutter_client/l10n/app_tr.dart';
@@ -395,6 +397,80 @@ class _PosSellIndustrySettingsScreenState
     );
   }
 
+  /// Công nợ khách: hạn mức mặc định, hạn thanh toán, chặn hay chỉ cảnh báo khi bán nợ (ExtraJson.debt).
+  Widget _debtPolicyCard(PosStoreSellSettingsDto s) {
+    final p = PosDebtPolicy.parse(s.extraJson);
+    void save(PosDebtPolicy next) =>
+        _patchAndSave((cur) => cur.copyWith(extraJson: next.mergeIntoExtraJson(cur.extraJson)));
+    final money = NumberFormat('#,##0', 'vi_VN');
+    return Card(
+      margin: const EdgeInsets.symmetric(vertical: 8),
+      elevation: 0,
+      shape: RoundedRectangleBorder(
+        borderRadius: BorderRadius.circular(10),
+        side: BorderSide(color: SboxColors.slate300),
+      ),
+      child: Padding(
+        padding: const EdgeInsets.fromLTRB(12, 10, 12, 8),
+        child: Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
+          Text(tr('Công nợ khách hàng'), style: const TextStyle(fontWeight: FontWeight.w700, fontSize: 15)),
+          Text(tr('Áp cho khách chưa đặt hạn mức / hạn riêng (hồ sơ khách). Màn bán nhắc nợ khi chọn khách.'),
+              style: const TextStyle(fontSize: 12, color: SboxColors.slate600)),
+          const SizedBox(height: 10),
+          Row(children: [
+            Expanded(
+              child: TextFormField(
+                key: ValueKey('debt-limit-${p.defaultLimit}'),
+                initialValue: p.defaultLimit == null ? '' : money.format(p.defaultLimit),
+                keyboardType: TextInputType.number,
+                decoration: InputDecoration(
+                  labelText: tr('Hạn mức nợ mặc định (đ)'),
+                  hintText: tr('Trống = không giới hạn'),
+                  border: const OutlineInputBorder(),
+                  isDense: true,
+                ),
+                onFieldSubmitted: (v) {
+                  final n = double.tryParse(v.replaceAll('.', '').replaceAll(',', '').trim());
+                  save(n == null || n <= 0 ? p.copyWith(clearLimit: true) : p.copyWith(defaultLimit: n));
+                },
+              ),
+            ),
+            const SizedBox(width: 10),
+            Expanded(
+              child: TextFormField(
+                key: ValueKey('debt-term-${p.termDays}'),
+                initialValue: p.termDays > 0 ? '${p.termDays}' : '',
+                keyboardType: TextInputType.number,
+                decoration: InputDecoration(
+                  labelText: tr('Hạn thanh toán (ngày)'),
+                  hintText: tr('Trống = không theo dõi'),
+                  border: const OutlineInputBorder(),
+                  isDense: true,
+                ),
+                onFieldSubmitted: (v) => save(p.copyWith(termDays: int.tryParse(v.trim()) ?? 0)),
+              ),
+            ),
+          ]),
+          Text(tr('Nhập xong bấm Enter để lưu.'), style: const TextStyle(fontSize: 11, color: SboxColors.slate500)),
+          SwitchListTile(
+            contentPadding: EdgeInsets.zero,
+            title: Text(tr('Chặn bán nợ khi vượt hạn mức')),
+            subtitle: Text(tr('Tắt: chỉ cảnh báo, thu ngân xác nhận vẫn ghi nợ.')),
+            value: p.blockOverLimit,
+            onChanged: _saving ? null : (v) => save(p.copyWith(blockOverLimit: v)),
+          ),
+          SwitchListTile(
+            contentPadding: EdgeInsets.zero,
+            title: Text(tr('Chặn bán nợ thêm khi có đơn quá hạn')),
+            subtitle: Text(tr('Đơn nợ lâu hơn hạn thanh toán. Tắt: chỉ cảnh báo.')),
+            value: p.blockOverdue,
+            onChanged: _saving || p.termDays <= 0 ? null : (v) => save(p.copyWith(blockOverdue: v)),
+          ),
+        ]),
+      ),
+    );
+  }
+
   /// Cân điện tử nối thẳng máy này (cổng COM / USB) — cấu hình riêng từng máy, không lưu lên cửa hàng.
   Widget _scaleDeviceCard() {
     return Card(
@@ -698,6 +774,7 @@ class _PosSellIndustrySettingsScreenState
             _scaleBarcodeCard(s),
             _scaleDeviceCard(),
           ],
+          _debtPolicyCard(s),
           if (s.enableHourlyBilling) ...[
             const SizedBox(height: 4),
             DropdownButtonFormField<String?>(

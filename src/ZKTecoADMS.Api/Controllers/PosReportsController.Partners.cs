@@ -80,10 +80,10 @@ public partial class PosReportsController
                 })
                 .ToListAsync();
 
-        var today = DateTime.UtcNow.Date;
-        static int Bucket(DateTime bizAt, DateTime todayUtc)
+        var today = DateTime.UtcNow;
+        static int Bucket(DateTime bizAt, DateTime _)
         {
-            var days = (todayUtc - bizAt.Date).Days;
+            var days = PosDebtPolicy.AgeDaysVn(bizAt);
             if (days <= 30) return 0;
             if (days <= 60) return 1;
             if (days <= 90) return 2;
@@ -106,6 +106,7 @@ public partial class PosReportsController
                 s.groupName,
                 openReceiptCount = rows.Count,
                 openReceiptDebt = rows.Sum(x => x.Due),
+                debtOther = Math.Max(0, (branchScoped ? rows.Sum(x => x.Due) : s.CurrentDebt) - rows.Sum(x => x.Due)),
                 debt0To30 = SumB(0),
                 debt31To60 = SumB(1),
                 debt61To90 = SumB(2),

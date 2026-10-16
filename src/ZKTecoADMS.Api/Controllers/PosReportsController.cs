@@ -1653,10 +1653,11 @@ public partial class PosReportsController(
                 })
                 .ToListAsync();
 
-        var today = DateTime.UtcNow.Date;
-        static int AgingBucket(DateTime bizAt, DateTime todayUtc)
+        // Tuổi nợ theo ngày Việt Nam (trước đây ngày UTC: đơn bán 0h–7h sáng bị tính lùi một ngày).
+        var today = DateTime.UtcNow;
+        static int AgingBucket(DateTime bizAt, DateTime _)
         {
-            var days = (todayUtc - bizAt.Date).Days;
+            var days = PosDebtPolicy.AgeDaysVn(bizAt);
             if (days <= 30) return 0;
             if (days <= 60) return 1;
             if (days <= 90) return 2;
@@ -1684,6 +1685,8 @@ public partial class PosReportsController(
                 c.PointBalance,
                 openOrderCount = rows.Count,
                 openOrderDebt = rows.Sum(x => x.Due),
+                // Nợ không gắn đơn (nhập nợ đầu kỳ / điều chỉnh) — không có tuổi nợ.
+                debtOther = Math.Max(0, (branchScoped ? rows.Sum(x => x.Due) : c.CurrentDebt) - rows.Sum(x => x.Due)),
                 debt0To30 = d0,
                 debt31To60 = d31,
                 debt61To90 = d61,

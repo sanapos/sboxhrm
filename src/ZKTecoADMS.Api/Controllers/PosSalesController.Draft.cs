@@ -904,6 +904,12 @@ public partial class PosSalesController
                 }
                 products = plan!.Products;
 
+                // Hạn mức nợ / đơn quá hạn (khi cửa hàng bật chặn) — trước khi trừ kho.
+                if (await PosDebtPolicy.CheckSaleAsync(dbContext, storeId, order) is { } creditErr)
+                {
+                    await tx.RollbackAsync();
+                    return BadRequest(AppResponse<SaleOrderDto>.Fail(creditErr));
+                }
                 await PosSaleStockHelper.ApplySaleStockAsync(
                     dbContext, storeId, order, order.Lines.ToList(), plan!, CurrentUserEmail);
                 await PosSaleStockHelper.UpdateCustomerOnSaleCompleteAsync(dbContext, storeId, order);
@@ -1831,6 +1837,9 @@ public partial class PosSalesController
             }
 
             order.BranchId ??= SaleBranchScope().Branch;
+            // Hạn mức nợ / đơn quá hạn (khi cửa hàng bật chặn) — trước khi trừ kho.
+            if (await PosDebtPolicy.CheckSaleAsync(dbContext, storeId, order) is { } creditErr)
+                return (null, null, creditErr);
             await PosSaleStockHelper.ApplySaleStockAsync(
                 dbContext, storeId, order, lines, plan, CurrentUserEmail);
             await PosSaleStockHelper.UpdateCustomerOnSaleCompleteAsync(dbContext, storeId, order);

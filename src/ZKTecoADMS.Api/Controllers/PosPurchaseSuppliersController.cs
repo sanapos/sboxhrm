@@ -184,9 +184,10 @@ public class PosPurchaseSuppliersController(ZKTecoDbContext dbContext) : Authent
             .OrderBy(r => r.ImportDate ?? r.CreatedAt).ThenBy(r => r.CreatedAt)
             .ToListAsync();
         var open = receipts.Where(r => r.GrandTotal - r.PaidAmount > 0).ToList();
-        var totalDue = open.Sum(r => r.GrandTotal - r.PaidAmount);
+        // Nợ không gắn phiếu (nhập nợ đầu kỳ / điều chỉnh) cũng trả được — trước đây chỉ trả theo phiếu nhập.
+        var totalDue = Math.Max(open.Sum(r => r.GrandTotal - r.PaidAmount), supplier.CurrentDebt);
         if (dto.Amount > totalDue)
-            return BadRequest(AppResponse<object>.Fail($"Số tiền vượt tổng nợ các phiếu nhập ({totalDue:N0}đ)"));
+            return BadRequest(AppResponse<object>.Fail($"Số tiền vượt tổng nợ ({totalDue:N0}đ)"));
 
         // Mọi phiếu chi + số dư lưu trong một lần SaveChanges (một giao dịch).
         var left = dto.Amount;
@@ -201,8 +202,43 @@ public class PosPurchaseSuppliersController(ZKTecoDbContext dbContext) : Authent
             paid.Add(new { receiptId = r.Id, r.ReceiptNo, amount = part, paymentNo = pay.PaymentNo });
             left -= part;
         }
+        if (left > 0)
+        {
+            var pay = await PosPurchaseStockHelper.PayOpeningDebtAsync(dbContext, storeId, supplier, left,
+                dto.PaymentMethod, dto.PaidAt, string.IsNullOrWhiteSpace(dto.Note) ? "Trả nợ đầu kỳ / ngoài phiếu" : dto.Note,
+                CurrentUserEmail, CurrentUserId);
+            paid.Add(new { receiptId = (Guid?)null, ReceiptNo = (string?)null, amount = left, paymentNo = pay.PaymentNo });
+        }
         await dbContext.SaveChangesAsync();
         return Ok(AppResponse<object>.Success(new { paid, remainingDebt = supplier.CurrentDebt }));
+    }
+
+    public record SupplierDebtAdjustDto(decimal NewBalance, string? Reason, DateTime? At = null);
+
+    /// <summary>Nhập nợ đầu kỳ / điều chỉnh công nợ nhà cung cấp về số đúng (có lý do, ghi sổ công nợ).</summary>
+    [HttpPost("{id:guid}/debt-adjust")]
+    [RequireModulePermission("PosPurchaseReceipts", ModulePermissionAction.Edit)]
+    public async Task<ActionResult<AppResponse<object>>> AdjustDebt(Guid id, [FromBody] SupplierDebtAdjustDto dto)
+    {
+        var storeId = RequiredStoreId;
+        if (dto.NewBalance < 0) return BadRequest(AppResponse<object>.Fail("Công nợ không được âm"));
+        var reason = dto.Reason?.Trim();
+        if (string.IsNullOrEmpty(reason)) return BadRequest(AppResponse<object>.Fail("Nhập lý do điều chỉnh"));
+        var s = await dbContext.PosSuppliers.AsTracking()
+            .FirstOrDefaultAsync(x => x.Id == id && x.StoreId == storeId && x.Deleted == null);
+        if (s == null) return NotFound(AppResponse<object>.Fail("Không tìm thấy nhà cung cấp"));
+        if (dto.NewBalance == s.CurrentDebt) return BadRequest(AppResponse<object>.Fail("Công nợ không đổi"));
+        var hasLedger = await dbContext.PosDebtLedgerEntries.AnyAsync(e =>
+            e.StoreId == storeId && e.PartyType == PosDebtLedger.Supplier && e.PartyId == id);
+        var before = s.CurrentDebt;
+        s.CurrentDebt = Math.Round(dto.NewBalance, 0);
+        s.UpdatedAt = DateTime.UtcNow;
+        s.UpdatedBy = CurrentUserEmail;
+        PosDebtLedger.Add(dbContext, storeId, PosDebtLedger.Supplier, s.Id, before, s.CurrentDebt,
+            hasLedger || before != 0 ? "Adjust" : "Opening", null, null, reason,
+            dto.At?.ToUniversalTime() ?? DateTime.UtcNow, CurrentUserEmail);
+        await dbContext.SaveChangesAsync();
+        return Ok(AppResponse<object>.Success(new { id, before, currentDebt = s.CurrentDebt }));
     }
 
     /// <summary>Sổ đối chiếu công nợ NCC trong kỳ (đầu kỳ, từng phát sinh, cuối kỳ).</summary>

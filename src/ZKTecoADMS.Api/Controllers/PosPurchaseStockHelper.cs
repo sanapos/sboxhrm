@@ -752,6 +752,35 @@ internal static class PosPurchaseStockHelper
         return pay;
     }
 
+    /// <summary>Trả phần nợ NCC không gắn phiếu nhập (nợ đầu kỳ / điều chỉnh).</summary>
+    public static async Task<PosSupplierPayment> PayOpeningDebtAsync(
+        ZKTecoDbContext db, Guid storeId, PosSupplier supplier, decimal amount,
+        string? method, DateTime? paidAt, string? note, string? by, Guid userId)
+    {
+        var pay = new PosSupplierPayment
+        {
+            Id = Guid.NewGuid(),
+            StoreId = storeId,
+            SupplierId = supplier.Id,
+            StockReceiptId = null,
+            PaymentNo = PosStockDocumentNo.NewSupplierPayment(),
+            Amount = amount,
+            PaymentMethod = string.IsNullOrWhiteSpace(method) ? "Tiền mặt" : method.Trim(),
+            PaidAt = paidAt ?? DateTime.UtcNow,
+            Note = note?.Trim(),
+            IsActive = true,
+            CreatedBy = by,
+        };
+        var before = supplier.CurrentDebt;
+        supplier.CurrentDebt = Math.Max(0, supplier.CurrentDebt - amount);
+        supplier.UpdatedAt = DateTime.UtcNow;
+        PosDebtLedger.Add(db, storeId, PosDebtLedger.Supplier, supplier.Id, before, supplier.CurrentDebt,
+            "Payment", pay.Id, pay.PaymentNo, $"Trả nợ ngoài phiếu ({pay.PaymentMethod})", pay.PaidAt, by);
+        db.PosSupplierPayments.Add(pay);
+        await ZKTecoADMS.Infrastructure.Services.PosFinanceSyncHelper.SyncSupplierPaymentAsync(db, pay, null, userId);
+        return pay;
+    }
+
     public static async Task UpdateSupplierOnReceiptCompleteAsync(
         ZKTecoDbContext db, PosStockReceipt receipt)
     {

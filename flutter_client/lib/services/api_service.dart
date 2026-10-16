@@ -11579,6 +11579,32 @@ class ApiService implements PayrollApi {
   }
 
   /// Sổ đối chiếu công nợ khách trong kỳ: đầu kỳ, phát sinh tăng / giảm, cuối kỳ, số dư sau từng chứng từ.
+  /// Nhập nợ đầu kỳ / điều chỉnh công nợ khách (lý do bắt buộc).
+  Future<Map<String, dynamic>> adjustPosCustomerDebt(String customerId, double newBalance, String reason) async {
+    try {
+      final r = await http
+          .post(Uri.parse('$baseUrl/api/pos/customers/$customerId/debt-adjust'),
+              headers: _headers, body: jsonEncode({'newBalance': newBalance, 'reason': reason}))
+          .timeout(const Duration(seconds: 30));
+      return _handleResponse(r);
+    } catch (e) {
+      return _connectionFailure(e);
+    }
+  }
+
+  /// Nhập nợ đầu kỳ / điều chỉnh công nợ nhà cung cấp.
+  Future<Map<String, dynamic>> adjustPosSupplierDebt(String supplierId, double newBalance, String reason) async {
+    try {
+      final r = await http
+          .post(Uri.parse('$baseUrl/api/pos/purchase/suppliers/$supplierId/debt-adjust'),
+              headers: _headers, body: jsonEncode({'newBalance': newBalance, 'reason': reason}))
+          .timeout(const Duration(seconds: 30));
+      return _handleResponse(r);
+    } catch (e) {
+      return _connectionFailure(e);
+    }
+  }
+
   /// Khách đã có cùng SĐT / MST (hộp Thêm khách báo ngay khi nhập).
   Future<Map<String, dynamic>> getPosCustomerDuplicates({String? phone, String? taxCode, String? exceptId}) async {
     try {

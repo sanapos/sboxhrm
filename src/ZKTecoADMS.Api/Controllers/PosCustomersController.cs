@@ -25,13 +25,15 @@ public partial class PosCustomersController(ZKTecoDbContext dbContext) : Authent
         string? LegalRepresentative, string? LegalTitle, string? Note,
         DateTime? Birthday, string? DeliveryAddress,
         decimal TotalPurchase, decimal CurrentDebt, decimal PointBalance, bool IsActive,
-        DateTime CreatedAt, string? CreatedBy);
+        DateTime CreatedAt, string? CreatedBy, decimal? DebtLimit = null, int? PaymentTermDays = null);
 
+    /// <param name="SetCredit">true = ghi hạn mức / hạn thanh toán (form khách). Nơi khác lưu khách không gửi → giữ nguyên.</param>
     public record CustomerSaveDto(
         string Name, string? Phone, string? Email, string? Address,
         string? Province, string? Ward, string? CompanyName, string? TaxCode,
         string? LegalRepresentative, string? LegalTitle, string? Note,
-        DateTime? Birthday, string? DeliveryAddress);
+        DateTime? Birthday, string? DeliveryAddress,
+        decimal? DebtLimit = null, int? PaymentTermDays = null, bool SetCredit = false);
 
     [HttpGet]
     [RequireModulePermission("PosCustomers", ModulePermissionAction.View)]
@@ -187,6 +189,8 @@ public partial class PosCustomersController(ZKTecoDbContext dbContext) : Authent
         public bool IsActive => C.IsActive;
         public DateTime CreatedAt => C.CreatedAt;
         public string? CreatedBy => C.CreatedBy;
+        public decimal? DebtLimit => C.DebtLimit;
+        public int? PaymentTermDays => C.PaymentTermDays;
     }
 
     /// <summary>Tập (tháng × 100 + ngày) cho bộ lọc sinh nhật; null = không lọc.</summary>
@@ -338,6 +342,7 @@ public partial class PosCustomersController(ZKTecoDbContext dbContext) : Authent
             IsActive = true,
             CreatedBy = CurrentUserEmail,
         };
+        ApplyCredit(c, dto);
         dbContext.PosCustomers.Add(c);
         await dbContext.SaveChangesAsync();
         return Ok(AppResponse<CustomerDto>.Success(MapCustomer(c)));
@@ -371,6 +376,7 @@ public partial class PosCustomersController(ZKTecoDbContext dbContext) : Authent
         c.Birthday = dto.Birthday?.Date;
         c.DeliveryAddress = dto.DeliveryAddress?.Trim();
         c.Note = dto.Note?.Trim();
+        ApplyCredit(c, dto);
         c.UpdatedAt = DateTime.UtcNow;
         c.UpdatedBy = CurrentUserEmail;
         await dbContext.SaveChangesAsync();
@@ -399,5 +405,12 @@ public partial class PosCustomersController(ZKTecoDbContext dbContext) : Authent
         c.CompanyName, c.TaxCode, c.LegalRepresentative, c.LegalTitle, c.Note,
         c.Birthday, c.DeliveryAddress,
         c.TotalPurchase, c.CurrentDebt, c.PointBalance, c.IsActive,
-        c.CreatedAt, c.CreatedBy);
+        c.CreatedAt, c.CreatedBy, c.DebtLimit, c.PaymentTermDays);
+
+    static void ApplyCredit(PosCustomer c, CustomerSaveDto dto)
+    {
+        if (!dto.SetCredit) return;
+        c.DebtLimit = dto.DebtLimit is > 0 ? dto.DebtLimit : null;
+        c.PaymentTermDays = dto.PaymentTermDays is > 0 ? Math.Min(dto.PaymentTermDays.Value, 3650) : null;
+    }
 }

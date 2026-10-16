@@ -16,6 +16,10 @@ class PosCustomer {
   final String? deliveryAddress;
   final double totalPurchase;
   final double currentDebt;
+  /// Hạn mức nợ riêng (null = theo cửa hàng).
+  final double? debtLimit;
+  /// Hạn thanh toán riêng (ngày; null = theo cửa hàng).
+  final int? paymentTermDays;
   final double pointBalance;
   final bool isActive;
 
@@ -57,6 +61,8 @@ class PosCustomer {
     this.deliveryAddress,
     this.totalPurchase = 0,
     this.currentDebt = 0,
+    this.debtLimit,
+    this.paymentTermDays,
     this.pointBalance = 0,
     this.isActive = true,
     this.lastPurchaseAt,
@@ -86,6 +92,10 @@ class PosCustomer {
       deliveryAddress: json['deliveryAddress'] ?? json['DeliveryAddress'] as String?,
       totalPurchase: n(json['totalPurchase'] ?? json['TotalPurchase']),
       currentDebt: n(json['currentDebt'] ?? json['CurrentDebt']),
+      debtLimit: (json['debtLimit'] ?? json['DebtLimit']) is num ? ((json['debtLimit'] ?? json['DebtLimit']) as num).toDouble() : null,
+      paymentTermDays: (json['paymentTermDays'] ?? json['PaymentTermDays']) is num
+          ? ((json['paymentTermDays'] ?? json['PaymentTermDays']) as num).toInt()
+          : null,
       pointBalance: n(json['pointBalance'] ?? json['PointBalance']),
       isActive: (json['isActive'] ?? json['IsActive']) != false,
       lastPurchaseAt: DateTime.tryParse('${json['lastPurchaseAt'] ?? json['LastPurchaseAt'] ?? ''}'),

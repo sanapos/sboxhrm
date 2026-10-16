@@ -59,6 +59,12 @@ public class PosCustomer : AuditableEntity<Guid>
     /// <summary>Công nợ khách hàng hiện tại.</summary>
     public decimal CurrentDebt { get; set; }
 
+    /// <summary>Hạn mức nợ riêng (đ). Null / 0 = theo mặc định cửa hàng.</summary>
+    public decimal? DebtLimit { get; set; }
+
+    /// <summary>Hạn thanh toán riêng (ngày kể từ ngày bán). Null / 0 = theo mặc định cửa hàng.</summary>
+    public int? PaymentTermDays { get; set; }
+
     /// <summary>Điểm tích lũy hiện tại.</summary>
     public decimal PointBalance { get; set; }
 

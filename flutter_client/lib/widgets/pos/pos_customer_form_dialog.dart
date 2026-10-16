@@ -55,6 +55,8 @@ class _PosCustomerFormDialogState extends State<PosCustomerFormDialog> {
   late final TextEditingController _legalTitleCtrl;
   late final TextEditingController _noteCtrl;
   late final TextEditingController _deliveryCtrl;
+  late final TextEditingController _limitCtrl;
+  late final TextEditingController _termCtrl;
   DateTime? _birthday;
   bool _saving = false;
   bool _lookingTax = false;
@@ -87,6 +89,9 @@ class _PosCustomerFormDialogState extends State<PosCustomerFormDialog> {
     _legalTitleCtrl = TextEditingController(text: (c?.legalTitle ?? '').trim().isEmpty ? 'Giám đốc' : c!.legalTitle);
     _noteCtrl = TextEditingController(text: c?.note ?? '');
     _deliveryCtrl = TextEditingController(text: c?.deliveryAddress ?? '');
+    _limitCtrl = TextEditingController(
+        text: (c?.debtLimit ?? 0) > 0 ? NumberFormat('#,##0', 'vi_VN').format(c!.debtLimit) : '');
+    _termCtrl = TextEditingController(text: (c?.paymentTermDays ?? 0) > 0 ? '${c!.paymentTermDays}' : '');
     _birthday = c?.birthday;
     final q = (widget.initialQuery ?? '').trim();
     if (c == null && q.isNotEmpty) {
@@ -117,6 +122,8 @@ class _PosCustomerFormDialogState extends State<PosCustomerFormDialog> {
     _legalTitleCtrl.dispose();
     _noteCtrl.dispose();
     _deliveryCtrl.dispose();
+    _limitCtrl.dispose();
+    _termCtrl.dispose();
     super.dispose();
   }
 
@@ -145,6 +152,10 @@ class _PosCustomerFormDialogState extends State<PosCustomerFormDialog> {
           'birthday': DateFormat('yyyy-MM-dd').format(_birthday!),
         'deliveryAddress':
             _deliveryCtrl.text.trim().isEmpty ? null : _deliveryCtrl.text.trim(),
+        // Hạn mức / hạn thanh toán riêng (trống = theo thiết lập cửa hàng).
+        'setCredit': true,
+        'debtLimit': double.tryParse(_limitCtrl.text.replaceAll('.', '').replaceAll(',', '').trim()),
+        'paymentTermDays': int.tryParse(_termCtrl.text.trim()),
       };
 
   /// Ô còn thiếu / sai — hiện thành danh sách ngay trên nút Lưu (ô báo đỏ có thể nằm khuất dưới bàn phím).
@@ -636,6 +647,26 @@ class _PosCustomerFormDialogState extends State<PosCustomerFormDialog> {
                           provinceCtrl: _provinceCtrl,
                           wardCtrl: _wardCtrl,
                         ),
+                        const SizedBox(height: 12),
+                        Row(children: [
+                          Expanded(
+                            child: TextFormField(
+                              controller: _limitCtrl,
+                              keyboardType: TextInputType.number,
+                              decoration: PosTheme.inputDecoration(
+                                  label: 'Hạn mức nợ (đ)', hint: 'Trống = theo cửa hàng'),
+                            ),
+                          ),
+                          const SizedBox(width: 12),
+                          Expanded(
+                            child: TextFormField(
+                              controller: _termCtrl,
+                              keyboardType: TextInputType.number,
+                              decoration: PosTheme.inputDecoration(
+                                  label: 'Hạn thanh toán (ngày)', hint: 'Trống = theo cửa hàng'),
+                            ),
+                          ),
+                        ]),
                         const SizedBox(height: 12),
                         TextFormField(
                           controller: _noteCtrl,

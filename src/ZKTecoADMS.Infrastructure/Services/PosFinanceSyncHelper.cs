@@ -291,7 +291,7 @@ public static class PosFinanceSyncHelper
     public static async Task SyncSupplierPaymentAsync(
         ZKTecoDbContext db,
         PosSupplierPayment payment,
-        PosStockReceipt receipt,
+        PosStockReceipt? receipt,
         Guid createdByUserId,
         CancellationToken cancellationToken = default)
     {
@@ -314,7 +314,7 @@ public static class PosFinanceSyncHelper
             CategoryId = category.Id,
             Amount = payment.Amount,
             TransactionDate = VnTimeHelper.UtcToVn(payment.PaidAt),
-            Description = $"Thanh toán NCC — {receipt.ReceiptNo} ({payment.PaymentNo})",
+            Description = $"Thanh toán NCC — {receipt?.ReceiptNo ?? "nợ ngoài phiếu"} ({payment.PaymentNo})",
             PaymentMethod = ParsePaymentMethod(payment.PaymentMethod),
             Status = CashTransactionStatus.Completed,
             IsPaid = true,

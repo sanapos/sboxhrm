@@ -2296,11 +2296,54 @@ class _PosSellScreenState extends State<PosSellScreen>
   String _debtDetailText(Map<String, dynamic> d) {
     final count = (d['openOrderCount'] as num?)?.toInt() ?? 0;
     final days = (d['oldestDays'] as num?)?.toInt() ?? 0;
+    final overdue = (d['overdueDays'] as num?)?.toInt() ?? 0;
+    final limit = (d['debtLimit'] as num?)?.toDouble();
+    final avail = (d['availableCredit'] as num?)?.toDouble();
     return [
       if (count > 0) '$count đơn còn nợ',
       if (count > 0 && days > 0) 'lâu nhất $days ngày',
+      if (overdue > 0) 'QUÁ HẠN $overdue ngày',
+      if (limit != null) 'hạn mức ${_moneyFmt.format(limit)}đ (còn ${_moneyFmt.format(avail ?? 0)}đ)',
     ].join(' · ');
   }
+
+  /// Bán ghi nợ: vượt hạn mức / có đơn quá hạn → cửa hàng chặn thì báo, không thì hỏi xác nhận. true = được ghi nợ.
+  Future<bool> _confirmCreditSale(PosCustomer c, double due) async {
+    await _refreshCustomerDebt(c);
+    if (!mounted) return false;
+    final d = _debtSummaries[c.id]?.data;
+    if (d == null) return true;
+    final debt = (d['currentDebt'] as num?)?.toDouble() ?? c.currentDebt;
+    final limit = (d['debtLimit'] as num?)?.toDouble();
+    final overdue = (d['overdueDays'] as num?)?.toInt() ?? 0;
+    final problems = <String>[
+      if (limit != null && debt + due > limit)
+        'Vượt hạn mức: nợ hiện tại ${_moneyFmt.format(debt)}đ + đơn này ${_moneyFmt.format(due)}đ '
+            '= ${_moneyFmt.format(debt + due)}đ > hạn mức ${_moneyFmt.format(limit)}đ',
+      if (overdue > 0) 'Có đơn nợ quá hạn $overdue ngày (${d['oldestOrderNo'] ?? ''})',
+    ];
+    if (problems.isEmpty) return true;
+    final blocked = (limit != null && debt + due > limit && d['blockOverLimit'] == true) ||
+        (overdue > 0 && d['blockOverdue'] == true);
+    final ok = await showDialog<bool>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        icon: const Icon(Icons.warning_amber_rounded, color: SboxColors.danger, size: 40),
+        title: Text(tr(blocked ? 'Không ghi nợ được cho ${c.name}' : 'Ghi nợ cho ${c.name}?')),
+        content: Text(tr('${problems.join('\n')}\n\n'
+            '${blocked ? 'Cửa hàng đang chặn bán nợ trong trường hợp này — thu đủ tiền, thu nợ cũ trước, hoặc nâng hạn mức ở hồ sơ khách.' : 'Vẫn ghi nợ phần còn thiếu ${_moneyFmt.format(due)}đ?'}')),
+        actions: [
+          TextButton(onPressed: () => Navigator.pop(ctx, false), child: Text(tr(blocked ? 'Đóng' : 'Không'))),
+          if (!blocked)
+            FilledButton(onPressed: () => Navigator.pop(ctx, true), child: Text(tr('Vẫn ghi nợ'))),
+        ],
+      ),
+    );
+    return ok == true;
+  }
+
+  /// Thu nợ cũ ngay sau khi thanh toán đơn (đánh dấu ở màn thanh toán).
+  bool _collectOldDebtAfterPay = false;
 
   void _alertCustomerDebt(PosCustomer c, Map<String, dynamic> d) {
     final debt = (d['currentDebt'] as num?)?.toDouble() ?? 0;
@@ -2329,7 +2372,8 @@ class _PosSellScreenState extends State<PosSellScreen>
     if (debt <= 0) return const SizedBox.shrink();
     final perm = Provider.of<PermissionProvider>(context, listen: false);
     final detail = summary == null ? '' : _debtDetailText(summary);
-    final old = ((summary?['oldestDays'] as num?)?.toInt() ?? 0) > 30;
+    final old = ((summary?['oldestDays'] as num?)?.toInt() ?? 0) > 30 ||
+        ((summary?['overdueDays'] as num?)?.toInt() ?? 0) > 0;
     return Container(
       margin: const EdgeInsets.only(top: 6),
       padding: const EdgeInsets.fromLTRB(10, 6, 4, 6),
@@ -11768,6 +11812,10 @@ class _PosSellScreenState extends State<PosSellScreen>
         );
         return;
       }
+      // Hạn mức nợ / đơn quá hạn: hỏi trước (máy chủ vẫn chặn nếu cửa hàng bật chặn).
+      if (due > 0.5 && _tab.customer != null && !await _confirmCreditSale(_tab.customer!, due.toDouble())) {
+        return;
+      }
 
       if (!await _refreshCartStockBeforeCheckout()) return;
       if (!_validateFullCartStock()) return;
@@ -11826,8 +11874,21 @@ class _PosSellScreenState extends State<PosSellScreen>
       // Happy-path silent — tránh chồng toast che màn bán hàng (in/kho báo riêng khi lỗi).
       debugPrint('POS checkout OK: $orderNo');
       // Đơn vừa ghi nợ / trả bớt → số nợ đã đọc của khách không còn đúng.
-      final paidCustomerId = _tab.customer?.id;
-      if (paidCustomerId != null) _debtSummaries.remove(paidCustomerId);
+      final paidCustomer = _tab.customer;
+      if (paidCustomer != null) _debtSummaries.remove(paidCustomer.id);
+      if (paidCustomer != null && _collectOldDebtAfterPay) {
+        _collectOldDebtAfterPay = false;
+        // Hộp thu nợ đọc nợ mới (gồm phần đơn vừa ghi nợ) — thu ngân nhập số thu thực tế.
+        WidgetsBinding.instance.addPostFrameCallback((_) async {
+          if (!mounted) return;
+          final res = await _api.getPosCustomerById(paidCustomer.id);
+          if (!mounted) return;
+          final fresh = res['isSuccess'] == true && res['data'] is Map
+              ? PosCustomer.fromJson(Map<String, dynamic>.from(res['data'] as Map))
+              : paidCustomer;
+          if (fresh.currentDebt > 0) await showPosCustomerDebtCollectDialog(context, customer: fresh);
+        });
+      }
       _notifyEInvoiceAfterCheckout(data, orderNo);
 
       final shipPartner = _sellMode == _SellMode.delivery ? _tab.deliveryPartner : null;
@@ -16123,6 +16184,19 @@ class _PosSellScreenState extends State<PosSellScreen>
         if (_tab.customer != null && _customerDebtOf(_tab.customer!) > 0) ...[
           const SizedBox(height: 4),
           _summaryRow('Nợ cũ KH', _moneyFmt.format(_customerDebtOf(_tab.customer!))),
+          if (Provider.of<PermissionProvider>(context, listen: false).canEdit('PosCustomers'))
+            CheckboxListTile(
+              dense: true,
+              contentPadding: EdgeInsets.zero,
+              controlAffinity: ListTileControlAffinity.leading,
+              visualDensity: VisualDensity.compact,
+              title: Text(tr('Thu luôn nợ cũ sau khi thanh toán'), style: const TextStyle(fontSize: 12.5)),
+              value: _collectOldDebtAfterPay,
+              onChanged: (v) {
+                setState(() => _collectOldDebtAfterPay = v == true);
+                onMutate?.call();
+              },
+            ),
         ],
         const SizedBox(height: 6),
         _buildPaymentQuickPicks(
