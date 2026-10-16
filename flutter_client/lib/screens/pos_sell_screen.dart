@@ -10472,11 +10472,15 @@ class _PosSellScreenState extends State<PosSellScreen>
   Future<void> _openAddCustomer() async {
     final created = await showDialog<dynamic>(
       context: context,
-      builder: (_) => const PosCustomerFormDialog(),
+      builder: (_) => PosCustomerFormDialog(
+        initialQuery: _tab.customer == null && !_isWalkInCustomerQuery(_tab._customerSearchCtrl.text)
+            ? _tab._customerSearchCtrl.text
+            : null,
+      ),
     );
     if (created == null || !mounted) return;
-    if (created is Map<String, dynamic>) {
-      _selectCustomer(PosCustomer.fromJson(created));
+    if (created is Map) {
+      _selectCustomer(PosCustomer.fromJson(Map<String, dynamic>.from(created)));
     }
   }
 

@@ -232,6 +232,31 @@ public partial class PosCustomersController(ZKTecoDbContext dbContext) : Authent
         return candidates.FirstOrDefault(c => NormalizePhone(c.Phone) == norm);
     }
 
+    /// <summary>
+    /// Khách đã có cùng số điện thoại (chuẩn hóa: bỏ dấu cách / chấm, +84 → 0) hoặc cùng mã số thuế — hộp «Thêm khách»
+    /// báo ngay khi đang nhập và cho chọn khách có sẵn (trước đây chỉ báo khi bấm Lưu, dễ bị che).
+    /// </summary>
+    [HttpGet("duplicates")]
+    [RequireAnyModulePermission(ModulePermissionAction.View, "PosSell", "PosCustomers", "PosSaleOrders")]
+    public async Task<ActionResult<AppResponse<object>>> Duplicates(
+        [FromQuery] string? phone, [FromQuery] string? taxCode, [FromQuery] Guid? exceptId)
+    {
+        var storeId = RequiredStoreId;
+        var byPhone = await FindPhoneDuplicateAsync(storeId, phone, exceptId);
+        var tax = (taxCode ?? "").Trim();
+        var byTax = tax.Length < 10
+            ? []
+            : await dbContext.PosCustomers.AsNoTracking()
+                .Where(c => c.StoreId == storeId && c.Deleted == null && c.IsActive && c.TaxCode == tax
+                            && (exceptId == null || c.Id != exceptId))
+                .OrderBy(c => c.Name).Take(5).ToListAsync();
+        return Ok(AppResponse<object>.Success(new
+        {
+            phone = byPhone == null ? null : MapCustomer(byPhone),
+            taxCode = byTax.Select(MapCustomer).ToList(),
+        }));
+    }
+
     /// <summary>Ngừng hoạt động (khách đã có đơn không xóa được) — ẩn khỏi danh sách / màn bán, giữ lịch sử.</summary>
     [HttpPost("{id:guid}/deactivate")]
     [RequireModulePermission("PosCustomers", ModulePermissionAction.Edit)]

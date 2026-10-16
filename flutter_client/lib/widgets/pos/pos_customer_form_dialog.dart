@@ -14,10 +14,27 @@ import 'package:zkteco_flutter_client/l10n/app_tr.dart';
 import '../../theme/sbox_tokens.dart';
 const _blue = SboxColors.brand600;
 
+/// Chức vụ người đại diện hay gặp trên hóa đơn / hợp đồng (mặc định Giám đốc).
+const kPosLegalTitles = [
+  'Giám đốc',
+  'Tổng giám đốc',
+  'Phó giám đốc',
+  'Chủ tịch HĐQT',
+  'Chủ tịch HĐTV',
+  'Chủ tịch công ty',
+  'Chủ doanh nghiệp',
+  'Chủ hộ kinh doanh',
+  'Giám đốc chi nhánh',
+  'Trưởng văn phòng đại diện',
+  'Kế toán trưởng',
+];
+
 class PosCustomerFormDialog extends StatefulWidget {
-  const PosCustomerFormDialog({super.key, this.customer});
+  const PosCustomerFormDialog({super.key, this.customer, this.initialQuery});
 
   final PosCustomer? customer;
+  /// Chữ đang gõ ở ô tìm khách (không thấy khách): số → điền SĐT, chữ → điền tên.
+  final String? initialQuery;
 
   @override
   State<PosCustomerFormDialog> createState() => _PosCustomerFormDialogState();
@@ -44,6 +61,12 @@ class _PosCustomerFormDialogState extends State<PosCustomerFormDialog> {
   String? _taxLookupHint;
   bool _taxLookupOk = false;
   Timer? _taxDebounce;
+  Timer? _dupDebounce;
+  /// Khách đã có cùng SĐT (chặn tạo) / cùng MST (chỉ nhắc).
+  Map<String, dynamic>? _dupPhone;
+  List<Map<String, dynamic>> _dupTax = const [];
+  /// Lỗi lưu hiện ngay trong hộp (thông báo nổi dễ bị bàn phím / hộp thoại che trên máy POS).
+  String? _saveError;
 
   bool get _isEdit => widget.customer != null;
 
@@ -60,16 +83,28 @@ class _PosCustomerFormDialogState extends State<PosCustomerFormDialog> {
     _companyCtrl = TextEditingController(text: c?.companyName ?? '');
     _taxCtrl = TextEditingController(text: c?.taxCode ?? '');
     _legalRepCtrl = TextEditingController(text: c?.legalRepresentative ?? '');
-    _legalTitleCtrl = TextEditingController(text: c?.legalTitle ?? '');
+    // Chức vụ mặc định «Giám đốc» (đa số hóa đơn / hợp đồng doanh nghiệp).
+    _legalTitleCtrl = TextEditingController(text: (c?.legalTitle ?? '').trim().isEmpty ? 'Giám đốc' : c!.legalTitle);
     _noteCtrl = TextEditingController(text: c?.note ?? '');
     _deliveryCtrl = TextEditingController(text: c?.deliveryAddress ?? '');
     _birthday = c?.birthday;
+    final q = (widget.initialQuery ?? '').trim();
+    if (c == null && q.isNotEmpty) {
+      final digits = q.replaceAll(RegExp(r'[\s.\-+]'), '');
+      if (RegExp(r'^\d{8,12}$').hasMatch(digits)) {
+        _phoneCtrl.text = q;
+        WidgetsBinding.instance.addPostFrameCallback((_) => _scheduleDupCheck());
+      } else {
+        _nameCtrl.text = q;
+      }
+    }
     hidePosSoftKeyboard();
   }
 
   @override
   void dispose() {
     _taxDebounce?.cancel();
+    _dupDebounce?.cancel();
     _nameCtrl.dispose();
     _phoneCtrl.dispose();
     _emailCtrl.dispose();
@@ -100,8 +135,11 @@ class _PosCustomerFormDialogState extends State<PosCustomerFormDialog> {
         'legalRepresentative': _legalRepCtrl.text.trim().isEmpty
             ? null
             : _legalRepCtrl.text.trim(),
-        'legalTitle':
-            _legalTitleCtrl.text.trim().isEmpty ? null : _legalTitleCtrl.text.trim(),
+        // Chức vụ chỉ có nghĩa khi có người đại diện / tên đơn vị (khách lẻ không lưu «Giám đốc» mặc định).
+        'legalTitle': _legalTitleCtrl.text.trim().isEmpty ||
+                (_legalRepCtrl.text.trim().isEmpty && _companyCtrl.text.trim().isEmpty)
+            ? null
+            : _legalTitleCtrl.text.trim(),
         'note': _noteCtrl.text.trim().isEmpty ? null : _noteCtrl.text.trim(),
         if (_birthday != null)
           'birthday': DateFormat('yyyy-MM-dd').format(_birthday!),
@@ -109,24 +147,120 @@ class _PosCustomerFormDialogState extends State<PosCustomerFormDialog> {
             _deliveryCtrl.text.trim().isEmpty ? null : _deliveryCtrl.text.trim(),
       };
 
+  /// Ô còn thiếu / sai — hiện thành danh sách ngay trên nút Lưu (ô báo đỏ có thể nằm khuất dưới bàn phím).
+  List<String> _missing() {
+    final tax = _taxCtrl.text.trim();
+    return [
+      if (_nameCtrl.text.trim().isEmpty) 'Tên người mua',
+      if (tax.isNotEmpty && !_looksLikeTaxCode(tax)) 'Mã số thuế (10 số, hoặc 10-3 chi nhánh)',
+      if (tax.isNotEmpty && _companyCtrl.text.trim().isEmpty) 'Tên đơn vị (có MST)',
+      if (tax.isNotEmpty && _addressCtrl.text.trim().isEmpty) 'Địa chỉ xuất hóa đơn (có MST)',
+    ];
+  }
+
   Future<void> _save() async {
-    if (!_formKey.currentState!.validate()) return;
-    setState(() => _saving = true);
+    // Đóng bàn phím trước: trên máy POS bàn phím che nút Lưu / dòng báo lỗi.
+    hidePosSoftKeyboard(alsoAfterMs: 0);
+    final valid = _formKey.currentState!.validate();
+    final missing = _missing();
+    if (!valid || missing.isNotEmpty) {
+      setState(() => _saveError = missing.isEmpty ? 'Kiểm tra lại các ô báo đỏ' : 'Cần nhập: ${missing.join(', ')}');
+      return;
+    }
+    if (_dupPhone != null) {
+      setState(() => _saveError =
+          'Số điện thoại đã có ở khách «${_dupPhone!['name']}» — bấm «Chọn khách này» hoặc đổi số');
+      return;
+    }
+    setState(() {
+      _saving = true;
+      _saveError = null;
+    });
     final res = _isEdit
         ? await _api.updatePosCustomer(widget.customer!.id, _body())
         : await _api.createPosCustomer(_body());
     if (!mounted) return;
     setState(() => _saving = false);
-    if (res['isSuccess'] == true) {
+    if (res['isSuccess'] == true && res['data'] is Map) {
       NotificationOverlayManager().showSuccess(
         title: _isEdit ? 'Đã cập nhật' : 'Đã tạo khách hàng',
         message: _nameCtrl.text.trim(),
       );
-      Navigator.pop(context, res['data']);
+      Navigator.pop(context, Map<String, dynamic>.from(res['data'] as Map));
     } else {
-      NotificationOverlayManager()
-          .showError(title: 'Lỗi', message: res['message']?.toString() ?? '');
+      final msg = (res['message']?.toString() ?? '').trim();
+      setState(() => _saveError = msg.isEmpty ? 'Không lưu được khách hàng (lỗi ${res['statusCode'] ?? 'mạng'})' : msg);
+      NotificationOverlayManager().showError(title: 'Không lưu được', message: _saveError!);
     }
+  }
+
+  /// Kiểm tra trùng SĐT / MST khi đang nhập (chờ 0,5 giây sau lần gõ cuối).
+  void _scheduleDupCheck() {
+    _dupDebounce?.cancel();
+    _dupDebounce = Timer(const Duration(milliseconds: 500), () => unawaited(_checkDuplicates()));
+  }
+
+  Future<void> _checkDuplicates() async {
+    final phone = _phoneCtrl.text.replaceAll(RegExp(r'\D'), '');
+    final tax = _taxCtrl.text.trim();
+    if (phone.length < 8 && tax.length < 10) {
+      if (_dupPhone != null || _dupTax.isNotEmpty) {
+        setState(() {
+          _dupPhone = null;
+          _dupTax = const [];
+        });
+      }
+      return;
+    }
+    final res = await _api.getPosCustomerDuplicates(
+      phone: phone.length >= 8 ? phone : null,
+      taxCode: tax.length >= 10 ? tax : null,
+      exceptId: widget.customer?.id,
+    );
+    if (!mounted || res['isSuccess'] != true || res['data'] is! Map) return;
+    final d = res['data'] as Map;
+    setState(() {
+      _dupPhone = d['phone'] is Map ? Map<String, dynamic>.from(d['phone'] as Map) : null;
+      _dupTax = [
+        for (final e in (d['taxCode'] as List? ?? const []))
+          if (e is Map) Map<String, dynamic>.from(e),
+      ];
+      if (_dupPhone == null && _saveError != null && _saveError!.startsWith('Số điện thoại đã có')) _saveError = null;
+    });
+  }
+
+  /// Hộp nhắc khách đã có (thêm mới: cho chọn luôn khách đó vào đơn).
+  Widget _dupBox(Map<String, dynamic> c, String reason, {required bool blocking}) {
+    final info = [c['customerCode'], c['phone'], c['companyName']]
+        .where((e) => e != null && '$e'.trim().isNotEmpty)
+        .join(' · ');
+    return Container(
+      margin: const EdgeInsets.only(top: 6),
+      padding: const EdgeInsets.fromLTRB(10, 6, 4, 6),
+      decoration: BoxDecoration(
+        color: blocking ? SboxColors.dangerSoft : SboxColors.warningSoft,
+        borderRadius: BorderRadius.circular(8),
+      ),
+      child: Row(children: [
+        Icon(Icons.person_search_outlined,
+            size: 18, color: blocking ? SboxColors.dangerText : SboxColors.warningText),
+        const SizedBox(width: 6),
+        Expanded(
+          child: Text(
+            tr('$reason «${c['name']}»${info.isEmpty ? '' : ' ($info)'}'),
+            style: TextStyle(
+                fontSize: 12.5,
+                fontWeight: FontWeight.w600,
+                color: blocking ? SboxColors.dangerText : SboxColors.warningText),
+          ),
+        ),
+        if (!_isEdit)
+          TextButton(
+            onPressed: () => Navigator.pop(context, c),
+            child: Text(tr('Chọn khách này')),
+          ),
+      ]),
+    );
   }
 
   void _onTaxChanged(String raw) {
@@ -144,6 +278,7 @@ class _PosCustomerFormDialogState extends State<PosCustomerFormDialog> {
     _taxDebounce = Timer(const Duration(milliseconds: 650), () {
       unawaited(_lookupTax());
     });
+    _scheduleDupCheck();
   }
 
   bool _looksLikeTaxCode(String s) {
@@ -180,6 +315,7 @@ class _PosCustomerFormDialogState extends State<PosCustomerFormDialog> {
     final data = Map<String, dynamic>.from(res['data'] as Map);
     final name = (data['name'] ?? '').toString().trim();
     final address = (data['address'] ?? '').toString().trim();
+    final rep = (data['representative'] ?? '').toString().trim();
     final foundCode = (data['taxCode'] ?? code).toString().trim();
     setState(() {
       if (foundCode.isNotEmpty) _taxCtrl.text = foundCode;
@@ -188,11 +324,15 @@ class _PosCustomerFormDialogState extends State<PosCustomerFormDialog> {
         if (_nameCtrl.text.trim().isEmpty) _nameCtrl.text = name;
       }
       if (address.isNotEmpty) _addressCtrl.text = address;
+      // Người đại diện (nguồn công khai, có thể chưa cập nhật) — chỉ điền khi ô đang trống.
+      if (rep.isNotEmpty && _legalRepCtrl.text.trim().isEmpty) _legalRepCtrl.text = rep;
+      if (_legalTitleCtrl.text.trim().isEmpty) _legalTitleCtrl.text = 'Giám đốc';
       _taxLookupOk = true;
       _taxLookupHint = name.isEmpty
           ? 'MST hợp lệ'
-          : 'Đã điền: $name';
+          : 'Đã điền: $name${rep.isEmpty ? '' : ' · đại diện: $rep (kiểm tra lại nếu đã đổi người)'}';
     });
+    _scheduleDupCheck();
   }
 
   Future<void> _pickBirthday() async {
@@ -358,6 +498,8 @@ class _PosCustomerFormDialogState extends State<PosCustomerFormDialog> {
                             ),
                           ],
                         ),
+                        for (final c in _dupTax)
+                          _dupBox(c, 'MST đã có ở khách', blocking: false),
                         if (_taxLookupHint != null) ...[
                           const SizedBox(height: 6),
                           Text(
@@ -399,8 +541,17 @@ class _PosCustomerFormDialogState extends State<PosCustomerFormDialog> {
                               flex: 2,
                               child: TextFormField(
                                 controller: _legalTitleCtrl,
-                                decoration: PosTheme.inputDecoration(
-                                    label: 'Chức vụ'),
+                                decoration: PosTheme.inputDecoration(label: 'Chức vụ').copyWith(
+                                  suffixIcon: PopupMenuButton<String>(
+                                    tooltip: tr('Chọn chức vụ'),
+                                    icon: const Icon(Icons.arrow_drop_down),
+                                    onSelected: (v) => setState(() => _legalTitleCtrl.text = v),
+                                    itemBuilder: (_) => [
+                                      for (final t in kPosLegalTitles)
+                                        PopupMenuItem(value: t, child: Text(tr(t))),
+                                    ],
+                                  ),
+                                ),
                               ),
                             ),
                           ],
@@ -437,6 +588,7 @@ class _PosCustomerFormDialogState extends State<PosCustomerFormDialog> {
                                 decoration: PosTheme.inputDecoration(
                                     label: 'Số điện thoại'),
                                 keyboardType: TextInputType.phone,
+                                onChanged: (_) => _scheduleDupCheck(),
                               ),
                             ),
                             const SizedBox(width: 12),
@@ -450,6 +602,8 @@ class _PosCustomerFormDialogState extends State<PosCustomerFormDialog> {
                             ),
                           ],
                         ),
+                        if (_dupPhone != null)
+                          _dupBox(_dupPhone!, 'Số điện thoại đã có ở khách', blocking: true),
                         const SizedBox(height: 20),
                         _sectionTitle('Thông tin thêm'),
                         InkWell(
@@ -493,6 +647,19 @@ class _PosCustomerFormDialogState extends State<PosCustomerFormDialog> {
                   ),
                 ),
               ),
+              if (_saveError != null)
+                Container(
+                  width: double.infinity,
+                  margin: const EdgeInsets.fromLTRB(16, 10, 16, 0),
+                  padding: const EdgeInsets.all(10),
+                  decoration: BoxDecoration(
+                    color: SboxColors.dangerSoft,
+                    borderRadius: BorderRadius.circular(8),
+                  ),
+                  child: Text(tr(_saveError!),
+                      style: const TextStyle(
+                          fontSize: 12.5, fontWeight: FontWeight.w600, color: SboxColors.dangerText)),
+                ),
               Padding(
                 padding: const EdgeInsets.all(16),
                 child: Row(

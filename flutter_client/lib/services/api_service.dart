@@ -11579,6 +11579,24 @@ class ApiService implements PayrollApi {
   }
 
   /// Sổ đối chiếu công nợ khách trong kỳ: đầu kỳ, phát sinh tăng / giảm, cuối kỳ, số dư sau từng chứng từ.
+  /// Khách đã có cùng SĐT / MST (hộp Thêm khách báo ngay khi nhập).
+  Future<Map<String, dynamic>> getPosCustomerDuplicates({String? phone, String? taxCode, String? exceptId}) async {
+    try {
+      final r = await http
+          .get(
+              Uri.parse('$baseUrl/api/pos/customers/duplicates').replace(queryParameters: {
+                if ((phone ?? '').trim().isNotEmpty) 'phone': phone!.trim(),
+                if ((taxCode ?? '').trim().isNotEmpty) 'taxCode': taxCode!.trim(),
+                if (exceptId != null) 'exceptId': exceptId,
+              }),
+              headers: _headers)
+          .timeout(const Duration(seconds: 15));
+      return _handleResponse(r);
+    } catch (e) {
+      return _connectionFailure(e);
+    }
+  }
+
   /// Tóm tắt nợ của khách cho màn bán (nhắc nợ khi chọn khách).
   Future<Map<String, dynamic>> getPosCustomerDebtSummary(String customerId) async {
     try {
