@@ -899,7 +899,8 @@ class PosThermalPrinterService {
     if (includePayment && order != null) {
       await b.pair('Thanh toán:', _money.format(order.paidAmount));
       if (order.balanceDue > 0) {
-        await b.pair('Còn nợ:', _money.format(order.balanceDue));
+        await b.boldPair('Còn nợ:', _money.format(order.balanceDue));
+        await b.pair('HTTT:', order.paymentLabel);
       }
     }
   }

@@ -195,7 +195,9 @@ public partial class PosSalesController(
         string? OfflineDeviceKey = null,
         /// <summary>Giỏ mở offline mà bàn đã có hóa đơn ở máy khác: lưu thành hóa đơn tách của hóa đơn đang mở
         /// trên bàn (thanh toán riêng không trả bàn / không xóa hóa đơn kia).</summary>
-        bool SplitOfTableBill = false);
+        bool SplitOfTableBill = false,
+        /// <summary>Thu luôn nợ cũ: khách đưa vượt số phải trả → phần vượt (tối đa bằng nợ) ghi phiếu thu nợ.</summary>
+        bool CollectOldDebt = false);
 
     public record EInvoiceBuyerDto(
         string? Name = null,
@@ -249,7 +251,8 @@ public partial class PosSalesController(
         /// <summary>Đơn bán offline (mất mạng) đồng bộ lại: số HĐ offline cấp trước, giờ bán thật, thiết bị.</summary>
         string? OfflineNo = null,
         DateTime? OfflineAt = null,
-        string? OfflineDeviceKey = null);
+        string? OfflineDeviceKey = null,
+        bool CollectOldDebt = false);
 
     public record SaleOrderDto(
         Guid Id,
@@ -1580,7 +1583,11 @@ public partial class PosSalesController(
         }
         else if (Enum.TryParse<PosSaleOrderStatus>(status, true, out var st))
             query = query.Where(o => o.Status == st);
-        if (!string.IsNullOrWhiteSpace(paymentMethod))
+        // «Công nợ» không phải phương thức lưu trên đơn — lọc đơn còn nợ (thu chưa đủ).
+        if (string.Equals(paymentMethod?.Trim(), "Công nợ", StringComparison.OrdinalIgnoreCase))
+            query = query.Where(o => o.Status == PosSaleOrderStatus.Completed &&
+                                     o.PaidAmount + 0.5m < o.Total + o.VatAmount + o.SurchargeAmount + o.DeliveryFee);
+        else if (!string.IsNullOrWhiteSpace(paymentMethod))
             query = query.Where(o => o.PaymentMethod.Contains(paymentMethod.Trim()));
         if (!string.IsNullOrWhiteSpace(customerName))
             query = query.Where(o => o.CustomerName != null && o.CustomerName.Contains(customerName.Trim()));
@@ -2106,6 +2113,12 @@ public partial class PosSalesController(
             return NotFound(AppResponse<List<SalePaymentDto>>.Fail("Không tìm thấy đơn hàng"));
 
         var items = new List<SalePaymentDto>();
+        // Thu nợ sau bán (khách trả dần) — kể cả đơn chưa hoàn tất thanh toán.
+        var debts = await dbContext.PosCustomerPayments.AsNoTracking()
+            .Where(p => p.StoreId == storeId && p.SaleOrderId == order.Id && p.Deleted == null)
+            .OrderBy(p => p.PaidAt)
+            .Select(p => new { p.PaymentNo, p.Amount, p.PaymentMethod, p.PaidAt, p.Note, p.CreatedBy })
+            .ToListAsync();
         if (order.Status == PosSaleOrderStatus.Completed)
         {
             var prefix = $"{PosFinanceSyncHelper.SaleMarker}{order.Id}";
@@ -2126,10 +2139,12 @@ public partial class PosSalesController(
                     c.Description,
                     order.CreatedBy)));
             }
-            else if (order.PaidAmount > 0)
+            else if (order.PaidAmount - debts.Sum(d => d.Amount) > 0.5m)
             {
+                // Không có phiếu thu lúc bán: PaidAmount gồm cả tiền thu nợ về sau — trừ phần phiếu thu nợ của đơn
+                // (trước đây «Thu khi bán» = cả PaidAmount + dòng thu nợ → «Đã thu» gấp đôi).
                 items.Add(new SalePaymentDto(
-                    order.OrderNo, order.PaidAmount, order.PaymentMethod,
+                    order.OrderNo, order.PaidAmount - debts.Sum(d => d.Amount), order.PaymentMethod,
                     order.SaleDate ?? order.CreatedAt,
                     $"Thanh toán đơn {order.OrderNo}", order.CreatedBy));
             }
@@ -2143,12 +2158,6 @@ public partial class PosSalesController(
                 "Tiền cọc đặt chỗ trừ vào đơn", null, "deposit")));
         }
 
-        // Thu nợ sau bán (khách trả dần) — kể cả đơn chưa hoàn tất thanh toán.
-        var debts = await dbContext.PosCustomerPayments.AsNoTracking()
-            .Where(p => p.StoreId == storeId && p.SaleOrderId == order.Id && p.Deleted == null)
-            .OrderBy(p => p.PaidAt)
-            .Select(p => new { p.PaymentNo, p.Amount, p.PaymentMethod, p.PaidAt, p.Note, p.CreatedBy })
-            .ToListAsync();
         items.AddRange(debts.Select(p => new SalePaymentDto(
             p.PaymentNo, p.Amount, p.PaymentMethod, p.PaidAt, p.Note ?? "Thu nợ", p.CreatedBy, "debt")));
 

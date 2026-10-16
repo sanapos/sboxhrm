@@ -524,6 +524,8 @@ class _SellInvoiceTab {
   bool paidManuallyEdited = false;
   final List<_SellPaymentLine> paymentLines = [];
   bool paymentsManuallyEdited = false;
+  /// Nút «Ghi nợ»: khách chưa trả gì — giữ các dòng TT = 0 khi tổng đổi.
+  bool payOnDebt = false;
   String? note;
   PosCustomer? customer;
   String priceListLabel = 'Bảng giá chung';
@@ -6010,7 +6012,15 @@ class _PosSellScreenState extends State<PosSellScreen>
   }
 
   double get _changeAmount =>
-      (_effectivePaidAmount - _grandTotal).clamp(0, double.infinity);
+      (_effectivePaidAmount - _grandTotal - _oldDebtToCollect).clamp(0, double.infinity);
+
+  /// Nợ cũ muốn thu kèm đơn (đã tick «Thu luôn nợ cũ»).
+  double get _oldDebtToCollect =>
+      _collectOldDebtAfterPay && _tab.customer != null ? _customerDebtOf(_tab.customer!) : 0;
+
+  /// Phần khách đưa vượt đơn được trừ vào nợ cũ (máy chủ ghi phiếu thu nợ).
+  double get _oldDebtCollected =>
+      (_effectivePaidAmount - _grandTotal).clamp(0.0, _oldDebtToCollect);
 
   double get _dueAmount =>
       (_grandTotal - _effectivePaidAmount).clamp(0, double.infinity);
@@ -9808,8 +9818,16 @@ class _PosSellScreenState extends State<PosSellScreen>
       _tab.paymentLines
           .add(_SellPaymentLine(sourceKey: _PosPaymentSource.cashKey));
     }
+    if (_tab.payOnDebt && _tab.paymentLines.every((l) => l.amount <= 0)) {
+      _tab.paidAmount = _effectivePaidAmount;
+      _tab.paidManuallyEdited = false;
+      _tab._paidCtrl.text = _moneyFmt.format(_tab.paidAmount);
+      return;
+    }
+    _tab.payOnDebt = false;
     final due = (_grandTotal - _tab.reservationDepositApplied)
-        .clamp(0.0, double.infinity);
+            .clamp(0.0, double.infinity) +
+        _oldDebtToCollect;
     if (_tab.paymentLines.length == 1 || !_tab.paymentsManuallyEdited) {
       // Chưa chỉnh tay: toàn bộ vào dòng đầu, các dòng còn lại = 0.
       for (var i = 0; i < _tab.paymentLines.length; i++) {
@@ -10886,6 +10904,7 @@ class _PosSellScreenState extends State<PosSellScreen>
           _storeSettings.enableSurcharge ? tab.surchargeAmount : 0,
       'deliveryFee': _storeSettings.enableDeliveryFee ? tab.deliveryFee : 0,
       'paidAmount': paid,
+      if (complete && identical(tab, _tab) && _oldDebtCollected > 0) 'collectOldDebt': true,
       if (complete) 'vatAmount': _vatAmount,
       'paymentMethod': paymentLines.isEmpty
           ? 'Tiền mặt'
@@ -11824,6 +11843,7 @@ class _PosSellScreenState extends State<PosSellScreen>
       if (!await _collectSerialsBeforeCheckout()) return;
 
       _refreshTimedLineQtys();
+      final oldDebtCollected = _oldDebtCollected;
       final body = _buildSaleBody(complete: true);
 
       Future<Map<String, dynamic>> payOnce() => _tab.draftOrderId != null
@@ -11878,16 +11898,23 @@ class _PosSellScreenState extends State<PosSellScreen>
       if (paidCustomer != null) _debtSummaries.remove(paidCustomer.id);
       if (paidCustomer != null && _collectOldDebtAfterPay) {
         _collectOldDebtAfterPay = false;
-        // Hộp thu nợ đọc nợ mới (gồm phần đơn vừa ghi nợ) — thu ngân nhập số thu thực tế.
-        WidgetsBinding.instance.addPostFrameCallback((_) async {
-          if (!mounted) return;
-          final res = await _api.getPosCustomerById(paidCustomer.id);
-          if (!mounted) return;
-          final fresh = res['isSuccess'] == true && res['data'] is Map
-              ? PosCustomer.fromJson(Map<String, dynamic>.from(res['data'] as Map))
-              : paidCustomer;
-          if (fresh.currentDebt > 0) await showPosCustomerDebtCollectDialog(context, customer: fresh);
-        });
+        if (oldDebtCollected > 0) {
+          NotificationOverlayManager().showSuccess(
+            title: 'Đã thu nợ cũ',
+            message: tr('${paidCustomer.name}: ${_moneyFmt.format(oldDebtCollected)}đ (phiếu thu nợ kèm đơn $orderNo)'),
+          );
+        } else {
+          // Không đưa thêm tiền cho nợ cũ → mở hộp thu nợ để nhập số thu thực tế.
+          WidgetsBinding.instance.addPostFrameCallback((_) async {
+            if (!mounted) return;
+            final res = await _api.getPosCustomerById(paidCustomer.id);
+            if (!mounted) return;
+            final fresh = res['isSuccess'] == true && res['data'] is Map
+                ? PosCustomer.fromJson(Map<String, dynamic>.from(res['data'] as Map))
+                : paidCustomer;
+            if (fresh.currentDebt > 0) await showPosCustomerDebtCollectDialog(context, customer: fresh);
+          });
+        }
       }
       _notifyEInvoiceAfterCheckout(data, orderNo);
 
@@ -16194,9 +16221,17 @@ class _PosSellScreenState extends State<PosSellScreen>
               title: Text(tr('Thu luôn nợ cũ sau khi thanh toán'), style: const TextStyle(fontSize: 12.5)),
               value: _collectOldDebtAfterPay,
               onChanged: (v) {
-                setState(() => _collectOldDebtAfterPay = v == true);
-                onMutate?.call();
+                _collectOldDebtAfterPay = v == true;
+                // Số khách cần đưa = đơn + nợ cũ (bỏ tick → về số của đơn).
+                _applyPayQuickMode(_payQuickMode == 'debt' ? 'cash' : _payQuickMode, onMutate: onMutate);
               },
+            ),
+          if (_oldDebtToCollect > 0)
+            _summaryRow(
+              'Tổng cần thu (đơn + nợ cũ)',
+              _moneyFmt.format(_amountAfterDeposit + _oldDebtToCollect),
+              bold: true,
+              blue: true,
             ),
         ],
         const SizedBox(height: 6),
@@ -16220,11 +16255,17 @@ class _PosSellScreenState extends State<PosSellScreen>
             bold: true,
           ),
         ),
+        if (_oldDebtCollected > 0)
+          Padding(
+            padding: const EdgeInsets.only(top: 6),
+            child: _summaryRow('Trừ vào nợ cũ', _moneyFmt.format(_oldDebtCollected)),
+          ),
         if (_changeAmount > 0)
           Padding(
             padding: const EdgeInsets.only(top: 6),
             child: _summaryRow('Tiền trả khách', _moneyFmt.format(_changeAmount)),
           ),
+        if (_dueAmount > 0) _debtNoteBox(),
         if (_dueAmount > 0) ...[
           Padding(
             padding: const EdgeInsets.only(top: 6),
@@ -16236,7 +16277,7 @@ class _PosSellScreenState extends State<PosSellScreen>
               padding: const EdgeInsets.only(top: 4),
               child: _summaryRow(
                 'Tổng nợ sau đơn',
-                _moneyFmt.format(_customerDebtOf(_tab.customer!) + _dueAmount),
+                _moneyFmt.format(_customerDebtOf(_tab.customer!) + _dueAmount - _oldDebtCollected),
               ),
             ),
         ],
@@ -16308,6 +16349,7 @@ class _PosSellScreenState extends State<PosSellScreen>
   }
 
   String get _payQuickMode {
+    if (_tab.payOnDebt && _tab.paymentLines.every((l) => l.amount <= 0)) return 'debt';
     final keys = _tab.paymentLines.map((l) => l.sourceKey).toSet();
     final hasCash = keys.contains(_PosPaymentSource.cashKey);
     final hasBank = keys.any((k) => k != _PosPaymentSource.cashKey);
@@ -16324,11 +16366,21 @@ class _PosSellScreenState extends State<PosSellScreen>
   }
 
   void _applyPayQuickMode(String mode, {VoidCallback? onMutate}) {
+    if (mode == 'debt' && _tab.customer == null) {
+      NotificationOverlayManager().showWarning(
+        title: 'Chưa chọn khách',
+        message: tr('Chọn khách hàng trước khi ghi nợ — khách lẻ không theo dõi được công nợ.'),
+      );
+      return;
+    }
     final due = (_grandTotal - _tab.reservationDepositApplied)
-        .clamp(0.0, double.infinity);
+            .clamp(0.0, double.infinity) +
+        (mode == 'debt' ? 0 : _oldDebtToCollect);
     final bankKey = _transferSourceKey;
     setState(() {
       _tab.paymentsManuallyEdited = true;
+      _tab.payOnDebt = mode == 'debt';
+      if (mode == 'debt') _collectOldDebtAfterPay = false;
       for (final p in _tab.paymentLines) {
         p.dispose();
       }
@@ -16338,6 +16390,8 @@ class _PosSellScreenState extends State<PosSellScreen>
       } else if (mode == 'mixed' && bankKey != null) {
         _tab.paymentLines.add(_payLine(_PosPaymentSource.cashKey, 0));
         _tab.paymentLines.add(_payLine(bankKey, due));
+      } else if (mode == 'debt') {
+        _tab.paymentLines.add(_payLine(_PosPaymentSource.cashKey, 0));
       } else {
         _tab.paymentLines.add(_payLine(_PosPaymentSource.cashKey, due));
       }
@@ -16345,15 +16399,54 @@ class _PosSellScreenState extends State<PosSellScreen>
     _notifyPaymentUi(onMutate);
   }
 
+  /// Ghi chú khi đơn thu chưa đủ: phần thiếu ghi công nợ khách (hoặc nhắc chọn khách).
+  Widget _debtNoteBox() {
+    final c = _tab.customer;
+    final paid = _effectivePaidAmount;
+    final how = paid <= 0.5
+        ? 'Khách chưa trả — ghi công nợ toàn bộ ${_moneyFmt.format(_dueAmount)}đ'
+        : 'Khách trả ${_moneyFmt.format(paid)}đ (${_paymentLinesLabel()}), ghi công nợ ${_moneyFmt.format(_dueAmount)}đ';
+    final warn = c == null;
+    return Container(
+      margin: const EdgeInsets.only(top: 8),
+      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
+      decoration: BoxDecoration(
+        color: warn ? SboxColors.dangerSoft : SboxColors.warningSoft,
+        borderRadius: BorderRadius.circular(8),
+        border: Border.all(color: warn ? SboxColors.danger : SboxColors.warning),
+      ),
+      child: Row(crossAxisAlignment: CrossAxisAlignment.start, children: [
+        Icon(warn ? Icons.error_outline : Icons.edit_note, size: 18, color: warn ? SboxColors.danger : SboxColors.warningText),
+        const SizedBox(width: 8),
+        Expanded(
+          child: Text(
+            tr(warn
+                ? 'Đơn còn thiếu ${_moneyFmt.format(_dueAmount)}đ — chọn khách hàng để ghi công nợ (khách lẻ không ghi nợ được).'
+                : '$how cho «${c.name}». Hóa đơn ghi «Công nợ» và số còn nợ.'),
+            style: TextStyle(fontSize: 12.5, fontWeight: FontWeight.w600, color: warn ? SboxColors.dangerText : SboxColors.warningText),
+          ),
+        ),
+      ]),
+    );
+  }
+
+  String _paymentLinesLabel() {
+    final names = _tab.paymentLines
+        .where((l) => l.amount > 0)
+        .map((l) => _sourceByKey(l.sourceKey).methodLabel)
+        .toSet();
+    return names.isEmpty ? 'Tiền mặt' : names.join(' + ');
+  }
+
   Widget _buildPaymentQuickPicks({VoidCallback? onMutate}) {
     final mode = _payQuickMode;
     final hasBank = _transferSourceKey != null;
     Widget btn(String id, String label, IconData icon) {
       final selected = mode == id;
-      final enabled = id == 'cash' || hasBank;
+      final enabled = id == 'cash' || id == 'debt' || hasBank;
       return Expanded(
         child: Padding(
-          padding: EdgeInsets.only(right: id == 'mixed' ? 0 : 6),
+          padding: EdgeInsets.only(right: id == 'debt' ? 0 : 6),
           child: Material(
             color: !enabled
                 ? SboxColors.slate100
@@ -16423,6 +16516,7 @@ class _PosSellScreenState extends State<PosSellScreen>
             btn('cash', 'Tiền mặt', Icons.payments_outlined),
             btn('transfer', 'Chuyển khoản', Icons.account_balance_outlined),
             btn('mixed', 'Tiền mặt + CK', Icons.swap_horiz),
+            btn('debt', 'Ghi nợ', Icons.edit_note),
           ],
         ),
       ],

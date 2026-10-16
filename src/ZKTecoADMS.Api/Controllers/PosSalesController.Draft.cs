@@ -168,7 +168,8 @@ public partial class PosSalesController
             dto.VatAmount, dto.IssueEInvoice, dto.EInvoiceBuyer,
             dto.SurchargeAmount, dto.DeliveryFee, dto.SaleDate,
             PromotionsJson: dto.PromotionsJson,
-            OfflineNo: offlineNo, OfflineAt: dto.OfflineAt, OfflineDeviceKey: dto.OfflineDeviceKey);
+            OfflineNo: offlineNo, OfflineAt: dto.OfflineAt, OfflineDeviceKey: dto.OfflineDeviceKey,
+            CollectOldDebt: dto.CollectOldDebt);
 
         // Thanh toán: RepeatableRead + retry serialization/unique (giống CreateSale) —
         // tránh 500 «lỗi hệ thống» khi autosave/máy khác tranh chấp tồn hoặc mã HD/phiếu thu.
@@ -1789,9 +1790,16 @@ public partial class PosSalesController
 
         // Khách đưa thừa (màn bán gửi «khách đưa», tiền thối lại cho khách): chỉ ghi nhận đúng số phải trả —
         // không thu thừa vào sổ quỹ / không làm âm công nợ. Đơn có cọc giữ logic cũ bên dưới.
+        // «Thu luôn nợ cũ»: phần vượt (theo phương thức của dòng cuối) thành phiếu thu nợ sau khi hoàn thành đơn.
+        var oldDebtPay = (Amount: 0m, Method: "Tiền mặt", BankAccountId: (Guid?)null);
         if (seatedDeposit <= 0 && paymentInputs.Count > 0)
         {
             var over = paymentInputs.Sum(p => p.Amount) - Math.Max(0m, order.PayableTotal);
+            if (complete && dto.CollectOldDebt && order.CustomerId.HasValue && over > 0.005m)
+            {
+                var last = paymentInputs[^1];
+                oldDebtPay = (over, last.PaymentMethod, last.BankAccountId);
+            }
             for (var i = paymentInputs.Count - 1; i >= 0 && over > 0.005m; i--)
             {
                 var cut = Math.Min(over, paymentInputs[i].Amount);
@@ -1925,6 +1933,21 @@ public partial class PosSalesController
             }
             await PosFinanceSyncHelper.SyncSaleOnCompleteAsync(
                 dbContext, order, CurrentUserId, paymentSync);
+            if (oldDebtPay.Amount > 0 && order.CustomerId.HasValue)
+            {
+                var debtor = await dbContext.PosCustomers.AsTracking()
+                    .FirstOrDefaultAsync(c => c.Id == order.CustomerId && c.StoreId == storeId && c.Deleted == null);
+                var take = Math.Min(oldDebtPay.Amount, debtor?.CurrentDebt ?? 0);
+                if (debtor != null && take > 0.005m)
+                {
+                    var (debtPay, _) = await PosCustomerFinanceHelper.CollectDebtAsync(
+                        dbContext, storeId, debtor, take, oldDebtPay.Method, DateTime.UtcNow,
+                        $"Thu nợ cũ kèm đơn {order.OrderNo}", null, CurrentUserEmail);
+                    if (debtPay != null)
+                        await PosFinanceSyncHelper.SyncCustomerPaymentAsync(
+                            dbContext, debtPay, debtor, CurrentUserId, oldDebtPay.BankAccountId);
+                }
+            }
             await PosSaleWarrantyHelper.RegisterOnSaleAsync(
                 dbContext, storeId, order, lines, dto.Lines, products, CurrentUserEmail);
 

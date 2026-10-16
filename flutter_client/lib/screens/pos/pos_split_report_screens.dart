@@ -1,6 +1,7 @@
 import 'dart:async';
 
 import 'package:flutter/material.dart';
+import '../../utils/pos_payment_label.dart';
 import 'package:flutter/services.dart';
 import 'package:url_launcher/url_launcher.dart';
 import '../../models/pos_customer.dart';
@@ -467,7 +468,7 @@ List<List<dynamic>> _invoiceExcelRows(List<Map<String, dynamic>> orders) => [
           e['orderNo'] ?? '',
           _fmtDt(e['saleDate'] ?? e['createdAt']),
           e['customerName'] ?? '',
-          e['paymentMethod'] ?? '',
+          posPaymentLabelOf(e),
           e['soldBy'] ?? e['createdBy'] ?? '',
           e['voucherCode'] ?? '',
           _n(e['subTotal']),

@@ -221,9 +221,9 @@ class PosSaleOrderReceiptView extends StatelessWidget {
 
                 _sumRow('Tổng cộng', money.format(order.total), bold: true, accent: true),
 
-                _sumRow('Đã thanh toán (${order.paymentMethod})', money.format(order.paidAmount)),
+                _sumRow('Đã thanh toán (${order.paidAmount > 0.5 ? order.paymentMethod : 'chưa trả'})', money.format(order.paidAmount)),
 
-                if (balance > 0) _sumRow('Còn lại', money.format(balance)),
+                if (balance > 0) _sumRow('Còn nợ (ghi công nợ)', money.format(balance), bold: true),
 
                 if (order.returnedAmount > 0)
 
@@ -357,7 +357,7 @@ class PosSaleOrderReceiptView extends StatelessWidget {
 
             _infoLine('Bảng giá', order.priceListName!.trim()),
 
-          _infoLine('Thanh toán', order.paymentMethod),
+          _infoLine('Thanh toán', order.paymentLabel),
 
           if (order.isDelivery) ...[
 

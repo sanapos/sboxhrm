@@ -1,5 +1,6 @@
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
+import 'pos_payment_label.dart';
 import 'package:intl/intl.dart';
 import 'package:pdf/pdf.dart';
 import 'package:pdf/widgets.dart' as pw;
@@ -184,8 +185,10 @@ Future<Uint8List> buildPosSaleOrderPdfBytes({
           pw.Text(tr('Tổng tiền hàng: ${money.format(subTotal)}'), style: body10),
           pw.Text(tr('Giảm giá: ${money.format(discount)}'), style: body10),
           pw.Text(tr('Tổng cộng: ${money.format(total)}'), style: bold10),
-          pw.Text(tr('Đã thanh toán: ${money.format(paidAmount)} ($paymentMethod)'), style: body10),
-          pw.Text(tr('Còn lại: ${money.format(balanceDue)}'), style: body10),
+          pw.Text(tr('Hình thức: ${posPaymentLabel(paymentMethod, paid: paidAmount, due: balanceDue)}'), style: body10),
+          pw.Text(tr('Đã thanh toán: ${money.format(paidAmount)}'), style: body10),
+          pw.Text(tr(balanceDue > 0.5 ? 'Còn nợ (ghi công nợ): ${money.format(balanceDue)}' : 'Còn lại: 0'),
+              style: balanceDue > 0.5 ? bold10 : body10),
           if (returnedAmount > 0)
             pw.Text(tr('Đã trả hàng: ${money.format(returnedAmount)}'), style: body10),
           if (note != null && note.isNotEmpty) ...[

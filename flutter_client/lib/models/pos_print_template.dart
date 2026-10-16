@@ -686,6 +686,7 @@ abstract final class PosPrintTokens {
     ('Con_Lai', 'Còn lại'),
     ('Tong_Cong_Bang_Chu', 'Tổng bằng chữ'),
     ('Hinh_Thuc_Thanh_Toan', 'Hình thức thanh toán'),
+    ('Cong_No', 'Còn nợ (ghi công nợ)'),
     ('Nguoi_Ban', 'Người bán'),
     ('Ghi_Chu', 'Ghi chú'),
     // HĐĐT — chỉ có giá trị khi đơn đã phát hành hóa đơn điện tử.

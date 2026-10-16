@@ -62,6 +62,15 @@ internal static class PosDebtStatement
         var increase = rows.Where(r => r.Delta > 0).Sum(r => r.Delta);
         var decrease = -rows.Where(r => r.Delta < 0).Sum(r => r.Delta);
         var closing = rows.Count > 0 ? balances[rows[^1].Id] : opening;
+        // Phiếu thu nợ khách → đơn đã trừ nợ (mở hóa đơn gốc từ dòng sổ).
+        var payIds = rows.Where(r => r.DocType == "Payment" && r.DocId.HasValue).Select(r => r.DocId!.Value).Distinct().ToList();
+        var pays = new Dictionary<Guid, (Guid? OrderId, string? Note)>();
+        if (partyType == PosDebtLedger.Customer && payIds.Count > 0)
+            foreach (var p in await db.PosCustomerPayments.AsNoTracking()
+                         .Where(p => p.StoreId == storeId && payIds.Contains(p.Id))
+                         .Select(p => new { p.Id, p.SaleOrderId, p.Note })
+                         .ToListAsync())
+                pays[p.Id] = (p.SaleOrderId, p.Note);
 
         return new
         {
@@ -83,7 +92,10 @@ internal static class PosDebtStatement
                 increase = r.Delta > 0 ? r.Delta : 0,
                 decrease = r.Delta < 0 ? -r.Delta : 0,
                 balance = balances[r.Id],
-                r.Note,
+                note = pays.TryGetValue(r.DocId ?? Guid.Empty, out var pn) && !string.IsNullOrWhiteSpace(pn.Note)
+                    ? $"{r.Note} · {pn.Note}"
+                    : r.Note,
+                orderId = pays.TryGetValue(r.DocId ?? Guid.Empty, out var po) ? po.OrderId : null,
             }).ToList(),
         };
     }

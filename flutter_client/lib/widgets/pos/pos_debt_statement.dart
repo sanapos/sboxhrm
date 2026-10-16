@@ -118,6 +118,11 @@ class _PosDebtStatementViewState extends State<PosDebtStatementView> {
 
   /// Chứng từ gốc của dòng sổ: bán / trả hàng khách → hóa đơn; nhập / trả NCC → phiếu nhập / trả. Còn lại không có.
   static bool _canOpen(Map<String, dynamic> r) {
+    // Phiếu thu nợ khách: mở đơn đã trừ nợ (gắn đơn hoặc «Trừ nợ đơn: HD…» trong ghi chú).
+    if ('${r['docType']}' == 'Payment') {
+      final oid = '${r['orderId'] ?? ''}';
+      return (oid.isNotEmpty && oid != 'null') || RegExp(r'HD\d{6,}').hasMatch('${r['note'] ?? ''}');
+    }
     final id = '${r['docId'] ?? ''}';
     if (id.isEmpty || id.startsWith('0000')) return false;
     return const {'Sale', 'SaleCancel', 'Return', 'ReturnVoid', 'Receipt', 'ReceiptCancel', 'PurchaseReturn', 'PurchaseReturnCancel'}
@@ -128,6 +133,9 @@ class _PosDebtStatementViewState extends State<PosDebtStatementView> {
     if (!_canOpen(r)) return;
     final id = '${r['docId']}';
     switch ('${r['docType']}') {
+      case 'Payment':
+        PosReportOpen.debtPaymentOrders(context,
+            orderId: '${r['orderId'] ?? ''}', note: '${r['note'] ?? ''}', paymentNo: '${r['docNo'] ?? ''}');
       case 'Sale' || 'SaleCancel' || 'Return' || 'ReturnVoid':
         PosReportOpen.sale(context, id);
       case 'Receipt' || 'ReceiptCancel':

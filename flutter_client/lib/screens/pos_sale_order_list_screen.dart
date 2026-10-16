@@ -51,6 +51,7 @@ enum _ListColumn {
   total('Tổng'),
   paid('Đã trả'),
   balance('Còn lại'),
+  payment('Thanh toán'),
   delivery('Giao hàng'),
   deliveryStatus('TT giao hàng'),
   status('Trạng thái'),
@@ -76,6 +77,7 @@ Set<_ListColumn> _defaultListColumns() => {
       _ListColumn.time,
       _ListColumn.customer,
       _ListColumn.total,
+      _ListColumn.payment,
       _ListColumn.status,
       _ListColumn.eInvoice,
     };
@@ -146,6 +148,7 @@ class _PosSaleOrderListScreenState extends State<PosSaleOrderListScreen> {
     'Tiền mặt',
     'Chuyển khoản',
     'Thẻ',
+    'Công nợ',
   ];
 
   @override
@@ -1574,6 +1577,7 @@ class _PosSaleOrderListScreenState extends State<PosSaleOrderListScreen> {
           col(_ListColumn.total, align: TextAlign.right),
           col(_ListColumn.paid, align: TextAlign.right),
           col(_ListColumn.balance, align: TextAlign.right),
+          col(_ListColumn.payment),
           col(_ListColumn.delivery),
           col(_ListColumn.deliveryStatus),
           col(_ListColumn.status),
@@ -2119,10 +2123,10 @@ class _PosSaleOrderListScreenState extends State<PosSaleOrderListScreen> {
                     ),
                   ),
                   Text(
-                    tr(o.paymentMethod),
-                    style: const TextStyle(
+                    tr(o.paymentLabel),
+                    style: TextStyle(
                       fontSize: 11,
-                      color: PosTheme.textSecondary,
+                      color: o.paymentLabel.contains('Công nợ') ? SboxColors.dangerText : PosTheme.textSecondary,
                     ),
                   ),
                 ],
@@ -2306,6 +2310,16 @@ class _PosSaleOrderListScreenState extends State<PosSaleOrderListScreen> {
                     _cell(_ListColumn.balance, Text(tr('${_moneyFmt.format(_balance(o))} đ'),
                           style: const TextStyle(fontSize: 12),
                           textAlign: TextAlign.right),
+                    ),
+                  if (_visibleColumns.contains(_ListColumn.payment))
+                    // Thu chưa đủ → «Công nợ» / «Tiền mặt + Công nợ» (chữ đỏ).
+                    _cell(_ListColumn.payment, Text(tr(o.paymentLabel),
+                          style: TextStyle(
+                              fontSize: 12,
+                              color: o.paymentLabel.contains('Công nợ') ? SboxColors.dangerText : null,
+                              fontWeight: o.paymentLabel.contains('Công nợ') ? FontWeight.w600 : null),
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis),
                     ),
                   if (_visibleColumns.contains(_ListColumn.delivery))
                     _cell(_ListColumn.delivery, Text(tr(o.isDelivery ? 'Có' : '—'),

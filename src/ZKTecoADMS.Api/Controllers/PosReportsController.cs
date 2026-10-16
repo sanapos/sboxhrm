@@ -291,7 +291,11 @@ public partial class PosReportsController(
         }
         if (!string.IsNullOrWhiteSpace(soldBy))
             query = query.Where(o => o.SoldBy != null && o.SoldBy.Contains(soldBy.Trim()));
-        if (!string.IsNullOrWhiteSpace(paymentMethod))
+        // «Công nợ» không phải phương thức lưu trên đơn — lọc đơn còn nợ (thu chưa đủ).
+        if (string.Equals(paymentMethod?.Trim(), "Công nợ", StringComparison.OrdinalIgnoreCase))
+            query = query.Where(o => o.Status == PosSaleOrderStatus.Completed &&
+                                     o.PaidAmount + 0.5m < o.Total + o.VatAmount + o.SurchargeAmount + o.DeliveryFee);
+        else if (!string.IsNullOrWhiteSpace(paymentMethod))
             query = query.Where(o => o.PaymentMethod != null &&
                                      o.PaymentMethod.Contains(paymentMethod.Trim()));
         if (customerId.HasValue)

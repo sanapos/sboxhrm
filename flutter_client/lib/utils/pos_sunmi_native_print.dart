@@ -736,6 +736,7 @@ class PosSunmiNativePrint {
         _money.format(order.balanceDue),
         bold: true,
       );
+      await _pair(layout, 'HTTT:', order.paymentLabel);
     }
     if (order.note != null && order.note!.trim().isNotEmpty) {
       await _left('Ghi chú: ${order.note!.trim()}', size: layout.smallSize);

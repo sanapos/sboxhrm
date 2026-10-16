@@ -2,6 +2,7 @@ import 'dart:convert';
 
 import '../utils/api_datetime.dart';
 import '../utils/pos_doc_status.dart';
+import '../utils/pos_payment_label.dart';
 import 'pos_product.dart' show parsePosStringList;
 
 class PosSaleLineTopping {
@@ -448,6 +449,11 @@ class PosSaleOrder {
   }
 
   bool get isReprint => printCount > 1;
+
+  /// Hình thức thanh toán hiển thị / in: thu chưa đủ → «Công nợ» / «Tiền mặt + Công nợ».
+  String get paymentLabel => status == 'Draft' || status == 'Cancelled'
+      ? paymentMethod
+      : posPaymentLabel(paymentMethod, paid: paidAmount, due: balanceDue);
 
   /// Tổng gốc trước khi trả (net + đã trả).
   double get grossTotal => total + returnedAmount;

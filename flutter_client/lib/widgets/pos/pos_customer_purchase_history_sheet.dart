@@ -1,6 +1,7 @@
 import 'dart:async';
 
 import 'package:flutter/material.dart';
+import '../../utils/pos_payment_label.dart';
 import 'package:intl/intl.dart';
 
 import '../../l10n/app_tr.dart';
@@ -284,7 +285,10 @@ class _HistorySheetState extends State<_HistorySheet> {
                 Text(_m(o['total']),
                     style: const TextStyle(fontSize: 15, fontWeight: FontWeight.w800, color: PosTheme.kiotBlue)),
                 if ((o['paymentMethod'] ?? '').toString().isNotEmpty)
-                  Text(tr('${o['paymentMethod']}'), style: const TextStyle(fontSize: 11, color: SboxColors.slate500)),
+                  Text(tr(posPaymentLabelOf(o)),
+                      style: TextStyle(
+                          fontSize: 11,
+                          color: posPaymentLabelOf(o).contains('Công nợ') ? SboxColors.dangerText : SboxColors.slate500)),
               ]),
               const SizedBox(width: 4),
               const Icon(Icons.chevron_right, size: 18, color: SboxColors.slate400),

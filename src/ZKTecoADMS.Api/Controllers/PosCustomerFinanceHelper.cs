@@ -500,10 +500,21 @@ public static class PosCustomerFinanceHelper
                 .OrderBy(o => o.SaleDate)
                 .ThenBy(o => o.CreatedAt)
                 .ToListAsync();
+            var settled = new List<string>();
             foreach (var order in unpaid)
             {
                 if (remaining <= 0) break;
-                remaining -= ApplyPaidToOrder(order, remaining, createdBy);
+                var applied = ApplyPaidToOrder(order, remaining, createdBy);
+                remaining -= applied;
+                if (applied > 0 && !string.IsNullOrEmpty(order.OrderNo)) settled.Add(order.OrderNo);
+            }
+            if (settled.Count == 1 && pay.SaleOrderId == null)
+                pay.SaleOrderId = unpaid.First(o => o.OrderNo == settled[0]).Id;
+            if (settled.Count > 0)
+            {
+                var list = $"Trừ nợ đơn: {string.Join(", ", settled.Take(20))}{(settled.Count > 20 ? "…" : "")}";
+                pay.Note = string.IsNullOrWhiteSpace(pay.Note) ? list : $"{pay.Note} · {list}";
+                if (pay.Note.Length > 500) pay.Note = pay.Note[..500];
             }
         }
 

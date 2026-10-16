@@ -1,5 +1,6 @@
 import 'package:fl_chart/fl_chart.dart';
 import 'package:flutter/material.dart';
+import '../../../utils/pos_payment_label.dart';
 import 'package:flutter/rendering.dart';
 import 'package:provider/provider.dart';
 import '../../../providers/permission_provider.dart';
@@ -1054,7 +1055,7 @@ class PosReportInvoiceList extends StatelessWidget {
   Widget _row(BuildContext context, Map<String, dynamic> e) {
     final no = (e['orderNo'] ?? e['OrderNo'] ?? '').toString();
     final name = (e['customerName'] ?? e['CustomerName'] ?? '').toString();
-    final pay = (e['paymentMethod'] ?? e['PaymentMethod'] ?? '').toString();
+    final pay = posPaymentLabelOf(e);
     final sold = (e['soldBy'] ?? e['SoldBy'] ?? e['createdBy'] ?? '').toString();
     final totalAmt = _num(e['total'] ?? e['Total']);
     final paid = _num(e['paidAmount'] ?? e['PaidAmount']);

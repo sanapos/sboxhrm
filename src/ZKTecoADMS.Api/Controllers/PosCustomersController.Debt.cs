@@ -218,6 +218,7 @@ public partial class PosCustomersController
                 o.Status,
                 o.Total,
                 o.PaidAmount,
+                o.PaymentMethod,
                 // Phải thu = tiền hàng + VAT + phụ thu + phí giao (trước đây quên VAT… → nợ âm); đơn hủy không nợ.
                 PayableTotal = o.Total + o.VatAmount + o.SurchargeAmount + o.DeliveryFee,
                 BalanceDue = o.Status == PosSaleOrderStatus.Cancelled

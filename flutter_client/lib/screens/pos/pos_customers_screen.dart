@@ -6,6 +6,7 @@ import 'package:provider/provider.dart';
 import '../../models/pos_customer.dart';
 import '../../providers/permission_provider.dart';
 import '../../services/api_service.dart';
+import '../../utils/pos_payment_label.dart';
 import '../../utils/pos_report_open.dart';
 import '../../utils/api_datetime.dart';
 import '../../widgets/notification_overlay.dart';
@@ -371,6 +372,7 @@ class _PosCustomerDetailScreenState extends State<_PosCustomerDetailScreen> {
   List<Map<String, dynamic>> _sessionTxns = [];
   List<Map<String, dynamic>> _products = [];
   List<Map<String, dynamic>> _points = [];
+  bool _onlyDebtOrders = false;
 
   @override
   void initState() {
@@ -542,8 +544,22 @@ class _PosCustomerDetailScreenState extends State<_PosCustomerDetailScreen> {
           if (!_loading) ...[
             _section(
               'Đơn bán gần đây',
+              action: Wrap(spacing: 6, crossAxisAlignment: WrapCrossAlignment.center, children: [
+                FilterChip(
+                  label: Text(tr('Chỉ đơn còn nợ')),
+                  selected: _onlyDebtOrders,
+                  visualDensity: VisualDensity.compact,
+                  onSelected: (v) => setState(() => _onlyDebtOrders = v),
+                ),
+                TextButton(
+                  // Toàn bộ đơn còn nợ của khách (không giới hạn «gần đây»), mở từng hóa đơn gốc.
+                  onPressed: () => PosReportOpen.sales(context,
+                      customerId: _customer.id, customerName: _customer.name, paymentMethod: 'Công nợ'),
+                  child: Text(tr('Tất cả đơn công nợ')),
+                ),
+              ]),
               SboxDataTable<Map<String, dynamic>>(
-                rows: _orders,
+                rows: _onlyDebtOrders ? _orders.where((o) => _d(o['balanceDue']) > 0.5).toList() : _orders,
                 pageSize: 10,
                 onRowTap: (o) => PosReportOpen.sale(context, '${o['id'] ?? ''}'),
                 emptyTitle: 'Chưa có đơn',
@@ -569,6 +585,16 @@ class _PosCustomerDetailScreenState extends State<_PosCustomerDetailScreen> {
                   SboxColumn(label: 'Phải trả', numeric: true, minWidth: 120,
                       text: (o) => SboxFmt.money(_d(o['payableTotal'] ?? o['total']))),
                   SboxColumn(label: 'Đã trả', numeric: true, minWidth: 120, text: (o) => SboxFmt.money(_d(o['paidAmount']))),
+                  SboxColumn(
+                    label: 'Hình thức',
+                    minWidth: 140,
+                    hideOnMobile: true,
+                    cell: (o) {
+                      final l = posPaymentLabelOf(o);
+                      return Text(tr(l),
+                          style: SboxType.bodyStyle(l.contains('Công nợ') ? SboxColors.dangerText : SboxColors.text));
+                    },
+                  ),
                   SboxColumn(
                     label: 'Còn nợ',
                     numeric: true,
@@ -602,6 +628,11 @@ class _PosCustomerDetailScreenState extends State<_PosCustomerDetailScreen> {
               SboxDataTable<Map<String, dynamic>>(
                 rows: _products,
                 pageSize: 10,
+                // Bấm sản phẩm → các hóa đơn của khách có sản phẩm đó.
+                onRowTap: (pr) => PosReportOpen.sales(context,
+                    customerId: _customer.id,
+                    customerName: _customer.name,
+                    productId: '${pr['productId'] ?? ''}'.isEmpty ? null : '${pr['productId']}'),
                 emptyTitle: 'Chưa mua sản phẩm nào',
                 columns: [
                   SboxColumn(label: 'Sản phẩm', primary: true, flex: 3, minWidth: 180, text: (p) => '${p['productName'] ?? '—'}', sortValue: (p) => '${p['productName'] ?? ''}'),
@@ -644,12 +675,14 @@ class _PosCustomerDetailScreenState extends State<_PosCustomerDetailScreen> {
               SboxDataTable<Map<String, dynamic>>(
                 rows: _payments,
                 pageSize: 10,
+                onRowTap: _openPaymentOrders,
                 emptyTitle: 'Chưa có phiếu thu nợ',
                 columns: [
                   SboxColumn(label: 'Số phiếu', primary: true, minWidth: 140, text: (p) => '${p['paymentNo'] ?? '—'}'),
                   SboxColumn(label: 'Ngày', minWidth: 140, text: (p) => _date(p['paidAt'])),
                   SboxColumn(label: 'Hình thức', minWidth: 120, text: (p) => '${p['paymentMethod'] ?? ''}'),
                   SboxColumn(label: 'Số tiền', numeric: true, minWidth: 120, text: (p) => SboxFmt.money(_d(p['amount']))),
+                  SboxColumn(label: 'Ghi chú / đơn trừ nợ', minWidth: 200, hideOnMobile: true, text: (p) => '${p['note'] ?? ''}'),
                 ],
               ),
             ),
@@ -754,6 +787,16 @@ class _PosCustomerDetailScreenState extends State<_PosCustomerDetailScreen> {
       ]),
     );
   }
+
+  /// Phiếu thu nợ → hóa đơn gốc: thu theo đơn mở đơn đó; thu chung mở các đơn ghi trong ghi chú («Trừ nợ đơn: HD…»).
+  void _openPaymentOrders(Map<String, dynamic> p) => PosReportOpen.debtPaymentOrders(
+        context,
+        orderId: '${p['saleOrderId'] ?? ''}',
+        note: '${p['note'] ?? ''}',
+        paymentNo: '${p['paymentNo'] ?? ''}',
+        customerId: _customer.id,
+        customerName: _customer.name,
+      );
 
   Widget _section(String title, Widget child, {Widget? action}) {
     return Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [

@@ -137,6 +137,43 @@ class PosReportOpen {
     );
   }
 
+  /// Phiếu thu nợ khách → hóa đơn gốc: thu theo đơn mở đơn đó; thu chung mở các đơn ghi trong ghi chú
+  /// («Trừ nợ đơn: HD…»). Không có gì → các đơn của khách (nếu có [customerId]).
+  static Future<void> debtPaymentOrders(
+    BuildContext context, {
+    String? orderId,
+    String? note,
+    String? paymentNo,
+    String? customerId,
+    String? customerName,
+  }) async {
+    final oid = (orderId ?? '').trim();
+    if (oid.isNotEmpty && oid != 'null') return sale(context, oid);
+    final nos = _hdRe.allMatches(note ?? '').map((m) => m.group(0)!).toSet().toList();
+    if (nos.length == 1) return sales(context, search: nos.first);
+    if (nos.isEmpty) {
+      if ((customerId ?? '').isEmpty) return;
+      return sales(context, customerId: customerId, customerName: customerName);
+    }
+    await showModalBottomSheet<void>(
+      context: context,
+      builder: (ctx) => SafeArea(
+        child: ListView(shrinkWrap: true, children: [
+          ListTile(title: Text('Phiếu ${paymentNo ?? ''} đã trừ nợ các đơn'.replaceAll('  ', ' '))),
+          for (final no in nos)
+            ListTile(
+              leading: const Icon(Icons.receipt_long_outlined),
+              title: Text(no),
+              onTap: () {
+                Navigator.pop(ctx);
+                sales(context, search: no);
+              },
+            ),
+        ]),
+      ),
+    );
+  }
+
   static String? saleIdFromNote(String? note) {
     if (note == null || note.isEmpty) return null;
     const prefix = 'pos bán hàng #';
