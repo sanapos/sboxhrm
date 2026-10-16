@@ -8,8 +8,10 @@ import 'package:pdf/pdf.dart';
 import 'package:pdf/widgets.dart' as pw;
 import 'package:printing/printing.dart';
 
+import '../models/pos_label_design.dart';
 import '../models/pos_print_template.dart';
 import '../models/pos_product.dart';
+import 'pos_label_design_painter.dart';
 import 'file_saver.dart' as file_saver;
 import 'pos_pdf_fonts.dart';
 import '../models/pos_print_template_v2.dart';
@@ -301,6 +303,7 @@ class PosBarcodePrintOptions {
     this.storeName,
     this.specMode = PosBarcodeSpecMode.withoutSpecs,
     this.layout,
+    this.design,
   });
 
   final PosBarcodeLabelTemplate template;
@@ -314,6 +317,26 @@ class PosBarcodePrintOptions {
 
   /// Mẫu tem cửa hàng (màn Mẫu in → Tem sản phẩm). null = bố cục chuẩn SBOX.
   final PosPrintTemplateV2? layout;
+
+  /// Mẫu tem trình soạn tem (đặt tự do) — có thì in theo mẫu này (bỏ qua [layout] và các tuỳ chọn giá / cửa hàng:
+  /// nội dung do mẫu quyết định).
+  final PosLabelDesign? design;
+}
+
+/// Khổ in (cuộn, số tem / hàng, khe) theo mẫu trình soạn tem.
+PosBarcodeLabelTemplate posBarcodeLabelTemplateForDesign(PosLabelDesign d) {
+  final cols = d.columns.clamp(1, 4);
+  final id = PosPrintPaperSizes.customLabelId(d.widthMm, d.heightMm);
+  return PosBarcodeLabelTemplate(
+    id: cols > 1 ? '${id}_x$cols' : id,
+    name: 'Tem ${d.sizeLabel}',
+    sizeLabel: d.sizeLabel,
+    labelWidthMm: d.widthMm,
+    labelHeightMm: d.heightMm,
+    cols: cols,
+    pageWidthMm: cols > 1 ? d.widthMm * cols + d.columnGapMm * (cols - 1) : null,
+    labelGapMm: cols > 1 ? d.columnGapMm : 1.0,
+  );
 }
 
 /// Dữ liệu một tem hàng hóa cho mẫu thiết kế (token giống màn Mẫu in).
@@ -324,15 +347,18 @@ Map<String, String> posBarcodeLabelData(PosProduct p, PosBarcodePrintOptions opt
       (p.barcode?.trim().isNotEmpty == true) ? p.barcode!.trim() : p.productCode,
     PosBarcodeCodeField.productCode => p.productCode,
   };
+  // Mẫu trình soạn tem: nội dung do mẫu quyết định — luôn có giá (số), tên cửa hàng; ĐVT là trường riêng.
+  final forDesign = opts.design != null;
   var price = '';
-  if (opts.priceMode == PosBarcodePriceMode.withVnd) {
+  if (forDesign || opts.priceMode == PosBarcodePriceMode.withVnd) {
     price = money.format(p.basePrice);
-    if (opts.unitMode == PosBarcodeUnitMode.withUnit && p.baseUnitName.isNotEmpty) {
+    if (!forDesign && opts.unitMode == PosBarcodeUnitMode.withUnit && p.baseUnitName.isNotEmpty) {
       price = '$price/${p.baseUnitName}';
     }
   }
   return {
-    'Ten_Cua_Hang': opts.storeMode == PosBarcodeStoreMode.withStore ? (opts.storeName ?? '') : '',
+    'Ten_Cua_Hang':
+        forDesign || opts.storeMode == PosBarcodeStoreMode.withStore ? (opts.storeName ?? '') : '',
     'Ten_Hang_Hoa': p.name,
     'Ma_Hang': p.productCode,
     'Ma_Vach': code,
@@ -445,12 +471,39 @@ Future<pw.Document> _buildLabelPdf(
     final per = copiesPerItem != null && i < copiesPerItem.length ? copiesPerItem[i] : 1;
     final n = (per.clamp(0, 5000) * copies).clamp(0, 5000);
     if (n == 0) continue;
-    final label = opts.layout != null
-        ? await _layoutLabelWidget(products[i], opts)
-        : _labelWidget(products[i], opts, moneyFmt, font, fontBold);
+    final label = opts.design != null
+        ? await _designLabelWidget(products[i], opts)
+        : opts.layout != null
+            ? await _layoutLabelWidget(products[i], opts)
+            : _labelWidget(products[i], opts, moneyFmt, font, fontBold);
     for (var c = 0; c < n; c++) {
       labels.add(label);
     }
+  }
+
+  // Mẫu trình soạn tem: trang đúng khổ tem (không lề), tem nằm kín ô.
+  final design = opts.design;
+  if (design != null) {
+    final cols = t.cols.clamp(1, 4);
+    final pageFormat = PdfPageFormat(t.rollPageWidthMm * PdfPageFormat.mm, t.labelHeightMm * PdfPageFormat.mm);
+    for (var i = 0; i < labels.length; i += cols) {
+      final chunk = labels.sublist(i, (i + cols).clamp(0, labels.length));
+      pdf.addPage(pw.Page(
+        pageFormat: pageFormat,
+        margin: pw.EdgeInsets.zero,
+        build: (_) => pw.Row(crossAxisAlignment: pw.CrossAxisAlignment.start, children: [
+          for (var c = 0; c < chunk.length; c++) ...[
+            if (c > 0) pw.SizedBox(width: design.columnGapMm * PdfPageFormat.mm),
+            pw.SizedBox(
+              width: design.widthMm * PdfPageFormat.mm,
+              height: design.heightMm * PdfPageFormat.mm,
+              child: chunk[c],
+            ),
+          ],
+        ]),
+      ));
+    }
+    return pdf;
   }
 
   if (t.cols > 1 || t.rows > 1) {
@@ -508,6 +561,14 @@ Future<pw.Document> _buildLabelPdf(
     }
   }
   return pdf;
+}
+
+/// Tem theo mẫu trình soạn tem → ảnh 300 dpi (cùng bộ vẽ với màn soạn / máy tem).
+Future<pw.Widget> _designLabelWidget(PosProduct p, PosBarcodePrintOptions opts) async {
+  final d = opts.design!.copyWith(columns: 1);
+  final png = await PosLabelDesignPainter.renderPng(d, posBarcodeLabelData(p, opts), pxPerMm: 300 / 25.4);
+  if (png == null) return pw.SizedBox();
+  return pw.Image(pw.MemoryImage(png), fit: pw.BoxFit.fill);
 }
 
 /// Tem theo mẫu cửa hàng → ảnh 300 dpi (giống tem in thẳng), một ảnh dùng chung cho mọi bản sao.

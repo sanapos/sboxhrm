@@ -8,6 +8,7 @@ import 'package:intl/intl.dart';
 import '../models/pos_product.dart';
 import 'pos_barcode_print.dart';
 import 'pos_label_printer_settings.dart';
+import 'pos_label_design_painter.dart';
 import 'pos_label_renderer.dart';
 import 'pos_printer_transport.dart';
 
@@ -41,10 +42,19 @@ class PosLabelPrinterService {
 
     // Mỗi tem chỉ vẽ 1 lần; số bản in giao cho máy (TSPL PRINT n / ZPL ^PQ n) —
     // trước đây vẽ + gửi lại nguyên ảnh cho từng bản ⇒ 50 tem qua Bluetooth rất chậm.
-    final layout = options.layout != null;
+    final design = options.design;
+    final layout = options.layout != null || design != null;
     final cellCache = <int, ({Uint8List raster, int widthPx, int heightPx})>{};
     Future<({Uint8List raster, int widthPx, int heightPx})> layoutCell(int i, double widthMm) async =>
-        cellCache[i] ??= await PosLabelRenderer.renderCompiledLabel(
+        cellCache[i] ??= design != null
+            // Mẫu trình soạn tem: cùng bộ vẽ với màn soạn → in giống hệt.
+            ? await PosLabelDesignPainter.renderRowRaster(
+                design.copyWith(columns: 1),
+                [posBarcodeLabelData(products[i], options)],
+                dpi: dpi,
+                shiftRightMm: settings.shiftRightMm,
+              )
+            : await PosLabelRenderer.renderCompiledLabel(
           output: compilePosBarcodeLayout(products[i], options),
           widthMm: widthMm,
           heightMm: template.labelHeightMm,

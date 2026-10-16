@@ -2,7 +2,10 @@ import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 
+import '../../models/pos_label_design.dart';
 import '../../models/pos_print_template.dart';
+import '../../screens/pos/pos_label_templates_screen.dart';
+import '../../utils/pos_label_design_painter.dart';
 import '../../models/pos_product.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import '../../models/pos_print_template_v2.dart';
@@ -14,7 +17,6 @@ import '../../services/api_service.dart';
 import '../../utils/pos_price_list_resolver.dart';
 import '../../utils/pos_sell_unit_views.dart';
 import '../../models/pos_store_printer.dart';
-import '../../screens/pos_print_templates_screen.dart';
 import '../../utils/pos_barcode_print.dart';
 import '../../utils/pos_label_printer_service.dart';
 import '../../utils/pos_label_printer_settings.dart';
@@ -87,6 +89,11 @@ class _PosBarcodeLabelDialogState extends State<_PosBarcodeLabelDialog> {
   /// Mẫu tem cửa hàng (màn Mẫu in → Tem sản phẩm) đọc được; chọn '' = bố cục chuẩn SBOX.
   List<({String id, String name, PosPrintTemplateV2 tpl})> _layouts = const [];
   String _layoutId = '';
+  /// Mẫu trình soạn tem của cửa hàng (ưu tiên khi in); '' = không dùng (bố cục cũ).
+  List<({String id, String name, PosLabelDesign d, bool isDefault})> _designs = const [];
+  String _designId = '';
+  PosLabelDesign? get _design => _designs.where((x) => x.id == _designId).map((x) => x.d).firstOrNull;
+  String get _kDesignPref => '${_kLayoutPref}_design';
   String get _kLayoutPref => switch (widget.documentType) {
         PosPrintDocumentTypes.scaleLabel => 'pos_scale_label_layout_id',
         PosPrintDocumentTypes.specLabel => 'pos_spec_label_layout_id',
@@ -145,17 +152,29 @@ class _PosBarcodeLabelDialogState extends State<_PosBarcodeLabelDialog> {
           if (PosPrintTemplateV2Codec.tryParse(t.htmlContent) case final v2?)
             (id: t.id, name: t.name, tpl: v2),
       ];
+      final designs = <({String id, String name, PosLabelDesign d, bool isDefault})>[
+        for (final t in list)
+          if (PosLabelDesign.tryParse(t.htmlContent) case final d?) (id: t.id, name: t.name, d: d, isDefault: t.isDefault),
+      ];
       final prefs = await SharedPreferences.getInstance();
       final saved = prefs.getString(_kLayoutPref) ?? '';
+      final savedDesign = prefs.getString(_kDesignPref);
       if (!mounted) return;
       setState(() {
+        _designs = designs;
+        // Đã chọn trước đó (kể cả «không dùng mẫu» = '') → giữ; chưa chọn → mẫu đang dùng / mẫu đầu tiên.
+        _designId = savedDesign != null && (savedDesign.isEmpty || designs.any((x) => x.id == savedDesign))
+            ? savedDesign
+            : (designs.where((x) => x.isDefault).firstOrNull ?? designs.firstOrNull)?.id ?? '';
+        final dsg = _design;
+        if (dsg != null) _selectedTemplate = posBarcodeLabelTemplateForDesign(dsg);
         _layouts = parsed;
         // Tem thông số: chưa từng chọn → dùng mẫu đầu tiên của cửa hàng (thường là mẫu vừa soạn).
         _layoutId = parsed.any((l) => l.id == saved)
             ? saved
             : (_isSpec && parsed.isNotEmpty ? parsed.first.id : '');
         final t = _templateForLayout(_layoutId);
-        if (t != null && _isCustomOrSpec(t)) _selectedTemplate = t;
+        if (t != null && _isCustomOrSpec(t) && _design == null) _selectedTemplate = t;
       });
     } catch (_) {}
   }
@@ -290,6 +309,7 @@ class _PosBarcodeLabelDialogState extends State<_PosBarcodeLabelDialog> {
         storeMode: _storeMode,
         storeName: _storeName,
         specMode: _specMode,
+        design: _design,
         layout: _layouts.where((l) => l.id == _layoutId).map((l) => l.tpl).firstOrNull ??
             (_isScale || _isSpec
                 // Chưa chọn mẫu cửa hàng → mẫu tem cân / tem thông số dựng sẵn theo khổ tem đang chọn.
@@ -626,19 +646,10 @@ class _PosBarcodeLabelDialogState extends State<_PosBarcodeLabelDialog> {
               ),
             ),
           ),
-          TextButton(
-            onPressed: () {
-              Navigator.pop(context);
-              Navigator.of(context).push(
-                MaterialPageRoute<void>(
-                  builder: (_) => PosPrintTemplatesScreen(
-                    embeddedInSettings: true,
-                    initialDocumentType: widget.documentType,
-                  ),
-                ),
-              );
-            },
-            child: Text(tr('Mẫu in')),
+          TextButton.icon(
+            onPressed: _openLabelTemplates,
+            icon: const Icon(Icons.design_services_outlined, size: 18),
+            label: Text(tr('Mẫu tem')),
           ),
           IconButton(
             onPressed: () => Navigator.pop(context),
@@ -686,7 +697,137 @@ class _PosBarcodeLabelDialogState extends State<_PosBarcodeLabelDialog> {
     );
   }
 
+  Future<void> _openLabelTemplates() async {
+    await Navigator.of(context).push(MaterialPageRoute<void>(
+      builder: (_) => PosLabelTemplatesScreen(initialType: widget.documentType),
+    ));
+    if (mounted) await _loadLayouts();
+  }
+
+  Future<void> _selectDesign(String id) async {
+    setState(() {
+      _designId = id;
+      final d = _design;
+      _selectedTemplate = d != null
+          ? posBarcodeLabelTemplateForDesign(d)
+          : (posBarcodeLabelTemplateById(_labelPrinter.templateId) ?? defaultBarcodeLabelTemplate);
+    });
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      await prefs.setString(_kDesignPref, id);
+    } catch (_) {}
+  }
+
+  /// Hộp in khi dùng mẫu trình soạn tem: mẫu quyết định khổ + nội dung → chỉ còn chọn mẫu, số tem, máy in.
+  Widget _buildDesignOptions() {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        _fieldLabel('Mẫu tem'),
+        _dropdown<String>(
+          value: _designId,
+          items: [for (final x in _designs) x.id, ''],
+          label: (id) => id.isEmpty
+              ? 'Không dùng mẫu (bố cục chuẩn cũ)'
+              : () {
+                  final x = _designs.firstWhere((d) => d.id == id);
+                  return '${x.name} · ${x.d.sizeLabel}${x.isDefault ? ' ★' : ''}';
+                }(),
+          onChanged: (v) => _selectDesign(v ?? ''),
+        ),
+        const SizedBox(height: 10),
+        _fieldLabel('Số lượng in / mặt hàng'),
+        TextField(
+          keyboardType: TextInputType.number,
+          inputFormatters: [FilteringTextInputFormatter.digitsOnly],
+          decoration: PosTheme.inputDecoration(label: ''),
+          controller: _copiesCtrl,
+          onChanged: (v) {
+            final n = int.tryParse(v);
+            if (n != null && n >= 1 && n <= 5000) setState(() => _copies = n);
+          },
+        ),
+        if (!_isScale) ...[
+          const SizedBox(height: 10),
+          _fieldLabel('Mã in trên mã vạch'),
+          _dropdown<PosBarcodeCodeField>(
+            value: _codeField,
+            items: PosBarcodeCodeField.values,
+            label: (v) => v.label,
+            onChanged: (v) => setState(() => _codeField = v!),
+          ),
+          const SizedBox(height: 8),
+          _dropdown<bool>(
+            value: _expandViews,
+            items: const [false, true],
+            label: (v) => v ? 'Mỗi biến thể / đơn vị bán một tem' : 'Một tem mỗi mặt hàng',
+            onChanged: (v) => setState(() => _expandViews = v ?? false),
+          ),
+          const SizedBox(height: 8),
+          _dropdown<String>(
+            value: _priceListId ?? '',
+            items: ['', for (final l in _priceLists) l.id],
+            label: (id) => id.isEmpty
+                ? 'Giá trên tem: giá bán'
+                : 'Giá trên tem: ${_priceLists.where((l) => l.id == id).map((l) => l.name).firstOrNull ?? id}',
+            onChanged: (v) => setState(() => _priceListId = (v ?? '').isEmpty ? null : v),
+          ),
+        ],
+      ],
+    );
+  }
+
+  /// Xem trước tem theo mẫu đang chọn với hàng đầu tiên (đúng bộ vẽ khi in).
+  Widget _buildDesignPreview() {
+    final d = _design!;
+    final t = _selectedTemplate ?? posBarcodeLabelTemplateForDesign(d);
+    final p = widget.products.first;
+    return SingleChildScrollView(
+      padding: const EdgeInsets.all(16),
+      child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+        Row(children: [
+          Expanded(
+            child: Text(tr('Xem trước: ${_designs.firstWhere((x) => x.id == _designId).name} · ${d.sizeLabel}'),
+                style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w600, color: PosTheme.kiotBlue)),
+          ),
+          TextButton.icon(
+            onPressed: _openLabelTemplates,
+            icon: const Icon(Icons.edit_outlined, size: 18),
+            label: Text(tr('Sửa mẫu')),
+          ),
+        ]),
+        Text(tr('${p.name}${widget.products.length > 1 ? ' (và ${widget.products.length - 1} hàng khác)' : ''}'),
+            style: const TextStyle(fontSize: 11.5, color: PosTheme.textSecondary)),
+        const SizedBox(height: 12),
+        FutureBuilder(
+          key: ValueKey('$_designId|$_codeField|${p.id}'),
+          future: PosLabelDesignPainter.renderPng(d, posBarcodeLabelData(p, _options(t)), pxPerMm: 10),
+          builder: (context, snap) {
+            final png = snap.data;
+            return LayoutBuilder(builder: (context, c) {
+              final scale = (c.maxWidth / d.widthMm).clamp(1.0, 9.0);
+              return Container(
+                width: d.widthMm * scale,
+                height: d.heightMm * scale,
+                decoration: BoxDecoration(
+                  color: Colors.white,
+                  border: Border.all(color: PosTheme.border),
+                  boxShadow: [BoxShadow(color: Colors.black.withValues(alpha: 0.08), blurRadius: 8, offset: const Offset(0, 2))],
+                ),
+                child: png == null ? const SizedBox.shrink() : Image.memory(png, fit: BoxFit.fill),
+              );
+            });
+          },
+        ),
+        const SizedBox(height: 10),
+        Text(tr('Khổ in theo mẫu: ${d.sizeLabel}. Máy tem cần nạp đúng cuộn tem khổ này.'),
+            style: const TextStyle(fontSize: 11.5, color: PosTheme.textSecondary)),
+      ]),
+    );
+  }
+
   Widget _buildOptionsPanel() {
+    if (_design != null) return _buildDesignOptions();
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
@@ -736,6 +877,22 @@ class _PosBarcodeLabelDialogState extends State<_PosBarcodeLabelDialog> {
           label: (v) => v.label,
           onChanged: (v) => setState(() => _specMode = v!),
         ),
+        const SizedBox(height: 8),
+        if (_designs.isNotEmpty)
+          _dropdown<String>(
+            value: _designId,
+            items: [for (final x in _designs) x.id, ''],
+            label: (id) => id.isEmpty
+                ? 'Mẫu tem: không dùng (bố cục chuẩn cũ)'
+                : 'Mẫu tem: ${_designs.firstWhere((d) => d.id == id).name}',
+            onChanged: (v) => _selectDesign(v ?? ''),
+          )
+        else
+          OutlinedButton.icon(
+            onPressed: _openLabelTemplates,
+            icon: const Icon(Icons.design_services_outlined, size: 18),
+            label: Text(tr('Soạn mẫu tem (kéo thả)')),
+          ),
         if (_layouts.isNotEmpty) ...[
           const SizedBox(height: 8),
           _dropdown<String>(
@@ -995,6 +1152,7 @@ class _PosBarcodeLabelDialogState extends State<_PosBarcodeLabelDialog> {
   }
 
   Widget _buildTemplateGrid() {
+    if (_design != null && widget.products.isNotEmpty) return _buildDesignPreview();
     return SingleChildScrollView(
       padding: const EdgeInsets.all(16),
       child: Column(

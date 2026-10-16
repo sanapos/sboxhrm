@@ -6,6 +6,11 @@ import 'package:zkteco_flutter_client/screens/pos/pos_label_templates_screen.dar
 import 'package:zkteco_flutter_client/utils/pos_label_design_painter.dart';
 import 'package:zkteco_flutter_client/utils/pos_label_design_presets.dart';
 import 'package:zkteco_flutter_client/utils/pos_print_template_v2_codec.dart';
+import 'dart:convert';
+import 'package:zkteco_flutter_client/models/pos_product.dart';
+import 'package:zkteco_flutter_client/utils/pos_barcode_print.dart';
+import 'package:zkteco_flutter_client/utils/pos_label_printer_service.dart';
+import 'package:zkteco_flutter_client/utils/pos_label_printer_settings.dart';
 
 void main() {
   test('Mẫu tem lưu / đọc lại giữ nguyên; bộ đọc mẫu khối cũ bỏ qua', () {
@@ -87,6 +92,39 @@ void main() {
       black += b.bitCount;
     }
     expect(black, greaterThan(500));
+  });
+
+  testWidgets('In theo mẫu trình soạn: lệnh TSPL đúng khổ cuộn 2 tem / hàng, PDF đúng số trang', (tester) async {
+    final d = PosLabelDesignPresets.forType(PosPrintDocumentTypes.barcodeLabel)[1]
+        .build(35, 22)
+        .copyWith(columns: 2, columnGapMm: 2);
+    final p = PosProduct.fromJson({
+      'id': 'p1',
+      'name': 'Nước suối Lavie 500ml',
+      'productCode': 'SP0001',
+      'barcode': '8934567890123',
+      'basePrice': 8000,
+    });
+    final opts = PosBarcodePrintOptions(
+      template: posBarcodeLabelTemplateForDesign(d),
+      design: d,
+      codeField: PosBarcodeCodeField.barcode,
+      storeName: 'Shop thử',
+    );
+    expect(posBarcodeLabelData(p, opts)['Don_Gia'], '8.000');
+    expect(posBarcodeLabelData(p, opts)['Ten_Cua_Hang'], 'Shop thử');
+    final jobs = await tester.runAsync(() => PosLabelPrinterService.buildLabelByteJobs(
+          [p],
+          options: opts,
+          settings: const PosLabelPrinterSettings(enabled: true),
+          copiesPerItem: [3],
+        ));
+    // 3 tem trên cuộn 2 tem / hàng: 1 hàng đủ 2 tem (×1) + 1 hàng 1 tem.
+    expect(jobs!.length, 2);
+    final head = latin1.decode(jobs.first.take(80).toList(), allowInvalid: true);
+    expect(head, contains('SIZE 72'));
+    final pdf = await tester.runAsync(() => buildPosBarcodeLabelPdfBytes([p], options: opts, copiesPerItem: [3]));
+    expect(pdf!.length, greaterThan(1000));
   });
 }
 

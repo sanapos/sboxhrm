@@ -249,6 +249,8 @@ abstract final class PosLabelDesignPainter {
     PosLabelDesign d,
     List<Map<String, String>> rowData, {
     int dpi = 203,
+    /// Hiệu chỉnh máy tem: dời nội dung sang phải (mm) — bù tem lệch trái.
+    double shiftRightMm = 0,
   }) async {
     await PosThermalBitmapEncoder.ensureFont();
     final imgs = await loadImages(d);
@@ -262,7 +264,7 @@ abstract final class PosLabelDesignPainter {
     canvas.drawRect(Rect.fromLTWH(0, 0, w.toDouble(), h.toDouble()), Paint()..color = Colors.white);
     for (var i = 0; i < rowData.length && i < cols; i++) {
       paint(canvas, d, rowData[i], pxPerMm,
-          origin: Offset(i * (d.widthMm + d.columnGapMm) * pxPerMm, 0), images: imgs);
+          origin: Offset((i * (d.widthMm + d.columnGapMm) + shiftRightMm) * pxPerMm, 0), images: imgs);
     }
     final image = await rec.endRecording().toImage(w, h);
     return PosLabelRenderer.imageToRaster(image);
