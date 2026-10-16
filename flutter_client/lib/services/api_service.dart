@@ -11579,6 +11579,18 @@ class ApiService implements PayrollApi {
   }
 
   /// Sổ đối chiếu công nợ khách trong kỳ: đầu kỳ, phát sinh tăng / giảm, cuối kỳ, số dư sau từng chứng từ.
+  /// Tóm tắt nợ của khách cho màn bán (nhắc nợ khi chọn khách).
+  Future<Map<String, dynamic>> getPosCustomerDebtSummary(String customerId) async {
+    try {
+      final r = await http
+          .get(Uri.parse('$baseUrl/api/pos/customers/$customerId/debt-summary'), headers: _headers)
+          .timeout(const Duration(seconds: 15));
+      return _handleResponse(r);
+    } catch (e) {
+      return _connectionFailure(e);
+    }
+  }
+
   Future<Map<String, dynamic>> getPosCustomerStatement(String customerId, DateTime from, DateTime to) async {
     try {
       final r = await http.get(

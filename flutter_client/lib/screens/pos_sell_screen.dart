@@ -5,6 +5,8 @@ import '../widgets/pos/pos_package_timer.dart';
 import '../utils/pos_scale_barcode.dart';
 import '../utils/pos_scale_reader.dart';
 import '../widgets/pos/pos_scale_device_ui.dart';
+import '../widgets/pos/pos_debt_statement.dart';
+import '../widgets/pos/pos_customer_debt_collect_dialog.dart';
 import '../utils/pos_promotion_engine.dart';
 import 'dart:convert';
 import 'dart:math' as math;
@@ -2259,6 +2261,121 @@ class _PosSellScreenState extends State<PosSellScreen>
       return true;
     }
     return false;
+  }
+
+  // ─── Nhắc công nợ khách ───────────────────────────────────────────────────
+  /// Tóm tắt nợ đọc mới từ máy chủ theo khách (số nợ trên đối tượng khách có thể cũ: máy khác vừa thu nợ / bán nợ).
+  final Map<String, ({Map<String, dynamic> data, DateTime at})> _debtSummaries = {};
+  final Set<String> _debtLoading = {};
+
+  /// Nợ hiện tại của khách: số mới đọc (≤ 1 phút) nếu có, không thì số trên đối tượng khách.
+  double _customerDebtOf(PosCustomer c) {
+    final d = _debtSummaries[c.id];
+    final v = d?.data['currentDebt'];
+    return v is num ? v.toDouble() : c.currentDebt;
+  }
+
+  Future<void> _refreshCustomerDebt(PosCustomer c, {bool alert = false, bool force = false}) async {
+    final cached = _debtSummaries[c.id];
+    if (!force && cached != null && DateTime.now().difference(cached.at) < const Duration(minutes: 1)) {
+      if (alert) _alertCustomerDebt(c, cached.data);
+      return;
+    }
+    if (!_debtLoading.add(c.id)) return;
+    try {
+      final res = await _api.getPosCustomerDebtSummary(c.id);
+      if (!mounted || res['isSuccess'] != true || res['data'] is! Map) return;
+      final data = Map<String, dynamic>.from(res['data'] as Map);
+      setState(() => _debtSummaries[c.id] = (data: data, at: DateTime.now()));
+      if (alert && _tab.customer?.id == c.id) _alertCustomerDebt(c, data);
+    } finally {
+      _debtLoading.remove(c.id);
+    }
+  }
+
+  String _debtDetailText(Map<String, dynamic> d) {
+    final count = (d['openOrderCount'] as num?)?.toInt() ?? 0;
+    final days = (d['oldestDays'] as num?)?.toInt() ?? 0;
+    return [
+      if (count > 0) '$count đơn còn nợ',
+      if (count > 0 && days > 0) 'lâu nhất $days ngày',
+    ].join(' · ');
+  }
+
+  void _alertCustomerDebt(PosCustomer c, Map<String, dynamic> d) {
+    final debt = (d['currentDebt'] as num?)?.toDouble() ?? 0;
+    if (debt <= 0) return;
+    final detail = _debtDetailText(d);
+    final over30 = (d['over30'] as num?)?.toDouble() ?? 0;
+    NotificationOverlayManager().showWarning(
+      title: 'Khách còn nợ ${_moneyFmt.format(debt)}đ',
+      message: tr('${c.name}${detail.isEmpty ? '' : ' · $detail'}'
+          '${over30 > 0 ? ' · quá 30 ngày ${_moneyFmt.format(over30)}đ' : ''}'),
+    );
+  }
+
+  /// Dòng nhắc nợ dưới ô khách hàng (màn thanh toán): số nợ, số đơn, đơn lâu nhất + Thu nợ / Sổ nợ.
+  Widget _buildCustomerDebtBanner() {
+    final c = _tab.customer;
+    if (c == null) return const SizedBox.shrink();
+    final summary = _debtSummaries[c.id]?.data;
+    if (summary == null && c.currentDebt > 0 && !_debtLoading.contains(c.id)) {
+      // Khách gắn sẵn trên đơn (mở lại đơn / bàn) — chưa đọc nợ mới.
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (mounted) unawaited(_refreshCustomerDebt(c));
+      });
+    }
+    final debt = _customerDebtOf(c);
+    if (debt <= 0) return const SizedBox.shrink();
+    final perm = Provider.of<PermissionProvider>(context, listen: false);
+    final detail = summary == null ? '' : _debtDetailText(summary);
+    final old = ((summary?['oldestDays'] as num?)?.toInt() ?? 0) > 30;
+    return Container(
+      margin: const EdgeInsets.only(top: 6),
+      padding: const EdgeInsets.fromLTRB(10, 6, 4, 6),
+      decoration: BoxDecoration(
+        color: old ? SboxColors.dangerSoft : SboxColors.warningSoft,
+        borderRadius: BorderRadius.circular(6),
+      ),
+      child: Row(children: [
+        Icon(Icons.account_balance_wallet_outlined,
+            size: 18, color: old ? SboxColors.dangerText : SboxColors.warningText),
+        const SizedBox(width: 6),
+        Expanded(
+          child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+            Text(tr('Khách còn nợ ${_moneyFmt.format(debt)}đ'),
+                style: TextStyle(
+                    fontSize: 12.5,
+                    fontWeight: FontWeight.w700,
+                    color: old ? SboxColors.dangerText : SboxColors.warningText)),
+            if (detail.isNotEmpty)
+              Text(tr(detail), style: const TextStyle(fontSize: 11.5, color: SboxColors.slate700)),
+          ]),
+        ),
+        if (perm.canEdit('PosCustomers'))
+          TextButton(
+            style: TextButton.styleFrom(visualDensity: VisualDensity.compact),
+            onPressed: () async {
+              final ok = await showPosCustomerDebtCollectDialog(context, customer: c);
+              if (ok == true && mounted) await _refreshCustomerDebt(c, force: true);
+            },
+            child: Text(tr('Thu nợ')),
+          ),
+        if (perm.canView('PosCustomers'))
+          TextButton(
+            style: TextButton.styleFrom(visualDensity: VisualDensity.compact),
+            onPressed: () => showPosDebtStatementPage(
+              context,
+              title: c.name,
+              subtitle: tr('Công nợ hiện tại ${_moneyFmt.format(debt)}đ'),
+              loader: (from, to) => _api.getPosCustomerStatement(c.id, from, to),
+              increaseLabel: 'Phát sinh nợ',
+              decreaseLabel: 'Đã thu / trả hàng',
+            ),
+            child: Text(tr('Sổ nợ')),
+          ),
+      ]),
+    );
   }
 
   bool _scaleBadgeShown = false;
@@ -10436,6 +10553,7 @@ class _PosSellScreenState extends State<PosSellScreen>
   }
 
   void _selectCustomer(PosCustomer c) {
+    unawaited(_refreshCustomerDebt(c, alert: true));
     setState(() {
       _tab.customer = c;
       _tab._customerSearchCtrl.text = c.name;
@@ -11703,6 +11821,9 @@ class _PosSellScreenState extends State<PosSellScreen>
 
       // Happy-path silent — tránh chồng toast che màn bán hàng (in/kho báo riêng khi lỗi).
       debugPrint('POS checkout OK: $orderNo');
+      // Đơn vừa ghi nợ / trả bớt → số nợ đã đọc của khách không còn đúng.
+      final paidCustomerId = _tab.customer?.id;
+      if (paidCustomerId != null) _debtSummaries.remove(paidCustomerId);
       _notifyEInvoiceAfterCheckout(data, orderNo);
 
       final shipPartner = _sellMode == _SellMode.delivery ? _tab.deliveryPartner : null;
@@ -15486,6 +15607,7 @@ class _PosSellScreenState extends State<PosSellScreen>
               ),
             ],
           ),
+          _buildCustomerDebtBanner(),
           if (_customerSuggestions.isNotEmpty)
             Container(
               margin: const EdgeInsets.only(top: 4),
@@ -15500,10 +15622,19 @@ class _PosSellScreenState extends State<PosSellScreen>
                     .map((c) => ListTile(
                           dense: true,
                           title: Text(tr(c.name), style: const TextStyle(fontSize: 13)),
-                          subtitle: Text(
-                            tr([c.phone, c.customerCode]
-                                .where((e) => e != null && e.isNotEmpty)
-                                .join(' · ')),
+                          subtitle: Text.rich(
+                            TextSpan(children: [
+                              TextSpan(
+                                  text: tr([c.phone, c.customerCode]
+                                      .where((e) => e != null && e.isNotEmpty)
+                                      .join(' · '))),
+                              if (c.currentDebt > 0)
+                                TextSpan(
+                                  text: tr(' · nợ ${_moneyFmt.format(c.currentDebt)}đ'),
+                                  style: const TextStyle(
+                                      color: SboxColors.dangerText, fontWeight: FontWeight.w700),
+                                ),
+                            ]),
                             style: const TextStyle(fontSize: 11),
                           ),
                           trailing: IconButton(
@@ -15985,9 +16116,9 @@ class _PosSellScreenState extends State<PosSellScreen>
           bold: true,
           blue: true,
         ),
-        if (_tab.customer != null && _tab.customer!.currentDebt > 0) ...[
+        if (_tab.customer != null && _customerDebtOf(_tab.customer!) > 0) ...[
           const SizedBox(height: 4),
-          _summaryRow('Nợ cũ KH', _moneyFmt.format(_tab.customer!.currentDebt)),
+          _summaryRow('Nợ cũ KH', _moneyFmt.format(_customerDebtOf(_tab.customer!))),
         ],
         const SizedBox(height: 6),
         _buildPaymentQuickPicks(
@@ -16026,7 +16157,7 @@ class _PosSellScreenState extends State<PosSellScreen>
               padding: const EdgeInsets.only(top: 4),
               child: _summaryRow(
                 'Tổng nợ sau đơn',
-                _moneyFmt.format(_tab.customer!.currentDebt + _dueAmount),
+                _moneyFmt.format(_customerDebtOf(_tab.customer!) + _dueAmount),
               ),
             ),
         ],

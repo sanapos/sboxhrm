@@ -61,6 +61,54 @@ public partial class PosCustomersController
             pay.SaleOrderId, pay.CreatedBy)));
     }
 
+    /// <summary>
+    /// Tóm tắt nợ của khách cho màn bán hàng (nhắc nợ khi chọn khách): số nợ hiện tại (đọc mới, không lấy số cũ trên máy),
+    /// số đơn còn nợ, đơn nợ lâu nhất (ngày), lần thu nợ gần nhất.
+    /// </summary>
+    [HttpGet("{id:guid}/debt-summary")]
+    [RequireAnyModulePermission(ModulePermissionAction.View, "PosSell", "PosCustomers", "PosSaleOrders")]
+    public async Task<ActionResult<AppResponse<object>>> DebtSummary(Guid id)
+    {
+        var storeId = RequiredStoreId;
+        var c = await dbContext.PosCustomers.AsNoTracking()
+            .Where(x => x.Id == id && x.StoreId == storeId && x.Deleted == null)
+            .Select(x => new { x.Id, x.Name, x.CurrentDebt })
+            .FirstOrDefaultAsync();
+        if (c == null) return NotFound(AppResponse<object>.Fail("Không tìm thấy khách hàng"));
+        var open = await dbContext.PosSaleOrders.AsNoTracking()
+            .Where(o => o.StoreId == storeId && o.CustomerId == id && o.Deleted == null &&
+                        o.Status == PosSaleOrderStatus.Completed &&
+                        o.Total + o.VatAmount + o.SurchargeAmount + o.DeliveryFee > o.PaidAmount)
+            .Select(o => new
+            {
+                o.OrderNo,
+                Due = o.Total + o.VatAmount + o.SurchargeAmount + o.DeliveryFee - o.PaidAmount,
+                At = o.SaleDate ?? o.CreatedAt,
+            })
+            .OrderBy(o => o.At)
+            .ToListAsync();
+        var lastPay = await dbContext.PosCustomerPayments.AsNoTracking()
+            .Where(p => p.CustomerId == id && p.StoreId == storeId && p.Deleted == null)
+            .OrderByDescending(p => p.PaidAt)
+            .Select(p => new { p.PaidAt, p.Amount })
+            .FirstOrDefaultAsync();
+        var todayVn = ZKTecoADMS.Application.Helpers.VnTimeHelper.NowVn().Date;
+        int AgeDays(DateTime utc) => Math.Max(0, (todayVn - ZKTecoADMS.Application.Helpers.VnTimeHelper.UtcToVn(utc).Date).Days);
+        var oldest = open.FirstOrDefault();
+        return Ok(AppResponse<object>.Success(new
+        {
+            customerId = c.Id,
+            currentDebt = c.CurrentDebt,
+            openOrderCount = open.Count,
+            openOrderDebt = open.Sum(o => o.Due),
+            oldestOrderNo = oldest?.OrderNo,
+            oldestDays = oldest == null ? 0 : AgeDays(oldest.At),
+            over30 = open.Where(o => AgeDays(o.At) > 30).Sum(o => o.Due),
+            lastPaymentAt = lastPay == null ? (DateTime?)null : ZKTecoADMS.Application.Helpers.VnTimeHelper.UtcToVn(lastPay.PaidAt),
+            lastPaymentAmount = lastPay?.Amount,
+        }));
+    }
+
     /// <summary>Sổ đối chiếu công nợ khách trong kỳ (đầu kỳ, từng phát sinh có số dư, cuối kỳ).</summary>
     [HttpGet("{id:guid}/statement")]
     [RequireModulePermission("PosCustomers", ModulePermissionAction.View)]
